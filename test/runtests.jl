@@ -2,7 +2,7 @@ using Test
 
 function is_test_folder(f, path_separator)
   a = split(f, path_separator)
-  dir = join(a[1:end-1], path_separator)
+  dir = joinpath(a[1:end-1], path_separator)
   d = split(dir, path_separator)[end]
   return d=="test"
 end
@@ -25,7 +25,7 @@ function main()
   this_file = replace(this_file, "/" => path_separator)
   this_file = replace(this_file, "\\" => path_separator)
   this_file = split(this_file, path_separator)[end-1:end]
-  this_file = code_dir*join(this_file, path_separator)
+  this_file = code_dir*joinpath(this_file, path_separator)
 
   folders_to_exclude = []
   # push!(folders_to_exclude, "unused") # example for folders to exclude
@@ -35,7 +35,7 @@ function main()
   all_files = [replace(x, "/" => path_separator) for x in all_files]
   all_files = [replace(x, "\\" => path_separator) for x in all_files]
   all_files = [x for x in all_files if is_test_folder(x, path_separator)]
-  all_files = [x for x in all_files if splitext(x)[end]==".jl"] # only .jl files
+  all_files = [x for x in all_files if split(x, ".")[end]==".jl"] # only .jl files
   all_files = [x for x in all_files if !(x==this_file)]
 
   print("\n******************** Test files:\n")
