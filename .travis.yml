@@ -44,7 +44,7 @@ before_install:
 
 after_success:
   # push coverage results to Codecov
-  - julia -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  - julia -e 'import Pkg; cd(Pkg.dir("CLIMA")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
 
 # jobs:
 #   include:
