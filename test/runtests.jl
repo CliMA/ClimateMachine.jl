@@ -2,7 +2,7 @@ using Test
 
 function is_test_folder(f, path_separator)
   a = split(f, path_separator)
-  dir = joinpath(a[1:end-1], path_separator)
+  dir = joinpath(a[1:end-1]...)
   d = split(dir, path_separator)[end]
   return d=="test"
 end
@@ -25,24 +25,25 @@ function main()
   this_file = replace(this_file, "/" => path_separator)
   this_file = replace(this_file, "\\" => path_separator)
   this_file = split(this_file, path_separator)[end-1:end]
-  this_file = code_dir*joinpath(this_file, path_separator)
+  this_file = code_dir*joinpath(this_file...)
 
   folders_to_exclude = []
   # push!(folders_to_exclude, "unused") # example for folders to exclude
 
-  all_files = [joinpath(root,f) for (root, dirs, files) in Base.Filesystem.walkdir(code_dir) for f in files]
+  all_files = [joinpath([root,f]...) for (root, dirs, files) in Base.Filesystem.walkdir(code_dir) for f in files]
+
   all_files = [x for x in all_files if ! any([occursin(y, x) for y in folders_to_exclude])]
   all_files = [replace(x, "/" => path_separator) for x in all_files]
   all_files = [replace(x, "\\" => path_separator) for x in all_files]
   all_files = [x for x in all_files if is_test_folder(x, path_separator)]
-  all_files = [x for x in all_files if split(x, ".")[end]==".jl"] # only .jl files
   all_files = [x for x in all_files if !(x==this_file)]
+  all_files = [x for x in all_files if split(x, ".")[end]=="jl"] # only .jl files
 
-  print("\n******************** Test files:\n")
-  for x in all_files
-    print(x, "\n")
-  end
-  print("\n********************\n")
+  # print("\n******************** Test files:\n")
+  # for x in all_files
+  #   print(x, "\n")
+  # end
+  # print("\n********************\n")
 
   for f in all_files
     cmd = `$(Base.julia_cmd()) --code-coverage --inline=no --project=$(Base.current_project()) $f`
