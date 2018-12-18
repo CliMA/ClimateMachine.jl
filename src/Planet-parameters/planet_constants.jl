@@ -1,6 +1,6 @@
 # Physical constants
 const gas_constant  = 8.3144598         # Universal gas constant (J/mol/K)
-const speed_light   = 2.99792458e8      # Speed of light in vacuum (m/s)
+const light_speed   = 2.99792458e8      # Speed of light in vacuum (m/s)
 const h_Planck      = 6.626e-34         # Planck constant (m^2 kg/s)
 const k_Boltzmann   = 1.381e-23         # Boltzmann constant (m^2 kg/s^2/K)
 const Stefan        = 5.670e-8       	# Stefan-Boltzmann constant (W/m^2/K^4)
@@ -11,14 +11,16 @@ const molmass_air   = 28.97e-3          # Molecular weight dry air (kg/mol)
 const R_d           = gas_constant/
         molmass_air                     # Gas constant dry air (J/kg/K)
 const kappa_d       = 2/7               # Adiabatic exponent dry air
-const cp_d          = R_d/kappa_d       # Specific heat dry air
+const cp_d          = R_d/kappa_d       # Isobaric specific heat dry air
 
 # Properties of water
 const dens_liquid   = 1e3               # Density of liquid water (kg/m^3)
 const molmass_water = 18.01528e-3       # Molecular weight (kg/mol)
 const R_v           = gas_constant/
         molmass_water                   # Gas constant water vapor (J/kg/K)
-const cp_v          = 1859              # Specific heat vapor (const. pressure, J/kg/K)
+const cp_v          = 1859              # Isobaric specific heat vapor (J/kg/K)
+const cp_l          = 4181              # Isobaric specific heat liquid (J/kg/K)
+const cp_i          = 2100              # Isobaric specific heat ice (J/kg/K)
 const Tfreeze 	    = 273.15            # Freezing point temperature (K)
 const T0      	    = 273.16            # Reference temperature [triple point] (K)
 const L_v0          = 2.5008e6          # Latent heat vaporization at T0 (J/kg)
