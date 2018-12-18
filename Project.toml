@@ -1,0 +1,10 @@
+name = "CLIMA"
+uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
+authors = ["Climate Modeling Alliance"]
+version = "0.1.0"
+
+[deps]
+Coverage = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

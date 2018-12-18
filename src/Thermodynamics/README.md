@@ -1,3 +1,2 @@
 # CLIMA Thermodynamics
-
-Common thermodynamic functions shared across model components
+Thermodynamic functions to be shared across model components
