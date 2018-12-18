@@ -1,0 +1,8 @@
+name = "CLIMAAtmosDycore"
+uuid = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
+
+[deps]
+Canary = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
+MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
