@@ -65,7 +65,9 @@ function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
       E = Q[n, _E, e]
-      P = p0 * (R_gas * E / p0)^(c_p / c_v)
+      y = vgeo[n, _y, e]
+      P = (R_gas/c_v)*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
+
       ξx, ξy, ηx, ηy = vgeo[n, _ξx, e], vgeo[n, _ξy, e],
                        vgeo[n, _ηx, e], vgeo[n, _ηy, e]
 
@@ -79,7 +81,8 @@ function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V, W = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e]
       E = Q[n, _E, e]
-      P = p0 * (R_gas * E / p0)^(c_p / c_v)
+      z = vgeo[n, _z, e]
+      P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
       ξx, ξy, ξz = vgeo[n, _ξx, e], vgeo[n, _ξy, e], vgeo[n, _ξz, e]
       ηx, ηy, ηz = vgeo[n, _ηx, e], vgeo[n, _ηy, e], vgeo[n, _ηz, e]
@@ -174,22 +177,23 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       MJ = vgeo[i, j, _MJ, e]
       ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
       ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
+      y = vgeo[i,j,_y,e]
 
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
 
-      P = p0 * (R_gas * E / p0)^(c_p / c_v)
+      P = (R_gas/c_v)*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ρinv = 1 / ρ
       fluxρ_x = U
       fluxU_x = ρinv * U * U + P
-      fluxV_x = ρinv * V * U
-      fluxE_x = ρinv * U * E
+      fluxV_x = ρinv * U * V
+      fluxE_x = ρinv * U * (E + P)
 
       fluxρ_y = V
-      fluxU_y = ρinv * U * V
+      fluxU_y = ρinv * V * U
       fluxV_y = ρinv * V * V + P
-      fluxE_y = ρinv * V * E
+      fluxE_y = ρinv * V * (E + P)
 
       s_F[i, j, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y)
       s_F[i, j, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y)
@@ -219,7 +223,7 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
 end
 
 # Face RHS for 2-D
-function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, sgeo, elems, vmapM,
+function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
                   vmapP, elemtobndy) where N
   DFloat = eltype(Q)
   γ::DFloat       = _γ
@@ -246,15 +250,17 @@ function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, sgeo, elems, vmapM,
         UM = Q[vidM, _U, eM]
         VM = Q[vidM, _V, eM]
         EM = Q[vidM, _E, eM]
+        yM = vgeo[vidM, _y, eM]
 
         bc = elemtobndy[f, e]
-        PM = p0 * (R_gas * EM / p0)^(c_p / c_v)
+        PM = (R_gas/c_v)*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*gravity*yM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           EP = Q[vidP, _E, eP]
-          PP = p0 * (R_gas * EP / p0)^(c_p / c_v)
+          yP = vgeo[vidP, _y, eP]
+          PP = (R_gas/c_v)*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*gravity*yP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM
           UP = UM - 2 * UnM * nxM
@@ -269,24 +275,24 @@ function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, sgeo, elems, vmapM,
         ρMinv = 1 / ρM
         fluxρM_x = UM
         fluxUM_x = ρMinv * UM * UM + PM
-        fluxVM_x = ρMinv * VM * UM
-        fluxEM_x = ρMinv * UM * EM
+        fluxVM_x = ρMinv * UM * VM
+        fluxEM_x = ρMinv * UM * (EM + PM)
 
         fluxρM_y = VM
-        fluxUM_y = ρMinv * UM * VM
+        fluxUM_y = ρMinv * VM * UM
         fluxVM_y = ρMinv * VM * VM + PM
-        fluxEM_y = ρMinv * VM * EM
+        fluxEM_y = ρMinv * VM * (EM + PM)
 
         ρPinv = 1 / ρP
         fluxρP_x = UP
         fluxUP_x = ρPinv * UP * UP + PP
-        fluxVP_x = ρPinv * VP * UP
-        fluxEP_x = ρPinv * UP * EP
+        fluxVP_x = ρPinv * UP * VP
+        fluxEP_x = ρPinv * UP * (EP + PP)
 
         fluxρP_y = VP
-        fluxUP_y = ρPinv * UP * VP
+        fluxUP_y = ρPinv * VP * UP
         fluxVP_y = ρPinv * VP * VP + PP
-        fluxEP_y = ρPinv * VP * EP
+        fluxEP_y = ρPinv * VP * (EP + PP)
 
         λM = ρMinv * abs(nxM * UM + nyM * VM) + sqrt(ρMinv * γ * PM)
         λP = ρPinv * abs(nxM * UP + nyM * VP) + sqrt(ρPinv * γ * PP)
@@ -343,30 +349,31 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
       ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
       ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+      z = vgeo[i,j,k,_z,e]
 
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-      P = p0 * (R_gas * E / p0)^(c_p / c_v)
+      P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
       ρinv = 1 / ρ
       fluxρ_x = U
-      fluxU_x = ρinv * U * U + P
-      fluxV_x = ρinv * V * U
-      fluxW_x = ρinv * W * U
-      fluxE_x = E * ρinv * U
+      fluxU_x = ρinv * U * U  + P
+      fluxV_x = ρinv * U * V
+      fluxW_x = ρinv * U * W
+      fluxE_x = ρinv * U * (E + P)
 
       fluxρ_y = V
-      fluxU_y = ρinv * U * V
+      fluxU_y = ρinv * V * U
       fluxV_y = ρinv * V * V + P
-      fluxW_y = ρinv * W * V
-      fluxE_y = E * ρinv * V
+      fluxW_y = ρinv * V * W
+      fluxE_y = ρinv * V * (E + P)
 
       fluxρ_z = W
-      fluxU_z = ρinv * U * W
-      fluxV_z = ρinv * V * W
+      fluxU_z = ρinv * W * U
+      fluxV_z = ρinv * W * V
       fluxW_z = ρinv * W * W + P
-      fluxE_z = E * ρinv * W
+      fluxE_z = ρinv * W * (E + P)
 
       s_F[i, j, k, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y + ξz * fluxρ_z)
       s_F[i, j, k, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y + ξz * fluxU_z)
@@ -406,7 +413,7 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
 end
 
 # Face RHS for 3-D
-function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, sgeo, elems, vmapM,
+function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
                   vmapP, elemtobndy) where N
   DFloat = eltype(Q)
   γ::DFloat       = _γ
@@ -434,16 +441,18 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, sgeo, elems, vmapM,
         VM = Q[vidM, _V, eM]
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
+        zM = vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = p0 * (R_gas * EM / p0)^(c_p / c_v)
+        PM = (R_gas/c_v)*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*zM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
-          PP = p0 * (R_gas * EP / p0)^(c_p / c_v)
+          zP = vgeo[vidP, _z, eP]
+          PP = (R_gas/c_v)*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*zP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
@@ -459,40 +468,40 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, sgeo, elems, vmapM,
         ρMinv = 1 / ρM
         fluxρM_x = UM
         fluxUM_x = ρMinv * UM * UM + PM
-        fluxVM_x = ρMinv * VM * UM
-        fluxWM_x = ρMinv * WM * UM
-        fluxEM_x = ρMinv * UM * EM
+        fluxVM_x = ρMinv * UM * VM
+        fluxWM_x = ρMinv * UM * WM
+        fluxEM_x = ρMinv * UM * (EM + PM)
 
         fluxρM_y = VM
-        fluxUM_y = ρMinv * UM * VM
+        fluxUM_y = ρMinv * VM * UM
         fluxVM_y = ρMinv * VM * VM + PM
-        fluxWM_y = ρMinv * WM * VM
-        fluxEM_y = ρMinv * VM * EM
+        fluxWM_y = ρMinv * VM * WM
+        fluxEM_y = ρMinv * VM * (EM + PM)
 
         fluxρM_z = WM
-        fluxUM_z = ρMinv * UM * WM
-        fluxVM_z = ρMinv * VM * WM
+        fluxUM_z = ρMinv * WM * UM
+        fluxVM_z = ρMinv * WM * VM
         fluxWM_z = ρMinv * WM * WM + PM
-        fluxEM_z = ρMinv * WM * EM
+        fluxEM_z = ρMinv * WM * (EM + PM)
 
         ρPinv = 1 / ρP
         fluxρP_x = UP
         fluxUP_x = ρPinv * UP * UP + PP
-        fluxVP_x = ρPinv * VP * UP
-        fluxWP_x = ρPinv * WP * UP
-        fluxEP_x = ρPinv * UP * EP
+        fluxVP_x = ρPinv * UP * VP
+        fluxWP_x = ρPinv * UP * WP
+        fluxEP_x = ρPinv * UP * (EP + PP)
 
         fluxρP_y = VP
-        fluxUP_y = ρPinv * UP * VP
+        fluxUP_y = ρPinv * VP * UP
         fluxVP_y = ρPinv * VP * VP + PP
-        fluxWP_y = ρPinv * WP * VP
-        fluxEP_y = ρPinv * VP * EP
+        fluxWP_y = ρPinv * VP * WP
+        fluxEP_y = ρPinv * VP * (EP + PP)
 
         fluxρP_z = WP
-        fluxUP_z = ρPinv * UP * WP
-        fluxVP_z = ρPinv * VP * WP
+        fluxUP_z = ρPinv * WP * UP
+        fluxVP_z = ρPinv * WP * VP
         fluxWP_z = ρPinv * WP * WP + PP
-        fluxEP_z = ρPinv * WP * EP
+        fluxEP_z = ρPinv * WP * (EP + PP)
 
         λM = ρMinv * abs(nxM * UM + nyM * VM + nzM * WM) + sqrt(ρMinv * γ * PM)
         λP = ρPinv * abs(nxM * UP + nyM * VP + nzM * WP) + sqrt(ρPinv * γ * PP)
@@ -659,8 +668,8 @@ function lowstorageRK(::Val{dim}, ::Val{N}, mesh, vgeo, sgeo, Q, rhs, D,
       transferrecvQ!(Val(dim), Val(N), d_recvQ, recvQ, d_QL, nrealelem)
 
       # face RHS computation
-      facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_sgeo, mesh.realelems, d_vmapM,
-               d_vmapP, d_elemtobndy)
+      facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, d_sgeo,
+               mesh.realelems, d_vmapM, d_vmapP, d_elemtobndy)
 
       # update solution and scale RHS
       updatesolution!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, mesh.realelems,

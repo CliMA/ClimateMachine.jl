@@ -40,23 +40,24 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     MJ = vgeo[i, j, _MJ, e]
     ξx, ξy = vgeo[i, j, _ξx, e], vgeo[i, j, _ξy, e]
     ηx, ηy = vgeo[i, j, _ηx, e], vgeo[i, j, _ηy, e]
+    y = vgeo[i, j, _y, e]
     U, V = Q[i, j, _U, e], Q[i, j, _V, e]
     ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
     rhsU, rhsV = rhs[i, j, _U, e], rhs[i, j, _V, e]
     rhsρ, rhsE = rhs[i, j, _ρ, e], rhs[i, j, _E, e]
 
-    P = p0 * CUDAnative.pow(R_gas * E / p0, c_p / c_v)
+    P = (R_gas/c_v)*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
     ρinv = 1 / ρ
     fluxρ_x = U
     fluxU_x = ρinv * U * U + P
-    fluxV_x = ρinv * V * U
-    fluxE_x = ρinv * U * E
+    fluxV_x = ρinv * U * V
+    fluxE_x = ρinv * U * (E + P)
 
     fluxρ_y = V
-    fluxU_y = ρinv * U * V
+    fluxU_y = ρinv * V * U
     fluxV_y = ρinv * V * V + P
-    fluxE_y = ρinv * V * E
+    fluxE_y = ρinv * V * (E + P)
 
     s_F[i, j, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y)
     s_F[i, j, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y)
@@ -136,30 +137,31 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
     ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
     ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+    z = vgeo[i,j,k,_z,e]
 
     U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
     ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-    P = p0 * CUDAnative.pow(R_gas * E / p0, c_p / c_v)
+    P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
     ρinv = 1 / ρ
     fluxρ_x = U
     fluxU_x = ρinv * U * U + P
-    fluxV_x = ρinv * V * U
-    fluxW_x = ρinv * W * U
-    fluxE_x = E * ρinv * U
+    fluxV_x = ρinv * U * V
+    fluxW_x = ρinv * U * W
+    fluxE_x = ρinv * U * (E + P)
 
     fluxρ_y = V
-    fluxU_y = ρinv * U * V
+    fluxU_y = ρinv * V * U
     fluxV_y = ρinv * V * V + P
-    fluxW_y = ρinv * W * V
-    fluxE_y = E * ρinv * V
+    fluxW_y = ρinv * V * W
+    fluxE_y = ρinv * V * (E + P)
 
     fluxρ_z = W
-    fluxU_z = ρinv * U * W
-    fluxV_z = ρinv * V * W
+    fluxU_z = ρinv * W * U
+    fluxV_z = ρinv * W * V
     fluxW_z = ρinv * W * W + P
-    fluxE_z = E * ρinv * W
+    fluxE_z = ρinv * W * (E + P)
 
     s_F[i, j, k, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y + ξz * fluxρ_z)
     s_F[i, j, k, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y + ξz * fluxU_z)
@@ -229,7 +231,7 @@ end
 # }}}
 
 # {{{ Face RHS (all dimensions)
-function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, sgeo, nelem, vmapM,
+function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
                       vmapP, elemtobndy) where {dim, N}
   DFloat = eltype(Q)
   γ::DFloat       = _γ
@@ -274,8 +276,10 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, sgeo, nelem, vmapM,
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
 
+        zM = vgeo[vidM, _z, eM]
+
         bc = elemtobndy[f, e]
-        PM = p0 * CUDAnative.pow(R_gas * EM / p0, c_p / c_v)
+        PM = (R_gas/c_v)*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*zM)
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
@@ -283,7 +287,8 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, sgeo, nelem, vmapM,
           VP = Q[vidP, _V, eP]
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
-          PP = p0 * CUDAnative.pow(R_gas * EP / p0, c_p / c_v)
+          zP = vgeo[vidP, _z, eP]
+          PP = (R_gas/c_v)*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*zP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
@@ -297,40 +302,40 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, sgeo, nelem, vmapM,
         ρMinv = 1 / ρM
         fluxρM_x = UM
         fluxUM_x = ρMinv * UM * UM + PM
-        fluxVM_x = ρMinv * VM * UM
-        fluxWM_x = ρMinv * WM * UM
-        fluxEM_x = ρMinv * UM * EM
+        fluxVM_x = ρMinv * UM * VM
+        fluxWM_x = ρMinv * UM * WM
+        fluxEM_x = ρMinv * UM * (EM + PM)
 
         fluxρM_y = VM
-        fluxUM_y = ρMinv * UM * VM
+        fluxUM_y = ρMinv * VM * UM
         fluxVM_y = ρMinv * VM * VM + PM
-        fluxWM_y = ρMinv * WM * VM
-        fluxEM_y = ρMinv * VM * EM
+        fluxWM_y = ρMinv * VM * WM
+        fluxEM_y = ρMinv * VM * (EM + PM)
 
         fluxρM_z = WM
-        fluxUM_z = ρMinv * UM * WM
-        fluxVM_z = ρMinv * VM * WM
+        fluxUM_z = ρMinv * WM * UM
+        fluxVM_z = ρMinv * WM * VM
         fluxWM_z = ρMinv * WM * WM + PM
-        fluxEM_z = ρMinv * WM * EM
+        fluxEM_z = ρMinv * WM * (EM + PM)
 
         ρPinv = 1 / ρP
         fluxρP_x = UP
         fluxUP_x = ρPinv * UP * UP + PP
-        fluxVP_x = ρPinv * VP * UP
-        fluxWP_x = ρPinv * WP * UP
-        fluxEP_x = ρPinv * UP * EP
+        fluxVP_x = ρPinv * UP * VP
+        fluxWP_x = ρPinv * UP * WP
+        fluxEP_x = ρPinv * UP * (EP + PP)
 
         fluxρP_y = VP
-        fluxUP_y = ρPinv * UP * VP
+        fluxUP_y = ρPinv * VP * UP
         fluxVP_y = ρPinv * VP * VP + PP
-        fluxWP_y = ρPinv * WP * VP
-        fluxEP_y = ρPinv * VP * EP
+        fluxWP_y = ρPinv * VP * WP
+        fluxEP_y = ρPinv * VP * (EP + PP)
 
         fluxρP_z = WP
-        fluxUP_z = ρPinv * UP * WP
-        fluxVP_z = ρPinv * VP * WP
+        fluxUP_z = ρPinv * WP * UP
+        fluxVP_z = ρPinv * WP * VP
         fluxWP_z = ρPinv * WP * WP + PP
-        fluxEP_z = ρPinv * WP * EP
+        fluxEP_z = ρPinv * WP * (EP + PP)
 
         λM = ρMinv * abs(nxM * UM + nyM * VM + nzM * WM) + CUDAnative.sqrt(ρMinv * γ * PM)
         λP = ρPinv * abs(nxM * UP + nyM * VP + nzM * WP) + CUDAnative.sqrt(ρPinv * γ * PP)
@@ -447,12 +452,12 @@ function volumerhs!(::Val{dim}, ::Val{N}, d_rhsC::CuArray, d_QC,
         knl_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, nelem))
 end
 
-function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_sgeo,
+function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo, d_sgeo,
                   elems, d_vmapM, d_vmapP, d_elemtobndy) where {dim, N}
   nelem = length(elems)
   @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_sgeo, nelem, d_vmapM,
-                     d_vmapP, d_elemtobndy))
+        knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, nelem,
+                     d_vmapM, d_vmapP, d_elemtobndy))
 end
 
 function updatesolution!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,

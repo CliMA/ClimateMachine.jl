@@ -61,10 +61,16 @@ function main()
     c=c_v/R_gas
     ρ_k=p0/(R_gas*θ_k)*(π_k)^c
     ρ = ρ_k
-    U = ρ*(u0)
-    V = ρ*(0.0)
-    W = ρ*(0.0)
-    E = ρ*θ_k
+    u = u0
+    v = 0
+    w = 0
+    U = ρ*u
+    V = ρ*v
+    W = ρ*w
+    Θ = ρ*θ_k
+    P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+    T = P/(ρ*R_gas)
+    E = ρ*(c_v*T + (u^2 + v^2 + w^2)/2 + gravity*x[dim])
     ρ, U, V, W, E
   end
 
