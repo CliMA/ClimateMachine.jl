@@ -19,6 +19,12 @@ git-tree-sha1 = "055eb2690182ebc31087859c3dd8598371d3ef9e"
 uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.3"
 
+[[CLIMAAtmosDycore]]
+deps = ["Canary", "MPI", "Printf", "Requires", "WriteVTK"]
+path = "../.."
+uuid = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
+version = "0.0.0"
+
 [[CUDAapi]]
 deps = ["Libdl", "Logging", "Test"]
 git-tree-sha1 = "da085c9c8668dbb37bd84573d4257b09cf33d053"
@@ -126,6 +132,12 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[Random]]
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[[Requires]]
+deps = ["Test"]
+git-tree-sha1 = "f6fbf4ba64d295e146e49e021207993b6b48c7d1"
+uuid = "ae029012-a4dd-5104-9daa-d747884805df"
+version = "0.5.2"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"

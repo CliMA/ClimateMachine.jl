@@ -2,6 +2,18 @@ using CLIMAAtmosDycore
 using Canary
 using MPI
 
+const HAVE_CUDA = try
+  using CUDAdrv
+  using CUDAnative
+  true
+catch
+  false
+end
+
+macro hascuda(ex)
+  return HAVE_CUDA ? :($(esc(ex))) : :()
+end
+
 const _γ = 14  // 10
 const _p0 = 100000
 const _R_gas = 28717 // 100
