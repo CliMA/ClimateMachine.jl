@@ -61,18 +61,6 @@ function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
 
   dt = [floatmax(DFloat)]
 
-  if dim == 1
-    @inbounds for e = 1:nelem, n = 1:Np
-      ρ, U = Q[n, _ρ, e], Q[n, _U, e]
-      E = Q[n, _E, e]
-      P = p0 * (R_gas * E / p0)^(c_p / c_v)
-      ξx = vgeo[n, _ξx, e]
-
-      loc_dt = 2ρ / (abs(U * ξx) + ρ * sqrt(γ * P / ρ))
-      dt[1] = min(dt[1], loc_dt)
-    end
-  end
-
   if dim == 2
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
