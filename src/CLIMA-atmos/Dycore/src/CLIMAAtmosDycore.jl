@@ -2,6 +2,7 @@ module CLIMAAtmosDycore
 
 using Printf: @sprintf
 using Canary, MPI, Requires
+using PlanetParameters: R_d, cp_d, grav
 
 @init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" include("gpu.jl")
 
@@ -37,12 +38,12 @@ const _nsgeo = 5
 const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 const sgeoid = (nx = _nx, ny = _ny, nz = _nz, sMJ = _sMJ, vMJI = _vMJI)
 
-const _γ = 14  // 10
+const _γ = cp_d / (cp_d - R_d)
 const _p0 = 100000
-const _R_gas = 28717 // 100
-const _c_p = 100467 // 100
-const _c_v = 7175 // 10
-const _gravity = 10
+const _R_gas = R_d
+const _c_p = cp_d
+const _c_v = cp_d - R_d
+const _gravity = grav
 
 # }}}
 
