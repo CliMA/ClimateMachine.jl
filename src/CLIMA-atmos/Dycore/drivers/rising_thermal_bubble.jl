@@ -1,6 +1,11 @@
 using CLIMAAtmosDycore
 using Canary
 using MPI
+using PlanetParameters: R_d, cp_d, grav
+using ParametersType
+@parameter cv_d cp_d-R_d "Isochoric specific heat dry air"
+@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 const HAVE_CUDA = try
   using CUDAdrv
@@ -13,13 +18,6 @@ end
 macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :()
 end
-
-const _γ = 14  // 10
-const _p0 = 100000
-const _R_gas = 28717 // 100
-const _c_p = 100467 // 100
-const _c_v = 7175 // 10
-const _gravity = 10
 
 # {{{ main
 function main()
@@ -40,12 +38,12 @@ function main()
   function ic(dim, x...)
     # FIXME: Type generic?
     DFloat = eltype(x)
-    γ::DFloat       = _γ
-    p0::DFloat      = _p0
-    R_gas::DFloat   = _R_gas
-    c_p::DFloat     = _c_p
-    c_v::DFloat     = _c_v
-    gravity::DFloat = _gravity
+    γ::DFloat       = gamma_d
+    p0::DFloat      = 100000
+    R_gas::DFloat   = R_d
+    c_p::DFloat     = cp_d
+    c_v::DFloat     = cv_d
+    gravity::DFloat = grav
 
     u0 = 0
     r = sqrt((x[1]-500)^2 + (x[dim]-350)^2 )
