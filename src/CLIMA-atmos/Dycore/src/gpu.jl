@@ -40,7 +40,7 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     rhsU, rhsV = rhs[i, j, _U, e], rhs[i, j, _V, e]
     rhsρ, rhsE = rhs[i, j, _ρ, e], rhs[i, j, _E, e]
 
-    P = (R_d/cv_d)*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
+    P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
 
     ρinv = 1 / ρ
     fluxρ_x = U
@@ -130,7 +130,7 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
     ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-    P = (R_d/cv_d)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
+    P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
 
     ρinv = 1 / ρ
     fluxρ_x = U
@@ -261,7 +261,7 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
         yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = (R_d/cv_d)*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*yorzM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*yorzM)
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
@@ -270,7 +270,7 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
-          PP = (R_d/cv_d)*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*yorzP)
+          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*yorzP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM

@@ -41,6 +41,7 @@ const sgeoid = (nx = _nx, ny = _ny, nz = _nz, sMJ = _sMJ, vMJI = _vMJI)
 
 @parameter cv_d cp_d-R_d "Isochoric specific heat dry air"
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # }}}
 
@@ -58,7 +59,7 @@ function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
       E = Q[n, _E, e]
       y = vgeo[n, _y, e]
-      P = (R_d/cv_d)*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
+      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
 
       ξx, ξy, ηx, ηy = vgeo[n, _ξx, e], vgeo[n, _ξy, e],
                        vgeo[n, _ηx, e], vgeo[n, _ηy, e]
@@ -74,7 +75,7 @@ function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
       ρ, U, V, W = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e]
       E = Q[n, _E, e]
       z = vgeo[n, _z, e]
-      P = (R_d/cv_d)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
+      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
 
       ξx, ξy, ξz = vgeo[n, _ξx, e], vgeo[n, _ξy, e], vgeo[n, _ξz, e]
       ηx, ηy, ηz = vgeo[n, _ηx, e], vgeo[n, _ηy, e], vgeo[n, _ηz, e]
@@ -168,7 +169,7 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
 
-      P = (R_d/cv_d)*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
+      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
 
       ρinv = 1 / ρ
       fluxρ_x = U
@@ -233,14 +234,14 @@ function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
         yM = vgeo[vidM, _y, eM]
 
         bc = elemtobndy[f, e]
-        PM = (R_d/cv_d)*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*grav*yM)
+        PM = gdm1*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*grav*yM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           EP = Q[vidP, _E, eP]
           yP = vgeo[vidP, _y, eP]
-          PP = (R_d/cv_d)*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*grav*yP)
+          PP = gdm1*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*grav*yP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM
           UP = UM - 2 * UnM * nxM
@@ -328,7 +329,7 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-      P = (R_d/cv_d)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
+      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
 
       ρinv = 1 / ρ
       fluxρ_x = U
@@ -412,7 +413,7 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
         zM = vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = (R_d/cv_d)*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*zM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*zM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
@@ -420,7 +421,7 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           zP = vgeo[vidP, _z, eP]
-          PP = (R_d/cv_d)*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*zP)
+          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*zP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
