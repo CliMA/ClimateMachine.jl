@@ -81,9 +81,20 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
+[[ParametersType]]
+path = "../../ParametersType"
+uuid = "046d00ba-03b1-11e9-3cca-b5213a01defd"
+version = "0.0.0"
+
 [[Pkg]]
 deps = ["Dates", "LibGit2", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+
+[[PlanetParameters]]
+deps = ["ParametersType"]
+path = "../../PlanetParameters"
+uuid = "50a4fe1a-031f-11e9-2493-0505e0da639e"
+version = "0.0.0"
 
 [[Printf]]
 deps = ["Unicode"]
