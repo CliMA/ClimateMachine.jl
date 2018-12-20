@@ -1,7 +1,6 @@
 module ParametersType
-using Unitful
 
-export @parameter, ParametersType
+export @parameter, @exportparameter, ParametersType
 
 """
     Parameter{sym} <: Base.AbstractIrrational
@@ -44,8 +43,38 @@ macro parameter(sym, val, desc, doexport=false)
   quote
     $exportcmd
     const $esym = Parameter{$qsym}()
-    Base.Float64(::Parameter{$qsym}) = $(Float64(ustrip(ev)))
-    Base.Float32(::Parameter{$qsym}) = $(Float32(ustrip(ev)))
+    Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
+    Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
+    Base.string(::Parameter{$qsym}) = $(string(ev))
+    ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
+    """
+        $($qsym)
+
+    $($desc)
+
+    # Examples
+    ```
+    julia> $($qsym)
+    $($(string(ev)))
+    ```
+    """
+    $sym
+  end
+end
+
+# TODO: figure out how to get this to call @parameter with doexport=true
+macro exportparameter(sym, val, desc)
+  esym = esc(sym)
+  qsym = esc(Expr(:quote, sym))
+  ev = @eval(__module__, $val)
+
+  exportcmd = :(export $sym)
+
+  quote
+    $exportcmd
+    const $esym = Parameter{$qsym}()
+    Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
+    Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
     Base.string(::Parameter{$qsym}) = $(string(ev))
     ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
     """

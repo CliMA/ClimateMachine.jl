@@ -1,7 +1,6 @@
 # `ParametersType`
 A simple type which allows for the specification of constant parameters in
-CLIMA. This package uses [`Unitful`](https://github.com/ajkeller34/Unitful.jl)
-to allow the parameters to have units.
+CLIMA.
 
 ## Setup
 ```sh
@@ -38,27 +37,6 @@ search: p1 exp10 expm1 @macroexpand1 ComplexF16
 
   julia> p1
   3//5
-
-julia> using Unitful
-
-julia> @parameter p2 4.5u"m/kg" "This parameter has units"
-p2
-
-julia> p2
-4.5 m kg^-1
-
-help?> p2
-search: p2 exp2 ispow2 ComplexF32
-
-  p2
-
-  This parameter has units
-
-  Examples
-  ≡≡≡≡≡≡≡≡≡≡
-
-  julia> p2
-  4.5 m kg^-1
 ```
 
 One of the major reason for this module is to ensure that constant parameters
@@ -70,18 +48,6 @@ CodeInfo(
 313 1 ─ %1 = (Base.add_float)(x, 0.6)::Float64                                                                │╻ +
     └──      return %1                                                                                        │
 ) => Float64
-
-julia> @code_typed 1.0 + p2
-CodeInfo(
-313 1 ─ %1 = (Base.add_float)(x, 4.5)::Float64                                                                │╻ +
-    └──      return %1                                                                                        │
-) => Float64
-
-julia> @code_typed Float32(1.0) + p2
-CodeInfo(
-313 1 ─ %1 = (Base.add_float)(x, 4.5)::Float32                                                                │╻ +
-    └──      return %1                                                                                        │
-) => Float32
 
 julia> @code_typed Float32(1.0) + p1
 CodeInfo(
