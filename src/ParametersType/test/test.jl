@@ -4,6 +4,10 @@ using ParametersType
 @parameter b π "parameter b"
 @parameter c 2a+b "parameter c"
 @parameter d 2//3 "parameter d"
+function bar()
+  sin(a / 3)
+end
+@parameter e bar() "parameter d"
 
 module Foo
   using ParametersType
@@ -21,18 +25,12 @@ function main()
   println()
   println("Testing: ",relpath(@__FILE__))
   @testset begin
+    # Test comparisons
     @test a==a
     @test a==b
     @test a!=c
     @test !(a==c)
     @test !(a!=a)
-
-    @test ParametersType.getval(a) == π
-    @test a == π
-    @test ParametersType.getval(a) != Float64(π)
-    @test ParametersType.getval(d) == 2//3
-    @test d == 2//3
-    @test ParametersType.getval(d) != Float64(2//3)
 
     @test a<=b
     @test a<=a
@@ -46,6 +44,21 @@ function main()
     @test !(a>=c)
     @test !(a>c)
 
+    # Check some more advanced equalities
+    @test ParametersType.getval(a) == π
+    @test a == π
+    @test ParametersType.getval(a) != Float64(π)
+    @test ParametersType.getval(d) == 2//3
+    @test d == 2//3
+    @test ParametersType.getval(d) != Float64(2//3)
+    @test e == bar()
+
+    # check types
+    @test typeof(2*a) == Float64
+    x = Float32(1)
+    @test typeof(a+x) == Float32
+
+    # check modules based parameters
     @test !@isdefined a1
     @test !@isdefined b1
     @test !@isdefined c1

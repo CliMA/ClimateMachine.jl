@@ -7,7 +7,7 @@ function main()
   @testset begin
     # Not sure how to really test this...
     @test @isdefined R_d
-    @test Float64(kappa_d) == Float64(2//7)
+    @test L_f0 == L_s0 - L_v0
   end
 end
 
