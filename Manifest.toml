@@ -97,6 +97,11 @@ version = "0.6.6"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
+[[ParametersType]]
+path = "src/ParametersType"
+uuid = "046d00ba-03b1-11e9-3cca-b5213a01defd"
+version = "0.0.0"
+
 [[Pkg]]
 deps = ["Dates", "LibGit2", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
