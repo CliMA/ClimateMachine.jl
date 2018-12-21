@@ -60,6 +60,6 @@ CodeInfo(
 
 To use this module in another part of CLIMA, you can load the module by using:
 ```julia
-]dev PATH_TO_CLIMA_SRC/ParameterType/
+]dev PATH_TO_CLIMA_SRC/ParametersType/
 ```
 where `PATH_TO_CLIMA_SRC` is the relative path to the CLIMA source directory.

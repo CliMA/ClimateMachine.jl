@@ -15,16 +15,16 @@ using ParametersType
 @exportparameter astro_unit        1.4959787e11  "Astronomical unit (m)"
 
 # Properties of dry air
-@exportparameter molmass_air       28.97e-3      "Molecular weight dry air (kg/mol)"
+@exportparameter molmass_dryair    28.97e-3      "Molecular weight dry air (kg/mol)"
 @exportparameter R_d               gas_constant/
-                                   molmass_air   "Gas constant dry air (J/kg/K)"
+                                   molmass_dryair "Gas constant dry air (J/kg/K)"
 @exportparameter kappa_d           2//7          "Adiabatic exponent dry air"
 @exportparameter cp_d              R_d/kappa_d   "Isobaric specific heat dry air"
 
 # Properties of water
 @exportparameter dens_liquid       1e3           "Density of liquid water (kg/m^3)"
 @exportparameter molmass_water     18.01528e-3   "Molecular weight (kg/mol)"
-@exportparameter molmass_ratio     molmass_air/
+@exportparameter molmass_ratio     molmass_dryair/
                                    molmass_water "Molar mass ratio dry air/water"
 @exportparameter R_v               gas_constant/
                                    molmass_water "Gas constant water vapor (J/kg/K)"
