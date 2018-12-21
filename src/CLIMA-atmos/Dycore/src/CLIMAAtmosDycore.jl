@@ -542,6 +542,47 @@ function L2energysquared(::Val{dim}, ::Val{N}, Q, vgeo, elems) where {dim, N}
 end
 # }}}
 
+# {{{ RHS functions
+function vanillarhs(::Val{dim}, ::Val{N}, mesh, d_QL, d_rhsL, d_elemtobndy,
+                    d_vgeoL, d_sgeo, d_vmapM, d_vmapP, d_D, d_sendelems,
+                    recvQ, sendQ, d_recvQ, d_sendQ, recvreq,
+                    sendreq, mpicomm) where {dim, N}
+  nnabr = length(mesh.nabrtorank)
+  nrealelem = length(mesh.realelems)
+
+  # post MPI receives
+  for n = 1:nnabr
+    recvreq[n] = MPI.Irecv!((@view recvQ[:, :, mesh.nabrtorecv[n]]),
+                            mesh.nabrtorank[n], 777, mpicomm)
+  end
+
+  # wait on (prior) MPI sends
+  MPI.Waitall!(sendreq)
+
+  # pack data in send buffer
+  fillsendQ!(Val(dim), Val(N), sendQ, d_sendQ, d_QL, d_sendelems)
+
+  # post MPI sends
+  for n = 1:nnabr
+    sendreq[n] = MPI.Isend((@view sendQ[:, :, mesh.nabrtosend[n]]),
+                           mesh.nabrtorank[n], 777, mpicomm)
+  end
+
+  # volume RHS computation
+  volumerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, d_D, mesh.realelems)
+
+  # wait on MPI receives
+  MPI.Waitall!(recvreq)
+
+  # copy data to state vectors
+  transferrecvQ!(Val(dim), Val(N), d_recvQ, recvQ, d_QL, nrealelem)
+
+  # face RHS computation
+  facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, d_sgeo,
+           mesh.realelems, d_vmapM, d_vmapP, d_elemtobndy)
+end
+# }}}
+
 # {{{ RK loop
 function lowstorageRK(::Val{dim}, ::Val{N}, mesh, vgeo, sgeo, Q, rhs, D,
                       dt, nsteps, tout, vmapM, vmapP, mpicomm;
@@ -606,36 +647,9 @@ function lowstorageRK(::Val{dim}, ::Val{N}, mesh, vgeo, sgeo, Q, rhs, D,
   start_time = t1 = time_ns()
   for step = 1:nsteps
     for s = 1:length(RKA)
-      # post MPI receives
-      for n = 1:nnabr
-        recvreq[n] = MPI.Irecv!((@view recvQ[:, :, mesh.nabrtorecv[n]]),
-                                mesh.nabrtorank[n], 777, mpicomm)
-      end
-
-      # wait on (prior) MPI sends
-      MPI.Waitall!(sendreq)
-
-      # pack data in send buffer
-      fillsendQ!(Val(dim), Val(N), sendQ, d_sendQ, d_QL, d_sendelems)
-
-      # post MPI sends
-      for n = 1:nnabr
-        sendreq[n] = MPI.Isend((@view sendQ[:, :, mesh.nabrtosend[n]]),
-                               mesh.nabrtorank[n], 777, mpicomm)
-      end
-
-      # volume RHS computation
-      volumerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, d_D, mesh.realelems)
-
-      # wait on MPI receives
-      MPI.Waitall!(recvreq)
-
-      # copy data to state vectors
-      transferrecvQ!(Val(dim), Val(N), d_recvQ, recvQ, d_QL, nrealelem)
-
-      # face RHS computation
-      facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, d_sgeo,
-               mesh.realelems, d_vmapM, d_vmapP, d_elemtobndy)
+      vanillarhs(Val(dim), Val(N), mesh, d_QL, d_rhsL, d_elemtobndy, d_vgeoL,
+                 d_sgeo, d_vmapM, d_vmapP, d_D, d_sendelems, recvQ, sendQ,
+                 d_recvQ, d_sendQ, recvreq, sendreq, mpicomm)
 
       # update solution and scale RHS
       updatesolution!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, mesh.realelems,
