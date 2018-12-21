@@ -3,6 +3,13 @@ module CLIMAAtmosDycore
 using Printf: @sprintf
 using Canary, MPI, Requires
 
+using PlanetParameters: R_d, cp_d, grav
+using ParametersType
+@parameter cv_d cp_d-R_d "Isochoric specific heat dry air"
+@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
+
+
 @init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" include("gpu.jl")
 
 include("vtk.jl")
@@ -37,24 +44,11 @@ const _nsgeo = 5
 const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 const sgeoid = (nx = _nx, ny = _ny, nz = _nz, sMJ = _sMJ, vMJI = _vMJI)
 
-const _γ = 14  // 10
-const _p0 = 100000
-const _R_gas = 28717 // 100
-const _c_p = 100467 // 100
-const _c_v = 7175 // 10
-const _gravity = 10
-
 # }}}
 
 # {{{ cfl
 function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
   DFloat = eltype(Q)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   Np = (N+1)^dim
   (~, ~, nelem) = size(Q)
@@ -66,13 +60,13 @@ function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
       E = Q[n, _E, e]
       y = vgeo[n, _y, e]
-      P = (R_gas/c_v)*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
+      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
 
       ξx, ξy, ηx, ηy = vgeo[n, _ξx, e], vgeo[n, _ξy, e],
                        vgeo[n, _ηx, e], vgeo[n, _ηy, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * sqrt(γ * P / ρ),
-                        abs(U * ηx + V * ηy) + ρ * sqrt(γ * P / ρ))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * sqrt(gamma_d * P / ρ),
+                        abs(U * ηx + V * ηy) + ρ * sqrt(gamma_d * P / ρ))
       dt[1] = min(dt[1], loc_dt)
     end
   end
@@ -82,15 +76,15 @@ function cfl(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
       ρ, U, V, W = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e]
       E = Q[n, _E, e]
       z = vgeo[n, _z, e]
-      P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
 
       ξx, ξy, ξz = vgeo[n, _ξx, e], vgeo[n, _ξy, e], vgeo[n, _ξz, e]
       ηx, ηy, ηz = vgeo[n, _ηx, e], vgeo[n, _ηy, e], vgeo[n, _ηz, e]
       ζx, ζy, ζz = vgeo[n, _ζx, e], vgeo[n, _ζy, e], vgeo[n, _ζz, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * sqrt(γ * P / ρ),
-                        abs(U * ηx + V * ηy + W * ηz) + ρ * sqrt(γ * P / ρ),
-                        abs(U * ζx + V * ζy + W * ζz) + ρ * sqrt(γ * P / ρ))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * sqrt(gamma_d * P / ρ),
+                        abs(U * ηx + V * ηy + W * ηz) + ρ * sqrt(gamma_d * P / ρ),
+                        abs(U * ζx + V * ζy + W * ζz) + ρ * sqrt(gamma_d * P / ρ))
       dt[1] = min(dt[1], loc_dt)
     end
   end
@@ -154,12 +148,6 @@ sync(::Type{Array}) = nothing
 # Volume RHS for 2-D
 function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
   DFloat = eltype(Q)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   Nq = N + 1
 
@@ -182,7 +170,7 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
 
-      P = (R_gas/c_v)*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
+      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
 
       ρinv = 1 / ρ
       fluxρ_x = U
@@ -208,7 +196,7 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
       # buoyancy term
-      rhs[i, j, _V, e] -= MJ * ρ * gravity
+      rhs[i, j, _V, e] -= MJ * ρ * grav
     end
 
     # loop of ξ-grid lines
@@ -226,12 +214,6 @@ end
 function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
                   vmapP, elemtobndy) where N
   DFloat = eltype(Q)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   Np = (N+1)^2
   Nfp = N+1
@@ -253,14 +235,14 @@ function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
         yM = vgeo[vidM, _y, eM]
 
         bc = elemtobndy[f, e]
-        PM = (R_gas/c_v)*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*gravity*yM)
+        PM = gdm1*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*grav*yM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           EP = Q[vidP, _E, eP]
           yP = vgeo[vidP, _y, eP]
-          PP = (R_gas/c_v)*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*gravity*yP)
+          PP = gdm1*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*grav*yP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM
           UP = UM - 2 * UnM * nxM
@@ -294,8 +276,8 @@ function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
         fluxVP_y = ρPinv * VP * VP + PP
         fluxEP_y = ρPinv * VP * (EP + PP)
 
-        λM = ρMinv * abs(nxM * UM + nyM * VM) + sqrt(ρMinv * γ * PM)
-        λP = ρPinv * abs(nxM * UP + nyM * VP) + sqrt(ρPinv * γ * PP)
+        λM = ρMinv * abs(nxM * UM + nyM * VM) + sqrt(ρMinv * gamma_d * PM)
+        λP = ρPinv * abs(nxM * UP + nyM * VP) + sqrt(ρPinv * gamma_d * PP)
         λ  =  max(λM, λP)
 
         #Compute Numerical Flux and Update
@@ -324,12 +306,6 @@ end
 # Volume RHS for 3-D
 function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
   DFloat = eltype(Q)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   Nq = N + 1
 
@@ -354,7 +330,7 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-      P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
 
       ρinv = 1 / ρ
       fluxρ_x = U
@@ -394,7 +370,7 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       s_H[i, j, k, _E] = MJ * (ζx * fluxE_x + ζy * fluxE_y + ζz * fluxE_z)
 
       # buoyancy term
-      rhs[i, j, k, _W, e] -= MJ * ρ * gravity
+      rhs[i, j, k, _W, e] -= MJ * ρ * grav
     end
 
     # loop of ξ-grid lines
@@ -416,12 +392,6 @@ end
 function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
                   vmapP, elemtobndy) where N
   DFloat = eltype(Q)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   Np = (N+1)^3
   Nfp = (N+1)^2
@@ -444,7 +414,7 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
         zM = vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = (R_gas/c_v)*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*zM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*zM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
@@ -452,7 +422,7 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           zP = vgeo[vidP, _z, eP]
-          PP = (R_gas/c_v)*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*zP)
+          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*zP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
@@ -503,8 +473,8 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems, vmapM,
         fluxWP_z = ρPinv * WP * WP + PP
         fluxEP_z = ρPinv * WP * (EP + PP)
 
-        λM = ρMinv * abs(nxM * UM + nyM * VM + nzM * WM) + sqrt(ρMinv * γ * PM)
-        λP = ρPinv * abs(nxM * UP + nyM * VP + nzM * WP) + sqrt(ρPinv * γ * PP)
+        λM = ρMinv * abs(nxM * UM + nyM * VM + nzM * WM) + sqrt(ρMinv * gamma_d * PM)
+        λP = ρPinv * abs(nxM * UP + nyM * VP + nzM * WP) + sqrt(ρPinv * gamma_d * PP)
         λ  =  max(λM, λP)
 
         #Compute Numerical Flux and Update

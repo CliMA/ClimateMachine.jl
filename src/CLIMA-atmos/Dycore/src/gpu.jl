@@ -13,12 +13,6 @@ sync(::Type{CuArray}) = synchronize()
 # {{{ Volume RHS for 2-D
 function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
   DFloat = eltype(D)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   Nq = N + 1
 
@@ -46,7 +40,7 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     rhsU, rhsV = rhs[i, j, _U, e], rhs[i, j, _V, e]
     rhsρ, rhsE = rhs[i, j, _ρ, e], rhs[i, j, _E, e]
 
-    P = (R_gas/c_v)*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
+    P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
 
     ρinv = 1 / ρ
     fluxρ_x = U
@@ -72,7 +66,7 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
     # buoyancy term
-    rhsV -= MJ * ρ * gravity
+    rhsV -= MJ * ρ * grav
   end
 
   sync_threads()
@@ -108,12 +102,6 @@ end
 # {{{ Volume RHS for 3-D
 function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
   DFloat = eltype(D)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   Nq = N + 1
 
@@ -142,7 +130,7 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
     ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-    P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+    P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
 
     ρinv = 1 / ρ
     fluxρ_x = U
@@ -187,7 +175,7 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     rhsρ, rhsE = rhs[i, j, k, _ρ, e], rhs[i, j, k, _E, e]
 
     # buoyancy term
-    rhsW -= MJ * ρ * gravity
+    rhsW -= MJ * ρ * grav
   end
 
   sync_threads()
@@ -234,12 +222,6 @@ end
 function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
                       vmapP, elemtobndy) where {dim, N}
   DFloat = eltype(Q)
-  γ::DFloat       = _γ
-  p0::DFloat      = _p0
-  R_gas::DFloat   = _R_gas
-  c_p::DFloat     = _c_p
-  c_v::DFloat     = _c_v
-  gravity::DFloat = _gravity
 
   if dim == 1
     Np = (N+1)
@@ -276,10 +258,10 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
 
-        zM = vgeo[vidM, _z, eM]
+        yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = (R_gas/c_v)*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*zM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*yorzM)
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
@@ -287,8 +269,8 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
           VP = Q[vidP, _V, eP]
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
-          zP = vgeo[vidP, _z, eP]
-          PP = (R_gas/c_v)*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*zP)
+          yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
+          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*yorzP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
@@ -337,8 +319,8 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
         fluxWP_z = ρPinv * WP * WP + PP
         fluxEP_z = ρPinv * WP * (EP + PP)
 
-        λM = ρMinv * abs(nxM * UM + nyM * VM + nzM * WM) + CUDAnative.sqrt(ρMinv * γ * PM)
-        λP = ρPinv * abs(nxM * UP + nyM * VP + nzM * WP) + CUDAnative.sqrt(ρPinv * γ * PP)
+        λM = ρMinv * abs(nxM * UM + nyM * VM + nzM * WM) + CUDAnative.sqrt(ρMinv * gamma_d * PM)
+        λP = ρPinv * abs(nxM * UP + nyM * VP + nzM * WP) + CUDAnative.sqrt(ρPinv * gamma_d * PP)
         λ  =  max(λM, λP)
 
         #Compute Numerical Flux and Update
