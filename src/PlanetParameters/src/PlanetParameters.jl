@@ -1,12 +1,10 @@
 """
     PlanetParameters
 
-Module containing the planetary constants.
+Module containing physical constants and parameters characterizing the planet.
 """
 module PlanetParameters
 using ParametersType
-
-getval = ParametersType.getval
 
 # Physical constants
 @exportparameter gas_constant      8.3144598     "Universal gas constant (J/mol/K)"
@@ -26,23 +24,27 @@ getval = ParametersType.getval
 # Properties of water
 @exportparameter dens_liquid       1e3           "Density of liquid water (kg/m^3)"
 @exportparameter molmass_water     18.01528e-3   "Molecular weight (kg/mol)"
+@exportparameter molmass_ratio     molmass_air/
+                                   molmass_water "Molar mass ratio dry air/water"
 @exportparameter R_v               gas_constant/
                                    molmass_water "Gas constant water vapor (J/kg/K)"
 @exportparameter cp_v              1859          "Isobaric specific heat vapor (J/kg/K)"
 @exportparameter cp_l              4181          "Isobaric specific heat liquid (J/kg/K)"
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"
-@exportparameter Tfreeze           273.15        "Freezing point temperature (K)"
-@exportparameter T0                273.16        "Triple point temperature (K)"
-@exportparameter L_v0              2.5008e6      "Latent heat vaporization at T0 (J/kg)"
-@exportparameter L_s0              2.8341e6      "Latent heat sublimation at T0 (J/kg)"
-@exportparameter L_f0              L_s0 - L_v0   "Latent heat of fusion at T0 (J/kg)"
-@exportparameter sat_vapor_press_0 611.657       "Saturation vapor pressure at T0 (Pa)"
+@exportparameter T_freeze          273.15        "Freezing point temperature (K)"
+@exportparameter T_triple          273.16        "Triple point temperature (K)"
+@exportparameter T_0               T_trip        "Reference temperature (K)"
+@exportparameter L_v0              2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
+@exportparameter L_s0              2.8341e6      "Latent heat sublimation at T_0 (J/kg)"
+@exportparameter L_f0              L_s0 - L_v0   "Latent heat of fusion at T_0 (J/kg)"
+@exportparameter sat_vapor_press_triple  611.657 "Triple point saturation
+                                                  vapor pressure (Pa)"
 
 # Properties of sea water
 @exportparameter dens_ocean        1.035e3       "Reference density sea water (kg/m^3)"
 @exportparameter cp_ocean          3989.25       "Specific heat sea water (J/kg/K)"
 
-# Planetary exportparameter
+# Planetary parameters
 @exportparameter planet_radius     6.371e6       "Mean planetary radius (m)"
 @exportparameter day               86400         "Length of day (s)"
 @exportparameter Omega             7.2921159e-5  "Ang. velocity planetary rotation (1/s)"
@@ -50,6 +52,6 @@ getval = ParametersType.getval
 @exportparameter year_anom         365.26*day    "Length of anomalistic year (s)"
 @exportparameter orbit_semimaj     1*astro_unit  "Length of semimajor orbital axis (m)"
 @exportparameter TSI               1362          "Total solar irradiance (W/m^2)"
-@exportparameter mslp              1.01325e5     "Mean sea level pressure (Pa)"
+@exportparameter MSLP              1.01325e5     "Mean sea level pressure (Pa)"
 
 end
