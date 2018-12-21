@@ -17,6 +17,12 @@ struct Parameter{sym} <: Base.AbstractIrrational end
 
 Base.show(io::IO, x::Parameter{S}) where {S} = print(io, "$(string(x))")
 
+Base.:(==)(x::Parameter, y::AbstractFloat) = (getval(x) == y)
+Base.:(==)(x::Parameter, y::Irrational) = (getval(x) == y)
+Base.:(==)(x::Parameter, y::Rational) = (getval(x) == y)
+Base.:(==)(x::AbstractFloat, y::Parameter) = (x == getval(y))
+Base.:(==)(x::Irrational, y::Parameter) = (x == getval(y))
+Base.:(==)(x::Rational, y::Parameter) = (x == getval(y))
 Base.:(==)(x::Parameter, y::Parameter) = (getval(x) == getval(y))
 Base.:<(x::Parameter, y::Parameter) = (getval(x) < getval(y))
 Base.:<=(x::Parameter, y::Parameter) = (getval(x) <= getval(y))
