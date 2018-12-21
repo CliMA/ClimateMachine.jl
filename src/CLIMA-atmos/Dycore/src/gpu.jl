@@ -427,8 +427,15 @@ end
 # }}}
 
 # {{{ Kernel wrappers
-function volumerhs!(::Val{dim}, ::Val{N}, d_rhsC::CuArray, d_QC,
-                    d_vgeoC, d_D, elems) where {dim, N}
+function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
+                    d_vgeoL, d_D, elems) where {dim, N}
+  Qshape    = (ntuple(j->N+1, dim)..., size(d_QL, 2), size(d_QL, 3))
+  vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_QL, 3))
+
+  d_rhsC = reshape(d_rhsL, Qshape...)
+  d_QC = reshape(d_QL, Qshape)
+  d_vgeoC = reshape(d_vgeoL, vgeoshape)
+
   nelem = length(elems)
   @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
         knl_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, nelem))

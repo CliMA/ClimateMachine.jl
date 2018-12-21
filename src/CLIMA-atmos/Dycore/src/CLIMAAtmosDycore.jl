@@ -603,10 +603,6 @@ function lowstorageRK(::Val{dim}, ::Val{N}, mesh, vgeo, sgeo, Q, rhs, D,
   Qshape    = (fill(N+1, dim)..., size(Q, 2), size(Q, 3))
   vgeoshape = (fill(N+1, dim)..., _nvgeo, size(Q, 3))
 
-  d_QC = reshape(d_QL, Qshape)
-  d_rhsC = reshape(d_rhsL, Qshape...)
-  d_vgeoC = reshape(d_vgeoL, vgeoshape)
-
   start_time = t1 = time_ns()
   for step = 1:nsteps
     for s = 1:length(RKA)
@@ -629,7 +625,7 @@ function lowstorageRK(::Val{dim}, ::Val{N}, mesh, vgeo, sgeo, Q, rhs, D,
       end
 
       # volume RHS computation
-      volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, mesh.realelems)
+      volumerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, d_D, mesh.realelems)
 
       # wait on MPI receives
       MPI.Waitall!(recvreq)
