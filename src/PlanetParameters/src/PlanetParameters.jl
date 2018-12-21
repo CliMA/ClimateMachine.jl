@@ -33,7 +33,7 @@ using ParametersType
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"
 @exportparameter T_freeze          273.15        "Freezing point temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
-@exportparameter T_0               T_trip        "Reference temperature (K)"
+@exportparameter T_0               T_triple      "Reference temperature (K)"
 @exportparameter L_v0              2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
 @exportparameter L_s0              2.8341e6      "Latent heat sublimation at T_0 (J/kg)"
 @exportparameter L_f0              L_s0 - L_v0   "Latent heat of fusion at T_0 (J/kg)"
