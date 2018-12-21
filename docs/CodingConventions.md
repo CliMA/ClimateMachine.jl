@@ -4,6 +4,7 @@ A list of recommended coding conventions.
 
  - There are good recommendations in the Julia style-guide:
     - https://docs.julialang.org/en/v1/manual/style-guide/index.html
+    - https://docs.julialang.org/en/v0.6/manual/packages/#Guidelines-for-naming-a-package-1
 
  - While Unicode is permissable in the Julia language, we recommend to avoid using it (see below for why).
 
