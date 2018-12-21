@@ -21,7 +21,7 @@ using PlanetParameters
 # Atmospheric equation of state
 export air_pressure
 
-$ Specific heat of moist air
+# Specific heat of moist air
 export cp_m
 
 # Latent heats
