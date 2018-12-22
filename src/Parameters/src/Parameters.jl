@@ -1,6 +1,6 @@
-module ParametersType
+module Parameters
 
-export @parameter, @exportparameter, ParametersType
+export @parameter, @exportparameter, Parameters
 
 """
     Parameter{sym} <: Base.AbstractIrrational
@@ -52,7 +52,7 @@ macro parameter(sym, val, desc, doexport=false)
     Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
     Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
     Base.string(::Parameter{$qsym}) = $(string(ev))
-    ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
+    Parameters.getval(::Parameter{$qsym}) = $(esc(ev))
     """
         $($qsym)
 
@@ -82,7 +82,7 @@ macro exportparameter(sym, val, desc)
     Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
     Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
     Base.string(::Parameter{$qsym}) = $(string(ev))
-    ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
+    Parameters.getval(::Parameter{$qsym}) = $(esc(ev))
     """
         $($qsym)
 
