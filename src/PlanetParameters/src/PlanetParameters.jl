@@ -20,6 +20,7 @@ using Parameters
                                    molmass_dryair "Gas constant dry air (J/kg/K)"
 @exportparameter kappa_d           2//7          "Adiabatic exponent dry air"
 @exportparameter cp_d              R_d/kappa_d   "Isobaric specific heat dry air"
+@exportparameter cv_d              cp_d - R_d    "Isochoric specific heat dry air"
 
 # Properties of water
 @exportparameter dens_liquid       1e3           "Density of liquid water (kg/m^3)"
@@ -32,13 +33,13 @@ using Parameters
 @exportparameter cp_l              4181          "Isobaric specific heat liquid (J/kg/K)"
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"
 @exportparameter cv_v              cp_v - R_v    "Isochoric specific heat vapor (J/kg/K)"
-@exportparameter cv_l              cp_l          "Isobaric specific heat liquid (J/kg/K)"
-@exportparameter cv_i              2100          "Isobaric specific heat ice (J/kg/K)"
+@exportparameter cv_l              cp_l          "Isochoric specific heat liquid (J/kg/K)"
+@exportparameter cv_i              cp_i          "Isochoric specific heat ice (J/kg/K)"
 @exportparameter T_freeze          273.15        "Freezing point temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"
 @exportparameter LH_v0             2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
-@exportparameter LH_s0             2.8341e6      "Latent heat sublimation at T_0 (J/kg)"
+@exportparameter LH_s0             2.8344e6      "Latent heat sublimation at T_0 (J/kg)"
 @exportparameter LH_f0             LH_s0 - LH_v0  "Latent heat of fusion at T_0 (J/kg)"
 @exportparameter IE_v0             LH_v0 - R_v*T_0 "Specific internal energy of
                                                     vapor at T_0 (J/kg)"
