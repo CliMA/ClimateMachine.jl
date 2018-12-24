@@ -4,7 +4,7 @@
 Module containing physical constants and parameters characterizing the planet.
 """
 module PlanetParameters
-using ParametersType
+using Parameters
 
 # Physical constants
 @exportparameter gas_constant      8.3144598     "Universal gas constant (J/mol/K)"
@@ -31,14 +31,20 @@ using ParametersType
 @exportparameter cp_v              1859          "Isobaric specific heat vapor (J/kg/K)"
 @exportparameter cp_l              4181          "Isobaric specific heat liquid (J/kg/K)"
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"
+@exportparameter cv_v              cp_v - R_v    "Isochoric specific heat vapor (J/kg/K)"
+@exportparameter cv_l              cp_l          "Isobaric specific heat liquid (J/kg/K)"
+@exportparameter cv_i              2100          "Isobaric specific heat ice (J/kg/K)"
 @exportparameter T_freeze          273.15        "Freezing point temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"
-@exportparameter L_v0              2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
-@exportparameter L_s0              2.8341e6      "Latent heat sublimation at T_0 (J/kg)"
-@exportparameter L_f0              L_s0 - L_v0   "Latent heat of fusion at T_0 (J/kg)"
-@exportparameter sat_vapor_press_triple  611.657 "Triple point saturation
-                                                  vapor pressure (Pa)"
+@exportparameter LH_v0             2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
+@exportparameter LH_s0             2.8341e6      "Latent heat sublimation at T_0 (J/kg)"
+@exportparameter LH_f0             LH_s0 - LH_v0  "Latent heat of fusion at T_0 (J/kg)"
+@exportparameter IE_v0             LH_v0 - R_v*T_0 "Specific internal energy of
+                                                    vapor at T_0 (J/kg)"
+@exportparameter IE_i0             LH_f0         "Specific internal energy of
+                                                  ice at T_0 (J/kg)"
+@exportparameter press_triple      611.657       "Triple point vapor pressure (Pa)"
 
 # Properties of sea water
 @exportparameter dens_ocean        1.035e3       "Reference density sea water (kg/m^3)"
