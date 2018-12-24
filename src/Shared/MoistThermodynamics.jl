@@ -12,8 +12,8 @@ saturation vapor pressures.
 # gas_constant_moist([0, 1, 0.5], [0, 0, 0.5], [0, 0, 0]) == [R_d, R_v, R_d/2]
 # cp_m([0, 1, 1, 1], [0, 0, 1, 0], [0, 0, 0, 1]) == [cp_d, cp_v, cp_l, cp_i]
 # cv_m([0, 1, 1, 1], [0, 0, 1, 0], [0, 0, 0, 1]) == [cp_d - R_d, cp_v - R_v, cv_l, cv_i]
-# temperature(cv_d*(300-T_0).+[0, 10, 10], [0, 10, 0], [0, 0, 10], 0, 0, 0) == [300, 300, 300]
-# qt=0.23; temperature(cv_m([0, qt], 0, 0).*(300-T_0).+[0, qt*IE_v0], 0, 0, [0, qt], 0, 0) == [300, 300]
+# air_temperature(cv_d*(300-T_0).+[0, 10, 10], [0, 10, 0], [0, 0, 10], 0, 0, 0) == [300, 300, 300]
+# qt=0.23; air_temperature(cv_m([0, qt], 0, 0).*(300-T_0).+[0, qt*IE_v0], 0, 0, [0, qt], 0, 0) == [300, 300]
 # latent_heat_vapor(T_0) == LH_v0
 # latent_heat_fusion(T_0) == LH_f0
 # latent_heat_sublim(T_0) == LH_s0
@@ -23,7 +23,7 @@ saturation vapor pressures.
 using PlanetParameters
 
 # Atmospheric equation of state
-export air_pressure, temperature
+export air_pressure, air_temperature
 
 # Specific heats of moist air
 export cp_m, cv_m, gas_constant_moist
@@ -51,7 +51,7 @@ end
     air_pressure(T, density, q_t, q_l, q_i)
 
 Computes air pressure from the equation of state (ideal gas law) given
-the temperature `T`, `density`, and the total specific humidity `q_t`, the
+the air_temperature `T`, `density`, and the total specific humidity `q_t`, the
 liquid specific humidity `q_l`, and the ice specific humidity `q_i`.
 """
 function air_pressure(T, density, q_t, q_l, q_i)
@@ -87,13 +87,13 @@ function cv_m(q_t, q_l, q_i)
 end
 
 """
-    temperature(E_tot, KE, PE, q_t, q_l, q_i)
+    air_temperature(E_tot, KE, PE, q_t, q_l, q_i)
 
 Computes the temperature given the total energy `E_tot`, kinetic energy `KE`,
 potential energy `PE` (all per unit mass), and the total specific humidity `q_t`,
 the liquid specific humidity `q_l`, and the ice specific humidity `q_i`.
 """
-function temperature(energy_tot, kinetic_energy, potential_energy, q_t, q_l, q_i)
+function air_temperature(energy_tot, kinetic_energy, potential_energy, q_t, q_l, q_i)
 
     return T_0 .+ ( energy_tot .- kinetic_energy .- potential_energy
                 .- (q_t .- q_l) * IE_v0 .+ q_i * (IE_i0 - IE_v0)
