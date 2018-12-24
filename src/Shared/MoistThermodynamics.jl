@@ -51,7 +51,7 @@ end
     air_pressure(T, density, q_t, q_l, q_i)
 
 Computes air pressure from the equation of state (ideal gas law) given
-the air_temperature `T`, `density`, and the total specific humidity `q_t`, the
+the air temperature `T`, `density`, and the total specific humidity `q_t`, the
 liquid specific humidity `q_l`, and the ice specific humidity `q_i`.
 """
 function air_pressure(T, density, q_t, q_l, q_i)
