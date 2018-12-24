@@ -1,4 +1,4 @@
-# `ParametersType`
+# `Parameters`
 A simple type which allows for the specification of constant parameters in
 CLIMA.
 
@@ -17,7 +17,7 @@ julia --project
 Then one can execute:
 
 ```julia
-julia> using ParametersType
+julia> using Parameters
 
 julia> @parameter p1 3//5 "This is a parameter without units"
 p1
@@ -60,6 +60,6 @@ CodeInfo(
 
 To use this module in another part of CLIMA, you can load the module by using:
 ```julia
-]dev PATH_TO_CLIMA_SRC/ParametersType/
+]dev PATH_TO_CLIMA_SRC/Parameters/
 ```
 where `PATH_TO_CLIMA_SRC` is the relative path to the CLIMA source directory.
