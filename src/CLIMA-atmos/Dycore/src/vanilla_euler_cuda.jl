@@ -1,18 +1,6 @@
 # FIXME: Add link to https://github.com/paranumal/libparanumal here and in
 # advection (also update the license)
 
-# TODO: Should these be moved into vanilla_euler.jl?
-
-using .CUDAnative
-using .CUDAnative.CUDAdrv
-
-# {{{ reshape for CuArray
-function Base.reshape(A::CuArray, dims::NTuple{N, Int}) where {N}
-  @assert prod(dims) == prod(size(A))
-  CuArray{eltype(A), length(dims)}(dims, A.buf)
-end
-# }}}
-
 # {{{ Volume RHS for 2-D
 function k_vanilla_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D,
                               nelem) where N
