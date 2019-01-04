@@ -7,7 +7,7 @@ function main()
   @testset begin
     # Not sure how to really test this...
     @test @isdefined R_d
-    @test L_f0 == L_s0 - L_v0
+    @test LH_f0 == LH_s0 - LH_v0
   end
 end
 
