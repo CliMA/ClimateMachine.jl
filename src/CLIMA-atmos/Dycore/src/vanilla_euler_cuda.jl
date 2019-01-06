@@ -1,17 +1,9 @@
-using .CUDAnative
-using .CUDAnative.CUDAdrv
-
-# {{{ reshape for CuArray
-function Base.reshape(A::CuArray, dims::NTuple{N, Int}) where {N}
-  @assert prod(dims) == prod(size(A))
-  CuArray{eltype(A), length(dims)}(dims, A.buf)
-end
-# }}}
-
-sync(::Type{CuArray}) = synchronize()
+# FIXME: Add link to https://github.com/paranumal/libparanumal here and in
+# advection (also update the license)
 
 # {{{ Volume RHS for 2-D
-function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
+function k_vanilla_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D,
+                              nelem) where N
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -100,7 +92,8 @@ end
 # }}}
 
 # {{{ Volume RHS for 3-D
-function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
+function k_vanilla_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D,
+                              nelem) where N
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -219,8 +212,8 @@ end
 # }}}
 
 # {{{ Face RHS (all dimensions)
-function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
-                      vmapP, elemtobndy) where {dim, N}
+function k_vanilla_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem,
+                            vmapM, vmapP, elemtobndy) where {dim, N}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -349,28 +342,9 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
 end
 # }}}
 
-# {{{ Update solution (for all dimensions)
-function knl_updatesolution!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, nelem, rka,
-                             rkb, dt) where {dim, N}
-  (i, j, k) = threadIdx()
-  e = blockIdx().x
-
-  Nq = N+1
-  @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
-    n = i + (j-1) * Nq + (k-1) * Nq * Nq
-    MJI = vgeo[n, _MJI, e]
-    for s = 1:_nstate
-      Q[n, s, e] += rkb * dt * rhs[n, s, e] * MJI
-      rhs[n, s, e] *= rka
-    end
-  end
-  nothing
-end
-# }}}
-
 # {{{ Fill sendQ on device with Q (for all dimensions)
-function knl_fillsendQ!(::Val{dim}, ::Val{N}, sendQ, Q,
-                        sendelems) where {N, dim}
+function k_vanilla_fillsendQ!(::Val{dim}, ::Val{N}, sendQ, Q,
+                              sendelems) where {N, dim}
   Nq = N + 1
   (i, j, k) = threadIdx()
   e = blockIdx().x
@@ -387,8 +361,8 @@ end
 # }}}
 
 # {{{ Fill Q on device with recvQ (for all dimensions)
-function knl_transferrecvQ!(::Val{dim}, ::Val{N}, Q, recvQ, nelem,
-                            nrealelem) where {N, dim}
+function k_vanilla_transferrecvQ!(::Val{dim}, ::Val{N}, Q, recvQ, nelem,
+                                  nrealelem) where {N, dim}
   Nq = N + 1
   (i, j, k) = threadIdx()
   e = blockIdx().x
@@ -404,31 +378,31 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendQ!(::Val{dim}, ::Val{N}, sendQ, d_sendQ::CuArray,
-                    d_QL, d_sendelems) where {dim, N}
+function vanilla_fillsendQ!(::Val{dim}, ::Val{N}, sendQ, d_sendQ::CuArray,
+                            d_QL, d_sendelems) where {dim, N}
   nsendelem = length(d_sendelems)
   if nsendelem > 0
     @cuda(threads=ntuple(j->N+1, dim), blocks=nsendelem,
-          knl_fillsendQ!(Val(dim), Val(N), d_sendQ, d_QL, d_sendelems))
+          k_vanilla_fillsendQ!(Val(dim), Val(N), d_sendQ, d_QL, d_sendelems))
     sendQ .= d_sendQ
   end
 end
 
-function transferrecvQ!(::Val{dim}, ::Val{N}, d_recvQ::CuArray, recvQ,
-                        d_QL, nrealelem) where {dim, N}
+function vanilla_transferrecvQ!(::Val{dim}, ::Val{N}, d_recvQ::CuArray, recvQ,
+                                d_QL, nrealelem) where {dim, N}
   nrecvelem = size(recvQ)[end]
   if nrecvelem > 0
     d_recvQ .= recvQ
     @cuda(threads=ntuple(j->N+1, dim), blocks=nrecvelem,
-          knl_transferrecvQ!(Val(dim), Val(N), d_QL, d_recvQ, nrecvelem,
-                             nrealelem))
+          k_vanilla_transferrecvQ!(Val(dim), Val(N), d_QL, d_recvQ, nrecvelem,
+                                   nrealelem))
   end
 end
 # }}}
 
 # {{{ Kernel wrappers
-function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
-                    d_vgeoL, d_D, elems) where {dim, N}
+function vanilla_volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
+                            d_vgeoL, d_D, elems) where {dim, N}
   Qshape    = (ntuple(j->N+1, dim)..., size(d_QL, 2), size(d_QL, 3))
   vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_QL, 3))
 
@@ -438,22 +412,16 @@ function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
 
   nelem = length(elems)
   @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
-        knl_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, nelem))
+        k_vanilla_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, nelem))
 end
 
-function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo, d_sgeo,
-                  elems, d_vmapM, d_vmapP, d_elemtobndy) where {dim, N}
+function vanilla_facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo,
+                          d_sgeo, elems, d_vmapM, d_vmapP,
+                          d_elemtobndy) where {dim, N}
   nelem = length(elems)
   @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, nelem,
-                     d_vmapM, d_vmapP, d_elemtobndy))
+        k_vanilla_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, nelem,
+                           d_vmapM, d_vmapP, d_elemtobndy))
 end
 
-function updatesolution!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
-                         d_vgeoL, elems, rka, rkb, dt) where {dim, N}
-  nelem = length(elems)
-  @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
-        knl_updatesolution!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeoL, nelem, rka,
-                            rkb, dt))
-end
 # }}}
