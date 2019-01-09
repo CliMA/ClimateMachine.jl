@@ -1,6 +1,6 @@
-module Parameters
+module ParametersType
 
-export @parameter, @exportparameter, Parameters
+export @parameter, @exportparameter, ParametersType
 
 """
     Parameter{sym} <: Base.AbstractIrrational
@@ -10,7 +10,7 @@ Number type representing a constant parameter value denoted by the symbol `sym`.
 !!! note
 
 AbstractIrrational is used here inorder to inherit the behavior from the Base.
-Parameters need not be Irrational numbers.
+ParametersType need not be Irrational numbers.
 
 """
 struct Parameter{sym} <: Base.AbstractIrrational end
@@ -52,7 +52,7 @@ macro parameter(sym, val, desc, doexport=false)
     Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
     Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
     Base.string(::Parameter{$qsym}) = $(string(ev))
-    Parameters.getval(::Parameter{$qsym}) = $(esc(ev))
+    ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
     """
         $($qsym)
 
@@ -82,7 +82,7 @@ macro exportparameter(sym, val, desc)
     Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
     Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
     Base.string(::Parameter{$qsym}) = $(string(ev))
-    Parameters.getval(::Parameter{$qsym}) = $(esc(ev))
+    ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
     """
         $($qsym)
 

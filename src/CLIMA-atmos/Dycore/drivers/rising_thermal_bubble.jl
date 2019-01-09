@@ -9,7 +9,7 @@ using CLIMAAtmosDycore
 using Canary
 using MPI
 using PlanetParameters: R_d, cp_d, grav
-using Parameters
+using ParametersType
 @parameter cv_d cp_d-R_d "Isochoric specific heat dry air"
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
