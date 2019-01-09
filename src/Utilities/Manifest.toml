@@ -1,0 +1,10 @@
+[[Parameters]]
+path = "../Parameters"
+uuid = "046d00ba-03b1-11e9-3cca-b5213a01defd"
+version = "0.0.0"
+
+[[PlanetParameters]]
+deps = ["Parameters"]
+path = "../PlanetParameters"
+uuid = "50a4fe1a-031f-11e9-2493-0505e0da639e"
+version = "0.0.0"
