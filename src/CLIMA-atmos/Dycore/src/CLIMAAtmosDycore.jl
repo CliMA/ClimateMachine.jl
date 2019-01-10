@@ -5,7 +5,7 @@ using Canary, MPI, Requires
 using Logging
 
 using PlanetParameters: R_d, cp_d, cv_d, grav
-using Parameters
+using ParametersType
 
 @init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
   using .CUDAnative

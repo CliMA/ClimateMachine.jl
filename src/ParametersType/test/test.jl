@@ -1,5 +1,5 @@
 using Test
-using Parameters
+using ParametersType
 @parameter a π "parameter a"
 @parameter b π "parameter b"
 @parameter c 2a+b "parameter c"
@@ -10,7 +10,7 @@ end
 @parameter e bar() "parameter d"
 
 module Foo
-  using Parameters
+  using ParametersType
   @parameter a1 π "parameter a1"
   @parameter b1 π "parameter b1"
   @parameter c1 2a1+b1 "parameter c1"
@@ -45,12 +45,12 @@ function main()
     @test !(a>c)
 
     # Check some more advanced equalities
-    @test Parameters.getval(a) == π
+    @test ParametersType.getval(a) == π
     @test a == π
-    @test Parameters.getval(a) != Float64(π)
-    @test Parameters.getval(d) == 2//3
+    @test ParametersType.getval(a) != Float64(π)
+    @test ParametersType.getval(d) == 2//3
     @test d == 2//3
-    @test Parameters.getval(d) != Float64(2//3)
+    @test ParametersType.getval(d) != Float64(2//3)
     @test e == bar()
 
     # check types
