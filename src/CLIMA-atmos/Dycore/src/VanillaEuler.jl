@@ -57,7 +57,7 @@ See Julia github issue [#25167](https://github.com/JuliaLang/julia/issues/25167)
 
 """
 # {{{ Parameters
-@kwdef struct Parameters
+@kwdef struct Parameters # <: AD.AbstractSpaceParameter
   """
   Compute data type
 
@@ -121,7 +121,6 @@ See Julia github issue [#25167](https://github.com/JuliaLang/julia/issues/25167)
   """
   N::Int
 end
-AD.createparameters(::Val{:VanillaEuler}; args...) = Parameters(;args...)
 # }}}
 
 """
@@ -131,7 +130,7 @@ Data structure containing the configuration data for the vanilla DG
 discretization of the compressible Euler equations
 """
 # {{{ Configuration
-struct Configuration{DeviceArray, HostArray} <: AD.AbstractSpaceConfiguration
+struct Configuration{DeviceArray, HostArray} #<: AD.AbstractSpaceConfiguration
   "mpi communicator use for spatial discretization are using"
   mpicomm
   "mesh data structure from Canary"
@@ -217,9 +216,7 @@ struct Configuration{DeviceArray, HostArray} <: AD.AbstractSpaceConfiguration
                                 DeviceArray(recvQ), DeviceArray(D))
   end
 end
-AD.createconfiguration(p::Parameters, m) = Configuration(p, m)
 # }}}
-
 
 """
     State
@@ -228,7 +225,7 @@ Data structure containing the state data for the vanilla DG discretization of
 the compressible Euler equations
 """
 # {{{ State
-struct State{DeviceArray} <: AD.AbstractSpaceState
+struct State{DeviceArray} #<: AD.AbstractSpaceState
   time
   Q::DeviceArray
   function State(config::Configuration{DeviceArray, HostArray},
@@ -240,54 +237,77 @@ struct State{DeviceArray} <: AD.AbstractSpaceState
     new{DeviceArray}(time, Q)
   end
 end
-AD.createstate(c::Configuration, p::Parameters) = State(c, p)
-AD.gettime(s::State) = s.time[1]
-AD.settime!(s::State, time) = s.time[1] = time
-AD.getQ(s::State) = s.Q
-AD.getmesh(s::State, c::Configuration, p::Parameters) = c.mesh
 # }}}
 
-function Base.show(io::IO, (s, c, p)::Tuple{State, Configuration, Parameters})
-  eng = AD.L2solutionnorm(s, c, p; host=true)
-  print(io, "VanillaEuler with norm2(Q) = ", eng, " at time = ", AD.gettime(s))
+"""
+    Runner
+
+Data structure containing the runner for the vanilla DG discretization of
+the compressible Euler equations
+
+"""
+# {{{ Runner
+struct Runner{DeviceArray<:AbstractArray} <: AD.AbstractSpaceRunner
+  params::Parameters
+  config::Configuration
+  state::State
+  function Runner(mpicomm; args...)
+    params = Parameters(;args...)
+    config = Configuration(params, mpicomm)
+    state = State(config, params)
+    new{params.DeviceArray}(params, config, state)
+  end
+end
+AD.createrunner(::Val{:VanillaEuler}, m; a...) = Runner(m; a...)
+# }}}
+
+# {{{ show
+function Base.show(io::IO, runner::Runner)
+  eng = AD.L2solutionnorm(runner; host=true)
+  print(io, "VanillaEuler with norm2(Q) = ", eng, " at time = ",
+        AD.gettime(runner))
 end
 
 function Base.show(io::IO, ::MIME"text/plain",
-                   (s, c, p)::Tuple{S, Configuration, Parameters}
-                  ) where S <: State{DeviceArray} where DeviceArray
+                   runner::Runner{DeviceArray}) where DeviceArray
+  state = runner.state
+  params = runner.params
+  config = runner.config
   println(io, "VanillaEuler with:")
-  DFloat = eltype(s.Q)
-  eng = AD.L2solutionnorm(s, c, p; host=true)
+  DFloat = eltype(state.Q)
+  eng = AD.L2solutionnorm(runner; host=true)
   println(io, "   DeviceArray = ", DeviceArray)
   println(io, "   DFloat      = ", DFloat)
   println(io, "   norm2(Q)    = ", eng)
-  println(io, "   time        = ", AD.gettime(s))
-  println(io, "   N           = ", p.N)
-  println(io, "   dim         = ", p.dim)
-  println(io, "   mpisize     = ", MPI.Comm_size(c.mpicomm))
+  println(io, "   time        = ", AD.gettime(runner))
+  println(io, "   N           = ", params.N)
+  println(io, "   dim         = ", params.dim)
+  println(io, "   mpisize     = ", MPI.Comm_size(config.mpicomm))
 end
+# }}}
 
 # {{{ similarQ
-AD.similarQ(c::Configuration, x...) = similarQ(c, x...)
-
+AD.similarQ(space::Runner, x...) = similarQ(space, x...)
+similarQ(space::Runner, x...) = similarQ(space.config, x...)
 similarQ(c::Configuration) =
 similarQ(c, (size(c.vgeo,1), _nstate, size(c.vgeo,3)))
-
 similarQ(c::Configuration, x...) = similar(c.vgeo, x...)
 # }}}
 
-# {{{ initspacestate!
-function AD.initspacestate!(ic::Function,
-                            jointstate::AD.State{State{DeviceArray}, T},
-                            jointconfig::AD.Configuration,
-                            jointparams::AD.Parameters;
-                            host=false) where {DeviceArray, T}
+AD.gettime(r::Runner) = r.state.time[1]
+AD.settime!(r::Runner, time) = r.state.time[1] = time
+AD.getQ(r::Runner) = r.state.Q
+AD.getmesh(r::Runner) = r.config.mesh
+
+# {{{ initstate!
+function AD.initstate!(ic::Function, runner::Runner{DeviceArray};
+                       host=false) where DeviceArray
 
   host || error("Currently requires host configuration")
 
   # Pull out the config and state
-  config::Configuration = jointconfig.space
-  state::State  = jointstate.space
+  config::Configuration = runner.config
+  state::State = runner.state
 
   # Get the number of elements
   cpubackend = DeviceArray == Array
@@ -358,14 +378,12 @@ end
 # }}}
 
 # {{{ cfl
-function AD.estimatedt(jointstate::AD.State{State{DeviceArray}, T},
-                       jointconfig::AD.Configuration,
-                       jointparams::AD.Parameters;
-                       host=false) where {DeviceArray, T}
+function AD.estimatedt(runner::Runner{DeviceArray};
+                       host=false) where {DeviceArray}
   host || error("Currently requires host configuration")
-  state = jointstate.space
-  config = jointconfig.space
-  params = jointparams.space
+  state = runner.state
+  config = runner.config
+  params = runner.params
   cpubackend = DeviceArray == Array
   vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
   Q = cpubackend ? state.Q : Array(state.Q)
@@ -420,14 +438,18 @@ end
 #}}}
 
 # {{{ writevtk
-function AD.writevtk(prefix, Q::Array, vgeo::Array,
-                     jointstate::AD.State{State{DeviceArray}, T},
-                     jointconfig::AD.Configuration,
-                     jointparams::AD.Parameters) where {DeviceArray, T}
-
-  params = jointparams.space
-  config = jointconfig.space
-  state = jointstate.space
+function AD.writevtk(runner::Runner{DeviceArray}, prefix;
+                     Q = nothing, vgeo = nothing) where DeviceArray
+  state = runner.state
+  config = runner.config
+  params = runner.params
+  cpubackend = DeviceArray == Array
+  if vgeo == nothing
+    vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
+  end
+  if Q == nothing
+    Q = cpubackend ? state.Q : Array(state.Q)
+  end
 
   Nq  = params.N+1
   dim = params.dim
@@ -444,26 +466,16 @@ function AD.writevtk(prefix, Q::Array, vgeo::Array,
             fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
             realelems=config.mesh.realelems)
 end
-
-function AD.writevtk(prefix,
-                     jointstate::AD.State{State{DeviceArray}, T},
-                     jointconfig::AD.Configuration,
-                     jointparams::AD.Parameters) where {DeviceArray, T}
-  config = jointconfig.space
-  state = jointstate.space
-  cpubackend = DeviceArray == Array
-  vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
-  Q = cpubackend ? state.Q : Array(state.Q)
-  AD.writevtk(prefix, Q, vgeo, jointstate, jointconfig, jointparams)
-end
 # }}}
 
 # {{{ L2 Energy (for all dimensions)
-function AD.L2solutionnorm(state::State{DeviceArray}, config::Configuration,
-                           params::Parameters;
+function AD.L2solutionnorm(runner::Runner{DeviceArray};
                            host=false, Q = nothing, vgeo = nothing
                           ) where DeviceArray
   host || error("Currently requires host configuration")
+  state = runner.state
+  config = runner.config
+  params = runner.params
   cpubackend = DeviceArray == Array
   if vgeo == nothing
     vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
@@ -495,8 +507,11 @@ end
 # }}}
 
 # {{{ RHS function
-function AD.rhs!(rhs::DeviceArray, state::State{DeviceArray},
-                 config::Configuration, params::Parameters) where DeviceArray
+function AD.rhs!(rhs::DeviceArray,
+                 runner::Runner{DeviceArray}) where DeviceArray
+  state = runner.state
+  config = runner.config
+  params = runner.params
   mesh = config.mesh
   mpicomm = config.mpicomm
   sendreq = config.sendreq
@@ -942,6 +957,5 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems,
   end
 end
 # }}}
-
 
 end

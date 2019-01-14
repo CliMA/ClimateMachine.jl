@@ -52,28 +52,25 @@ function main()
     for dim in (2,3)
       for backend in (HAVE_CUDA ? (CuArray, Array) : (Array,))
 
-        # Setup the parameters
-        params = AD.Parameters(#Space Discretization and Parameters
-                               :VanillaEuler,
-                               (DFloat = DFloat,
-                                DeviceArray = backend,
-                                meshgenerator = (part, numparts) ->
-                                meshgenerator(part, numparts, Ne, dim,
-                                              DFloat),
-                                dim = dim,
-                                gravity = true,
-                                N = N,
-                               ),
-                               # Time Discretization and Parameters
-                               :LSRK,
-                               (),
-                              )
-        config = AD.Configuration(params, mpicomm)
-        state = AD.State(config, params)
-
+        runner = AD.Runner(mpicomm,
+                           #Space Discretization and Parameters
+                           :VanillaEuler,
+                           (DFloat = DFloat,
+                            DeviceArray = backend,
+                            meshgenerator = (part, numparts) ->
+                            meshgenerator(part, numparts, Ne, dim,
+                                          DFloat),
+                            dim = dim,
+                            gravity = true,
+                            N = N,
+                           ),
+                           # Time Discretization and Parameters
+                           :LSRK,
+                           (),
+                          )
 
         # Set the initial condition with a function
-        AD.initspacestate!(state, config, params, host=true) do (x...)
+        AD.initspacestate!(runner, host=true) do (x...)
           DFloat = eltype(x)
           γ::DFloat       = gamma_d
           p0::DFloat      = 100000
@@ -109,33 +106,32 @@ function main()
         end
 
         # Compute a (bad guess) for the time step
-        base_dt = AD.estimatedt(state, config, params, host=true) / N^√2
+        base_dt = AD.estimatedt(runner, host=true) / N^√2
         nsteps = ceil(Int64, timeend / base_dt)
         dt = timeend / nsteps
 
         # Set the time step
-        AD.inittimestate!(dt, state, config, params)
+        AD.inittimestate!(dt, runner)
 
-
-        eng0 = AD.L2solutionnorm(state, config, params; host=true)
+        eng0 = AD.L2solutionnorm(runner; host=true)
         # mpirank == 0 && @show eng0
 
         # Setup the info callback
         io = mpirank == 0 ? stdout : open("/dev/null", "w")
-        show(io, "text/plain", (state.space, config.space, params.space))
+        show(io, "text/plain", runner[:space])
         cbinfo = AD.GenericCallbacks.EveryXWallTimeSecondsCallback(10) do
-          println(io, (state.space, config.space, params.space))
+          println(io, runner[:space])
         end
 
         # Setup the vtk callback
         mkpath("viz")
-        dump_vtk(step) = AD.writevtk("viz/RTB"*
+        dump_vtk(step) = AD.writevtk(runner,
+                                     "viz/RTB"*
                                      "_dim_$(dim)"*
                                      "_DFloat_$(DFloat)"*
                                      "_backend_$(backend)"*
                                      "_mpirank_$(mpirank)"*
-                                     "_step_$(step)",
-                                     state, config, params)
+                                     "_step_$(step)")
         step = 0
         cbvtk = AD.GenericCallbacks.EveryXSimulationSteps(10) do
           # TODO: We should add queries back to time stepper for this
@@ -145,11 +141,10 @@ function main()
         end
 
         dump_vtk(0)
-        AD.run!(state, config, params; numberofsteps=nsteps,
-                callbacks=(cbinfo, cbvtk))
+        AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk))
         dump_vtk(nsteps)
 
-        engf = AD.L2solutionnorm(state, config, params; host=true)
+        engf = AD.L2solutionnorm(runner; host=true)
 
         mpirank == 0 && @show engf
         mpirank == 0 && @show eng0 - engf

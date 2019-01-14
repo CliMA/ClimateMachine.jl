@@ -57,18 +57,16 @@ struct EveryXSimulationTime
   "function to execute for callback"
   func::Function
   "pointer to the space state to query for time"
-  space_state::AD.AbstractSpaceState
-  function EveryXSimulationTime(func, Δtime, space_state::AD.AbstractSpaceState)
-    lastcbtime = [AD.gettime(space_state)]
-    new(lastcbtime, Δtime, func, space_state)
+  runner::AD.Runner
+  function EveryXSimulationTime(func, Δtime, runner)
+    lastcbtime = [AD.gettime(runner)]
+    new(lastcbtime, Δtime, func, runner)
   end
-  EveryXSimulationTime(func, Δtime, state::AD.State) =
-  EveryXSimulationTime(func, Δtime, state.space)
 end
 function (cb::EveryXSimulationTime)(initialize::Bool=false)
   "Is this an initialization call? If so, start the timers"
   if initialize
-    cb.lastcbtime[1] = AD.gettime(bc.space_state)
+    cb.lastcbtime[1] = AD.gettime(cb.runner)
     "If this is initialization init the callback too"
     try
       cb.func(true)
@@ -78,7 +76,7 @@ function (cb::EveryXSimulationTime)(initialize::Bool=false)
   end
 
   "Check whether we should do a callback"
-  currtime = AD.gettime(cb.space_state)
+  currtime = AD.gettime(cb.runner)
   if (currtime - cb.lastcbtime[1]) < cb.Δtime
     return 0
   else

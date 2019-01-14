@@ -1,105 +1,84 @@
+# I do not think that we need these now...
+# abstract type AbstractSpaceParameter end
+# abstract type AbstractTimeParameter end
+# abstract type AbstractSpaceConfiguration end
+# abstract type AbstractTimeConfiguration end
+# abstract type AbstractSpaceState end
+# abstract type AbstractTimeState end
 
 """
-    Parameters
+    Runner
 
-Data structure containing the spatial and temporal parameter structures
-
-!!! note
-We may want to update this with Abstract types for the space and time parameters
-once we upgrade the project to Julia 1.1 since `Base.@kwdefs` will support
-parametric structs and structs with supertypes.
+Data structure containing the spatial and temporal Runner structures
 
 """
-# abstract type AbstractSpaceParameter end # Should we have this?
-# abstract type AbstractTimeParameter end # Should we have this?
-struct Parameters{SpaceMethod, TimeMethod}
-  "Parameters structure for the spacial discretization"
-  space
-  "Parameters structure for the temporal discretization"
-  time
-end
-function Parameters(spacemethod, spaceargs, timemethod, timeargs)
-  space = createparameters(Val(spacemethod); spaceargs...)
-  time = createparameters(Val(timemethod); timeargs...)
-  Parameters{Val(spacemethod), Val(timemethod)}(space, time)
-end
-
-"""
-    Configuration
-
-Data structure containing the spatial and temporal configuration structures
-
-"""
-abstract type AbstractSpaceConfiguration end
-abstract type AbstractTimeConfiguration end
-struct Configuration{S <: AbstractSpaceConfiguration,
-                     T <: AbstractTimeConfiguration}
-  "Configuration structure for the spacial discretization"
-  space::S
-  "Configuration structure for the temporal discretization"
-  time::T
-end
-function Configuration(params::Parameters, mpicomm)
-  space = createconfiguration(params.space, mpicomm)
-  time = createconfiguration(params.time, mpicomm, (space, params.space))
-  Configuration(space, time)
+abstract type AbstractSpaceRunner end
+abstract type AbstractTimeRunner end
+struct Runner{SpaceType<:AbstractSpaceRunner, TimeType<:AbstractTimeRunner}
+  "Runner structure for the spacial discretization"
+  _space_::SpaceType
+  "Runner structure for the temporal discretization"
+  _time_::TimeType
+  function Runner(mpicomm,
+                  spacemethod::Symbol, spaceargs,
+                  timemethod::Symbol, timeargs)
+    space = createrunner(Val(spacemethod), mpicomm; spaceargs...)
+    time = createrunner(Val(timemethod), mpicomm, space; timeargs...)
+    Runner(space, time)
+  end
+  Runner(space, time) = new{typeof(space), typeof(time)}(space, time)
 end
 
-"""
-    State
-
-Data structure containing the spatial and temporal state structures
-
-"""
-abstract type AbstractSpaceState end
-abstract type AbstractTimeState end
-struct State{S <: AbstractSpaceState,
-             T <: AbstractTimeState}
-  "State structure for the spacial discretization"
-  space::S
-  "State structure for the temporal discretization"
-  time::T
-end
-function State(config::Configuration, params::Parameters)
-  space = createstate(config.space, params.space)
-  time = createstate(config.time, params.time,
-                     (space, config.space, params.space))
-  State(space, time)
+Base.getindex(r::Runner, s) = r[Symbol(s)]
+function Base.getindex(r::Runner, s::Symbol)
+  s == :space && return r._space_
+  s == :time && return r._time_
+  error("Runner can be accessed with \"space\" or \"time\" strings or Symbols")
 end
 
-# Some convenience function wrappers
-L2solutionnorm(state::State, config::Configuration,
-               params::Parameters, x...; kw...) =
-L2solutionnorm(state.space, config.space, params.space, x...; kw...)
+createrunner(::Val{T}, a...) where T =
+error("No implementation of `createrunner` method `$(T)`")
 
-# TODO: Document these more fully and specify what exactly should be implemented
-# Function to be implemented by space discretization
-# REQUIRED (called by library)
-createparameters() = error("no implementation")
-createconfiguration() = error("no implementation")
-createstate() = error("no implementation")
-gettime() = error("no implementation")
-settime!() = error("no implementation")
-getQ() = error("no implementation")
-similarQ() = error("no implementation")
-getmesh() = error("no implementation")
-rhs!() = error("no implementation")
+similarQ(space::AbstractSpaceRunner) =
+error("no implementation of `similarQ` for `$(typeof(space))`")
 
-# OPTIONAL (called by user)
-initspacestate!() = error("no implementation")
-estimatedt() = error("no implementation")
-writevtk() = error("no implementation")
-L2solutionnorm() = error("no implementation")
+gettime(r::Runner) = gettime(r[:space])
+gettime(r::AbstractSpaceRunner) =
+error("no implementation of `gettime` for `$(typeof(r))`")
 
+settime!(r::Runner) = settime!(r[:space])
+settime!(r::AbstractSpaceRunner) =
+error("no implementation of `settime!` for `$(typeof(r))`")
 
-# Function to be implemented by time discretization
-# REQUIRED (called by library)
-run!() = error("no implementation")
-# createparameters() = error("no implementation")
-# createconfiguration() = error("no implementation")
-# createstate() = error("no implementation")
+initspacestate!(x, r::Runner; a...) = initstate!(x, r[:space]; a...)
+inittimestate!(x, r::Runner; a...) = initstate!(x, r[:time]; a...)
+initstate!(x, r::Union{AbstractSpaceRunner, AbstractTimeRunner}; a...) =
+error("no implementation of `initstate!` for `$(typeof(r))`")
 
-# OPTIONAL (called by user)
-inittimestate!() = error("no implementation")
-printtimeinfo() = error("no implementation")
+estimatedt(r::Runner; a...) = estimatedt(r[:space]; a...)
+estimatedt(r::AbstractSpaceRunner; a...) =
+error("no implementation of `estimatedt` for `$(typeof(r))`")
 
+L2solutionnorm(r::Runner, x...; kw...) = L2solutionnorm(r[:space], x...; kw...)
+L2solutionnorm(r::AbstractSpaceRunner, x...; kw...) =
+error("no implementation of `L2solutionnorm` for `$(typeof(r))`")
+
+writevtk(r::Runner, x...; kw...) = writevtk(r[:space], x...; kw...)
+writevtk(r::AbstractSpaceRunner, x...; kw...) =
+error("no implementation of `writevtk` for `$(typeof(r))`")
+
+run!(r::Runner; kw...) = run!(r[:time], r[:space]; kw...)
+run!(time::AbstractTimeRunner, space::AbstractSpaceRunner; kw...) =
+error("no implementation of `run!` for `$(typeof(time))`")
+
+getQ(r::Runner) = getQ(r[:space])
+getQ(r::AbstractSpaceRunner) =
+error("no implementation of `getQ` for `$(typeof(r))`")
+
+getmesh(r::Runner) = getmesh(r[:space])
+getmesh(r::AbstractSpaceRunner) =
+error("no implementation of `getmesh` for `$(typeof(r))`")
+
+rhs!(rhs, r::Runner) = rhs!(rhs, r[:space])
+rhs!(rhs, r::AbstractSpaceRunner) =
+error("no implementation of `rhs!` for `$(typeof(r))`")

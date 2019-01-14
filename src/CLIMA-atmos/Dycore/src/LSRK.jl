@@ -12,15 +12,15 @@ end
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
 using Base: @kwdef
+
 """
     Parameters
 
 Data structure containing the low storage RK parameters
 """
 # {{{ Parameters
-@kwdef struct Parameters
+@kwdef struct Parameters # <: AD.AbstractTimeParameter
 end
-AD.createparameters(::Val{:LSRK}; args...) = Parameters(;args...)
 # }}}
 
 """
@@ -29,7 +29,7 @@ AD.createparameters(::Val{:LSRK}; args...) = Parameters(;args...)
 Data structure containing the low storage RK configuration
 """
 # {{{ Configuration
-struct Configuration{DFloat} <: AD.AbstractTimeConfiguration
+struct Configuration{DFloat} # <: AD.AbstractTimeConfiguration
   "low storage RK coefficient vector A (rhs scaling)"
   RKA
   "low storage RK coefficient vector B (rhs add in scaling)"
@@ -38,10 +38,10 @@ struct Configuration{DFloat} <: AD.AbstractTimeConfiguration
   RKC
   "Storage for RHS during the LSRK update"
   rhs
-  function Configuration(timeparams::Parameters,
+  function Configuration(params::Parameters,
                          mpicomm,
-                         spaceconfig::AD.AbstractSpaceConfiguration)
-    rhs = AD.similarQ(spaceconfig)
+                         space::AD.AbstractSpaceRunner)
+    rhs = AD.similarQ(space)
     fill!(rhs, 0)
 
     DFloat = eltype(rhs)
@@ -63,11 +63,9 @@ struct Configuration{DFloat} <: AD.AbstractTimeConfiguration
            DFloat(2006345519317) / DFloat(3224310063776),
            DFloat(2802321613138) / DFloat(2924317926251))
 
-
     new{DFloat}(RKA, RKB, RKC, rhs)
   end
 end
-AD.createconfiguration(p::Parameters, m, sp) = Configuration(p, m, sp[1])
 #}}}
 
 """
@@ -76,7 +74,7 @@ AD.createconfiguration(p::Parameters, m, sp) = Configuration(p, m, sp[1])
 Data structure containing the low storage RK state
 """
 # {{{ State
-mutable struct State{DFloat} <: AD.AbstractTimeState
+mutable struct State{DFloat} # <: AD.AbstractTimeState
   """
   `DfloatReal` number specifying the time step
 
@@ -86,35 +84,55 @@ mutable struct State{DFloat} <: AD.AbstractTimeState
   no default value
   """
   dt::DFloat
-  function State(timeconfig::Configuration, x...)
-    DFloat = eltype(timeconfig.rhs)
+  function State(config::Configuration, x...)
+    DFloat = eltype(config.rhs)
     new{DFloat}(zero(DFloat))
   end
-end
-AD.createstate(c::Configuration, x...) = State(c, x...)
-
-function AD.inittimestate!(dt::Real, jointstate::AD.State{SP, T},
-                           jointconfig::AD.Configuration,
-                           jointparams::AD.Parameters) where {SP, T<:State}
-  jointstate.time.dt = dt
 end
 
 # }}}
 
-function AD.run!(jointstate::AD.State{SP, T},
-                 jointconfig::AD.Configuration,
-                 jointparams::AD.Parameters;
+"""
+    Runner
+
+Data structure containing the runner for the vanilla DG discretization of
+the compressible Euler equations
+
+"""
+# {{{ Runner
+struct Runner <: AD.AbstractTimeRunner
+  params::Parameters
+  config::Configuration
+  state::State
+  function Runner(mpicomm, space::AD.AbstractSpaceRunner; args...)
+    params = Parameters(;args...)
+    config = Configuration(params, mpicomm, space)
+    state = State(config, params, space)
+    new(params, config, state)
+  end
+end
+AD.createrunner(::Val{:LSRK}, m, s; a...) = Runner(m, s; a...)
+# }}}
+
+AD.initstate!(dt::Real, runner::Runner) = runner.state.dt = dt
+
+# {{{ run!
+function AD.run!(runner::Runner, spacerunner::AD.AbstractSpaceRunner;
                  timeend::Real=Inf, stopaftertimeend=true,
                  numberofsteps::Integer=0, callbacks=()) where {SP, T<:State}
 
   @assert isfinite(timeend) || numberofsteps > 0
 
-  t0 = AD.gettime(jointstate.space)
+  params = runner.params
+  config = runner.config
+  state = runner.state
 
-  RKA = jointconfig.time.RKA
-  RKB = jointconfig.time.RKB
-  RKC = jointconfig.time.RKC
-  dt = jointstate.time.dt
+  t0 = AD.gettime(spacerunner)
+
+  RKA = config.RKA
+  RKB = config.RKB
+  RKC = config.RKC
+  dt = state.dt
 
   # Loop through an initialize callbacks (if they need it)
   foreach(callbacks) do cb
@@ -126,23 +144,23 @@ function AD.run!(jointstate::AD.State{SP, T},
 
   step = 0
   time = t0
-  rhs = jointconfig.time.rhs
-  Q = AD.getQ(jointstate.space)
-  Q = AD.getQ(jointstate.space)
-  mesh = AD.getmesh(jointstate.space, jointconfig.space, jointparams.space)
+  rhs = config.rhs
+  Q = AD.getQ(spacerunner)
+  Q = AD.getQ(spacerunner)
+  mesh = AD.getmesh(spacerunner)
   while time < timeend
     step += 1
     for s = 1:length(RKA)
-      AD.rhs!(rhs, jointstate.space, jointconfig.space, jointparams.space)
+      AD.rhs!(rhs, spacerunner)
 
       # update solution and scale RHS
       update!(Val(size(Q,2)), Val(size(Q,1)), rhs, Q, mesh.realelems,
               RKA[s%length(RKA)+1], RKB[s], dt)
       time += RKC[s] * dt
-      AD.settime!(jointstate.space, time)
+      AD.settime!(spacerunner, time)
     end
     time = t0 + step * dt
-    AD.settime!(jointstate.space, time)
+    AD.settime!(spacerunner, time)
 
     # FIXME: Determine better way to handle postcallback behavior
 
@@ -175,6 +193,7 @@ function AD.run!(jointstate::AD.State{SP, T},
     end
   end
 end
+# }}}
 
 # {{{ Update solution (for all dimensions)
 function update!(::Val{nstates}, ::Val{Np}, rhs::Array, Q, elems, rka, rkb,
@@ -185,6 +204,5 @@ function update!(::Val{nstates}, ::Val{Np}, rhs::Array, Q, elems, rka, rkb,
   end
 end
 # }}}
-
 
 end
