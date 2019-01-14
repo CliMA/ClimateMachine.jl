@@ -20,10 +20,10 @@ struct EveryXWallTimeSecondsCallback
   end
 end
 function (cb::EveryXWallTimeSecondsCallback)(initialize::Bool=false)
-  "Is this an initialization call? If so, start the timers"
+  # Is this an initialization call? If so, start the timers
   if initialize
     cb.lastcbtime_ns[1] = time_ns()
-    "If this is initialization init the callback too"
+    # If this is initialization init the callback too
     try
       cb.func(true)
     catch
@@ -31,13 +31,13 @@ function (cb::EveryXWallTimeSecondsCallback)(initialize::Bool=false)
     return 0
   end
 
-  "Check whether we should do a callback"
+  # Check whether we should do a callback
   currtime_ns = time_ns()
   runtime = (currtime_ns - cb.lastcbtime_ns[1]) * 1e-9
   if runtime < cb.Δtime
     return 0
   else
-    "Compute the next time to do a callback"
+    # Compute the next time to do a callback
     cb.lastcbtime_ns[1] = currtime_ns
     retval = cb.func()
   end
@@ -64,10 +64,10 @@ struct EveryXSimulationTime
   end
 end
 function (cb::EveryXSimulationTime)(initialize::Bool=false)
-  "Is this an initialization call? If so, start the timers"
+  # Is this an initialization call? If so, start the timers
   if initialize
     cb.lastcbtime[1] = AD.gettime(cb.runner)
-    "If this is initialization init the callback too"
+    # If this is initialization init the callback too
     try
       cb.func(true)
     catch
@@ -75,12 +75,12 @@ function (cb::EveryXSimulationTime)(initialize::Bool=false)
     return 0
   end
 
-  "Check whether we should do a callback"
+  # Check whether we should do a callback
   currtime = AD.gettime(cb.runner)
   if (currtime - cb.lastcbtime[1]) < cb.Δtime
     return 0
   else
-    "Compute the next time to do a callback"
+    # Compute the next time to do a callback
     cb.lastcbtime[1] = currtime
     retval = cb.func()
   end
@@ -104,10 +104,10 @@ struct EveryXSimulationSteps
   end
 end
 function (cb::EveryXSimulationSteps)(initialize::Bool=false)
-  "Is this an initialization call? If so, start the timers"
+  # Is this an initialization call? If so, start the timers
   if initialize
     cb.steps[1] = 0
-    "If this is initialization init the callback too"
+    # If this is initialization init the callback too
     try
       cb.func(true)
     catch
@@ -115,7 +115,7 @@ function (cb::EveryXSimulationSteps)(initialize::Bool=false)
     return 0
   end
 
-  "Check whether we should do a callback"
+  # Check whether we should do a callback
   cb.steps[1] += 1
   if cb.steps[1] < cb.Δsteps
     return 0
