@@ -442,7 +442,7 @@ function estimatedt(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
     end
   end
 
-  MPI.Allreduce(dt[1], MPI.MIN, mpicomm)
+  MPI.Allreduce(dt[1], MPI.MIN, mpicomm) / N^√2
 end
 #}}}
 

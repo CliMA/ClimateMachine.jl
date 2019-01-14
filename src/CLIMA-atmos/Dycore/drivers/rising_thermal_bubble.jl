@@ -106,7 +106,7 @@ function main()
         end
 
         # Compute a (bad guess) for the time step
-        base_dt = AD.estimatedt(runner, host=true) / N^√2
+        base_dt = AD.estimatedt(runner, host=true)
         nsteps = ceil(Int64, timeend / base_dt)
         dt = timeend / nsteps
 
