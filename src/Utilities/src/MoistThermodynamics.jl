@@ -237,12 +237,12 @@ function sat_shum(T, p, q_t, q_l, q_i)
     # adding machine precision epsilon to the liquid specific humidity so that
     # division by zero is avoided, and the saturation vapor pressure over liquid
     # is used if both q_l and q_i are zero
-    q_l         = q_l + eps(typeof(q_l))
+    q_l         = q_l .+ eps(typeof(q_l[1]))
     liquid_frac = q_l ./ (q_l .+ q_i)
     ice_frac    = q_i ./ (q_l .+ q_i)
 
-    p_vs = liquid_frac .* sat_vapor_press_liquid(T)
-        .+ ice_frac .* sat_vapor_press_ice(T)
+    p_vs = liquid_frac .* sat_vapor_press_liquid(T) .+
+        ice_frac .* sat_vapor_press_ice(T)
 
     return sat_shum_from_pressure(p, p_vs, q_t)
 

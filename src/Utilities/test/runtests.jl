@@ -19,6 +19,6 @@ using Utilities.MoistThermodynamics, PlanetParameters
   @test latent_heat_sublim(T_0) ≈ LH_s0
   @test sat_vapor_press_liquid(T_triple) ≈ press_triple
   @test sat_vapor_press_ice(T_triple) ≈ press_triple
-  p=1.e5; @test sat_shum([T_triple, T_triple], [p, p], [0., qt], 0., 0.) ≈ 
+  p=1.e5; @test sat_shum([T_triple, T_triple], [p, p], [0., qt], [0., qt/2], [0., qt/2]) ≈
     1/molmass_ratio * press_triple / (p - press_triple) * [1., 1-qt]
 end
