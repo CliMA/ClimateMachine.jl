@@ -2,8 +2,7 @@
 # advection (also update the license)
 
 # {{{ Volume RHS for 2-D
-function k_vanilla_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D,
-                              nelem) where N
+function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -15,7 +14,7 @@ function k_vanilla_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D,
   s_F = @cuStaticSharedMem(eltype(Q), (Nq, Nq, _nstate))
   s_G = @cuStaticSharedMem(eltype(Q), (Nq, Nq, _nstate))
 
-  rhsU = rhsV = rhsρ = rhsE = zero(eltype(rhs))
+  MJI = rhsU = rhsV = rhsρ = rhsE = zero(eltype(rhs))
   if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
     if k == 1
@@ -23,7 +22,7 @@ function k_vanilla_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D,
     end
 
     # Load values will need into registers
-    MJ = vgeo[i, j, _MJ, e]
+    MJ, MJI = vgeo[i, j, _MJ, e], vgeo[i, j, _MJI, e]
     ξx, ξy = vgeo[i, j, _ξx, e], vgeo[i, j, _ξy, e]
     ηx, ηy = vgeo[i, j, _ηx, e], vgeo[i, j, _ηy, e]
     y = vgeo[i, j, _y, e]
@@ -58,7 +57,7 @@ function k_vanilla_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D,
     s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
     # buoyancy term
-    rhsV -= MJ * ρ * grav
+    rhsV -= ρ * grav
   end
 
   sync_threads()
@@ -66,20 +65,20 @@ function k_vanilla_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D,
   @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # loop of ξ-grid lines
     for n = 1:Nq
-      Dni = s_D[n, i]
-      Dnj = s_D[n, j]
+      MJI_Dni = MJI * s_D[n, i]
+      MJI_Dnj = MJI * s_D[n, j]
 
-      rhsρ += Dni * s_F[n, j, _ρ]
-      rhsρ += Dnj * s_G[i, n, _ρ]
+      rhsρ += MJI_Dni * s_F[n, j, _ρ]
+      rhsρ += MJI_Dnj * s_G[i, n, _ρ]
 
-      rhsU += Dni * s_F[n, j, _U]
-      rhsU += Dnj * s_G[i, n, _U]
+      rhsU += MJI_Dni * s_F[n, j, _U]
+      rhsU += MJI_Dnj * s_G[i, n, _U]
 
-      rhsV += Dni * s_F[n, j, _V]
-      rhsV += Dnj * s_G[i, n, _V]
+      rhsV += MJI_Dni * s_F[n, j, _V]
+      rhsV += MJI_Dnj * s_G[i, n, _V]
 
-      rhsE += Dni * s_F[n, j, _E]
-      rhsE += Dnj * s_G[i, n, _E]
+      rhsE += MJI_Dni * s_F[n, j, _E]
+      rhsE += MJI_Dnj * s_G[i, n, _E]
     end
 
     rhs[i, j, _U, e] = rhsU
@@ -92,8 +91,7 @@ end
 # }}}
 
 # {{{ Volume RHS for 3-D
-function k_vanilla_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D,
-                              nelem) where N
+function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -106,7 +104,7 @@ function k_vanilla_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D,
   s_G = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq, _nstate))
   s_H = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq, _nstate))
 
-  rhsU = rhsV = rhsW = rhsρ = rhsE = zero(eltype(rhs))
+  MJI = rhsU = rhsV = rhsW = rhsρ = rhsE = zero(eltype(rhs))
   @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
     # Load derivative into shared memory
     if k == 1
@@ -114,7 +112,7 @@ function k_vanilla_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D,
     end
 
     # Load values will need into registers
-    MJ = vgeo[i, j, k, _MJ, e]
+    MJ, MJI= vgeo[i, j, k, _MJ, e], vgeo[i, j, k, _MJI, e]
     ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
     ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
     ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
@@ -168,7 +166,7 @@ function k_vanilla_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D,
     rhsρ, rhsE = rhs[i, j, k, _ρ, e], rhs[i, j, k, _E, e]
 
     # buoyancy term
-    rhsW -= MJ * ρ * grav
+    rhsW -= ρ * grav
   end
 
   sync_threads()
@@ -176,29 +174,29 @@ function k_vanilla_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D,
   @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
     # loop of ξ-grid lines
     for n = 1:Nq
-      Dni = s_D[n, i]
-      Dnj = s_D[n, j]
-      Dnk = s_D[n, k]
+      MJI_Dni = MJI * s_D[n, i]
+      MJI_Dnj = MJI * s_D[n, j]
+      MJI_Dnk = MJI * s_D[n, k]
 
-      rhsρ += Dni * s_F[n, j, k, _ρ]
-      rhsρ += Dnj * s_G[i, n, k, _ρ]
-      rhsρ += Dnk * s_H[i, j, n, _ρ]
+      rhsρ += MJI_Dni * s_F[n, j, k, _ρ]
+      rhsρ += MJI_Dnj * s_G[i, n, k, _ρ]
+      rhsρ += MJI_Dnk * s_H[i, j, n, _ρ]
 
-      rhsU += Dni * s_F[n, j, k, _U]
-      rhsU += Dnj * s_G[i, n, k, _U]
-      rhsU += Dnk * s_H[i, j, n, _U]
+      rhsU += MJI_Dni * s_F[n, j, k, _U]
+      rhsU += MJI_Dnj * s_G[i, n, k, _U]
+      rhsU += MJI_Dnk * s_H[i, j, n, _U]
 
-      rhsV += Dni * s_F[n, j, k, _V]
-      rhsV += Dnj * s_G[i, n, k, _V]
-      rhsV += Dnk * s_H[i, j, n, _V]
+      rhsV += MJI_Dni * s_F[n, j, k, _V]
+      rhsV += MJI_Dnj * s_G[i, n, k, _V]
+      rhsV += MJI_Dnk * s_H[i, j, n, _V]
 
-      rhsW += Dni * s_F[n, j, k, _W]
-      rhsW += Dnj * s_G[i, n, k, _W]
-      rhsW += Dnk * s_H[i, j, n, _W]
+      rhsW += MJI_Dni * s_F[n, j, k, _W]
+      rhsW += MJI_Dnj * s_G[i, n, k, _W]
+      rhsW += MJI_Dnk * s_H[i, j, n, _W]
 
-      rhsE += Dni * s_F[n, j, k, _E]
-      rhsE += Dnj * s_G[i, n, k, _E]
-      rhsE += Dnk * s_H[i, j, n, _E]
+      rhsE += MJI_Dni * s_F[n, j, k, _E]
+      rhsE += MJI_Dnj * s_G[i, n, k, _E]
+      rhsE += MJI_Dnk * s_H[i, j, n, _E]
     end
 
     rhs[i, j, k, _U, e] = rhsU
@@ -212,8 +210,8 @@ end
 # }}}
 
 # {{{ Face RHS (all dimensions)
-function k_vanilla_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem,
-                            vmapM, vmapP, elemtobndy) where {dim, N}
+function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
+                      vmapP, elemtobndy) where {dim, N}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -239,6 +237,7 @@ function k_vanilla_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem,
       for f = lf:lf+1
         (nxM, nyM) = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e])
         (nzM, sMJ) = (sgeo[_nz, n, f, e], sgeo[_sMJ, n, f, e])
+        vMJI = sgeo[_vMJI, n, f, e]
 
         (idM, idP) = (vmapM[n, f, e], vmapP[n, f, e])
 
@@ -329,11 +328,11 @@ function k_vanilla_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem,
                   nzM * (fluxEM_z + fluxEP_z) - λ * (EP - EM)) / 2
 
         #Update RHS
-        rhs[vidM, _ρ, eM] -= sMJ * fluxρS
-        rhs[vidM, _U, eM] -= sMJ * fluxUS
-        rhs[vidM, _V, eM] -= sMJ * fluxVS
-        rhs[vidM, _W, eM] -= sMJ * fluxWS
-        rhs[vidM, _E, eM] -= sMJ * fluxES
+        rhs[vidM, _ρ, eM] -= vMJI * sMJ * fluxρS
+        rhs[vidM, _U, eM] -= vMJI * sMJ * fluxUS
+        rhs[vidM, _V, eM] -= vMJI * sMJ * fluxVS
+        rhs[vidM, _W, eM] -= vMJI * sMJ * fluxWS
+        rhs[vidM, _E, eM] -= vMJI * sMJ * fluxES
       end
       sync_threads()
     end
@@ -343,8 +342,8 @@ end
 # }}}
 
 # {{{ Fill sendQ on device with Q (for all dimensions)
-function k_vanilla_fillsendQ!(::Val{dim}, ::Val{N}, sendQ, Q,
-                              sendelems) where {N, dim}
+function knl_fillsendQ!(::Val{dim}, ::Val{N}, sendQ, Q,
+                        sendelems) where {N, dim}
   Nq = N + 1
   (i, j, k) = threadIdx()
   e = blockIdx().x
@@ -361,8 +360,8 @@ end
 # }}}
 
 # {{{ Fill Q on device with recvQ (for all dimensions)
-function k_vanilla_transferrecvQ!(::Val{dim}, ::Val{N}, Q, recvQ, nelem,
-                                  nrealelem) where {N, dim}
+function knl_transferrecvQ!(::Val{dim}, ::Val{N}, Q, recvQ, nelem,
+                            nrealelem) where {N, dim}
   Nq = N + 1
   (i, j, k) = threadIdx()
   e = blockIdx().x
@@ -378,31 +377,31 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function vanilla_fillsendQ!(::Val{dim}, ::Val{N}, sendQ, d_sendQ::CuArray,
-                            d_QL, d_sendelems) where {dim, N}
+function fillsendQ!(::Val{dim}, ::Val{N}, sendQ, d_sendQ::CuArray, d_QL,
+                    d_sendelems) where {dim, N}
   nsendelem = length(d_sendelems)
   if nsendelem > 0
     @cuda(threads=ntuple(j->N+1, dim), blocks=nsendelem,
-          k_vanilla_fillsendQ!(Val(dim), Val(N), d_sendQ, d_QL, d_sendelems))
+          knl_fillsendQ!(Val(dim), Val(N), d_sendQ, d_QL, d_sendelems))
     sendQ .= d_sendQ
   end
 end
 
-function vanilla_transferrecvQ!(::Val{dim}, ::Val{N}, d_recvQ::CuArray, recvQ,
-                                d_QL, nrealelem) where {dim, N}
+function transferrecvQ!(::Val{dim}, ::Val{N}, d_recvQ::CuArray, recvQ,
+                        d_QL, nrealelem) where {dim, N}
   nrecvelem = size(recvQ)[end]
   if nrecvelem > 0
     d_recvQ .= recvQ
     @cuda(threads=ntuple(j->N+1, dim), blocks=nrecvelem,
-          k_vanilla_transferrecvQ!(Val(dim), Val(N), d_QL, d_recvQ, nrecvelem,
+          knl_transferrecvQ!(Val(dim), Val(N), d_QL, d_recvQ, nrecvelem,
                                    nrealelem))
   end
 end
 # }}}
 
 # {{{ Kernel wrappers
-function vanilla_volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
-                            d_vgeoL, d_D, elems) where {dim, N}
+function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
+                    d_vgeoL, d_D, elems) where {dim, N}
   Qshape    = (ntuple(j->N+1, dim)..., size(d_QL, 2), size(d_QL, 3))
   vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_QL, 3))
 
@@ -412,15 +411,15 @@ function vanilla_volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
 
   nelem = length(elems)
   @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
-        k_vanilla_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, nelem))
+        knl_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, nelem))
 end
 
-function vanilla_facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo,
-                          d_sgeo, elems, d_vmapM, d_vmapP,
-                          d_elemtobndy) where {dim, N}
+function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo,
+                  d_sgeo, elems, d_vmapM, d_vmapP,
+                  d_elemtobndy) where {dim, N}
   nelem = length(elems)
   @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        k_vanilla_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, nelem,
+        knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, nelem,
                            d_vmapM, d_vmapP, d_elemtobndy))
 end
 
