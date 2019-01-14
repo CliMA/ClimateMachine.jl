@@ -10,7 +10,7 @@ saturation vapor pressures.
 using PlanetParameters
 
 # Atmospheric equation of state
-export air_pressure, air_temperature
+export air_pressure, air_temperature, energy_tot
 
 # Specific heats of moist air
 export cp_m, cv_m, gas_constant_moist
@@ -37,8 +37,8 @@ end
 """
     air_pressure(T, density, q_t, q_l, q_i)
 
-Computes air pressure from the equation of state (ideal gas law) given
-the air temperature `T`, `density`, and the total specific humidity `q_t`, the
+Computes the air pressure from the equation of state (ideal gas law) given
+the air temperature `T`, the `density`, the total specific humidity `q_t`, the
 liquid specific humidity `q_l`, and the ice specific humidity `q_i`.
 """
 function air_pressure(T, density, q_t, q_l, q_i)
@@ -83,8 +83,24 @@ the liquid specific humidity `q_l`, and the ice specific humidity `q_i`.
 function air_temperature(energy_tot, kinetic_energy, potential_energy, q_t, q_l, q_i)
 
     return T_0 .+ ( energy_tot .- kinetic_energy .- potential_energy
-                .- (q_t .- q_l) * IE_v0 .+ q_i * (IE_i0 - IE_v0)
+                .- (q_t .- q_l) * IE_v0 .+ q_i * (IE_i0 + IE_v0)
                )./ cv_m(q_t, q_l, q_i)
+
+end
+
+"""
+    energy_tot(KE, PE, T, q_t, q_l, q_i)
+
+Computes the total energy per unit mass given the kinetic energy per unit
+mass `KE`, the potential energy per unit mass `PE`, the temperature `T`, the
+total specific humidity `q_t`, the liquid specific humidity `q_l`, and the
+ice specific humidity `q_i`. (U)
+"""
+function energy_tot(kinetic_energy, potential_energy, T, q_t, q_l, q_i)
+
+    return kinetic_energy .+ potential_energy .+
+        cv_m(q_t, q_l, q_i) .* (T .- T_0) .+
+        (q_t .- q_l) * IE_v0 .- q_i * (IE_v0 + IE_i0)
 
 end
 
@@ -188,19 +204,59 @@ function sat_vapor_press_generic(T, LH_0, cp_diff)
 end
 
 """
-    sat_shum(T, p, q_t, phase)
+    sat_shum_generic(T, p, q_t, phase)
 
 Computes the saturation specific humidity over a plane surface of
-condensate at temperature `T`, pressure `p`, and total water specific
-humidity `q_t`. The argument `phase` can be ``"liquid"`` or ``"ice"`` and indicates
-the condensed phase.
+condensate, at temperature `T`, pressure `p`, and total water specific
+humidity `q_t`. The argument `phase` can be ``"liquid"`` or ``"ice"`` and
+indicates the condensed phase.
 """
-function sat_shum(T, p, q_t, phase)
+function sat_shum_generic(T, p, q_t, phase)
 
     saturation_vapor_pressure_function = Symbol(string("sat_vapor_press_", phase))
-    es = eval(saturation_vapor_pressure_function)(T)
+    p_vs = eval(saturation_vapor_pressure_function)(T)
 
-    return 1/molmass_ratio * (1 .- q_t) .* es ./ (p .- es)
+    return sat_shum_from_pressure(p, p_vs, q_t)
+
+end
+
+"""
+    sat_shum(T, p, q_t, q_l, q_i)
+
+Computes the saturation specific humidity at the temperature `T`, pressure `p`,
+total water specific humidity `q_t`, liquid specific humdity `q_l`, and ice
+specific humidity `q_i`. The saturation specific humidity is obtained from the
+weighted mean of the saturation vapor pressures over a plane liquid surface and
+a plane ice surface, with the weights given by the fractions of condensate
+`q_l`/(`q_l` + `q_i`) and `q_i`/(`q_l` + `q_i`) that are liquid and ice,
+respectively. In case the condensate specific humidities `q_l` and `q_i` are
+both zero, the saturation specific humidity over liquid is returned.
+"""
+function sat_shum(T, p, q_t, q_l, q_i)
+
+    # adding machine precision epsilon to the liquid specific humidity so that
+    # division by zero is avoided, and the saturation vapor pressure over liquid
+    # is used if both q_l and q_i are zero
+    q_l         = q_l + eps(typeof(q_l))
+    liquid_frac = q_l ./ (q_l .+ q_i)
+    ice_frac    = q_i ./ (q_l .+ q_i)
+
+    p_vs = liquid_frac .* sat_vapor_press_liquid(T)
+        .+ ice_frac .* sat_vapor_press_ice(T)
+
+    return sat_shum_from_pressure(p, p_vs, q_t)
+
+end
+
+"""
+    sat_shum_from_pressure(p, p_vs, q_t)
+
+Computes the saturation specific humidity given the ambient total pressure `p`,
+the saturation vapor pressure `p_vs`, and the total water specific humidity `q_t`.
+"""
+function sat_shum_from_pressure(p, p_vs, q_t)
+
+    return 1/molmass_ratio * (1 .- q_t) .* p_vs ./ (p .- p_vs)
 
 end
 
