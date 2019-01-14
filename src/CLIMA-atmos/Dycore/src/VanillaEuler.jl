@@ -309,7 +309,7 @@ function Base.setindex!(r::Runner, v,  s::Symbol)
 end
 
 # {{{ initstate!
-function AD.initstate!(ic::Function, runner::Runner{DeviceArray};
+function AD.initstate!(runner::Runner{DeviceArray}, ic::Function;
                        host=false) where DeviceArray
 
   host || error("Currently requires host configuration")

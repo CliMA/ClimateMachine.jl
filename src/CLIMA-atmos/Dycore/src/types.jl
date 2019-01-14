@@ -49,9 +49,19 @@ end
 createrunner(::Val{T}, a...) where T =
 error("No implementation of `createrunner` method `$(T)`")
 
-initspacestate!(x, r::Runner; a...) = initstate!(x, r[:spacerunner]; a...)
-inittimestate!(x, r::Runner; a...) = initstate!(x, r[:timerunner]; a...)
-initstate!(x, r::Union{AbstractSpaceRunner, AbstractTimeRunner}; a...) =
+initspacestate!(f::Function, r::Runner; a...) = initstate!(r[:spacerunner], f;
+                                                           a...)
+
+inittimestate!(f::Function, r::Runner; a...) = initstate!(r[:timerunner], f;
+                                                          a...)
+inittimestate!(r::Runner, x; a...) = initstate!(r[:timerunner], x; a...)
+
+inittimestate!(f::Function, r::Runner; a...) = initstate!(r[:timerunner], f;
+                                                          a...)
+initstate!(f::Function, r::Union{AbstractSpaceRunner, AbstractTimeRunner};
+           a...) = initstate!(r, f; a...)
+
+initstate!(r::Union{AbstractSpaceRunner, AbstractTimeRunner}, x; a...) =
 error("no implementation of `initstate!` for `$(typeof(r))`")
 
 estimatedt(r::Runner; a...) = estimatedt(r[:spacerunner]; a...)

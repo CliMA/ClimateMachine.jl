@@ -114,7 +114,7 @@ end
 AD.createrunner(::Val{:LSRK}, m, s; a...) = Runner(m, s; a...)
 # }}}
 
-AD.initstate!(dt::Real, runner::Runner) = runner.state.dt = dt
+AD.initstate!(runner::Runner, dt::Real) = runner.state.dt = dt
 
 # {{{ run!
 function AD.run!(runner::Runner, spacerunner::AD.AbstractSpaceRunner;

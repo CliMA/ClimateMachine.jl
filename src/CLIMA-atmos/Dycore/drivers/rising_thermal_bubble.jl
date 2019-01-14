@@ -111,7 +111,7 @@ function main()
         dt = timeend / nsteps
 
         # Set the time step
-        AD.inittimestate!(dt, runner)
+        AD.inittimestate!(runner, dt)
 
         eng0 = AD.L2solutionnorm(runner; host=true)
         # mpirank == 0 && @show eng0
