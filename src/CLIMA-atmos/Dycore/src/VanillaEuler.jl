@@ -230,7 +230,7 @@ struct State{DeviceArray} #<: AD.AbstractSpaceState
   Q::DeviceArray
   function State(config::Configuration{DeviceArray, HostArray},
                  params::Parameters) where {DeviceArray, HostArray}
-    Q = similarQ(config)
+    Q = similar(config.vgeo, (size(config.vgeo,1), _nstate, size(config.vgeo,3)))
     # Shove into array so we can leave the type immutable
     # (is this worthwhile?)
     time = [params.initialtime]
@@ -265,7 +265,7 @@ AD.createrunner(::Val{:VanillaEuler}, m; a...) = Runner(m; a...)
 function Base.show(io::IO, runner::Runner)
   eng = AD.L2solutionnorm(runner; host=true)
   print(io, "VanillaEuler with norm2(Q) = ", eng, " at time = ",
-        AD.gettime(runner))
+        runner[:time])
 end
 
 function Base.show(io::IO, ::MIME"text/plain",
@@ -279,25 +279,34 @@ function Base.show(io::IO, ::MIME"text/plain",
   println(io, "   DeviceArray = ", DeviceArray)
   println(io, "   DFloat      = ", DFloat)
   println(io, "   norm2(Q)    = ", eng)
-  println(io, "   time        = ", AD.gettime(runner))
+  println(io, "   time        = ", runner[:time])
   println(io, "   N           = ", params.N)
   println(io, "   dim         = ", params.dim)
   println(io, "   mpisize     = ", MPI.Comm_size(config.mpicomm))
 end
 # }}}
 
-# {{{ similarQ
-AD.similarQ(space::Runner, x...) = similarQ(space, x...)
-similarQ(space::Runner, x...) = similarQ(space.config, x...)
-similarQ(c::Configuration) =
-similarQ(c, (size(c.vgeo,1), _nstate, size(c.vgeo,3)))
-similarQ(c::Configuration, x...) = similar(c.vgeo, x...)
-# }}}
-
-AD.gettime(r::Runner) = r.state.time[1]
-AD.settime!(r::Runner, time) = r.state.time[1] = time
-AD.getQ(r::Runner) = r.state.Q
-AD.getmesh(r::Runner) = r.config.mesh
+Base.getindex(r::Runner, s) = r[Symbol(s)]
+function Base.getindex(r::Runner, s::Symbol)
+  s == :time && return r.state.time[1]
+  s == :Q && return r.state.Q
+  s == :mesh && return r.config.mesh
+  error("""
+        getindex for the $(typeof(r)) supports:
+        `:time`        => gets the runners time
+        `:Q`           => gets the runners state Q
+        `:mesh`        => gets the runners mesh
+        `:hostQ`       => not implemented yet
+        """)
+end
+Base.setindex!(r::Runner, v, s) = Base.setindex!(r, v, Symbol(s))
+function Base.setindex!(r::Runner, v,  s::Symbol)
+  s == :time && return r.state.time[1] = v
+  error("""
+        setindex! for the $(typeof(r)) supports:
+        `:time` => sets the runners time
+        """)
+end
 
 # {{{ initstate!
 function AD.initstate!(ic::Function, runner::Runner{DeviceArray};

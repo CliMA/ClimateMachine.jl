@@ -40,8 +40,8 @@ struct Configuration{DFloat} # <: AD.AbstractTimeConfiguration
   rhs
   function Configuration(params::Parameters,
                          mpicomm,
-                         space::AD.AbstractSpaceRunner)
-    rhs = AD.similarQ(space)
+                         spacerunner::AD.AbstractSpaceRunner)
+    rhs = similar(spacerunner[:Q])
     fill!(rhs, 0)
 
     DFloat = eltype(rhs)
@@ -104,10 +104,10 @@ struct Runner <: AD.AbstractTimeRunner
   params::Parameters
   config::Configuration
   state::State
-  function Runner(mpicomm, space::AD.AbstractSpaceRunner; args...)
+  function Runner(mpicomm, spacerunner::AD.AbstractSpaceRunner; args...)
     params = Parameters(;args...)
-    config = Configuration(params, mpicomm, space)
-    state = State(config, params, space)
+    config = Configuration(params, mpicomm, spacerunner)
+    state = State(config, params, spacerunner)
     new(params, config, state)
   end
 end
@@ -127,7 +127,7 @@ function AD.run!(runner::Runner, spacerunner::AD.AbstractSpaceRunner;
   config = runner.config
   state = runner.state
 
-  t0 = AD.gettime(spacerunner)
+  t0 = spacerunner[:time]
 
   RKA = config.RKA
   RKB = config.RKB
@@ -145,9 +145,8 @@ function AD.run!(runner::Runner, spacerunner::AD.AbstractSpaceRunner;
   step = 0
   time = t0
   rhs = config.rhs
-  Q = AD.getQ(spacerunner)
-  Q = AD.getQ(spacerunner)
-  mesh = AD.getmesh(spacerunner)
+  Q = spacerunner[:Q]
+  mesh = spacerunner[:mesh]
   while time < timeend
     step += 1
     for s = 1:length(RKA)
@@ -157,10 +156,10 @@ function AD.run!(runner::Runner, spacerunner::AD.AbstractSpaceRunner;
       update!(Val(size(Q,2)), Val(size(Q,1)), rhs, Q, mesh.realelems,
               RKA[s%length(RKA)+1], RKB[s], dt)
       time += RKC[s] * dt
-      AD.settime!(spacerunner, time)
+      spacerunner[:time] = time
     end
     time = t0 + step * dt
-    AD.settime!(spacerunner, time)
+    spacerunner[:time] = time
 
     # FIXME: Determine better way to handle postcallback behavior
 
