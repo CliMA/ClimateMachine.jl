@@ -56,8 +56,6 @@ inittimestate!(f::Function, r::Runner; a...) = initstate!(r[:timerunner], f;
                                                           a...)
 inittimestate!(r::Runner, x; a...) = initstate!(r[:timerunner], x; a...)
 
-inittimestate!(f::Function, r::Runner; a...) = initstate!(r[:timerunner], f;
-                                                          a...)
 initstate!(f::Function, r::Union{AbstractSpaceRunner, AbstractTimeRunner};
            a...) = initstate!(r, f; a...)
 
