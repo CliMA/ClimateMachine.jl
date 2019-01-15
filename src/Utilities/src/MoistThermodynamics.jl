@@ -272,6 +272,8 @@ and the fraction of ice by the complement `1 - liquid_fraction(T)`.
 """
 function sat_shum(T, p, q_t, q_l=0, q_i=0)
 
+    #FIXME some problem here with variable types, probably with T_freeze in liquid_fraction
+
     # get phase partitioning
     _liquid_frac = liquid_fraction(T, q_l, q_i)
     _ice_frac    = 1 .- _liquid_frac
@@ -316,12 +318,31 @@ q_c         = q_l + q_i     # condensate specific humidity
 
 # For now: Heaviside function for partitioning into liquid and ice: all liquid
 # for T > T_freeze; all ice for T <= T_freeze
-# FIX ME: Need to specify Number(T_freeze) here in Boolean expression;
+# FIXME: Need to specify Number(T_freeze) here in Boolean expression;
 #         can we change ParametersType to avoid this?
 _liquid_frac = ifelse.(T .> Number(T_freeze), 1, 0)
 
 return ifelse.(q_c .> 0, q_l ./ q_c, _liquid_frac)
 
 end
+
+"""
+    saturation_adjustment(E_int, T, q_t, q_l, q_i)
+
+Compute temperature `T` and specific humidities of condensate from the internal
+energy `E_int` by saturation adjustment.
+
+The function takes the internal energy per unit mass `E_int` and total water
+specific humidity `q_t` as input variables and returns the temperature `T`, the
+liquid water specific humidity `q_l`, and the ice specific humidity `q_i`. Input
+values for `q_l`, and `q_i` are used as initial values for the saturation
+adjustment.
+"""
+function saturation_adjustment(E_int, T, q_t, q_l, q_i)
+
+# initially, assume condensate as given at Input and compute temperature
+T = air_temperature(E_int, q_t, q_l, q_i)
+
+# FIXME need to complete saturation adjustment
 
 end
