@@ -2,7 +2,8 @@
 # advection (also update the license)
 
 # {{{ Volume RHS for 2-D
-function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
+function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, gravity, D,
+                        nelem) where N
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -31,7 +32,7 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     rhsU, rhsV = rhs[i, j, _U, e], rhs[i, j, _V, e]
     rhsρ, rhsE = rhs[i, j, _ρ, e], rhs[i, j, _E, e]
 
-    P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
+    P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
     ρinv = 1 / ρ
     fluxρ_x = U
@@ -57,7 +58,7 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
     # buoyancy term
-    rhsV -= ρ * grav
+    rhsV -= ρ * gravity
   end
 
   sync_threads()
@@ -91,7 +92,8 @@ end
 # }}}
 
 # {{{ Volume RHS for 3-D
-function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
+function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, gravity, D,
+                        nelem) where N
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -121,7 +123,7 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
     ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-    P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
+    P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
     ρinv = 1 / ρ
     fluxρ_x = U
@@ -166,7 +168,7 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, D, nelem) where N
     rhsρ, rhsE = rhs[i, j, k, _ρ, e], rhs[i, j, k, _E, e]
 
     # buoyancy term
-    rhsW -= ρ * grav
+    rhsW -= ρ * gravity
   end
 
   sync_threads()
@@ -210,8 +212,8 @@ end
 # }}}
 
 # {{{ Face RHS (all dimensions)
-function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
-                      vmapP, elemtobndy) where {dim, N}
+function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, gravity,
+                      nelem, vmapM, vmapP, elemtobndy) where {dim, N}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -253,7 +255,7 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
         yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*yorzM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
@@ -262,7 +264,7 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, nelem, vmapM,
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
-          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*yorzP)
+          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
@@ -400,8 +402,8 @@ end
 # }}}
 
 # {{{ Kernel wrappers
-function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
-                    d_vgeoL, d_D, elems) where {dim, N}
+function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeoL,
+                    gravity, d_D, elems) where {dim, N}
   Qshape    = (ntuple(j->N+1, dim)..., size(d_QL, 2), size(d_QL, 3))
   vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_QL, 3))
 
@@ -411,16 +413,17 @@ function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL,
 
   nelem = length(elems)
   @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
-        knl_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, d_D, nelem))
+        knl_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, gravity, d_D,
+                       nelem))
 end
 
-function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo,
-                  d_sgeo, elems, d_vmapM, d_vmapP,
+function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo, d_sgeo,
+                  gravity, elems, d_vmapM, d_vmapP,
                   d_elemtobndy) where {dim, N}
   nelem = length(elems)
   @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, nelem,
-                           d_vmapM, d_vmapP, d_elemtobndy))
+        knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, gravity,
+                     nelem, d_vmapM, d_vmapP, d_elemtobndy))
 end
 
 # }}}
