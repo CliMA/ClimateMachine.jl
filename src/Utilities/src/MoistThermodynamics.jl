@@ -29,7 +29,7 @@ export sat_vapor_press_liquid, sat_vapor_press_ice, sat_shum_generic, sat_shum
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
-export liquid_fraction, saturation_adjustment
+export liquid_fraction, saturation_adjustment!
 
 # Conversion functions
 export liquid_ice_pottemp
@@ -354,7 +354,9 @@ as the initial value of the saturation adjustment iterations.
 function saturation_adjustment!(T, E_int, p, q_t, q_l=0, q_i=0)
 
     # FIXME: need to fix syntax here so that p, q_t, ... are passed to
-    # internal_energy_sat and find_zero finds the zero as a function of T
+    # internal_energy_sat and find_zero finds the zero as a function of T;
+    # alternatively, write wrapper around internal_energy_sat so it only
+    # takes one argument, then call it again to get q's
     find_zero.(internal_energy_sat(T, p, q_t, q_l, q_i) .- E_int, T, Order1())
 
 end
