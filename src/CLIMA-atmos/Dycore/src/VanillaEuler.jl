@@ -25,8 +25,8 @@ using Base: @kwdef
 
 # note the order of the fields below is also assumed in the code.
 const _nstate = 5
-const _U, _V, _W, _ρ, _E = 1:_nstate
-const stateid = (U = _U, V = _V, W = _W, ρ = _ρ, E = _E)
+const _ρ, _U, _V, _W, _E = 1:_nstate
+const stateid = (ρ = _ρ, U = _U, V = _V, W = _W, E = _E)
 
 const _nvgeo = 14
 const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
