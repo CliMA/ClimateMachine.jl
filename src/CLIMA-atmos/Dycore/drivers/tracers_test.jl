@@ -99,7 +99,7 @@ function main(;spacemethod=:VanillaEuler, DFloat=Float64, dim=3, backend=Array,
     P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
     T = P / (ρ * R_gas)
     E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-    ρ, U, V, W, E, ntuple(j->ρ, nmoist + ntrace)...
+    ρ, U, V, W, E, ntuple(j->(j*ρ), nmoist)..., ntuple(j->(-j*ρ), ntrace)...
   end
 
   # Compute a (bad guess) for the time step
@@ -137,18 +137,23 @@ function main(;spacemethod=:VanillaEuler, DFloat=Float64, dim=3, backend=Array,
     nothing
   end
 
+  dump_vtk(0)
+  AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk))
+  dump_vtk(nsteps)
+
   let
     Q = Array(runner[:Q])
     stateid = runner[:spacerunner][:stateid]
     moistid = runner[:spacerunner][:moistid]
     traceid = runner[:spacerunner][:traceid]
-    @assert (@view Q[:, stateid.ρ, :]) == (@view Q[:, moistid[1], :])
-    @assert (@view Q[:, stateid.ρ, :]) == (@view Q[:, traceid[1], :])
+    for n = 1:nmoist
+      @assert n*(@view Q[:, stateid.ρ, :]) ≈ (@view Q[:, moistid[n], :])
+    end
+    for n = 1:ntrace
+      @assert -n*(@view Q[:, stateid.ρ, :]) ≈ (@view Q[:, traceid[n], :])
+    end
   end
 
-  dump_vtk(0)
-  AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk))
-  dump_vtk(nsteps)
 
   engf = AD.L2solutionnorm(runner; host=true)
 

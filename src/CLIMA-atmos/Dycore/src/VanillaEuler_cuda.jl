@@ -418,9 +418,10 @@ function volumerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                        d_vgeoC, gravity, d_D, nelem))
 end
 
-function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo, d_sgeo,
-                  gravity, elems, d_vmapM, d_vmapP,
-                  d_elemtobndy) where {dim, N}
+function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
+                  d_rhsL::CuArray, d_QL, d_vgeo, d_sgeo, gravity, elems,
+                  d_vmapM, d_vmapP, d_elemtobndy) where {dim, N, nmoist,
+                                                         ntrace}
   nelem = length(elems)
   @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
         knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, gravity,

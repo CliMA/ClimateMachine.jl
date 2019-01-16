@@ -655,8 +655,8 @@ function AD.rhs!(rhs::DeviceArray,
   transferrecvQ!(Val(dim), Val(N), device_recvQ, host_recvQ, Q, nrealelem)
 
   # face RHS computation
-  facerhs!(Val(dim), Val(N), rhs, Q, vgeo, sgeo, gravity, mesh.realelems,
-           vmapM, vmapP, elemtobndy)
+  facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), rhs, Q, vgeo, sgeo,
+           gravity, mesh.realelems, vmapM, vmapP, elemtobndy)
 end
 # }}}
 
@@ -690,6 +690,8 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
   s_F = Array{DFloat}(undef, Nq, Nq, _nstate)
   s_G = Array{DFloat}(undef, Nq, Nq, _nstate)
+  l_u = Array{DFloat}(undef, Nq, Nq)
+  l_v = Array{DFloat}(undef, Nq, Nq)
 
   @inbounds for e in elems
     for j = 1:Nq, i = 1:Nq
@@ -728,6 +730,9 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       # buoyancy term
       rhs[i, j, _V, e] -= ρ * gravity
+
+      # Store velocity
+      l_u[i, j], l_v[i, j] = ρinv * U, ρinv * V
     end
 
     # loop of ξ-grid lines
@@ -742,6 +747,67 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       MJI = vgeo[i, j, _MJI, e]
       for n = 1:Nq
         rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, s]
+      end
+    end
+
+    # loop over moist variables
+    # FIXME: Currently just passive advection
+    for m = 1:nmoist
+      s = _nstate + m
+
+      for j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, _MJ, e]
+        ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
+        ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
+        u, v = l_u[i, j], l_v[i, j]
+
+        fx = u * Q[i, j, s, e]
+        fy = v * Q[i, j, s, e]
+
+        s_F[i, j, 1] = MJ * (ξx * fx + ξy * fy)
+        s_G[i, j, 1] = MJ * (ηx * fx + ηy * fy)
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, i] * s_F[n, j, 1]
+        end
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, 1]
+        end
+      end
+    end
+
+    # loop over tracer variables
+    for t = 1:ntrace
+      s = _nstate + nmoist + t
+
+      for j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, _MJ, e]
+        ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
+        ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
+        u, v = l_u[i, j], l_v[i, j]
+
+        fx = u * Q[i, j, s, e]
+        fy = v * Q[i, j, s, e]
+
+        s_F[i, j, 1] = MJ * (ξx * fx + ξy * fy)
+        s_G[i, j, 1] = MJ * (ηx * fx + ηy * fy)
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, i] * s_F[n, j, 1]
+        end
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, 1]
+        end
       end
     end
   end
@@ -767,6 +833,9 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_F = Array{DFloat}(undef, Nq, Nq, Nq, _nstate)
   s_G = Array{DFloat}(undef, Nq, Nq, Nq, _nstate)
   s_H = Array{DFloat}(undef, Nq, Nq, Nq, _nstate)
+  l_u = Array{DFloat}(undef, Nq, Nq, Nq)
+  l_v = Array{DFloat}(undef, Nq, Nq, Nq)
+  l_w = Array{DFloat}(undef, Nq, Nq, Nq)
 
   @inbounds for e in elems
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
@@ -821,6 +890,9 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       # buoyancy term
       rhs[i, j, k, _W, e] -= ρ * gravity
+
+      # Store velocity
+      l_u[i, j, k], l_v[i, j, k], l_w[i, j, k] = ρinv * U, ρinv * V, ρinv * W
     end
 
     # loop of ξ-grid lines
@@ -844,13 +916,93 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         rhs[i, j, k, s, e] += MJI * D[n, k] * s_H[i, j, n, s]
       end
     end
+
+    # loop over moist variables
+    # FIXME: Currently just passive advection
+    for m = 1:nmoist
+      s = _nstate + m
+
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, k, _MJ, e]
+        ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
+        ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
+        ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+        u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
+
+        fx = u * Q[i, j, k, s, e]
+        fy = v * Q[i, j, k, s, e]
+        fz = w * Q[i, j, k, s, e]
+
+        s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
+        s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
+        s_H[i, j, k, 1] = MJ * (ζx * fx + ζy * fy + ζz * fz)
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, i] * s_F[n, j, k, 1]
+        end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, j] * s_G[i, n, k, 1]
+        end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, k] * s_H[i, j, n, 1]
+        end
+      end
+    end
+
+    # loop over tracer variables
+    for t = 1:ntrace
+      s = _nstate + nmoist + t
+
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, k, _MJ, e]
+        ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
+        ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
+        ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+        u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
+
+        fx = u * Q[i, j, k, s, e]
+        fy = v * Q[i, j, k, s, e]
+        fz = w * Q[i, j, k, s, e]
+
+        s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
+        s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
+        s_H[i, j, k, 1] = MJ * (ζx * fx + ζy * fy + ζz * fz)
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, i] * s_F[n, j, k, 1]
+        end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, j] * s_G[i, n, k, 1]
+        end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, k] * s_H[i, j, n, 1]
+        end
+      end
+    end
   end
 end
 # }}}
 
 # {{{ Face RHS for 2-D
-function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
-                  elems, vmapM, vmapP, elemtobndy) where N
+function facerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs::Array,
+                  Q, vgeo, sgeo, gravity, elems, vmapM, vmapP,
+                  elemtobndy) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
 
   Np = (N+1)^2
@@ -929,12 +1081,47 @@ function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
         fluxES = (nxM * (fluxEM_x + fluxEP_x) + nyM * (fluxEM_y + fluxEP_y) +
                   - λ * (EP - EM)) / 2
 
-
         #Update RHS
         rhs[vidM, _ρ, eM] -= vMJI * sMJ * fluxρS
         rhs[vidM, _U, eM] -= vMJI * sMJ * fluxUS
         rhs[vidM, _V, eM] -= vMJI * sMJ * fluxVS
         rhs[vidM, _E, eM] -= vMJI * sMJ * fluxES
+
+        # Calculate the velocity
+        uM, vM = ρMinv * UM, ρMinv * VM
+        uP, vP = ρPinv * UP, ρPinv * VP
+
+        # FIXME: Will need to be updated for other bcs...
+        vidP = bc == 0 ? vidP : vidM
+
+        # loop over moist variables
+        # FIXME: Currently just passive advection
+        for m = 1:nmoist
+          s = _nstate + m
+          QmoistM, QmoistP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QmoistM, uP * QmoistP
+          fluxM_y, fluxP_y = vM * QmoistM, vP * QmoistP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   - λ * (QmoistP - QmoistM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
+
+        # loop over tracer variables
+        for t = 1:ntrace
+          s = _nstate + nmoist + t
+          QtraceM, QtraceP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QtraceM, uP * QtraceP
+          fluxM_y, fluxP_y = vM * QtraceM, vP * QtraceP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   - λ * (QtraceP - QtraceM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
       end
     end
   end
@@ -942,8 +1129,9 @@ end
 # }}}
 
 # {{{ Face RHS for 3-D
-function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
-                  elems, vmapM, vmapP, elemtobndy) where N
+function facerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs::Array,
+                  Q, vgeo, sgeo, gravity, elems, vmapM, vmapP,
+                  elemtobndy) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
 
   Np = (N+1)^3
@@ -1042,13 +1230,50 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
         fluxES = (nxM * (fluxEM_x + fluxEP_x) + nyM * (fluxEM_y + fluxEP_y) +
                   nzM * (fluxEM_z + fluxEP_z) - λ * (EP - EM)) / 2
 
-
         #Update RHS
         rhs[vidM, _ρ, eM] -= vMJI * sMJ * fluxρS
         rhs[vidM, _U, eM] -= vMJI * sMJ * fluxUS
         rhs[vidM, _V, eM] -= vMJI * sMJ * fluxVS
         rhs[vidM, _W, eM] -= vMJI * sMJ * fluxWS
         rhs[vidM, _E, eM] -= vMJI * sMJ * fluxES
+
+        # Calculate the velocity
+        uM, vM, wM = ρMinv * UM, ρMinv * VM, ρMinv * WM
+        uP, vP, wP = ρPinv * UP, ρPinv * VP, ρPinv * WP
+
+        # FIXME: Will need to be updated for other bcs...
+        vidP = bc == 0 ? vidP : vidM
+
+        # loop over moist variables
+        # FIXME: Currently just passive advection
+        for m = 1:nmoist
+          s = _nstate + m
+          QmoistM, QmoistP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QmoistM, uP * QmoistP
+          fluxM_y, fluxP_y = vM * QmoistM, vP * QmoistP
+          fluxM_z, fluxP_z = wM * QmoistM, wP * QmoistP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   nzM * (fluxM_z + fluxP_z) - λ * (QmoistP - QmoistM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
+
+        # loop over tracer variables
+        for t = 1:ntrace
+          s = _nstate + nmoist + t
+          QtraceM, QtraceP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QtraceM, uP * QtraceP
+          fluxM_y, fluxP_y = vM * QtraceM, vP * QtraceP
+          fluxM_z, fluxP_z = wM * QtraceM, wP * QtraceP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   nzM * (fluxM_z + fluxP_z) - λ * (QtraceP - QtraceM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
       end
     end
   end
