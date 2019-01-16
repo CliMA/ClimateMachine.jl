@@ -2,8 +2,8 @@
 # advection (also update the license)
 
 # {{{ Volume RHS for 2-D
-function knl_volumerhs!(::Val{2}, ::Val{N}, rhs, Q, vgeo, gravity, D,
-                        nelem) where N
+function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
+                        Q, vgeo, gravity, D, nelem) where {N, nmoist, ntrace}
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -92,8 +92,8 @@ end
 # }}}
 
 # {{{ Volume RHS for 3-D
-function knl_volumerhs!(::Val{3}, ::Val{N}, rhs, Q, vgeo, gravity, D,
-                        nelem) where N
+function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
+                        Q, vgeo, gravity, D, nelem) where {N, nmoist, ntrace}
   DFloat = eltype(D)
 
   Nq = N + 1
@@ -402,8 +402,9 @@ end
 # }}}
 
 # {{{ Kernel wrappers
-function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeoL,
-                    gravity, d_D, elems) where {dim, N}
+function volumerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
+                    d_rhsL::CuArray, d_QL, d_vgeoL, gravity, d_D,
+                    elems) where {dim, N, nmoist, ntrace}
   Qshape    = (ntuple(j->N+1, dim)..., size(d_QL, 2), size(d_QL, 3))
   vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_QL, 3))
 
@@ -413,8 +414,8 @@ function volumerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeoL,
 
   nelem = length(elems)
   @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
-        knl_volumerhs!(Val(dim), Val(N), d_rhsC, d_QC, d_vgeoC, gravity, d_D,
-                       nelem))
+        knl_volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), d_rhsC, d_QC,
+                       d_vgeoC, gravity, d_D, nelem))
 end
 
 function facerhs!(::Val{dim}, ::Val{N}, d_rhsL::CuArray, d_QL, d_vgeo, d_sgeo,

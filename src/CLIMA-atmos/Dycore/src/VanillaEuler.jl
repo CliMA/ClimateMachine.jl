@@ -120,6 +120,20 @@ See Julia github issue [#25167](https://github.com/JuliaLang/julia/issues/25167)
   no default value
   """
   N::Int
+
+  """
+  number of moist variables
+
+  default: 0
+  """
+  nmoist::Int = 0
+
+  """
+  number of tracer variables
+
+  default: 0
+  """
+  ntrace::Int = 0
 end
 # }}}
 
@@ -204,8 +218,9 @@ struct Configuration{DeviceArray, HostArray} #<: AD.AbstractSpaceConfiguration
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
     mpirank == 0 && @debug "create send/recv storage..."
-    sendQ = zeros(DFloat, (N+1)^dim, _nstate, length(mesh.sendelems))
-    recvQ = zeros(DFloat, (N+1)^dim, _nstate, length(mesh.ghostelems))
+    nvar = _nstate + params.nmoist + params.ntrace
+    sendQ = zeros(DFloat, (N+1)^dim, nvar, length(mesh.sendelems))
+    recvQ = zeros(DFloat, (N+1)^dim, nvar, length(mesh.ghostelems))
 
     mpirank == 0 && @debug "create configuration struct..."
     HostArray = Array
@@ -234,7 +249,8 @@ struct State{DeviceArray} #<: AD.AbstractSpaceState
   Q::DeviceArray
   function State(config::Configuration{DeviceArray, HostArray},
                  params::Parameters) where {DeviceArray, HostArray}
-    Q = similar(config.vgeo, (size(config.vgeo,1), _nstate, size(config.vgeo,3)))
+    nvar = _nstate + params.nmoist + params.ntrace
+    Q = similar(config.vgeo, (size(config.vgeo,1), nvar, size(config.vgeo,3)))
     # Shove into array so we can leave the type immutable
     # (is this worthwhile?)
     time = [params.initialtime]
@@ -295,12 +311,18 @@ function Base.getindex(r::Runner, s::Symbol)
   s == :time && return r.state.time[1]
   s == :Q && return r.state.Q
   s == :mesh && return r.config.mesh
+  s == :stateid && return stateid
+  s == :moistid && return _nstate .+ (1:r.params.nmoist)
+  s == :traceid && return _nstate .+ r.params.nmoist .+ (1:r.params.ntrace)
   error("""
         getindex for the $(typeof(r)) supports:
-        `:time`        => gets the runners time
-        `:Q`           => gets the runners state Q
-        `:mesh`        => gets the runners mesh
-        `:hostQ`       => not implemented yet
+        `:time`    => gets the runners time
+        `:Q`       => gets the runners state Q
+        `:mesh`    => gets the runners mesh
+        `:hostQ`   => not implemented yet
+        `:stateid` => Euler state storage order
+        `:moistid` => moist state storage order
+        `:traceid` => trace state storage order
         """)
 end
 Base.setindex!(r::Runner, v, s) = Base.setindex!(r, v, Symbol(s))
@@ -319,6 +341,7 @@ function AD.initstate!(runner::Runner{DeviceArray}, ic::Function;
   host || error("Currently requires host configuration")
 
   # Pull out the config and state
+  params::Parameters = runner.params
   config::Configuration = runner.config
   state::State = runner.state
 
@@ -327,14 +350,13 @@ function AD.initstate!(runner::Runner{DeviceArray}, ic::Function;
   vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
   Q = cpubackend ? state.Q : Array(state.Q)
 
+  nvar = _nstate + params.nmoist + params.ntrace
   @inbounds for e = 1:size(Q, 3), i = 1:size(Q, 1)
     x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
-    ρ, U, V, W, E = ic(x, y, z)
-    Q[i, _ρ, e] = ρ
-    Q[i, _U, e] = U
-    Q[i, _V, e] = V
-    Q[i, _W, e] = W
-    Q[i, _E, e] = E
+    Q0 = ic(x, y, z)
+    for n = 1:nvar
+      Q[i, n, e] = Q0[n]
+    end
   end
   if !cpubackend
     state.Q .= Q
@@ -598,6 +620,8 @@ function AD.rhs!(rhs::DeviceArray,
 
   N   = params.N
   dim = params.dim
+  ntrace = params.ntrace
+  nmoist = params.nmoist
 
   nnabr = length(mesh.nabrtorank)
   nrealelem = length(mesh.realelems)
@@ -621,7 +645,8 @@ function AD.rhs!(rhs::DeviceArray,
   end
 
   # volume RHS computation
-  volumerhs!(Val(dim), Val(N), rhs, Q, vgeo, gravity, Dmat, mesh.realelems)
+  volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), rhs, Q, vgeo, gravity,
+             Dmat, mesh.realelems)
 
   # wait on MPI receives
   MPI.Waitall!(recvreq)
@@ -648,16 +673,19 @@ end
 # }}}
 
 # {{{ Volume RHS for 2-D
-function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
-                    elems) where N
+function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
+                    rhs::Array, Q, vgeo, gravity, D,
+                    elems) where {N, nmoist, ntrace}
+  nvar = _nstate + nmoist + ntrace
+
   DFloat = eltype(Q)
 
   Nq = N + 1
 
   nelem = size(Q)[end]
 
-  Q = reshape(Q, Nq, Nq, _nstate, nelem)
-  rhs = reshape(rhs, Nq, Nq, _nstate, nelem)
+  Q = reshape(Q, Nq, Nq, nvar, nelem)
+  rhs = reshape(rhs, Nq, Nq, nvar, nelem)
   vgeo = reshape(vgeo, Nq, Nq, _nvgeo, nelem)
 
   s_F = Array{DFloat}(undef, Nq, Nq, _nstate)
@@ -722,16 +750,19 @@ end
 # }}}
 
 # {{{ Volume RHS for 3-D
-function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
-                    elems) where N
+function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
+                    rhs::Array, Q, vgeo, gravity, D,
+                    elems) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
+
+  nvar = _nstate + nmoist + ntrace
 
   Nq = N + 1
 
   nelem = size(Q)[end]
 
-  Q = reshape(Q, Nq, Nq, Nq, _nstate, nelem)
-  rhs = reshape(rhs, Nq, Nq, Nq, _nstate, nelem)
+  Q = reshape(Q, Nq, Nq, Nq, nvar, nelem)
+  rhs = reshape(rhs, Nq, Nq, Nq, nvar, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nq, _nvgeo, nelem)
 
   s_F = Array{DFloat}(undef, Nq, Nq, Nq, _nstate)
