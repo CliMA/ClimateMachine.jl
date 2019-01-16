@@ -71,6 +71,11 @@ L2solutionnorm(r::Runner, x...; kw...) = L2solutionnorm(r[:spacerunner], x...;
 L2solutionnorm(r::AbstractSpaceRunner, x...; kw...) =
 error("no implementation of `L2solutionnorm` for `$(typeof(r))`")
 
+L2errornorm(r::Runner, x...; kw...) = L2errornorm(r[:spacerunner], x...;
+                                                        kw...)
+L2errornorm(r::AbstractSpaceRunner, x...; kw...) =
+error("no implementation of `L2errornorm` for `$(typeof(r))`")
+
 writevtk(r::Runner, x...; kw...) = writevtk(r[:spacerunner], x...; kw...)
 writevtk(r::AbstractSpaceRunner, x...; kw...) =
 error("no implementation of `writevtk` for `$(typeof(r))`")
