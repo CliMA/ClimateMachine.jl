@@ -151,8 +151,15 @@ function main()
           nothing
         end
 
+        cberr = AD.GenericCallbacks.EveryXWallTimeSecondsCallback(2) do
+          err = AD.L2errornorm(runner, isentropicvortex; host=true)
+          println(io, "VanillaEuler with errnorm2(Q) = ", err, " at time = ",
+                  runner[:time])
+        end
+
         dump_vtk(0)
-        AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk))
+        AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk,
+                                                         cberr))
         dump_vtk(nsteps)
 
         engf = AD.L2solutionnorm(runner; host=true)
