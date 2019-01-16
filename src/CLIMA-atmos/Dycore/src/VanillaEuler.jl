@@ -690,7 +690,6 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
   s_F = Array{DFloat}(undef, Nq, Nq, _nstate)
   s_G = Array{DFloat}(undef, Nq, Nq, _nstate)
-  MJI = Array{DFloat}(undef, Nq, Nq, _nstate)
 
   @inbounds for e in elems
     for j = 1:Nq, i = 1:Nq
