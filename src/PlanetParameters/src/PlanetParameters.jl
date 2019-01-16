@@ -21,7 +21,6 @@ using ParametersType
 @exportparameter kappa_d           2//7          "Adiabatic exponent dry air"
 @exportparameter cp_d              R_d/kappa_d   "Isobaric specific heat dry air"
 @exportparameter cv_d              cp_d - R_d    "Isochoric specific heat dry air"
-@exportparameter sd_ref            6864.8        "J/(kg K) Standard entropy dry air"
 
 # Properties of water
 @exportparameter dens_liquid       1e3           "Density of liquid water (kg/m^3)"
@@ -37,7 +36,7 @@ using ParametersType
 @exportparameter cv_l              cp_l          "Isochoric specific heat liquid (J/kg/K)"
 @exportparameter cv_i              cp_i          "Isochoric specific heat ice (J/kg/K)"
 @exportparameter T_freeze          273.15        "Freezing point temperature (K)"
-@exportparameter T_icenuc          233.00        "Homogeneous nucleation temperatur (K)"
+@exportparameter T_icenuc          233.00        "Homogeneous nucleation temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"
 @exportparameter LH_v0             2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
@@ -48,7 +47,6 @@ using ParametersType
 @exportparameter IE_i0             LH_f0         "Specific internal energy of
                                                   ice at T_0 (J/kg)"
 @exportparameter press_triple      611.657       "Triple point vapor pressure (Pa)"
-@exportparameter sv_ref            10513.6       "J/(kg K) Standard entropy water vapor"
 
 # Properties of sea water
 @exportparameter dens_ocean        1.035e3       "Reference density sea water (kg/m^3)"

@@ -24,7 +24,7 @@ using Utilities.MoistThermodynamics, PlanetParameters
   @test sat_vapor_press_liquid(T_triple) ≈ press_triple
   @test sat_vapor_press_ice(T_triple) ≈ press_triple
   p=1.e5; @test sat_shum([T_triple, T_triple], [p, p], [0., qt], [0., qt/2], [0., qt/2]) ≈
-    1/molmass_ratio * press_triple / (p - press_triple) * [1, 1-qt]
+    1/molmass_ratio * press_triple / (p - press_triple) * [1, 1 - qt]
   @test sat_shum([T_triple, T_triple], [p, p], [0., qt]) ≈
       1/molmass_ratio * press_triple / (p - press_triple) * [1., 1-qt]
   @test sat_shum_generic([T_triple, T_triple], [p, p], [0., qt], phase="liquid") ≈
@@ -35,4 +35,7 @@ using Utilities.MoistThermodynamics, PlanetParameters
         sat_shum_generic(T_triple-20, p, qt, phase="ice")
   @test liquid_fraction([200, 300]) ≈ [0, 1]
   ql = .1; @test liquid_fraction([200, 300], [ql, ql], [ql, ql/2]) ≈ [0.5, 2/3]
+  @test liquid_ice_pottemp([T, T], [MSLP, MSLP], [0, 0], [0, 0], [0, 0]) ≈ [T, T]
+  @test liquid_ice_pottemp([T, T], .1*[MSLP, MSLP], [0, 1], [0, 0], [0, 0]) ≈
+    T .* 10 .^[R_d/cp_d, R_v/cp_v]
 end

@@ -9,9 +9,6 @@ module MoistThermodynamics
 
 using PlanetParameters
 
-# Uses Roots.jl from JuliaMath in the saturation adjustment function
-using Roots
-
 # Atmospheric equation of state
 export air_pressure, air_temperature
 
@@ -27,12 +24,14 @@ export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
 # Saturation vapor pressures and specific humidities over liquid and ice
 export sat_vapor_press_liquid, sat_vapor_press_ice, sat_shum_generic, sat_shum
 
-# Functions used in thermodynamic equilibrium among phases (liquid and ice
-# determined diagnostically from total water specific humidity)
-export liquid_fraction, saturation_adjustment
+# FIXME: remove Specific entropies
+export entropy, entropy_total
+
+# Condensate partitioning
+export liquid_fraction
 
 # Conversion functions
-export liquid_ice_pottemp
+export potential_temperature_li
 
 """
     gas_constant_air([q_t=0, q_l=0, q_i=0])
@@ -225,7 +224,7 @@ Kirchhoff's relation
 
     L = LH_0 + cp_diff * (T - T_0)
 
-for the specific latent heat `L` with constant isobaric specific
+for the specific latent heat L with constant isobaric specific
 heats of the phases. The linear dependence of the specific latent heat
 on temperature `T` allows analytic integration of the Clausius-Clapeyron
 relation to obtain the saturation vapor pressure `p_vs` as a function of
@@ -234,7 +233,7 @@ the triple point pressure `press_triple`.
 function sat_vapor_press_generic(T, LH_0, cp_diff)
 
     return press_triple * (T/T_triple).^(cp_diff/R_v).*
-        exp.( (LH_0 .- cp_diff*T_0)/R_v .* (1 / T_triple .- 1 ./ T) )
+        exp.( (LH_0 - cp_diff*T_0)/R_v * (1 / T_triple .- 1 ./ T) )
 
 end
 
@@ -255,11 +254,12 @@ function sat_shum_generic(T, p, q_t; phase="liquid")
 
 end
 
+
 """
-    sat_shum(T, p[, q_t=0, q_l=0, q_i=0])
+    sat_shum(T, p, q_t[, q_l=0, q_i=0])
 
 Compute the saturation specific humidity at the temperature `T`, pressure `p`,
-and, optionally, total water specific humidity `q_t`.
+and total water specific humidity `q_t`.
 
 If the optional liquid specific humdity `q_l` and ice specific humidity `q_i`
 are given, the saturation specific humidity is that over a mixture of
@@ -276,7 +276,9 @@ zero, the saturation specific humidity is that over a mixture of liquid and ice,
 with the fraction of liquid given by temperature dependent `liquid_fraction(T)`
 and the fraction of ice by the complement `1 - liquid_fraction(T)`.
 """
-function sat_shum(T, p, q_t=0, q_l=0, q_i=0)
+function sat_shum(T, p, q_t, q_l=0, q_i=0)
+
+    #FIXME some problem here with variable types, probably with T_freeze in liquid_fraction
 
     # get phase partitioning
     _liquid_frac = liquid_fraction(T, q_l, q_i)
@@ -319,90 +321,153 @@ them.
 """
 function liquid_fraction(T, q_l=0, q_i=0)
 
-q_c         = q_l .+ q_i     # condensate specific humidity
+q_c         = q_l + q_i     # condensate specific humidity
 
 # For now: Heaviside function for partitioning into liquid and ice: all liquid
 # for T > T_freeze; all ice for T <= T_freeze
-_liquid_frac = heaviside(T .- T_freeze)
+# FIXME: Need to specify Number(T_freeze) here in Boolean expression;
+#         can we change ParametersType to avoid this?
+_liquid_frac = ifelse.(T .> Number(T_freeze), 1, 0)
 
 return ifelse.(q_c .> 0, q_l ./ q_c, _liquid_frac)
 
 end
 
 """
-    heaviside(t)
+    saturation_adjustment(E_int, T, q_t, q_l, q_i)
 
-Return the Heaviside step function at `t`.
+Compute temperature `T` and specific humidities of condensate from the internal
+energy `E_int` by saturation adjustment.
+
+The function takes the internal energy per unit mass `E_int` and total water
+specific humidity `q_t` as input variables and returns the temperature `T`, the
+liquid water specific humidity `q_l`, and the ice specific humidity `q_i`. Input
+values for `q_l`, and `q_i` are used as initial values for the saturation
+adjustment.
 """
-function heaviside(t)
-   0.5 * (sign.(t) .+ 1)
+function saturation_adjustment(E_int, T, q_t, q_l, q_i)
+
+    p_ref = MSLP #Pa
+
+    #Initialize
+    q_v = q_t
+    q_l = 0.0
+    q_i = 0.0
+
+    # Initially, assume condensate as give, n at Input and compute temperature
+    T1 = air_temperature(E_int, q_t, q_l, q_i)
+
+    # Computer theta of liquid water
+    theta_l = potential_temperature_li(p, T1, q_l)
+
+
+    # Compute saturation mixing ratio
+    q_vs1 = sat_shum(T1, p, q_t, q_l, q_i)
+
+
+    if (q_t <= qvs_1)
+        T = T1
+        return T, q_v, q_l, q_i
+    else
+
+        #Define liquid fraction as a function of T:
+        if (T1 < T_icenuc)
+            lambda = 0.0
+        elseif(T1 >= T_icenuc && T1 <= T_freeze)
+            lambda = 0.5              #FIXME: check what value(s) to use here
+        else
+            lambda = 1.0
+        end
+
+        sigma1 = q_t - q_vs1
+        q_l1   = lambda * sigma1
+        q_i1   = (1.0 - lambda) * sigma1
+
+
+        #Calculate T2
+        f_1 = theta_l - compute_thetal(p, T1, q_l1)
+        #f_1 = E_int - internal_energy(T1, q_t, q_l1, q_i1)
+
+        L_v = latent_heat_vapor(T1)
+        L_s = latent_heat_sublim(T1)
+        L   = lambda*L_v + (1.0 - lambda)*L_s
+        cp  = (1.0 - q_t)*cp_d + q_vs1*cp_v
+        DT  = L*sigma1/cp
+
+        T2  = T1 + DT
+
+        while (abs(T2 - T1) > 1.0e-9)
+
+            # Compute saturation mixing ratio
+            q_vs2 = sat_shum(T2, p_vs, q_t, q_l, q_i)
+
+            sigma2 = q_t - q_vs2
+            q_l2   = lambda * sigma2
+            q_i2   = (1.0 - lambda) * sigma2
+
+            #Calculate T2
+            f_2 = theta_l - compute_thetal(p, T2, q_l2)
+            #f_2 = E_int - internal_energy(T2, q_t, q_l2, q_i2)
+
+
+            L_v = latent_heat_vapor(T2)
+            L_s = latent_heat_sublim(T2)
+            L   = lambda*L_v + (1.0 - lambda)*L_s
+            cp  = (1.0 - q_t)*cp_d + q_vs1*cp_v
+
+            Tn = T2 - f_2*(T2- T1)/(f_2 - f_1)
+            T1 = T2
+            T2 = Tn
+            f_1 = f_2
+
+        end
+
+        E_int = internal_energy(T2, q_t, q_l2, q_i2)
+
+    end
+
+    return E_int, T2, q_l2, q_t
+    # FIXME need to complete saturation adjustment
+
 end
 
 """
-    saturation_adjustment!(T, E_int, p, q_t[, q_l, q_i])
-
-Compute the temperature `T` and specific humidities of condensate from the
-internal energy `E_int`, pressure `p`, and total specific humidity `q_t`
-by saturation adjustment.
-
-The function takes the internal energy per unit mass `E_int`, pressure `p`,
-and total water specific humidity `q_t` as input variables and returns on output
-the temperature `T`, and, optionally, the liquid water specific humidity `q_l`
-and ice specific humidity `q_i`. The input value of the temperature `T` is taken
-as the initial value of the saturation adjustment iterations.
-"""
-function saturation_adjustment!(T, E_int, p, q_t, q_l=0, q_i=0)
-
-    # FIXME: need to fix syntax here so that p, q_t, ... are passed to
-    # internal_energy_sat and find_zero finds the zero as a function of T
-    find_zero.(internal_energy_sat(T, p, q_t, q_l, q_i) .- E_int, T, Order1())
-
-end
-
-"""
-    internal_energy_sat(T, p, q_t[, q_l, q_i])
+    internal_energy_sat(T, p[, q_t=0, q_l=0, q_i=0])
 
 Return the internal energy per unit mass in thermodynamic equilibrium at
-saturation, given the temperature `T`, pressure `p`, and total specific
-humidity `q_t`.
-
-The optional liquid specific humidity `q_l` and ice specific humidity `q_i` are
-overwritten on output with their equilibrium values, obtained by partitioning
-the saturation excess according to the `liquid_fraction` function.
+saturation, given the temperature `T`, and, optionally, the total specific
+humidity `q_t`, the liquid specific humidity `q_l`, and the ice specific humidity `q_i`.
 """
-function internal_energy_sat(T, p, q_t, q_l=0, q_i=0)
+function internal_energy_sat(T, p, q_t=0, q_l=0, q_i=0)
 
-    _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
-    q_vs         = sat_shum(T, p, q_t)  # saturation specific humidity
-    q_c          = max.(q_t .- q_vs, 0) # condensate specific humidity
-    q_l          = _liquid_frac .* q_c  # liquid specific humidity
-    q_i          = (1 .- _liquid_frac) .* q_c # ice specific humidity
+    q_vs = sat_shum(T, p, q_t)  # saturation specific humidity
+    q_c  = max.(q_t - q_vs, 0)  # condensate specific humidity
+    q_l  =
 
     return internal_energy(T, q_t, q_l, q_i)
 
 end
 
 """
-    liquid_ice_pottemp(T, p[, q_t=0, q_l=0, q_i=0])
+    potential_temperature_li(T, p[, q_t=0, q_l=0, q_i=0])
 
 Return the liquid-ice potential temperature, given the temperature `T`,
 pressure `p`, total specific humidity `q_t`, liquid specific humidity `q_l`,
 and ice specific humidity `q_i`.
 
 """
-function liquid_ice_pottemp(T, p, q_t=0, q_l=0, q_i=0)
-
-    # gas constant and isobaric specific heat of moist air
-    _R_m    = gas_constant_air(q_t, q_l, q_i)
-    _cp_m   = cp_m(q_t, q_l, q_i)
+function potential_temperature_li(T, p, q_t=0, q_l=0, q_i=0)
 
     # potential temperature
-    pottemp = T .* (MSLP./p).^(_R_m./_cp_m)
+    _R_m    = gas_constant_air(q_t, q_l, q_i)
+    _cp_m   = cp_m(q_t, q_l, q_i)
+    theta   = T .* (MSLP./p).^(_R_m./_cp_m)
 
-    # liquid-ice potential temperature, approximating latent heats
+    # compute liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
-    return pottemp .* exp.(-(LH_v0*q_l .+ LH_s0*q_i)./(_cp_m.*T))
+    return theta .* exp.(-(LH_v0*q_l .* LH_s0*q_i)./(_cp_m.*T))
 
 end
+
 
 end #module MoistThermodynamics.jl
