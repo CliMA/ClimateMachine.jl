@@ -20,8 +20,11 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
+const halfperiod = 5
+
 meshgenerator(part, numparts, Ne, dim, DFloat) =
-brickmesh(ntuple(j->range(DFloat(-5); length=Ne+1, stop=5), dim),
+brickmesh(ntuple(j->range(DFloat(-halfperiod); length=Ne+1, stop=halfperiod),
+                 dim),
           ntuple(j->true, dim), part=part, numparts=numparts)
 
 function isentropicvortex(t, x...)
@@ -45,16 +48,21 @@ function isentropicvortex(t, x...)
   uinf::DFloat = 1
   vinf::DFloat = 1
   Tinf::DFloat = 1
-  xo::DFloat   = 0
-  yo::DFloat   = 0
   λ::DFloat    = 5
 
-  xs = x[1] - uinf*t - xo
-  ys = x[2] - vinf*t - yo
-  rsq = xs^2 + ys^2
+  xs = x[1] - uinf*t
+  ys = x[2] - vinf*t
 
-  u = uinf - λ*(1//2)*exp(1-rsq)*ys/π
-  v = vinf + λ*(1//2)*exp(1-rsq)*xs/π
+  # make the function periodic
+  xtn = floor((xs+halfperiod)/(2halfperiod))
+  ytn = floor((ys+halfperiod)/(2halfperiod))
+  xp = xs - xtn*2*halfperiod
+  yp = ys - ytn*2*halfperiod
+
+  rsq = xp^2 + yp^2
+
+  u = uinf - λ*(1//2)*exp(1-rsq)*yp/π
+  v = vinf + λ*(1//2)*exp(1-rsq)*xp/π
   w = zero(DFloat)
 
   ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
