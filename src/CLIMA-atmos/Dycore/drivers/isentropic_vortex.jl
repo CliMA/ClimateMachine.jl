@@ -131,7 +131,7 @@ function main()
         io = mpirank == 0 ? stdout : open("/dev/null", "w")
         show(io, "text/plain", runner[:spacerunner])
         cbinfo =
-          AD.GenericCallbacks.EveryXWallTimeSecondsCallback(10, mpicomm) do
+          AD.GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
             println(io, runner[:spacerunner])
           end
 
@@ -153,7 +153,7 @@ function main()
         end
 
         cberr =
-          AD.GenericCallbacks.EveryXWallTimeSecondsCallback(2, mpicomm) do
+          AD.GenericCallbacks.EveryXWallTimeSeconds(2, mpicomm) do
             err = AD.L2errornorm(runner, isentropicvortex; host=true)
             println(io, "VanillaEuler with errnorm2(Q) = ", err, " at time = ",
                     runner[:time])

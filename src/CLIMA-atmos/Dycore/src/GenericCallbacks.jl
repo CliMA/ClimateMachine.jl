@@ -4,11 +4,11 @@ AD = CLIMAAtmosDycore
 using MPI
 
 """
-   EveryXWallTimeSecondsCallback(f, time)
+   EveryXWallTimeSeconds(f, time)
 
 This callback will run the function 'f()' every `time` wallclock time seconds
 """
-struct EveryXWallTimeSecondsCallback
+struct EveryXWallTimeSeconds
   "time of the last callback"
   lastcbtime_ns::Array{UInt64}
   "time between callbacks"
@@ -17,12 +17,12 @@ struct EveryXWallTimeSecondsCallback
   mpicomm
   "function to execute for callback"
   func::Function
-  function EveryXWallTimeSecondsCallback(func, Δtime, mpicomm)
+  function EveryXWallTimeSeconds(func, Δtime, mpicomm)
     lastcbtime_ns = [time_ns()]
     new(lastcbtime_ns, Δtime, mpicomm, func)
   end
 end
-function (cb::EveryXWallTimeSecondsCallback)(initialize::Bool=false)
+function (cb::EveryXWallTimeSeconds)(initialize::Bool=false)
   # Is this an initialization call? If so, start the timers
   if initialize
     cb.lastcbtime_ns[1] = time_ns()
