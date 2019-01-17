@@ -520,6 +520,56 @@ function L2solutionnorm(::Val{dim}, ::Val{N}, Q, vgeo, elems) where {dim, N}
 end
 # }}}
 
+# {{{ L2 Error (for all dimensions)
+function AD.L2errornorm(runner::Runner{DeviceArray}, Qexact;
+                        host=false, Q = nothing, vgeo = nothing,
+                        time = nothing) where DeviceArray
+  host || error("Currently requires host configuration")
+  state = runner.state
+  config = runner.config
+  params = runner.params
+  cpubackend = DeviceArray == Array
+  if vgeo == nothing
+    vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
+  end
+  if Q == nothing
+    Q = cpubackend ? state.Q : Array(state.Q)
+  end
+  if time == nothing
+    time = state.time[1]
+  end
+
+  dim = params.dim
+  N = params.N
+  realelems = config.mesh.realelems
+  locnorm2 = L2errornorm(Val(dim), Val(N), time, Q, vgeo, realelems, Qexact)
+  sqrt(MPI.allreduce([locnorm2], MPI.SUM, config.mpicomm)[1])
+end
+
+function L2errornorm(::Val{dim}, ::Val{N}, time, Q, vgeo, elems,
+                     Qexact) where
+  {dim, N}
+  DFloat = eltype(Q)
+  Np = (N+1)^dim
+  (~, nstate, nelem) = size(Q)
+
+  errorsq = zero(DFloat)
+
+  @inbounds for e = elems,  i = 1:Np
+    x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
+    ρex, Uex, Vex, Wex, Eex = Qexact(time, x, y, z)
+
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _ρ, e] - ρex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _U, e] - Uex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _V, e] - Vex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _W, e] - Wex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _E, e] - Eex)^2
+  end
+
+  errorsq
+end
+# }}}
+
 # {{{ RHS function
 function AD.rhs!(rhs::DeviceArray,
                  runner::Runner{DeviceArray}) where DeviceArray
