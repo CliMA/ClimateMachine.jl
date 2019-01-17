@@ -130,9 +130,10 @@ function main()
         # Setup the info callback
         io = mpirank == 0 ? stdout : open("/dev/null", "w")
         show(io, "text/plain", runner[:spacerunner])
-        cbinfo = AD.GenericCallbacks.EveryXWallTimeSecondsCallback(10) do
-          println(io, runner[:spacerunner])
-        end
+        cbinfo =
+          AD.GenericCallbacks.EveryXWallTimeSecondsCallback(10, mpicomm) do
+            println(io, runner[:spacerunner])
+          end
 
         # Setup the vtk callback
         mkpath("viz")
@@ -151,11 +152,12 @@ function main()
           nothing
         end
 
-        cberr = AD.GenericCallbacks.EveryXWallTimeSecondsCallback(2) do
-          err = AD.L2errornorm(runner, isentropicvortex; host=true)
-          println(io, "VanillaEuler with errnorm2(Q) = ", err, " at time = ",
-                  runner[:time])
-        end
+        cberr =
+          AD.GenericCallbacks.EveryXWallTimeSecondsCallback(2, mpicomm) do
+            err = AD.L2errornorm(runner, isentropicvortex; host=true)
+            println(io, "VanillaEuler with errnorm2(Q) = ", err, " at time = ",
+                    runner[:time])
+          end
 
         dump_vtk(0)
         AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk,
