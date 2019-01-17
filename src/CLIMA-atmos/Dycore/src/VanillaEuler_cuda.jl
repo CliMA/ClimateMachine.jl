@@ -344,16 +344,14 @@ end
 # }}}
 
 # {{{ Fill sendQ on device with Q (for all dimensions)
-function knl_fillsendQ!(::Val{dim}, ::Val{N}, sendQ, Q,
-                        sendelems) where {N, dim}
-  Nq = N + 1
-  (i, j, k) = threadIdx()
+function knl_fillsendQ!(::Val{Np}, ::Val{nvar}, sendQ, Q,
+                        sendelems) where {Np, nvar}
+  n = threadIdx().x
   e = blockIdx().x
 
-  @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= length(sendelems)
-    n = i + (j-1) * Nq + (k-1) * Nq * Nq
+  @inbounds if n <= Np && e <= length(sendelems)
     re = sendelems[e]
-    for s = 1:_nstate
+    for s = 1:nvar
       sendQ[n, s, e] = Q[n, s, re]
     end
   end
@@ -362,15 +360,13 @@ end
 # }}}
 
 # {{{ Fill Q on device with recvQ (for all dimensions)
-function knl_transferrecvQ!(::Val{dim}, ::Val{N}, Q, recvQ, nelem,
-                            nrealelem) where {N, dim}
-  Nq = N + 1
-  (i, j, k) = threadIdx()
+function knl_transferrecvQ!(::Val{Np}, ::Val{nvar}, Q, recvQ, nelem,
+                            nrealelem) where {Np, nvar}
+  n = threadIdx().x
   e = blockIdx().x
 
-  @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
-    n = i + (j-1) * Nq + (k-1) * Nq * Nq
-    for s = 1:_nstate
+  @inbounds if n <= Np && e <= nelem
+    for s = 1:nvar
       Q[n, s, nrealelem + e] = recvQ[n, s, e]
     end
   end
@@ -379,23 +375,25 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendQ!(::Val{dim}, ::Val{N}, sendQ, d_sendQ::CuArray, d_Q,
-                    d_sendelems) where {dim, N}
+function fillsendQ!(sendQ, d_sendQ::CuArray, d_Q, d_sendelems)
   nsendelem = length(d_sendelems)
+  Np = size(d_Q, 1)
+  nvar = size(d_Q, 2)
   if nsendelem > 0
-    @cuda(threads=ntuple(j->N+1, dim), blocks=nsendelem,
-          knl_fillsendQ!(Val(dim), Val(N), d_sendQ, d_Q, d_sendelems))
+    @cuda(threads=Np, blocks=nsendelem,
+          knl_fillsendQ!(Val(Np), Val(nvar), d_sendQ, d_Q, d_sendelems))
     sendQ .= d_sendQ
   end
 end
 
-function transferrecvQ!(::Val{dim}, ::Val{N}, d_recvQ::CuArray, recvQ,
-                        d_Q, nrealelem) where {dim, N}
+function transferrecvQ!(d_recvQ::CuArray, recvQ, d_Q, nrealelem)
   nrecvelem = size(recvQ)[end]
+  Np = size(d_Q, 1)
+  nvar = size(d_Q, 2)
   if nrecvelem > 0
     d_recvQ .= recvQ
-    @cuda(threads=ntuple(j->N+1, dim), blocks=nrecvelem,
-          knl_transferrecvQ!(Val(dim), Val(N), d_Q, d_recvQ, nrecvelem,
+    @cuda(threads=Np, blocks=nrecvelem,
+          knl_transferrecvQ!(Val(Np), Val(nvar), d_Q, d_recvQ, nrecvelem,
                                    nrealelem))
   end
 end
