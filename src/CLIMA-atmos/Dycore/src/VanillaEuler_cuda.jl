@@ -379,23 +379,23 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendQ!(::Val{dim}, ::Val{N}, sendQ, d_sendQ::CuArray, d_QL,
+function fillsendQ!(::Val{dim}, ::Val{N}, sendQ, d_sendQ::CuArray, d_Q,
                     d_sendelems) where {dim, N}
   nsendelem = length(d_sendelems)
   if nsendelem > 0
     @cuda(threads=ntuple(j->N+1, dim), blocks=nsendelem,
-          knl_fillsendQ!(Val(dim), Val(N), d_sendQ, d_QL, d_sendelems))
+          knl_fillsendQ!(Val(dim), Val(N), d_sendQ, d_Q, d_sendelems))
     sendQ .= d_sendQ
   end
 end
 
 function transferrecvQ!(::Val{dim}, ::Val{N}, d_recvQ::CuArray, recvQ,
-                        d_QL, nrealelem) where {dim, N}
+                        d_Q, nrealelem) where {dim, N}
   nrecvelem = size(recvQ)[end]
   if nrecvelem > 0
     d_recvQ .= recvQ
     @cuda(threads=ntuple(j->N+1, dim), blocks=nrecvelem,
-          knl_transferrecvQ!(Val(dim), Val(N), d_QL, d_recvQ, nrecvelem,
+          knl_transferrecvQ!(Val(dim), Val(N), d_Q, d_recvQ, nrecvelem,
                                    nrealelem))
   end
 end
@@ -403,14 +403,14 @@ end
 
 # {{{ Kernel wrappers
 function volumerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                    d_rhsL::CuArray, d_QL, d_vgeoL, gravity, d_D,
+                    d_rhs::CuArray, d_Q, d_vgeo, gravity, d_D,
                     elems) where {dim, N, nmoist, ntrace}
-  Qshape    = (ntuple(j->N+1, dim)..., size(d_QL, 2), size(d_QL, 3))
-  vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_QL, 3))
+  Qshape    = (ntuple(j->N+1, dim)..., size(d_Q, 2), size(d_Q, 3))
+  vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_Q, 3))
 
-  d_rhsC = reshape(d_rhsL, Qshape...)
-  d_QC = reshape(d_QL, Qshape)
-  d_vgeoC = reshape(d_vgeoL, vgeoshape)
+  d_rhsC = reshape(d_rhs, Qshape...)
+  d_QC = reshape(d_Q, Qshape)
+  d_vgeoC = reshape(d_vgeo, vgeoshape)
 
   nelem = length(elems)
   @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
@@ -419,12 +419,11 @@ function volumerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 end
 
 function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                  d_rhsL::CuArray, d_QL, d_vgeo, d_sgeo, gravity, elems,
-                  d_vmapM, d_vmapP, d_elemtobndy) where {dim, N, nmoist,
-                                                         ntrace}
+                  d_rhs::CuArray, d_Q, d_vgeo, d_sgeo, gravity, elems, d_vmapM,
+                  d_vmapP, d_elemtobndy) where {dim, N, nmoist, ntrace}
   nelem = length(elems)
   @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        knl_facerhs!(Val(dim), Val(N), d_rhsL, d_QL, d_vgeo, d_sgeo, gravity,
+        knl_facerhs!(Val(dim), Val(N), d_rhs, d_Q, d_vgeo, d_sgeo, gravity,
                      nelem, d_vmapM, d_vmapP, d_elemtobndy))
 end
 
