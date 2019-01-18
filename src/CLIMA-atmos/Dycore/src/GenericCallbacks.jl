@@ -1,25 +1,28 @@
 module GenericCallbacks
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
+using MPI
 
 """
-   EveryXWallTimeSecondsCallback(f, time)
+   EveryXWallTimeSeconds(f, time)
 
 This callback will run the function 'f()' every `time` wallclock time seconds
 """
-struct EveryXWallTimeSecondsCallback
+struct EveryXWallTimeSeconds
   "time of the last callback"
   lastcbtime_ns::Array{UInt64}
   "time between callbacks"
   Δtime::Real
+  "MPI communicator"
+  mpicomm
   "function to execute for callback"
   func::Function
-  function EveryXWallTimeSecondsCallback(func, Δtime)
+  function EveryXWallTimeSeconds(func, Δtime, mpicomm)
     lastcbtime_ns = [time_ns()]
-    new(lastcbtime_ns, Δtime, func)
+    new(lastcbtime_ns, Δtime, mpicomm, func)
   end
 end
-function (cb::EveryXWallTimeSecondsCallback)(initialize::Bool=false)
+function (cb::EveryXWallTimeSeconds)(initialize::Bool=false)
   # Is this an initialization call? If so, start the timers
   if initialize
     cb.lastcbtime_ns[1] = time_ns()
@@ -34,6 +37,7 @@ function (cb::EveryXWallTimeSecondsCallback)(initialize::Bool=false)
   # Check whether we should do a callback
   currtime_ns = time_ns()
   runtime = (currtime_ns - cb.lastcbtime_ns[1]) * 1e-9
+  runtime = MPI.Allreduce(runtime, MPI.MAX, cb.mpicomm)
   if runtime < cb.Δtime
     return 0
   else

@@ -119,9 +119,10 @@ function main()
         # Setup the info callback
         io = mpirank == 0 ? stdout : open("/dev/null", "w")
         show(io, "text/plain", runner[:spacerunner])
-        cbinfo = AD.GenericCallbacks.EveryXWallTimeSecondsCallback(10) do
-          println(io, runner[:spacerunner])
-        end
+        cbinfo =
+          AD.GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
+            println(io, runner[:spacerunner])
+          end
 
         # Setup the vtk callback
         mkpath("viz")
