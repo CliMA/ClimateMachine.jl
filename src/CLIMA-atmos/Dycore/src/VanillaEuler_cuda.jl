@@ -16,6 +16,8 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
   s_G = @cuStaticSharedMem(eltype(Q), (Nq, Nq, _nstate))
 
   MJI = rhsU = rhsV = rhsρ = rhsE = zero(eltype(rhs))
+  MJ = ξx = ξy = ηx = ηy = zero(eltype(rhs))
+  u = v = zero(eltype(rhs))
   if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
     if k == 1
@@ -59,6 +61,8 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
 
     # buoyancy term
     rhsV -= ρ * gravity
+
+    u, v = U * ρinv, V * ρinv
   end
 
   sync_threads()
@@ -87,6 +91,64 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
     rhs[i, j, _ρ, e] = rhsρ
     rhs[i, j, _E, e] = rhsE
   end
+
+  # loop over moist variables
+  # FIXME: Currently just passive advection
+  # TODO: This should probably be unrolled by some factor
+  rhsmoist = zero(eltype(rhs))
+  for m = 1:nmoist
+    s = _nstate + m
+
+    sync_threads()
+
+    @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
+      Qmoist   = Q[i, j, s, e]
+      rhsmoist = rhs[i, j, s, e]
+
+      s_F[i, j, 1] = MJ * (ξx * u * Qmoist + ξy * v * Qmoist)
+      s_G[i, j, 1] = MJ * (ηx * u * Qmoist + ηy * v * Qmoist)
+    end
+
+    sync_threads()
+    @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
+      for n = 1:Nq
+        MJI_Dni = MJI * s_D[n, i]
+        MJI_Dnj = MJI * s_D[n, j]
+
+        rhsmoist += MJI_Dni * s_F[n, j, 1]
+        rhsmoist += MJI_Dnj * s_G[i, n, 1]
+      end
+      rhs[i, j, s, e] = rhsmoist
+    end
+  end
+
+  # loop over tracer variables
+  # TODO: This should probably be unrolled by some factor
+  rhstrace = zero(eltype(rhs))
+  for t = 1:ntrace
+    s = _nstate + nmoist + t
+
+    sync_threads()
+
+    @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
+      Qtrace   = Q[i, j, s, e]
+      rhstrace = rhs[i, j, s, e]
+
+      s_F[i, j, 1] = MJ * (ξx * u * Qtrace + ξy * v * Qtrace)
+      s_G[i, j, 1] = MJ * (ηx * u * Qtrace + ηy * v * Qtrace)
+    end
+
+    sync_threads()
+    for n = 1:Nq
+      MJI_Dni = MJI * s_D[n, i]
+      MJI_Dnj = MJI * s_D[n, j]
+
+      rhstrace += MJI_Dni * s_F[n, j, 1]
+      rhstrace += MJI_Dnj * s_G[i, n, 1]
+    end
+    rhs[i, j, s, e] = rhstrace
+  end
+
   nothing
 end
 # }}}
@@ -107,6 +169,8 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
   s_H = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq, _nstate))
 
   MJI = rhsU = rhsV = rhsW = rhsρ = rhsE = zero(eltype(rhs))
+  MJ = ξx = ξy = ξz = ηx = ηy = ηz = ζx = ζy = ζz = zero(eltype(rhs))
+  u = v = w = zero(eltype(rhs))
   @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
     # Load derivative into shared memory
     if k == 1
@@ -169,6 +233,8 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
 
     # buoyancy term
     rhsW -= ρ * gravity
+
+    u, v, w = U * ρinv, V * ρinv, W * ρinv
   end
 
   sync_threads()
@@ -207,13 +273,90 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
     rhs[i, j, k, _ρ, e] = rhsρ
     rhs[i, j, k, _E, e] = rhsE
   end
+
+  # loop over moist variables
+  # FIXME: Currently just passive advection
+  # TODO: This should probably be unrolled by some factor
+  rhsmoist = zero(eltype(rhs))
+  for m = 1:nmoist
+    s = _nstate + m
+
+    sync_threads()
+
+    @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
+      Qmoist = Q[i, j, k, s, e]
+      rhsmoist = rhs[i, j, k, s, e]
+
+      fx = u * Qmoist
+      fy = v * Qmoist
+      fz = w * Qmoist
+
+      s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
+      s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
+      s_H[i, j, k, 1] = MJ * (ζx * fx + ζy * fy + ζz * fz)
+    end
+
+    sync_threads()
+
+    @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
+      for n = 1:Nq
+        MJI_Dni = MJI * s_D[n, i]
+        MJI_Dnj = MJI * s_D[n, j]
+        MJI_Dnk = MJI * s_D[n, k]
+
+        rhsmoist += MJI_Dni * s_F[n, j, k, 1]
+        rhsmoist += MJI_Dnj * s_G[i, n, k, 1]
+        rhsmoist += MJI_Dnk * s_H[i, j, n, 1]
+      end
+      rhs[i, j, k, s, e] = rhsmoist
+    end
+  end
+
+  # loop over tracer variables
+  # TODO: This should probably be unrolled by some factor
+  rhstrace = zero(eltype(rhs))
+  for t = 1:ntrace
+    s = _nstate + nmoist + t
+
+    sync_threads()
+
+    @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
+      Qtrace = Q[i, j, k, s, e]
+      rhstrace = rhs[i, j, k, s, e]
+
+      fx = u * Qtrace
+      fy = v * Qtrace
+      fz = w * Qtrace
+
+      s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
+      s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
+      s_H[i, j, k, 1] = MJ * (ζx * fx + ζy * fy + ζz * fz)
+    end
+
+    sync_threads()
+
+    @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
+      for n = 1:Nq
+        MJI_Dni = MJI * s_D[n, i]
+        MJI_Dnj = MJI * s_D[n, j]
+        MJI_Dnk = MJI * s_D[n, k]
+
+        rhstrace += MJI_Dni * s_F[n, j, k, 1]
+        rhstrace += MJI_Dnj * s_G[i, n, k, 1]
+        rhstrace += MJI_Dnk * s_H[i, j, n, 1]
+      end
+      rhs[i, j, k, s, e] = rhstrace
+    end
+  end
+
   nothing
 end
 # }}}
 
 # {{{ Face RHS (all dimensions)
-function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, gravity,
-                      nelem, vmapM, vmapP, elemtobndy) where {dim, N}
+function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
+                      Q, vgeo, sgeo, gravity, nelem, vmapM, vmapP,
+                      elemtobndy) where {dim, N, nmoist, ntrace}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -335,6 +478,46 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, rhs, Q, vgeo, sgeo, gravity,
         rhs[vidM, _V, eM] -= vMJI * sMJ * fluxVS
         rhs[vidM, _W, eM] -= vMJI * sMJ * fluxWS
         rhs[vidM, _E, eM] -= vMJI * sMJ * fluxES
+
+        # Calculate the velocity
+        uM, vM, wM = ρMinv * UM, ρMinv * VM, ρMinv * WM
+        uP, vP, wP = ρPinv * UP, ρPinv * VP, ρPinv * WP
+
+        # FIXME: Will need to be updated for other bcs...
+        vidP = bc == 0 ? vidP : vidM
+
+        # loop over moist variables
+        # FIXME: Currently just passive advection
+        # TODO: This should probably be unrolled by some factor
+        for m = 1:nmoist
+          s = _nstate + m
+          QmoistM, QmoistP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QmoistM, uP * QmoistP
+          fluxM_y, fluxP_y = vM * QmoistM, vP * QmoistP
+          fluxM_z, fluxP_z = wM * QmoistM, wP * QmoistP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   nzM * (fluxM_z + fluxP_z) - λ * (QmoistP - QmoistM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
+
+        # loop over tracer variables
+        # TODO: This should probably be unrolled by some factor
+        for t = 1:ntrace
+          s = _nstate + nmoist + t
+          QtraceM, QtraceP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QtraceM, uP * QtraceP
+          fluxM_y, fluxP_y = vM * QtraceM, vP * QtraceP
+          fluxM_z, fluxP_z = wM * QtraceM, wP * QtraceP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   nzM * (fluxM_z + fluxP_z) - λ * (QtraceP - QtraceM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
       end
       sync_threads()
     end
@@ -421,8 +604,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                   d_vmapP, d_elemtobndy) where {dim, N, nmoist, ntrace}
   nelem = length(elems)
   @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        knl_facerhs!(Val(dim), Val(N), d_rhs, d_Q, d_vgeo, d_sgeo, gravity,
-                     nelem, d_vmapM, d_vmapP, d_elemtobndy))
+        knl_facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), d_rhs, d_Q,
+                     d_vgeo, d_sgeo, gravity, nelem, d_vmapM, d_vmapP,
+                     d_elemtobndy))
 end
 
 # }}}
