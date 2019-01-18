@@ -116,30 +116,11 @@ function main(;spacemethod=:VanillaEuler, DFloat=Float64, dim=3, backend=Array,
   # Setup the info callback
   io = mpirank == 0 ? stdout : open("/dev/null", "w")
   show(io, "text/plain", runner[:spacerunner])
-  cbinfo = AD.GenericCallbacks.EveryXWallTimeSecondsCallback(10) do
+  cbinfo = AD.GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
     println(io, runner[:spacerunner])
   end
 
-  # Setup the vtk callback
-  mkpath("viz")
-  dump_vtk(step) = AD.writevtk(runner,
-                               "viz/RTB"*
-                               "_dim_$(dim)"*
-                               "_DFloat_$(DFloat)"*
-                               "_backend_$(backend)"*
-                               "_mpirank_$(mpirank)"*
-                               "_step_$(step)")
-  step = 0
-  cbvtk = AD.GenericCallbacks.EveryXSimulationSteps(10) do
-    # TODO: We should add queries back to time stepper for this
-    step += 1
-    dump_vtk(step)
-    nothing
-  end
-
-  dump_vtk(0)
-  AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk))
-  dump_vtk(nsteps)
+  AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, ))
 
   let
     Q = Array(runner[:Q])
