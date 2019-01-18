@@ -5,6 +5,10 @@ Moist thermodynamic functions, e.g., for air pressure (atmosphere equation
 of state), latent heats of phase transitions, saturation vapor pressures, and
 saturation specific humidities
 """
+
+# FIXME: need to formulate saturation thermodynamics given density, rather
+# than pressure
+
 module MoistThermodynamics
 
 using PlanetParameters
@@ -13,7 +17,7 @@ using PlanetParameters
 using Roots
 
 # Atmospheric equation of state
-export air_pressure, air_temperature
+export air_pressure, air_temperature, air_density
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -31,7 +35,7 @@ export sat_vapor_press_liquid, sat_vapor_press_ice, sat_shum_generic, sat_shum
 # determined diagnostically from total water specific humidity)
 export liquid_fraction, phase_partitioning_eq, saturation_adjustment
 
-# Conversion functions
+# Auxiliary functions, e.g., for diagnostic purposes
 export liquid_ice_pottemp
 
 """
@@ -60,6 +64,21 @@ pressure from the equation of state of dry air.
 function air_pressure(T, density, q_t=0, q_l=0, q_i=0)
 
     return gas_constant_air(q_t, q_l, q_i) .* density .* T
+
+end
+
+"""
+    air_density(T, p[, q_t=0, q_l=0, q_i=0])
+
+Return the air density from the equation of state (ideal gas law), given
+the air temperature `T`, the pressure `p`, and, optionally, the total specific
+humidity `q_t`, the liquid specific humidity `q_l`, and the ice specific
+humidity `q_i`. Without the specific humidity arguments, it returns the air
+density from the equation of state of dry air.
+"""
+function air_density(T, p, q_t=0, q_l=0, q_i=0)
+
+    return p ./ (gas_constant_air(q_t, q_l, q_i) .* T)
 
 end
 
@@ -121,16 +140,16 @@ function internal_energy(T, q_t=0, q_l=0, q_i=0)
 end
 
 """
-    internal_energy_sat(T, p, q_t)
+    internal_energy_sat(T, density, q_t)
 
 Return the internal energy per unit mass in thermodynamic equilibrium at
-saturation, given the temperature `T`, pressure `p`, and total specific
+saturation, given the temperature `T`, air density `density`, and total specific
 humidity `q_t`.
 """
-function internal_energy_sat(T, p, q_t)
+function internal_energy_sat(T, density, q_t)
 
     # get equilibrium phase partitioning
-    _q_l, _q_i = phase_partitioning_eq(T, p, q_t)
+    _q_l, _q_i = phase_partitioning_eq(T, density, q_t)
 
     return internal_energy(T, q_t, _q_l, _q_i)
 
@@ -355,19 +374,20 @@ function heaviside(t)
 end
 
 """
-    q_l, q_i = phase_partitioning_eq(T, p, q_t)
+    q_l, q_i = phase_partitioning_eq(T, density, q_t)
 
 Return the partitioning of the phases in equilibrium.
 
-Given the temperature `T` and pressure `p`, `phase_partitioning_eq` partitions
+Given the temperature `T` and air density `density`, `phase_partitioning_eq` partitions
 the total specific humidity `q_t` into the liquid specific humidity `q_l` and ice
 specific humiditiy `q_l` using the `liquid_fraction` function. The residual
 `q_t - q_l - q_i` is the vapor specific humidity.
 """
-function phase_partitioning_eq(T, p, q_t)
+function phase_partitioning_eq(T, density, q_t)
 
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
-    q_vs         = sat_shum(T, p, q_t)  # saturation specific humidity
+    _p           = air_pressure(T, q_t) # pressure (only approximate, assuming no condensate)
+    q_vs         = sat_shum(T, _p, q_t) # saturation specific humidity
     q_c          = max.(q_t .- q_vs, 0) # condensate specific humidity
     q_l          = _liquid_frac .* q_c  # liquid specific humidity
     q_i          = (1 .- _liquid_frac) .* q_c # ice specific humidity
@@ -377,26 +397,29 @@ function phase_partitioning_eq(T, p, q_t)
 end
 
 """
-    T, q_l, q_i = saturation_adjustment(E_int, p, q_t[, T_init = T_triple])
+    T, p, q_l, q_i = saturation_adjustment(E_int, density, q_t[, T_init = T_triple])
 
-Compute the temperature `T` and liquid and ice specific humidities `q_l` and
-`q_i` from the internal energy `E_int`, pressure `p`, and total specific humidity
+Compute the temperature `T`, pressure `p` and liquid and ice specific humidities `q_l` and
+`q_i` from the internal energy `E_int`, air density `density`, and total specific humidity
 `q_t` by saturation adjustment.
 
 The optional input value of the temperature `T_init` is taken as the initial
 value of the saturation adjustment iterations.
 """
-function saturation_adjustment(E_int, p, q_t, T_init = T_triple)
+function saturation_adjustment(E_int, density, q_t, T_init = T_triple)
 
-    T = map( (E_int, p, q_t, T_init) ->
-        find_zero(x -> internal_energy_sat(x, p, q_t) - E_int, T_init,
+    T = map( (E_int, density, q_t, T_init) ->
+        find_zero(x -> internal_energy_sat(x, density, q_t) - E_int, T_init,
             Order1(), atol=1e-3*cv_d),
-        E_int, p, q_t, T_init )
+        E_int, density, q_t, T_init )
 
     # get phase partitioning from temperature
-    q_l, q_i = phase_partitioning_eq(T, p, q_t)
+    q_l, q_i = phase_partitioning_eq(T, density, q_t)
 
-    return T, q_l, q_i
+    # get pressure from temperature and specific humidities
+    p           = air_pressure(T, q_t, q_l, q_i)
+
+    return T, p, q_l, q_i
 
 end
 

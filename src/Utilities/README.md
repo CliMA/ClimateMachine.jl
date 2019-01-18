@@ -3,7 +3,7 @@ Functions shared across model components, e.g., for thermodynamics.
 
 ## MoistThermodynamics Module
 
-The `MoistThermodynamics` module provides all thermodynamic functions needed for the atmosphere, and functions shared across model components. The functions are general for a moist atmosphere that includes suspended cloud condensate in the working fluid; the special case of a dry atmosphere is obtained for zero specific humidities (or simply by omitting the optional specific humidity arguments in functions that are needed for a dry atmosphere). The general formulation assumes that there are tracers for the total water specific humidity, the liquid specific humidity, and the ice specific humidity to characterize the thermodynamic state and composition of moist air.
+The `MoistThermodynamics` module provides all thermodynamic functions needed for the atmosphere and functions shared across model components. The functions are general for a moist atmosphere that includes suspended cloud condensate in the working fluid; the special case of a dry atmosphere is obtained for zero specific humidities (or simply by omitting the optional specific humidity arguments in the functions that are needed for a dry atmosphere). The general formulation assumes that there are tracers for the total water specific humidity `q_t`, the liquid specific humidity `q_l`, and the ice specific humidity `q_i` to characterize the thermodynamic state and composition of moist air.
 
 There are several types of functions:
 
@@ -25,14 +25,47 @@ There are several types of functions:
     * `total_energy`
     * `internal_energy`
     * `air_temperature`
-6. Functions to compute temperatures and partitioning of water into phases in thermodynamic equilibrium (when Gibbs' phase rule implies that the entire thermodynamic state of moist air, including the liquid and ice specific humidities, can be calculated from the energy, pressure, and total specific humidity)
+6. Functions to compute temperatures and partitioning of water into phases in thermodynamic equilibrium (when Gibbs' phase rule implies that the entire thermodynamic state of moist air, including the liquid and ice specific humidities, can be calculated from the 3 thermodynamic state variables, such as energy, pressure, and total specific humidity)
     * `liquid_fraction` (fraction of condensate that is liquid)
-    * `saturation_adjustment` (compute temperature and condensate specific humidities from energy, pressure, and total specific humidity)
+    * `saturation_adjustment` (compute temperature, density, and condensate specific humidities from energy, density, and total specific humidity)
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
-A moist dynamical core that assumes equilibrium thermodynamics (i.e., no non-equilibrium phases such as supercooled liquid) can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity, using the functions in the module for moist atmospheres (e.g., functions for the energies), and computing the temperature and the liquid and ice specific humidities from the internal energy `E_int` by saturation adjustment through
+A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_t`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities `q_l` and `q_i` from the internal energy `E_int` by saturation adjustment through
 ```julia
-    T, q_l, q_i   = saturation_adjustment(E_int, p, q_t, T_init);
+    T, p, q_l, q_i   = saturation_adjustment(E_int, density, q_t, T_init);
 ```
-here, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int = E_tot - KE - PE` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `PE` (all per unit mass). No changes to the "right-hand sides" are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation. 
+here, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int = E_tot - KE - geopotential` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
+
+Schematically, such a core would look as follows:
+```julia
+
+    # initialize
+    geopotential = grav * z
+    T_init = ...
+    q_t = ...
+    density = air_density(T, p, q_t)
+
+    (u, v, w) = ...
+    KE = 0.5 * (u.^2 .+ v.^2 .+ w.^2)
+
+    total_energy(KE, geopotential, T)
+
+    T_prev = T_init;; # temperature from previous timestep
+    do timestep   # timestepping loop
+
+      # advance dynamical variables a time timestep (temperature typically
+      # appears in terms on the rhs, such as radiative transfer)
+      advance(u, v, w, density, E_tot, q_t)  
+
+      # compute internal energy from dynamic variables
+      E_int         = E_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
+
+      # compute temperature, pressure and condensate specific humidities,
+      # using T_prev as initial condition for iterations
+      T, p, q_l, q_i   = saturation_adjustment(E_int, density, q_t, T_prev);
+
+      # update temperature for next timestep
+      T_prev        = T;  
+    end
+```
