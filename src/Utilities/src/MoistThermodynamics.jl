@@ -16,7 +16,7 @@ using Roots
 export air_pressure, air_temperature
 
 # Energies
-export total_energy, internal_energy
+export total_energy, internal_energy, internal_energy_sat
 
 # Specific heats of moist air
 export cp_m, cv_m, gas_constant_air
@@ -29,7 +29,7 @@ export sat_vapor_press_liquid, sat_vapor_press_ice, sat_shum_generic, sat_shum
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
-export liquid_fraction, saturation_adjustment!
+export liquid_fraction, phase_partitioning_eq, saturation_adjustment
 
 # Conversion functions
 export liquid_ice_pottemp
@@ -117,6 +117,22 @@ function internal_energy(T, q_t=0, q_l=0, q_i=0)
 
     return cv_m(q_t, q_l, q_i) .* (T .- T_0) .+
         (q_t .- q_l) * IE_v0 .- q_i * (IE_v0 + IE_i0)
+
+end
+
+"""
+    internal_energy_sat(T, p, q_t)
+
+Return the internal energy per unit mass in thermodynamic equilibrium at
+saturation, given the temperature `T`, pressure `p`, and total specific
+humidity `q_t`.
+"""
+function internal_energy_sat(T, p, q_t)
+
+    # get equilibrium phase partitioning
+    _q_l, _q_i = phase_partitioning_eq(T, p, q_t)
+
+    return internal_energy(T, q_t, _q_l, _q_i)
 
 end
 
@@ -339,40 +355,16 @@ function heaviside(t)
 end
 
 """
-    saturation_adjustment!(T, E_int, p, q_t[, q_l, q_i])
+    q_l, q_i = phase_partitioning_eq(T, p, q_t)
 
-Compute the temperature `T` and specific humidities of condensate from the
-internal energy `E_int`, pressure `p`, and total specific humidity `q_t`
-by saturation adjustment.
+Return the partitioning of the phases in equilibrium.
 
-The function takes the internal energy per unit mass `E_int`, pressure `p`,
-and total water specific humidity `q_t` as input variables and returns on output
-the temperature `T`, and, optionally, the liquid water specific humidity `q_l`
-and ice specific humidity `q_i`. The input value of the temperature `T` is taken
-as the initial value of the saturation adjustment iterations.
+Given the temperature `T` and pressure `p`, `phase_partitioning_eq` partitions
+the total specific humidity `q_t` into the liquid specific humidity `q_l` and ice
+specific humiditiy `q_l` using the `liquid_fraction` function. The residual
+`q_t - q_l - q_i` is the vapor specific humidity.
 """
-function saturation_adjustment!(T, E_int, p, q_t, q_l=0, q_i=0)
-
-    # FIXME: need to fix syntax here so that p, q_t, ... are passed to
-    # internal_energy_sat and find_zero finds the zero as a function of T;
-    # alternatively, write wrapper around internal_energy_sat so it only
-    # takes one argument, then call it again to get q's
-    find_zero.(internal_energy_sat(T, p, q_t, q_l, q_i) .- E_int, T, Order1())
-
-end
-
-"""
-    internal_energy_sat(T, p, q_t[, q_l, q_i])
-
-Return the internal energy per unit mass in thermodynamic equilibrium at
-saturation, given the temperature `T`, pressure `p`, and total specific
-humidity `q_t`.
-
-The optional liquid specific humidity `q_l` and ice specific humidity `q_i` are
-overwritten on output with their equilibrium values, obtained by partitioning
-the saturation excess according to the `liquid_fraction` function.
-"""
-function internal_energy_sat(T, p, q_t, q_l=0, q_i=0)
+function phase_partitioning_eq(T, p, q_t)
 
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
     q_vs         = sat_shum(T, p, q_t)  # saturation specific humidity
@@ -380,7 +372,31 @@ function internal_energy_sat(T, p, q_t, q_l=0, q_i=0)
     q_l          = _liquid_frac .* q_c  # liquid specific humidity
     q_i          = (1 .- _liquid_frac) .* q_c # ice specific humidity
 
-    return internal_energy(T, q_t, q_l, q_i)
+    return q_l, q_i
+
+end
+
+"""
+    T, q_l, q_i = saturation_adjustment(E_int, p, q_t[, T_init = T_triple])
+
+Compute the temperature `T` and liquid and ice specific humidities `q_l` and
+`q_i` from the internal energy `E_int`, pressure `p`, and total specific humidity
+`q_t` by saturation adjustment.
+
+The optional input value of the temperature `T_init` is taken as the initial
+value of the saturation adjustment iterations.
+"""
+function saturation_adjustment(E_int, p, q_t, T_init = T_triple)
+
+    T = map( (E_int, p, q_t, T_init) ->
+        find_zero(x -> internal_energy_sat(x, p, q_t) - E_int, T_init,
+            Order1(), atol=1e-3*cv_d),
+        E_int, p, q_t, T_init )
+
+    # get phase partitioning from temperature
+    q_l, q_i = phase_partitioning_eq(T, p, q_t)
+
+    return T, q_l, q_i
 
 end
 
