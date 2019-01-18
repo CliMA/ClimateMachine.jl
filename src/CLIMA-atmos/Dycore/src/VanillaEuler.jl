@@ -25,8 +25,8 @@ using Base: @kwdef
 
 # note the order of the fields below is also assumed in the code.
 const _nstate = 5
-const _U, _V, _W, _ρ, _E = 1:_nstate
-const stateid = (U = _U, V = _V, W = _W, ρ = _ρ, E = _E)
+const _ρ, _U, _V, _W, _E = 1:_nstate
+const stateid = (ρ = _ρ, U = _U, V = _V, W = _W, E = _E)
 
 const _nvgeo = 14
 const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
@@ -120,6 +120,20 @@ See Julia github issue [#25167](https://github.com/JuliaLang/julia/issues/25167)
   no default value
   """
   N::Int
+
+  """
+  number of moist variables
+
+  default: 0
+  """
+  nmoist::Int = 0
+
+  """
+  number of tracer variables
+
+  default: 0
+  """
+  ntrace::Int = 0
 end
 # }}}
 
@@ -204,8 +218,9 @@ struct Configuration{DeviceArray, HostArray} #<: AD.AbstractSpaceConfiguration
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
     mpirank == 0 && @debug "create send/recv storage..."
-    sendQ = zeros(DFloat, (N+1)^dim, _nstate, length(mesh.sendelems))
-    recvQ = zeros(DFloat, (N+1)^dim, _nstate, length(mesh.ghostelems))
+    nvar = _nstate + params.nmoist + params.ntrace
+    sendQ = zeros(DFloat, (N+1)^dim, nvar, length(mesh.sendelems))
+    recvQ = zeros(DFloat, (N+1)^dim, nvar, length(mesh.ghostelems))
 
     mpirank == 0 && @debug "create configuration struct..."
     HostArray = Array
@@ -234,7 +249,8 @@ struct State{DeviceArray} #<: AD.AbstractSpaceState
   Q::DeviceArray
   function State(config::Configuration{DeviceArray, HostArray},
                  params::Parameters) where {DeviceArray, HostArray}
-    Q = similar(config.vgeo, (size(config.vgeo,1), _nstate, size(config.vgeo,3)))
+    nvar = _nstate + params.nmoist + params.ntrace
+    Q = similar(config.vgeo, (size(config.vgeo,1), nvar, size(config.vgeo,3)))
     # Shove into array so we can leave the type immutable
     # (is this worthwhile?)
     time = [params.initialtime]
@@ -295,12 +311,18 @@ function Base.getindex(r::Runner, s::Symbol)
   s == :time && return r.state.time[1]
   s == :Q && return r.state.Q
   s == :mesh && return r.config.mesh
+  s == :stateid && return stateid
+  s == :moistid && return _nstate .+ (1:r.params.nmoist)
+  s == :traceid && return _nstate .+ r.params.nmoist .+ (1:r.params.ntrace)
   error("""
         getindex for the $(typeof(r)) supports:
-        `:time`        => gets the runners time
-        `:Q`           => gets the runners state Q
-        `:mesh`        => gets the runners mesh
-        `:hostQ`       => not implemented yet
+        `:time`    => gets the runners time
+        `:Q`       => gets the runners state Q
+        `:mesh`    => gets the runners mesh
+        `:hostQ`   => not implemented yet
+        `:stateid` => Euler state storage order
+        `:moistid` => moist state storage order
+        `:traceid` => trace state storage order
         """)
 end
 Base.setindex!(r::Runner, v, s) = Base.setindex!(r, v, Symbol(s))
@@ -319,6 +341,7 @@ function AD.initstate!(runner::Runner{DeviceArray}, ic::Function;
   host || error("Currently requires host configuration")
 
   # Pull out the config and state
+  params::Parameters = runner.params
   config::Configuration = runner.config
   state::State = runner.state
 
@@ -327,14 +350,13 @@ function AD.initstate!(runner::Runner{DeviceArray}, ic::Function;
   vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
   Q = cpubackend ? state.Q : Array(state.Q)
 
+  nvar = _nstate + params.nmoist + params.ntrace
   @inbounds for e = 1:size(Q, 3), i = 1:size(Q, 1)
     x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
-    ρ, U, V, W, E = ic(x, y, z)
-    Q[i, _ρ, e] = ρ
-    Q[i, _U, e] = U
-    Q[i, _V, e] = V
-    Q[i, _W, e] = W
-    Q[i, _E, e] = E
+    Q0 = ic(x, y, z)
+    for n = 1:nvar
+      Q[i, n, e] = Q0[n]
+    end
   end
   if !cpubackend
     state.Q .= Q
@@ -598,6 +620,8 @@ function AD.rhs!(rhs::DeviceArray,
 
   N   = params.N
   dim = params.dim
+  ntrace = params.ntrace
+  nmoist = params.nmoist
 
   nnabr = length(mesh.nabrtorank)
   nrealelem = length(mesh.realelems)
@@ -612,7 +636,7 @@ function AD.rhs!(rhs::DeviceArray,
   MPI.Waitall!(sendreq)
 
   # pack data in send buffer
-  fillsendQ!(Val(dim), Val(N), host_sendQ, device_sendQ, Q, sendelems)
+  fillsendQ!(host_sendQ, device_sendQ, Q, sendelems)
 
   # post MPI sends
   for n = 1:nnabr
@@ -621,48 +645,51 @@ function AD.rhs!(rhs::DeviceArray,
   end
 
   # volume RHS computation
-  volumerhs!(Val(dim), Val(N), rhs, Q, vgeo, gravity, Dmat, mesh.realelems)
+  volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), rhs, Q, vgeo, gravity,
+             Dmat, mesh.realelems)
 
   # wait on MPI receives
   MPI.Waitall!(recvreq)
 
   # copy data to state vectors
-  transferrecvQ!(Val(dim), Val(N), device_recvQ, host_recvQ, Q, nrealelem)
+  transferrecvQ!(device_recvQ, host_recvQ, Q, nrealelem)
 
   # face RHS computation
-  facerhs!(Val(dim), Val(N), rhs, Q, vgeo, sgeo, gravity, mesh.realelems,
-           vmapM, vmapP, elemtobndy)
+  facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), rhs, Q, vgeo, sgeo,
+           gravity, mesh.realelems, vmapM, vmapP, elemtobndy)
 end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendQ!(::Val{dim}, ::Val{N}, host_sendQ,
-                            device_sendQ::Array, Q, sendelems) where {dim, N}
+function fillsendQ!(host_sendQ, device_sendQ::Array, Q, sendelems)
   host_sendQ[:, :, :] .= Q[:, :, sendelems]
 end
 
-function transferrecvQ!(::Val{dim}, ::Val{N}, device_recvQ::Array,
-                                host_recvQ, Q, nrealelem) where {dim, N}
+function transferrecvQ!(device_recvQ::Array, host_recvQ, Q, nrealelem)
   Q[:, :, nrealelem+1:end] .= host_recvQ[:, :, :]
 end
 # }}}
 
 # {{{ Volume RHS for 2-D
-function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
-                    elems) where N
+function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
+                    rhs::Array, Q, vgeo, gravity, D,
+                    elems) where {N, nmoist, ntrace}
+  nvar = _nstate + nmoist + ntrace
+
   DFloat = eltype(Q)
 
   Nq = N + 1
 
   nelem = size(Q)[end]
 
-  Q = reshape(Q, Nq, Nq, _nstate, nelem)
-  rhs = reshape(rhs, Nq, Nq, _nstate, nelem)
+  Q = reshape(Q, Nq, Nq, nvar, nelem)
+  rhs = reshape(rhs, Nq, Nq, nvar, nelem)
   vgeo = reshape(vgeo, Nq, Nq, _nvgeo, nelem)
 
   s_F = Array{DFloat}(undef, Nq, Nq, _nstate)
   s_G = Array{DFloat}(undef, Nq, Nq, _nstate)
-  MJI = Array{DFloat}(undef, Nq, Nq, _nstate)
+  l_u = Array{DFloat}(undef, Nq, Nq)
+  l_v = Array{DFloat}(undef, Nq, Nq)
 
   @inbounds for e in elems
     for j = 1:Nq, i = 1:Nq
@@ -701,6 +728,9 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
 
       # buoyancy term
       rhs[i, j, _V, e] -= ρ * gravity
+
+      # Store velocity
+      l_u[i, j], l_v[i, j] = ρinv * U, ρinv * V
     end
 
     # loop of ξ-grid lines
@@ -717,26 +747,93 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
         rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, s]
       end
     end
+
+    # loop over moist variables
+    # FIXME: Currently just passive advection
+    for m = 1:nmoist
+      s = _nstate + m
+
+      for j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, _MJ, e]
+        ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
+        ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
+        u, v = l_u[i, j], l_v[i, j]
+
+        fx = u * Q[i, j, s, e]
+        fy = v * Q[i, j, s, e]
+
+        s_F[i, j, 1] = MJ * (ξx * fx + ξy * fy)
+        s_G[i, j, 1] = MJ * (ηx * fx + ηy * fy)
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, i] * s_F[n, j, 1]
+        end
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, 1]
+        end
+      end
+    end
+
+    # loop over tracer variables
+    for t = 1:ntrace
+      s = _nstate + nmoist + t
+
+      for j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, _MJ, e]
+        ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
+        ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
+        u, v = l_u[i, j], l_v[i, j]
+
+        fx = u * Q[i, j, s, e]
+        fy = v * Q[i, j, s, e]
+
+        s_F[i, j, 1] = MJ * (ξx * fx + ξy * fy)
+        s_G[i, j, 1] = MJ * (ηx * fx + ηy * fy)
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, i] * s_F[n, j, 1]
+        end
+      end
+      for j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, 1]
+        end
+      end
+    end
   end
 end
 # }}}
 
 # {{{ Volume RHS for 3-D
-function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
-                    elems) where N
+function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
+                    rhs::Array, Q, vgeo, gravity, D,
+                    elems) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
+
+  nvar = _nstate + nmoist + ntrace
 
   Nq = N + 1
 
   nelem = size(Q)[end]
 
-  Q = reshape(Q, Nq, Nq, Nq, _nstate, nelem)
-  rhs = reshape(rhs, Nq, Nq, Nq, _nstate, nelem)
+  Q = reshape(Q, Nq, Nq, Nq, nvar, nelem)
+  rhs = reshape(rhs, Nq, Nq, Nq, nvar, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nq, _nvgeo, nelem)
 
   s_F = Array{DFloat}(undef, Nq, Nq, Nq, _nstate)
   s_G = Array{DFloat}(undef, Nq, Nq, Nq, _nstate)
   s_H = Array{DFloat}(undef, Nq, Nq, Nq, _nstate)
+  l_u = Array{DFloat}(undef, Nq, Nq, Nq)
+  l_v = Array{DFloat}(undef, Nq, Nq, Nq)
+  l_w = Array{DFloat}(undef, Nq, Nq, Nq)
 
   @inbounds for e in elems
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
@@ -791,6 +888,9 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
 
       # buoyancy term
       rhs[i, j, k, _W, e] -= ρ * gravity
+
+      # Store velocity
+      l_u[i, j, k], l_v[i, j, k], l_w[i, j, k] = ρinv * U, ρinv * V, ρinv * W
     end
 
     # loop of ξ-grid lines
@@ -814,111 +914,108 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
         rhs[i, j, k, s, e] += MJI * D[n, k] * s_H[i, j, n, s]
       end
     end
-  end
-end
-# }}}
 
-# {{{ Face RHS for 2-D
-function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
-                  elems, vmapM, vmapP, elemtobndy) where N
-  DFloat = eltype(Q)
+    # loop over moist variables
+    # FIXME: Currently just passive advection
+    for m = 1:nmoist
+      s = _nstate + m
 
-  Np = (N+1)^2
-  Nfp = N+1
-  nface = 4
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, k, _MJ, e]
+        ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
+        ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
+        ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+        u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
 
-  @inbounds for e in elems
-    for f = 1:nface
-      for n = 1:Nfp
-        nxM, nyM = sgeo[_nx, n, f, e], sgeo[_ny, n, f, e]
-        sMJ, vMJI = sgeo[_sMJ, n, f, e], sgeo[_vMJI, n, f, e]
-        idM, idP = vmapM[n, f, e], vmapP[n, f, e]
+        fx = u * Q[i, j, k, s, e]
+        fy = v * Q[i, j, k, s, e]
+        fz = w * Q[i, j, k, s, e]
 
-        eM, eP = e, ((idP - 1) ÷ Np) + 1
-        vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
-
-        ρM = Q[vidM, _ρ, eM]
-        UM = Q[vidM, _U, eM]
-        VM = Q[vidM, _V, eM]
-        EM = Q[vidM, _E, eM]
-        yM = vgeo[vidM, _y, eM]
-
-        bc = elemtobndy[f, e]
-        PM = gdm1*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*gravity*yM)
-        if bc == 0
-          ρP = Q[vidP, _ρ, eP]
-          UP = Q[vidP, _U, eP]
-          VP = Q[vidP, _V, eP]
-          EP = Q[vidP, _E, eP]
-          yP = vgeo[vidP, _y, eP]
-          PP = gdm1*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*gravity*yP)
-        elseif bc == 1
-          UnM = nxM * UM + nyM * VM
-          UP = UM - 2 * UnM * nxM
-          VP = VM - 2 * UnM * nyM
-          ρP = ρM
-          EP = EM
-          PP = PM
-        else
-          error("Invalid boundary conditions $bc on face $f of element $e")
+        s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
+        s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
+        s_H[i, j, k, 1] = MJ * (ζx * fx + ζy * fy + ζz * fz)
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, i] * s_F[n, j, k, 1]
         end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, j] * s_G[i, n, k, 1]
+        end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, k] * s_H[i, j, n, 1]
+        end
+      end
+    end
 
-        ρMinv = 1 / ρM
-        fluxρM_x = UM
-        fluxUM_x = ρMinv * UM * UM + PM
-        fluxVM_x = ρMinv * UM * VM
-        fluxEM_x = ρMinv * UM * (EM + PM)
+    # loop over tracer variables
+    for t = 1:ntrace
+      s = _nstate + nmoist + t
 
-        fluxρM_y = VM
-        fluxUM_y = ρMinv * VM * UM
-        fluxVM_y = ρMinv * VM * VM + PM
-        fluxEM_y = ρMinv * VM * (EM + PM)
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJ = vgeo[i, j, k, _MJ, e]
+        ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
+        ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
+        ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+        u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
 
-        ρPinv = 1 / ρP
-        fluxρP_x = UP
-        fluxUP_x = ρPinv * UP * UP + PP
-        fluxVP_x = ρPinv * UP * VP
-        fluxEP_x = ρPinv * UP * (EP + PP)
+        fx = u * Q[i, j, k, s, e]
+        fy = v * Q[i, j, k, s, e]
+        fz = w * Q[i, j, k, s, e]
 
-        fluxρP_y = VP
-        fluxUP_y = ρPinv * VP * UP
-        fluxVP_y = ρPinv * VP * VP + PP
-        fluxEP_y = ρPinv * VP * (EP + PP)
-
-        λM = ρMinv * abs(nxM * UM + nyM * VM) + sqrt(ρMinv * gamma_d * PM)
-        λP = ρPinv * abs(nxM * UP + nyM * VP) + sqrt(ρPinv * gamma_d * PP)
-        λ  =  max(λM, λP)
-
-        #Compute Numerical Flux and Update
-        fluxρS = (nxM * (fluxρM_x + fluxρP_x) + nyM * (fluxρM_y + fluxρP_y) +
-                  - λ * (ρP - ρM)) / 2
-        fluxUS = (nxM * (fluxUM_x + fluxUP_x) + nyM * (fluxUM_y + fluxUP_y) +
-                  - λ * (UP - UM)) / 2
-        fluxVS = (nxM * (fluxVM_x + fluxVP_x) + nyM * (fluxVM_y + fluxVP_y) +
-                  - λ * (VP - VM)) / 2
-        fluxES = (nxM * (fluxEM_x + fluxEP_x) + nyM * (fluxEM_y + fluxEP_y) +
-                  - λ * (EP - EM)) / 2
-
-
-        #Update RHS
-        rhs[vidM, _ρ, eM] -= vMJI * sMJ * fluxρS
-        rhs[vidM, _U, eM] -= vMJI * sMJ * fluxUS
-        rhs[vidM, _V, eM] -= vMJI * sMJ * fluxVS
-        rhs[vidM, _E, eM] -= vMJI * sMJ * fluxES
+        s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
+        s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
+        s_H[i, j, k, 1] = MJ * (ζx * fx + ζy * fy + ζz * fz)
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, i] * s_F[n, j, k, 1]
+        end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, j] * s_G[i, n, k, 1]
+        end
+      end
+      for k = 1:Nq, j = 1:Nq, i = 1:Nq
+        MJI = vgeo[i, j, k, _MJI, e]
+        for n = 1:Nq
+          rhs[i, j, k, s, e] += MJI * D[n, k] * s_H[i, j, n, 1]
+        end
       end
     end
   end
 end
 # }}}
 
-# {{{ Face RHS for 3-D
-function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
-                  elems, vmapM, vmapP, elemtobndy) where N
+# {{{ Face RHS (all dimensions)
+function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs::Array,
+                  Q, vgeo, sgeo, gravity, elems, vmapM, vmapP,
+                  elemtobndy) where {N, dim, nmoist, ntrace}
   DFloat = eltype(Q)
 
-  Np = (N+1)^3
-  Nfp = (N+1)^2
-  nface = 6
+  if dim == 1
+    Np = (N+1)
+    Nfp = 1
+    nface = 2
+  elseif dim == 2
+    Np = (N+1) * (N+1)
+    Nfp = (N+1)
+    nface = 4
+  elseif dim == 3
+    Np = (N+1) * (N+1) * (N+1)
+    Nfp = (N+1) * (N+1)
+    nface = 6
+  end
 
   @inbounds for e in elems
     for f = 1:nface
@@ -934,18 +1031,18 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
         VM = Q[vidM, _V, eM]
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
-        zM = vgeo[vidM, _z, eM]
+        yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*zM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
-          zP = vgeo[vidP, _z, eP]
-          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*zP)
+          yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
+          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
@@ -1012,13 +1109,50 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
         fluxES = (nxM * (fluxEM_x + fluxEP_x) + nyM * (fluxEM_y + fluxEP_y) +
                   nzM * (fluxEM_z + fluxEP_z) - λ * (EP - EM)) / 2
 
-
         #Update RHS
         rhs[vidM, _ρ, eM] -= vMJI * sMJ * fluxρS
         rhs[vidM, _U, eM] -= vMJI * sMJ * fluxUS
         rhs[vidM, _V, eM] -= vMJI * sMJ * fluxVS
         rhs[vidM, _W, eM] -= vMJI * sMJ * fluxWS
         rhs[vidM, _E, eM] -= vMJI * sMJ * fluxES
+
+        # Calculate the velocity
+        uM, vM, wM = ρMinv * UM, ρMinv * VM, ρMinv * WM
+        uP, vP, wP = ρPinv * UP, ρPinv * VP, ρPinv * WP
+
+        # FIXME: Will need to be updated for other bcs...
+        vidP = bc == 0 ? vidP : vidM
+
+        # loop over moist variables
+        # FIXME: Currently just passive advection
+        for m = 1:nmoist
+          s = _nstate + m
+          QmoistM, QmoistP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QmoistM, uP * QmoistP
+          fluxM_y, fluxP_y = vM * QmoistM, vP * QmoistP
+          fluxM_z, fluxP_z = wM * QmoistM, wP * QmoistP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   nzM * (fluxM_z + fluxP_z) - λ * (QmoistP - QmoistM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
+
+        # loop over tracer variables
+        for t = 1:ntrace
+          s = _nstate + nmoist + t
+          QtraceM, QtraceP = Q[vidM, s, eM], Q[vidP, s, eP]
+
+          fluxM_x, fluxP_x = uM * QtraceM, uP * QtraceP
+          fluxM_y, fluxP_y = vM * QtraceM, vP * QtraceP
+          fluxM_z, fluxP_z = wM * QtraceM, wP * QtraceP
+
+          fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
+                   nzM * (fluxM_z + fluxP_z) - λ * (QtraceP - QtraceM)) / 2
+
+          rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
+        end
       end
     end
   end
