@@ -8,7 +8,7 @@ using Utilities.MoistThermodynamics, PlanetParameters
 using LinearAlgebra
 
 @testset "moist thermodynamics" begin
-  # ideal gas law and tests
+  # ideal gas law 
   @test air_pressure([1, 1, 1], [1, 1, 2], [1, 0, 1], [0, 0, 0.5], [0, 0, 0]) ≈ [R_v, R_d, R_v]
   @test air_pressure([1, 1], [1, 2]) ≈ [R_d, 2*R_d]
 
