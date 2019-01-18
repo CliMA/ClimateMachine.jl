@@ -31,13 +31,13 @@ There are several types of functions:
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
-A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_t`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities `q_l` and `q_i` from the internal energy `E_int` by saturation adjustment through
+A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_t`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities `q_l` and `q_i` from the internal energy `E_int` by saturation adjustment:
 ```julia
     T, p, q_l, q_i   = saturation_adjustment(E_int, ρ, q_t, T_init);
 ```
-here, `ρ` is the density of moist air, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int = E_tot - KE - geopotential` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
+here, `ρ` is the density of the moist air, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int = E_tot - KE - geopotential` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
 
-Schematically, such a core would look as follows:
+Schematically, the workflow in such a core would look as follows:
 ```julia
 
     # initialize
@@ -49,28 +49,28 @@ Schematically, such a core would look as follows:
     (u, v, w)    = ...
     KE           = 0.5 * (u.^2 .+ v.^2 .+ w.^2)
 
-    E_tot        = total_energy(KE, geopotential, T)
+    E_tot        = total_energy(KE, geopotential, T, q_t)
 
     do timestep   # timestepping loop
 
-      # advance dynamical variables a time timestep (temperature typically
+      # advance dynamical variables by a timestep (temperature typically
       # appears in terms on the rhs, such as radiative transfer)
       advance(u, v, w, ρ, E_tot, q_t)  
 
       # compute internal energy from dynamic variables
-      E_int          = E_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
+      E_int = E_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
 
       # compute temperature, pressure and condensate specific humidities,
       # using T_prev as initial condition for iterations
       T, p, q_l, q_i = saturation_adjustment(E_int, ρ, q_t, T_prev);
 
       # update temperature for next timestep
-      T_prev         = T;  
+      T_prev = T;  
     end
 ```
 
-For a dynamical core that additionally uses the liquid and ice specific humidities `q_l` and `q_i` as prognostic variables, and thus explicitly allows the presence of non-equilibrium phases such as supercooled water, the saturation adjustment in the above workflow is simply replaced by a direct calculation of temperature and pressure:
+For a dynamical core that additionally uses the liquid and ice specific humidities `q_l` and `q_i` as prognostic variables, and thus explicitly allows the presence of non-equilibrium phases such as supercooled water, the saturation adjustment in the above workflow is replaced by a direct calculation of temperature and pressure:
 ```julia
     T = air_temperature(E_int, q_t, q_l, q_i)
-    p = air_pressure(T, q_t, q_l, q_i)
+    p = air_pressure(T, ρ, q_t, q_l, q_i)
 ```
