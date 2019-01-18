@@ -35,4 +35,4 @@ A moist dynamical core that assumes equilibrium thermodynamics (i.e., no non-equ
 ```julia
     T, q_l, q_i   = saturation_adjustment(E_int, p, q_t, T_init);
 ```
-here, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int` is the total energy minus kinetic energy `KE` and potential energy `PE` (all per unit mass). No changes to the "right-hand sides" are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation. 
+here, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int = E_tot - KE - PE` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `PE` (all per unit mass). No changes to the "right-hand sides" are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation. 
