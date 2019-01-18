@@ -1,10 +1,3 @@
-# TODO:
-# - Switch to logging
-# - Add vtk
-# - timestep calculation clean
-# - Move stuff to device (to kill transfers back from GPU)
-# - Check that Float32 is really being used in all the kernels properly
-
 using CLIMAAtmosDycore
 const AD = CLIMAAtmosDycore
 using Canary
@@ -27,10 +20,60 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
+const halfperiod = 5
+
 meshgenerator(part, numparts, Ne, dim, DFloat) =
-brickmesh(ntuple(j->range(DFloat(0); length=Ne+1, stop=1000), dim),
-          (true, ntuple(j->false, dim-1)...),
-          part=part, numparts=numparts)
+brickmesh(ntuple(j->range(DFloat(-halfperiod); length=Ne+1, stop=halfperiod),
+                 dim),
+          ntuple(j->true, dim), part=part, numparts=numparts)
+
+function isentropicvortex(t, x...)
+  # Standard isentropic vortex test case.  For a more complete description of
+  # the setup see for Example 3 of:
+  #
+  # @article{ZHOU2003159,
+  #   author = {Y.C. Zhou and G.W. Wei},
+  #   title = {High resolution conjugate filters for the simulation of flows},
+  #   journal = {Journal of Computational Physics},
+  #   volume = {189},
+  #   number = {1},
+  #   pages = {159--179},
+  #   year = {2003},
+  #   doi = {10.1016/S0021-9991(03)00206-7},
+  #   url = {https://doi.org/10.1016/S0021-9991(03)00206-7},
+  # }
+  DFloat = eltype(x)
+
+  γ::DFloat    = gamma_d
+  uinf::DFloat = 1
+  vinf::DFloat = 1
+  Tinf::DFloat = 1
+  λ::DFloat    = 5
+
+  xs = x[1] - uinf*t
+  ys = x[2] - vinf*t
+
+  # make the function periodic
+  xtn = floor((xs+halfperiod)/(2halfperiod))
+  ytn = floor((ys+halfperiod)/(2halfperiod))
+  xp = xs - xtn*2*halfperiod
+  yp = ys - ytn*2*halfperiod
+
+  rsq = xp^2 + yp^2
+
+  u = uinf - λ*(1//2)*exp(1-rsq)*yp/π
+  v = vinf + λ*(1//2)*exp(1-rsq)*xp/π
+  w = zero(DFloat)
+
+  ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
+  p = ρ^γ
+  U = ρ*u
+  V = ρ*v
+  W = ρ*w
+  E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
+
+  ρ, U, V, W, E
+end
 
 function main()
   MPI.Initialized() || MPI.Init()
@@ -44,12 +87,12 @@ function main()
   @hascuda device!(mpirank % length(devices()))
 
   timeinitial = 0.0
-  timeend = 0.1
+  timeend = 10.0
   Ne = 10
   N  = 4
 
   for DFloat in (Float64, Float32)
-    for dim in (2,3)
+    for dim in (2, 3)
       for backend in (HAVE_CUDA ? (CuArray, Array) : (Array,))
 
         runner = AD.Runner(mpicomm,
@@ -61,7 +104,7 @@ function main()
                             meshgenerator(part, numparts, Ne, dim,
                                           DFloat),
                             dim = dim,
-                            gravity = true,
+                            gravity = false,
                             N = N,
                            ),
                            # Time Discretization and Parameters
@@ -71,42 +114,10 @@ function main()
 
         # Set the initial condition with a function
         AD.initspacestate!(runner, host=true) do (x...)
-          DFloat = eltype(x)
-          γ::DFloat       = gamma_d
-          p0::DFloat      = 100000
-          R_gas::DFloat   = R_d
-          c_p::DFloat     = cp_d
-          c_v::DFloat     = cv_d
-          gravity::DFloat = grav
-
-          r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
-          rc::DFloat = 250
-          θ_ref::DFloat = 300
-          θ_c::DFloat = 0.5
-          Δθ::DFloat = 0
-          if r <= rc
-            Δθ = θ_c * (1 + cos(π * r / rc)) / 2
-          end
-          θ_k = θ_ref + Δθ
-          π_k = 1 - gravity / (c_p * θ_k) * x[dim]
-          c = c_v / R_gas
-          ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-          ρ = ρ_k
-          u = zero(DFloat)
-          v = zero(DFloat)
-          w = zero(DFloat)
-          U = ρ * u
-          V = ρ * v
-          W = ρ * w
-          Θ = ρ * θ_k
-          P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
-          T = P / (ρ * R_gas)
-          E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-          ρ, U, V, W, E
+          isentropicvortex(DFloat(timeinitial), x...)
         end
 
-        # Compute a (bad guess) for the time step
-        base_dt = AD.estimatedt(runner, host=true)
+        base_dt = 1e-3
         nsteps = ceil(Int64, timeend / base_dt)
         dt = timeend / nsteps
 
@@ -127,7 +138,7 @@ function main()
         # Setup the vtk callback
         mkpath("viz")
         dump_vtk(step) = AD.writevtk(runner,
-                                     "viz/RTB"*
+                                     "viz/IV"*
                                      "_dim_$(dim)"*
                                      "_DFloat_$(DFloat)"*
                                      "_backend_$(backend)"*
@@ -141,8 +152,16 @@ function main()
           nothing
         end
 
+        cberr =
+          AD.GenericCallbacks.EveryXWallTimeSeconds(2, mpicomm) do
+            err = AD.L2errornorm(runner, isentropicvortex; host=true)
+            println(io, "VanillaEuler with errnorm2(Q) = ", err, " at time = ",
+                    runner[:time])
+          end
+
         dump_vtk(0)
-        AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk))
+        AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk,
+                                                         cberr))
         dump_vtk(nsteps)
 
         engf = AD.L2solutionnorm(runner; host=true)

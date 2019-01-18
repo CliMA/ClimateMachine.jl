@@ -139,6 +139,8 @@ struct Configuration{DeviceArray, HostArray} #<: AD.AbstractSpaceConfiguration
   vgeo::DeviceArray
   "surface metric terms"
   sgeo::DeviceArray
+  "gravitational acceleration (m/s^2)"
+  gravity
   "element to boundary condition map"
   elemtobndy::DeviceArray
   "volume DOF to element minus side map"
@@ -191,6 +193,7 @@ struct Configuration{DeviceArray, HostArray} #<: AD.AbstractSpaceConfiguration
     mpirank == 0 && @debug "computing metrics..."
     (vgeo, sgeo) = computegeometry(Val(dim), mesh, D, ξ, ω,
                                    params.meshwarp, vmapM)
+    gravity::DFloat = (params.gravity) ? grav : 0
     (nface, nelem) = size(mesh.elemtoelem)
 
     mpirank == 0 && @debug "create RHS storage..."
@@ -209,7 +212,8 @@ struct Configuration{DeviceArray, HostArray} #<: AD.AbstractSpaceConfiguration
     DeviceArray = params.DeviceArray
     # FIXME: Handle better for GPU?
     new{DeviceArray, HostArray}(mpicomm, mesh, DeviceArray(vgeo),
-                                DeviceArray(sgeo), DeviceArray(mesh.elemtobndy),
+                                DeviceArray(sgeo), gravity,
+                                DeviceArray(mesh.elemtobndy),
                                 DeviceArray(vmapM), DeviceArray(vmapP),
                                 DeviceArray(mesh.sendelems), sendreq, recvreq,
                                 sendQ, recvQ, DeviceArray(sendQ),
@@ -396,12 +400,13 @@ function AD.estimatedt(runner::Runner{DeviceArray};
   cpubackend = DeviceArray == Array
   vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
   Q = cpubackend ? state.Q : Array(state.Q)
-  estimatedt(Val(params.dim), Val(params.N), vgeo, Q, config.mpicomm)
+  estimatedt(Val(params.dim), Val(params.N), vgeo, config.gravity, Q,
+             config.mpicomm)
 end
 
-function estimatedt(::Val{dim}, ::Val{N}, vgeo, Q, mpicomm) where {dim, N}
+function estimatedt(::Val{dim}, ::Val{N}, vgeo, gravity, Q,
+                    mpicomm) where {dim, N}
   DFloat = eltype(Q)
-  gravity::DFloat = grav
 
   Np = (N+1)^dim
   (~, ~, nelem) = size(Q)
@@ -515,6 +520,56 @@ function L2solutionnorm(::Val{dim}, ::Val{N}, Q, vgeo, elems) where {dim, N}
 end
 # }}}
 
+# {{{ L2 Error (for all dimensions)
+function AD.L2errornorm(runner::Runner{DeviceArray}, Qexact;
+                        host=false, Q = nothing, vgeo = nothing,
+                        time = nothing) where DeviceArray
+  host || error("Currently requires host configuration")
+  state = runner.state
+  config = runner.config
+  params = runner.params
+  cpubackend = DeviceArray == Array
+  if vgeo == nothing
+    vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
+  end
+  if Q == nothing
+    Q = cpubackend ? state.Q : Array(state.Q)
+  end
+  if time == nothing
+    time = state.time[1]
+  end
+
+  dim = params.dim
+  N = params.N
+  realelems = config.mesh.realelems
+  locnorm2 = L2errornorm(Val(dim), Val(N), time, Q, vgeo, realelems, Qexact)
+  sqrt(MPI.allreduce([locnorm2], MPI.SUM, config.mpicomm)[1])
+end
+
+function L2errornorm(::Val{dim}, ::Val{N}, time, Q, vgeo, elems,
+                     Qexact) where
+  {dim, N}
+  DFloat = eltype(Q)
+  Np = (N+1)^dim
+  (~, nstate, nelem) = size(Q)
+
+  errorsq = zero(DFloat)
+
+  @inbounds for e = elems,  i = 1:Np
+    x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
+    ρex, Uex, Vex, Wex, Eex = Qexact(time, x, y, z)
+
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _ρ, e] - ρex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _U, e] - Uex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _V, e] - Vex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _W, e] - Wex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _E, e] - Eex)^2
+  end
+
+  errorsq
+end
+# }}}
+
 # {{{ RHS function
 function AD.rhs!(rhs::DeviceArray,
                  runner::Runner{DeviceArray}) where DeviceArray
@@ -536,6 +591,7 @@ function AD.rhs!(rhs::DeviceArray,
   Dmat = config.D
   vmapM = config.vmapM
   vmapP = config.vmapP
+  gravity = config.gravity
   elemtobndy = config.elemtobndy
 
   Q = state.Q
@@ -565,7 +621,7 @@ function AD.rhs!(rhs::DeviceArray,
   end
 
   # volume RHS computation
-  volumerhs!(Val(dim), Val(N), rhs, Q, vgeo, Dmat, mesh.realelems)
+  volumerhs!(Val(dim), Val(N), rhs, Q, vgeo, gravity, Dmat, mesh.realelems)
 
   # wait on MPI receives
   MPI.Waitall!(recvreq)
@@ -574,8 +630,8 @@ function AD.rhs!(rhs::DeviceArray,
   transferrecvQ!(Val(dim), Val(N), device_recvQ, host_recvQ, Q, nrealelem)
 
   # face RHS computation
-  facerhs!(Val(dim), Val(N), rhs, Q, vgeo, sgeo, mesh.realelems, vmapM, vmapP,
-           elemtobndy)
+  facerhs!(Val(dim), Val(N), rhs, Q, vgeo, sgeo, gravity, mesh.realelems,
+           vmapM, vmapP, elemtobndy)
 end
 # }}}
 
@@ -592,7 +648,8 @@ end
 # }}}
 
 # {{{ Volume RHS for 2-D
-function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
+function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
+                    elems) where N
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -617,7 +674,7 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
 
-      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*grav*y)
+      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ρinv = 1 / ρ
       fluxρ_x = U
@@ -643,7 +700,7 @@ function volumerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
       # buoyancy term
-      rhs[i, j, _V, e] -= ρ * grav
+      rhs[i, j, _V, e] -= ρ * gravity
     end
 
     # loop of ξ-grid lines
@@ -665,7 +722,8 @@ end
 # }}}
 
 # {{{ Volume RHS for 3-D
-function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
+function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, gravity, D,
+                    elems) where N
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -692,7 +750,7 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
 
-      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*grav*z)
+      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
       ρinv = 1 / ρ
       fluxρ_x = U
@@ -732,7 +790,7 @@ function volumerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, D, elems) where N
       s_H[i, j, k, _E] = MJ * (ζx * fluxE_x + ζy * fluxE_y + ζz * fluxE_z)
 
       # buoyancy term
-      rhs[i, j, k, _W, e] -= ρ * grav
+      rhs[i, j, k, _W, e] -= ρ * gravity
     end
 
     # loop of ξ-grid lines
@@ -761,8 +819,8 @@ end
 # }}}
 
 # {{{ Face RHS for 2-D
-function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems,
-                          vmapM, vmapP, elemtobndy) where N
+function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
+                  elems, vmapM, vmapP, elemtobndy) where N
   DFloat = eltype(Q)
 
   Np = (N+1)^2
@@ -786,14 +844,14 @@ function facerhs!(::Val{2}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems,
         yM = vgeo[vidM, _y, eM]
 
         bc = elemtobndy[f, e]
-        PM = gdm1*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*grav*yM)
+        PM = gdm1*(EM - (UM^2 + VM^2)/(2*ρM) - ρM*gravity*yM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           EP = Q[vidP, _E, eP]
           yP = vgeo[vidP, _y, eP]
-          PP = gdm1*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*grav*yP)
+          PP = gdm1*(EP - (UP^2 + VP^2)/(2*ρP) - ρP*gravity*yP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM
           UP = UM - 2 * UnM * nxM
@@ -854,8 +912,8 @@ end
 # }}}
 
 # {{{ Face RHS for 3-D
-function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems,
-                          vmapM, vmapP, elemtobndy) where N
+function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, gravity,
+                  elems, vmapM, vmapP, elemtobndy) where N
   DFloat = eltype(Q)
 
   Np = (N+1)^3
@@ -879,7 +937,7 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems,
         zM = vgeo[vidM, _z, eM]
 
         bc = elemtobndy[f, e]
-        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*grav*zM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*zM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
@@ -887,7 +945,7 @@ function facerhs!(::Val{3}, ::Val{N}, rhs::Array, Q, vgeo, sgeo, elems,
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           zP = vgeo[vidP, _z, eP]
-          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*grav*zP)
+          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*zP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
