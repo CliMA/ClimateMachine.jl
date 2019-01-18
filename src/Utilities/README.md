@@ -31,8 +31,8 @@ There are several types of functions:
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
-A moist dynamical core that assumes equilibrium thermodynamics (i.e., no non-equilibrium phases such as supercooled liquid) can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity, using the functions in the module for moist atmospheres (e.g., functions for the energies), and computing the temperature and liquid and ice specific humidities from the internal energy `E_int` by saturation adjustment through
+A moist dynamical core that assumes equilibrium thermodynamics (i.e., no non-equilibrium phases such as supercooled liquid) can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity, using the functions in the module for moist atmospheres (e.g., functions for the energies), and computing the temperature and the liquid and ice specific humidities from the internal energy `E_int` by saturation adjustment through
 ```julia
     T, q_l, q_i   = saturation_adjustment(E_int, p, q_t, T_init);
 ```
-where `T_init` is an initial temperature guess for the saturation adjustment iterations.
+here, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int` is the total energy minus kinetic energy `KE` and potential energy `PE` (all per unit mass). No changes to the "right-hand sides" are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation. 
