@@ -417,7 +417,7 @@ function saturation_adjustment(E_int, ρ, q_t, T_init = T_triple)
             Order1(), atol=1e-3*cv_d)
 
     return T
-    
+
 end
 
 """
