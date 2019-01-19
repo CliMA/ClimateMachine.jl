@@ -27,13 +27,14 @@ There are several types of functions:
     * `air_temperature`
 6. Functions to compute temperatures and partitioning of water into phases in thermodynamic equilibrium (when Gibbs' phase rule implies that the entire thermodynamic state of moist air, including the liquid and ice specific humidities, can be calculated from the 3 thermodynamic state variables, such as energy, pressure, and total specific humidity)
     * `liquid_fraction` (fraction of condensate that is liquid)
-    * `saturation_adjustment` (compute temperature, density, and condensate specific humidities from energy, density, and total specific humidity)
+    * `saturation_adjustment` (compute temperature from energy, density, and total specific humidity)
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
 A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_t`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities `q_l` and `q_i` from the internal energy `E_int` by saturation adjustment:
 ```julia
-    T, p, q_l, q_i   = saturation_adjustment(E_int, ρ, q_t, T_init);
+    T = saturation_adjustment(E_int, ρ, q_t, T_init);
+    phase_partitioning_eq!(q_l, q_i, T, ρ, q_t);
 ```
 here, `ρ` is the density of the moist air, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int = E_tot - KE - geopotential` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
 
@@ -62,7 +63,9 @@ Schematically, the workflow in such a core would look as follows:
 
       # compute temperature, pressure and condensate specific humidities,
       # using T_prev as initial condition for iterations
-      T, p, q_l, q_i = saturation_adjustment(E_int, ρ, q_t, T_prev);
+      T = saturation_adjustment(E_int, ρ, q_t, T_prev);
+      phase_partitioning_eq!(q_l, q_i, T, ρ, q_t);
+      p = air_pressure(T, ρ, q_t, q_l, q_i)
 
       # update temperature for next timestep
       T_prev = T;  

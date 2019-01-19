@@ -30,7 +30,7 @@ export sat_vapor_press_liquid, sat_vapor_press_ice, sat_shum_generic, sat_shum
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
-export liquid_fraction, phase_partitioning_eq, saturation_adjustment
+export liquid_fraction, phase_partitioning_eq!, saturation_adjustment
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export liquid_ice_pottemp
@@ -45,7 +45,7 @@ returns the specific gas constant of dry air.
 """
 function gas_constant_air(q_t=0, q_l=0, q_i=0)
 
-    return R_d * ( 1 .+  (molmass_ratio - 1)*q_t .- molmass_ratio*(q_l .+ q_i) )
+    return R_d * ( 1 +  (molmass_ratio - 1)*q_t - molmass_ratio*(q_l + q_i) )
 
 end
 
@@ -60,7 +60,7 @@ the air pressure from the equation of state of dry air.
 """
 function air_pressure(T, ρ, q_t=0, q_l=0, q_i=0)
 
-    return gas_constant_air(q_t, q_l, q_i) .* ρ .* T
+    return gas_constant_air(q_t, q_l, q_i) * ρ * T
 
 end
 
@@ -75,7 +75,7 @@ density from the equation of state of dry air.
 """
 function air_density(T, p, q_t=0, q_l=0, q_i=0)
 
-    return p ./ (gas_constant_air(q_t, q_l, q_i) .* T)
+    return p / (gas_constant_air(q_t, q_l, q_i) * T)
 
 end
 
@@ -89,7 +89,7 @@ the isobaric specific heat capacity of dry air.
 """
 function cp_m(q_t=0, q_l=0, q_i=0)
 
-    return cp_d .+ (cp_v - cp_d)*q_t .- (cp_v - cp_l)*q_l .- (cp_v - cp_i)*q_i
+    return cp_d + (cp_v - cp_d)*q_t - (cp_v - cp_l)*q_l - (cp_v - cp_i)*q_i
 
 end
 
@@ -103,7 +103,7 @@ the isochoric specific heat capacity of dry air.
 """
 function cv_m(q_t=0, q_l=0, q_i=0)
 
-    return cv_d .+ (cv_v - cv_d)*q_t .- (cv_v - cv_l)*q_l .- (cv_v - cv_i)*q_i
+    return cv_d + (cv_v - cv_d)*q_t - (cv_v - cv_l)*q_l - (cv_v - cv_i)*q_i
 
 end
 
@@ -116,8 +116,8 @@ and, optionally, the total specific humidity `q_t`, the liquid specific humidity
 """
 function air_temperature(internal_energy, q_t=0, q_l=0, q_i=0)
 
-    return T_0 .+
-        ( internal_energy .- (q_t .- q_l) * IE_v0 .+ q_i * (IE_v0 + IE_i0) )./
+    return T_0 +
+        ( internal_energy - (q_t - q_l) * IE_v0 + q_i * (IE_v0 + IE_i0) )/
             cv_m(q_t, q_l, q_i)
 
 end
@@ -131,8 +131,8 @@ optionally, the total specific humidity `q_t`, the liquid specific humidity
 """
 function internal_energy(T, q_t=0, q_l=0, q_i=0)
 
-    return cv_m(q_t, q_l, q_i) .* (T .- T_0) .+
-        (q_t .- q_l) * IE_v0 .- q_i * (IE_v0 + IE_i0)
+    return cv_m(q_t, q_l, q_i) * (T - T_0) +
+        (q_t - q_l) * IE_v0 - q_i * (IE_v0 + IE_i0)
 
 end
 
@@ -162,7 +162,7 @@ optionally, the total specific humidity `q_t`, the liquid specific humidity
 """
 function total_energy(kinetic_energy, potential_energy, T, q_t=0, q_l=0, q_i=0)
 
-    return kinetic_energy .+ potential_energy .+
+    return kinetic_energy + potential_energy +
         internal_energy(T, q_t, q_l, q_i)
 
 end
@@ -214,7 +214,7 @@ that in the lower-temperature phase).
 """
 function latent_heat_generic(T, LH_0, cp_diff)
 
-    return LH_0 .+ cp_diff * (T .- T_0)
+    return LH_0 + cp_diff * (T - T_0)
 
 end
 
@@ -265,8 +265,8 @@ the triple point pressure `press_triple`.
 """
 function sat_vapor_press_generic(T, LH_0, cp_diff)
 
-    return press_triple * (T/T_triple).^(cp_diff/R_v).*
-        exp.( (LH_0 .- cp_diff*T_0)/R_v .* (1 / T_triple .- 1 ./ T) )
+    return press_triple * (T/T_triple)^(cp_diff/R_v) *
+        exp( (LH_0 - cp_diff*T_0)/R_v * (1 / T_triple - 1 / T) )
 
 end
 
@@ -313,12 +313,12 @@ function sat_shum(T, ρ, q_l=0, q_i=0)
 
     # get phase partitioning
     _liquid_frac = liquid_fraction(T, q_l, q_i)
-    _ice_frac    = 1 .- _liquid_frac
+    _ice_frac    = 1 - _liquid_frac
 
     # effective latent heat at T_0 and effective difference in isobaric specific
     # heats of the mixture
-    LH_0        = _liquid_frac * LH_v0 .+ _ice_frac * LH_s0
-    cp_diff     = _liquid_frac * (cp_v - cp_l) .+ _ice_frac * (cp_v - cp_i)
+    LH_0        = _liquid_frac * LH_v0 + _ice_frac * LH_s0
+    cp_diff     = _liquid_frac * (cp_v - cp_l) + _ice_frac * (cp_v - cp_i)
 
     # saturation vapor pressure over possible mixture of liquid and ice
     p_vs        = sat_vapor_press_generic(T, LH_0, cp_diff)
@@ -336,8 +336,8 @@ temperature `T`, and the saturation vapor pressure `p_vs`.
 """
 function sat_shum_from_pressure(ρ, T, p_vs)
 
-    _ρ_v  = p_vs ./ (R_v * T)
-    return _ρ_v ./ ρ;
+    _ρ_v  = p_vs / (R_v * T)
+    return _ρ_v / ρ;
 
 end
 
@@ -353,13 +353,13 @@ them.
 """
 function liquid_fraction(T, q_l=0, q_i=0)
 
-q_c         = q_l .+ q_i     # condensate specific humidity
+q_c         = q_l + q_i     # condensate specific humidity
 
 # For now: Heaviside function for partitioning into liquid and ice: all liquid
 # for T > T_freeze; all ice for T <= T_freeze
-_liquid_frac = heaviside(T .- T_freeze)
+_liquid_frac = heaviside(T - T_freeze)
 
-return ifelse.(q_c .> 0, q_l ./ q_c, _liquid_frac)
+return ifelse(q_c > 0, q_l / q_c, _liquid_frac)
 
 end
 
@@ -369,56 +369,55 @@ end
 Return the Heaviside step function at `t`.
 """
 function heaviside(t)
-   0.5 * (sign.(t) .+ 1)
+   eltype(t)(1//2) * (sign(t) + 1)
 end
 
 """
-    q_l, q_i = phase_partitioning_eq(T, ρ, q_t)
+    phase_partitioning_eq!(q_l, q_i, T, ρ, q_t)
 
 Return the partitioning of the phases in equilibrium.
 
-Given the temperature `T` and (moist-)air density `ρ`, `phase_partitioning_eq`
+Given the temperature `T` and (moist-)air density `ρ`, `phase_partitioning_eq!`
 partitions the total specific humidity `q_t` into the liquid specific humidity
-`q_l` and ice specific humiditiy `q_l` using the `liquid_fraction` function.
-The residual `q_t - q_l - q_i` is the vapor specific humidity.
+`q_l` and ice specific humiditiy `q_l` using the `liquid_fraction`
+function. The residual `q_t - q_l - q_i` is the vapor specific humidity.
 """
+function phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t)
+
+    for k=1:length(q_l_out)
+        @inbounds q_l_out[k], q_i_out[k] = phase_partitioning_eq(T[k], ρ[k], q_t[k])
+    end
+
+end
+
 function phase_partitioning_eq(T, ρ, q_t)
 
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
     q_vs         = sat_shum(T, ρ) # saturation specific humidity
-    q_c          = max.(q_t .- q_vs, 0) # condensate specific humidity
-    q_l          = _liquid_frac .* q_c  # liquid specific humidity
-    q_i          = (1 .- _liquid_frac) .* q_c # ice specific humidity
+    q_c          = max(q_t - q_vs, 0) # condensate specific humidity
+    q_l_out      = _liquid_frac * q_c  # liquid specific humidity
+    q_i_out      = (1 - _liquid_frac) * q_c # ice specific humidity
 
-    return q_l, q_i
+    return q_l_out, q_i_out
 
 end
 
 """
-    T, p, q_l, q_i = saturation_adjustment(E_int, ρ, q_t[, T_init = T_triple])
+    saturation_adjustment(E_int, ρ, q_t[, T_init = T_triple])
 
-Compute the temperature `T`, pressure `p` and liquid and ice specific humidities
-`q_l` and `q_i` from the internal energy `E_int`, (moist-)air density `ρ`, and
-total specific humidity `q_t` by saturation adjustment.
+Return the temperature that is consistent with the internal energy `E_int`,
+(moist-)air density `ρ`, and total specific humidity `q_t`.
 
 The optional input value of the temperature `T_init` is taken as the initial
 value of the saturation adjustment iterations.
 """
 function saturation_adjustment(E_int, ρ, q_t, T_init = T_triple)
 
-    T = map( (E_int, ρ, q_t, T_init) ->
-        find_zero(x -> internal_energy_sat(x, ρ, q_t) - E_int, T_init,
-            Order1(), atol=1e-3*cv_d),
-        E_int, ρ, q_t, T_init )
+    T = find_zero(x -> internal_energy_sat(x, ρ, q_t) - E_int, T_init,
+            Order1(), atol=1e-3*cv_d)
 
-    # get phase partitioning from temperature
-    q_l, q_i    = phase_partitioning_eq(T, ρ, q_t)
-
-    # get pressure from temperature and specific humidities
-    p           = air_pressure(T, ρ, q_t, q_l, q_i)
-
-    return T, p, q_l, q_i
-
+    return T
+    
 end
 
 """
@@ -436,11 +435,11 @@ function liquid_ice_pottemp(T, p, q_t=0, q_l=0, q_i=0)
     _cp_m   = cp_m(q_t, q_l, q_i)
 
     # potential temperature
-    pottemp = T .* (MSLP./p).^(_R_m./_cp_m)
+    pottemp = T * (MSLP/p)^(_R_m/_cp_m)
 
     # liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
-    return pottemp .* exp.(-(LH_v0*q_l .+ LH_s0*q_i)./(_cp_m.*T))
+    return pottemp * exp(-(LH_v0*q_l + LH_s0*q_i)/(_cp_m*T))
 
 end
 
