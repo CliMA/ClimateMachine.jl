@@ -1,9 +1,7 @@
 
-using Utilities
+using Utilities, PlanetParameters
 
 using Test
-
-using Utilities.MoistThermodynamics, PlanetParameters
 
 using LinearAlgebra
 
