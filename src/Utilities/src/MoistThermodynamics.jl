@@ -336,8 +336,7 @@ temperature `T`, and the saturation vapor pressure `p_vs`.
 """
 function sat_shum_from_pressure(ρ, T, p_vs)
 
-    _ρ_v  = p_vs / (R_v * T)
-    return _ρ_v / ρ;
+    return p_vs / (ρ * R_v * T);
 
 end
 
