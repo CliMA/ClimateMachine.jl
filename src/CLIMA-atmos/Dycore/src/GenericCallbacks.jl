@@ -4,9 +4,10 @@ AD = CLIMAAtmosDycore
 using MPI
 
 """
-   EveryXWallTimeSeconds(f, time)
+    EveryXWallTimeSeconds(f, time, mpicomm)
 
-This callback will run the function 'f()' every `time` wallclock time seconds
+This callback will run the function 'f()' every `time` wallclock time seconds.
+The `mpicomm` is used to syncronize runtime across MPI ranks.
 """
 struct EveryXWallTimeSeconds
   "time of the last callback"
