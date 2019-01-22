@@ -89,7 +89,7 @@ the isobaric specific heat capacity of dry air.
 """
 function cp_m(q_t=0, q_l=0, q_i=0)
 
-    return cp_d + (cp_v - cp_d)*q_t - (cp_v - cp_l)*q_l - (cp_v - cp_i)*q_i
+    return cp_d + (cp_v - cp_d)*q_t + (cp_l - cp_v)*q_l + (cp_i - cp_v)*q_i
 
 end
 
@@ -103,7 +103,7 @@ the isochoric specific heat capacity of dry air.
 """
 function cv_m(q_t=0, q_l=0, q_i=0)
 
-    return cv_d + (cv_v - cv_d)*q_t - (cv_v - cv_l)*q_l - (cv_v - cv_i)*q_i
+    return cv_d + (cv_v - cv_d)*q_t + (cv_l - cv_v)*q_l + (cv_i - cv_v)*q_i
 
 end
 

@@ -3,6 +3,8 @@ using Utilities, PlanetParameters
 
 using Test
 
+using Utilities.MoistThermodynamics
+
 using LinearAlgebra
 
 @testset "moist thermodynamics" begin
