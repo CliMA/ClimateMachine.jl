@@ -6,7 +6,7 @@ A list of recommended coding conventions.
     - https://docs.julialang.org/en/v1/manual/style-guide/index.html
     - https://docs.julialang.org/en/v0.6/manual/packages/#Guidelines-for-naming-a-package-1
 
- - While Unicode is permissable in the Julia language, we recommend to avoid using it (see below for why).
+ - Please only use Unicode characters that are within our list of acceptable Unicode characters (in AcceptableUnicode.md).
 
  - Modules, and class names (structs), should follow TitleCase convention. Note that class names cannot coincide with module names.
 
@@ -50,9 +50,7 @@ A list of recommended coding conventions.
    - Local application/library specific imports.
    - Use a blank line between each group of imports.
 
-
-
-## * Why no Unicode for now?
+## * Why do we limit our Unicode use?
 
  - Some characters are visibly indistinguishable. Capital "a" and capital alpha are visibly indistinguishable, but are recognized as separate characters (e.g., search distinguishable).
 
@@ -60,6 +58,6 @@ A list of recommended coding conventions.
 
  - Portability issues. Unicode does not render in Jupyter notebook natively (on OSX).
 
- - If it does improve readability enough, and are not worried about portability, we may introduce a list of permissable characters that are commonly used.
+ - If it does improve readability enough, and are not worried about portability, we may introduce a list of permissible characters that are commonly used.
 
 
