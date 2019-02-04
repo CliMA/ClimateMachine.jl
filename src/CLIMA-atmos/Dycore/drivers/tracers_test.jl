@@ -64,9 +64,9 @@ function main(;spacemethod=:VanillaEuler, DFloat=Float64, dim=3, backend=Array,
                     )
 
   # Set the initial condition with a function
-  @assert runner[:spacerunner][:stateid] == (ρ=1,U=2,V=3,W=4,E=5)
-  @assert runner[:spacerunner][:moistid] == 5 .+ (1:nmoist)
-  @assert runner[:spacerunner][:traceid] == 5 + nmoist .+ (1:ntrace)
+  @assert AD.getstateid(runner.spacerunner) == (ρ=1,U=2,V=3,W=4,E=5)
+  @assert AD.getmoistid(runner.spacerunner) == 5 .+ (1:nmoist)
+  @assert AD.gettraceid(runner.spacerunner) == 5 + nmoist .+ (1:ntrace)
   AD.initspacestate!(runner, host=true) do (x...)
     DFloat = eltype(x)
     γ::DFloat       = gamma_d
@@ -115,18 +115,18 @@ function main(;spacemethod=:VanillaEuler, DFloat=Float64, dim=3, backend=Array,
 
   # Setup the info callback
   io = mpirank == 0 ? stdout : open("/dev/null", "w")
-  show(io, "text/plain", runner[:spacerunner])
+  show(io, "text/plain", runner.spacerunner)
   cbinfo = AD.GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
-    println(io, runner[:spacerunner])
+    println(io, runner.spacerunner)
   end
 
   AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, ))
 
   let
-    Q = Array(runner[:Q])
-    stateid = runner[:spacerunner][:stateid]
-    moistid = runner[:spacerunner][:moistid]
-    traceid = runner[:spacerunner][:traceid]
+    Q = Array(AD.getQ(runner.spacerunner))
+    stateid = AD.getstateid(runner.spacerunner)
+    moistid = AD.getmoistid(runner.spacerunner)
+    traceid = AD.gettraceid(runner.spacerunner)
     for n = 1:nmoist
       @assert n*(@view Q[:, stateid.ρ, :]) ≈ (@view Q[:, moistid[n], :])
     end
