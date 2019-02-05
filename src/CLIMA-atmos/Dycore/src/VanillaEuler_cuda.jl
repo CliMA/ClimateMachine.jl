@@ -1153,7 +1153,7 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf, d_sendelems)
+function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray, d_sendelems)
   nsendelem = length(d_sendelems)
   Np = size(d_buf, 1)
   nvar = size(d_buf, 2)
@@ -1164,7 +1164,7 @@ function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf, d_sendelems)
   end
 end
 
-function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf, nrealelem)
+function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf::CuArray, nrealelem)
   nrecvelem = size(recvbuf)[end]
   Np = size(d_buf, 1)
   nvar = size(d_buf, 2)
@@ -1184,7 +1184,7 @@ function volumegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   ngrad = _nstategrad + 3nmoist
   Qshape    = (ntuple(j->N+1, dim)..., size(d_Q, 2), size(d_Q, 3))
   gradshape = (ntuple(j->N+1, dim)..., ngrad, size(d_Q, 3))
-  vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_Q, 3))
+  vgeoshape = (ntuple(j->N+1, dim)..., size(d_vgeo, 2), size(d_Q, 3))
 
   d_gradC = reshape(d_grad, gradshape)
   d_QC = reshape(d_Q, Qshape)
@@ -1214,7 +1214,7 @@ function volumerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
   Qshape    = (ntuple(j->N+1, dim)..., size(d_Q, 2), size(d_Q, 3))
   gradshape = (ntuple(j->N+1, dim)..., ngrad, size(d_Q, 3))
-  vgeoshape = (ntuple(j->N+1, dim)..., _nvgeo, size(d_Q, 3))
+  vgeoshape = (ntuple(j->N+1, dim)..., size(d_vgeo,2), size(d_Q, 3))
 
   d_rhsC = reshape(d_rhs, Qshape...)
   d_QC = reshape(d_Q, Qshape)
