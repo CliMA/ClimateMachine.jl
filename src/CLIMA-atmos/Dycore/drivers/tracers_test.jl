@@ -1,19 +1,12 @@
-# TODO:
-# - Switch to logging
-# - Add vtk
-# - timestep calculation clean
-# - Move stuff to device (to kill transfers back from GPU)
-# - Check that Float32 is really being used in all the kernels properly
-
-using CLIMAAtmosDycore
-const AD = CLIMAAtmosDycore
-using Canary
 using MPI
 
-using ParametersType
-using PlanetParameters: R_d, cp_d, grav, cv_d
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
+using CLIMAAtmosDycore.Topologies
+using CLIMAAtmosDycore.Grids
+using CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMAAtmosDycore.AtmosStateArrays
+using CLIMAAtmosDycore.LSRKmethods
+using CLIMAAtmosDycore
+using LinearAlgebra
 
 const HAVE_CUDA = try
   using CUDAdrv
@@ -27,155 +20,148 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-meshgenerator(part, numparts, Ne, dim, DFloat) =
-brickmesh(ntuple(j->range(DFloat(0); length=Ne+1, stop=1000), dim),
-          (true, ntuple(j->false, dim-1)...),
-          part=part, numparts=numparts)
+using ParametersType
+using PlanetParameters: R_d, cp_d, grav, cv_d
+@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
-function main(;spacemethod=:VanillaEuler, DFloat=Float64, dim=3, backend=Array,
-              N=4, Ne=10, timeend=0.1, ntrace = 0, nmoist = 0)
-  MPI.Initialized() || MPI.Init()
-  MPI.finalize_atexit()
+function shift_init(v, x...; ntrace=0, nmoist=0, dim=3)
+  DFloat = eltype(x)
+  gravity::DFloat = grav
+  Y::DFloat = v[1]
+  ρ = 10 + 10 * Y
+  U = Y
+  V = -2 * Y + 1
+  W = Y + 5
+  E = 20000 +  98 * Y + ρ * gravity * x[dim]
+  v[1] += 1
+  (ρ=ρ, U=U, V=V, W=W, E=E,
+   Qmoist=ntuple(j->(j*ρ), nmoist),
+   Qtrace=ntuple(j->(-j*ρ), ntrace))
+end
 
-  mpicomm = MPI.COMM_WORLD
-  mpirank = MPI.Comm_rank(mpicomm)
-  mpisize = MPI.Comm_size(mpicomm)
+# FIXME: Will these keywords args be OK?
+function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
+  DFloat = eltype(x)
+  γ::DFloat       = gamma_d
+  p0::DFloat      = 100000
+  R_gas::DFloat   = R_d
+  c_p::DFloat     = cp_d
+  c_v::DFloat     = cv_d
+  gravity::DFloat = grav
 
-  # FIXME: query via hostname
-  @hascuda device!(mpirank % length(devices()))
+  r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
+  rc::DFloat = 250
+  θ_ref::DFloat = 300
+  θ_c::DFloat = 0.5
+  Δθ::DFloat = 0
+  if r <= rc
+    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
+  end
+  θ_k = θ_ref + Δθ
+  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
+  c = c_v / R_gas
+  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
+  ρ = ρ_k
+  u = zero(DFloat)
+  v = zero(DFloat)
+  w = zero(DFloat)
+  U = ρ * u
+  V = ρ * v
+  W = ρ * w
+  Θ = ρ * θ_k
+  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+  T = P / (ρ * R_gas)
+  E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  (ρ=ρ, U=U, V=V, W=W, E=E,
+   Qmoist=ntuple(j->(j*ρ), nmoist),
+   Qtrace=ntuple(j->(-j*ρ), ntrace))
+end
 
-  runner = AD.Runner(mpicomm,
-                     #Space Discretization and Parameters
-                     spacemethod,
-                     (DFloat = DFloat,
-                      DeviceArray = backend,
-                      meshgenerator = (part, numparts) ->
-                      meshgenerator(part, numparts, Ne, dim,
-                                    DFloat),
-                      dim = dim,
-                      gravity = true,
-                      N = N,
-                      nmoist = nmoist,
-                      ntrace = ntrace,
-                     ),
-                     # Time Discretization and Parameters
-                     :LSRK,
-                     (),
-                    )
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
+              initialcondition, timeend; gravity=true, dt=nothing,
+              exact_timeend=true)
+  topl = BrickTopology(# MPI communicator to connect elements/partition
+                       mpicomm,
+                       # tuple of point element edges in each dimension
+                       # (dim is inferred from this)
+                       brickrange,
+                       periodicity=(true,
+                                    ntuple(j->false, length(brickrange)-1)...))
 
-  # Set the initial condition with a function
-  @assert AD.getstateid(runner.spacerunner) == (ρ=1,U=2,V=3,W=4,E=5)
-  @assert AD.getmoistid(runner.spacerunner) == 5 .+ (1:nmoist)
-  @assert AD.gettraceid(runner.spacerunner) == 5 + nmoist .+ (1:ntrace)
-  AD.initspacestate!(runner, host=true) do (x...)
-    DFloat = eltype(x)
-    γ::DFloat       = gamma_d
-    p0::DFloat      = 100000
-    R_gas::DFloat   = R_d
-    c_p::DFloat     = cp_d
-    c_v::DFloat     = cv_d
-    gravity::DFloat = grav
+  grid = DiscontinuousSpectralElementGrid(topl,
+                                          # Compute floating point type
+                                          FloatType = DFloat,
+                                          # This is the array type to store
+                                          # data: CuArray = GPU, Array = CPU
+                                          DeviceArray = ArrayType,
+                                          # polynomial order for LGL grid
+                                          polynomialorder = N,
+                                          # how to skew the mesh degrees of
+                                          # freedom (for instance spherical
+                                          # or topography maps)
+                                          # warp = warpgridfun
+                                         )
 
-    r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
-    rc::DFloat = 250
-    θ_ref::DFloat = 300
-    θ_c::DFloat = 0.5
-    Δθ::DFloat = 0
-    if r <= rc
-      Δθ = θ_c * (1 + cos(π * r / rc)) / 2
-    end
-    θ_k = θ_ref + Δθ
-    π_k = 1 - gravity / (c_p * θ_k) * x[dim]
-    c = c_v / R_gas
-    ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-    ρ = ρ_k
-    u = zero(DFloat)
-    v = zero(DFloat)
-    w = zero(DFloat)
-    U = ρ * u
-    V = ρ * v
-    W = ρ * w
-    Θ = ρ * θ_k
-    P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
-    T = P / (ρ * R_gas)
-    E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-    ρ, U, V, W, E, ntuple(j->(j*ρ), nmoist)..., ntuple(j->(-j*ρ), ntrace)...
+  # spacedisc = data needed for evaluating the right-hand side function
+  spacedisc = VanillaAtmosDiscretization(grid,
+                                         # Use gravity?
+                                         gravity = gravity,
+                                         # How many tracer variables
+                                         ntrace=ntrace,
+                                         # How many moisture variables
+                                         nmoist=nmoist)
+
+  # This is a actual state/function that lives on the grid
+  Q = AtmosStateArray(spacedisc, initialcondition)
+  @show norm(Q)
+  @show VanillaAtmosDiscretizations.L2norm(Q, spacedisc)
+
+  (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
+  if exact_timeend
+    nsteps = ceil(Int64, timeend / dt)
+    dt = timeend / nsteps
   end
 
-  # Compute a (bad guess) for the time step
-  base_dt = AD.estimatedt(runner, host=true)
-  nsteps = ceil(Int64, timeend / base_dt)
-  dt = timeend / nsteps
+  # Initialize the Method (extra needed buffers created here)
+  # Could also add an init here for instance if the ODE solver has some
+  # state and reading from a restart file
 
-  # Set the time step
-  AD.inittimestate!(runner, dt)
+  # TODO: Should we use get property to get the rhs function?
+  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
-  eng0 = AD.L2solutionnorm(runner; host=true)
-  # mpirank == 0 && @show eng0
+  solve!(Q, lsrk; timeend=timeend)#; callbacks=callback_functions)
 
-  # Setup the info callback
-  io = mpirank == 0 ? stdout : open("/dev/null", "w")
-  show(io, "text/plain", runner.spacerunner)
-  cbinfo = AD.GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
-    println(io, runner.spacerunner)
-  end
-
-  AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, ))
-
-  let
-    Q = Array(AD.getQ(runner.spacerunner))
-    stateid = AD.getstateid(runner.spacerunner)
-    moistid = AD.getmoistid(runner.spacerunner)
-    traceid = AD.gettraceid(runner.spacerunner)
-    for n = 1:nmoist
-      @assert n*(@view Q[:, stateid.ρ, :]) ≈ (@view Q[:, moistid[n], :])
-    end
-    for n = 1:ntrace
-      @assert -n*(@view Q[:, stateid.ρ, :]) ≈ (@view Q[:, traceid[n], :])
-    end
-  end
-
-
-  engf = AD.L2solutionnorm(runner; host=true)
-
-  mpirank == 0 && @show engf
-  mpirank == 0 && @show eng0 - engf
-  mpirank == 0 && @show engf/eng0
-  mpirank == 0 && println()
-  nothing
+  @show VanillaAtmosDiscretizations.L2norm(Q, spacedisc)
 end
 
 let
-  inputs = Dict{Symbol, Any}()
-  inputs[:spacemethod] = :VanillaEuler
-  inputs[:DFloat] = (Float64, Float32)
-  inputs[:dim] = (2, 3)
-  inputs[:backend] = (HAVE_CUDA ? (CuArray, Array) : (Array,))
-  inputs[:N] = 4
-  inputs[:Ne] = 10
-  inputs[:timeend] = 0.1
-  inputs[:ntrace] = 3
-  inputs[:nmoist] = 2
+  MPI.Initialized() || MPI.Init()
 
-  foreach(ARGS) do (A)
-    sp = split(A, '='; limit=2)
-    kw = Symbol(sp[1])
-    if kw == :spacemethod
-      inputs[kw] = Symbol(sp[2])
-    else
-      error("Nope")
-    end
-  end
+  MPI.finalize_atexit()
+  mpicomm = MPI.COMM_WORLD
 
-  (DFloats, dims, backends) = (inputs[:DFloat], inputs[:dim], inputs[:backend])
-  for DFloat in DFloats
-    for dim in dims
-      for backend in backends
-        inputs[:DFloat] = DFloat
-        inputs[:dim] = dim
-        inputs[:backend] = backend
-        main(;inputs...)
+  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
+
+  nmoist = 0
+  ntrace = 0
+  Ne = (10, 10, 10)
+  N = 4
+  timeend = 0.1
+  for DFloat in (Float64,)
+    for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+      for dim in 2:2
+        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
+        ic(x...) = risingthermalbubble(x...; ntrace=ntrace, nmoist=nmoist,
+                                       dim=dim)
+        #=
+        v = [1]
+        ic(x...) = shift_init(v, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)
+        =#
+        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, ic,
+             timeend)
       end
     end
   end
+
 end
