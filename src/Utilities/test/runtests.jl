@@ -4,6 +4,7 @@ using Utilities, PlanetParameters
 using Test
 
 using Utilities.MoistThermodynamics
+using Utilities.RootSolvers
 
 using LinearAlgebra
 
@@ -85,3 +86,25 @@ using LinearAlgebra
   @test liquid_ice_pottemp.([T, T], .1*[MSLP, MSLP], [0, 1], [0, 0], [0, 0]) ≈
     T .* 10 .^[R_d/cp_d, R_v/cp_v]
 end
+
+@testset "RootSolvers" begin
+  T = (Float32, Float64) # Test over multiple types
+  for t in T
+    f(x, y) = t(x^2) - t(y)
+    x_star2 = t(10000.0)
+    x_star = sqrt(x_star2)
+    x_0 = t(0.0)
+    x_1 = t(1.0)
+    args = Tuple(x_star2)
+    tol_abs = t(1.0e-3)
+    iter_max = 100
+    x_root, converged = RootSolvers.find_zero(f,
+                                              InitialGuessSecant(x_0, x_1),
+                                              args,
+                                              IterParams(tol_abs, iter_max),
+                                              SecantMethod()
+                                              )
+    @test x_root ≈ x_star
+  end
+end
+
