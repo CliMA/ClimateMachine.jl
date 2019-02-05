@@ -10,6 +10,8 @@ module MoistThermodynamics
 
 using PlanetParameters
 
+using ..RootSolvers
+
 # Uses Roots.jl from JuliaMath in the saturation adjustment function
 using Roots
 
@@ -411,10 +413,17 @@ The optional input value of the temperature `T_init` is taken as the initial
 value of the saturation adjustment iterations.
 """
 function saturation_adjustment(E_int, ρ, q_t, T_init = T_triple)
-
-    T = find_zero(x -> internal_energy_sat(x, ρ, q_t) - E_int, T_init,
-            Order1(), atol=1e-3*cv_d)
-
+    tol_abs = 1e-3*cv_d
+    iter_max = 100
+    args = ()
+    T_0, T_1 = T_init, T_init*1.01
+    roots_equation(x) = internal_energy_sat(x, ρ, q_t) - E_int
+    T, converged = RootSolvers.find_zero(roots_equation,
+                                         InitialGuessSecant(T_0, T_1),
+                                         args,
+                                         IterParams(tol_abs, iter_max),
+                                         SecantMethod()
+                                         )
     return T
 
 end
