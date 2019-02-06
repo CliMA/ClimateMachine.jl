@@ -285,7 +285,7 @@ AD.createrunner(::Val{:VanillaEuler}, m; a...) = Runner(m; a...)
 function Base.show(io::IO, runner::Runner)
   eng = AD.L2solutionnorm(runner; host=true)
   print(io, "VanillaEuler with norm2(Q) = ", eng, " at time = ",
-        runner[:time])
+        AD.solutiontime(runner))
 end
 
 function Base.show(io::IO, ::MIME"text/plain",
@@ -299,40 +299,20 @@ function Base.show(io::IO, ::MIME"text/plain",
   println(io, "   DeviceArray = ", DeviceArray)
   println(io, "   DFloat      = ", DFloat)
   println(io, "   norm2(Q)    = ", eng)
-  println(io, "   time        = ", runner[:time])
+  println(io, "   time        = ", AD.solutiontime(runner))
   println(io, "   N           = ", params.N)
   println(io, "   dim         = ", params.dim)
   println(io, "   mpisize     = ", MPI.Comm_size(config.mpicomm))
 end
 # }}}
 
-Base.getindex(r::Runner, s) = r[Symbol(s)]
-function Base.getindex(r::Runner, s::Symbol)
-  s == :time && return r.state.time[1]
-  s == :Q && return r.state.Q
-  s == :mesh && return r.config.mesh
-  s == :stateid && return stateid
-  s == :moistid && return _nstate .+ (1:r.params.nmoist)
-  s == :traceid && return _nstate .+ r.params.nmoist .+ (1:r.params.ntrace)
-  error("""
-        getindex for the $(typeof(r)) supports:
-        `:time`    => gets the runners time
-        `:Q`       => gets the runners state Q
-        `:mesh`    => gets the runners mesh
-        `:hostQ`   => not implemented yet
-        `:stateid` => Euler state storage order
-        `:moistid` => moist state storage order
-        `:traceid` => trace state storage order
-        """)
-end
-Base.setindex!(r::Runner, v, s) = Base.setindex!(r, v, Symbol(s))
-function Base.setindex!(r::Runner, v,  s::Symbol)
-  s == :time && return r.state.time[1] = v
-  error("""
-        setindex! for the $(typeof(r)) supports:
-        `:time` => sets the runners time
-        """)
-end
+AD.getQ(r::Runner) = r.state.Q
+AD.getrealelems(r::Runner) = r.config.mesh.realelems
+AD.solutiontime(r::Runner) = r.state.time[1]
+AD.setsolutiontime!(r::Runner, v) = r.state.time[1] = v
+AD.getstateid(r::Runner) = stateid
+AD.getmoistid(r::Runner) = _nstate .+ (1:r.params.nmoist)
+AD.gettraceid(r::Runner) = _nstate .+ r.params.nmoist .+ (1:r.params.ntrace)
 
 # {{{ initstate!
 function AD.initstate!(runner::Runner{DeviceArray}, ic::Function;
