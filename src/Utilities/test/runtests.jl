@@ -88,7 +88,7 @@ using LinearAlgebra
 end
 
 @testset "RootSolvers" begin
-  T = (Float32, Float64) # Test over multiple types
+  T = (Float32, Float64)
   for t in T
     f(x, y) = t(x^2) - t(y)
     x_star2 = t(10000.0)
@@ -99,7 +99,7 @@ end
     tol_abs = t(1.0e-3)
     iter_max = 100
     x_root, converged = RootSolvers.find_zero(f,
-                                              InitialGuessSecant(x_0, x_1),
+                                              x_0, x_1,
                                               args,
                                               IterParams(tol_abs, iter_max),
                                               SecantMethod()
@@ -108,3 +108,32 @@ end
   end
 end
 
+const HAVE_CUDA = try
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  true
+catch
+  false
+end
+@testset "CUDA RootSolvers" begin
+  if HAVE_CUDA
+    x_ca = cu(rand(5, 5))
+    x_ca_0 = x_ca
+    x_ca_1 = 2*x_ca
+    t = typeof(x_ca[1])
+    f(x, y) = x^2 - y
+    x_star2 = t(10000.0)
+    args = Tuple(x_star2)
+    x_star = sqrt(x_star2)
+    x_0 = x_ca_0[1]
+    x_1 = x_ca_1[2]
+    tol_abs = t(1.0e-3)
+    iter_max = 100
+    x_root, converged = find_zero(f, x_0, x_1, args, IterParams(tol_abs, iter_max), SecantMethod())
+    @test x_root ≈ 100.0
+    R = find_zero.(f, x_ca_0, x_ca_1, Ref(args), Ref(IterParams(tol_abs, iter_max)), Ref(SecantMethod()))
+    x_roots = [x for (x, y) in R]
+    @test all(x_roots .≈ 100.0)
+  end
+end

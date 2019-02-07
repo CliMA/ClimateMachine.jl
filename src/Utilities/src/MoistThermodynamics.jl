@@ -12,9 +12,6 @@ using PlanetParameters
 
 using ..RootSolvers
 
-# Uses Roots.jl from JuliaMath in the saturation adjustment function
-using Roots
-
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density
 
@@ -418,12 +415,12 @@ function saturation_adjustment(E_int, ρ, q_t, T_init = T_triple)
     args = ()
     T_0, T_1 = T_init, T_init*1.01
     roots_equation(x) = internal_energy_sat(x, ρ, q_t) - E_int
-    T, converged = RootSolvers.find_zero(roots_equation,
-                                         InitialGuessSecant(T_0, T_1),
-                                         args,
-                                         IterParams(tol_abs, iter_max),
-                                         SecantMethod()
-                                         )
+    T, converged = find_zero(roots_equation,
+                             T_0, T_1,
+                             args,
+                             IterParams(tol_abs, iter_max),
+                             SecantMethod()
+                             )
     return T
 
 end
