@@ -90,17 +90,24 @@ end
 @testset "RootSolvers" begin
   T = (Float32, Float64)
   for t in T
-    f(x, y) = t(x^2) - t(y)
     x_star2 = t(10000.0)
+    f_close(x) = x^2 - x_star2
+    f_args(x, y) = x^2 - y
     x_star = sqrt(x_star2)
     x_0 = t(0.0)
     x_1 = t(1.0)
     args = Tuple(x_star2)
     tol_abs = t(1.0e-3)
     iter_max = 100
-    x_root, converged = RootSolvers.find_zero(f,
+    x_root, converged = RootSolvers.find_zero(f_args,
                                               x_0, x_1,
                                               args,
+                                              IterParams(tol_abs, iter_max),
+                                              SecantMethod()
+                                              )
+    @test x_root ≈ x_star
+    x_root, converged = RootSolvers.find_zero(f_close,
+                                              x_0, x_1,
                                               IterParams(tol_abs, iter_max),
                                               SecantMethod()
                                               )
@@ -120,20 +127,33 @@ end
   if HAVE_CUDA
     x_ca = cu(rand(5, 5))
     x_ca_0 = x_ca
-    x_ca_1 = 2*x_ca
+    x_ca_1 = x_ca.+2
     t = typeof(x_ca[1])
-    f(x, y) = x^2 - y
     x_star2 = t(10000.0)
+    # const x_star2 = t(10000.0) # must be defined in global scope
+    f_close(x) = x^2 - x_star2
+    f_args(x, y) = x^2 - y
     args = Tuple(x_star2)
     x_star = sqrt(x_star2)
-    x_0 = x_ca_0[1]
-    x_1 = x_ca_1[2]
+    x_0 = t(0.0)
+    x_1 = t(1.0)
     tol_abs = t(1.0e-3)
     iter_max = 100
-    x_root, converged = find_zero(f, x_0, x_1, args, IterParams(tol_abs, iter_max), SecantMethod())
+
+    # Test args method
+    x_root, converged = find_zero(f_args, x_0, x_1, args, IterParams(tol_abs, iter_max), SecantMethod())
     @test x_root ≈ 100.0
-    R = find_zero.(f, x_ca_0, x_ca_1, Ref(args), Ref(IterParams(tol_abs, iter_max)), Ref(SecantMethod()))
+    R = find_zero.(f_args, x_ca_0, x_ca_1, Ref(args), Ref(IterParams(tol_abs, iter_max)), Ref(SecantMethod()))
     x_roots = [x for (x, y) in R]
     @test all(x_roots .≈ 100.0)
+
+    # # Test closure method
+    # # This test must be defined when const x_star2 = t(10000.0) is used.
+    #
+    # x_root, converged = find_zero(f_close, x_0, x_1, IterParams(tol_abs, iter_max), SecantMethod())
+    # @test x_root ≈ 100.0
+    # R = find_zero.(f_close, x_ca_0, x_ca_1, Ref(IterParams(tol_abs, iter_max)), Ref(SecantMethod()))
+    # x_roots = [x for (x, y) in R]
+    # @test all(x_roots .≈ 100.0)
   end
 end
