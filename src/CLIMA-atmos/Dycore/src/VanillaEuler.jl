@@ -620,7 +620,7 @@ function AD.rhs!(rhs::DeviceArray,
   MPI.Waitall!(sendreq)
 
   # pack data in send buffer
-  fillsendQ!(host_sendQ, device_sendQ, Q, sendelems)
+  fillsendbuf!(host_sendQ, device_sendQ, Q, sendelems)
 
   # post MPI sends
   for n = 1:nnabr
@@ -636,7 +636,7 @@ function AD.rhs!(rhs::DeviceArray,
   MPI.Waitall!(recvreq)
 
   # copy data to state vectors
-  transferrecvQ!(device_recvQ, host_recvQ, Q, nrealelem)
+  transferrecvbuf!(device_recvQ, host_recvQ, Q, nrealelem)
 
   # face RHS computation
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), rhs, Q, vgeo, sgeo,
@@ -645,8 +645,8 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendQ!(host_sendQ, device_sendQ::Array, Q, sendelems)
-  host_sendQ[:, :, :] .= Q[:, :, sendelems]
+function fillsendbuf!(host_sendbuf, device_sendbuf::Array, buf, sendelems)
+  host_sendbuf[:, :, :] .= buf[:, :, sendelems]
 end
 
 function transferrecvQ!(device_recvQ::Array, host_recvQ, Q, nrealelem)
