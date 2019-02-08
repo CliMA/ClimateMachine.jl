@@ -18,7 +18,7 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
   MJI = rhsU = rhsV = rhsρ = rhsE = zero(eltype(rhs))
   MJ = ξx = ξy = ηx = ηy = zero(eltype(rhs))
   u = v = zero(eltype(rhs))
-  if i <= Nq && j <= Nq && k == 1 && e <= nelem
+  @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
     if k == 1
       s_D[i, j] = D[i, j]
