@@ -1223,8 +1223,12 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
         u, v = l_u[i, j], l_v[i, j]
 
-        fx = u * Q[i, j, s, e]
-        fy = v * Q[i, j, s, e]
+        q = Q[i, j, s, e]
+        qx = grad[i, j, ss+1, e]
+        qy = grad[i, j, ss+2, e]
+
+        fx = u * q - viscosity*0*qx
+        fy = v * q - viscosity*0*qy
 
         s_F[i, j, 1] = MJ * (ξx * fx + ξy * fy)
         s_G[i, j, 1] = MJ * (ηx * fx + ηy * fy)
@@ -1253,12 +1257,8 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
         u, v = l_u[i, j], l_v[i, j]
 
-        q = Q[i, j, s, e]
-        qx = grad[i, j, ss+1, e]
-        qy = grad[i, j, ss+2, e]
-
-        fx = u * q - viscosity*0*qx
-        fy = v * q - viscosity*0*qy
+        fx = u * Q[i, j, s, e]
+        fy = v * Q[i, j, s, e]
 
         s_F[i, j, 1] = MJ * (ξx * fx + ξy * fy)
         s_G[i, j, 1] = MJ * (ηx * fx + ηy * fy)
@@ -1430,9 +1430,14 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
         u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
 
-        fx = u * Q[i, j, k, s, e]
-        fy = v * Q[i, j, k, s, e]
-        fz = w * Q[i, j, k, s, e]
+        q = Q[i, j, k, s, e]
+        qx = grad[i, j, k, ss+1, e]
+        qy = grad[i, j, k, ss+2, e]
+        qz = grad[i, j, k, ss+3, e]
+
+        fx = u*q - viscosity*0*qx
+        fy = v*q - viscosity*0*qy
+        fz = w*q - viscosity*0*qz
 
         s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
         s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
@@ -1469,14 +1474,9 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
         u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
 
-        q = Q[i, j, k, s, e]
-        qx = grad[i, j, k, ss+1, e]
-        qy = grad[i, j, k, ss+2, e]
-        qz = grad[i, j, k, ss+3, e]
-
-        fx = u*q - viscosity*0*qx
-        fy = v*q - viscosity*0*qy
-        fz = w*q - viscosity*0*qz
+        fx = u * Q[i, j, k, s, e]
+        fy = v * Q[i, j, k, s, e]
+        fz = w * Q[i, j, k, s, e]
 
         s_F[i, j, k, 1] = MJ * (ξx * fx + ξy * fy + ξz * fz)
         s_G[i, j, k, 1] = MJ * (ηx * fx + ηy * fy + ηz * fz)
