@@ -41,7 +41,7 @@ struct Configuration{DFloat} # <: AD.AbstractTimeConfiguration
   function Configuration(params::Parameters,
                          mpicomm,
                          spacerunner::AD.AbstractSpaceRunner)
-    rhs = similar(spacerunner[:Q])
+    rhs = similar(AD.getQ(spacerunner))
     fill!(rhs, 0)
 
     DFloat = eltype(rhs)
@@ -127,7 +127,7 @@ function AD.run!(runner::Runner, spacerunner::AD.AbstractSpaceRunner;
   config = runner.config
   state = runner.state
 
-  t0 = spacerunner[:time]
+  t0 = AD.solutiontime(spacerunner)
 
   RKA = config.RKA
   RKB = config.RKB
@@ -145,21 +145,21 @@ function AD.run!(runner::Runner, spacerunner::AD.AbstractSpaceRunner;
   step = 0
   time = t0
   rhs = config.rhs
-  Q = spacerunner[:Q]
-  mesh = spacerunner[:mesh]
+  Q = AD.getQ(spacerunner)
+  realelems = AD.getrealelems(spacerunner)
   while time < timeend
     step += 1
     for s = 1:length(RKA)
       AD.rhs!(rhs, spacerunner)
 
       # update solution and scale RHS
-      update!(Val(size(Q,2)), Val(size(Q,1)), rhs, Q, mesh.realelems,
+      update!(Val(size(Q,2)), Val(size(Q,1)), rhs, Q, realelems,
               RKA[s%length(RKA)+1], RKB[s], dt)
       time += RKC[s] * dt
-      spacerunner[:time] = time
+      AD.setsolutiontime!(spacerunner, time)
     end
     time = t0 + step * dt
-    spacerunner[:time] = time
+    AD.setsolutiontime!(spacerunner, time)
 
     # FIXME: Determine better way to handle postcallback behavior
 

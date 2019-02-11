@@ -5,13 +5,11 @@ Moist thermodynamic functions, e.g., for air pressure (atmosphere equation
 of state), latent heats of phase transitions, saturation vapor pressures, and
 saturation specific humidities
 """
-
 module MoistThermodynamics
 
 using PlanetParameters
 
-# Uses Roots.jl from JuliaMath in the saturation adjustment function
-using Roots
+using ..RootSolvers
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density
@@ -108,9 +106,9 @@ function cv_m(q_t=0, q_l=0, q_i=0)
 end
 
 """
-    air_temperature(E_int[, q_t=0, q_l=0, q_i=0])
+    air_temperature(e_int[, q_t=0, q_l=0, q_i=0])
 
-Return the air temperature, given the internal energy `E_int` per unit mass,
+Return the air temperature, given the internal energy `e_int` per unit mass,
 and, optionally, the total specific humidity `q_t`, the liquid specific humidity
 `q_l`, and the ice specific humidity `q_i`.
 """
@@ -336,7 +334,7 @@ temperature `T`, and the saturation vapor pressure `p_vs`.
 """
 function sat_shum_from_pressure(ρ, T, p_vs)
 
-    return p_vs / (ρ * R_v * T);
+    return min(eltype(ρ)(1.), p_vs / (ρ * R_v * T))
 
 end
 
@@ -402,19 +400,27 @@ function phase_partitioning_eq(T, ρ, q_t)
 end
 
 """
-    saturation_adjustment(E_int, ρ, q_t[, T_init = T_triple])
+    saturation_adjustment(e_int, ρ, q_t[, T_init = T_triple])
 
-Return the temperature that is consistent with the internal energy `E_int`,
+Return the temperature that is consistent with the internal energy `e_int`,
 (moist-)air density `ρ`, and total specific humidity `q_t`.
 
 The optional input value of the temperature `T_init` is taken as the initial
 value of the saturation adjustment iterations.
 """
-function saturation_adjustment(E_int, ρ, q_t, T_init = T_triple)
-
-    T = find_zero(x -> internal_energy_sat(x, ρ, q_t) - E_int, T_init,
-            Order1(), atol=1e-3*cv_d)
-
+function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
+    tol_abs = 1e-3*cv_d
+    iter_max = 10
+    args = (ρ, q_t, e_int)
+    T0 = max(T_min, air_temperature(e_int, q_t, 0.0, 0.0))
+    T1 = air_temperature(e_int, q_t, 0.0, q_t)
+    roots_equation(x, ρ, q_t, e_int) = internal_energy_sat(x, ρ, q_t) - e_int
+    T, converged = find_zero(roots_equation,
+                             T0, T1,
+                             args,
+                             IterParams(tol_abs, iter_max),
+                             SecantMethod()
+                             )
     return T
 
 end
