@@ -28,20 +28,7 @@ A list of recommended coding conventions.
 
  - Try to limit all lines to a maximum of 79 characters.
 
- - Single access point - if a variable/constant is defined more than once, then move it into a module and import (or "using") to that module to access the variable in order to enforce a single access point (to avoid consistency issues).
-
- - 2 or more, use a "for" - If you are looping over indexes, and you loop over at least two, then just use a for loop. Example:
-
-   - Do this
-      `temp = [4, 2, 6]`
-      `for i in 1:3`
-        `  a[i] = temp[i]`
-      `end`
-
-   - Not this
-      `a[1] = 4`
-      `a[2] = 2`
-      `a[3] = 6`
+ - Single access point - if a variable/constant is defined more than once, then move it into a module and import (or "using") to that module to access the variable in order to enforce a single access point (to avoid consistency issues). Any time a chunk of code is used more than once, or when several similar versions exist across the codebase, consider generalizing this functionality and using a new function to avoid replicating code
 
  - "import"/"using" should be grouped in the following order:
 
