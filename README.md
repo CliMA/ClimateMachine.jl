@@ -13,3 +13,5 @@ Climate Machine
 
 [codecov-img]: https://codecov.io/gh/climate-machine/CLIMA/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/climate-machine/CLIMA
+
+[![Build status]()](https://ci.appveyor.com/project/charleskawczynski/clima-0dapk/branch/master)
