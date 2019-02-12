@@ -4,3 +4,5 @@
 *.jl.mem
 *.DS_Store
 deps/deps.jl
+docs/build/
+docs/site/

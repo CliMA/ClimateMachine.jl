@@ -56,3 +56,17 @@ after_success:
 #         - julia --color=yes --project=docs/ -e 'using Pkg; Pkg.instantiate()'
 #         - julia --color=yes --project=docs/ docs/make.jl
 #       after_success: skip
+
+jobs:
+  include:
+    - stage: "Documentation"
+      julia: 1.0
+      os: linux
+      script:
+        - export DOCUMENTER_DEBUG="true"
+        - julia --color=yes --project=docs/ -e 'using Pkg;
+                                                      Pkg.develop(PackageSpec(path=pwd()));
+                                                      Pkg.instantiate();
+                                                      Pkg.build("CLIMA")'
+        - julia --color=yes --project=docs/ docs/make.jl
+      after_success: skip
