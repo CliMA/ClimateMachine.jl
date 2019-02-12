@@ -30,7 +30,7 @@ using Utilities.RootSolvers
   z_0 = rand(1)[1]
   z_1 = rand(1)[1]
   γ_m = 15.0
-  beta_m = 4.8
+  β_m = 4.8
 
   tol_abs = 1e-3
   iter_max = 10
@@ -38,7 +38,7 @@ using Utilities.RootSolvers
                                                    buoyancy_flux,
                                                    z_0,
                                                    z_1,
-                                                   beta_m,
+                                                   β_m,
                                                    γ_m,
                                                    tol_abs,
                                                    iter_max
@@ -49,15 +49,15 @@ using Utilities.RootSolvers
   z_0 = rand(1)[1]
   γ_m = 15.0
   γ_h = 9.0
-  beta_m = 4.8
-  beta_h = 7.8
+  β_m = 4.8
+  β_h = 7.8
   cm, ch, Λ_mo = SurfaceFluxes.exchange_coefficients_byun(Ri,
                                                           z_b,
                                                           z_0,
                                                           γ_m,
                                                           γ_h,
-                                                          beta_m,
-                                                          beta_h,
+                                                          β_m,
+                                                          β_h,
                                                           Pr_0
                                                           )
 end

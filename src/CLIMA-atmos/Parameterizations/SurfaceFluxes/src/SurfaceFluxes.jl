@@ -38,8 +38,8 @@ function ψ_h_unstable(ζ::R, ζ_0::R, γ_h::R) where R
   ψ_h = 2 * log((1 + y(ζ))/(1 + y(ζ_0)))
   return ψ_h
 end
-ψ_m_stable(ζ::R, ζ_0::R, beta_m::R) where R = -beta_m * (ζ - ζ_0)
-ψ_h_stable(ζ::R, ζ_0::R, beta_h::R) where R = -beta_h * (ζ - ζ_0)
+ψ_m_stable(ζ::R, ζ_0::R, β_m::R) where R = -β_m * (ζ - ζ_0)
+ψ_h_stable(ζ::R, ζ_0::R, β_h::R) where R = -β_h * (ζ - ζ_0)
 
 """
 Computes roots of equation (eq. 10 in Ref. 1)
@@ -61,7 +61,7 @@ function compute_friction_velocity(windspeed::R,
                                    buoyancy_flux::R,
                                    z_0::R,
                                    z_1::R,
-                                   beta_m::R,
+                                   β_m::R,
                                    γ_m::R,
                                    tol_abs::R,
                                    iter_max::Int
@@ -74,7 +74,7 @@ function compute_friction_velocity(windspeed::R,
 
   compute_Λ_MO(u) = - u^3 / (buoyancy_flux * κ)
   fixed_cond = z_1/compute_Λ_MO(ustar_0) >= 0
-  fixed_compute_ψ_m(ζ, ζ_0) = fixed_cond ? ψ_m_stable(ζ, ζ_0, beta_m) : ψ_m_unstable(ζ, ζ_0, γ_m)
+  fixed_compute_ψ_m(ζ, ζ_0) = fixed_cond ? ψ_m_stable(ζ, ζ_0, β_m) : ψ_m_unstable(ζ, ζ_0, γ_m)
 
   function compute_ψ_m(u)
     Λ_MO = compute_Λ_MO(u)
@@ -110,19 +110,19 @@ function exchange_coefficients_byun(Ri::R,
                                     z_0::R,
                                     γ_m::R,
                                     γ_h::R,
-                                    beta_m::R,
-                                    beta_h::R,
+                                    β_m::R,
+                                    β_h::R,
                                     Pr_0::R
                                     )::Tuple{R,R,R} where R
   logz = log(z_b/z_0)
   zfactor = z_b/(z_b-z_0)*logz
   sb = Ri/Pr_0
   if Ri > 0
-    ζ = zfactor/(2*beta_h*(beta_m*Ri - 1))*((1-2*beta_h*Ri)-sqrt(1+4*(beta_h - beta_m)*sb))
+    ζ = zfactor/(2*β_h*(β_m*Ri - 1))*((1-2*β_h*Ri)-sqrt(1+4*(β_h - β_m)*sb))
     Λ_mo = z_b/ζ
     ζ_0 = z_0/Λ_mo
-    ψ_m = ψ_m_stable(ζ, ζ_0, beta_m)
-    ψ_h = ψ_h_stable(ζ, ζ_0, beta_h)
+    ψ_m = ψ_m_stable(ζ, ζ_0, β_m)
+    ψ_h = ψ_h_stable(ζ, ζ_0, β_h)
   else
     qb = 1/9 * (1 /(γ_m * γ_m) + 3 * γ_h/γ_m * sb * sb)
     pb = 1/54 * (-2/(γ_m*γ_m*γ_m) + 9/γ_m * (-γ_h/γ_m + 3)*sb * sb)
