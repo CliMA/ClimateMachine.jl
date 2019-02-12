@@ -13,11 +13,7 @@ using ParametersType
 @exportparameter k_Boltzmann       1.381e-23     "Boltzmann constant (m^2 kg/s^2/K)"
 @exportparameter Stefan            5.670e-8      "Stefan-Boltzmann constant (W/m^2/K^4)"
 @exportparameter astro_unit        1.4959787e11  "Astronomical unit (m)"
-@exportparameter kappa_vk          0.4           "Von Karman constant (1)"
-@exportparameter gamma_m           15.0          "Monin-Obhukov parameter (1)"
-@exportparameter gamma_h           9.0           "Monin-Obhukov parameter (1)"
-@exportparameter beta_m            4.8           "Monin-Obhukov parameter (1)"
-@exportparameter beta_h            7.8           "Monin-Obhukov parameter (1)"
+@exportparameter k_Karman          0.4           "Von Karman constant (1)"
 
 # Properties of dry air
 @exportparameter molmass_dryair    28.97e-3      "Molecular weight dry air (kg/mol)"
@@ -26,7 +22,6 @@ using ParametersType
 @exportparameter kappa_d           2//7          "Adiabatic exponent dry air"
 @exportparameter cp_d              R_d/kappa_d   "Isobaric specific heat dry air"
 @exportparameter cv_d              cp_d - R_d    "Isochoric specific heat dry air"
-@exportparameter Pr_0              0.74          "Turbulent Prandtl number (1)"
 
 # Properties of water
 @exportparameter dens_liquid       1e3           "Density of liquid water (kg/m^3)"
