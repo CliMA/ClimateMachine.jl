@@ -101,4 +101,54 @@ function Base.similar(Q::AtmosStateArray{S, T, N, DA, DATN}) where {S, T, N, DA,
   AtmosStateArray{S, T, DA}(Q.mpicomm, size(Q.Q)[end], realelems=Q.realelems)
 end
 
+function postrecvs!(Q::AtmosStateArray)
+  nnabr = length(Q.nabrtorank)
+  for n = 1:nnabr
+    # If this fails we haven't waited on previous recv!
+    @assert Q.recvreq[n].buffer == nothing
+
+    Q.recvreq[n] = MPI.Irecv!((@view Q.host_recvQ[:, :, Q.nabrtorecv[n]]),
+                              Q.nabrtorank[n], 888, Q.mpicomm)
+  end
+end
+
+function startexchange!(Q::AtmosStateArray; dorecvs=true)
+  dorecvs && postrecvs!(Q)
+
+  # wait on (prior) MPI sends
+  MPI.Waitall!(Q.sendreq)
+
+  # pack data in send buffer
+  fillsendbuf!(Q.host_sendQ, Q.device_sendQ, Q.Q, Q.sendelems)
+
+  # post MPI sends
+  nnabr = length(Q.nabrtorank)
+  for n = 1:nnabr
+    Q.sendreq[n] = MPI.Isend((@view Q.host_sendQ[:, :, Q.nabrtosend[n]]),
+                           Q.nabrtorank[n], 888, Q.mpicomm)
+  end
+end
+
+function finishexchange!(Q::AtmosStateArray)
+  # wait on MPI receives
+  MPI.Waitall!(Q.recvreq)
+
+  # copy data to state vectors
+  transferrecvbuf!(Q.device_recvQ, Q.host_recvQ, Q, length(Q.realelems))
+end
+
+# {{{ MPI Buffer handling
+fillsendbuf!(h, d, b::AtmosStateArray, e) = fillsendbuf!(h, d, b.Q, e)
+transferrecvbuf!(h, d, b::AtmosStateArray, e) = transferrecvbuf!(h, d, b.Q, e)
+
+function fillsendbuf!(host_sendbuf, device_sendbuf::Array, buf::Array, sendelems)
+  host_sendbuf[:, :, :] .= buf[:, :, sendelems]
+end
+
+function transferrecvbuf!(device_recvbuf::Array, host_recvbuf, buf::Array,
+                          nrealelem)
+  buf[:, :, nrealelem+1:end] .= host_recvbuf[:, :, :]
+end
+# }}}
+
 end

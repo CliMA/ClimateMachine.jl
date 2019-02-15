@@ -25,7 +25,7 @@ const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
        _Tx, _Ty, _Tz) = 1:_nstategrad
 
 struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
-                                  DeviceArray, ntrace, nmoist, DAT3, DASAT3,
+                                  DeviceArray, ntrace, nmoist, DASAT3,
                                   GT } <: AD.AbstractAtmosDiscretization
   "grid"
   grid::GT
@@ -36,38 +36,8 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
   "viscosity constant"
   viscosity::T
 
-  "MPI send request storage"
-  sendreq::Array{MPI.Request, 1}
-
-  "MPI recv request storage"
-  recvreq::Array{MPI.Request, 1}
-
-  "host storage for state to be sent"
-  host_sendQ::Array{T, 3}
-
-  "host storage for state to be recv'd"
-  host_recvQ::Array{T, 3}
-
-  "device storage for state to be sent"
-  device_sendQ::DAT3
-
-  "device storage for state to be recv'd"
-  device_recvQ::DAT3
-
   "storage for the grad"
   grad::DASAT3
-
-  "host storage for grad to be sent"
-  host_sendgrad::Array{T, 3}
-
-  "host storage for grad to be recv'd"
-  host_recvgrad::Array{T, 3}
-
-  "device storage for grad to be sent"
-  device_sendgrad::DAT3
-
-  "device storage for grad to be recv'd"
-  device_recvgrad::DAT3
 
   VanillaAtmosDiscretization(grid;
                              # How many tracer variables
@@ -87,21 +57,7 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                                ntrace, nmoist}
     topology = grid.topology
 
-    nnabr = length(topology.nabrtorank)
-    sendreq = fill(MPI.REQUEST_NULL, nnabr)
-    recvreq = fill(MPI.REQUEST_NULL, nnabr)
-
-    nvar = _nstate + nmoist + ntrace
-    host_sendQ = zeros(T, (N+1)^dim, nvar, length(topology.sendelems))
-    host_recvQ = zeros(T, (N+1)^dim, nvar, length(topology.ghostelems))
-    device_sendQ = DA(host_sendQ)
-    device_recvQ = DA(host_recvQ)
-
     ngrad = _nstategrad + 3*nmoist
-    host_sendgrad = zeros(T, (N+1)^dim, ngrad, length(topology.sendelems))
-    host_recvgrad = zeros(T, (N+1)^dim, ngrad, length(topology.ghostelems))
-    device_sendgrad = DA(host_sendgrad)
-    device_recvgrad = DA(host_recvgrad)
     grad = AtmosStateArray{Tuple{Np, ngrad}, T, DA}(topology.mpicomm,
                                                     length(topology.elems),
                                                     realelems=topology.realelems,
@@ -111,14 +67,12 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                                     nabrtorecv=topology.nabrtorecv,
                                                     nabrtosend=topology.nabrtosend)
 
-    DAT3 = typeof(device_sendQ)
     GT = typeof(grid)
     DASAT3 = typeof(grad)
 
-    new{T, dim, N, Np, DA, ntrace, nmoist, DAT3, DASAT3, GT
-       }(grid, gravity ? grav : 0, viscosity, sendreq, recvreq, host_sendQ,
-         host_recvQ, device_sendQ, device_recvQ, grad, host_sendgrad,
-         host_recvgrad, device_sendgrad, device_recvgrad)
+    new{T, dim, N, Np, DA, ntrace, nmoist, DASAT3, GT}(grid,
+                                                       gravity ? grav : 0,
+                                                       viscosity, grad)
   end
 end
 
@@ -262,23 +216,9 @@ function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
   grid = disc.grid
   topology = grid.topology
 
-  # FIXME: Shove all these into AtmosStateArrays
-  mpicomm = topology.mpicomm
-  sendreq = disc.sendreq
-  recvreq = disc.recvreq
-  host_recvQ = disc.host_recvQ
-  host_sendQ = disc.host_sendQ
-  device_recvQ = disc.device_recvQ
-  device_sendQ = disc.device_sendQ
-  host_recvgrad = disc.host_recvgrad
-  host_sendgrad = disc.host_sendgrad
-  device_recvgrad = disc.device_recvgrad
-  device_sendgrad = disc.device_sendgrad
-  grad = disc.grad
-
-  sendelems = grid.sendelems
-
   gravity = disc.gravity
+
+  grad = disc.grad
 
   vgeo = grid.vgeo
   sgeo = grid.sgeo
@@ -288,11 +228,6 @@ function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
   elemtobndy = grid.elemtobndy
 
   DFloat = eltype(Q)
-  viscosity::DFloat = disc.viscosity
-
-  nnabr = length(topology.nabrtorank)
-  nrealelem = length(topology.realelems)
-
   @assert DFloat == eltype(Q)
   @assert DFloat == eltype(vgeo)
   @assert DFloat == eltype(sgeo)
@@ -300,67 +235,33 @@ function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
   @assert DFloat == eltype(grad)
   @assert DFloat == eltype(dQ)
 
-  # post MPI receives
-  for n = 1:nnabr
-    recvreq[n] = MPI.Irecv!((@view host_recvQ[:, :, topology.nabrtorecv[n]]),
-                            topology.nabrtorank[n], 777, mpicomm)
-  end
+  ########################
+  # Gradient Computation #
+  ########################
+  AtmosStateArrays.startexchange!(Q)
 
-  # wait on (prior) MPI sends
-  MPI.Waitall!(sendreq)
-
-  # pack data in send buffer
-  fillsendbuf!(host_sendQ, device_sendQ, Q, sendelems)
-
-  # post MPI sends
-  for n = 1:nnabr
-    sendreq[n] = MPI.Isend((@view host_sendQ[:, :, topology.nabrtosend[n]]),
-                           topology.nabrtorank[n], 777, mpicomm)
-  end
-
-  # volume grad computation
   volumegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
               gravity, Dmat, topology.realelems)
 
-  # wait on MPI receives
-  MPI.Waitall!(recvreq)
+  AtmosStateArrays.finishexchange!(Q)
 
-  # copy data to state vectors
-  transferrecvbuf!(device_recvQ, host_recvQ, Q, nrealelem)
-
-  # post MPI receives
-  for n = 1:nnabr
-    recvreq[n] = MPI.Irecv!((@view host_recvgrad[:, :, topology.nabrtorecv[n]]),
-                            topology.nabrtorank[n], 777, mpicomm)
-  end
-
-  # face grad computation
   facegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
             sgeo, gravity, topology.realelems, vmapM, vmapP, elemtobndy)
 
-  # wait on MPI sends
-  MPI.Waitall!(sendreq)
 
-  # pack data in send buffer
-  fillsendbuf!(host_sendgrad, device_sendgrad, grad, sendelems)
+  ###################
+  # RHS Computation #
+  ###################
 
-  # post MPI sends
-  for n = 1:nnabr
-    sendreq[n] = MPI.Isend((@view host_sendgrad[:, :, topology.nabrtosend[n]]),
-                           topology.nabrtorank[n], 777, mpicomm)
-  end
+  viscosity::DFloat = disc.viscosity
 
-  # volume RHS computation
+  AtmosStateArrays.startexchange!(grad)
+
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
 
-  # wait on MPI receives
-  MPI.Waitall!(recvreq)
+  AtmosStateArrays.finishexchange!(grad)
 
-  # copy data to state vectors
-  transferrecvbuf!(device_recvgrad, host_recvgrad, grad, nrealelem)
-
-  # face RHS computation
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
            vgeo, sgeo, gravity, viscosity, topology.realelems, vmapM, vmapP,
            elemtobndy)
