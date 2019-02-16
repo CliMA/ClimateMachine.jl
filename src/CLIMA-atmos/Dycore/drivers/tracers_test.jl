@@ -181,11 +181,12 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
 
+  h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
   for (j, n) = enumerate(spacedisc.moistrange)
-    @assert j*(@view Q.Q[:, spacedisc.ρid, :]) ≈ (@view Q.Q[:, n, :])
+    @assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
   for (j, n) = enumerate(spacedisc.tracerange)
-    @assert -j*(@view Q.Q[:, spacedisc.ρid, :]) ≈ (@view Q.Q[:, n, :])
+    @assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
 end
 

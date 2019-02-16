@@ -7,13 +7,13 @@ export AtmosStateArray
 
 # TODO: Make MPI Aware
 struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
-                       DATN<:AbstractArray{T,N}, Nm1} <: AbstractArray{T, N}
+                       DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
   Q::DATN
 
   realelems::UnitRange{Int64}
   ghostelems::UnitRange{Int64}
-  sendelems::Array{Int64, 1}
+  sendelems::DAI1
 
   sendreq::Array{MPI.Request, 1}
   recvreq::Array{MPI.Request, 1}
@@ -63,11 +63,13 @@ struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
-    new{S, T, DA, N, typeof(Q), N-1}(mpicomm, Q, realelems, ghostelems,
-                                     sendelems, sendreq, recvreq, host_sendQ,
-                                     host_recvQ, nabrtorank, nabrtorecv,
-                                     nabrtosend, device_sendQ, device_recvQ,
-                                     weights)
+    sendelems = typeof(sendelems) <: DA ? sendelems : DA(sendelems)
+    DAI1 = typeof(sendelems)
+    new{S, T, DA, N, typeof(Q), N-1, DAI1}(mpicomm, Q, realelems, ghostelems,
+                                           sendelems, sendreq, recvreq,
+                                           host_sendQ, host_recvQ, nabrtorank,
+                                           nabrtorecv, nabrtosend,
+                                           device_sendQ, device_recvQ, weights)
   end
 
 
@@ -269,4 +271,14 @@ end
 =#
 
 # }}}
+
+using Requires
+
+@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
+  using .CUDAnative
+  using .CUDAnative.CUDAdrv
+
+  include("AtmosStateArrays_cuda.jl")
+end
+
 end

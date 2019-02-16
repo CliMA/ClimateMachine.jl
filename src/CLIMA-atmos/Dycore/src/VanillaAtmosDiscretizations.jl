@@ -58,6 +58,8 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
     topology = grid.topology
 
     ngrad = _nstategrad + 3*nmoist
+    # FIXME: Remove after updating CUDA
+    h_vgeo = Array(grid.vgeo)
     grad = AtmosStateArray{Tuple{Np, ngrad}, T, DA}(topology.mpicomm,
                                                     length(topology.elems),
                                                     realelems=topology.realelems,
@@ -66,7 +68,7 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                                     nabrtorank=topology.nabrtorank,
                                                     nabrtorecv=topology.nabrtorecv,
                                                     nabrtosend=topology.nabrtosend,
-                                                    weights=view(grid.vgeo, :, grid.Mid, :))
+                                                    weights=view(h_vgeo, :, grid.Mid, :))
 
     GT = typeof(grid)
     DASAT3 = typeof(grad)
@@ -108,6 +110,8 @@ function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
                                                   ntrace}
   topology = disc.grid.topology
   nvar = _nstate + nmoist + ntrace
+  # FIXME: Remove after updating CUDA
+  h_vgeo = Array(disc.grid.vgeo)
   AtmosStateArray{Tuple{Np, nvar}, T, DA}(topology.mpicomm,
                                           length(topology.elems),
                                           realelems=topology.realelems,
@@ -116,8 +120,7 @@ function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
                                           nabrtorank=topology.nabrtorank,
                                           nabrtorecv=topology.nabrtorecv,
                                           nabrtosend=topology.nabrtosend,
-                                          weights=view(disc.grid.vgeo,
-                                                       :, disc.grid.Mid, :))
+                                          weights=view(h_vgeo, :, disc.grid.Mid, :))
 end
 
 function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
