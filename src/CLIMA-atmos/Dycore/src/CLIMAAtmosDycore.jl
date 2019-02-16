@@ -80,16 +80,6 @@ include("Topologies.jl")
 include("Grids.jl")
 include("VanillaAtmosDiscretizations.jl")
 include("LSRKmethods.jl")
-
-#=
-
-include("types.jl")
-
-include("VanillaEuler.jl")
-
-include("LSRK.jl")
-
 include("GenericCallbacks.jl")
-=#
 
 end # module

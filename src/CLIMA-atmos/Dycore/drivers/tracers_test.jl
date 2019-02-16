@@ -5,6 +5,7 @@ using CLIMAAtmosDycore.Grids
 using CLIMAAtmosDycore.VanillaAtmosDiscretizations
 using CLIMAAtmosDycore.AtmosStateArrays
 using CLIMAAtmosDycore.LSRKmethods
+using CLIMAAtmosDycore.GenericCallbacks
 using CLIMAAtmosDycore
 using LinearAlgebra
 using Printf
@@ -82,13 +83,13 @@ end
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
               initialcondition, timeend; gravity=true, dt=nothing,
               exact_timeend=true)
+  dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
                        # tuple of point element edges in each dimension
                        # (dim is inferred from this)
                        brickrange,
-                       periodicity=(true,
-                                    ntuple(j->false, length(brickrange)-1)...))
+                       periodicity=(true, ntuple(j->false, dim-1)...))
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           # Compute floating point type
@@ -116,10 +117,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
 
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
-  eng0 = norm(Q)
-  @printf(io, "||Q||₂ (initial)                    =  %.16e\n", eng0)
-
+  # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
   if exact_timeend
     nsteps = ceil(Int64, timeend / dt)
@@ -133,10 +131,47 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   # TODO: Should we use get property to get the rhs function?
   lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
-  solve!(Q, lsrk; timeend=timeend)#; callbacks=callback_functions)
+  # Get the initial energy
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  eng0 = norm(Q)
+  @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
 
+  # Set up the information callback
+  timer = [time_ns()]
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    if s
+      timer[1] = time_ns()
+    else
+      run_time = (time_ns() - timer[1]) * 1e-9
+      (min, sec) = fldmod(run_time, 60)
+      (hrs, min) = fldmod(min, 60)
+      @printf(io,
+              "-------------------------------------------------------------\n")
+      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
+      @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
+    end
+    nothing
+  end
+
+  step = [0]
+  mkpath("vtk")
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+    outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
+    @printf(io,
+            "-------------------------------------------------------------\n")
+    @printf(io, "doing VTK output =  %s\n", outprefix)
+    VanillaAtmosDiscretizations.writevtk(outprefix, Q, spacedisc)
+    step[1] += 1
+    nothing
+  end
+
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+
+  # Print some end of the simulation information
   engf = norm(Q)
-  @printf(io, "||Q||₂ ( final )                    =  %.16e\n", engf)
+  @printf(io, "-------------------------------------------------------------\n")
+  @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
 end
@@ -156,7 +191,7 @@ let
   timeend = 0.1
   for DFloat in (Float64,)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      for dim in 2:2
+      for dim in 3:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
         ic(x...) = risingthermalbubble(x...; ntrace=ntrace, nmoist=nmoist,
                                        dim=dim)
