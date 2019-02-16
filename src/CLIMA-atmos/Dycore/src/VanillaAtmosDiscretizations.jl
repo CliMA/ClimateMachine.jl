@@ -25,7 +25,7 @@ const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
        _Tx, _Ty, _Tz) = 1:_nstategrad
 
 struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
-                                  DeviceArray, ntrace, nmoist, DASAT3,
+                                  DeviceArray, nmoist, ntrace, DASAT3,
                                   GT } <: AD.AbstractAtmosDiscretization
   "grid"
   grid::GT
@@ -45,16 +45,16 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                              # How many moisture variables
                              nmoist=0,
                              kw...) =
-  VanillaAtmosDiscretization{ntrace, nmoist}(grid; kw...)
+  VanillaAtmosDiscretization{nmoist, ntrace}(grid; kw...)
 
-  function VanillaAtmosDiscretization{ntrace, nmoist
+  function VanillaAtmosDiscretization{nmoist, ntrace
                                      }(grid::AbstractGrid{T, dim, N, Np, DA};
                                        # Use gravity?
                                        gravity = true,
                                        # viscosity constant
                                        viscosity = 0
                                       ) where {T, dim, N, Np, DA,
-                                               ntrace, nmoist}
+                                               nmoist, ntrace}
     topology = grid.topology
 
     ngrad = _nstategrad + 3*nmoist
@@ -71,16 +71,27 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
     GT = typeof(grid)
     DASAT3 = typeof(grad)
 
-    new{T, dim, N, Np, DA, ntrace, nmoist, DASAT3, GT}(grid,
+    new{T, dim, N, Np, DA, nmoist, ntrace, DASAT3, GT}(grid,
                                                        gravity ? grav : 0,
                                                        viscosity, grad)
   end
 end
 
-function Base.getproperty(X::VanillaAtmosDiscretization, s::Symbol)
+function Base.getproperty(X::VanillaAtmosDiscretization{T, dim, polynomialorder,
+                                                        numberofDOFs,
+                                                        DeviceArray, nmoist,
+                                                        ntrace},
+                          s::Symbol) where {T, dim, polynomialorder,
+                                            numberofDOFs, DeviceArray, nmoist,
+                                            ntrace}
   if s ∈ keys(stateid)
     stateid[s]
-  elseif s == :dim
+  elseif s == :nstate
+    _nstate
+  elseif s == :moistrange
+    _nstate .+ (1:nmoist)
+  elseif s == :tracerange
+    _nstate+nmoist .+ (1:ntrace)
   else
     getfield(X, s)
   end
@@ -91,10 +102,10 @@ function Base.propertynames(X::VanillaAtmosDiscretization)
 end
 
 function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
-                                                 T, dim, N, Np, DA, ntrace,
-                                                 nmoist}
-                                         ) where {T, dim, N, Np, DA, ntrace,
-                                                  nmoist}
+                                                 T, dim, N, Np, DA, nmoist,
+                                                 ntrace}
+                                         ) where {T, dim, N, Np, DA, nmoist,
+                                                  ntrace}
   topology = disc.grid.topology
   nvar = _nstate + nmoist + ntrace
   AtmosStateArray{Tuple{Np, nvar}, T, DA}(topology.mpicomm,
@@ -110,10 +121,10 @@ function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
 end
 
 function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
-                                                 T, dim, N, Np, DA, ntrace,
-                                                 nmoist}, ic::Function
-                                         ) where {T, dim, N, Np, DA, ntrace,
-                                                  nmoist}
+                                                 T, dim, N, Np, DA, nmoist,
+                                                 ntrace}, ic::Function
+                                         ) where {T, dim, N, Np, DA, nmoist,
+                                                  ntrace}
   Q = AtmosStateArray(disc)
 
   nvar = _nstate + nmoist + ntrace
@@ -213,9 +224,9 @@ end
 rhs!(dQ, Q, p::Nothing, t, sd::VanillaAtmosDiscretization) = rhs!(dQ, Q, t, sd)
 
 function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
-              disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, ntrace,
-                                               nmoist}
-             ) where {S, T, dim, N, Np, DA, ntrace, nmoist}
+              disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, nmoist,
+                                               ntrace}
+             ) where {S, T, dim, N, Np, DA, nmoist, ntrace}
   grid = disc.grid
   topology = grid.topology
 
