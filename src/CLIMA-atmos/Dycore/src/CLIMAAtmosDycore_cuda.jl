@@ -10,7 +10,9 @@ function Base.fill!(A::CuArray, val)
   threads = 1024
   blocks = div(length(A) + threads-1, threads)
   T = eltype(A)
-  @cuda threads=threads blocks=blocks knl_fill!(A, T(val), length(A))
+  if length(A) > 0
+    @cuda threads=threads blocks=blocks knl_fill!(A, T(val), length(A))
+  end
 end
 function knl_fill!(a, val, nvals)
   n = (blockIdx().x-1) * blockDim().x + threadIdx().x
