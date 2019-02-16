@@ -65,7 +65,8 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                                     sendelems=topology.sendelems,
                                                     nabrtorank=topology.nabrtorank,
                                                     nabrtorecv=topology.nabrtorecv,
-                                                    nabrtosend=topology.nabrtosend)
+                                                    nabrtosend=topology.nabrtosend,
+                                                    weights=view(grid.vgeo, :, grid.Mid, :))
 
     GT = typeof(grid)
     DASAT3 = typeof(grad)
@@ -103,7 +104,9 @@ function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
                                           sendelems=topology.sendelems,
                                           nabrtorank=topology.nabrtorank,
                                           nabrtorecv=topology.nabrtorecv,
-                                          nabrtosend=topology.nabrtosend)
+                                          nabrtosend=topology.nabrtosend,
+                                          weights=view(disc.grid.vgeo,
+                                                       :, disc.grid.Mid, :))
 end
 
 function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
@@ -276,88 +279,6 @@ const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
 const _nsgeo = 5
 const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 # }}}
-
-# {{{ L2 Energy (for all dimensions)
-# TODO: Better would be to register this as the norm function for the
-# AtmosStateArray, possibly also this should be moved to Grid
-function L2norm(Q::AtmosStateArray, spacedisc::VanillaAtmosDiscretization)
-
-  vgeo = spacedisc.grid.vgeo
-
-  # TODO: GPUify
-  host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q) = host_array ? (vgeo, Q) : (Array(vgeo), Array(Q))
-  Np = size(Q, 1)
-  locnorm2 = knl_L2norm(Val(Np), h_Q, h_vgeo, Q.realelems)
-  sqrt(MPI.allreduce([locnorm2], MPI.SUM, spacedisc.grid.topology.mpicomm)[1])
-end
-
-function knl_L2norm(::Val{Np}, Q, vgeo, elems) where {Np}
-  DFloat = eltype(Q)
-  (~, nstate, nelem) = size(Q)
-
-  energy = zero(DFloat)
-
-  @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    energy += vgeo[i, _MJ, e] * Q[i, q, e]^2
-  end
-
-  energy
-end
-# }}}
-
-#=
-# {{{ L2 Error (for all dimensions)
-function AD.L2errornorm(runner::Runner{DeviceArray}, Qexact;
-                        host=false, Q = nothing, vgeo = nothing,
-                        time = nothing) where DeviceArray
-  host || error("Currently requires host configuration")
-  state = runner.state
-  config = runner.config
-  params = runner.params
-  cpubackend = DeviceArray == Array
-  if vgeo == nothing
-    vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
-  end
-  if Q == nothing
-    Q = cpubackend ? state.Q : Array(state.Q)
-  end
-  if time == nothing
-    time = state.time[1]
-  end
-
-  dim = params.dim
-  N = params.N
-  realelems = config.mesh.realelems
-  locnorm2 = L2errornorm(Val(dim), Val(N), time, Q, vgeo, realelems, Qexact)
-  sqrt(MPI.allreduce([locnorm2], MPI.SUM, config.mpicomm)[1])
-end
-
-function L2errornorm(::Val{dim}, ::Val{N}, time, Q, vgeo, elems,
-                     Qexact) where
-  {dim, N}
-  DFloat = eltype(Q)
-  Np = (N+1)^dim
-  (~, nstate, nelem) = size(Q)
-
-  errorsq = zero(DFloat)
-
-  @inbounds for e = elems,  i = 1:Np
-    x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
-    ρex, Uex, Vex, Wex, Eex = Qexact(time, x, y, z)
-
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _ρ, e] - ρex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _U, e] - Uex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _V, e] - Vex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _W, e] - Wex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _E, e] - Eex)^2
-  end
-
-  errorsq
-end
-# }}}
-=#
-
 
 using Requires
 
