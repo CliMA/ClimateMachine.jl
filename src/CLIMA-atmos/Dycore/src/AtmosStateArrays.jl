@@ -6,7 +6,7 @@ using MPI
 export AtmosStateArray
 
 # TODO: Make MPI Aware
-struct AtmosStateArray{S <: Tuple, T, N, DeviceArray,
+struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
                        DATN<:AbstractArray{T,N}, Nm1} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
   Q::DATN
@@ -31,16 +31,9 @@ struct AtmosStateArray{S <: Tuple, T, N, DeviceArray,
   # FIXME: Later we should relax this if we compute on the GPU and probably
   # should let this be a more generic type...
   weights::Array{T, Nm1}
-
-  function AtmosStateArray{S, T, DA}(mpicomm, numelem;
-                                     realelems=1:numelem,
-                                     ghostelems=numelem:numelem-1,
-                                     sendelems=1:0,
-                                     nabrtorank=Array{Int64}(undef, 0),
-                                     nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
-                                     nabrtosend=Array{UnitRange{Int64}}(undef, 0),
-                                     weights=nothing,
-                                    ) where {S<:Tuple, T, DA}
+  function AtmosStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
+                                     sendelems, nabrtorank, nabrtorecv,
+                                     nabrtosend, weights) where {S, T, DA}
     N = length(S.parameters)+1
     numsendelem = length(sendelems)
     numrecvelem = length(ghostelems)
@@ -70,18 +63,40 @@ struct AtmosStateArray{S <: Tuple, T, N, DeviceArray,
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
-    if weights == nothing
-      weights = Array{T}(undef, ntuple(j->0, N-1))
-    elseif !(typeof(weights) <: Array)
-      weights = Array(weights)
-    end
-
-    new{S, T, N, DA, typeof(Q), N-1}(mpicomm, Q, realelems, ghostelems,
+    new{S, T, DA, N, typeof(Q), N-1}(mpicomm, Q, realelems, ghostelems,
                                      sendelems, sendreq, recvreq, host_sendQ,
                                      host_recvQ, nabrtorank, nabrtorecv,
                                      nabrtosend, device_sendQ, device_recvQ,
                                      weights)
   end
+
+
+end
+function AtmosStateArray{S, T, DA}(mpicomm, numelem;
+                                   realelems=1:numelem,
+                                   ghostelems=numelem:numelem-1,
+                                   sendelems=1:0,
+                                   nabrtorank=Array{Int64}(undef, 0),
+                                   nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
+                                   nabrtosend=Array{UnitRange{Int64}}(undef, 0),
+                                   weights=nothing,
+                                  ) where {S<:Tuple, T, DA}
+
+  N = length(S.parameters)+1
+  if weights == nothing
+    weights = Array{T}(undef, ntuple(j->0, N-1))
+  elseif !(typeof(weights) <: Array)
+    weights = Array(weights)
+  end
+  AtmosStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
+                            sendelems, nabrtorank, nabrtorecv,
+                            nabrtosend, weights)
+end
+# FIXME: should general cases should be handled?
+function Base.similar(Q::AtmosStateArray{S, T, DA}) where {S, T, DA}
+  AtmosStateArray{S, T, DA}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
+                            Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
+                            Q.nabrtosend, Q.weights)
 end
 
 # FIXME: Only show real size
@@ -105,12 +120,6 @@ Base.copyto!(dst::Array, src::AtmosStateArray) = copyto!(dst, src.Q)
 function Base.copyto!(dst::AtmosStateArray, src::AtmosStateArray)
   copyto!(dst.Q, src.Q)
   dst
-end
-
-# FIXME: should general cases should be handled?
-function Base.similar(Q::AtmosStateArray{S, T, N, DA, DATN}) where {S, T, N, DA,
-                                                                    DATN}
-  AtmosStateArray{S, T, DA}(Q.mpicomm, size(Q.Q)[end], realelems=Q.realelems)
 end
 
 function postrecvs!(Q::AtmosStateArray)
