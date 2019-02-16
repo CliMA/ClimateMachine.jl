@@ -1,12 +1,14 @@
-using CLIMAAtmosDycore
-const AD = CLIMAAtmosDycore
-using Canary
 using MPI
 
-using ParametersType
-using PlanetParameters: R_d, cp_d, grav, cv_d
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
+using CLIMAAtmosDycore.Topologies
+using CLIMAAtmosDycore.Grids
+using CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMAAtmosDycore.AtmosStateArrays
+using CLIMAAtmosDycore.LSRKmethods
+using CLIMAAtmosDycore.GenericCallbacks
+using CLIMAAtmosDycore
+using LinearAlgebra
+using Printf
 
 const HAVE_CUDA = try
   using CUDAdrv
@@ -20,12 +22,12 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-const halfperiod = 5
+using ParametersType
+using PlanetParameters: R_d, cp_d, grav, cv_d
+@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
-meshgenerator(part, numparts, Ne, dim, DFloat) =
-brickmesh(ntuple(j->range(DFloat(-halfperiod); length=Ne+1, stop=halfperiod),
-                 dim),
-          ntuple(j->true, dim), part=part, numparts=numparts)
+const halfperiod = 5
 
 function isentropicvortex(t, x...)
   # Standard isentropic vortex test case.  For a more complete description of
@@ -72,108 +74,127 @@ function isentropicvortex(t, x...)
   W = ρ*w
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
-  ρ, U, V, W, E
+  (ρ=ρ, U=U, V=V, W=W, E=E)
 end
 
-function main()
+function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
+              exact_timeend=true, timeinitial=0)
+  dim = length(brickrange)
+  topl = BrickTopology(# MPI communicator to connect elements/partition
+                       mpicomm,
+                       # tuple of point element edges in each dimension
+                       # (dim is inferred from this)
+                       brickrange,
+                       periodicity=ntuple(j->true, dim))
+
+  grid = DiscontinuousSpectralElementGrid(topl,
+                                          # Compute floating point type
+                                          FloatType = DFloat,
+                                          # This is the array type to store
+                                          # data: CuArray = GPU, Array = CPU
+                                          DeviceArray = ArrayType,
+                                          # polynomial order for LGL grid
+                                          polynomialorder = N,
+                                          # how to skew the mesh degrees of
+                                          # freedom (for instance spherical
+                                          # or topography maps)
+                                          # warp = warpgridfun
+                                         )
+
+  # spacedisc = data needed for evaluating the right-hand side function
+  spacedisc = VanillaAtmosDiscretization(grid; gravity=false)
+
+  # This is a actual state/function that lives on the grid
+  initialcondition(x...) = isentropicvortex(DFloat(timeinitial), x...)
+  Q = AtmosStateArray(spacedisc, initialcondition)
+
+  # Determine the time step
+  (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
+  if exact_timeend
+    nsteps = ceil(Int64, timeend / dt)
+    dt = timeend / nsteps
+  end
+
+  # Initialize the Method (extra needed buffers created here)
+  # Could also add an init here for instance if the ODE solver has some
+  # state and reading from a restart file
+
+  # TODO: Should we use get property to get the rhs function?
+  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+
+  # Get the initial energy
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  eng0 = norm(Q)
+  @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
+
+  # Set up the information callback
+  timer = [time_ns()]
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    if s
+      timer[1] = time_ns()
+    else
+      run_time = (time_ns() - timer[1]) * 1e-9
+      (min, sec) = fldmod(run_time, 60)
+      (hrs, min) = fldmod(min, 60)
+      @printf(io,
+              "-------------------------------------------------------------\n")
+      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
+      @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
+    end
+    nothing
+  end
+
+  #= Paraview calculators:
+  P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
+  theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
+  =#
+  step = [0]
+  mkpath("vtk")
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+    outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
+    @printf(io,
+            "-------------------------------------------------------------\n")
+    @printf(io, "doing VTK output =  %s\n", outprefix)
+    VanillaAtmosDiscretizations.writevtk(outprefix, Q, spacedisc)
+    step[1] += 1
+    nothing
+  end
+
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+
+  # Print some end of the simulation information
+  engf = norm(Q)
+  @printf(io, "-------------------------------------------------------------\n")
+  @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
+  @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
+  @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+
+
+  # TODO: Add error check!
+end
+
+let
   MPI.Initialized() || MPI.Init()
+
   MPI.finalize_atexit()
-
   mpicomm = MPI.COMM_WORLD
-  mpirank = MPI.Comm_rank(mpicomm)
-  mpisize = MPI.Comm_size(mpicomm)
 
-  # FIXME: query via hostname
-  @hascuda device!(mpirank % length(devices()))
+  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
-  timeinitial = 0.0
-  timeend = 10.0
-  Ne = 10
-  N  = 4
-
-  for DFloat in (Float64, Float32)
-    for dim in (2, 3)
-      for backend in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-
-        runner = AD.Runner(mpicomm,
-                           #Space Discretization and Parameters
-                           :VanillaEuler,
-                           (DFloat = DFloat,
-                            DeviceArray = backend,
-                            meshgenerator = (part, numparts) ->
-                            meshgenerator(part, numparts, Ne, dim,
-                                          DFloat),
-                            dim = dim,
-                            gravity = false,
-                            N = N,
-                           ),
-                           # Time Discretization and Parameters
-                           :LSRK,
-                           (),
-                          )
-
-        # Set the initial condition with a function
-        AD.initspacestate!(runner, host=true) do (x...)
-          isentropicvortex(DFloat(timeinitial), x...)
-        end
-
-        base_dt = 1e-3
-        nsteps = ceil(Int64, timeend / base_dt)
-        dt = timeend / nsteps
-
-        # Set the time step
-        AD.inittimestate!(runner, dt)
-
-        eng0 = AD.L2solutionnorm(runner; host=true)
-        # mpirank == 0 && @show eng0
-
-        # Setup the info callback
-        io = mpirank == 0 ? stdout : open("/dev/null", "w")
-        show(io, "text/plain", runner.spacerunner)
-        cbinfo =
-          AD.GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
-            println(io, runner.spacerunner)
-          end
-
-        # Setup the vtk callback
-        mkpath("viz")
-        dump_vtk(step) = AD.writevtk(runner,
-                                     "viz/IV"*
-                                     "_dim_$(dim)"*
-                                     "_DFloat_$(DFloat)"*
-                                     "_backend_$(backend)"*
-                                     "_mpirank_$(mpirank)"*
-                                     "_step_$(step)")
-        step = 0
-        cbvtk = AD.GenericCallbacks.EveryXSimulationSteps(10) do
-          # TODO: We should add queries back to time stepper for this
-          step += 1
-          dump_vtk(step)
-          nothing
-        end
-
-        cberr =
-          AD.GenericCallbacks.EveryXWallTimeSeconds(2, mpicomm) do
-            err = AD.L2errornorm(runner, isentropicvortex; host=true)
-            println(io, "VanillaEuler with errnorm2(Q) = ", err, " at time = ",
-                    AD.solutiontime(runner))
-          end
-
-        dump_vtk(0)
-        AD.run!(runner; numberofsteps=nsteps, callbacks=(cbinfo, cbvtk,
-                                                         cberr))
-        dump_vtk(nsteps)
-
-        engf = AD.L2solutionnorm(runner; host=true)
-
-        mpirank == 0 && @show engf
-        mpirank == 0 && @show eng0 - engf
-        mpirank == 0 && @show engf/eng0
-        mpirank == 0 && println()
+  Ne = (10, 10, 10)
+  N = 4
+  timeend = 10
+  for DFloat in (Float64,Float32)
+    for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+      for dim in 2:3
+        brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
+                                     stop=halfperiod),
+                            dim)
+        main(mpicomm, DFloat, ArrayType, brickrange, N, DFloat(timeend),
+             dt = 1e-3)
       end
     end
   end
-  nothing
-end
 
-main()
+end
