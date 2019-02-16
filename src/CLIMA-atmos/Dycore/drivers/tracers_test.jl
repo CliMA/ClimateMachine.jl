@@ -202,9 +202,9 @@ let
   Ne = (10, 10, 10)
   N = 4
   timeend = 0.1
-  for DFloat in (Float64,)
+  for DFloat in (Float64,Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      for dim in 3:3
+      for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
         ic(x...) = risingthermalbubble(x...; ntrace=ntrace, nmoist=nmoist,
                                        dim=dim)
