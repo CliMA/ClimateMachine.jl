@@ -7,7 +7,7 @@ using Requires
   using .CUDAnative
   using .CUDAnative.CUDAdrv
 
-  include("LSRK_cuda.jl")
+  include("LSRKmethods_cuda.jl")
 end
 
 using ..CLIMAAtmosDycore

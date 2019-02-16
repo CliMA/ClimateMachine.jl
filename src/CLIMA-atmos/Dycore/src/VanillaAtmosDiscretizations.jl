@@ -305,7 +305,7 @@ using Requires
   using .CUDAnative
   using .CUDAnative.CUDAdrv
 
-  include("VanillaEuler_cuda.jl")
+  include("VanillaAtmosDiscretizations_cuda.jl")
 end
 
 include("VanillaAtmosDiscretizations_kernels.jl")
