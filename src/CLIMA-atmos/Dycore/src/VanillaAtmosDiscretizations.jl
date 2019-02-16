@@ -142,11 +142,16 @@ function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
     q0 = ic(x, y, z)
 
     # Assume that this will be compile time?
-    @assert nmoist == length(q0.Qmoist) && ntrace == length(q0.Qtrace)
 
-    h_Q[i, [_ρ, _U, _V, _W, _E]           , e] .= (q0.ρ, q0.U, q0.V, q0.W, q0.E)
-    h_Q[i, _nstate .+           (1:nmoist), e] .= q0.Qmoist
-    h_Q[i, _nstate .+ nmoist .+ (1:ntrace), e] .= q0.Qtrace
+    @assert ((nmoist >  0 && nmoist == length(q0.Qmoist)) ||
+             (nmoist == 0 && :Qmoist ∉ fieldnames(typeof(q0))))
+    @assert ((ntrace >  0 && ntrace == length(q0.Qtrace)) ||
+             (ntrace == 0 && :Qtrace ∉ fieldnames(typeof(q0))))
+
+
+    h_Q[i, [_ρ, _U, _V, _W, _E], e] .= (q0.ρ, q0.U, q0.V, q0.W, q0.E)
+    (nmoist > 0) && (h_Q[i, _nstate .+           (1:nmoist), e] .= q0.Qmoist)
+    (ntrace > 0) && (h_Q[i, _nstate .+ nmoist .+ (1:ntrace), e] .= q0.Qtrace)
   end
   if !host_array
     Q .= h_Q
