@@ -7,6 +7,7 @@ using CLIMAAtmosDycore.AtmosStateArrays
 using CLIMAAtmosDycore.LSRKmethods
 using CLIMAAtmosDycore
 using LinearAlgebra
+using Printf
 
 const HAVE_CUDA = try
   using CUDAdrv
@@ -114,8 +115,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
 
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
-  @show norm(Q)
-  @show VanillaAtmosDiscretizations.L2norm(Q, spacedisc)
+
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  eng0 = norm(Q)
+  @printf(io, "||Q||₂ (initial)                    =  %.16e\n", eng0)
 
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
   if exact_timeend
@@ -132,7 +135,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
 
   solve!(Q, lsrk; timeend=timeend)#; callbacks=callback_functions)
 
-  @show VanillaAtmosDiscretizations.L2norm(Q, spacedisc)
+  engf = norm(Q)
+  @printf(io, "||Q||₂ ( final )                    =  %.16e\n", engf)
+  @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
+  @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
 end
 
 let

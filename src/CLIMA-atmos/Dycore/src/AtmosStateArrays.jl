@@ -1,4 +1,5 @@
 module AtmosStateArrays
+using LinearAlgebra
 
 using MPI
 
@@ -6,7 +7,7 @@ export AtmosStateArray
 
 # TODO: Make MPI Aware
 struct AtmosStateArray{S <: Tuple, T, N, DeviceArray,
-                       DATN<:AbstractArray{T,N}} <: AbstractArray{T, N}
+                       DATN<:AbstractArray{T,N}, Nm1} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
   Q::DATN
 
@@ -27,7 +28,10 @@ struct AtmosStateArray{S <: Tuple, T, N, DeviceArray,
   device_sendQ::DATN
   device_recvQ::DATN
 
-  # FIXME: handle MPI properly
+  # FIXME: Later we should relax this if we compute on the GPU and probably
+  # should let this be a more generic type...
+  weights::Array{T, Nm1}
+
   function AtmosStateArray{S, T, DA}(mpicomm, numelem;
                                      realelems=1:numelem,
                                      ghostelems=numelem:numelem-1,
@@ -35,6 +39,7 @@ struct AtmosStateArray{S <: Tuple, T, N, DeviceArray,
                                      nabrtorank=Array{Int64}(undef, 0),
                                      nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
                                      nabrtosend=Array{UnitRange{Int64}}(undef, 0),
+                                     weights=nothing,
                                     ) where {S<:Tuple, T, DA}
     N = length(S.parameters)+1
     numsendelem = length(sendelems)
@@ -65,10 +70,17 @@ struct AtmosStateArray{S <: Tuple, T, N, DeviceArray,
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
-    new{S, T, N, DA, typeof(Q)}(mpicomm, Q, realelems, ghostelems, sendelems,
-                                sendreq, recvreq, host_sendQ, host_recvQ,
-                                nabrtorank, nabrtorecv, nabrtosend,
-                                device_sendQ, device_recvQ)
+    if weights == nothing
+      weights = Array{T}(undef, ntuple(j->0, N-1))
+    elseif !(typeof(weights) <: Array)
+      weights = Array(weights)
+    end
+
+    new{S, T, N, DA, typeof(Q), N-1}(mpicomm, Q, realelems, ghostelems,
+                                     sendelems, sendreq, recvreq, host_sendQ,
+                                     host_recvQ, nabrtorank, nabrtorecv,
+                                     nabrtosend, device_sendQ, device_recvQ,
+                                     weights)
   end
 end
 
@@ -151,4 +163,101 @@ function transferrecvbuf!(device_recvbuf::Array, host_recvbuf, buf::Array,
 end
 # }}}
 
+# {{{ L2 Energy (for all dimensions)
+function LinearAlgebra.norm(Q::AtmosStateArray; p::Real=2)
+
+  @assert p == 2
+
+  host_array = Array ∈ typeof(Q).parameters
+  h_Q = host_array ? Q : Array(Q)
+  Np = size(Q, 1)
+
+  if isempty(Q.weights)
+    locnorm2 = knl_norm2(Val(Np), h_Q, Q.realelems)
+  else
+    locnorm2 = knl_L2norm(Val(Np), h_Q, Q.weights, Q.realelems)
+  end
+
+  sqrt(MPI.allreduce([locnorm2], MPI.SUM, Q.mpicomm)[1])
+end
+
+function knl_norm2(::Val{Np}, Q, elems) where {Np}
+  DFloat = eltype(Q)
+  (~, nstate, nelem) = size(Q)
+
+  energy = zero(DFloat)
+
+  @inbounds for e = elems, q = 1:nstate, i = 1:Np
+    energy += Q[i, q, e]^2
+  end
+
+  energy
+end
+
+function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
+  DFloat = eltype(Q)
+  (~, nstate, nelem) = size(Q)
+
+  energy = zero(DFloat)
+
+  @inbounds for e = elems, q = 1:nstate, i = 1:Np
+    energy += weights[i, e] * Q[i, q, e]^2
+  end
+
+  energy
+end
+
+#=
+# {{{ L2 Error (for all dimensions)
+function AD.L2errornorm(runner::Runner{DeviceArray}, Qexact;
+                        host=false, Q = nothing, vgeo = nothing,
+                        time = nothing) where DeviceArray
+  host || error("Currently requires host configuration")
+  state = runner.state
+  config = runner.config
+  params = runner.params
+  cpubackend = DeviceArray == Array
+  if vgeo == nothing
+    vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
+  end
+  if Q == nothing
+    Q = cpubackend ? state.Q : Array(state.Q)
+  end
+  if time == nothing
+    time = state.time[1]
+  end
+
+  dim = params.dim
+  N = params.N
+  realelems = config.mesh.realelems
+  locnorm2 = L2errornorm(Val(dim), Val(N), time, Q, vgeo, realelems, Qexact)
+  sqrt(MPI.allreduce([locnorm2], MPI.SUM, config.mpicomm)[1])
+end
+
+function L2errornorm(::Val{dim}, ::Val{N}, time, Q, vgeo, elems,
+                     Qexact) where
+  {dim, N}
+  DFloat = eltype(Q)
+  Np = (N+1)^dim
+  (~, nstate, nelem) = size(Q)
+
+  errorsq = zero(DFloat)
+
+  @inbounds for e = elems,  i = 1:Np
+    x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
+    ρex, Uex, Vex, Wex, Eex = Qexact(time, x, y, z)
+
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _ρ, e] - ρex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _U, e] - Uex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _V, e] - Vex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _W, e] - Wex)^2
+    errorsq += vgeo[i, _MJ, e] * (Q[i, _E, e] - Eex)^2
+  end
+
+  errorsq
+end
+# }}}
+=#
+
+# }}}
 end
