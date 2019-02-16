@@ -27,6 +27,7 @@ using PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
+#=
 function shift_init(v, x...; ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
   gravity::DFloat = grav
@@ -41,6 +42,7 @@ function shift_init(v, x...; ntrace=0, nmoist=0, dim=3)
    Qmoist=ntuple(j->(j*ρ), nmoist),
    Qtrace=ntuple(j->(-j*ρ), ntrace))
 end
+=#
 
 # FIXME: Will these keywords args be OK?
 function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
@@ -154,6 +156,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
     nothing
   end
 
+  #= Paraview calculators:
+  P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
+  theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
+  =#
   step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
@@ -174,6 +180,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+
+  for (j, n) = enumerate(spacedisc.moistrange)
+    @assert j*(@view Q.Q[:, spacedisc.ρid, :]) ≈ (@view Q.Q[:, n, :])
+  end
+  for (j, n) = enumerate(spacedisc.tracerange)
+    @assert -j*(@view Q.Q[:, spacedisc.ρid, :]) ≈ (@view Q.Q[:, n, :])
+  end
 end
 
 let
@@ -184,8 +197,8 @@ let
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
-  nmoist = 0
-  ntrace = 0
+  nmoist = 1
+  ntrace = 2
   Ne = (10, 10, 10)
   N = 4
   timeend = 0.1
