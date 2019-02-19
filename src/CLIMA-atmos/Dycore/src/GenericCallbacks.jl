@@ -1,6 +1,4 @@
 module GenericCallbacks
-using ..CLIMAAtmosDycore
-AD = CLIMAAtmosDycore
 using MPI
 
 """
@@ -48,6 +46,7 @@ function (cb::EveryXWallTimeSeconds)(initialize::Bool=false)
   end
 end
 
+#=
 """
    EveryXSimulationTime(f, time, state)
 
@@ -90,6 +89,7 @@ function (cb::EveryXSimulationTime)(initialize::Bool=false)
     retval = cb.func()
   end
 end
+=#
 
 """
    EveryXSimulationSteps(f, steps)
