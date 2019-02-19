@@ -20,7 +20,7 @@ uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.3"
 
 [[CLIMAAtmosDycore]]
-deps = ["Canary", "Logging", "MPI", "ParametersType", "PlanetParameters", "Printf", "Requires", "WriteVTK"]
+deps = ["Canary", "LinearAlgebra", "Logging", "MPI", "ParametersType", "PlanetParameters", "Printf", "Requires", "WriteVTK"]
 path = "../.."
 uuid = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
 version = "0.0.0"
