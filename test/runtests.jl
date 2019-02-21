@@ -2,6 +2,7 @@ using Pkg
 using Test
 
 subpackags = [
+              "CLIMAAtmosDycore",
               "ParametersType",
               "PlanetParameters",
               "Utilities",
