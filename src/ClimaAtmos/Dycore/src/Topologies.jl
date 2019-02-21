@@ -6,6 +6,98 @@ import Canary
 using MPI
 abstract type AbstractTopology{dim} end
 
+"""
+    BrickTopology{dim, T}(mpicomm, elemrange; boundary, periodicity)
+
+Generate a brick mesh topology with coordinates given by the tuple `elemrange`
+and the periodic dimensions given by the `periodicity` tuple.
+
+The elements of the brick are partitioned equally across the MPI ranks based
+on a space-filling curve.
+
+By default boundary faces will be marked with a one and other faces with a
+zero.  Specific boundary numbers can also be passed for each face of the brick
+in `boundary`.  This will mark the nonperiodic brick faces with the given
+boundary number.
+
+# Examples
+
+We can build a 3 by 2 element two-dimensional mesh that is periodic in the
+\$x_2\$-direction with
+```jldoctest brickmesh
+
+using CLIMAAtmosDycore
+using CLIMAAtmosDycore.Topologies
+using MPI
+MPI.Init()
+topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
+                         periodicity=(false,true),
+                         boundary=[1 3; 2 4])
+MPI.Finalize()
+```
+This returns the mesh structure for
+
+             x_2
+
+              ^
+              |
+             6-  +-----+-----+-----+
+              |  |     |     |     |
+              |  |  3  |  4  |  5  |
+              |  |     |     |     |
+             5-  +-----+-----+-----+
+              |  |     |     |     |
+              |  |  1  |  2  |  6  |
+              |  |     |     |     |
+             4-  +-----+-----+-----+
+              |
+              +--|-----|-----|-----|--> x_1
+                 2     3     4     5
+
+For example, the (dimension by number of corners by number of elements) array
+`elemtocoord` gives the coordinates of the corners of each element.
+```jldoctes brickmesh
+julia> topology.elemtocoord
+2×4×6 Array{Int64,3}:
+[:, :, 1] =
+ 2  3  2  3
+ 4  4  5  5
+
+[:, :, 2] =
+ 3  4  3  4
+ 4  4  5  5
+
+[:, :, 3] =
+ 2  3  2  3
+ 5  5  6  6
+
+[:, :, 4] =
+ 3  4  3  4
+ 5  5  6  6
+
+[:, :, 5] =
+ 4  5  4  5
+ 5  5  6  6
+
+[:, :, 6] =
+ 4  5  4  5
+ 4  4  5  5
+```
+Note that the corners are listed in Cartesian order.
+
+The (number of faces by number of elements) array `elemtobndy` gives the
+boundary number for each face of each element.  A zero will be given for
+connected faces.
+```jldoctest brickmesh
+julia> topology.elemtobndy
+4×6 Array{Int64,2}:
+ 1  0  1  0  0  0
+ 0  0  0  0  2  2
+ 0  0  0  0  0  0
+ 0  0  0  0  0  0
+```
+Note that the faces are listed in Cartesian order.
+"""
 struct BrickTopology{dim, T} <: AbstractTopology{dim}
   """
   mpi communicator use for spatial discretization are using
