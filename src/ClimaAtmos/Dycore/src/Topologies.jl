@@ -1,10 +1,11 @@
 module Topologies
 
-export BrickTopology, AbstractTopology
+export BrickTopology, AbstractTopology, AbstractStackedTopology
 
 import Canary
 using MPI
 abstract type AbstractTopology{dim} end
+abstract type AbstractStackedTopology{dim} <: AbstractTopology{dim} end
 
 """
     BrickTopology{dim, T}(mpicomm, elemrange; boundary, periodicity)
