@@ -11,12 +11,9 @@
 ## Interface
   - Each sub-module has the following functions:
     - [`compute_MO_len`](@ref) computes the Monin-Obukhov length
-    - [`compute_exchange_coefficients`](@ref) computes the exchange coefficients
     - [`compute_friction_velocity`](@ref) computes the friction velocity
-    - [`compute_ψ_m`](@ref) computes universal stability function
-    - [`compute_ψ_h`](@ref) computes universal stability function
-    - [`compute_Ψ_m`](@ref) computes volume-averaged universal stability function
-    - [`compute_Ψ_h`](@ref) computes volume-averaged universal stability function
+    - [`compute_buoyancy_flux`](@ref) computes the buoyancy flux
+    - [`compute_exchange_coefficients`](@ref) computes the exchange coefficients
 
 ## References
 
@@ -49,9 +46,6 @@ module Byun1990
   using Utilities.MoistThermodynamics
   using PlanetParameters
 
-  """ Computes the Monin-Obukhov length (Eq. 3 Ref. Byun1990) """
-  compute_MO_len(u, flux) = - u^3 / (flux * κ)
-
   """ Computes ψ_m for stable case. See Eq. 12 Ref. Byun1990 """
   ψ_m_stable(ζ::R, ζ_0::R, β_m::R) where R = -β_m * (ζ - ζ_0)
 
@@ -73,15 +67,10 @@ module Byun1990
     return ψ_h
   end
 
-  """ Computes windspeed. See Eq. 10 Ref. Byun1990 """
-  function compute_windspeed(u_star::R, z::R, z_0::R, L::R) where R
-    return u_star/k_Karman * (log(z/z_0) - compute_ψ_m_generic())
-  end
+  # ******************* Interface funcs:
 
-  """ Computes roots of friction velocity equation (Eq. 10 Ref. Byun1990) """
-  function compute_u_star_roots(u, windspeed, logz, flux)
-    return windspeed - u / κ * (logz - compute_ψ_m(u, flux))
-  end
+  """ Computes the Monin-Obukhov length (Eq. 3 Ref. Byun1990) """
+  compute_MO_len(u, flux) = - u^3 / (flux * PlanetParameters.k_Karman)
 
   """
   Computes roots of friction velocity equation (Eq. 10 in Ref. Byun1990)
@@ -107,19 +96,22 @@ module Byun1990
         κ=κ, ustar_0=ustar_0, logz=logz
 
       # use neutral condition as first guess
-      compute_MO_len(u) = - u^3 / (flux * κ)
-      stable = z_1/compute_MO_len(ustar_0) >= 0
-      function compute_ψ_m(u)
-        Λ_MO = compute_MO_len(u)
+      stable = z_1/compute_MO_len(ustar_0, flux) >= 0
+      function compute_ψ_m(u, flux)
+        Λ_MO = compute_MO_len(u, flux)
         ζ   = z_1/Λ_MO
         ζ_0 = z_0/Λ_MO
         return stable ? ψ_m_stable(ζ, ζ_0, β_m) : ψ_m_unstable(ζ, ζ_0, γ_m)
       end
-      compute_ustar(u) = windspeed * κ / (logz - compute_ψ_m(u))
-      compute_u_star_roots(u) = u - compute_ustar(u)
+      function compute_ustar(u, flux)
+        return windspeed * κ / (logz - compute_ψ_m(u, flux)) # Eq. 10 in Ref. Byun1990
+      end
+      function compute_u_star_roots(u, flux) # Eq. 10 in Ref. Byun1990
+        return u - compute_ustar(u, flux)
+      end
       if (abs(flux) > 0)
-        ustar_1 = compute_ustar(ustar_0)
-        args = ()
+        ustar_1 = compute_ustar(ustar_0, flux)
+        args = (flux,)
         ustar, converged = RootSolvers.find_zero(compute_u_star_roots,
                                                  ustar_0, ustar_1,
                                                  args,
@@ -200,9 +192,9 @@ module Byun1990
 end
 
 module Nishizawa2018
-
-  """ Computes Monin-Obukhov length. Eq. 3 Ref. Nishizawa2018 """
-  compute_MO_len(u, θ, flux) = - u^3* θ / (k_Karman * grav * flux)
+  using Utilities.RootSolvers
+  using Utilities.MoistThermodynamics
+  using PlanetParameters
 
   """ Computes R_z0 expression, defined after Eq. 15 Ref. Nishizawa2018 """
   compute_R_z0(z_0::R, Δz::R) where R = 1 - z_0/Δz
@@ -258,25 +250,28 @@ module Nishizawa2018
     end
   end
 
-  """
-  Computes u_ave in Computes friction
-  velocity, in Eq. 12 in Ref. Nishizawa2018
-  u_ave = u_star/κ * ( ln(Δz/z_0) - Ψ_m(Δz/L) + z_0/Δz * Ψ_m(z_0/L) + R_z0 [ψ_m(z_0/L) - 1] )
-  """
-  function compute_u_ave(u_star, θ, flux, Δz, z_0)
-    L = compute_MO_len(u_star, θ, flux)
-    logz = log(Δz/z_0)
-    R_z0 = compute_R_z0(z_0, Δz)
-    Ψ_m_0 = compute_Ψ_m(z_0/L)
-    Ψ_m = compute_Ψ_m(Δz/L)
-    ψ_m = compute_ψ_m(z_0/L)
-    return u_star/k_Karman * (logz - Ψ_m + z_0/Δz * Ψ_m_0 + R_z0 * (ψ_m - 1) )
-  end
+  # """
+  # Computes u_ave in Computes friction
+  # velocity, in Eq. 12 in Ref. Nishizawa2018
+  # u_ave = u_star/κ * ( ln(Δz/z_0) - Ψ_m(Δz/L) + z_0/Δz * Ψ_m(z_0/L) + R_z0 [ψ_m(z_0/L) - 1] )
+  # """
+  # function compute_u_ave(u_star, θ, flux, Δz, z_0)
+  #   L = compute_MO_len(u_star, θ, flux)
+  #   logz = log(Δz/z_0)
+  #   R_z0 = compute_R_z0(z_0, Δz)
+  #   Ψ_m_0 = compute_Ψ_m(z_0/L)
+  #   Ψ_m = compute_Ψ_m(Δz/L)
+  #   ψ_m = compute_ψ_m(z_0/L)
+  #   return u_star/k_Karman * (logz - Ψ_m + z_0/Δz * Ψ_m_0 + R_z0 * (ψ_m - 1) )
+  # end
 
-  """ Computes roots of friction velocity equation (Eq. 12 in Ref. Nishizawa2018) """
-  function compute_u_star_roots(u_ave, u_star, θ, flux, Δz, z_0)
-    return u_ave - compute_u_ave(u_star, θ, flux, Δz, z_0)
-  end
+  # """ Computes roots of friction velocity equation (Eq. 12 in Ref. Nishizawa2018) """
+  # function compute_u_star_roots(u_ave, u_star, θ, flux, Δz, z_0)
+  #   return u_ave - compute_u_ave(u_star, θ, flux, Δz, z_0)
+  # end
+
+  """ Computes Monin-Obukhov length. Eq. 3 Ref. Nishizawa2018 """
+  compute_MO_len(u, θ, flux) = - u^3* θ / (PlanetParameters.k_Karman * PlanetParameters.grav * flux)
 
   """
   Computes friction velocity, in Eq. 12 in
@@ -286,21 +281,43 @@ module Nishizawa2018
     u_ave = u_star/κ * ( ln(Δz/z_0) - Ψ_m(Δz/L) + z_0/Δz * Ψ_m(z_0/L) + R_z0 [ψ_m(z_0/L) - 1] )
     where L is a non-linear function of u_star (see compute_MO_len).
   """
+  function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, tol)
+    # L = compute_MO_len(u_ave, θ, flux)
+    # R_z0 = compute_R_z0(z_0, Δz)
+    # Ψ_m = compute_Ψ_m(ζ, L, a, tol)
+    # ψ_m = compute_ϕ_m(ζ, L, a)
+    # logz = log(Δz/z_0)
+    # u_star = PlanetParameters.k_Karman/(logz - compute_ψ_m(z_0/L) + ψ_m(z_0/L))
+    # let u_ave=u_ave, θ=θ, flux=flux, Δz=Δz, z_0=z_0
+    #   ustar_0 = 1
+    #   ustar_1 = 1
 
-  function compute_friction_velocity(u_ave, θ, flux, Δz, z_0)
-    L_0 = compute_MO_len(u_ave, θ, flux)
-    R_z0 = compute_R_z0(z_0, Δz)
-    Ψ_m = compute_Ψ_m(Δz/L)
-    logz = log(Δz/z_0)
-    u_star = k_Karman/(logz - compute_ψ_m(z_0/L) + ψ_m(z_0/L))
+    #   function Ψ_m_closure(u)
+    #     L = compute_MO_len(u, θ, flux)
+    #     logz = log(Δz/z_0)
+    #     Ψ_m = compute_Ψ_m(ζ, L, a, tol)
+    #     compute_Ψ_m(ζ, L, a, tol)
+    #   end
 
-    ustar, converged = RootSolvers.find_zero(compute_u_star_roots,
-                                             ustar_0, ustar_1,
-                                             args,
-                                             IterParams(tol_abs, iter_max),
-                                             SecantMethod()
-                                             )
-    return u_star
+    #   ψ_m_closure(ζ) = compute_ψ_m(ζ, L, a)
+
+    #   function compute_ustar(L)
+    #     temp = log(Δz/z_0) - Ψ_m_closure(Δz/L) + z_0/Δz * Ψ_m_closure(z_0/L) + R_z0 [ψ_m_closure(z_0/L) - 1]
+    #     return u_ave*k_Karman/()
+    #   end
+    #   function compute_u_star_roots(L)
+    #     return u - compute_ustar(u)
+    #   end
+    #   args = (flux,)
+
+    #   ustar, converged = RootSolvers.find_zero(compute_u_star_roots,
+    #                                            ustar_0, ustar_1,
+    #                                            args,
+    #                                            IterParams(tol_abs, iter_max),
+    #                                            SecantMethod()
+    #                                            )
+    # end
+    # return u_star
   end
 
 end
