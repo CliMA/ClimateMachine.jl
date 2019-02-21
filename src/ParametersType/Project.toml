@@ -1,2 +1,8 @@
 name = "ParametersType"
 uuid = "046d00ba-03b1-11e9-3cca-b5213a01defd"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
