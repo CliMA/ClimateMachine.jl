@@ -89,6 +89,7 @@ struct BrickTopology{dim, T} <: AbstractTopology{dim}
   BrickTopology(mpicomm, map(Ne->0:Ne, Nelems); kw...)
 
   function BrickTopology(mpicomm, elemrange;
+                         boundary=ones(Int,2,length(elemrange)),
                          periodicity=ntuple(j->false, length(elemrange)),
                          connectivity=:face, ghostsize=1)
 
@@ -99,7 +100,7 @@ struct BrickTopology{dim, T} <: AbstractTopology{dim}
     mpirank = MPI.Comm_rank(mpicomm)
     mpisize = MPI.Comm_size(mpicomm)
     topology = Canary.brickmesh(elemrange, periodicity, part=mpirank+1,
-                                numparts=mpisize)
+                                numparts=mpisize, boundary=boundary)
     topology = Canary.partition(mpicomm, topology...)
     topology = Canary.connectmesh(mpicomm, topology...)
 
