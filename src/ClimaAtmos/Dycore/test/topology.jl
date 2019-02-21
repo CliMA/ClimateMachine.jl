@@ -5,26 +5,20 @@
   let
     comm = MPI.COMM_SELF
 
-    topology = BrickTopology(comm, (0:10,), periodicity=(true,))
 
-    nelem = 10
+    elemrange = (0:10,)
+    periodicity=(true,)
 
-    @test topology.elemtocoord[:,:, 1] == [0  1]
-    @test topology.elemtocoord[:,:, 2] == [1  2]
-    @test topology.elemtocoord[:,:, 3] == [2  3]
-    @test topology.elemtocoord[:,:, 4] == [3  4]
-    @test topology.elemtocoord[:,:, 5] == [4  5]
-    @test topology.elemtocoord[:,:, 6] == [5  6]
-    @test topology.elemtocoord[:,:, 7] == [6  7]
-    @test topology.elemtocoord[:,:, 8] == [7  8]
-    @test topology.elemtocoord[:,:, 9] == [8  9]
-    @test topology.elemtocoord[:,:,10] == [9 10]
+    topology = BrickTopology(comm, elemrange, periodicity=periodicity)
 
-    @test topology.elemtoelem == [10 1 2 3 4 5 6 7  8 9
-                                  2 3 4 5 6 7 8 9 10 1]
+    nelem = length(elemrange[1])-1
 
-    @test topology.elemtoface == [2 2 2 2 2 2 2 2 2 2
-                                  1 1 1 1 1 1 1 1 1 1]
+    for e = 1:nelem
+      @test topology.elemtocoord[:,:, e] == [e-1  e]
+    end
+
+    @test topology.elemtoelem == [nelem collect(1:(nelem-1))'; collect(2:nelem)' 1]
+    @test topology.elemtoface == repeat(2:-1:1, outer=(1,nelem))
 
     @test topology.elemtoordr == ones(Int, size(topology.elemtoordr))
     @test topology.elemtobndy == zeros(Int, size(topology.elemtoordr))
