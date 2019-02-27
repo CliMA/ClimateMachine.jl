@@ -65,8 +65,8 @@ jobs:
       script:
         - export DOCUMENTER_DEBUG="true"
         - julia --color=yes --project=docs/ -e 'using Pkg;
-                                                      Pkg.develop(PackageSpec(path=pwd()));
                                                       Pkg.instantiate();
+                                                      Pkg.develop(PackageSpec(path=pwd()));
                                                       Pkg.build("CLIMA")'
         - julia --color=yes --project=docs/ docs/make.jl
       after_success: skip
