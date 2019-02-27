@@ -77,15 +77,15 @@ function isentropicvortex(t, x...)
   (ρ=ρ, U=U, V=V, W=W, E=E)
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
+function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend, bricktopo; dt=nothing,
               exact_timeend=true, timeinitial=0)
   dim = length(brickrange)
-  topl = BrickTopology(# MPI communicator to connect elements/partition
-                       mpicomm,
-                       # tuple of point element edges in each dimension
-                       # (dim is inferred from this)
-                       brickrange,
-                       periodicity=ntuple(j->true, dim))
+  topl = bricktopo(# MPI communicator to connect elements/partition
+                   mpicomm,
+                   # tuple of point element edges in each dimension
+                   # (dim is inferred from this)
+                   brickrange,
+                   periodicity=ntuple(j->true, dim))
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           # Compute floating point type
@@ -187,12 +187,13 @@ let
   timeend = 10
   for DFloat in (Float64,Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      for dim in 2:3
-        brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
-                                     stop=halfperiod),
-                            dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, N, DFloat(timeend),
-             dt = 1e-3)
+      for bricktopo in (BrickTopology, StackedBrickTopology)
+        for dim in 2:3
+          brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
+                                       stop=halfperiod), dim)
+          main(mpicomm, DFloat, ArrayType, brickrange, N, DFloat(timeend),
+               bricktopo, dt = 1e-3)
+        end
       end
     end
   end
