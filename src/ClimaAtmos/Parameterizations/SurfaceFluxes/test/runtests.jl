@@ -68,32 +68,32 @@ end
   @test u_star ≈ u_star
 end
 
-# @static if Base.find_package("CuArrays") !== nothing
-#   using CUDAdrv
-#   using CUDAnative
-#   using CuArrays
-#   @testset "CUDA SurfaceFluxes" begin
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  @testset "CUDA SurfaceFluxes" begin
 
-#     u_ave = cu(rand(5,5))
-#     buoyancy_flux = cu(rand(5,5))
-#     z_0 = cu(rand(5,5))
-#     z_1 = cu(rand(5,5))
-#     γ_m = 15.0
-#     β_m = 4.8
+    u_ave = cu(rand(5,5))
+    buoyancy_flux = cu(rand(5,5))
+    z_0 = cu(rand(5,5))
+    z_1 = cu(rand(5,5))
+    γ_m = 15.0
+    β_m = 4.8
 
-#     tol_abs = 1e-3
-#     iter_max = 10
-#     u_star = Byun1990.compute_friction_velocity.(u_ave,
-#                                                  buoyancy_flux,
-#                                                  z_0,
-#                                                  z_1,
-#                                                  Ref(β_m),
-#                                                  Ref(γ_m),
-#                                                  Ref(tol_abs),
-#                                                  Ref(iter_max)
-#                                                  )
-#   end
-# end
+    tol_abs = 1e-3
+    iter_max = 10
+    # u_star = Byun1990.compute_friction_velocity.(u_ave,
+    #                                              buoyancy_flux,
+    #                                              z_0,
+    #                                              z_1,
+    #                                              Ref(β_m),
+    #                                              Ref(γ_m),
+    #                                              Ref(tol_abs),
+    #                                              Ref(iter_max)
+    #                                              )
+  end
+end
 
 @static if Base.find_package("Plots") !== nothing
   linspace(a, b, n) = collect(a .+ (b-a).*range(0.0, stop=1.0, length=n))
