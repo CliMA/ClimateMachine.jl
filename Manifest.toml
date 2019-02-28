@@ -1,11 +1,37 @@
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
+[[BinDeps]]
+deps = ["Compat", "Libdl", "SHA", "URIParser"]
+git-tree-sha1 = "12093ca6cdd0ee547c39b1870e0c9c3f154d9ca9"
+uuid = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
+version = "0.8.10"
+
 [[BinaryProvider]]
 deps = ["Libdl", "Pkg", "SHA", "Test"]
 git-tree-sha1 = "055eb2690182ebc31087859c3dd8598371d3ef9e"
 uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.3"
+
+[[CLIMAAtmosDycore]]
+deps = ["Canary", "LinearAlgebra", "Logging", "MPI", "ParametersType", "PlanetParameters", "Printf", "Requires", "WriteVTK"]
+path = "src/ClimaAtmos/Dycore"
+uuid = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
+version = "0.0.0"
+
+[[Canary]]
+deps = ["MPI"]
+git-tree-sha1 = "2bb74584308b211a1fbff3366c3c9c748c989ca2"
+repo-rev = "master"
+repo-url = "https://github.com/climate-machine/Canary.jl"
+uuid = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
+version = "0.1.0"
+
+[[CodecZlib]]
+deps = ["BinaryProvider", "Libdl", "Test", "TranscodingStreams"]
+git-tree-sha1 = "e3df104c84dfc108f0ca203fd7f5bbdc98641ae9"
+uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
+version = "0.5.1"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
@@ -71,6 +97,12 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 
+[[LightXML]]
+deps = ["BinaryProvider", "Libdl", "Test"]
+git-tree-sha1 = "aeec7a341652d47bc773475a42952fa78eccd7cc"
+uuid = "9c8b4983-aa76-5018-a973-4c85ecc9e179"
+version = "0.8.0"
+
 [[LinearAlgebra]]
 deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -83,6 +115,12 @@ version = "1.0.4"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[MPI]]
+deps = ["BinDeps", "Compat", "Distributed", "Libdl", "LinearAlgebra", "Printf", "Random", "Statistics", "Test"]
+git-tree-sha1 = "b932f8e7115a60208692d474c45d5d6fcea10659"
+uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+version = "0.7.2"
 
 [[Markdown]]
 deps = ["Base64"]
@@ -124,6 +162,12 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
+[[Requires]]
+deps = ["Test"]
+git-tree-sha1 = "f6fbf4ba64d295e146e49e021207993b6b48c7d1"
+uuid = "ae029012-a4dd-5104-9daa-d747884805df"
+version = "0.5.2"
+
 [[Roots]]
 deps = ["Compat", "Printf"]
 git-tree-sha1 = "2e7171b6f3b58b81201ba37d9e1220aff6d904a1"
@@ -161,6 +205,18 @@ version = "0.1.0"
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[[TranscodingStreams]]
+deps = ["Pkg", "Random", "Test"]
+git-tree-sha1 = "a34a2d588e2d2825602bf14a24216d5c8b0921ec"
+uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+version = "0.8.1"
+
+[[URIParser]]
+deps = ["Test", "Unicode"]
+git-tree-sha1 = "6ddf8244220dfda2f17539fa8c9de20d6c575b69"
+uuid = "30578b45-9adc-5946-b283-645ec420af67"
+version = "0.4.0"
+
 [[UUIDs]]
 deps = ["Random"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
@@ -173,3 +229,9 @@ deps = ["LinearAlgebra", "ParametersType", "PlanetParameters", "Roots"]
 path = "src/Utilities"
 uuid = "d528e2a8-1396-11e9-0475-bb99f588b544"
 version = "0.0.0"
+
+[[WriteVTK]]
+deps = ["Base64", "CodecZlib", "LightXML", "Printf", "Random", "SHA", "Test", "TranscodingStreams"]
+git-tree-sha1 = "3a8b5fd69589fa754d5a1f725c776cadeea4ad96"
+uuid = "64499a7a-5c06-52f2-abe2-ccb03c286192"
+version = "1.0.0"

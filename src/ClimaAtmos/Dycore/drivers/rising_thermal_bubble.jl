@@ -159,7 +159,7 @@ end
 let
   MPI.Initialized() || MPI.Init()
 
-  MPI.finalize_atexit()
+  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
@@ -178,3 +178,4 @@ let
 
 end
 
+isinteractive() || MPI.Finalize()
