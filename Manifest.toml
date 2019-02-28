@@ -39,9 +39,9 @@ version = "0.6.0"
 
 [[Documenter]]
 deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "LibGit2", "Logging", "Markdown", "Pkg", "REPL", "Random", "Test", "Unicode"]
-git-tree-sha1 = "59b71e0d3e9fa5966ffc4a25ff0ca8e0efa5e16b"
+git-tree-sha1 = "a8c41ba3d0861240dbec942ee1d0f86c57c37c1c"
 uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-version = "0.21.3"
+version = "0.21.5"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "Distributed", "IniFile", "MbedTLS", "Random", "Sockets", "Test"]
@@ -153,7 +153,7 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[SurfaceFluxes]]
 deps = ["ParametersType", "PlanetParameters", "Test", "Utilities"]
-path = "src/CLIMA-atmos/Parameterizations/SurfaceFluxes"
+path = "src\\ClimaAtmos\\Parameterizations\\SurfaceFluxes"
 uuid = "7169bd00-2eee-11e9-22a5-2b2073a21580"
 version = "0.1.0"
 
