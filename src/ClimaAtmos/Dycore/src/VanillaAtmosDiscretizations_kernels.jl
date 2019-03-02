@@ -36,6 +36,9 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_v = Array{DFloat}(undef, Nq, Nq)
   s_T = Array{DFloat}(undef, Nq, Nq)
 
+  #Allocate at least three spaces for qm, with a zero default value
+  q_m = zeros(DFloat, max(3, nmoist))
+    
   @inbounds for e in elems
     for j = 1:Nq, i = 1:Nq
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
@@ -400,7 +403,6 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                     rhs::Array, Q, grad, vgeo, gravity, viscosity, D,
                     elems) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
-
   nvar = _nstate + nmoist + ntrace
   ngrad = _nstategrad + 3nmoist
 
@@ -418,6 +420,9 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   l_u = Array{DFloat}(undef, Nq, Nq)
   l_v = Array{DFloat}(undef, Nq, Nq)
 
+  #Allocate at least three spaces for qm, with a zero default value  
+  q_m = zeros(DFloat, max(3, nmoist))
+    
   @inbounds for e in elems
     for j = 1:Nq, i = 1:Nq
       MJ = vgeo[i, j, _MJ, e]
@@ -427,7 +432,14 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
-
+        
+      #Moist tracers
+      for m = 1:nmoist
+          s = _nstate + m
+          q_m[m] = Q[i, j, s, e]
+      end
+      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+      gdm1 = R_m/cv_m
       P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ρx, ρy = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
@@ -591,6 +603,9 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   l_v = Array{DFloat}(undef, Nq, Nq, Nq)
   l_w = Array{DFloat}(undef, Nq, Nq, Nq)
 
+  #Allocate at least three spaces for qm, with a zero default value
+  q_m   = zeros(DFloat, max(3, nmoist))
+
   @inbounds for e in elems
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
       MJ = vgeo[i, j, k, _MJ, e]
@@ -602,7 +617,14 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
-
+        
+      #Moist tracers
+      for m = 1:nmoist
+          s = _nstate + m
+          q_m[m] = Q[i,j,k,s,e]
+      end
+      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+      gdm1 = R_m/cv_m
       P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
       ρx, ρy, ρz = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
@@ -797,7 +819,10 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                   elems, vmapM, vmapP, elemtobndy) where {N, dim, nmoist,
                                                           ntrace}
   DFloat = eltype(Q)
-
+    
+  #Allocate at least three spaces for qm, with a zero default value
+  q_m = zeros(DFloat, max(3, nmoist))
+    
   if dim == 1
     Np = (N+1)
     Nfp = 1
@@ -848,6 +873,14 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         uM, vM, wM = ρMinv * UM, ρMinv * VM, ρMinv * WM
 
         bc = elemtobndy[f, e]
+          
+        #Moist tracers
+        for m = 1:nmoist
+            s =_nstate + m
+            q_m[m] = Q[vidM, s, eM]
+        end
+        (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+        gdm1 = R_m/cv_m
         PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
@@ -856,6 +889,14 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
+
+          #Moist tracers
+          for m = 1:nmoist
+              s =_nstate + m
+              q_m[m] = Q[vidP, s, eP]
+          end
+          (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+          gdm1 = R_m/cv_m
           PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
 
           ρxP = grad[vidP, _ρx, eP]
@@ -945,9 +986,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         fluxVP_z = wP * VP
         fluxWP_z = wP * WP + PP
         fluxEP_z = wP * (EP + PP)
-
-        λM = abs(nxM * uM + nyM * vM + nzM * wM) + sqrt(ρMinv * gamma_d * PM)
-        λP = abs(nxM * uP + nyM * vP + nzM * wP) + sqrt(ρPinv * gamma_d * PP)
+          
+        λM = abs(nxM * uM + nyM * vM + nzM * wM) + sqrt(ρMinv * gamma_m * PM)
+        λP = abs(nxM * uP + nyM * vP + nzM * wP) + sqrt(ρPinv * gamma_m * PP)
         λ  =  max(λM, λP)
 
         #Compute Numerical Flux
