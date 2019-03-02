@@ -105,6 +105,22 @@ function cv_m(q_t=0, q_l=0, q_i=0)
 
 end
 
+
+"""
+    moist_constants([q_t=0, q_l=0, q_i=0])
+
+Wrapper to return R_m, cv_m, cp_m, and gamma_m all at once
+"""
+function moist_gas_constants(q_t=0, q_l=0, q_i=0)
+
+    Rm  = gas_constant_air(q_t, q_l, q_i)
+    cpm = cp_m(q_t, q_l, q_i)
+    cvm = cv_m(q_t, q_l, q_i)
+    gammam = cpm/cvm
+
+    return (Rm, cpm, cvm, gammam)
+end
+
 """
     air_temperature(e_int[, q_t=0, q_l=0, q_i=0])
 

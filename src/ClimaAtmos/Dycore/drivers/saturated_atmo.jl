@@ -45,7 +45,7 @@ end
 =#
 
 # FIXME: Will these keywords args be OK?
-function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
+function saturatedatmosphere(x...; ntrace=0, nmoist=0, dim=2)
   DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
