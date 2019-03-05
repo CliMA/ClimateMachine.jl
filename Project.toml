@@ -5,11 +5,11 @@ version = "0.1.0"
 
 [deps]
 CLIMAAtmosDycore = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
-# We shouldn't need Canary but I can't get Pkg to work without it.
 Canary = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
 ParametersType = "046d00ba-03b1-11e9-3cca-b5213a01defd"
 PlanetParameters = "50a4fe1a-031f-11e9-2493-0505e0da639e"
 Utilities = "d528e2a8-1396-11e9-0475-bb99f588b544"
+WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [extras]
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
