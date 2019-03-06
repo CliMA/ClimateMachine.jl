@@ -1,7 +1,7 @@
 module Topologies
 
 export AbstractTopology, AbstractStackedTopology
-export BrickTopology, StackedBrickTopology
+export BrickTopology, StackedBrickTopology, CubedShellTopology
 
 import Canary
 using MPI
@@ -528,6 +528,228 @@ struct StackedBrickTopology{dim, T} <: AbstractStackedTopology{dim}
                 elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
                 nabrtorank, nabrtorecv, nabrtosend)
   end
+end
+
+"""
+    CubedShellTopology{T}(mpicomm, Nelem)
+"""
+
+struct CubedShellTopology{T} <: AbstractTopology{2}
+  """
+  mpi communicator use for spatial discretization are using
+  """
+  mpicomm::MPI.Comm
+
+  """
+  range of element indices
+  """
+  elems::UnitRange{Int64}
+
+  """
+  range of real (aka nonghost) element indices
+  """
+  realelems::UnitRange{Int64}
+
+  """
+  range of ghost element indices
+  """
+  ghostelems::UnitRange{Int64}
+
+  """
+  array of send element indices sorted so that
+  """
+  sendelems::Array{Int64, 1}
+
+  """
+  element to vertex coordinates
+
+  `elemtocoord[d,i,e]` is the `d`th coordinate of corner `i` of element `e`
+
+  !!! note
+  currently coordinates always are of size 3 for `(x, y, z)`
+  """
+  elemtocoord::Array{T, 3}
+
+  """
+  element to neighboring element; `elemtoelem[f,e]` is the number of the element
+  neighboring element `e` across face `f`.  If there is no neighboring element
+  then `elemtoelem[f,e] == e`.
+  """
+  elemtoelem::Array{Int64, 2}
+
+  """
+  element to neighboring element face; `elemtoface[f,e]` is the face number of
+  the element neighboring element `e` across face `f`.  If there is no
+  neighboring element then `elemtoface[f,e] == f`."
+  """
+  elemtoface::Array{Int64, 2}
+
+  """
+  element to neighboring element order; `elemtoordr[f,e]` is the ordering number
+  of the element neighboring element `e` across face `f`.  If there is no
+  neighboring element then `elemtoordr[f,e] == 1`.
+  """
+  elemtoordr::Array{Int64, 2}
+
+  """
+  element to bounday number; `elemtobndy[f,e]` is the boundary number of face
+  `f` of element `e`.  If there is a neighboring element then `elemtobndy[f,e]
+  == 0`.
+  """
+  elemtobndy::Array{Int64, 2}
+
+  """
+  list of the MPI ranks for the neighboring processes
+  """
+  nabrtorank::Array{Int64, 1}
+
+  """
+  range in ghost elements to receive for each neighbor
+  """
+  nabrtorecv::Array{UnitRange{Int64}, 1}
+
+  """
+  range in `sendelems` to send for each neighbor
+  """
+  nabrtosend::Array{UnitRange{Int64}, 1}
+
+
+  function CubedShellTopology{T}(mpicomm, Neside; connectivity=:face,
+                                 ghostsize=1) where T
+
+    # We cannot handle anything else right now...
+    @assert connectivity == :face
+    @assert ghostsize == 1
+
+    mpirank = MPI.Comm_rank(mpicomm)
+    mpisize = MPI.Comm_size(mpicomm)
+
+    topology = cubedshellmesh(Neside, part=mpirank+1, numparts=mpisize)
+
+    topology = Canary.partition(mpicomm, topology...)
+
+    dim, nvert = 3, 4
+    elemtovert = topology[1]
+    nelem = size(elemtovert, 2)
+    elemtocoord = Array{T}(undef, dim, nvert, nelem)
+    ind2vert = CartesianIndices((Neside+1, Neside+1, Neside+1))
+    for e in 1:nelem
+      for n = 1:nvert
+        v = elemtovert[n, e]
+        i, j, k = Tuple(ind2vert[v])
+        elemtocoord[:, n, e] = (2*[i-1, j-1, k-1] .- Neside) / Neside
+      end
+    end
+
+    topology = Canary.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
+                                  topology[4]; dim = 2)
+
+    new{T}(mpicomm, topology.elems, topology.realelems,
+           topology.ghostelems, topology.sendelems, elemtocoord,
+           topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
+           topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
+           topology.nabrtosend)
+  end
+end
+
+"""
+    cubedshellmesh(T, Ne; part=1, numparts=1)
+
+Generate a cubed mesh with each of the "cubes" has an `Ne X Ne` grid of elements.
+
+The mesh can optionally be partitioned into `numparts` and this returns
+partition `part`.  This is a simple Cartesian partition and further partitioning
+(e.g, based on a space-filling curve) should be done before the mesh is used for
+computation.
+
+This mesh returns the cubed spehere in a flatten fashion for the vertex values,
+and a remapping is needed to embed the mesh in a 3-D space.
+
+The mesh structures for the cubes is as follows:
+
+```
+x_2
+   ^
+   |
+4Ne-           +-------+
+   |           |       |
+   |           |   6   |
+   |           |       |
+3Ne-           +-------+
+   |           |       |
+   |           |   5   |
+   |           |       |
+2Ne-           +-------+
+   |           |       |
+   |           |   4   |
+   |           |       |
+ Ne-   +-------+-------+-------+
+   |   |       |       |       |
+   |   |   1   |   2   |   3   |
+   |   |       |       |       |
+  0-   +-------+-------+-------+
+   |
+   +---|-------|-------|------|-> x_1
+       0      Ne      2Ne    3Ne
+```
+
+"""
+function cubedshellmesh(Ne; part=1, numparts=1)
+  dim = 2
+  @assert 1 <= part <= numparts
+
+  globalnelems = 6 * Ne^2
+
+  # How many vertices and faces per element
+  nvert = 2^dim # 4
+  nface = 2dim  # 4
+
+  # linearly partition to figure out which elements we own
+  elemlocal = Canary.linearpartition(prod(globalnelems), part, numparts)
+
+  # elemen to vertex maps which we own
+  elemtovert = Array{Int}(undef, nvert, length(elemlocal))
+  elemtocoord = Array{Int}(undef, dim, nvert, length(elemlocal))
+
+  nelemcube = Ne^dim # Ne^2
+
+  etoijb = CartesianIndices((Ne, Ne, 6))
+  bx = [0 Ne 2Ne  Ne  Ne  Ne]
+  by = [0  0   0  Ne 2Ne 3Ne]
+
+  vertmap = LinearIndices((Ne+1, Ne+1, Ne+1))
+  for (le, e) = enumerate(elemlocal)
+    i, j, blck = Tuple(etoijb[e])
+    elemtocoord[1, :, le] = bx[blck] .+ [i-1 i i-1 i]
+    elemtocoord[2, :, le] = by[blck] .+ [j-1 j-1 j j]
+
+    for n = 1:4
+      ix = i + mod(n-1, 2)
+      jx = j + div(n-1, 2)
+      # set the vertices like they are the face vertices of a cube
+      if blck == 1
+        elemtovert[n, le] = vertmap[   1   , Ne+2-ix,      jx]
+      elseif blck == 2
+        elemtovert[n, le] = vertmap[     ix,   1    ,      jx]
+      elseif blck == 3
+        elemtovert[n, le] = vertmap[Ne+1   ,      ix,      jx]
+      elseif blck == 4
+        elemtovert[n, le] = vertmap[     ix,      jx,  Ne+1  ]
+      elseif blck == 5
+        elemtovert[n, le] = vertmap[     ix, Ne+1   , Ne+2-jx]
+      elseif blck == 6
+        elemtovert[n, le] = vertmap[     ix, Ne+2-jx,    1   ]
+      end
+    end
+  end
+
+  # no boundaries for a shell
+  elemtobndy = zeros(Int, nface, length(elemlocal))
+
+  # no faceconnections for a shell
+  faceconnections = Array{Array{Int, 1}}(undef, 0)
+
+  (elemtovert, elemtocoord, elemtobndy, faceconnections)
 end
 
 end
