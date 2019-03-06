@@ -66,6 +66,14 @@ end
   Ψ_m_tol, tol_abs, iter_max = 1e-3, 1e-3, 10
   u_star = Nishizawa2018.compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
   @test u_star ≈ u_star
+
+  z, F_m, F_h, a, u_star, θ, flux, Pr = rand(8,1)
+
+  K_m, K_h, L_mo = Nishizawa2018.compute_exchange_coefficients(z,F_m,F_h,a,u_star,θ,flux,Pr)
+  @test K_m ≈ K_m
+  @test K_h ≈ K_h
+  @test L_mo ≈ L_mo
+
 end
 
 @static if Base.find_package("CuArrays") !== nothing
@@ -125,6 +133,24 @@ end
 @static if Base.find_package("Plots") !== nothing
   linspace(a, b, n) = collect(a .+ (b-a).*range(0.0, stop=1.0, length=n))
   using Plots
+  L, a, θ, z, flux = rand(5,1)
+  z = z/100
+  u = linspace(-0.1, 0.1, 100)
+  L = Nishizawa2018.compute_MO_len.(u, θ, flux)
+  ζ = (z/L)'
+  ϕ_m = zeros(length(u))
+  for k in eachindex(ϕ_m)
+    ϕ_m[k] = Nishizawa2018.compute_ϕ_m(ζ[k], L[k], a)
+  end
+  # To verify with Fig 1 in Ref. Businger
+  plot(ζ, ϕ_m, label="phi_m")
+  plot!(title = "phi_m vs zeta", xlabel = "zeta", ylabel = "phi_m")
+  png("phi_vs_zeta")
+end
+
+@static if Base.find_package("Plots") !== nothing
+  linspace(a, b, n) = collect(a .+ (b-a).*range(0.0, stop=1.0, length=n))
+  using Plots
   u_ave, a, θ, flux, z_0 = rand(5,1)
   z_0 = z_0/1000
   u_ave = 200+u_ave*10
@@ -139,7 +165,7 @@ end
                                                     Ref(Ψ_m_tol),
                                                     Ref(tol_abs),
                                                     Ref(iter_max))
-  plot(u_star, Δz, "Friction velocity")
+  plot(u_star, Δz, label="Friction velocity")
   plot!(title = "Friction velocity vs dz", xlabel = "Friction velocity", ylabel = "dz")
   png("ustar_vs_dz")
 end
