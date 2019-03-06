@@ -5,12 +5,12 @@ using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
 using CLIMAAtmosDycore.Grids
 using CLIMAAtmosDycore.AtmosStateArrays
-
+using Utilities.MoistThermodynamics
 export VanillaAtmosDiscretization
 
 using ParametersType
 using PlanetParameters: cp_d, cv_d, R_d, grav
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 @parameter prandtl 71//10 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
