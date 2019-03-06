@@ -752,4 +752,73 @@ function cubedshellmesh(Ne; part=1, numparts=1)
   (elemtovert, elemtocoord, elemtobndy, faceconnections)
 end
 
+
+"""
+    cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+Given points `(a, b, c)` on the surface of a cube, warp the points out to a
+spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
+Ronchi, Iacono, Paolucci (1996) <https://dx.doi.org/10.1006/jcph.1996.0047>
+
+```
+@article{RonchiIaconoPaolucci1996,
+  title={The ``cubed sphere'': a new method for the solution of partial
+         differential equations in spherical geometry},
+  author={Ronchi, C. and Iacono, R. and Paolucci, P. S.},
+  journal={Journal of Computational Physics},
+  volume={124},
+  number={1},
+  pages={93--114},
+  year={1996},
+  doi={10.1006/jcph.1996.0047}
+}
+```
+
+"""
+function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+  fdim = argmax(abs.([a, b, c]))
+  if fdim == 1 && a < 0
+    # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+    ξ, η = b / a, c / a
+    X, Y = tan(π * ξ / 4), tan(π * η / 4)
+    x = -R / sqrt(X^2 + Y^2 + 1)
+    y, z = X * x, Y * x
+  elseif fdim == 2 && b < 0
+    # ( *,-R, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+    ξ, η = a / b, c / b
+    X, Y = tan(π * ξ / 4), tan(π * η / 4)
+    y = -R / sqrt(X^2 + Y^2 + 1)
+    x, z = X * y, Y * y
+  elseif fdim == 1 && a > 0
+    # (-R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+    ξ, η = b / a, c / a
+    X, Y = tan(π * ξ / 4), tan(π * η / 4)
+    x = R / sqrt(X^2 + Y^2 + 1)
+    y, z = X * x, Y * x
+  elseif fdim == 2 && b > 0
+    # ( *,-R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+    ξ, η = a / b, c / b
+    X, Y = tan(π * ξ / 4), tan(π * η / 4)
+    y = R / sqrt(X^2 + Y^2 + 1)
+    x, z = X * y, Y * y
+  elseif fdim == 3 && c > 0
+    # ( *,-R, *) : Face V from Ronchi, Iacono, Paolucci (1996)
+    ξ, η = b / c, a / c
+    X, Y = tan(π * ξ / 4), tan(π * η / 4)
+    z = R / sqrt(X^2 + Y^2 + 1)
+    x, y = Y * z, X * z
+  elseif fdim == 3 && c < 0
+    # ( *,-R, *) : Face V from Ronchi, Iacono, Paolucci (1996)
+    ξ, η = b / c, a / c
+    X, Y = tan(π * ξ / 4), tan(π * η / 4)
+    z = -R / sqrt(X^2 + Y^2 + 1)
+    x, y = Y * z, X * z
+  else
+    error("invalid case for cubedshellwarp: $a, $b, $c")
+  end
+
+  x, y, z
+end
+
 end
