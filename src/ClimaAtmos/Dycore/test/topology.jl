@@ -82,3 +82,50 @@
     @test topology.nabrtosend == UnitRange{Int}[]
   end
 end
+
+@testset "StackedBrickTopology tests" begin
+  let
+    comm = MPI.COMM_SELF
+    topology = StackedBrickTopology(comm, (2:5,4:6), periodicity=(false,true),
+                                    boundary=[1 3; 2 4])
+
+    nelem = 6
+
+    @test topology.elemtocoord[:,:, 1] == [2 3 2 3; 4 4 5 5]
+    @test topology.elemtocoord[:,:, 2] == [2 3 2 3; 5 5 6 6]
+    @test topology.elemtocoord[:,:, 3] == [3 4 3 4; 4 4 5 5]
+    @test topology.elemtocoord[:,:, 4] == [3 4 3 4; 5 5 6 6]
+    @test topology.elemtocoord[:,:, 5] == [4 5 4 5; 4 4 5 5]
+    @test topology.elemtocoord[:,:, 6] == [4 5 4 5; 5 5 6 6]
+
+    @test topology.elemtoelem ==
+      [1 2 1 2 3 4
+       3 4 5 6 5 6
+       2 1 4 3 6 5
+       2 1 4 3 6 5]
+
+    @test topology.elemtoface ==
+      [1 1 2 2 2 2
+       1 1 1 1 2 2
+       4 4 4 4 4 4
+       3 3 3 3 3 3]
+
+    @test topology.elemtoordr == ones(Int, size(topology.elemtoordr))
+
+    @test topology.elemtobndy ==
+      [1 1 0 0 0 0
+       0 0 0 0 2 2
+       0 0 0 0 0 0
+       0 0 0 0 0 0]
+
+    @test topology.elems == 1:nelem
+    @test topology.realelems == 1:nelem
+    @test topology.ghostelems == nelem.+(1:0)
+
+    @test length(topology.sendelems) == 0
+
+    @test topology.nabrtorank == Int[]
+    @test topology.nabrtorecv == UnitRange{Int}[]
+    @test topology.nabrtosend == UnitRange{Int}[]
+  end
+end
