@@ -170,7 +170,7 @@ uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.2"
 
 [[ParametersType]]
-path = "..\\..\\..\\..\\..\\ParametersType"
+path = "../../../../../ParametersType"
 uuid = "046d00ba-03b1-11e9-3cca-b5213a01defd"
 version = "0.0.0"
 
@@ -180,7 +180,7 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PlanetParameters]]
 deps = ["ParametersType"]
-path = "..\\..\\..\\..\\..\\PlanetParameters"
+path = "../../../../../PlanetParameters"
 uuid = "50a4fe1a-031f-11e9-2493-0505e0da639e"
 version = "0.0.0"
 
@@ -249,7 +249,7 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[SurfaceFluxes]]
 deps = ["ParametersType", "PlanetParameters", "Test", "Utilities"]
-path = "..\\.."
+path = "../.."
 uuid = "7169bd00-2eee-11e9-22a5-2b2073a21580"
 version = "0.1.0"
 
@@ -272,7 +272,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[Utilities]]
 deps = ["LinearAlgebra", "ParametersType", "PlanetParameters", "Roots"]
-path = "..\\..\\..\\..\\..\\Utilities"
+path = "../../../../../Utilities"
 uuid = "d528e2a8-1396-11e9-0475-bb99f588b544"
 version = "0.0.0"
 
