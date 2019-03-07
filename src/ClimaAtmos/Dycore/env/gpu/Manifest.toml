@@ -20,7 +20,7 @@ uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.3"
 
 [[CLIMAAtmosDycore]]
-deps = ["CUDAdrv", "CUDAnative", "Canary", "Dierckx", "LinearAlgebra", "Logging", "MPI", "ParametersType", "PlanetParameters", "Printf", "Requires", "Roots", "Utilities", "WriteVTK"]
+deps = ["Canary", "Dierckx", "LinearAlgebra", "Logging", "MPI", "ParametersType", "PlanetParameters", "Printf", "Requires", "Roots", "Utilities", "WriteVTK"]
 path = "../.."
 uuid = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
 version = "0.0.0"
@@ -189,9 +189,9 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[TranscodingStreams]]
 deps = ["Pkg", "Random", "Test"]
-git-tree-sha1 = "a34a2d588e2d2825602bf14a24216d5c8b0921ec"
+git-tree-sha1 = "8a032ceb5cf7a28bf1bdb77746b250b9e9fda565"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.8.1"
+version = "0.9.0"
 
 [[URIParser]]
 deps = ["Test", "Unicode"]
