@@ -1,10 +1,25 @@
+using SurfaceFluxes
 using SurfaceFluxes.Nishizawa2018
 using SurfaceFluxes.Byun1990
 using Test
 using Utilities.MoistThermodynamics
 using Utilities.RootSolvers
 
-@testset "Byun1990 SurfaceFluxes" begin
+@testset "SurfaceFluxes" begin
+
+  shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0 = rand(7,1)
+  buoyancy_flux = SurfaceFluxes.compute_buoyancy_flux(shf,
+                                                 lhf,
+                                                 T_b,
+                                                 qt_b,
+                                                 ql_b,
+                                                 qi_b,
+                                                 alpha0_0
+                                                 )
+  @test buoyancy_flux ≈ buoyancy_flux
+end
+
+@testset "SurfaceFluxes.Byun1990" begin
   # Not sure how to test this, just making sure it runs for now:
 
   u, flux = rand(2,1)
@@ -25,17 +40,6 @@ using Utilities.RootSolvers
                                               )
   @test u_star ≈ u_star
 
-  shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0 = rand(7,1)
-
-  buoyancy_flux = Byun1990.compute_buoyancy_flux(shf,
-                                                 lhf,
-                                                 T_b,
-                                                 qt_b,
-                                                 ql_b,
-                                                 qi_b,
-                                                 alpha0_0
-                                                 )
-  @test buoyancy_flux ≈ buoyancy_flux
 
   Ri, z_b, z_0, Pr_0 = rand(4,1)
   γ_m, γ_h, β_m, β_h = 15.0, 9.0, 4.8, 7.8
@@ -54,7 +58,7 @@ using Utilities.RootSolvers
 
 end
 
-@testset "Nishizawa2018 SurfaceFluxes" begin
+@testset "SurfaceFluxes.Nishizawa2018" begin
   # Not sure how to test this, just making sure it runs for now:
   u, θ, flux = rand(3,1)
   MO_len = Nishizawa2018.compute_MO_len(u, θ, flux)

@@ -9,10 +9,10 @@
   - module Nishizawa2018
 
 ## Interface
-  - Each sub-module has the following functions:
+  - [`compute_buoyancy_flux`](@ref) computes the buoyancy flux
+  - In addition, each sub-module has the following functions:
     - [`compute_MO_len`](@ref) computes the Monin-Obukhov length
     - [`compute_friction_velocity`](@ref) computes the friction velocity
-    - [`compute_buoyancy_flux`](@ref) computes the buoyancy flux
     - [`compute_exchange_coefficients`](@ref) computes the exchange coefficients
 
 ## References
@@ -46,6 +46,24 @@ using Utilities.RootSolvers
 using Utilities.MoistThermodynamics
 using PlanetParameters
 
+# export compute_buoyancy_flux
+
+""" Computes buoyancy flux. """
+function compute_buoyancy_flux(shf,
+                               lhf,
+                               T_b,
+                               qt_b,
+                               ql_b,
+                               qi_b,
+                               alpha0_0
+                               )
+  cp_ = cp_m(qt_b, ql_b, qi_b)
+  lv = latent_heat_vapor(T_b)
+  temp1 = (eps_vi-1)
+  temp2 = (shf + temp1 * cp_ * T_b * lhf /lv)
+  return (grav * alpha0_0 / cp_ / T_b * temp2)
+end
+
 module Byun1990
   using Utilities.RootSolvers
   using Utilities.MoistThermodynamics
@@ -71,8 +89,6 @@ module Byun1990
     ψ_h = 2 * log((1 + y(ζ))/(1 + y(ζ_0)))
     return ψ_h
   end
-
-  # ******************* Interface funcs:
 
   """ Computes the Monin-Obukhov length (Eq. 3 Ref. Byun1990) """
   compute_MO_len(u, flux) = - u^3 / (flux * k_Karman)
@@ -125,22 +141,6 @@ module Byun1990
     end
 
     return ustar
-  end
-
-  """ Computes buoyancy flux. See Eq. 14 Ref. Byun1990 """
-  function compute_buoyancy_flux(shf,
-                                 lhf,
-                                 T_b,
-                                 qt_b,
-                                 ql_b,
-                                 qi_b,
-                                 alpha0_0
-                                 )
-    cp_ = cp_m(qt_b, ql_b, qi_b)
-    lv = latent_heat_vapor(T_b)
-    temp1 = (eps_vi-1)
-    temp2 = (shf + temp1 * cp_ * T_b * lhf /lv)
-    return (grav * alpha0_0 / cp_ / T_b * temp2)
   end
 
   """
@@ -208,11 +208,6 @@ module Nishizawa2018
   """ Computes f_h in Eq. A8 Ref. Nishizawa2018 """
   compute_f_h(ζ) = (1-9*ζ)^(1/2)
 
-  """ Computes f in Eq. A21 Ref. Nishizawa2018 """
-  # FIX ME: Not sure if compute_f is needed in Nishizawa2018 Appendix
-  # (Function of Businger does not include definition for `f`):
-  compute_f(ζ) = (1-16*ζ)^(1/4)
-
   """ Computes ϕ_m in Eq. A1 Ref. Nishizawa2018 """
   compute_ϕ_m(ζ, L, a) = L>=0 ? a*ζ+1 : (1-15*ζ)^(-1/4)
 
@@ -240,10 +235,9 @@ module Nishizawa2018
       return compute_Ψ_m_low_ζ_lim(ζ, a)
     else
       f_m = compute_f_m(ζ)
-      # FIX ME: Not sure if compute_f is needed in Nishizawa2018 Appendix
-      # (Function of Businger does not include definition for `f`):
-      f = compute_f(ζ)
-      return L>=0 ? -a*ζ/2 : log((1+f_m)^2*(1+f_m^2)/8) - 2*atan(f_m)+π/2-1+(1-f^3)/(12*ζ)
+      # Note that "1-f^3" in Ref. Nishizawa2018 is a typo, it is supposed to be "1-f_m^3".
+      # This was confirmed by communication with the author.
+      return L>=0 ? -a*ζ/2 : log((1+f_m)^2*(1+f_m^2)/8) - 2*atan(f_m)+π/2-1+(1-f_m^3)/(12*ζ)
     end
   end
 
