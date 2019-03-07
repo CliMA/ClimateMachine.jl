@@ -185,12 +185,23 @@ function estimatedt(::Val{dim}, ::Val{N}, G, gravity, Q, vgeo,
   (~, ~, nelem) = size(Q)
 
   dt = [floatmax(DFloat)]
+  
+  # Allocate 3 spaces for moist tracers qm, with a zero default value
+  q_m = zeros(DFloat, max(3, nmoist))
 
   if dim == 2
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
       E = Q[n, _E, e]
       y = vgeo[n, G.yid, e]
+
+      for m = 1:nmoist
+          s = _nstate + m
+          q_m[m] = Q[n, s, e]
+      end
+      (R_m, cp_m, cv_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+      gdm1 = R_m/cv_m
+
       P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
