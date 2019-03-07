@@ -172,12 +172,12 @@ module Byun1990
     else
       Q_b = 1/9 * (1 /(γ_m^2) + 3 * γ_h/γ_m * s_b^2)           # Eq. 31 in Ref. Byun1990
       P_b = 1/54 * (-2/(γ_m^3) + 9/γ_m * (-γ_h/γ_m + 3)*s_b^2) # Eq. 32 in Ref. Byun1990
-      crit = Q_b * Q_b *Q_b - P_b * P_b
+      crit = Q_b^3 - P_b^2
       if crit < 0
         T_b = cbrt(sqrt(-crit) + abs(P_b))                     # Eq. 34 in Ref. Byun1990
         ζ = zfactor * (1/(3*γ_m)-(T_b + Q_b/T_b))              # Eq. 29 in Ref. Byun1990
       else
-        θ_b = acos(P_b/sqrt(Q_b * Q_b * Q_b))                  # Eq. 33 in Ref. Byun1990
+        θ_b = acos(P_b/sqrt(Q_b^3))                            # Eq. 33 in Ref. Byun1990
         ζ = zfactor * (-2 * sqrt(Q_b) * cos(θ_b/3)+1/(3*γ_m))  # Eq. 28 in Ref. Byun1990
       end
       L_mo = z_b/ζ                                             # LHS of Eq. 3 in Byun1990
