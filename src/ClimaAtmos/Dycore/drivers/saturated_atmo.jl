@@ -241,7 +241,7 @@ end
 
 
 # FIXME: Will these keywords args be OK?
-function  saturatedatmosphere(x...; ntrace=0, nmoist=0, dim=2, N, Ne)
+function  saturatedatmosphere(x...; init1d...; ntrace=0, nmoist=0, dim=2, N, Ne)
     DFloat = eltype(x)
     γ::DFloat       = gamma_d
     p0::DFloat      = 100000
@@ -321,7 +321,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, tim
   ini_data_interp = interpolate_sounding(dim, N, Ne, vgeo)
     
   # This is a actual state/function that lives on the grid
-  initialcondition(x...) = saturatedatmosphere(x...; ntrace=ntrace, nmoist=nmoist, dim=dim, N=N, Ne=Ne)
+  initialcondition(x...; ini_data_inter...) = saturatedatmosphere(x...; ini_data_inter...; ntrace=ntrace, nmoist=nmoist, dim=dim, N=N, Ne=Ne)
   Q = AtmosStateArray(spacedisc, initialcondition)
 
   # Determine the time step

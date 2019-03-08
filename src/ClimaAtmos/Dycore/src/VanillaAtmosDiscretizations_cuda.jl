@@ -17,9 +17,13 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_u = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   s_v = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   s_T = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
+    
+
 
   #Allocate at least three spaces for qm, with a zero default value
-  q_m = zeros(DFloat, max(3, nmoist))
+  #q_m = zeros(DFloat, max(3, nmoist))
+    q_m = @cuStaticSharedMem(eltype(Q), (3))
+    q_m[1], q_m[2], q_m[3] = 0.0
     
   @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
@@ -461,7 +465,10 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
   MJ = ξx = ξy = ηx = ηy = zero(eltype(rhs))
   u = v = zero(eltype(rhs))
     
-  q_m = zeros(DFloat, max(3, nmoist))
+  #q_m = zeros(DFloat, max(3, nmoist))
+    q_m = @cuStaticSharedMem(eltype(Q), (3))
+    q_m[1], q_m[2], q_m[3] = 0.0
+   #q_m = zeros(DFloat, max(3, nmoist))
     
   @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
@@ -652,7 +659,10 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
   MJ = ξx = ξy = ξz = ηx = ηy = ηz = ζx = ζy = ζz = zero(eltype(rhs))
   u = v = w = zero(eltype(rhs))
   
-  q_m   = zeros(DFloat, max(3, nmoist))
+  #q_m = zeros(DFloat, max(3, nmoist))
+    q_m = @cuStaticSharedMem(eltype(Q), (3))
+    q_m[1], q_m[2], q_m[3] = 0.0
+    
     
   @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
     # Load derivative into shared memory
@@ -884,7 +894,11 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
                       vmapP, elemtobndy) where {dim, N, nmoist, ntrace}
   DFloat = eltype(Q)
   
-  q_m = zeros(DFloat, max(3, nmoist))
+  
+  #q_m = zeros(DFloat, max(3, nmoist))
+    q_m = @cuStaticSharedMem(eltype(Q), (3))
+    q_m[1], q_m[2], q_m[3] = 0.0
+  #q_m = zeros(DFloat, max(3, nmoist))
 
   if dim == 1
     Np = (N+1)
