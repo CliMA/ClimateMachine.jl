@@ -69,8 +69,8 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
                               topology.elemtoordr)
 
     (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmapM)
-      Np = (N+1)^dim
-      @show("SIZE OF VGEOOOOOO", size(vgeo))
+
+    Np = (N+1)^dim
     @assert Np == size(vgeo, 1)
 
      # Create arrays on the device
