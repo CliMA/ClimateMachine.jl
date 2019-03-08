@@ -7,6 +7,9 @@ using CLIMAAtmosDycore.AtmosStateArrays
 using CLIMAAtmosDycore.LSRKmethods
 using CLIMAAtmosDycore.GenericCallbacks
 using CLIMAAtmosDycore
+using Utilities.MoistThermodynamics
+using PlanetParameters
+
 using LinearAlgebra
 using Roots
 using DelimitedFiles
@@ -42,7 +45,7 @@ using PlanetParameters: R_d, cp_d, grav, cv_d
 function read_sounding()
     
     #read in the original squal sounding
-    fsounding = open("../soundings/sounding_GC1991.dat")    
+    fsounding  = open(joinpath(@__DIR__, "soundings/sounding_GC1991.dat"))
     sound_data = readdlm(fsounding)
     close(fsounding)
 
@@ -55,17 +58,18 @@ function read_sounding()
      
 end
 
-function interpolate_sounding(dim, N, Ne_v, vgeo)
+function interpolate_sounding(dim, N, Ne, vgeo)
     #
     # !!!WARNING!!! This function can only work for sturctured grids with vertical boundaries!!!
     # !!!TO BE REWRITTEN FOR THE GENERAL CODE!!!!
     #
-    γ::Float64       = _γ
-    p0::Float64      = _p0
-    R_gas::Float64   = _R_gas
-    c_p::Float64     = _c_p
-    c_v::Float64     = _c_v
-    gravity::Float64 = _gravity
+    γ::Float64       = gamma_d
+    p0::Float64      = MSLP
+    R_gas::Float64   = R_d
+    c_p::Float64     = cp_d
+    c_v::Float64     = cv_d
+    gravity::Float64 = grav
+    Ne_v = Ne[dim]
     
     #Get sizes
     (sound_data, nmax, ncols) = read_sounding()
@@ -73,10 +77,14 @@ function interpolate_sounding(dim, N, Ne_v, vgeo)
     Np = (N+1)^dim
     Nq = N + 1
     (~, ~, nelem) = size(vgeo)
-    
+#=
     #Reshape vgeo:
-    vgeo = reshape(vgeo, Nq, Nq, _nvgeo, nelem)
-        
+    if(dim == 2)
+        vgeo = reshape(vgeo, Nq, Nq, size(vgeo,2), nelem)
+    elseif(dim == 3)
+        vgeo = reshape(vgeo, Nq, Nq, Nq, size(vgeo,2), nelem)
+    end
+    
     if ncols == 6
         #height  theta  qv     u      v      press
         zinit,   tinit, qinit, uinit, vinit, pinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5], sound_data[:, 6]
@@ -84,12 +92,12 @@ function interpolate_sounding(dim, N, Ne_v, vgeo)
         #height  theta  qv     u      v
         zinit,   tinit, qinit, uinit, vinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5]
     end
-    
+=#
     #
     # create vector with all the z-values of the current processor
     # (avoids using column structure for better domain decomposition when no rain is used. AM)
-    #
-    nz         = Ne_v*N + 1      
+    #=
+    nz         = Ne_v*N + 1
     dataz      = zeros(Float64, nz)
     datat      = zeros(Float64, nz)
     dataq      = zeros(Float64, nz)
@@ -100,8 +108,10 @@ function interpolate_sounding(dim, N, Ne_v, vgeo)
     datapi     = zeros(Float64, nz)
     datarho    = zeros(Float64, nz)
     ini_data_interp = zeros(Float64, nz, 10)
-    
-    z          = vgeo[1, 1, _y, 1] 
+    #@show("SIZE x ", size(x[dim]))
+         
+    #z          = minimum(x[dim]) #vgeo[1, 1, dim, 1]
+    z = 0.0
     dataz[1]   = z
     zprev      = z
     xmin       = 1.0e-8; #Take this value from the grid if xmin != 0.0
@@ -109,9 +119,8 @@ function interpolate_sounding(dim, N, Ne_v, vgeo)
     @inbounds for e = 1:nelem
         for j = 1:Nq, i = 1:Nq
             
-            x = vgeo[i, j, _x, e]
-            z = vgeo[i, j, _y, e]
-            
+            x = vgeo[i, j, 1, e]
+            z = vgeo[i, j, 2, e]           
             if abs(x) < xmin
                 
                 if (abs(z - zprev) > 1.0e-5)
@@ -124,7 +133,7 @@ function interpolate_sounding(dim, N, Ne_v, vgeo)
         end
     end
     if(nzmax != nz)
-        error(" interpolate_sounding: 1D INTERPOLATION: ops, something is wrong: nz is wrong!\n")
+        error(" function interpolate_sounding(): 1D INTERPOLATION: ops, something is wrong: nz is wrong!\n")
     end
     
     #------------------------------------------------------
@@ -163,13 +172,13 @@ function interpolate_sounding(dim, N, Ne_v, vgeo)
     # END interpolate to the actual LGL points in vertical
     #------------------------------------------------------
 
-    c = c_v/R_gas
+    c = cv_d/R_d
     rvapor = 461.0
     levap  = 2.5e+6
     es0    = 6.1e+2
-    c2     = R_gas/c_p
+    c2     = R_d/cp_d
     c1     = 1.0/c2
-    g      = _gravity
+    g      = grav
     pi0    = 1.0
     theta0 = 300.5
     theta0 = 283
@@ -219,7 +228,7 @@ function interpolate_sounding(dim, N, Ne_v, vgeo)
         ini_data_interp[k, 8] = datapi[k]  #exner
         ini_data_interp[k, 9] = thetav[k]  #thetav
     end
-    
+    =#
     return ini_data_interp
 end
 
@@ -240,8 +249,6 @@ function  saturatedatmosphere(x...; ntrace=0, nmoist=0, dim=2, N, Ne)
     elseif(dim == 3)
         nelem = Ne[1]*Ne[2]*Ne[3]
     end
-
-    #interpolate_sounding(dim, N, Ne[3], nelem)
     
     r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
     rc::DFloat = 250
@@ -293,8 +300,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, tim
                                           # or topography maps)
                                           # warp = warpgridfun
                                          )
-   vgeo = grid.vgeo
-    
+   # vgeo = grid.vgeo
+   # (~, ~, nelem) = size(vgeo)
+   # Np = (N+1)^dim
+   # Nq = N + 1
+   # @show(nelem)
+   # vgeo = reshape(vgeo, Nq, Nq, size(vgeo,2), nelem)
+   #     @show(size(vgeo)) #, vgeo[1,1,1,:])
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = VanillaAtmosDiscretization(grid,
                                          # How many tracer variables
@@ -302,6 +314,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, tim
                                          # How many moisture variables
                                          nmoist=nmoist)
 
+  
+  #Read external sounding
+  #ini_data_interp = interpolate_sounding(dim=dim, N=N, Ne=Ne, vgeo=vgeo)
+    
   # This is a actual state/function that lives on the grid
   initialcondition(x...) = saturatedatmosphere(x...; ntrace=ntrace, nmoist=nmoist, dim=dim, N=N, Ne=Ne)
   Q = AtmosStateArray(spacedisc, initialcondition)

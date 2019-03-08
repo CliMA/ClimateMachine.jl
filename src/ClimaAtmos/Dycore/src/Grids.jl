@@ -69,7 +69,8 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
                               topology.elemtoordr)
 
     (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmapM)
-    Np = (N+1)^dim
+      Np = (N+1)^dim
+      @show("SIZE OF VGEOOOOOO", size(vgeo))
     @assert Np == size(vgeo, 1)
 
      # Create arrays on the device
@@ -202,7 +203,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
 
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
   sMJ .= sM .* sJ
-
+    
   (vgeo, sgeo)
 end
 # }}}
