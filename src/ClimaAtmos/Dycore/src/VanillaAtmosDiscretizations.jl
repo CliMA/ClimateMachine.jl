@@ -164,20 +164,20 @@ AtmosStateArrays.AtmosStateArray(f::Function,
                                  d::VanillaAtmosDiscretization
                                 ) = AtmosStateArray(d, f)
 
-function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA},
-                    Q::AtmosStateArray) where {T, dim, N, Np, DA}
+function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, nmoist},
+                    Q::AtmosStateArray) where {T, dim, N, Np, DA, nmoist}
   @assert T == eltype(Q)
   G = disc.grid
   vgeo = G.vgeo
   # FIXME: GPUify me
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q) = host_array ? (vgeo, Q) : (Array(vgeo), Array(Q))
-  estimatedt(Val(dim), Val(N), G, disc.gravity, h_Q, h_vgeo, G.topology.mpicomm)
+  estimatedt(Val(dim), Val(N), Val(nmoist), G, disc.gravity, h_Q, h_vgeo, G.topology.mpicomm)
 end
 
 # FIXME: This needs cleaning up
-function estimatedt(::Val{dim}, ::Val{N}, G, gravity, Q, vgeo,
-                    mpicomm) where {dim, N}
+function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
+                    mpicomm) where {dim, N, nmoist}
 
   DFloat = eltype(Q)
 
@@ -194,14 +194,14 @@ function estimatedt(::Val{dim}, ::Val{N}, G, gravity, Q, vgeo,
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
       E = Q[n, _E, e]
       y = vgeo[n, G.yid, e]
-
+      
       for m = 1:nmoist
           s = _nstate + m
           q_m[m] = Q[n, s, e]
       end
-      (R_m, cp_m, cv_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.gas_constants(q_m[1], q_m[2], q_m[3])
       gdm1 = R_m/cv_m
-
+      @show(nmoist)
       P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
