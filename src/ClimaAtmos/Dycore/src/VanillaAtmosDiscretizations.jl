@@ -26,7 +26,7 @@ const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
        _Tx, _Ty, _Tz) = 1:_nstategrad
 
 struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
-                                  DeviceArray, nmoist, ntrace, DASAT3,
+                                  DeviceArray, nmoist, q_mntrace, DASAT3,
                                   GT } <: AD.AbstractAtmosDiscretization
   "grid"
   grid::GT
@@ -180,14 +180,17 @@ end
 function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
                     mpicomm) where {dim, N, nmoist}
 
-  DFloat        = eltype(Q)
-  Np            = (N+1)^dim
-  (~, ~, nelem) = size(Q)
-  dt            = [floatmax(DFloat)]
+  DFloat = eltype(Q)
 
-  #Allocate at least three spaces for qm, with a zero default value
-  q_m = zeros(DFloat, max(3, nmoist))
+  Np = (N+1)^dim
+  (~, ~, nelem) = size(Q)
+
+  dt = [floatmax(DFloat)]
     
+  #Allocate at least three spaces for qm, with a zero default value
+  q_m = @cuStaticSharedMem(eltype(Q), 3)
+  q_m[1], q_m[2], q_m[3] = 0.0, 0.0, 0.0
+  
   if dim == 2
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
