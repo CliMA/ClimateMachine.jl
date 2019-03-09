@@ -26,7 +26,7 @@ const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
        _Tx, _Ty, _Tz) = 1:_nstategrad
 
 struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
-                                  DeviceArray, nmoist, q_mntrace, DASAT3,
+                                  DeviceArray, nmoist, ntrace, DASAT3,
                                   GT } <: AD.AbstractAtmosDiscretization
   "grid"
   grid::GT
@@ -188,7 +188,7 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
   dt = [floatmax(DFloat)]
 
   #Allocate at least three spaces for qm, with a zero default value
-  q_m = zeros(DFloat, 3)
+  #q_m = zeros(DFloat, 3)
     
   if dim == 2
     @inbounds for e = 1:nelem, n = 1:Np
@@ -197,19 +197,19 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       y = vgeo[n, G.yid, e]
         
       #Moist tracers
-      for m = 1:nmoist
-          s = _nstate + m
-          q_m[m] = Q[n, s, e]
-      end
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-      gdm1 = R_m/cv_m
+      #for m = 1:nmoist
+      #    s = _nstate + m
+      #    q_m[m] = Q[n, s, e]
+      #end
+      #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+      #gdm1 = R_m/cv_m
       P    = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * sqrt(gamma_m * P / ρ),
-                        abs(U * ηx + V * ηy) + ρ * sqrt(gamma_m * P / ρ))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * sqrt(gamma_d * P / ρ),
+                        abs(U * ηx + V * ηy) + ρ * sqrt(gamma_d * P / ρ))
       dt[1] = min(dt[1], loc_dt)
     end
   end
@@ -221,21 +221,21 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       z = vgeo[n, G.zid, e]
       
       #Moist tracers
-      for m = 1:nmoist
-          s = _nstate + m
-          q_m[m] = Q[n, s, e]
-      end
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-      gdm1 = R_m/cv_m
+      #for m = 1:nmoist
+      #    s = _nstate + m
+      #    q_m[m] = Q[n, s, e]
+      #end
+      #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+      #gdm1 = R_m/cv_m
       P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
-      
+
       ξx, ξy, ξz = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e], vgeo[n, G.ξzid, e]
       ηx, ηy, ηz = vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e], vgeo[n, G.ηzid, e]
       ζx, ζy, ζz = vgeo[n, G.ζxid, e], vgeo[n, G.ζyid, e], vgeo[n, G.ζzid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * sqrt(gamma_m*P/ρ),
-                        abs(U * ηx + V * ηy + W * ηz) + ρ * sqrt(gamma_m*P/ρ),
-                        abs(U * ζx + V * ζy + W * ζz) + ρ * sqrt(gamma_m*P/ρ))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * sqrt(gamma_d*P/ρ),
+                        abs(U * ηx + V * ηy + W * ηz) + ρ * sqrt(gamma_d*P/ρ),
+                        abs(U * ζx + V * ζy + W * ζz) + ρ * sqrt(gamma_d*P/ρ))
       dt[1] = min(dt[1], loc_dt)
     end
   end
