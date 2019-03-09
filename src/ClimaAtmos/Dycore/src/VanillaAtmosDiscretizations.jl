@@ -186,11 +186,10 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
   (~, ~, nelem) = size(Q)
 
   dt = [floatmax(DFloat)]
-    
+
   #Allocate at least three spaces for qm, with a zero default value
-  q_m = @cuStaticSharedMem(eltype(Q), 3)
-  q_m[1], q_m[2], q_m[3] = 0.0, 0.0, 0.0
-  
+  q_m = zeros(DFloat, 3)
+    
   if dim == 2
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
