@@ -17,11 +17,12 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_u = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   s_v = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   s_T = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
-    
+
+
   #Allocate at least three spaces for qm, with a zero default value
-  q_m = @cuStaticSharedMem(eltype(Q), (3))
+  q_m = @cuStaticSharedMem(eltype(Q), 3)
   q_m[1], q_m[2], q_m[3] = 0.0, 0.0, 0.0
-    
+  
   @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
     if k == 1

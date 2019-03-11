@@ -18,7 +18,7 @@ export air_pressure, air_temperature, air_density
 export total_energy, internal_energy, internal_energy_sat
 
 # Specific heats of moist air
-export cp_m, cv_m, gas_constant_air
+export cp_m, cv_m, gas_constant_air, moist_gas_constants
 
 # Latent heats
 export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
@@ -107,7 +107,7 @@ end
 
 
 """
-    moist_constants([q_t=0, q_l=0, q_i=0])
+    moist_gas_constants([q_t=0, q_l=0, q_i=0])
 
 Wrapper to return R_m, cv_m, cp_m, and gamma_m all at once
 """
