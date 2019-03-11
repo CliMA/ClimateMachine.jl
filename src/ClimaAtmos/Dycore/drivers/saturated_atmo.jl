@@ -8,10 +8,7 @@ using CLIMAAtmosDycore.LSRKmethods
 using CLIMAAtmosDycore.GenericCallbacks
 using CLIMAAtmosDycore
 using Utilities.MoistThermodynamics
-using PlanetParameters
-
 using LinearAlgebra
-using Roots
 using DelimitedFiles
 using Dierckx
 using Printf
@@ -29,9 +26,10 @@ macro hascuda(ex)
 end
 
 using ParametersType
-using PlanetParameters: R_d, cp_d, grav, cv_d
+using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
+
 
 
 # {{{
@@ -246,55 +244,60 @@ function interpolate_sounding(dim, N, Ne, vgeo)
 end
 
 
-# FIXME: Will these keywords args be OK?
-function  saturatedatmosphere(ini_data_interp, ntrace=0, nmoist=0, dim=2, N, Ne, x...)
-    DFloat = eltype(x)
-    γ::DFloat       = gamma_d
-    p0::DFloat      = 100000
-    R_gas::DFloat   = R_d
-    c_p::DFloat     = cp_d
-    c_v::DFloat     = cv_d
-    gravity::DFloat = grav
 
-    @show(size(ini_data_interp))
-    
-    if(dim == 2)
-        nelem = Ne[1]*Ne[3]
-    elseif(dim == 3)
-        nelem = Ne[1]*Ne[2]*Ne[3]
-    end
-    
-    r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
-    rc::DFloat = 250
-    θ_ref::DFloat = 300
-    θ_c::DFloat = 0.5
-    Δθ::DFloat = 0
-    if r <= rc
-        Δθ = θ_c * (1 + cos(π * r / rc)) / 2
-    end
-    θ_k = θ_ref + Δθ
-    π_k = 1 - gravity / (c_p * θ_k) * x[dim]
-    c = c_v / R_gas
-    ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-    ρ = ρ_k
-    u = zero(DFloat)
-    v = zero(DFloat)
-    w = zero(DFloat)
-    U = ρ * u
-    V = ρ * v
-    W = ρ * w
-    Θ = ρ * θ_k
-    P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
-    T = P / (ρ * R_gas)
-    E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-    (ρ=ρ, U=U, V=V, W=W, E=E, 
-     #Qmoist=ntuple(j->(j*ρ), nmoist))
-     Qmoist=ntuple(j->(j*ρ), nmoist))
+# FIXME: Will these keywords args be OK?
+function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=3)
+  DFloat = eltype(x)
+  γ::DFloat       = gamma_d
+  p0::DFloat      = 100000
+  R_gas::DFloat   = R_d
+  c_p::DFloat     = cp_d
+  c_v::DFloat     = cv_d
+  gravity::DFloat = grav
+
+   # (nz, ~) = size(initial_sounding)
+    #for k=1:nz
+    #    @show(initial_sounding[k, 1])
+    #end
+   # @show(x[dim])
+  r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
+  rc::DFloat = 250
+  θ_ref::DFloat = 300
+  θ_c::DFloat = 0.5
+  Δθ::DFloat = 0
+  if r <= rc
+    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
+  end
+  θ_k = θ_ref + Δθ
+  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
+  c = c_v / R_gas
+  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
+  ρ = ρ_k
+  u = zero(DFloat)
+  v = zero(DFloat)
+  w = zero(DFloat)
+  U = ρ * u
+  V = ρ * v
+  W = ρ * w
+  Θ = ρ * θ_k
+  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+  T = P / (ρ * R_gas)
+  E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  (ρ=ρ, U=U, V=V, W=W, E=E,
+   Qmoist=ntuple(j->(j*ρ), nmoist))
+   
+   #, Qtrace=ntuple(j->(-j*ρ), ntrace))
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend; dt=nothing,
-              exact_timeend=true) dim = length(brickrange)
-    
+#function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+#              initialcondition, timeend; gravity=true, dt=nothing,
+#              exact_timeend=true)
+
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+              timeend; gravity=true, dt=nothing,
+              exact_timeend=true)
+
+  dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
                        # tuple of point element edges in each dimension
@@ -315,22 +318,25 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, tim
                                           # or topography maps)
                                           # warp = warpgridfun
                                          )
-  
+
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = VanillaAtmosDiscretization(grid,
+                                         # Use gravity?
+                                         gravity = gravity,
                                          # How many tracer variables
                                          ntrace=ntrace,
                                          # How many moisture variables
                                          nmoist=nmoist)
-  vgeo = grid.vgeo
+
 
     
   #Read external sounding
-  ini_data_interp = interpolate_sounding(dim, N, Ne, vgeo)
+  vgeo = grid.vgeo
+  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
+
+  initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
     
   # This is a actual state/function that lives on the grid
-  #initialcondition(ini_data_interp, x...) = saturatedatmosphere(ini_data_interp, x...; ntrace=ntrace, nmoist=nmoist, dim=dim, N=N, Ne=Ne)
-    initialcondition(ini_data_interp, x...) = saturatedatmosphere(ini_data_interp, ntrace=ntrace, nmoist=nmoist, dim=dim, N=N, Ne=Ne, x...)
   Q = AtmosStateArray(spacedisc, initialcondition)
 
   # Determine the time step
@@ -394,6 +400,14 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, tim
   @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+
+  h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
+  for (j, n) = enumerate(spacedisc.moistrange)
+    @assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+  end
+  for (j, n) = enumerate(spacedisc.tracerange)
+    @assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+  end
 end
 
 let
@@ -410,13 +424,19 @@ let
   Ne = (10, 10, 10)
   N = 4
   timeend = 0.1
-  DFloat = Float64
+    DFloat = Float64
+    
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-        
+    
       brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
+
+      
+      #ic(x...) = risingthermalbubble(initial_sounding, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)     
       main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
+      #main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, ic, timeend)
+      
   end
-  
+
 end
 
 isinteractive() || MPI.Finalize()
