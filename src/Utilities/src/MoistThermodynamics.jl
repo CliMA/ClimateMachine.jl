@@ -12,7 +12,7 @@ using PlanetParameters
 using ..RootSolvers
 
 # Atmospheric equation of state
-export air_pressure, air_temperature, air_density
+export air_pressure, air_temperature, air_density, sound_speed
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
