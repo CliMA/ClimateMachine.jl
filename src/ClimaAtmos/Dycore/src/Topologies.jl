@@ -1,7 +1,8 @@
 module Topologies
 
 export AbstractTopology, AbstractStackedTopology
-export BrickTopology, StackedBrickTopology, CubedShellTopology
+export BrickTopology, StackedBrickTopology
+export CubedShellTopology, StackedCubedSphereTopology
 
 import Canary
 using MPI
@@ -857,6 +858,254 @@ function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
   end
 
   x, y, z
+end
+
+"""
+   StackedCubedSphereTopology(mpicomm, Nhorz, Rrange;
+                              bc=(1,1)) <: AbstractTopology{3}
+
+Generate a stacked cubed sphere topology with `Nhorz` by `Nhorz` cells for each
+horizontal face and `Rrange` is the radius edges of the stacked elements.  This
+topology actual creates a cube mesh, and the warping should be done after the
+grid is created using the `cubedshellwarp` function. The coordinates of the
+points will be of type `eltype(Rrange)`. The inner boundary condition type is
+`bc[1]` and the outer boundary condition type is `bc[2]`.
+
+The elements are stacked such that the vertical elements are contiguous in the
+element ordering.
+
+The elements of the brick are partitioned equally across the MPI ranks based
+on a space-filling curve. Further, stacks are not split at MPI boundaries.
+
+# Examples
+
+We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube, total
+elements is `10 * 10 * 5 * 6 = 3000`, with
+```jldoctest brickmesh
+using CLIMAAtmosDycore
+using CLIMAAtmosDycore.Topologies
+using MPI
+MPI.Init()
+Nhorz = 10
+Nstack = 5
+Rrange = Float64.(accumulate(+,1:Nstack+1))
+topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange)
+
+x, y, z = ntuple(j->reshape(topology.elemtocoord[j, :, :],
+                            2, 2, 2, length(topology.elems)), 3)
+for n = 1:length(x)
+   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
+end
+
+MPI.Finalize()
+```
+Note that the faces are listed in Cartesian order.
+"""
+struct StackedCubedSphereTopology{T} <: AbstractStackedTopology{3}
+  """
+  mpi communicator use for spatial discretization are using
+  """
+  mpicomm::MPI.Comm
+
+  """
+  number of elements in a stack
+  """
+  stacksize::Int64
+
+  """
+  range of element indices
+  """
+  elems::UnitRange{Int64}
+
+  """
+  range of real (aka nonghost) element indices
+  """
+  realelems::UnitRange{Int64}
+
+  """
+  range of ghost element indices
+  """
+  ghostelems::UnitRange{Int64}
+
+  """
+  array of send element indices sorted so that
+  """
+  sendelems::Array{Int64, 1}
+
+  """
+  element to vertex coordinates
+
+  `elemtocoord[d,i,e]` is the `d`th coordinate of corner `i` of element `e`
+
+  !!! note
+  currently coordinates always are of size 3 for `(x, y, z)`
+  """
+  elemtocoord::Array{T, 3}
+
+  """
+  element to neighboring element; `elemtoelem[f,e]` is the number of the element
+  neighboring element `e` across face `f`.  If there is no neighboring element
+  then `elemtoelem[f,e] == e`.
+  """
+  elemtoelem::Array{Int64, 2}
+
+  """
+  element to neighboring element face; `elemtoface[f,e]` is the face number of
+  the element neighboring element `e` across face `f`.  If there is no
+  neighboring element then `elemtoface[f,e] == f`."
+  """
+  elemtoface::Array{Int64, 2}
+
+  """
+  element to neighboring element order; `elemtoordr[f,e]` is the ordering number
+  of the element neighboring element `e` across face `f`.  If there is no
+  neighboring element then `elemtoordr[f,e] == 1`.
+  """
+  elemtoordr::Array{Int64, 2}
+
+  """
+  element to bounday number; `elemtobndy[f,e]` is the boundary number of face
+  `f` of element `e`.  If there is a neighboring element then `elemtobndy[f,e]
+  == 0`.
+  """
+  elemtobndy::Array{Int64, 2}
+
+  """
+  list of the MPI ranks for the neighboring processes
+  """
+  nabrtorank::Array{Int64, 1}
+
+  """
+  range in ghost elements to receive for each neighbor
+  """
+  nabrtorecv::Array{UnitRange{Int64}, 1}
+
+  """
+  range in `sendelems` to send for each neighbor
+  """
+  nabrtosend::Array{UnitRange{Int64}, 1}
+
+  function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
+                                      connectivity=:face, ghostsize=1)
+    T = eltype(Rrange)
+
+    basetopo = CubedShellTopology{T}(mpicomm, Nhorz; connectivity=connectivity,
+                                     ghostsize=ghostsize)
+
+    dim = 3
+    nvert = 2^dim
+    nface = 2dim
+    stacksize = length(Rrange) - 1
+
+    nreal = length(basetopo.realelems)*stacksize
+    nghost = length(basetopo.ghostelems)*stacksize
+
+    elems=1:(nreal+nghost)
+    realelems=1:nreal
+    ghostelems=nreal.+(1:nghost)
+
+    sendelems = similar(basetopo.sendelems,
+                        length(basetopo.sendelems)*stacksize)
+
+    for i=1:length(basetopo.sendelems), j=1:stacksize
+      sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
+    end
+
+    elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
+
+    for i=1:length(basetopo.elems), j=1:stacksize
+      # i is base element
+      # e is stacked element
+      e = stacksize*(i-1) + j
+
+
+      # v is base vertex
+      for v = 1:2^(dim-1)
+        for d = 1:dim # dim here since shell is embedded in 3-D
+          # v is lower stacked vertex
+          elemtocoord[d, v, e] = basetopo.elemtocoord[d, v, i] * Rrange[j]
+          # 2^(dim-1) + v is higher stacked vertex
+          elemtocoord[d, 2^(dim-1) + v, e] = basetopo.elemtocoord[d, v, i] *
+                                             Rrange[j+1]
+        end
+      end
+    end
+
+    elemtoelem = similar(basetopo.elemtoelem, nface, length(elems))
+    elemtoface = similar(basetopo.elemtoface, nface, length(elems))
+    elemtoordr = similar(basetopo.elemtoordr, nface, length(elems))
+    elemtobndy = similar(basetopo.elemtobndy, nface, length(elems))
+
+    for e=1:length(basetopo.elems)*stacksize, f=1:nface
+      elemtoelem[f, e] = e
+      elemtoface[f, e] = f
+      elemtoordr[f, e] = 1
+      elemtobndy[f, e] = 0
+    end
+
+    for i=1:length(basetopo.realelems), j=1:stacksize
+      e1 = stacksize*(i-1) + j
+
+      for f = 1:2(dim-1)
+        e2 = stacksize*(basetopo.elemtoelem[f, i]-1) + j
+
+        elemtoelem[f, e1] = e2
+        elemtoface[f, e1] = basetopo.elemtoface[f, i]
+
+        # since the basetopo is 2-D we only need to worry about two orientations
+        @assert basetopo.elemtoordr[f, i] ∈ (1,2)
+        #=
+        orientation 1:
+        2---3     2---3
+        |   | --> |   |
+        0---1     0---1
+        same:
+        (a,b) --> (a,b)
+
+        orientation 3:
+        2---3     3---2
+        |   | --> |   |
+        0---1     1---0
+        reverse first index:
+        (a,b) --> (N+1-a,b)
+        =#
+        elemtoordr[f, e1] = basetopo.elemtoordr[f, i] == 1 ? 1 : 3
+      end
+
+      # If top or bottom of stack set neighbor to self on respective face
+      elemtoelem[2(dim-1)+1, e1] = j == 1         ? e1 : stacksize*(i-1) + j - 1
+      elemtoelem[2(dim-1)+2, e1] = j == stacksize ? e1 : stacksize*(i-1) + j + 1
+
+      elemtoface[2(dim-1)+1, e1] = j == 1         ? 2(dim-1) + 1 : 2(dim-1) + 2
+      elemtoface[2(dim-1)+2, e1] = j == stacksize ? 2(dim-1) + 2 : 2(dim-1) + 1
+
+      elemtoordr[2(dim-1)+1, e1] = 1
+      elemtoordr[2(dim-1)+2, e1] = 1
+    end
+
+    # Set the top and bottom boundary condition
+    for i=1:length(basetopo.elems)
+      eb = stacksize*(i-1) + 1
+      et = stacksize*(i-1) + stacksize
+
+      elemtobndy[2(dim-1)+1, eb] = bc[1]
+      elemtobndy[2(dim-1)+2, et] = bc[2]
+    end
+
+    nabrtorank = basetopo.nabrtorank
+    nabrtorecv =
+      UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtorecv[n])-1)+1,
+                               stacksize*last(basetopo.nabrtorecv[n]))
+                     for n = 1:length(nabrtorank)]
+    nabrtosend =
+      UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtosend[n])-1)+1,
+                               stacksize*last(basetopo.nabrtosend[n]))
+                     for n = 1:length(nabrtorank)]
+
+    new{T}(mpicomm, stacksize, elems, realelems, ghostelems, sendelems,
+           elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
+           nabrtorank, nabrtorecv, nabrtosend)
+  end
 end
 
 end
