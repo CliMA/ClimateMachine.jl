@@ -5,7 +5,6 @@ using MPI
 
 export AtmosStateArray
 
-# TODO: Make MPI Aware
 struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
                        DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
