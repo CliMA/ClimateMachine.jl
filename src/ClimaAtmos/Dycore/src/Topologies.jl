@@ -531,9 +531,47 @@ struct StackedBrickTopology{dim, T} <: AbstractStackedTopology{dim}
 end
 
 """
-    CubedShellTopology{T}(mpicomm, Nelem)
-"""
+    CubedShellTopology{T}(mpicomm, Nelem) <: AbstractTopology{2}
 
+Generate a cubed shell mesh with the number of elements along each dimension of
+the cubes being `Nelem`. This topology actual creates a cube mesh, and the
+warping should be done after the grid is created using the `cubedshellwarp`
+function. The coordinates of the points will be of type `T`.
+
+The elements of the shell are partitioned equally across the MPI ranks based
+on a space-filling curve.
+
+Note that this topology is logically 2-D but embedded in a 3-D space
+
+# Examples
+
+We can build a cubed shell mesh with 10 elements on each cube, total elements is
+`10 * 10 * 6 = 600`, with
+```jldoctest brickmesh
+using CLIMAAtmosDycore
+using CLIMAAtmosDycore.Topologies
+using MPI
+MPI.Init()
+topology = CubedShellTopology{Float64}(MPI.COMM_SELF, 10)
+
+# Typically the warping would be done after the grid is created, but the cell
+# corners could be warped with...
+
+# Shell radius = 1
+x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
+for n = 1:length(x)
+   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
+end
+
+# Shell radius = 10
+x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
+for n = 1:length(x)
+  x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n], 10)
+end
+
+MPI.Finalize()
+```
+"""
 struct CubedShellTopology{T} <: AbstractTopology{2}
   """
   mpi communicator use for spatial discretization are using
