@@ -18,7 +18,7 @@ export air_pressure, air_temperature, air_density
 export total_energy, internal_energy, internal_energy_sat
 
 # Specific heats of moist air
-export cp_m, cv_m, gas_constant_air
+export cp_m, cv_m, gas_constant_air, moist_gas_constants
 
 # Latent heats
 export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
@@ -32,6 +32,16 @@ export liquid_fraction, phase_partitioning_eq!, saturation_adjustment
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export liquid_ice_pottemp
+
+
+"""
+    sound_speed(γ,P,ρ)
+Returns the speed of sound in moist air. 
+"""
+function sound_speed(γ, P, ρ)
+    return sqrt(γ * P/ ρ) 
+end
+
 
 """
     gas_constant_air([q_t=0, q_l=0, q_i=0])
@@ -103,6 +113,22 @@ function cv_m(q_t=0, q_l=0, q_i=0)
 
     return cv_d + (cv_v - cv_d)*q_t + (cv_l - cv_v)*q_l + (cv_i - cv_v)*q_i
 
+end
+
+
+"""
+    moist_gas_constants([q_t=0, q_l=0, q_i=0])
+
+Wrapper to return R_m, cv_m, cp_m, and gamma_m all at once
+"""
+function moist_gas_constants(q_t=0, q_l=0, q_i=0)
+
+    Rm  = gas_constant_air(q_t, q_l, q_i)
+    cpm = cp_m(q_t, q_l, q_i)
+    cvm = cv_m(q_t, q_l, q_i)
+    gammam = cpm/cvm
+
+    return (Rm, cpm, cvm, gammam)
 end
 
 """
