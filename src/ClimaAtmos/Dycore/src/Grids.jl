@@ -138,6 +138,7 @@ function mappings(N, elemtoelem, elemtoface, elemtoordr)
   fe(f) = N*mod(f-1,2)+1
   fmask = hcat((p[ntuple(j->(j==fd(f)) ? (fe(f):fe(f)) : (:), d)...][:]
                 for f=1:nface)...)
+  inds = LinearIndices(ntuple(j->N+1, d-1))
 
   vmapM = similar(elemtoelem, Nfp, nface, nelem)
   vmapP = similar(elemtoelem, Nfp, nface, nelem)
@@ -147,11 +148,19 @@ function mappings(N, elemtoelem, elemtoface, elemtoordr)
     f2 = elemtoface[f1,e1]
     o2 = elemtoordr[f1,e1]
 
-    # TODO support different orientations
-    @assert o2 == 1
-
     vmapM[:,f1,e1] .= Np*(e1-1) .+ fmask[:,f1]
-    vmapP[:,f1,e1] .= Np*(e2-1) .+ fmask[:,f2]
+
+    if o2 == 1
+      vmapP[:,f1,e1] .= Np*(e2-1) .+ fmask[:,f2]
+    elseif d == 3 && o2 == 3
+      n = 1
+      @inbounds for j = 1:N+1, i = N+1:-1:1
+        vmapP[n,f1,e1] = Np*(e2-1) + fmask[inds[i,j],f2]
+        n+=1
+      end
+    else
+      error("Orientation '$o2' with dim '$d' not supported yet")
+    end
   end
 
   (vmapM, vmapP)
