@@ -7,6 +7,8 @@ saturation specific humidities
 """
 module MoistThermodynamics
 
+using Cassette
+
 using PlanetParameters
 
 using ..RootSolvers
@@ -32,6 +34,14 @@ export liquid_fraction, phase_partitioning_eq!, saturation_adjustment
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export liquid_ice_pottemp
+
+abstract type Device end
+abstract type  GPU end
+struct CPU <: Device end
+struct CUDA <: GPU end
+
+""" Allows contextualize to propagate GPU intrinsics """
+contextualize(::CUDA, f::F) where F = (args...) -> Cassette.overdub(ctx, f, args...)
 
 """
     gas_constant_air([q_t=0, q_l=0, q_i=0])
@@ -446,6 +456,24 @@ function liquid_ice_pottemp(T, p, q_t=0, q_l=0, q_i=0)
     # of phase transitions as constants
     return pottemp * exp(-(LH_v0*q_l + LH_s0*q_i)/(_cp_m*T))
 
+end
+
+using Requires
+using Pkg
+if "CUDAnative" in keys(Pkg.installed())
+  using CUDAnative
+  using CUDAdrv
+  using CuArrays
+  @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
+    using .CUDAnative
+    using .CUDAnative.CUDAdrv
+
+    function liquid_ice_pottemp(T::CA, p::CA, q_t::CA, q_l::CA, q_i::CA) where CA<:CuArray
+      cu_liquid_ice_pottemp(T, p, q_t, q_l, q_i) = contextualize(CUDA(), liquid_ice_pottemp)(T, p, q_t, q_l, q_i)
+      CUDAnative.@cuda threads=length(T) liquid_ice_pottemp(CUDA(), T, p, q_t, q_l, q_i, cu_liquid_ice_pottemp)
+    end
+    # cu_liquid_ice_pottemp(args...) = contextualize(CUDA(), liquid_ice_pottemp)(args...)
+  end
 end
 
 end #module MoistThermodynamics.jl

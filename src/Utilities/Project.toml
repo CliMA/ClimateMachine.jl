@@ -4,7 +4,9 @@ uuid = "d528e2a8-1396-11e9-0475-bb99f588b544"
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 ParametersType = "046d00ba-03b1-11e9-3cca-b5213a01defd"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlanetParameters = "50a4fe1a-031f-11e9-2493-0505e0da639e"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
