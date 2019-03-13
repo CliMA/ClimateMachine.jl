@@ -3,13 +3,13 @@ using MPI
 
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
-using CLIMAAtmosDycore.Grids
-using CLIMAAtmosDycore.AtmosStateArrays
+using ..Grids
+using ..AtmosStateArrays
 
 export VanillaAtmosDiscretization
 
-using ParametersType
-using PlanetParameters: cp_d, cv_d, R_d, grav
+using ...ParametersType
+using ...PlanetParameters: cp_d, cv_d, R_d, grav
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 

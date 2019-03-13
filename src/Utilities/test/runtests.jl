@@ -1,10 +1,10 @@
 
-using Utilities, PlanetParameters
+using CLIMA.Utilities, CLIMA.PlanetParameters
 
 using Test
 
-using Utilities.MoistThermodynamics
-using Utilities.RootSolvers
+using CLIMA.Utilities.MoistThermodynamics
+using CLIMA.Utilities.RootSolvers
 
 using LinearAlgebra
 
