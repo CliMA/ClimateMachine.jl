@@ -128,16 +128,23 @@ end
   end
 end
 
-const HAVE_CUDA = try
+@static if Base.find_package("CuArrays") != nothing
   using CUDAdrv
   using CUDAnative
   using CuArrays
-  true
-catch
-  false
-end
-@testset "CUDA RootSolvers" begin
-  if HAVE_CUDA
+  @testset "CUDA Moist Thermo" begin
+    # L = try
+      T = cu(rand(5,5))
+      p = cu(rand(5,5))
+      temp = liquid_ice_pottemp.(T, p)
+    #   true
+    # catch
+    #   false
+    # end
+    # @test L
+  end
+
+  @testset "CUDA RootSolvers" begin
     for m in RootSolvers.get_solve_methods()
       x_ca = cu(rand(5, 5))
       x_ca_0 = x_ca
