@@ -255,6 +255,7 @@ function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_a
   ustar_0 = u_ave * k_Karman / log(Δz / z_0)
   ustar = ustar_0
   let u_ave=u_ave, θ=θ, flux=flux, Δz=Δz, z_0=z_0, a=a, Ψ_m_tol=Ψ_m_tol, tol_abs=tol_abs, iter_max=iter_max
+    # Note the lowercase psi (ψ) and uppercase psi (Ψ):
     Ψ_m_closure(ζ, L) = compute_Ψ_m(ζ, L, a, Ψ_m_tol)
     ψ_m_closure(ζ, L) = compute_ψ_m(ζ, L, a)
     function compute_u_ave_over_ustar(u)
