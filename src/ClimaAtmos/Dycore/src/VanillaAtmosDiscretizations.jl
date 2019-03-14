@@ -199,9 +199,8 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
           s = _nstate + m
           q_m[m] = Q[n, s, e]
       end
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.gas_constants(q_m[1], q_m[2], q_m[3])
+      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
       gdm1 = R_m/cv_m
-      @show(nmoist)
       P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
