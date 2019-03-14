@@ -41,26 +41,21 @@ using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 # Interpolate the sounding along the FIRST column of the grid.
 # TODO: Needs a generic solution for interpolation across LGL quadrature points
 function read_sounding()
-    
     #read in the original squal sounding
     #fsounding  = open(joinpath(@__DIR__, "soundings/sounding_GC1991.dat"))
     fsounding = open("/Users/admin/Research/Codes/CLIMA/src/ClimaAtmos/Dycore/soundings/sounding_GC1991.dat")
     sound_data = readdlm(fsounding)
     close(fsounding)
-
     (nzmax, ncols) = size(sound_data)
     if nzmax == 0
         error(" SOUNDING ERROR: The Sounding file is empty!")
     end
-    
     return (sound_data, nzmax, ncols)
-     
 end
 
 function interpolate_sounding(dim, N, Ne, vgeo)
     # !!!WARNING!!! This function can only work for sturctured grids with vertical boundaries!!!
     # !!!TO BE REWRITTEN FOR THE GENERAL CODE!!!!
-    
     # {{{ FIXME: remove this after we've figure out how to pass through to kernel
     γ::Float64       = gamma_d
     p0::Float64      = MSLP
@@ -100,10 +95,8 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         zinit,   tinit, qinit, uinit, vinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5]
     end
     
-    #
     # create vector with all the z-values of the current processor
     # (avoids using column structure for better domain decomposition when no rain is used. AM)
-    #
     nz         = Ne_v*N + 1
     
     dataz      = zeros(Float64, nz)
@@ -130,16 +123,12 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     nzmax      = 2
     @inbounds for e = 1:nelem
         for j = 1:Nq
-            
             x = vgeo[1, j, _x, e]
             z = vgeo[1, j, _z, e]
             if abs(x - xmin) <= 1.0e-5
-                
                 if (abs(z - zprev) > 1.0e-5 && z <= zmax+1.0e-5) #take un-repeated values
-                    
                     dataz[nzmax]   = z
                     zprev          = z                   
-                    #@show("z: ", nz,nzmax, dataz[nzmax])
                     nzmax          = nzmax + 1
                 end
             end       
@@ -154,7 +143,6 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     # interpolate to the actual LGL points in vertical
     # dataz is given
     #------------------------------------------------------
-    varout = 0.0
     spl_tinit = Spline1D(zinit, tinit; k=1)
     spl_qinit = Spline1D(zinit, qinit; k=1)
     spl_uinit = Spline1D(zinit, uinit; k=1)
@@ -226,10 +214,8 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     end
     
     for k = 1:nzmax
-        #        datarho[k]=datap[k]/(R_gas*datapi[k]*datat[k])
         datarho[k] = datap[k]/(R_gas * datapi[k] * thetav[k])
         e          = dataq[k] * datap[k] * rvapor/(dataq[k] * rvapor + R_gas)
-        
     end        
     
     for k = 1:nzmax
@@ -243,7 +229,7 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         ini_data_interp[k, 8] = datapi[k]  #exner
         ini_data_interp[k, 9] = thetav[k]  #thetav
     end
-    
+    @show(size(ini_data_interp))
     return ini_data_interp
 end
 
@@ -339,30 +325,6 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   npts = N
   #initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
   # ASR ASR ASR   
-  
-  # What if we build the interpolated grid assignment within the driver main 
-  # This comes with the specification of N and Ne prior to calling main and acccesing the AtmosStateArray to initialise the state 
- 
-  @inbounds for e = 1:nelem, i = 1:(N+1)^dim
-       
-      x, y, z  = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
-        
-        Qinit = ic(sound_ini_interp, x, y)
-        Q[i, _U, e]        = Qinit[1]
-        Q[i, _V, e]        = Qinit[2]
-        Q[i, _ρ, e]        = Qinit[3]
-        Q[i, _E, e]        = Qinit[4]         #theta
-        Q[i, _nstate+1, e] = Qinit[_nstate+1] #See initial condition of specific case
-        Q[i, _nstate+2, e] = Qinit[_nstate+2] #Theta background
-        Q[i, _nstate+3, e] = Qinit[_nstate+3] #See initial condition of specific case
-        
-        #Add moist variables
-        @inbounds for istate = (_nsd+2)+1:_nstate
-            Q[i, istate, e] = Qinit[istate]
-        end
-        
-  end
-  
   @show("------SUCCESS------")
 # ASR ASR 
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
