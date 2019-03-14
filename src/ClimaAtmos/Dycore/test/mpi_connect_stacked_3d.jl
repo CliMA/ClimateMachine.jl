@@ -15,18 +15,18 @@ function main()
   topology = StackedBrickTopology(comm, (1:4,5:8,9:12), periodicity=(false,true,false),
                                   boundary=[1 3 5; 2 4 6])
 
-  @show elems       = topology.elems
-  @show realelems   = topology.realelems
-  @show ghostelems  = topology.ghostelems
-  @show sendelems   = topology.sendelems
-  @show elemtocoord = topology.elemtocoord
-  @show elemtoelem  = topology.elemtoelem
-  @show elemtoface  = topology.elemtoface
-  @show elemtoordr  = topology.elemtoordr
-  @show elemtobndy  = topology.elemtobndy
-  @show nabrtorank  = topology.nabrtorank
-  @show nabrtorecv  = topology.nabrtorecv
-  @show nabrtosend  = topology.nabrtosend
+  elems       = topology.elems
+  realelems   = topology.realelems
+  ghostelems  = topology.ghostelems
+  sendelems   = topology.sendelems
+  elemtocoord = topology.elemtocoord
+  elemtoelem  = topology.elemtoelem
+  elemtoface  = topology.elemtoface
+  elemtoordr  = topology.elemtoordr
+  elemtobndy  = topology.elemtobndy
+  nabrtorank  = topology.nabrtorank
+  nabrtorecv  = topology.nabrtorecv
+  nabrtosend  = topology.nabrtosend
 
   globalelemtoface = [1  1  1  2  2  2  2  2  2  1  1  1  1  1  1  2  2  2  2  2  2  2  2  2  2  2  2
                       1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  2  2  2  2  2  2  2  2  2
