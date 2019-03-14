@@ -3,6 +3,7 @@ using Test
 
 subpackags = [
               "CLIMAAtmosDycore",
+              "SurfaceFluxes",
               "ParametersType",
               "PlanetParameters",
               "Utilities",
