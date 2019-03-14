@@ -439,16 +439,17 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                     rhs::Array, Q, grad, vgeo, gravity, viscosity, D,
                     elems) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
-  nvar = _nstate + nmoist + ntrace
-  ngrad = _nstategrad + 3nmoist
+  nvar   = _nstate + nmoist + ntrace
+  ngrad  = _nstategrad + 3nmoist
+  dim    = 2
 
   Nq = N + 1
 
   nelem = size(Q)[end]
 
-  Q = reshape(Q, Nq, Nq, nvar, nelem)
+  Q    = reshape(Q, Nq, Nq, nvar, nelem)
   grad = reshape(grad, Nq, Nq, ngrad, nelem)
-  rhs = reshape(rhs, Nq, Nq, nvar, nelem)
+  rhs  = reshape(rhs, Nq, Nq, nvar, nelem)
   vgeo = reshape(vgeo, Nq, Nq, _nvgeo, nelem)
 
   s_F = Array{DFloat}(undef, Nq, Nq, _nstate)
@@ -459,12 +460,16 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   q_m = zeros(DFloat, max(3, nmoist))
     
   @inbounds for e in elems
+
+    delta = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
+    delta2 = delta*delta
+    
     for j = 1:Nq, i = 1:Nq
       MJ = vgeo[i, j, _MJ, e]
       ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
       ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
       y = vgeo[i,j,_y,e]
-
+ 
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
         
@@ -478,8 +483,9 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
       ρx, ρy = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
-      ux, uy = grad[i,j,_ux,e], grad[i,j,_uy,e]
-      vx, vy = grad[i,j,_vx,e], grad[i,j,_vy,e]
+      ux, uy, uz = grad[i,j,_ux,e], grad[i,j,_uy,e], 0.0
+      vx, vy, vz = grad[i,j,_vx,e], grad[i,j,_vy,e], 0.0
+      wx, wy, wz =             0.0,             0.0, 0.0
       Tx, Ty = grad[i,j,_Tx,e], grad[i,j,_Ty,e]
 
       ρinv = 1 / ρ
@@ -510,6 +516,24 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       fluxV_y = v * V + P    - viscosity*vfluxV_y
       fluxE_y = v * (E + P)  - viscosity*vfluxE_y
 
+      #---------------------------------------------------------
+      # BUILD magnitude of strain tensor 
+      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
+      #---------------------------------------------------------
+      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
+                S22 = vy;            S23 = (vz + wy)*0.5;
+                                     S33 = wz;
+
+      # |Sij| = sqrt(2*Sij*Sij)     
+      SijSij = S11*S11 + S12*S12 + S13*S13 + 
+               S12*S12 + S22*S22 + S23*S23 + 
+               S13*S13 + S23*S23 + S33*S33      
+      modSij = sqrt(2.0*SijSij)
+
+      #Smagorinsky eddy viscosities:
+      Km = Cs*Cs*delta2*modSij #/sqrt(2.0)
+      Kh = 3.0*Km                 #3.0 comes from KW 1978 paper
+        
       s_F[i, j, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y)
       s_F[i, j, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y)
       s_F[i, j, _V] = MJ * (ξx * fluxV_x + ξy * fluxV_y)
@@ -619,6 +643,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                     elems) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
 
+  dim = 3
   nvar = _nstate + nmoist + ntrace
   ngrad = _nstategrad + 3nmoist
 
@@ -641,6 +666,10 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   q_m   = zeros(DFloat, max(3, nmoist))
 
   @inbounds for e in elems
+
+    delta = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
+    delta2 = delta*delta
+      
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
       MJ = vgeo[i, j, k, _MJ, e]
       MJI = vgeo[i, j, k, _MJI, e]
@@ -666,7 +695,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       vx, vy, vz = grad[i,j,k,_vx,e], grad[i,j,k,_vy,e], grad[i,j,k,_vz,e]
       wx, wy, wz = grad[i,j,k,_wx,e], grad[i,j,k,_wy,e], grad[i,j,k,_wz,e]
       Tx, Ty, Tz = grad[i,j,k,_Tx,e], grad[i,j,k,_Ty,e], grad[i,j,k,_Tz,e]
-
+        
       ρinv = 1 / ρ
 
       ldivu = stokes*(ux + vy + wz)
@@ -711,7 +740,26 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       fluxV_z = w * V       - viscosity*vfluxV_z
       fluxW_z = w * W + P   - viscosity*vfluxW_z
       fluxE_z = w * (E + P) - viscosity*vfluxE_z
+      
+      #---------------------------------------------------------
+      # BUILD magnitude of strain tensor 
+      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
+      #---------------------------------------------------------
+      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
+                S22 = vy;            S23 = (vz + wy)*0.5;
+                                     S33 = wz;
 
+      # |Sij| = sqrt(2*Sij*Sij)     
+      SijSij = S11*S11 + S12*S12 + S13*S13 + 
+               S12*S12 + S22*S22 + S23*S23 + 
+               S13*S13 + S23*S23 + S33*S33      
+      modSij = sqrt(2.0*SijSij)
+
+      #Smagorinsky eddy viscosities:
+      Km = Cs*Cs*delta2*modSij #/sqrt(2.0)
+      Kh = 3.0*Km                 #3.0 comes from KW 1978 paper
+
+        
       s_F[i, j, k, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y + ξz * fluxρ_z)
       s_F[i, j, k, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y + ξz * fluxU_z)
       s_F[i, j, k, _V] = MJ * (ξx * fluxV_x + ξy * fluxV_y + ξz * fluxV_z)
