@@ -39,11 +39,12 @@ using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 # interpolate_sounding()
 #
 # Interpolate the sounding along the FIRST column of the grid.
-#
+# TODO: Needs a generic solution for interpolation across LGL quadrature points
 function read_sounding()
     
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "soundings/sounding_GC1991.dat"))
+    #fsounding  = open(joinpath(@__DIR__, "soundings/sounding_GC1991.dat"))
+    fsounding = open("/Users/admin/Research/Codes/CLIMA/src/ClimaAtmos/Dycore/soundings/sounding_GC1991.dat")
     sound_data = readdlm(fsounding)
     close(fsounding)
 
@@ -57,10 +58,8 @@ function read_sounding()
 end
 
 function interpolate_sounding(dim, N, Ne, vgeo)
-    #
     # !!!WARNING!!! This function can only work for sturctured grids with vertical boundaries!!!
     # !!!TO BE REWRITTEN FOR THE GENERAL CODE!!!!
-    #
     
     # {{{ FIXME: remove this after we've figure out how to pass through to kernel
     γ::Float64       = gamma_d
@@ -73,7 +72,11 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     
     #Get sizes
     (sound_data, nmax, ncols) = read_sounding()
-    
+  
+    #read in the original squal sounding
+    (nzmax, ncols) = size(sound_data)
+
+
     Np = (N+1)^dim
     Nq = N + 1
     (~, ~, nelem) = size(vgeo)
@@ -115,6 +118,7 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     ini_data_interp = zeros(Float64, nz, 10)
 
     # WARNING:
+    # FIXME
     # 1) REWRITE THIS TO WORK in PARALELL. NOW ONLY WORJKS IN SERIAL
     # 2) REWRITE THIS FOR 3D
     z          = vgeo[1, 1, _z, 1]
@@ -246,6 +250,7 @@ end
 
 
 # FIXME: Will these keywords args be OK?
+# FIXME: Build in tuple of i.c. variables passed across entire spatial domain - 
 function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
   γ::DFloat       = gamma_d
@@ -255,11 +260,11 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
 
-   # (nz, ~) = size(initial_sounding)
-    #for k=1:nz
-    #    @show(initial_sounding[k, 1])
-    #end
-   # @show(x[dim])
+   #= (nz, ~) = size(initial_sounding)
+    for k=1:nz
+        @show(initial_sounding[k, 1])
+    end
+   @show(x[dim]) =#
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
@@ -283,15 +288,13 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-  (ρ=ρ, U=U, V=V, W=W, E=E,
-   Qmoist=ntuple(j->(j*ρ), nmoist))
-   
-   #, Qtrace=ntuple(j->(-j*ρ), ntrace))
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(j*ρ), nmoist))
 end
 
 #function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
 #              initialcondition, timeend; gravity=true, dt=nothing,
 #              exact_timeend=true)
+
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
@@ -318,7 +321,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
                                           # or topography maps)
                                           # warp = warpgridfun
                                          )
-
+  
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = VanillaAtmosDiscretization(grid,
                                          # Use gravity?
@@ -332,10 +335,38 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     
   #Read external sounding
   vgeo = grid.vgeo
-  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
-
+  nelem = Ne
+  npts = N
+  #initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
+  # ASR ASR ASR   
+  
+  # What if we build the interpolated grid assignment within the driver main 
+  # This comes with the specification of N and Ne prior to calling main and acccesing the AtmosStateArray to initialise the state 
+ 
+  @inbounds for e = 1:nelem, i = 1:(N+1)^dim
+       
+      x, y, z  = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
+        
+        Qinit = ic(sound_ini_interp, x, y)
+        Q[i, _U, e]        = Qinit[1]
+        Q[i, _V, e]        = Qinit[2]
+        Q[i, _ρ, e]        = Qinit[3]
+        Q[i, _E, e]        = Qinit[4]         #theta
+        Q[i, _nstate+1, e] = Qinit[_nstate+1] #See initial condition of specific case
+        Q[i, _nstate+2, e] = Qinit[_nstate+2] #Theta background
+        Q[i, _nstate+3, e] = Qinit[_nstate+3] #See initial condition of specific case
+        
+        #Add moist variables
+        @inbounds for istate = (_nsd+2)+1:_nstate
+            Q[i, istate, e] = Qinit[istate]
+        end
+        
+  end
+  
+  @show("------SUCCESS------")
+# ASR ASR 
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
-    
+  
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
 
@@ -424,19 +455,13 @@ let
   Ne = (10, 10, 10)
   N = 4
   timeend = 0.1
-    DFloat = Float64
+  DFloat = Float64
     
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-    
       brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-
-      
       #ic(x...) = risingthermalbubble(initial_sounding, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)     
       main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
-      #main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, ic, timeend)
-      
   end
-
 end
 
 isinteractive() || MPI.Finalize()
