@@ -1,0 +1,10 @@
+name = "Solvers"
+uuid = "62eaf91e-2003-11e9-05fe-d11272ad7c27"
+authors = ["Charles Kawczynski <kawczynski.charles@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Fields = "d694f6f4-3bb4-11e9-36d3-83bb115c7e25"
+Grids = "cf49d1e4-3bb4-11e9-1091-81a41800ccf3"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
