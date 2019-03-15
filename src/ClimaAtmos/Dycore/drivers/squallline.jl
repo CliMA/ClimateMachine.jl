@@ -30,29 +30,38 @@ using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
+
+
 # {{{
 #        SOUNDING operations:
+#
 # read_sound()
 # interpolate_sounding()
+#
 # Interpolate the sounding along the FIRST column of the grid.
-# TODO: Needs a generic solution for interpolation across LGL quadrature points
-
+#
 function read_sounding()
+    
     #read in the original squal sounding
-    #fsounding  = open(joinpath(@__DIR__, "soundings/sounding_GC1991.dat"))
     fsounding = open("/Users/admin/Research/Codes/CLIMA/src/ClimaAtmos/Dycore/soundings/sounding_GC1991.dat")
     sound_data = readdlm(fsounding)
     close(fsounding)
+
     (nzmax, ncols) = size(sound_data)
     if nzmax == 0
         error(" SOUNDING ERROR: The Sounding file is empty!")
     end
+    
     return (sound_data, nzmax, ncols)
+     
 end
 
 function interpolate_sounding(dim, N, Ne, vgeo)
+    #
     # !!!WARNING!!! This function can only work for sturctured grids with vertical boundaries!!!
     # !!!TO BE REWRITTEN FOR THE GENERAL CODE!!!!
+    #
+    
     # {{{ FIXME: remove this after we've figure out how to pass through to kernel
     γ::Float64       = gamma_d
     p0::Float64      = MSLP
@@ -64,11 +73,7 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     
     #Get sizes
     (sound_data, nmax, ncols) = read_sounding()
-  
-    #read in the original squal sounding
-    (nzmax, ncols) = size(sound_data)
-
-
+    
     Np = (N+1)^dim
     Nq = N + 1
     (~, ~, nelem) = size(vgeo)
@@ -81,7 +86,7 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         vgeo = reshape(vgeo, Nq, Nq, size(vgeo,2), nelem)      
     elseif(dim == 3)
         _x, _z = 12, 14
-        vgeo= reshape(vgeo, Nq, Nq, Nq, size(vgeo,2), nelem)
+        vgeo = reshape(vgeo, Nq, Nq, Nq, size(vgeo,2), nelem)
     end
     
     if ncols == 6
@@ -92,8 +97,10 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         zinit,   tinit, qinit, uinit, vinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5]
     end
     
+    #
     # create vector with all the z-values of the current processor
     # (avoids using column structure for better domain decomposition when no rain is used. AM)
+    #
     nz         = Ne_v*N + 1
     
     dataz      = zeros(Float64, nz)
@@ -104,33 +111,31 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     datap      = zeros(Float64, nz)
     thetav     = zeros(Float64, nz)
     datapi     = zeros(Float64, nz)
-    ρ      = zeros(Float64, nz)
-    U      = zeros(Float64, nz)
-    V      = zeros(Float64, nz)
-    P      = zeros(Float64, nz)
-    T      = zeros(Float64, nz)
-    E      = zeros(Float64, nz)
     datarho    = zeros(Float64, nz)
     ini_data_interp = zeros(Float64, nz, 10)
 
     # WARNING:
-    # FIXME
     # 1) REWRITE THIS TO WORK in PARALELL. NOW ONLY WORJKS IN SERIAL
     # 2) REWRITE THIS FOR 3D
     z          = vgeo[1, 1, _z, 1]
     zmax       = maximum(vgeo[:, :, _z, :])
+    
     dataz[1]   = z
     zprev      = z
     xmin       = 1.0e-8; #Take this value from the grid if xmin != 0.0
     nzmax      = 2
     @inbounds for e = 1:nelem
         for j = 1:Nq
+            
             x = vgeo[1, j, _x, e]
             z = vgeo[1, j, _z, e]
             if abs(x - xmin) <= 1.0e-5
+                
                 if (abs(z - zprev) > 1.0e-5 && z <= zmax+1.0e-5) #take un-repeated values
+                    
                     dataz[nzmax]   = z
                     zprev          = z                   
+                    #@show("z: ", nz,nzmax, dataz[nzmax])
                     nzmax          = nzmax + 1
                 end
             end       
@@ -145,6 +150,7 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     # interpolate to the actual LGL points in vertical
     # dataz is given
     #------------------------------------------------------
+    varout = 0.0
     spl_tinit = Spline1D(zinit, tinit; k=1)
     spl_qinit = Spline1D(zinit, qinit; k=1)
     spl_uinit = Spline1D(zinit, uinit; k=1)
@@ -198,16 +204,17 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         datap[1]  = p0
     end
     thetav[1] = datat[1]*(1.0 + 0.608*dataq[1])
-    
     for k = 2:nzmax
         thetav[k] = datat[k]*(1.0 + 0.608*dataq[k])
+        #        datapi[k]=datapi[k-1]-gravity/(cp*0.5*(datat[k]+datat[k-1]))* &
+        #                               (dataz[k]-dataz[k-1])
         if(ncols == 5)
+            
             datapi[k] = datapi[k-1] - (gravity/(c_p*0.5*(thetav[k]+thetav[k-1])))*(dataz[k] - dataz[k-1])
             #Pressure is computed only if it is NOT passed in the sounding file
             datap[k] = p0*datapi[k]^(c_p/R_gas)
         end
     end
-
     if(ncols == 6)
         for k = 1:nzmax
             datapi[k] = (datap[k]/MSLP)^c2
@@ -215,8 +222,10 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     end
     
     for k = 1:nzmax
+        #        datarho[k]=datap[k]/(R_gas*datapi[k]*datat[k])
         datarho[k] = datap[k]/(R_gas * datapi[k] * thetav[k])
         e          = dataq[k] * datap[k] * rvapor/(dataq[k] * rvapor + R_gas)
+        
     end        
     
     for k = 1:nzmax
@@ -230,26 +239,14 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         ini_data_interp[k, 8] = datapi[k]  #exner
         ini_data_interp[k, 9] = thetav[k]  #thetav
     end
-
-    @show(size(ini_data_interp))
-    zcoord = ini_data_interp[:,1],
-   
-    ρ = ini_data_interp[:,7],
-    U = ini_data_interp[:,4],
-    V = ini_data_interp[:,5],
-    P = ini_data_interp[:,6],
-    T = P .* ( 1 ./ (ρ * R_gas))
-    E = ρ .* (c_v .* T + (u .^ 2 + v .^ 2 ) / 2 .+ gravity .* zcoord)
-    Qmoist = ntuple(j->(j*ρ), nmoist)
-
-    return (ρ=ρ, U=U, V=V, E=E, Qmoist=Qmoist)#ini_data_interp
+    
+    return ini_data_interp
 end
 
 
-# FIXME: Will these keywords args be OK?
-# FIXME: Build in tuple of i.c. variables passed across entire spatial domain - 
 
-function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
+# FIXME: Will these keywords args be OK?
+function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
@@ -258,6 +255,11 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
 
+   # (nz, ~) = size(initial_sounding)
+    #for k=1:nz
+    #    @show(initial_sounding[k, 1])
+    #end
+   # @show(x[dim])
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
@@ -281,19 +283,18 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(j*ρ), nmoist))
-  #, Qtrace=ntuple(j->(-j*ρ),ntrace))
-  @show(initial_sounding)
+  (ρ=ρ, U=U, V=V, W=W, E=E,
+   Qmoist=ntuple(j->(j*ρ), nmoist))
+   #, Qtrace=ntuple(j->(-j*ρ), ntrace))
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
-              initialcondition, timeend; gravity=true, dt=nothing, exact_timeend=true)
+#function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+#              initialcondition, timeend; gravity=true, dt=nothing,
+#              exact_timeend=true)
 
-#=
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
               exact_timeend=true)
-=#
 
   dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
@@ -316,7 +317,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
                                           # or topography maps)
                                           # warp = warpgridfun
                                          )
-  
+
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = VanillaAtmosDiscretization(grid,
                                          # Use gravity?
@@ -331,8 +332,8 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   #Read external sounding
   vgeo = grid.vgeo
   initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
+
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
-  
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
 
@@ -421,12 +422,19 @@ let
   Ne = (10, 10, 10)
   N = 4
   timeend = 0.1
-  DFloat = Float64
+    DFloat = Float64
     
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+    
       brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, initialcondition, timeend)
+
+      
+      #ic(x...) = risingthermalbubble(initial_sounding, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)     
+      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
+      #main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, ic, timeend)
+      
   end
+
 end
 
 isinteractive() || MPI.Finalize()
