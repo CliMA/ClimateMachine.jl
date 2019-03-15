@@ -30,16 +30,13 @@ using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
-
-
 # {{{
 #        SOUNDING operations:
-#
 # read_sound()
 # interpolate_sounding()
-#
 # Interpolate the sounding along the FIRST column of the grid.
 # TODO: Needs a generic solution for interpolation across LGL quadrature points
+
 function read_sounding()
     #read in the original squal sounding
     #fsounding  = open(joinpath(@__DIR__, "soundings/sounding_GC1991.dat"))
@@ -84,7 +81,7 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         vgeo = reshape(vgeo, Nq, Nq, size(vgeo,2), nelem)      
     elseif(dim == 3)
         _x, _z = 12, 14
-        vgeo = reshape(vgeo, Nq, Nq, Nq, size(vgeo,2), nelem)
+        vgeo= reshape(vgeo, Nq, Nq, Nq, size(vgeo,2), nelem)
     end
     
     if ncols == 6
@@ -107,6 +104,12 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     datap      = zeros(Float64, nz)
     thetav     = zeros(Float64, nz)
     datapi     = zeros(Float64, nz)
+    ρ      = zeros(Float64, nz)
+    U      = zeros(Float64, nz)
+    V      = zeros(Float64, nz)
+    P      = zeros(Float64, nz)
+    T      = zeros(Float64, nz)
+    E      = zeros(Float64, nz)
     datarho    = zeros(Float64, nz)
     ini_data_interp = zeros(Float64, nz, 10)
 
@@ -116,7 +119,6 @@ function interpolate_sounding(dim, N, Ne, vgeo)
     # 2) REWRITE THIS FOR 3D
     z          = vgeo[1, 1, _z, 1]
     zmax       = maximum(vgeo[:, :, _z, :])
-    
     dataz[1]   = z
     zprev      = z
     xmin       = 1.0e-8; #Take this value from the grid if xmin != 0.0
@@ -196,17 +198,16 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         datap[1]  = p0
     end
     thetav[1] = datat[1]*(1.0 + 0.608*dataq[1])
+    
     for k = 2:nzmax
         thetav[k] = datat[k]*(1.0 + 0.608*dataq[k])
-        #        datapi[k]=datapi[k-1]-gravity/(cp*0.5*(datat[k]+datat[k-1]))* &
-        #                               (dataz[k]-dataz[k-1])
         if(ncols == 5)
-            
             datapi[k] = datapi[k-1] - (gravity/(c_p*0.5*(thetav[k]+thetav[k-1])))*(dataz[k] - dataz[k-1])
             #Pressure is computed only if it is NOT passed in the sounding file
             datap[k] = p0*datapi[k]^(c_p/R_gas)
         end
     end
+
     if(ncols == 6)
         for k = 1:nzmax
             datapi[k] = (datap[k]/MSLP)^c2
@@ -229,15 +230,26 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         ini_data_interp[k, 8] = datapi[k]  #exner
         ini_data_interp[k, 9] = thetav[k]  #thetav
     end
-    @show(size(ini_data_interp))
-    return ini_data_interp
-end
 
+    @show(size(ini_data_interp))
+    zcoord = ini_data_interp[:,1],
+   
+    ρ = ini_data_interp[:,7],
+    U = ini_data_interp[:,4],
+    V = ini_data_interp[:,5],
+    P = ini_data_interp[:,6],
+    T = P .* ( 1 ./ (ρ * R_gas))
+    E = ρ .* (c_v .* T + (u .^ 2 + v .^ 2 ) / 2 .+ gravity .* zcoord)
+    Qmoist = ntuple(j->(j*ρ), nmoist)
+
+    return (ρ=ρ, U=U, V=V, E=E, Qmoist=Qmoist)#ini_data_interp
+end
 
 
 # FIXME: Will these keywords args be OK?
 # FIXME: Build in tuple of i.c. variables passed across entire spatial domain - 
-function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=3)
+
+function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
   DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
@@ -246,11 +258,6 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
 
-   #= (nz, ~) = size(initial_sounding)
-    for k=1:nz
-        @show(initial_sounding[k, 1])
-    end
-   @show(x[dim]) =#
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
@@ -275,16 +282,18 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
   T = P / (ρ * R_gas)
   E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
   (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(j*ρ), nmoist))
+  #, Qtrace=ntuple(j->(-j*ρ),ntrace))
+  @show(initial_sounding)
 end
 
-#function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
-#              initialcondition, timeend; gravity=true, dt=nothing,
-#              exact_timeend=true)
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+              initialcondition, timeend; gravity=true, dt=nothing, exact_timeend=true)
 
-
+#=
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
               exact_timeend=true)
+=#
 
   dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
@@ -321,12 +330,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     
   #Read external sounding
   vgeo = grid.vgeo
-  nelem = Ne
-  npts = N
-  #initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
-  # ASR ASR ASR   
-  @show("------SUCCESS------")
-# ASR ASR 
+  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
   # This is a actual state/function that lives on the grid
@@ -421,8 +425,7 @@ let
     
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-      #ic(x...) = risingthermalbubble(initial_sounding, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)     
-      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
+      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, initialcondition, timeend)
   end
 end
 
