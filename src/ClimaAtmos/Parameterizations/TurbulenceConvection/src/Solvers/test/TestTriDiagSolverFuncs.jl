@@ -4,7 +4,6 @@ using LinearAlgebra
 
 using Solvers: TriDiagSolverFuncs
 using Grids
-using Fields
 
 @testset "TriDiagSolverFuncs" begin
   N = 2:10

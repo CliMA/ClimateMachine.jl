@@ -5,12 +5,6 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 deps = ["LinearAlgebra", "Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
-[[Fields]]
-deps = ["Grids", "Test"]
-path = "../Fields"
-uuid = "d694f6f4-3bb4-11e9-36d3-83bb115c7e25"
-version = "0.1.0"
-
 [[Grids]]
 deps = ["Test"]
 path = "../Grids"

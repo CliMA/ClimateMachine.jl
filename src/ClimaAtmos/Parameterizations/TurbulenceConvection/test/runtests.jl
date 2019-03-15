@@ -4,6 +4,7 @@ using Test
 subpackags = [
               "Grids",
               "StateVecs",
+              "Solvers",
              ]
 
 # Code coverage command line options; must correspond to src/julia.h
