@@ -24,7 +24,7 @@ export cp_m, cv_m, gas_constant_air
 export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
 
 # Saturation vapor pressures and specific humidities over liquid and ice
-export Liquid, Ice, Generic
+export Liquid, Ice
 export saturation_vapor_pressure, sat_shum_generic, sat_shum
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
