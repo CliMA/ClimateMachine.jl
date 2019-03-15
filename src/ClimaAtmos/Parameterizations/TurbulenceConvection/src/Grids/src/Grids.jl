@@ -4,7 +4,9 @@ include("BoundaryConditions.jl")
 include("FieldTypes.jl")
 
 export Grid
-export over_nodes, over_nodes_real, over_centers, over_centers_real
+export over_elems
+export over_nodes, over_nodes_real
+export over_centers, over_centers_real
 export Center, Node, get_type, suffix
 
 # New interface:
