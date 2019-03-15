@@ -1,0 +1,10 @@
+name = "StateVecs"
+uuid = "15fa1bb0-4747-11e9-181d-f5e39f85efc6"
+authors = ["Charles Kawczynski <kawczynski.charles@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Grids = "cf49d1e4-3bb4-11e9-1091-81a41800ccf3"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
