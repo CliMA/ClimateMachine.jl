@@ -2,14 +2,8 @@ using Pkg
 using Test
 
 subpackags = [
-              "PhysicalProps",
-              "PrimitiveFuncs",
               "Grids",
-              "Fields",
-              "SimParams",
-              "Solvers",
-              "FieldFuncs",
-              "EDMFs",
+              "StateVecs",
              ]
 
 # Code coverage command line options; must correspond to src/julia.h
