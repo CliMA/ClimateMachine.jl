@@ -29,8 +29,8 @@ using LinearAlgebra
   # saturation vapor pressure and specific humidity
   p=1.e5; q_t=0.23; ρ=1.;
   ρ_v_triple = press_triple / R_v / T_triple;
-  @test sat_vapor_press(T_triple, Liquid()) ≈ press_triple
-  @test sat_vapor_press(T_triple, Ice()) ≈ press_triple
+  @test sat_vapor_pressure(T_triple, Liquid()) ≈ press_triple
+  @test sat_vapor_pressure(T_triple, Ice()) ≈ press_triple
   @test sat_shum.([T_triple, T_triple], [ρ, ρ], [0., q_t/2], [0., q_t/2]) ≈
      ρ_v_triple / ρ * [1, 1]
   @test sat_shum_generic.([T_triple, T_triple], [ρ, ρ]; phase=Liquid()) ≈

@@ -25,7 +25,7 @@ export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
 
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice, Generic
-export sat_vapor_press, sat_shum_generic, sat_shum
+export sat_vapor_pressure, sat_shum_generic, sat_shum
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
@@ -220,34 +220,17 @@ end
 abstract type Phase end
 struct Liquid <: Phase end
 struct Ice <: Phase end
-struct Generic <: Phase end
 
 """
-    sat_vapor_press(T, Liquid())
-
+    `sat_vapor_pressure(T, Liquid())`
 Return the saturation vapor pressure over a plane liquid surface at
 temperature `T`.
-"""
-function sat_vapor_press(T, phase::Liquid)
 
-    return sat_vapor_press(T, LH_v0, cp_v - cp_l, Generic())
-
-end
-
-"""
-    sat_vapor_press(T, Ice())
-
+    `sat_vapor_pressure(T, Ice())`
 Return the saturation vapor pressure over a plane ice surface at
 temperature `T`.
-"""
-function sat_vapor_press(T, phase::Ice)
 
-    return sat_vapor_press(T, LH_s0, cp_v - cp_i, Generic())
-
-end
-
-"""
-    sat_vapor_press(T, LH_0, cp_diff, Generic())
+    `sat_vapor_pressure(T, LH_0, cp_diff)`
 
 Compute the saturation vapor pressure over a plane surface by integration
 of the Clausius-Clepeyron relation.
@@ -266,8 +249,12 @@ heats of the phases. The linear dependence of the specific latent heat
 on temperature `T` allows analytic integration of the Clausius-Clapeyron
 relation to obtain the saturation vapor pressure `p_vs` as a function of
 the triple point pressure `press_triple`.
+
 """
-function sat_vapor_press(T, LH_0, cp_diff, phase::Generic)
+sat_vapor_pressure(T, ::Liquid) = sat_vapor_pressure(T, LH_v0, cp_v - cp_l)
+sat_vapor_pressure(T, ::Ice) = sat_vapor_pressure(T, LH_s0, cp_v - cp_i)
+
+function sat_vapor_pressure(T, LH_0, cp_diff)
 
     return press_triple * (T/T_triple)^(cp_diff/R_v) *
         exp( (LH_0 - cp_diff*T_0)/R_v * (1 / T_triple - 1 / T) )
@@ -275,17 +262,17 @@ function sat_vapor_press(T, LH_0, cp_diff, phase::Generic)
 end
 
 """
-    sat_shum_generic(T, ρ[; phase="liquid"])
+    sat_shum_generic(T, ρ[; phase=Liquid()])
 
 Compute the saturation specific humidity over a plane surface of
 condensate, given the temperature `T` and the (moist-)air density `ρ`.
 
-The optional argument `phase` can be ``"liquid"`` or ``"ice"`` and indicates
+The optional argument `phase` can be ``Liquid()`` or ``"ice"`` and indicates
 the condensed phase.
 """
 function sat_shum_generic(T, ρ; phase::Phase=Liquid())
 
-    p_vs = sat_vapor_press(T, phase)
+    p_vs = sat_vapor_pressure(T, phase)
 
     return sat_shum_from_pressure(ρ, T, p_vs)
 
@@ -324,7 +311,7 @@ function sat_shum(T, ρ, q_l=0, q_i=0)
     cp_diff     = _liquid_frac * (cp_v - cp_l) + _ice_frac * (cp_v - cp_i)
 
     # saturation vapor pressure over possible mixture of liquid and ice
-    p_vs        = sat_vapor_press(T, LH_0, cp_diff, Generic())
+    p_vs        = sat_vapor_pressure(T, LH_0, cp_diff)
 
     return sat_shum_from_pressure(ρ, T, p_vs)
 
