@@ -25,7 +25,7 @@ export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
 
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
-export saturation_vapor_pressure, sat_shum_generic, sat_shum
+export saturation_vapor_pressure, saturation_shum_generic, saturation_shum
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
@@ -262,7 +262,7 @@ function saturation_vapor_pressure(T, LH_0, cp_diff)
 end
 
 """
-    sat_shum_generic(T, ρ[; phase=Liquid()])
+    saturation_shum_generic(T, ρ[; phase=Liquid()])
 
 Compute the saturation specific humidity over a plane surface of
 condensate, given the temperature `T` and the (moist-)air density `ρ`.
@@ -270,16 +270,16 @@ condensate, given the temperature `T` and the (moist-)air density `ρ`.
 The optional argument `phase` can be ``Liquid()`` or ``"ice"`` and indicates
 the condensed phase.
 """
-function sat_shum_generic(T, ρ; phase::Phase=Liquid())
+function saturation_shum_generic(T, ρ; phase::Phase=Liquid())
 
     p_vs = saturation_vapor_pressure(T, phase)
 
-    return sat_shum_from_pressure(ρ, T, p_vs)
+    return saturation_shum_from_pressure(ρ, T, p_vs)
 
 end
 
 """
-    sat_shum(T, ρ[, q_l=0, q_i=0])
+    saturation_shum(T, ρ[, q_l=0, q_i=0])
 
 Compute the saturation specific humidity, given the temperature `T` and
 (moist-)air density `ρ`.
@@ -299,7 +299,7 @@ zero, the saturation specific humidity is that over a mixture of liquid and ice,
 with the fraction of liquid given by temperature dependent `liquid_fraction(T)`
 and the fraction of ice by the complement `1 - liquid_fraction(T)`.
 """
-function sat_shum(T, ρ, q_l=0, q_i=0)
+function saturation_shum(T, ρ, q_l=0, q_i=0)
 
     # get phase partitioning
     _liquid_frac = liquid_fraction(T, q_l, q_i)
@@ -313,18 +313,18 @@ function sat_shum(T, ρ, q_l=0, q_i=0)
     # saturation vapor pressure over possible mixture of liquid and ice
     p_vs        = saturation_vapor_pressure(T, LH_0, cp_diff)
 
-    return sat_shum_from_pressure(ρ, T, p_vs)
+    return saturation_shum_from_pressure(ρ, T, p_vs)
 
 end
 
 
 """
-    sat_shum_from_pressure(ρ, T, p_vs)
+    saturation_shum_from_pressure(ρ, T, p_vs)
 
 Compute the saturation specific humidity, given the ambient air density `ρ`,
 temperature `T`, and the saturation vapor pressure `p_vs`.
 """
-function sat_shum_from_pressure(ρ, T, p_vs)
+function saturation_shum_from_pressure(ρ, T, p_vs)
 
     return min(eltype(ρ)(1.), p_vs / (ρ * R_v * T))
 
@@ -382,7 +382,7 @@ end
 function phase_partitioning_eq(T, ρ, q_t)
 
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
-    q_vs         = sat_shum(T, ρ) # saturation specific humidity
+    q_vs         = saturation_shum(T, ρ) # saturation specific humidity
     q_c          = max(q_t - q_vs, 0) # condensate specific humidity
     q_l_out      = _liquid_frac * q_c  # liquid specific humidity
     q_i_out      = (1 - _liquid_frac) * q_c # ice specific humidity

@@ -31,14 +31,14 @@ using LinearAlgebra
   ρ_v_triple = press_triple / R_v / T_triple;
   @test saturation_vapor_pressure(T_triple, Liquid()) ≈ press_triple
   @test saturation_vapor_pressure(T_triple, Ice()) ≈ press_triple
-  @test sat_shum.([T_triple, T_triple], [ρ, ρ], [0., q_t/2], [0., q_t/2]) ≈
+  @test saturation_shum.([T_triple, T_triple], [ρ, ρ], [0., q_t/2], [0., q_t/2]) ≈
      ρ_v_triple / ρ * [1, 1]
-  @test sat_shum_generic.([T_triple, T_triple], [ρ, ρ]; phase=Liquid()) ≈
+  @test saturation_shum_generic.([T_triple, T_triple], [ρ, ρ]; phase=Liquid()) ≈
      ρ_v_triple / ρ * [1, 1]
-  @test sat_shum_generic.([T_triple, T_triple], [ρ, ρ]; phase=Ice()) ≈
+  @test saturation_shum_generic.([T_triple, T_triple], [ρ, ρ]; phase=Ice()) ≈
      ρ_v_triple / ρ * [1, 1]
-  @test sat_shum_generic.(T_triple-20, ρ; phase=Liquid()) >=
-        sat_shum_generic.(T_triple-20, ρ; phase=Ice())
+  @test saturation_shum_generic.(T_triple-20, ρ; phase=Liquid()) >=
+        saturation_shum_generic.(T_triple-20, ρ; phase=Ice())
 
   # energy functions and inverse (temperature)
   T=300; KE=11.; PE=13.;
@@ -79,7 +79,7 @@ using LinearAlgebra
   q_l_out = zeros(size(T)); q_i_out = zeros(size(T));
   phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t);
 
-  @test q_t - q_l_out - q_i_out ≈ sat_shum.(T, ρ)
+  @test q_t - q_l_out - q_i_out ≈ saturation_shum.(T, ρ)
 
   # potential temperatures
   T = 300;
