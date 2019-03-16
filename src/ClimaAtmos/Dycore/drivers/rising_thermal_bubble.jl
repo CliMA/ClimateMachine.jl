@@ -11,6 +11,7 @@ using LinearAlgebra
 using Printf
 
 const HAVE_CUDA = try
+  using CuArrays
   using CUDAdrv
   using CUDAnative
   true
