@@ -184,7 +184,7 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
   DFloat = eltype(Q)
 
   Np = (N+1)^dim
-  (~, ~, nelem) = size(Q)
+  (_, _, nelem) = size(Q)
 
   dt = [floatmax(DFloat)]
 
