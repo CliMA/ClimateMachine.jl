@@ -12,10 +12,10 @@ export VanillaAtmosDiscretization
 using ParametersType
 using PlanetParameters: cp_d, cv_d, R_d, grav
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
-@parameter gdm1 R_d/cv_d     "(equivalent to gamma_d-1)"
+@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
-@parameter prandtl 71//10   "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
-@parameter stokes  -2//3    "scaling for viscous effect associated with volume change"
+@parameter prandtl 71//10 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
+@parameter stokes  -2//3  "scaling for viscous effect associated with volume change"
 @parameter k_μ cp_d/prandtl "thermal conductivity / dynamic viscosity"
 @parameter Cs      12//100  "Smagorinsky constant"
 

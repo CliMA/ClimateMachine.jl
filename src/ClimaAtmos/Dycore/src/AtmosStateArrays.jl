@@ -194,7 +194,7 @@ end
 
 function knl_norm2(::Val{Np}, Q, elems) where {Np}
   DFloat = eltype(Q)
-  (~, nstate, nelem) = size(Q)
+  (_, nstate, nelem) = size(Q)
 
   energy = zero(DFloat)
 
@@ -207,7 +207,7 @@ end
 
 function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
   DFloat = eltype(Q)
-  (~, nstate, nelem) = size(Q)
+  (_, nstate, nelem) = size(Q)
 
   energy = zero(DFloat)
 
@@ -250,7 +250,7 @@ function L2errornorm(::Val{dim}, ::Val{N}, time, Q, vgeo, elems,
   {dim, N}
   DFloat = eltype(Q)
   Np = (N+1)^dim
-  (~, nstate, nelem) = size(Q)
+  (_, nstate, nelem) = size(Q)
 
   errorsq = zero(DFloat)
 
