@@ -44,7 +44,7 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     s_ρ[i, j] = ρ
     s_u[i, j] = U/ρ
     s_v[i, j] = V/ρ
-    s_T[i, j] = P/(R_m*ρ)
+    s_T[i, j] = P/(R_d*ρ)
   end
 
   sync_threads()
@@ -191,7 +191,7 @@ function knl_volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     s_u[i, j, k] = U/ρ
     s_v[i, j, k] = V/ρ
     s_w[i, j, k] = W/ρ
-    s_T[i, j, k] = P/(R_m*ρ)
+    s_T[i, j, k] = P/(R_d*ρ)
   end
 
   sync_threads()
@@ -370,7 +370,7 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         uM=UM/ρM
         vM=VM/ρM
         wM=WM/ρM
-        TM=PM/(R_m*ρM)
+        TM=PM/(R_d*ρM)
 
         bc = elemtobndy[f, e]
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
@@ -395,7 +395,7 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           uP=UP/ρP
           vP=VP/ρP
           wP=WP/ρP
-          TP=PP/(R_m*ρP)
+          TP=PP/(R_d*ρP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
