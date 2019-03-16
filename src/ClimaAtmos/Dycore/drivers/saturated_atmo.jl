@@ -50,7 +50,7 @@ function read_sounding()
     return (sound_data, nzmax, ncols)
 end
 
-function interpolate_sounding(dim, N, Ne, vgeo)
+function interpolate_sounding(dim, N, Ne, vgeo, nmoist)
     # !!!WARNING!!! This function can only work for sturctured grids with vertical boundaries!!!
     # !!!TO BE REWRITTEN FOR THE GENERAL CODE!!!!
     # {{{ FIXME: remove this after we've figure out how to pass through to kernel
@@ -230,70 +230,26 @@ function interpolate_sounding(dim, N, Ne, vgeo)
         ini_data_interp[k, 8] = datapi[k]  #exner
         ini_data_interp[k, 9] = thetav[k]  #thetav
     end
+  
+   (ρ=ρ, U=U, V=V, E=E,
+   Qmoist=ntuple(j->(j*ρ), nmoist))
+   #, Qtrace=ntuple(j->(-j*ρ), ntrace))
 
-    @show(size(ini_data_interp))
-    zcoord = ini_data_interp[:,1],
-   
-    ρ = ini_data_interp[:,7],
-    U = ini_data_interp[:,4],
-    V = ini_data_interp[:,5],
-    P = ini_data_interp[:,6],
-    T = P .* ( 1 ./ (ρ * R_gas))
-    E = ρ .* (c_v .* T + (u .^ 2 + v .^ 2 ) / 2 .+ gravity .* zcoord)
-    Qmoist = ntuple(j->(j*ρ), nmoist)
-
-    return (ρ=ρ, U=U, V=V, E=E, Qmoist=Qmoist)#ini_data_interp
 end
-
 
 # FIXME: Will these keywords args be OK?
 # FIXME: Build in tuple of i.c. variables passed across entire spatial domain - 
 
 function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
-  DFloat = eltype(x)
-  γ::DFloat       = gamma_d
-  p0::DFloat      = 100000
-  R_gas::DFloat   = R_d
-  c_p::DFloat     = cp_d
-  c_v::DFloat     = cv_d
-  gravity::DFloat = grav
 
-  r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
-  rc::DFloat = 250
-  θ_ref::DFloat = 300
-  θ_c::DFloat = 0.5
-  Δθ::DFloat = 0
-  if r <= rc
-    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
-  end
-  θ_k = θ_ref + Δθ
-  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
-  c = c_v / R_gas
-  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-  ρ = ρ_k
-  u = zero(DFloat)
-  v = zero(DFloat)
-  w = zero(DFloat)
-  U = ρ * u
-  V = ρ * v
-  W = ρ * w
-  Θ = ρ * θ_k
-  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
-  T = P / (ρ * R_gas)
-  E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(j*ρ), nmoist))
-  #, Qtrace=ntuple(j->(-j*ρ),ntrace))
-  @show(initial_sounding)
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
-              initialcondition, timeend; gravity=true, dt=nothing, exact_timeend=true)
+#function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+ #             initialcondition, timeend; gravity=true, dt=nothing, exact_timeend=true)
 
-#=
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
               exact_timeend=true)
-=#
 
   dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
@@ -330,9 +286,17 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     
   #Read external sounding
   vgeo = grid.vgeo
-  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
+  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist)
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
+  
+  (~, ~, nelem) = size(vgeo)
+  
+  @inbounds for e = 1:nelem, i = 1:(N+1)^dim
+      @show("Thiloop works")
+  end
+
+
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
 
@@ -389,6 +353,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     nothing
   end
 
+
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
   # Print some end of the simulation information
@@ -425,7 +390,7 @@ let
     
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, initialcondition, timeend)
+      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
   end
 end
 

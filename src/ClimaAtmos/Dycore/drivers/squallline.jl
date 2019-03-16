@@ -283,19 +283,21 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  @show(ρ)
+  
   (ρ=ρ, U=U, V=V, W=W, E=E,
    Qmoist=ntuple(j->(j*ρ), nmoist))
    #, Qtrace=ntuple(j->(-j*ρ), ntrace))
 end
 
-#function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
-#              initialcondition, timeend; gravity=true, dt=nothing,
-#              exact_timeend=true)
-
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+                initialcondition, timeend; gravity=true, dt=nothing,
+                exact_timeend=true)
+#=
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
               exact_timeend=true)
-
+=#
   dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
@@ -332,8 +334,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   #Read external sounding
   vgeo = grid.vgeo
   initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
-
-  initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
+  #initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
 
@@ -427,11 +428,9 @@ let
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
     
       brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-
-      
-      #ic(x...) = risingthermalbubble(initial_sounding, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)     
-      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
-      #main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, ic, timeend)
+      ic(x...) = risingthermalbubble(initial_sounding, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)     
+      #main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
+      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, ic, timeend)
       
   end
 
