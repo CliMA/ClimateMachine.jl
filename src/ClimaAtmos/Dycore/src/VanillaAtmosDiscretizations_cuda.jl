@@ -37,8 +37,8 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         s = _nstate + m
         q_m[m] = Q[i, j, s, e]
     end
-    (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-    gdm1 = R_m/cv_m
+    #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+    #gdm1 = R_m/cv_m
     P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
     s_ρ[i, j] = ρ
@@ -182,8 +182,8 @@ function knl_volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         s = _nstate + m
         q_m[m] = Q[i, j, k, s, e]
     end
-    (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-    gdm1 = R_m/cv_m
+    #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+    #gdm1 = R_m/cv_m
       
     P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
@@ -363,8 +363,8 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
             s = _nstate + m
             q_m[m] = Q[vidM, s, eM]
         end
-        (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
-        gdm1 = R_m/cv_m
+        #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+        #gdm1 = R_m/cv_m
           
         PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
         uM=UM/ρM
@@ -388,8 +388,8 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
               s = _nstate + m
               q_m[m] = Q[vidP, s, eP]
           end
-          (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])  
-          gdm1 = R_m/cv_m
+          #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])  
+          #gdm1 = R_m/cv_m
           
           PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
           uP=UP/ρP
@@ -496,8 +496,8 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
         s = _nstate + m
         q_m[m] = Q[i, j, s, e]
     end
-    (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-    gdm1 = R_m/cv_m
+    #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+    #gdm1 = R_m/cv_m
     P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
 
     ρx, ρy = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
@@ -689,8 +689,8 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
         s = _nstate + m
         q_m[m] = Q[i, j, k, s, e]
     end
-    (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-    gdm1 = R_m/cv_m
+    #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+    #gdm1 = R_m/cv_m
     P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
 
     ρx, ρy, ρz = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
@@ -965,7 +965,7 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
             s =_nstate + m
             q_m[m] = Q[vidM, s, eM]
         end
-        (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+        #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
         PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
         ρxP = ρyP = ρzP = uxP = uyP = uzP = vxP = vyP = vzP = zero(eltype(grad))
@@ -983,8 +983,8 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
               s =_nstate + m
               q_m[m] = Q[vidP, s, eP]
           end
-          (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-          gdm1 = R_m/cv_m
+          #(R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
+          #gdm1 = R_m/cv_m
           PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
 
           ρxP = grad[vidP, _ρx, eP]
