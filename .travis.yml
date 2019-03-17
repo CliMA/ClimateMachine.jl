@@ -7,6 +7,7 @@ os:
   - osx
 julia:
   - 1.0
+  - 1.1
   - nightly
 notifications:
   email: false
@@ -31,6 +32,11 @@ before_script:
       brew cask uninstall oclint # Prevent conflict with gcc
       brew install mpich
     fi
+  # Temporary fix for nightly build path
+  - julia -e 'if VERSION >= v"1.2.0-DEV.42";
+                 using Pkg;
+                 Pkg.develop(PackageSpec(url="https://github.com/climate-machine/Canary.jl"));
+               end'
   # - |
   #   if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
   #     curl -LO https://raw.githubusercontent.com/GiovanniBussi/macports-ci/master/macports-ci
@@ -56,3 +62,17 @@ after_success:
 #         - julia --color=yes --project=docs/ -e 'using Pkg; Pkg.instantiate()'
 #         - julia --color=yes --project=docs/ docs/make.jl
 #       after_success: skip
+
+jobs:
+  include:
+    - stage: "Documentation"
+      julia: 1.0
+      os: linux
+      script:
+        - export DOCUMENTER_DEBUG="true"
+        - julia --color=yes --project=docs/ -e 'using Pkg;
+                                                      Pkg.instantiate();
+                                                      Pkg.develop(PackageSpec(path=pwd()));
+                                                      Pkg.build("CLIMA")'
+        - julia --color=yes --project=docs/ docs/make.jl
+      after_success: skip

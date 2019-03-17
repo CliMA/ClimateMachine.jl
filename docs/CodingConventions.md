@@ -6,7 +6,7 @@ A list of recommended coding conventions.
     - https://docs.julialang.org/en/v1/manual/style-guide/index.html
     - https://docs.julialang.org/en/v0.6/manual/packages/#Guidelines-for-naming-a-package-1
 
- - While Unicode is permissable in the Julia language, we recommend to avoid using it (see below for why).
+ - Please only use Unicode characters that are within our list of acceptable Unicode characters (in AcceptableUnicode.md).
 
  - Modules, and class names (structs), should follow TitleCase convention. Note that class names cannot coincide with module names.
 
@@ -28,20 +28,7 @@ A list of recommended coding conventions.
 
  - Try to limit all lines to a maximum of 79 characters.
 
- - Single access point - if a variable/constant is defined more than once, then move it into a module and import (or "using") to that module to access the variable in order to enforce a single access point (to avoid consistency issues).
-
- - 2 or more, use a "for" - If you are looping over indexes, and you loop over at least two, then just use a for loop. Example:
-
-   - Do this
-      `temp = [4, 2, 6]`
-      `for i in 1:3`
-        `  a[i] = temp[i]`
-      `end`
-
-   - Not this
-      `a[1] = 4`
-      `a[2] = 2`
-      `a[3] = 6`
+ - Single access point - if a variable/constant is defined more than once, then move it into a module and import (or "using") to that module to access the variable in order to enforce a single access point (to avoid consistency issues). Any time a chunk of code is used more than once, or when several similar versions exist across the codebase, consider generalizing this functionality and using a new function to avoid replicating code
 
  - "import"/"using" should be grouped in the following order:
 
@@ -50,9 +37,7 @@ A list of recommended coding conventions.
    - Local application/library specific imports.
    - Use a blank line between each group of imports.
 
-
-
-## * Why no Unicode for now?
+## * Why do we limit our Unicode use?
 
  - Some characters are visibly indistinguishable. Capital "a" and capital alpha are visibly indistinguishable, but are recognized as separate characters (e.g., search distinguishable).
 
@@ -60,6 +45,6 @@ A list of recommended coding conventions.
 
  - Portability issues. Unicode does not render in Jupyter notebook natively (on OSX).
 
- - If it does improve readability enough, and are not worried about portability, we may introduce a list of permissable characters that are commonly used.
+ - If it does improve readability enough, and are not worried about portability, we may introduce a list of permissible characters that are commonly used.
 
 

@@ -13,6 +13,7 @@ using ParametersType
 @exportparameter k_Boltzmann       1.381e-23     "Boltzmann constant (m^2 kg/s^2/K)"
 @exportparameter Stefan            5.670e-8      "Stefan-Boltzmann constant (W/m^2/K^4)"
 @exportparameter astro_unit        1.4959787e11  "Astronomical unit (m)"
+@exportparameter k_Karman          0.4           "Von Karman constant (1)"
 
 # Properties of dry air
 @exportparameter molmass_dryair    28.97e-3      "Molecular weight dry air (kg/mol)"
@@ -29,6 +30,8 @@ using ParametersType
                                    molmass_water "Molar mass ratio dry air/water"
 @exportparameter R_v               gas_constant/
                                    molmass_water "Gas constant water vapor (J/kg/K)"
+@exportparameter eps_v             R_d/R_v       "Ratio of gas constants (1)"
+@exportparameter eps_vi            R_v/R_d       "Inverse Ratio of gas constants (1)"
 @exportparameter cp_v              1859          "Isobaric specific heat vapor (J/kg/K)"
 @exportparameter cp_l              4181          "Isobaric specific heat liquid (J/kg/K)"
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"
@@ -36,6 +39,7 @@ using ParametersType
 @exportparameter cv_l              cp_l          "Isochoric specific heat liquid (J/kg/K)"
 @exportparameter cv_i              cp_i          "Isochoric specific heat ice (J/kg/K)"
 @exportparameter T_freeze          273.15        "Freezing point temperature (K)"
+@exportparameter T_min             150.0         "Minimum temperature guess in saturation adjustment (K)"
 @exportparameter T_icenuc          233.00        "Homogeneous nucleation temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"

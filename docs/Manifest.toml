@@ -13,15 +13,21 @@ git-tree-sha1 = "055eb2690182ebc31087859c3dd8598371d3ef9e"
 uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.3"
 
+[[CLIMA]]
+deps = ["CLIMAAtmosDycore", "Canary", "Coverage", "Documenter", "LinearAlgebra", "Literate", "ParametersType", "PlanetParameters", "SurfaceFluxes", "Test", "Utilities", "WriteVTK"]
+path = ".."
+uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
+version = "0.1.0"
+
 [[CLIMAAtmosDycore]]
 deps = ["Canary", "LinearAlgebra", "Logging", "MPI", "ParametersType", "PlanetParameters", "Printf", "Requires", "WriteVTK"]
-path = "src/ClimaAtmos/Dycore"
+path = "../src/ClimaAtmos/Dycore"
 uuid = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
 version = "0.0.0"
 
 [[Canary]]
 deps = ["MPI"]
-git-tree-sha1 = "2bb74584308b211a1fbff3366c3c9c748c989ca2"
+git-tree-sha1 = "53421ae216b5e63cb99d93d5db5d491a927de150"
 repo-rev = "master"
 repo-url = "https://github.com/climate-machine/Canary.jl"
 uuid = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
@@ -68,6 +74,12 @@ deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "LibGit2", "Logging
 git-tree-sha1 = "a8c41ba3d0861240dbec942ee1d0f86c57c37c1c"
 uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 version = "0.21.5"
+
+[[DocumenterTools]]
+deps = ["Base64", "DocStringExtensions", "LibGit2", "Pkg", "Test"]
+git-tree-sha1 = "f5803a9c2c23ff226e8eab2df7ac4c75e77a0d53"
+uuid = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
+version = "0.1.0"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "Distributed", "IniFile", "MbedTLS", "Random", "Sockets", "Test"]
@@ -127,16 +139,16 @@ deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[MbedTLS]]
-deps = ["BinaryProvider", "Dates", "Libdl", "Random", "Sockets", "Test"]
-git-tree-sha1 = "40b4a9149f0967714991328b8155c9ff5f91e755"
+deps = ["BinaryProvider", "Dates", "Distributed", "Libdl", "Random", "Sockets", "Test"]
+git-tree-sha1 = "2d94286a9c2f52c63a16146bb86fd6cdfbf677c6"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "0.6.7"
+version = "0.6.8"
 
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[ParametersType]]
-path = "src/ParametersType"
+path = "../src/ParametersType"
 uuid = "046d00ba-03b1-11e9-3cca-b5213a01defd"
 version = "0.0.0"
 
@@ -146,7 +158,7 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PlanetParameters]]
 deps = ["ParametersType"]
-path = "src/PlanetParameters"
+path = "../src/PlanetParameters"
 uuid = "50a4fe1a-031f-11e9-2493-0505e0da639e"
 version = "0.0.0"
 
@@ -197,7 +209,7 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[SurfaceFluxes]]
 deps = ["ParametersType", "PlanetParameters", "Test", "Utilities"]
-path = "src/ClimaAtmos/Parameterizations/SurfaceFluxes"
+path = "../src/ClimaAtmos/Parameterizations/SurfaceFluxes"
 uuid = "7169bd00-2eee-11e9-22a5-2b2073a21580"
 version = "0.1.0"
 
@@ -226,7 +238,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[Utilities]]
 deps = ["LinearAlgebra", "ParametersType", "PlanetParameters", "Roots"]
-path = "src/Utilities"
+path = "../src/Utilities"
 uuid = "d528e2a8-1396-11e9-0475-bb99f588b544"
 version = "0.0.0"
 
