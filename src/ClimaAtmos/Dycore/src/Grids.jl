@@ -320,6 +320,7 @@ function compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
             deltak = dy
         else
             deltai = dx
+            deltak = dy
         end
         a1 = deltai/max(dx, dy, dz)
         a2 = deltak/max(dx, dy, dz)

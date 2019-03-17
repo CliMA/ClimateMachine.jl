@@ -13,6 +13,20 @@ function transferrecvbuf!(device_recvbuf::Array, host_recvbuf, buf::Array,
 end
 # }}}
 
+# {{{ Convert E to theta: needed to calculate Richardson's number 
+function EtoTheta(ρ, p, e)
+    #
+    # ρ --> density
+    # p --> pressure
+    # e --> E/ρ
+    # 
+    theta = MSLP/(ρ * R_d)*( p/MSLP )^(cv_d/cp_d)
+    
+    return theta
+
+end
+# }}}
+
 # {{{ Volume Gradient for 2-D
 function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                      grad::Array, Q, vgeo, gravity, D,
@@ -35,7 +49,8 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_u = Array{DFloat}(undef, Nq, Nq)
   s_v = Array{DFloat}(undef, Nq, Nq)
   s_T = Array{DFloat}(undef, Nq, Nq)
-    
+  s_θ = Array{DFloat}(undef, Nq, Nq)
+
   q_m = zeros(DFloat, max(3, nmoist))
     
   @inbounds for e in elems
@@ -52,18 +67,21 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
       gdm1 = R_m/cv_m
       P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-
+      θ = EtoTheta(ρ, P, E)
+        
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
       s_v[i, j] = V/ρ
       s_T[i, j] = P/(R_m*ρ)
+      s_θ[i, j] = θ
     end
 
     for j = 1:Nq, i = 1:Nq
-      ρξ = ρη = zero(DFloat)
-      uξ = uη = zero(DFloat)
-      vξ = vη = zero(DFloat)
-      Tξ = Tη = zero(DFloat)
+      ρξ = ρη  = zero(DFloat)
+      uξ = uη  = zero(DFloat)
+      vξ = vη  = zero(DFloat)
+      Tξ = Tη  = zero(DFloat)
+      θξ =  θη = zero(DFloat)
 
       for n = 1:Nq
         ρξ += D[i, n] * s_ρ[n, j]
@@ -77,6 +95,9 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
         Tξ += D[i, n] * s_T[n, j]
         Tη += D[j, n] * s_T[i, n]
+          
+        θξ += D[i, n] * s_θ[n, j]
+        θη += D[j, n] * s_θ[i, n]
       end
 
       ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
@@ -94,6 +115,9 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       Tx = ξx*Tξ + ηx*Tη
       Ty = ξy*Tξ + ηy*Tη
 
+      θx = ξx*θξ + ηx*θη
+      θy = ξy*θξ + ηy*θη
+        
       grad[i, j, _ρx, e] = ρx
       grad[i, j, _ρy, e] = ρy
       grad[i, j, _ρz, e] = zero(DFloat)
@@ -113,6 +137,10 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       grad[i, j, _Tx, e] = Tx
       grad[i, j, _Ty, e] = Ty
       grad[i, j, _Tz, e] = zero(DFloat)
+        
+      grad[i, j, _θx, e] = θx
+      grad[i, j, _θy, e] = θy
+      grad[i, j, _θz, e] = zero(DFloat)
     end
 
     # loop over moist variables
@@ -170,6 +198,7 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_v = Array{DFloat}(undef, Nq, Nq, Nq)
   s_w = Array{DFloat}(undef, Nq, Nq, Nq)
   s_T = Array{DFloat}(undef, Nq, Nq, Nq)
+  s_θ = Array{DFloat}(undef, Nq, Nq, Nq)
     
   q_m = zeros(DFloat, max(3, nmoist))
     
@@ -187,12 +216,14 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])  
       gdm1 = R_m/cv_m
       P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+      θ = EtoTheta(ρ, P, E)
 
       s_ρ[i, j, k] = ρ
       s_u[i, j, k] = U/ρ
       s_v[i, j, k] = V/ρ
       s_w[i, j, k] = W/ρ
       s_T[i, j, k] = P/(R_m*ρ)
+      s_θ[i, j, k] = θ
     end
 
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
@@ -201,6 +232,7 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       vξ = vη = vζ = zero(DFloat)
       wξ = wη = wζ = zero(DFloat)
       Tξ = Tη = Tζ = zero(DFloat)
+      θξ = θη = θζ = zero(DFloat)
 
       for n = 1:Nq
         ρξ += D[i, n] * s_ρ[n, j, k]
@@ -222,6 +254,11 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         Tξ += D[i, n] * s_T[n, j, k]
         Tη += D[j, n] * s_T[i, n, k]
         Tζ += D[k, n] * s_T[i, j, n]
+
+          
+        θξ += D[i, n] * s_θ[n, j, k]
+        θη += D[j, n] * s_θ[i, n, k]
+        θζ += D[k, n] * s_θ[i, j, n]
       end
 
       ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
@@ -248,6 +285,10 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       Ty = ξy*Tξ + ηy*Tη + ζy*Tζ
       Tz = ξz*Tξ + ηz*Tη + ζz*Tζ
 
+      θx = ξx*θξ + ηx*θη + ζx*θζ
+      θy = ξy*θξ + ηy*θη + ζy*θζ
+      θz = ξz*θξ + ηz*θη + ζz*θζ
+
       grad[i, j, k, _ρx, e] = ρx
       grad[i, j, k, _ρy, e] = ρy
       grad[i, j, k, _ρz, e] = ρz
@@ -267,6 +308,10 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       grad[i, j, k, _Tx, e] = Tx
       grad[i, j, k, _Ty, e] = Ty
       grad[i, j, k, _Tz, e] = Tz
+
+      grad[i, j, k, _θx, e] = θx
+      grad[i, j, k, _θy, e] = θy
+      grad[i, j, k, _θz, e] = θz
     end
 
     # loop over moist variables
@@ -481,13 +526,41 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
       gdm1 = R_m/cv_m
       P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-
-      ρx, ρy = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
+      θ = EtoTheta(ρ, P, E)      
+            
+      ρx, ρy     = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
       ux, uy, uz = grad[i,j,_ux,e], grad[i,j,_uy,e], 0.0
       vx, vy, vz = grad[i,j,_vx,e], grad[i,j,_vy,e], 0.0
       wx, wy, wz =             0.0,             0.0, 0.0
-      Tx, Ty = grad[i,j,_Tx,e], grad[i,j,_Ty,e]
+      Tx, Ty     = grad[i,j,_Tx,e], grad[i,j,_Ty,e], 0.0
+      θx, θy     = grad[i,j,_θx,e], grad[i,j,_θy,e], 0.0
+    
+      #---------------------------------------------------------
+      # BUILD magnitude of strain tensor 
+      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
+      #---------------------------------------------------------
+      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
+                S22 = vy;            S23 = (vz + wy)*0.5;
+                                     S33 = wz;
 
+      # |Sij| = sqrt(2*Sij*Sij)     
+      SijSij = S11*S11 + S12*S12 + S13*S13 + 
+               S12*S12 + S22*S22 + S23*S23 + 
+               S13*S13 + S23*S23 + S33*S33      
+      modSij = sqrt(2.0*SijSij)
+
+      #Richardson number:
+      Ri = (grav/θ)*θy/(2*modSij + 1.0e-12)
+        if(Ri >1)
+            @show("Richards ", Ri)
+        end
+            
+      #Smagorinsky eddy viscosities:
+      Km = 2*Cs*Cs*delta2*modSij #*sqrt(1.0 - Ri)
+      Kh = 3*Km                 #3.0 comes from KW 1978 paper
+       
+
+        
       ρinv = 1 / ρ
 
       ldivu = stokes*(ux + vy)
@@ -515,25 +588,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       fluxU_y = v * U        - viscosity*vfluxU_y
       fluxV_y = v * V + P    - viscosity*vfluxV_y
       fluxE_y = v * (E + P)  - viscosity*vfluxE_y
-
-      #---------------------------------------------------------
-      # BUILD magnitude of strain tensor 
-      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
-      #---------------------------------------------------------
-      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
-                S22 = vy;            S23 = (vz + wy)*0.5;
-                                     S33 = wz;
-
-      # |Sij| = sqrt(2*Sij*Sij)     
-      SijSij = S11*S11 + S12*S12 + S13*S13 + 
-               S12*S12 + S22*S22 + S23*S23 + 
-               S13*S13 + S23*S23 + S33*S33      
-      modSij = sqrt(2.0*SijSij)
-
-      #Smagorinsky eddy viscosities:
-      Km = Cs*Cs*delta2*modSij #/sqrt(2.0)
-      Kh = 3.0*Km                 #3.0 comes from KW 1978 paper
-        
+ 
       s_F[i, j, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y)
       s_F[i, j, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y)
       s_F[i, j, _V] = MJ * (ξx * fluxV_x + ξy * fluxV_y)
@@ -689,13 +744,37 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
       gdm1 = R_m/cv_m
       P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+      θ = EtoTheta(ρ, P, E)
 
       ρx, ρy, ρz = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
       ux, uy, uz = grad[i,j,k,_ux,e], grad[i,j,k,_uy,e], grad[i,j,k,_uz,e]
       vx, vy, vz = grad[i,j,k,_vx,e], grad[i,j,k,_vy,e], grad[i,j,k,_vz,e]
       wx, wy, wz = grad[i,j,k,_wx,e], grad[i,j,k,_wy,e], grad[i,j,k,_wz,e]
       Tx, Ty, Tz = grad[i,j,k,_Tx,e], grad[i,j,k,_Ty,e], grad[i,j,k,_Tz,e]
-        
+      θx, θy, θz = grad[i,j,k,_θx,e], grad[i,j,k,_θy,e], grad[i,j,k,_θz,e]
+
+      #---------------------------------------------------------
+      # BUILD magnitude of strain tensor 
+      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
+      #---------------------------------------------------------
+      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
+                S22 = vy;            S23 = (vz + wy)*0.5;
+                                     S33 = wz;
+
+      # |Sij| = sqrt(2*Sij*Sij)     
+      SijSij = S11*S11 + S12*S12 + S13*S13 + 
+               S12*S12 + S22*S22 + S23*S23 + 
+               S13*S13 + S23*S23 + S33*S33      
+      modSij = sqrt(2.0*SijSij)
+
+      #Richardson number:
+      Ri = (grav/θ)*θz/(2*modSij + 1.0e-12)
+
+      #Smagorinsky eddy viscosities:
+      Km = 2*Cs*Cs*delta2*modSij #*sqrt(1.0 - Ri)
+      Kh = 3*Km                 #3.0 comes from KW 1978 paper
+
+          
       ρinv = 1 / ρ
 
       ldivu = stokes*(ux + vy + wz)
@@ -741,25 +820,6 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       fluxW_z = w * W + P   - viscosity*vfluxW_z
       fluxE_z = w * (E + P) - viscosity*vfluxE_z
       
-      #---------------------------------------------------------
-      # BUILD magnitude of strain tensor 
-      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
-      #---------------------------------------------------------
-      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
-                S22 = vy;            S23 = (vz + wy)*0.5;
-                                     S33 = wz;
-
-      # |Sij| = sqrt(2*Sij*Sij)     
-      SijSij = S11*S11 + S12*S12 + S13*S13 + 
-               S12*S12 + S22*S22 + S23*S23 + 
-               S13*S13 + S23*S23 + S33*S33      
-      modSij = sqrt(2.0*SijSij)
-
-      #Smagorinsky eddy viscosities:
-      Km = Cs*Cs*delta2*modSij #/sqrt(2.0)
-      Kh = 3.0*Km                 #3.0 comes from KW 1978 paper
-
-        
       s_F[i, j, k, _ρ] = MJ * (ξx * fluxρ_x + ξy * fluxρ_y + ξz * fluxρ_z)
       s_F[i, j, k, _U] = MJ * (ξx * fluxU_x + ξy * fluxU_y + ξz * fluxU_z)
       s_F[i, j, k, _V] = MJ * (ξx * fluxV_x + ξy * fluxV_y + ξz * fluxV_z)

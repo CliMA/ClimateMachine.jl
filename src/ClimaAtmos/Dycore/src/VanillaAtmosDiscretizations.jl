@@ -10,7 +10,7 @@ using Utilities.MoistThermodynamics
 export VanillaAtmosDiscretization
 
 using ParametersType
-using PlanetParameters: cp_d, cv_d, R_d, grav
+using PlanetParameters: cp_d, cv_d, R_d, grav, MSLP
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
@@ -22,9 +22,9 @@ using PlanetParameters: cp_d, cv_d, R_d, grav
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
-const _nstategrad = 15
+const _nstategrad = 18
 const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
-       _Tx, _Ty, _Tz) = 1:_nstategrad
+       _Tx, _Ty, _Tz, _θx, _θy, _θz) = 1:_nstategrad
 
 struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                   DeviceArray, nmoist, ntrace, DASAT3,
@@ -58,7 +58,7 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                       ) where {T, dim, N, Np, DA,
                                                nmoist, ntrace}
     topology = grid.topology
-
+    
     ngrad = _nstategrad + 3*nmoist
     # FIXME: Remove after updating CUDA
     h_vgeo = Array(grid.vgeo)
@@ -331,6 +331,7 @@ end
 
 include("VanillaAtmosDiscretizations_kernels.jl")
 
+
 include("vtk.jl")
 function writevtk(prefix, Q::AtmosStateArray, disc::VanillaAtmosDiscretization)
   vgeo = disc.grid.vgeo
@@ -349,6 +350,7 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
                         ntuple(j->Nq, dim)...,
                         nelem), dim)
+    
   ρ = reshape((@view Q[:, _ρ, :]), ntuple(j->Nq, dim)..., nelem)
   U = reshape((@view Q[:, _U, :]), ntuple(j->Nq, dim)..., nelem)
   V = reshape((@view Q[:, _V, :]), ntuple(j->Nq, dim)..., nelem)
