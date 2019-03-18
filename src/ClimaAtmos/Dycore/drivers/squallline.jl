@@ -290,14 +290,14 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
    #, Qtrace=ntuple(j->(-j*ρ), ntrace))
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+#=function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
                 initialcondition, timeend; gravity=true, dt=nothing,
                 exact_timeend=true)
-#=
+=#
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
               exact_timeend=true)
-=#
+
   dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
@@ -334,7 +334,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   #Read external sounding
   vgeo = grid.vgeo
   initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
-  #initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
+  initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
 

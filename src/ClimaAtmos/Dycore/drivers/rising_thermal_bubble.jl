@@ -7,6 +7,7 @@ using CLIMAAtmosDycore.AtmosStateArrays
 using CLIMAAtmosDycore.LSRKmethods
 using CLIMAAtmosDycore.GenericCallbacks
 using CLIMAAtmosDycore
+using Utilities.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
@@ -50,6 +51,7 @@ function risingthermalbubble(x...; dim=3)
   c = c_v / R_gas
   ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
   ρ = ρ_k
+  ρinv = 1/ρ
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
@@ -59,7 +61,13 @@ function risingthermalbubble(x...; dim=3)
   Θ = ρ * θ_k
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
-  E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  # Calculation of energy per unit mass
+  E_kin = (U^2 + V^2 + W^2)/(2*ρ)/ρ
+  E_pot = gravity * x[dim]
+  E_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  # Total energy per unit mass 
+  E = (E_int + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  E_tot = MoistThermodynamics.total_energy(E_kin, E_pot, T, 0.0, 0.0, 0.0)
   (ρ=ρ, U=U, V=V, W=W, E=E)
 end
 
@@ -166,8 +174,8 @@ let
 
   Ne = (10, 10, 10)
   N = 4
-  timeend = 0.1
-  for DFloat in (Float64,Float32)
+  timeend = 5
+  for DFloat in (Float64, )#Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)

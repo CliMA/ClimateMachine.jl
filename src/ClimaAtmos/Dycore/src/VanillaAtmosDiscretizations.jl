@@ -195,20 +195,24 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       E = Q[n, _E, e]
       y = vgeo[n, G.yid, e]
       
+      #Compute Temperature and Internal Energy per unit mass
+      E_int = E - ((U^2 + V^2)/(2*ρ) + ρ * gravity * y) / ρ 
       for m = 1:nmoist
           s = _nstate + m
           q_m[m] = Q[n, s, e]
       end
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+      T = MoistThermodynamics.air_temperature(E_int, q_m[1], q_m[2], q_m[3])
       gdm1 = R_m/cv_m
-      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-
+      gamma =  cp_m/cv_m
+      
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * sqrt(gamma_d * P / ρ),
-                        abs(U * ηx + V * ηy) + ρ * sqrt(gamma_d * P / ρ))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m),
+                        abs(U * ηx + V * ηy) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m)) 
       dt[1] = min(dt[1], loc_dt)
+  
     end
   end
 
@@ -217,17 +221,31 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       ρ, U, V, W = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e]
       E = Q[n, _E, e]
       z = vgeo[n, G.zid, e]
-      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+      
+      #Compute (Temperature) and (E_int per unit mass)
+
+      E_int = E - ((U^2 + V^2+ W^2)/(2*ρ) + ρ * gravity * z) / ρ 
+      
+      for m = 1:nmoist
+          s = _nstate + m 
+          q_m[m] = Q[n, s, e]
+      end
+      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+      gdm1 = R_m/cv_m
+      gamma =  cp_m/cv_m
+      
+      T = MoistThermodynamics.air_temperature(E_int, q_m[1], q_m[2], q_m[3])
 
       ξx, ξy, ξz = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e], vgeo[n, G.ξzid, e]
       ηx, ηy, ηz = vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e], vgeo[n, G.ηzid, e]
       ζx, ζy, ζz = vgeo[n, G.ζxid, e], vgeo[n, G.ζyid, e], vgeo[n, G.ζzid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * sqrt(gamma_d*P/ρ),
-                        abs(U * ηx + V * ηy + W * ηz) + ρ * sqrt(gamma_d*P/ρ),
-                        abs(U * ζx + V * ζy + W * ζz) + ρ * sqrt(gamma_d*P/ρ))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m),
+                        abs(U * ηx + V * ηy + W * ηz) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m),
+                        abs(U * ζx + V * ζy + W * ζz) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m))
       dt[1] = min(dt[1], loc_dt)
-    end
+   
+  end
   end
 
   MPI.Allreduce(dt[1], MPI.MIN, mpicomm) / N^√2

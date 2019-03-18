@@ -50,7 +50,7 @@ function read_sounding()
     return (sound_data, nzmax, ncols)
 end
 
-function interpolate_sounding(dim, N, Ne, vgeo, nmoist)
+function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
     # !!!WARNING!!! This function can only work for sturctured grids with vertical boundaries!!!
     # !!!TO BE REWRITTEN FOR THE GENERAL CODE!!!!
     # {{{ FIXME: remove this after we've figure out how to pass through to kernel
@@ -232,8 +232,8 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist)
     end
   
    (ρ=ρ, U=U, V=V, E=E,
-   Qmoist=ntuple(j->(j*ρ), nmoist))
-   #, Qtrace=ntuple(j->(-j*ρ), ntrace))
+   Qmoist=ntuple(j->(j*ρ), nmoist), 
+   Qtrace=ntuple(j->(-j*ρ), ntrace))
 
 end
 
@@ -241,6 +241,9 @@ end
 # FIXME: Build in tuple of i.c. variables passed across entire spatial domain - 
 
 function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
+# require output from initial condition to be array of state variables 
+# organised by [-1,1] interpolation LGL points. 
+# So in the current method, every element represents a z coordinate value and we assume that all LGL points within the element take the same value
 
 end
 
@@ -286,16 +289,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     
   #Read external sounding
   vgeo = grid.vgeo
-  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist)
+  (~, ~, nelem) = size(vgeo)
+  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
-  
-  (~, ~, nelem) = size(vgeo)
-  
   @inbounds for e = 1:nelem, i = 1:(N+1)^dim
-      @show("Thiloop works")
+  
   end
-
 
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
