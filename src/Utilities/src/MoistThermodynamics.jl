@@ -7,9 +7,8 @@ saturation specific humidities
 """
 module MoistThermodynamics
 
-using PlanetParameters
-
 using ..RootSolvers
+using ...PlanetParameters
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density

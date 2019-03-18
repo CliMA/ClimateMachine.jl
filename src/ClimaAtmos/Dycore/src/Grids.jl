@@ -1,5 +1,5 @@
 module Grids
-using CLIMAAtmosDycore.Topologies
+using ..Topologies
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 import Canary
