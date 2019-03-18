@@ -55,9 +55,10 @@ struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
     host_sendQ = zeros(T, S.parameters..., numsendelem)
     host_recvQ = zeros(T, S.parameters..., numsendelem)
 
-    fill!(Q, 0)
-    fill!(device_sendQ, 0)
-    fill!(device_sendQ, 0)
+    # Length check is to work around a CuArrays bug.
+    length(Q) > 0 && fill!(Q, 0)
+    length(device_sendQ) > 0 && fill!(device_sendQ, 0)
+    length(device_recvQ) > 0 && fill!(device_recvQ, 0)
 
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
