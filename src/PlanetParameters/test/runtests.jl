@@ -1,5 +1,5 @@
 using Test
-using PlanetParameters
+using CLIMA.PlanetParameters
 
 @testset begin
   # Not sure how to really test this...

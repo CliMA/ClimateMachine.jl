@@ -1,0 +1,77 @@
+include:
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v3/common.yml'
+
+.projecttest:
+  extends: .test
+  only:
+    - master
+    - staging
+    - trying
+  script:
+    - julia -e 'using InteractiveUtils;
+                versioninfo()'
+    - mkdir $JULIA_DEPOT_PATH
+    - julia -e '
+               using Pkg;
+               Pkg.resolve();
+               Pkg.instantiate();
+               Pkg.build();
+               Pkg.test(".");'
+.gputest:
+  extends: .projecttest
+  variables:
+    CI_IMAGE_TAG:     'cuda'
+  tags:
+    - cuda
+
+.cputest:
+  extends: .projecttest
+  variables:
+    CI_IMAGE_TAG:     'plain'
+
+gpu:test:dev:
+  extends: .gputest
+  variables:
+    CI_VERSION_TAG: 'dev'
+  allow_failure: true
+
+cpu:test:dev:
+  extends: .cputest
+  variables:
+    CI_VERSION_TAG: 'dev'
+  allow_failure: true
+
+gpu:test:v1.1:
+  extends: .gputest
+  variables:
+    CI_VERSION_TAG: 'v1.1'
+
+cpu:test:v1.1:
+  extends: .cputest
+  variables:
+    CI_VERSION_TAG: 'v1.1'
+
+# documentation:
+#   extends: .documentation
+#   dependencies:
+#     - cpu:test:v1.1 
+#   variables:
+#     CI_VERSION_TAG: 'v1.1'
+#     CI_IMAGE_TAG: 'plain'
+#   only:
+#     - master
+#     - staging
+#     - trying
+# 
+# pages:
+#   dependencies:
+#     - documentation
+#   stage: deploy
+#   script:
+#     - mv docs/build public
+#   artifacts:
+#     paths:
+#     - public
+#   only:
+#     - master
+

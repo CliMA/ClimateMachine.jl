@@ -4,7 +4,7 @@ using WriteVTK
 This is the 1D WriteMesh routine
 =#
 function writemesh(base_name, x; fields=(), realelems=1:size(x)[end])
-  (Nqr, ~) = size(x)
+  (Nqr, _) = size(x)
   Nsubcells = (Nqr-1)
 
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))
@@ -28,7 +28,7 @@ This is the 2D WriteMesh routine
 =#
 function writemesh(base_name, x, y; fields=(), realelems=1:size(x)[end])
   @assert size(x) == size(y)
-  (Nqr, Nqs, ~) = size(x)
+  (Nqr, Nqs, _) = size(x)
   Nsubcells = (Nqr-1) * (Nqs-1)
 
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))
@@ -55,7 +55,7 @@ end
 This is the 3D WriteMesh routine
 =#
 function writemesh(base_name, x, y, z; fields=(), realelems=1:size(x)[end])
-  (Nqr, Nqs, Nqt, ~) = size(x)
+  (Nqr, Nqs, Nqt, _) = size(x)
   (Nr, Ns, Nt) = (Nqr-1, Nqs-1, Nqt-1)
   Nsubcells = Nr * Ns * Nt
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))

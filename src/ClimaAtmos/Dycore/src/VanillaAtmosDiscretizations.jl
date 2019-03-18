@@ -3,14 +3,14 @@ using MPI
 
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
-using CLIMAAtmosDycore.Grids
-using CLIMAAtmosDycore.AtmosStateArrays
-using Utilities.MoistThermodynamics
+using ..Grids
+using ..AtmosStateArrays
+
 export VanillaAtmosDiscretization
 
-using ParametersType
-using PlanetParameters: cp_d, cv_d, R_d, grav
-@parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
+using ...ParametersType
+using ...PlanetParameters: cp_d, cv_d, R_d, grav
+@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 @parameter prandtl 71//10 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
@@ -33,7 +33,7 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
   "gravitational acceleration (m/s^2)"
   gravity::T
 
-  "viscosity constant"
+              "viscosity constant"
   viscosity::T
 
   "storage for the grad"
@@ -182,7 +182,7 @@ function estimatedt(::Val{dim}, ::Val{N}, G, gravity, Q, vgeo,
   DFloat = eltype(Q)
 
   Np = (N+1)^dim
-  (~, ~, nelem) = size(Q)
+  (_, _, nelem) = size(Q)
 
   dt = [floatmax(DFloat)]
 
@@ -301,9 +301,10 @@ const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 
 using Requires
 
-@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-  using .CUDAnative.CUDAdrv
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  using .CuArrays.CUDAnative
+  using .CuArrays.CUDAnative.CUDAdrv
 
   include("VanillaAtmosDiscretizations_cuda.jl")
 end

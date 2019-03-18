@@ -1,19 +1,11 @@
-using Pkg
-using Test
+using Test, Pkg
 
-subpackags = [
-              "CLIMAAtmosDycore",
-              "ParametersType",
-              "PlanetParameters",
-              "Utilities",
-             ]
+for submodule in ["ParametersType",
+                  "PlanetParameters",
+                  "Utilities",
+                  "ClimaAtmos/Parameterizations/SurfaceFluxes",
+                  "ClimaAtmos/Dycore"]
 
-# Code coverage command line options; must correspond to src/julia.h
-# and src/ui/repl.c
-JL_LOG_NONE = 0
-
-coverage = Base.JLOptions().code_coverage != JL_LOG_NONE
-
-for subpackage in subpackags
-  Pkg.test(subpackage; coverage=coverage)
+  println("Testing $submodule")
+  include(joinpath("../src",submodule,"test/runtests.jl"))
 end

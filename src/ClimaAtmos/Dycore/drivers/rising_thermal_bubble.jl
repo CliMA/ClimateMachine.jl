@@ -1,16 +1,17 @@
 using MPI
 
-using CLIMAAtmosDycore.Topologies
-using CLIMAAtmosDycore.Grids
-using CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMAAtmosDycore.AtmosStateArrays
-using CLIMAAtmosDycore.LSRKmethods
-using CLIMAAtmosDycore.GenericCallbacks
-using CLIMAAtmosDycore
+using CLIMA.CLIMAAtmosDycore.Topologies
+using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
+using CLIMA.CLIMAAtmosDycore.LSRKmethods
+using CLIMA.CLIMAAtmosDycore.GenericCallbacks
+using CLIMA.CLIMAAtmosDycore
 using LinearAlgebra
 using Printf
 
 const HAVE_CUDA = try
+  using CuArrays
   using CUDAdrv
   using CUDAnative
   true
@@ -22,8 +23,8 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-using ParametersType
-using PlanetParameters: R_d, cp_d, grav, cv_d
+using CLIMA.ParametersType
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
@@ -134,7 +135,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
   theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
   =#
-  step = [0]
+   step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
