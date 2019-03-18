@@ -7,6 +7,7 @@ using CLIMAAtmosDycore.AtmosStateArrays
 using CLIMAAtmosDycore.LSRKmethods
 using CLIMAAtmosDycore.GenericCallbacks
 using CLIMAAtmosDycore
+using Utilities.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
@@ -45,8 +46,9 @@ end
 =#
 
 # FIXME: Will these keywords args be OK?
+
 function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
-  DFloat = eltype(x)
+ DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
   R_gas::DFloat   = R_d
@@ -67,6 +69,7 @@ function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
   c = c_v / R_gas
   ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
   ρ = ρ_k
+  ρinv = 1/ρ
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
@@ -76,11 +79,19 @@ function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
   Θ = ρ * θ_k
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
-  E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  # Calculation of energy per unit mass
+  E_kin = (U^2 + V^2 + W^2)/(2*ρ)/ρ
+  E_pot = gravity * x[dim]
+  E_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  # Total energy per unit mass 
+  E = (E_int + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  E_tot = MoistThermodynamics.total_energy(E_kin, E_pot, T, 0.0, 0.0, 0.0)
   (ρ=ρ, U=U, V=V, W=W, E=E,
    Qmoist=ntuple(j->(j*ρ), nmoist),
    Qtrace=ntuple(j->(-j*ρ), ntrace))
 end
+
+
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
               initialcondition, timeend; gravity=true, dt=nothing,
@@ -198,12 +209,12 @@ let
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
-  nmoist = 1
-  ntrace = 2
+  nmoist = 3
+  ntrace = 1
   Ne = (10, 10, 10)
   N = 4
   timeend = 0.1
-  for DFloat in (Float64,Float32)
+  for DFloat in (Float64,)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
