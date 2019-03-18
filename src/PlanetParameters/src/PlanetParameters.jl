@@ -4,7 +4,7 @@
 Module containing physical constants and parameters characterizing the planet.
 """
 module PlanetParameters
-using ParametersType
+using ..ParametersType
 
 # Physical constants
 @exportparameter gas_constant      8.3144598     "Universal gas constant (J/mol/K)"
