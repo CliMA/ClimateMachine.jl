@@ -15,7 +15,7 @@ using ..RootSolvers
 export air_pressure, air_temperature, air_density, sound_speed
 
 # Energies
-export total_energy, internal_energy, internal_energy_sat
+export total_energy, internal_energy, internal_energy_sat, kinetic_energy
 
 # Specific heats of moist air
 export cp_m, cv_m, gas_constant_air, moist_gas_constants
@@ -35,11 +35,14 @@ export liquid_ice_pottemp
 
 
 """
-    sound_speed(γ,P,ρ)
-Returns the speed of sound in moist air. 
+    sound_speed(T,γ,R_gas)
+Returns the speed of sound in moist air.
+Arguments: Temperature, specific heat capacity ratio, moist gas constant 
 """
-function sound_speed(γ, P, ρ)
-    return sqrt(γ * P/ ρ) 
+function sound_speed(T, γ, gas_constant_air)
+
+    return sqrt(T * γ * gas_constant_air) 
+
 end
 
 
@@ -123,12 +126,12 @@ Wrapper to return R_m, cv_m, cp_m, and gamma_m all at once
 """
 function moist_gas_constants(q_t=0, q_l=0, q_i=0)
 
-    Rm  = gas_constant_air(q_t, q_l, q_i)
-    cpm = cp_m(q_t, q_l, q_i)
-    cvm = cv_m(q_t, q_l, q_i)
-    gammam = cpm/cvm
+    R_gas  = gas_constant_air(q_t, q_l, q_i)
+    cp = cp_m(q_t, q_l, q_i)
+    cv = cv_m(q_t, q_l, q_i)
+    gamma = cp/cv
 
-    return (Rm, cpm, cvm, gammam)
+    return (R_gas, cp, cv, gamma)
 end
 
 """

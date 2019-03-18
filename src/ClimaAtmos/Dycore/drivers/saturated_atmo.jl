@@ -39,8 +39,7 @@ using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 
 function read_sounding()
     #read in the original squal sounding
-    #fsounding  = open(joinpath(@__DIR__, "soundings/sounding_GC1991.dat"))
-    fsounding = open("/Users/admin/Research/Codes/CLIMA/src/ClimaAtmos/Dycore/soundings/sounding_GC1991.dat")
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_GC1991.dat"))
     sound_data = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sound_data)
@@ -238,7 +237,6 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
 end
 
 # FIXME: Will these keywords args be OK?
-# FIXME: Build in tuple of i.c. variables passed across entire spatial domain - 
 
 function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
 # require output from initial condition to be array of state variables 
@@ -289,8 +287,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     
   #Read external sounding
   vgeo = grid.vgeo
-  (~, ~, nelem) = size(vgeo)
-  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
+  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist)
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
   @inbounds for e = 1:nelem, i = 1:(N+1)^dim
