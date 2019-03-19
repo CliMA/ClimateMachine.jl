@@ -197,20 +197,21 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       
       #Compute Temperature and Internal Energy per unit mass
       E_int = E - ((U^2 + V^2)/(2*ρ) + ρ * gravity * y) / ρ 
+
       for m = 1:nmoist
           s = _nstate + m
-          q_m[m] = Q[n, s, e]
+          q_m[m] = Q[n, s, e]/ρ
       end
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
       T = MoistThermodynamics.air_temperature(E_int, q_m[1], q_m[2], q_m[3])
       gdm1 = R_m/cv_m
-      gamma =  cp_m/cv_m
-      
+      gamma_m =  cp_m/cv_m
+      @show(q_m, gamma_m, R_m, T)
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m),
-                        abs(U * ηx + V * ηy) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m)) 
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m),
+                        abs(U * ηx + V * ηy) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m)) 
       dt[1] = min(dt[1], loc_dt)
   
     end
@@ -230,19 +231,19 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
           s = _nstate + m 
           q_m[m] = Q[n, s, e]
       end
+      @show(q_m)
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
       gdm1 = R_m/cv_m
-      gamma =  cp_m/cv_m
+      gamma_m =  cp_m/cv_m
       
       T = MoistThermodynamics.air_temperature(E_int, q_m[1], q_m[2], q_m[3])
-
       ξx, ξy, ξz = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e], vgeo[n, G.ξzid, e]
       ηx, ηy, ηz = vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e], vgeo[n, G.ηzid, e]
       ζx, ζy, ζz = vgeo[n, G.ζxid, e], vgeo[n, G.ζyid, e], vgeo[n, G.ζzid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m),
-                        abs(U * ηx + V * ηy + W * ηz) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m),
-                        abs(U * ζx + V * ζy + W * ζz) + ρ * MoistThermodynamics.sound_speed(T, gamma, R_m))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m),
+                        abs(U * ηx + V * ηy + W * ηz) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m),
+                        abs(U * ζx + V * ζy + W * ζz) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m))
       dt[1] = min(dt[1], loc_dt)
    
   end

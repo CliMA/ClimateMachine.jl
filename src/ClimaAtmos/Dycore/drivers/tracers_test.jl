@@ -86,9 +86,12 @@ function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
   # Total energy per unit mass 
   E = (E_int + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
   E_tot = MoistThermodynamics.total_energy(E_kin, E_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E,
-   Qmoist=ntuple(j->(j*ρ), nmoist),
-   Qtrace=ntuple(j->(-j*ρ), ntrace))
+  #(ρ=ρ, U=U, V=V, W=W, E=E,
+  #Qmoist=ntuple(j->(j*ρ), nmoist),
+  #Qtrace=ntuple(j->(-j*ρ), ntrace))
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(0.0196),nmoist),
+                             Qtrace=ntuple(j->(-ρ * j), ntrace))
+
 end
 
 
@@ -194,7 +197,8 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
 
   h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
   for (j, n) = enumerate(spacedisc.moistrange)
-    @assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+    # Current assertion condition non-physical: q_moist is a bounded, positive value < 1 
+    #@assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
   for (j, n) = enumerate(spacedisc.tracerange)
     @assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
@@ -209,7 +213,7 @@ let
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
-  nmoist = 3
+  nmoist = 1
   ntrace = 1
   Ne = (10, 10, 10)
   N = 4
