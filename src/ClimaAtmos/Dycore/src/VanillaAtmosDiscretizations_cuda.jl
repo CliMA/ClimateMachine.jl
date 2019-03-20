@@ -17,7 +17,9 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_u = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   s_v = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   s_T = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
-
+  q_m = @CuStaticSharedMem(eltype(Q),(3,))
+  q_m[1], q_m[2], q_m[3] = 0.0, 0.0, 0.0
+  
   @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
     if k == 1
@@ -28,11 +30,16 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
     y = vgeo[i, j, _y, e]
     P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-
+    Eint = E - ((U^2 + V^2)/(2*ρ) + ρ * gravity * y) / ρ
+    for m = 1:nmoist
+        s = _nstate+ m 
+        q_m[m] = Q[i,j,s,e]
+    end
     s_ρ[i, j] = ρ
     s_u[i, j] = U/ρ
     s_v[i, j] = V/ρ
-    s_T[i, j] = P/(R_d*ρ)
+    s_T[i, j] = MoistThermodynamics.air_temperature(Eint, q_m[1], q_m[2], q_m[3])
+    #s_T[i, j] = P/(R_d*ρ)
   end
 
   sync_threads()
@@ -149,6 +156,8 @@ function knl_volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_v = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq))
   s_w = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq))
   s_T = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq))
+  q_m = @cuStaticSharedMem(eltype(Q), (3,))
+  q_m = [0.0,0.0,0.0]
 
   @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
     # Load derivative into shared memory
@@ -160,13 +169,19 @@ function knl_volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
     ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
     z = vgeo[i,j,k,_z,e]
+    E_int = E - ((U^2 + V^2 + W^2)/(2*ρ) + ρ * gravity * z) / ρ
+    
     P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
-
+    for m = 1:nmoist
+        s = _nstate + m
+        q_m[m] = Q[i, j, k, s, e]
+    end
     s_ρ[i, j, k] = ρ
     s_u[i, j, k] = U/ρ
     s_v[i, j, k] = V/ρ
     s_w[i, j, k] = W/ρ
-    s_T[i, j, k] = P/(R_d*ρ)
+    s_T[i, j, k] = MoistThermodynamics.air_temperature(E_int, q_m[1], q_m[2], q_m[3])
+    #s_T[i, j, k] = P/(R_d*ρ)
   end
 
   sync_threads()
@@ -328,12 +343,19 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
         yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
+        EintM = EM - ((UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
+        for m = 1:nmoist
+            s = _nstate + m 
+            q_m[m] = Q[vidM, s, eM]
+        end
 
-        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
+        #PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
         uM=UM/ρM
         vM=VM/ρM
         wM=WM/ρM
-        TM=PM/(R_d*ρM)
+        TM=MoistThermodynamics.air_temperature(EintM, q_m[1], q_m[2], q_m[3])
+        PM=MoistThermodynamics.air_pressure(TM, ρM, q_m[1], q_m[2], q_m[3])
+        #TM=PM/(R_d*ρM)
 
         bc = elemtobndy[f, e]
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
@@ -346,10 +368,16 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           EP = Q[vidP, _E, eP]
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
           PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
+          for m = 1:nmoist
+              s = _nstate + m 
+              q_m[m] = Q[vidP, s, eP]
+          end
+          EintP= EP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
+          TP=MoistThermodynamics.air_temperature(EintP, q_m[1], q_m[2], q_m[3])
           uP=UP/ρP
           vP=VP/ρP
           wP=WP/ρP
-          TP=PP/(R_d*ρP)
+          #TP=PP/(R_d*ρP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
@@ -420,6 +448,8 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
   s_D = @cuStaticSharedMem(eltype(D), (Nq, Nq))
   s_F = @cuStaticSharedMem(eltype(Q), (Nq, Nq, _nstate))
   s_G = @cuStaticSharedMem(eltype(Q), (Nq, Nq, _nstate))
+  q_m = @cuStaticSharedMem(eltype(Q), (3,))
+  q_m = [0.0,0.0,0.0]
 
   MJI = rhsU = rhsV = rhsρ = rhsE = zero(eltype(rhs))
   MJ = ξx = ξy = ηx = ηy = zero(eltype(rhs))
@@ -439,9 +469,14 @@ function knl_volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
     ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
     rhsU, rhsV = rhs[i, j, _U, e], rhs[i, j, _V, e]
     rhsρ, rhsE = rhs[i, j, _ρ, e], rhs[i, j, _E, e]
-
+    Eint = E - ((U^2 + V^2)/(2*ρ) + ρ*gravity*y)/ρ
     P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-
+    for m = 1:nmoist
+        s = _nstate + m
+        q_m[m] = Q[i, j, s, e]
+    end
+    T = MoistThermodynamics.air_temperature(Eint, q_m[1], q_m[2], q_m[3])
+    P = MoistThermodynamics.air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
     ρx, ρy = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
     ux, uy = grad[i,j,_ux,e], grad[i,j,_uy,e]
     vx, vy = grad[i,j,_vx,e], grad[i,j,_vy,e]
@@ -601,7 +636,8 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
   s_F = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq, _nstate))
   s_G = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq, _nstate))
   s_H = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq, _nstate))
-
+  q_m = @cuStaticSharedMem(eltype(Q), (3,))
+  q_m = [0.0, 0.0, 0.0]
   MJI = rhsU = rhsV = rhsW = rhsρ = rhsE = zero(eltype(rhs))
   MJ = ξx = ξy = ξz = ηx = ηy = ηz = ζx = ζy = ζz = zero(eltype(rhs))
   u = v = w = zero(eltype(rhs))
@@ -610,18 +646,22 @@ function knl_volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
     if k == 1
       s_D[i, j] = D[i, j]
     end
-
+    for m = 1:nmoist
+        s = _nstate + m
+        q_m[m]=Q[i,j,k,s,e]
+    end
+    
     # Load values will need into registers
     MJ, MJI= vgeo[i, j, k, _MJ, e], vgeo[i, j, k, _MJI, e]
     ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
     ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
     ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
     z = vgeo[i,j,k,_z,e]
-
+    Eint = E - ((U^2 + V^2 + W^2)/(2*ρ) + ρ*gravity*z)/ρ
     U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
     ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
-
-    P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+    T = MoistThermodynamics.air_temperature(Eint, q_m[1], q_m[2], q_m[3])
+    P = MoistThermodynamics.air_pressure(T, q_m[1], q_m[2], q_m[3])
 
     ρx, ρy, ρz = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
     ux, uy, uz = grad[i,j,k,_ux,e], grad[i,j,k,_uy,e], grad[i,j,k,_uz,e]
@@ -856,7 +896,12 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
 
         (eM, eP) = (e, ((idP - 1) ÷ Np) + 1)
         (vidM, vidP) = (((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1)
-
+        
+        for m = 1:nmoist
+            s = _nstate + m 
+            q_m[m] = Q[vidM, s, eM]
+        end
+        
         ρxM = grad[vidM, _ρx, eM]
         ρyM = grad[vidM, _ρy, eM]
         ρzM = grad[vidM, _ρz, eM]
@@ -889,6 +934,11 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
         ρxP = ρyP = ρzP = uxP = uyP = uzP = vxP = vyP = vzP = zero(eltype(grad))
         wxP = wyP = wzP = TxP = TyP = TzP = zero(eltype(grad))
+        EintM = EM - ((UM^2 + VM^2+ WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
+        R_gasM, ~, ~, gammaM = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+        TM = MoistThermodynamics.air_temperature(EintM, q_m[1], q_m[2], q_m[3])
+        PM = MoistThermodynamics.air_pressure(TM, ρM, q_m[1], q_m[2], q_m[3]) 
+        
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
@@ -896,7 +946,10 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
-          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
+          EintP= EP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
+          R_gasP, ~, ~, gammaP = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
+          TP = MoistThermodynamics.air_temperature(EintP, q_m[1], q_m[2], q_m[3])
+          PP = MoistThermodynamics.air_pressure(TP, ρP, q_m[1], q_m[2], q_m[3]) 
 
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
@@ -921,6 +974,9 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
           ρP = ρM
           EP = EM
           PP = PM
+          TP = TM
+          gammaP = gammaM
+          R_gasP = R_gasM
 
           ρnM = nxM * ρxM + nyM * ρyM + nzM * ρzM
           ρxP = ρxM - 2 * ρnM * nxM
@@ -984,8 +1040,9 @@ function knl_facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace}, rhs,
         fluxWP_z = wP * WP + PP
         fluxEP_z = wP * (EP + PP)
 
-        λM = abs(nxM * uM + nyM * vM + nzM * wM) + CUDAnative.sqrt(ρMinv * gamma_d * PM)
-        λP = abs(nxM * uP + nyM * vP + nzM * wP) + CUDAnative.sqrt(ρPinv * gamma_d * PP)
+        # Pkg.MoistThermodynamics might need to be rewritten for CUDA support
+        λM = abs(nxM * uM + nyM * vM + nzM * wM) + MoistThermodynamics.sound_speed(TM, gammaM, R_gasM)
+        λP = abs(nxM * uP + nyM * vP + nzM * wP) + MoistThermodynamics.sound_speed(TP, gammaP, R_gasP)
         λ  =  max(λM, λP)
 
         #Compute Numerical Flux and Update
