@@ -230,19 +230,110 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
         ini_data_interp[k, 9] = thetav[k]  #thetav
     end
   
-   (ρ=ρ, U=U, V=V, E=E,
-   Qmoist=ntuple(j->(j*ρ), nmoist), 
-   Qtrace=ntuple(j->(-j*ρ), ntrace))
-
 end
 
 # FIXME: Will these keywords args be OK?
 
 function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
-# require output from initial condition to be array of state variables 
 # organised by [-1,1] interpolation LGL points. 
-# So in the current method, every element represents a z coordinate value and we assume that all LGL points within the element take the same value
+            
+            (nzmax, ~) = size(sound_ini_interp)
+            # Moist bubble from Kurowski et al. 2013
+            u0, v0   = 0.0, 0.0
+            pi0      = 1.0
+            theta0   = 283.0
+            p0       = 85000.0
+            rho0   = _p0/(R_gas * theta0) * (pi0)^(c_v/R_gas)
+            #20% of relative humidity in the background
+            RH0    = 20.0                                 
+            # find the matching height
+            maxt  = 0.0
+            count = 1
+            for k = 1:nzmax
+                dataz = sound_ini_interp[k, 1]
+                z     = x[dim]
+                z2test = Float64(floor(100.0 * dataz))/100.0
+                z1test = Float64(floor(100.0 * z))/100.0
+                if ( abs(z1test - z2test) <= 0.2)
+                    count=k
+                    break
+                end
+            end
 
+            dataz   = sound_ini_interp[count, 1] #z
+            datat   = sound_ini_interp[count, 2] #theta
+            dataq   = sound_ini_interp[count, 3] #qv
+            datau   = sound_ini_interp[count, 4] #u
+            datav   = sound_ini_interp[count, 5] #v
+            datap   = sound_ini_interp[count, 6] #p
+            datarho = sound_ini_interp[count, 7] #rho
+            datapi  = sound_ini_interp[count, 8] #exner
+            thetav  = sound_ini_interp[count, 9] #thetav
+
+            theta_k = thetav
+            pi_k    = datapi
+
+            rho_k   = datarho
+            press_k = datap
+            tempe_k = pi_k*theta_k
+           
+            # Grabowski:
+           es      = 611.0*exp(2.52e6/461.0*(1.0/273.16 - 1.0/tempe_k))
+           qvs     = 287.04/461.0 * es/(press_k - es)                               # saturation mixing ratio
+
+            qv_k    = qvs * RH0/100.0
+              
+            rc  =  300.0
+            r   = sqrt( (x[1] - 800)^2 + (x[dim] - 800.0)^2 )
+            
+            R_gas = MoistThermodynamics.gas_constant_air(0.0, 0.0, 0.0)
+            
+            thetac = 2.0
+            dtheta = 0.0
+            dqr    = 0.0
+            dqc    = 0.0
+            dqv    = 0.0
+            dRH    = 0.0
+            sigma  = 6.0
+            dtheta = thetac*exp(-(r/rc)^sigma)
+            
+            if (dtheta > maxt)
+                maxt = dtheta
+            end
+            theta_k = thetav + dtheta
+            pi_k    = datapi
+            rho_k   = datap/(R_gas * pi_k * theta_k)   
+            tempe_k = pi_k * theta_k
+              
+            # Grabowski:
+            es      = 611.0*exp(2.52e6/461.0*(1.0/273.16 - 1.0/tempe_k))
+            qvs     = 287.04/461.0 * es/(press_k - es)  # saturation mixing ratio
+
+            #formula from Joe Klemp's kessler.f:
+            qv_k    = qvs * RH0/100.0
+
+            dRH    = 80.0*exp(-(r/rc)^sigma)
+            dqv    = dRH*qvs/100.0
+            q_t  = qv_k + dqv
+            U    = u0
+            V    = v0
+
+            Qinit[1] = U
+            Qinit[2] = V
+            Qinit[3] = rho_k
+            Qinit[4] = theta_k
+
+            Qinit[5] = q_t
+            Qinit[6] = 0.0 #q_l[1]
+            Qinit[7] = 0.0 #q_i[1]
+
+            #T to be used as starting point for saturation adjustment iterations:
+            Qinit[_nstate+1] = tempe_k
+            Qinit[_nstate+2] = thetav
+            Qinit[_nstate+3] = press_k
+
+            @show(Qinit[3])
+            return Qinit
 end
 
 #function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
@@ -287,13 +378,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     
   #Read external sounding
   vgeo = grid.vgeo
-  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist)
+  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
   initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
-  
+  #=
   @inbounds for e = 1:nelem, i = 1:(N+1)^dim
   
   end
-
+  =#
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
 

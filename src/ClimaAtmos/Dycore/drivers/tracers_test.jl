@@ -91,7 +91,7 @@ function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
   #Qtrace=ntuple(j->(-j*ρ), ntrace))
   (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(0.0196),nmoist),
                              Qtrace=ntuple(j->(-ρ * j), ntrace))
-
+  # ASR Modified moist tracers to be < 1
 end
 
 
