@@ -338,8 +338,6 @@ function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, 
 
 end
 
-#function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
-#              initialcondition, timeend; gravity=true, dt=nothing, exact_timeend=true)
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
