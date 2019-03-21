@@ -232,7 +232,7 @@ end
 
 # FIXME: Will these keywords args be OK?
 
-function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
+function kurowskibubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
             γ::Float64       = gamma_d
             p0::Float64      = MSLP
             R_gas::Float64   = R_d
@@ -379,7 +379,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   #Read and interpolate external sounding
   vgeo = grid.vgeo
   initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
-  initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
+  initialcondition(x...) = kurowskibubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)

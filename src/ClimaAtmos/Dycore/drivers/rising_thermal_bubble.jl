@@ -29,7 +29,7 @@ using PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # FIXME: Will these keywords args be OK?
-function risingthermalbubble(x...; dim=3)
+function rising_thermal_bubble(x...; dim=3)
   DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
@@ -98,7 +98,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   spacedisc = VanillaAtmosDiscretization(grid)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(x...) = risingthermalbubble(x...; dim=dim)
+  initialcondition(x...) = rising_thermal_bubble(x...; dim=dim)
   Q = AtmosStateArray(spacedisc, initialcondition)
 
   # Determine the time step
