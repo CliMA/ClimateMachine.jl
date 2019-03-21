@@ -64,14 +64,23 @@ I_vap        = internal energy, vapour
 I_liq        = internal energy, liquid
 I_ice        = internal energy, ice
 I_tot        = internal energy, total
+Reference values given by
+I_vap0       
 
-ekin_<spe>      = kinetic energy, species
-cv_vapm         = specific heat, vapour, moist
-cv_icem         = specific heat, ice, moist
-cp_liqm         = specific heat, liquid, moist
-cv_vapd         = specific heat, vapour, dry
-cv_iced         = specific heat const. volume 
-cp_liqd         = specific heat const. pres
+<Lower case e<stuff> suggests specific (per unit mass) quantities>
+ekin_<spe>      = kinetic energy, 
+epot_<spe>      = potential energy,
+eint_<spe>      = internal energy
+etot_<spe>      = total energy, 
 
+Ekin_<spe>      = kinetic energy,
+Epot_<spe>      = potential energy,
+Eint_<spe>      = internal energy
+Etot_<spe>      = total energy, 
 
-
+cv_vapm         = specific heat
+cv_icem         = specific heat
+cv_liqm         = specific heat
+cp_vapd         = specific heat
+cp_iced         = specific heat
+cp_liqd         = specific heat 
