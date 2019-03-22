@@ -449,7 +449,7 @@ let
   DFloat = Float64
     
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=8000), dim)
+      brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=10000), dim)
       main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
   end
 end
