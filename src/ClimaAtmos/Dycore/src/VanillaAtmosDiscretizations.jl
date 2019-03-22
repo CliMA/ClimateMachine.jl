@@ -206,7 +206,6 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       T = MoistThermodynamics.air_temperature(E_int, q_m[1], q_m[2], q_m[3])
       gdm1 = R_m/cv_m
       gamma_m =  cp_m/cv_m
-      @show(q_m, gamma_m, R_m, T)
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
 
@@ -231,7 +230,6 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
           s = _nstate + m 
           q_m[m] = Q[n, s, e]
       end
-      @show(q_m)
       (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
       gdm1 = R_m/cv_m
       gamma_m =  cp_m/cv_m
