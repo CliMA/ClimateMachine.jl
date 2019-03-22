@@ -5,7 +5,6 @@ using MPI
 
 export AtmosStateArray
 
-# TODO: Make MPI Aware
 struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
                        DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
@@ -55,9 +54,10 @@ struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
     host_sendQ = zeros(T, S.parameters..., numsendelem)
     host_recvQ = zeros(T, S.parameters..., numsendelem)
 
-    fill!(Q, 0)
-    fill!(device_sendQ, 0)
-    fill!(device_sendQ, 0)
+    # Length check is to work around a CuArrays bug.
+    length(Q) > 0 && fill!(Q, 0)
+    length(device_sendQ) > 0 && fill!(device_sendQ, 0)
+    length(device_recvQ) > 0 && fill!(device_recvQ, 0)
 
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
@@ -274,9 +274,10 @@ end
 
 using Requires
 
-@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-  using .CUDAnative.CUDAdrv
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  using .CuArrays.CUDAnative
+  using .CuArrays.CUDAnative.CUDAdrv
 
   include("AtmosStateArrays_cuda.jl")
 end

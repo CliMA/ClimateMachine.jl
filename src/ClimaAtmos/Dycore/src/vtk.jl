@@ -26,7 +26,7 @@ end
 #=
 This is the 2D WriteMesh routine
 =#
-function writemesh(base_name, x, y; fields=(), realelems=1:size(x)[end])
+function writemesh(base_name, x, y; z=nothing, fields=(), realelems=1:size(x)[end])
   @assert size(x) == size(y)
   (Nqr, Nqs, _) = size(x)
   Nsubcells = (Nqr-1) * (Nqs-1)
@@ -43,8 +43,13 @@ function writemesh(base_name, x, y; fields=(), realelems=1:size(x)[end])
     end
   end
 
-  vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), cells;
-                     compress=false)
+  if z == nothing
+    vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), cells;
+                       compress=false)
+  else
+    vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), @view(z[:]),
+                       cells; compress=false)
+  end
   for (name, v) ∈ fields
     vtk_point_data(vtkfile, v, name)
   end

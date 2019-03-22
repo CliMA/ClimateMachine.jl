@@ -4,15 +4,6 @@ export solve!, getrhsfunction
 
 using Requires
 
-@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-  using .CUDAnative.CUDAdrv
-
-  include("CLIMAAtmosDycore_cuda.jl")
-
-  # }}}
-end
-
 abstract type AbstractAtmosDiscretization end
 getrhsfunction(disc::AbstractAtmosDiscretization) =
 throw(MethodError(getrhsfunction, typeof(disc)))

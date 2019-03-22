@@ -1,10 +1,10 @@
 
-using Utilities, PlanetParameters
+using CLIMA.Utilities, CLIMA.PlanetParameters
 
 using Test
 
-using Utilities.MoistThermodynamics
-using Utilities.RootSolvers
+using CLIMA.Utilities.MoistThermodynamics
+using CLIMA.Utilities.RootSolvers
 
 using LinearAlgebra
 
@@ -138,10 +138,11 @@ catch
 end
 @testset "CUDA RootSolvers" begin
   if HAVE_CUDA
-    for m in RootSolvers.get_solve_methods()
+    for m in [RootSolvers.SecantMethod()]             
       x_ca = cu(rand(5, 5))
       x_ca_0 = x_ca
       x_ca_1 = x_ca.+2
+      
       t = typeof(x_ca[1])
       x_star2 = t(10000.0)
       f(x) = x^2 - x_star2
