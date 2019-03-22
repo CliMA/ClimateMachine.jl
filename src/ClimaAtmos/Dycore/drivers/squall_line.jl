@@ -231,7 +231,7 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
 end
 
 # FIXME: Will these keywords args be OK?
-function squallline(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
+function squall_line(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
             # {{{ FIXME: remove this after we've figure out how to pass through to kernel
             γ::Float64       = gamma_d
             p0::Float64      = MSLP
@@ -356,7 +356,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   #Read external sounding
   vgeo = grid.vgeo
   initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
-  initialcondition(x...) = squallline(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
+  initialcondition(x...) = squall_line(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
