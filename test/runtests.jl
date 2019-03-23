@@ -1,7 +1,7 @@
 using Test, Pkg
 
-for submodule in ["ParametersType",
-                  "PlanetParameters",
+for submodule in ["Utilities/ParametersType",
+                  "Utilities/PlanetParameters",
                   "Utilities/RootSolvers",
                   "Utilities/MoistThermodynamics",
                   "ClimaAtmos/Parameterizations/SurfaceFluxes",
