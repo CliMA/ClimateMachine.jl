@@ -13,8 +13,9 @@ makedocs(
   modules = [Documenter, CLIMA],
   pages = Any[
     "Home" => "index.md",
-    "Modules" => Any[
-      "Utilities.md",
+    "Utilites" => Any[
+      "RootSolvers" => "Utilities/RootSolvers.md",
+      "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
     ],
     "Developer docs" => Any[
       "CodingConventions.md",

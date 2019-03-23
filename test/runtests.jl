@@ -2,7 +2,8 @@ using Test, Pkg
 
 for submodule in ["ParametersType",
                   "PlanetParameters",
-                  "Utilities",
+                  "Utilities/RootSolvers",
+                  "Utilities/MoistThermodynamics",
                   "ClimaAtmos/Parameterizations/SurfaceFluxes",
                   "ClimaAtmos/Dycore"]
 

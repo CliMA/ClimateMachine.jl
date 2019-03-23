@@ -3,8 +3,8 @@ using Test
 using CLIMA.SurfaceFluxes
 using CLIMA.SurfaceFluxes.Nishizawa2018
 using CLIMA.SurfaceFluxes.Byun1990
-using CLIMA.Utilities.MoistThermodynamics
-using CLIMA.Utilities.RootSolvers
+using CLIMA.MoistThermodynamics
+using CLIMA.RootSolvers
 
 @testset "SurfaceFluxes" begin
 
