@@ -425,8 +425,12 @@ and ice specific humidity `q_i`.
 """
 function liquid_ice_pottemp(T, p, q_t=0, q_l=0, q_i=0)
 
-    # potential temperature
-    pottemp = dry_pottemp(T, p, q_t, q_l, q_i)
+    # gas constant and isobaric specific heat of moist air
+    _R_m    = gas_constant_air(q_t, q_l, q_i)
+    _cp_m   = cp_m(q_t, q_l, q_i)
+
+    # dry potential temperature
+    pottemp = T / (p/MSLP)^(_R_m/_cp_m)
 
     # liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
@@ -446,7 +450,7 @@ dry_pottemp(T, p, q_t=0, q_l=0, q_i=0) = T / exner(p, q_t, q_l, q_i)
 """
     exner(p, q_t=0, q_l=0, q_i=0)
 
-Return the exner function, given the pressure `p`, total specific
+Return the Exner function, given the pressure `p`, total specific
 humidity `q_t`, liquid specific humidity `q_l`, and ice specific humidity `q_i`.
 """
 function exner(p, q_t=0, q_l=0, q_i=0)
