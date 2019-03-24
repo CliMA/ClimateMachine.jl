@@ -1,6 +1,7 @@
 using Test
 
 for submodule in ["Grids",
+                  "GridOperators",
                   ]
 
   println("Testing $submodule")
