@@ -1,8 +1,8 @@
 module Grids
 
 import Base
-export Grid, get_z, over_elems, over_elems_real
-export first_cell_above_surface
+export Grid, over_elems, over_elems_real, over_elems_ghost
+export first_cell_above_surface, get_z
 
 struct Grid{T}
   n_elem :: Int
@@ -43,7 +43,7 @@ function Base.show(io::IO, grid::Grid)
 end
 
 @inline function get_z(grid::Grid, k::Int)
-  return grid.zc[k]
+  return grid.z[k]
 end
 
 @inline function over_elems(grid::Grid)
@@ -52,6 +52,10 @@ end
 
 @inline function over_elems_real(grid::Grid)
   return 1+grid.n_ghost:grid.n_elem-grid.n_ghost
+end
+
+@inline function over_elems_ghost(grid::Grid)
+  return setdiff(over_elems(grid), over_elems_real(grid))
 end
 
 @inline function first_cell_above_surface(grid::Grid)
