@@ -100,6 +100,13 @@ julia> topology.elemtobndy
  0  0  0  0  0  0
 ```
 Note that the faces are listed in Cartesian order.
+
+!!! todo
+
+    We may/probably want to unify to a single Topology type which has different
+    constructors since all the topologies we currently have are essentially the
+    same
+
 """
 struct BrickTopology{dim, T} <: AbstractTopology{dim}
   """
