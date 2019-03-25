@@ -1,3 +1,6 @@
+"""
+A set of callback functions to be used with an `AbstractAtmosODESolver`
+"""
 module GenericCallbacks
 using MPI
 
