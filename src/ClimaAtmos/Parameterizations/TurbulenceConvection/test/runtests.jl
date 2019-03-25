@@ -2,6 +2,7 @@ using Test
 
 for submodule in ["Grids",
                   "GridOperators",
+                  "StateVecs",
                   ]
 
   println("Testing $submodule")

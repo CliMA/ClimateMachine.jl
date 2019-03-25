@@ -62,4 +62,8 @@ end
   return 1+grid.n_ghost
 end
 
+@inline function over_ghost(grid::Grid)
+  return setdiff(over_elems(grid),over_elems_real(grid))
+end
+
 end
