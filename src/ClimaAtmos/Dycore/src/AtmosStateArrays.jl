@@ -6,8 +6,8 @@ using MPI
 export AtmosStateArray
 
 """
-   AtmosStateArray{S <: Tuple, T, DeviceArray, N,
-                   DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
+    AtmosStateArray{S <: Tuple, T, DeviceArray, N,
+                    DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
 
 
 `N`-dimensional MPI-aware array with elements of type `T`. The dimension `N` is

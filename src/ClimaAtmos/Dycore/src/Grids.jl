@@ -24,9 +24,9 @@ const sgeoid = (nxid = _nx, nyid = _ny, nzid = _nz, sMid = _sM,
 # }}}
 
 """
-  DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
-                                   polynomialorder,
-                                   meshwarp = (x...)->identity(x))
+    DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
+                                     polynomialorder,
+                                     meshwarp = (x...)->identity(x))
 
 Generate a discontinuous spectral element (tensor product,
 Legendre-Gauss-Lobatto) grid/mesh from a `topology`, where the order of the
