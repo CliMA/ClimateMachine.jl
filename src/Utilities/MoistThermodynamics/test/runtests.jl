@@ -82,4 +82,13 @@ using LinearAlgebra
   @test liquid_ice_pottemp.([T, T], [MSLP, MSLP], [0, 0], [0, 0], [0, 0]) ≈ [T, T]
   @test liquid_ice_pottemp.([T, T], .1*[MSLP, MSLP], [0, 1], [0, 0], [0, 0]) ≈
     T .* 10 .^[R_d/cp_d, R_v/cp_v]
+
+  # dry potential temperatures. FIXME: add correctness tests
+  T = 300; p=1.e5; q_t=0.23
+  @test dry_pottemp(T, p, q_t) isa typeof(p)
+
+  # Exner function. FIXME: add correctness tests
+  p=1.e5; q_t=0.23
+  @test exner(p, q_t) isa typeof(p)
+
 end
