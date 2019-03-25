@@ -182,7 +182,8 @@ AtmosStateArrays.AtmosStateArray(f::Function,
                                 ) = AtmosStateArray(d, f)
 
 """
-estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)
+    estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)
+
 Given a discretization `disc` and a state `Q` compute an estimate for the time
 step
 
