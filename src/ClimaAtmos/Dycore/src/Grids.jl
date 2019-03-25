@@ -23,6 +23,21 @@ const sgeoid = (nxid = _nx, nyid = _ny, nzid = _nz, sMid = _sM,
                 vMIid = _vMI)
 # }}}
 
+"""
+  DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
+                                   polynomialorder,
+                                   meshwarp = (x...)->identity(x))
+
+Generate a discontinuous spectral element (tensor product,
+Legendre-Gauss-Lobatto) grid/mesh from a `topology`, where the order of the
+elements is given by `polynomialorder`. `DeviceArray` gives the array type used
+to store the data (`CuArray` or `Array`), and the coordinate points will be of
+`FloatType`.
+
+The optional `meshwarp` function allows the coordinate points to be warped after
+the mesh is created; the mesh degrees of freedom are orginally assigned using a
+trilinear blend of the element corner locations.
+"""
 struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
                                         DAT2, DAT3, DAT4, DAI1, DAI2, DAI3,
                                         TOP
