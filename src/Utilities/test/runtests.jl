@@ -86,6 +86,15 @@ using LinearAlgebra
   @test liquid_ice_pottemp.([T, T], [MSLP, MSLP], [0, 0], [0, 0], [0, 0]) ≈ [T, T]
   @test liquid_ice_pottemp.([T, T], .1*[MSLP, MSLP], [0, 1], [0, 0], [0, 0]) ≈
     T .* 10 .^[R_d/cp_d, R_v/cp_v]
+
+  # dry potential temperatures. FIXME: add correctness tests
+  T = 300; p=1.e5; q_t=0.23
+  @test dry_pottemp(T, p, q_t) isa typeof(p)
+
+  # Exner function. FIXME: add correctness tests
+  p=1.e5; q_t=0.23
+  @test exner(p, q_t) isa typeof(p)
+
 end
 
 @testset "RootSolvers correctness" begin
@@ -138,10 +147,11 @@ catch
 end
 @testset "CUDA RootSolvers" begin
   if HAVE_CUDA
-    for m in RootSolvers.get_solve_methods()
+    for m in [RootSolvers.SecantMethod()]             
       x_ca = cu(rand(5, 5))
       x_ca_0 = x_ca
       x_ca_1 = x_ca.+2
+      
       t = typeof(x_ca[1])
       x_star2 = t(10000.0)
       f(x) = x^2 - x_star2

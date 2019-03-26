@@ -3,24 +3,23 @@ include:
 
 .projecttest:
   extends: .test
-  only:
-    - master
-    - staging
-    - trying
   script:
+    - apt-get update
+    - apt-get install --yes --no-install-recommends cmake gfortran mpich libmpich-dev
     - julia -e 'using InteractiveUtils;
                 versioninfo()'
     - mkdir $JULIA_DEPOT_PATH
-    - julia -e '
-               using Pkg;
-               Pkg.resolve();
-               Pkg.instantiate();
-               Pkg.build();
-               Pkg.test(".");'
+    - julia --project=$CI_JULIA_PROJECT -e '
+                          using Pkg;
+                          Pkg.instantiate();
+                          Pkg.resolve();
+                          Pkg.build();
+                          include("test/runtests.jl");'
 .gputest:
   extends: .projecttest
   variables:
     CI_IMAGE_TAG:     'cuda'
+    CI_JULIA_PROJECT: 'env/gpu'
   tags:
     - cuda
 
@@ -28,6 +27,7 @@ include:
   extends: .projecttest
   variables:
     CI_IMAGE_TAG:     'plain'
+    CI_JULIA_PROJECT: '.'
 
 gpu:test:dev:
   extends: .gputest
