@@ -1,8 +1,15 @@
 module Topologies
 
 export AbstractTopology, AbstractStackedTopology
+export GenericTopology
 export BrickTopology, StackedBrickTopology
 export CubedShellTopology, StackedCubedSphereTopology
+
+abstract type TopologyType end
+struct Brick <: TopologyType end
+struct StackedBrick <: TopologyType end
+struct CubedShell <: TopologyType end
+struct StackedCubedSphere <: TopologyType end
 
 import Canary
 using MPI
@@ -101,7 +108,8 @@ julia> topology.elemtobndy
 ```
 Note that the faces are listed in Cartesian order.
 """
-struct BrickTopology{dim, T} <: AbstractTopology{dim}
+struct GenericTopology{dim, T} <: AbstractTopology{dim}
+
   """
   mpi communicator use for spatial discretization are using
   """
@@ -180,33 +188,43 @@ struct BrickTopology{dim, T} <: AbstractTopology{dim}
   """
   nabrtosend::Array{UnitRange{Int64}, 1}
 
-  BrickTopology(mpicomm, Nelems::NTuple{N, Integer}; kw...) where N =
-  BrickTopology(mpicomm, map(Ne->0:Ne, Nelems); kw...)
+  """
+  type of topology (Brick, StackedBrick, CubedShell, StackedCubedSphere)
+  """
+  topology_type::TopologyType
 
-  function BrickTopology(mpicomm, elemrange;
-                         boundary=ones(Int,2,length(elemrange)),
-                         periodicity=ntuple(j->false, length(elemrange)),
-                         connectivity=:face, ghostsize=1)
+  """
+  number of elements in a stack
+  """
+  stacksize::Union{Int64, Nothing}
 
-    # We cannot handle anything else right now...
-    @assert connectivity == :face
-    @assert ghostsize == 1
+end
+BrickTopology(mpicomm, Nelems::NTuple{N, Integer}; kw...) where N =
+BrickTopology(mpicomm, map(Ne->0:Ne, Nelems); kw...)
 
-    mpirank = MPI.Comm_rank(mpicomm)
-    mpisize = MPI.Comm_size(mpicomm)
-    topology = Canary.brickmesh(elemrange, periodicity, part=mpirank+1,
-                                numparts=mpisize, boundary=boundary)
-    topology = Canary.partition(mpicomm, topology...)
-    topology = Canary.connectmesh(mpicomm, topology...)
+function BrickTopology(mpicomm, elemrange;
+                       boundary=ones(Int,2,length(elemrange)),
+                       periodicity=ntuple(j->false, length(elemrange)),
+                       connectivity=:face, ghostsize=1)
 
-    dim = length(elemrange)
-    T = eltype(topology.elemtocoord)
-    new{dim, T}(mpicomm, topology.elems, topology.realelems,
-                topology.ghostelems, topology.sendelems, topology.elemtocoord,
-                topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
-                topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-                topology.nabrtosend)
-  end
+  # We cannot handle anything else right now...
+  @assert connectivity == :face
+  @assert ghostsize == 1
+
+  mpirank = MPI.Comm_rank(mpicomm)
+  mpisize = MPI.Comm_size(mpicomm)
+  topology = Canary.brickmesh(elemrange, periodicity, part=mpirank+1,
+                              numparts=mpisize, boundary=boundary)
+  topology = Canary.partition(mpicomm, topology...)
+  topology = Canary.connectmesh(mpicomm, topology...)
+
+  dim = length(elemrange)
+  T = eltype(topology.elemtocoord)
+  return GenericTopology{dim, T}(mpicomm, topology.elems, topology.realelems,
+              topology.ghostelems, topology.sendelems, topology.elemtocoord,
+              topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
+              topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
+              topology.nabrtosend, Brick(), nothing)
 end
 
 """
@@ -305,230 +323,145 @@ julia> topology.elemtobndy
 Note that the faces are listed in Cartesian order.
 """
 
-struct StackedBrickTopology{dim, T} <: AbstractStackedTopology{dim}
-  """
-  mpi communicator use for spatial discretization are using
-  """
-  mpicomm::MPI.Comm
+StackedBrickTopology(mpicomm, Nelems::NTuple{N, Integer}; kw...) where N =
+StackedBrickTopology(mpicomm, map(Ne->0:Ne, Nelems); kw...)
 
-  """
-  number of elements in a stack
-  """
-  stacksize::Int64
-
-  """
-  range of element indices
-  """
-  elems::UnitRange{Int64}
-
-  """
-  range of real (aka nonghost) element indices
-  """
-  realelems::UnitRange{Int64}
-
-  """
-  range of ghost element indices
-  """
-  ghostelems::UnitRange{Int64}
-
-  """
-  array of send element indices sorted so that
-  """
-  sendelems::Array{Int64, 1}
-
-  """
-  element to vertex coordinates
-
-  `elemtocoord[d,i,e]` is the `d`th coordinate of corner `i` of element `e`
-
-  !!! note
-  currently coordinates always are of size 3 for `(x, y, z)`
-  """
-  elemtocoord::Array{T, 3}
-
-  """
-  element to neighboring element; `elemtoelem[f,e]` is the number of the element
-  neighboring element `e` across face `f`.  If there is no neighboring element
-  then `elemtoelem[f,e] == e`.
-  """
-  elemtoelem::Array{Int64, 2}
-
-  """
-  element to neighboring element face; `elemtoface[f,e]` is the face number of
-  the element neighboring element `e` across face `f`.  If there is no
-  neighboring element then `elemtoface[f,e] == f`."
-  """
-  elemtoface::Array{Int64, 2}
-
-  """
-  element to neighboring element order; `elemtoordr[f,e]` is the ordering number
-  of the element neighboring element `e` across face `f`.  If there is no
-  neighboring element then `elemtoordr[f,e] == 1`.
-  """
-  elemtoordr::Array{Int64, 2}
-
-  """
-  element to bounday number; `elemtobndy[f,e]` is the boundary number of face
-  `f` of element `e`.  If there is a neighboring element then `elemtobndy[f,e]
-  == 0`.
-  """
-  elemtobndy::Array{Int64, 2}
-
-  """
-  list of the MPI ranks for the neighboring processes
-  """
-  nabrtorank::Array{Int64, 1}
-
-  """
-  range in ghost elements to receive for each neighbor
-  """
-  nabrtorecv::Array{UnitRange{Int64}, 1}
-
-  """
-  range in `sendelems` to send for each neighbor
-  """
-  nabrtosend::Array{UnitRange{Int64}, 1}
-
-  StackedBrickTopology(mpicomm, Nelems::NTuple{N, Integer}; kw...) where N =
-  StackedBrickTopology(mpicomm, map(Ne->0:Ne, Nelems); kw...)
-
-  function StackedBrickTopology(mpicomm, elemrange;
-                         boundary=ones(Int,2,length(elemrange)),
-                         periodicity=ntuple(j->false, length(elemrange)),
-                         connectivity=:face, ghostsize=1)
+function StackedBrickTopology(mpicomm, elemrange;
+                       boundary=ones(Int,2,length(elemrange)),
+                       periodicity=ntuple(j->false, length(elemrange)),
+                       connectivity=:face, ghostsize=1)
 
 
-    dim = length(elemrange)
+  dim = length(elemrange)
 
-    dim <= 1 && error("Stacked brick topology works for 2D and 3D")
+  dim <= 1 && error("Stacked brick topology works for 2D and 3D")
 
-    # Build the base topology
-    basetopo = BrickTopology(mpicomm, elemrange[1:dim-1];
-                       boundary=boundary[:,1:dim-1],
-                       periodicity=periodicity[1:dim-1],
-                       connectivity=connectivity,
-                       ghostsize=ghostsize)
+  # Build the base topology
+  basetopo = BrickTopology(mpicomm, elemrange[1:dim-1];
+                     boundary=boundary[:,1:dim-1],
+                     periodicity=periodicity[1:dim-1],
+                     connectivity=connectivity,
+                     ghostsize=ghostsize)
 
 
-    # Use the base topology to build the stacked topology
-    stack = elemrange[dim]
-    stacksize = length(stack) - 1
+  # Use the base topology to build the stacked topology
+  stack = elemrange[dim]
+  stacksize = length(stack) - 1
 
-    nvert = 2^dim
-    nface = 2dim
+  nvert = 2^dim
+  nface = 2dim
 
-    nreal = length(basetopo.realelems)*stacksize
-    nghost = length(basetopo.ghostelems)*stacksize
+  nreal = length(basetopo.realelems)*stacksize
+  nghost = length(basetopo.ghostelems)*stacksize
 
-    elems=1:(nreal+nghost)
-    realelems=1:nreal
-    ghostelems=nreal.+(1:nghost)
+  elems=1:(nreal+nghost)
+  realelems=1:nreal
+  ghostelems=nreal.+(1:nghost)
 
-    sendelems = similar(basetopo.sendelems,
-                        length(basetopo.sendelems)*stacksize)
-    for i=1:length(basetopo.sendelems), j=1:stacksize
-      sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
-    end
-
-    elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
-
-    for i=1:length(basetopo.elems), j=1:stacksize
-      e = stacksize*(i-1) + j
-
-      for v = 1:2^(dim-1)
-        for d = 1:(dim-1)
-          elemtocoord[d, v, e] = basetopo.elemtocoord[d, v, i]
-          elemtocoord[d, 2^(dim-1) + v, e] = basetopo.elemtocoord[d, v, i]
-        end
-
-        elemtocoord[dim, v, e] = stack[j]
-        elemtocoord[dim, 2^(dim-1) + v, e] = stack[j+1]
-      end
-    end
-
-    elemtoelem = similar(basetopo.elemtoelem, nface, length(elems))
-    elemtoface = similar(basetopo.elemtoface, nface, length(elems))
-    elemtoordr = similar(basetopo.elemtoordr, nface, length(elems))
-    elemtobndy = similar(basetopo.elemtobndy, nface, length(elems))
-
-    for e=1:length(basetopo.elems)*stacksize, f=1:nface
-      elemtoelem[f, e] = e
-      elemtoface[f, e] = f
-      elemtoordr[f, e] = 1
-      elemtobndy[f, e] = 0
-    end
-
-    for i=1:length(basetopo.realelems), j=1:stacksize
-      e1 = stacksize*(i-1) + j
-
-      for f = 1:2(dim-1)
-        e2 = stacksize*(basetopo.elemtoelem[f, i]-1) + j
-
-        elemtoelem[f, e1] = e2
-        elemtoface[f, e1] = basetopo.elemtoface[f, i]
-
-        # We assume a simple orientation right now
-        @assert basetopo.elemtoordr[f, i] == 1
-        elemtoordr[f, e1] = basetopo.elemtoordr[f, i]
-      end
-
-      et = stacksize*(i-1) + j + 1
-      eb = stacksize*(i-1) + j - 1
-      ft = 2(dim-1) + 1
-      fb = 2(dim-1) + 2
-      ot = 1
-      ob = 1
-
-      if j == stacksize
-        et = periodicity[dim] ? stacksize*(i-1) + 1 : e1
-        ft = periodicity[dim] ? ft : 2(dim-1) + 2
-      elseif j == 1
-        eb = periodicity[dim] ? stacksize*(i-1) + stacksize : e1
-        fb = periodicity[dim] ? fb : 2(dim-1) + 1
-      end
-
-      elemtoelem[2(dim-1)+1, e1] = eb
-      elemtoelem[2(dim-1)+2, e1] = et
-      elemtoface[2(dim-1)+1, e1] = fb
-      elemtoface[2(dim-1)+2, e1] = ft
-      elemtoordr[2(dim-1)+1, e1] = ob
-      elemtoordr[2(dim-1)+2, e1] = ot
-    end
-
-    for i=1:length(basetopo.elems), j=1:stacksize
-      e1 = stacksize*(i-1) + j
-
-      for f = 1:2(dim-1)
-        elemtobndy[f, e1] = basetopo.elemtobndy[f, i]
-      end
-
-      bt = bb = 0
-
-      if j == stacksize
-        bt = periodicity[dim] ? bt : boundary[2,dim]
-      elseif j == 1
-        bb = periodicity[dim] ? bb : boundary[1,dim]
-      end
-
-      elemtobndy[2(dim-1)+1, e1] = bb
-      elemtobndy[2(dim-1)+2, e1] = bt
-    end
-
-    nabrtorank = basetopo.nabrtorank
-    nabrtorecv =
-      UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtorecv[n])-1)+1,
-                               stacksize*last(basetopo.nabrtorecv[n]))
-                     for n = 1:length(nabrtorank)]
-    nabrtosend =
-      UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtosend[n])-1)+1,
-                               stacksize*last(basetopo.nabrtosend[n]))
-                     for n = 1:length(nabrtorank)]
-
-    T = eltype(basetopo.elemtocoord)
-    new{dim, T}(mpicomm, stacksize, elems, realelems, ghostelems, sendelems,
-                elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-                nabrtorank, nabrtorecv, nabrtosend)
+  sendelems = similar(basetopo.sendelems,
+                      length(basetopo.sendelems)*stacksize)
+  for i=1:length(basetopo.sendelems), j=1:stacksize
+    sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
   end
+
+  elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
+
+  for i=1:length(basetopo.elems), j=1:stacksize
+    e = stacksize*(i-1) + j
+
+    for v = 1:2^(dim-1)
+      for d = 1:(dim-1)
+        elemtocoord[d, v, e] = basetopo.elemtocoord[d, v, i]
+        elemtocoord[d, 2^(dim-1) + v, e] = basetopo.elemtocoord[d, v, i]
+      end
+
+      elemtocoord[dim, v, e] = stack[j]
+      elemtocoord[dim, 2^(dim-1) + v, e] = stack[j+1]
+    end
+  end
+
+  elemtoelem = similar(basetopo.elemtoelem, nface, length(elems))
+  elemtoface = similar(basetopo.elemtoface, nface, length(elems))
+  elemtoordr = similar(basetopo.elemtoordr, nface, length(elems))
+  elemtobndy = similar(basetopo.elemtobndy, nface, length(elems))
+
+  for e=1:length(basetopo.elems)*stacksize, f=1:nface
+    elemtoelem[f, e] = e
+    elemtoface[f, e] = f
+    elemtoordr[f, e] = 1
+    elemtobndy[f, e] = 0
+  end
+
+  for i=1:length(basetopo.realelems), j=1:stacksize
+    e1 = stacksize*(i-1) + j
+
+    for f = 1:2(dim-1)
+      e2 = stacksize*(basetopo.elemtoelem[f, i]-1) + j
+
+      elemtoelem[f, e1] = e2
+      elemtoface[f, e1] = basetopo.elemtoface[f, i]
+
+      # We assume a simple orientation right now
+      @assert basetopo.elemtoordr[f, i] == 1
+      elemtoordr[f, e1] = basetopo.elemtoordr[f, i]
+    end
+
+    et = stacksize*(i-1) + j + 1
+    eb = stacksize*(i-1) + j - 1
+    ft = 2(dim-1) + 1
+    fb = 2(dim-1) + 2
+    ot = 1
+    ob = 1
+
+    if j == stacksize
+      et = periodicity[dim] ? stacksize*(i-1) + 1 : e1
+      ft = periodicity[dim] ? ft : 2(dim-1) + 2
+    elseif j == 1
+      eb = periodicity[dim] ? stacksize*(i-1) + stacksize : e1
+      fb = periodicity[dim] ? fb : 2(dim-1) + 1
+    end
+
+    elemtoelem[2(dim-1)+1, e1] = eb
+    elemtoelem[2(dim-1)+2, e1] = et
+    elemtoface[2(dim-1)+1, e1] = fb
+    elemtoface[2(dim-1)+2, e1] = ft
+    elemtoordr[2(dim-1)+1, e1] = ob
+    elemtoordr[2(dim-1)+2, e1] = ot
+  end
+
+  for i=1:length(basetopo.elems), j=1:stacksize
+    e1 = stacksize*(i-1) + j
+
+    for f = 1:2(dim-1)
+      elemtobndy[f, e1] = basetopo.elemtobndy[f, i]
+    end
+
+    bt = bb = 0
+
+    if j == stacksize
+      bt = periodicity[dim] ? bt : boundary[2,dim]
+    elseif j == 1
+      bb = periodicity[dim] ? bb : boundary[1,dim]
+    end
+
+    elemtobndy[2(dim-1)+1, e1] = bb
+    elemtobndy[2(dim-1)+2, e1] = bt
+  end
+
+  nabrtorank = basetopo.nabrtorank
+  nabrtorecv =
+    UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtorecv[n])-1)+1,
+                             stacksize*last(basetopo.nabrtorecv[n]))
+                   for n = 1:length(nabrtorank)]
+  nabrtosend =
+    UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtosend[n])-1)+1,
+                             stacksize*last(basetopo.nabrtosend[n]))
+                   for n = 1:length(nabrtorank)]
+
+  T = eltype(basetopo.elemtocoord)
+  return GenericTopology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
+              elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
+              nabrtorank, nabrtorecv, nabrtosend, StackedBrick(), stacksize)
 end
 
 """
@@ -573,122 +506,41 @@ end
 MPI.Finalize()
 ```
 """
-struct CubedShellTopology{T} <: AbstractTopology{2}
-  """
-  mpi communicator use for spatial discretization are using
-  """
-  mpicomm::MPI.Comm
+function CubedShellTopology(mpicomm, Neside; connectivity=:face,
+                            ghostsize=1, T)
 
-  """
-  range of element indices
-  """
-  elems::UnitRange{Int64}
+  # We cannot handle anything else right now...
+  @assert connectivity == :face
+  @assert ghostsize == 1
 
-  """
-  range of real (aka nonghost) element indices
-  """
-  realelems::UnitRange{Int64}
+  mpirank = MPI.Comm_rank(mpicomm)
+  mpisize = MPI.Comm_size(mpicomm)
 
-  """
-  range of ghost element indices
-  """
-  ghostelems::UnitRange{Int64}
+  topology = cubedshellmesh(Neside, part=mpirank+1, numparts=mpisize)
 
-  """
-  array of send element indices sorted so that
-  """
-  sendelems::Array{Int64, 1}
+  topology = Canary.partition(mpicomm, topology...)
 
-  """
-  element to vertex coordinates
-
-  `elemtocoord[d,i,e]` is the `d`th coordinate of corner `i` of element `e`
-
-  !!! note
-  currently coordinates always are of size 3 for `(x, y, z)`
-  """
-  elemtocoord::Array{T, 3}
-
-  """
-  element to neighboring element; `elemtoelem[f,e]` is the number of the element
-  neighboring element `e` across face `f`.  If there is no neighboring element
-  then `elemtoelem[f,e] == e`.
-  """
-  elemtoelem::Array{Int64, 2}
-
-  """
-  element to neighboring element face; `elemtoface[f,e]` is the face number of
-  the element neighboring element `e` across face `f`.  If there is no
-  neighboring element then `elemtoface[f,e] == f`."
-  """
-  elemtoface::Array{Int64, 2}
-
-  """
-  element to neighboring element order; `elemtoordr[f,e]` is the ordering number
-  of the element neighboring element `e` across face `f`.  If there is no
-  neighboring element then `elemtoordr[f,e] == 1`.
-  """
-  elemtoordr::Array{Int64, 2}
-
-  """
-  element to bounday number; `elemtobndy[f,e]` is the boundary number of face
-  `f` of element `e`.  If there is a neighboring element then `elemtobndy[f,e]
-  == 0`.
-  """
-  elemtobndy::Array{Int64, 2}
-
-  """
-  list of the MPI ranks for the neighboring processes
-  """
-  nabrtorank::Array{Int64, 1}
-
-  """
-  range in ghost elements to receive for each neighbor
-  """
-  nabrtorecv::Array{UnitRange{Int64}, 1}
-
-  """
-  range in `sendelems` to send for each neighbor
-  """
-  nabrtosend::Array{UnitRange{Int64}, 1}
-
-
-  function CubedShellTopology{T}(mpicomm, Neside; connectivity=:face,
-                                 ghostsize=1) where T
-
-    # We cannot handle anything else right now...
-    @assert connectivity == :face
-    @assert ghostsize == 1
-
-    mpirank = MPI.Comm_rank(mpicomm)
-    mpisize = MPI.Comm_size(mpicomm)
-
-    topology = cubedshellmesh(Neside, part=mpirank+1, numparts=mpisize)
-
-    topology = Canary.partition(mpicomm, topology...)
-
-    dim, nvert = 3, 4
-    elemtovert = topology[1]
-    nelem = size(elemtovert, 2)
-    elemtocoord = Array{T}(undef, dim, nvert, nelem)
-    ind2vert = CartesianIndices((Neside+1, Neside+1, Neside+1))
-    for e in 1:nelem
-      for n = 1:nvert
-        v = elemtovert[n, e]
-        i, j, k = Tuple(ind2vert[v])
-        elemtocoord[:, n, e] = (2*[i-1, j-1, k-1] .- Neside) / Neside
-      end
+  dim, nvert = 3, 4
+  elemtovert = topology[1]
+  nelem = size(elemtovert, 2)
+  elemtocoord = Array{T}(undef, dim, nvert, nelem)
+  ind2vert = CartesianIndices((Neside+1, Neside+1, Neside+1))
+  for e in 1:nelem
+    for n = 1:nvert
+      v = elemtovert[n, e]
+      i, j, k = Tuple(ind2vert[v])
+      elemtocoord[:, n, e] = (2*[i-1, j-1, k-1] .- Neside) / Neside
     end
-
-    topology = Canary.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
-                                  topology[4]; dim = 2)
-
-    new{T}(mpicomm, topology.elems, topology.realelems,
-           topology.ghostelems, topology.sendelems, elemtocoord,
-           topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
-           topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-           topology.nabrtosend)
   end
+
+  topology = Canary.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
+                                topology[4]; dim = 2)
+
+  return GenericTopology{dim, T}(mpicomm, topology.elems, topology.realelems,
+         topology.ghostelems, topology.sendelems, elemtocoord,
+         topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
+         topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
+         topology.nabrtosend, CubedShell(), nothing)
 end
 
 """
@@ -901,211 +753,126 @@ MPI.Finalize()
 ```
 Note that the faces are listed in Cartesian order.
 """
-struct StackedCubedSphereTopology{T} <: AbstractStackedTopology{3}
-  """
-  mpi communicator use for spatial discretization are using
-  """
-  mpicomm::MPI.Comm
+function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
+                                    connectivity=:face, ghostsize=1)
+  T = eltype(Rrange)
 
-  """
-  number of elements in a stack
-  """
-  stacksize::Int64
+  basetopo = CubedShellTopology{T}(mpicomm, Nhorz; connectivity=connectivity,
+                                   ghostsize=ghostsize)
 
-  """
-  range of element indices
-  """
-  elems::UnitRange{Int64}
+  dim = 3
+  nvert = 2^dim
+  nface = 2dim
+  stacksize = length(Rrange) - 1
 
-  """
-  range of real (aka nonghost) element indices
-  """
-  realelems::UnitRange{Int64}
+  nreal = length(basetopo.realelems)*stacksize
+  nghost = length(basetopo.ghostelems)*stacksize
 
-  """
-  range of ghost element indices
-  """
-  ghostelems::UnitRange{Int64}
+  elems=1:(nreal+nghost)
+  realelems=1:nreal
+  ghostelems=nreal.+(1:nghost)
 
-  """
-  array of send element indices sorted so that
-  """
-  sendelems::Array{Int64, 1}
+  sendelems = similar(basetopo.sendelems,
+                      length(basetopo.sendelems)*stacksize)
 
-  """
-  element to vertex coordinates
-
-  `elemtocoord[d,i,e]` is the `d`th coordinate of corner `i` of element `e`
-
-  !!! note
-  currently coordinates always are of size 3 for `(x, y, z)`
-  """
-  elemtocoord::Array{T, 3}
-
-  """
-  element to neighboring element; `elemtoelem[f,e]` is the number of the element
-  neighboring element `e` across face `f`.  If there is no neighboring element
-  then `elemtoelem[f,e] == e`.
-  """
-  elemtoelem::Array{Int64, 2}
-
-  """
-  element to neighboring element face; `elemtoface[f,e]` is the face number of
-  the element neighboring element `e` across face `f`.  If there is no
-  neighboring element then `elemtoface[f,e] == f`."
-  """
-  elemtoface::Array{Int64, 2}
-
-  """
-  element to neighboring element order; `elemtoordr[f,e]` is the ordering number
-  of the element neighboring element `e` across face `f`.  If there is no
-  neighboring element then `elemtoordr[f,e] == 1`.
-  """
-  elemtoordr::Array{Int64, 2}
-
-  """
-  element to bounday number; `elemtobndy[f,e]` is the boundary number of face
-  `f` of element `e`.  If there is a neighboring element then `elemtobndy[f,e]
-  == 0`.
-  """
-  elemtobndy::Array{Int64, 2}
-
-  """
-  list of the MPI ranks for the neighboring processes
-  """
-  nabrtorank::Array{Int64, 1}
-
-  """
-  range in ghost elements to receive for each neighbor
-  """
-  nabrtorecv::Array{UnitRange{Int64}, 1}
-
-  """
-  range in `sendelems` to send for each neighbor
-  """
-  nabrtosend::Array{UnitRange{Int64}, 1}
-
-  function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
-                                      connectivity=:face, ghostsize=1)
-    T = eltype(Rrange)
-
-    basetopo = CubedShellTopology{T}(mpicomm, Nhorz; connectivity=connectivity,
-                                     ghostsize=ghostsize)
-
-    dim = 3
-    nvert = 2^dim
-    nface = 2dim
-    stacksize = length(Rrange) - 1
-
-    nreal = length(basetopo.realelems)*stacksize
-    nghost = length(basetopo.ghostelems)*stacksize
-
-    elems=1:(nreal+nghost)
-    realelems=1:nreal
-    ghostelems=nreal.+(1:nghost)
-
-    sendelems = similar(basetopo.sendelems,
-                        length(basetopo.sendelems)*stacksize)
-
-    for i=1:length(basetopo.sendelems), j=1:stacksize
-      sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
-    end
-
-    elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
-
-    for i=1:length(basetopo.elems), j=1:stacksize
-      # i is base element
-      # e is stacked element
-      e = stacksize*(i-1) + j
-
-
-      # v is base vertex
-      for v = 1:2^(dim-1)
-        for d = 1:dim # dim here since shell is embedded in 3-D
-          # v is lower stacked vertex
-          elemtocoord[d, v, e] = basetopo.elemtocoord[d, v, i] * Rrange[j]
-          # 2^(dim-1) + v is higher stacked vertex
-          elemtocoord[d, 2^(dim-1) + v, e] = basetopo.elemtocoord[d, v, i] *
-                                             Rrange[j+1]
-        end
-      end
-    end
-
-    elemtoelem = similar(basetopo.elemtoelem, nface, length(elems))
-    elemtoface = similar(basetopo.elemtoface, nface, length(elems))
-    elemtoordr = similar(basetopo.elemtoordr, nface, length(elems))
-    elemtobndy = similar(basetopo.elemtobndy, nface, length(elems))
-
-    for e=1:length(basetopo.elems)*stacksize, f=1:nface
-      elemtoelem[f, e] = e
-      elemtoface[f, e] = f
-      elemtoordr[f, e] = 1
-      elemtobndy[f, e] = 0
-    end
-
-    for i=1:length(basetopo.realelems), j=1:stacksize
-      e1 = stacksize*(i-1) + j
-
-      for f = 1:2(dim-1)
-        e2 = stacksize*(basetopo.elemtoelem[f, i]-1) + j
-
-        elemtoelem[f, e1] = e2
-        elemtoface[f, e1] = basetopo.elemtoface[f, i]
-
-        # since the basetopo is 2-D we only need to worry about two orientations
-        @assert basetopo.elemtoordr[f, i] ∈ (1,2)
-        #=
-        orientation 1:
-        2---3     2---3
-        |   | --> |   |
-        0---1     0---1
-        same:
-        (a,b) --> (a,b)
-
-        orientation 3:
-        2---3     3---2
-        |   | --> |   |
-        0---1     1---0
-        reverse first index:
-        (a,b) --> (N+1-a,b)
-        =#
-        elemtoordr[f, e1] = basetopo.elemtoordr[f, i] == 1 ? 1 : 3
-      end
-
-      # If top or bottom of stack set neighbor to self on respective face
-      elemtoelem[2(dim-1)+1, e1] = j == 1         ? e1 : stacksize*(i-1) + j - 1
-      elemtoelem[2(dim-1)+2, e1] = j == stacksize ? e1 : stacksize*(i-1) + j + 1
-
-      elemtoface[2(dim-1)+1, e1] = j == 1         ? 2(dim-1) + 1 : 2(dim-1) + 2
-      elemtoface[2(dim-1)+2, e1] = j == stacksize ? 2(dim-1) + 2 : 2(dim-1) + 1
-
-      elemtoordr[2(dim-1)+1, e1] = 1
-      elemtoordr[2(dim-1)+2, e1] = 1
-    end
-
-    # Set the top and bottom boundary condition
-    for i=1:length(basetopo.elems)
-      eb = stacksize*(i-1) + 1
-      et = stacksize*(i-1) + stacksize
-
-      elemtobndy[2(dim-1)+1, eb] = bc[1]
-      elemtobndy[2(dim-1)+2, et] = bc[2]
-    end
-
-    nabrtorank = basetopo.nabrtorank
-    nabrtorecv =
-      UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtorecv[n])-1)+1,
-                               stacksize*last(basetopo.nabrtorecv[n]))
-                     for n = 1:length(nabrtorank)]
-    nabrtosend =
-      UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtosend[n])-1)+1,
-                               stacksize*last(basetopo.nabrtosend[n]))
-                     for n = 1:length(nabrtorank)]
-
-    new{T}(mpicomm, stacksize, elems, realelems, ghostelems, sendelems,
-           elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-           nabrtorank, nabrtorecv, nabrtosend)
+  for i=1:length(basetopo.sendelems), j=1:stacksize
+    sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
   end
+
+  elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
+
+  for i=1:length(basetopo.elems), j=1:stacksize
+    # i is base element
+    # e is stacked element
+    e = stacksize*(i-1) + j
+
+
+    # v is base vertex
+    for v = 1:2^(dim-1)
+      for d = 1:dim # dim here since shell is embedded in 3-D
+        # v is lower stacked vertex
+        elemtocoord[d, v, e] = basetopo.elemtocoord[d, v, i] * Rrange[j]
+        # 2^(dim-1) + v is higher stacked vertex
+        elemtocoord[d, 2^(dim-1) + v, e] = basetopo.elemtocoord[d, v, i] *
+                                           Rrange[j+1]
+      end
+    end
+  end
+
+  elemtoelem = similar(basetopo.elemtoelem, nface, length(elems))
+  elemtoface = similar(basetopo.elemtoface, nface, length(elems))
+  elemtoordr = similar(basetopo.elemtoordr, nface, length(elems))
+  elemtobndy = similar(basetopo.elemtobndy, nface, length(elems))
+
+  for e=1:length(basetopo.elems)*stacksize, f=1:nface
+    elemtoelem[f, e] = e
+    elemtoface[f, e] = f
+    elemtoordr[f, e] = 1
+    elemtobndy[f, e] = 0
+  end
+
+  for i=1:length(basetopo.realelems), j=1:stacksize
+    e1 = stacksize*(i-1) + j
+
+    for f = 1:2(dim-1)
+      e2 = stacksize*(basetopo.elemtoelem[f, i]-1) + j
+
+      elemtoelem[f, e1] = e2
+      elemtoface[f, e1] = basetopo.elemtoface[f, i]
+
+      # since the basetopo is 2-D we only need to worry about two orientations
+      @assert basetopo.elemtoordr[f, i] ∈ (1,2)
+      #=
+      orientation 1:
+      2---3     2---3
+      |   | --> |   |
+      0---1     0---1
+      same:
+      (a,b) --> (a,b)
+
+      orientation 3:
+      2---3     3---2
+      |   | --> |   |
+      0---1     1---0
+      reverse first index:
+      (a,b) --> (N+1-a,b)
+      =#
+      elemtoordr[f, e1] = basetopo.elemtoordr[f, i] == 1 ? 1 : 3
+    end
+
+    # If top or bottom of stack set neighbor to self on respective face
+    elemtoelem[2(dim-1)+1, e1] = j == 1         ? e1 : stacksize*(i-1) + j - 1
+    elemtoelem[2(dim-1)+2, e1] = j == stacksize ? e1 : stacksize*(i-1) + j + 1
+
+    elemtoface[2(dim-1)+1, e1] = j == 1         ? 2(dim-1) + 1 : 2(dim-1) + 2
+    elemtoface[2(dim-1)+2, e1] = j == stacksize ? 2(dim-1) + 2 : 2(dim-1) + 1
+
+    elemtoordr[2(dim-1)+1, e1] = 1
+    elemtoordr[2(dim-1)+2, e1] = 1
+  end
+
+  # Set the top and bottom boundary condition
+  for i=1:length(basetopo.elems)
+    eb = stacksize*(i-1) + 1
+    et = stacksize*(i-1) + stacksize
+
+    elemtobndy[2(dim-1)+1, eb] = bc[1]
+    elemtobndy[2(dim-1)+2, et] = bc[2]
+  end
+
+  nabrtorank = basetopo.nabrtorank
+  nabrtorecv =
+    UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtorecv[n])-1)+1,
+                             stacksize*last(basetopo.nabrtorecv[n]))
+                   for n = 1:length(nabrtorank)]
+  nabrtosend =
+    UnitRange{Int}[UnitRange(stacksize*(first(basetopo.nabrtosend[n])-1)+1,
+                             stacksize*last(basetopo.nabrtosend[n]))
+                   for n = 1:length(nabrtorank)]
+
+  return GenericTopology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
+         elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
+         nabrtorank, nabrtorecv, nabrtosend, StackedCubedSphere(), stacksize)
 end
 
 end
