@@ -62,12 +62,11 @@ function rising_thermal_bubble(x...; dim=3)
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   # Calculation of energy per unit mass
-  E_kin = (U^2 + V^2 + W^2)/(2*ρ)/ρ
-  E_pot = gravity * x[dim]
-  E_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  e_kin = (u^2 + v^2 + w^2) / 2  
+  e_pot = gravity * x[dim]
+  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
   # Total energy per unit mass 
-  E = (E_int + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-  E_tot = MoistThermodynamics.total_energy(E_kin, E_pot, T, 0.0, 0.0, 0.0)
+  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
   (ρ=ρ, U=U, V=V, W=W, E=E)
 end
 

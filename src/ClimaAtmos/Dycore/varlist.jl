@@ -1,17 +1,17 @@
-# Following the CLIMAAtmos design document
-# Based on the current list of variables (in the order that they appear in equations)
+# Reserved variable names following the CLIMAAtmos design document
 # This suggests 'reserved' variable names
 
-Variable names in property_species format ? 
-
-Alternates in square brackets
+Variable names in property_species format 
 
 # Names saved for 'use and throw' debug variables
 dummy
 scratch
 
-2.1  Working Fluid and Equation of State
 
+Default working fluid = moist air
+
+2.1  Working Fluid and Equation of State
+----------------------------------------
 q_dry = dry air mass fraction
 q_vap = specific humidity, vapour
 q_liq = specific humidity, liquid
@@ -25,18 +25,18 @@ R_moist         = gas constant, moist
 R_dry           = gas constant, dry
 R_vap           = gas constant, water vapour
 T_air           = temperature, air [temp_air]
-temp_<species>  = temperature, species (perhaps limit to 3 letter key)
-T_<species>     = temperature, species
-<Feedback?>
+T_<species>     = temperature, species 
 ε_vd            = ratio of molar masses (== R_airv/R_aird)
 
 2.2 Mass Balance
+----------------------------------------
 dt                  = time increment
 vel_u               = x-velocity [u]
 vel_v               = y-velocity [v]
 vel_w               = z-velocity [w]
 
 2.3 Moisture balances 
+----------------------------------------
 source_qt           = local source/sink of water mass [S_qt]
 diffusiveflux_vap   = diffusive flux, water vapour
 diffusiveflux_liq   = diffusive flux, cloud liquid
@@ -45,6 +45,7 @@ diffusiveflux_tot   = diffusive flux, total
 <Suggestions from the microphysics side needed for section 2.3>
 
 2.4 Momentum balances
+----------------------------------------
 U               = x-momentum [mom_x]
 V               = y-momentum [mom_y]
 W               = z-momentum [mom_z] (in 2D, this is always the vertical coordinate)
@@ -59,6 +60,7 @@ gravpot         = gravitational potential energy
 λ_stokes        = Stokes parameter
 
 2.5 Energy balance
+----------------------------------------
 I_dry        = internal energy, dry
 I_vap        = internal energy, vapour
 I_liq        = internal energy, liquid
@@ -68,15 +70,15 @@ Reference values given by
 I_vap0       
 
 <Lower case e<stuff> suggests specific (per unit mass) quantities>
-ekin_<spe>      = kinetic energy, 
-epot_<spe>      = potential energy,
-eint_<spe>      = internal energy
-etot_<spe>      = total energy, 
+e_kin_<spe>      = kinetic energy, 
+e_pot_<spe>      = potential energy,
+e_int_<spe>      = internal energy
+e_tot_<spe>      = total energy, 
 
-Ekin_<spe>      = kinetic energy,
-Epot_<spe>      = potential energy,
-Eint_<spe>      = internal energy
-Etot_<spe>      = total energy, 
+E_kin_<spe>      = kinetic energy,
+E_pot_<spe>      = potential energy,
+E_int_<spe>      = internal energy
+E_tot_<spe>      = total energy, 
 
 cv_vapm         = specific heat
 cv_icem         = specific heat
