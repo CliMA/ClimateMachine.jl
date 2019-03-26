@@ -4,16 +4,14 @@ export solve!, getrhsfunction
 
 using Requires
 
-@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-  using .CUDAnative.CUDAdrv
-
-  include("CLIMAAtmosDycore_cuda.jl")
-
-  # }}}
-end
-
 abstract type AbstractAtmosDiscretization end
+
+"""
+    getrhsfunction(disc::AbstractAtmosDiscretization)
+
+The spatial discretizations are of the form ``Q̇ = f(Q)``, and this function
+returns the handle to right-hand side function ``f`` of the `disc`
+"""
 getrhsfunction(disc::AbstractAtmosDiscretization) =
 throw(MethodError(getrhsfunction, typeof(disc)))
 
@@ -21,6 +19,22 @@ abstract type AbstractAtmosODESolver end
 gettime(solver::AbstractAtmosODESolver) = solver.t[1]
 dostep!(Q, solver::AbstractAtmosODESolver) = error()
 # {{{ run!
+"""
+    solve!(Q, solver::AbstractAtmosODESolver; timeend,
+           stopaftertimeend=true, numberofsteps, callbacks)
+
+Solves an ODE using the `solver` starting from a state `Q`. The state `Q` is
+updated inplace. The final time `timeend` or `numberofsteps` must be specified.
+
+A series of optional callback functions can be specified using the tuple
+`callbacks`; see [`GenericCallbacks`](@ref).
+
+!!! todo
+
+    Currently `stopaftertimeend` is not used. The idea behind it was that a user
+    might want to stop either one step before or after the final time `timeend`.
+    This should either be removed or used.
+"""
 function solve!(Q, solver::AbstractAtmosODESolver; timeend::Real=Inf,
                 stopaftertimeend=true, numberofsteps::Integer=0, callbacks=())
 

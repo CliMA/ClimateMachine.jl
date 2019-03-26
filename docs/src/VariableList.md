@@ -1,9 +1,10 @@
-# Reserved variable names following the CLIMAAtmos design document
-# This suggests 'reserved' variable names
+# Following the CLIMAAtmos design document (Internal overleaf shared doc)
+# This document suggests 'reserved' variable names
 
-Variable names in property_species format 
+Variable names in property_species format ? 
 
-# Names saved for 'use and throw' debug variables
+# TODO add units
+# Names saved for 'use and throw' / debug variables
 dummy
 scratch
 
@@ -19,12 +20,13 @@ q_ice = specific humidity, ice
 q_con = specific humidity, condensate
 q_tot = specific humidity, total
 
-p_air           = pressure, air 
+P_air           = pressure, air 
 ρ_air           = density, air
 R_moist         = gas constant, moist
 R_dry           = gas constant, dry
 R_vap           = gas constant, water vapour
 T_air           = temperature, air [temp_air]
+<<<<<<< HEAD:src/ClimaAtmos/Dycore/varlist.jl
 T_<species>     = temperature, species 
 ε_vd            = ratio of molar masses (== R_airv/R_aird)
 
@@ -34,6 +36,19 @@ dt                  = time increment
 vel_u               = x-velocity [u]
 vel_v               = y-velocity [v]
 vel_w               = z-velocity [w]
+=======
+T_<species>     = temperature, species
+ε_vd            = ratio of molar masses (== R_airv/R_aird)
+
+2.2 Mass Balance
+dt              = time increment
+u               = x-velocity 
+v               = y-velocity
+w               = z-velocity
+U		= x-momentum 
+V		= y-momentum
+W		= z=momentum 
+>>>>>>> origin:docs/src/VariableList.md
 
 2.3 Moisture balances 
 ----------------------------------------
@@ -69,11 +84,19 @@ I_tot        = internal energy, total
 Reference values given by
 I_vap0       
 
+<<<<<<< HEAD:src/ClimaAtmos/Dycore/varlist.jl
 <Lower case e<stuff> suggests specific (per unit mass) quantities>
 e_kin_<spe>      = kinetic energy, 
 e_pot_<spe>      = potential energy,
 e_int_<spe>      = internal energy
 e_tot_<spe>      = total energy, 
+=======
+<Lower case e_<type> suggests specific (per unit mass) quantities>
+e_kin_<spe>      = kinetic energy
+e_pot_<spe>      = potential energy
+e_int_<spe>      = internal energy
+e_tot_<spe>      = total energy
+>>>>>>> origin:docs/src/VariableList.md
 
 E_kin_<spe>      = kinetic energy,
 E_pot_<spe>      = potential energy,
