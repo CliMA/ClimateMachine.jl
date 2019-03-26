@@ -9,6 +9,8 @@ forbid the use of accents (dot, hat, vec, etc.), because
 this can lead to visually ambiguous characters.
 
 ## Acceptable lower-case Greek letters:
+
+```
 α # (alpha)
 β # (beta)
 δ # (delta)
@@ -30,16 +32,22 @@ this can lead to visually ambiguous characters.
 ζ # (zeta)
 ϕ # (psi)
 φ # (varphi)
+```
 
 ## Acceptable upper-case Greek letters:
+
+```
 Δ # (Delta)
 ∑ # (Sigma)
 Γ # (Gamma)
 Ω # (Omega)
 Ψ # (Psi)
 <!-- Φ # (Phi) removed in favor of lowercase psi -->
+```
 
 ## Acceptable mathematical symbols:
+
+```
 ∫ # (int)
 ∬ # (iint)
 ∭ # (iiint)
@@ -51,3 +59,4 @@ this can lead to visually ambiguous characters.
 ≥ # (greater than equal to)
 ≤ # (less than equal to)
 <!-- ∈ # (in) removed in favor of epsilon -->
+```

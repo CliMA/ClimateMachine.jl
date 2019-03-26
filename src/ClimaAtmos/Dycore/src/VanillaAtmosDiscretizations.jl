@@ -3,13 +3,13 @@ using MPI
 
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
-using CLIMAAtmosDycore.Grids
-using CLIMAAtmosDycore.AtmosStateArrays
+using ..Grids
+using ..AtmosStateArrays
 
 export VanillaAtmosDiscretization
 
-using ParametersType
-using PlanetParameters: cp_d, cv_d, R_d, grav
+using ...ParametersType
+using ...PlanetParameters: cp_d, cv_d, R_d, grav
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
@@ -24,6 +24,17 @@ const _nstategrad = 15
 const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
        _Tx, _Ty, _Tz) = 1:_nstategrad
 
+"""
+    VanillaAtmosDiscretization{nmoist, ntrace}(grid; gravity = true,
+    viscosity = 0)
+
+Given a 'grid <: AbstractGrid' this construct all the data necessary to run a
+vanilla discontinuous Galerkin discretization of the the compressible Euler
+equations with `nmoist` moisture variables and `ntrace` tracer variables. If the
+boolean keyword argument `gravity` is `true` then gravity is used otherwise it
+is not. Isotropic viscosity can be used if `viscosity` is set to a positive
+constant.
+"""
 struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                   DeviceArray, nmoist, ntrace, DASAT3,
                                   GT } <: AD.AbstractAtmosDiscretization
@@ -103,6 +114,12 @@ function Base.propertynames(X::VanillaAtmosDiscretization)
   (fieldnames(VanillaAtmosDiscretization)..., keys(stateid)...)
 end
 
+"""
+    AtmosStateArray(disc::VanillaAtmosDiscretization)
+
+Given a discretization `disc` constructs an `AtmosStateArrays` for holding a
+solution state
+"""
 function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
                                                  T, dim, N, Np, DA, nmoist,
                                                  ntrace}
@@ -164,6 +181,16 @@ AtmosStateArrays.AtmosStateArray(f::Function,
                                  d::VanillaAtmosDiscretization
                                 ) = AtmosStateArray(d, f)
 
+"""
+    estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)
+
+Given a discretization `disc` and a state `Q` compute an estimate for the time
+step
+
+!!! todo
+
+    This estimate is currently very conservative, needs to be revisited
+"""
 function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA},
                     Q::AtmosStateArray) where {T, dim, N, Np, DA}
   @assert T == eltype(Q)
@@ -301,9 +328,10 @@ const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 
 using Requires
 
-@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-  using .CUDAnative.CUDAdrv
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  using .CuArrays.CUDAnative
+  using .CuArrays.CUDAnative.CUDAdrv
 
   include("VanillaAtmosDiscretizations_cuda.jl")
 end

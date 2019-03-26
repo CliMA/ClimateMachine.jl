@@ -1,9 +1,10 @@
-using SurfaceFluxes
-using SurfaceFluxes.Nishizawa2018
-using SurfaceFluxes.Byun1990
 using Test
-using Utilities.MoistThermodynamics
-using Utilities.RootSolvers
+
+using CLIMA.SurfaceFluxes
+using CLIMA.SurfaceFluxes.Nishizawa2018
+using CLIMA.SurfaceFluxes.Byun1990
+using CLIMA.Utilities.MoistThermodynamics
+using CLIMA.Utilities.RootSolvers
 
 @testset "SurfaceFluxes" begin
 

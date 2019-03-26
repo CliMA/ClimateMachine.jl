@@ -7,9 +7,8 @@ saturation specific humidities
 """
 module MoistThermodynamics
 
-using PlanetParameters
-
 using ..RootSolvers
+using ...PlanetParameters
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density
@@ -29,10 +28,10 @@ export saturation_vapor_pressure, saturation_shum_generic, saturation_shum
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
-export liquid_fraction, phase_partitioning_eq!, saturation_adjustment
+export liquid_fraction, phase_partitioning_eq!, saturation_adjustment, phase_partitioning_eq
 
 # Auxiliary functions, e.g., for diagnostic purposes
-export liquid_ice_pottemp
+export liquid_ice_pottemp, dry_pottemp, exner
 
 """
     gas_constant_air([q_t=0, q_l=0, q_i=0])
@@ -423,7 +422,6 @@ end
 Return the liquid-ice potential temperature, given the temperature `T`,
 pressure `p`, total specific humidity `q_t`, liquid specific humidity `q_l`,
 and ice specific humidity `q_i`.
-
 """
 function liquid_ice_pottemp(T, p, q_t=0, q_l=0, q_i=0)
 
@@ -431,13 +429,39 @@ function liquid_ice_pottemp(T, p, q_t=0, q_l=0, q_i=0)
     _R_m    = gas_constant_air(q_t, q_l, q_i)
     _cp_m   = cp_m(q_t, q_l, q_i)
 
-    # potential temperature
-    pottemp = T * (MSLP/p)^(_R_m/_cp_m)
+    # dry potential temperature
+    pottemp = T / (p/MSLP)^(_R_m/_cp_m)
 
     # liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
     return pottemp * exp(-(LH_v0*q_l + LH_s0*q_i)/(_cp_m*T))
 
 end
+
+"""
+    dry_pottemp(T, p, q_t=0, q_l=0, q_i=0)
+
+Return the dry potential temperature, given the temperature `T`,
+pressure `p`, total specific humidity `q_t`, liquid specific humidity `q_l`,
+and ice specific humidity `q_i`.
+"""
+dry_pottemp(T, p, q_t=0, q_l=0, q_i=0) = T / exner(p, q_t, q_l, q_i)
+
+"""
+    exner(p, q_t=0, q_l=0, q_i=0)
+
+Return the Exner function, given the pressure `p`, total specific
+humidity `q_t`, liquid specific humidity `q_l`, and ice specific humidity `q_i`.
+"""
+function exner(p, q_t=0, q_l=0, q_i=0)
+
+    # gas constant and isobaric specific heat of moist air
+    _R_m    = gas_constant_air(q_t, q_l, q_i)
+    _cp_m   = cp_m(q_t, q_l, q_i)
+
+    return (p/MSLP)^(_R_m/_cp_m)
+
+end
+
 
 end #module MoistThermodynamics.jl

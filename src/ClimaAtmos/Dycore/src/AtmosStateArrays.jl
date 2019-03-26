@@ -5,7 +5,26 @@ using MPI
 
 export AtmosStateArray
 
-# TODO: Make MPI Aware
+"""
+    AtmosStateArray{S <: Tuple, T, DeviceArray, N,
+                    DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
+
+
+`N`-dimensional MPI-aware array with elements of type `T`. The dimension `N` is
+`length(S) + 1`. `S` is a tuple of the first `N-1` array dimensions.
+
+!!! todo
+
+    It should be reevaluated whether all this stuff in the type domain is
+    really necessary (some of it was optimistically added for functionality that
+    never panned out)
+
+!!! todo
+
+    tag for the MPI message should probably be unified for each
+    `AtmosStateArray` (right now `888` used is the same for all communication)
+
+"""
 struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
                        DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
@@ -55,9 +74,10 @@ struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
     host_sendQ = zeros(T, S.parameters..., numsendelem)
     host_recvQ = zeros(T, S.parameters..., numsendelem)
 
-    fill!(Q, 0)
-    fill!(device_sendQ, 0)
-    fill!(device_sendQ, 0)
+    # Length check is to work around a CuArrays bug.
+    length(Q) > 0 && fill!(Q, 0)
+    length(device_sendQ) > 0 && fill!(device_sendQ, 0)
+    length(device_recvQ) > 0 && fill!(device_recvQ, 0)
 
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
@@ -74,6 +94,34 @@ struct AtmosStateArray{S <: Tuple, T, DeviceArray, N,
 
 
 end
+
+"""
+   AtmosStateArray{S, T, DA}(mpicomm, numelem; realelems=1:numelem,
+                             ghostelems=numelem:numelem-1,
+                             sendelems=1:0,
+                             nabrtorank=Array{Int64}(undef, 0),
+                             nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
+                             nabrtosend=Array{UnitRange{Int64}}(undef, 0),
+                             weights)
+
+Construct an `AtmosStateArray` over the communicator `mpicomm` with `numelem`
+elements, using array type `DA` with element type `eltype`. The arrays that are
+held in this created `AtmosStateArray` will be of size `(S..., numelem)`.
+
+The range `realelems` is the number of elements that this mpirank owns, whereas
+the range `ghostelems` is the elements that are owned by other mpiranks. Elements are stored as 'realelems` followed by `ghostelems`.
+
+  * `sendelems` is an ordered array of elements to be sent to neighboring
+    mpiranks
+  * `nabrtorank` is the list of neighboring mpiranks
+  * `nabrtorecv` is an `Array` of `UnitRange` that give the `ghostelems`
+    received from neighboring mpiranks (indexes into the ghost elements arrays,
+    not the full element array)
+  * nabrtosend` is an `Array` of `UnitRange` for which elements to send to
+    which neighboring mpiranks indexing into the `sendelems` ordering
+  * `weights` is an optional array which gives weight for each degree of freedom
+    to be used when computing the 2-norm of the array
+"""
 function AtmosStateArray{S, T, DA}(mpicomm, numelem;
                                    realelems=1:numelem,
                                    ghostelems=numelem:numelem-1,
@@ -94,6 +142,7 @@ function AtmosStateArray{S, T, DA}(mpicomm, numelem;
                             sendelems, nabrtorank, nabrtorecv,
                             nabrtosend, weights)
 end
+
 # FIXME: should general cases should be handled?
 function Base.similar(Q::AtmosStateArray{S, T, DA}) where {S, T, DA}
   AtmosStateArray{S, T, DA}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
@@ -124,6 +173,11 @@ function Base.copyto!(dst::AtmosStateArray, src::AtmosStateArray)
   dst
 end
 
+"""
+    postrecvs!(Q::AtmosStateArray)
+
+posts the `MPI.Irecv!` for `Q`
+"""
 function postrecvs!(Q::AtmosStateArray)
   nnabr = length(Q.nabrtorank)
   for n = 1:nnabr
@@ -135,6 +189,16 @@ function postrecvs!(Q::AtmosStateArray)
   end
 end
 
+"""
+    startexchange!(Q::AtmosStateArray; dorecvs=true)
+
+Start the MPI exchange of the data stored in `Q`. If `dorecvs` is `true` then
+`postrecvs!(Q)` is called, otherwise the caller is responsible for this.
+
+This function will fill the send buffer (on the device), copies the data from
+the device to the host, and then issues the send. Previous sends are waited on
+to ensure that they are complete.
+"""
 function startexchange!(Q::AtmosStateArray; dorecvs=true)
   dorecvs && postrecvs!(Q)
 
@@ -152,6 +216,11 @@ function startexchange!(Q::AtmosStateArray; dorecvs=true)
   end
 end
 
+"""
+    finishexchange!(Q::AtmosStateArray)
+
+Complete the exchange of data and fill the data array on the device
+"""
 function finishexchange!(Q::AtmosStateArray)
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
@@ -274,9 +343,10 @@ end
 
 using Requires
 
-@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-  using .CUDAnative.CUDAdrv
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  using .CuArrays.CUDAnative
+  using .CuArrays.CUDAnative.CUDAdrv
 
   include("AtmosStateArrays_cuda.jl")
 end

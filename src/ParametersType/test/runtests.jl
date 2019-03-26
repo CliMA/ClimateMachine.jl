@@ -1,5 +1,5 @@
 using Test
-using ParametersType
+using CLIMA.ParametersType
 @parameter a π "parameter a"
 @parameter b π "parameter b"
 @parameter c 2a+b "parameter c"
@@ -10,7 +10,7 @@ end
 @parameter e bar() "parameter d"
 
 module Foo
-  using ParametersType
+  using CLIMA.ParametersType
   @parameter a1 π "parameter a1"
   @parameter b1 π "parameter b1"
   @parameter c1 2a1+b1 "parameter c1"

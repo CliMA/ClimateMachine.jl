@@ -37,7 +37,7 @@ A list of recommended coding conventions.
    - Local application/library specific imports.
    - Use a blank line between each group of imports.
 
-## * Why do we limit our Unicode use?
+## Why do we limit our Unicode use?
 
  - Some characters are visibly indistinguishable. Capital "a" and capital alpha are visibly indistinguishable, but are recognized as separate characters (e.g., search distinguishable).
 

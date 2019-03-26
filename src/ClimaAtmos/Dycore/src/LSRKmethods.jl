@@ -3,9 +3,10 @@ export LSRK, updatedt!
 
 using Requires
 
-@init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-  using .CUDAnative.CUDAdrv
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  using .CuArrays.CUDAnative
+  using .CuArrays.CUDAnative.CUDAdrv
 
   include("LSRKmethods_cuda.jl")
 end
@@ -13,6 +14,31 @@ end
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
 
+"""
+    LSRK(f, Q; dt, t0 = 0)
+
+This is a time stepping object for explicitly time stepping the differential
+equation given by the right-hand-side function `f` with the state `Q`, i.e.,
+
+    Q̇ = f(Q)
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+This uses the fourth-order, low-storage, Runge--Kutta scheme of Carpenter
+and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
+
+### References
+
+    @TECHREPORT{CarpenterKennedy1994,
+      author = {M.~H. Carpenter and C.~A. Kennedy},
+      title = {Fourth-order {2N-storage} {Runge-Kutta} schemes},
+      institution = {National Aeronautics and Space Administration},
+      year = {1994},
+      number = {NASA TM-109112},
+      address = {Langley Research Center, Hampton, VA},
+    }
+"""
 struct LSRK{T, AT, Nstages, F<:Function} <: AD.AbstractAtmosODESolver
   "time step"
   dt::Array{T,1}
@@ -58,7 +84,13 @@ struct LSRK{T, AT, Nstages, F<:Function} <: AD.AbstractAtmosODESolver
   end
 end
 
+"""
+    updatedt!(lsrk::LSRK, dt)
+
+Change the time step size to `dt` for `lsrk.
+"""
 updatedt!(lsrk::LSRK, dt) = lsrk.dt[1] = dt
+
 function AD.dostep!(Q, lsrk::LSRK)
   time, dt = lsrk.t[1], lsrk.dt[1]
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC

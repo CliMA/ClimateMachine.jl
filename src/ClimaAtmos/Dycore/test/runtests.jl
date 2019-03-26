@@ -1,4 +1,4 @@
-using CLIMAAtmosDycore
+using CLIMA.CLIMAAtmosDycore
 using MPI, Test
 
 MPI.Init()
@@ -25,8 +25,9 @@ MPI.Finalize()
                  (2, "mpi_connect_ell.jl")
                  (3, "mpi_connect.jl")
                  (3, "mpi_connect_stacked.jl")
-                 (2, "mpi_connect_stacked_3d.jl")]
-    cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(joinpath(testdir, "..")) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
+                 (2, "mpi_connect_stacked_3d.jl")
+                 (5, "mpi_connect_sphere.jl")]
+    cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
     @test (run(cmd); true)
   end
