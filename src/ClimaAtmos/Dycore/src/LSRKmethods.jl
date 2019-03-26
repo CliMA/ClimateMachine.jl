@@ -83,6 +83,7 @@ function update!(::Val{nstates}, ::Val{Np}, rhs::Array{T, 3}, Q, elems, rka,
   @inbounds for e = elems, s = 1:nstates, i = 1:Np
     Q[i, s, e] += rkb * dt * rhs[i, s, e]
     rhs[i, s, e] *= rka
+    
   end
 end
 # }}}

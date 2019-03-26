@@ -11,13 +11,13 @@ using ..RootSolvers
 using ...PlanetParameters
 
 # Atmospheric equation of state
-export air_pressure, air_temperature, air_density
+export air_pressure, air_temperature, air_density, sound_speed
 
 # Energies
-export total_energy, internal_energy, internal_energy_sat
+export total_energy, internal_energy, internal_energy_sat, kinetic_energy
 
 # Specific heats of moist air
-export cp_m, cv_m, gas_constant_air
+export cp_m, cv_m, gas_constant_air, moist_gas_constants
 
 # Latent heats
 export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
@@ -32,6 +32,19 @@ export liquid_fraction, phase_partitioning_eq!, saturation_adjustment
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export liquid_ice_pottemp
+
+
+"""
+    sound_speed(T,γ,R_gas)
+Returns the speed of sound in moist air.
+Arguments: Temperature, specific heat capacity ratio, moist gas constant 
+"""
+function sound_speed(T, γ, gas_constant_air)
+
+    return sqrt(T * γ * gas_constant_air) 
+
+end
+
 
 """
     gas_constant_air([q_t=0, q_l=0, q_i=0])
@@ -103,6 +116,22 @@ function cv_m(q_t=0, q_l=0, q_i=0)
 
     return cv_d + (cv_v - cv_d)*q_t + (cv_l - cv_v)*q_l + (cv_i - cv_v)*q_i
 
+end
+
+
+"""
+    moist_gas_constants([q_t=0, q_l=0, q_i=0])
+
+Wrapper to return R_m, cv_m, cp_m, and gamma_m all at once
+"""
+function moist_gas_constants(q_t=0, q_l=0, q_i=0)
+
+    R_gas  = gas_constant_air(q_t, q_l, q_i)
+    cp = cp_m(q_t, q_l, q_i)
+    cv = cv_m(q_t, q_l, q_i)
+    gamma = cp/cv
+
+    return (R_gas, cp, cv, gamma)
 end
 
 """
