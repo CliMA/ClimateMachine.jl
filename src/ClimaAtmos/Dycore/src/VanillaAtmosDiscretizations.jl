@@ -24,6 +24,17 @@ const _nstategrad = 15
 const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
        _Tx, _Ty, _Tz) = 1:_nstategrad
 
+"""
+    VanillaAtmosDiscretization{nmoist, ntrace}(grid; gravity = true,
+    viscosity = 0)
+
+Given a 'grid <: AbstractGrid' this construct all the data necessary to run a
+vanilla discontinuous Galerkin discretization of the the compressible Euler
+equations with `nmoist` moisture variables and `ntrace` tracer variables. If the
+boolean keyword argument `gravity` is `true` then gravity is used otherwise it
+is not. Isotropic viscosity can be used if `viscosity` is set to a positive
+constant.
+"""
 struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                   DeviceArray, nmoist, ntrace, DASAT3,
                                   GT } <: AD.AbstractAtmosDiscretization
@@ -103,6 +114,12 @@ function Base.propertynames(X::VanillaAtmosDiscretization)
   (fieldnames(VanillaAtmosDiscretization)..., keys(stateid)...)
 end
 
+"""
+    AtmosStateArray(disc::VanillaAtmosDiscretization)
+
+Given a discretization `disc` constructs an `AtmosStateArrays` for holding a
+solution state
+"""
 function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
                                                  T, dim, N, Np, DA, nmoist,
                                                  ntrace}
@@ -164,8 +181,18 @@ AtmosStateArrays.AtmosStateArray(f::Function,
                                  d::VanillaAtmosDiscretization
                                 ) = AtmosStateArray(d, f)
 
-function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, nmoist},
-                    Q::AtmosStateArray) where {T, dim, N, Np, DA, nmoist}
+"""
+    estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)
+
+Given a discretization `disc` and a state `Q` compute an estimate for the time
+step
+
+!!! todo
+
+    This estimate is currently very conservative, needs to be revisited
+"""
+function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA},
+                    Q::AtmosStateArray) where {T, dim, N, Np, DA}
   @assert T == eltype(Q)
   G = disc.grid
   vgeo = G.vgeo
