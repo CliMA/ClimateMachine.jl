@@ -44,9 +44,9 @@ using LinearAlgebra
   T=300; KE=11.; PE=13.;
   @test air_temperature.(cv_d*(T-T_0) .* [1, 1, 1], 0, 0, 0) ≈ [T, T, T]
   @test air_temperature.(cv_d*(T-T_0) .* [1, 1, 1]) ≈ [T, T, T]
-  @test air_temperature.(cv_m.([0, q_t], 0, 0).*(T-T_0).+[0, q_t*IE_v0], [0, q_t], 0, 0) ≈ [T, T]
+  @test air_temperature.(cv_m.([0, q_t], 0, 0).*(T-T_0).+[0, q_t*e_int_v0], [0, q_t], 0, 0) ≈ [T, T]
   @test total_energy.([KE, KE, 0], [PE, PE, 0], [T_0, T, T_0], [0, 0, q_t], [0, 0, 0], [0, 0, 0]) ≈
-    [KE + PE, KE + PE + cv_d*(T-T_0), q_t * IE_v0]
+    [KE + PE, KE + PE + cv_d*(T-T_0), q_t * e_int_v0]
 
   # phase partitioning in equilibrium
   T   = [T_icenuc-10, T_freeze+10];
@@ -147,11 +147,11 @@ catch
 end
 @testset "CUDA RootSolvers" begin
   if HAVE_CUDA
-    for m in [RootSolvers.SecantMethod()]             
+    for m in [RootSolvers.SecantMethod()]
       x_ca = cu(rand(5, 5))
       x_ca_0 = x_ca
       x_ca_1 = x_ca.+2
-      
+
       t = typeof(x_ca[1])
       x_star2 = t(10000.0)
       f(x) = x^2 - x_star2
