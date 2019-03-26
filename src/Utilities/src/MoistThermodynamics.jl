@@ -115,7 +115,7 @@ and, optionally, the total specific humidity `q_t`, the liquid specific humidity
 function air_temperature(e_int, q_t=0, q_l=0, q_i=0)
 
     return T_0 +
-        ( e_int - (q_t - q_l) * IE_v0 + q_i * (IE_v0 + IE_i0) )/
+        ( e_int - (q_t - q_l) * e_int_v0 + q_i * (e_int_v0 + e_int_i0) )/
             cv_m(q_t, q_l, q_i)
 
 end
@@ -130,7 +130,7 @@ optionally, the total specific humidity `q_t`, the liquid specific humidity
 function internal_energy(T, q_t=0, q_l=0, q_i=0)
 
     return cv_m(q_t, q_l, q_i) * (T - T_0) +
-        (q_t - q_l) * IE_v0 - q_i * (IE_v0 + IE_i0)
+        (q_t - q_l) * e_int_v0 - q_i * (e_int_v0 + e_int_i0)
 
 end
 
