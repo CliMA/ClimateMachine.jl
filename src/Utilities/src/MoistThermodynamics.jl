@@ -112,10 +112,10 @@ Return the air temperature, given the internal energy `e_int` per unit mass,
 and, optionally, the total specific humidity `q_t`, the liquid specific humidity
 `q_l`, and the ice specific humidity `q_i`.
 """
-function air_temperature(internal_energy, q_t=0, q_l=0, q_i=0)
+function air_temperature(e_int, q_t=0, q_l=0, q_i=0)
 
     return T_0 +
-        ( internal_energy - (q_t - q_l) * IE_v0 + q_i * (IE_v0 + IE_i0) )/
+        ( e_int - (q_t - q_l) * IE_v0 + q_i * (IE_v0 + IE_i0) )/
             cv_m(q_t, q_l, q_i)
 
 end
@@ -151,17 +151,16 @@ function internal_energy_sat(T, ρ, q_t)
 end
 
 """
-    total_energy(KE, PE, T[, q_t=0, q_l=0, q_i=0])
+    total_energy(e_kin, e_pot, T[, q_t=0, q_l=0, q_i=0])
 
 Return the total energy per unit mass, given the kinetic energy per unit
-mass `KE`, the potential energy per unit mass `PE`, the temperature `T`, and,
+mass `e_kin`, the potential energy per unit mass `e_pot`, the temperature `T`, and,
 optionally, the total specific humidity `q_t`, the liquid specific humidity
 `q_l`, and the ice specific humidity `q_i`.
 """
-function total_energy(kinetic_energy, potential_energy, T, q_t=0, q_l=0, q_i=0)
+function total_energy(e_kin, e_pot, T, q_t=0, q_l=0, q_i=0)
 
-    return kinetic_energy + potential_energy +
-        internal_energy(T, q_t, q_l, q_i)
+    return e_kin + e_pot + internal_energy(T, q_t, q_l, q_i)
 
 end
 
@@ -273,7 +272,7 @@ function saturation_shum_generic(T, ρ; phase::Phase=Liquid())
 
     p_vs = saturation_vapor_pressure(T, phase)
 
-    return saturation_shum_from_pressure(ρ, T, p_vs)
+    return saturation_shum_from_pressure(T, ρ, p_vs)
 
 end
 
@@ -312,18 +311,18 @@ function saturation_shum(T, ρ, q_l=0, q_i=0)
     # saturation vapor pressure over possible mixture of liquid and ice
     p_vs        = saturation_vapor_pressure(T, LH_0, cp_diff)
 
-    return saturation_shum_from_pressure(ρ, T, p_vs)
+    return saturation_shum_from_pressure(T, ρ, p_vs)
 
 end
 
 
 """
-    saturation_shum_from_pressure(ρ, T, p_vs)
+    saturation_shum_from_pressure(T, ρ, p_vs)
 
-Compute the saturation specific humidity, given the ambient air density `ρ`,
-temperature `T`, and the saturation vapor pressure `p_vs`.
+Compute the saturation specific humidity, given the ambient air temperature `T`,
+density `ρ`, and the saturation vapor pressure `p_vs`.
 """
-function saturation_shum_from_pressure(ρ, T, p_vs)
+function saturation_shum_from_pressure(T, ρ, p_vs)
 
     return min(eltype(ρ)(1.), p_vs / (ρ * R_v * T))
 
@@ -425,16 +424,12 @@ and ice specific humidity `q_i`.
 """
 function liquid_ice_pottemp(T, p, q_t=0, q_l=0, q_i=0)
 
-    # gas constant and isobaric specific heat of moist air
-    _R_m    = gas_constant_air(q_t, q_l, q_i)
+    # isobaric specific heat of moist air
     _cp_m   = cp_m(q_t, q_l, q_i)
-
-    # dry potential temperature
-    pottemp = T / (p/MSLP)^(_R_m/_cp_m)
 
     # liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
-    return pottemp * exp(-(LH_v0*q_l + LH_s0*q_i)/(_cp_m*T))
+    return dry_pottemp(T, p, q_t, q_l, q_i) * exp(-(LH_v0*q_l + LH_s0*q_i)/(_cp_m*T))
 
 end
 
