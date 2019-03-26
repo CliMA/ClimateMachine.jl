@@ -1,18 +1,17 @@
 using MPI
 
-using CLIMA.CLIMAAtmosDycore.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
-using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
-using CLIMA.CLIMAAtmosDycore.LSRKmethods
-using CLIMA.CLIMAAtmosDycore.GenericCallbacks
-using CLIMA.CLIMAAtmosDycore
-using CLIMA.Utilities.MoistThermodynamics
+using CLIMAAtmosDycore.Topologies
+using CLIMAAtmosDycore.Grids
+using CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMAAtmosDycore.AtmosStateArrays
+using CLIMAAtmosDycore.LSRKmethods
+using CLIMAAtmosDycore.GenericCallbacks
+using CLIMAAtmosDycore
+using Utilities.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
 const HAVE_CUDA = try
-  using CuArrays
   using CUDAdrv
   using CUDAnative
   true
@@ -24,13 +23,13 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
+using ParametersType
+using PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # FIXME: Will these keywords args be OK?
-function rising_thermal_bubble(x...; dim=3)
+function straka_density_current(x...; dim=3)
   DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
@@ -39,13 +38,13 @@ function rising_thermal_bubble(x...; dim=3)
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
 
-  r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
-  rc::DFloat = 250
+  r = sqrt((x[1] - 500)^2/(4000)^2 + (x[dim] - 3000)^2/(2000)^2)
+  rc::DFloat = 1.0
   θ_ref::DFloat = 300
-  θ_c::DFloat = 0.5
+  θ_c::DFloat = -15.0
   Δθ::DFloat = 0
   if r <= rc
-    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
+      Δθ = -0.5 * θ_c *(1 + cos.(π * r))
   end
   θ_k = θ_ref + Δθ
   π_k = 1 - gravity / (c_p * θ_k) * x[dim]
@@ -74,6 +73,7 @@ end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
               exact_timeend=true) dim = length(brickrange)
+
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
                        # tuple of point element edges in each dimension
@@ -99,7 +99,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   spacedisc = VanillaAtmosDiscretization(grid)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(x...) = rising_thermal_bubble(x...; dim=dim)
+  initialcondition(x...) = straka_density_current(x...; dim=dim)
   Q = AtmosStateArray(spacedisc, initialcondition)
 
   # Determine the time step
@@ -139,11 +139,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
     nothing
   end
 
-  #= Paraview calculators:
-  P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
-  theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
-  =#
-   step = [0]
+  step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
@@ -179,7 +175,7 @@ let
   for DFloat in (Float64, )#Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3
-        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
+        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=10000), dim)
         main(mpicomm, DFloat, ArrayType, brickrange, N, timeend)
       end
     end

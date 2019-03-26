@@ -1,18 +1,17 @@
 using MPI
 
-using CLIMA.CLIMAAtmosDycore.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
-using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
-using CLIMA.CLIMAAtmosDycore.LSRKmethods
-using CLIMA.CLIMAAtmosDycore.GenericCallbacks
-using CLIMA.CLIMAAtmosDycore
-using CLIMA.Utilities.MoistThermodynamics
+using CLIMAAtmosDycore.Topologies
+using CLIMAAtmosDycore.Grids
+using CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMAAtmosDycore.AtmosStateArrays
+using CLIMAAtmosDycore.LSRKmethods
+using CLIMAAtmosDycore.GenericCallbacks
+using CLIMAAtmosDycore
+using Utilities.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
 const HAVE_CUDA = try
-  using CuArrays
   using CUDAdrv
   using CUDAnative
   true
@@ -24,14 +23,13 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
+using ParametersType
+using PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
-# FIXME: Will these keywords args be OK?
-function rising_thermal_bubble(x...; dim=3)
-  DFloat = eltype(x)
+function precip_test(x...; ntrace=0, nmoist=0, dim=2)
+ DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
   R_gas::DFloat   = R_d
@@ -69,17 +67,22 @@ function rising_thermal_bubble(x...; dim=3)
   # Total energy per unit mass 
   E = (E_int + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
   E_tot = MoistThermodynamics.total_energy(E_kin, E_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E)
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(0.000),nmoist),
+                             Qtrace=ntuple(j->(-ρ * j), ntrace))
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
-              exact_timeend=true) dim = length(brickrange)
+
+
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
+              initialcondition, timeend; gravity=true, dt=nothing,
+              exact_timeend=true)
+  dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
                        # tuple of point element edges in each dimension
                        # (dim is inferred from this)
                        brickrange,
-                       periodicity=(true, ntuple(j->false, dim-1)...))
+                       periodicity=(false, ntuple(j->false, dim-1)...))
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           # Compute floating point type
@@ -96,10 +99,15 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  spacedisc = VanillaAtmosDiscretization(grid)
+  spacedisc = VanillaAtmosDiscretization(grid,
+                                         # Use gravity?
+                                         gravity = gravity,
+                                         # How many tracer variables
+                                         ntrace=ntrace,
+                                         # How many moisture variables
+                                         nmoist=nmoist)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(x...) = rising_thermal_bubble(x...; dim=dim)
   Q = AtmosStateArray(spacedisc, initialcondition)
 
   # Determine the time step
@@ -143,7 +151,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
   theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
   =#
-   step = [0]
+  step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
@@ -163,6 +171,15 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+
+  h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
+  for (j, n) = enumerate(spacedisc.moistrange)
+    # Current assertion condition non-physical: q_moist is a bounded, positive value < 1 
+    #@assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+  end
+  for (j, n) = enumerate(spacedisc.tracerange)
+    #@assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+  end
 end
 
 let
@@ -173,14 +190,19 @@ let
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
+  nmoist = 4
+  ntrace = 4
   Ne = (10, 10, 10)
   N = 4
-  timeend = 5
-  for DFloat in (Float64, )#Float32)
+  timeend = 2.0
+  for DFloat in (Float64,)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, N, timeend)
+        ic(x...) = precip_test(x...; ntrace=ntrace, nmoist=nmoist,
+                                       dim=dim)
+        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, ic,
+             timeend)
       end
     end
   end

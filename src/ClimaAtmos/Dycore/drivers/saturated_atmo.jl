@@ -1,0 +1,439 @@
+using MPI
+
+using CLIMAAtmosDycore.Topologies
+using CLIMAAtmosDycore.Grids
+using CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMAAtmosDycore.AtmosStateArrays
+using CLIMAAtmosDycore.LSRKmethods
+using CLIMAAtmosDycore.GenericCallbacks
+using CLIMAAtmosDycore
+using Utilities.MoistThermodynamics
+using LinearAlgebra
+using DelimitedFiles
+using Dierckx
+using Printf
+
+const HAVE_CUDA = try
+  using CUDAdrv
+  using CUDAnative
+  true
+catch
+  false
+end
+
+macro hascuda(ex)
+  return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
+end
+
+using ParametersType
+using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
+@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
+
+
+
+# {{{
+#        SOUNDING operations:
+#
+# read_sound()
+# interpolate_sounding()
+#
+# Interpolate the sounding along the FIRST column of the grid.
+#
+function read_sounding()
+    
+    #read in the original squal sounding
+    fsounding = open("/Users/admin/Research/Codes/CLIMA/src/ClimaAtmos/Dycore/soundings/sounding_GC1991.dat")
+    sound_data = readdlm(fsounding)
+    close(fsounding)
+
+    (nzmax, ncols) = size(sound_data)
+    if nzmax == 0
+        error(" SOUNDING ERROR: The Sounding file is empty!")
+    end
+    
+    return (sound_data, nzmax, ncols)
+     
+end
+
+function interpolate_sounding(dim, N, Ne, vgeo)
+    #
+    # !!!WARNING!!! This function can only work for sturctured grids with vertical boundaries!!!
+    # !!!TO BE REWRITTEN FOR THE GENERAL CODE!!!!
+    #
+    
+    # {{{ FIXME: remove this after we've figure out how to pass through to kernel
+    γ::Float64       = gamma_d
+    p0::Float64      = MSLP
+    R_gas::Float64   = R_d
+    c_p::Float64     = cp_d
+    c_v::Float64     = cv_d
+    gravity::Float64 = grav
+    Ne_v = Ne[dim]
+    
+    #Get sizes
+    (sound_data, nmax, ncols) = read_sounding()
+    
+    Np = (N+1)^dim
+    Nq = N + 1
+    (~, ~, nelem) = size(vgeo)
+    Ne_v = Ne[dim]
+    @show(Ne_v)
+
+    #Reshape vgeo:
+    if(dim == 2)
+        _x, _z = 12, 13
+        vgeo = reshape(vgeo, Nq, Nq, size(vgeo,2), nelem)      
+    elseif(dim == 3)
+        _x, _z = 12, 14
+        vgeo = reshape(vgeo, Nq, Nq, Nq, size(vgeo,2), nelem)
+    end
+    
+    if ncols == 6
+        #height  theta  qv     u      v      press
+        zinit,   tinit, qinit, uinit, vinit, pinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5], sound_data[:, 6]
+    elseif ncols == 5
+        #height  theta  qv     u      v
+        zinit,   tinit, qinit, uinit, vinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5]
+    end
+    
+    #
+    # create vector with all the z-values of the current processor
+    # (avoids using column structure for better domain decomposition when no rain is used. AM)
+    #
+    nz         = Ne_v*N + 1
+    
+    dataz      = zeros(Float64, nz)
+    datat      = zeros(Float64, nz)
+    dataq      = zeros(Float64, nz)
+    datau      = zeros(Float64, nz)
+    datav      = zeros(Float64, nz)
+    datap      = zeros(Float64, nz)
+    thetav     = zeros(Float64, nz)
+    datapi     = zeros(Float64, nz)
+    datarho    = zeros(Float64, nz)
+    ini_data_interp = zeros(Float64, nz, 10)
+
+    # WARNING:
+    # 1) REWRITE THIS TO WORK in PARALELL. NOW ONLY WORJKS IN SERIAL
+    # 2) REWRITE THIS FOR 3D
+    z          = vgeo[1, 1, _z, 1]
+    zmax       = maximum(vgeo[:, :, _z, :])
+    
+    dataz[1]   = z
+    zprev      = z
+    xmin       = 1.0e-8; #Take this value from the grid if xmin != 0.0
+    nzmax      = 2
+    @inbounds for e = 1:nelem
+        for j = 1:Nq
+            
+            x = vgeo[1, j, _x, e]
+            z = vgeo[1, j, _z, e]
+            if abs(x - xmin) <= 1.0e-5
+                
+                if (abs(z - zprev) > 1.0e-5 && z <= zmax+1.0e-5) #take un-repeated values
+                    
+                    dataz[nzmax]   = z
+                    zprev          = z                   
+                    #@show("z: ", nz,nzmax, dataz[nzmax])
+                    nzmax          = nzmax + 1
+                end
+            end       
+        end
+    end
+    nzmax = nzmax - 1
+    if(nzmax != nz)
+        error(" function interpolate_sounding(): 1D INTERPOLATION: ops, something is wrong: nz is wrong!\n")
+    end 
+   
+    #------------------------------------------------------
+    # interpolate to the actual LGL points in vertical
+    # dataz is given
+    #------------------------------------------------------
+    varout = 0.0
+    spl_tinit = Spline1D(zinit, tinit; k=1)
+    spl_qinit = Spline1D(zinit, qinit; k=1)
+    spl_uinit = Spline1D(zinit, uinit; k=1)
+    spl_vinit = Spline1D(zinit, vinit; k=1)
+    spl_pinit = Spline1D(zinit, pinit; k=1)
+    if ncols == 5
+        for k = 1:nz
+            datat[k] = spl_tinit(dataz[k])
+            dataq[k] = spl_qinit(dataz[k])
+            datau[k] = spl_uinit(dataz[k])
+            datav[k] = spl_vinit(dataz[k])
+            if(dataz[k] > 14000.0)
+                dataq[k] = 0.0
+            end
+        end
+    elseif ncols == 6
+        for k = 1:nz
+            datat[k] = spl_tinit(dataz[k])
+            dataq[k] = spl_qinit(dataz[k])
+            datau[k] = spl_uinit(dataz[k])
+            datav[k] = spl_vinit(dataz[k])
+            datap[k] = spl_pinit(dataz[k])
+            if(dataz[k] > 14000.0)
+                dataq[k] = 0.0
+            end
+        end
+    end
+    
+    #------------------------------------------------------
+    # END interpolate to the actual LGL points in vertical
+    #------------------------------------------------------
+
+    c = cv_d/R_d
+    rvapor = 461.0
+    levap  = 2.5e+6
+    es0    = 6.1e+2
+    c2     = R_d/cp_d
+    c1     = 1.0/c2
+    g      = grav
+    pi0    = 1.0
+    theta0 = 300.5
+    theta0 = 283
+    p0     = 85000.0
+            
+    # convert qv from g/kg to g/g
+    dataq = dataq.*1.0e-3
+
+    # calculate the hydrostatically balanced exner potential and pressure
+    if(ncols == 5)
+        datapi[1] = 1.0
+        datap[1]  = p0
+    end
+    thetav[1] = datat[1]*(1.0 + 0.608*dataq[1])
+    for k = 2:nzmax
+        thetav[k] = datat[k]*(1.0 + 0.608*dataq[k])
+        #        datapi[k]=datapi[k-1]-gravity/(cp*0.5*(datat[k]+datat[k-1]))* &
+        #                               (dataz[k]-dataz[k-1])
+        if(ncols == 5)
+            
+            datapi[k] = datapi[k-1] - (gravity/(c_p*0.5*(thetav[k]+thetav[k-1])))*(dataz[k] - dataz[k-1])
+            #Pressure is computed only if it is NOT passed in the sounding file
+            datap[k] = p0*datapi[k]^(c_p/R_gas)
+        end
+    end
+    if(ncols == 6)
+        for k = 1:nzmax
+            datapi[k] = (datap[k]/MSLP)^c2
+        end
+    end
+    
+    for k = 1:nzmax
+        #        datarho[k]=datap[k]/(R_gas*datapi[k]*datat[k])
+        datarho[k] = datap[k]/(R_gas * datapi[k] * thetav[k])
+        e          = dataq[k] * datap[k] * rvapor/(dataq[k] * rvapor + R_gas)
+        
+    end        
+    
+    for k = 1:nzmax
+        ini_data_interp[k, 1] = dataz[k]   #z
+        ini_data_interp[k, 2] = datat[k]   #theta
+        ini_data_interp[k, 3] = dataq[k]   #qv
+        ini_data_interp[k, 4] = datau[k]   #u
+        ini_data_interp[k, 5] = datav[k]   #v
+        ini_data_interp[k, 6] = datap[k]   #p
+        ini_data_interp[k, 7] = datarho[k] #rho
+        ini_data_interp[k, 8] = datapi[k]  #exner
+        ini_data_interp[k, 9] = thetav[k]  #thetav
+    end
+    
+    return ini_data_interp
+end
+
+
+
+# FIXME: Will these keywords args be OK?
+function risingthermalbubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=3)
+  DFloat = eltype(x)
+  γ::DFloat       = gamma_d
+  p0::DFloat      = 100000
+  R_gas::DFloat   = R_d
+  c_p::DFloat     = cp_d
+  c_v::DFloat     = cv_d
+  gravity::DFloat = grav
+
+   # (nz, ~) = size(initial_sounding)
+    #for k=1:nz
+    #    @show(initial_sounding[k, 1])
+    #end
+   # @show(x[dim])
+  r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
+  rc::DFloat = 250
+  θ_ref::DFloat = 300
+  θ_c::DFloat = 0.5
+  Δθ::DFloat = 0
+  if r <= rc
+    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
+  end
+  θ_k = θ_ref + Δθ
+  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
+  c = c_v / R_gas
+  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
+  ρ = ρ_k
+  u = zero(DFloat)
+  v = zero(DFloat)
+  w = zero(DFloat)
+  U = ρ * u
+  V = ρ * v
+  W = ρ * w
+  Θ = ρ * θ_k
+  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+  T = P / (ρ * R_gas)
+  E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
+  @show(ρ)
+  
+  (ρ=ρ, U=U, V=V, W=W, E=E,
+   Qmoist=ntuple(j->(j*ρ), nmoist))
+   #, Qtrace=ntuple(j->(-j*ρ), ntrace))
+end
+
+#=function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+                initialcondition, timeend; gravity=true, dt=nothing,
+                exact_timeend=true)
+=#
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
+              timeend; gravity=true, dt=nothing,
+              exact_timeend=true)
+
+  dim = length(brickrange)
+  topl = BrickTopology(# MPI communicator to connect elements/partition
+                       mpicomm,
+                       # tuple of point element edges in each dimension
+                       # (dim is inferred from this)
+                       brickrange,
+                       periodicity=(true, ntuple(j->false, dim-1)...))
+
+  grid = DiscontinuousSpectralElementGrid(topl,
+                                          # Compute floating point type
+                                          FloatType = DFloat,
+                                          # This is the array type to store
+                                          # data: CuArray = GPU, Array = CPU
+                                          DeviceArray = ArrayType,
+                                          # polynomial order for LGL grid
+                                          polynomialorder = N,
+                                          # how to skew the mesh degrees of
+                                          # freedom (for instance spherical
+                                          # or topography maps)
+                                          # warp = warpgridfun
+                                         )
+
+  # spacedisc = data needed for evaluating the right-hand side function
+  spacedisc = VanillaAtmosDiscretization(grid,
+                                         # Use gravity?
+                                         gravity = gravity,
+                                         # How many tracer variables
+                                         ntrace=ntrace,
+                                         # How many moisture variables
+                                         nmoist=nmoist)
+
+
+    
+  #Read external sounding
+  vgeo = grid.vgeo
+  initial_sounding = interpolate_sounding(dim, N, Ne, vgeo)
+  initialcondition(x...) = risingthermalbubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
+  # This is a actual state/function that lives on the grid
+  Q = AtmosStateArray(spacedisc, initialcondition)
+
+  # Determine the time step
+  (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
+  if exact_timeend
+    nsteps = ceil(Int64, timeend / dt)
+    dt = timeend / nsteps
+  end
+
+  # Initialize the Method (extra needed buffers created here)
+  # Could also add an init here for instance if the ODE solver has some
+  # state and reading from a restart file
+
+  # TODO: Should we use get property to get the rhs function?
+  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+
+  # Get the initial energy
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  eng0 = norm(Q)
+  @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
+
+  # Set up the information callback
+  timer = [time_ns()]
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    if s
+      timer[1] = time_ns()
+    else
+      run_time = (time_ns() - timer[1]) * 1e-9
+      (min, sec) = fldmod(run_time, 60)
+      (hrs, min) = fldmod(min, 60)
+      @printf(io,
+              "-------------------------------------------------------------\n")
+      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
+      @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
+    end
+    nothing
+  end
+
+  #= Paraview calculators:
+  P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
+  theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
+  =#
+  step = [0]
+  mkpath("vtk")
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+    outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
+    @printf(io,
+            "-------------------------------------------------------------\n")
+    @printf(io, "doing VTK output =  %s\n", outprefix)
+    VanillaAtmosDiscretizations.writevtk(outprefix, Q, spacedisc)
+    step[1] += 1
+    nothing
+  end
+
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+
+  # Print some end of the simulation information
+  engf = norm(Q)
+  @printf(io, "-------------------------------------------------------------\n")
+  @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
+  @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
+  @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+
+  h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
+  for (j, n) = enumerate(spacedisc.moistrange)
+    @assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+  end
+  for (j, n) = enumerate(spacedisc.tracerange)
+    @assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+  end
+end
+
+let
+  MPI.Initialized() || MPI.Init()
+
+  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
+  mpicomm = MPI.COMM_WORLD
+
+  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
+
+  dim = 2
+  nmoist = 1
+  ntrace = 0
+  Ne = (10, 10, 10)
+  N = 4
+  timeend = 0.1
+    DFloat = Float64
+    
+  for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+    
+      brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
+      ic(x...) = risingthermalbubble(initial_sounding, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)     
+      #main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
+      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, ic, timeend)
+      
+  end
+
+end
+
+isinteractive() || MPI.Finalize()
