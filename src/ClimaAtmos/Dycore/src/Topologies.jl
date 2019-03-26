@@ -1,7 +1,6 @@
 module Topologies
 
-export AbstractTopology, AbstractStackedTopology
-export GenericTopology
+export Topology
 export BrickTopology, StackedBrickTopology
 export CubedShellTopology, StackedCubedSphereTopology
 
@@ -13,10 +12,8 @@ struct StackedCubedSphere <: TopologyType end
 
 import Canary
 using MPI
-abstract type AbstractTopology{dim} end
-abstract type AbstractStackedTopology{dim} <: AbstractTopology{dim} end
 
-struct GenericTopology{dim, T} <: AbstractTopology{dim}
+struct Topology{dim, T}
 
   """
   mpi communicator use for spatial discretization are using
@@ -229,7 +226,7 @@ function BrickTopology(mpicomm, elemrange;
 
   dim = length(elemrange)
   T = eltype(topology.elemtocoord)
-  return GenericTopology{dim, T}(mpicomm, topology.elems, topology.realelems,
+  return Topology{dim, T}(mpicomm, topology.elems, topology.realelems,
               topology.ghostelems, topology.sendelems, topology.elemtocoord,
               topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
               topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
@@ -468,13 +465,13 @@ function StackedBrickTopology(mpicomm, elemrange;
                    for n = 1:length(nabrtorank)]
 
   T = eltype(basetopo.elemtocoord)
-  return GenericTopology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
+  return Topology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
               elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
               nabrtorank, nabrtorecv, nabrtosend, StackedBrick(), stacksize)
 end
 
 """
-    CubedShellTopology(mpicomm, Nelem, T) <: AbstractTopology{2}
+    CubedShellTopology(mpicomm, Nelem, T) <: Topology{dim, 2}
 
 Generate a cubed shell mesh with the number of elements along each dimension of
 the cubes being `Nelem`. This topology actual creates a cube mesh, and the
@@ -545,7 +542,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
   topology = Canary.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
                                 topology[4]; dim = 2)
 
-  return GenericTopology{dim, T}(mpicomm, topology.elems, topology.realelems,
+  return Topology{dim, T}(mpicomm, topology.elems, topology.realelems,
          topology.ghostelems, topology.sendelems, elemtocoord,
          topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
          topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
@@ -723,7 +720,7 @@ end
 
 """
    StackedCubedSphereTopology(mpicomm, Nhorz, Rrange;
-                              bc=(1,1)) <: AbstractTopology{3}
+                              bc=(1,1)) <: Topology{dim, 3}
 
 Generate a stacked cubed sphere topology with `Nhorz` by `Nhorz` cells for each
 horizontal face and `Rrange` is the radius edges of the stacked elements.  This
@@ -879,7 +876,7 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
                              stacksize*last(basetopo.nabrtosend[n]))
                    for n = 1:length(nabrtorank)]
 
-  return GenericTopology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
+  return Topology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
          elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
          nabrtorank, nabrtorecv, nabrtosend, StackedCubedSphere(), stacksize)
 end

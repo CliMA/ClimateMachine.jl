@@ -66,7 +66,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   "1-D derivative operator on the device"
   D::DAT2
 
-  function DiscontinuousSpectralElementGrid(topology::AbstractTopology{dim};
+  function DiscontinuousSpectralElementGrid(topology::Topology{dim};
                                             FloatType = nothing,
                                             DeviceArray = nothing,
                                             polynomialorder = nothing,
@@ -183,8 +183,8 @@ end
 # }}}
 
 # {{{ compute geometry
-function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
-                         vmapM) where dim
+function computegeometry(topology::Topology{dim, T}, D, ξ, ω, meshwarp,
+                         vmapM) where {dim, T}
   # Compute metric terms
   Nq = size(D, 1)
   DFloat = eltype(D)
