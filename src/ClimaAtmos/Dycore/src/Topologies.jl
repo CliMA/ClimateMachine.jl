@@ -474,7 +474,7 @@ function StackedBrickTopology(mpicomm, elemrange;
 end
 
 """
-    CubedShellTopology{T}(mpicomm, Nelem) <: AbstractTopology{2}
+    CubedShellTopology(mpicomm, Nelem, T) <: AbstractTopology{2}
 
 Generate a cubed shell mesh with the number of elements along each dimension of
 the cubes being `Nelem`. This topology actual creates a cube mesh, and the
@@ -495,7 +495,7 @@ using CLIMAAtmosDycore
 using CLIMAAtmosDycore.Topologies
 using MPI
 MPI.Init()
-topology = CubedShellTopology{Float64}(MPI.COMM_SELF, 10)
+topology = CubedShellTopology(MPI.COMM_SELF, 10, Float64)
 
 # Typically the warping would be done after the grid is created, but the cell
 # corners could be warped with...
@@ -515,8 +515,8 @@ end
 MPI.Finalize()
 ```
 """
-function CubedShellTopology(mpicomm, Neside; connectivity=:face,
-                            ghostsize=1, T)
+function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
+                            ghostsize=1)
 
   # We cannot handle anything else right now...
   @assert connectivity == :face
@@ -766,7 +766,7 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
                                     connectivity=:face, ghostsize=1)
   T = eltype(Rrange)
 
-  basetopo = CubedShellTopology{T}(mpicomm, Nhorz; connectivity=connectivity,
+  basetopo = CubedShellTopology(mpicomm, Nhorz, T; connectivity=connectivity,
                                    ghostsize=ghostsize)
 
   dim = 3
