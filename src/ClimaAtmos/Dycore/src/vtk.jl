@@ -4,7 +4,7 @@ using WriteVTK
 This is the 1D WriteMesh routine
 =#
 function writemesh(base_name, x; fields=(), realelems=1:size(x)[end])
-  (Nqr, ~) = size(x)
+  (Nqr, _) = size(x)
   Nsubcells = (Nqr-1)
 
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))
@@ -26,9 +26,9 @@ end
 #=
 This is the 2D WriteMesh routine
 =#
-function writemesh(base_name, x, y; fields=(), realelems=1:size(x)[end])
+function writemesh(base_name, x, y; z=nothing, fields=(), realelems=1:size(x)[end])
   @assert size(x) == size(y)
-  (Nqr, Nqs, ~) = size(x)
+  (Nqr, Nqs, _) = size(x)
   Nsubcells = (Nqr-1) * (Nqs-1)
 
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))
@@ -43,8 +43,13 @@ function writemesh(base_name, x, y; fields=(), realelems=1:size(x)[end])
     end
   end
 
-  vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), cells;
-                     compress=false)
+  if z == nothing
+    vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), cells;
+                       compress=false)
+  else
+    vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), @view(z[:]),
+                       cells; compress=false)
+  end
   for (name, v) ∈ fields
     vtk_point_data(vtkfile, v, name)
   end
@@ -55,7 +60,7 @@ end
 This is the 3D WriteMesh routine
 =#
 function writemesh(base_name, x, y, z; fields=(), realelems=1:size(x)[end])
-  (Nqr, Nqs, Nqt, ~) = size(x)
+  (Nqr, Nqs, Nqt, _) = size(x)
   (Nr, Ns, Nt) = (Nqr-1, Nqs-1, Nqt-1)
   Nsubcells = Nr * Ns * Nt
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))

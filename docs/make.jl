@@ -1,8 +1,4 @@
-# Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
-
-push!(LOAD_PATH, "../")
-using Documenter
-using CLIMA
+using CLIMA, Documenter
 
 makedocs(
   sitename = "CLIMA",
@@ -11,12 +7,21 @@ makedocs(
   format = Documenter.HTML(
     prettyurls = get(ENV, "CI", nothing) == "true",
     # prettyurls = !("local" in ARGS),
-    canonical = "https://climate-machine.github.io/CLIMA/stable/",
+    # canonical = "https://climate-machine.github.io/CLIMA/stable/",
   ),
   clean = false,
   modules = [Documenter, CLIMA],
   pages = Any[
-  "Home" => "index.md",
+    "Home" => "index.md",
+    "Modules" => Any[
+      "Utilities.md",
+      "AtmosDycore.md",
+    ],
+    "Developer docs" => Any[
+      "CodingConventions.md",
+      "AcceptableUnicode.md",
+      "VariableList.md",
+    ]
   ],
 )
 

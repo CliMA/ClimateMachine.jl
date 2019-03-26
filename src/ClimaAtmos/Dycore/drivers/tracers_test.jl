@@ -1,17 +1,17 @@
 using MPI
-
-using CLIMAAtmosDycore.Topologies
-using CLIMAAtmosDycore.Grids
-using CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMAAtmosDycore.AtmosStateArrays
-using CLIMAAtmosDycore.LSRKmethods
-using CLIMAAtmosDycore.GenericCallbacks
-using CLIMAAtmosDycore
-using Utilities.MoistThermodynamics
+using CLIMA.CLIMAAtmosDycore.Topologies
+using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
+using CLIMA.CLIMAAtmosDycore.LSRKmethods
+using CLIMA.CLIMAAtmosDycore.GenericCallbacks
+using CLIMA.CLIMAAtmosDycore
+using CLIMA.Utilities.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
 const HAVE_CUDA = try
+  using CuArrays
   using CUDAdrv
   using CUDAnative
   true
@@ -23,31 +23,14 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-using ParametersType
-using PlanetParameters: R_d, cp_d, grav, cv_d
+using CLIMA.ParametersType
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
-#=
-function shift_init(v, x...; ntrace=0, nmoist=0, dim=3)
-  DFloat = eltype(x)
-  gravity::DFloat = grav
-  Y::DFloat = v[1]
-  ρ = 10 + 10 * Y
-  U = Y
-  V = -2 * Y + 1
-  W = Y + 5
-  E = 20000 +  98 * Y + ρ * gravity * x[dim]
-  v[1] += 1
-  (ρ=ρ, U=U, V=V, W=W, E=E,
-   Qmoist=ntuple(j->(j*ρ), nmoist),
-   Qtrace=ntuple(j->(-j*ρ), ntrace))
-end
-=#
-
 # FIXME: Will these keywords args be OK?
 
-function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
+function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
  DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
@@ -80,24 +63,19 @@ function risingthermalbubble(x...; ntrace=0, nmoist=0, dim=3)
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   # Calculation of energy per unit mass
-  E_kin = (U^2 + V^2 + W^2)/(2*ρ)/ρ
-  E_pot = gravity * x[dim]
-  E_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
-  # Total energy per unit mass 
-  E = (E_int + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-  E_tot = MoistThermodynamics.total_energy(E_kin, E_pot, T, 0.0, 0.0, 0.0)
-  #(ρ=ρ, U=U, V=V, W=W, E=E,
-  #Qmoist=ntuple(j->(j*ρ), nmoist),
-  #Qtrace=ntuple(j->(-j*ρ), ntrace))
+  e_kin = (u^2 + v^2 + w^2) / 2  
+  e_pot = gravity * x[dim]
+  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  # Total energy 
+  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
   (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(0.0196),nmoist),
                              Qtrace=ntuple(j->(-ρ * j), ntrace))
-  # ASR Modified moist tracers to be < 1
 end
 
 
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
-              initialcondition, timeend; gravity=true, dt=nothing,
+              timeend; gravity=true, dt=nothing,
               exact_timeend=true)
   dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
@@ -129,6 +107,12 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
                                          ntrace=ntrace,
                                          # How many moisture variables
                                          nmoist=nmoist)
+  
+  # Initial condition from driver 
+  initialcondition(x...) = tracer_thermal_bubble(x...; 
+					       ntrace=ntrace, 
+					       nmoist=nmoist, 
+					       dim=dim)
 
   # This is a actual state/function that lives on the grid
   Q = AtmosStateArray(spacedisc, initialcondition)
@@ -222,13 +206,7 @@ let
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        ic(x...) = risingthermalbubble(x...; ntrace=ntrace, nmoist=nmoist,
-                                       dim=dim)
-        #=
-        v = [1]
-        ic(x...) = shift_init(v, x...; ntrace=ntrace, nmoist=nmoist, dim=dim)
-        =#
-        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, ic,
+        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
              timeend)
       end
     end

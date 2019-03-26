@@ -7,13 +7,13 @@ assumes that you have a working MPI installation and [CMake][1] installed.
 ## Setup with CPUs
 
 ```bash
-julia --project=. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
+julia --project=@. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
 ```
 
 ## Setup with GPUs
 
 ```bash
-julia --project=env/gpu -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
+julia --project=../../../env/gpu/ -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
 ```
 
 ## Problems building MPI.jl
@@ -22,7 +22,7 @@ If you are having problems building MPI.jl then most likely CMake cannot find
 your MPI compilers.  Try running
 
 ```bash
-CC=$(which mpicc) CXX=$(which mpicxx) FC=$(which mpif90) julia --project=. -e "using Pkg; Pkg.build(\"MPI\")"
+CC=$(which mpicc) CXX=$(which mpicxx) FC=$(which mpif90) julia --project=@. -e "using Pkg; Pkg.build(\"MPI\")"
 ```
 
 which points the `CC`, `CXX`, and `FC` environment variables to the version of
@@ -31,13 +31,13 @@ MPI in your path.
 ## Running locally with CPUs
 
 ```bash
-mpirun -n 4 julia --project=. drivers/rising_thermal_bubble.jl
+mpirun -n 4 julia --project=@. drivers/rising_thermal_bubble.jl
 ```
 
 ## Running locally with GPUs
 
 ```bash
-mpirun -n 4 julia --project=env/gpu drivers/rising_thermal_bubble.jl
+mpirun -n 4 julia --project=../../../env/gpu/ drivers/rising_thermal_bubble.jl
 ```
 
 [0]: https://github.com/JuliaParallel/MPI.jl
