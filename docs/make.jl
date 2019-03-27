@@ -16,7 +16,7 @@ makedocs(
     "Utilites" => Any[
       "RootSolvers" => "Utilities/RootSolvers.md",
       "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
-      ]
+      ],
     "AtmosDycore" => "AtmosDycore.md",
     "Developer docs" => Any[
       "CodingConventions.md",
