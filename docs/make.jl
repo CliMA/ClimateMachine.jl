@@ -16,6 +16,7 @@ makedocs(
     "Modules" => Any[
       "Utilities.md",
       "AtmosDycore.md",
+      "TurbulenceConvection.md",
     ],
     "Developer docs" => Any[
       "CodingConventions.md",

@@ -18,7 +18,7 @@ function Base.show(io::IO, fpe::FieldsPerElement)
 end
 
 """
-    StateVec
+    StateVec{T, I, NT}
 
 A state vector containing the number of subdomains,
 `n_subdomains`, a `NamedTuple` variable mapper, a tuple
@@ -48,7 +48,7 @@ struct StateVec{T, I, NT}
 end
 
 """
-    get_var_mapper
+    get_var_mapper(vars)
 
 Get a `NamedTuple` that maps a variable name
 and subdomain ID to a unique index. Example:
@@ -122,7 +122,7 @@ end
 abstract type AbstractSlice{I} end
 
 """
-    Slice
+    Slice{I} <: AbstractSlice{I}
 
 A slice struct used to slice the state
 vector along the grid-element dimension.
