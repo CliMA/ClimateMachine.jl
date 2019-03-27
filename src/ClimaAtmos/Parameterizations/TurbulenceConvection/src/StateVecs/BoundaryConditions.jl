@@ -1,5 +1,6 @@
 """
     BoundaryConditions
+
 A set of functions that apply Dirichlet and Neumann boundary conditions
 at the top and bottom of the domains of a grid, given a state vector.
 """
@@ -14,6 +15,7 @@ struct Bottom<:BoundaryLocation end
 
 """
     Dirichlet!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
+
 Apply Dirichlet boundary conditions at the bottom of the domain
 """
 function Dirichlet!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
@@ -22,6 +24,7 @@ function Dirichlet!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
 end
 """
     Dirichlet!(sv::StateVec, name::Symbol, val, grid, ::Top, i_sd=1)
+
 Apply Dirichlet boundary conditions at the bottom of the domain
 """
 function Dirichlet!(sv::StateVec, name::Symbol, val, grid, ::Top, i_sd=1)
@@ -31,6 +34,7 @@ end
 
 """
     Neumann!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
+
 Apply Neumann boundary conditions at the bottom of the domain
 """
 function Neumann!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
@@ -40,6 +44,7 @@ end
 
 """
     Neumann!(sv::StateVec, name::Symbol, val, grid, ::Top, i_sd=1)
+
 Apply Neumann boundary conditions at the bottom of the domain
 """
 function Neumann!(sv::StateVec, name::Symbol, val, grid, ::Top, i_sd=1)

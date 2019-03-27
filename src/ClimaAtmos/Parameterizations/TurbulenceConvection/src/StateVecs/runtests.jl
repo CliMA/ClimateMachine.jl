@@ -22,16 +22,11 @@ state_vec = StateVec(vars, grid)
   @test_throws BoundsError state_vec[:w, 1, 4] = 3.0
   @test_throws BoundsError state_vec[:ρ_0, 1, 2] = 3.0
 
-  @test try
-    for k in over_elems(grid)
-      ρ_0_e = state_vec[:ρ_0, k]
-      for i in over_sub_domains(state_vec)
-        w_0_e_i = state_vec[:w, k, i]
-      end
+  for k in over_elems(grid)
+    ρ_0_e = state_vec[:ρ_0, k]
+    for i in over_sub_domains(state_vec)
+      w_0_e_i = state_vec[:w, k, i]
     end
-    true
-  catch
-    false
   end
 end
 

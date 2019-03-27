@@ -1,8 +1,8 @@
 """
     Grids
 
-  A simple 1-dimensional uniform grid
-  for finite difference method.
+A simple 1-dimensional uniform grid
+for finite difference method.
 """
 module Grids
 
@@ -11,6 +11,7 @@ export first_elem_above_surface, get_z
 
 """
     Grid{T}
+
 A simple 1-dimensional uniform grid of
 type `T` for finite difference method.
 """
@@ -68,6 +69,7 @@ end
 
 """
     Grid(z_min::T, z_max::T, n_elem_real::Int, n_ghost::Int = 1)
+
 A simple grid implementation that accepts the domain interval
 `z_min` and `z_max`, the number of elements `n_elem_real` and
 the number of ghost points per side `n_ghost`.
@@ -99,36 +101,42 @@ end
 
 """
     get_z(grid::Grid, k::Int)
+
 Get the z-coordinate given element index
 """
 @inline get_z(grid::Grid, k::Int) = grid.z[k]
 
 """
     over_elems(grid::Grid)
+
 Get the range of indexes to traverse real and ghost grid elements
 """
 @inline over_elems(grid::Grid) = 1:grid.n_elem
 
 """
     over_elems_real(grid::Grid)
+
 Get the range of indexes to traverse only real grid elements
 """
 @inline over_elems_real(grid::Grid) = 1+grid.n_ghost : grid.n_elem-grid.n_ghost
 
 """
     over_elems_ghost(grid::Grid)
+
 Get the range of indexes to traverse only ghost grid elements
 """
 @inline over_elems_ghost(grid::Grid) = setdiff(over_elems(grid), over_elems_real(grid))
 
 """
     first_elem_above_surface(grid::Grid)
+
 Get the first element index above the surface
 """
 @inline first_elem_above_surface(grid::Grid) = 1+grid.n_ghost
 
 """
     over_ghost(grid::Grid)
+
 Get the range of indexes over the ghost elements
 """
 @inline over_ghost(grid::Grid) = setdiff(over_elems(grid), over_elems_real(grid))
