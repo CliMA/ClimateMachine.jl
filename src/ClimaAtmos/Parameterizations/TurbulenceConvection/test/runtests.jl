@@ -1,7 +1,6 @@
 using Test
 
 for submodule in ["Grids",
-                  "GridOperators",
                   "StateVecs",
                   ]
 

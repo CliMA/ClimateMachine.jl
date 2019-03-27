@@ -1,7 +1,7 @@
 module TurbulenceConvection
 
 include("Grids/Grids.jl")
-include("GridOperators/GridOperators.jl")
+include("Grids/GridOperators.jl")
 include("StateVecs/StateVecs.jl")
 include("StateVecs/BoundaryConditions.jl")
 
