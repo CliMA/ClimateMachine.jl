@@ -15,6 +15,7 @@ makedocs(
     "Home" => "index.md",
     "Modules" => Any[
       "Utilities.md",
+      "AtmosDycore.md",
     ],
     "Developer docs" => Any[
       "CodingConventions.md",
