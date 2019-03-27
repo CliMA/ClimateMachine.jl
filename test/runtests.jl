@@ -1,8 +1,9 @@
 using Test, Pkg
 
-for submodule in ["ParametersType",
-                  "PlanetParameters",
-                  "Utilities",
+for submodule in ["Utilities/ParametersType",
+                  "Utilities/PlanetParameters",
+                  "Utilities/RootSolvers",
+                  "Utilities/MoistThermodynamics",
                   "ClimaAtmos/Parameterizations/SurfaceFluxes",
                   "ClimaAtmos/Dycore"]
 
