@@ -46,9 +46,9 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
       y = vgeo[i,j,_y,e]
-      e_int = E - ( (U^2 + V^2)/(2*ρ) + ρ * gravity * y ) / ρ 
-      
-      # Obtain specific humidity quantities from state vector
+      e_int = E / ρ - ( (U^2 + V^2)/(2*ρ) + ρ * gravity * y ) / ρ 
+      # Get specific humidity quantities from state vector
+      # per unit mass conversion required for sat_adjust only
       for m = 1:nmoist
           s = _nstate + m 
           q_m[m]  = Q[i, j, s, e] / ρ 
@@ -180,7 +180,7 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
       z = vgeo[i, j, k, _z, e]
-      e_int = E - ( (U^2 + V^2 + W^2)/(2*ρ) + ρ * gravity * z ) / ρ 
+      e_int = E / ρ - ( (U^2 + V^2 + W^2)/(2*ρ) + ρ * gravity * z ) / ρ 
       
       for m = 1:nmoist
          s = _nstate + m 
@@ -323,7 +323,8 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     nface = 6
   end
 
-    q_m = zeros(DFloat, max(3, nmoist))
+    q_mM = zeros(DFloat, max(3, nmoist))
+    q_mP = zeros(DFloat, max(3, nmoist))
 
   @inbounds for e in elems
     for f = 1:nface
@@ -340,7 +341,7 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
         yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
-        e_intM = EM - ((UM^2 + VM^2+ WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
+        e_intM = EM / ρM - ((UM^2 + VM^2+ WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
         
 	for m = 1:nmoist
             s = _nstate + m 
@@ -365,9 +366,10 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
               q_mP[m] = Q[vidP, s, eP] / ρP
            end
           
-          EintP= EP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
-          TP=MoistThermodynamics.air_temperature(EintP, q_mP[1], q_mP[2], q_mP[3])
-          uP=UP/ρP
+          e_intP= EP / ρP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
+         TP=MoistThermodynamics.air_temperature(e_intP, q_mP[1], q_mP[2], q_mP[3])
+          PP = MoistThermodynamics.air_pressure(TP, ρM, q_mP[1], q_mP[2], q_mP[3])
+         uP=UP/ρP
           vP=VP/ρP
           wP=WP/ρP
         elseif bc == 1
@@ -460,7 +462,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
-      e_int = E - ((U^2 + V^2)/(2*ρ) + ρ*gravity*y)/ρ
+      e_int = E /ρ - ((U^2 + V^2)/(2*ρ) + ρ*gravity*y)/ρ
 
       for m = 1:nmoist
           s = _nstate + m 
@@ -549,8 +551,8 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
         ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
         u, v = l_u[i, j], l_v[i, j]
-
-        q = Q[i, j, s, e] / ρ
+        
+        q = Q[i, j, s, e] 
         qx = grad[i, j, ss+1, e]
         qy = grad[i, j, ss+2, e]
 
@@ -632,7 +634,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   l_v = Array{DFloat}(undef, Nq, Nq, Nq)
   l_w = Array{DFloat}(undef, Nq, Nq, Nq)
 
-    q_m = zeros(DFloat, max(3, nmoist))
+  q_m = zeros(DFloat, max(3, nmoist))
 
   @inbounds for e in elems
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
@@ -645,7 +647,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
-      e_int = E - ((U^2 + V^2 + W^2)/(2*ρ) + ρ * gravity * z) / ρ
+      e_int = E /ρ - ((U^2 + V^2 + W^2)/(2*ρ) + ρ * gravity * z) / ρ
       
       for m = 1:nmoist
           s = _nstate + m 
@@ -766,7 +768,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
         u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
 
-        q = Q[i, j, k, s, e] / ρ
+        q = Q[i, j, k, s, e] 
         qx = grad[i, j, k, ss+1, e]
         qy = grad[i, j, k, ss+2, e]
         qz = grad[i, j, k, ss+3, e]
@@ -862,7 +864,8 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     nface = 6
   end
 
-    q_m = zeros(DFloat, max(3, nmoist))
+    q_mM = zeros(DFloat, max(3, nmoist))
+    q_mP = zeros(DFloat, max(3, nmoist))
 
   @inbounds for e in elems
     for f = 1:nface
@@ -873,11 +876,6 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         eM, eP = e, ((idP - 1) ÷ Np) + 1
         vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
         
-        for m = 1:nmoist
-            s = _nstate + m 
-            q_mM[m] = Q[vidM, s, eM] / ρM
-        end
-
 
         ρxM = grad[vidM, _ρx, eM]
         ρyM = grad[vidM, _ρy, eM]
@@ -906,29 +904,34 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         uM, vM, wM = ρMinv * UM, ρMinv * VM, ρMinv * WM
         bc = elemtobndy[f, e]
         
-        e_intM = EM - ((UM^2 + VM^2+ WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
-        R_gasM, ~, ~, γM = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
-        TM = MoistThermodynamics.air_temperature(e_intM, q_m[1], q_m[2], q_m[3])
-        PM = MoistThermodynamics.air_pressure(TM, ρM, q_m[1], q_m[2], q_m[3]) 
+        for m = 1:nmoist
+            s = _nstate + m 
+            q_mM[m] = Q[vidM, s, eM] / ρM
+        end
+
+        e_intM = EM * ρMinv - ((UM^2 + VM^2+ WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
+        R_gasM, ~, ~, γM = MoistThermodynamics.moist_gas_constants(q_mM[1], q_mM[2], q_mM[3])
+        TM = MoistThermodynamics.air_temperature(e_intM, q_mM[1], q_mM[2], q_mM[3])
+        PM = MoistThermodynamics.air_pressure(TM, ρM, q_mM[1], q_mM[2], q_mM[3]) 
+        
         if bc == 0
           
-          for m = 1:nmoist
-            s = _nstate + m 
-            q_mP[m] = Q[vidP, s, eP] / ρP
-          end
-
-
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
 
+          for m = 1:nmoist
+            s = _nstate + m 
+            q_mP[m] = Q[vidP, s, eP] / ρP
+          end
+
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
-          e_intP= EP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
-          R_gasP, ~, ~, γP = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
-          TP = MoistThermodynamics.air_temperature(e_intP, q_m[1], q_m[2], q_m[3])
-          PP = MoistThermodynamics.air_pressure(TP, ρP, q_m[1], q_m[2], q_m[3]) 
+          e_intP= EP / ρP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
+          R_gasP, ~, ~, γP = MoistThermodynamics.moist_gas_constants(q_mP[1], q_mP[2], q_mP[3])
+          TP = MoistThermodynamics.air_temperature(e_intP, q_mP[1], q_mP[2], q_mP[3])
+          PP = MoistThermodynamics.air_pressure(TP, ρP, q_mP[1], q_mP[2], q_mP[3]) 
 
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
@@ -1099,7 +1102,6 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           s = _nstate + m
           ss = _nstategrad + 3*(m-1)
 	  
-	  # Specific humidity
           QmoistM = Q[vidM, s, eM]
 
           qxM = grad[vidM, ss + 1, eM]
@@ -1127,7 +1129,8 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
           fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
                    nzM * (fluxM_z + fluxP_z) - λ * (QmoistP - QmoistM)) / 2
-
+          
+          # Moist Variable viscous flux
           vfqM_x, vfqP_x = 0*qxM, 0*qxP
           vfqM_y, vfqP_y = 0*qyM, 0*qyP
           vfqM_z, vfqP_z = 0*qzM, 0*qzP

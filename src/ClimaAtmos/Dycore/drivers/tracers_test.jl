@@ -25,7 +25,7 @@ end
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # FIXME: Will these keywords args be OK?
@@ -42,10 +42,14 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
-  θ_c::DFloat = 0.5
+  θ_c::DFloat = 2.0
   Δθ::DFloat = 0
+  Δq_tot::DFloat = 0
+
+  q_tot = 0.0150
   if r <= rc
     Δθ = θ_c * (1 + cos(π * r / rc)) / 2
+    Δq_tot = q_tot/5 * (1 + cos(π * r / rc)) / 2
   end
   θ_k = θ_ref + Δθ
   π_k = 1 - gravity / (c_p * θ_k) * x[dim]
@@ -66,10 +70,14 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
   e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  q_tot += Δq_tot
   # Total energy 
   E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(0.0196),nmoist),
-                             Qtrace=ntuple(j->(-ρ * j), ntrace))
+  (ρ=ρ, U=U, V=V, W=W, E=E, 
+   Qmoist=(q_tot * ρ,),
+   Qtrace=(q_tot * ρ,))
+   #Qmoist=ntuple(j->(q_tot * ρ), nmoist),
+   #Qtrace=ntuple(j->(q_tot * ρ), ntrace))
 end
 
 
@@ -178,15 +186,15 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
-
+#=
   h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
   for (j, n) = enumerate(spacedisc.moistrange)
-    # Current assertion condition non-physical: q_moist is a bounded, positive value < 1 
-    #@assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+    @assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
   for (j, n) = enumerate(spacedisc.tracerange)
     @assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
+  =#
 end
 
 let
@@ -200,14 +208,13 @@ let
   nmoist = 1
   ntrace = 1
   Ne = (10, 10, 10)
-  N = 4
+  N = 2
   timeend = 0.1
-  for DFloat in (Float64,)
+  for DFloat in (Float64, Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
-             timeend)
+        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
       end
     end
   end
