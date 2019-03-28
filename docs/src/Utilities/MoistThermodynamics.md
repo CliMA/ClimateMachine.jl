@@ -1,7 +1,4 @@
-# CLIMA Utilities
-Functions shared across model components, e.g., for thermodynamics.
-
-## MoistThermodynamics Module
+# MoistThermodynamics Module
 
 The `MoistThermodynamics` module provides all thermodynamic functions needed for the atmosphere and functions shared across model components. The functions are general for a moist atmosphere that includes suspended cloud condensate in the working fluid; the special case of a dry atmosphere is obtained for zero specific humidities (or simply by omitting the optional specific humidity arguments in the functions that are needed for a dry atmosphere). The general formulation assumes that there are tracers for the total water specific humidity `q_t`, the liquid specific humidity `q_l`, and the ice specific humidity `q_i` to characterize the thermodynamic state and composition of moist air.
 
@@ -77,3 +74,39 @@ For a dynamical core that additionally uses the liquid and ice specific humiditi
     T = air_temperature(E_int, q_t, q_l, q_i)
     p = air_pressure(T, ρ, q_t, q_l, q_i)
 ```
+
+## Functions
+
+```@meta
+CurrentModule = CLIMA.MoistThermodynamics
+```
+
+```@docs
+gas_constant_air
+air_pressure
+air_density
+cp_m
+cv_m
+air_temperature
+internal_energy
+internal_energy_sat
+total_energy
+latent_heat_vapor
+latent_heat_sublim
+latent_heat_fusion
+latent_heat_generic
+saturation_vapor_pressure
+saturation_shum_generic
+saturation_shum
+saturation_shum_from_pressure
+liquid_fraction
+heaviside
+phase_partitioning_eq!
+saturation_adjustment
+liquid_ice_pottemp
+```
+
+
+
+
+
