@@ -39,8 +39,6 @@ using LinearAlgebra
      ρ_v_triple / ρ * [1, 1]
   @test saturation_shum_generic.(T_triple-20, ρ; phase=Liquid()) >=
         saturation_shum_generic.(T_triple-20, ρ; phase=Ice())
-  @test saturation_excess([T_triple, T_triple], [ρ, ρ], [q_t, q_t/2]) ≈
-     [0., q_t/2]
 
   # energy functions and inverse (temperature)
   T=300; KE=11.; PE=13.;

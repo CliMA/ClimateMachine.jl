@@ -68,7 +68,7 @@ end
 Return the (moist-)air density from the equation of state (ideal gas law), given
 the air temperature `T`, the pressure `p`, and, optionally, the total specific
 humidity `q_t`, the liquid specific humidity `q_l`, and the ice specific
-humidity `q_i`. Without the specific humidity arguments, it returns the moist-air
+humidity `q_i`. Without the specific humidity arguments, it returns the air
 density from the equation of state of dry air.
 """
 function air_density(T, p, q_t=0, q_l=0, q_i=0)
@@ -329,23 +329,6 @@ function saturation_shum_from_pressure(T, ρ, p_vs)
 end
 
 """
-    saturation_excess(T, ρ, q_t, q_l=0, q_i=0)
-
-Compute the saturation excess in equilibrium, given the ambient air temperature
-`T`, the (moist-)air density `ρ`, the total specific humidity `q_t`, and,
-optionally, the liquid specific humidity `q_l`, and the ice specific humidity `q_i`.
-
-The saturation excess is the difference between the total specific humidity `q_t`
-and the saturation specific humidity in equilibrium, and it is defined to be
-nonzero only if this difference is positive.
-"""
-function saturation_excess(T, ρ, q_t, q_l=0, q_i=0)
-
-    return max(eltype(q_t)(0.), q_t - saturation_shum(T, ρ, q_l, q_i))
-
-end
-
-"""
     liquid_fraction(T[, q_l=0, q_i=0])
 
 Return the fraction of condensate that is liquid.
@@ -397,7 +380,8 @@ end
 function phase_partitioning_eq(T, ρ, q_t)
 
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
-    q_c          = saturation_excess(T, ρ, q_t)   # condensate specific humidity
+    q_vs         = saturation_shum(T, ρ) # saturation specific humidity
+    q_c          = max(q_t - q_vs, 0) # condensate specific humidity
     q_l_out      = _liquid_frac * q_c  # liquid specific humidity
     q_i_out      = (1 - _liquid_frac) * q_c # ice specific humidity
 
@@ -418,8 +402,8 @@ function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
     tol_abs = 1e-3*cv_d
     iter_max = 10
     args = (ρ, q_t, e_int)
-    T0 = max(T_min, air_temperature(e_int, q_t, eltype(q_t)(0.), eltype(q_t)(0.)))
-    T1 = air_temperature(e_int, q_t, eltype(q_t)(0.), q_t)
+    T0 = max(T_min, air_temperature(e_int, q_t, 0.0, 0.0))
+    T1 = air_temperature(e_int, q_t, 0.0, q_t)
     roots_equation(x, ρ, q_t, e_int) = internal_energy_sat(x, ρ, q_t) - e_int
     T, converged = find_zero(roots_equation,
                              T0, T1,
@@ -473,5 +457,6 @@ function exner(p, q_t=0, q_l=0, q_i=0)
     return (p/MSLP)^(_R_m/_cp_m)
 
 end
+
 
 end #module MoistThermodynamics.jl
