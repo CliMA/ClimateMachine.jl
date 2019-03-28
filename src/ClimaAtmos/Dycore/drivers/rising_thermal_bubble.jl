@@ -68,9 +68,7 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
   # Total energy 
   E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E,
-   Qmoist=(q_t,)
-  ) 
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_t,)) 
 end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
@@ -188,7 +186,7 @@ let
   ntrace = 0
   Ne = (10, 10, 10)
   N = 3
-  timeend = 100.0
+  timeend = 0.1
   for DFloat in (Float64, Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3

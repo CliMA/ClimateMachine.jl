@@ -40,9 +40,7 @@ Returns the speed of sound in moist air.
 Arguments: Temperature, specific heat capacity ratio, moist gas constant 
 """
 function sound_speed(T, γ, gas_constant_air)
-
     return sqrt(T * γ * gas_constant_air) 
-
 end
 
 

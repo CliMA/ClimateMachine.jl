@@ -47,11 +47,11 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   Δθ::DFloat = 0
   Δq_t::DFloat = 0
 
-  q_t = 0.0
+  q_t = 0.0196  
 
   if r <= rc
-    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
-    Δq_t = q_t/5 * (1 + cos(π * r / rc)) / 2
+    Δθ = θ_c * (1 + cospi(r / rc)) / 2
+    Δq_t = q_t/5 * (1 + cospi(r / rc)) / 2
   end
   
   θ_k = θ_ref + Δθ
@@ -78,10 +78,6 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   e_pot = gravity * x[dim]
   e_int = MoistThermodynamics.internal_energy(T, q_t, 0.0, 0.0)
   E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  #T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_t)
-  #q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_t)
-  #T = MoistThermodynamics.air_temperature(e_int, q_t, q_l, q_i)
-
   (ρ=ρ, U=U, V=V, W=W, E=E, 
    Qmoist = (q_t * ρ, q_l, q_i,),
    Qtrace = (q_t * ρ,))
@@ -215,7 +211,7 @@ let
   ntrace = 1
   Ne = (10, 10, 10)
   N = 2
-  timeend = 0.5
+  timeend = 0.1
   for DFloat in (Float64,)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2

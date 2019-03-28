@@ -53,7 +53,7 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # per unit mass conversion required for sat_adjust only
       for m = 1:nmoist
           s = _nstate + m 
-          q_m[m]  = Q[i, j, s, e] / ρ 
+          q_m[m]  = Q[i, j, s, e] / ρ  
       end
       # Saturation temperature to obtain temperature assuming thermodynamic equilibrium 
       T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
@@ -936,7 +936,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         TM = MoistThermodynamics.saturation_adjustment(e_intM, ρM, q_mM[1])
         q_lM, q_iM = MoistThermodynamics.phase_partitioning_eq(TM, ρM, q_mM[1])
 
-        R_gasM, ~, ~, γM = MoistThermodynamics.moist_gas_constants(q_mM[1], q_lM, q_iM)
+        R_gasM, _, _, γM = MoistThermodynamics.moist_gas_constants(q_mM[1], q_lM, q_iM)
         
         TM = MoistThermodynamics.air_temperature(e_intM, q_mM[1], q_lM, q_iM)
         PM = MoistThermodynamics.air_pressure(TM, ρM, q_mM[1], q_lM, q_iM) 
@@ -960,7 +960,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           TP = MoistThermodynamics.saturation_adjustment(e_intP, ρP, q_mP[1])
           q_lP, q_iP = MoistThermodynamics.phase_partitioning_eq(TP, ρP, q_mP[1])
           
-          R_gasP, ~, ~, γP = MoistThermodynamics.moist_gas_constants(q_mP[1], q_mP[2], q_mP[3])
+          R_gasP, _, _, γP = MoistThermodynamics.moist_gas_constants(q_mP[1], q_mP[2], q_mP[3])
           TP = MoistThermodynamics.air_temperature(e_intP, q_mP[1], q_lP, q_iP)
           PP = MoistThermodynamics.air_pressure(TP, ρP, q_mP[1], q_lP, q_iP) 
 

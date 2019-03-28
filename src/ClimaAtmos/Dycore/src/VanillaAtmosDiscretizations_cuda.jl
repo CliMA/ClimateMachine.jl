@@ -18,7 +18,6 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_v = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   s_T = @cuStaticSharedMem(eltype(Q), (Nq, Nq))
   q_m = @CuStaticSharedMem(eltype(Q),(3,))
-  q_m[1], q_m[2], q_m[3] = 0.0, 0.0, 0.0
   
   @inbounds if i <= Nq && j <= Nq && k == 1 && e <= nelem
     # Load derivative into shared memory
@@ -38,8 +37,7 @@ function knl_volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     s_ρ[i, j] = ρ
     s_u[i, j] = U/ρ
     s_v[i, j] = V/ρ
-    s_T[i, j] = MoistThermodynamics.air_temperature(Eint, q_m[1], q_m[2], q_m[3])
-    #s_T[i, j] = P/(R_d*ρ)
+    s_T[i, j] = P/(R_d*ρ)
   end
 
   sync_threads()
@@ -157,7 +155,6 @@ function knl_volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_w = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq))
   s_T = @cuStaticSharedMem(eltype(Q), (Nq, Nq, Nq))
   q_m = @cuStaticSharedMem(eltype(Q), (3,))
-  q_m = [0.0,0.0,0.0]
 
   @inbounds if i <= Nq && j <= Nq && k <= Nq && e <= nelem
     # Load derivative into shared memory
@@ -180,8 +177,7 @@ function knl_volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     s_u[i, j, k] = U/ρ
     s_v[i, j, k] = V/ρ
     s_w[i, j, k] = W/ρ
-    s_T[i, j, k] = MoistThermodynamics.air_temperature(E_int, q_m[1], q_m[2], q_m[3])
-    #s_T[i, j, k] = P/(R_d*ρ)
+    s_T[i, j, k] = P/(R_d*ρ)
   end
 
   sync_threads()
@@ -349,13 +345,11 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
             q_m[m] = Q[vidM, s, eM]
         end
 
-        #PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
+        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
         uM=UM/ρM
         vM=VM/ρM
         wM=WM/ρM
-        TM=MoistThermodynamics.air_temperature(EintM, q_m[1], q_m[2], q_m[3])
-        PM=MoistThermodynamics.air_pressure(TM, ρM, q_m[1], q_m[2], q_m[3])
-        #TM=PM/(R_d*ρM)
+        TM=PM/(R_d*ρM)
 
         bc = elemtobndy[f, e]
         ρP = UP = VP = WP = EP = PP = zero(eltype(Q))
@@ -373,11 +367,10 @@ function knl_facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
               q_m[m] = Q[vidP, s, eP]
           end
           EintP= EP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
-          TP=MoistThermodynamics.air_temperature(EintP, q_m[1], q_m[2], q_m[3])
           uP=UP/ρP
           vP=VP/ρP
           wP=WP/ρP
-          #TP=PP/(R_d*ρP)
+          TP=PP/(R_d*ρP)
         elseif bc == 1
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
