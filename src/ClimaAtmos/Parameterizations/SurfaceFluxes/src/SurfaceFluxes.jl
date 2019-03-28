@@ -42,8 +42,8 @@
 """
 module SurfaceFluxes
 
-using ..Utilities.RootSolvers
-using ..Utilities.MoistThermodynamics
+using ..RootSolvers
+using ..MoistThermodynamics
 using ..PlanetParameters
 
 # export compute_buoyancy_flux
@@ -66,8 +66,8 @@ end
 
 module Byun1990
 
-using ...Utilities.RootSolvers
-using ...Utilities.MoistThermodynamics
+using ...RootSolvers
+using ...MoistThermodynamics
 using ...PlanetParameters
 
 """ Computes ψ_m for stable case. See Eq. 12 Ref. Byun1990 """
@@ -196,8 +196,8 @@ end
 end # Byun1990 module
 
 module Nishizawa2018
-using ...Utilities.RootSolvers
-using ...Utilities.MoistThermodynamics
+using ...RootSolvers
+using ...MoistThermodynamics
 using ...PlanetParameters
 
 """ Computes R_z0 expression, defined after Eq. 15 Ref. Nishizawa2018 """
