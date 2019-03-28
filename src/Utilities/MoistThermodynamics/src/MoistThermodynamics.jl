@@ -22,6 +22,9 @@ export cp_m, cv_m, gas_constant_air
 # Latent heats
 export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
 
+# Speed of sound in air
+export soundspeed_air
+
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
 export saturation_vapor_pressure, saturation_shum_generic, saturation_shum
@@ -162,6 +165,21 @@ optionally, the total specific humidity `q_t`, the liquid specific humidity
 function total_energy(e_kin, e_pot, T, q_t=0, q_l=0, q_i=0)
 
     return e_kin + e_pot + internal_energy(T, q_t, q_l, q_i)
+
+end
+
+"""
+    soundspeed_air(T[, q_t=0, q_l=0, q_i=0])
+
+Return the speed of sound in air, given the temperature `T`, and,
+optionally, the total specific humidity `q_t`, the liquid specific humidity
+`q_l`, and the ice specific humidity `q_i`.
+"""
+function soundspeed_air(T, q_t=0, q_l=0, q_i=0)
+
+    _γ   = cp_m(q_t, q_l, q_i)/cv_m(q_t, q_l, q_i)
+    _R_m = gas_constant_air(q_t, q_l, q_i)
+    return sqrt(_γ * _R_m * T)
 
 end
 
@@ -325,7 +343,7 @@ density `ρ`, and the saturation vapor pressure `p_vs`.
 """
 function saturation_shum_from_pressure(T, ρ, p_vs)
 
-    return min(eltype(ρ)(1.), p_vs / (ρ * R_v * T))
+    return min(typeof(ρ)(1), p_vs / (ρ * R_v * T))
 
 end
 
@@ -342,7 +360,7 @@ nonzero only if this difference is positive.
 """
 function saturation_excess(T, ρ, q_t, q_l=0, q_i=0)
 
-    return max(eltype(q_t)(0.), q_t - saturation_shum(T, ρ, q_l, q_i))
+    return max(typeof(q_t)(0), q_t - saturation_shum(T, ρ, q_l, q_i))
 
 end
 
@@ -374,7 +392,7 @@ end
 Return the Heaviside step function at `t`.
 """
 function heaviside(t)
-   eltype(t)(1//2) * (sign(t) + 1)
+   typeof(t)(1//2) * (sign(t) + 1)
 end
 
 """
@@ -419,7 +437,7 @@ function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
     tol_abs = 1e-3*cv_d
     iter_max = 10
     args = (ρ, q_t, e_int)
-    T0 = max(T_min, air_temperature(e_int, q_t, eltype(q_t)(0.), eltype(q_t)(0.)))
+    T0 = max(T_min, air_temperature(e_int, q_t, typeof(q_t)(0), typeof(q_t)(0)))
     T1 = air_temperature(e_int, q_t, typeof(q_t)(0), q_t)
     roots_equation(x, ρ, q_t, e_int) = internal_energy_sat(x, ρ, q_t) - e_int
     T, converged = find_zero(roots_equation,

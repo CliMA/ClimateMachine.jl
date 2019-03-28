@@ -17,6 +17,10 @@ using LinearAlgebra
   @test cp_m() ≈ cp_d
   @test cv_m.([0, 1, 1, 1], [0, 0, 1, 0], [0, 0, 0, 1]) ≈ [cp_d - R_d, cp_v - R_v, cv_l, cv_i]
 
+  # speed of sound
+  T = [T_0 + 20, T_0 + 100]; q_t = [0, 1];
+  @test soundspeed_air.(T, q_t) ≈ [ sqrt(cp_d/cv_d * R_d * T[1]), sqrt(cp_v/cv_v * R_v * T[2]) ]
+
   # specific latent heats
   @test latent_heat_vapor(T_0)  ≈ LH_v0
   @test latent_heat_fusion(T_0) ≈ LH_f0
