@@ -6,7 +6,7 @@ using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
 using CLIMA.CLIMAAtmosDycore.LSRKmethods
 using CLIMA.CLIMAAtmosDycore.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
-using CLIMA.Utilities.MoistThermodynamics
+using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
