@@ -11,7 +11,7 @@ export VanillaAtmosDiscretization
 
 using ...ParametersType
 using ...PlanetParameters: cp_d, cv_d, R_d, grav
-using CLIMA.Utilities.MoistThermodynamics
+using CLIMA.MoistThermodynamics
 
 @parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
@@ -403,8 +403,7 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   W = reshape((@view Q[:, _W, :]), ntuple(j->Nq, dim)..., nelem)
   E = reshape((@view Q[:, _E, :]), ntuple(j->Nq, dim)..., nelem)
   writemesh(prefix, X...;
-            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E), 
-                    ("Qt", Qt),("Qtracer",Qtracer)),
+            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
             realelems=G.topology.realelems)
   end
 end
