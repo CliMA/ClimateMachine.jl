@@ -420,7 +420,7 @@ function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
     iter_max = 10
     args = (ρ, q_t, e_int)
     T0 = max(T_min, air_temperature(e_int, q_t, eltype(q_t)(0.), eltype(q_t)(0.)))
-    T1 = air_temperature(e_int, q_t, eltype(q_t)(0.), q_t)
+    T1 = air_temperature(e_int, q_t, typeof(q_t)(0), q_t)
     roots_equation(x, ρ, q_t, e_int) = internal_energy_sat(x, ρ, q_t) - e_int
     T, converged = find_zero(roots_equation,
                              T0, T1,
