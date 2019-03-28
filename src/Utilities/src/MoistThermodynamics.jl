@@ -392,31 +392,30 @@ end
 """
     phase_partitioning_eq!(q_l, q_i, T, ρ, q_t)
 
-Return the partitioning of the phases in equilibrium.
+    # ASR Do we need this function at all(?)
+
+    Return the partitioning of the phases in equilibrium.
 
 Given the temperature `T` and (moist-)air density `ρ`, `phase_partitioning_eq!`
 partitions the total specific humidity `q_t` into the liquid specific humidity
 `q_l` and ice specific humiditiy `q_l` using the `liquid_fraction`
 function. The residual `q_t - q_l - q_i` is the vapor specific humidity.
 """
+#=
 function phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t)
-
     for k=1:length(q_l_out)
         @inbounds q_l_out[k], q_i_out[k] = phase_partitioning_eq(T[k], ρ[k], q_t[k])
     end
-
 end
+=#
 
 function phase_partitioning_eq(T, ρ, q_t)
-
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
     q_vs         = saturation_shum(T, ρ) # saturation specific humidity
     q_c          = max(q_t - q_vs, 0) # condensate specific humidity
     q_l_out      = _liquid_frac * q_c  # liquid specific humidity
     q_i_out      = (1 - _liquid_frac) * q_c # ice specific humidity
-
     return q_l_out, q_i_out
-
 end
 
 """
@@ -429,6 +428,9 @@ The optional input value of the temperature `T_init` is taken as the initial
 value of the saturation adjustment iterations.
 """
 function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
+  if q_t < saturation_shum(air_temperature(e_int), ρ)
+    return air_temperature(e_int, q_t)
+  else
     tol_abs = 1e-3*cv_d
     iter_max = 10
     args = (ρ, q_t, e_int)
@@ -442,7 +444,7 @@ function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
                              SecantMethod()
                              )
     return T
-
+  end
 end
 
 """
