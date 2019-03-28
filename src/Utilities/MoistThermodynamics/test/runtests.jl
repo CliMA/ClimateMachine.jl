@@ -35,14 +35,16 @@ using LinearAlgebra
      ρ_v_triple / ρ * [1, 1]
   @test saturation_shum_generic.(T_triple-20, ρ; phase=Liquid()) >=
         saturation_shum_generic.(T_triple-20, ρ; phase=Ice())
+  @test saturation_excess.([T_triple, T_triple], [ρ, ρ], [q_t, q_t/1000]) ≈
+        max.(0., [q_t, q_t/1000] .- ρ_v_triple / ρ * [1, 1])
 
   # energy functions and inverse (temperature)
   T=300; KE=11.; PE=13.;
   @test air_temperature.(cv_d*(T-T_0) .* [1, 1, 1], 0, 0, 0) ≈ [T, T, T]
   @test air_temperature.(cv_d*(T-T_0) .* [1, 1, 1]) ≈ [T, T, T]
-  @test air_temperature.(cv_m.([0, q_t], 0, 0).*(T-T_0).+[0, q_t*IE_v0], [0, q_t], 0, 0) ≈ [T, T]
+  @test air_temperature.(cv_m.([0, q_t], 0, 0).*(T-T_0).+[0, q_t*e_int_v0], [0, q_t], 0, 0) ≈ [T, T]
   @test total_energy.([KE, KE, 0], [PE, PE, 0], [T_0, T, T_0], [0, 0, q_t], [0, 0, 0], [0, 0, 0]) ≈
-    [KE + PE, KE + PE + cv_d*(T-T_0), q_t * IE_v0]
+    [KE + PE, KE + PE + cv_d*(T-T_0), q_t * e_int_v0]
 
   # phase partitioning in equilibrium
   T   = [T_icenuc-10, T_freeze+10];
