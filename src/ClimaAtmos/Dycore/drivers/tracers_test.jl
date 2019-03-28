@@ -24,7 +24,7 @@ macro hascuda(ex)
 end
 
 using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple
 @parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
@@ -38,19 +38,22 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
+  T_0::DFloat     = T_triple
 
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
-  θ_ref::DFloat = 300
+  θ_ref::DFloat = 320
   θ_c::DFloat = 2.0
   Δθ::DFloat = 0
-  Δq_tot::DFloat = 0
+  Δq_t::DFloat = 0
 
-  q_tot = 0.0150
+  q_t = 0.0
+
   if r <= rc
     Δθ = θ_c * (1 + cos(π * r / rc)) / 2
-    Δq_tot = q_tot/5 * (1 + cos(π * r / rc)) / 2
+    Δq_t = q_t/5 * (1 + cos(π * r / rc)) / 2
   end
+  
   θ_k = θ_ref + Δθ
   π_k = 1 - gravity / (c_p * θ_k) * x[dim]
   c = c_v / R_gas
@@ -67,20 +70,23 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   # Calculation of energy per unit mass
+  q_t += Δq_t
+  q_l = 0.0
+  q_i = 0.0
+  # Total energy 
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
-  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
-  q_tot += Δq_tot
-  # Total energy 
+  e_int = MoistThermodynamics.internal_energy(T, q_t, 0.0, 0.0)
   E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
+  #T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_t)
+  #q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_t)
+  #T = MoistThermodynamics.air_temperature(e_int, q_t, q_l, q_i)
+
   (ρ=ρ, U=U, V=V, W=W, E=E, 
-   Qmoist=(q_tot * ρ,),
-   Qtrace=(q_tot * ρ,))
-   #Qmoist=ntuple(j->(q_tot * ρ), nmoist),
-   #Qtrace=ntuple(j->(q_tot * ρ), ntrace))
+   Qmoist = (q_t * ρ, q_l, q_i,),
+   Qtrace = (q_t * ρ,))
+
 end
-
-
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
               timeend; gravity=true, dt=nothing,
@@ -205,20 +211,19 @@ let
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
-  nmoist = 1
+  nmoist = 3
   ntrace = 1
   Ne = (10, 10, 10)
   N = 2
-  timeend = 0.1
-  for DFloat in (Float64, Float32)
+  timeend = 0.5
+  for DFloat in (Float64,)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      for dim in 2:3
+      for dim in 2
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
         main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
       end
     end
   end
-
 end
 
 isinteractive() || MPI.Finalize()

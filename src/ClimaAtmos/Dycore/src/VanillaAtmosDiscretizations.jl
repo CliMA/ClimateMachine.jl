@@ -8,9 +8,12 @@ using ..AtmosStateArrays
 
 export VanillaAtmosDiscretization
 
+
 using ...ParametersType
 using ...PlanetParameters: cp_d, cv_d, R_d, grav
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+using CLIMA.Utilities.MoistThermodynamics
+
+@parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # ASR Correction to Prandtl number from 7.1 to 0.71
@@ -192,7 +195,7 @@ step
 
     This estimate is currently very conservative, needs to be revisited
 """
-function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA},
+function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, nmoist},
                     Q::AtmosStateArray) where {T, dim, N, Np, DA, nmoist}
   @assert T == eltype(Q)
   G = disc.grid
@@ -224,16 +227,18 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       y = vgeo[n, G.yid, e]
       
       #Compute Temperature and Internal Energy per unit mass
-      e_int = E - ((U^2 + V^2)/(2*ρ) + ρ * gravity * y) / ρ 
-      
       #Obtain moist variables from state vector
       for m = 1:nmoist
           s = _nstate + m
           q_m[m] = Q[n, s, e]/ρ
       end
-
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
-      T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_m[2], q_m[3])
+      
+        e_int = E / ρ - ((U^2 + V^2)/(2*ρ) + ρ * gravity * y) / ρ
+        T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
+        q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
+        T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
+      
+      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_l, q_i)
       γ_m =  cp_m/cv_m
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
@@ -261,21 +266,23 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
           s = _nstate + m 
           q_m[m] = Q[n, s, e] / ρ 
       end
-	
+
+      # Moist Thermo quantities required per unit mass for gas constant calculations	
+      T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
       # Obtain moist thermodynamics constants from q_m[1]==q_t, q_m[2]==q_l, q_m[3] == q_i
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
-      gdm1 = R_m/cv_m
-      gamma_m =  cp_m/cv_m
+      q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
+      T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
+      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_l, q_i)
+      γ_m =  cp_m/cv_m
       
       # Obtain Temperature form specific internal energy e_int
-      T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_m[2], q_m[3])
       ξx, ξy, ξz = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e], vgeo[n, G.ξzid, e]
       ηx, ηy, ηz = vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e], vgeo[n, G.ηzid, e]
       ζx, ζy, ζz = vgeo[n, G.ζxid, e], vgeo[n, G.ζyid, e], vgeo[n, G.ζzid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m),
-                        abs(U * ηx + V * ηy + W * ηz) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m),
-                        abs(U * ζx + V * ζy + W * ζz) + ρ * MoistThermodynamics.sound_speed(T, gamma_m, R_m))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m),
+                        abs(U * ηx + V * ηy + W * ηz) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m),
+                        abs(U * ζx + V * ζy + W * ζz) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m))
       dt[1] = min(dt[1], loc_dt)
    
   end
@@ -337,7 +344,7 @@ function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
   ###################
 
   viscosity::DFloat = disc.viscosity
-
+  
   AtmosStateArrays.startexchange!(grad)
 
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
@@ -396,9 +403,10 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   W = reshape((@view Q[:, _W, :]), ntuple(j->Nq, dim)..., nelem)
   E = reshape((@view Q[:, _E, :]), ntuple(j->Nq, dim)..., nelem)
   writemesh(prefix, X...;
-            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
+            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E), 
+                    ("Qt", Qt),("Qtracer",Qtracer)),
             realelems=G.topology.realelems)
+  end
 end
 
 
-end

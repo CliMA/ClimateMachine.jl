@@ -30,7 +30,7 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # FIXME: Will these keywords args be OK?
-function rising_thermal_bubble(x...; dim=3)
+function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
   γ::DFloat       = gamma_d
   p0::DFloat      = 100000
@@ -38,12 +38,12 @@ function rising_thermal_bubble(x...; dim=3)
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
-
+  q_t::DFloat     = 0.00
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
   θ_c::DFloat = 0.5
-  Δθ::DFloat = 0
+  Δθ::DFloat = 0.0
   if r <= rc
     Δθ = θ_c * (1 + cos(π * r / rc)) / 2
   end
@@ -68,11 +68,15 @@ function rising_thermal_bubble(x...; dim=3)
   e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
   # Total energy 
   E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E)
+  (ρ=ρ, U=U, V=V, W=W, E=E,
+   Qmoist=(q_t,)
+  ) 
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
-              exact_timeend=true) dim = length(brickrange)
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
+              timeend; gravity=true, viscosity=0, dt=nothing,
+              exact_timeend=true) 
+  dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
                        # tuple of point element edges in each dimension
@@ -95,10 +99,18 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  spacedisc = VanillaAtmosDiscretization(grid)
+  spacedisc = VanillaAtmosDiscretization(grid,
+                                        gravity=gravity,
+                                        viscosity=viscosity,
+                                        ntrace=ntrace,
+                                        nmoist=nmoist)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(x...) = rising_thermal_bubble(x...; dim=dim)
+  initialcondition(x...) = rising_thermal_bubble(x...; 
+                                                 ntrace=ntrace, 
+                                                 nmoist=nmoist, 
+                                                 dim=dim)
+
   Q = AtmosStateArray(spacedisc, initialcondition)
 
   # Determine the time step
@@ -171,20 +183,20 @@ let
   mpicomm = MPI.COMM_WORLD
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
-
+  
+  nmoist = 1
+  ntrace = 0
   Ne = (10, 10, 10)
-  N = 4
-  timeend = 5
-
-  for DFloat in (Float64, )#Float32)
+  N = 3
+  timeend = 100.0
+  for DFloat in (Float64, Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, N, timeend)
+        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
       end
     end
   end
-
 end
 
 isinteractive() || MPI.Finalize()

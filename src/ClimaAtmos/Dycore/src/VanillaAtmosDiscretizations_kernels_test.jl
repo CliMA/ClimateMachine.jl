@@ -1,6 +1,4 @@
-# TODO: Move to the AtmosStateArrays'
-# TODO: Update CliMA Design-docs to specify prognostic variables consistently 
-# '
+# TODO: Move to the AtmosStateArrays
 # {{{ MPI Buffer handling
 fillsendbuf!(h, d, b::AtmosStateArray, e) = fillsendbuf!(h, d, b.Q, e)
 transferrecvbuf!(h, d, b::AtmosStateArray, e) = transferrecvbuf!(h, d, b.Q, e)
@@ -57,12 +55,14 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
       # Saturation temperature to obtain temperature assuming thermodynamic equilibrium 
       T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
+      @show(T)
       # TODO: Possibility of carrying q_l and q_i through state vector to include non-equilibrium thermodynamics
       q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
       s_v[i, j] = V/ρ
       s_T[i, j] = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
+
     end
 
     for j = 1:Nq, i = 1:Nq
@@ -403,13 +403,15 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         else
           error("Invalid boundary conditions $bc on face $f of element $e")
         end
-
-        fluxρS = (ρP - ρM)/2
-        fluxuS = (uP - uM)/2
-        fluxvS = (vP - vM)/2
-        fluxwS = (wP - wM)/2
-        fluxTS = (TP - TM)/2
-
+        
+        # asraero changed this to + in the next 5 lines
+        fluxρS = (ρP + ρM)/2
+        fluxuS = (uP + uM)/2
+        fluxvS = (vP + vM)/2
+        fluxwS = (wP + wM)/2
+        fluxTS = (TP + TM)/2
+        
+        vMJI = 1.0 # asraero added vMJI = 1.0
         grad[vidM, _ρx, eM] += vMJI*sMJ*nxM*fluxρS
         grad[vidM, _ρy, eM] += vMJI*sMJ*nyM*fluxρS
         grad[vidM, _ρz, eM] += vMJI*sMJ*nzM*fluxρS
@@ -431,9 +433,10 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           s = _nstate + m
           ss = _nstategrad + 3*(m-1)
           qM, qP = Q[vidM, s, eM], Q[vidP, s, eP]
-
-          fluxqS = (qP - qM)/2
-
+          
+          #asraero changed line below to plus sign
+          fluxqS = (qP + qM)/2
+          vMJI = 1.0
           grad[vidM, ss+1, eM] += vMJI*sMJ*nxM*fluxqS
           grad[vidM, ss+2, eM] += vMJI*sMJ*nyM*fluxqS
           grad[vidM, ss+3, eM] += vMJI*sMJ*nzM*fluxqS
@@ -538,7 +541,8 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
       # buoyancy term
-      rhs[i, j, _V, e] -= ρ * gravity
+      # asraero: multiply gravity term by MJ
+      rhs[i, j, _V, e] -= MJ * ρ * gravity
 
       # Store velocity
       l_u[i, j], l_v[i, j] = u, v
@@ -547,6 +551,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     # loop of ξ-grid lines
     for s = 1:_nstate, j = 1:Nq, i = 1:Nq
       MJI = vgeo[i, j, _MJI, e]
+      MJI = 1.0 #asraero
       for n = 1:Nq
         rhs[i, j, s, e] += MJI * D[n, i] * s_F[n, j, s]
       end
@@ -554,6 +559,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     # loop of η-grid lines
     for s = 1:_nstate, j = 1:Nq, i = 1:Nq
       MJI = vgeo[i, j, _MJI, e]
+      MJI = 1.0 #asraero
       for n = 1:Nq
         rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, s]
       end
@@ -583,12 +589,14 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
       for j = 1:Nq, i = 1:Nq
         MJI = vgeo[i, j, _MJI, e]
+        MJI = 1.0 # asraero
         for n = 1:Nq
           rhs[i, j, s, e] += MJI * D[n, i] * s_F[n, j, 1]
         end
       end
       for j = 1:Nq, i = 1:Nq
         MJI = vgeo[i, j, _MJI, e]
+        MJI = 1.0 #asraero
         for n = 1:Nq
           rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, 1]
         end
@@ -613,12 +621,14 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
       for j = 1:Nq, i = 1:Nq
         MJI = vgeo[i, j, _MJI, e]
+        MJI = 1.0 #asraero
         for n = 1:Nq
           rhs[i, j, s, e] += MJI * D[n, i] * s_F[n, j, 1]
         end
       end
       for j = 1:Nq, i = 1:Nq
         MJI = vgeo[i, j, _MJI, e]
+        MJI = 1.0 #asraero
         for n = 1:Nq
           rhs[i, j, s, e] += MJI * D[n, j] * s_G[i, n, 1]
         end
@@ -1119,6 +1129,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                    nzM*(vfWM_z + vfWP_z))/2
         vfluxES = (nxM*(vfEM_x + vfEP_x) + nyM*(vfEM_y + vfEP_y) +
                    nzM*(vfEM_z + vfEP_z))/2
+        
+        
+        vMJI = 1.0 #asraero
 
         #Update RHS
         rhs[vidM, _ρ, eM] -= vMJI * sMJ * (fluxρS - viscosity*vfluxρS)
@@ -1167,7 +1180,8 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           vfqM_z, vfqP_z = 0*qzM, 0*qzP
           vfluxqS = (nxM*(vfqM_x + vfqP_x) + nyM*(vfqM_y + vfqP_y) +
                      nzM*(vfqM_z + vfqP_z))/2
-
+          # asraero
+          vMJI = 1.0
           rhs[vidM, s, eM] -= vMJI * sMJ * (fluxS - viscosity*vfluxqS)
         end
 
@@ -1185,7 +1199,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
           fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
                    nzM * (fluxM_z + fluxP_z) - λ * (QtraceP - QtraceM)) / 2
-
+          vMJI = 1.0 #asraero
           rhs[vidM, s, eM] -= vMJI * sMJ * fluxS
         end
       end
