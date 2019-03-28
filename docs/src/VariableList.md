@@ -10,6 +10,7 @@ scratch
 
 
 Default working fluid = moist air
+No species subscript on variable names indicates reference to default working fluid. 
 
 2.1  Working Fluid and Equation of State
 ----------------------------------------
