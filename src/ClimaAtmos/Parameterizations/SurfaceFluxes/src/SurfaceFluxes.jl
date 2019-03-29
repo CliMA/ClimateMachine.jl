@@ -146,9 +146,9 @@ end
     compute_exchange_coefficients(Ri, z_b, z_0, γ_m, γ_h, β_m, β_h, Pr_0)
 
 Computes exchange transfer coefficients:
-  C_D  momentum exchange coefficient      (Eq. 36)
-  C_H  thermodynamic exchange coefficient (Eq. 37)
-  L_mo Monin-Obukhov length               (re-arranged Eq. 3)
+ - C_D  momentum exchange coefficient      (Eq. 36)
+ - C_H  thermodynamic exchange coefficient (Eq. 37)
+ - L_mo Monin-Obukhov length               (re-arranged Eq. 3)
 """
 function compute_exchange_coefficients(Ri, z_b, z_0, γ_m, γ_h, β_m, β_h, Pr_0)
   logz = log(z_b/z_0)
@@ -285,9 +285,9 @@ end
 
 Computes exchange transfer coefficients:
 
-  K_D  momentum exchange coefficient
-  K_H  thermodynamic exchange coefficient
-  L_mo Monin-Obukhov length
+  - K_D  momentum exchange coefficient
+  - K_H  thermodynamic exchange coefficient
+  - L_mo Monin-Obukhov length
 """
 function compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ, flux, Pr)
 
