@@ -15,7 +15,7 @@ Grids.first_elem_above_surface
 Grids.get_z
 ```
 
-## Grid Operator
+## Grid Operators
 
 ```@docs
 GridOperators.∇_z

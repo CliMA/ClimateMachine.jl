@@ -10,7 +10,19 @@ using ..Grids, ..StateVecs
 export Dirichlet!, Neumann!, Top, Bottom
 
 abstract type BoundaryLocation end
+
+"""
+    Top<:BoundaryLocation
+
+Location to apply boundary condition
+"""
 struct Top<:BoundaryLocation end
+
+"""
+    Bottom<:BoundaryLocation
+
+Location to apply boundary condition
+"""
 struct Bottom<:BoundaryLocation end
 
 """
@@ -22,6 +34,7 @@ function Dirichlet!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
   e = grid.n_ghost
   sv[name, e, i_sd] = 2*val - sv[name, e+1, i_sd]
 end
+
 """
     Dirichlet!(sv::StateVec, name::Symbol, val, grid, ::Top, i_sd=1)
 
