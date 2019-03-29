@@ -48,15 +48,15 @@ using ..PlanetParameters
 
 # export compute_buoyancy_flux
 
-""" Computes buoyancy flux. """
-function compute_buoyancy_flux(shf,
-                               lhf,
-                               T_b,
-                               qt_b,
-                               ql_b,
-                               qi_b,
-                               alpha0_0
-                               )
+"""
+    compute_buoyancy_flux(shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0)
+
+Computes buoyancy flux given sensible heat flux `shf`,
+latent heat flux `lhf`, surface boundary temperature `T_b`,
+total specific humidity `qt_b`, liquid specific humidity `ql_b`,
+ice specific humidity `qi_b` and specific `alpha0_0`.
+"""
+function compute_buoyancy_flux(shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0)
   cp_ = cp_m(qt_b, ql_b, qi_b)
   lv = latent_heat_vapor(T_b)
   temp1 = (molmass_ratio-1)
@@ -91,23 +91,21 @@ function ψ_h_unstable(ζ, ζ_0, γ_h)
   return ψ_h
 end
 
-""" Computes the Monin-Obukhov length (Eq. 3 Ref. Byun1990) """
+"""
+    compute_MO_len(u, flux)
+
+Computes the Monin-Obukhov length (Eq. 3 Ref. Byun1990)
+"""
 compute_MO_len(u, flux) = - u^3 / (flux * k_Karman)
 
 """
+    compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, iter_max)
+
 Computes roots of friction velocity equation (Eq. 10 in Ref. Byun1990)
 
-  u_ave = u_* ( ln(z/z_0) - ψ_m(z/L, z_0/L) ) /κ        Eq. 10 in Ref. Byun1990
+`u_ave = u_* ( ln(z/z_0) - ψ_m(z/L, z_0/L) ) /κ        Eq. 10 in Ref. Byun1990`
 """
-function compute_friction_velocity(u_ave,
-                                   flux,
-                                   z_0,
-                                   z_1,
-                                   β_m,
-                                   γ_m,
-                                   tol_abs,
-                                   iter_max
-                                   )
+function compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, iter_max)
 
   ustar_0 = u_ave * k_Karman / log(z_1 / z_0)
   ustar = ustar_0
@@ -145,21 +143,14 @@ function compute_friction_velocity(u_ave,
 end
 
 """
-Computes exchange transfer coefficients:
+    compute_exchange_coefficients(Ri, z_b, z_0, γ_m, γ_h, β_m, β_h, Pr_0)
 
-  C_D  momentum exchange coefficient
-  C_H  thermodynamic exchange coefficient
-  L_mo Monin-Obukhov length
+Computes exchange transfer coefficients:
+  C_D  momentum exchange coefficient      (Eq. 36)
+  C_H  thermodynamic exchange coefficient (Eq. 37)
+  L_mo Monin-Obukhov length               (re-arranged Eq. 3)
 """
-function compute_exchange_coefficients(Ri,
-                                       z_b,
-                                       z_0,
-                                       γ_m,
-                                       γ_h,
-                                       β_m,
-                                       β_h,
-                                       Pr_0
-                                       )
+function compute_exchange_coefficients(Ri, z_b, z_0, γ_m, γ_h, β_m, β_h, Pr_0)
   logz = log(z_b/z_0)
   zfactor = z_b/(z_b-z_0)*logz
   s_b = Ri/Pr_0
@@ -240,16 +231,23 @@ function compute_Ψ_h(ζ, L, a, Pr, tol)
   end
 end
 
-""" Computes Monin-Obukhov length. Eq. 3 Ref. Nishizawa2018 """
+"""
+    compute_MO_len(u, θ, flux)
+
+Computes Monin-Obukhov length. Eq. 3 Ref. Nishizawa2018
+"""
 compute_MO_len(u, θ, flux) = - u^3* θ / (k_Karman * grav * flux)
 
 """
+    compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
+
 Computes friction velocity, in Eq. 12 in
 Ref. Nishizawa2018, by solving the
 non-linear equation:
 
-  u_ave = ustar/κ * ( ln(Δz/z_0) - Ψ_m(Δz/L) + z_0/Δz * Ψ_m(z_0/L) + R_z0 [ψ_m(z_0/L) - 1] )
-  where L is a non-linear function of ustar (see compute_MO_len).
+`u_ave = ustar/κ * ( ln(Δz/z_0) - Ψ_m(Δz/L) + z_0/Δz * Ψ_m(z_0/L) + R_z0 [ψ_m(z_0/L) - 1] )`
+
+where `L` is a non-linear function of `ustar` (see `compute_MO_len`).
 """
 function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
   ustar_0 = u_ave * k_Karman / log(Δz / z_0)
@@ -283,21 +281,15 @@ function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_a
 end
 
 """
+    compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ, flux, Pr)
+
 Computes exchange transfer coefficients:
 
   K_D  momentum exchange coefficient
   K_H  thermodynamic exchange coefficient
   L_mo Monin-Obukhov length
 """
-function compute_exchange_coefficients(z,
-                                       F_m,
-                                       F_h,
-                                       a,
-                                       u_star,
-                                       θ,
-                                       flux,
-                                       Pr
-                                       )
+function compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ, flux, Pr)
 
   L_mo = compute_MO_len(u_star, θ, flux)
   ψ_m = compute_ψ_m(z/L_mo, L_mo, a)
