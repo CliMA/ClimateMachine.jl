@@ -58,31 +58,10 @@ Recreation of Figure 4(b) from Byun (1990)
 using CLIMA.SurfaceFluxes.Nishizawa2018
 using Plots, LaTeXStrings
 
-L, a, θ, z, flux = rand(5,1)
-z = z/100
-
-u = range(-0.1, stop=0.1, length=100)
-L = Nishizawa2018.compute_MO_len.(u, θ, flux)
-ζ = z./L
-ϕ_m = Nishizawa2018.compute_ϕ_m.(ζ, L, a)
-
-# To verify with Fig 1 in Ref. Businger
-plot(ζ, ϕ_m, label=L"\phi_m",
-   title = "phi_m vs zeta", xlabel = L"\zeta", ylabel = L"\phi_m")
-savefig("businger1970_fig1.svg") # hide
-nothing # hide
-```
-![](businger1970_fig1.svg)
-
-Recreation of Figure 1 from Businger et al (1970).
-
-```@example
-using CLIMA.SurfaceFluxes.Nishizawa2018
-using Plots, LaTeXStrings
-
-u_ave, a, θ, flux, z_0 = rand(5,1)
-z_0 = z_0/1000
-u_ave = 200+u_ave*10
+a = 4.7
+θ = 350
+z_0 = 10
+u_ave = 10
 Δz = range(10.0, stop=100.0, length=100)
 Ψ_m_tol, tol_abs, iter_max = 1e-3, 1e-3, 10
 u_star = Nishizawa2018.compute_friction_velocity.(
@@ -93,6 +72,17 @@ nothing # hide
 ```
 ![](friction_velocity.svg)
 
+## API
+
+```@docs
+compute_buoyancy_flux
+Byun1990.compute_MO_len
+Byun1990.compute_friction_velocity
+Byun1990.compute_exchange_coefficients
+Nishizawa2018.compute_MO_len
+Nishizawa2018.compute_friction_velocity
+Nishizawa2018.compute_exchange_coefficients
+```
 
 ## References
 
