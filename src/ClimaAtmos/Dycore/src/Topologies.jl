@@ -1,19 +1,16 @@
 module Topologies
 
 export Topology
+export AbstractTopology
 export BrickTopology, StackedBrickTopology
 export CubedShellTopology, StackedCubedSphereTopology
 
-abstract type TopologyType end
-struct Brick <: TopologyType end
-struct StackedBrick <: TopologyType end
-struct CubedShell <: TopologyType end
-struct StackedCubedSphere <: TopologyType end
+abstract type AbstractTopology{dim} end
 
 import Canary
 using MPI
 
-struct Topology{dim, T}
+struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
 
   """
   mpi communicator use for spatial discretization are using
@@ -93,16 +90,86 @@ struct Topology{dim, T}
   """
   nabrtosend::Array{UnitRange{Int64}, 1}
 
+end
+
+"""
+    BrickTopology
+Brick topology
+"""
+struct BrickTopology{dim, T} <: AbstractTopology{dim}
+    topology::BoxElementTopology{dim, T}
+end
+
+Base.getproperty(a::BrickTopology, p::Symbol) = getproperty(getfield(a, :topology), p)
+function Base.setproperty!(a::BrickTopology, p::Symbol)
+  setfield!(getfield(a, topology), p)
+end
+
+"""
+    CubeSphereTopology
+Cube sphere topology
+"""
+struct CubeSphereTopology{T} <: AbstractTopology{2}
+    topology::BoxElementTopology{2, T}
+end
+
+Base.getproperty(a::CubeSphereTopology, p::Symbol) = getproperty(getfield(a, :topology), p)
+function Base.setproperty!(a::CubeSphereTopology, p::Symbol)
+  setfield!(getfield(a, topology), p)
+end
+
+"""
+    StackedTopology
+Stacked topology, element connectivity are
+stacked by elevation for 1D physics modules.
+"""
+struct StackedTopology{dim, T<: AbstractTopology} <: AbstractTopology{dim}
   """
-  type of topology (Brick, StackedBrick, CubedShell, StackedCubedSphere)
+  T <: AbstractTopology{dim-1} enforced at the constructor level
   """
-  topology_type::TopologyType
+  base::T
 
   """
   number of elements in a stack
   """
-  stacksize::Union{Int64, Nothing}
+  stacksize::Int64
+end
 
+function Base.getproperty(a::StackedTopology, p::Symbol)
+  return p == :stacksize ? getproperty(a, p) : getproperty(getfield(a, :topology), p)
+end
+function Base.setproperty!(a::StackedTopology, p::Symbol)
+  if p == :stacksize
+    setfield!(a, p)
+  else
+    setfield!(getfield(a, :topology), p)
+  end
+end
+
+const StackedBrickTopology{dim, T} = StackedTopology{dim, BrickTopology{sdim, T}} where sdim
+const StackedCubedSphereTopology{T} = StackedTopology{3, CubeSphereTopology{T}}
+const CubedShellTopology{dim, T} = BrickTopology{dim, T}
+
+function Base.getproperty(a::StackedBrickTopology, p::Symbol)
+  return p == :stacksize ? getproperty(a, p) : getproperty(getfield(a, :base), p)
+end
+function Base.setproperty!(a::StackedBrickTopology, p::Symbol)
+  if p == :stacksize
+    setfield!(a, p)
+  else
+    setfield!(getfield(a, :base), p)
+  end
+end
+
+function Base.getproperty(a::StackedCubedSphereTopology, p::Symbol)
+  return p == :stacksize ? getproperty(a, p) : getproperty(getfield(a, :base), p)
+end
+function Base.setproperty!(a::StackedCubedSphereTopology, p::Symbol)
+  if p == :stacksize
+    setfield!(a, p)
+  else
+    setfield!(getfield(a, :base), p)
+  end
 end
 
 """ A wrapper for the BrickTopology """
@@ -201,12 +268,6 @@ julia> topology.elemtobndy
 ```
 Note that the faces are listed in Cartesian order.
 
-!!! todo
-
-    We may/probably want to unify to a single Topology type which has different
-    constructors since all the topologies we currently have are essentially the
-    same
-
 """
 function BrickTopology(mpicomm, elemrange;
                        boundary=ones(Int,2,length(elemrange)),
@@ -226,11 +287,12 @@ function BrickTopology(mpicomm, elemrange;
 
   dim = length(elemrange)
   T = eltype(topology.elemtocoord)
-  return Topology{dim, T}(mpicomm, topology.elems, topology.realelems,
+  return BrickTopology{dim, T}(BoxElementTopology{dim, T}(
+              mpicomm, topology.elems, topology.realelems,
               topology.ghostelems, topology.sendelems, topology.elemtocoord,
               topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
               topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-              topology.nabrtosend, Brick(), nothing)
+              topology.nabrtosend))
 end
 
 """ A wrapper for the StackedBrickTopology """
@@ -465,9 +527,11 @@ function StackedBrickTopology(mpicomm, elemrange;
                    for n = 1:length(nabrtorank)]
 
   T = eltype(basetopo.elemtocoord)
-  return Topology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
-              elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-              nabrtorank, nabrtorecv, nabrtosend, StackedBrick(), stacksize)
+  return StackedBrickTopology{dim, T, dim-1}(BrickTopology{dim-1, T}(
+          BoxElementTopology{dim-1, T}(
+          mpicomm, elems, realelems, ghostelems, sendelems,
+          elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
+          nabrtorank, nabrtorecv, nabrtosend)), stacksize)
 end
 
 """
@@ -542,11 +606,12 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
   topology = Canary.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
                                 topology[4]; dim = 2)
 
-  return Topology{dim, T}(mpicomm, topology.elems, topology.realelems,
+  return CubedShellTopology{dim, T}(BoxElementTopology{dim, T}(
+         mpicomm, topology.elems, topology.realelems,
          topology.ghostelems, topology.sendelems, elemtocoord,
          topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
          topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-         topology.nabrtosend, CubedShell(), nothing)
+         topology.nabrtosend))
 end
 
 """
@@ -876,9 +941,11 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
                              stacksize*last(basetopo.nabrtosend[n]))
                    for n = 1:length(nabrtorank)]
 
-  return Topology{dim, T}(mpicomm, elems, realelems, ghostelems, sendelems,
+  return StackedCubedSphereTopology{T}(CubeSphereTopology{T}(
+         BoxElementTopology{3, T}(
+         mpicomm, elems, realelems, ghostelems, sendelems,
          elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-         nabrtorank, nabrtorecv, nabrtosend, StackedCubedSphere(), stacksize)
+         nabrtorank, nabrtorecv, nabrtosend), stacksize))
 end
 
 end
