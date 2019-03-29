@@ -48,7 +48,7 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
       y = vgeo[i,j,_y,e]
-      e_int = E / ρ - ( (U^2 + V^2)/(2*ρ) + ρ * gravity * y ) / ρ 
+      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y  
       # Get specific humidity quantities from state vector
       # per unit mass conversion required for sat_adjust only
       for m = 1:nmoist
@@ -56,13 +56,13 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           q_m[m]  = Q[i, j, s, e] / ρ  
       end
       # Saturation temperature to obtain temperature assuming thermodynamic equilibrium 
-      T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
-      # TODO: Possibility of carrying q_l and q_i through state vector to include non-equilibrium thermodynamics
-      q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      # TODO: Possibility of carrying q_l and q_i through state vector to include non-equilibrium thermodynamics (?)
+      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
       s_v[i, j] = V/ρ
-      s_T[i, j] = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
+      s_T[i, j] = T
     end
 
     for j = 1:Nq, i = 1:Nq
@@ -184,22 +184,22 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
       z = vgeo[i, j, k, _z, e]
-      e_int = E / ρ - ( (U^2 + V^2 + W^2)/(2*ρ) + ρ * gravity * z ) / ρ 
+      E_int = E - (U^2 + V^2 + W^2)/(2*ρ) - ρ * gravity * z  
       
       for m = 1:nmoist
          s = _nstate + m 
          q_m[m] = Q[i, j, k, s, e] / ρ
       end
       
-      T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
       # TODO: Possibility of carrying q_l and q_i through state vector to include non-equilibrium thermodynamics
-      q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
+      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
       
       s_ρ[i, j, k] = ρ
       s_u[i, j, k] = U/ρ
       s_v[i, j, k] = V/ρ
       s_w[i, j, k] = W/ρ
-      s_T[i, j, k] = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
+      s_T[i, j, k] = air_temperature(E_int/ρ, q_m[1], q_l, q_i)
     end
 
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
@@ -349,22 +349,21 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
         yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
-        e_intM = EM / ρM - ((UM^2 + VM^2+ WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
+        E_intM = EM - (UM^2 + VM^2+ WM^2)/(2*ρM) - ρM * gravity * yorzM
         
 	for m = 1:nmoist
             s = _nstate + m 
             q_mM[m] = Q[vidM, s, eM] / ρM 
         end
 
-        TM = MoistThermodynamics.saturation_adjustment(e_intM, ρM, q_mM[1])
-        q_lM, q_iM = MoistThermodynamics.phase_partitioning_eq(TM, ρM, q_mM[1])
-        
         uM=UM/ρM
         vM=VM/ρM
         wM=WM/ρM
-        #Overwrite TM with correct T based on phase partioning to determine q_l and q_i
-        TM=MoistThermodynamics.air_temperature(e_intM, q_mM[1], q_lM, q_iM)
-        PM=MoistThermodynamics.air_pressure(TM, ρM, q_mM[1], q_lM, q_iM)
+        
+        # Saturation Adjustment
+        TM = saturation_adjustment(E_intM/ρM, ρM, q_mM[1])
+        q_lM, q_iM =phase_partitioning_eq(TM, ρM, q_mM[1])
+        PM = air_pressure(TM, ρM, q_mM[1], q_lM, q_iM)
         bc = elemtobndy[f, e]
 
         if bc == 0
@@ -379,16 +378,18 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
               q_mP[m] = Q[vidP, s, eP] / ρP
            end
           
-          e_intP = EP / ρP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
-          TP = MoistThermodynamics.saturation_adjustment(e_intP, ρP, q_mP[1])
-          q_lP, q_iP = MoistThermodynamics.phase_partitioning_eq(TP, ρP, q_mP[1])
+          E_intP = EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
           
-          TP = MoistThermodynamics.air_temperature(e_intP, q_mP[1], q_lP, q_iP)
-          PP = MoistThermodynamics.air_pressure(TP, ρP, q_mP[1], q_lP, q_iP)
+          # Saturation Adjustment
+          TP = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
+          q_lP, q_iP = phase_partitioning_eq(TP, ρP, q_mP[1])
+          PP = air_pressure(TP, ρP, q_mP[1], q_lP, q_iP)
           uP = UP/ρP
           vP = VP/ρP
           wP = WP/ρP
+        
         elseif bc == 1
+        
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
           VP = VM - 2 * UnM * nyM
@@ -400,8 +401,10 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           vP = VP/ρP
           wP = WP/ρP
           TP = TM
+        
         else
           error("Invalid boundary conditions $bc on face $f of element $e")
+        
         end
 
         fluxρS = (ρP - ρM)/2
@@ -478,20 +481,19 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
-      e_int = E /ρ - ((U^2 + V^2)/(2*ρ) + ρ*gravity*y)/ρ
+      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
 
       for m = 1:nmoist
           s = _nstate + m 
           q_m[m] = Q[i, j, s, e] / ρ
       end
      
-      T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
-      q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
-          
-      # Temperature from specific internal energy after phase partition to find q_l, q_i
-      T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
-      P = MoistThermodynamics.air_pressure(T, ρ, q_m[1], q_l, q_i)
-
+      # Returns temperature after saturation adjustment 
+      # Required for phase-partitioning to find q_l, q_i
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
+      P = air_pressure(T, ρ, q_m[1], q_l, q_i)
+      
       ρx, ρy = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
       ux, uy = grad[i,j,_ux,e], grad[i,j,_uy,e]
       vx, vy = grad[i,j,_vx,e], grad[i,j,_vy,e]
@@ -666,18 +668,20 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
-      e_int = E /ρ - ((U^2 + V^2 + W^2)/(2*ρ) + ρ * gravity * z) / ρ
+      E_int = E - (U^2 + V^2 + W^2)/(2*ρ) - ρ * gravity * z
       
       for m = 1:nmoist
           s = _nstate + m 
           q_m[m] = Q[i, j, k, s, e] / ρ
       end
-
-      T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
-      q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
       
-      T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
-      P = MoistThermodynamics.air_pressure(T, ρ, q_m[1], q_l, q_i)
+      # Calculate temperpature after saturation adjustment
+      # Required for phase partitioning to get q_l, q_i
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      
+      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
+      
+      P = air_pressure(T, ρ, q_m[1], q_l, q_i)
       
       ρx, ρy, ρz = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
       ux, uy, uz = grad[i,j,k,_ux,e], grad[i,j,k,_uy,e], grad[i,j,k,_uz,e]
@@ -931,15 +935,12 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
             q_mM[m] = Q[vidM, s, eM] / ρM
         end
 
-        e_intM = EM * ρMinv - ((UM^2 + VM^2+ WM^2)/(2*ρM) + ρM * gravity * yorzM) / ρM
+        E_intM = EM - (UM^2 + VM^2+ WM^2)/(2*ρM) - ρM * gravity * yorzM
 
-        TM = MoistThermodynamics.saturation_adjustment(e_intM, ρM, q_mM[1])
-        q_lM, q_iM = MoistThermodynamics.phase_partitioning_eq(TM, ρM, q_mM[1])
-
-        R_gasM, _, _, γM = MoistThermodynamics.moist_gas_constants(q_mM[1], q_lM, q_iM)
-        
-        TM = MoistThermodynamics.air_temperature(e_intM, q_mM[1], q_lM, q_iM)
-        PM = MoistThermodynamics.air_pressure(TM, ρM, q_mM[1], q_lM, q_iM) 
+        # get adjusted temperature and liquid and ice specific humidities
+        TM = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
+        q_lM, q_iM = phase_partitioning_eq(TM, ρM, q_mM[1])
+        PM = air_pressure(TM, ρM, q_mM[1], q_lM, q_iM) 
         
         if bc == 0
           
@@ -955,14 +956,11 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           end
 
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
-          e_intP= EP / ρP - ((UP^2 + VP^2+ WP^2)/(2*ρP) + ρP * gravity * yorzP) / ρP
+          E_intP= EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
         
-          TP = MoistThermodynamics.saturation_adjustment(e_intP, ρP, q_mP[1])
-          q_lP, q_iP = MoistThermodynamics.phase_partitioning_eq(TP, ρP, q_mP[1])
-          
-          R_gasP, _, _, γP = MoistThermodynamics.moist_gas_constants(q_mP[1], q_mP[2], q_mP[3])
-          TP = MoistThermodynamics.air_temperature(e_intP, q_mP[1], q_lP, q_iP)
-          PP = MoistThermodynamics.air_pressure(TP, ρP, q_mP[1], q_lP, q_iP) 
+          TP = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
+          q_lP, q_iP = phase_partitioning_eq(TP, ρP, q_mP[1])
+          PP = air_pressure(TP, ρP, q_mP[1], q_lP, q_iP) 
 
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
@@ -988,8 +986,6 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           EP = EM
           PP = PM
           TP = TM
-          γP = γM
-          R_gasP = R_gasM
 
           ρnM = nxM * ρxM + nyM * ρyM + nzM * ρzM
           ρxP = ρxM - 2 * ρnM * nxM
@@ -1055,9 +1051,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         fluxWP_z = wP * WP + PP
         fluxEP_z = wP * (EP + PP)
 
-        λM = abs(nxM * uM + nyM * vM + nzM * wM) + MoistThermodynamics.sound_speed(TM, γM, R_gasM)
-        λP = abs(nxM * uP + nyM * vP + nzM * wP) + MoistThermodynamics.sound_speed(TP, γP, R_gasP)
-        λ  =  max(λM, λP)
+        λM = abs(nxM * uM + nyM * vM + nzM * wM) + soundspeed_air(TM)
+        λP = abs(nxM * uP + nyM * vP + nzM * wP) + soundspeed_air(TP)
+        λ  = max(λM, λP)
 
         #Compute Numerical Flux
         fluxρS = (nxM * (fluxρM_x + fluxρP_x) + nyM * (fluxρM_y + fluxρP_y) +

@@ -17,8 +17,9 @@ q_ice = specific humidity, ice
 q_con = specific humidity, condensate
 q_tot = specific humidity, total
 
-P_air           = pressure, air 
-ρ_air           = density, air
+
+P_<species>     = pressure, species (no subscript == default working fluid moist air) 
+ρ_<species>     = density, species (no subscript == default working fluid moist air) 
 R_moist         = gas constant, moist
 R_dry           = gas constant, dry
 R_vap           = gas constant, water vapour
@@ -44,7 +45,6 @@ diffusiveflux_vap   = diffusive flux, water vapour
 diffusiveflux_liq   = diffusive flux, cloud liquid
 diffusiveflux_ice   = diffusive flux, cloud ice
 diffusiveflux_tot   = diffusive flux, total
-<Suggestions from the microphysics side needed for section 2.3>
 ```
 
 ### 2.4 Momentum balances
@@ -55,9 +55,7 @@ W               = z-momentum (2D/3D: this is the vertical coordinate)
 Ω_x             = x-angular momentum
 Ω_y             = y-angular momentum
 Ω_z             = z-angular momentum
-τ_xx            = viscous and SGS turbulent stress tensor ( (1,1) component)
-τ_yy            = viscous and SGS turbulent stress tensor ( (2,2) component)
-τ_zz            = viscous and SGS turbulent stress tensor ( (3,3) component)
+τ_xx            = stress tensor ((1,1) component)
 τ_<ij>          = replace ij with combination of x/y/z to recover appropriate value
 λ_stokes        = Stokes parameter
 ```
@@ -65,20 +63,25 @@ W               = z-momentum (2D/3D: this is the vertical coordinate)
 ### 2.5 Energy balance
 ```
 <Lower case e_<type> suggests specific (per unit mass) quantities>
-e_kin_<spe>      = energy, kinetic
-e_pot_<spe>      = energy, potential
-e_int_<spe>      = energy, internal
-e_tot_<spe>      = energy, total
+e_kin_<spe>      = specific energy, kinetic
+e_pot_<spe>      = specific energy, potential
+e_int_<spe>      = specific energy, internal
+e_tot_<spe>      = specific energy, total
 
 E_kin_<spe>      = energy, kinetic
 E_pot_<spe>      = energy, potential
 E_int_<spe>      = energy, internal
 E_tot_<spe>      = energy, total
 
-cv_vapm         = specific heat,
-cv_icem         = specific heat,
-cv_liqm         = specific heat, 
-cp_vapd         = specific heat, 
-cp_iced         = specific heat
-cp_liqd         = specific heat 
+cv_m            = isochoric specific heat, moist air
+cv_d            = isochoric specific heat, dry air
+cv_l            = isochoric specific heat, liquid water
+cv_v            = isochoric specific heat, water vapour
+cv_i            = isochoric specific heat, ice
+
+cp_m            = isobaric specific heat, moist air
+cp_d            = isobaric specific heat, dry air
+cp_l            = isobaric specific heat, liquid water
+cp_v            = isobaric specific heat, water vapour
+cp_i            = isobaric specific heat, ice
 ```

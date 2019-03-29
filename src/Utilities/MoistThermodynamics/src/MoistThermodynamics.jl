@@ -11,7 +11,7 @@ using ..RootSolvers
 using ...PlanetParameters
 
 # Atmospheric equation of state
-export air_pressure, air_temperature, air_density, sound_speed
+export air_pressure, air_temperature, air_density, soundspeed_air
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat, kinetic_energy
@@ -35,14 +35,18 @@ export liquid_ice_pottemp, dry_pottemp, exner
 
 
 """
-    sound_speed(T,γ,R_gas)
-Returns the speed of sound in moist air.
-Arguments: Temperature, specific heat capacity ratio, moist gas constant 
+    soundspeed_air(T[, q_t=0, q_l=0, q_i=0])
+Return the speed of sound in air, given the temperature `T`, and,
+optionally, the total specific humidity `q_t`, the liquid specific humidity
+`q_l`, and the ice specific humidity `q_i`.
 """
-function sound_speed(T, γ, gas_constant_air)
-    return sqrt(T * γ * gas_constant_air) 
-end
+function soundspeed_air(T, q_t=0, q_l=0, q_i=0)
 
+    _γ   = cp_m(q_t, q_l, q_i)/cv_m(q_t, q_l, q_i)
+    _R_m = gas_constant_air(q_t, q_l, q_i)
+    return sqrt(_γ * _R_m * T)
+
+end
 
 """
     gas_constant_air([q_t=0, q_l=0, q_i=0])
@@ -399,13 +403,6 @@ partitions the total specific humidity `q_t` into the liquid specific humidity
 `q_l` and ice specific humiditiy `q_l` using the `liquid_fraction`
 function. The residual `q_t - q_l - q_i` is the vapor specific humidity.
 """
-#=
-function phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t)
-    for k=1:length(q_l_out)
-        @inbounds q_l_out[k], q_i_out[k] = phase_partitioning_eq(T[k], ρ[k], q_t[k])
-    end
-end
-=#
 
 function phase_partitioning_eq(T, ρ, q_t)
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
@@ -441,7 +438,8 @@ function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
                              IterParams(tol_abs, iter_max),
                              SecantMethod()
                              )
-    return T
+    q_l, q_i = phase_partitioning_eq(T, ρ, q_t)
+    return air_temperature(e_int, q_t, q_l, q_i)
   end
 end
 

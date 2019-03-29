@@ -26,13 +26,10 @@ end
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # FIXME: Will these keywords args be OK?
 function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
-  γ::DFloat       = gamma_d
   p0::DFloat      = 100000
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d

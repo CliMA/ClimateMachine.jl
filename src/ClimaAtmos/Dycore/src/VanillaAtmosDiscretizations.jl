@@ -10,11 +10,10 @@ export VanillaAtmosDiscretization
 
 
 using ...ParametersType
-using ...PlanetParameters: cp_d, cv_d, R_d, grav
+using ...PlanetParameters: cp_d, cv_d, grav
 using CLIMA.MoistThermodynamics
 
 @parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # ASR Correction to Prandtl number from 7.1 to 0.71
 @parameter prandtl 71//100 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
@@ -48,7 +47,7 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
   "gravitational acceleration (m/s^2)"
   gravity::T
 
-              "viscosity constant"
+  "viscosity constant"
   viscosity::T
 
   "storage for the grad"
@@ -169,7 +168,6 @@ function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
     @assert ((ntrace >  0 && ntrace == length(q0.Qtrace)) ||
              (ntrace == 0 && :Qtrace ∉ fieldnames(typeof(q0))))
 
-
     h_Q[i, [_ρ, _U, _V, _W, _E], e] .= (q0.ρ, q0.U, q0.V, q0.W, q0.E)
     (nmoist > 0) && (h_Q[i, _nstate .+           (1:nmoist), e] .= q0.Qmoist)
     (ntrace > 0) && (h_Q[i, _nstate .+ nmoist .+ (1:ntrace), e] .= q0.Qtrace)
@@ -226,26 +224,24 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       E = Q[n, _E, e]
       y = vgeo[n, G.yid, e]
       
-      #Compute Temperature and Internal Energy per unit mass
-      #Obtain moist variables from state vector
+      #compute temperature and internal energy
+      #get moist variables from state vector
       for m = 1:nmoist
           s = _nstate + m
           q_m[m] = Q[n, s, e]/ρ
       end
       
-        e_int = E / ρ - ((U^2 + V^2)/(2*ρ) + ρ * gravity * y) / ρ
-        T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
-        q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
-        T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
-      
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_l, q_i)
-      γ_m =  cp_m/cv_m
+      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
+      # get adjusted temperature and liquid and ice specific humidities
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+    
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
       
        # Calculate local dt
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m),
-                        abs(U * ηx + V * ηy) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m)) 
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * soundspeed_air(T),
+                        abs(U * ηx + V * ηy) + ρ * soundspeed_air(T))
       dt[1] = min(dt[1], loc_dt)
   
     end
@@ -258,31 +254,24 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       z = vgeo[n, G.zid, e]
       
       #Compute (Temperature) and (E_int per unit mass)
-      e_int = E - ((U^2 + V^2+ W^2)/(2*ρ) + ρ * gravity * z) / ρ 
-      
-      #Loop over moist variables and extract q_m where q_m[1] = q_t, q_m[2] = q_l, q_m[3] = q_i
-      #TODO list order or moist variables
+      E_int = E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z 
+      #Loop over moist variables and extract q_m where q_m[1] = q_t, q_m[2] = q_liq, q_m[3] = q_ice
       for m = 1:nmoist
           s = _nstate + m 
           q_m[m] = Q[n, s, e] / ρ 
       end
 
-      # Moist Thermo quantities required per unit mass for gas constant calculations	
-      T = MoistThermodynamics.saturation_adjustment(e_int, ρ, q_m[1])
-      # Obtain moist thermodynamics constants from q_m[1]==q_t, q_m[2]==q_l, q_m[3] == q_i
-      q_l, q_i = MoistThermodynamics.phase_partitioning_eq(T, ρ, q_m[1])
-      T = MoistThermodynamics.air_temperature(e_int, q_m[1], q_l, q_i)
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_l, q_i)
-      γ_m =  cp_m/cv_m
+      # get adjusted temperature and liquid and ice specific humidities
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
       
-      # Obtain Temperature form specific internal energy e_int
       ξx, ξy, ξz = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e], vgeo[n, G.ξzid, e]
       ηx, ηy, ηz = vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e], vgeo[n, G.ηzid, e]
       ζx, ζy, ζz = vgeo[n, G.ζxid, e], vgeo[n, G.ζyid, e], vgeo[n, G.ζzid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m),
-                        abs(U * ηx + V * ηy + W * ηz) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m),
-                        abs(U * ζx + V * ζy + W * ζz) + ρ * MoistThermodynamics.sound_speed(T, γ_m, R_m))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * soundspeed_air(T),
+                        abs(U * ηx + V * ηy + W * ηz) + ρ * soundspeed_air(T),
+                        abs(U * ζx + V * ζy + W * ζz) + ρ * soundspeed_air(T))
       dt[1] = min(dt[1], loc_dt)
    
   end

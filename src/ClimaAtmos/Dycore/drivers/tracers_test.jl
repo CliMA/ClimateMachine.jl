@@ -25,14 +25,11 @@ end
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple
-@parameter gamma_d cp_d/cv_d "Heat capacity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 # FIXME: Will these keywords args be OK?
 
 function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
  DFloat = eltype(x)
-  γ::DFloat       = gamma_d
   p0::DFloat      = 100000
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
@@ -212,9 +209,9 @@ let
   Ne = (10, 10, 10)
   N = 2
   timeend = 0.1
-  for DFloat in (Float64,)
+  for DFloat in (Float64, Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      for dim in 2
+      for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
         main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
       end
