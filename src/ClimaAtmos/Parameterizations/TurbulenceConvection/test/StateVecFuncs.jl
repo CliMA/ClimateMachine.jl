@@ -90,6 +90,17 @@ end
   @test tmp[:TCV_ϕ_ψ, 1] ≈ 0.8
 end
 
+@testset "Integrate ODE" begin
+  c_0 = 3.0
+  y_0 = 2.0
+  func(z, args) = y_0 + z
+  sol_correct = c_0 .+ [y_0*get_z(grid, k) + 1/2*get_z(grid, k)^2 for k in over_elems_real(grid)]
+  integrate_ode!(state_vec, :w, grid, func, c_0, NamedTuple(), 1)
+  sol_approx = [state_vec[:w, k] for k in over_elems_real(grid)]
+  sol_percent_error = [(sol_approx[k]-sol_correct[k])/sol_correct[k]*100 for k in 1:length(sol_correct)]
+  @test all(sol_percent_error .< 100*grid.dz)
+end
+
 @static if haskey(Pkg.installed(), "Plots")
   @testset "Plot state vector" begin
     @test try

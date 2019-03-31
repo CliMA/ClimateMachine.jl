@@ -13,7 +13,8 @@ end
 
 using DelimitedFiles, WriteVTK, ..Grids, ..StateVecs
 export surface_val, first_elem_above_surface_val
-export distribute!, domain_average!, total_covariance!, extrap!, assign_ghost!
+export distribute!, domain_average!, total_covariance!
+export integrate_ode!, extrap!, assign_ghost!
 export export_state, plot_state, UseVTK, UseDat
 
 abstract type ExportType end
@@ -158,6 +159,38 @@ function assign_ghost!(sv::StateVec, name::Symbol, val, grid::Grid, i_sd=1)
   for k in over_elems_ghost(grid)
     sv[name, k, i_sd] = val
   end
+end
+
+"""
+    integrate_ode!(sv::StateVec,
+                   name::Symbol,
+                   grid::Grid,
+                   func::Function,
+                   y_0::AbstractFloat,
+                   args::NamedTuple,
+                   i_sd::Int = 1)
+
+Integrates the ODE:
+  `dy/dz = func(z, args)`
+  `y = y_0 + int_{z=0}^{z} func(z, args) dz`
+"""
+function integrate_ode!(sv::StateVec,
+                        name::Symbol,
+                        grid::Grid,
+                        func::Function,
+                        y_0::AbstractFloat,
+                        args::NamedTuple,
+                        i_sd::Int = 1)
+  k = first_elem_above_surface(grid)
+  sv[name, k-1, i_sd] = 0
+  for k in over_elems_real(grid)
+    f = func(get_z(grid, k), args)
+    sv[name, k, i_sd] = sv[name, k-1, i_sd] + grid.dz * f
+  end
+  for k in over_elems_real(grid)
+    sv[name, k, i_sd] += y_0
+  end
+  assign_ghost!(sv, name, 0.0, grid, i_sd)
 end
 
 """
