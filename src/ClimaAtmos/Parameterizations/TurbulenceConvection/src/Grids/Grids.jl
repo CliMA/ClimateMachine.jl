@@ -77,9 +77,9 @@ the number of ghost points per side `n_ghost`.
 function Grid(z_min::T, z_max::T, n_elem_real::Int, n_ghost::Int = 1) where T
   n_elem = n_elem_real+2*n_ghost
   dz = (z_max-z_min)/n_elem_real
-  dzi = 1/dz
+  dzi = inv(dz)
   dzi2 = dzi^2
-  z = T[(i-n_ghost)*dz-dz/2 for i in 1:n_elem]
+  z = [(i-n_ghost)*dz-dz/2 for i in 1:n_elem]
   zc_surf = z[1+n_ghost]
   zn_surf = (z[n_ghost]+z[1+n_ghost])/2
   zc_top = z[end-n_ghost]
@@ -133,12 +133,5 @@ Get the range of indexes to traverse only ghost grid elements
 Get the first element index above the surface
 """
 @inline first_elem_above_surface(grid::Grid) = 1+grid.n_ghost
-
-"""
-    over_ghost(grid::Grid)
-
-Get the range of indexes over the ghost elements
-"""
-@inline over_ghost(grid::Grid) = setdiff(over_elems(grid), over_elems_real(grid))
 
 end
