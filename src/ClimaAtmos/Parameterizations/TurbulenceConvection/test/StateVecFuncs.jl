@@ -92,7 +92,11 @@ end
 
 @static if haskey(Pkg.installed(), "Plots")
   @testset "Plot state vector" begin
-    plot_state(state_vec, grid, :a, "a")
-    plot_state(state_vec, grid, :a, "./", "a")
+    @test try
+      plot_state(state_vec, grid, :a, "./")
+      true
+    catch
+      false
+    end
   end
 end
