@@ -18,6 +18,7 @@ makedocs(
       "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
       ],
     "ODESolvers" => "ODESolvers.md",
+    "Mesh" => "Mesh.md",
     "AtmosDycore" => "AtmosDycore.md",
     "Developer docs" => Any[
       "CodingConventions.md",
