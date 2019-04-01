@@ -30,8 +30,6 @@ using ..ParametersType
                                    molmass_water "Molar mass ratio dry air/water"
 @exportparameter R_v               gas_constant/
                                    molmass_water "Gas constant water vapor (J/kg/K)"
-@exportparameter ε_dv              R_d/R_v       "Ratio of gas constants (1)"
-@exportparameter ε_vd              R_v/R_d       "Inverse Ratio of gas constants (1)"
 @exportparameter cp_v              1859          "Isobaric specific heat vapor (J/kg/K)"
 @exportparameter cp_l              4181          "Isobaric specific heat liquid (J/kg/K)"
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"

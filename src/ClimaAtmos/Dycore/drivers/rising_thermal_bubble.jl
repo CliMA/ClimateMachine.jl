@@ -25,17 +25,17 @@ macro hascuda(ex)
 end
 
 using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 
 # FIXME: Will these keywords args be OK?
 function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
-  p0::DFloat      = 100000
+  p0::DFloat      = MSLP 
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
-  q_t::DFloat     = 0.00
+  q_tot::DFloat     = 0.00
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
@@ -65,7 +65,7 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
   # Total energy 
   E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_t,)) 
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_tot,)) 
 end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 

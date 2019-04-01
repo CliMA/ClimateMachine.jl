@@ -20,10 +20,10 @@ q_tot = specific humidity, total
 
 P_<species>     = pressure, species (no subscript == default working fluid moist air) 
 ρ_<species>     = density, species (no subscript == default working fluid moist air) 
-R_moist         = gas constant, moist
-R_dry           = gas constant, dry
-R_vap           = gas constant, water vapour
-T_air           = temperature, air [temp_air]
+R_m             = gas constant, moist
+R_d             = gas constant, dry
+R_v             = gas constant, water vapour
+T               = temperature, air 
 T_<species>     = temperature, species 
 ε_vd            = ratio of molar masses (== R_airv/R_aird)
 ```
@@ -40,7 +40,9 @@ W		= z=momentum
 ```
 ### 2.3 Moisture balances 
 ```
+- [  ] Update with list of source terms as necessary
 source_qt           = local source/sink of water mass [S_qt]
+
 diffusiveflux_vap   = diffusive flux, water vapour
 diffusiveflux_liq   = diffusive flux, cloud liquid
 diffusiveflux_ice   = diffusive flux, cloud ice
@@ -63,25 +65,25 @@ W               = z-momentum (2D/3D: this is the vertical coordinate)
 ### 2.5 Energy balance
 ```
 <Lower case e_<type> suggests specific (per unit mass) quantities>
-e_kin_<spe>      = specific energy, kinetic
-e_pot_<spe>      = specific energy, potential
-e_int_<spe>      = specific energy, internal
-e_tot_<spe>      = specific energy, total
+e_kin_<spe>      = specific energy per unit volume, kinetic
+e_pot_<spe>      = specific energy per unit volume, potential
+e_int_<spe>      = specific energy per unit volume, internal
+e_tot_<spe>      = specific energy per unit volume, total
 
 E_kin_<spe>      = energy, kinetic
 E_pot_<spe>      = energy, potential
 E_int_<spe>      = energy, internal
 E_tot_<spe>      = energy, total
 
-cv_m            = isochoric specific heat, moist air
-cv_d            = isochoric specific heat, dry air
-cv_l            = isochoric specific heat, liquid water
-cv_v            = isochoric specific heat, water vapour
-cv_i            = isochoric specific heat, ice
+cv_m             = isochoric specific heat, moist air
+cv_d             = isochoric specific heat, dry air
+cv_l             = isochoric specific heat, liquid water
+cv_v             = isochoric specific heat, water vapour
+cv_i             = isochoric specific heat, ice
 
-cp_m            = isobaric specific heat, moist air
-cp_d            = isobaric specific heat, dry air
-cp_l            = isobaric specific heat, liquid water
-cp_v            = isobaric specific heat, water vapour
-cp_i            = isobaric specific heat, ice
+cp_m             = isobaric specific heat, moist air
+cp_d             = isobaric specific heat, dry air
+cp_l             = isobaric specific heat, liquid water
+cp_v             = isobaric specific heat, water vapour
+cp_i             = isobaric specific heat, ice
 ```

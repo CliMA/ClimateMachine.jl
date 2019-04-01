@@ -24,13 +24,13 @@ macro hascuda(ex)
 end
 
 using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
 
 # FIXME: Will these keywords args be OK?
 
 function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
  DFloat = eltype(x)
-  p0::DFloat      = 100000
+  p0::DFloat      = MSLP
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
@@ -42,13 +42,14 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   θ_ref::DFloat = 320
   θ_c::DFloat = 2.0
   Δθ::DFloat = 0
-  Δq_t::DFloat = 0
+  Δq_tot::DFloat = 0
 
-  q_t = 0.0196  
+  q_tot = 0.0196
+  q_tr = 0.0100
 
   if r <= rc
     Δθ = θ_c * (1 + cospi(r / rc)) / 2
-    Δq_t = q_t/5 * (1 + cospi(r / rc)) / 2
+    Δq_tot = q_tot/5 * (1 + cospi(r / rc)) / 2
   end
   
   θ_k = θ_ref + Δθ
@@ -67,17 +68,15 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   # Calculation of energy per unit mass
-  q_t += Δq_t
-  q_l = 0.0
-  q_i = 0.0
+  q_tot += Δq_tot
   # Total energy 
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
-  e_int = MoistThermodynamics.internal_energy(T, q_t, 0.0, 0.0)
+  e_int = MoistThermodynamics.internal_energy(T, q_tot, 0.0, 0.0)
   E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
   (ρ=ρ, U=U, V=V, W=W, E=E, 
-   Qmoist = (q_t * ρ, q_l, q_i,),
-   Qtrace = (q_t * ρ,))
+   Qmoist = (q_tot * ρ,),  #Moist variable
+   Qtrace = (q_tr * ρ,)) 
 
 end
 
@@ -204,7 +203,7 @@ let
 
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
-  nmoist = 3
+  nmoist = 1
   ntrace = 1
   Ne = (10, 10, 10)
   N = 2

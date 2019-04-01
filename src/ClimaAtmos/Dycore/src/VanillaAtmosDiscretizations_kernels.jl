@@ -40,7 +40,7 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_T = Array{DFloat}(undef, Nq, Nq)
   
   #Initialise q_m vector of moist variables
-  #Requires at least 3 elements for q_t, q_l, q_i
+  #Requires at least 3 elements for q_t, q_liq, q_ice
   q_m = zeros(DFloat, max(3, nmoist))
 
   @inbounds for e in elems
@@ -57,8 +57,8 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
       # Saturation temperature to obtain temperature assuming thermodynamic equilibrium 
       T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
-      # TODO: Possibility of carrying q_l and q_i through state vector to include non-equilibrium thermodynamics (?)
-      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
+      # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics (?)
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
       s_v[i, j] = V/ρ
@@ -192,14 +192,14 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
       
       T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
-      # TODO: Possibility of carrying q_l and q_i through state vector to include non-equilibrium thermodynamics
-      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
+      # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
       
       s_ρ[i, j, k] = ρ
       s_u[i, j, k] = U/ρ
       s_v[i, j, k] = V/ρ
       s_w[i, j, k] = W/ρ
-      s_T[i, j, k] = air_temperature(E_int/ρ, q_m[1], q_l, q_i)
+      s_T[i, j, k] = air_temperature(E_int/ρ, q_m[1], q_liq, q_ice)
     end
 
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
@@ -362,8 +362,8 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         
         # Saturation Adjustment
         TM = saturation_adjustment(E_intM/ρM, ρM, q_mM[1])
-        q_lM, q_iM =phase_partitioning_eq(TM, ρM, q_mM[1])
-        PM = air_pressure(TM, ρM, q_mM[1], q_lM, q_iM)
+        q_liqM, q_iceM =phase_partitioning_eq(TM, ρM, q_mM[1])
+        PM = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM)
         bc = elemtobndy[f, e]
 
         if bc == 0
@@ -382,8 +382,8 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           
           # Saturation Adjustment
           TP = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
-          q_lP, q_iP = phase_partitioning_eq(TP, ρP, q_mP[1])
-          PP = air_pressure(TP, ρP, q_mP[1], q_lP, q_iP)
+          q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
+          PP = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP)
           uP = UP/ρP
           vP = VP/ρP
           wP = WP/ρP
@@ -489,10 +489,10 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
      
       # Returns temperature after saturation adjustment 
-      # Required for phase-partitioning to find q_l, q_i
+      # Required for phase-partitioning to find q_liq, q_ice
       T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
-      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
-      P = air_pressure(T, ρ, q_m[1], q_l, q_i)
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+      P = air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       
       ρx, ρy = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
       ux, uy = grad[i,j,_ux,e], grad[i,j,_uy,e]
@@ -676,12 +676,12 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
       
       # Calculate temperpature after saturation adjustment
-      # Required for phase partitioning to get q_l, q_i
+      # Required for phase partitioning to get q_liq, q_ice
       T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
       
-      q_l, q_i = phase_partitioning_eq(T, ρ, q_m[1])
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
       
-      P = air_pressure(T, ρ, q_m[1], q_l, q_i)
+      P = air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       
       ρx, ρy, ρz = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
       ux, uy, uz = grad[i,j,k,_ux,e], grad[i,j,k,_uy,e], grad[i,j,k,_uz,e]
@@ -939,8 +939,8 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
         # get adjusted temperature and liquid and ice specific humidities
         TM = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
-        q_lM, q_iM = phase_partitioning_eq(TM, ρM, q_mM[1])
-        PM = air_pressure(TM, ρM, q_mM[1], q_lM, q_iM) 
+        q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
+        PM = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
         
         if bc == 0
           
@@ -959,8 +959,8 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           E_intP= EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
         
           TP = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
-          q_lP, q_iP = phase_partitioning_eq(TP, ρP, q_mP[1])
-          PP = air_pressure(TP, ρP, q_mP[1], q_lP, q_iP) 
+          q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
+          PP = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
 
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
