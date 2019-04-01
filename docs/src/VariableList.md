@@ -25,7 +25,6 @@ R_d             = gas constant, dry
 R_v             = gas constant, water vapour
 T               = temperature, air 
 T_<species>     = temperature, species 
-ε_vd            = ratio of molar masses (== R_airv/R_aird)
 ```
 
 ### 2.2 Mass Balance
