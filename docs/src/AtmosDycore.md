@@ -6,7 +6,6 @@ CurrentModule = CLIMA.CLIMAAtmosDycore
 
 ```@docs
 getrhsfunction
-solve!
 ```
 
 ## `VanillaAtmosDiscretizations`

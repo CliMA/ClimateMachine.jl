@@ -11,8 +11,8 @@ using Requires
   include("LowStorageRungeKutta_cuda.jl")
 end
 
-using ..CLIMAAtmosDycore
-AD = CLIMAAtmosDycore
+using ...ODESolvers
+ODEs = ODESolvers
 
 """
     LowStorageRungeKutta(f, Q; dt, t0 = 0)
@@ -40,7 +40,7 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
     }
 """
 struct LowStorageRungeKutta{T, AT, Nstages,
-                            F<:Function} <: AD.AbstractAtmosODESolver
+                            F<:Function} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{T,1}
   "time"
@@ -93,7 +93,7 @@ Change the time step size to `dt` for `lsrk.
 """
 updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
 
-function AD.dostep!(Q, lsrk::LowStorageRungeKutta)
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta)
   time, dt = lsrk.t[1], lsrk.dt[1]
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
   rhs!, dQ = lsrk.rhs!, lsrk.dQ
@@ -102,7 +102,6 @@ function AD.dostep!(Q, lsrk::LowStorageRungeKutta)
 
     # update solution and scale RHS
     # FIXME: GPUify
-    # FIXME: Figure out how to properly use our new AtmosStateArrays
     update!(Val(size(Q,2)), Val(size(Q,1)), dQ.Q, Q.Q, Q.realelems,
             RKA[s%length(RKA)+1], RKB[s], dt)
     time += RKC[s] * dt

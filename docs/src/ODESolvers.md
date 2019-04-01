@@ -13,3 +13,9 @@ LowStorageRungeKuttaMethod.updatedt!
 GenericCallbacks.EveryXWallTimeSeconds
 GenericCallbacks.EveryXSimulationSteps
 ```
+
+## `ODESolvers`
+
+```@docs
+ODESolvers.solve!
+```
