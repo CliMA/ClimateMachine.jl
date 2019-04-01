@@ -91,6 +91,5 @@ end
 
 include("AtmosStateArrays.jl")
 include("VanillaAtmosDiscretizations.jl")
-include("GenericCallbacks.jl")
 
 end # module
