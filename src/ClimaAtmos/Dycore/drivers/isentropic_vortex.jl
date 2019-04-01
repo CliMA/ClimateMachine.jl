@@ -5,7 +5,7 @@ using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
 using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.CLIMAAtmosDycore.GenericCallbacks
+using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
 using LinearAlgebra
 using Printf
