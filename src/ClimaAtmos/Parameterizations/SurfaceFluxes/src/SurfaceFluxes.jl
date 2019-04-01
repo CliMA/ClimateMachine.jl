@@ -42,8 +42,8 @@
 """
 module SurfaceFluxes
 
-using ..Utilities.RootSolvers
-using ..Utilities.MoistThermodynamics
+using ..RootSolvers
+using ..MoistThermodynamics
 using ..PlanetParameters
 
 # export compute_buoyancy_flux
@@ -59,15 +59,15 @@ function compute_buoyancy_flux(shf,
                                )
   cp_ = cp_m(qt_b, ql_b, qi_b)
   lv = latent_heat_vapor(T_b)
-  temp1 = (eps_vi-1)
+  temp1 = (molmass_ratio-1)
   temp2 = (shf + temp1 * cp_ * T_b * lhf /lv)
   return (grav * alpha0_0 / cp_ / T_b * temp2)
 end
 
 module Byun1990
 
-using ...Utilities.RootSolvers
-using ...Utilities.MoistThermodynamics
+using ...RootSolvers
+using ...MoistThermodynamics
 using ...PlanetParameters
 
 """ Computes ψ_m for stable case. See Eq. 12 Ref. Byun1990 """
@@ -196,8 +196,8 @@ end
 end # Byun1990 module
 
 module Nishizawa2018
-using ...Utilities.RootSolvers
-using ...Utilities.MoistThermodynamics
+using ...RootSolvers
+using ...MoistThermodynamics
 using ...PlanetParameters
 
 """ Computes R_z0 expression, defined after Eq. 15 Ref. Nishizawa2018 """
