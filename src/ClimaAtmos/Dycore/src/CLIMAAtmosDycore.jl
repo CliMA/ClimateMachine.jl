@@ -89,7 +89,6 @@ function solve!(Q, solver::AbstractAtmosODESolver; timeend::Real=Inf,
 end
 # }}}
 
-include("AtmosStateArrays.jl")
 include("VanillaAtmosDiscretizations.jl")
 
 end # module

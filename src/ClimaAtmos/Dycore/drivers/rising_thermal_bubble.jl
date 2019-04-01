@@ -3,7 +3,7 @@ using MPI
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
+using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
@@ -92,7 +92,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
 
   # This is a actual state/function that lives on the grid
   initialcondition(x...) = risingthermalbubble(x...; dim=dim)
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
