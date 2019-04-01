@@ -50,12 +50,3 @@ AtmosStateArrays.postrecvs!
 AtmosStateArrays.startexchange!
 AtmosStateArrays.finishexchange!
 ```
-
-## `LSRKmethods`
-
-Methods for time discretization.
-
-```@docs
-LSRKmethods.LSRK
-LSRKmethods.updatedt!
-```

@@ -4,7 +4,7 @@ using CLIMA.CLIMAAtmosDycore.Topologies
 using CLIMA.CLIMAAtmosDycore.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
 using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
-using CLIMA.CLIMAAtmosDycore.LSRKmethods
+using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.CLIMAAtmosDycore.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
 using LinearAlgebra
@@ -106,7 +106,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   # state and reading from a restart file
 
   # TODO: Should we use get property to get the rhs function?
-  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")

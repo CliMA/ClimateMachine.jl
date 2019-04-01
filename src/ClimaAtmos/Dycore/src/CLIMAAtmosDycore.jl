@@ -93,7 +93,6 @@ include("AtmosStateArrays.jl")
 include("Topologies.jl")
 include("Grids.jl")
 include("VanillaAtmosDiscretizations.jl")
-include("LSRKmethods.jl")
 include("GenericCallbacks.jl")
 
 end # module
