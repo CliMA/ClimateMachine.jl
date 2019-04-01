@@ -1,5 +1,5 @@
 module Grids
-using ..Topologies
+using ...Topologies
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 import Canary
