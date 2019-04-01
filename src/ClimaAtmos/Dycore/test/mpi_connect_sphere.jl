@@ -2,7 +2,7 @@ using Test
 using MPI
 using CLIMA.CLIMAAtmosDycore
 using CLIMA.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
 
 function main()

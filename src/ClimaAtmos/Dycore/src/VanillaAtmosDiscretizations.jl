@@ -3,7 +3,7 @@ using MPI
 
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
-using ..Grids
+using ...Grids
 using ..AtmosStateArrays
 
 export VanillaAtmosDiscretization

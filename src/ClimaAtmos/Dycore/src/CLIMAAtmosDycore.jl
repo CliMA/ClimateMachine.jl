@@ -90,7 +90,6 @@ end
 # }}}
 
 include("AtmosStateArrays.jl")
-include("Grids.jl")
 include("VanillaAtmosDiscretizations.jl")
 include("GenericCallbacks.jl")
 
