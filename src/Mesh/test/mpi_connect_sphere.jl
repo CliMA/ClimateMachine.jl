@@ -1,6 +1,5 @@
 using Test
 using MPI
-using CLIMA.CLIMAAtmosDycore
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.MPIStateArrays
