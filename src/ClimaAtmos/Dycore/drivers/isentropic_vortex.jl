@@ -1,7 +1,7 @@
 using MPI
 
 using CLIMA.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
 using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
 using CLIMA.LowStorageRungeKuttaMethod

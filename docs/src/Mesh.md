@@ -13,3 +13,11 @@ Topologies.cubedshellmesh
 Topologies.cubedshellwarp
 Topologies.StackedCubedSphereTopology
 ```
+
+## `Grids`
+
+Grids specify the approximation within each element, and any necessary warping.
+
+```@docs
+Grids.DiscontinuousSpectralElementGrid
+```

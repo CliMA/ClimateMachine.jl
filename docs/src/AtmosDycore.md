@@ -9,14 +9,6 @@ getrhsfunction
 solve!
 ```
 
-## `Grids`
-
-Grids specify the approximation within each element, and any necessary warping.
-
-```@docs
-Grids.DiscontinuousSpectralElementGrid
-```
-
 ## `VanillaAtmosDiscretizations`
 
 A discretization adds additional information for the atmosphere problem.
