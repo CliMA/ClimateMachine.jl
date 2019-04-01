@@ -3,7 +3,7 @@ using MPI
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
+using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
@@ -118,7 +118,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
                                          nmoist=nmoist)
 
   # This is a actual state/function that lives on the grid
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))

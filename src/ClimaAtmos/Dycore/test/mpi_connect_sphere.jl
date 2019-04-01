@@ -3,7 +3,7 @@ using MPI
 using CLIMA.CLIMAAtmosDycore
 using CLIMA.Topologies
 using CLIMA.Grids
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
+using CLIMA.MPIStateArrays
 
 function main()
   T = Float64
@@ -50,18 +50,18 @@ function main()
   @test z[grid.vmapM] ≈ z[grid.vmapP]
 
   Np = (N+1)^3
-  xyz = AtmosStateArray{Tuple{Np, 3}, T, DA}(topology.mpicomm,
-                                             length(topology.elems),
-                                             realelems=topology.realelems,
-                                             ghostelems=topology.ghostelems,
-                                             sendelems=topology.sendelems,
-                                             nabrtorank=topology.nabrtorank,
-                                             nabrtorecv=topology.nabrtorecv,
-                                             nabrtosend=topology.nabrtosend)
+  xyz = MPIStateArray{Tuple{Np, 3}, T, DA}(topology.mpicomm,
+                                           length(topology.elems),
+                                           realelems=topology.realelems,
+                                           ghostelems=topology.ghostelems,
+                                           sendelems=topology.sendelems,
+                                           nabrtorank=topology.nabrtorank,
+                                           nabrtorecv=topology.nabrtorecv,
+                                           nabrtosend=topology.nabrtosend)
   xyz.Q[:,:,topology.realelems] .=
         @view grid.vgeo[:, [Grids._x, Grids._y, Grids._z], topology.realelems]
-  AtmosStateArrays.startexchange!(xyz)
-  AtmosStateArrays.finishexchange!(xyz)
+  MPIStateArrays.startexchange!(xyz)
+  MPIStateArrays.finishexchange!(xyz)
 
   # Check xyz matches after
   x = @view xyz.Q[:, 1, :]

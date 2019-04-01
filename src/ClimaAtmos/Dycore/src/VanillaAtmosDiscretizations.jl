@@ -4,7 +4,7 @@ using MPI
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
 using ...Grids
-using ..AtmosStateArrays
+using ...MPIStateArrays
 
 export VanillaAtmosDiscretization
 
@@ -71,15 +71,15 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
     ngrad = _nstategrad + 3*nmoist
     # FIXME: Remove after updating CUDA
     h_vgeo = Array(grid.vgeo)
-    grad = AtmosStateArray{Tuple{Np, ngrad}, T, DA}(topology.mpicomm,
-                                                    length(topology.elems),
-                                                    realelems=topology.realelems,
-                                                    ghostelems=topology.ghostelems,
-                                                    sendelems=topology.sendelems,
-                                                    nabrtorank=topology.nabrtorank,
-                                                    nabrtorecv=topology.nabrtorecv,
-                                                    nabrtosend=topology.nabrtosend,
-                                                    weights=view(h_vgeo, :, grid.Mid, :))
+    grad = MPIStateArray{Tuple{Np, ngrad}, T, DA}(topology.mpicomm,
+                                                  length(topology.elems),
+                                                  realelems=topology.realelems,
+                                                  ghostelems=topology.ghostelems,
+                                                  sendelems=topology.sendelems,
+                                                  nabrtorank=topology.nabrtorank,
+                                                  nabrtorecv=topology.nabrtorecv,
+                                                  nabrtosend=topology.nabrtosend,
+                                                  weights=view(h_vgeo, :, grid.Mid, :))
 
     GT = typeof(grid)
     DASAT3 = typeof(grad)
@@ -115,37 +115,36 @@ function Base.propertynames(X::VanillaAtmosDiscretization)
 end
 
 """
-    AtmosStateArray(disc::VanillaAtmosDiscretization)
+    MPIStateArray(disc::VanillaAtmosDiscretization)
 
-Given a discretization `disc` constructs an `AtmosStateArrays` for holding a
+Given a discretization `disc` constructs an `MPIStateArrays` for holding a
 solution state
 """
-function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
-                                                 T, dim, N, Np, DA, nmoist,
-                                                 ntrace}
-                                         ) where {T, dim, N, Np, DA, nmoist,
-                                                  ntrace}
+function MPIStateArrays.MPIStateArray(disc::VanillaAtmosDiscretization{
+                                            T, dim, N, Np, DA, nmoist, ntrace}
+                                      ) where {T, dim, N, Np, DA, nmoist,
+                                               ntrace}
   topology = disc.grid.topology
   nvar = _nstate + nmoist + ntrace
   # FIXME: Remove after updating CUDA
   h_vgeo = Array(disc.grid.vgeo)
-  AtmosStateArray{Tuple{Np, nvar}, T, DA}(topology.mpicomm,
-                                          length(topology.elems),
-                                          realelems=topology.realelems,
-                                          ghostelems=topology.ghostelems,
-                                          sendelems=topology.sendelems,
-                                          nabrtorank=topology.nabrtorank,
-                                          nabrtorecv=topology.nabrtorecv,
-                                          nabrtosend=topology.nabrtosend,
-                                          weights=view(h_vgeo, :, disc.grid.Mid, :))
+  MPIStateArray{Tuple{Np, nvar}, T, DA}(topology.mpicomm,
+                                        length(topology.elems),
+                                        realelems=topology.realelems,
+                                        ghostelems=topology.ghostelems,
+                                        sendelems=topology.sendelems,
+                                        nabrtorank=topology.nabrtorank,
+                                        nabrtorecv=topology.nabrtorecv,
+                                        nabrtosend=topology.nabrtosend,
+                                        weights=view(h_vgeo, :, disc.grid.Mid, :))
 end
 
-function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
-                                                 T, dim, N, Np, DA, nmoist,
-                                                 ntrace}, ic::Function
-                                         ) where {T, dim, N, Np, DA, nmoist,
-                                                  ntrace}
-  Q = AtmosStateArray(disc)
+function MPIStateArrays.MPIStateArray(disc::VanillaAtmosDiscretization{
+                                               T, dim, N, Np, DA, nmoist,
+                                               ntrace}, ic::Function
+                                       ) where {T, dim, N, Np, DA, nmoist,
+                                                ntrace}
+  Q = MPIStateArray(disc)
 
   nvar = _nstate + nmoist + ntrace
   G = disc.grid
@@ -177,12 +176,12 @@ function AtmosStateArrays.AtmosStateArray(disc::VanillaAtmosDiscretization{
   Q
 end
 
-AtmosStateArrays.AtmosStateArray(f::Function,
-                                 d::VanillaAtmosDiscretization
-                                ) = AtmosStateArray(d, f)
+MPIStateArrays.MPIStateArray(f::Function,
+                             d::VanillaAtmosDiscretization
+                            ) = MPIStateArray(d, f)
 
 """
-    estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)
+    estimatedt(disc::VanillaAtmosDiscretization, Q::MPIStateArray)
 
 Given a discretization `disc` and a state `Q` compute an estimate for the time
 step
@@ -192,7 +191,7 @@ step
     This estimate is currently very conservative, needs to be revisited
 """
 function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA},
-                    Q::AtmosStateArray) where {T, dim, N, Np, DA}
+                    Q::MPIStateArray) where {T, dim, N, Np, DA}
   @assert T == eltype(Q)
   G = disc.grid
   vgeo = G.vgeo
@@ -258,7 +257,7 @@ end
 
 rhs!(dQ, Q, p::Nothing, t, sd::VanillaAtmosDiscretization) = rhs!(dQ, Q, t, sd)
 
-function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
+function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
               disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, nmoist,
                                                ntrace}
              ) where {S, T, dim, N, Np, DA, nmoist, ntrace}
@@ -287,12 +286,12 @@ function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
   ########################
   # Gradient Computation #
   ########################
-  AtmosStateArrays.startexchange!(Q)
+  MPIStateArrays.startexchange!(Q)
 
   volumegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
               gravity, Dmat, topology.realelems)
 
-  AtmosStateArrays.finishexchange!(Q)
+  MPIStateArrays.finishexchange!(Q)
 
   facegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
             sgeo, gravity, topology.realelems, vmapM, vmapP, elemtobndy)
@@ -304,12 +303,12 @@ function rhs!(dQ::AtmosStateArray{S, T}, Q::AtmosStateArray{S, T}, t::T,
 
   viscosity::DFloat = disc.viscosity
 
-  AtmosStateArrays.startexchange!(grad)
+  MPIStateArrays.startexchange!(grad)
 
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
 
-  AtmosStateArrays.finishexchange!(grad)
+  MPIStateArrays.finishexchange!(grad)
 
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
            vgeo, sgeo, gravity, viscosity, topology.realelems, vmapM, vmapP,
@@ -339,7 +338,7 @@ end
 include("VanillaAtmosDiscretizations_kernels.jl")
 
 include("vtk.jl")
-function writevtk(prefix, Q::AtmosStateArray, disc::VanillaAtmosDiscretization)
+function writevtk(prefix, Q::MPIStateArray, disc::VanillaAtmosDiscretization)
   vgeo = disc.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
