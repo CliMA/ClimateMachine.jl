@@ -1,4 +1,4 @@
-using Test
+using Test, Printf
 
 using CLIMA.TurbulenceConvection.Grids
 using CLIMA.TurbulenceConvection.StateVecs
@@ -28,6 +28,7 @@ state_vec = StateVec(vars, grid)
       w_0_e_i = state_vec[:w, k, i]
     end
   end
+  sprint(show, state_vec)
 end
 
 @testset "Boundary conditions" begin
