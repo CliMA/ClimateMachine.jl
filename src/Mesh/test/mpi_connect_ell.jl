@@ -1,7 +1,6 @@
 using Test
 using MPI
-using CLIMA.CLIMAAtmosDycore
-using CLIMA.CLIMAAtmosDycore.Topologies
+using CLIMA.Topologies
 
 function main()
   MPI.Init()
