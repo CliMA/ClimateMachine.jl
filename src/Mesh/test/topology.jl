@@ -1,6 +1,6 @@
 
 @testset "BrickTopology tests" begin
-  using CLIMA.CLIMAAtmosDycore.Topologies
+  using CLIMA.Topologies
 
   let
     comm = MPI.COMM_SELF

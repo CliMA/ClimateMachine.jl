@@ -6,6 +6,7 @@ version = "0.1.0"
 [deps]
 Canary = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
 Coverage = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"

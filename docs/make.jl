@@ -17,6 +17,8 @@ makedocs(
       "RootSolvers" => "Utilities/RootSolvers.md",
       "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
       ],
+    "ODESolvers" => "ODESolvers.md",
+    "Mesh" => "Mesh.md",
     "AtmosDycore" => "AtmosDycore.md",
     "TurbulenceConvection" => "TurbulenceConvection.md",
     "Developer docs" => Any[

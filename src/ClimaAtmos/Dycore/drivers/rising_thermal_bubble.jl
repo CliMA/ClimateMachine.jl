@@ -1,11 +1,12 @@
 using MPI
 
-using CLIMA.CLIMAAtmosDycore.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.Topologies
+using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
-using CLIMA.CLIMAAtmosDycore.LSRKmethods
-using CLIMA.CLIMAAtmosDycore.GenericCallbacks
+using CLIMA.MPIStateArrays
+using CLIMA.ODESolvers
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
 using LinearAlgebra
 using Printf
@@ -92,7 +93,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
 
   # This is a actual state/function that lives on the grid
   initialcondition(x...) = risingthermalbubble(x...; dim=dim)
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
@@ -106,7 +107,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   # state and reading from a restart file
 
   # TODO: Should we use get property to get the rhs function?
-  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
@@ -124,7 +125,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
       (hrs, min) = fldmod(min, 60)
       @printf(io,
               "-------------------------------------------------------------\n")
-      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
       @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
       @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
     end
