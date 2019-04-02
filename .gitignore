@@ -7,3 +7,8 @@ deps/deps.jl
 docs/build/
 docs/site/
 src/**/Manifest.toml
+*.vtk
+*.vtu
+*.swp
+*.png
+!docs/src/assets/*.png

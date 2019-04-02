@@ -6,39 +6,24 @@ CurrentModule = CLIMA.CLIMAAtmosDycore
 
 ```@docs
 getrhsfunction
-solve!
-```
-
-## `AtmosStateArray`
-
-```@docs
-AtmosStateArrays.AtmosStateArray
-AtmosStateArrays.postrecvs!
-AtmosStateArrays.startexchange!
-AtmosStateArrays.finishexchange!
-```
-
-## `Grids`
-
-```@docs
-Grids.DiscontinuousSpectralElementGrid
-```
-
-## `Topologies`
-
-```@docs
-Topologies.BrickTopology
 ```
 
 ## `VanillaAtmosDiscretizations`
+
+A discretization adds additional information for the atmosphere problem.
 
 ```@docs
 VanillaAtmosDiscretizations.VanillaAtmosDiscretization
 VanillaAtmosDiscretizations.estimatedt
 ```
 
-## `LSRKmethods`
+## `AtmosStateArray`
+
+Storage for the state of a discretization.
 
 ```@docs
-LSRKmethods.LSRK
+AtmosStateArrays.AtmosStateArray
+AtmosStateArrays.postrecvs!
+AtmosStateArrays.startexchange!
+AtmosStateArrays.finishexchange!
 ```

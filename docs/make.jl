@@ -13,10 +13,13 @@ makedocs(
   modules = [Documenter, CLIMA],
   pages = Any[
     "Home" => "index.md",
-    "Modules" => Any[
-      "Utilities.md",
-      "AtmosDycore.md",
-    ],
+    "Utilites" => Any[
+      "RootSolvers" => "Utilities/RootSolvers.md",
+      "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
+      ],
+    "ODESolvers" => "ODESolvers.md",
+    "Mesh" => "Mesh.md",
+    "AtmosDycore" => "AtmosDycore.md",
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
