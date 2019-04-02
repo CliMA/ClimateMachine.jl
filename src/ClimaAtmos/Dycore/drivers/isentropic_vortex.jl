@@ -69,17 +69,14 @@ function isentropic_vortex(t, x...; ntrace=0,nmoist=0,dim=3)
   v = vinf + λ*(1//2)*exp(1-rsq)*xp/π
   w = zero(DFloat)
   ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
-  @show(ρ)
   
   p = ρ^γ
   U = ρ*u
   V = ρ*v
   W = ρ*w
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
-  @show(E)
   
-  q_tot = 0.0
-  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_tot,))
+  (ρ=ρ, U=U, V=V, W=W, E=E) 
 end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
@@ -196,7 +193,7 @@ let
   Ne = (10, 10, 10)
   N = 4
   timeend = 10
-  nmoist = 1
+  nmoist = 0
   ntrace = 0
   for DFloat in (Float64,Float32)
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))

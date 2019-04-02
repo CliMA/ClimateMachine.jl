@@ -22,9 +22,13 @@ export cp_m, cv_m, gas_constant_air, moist_gas_constants
 # Latent heats
 export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
 
+# Speed of sound in air
+export soundspeed_air
+
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
 export saturation_vapor_pressure, saturation_shum_generic, saturation_shum
+export saturation_excess
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
@@ -146,7 +150,7 @@ and, optionally, the total specific humidity `q_tot`, the liquid specific humidi
 function air_temperature(internal_energy, q_tot=0, q_liq=0, q_ice=0)
 
     return T_0 +
-        ( internal_energy - (q_tot - q_liq) * IE_v0 + q_ice * (IE_v0 + IE_i0) )/
+        ( internal_energy - (q_tot - q_liq) * e_int_v0 + q_ice * (e_int_v0 + e_int_i0) )/
             cv_m(q_tot, q_liq, q_ice)
 
 end
@@ -161,7 +165,7 @@ optionally, the total specific humidity `q_tot`, the liquid specific humidity
 function internal_energy(T, q_tot=0, q_liq=0, q_ice=0)
 
     return cv_m(q_tot, q_liq, q_ice) * (T - T_0) +
-        (q_tot - q_liq) * IE_v0 - q_ice * (IE_v0 + IE_i0)
+        (q_tot - q_liq) * e_int_v0 - q_ice * (e_int_v0 + e_int_i0)
 
 end
 
@@ -185,14 +189,13 @@ end
     total_energy(KE, PE, T[, q_tot=0, q_liq=0, q_ice=0])
 
 Return the total energy per unit mass, given the kinetic energy per unit
-mass `KE`, the potential energy per unit mass `PE`, the temperature `T`, and,
+mass `e_kin`, the potential energy per unit mass `e_pot`, the temperature `T`, and,
 optionally, the total specific humidity `q_tot`, the liquid specific humidity
 `q_liq`, and the ice specific humidity `q_ice`.
 """
-function total_energy(kinetic_energy, potential_energy, T, q_tot=0, q_liq=0, q_ice=0)
+function total_energy(e_kin, e_pot, T, q_tot=0, q_liq=0, q_ice=0)
 
-    return kinetic_energy + potential_energy +
-        internal_energy(T, q_tot, q_liq, q_ice)
+    return e_kin + e_pot + internal_energy(T, q_tot, q_liq, q_ice)
 
 end
 
@@ -304,7 +307,7 @@ function saturation_shum_generic(T, ρ; phase::Phase=Liquid())
 
     p_vs = saturation_vapor_pressure(T, phase)
 
-    return saturation_shum_from_pressure(ρ, T, p_vs)
+    return saturation_shum_from_pressure(T, ρ, p_vs)
 
 end
 
@@ -321,7 +324,7 @@ latent heats of the respective phase transitions (Pressel et al., JAMES, 2015).
 That is, the saturation vapor pressure and from it the saturation
 specific humidity are computed from a weighted mean of the latent heats of
 vaporization and sublimation, with the weights given by the fractions of
-condensate `q_liq`/(`q_l` + `q_ice`) and `q_i`/(`q_l` + `q_i`) that are liquid and
+condensate `q_liq`/(`q_liq` + `q_ice`) and `q_ice`/(`q_liq` + `q_ice`) that are liquid and
 ice, respectively.
 
 If the condensate specific humidities `q_liq` and `q_ice` are not given or are both
@@ -343,20 +346,37 @@ function saturation_shum(T, ρ, q_liq=0, q_ice=0)
     # saturation vapor pressure over possible mixture of liquid and ice
     p_vs        = saturation_vapor_pressure(T, LH_0, cp_diff)
 
-    return saturation_shum_from_pressure(ρ, T, p_vs)
+    return saturation_shum_from_pressure(T, ρ, p_vs)
 
 end
 
 
 """
-    saturation_shum_from_pressure(ρ, T, p_vs)
+    saturation_shum_from_pressure(T, ρ, p_vs)
 
-Compute the saturation specific humidity, given the ambient air density `ρ`,
-temperature `T`, and the saturation vapor pressure `p_vs`.
+Compute the saturation specific humidity, given the ambient air temperature `T`,
+density `ρ`, and the saturation vapor pressure `p_vs`.
 """
-function saturation_shum_from_pressure(ρ, T, p_vs)
+function saturation_shum_from_pressure(T, ρ, p_vs)
 
-    return min(eltype(ρ)(1.), p_vs / (ρ * R_v * T))
+    return min(typeof(ρ)(1), p_vs / (ρ * R_v * T))
+
+end
+
+"""
+    saturation_excess(T, ρ, q_tot, q_liq=0, q_ice=0)
+
+Compute the saturation excess in equilibrium, given the ambient air temperature
+`T`, the (moist-)air density `ρ`, the total specific humidity `q_tot`, and,
+optionally, the liquid specific humidity `q_liq`, and the ice specific humidity `q_ice`.
+
+The saturation excess is the difference between the total specific humidity `q_tot`
+and the saturation specific humidity in equilibrium, and it is defined to be
+nonzero only if this difference is positive.
+"""
+function saturation_excess(T, ρ, q_tot, q_liq=0, q_ice=0)
+
+    return max(typeof(q_tot)(0), q_tot - saturation_shum(T, ρ, q_liq, q_ice))
 
 end
 
@@ -388,7 +408,7 @@ end
 Return the Heaviside step function at `t`.
 """
 function heaviside(t)
-   eltype(t)(1//2) * (sign(t) + 1)
+   typeof(t)(1//2) * (sign(t) + 1)
 end
 
 """
@@ -411,7 +431,8 @@ function phase_partitioning_eq(T, ρ, q_tot)
     q_liq_out      = _liquid_frac * q_c  # liquid specific humidity
     q_ice_out      = (1 - _liquid_frac) * q_c # ice specific humidity
     return q_liq_out, q_ice_out
-end
+
+  end
 
 """
     saturation_adjustment(e_int, ρ, q_tot[, T_init = T_triple])
@@ -430,8 +451,8 @@ function saturation_adjustment(e_int, ρ, q_tot, T_init = T_triple)
     iter_max = 10
     args = (ρ, q_tot, e_int)
     T0 = max(T_min, air_temperature(e_int, q_tot, 0.0, 0.0))
-    T1 = air_temperature(e_int, q_tot, 0.0, q_t)
-    roots_equation(x, ρ, q_tot, e_int) = internal_energy_sat(x, ρ, q_t) - e_int
+    T1 = air_temperature(e_int, q_tot, 0.0, q_tot)
+    roots_equation(x, ρ, q_tot, e_int) = internal_energy_sat(x, ρ, q_tot) - e_int
     T, converged = find_zero(roots_equation,
                              T0, T1,
                              args,
@@ -452,16 +473,12 @@ and ice specific humidity `q_ice`.
 """
 function liquid_ice_pottemp(T, p, q_tot=0, q_liq=0, q_ice=0)
 
-    # gas constant and isobaric specific heat of moist air
-    _R_m    = gas_constant_air(q_tot, q_liq, q_ice)
+    # isobaric specific heat of moist air
     _cp_m   = cp_m(q_tot, q_liq, q_ice)
-
-    # dry potential temperature
-    pottemp = T / (p/MSLP)^(_R_m/_cp_m)
 
     # liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
-    return pottemp * exp(-(LH_v0*q_liq + LH_s0*q_ice)/(_cp_m*T))
+    return dry_pottemp(T, p, q_tot, q_liq, q_ice) * exp(-(LH_v0*q_liq + LH_s0*q_ice)/(_cp_m*T))
 
 end
 
@@ -472,7 +489,7 @@ Return the dry potential temperature, given the temperature `T`,
 pressure `p`, total specific humidity `q_tot`, liquid specific humidity `q_liq`,
 and ice specific humidity `q_ice`.
 """
-dry_pottemp(T, p, q_tot=0, q_liq=0, q_ice=0) = T / exner(p, q_t, q_l, q_i)
+dry_pottemp(T, p, q_tot=0, q_liq=0, q_ice=0) = T / exner(p, q_tot, q_liq, q_ice)
 
 """
     exner(p, q_tot=0, q_liq=0, q_ice=0)
