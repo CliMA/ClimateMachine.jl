@@ -184,7 +184,7 @@ end
 
 # {{{ compute geometry
 function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
-                         vmapM) where {dim, T}
+                         vmapM) where {dim}
   # Compute metric terms
   Nq = size(D, 1)
   DFloat = eltype(D)
