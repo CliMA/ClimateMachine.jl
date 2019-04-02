@@ -6,7 +6,7 @@ for submodule in ["Utilities/ParametersType",
                   "Utilities/MoistThermodynamics",
                   "ClimaAtmos/Parameterizations/SurfaceFluxes",
                   "ClimaAtmos/Parameterizations/TurbulenceConvection",
-                  "ClimaAtmos/Dycore"
+                  "Mesh",
                   ]
 
   println("Testing $submodule")
