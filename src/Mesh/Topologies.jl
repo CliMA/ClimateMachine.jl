@@ -58,7 +58,7 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   `i` of element `e`
 
   !!! note
-  currently coordinates always are of size 3 for `(x, y, z)`
+      currently coordinates always are of size 3 for `(x, y, z)`
   """
   elemtocoord::Array{T, 3}
 
@@ -120,7 +120,7 @@ Base.getproperty(a::BrickTopology, p::Symbol) = getproperty(getfield(a, :topolog
 """
     CubedShellTopology{T} <: AbstractTopology{2}
 
-A cube topolgy. This is a convenience wrapper around [`BoxElementTopology`](@ref).
+A cube-shell topolgy. This is a convenience wrapper around [`BoxElementTopology`](@ref).
 """
 struct CubedShellTopology{T} <: AbstractTopology{2}
   topology::BoxElementTopology{2, T}
@@ -131,7 +131,7 @@ Base.getproperty(a::CubedShellTopology, p::Symbol) = getproperty(getfield(a, :to
 """
     StackedBrickTopology{dim, T} <: AbstractTopology{dim}
 
-A simple grid-based topolgy. This is a convenience wrapper around [`BoxElementTopology`](@ref).
+A simple grid-based topolgy, where all elements on the trailing dimension are stacked to be contiguous. This is a convenience wrapper around [`BoxElementTopology`](@ref).
 """
 struct StackedBrickTopology{dim, T} <: AbstractTopology{dim}
   topology::BoxElementTopology{dim, T}
@@ -144,7 +144,7 @@ end
 """
     StackedCubedSphereTopology{3, T} <: AbstractTopology{3}
 
-A simple grid-based topolgy. This is a convenience wrapper around [`BoxElementTopology`](@ref).
+A cube-sphere topology. All elements on the same "vertical" dimension are stacked to be contiguous. This is a convenience wrapper around [`BoxElementTopology`](@ref).
 """
 struct StackedCubedSphereTopology{T} <: AbstractTopology{3}
   topology::BoxElementTopology{3, T}
