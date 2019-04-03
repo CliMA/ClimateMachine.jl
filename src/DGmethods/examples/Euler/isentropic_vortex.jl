@@ -30,7 +30,7 @@ using CLIMA.MoistThermodynamics: saturation_adjustment, air_pressure,
                                  phase_partitioning_eq, internal_energy
 
 # physical flux function
-function eulerflux!(F, Q, gradQstate, X, Cstate)
+function eulerflux!(F, Q, ignored...)
   DFloat = eltype(Q)
 
   q_t::DFloat = 0
