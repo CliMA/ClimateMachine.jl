@@ -192,7 +192,6 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
       # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics
       q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
-      
       s_ρ[i, j, k] = ρ
       s_u[i, j, k] = U/ρ
       s_v[i, j, k] = V/ρ

@@ -424,6 +424,12 @@ partitions the total specific humidity `q_tot` into the liquid specific humidity
 function. The residual `q_tot - q_liq - q_ice` is the vapor specific humidity.
 """
 
+function phase_partitioning_eq!(q_liq_out, q_ice_out, T, ρ, q_tot)
+  for k = 1:length(q_liq_out)
+    @inbounds q_liq_out[k], q_ice_out[k] = phase_partitioning_eq(T[k], ρ[k], q_tot[k])
+  end
+end
+
 function phase_partitioning_eq(T, ρ, q_tot)
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
     q_vs         = saturation_shum(T, ρ) # saturation specific humidity
@@ -444,9 +450,6 @@ The optional input value of the temperature `T_init` is taken as the initial
 value of the saturation adjustment iterations.
 """
 function saturation_adjustment(e_int, ρ, q_tot, T_init = T_triple)
-  if q_tot < saturation_shum(air_temperature(e_int), ρ)
-    return air_temperature(e_int, q_tot)
-  else
     tol_abs = 1e-3*cv_d
     iter_max = 10
     args = (ρ, q_tot, e_int)
@@ -461,7 +464,6 @@ function saturation_adjustment(e_int, ρ, q_tot, T_init = T_triple)
                              )
     q_liq, q_ice = phase_partitioning_eq(T, ρ, q_tot)
     return air_temperature(e_int, q_tot, q_liq, q_ice)
-  end
 end
 
 """
