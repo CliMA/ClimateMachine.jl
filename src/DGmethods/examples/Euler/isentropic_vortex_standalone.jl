@@ -16,6 +16,11 @@
 # This version runs the isentropic vortex as a stand alone test (no dependence
 # on CLIMA moist thermodynamics)
 
+using MPI
+using CLIMA.Topologies
+using CLIMA.Grids
+using CLIMA.DGBalanceLawDiscretizations
+
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
@@ -71,3 +76,42 @@ function isentropicvortex_standalone!(Q, t, x, y, z)
 
   Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 end
+
+function main(mpicomm, DFloat, topl, N, endtime, ArrayType)
+
+  grid = DiscontinuousSpectralElementGrid(topl,
+                                          FloatType = DFloat,
+                                          DeviceArray = ArrayType,
+                                          polynomialorder = N,
+                                         )
+
+  # spacedisc = data needed for evaluating the right-hand side function
+  spacedisc = DGBalanceLaw(grid = grid,
+                           nstate = _nstate,
+                           flux! = eulerflux_standalone!,
+                           numericalflux! = (x...) -> error())
+end
+
+let
+
+  dim = 2
+  DFloat = Float64
+  Ne = (10, 10, 10)
+  N = 4
+  endtime = 10
+  ArrayType = Array
+
+  MPI.Initialized() || MPI.Init()
+  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
+
+  mpicomm = MPI.COMM_WORLD
+
+  brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
+                               stop=halfperiod), dim)
+  topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
+  main(mpicomm, DFloat, topl, N, endtime, ArrayType)
+end
+
+isinteractive() || MPI.Finalize()
+
+nothing
