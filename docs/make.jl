@@ -23,6 +23,7 @@ makedocs(
     "ODESolvers" => "ODESolvers.md",
     "Mesh" => "Mesh.md",
     "AtmosDycore" => "AtmosDycore.md",
+    "TurbulenceConvection" => "TurbulenceConvection.md",
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
