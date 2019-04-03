@@ -30,8 +30,6 @@ using ..ParametersType
                                    molmass_water "Molar mass ratio dry air/water"
 @exportparameter R_v               gas_constant/
                                    molmass_water "Gas constant water vapor (J/kg/K)"
-@exportparameter eps_v             R_d/R_v       "Ratio of gas constants (1)"
-@exportparameter eps_vi            R_v/R_d       "Inverse Ratio of gas constants (1)"
 @exportparameter cp_v              1859          "Isobaric specific heat vapor (J/kg/K)"
 @exportparameter cp_l              4181          "Isobaric specific heat liquid (J/kg/K)"
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"
@@ -46,9 +44,9 @@ using ..ParametersType
 @exportparameter LH_v0             2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
 @exportparameter LH_s0             2.8344e6      "Latent heat sublimation at T_0 (J/kg)"
 @exportparameter LH_f0             LH_s0 - LH_v0  "Latent heat of fusion at T_0 (J/kg)"
-@exportparameter IE_v0             LH_v0 - R_v*T_0 "Specific internal energy of
+@exportparameter e_int_v0          LH_v0 - R_v*T_0 "Specific internal energy of
                                                     vapor at T_0 (J/kg)"
-@exportparameter IE_i0             LH_f0         "Specific internal energy of
+@exportparameter e_int_i0          LH_f0         "Specific internal energy of
                                                   ice at T_0 (J/kg)"
 @exportparameter press_triple      611.657       "Triple point vapor pressure (Pa)"
 

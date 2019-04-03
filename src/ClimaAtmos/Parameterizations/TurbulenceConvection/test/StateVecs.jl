@@ -1,4 +1,4 @@
-using Test
+using Test, Printf
 
 using CLIMA.TurbulenceConvection.Grids
 using CLIMA.TurbulenceConvection.StateVecs
@@ -22,12 +22,18 @@ state_vec = StateVec(vars, grid)
   @test_throws BoundsError state_vec[:w, 1, 4] = 3.0
   @test_throws BoundsError state_vec[:ρ_0, 1, 2] = 3.0
 
+  @test over_sub_domains(state_vec) == 1:3
+  @test over_sub_domains(state_vec, 2) == [1,3]
+  @test over_sub_domains(state_vec, :ρ_0) == 1:1
+  @test over_sub_domains(state_vec, :a) == 1:3
+
   for k in over_elems(grid)
     ρ_0_e = state_vec[:ρ_0, k]
     for i in over_sub_domains(state_vec)
       w_0_e_i = state_vec[:w, k, i]
     end
   end
+  sprint(show, state_vec)
 end
 
 @testset "Boundary conditions" begin

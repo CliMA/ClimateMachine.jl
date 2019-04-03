@@ -1,4 +1,4 @@
-using Test
+using Test, Printf
 
 using CLIMA.TurbulenceConvection.Grids
 using CLIMA.TurbulenceConvection.GridOperators
@@ -22,6 +22,7 @@ using CLIMA.TurbulenceConvection.GridOperators
     @test grid.zn_top  ≈ 1.0
     @test grid.zc_surf ≈ grid.zn_surf + Δz/2
     @test grid.zc_top  ≈ grid.zn_top  - Δz/2
+    sprint(show, grid)
   end
 end
 

@@ -26,7 +26,8 @@ Computes the local Laplacian of field f
 """
     adv_upwind(ϕ, u, grid::Grid)
 
-Local upwind advection operator (stable at high Re, but diffusive)
+Local upwind advection operator u⋅∇ϕ. This
+operator is stable but numerically diffusive.
 """
 adv_upwind(ϕ, u, grid::Grid) = u[2] > 0 ? u[ 2 ]*(ϕ[2] - ϕ[1]) * grid.dzi :
                                           u[ 2 ]*(ϕ[3] - ϕ[2]) * grid.dzi
