@@ -21,7 +21,7 @@ const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
 
 # physical flux function
-function eulerflux_standalone!(F, Q, gradQstate, X, Cstate)
+function eulerflux_standalone!(F, Q, ignored...)
   γ::eltype(Q) = 7 // 5
   ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -37,6 +37,7 @@ function eulerflux_standalone!(F, Q, gradQstate, X, Cstate)
 end
 
 # initial condition
+const halfperiod = 5
 function isentropicvortex_standalone!(Q, t, x, y, z)
   DFloat = eltype(Q)
 
