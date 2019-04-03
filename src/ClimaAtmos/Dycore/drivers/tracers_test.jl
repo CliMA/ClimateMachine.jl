@@ -1,10 +1,11 @@
 using MPI
-using CLIMA.CLIMAAtmosDycore.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.Topologies
+using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
-using CLIMA.CLIMAAtmosDycore.LSRKmethods
-using CLIMA.CLIMAAtmosDycore.GenericCallbacks
+using CLIMA.MPIStateArrays
+using CLIMA.ODESolvers
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
@@ -70,7 +71,7 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   E_tot = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
   (ρ=ρ, U=U, V=V, W=W, E=E_tot, 
    Qmoist = (q_tot * ρ,),  #Qmoist => Moist variable (may have corresponding sources)
-   Qtrace = (q_tr * ρ,))   #Qtrace => Arbitrary tracers 
+   Qtrace = ntuple(j->(-j*ρ),ntrace))   #Qtrace => Arbitrary tracers 
 
 end
 
@@ -115,7 +116,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
 					       dim=dim)
 
   # This is a actual state/function that lives on the grid
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
@@ -129,7 +130,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   # state and reading from a restart file
 
   # TODO: Should we use get property to get the rhs function?
-  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
@@ -147,7 +148,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
       (hrs, min) = fldmod(min, 60)
       @printf(io,
               "-------------------------------------------------------------\n")
-      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
       @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
       @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
     end
@@ -178,15 +179,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
-#=
+
   h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
-  for (j, n) = enumerate(spacedisc.moistrange)
-    @assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
-  end
+  
   for (j, n) = enumerate(spacedisc.tracerange)
-    @assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+    @assert -j * (@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
-  =#
+
 end
 
 let
@@ -198,7 +197,7 @@ let
   @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
   nmoist = 1
-  ntrace = 1
+  ntrace = 2
   Ne = (10, 10, 10)
   N = 2
   timeend = 0.1

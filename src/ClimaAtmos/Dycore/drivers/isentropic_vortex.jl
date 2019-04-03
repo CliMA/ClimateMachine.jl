@@ -1,11 +1,12 @@
 using MPI
 
-using CLIMA.CLIMAAtmosDycore.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.Topologies
+using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
-using CLIMA.CLIMAAtmosDycore.LSRKmethods
-using CLIMA.CLIMAAtmosDycore.GenericCallbacks
+using CLIMA.MPIStateArrays
+using CLIMA.ODESolvers
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
@@ -117,7 +118,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
                                             ntrace=ntrace,
                                             nmoist=nmoist,
                                             dim=dim) 
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
@@ -131,7 +132,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   # state and reading from a restart file
 
   # TODO: Should we use get property to get the rhs function?
-  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
@@ -149,7 +150,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
       (hrs, min) = fldmod(min, 60)
       @printf(io,
               "-------------------------------------------------------------\n")
-      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
       @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
       @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
     end
@@ -195,7 +196,7 @@ let
 
   Ne = (10, 10, 10)
   N = 4
-  timeend = 10
+  timeend = 1
   nmoist = 0
   ntrace = 0
   for DFloat in (Float64,Float32)

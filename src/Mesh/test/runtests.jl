@@ -1,4 +1,3 @@
-using CLIMA.CLIMAAtmosDycore
 using MPI, Test
 
 MPI.Init()
