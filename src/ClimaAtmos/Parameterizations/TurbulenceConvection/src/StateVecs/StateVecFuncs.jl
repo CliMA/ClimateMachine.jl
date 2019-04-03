@@ -8,29 +8,14 @@ module StateVecFuncs
 using Pkg
 @static if haskey(Pkg.installed(), "Plots")
   using Plots
-  export plot_field, plot_save
+  export plot_state
 end
 
 using DelimitedFiles, WriteVTK, ..Grids, ..StateVecs
 export surface_val, first_elem_above_surface_val
-export distribute!, domain_average!, total_covariance!
-export integrate_ode!, extrap!, assign_ghost!
+export domain_average!, distribute!, total_covariance!
+export extrap!, assign_ghost!, integrate_ode!
 export export_state, plot_state, UseVTK, UseDat
-
-abstract type ExportType end
-"""
-    UseVTK
-A singleton used to indicate to use a .vtk
-extension when exporting a `StateVec`.
-"""
-struct UseVTK <: ExportType end
-
-"""
-    UseDat
-A singleton used to indicate to use a .dat
-extension when exporting a `StateVec`.
-"""
-struct UseDat <: ExportType end
 
 """
     surface_val(sv::StateVec, name::Symbol, grid::Grid, i_sd=1)
@@ -193,6 +178,21 @@ function integrate_ode!(sv::StateVec,
   assign_ghost!(sv, name, 0.0, grid, i_sd)
 end
 
+abstract type ExportType end
+"""
+    UseVTK
+A singleton used to indicate to use a .vtk
+extension when exporting a `StateVec`.
+"""
+struct UseVTK <: ExportType end
+
+"""
+    UseDat
+A singleton used to indicate to use a .dat
+extension when exporting a `StateVec`.
+"""
+struct UseDat <: ExportType end
+
 """
     export_state(sv::StateVec, grid::Grid, dir, filename, ::ExportType)
 
@@ -244,77 +244,54 @@ end
 @static if haskey(Pkg.installed(), "Plots")
 
 """
-    plot_state(sv::StateVec, grid::Grid, name::Symbol, i_sd=1, include_ghost = false)
-
-Plot variable along the z-direction in `StateVec` given the
-grid, `grid`, variable name `name`, sub-domain `i_sd`, and
-a `Bool`, `include_ghost`, indicating to include include or exclude
-the ghost points.
-"""
-function plot_state(sv::StateVec, grid::Grid, name::Symbol, i_sd=1, include_ghost = false)
-  x_name = string(name)
-  domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
-  x = [grid.z[k] for k in domain_range]
-  y = [sv.fields[k].vals[sv.var_mapper[name][i_sd]] for k in domain_range]
-  plot(y, x)
-  plot!(title = x_name * " vs z", xlabel = x_name, ylabel = "z")
-  gui()
-end
-
-"""
-    plot_state(sv::StateVec, grid::Grid, include_ghost = false)
-
-Plot variable along the z-direction in `StateVec` given the
-grid, `grid`, variable name `name`, sub-domain `i_sd`, and
-a `Bool`, `include_ghost`, indicating to include include or exclude
-the ghost points.
-"""
-function plot_state(sv::StateVec, grid::Grid, include_ghost = false)
-  for name in sv.var_names
-    x_name = string(name)
-    domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
-    x = [grid.z[k] for k in domain_range]
-    y = [sv.fields[k].vals[sv.var_mapper[name][i_sd]] for k in domain_range]
-    if name==first(sv.var_names)
-      plot(y, x)
-    else
-      plot!(y, x)
-    end
-  end
-  plot!(title = "State vector vs z", ylabel = "z")
-  gui()
-end
-
-"""
-    plot_state(sv::StateVec, grid::Grid, name::Symbol, directory, i_sd=1,
-                   include_ghost = false,
-                   xlims::Union{Nothing, Tuple{R, R}} = nothing,
-                   ylims::Union{Nothing, Tuple{R, R}} = nothing
-                   ) where R
-
-Save the plot variable along the z-direction in `StateVec` given the
-grid, `grid`, variable name `name`, sub-domain `i_sd`, and
-a `Bool`, `include_ghost`, indicating to include include or exclude
-the ghost points.
-"""
-function plot_state(sv::StateVec, grid::Grid, name::Symbol, directory, i_sd=1,
+    plot_state(sv::StateVec,
+                    grid::Grid,
+                    name_idx::Symbol = nothing,
+                    directory::AbstractString,
+                    filename::AbstractString,
+                    i_sd = 1,
                     include_ghost = false,
                     xlims::Union{Nothing, Tuple{R, R}} = nothing,
                     ylims::Union{Nothing, Tuple{R, R}} = nothing
                     ) where R
-  x_name = string(name)
-  domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
-  x = [grid.z[k] for k in domain_range]
-  y = [sv.fields[k].vals[sv.var_mapper[name][i_sd]] for k in domain_range]
-  plot(y, x)
-  plot!(title = x_name * " vs z", xlabel = x_name, ylabel = "z")
-  if xlims != nothing
-    plot!(xlims = xlims)
+
+Save the plot variable along the z-direction in `StateVec` given the
+grid, `grid`, variable name `name_idx`, directory `directory`,
+filename `filename`, sub-domain `i_sd`, and a `Bool`, `include_ghost`,
+indicating to include include or exclude the ghost points.
+"""
+function plot_state(sv::StateVec,
+                    grid::Grid,
+                    directory::AbstractString,
+                    filename::AbstractString,
+                    name_idx::Symbol = nothing,
+                    i_sd = 1,
+                    include_ghost = false,
+                    xlims::Union{Nothing, Tuple{R, R}} = nothing,
+                    ylims::Union{Nothing, Tuple{R, R}} = nothing
+                    ) where R
+  if name_idx == nothing
+    domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
+    for name_idx in sv.var_names
+      x = [grid.z[k] for k in domain_range]
+      y = [sv[name_idx, k, i_sd] for k in domain_range]
+      plot(y, x)
+    end
+    plot!(title = "state vector vs z", xlabel = "state vector", ylabel = "z")
+    if xlims != nothing; plot!(xlims = xlims); end
+    if ylims != nothing; plot!(ylims = xlims); end
+    png(joinpath(directory, filename))
+  else
+    x_name = string(name_idx)
+    domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
+    x = [grid.z[k] for k in domain_range]
+    y = [sv[name_idx, k, i_sd] for k in domain_range]
+    plot(y, x)
+    plot!(title = x_name * " vs z", xlabel = x_name, ylabel = "z")
+    if xlims != nothing; plot!(xlims = xlims); end
+    if ylims != nothing; plot!(ylims = xlims); end
+    png(joinpath(directory, filename))
   end
-  if ylims != nothing
-    plot!(ylims = xlims)
-  end
-  png(directory*x_name)
 end
 
 end
