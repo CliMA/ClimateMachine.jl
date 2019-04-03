@@ -1,7 +1,7 @@
-# TODO: Move to the AtmosStateArrays
+# TODO: Move to the MPIStateArrays
 # {{{ MPI Buffer handling
-fillsendbuf!(h, d, b::AtmosStateArray, e) = fillsendbuf!(h, d, b.Q, e)
-transferrecvbuf!(h, d, b::AtmosStateArray, e) = transferrecvbuf!(h, d, b.Q, e)
+fillsendbuf!(h, d, b::MPIStateArray, e) = fillsendbuf!(h, d, b.Q, e)
+transferrecvbuf!(h, d, b::MPIStateArray, e) = transferrecvbuf!(h, d, b.Q, e)
 
 function fillsendbuf!(host_sendbuf, device_sendbuf::Array, buf::Array, sendelems)
   host_sendbuf[:, :, :] .= buf[:, :, sendelems]
