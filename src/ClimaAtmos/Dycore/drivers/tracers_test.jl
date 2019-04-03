@@ -30,8 +30,7 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
 
 function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
 
-  DFloat = eltype(x)
-  
+  DFloat          = eltype(x)
   p0::DFloat      = MSLP
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d

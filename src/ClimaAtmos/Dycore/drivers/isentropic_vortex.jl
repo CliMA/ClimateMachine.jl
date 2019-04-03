@@ -32,7 +32,8 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
 const halfperiod = 5
 
 function isentropic_vortex(t, x...; ntrace=0,nmoist=0,dim=3)
-  # Standard isentropic vortex test case.  For a more complete description of
+  # Standard isentropic vortex test case.  
+  # For a more complete description of
   # the setup see for Example 3 of:
   #
   # @article{ZHOU2003159,
@@ -46,14 +47,16 @@ function isentropic_vortex(t, x...; ntrace=0,nmoist=0,dim=3)
   #   doi = {10.1016/S0021-9991(03)00206-7},
   #   url = {https://doi.org/10.1016/S0021-9991(03)00206-7},
   # }
-  DFloat = eltype(x)
 
-  γ::DFloat    = γ_d
-  uinf::DFloat = 1
-  vinf::DFloat = 1
-  Tinf::DFloat = 1
-  λ::DFloat    = 5 # Vortex strength 
-  η::DFloat    = 1 # Solution gradient parameter 
+  DFloat        = eltype(x)
+  
+  γ::DFloat     = γ_d
+  uinf::DFloat  = 1
+  vinf::DFloat  = 1
+  Tinf::DFloat  = 1
+  λ::DFloat     = 5 # Vortex strength 
+  η::DFloat     = 1 # Solution gradient parameter 
+  
   xs = x[1] - uinf*t
   ys = x[2] - vinf*t
   
