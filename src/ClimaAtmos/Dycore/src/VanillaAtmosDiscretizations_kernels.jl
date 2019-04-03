@@ -501,7 +501,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       ρinv = 1 / ρ
 
-      ldivu = stokes*(ux + vy)
+      ldivu = λ_stokes*(ux + vy)
       u = ρinv*U
       v = ρinv*V
 
@@ -691,7 +691,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       ρinv = 1 / ρ
 
-      ldivu = stokes*(ux + vy + wz)
+      ldivu = λ_stokes*(ux + vy + wz)
       u = ρinv*U
       v = ρinv*V
       w = ρinv*W
@@ -1069,7 +1069,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
         #Compute Viscous Numerical Flux
         #Left Fluxes
-        ldivuM = stokes*(uxM + vyM + wzM)
+        ldivuM = λ_stokes*(uxM + vyM + wzM)
         vfρM_x = 0*ρxM
         vfρM_y = 0*ρyM
         vfρM_z = 0*ρzM
@@ -1087,7 +1087,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         vfEM_z = uM*(wxM + uzM) + vM*(wyM + vzM) + wM*(2*wzM + ldivuM) + k_μ*TzM
 
         #Right Fluxes
-        ldivuP = stokes*(uxP + vyP + wzP)
+        ldivuP = λ_stokes*(uxP + vyP + wzP)
         vfρP_x = 0*ρxP
         vfρP_y = 0*ρyP
         vfρP_z = 0*ρzP

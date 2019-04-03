@@ -7,6 +7,7 @@ using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
 using CLIMA.CLIMAAtmosDycore.LSRKmethods
 using CLIMA.CLIMAAtmosDycore.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
+using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
@@ -51,12 +52,11 @@ function isentropic_vortex(t, x...; ntrace=0,nmoist=0,dim=3)
   uinf::DFloat = 1
   vinf::DFloat = 1
   Tinf::DFloat = 1
-  λ::DFloat    = 5
-  η::DFloat    = 1
+  λ::DFloat    = 5 # Vortex strength 
+  η::DFloat    = 1 # Solution gradient parameter 
   xs = x[1] - uinf*t
   ys = x[2] - vinf*t
   
-
   # make the function periodic
   xtn = floor((xs+halfperiod)/(2halfperiod))
   ytn = floor((ys+halfperiod)/(2halfperiod))
@@ -74,8 +74,8 @@ function isentropic_vortex(t, x...; ntrace=0,nmoist=0,dim=3)
   U = ρ*u
   V = ρ*v
   W = ρ*w
-  E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
-  
+  E = p/(γ-1) + ρ * internal_energy(0) +  (1//2)*ρ*(u^2 + v^2 + w^2)
+  # TODO generalise non-dimensionalisation to the PlanetParameters file for moist cases
   (ρ=ρ, U=U, V=V, W=W, E=E) 
 end
 

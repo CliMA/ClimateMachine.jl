@@ -29,54 +29,49 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
 # FIXME: Will these keywords args be OK?
 
 function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
- DFloat = eltype(x)
+
+  DFloat = eltype(x)
+  
   p0::DFloat      = MSLP
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
   T_0::DFloat     = T_triple
-
+  
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 320
-  θ_c::DFloat = 2.0
+  θ_c::DFloat = 2
   Δθ::DFloat = 0
   Δq_tot::DFloat = 0
-
-  q_tot = 0.0196
-  q_tr = 0.0100
-
+  q_tot = 0.0196 
+  q_tr = 0.0100 
   if r <= rc
     Δθ = θ_c * (1 + cospi(r / rc)) / 2
     Δq_tot = q_tot/5 * (1 + cospi(r / rc)) / 2
   end
+  θ = θ_ref + Δθ
+  π_k = 1 - gravity / (c_p * θ) * x[dim]
   
-  θ_k = θ_ref + Δθ
-  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
   c = c_v / R_gas
-  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-  ρ = ρ_k
-  ρinv = 1/ρ
+  ρ = p0 / (R_gas * θ) * (π_k)^c
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
   U = ρ * u
   V = ρ * v
   W = ρ * w
-  Θ = ρ * θ_k
-  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+  P = p0 * (R_gas * (ρ * θ) / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
-  # Calculation of energy per unit mass
   q_tot += Δq_tot
-  # Total energy 
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
   e_int = MoistThermodynamics.internal_energy(T, q_tot, 0.0, 0.0)
-  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E, 
-   Qmoist = (q_tot * ρ,),  #Moist variable
-   Qtrace = (q_tr * ρ,)) 
+  E_tot = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
+  (ρ=ρ, U=U, V=V, W=W, E=E_tot, 
+   Qmoist = (q_tot * ρ,),  #Qmoist => Moist variable (may have corresponding sources)
+   Qtrace = (q_tr * ρ,))   #Qtrace => Arbitrary tracers 
 
 end
 

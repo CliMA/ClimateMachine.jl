@@ -30,12 +30,14 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 # FIXME: Will these keywords args be OK?
 function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
+
   p0::DFloat      = MSLP 
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
-  q_tot::DFloat     = 0.00
+  q_tot::DFloat   = 0
+  
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
@@ -44,20 +46,17 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   if r <= rc
     Δθ = θ_c * (1 + cos(π * r / rc)) / 2
   end
-  θ_k = θ_ref + Δθ
-  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
-  c = c_v / R_gas
-  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-  ρ = ρ_k
-  ρinv = 1/ρ
+  θ = θ_ref + Δθ
+  π_k = 1 - gravity / (c_p * θ) * x[dim]
+  
+  ρ = p0 / (R_gas * θ) * (π_k)^ (c_v / R_gas)
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
   U = ρ * u
   V = ρ * v
   W = ρ * w
-  Θ = ρ * θ_k
-  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+  P = p0 * (R_gas * (ρ * θ) / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
   # Calculation of energy per unit mass
   e_kin = (u^2 + v^2 + w^2) / 2  

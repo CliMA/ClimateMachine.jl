@@ -15,7 +15,7 @@ using CLIMA.MoistThermodynamics
 
 # ASR Correction to Prandtl number from 7.1 to 0.71
 @parameter prandtl 71//100 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
-@parameter stokes  -2//3  "scaling for viscous effect associated with volume change"
+@parameter λ_stokes  -2//3  "scaling for viscous effect associated with volume change"
 @parameter k_μ cp_d/prandtl "thermal conductivity / dynamic viscosity"
 
 const _nstate = 5

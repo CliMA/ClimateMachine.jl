@@ -23,7 +23,7 @@ P_<species>     = pressure, species (no subscript == default working fluid moist
 R_m             = gas constant, moist
 R_d             = gas constant, dry
 R_v             = gas constant, water vapour
-T               = temperature, air 
+T               = temperature, moist air 
 T_<species>     = temperature, species 
 ```
 
@@ -39,9 +39,7 @@ W		= z=momentum
 ```
 ### 2.3 Moisture balances 
 ```
-- [  ] Update with list of source terms as necessary
 source_qt           = local source/sink of water mass [S_qt]
-
 diffusiveflux_vap   = diffusive flux, water vapour
 diffusiveflux_liq   = diffusive flux, cloud liquid
 diffusiveflux_ice   = diffusive flux, cloud ice
@@ -85,4 +83,9 @@ cp_d             = isobaric specific heat, dry air
 cp_l             = isobaric specific heat, liquid water
 cp_v             = isobaric specific heat, water vapour
 cp_i             = isobaric specific heat, ice
+```
+
+### TODO
+```
+Update with list of additional parameters / source terms as necessary
 ```
