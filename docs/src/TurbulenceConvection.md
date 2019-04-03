@@ -15,7 +15,7 @@ Grids.first_elem_above_surface
 Grids.get_z
 ```
 
-## Grid operators
+## Grid Operators
 
 ```@docs
 GridOperators.∇_z
@@ -23,7 +23,7 @@ GridOperators.Δ_z
 GridOperators.adv_upwind
 ```
 
-## State vector
+## State Vector
 
 ```@docs
 StateVecs.StateVec
@@ -31,7 +31,7 @@ StateVecs.over_sub_domains
 StateVecs.Cut
 ```
 
-## Boundary conditions
+## Boundary Conditions
 ```@docs
 BoundaryConditions.Dirichlet!
 BoundaryConditions.Neumann!
@@ -39,7 +39,7 @@ BoundaryConditions.Top
 BoundaryConditions.Bottom
 ```
 
-## State vector functions
+## State Vector Functions
 ```@docs
 StateVecFuncs.first_elem_above_surface_val
 StateVecFuncs.surface_val
