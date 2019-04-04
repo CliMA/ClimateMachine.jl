@@ -20,6 +20,7 @@ using MPI
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
+using CLIMA.MPIStateArrays
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
@@ -90,6 +91,10 @@ function main(mpicomm, DFloat, topl, N, endtime, ArrayType)
                            nstate = _nstate,
                            flux! = eulerflux_standalone!,
                            numericalflux! = (x...) -> error())
+
+  # This is a actual state/function that lives on the grid
+  initialcondition(Q, x...) = isentropicvortex_standalone!(Q, DFloat(0), x...)
+  Q = MPIStateArray(spacedisc, initialcondition)
 end
 
 let

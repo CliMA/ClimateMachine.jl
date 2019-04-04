@@ -3,6 +3,7 @@ using MPI
 using ...Grids
 using ...MPIStateArrays
 using Documenter
+using StaticArrays
 
 export DGBalanceLaw
 
@@ -91,5 +92,64 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=())
 
   DGBalanceLaw(grid, nstate, gradstates, flux!, numericalflux!, Qgrad)
 end
+
+"""
+    MPIStateArray(disc::DGBalanceLaw)
+
+Given a discretization `disc` constructs an `MPIStateArrays` for holding a
+solution state
+"""
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw)
+  grid = disc.grid
+  topology = disc.grid.topology
+  nvar = disc.nstate
+  # FIXME: Remove after updating CUDA
+  h_vgeo = Array(disc.grid.vgeo)
+  DFloat = eltype(h_vgeo)
+  Np = dofs_per_element(grid)
+  DA = arraytype(grid)
+  MPIStateArray{Tuple{Np, nvar}, DFloat, DA}(topology.mpicomm,
+                                             length(topology.elems),
+                                             realelems=topology.realelems,
+                                             ghostelems=topology.ghostelems,
+                                             sendelems=topology.sendelems,
+                                             nabrtorank=topology.nabrtorank,
+                                             nabrtorecv=topology.nabrtorecv,
+                                             nabrtosend=topology.nabrtosend,
+                                             weights=view(h_vgeo, :,
+                                                          disc.grid.Mid, :))
+end
+
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
+                                      ic!::Function)
+  Q = MPIStateArray(disc)
+
+  nvar = disc.nstate
+  grid = disc.grid
+  vgeo = grid.vgeo
+  Np = dofs_per_element(grid)
+
+  # FIXME: GPUify me
+  host_array = Array ∈ typeof(Q).parameters
+  (h_vgeo, h_Q) = host_array ? (vgeo, Q) : (Array(vgeo), Array(Q))
+  Qdof = MArray{Tuple{nvar}, eltype(h_Q)}(undef)
+  @inbounds for e = 1:size(Q, 3), i = 1:Np
+    (x, y, z) = (h_vgeo[i, grid.xid, e], h_vgeo[i, grid.yid, e],
+                 h_vgeo[i, grid.zid, e])
+    ic!(Qdof, x, y, z)
+    for n = 1:nvar
+      h_Q[i, n, e] = Qdof[n]
+    end
+  end
+  if !host_array
+    Q .= h_Q
+  end
+
+  Q
+end
+
+MPIStateArrays.MPIStateArray(f::Function,
+                             d::DGBalanceLaw
+                            ) = MPIStateArray(d, f)
 
 end
