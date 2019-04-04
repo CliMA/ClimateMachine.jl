@@ -45,7 +45,7 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   θ_c::DFloat = 2
   Δθ::DFloat = 0
   Δq_tot::DFloat = 0
-  q_tot = 0.0196 
+  q_tot = 0.0196
   q_tr = 0.0100 
   if r <= rc
     Δθ = θ_c * (1 + cospi(r / rc)) / 2

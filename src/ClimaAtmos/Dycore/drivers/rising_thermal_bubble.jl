@@ -37,7 +37,7 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
-  q_tot::DFloat   = 0.01
+  q_tot::DFloat   = 0
   
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
