@@ -356,14 +356,6 @@ const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 
 using Requires
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-  using .CuArrays
-  using .CuArrays.CUDAnative
-  using .CuArrays.CUDAnative.CUDAdrv
-
-  include("VanillaAtmosDiscretizations_cuda.jl")
-end
-
 include("VanillaAtmosDiscretizations_kernels.jl")
 
 include("vtk.jl")
