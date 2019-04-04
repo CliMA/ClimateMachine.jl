@@ -24,8 +24,6 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
   nvar = _nstate + nmoist + ntrace
   ngrad = _nstategrad + 3nmoist
-
- @show(cp_d, cv_d, R_d)
     
   Nq = N + 1
 
@@ -66,7 +64,7 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         
       P  =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       θv = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
-        
+      
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
       s_v[i, j] = V/ρ
