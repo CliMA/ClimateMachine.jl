@@ -5,7 +5,7 @@ using ...MPIStateArrays
 using Documenter
 using StaticArrays
 
-export DGBalanceLaw
+export DGBalanceLaw, getodefun!
 
 """
     DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
@@ -184,6 +184,20 @@ function writevtk(prefix, vgeo::Array, Q::Array,
                     size(Q, 2))
   end
   writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
+end
+
+"""
+    getodefun!(disc::DGBalanceLaw)
+
+Given a `DGBalanceLaw` discretization, return a function that can evaluate the
+right-hand side of the ode which can be used, for example, by
+[`LowStorageRungeKuttaMethod`](@ref)
+"""
+getodefun!(disc::DGBalanceLaw) = (x...) -> odefun!(x..., disc)
+
+function odefun!(dQ::MPIStateArray, Q::MPIStateArray, t, disc::DGBalanceLaw)
+  # TODO: FILL ME!
+  dQ .= 0
 end
 
 end

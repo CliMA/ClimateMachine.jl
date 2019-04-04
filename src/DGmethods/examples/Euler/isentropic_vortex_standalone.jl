@@ -21,6 +21,11 @@ using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.ODESolvers
+using CLIMA.GenericCallbacks
+using Printf
+using LinearAlgebra
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
@@ -79,7 +84,8 @@ function isentropicvortex_standalone!(Q, t, x, y, z)
   Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 end
 
-function main(mpicomm, DFloat, topl, N, endtime, ArrayType)
+function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
+              ArrayType, dt) where {dim}
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -100,6 +106,53 @@ function main(mpicomm, DFloat, topl, N, endtime, ArrayType)
   DGBalanceLawDiscretizations.writevtk("isentropic_vortex_ic", Q, spacedisc,
                                        statenames)
 
+  lsrk = LowStorageRungeKutta(getodefun!(spacedisc), Q; dt = dt, t0 = 0)
+
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  eng0 = norm(Q)
+  @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
+
+  # Set up the information callback
+  timer = [time_ns()]
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    if s
+      timer[1] = time_ns()
+    else
+      run_time = (time_ns() - timer[1]) * 1e-9
+      (min, sec) = fldmod(run_time, 60)
+      (hrs, min) = fldmod(min, 60)
+      @printf(io, "----\n")
+      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
+      @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
+      @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
+    end
+    nothing
+  end
+
+  #= Paraview calculators:
+  P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
+  theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
+  =#
+  step = [0]
+  mkpath("vtk")
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
+    outprefix = @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
+                         dim, MPI.Comm_rank(mpicomm), step[1])
+    @printf(io, "----\n")
+    @printf(io, "doing VTK output =  %s\n", outprefix)
+    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
+    step[1] += 1
+    nothing
+  end
+
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+
+  # Print some end of the simulation information
+  engf = norm(Q)
+  @printf(io, "----\n")
+  @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
+  @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
+  @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
 end
 
 let
@@ -108,7 +161,7 @@ let
   DFloat = Float64
   Ne = (10, 10, 10)
   N = 4
-  endtime = 10
+  timeend = 10
   ArrayType = Array
 
   MPI.Initialized() || MPI.Init()
@@ -119,7 +172,8 @@ let
   brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
-  main(mpicomm, DFloat, topl, N, endtime, ArrayType)
+  dt = 1e-3
+  main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 end
 
 isinteractive() || MPI.Finalize()
