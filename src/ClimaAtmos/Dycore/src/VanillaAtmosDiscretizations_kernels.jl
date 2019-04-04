@@ -13,20 +13,8 @@ function transferrecvbuf!(device_recvbuf::Array, host_recvbuf, buf::Array,
 end
 # }}}
 
-# {{{ Convert E to theta: needed to calculate Richardson's number 
-function EtoTheta(ρ, p, e)
-    #
-    # ρ --> density
-    # p --> pressure
-    # e --> E/ρ
-    # 
-    theta = MSLP/(ρ * R_d)*( p/MSLP )^(cv_d/cp_d)
-    
-    return theta
 
-end
-# }}}
-
+# TODO 2 dimensions convert z to the vertical coordinate 
 # {{{ Volume Gradient for 2-D
 function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                      grad::Array, Q, vgeo, gravity, D,
@@ -37,6 +25,8 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   nvar = _nstate + nmoist + ntrace
   ngrad = _nstategrad + 3nmoist
 
+ @show(cp_d, cv_d, R_d)
+    
   Nq = N + 1
 
   nelem = size(Q)[end]
@@ -50,7 +40,9 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_v = Array{DFloat}(undef, Nq, Nq)
   s_T = Array{DFloat}(undef, Nq, Nq)
   s_θ = Array{DFloat}(undef, Nq, Nq)
-
+  
+  #Initialise q_m vector of moist variables
+  #Requires at least 3 elements for q_t, q_liq, q_ice
   q_m = zeros(DFloat, max(3, nmoist))
     
   @inbounds for e in elems
@@ -58,22 +50,28 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
       y = vgeo[i,j,_y,e]
-        
-      #Moist tracers
+
+      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y  
+      # Get specific humidity quantities from state vector
+      # per unit mass conversion required for sat_adjust only
       for m = 1:nmoist
-          s = _nstate + m
-          q_m[m] = Q[i, j, s, e]
+          s = _nstate + m 
+          q_m[m]  = Q[i, j, s, e] / ρ  
       end
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-      gdm1 = R_m/cv_m
-      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-      θ = EtoTheta(ρ, P, E)
+      # Saturation temperature to obtain temperature assuming thermodynamic equilibrium 
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+        
+      # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics (?)
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+        
+      P  =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
+      θv = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
         
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
       s_v[i, j] = V/ρ
-      s_T[i, j] = P/(R_m*ρ)
-      s_θ[i, j] = θ
+      s_T[i, j] = T
+      s_θ[i, j] = θv
     end
 
     for j = 1:Nq, i = 1:Nq
@@ -199,31 +197,36 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   s_w = Array{DFloat}(undef, Nq, Nq, Nq)
   s_T = Array{DFloat}(undef, Nq, Nq, Nq)
   s_θ = Array{DFloat}(undef, Nq, Nq, Nq)
-    
+
   q_m = zeros(DFloat, max(3, nmoist))
-    
+
   @inbounds for e in elems
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
       z = vgeo[i, j, k, _z, e]
-        
-      #Moist tracers
+
+      E_int = E - (U^2 + V^2 + W^2)/(2*ρ) - ρ * gravity * z  
+      
       for m = 1:nmoist
-          s = _nstate + m
-          q_m[m] = Q[i, j, k, s, e]
-      end
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])  
-      gdm1 = R_m/cv_m
-      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
-      θ = EtoTheta(ρ, P, E)
+         s = _nstate + m 
+         q_m[m] = Q[i, j, k, s, e] / ρ
+      end    
+      # Saturation temperature to obtain temperature assuming thermodynamic equilibrium 
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+        
+      # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+
+      P  =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
+      θv = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
 
       s_ρ[i, j, k] = ρ
       s_u[i, j, k] = U/ρ
       s_v[i, j, k] = V/ρ
       s_w[i, j, k] = W/ρ
-      s_T[i, j, k] = P/(R_m*ρ)
-      s_θ[i, j, k] = θ
+      s_T[i, j, k] = T
+      s_θ[i, j, k] = θv
     end
 
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
@@ -369,7 +372,8 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     nface = 6
   end
 
-  q_m = zeros(DFloat, max(3, nmoist))
+  q_mM = zeros(DFloat, max(3, nmoist))
+  q_mP = zeros(DFloat, max(3, nmoist))
 
   @inbounds for e in elems
     for f = 1:nface
@@ -386,22 +390,25 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         WM = Q[vidM, _W, eM]
         EM = Q[vidM, _E, eM]
         yorzM = (dim == 2) ? vgeo[vidM, _y, eM] : vgeo[vidM, _z, eM]
-          
-        #Moist tracers
-        for m = 1:nmoist
-            s = _nstate + m
-            q_m[m] = Q[vidM, s, eM]
+
+        E_intM = EM - (UM^2 + VM^2+ WM^2)/(2*ρM) - ρM * gravity * yorzM
+        
+	for m = 1:nmoist
+            s = _nstate + m 
+            q_mM[m] = Q[vidM, s, eM] / ρM 
         end
-        (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])  
-        gdm1 = R_m/cv_m
-          
-        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
+
         uM=UM/ρM
         vM=VM/ρM
         wM=WM/ρM
-        TM=PM/(R_m*ρM)
-
+        
+        # Saturation Adjustment
+        TM             = saturation_adjustment(E_intM/ρM, ρM, q_mM[1])
+        q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
+        PM             = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM)
+          
         bc = elemtobndy[f, e]
+
         if bc == 0
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
@@ -409,21 +416,24 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
-           
-          #Moist tracers
+
           for m = 1:nmoist
               s = _nstate + m
-              q_m[m] = Q[vidP, s, eP]
-          end
-          (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])  
-          gdm1 = R_m/cv_m
-            
-          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
-          uP=UP/ρP
-          vP=VP/ρP
-          wP=WP/ρP
-          TP=PP/(R_m*ρP)
+              q_mP[m] = Q[vidP, s, eP] / ρP
+           end
+          
+          E_intP = EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
+          
+          # Saturation Adjustment
+          TP = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
+          q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
+          PP = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP)
+          uP = UP/ρP
+          vP = VP/ρP
+          wP = WP/ρP
+ 
         elseif bc == 1
+        
           UnM = nxM * UM + nyM * VM + nzM * WM
           UP = UM - 2 * UnM * nxM
           VP = VM - 2 * UnM * nyM
@@ -435,8 +445,10 @@ function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           vP = VP/ρP
           wP = WP/ρP
           TP = TM
+        
         else
           error("Invalid boundary conditions $bc on face $f of element $e")
+        
         end
 
         fluxρS = (ρP - ρM)/2
@@ -503,7 +515,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   l_v = Array{DFloat}(undef, Nq, Nq)
 
   q_m = zeros(DFloat, max(3, nmoist))
-    
+
   @inbounds for e in elems
 
     delta = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
@@ -517,24 +529,28 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
  
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
-        
-      #Moist tracers
+
+      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
+
       for m = 1:nmoist
-          s = _nstate + m
-          q_m[m] = Q[i, j, s, e]
+          s = _nstate + m 
+          q_m[m] = Q[i, j, s, e] / ρ
       end
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-      gdm1 = R_m/cv_m
-      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-      θ = EtoTheta(ρ, P, E)      
-            
+     
+      # Returns temperature after saturation adjustment 
+      # Required for phase-partitioning to find q_liq, q_ice
+      T            = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+      P            = air_pressure(T, ρ, q_m[1], q_liq, q_ice)
+      θv           = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
+        
       ρx, ρy     = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
       ux, uy, uz = grad[i,j,_ux,e], grad[i,j,_uy,e], 0.0
       vx, vy, vz = grad[i,j,_vx,e], grad[i,j,_vy,e], 0.0
       wx, wy, wz =             0.0,             0.0, 0.0
       Tx, Ty     = grad[i,j,_Tx,e], grad[i,j,_Ty,e], 0.0
-      θx, θy     = grad[i,j,_θx,e], grad[i,j,_θy,e], 0.0
-    
+      θvx, θvy   = grad[i,j,_θx,e], grad[i,j,_θy,e], 0.0
+      
       #---------------------------------------------------------
       # BUILD magnitude of strain tensor 
       # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
@@ -550,7 +566,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       modSij = sqrt(2.0*SijSij)
 
       #Richardson number:
-      Ri = (grav/θ)*θy/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
+      Ri = (grav/θv)*θvy/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
       
       #Smagorinsky eddy viscosities:
       auxr = max(0.0, 1.0 - Ri/prandtl)
@@ -560,7 +576,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         
       ρinv = 1 / ρ
 
-      ldivu = stokes*(ux + vy)
+      ldivu = λ_stokes*(ux + vy)
       u = ρinv*U
       v = ρinv*V
 
@@ -631,8 +647,8 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
         ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
         u, v = l_u[i, j], l_v[i, j]
-
-        q = Q[i, j, s, e]
+        
+        q = Q[i, j, s, e] 
         qx = grad[i, j, ss+1, e]
         qy = grad[i, j, ss+2, e]
 
@@ -714,8 +730,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   l_u = Array{DFloat}(undef, Nq, Nq, Nq)
   l_v = Array{DFloat}(undef, Nq, Nq, Nq)
   l_w = Array{DFloat}(undef, Nq, Nq, Nq)
-
-  q_m   = zeros(DFloat, max(3, nmoist))
+  q_m = zeros(DFloat, max(3, nmoist))
 
   @inbounds for e in elems
 
@@ -732,23 +747,28 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
-        
-      #Moist tracers
-      for m = 1:nmoist
-          s = _nstate + m
-          q_m[m] = Q[i, j, k, s, e]
-      end
-      (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-      gdm1 = R_m/cv_m
-      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
-      θ = EtoTheta(ρ, P, E)
 
-      ρx, ρy, ρz = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
-      ux, uy, uz = grad[i,j,k,_ux,e], grad[i,j,k,_uy,e], grad[i,j,k,_uz,e]
-      vx, vy, vz = grad[i,j,k,_vx,e], grad[i,j,k,_vy,e], grad[i,j,k,_vz,e]
-      wx, wy, wz = grad[i,j,k,_wx,e], grad[i,j,k,_wy,e], grad[i,j,k,_wz,e]
-      Tx, Ty, Tz = grad[i,j,k,_Tx,e], grad[i,j,k,_Ty,e], grad[i,j,k,_Tz,e]
-      θx, θy, θz = grad[i,j,k,_θx,e], grad[i,j,k,_θy,e], grad[i,j,k,_θz,e]
+      E_int = E - (U^2 + V^2 + W^2)/(2*ρ) - ρ * gravity * z
+      
+      for m = 1:nmoist
+          s = _nstate + m 
+          q_m[m] = Q[i, j, k, s, e] / ρ
+      end
+      
+      # Calculate temperpature after saturation adjustment
+      # Required for phase partitioning to get q_liq, q_ice
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])      
+      P            =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
+      θv           = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
+    
+      ρx, ρy, ρz  = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
+      ux, uy, uz  = grad[i,j,k,_ux,e], grad[i,j,k,_uy,e], grad[i,j,k,_uz,e]
+      vx, vy, vz  = grad[i,j,k,_vx,e], grad[i,j,k,_vy,e], grad[i,j,k,_vz,e]
+      wx, wy, wz  = grad[i,j,k,_wx,e], grad[i,j,k,_wy,e], grad[i,j,k,_wz,e]
+      Tx, Ty, Tz  = grad[i,j,k,_Tx,e], grad[i,j,k,_Ty,e], grad[i,j,k,_Tz,e]
+      θvx,θvy,θvz = grad[i,j,k,_θx,e], grad[i,j,k,_θy,e], grad[i,j,k,_θz,e]
 
       #---------------------------------------------------------
       # BUILD magnitude of strain tensor 
@@ -765,17 +785,17 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       modSij = sqrt(2.0*SijSij)
 
       #Richardson number:
-      Ri = (grav/θ)*θz/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
+      Ri = (grav/θv)*θvz/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
         
       #Smagorinsky eddy viscosities:
       auxr = max(0.0, 1.0 - Ri/prandtl)
-      Km = Cs*Cs*delta2*modSij*sqrt(auxr)
-      Kh = 3*Km                 #3.0 comes from KW 1978 paper
+      Km   = Cs*Cs*delta2*modSij*sqrt(auxr)
+      Kh   = 3*Km                 #3.0 comes from KW 1978 paper
 
           
       ρinv = 1 / ρ
 
-      ldivu = stokes*(ux + vy + wz)
+      ldivu = λ_stokes*(ux + vy + wz)
       u = ρinv*U
       v = ρinv*V
       w = ρinv*W
@@ -878,7 +898,7 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
         u, v, w = l_u[i, j, k], l_v[i, j, k], l_w[i, j, k]
 
-        q = Q[i, j, k, s, e]
+        q = Q[i, j, k, s, e] 
         qx = grad[i, j, k, ss+1, e]
         qy = grad[i, j, k, ss+2, e]
         qz = grad[i, j, k, ss+3, e]
@@ -976,6 +996,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     nface = 6
   end
 
+    q_mM = zeros(DFloat, max(3, nmoist))
+    q_mP = zeros(DFloat, max(3, nmoist))
+
   @inbounds for e in elems
     for f = 1:nface
       for n = 1:Nfp
@@ -984,6 +1007,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
         vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
+        
 
         ρxM = grad[vidM, _ρx, eM]
         ρyM = grad[vidM, _ρy, eM]
@@ -1010,33 +1034,41 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
         ρMinv = 1 / ρM
         uM, vM, wM = ρMinv * UM, ρMinv * VM, ρMinv * WM
-
         bc = elemtobndy[f, e]
-          
-        #Moist tracers
+
+        
         for m = 1:nmoist
-            s =_nstate + m
-            q_m[m] = Q[vidM, s, eM]
+            s = _nstate + m 
+            q_mM[m] = Q[vidM, s, eM] / ρM
         end
-        (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])
-        gdm1 = R_m/cv_m
-        PM = gdm1*(EM - (UM^2 + VM^2 + WM^2)/(2*ρM) - ρM*gravity*yorzM)
+
+        E_intM = EM - (UM^2 + VM^2+ WM^2)/(2*ρM) - ρM * gravity * yorzM
+
+        # get adjusted temperature and liquid and ice specific humidities
+        TM = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
+        q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
+        PM = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
+     
         if bc == 0
+          
           ρP = Q[vidP, _ρ, eP]
           UP = Q[vidP, _U, eP]
           VP = Q[vidP, _V, eP]
           WP = Q[vidP, _W, eP]
           EP = Q[vidP, _E, eP]
+
+          for m = 1:nmoist
+            s = _nstate + m 
+            q_mP[m] = Q[vidP, s, eP] / ρP
+          end
+
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
 
-          #Moist tracers
-          for m = 1:nmoist
-              s =_nstate + m
-              q_m[m] = Q[vidP, s, eP]
-          end
-          (R_m, cp_m, cv_m, gamma_m) = MoistThermodynamics.moist_gas_constants(q_m[1], q_m[2], q_m[3])        
-          gdm1 = R_m/cv_m
-          PP = gdm1*(EP - (UP^2 + VP^2 + WP^2)/(2*ρP) - ρP*gravity*yorzP)
+          E_intP= EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
+        
+          TP = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
+          q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
+          PP = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
 
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
@@ -1061,6 +1093,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           ρP = ρM
           EP = EM
           PP = PM
+          TP = TM
 
           ρnM = nxM * ρxM + nyM * ρyM + nzM * ρzM
           ρxP = ρxM - 2 * ρnM * nxM
@@ -1125,11 +1158,11 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         fluxVP_z = wP * VP
         fluxWP_z = wP * WP + PP
         fluxEP_z = wP * (EP + PP)
-          
-        λM = abs(nxM * uM + nyM * vM + nzM * wM) + sqrt(ρMinv * gamma_m * PM)
-        λP = abs(nxM * uP + nyM * vP + nzM * wP) + sqrt(ρPinv * gamma_m * PP)
-        λ  =  max(λM, λP)
 
+        λM = abs(nxM * uM + nyM * vM + nzM * wM) + soundspeed_air(TM)
+        λP = abs(nxM * uP + nyM * vP + nzM * wP) + soundspeed_air(TP)
+        λ  = max(λM, λP)
+          
         #Compute Numerical Flux
         fluxρS = (nxM * (fluxρM_x + fluxρP_x) + nyM * (fluxρM_y + fluxρP_y) +
                   nzM * (fluxρM_z + fluxρP_z) - λ * (ρP - ρM)) / 2
@@ -1144,7 +1177,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
         #Compute Viscous Numerical Flux
         #Left Fluxes
-        ldivuM = stokes*(uxM + vyM + wzM)
+        ldivuM = λ_stokes*(uxM + vyM + wzM)
         vfρM_x = 0*ρxM
         vfρM_y = 0*ρyM
         vfρM_z = 0*ρzM
@@ -1162,7 +1195,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         vfEM_z = uM*(wxM + uzM) + vM*(wyM + vzM) + wM*(2*wzM + ldivuM) + k_μ*TzM
 
         #Right Fluxes
-        ldivuP = stokes*(uxP + vyP + wzP)
+        ldivuP = λ_stokes*(uxP + vyP + wzP)
         vfρP_x = 0*ρxP
         vfρP_y = 0*ρyP
         vfρP_z = 0*ρzP
@@ -1203,7 +1236,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         for m = 1:nmoist
           s = _nstate + m
           ss = _nstategrad + 3*(m-1)
-
+	  
           QmoistM = Q[vidM, s, eM]
 
           qxM = grad[vidM, ss + 1, eM]
@@ -1231,7 +1264,8 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
           fluxS = (nxM * (fluxM_x + fluxP_x) + nyM * (fluxM_y + fluxP_y) +
                    nzM * (fluxM_z + fluxP_z) - λ * (QmoistP - QmoistM)) / 2
-
+          
+          # Moist Variable viscous flux
           vfqM_x, vfqP_x = 0*qxM, 0*qxP
           vfqM_y, vfqP_y = 0*qyM, 0*qyP
           vfqM_z, vfqP_z = 0*qzM, 0*qzP
