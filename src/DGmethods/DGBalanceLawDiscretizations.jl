@@ -152,4 +152,38 @@ MPIStateArrays.MPIStateArray(f::Function,
                              d::DGBalanceLaw
                             ) = MPIStateArray(d, f)
 
+#TODO: Need to think about where this should really live. Grid? MPIStateArrays?
+include("../Mesh/vtk.jl")
+function writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw,
+                  fieldnames=nothing)
+  vgeo = disc.grid.vgeo
+  host_array = Array ∈ typeof(Q).parameters
+  (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
+  writevtk(prefix, h_vgeo, h_Q, disc.grid, fieldnames)
+end
+
+function writevtk(prefix, vgeo::Array, Q::Array,
+                  grid, fieldnames)
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq  = N+1
+
+  nelem = size(Q)[end]
+  Xid = (grid.xid, grid.yid, grid.zid)
+  X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
+                        ntuple(j->Nq, dim)...,
+                        nelem), dim)
+  if fieldnames == nothing
+    fields = ntuple(i->("Q$i", reshape((@view Q[:, i, :]),
+                                       ntuple(j->Nq, dim)..., nelem)),
+                    size(Q, 2))
+  else
+    fields = ntuple(i->(fieldnames[i], reshape((@view Q[:, i, :]),
+                                               ntuple(j->Nq, dim)..., nelem)),
+                    size(Q, 2))
+  end
+  writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
+end
+
 end

@@ -25,6 +25,7 @@ using CLIMA.MPIStateArrays
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
+const statenames = ("ρ", "U", "V", "W", "E")
 
 # physical flux function
 function eulerflux_standalone!(F, Q, ignored...)
@@ -95,6 +96,10 @@ function main(mpicomm, DFloat, topl, N, endtime, ArrayType)
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex_standalone!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
+
+  DGBalanceLawDiscretizations.writevtk("isentropic_vortex_ic", Q, spacedisc,
+                                       statenames)
+
 end
 
 let
