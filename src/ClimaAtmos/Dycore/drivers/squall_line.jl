@@ -1,13 +1,14 @@
 using MPI
 
-using CLIMAAtmosDycore.Topologies
-using CLIMAAtmosDycore.Grids
-using CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMAAtmosDycore.AtmosStateArrays
-using CLIMAAtmosDycore.LSRKmethods
-using CLIMAAtmosDycore.GenericCallbacks
-using CLIMAAtmosDycore
-using Utilities.MoistThermodynamics
+using CLIMA.Topologies
+using CLIMA.Grids
+using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.MPIStateArrays
+using CLIMA.ODESolvers
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.GenericCallbacks
+using CLIMA.CLIMAAtmosDycore
+using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using DelimitedFiles
 using Dierckx
@@ -25,8 +26,10 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-using ParametersType
-using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
+
+using CLIMA.ParametersType
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
+
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
@@ -102,12 +105,12 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
     datap      = zeros(Float64, nz)
     thetav     = zeros(Float64, nz)
     datapi     = zeros(Float64, nz)
-    ρ      = zeros(Float64, nz)
-    U      = zeros(Float64, nz)
-    V      = zeros(Float64, nz)
-    P      = zeros(Float64, nz)
-    T      = zeros(Float64, nz)
-    E      = zeros(Float64, nz)
+    ρ          = zeros(Float64, nz)
+    U          = zeros(Float64, nz)
+    V          = zeros(Float64, nz)
+    P          = zeros(Float64, nz)
+    T          = zeros(Float64, nz)
+    E          = zeros(Float64, nz)
     datarho    = zeros(Float64, nz)
     ini_data_interp = zeros(Float64, nz, 10)
 
