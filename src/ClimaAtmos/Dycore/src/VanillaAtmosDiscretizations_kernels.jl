@@ -551,9 +551,9 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       #Richardson number:
       Ri = (grav/θ)*θy/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
-        
+      
       #Smagorinsky eddy viscosities:
-      auxr = max(0.0, 1.0 - Ri)
+      auxr = max(0.0, 1.0 - Ri/prandtl)
       Km = Cs*Cs*delta2*modSij*sqrt(auxr)
       Kh = 3*Km                 #3.0 comes from KW 1978 paper
       
@@ -766,9 +766,9 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
       #Richardson number:
       Ri = (grav/θ)*θz/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
-
+        
       #Smagorinsky eddy viscosities:
-      auxr = max(0.0, 1.0 - Ri)
+      auxr = max(0.0, 1.0 - Ri/prandtl)
       Km = Cs*Cs*delta2*modSij*sqrt(auxr)
       Kh = 3*Km                 #3.0 comes from KW 1978 paper
 
