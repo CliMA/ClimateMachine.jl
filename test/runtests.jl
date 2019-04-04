@@ -1,10 +1,13 @@
 using Test, Pkg
 
-for submodule in ["ParametersType",
-                  "PlanetParameters",
-                  "Utilities",
+for submodule in ["Utilities/ParametersType",
+                  "Utilities/PlanetParameters",
+                  "Utilities/RootSolvers",
+                  "Utilities/MoistThermodynamics",
                   "ClimaAtmos/Parameterizations/SurfaceFluxes",
-                  "ClimaAtmos/Dycore"]
+                  "ClimaAtmos/Parameterizations/TurbulenceConvection",
+                  "Mesh",
+                  ]
 
   println("Testing $submodule")
   include(joinpath("../src",submodule,"test/runtests.jl"))

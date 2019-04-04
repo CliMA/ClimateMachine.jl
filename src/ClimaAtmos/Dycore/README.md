@@ -22,7 +22,7 @@ If you are having problems building MPI.jl then most likely CMake cannot find
 your MPI compilers.  Try running
 
 ```bash
-CC=$(which mpicc) CXX=$(which mpicxx) FC=$(which mpif90) julia --project=. -e "using Pkg; Pkg.build(\"MPI\")"
+CC=$(which mpicc) CXX=$(which mpicxx) FC=$(which mpif90) julia --project=@. -e "using Pkg; Pkg.build(\"MPI\")"
 ```
 
 which points the `CC`, `CXX`, and `FC` environment variables to the version of
