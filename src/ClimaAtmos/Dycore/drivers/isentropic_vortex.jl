@@ -12,19 +12,6 @@ using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
-const HAVE_CUDA = try
-  using CuArrays
-  using CUDAdrv
-  using CUDAnative
-  true
-catch
-  false
-end
-
-macro hascuda(ex)
-  return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
-end
-
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
 @parameter γ_d cp_d/cv_d "Heat capacity ratio of dry air"
@@ -192,15 +179,13 @@ let
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
-  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
-
   Ne = (10, 10, 10)
   N = 4
   timeend = 1
   nmoist = 0
   ntrace = 0
   for DFloat in (Float64,Float32)
-    for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+    for ArrayType in (Array,)
       for bricktopo in (BrickTopology, StackedBrickTopology)
         for dim in 2:3
           brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
