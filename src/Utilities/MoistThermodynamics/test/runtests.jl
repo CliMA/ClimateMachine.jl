@@ -55,10 +55,11 @@ using LinearAlgebra
   q_l = 0.1;
   ρ   = [1., .1];
   q_t = [.21, .60];
-  q_l_out = zeros(size(T)); q_i_out = zeros(size(T))
   @test liquid_fraction.(T) ≈ [0, 1]
   @test liquid_fraction.(T, [q_l, q_l], [q_l, q_l/2]) ≈ [0.5, 2/3]
-  phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t);
+    q_result = phase_partitioning_eq.(T, ρ, q_t);
+    q_l_out = first.(q_result)
+    q_i_out = last.(q_result)
     @test q_l_out[1] ≈ 0
     @test q_l_out[2] > 0
     @test q_l_out[2] <= q_t[2]
@@ -68,19 +69,25 @@ using LinearAlgebra
 
   # saturation adjustment in equilibrium (i.e., given the thermodynamic
   # variables E_int, p, q_t, compute the temperature and partitioning of the phases
-  T_true        = [200., 300.];
-  T_trial       = [220., 290.];
-  q_t           = [.21, .78];
-  ρ             = [.1, 1];
+  T_true        = [300., 200., 300.];
+  T_trial       = [T_triple, 220., 290.];
+  q_t           = [0, .21, .78];
+  ρ             = [1, .1, 1];
   E_int         = internal_energy_sat.(T_true, ρ, q_t);
   T             = saturation_adjustment.(E_int, ρ, q_t, T_trial);
   @test norm(T - T_true)/length(T) < 1e-2
   # @test all(T .≈ T_true)
 
   # corresponding phase partitioning
-  q_l_out = zeros(size(T)); q_i_out = zeros(size(T));
-  phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t);
-
+  T_true        = [200., 300.];
+  T_trial       = [220., 290.];
+  q_t           = [0.21, 0.78]
+  ρ             = [.1, 1];
+  E_int         = internal_energy_sat.(T_true, ρ, q_t);
+  T             = saturation_adjustment.(E_int, ρ, q_t, T_trial);
+  q_result      = phase_partitioning_eq.(T, ρ, q_t);
+  q_l_out = first.(q_result)
+  q_i_out = last.(q_result)
   @test q_t - q_l_out - q_i_out ≈ saturation_shum.(T, ρ)
 
   # potential temperatures
