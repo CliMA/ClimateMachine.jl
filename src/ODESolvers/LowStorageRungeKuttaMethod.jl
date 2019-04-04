@@ -8,7 +8,7 @@ using Requires
   using .CuArrays.CUDAnative
   using .CuArrays.CUDAnative.CUDAdrv
 
-  include("LowStorageRungeKutta_cuda.jl")
+  include("LowStorageRungeKuttaMethod_cuda.jl")
 end
 
 using ...ODESolvers
