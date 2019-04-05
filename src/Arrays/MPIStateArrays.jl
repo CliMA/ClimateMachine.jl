@@ -3,7 +3,7 @@ using LinearAlgebra
 
 using MPI
 
-export MPIStateArray
+export MPIStateArray, euclideandist
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -288,57 +288,50 @@ function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
   energy
 end
 
-#=
-# {{{ L2 Error (for all dimensions)
-function AD.L2errornorm(runner::Runner{DeviceArray}, Qexact;
-                        host=false, Q = nothing, vgeo = nothing,
-                        time = nothing) where DeviceArray
-  host || error("Currently requires host configuration")
-  state = runner.state
-  config = runner.config
-  params = runner.params
-  cpubackend = DeviceArray == Array
-  if vgeo == nothing
-    vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
-  end
-  if Q == nothing
-    Q = cpubackend ? state.Q : Array(state.Q)
-  end
-  if time == nothing
-    time = state.time[1]
+function euclideandist(A::MPIStateArray, B::MPIStateArray)
+
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  Np = size(A, 1)
+
+  host_array = Array ∈ typeof(B).parameters
+  h_B = host_array ? B : Array(B)
+  @assert Np === size(B, 1)
+
+  if isempty(A.weights)
+    locdist = knl_dist(Val(Np), h_A, h_B, A.realelems)
+  else
+    locdist = knl_L2dist(Val(Np), h_A, h_B, A.weights, A.realelems)
   end
 
-  dim = params.dim
-  N = params.N
-  realelems = config.mesh.realelems
-  locnorm2 = L2errornorm(Val(dim), Val(N), time, Q, vgeo, realelems, Qexact)
-  sqrt(MPI.allreduce([locnorm2], MPI.SUM, config.mpicomm)[1])
+  sqrt(MPI.allreduce([locdist], MPI.SUM, A.mpicomm)[1])
 end
 
-function L2errornorm(::Val{dim}, ::Val{N}, time, Q, vgeo, elems,
-                     Qexact) where
-  {dim, N}
-  DFloat = eltype(Q)
-  Np = (N+1)^dim
-  (_, nstate, nelem) = size(Q)
+function knl_dist(::Val{Np}, A, B, elems) where {Np}
+  DFloat = eltype(A)
+  (_, nstate, nelem) = size(A)
 
-  errorsq = zero(DFloat)
+  dist = zero(DFloat)
 
-  @inbounds for e = elems,  i = 1:Np
-    x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
-    ρex, Uex, Vex, Wex, Eex = Qexact(time, x, y, z)
-
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _ρ, e] - ρex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _U, e] - Uex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _V, e] - Vex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _W, e] - Wex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _E, e] - Eex)^2
+  @inbounds for e = elems, q = 1:nstate, i = 1:Np
+    dist += (A[i, q, e] - B[i, q, e])^2
   end
 
-  errorsq
+  dist
 end
-# }}}
-=#
+
+function knl_L2dist(::Val{Np}, A, B, weights, elems) where {Np}
+  DFloat = eltype(A)
+  (_, nstate, nelem) = size(A)
+
+  dist = zero(DFloat)
+
+  @inbounds for e = elems, q = 1:nstate, i = 1:Np
+    dist += weights[i, e] * (A[i, q, e] - B[i, q, e])^2
+  end
+
+  dist
+end
 
 # }}}
 
