@@ -69,7 +69,7 @@ end
 # max eigenvalue
 function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
-  abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
+  @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
@@ -90,7 +90,7 @@ end
 
 # initial condition
 const halfperiod = 5
-function isentropicvortex_standalone!(Q, t, x, y, z)
+function isentropicvortex!(Q, t, x, y, z)
   DFloat = eltype(Q)
 
   γ::DFloat    = γ_exact
@@ -121,7 +121,7 @@ function isentropicvortex_standalone!(Q, t, x, y, z)
   W = ρ*w
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
-  Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
+  @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 end
 
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
@@ -142,16 +142,14 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                                                preflux))
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = isentropicvortex_standalone!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
-
-  DGBalanceLawDiscretizations.writevtk("isentropic_vortex_ic", Q, spacedisc,
-                                       statenames)
 
   lsrk = LowStorageRungeKutta(getodefun!(spacedisc), Q; dt = dt, t0 = 0)
 
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
   eng0 = norm(Q)
+  @printf(io, "----\n")
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
 
   # Set up the information callback
@@ -187,23 +185,26 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
     nothing
   end
 
+  # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+
+  Qe = MPIStateArray(spacedisc,
+                    (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
 
   # Print some end of the simulation information
   engf = norm(Q)
+  engfe = norm(Qe)
+  errf = euclideandist(Q, Qe)
   @printf(io, "----\n")
-  @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
+  @printf(io, "||Q||₂ ( final ) = %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+  @printf(io, "||Q - Qe||₂ = %.16e\n", errf)
+  @printf(io, "||Q - Qe||₂ / ||Qe||₂ = %.16e\n", errf / engfe)
+  errf
 end
 
-let
-
-  dim = 2
-  DFloat = Float64
-  Ne = (10, 10, 10)
-  N = 4
-  timeend = 10
+function run(dim, Ne, N, timeend, DFloat)
   ArrayType = Array
 
   MPI.Initialized() || MPI.Init()
@@ -214,8 +215,44 @@ let
   brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
-  dt = 1e-3
+  dt = 1e-2 / Ne[1] # not a general purpose dt calculation
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
+end
+
+
+using Test
+let
+  timeend = 0.1
+  numelem = (5, 5, 1)
+  lvls = 3
+
+  polynomialorder = 4
+  expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
+
+  expected_error[1,1] = 2.1847772254536194e-01
+  expected_error[1,2] = 4.2407495588804751e-02
+  expected_error[1,3] = 1.9657927458502427e-03
+  expected_error[2,1] = 6.9088722124975122e-01
+  expected_error[2,2] = 1.3410427592416493e-01
+  expected_error[2,3] = 6.2163824847219348e-03
+
+  for DFloat in (Float64,) #Float32)
+    for dim = 2:3
+      err = zeros(DFloat, lvls)
+      for l = 1:lvls
+        err[l] = run(dim, ntuple(j->2^(l-1) * numelem[j], dim),
+                     polynomialorder, timeend, DFloat)
+        @test err[l] ≈ DFloat(expected_error[dim-1, l])
+      end
+      if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        @printf("----\n")
+        for l = 1:lvls-1
+          rate = log2(err[l]) - log2(err[l+1])
+          @printf("rate for level %d = %e\n", l, rate)
+        end
+      end
+    end
+  end
 end
 
 isinteractive() || MPI.Finalize()
