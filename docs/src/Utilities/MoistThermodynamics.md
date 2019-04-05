@@ -33,7 +33,7 @@ A moist dynamical core that assumes equilibrium thermodynamics can be obtained f
     T = saturation_adjustment(e_int, ρ, q_t, T_init);
     q_l, q_i = phase_partitioning_eq(T, ρ, q_t);
 ```
-here, `ρ` is the density of the moist air, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `e_int = E_tot - KE - geopotential` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
+here, `ρ` is the density of the moist air, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `e_int = e_tot - KE - geopotential` is the total energy `e_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
 
 Schematically, the workflow in such a core would look as follows:
 ```julia
@@ -47,16 +47,16 @@ Schematically, the workflow in such a core would look as follows:
     (u, v, w)    = ...
     KE           = 0.5 * (u.^2 .+ v.^2 .+ w.^2)
 
-    E_tot        = total_energy(KE, geopotential, T, q_t)
+    e_tot        = total_energy(KE, geopotential, T, q_t)
 
     do timestep   # timestepping loop
 
       # advance dynamical variables by a timestep (temperature typically
       # appears in terms on the rhs, such as radiative transfer)
-      advance(u, v, w, ρ, E_tot, q_t)
+      advance(u, v, w, ρ, e_tot, q_t)
 
       # compute internal energy from dynamic variables
-      e_int = E_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
+      e_int = e_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
 
       # compute temperature, pressure and condensate specific humidities,
       # using T_prev as initial condition for iterations
