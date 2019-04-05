@@ -255,6 +255,10 @@ function odefun!(dQ::MPIStateArray, Q::MPIStateArray, t, disc::DGBalanceLaw)
 
   Dmat = grid.D
   vgeo = grid.vgeo
+  sgeo = grid.sgeo
+  vmapM = grid.vmapM
+  vmapP = grid.vmapP
+  elemtobndy = grid.elemtobndy
 
   ########################
   # Gradient Computation #
@@ -283,7 +287,10 @@ function odefun!(dQ::MPIStateArray, Q::MPIStateArray, t, disc::DGBalanceLaw)
 
   MPIStateArrays.finishexchange!(ngradstate > 0 ? Qgrad : Q)
 
-  # TODO: facerhs!
+  facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
+           Val(nauxdstate), disc.numericalflux!, dQ.Q, Q.Q, Qgrad.Q,
+           auxc.Q, auxd.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+           topology.realelems)
 end
 
 end

@@ -88,3 +88,102 @@ function volumerhs!(::Val{dim}, ::Val{N},
     end
   end
 end
+
+function facerhs!(::Val{dim}, ::Val{N},
+                  ::Val{nstate}, ::Val{ngradstate},
+                  ::Val{nauxcstate}, ::Val{nauxdstate},
+                  numericalflux!,
+                  rhs::Array, Q, Qgrad, auxc, auxd,
+                  vgeo, sgeo,
+                  t, vmapM, vmapP, elemtobndy,
+                  elems) where {dim, N, nstate, ngradstate, nauxcstate,
+                                nauxdstate}
+  DFloat = eltype(Q)
+
+  if dim == 1
+    Np = (N+1)
+    Nfp = 1
+    nface = 2
+  elseif dim == 2
+    Np = (N+1) * (N+1)
+    Nfp = (N+1)
+    nface = 4
+  elseif dim == 3
+    Np = (N+1) * (N+1) * (N+1)
+    Nfp = (N+1) * (N+1)
+    nface = 6
+  end
+
+  l_QM = MArray{Tuple{nstate}, DFloat}(undef)
+  l_QgradM = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_ϕcM = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  l_ϕdM = MArray{Tuple{nauxdstate}, DFloat}(undef)
+
+  l_QP = MArray{Tuple{nstate}, DFloat}(undef)
+  l_QgradP = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_ϕcP = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  l_ϕdP = MArray{Tuple{nauxdstate}, DFloat}(undef)
+
+  l_F = MArray{Tuple{nstate}, DFloat}(undef)
+
+  @inbounds for e in elems
+    for f = 1:nface
+      for n = 1:Nfp
+        nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
+        sMJ, vMJI = sgeo[_sMJ, n, f, e], sgeo[_vMJI, n, f, e]
+        idM, idP = vmapM[n, f, e], vmapP[n, f, e]
+
+        eM, eP = e, ((idP - 1) ÷ Np) + 1
+        vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
+
+        # Load minus side data
+        for s = 1:nstate
+          l_QM[s] = Q[vidM, s, eM]
+        end
+
+        for s = 1:ngradstate
+          l_QgradM[s] = Qgrad[vidM, s, eM]
+        end
+
+        for s = 1:nauxcstate
+          l_ϕcM[s] = ϕc[vidM, s, eM]
+        end
+
+        for s = 1:nauxdstate
+          l_ϕdM[s] = ϕd[vidM, s, eM]
+        end
+
+        # Load plus side data
+        for s = 1:nstate
+          l_QP[s] = Q[vidP, s, eP]
+        end
+
+        for s = 1:ngradstate
+          l_QgradP[s] = Qgrad[vidP, s, eP]
+        end
+
+        for s = 1:nauxcstate
+          l_ϕcP[s] = ϕc[vidP, s, eP]
+        end
+
+        for s = 1:nauxdstate
+          l_ϕdP[s] = ϕd[vidP, s, eP]
+        end
+
+        # Fix up for boundary conditions
+        bc = elemtobndy[f, e]
+        @assert bc == 0 #cannot handle bc yet
+
+        numericalflux!(l_F, nM,
+                       l_QM, l_QgradM, l_ϕcM, l_ϕdM,
+                       l_QP, l_QgradP, l_ϕcP, l_ϕdP,
+                       t)
+
+        #Update RHS
+        for s = 1:nstate
+          rhs[vidM, s, eM] -= vMJI * sMJ * l_F[s]
+        end
+      end
+    end
+  end
+end
