@@ -63,34 +63,61 @@ struct DGBalanceLaw
   numericalflux!::Function
 
   "storage for the grad"
-  Qgrad::Union{Nothing, MPIStateArray}
+  Qgrad::MPIStateArray
 
+  "constant auxiliary state"
+  auxc::MPIStateArray
+
+  "dynamic auxiliary state"
+  auxd::MPIStateArray
 end
 
-function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=())
+function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
+                      nauxcstate=0, nauxdstate=0)
+  @assert nauxcstate == 0 # Still need to handle these
+  @assert nauxdstate == 0 # Still need to handle these
   ngradstate = length(gradstates)
-  if ngradstate > 0
-    topology = grid.topology
-    Np = dofs_per_element(grid)
-    h_vgeo = Array(grid.vgeo)
-    DFloat = eltype(h_vgeo)
-    DA = arraytype(grid)
-    # TODO: Clean up this MPIStateArray interface...
-    Qgrad = MPIStateArray{Tuple{Np, ngradstate}, DFloat, DA
-                         }(topology.mpicomm,
-                           length(topology.elems),
-                           realelems=topology.realelems,
-                           ghostelems=topology.ghostelems,
-                           sendelems=topology.sendelems,
-                           nabrtorank=topology.nabrtorank,
-                           nabrtorecv=topology.nabrtorecv,
-                           nabrtosend=topology.nabrtosend,
-                           weights=view(h_vgeo, :, grid.Mid, :))
-  else
-    Qgrad = nothing
-  end
+  topology = grid.topology
+  Np = dofs_per_element(grid)
+  h_vgeo = Array(grid.vgeo)
+  DFloat = eltype(h_vgeo)
+  DA = arraytype(grid)
+  # TODO: Clean up this MPIStateArray interface...
+  Qgrad = MPIStateArray{Tuple{Np, ngradstate}, DFloat, DA
+                       }(topology.mpicomm,
+                         length(topology.elems),
+                         realelems=topology.realelems,
+                         ghostelems=topology.ghostelems,
+                         sendelems=topology.sendelems,
+                         nabrtorank=topology.nabrtorank,
+                         nabrtorecv=topology.nabrtorecv,
+                         nabrtosend=topology.nabrtosend,
+                         weights=view(h_vgeo, :, grid.Mid, :))
 
-  DGBalanceLaw(grid, nstate, gradstates, flux!, numericalflux!, Qgrad)
+  auxc = MPIStateArray{Tuple{Np, nauxcstate}, DFloat, DA
+                      }(topology.mpicomm,
+                        length(topology.elems),
+                        realelems=topology.realelems,
+                        ghostelems=topology.ghostelems,
+                        sendelems=topology.sendelems,
+                        nabrtorank=topology.nabrtorank,
+                        nabrtorecv=topology.nabrtorecv,
+                        nabrtosend=topology.nabrtosend,
+                        weights=view(h_vgeo, :, grid.Mid, :))
+
+  auxd = MPIStateArray{Tuple{Np, nauxdstate}, DFloat, DA
+                      }(topology.mpicomm,
+                        length(topology.elems),
+                        realelems=topology.realelems,
+                        ghostelems=topology.ghostelems,
+                        sendelems=topology.sendelems,
+                        nabrtorank=topology.nabrtorank,
+                        nabrtorecv=topology.nabrtorecv,
+                        nabrtosend=topology.nabrtosend,
+                        weights=view(h_vgeo, :, grid.Mid, :))
+
+  DGBalanceLaw(grid, nstate, gradstates, flux!, numericalflux!, Qgrad,
+               auxc, auxd)
 end
 
 """
