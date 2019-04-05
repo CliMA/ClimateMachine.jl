@@ -7,6 +7,17 @@ using StaticArrays
 
 export DGBalanceLaw, getodefun!
 
+# {{{ FIXME: remove this after we've figure out how to pass through to kernel
+const _nvgeo = 14
+const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
+       _x, _y, _z = 1:_nvgeo
+
+const _nsgeo = 5
+const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
+# }}}
+include("DGBalanceLawDiscretizations_kernels.jl")
+
+
 """
     DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                  nstate::Int,
@@ -24,7 +35,11 @@ Given a balance law for `nstate` fields of the form
 The flux function `F_{i}` can depend on the state `q`, gradient `q` for `j =
 1,...,d`, time `t`, and a set of user defined "constant" state `ϕ`.
 
-The flux functions `flux!` has syntax `flux!(F, Q, G, ϕ_c, ϕ_d, t)` where:
+The flux functions `flux!` has syntax
+```
+    flux!(F, Q, G, ϕ_c, ϕ_d, t)
+```
+where:
 - `F` is an `MArray` of size `(d, nstate)` to be filled
 - `Q` is the state to evaluate
 - `G` is an array of size `(d, ngradstate)` for `Q` for `j = 1,...,d` for the
@@ -223,8 +238,52 @@ right-hand side of the ode which can be used, for example, by
 getodefun!(disc::DGBalanceLaw) = (x...) -> odefun!(x..., disc)
 
 function odefun!(dQ::MPIStateArray, Q::MPIStateArray, t, disc::DGBalanceLaw)
-  # TODO: FILL ME!
-  dQ .= 0
+  grid = disc.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  Qgrad = disc.Qgrad
+  auxc = disc.auxc
+  auxd = disc.auxd
+
+  nstate = disc.nstate
+  ngradstate = length(disc.gradstates)
+  nauxcstate = size(auxc, 2)
+  nauxdstate = size(auxd, 2)
+
+  Dmat = grid.D
+  vgeo = grid.vgeo
+
+  ########################
+  # Gradient Computation #
+  ########################
+  MPIStateArrays.startexchange!(Q)
+
+  if ngradstate > 0
+    error("Grad not implemented yet")
+
+    # TODO: volumegrad!
+
+    MPIStateArrays.finishexchange!(Q)
+
+    # TODO: facegrad!
+
+    MPIStateArrays.startexchange!(Qgrad)
+  end
+
+  ###################
+  # RHS Computation #
+  ###################
+
+  volumerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
+             Val(nauxdstate), disc.flux!, dQ.Q, Q.Q, Qgrad.Q,
+             auxc.Q, auxd.Q, vgeo, t, Dmat, topology.realelems)
+
+  MPIStateArrays.finishexchange!(ngradstate > 0 ? Qgrad : Q)
+
+  # TODO: facerhs!
 end
 
 end

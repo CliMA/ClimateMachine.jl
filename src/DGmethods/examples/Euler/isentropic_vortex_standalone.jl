@@ -31,21 +31,36 @@ const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
 const statenames = ("ρ", "U", "V", "W", "E")
+const γ_exact = 7 // 5
 
-# physical flux function
-function eulerflux_standalone!(F, Q, ignored...)
-  γ::eltype(Q) = 7 // 5
-  ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-
+# preflux computation
+function computepressure(Q)
+  γ::eltype(Q) = γ_exact
+  @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
   u, v, w = ρinv * U, ρinv * V, ρinv * W
-  P = (γ-1)*(E - (U^2 + V^2 + W^2)/(2*ρ))
+  ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
+end
 
-  F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
-  F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
-  F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
-  F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-  F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
+# max eigenvalue
+function wavespeed(n, Q, G, ϕ_c, ϕ_d, precomp, t)
+  P, u, v, w, ρinv = precomp
+  γ::eltype(Q) = γ_exact
+  abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
+end
+
+# physical flux function
+function eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, precomp=computepressure(Q))
+  @inbounds begin
+    ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+    P, u, v, w, ρinv = precomp
+
+    F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
+    F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
+    F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
+    F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
+    F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
+  end
 end
 
 # initial condition
@@ -53,7 +68,7 @@ const halfperiod = 5
 function isentropicvortex_standalone!(Q, t, x, y, z)
   DFloat = eltype(Q)
 
-  γ::DFloat    = 7 // 5
+  γ::DFloat    = γ_exact
   uinf::DFloat = 2
   vinf::DFloat = 1
   Tinf::DFloat = 1
@@ -96,7 +111,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
                            nstate = _nstate,
-                           flux! = eulerflux_standalone!,
+                           flux! = eulerflux!,
                            numericalflux! = (x...) -> error())
 
   # This is a actual state/function that lives on the grid
