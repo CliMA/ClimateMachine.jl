@@ -28,12 +28,12 @@ There are several types of functions:
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
-A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_t`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities `q_l` and `q_i` from the internal energy `E_int` by saturation adjustment:
+A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_t`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities `q_l` and `q_i` from the internal energy `e_int` by saturation adjustment:
 ```julia
-    T = saturation_adjustment(E_int, ρ, q_t, T_init);
-    phase_partitioning_eq!(q_l, q_i, T, ρ, q_t);
+    T = saturation_adjustment(e_int, ρ, q_t, T_init);
+    q_l, q_i = phase_partitioning_eq(T, ρ, q_t);
 ```
-here, `ρ` is the density of the moist air, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `E_int = E_tot - KE - geopotential` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
+here, `ρ` is the density of the moist air, `T_init` is an initial temperature guess for the saturation adjustment iterations, and the internal energy `e_int = E_tot - KE - geopotential` is the total energy `E_tot` minus kinetic energy `KE` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
 
 Schematically, the workflow in such a core would look as follows:
 ```julia
@@ -53,25 +53,25 @@ Schematically, the workflow in such a core would look as follows:
 
       # advance dynamical variables by a timestep (temperature typically
       # appears in terms on the rhs, such as radiative transfer)
-      advance(u, v, w, ρ, E_tot, q_t)  
+      advance(u, v, w, ρ, E_tot, q_t)
 
       # compute internal energy from dynamic variables
-      E_int = E_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
+      e_int = E_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
 
       # compute temperature, pressure and condensate specific humidities,
       # using T_prev as initial condition for iterations
-      T = saturation_adjustment(E_int, ρ, q_t, T_prev);
-      phase_partitioning_eq!(q_l, q_i, T, ρ, q_t);
+      T = saturation_adjustment(e_int, ρ, q_t, T_prev);
+      q_l, q_i = phase_partitioning_eq(T, ρ, q_t);
       p = air_pressure(T, ρ, q_t, q_l, q_i)
 
       # update temperature for next timestep
-      T_prev = T;  
+      T_prev = T;
     end
 ```
 
 For a dynamical core that additionally uses the liquid and ice specific humidities `q_l` and `q_i` as prognostic variables, and thus explicitly allows the presence of non-equilibrium phases such as supercooled water, the saturation adjustment in the above workflow is replaced by a direct calculation of temperature and pressure:
 ```julia
-    T = air_temperature(E_int, q_t, q_l, q_i)
+    T = air_temperature(e_int, q_t, q_l, q_i)
     p = air_pressure(T, ρ, q_t, q_l, q_i)
 ```
 
@@ -82,28 +82,34 @@ CurrentModule = CLIMA.MoistThermodynamics
 ```
 
 ```@docs
-gas_constant_air
-air_pressure
 air_density
+air_pressure
+air_temperature
 cp_m
 cv_m
-air_temperature
+dry_pottemp
+exner
+gas_constant_air
+heaviside
 internal_energy
 internal_energy_sat
-total_energy
-latent_heat_vapor
-latent_heat_sublim
+InternalEnergy_Shum_eq
 latent_heat_fusion
 latent_heat_generic
-saturation_vapor_pressure
-saturation_shum_generic
+latent_heat_sublim
+latent_heat_vapor
+liquid_fraction
+liquid_ice_pottemp
+moist_gas_constants
+phase_partitioning_eq
+saturation_adjustment
+saturation_excess
 saturation_shum
 saturation_shum_from_pressure
-liquid_fraction
-heaviside
-phase_partitioning_eq!
-saturation_adjustment
-liquid_ice_pottemp
+saturation_shum_generic
+saturation_vapor_pressure
+soundspeed_air
+total_energy
 ```
 
 

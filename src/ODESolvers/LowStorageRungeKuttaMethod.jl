@@ -1,5 +1,5 @@
-module LSRKmethods
-export LSRK, updatedt!
+module LowStorageRungeKuttaMethod
+export LowStorageRungeKutta, updatedt!
 
 using Requires
 
@@ -8,14 +8,14 @@ using Requires
   using .CuArrays.CUDAnative
   using .CuArrays.CUDAnative.CUDAdrv
 
-  include("LSRKmethods_cuda.jl")
+  include("LowStorageRungeKuttaMethod_cuda.jl")
 end
 
-using ..CLIMAAtmosDycore
-AD = CLIMAAtmosDycore
+using ...ODESolvers
+ODEs = ODESolvers
 
 """
-    LSRK(f, Q; dt, t0 = 0)
+    LowStorageRungeKutta(f, Q; dt, t0 = 0)
 
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
@@ -39,14 +39,15 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-struct LSRK{T, AT, Nstages, F<:Function} <: AD.AbstractAtmosODESolver
+struct LowStorageRungeKutta{T, AT, Nstages,
+                            F<:Function} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{T,1}
   "time"
   t::Array{T,1}
   "rhs function"
   rhs!::F
-  "Storage for RHS during the LSRK update"
+  "Storage for RHS during the LowStorageRungeKutta update"
   dQ::AT
   "low storage RK coefficient vector A (rhs scaling)"
   RKA::NTuple{Nstages, T}
@@ -54,7 +55,8 @@ struct LSRK{T, AT, Nstages, F<:Function} <: AD.AbstractAtmosODESolver
   RKB::NTuple{Nstages, T}
   "low storage RK coefficient vector C (time scaling)"
   RKC::NTuple{Nstages, T}
-  function LSRK(dQ, Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+  function LowStorageRungeKutta(dQ, Q::AT; dt=nothing,
+                                t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
 
@@ -85,13 +87,13 @@ struct LSRK{T, AT, Nstages, F<:Function} <: AD.AbstractAtmosODESolver
 end
 
 """
-    updatedt!(lsrk::LSRK, dt)
+    updatedt!(lsrk::LowStorageRungeKutta, dt)
 
 Change the time step size to `dt` for `lsrk.
 """
-updatedt!(lsrk::LSRK, dt) = lsrk.dt[1] = dt
+updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
 
-function AD.dostep!(Q, lsrk::LSRK)
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta)
   time, dt = lsrk.t[1], lsrk.dt[1]
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
   rhs!, dQ = lsrk.rhs!, lsrk.dQ
@@ -100,7 +102,6 @@ function AD.dostep!(Q, lsrk::LSRK)
 
     # update solution and scale RHS
     # FIXME: GPUify
-    # FIXME: Figure out how to properly use our new AtmosStateArrays
     update!(Val(size(Q,2)), Val(size(Q,1)), dQ.Q, Q.Q, Q.realelems,
             RKA[s%length(RKA)+1], RKB[s], dt)
     time += RKC[s] * dt
@@ -114,6 +115,7 @@ function update!(::Val{nstates}, ::Val{Np}, rhs::Array{T, 3}, Q, elems, rka,
   @inbounds for e = elems, s = 1:nstates, i = 1:Np
     Q[i, s, e] += rkb * dt * rhs[i, s, e]
     rhs[i, s, e] *= rka
+    
   end
 end
 # }}}

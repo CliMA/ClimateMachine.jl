@@ -1,71 +1,64 @@
 using MPI
 
-using CLIMA.CLIMAAtmosDycore.Topologies
-using CLIMA.CLIMAAtmosDycore.Grids
+using CLIMA.Topologies
+using CLIMA.Grids
 using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMA.CLIMAAtmosDycore.AtmosStateArrays
-using CLIMA.CLIMAAtmosDycore.LSRKmethods
-using CLIMA.CLIMAAtmosDycore.GenericCallbacks
+using CLIMA.MPIStateArrays
+using CLIMA.ODESolvers
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
+using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
-const HAVE_CUDA = try
-  using CuArrays
-  using CUDAdrv
-  using CUDAnative
-  true
-catch
-  false
-end
-
-macro hascuda(ex)
-  return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
-end
-
 using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 
 # FIXME: Will these keywords args be OK?
-function risingthermalbubble(x...; dim=3)
+function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
-  γ::DFloat       = gamma_d
-  p0::DFloat      = 100000
+
+  p0::DFloat      = MSLP 
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
-
+  q_tot::DFloat   = 0
+  
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
   θ_ref::DFloat = 300
   θ_c::DFloat = 0.5
-  Δθ::DFloat = 0
+  Δθ::DFloat = 0.0
   if r <= rc
     Δθ = θ_c * (1 + cos(π * r / rc)) / 2
   end
-  θ_k = θ_ref + Δθ
-  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
-  c = c_v / R_gas
-  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-  ρ = ρ_k
+  θ = θ_ref + Δθ
+  π_k = 1 - gravity / (c_p * θ) * x[dim]
+  
+  ρ = p0 / (R_gas * θ) * (π_k)^ (c_v / R_gas)
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
   U = ρ * u
   V = ρ * v
   W = ρ * w
-  Θ = ρ * θ_k
-  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+  P = p0 * (R_gas * (ρ * θ) / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
-  E = ρ * (c_v * T + (u^2 + v^2 + w^2) / 2 + gravity * x[dim])
-  (ρ=ρ, U=U, V=V, W=W, E=E)
+  # Calculation of energy per unit mass
+  e_kin = (u^2 + v^2 + w^2) / 2  
+  e_pot = gravity * x[dim]
+  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  # Total energy 
+  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_tot,)) 
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
-              exact_timeend=true) dim = length(brickrange)
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
+              timeend; gravity=true, viscosity=0, dt=nothing,
+              exact_timeend=true) 
+  dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
                        # tuple of point element edges in each dimension
@@ -88,11 +81,18 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  spacedisc = VanillaAtmosDiscretization(grid)
+  spacedisc = VanillaAtmosDiscretization(grid,
+                                        gravity=gravity,
+                                        viscosity=viscosity,
+                                        ntrace=ntrace,
+                                        nmoist=nmoist)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(x...) = risingthermalbubble(x...; dim=dim)
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  initialcondition(x...) = rising_thermal_bubble(x...;
+                                               ntrace=ntrace,
+                                               nmoist=nmoist,
+                                               dim=dim)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
@@ -106,7 +106,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
   # state and reading from a restart file
 
   # TODO: Should we use get property to get the rhs function?
-  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
@@ -124,7 +124,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend; dt=nothing,
       (hrs, min) = fldmod(min, 60)
       @printf(io,
               "-------------------------------------------------------------\n")
-      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
       @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
       @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
     end
@@ -163,20 +163,19 @@ let
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
-  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
-
+  nmoist = 1
+  ntrace = 0
   Ne = (10, 10, 10)
-  N = 4
+  N = 3
   timeend = 0.1
-  for DFloat in (Float64,Float32)
-    for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+  for DFloat in (Float64, Float32)
+    for ArrayType in (Array,)
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, N, timeend)
+        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
       end
     end
   end
-
 end
 
 isinteractive() || MPI.Finalize()
