@@ -35,7 +35,7 @@ const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
 
 # preflux computation
-function preflux(Q, _...)
+@inline function preflux(Q, _...)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
@@ -60,14 +60,14 @@ function rosanuv!(F::MArray{Tuple{nstate}}, nM,
 
   λ  =  max(λM, λP)
 
-  for s = 1:nstate
+  @inbounds for s = 1:nstate
     F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
             nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM[s] - QP[s])) / 2
   end
 end
 
 # max eigenvalue
-function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
@@ -76,7 +76,7 @@ end
 eulerflux!(F, Q, G, ϕ_c, ϕ_d, t) =
 eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, preflux(Q)...)
 
-function eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
