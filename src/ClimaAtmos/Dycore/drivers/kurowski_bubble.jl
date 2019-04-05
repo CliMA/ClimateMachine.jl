@@ -1,17 +1,18 @@
 using MPI
 
-using CLIMAAtmosDycore.Topologies
-using CLIMAAtmosDycore.Grids
-using CLIMAAtmosDycore.VanillaAtmosDiscretizations
-using CLIMAAtmosDycore.AtmosStateArrays
-using CLIMAAtmosDycore.LSRKmethods
-using CLIMAAtmosDycore.GenericCallbacks
-using CLIMAAtmosDycore
-using Utilities.MoistThermodynamics
+using CLIMA.Topologies
+using CLIMA.Grids
+using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.MPIStateArrays
+using CLIMA.ODESolvers
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.GenericCallbacks
+using CLIMA.CLIMAAtmosDycore
+using CLIMA.MoistThermodynamics
 using LinearAlgebra
-using DelimitedFiles
-using Dierckx
 using Printf
+using Dierckx
+using DelimitedFiles
 
 const HAVE_CUDA = try
   using CUDAdrv
@@ -25,8 +26,8 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-using ParametersType
-using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
+using CLIMA.ParametersType
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
@@ -38,7 +39,7 @@ using PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_GC1991.dat"))
+    fsounding  = open(joinpath(@__DIR__, "./soundings/sounding_GC1991.dat"))
     sound_data = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sound_data)
@@ -66,10 +67,12 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
     #read in the original squal sounding
     (nzmax, ncols) = size(sound_data)
 
+
     Np = (N+1)^dim
     Nq = N + 1
     (~, ~, nelem) = size(vgeo)
     Ne_v = Ne[dim]
+    #@show(Ne_v)
 
     #Reshape vgeo:
     if(dim == 2)
@@ -85,13 +88,14 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
         zinit,   tinit, qinit, uinit, vinit, pinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5], sound_data[:, 6]
     elseif ncols == 5
         #height  theta  qv     u      v
-        zinit,   tinit, qinit, uinit, vinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5]
+        zinit,   tinit, qinit, uinit, vinit, pinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5], 0.0*sound_data[:, 5]
+    elseif ncols == 4
+        @show(" ERROR in your sounding. It needs to have 5 or 6 columns!!!")
     end
     
     # create vector with all the z-values of the current processor
     # (avoids using column structure for better domain decomposition when no rain is used. AM)
     nz         = Ne_v*N + 1
-    
     dataz      = zeros(Float64, nz)
     datat      = zeros(Float64, nz)
     dataq      = zeros(Float64, nz)
@@ -141,11 +145,11 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
     # interpolate to the actual LGL points in vertical
     # dataz is given
     #------------------------------------------------------
-    spl_tinit = Spline1D(zinit, tinit; k=1)
-    spl_qinit = Spline1D(zinit, qinit; k=1)
-    spl_uinit = Spline1D(zinit, uinit; k=1)
-    spl_vinit = Spline1D(zinit, vinit; k=1)
-    spl_pinit = Spline1D(zinit, pinit; k=1)
+    spl_tinit = Spline1D(zinit, tinit; k=1, bc="nearest")
+    spl_qinit = Spline1D(zinit, qinit; k=1, bc="nearest")
+    spl_uinit = Spline1D(zinit, uinit; k=1, bc="nearest")
+    spl_vinit = Spline1D(zinit, vinit; k=1, bc="nearest")
+    spl_pinit = Spline1D(zinit, pinit; k=1, bc="nearest")
     if ncols == 5
         for k = 1:nz
             datat[k] = spl_tinit(dataz[k])
@@ -240,6 +244,8 @@ function kurowski_bubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=
             c_v::Float64     = cv_d
             gravity::Float64 = grav
             (nzmax, ~) = size(initial_sounding)
+            R_gas = MoistThermodynamics.gas_constant_air(0.0, 0.0, 0.0)
+            
             # Moist bubble from Kurowski et al. 2013
             u0, v0 , w0 = 0.0, 0.0, 0.0
             pi0      = 1.0
@@ -254,9 +260,9 @@ function kurowski_bubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=
             for k = 1:nzmax
                 dataz = initial_sounding[k, 1]
                 z     = x[dim]
-                z2test = Float64(floor(100.0 * dataz))/100.0
-                z1test = Float64(floor(100.0 * z))/100.0
-                if ( abs(z1test - z2test) <= 0.2)
+                z2test = dataz # Float64(floor(100.0 * dataz))/100.0
+                z1test = z     # Float64(floor(100.0 * z))/100.0
+                if ( abs(z1test - z2test) <= 1.0e-8)
                     count=k
                     break
                 end
@@ -286,11 +292,11 @@ function kurowski_bubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=
             qv_k    = qvs * RH0/100.0
               
             rc  =  300.0
-            r   = sqrt( (x[1] - 800)^2 + (x[dim] - 800.0)^2 )
+            r   = sqrt( (x[1] - 1800)^2 + (x[dim] - 800.0)^2 )
             
             R_gas = MoistThermodynamics.gas_constant_air(0.0, 0.0, 0.0)
             
-            thetac = 2.0
+            thetac = 0.0 #2.0
             dtheta = 0.0
             dqr    = 0.0
             dqc    = 0.0
@@ -316,7 +322,7 @@ function kurowski_bubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=
             qv_k    = qvs * RH0/100.0
 
             dRH    = 80.0*exp(-(r/rc)^sigma)
-            dqv    = dRH*qvs/100.0
+            dqv    = 0.0 #dRH*qvs/100.0
             q_t  = qv_k + dqv
             U    = u0
             V    = v0
@@ -326,18 +332,13 @@ function kurowski_bubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=
             # Saturation adjustment used to compute q_v and q_l
             Qmoist = (q_t)
             # Internal energy is zero at the triple point temperature T_0
-            E = ρ * (c_v * (T-T_0) + (u0^2 + v0^2 + w0^2) / 2 + gravity * x[dim])
-            
+             E = ρ * (c_v * (T-T_0) + (u0^2 + v0^2 + w0^2) / 2 + gravity * x[dim])
+            Qmoist = dataq
+ 
             (ρ=ρ, U=U, V=V, W=W, E=E,
-             Qmoist= ρ * Qmoist)
-            # Note that this modification renders the assertion in line 458 invalid. 
-            # TODO What do we do with this ?
-            
-            # Currently there are no tracers in this except the moisture vars
-            #, Qtrace=ntuple(j->(-j*ρ), ntrace))
+            Qmoist = ρ * Qmoist)
 
 end
-
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, dt=nothing,
@@ -375,14 +376,14 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
                                          nmoist=nmoist)
 
 
-    
+
   #Read and interpolate external sounding
   vgeo = grid.vgeo
   initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
   initialcondition(x...) = kurowski_bubble(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
   # This is a actual state/function that lives on the grid
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
@@ -396,7 +397,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   # state and reading from a restart file
 
   # TODO: Should we use get property to get the rhs function?
-  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
@@ -414,7 +415,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
       (hrs, min) = fldmod(min, 60)
       @printf(io,
               "-------------------------------------------------------------\n")
-      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
       @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
       @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
     end
@@ -427,7 +428,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   =#
   step = [0]
   mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(200) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
     @printf(io,
             "-------------------------------------------------------------\n")
@@ -436,7 +437,6 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     step[1] += 1
     nothing
   end
-
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
@@ -466,17 +466,20 @@ let
 
   dim = 2
   nmoist = 1
-  # nmoist = 1 since q_t is the only moist prognostic variable
   ntrace = 0
-  Ne = (10, 10, 10)
-  N = 4
-  timeend = 1.0
-
-  for DFloat in (Float64, Float32)  
+  Ne = (10, 10)
+  N = 3
+  timeend = 1000.0
+  DFloat = Float64
+  _xmin = 0
+  _xmax = 3600.0
+  _zmin = 0
+  _zmax = 3600.0
+    
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=2400), dim)
+	  brickrange = (range(DFloat(_xmin); length=Ne[1]+1, stop=_xmax), 
+			range(DFloat(_zmin); length=Ne[2]+1, stop=_zmax))
       main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
-  end
   end
 end
 

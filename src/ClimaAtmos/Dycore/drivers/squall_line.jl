@@ -10,9 +10,9 @@ using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
-using DelimitedFiles
-using Dierckx
 using Printf
+using Dierckx
+using DelimitedFiles
 
 const HAVE_CUDA = try
   using CUDAdrv
@@ -26,10 +26,8 @@ macro hascuda(ex)
   return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
 end
 
-
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
-
 @parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
@@ -42,7 +40,7 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "./soundings/sounding_GC1991.dat"))
+    fsounding  = open(joinpath(@__DIR__, "./soundings/sounding_JCP2013.dat"))
     sound_data = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sound_data)
@@ -91,7 +89,9 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
         zinit,   tinit, qinit, uinit, vinit, pinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5], sound_data[:, 6]
     elseif ncols == 5
         #height  theta  qv     u      v
-        zinit,   tinit, qinit, uinit, vinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5]
+        zinit,   tinit, qinit, uinit, vinit, pinit = sound_data[:, 1], sound_data[:, 2], sound_data[:, 3], sound_data[:, 4], sound_data[:, 5], 0.0*sound_data[:, 5]
+    elseif ncols == 4
+        @show(" ERROR in your sounding. It needs to have 5 or 6 columns!!!")
     end
     
     # create vector with all the z-values of the current processor
@@ -105,12 +105,12 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
     datap      = zeros(Float64, nz)
     thetav     = zeros(Float64, nz)
     datapi     = zeros(Float64, nz)
-    ρ          = zeros(Float64, nz)
-    U          = zeros(Float64, nz)
-    V          = zeros(Float64, nz)
-    P          = zeros(Float64, nz)
-    T          = zeros(Float64, nz)
-    E          = zeros(Float64, nz)
+    ρ      = zeros(Float64, nz)
+    U      = zeros(Float64, nz)
+    V      = zeros(Float64, nz)
+    P      = zeros(Float64, nz)
+    T      = zeros(Float64, nz)
+    E      = zeros(Float64, nz)
     datarho    = zeros(Float64, nz)
     ini_data_interp = zeros(Float64, nz, 10)
 
@@ -128,6 +128,7 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
             z = vgeo[1, j, _z, e]
             if abs(x - xmin) <= 1.0e-5
                 if (abs(z - zprev) > 1.0e-5 && z <= zmax+1.0e-5) #take un-repeated values
+                    
                     dataz[nzmax]   = z
                     zprev          = z                   
                     nzmax          = nzmax + 1
@@ -144,11 +145,11 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
     # interpolate to the actual LGL points in vertical
     # dataz is given
     #------------------------------------------------------
-    spl_tinit = Spline1D(zinit, tinit; k=1)
-    spl_qinit = Spline1D(zinit, qinit; k=1)
-    spl_uinit = Spline1D(zinit, uinit; k=1)
-    spl_vinit = Spline1D(zinit, vinit; k=1)
-    spl_pinit = Spline1D(zinit, pinit; k=1)
+    spl_tinit = Spline1D(zinit, tinit; k=1, bc="nearest")
+    spl_qinit = Spline1D(zinit, qinit; k=1, bc="nearest")
+    spl_uinit = Spline1D(zinit, uinit; k=1, bc="nearest")
+    spl_vinit = Spline1D(zinit, vinit; k=1, bc="nearest")
+    spl_pinit = Spline1D(zinit, pinit; k=1, bc="nearest")
     if ncols == 5
         for k = 1:nz
             datat[k] = spl_tinit(dataz[k])
@@ -234,7 +235,7 @@ function interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
 end
 
 # FIXME: Will these keywords args be OK?
-function squallline(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
+function squall_line(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
             # {{{ FIXME: remove this after we've figure out how to pass through to kernel
             γ::Float64       = gamma_d
             p0::Float64      = MSLP
@@ -242,12 +243,10 @@ function squallline(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
             c_v::Float64     = cv_d
             gravity::Float64 = grav
             (nzmax, ~) = size(initial_sounding)
-
             R_gas = MoistThermodynamics.gas_constant_air(0.0, 0.0, 0.0)
             
             # Squall line. Background from sounding
             u0, v0 ,w0  = 0.0, 0.0, 0.0
-
             pi0      = 1.0
             theta0   = 300.5
             p0       = MSLP
@@ -259,10 +258,10 @@ function squallline(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
             for k = 1:nzmax
                 dataz = initial_sounding[k, 1]
                 z     = x[dim]
-                z2test = Float64(floor(100.0 * dataz))/100.0
-                z1test = Float64(floor(100.0 * z))/100.0
+                z2test = dataz #Float64(floor(100.0 * dataz))/100.0
+                z1test = z     #Float64(floor(100.0 * z))/100.0
 
-                if ( abs(z1test - z2test) <= 110)
+                if ( abs(z1test - z2test) <= 1e-8)
                     # FIXME  requires robust height i.d. method
                     count=k
                     break
@@ -286,19 +285,18 @@ function squallline(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=2)
             press_k = datap
             tempe_k = pi_k*theta_k
 
-            xradius =  3000.0
-            yradius =  2000.0
+            xradius =  300.0
+            yradius =  300.0
             rc      =     1.0
-            r   = sqrt( (x[1] - 2500)^2/xradius^2 + (x[dim] - 2000)^2/yradius^2 )
-            
-            
+            r   = sqrt( (x[1] - 1800)^2/xradius^2 + (x[dim] - 800)^2/yradius^2 )
+                        
             thetac = 2.0
             dtheta = 0.0
             qcc    = 1.5
 
             if r < rc
-                dtheta = thetac*cos(r*pi/2)^2
-                dqc = qcc*(cos(r*pi/2))^2
+                dtheta = thetac*cospi(r/2)^2
+                dqc = qcc*(cospi(r/2))^2
             end
             
             if (dtheta > maxt)
@@ -359,10 +357,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   #Read external sounding
   vgeo = grid.vgeo
   initial_sounding = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
-  initialcondition(x...) = squallline(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
+  initialcondition(x...) = squall_line(x...; initial_sounding=initial_sounding, ntrace=ntrace, nmoist=nmoist, dim=dim)
   
   # This is a actual state/function that lives on the grid
-  Q = AtmosStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
   (dt == nothing) && (dt = VanillaAtmosDiscretizations.estimatedt(spacedisc, Q))
@@ -376,7 +374,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   # state and reading from a restart file
 
   # TODO: Should we use get property to get the rhs function?
-  lsrk = LSRK(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
@@ -385,7 +383,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
 
   # Set up the information callback
   timer = [time_ns()]
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(5000, mpicomm) do (s=false)
     if s
       timer[1] = time_ns()
     else
@@ -394,7 +392,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
       (hrs, min) = fldmod(min, 60)
       @printf(io,
               "-------------------------------------------------------------\n")
-      @printf(io, "simtime =  %.16e\n", CLIMAAtmosDycore.gettime(lsrk))
+      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
       @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
       @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
     end
@@ -407,7 +405,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
   =#
   step = [0]
   mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
     @printf(io,
             "-------------------------------------------------------------\n")
@@ -446,13 +444,18 @@ let
   dim = 2
   nmoist = 1
   ntrace = 0
-  Ne = (10, 10, 10)
-  N = 4
-  timeend = 5.0
+  Ne = (10, 10)
+  N = 3
+  timeend = 1000.0
   DFloat = Float64
+  _xmin = 0
+  _xmax = 3600.0
+  _zmin = 0
+  _zmax = 3600.0
     
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-      brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=10000), dim)
+	  brickrange = (range(DFloat(_xmin); length=Ne[1]+1, stop=_xmax), 
+			range(DFloat(_zmin); length=Ne[2]+1, stop=_zmax))
       main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
   end
 end
