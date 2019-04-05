@@ -61,7 +61,9 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         
       # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics (?)
       q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
-        
+        if(q_liq > 0)
+           @show("!!! YESSSS, IT IS CLOUDY TODAY !!!")
+        end
       P  =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       θv = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
       

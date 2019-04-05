@@ -42,7 +42,7 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_GC1991.dat"))
+    fsounding  = open(joinpath(@__DIR__, "./soundings/sounding_GC1991.dat"))
     sound_data = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sound_data)
