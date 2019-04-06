@@ -36,8 +36,7 @@ function squall_line(x...; ntrace=0, nmoist=0, dim=3)
   gravity::DFloat = grav
   q_tot::DFloat   = 0.0
     
-  #@  q_tot        = 0.014*exp(-x[dim]/2)
-  q_tot           = 0.0 #max(0.0, 0.014 - 0.000005*x[dim])
+  q_tot        = 0.014*exp(-x[dim]/500)
       
   R_gas           = gas_constant_air(q_tot, 0.0, 0.0)
   c_p             = cp_m(q_tot, 0.0, 0.0)
@@ -46,25 +45,31 @@ function squall_line(x...; ntrace=0, nmoist=0, dim=3)
   Rovercp         = R_gas/c_p
   cvovercp        = c_v/c_p
     
-  r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
-  rc::DFloat    = 250
-  θ_ref::DFloat = 300
-  θ_c::DFloat   = 0.5
+  r = sqrt((x[1] - 500)^2 + (x[dim] - 250)^2)
+  rc::DFloat    = 225
+  θ_ref::DFloat = 300.0
+  θ_c::DFloat   = 1.0
   Δθ::DFloat    = 0.0
+
+  θ_0   = 320.0
+  Brunt = 0.01
+  θ_ref = θ_0 * exp(-Brunt * x[dim]/grav)
+    
   if r <= rc
-    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
+    Δθ = θ_c #* (1 + cos(π * r / rc)) / 2
   end
   θ = θ_ref + Δθ
-##
+    
   π_k = 1 - gravity / (c_p * θ) * x[dim]
-  
- ##   
+  ρ = p0 / (R_gas * θ) * (π_k)^ (c_v / R_gas)
+  P = p0 * (R_gas * (ρ * θ) / p0)^(c_p / c_v)
+     
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
   
-  P = p0*(1.0 - grav * x[dim]/(c_p*θ_ref))^cpoverR
-  ρ = ((p0^Rovercp)*P^cvovercp)/(R_gas*θ_ref)
+#  P = p0*(1.0 - grav * x[dim]/(c_p*θ_ref))^cpoverR
+#  ρ = ((p0^Rovercp)*P^cvovercp)/(R_gas*θ_ref)
   T = P / (ρ * R_gas)
 
   U = ρ * u
