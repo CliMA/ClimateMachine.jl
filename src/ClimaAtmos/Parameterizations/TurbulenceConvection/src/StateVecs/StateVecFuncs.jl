@@ -84,16 +84,17 @@ the grid `grid` and index iterators of source and destination names `src_idxs`
 and `dst_idxs` respectively.
 """
 function distribute!(dst::StateVec, src::StateVec, dst_idxs, src_idxs, grid::Grid)
-  for e in over_elems(grid), i in over_sub_domains(dst)
+  for k in over_elems(grid), i in over_sub_domains(dst)
     for (dst_idx, src_idx) in zip(dst_idxs, src_idxs)
-      dst[dst_idx, e, i] = src[src_idx, e]
+      dst[dst_idx, k, i] = src[src_idx, k]
     end
   end
 end
 
 """
     total_covariance!(dst::StateVec, src::StateVec, cv::StateVec, weights::StateVec,
-                      dst_idxs, src_idxs, cv_idxs, weight_idx, grid::Grid, decompose_ϕ_ψ::Function)
+                      dst_idxs, src_idxs, cv_idxs, weight_idx,
+                      grid::Grid, decompose_ϕ_ψ::Function)
 
 Computes the total covariance in state vector `dst`, given
  - `src` source state vector
@@ -105,19 +106,19 @@ Computes the total covariance in state vector `dst`, given
  - `grid` the grid
  - `decompose_ϕ_ψ` a function that receives accepts the covariance index
                    and returns the indexes for each variable. For example:
-                   :ϕ_idx, :ψ_idx = decompose_ϕ_ψ(:covar_ϕ_ψ)
+                   `:ϕ_idx, :ψ_idx = decompose_ϕ_ψ(:covar_ϕ_ψ)`
 """
 function total_covariance!(dst::StateVec, src::StateVec, cv::StateVec, weights::StateVec,
                            dst_idxs, cv_idxs, weight_idx, grid::Grid, decompose_ϕ_ψ::Function)
-  for e in over_elems(grid), (dst_idx, cv_idx) in zip(dst_idxs, cv_idxs)
+  for k in over_elems(grid), (dst_idx, cv_idx) in zip(dst_idxs, cv_idxs)
     _ϕ, _ψ = decompose_ϕ_ψ(cv_idx)
-    dst[dst_idx, e] = 0
+    dst[dst_idx, k] = 0
     for i in over_sub_domains(weights)
-      dst[dst_idx, e] += weights[weight_idx, e, i]*cv[cv_idx, e, i]
+      dst[dst_idx, k] += weights[weight_idx, k, i]*cv[cv_idx, k, i]
       for j in over_sub_domains(src)
-        dst[dst_idx, e] += weights[weight_idx, e, i]*
-                           weights[weight_idx, e, j]*
-                           src[_ϕ, e, i]*(src[_ψ, e, i] - src[_ψ, e, j])
+        dst[dst_idx, k] += weights[weight_idx, k, i]*
+                           weights[weight_idx, k, j]*
+                           src[_ϕ, k, i]*(src[_ψ, k, i] - src[_ψ, k, j])
       end
     end
   end
@@ -129,10 +130,10 @@ end
 Extrapolate variable `name` to the first ghost point.
 """
 function extrap!(sv::StateVec, name::Symbol, grid::Grid, i_sd=1)
-  e = 1+grid.n_ghost
-  sv[name, e-1, i_sd] = 2*sv[name, e, i_sd] - sv[name, e+1, i_sd]
-  e = grid.n_elem - grid.n_ghost
-  sv[name, e+1, i_sd] = 2*sv[name, e, i_sd] - sv[name, e-1, i_sd]
+  k = 1+grid.n_ghost
+  sv[name, k-1, i_sd] = 2*sv[name, k, i_sd] - sv[name, k+1, i_sd]
+  k = grid.n_elem - grid.n_ghost
+  sv[name, k+1, i_sd] = 2*sv[name, k, i_sd] - sv[name, k-1, i_sd]
 end
 
 """
@@ -181,6 +182,7 @@ end
 abstract type ExportType end
 """
     UseVTK
+
 A singleton used to indicate to use a .vtk
 extension when exporting a `StateVec`.
 """
@@ -188,6 +190,7 @@ struct UseVTK <: ExportType end
 
 """
     UseDat
+
 A singleton used to indicate to use a .dat
 extension when exporting a `StateVec`.
 """
