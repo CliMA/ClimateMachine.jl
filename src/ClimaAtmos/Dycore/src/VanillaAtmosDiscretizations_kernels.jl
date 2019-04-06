@@ -49,7 +49,8 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
       y = vgeo[i,j,_y,e]
 
-      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y  
+      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
+      
       # Get specific humidity quantities from state vector
       # per unit mass conversion required for sat_adjust only
       for m = 1:nmoist
@@ -61,12 +62,17 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         
       # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics (?)
       q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
-      #  if(q_liq > 0)
-      #     @show("!!! YESSSS, IT IS CLOUDY TODAY !!!")
-      #  end
+      q_m[2] = q_liq
+      q_m[3] = q_ice
+      
+      for m = 1:nmoist
+        s = _nstate+ m 
+	Q[i,j,s,e] = ρ * q_m[m]
+      end
+  
       P  =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       θv = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
-      
+              
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
       s_v[i, j] = V/ρ
@@ -205,7 +211,6 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       U, V, W = Q[i, j, k, _U, e], Q[i, j, k, _V, e], Q[i, j, k, _W, e]
       ρ, E = Q[i, j, k, _ρ, e], Q[i, j, k, _E, e]
       z = vgeo[i, j, k, _z, e]
-
       E_int = E - (U^2 + V^2 + W^2)/(2*ρ) - ρ * gravity * z  
       
       for m = 1:nmoist
@@ -217,7 +222,13 @@ function volumegrad!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         
       # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics
       q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+      q_m[2] = q_liq
+      q_m[3] = q_ice
 
+      for m = 1:nmoist
+        s = _nstate+ m 
+	Q[i,j,k,s,e] = ρ * q_m[m]
+      end
       P  =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       θv = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
 
@@ -541,9 +552,16 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # Required for phase-partitioning to find q_liq, q_ice
       T            = saturation_adjustment(E_int/ρ, ρ, q_m[1])
       q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+      q_m[2] = q_liq
+      q_m[3] = q_ice
       P            = air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       θv           = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
         
+      for m = 1:nmoist
+        s = _nstate+ m 
+	Q[i,j,s,e] = ρ * q_m[m]
+      end
+      
       ρx, ρy     = grad[i,j,_ρx,e], grad[i,j,_ρy,e]
       ux, uy, uz = grad[i,j,_ux,e], grad[i,j,_uy,e], 0.0
       vx, vy, vz = grad[i,j,_vx,e], grad[i,j,_vy,e], 0.0
@@ -760,9 +778,16 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
       
       q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])      
+      q_m[2] = q_liq
+      q_m[3] = q_ice
       P            =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
       θv           = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
     
+      for m = 1:nmoist
+        s = _nstate+ m 
+	Q[i,j,k,s,e] = ρ * q_m[m]
+      end
+      
       ρx, ρy, ρz  = grad[i,j,k,_ρx,e], grad[i,j,k,_ρy,e], grad[i,j,k,_ρz,e]
       ux, uy, uz  = grad[i,j,k,_ux,e], grad[i,j,k,_uy,e], grad[i,j,k,_uz,e]
       vx, vy, vz  = grad[i,j,k,_vx,e], grad[i,j,k,_vy,e], grad[i,j,k,_vz,e]

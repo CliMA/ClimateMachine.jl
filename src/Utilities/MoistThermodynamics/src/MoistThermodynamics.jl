@@ -518,7 +518,7 @@ function virtual_pottemp(T, p, q_tot=0, q_liq=0, q_ice=0)
     q_vap = q_tot - q_liq - q_ice
     theta = dry_pottemp(T, p, q_tot, q_liq, q_ice)
         
-    return theta*(1.0 + 0.611*q_vap - q_liq - q_ice)
+    return theta*(1.0 + 0.61*q_vap - q_liq - q_ice)
 
 end
 

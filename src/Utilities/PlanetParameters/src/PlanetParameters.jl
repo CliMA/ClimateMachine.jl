@@ -26,6 +26,7 @@ using ..ParametersType
 # Properties of water
 @exportparameter dens_liquid       1e3           "Density of liquid water (kg/m^3)"
 @exportparameter molmass_water     18.01528e-3   "Molecular weight (kg/mol)"
+#TO DO:  molmass_ratio should be molmass_water/molmass_dryair and not as it is now (reverse)
 @exportparameter molmass_ratio     molmass_dryair/
                                    molmass_water "Molar mass ratio dry air/water"
 @exportparameter R_v               gas_constant/
