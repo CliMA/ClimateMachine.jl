@@ -312,7 +312,7 @@ function kurowski_bubble(x...; initial_sounding::Array, ntrace=0, nmoist=0, dim=
     sigma  = 6.0
     
     rc     =  300.0
-    r      = sqrt( (x[1] - 800)^2 + (x[dim] - 800.0)^2 )
+    r      = sqrt( (x[1] - 700)^2 + (x[dim] - 400.0)^2 )
     dtheta = thetac*exp(-(r/rc)^sigma)    
     dRH    = 80.0 * exp(-(r/rc)^sigma)
     dqv    = dRH * qvs/100.0
@@ -455,15 +455,22 @@ let
     viscosity = 0.0
     nmoist = 3
     ntrace = 0
-    Ne = (10, 10, 10)
+    Ne = (20, 18)
     N = 4
     dim = 2
     timeend = 100
-    viscosity = 75.0
+    viscosity = 50.0
+
+    xmin = 0.0
+    xmax = 1400.0
+    zmin = 0.0
+    zmax = 1200.0
     
     DFloat = Float64
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
-        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
+        brickrange = (range(DFloat(xmin); length=Ne[1]+1, stop=xmax),
+                      range(DFloat(zmin); length=Ne[2]+1, stop=zmax))
+
         main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, timeend)
     end
 end

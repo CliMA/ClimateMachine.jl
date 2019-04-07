@@ -59,19 +59,23 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       end
       # Saturation temperature to obtain temperature assuming thermodynamic equilibrium 
       T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
-        
+       
       # TODO: Possibility of carrying q_liq and q_ice through state vector to include non-equilibrium thermodynamics (?)
       q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
       q_m[2] = q_liq
       q_m[3] = q_ice
+
+      P = air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
+      ρ = air_density(T, P, q_m[1], q_m[2], q_m[3])
+     
       
       for m = 1:nmoist
         s = _nstate+ m 
 	Q[i,j,s,e] = ρ * q_m[m]
       end
   
-      P  =    air_pressure(T, ρ, q_m[1], q_liq, q_ice)
-      θv = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
+      P  =    air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
+      θv = virtual_pottemp(T, P, q_m[1], q_m[2], q_m[3])
               
       s_ρ[i, j] = ρ
       s_u[i, j] = U/ρ
