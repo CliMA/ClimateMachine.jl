@@ -56,14 +56,7 @@ end
 end
 
 @testset "Distribute" begin
-  state_vec[:a, 1, 1] = 0.1
-  state_vec[:a, 1, 2] = 0.2
-  state_vec[:a, 1, 3] = 0.3
   tmp[:w_ave, 1] = 2
-  distribute!(state_vec, tmp, state_vec, (:w,), (:w_ave,), :a, grid)
-  @test state_vec[:w, 1, 1] ≈ 2/0.1
-  @test state_vec[:w, 1, 2] ≈ 2/0.2
-  @test state_vec[:w, 1, 3] ≈ 2/0.3
 
   distribute!(state_vec, tmp, (:w,), (:w_ave,), grid)
   @test state_vec[:w, 1, 1] ≈ 2

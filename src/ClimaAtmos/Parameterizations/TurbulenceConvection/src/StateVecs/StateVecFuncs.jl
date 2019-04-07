@@ -45,6 +45,15 @@ end
 Compute the domain average in state vector `dst`, given state vectors `src`
 and `weight`, the grid `grid` and index iterators of source, destination and
 weight names `src_idxs`, `dst_idxs`, and `weight_idx` respectively.
+
+Formulaically, a domain-averaged variable ``⟨ϕ⟩`` is computed from
+
+``⟨ϕ⟩ = Σ_i a_i \\overline{ϕ}_i``
+
+Where variable ``\\overline{ϕ}_i`` represents ``ϕ`` decomposed across multiple
+sub-domains, which are weighted by area fractions ``a_i``.
+
+Note that `domain_average!` is the inverse function of `distribute!`.
 """
 function domain_average!(dst::StateVec, src::StateVec, weight::StateVec,
                          dst_idxs, src_idxs, weight_idx, grid::Grid)
@@ -59,29 +68,20 @@ function domain_average!(dst::StateVec, src::StateVec, weight::StateVec,
 end
 
 """
-    distribute!(dst::StateVec, src::StateVec, weight::StateVec
-                dst_idxs, src_idxs, weight_idx, grid::Grid)
-
-Distributes values in the state vector `src`, to state vectors `dst` given
-`weight` state vector, the grid `grid` and index iterators of source,
-destination and weight names `src_idxs`, `dst_idxs`, and `weight_idx`
-respectively.
-"""
-function distribute!(dst::StateVec, src::StateVec, weight::StateVec,
-                     dst_idxs, src_idxs, weight_idx, grid::Grid)
-  for k in over_elems(grid), i in over_sub_domains(dst)
-    for (dst_idx, src_idx) in zip(dst_idxs, src_idxs)
-      dst[dst_idx, k, i] = src[src_idx, k]/weight[weight_idx, k, i]
-    end
-  end
-end
-
-"""
     distribute!(dst::StateVec, src::StateVec, dst_idxs, src_idxs, grid::Grid)
 
 Distributes values in the state vector `src`, to state vectors `dst` given
 the grid `grid` and index iterators of source and destination names `src_idxs`
 and `dst_idxs` respectively.
+
+Formulaically, a domain-decomposed variable ``\\overline{ϕ}_i`` is computed from
+
+``\\overline{ϕ}_i = ⟨ϕ⟩``
+
+Where variable ``⟨ϕ⟩`` is the domain-averaged variable, computed
+across multiple sub-domains.
+
+Note that `distribute!` is the inverse function of `domain_average!`.
 """
 function distribute!(dst::StateVec, src::StateVec, dst_idxs, src_idxs, grid::Grid)
   for k in over_elems(grid), i in over_sub_domains(dst)
@@ -104,9 +104,16 @@ Computes the total covariance in state vector `dst`, given
  - `cv_idxs` indexes for state vector containing co-variances
  - `weight_idx` indexes for state vector containing weights
  - `grid` the grid
- - `decompose_ϕ_ψ` a function that receives accepts the covariance index
-                   and returns the indexes for each variable. For example:
+ - `decompose_ϕ_ψ` a function that receives the covariance index and
+                   returns the indexes for each variable. For example:
                    `:ϕ_idx, :ψ_idx = decompose_ϕ_ψ(:covar_ϕ_ψ)`
+
+Formulaically, a total covariance between variables ``ϕ`` and ``ψ`` is computed from
+
+``⟨ϕ^*ψ^*⟩ = Σ_i a_i \\overline{ϕ_i'ψ_i'} + Σ_i Σ_j a_i a_j \\overline{ϕ}_i (\\overline{ψ}_i - \\overline{ψ}_j)``
+
+Where variable ``\\overline{ϕ}_i`` represents ``ϕ`` decomposed across multiple
+sub-domains, which are weighted by area fractions ``a_i``.
 """
 function total_covariance!(dst::StateVec, src::StateVec, cv::StateVec, weights::StateVec,
                            dst_idxs, cv_idxs, weight_idx, grid::Grid, decompose_ϕ_ψ::Function)
