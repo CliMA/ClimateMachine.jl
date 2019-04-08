@@ -79,9 +79,9 @@ CurrentModule = CLIMA.MoistThermodynamics
 
 ```@docs
 ThermodynamicState
-InternalEnergy_Shum_eq
-InternalEnergy_Shum_neq
-LiqPottemp_Shum_eq
+InternalEnergySHumEquil
+InternalEnergySHumNonEquil
+LiquidPotTempSHumEquil
 ```
 
 ```@docs
@@ -117,6 +117,7 @@ saturation_vapor_pressure
 soundspeed_air
 specific_volume
 total_energy
+virt_pottemp
 ```
 
 
