@@ -11,7 +11,7 @@ grid = Grid(0.0, 1.0, n_elems_real)
 vars = ( (:ρ_0, 1), (:a, n_subdomains), (:w, n_subdomains),
          (:ϕ, n_subdomains), (:ψ, n_subdomains) )
 state_vec = StateVec(vars, grid)
-vars = ((:w_ave, 1), (:covar_ϕ_ψ, n_subdomains), (:TCV_ϕ_ψ, 1))
+vars = ((:w_ave, 1), (:cv_ϕ_ψ, n_subdomains), (:TCV_ϕ_ψ, 1))
 tmp = StateVec(vars, grid)
 
 @testset "Export fields" begin
@@ -74,12 +74,12 @@ end
   state_vec[:ψ, 1, 1] = 2
   state_vec[:ψ, 1, 2] = 3
   state_vec[:ψ, 1, 3] = 4
-  tmp[:covar_ϕ_ψ, 1, 1] = 1.0
-  tmp[:covar_ϕ_ψ, 1, 2] = 1.0
-  tmp[:covar_ϕ_ψ, 1, 3] = 1.0
-  decompose_ϕ_ψ(cv) = cv == :covar_ϕ_ψ ?  (:ϕ , :ψ) : error("Bad init")
+  tmp[:cv_ϕ_ψ, 1, 1] = 1.0
+  tmp[:cv_ϕ_ψ, 1, 2] = 1.0
+  tmp[:cv_ϕ_ψ, 1, 3] = 1.0
+  decompose_ϕ_ψ(cv) = cv == :cv_ϕ_ψ ?  (:ϕ , :ψ) : error("Bad init")
   total_covariance!(tmp, state_vec, tmp, state_vec,
-                    (:TCV_ϕ_ψ,), (:covar_ϕ_ψ,), :a, grid, decompose_ϕ_ψ)
+                    (:TCV_ϕ_ψ,), (:cv_ϕ_ψ,), :a, grid, decompose_ϕ_ψ)
   @test tmp[:TCV_ϕ_ψ, 1] ≈ 0.8
 end
 
@@ -97,7 +97,7 @@ end
 @static if haskey(Pkg.installed(), "Plots")
   @testset "Plot state vector" begin
     @test try
-      plot_state(state_vec, grid, :a, "./")
+      plot_state(state_vec, grid, "./", "a", :a)
       true
     catch
       false

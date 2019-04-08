@@ -106,7 +106,7 @@ Computes the total covariance in state vector `dst`, given
  - `grid` the grid
  - `decompose_ϕ_ψ` a function that receives the covariance index and
                    returns the indexes for each variable. For example:
-                   `:ϕ_idx, :ψ_idx = decompose_ϕ_ψ(:covar_ϕ_ψ)`
+                   `:ϕ_idx, :ψ_idx = decompose_ϕ_ψ(:cv_ϕ_ψ)`
 
 Formulaically, a total covariance between variables ``ϕ`` and ``ψ`` is computed from
 
@@ -225,9 +225,22 @@ function export_state(sv::StateVec, grid::Grid, dir, filename, ::ExportType = Us
 end
 
 """
+    export_state(sv::StateVec, dir, filename, ::ExportType = UseDat())
+
+Export StateVec to a human-readable file `filename` in directory `dir`.
+The `z`-axis is _not_ included in the export.
+"""
+function export_state(sv::StateVec, dir, filename, ::ExportType = UseDat())
+  open(string(dir, filename*".dat"),"w") do file
+    print(file, sv)
+  end
+end
+
+"""
     export_state(sv::StateVec, grid::Grid, dir, filename, ::UseVTK)
 
-Export StateVec to a compressed file `filename` in directory `dir`.
+Export state vector `sv` to a compressed file `filename` in directory `dir`,
+including the `z`-axis, given by the grid `grid`.
 """
 function export_state(sv::StateVec, grid::Grid, dir, filename, ::UseVTK)
   domain = over_elems(grid)
