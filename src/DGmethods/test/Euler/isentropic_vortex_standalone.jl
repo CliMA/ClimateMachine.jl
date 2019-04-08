@@ -219,7 +219,6 @@ function run(dim, Ne, N, timeend, DFloat)
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 end
 
-
 using Test
 let
   timeend = 0.1
