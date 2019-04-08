@@ -22,6 +22,7 @@ tmp = StateVec(vars, grid)
       state_vec[:a, k, i] = 3*k
     end
   end
+  export_state(state_vec, "./", "state_vec")
   export_state(state_vec, grid, "./", "state_vec")
   export_state(state_vec, grid, "./", "state_vec", UseVTK())
 end
