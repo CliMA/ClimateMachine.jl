@@ -20,6 +20,7 @@ using MPI
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
+using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
@@ -41,29 +42,6 @@ const γ_exact = 7 // 5
   ρinv = 1 / ρ
   u, v, w = ρinv * U, ρinv * V, ρinv * W
   ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
-end
-
-# Rosonuv (or local Lax-Friedrichs) Flux
-function rosanuv!(F::MArray{Tuple{nstate}}, nM,
-                  QM, GM, ϕcM, ϕdM,
-                  QP, GP, ϕcP, ϕdP,
-                  t, flux!, wavespeed, preflux = (_...) -> ()) where nstate
-  PM = preflux(QM, GM, ϕcM, ϕdM, t)
-  λM = wavespeed(nM, QM, GM, ϕcM, ϕdM, t, PM...)
-  FM = similar(F, Size(3, nstate))
-  flux!(FM, QM, GM, ϕcM, ϕdM, t, PM...)
-
-  PP = preflux(QP, GP, ϕcP, ϕdP, t)
-  λP = wavespeed(nM, QP, GP, ϕcP, ϕdP, t, PP...)
-  FP = similar(F, Size(3, nstate))
-  flux!(FP, QP, GP, ϕcP, ϕdP, t, PP...)
-
-  λ  =  max(λM, λP)
-
-  @inbounds for s = 1:nstate
-    F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-            nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM[s] - QP[s])) / 2
-  end
 end
 
 # max eigenvalue
@@ -137,9 +115,10 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   spacedisc = DGBalanceLaw(grid = grid,
                            nstate = _nstate,
                            flux! = eulerflux!,
-                           numericalflux! = (x...) -> rosanuv!(x..., eulerflux!,
-                                                               wavespeed,
-                                                               preflux))
+                           numericalflux! = (x...) ->
+                           NumericalFluxes.rosanuv!(x..., eulerflux!,
+                                                    wavespeed,
+                                                    preflux))
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)

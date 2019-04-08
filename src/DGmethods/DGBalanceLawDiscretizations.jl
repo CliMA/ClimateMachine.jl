@@ -15,8 +15,9 @@ const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
 const _nsgeo = 5
 const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 # }}}
-include("DGBalanceLawDiscretizations_kernels.jl")
 
+include("DGBalanceLawDiscretizations_kernels.jl")
+include("NumericalFluxes.jl")
 
 """
     DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
@@ -292,5 +293,6 @@ function odefun!(dQ::MPIStateArray, Q::MPIStateArray, t, disc::DGBalanceLaw)
            auxc.Q, auxd.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
            topology.realelems)
 end
+
 
 end
