@@ -104,6 +104,7 @@ using LinearAlgebra
   @test exner(p, q_tot) isa typeof(p)
 
   ρ = 1.0
+  p = 1000.0
   e_int = 2.0
   q_tot = 0.01
   q_ice = 0.001
@@ -111,7 +112,7 @@ using LinearAlgebra
   θ_liq = 300.0
   ts_eq = InternalEnergy_Shum_eq(e_int, q_tot, ρ)
   ts_neq = InternalEnergy_Shum_neq(e_int, q_tot, q_liq, q_ice, ρ)
-  ts_θ_l_eq = LiqPottemp_Shum_eq(θ_liq, q_tot, ρ)
+  ts_θ_l_eq = LiqPottemp_Shum_eq(θ_liq, q_tot, ρ, p)
   for ts in (ts_eq, ts_neq, ts_θ_l_eq)
     @test soundspeed_air(ts) isa typeof(e_int)
     @test gas_constant_air(ts) isa typeof(e_int)

@@ -11,7 +11,7 @@ using ..RootSolvers
 using ...PlanetParameters
 
 # Atmospheric equation of state
-export air_pressure, air_temperature, air_density, soundspeed_air
+export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat, kinetic_energy
@@ -33,6 +33,7 @@ export liquid_fraction, saturation_adjustment, phase_partitioning_eq
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export liquid_ice_pottemp, liquid_pottemp, dry_pottemp, density_pottemp, exner
+export mix_ratio_con, mix_ratio_vap
 
 # Thermodynamic states
 export ThermodynamicState, InternalEnergy_Shum_eq, InternalEnergy_Shum_neq
@@ -98,7 +99,7 @@ end
 A thermodynamic state initialized by
  - `θ_liq` liquid potential temperature
  - `q_tot` total specific humidity
- - `ρ` density
+ - `p` pressure
 
 assuming thermodynamic equilibrium (therefore, saturation
 adjustment is needed).
@@ -107,10 +108,11 @@ struct LiqPottemp_Shum_eq{DT} <: ThermodynamicState{DT}
     θ_liq::DT
     q_tot::DT
     ρ::DT
+    p::DT
     T::DT
-    function LiqPottemp_Shum_eq(θ_liq, q_tot, ρ)
-        T = saturation_adjustment_q_t_θ_l(θ_liq, ρ, q_tot)
-        return new{typeof(ρ)}(θ_liq, q_tot, ρ, T)
+    function LiqPottemp_Shum_eq(θ_liq, q_tot, ρ, p)
+        T = saturation_adjustment_q_t_θ_l(θ_liq, q_tot, ρ, p)
+        return new{typeof(ρ)}(θ_liq, q_tot, ρ, p, T)
     end
 end
 
@@ -164,9 +166,10 @@ function air_pressure(T, ρ, q_tot=0, q_liq=0, q_ice=0)
 end
 function air_pressure(ts::ThermodynamicState)
 
-    return air_pressure(air_temperature(ts), ts.ρ, phase_partitioning_eq(ts)...)
+    return air_pressure(air_temperature(ts), air_density(ts), phase_partitioning_eq(ts)...)
 
 end
+air_pressure(ts::LiqPottemp_Shum_eq) = ts.p
 
 
 """
@@ -191,14 +194,31 @@ function air_density(T, p, q_tot=0, q_liq=0, q_ice=0)
     return p / (gas_constant_air(q_tot, q_liq, q_ice) * T)
 
 end
-function air_density(ts::ThermodynamicState)
+air_density(ts::ThermodynamicState) = ts.ρ
 
-    return air_density(air_temperature(ts),
-                       air_pressure(ts),
-                       ts.q_tot,
-                       phase_partitioning_eq(ts)...)
+"""
+    specific_volume(ts::ThermodynamicState)
+    specific_volume(T, p[, q_tot=0, q_liq=0, q_ice=0])
+
+Return the (moist-)air specific volume from the equation of
+state (ideal gas law), given a thermodynamic state `ts` or
+
+ - `T` air temperature
+ - `p` pressure
+and, optionally,
+ - `q_tot` total specific humidity
+ - `q_liq` liquid specific humidity
+ - `q_ice` ice specific humidity
+
+Without the specific humidity arguments, it the results
+are that of dry air.
+"""
+function specific_volume(T, p, q_tot=0, q_liq=0, q_ice=0)
+
+    return (gas_constant_air(q_tot, q_liq, q_ice) * T) / p
 
 end
+specific_volume(ts::ThermodynamicState) = 1/ts.ρ
 
 """
     cp_m(ts::ThermodynamicState)
@@ -331,6 +351,12 @@ function internal_energy(T, q_tot=0, q_liq=0, q_ice=0)
 
 end
 internal_energy(ts::ThermodynamicState) = ts.e_int
+function internal_energy(ts::LiqPottemp_Shum_eq)
+
+    q_liq, q_ice = phase_partitioning_eq(ts)
+    return internal_energy(ts.T, ts.q_tot, q_liq, q_ice)
+
+end
 
 """
     internal_energy_sat(ts::ThermodynamicState)
@@ -355,7 +381,7 @@ end
 function internal_energy_sat(ts::ThermodynamicState)
 
     return internal_energy_sat(air_temperature(ts),
-                               ts.ρ,
+                               air_density(ts),
                                ts.q_tot)
 
 end
@@ -589,7 +615,7 @@ function saturation_shum(T, ρ, q_liq=0, q_ice=0)
 end
 function saturation_shum(ts::ThermodynamicState)
 
-    return saturation_shum(air_temperature(ts), ts.ρ, phase_partitioning_eq(ts)...)
+    return saturation_shum(air_temperature(ts), air_density(ts), phase_partitioning_eq(ts)...)
 
 end
 
@@ -633,7 +659,7 @@ function saturation_excess(T, ρ, q_tot, q_liq=0, q_ice=0)
 end
 function saturation_excess(ts::ThermodynamicState)
 
-    return saturation_excess(air_temperature(ts), ts.ρ, ts.q_tot, phase_partitioning_eq(ts)...)
+    return saturation_excess(air_temperature(ts), air_density(ts), ts.q_tot, phase_partitioning_eq(ts)...)
 
 end
 
@@ -706,7 +732,7 @@ function phase_partitioning_eq(T, ρ, q_tot)
 end
 function phase_partitioning_eq(ts::ThermodynamicState)
 
-    return phase_partitioning_eq(air_temperature(ts), ts.ρ, ts.q_tot)
+    return phase_partitioning_eq(air_temperature(ts), air_density(ts), ts.q_tot)
 
 end
 phase_partitioning_eq(ts::InternalEnergy_Shum_neq) = ts.q_liq, ts.q_ice
@@ -746,9 +772,8 @@ function saturation_adjustment(e_int, ρ, q_tot)
     return air_temperature(e_int, q_tot, q_liq, q_ice)
   end
 end
-function saturation_adjustment_q_t_θ_l(p, q_tot, θ_liq)
+function saturation_adjustment_q_t_θ_l(θ_liq, q_tot, ρ, p)
   T_1 = θ_liq*(p/MSLP)^(R_d/cp_d)
-  ρ = air_density(T_1, p, q_tot)
   qv_star = saturation_shum(T_1, ρ)
   if (q_tot <= qv_star) # If not saturated
     return T_1
@@ -799,6 +824,34 @@ function liquid_ice_pottemp(ts::ThermodynamicState)
                               phase_partitioning_eq(ts)...)
 
 end
+
+"""
+    mix_ratio_con(ts::ThermodynamicState)
+    mix_ratio_con(q_tot, q_liq, q_ice)
+
+Return the mixing ratio of condensed liquid
+to dry air given a thermodynamic state `ts` or
+
+ - `q_tot` total specific humidity
+ - `q_liq` liquid specific humidity
+ - `q_ice` ice specific humidity
+"""
+mix_ratio_con(q_tot, q_liq, q_ice) = (q_liq+q_ice)/(1-q_tot)
+mix_ratio_con(ts::ThermodynamicState) = mix_ratio_con(ts.q_tot, phase_partitioning_eq(ts)...)
+
+"""
+    mix_ratio_vap(ts::ThermodynamicState)
+    mix_ratio_vap(q_tot, q_liq, q_ice)
+
+Return the mixing ratio of liquid vapor
+to dry air given a thermodynamic state `ts` or
+
+ - `q_tot` total specific humidity
+ - `q_liq` liquid specific humidity
+ - `q_ice` ice specific humidity
+"""
+mix_ratio_vap(q_tot, q_liq, q_ice) = (q_tot-q_liq-q_ice)/(1-q_tot)
+mix_ratio_vap(ts::ThermodynamicState) = mix_ratio_con(ts.q_tot, phase_partitioning_eq(ts)...)
 
 """
     dry_pottemp(ts::ThermodynamicState)
