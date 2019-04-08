@@ -7,70 +7,57 @@ using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
-using CLIMA.Utilities.MoistThermodynamics
+using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
-const HAVE_CUDA = try
-  using CuArrays
-  using CUDAdrv
-  using CUDAnative
-  true
-catch
-  false
-end
-
-macro hascuda(ex)
-  return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
-end
-
 using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
 
 # FIXME: Will these keywords args be OK?
 
 function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
- DFloat = eltype(x)
-  γ::DFloat       = gamma_d
-  p0::DFloat      = 100000
+  DFloat          = eltype(x)
+  p0::DFloat      = MSLP
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
-
+  T_0::DFloat     = T_triple
+  
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
-  θ_ref::DFloat = 300
-  θ_c::DFloat = 0.5
+  θ_ref::DFloat = 320
+  θ_c::DFloat = 2
   Δθ::DFloat = 0
+  Δq_tot::DFloat = 0
+  q_tot = 0.0196
+  q_tr = 0.0100 
   if r <= rc
-    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
+    Δθ = θ_c * (1 + cospi(r / rc)) / 2
+    Δq_tot = q_tot/5 * (1 + cospi(r / rc)) / 2
   end
-  θ_k = θ_ref + Δθ
-  π_k = 1 - gravity / (c_p * θ_k) * x[dim]
+  θ = θ_ref + Δθ
+  π_k = 1 - gravity / (c_p * θ) * x[dim]
+  
   c = c_v / R_gas
-  ρ_k = p0 / (R_gas * θ_k) * (π_k)^c
-  ρ = ρ_k
-  ρinv = 1/ρ
+  ρ = p0 / (R_gas * θ) * (π_k)^c
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
   U = ρ * u
   V = ρ * v
   W = ρ * w
-  Θ = ρ * θ_k
-  P = p0 * (R_gas * Θ / p0)^(c_p / c_v)
+  P = p0 * (R_gas * (ρ * θ) / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
-  # Calculation of energy per unit mass
+  q_tot += Δq_tot
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
-  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
-  # Total energy 
-  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=ntuple(j->(0.0196),nmoist),
-                             Qtrace=ntuple(j->(-ρ * j), ntrace))
+  e_int = MoistThermodynamics.internal_energy(T, q_tot, 0.0, 0.0)
+  E_tot = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
+  (ρ=ρ, U=U, V=V, W=W, E=E_tot, 
+   Qmoist = (q_tot * ρ,),  #Qmoist => Moist variable (may have corresponding sources)
+   Qtrace = ntuple(j->(-j*ρ),ntrace))   #Qtrace => Arbitrary tracers 
 end
 
 
@@ -181,13 +168,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
 
   h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
-  for (j, n) = enumerate(spacedisc.moistrange)
-    # Current assertion condition non-physical: q_moist is a bounded, positive value < 1 
-    #@assert j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
-  end
   for (j, n) = enumerate(spacedisc.tracerange)
-    @assert -j*(@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+    @assert -j * (@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
+
 end
 
 let
@@ -196,23 +180,19 @@ let
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
-  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
-
   nmoist = 1
   ntrace = 1
   Ne = (10, 10, 10)
-  N = 4
+  N = 2
   timeend = 0.1
-  for DFloat in (Float64,)
-    for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+  for DFloat in (Float64, Float32)
+    for ArrayType in (Array,)
       for dim in 2:3
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
-             timeend)
+        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
       end
     end
   end
-
 end
 
 isinteractive() || MPI.Finalize()
