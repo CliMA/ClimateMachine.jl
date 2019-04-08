@@ -27,6 +27,7 @@ makedocs(
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
+      "VariableList.md",
     ]
   ],
 )

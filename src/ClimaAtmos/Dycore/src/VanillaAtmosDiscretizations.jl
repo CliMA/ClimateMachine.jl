@@ -8,13 +8,14 @@ using ...MPIStateArrays
 
 export VanillaAtmosDiscretization
 
-using ...ParametersType
-using ...PlanetParameters: cp_d, cv_d, R_d, grav
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
-@parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
-@parameter prandtl 71//10 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
-@parameter stokes  -2//3  "scaling for viscous effect associated with volume change"
+using ...ParametersType
+using ...PlanetParameters: cp_d, cv_d, grav, MSLP
+using CLIMA.MoistThermodynamics
+
+# ASR Correction to Prandtl number from 7.1 to 0.71
+@parameter prandtl 71//100 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
+@parameter λ_stokes  -2//3  "scaling for viscous effect associated with volume change"
 @parameter k_μ cp_d/prandtl "thermal conductivity / dynamic viscosity"
 
 const _nstate = 5
@@ -164,7 +165,6 @@ function MPIStateArrays.MPIStateArray(disc::VanillaAtmosDiscretization{
     @assert ((ntrace >  0 && ntrace == length(q0.Qtrace)) ||
              (ntrace == 0 && :Qtrace ∉ fieldnames(typeof(q0))))
 
-
     h_Q[i, [_ρ, _U, _V, _W, _E], e] .= (q0.ρ, q0.U, q0.V, q0.W, q0.E)
     (nmoist > 0) && (h_Q[i, _nstate .+           (1:nmoist), e] .= q0.Qmoist)
     (ntrace > 0) && (h_Q[i, _nstate .+ nmoist .+ (1:ntrace), e] .= q0.Qtrace)
@@ -190,20 +190,21 @@ step
 
     This estimate is currently very conservative, needs to be revisited
 """
-function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA},
-                    Q::MPIStateArray) where {T, dim, N, Np, DA}
+function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, nmoist},
+                    Q::MPIStateArray) where {T, dim, N, Np, DA, nmoist}
+  
   @assert T == eltype(Q)
   G = disc.grid
   vgeo = G.vgeo
   # FIXME: GPUify me
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q) = host_array ? (vgeo, Q) : (Array(vgeo), Array(Q))
-  estimatedt(Val(dim), Val(N), G, disc.gravity, h_Q, h_vgeo, G.topology.mpicomm)
+  estimatedt(Val(dim), Val(N), Val(nmoist), G, disc.gravity, h_Q, h_vgeo, G.topology.mpicomm)
 end
 
 # FIXME: This needs cleaning up
-function estimatedt(::Val{dim}, ::Val{N}, G, gravity, Q, vgeo,
-                    mpicomm) where {dim, N}
+function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
+                    mpicomm) where {dim, N, nmoist}
 
   DFloat = eltype(Q)
 
@@ -211,20 +212,36 @@ function estimatedt(::Val{dim}, ::Val{N}, G, gravity, Q, vgeo,
   (_, _, nelem) = size(Q)
 
   dt = [floatmax(DFloat)]
+  
+  # Allocate 3 spaces for moist tracers qm, with a zero default value
+  q_m = zeros(DFloat, max(3, nmoist))
 
   if dim == 2
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
       E = Q[n, _E, e]
       y = vgeo[n, G.yid, e]
-      P = gdm1*(E - (U^2 + V^2)/(2*ρ) - ρ*gravity*y)
-
+      
+      #compute temperature and internal energy
+      #get moist variables from state vector
+      for m = 1:nmoist
+          s = _nstate + m
+          q_m[m] = Q[n, s, e]/ρ
+      end
+      
+      E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
+      # get adjusted temperature and liquid and ice specific humidities
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+    
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
-
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * sqrt(gamma_d * P / ρ),
-                        abs(U * ηx + V * ηy) + ρ * sqrt(gamma_d * P / ρ))
+      
+       # Calculate local dt
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy) + ρ * soundspeed_air(T),
+                        abs(U * ηx + V * ηy) + ρ * soundspeed_air(T))
       dt[1] = min(dt[1], loc_dt)
+  
     end
   end
 
@@ -233,17 +250,29 @@ function estimatedt(::Val{dim}, ::Val{N}, G, gravity, Q, vgeo,
       ρ, U, V, W = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e]
       E = Q[n, _E, e]
       z = vgeo[n, G.zid, e]
-      P = gdm1*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+      
+      #Compute (Temperature) and (E_int per unit mass)
+      E_int = E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z 
+      #Loop over moist variables and extract q_m where q_m[1] = q_t, q_m[2] = q_liq, q_m[3] = q_ice
+      for m = 1:nmoist
+          s = _nstate + m 
+          q_m[m] = Q[n, s, e] / ρ 
+      end
 
+      # get adjusted temperature and liquid and ice specific humidities
+      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
+      
       ξx, ξy, ξz = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e], vgeo[n, G.ξzid, e]
       ηx, ηy, ηz = vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e], vgeo[n, G.ηzid, e]
       ζx, ζy, ζz = vgeo[n, G.ζxid, e], vgeo[n, G.ζyid, e], vgeo[n, G.ζzid, e]
 
-      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * sqrt(gamma_d*P/ρ),
-                        abs(U * ηx + V * ηy + W * ηz) + ρ * sqrt(gamma_d*P/ρ),
-                        abs(U * ζx + V * ζy + W * ζz) + ρ * sqrt(gamma_d*P/ρ))
+      loc_dt = 2ρ / max(abs(U * ξx + V * ξy + W * ξz) + ρ * soundspeed_air(T),
+                        abs(U * ηx + V * ηy + W * ηz) + ρ * soundspeed_air(T),
+                        abs(U * ζx + V * ζy + W * ζz) + ρ * soundspeed_air(T))
       dt[1] = min(dt[1], loc_dt)
-    end
+   
+  end
   end
 
   MPI.Allreduce(dt[1], MPI.MIN, mpicomm) / N^√2
@@ -302,7 +331,7 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
   ###################
 
   viscosity::DFloat = disc.viscosity
-
+ 
   MPIStateArrays.startexchange!(grad)
 
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
@@ -326,14 +355,6 @@ const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 # }}}
 
 using Requires
-
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-  using .CuArrays
-  using .CuArrays.CUDAnative
-  using .CuArrays.CUDAnative.CUDAdrv
-
-  include("VanillaAtmosDiscretizations_cuda.jl")
-end
 
 include("VanillaAtmosDiscretizations_kernels.jl")
 
@@ -363,7 +384,7 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   writemesh(prefix, X...;
             fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
             realelems=G.topology.realelems)
+  end
 end
 
 
-end
