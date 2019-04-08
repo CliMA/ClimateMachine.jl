@@ -8,31 +8,20 @@ using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
 using CLIMA.CLIMAAtmosDycore
+using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
-const HAVE_CUDA = try
-  using CuArrays
-  using CUDAdrv
-  using CUDAnative
-  true
-catch
-  false
-end
-
-macro hascuda(ex)
-  return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
-end
-
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
-@parameter gamma_d cp_d/cv_d "Heat capcity ratio of dry air"
+@parameter γ_d cp_d/cv_d "Heat capacity ratio of dry air"
 @parameter gdm1 R_d/cv_d "(equivalent to gamma_d-1)"
 
 const halfperiod = 5
 
-function isentropicvortex(t, x...)
-  # Standard isentropic vortex test case.  For a more complete description of
+function isentropic_vortex(t, x...; ntrace=0,nmoist=0,dim=3)
+  # Standard isentropic vortex test case.  
+  # For a more complete description of
   # the setup see for Example 3 of:
   #
   # @article{ZHOU2003159,
@@ -46,17 +35,19 @@ function isentropicvortex(t, x...)
   #   doi = {10.1016/S0021-9991(03)00206-7},
   #   url = {https://doi.org/10.1016/S0021-9991(03)00206-7},
   # }
-  DFloat = eltype(x)
 
-  γ::DFloat    = gamma_d
-  uinf::DFloat = 1
-  vinf::DFloat = 1
-  Tinf::DFloat = 1
-  λ::DFloat    = 5
-
+  DFloat        = eltype(x)
+  
+  γ::DFloat     = γ_d
+  uinf::DFloat  = 1
+  vinf::DFloat  = 1
+  Tinf::DFloat  = 1
+  λ::DFloat     = 5 # Vortex strength 
+  η::DFloat     = 1 # Solution gradient parameter 
+  
   xs = x[1] - uinf*t
   ys = x[2] - vinf*t
-
+  
   # make the function periodic
   xtn = floor((xs+halfperiod)/(2halfperiod))
   ytn = floor((ys+halfperiod)/(2halfperiod))
@@ -68,18 +59,19 @@ function isentropicvortex(t, x...)
   u = uinf - λ*(1//2)*exp(1-rsq)*yp/π
   v = vinf + λ*(1//2)*exp(1-rsq)*xp/π
   w = zero(DFloat)
-
   ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
+  
   p = ρ^γ
   U = ρ*u
   V = ρ*v
   W = ρ*w
-  E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
-
-  (ρ=ρ, U=U, V=V, W=W, E=E)
+  E = p/(γ-1) + ρ * internal_energy(0) +  (1//2)*ρ*(u^2 + v^2 + w^2)
+  # TODO generalise non-dimensionalisation to the PlanetParameters file for moist cases
+  (ρ=ρ, U=U, V=V, W=W, E=E) 
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend, bricktopo; dt=nothing,
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
+              timeend, bricktopo; dt=nothing,
               exact_timeend=true, timeinitial=0)
   dim = length(brickrange)
   topl = bricktopo(# MPI communicator to connect elements/partition
@@ -104,10 +96,15 @@ function main(mpicomm, DFloat, ArrayType, brickrange, N, timeend, bricktopo; dt=
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  spacedisc = VanillaAtmosDiscretization(grid; gravity=false)
+  spacedisc = VanillaAtmosDiscretization(grid; gravity=false,
+                                        ntrace=ntrace,
+                                        nmoist=nmoist)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(x...) = isentropicvortex(DFloat(timeinitial), x...)
+  initialcondition(x...) = isentropic_vortex(DFloat(timeinitial), x...;
+                                            ntrace=ntrace,
+                                            nmoist=nmoist,
+                                            dim=dim) 
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
@@ -182,18 +179,18 @@ let
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
-  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
-
   Ne = (10, 10, 10)
   N = 4
-  timeend = 10
+  timeend = 1
+  nmoist = 0
+  ntrace = 0
   for DFloat in (Float64,Float32)
-    for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+    for ArrayType in (Array,)
       for bricktopo in (BrickTopology, StackedBrickTopology)
         for dim in 2:3
           brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                        stop=halfperiod), dim)
-          main(mpicomm, DFloat, ArrayType, brickrange, N, DFloat(timeend),
+          main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, DFloat(timeend),
                bricktopo, dt = 1e-3)
         end
       end
