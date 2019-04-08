@@ -1,3 +1,32 @@
+@testset "cubedshellwarp tests" begin
+  import CLIMA.Topologies: cubedshellwarp
+
+  @testset "check radius" begin
+    @test hypot(cubedshellwarp( 3.0,-2.2, 1.3)...) ≈ 3.0 rtol=eps()
+    @test hypot(cubedshellwarp(-3.0,-2.2, 1.3)...) ≈ 3.0 rtol=eps()
+    @test hypot(cubedshellwarp( 1.1,-2.2, 3.0)...) ≈ 3.0 rtol=eps()
+    @test hypot(cubedshellwarp( 1.1,-2.2,-3.0)...) ≈ 3.0 rtol=eps()
+    @test hypot(cubedshellwarp( 1.1, 3.0, 0.0)...) ≈ 3.0 rtol=eps()
+    @test hypot(cubedshellwarp( 1.1,-3.0, 0.0)...) ≈ 3.0 rtol=eps()
+  end
+
+  @testset "check sign" begin
+    @test sign.(cubedshellwarp( 3.0,-2.2, 1.3)) == sign.(( 3.0,-2.2, 1.3))
+    @test sign.(cubedshellwarp(-3.0,-2.2, 1.3)) == sign.((-3.0,-2.2, 1.3))
+    @test sign.(cubedshellwarp( 1.1,-2.2, 3.0)) == sign.(( 1.1,-2.2, 3.0))
+    @test sign.(cubedshellwarp( 1.1,-2.2,-3.0)) == sign.(( 1.1,-2.2,-3.0))
+    @test sign.(cubedshellwarp( 1.1, 3.0, 0.0)) == sign.(( 1.1, 3.0, 0.0))
+    @test sign.(cubedshellwarp( 1.1,-3.0, 0.0)) == sign.(( 1.1,-3.0, 0.0))
+  end
+
+  @testset "check continuity" begin
+    # TODO: we should be systematic here
+    @test all(cubedshellwarp( 3.0,-2.999999999, 1.3) .≈ cubedshellwarp( 2.999999999,-3.0, 1.3))
+    @test all(cubedshellwarp( 3.0, 2.999999999, 1.3) .≈ cubedshellwarp( 2.999999999, 3.0, 1.3))
+    @test all(cubedshellwarp(-3.0,-2.999999999, 1.3) .≈ cubedshellwarp(-2.999999999,-3.0, 1.3))
+    @test all(cubedshellwarp(-3.0, 2.999999999, 1.3) .≈ cubedshellwarp(-2.999999999, 3.0, 1.3))
+  end
+end
 
 @testset "BrickTopology tests" begin
   using CLIMA.Topologies
