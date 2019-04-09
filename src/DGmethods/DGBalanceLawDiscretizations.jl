@@ -109,7 +109,8 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                          nabrtorank=topology.nabrtorank,
                          nabrtorecv=topology.nabrtorecv,
                          nabrtosend=topology.nabrtosend,
-                         weights=view(h_vgeo, :, grid.Mid, :))
+                         weights=view(h_vgeo, :, grid.Mid, :),
+                         commtag=111)
 
   auxc = MPIStateArray{Tuple{Np, nauxcstate}, DFloat, DA
                       }(topology.mpicomm,
@@ -120,7 +121,8 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                         nabrtorank=topology.nabrtorank,
                         nabrtorecv=topology.nabrtorecv,
                         nabrtosend=topology.nabrtosend,
-                        weights=view(h_vgeo, :, grid.Mid, :))
+                        weights=view(h_vgeo, :, grid.Mid, :),
+                        commtag=222)
 
   auxd = MPIStateArray{Tuple{Np, nauxdstate}, DFloat, DA
                       }(topology.mpicomm,
@@ -131,7 +133,8 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                         nabrtorank=topology.nabrtorank,
                         nabrtorecv=topology.nabrtorecv,
                         nabrtosend=topology.nabrtosend,
-                        weights=view(h_vgeo, :, grid.Mid, :))
+                        weights=view(h_vgeo, :, grid.Mid, :),
+                        commtag=333)
 
   DGBalanceLaw(grid, nstate, gradstates, flux!, numericalflux!, Qgrad,
                auxc, auxd)
@@ -143,7 +146,7 @@ end
 Given a discretization `disc` constructs an `MPIStateArrays` for holding a
 solution state
 """
-function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw)
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; commtag=888)
   grid = disc.grid
   topology = disc.grid.topology
   nvar = disc.nstate
@@ -161,12 +164,13 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw)
                                              nabrtorecv=topology.nabrtorecv,
                                              nabrtosend=topology.nabrtosend,
                                              weights=view(h_vgeo, :,
-                                                          disc.grid.Mid, :))
+                                                          disc.grid.Mid, :),
+                                             commtag=commtag)
 end
 
 function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
-                                      ic!::Function)
-  Q = MPIStateArray(disc)
+                                      ic!::Function; commtag=888)
+  Q = MPIStateArray(disc; commtag=commtag)
 
   nvar = disc.nstate
   grid = disc.grid
@@ -193,8 +197,8 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
 end
 
 MPIStateArrays.MPIStateArray(f::Function,
-                             d::DGBalanceLaw
-                            ) = MPIStateArray(d, f)
+                             d::DGBalanceLaw; commtag=888
+                            ) = MPIStateArray(d, f; commtag=commtag)
 
 #TODO: Need to think about where this should really live. Grid? MPIStateArrays?
 include("../Mesh/vtk.jl")
