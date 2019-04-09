@@ -213,7 +213,7 @@ end
 
 using Test
 let
-  timeend = 0.1
+  timeend = 0.01
   numelem = (5, 5, 1)
   lvls = 3
 
@@ -221,12 +221,12 @@ let
   expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
 
   # TODO: Can these be the same as standalone case?
-  expected_error[1,1] = 2.1860539261316575e-01
-  expected_error[1,2] = 4.2761825419443192e-02
-  expected_error[1,3] = 2.0242180213875956e-03
-  expected_error[2,1] = 6.9129094945307301e-01
-  expected_error[2,2] = 1.3522476523192201e-01
-  expected_error[2,3] = 6.4011394283774127e-03
+  expected_error[1,1] = 2.7096849496802883e-02
+  expected_error[1,2] = 7.3660563764448147e-03
+  expected_error[1,3] = 4.2111431545573515e-04
+  expected_error[2,1] = 8.5687761824661729e-02
+  expected_error[2,2] = 2.3293515522772215e-02
+  expected_error[2,3] = 1.3316803921428360e-03
 
   for DFloat in (Float64,) #Float32)
     for dim = 2:3
