@@ -73,6 +73,9 @@ struct DGBalanceLaw <: AbstractDGMethod
   "Tuple of states to take the gradient of"
   gradstates::Tuple
 
+  "dynamic auxiliary state"
+  nauxdstate::Int
+
   "physical flux function"
   flux!::Function
 
@@ -80,19 +83,15 @@ struct DGBalanceLaw <: AbstractDGMethod
   numericalflux!::Function
 
   "storage for the grad"
-  Qgrad::MPIStateArray
+  Qgrad_auxd::MPIStateArray
 
   "constant auxiliary state"
   auxc::MPIStateArray
-
-  "dynamic auxiliary state"
-  auxd::MPIStateArray
 end
 
 function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                       nauxcstate=0, nauxdstate=0)
   @assert nauxcstate == 0 # Still need to handle these
-  @assert nauxdstate == 0 # Still need to handle these
   ngradstate = length(gradstates)
   topology = grid.topology
   Np = dofs_per_element(grid)
@@ -100,18 +99,17 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
   DFloat = eltype(h_vgeo)
   DA = arraytype(grid)
   # TODO: Clean up this MPIStateArray interface...
-  Qgrad = MPIStateArray{Tuple{Np, ngradstate}, DFloat, DA
-                       }(topology.mpicomm,
-                         length(topology.elems),
-                         realelems=topology.realelems,
-                         ghostelems=topology.ghostelems,
-                         sendelems=topology.sendelems,
-                         nabrtorank=topology.nabrtorank,
-                         nabrtorecv=topology.nabrtorecv,
-                         nabrtosend=topology.nabrtosend,
-                         weights=view(h_vgeo, :, grid.Mid, :),
-                         commtag=111)
-
+  Qgrad_auxd = MPIStateArray{Tuple{Np, ngradstate+ nauxdstate}, DFloat, DA
+                            }(topology.mpicomm,
+                              length(topology.elems),
+                              realelems=topology.realelems,
+                              ghostelems=topology.ghostelems,
+                              sendelems=topology.sendelems,
+                              nabrtorank=topology.nabrtorank,
+                              nabrtorecv=topology.nabrtorecv,
+                              nabrtosend=topology.nabrtosend,
+                              weights=view(h_vgeo, :, grid.Mid, :),
+                              commtag=111)
   auxc = MPIStateArray{Tuple{Np, nauxcstate}, DFloat, DA
                       }(topology.mpicomm,
                         length(topology.elems),
@@ -124,20 +122,8 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                         weights=view(h_vgeo, :, grid.Mid, :),
                         commtag=222)
 
-  auxd = MPIStateArray{Tuple{Np, nauxdstate}, DFloat, DA
-                      }(topology.mpicomm,
-                        length(topology.elems),
-                        realelems=topology.realelems,
-                        ghostelems=topology.ghostelems,
-                        sendelems=topology.sendelems,
-                        nabrtorank=topology.nabrtorank,
-                        nabrtorecv=topology.nabrtorecv,
-                        nabrtosend=topology.nabrtosend,
-                        weights=view(h_vgeo, :, grid.Mid, :),
-                        commtag=333)
-
-  DGBalanceLaw(grid, nstate, gradstates, flux!, numericalflux!, Qgrad,
-               auxc, auxd)
+  DGBalanceLaw(grid, nstate, gradstates, nauxdstate, flux!, numericalflux!,
+               Qgrad_auxd, auxc)
 end
 
 """
@@ -242,14 +228,13 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   dim = dimensionality(grid)
   N = polynomialorder(grid)
 
-  Qgrad = disc.Qgrad
+  Qgrad_auxd = disc.Qgrad_auxd
   auxc = disc.auxc
-  auxd = disc.auxd
 
   nstate = disc.nstate
   ngradstate = length(disc.gradstates)
   nauxcstate = size(auxc, 2)
-  nauxdstate = size(auxd, 2)
+  nauxdstate = disc.nauxdstate
 
   Dmat = grid.D
   vgeo = grid.vgeo
@@ -272,7 +257,11 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
 
     # TODO: facegrad!
 
-    MPIStateArrays.startexchange!(Qgrad)
+    MPIStateArrays.startexchange!(Qgrad_auxd)
+  elseif nauxdstate > 0
+    # TODO: compute dynamic aux state
+
+    MPIStateArrays.startexchange!(Qgrad_auxd)
   end
 
   ###################
@@ -280,14 +269,17 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ###################
 
   volumerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
-             Val(nauxdstate), disc.flux!, dQ.Q, Q.Q, Qgrad.Q,
-             auxc.Q, auxd.Q, vgeo, t, Dmat, topology.realelems)
+             Val(nauxdstate), disc.flux!, dQ.Q, Q.Q, Qgrad_auxd.Q,
+             auxc.Q, vgeo, t, Dmat, topology.realelems)
 
-  MPIStateArrays.finishexchange!(ngradstate > 0 ? Qgrad : Q)
+  MPIStateArrays.finishexchange!(ngradstate > 0 ? Qgrad_auxd : Q)
+
+  (ngradstate > 0 || nauxdstate > 0) && MPIStateArrays.finishexchange!(Qgrad_auxd)
+  ngradstate == 0 && MPIStateArrays.finishexchange!(Q)
 
   facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
-           Val(nauxdstate), disc.numericalflux!, dQ.Q, Q.Q, Qgrad.Q,
-           auxc.Q, auxd.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+           Val(nauxdstate), disc.numericalflux!, dQ.Q, Q.Q, Qgrad_auxd.Q,
+           auxc.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
            topology.realelems)
 end
 

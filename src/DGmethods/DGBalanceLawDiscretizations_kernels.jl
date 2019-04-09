@@ -3,7 +3,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
                     ::Val{nauxcstate}, ::Val{nauxdstate},
                     flux!,
                     rhs::Array,
-                    Q, Qgrad, auxc, auxd, vgeo, t,
+                    Q, Qgrad_auxd, auxc, vgeo, t,
                     D, elems) where {dim, N, nstate, ngradstate,
                                     nauxcstate, nauxdstate}
   DFloat = eltype(Q)
@@ -15,7 +15,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
   nelem = size(Q)[end]
 
   Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
-  Qgrad = reshape(Qgrad, Nq, Nq, Nqk, ngradstate, nelem)
+  Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate, nelem)
   rhs = reshape(rhs, Nq, Nq, Nqk, nstate, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
 
@@ -41,15 +41,15 @@ function volumerhs!(::Val{dim}, ::Val{N},
       end
 
       for s = 1:ngradstate
-        l_Qgrad[s] = Qgrad[i, j, k, s, e]
+        l_Qgrad[s] = Qgrad_auxd[i, j, k, s, e]
       end
 
       for s = 1:nauxcstate
-        l_ϕc[s] = ϕc[i, j, k, s, e]
+        l_ϕc[s] = auxc[i, j, k, s, e]
       end
 
       for s = 1:nauxdstate
-        l_ϕd[s] = ϕd[i, j, k, s, e]
+        l_ϕd[s] = Qgrad_auxd[i, j, k, ngradstate + s, e]
       end
 
       flux!(l_F, l_Q, l_Qgrad, l_ϕc, l_ϕd, t)
@@ -93,7 +93,7 @@ function facerhs!(::Val{dim}, ::Val{N},
                   ::Val{nstate}, ::Val{ngradstate},
                   ::Val{nauxcstate}, ::Val{nauxdstate},
                   numericalflux!,
-                  rhs::Array, Q, Qgrad, auxc, auxd,
+                  rhs::Array, Q, Qgrad_auxd, auxc,
                   vgeo, sgeo,
                   t, vmapM, vmapP, elemtobndy,
                   elems) where {dim, N, nstate, ngradstate, nauxcstate,
@@ -142,15 +142,15 @@ function facerhs!(::Val{dim}, ::Val{N},
         end
 
         for s = 1:ngradstate
-          l_QgradM[s] = Qgrad[vidM, s, eM]
+          l_QgradM[s] = Qgrad_auxd[vidM, s, eM]
         end
 
         for s = 1:nauxcstate
-          l_ϕcM[s] = ϕc[vidM, s, eM]
+          l_ϕcM[s] = auxc[vidM, s, eM]
         end
 
         for s = 1:nauxdstate
-          l_ϕdM[s] = ϕd[vidM, s, eM]
+          l_ϕdM[s] = Qgrad_auxd[vidM, ngradstate + s, eM]
         end
 
         # Load plus side data
@@ -159,15 +159,15 @@ function facerhs!(::Val{dim}, ::Val{N},
         end
 
         for s = 1:ngradstate
-          l_QgradP[s] = Qgrad[vidP, s, eP]
+          l_QgradP[s] = Qgrad_auxd[vidP, s, eP]
         end
 
         for s = 1:nauxcstate
-          l_ϕcP[s] = ϕc[vidP, s, eP]
+          l_ϕcP[s] = auxc[vidP, s, eP]
         end
 
         for s = 1:nauxdstate
-          l_ϕdP[s] = ϕd[vidP, s, eP]
+          l_ϕdP[s] = Qgrad_auxd[vidP, ngradstate + s, eP]
         end
 
         # Fix up for boundary conditions
