@@ -20,6 +20,8 @@ using MPI, Test
                  (3, "Euler/isentropic_vortex.jl")
                  (1, "Euler/isentropic_vortex_standalone_auxd.jl")
                  (3, "Euler/isentropic_vortex_standalone_auxd.jl")
+                 (1, "Euler/isentropic_vortex_standalone_auxd_auxc.jl")
+                 (3, "Euler/isentropic_vortex_standalone_auxd_auxc.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd

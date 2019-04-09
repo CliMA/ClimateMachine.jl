@@ -94,8 +94,8 @@ end
 
 function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                       nauxcstate=0, nauxdstate=0,
-                      auxdfun! = (auxd, Q, auxc, t) -> error())
-  @assert nauxcstate == 0 # Still need to handle these
+                      auxdfun! = (auxd, Q, auxc, t) -> error(),
+                      auxcfun! = nothing)
   ngradstate = length(gradstates)
   topology = grid.topology
   Np = dofs_per_element(grid)
@@ -114,6 +114,7 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                               nabrtosend=topology.nabrtosend,
                               weights=view(h_vgeo, :, grid.Mid, :),
                               commtag=111)
+
   auxc = MPIStateArray{Tuple{Np, nauxcstate}, DFloat, DA
                       }(topology.mpicomm,
                         length(topology.elems),
@@ -125,6 +126,17 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                         nabrtosend=topology.nabrtosend,
                         weights=view(h_vgeo, :, grid.Mid, :),
                         commtag=222)
+
+  if auxcfun! !== nothing
+    @assert nauxcstate > 0
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    vgeo = grid.vgeo
+    initauxc!(Val(dim), Val(N), Val(nauxcstate), auxcfun!, auxc, vgeo,
+              topology.realelems)
+    MPIStateArrays.startexchange!(auxc)
+    MPIStateArrays.finishexchange!(auxc)
+  end
 
   DGBalanceLaw(grid, nstate, gradstates, nauxdstate, flux!, numericalflux!,
                Qgrad_auxd, auxc, auxdfun!)
@@ -166,15 +178,26 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
   grid = disc.grid
   vgeo = grid.vgeo
   Np = dofs_per_element(grid)
+  auxc = disc.auxc
+  nauxcstate = size(auxc, 2)
 
   # FIXME: GPUify me
   host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q) = host_array ? (vgeo, Q) : (Array(vgeo), Array(Q))
+  (h_vgeo, h_Q, h_auxc) = host_array ? (vgeo, Q, auxc) :
+                                       (Array(vgeo), Array(Q), Array(auxc))
   Qdof = MArray{Tuple{nvar}, eltype(h_Q)}(undef)
+  ϕcdof = MArray{Tuple{nauxcstate}, eltype(h_Q)}(undef)
   @inbounds for e = 1:size(Q, 3), i = 1:Np
     (x, y, z) = (h_vgeo[i, grid.xid, e], h_vgeo[i, grid.yid, e],
                  h_vgeo[i, grid.zid, e])
-    ic!(Qdof, x, y, z)
+    if nauxcstate > 0
+      for s = 1:nauxcstate
+        ϕcdof[s] = h_auxc[i, s, e]
+      end
+      ic!(Qdof, x, y, z, ϕcdof)
+    else
+      ic!(Qdof, x, y, z)
+    end
     for n = 1:nvar
       h_Q[i, n, e] = Qdof[n]
     end

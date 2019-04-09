@@ -18,6 +18,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
   Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate + nauxdstate, nelem)
   rhs = reshape(rhs, Nq, Nq, Nqk, nstate, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
+  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
 
   s_F = MArray{Tuple{3, Nq, Nq, Nqk, nstate}, DFloat}(undef)
 
@@ -195,6 +196,7 @@ function updateauxd!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
                                                         nauxdstate}
   # Should only be called in this case I think?
   @assert ngradstate == 0
+  @assert nauxdstate > 0
 
   DFloat = eltype(Q)
 
@@ -206,6 +208,7 @@ function updateauxd!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
 
   Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
   Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate + nauxdstate, nelem)
+  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
 
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
@@ -229,6 +232,41 @@ function updateauxd!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
 
       for s = 1:nauxdstate
         Qgrad_auxd[i, j, k, ngradstate + s, e] = l_ϕd[s]
+      end
+    end
+  end
+end
+
+function initauxc!(::Val{dim}, ::Val{N}, ::Val{nauxcstate},
+                   auxcfun!, auxc, vgeo, elems) where {dim, N, nauxcstate}
+
+  # Should only be called in this case I think?
+  @assert nauxcstate > 0
+
+  DFloat = eltype(auxc)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  nelem = size(auxc)[end]
+
+  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
+  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
+
+  l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
+
+  @inbounds for e in elems
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      x, y, z = vgeo[i,j,k,_x,e], vgeo[i,j,k,_y,e], vgeo[i,j,k,_z,e]
+      for s = 1:nauxcstate
+        l_ϕc[s] = auxc[i, j, k, s, e]
+      end
+
+      auxcfun!(l_ϕc, x, y, z)
+
+      for s = 1:nauxcstate
+        auxc[i, j, k, s, e] = l_ϕc[s]
       end
     end
   end
