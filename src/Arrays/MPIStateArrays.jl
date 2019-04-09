@@ -72,7 +72,7 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
     end
 
     host_sendQ = zeros(T, S.parameters..., numsendelem)
-    host_recvQ = zeros(T, S.parameters..., numsendelem)
+    host_recvQ = zeros(T, S.parameters..., numrecvelem)
 
     # Length check is to work around a CuArrays bug.
     length(Q) > 0 && fill!(Q, 0)
