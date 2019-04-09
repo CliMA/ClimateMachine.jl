@@ -3,3 +3,5 @@ status = [
   "ci/travis-ci/push",
   "ci/appveyor/branch"
 ]
+# 4 hours
+timeout-sec = 14400
