@@ -10,10 +10,11 @@ include("Mesh/Topologies.jl")
 include("Mesh/Grids.jl")
 include("Arrays/MPIStateArrays.jl")
 include("Atmos/Dycore/src/AtmosDycore.jl")
+include("DGmethods/SpaceMethods.jl")
+include("DGmethods/DGBalanceLawDiscretizations.jl")
 include("ODESolvers/ODESolvers.jl")
 include("ODESolvers/LowStorageRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
-include("DGmethods/DGBalanceLawDiscretizations.jl")
 
 
 end

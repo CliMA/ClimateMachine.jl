@@ -4,6 +4,7 @@ using ...Grids
 using ...MPIStateArrays
 using Documenter
 using StaticArrays
+using ...SpaceMethods
 
 export DGBalanceLaw, getodefun!
 
@@ -63,7 +64,7 @@ where:
     - `gradnumericalflux!`?
 
 """
-struct DGBalanceLaw
+struct DGBalanceLaw <: AbstractDGMethod
   grid::DiscontinuousSpectralElementGrid
 
   "number of state"
@@ -293,6 +294,5 @@ function odefun!(dQ::MPIStateArray, Q::MPIStateArray, t, disc::DGBalanceLaw)
            auxc.Q, auxd.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
            topology.realelems)
 end
-
 
 end
