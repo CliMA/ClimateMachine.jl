@@ -340,9 +340,11 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
   
   # Sponge boundary condition
+  
+  #{{{
   vol_sponge!(Val(dim),Val(N),Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
-
+  #}}}
   MPIStateArrays.finishexchange!(grad)
 
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
@@ -350,9 +352,11 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
            elemtobndy)
   
   # Sponge boundary condition
+  #{{{
   face_sponge!(Val(dim),Val(N),Val(nmoist),Val(ntrace),dQ.Q, Q.Q, grad.Q,
            	vgeo,sgeo,gravity, 
 	   	viscosity, topology.realelems, vmapM, vmapP,elemtobndy)
+  #}}}
   
 end
 # }}}

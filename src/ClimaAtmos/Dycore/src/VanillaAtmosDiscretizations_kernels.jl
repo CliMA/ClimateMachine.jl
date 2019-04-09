@@ -1326,10 +1326,12 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   end
 end
 # }}}
-# {{{
+
+
+# {{{ Include sponge layer 
 function vol_sponge!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
                     rhs::Array, Q, grad, vgeo, gravity, viscosity, D,
-                    elems) where {N, nmoist, ntrace}#
+                    elems) where {N, nmoist, ntrace}
   DFloat = eltype(Q)
   nvar   = _nstate + nmoist + ntrace
   ngrad  = _nstategrad + 3nmoist
@@ -1347,28 +1349,16 @@ function vol_sponge!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   vgeo = reshape(vgeo, Nq, Nq, size(vgeo,2), nelem)
   rhs  = reshape(rhs, Nq, Nq, nvar, nelem)
 
-	ysponge = 950
-	ymax = 1200
-        α = 0.7
+        ymax = 4000 #maximum(vgeo[:,:,_y,:]) # 2 dimensional maximum
+	ysponge = 0.75 * ymax 
+        α = 0.7 #(Relaxation coefficient = 1 for maximum damping)
         @inbounds for e in 1:nelem
 	for j =1:Nq, i = 1:Nq
 		y = vgeo[i,j,_y,e]
-		for s = 1:_nstate
-			if y > ysponge
-                          rhs[i,j,s,e] -= α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[i,j,s,e]
-			end
-		end
-		for m = 1:nmoist
-			s = _nstate + m
-			if y > ysponge
-			rhs[i,j,s,e] -=  α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[i,j,s,e]
-			end
-		end
-		for t = 1:ntrace
-			s = _ntrace + nmoist + t
-			if y > ysponge
-			rhs[i,j,s,e] -=  α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[i,j,s,e]
-			end
+		for s = 2:_nstate - 1 # Damp the velocity terms only
+                  if y > ysponge
+                    rhs[i,j,s,e] -= α * (1- sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[i,j,s,e]
+                  end
 		end
 	end
 end
@@ -1401,31 +1391,25 @@ function face_sponge!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 	vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
 	y = vgeo[vidM, _y, eM]
         
-        ysponge = 950
-        ymax = 1200
-        α = 0.7
-		for s = 1:_nstate
-		if y > ysponge
-			rhs[vidM, s, eM] -= α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[vidM, s, eM]
-			end
-		end
-		for m = 1:nmoist
-		s = nmoist + m
-			if y > ysponge
-			rhs[vidM, s, eM] -= α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[vidM, s, eM]
-			end
-		end
-		for t = 1:ntrace
-		s = ntrace + nmoist + t 
-			if y > ysponge
+        ymax = 4000 #maximum(vgeo[:,:,_y,:]) # 2 dimensional value maximum
+        ysponge = 0.75 * ymax
+        α = 0.7 #(Relaxation coefficient = 1 for maximum damping)
+		for s = 2:_nstate - 1  # Damp the velocity terms only
+                  if y > ysponge
                           rhs[vidM, s, eM] -= α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[vidM, s, eM]
+                  end
+		end
+                #= Tracer expressions not damped at this stage. (Only velocity components)
+		for t = 1:ntrace
+			s = _ntrace + nmoist + t
+			if y > ysponge
+			rhs[i,j,s,e] -=  α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[i,j,s,e]
 			end
 		end
+                =# 
 	end
     end
 end
 end
-
-
 # }}}
 # }}}
