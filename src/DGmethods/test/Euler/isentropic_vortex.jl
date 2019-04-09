@@ -137,7 +137,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
-  lsrk = LowStorageRungeKutta(getodefun!(spacedisc), Q; dt = dt, t0 = 0)
+  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
 
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
   eng0 = norm(Q)

@@ -6,7 +6,7 @@ using Documenter
 using StaticArrays
 using ...SpaceMethods
 
-export DGBalanceLaw, getodefun!
+export DGBalanceLaw
 
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
 const _nvgeo = 14
@@ -230,16 +230,8 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
 end
 
-"""
-    getodefun!(disc::DGBalanceLaw)
-
-Given a `DGBalanceLaw` discretization, return a function that can evaluate the
-right-hand side of the ode which can be used, for example, by
-[`LowStorageRungeKuttaMethod`](@ref)
-"""
-getodefun!(disc::DGBalanceLaw) = (x...) -> odefun!(x..., disc)
-
-function odefun!(dQ::MPIStateArray, Q::MPIStateArray, t, disc::DGBalanceLaw)
+function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
+                              Q::MPIStateArray, t)
   grid = disc.grid
   topology = grid.topology
 
