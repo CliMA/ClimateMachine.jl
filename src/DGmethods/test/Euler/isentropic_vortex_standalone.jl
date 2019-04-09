@@ -126,7 +126,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
 
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
   @printf(io, "----\n")
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
