@@ -1,4 +1,4 @@
-module CLIMAAtmosDycore
+module AtmosDycore
 
 export solve!, getrhsfunction
 
