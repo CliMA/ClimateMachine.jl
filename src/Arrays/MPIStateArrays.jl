@@ -19,11 +19,6 @@ export MPIStateArray, euclideandist
     really necessary (some of it was optimistically added for functionality that
     never panned out)
 
-!!! todo
-
-    tag for the MPI message should probably be unified for each
-    `MPIStateArray` (right now `888` used is the same for all communication)
-
 """
 struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
                      DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
@@ -50,9 +45,12 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
   # FIXME: Later we should relax this if we compute on the GPU and probably
   # should let this be a more generic type...
   weights::Array{T, Nm1}
+
+  commtag::Int
   function MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
                                    sendelems, nabrtorank, nabrtorecv,
-                                   nabrtosend, weights) where {S, T, DA}
+                                   nabrtosend, weights, commtag
+                                  ) where {S, T, DA}
     N = length(S.parameters)+1
     numsendelem = length(sendelems)
     numrecvelem = length(ghostelems)
@@ -89,7 +87,8 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
                                            sendelems, sendreq, recvreq,
                                            host_sendQ, host_recvQ, nabrtorank,
                                            nabrtorecv, nabrtosend,
-                                           device_sendQ, device_recvQ, weights)
+                                           device_sendQ, device_recvQ, weights,
+                                           commtag)
   end
 
 
@@ -102,7 +101,8 @@ end
                            nabrtorank=Array{Int64}(undef, 0),
                            nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
                            nabrtosend=Array{UnitRange{Int64}}(undef, 0),
-                           weights)
+                           weights,
+                           commtag=888)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
 elements, using array type `DA` with element type `eltype`. The arrays that are
@@ -131,6 +131,7 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
                                  nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
                                  nabrtosend=Array{UnitRange{Int64}}(undef, 0),
                                  weights=nothing,
+                                 commtag=888
                                 ) where {S<:Tuple, T, DA}
 
   N = length(S.parameters)+1
@@ -141,14 +142,15 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
   end
   MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
                           sendelems, nabrtorank, nabrtorecv,
-                          nabrtosend, weights)
+                          nabrtosend, weights, commtag)
 end
 
 # FIXME: should general cases should be handled?
-function Base.similar(Q::MPIStateArray{S, T, DA}) where {S, T, DA}
+function Base.similar(Q::MPIStateArray{S, T, DA}; commtag=Q.commtag
+                     ) where {S, T, DA}
   MPIStateArray{S, T, DA}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
                           Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
-                          Q.nabrtosend, Q.weights)
+                          Q.nabrtosend, Q.weights, commtag)
 end
 
 # FIXME: Only show real size
@@ -186,7 +188,7 @@ function postrecvs!(Q::MPIStateArray)
     @assert Q.recvreq[n].buffer == nothing
 
     Q.recvreq[n] = MPI.Irecv!((@view Q.host_recvQ[:, :, Q.nabrtorecv[n]]),
-                              Q.nabrtorank[n], 888, Q.mpicomm)
+                              Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
 
@@ -213,7 +215,7 @@ function startexchange!(Q::MPIStateArray; dorecvs=true)
   nnabr = length(Q.nabrtorank)
   for n = 1:nnabr
     Q.sendreq[n] = MPI.Isend((@view Q.host_sendQ[:, :, Q.nabrtosend[n]]),
-                           Q.nabrtorank[n], 888, Q.mpicomm)
+                           Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
 
