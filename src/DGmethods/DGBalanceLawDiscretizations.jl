@@ -87,10 +87,14 @@ struct DGBalanceLaw <: AbstractDGMethod
 
   "constant auxiliary state"
   auxc::MPIStateArray
+
+  "update function for auxd state"
+  auxdfun!::Function
 end
 
 function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
-                      nauxcstate=0, nauxdstate=0)
+                      nauxcstate=0, nauxdstate=0,
+                      auxdfun! = (auxd, Q, auxc, t) -> error())
   @assert nauxcstate == 0 # Still need to handle these
   ngradstate = length(gradstates)
   topology = grid.topology
@@ -123,7 +127,7 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                         commtag=222)
 
   DGBalanceLaw(grid, nstate, gradstates, nauxdstate, flux!, numericalflux!,
-               Qgrad_auxd, auxc)
+               Qgrad_auxd, auxc, auxdfun!)
 end
 
 """
@@ -260,6 +264,9 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
     MPIStateArrays.startexchange!(Qgrad_auxd)
   elseif nauxdstate > 0
     # TODO: compute dynamic aux state
+    updateauxd!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
+               Val(nauxdstate), disc.auxdfun!, Q.Q, Qgrad_auxd.Q,
+               auxc.Q, t, topology.realelems)
 
     MPIStateArrays.startexchange!(Qgrad_auxd)
   end

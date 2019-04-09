@@ -15,7 +15,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
   nelem = size(Q)[end]
 
   Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
-  Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate, nelem)
+  Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate + nauxdstate, nelem)
   rhs = reshape(rhs, Nq, Nq, Nqk, nstate, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
 
@@ -183,6 +183,52 @@ function facerhs!(::Val{dim}, ::Val{N},
         for s = 1:nstate
           rhs[vidM, s, eM] -= vMJI * sMJ * l_F[s]
         end
+      end
+    end
+  end
+end
+
+function updateauxd!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
+                     ::Val{nauxcstate}, ::Val{nauxdstate}, auxdfun!, Q,
+                     Qgrad_auxd, auxc, t, elems) where {dim, N, nstate,
+                                                        ngradstate, nauxcstate,
+                                                        nauxdstate}
+  # Should only be called in this case I think?
+  @assert ngradstate == 0
+
+  DFloat = eltype(Q)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  nelem = size(Q)[end]
+
+  Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
+  Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate + nauxdstate, nelem)
+
+  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
+  l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  l_ϕd = MArray{Tuple{nauxdstate}, DFloat}(undef)
+
+  @inbounds for e in elems
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      for s = 1:nstate
+        l_Q[s] = Q[i, j, k, s, e]
+      end
+
+      for s = 1:nauxcstate
+        l_ϕc[s] = auxc[i, j, k, s, e]
+      end
+
+      for s = 1:nauxdstate
+        l_ϕd[s] = Qgrad_auxd[i, j, k, ngradstate + s, e]
+      end
+
+      auxdfun!(l_ϕd, l_Q, l_ϕc, t)
+
+      for s = 1:nauxdstate
+        Qgrad_auxd[i, j, k, ngradstate + s, e] = l_ϕd[s]
       end
     end
   end
