@@ -339,25 +339,12 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
   
-  # Sponge boundary condition
-  
-  #{{{
-  vol_sponge!(Val(dim),Val(N),Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
-             vgeo, gravity, viscosity, Dmat, topology.realelems)
-  #}}}
   MPIStateArrays.finishexchange!(grad)
 
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
            vgeo, sgeo, gravity, viscosity, topology.realelems, vmapM, vmapP,
            elemtobndy)
-  
-  # Sponge boundary condition
-  #{{{
-  face_sponge!(Val(dim),Val(N),Val(nmoist),Val(ntrace),dQ.Q, Q.Q, grad.Q,
-           	vgeo,sgeo,gravity, 
-	   	viscosity, topology.realelems, vmapM, vmapP,elemtobndy)
-  #}}}
-  
+
 end
 # }}}
 
@@ -408,11 +395,11 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   W = reshape((@view Q[:, _W, :]), ntuple(j->Nq, dim)..., nelem)
   E = reshape((@view Q[:, _E, :]), ntuple(j->Nq, dim)..., nelem)
   Qt= reshape((@view Q[:, _nstate+1, :]), ntuple(j->Nq, dim)..., nelem)
-  Ql= reshape((@view Q[:, _nstate+2, :]), ntuple(j->Nq, dim)..., nelem)
+  #Ql= reshape((@view Q[:, _nstate+2, :]), ntuple(j->Nq, dim)..., nelem)
         
-    writemesh(prefix, X...;
-               fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E), ("Qtot", Qt), ("Qliq", Ql)),
-              realelems=G.topology.realelems)
+  writemesh(prefix, X...;
+            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E), ("Qtot", Qt)),#, ("Qliq", Ql)),
+            realelems=G.topology.realelems)
   #   writemesh(prefix, X...;
   #             fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
   #             realelems=G.topology.realelems)
