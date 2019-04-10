@@ -53,14 +53,12 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   R_gas::DFloat = gas_constant_air(q_tot,0.0,0.0)
   c_p::DFloat 	= cp_m(q_tot, 0.0, 0.0) 
   c_v::DFloat 	= cv_m(q_tot, 0.0, 0.0)
-  cpoverR       = c_p/R_gas
   cvoverR       = c_v/R_gas
-  Rovercp       = R_gas/c_p
-  cvovercp	= c_v/c_p
   gravity::DFloat = grav
+  
   # ----------------------------------------------------
   # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-  # DRIVER FOR 6 COLUMN SOUNDING DATA
+  # This driver accepts data in 6 column format
   # ----------------------------------------------------
   (sounding, _, ncols) = read_sounding()
 
@@ -71,8 +69,9 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
                                               sounding[:, 4],
                                               sounding[:, 5],
                                               sounding[:, 6]
+
   #------------------------------------------------------
-  # GET DESCRIPTION OF INTERPOLATED SPLINE 
+  # GET SPLINE FUNCTION
   #------------------------------------------------------
   spl_tinit    = Spline1D(zinit, tinit; k=1)
   spl_qinit    = Spline1D(zinit, qinit; k=1)
@@ -87,6 +86,8 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   datau          = spl_uinit(x[dim])
   datav          = spl_vinit(x[dim])
   datap          = spl_pinit(x[dim])
+  
+  #TODO Driver constant parameters need references
   
   rvapor        = 461.0
   levap         = 2.5e6
@@ -105,12 +106,9 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   pi0           = 1.0
   rho0		= p0/(R_gas * theta0) * (pi0)^cvoverR
   RH_0          = 20.0
-  rc            = 300.0
-  r             = sqrt((x[1] - 700)^2 + (x[dim] - 500.0)^2)
   R_gas         = gas_constant_air(0.0,0.0,0.0)
 
   thetac        = 2.0
-  dtheta        = 0.0
   sigma         = 6.0
   
   ρ	        = datarho
@@ -123,7 +121,8 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   qv_k          = qvs * RH_0/100.0
 
   rc		= 300.0
-  r		= sqrt((x[1]-700)^2+(x[dim]-400)^2)
+  # Circle centered at x = 0 and y = 900 m 
+  r		= sqrt((x[1])^2+(x[dim]-900)^2)
   dtheta	= thetac * exp(-(r/rc)^sigma)
   dRH		= 80.0 * exp(-(r/rc)^sigma)
   dqv		= dRH * qvs / 100.0
@@ -143,7 +142,7 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
 end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
-              timeend; gravity=true, viscosity=25, dt=nothing,
+              timeend; gravity=true, viscosity=2.5, dt=nothing,
               exact_timeend=true) 
     dim = length(brickrange)
     topl = BrickTopology(# MPI communicator to connect elements/partition
@@ -251,18 +250,18 @@ let
 
     @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
 
-    viscosity = 75.0
+    viscosity = 2.5
     nmoist = 3
     ntrace = 0
-    Ne = (25, 50)
+    Ne = (40, 50)
     N = 4
     dim = 2
-    timeend = 100000
+    timeend = 2000.0
 
-    xmin = 0.0
-    xmax = 1400.0
+    xmin = -1800
+    xmax = 1800
     zmin = 0.0
-    zmax = 4000.0
+    zmax = 3000
     
     DFloat = Float64
     for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
