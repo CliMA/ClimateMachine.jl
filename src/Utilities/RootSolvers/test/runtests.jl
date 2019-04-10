@@ -6,12 +6,17 @@ const HAVE_CUDA = Base.identify_package("CuArrays") !== nothing
 @testset "RootSolvers correctness" begin
   f(x) = x^2 - 100^2
   for T in [Float32, Float64]
-    x_root, converged = RootSolvers.find_zero(f, T(0.0), T(1000.0), SecantMethod())
+    x_root, converged = find_zero(f, T(0.0), T(1000.0), SecantMethod())
     @test converged
     @test x_root isa T
     @test x_root ≈ 100
 
-    x_root, converged = RootSolvers.find_zero(f, T(0.0), T(1000.0), RegulaFalsiMethod())
+    x_root, converged = find_zero(f, T(0.0), T(1000.0), RegulaFalsiMethod())
+    @test converged
+    @test x_root isa T
+    @test x_root ≈ 100
+
+    x_root, converged = find_zero(f, T(1.0), NewtonsMethod())
     @test converged
     @test x_root isa T
     @test x_root ≈ 100

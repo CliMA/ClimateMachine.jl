@@ -16,16 +16,19 @@ x_root, converged = find_zero(x -> x^2 - 100^2, 0.0, 1000.0, SecantMethod())
 """
 module RootSolvers
 
-export find_zero, SecantMethod, RegulaFalsiMethod
+export find_zero, SecantMethod, RegulaFalsiMethod, NewtonsMethod
+
+import ForwardDiff
 
 abstract type RootSolvingMethod end
 Base.broadcastable(method::RootSolvingMethod) = Ref(method)
 
-struct SecantMethod<:RootSolvingMethod end
-struct RegulaFalsiMethod<:RootSolvingMethod end
+struct SecantMethod <: RootSolvingMethod end
+struct RegulaFalsiMethod <: RootSolvingMethod end
+struct NewtonsMethod <: RootSolvingMethod end
 
 """
-    x, converged = find_zero(f, x0, x1, method;
+    x, converged = find_zero(f, x0[, x1], method;
                              xatol=0, xrtol=sqrt(eps(eltype(x0))), 
                              yatol=sqrt(eps(eltype(x0))), maxiters=10_000)
 
@@ -35,12 +38,13 @@ that `f(x) ≈ 0`, and a Boolean value `converged` indicating convergence.
 `method` can be one of:
 - `SecantMethod()`: [Secant method](https://en.wikipedia.org/wiki/Secant_method)
 - `RegulaFalsiMethod()`: [Regula Falsi method](https://en.wikipedia.org/wiki/False_position_method#The_regula_falsi_(false_position)_method).
+- `NewtonsMethod()`: [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
+  - The `x1` argument is omitted for Newton's method.
 
 The keyword arguments:
 - `xatol` and `xrtol` are the absolute and relative tolerances of the input.
 - `yatol` is the absolute tolerance of the output of `f`.
 - `maxiters` is the maximum number of iterations.
-
 """
 function find_zero end
 
@@ -93,6 +97,34 @@ function find_zero(f::F, x0::T, x1::T, ::RegulaFalsiMethod;
     end
   end
   return x, false
+end
+
+
+"""
+    value_deriv(f, x)
+
+Compute the value and derivative `f(x)` using ForwardDiff.jl.
+"""
+function value_deriv(f, x::T) where {T}
+    tag = typeof(ForwardDiff.Tag(f, T))
+    y = f(ForwardDiff.Dual{tag}(x,one(x)))
+    ForwardDiff.value(tag, y), ForwardDiff.partials(tag, y, 1)
+end
+
+function find_zero(f::F, x0::T, ::NewtonsMethod;
+                   xatol=zero(x0), xrtol=sqrt(eps(T)), yatol=sqrt(eps(T)), maxiters=10_000) where {F, T<:AbstractFloat}
+  for i in 1:maxiters
+    y,y′ = value_deriv(f, x0)
+    if isapprox(y,0; atol=yatol)
+      return x0, true
+    end    
+    x1 = x0 - y/y′
+    if isapprox(x0,x1; atol=xatol, rtol=xrtol)
+      return x1, true
+    end
+    x0 = x1
+  end  
+  return x0, false
 end
 
 end
