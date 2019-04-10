@@ -3,7 +3,7 @@ using LinearAlgebra
 
 using MPI
 
-export MPIStateArray, euclideandist
+export MPIStateArray, euclidean_distance
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -290,7 +290,7 @@ function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
   energy
 end
 
-function euclideandist(A::MPIStateArray, B::MPIStateArray)
+function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
 
   host_array = Array ∈ typeof(A).parameters
   h_A = host_array ? A : Array(A)

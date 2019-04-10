@@ -200,7 +200,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # Print some end of the simulation information
   engf = norm(Q)
   engfe = norm(Qe)
-  errf = euclideandist(Q, Qe)
+  errf = euclidean_distance(Q, Qe)
   @printf(io, "----\n")
   @printf(io, "||Q||₂ ( final ) = %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
