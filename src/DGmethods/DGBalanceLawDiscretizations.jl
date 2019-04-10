@@ -29,7 +29,8 @@ include("NumericalFluxes.jl")
                  length_constant_auxiliary=0,
                  length_dynamic_auxiliary=0,
                  dynamic_auxiliary_update! = (auxd, Q, auxc, t) -> error(),
-                 constant_auxiliary_init! = nothing)
+                 constant_auxiliary_init! = nothing,
+                 source! = nothing)
 
 Given a balance law for `length_state_vector` fields of the form
 
@@ -91,13 +92,16 @@ struct DGBalanceLaw <: AbstractDGMethod
 
   "update function for auxd state"
   auxdfun!::Function
+
+  "update function for auxd state"
+  source!::Union{Nothing, Function}
 end
 
 function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
                       gradstates=(), length_constant_auxiliary=0,
                       length_dynamic_auxiliary=0, dynamic_auxiliary_update! =
                       (auxd, Q, auxc, t) -> error(), constant_auxiliary_init! =
-                      nothing)
+                      nothing, source! = nothing)
   ngradstate = length(gradstates)
   topology = grid.topology
   Np = dofs_per_element(grid)
@@ -143,7 +147,7 @@ function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
 
   DGBalanceLaw(grid, length_state_vector, gradstates, length_dynamic_auxiliary,
                flux!, numericalflux!, Qgrad_auxd, auxc,
-               dynamic_auxiliary_update!)
+               dynamic_auxiliary_update!, source!)
 end
 
 """
@@ -303,7 +307,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ###################
 
   volumerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
-             Val(nauxdstate), disc.flux!, dQ.Q, Q.Q, Qgrad_auxd.Q,
+             Val(nauxdstate), disc.flux!, disc.source!, dQ.Q, Q.Q, Qgrad_auxd.Q,
              auxc.Q, vgeo, t, Dmat, topology.realelems)
 
   MPIStateArrays.finish_ghost_exchange!(ngradstate > 0 ? Qgrad_auxd : Q)

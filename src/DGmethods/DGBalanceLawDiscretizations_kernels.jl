@@ -1,7 +1,7 @@
 function volumerhs!(::Val{dim}, ::Val{N},
                     ::Val{nstate}, ::Val{ngradstate},
                     ::Val{nauxcstate}, ::Val{nauxdstate},
-                    flux!,
+                    flux!, source!,
                     rhs::Array,
                     Q, Qgrad_auxd, auxc, vgeo, t,
                     D, elems) where {dim, N, nstate, ngradstate,
@@ -22,6 +22,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
 
   s_F = MArray{Tuple{3, Nq, Nq, Nqk, nstate}, DFloat}(undef)
 
+  source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_Qgrad = MArray{Tuple{ngradstate}, DFloat}(undef)
   l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
@@ -61,7 +62,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
         s_F[3,i,j,k,s] = MJ * (ζx * l_F[1, s] + ζy * l_F[2, s] + ζz * l_F[3, s])
       end
 
-      # TODO source
+      source! !== nothing && source!(l_S, l_Q, l_Qgrad, l_ϕc, l_ϕd, t)
     end
 
     # loop of ξ-grid lines
