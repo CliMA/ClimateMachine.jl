@@ -1,7 +1,7 @@
 status = [
   "ci/gitlab/%",
-  "ci/travis-ci/push",
-  "ci/appveyor/branch"
+  "ci/travis-ci/pr",
+  "ci/appveyor/pr"
 ]
 # 4 hours
 timeout-sec = 14400
