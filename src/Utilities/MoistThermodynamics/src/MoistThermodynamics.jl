@@ -35,7 +35,7 @@ export saturation_excess
 export liquid_fraction, saturation_adjustment, phase_partitioning_eq
 
 # Auxiliary functions, e.g., for diagnostic purposes
-export liquid_ice_pottemp, dry_pottemp, exner
+export liquid_ice_pottemp, dry_pottemp, exner, virtual_pottemp
 
 
 """
@@ -506,5 +506,9 @@ function exner(p, q_tot=0, q_liq=0, q_ice=0)
 
 end
 
-
+function virtual_pottemp(T, p, q_tot=0, q_liq=0, q_ice=0)
+  q_vap = q_tot - q_liq - q_ice
+  theta = dry_pottemp(T, p, q_tot, q_liq, q_ice)
+  return theta * (1.0 + 0.61 * q_vap - q_liq - q_ice)
+end
 end #module MoistThermodynamics.jl

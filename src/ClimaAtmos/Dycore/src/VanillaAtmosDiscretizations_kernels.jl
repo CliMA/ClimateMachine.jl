@@ -636,11 +636,34 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       s_G[i, j, _W] = 0
       s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
+    
       # buoyancy term
       rhs[i, j, _V, e] -= ρ * gravity
+      
+      # ------------------------------------
+      # Begin implementation of sponge layer
+      # Linear, via Durran and Klemp (1983)
+      # Note that the functional form is modified 
+      # to a sin^4 function instead of the cosines 
+      # proposed by D & K 
+      # ------------------------------------
+        
+      # Define Sponge Boundaries
+      ymax = maximum(vgeo[:,:,_y,e])
+      ysponge = 0.75 * ymax 
+      # Damping coefficient
+      α = 0.25 
 
+      rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * U
+      rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * V
+      
+      # ---------------------------
+      # End implementation of sponge layer
+      # ---------------------------
+      
       # Store velocity
       l_u[i, j], l_v[i, j] = u, v
+    
     end
 
     # loop of ξ-grid lines
@@ -1327,89 +1350,4 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 end
 # }}}
 
-
-# {{{ Include sponge layer 
-function vol_sponge!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                    rhs::Array, Q, grad, vgeo, gravity, viscosity, D,
-                    elems) where {N, nmoist, ntrace}
-  DFloat = eltype(Q)
-  nvar   = _nstate + nmoist + ntrace
-  ngrad  = _nstategrad + 3nmoist
-  dim    = 2
-
-  Nq = N + 1
-
-  nelem = size(Q)[end]
-
-  Q    = reshape(Q, Nq, Nq, nvar, nelem)
-  dim = 2
-  DFloat = eltype(Q)
-  nvar = _nstate + nmoist + ntrace
-  ngrad = _nstategrad + 3nmoist
-  vgeo = reshape(vgeo, Nq, Nq, size(vgeo,2), nelem)
-  rhs  = reshape(rhs, Nq, Nq, nvar, nelem)
-
-        ymax = 4000 #maximum(vgeo[:,:,_y,:]) # 2 dimensional maximum
-	ysponge = 0.75 * ymax 
-        α = 0.7 #(Relaxation coefficient = 1 for maximum damping)
-        @inbounds for e in 1:nelem
-	for j =1:Nq, i = 1:Nq
-		y = vgeo[i,j,_y,e]
-		for s = 2:_nstate - 1 # Damp the velocity terms only
-                  if y > ysponge
-                    rhs[i,j,s,e] -= α * (1- sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[i,j,s,e]
-                  end
-		end
-	end
-end
-end
-
-function face_sponge!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                  rhs::Array, Q, grad, vgeo, sgeo, gravity, viscosity,
-                  elems, vmapM, vmapP, elemtobndy) where {N, dim, nmoist,
-                                                          ntrace}
-  DFloat = eltype(Q)
-  if dim == 1
-    Np = (N+1)
-    Nfp = 1
-    nface = 2
-  elseif dim == 2
-    Np = (N+1) * (N+1)
-    Nfp = (N+1)
-    nface = 4
-  elseif dim == 3
-    Np = (N+1) * (N+1) * (N+1)
-    Nfp = (N+1) * (N+1)
-    nface = 6
-  end
-	@inbounds for e in elems
-	for f = 1:nface
-	for n = 1:Nfp
-	(nxM, nyM, nzM, sMJ, vMJI) = sgeo[:, n, f, e]
-	idM, idP = vmapM[n, f, e], vmapP[n, f, e]
-	eM, eP = e, ((idP - 1) ÷ Np) + 1
-	vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
-	y = vgeo[vidM, _y, eM]
-        
-        ymax = 4000 #maximum(vgeo[:,:,_y,:]) # 2 dimensional value maximum
-        ysponge = 0.75 * ymax
-        α = 0.7 #(Relaxation coefficient = 1 for maximum damping)
-		for s = 2:_nstate - 1  # Damp the velocity terms only
-                  if y > ysponge
-                          rhs[vidM, s, eM] -= α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[vidM, s, eM]
-                  end
-		end
-                #= Tracer expressions not damped at this stage. (Only velocity components)
-		for t = 1:ntrace
-			s = _ntrace + nmoist + t
-			if y > ysponge
-			rhs[i,j,s,e] -=  α * (1 - sin(π/2 * (y-ysponge)/(ymax-ysponge))^4) * Q[i,j,s,e]
-			end
-		end
-                =# 
-	end
-    end
-end
-end
-# }}}
 # }}}
