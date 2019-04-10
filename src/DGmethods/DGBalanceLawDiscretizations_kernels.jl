@@ -271,3 +271,63 @@ function initauxc!(::Val{dim}, ::Val{N}, ::Val{nauxcstate},
     end
   end
 end
+
+function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
+                          D, elems, s, sx, sy, sz) where {dim, N, nstate}
+
+  DFloat = eltype(vgeo)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  nelem = size(vgeo)[end]
+
+  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
+  Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
+
+  s_f = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+  l_fξ = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+  l_fη = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+  l_fζ = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+
+  @inbounds for e in elems
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      s_f[i,j,k] = Q[i,j,k,s,e]
+    end
+
+    # loop of ξ-grid lines
+    l_fξ .= 0
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      for n = 1:Nq
+        l_fξ[i, j, k] += D[i, n] * s_f[n, j, k]
+      end
+    end
+    # loop of η-grid lines
+    l_fη .= 0
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      for n = 1:Nq
+        l_fη[i, j, k] += D[j, n] * s_f[i, n, k]
+      end
+    end
+    # loop of ζ-grid lines
+    l_fζ .= 0
+    if Nqk > 1
+      for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+        for n = 1:Nq
+          l_fζ[i, j, k] += D[k, n] * s_f[i, j, n]
+        end
+      end
+    end
+
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
+      ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
+      ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+
+      Q[i,j,k,sx,e] = ξx * l_fξ[i,j,k] + ηx * l_fη[i,j,k] + ζx * l_fζ[i,j,k]
+      Q[i,j,k,sy,e] = ξy * l_fξ[i,j,k] + ηy * l_fη[i,j,k] + ζy * l_fζ[i,j,k]
+      Q[i,j,k,sz,e] = ξz * l_fξ[i,j,k] + ηz * l_fη[i,j,k] + ζz * l_fζ[i,j,k]
+    end
+  end
+end

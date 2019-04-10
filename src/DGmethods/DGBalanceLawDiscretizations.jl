@@ -317,4 +317,38 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
            topology.realelems)
 end
 
+"""
+    grad_constant_auxiliary!(disc, i, (ix, iy, iz))
+
+Computes the gradient of a the field `i` of the constant auxiliary state of
+`disc` and stores the `x, y, z` compoment in fields `ix, iy, iz` of constant
+auxiliary state.
+
+!!! note
+
+    This only computes the element gradient not a DG gradient. If your constant
+    auxiliary state is discontinuous this may or may not be what you want!
+"""
+function grad_constant_auxiliary!(disc::DGBalanceLaw, id, (idx, idy, idz))
+  grid = disc.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  auxc = disc.auxc
+
+  nauxcstate = size(auxc, 2)
+
+  @assert nauxcstate >= max(id, idx, idy, idz)
+  @assert 0 < min(id, idx, idy, idz)
+  @assert allunique((idx, idy, idz))
+
+  Dmat = grid.D
+  vgeo = grid.vgeo
+
+  elem_grad_field!(Val(dim), Val(N), Val(nauxcstate), auxc, vgeo,
+                   Dmat, topology.elems, id, idx, idy, idz)
+end
+
 end
