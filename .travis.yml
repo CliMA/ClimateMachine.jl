@@ -17,6 +17,12 @@ matrix:
   allow_failures:
   - julia: nightly
 
+branches:
+  only:
+    - master
+    - staging
+    - trying
+
 addons:
   apt:
     packages:
