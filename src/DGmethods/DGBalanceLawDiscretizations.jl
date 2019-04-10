@@ -21,16 +21,17 @@ include("DGBalanceLawDiscretizations_kernels.jl")
 include("NumericalFluxes.jl")
 
 """
-    DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
-                 nstate::Int,
-                 flux!::Function,
-                 numericalflux!::Function,
-                 gradstates::NTuple{X, Int} = (),
-                 nauxcstate=0,
-                 nauxdstate=0
-                 )
+    DGBalanceLaw(;grid,
+                 length_state_vector,
+                 flux!,
+                 numericalflux!,
+                 gradstates=(),
+                 length_constant_auxiliary=0,
+                 length_dynamic_auxiliary=0,
+                 dynamic_auxiliary_update! = (auxd, Q, auxc, t) -> error(),
+                 constant_auxiliary_init! = nothing)
 
-Given a balance law for `nstate` fields of the form
+Given a balance law for `length_state_vector` fields of the form
 
    ``q_{,t} + Σ_{i=1,...d} F_{i,i} = s``
 
@@ -42,7 +43,7 @@ The flux functions `flux!` has syntax
     flux!(F, Q, G, ϕ_c, ϕ_d, t)
 ```
 where:
-- `F` is an `MArray` of size `(d, nstate)` to be filled
+- `F` is an `MArray` of size `(d, length_state_vector)` to be filled
 - `Q` is the state to evaluate
 - `G` is an array of size `(d, ngradstate)` for `Q` for `j = 1,...,d` for the
   subset of variables sepcified by `gradstates`
@@ -92,10 +93,11 @@ struct DGBalanceLaw <: AbstractDGMethod
   auxdfun!::Function
 end
 
-function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
-                      nauxcstate=0, nauxdstate=0,
-                      auxdfun! = (auxd, Q, auxc, t) -> error(),
-                      auxcfun! = nothing)
+function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
+                      gradstates=(), length_constant_auxiliary=0,
+                      length_dynamic_auxiliary=0, dynamic_auxiliary_update! =
+                      (auxd, Q, auxc, t) -> error(), constant_auxiliary_init! =
+                      nothing)
   ngradstate = length(gradstates)
   topology = grid.topology
   Np = dofs_per_element(grid)
@@ -103,7 +105,8 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
   DFloat = eltype(h_vgeo)
   DA = arraytype(grid)
   # TODO: Clean up this MPIStateArray interface...
-  Qgrad_auxd = MPIStateArray{Tuple{Np, ngradstate+ nauxdstate}, DFloat, DA
+  Qgrad_auxd = MPIStateArray{Tuple{Np, ngradstate + length_dynamic_auxiliary},
+                             DFloat, DA
                             }(topology.mpicomm,
                               length(topology.elems),
                               realelems=topology.realelems,
@@ -115,7 +118,7 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                               weights=view(h_vgeo, :, grid.Mid, :),
                               commtag=111)
 
-  auxc = MPIStateArray{Tuple{Np, nauxcstate}, DFloat, DA
+  auxc = MPIStateArray{Tuple{Np, length_constant_auxiliary}, DFloat, DA
                       }(topology.mpicomm,
                         length(topology.elems),
                         realelems=topology.realelems,
@@ -127,19 +130,20 @@ function DGBalanceLaw(;grid, nstate, flux!, numericalflux!, gradstates=(),
                         weights=view(h_vgeo, :, grid.Mid, :),
                         commtag=222)
 
-  if auxcfun! !== nothing
-    @assert nauxcstate > 0
+  if constant_auxiliary_init! !== nothing
+    @assert length_constant_auxiliary > 0
     dim = dimensionality(grid)
     N = polynomialorder(grid)
     vgeo = grid.vgeo
-    initauxc!(Val(dim), Val(N), Val(nauxcstate), auxcfun!, auxc, vgeo,
-              topology.realelems)
+    initauxc!(Val(dim), Val(N), Val(length_constant_auxiliary),
+              constant_auxiliary_init!, auxc, vgeo, topology.realelems)
     MPIStateArrays.startexchange!(auxc)
     MPIStateArrays.finishexchange!(auxc)
   end
 
-  DGBalanceLaw(grid, nstate, gradstates, nauxdstate, flux!, numericalflux!,
-               Qgrad_auxd, auxc, auxdfun!)
+  DGBalanceLaw(grid, length_state_vector, gradstates, length_dynamic_auxiliary,
+               flux!, numericalflux!, Qgrad_auxd, auxc,
+               dynamic_auxiliary_update!)
 end
 
 """

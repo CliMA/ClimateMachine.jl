@@ -113,7 +113,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
-                           nstate = _nstate,
+                           length_state_vector = _nstate,
                            flux! = eulerflux!,
                            numericalflux! = (x...) ->
                            NumericalFluxes.rosanuv!(x..., eulerflux!,

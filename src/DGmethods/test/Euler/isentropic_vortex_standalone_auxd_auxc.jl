@@ -43,7 +43,7 @@ const γ_exact = 7 // 5
   (ρinv * U, ρinv * V, ρinv * W, ρinv)
 end
 
-@inline function auxdfun!(ϕ_d, Q, ϕ_c, t)
+@inline function dynamic_auxiliary_update!(ϕ_d, Q, ϕ_c, t)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   @inbounds U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
@@ -57,7 +57,7 @@ end
   @inbounds Q[_W] -= ϕ_c[3]
 end
 
-@inline function auxcfun!(ϕ_c, x, y, z)
+@inline function constant_auxiliary_init!(ϕ_c, x, y, z)
   @inbounds ϕ_c[1], ϕ_c[2], ϕ_c[3] = rand(), rand(), rand()
 end
 
@@ -134,17 +134,18 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
-                           nstate = _nstate,
+                           length_state_vector = _nstate,
                            flux! = eulerflux!,
                            numericalflux! = (x...) ->
                            NumericalFluxes.rosanuv!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux,
                                                     correctQ!),
-                           nauxdstate = 1,
-                           auxdfun! = auxdfun!,
-                           nauxcstate = 3,
-                           auxcfun! = auxcfun!,
+                           length_dynamic_auxiliary = 1,
+                           dynamic_auxiliary_update! =
+                           dynamic_auxiliary_update!,
+                           length_constant_auxiliary = 3,
+                           constant_auxiliary_init! = constant_auxiliary_init!,
                           )
 
   # This is a actual state/function that lives on the grid
