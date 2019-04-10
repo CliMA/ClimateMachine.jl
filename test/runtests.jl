@@ -4,8 +4,8 @@ for submodule in ["Utilities/ParametersType",
                   "Utilities/PlanetParameters",
                   "Utilities/RootSolvers",
                   "Utilities/MoistThermodynamics",
-                  "ClimaAtmos/Parameterizations/SurfaceFluxes",
-                  "ClimaAtmos/Parameterizations/TurbulenceConvection",
+                  "Atmos/Parameterizations/SurfaceFluxes",
+                  "Atmos/Parameterizations/TurbulenceConvection",
                   "Mesh",
                   ]
 

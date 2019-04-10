@@ -1,7 +1,7 @@
-# CLIMAAtmosDycore
+# AtmosDycore
 
 ```@meta
-CurrentModule = CLIMA.CLIMAAtmosDycore
+CurrentModule = CLIMA.AtmosDycore
 ```
 
 ```@docs

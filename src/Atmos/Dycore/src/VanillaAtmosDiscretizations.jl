@@ -1,8 +1,8 @@
 module VanillaAtmosDiscretizations
 using MPI
 
-using ..CLIMAAtmosDycore
-AD = CLIMAAtmosDycore
+using ..AtmosDycore
+AD = AtmosDycore
 using ...Grids
 using ...MPIStateArrays
 
