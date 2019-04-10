@@ -177,11 +177,11 @@ function Base.copyto!(dst::MPIStateArray, src::MPIStateArray)
 end
 
 """
-    postrecvs!(Q::MPIStateArray)
+    post_Irecvs!(Q::MPIStateArray)
 
 posts the `MPI.Irecv!` for `Q`
 """
-function postrecvs!(Q::MPIStateArray)
+function post_Irecvs!(Q::MPIStateArray)
   nnabr = length(Q.nabrtorank)
   for n = 1:nnabr
     # If this fails we haven't waited on previous recv!
@@ -193,17 +193,17 @@ function postrecvs!(Q::MPIStateArray)
 end
 
 """
-    startexchange!(Q::MPIStateArray; dorecvs=true)
+    start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
 
 Start the MPI exchange of the data stored in `Q`. If `dorecvs` is `true` then
-`postrecvs!(Q)` is called, otherwise the caller is responsible for this.
+`post_Irecvs!(Q)` is called, otherwise the caller is responsible for this.
 
 This function will fill the send buffer (on the device), copies the data from
 the device to the host, and then issues the send. Previous sends are waited on
 to ensure that they are complete.
 """
-function startexchange!(Q::MPIStateArray; dorecvs=true)
-  dorecvs && postrecvs!(Q)
+function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
+  dorecvs && post_Irecvs!(Q)
 
   # wait on (prior) MPI sends
   MPI.Waitall!(Q.sendreq)
@@ -220,11 +220,11 @@ function startexchange!(Q::MPIStateArray; dorecvs=true)
 end
 
 """
-    finishexchange!(Q::MPIStateArray)
+    finish_ghost_exchange!(Q::MPIStateArray)
 
 Complete the exchange of data and fill the data array on the device
 """
-function finishexchange!(Q::MPIStateArray)
+function finish_ghost_exchange!(Q::MPIStateArray)
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
 

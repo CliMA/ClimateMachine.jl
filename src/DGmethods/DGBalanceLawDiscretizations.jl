@@ -137,8 +137,8 @@ function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
     vgeo = grid.vgeo
     initauxc!(Val(dim), Val(N), Val(length_constant_auxiliary),
               constant_auxiliary_init!, auxc, vgeo, topology.realelems)
-    MPIStateArrays.startexchange!(auxc)
-    MPIStateArrays.finishexchange!(auxc)
+    MPIStateArrays.start_ghost_exchange!(auxc)
+    MPIStateArrays.finish_ghost_exchange!(auxc)
   end
 
   DGBalanceLaw(grid, length_state_vector, gradstates, length_dynamic_auxiliary,
@@ -277,25 +277,25 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ########################
   # Gradient Computation #
   ########################
-  MPIStateArrays.startexchange!(Q)
+  MPIStateArrays.start_ghost_exchange!(Q)
 
   if ngradstate > 0
     error("Grad not implemented yet")
 
     # TODO: volumegrad!
 
-    MPIStateArrays.finishexchange!(Q)
+    MPIStateArrays.finish_ghost_exchange!(Q)
 
     # TODO: facegrad!
 
-    MPIStateArrays.startexchange!(Qgrad_auxd)
+    MPIStateArrays.start_ghost_exchange!(Qgrad_auxd)
   elseif nauxdstate > 0
     # TODO: compute dynamic aux state
     updateauxd!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
                Val(nauxdstate), disc.auxdfun!, Q.Q, Qgrad_auxd.Q,
                auxc.Q, t, topology.realelems)
 
-    MPIStateArrays.startexchange!(Qgrad_auxd)
+    MPIStateArrays.start_ghost_exchange!(Qgrad_auxd)
   end
 
   ###################
@@ -306,10 +306,10 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
              Val(nauxdstate), disc.flux!, dQ.Q, Q.Q, Qgrad_auxd.Q,
              auxc.Q, vgeo, t, Dmat, topology.realelems)
 
-  MPIStateArrays.finishexchange!(ngradstate > 0 ? Qgrad_auxd : Q)
+  MPIStateArrays.finish_ghost_exchange!(ngradstate > 0 ? Qgrad_auxd : Q)
 
-  (ngradstate > 0 || nauxdstate > 0) && MPIStateArrays.finishexchange!(Qgrad_auxd)
-  ngradstate == 0 && MPIStateArrays.finishexchange!(Q)
+  (ngradstate > 0 || nauxdstate > 0) && MPIStateArrays.finish_ghost_exchange!(Qgrad_auxd)
+  ngradstate == 0 && MPIStateArrays.finish_ghost_exchange!(Q)
 
   facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
            Val(nauxdstate), disc.numericalflux!, dQ.Q, Q.Q, Qgrad_auxd.Q,
