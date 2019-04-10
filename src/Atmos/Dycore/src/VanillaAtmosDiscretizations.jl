@@ -315,12 +315,12 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
   ########################
   # Gradient Computation #
   ########################
-  MPIStateArrays.startexchange!(Q)
+  MPIStateArrays.start_ghost_exchange!(Q)
 
   volumegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
               gravity, Dmat, topology.realelems)
 
-  MPIStateArrays.finishexchange!(Q)
+  MPIStateArrays.finish_ghost_exchange!(Q)
 
   facegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
             sgeo, gravity, topology.realelems, vmapM, vmapP, elemtobndy)
@@ -332,12 +332,12 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
 
   viscosity::DFloat = disc.viscosity
  
-  MPIStateArrays.startexchange!(grad)
+  MPIStateArrays.start_ghost_exchange!(grad)
 
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
 
-  MPIStateArrays.finishexchange!(grad)
+  MPIStateArrays.finish_ghost_exchange!(grad)
 
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
            vgeo, sgeo, gravity, viscosity, topology.realelems, vmapM, vmapP,
@@ -358,7 +358,7 @@ using Requires
 
 include("VanillaAtmosDiscretizations_kernels.jl")
 
-include("vtk.jl")
+include("../../../Mesh/vtk.jl")
 function writevtk(prefix, Q::MPIStateArray, disc::VanillaAtmosDiscretization)
   vgeo = disc.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
