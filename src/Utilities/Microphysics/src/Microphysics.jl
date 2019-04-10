@@ -30,7 +30,7 @@ constant timescale. The timescale is an optional parameter.
 function qv2qli(qt, ql, qi, T, ρ, timescale=1)
   dqldt = - (ql - liquid_fraction(T) * saturation_excess(T, ρ, qt, ql, qi)) /
           timescale
-  dqidt = - (qi - (1-liquid_fracion(T)) * saturation_excess(T, ρ, qt, ql, qi)) /
+  dqidt = - (qi - (1-liquid_fraction(T)) * saturation_excess(T, ρ, qt, ql, qi)) /
           timescale
   return dqldt, dqidt
 end
