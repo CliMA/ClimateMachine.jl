@@ -139,7 +139,7 @@ using LinearAlgebra
     @test liquid_pottemp(ts) isa typeof(e_int)
     @test specific_volume(ts) isa typeof(e_int)
     @test mix_ratio_con(ts) isa typeof(e_int)
-    @test virt_pottemp(ts) isa typeof(e_int)
+    @test virtual_pottemp(ts) isa typeof(e_int)
   end
 
 end
