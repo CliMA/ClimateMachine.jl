@@ -11,7 +11,7 @@ export VanillaAtmosDiscretization
 
 using ...ParametersType
 using ...PlanetParameters: cp_d, cv_d, grav, MSLP
-using CLIMA.MoistThermodynamics
+using ...MoistThermodynamics
 
 # ASR Correction to Prandtl number from 7.1 to 0.71
 @parameter prandtl 71//100 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"

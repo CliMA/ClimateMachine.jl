@@ -39,17 +39,6 @@ export liquid_ice_pottemp, dry_pottemp, exner
 
 
 """
-<<<<<<< HEAD
-    soundspeed_air(T[, q_t=0, q_l=0, q_i=0])
-Return the speed of sound in air, given the temperature `T`, and,
-optionally, the total specific humidity `q_t`, the liquid specific humidity
-`q_l`, and the ice specific humidity `q_i`.
-"""
-function soundspeed_air(T, q_t=0, q_l=0, q_i=0)
-
-    _γ   = cp_m(q_t, q_l, q_i)/cv_m(q_t, q_l, q_i)
-    _R_m = gas_constant_air(q_t, q_l, q_i)
-=======
     soundspeed_air(T[, q_tot=0, q_liq=0, q_ice=0])
 Return the speed of sound in air, given the temperature `T`, and,
 optionally, the total specific humidity `q_tot`, the liquid specific humidity
@@ -59,7 +48,6 @@ function soundspeed_air(T, q_tot=0, q_liq=0, q_ice=0)
 
     _γ   = cp_m(q_tot, q_liq, q_ice)/cv_m(q_tot, q_liq, q_ice)
     _R_m = gas_constant_air(q_tot, q_liq, q_ice)
->>>>>>> master
     return sqrt(_γ * _R_m * T)
 
 end
@@ -424,15 +412,7 @@ function heaviside(t)
 end
 
 """
-    phase_partitioning_eq!(q_liq, q_ice, T, ρ, q_tot)
-
-    # ASR Do we need this function at all(?)
-
-<<<<<<< HEAD
-    # ASR Do we need this function at all(?)
-
-=======
->>>>>>> master
+    phase_partitioning_eq(q_liq, q_ice, T, ρ, q_tot)
     Return the partitioning of the phases in equilibrium.
 
 Given the temperature `T` and (moist-)air density `ρ`, `phase_partitioning_eq!`
@@ -440,17 +420,6 @@ partitions the total specific humidity `q_tot` into the liquid specific humidity
 `q_liq` and ice specific humiditiy `q_l` using the `liquid_fraction`
 function. The residual `q_tot - q_liq - q_ice` is the vapor specific humidity.
 """
-<<<<<<< HEAD
-
-function phase_partitioning_eq(T, ρ, q_t)
-    _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
-    q_vs         = saturation_shum(T, ρ) # saturation specific humidity
-    q_c          = max(q_t - q_vs, 0) # condensate specific humidity
-    q_l_out      = _liquid_frac * q_c  # liquid specific humidity
-    q_i_out      = (1 - _liquid_frac) * q_c # ice specific humidity
-    return q_l_out, q_i_out
-end
-=======
 function phase_partitioning_eq(T, ρ, q_tot)
     _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
     q_vs         = saturation_shum(T, ρ) # saturation specific humidity
@@ -460,7 +429,6 @@ function phase_partitioning_eq(T, ρ, q_tot)
     return q_liq_out, q_ice_out
 
   end
->>>>>>> master
 
 """
     saturation_adjustment(e_int, ρ, q_tot[, T_init = T_triple])
@@ -471,17 +439,10 @@ Return the temperature that is consistent with the internal energy `e_int`,
 The optional input value of the temperature `T_init` is taken as the initial
 value of the saturation adjustment iterations.
 """
-<<<<<<< HEAD
-function saturation_adjustment(e_int, ρ, q_t, T_init = T_triple)
-  if q_t < saturation_shum(air_temperature(e_int), ρ)
-    return air_temperature(e_int, q_t)
-  else
-=======
 function saturation_adjustment(e_int, ρ, q_tot, T_init = T_triple)
     if q_tot <= saturation_shum(max(0,air_temperature(e_int, q_tot)), ρ)
       return air_temperature(e_int, q_tot)   
    else
->>>>>>> master
     tol_abs = 1e-3*cv_d
     iter_max = 10
     args = (ρ, q_tot, e_int)
@@ -494,13 +455,8 @@ function saturation_adjustment(e_int, ρ, q_tot, T_init = T_triple)
                              IterParams(tol_abs, iter_max),
                              SecantMethod()
                              )
-<<<<<<< HEAD
-    q_l, q_i = phase_partitioning_eq(T, ρ, q_t)
-    return air_temperature(e_int, q_t, q_l, q_i)
-=======
     q_liq, q_ice = phase_partitioning_eq(T, ρ, q_tot)
     return air_temperature(e_int, q_tot, q_liq, q_ice)
->>>>>>> master
   end
 end
 
