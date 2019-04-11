@@ -36,39 +36,39 @@ const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
 
 # preflux computation
-@inline function preflux(Q, GM, ϕ_c, t)
+@inline function preflux(Q, GM, aux, t)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-  @inbounds U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
+  @inbounds U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
   ρinv = 1 / ρ
   u, v, w = ρinv * U, ρinv * V, ρinv * W
   ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
 end
 
-@inline function correctQ!(Q, ϕ_c)
-  @inbounds Q[_U] -= ϕ_c[1]
-  @inbounds Q[_V] -= ϕ_c[2]
-  @inbounds Q[_W] -= ϕ_c[3]
+@inline function correctQ!(Q, aux)
+  @inbounds Q[_U] -= aux[1]
+  @inbounds Q[_V] -= aux[2]
+  @inbounds Q[_W] -= aux[3]
 end
 
-@inline function constant_auxiliary_init!(ϕ_c, x, y, z)
-  @inbounds ϕ_c[1], ϕ_c[2], ϕ_c[3] = rand(), rand(), rand()
+@inline function auxiliary_state_initialization!(aux, x, y, z)
+  @inbounds aux[1], aux[2], aux[3] = rand(), rand(), rand()
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, ϕ_c, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, G, aux, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, G, ϕ_c, t) =
-eulerflux!(F, Q, G, ϕ_c, t, preflux(Q, G, ϕ_c, t)...)
+eulerflux!(F, Q, G, aux, t) =
+eulerflux!(F, Q, G, aux, t, preflux(Q, G, aux, t)...)
 
-@inline function eulerflux!(F, Q, G, ϕ_c, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, G, aux, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-    U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
+    U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
 
     F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -80,7 +80,7 @@ end
 
 # initial condition
 const halfperiod = 5
-function isentropicvortex!(Q, t, x, y, z, ϕ_c)
+function isentropicvortex!(Q, t, x, y, z, aux)
   DFloat = eltype(Q)
 
   γ::DFloat    = γ_exact
@@ -106,9 +106,9 @@ function isentropicvortex!(Q, t, x, y, z, ϕ_c)
 
   ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
   p = ρ^γ
-  U = ρ*u + ϕ_c[1]
-  V = ρ*v + ϕ_c[2]
-  W = ρ*w + ϕ_c[3]
+  U = ρ*u + aux[1]
+  V = ρ*v + aux[2]
+  W = ρ*w + aux[3]
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
   @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
@@ -132,8 +132,9 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                                     wavespeed,
                                                     preflux,
                                                     correctQ!),
-                           length_constant_auxiliary = 3,
-                           constant_auxiliary_init! = constant_auxiliary_init!,
+                           auxiliary_state_length = 3,
+                           auxiliary_state_initialization! =
+                           auxiliary_state_initialization!,
                           )
 
   # This is a actual state/function that lives on the grid

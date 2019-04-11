@@ -1,11 +1,11 @@
 function volumerhs!(::Val{dim}, ::Val{N},
                     ::Val{nstate}, ::Val{ngradstate},
-                    ::Val{nauxcstate},
+                    ::Val{nauxstate},
                     flux!, source!,
                     rhs::Array,
-                    Q, Qgrad, auxc, vgeo, t,
+                    Q, Qgrad, auxstate, vgeo, t,
                     D, elems) where {dim, N, nstate, ngradstate,
-                                     nauxcstate}
+                                     nauxstate}
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -18,14 +18,14 @@ function volumerhs!(::Val{dim}, ::Val{N},
   Qgrad = reshape(Qgrad, Nq, Nq, Nqk, ngradstate, nelem)
   rhs = reshape(rhs, Nq, Nq, Nqk, nstate, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
+  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
 
   s_F = MArray{Tuple{3, Nq, Nq, Nqk, nstate}, DFloat}(undef)
 
   source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_Qgrad = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
 
@@ -45,11 +45,11 @@ function volumerhs!(::Val{dim}, ::Val{N},
         l_Qgrad[s] = Qgrad[i, j, k, s, e]
       end
 
-      for s = 1:nauxcstate
-        l_ϕc[s] = auxc[i, j, k, s, e]
+      for s = 1:nauxstate
+        l_aux[s] = auxstate[i, j, k, s, e]
       end
 
-      flux!(l_F, l_Q, l_Qgrad, l_ϕc, t)
+      flux!(l_F, l_Q, l_Qgrad, l_aux, t)
 
       for s = 1:nstate
         s_F[1,i,j,k,s] = MJ * (ξx * l_F[1, s] + ξy * l_F[2, s] + ξz * l_F[3, s])
@@ -58,7 +58,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
       end
 
       if source! !== nothing
-        source!(l_S, l_Q, l_Qgrad, l_ϕc, t)
+        source!(l_S, l_Q, l_Qgrad, l_aux, t)
 
         for s = 1:nstate
           rhs[i, j, k, s, e] += l_S[s]
@@ -94,12 +94,12 @@ end
 
 function facerhs!(::Val{dim}, ::Val{N},
                   ::Val{nstate}, ::Val{ngradstate},
-                  ::Val{nauxcstate},
+                  ::Val{nauxstate},
                   numericalflux!,
-                  rhs::Array, Q, Qgrad, auxc,
+                  rhs::Array, Q, Qgrad, auxstate,
                   vgeo, sgeo,
                   t, vmapM, vmapP, elemtobndy,
-                  elems) where {dim, N, nstate, ngradstate, nauxcstate}
+                  elems) where {dim, N, nstate, ngradstate, nauxstate}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -118,11 +118,11 @@ function facerhs!(::Val{dim}, ::Val{N},
 
   l_QM = MArray{Tuple{nstate}, DFloat}(undef)
   l_QgradM = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_ϕcM = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_QP = MArray{Tuple{nstate}, DFloat}(undef)
   l_QgradP = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_ϕcP = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_F = MArray{Tuple{nstate}, DFloat}(undef)
 
@@ -145,8 +145,8 @@ function facerhs!(::Val{dim}, ::Val{N},
           l_QgradM[s] = Qgrad[vidM, s, eM]
         end
 
-        for s = 1:nauxcstate
-          l_ϕcM[s] = auxc[vidM, s, eM]
+        for s = 1:nauxstate
+          l_auxM[s] = auxstate[vidM, s, eM]
         end
 
         # Load plus side data
@@ -158,8 +158,8 @@ function facerhs!(::Val{dim}, ::Val{N},
           l_QgradP[s] = Qgrad[vidP, s, eP]
         end
 
-        for s = 1:nauxcstate
-          l_ϕcP[s] = auxc[vidP, s, eP]
+        for s = 1:nauxstate
+          l_auxP[s] = auxstate[vidP, s, eP]
         end
 
         # Fix up for boundary conditions
@@ -167,8 +167,8 @@ function facerhs!(::Val{dim}, ::Val{N},
         @assert bc == 0 #cannot handle bc yet
 
         numericalflux!(l_F, nM,
-                       l_QM, l_QgradM, l_ϕcM,
-                       l_QP, l_QgradP, l_ϕcP,
+                       l_QM, l_QgradM, l_auxM,
+                       l_QP, l_QgradP, l_auxP,
                        t)
 
         #Update RHS
@@ -180,36 +180,36 @@ function facerhs!(::Val{dim}, ::Val{N},
   end
 end
 
-function initauxc!(::Val{dim}, ::Val{N}, ::Val{nauxcstate},
-                   auxcfun!, auxc, vgeo, elems) where {dim, N, nauxcstate}
+function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
+                       auxstate, vgeo, elems) where {dim, N, nauxstate}
 
   # Should only be called in this case I think?
-  @assert nauxcstate > 0
+  @assert nauxstate > 0
 
-  DFloat = eltype(auxc)
+  DFloat = eltype(auxstate)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(auxc)[end]
+  nelem = size(auxstate)[end]
 
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
+  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
 
-  l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   @inbounds for e in elems
     for k = 1:Nqk, j = 1:Nq, i = 1:Nq
       x, y, z = vgeo[i,j,k,_x,e], vgeo[i,j,k,_y,e], vgeo[i,j,k,_z,e]
-      for s = 1:nauxcstate
-        l_ϕc[s] = auxc[i, j, k, s, e]
+      for s = 1:nauxstate
+        l_aux[s] = auxstate[i, j, k, s, e]
       end
 
-      auxcfun!(l_ϕc, x, y, z)
+      auxstatefun!(l_aux, x, y, z)
 
-      for s = 1:nauxcstate
-        auxc[i, j, k, s, e] = l_ϕc[s]
+      for s = 1:nauxstate
+        auxstate[i, j, k, s, e] = l_aux[s]
       end
     end
   end

@@ -5,18 +5,18 @@ using CLIMA.DGBalanceLawDiscretizations
 using Printf
 using LinearAlgebra
 
-@inline function constant_auxiliary_init!(ϕ_c, x, y, z, dim)
+@inline function auxiliary_state_initialization!(aux, x, y, z, dim)
   @inbounds begin
     if dim == 2
-      ϕ_c[1] = x^2 + y^3 - x*y
-      ϕ_c[5] = 2*x - y
-      ϕ_c[6] = 3*y^2 - x
-      ϕ_c[7] = 0
+      aux[1] = x^2 + y^3 - x*y
+      aux[5] = 2*x - y
+      aux[6] = 3*y^2 - x
+      aux[7] = 0
     else
-      ϕ_c[1] = x^2 + y^3 + z^2*y^2 - x*y*z
-      ϕ_c[5] = 2*x - y*z
-      ϕ_c[6] = 3*y^2 + 2*z^2*y - x*z
-      ϕ_c[7] = 2*z*y^2 - x*y
+      aux[1] = x^2 + y^3 + z^2*y^2 - x*y*z
+      aux[5] = 2*x - y*z
+      aux[6] = 3*y^2 + 2*z^2*y - x*z
+      aux[7] = 2*z*y^2 - x*y
     end
   end
 end
@@ -43,15 +43,15 @@ function run(dim, Ne, N, DFloat)
                            length_state_vector = 0,
                            flux! = (x...) -> (),
                            numericalflux! = (x...) -> (),
-                           length_constant_auxiliary = 7,
-                           constant_auxiliary_init! = (x...) ->
-                           constant_auxiliary_init!(x..., dim))
+                           auxiliary_state_length = 7,
+                           auxiliary_state_initialization! = (x...) ->
+                           auxiliary_state_initialization!(x..., dim))
 
-  DGBalanceLawDiscretizations.grad_constant_auxiliary!(spacedisc, 1, (2,3,4))
+  DGBalanceLawDiscretizations.grad_auxiliary_state!(spacedisc, 1, (2,3,4))
 
-  @test spacedisc.auxc.Q[:, 2, :] ≈ spacedisc.auxc.Q[:, 5, :]
-  @test spacedisc.auxc.Q[:, 3, :] ≈ spacedisc.auxc.Q[:, 6, :]
-  @test spacedisc.auxc.Q[:, 4, :] ≈ spacedisc.auxc.Q[:, 7, :]
+  @test spacedisc.auxstate.Q[:, 2, :] ≈ spacedisc.auxstate.Q[:, 5, :]
+  @test spacedisc.auxstate.Q[:, 3, :] ≈ spacedisc.auxstate.Q[:, 6, :]
+  @test spacedisc.auxstate.Q[:, 4, :] ≈ spacedisc.auxstate.Q[:, 7, :]
 end
 
 let
