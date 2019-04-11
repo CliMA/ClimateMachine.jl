@@ -124,7 +124,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            length_state_vector = _nstate,
                            flux! = eulerflux!,
                            numericalflux! = (x...) ->
-                           NumericalFluxes.rosanuv!(x..., eulerflux!,
+                           NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux),
                            length_dynamic_auxiliary = 1,

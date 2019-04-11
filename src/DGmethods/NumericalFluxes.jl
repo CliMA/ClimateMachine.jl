@@ -1,8 +1,8 @@
 module NumericalFluxes
 using StaticArrays
 
-# Rosonuv (or local Lax-Friedrichs) Flux
-function rosanuv!(F::MArray{Tuple{nstate}}, nM,
+# Rusanov (or local Lax-Friedrichs) Flux
+function rusanov!(F::MArray{Tuple{nstate}}, nM,
                   QM, GM, ϕcM, ϕdM,
                   QP, GP, ϕcP, ϕdP,
                   t, flux!, wavespeed,
