@@ -19,6 +19,8 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d
 
 const halfperiod = 5
 
+const print_diagnostics = length(ARGS) == 0 || parse(Bool, ARGS[1])
+
 function isentropic_vortex(t, x...; ntrace=0,nmoist=0,dim=3)
   # Standard isentropic vortex test case.  
   # For a more complete description of
@@ -122,7 +124,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
+  io = print_diagnostics && MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
 

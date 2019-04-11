@@ -15,6 +15,8 @@ using Test
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
 
+const print_diagnostics = length(ARGS) == 0 || parse(Bool, ARGS[1])
+
 # FIXME: Will these keywords args be OK?
 
 function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
@@ -121,7 +123,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
+  io = print_diagnostics && MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
 
