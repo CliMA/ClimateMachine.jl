@@ -39,13 +39,11 @@ The flux function `F_{i}` can depend on the state `q`, gradient `q` for `j =
 
 The flux functions `flux!` has syntax
 ```
-    flux!(F, Q, G, aux, t)
+    flux!(F, Q, aux, t)
 ```
 where:
 - `F` is an `MArray` of size `(d, length_state_vector)` to be filled
 - `Q` is the state to evaluate
-- `G` is an array of size `(d, ngradstate)` for `Q` for `j = 1,...,d` for the
-  subset of variables sepcified by `gradstates`
 - `aux` is the user-defined constant state
 - `t` is the time
 

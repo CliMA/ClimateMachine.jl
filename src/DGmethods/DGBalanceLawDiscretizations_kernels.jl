@@ -49,7 +49,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
         l_aux[s] = auxstate[i, j, k, s, e]
       end
 
-      flux!(l_F, l_Q, l_Qgrad, l_aux, t)
+      flux!(l_F, l_Q, l_aux, t)
 
       for s = 1:nstate
         s_F[1,i,j,k,s] = MJ * (ξx * l_F[1, s] + ξy * l_F[2, s] + ξz * l_F[3, s])
@@ -58,7 +58,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
       end
 
       if source! !== nothing
-        source!(l_S, l_Q, l_Qgrad, l_aux, t)
+        source!(l_S, l_Q, l_aux, t)
 
         for s = 1:nstate
           rhs[i, j, k, s, e] += l_S[s]
@@ -167,8 +167,8 @@ function facerhs!(::Val{dim}, ::Val{N},
         @assert bc == 0 #cannot handle bc yet
 
         numericalflux!(l_F, nM,
-                       l_QM, l_QgradM, l_auxM,
-                       l_QP, l_QgradP, l_auxP,
+                       l_QM, l_auxM,
+                       l_QP, l_auxP,
                        t)
 
         #Update RHS

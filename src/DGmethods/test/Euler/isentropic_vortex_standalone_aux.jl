@@ -36,7 +36,7 @@ const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
 
 # preflux computation
-@inline function preflux(Q, GM, aux, t)
+@inline function preflux(Q, aux, t)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   @inbounds U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
@@ -56,16 +56,16 @@ end
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, G, aux, t) =
-eulerflux!(F, Q, G, aux, t, preflux(Q, G, aux, t)...)
+eulerflux!(F, Q, aux, t) =
+eulerflux!(F, Q, aux, t, preflux(Q, aux, t)...)
 
-@inline function eulerflux!(F, Q, G, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, aux, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
     U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]

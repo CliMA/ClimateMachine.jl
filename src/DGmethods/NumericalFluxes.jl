@@ -3,21 +3,21 @@ using StaticArrays
 
 # Rusanov (or local Lax-Friedrichs) Flux
 function rusanov!(F::MArray{Tuple{nstate}}, nM,
-                  QM, GM, auxM,
-                  QP, GP, auxP,
+                  QM, auxM,
+                  QP, auxP,
                   t, flux!, wavespeed,
                   preflux = (_...) -> (),
                   correctQ! = nothing
                  ) where {nstate}
-  PM = preflux(QM, GM, auxM, t)
-  λM = wavespeed(nM, QM, GM, auxM, t, PM...)
+  PM = preflux(QM, auxM, t)
+  λM = wavespeed(nM, QM, auxM, t, PM...)
   FM = similar(F, Size(3, nstate))
-  flux!(FM, QM, GM, auxM, t, PM...)
+  flux!(FM, QM, auxM, t, PM...)
 
-  PP = preflux(QP, GP, auxP, t)
-  λP = wavespeed(nM, QP, GP, auxP, t, PP...)
+  PP = preflux(QP, auxP, t)
+  λP = wavespeed(nM, QP, auxP, t, PP...)
   FP = similar(F, Size(3, nstate))
-  flux!(FP, QP, GP, auxP, t, PP...)
+  flux!(FP, QP, auxP, t, PP...)
 
   λ  =  max(λM, λP)
 
