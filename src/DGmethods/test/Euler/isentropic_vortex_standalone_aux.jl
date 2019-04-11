@@ -35,6 +35,8 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
 const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
 
+const print_diagnostics = length(ARGS) == 0 || parse(Bool, ARGS[1])
+
 # preflux computation
 @inline function preflux(Q, aux, t)
   γ::eltype(Q) = γ_exact
@@ -143,7 +145,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
 
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
+  io = print_diagnostics && MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
   @printf(io, "----\n")
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
@@ -239,7 +241,7 @@ let
                      polynomialorder, timeend, DFloat)
         @test err[l] ≈ DFloat(expected_error[dim-1, l])
       end
-      if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+      if MPI.Comm_rank(MPI.COMM_WORLD) == 0 && print_diagnostics
         @printf("----\n")
         for l = 1:lvls-1
           rate = log2(err[l]) - log2(err[l+1])
