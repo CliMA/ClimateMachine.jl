@@ -51,7 +51,7 @@ using CLIMA.MoistThermodynamics: saturation_adjustment, air_pressure,
   ρinv = 1 / ρ
   u, v, w = ρinv * U, ρinv * V, ρinv * W
 
-  e_int = ρinv * E + internal_energy(0) - (u^2 + v^2 + w^2) / 2 - ϕ
+  e_int = ρinv * E + internal_energy(DFloat(0)) - (u^2 + v^2 + w^2) / 2 - ϕ
   T = saturation_adjustment(e_int, ρ, q_t)
   P = air_pressure(T, ρ, q_t)
 
