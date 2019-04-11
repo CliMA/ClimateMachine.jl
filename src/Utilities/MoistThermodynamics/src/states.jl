@@ -43,8 +43,7 @@ InternalEnergySHumEquil(e_int, q_tot, ρ) =
 """
     LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
 
-Returns a thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
-is needed). Arguments:
+Constructs a [`InternalEnergySHumEquil`](@ref) thermodynamic state from liquid-ice potential temperature.
 
  - `θ_liq_ice` - liquid-ice potential temperature
  - `q_tot` - total specific humidity
