@@ -81,29 +81,29 @@ CurrentModule = CLIMA.MoistThermodynamics
 ThermodynamicState
 InternalEnergySHumEquil
 InternalEnergySHumNonEquil
-LiquidPotTempSHumEquil
+LiquidIcePotTempSHumEquil
 ```
 
 ```@docs
 air_density
 air_pressure
 air_temperature
+air_temperature_from_pottemp
 cp_m
 cv_m
-density_pottemp
 dry_pottemp
 exner
 gas_constant_air
-heaviside
+Ice
 internal_energy
 internal_energy_sat
 latent_heat_fusion
-latent_heat_generic
 latent_heat_sublim
 latent_heat_vapor
+Liquid
 liquid_fraction
 liquid_ice_pottemp
-liquid_pottemp
+liquid_ice_pottemp_sat
 mix_ratio_con
 mix_ratio_vap
 moist_gas_constants
@@ -111,13 +111,12 @@ phase_partitioning_eq
 saturation_adjustment
 saturation_excess
 saturation_shum
-saturation_shum_from_pressure
 saturation_shum_generic
 saturation_vapor_pressure
 soundspeed_air
 specific_volume
 total_energy
-virt_pottemp
+virtual_temp
 ```
 
 

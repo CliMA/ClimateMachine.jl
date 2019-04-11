@@ -106,16 +106,16 @@ using LinearAlgebra
 
   DT = Float64
   ρ = DT(1.0)
-  p = DT(1000.0)
+  p = DT(1000.0*100)
   e_int = DT(2.0)
   q_tot = DT(0.01)
   q_ice = DT(0.001)
   q_liq = DT(0.001)
-  θ_liq = DT(300.0)
+  θ_liq_ice = DT(300.0)
   ts_eq = InternalEnergySHumEquil(e_int, q_tot, ρ)
   ts_neq = InternalEnergySHumNonEquil(e_int, q_tot, q_liq, q_ice, ρ)
-  ts_θ_l_eq = LiquidPotTempSHumEquil(θ_liq, q_tot, ρ, p)
-  for ts in (ts_eq, ts_neq, ts_θ_l_eq)
+  ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
+  for ts in (ts_eq, ts_neq, ts_θ_liq_ice_eq)
     @test soundspeed_air(ts) isa typeof(e_int)
     @test gas_constant_air(ts) isa typeof(e_int)
     @test air_pressure(ts) isa typeof(e_int)
@@ -135,11 +135,10 @@ using LinearAlgebra
     @test liquid_ice_pottemp(ts) isa typeof(e_int)
     @test dry_pottemp(ts) isa typeof(e_int)
     @test exner(ts) isa typeof(e_int)
-    @test density_pottemp(ts) isa typeof(e_int)
-    @test liquid_pottemp(ts) isa typeof(e_int)
+    @test liquid_ice_pottemp_sat(ts) isa typeof(e_int)
     @test specific_volume(ts) isa typeof(e_int)
     @test mix_ratio_con(ts) isa typeof(e_int)
-    @test virtual_pottemp(ts) isa typeof(e_int)
+    @test virtual_temp(ts) isa typeof(e_int)
   end
 
 end

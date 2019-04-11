@@ -1,6 +1,6 @@
 # Thermodynamic states
 export ThermodynamicState, InternalEnergySHumEquil,
-  InternalEnergySHumNonEquil, LiquidPotTempSHumEquil
+  InternalEnergySHumNonEquil, LiquidIcePotTempSHumEquil
 
 
 """
@@ -37,8 +37,26 @@ struct InternalEnergySHumEquil{DT} <: ThermodynamicState{DT}
   "temperature: computed via [`saturation_adjustment`](@ref)"
   T::DT
 end
-InternalEnergySHumEquil(e_int, q_tot, ρ) = 
+InternalEnergySHumEquil(e_int, q_tot, ρ) =
   InternalEnergySHumEquil(e_int, q_tot, ρ, saturation_adjustment(e_int, ρ, q_tot))
+
+"""
+    LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
+
+Returns a thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
+is needed). Arguments:
+
+ - `θ_liq_ice` - liquid-ice potential temperature
+ - `q_tot` - total specific humidity
+ - `ρ` - density
+ - `p` - pressure
+"""
+function LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
+    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ, p)
+    q_liq, q_ice = phase_partitioning_eq(T, ρ, q_tot)
+    e_int = internal_energy(T, q_tot, q_liq, q_ice)
+    InternalEnergySHumEquil(e_int, q_tot, ρ, T)
+end
 
 
 """
@@ -69,35 +87,3 @@ struct InternalEnergySHumNonEquil{DT} <: ThermodynamicState{DT}
   density::DT
 end
 
-"""
-    LiquidPotTempSHumEquil{DT} <: ThermodynamicState{DT}
-
-A thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
-is needed).
-
-# Constructors
-
-    LiquidPotTempSHumEquil(θ_liq, q_tot, ρ, p)
-
-# Fields
-
-$(DocStringExtensions.FIELDS)
-
-"""
-struct LiquidPotTempSHumEquil{DT} <: ThermodynamicState{DT}
-  "liquid potential temperature"
-  θ_liq::DT
-  "total specific humidity"
-  q_tot::DT
-  "density of air (potentially moist)"
-  density::DT
-  "pressure"
-  pressure::DT
-  "temperature: computed via [`saturation_adjustment`](@ref)"
-  T::DT
-end
-
-function LiquidPotTempSHumEquil(θ_liq, q_tot, ρ, p)
-    T = saturation_adjustment_q_t_θ_l(θ_liq, q_tot, ρ, p)
-    LiquidPotTempSHumEquil(θ_liq, q_tot, ρ, p, T)
-end
