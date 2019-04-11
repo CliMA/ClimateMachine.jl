@@ -464,7 +464,8 @@ function StackedBrickTopology(mpicomm, elemrange;
     if j == stacksize
       et = periodicity[dim] ? stacksize*(i-1) + 1 : e1
       ft = periodicity[dim] ? ft : 2(dim-1) + 2
-    elseif j == 1
+    end
+    if j == 1
       eb = periodicity[dim] ? stacksize*(i-1) + stacksize : e1
       fb = periodicity[dim] ? fb : 2(dim-1) + 1
     end
@@ -488,7 +489,8 @@ function StackedBrickTopology(mpicomm, elemrange;
 
     if j == stacksize
       bt = periodicity[dim] ? bt : boundary[2,dim]
-    elseif j == 1
+    end
+    if j == 1
       bb = periodicity[dim] ? bb : boundary[1,dim]
     end
 
