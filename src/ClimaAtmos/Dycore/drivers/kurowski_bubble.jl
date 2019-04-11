@@ -61,8 +61,10 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   # This driver accepts data in 6 column format
   # ----------------------------------------------------
   (sounding, _, ncols) = read_sounding()
-
-  #height theta qv    u     v     pressure
+  
+  # WARNING: Not all sounding data is formatted/scaled 
+  # the same. Care required in assigning array values
+  # height theta qv    u     v     pressure
   zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
                                               sounding[:, 2],
                                               sounding[:, 3],
@@ -88,7 +90,6 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   datap          = spl_pinit(x[dim])
   
   #TODO Driver constant parameters need references
-  
   rvapor        = 461.0
   levap         = 2.5e6
   es0           = 6.11e2
@@ -99,22 +100,21 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   c2            = R_d / cp_d
   c1            = 1.0 / c2
   
+  # Convert dataq to kg/kg
   dataq         = dataq * 1e-3
-  thetav        = datat * (1.0 + 0.608 * dataq)
-  datapi        = (datap ./ MSLP) .^ (c2)
-  datarho 	= datap/(R_gas * datapi * thetav)
-  pi0           = 1.0
-  rho0		= p0/(R_gas * theta0) * (pi0)^cvoverR
-  RH_0          = 20.0
-  R_gas         = gas_constant_air(0.0,0.0,0.0)
+  datapi        = (datap ./ MSLP) .^ (c2)                       # Exner pressure from sounding data
 
+  thetav        = datat * (1.0 + 0.608 * dataq)                 # Liquid potential temperature
   thetac        = 2.0
   sigma         = 6.0
   
-  ρ	        = datarho
-  P		= datap
+  P		= datap                                         # Assumed known from sounding
+  ρ             = P/(R_gas * datapi * thetav)                   # Density calculated from sounding data
   T		= P / ρ / R_gas
 
+  pi0           = 1.0                                           # Reference exner pressure = 1
+  rho0		= p0/(R_gas * theta0) * (pi0)^cvoverR           # Reference density
+  RH_0          = 20.0                                          # Relative humidity
   es            = es0*exp(levap/rvapor*(1.0/T_0 - 1.0/T))
   qvs           = 287.04/rvapor * es/(P - es) 
 
