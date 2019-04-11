@@ -573,28 +573,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       Tx, Ty     = grad[i,j,_Tx,e], grad[i,j,_Ty,e], 0.0
       θvx, θvy   = grad[i,j,_θx,e], grad[i,j,_θy,e], 0.0
       
-      #---------------------------------------------------------
-      # BUILD magnitude of strain tensor 
-      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
-      #---------------------------------------------------------
-      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
-                S22 = vy;            S23 = (vz + wy)*0.5;
-                                     S33 = wz;
-
-      # |Sij| = sqrt(2*Sij*Sij)     
-      SijSij = S11*S11 + S12*S12 + S13*S13 + 
-               S12*S12 + S22*S22 + S23*S23 + 
-               S13*S13 + S23*S23 + S33*S33      
-      modSij = sqrt(2.0*SijSij)
-
-      #Richardson number:
-      Ri = (grav/θv)*θvy/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
-      
-      #Smagorinsky eddy viscosities:
-      auxr = max(0.0, 1.0 - Ri/prandtl)
-      Km = Cs*Cs*delta2*modSij*sqrt(auxr)
-      Kh = 3*Km                 #3.0 comes from KW 1978 paper
-      
+     
         
       ρinv = 1 / ρ
 
@@ -636,11 +615,34 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       s_G[i, j, _W] = 0
       s_G[i, j, _E] = MJ * (ηx * fluxE_x + ηy * fluxE_y)
 
+    
       # buoyancy term
       rhs[i, j, _V, e] -= ρ * gravity
+      
+      # ------------------------------------
+      # Begin implementation of sponge layer
+      # Linear, via Durran and Klemp (1983)
+      # Note that the functional form is modified 
+      # to a sin^4 function instead of the cosines 
+      # proposed by D & K 
+      # ------------------------------------
+        
+      # Define Sponge Boundaries
+      ymax = maximum(vgeo[:,:,_y,e])
+      ysponge = 0.75 * ymax 
+      # Damping coefficient
+      α = 0.25 
 
+      rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * U
+      rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * V
+      
+      # ---------------------------
+      # End implementation of sponge layer
+      # ---------------------------
+      
       # Store velocity
       l_u[i, j], l_v[i, j] = u, v
+    
     end
 
     # loop of ξ-grid lines
@@ -798,28 +800,6 @@ function volumerhs!(::Val{3}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       wx, wy, wz  = grad[i,j,k,_wx,e], grad[i,j,k,_wy,e], grad[i,j,k,_wz,e]
       Tx, Ty, Tz  = grad[i,j,k,_Tx,e], grad[i,j,k,_Ty,e], grad[i,j,k,_Tz,e]
       θvx,θvy,θvz = grad[i,j,k,_θx,e], grad[i,j,k,_θy,e], grad[i,j,k,_θz,e]
-
-      #---------------------------------------------------------
-      # BUILD magnitude of strain tensor 
-      # Sij = (d(ui)/d(xj) + d(uj)/d(xi))*0.5, i=1,2,3; j=1,2,3
-      #---------------------------------------------------------
-      S11 = ux; S12 = (uy + vx)*0.5; S13 = (uz + wx)*0.5;
-                S22 = vy;            S23 = (vz + wy)*0.5;
-                                     S33 = wz;
-
-      # |Sij| = sqrt(2*Sij*Sij)     
-      SijSij = S11*S11 + S12*S12 + S13*S13 + 
-               S12*S12 + S22*S22 + S23*S23 + 
-               S13*S13 + S23*S23 + S33*S33      
-      modSij = sqrt(2.0*SijSij)
-
-      #Richardson number:
-      Ri = (grav/θv)*θvz/(2*modSij + 1.0e-12) #NOTICE: REPLACE with Rim in saturated conditions
-        
-      #Smagorinsky eddy viscosities:
-      auxr = max(0.0, 1.0 - Ri/prandtl)
-      Km   = Cs*Cs*delta2*modSij*sqrt(auxr)
-      Kh   = 3*Km                 #3.0 comes from KW 1978 paper
 
           
       ρinv = 1 / ρ
@@ -1325,4 +1305,6 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
     end
   end
 end
+# }}}
+
 # }}}
