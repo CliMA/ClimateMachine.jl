@@ -45,40 +45,40 @@ const γ_exact = 7 // 5
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, auxc, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, G, aux, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
-const _nauxcstate = 7
-const _c_ϕ, _c_ϕx, _c_ϕy, _c_ϕz, _c_x, _c_y, _c_z = 1:_nauxcstate
-@inline function constant_auxiliary_init!(auxc, x, y, z)
+const _nauxstate = 7
+const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_x, _a_y, _a_z = 1:_nauxstate
+@inline function auxiliary_state_initialization!(aux, x, y, z)
   @inbounds begin
-    auxc[_c_ϕ] = hypot(x, y, z)
-    auxc[_c_x] = x
-    auxc[_c_y] = y
-    auxc[_c_z] = z
+    aux[_a_ϕ] = hypot(x, y, z)
+    aux[_a_x] = x
+    aux[_a_y] = y
+    aux[_a_z] = z
   end
 end
 
-@inline function almost_no_source!(S, Q, G, auxc, t)
+@inline function almost_no_source!(S, Q, G, aux, t)
   @inbounds begin
-    x,y,z = auxc[_c_x], auxc[_c_y], auxc[_c_z]
+    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     isentropicvortex!(S, t, x, y, z)
     ρ, ρe = Q[_ρ], S[_ρ]
     S[_ρ] = 0
-    S[_U] = auxc[_c_ϕx] * (ρe - ρ)
-    S[_V] = auxc[_c_ϕy] * (ρe - ρ)
-    S[_W] = auxc[_c_ϕz] * (ρe - ρ)
+    S[_U] = aux[_a_ϕx] * (ρe - ρ)
+    S[_V] = aux[_a_ϕy] * (ρe - ρ)
+    S[_W] = aux[_a_ϕz] * (ρe - ρ)
     S[_E] = 0
   end
 end
 
 # physical flux function
-eulerflux!(F, Q, G, auxc, t) =
-eulerflux!(F, Q, G, auxc, t, preflux(Q)...)
+eulerflux!(F, Q, G, aux, t) =
+eulerflux!(F, Q, G, aux, t, preflux(Q)...)
 
-@inline function eulerflux!(F, Q, G, auxc, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, G, aux, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -143,12 +143,13 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux),
-                           length_constant_auxiliary = _nauxcstate,
-                           constant_auxiliary_init! = constant_auxiliary_init!,
+                           auxiliary_state_length = _nauxstate,
+                           auxiliary_state_initialization! =
+                           auxiliary_state_initialization!,
                            source! = almost_no_source!)
 
-  DGBalanceLawDiscretizations.grad_constant_auxiliary!(spacedisc, _c_ϕ,
-                                                       (_c_ϕx, _c_ϕy, _c_ϕz))
+  DGBalanceLawDiscretizations.grad_auxiliary_state!(spacedisc, _a_ϕ,
+                                                    (_a_ϕx, _a_ϕy, _a_ϕz))
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)

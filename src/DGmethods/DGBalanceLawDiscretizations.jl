@@ -26,8 +26,8 @@ include("NumericalFluxes.jl")
                  flux!,
                  numericalflux!,
                  gradstates=(),
-                 length_constant_auxiliary=0,
-                 constant_auxiliary_init! = nothing,
+                 auxiliary_state_length=0,
+                 auxiliary_state_initialization! = nothing,
                  source! = nothing)
 
 Given a balance law for `length_state_vector` fields of the form
@@ -35,18 +35,18 @@ Given a balance law for `length_state_vector` fields of the form
    ``q_{,t} + Σ_{i=1,...d} F_{i,i} = s``
 
 The flux function `F_{i}` can depend on the state `q`, gradient `q` for `j =
-1,...,d`, time `t`, and a set of user defined "constant" state `ϕ`.
+1,...,d`, time `t`, and a set of user defined auxiliary state `aux`.
 
 The flux functions `flux!` has syntax
 ```
-    flux!(F, Q, G, ϕ, t)
+    flux!(F, Q, G, aux, t)
 ```
 where:
 - `F` is an `MArray` of size `(d, length_state_vector)` to be filled
 - `Q` is the state to evaluate
 - `G` is an array of size `(d, ngradstate)` for `Q` for `j = 1,...,d` for the
   subset of variables sepcified by `gradstates`
-- `ϕ` is the user-defined constant state
+- `aux` is the user-defined constant state
 - `t` is the time
 
 !!! todo
@@ -82,15 +82,15 @@ struct DGBalanceLaw <: AbstractDGMethod
   Qgrad::MPIStateArray
 
   "constant auxiliary state"
-  auxc::MPIStateArray
+  auxstate::MPIStateArray
 
   "source function"
   source!::Union{Nothing, Function}
 end
 
 function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
-                      gradstates=(), length_constant_auxiliary=0,
-                      constant_auxiliary_init! = nothing,
+                      gradstates=(), auxiliary_state_length=0,
+                      auxiliary_state_initialization! = nothing,
                       source! = nothing)
   ngradstate = length(gradstates)
   topology = grid.topology
@@ -112,31 +112,32 @@ function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
                          weights=view(h_vgeo, :, grid.Mid, :),
                          commtag=111)
 
-  auxc = MPIStateArray{Tuple{Np, length_constant_auxiliary}, DFloat, DA
-                      }(topology.mpicomm,
-                        length(topology.elems),
-                        realelems=topology.realelems,
-                        ghostelems=topology.ghostelems,
-                        sendelems=topology.sendelems,
-                        nabrtorank=topology.nabrtorank,
-                        nabrtorecv=topology.nabrtorecv,
-                        nabrtosend=topology.nabrtosend,
-                        weights=view(h_vgeo, :, grid.Mid, :),
-                        commtag=222)
+  auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, DFloat, DA
+                          }(topology.mpicomm,
+                            length(topology.elems),
+                            realelems=topology.realelems,
+                            ghostelems=topology.ghostelems,
+                            sendelems=topology.sendelems,
+                            nabrtorank=topology.nabrtorank,
+                            nabrtorecv=topology.nabrtorecv,
+                            nabrtosend=topology.nabrtosend,
+                            weights=view(h_vgeo, :, grid.Mid, :),
+  commtag=222)
 
-  if constant_auxiliary_init! !== nothing
-    @assert length_constant_auxiliary > 0
+  if auxiliary_state_initialization! !== nothing
+    @assert auxiliary_state_length > 0
     dim = dimensionality(grid)
     N = polynomialorder(grid)
     vgeo = grid.vgeo
-    initauxc!(Val(dim), Val(N), Val(length_constant_auxiliary),
-              constant_auxiliary_init!, auxc, vgeo, topology.realelems)
-    MPIStateArrays.start_ghost_exchange!(auxc)
-    MPIStateArrays.finish_ghost_exchange!(auxc)
+    initauxstate!(Val(dim), Val(N), Val(auxiliary_state_length),
+                  auxiliary_state_initialization!, auxstate, vgeo,
+                  topology.realelems)
+    MPIStateArrays.start_ghost_exchange!(auxstate)
+    MPIStateArrays.finish_ghost_exchange!(auxstate)
   end
 
   DGBalanceLaw(grid, length_state_vector, gradstates, flux!, numericalflux!,
-               Qgrad, auxc, source!)
+               Qgrad, auxstate, source!)
 end
 
 """
@@ -175,23 +176,23 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
   grid = disc.grid
   vgeo = grid.vgeo
   Np = dofs_per_element(grid)
-  auxc = disc.auxc
-  nauxcstate = size(auxc, 2)
+  auxstate = disc.auxstate
+  nauxstate = size(auxstate, 2)
 
   # FIXME: GPUify me
   host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q, h_auxc) = host_array ? (vgeo, Q, auxc) :
-                                       (Array(vgeo), Array(Q), Array(auxc))
+  (h_vgeo, h_Q, h_auxstate) = host_array ? (vgeo, Q, auxstate) :
+                                       (Array(vgeo), Array(Q), Array(auxstate))
   Qdof = MArray{Tuple{nvar}, eltype(h_Q)}(undef)
-  ϕcdof = MArray{Tuple{nauxcstate}, eltype(h_Q)}(undef)
+  auxdof = MArray{Tuple{nauxstate}, eltype(h_Q)}(undef)
   @inbounds for e = 1:size(Q, 3), i = 1:Np
     (x, y, z) = (h_vgeo[i, grid.xid, e], h_vgeo[i, grid.yid, e],
                  h_vgeo[i, grid.zid, e])
-    if nauxcstate > 0
-      for s = 1:nauxcstate
-        ϕcdof[s] = h_auxc[i, s, e]
+    if nauxstate > 0
+      for s = 1:nauxstate
+        auxdof[s] = h_auxstate[i, s, e]
       end
-      ic!(Qdof, x, y, z, ϕcdof)
+      ic!(Qdof, x, y, z, auxdof)
     else
       ic!(Qdof, x, y, z)
     end
@@ -253,11 +254,11 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   N = polynomialorder(grid)
 
   Qgrad = disc.Qgrad
-  auxc = disc.auxc
+  auxstate = disc.auxstate
 
   nstate = disc.nstate
   ngradstate = length(disc.gradstates)
-  nauxcstate = size(auxc, 2)
+  nauxstate = size(auxstate, 2)
 
   Dmat = grid.D
   vgeo = grid.vgeo
@@ -287,8 +288,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   # RHS Computation #
   ###################
 
-  volumerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
-             disc.flux!, disc.source!, dQ.Q, Q.Q, Qgrad.Q, auxc.Q, vgeo, t,
+  volumerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
+             disc.flux!, disc.source!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q, vgeo, t,
              Dmat, topology.realelems)
 
   MPIStateArrays.finish_ghost_exchange!(ngradstate > 0 ? Qgrad : Q)
@@ -296,13 +297,13 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ngradstate > 0 && MPIStateArrays.finish_ghost_exchange!(Qgrad)
   ngradstate == 0 && MPIStateArrays.finish_ghost_exchange!(Q)
 
-  facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxcstate),
-           disc.numericalflux!, dQ.Q, Q.Q, Qgrad.Q, auxc.Q, vgeo, sgeo, t,
+  facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
+           disc.numericalflux!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q, vgeo, sgeo, t,
            vmapM, vmapP, elemtobndy, topology.realelems)
 end
 
 """
-    grad_constant_auxiliary!(disc, i, (ix, iy, iz))
+    grad_auxiliary_state!(disc, i, (ix, iy, iz))
 
 Computes the gradient of a the field `i` of the constant auxiliary state of
 `disc` and stores the `x, y, z` compoment in fields `ix, iy, iz` of constant
@@ -313,25 +314,25 @@ auxiliary state.
     This only computes the element gradient not a DG gradient. If your constant
     auxiliary state is discontinuous this may or may not be what you want!
 """
-function grad_constant_auxiliary!(disc::DGBalanceLaw, id, (idx, idy, idz))
+function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   grid = disc.grid
   topology = grid.topology
 
   dim = dimensionality(grid)
   N = polynomialorder(grid)
 
-  auxc = disc.auxc
+  auxstate = disc.auxstate
 
-  nauxcstate = size(auxc, 2)
+  nauxstate = size(auxstate, 2)
 
-  @assert nauxcstate >= max(id, idx, idy, idz)
+  @assert nauxstate >= max(id, idx, idy, idz)
   @assert 0 < min(id, idx, idy, idz)
   @assert allunique((idx, idy, idz))
 
   Dmat = grid.D
   vgeo = grid.vgeo
 
-  elem_grad_field!(Val(dim), Val(N), Val(nauxcstate), auxc, vgeo,
+  elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate, vgeo,
                    Dmat, topology.elems, id, idx, idy, idz)
 end
 
