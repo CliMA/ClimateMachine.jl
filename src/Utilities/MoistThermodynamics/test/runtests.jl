@@ -112,8 +112,8 @@ using LinearAlgebra
   q_ice = DT(0.001)
   q_liq = DT(0.001)
   θ_liq_ice = DT(300.0)
-  ts_eq = InternalEnergySHumEquil(e_int, q_tot, ρ)
-  ts_neq = InternalEnergySHumNonEquil(e_int, q_tot, q_liq, q_ice, ρ)
+  ts_eq = PhaseEquil(e_int, q_tot, ρ)
+  ts_neq = PhaseNonEquil(e_int, q_tot, q_liq, q_ice, ρ)
   ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
   for ts in (ts_eq, ts_neq, ts_θ_liq_ice_eq)
     @test soundspeed_air(ts) isa typeof(e_int)
@@ -137,7 +137,6 @@ using LinearAlgebra
     @test exner(ts) isa typeof(e_int)
     @test liquid_ice_pottemp_sat(ts) isa typeof(e_int)
     @test specific_volume(ts) isa typeof(e_int)
-    @test mix_ratio_con(ts) isa typeof(e_int)
     @test virtual_temp(ts) isa typeof(e_int)
   end
 

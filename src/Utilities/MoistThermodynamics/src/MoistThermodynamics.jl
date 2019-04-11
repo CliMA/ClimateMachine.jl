@@ -292,8 +292,8 @@ end
 
 The air temperature, given a thermodynamic state `ts`.
 """
-air_temperature(ts::InternalEnergySHumEquil) = ts.T
-air_temperature(ts::InternalEnergySHumNonEquil) =
+air_temperature(ts::PhaseEquil) = ts.T
+air_temperature(ts::PhaseNonEquil) =
   air_temperature(ts.e_int, ts.q_tot, ts.q_liq, ts.q_ice)
 
 
@@ -320,8 +320,8 @@ internal_energy(T::DT, q_tot::DT=DT(0), q_liq::DT=DT(0), q_ice::DT=DT(0)) where 
 
 The internal energy per unit mass, given a thermodynamic state `ts`.
 """
-internal_energy(ts::InternalEnergySHumEquil) = ts.e_int
-internal_energy(ts::InternalEnergySHumNonEquil) = ts.e_int
+internal_energy(ts::PhaseEquil) = ts.e_int
+internal_energy(ts::PhaseNonEquil) = ts.e_int
 
 """
     internal_energy_sat(T, ρ, q_tot)
@@ -735,7 +735,7 @@ using the [`liquid_fraction`](@ref) function given a thermodynamic state `ts`.
 """
 phase_partitioning_eq(ts::ThermodynamicState) =
   phase_partitioning_eq(air_temperature(ts), air_density(ts), ts.q_tot)
-phase_partitioning_eq(ts::InternalEnergySHumNonEquil) = ts.q_liq, ts.q_ice
+phase_partitioning_eq(ts::PhaseNonEquil) = ts.q_liq, ts.q_ice
 
 """
     saturation_adjustment(e_int, ρ, q_tot)

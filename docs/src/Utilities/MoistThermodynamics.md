@@ -79,8 +79,8 @@ CurrentModule = CLIMA.MoistThermodynamics
 
 ```@docs
 ThermodynamicState
-InternalEnergySHumEquil
-InternalEnergySHumNonEquil
+PhaseEquil
+PhaseNonEquil
 LiquidIcePotTempSHumEquil
 ```
 
