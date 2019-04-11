@@ -106,11 +106,11 @@ struct DGBalanceLaw <: AbstractDGMethod
   "Tuple of states to take the gradient of"
   gradstates::Tuple
 
-  "physical flux function"
-  flux!::Function
+  "physical inviscid flux function"
+  inviscid_flux!::Function
 
   "numerical flux function"
-  numericalflux!::Function
+  inviscid_numericalflux!::Function
 
   "storage for the grad"
   Qgrad::MPIStateArray
@@ -122,8 +122,9 @@ struct DGBalanceLaw <: AbstractDGMethod
   source!::Union{Nothing, Function}
 end
 
-function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
-                      gradstates=(), auxiliary_state_length=0,
+function DGBalanceLaw(;grid, length_state_vector, inviscid_flux!,
+                      inviscid_numericalflux!, gradstates=(),
+                      auxiliary_state_length=0,
                       auxiliary_state_initialization! = nothing,
                       source! = nothing)
   ngradstate = length(gradstates)
@@ -170,8 +171,8 @@ function DGBalanceLaw(;grid, length_state_vector, flux!, numericalflux!,
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   end
 
-  DGBalanceLaw(grid, length_state_vector, gradstates, flux!, numericalflux!,
-               Qgrad, auxstate, source!)
+  DGBalanceLaw(grid, length_state_vector, gradstates, inviscid_flux!,
+               inviscid_numericalflux!, Qgrad, auxstate, source!)
 end
 
 """
@@ -323,8 +324,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ###################
 
   volumerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
-             disc.flux!, disc.source!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q, vgeo, t,
-             Dmat, topology.realelems)
+             disc.inviscid_flux!, disc.source!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q,
+             vgeo, t, Dmat, topology.realelems)
 
   MPIStateArrays.finish_ghost_exchange!(ngradstate > 0 ? Qgrad : Q)
 
@@ -332,8 +333,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ngradstate == 0 && MPIStateArrays.finish_ghost_exchange!(Q)
 
   facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
-           disc.numericalflux!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q, vgeo, sgeo, t,
-           vmapM, vmapP, elemtobndy, topology.realelems)
+           disc.inviscid_numericalflux!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q, vgeo,
+           sgeo, t, vmapM, vmapP, elemtobndy, topology.realelems)
 end
 
 """

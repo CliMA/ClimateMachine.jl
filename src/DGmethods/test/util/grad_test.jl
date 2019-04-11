@@ -41,8 +41,8 @@ function run(dim, Ne, N, DFloat)
 
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = 0,
-                           flux! = (x...) -> (),
-                           numericalflux! = (x...) -> (),
+                           inviscid_flux! = (x...) -> (),
+                           inviscid_numericalflux! = (x...) -> (),
                            auxiliary_state_length = 7,
                            auxiliary_state_initialization! = (x...) ->
                            auxiliary_state_initialization!(x..., dim))
