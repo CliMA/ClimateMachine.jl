@@ -14,6 +14,7 @@ Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [extras]
