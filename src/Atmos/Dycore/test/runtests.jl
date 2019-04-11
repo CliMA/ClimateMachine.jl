@@ -14,12 +14,12 @@ using MPI, Test
   coverage_opt = coverage_opts[Base.JLOptions().code_coverage]
   testdir = dirname(@__FILE__)
 
-  for (n, f) in [(1, "../drivers/isentropic_vortex.jl")
-                 (3, "../drivers/isentropic_vortex.jl")
-                 (1, "../drivers/tracers_test.jl")
-                 (3, "../drivers/tracers_test.jl")
-                 (1, "../drivers/rising_thermal_bubble.jl")
-                 (3, "../drivers/rising_thermal_bubble.jl")
+  for (n, f) in [(1, "isentropic_vortex.jl")
+                 (3, "isentropic_vortex.jl")
+                 (1, "tracers_test.jl")
+                 (3, "tracers_test.jl")
+                 (1, "rising_thermal_bubble.jl")
+                 (3, "rising_thermal_bubble.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
