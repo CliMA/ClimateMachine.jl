@@ -56,15 +56,15 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
 end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
-              timeend; gravity=true, viscosity=0, dt=nothing,
+              timeend, bricktopo; gravity=true, viscosity=0, dt=nothing,
               exact_timeend=true) 
   dim = length(brickrange)
-  topl = BrickTopology(# MPI communicator to connect elements/partition
-                       mpicomm,
-                       # tuple of point element edges in each dimension
-                       # (dim is inferred from this)
-                       brickrange,
-                       periodicity=(true, ntuple(j->false, dim-1)...))
+  topl = bricktopo(# MPI communicator to connect elements/partition
+                   mpicomm,
+                   # tuple of point element edges in each dimension
+                   # (dim is inferred from this)
+                   brickrange,
+                   periodicity=(true, ntuple(j->false, dim-1)...))
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           # Compute floating point type
@@ -109,13 +109,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
 
   # Set up the information callback
   timer = [time_ns()]
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       timer[1] = time_ns()
     else
@@ -137,7 +137,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   =#
    step = [0]
   mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
     @printf(io,
             "-------------------------------------------------------------\n")
@@ -155,8 +155,11 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+
+  engf
 end
 
+using Test
 let
   MPI.Initialized() || MPI.Init()
 
@@ -165,14 +168,24 @@ let
 
   nmoist = 1
   ntrace = 0
-  Ne = (10, 10, 10)
+  Ne = (10, 10, 2)
   N = 3
   timeend = 0.1
-  for DFloat in (Float64, Float32)
+  expected_energy = Dict()
+  expected_energy[Float64, Array, BrickTopology, 2] =        2.3341564195755996e+07
+  expected_energy[Float64, Array, BrickTopology, 3] =        7.3813546526256776e+08
+  expected_energy[Float64, Array, StackedBrickTopology, 2] = 2.3341564195755985e+07
+  expected_energy[Float64, Array, StackedBrickTopology, 3] = 7.3813546526256514e+08
+  for DFloat in (Float64, )
     for ArrayType in (Array,)
-      for dim in 2:3
-        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
+      for bricktopo in (BrickTopology, StackedBrickTopology)
+        for dim in 2:3
+          brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000),
+                              dim)
+          @test expected_energy[DFloat, ArrayType, bricktopo, dim] ≈
+          main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
+               timeend, bricktopo)
+        end
       end
     end
   end

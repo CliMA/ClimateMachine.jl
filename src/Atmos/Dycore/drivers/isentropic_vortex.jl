@@ -122,13 +122,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
 
   # Set up the information callback
   timer = [time_ns()]
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       timer[1] = time_ns()
     else
@@ -150,7 +150,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   =#
   step = [0]
   mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
     @printf(io,
             "-------------------------------------------------------------\n")
@@ -171,27 +171,36 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
 
 
   # TODO: Add error check!
+  engf
 end
 
+using Test
 let
   MPI.Initialized() || MPI.Init()
 
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
-  Ne = (10, 10, 10)
+  Ne = (10, 10, 2)
   N = 4
-  timeend = 1
+  timeend = 0.1
   nmoist = 0
   ntrace = 0
-  for DFloat in (Float64,Float32)
+  expected_energy = Dict()
+  expected_energy[Float64, Array, BrickTopology, 2] =        1.9409969604595271e+06
+  expected_energy[Float64, Array, BrickTopology, 3] =        6.1379713265154157e+06
+  expected_energy[Float64, Array, StackedBrickTopology, 2] = 1.9409969604595273e+06
+  expected_energy[Float64, Array, StackedBrickTopology, 3] = 6.1379713265154026e+06
+
+  for DFloat in (Float64,)
     for ArrayType in (Array,)
       for bricktopo in (BrickTopology, StackedBrickTopology)
         for dim in 2:3
           brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                        stop=halfperiod), dim)
-          main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, DFloat(timeend),
-               bricktopo, dt = 1e-3)
+          @test expected_energy[DFloat, ArrayType, bricktopo, dim] ≈
+          main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
+               DFloat(timeend), bricktopo, dt = 1e-3)
         end
       end
     end

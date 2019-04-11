@@ -10,6 +10,7 @@ using CLIMA.AtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
+using Test
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
@@ -63,15 +64,15 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
 end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
-              timeend; gravity=true, dt=nothing,
+              timeend, bricktopo; gravity=true, dt=nothing,
               exact_timeend=true)
   dim = length(brickrange)
-  topl = BrickTopology(# MPI communicator to connect elements/partition
-                       mpicomm,
-                       # tuple of point element edges in each dimension
-                       # (dim is inferred from this)
-                       brickrange,
-                       periodicity=(true, ntuple(j->false, dim-1)...))
+  topl = bricktopo(# MPI communicator to connect elements/partition
+                   mpicomm,
+                   # tuple of point element edges in each dimension
+                   # (dim is inferred from this)
+                   brickrange,
+                   periodicity=(true, ntuple(j->false, dim-1)...))
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           # Compute floating point type
@@ -120,13 +121,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
+  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
   @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
 
   # Set up the information callback
   timer = [time_ns()]
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       timer[1] = time_ns()
     else
@@ -148,7 +149,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   =#
   step = [0]
   mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
     @printf(io,
             "-------------------------------------------------------------\n")
@@ -170,9 +171,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
   
   for (j, n) = enumerate(spacedisc.tracerange)
-    @assert -j * (@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+    @test -j * (@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
 
+  engf
 end
 
 let
@@ -183,14 +185,23 @@ let
 
   nmoist = 1
   ntrace = 2
-  Ne = (10, 10, 10)
+  Ne = (10, 10, 2)
   N = 2
   timeend = 0.1
-  for DFloat in (Float64, Float32)
+  expected_energy = Dict()
+  expected_energy[Float64, Array, BrickTopology, 2] =        3.7231811184578642e+07
+  expected_energy[Float64, Array, BrickTopology, 3] =        1.1775439768271525e+09
+  expected_energy[Float64, Array, StackedBrickTopology, 2] = 3.7231811184578329e+07
+  expected_energy[Float64, Array, StackedBrickTopology, 3] = 1.1775439768271525e+09
+  for DFloat in (Float64, )
     for ArrayType in (Array,)
-      for dim in 2:3
-        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
+      for bricktopo in (BrickTopology, StackedBrickTopology)
+        for dim in 2:3
+          brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
+          @test expected_energy[DFloat, ArrayType, bricktopo, dim] ≈
+          main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
+               timeend, bricktopo)
+        end
       end
     end
   end
