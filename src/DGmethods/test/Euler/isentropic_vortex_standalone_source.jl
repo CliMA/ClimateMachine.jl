@@ -237,12 +237,12 @@ let
   polynomialorder = 4
   expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
 
-  expected_error[1,1] = 2.7085920736747020e-02
-  expected_error[1,2] = 7.3367198912178029e-03
-  expected_error[1,3] = 4.1754232086535303e-04
-  expected_error[2,1] = 8.5653202050883601e-02
-  expected_error[2,2] = 2.3200745410910741e-02
-  expected_error[2,3] = 1.3203847534468272e-03
+  expected_error[1,1] = 2.7086227245330594e-02
+  expected_error[1,2] = 7.3366670960285157e-03
+  expected_error[1,3] = 4.1753869789018267e-04
+  expected_error[2,1] = 8.5653644850287383e-02
+  expected_error[2,2] = 2.3200645429128926e-02
+  expected_error[2,3] = 1.3203808509237983e-03
 
   for DFloat in (Float64,) #Float32)
     for dim = 2:3
