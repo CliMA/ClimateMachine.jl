@@ -59,8 +59,8 @@ function main()
                                            nabrtosend=topology.nabrtosend)
   xyz.Q[:,:,topology.realelems] .=
         @view grid.vgeo[:, [Grids._x, Grids._y, Grids._z], topology.realelems]
-  MPIStateArrays.startexchange!(xyz)
-  MPIStateArrays.finishexchange!(xyz)
+  MPIStateArrays.start_ghost_exchange!(xyz)
+  MPIStateArrays.finish_ghost_exchange!(xyz)
 
   # Check xyz matches after
   x = @view xyz.Q[:, 1, :]

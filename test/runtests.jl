@@ -7,6 +7,7 @@ for submodule in ["Utilities/ParametersType",
                   "Atmos/Parameterizations/SurfaceFluxes",
                   "Atmos/Parameterizations/TurbulenceConvection",
                   "Mesh",
+                  "DGmethods",
                   ]
 
   println("Testing $submodule")

@@ -13,6 +13,7 @@ end
 
 using ...ODESolvers
 ODEs = ODESolvers
+using ...SpaceMethods
 
 """
     LowStorageRungeKutta(f, Q; dt, t0 = 0)
@@ -39,14 +40,13 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-struct LowStorageRungeKutta{T, AT, Nstages,
-                            F<:Function} <: ODEs.AbstractODESolver
+struct LowStorageRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{T,1}
   "time"
   t::Array{T,1}
   "rhs function"
-  rhs!::F
+  rhs!::Function
   "Storage for RHS during the LowStorageRungeKutta update"
   dQ::AT
   "low storage RK coefficient vector A (rhs scaling)"
@@ -55,7 +55,7 @@ struct LowStorageRungeKutta{T, AT, Nstages,
   RKB::NTuple{Nstages, T}
   "low storage RK coefficient vector C (time scaling)"
   RKC::NTuple{Nstages, T}
-  function LowStorageRungeKutta(dQ, Q::AT; dt=nothing,
+  function LowStorageRungeKutta(rhs!::Function, Q::AT; dt=nothing,
                                 t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
@@ -82,9 +82,16 @@ struct LowStorageRungeKutta{T, AT, Nstages,
            T(2006345519317) / T(3224310063776),
            T(2802321613138) / T(2924317926251))
 
-    new{T, AT, length(RKA), typeof(dQ)}(dt, t0, dQ, similar(Q), RKA, RKB, RKC)
+    new{T, AT, length(RKA)}(dt, t0, rhs!, similar(Q), RKA, RKB, RKC)
   end
 end
+
+function LowStorageRungeKutta(spacedisc::AbstractSpaceMethod, Q; dt=nothing,
+                              t0=0)
+  LowStorageRungeKutta((x...) -> SpaceMethods.odefun!(spacedisc, x...),
+                       Q; dt=dt, t0=t0)
+end
+
 
 """
     updatedt!(lsrk::LowStorageRungeKutta, dt)
@@ -104,6 +111,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta)
     # FIXME: GPUify
     update!(Val(size(Q,2)), Val(size(Q,1)), dQ.Q, Q.Q, Q.realelems,
             RKA[s%length(RKA)+1], RKB[s], dt)
+
     time += RKC[s] * dt
   end
   lsrk.t[1] += dt
