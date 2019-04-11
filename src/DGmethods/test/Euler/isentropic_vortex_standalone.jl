@@ -45,16 +45,16 @@ const γ_exact = 7 // 5
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, G, ϕ_c, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t) =
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, preflux(Q)...)
+eulerflux!(F, Q, G, ϕ_c, t) =
+eulerflux!(F, Q, G, ϕ_c, t, preflux(Q)...)
 
-@inline function eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, G, ϕ_c, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 

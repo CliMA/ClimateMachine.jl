@@ -36,22 +36,16 @@ const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
 
 # preflux computation
-@inline function preflux(Q, GM, ϕ_c, ϕ_d, t)
-  @inbounds ρ, Uδ, Vδ, Wδ = Q[_ρ], Q[_U], Q[_V], Q[_W]
-  @inbounds U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
-  ρinv = 1 / ρ
-  (ρinv * U, ρinv * V, ρinv * W, ρinv)
-end
-
-@inline function dynamic_auxiliary_update!(ϕ_d, Q, ϕ_c, t)
+@inline function preflux(Q, GM, ϕ_c, t)
   γ::eltype(Q) = γ_exact
-  @inbounds ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+  @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   @inbounds U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
   ρinv = 1 / ρ
-  @inbounds ϕ_d[1] = (γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2)
+  u, v, w = ρinv * U, ρinv * V, ρinv * W
+  ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
 end
 
-@inline function correctQ!(Q, ϕ_c, ϕ_d)
+@inline function correctQ!(Q, ϕ_c)
   @inbounds Q[_U] -= ϕ_c[1]
   @inbounds Q[_V] -= ϕ_c[2]
   @inbounds Q[_W] -= ϕ_c[3]
@@ -62,22 +56,19 @@ end
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, u, v, w, ρinv)
+@inline function wavespeed(n, Q, G, ϕ_c, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
-  P = ϕ_d[1]
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t) =
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, preflux(Q, G, ϕ_c, ϕ_d, t)...)
+eulerflux!(F, Q, G, ϕ_c, t) =
+eulerflux!(F, Q, G, ϕ_c, t, preflux(Q, G, ϕ_c, t)...)
 
-@inline function eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, G, ϕ_c, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
     U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
-
-    P = ϕ_d[1]
 
     F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -141,9 +132,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                                     wavespeed,
                                                     preflux,
                                                     correctQ!),
-                           length_dynamic_auxiliary = 1,
-                           dynamic_auxiliary_update! =
-                           dynamic_auxiliary_update!,
                            length_constant_auxiliary = 3,
                            constant_auxiliary_init! = constant_auxiliary_init!,
                           )
