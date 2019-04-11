@@ -104,8 +104,6 @@ Liquid
 liquid_fraction
 liquid_ice_pottemp
 liquid_ice_pottemp_sat
-mix_ratio_con
-mix_ratio_vap
 moist_gas_constants
 phase_partitioning_eq
 saturation_adjustment

@@ -36,7 +36,6 @@ export liquid_fraction, saturation_adjustment, phase_partitioning_eq
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_pottemp, dry_pottemp, virtual_temp, exner
 export liquid_ice_pottemp, liquid_ice_pottemp_sat
-export mix_ratio_con, mix_ratio_vap
 
 include("states.jl")
 
@@ -477,7 +476,7 @@ latent_heat_generic(T::Real, LH_0::Real, Δcp::Real) =
 """
     Phase
 
-An generic gas mixture phase, to dispatch
+A generic gas mixture phase, to dispatch
 over [`saturation_vapor_pressure`](@ref) and
 [`saturation_shum_generic`](@ref).
 """
@@ -829,48 +828,6 @@ given a thermodynamic state `ts`.
 liquid_ice_pottemp(ts::ThermodynamicState) =
   liquid_ice_pottemp(air_temperature(ts), air_pressure(ts), ts.q_tot,
                      phase_partitioning_eq(ts)...)
-
-"""
-    mix_ratio_con(q_tot, q_liq, q_ice)
-
-The mixing ratio of condensed liquid
-to dry air where
- - `q_tot` total specific humidity
- - `q_liq` liquid specific humidity
- - `q_ice` ice specific humidity
-"""
-mix_ratio_con(q_tot::DT, q_liq::DT, q_ice::DT) where {DT} =
-  (q_liq+q_ice)/(1-q_tot)
-
-"""
-    mix_ratio_con(ts::ThermodynamicState)
-
-The mixing ratio of condensed liquid
-to dry air given a thermodynamic state `ts`.
-"""
-mix_ratio_con(ts::ThermodynamicState) =
-  mix_ratio_con(ts.q_tot, phase_partitioning_eq(ts)...)
-
-
-"""
-    mix_ratio_vap(q_tot, q_liq, q_ice)
-
-The mixing ratio of liquid vapor
-to dry air where
- - `q_tot` total specific humidity
- - `q_liq` liquid specific humidity
- - `q_ice` ice specific humidity
-"""
-mix_ratio_vap(q_tot::DT, q_liq::DT, q_ice::DT) where {DT} =
-  (q_tot-q_liq-q_ice)/(1-q_tot)
-
-"""
-    mix_ratio_vap(ts::ThermodynamicState)
-
-The mixing ratio of liquid vapor to dry air given a thermodynamic state `ts`.
-"""
-mix_ratio_vap(ts::ThermodynamicState) =
-  mix_ratio_con(ts.q_tot, phase_partitioning_eq(ts)...)
 
 """
     dry_pottemp(T, p, q_tot, q_liq, q_ice)
