@@ -13,8 +13,8 @@
 #   url = {https://doi.org/10.1016/S0021-9991(03)00206-7},
 # }
 #
-# This version runs the isentropic vortex within the entire moist thermodynamics
-# framework
+# This version runs the isentropic vortex as a stand alone test (no dependence
+# on CLIMA moist thermodynamics)
 
 using MPI
 using CLIMA.Topologies
@@ -33,43 +33,42 @@ const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
 const statenames = ("ρ", "U", "V", "W", "E")
-
-
-using CLIMA.PlanetParameters: cp_d, cv_d
-using CLIMA.MoistThermodynamics: saturation_adjustment, air_pressure,
-                                 phase_partitioning_eq, internal_energy,
-                                 soundspeed_air
+const γ_exact = 7 // 5
 
 # preflux computation
-@inline function preflux(Q, _...)
-  DFloat = eltype(Q)
-  ϕ::DFloat = 0
-  q_t::DFloat = 0
-
-  @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-
+@inline function preflux(Q, GM, ϕ_c, t)
+  γ::eltype(Q) = γ_exact
+  @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+  @inbounds U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
   ρinv = 1 / ρ
   u, v, w = ρinv * U, ρinv * V, ρinv * W
+  ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
+end
 
-  e_int = ρinv * E + internal_energy(DFloat(0)) - (u^2 + v^2 + w^2) / 2 - ϕ
-  T = saturation_adjustment(e_int, ρ, q_t)
-  P = air_pressure(T, ρ, q_t)
+@inline function correctQ!(Q, ϕ_c)
+  @inbounds Q[_U] -= ϕ_c[1]
+  @inbounds Q[_V] -= ϕ_c[2]
+  @inbounds Q[_W] -= ϕ_c[3]
+end
 
-  (P, u, v, w, T)
+@inline function constant_auxiliary_init!(ϕ_c, x, y, z)
+  @inbounds ϕ_c[1], ϕ_c[2], ϕ_c[3] = rand(), rand(), rand()
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, T)
-  @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + Q[_ρ] * soundspeed_air(T)
+@inline function wavespeed(n, Q, G, ϕ_c, t, P, u, v, w, ρinv)
+  γ::eltype(Q) = γ_exact
+  @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t) =
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, preflux(Q)...)
+eulerflux!(F, Q, G, ϕ_c, t) =
+eulerflux!(F, Q, G, ϕ_c, t, preflux(Q, G, ϕ_c, t)...)
 
-@inline function eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, P, u, v, w, T)
+@inline function eulerflux!(F, Q, G, ϕ_c, t, P, u, v, w, ρinv)
   @inbounds begin
-    ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+    ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+    U, V, W = Uδ-ϕ_c[1], Vδ-ϕ_c[2], Wδ-ϕ_c[3]
 
     F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -81,10 +80,10 @@ end
 
 # initial condition
 const halfperiod = 5
-function isentropicvortex!(Q, t, x, y, z)
+function isentropicvortex!(Q, t, x, y, z, ϕ_c)
   DFloat = eltype(Q)
 
-  γ::DFloat    = cp_d / cv_d
+  γ::DFloat    = γ_exact
   uinf::DFloat = 2
   vinf::DFloat = 1
   Tinf::DFloat = 1
@@ -107,9 +106,9 @@ function isentropicvortex!(Q, t, x, y, z)
 
   ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
   p = ρ^γ
-  U = ρ*u
-  V = ρ*v
-  W = ρ*w
+  U = ρ*u + ϕ_c[1]
+  V = ρ*v + ϕ_c[2]
+  W = ρ*w + ϕ_c[3]
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
   @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
@@ -131,7 +130,11 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            numericalflux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
-                                                    preflux))
+                                                    preflux,
+                                                    correctQ!),
+                           length_constant_auxiliary = 3,
+                           constant_auxiliary_init! = constant_auxiliary_init!,
+                          )
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
@@ -220,13 +223,12 @@ let
   polynomialorder = 4
   expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
 
-  # TODO: Can these be the same as standalone case?
-  expected_error[1,1] = 2.7096849496802883e-02
-  expected_error[1,2] = 7.3660563764448147e-03
-  expected_error[1,3] = 4.2111431545573515e-04
-  expected_error[2,1] = 8.5687761824661729e-02
-  expected_error[2,2] = 2.3293515522772215e-02
-  expected_error[2,3] = 1.3316803921428360e-03
+  expected_error[1,1] = 2.7085920736747020e-02
+  expected_error[1,2] = 7.3367198912178029e-03
+  expected_error[1,3] = 4.1754232086535303e-04
+  expected_error[2,1] = 8.5653202050883601e-02
+  expected_error[2,2] = 2.3200745410910741e-02
+  expected_error[2,3] = 1.3203847534468272e-03
 
   for DFloat in (Float64,) #Float32)
     for dim = 2:3

@@ -45,7 +45,7 @@ const γ_exact = 7 // 5
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, auxc, auxd, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, G, auxc, t, P, u, v, w, ρinv)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
@@ -61,7 +61,7 @@ const _c_ϕ, _c_ϕx, _c_ϕy, _c_ϕz, _c_x, _c_y, _c_z = 1:_nauxcstate
   end
 end
 
-@inline function almost_no_source!(S, Q, G, auxc, auxd, t)
+@inline function almost_no_source!(S, Q, G, auxc, t)
   @inbounds begin
     x,y,z = auxc[_c_x], auxc[_c_y], auxc[_c_z]
     isentropicvortex!(S, t, x, y, z)
@@ -75,10 +75,10 @@ end
 end
 
 # physical flux function
-eulerflux!(F, Q, G, auxc, auxd, t) =
-eulerflux!(F, Q, G, auxc, auxd, t, preflux(Q)...)
+eulerflux!(F, Q, G, auxc, t) =
+eulerflux!(F, Q, G, auxc, t, preflux(Q)...)
 
-@inline function eulerflux!(F, Q, G, auxc, auxd, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, G, auxc, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
