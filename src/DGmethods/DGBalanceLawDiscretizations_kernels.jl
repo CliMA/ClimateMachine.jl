@@ -62,10 +62,12 @@ function volumerhs!(::Val{dim}, ::Val{N},
         s_F[3,i,j,k,s] = MJ * (ζx * l_F[1, s] + ζy * l_F[2, s] + ζz * l_F[3, s])
       end
 
-      source! !== nothing && source!(l_S, l_Q, l_Qgrad, l_ϕc, l_ϕd, t)
+      if source! !== nothing
+        source!(l_S, l_Q, l_Qgrad, l_ϕc, l_ϕd, t)
 
-      for s = 1:nstate
-        rhs[i, j, k, s, e] += l_S[s]
+        for s = 1:nstate
+          rhs[i, j, k, s, e] += l_S[s]
+        end
       end
     end
 
