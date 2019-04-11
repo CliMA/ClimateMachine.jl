@@ -2,10 +2,19 @@ module Grids
 using ..Topologies
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
+export dofs_per_element, arraytype, dimensionality, polynomialorder
 import Canary
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
                          DeviceArray} end
+
+dofs_per_element(::AbstractGrid{T, D, N, Np}) where {T, D, N, Np} = Np
+
+polynomialorder(::AbstractGrid{T, dim, N}) where {T, dim, N} = N
+
+dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
+
+arraytype(::AbstractGrid{T, D, N, Np, DA}) where {T, D, N, Np, DA} = DA
 
 # {{{
 const _nvgeo = 14

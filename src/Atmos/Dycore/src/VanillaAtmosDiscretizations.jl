@@ -1,9 +1,14 @@
 module VanillaAtmosDiscretizations
 using MPI
 
+<<<<<<< HEAD:src/ClimaAtmos/Dycore/src/VanillaAtmosDiscretizations.jl
 using ..CLIMAAtmosDycore
 AD = CLIMAAtmosDycore
 
+=======
+using ..AtmosDycore
+AD = AtmosDycore
+>>>>>>> master:src/Atmos/Dycore/src/VanillaAtmosDiscretizations.jl
 using ...Grids
 using ...MPIStateArrays
 
@@ -317,12 +322,12 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
   ########################
   # Gradient Computation #
   ########################
-  MPIStateArrays.startexchange!(Q)
+  MPIStateArrays.start_ghost_exchange!(Q)
 
   volumegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
               gravity, Dmat, topology.realelems)
 
-  MPIStateArrays.finishexchange!(Q)
+  MPIStateArrays.finish_ghost_exchange!(Q)
 
   facegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), grad.Q, Q.Q, vgeo,
             sgeo, gravity, topology.realelems, vmapM, vmapP, elemtobndy)
@@ -334,12 +339,17 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
 
   viscosity::DFloat = disc.viscosity
  
-  MPIStateArrays.startexchange!(grad)
+  MPIStateArrays.start_ghost_exchange!(grad)
 
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
+<<<<<<< HEAD:src/ClimaAtmos/Dycore/src/VanillaAtmosDiscretizations.jl
   
   MPIStateArrays.finishexchange!(grad)
+=======
+
+  MPIStateArrays.finish_ghost_exchange!(grad)
+>>>>>>> master:src/Atmos/Dycore/src/VanillaAtmosDiscretizations.jl
 
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
            vgeo, sgeo, gravity, viscosity, topology.realelems, vmapM, vmapP,
@@ -369,8 +379,12 @@ end
 
 include("VanillaAtmosDiscretizations_kernels.jl")
 
+<<<<<<< HEAD:src/ClimaAtmos/Dycore/src/VanillaAtmosDiscretizations.jl
 
 include("vtk.jl")
+=======
+include("../../../Mesh/vtk.jl")
+>>>>>>> master:src/Atmos/Dycore/src/VanillaAtmosDiscretizations.jl
 function writevtk(prefix, Q::MPIStateArray, disc::VanillaAtmosDiscretization)
   vgeo = disc.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters

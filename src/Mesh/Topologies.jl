@@ -464,7 +464,8 @@ function StackedBrickTopology(mpicomm, elemrange;
     if j == stacksize
       et = periodicity[dim] ? stacksize*(i-1) + 1 : e1
       ft = periodicity[dim] ? ft : 2(dim-1) + 2
-    elseif j == 1
+    end
+    if j == 1
       eb = periodicity[dim] ? stacksize*(i-1) + stacksize : e1
       fb = periodicity[dim] ? fb : 2(dim-1) + 1
     end
@@ -488,7 +489,8 @@ function StackedBrickTopology(mpicomm, elemrange;
 
     if j == stacksize
       bt = periodicity[dim] ? bt : boundary[2,dim]
-    elseif j == 1
+    end
+    if j == 1
       bb = periodicity[dim] ? bb : boundary[1,dim]
     end
 
@@ -721,43 +723,32 @@ Ronchi, Iacono, Paolucci (1996) <https://dx.doi.org/10.1006/jcph.1996.0047>
 """
 function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
-  fdim = argmax(abs.([a, b, c]))
+  function f(sR, ξ, η)
+    X, Y = tan(π * ξ / 4), tan(π * η / 4)
+    x = sR / sqrt(X^2 + Y^2 + 1)
+    y, z = X * x, Y * x
+    x,y,z
+  end
+  
+  fdim = argmax(abs.((a, b, c)))
   if fdim == 1 && a < 0
     # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-    ξ, η = b / a, c / a
-    X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    x = -R / sqrt(X^2 + Y^2 + 1)
-    y, z = X * x, Y * x
+    x,y,z = f(-R, b/a, c/a)
   elseif fdim == 2 && b < 0
-    # ( *,-R, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-    ξ, η = a / b, c / b
-    X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    y = -R / sqrt(X^2 + Y^2 + 1)
-    x, z = X * y, Y * y
+    # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+    y,x,z = f(-R, a/b, c/b)
   elseif fdim == 1 && a > 0
-    # (-R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
-    ξ, η = b / a, c / a
-    X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    x = R / sqrt(X^2 + Y^2 + 1)
-    y, z = X * x, Y * x
+    # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+    x,y,z = f(R, b/a, c/a)
   elseif fdim == 2 && b > 0
-    # ( *,-R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
-    ξ, η = a / b, c / b
-    X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    y = R / sqrt(X^2 + Y^2 + 1)
-    x, z = X * y, Y * y
+    # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+    y,x,z = f(R, a/b, c/b)
   elseif fdim == 3 && c > 0
-    # ( *,-R, *) : Face V from Ronchi, Iacono, Paolucci (1996)
-    ξ, η = b / c, a / c
-    X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    z = R / sqrt(X^2 + Y^2 + 1)
-    x, y = Y * z, X * z
+    # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+    z,y,x = f(R, b/c, a/c)
   elseif fdim == 3 && c < 0
-    # ( *,-R, *) : Face V from Ronchi, Iacono, Paolucci (1996)
-    ξ, η = b / c, a / c
-    X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    z = -R / sqrt(X^2 + Y^2 + 1)
-    x, y = Y * z, X * z
+    # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+    z,y,x = f(-R, b/c, a/c)
   else
     error("invalid case for cubedshellwarp: $a, $b, $c")
   end

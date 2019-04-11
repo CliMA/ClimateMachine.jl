@@ -3,7 +3,7 @@ using LinearAlgebra
 
 using MPI
 
-export MPIStateArray
+export MPIStateArray, euclidean_distance
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -18,11 +18,6 @@ export MPIStateArray
     It should be reevaluated whether all this stuff in the type domain is
     really necessary (some of it was optimistically added for functionality that
     never panned out)
-
-!!! todo
-
-    tag for the MPI message should probably be unified for each
-    `MPIStateArray` (right now `888` used is the same for all communication)
 
 """
 struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -50,9 +45,12 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
   # FIXME: Later we should relax this if we compute on the GPU and probably
   # should let this be a more generic type...
   weights::Array{T, Nm1}
+
+  commtag::Int
   function MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
                                    sendelems, nabrtorank, nabrtorecv,
-                                   nabrtosend, weights) where {S, T, DA}
+                                   nabrtosend, weights, commtag
+                                  ) where {S, T, DA}
     N = length(S.parameters)+1
     numsendelem = length(sendelems)
     numrecvelem = length(ghostelems)
@@ -72,7 +70,7 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
     end
 
     host_sendQ = zeros(T, S.parameters..., numsendelem)
-    host_recvQ = zeros(T, S.parameters..., numsendelem)
+    host_recvQ = zeros(T, S.parameters..., numrecvelem)
 
     # Length check is to work around a CuArrays bug.
     length(Q) > 0 && fill!(Q, 0)
@@ -89,7 +87,8 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
                                            sendelems, sendreq, recvreq,
                                            host_sendQ, host_recvQ, nabrtorank,
                                            nabrtorecv, nabrtosend,
-                                           device_sendQ, device_recvQ, weights)
+                                           device_sendQ, device_recvQ, weights,
+                                           commtag)
   end
 
 
@@ -102,7 +101,8 @@ end
                            nabrtorank=Array{Int64}(undef, 0),
                            nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
                            nabrtosend=Array{UnitRange{Int64}}(undef, 0),
-                           weights)
+                           weights,
+                           commtag=888)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
 elements, using array type `DA` with element type `eltype`. The arrays that are
@@ -131,6 +131,7 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
                                  nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
                                  nabrtosend=Array{UnitRange{Int64}}(undef, 0),
                                  weights=nothing,
+                                 commtag=888
                                 ) where {S<:Tuple, T, DA}
 
   N = length(S.parameters)+1
@@ -141,14 +142,15 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
   end
   MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
                           sendelems, nabrtorank, nabrtorecv,
-                          nabrtosend, weights)
+                          nabrtosend, weights, commtag)
 end
 
 # FIXME: should general cases should be handled?
-function Base.similar(Q::MPIStateArray{S, T, DA}) where {S, T, DA}
+function Base.similar(Q::MPIStateArray{S, T, DA}; commtag=Q.commtag
+                     ) where {S, T, DA}
   MPIStateArray{S, T, DA}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
                           Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
-                          Q.nabrtosend, Q.weights)
+                          Q.nabrtosend, Q.weights, commtag)
 end
 
 # FIXME: Only show real size
@@ -175,33 +177,33 @@ function Base.copyto!(dst::MPIStateArray, src::MPIStateArray)
 end
 
 """
-    postrecvs!(Q::MPIStateArray)
+    post_Irecvs!(Q::MPIStateArray)
 
 posts the `MPI.Irecv!` for `Q`
 """
-function postrecvs!(Q::MPIStateArray)
+function post_Irecvs!(Q::MPIStateArray)
   nnabr = length(Q.nabrtorank)
   for n = 1:nnabr
     # If this fails we haven't waited on previous recv!
     @assert Q.recvreq[n].buffer == nothing
 
     Q.recvreq[n] = MPI.Irecv!((@view Q.host_recvQ[:, :, Q.nabrtorecv[n]]),
-                              Q.nabrtorank[n], 888, Q.mpicomm)
+                              Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
 
 """
-    startexchange!(Q::MPIStateArray; dorecvs=true)
+    start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
 
 Start the MPI exchange of the data stored in `Q`. If `dorecvs` is `true` then
-`postrecvs!(Q)` is called, otherwise the caller is responsible for this.
+`post_Irecvs!(Q)` is called, otherwise the caller is responsible for this.
 
 This function will fill the send buffer (on the device), copies the data from
 the device to the host, and then issues the send. Previous sends are waited on
 to ensure that they are complete.
 """
-function startexchange!(Q::MPIStateArray; dorecvs=true)
-  dorecvs && postrecvs!(Q)
+function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
+  dorecvs && post_Irecvs!(Q)
 
   # wait on (prior) MPI sends
   MPI.Waitall!(Q.sendreq)
@@ -213,16 +215,16 @@ function startexchange!(Q::MPIStateArray; dorecvs=true)
   nnabr = length(Q.nabrtorank)
   for n = 1:nnabr
     Q.sendreq[n] = MPI.Isend((@view Q.host_sendQ[:, :, Q.nabrtosend[n]]),
-                           Q.nabrtorank[n], 888, Q.mpicomm)
+                           Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
 
 """
-    finishexchange!(Q::MPIStateArray)
+    finish_ghost_exchange!(Q::MPIStateArray)
 
 Complete the exchange of data and fill the data array on the device
 """
-function finishexchange!(Q::MPIStateArray)
+function finish_ghost_exchange!(Q::MPIStateArray)
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
 
@@ -288,57 +290,50 @@ function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
   energy
 end
 
-#=
-# {{{ L2 Error (for all dimensions)
-function AD.L2errornorm(runner::Runner{DeviceArray}, Qexact;
-                        host=false, Q = nothing, vgeo = nothing,
-                        time = nothing) where DeviceArray
-  host || error("Currently requires host configuration")
-  state = runner.state
-  config = runner.config
-  params = runner.params
-  cpubackend = DeviceArray == Array
-  if vgeo == nothing
-    vgeo = cpubackend ? config.vgeo : Array(config.vgeo)
-  end
-  if Q == nothing
-    Q = cpubackend ? state.Q : Array(state.Q)
-  end
-  if time == nothing
-    time = state.time[1]
+function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
+
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  Np = size(A, 1)
+
+  host_array = Array ∈ typeof(B).parameters
+  h_B = host_array ? B : Array(B)
+  @assert Np === size(B, 1)
+
+  if isempty(A.weights)
+    locdist = knl_dist(Val(Np), h_A, h_B, A.realelems)
+  else
+    locdist = knl_L2dist(Val(Np), h_A, h_B, A.weights, A.realelems)
   end
 
-  dim = params.dim
-  N = params.N
-  realelems = config.mesh.realelems
-  locnorm2 = L2errornorm(Val(dim), Val(N), time, Q, vgeo, realelems, Qexact)
-  sqrt(MPI.allreduce([locnorm2], MPI.SUM, config.mpicomm)[1])
+  sqrt(MPI.allreduce([locdist], MPI.SUM, A.mpicomm)[1])
 end
 
-function L2errornorm(::Val{dim}, ::Val{N}, time, Q, vgeo, elems,
-                     Qexact) where
-  {dim, N}
-  DFloat = eltype(Q)
-  Np = (N+1)^dim
-  (_, nstate, nelem) = size(Q)
+function knl_dist(::Val{Np}, A, B, elems) where {Np}
+  DFloat = eltype(A)
+  (_, nstate, nelem) = size(A)
 
-  errorsq = zero(DFloat)
+  dist = zero(DFloat)
 
-  @inbounds for e = elems,  i = 1:Np
-    x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
-    ρex, Uex, Vex, Wex, Eex = Qexact(time, x, y, z)
-
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _ρ, e] - ρex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _U, e] - Uex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _V, e] - Vex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _W, e] - Wex)^2
-    errorsq += vgeo[i, _MJ, e] * (Q[i, _E, e] - Eex)^2
+  @inbounds for e = elems, q = 1:nstate, i = 1:Np
+    dist += (A[i, q, e] - B[i, q, e])^2
   end
 
-  errorsq
+  dist
 end
-# }}}
-=#
+
+function knl_L2dist(::Val{Np}, A, B, weights, elems) where {Np}
+  DFloat = eltype(A)
+  (_, nstate, nelem) = size(A)
+
+  dist = zero(DFloat)
+
+  @inbounds for e = elems, q = 1:nstate, i = 1:Np
+    dist += weights[i, e] * (A[i, q, e] - B[i, q, e])^2
+  end
+
+  dist
+end
 
 # }}}
 
