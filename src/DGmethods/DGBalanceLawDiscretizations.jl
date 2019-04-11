@@ -1,4 +1,40 @@
+"""
+DG Balance Law Discretizations module.
+Attempts to provide a reasonable implementation of a discontinuous Galerkin
+method (in weak form) on tensor product quadrilateral (2D) and hexahedral (3D)
+elements for balance laws of the form
+
+   ``q_{,t} + Σ_{i=1,...d} F_{i,i} = s``
+
+where ``q`` is the state vector, ``F`` is the flux function, and ``s`` is the
+source function. ``F`` includes both the "inviscid" and "viscous" fluxes. Note
+that this is a space only discretization, time must be advanced using some
+ordinary differential equations methods; see [`ODESolvers`](@ref).
+
+Much of the notation used in this module follows Hesthaven and Warburton (2008).
+
+!!! note
+
+    We plan to switch to a skew-symmetric formulation (at which time this note
+    will be removed)
+
+!!! references
+
+    ```
+    @BOOK{HesthavenWarburton2008,
+      title = {Nodal Discontinuous {G}alerkin Methods: {A}lgorithms, Analysis,
+               and Applications},
+      publisher = {Springer-Verlag New York},
+      year = {2008},
+      author = {Hesthaven, Jan S. and Warburton, Tim},
+      volume = {54},
+      series = {Texts in Applied Mathematics},
+      doi = {10.1007/978-0-387-72067-8}
+    }
+    ```
+"""
 module DGBalanceLawDiscretizations
+
 using MPI
 using ...Grids
 using ...MPIStateArrays
