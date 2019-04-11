@@ -17,6 +17,10 @@ using LinearAlgebra
   @test cp_m() ≈ cp_d
   @test cv_m.([0, 1, 1, 1], [0, 0, 1, 0], [0, 0, 0, 1]) ≈ [cp_d - R_d, cp_v - R_v, cv_l, cv_i]
 
+  # speed of sound
+  T = [T_0 + 20, T_0 + 100]; q_t = [0, 1];
+  @test soundspeed_air.(T, q_t) ≈ [ sqrt(cp_d/cv_d * R_d * T[1]), sqrt(cp_v/cv_v * R_v * T[2]) ]
+
   # specific latent heats
   @test latent_heat_vapor(T_0)  ≈ LH_v0
   @test latent_heat_fusion(T_0) ≈ LH_f0
@@ -35,24 +39,27 @@ using LinearAlgebra
      ρ_v_triple / ρ * [1, 1]
   @test saturation_shum_generic.(T_triple-20, ρ; phase=Liquid()) >=
         saturation_shum_generic.(T_triple-20, ρ; phase=Ice())
+  @test saturation_excess.([T_triple, T_triple], [ρ, ρ], [q_t, q_t/1000]) ≈
+        max.(0., [q_t, q_t/1000] .- ρ_v_triple / ρ * [1, 1])
 
   # energy functions and inverse (temperature)
   T=300; KE=11.; PE=13.;
   @test air_temperature.(cv_d*(T-T_0) .* [1, 1, 1], 0, 0, 0) ≈ [T, T, T]
   @test air_temperature.(cv_d*(T-T_0) .* [1, 1, 1]) ≈ [T, T, T]
-  @test air_temperature.(cv_m.([0, q_t], 0, 0).*(T-T_0).+[0, q_t*IE_v0], [0, q_t], 0, 0) ≈ [T, T]
+  @test air_temperature.(cv_m.([0, q_t], 0, 0).*(T-T_0).+[0, q_t*e_int_v0], [0, q_t], 0, 0) ≈ [T, T]
   @test total_energy.([KE, KE, 0], [PE, PE, 0], [T_0, T, T_0], [0, 0, q_t], [0, 0, 0], [0, 0, 0]) ≈
-    [KE + PE, KE + PE + cv_d*(T-T_0), q_t * IE_v0]
+    [KE + PE, KE + PE + cv_d*(T-T_0), q_t * e_int_v0]
 
   # phase partitioning in equilibrium
   T   = [T_icenuc-10, T_freeze+10];
   q_l = 0.1;
   ρ   = [1., .1];
   q_t = [.21, .60];
-  q_l_out = zeros(size(T)); q_i_out = zeros(size(T))
   @test liquid_fraction.(T) ≈ [0, 1]
   @test liquid_fraction.(T, [q_l, q_l], [q_l, q_l/2]) ≈ [0.5, 2/3]
-  phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t);
+    q_result = phase_partitioning_eq.(T, ρ, q_t);
+    q_l_out = first.(q_result)
+    q_i_out = last.(q_result)
     @test q_l_out[1] ≈ 0
     @test q_l_out[2] > 0
     @test q_l_out[2] <= q_t[2]
@@ -62,19 +69,25 @@ using LinearAlgebra
 
   # saturation adjustment in equilibrium (i.e., given the thermodynamic
   # variables E_int, p, q_t, compute the temperature and partitioning of the phases
-  T_true        = [200., 300.];
-  T_trial       = [220., 290.];
-  q_t           = [.21, .78];
-  ρ             = [.1, 1];
+  T_true        = [300., 200., 300.];
+  T_trial       = [T_triple, 220., 290.];
+  q_t           = [0, .21, .78];
+  ρ             = [1, .1, 1];
   E_int         = internal_energy_sat.(T_true, ρ, q_t);
   T             = saturation_adjustment.(E_int, ρ, q_t, T_trial);
   @test norm(T - T_true)/length(T) < 1e-2
   # @test all(T .≈ T_true)
 
   # corresponding phase partitioning
-  q_l_out = zeros(size(T)); q_i_out = zeros(size(T));
-  phase_partitioning_eq!(q_l_out, q_i_out, T, ρ, q_t);
-
+  T_true        = [200., 300.];
+  T_trial       = [220., 290.];
+  q_t           = [0.21, 0.78]
+  ρ             = [.1, 1];
+  E_int         = internal_energy_sat.(T_true, ρ, q_t);
+  T             = saturation_adjustment.(E_int, ρ, q_t, T_trial);
+  q_result      = phase_partitioning_eq.(T, ρ, q_t);
+  q_l_out = first.(q_result)
+  q_i_out = last.(q_result)
   @test q_t - q_l_out - q_i_out ≈ saturation_shum.(T, ρ)
 
   # potential temperatures

@@ -16,8 +16,14 @@ makedocs(
     "Utilites" => Any[
       "RootSolvers" => "Utilities/RootSolvers.md",
       "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
-      ],
+    ],
+    "Atmos" => Any[
+      "Atmos/SurfaceFluxes.md"
+    ],
+    "ODESolvers" => "ODESolvers.md",
+    "Mesh" => "Mesh.md",
     "AtmosDycore" => "AtmosDycore.md",
+    "TurbulenceConvection" => "TurbulenceConvection.md",
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
