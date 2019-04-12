@@ -56,8 +56,8 @@ using LinearAlgebra
   q_liq = DT(0.1);
   ρ   = DT.([1., .1]);
   q_tot = DT.([.21, .60]);
-  @test liquid_fraction.(T) ≈ [0, 1]
-  @test liquid_fraction.(T, [q_liq, q_liq], [q_liq, q_liq/2]) ≈ [0.5, 2/3]
+  @test liquid_fraction_equil.(T) ≈ [0, 1]
+  @test liquid_fraction_equil.(T, [q_liq, q_liq], [q_liq, q_liq/2]) ≈ [0.5, 2/3]
     q_result = phase_partitioning_eq.(T, ρ, q_tot);
     q_l_out = first.(q_result)
     q_i_out = last.(q_result)
@@ -99,12 +99,13 @@ using LinearAlgebra
   # dry potential temperatures. FIXME: add correctness tests
   T = DT(300); p=DT(1.e5); q_tot=DT(0.23)
   @test dry_pottemp(T, p, q_tot) isa typeof(p)
+  @test air_temperature_from_liquid_ice_pottemp(dry_pottemp(T, p, q_tot), p, q_tot) ≈ T
 
   # Exner function. FIXME: add correctness tests
   p=DT(1.e5); q_tot=DT(0.23)
   @test exner(p, q_tot) isa typeof(p)
 
-  DT = Float64
+  DT = Float32
   ρ = DT(1.0)
   p = DT(1000.0*100)
   e_int = DT(2.0)
@@ -130,14 +131,15 @@ using LinearAlgebra
     @test latent_heat_fusion(ts) isa typeof(e_int)
     @test saturation_shum(ts) isa typeof(e_int)
     @test saturation_excess(ts) isa typeof(e_int)
-    @test liquid_fraction(ts) isa typeof(e_int)
+    @test liquid_fraction_equil(ts) isa typeof(e_int)
+    @test liquid_fraction_nonequil(ts) isa typeof(e_int)
     @test eltype(phase_partitioning_eq(ts)) == typeof(e_int)
     @test liquid_ice_pottemp(ts) isa typeof(e_int)
     @test dry_pottemp(ts) isa typeof(e_int)
     @test exner(ts) isa typeof(e_int)
     @test liquid_ice_pottemp_sat(ts) isa typeof(e_int)
     @test specific_volume(ts) isa typeof(e_int)
-    @test virtual_temp(ts) isa typeof(e_int)
+    @test virtual_pottemp(ts) isa typeof(e_int)
   end
 
 end
