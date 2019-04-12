@@ -1,48 +1,43 @@
 using MPI
+
 using CLIMA.Topologies
 using CLIMA.Grids
-using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.AtmosDycore.VanillaAtmosDiscretizations
 using CLIMA.MPIStateArrays
 using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
-using CLIMA.CLIMAAtmosDycore
+using CLIMA.AtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
 
 using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 
 # FIXME: Will these keywords args be OK?
+function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
+  DFloat = eltype(x)
 
-function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
-
-  DFloat          = eltype(x)
-  p0::DFloat      = MSLP
+  p0::DFloat      = MSLP 
   R_gas::DFloat   = R_d
   c_p::DFloat     = cp_d
   c_v::DFloat     = cv_d
   gravity::DFloat = grav
-  T_0::DFloat     = T_triple
+  q_tot::DFloat   = 0
   
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat = 250
-  θ_ref::DFloat = 320
-  θ_c::DFloat = 2
-  Δθ::DFloat = 0
-  Δq_tot::DFloat = 0
-  q_tot = 0.0196
-  q_tr = 0.0100 
+  θ_ref::DFloat = 300
+  θ_c::DFloat = 0.5
+  Δθ::DFloat = 0.0
   if r <= rc
-    Δθ = θ_c * (1 + cospi(r / rc)) / 2
-    Δq_tot = q_tot/5 * (1 + cospi(r / rc)) / 2
+    Δθ = θ_c * (1 + cos(π * r / rc)) / 2
   end
   θ = θ_ref + Δθ
   π_k = 1 - gravity / (c_p * θ) * x[dim]
   
-  c = c_v / R_gas
-  ρ = p0 / (R_gas * θ) * (π_k)^c
+  ρ = p0 / (R_gas * θ) * (π_k)^ (c_v / R_gas)
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
@@ -51,20 +46,18 @@ function tracer_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   W = ρ * w
   P = p0 * (R_gas * (ρ * θ) / p0)^(c_p / c_v)
   T = P / (ρ * R_gas)
-  q_tot += Δq_tot
+  # Calculation of energy per unit mass
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
-  e_int = MoistThermodynamics.internal_energy(T, q_tot, 0.0, 0.0)
-  E_tot = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
-  (ρ=ρ, U=U, V=V, W=W, E=E_tot, 
-   Qmoist = (q_tot * ρ,),  #Qmoist => Moist variable (may have corresponding sources)
-   Qtrace = ntuple(j->(-j*ρ),ntrace))   #Qtrace => Arbitrary tracers 
-
+  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  # Total energy 
+  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_tot,)) 
 end
 
-function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
-              timeend; gravity=true, dt=nothing,
-              exact_timeend=true)
+function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
+              timeend; gravity=true, viscosity=0, dt=nothing,
+              exact_timeend=true) 
   dim = length(brickrange)
   topl = BrickTopology(# MPI communicator to connect elements/partition
                        mpicomm,
@@ -89,20 +82,16 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
 
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = VanillaAtmosDiscretization(grid,
-                                         # Use gravity?
-                                         gravity = gravity,
-                                         # How many tracer variables
-                                         ntrace=ntrace,
-                                         # How many moisture variables
-                                         nmoist=nmoist)
-  
-  # Initial condition from driver 
-  initialcondition(x...) = tracer_thermal_bubble(x...; 
-					       ntrace=ntrace, 
-					       nmoist=nmoist, 
-					       dim=dim)
+                                        gravity=gravity,
+                                        viscosity=viscosity,
+                                        ntrace=ntrace,
+                                        nmoist=nmoist)
 
   # This is a actual state/function that lives on the grid
+  initialcondition(x...) = rising_thermal_bubble(x...;
+                                               ntrace=ntrace,
+                                               nmoist=nmoist,
+                                               dim=dim)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # Determine the time step
@@ -146,7 +135,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
   theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
   =#
-  step = [0]
+   step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
     outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
@@ -166,13 +155,6 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
   @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
   @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
-
-  h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
-  
-  for (j, n) = enumerate(spacedisc.tracerange)
-    @assert -j * (@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
-  end
-
 end
 
 let
@@ -182,9 +164,9 @@ let
   mpicomm = MPI.COMM_WORLD
 
   nmoist = 1
-  ntrace = 2
+  ntrace = 0
   Ne = (10, 10, 10)
-  N = 2
+  N = 3
   timeend = 0.1
   for DFloat in (Float64, Float32)
     for ArrayType in (Array,)
