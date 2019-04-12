@@ -525,7 +525,7 @@ saturation_vapor_pressure(ts::ThermodynamicState, ::Ice) = saturation_vapor_pres
 function saturation_vapor_pressure(T::DT, LH_0::DT, Δcp::DT) where DT
 
     return DT(press_triple) * (T/DT(T_triple))^(Δcp/DT(R_v)) *
-        exp( (LH_0 - Δcp*DT(T_0))/DT(R_v) * (1 / DT(T_triple) - 1 / T) )
+        exp( (DT(LH_0) - Δcp*DT(T_0))/DT(R_v) * (1 / DT(T_triple) - 1 / T) )
 
 end
 
