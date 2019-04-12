@@ -171,8 +171,6 @@ let
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
-  @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
-
   viscosity = 0.0
   nmoist = 3
   ntrace = 0
@@ -181,7 +179,7 @@ let
   dim = 2
   timeend = 100
   DFloat = Float64
-  for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+  for ArrayType in (Array,)
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
         main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
       end

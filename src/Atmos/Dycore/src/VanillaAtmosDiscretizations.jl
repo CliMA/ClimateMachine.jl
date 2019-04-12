@@ -1,14 +1,7 @@
 module VanillaAtmosDiscretizations
 using MPI
-
-<<<<<<< HEAD:src/ClimaAtmos/Dycore/src/VanillaAtmosDiscretizations.jl
-using ..CLIMAAtmosDycore
-AD = CLIMAAtmosDycore
-
-=======
 using ..AtmosDycore
 AD = AtmosDycore
->>>>>>> master:src/Atmos/Dycore/src/VanillaAtmosDiscretizations.jl
 using ...Grids
 using ...MPIStateArrays
 
@@ -343,13 +336,8 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
 
   volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
              vgeo, gravity, viscosity, Dmat, topology.realelems)
-<<<<<<< HEAD:src/ClimaAtmos/Dycore/src/VanillaAtmosDiscretizations.jl
-  
-  MPIStateArrays.finishexchange!(grad)
-=======
 
   MPIStateArrays.finish_ghost_exchange!(grad)
->>>>>>> master:src/Atmos/Dycore/src/VanillaAtmosDiscretizations.jl
 
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
            vgeo, sgeo, gravity, viscosity, topology.realelems, vmapM, vmapP,
@@ -369,22 +357,9 @@ const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 
 using Requires
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-  using .CuArrays
-  using .CuArrays.CUDAnative
-  using .CuArrays.CUDAnative.CUDAdrv
-
-  include("VanillaAtmosDiscretizations_cuda.jl")
-end
-
 include("VanillaAtmosDiscretizations_kernels.jl")
 
-<<<<<<< HEAD:src/ClimaAtmos/Dycore/src/VanillaAtmosDiscretizations.jl
-
-include("vtk.jl")
-=======
 include("../../../Mesh/vtk.jl")
->>>>>>> master:src/Atmos/Dycore/src/VanillaAtmosDiscretizations.jl
 function writevtk(prefix, Q::MPIStateArray, disc::VanillaAtmosDiscretization)
   vgeo = disc.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
@@ -396,7 +371,6 @@ function writevtk(prefix, vgeo::Array, Q::Array,
                   G::Grids.AbstractGrid{T, dim, N}) where {T, dim, N}
 
   Nq  = N+1
-
   nelem = size(Q)[end]
   Xid = (G.xid, G.yid, G.zid)
   X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),

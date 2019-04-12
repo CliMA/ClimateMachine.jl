@@ -1,31 +1,19 @@
 using MPI
 
+
 using CLIMA.Topologies
 using CLIMA.Grids
-using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.AtmosDycore.VanillaAtmosDiscretizations
 using CLIMA.MPIStateArrays
 using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
-using CLIMA.CLIMAAtmosDycore
+using CLIMA.AtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using DelimitedFiles
 using Dierckx
 using Printf
-
-const HAVE_CUDA = try
-    using CuArrays
-    using CUDAdrv
-    using CUDAnative
-    true
-catch
-    false
-end
-
-macro hascuda(ex)
-    return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
-end
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
@@ -141,6 +129,7 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
 
 end
 
+
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne, 
               timeend; gravity=true, viscosity=2.5, dt=nothing,
               exact_timeend=true) 
@@ -177,10 +166,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     #vgeo = grid.vgeo
     #initial_sounding       = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
     initialcondition(x...) = kurowski_bubble(x...;
-                                             ntrace=ntrace,
-                                             nmoist=nmoist,
-                                             dim=dim,
-                                             )
+                                  ntrace=ntrace,
+                                  nmoist=nmoist,
+                                  dim=dim)
+    
     Q = MPIStateArray(spacedisc, initialcondition)
 
     # Determine the time step
@@ -247,24 +236,22 @@ let
 
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
-
-    @hascuda device!(MPI.Comm_rank(mpicomm) % length(devices()))
-
-    viscosity = 2.5
+    
+    viscosity = 75
     nmoist = 3
     ntrace = 0
-    Ne = (40, 50)
+    Ne = (5, 40)
     N = 4
     dim = 2
     timeend = 2000.0
 
-    xmin = -1800
-    xmax = 1800
+    xmin = -500
+    xmax = 500
     zmin = 0.0
     zmax = 3000
     
     DFloat = Float64
-    for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
+    for ArrayType in (Array,)
         brickrange = (range(DFloat(xmin); length=Ne[1]+1, stop=xmax),
                       range(DFloat(zmin); length=Ne[2]+1, stop=zmax))
 
