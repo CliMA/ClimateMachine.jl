@@ -533,14 +533,14 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
   @inbounds for e in elems
 
-    delta = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
+    delta  = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
     delta2 = delta*delta
     
     for j = 1:Nq, i = 1:Nq
-      MJ = vgeo[i, j, _MJ, e]
+      MJ     = vgeo[i, j, _MJ, e]
       ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
       ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
-      y = vgeo[i,j,_y,e]
+      y      = vgeo[i,j,_y,e]
  
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
@@ -555,12 +555,19 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # Returns temperature after saturation adjustment 
       # Required for phase-partitioning to find q_liq, q_ice
       T            = saturation_adjustment(E_int/ρ, ρ, q_m[1])
-      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
-      q_m[2] = q_liq
-      q_m[3] = q_ice
-      P            = air_pressure(T, ρ, q_m[1], q_liq, q_ice)
-      θv           = virtual_pottemp(T, P, q_m[1], q_liq, q_ice)
+      q_liq, q_ice = phase_partitioning_eq(T,       ρ, q_m[1])
+      q_m[2]       = q_liq
+      q_m[3]       = q_ice
         
+      P            =    air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
+      θv           = virtual_pottemp(T, P, q_m[1], q_m[2], q_m[3])
+        
+      #Update rho, E after saturation adjustment
+      ρ            =     air_density(T, P, q_m[1], q_m[2], q_m[3])
+      E_int        = internal_energy(T,    q_m[1], q_m[2], q_m[3])
+      E            = E_int + (U^2 + V^2)/(2*ρ) + ρ * gravity * y
+      Q[i,j,_ρ,e]  = ρ 
+      Q[i,j,_E,e]  = E
       for m = 1:nmoist
         s = _nstate+ m 
 	Q[i,j,s,e] = ρ * q_m[m]
@@ -1097,9 +1104,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         E_intM = EM - (UM^2 + VM^2+ WM^2)/(2*ρM) - ρM * gravity * yorzM
 
         # get adjusted temperature and liquid and ice specific humidities
-        TM = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
+        TM             = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
         q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
-        PM = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
+        PM             = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
      
         if bc == 0
           
@@ -1118,9 +1125,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
           E_intP= EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
         
-          TP = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
+          TP             = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
           q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
-          PP = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
+          PP             = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
 
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]

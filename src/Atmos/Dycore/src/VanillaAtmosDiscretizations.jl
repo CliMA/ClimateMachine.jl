@@ -379,7 +379,8 @@ function writevtk(prefix, vgeo::Array, Q::Array,
                         nelem), dim)
  
   # Tuple splat output for final plots
-  ntuple(j->(reshape(@view Q[:, j, :]), ntuple(j->Nq,dim)...,nelem),dim)
+  #ntuple(j->(reshape(@view Q[:, j, :]),
+  #             ntuple(j->Nq,dim)...,nelem),dim)
 
   ρ = reshape((@view Q[:, _ρ, :]), ntuple(j->Nq, dim)..., nelem)
   U = reshape((@view Q[:, _U, :]), ntuple(j->Nq, dim)..., nelem)
