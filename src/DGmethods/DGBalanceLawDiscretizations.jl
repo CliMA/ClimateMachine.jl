@@ -167,6 +167,7 @@ stored in the auxiliary state.
     - Add support for boundary conditions
     - support viscous fluxes (`gradstates` is in the argument list as part of
       this future interface)
+
 """
 function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                       length_state_vector, inviscid_flux!,
@@ -224,10 +225,11 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
 end
 
 """
-    MPIStateArray(disc::DGBalanceLaw)
+    MPIStateArray(disc::DGBalanceLaw; commtag=888)
 
 Given a discretization `disc` constructs an `MPIStateArrays` for holding a
-solution state
+solution state. The optional `commtag` allows the user to set the tag to use for
+communication with this `MPIStateArray`.
 """
 function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; commtag=888)
   grid = disc.grid
@@ -251,6 +253,36 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; commtag=888)
                                              commtag=commtag)
 end
 
+"""
+    MPIStateArray(disc::DGBalanceLaw, initialization!::Function; commtag=888)
+
+Given a discretization `disc` constructs an `MPIStateArrays` for holding a
+solution state. The optional `commtag` allows the user to set the tag to use
+for communication with this `MPIStateArray`.
+
+After allocation the `MPIStateArray` is initialized using the function
+`initialization!` which will be called as:
+```
+    initialization!(Q, x, y, z, [aux])
+```
+where `Q` is an `MArray` with the solution state at a single degree of freedom
+(DOF) to initialize and `(x,y,z)` is the coordinate point for the allocation. If
+`disc` contains an auxiliary data the values of this at the DOF are passed
+through as an `MArray` through the `aux` argument
+
+!!! note
+
+    `Q` is `unde` at start the function (i.e., not initialized to zero)
+
+!!! note
+
+    Modifications of the `aux` array will be discarded.
+
+!!! todo
+
+    GPUify this function to remove `host` and `device` data transfers
+
+"""
 function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
                                       ic!::Function; commtag=888)
   Q = MPIStateArray(disc; commtag=commtag)
@@ -290,6 +322,19 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
   Q
 end
 
+"""
+    MPIStateArray(initialization!::Function, disc::DGBalanceLaw; commtag=888)
+
+Wrapper function to allow for calls of the form
+
+```
+    MPIStateArray(disc) do  Q, x, y, z
+      # fill Q
+    end
+```
+
+See also [`MPIStateArray`](@ref)
+"""
 MPIStateArrays.MPIStateArray(f::Function,
                              d::DGBalanceLaw; commtag=888
                             ) = MPIStateArray(d, f; commtag=commtag)
