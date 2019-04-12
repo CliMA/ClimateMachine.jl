@@ -1,3 +1,13 @@
+"""
+    volumerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
+               ::Val{nauxstate}, flux!, source!, rhs::Array, Q, Qgrad, auxstate,
+               vgeo, t, D, elems) where {dim, N, nstate, ngradstate,
+
+Computational kernel: Evaluate the volume integrals on right-hand side of a
+`DGBalanceLaw` semi-discretization.
+
+See [`odefun!`](@ref) for usage.
+"""
 function volumerhs!(::Val{dim}, ::Val{N},
                     ::Val{nstate}, ::Val{ngradstate},
                     ::Val{nauxstate},
@@ -92,6 +102,17 @@ function volumerhs!(::Val{dim}, ::Val{N},
   end
 end
 
+"""
+    facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
+             ::Val{nauxstate}, numericalflux!, rhs::Array, Q, Qgrad, auxstate,
+             vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+             elems) where {dim, N, nstate, ngradstate, nauxstate}
+
+Computational kernel: Evaluate the surface integrals on right-hand side of a
+`DGBalanceLaw` semi-discretization.
+
+See [`odefun!`](@ref) for usage.
+"""
 function facerhs!(::Val{dim}, ::Val{N},
                   ::Val{nstate}, ::Val{ngradstate},
                   ::Val{nauxstate},
@@ -180,6 +201,14 @@ function facerhs!(::Val{dim}, ::Val{N},
   end
 end
 
+"""
+    initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
+                  auxstate, vgeo, elems) where {dim, N, nauxstate}
+
+Computational kernel: Initialize the auxiliary state
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
 function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
                        auxstate, vgeo, elems) where {dim, N, nauxstate}
 
@@ -215,6 +244,19 @@ function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
   end
 end
 
+"""
+    elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo, D, elems, s,
+                     sx, sy, sz) where {dim, N, nstate}
+
+Computational kernel: Compute the element gradient of state `s` of `Q` and store
+it in `sx`, `sy`, and `sz` of `Q`.
+
+!!! warning
+
+    This does not compute a DG gradient, but only over the element. If ``Q_s``
+    is discontinuous you may want to consider another approach.
+
+"""
 function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
                           D, elems, s, sx, sy, sz) where {dim, N, nstate}
 
