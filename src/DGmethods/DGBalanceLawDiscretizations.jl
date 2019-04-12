@@ -390,6 +390,17 @@ function writevtk_helper(prefix, vgeo::Array, Q::Array, grid, fieldnames)
   writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
 end
 
+"""
+    odefun!(disc::DGBalanceLaw, dQ::MPIStateArray, Q::MPIStateArray, t)
+
+Evaluates the right-hand side of the discontinuous Galerkin semi-discretization
+defined by `disc` at time `t` with state `Q`. The result is added into
+`dQ`. Namely, the semi-discretization is of the form
+``
+    Q̇ = F(Q, t)
+``
+and after the call `dQ += F(Q, t)`
+"""
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
                               Q::MPIStateArray, t)
   grid = disc.grid
