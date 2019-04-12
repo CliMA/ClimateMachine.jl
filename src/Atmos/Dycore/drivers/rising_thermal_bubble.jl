@@ -36,6 +36,7 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   end
   θ = θ_ref + Δθ
   π_k = 1 - gravity / (c_p * θ) * x[dim]
+  
   ρ = p0 / (R_gas * θ) * (π_k)^ (c_v / R_gas)
   u = zero(DFloat)
   v = zero(DFloat)

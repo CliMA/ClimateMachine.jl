@@ -2,28 +2,15 @@ using MPI
 
 using CLIMA.Topologies
 using CLIMA.Grids
-using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.AtmosDycore.VanillaAtmosDiscretizations
 using CLIMA.MPIStateArrays
 using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
-using CLIMA.CLIMAAtmosDycore
+using CLIMA.AtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Printf
-
-const HAVE_CUDA = try
-  using CuArrays
-  using CUDAdrv
-  using CUDAnative
-  true
-catch
-  false
-end
-
-macro hascuda(ex)
-  return HAVE_CUDA ? :($(esc(ex))) : :(nothing)
-end
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
@@ -46,21 +33,19 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
   rc::DFloat    = 250
   θ_ref::DFloat = 300
-  θ_c::DFloat   = 2.0
+  θ_c::DFloat   = 0.0
   Δθ::DFloat    = 0.0
-
   if r <= rc
     Δθ = θ_c * (1 + cos(π * r / rc)) / 2
   end
-  
   θ = θ_ref + Δθ
-  
+    
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
   
-  P = p0*(1.0 - grav * x[dim]/(c_p*θ))^cpoverR
-  ρ = ((p0^Rovercp)*P^cvovercp)/(R_gas*θ)
+  P = p0*(1.0 - grav * x[dim]/(c_p*θ_ref))^cpoverR
+  ρ = ((p0^Rovercp)*P^cvovercp)/(R_gas*θ_ref)
   T = P / (ρ * R_gas)
       
   U = ρ * u
@@ -192,13 +177,14 @@ let
   nmoist = 3
   ntrace = 0
   Ne = (10, 10, 10)
-  N = 4
+  N = 2
   dim = 2
-  timeend = 700
+  timeend = 100
   DFloat = Float64
   for ArrayType in (HAVE_CUDA ? (CuArray, Array) : (Array,))
         brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
         main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
+      end
   end
 end
 
