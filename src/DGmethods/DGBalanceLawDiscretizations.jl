@@ -41,6 +41,7 @@ using ...MPIStateArrays
 using Documenter
 using StaticArrays
 using ...SpaceMethods
+using DocStringExtensions
 
 export DGBalanceLaw
 
@@ -57,53 +58,26 @@ include("DGBalanceLawDiscretizations_kernels.jl")
 include("NumericalFluxes.jl")
 
 """
-    DGBalanceLaw(;grid,
-                 length_state_vector,
-                 flux!,
-                 numericalflux!,
-                 gradstates=(),
-                 auxiliary_state_length=0,
-                 auxiliary_state_initialization! = nothing,
-                 source! = nothing)
+    DGBalanceLaw <: AbstractDGMethod
 
-Given a balance law for `length_state_vector` fields of the form
+This contains the necessary information for a discontinuous Galerkin method for
+balance laws.
 
-   ``q_{,t} + Σ_{i=1,...d} F_{i,i} = s``
+See also: Outer constructor [`DGBalanceLaw`](@ref)
 
-The flux function `F_{i}` can depend on the state `q`, gradient `q` for `j =
-1,...,d`, time `t`, and a set of user defined auxiliary state `aux`.
+# Fields
 
-The flux functions `flux!` has syntax
-```
-    flux!(F, Q, aux, t)
-```
-where:
-- `F` is an `MArray` of size `(d, length_state_vector)` to be filled
-- `Q` is the state to evaluate
-- `aux` is the user-defined constant state
-- `t` is the time
-
-!!! todo
-
-    Add docs for other arguments...
-
-!!! todo
-
-    Stil need to add
-    - `bcfun!`
-    - `source!`
-    - `initϕ_c!`
-    - `updateϕ_d!`
-    - `gradnumericalflux!`?
+$(DocStringExtensions.FIELDS)
 
 """
 struct DGBalanceLaw <: AbstractDGMethod
+  "computational grid / mesh"
   grid::DiscontinuousSpectralElementGrid
 
   "number of state"
   nstate::Int
 
-  "Tuple of states to take the gradient of"
+  "tuple of states to take the gradient of"
   gradstates::Tuple
 
   "physical inviscid flux function"
@@ -115,18 +89,92 @@ struct DGBalanceLaw <: AbstractDGMethod
   "storage for the grad"
   Qgrad::MPIStateArray
 
-  "constant auxiliary state"
+  "auxiliary state array"
   auxstate::MPIStateArray
 
   "source function"
   source!::Union{Nothing, Function}
 end
 
-function DGBalanceLaw(;grid, length_state_vector, inviscid_flux!,
+"""
+     DGBalanceLaw(; grid::DiscontinuousSpectralElementGrid, length_state_vector,
+                  inviscid_flux!, inviscid_numericalflux!,
+                  auxiliary_state_length=0,
+                  auxiliary_state_initialization! = nothing,
+                  source! = nothing)
+
+Constructs a `DGBalanceLaw` spatial discretization type for the physics defined
+by `inviscid_flux!` and `source!`. The computational domain is defined by
+`grid`. The number of state variables is defined by `length_state_vector`. The
+user may also specify an auxiliary state which will be unpacked by the compute
+kernel passed on to the user-defined flux and numerical flux functions. The
+source function `source!` is optional.
+
+The inviscid flux function is called with data from a degree of freedom (DOF) as
+```
+    inviscid_flux!(F, Q, aux, t)
+```
+where
+- `F` is an `MArray` of size `(dim, length_state_vector)` to be filled (note
+  that this is uninitialized so user must set to zero is this desired)
+- `Q` is the state to evaluate (`MArray`)
+- `aux` is the user-defined auxiliary state (`MArray`)
+- `t` is the current simulation time
+Warning: Modifications to `Q` or `aux` may have side effects and should not be done
+
+The inviscid numerical flux function is called with data from two DOFs as
+```
+    inviscid_numericalflux!(F, nM, QM, auxM, QP, auxP, t)
+```
+where
+- `F` is an `MArray` of size `(dim, length_state_vector)` to be filled with the
+  numerical flux across the face (note that this is uninitialized so user must
+  set to zero is this desired)
+- `nM` is the unit outward normal to the face with respect to the minus side
+  (`MVector` of length `3`)
+- `QM` and `QP` are the minus and plus side values (`MArray`)
+- `auxM` and `auxP` are the auxiliary states (`MArray`)
+- `t` is the current simulation time
+Warning: Modifications to `nM`, `QM`, `auxM`, `QP`, or `auxP` may have side
+effects and should not be done
+
+If present the source function is called with data from a DOF as
+```
+    source!(S, Q, aux, t)
+```
+where `S` is an `MVector` of length `length_state_vector` to be filled; other
+arguments are the same as `inviscid_flux!` and the same warning concerning `Q`
+and `aux` applies.
+
+When `auxiliary_state_initialization! !== nothing` then this is called on the
+auxiliary state (assuming `auxiliary_state_length > 0`) as
+```
+    auxiliary_state_initialization!(aux, x, y, z)
+```
+where `aux` is an `MArray` to fill with the auxiliary state for a DOF located at
+Cartesian coordinate locations `(x, y, z)`; see also
+[`grad_auxiliary_state!`](@ref) allows the user to take the gradient of a field
+stored in the auxiliary state.
+
+!!! note
+
+    If `(x, y, z)`, or data derived from this such as spherical coordinates, is
+    needed in the flux or source the user is responsible to storing this in the
+    auxiliary state
+
+!!! todo
+
+    - Add support for boundary conditions
+    - support viscous fluxes (`gradstates` is in the argument list as part of
+      this future interface)
+"""
+function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
+                      length_state_vector, inviscid_flux!,
                       inviscid_numericalflux!, gradstates=(),
                       auxiliary_state_length=0,
                       auxiliary_state_initialization! = nothing,
                       source! = nothing)
+
   ngradstate = length(gradstates)
   topology = grid.topology
   Np = dofs_per_element(grid)
