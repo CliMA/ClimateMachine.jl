@@ -95,13 +95,3 @@ end
   @test all(sol_percent_error .< 100*grid.dz)
 end
 
-@static if haskey(Pkg.installed(), "Plots")
-  @testset "Plot state vector" begin
-    @test try
-      plot_state(state_vec, grid, "./", "a", :a)
-      true
-    catch
-      false
-    end
-  end
-end

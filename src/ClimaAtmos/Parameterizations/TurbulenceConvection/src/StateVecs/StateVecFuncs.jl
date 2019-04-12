@@ -15,7 +15,7 @@ using DelimitedFiles, WriteVTK, ..Grids, ..StateVecs
 export surface_val, first_elem_above_surface_val
 export domain_average!, distribute!, total_covariance!
 export extrap!, assign_ghost!, integrate_ode!
-export export_state, plot_state, UseVTK, UseDat
+export export_state, UseVTK, UseDat
 
 """
     surface_val(sv::StateVec, name::Symbol, grid::Grid, i_sd=1)
@@ -163,9 +163,20 @@ end
                    args::NamedTuple,
                    i_sd::Int = 1)
 
-Integrates the ODE:
-  `dy/dz = func(z, args)`
-  `y = y_0 + int_{z=0}^{z} func(z, args) dz`
+Integrates the Ordinary Differential Equation
+
+  ``\\frac{dy}{dz} = f(z)``
+
+using Newton method, given the arguments
+
+ - `sv` a state vector
+ - `name` the name of the variable integrated
+ - `grid` the grid that the variable lives on
+ - `func` the function ``f(z)`` to be integrated, which accepts arguments `func(z, args)`
+ - `y_0` the boundary condition ``y|_{z=0} = y_0``
+ - `args` a `NamedTuple` of arguments passed to `func`
+and optionally,
+ - `i_sd` the i-th sub-domain of the variable (default is 1)
 """
 function integrate_ode!(sv::StateVec,
                         name::Symbol,
@@ -190,16 +201,18 @@ abstract type ExportType end
 """
     UseVTK
 
-A singleton used to indicate to use a .vtk
-extension when exporting a `StateVec`.
+A singleton used to indicate to use a `.vtk`
+file extension when exporting a `StateVec`.
 """
 struct UseVTK <: ExportType end
 
 """
     UseDat
 
-A singleton used to indicate to use a .dat
-extension when exporting a `StateVec`.
+A singleton used to indicate to use a `.dat` (DAT)
+file extension when exporting a `StateVec`. A DAT
+file is a generic data file which may contain data
+in binary or text format.
 """
 struct UseDat <: ExportType end
 
@@ -303,7 +316,6 @@ function plot_state(sv::StateVec,
     plot!(title = "state vector vs z", xlabel = "state vector", ylabel = "z")
     if xlims != nothing; plot!(xlims = xlims); end
     if ylims != nothing; plot!(ylims = xlims); end
-    png(joinpath(directory, filename))
   else
     x_name = string(name_idx)
     domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
@@ -313,8 +325,8 @@ function plot_state(sv::StateVec,
     plot!(title = x_name * " vs z", xlabel = x_name, ylabel = "z")
     if xlims != nothing; plot!(xlims = xlims); end
     if ylims != nothing; plot!(ylims = xlims); end
-    png(joinpath(directory, filename))
   end
+  savefig(joinpath(directory, filename))
 end
 
 end
