@@ -192,6 +192,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @printf(io, "----\n")
     @printf(io, "doing VTK output =  %s\n", outprefix)
+    (print_diagnostics || step[1] == 0) &&
     DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
     step[1] += 1
     nothing
