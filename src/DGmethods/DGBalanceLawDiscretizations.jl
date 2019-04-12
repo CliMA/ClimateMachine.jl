@@ -4,7 +4,9 @@ Attempts to provide a reasonable implementation of a discontinuous Galerkin
 method (in weak form) on tensor product quadrilateral (2D) and hexahedral (3D)
 elements for balance laws of the form
 
-   ``q_{,t} + Σ_{i=1,...d} F_{i,i} = s``
+```math
+q_{,t} + Σ_{i=1,...d} F_{i,i} = s
+```
 
 where ``q`` is the state vector, ``F`` is the flux function, and ``s`` is the
 source function. ``F`` includes both the "inviscid" and "viscous" fluxes. Note
@@ -112,7 +114,7 @@ source function `source!` is optional.
 
 The inviscid flux function is called with data from a degree of freedom (DOF) as
 ```
-    inviscid_flux!(F, Q, aux, t)
+inviscid_flux!(F, Q, aux, t)
 ```
 where
 - `F` is an `MArray` of size `(dim, length_state_vector)` to be filled (note
@@ -124,7 +126,7 @@ Warning: Modifications to `Q` or `aux` may have side effects and should not be d
 
 The inviscid numerical flux function is called with data from two DOFs as
 ```
-    inviscid_numericalflux!(F, nM, QM, auxM, QP, auxP, t)
+inviscid_numericalflux!(F, nM, QM, auxM, QP, auxP, t)
 ```
 where
 - `F` is an `MArray` of size `(dim, length_state_vector)` to be filled with the
@@ -140,7 +142,7 @@ effects and should not be done
 
 If present the source function is called with data from a DOF as
 ```
-    source!(S, Q, aux, t)
+source!(S, Q, aux, t)
 ```
 where `S` is an `MVector` of length `length_state_vector` to be filled; other
 arguments are the same as `inviscid_flux!` and the same warning concerning `Q`
@@ -149,7 +151,7 @@ and `aux` applies.
 When `auxiliary_state_initialization! !== nothing` then this is called on the
 auxiliary state (assuming `auxiliary_state_length > 0`) as
 ```
-    auxiliary_state_initialization!(aux, x, y, z)
+auxiliary_state_initialization!(aux, x, y, z)
 ```
 where `aux` is an `MArray` to fill with the auxiliary state for a DOF located at
 Cartesian coordinate locations `(x, y, z)`; see also
@@ -206,7 +208,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                             nabrtorecv=topology.nabrtorecv,
                             nabrtosend=topology.nabrtosend,
                             weights=view(h_vgeo, :, grid.Mid, :),
-  commtag=222)
+                            commtag=222)
 
   if auxiliary_state_initialization! !== nothing
     @assert auxiliary_state_length > 0
@@ -263,7 +265,7 @@ for communication with this `MPIStateArray`.
 After allocation the `MPIStateArray` is initialized using the function
 `initialization!` which will be called as:
 ```
-    initialization!(Q, x, y, z, [aux])
+initialization!(Q, x, y, z, [aux])
 ```
 where `Q` is an `MArray` with the solution state at a single degree of freedom
 (DOF) to initialize and `(x,y,z)` is the coordinate point for the allocation. If
@@ -328,9 +330,9 @@ end
 Wrapper function to allow for calls of the form
 
 ```
-    MPIStateArray(disc) do  Q, x, y, z
-      # fill Q
-    end
+MPIStateArray(disc) do  Q, x, y, z
+  # fill Q
+end
 ```
 
 See also [`MPIStateArray`](@ref)
@@ -396,9 +398,9 @@ end
 Evaluates the right-hand side of the discontinuous Galerkin semi-discretization
 defined by `disc` at time `t` with state `Q`. The result is added into
 `dQ`. Namely, the semi-discretization is of the form
-``
-    Q̇ = F(Q, t)
-``
+```math
+Q̇ = F(Q, t)
+```
 and after the call `dQ += F(Q, t)`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
