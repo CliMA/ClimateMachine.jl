@@ -2,12 +2,12 @@ using MPI
 
 using CLIMA.Topologies
 using CLIMA.Grids
-using CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations
+using CLIMA.AtmosDycore.VanillaAtmosDiscretizations
 using CLIMA.MPIStateArrays
 using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.GenericCallbacks
-using CLIMA.CLIMAAtmosDycore
+using CLIMA.AtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using DelimitedFiles
