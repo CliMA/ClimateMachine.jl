@@ -5,6 +5,9 @@ dist: trusty
 os:
   - linux
   - osx
+env:
+  - TEST_SET=1
+  - TEST_SET=2
 julia:
   - 1.0
   - 1.1
