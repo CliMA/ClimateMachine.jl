@@ -261,7 +261,7 @@ function LinearAlgebra.norm(Q::MPIStateArray; p::Real=2)
     locnorm2 = knl_L2norm(Val(Np), h_Q, Q.weights, Q.realelems)
   end
 
-  sqrt(MPI.allreduce([locnorm2], MPI.SUM, Q.mpicomm)[1])
+  sqrt(MPI.Allreduce([locnorm2], MPI.SUM, Q.mpicomm)[1])
 end
 
 function knl_norm2(::Val{Np}, Q, elems) where {Np}
@@ -306,7 +306,7 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
     locdist = knl_L2dist(Val(Np), h_A, h_B, A.weights, A.realelems)
   end
 
-  sqrt(MPI.allreduce([locdist], MPI.SUM, A.mpicomm)[1])
+  sqrt(MPI.Allreduce([locdist], MPI.SUM, A.mpicomm)[1])
 end
 
 function knl_dist(::Val{Np}, A, B, elems) where {Np}
