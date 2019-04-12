@@ -223,7 +223,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     step = [0]
     mkpath("vtk")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
-        outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
+      outprefix = @sprintf("vtk/RTB_%dD_step%04d_mpirank%04d", dim, step[1],MPI.Comm_rank(mpicomm))
         @printf(io,
                 "-------------------------------------------------------------\n")
         @printf(io, "doing VTK output =  %s\n", outprefix)
