@@ -341,16 +341,33 @@ MPIStateArrays.MPIStateArray(f::Function,
 
 #TODO: Need to think about where this should really live. Grid? MPIStateArrays?
 include("../Mesh/vtk.jl")
+
+"""
+    writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw [, fieldnames])
+
+Write a vtk file for all the fields in the state array `Q` using geometry and
+connectivity information from `disc.grid`. The filename will start with `prefix`
+which may also contain a directory path. The names used for each of the fields
+in the vtk file can be specified through the collection of strings `fieldnames`;
+if not specified the fields names will be `"Q1"` through `"Qk"` where `k` is the
+number of states in `Q`, i.e., `k = size(Q,2)`.
+
+"""
 function writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw,
                   fieldnames=nothing)
   vgeo = disc.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
-  writevtk(prefix, h_vgeo, h_Q, disc.grid, fieldnames)
+  writevtk_helper(prefix, h_vgeo, h_Q, disc.grid, fieldnames)
 end
 
-function writevtk(prefix, vgeo::Array, Q::Array,
-                  grid, fieldnames)
+
+"""
+    writevtk_helper(prefix, vgeo::Array, Q::Array, grid, fieldnames)
+
+Internal helper function for `writevtk`
+"""
+function writevtk_helper(prefix, vgeo::Array, Q::Array, grid, fieldnames)
 
   dim = dimensionality(grid)
   N = polynomialorder(grid)
