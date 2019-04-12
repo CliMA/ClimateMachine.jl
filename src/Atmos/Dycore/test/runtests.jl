@@ -21,7 +21,7 @@ using MPI, Test
                  (1, "rising_thermal_bubble.jl")
                  (3, "rising_thermal_bubble.jl")
                 ]
-    cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f)) false`
+    cmd =  `mpiexec -n $n -env JULIA_LOG_LEVEL=WARN $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
     run(cmd)
   end
