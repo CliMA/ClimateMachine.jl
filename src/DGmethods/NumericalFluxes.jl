@@ -1,7 +1,35 @@
 module NumericalFluxes
 using StaticArrays
 
-# Rusanov (or local Lax-Friedrichs) Flux
+"""
+    rusanov!(F::MArray, nM, QM, auxM, QP, auxP, t, flux!, wavespeed,
+             [preflux = (_...) -> (), correctQ!])
+
+Calculate the Rusanov (aka local Lax-Friedrichs) numerical flux given the plus
+and minus side states `QP` and `QM` using the physical flux function `flux!` and
+`wavespeed` calculation.
+
+The `flux!` has almost the same calling convention as `inviscid_flux!` from
+[`DGBalanceLaw`](@ref) except that `preflux(Q, aux, t)` is splatted at the end
+of the call.
+
+The function `wavespeed` should return the maximum wavespeed for a state and is
+called as `wavespeed(nM, QM, auxM, t, preflux(QM, auxM, t)...)` and
+`wavespeed(nM, QP, auxP, t, preflux(QP, auxP, t)...)` where `nM` is the outward
+unit normal for the minus side.
+
+When present `correctQ!(QM, auxM)` and `correctQ!(QP, auxP)` will be after
+`wavespeed` and `flux!` are called to the user can modify `QM` and `QP` before
+`QM - QP` is needed; this is useful for correcting `Q` to include discontinuous
+reference states.
+
+!!! todo
+
+    We may want to switch to a `computed_jump!` instead of `correctQ!` since
+    this would allow the user to better handle round-off error with large
+    background states.
+
+"""
 function rusanov!(F::MArray{Tuple{nstate}}, nM,
                   QM, auxM,
                   QP, auxP,
