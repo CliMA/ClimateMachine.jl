@@ -22,7 +22,7 @@ using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "./soundings/sounding_GC1991.dat"))
+    fsounding  = open(joinpath(@__DIR__, "./soundings/sounding_JCP2013_with_pressure.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -32,15 +32,15 @@ function read_sounding()
     return (sounding, nzmax, ncols)
 end
 
-function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
+function squall_line(x...; ntrace=0, nmoist=0, dim=3)
   dim = 2
-  q_tot 	= 0.014
   DFloat 	= eltype(x)
-  p0::DFloat 	= 85000.0
-  R_gas::DFloat = gas_constant_air(q_tot,0.0,0.0)
-  c_p::DFloat 	= cp_m(q_tot, 0.0, 0.0) 
-  c_v::DFloat 	= cv_m(q_tot, 0.0, 0.0)
+    
+  R_gas::DFloat = gas_constant_air(0.0, 0.0, 0.0)
+  c_p::DFloat 	= cp_m(0.0, 0.0, 0.0) 
+  c_v::DFloat 	= cv_m(0.0, 0.0, 0.0)
   cvoverR       = c_v/R_gas
+  Rovercp       = R_gas/c_p
   gravity::DFloat = grav
   
   # ----------------------------------------------------
@@ -48,7 +48,10 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   # This driver accepts data in 6 column format
   # ----------------------------------------------------
   (sounding, _, ncols) = read_sounding()
-  
+  if (ncols < 6)
+        error( "ERROR: NOT ENOUGH COLUMNS IN THE SOUNDING FILE THAT YOU ARE USING.")
+  end
+                     
   # WARNING: Not all sounding data is formatted/scaled 
   # the same. Care required in assigning array values
   # height theta qv    u     v     pressure
@@ -58,10 +61,12 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
                                       sounding[:, 4],
                                       sounding[:, 5]
 
- if(ncols == 6)
+ if (ncols == 6)
      pinit     = sounding[:, 6]
      spl_pinit = Spline1D(zinit, pinit; k=1)
      datap     = spl_pinit(x[dim])
+  else
+     
   end
 
   #------------------------------------------------------
@@ -71,6 +76,7 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   spl_qinit    = Spline1D(zinit, qinit; k=1)
   spl_uinit    = Spline1D(zinit, uinit; k=1)
   spl_vinit    = Spline1D(zinit, vinit; k=1)
+                                                  
   # --------------------------------------------------
   # INITIALISE ARRAYS FOR INTERPOLATED VALUES
   # --------------------------------------------------
@@ -78,25 +84,28 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
   dataq          = spl_qinit(x[dim])
   datau          = spl_uinit(x[dim])
   datav          = spl_vinit(x[dim])
-  
-  #TODO Driver constant parameters need references
+   
+  # TODO Driver constant parameters need references
   rvapor        = 461.0
   levap         = 2.5e6
   es0           = 6.11e2
   pi0           = 1.0
   p0            = MSLP
   theta0        = 300.5
-  R_gas         = gas_constant_air(q_tot,0.0,0.0)
-  c2            = R_d / cp_d
+  c2            = Rovercp
   c1            = 1.0 / c2
 
-  rho0   = p00/(R_gas * theta0)*(pi0)**c
+  rho0          = p0/(R_gas * theta0)*pi0^cvoverR
   
-  # Convert dataq to kg/kg
+  #Convert dataq to kg/kg
   dataq         = dataq * 1e-3
-  datapi        = (datap ./ MSLP) .^ (c2)                       # Exner pressure from sounding data
 
-  thetav        = datat * (1.0 + 0.608 * dataq)                 # Liquid potential temperature
+  thetav        = datat * (1.0 + 0.61 * dataq)                 # Liquid potential temperature
+  datapi        = (datap/p0)^c2
+
+  datarho       = datap/(R_d * datapi * thetav)
+  e             = dataq(k)*datap(k)*rvapor/(dataq(k)*rvapor+rgas)
+                          
   thetac        = 2.0
   sigma         = 6.0
   
@@ -167,10 +176,10 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     # This is a actual state/function that lives on the grid    
     #vgeo = grid.vgeo
     #initial_sounding       = interpolate_sounding(dim, N, Ne, vgeo, nmoist, ntrace)
-    initialcondition(x...) = kurowski_bubble(x...;
-                                  ntrace=ntrace,
-                                  nmoist=nmoist,
-                                  dim=dim)
+    initialcondition(x...) = squall_line(x...;
+                                         ntrace=ntrace,
+                                         nmoist=nmoist,
+                                         dim=dim)
     
     Q = MPIStateArray(spacedisc, initialcondition)
 
