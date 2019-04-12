@@ -568,6 +568,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       E            = E_int + (U^2 + V^2)/(2*ρ) + ρ * gravity * y
       Q[i,j,_ρ,e]  = ρ 
       Q[i,j,_E,e]  = E
+      
       for m = 1:nmoist
         s = _nstate+ m 
 	Q[i,j,s,e] = ρ * q_m[m]
@@ -1094,7 +1095,6 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         ρMinv = 1 / ρM
         uM, vM, wM = ρMinv * UM, ρMinv * VM, ρMinv * WM
         bc = elemtobndy[f, e]
-
         
         for m = 1:nmoist
             s = _nstate + m 
@@ -1102,12 +1102,15 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         end
 
         E_intM = EM - (UM^2 + VM^2+ WM^2)/(2*ρM) - ρM * gravity * yorzM
-
         # get adjusted temperature and liquid and ice specific humidities
         TM             = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
         q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
         PM             = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
-     
+        #θvM            = virtual_pottemp(TM, PM, q_mM[1], q_liqM, q_iceM)
+        ρM             = air_density(TM, PM, q_mM[1], q_liqM, q_iceM)
+        E_intM         = internal_energy(TM, q_mM[1], q_liqM, q_iceM)
+        EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorz
+        
         if bc == 0
           
           ρP = Q[vidP, _ρ, eP]
@@ -1123,12 +1126,15 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
 
-          E_intP= EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
-        
+          E_intP         = EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
           TP             = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
           q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
           PP             = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
-
+          #θvP            = virtual_pottemp(TP, PP, q_mP[1], q_liqP, q_iceP)
+          ρP             = air_density(TP, PP, q_mP[1], q_liqP, q_iceP)
+          E_intP         = internal_energy(TP, q_mP[1], q_liqP, q_iceP)
+          EP             = E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * gravity * yorz
+          
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
           ρzP = grad[vidP, _ρz, eP]
