@@ -1109,7 +1109,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         #θvM            = virtual_pottemp(TM, PM, q_mM[1], q_liqM, q_iceM)
         ρM             = air_density(TM, PM, q_mM[1], q_liqM, q_iceM)
         E_intM         = internal_energy(TM, q_mM[1], q_liqM, q_iceM)
-        EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorz
+        EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorzM
         
         if bc == 0
           
@@ -1133,7 +1133,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           #θvP            = virtual_pottemp(TP, PP, q_mP[1], q_liqP, q_iceP)
           ρP             = air_density(TP, PP, q_mP[1], q_liqP, q_iceP)
           E_intP         = internal_energy(TP, q_mP[1], q_liqP, q_iceP)
-          EP             = E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * gravity * yorz
+          EP             = E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * gravity * yorzP
           
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
