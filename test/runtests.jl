@@ -1,6 +1,7 @@
 using Test, Pkg
 
 ENV["JULIA_LOG_LEVEL"] = "WARN"
+ENV["JULIA_CLIMA_TESTING"] = "TRUE"
 test_set = parse(Int, get(ENV, "JULIA_CLIMA_TEST_SET", "0"))
 
 if test_set == 0 || test_set == 1

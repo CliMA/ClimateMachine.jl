@@ -217,7 +217,7 @@ using Test
 let
   timeend = 0.01
   numelem = (5, 5, 1)
-  lvls = 3
+  lvls = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_TESTING","false"))) ? 2 : 3
 
   polynomialorder = 4
   expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
