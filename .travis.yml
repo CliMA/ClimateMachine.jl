@@ -9,6 +9,10 @@ julia:
   - 1.0
   - 1.1
   - nightly
+env:
+  - JULIA_CLIMA_TEST_SET=1
+  - JULIA_CLIMA_TEST_SET=2
+
 notifications:
   email: false
 
