@@ -760,10 +760,10 @@ Compute the temperature that is consistent with
 See also [`saturation_adjustment_q_t_θ_l`](@ref).
 """
 function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
-  T_1 = max(DT(T_min), air_temperature(e_int, q_tot, DT(0), DT(0))) # Assume all vapor
+  T_1 = max(DT(T_min), air_temperature(e_int, q_tot)) # Assume all vapor
   q_v_sat = saturation_shum(T_1, ρ)
   if q_tot <= q_v_sat # If not saturated return T_1
-      return T_1
+    return T_1
   else # If saturated, iterate
     # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
     T_2 = air_temperature(e_int, q_tot, DT(0), q_tot) # Assume all ice
@@ -858,11 +858,11 @@ dry_pottemp(ts::ThermodynamicState) =
               phase_partitioning_eq(ts)...)
 
 """
-    air_temperature_from_liquid_ice_pottemp(θ, p[, q_tot=0, q_liq=0, q_ice=0])
+    air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p[, q_tot=0, q_liq=0, q_ice=0])
 
 The air temperature, where
 
- - `θ` potential temperature
+ - `θ_liq_ice` liquid-ice potential temperature
  - `p` pressure
 and, optionally,
  - `q_tot` total specific humidity
@@ -872,8 +872,9 @@ and, optionally,
 Without the specific humidity arguments, the results
 are that of dry air.
 """
-function air_temperature_from_liquid_ice_pottemp(θ::DT, p::DT, q_tot::DT=DT(0), q_liq::DT=DT(0), q_ice::DT=DT(0)) where DT
-    return θ*exner(p, q_tot, q_liq, q_ice)
+function air_temperature_from_liquid_ice_pottemp(θ_liq_ice::DT, p::DT, q_tot::DT=DT(0), q_liq::DT=DT(0), q_ice::DT=DT(0)) where DT
+    _cp_m = cp_m(q_tot, q_liq, q_ice)
+    return θ_liq_ice*exner(p, q_tot, q_liq, q_ice) + (DT(LH_v0)*q_liq + DT(LH_s0)*q_ice)/_cp_m
 end
 
 """
