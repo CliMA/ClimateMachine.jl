@@ -92,15 +92,19 @@ function squall_line(x...; ntrace=0, nmoist=0, dim=3)
     
     
     thetav        = datat * (1.0 + 0.61 * dataq)                  # Liquid potential temperature
-    datarho       = datap / (R_gas * datapi * thetav)
+
+    # theta perturbation
+    dtheta        = 0.0
+    thetac        = 5.0
+    rx            = 1000.0
+    ry            = 1500.0
+    r		  = sqrt( (x[1]/rx )^2 + ((x[dim] - 2000.0)/ry)^2)
+    if (r <= 1.0)
+        dtheta	  = thetac * (cos(0.5*π*r))^2
+    end
+    θ             = thetav + dtheta
+    datarho       = datap / (R_gas * datapi *  θ)
     e             = dataq * datap * rvapor/(dataq * rvapor + R_gas)
-           
-    # Circle centered at x = 0 and y = 900 m
-    thetac        = 2.0
-    sigma         = 6.0
-    rc		  = 300.0
-    r		  = sqrt( (x[1] )^2 + (x[dim] - 900.0)^2)
-    dtheta	  = thetac * exp(-(r/rc)^sigma)
     
     q_tot         = dataq
     P             = datap                                         # Assumed known from sounding
@@ -203,7 +207,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
 
     step = [0]
     mkpath("vtk")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
         outprefix = @sprintf("vtk/RTB_%dD_step%04d_mpirank%04d", dim, step[1],MPI.Comm_rank(mpicomm))
         @printf(io,
                 "-------------------------------------------------------------\n")
@@ -229,18 +233,18 @@ let
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
     
-    viscosity = 75
+    viscosity = 50
     nmoist = 3
     ntrace = 0
-    Ne = (40, 24)
+    Ne = (10, 36)
     N = 4
     dim = 2
-    timeend = 2000.0
+    timeend = 20000.0
 
-    xmin = -20000.0
-    xmax =  20000.0
-    zmin =      0.0
-    zmax =  24000.0
+    xmin = -1500.0
+    xmax =  1500.0
+    zmin =     0.0
+    zmax =  6000.0
     
     DFloat = Float64
     for ArrayType in (Array,)

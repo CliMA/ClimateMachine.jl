@@ -66,15 +66,14 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       q_m[3] = q_ice
 
       P = air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
-      ρ = air_density(T, P, q_m[1], q_m[2], q_m[3])
-     
-      
+      #ρ = air_density(T, P, q_m[1], q_m[2], q_m[3])
+        
       for m = 1:nmoist
         s = _nstate+ m 
 	Q[i,j,s,e] = ρ * q_m[m]
       end
   
-      P  =    air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
+      #P  =    air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
       θv = virtual_pottemp(T, P, q_m[1], q_m[2], q_m[3])
               
       s_ρ[i, j] = ρ
@@ -544,7 +543,6 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
  
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
-
       E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
 
       for m = 1:nmoist
@@ -558,16 +556,18 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       q_liq, q_ice = phase_partitioning_eq(T,       ρ, q_m[1])
       q_m[2]       = q_liq
       q_m[3]       = q_ice
-        
+        if(q_liq > 0)
+            @show(" YES IT IS CLOUDY!!!!!")
+        end
       P            =    air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
       θv           = virtual_pottemp(T, P, q_m[1], q_m[2], q_m[3])
         
       #Update rho, E after saturation adjustment
-      ρ            =     air_density(T, P, q_m[1], q_m[2], q_m[3])
-      E_int        = internal_energy(T,    q_m[1], q_m[2], q_m[3])
-      E            = E_int + (U^2 + V^2)/(2*ρ) + ρ * gravity * y
-      Q[i,j,_ρ,e]  = ρ 
-      Q[i,j,_E,e]  = E
+      #ρ            =     air_density(T, P, q_m[1], q_m[2], q_m[3])
+      #E_int        = internal_energy(T,    q_m[1], q_m[2], q_m[3])
+      #E            = E_int + (U^2 + V^2)/(2*ρ) + ρ * gravity * y
+      #Q[i,j,_ρ,e]  = ρ 
+      #Q[i,j,_E,e]  = E
       
       for m = 1:nmoist
         s = _nstate+ m 
@@ -658,12 +658,16 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         
       # Define Sponge Boundaries
       ymax = maximum(vgeo[:,:,_y,e])
-      ysponge = 0.75 * ymax 
+      ysponge = 0.9 * ymax 
       # Damping coefficient
-      α = 0.25 
-
-      rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * U
-      rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * V
+      ct = 2.0
+      ctop = ct * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4
+      beta = 1.0 - (1.0 - ctop) #*(1.0-csidexl)*(1.0-csidexr)*(1.0-csideyl)*(1.0-csideyr)
+      beta = min(beta, 1.0)
+      alpha = beta #1.0 - beta
+        
+      rhs[i, j, _U, e] -= ρ * alpha * U
+      rhs[i, j, _V, e] -= ρ * alpha * V
       
       # ---------------------------
       # End implementation of sponge layer
@@ -1106,10 +1110,11 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         TM             = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
         q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
         PM             = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
-        #θvM            = virtual_pottemp(TM, PM, q_mM[1], q_liqM, q_iceM)
-        ρM             = air_density(TM, PM, q_mM[1], q_liqM, q_iceM)
-        E_intM         = internal_energy(TM, q_mM[1], q_liqM, q_iceM)
-        EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorzM
+
+        ##θvM            = virtual_pottemp(TM, PM, q_mM[1], q_liqM, q_iceM)
+        #ρM             = air_density(TM, PM, q_mM[1], q_liqM, q_iceM)
+        #E_intM         = internal_energy(TM, q_mM[1], q_liqM, q_iceM)
+        #EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorzM
         
         if bc == 0
           
@@ -1125,15 +1130,15 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           end
 
           yorzP = (dim == 2) ? vgeo[vidP, _y, eP] : vgeo[vidP, _z, eP]
-
           E_intP         = EP - (UP^2 + VP^2+ WP^2)/(2*ρP) - ρP * gravity * yorzP
+            
           TP             = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
           q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
           PP             = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
           #θvP            = virtual_pottemp(TP, PP, q_mP[1], q_liqP, q_iceP)
-          ρP             = air_density(TP, PP, q_mP[1], q_liqP, q_iceP)
-          E_intP         = internal_energy(TP, q_mP[1], q_liqP, q_iceP)
-          EP             = E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * gravity * yorzP
+          #ρP             = air_density(TP, PP, q_mP[1], q_liqP, q_iceP)
+          #E_intP         = internal_energy(TP, q_mP[1], q_liqP, q_iceP)
+          #EP             = E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * gravity * yorzP
           
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]

@@ -389,15 +389,20 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   E = reshape((@view Q[:, _E, :]), ntuple(j->Nq, dim)..., nelem)
   Qt= reshape((@view Q[:, _nstate+1, :]), ntuple(j->Nq, dim)..., nelem)
   Ql= reshape((@view Q[:, _nstate+2, :]), ntuple(j->Nq, dim)..., nelem)
-  
-  # ntracers and nmoist
-  fields = ntuple(i->("Q$i", reshape((@view Q[:,i,:]), ntuple(j->Nq,dim)...,nelem)), size(Q,2))
-  
-  writemesh(prefix, X...; fields=fields, realelems=G.topology.realelems)
-  
-  #writemesh(prefix, X...;
-  #          fields=(("rho", ρ), ("U", U), ("V", V), ("W", W), ("E", E), ("Qtot", Qt),("Qliq", Ql)),
-  #          realelems=G.topology.realelems)
+
+  #[_, nstates, _] = size(Q)    
+  #nmoist = nstates - (ndim + 2)
+        
+ # var_string = ["DENSI" , "U" , "U" , "W", "E"]
+ #    error("NSTATES ", size(Q))
+ # fields = ntuple(i->(var_string[i], reshape((@view Q[:,i,:]), ntuple(j->Nq,dim)...,nelem)), size(Q,2))
+ # 
+ # writemesh(prefix, X...; fields=fields, realelems=G.topology.realelems)
+
+   
+  writemesh(prefix, X...;
+            fields=(("rho", ρ), ("U", U), ("V", V), ("W", W), ("E", E), ("Qtot", Qt),("Qliq", Ql)),
+            realelems=G.topology.realelems)
   #   writemesh(prefix, X...;
   #             fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
   #             realelems=G.topology.realelems)
