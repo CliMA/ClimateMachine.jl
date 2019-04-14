@@ -556,9 +556,9 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       q_liq, q_ice = phase_partitioning_eq(T,       ρ, q_m[1])
       q_m[2]       = q_liq
       q_m[3]       = q_ice
-        if(q_liq > 0)
-            @show(" YES IT IS CLOUDY!!!!!")
-        end
+#        if(q_liq > 0)
+#            @show(" YES IT IS CLOUDY!!!!!")
+#        end
       P            =    air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
       θv           = virtual_pottemp(T, P, q_m[1], q_m[2], q_m[3])
         

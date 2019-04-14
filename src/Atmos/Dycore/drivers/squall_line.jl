@@ -200,7 +200,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
                     "-------------------------------------------------------------\n")
             @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
             @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
-            @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
+            @printf(io, "||Q_t||infty, ||Q_l||infty  =  %.16e; %.16e\n", maximum(Q[:, 6, :]), maximum(Q[:, 7, :]))
         end
         nothing
     end
