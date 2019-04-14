@@ -5,9 +5,9 @@
 """
 module StateVecFuncs
 
-using Pkg
-@static if haskey(Pkg.installed(), "Plots")
-  using Plots
+using Requires
+@init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
+  using .Plots
   export plot_state
 end
 
@@ -277,7 +277,7 @@ function export_state(sv::StateVec, grid::Grid, dir, filename, ::UseVTK)
   outfiles = vtk_save(vtkfile)
 end
 
-@static if haskey(Pkg.installed(), "Plots")
+@init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
 
 """
     plot_state(sv::StateVec,
