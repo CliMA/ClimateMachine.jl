@@ -655,20 +655,29 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # to a sin^4 function instead of the cosines 
       # proposed by D & K 
       # ------------------------------------
-        
       # Define Sponge Boundaries
-      ymax = maximum(vgeo[:,:,_y,e])
-      ysponge = 0.9 * ymax 
+      ymax = maximum(vgeo[:,:,_y,:])
+      xmax = maximum(vgeo[:,:,_x,:])
+      xsponge = 0.85 * xmax
+      ysponge = 0.85 * ymax
+      xspongel = 0.15 * xmax
+      yspongel = 0.15 * ymax
       # Damping coefficient
-      ct = 2.0
-      ctop = ct * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4
-      beta = 1.0 - (1.0 - ctop) #*(1.0-csidexl)*(1.0-csidexr)*(1.0-csideyl)*(1.0-csideyr)
-      beta = min(beta, 1.0)
-      alpha = beta #1.0 - beta
-        
-      rhs[i, j, _U, e] -= ρ * alpha * U
-      rhs[i, j, _V, e] -= ρ * alpha * V
-      
+      α = 1.00
+      if (y > ysponge)
+        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * U
+        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * V
+      elseif (y < yspongel)
+        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (yspongel-y)/(yspongel))^4 * U
+        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (yspongel-y)/(yspongel))^4 * V
+      elseif (x > xsponge)
+        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (x-xsponge)/(xmax-xsponge))^4 * U
+        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (x-xsponge)/(xmax-xsponge))^4 * V
+      elseif (x < xspongel)
+        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (xspongel-x)/(xspongel))^4 * U
+        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (xspongel-x)/(xspongel))^4 * V
+      end
+
       # ---------------------------
       # End implementation of sponge layer
       # ---------------------------
