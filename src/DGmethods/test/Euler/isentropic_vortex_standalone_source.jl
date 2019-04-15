@@ -25,7 +25,6 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
-using Printf
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -275,12 +274,13 @@ let
           err[l] = run(mpicomm, dim, Ne, polynomialorder, timeend, DFloat, dt)
           @test err[l] ≈ DFloat(expected_error[dim-1, l])
         end
-        if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-          @printf("----\n")
+        @info begin
+          msg = ""
           for l = 1:lvls-1
             rate = log2(err[l]) - log2(err[l+1])
-            @printf("rate for level %d = %e\n", l, rate)
+            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
           end
+          msg
         end
       end
     end
