@@ -25,9 +25,9 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
-using Printf
 using LinearAlgebra
 using StaticArrays
+using Logging, Printf, Dates
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
@@ -39,8 +39,6 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
   using Random
 end
-
-const print_diagnostics = length(ARGS) == 0 || parse(Bool, ARGS[1])
 
 # preflux computation
 @inline function preflux(Q, _...)
@@ -139,26 +137,21 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
 
-  io = print_diagnostics && MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
-  @printf(io, "----\n")
-  @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
+  @info @sprintf """Starting
+  norm(Q₀) = %.16e""" eng0
 
   # Set up the information callback
-  timer = [time_ns()]
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  starttime = Ref(now())
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
-      timer[1] = time_ns()
+      starttime[] = now()
     else
-      run_time = (time_ns() - timer[1]) * 1e-9
-      (min, sec) = fldmod(run_time, 60)
-      (hrs, min) = fldmod(min, 60)
-      @printf(io, "----\n")
-      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
-      @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
-      @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
+      @info @sprintf """Update
+  simtime = %.16e
+  runtime = %s
+  norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") norm(Q)
     end
-    nothing
   end
 
   #= Paraview calculators:
@@ -170,9 +163,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     outprefix = @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
-    @printf(io, "----\n")
-    @printf(io, "doing VTK output =  %s\n", outprefix)
-    (print_diagnostics || step[1] == 0) &&
+    @info "doing VTK output" outprefix
     DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
     step[1] += 1
     nothing
@@ -181,29 +172,32 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
-  Qe = MPIStateArray(spacedisc,
-                    (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
 
   # Print some end of the simulation information
   engf = norm(Q)
-  engfe = norm(Qe)
-  @printf(io, "----\n")
-  @printf(io, "||Q||₂ (final) = %.16e\n", engf)
-  @printf(io, "||Q||₂ (final) / ||Q||₂ (initial) = %+.16e\n", engf / eng0)
-  @printf(io, "||Q||₂ (final) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
   if integration_testing
+    Qe = MPIStateArray(spacedisc,
+                       (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
+    engfe = norm(Qe)
     errf = euclidean_distance(Q, Qe)
-    @printf(io, "||Q - Qe||₂ = %.16e\n", errf)
-    @printf(io, "||Q - Qe||₂ / ||Qe||₂ = %.16e\n", errf / engfe)
+    @info @sprintf """Finished
+    norm(Q)                 = %.16e
+    norm(Q) / norm(Q₀)      = %.16e
+    norm(Q) - norm(Q₀)      = %.16e
+    norm(Q - Qe)            = %.16e
+    norm(Q - Qe) / norm(Qe) = %.16e
+    """ engf engf/eng0 engf-eng0 errf errf / engfe
+  else
+    @info @sprintf """Finished
+    norm(Q)            = %.16e
+    norm(Q) / norm(Q₀) = %.16e
+    norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
   end
   integration_testing ? errf : (engf / eng0)
 end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
   ArrayType = Array
-
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
   brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
@@ -213,12 +207,24 @@ end
 
 using Test
 let
+  MPI.Initialized() || MPI.Init()
+  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
+  mpicomm = MPI.COMM_WORLD
+  if MPI.Comm_rank(mpicomm) == 0
+    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+    loglevel = ll == "DEBUG" ? Logging.Debug :
+    ll == "WARN"  ? Logging.Warn  :
+    ll == "ERROR" ? Logging.Error : Logging.Info
+    global_logger(ConsoleLogger(stderr, loglevel))
+  else
+    global_logger(NullLogger())
+  end
+
   if integration_testing
     timeend = 1
     numelem = (5, 5, 1)
 
     polynomialorder = 4
-    mpicomm = MPI.COMM_WORLD
 
     expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
     expected_error[1,1] = 5.7115689019456495e-01
@@ -228,23 +234,23 @@ let
     expected_error[2,2] = 2.1952209848920567e-01
     expected_error[2,3] = 2.3754377509927798e-02
     lvls = size(expected_error, 2)
-    lvls = 4
 
     for DFloat in (Float64,) #Float32)
-      for dim = 2:2
+      for dim = 2:3
         err = zeros(DFloat, lvls)
         for l = 1:lvls
           Ne = ntuple(j->2^(l-1) * numelem[j], dim)
           dt = 1e-2 / Ne[1]
           err[l] = run(mpicomm, dim, Ne, polynomialorder, timeend, DFloat, dt)
-          # @test err[l] ≈ DFloat(expected_error[dim-1, l])
+          @test err[l] ≈ DFloat(expected_error[dim-1, l])
         end
-        if MPI.Comm_rank(MPI.COMM_WORLD) == 0 && print_diagnostics
-          @printf("----\n")
+        @info begin
+          msg = ""
           for l = 1:lvls-1
             rate = log2(err[l]) - log2(err[l+1])
-            @printf("rate for level %d = %e\n", l, rate)
+            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
           end
+          msg
         end
       end
     end
