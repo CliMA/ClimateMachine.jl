@@ -13,54 +13,46 @@ using LinearAlgebra
 using Printf
 
 using CLIMA.ParametersType
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
 
 # FIXME: Will these keywords args be OK?
 function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   DFloat = eltype(x)
 
   p0::DFloat      = MSLP 
+  R_gas::DFloat   = R_d
+  c_p::DFloat     = cp_d
+  c_v::DFloat     = cv_d
   gravity::DFloat = grav
-  q_tot::DFloat   = 0.014
-    
-  R_gas           = gas_constant_air(q_tot, 0.0, 0.0)
-  c_p             = cp_m(q_tot, 0.0, 0.0)
-  c_v             = cv_m(q_tot, 0.0, 0.0)
-  cpoverR         = c_p/R_gas  
-  Rovercp         = R_gas/c_p
-  cvovercp        = c_v/c_p
-    
+  q_tot::DFloat   = 0
+  
   r = sqrt((x[1] - 500)^2 + (x[dim] - 350)^2)
-  rc::DFloat    = 250
+  rc::DFloat = 250
   θ_ref::DFloat = 300
-  θ_c::DFloat   = 0.0
-  Δθ::DFloat    = 0.0
+  θ_c::DFloat = 0.5
+  Δθ::DFloat = 0.0
   if r <= rc
     Δθ = θ_c * (1 + cos(π * r / rc)) / 2
   end
   θ = θ_ref + Δθ
-    
+  π_k = 1 - gravity / (c_p * θ) * x[dim]
+  
+  ρ = p0 / (R_gas * θ) * (π_k)^ (c_v / R_gas)
   u = zero(DFloat)
   v = zero(DFloat)
   w = zero(DFloat)
-  
-  P = p0*(1.0 - grav * x[dim]/(c_p*θ_ref))^cpoverR
-  ρ = ((p0^Rovercp)*P^cvovercp)/(R_gas*θ_ref)
-  T = P / (ρ * R_gas)
-      
   U = ρ * u
   V = ρ * v
   W = ρ * w
-    
+  P = p0 * (R_gas * (ρ * θ) / p0)^(c_p / c_v)
+  T = P / (ρ * R_gas)
   # Calculation of energy per unit mass
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
-  e_int = MoistThermodynamics.internal_energy(T, q_tot, 0.0, 0.0)
- 
+  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
   # Total energy 
-  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, q_tot, 0.0, 0.0)
-
-  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_tot, 0.0, 0.0)) 
+  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
+  (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_tot,)) 
 end
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, 
@@ -171,19 +163,18 @@ let
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
-  viscosity = 0.0
-  nmoist = 3
+  nmoist = 1
   ntrace = 0
-  Ne = (10, 10, 10)
-  N = 2
+  Ne = (10, 10)
+  N = 4
+  timeend = 600.0
   dim = 2
-  timeend = 100
   DFloat = Float64
   for ArrayType in (Array,)
-        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
-      end
+      brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
+      main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)     
   end
+    
 end
 
 isinteractive() || MPI.Finalize()
