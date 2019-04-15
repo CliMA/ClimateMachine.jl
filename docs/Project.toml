@@ -1,6 +1,7 @@
 [deps]
 CLIMA = "777c4786-024f-11e9-21a3-85d5d4106250"
 Canary = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterTools = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
 GR = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
