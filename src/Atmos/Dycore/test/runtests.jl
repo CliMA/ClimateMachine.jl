@@ -14,9 +14,7 @@ using MPI, Test
   coverage_opt = coverage_opts[Base.JLOptions().code_coverage]
   testdir = dirname(@__FILE__)
 
-  for (n, f) in [(1, "isentropic_vortex.jl")
-                 (3, "isentropic_vortex.jl")
-                 (1, "tracers_test.jl")
+  for (n, f) in [(1, "tracers_test.jl")
                  (3, "tracers_test.jl")
                  (1, "rising_thermal_bubble.jl")
                  (3, "rising_thermal_bubble.jl")
