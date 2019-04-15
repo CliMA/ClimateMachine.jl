@@ -34,6 +34,11 @@ const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
 const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
+if !@isdefined integration_testing
+  const integration_testing =
+    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
+  using Random
+end
 
 const print_diagnostics = length(ARGS) == 0 || parse(Bool, ARGS[1])
 
@@ -113,7 +118,13 @@ function isentropicvortex!(Q, t, x, y, z, aux)
   W = ρ*w + aux[3]
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
-  @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
+  if integration_testing
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
+  else
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] =
+    10+rand(), rand(), rand(), rand(), 10+rand()
+  end
+
 end
 
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
@@ -193,61 +204,87 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # Print some end of the simulation information
   engf = norm(Q)
   engfe = norm(Qe)
-  errf = euclidean_distance(Q, Qe)
   @printf(io, "----\n")
-  @printf(io, "||Q||₂ ( final ) = %.16e\n", engf)
-  @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
-  @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
-  @printf(io, "||Q - Qe||₂ = %.16e\n", errf)
-  @printf(io, "||Q - Qe||₂ / ||Qe||₂ = %.16e\n", errf / engfe)
-  errf
+  @printf(io, "||Q||₂ (final) = %.16e\n", engf)
+  @printf(io, "||Q||₂ (final) / ||Q||₂ (initial) = %+.16e\n", engf / eng0)
+  @printf(io, "||Q||₂ (final) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+  if integration_testing
+    errf = euclidean_distance(Q, Qe)
+    @printf(io, "||Q - Qe||₂ = %.16e\n", errf)
+    @printf(io, "||Q - Qe||₂ / ||Qe||₂ = %.16e\n", errf / engfe)
+  end
+  integration_testing ? errf : (engf / eng0)
 end
 
-function run(dim, Ne, N, timeend, DFloat)
+function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
   ArrayType = Array
 
   MPI.Initialized() || MPI.Init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
-  mpicomm = MPI.COMM_WORLD
-
   brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
-  dt = 1e-2 / Ne[1] # not a general purpose dt calculation
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 end
 
 using Test
 let
-  timeend = 0.01
-  numelem = (5, 5, 1)
-  lvls = 3
+  if integration_testing
+    timeend = 1
+    numelem = (5, 5, 1)
 
-  polynomialorder = 4
-  expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
+    polynomialorder = 4
+    mpicomm = MPI.COMM_WORLD
 
-  expected_error[1,1] = 2.7085920736747020e-02
-  expected_error[1,2] = 7.3367198912178029e-03
-  expected_error[1,3] = 4.1754232086535303e-04
-  expected_error[2,1] = 8.5653202050883601e-02
-  expected_error[2,2] = 2.3200745410910741e-02
-  expected_error[2,3] = 1.3203847534468272e-03
+    expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
+    expected_error[1,1] = 5.7115689019456495e-01
+    expected_error[1,2] = 6.9418982796523573e-02
+    expected_error[1,3] = 7.5117937330965350e-03
+    expected_error[2,1] = 1.8061566743070110e+00
+    expected_error[2,2] = 2.1952209848920567e-01
+    expected_error[2,3] = 2.3754377509927798e-02
+    lvls = size(expected_error, 2)
 
-  for DFloat in (Float64,) #Float32)
-    for dim = 2:3
-      err = zeros(DFloat, lvls)
-      for l = 1:lvls
-        err[l] = run(dim, ntuple(j->2^(l-1) * numelem[j], dim),
-                     polynomialorder, timeend, DFloat)
-        @test err[l] ≈ DFloat(expected_error[dim-1, l])
-      end
-      if MPI.Comm_rank(MPI.COMM_WORLD) == 0 && print_diagnostics
-        @printf("----\n")
-        for l = 1:lvls-1
-          rate = log2(err[l]) - log2(err[l+1])
-          @printf("rate for level %d = %e\n", l, rate)
+    for DFloat in (Float64,) #Float32)
+      for dim = 2:3
+        err = zeros(DFloat, lvls)
+        for l = 1:lvls
+          Ne = ntuple(j->2^(l-1) * numelem[j], dim)
+          dt = 1e-2 / Ne[1]
+          err[l] = run(mpicomm, dim, Ne, polynomialorder, timeend, DFloat, dt)
+          @test err[l] ≈ DFloat(expected_error[dim-1, l])
         end
+        if MPI.Comm_rank(MPI.COMM_WORLD) == 0 && print_diagnostics
+          @printf("----\n")
+          for l = 1:lvls-1
+            rate = log2(err[l]) - log2(err[l+1])
+            @printf("rate for level %d = %e\n", l, rate)
+          end
+        end
+      end
+    end
+  else
+    numelem = (3, 4, 5)
+    dt = 1e-3
+    timeend = 2dt
+
+    polynomialorder = 4
+
+    mpicomm = MPI.COMM_WORLD
+
+    check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
+    check_engf_eng0[2, 1, Float64] = 9.9999784637552236e-01
+    check_engf_eng0[3, 1, Float64] = 9.9999657640450179e-01
+    check_engf_eng0[2, 3, Float64] = 9.9999927972044056e-01
+    check_engf_eng0[3, 3, Float64] = 9.9999661971173426e-01
+
+    for DFloat in (Float64,) #Float32)
+      for dim = 2:3
+        Random.seed!(0)
+        engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
+                        DFloat, dt)
+        @test check_engf_eng0[dim, MPI.Comm_size(mpicomm), DFloat] ≈ engf_eng0
       end
     end
   end
