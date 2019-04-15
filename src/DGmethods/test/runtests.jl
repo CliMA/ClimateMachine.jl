@@ -14,10 +14,11 @@ using MPI, Test
   coverage_opt = coverage_opts[Base.JLOptions().code_coverage]
   testdir = dirname(@__FILE__)
 
-  for (n, f) in [(1, "Euler/isentropic_vortex_standalone.jl")
+  for (n, f) in [
+                 (1, "Euler/isentropic_vortex_standalone.jl")
                  (3, "Euler/isentropic_vortex_standalone.jl")
-                 (1, "Euler/isentropic_vortex.jl")
-                 (3, "Euler/isentropic_vortex.jl")
+                 # (1, "Euler/isentropic_vortex.jl")
+                 # (3, "Euler/isentropic_vortex.jl")
                  (1, "Euler/isentropic_vortex_standalone_auxd.jl")
                  (3, "Euler/isentropic_vortex_standalone_auxd.jl")
                  (1, "Euler/isentropic_vortex_standalone_auxd_auxc.jl")
