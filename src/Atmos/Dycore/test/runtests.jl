@@ -21,6 +21,9 @@ using MPI, Test
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
-    run(cmd)
+    # Running this way prevents:
+    #   Atmos/Dycore | No tests
+    # since external tests are not returned as passed/fail
+    @test (run(cmd); true)
   end
 end
