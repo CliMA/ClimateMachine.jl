@@ -55,6 +55,30 @@ end
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
+const _nauxstate = 7
+const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_x, _a_y, _a_z = 1:_nauxstate
+@inline function auxiliary_state_initialization!(aux, x, y, z)
+  @inbounds begin
+    aux[_a_ϕ] = hypot(x, y, z)
+    aux[_a_x] = x
+    aux[_a_y] = y
+    aux[_a_z] = z
+  end
+end
+
+@inline function almost_no_source!(S, Q, aux, t)
+  @inbounds begin
+    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    isentropicvortex!(S, t, x, y, z)
+    ρ, ρe = Q[_ρ], S[_ρ]
+    S[_ρ] = 0
+    S[_U] = -abs(aux[_a_ϕx]) * (ρe - ρ)
+    S[_V] = -abs(aux[_a_ϕy]) * (ρe - ρ)
+    S[_W] = -abs(aux[_a_ϕz]) * (ρe - ρ)
+    S[_E] = 0
+  end
+end
+
 # physical flux function
 eulerflux!(F, Q, aux, t) =
 eulerflux!(F, Q, aux, t, preflux(Q)...)
@@ -73,7 +97,7 @@ end
 
 # initial condition
 const halfperiod = 5
-function isentropicvortex!(Q, t, x, y, z)
+function isentropicvortex!(Q, t, x, y, z, _...)
   DFloat = eltype(Q)
 
   γ::DFloat    = γ_exact
@@ -129,7 +153,14 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            inviscid_numericalflux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
-                                                    preflux))
+                                                    preflux),
+                           auxiliary_state_length = _nauxstate,
+                           auxiliary_state_initialization! =
+                           auxiliary_state_initialization!,
+                           source! = almost_no_source!)
+
+  DGBalanceLawDiscretizations.grad_auxiliary_state!(spacedisc, _a_ϕ,
+                                                    (_a_ϕx, _a_ϕy, _a_ϕz))
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
@@ -172,7 +203,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -228,12 +258,12 @@ let
     polynomialorder = 4
 
     expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_error[1,1] = 5.7115689019456495e-01
-    expected_error[1,2] = 6.9418982796523573e-02
-    expected_error[1,3] = 3.2927550219067014e-03
-    expected_error[2,1] = 1.8061566743070110e+00
-    expected_error[2,2] = 2.1952209848920567e-01
-    expected_error[2,3] = 1.0412605646145325e-02
+    expected_error[1,1] = 5.5175136745319797e-01
+    expected_error[1,2] = 6.7757089928958958e-02
+    expected_error[1,3] = 3.2832015676432292e-03
+    expected_error[2,1] = 1.7613313745738965e+00
+    expected_error[2,2] = 2.1526080821361515e-01
+    expected_error[2,3] = 1.0251374591125394e-02
     lvls = size(expected_error, 2)
 
     for DFloat in (Float64,) #Float32)
@@ -267,10 +297,10 @@ let
     mpicomm = MPI.COMM_WORLD
 
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    check_engf_eng0[2, 1, Float64] = 9.9999795068862996e-01
-    check_engf_eng0[3, 1, Float64] = 9.9999641494886327e-01
-    check_engf_eng0[2, 3, Float64] = 9.9999876109562658e-01
-    check_engf_eng0[3, 3, Float64] = 9.9999654059181553e-01
+    check_engf_eng0[2, 1, Float64] = 9.9999808508887378e-01
+    check_engf_eng0[3, 1, Float64] = 9.9999644038110480e-01
+    check_engf_eng0[2, 3, Float64] = 9.9999878540546705e-01
+    check_engf_eng0[3, 3, Float64] = 9.9999657187253710e-01
 
     for DFloat in (Float64,) #Float32)
       for dim = 2:3

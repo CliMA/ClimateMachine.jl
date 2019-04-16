@@ -4,7 +4,7 @@ export solve!
 
 abstract type AbstractODESolver end
 gettime(solver::AbstractODESolver) = solver.t[1]
-dostep!(Q, solver::AbstractODESolver) = error()
+dostep!(Q, solver::AbstractODESolver, tf, afs) = throw(MethodError(dostep!, (Q, solver, tf, afs)))
 # {{{ run!
 """
     solve!(Q, solver::AbstractODESolver; timeend,
@@ -15,15 +15,9 @@ updated inplace. The final time `timeend` or `numberofsteps` must be specified.
 
 A series of optional callback functions can be specified using the tuple
 `callbacks`; see [`GenericCallbacks`](@ref).
-
-!!! todo
-
-    Currently `stopaftertimeend` is not used. The idea behind it was that a user
-    might want to stop either one step before or after the final time `timeend`.
-    This should either be removed or used.
 """
 function solve!(Q, solver::AbstractODESolver; timeend::Real=Inf,
-                stopaftertimeend=true, numberofsteps::Integer=0, callbacks=())
+                adjustfinalstep=true, numberofsteps::Integer=0, callbacks=())
 
   @assert isfinite(timeend) || numberofsteps > 0
 
@@ -42,7 +36,7 @@ function solve!(Q, solver::AbstractODESolver; timeend::Real=Inf,
   while time < timeend
     step += 1
 
-    time = dostep!(Q, solver)
+    time = dostep!(Q, solver, timeend, adjustfinalstep)
 
     # FIXME: Determine better way to handle postcallback behavior
     # Current behavior:
@@ -61,18 +55,16 @@ function solve!(Q, solver::AbstractODESolver; timeend::Real=Inf,
             `1`       (stop time stepping after all callbacks)
             `2`       (stop time stepping immediately)")
       retval = max(thisretval, retval)
-      retval == 2 && return
+      retval == 2 && return gettime(solver)
     end
-    retval == 1 && return
+    retval == 1 && return gettime(solver)
 
     # Figure out if we should stop
     if numberofsteps == step
-      return
-    end
-    if !stopaftertimeend && (t0 + (step+1) * dt) > timeend
-      return
+      return gettime(solver)
     end
   end
+  gettime(solver)
 end
 # }}}
 

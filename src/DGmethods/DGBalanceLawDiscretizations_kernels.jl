@@ -1,11 +1,21 @@
+"""
+    volumerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
+               ::Val{nauxstate}, flux!, source!, rhs::Array, Q, Qgrad, auxstate,
+               vgeo, t, D, elems) where {dim, N, nstate, ngradstate,
+
+Computational kernel: Evaluate the volume integrals on right-hand side of a
+`DGBalanceLaw` semi-discretization.
+
+See [`odefun!`](@ref) for usage.
+"""
 function volumerhs!(::Val{dim}, ::Val{N},
                     ::Val{nstate}, ::Val{ngradstate},
-                    ::Val{nauxcstate}, ::Val{nauxdstate},
-                    flux!,
+                    ::Val{nauxstate},
+                    flux!, source!,
                     rhs::Array,
-                    Q, Qgrad_auxd, auxc, vgeo, t,
+                    Q, Qgrad, auxstate, vgeo, t,
                     D, elems) where {dim, N, nstate, ngradstate,
-                                    nauxcstate, nauxdstate}
+                                     nauxstate}
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -15,17 +25,17 @@ function volumerhs!(::Val{dim}, ::Val{N},
   nelem = size(Q)[end]
 
   Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
-  Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate + nauxdstate, nelem)
+  Qgrad = reshape(Qgrad, Nq, Nq, Nqk, ngradstate, nelem)
   rhs = reshape(rhs, Nq, Nq, Nqk, nstate, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
+  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
 
   s_F = MArray{Tuple{3, Nq, Nq, Nqk, nstate}, DFloat}(undef)
 
+  source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_Qgrad = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
-  l_ϕd = MArray{Tuple{nauxdstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
 
@@ -42,18 +52,14 @@ function volumerhs!(::Val{dim}, ::Val{N},
       end
 
       for s = 1:ngradstate
-        l_Qgrad[s] = Qgrad_auxd[i, j, k, s, e]
+        l_Qgrad[s] = Qgrad[i, j, k, s, e]
       end
 
-      for s = 1:nauxcstate
-        l_ϕc[s] = auxc[i, j, k, s, e]
+      for s = 1:nauxstate
+        l_aux[s] = auxstate[i, j, k, s, e]
       end
 
-      for s = 1:nauxdstate
-        l_ϕd[s] = Qgrad_auxd[i, j, k, ngradstate + s, e]
-      end
-
-      flux!(l_F, l_Q, l_Qgrad, l_ϕc, l_ϕd, t)
+      flux!(l_F, l_Q, l_aux, t)
 
       for s = 1:nstate
         s_F[1,i,j,k,s] = MJ * (ξx * l_F[1, s] + ξy * l_F[2, s] + ξz * l_F[3, s])
@@ -61,7 +67,13 @@ function volumerhs!(::Val{dim}, ::Val{N},
         s_F[3,i,j,k,s] = MJ * (ζx * l_F[1, s] + ζy * l_F[2, s] + ζz * l_F[3, s])
       end
 
-      # TODO source
+      if source! !== nothing
+        source!(l_S, l_Q, l_aux, t)
+
+        for s = 1:nstate
+          rhs[i, j, k, s, e] += l_S[s]
+        end
+      end
     end
 
     # loop of ξ-grid lines
@@ -90,15 +102,25 @@ function volumerhs!(::Val{dim}, ::Val{N},
   end
 end
 
+"""
+    facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
+             ::Val{nauxstate}, numericalflux!, rhs::Array, Q, Qgrad, auxstate,
+             vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+             elems) where {dim, N, nstate, ngradstate, nauxstate}
+
+Computational kernel: Evaluate the surface integrals on right-hand side of a
+`DGBalanceLaw` semi-discretization.
+
+See [`odefun!`](@ref) for usage.
+"""
 function facerhs!(::Val{dim}, ::Val{N},
                   ::Val{nstate}, ::Val{ngradstate},
-                  ::Val{nauxcstate}, ::Val{nauxdstate},
+                  ::Val{nauxstate},
                   numericalflux!,
-                  rhs::Array, Q, Qgrad_auxd, auxc,
+                  rhs::Array, Q, Qgrad, auxstate,
                   vgeo, sgeo,
                   t, vmapM, vmapP, elemtobndy,
-                  elems) where {dim, N, nstate, ngradstate, nauxcstate,
-                                nauxdstate}
+                  elems) where {dim, N, nstate, ngradstate, nauxstate}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -117,13 +139,11 @@ function facerhs!(::Val{dim}, ::Val{N},
 
   l_QM = MArray{Tuple{nstate}, DFloat}(undef)
   l_QgradM = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_ϕcM = MArray{Tuple{nauxcstate}, DFloat}(undef)
-  l_ϕdM = MArray{Tuple{nauxdstate}, DFloat}(undef)
+  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_QP = MArray{Tuple{nstate}, DFloat}(undef)
   l_QgradP = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_ϕcP = MArray{Tuple{nauxcstate}, DFloat}(undef)
-  l_ϕdP = MArray{Tuple{nauxdstate}, DFloat}(undef)
+  l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_F = MArray{Tuple{nstate}, DFloat}(undef)
 
@@ -143,15 +163,11 @@ function facerhs!(::Val{dim}, ::Val{N},
         end
 
         for s = 1:ngradstate
-          l_QgradM[s] = Qgrad_auxd[vidM, s, eM]
+          l_QgradM[s] = Qgrad[vidM, s, eM]
         end
 
-        for s = 1:nauxcstate
-          l_ϕcM[s] = auxc[vidM, s, eM]
-        end
-
-        for s = 1:nauxdstate
-          l_ϕdM[s] = Qgrad_auxd[vidM, ngradstate + s, eM]
+        for s = 1:nauxstate
+          l_auxM[s] = auxstate[vidM, s, eM]
         end
 
         # Load plus side data
@@ -160,15 +176,11 @@ function facerhs!(::Val{dim}, ::Val{N},
         end
 
         for s = 1:ngradstate
-          l_QgradP[s] = Qgrad_auxd[vidP, s, eP]
+          l_QgradP[s] = Qgrad[vidP, s, eP]
         end
 
-        for s = 1:nauxcstate
-          l_ϕcP[s] = auxc[vidP, s, eP]
-        end
-
-        for s = 1:nauxdstate
-          l_ϕdP[s] = Qgrad_auxd[vidP, ngradstate + s, eP]
+        for s = 1:nauxstate
+          l_auxP[s] = auxstate[vidP, s, eP]
         end
 
         # Fix up for boundary conditions
@@ -176,8 +188,8 @@ function facerhs!(::Val{dim}, ::Val{N},
         @assert bc == 0 #cannot handle bc yet
 
         numericalflux!(l_F, nM,
-                       l_QM, l_QgradM, l_ϕcM, l_ϕdM,
-                       l_QP, l_QgradP, l_ϕcP, l_ϕdP,
+                       l_QM, l_auxM,
+                       l_QP, l_auxP,
                        t)
 
         #Update RHS
@@ -189,85 +201,118 @@ function facerhs!(::Val{dim}, ::Val{N},
   end
 end
 
-function updateauxd!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
-                     ::Val{nauxcstate}, ::Val{nauxdstate}, auxdfun!, Q,
-                     Qgrad_auxd, auxc, t, elems) where {dim, N, nstate,
-                                                        ngradstate, nauxcstate,
-                                                        nauxdstate}
-  # Should only be called in this case I think?
-  @assert ngradstate == 0
-  @assert nauxdstate > 0
+"""
+    initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
+                  auxstate, vgeo, elems) where {dim, N, nauxstate}
 
-  DFloat = eltype(Q)
+Computational kernel: Initialize the auxiliary state
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
+                       auxstate, vgeo, elems) where {dim, N, nauxstate}
+
+  # Should only be called in this case I think?
+  @assert nauxstate > 0
+
+  DFloat = eltype(auxstate)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(Q)[end]
+  nelem = size(auxstate)[end]
 
-  Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
-  Qgrad_auxd = reshape(Qgrad_auxd, Nq, Nq, Nqk, ngradstate + nauxdstate, nelem)
-  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
+  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
+  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
 
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
-  l_ϕd = MArray{Tuple{nauxdstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   @inbounds for e in elems
     for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      for s = 1:nstate
-        l_Q[s] = Q[i, j, k, s, e]
+      x, y, z = vgeo[i,j,k,_x,e], vgeo[i,j,k,_y,e], vgeo[i,j,k,_z,e]
+      for s = 1:nauxstate
+        l_aux[s] = auxstate[i, j, k, s, e]
       end
 
-      for s = 1:nauxcstate
-        l_ϕc[s] = auxc[i, j, k, s, e]
-      end
+      auxstatefun!(l_aux, x, y, z)
 
-      for s = 1:nauxdstate
-        l_ϕd[s] = Qgrad_auxd[i, j, k, ngradstate + s, e]
-      end
-
-      auxdfun!(l_ϕd, l_Q, l_ϕc, t)
-
-      for s = 1:nauxdstate
-        Qgrad_auxd[i, j, k, ngradstate + s, e] = l_ϕd[s]
+      for s = 1:nauxstate
+        auxstate[i, j, k, s, e] = l_aux[s]
       end
     end
   end
 end
 
-function initauxc!(::Val{dim}, ::Val{N}, ::Val{nauxcstate},
-                   auxcfun!, auxc, vgeo, elems) where {dim, N, nauxcstate}
+"""
+    elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo, D, elems, s,
+                     sx, sy, sz) where {dim, N, nstate}
 
-  # Should only be called in this case I think?
-  @assert nauxcstate > 0
+Computational kernel: Compute the element gradient of state `s` of `Q` and store
+it in `sx`, `sy`, and `sz` of `Q`.
 
-  DFloat = eltype(auxc)
+!!! warning
+
+    This does not compute a DG gradient, but only over the element. If ``Q_s``
+    is discontinuous you may want to consider another approach.
+
+"""
+function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
+                          D, elems, s, sx, sy, sz) where {dim, N, nstate}
+
+  DFloat = eltype(vgeo)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(auxc)[end]
+  nelem = size(vgeo)[end]
 
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  auxc = reshape(auxc, Nq, Nq, Nqk, nauxcstate, nelem)
+  Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
 
-  l_ϕc = MArray{Tuple{nauxcstate}, DFloat}(undef)
+  s_f = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+  l_fξ = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+  l_fη = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+  l_fζ = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
 
   @inbounds for e in elems
     for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      x, y, z = vgeo[i,j,k,_x,e], vgeo[i,j,k,_y,e], vgeo[i,j,k,_z,e]
-      for s = 1:nauxcstate
-        l_ϕc[s] = auxc[i, j, k, s, e]
-      end
+      s_f[i,j,k] = Q[i,j,k,s,e]
+    end
 
-      auxcfun!(l_ϕc, x, y, z)
-
-      for s = 1:nauxcstate
-        auxc[i, j, k, s, e] = l_ϕc[s]
+    # loop of ξ-grid lines
+    l_fξ .= 0
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      for n = 1:Nq
+        l_fξ[i, j, k] += D[i, n] * s_f[n, j, k]
       end
+    end
+    # loop of η-grid lines
+    l_fη .= 0
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      for n = 1:Nq
+        l_fη[i, j, k] += D[j, n] * s_f[i, n, k]
+      end
+    end
+    # loop of ζ-grid lines
+    l_fζ .= 0
+    if Nqk > 1
+      for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+        for n = 1:Nq
+          l_fζ[i, j, k] += D[k, n] * s_f[i, j, n]
+        end
+      end
+    end
+
+    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
+      ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
+      ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
+      ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+
+      Q[i,j,k,sx,e] = ξx * l_fξ[i,j,k] + ηx * l_fη[i,j,k] + ζx * l_fζ[i,j,k]
+      Q[i,j,k,sy,e] = ξy * l_fξ[i,j,k] + ηy * l_fη[i,j,k] + ζy * l_fζ[i,j,k]
+      Q[i,j,k,sz,e] = ξz * l_fξ[i,j,k] + ηz * l_fη[i,j,k] + ζz * l_fζ[i,j,k]
     end
   end
 end
