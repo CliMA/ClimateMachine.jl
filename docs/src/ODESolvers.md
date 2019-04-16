@@ -22,4 +22,5 @@ GenericCallbacks.EveryXSimulationSteps
 
 ```@docs
 ODESolvers.solve!
+ODESolvers.gettime
 ```
