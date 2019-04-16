@@ -113,7 +113,7 @@ end
 """
     BrickTopology{dim, T} <: AbstractTopology{dim}
 
-A simple grid-based topolgy. This is a convenience wrapper around
+A simple grid-based topology. This is a convenience wrapper around
 [`BoxElementTopology`](@ref).
 """
 struct BrickTopology{dim, T} <: AbstractTopology{dim}
@@ -125,7 +125,7 @@ getproperty(getfield(a, :topology), p)
 """
     CubedShellTopology{T} <: AbstractTopology{2}
 
-A cube-shell topolgy. This is a convenience wrapper around
+A cube-shell topology. This is a convenience wrapper around
 [`BoxElementTopology`](@ref).
 """
 struct CubedShellTopology{T} <: AbstractTopology{2}
@@ -138,7 +138,7 @@ getproperty(getfield(a, :topology), p)
 """
     StackedBrickTopology{dim, T} <: AbstractTopology{dim}
 
-A simple grid-based topolgy, where all elements on the trailing dimension are
+A simple grid-based topology, where all elements on the trailing dimension are
 stacked to be contiguous. This is a convenience wrapper around
 [`BoxElementTopology`](@ref).
 """
