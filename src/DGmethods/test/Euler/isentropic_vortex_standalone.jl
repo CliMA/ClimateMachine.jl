@@ -164,7 +164,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     outprefix = @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
-    @info "doing VTK output" outprefix
+    @debug "doing VTK output" outprefix
     DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
     step[1] += 1
     nothing
