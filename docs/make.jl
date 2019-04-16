@@ -24,6 +24,7 @@ makedocs(
     "ODESolvers" => "ODESolvers.md",
     "Mesh" => "Mesh.md",
     "AtmosDycore" => "AtmosDycore.md",
+    "Arrays" => "Arrays.md",
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
