@@ -274,7 +274,7 @@ through as an `MArray` through the `aux` argument
 
 !!! note
 
-    `Q` is `unde` at start the function (i.e., not initialized to zero)
+    `Q` is `undef` at start the function (i.e., not initialized to zero)
 
 !!! note
 
