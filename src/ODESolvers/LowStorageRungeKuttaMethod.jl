@@ -100,8 +100,13 @@ Change the time step size to `dt` for `lsrk.
 """
 updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
 
-function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta)
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
+                      adjustfinalstep)
   time, dt = lsrk.t[1], lsrk.dt[1]
+  if adjustfinalstep && time + dt > timeend
+    dt = timeend - time
+    @assert dt > 0
+  end
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
   rhs!, dQ = lsrk.rhs!, lsrk.dQ
   for s = 1:length(RKA)
@@ -114,7 +119,12 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta)
 
     time += RKC[s] * dt
   end
-  lsrk.t[1] += dt
+  if dt == lsrk.dt[1]
+    lsrk.t[1] += dt
+  else
+    lsrk.t[1] = timeend
+  end
+
 end
 
 # {{{ Update solution (for all dimensions)

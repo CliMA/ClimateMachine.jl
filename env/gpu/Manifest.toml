@@ -1,3 +1,5 @@
+# This file is machine-generated - editing it directly is not advised
+
 [[AbstractFFTs]]
 deps = ["Compat", "LinearAlgebra"]
 git-tree-sha1 = "8d59c3b1463b5e0ad05a3698167f85fac90e184d"
@@ -45,19 +47,19 @@ version = "0.6.3"
 
 [[CUDAdrv]]
 deps = ["CUDAapi", "Libdl", "Printf", "Test"]
-git-tree-sha1 = "dfe527ba231b6b699f879d1d384c1d39b49fc005"
+git-tree-sha1 = "3014fc9bab66af6646e476f86ff1f86f019fb869"
 uuid = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
-version = "1.0.1"
+version = "2.0.0"
 
 [[CUDAnative]]
-deps = ["Adapt", "CUDAapi", "CUDAdrv", "InteractiveUtils", "LLVM", "Libdl", "Pkg", "Printf", "Statistics", "Test"]
-git-tree-sha1 = "92e3ec4f4458e43cc17be4388b68690dbef24f31"
+deps = ["Adapt", "CUDAapi", "CUDAdrv", "DataStructures", "InteractiveUtils", "LLVM", "Libdl", "Pkg", "Printf", "Statistics", "Test", "TimerOutputs"]
+git-tree-sha1 = "8b6767565310391bbdbcafbfc98dbef9eced6333"
 uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
-version = "1.0.1"
+version = "2.0.1"
 
 [[Canary]]
 deps = ["MPI"]
-git-tree-sha1 = "d980128c8892ab20ad4d56679e373692164348c2"
+git-tree-sha1 = "bd3311c6527e10d7f0ad904addf11b11cbba2401"
 repo-rev = "master"
 repo-url = "https://github.com/climate-machine/Canary.jl"
 uuid = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
@@ -93,11 +95,17 @@ git-tree-sha1 = "87aafc2c6bf6f58693c71900e41be7a5737e3434"
 uuid = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
 version = "0.9.1"
 
+[[Crayons]]
+deps = ["Test"]
+git-tree-sha1 = "f621b8ef51fd2004c7cf157ea47f027fdeac5523"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.0.0"
+
 [[CuArrays]]
-deps = ["AbstractFFTs", "Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "DiffRules", "ForwardDiff", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "SparseArrays", "Test"]
-git-tree-sha1 = "c1cd8792ca783987fcba2ed0d6b3b58176e6b13e"
+deps = ["AbstractFFTs", "Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "DiffRules", "ForwardDiff", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "SparseArrays", "Test", "TimerOutputs"]
+git-tree-sha1 = "34f30ae1a027b0b2e01694bb1b91003d7a9d5fc5"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
-version = "0.9.1"
+version = "1.0.1"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections", "Random", "Serialization", "Test"]
@@ -126,7 +134,7 @@ uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "0.0.10"
 
 [[Distributed]]
-deps = ["LinearAlgebra", "Random", "Serialization", "Sockets"]
+deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[DocStringExtensions]]
@@ -137,9 +145,9 @@ version = "0.7.0"
 
 [[Documenter]]
 deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "JSON", "LibGit2", "Logging", "Markdown", "Pkg", "REPL", "Random", "Test", "Unicode"]
-git-tree-sha1 = "11ba1460e7429eddc2a71f912cd5b9a66fbd8cf5"
+git-tree-sha1 = "13a6d15102410d8e70146533b759fc48d844a1d0"
 uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-version = "0.22.2"
+version = "0.22.3"
 
 [[FFTW]]
 deps = ["AbstractFFTs", "BinaryProvider", "Compat", "Conda", "Libdl", "LinearAlgebra", "Reexport", "Test"]
@@ -178,7 +186,7 @@ uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
 version = "0.5.0"
 
 [[InteractiveUtils]]
-deps = ["LinearAlgebra", "Markdown"]
+deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[JSON]]
@@ -220,9 +228,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MPI]]
 deps = ["BinDeps", "Compat", "Distributed", "Libdl", "LinearAlgebra", "Printf", "Random", "Statistics", "Test"]
-git-tree-sha1 = "b932f8e7115a60208692d474c45d5d6fcea10659"
+git-tree-sha1 = "3f587ce1c67cbc10f10039a917d47205fc6d10ab"
 uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
-version = "0.7.2"
+version = "0.8.0"
 
 [[MacroTools]]
 deps = ["CSTParser", "Compat", "DataStructures", "Test"]
@@ -326,6 +334,12 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[[TimerOutputs]]
+deps = ["Crayons", "Printf", "Test", "Unicode"]
+git-tree-sha1 = "b80671c06f8f8bae08c55d67b5ce292c5ae2660c"
+uuid = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+version = "0.5.0"
+
 [[Tokenize]]
 deps = ["Printf", "Test"]
 git-tree-sha1 = "3e83f60b74911d3042d3550884ca2776386a02b8"
@@ -345,7 +359,7 @@ uuid = "30578b45-9adc-5946-b283-645ec420af67"
 version = "0.4.0"
 
 [[UUIDs]]
-deps = ["Random"]
+deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [[Unicode]]
