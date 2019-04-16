@@ -29,20 +29,26 @@ reference states.
     this would allow the user to better handle round-off error with large
     background states.
 
+!!! note
+
+    The undocumented arguments `PM` and `PP` for the function should not be used
+    by external callers and are used only internally by the function
+    `rusanov_boundary_flux!`
+
 """
 function rusanov!(F::MArray{Tuple{nstate}}, nM,
                   QM, auxM,
                   QP, auxP,
                   t, flux!, wavespeed,
                   preflux = (_...) -> (),
-                  correctQ! = nothing
+                  correctQ! = nothing,
+                  PM = preflux(QM, auxM, t),
+                  PP = preflux(QP, auxP, t)
                  ) where {nstate}
-  PM = preflux(QM, auxM, t)
   λM = wavespeed(nM, QM, auxM, t, PM...)
   FM = similar(F, Size(3, nstate))
   flux!(FM, QM, auxM, t, PM...)
 
-  PP = preflux(QP, auxP, t)
   λP = wavespeed(nM, QP, auxP, t, PP...)
   FP = similar(F, Size(3, nstate))
   flux!(FP, QP, auxP, t, PP...)
@@ -64,6 +70,41 @@ function rusanov!(F::MArray{Tuple{nstate}}, nM,
               nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM_cpy[s] - QP_cpy[s])) / 2
     end
   end
+end
+
+"""
+    rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM, QM, auxM, QP, auxP,
+                           bctype, t, flux!, bcstate!, wavespeed,
+                           preflux = (_...) -> (), correctQ! = nothing
+                           ) where {nstate}
+
+The function `bcstate!` is used to calculate the plus side state for the
+boundary condition `bctype`. The calling convention is:
+```
+PP = bcstate!(QP, auxP, QM, auxM, bctype, t, preflux(QM, auxM, t)...)
+```
+where `QP` and `auxP` are the plus side state and auxiliary state to be filled
+from the given data; other arguments should not be modified.
+
+The function `bcstate!` should return either `preflux(QP, auxP, t)` or
+`nothing`; if `nothing` is returned then `preflux(QP, auxP, t)` is called by
+`rusanov_boundary_flux!`. The reason for this behaviour is to allow the user to
+avoid redoing expensive calculations.
+"""
+function rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM,
+                                QM, auxM,
+                                QP, auxP,
+                                bctype, t,
+                                flux!, bcstate!,
+                                wavespeed,
+                                preflux = (_...) -> (),
+                                correctQ! = nothing
+                               ) where {nstate}
+  PM = preflux(QM, auxM, t)
+  PP = bcstate!(QP, auxP, QM, auxM, bctype, t, PM...)
+  PP === nothing && (PP = preflux(QP, auxP, t))
+  rusanov!(F, nM, QM, auxM, QP, auxP, t, flux!, wavespeed, preflux, correctQ!,
+           PM, PP)
 end
 
 end
