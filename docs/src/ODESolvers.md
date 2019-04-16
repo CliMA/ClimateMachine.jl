@@ -1,5 +1,9 @@
 # ODESolvers
 
+```@meta
+CurrentModule = CLIMA
+```
+
 ## `LowStorageRungeKutta`
 
 ```@docs
