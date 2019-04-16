@@ -108,7 +108,19 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   """
   nabrtosend::Array{UnitRange{Int64}, 1}
 
+  """
+  boolean for whether or not this topology has a boundary
+  """
+  hasboundary::Bool
 end
+
+"""
+    hasboundary(topology::AbstractTopology)
+
+query function to check whether a topology has a boundary (i.e., not fully
+periodic)
+"""
+hasboundary(topology::AbstractTopology) = topology.hasboundary
 
 """
     BrickTopology{dim, T} <: AbstractTopology{dim}
@@ -286,7 +298,7 @@ function BrickTopology(mpicomm, elemrange;
               topology.ghostelems, topology.sendelems, topology.elemtocoord,
               topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
               topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-              topology.nabrtosend))
+              topology.nabrtosend, !minimum(periodicity)))
 end
 
 """ A wrapper for the StackedBrickTopology """
@@ -527,7 +539,7 @@ function StackedBrickTopology(mpicomm, elemrange;
     BoxElementTopology{dim, T}(
       mpicomm, elems, realelems, ghostelems, sendelems,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend),
+      nabrtorank, nabrtorecv, nabrtosend, !minimum(periodicity)),
     stacksize)
 end
 
@@ -608,7 +620,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
       topology.ghostelems, topology.sendelems, elemtocoord,
       topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
       topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-      topology.nabrtosend))
+      topology.nabrtosend, false))
 end
 
 """
@@ -931,7 +943,7 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
     BoxElementTopology{3, T}(
       mpicomm, elems, realelems, ghostelems, sendelems,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend),
+      nabrtorank, nabrtorecv, nabrtosend, true),
     stacksize)
 end
 
