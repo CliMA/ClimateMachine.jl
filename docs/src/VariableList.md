@@ -18,26 +18,26 @@ q_con = specific humidity, condensate
 q_tot = specific humidity, total
 
 
-P_<species>     = pressure, species (no subscript == default working fluid moist air) 
-ρ_<species>     = density, species (no subscript == default working fluid moist air) 
+P_<species>     = pressure, species (no subscript == default working fluid moist air)
+ρ_<species>     = density, species (no subscript == default working fluid moist air)
 R_m             = gas constant, moist
 R_d             = gas constant, dry
 R_v             = gas constant, water vapour
-T               = temperature, moist air 
-T_<species>     = temperature, species 
+T               = temperature, moist air
+T_<species>     = temperature, species
 ```
 
 ### 2.2 Mass Balance
 ```
 dt              = time increment
-u               = x-velocity 
+u               = x-velocity
 v               = y-velocity
 w               = z-velocity
-U		= x-momentum 
-V		= y-momentum
-W		= z=momentum 
+U               = x-momentum
+V               = y-momentum
+W               = z=momentum
 ```
-### 2.3 Moisture balances 
+### 2.3 Moisture balances
 ```
 source_qt           = local source/sink of water mass [S_qt]
 diffusiveflux_vap   = diffusive flux, water vapour
@@ -48,8 +48,8 @@ diffusiveflux_tot   = diffusive flux, total
 
 ### 2.4 Momentum balances
 ```
-U               = x-momentum 
-V               = y-momentum 
+U               = x-momentum
+V               = y-momentum
 W               = z-momentum (2D/3D: this is the vertical coordinate)
 Ω_x             = x-angular momentum
 Ω_y             = y-angular momentum
