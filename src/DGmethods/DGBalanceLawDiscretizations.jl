@@ -86,7 +86,7 @@ struct DGBalanceLaw <: AbstractDGMethod
   inviscid_flux!::Function
 
   "numerical flux function"
-  inviscid_numericalflux!::Function
+  inviscid_numerical_flux!::Function
 
   "storage for the grad"
   Qgrad::MPIStateArray
@@ -100,7 +100,7 @@ end
 
 """
      DGBalanceLaw(; grid::DiscontinuousSpectralElementGrid, length_state_vector,
-                  inviscid_flux!, inviscid_numericalflux!,
+                  inviscid_flux!, inviscid_numerical_flux!,
                   auxiliary_state_length=0,
                   auxiliary_state_initialization! = nothing,
                   source! = nothing)
@@ -126,7 +126,7 @@ Warning: Modifications to `Q` or `aux` may have side effects and should not be d
 
 The inviscid numerical flux function is called with data from two DOFs as
 ```
-inviscid_numericalflux!(F, nM, QM, auxM, QP, auxP, t)
+inviscid_numerical_flux!(F, nM, QM, auxM, QP, auxP, t)
 ```
 where
 - `F` is an `MArray` of size `(dim, length_state_vector)` to be filled with the
@@ -173,7 +173,7 @@ stored in the auxiliary state.
 """
 function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                       length_state_vector, inviscid_flux!,
-                      inviscid_numericalflux!, gradstates=(),
+                      inviscid_numerical_flux!, gradstates=(),
                       auxiliary_state_length=0,
                       auxiliary_state_initialization! = nothing,
                       source! = nothing)
@@ -223,7 +223,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
   end
 
   DGBalanceLaw(grid, length_state_vector, gradstates, inviscid_flux!,
-               inviscid_numericalflux!, Qgrad, auxstate, source!)
+               inviscid_numerical_flux!, Qgrad, auxstate, source!)
 end
 
 """
@@ -456,7 +456,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ngradstate == 0 && MPIStateArrays.finish_ghost_exchange!(Q)
 
   facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
-           disc.inviscid_numericalflux!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q, vgeo,
+           disc.inviscid_numerical_flux!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q, vgeo,
            sgeo, t, vmapM, vmapP, elemtobndy, topology.realelems)
 end
 
