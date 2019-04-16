@@ -131,10 +131,11 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
     if s
       starttime[] = now()
     else
+      energy = norm(Q)
       @info @sprintf """Update
   simtime = %.16e
   runtime = %s
-  norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") norm(Q)
+  norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") energy
     end
   end
 
