@@ -673,19 +673,6 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * U 
         rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * V
       end
-      # SMARRAS changes FIXME: delete after successful squall-test 
-      #ymax = maximum(vgeo[:,:,_y,:])
-      #ysponge = 0.9 * ymax 
-      # Damping coefficient
-      #ct = 2.0
-      #ctop = ct * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4
-      #beta = 1.0 - (1.0 - ctop) #*(1.0-csidexl)*(1.0-csidexr)*(1.0-csideyl)*(1.0-csideyr)
-      #beta = min(beta, 1.0)
-      #alpha = beta #1.0 - beta
-        
-      #rhs[i, j, _U, e] -= ρ * alpha * U
-      #rhs[i, j, _V, e] -= ρ * alpha * V
-      
       # ---------------------------
       # End implementation of sponge layer
       # ---------------------------

@@ -95,9 +95,9 @@ function squall_line(x...; ntrace=0, nmoist=0, dim=3)
     # theta perturbation
     dtheta        = 0.0
     thetac        = 5.0
-    rx            = 1000.0
-    ry            = 1500.0
-    r		  = sqrt(((x[1]-1500)/rx )^2 + ((x[dim] - 2000.0)/ry)^2)
+    rx            = 10000.0
+    ry            =  1500.0
+    r		  = sqrt( (x[1]/rx )^2 + ((x[dim] - 2000.0)/ry)^2)
     if (r <= 1.0)
         dtheta	  = thetac * (cos(0.5*π*r))^2
     end
@@ -232,18 +232,18 @@ let
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
     
-    viscosity = 50
+    viscosity = 75
     nmoist = 3
     ntrace = 0
-    Ne = (10, 10)
+    Ne = (13, 24)
     N = 4
     dim = 2
     timeend = 20000.0
 
-    xmin = 0.0
-    xmax = 3000.0
-    zmin = 0.0
-    zmax = 6000.0
+    xmin =  -12000.0
+    xmax =   12000.0
+    zmin =       0.0
+    zmax =   24000.0
     
     DFloat = Float64
     for ArrayType in (Array,)
