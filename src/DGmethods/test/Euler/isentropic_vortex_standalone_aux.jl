@@ -41,12 +41,23 @@ if !@isdefined integration_testing
 end
 
 # preflux computation
-@inline function preflux(Q, _...)
+@inline function preflux(Q, aux, t)
   γ::eltype(Q) = γ_exact
-  @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+  @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+  @inbounds U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
   ρinv = 1 / ρ
   u, v, w = ρinv * U, ρinv * V, ρinv * W
   ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
+end
+
+@inline function correctQ!(Q, aux)
+  @inbounds Q[_U] -= aux[1]
+  @inbounds Q[_V] -= aux[2]
+  @inbounds Q[_W] -= aux[3]
+end
+
+@inline function auxiliary_state_initialization!(aux, x, y, z)
+  @inbounds aux[1], aux[2], aux[3] = rand(), rand(), rand()
 end
 
 # max eigenvalue
@@ -57,11 +68,12 @@ end
 
 # physical flux function
 eulerflux!(F, Q, aux, t) =
-eulerflux!(F, Q, aux, t, preflux(Q)...)
+eulerflux!(F, Q, aux, t, preflux(Q, aux, t)...)
 
 @inline function eulerflux!(F, Q, aux, t, P, u, v, w, ρinv)
   @inbounds begin
-    ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+    ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+    U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
 
     F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -73,7 +85,7 @@ end
 
 # initial condition
 const halfperiod = 5
-function isentropicvortex!(Q, t, x, y, z)
+function isentropicvortex!(Q, t, x, y, z, aux)
   DFloat = eltype(Q)
 
   γ::DFloat    = γ_exact
@@ -99,9 +111,9 @@ function isentropicvortex!(Q, t, x, y, z)
 
   ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
   p = ρ^γ
-  U = ρ*u
-  V = ρ*v
-  W = ρ*w
+  U = ρ*u + aux[1]
+  V = ρ*v + aux[2]
+  W = ρ*w + aux[3]
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
   if integration_testing
@@ -129,7 +141,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            inviscid_numericalflux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
-                                                    preflux))
+                                                    preflux,
+                                                    correctQ!),
+                           auxiliary_state_length = 3,
+                           auxiliary_state_initialization! =
+                           auxiliary_state_initialization!,
+                          )
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
@@ -172,7 +189,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -228,12 +244,12 @@ let
     polynomialorder = 4
 
     expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_error[1,1] = 5.7115689019456495e-01
-    expected_error[1,2] = 6.9418982796523573e-02
-    expected_error[1,3] = 3.2927550219067014e-03
-    expected_error[2,1] = 1.8061566743070110e+00
-    expected_error[2,2] = 2.1952209848920567e-01
-    expected_error[2,3] = 1.0412605646145325e-02
+    expected_error[1,1] = 5.7115689019456650e-01
+    expected_error[1,2] = 6.9418982796517287e-02
+    expected_error[1,3] = 3.2927550219067365e-03
+    expected_error[2,1] = 1.8061566743070270e+00
+    expected_error[2,2] = 2.1952209848917140e-01
+    expected_error[2,3] = 1.0412605646156937e-02
     lvls = size(expected_error, 2)
 
     for DFloat in (Float64,) #Float32)
@@ -267,10 +283,10 @@ let
     mpicomm = MPI.COMM_WORLD
 
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    check_engf_eng0[2, 1, Float64] = 9.9999795068862996e-01
-    check_engf_eng0[3, 1, Float64] = 9.9999641494886327e-01
-    check_engf_eng0[2, 3, Float64] = 9.9999876109562658e-01
-    check_engf_eng0[3, 3, Float64] = 9.9999654059181553e-01
+    check_engf_eng0[2, 1, Float64] = 9.9999784637552236e-01
+    check_engf_eng0[3, 1, Float64] = 9.9999657640450179e-01
+    check_engf_eng0[2, 3, Float64] = 9.9999927972044056e-01
+    check_engf_eng0[3, 3, Float64] = 9.9999661971173426e-01
 
     for DFloat in (Float64,) #Float32)
       for dim = 2:3
