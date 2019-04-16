@@ -230,10 +230,10 @@ let
     expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
     expected_error[1,1] = 5.7115689019456495e-01
     expected_error[1,2] = 6.9418982796523573e-02
-    expected_error[1,3] = 7.5117937330965350e-03
+    expected_error[1,3] = 3.2927550219067014e-03
     expected_error[2,1] = 1.8061566743070110e+00
     expected_error[2,2] = 2.1952209848920567e-01
-    expected_error[2,3] = 2.3754377509927798e-02
+    expected_error[2,3] = 1.0412605646145325e-02
     lvls = size(expected_error, 2)
 
     for DFloat in (Float64,) #Float32)
@@ -242,6 +242,8 @@ let
         for l = 1:lvls
           Ne = ntuple(j->2^(l-1) * numelem[j], dim)
           dt = 1e-2 / Ne[1]
+          nsteps = ceil(Int64, timeend / dt)
+          dt = timeend / nsteps
           err[l] = run(mpicomm, dim, Ne, polynomialorder, timeend, DFloat, dt)
           @test err[l] ≈ DFloat(expected_error[dim-1, l])
         end

@@ -258,12 +258,12 @@ let
     polynomialorder = 4
 
     expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_error[1,1] = 5.5175136745319897e-01
-    expected_error[1,2] = 6.7757089928959235e-02
-    expected_error[1,3] = 7.5696608740125513e-03
-    expected_error[2,1] = 1.7613313745738990e+00
-    expected_error[2,2] = 2.1526080821361365e-01
-    expected_error[2,3] = 2.3768866286511252e-02
+    expected_error[1,1] = 5.5175136745319797e-01
+    expected_error[1,2] = 6.7757089928958958e-02
+    expected_error[1,3] = 3.2832015676432292e-03
+    expected_error[2,1] = 1.7613313745738965e+00
+    expected_error[2,2] = 2.1526080821361515e-01
+    expected_error[2,3] = 1.0251374591125394e-02
     lvls = size(expected_error, 2)
 
     for DFloat in (Float64,) #Float32)
@@ -272,6 +272,8 @@ let
         for l = 1:lvls
           Ne = ntuple(j->2^(l-1) * numelem[j], dim)
           dt = 1e-2 / Ne[1]
+          nsteps = ceil(Int64, timeend / dt)
+          dt = timeend / nsteps
           err[l] = run(mpicomm, dim, Ne, polynomialorder, timeend, DFloat, dt)
           @test err[l] ≈ DFloat(expected_error[dim-1, l])
         end
@@ -295,10 +297,10 @@ let
     mpicomm = MPI.COMM_WORLD
 
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    check_engf_eng0[2, 1, Float64] = 9.9999771028523088e-01
-    check_engf_eng0[3, 1, Float64] = 9.9999790385731790e-01
-    check_engf_eng0[2, 3, Float64] = 9.9999884283814688e-01
-    check_engf_eng0[3, 3, Float64] = 9.9999653787310816e-01
+    check_engf_eng0[2, 1, Float64] = 9.9999808508887378e-01
+    check_engf_eng0[3, 1, Float64] = 9.9999644038110480e-01
+    check_engf_eng0[2, 3, Float64] = 9.9999878540546705e-01
+    check_engf_eng0[3, 3, Float64] = 9.9999657187253710e-01
 
     for DFloat in (Float64,) #Float32)
       for dim = 2:3
