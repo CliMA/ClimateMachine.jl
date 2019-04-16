@@ -27,6 +27,9 @@ struct SecantMethod <: RootSolvingMethod end
 struct RegulaFalsiMethod <: RootSolvingMethod end
 struct NewtonsMethod <: RootSolvingMethod end
 
+# TODO: CuArrays.jl has trouble with isapprox on 1.1
+# we use simple checks for now, will switch to relative checks later.
+
 """
     x, converged = find_zero(f, x0[, x1], method;
                              xatol=0, xrtol=sqrt(eps(eltype(x0))), 
@@ -42,15 +45,14 @@ that `f(x) ≈ 0`, and a Boolean value `converged` indicating convergence.
   - The `x1` argument is omitted for Newton's method.
 
 The keyword arguments:
-- `xatol` and `xrtol` are the absolute and relative tolerances of the input.
-- `yatol` is the absolute tolerance of the output of `f`.
+- `xatol` is the absolute tolerance of the input.
 - `maxiters` is the maximum number of iterations.
 """
 function find_zero end
 
-
 function find_zero(f::F, x0::T, x1::T, ::SecantMethod;
-                   xatol=zero(x0), xrtol=sqrt(eps(T)), yatol=sqrt(eps(T)), maxiters=10_000) where {F, T<:AbstractFloat}
+                   xatol=T(1e-3),
+                   maxiters=10_000) where {F, T<:AbstractFloat}
   y0 = f(x0)
   y1 = f(x1)
   for i in 1:maxiters
@@ -59,7 +61,7 @@ function find_zero(f::F, x0::T, x1::T, ::SecantMethod;
     x0, y0 = x1, y1
     x1 -= y1 * Δx / Δy
     y1 = f(x1)
-    if isapprox(y1,0; atol=yatol) || isapprox(x0,x1; atol=xatol, rtol=xrtol)
+    if abs(x0-x1) <= xatol
       return x1, true
     end
   end
@@ -67,7 +69,8 @@ function find_zero(f::F, x0::T, x1::T, ::SecantMethod;
 end
 
 function find_zero(f::F, x0::T, x1::T, ::RegulaFalsiMethod;
-                   xatol=zero(x0), xrtol=sqrt(eps(T)), yatol=sqrt(eps(T)), maxiters=10_000) where {F, T<:AbstractFloat}
+                   xatol=T(1e-3),
+                   maxiters=10_000) where {F, T<:AbstractFloat}
   y0 = f(x0)
   y1 = f(x1)
   @assert y0 * y1 < 0
@@ -77,7 +80,7 @@ function find_zero(f::F, x0::T, x1::T, ::RegulaFalsiMethod;
     x = (x0 * y1 - x1 * y0)/ (y1 - y0)
     y = f(x)
     if y * y0 < 0
-      if isapprox(x,x1; atol=xatol, rtol=xrtol)
+      if abs(x-x1) <= xatol
         return x, true
       end
       x1, y1 = x, y
@@ -86,14 +89,14 @@ function find_zero(f::F, x0::T, x1::T, ::RegulaFalsiMethod;
       end
       lastside = +1
     else
+      if abs(x0-x) <= xatol
+        return x, true
+      end
       x0, y0 = x, y
       if lastside == -1
         y1 /= 2
       end
       lastside = -1
-    end
-    if isapprox(y,0; atol=yatol) || isapprox(x0,x1; atol=xatol, rtol=xrtol)
-      return x, true
     end
   end
   return x, false
@@ -112,14 +115,12 @@ function value_deriv(f, x::T) where {T}
 end
 
 function find_zero(f::F, x0::T, ::NewtonsMethod;
-                   xatol=zero(x0), xrtol=sqrt(eps(T)), yatol=sqrt(eps(T)), maxiters=10_000) where {F, T<:AbstractFloat}
+                   xatol=1e-3,
+                   maxiters=10_000) where {F, T<:AbstractFloat}
   for i in 1:maxiters
     y,y′ = value_deriv(f, x0)
-    if isapprox(y,0; atol=yatol)
-      return x0, true
-    end    
     x1 = x0 - y/y′
-    if isapprox(x0,x1; atol=xatol, rtol=xrtol)
+    if abs(x0-x1) <= xatol
       return x1, true
     end
     x0 = x1
