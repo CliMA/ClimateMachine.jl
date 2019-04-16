@@ -37,11 +37,6 @@ function squall_line(x...; ntrace=0, nmoist=0, dim=3)
     dim = 2
     DFloat 	    = eltype(x)
     p0::DFloat 	    = MSLP
-    R_gas::DFloat   = gas_constant_air(0.0, 0.0, 0.0)
-    c_p::DFloat     = cp_d
-    c_v::DFloat     = cv_d
-    cvoverR         = c_v/R_gas
-    gravity::DFloat = grav
     
     # ----------------------------------------------------
     # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
@@ -75,22 +70,26 @@ function squall_line(x...; ntrace=0, nmoist=0, dim=3)
     datau          = spl_uinit(x[dim])
     datav          = spl_vinit(x[dim])
     datap          = spl_pinit(x[dim])
+    dataq          = dataq * 1.0e-3
+    
+    R_gas::DFloat   = gas_constant_air(dataq, 0.0, 0.0)
+    c_p::DFloat     = cp_m(dataq,0.0,0.0)
+    c_v::DFloat     = cv_m(dataq,0.0,0.0)
+    cvoverR         = c_v/R_gas
+    gravity::DFloat = grav
     
     #TODO Driver constant parameters need references
     rvapor        = 461.0
-    levap         =   2.5e6
+    levap         = 2.5e6
     es0           = 611.0
-    pi0           =   1.0
+    pi0           = 1.0
     p0            = MSLP
     theta0        = 300.4675
-    c2            = R_d / cp_d
+    c2            = R_gas / c_p
     c1            = 1.0 / c2
     
     # Convert dataq to kg/kg
-    dataq         = dataq * 1.0e-3
     datapi        = (datap / MSLP) ^ (c2)                         # Exner pressure from sounding data
-    
-    
     thetav        = datat * (1.0 + 0.61 * dataq)                  # Liquid potential temperature
 
     # theta perturbation
@@ -98,7 +97,7 @@ function squall_line(x...; ntrace=0, nmoist=0, dim=3)
     thetac        = 5.0
     rx            = 1000.0
     ry            = 1500.0
-    r		  = sqrt( (x[1]/rx )^2 + ((x[dim] - 2000.0)/ry)^2)
+    r		  = sqrt(((x[1]-1500)/rx )^2 + ((x[dim] - 2000.0)/ry)^2)
     if (r <= 1.0)
         dtheta	  = thetac * (cos(0.5*π*r))^2
     end
@@ -206,9 +205,9 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     end
 
     step = [0]
-    mkpath("vtk")
+    mkpath("vtk_squall")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
-        outprefix = @sprintf("vtk/RTB_%dD_step%04d_mpirank%04d", dim, step[1],MPI.Comm_rank(mpicomm))
+        outprefix = @sprintf("vtk_squall/RTB_%dD_step%04d_mpirank%04d", dim, step[1],MPI.Comm_rank(mpicomm))
         @printf(io,
                 "-------------------------------------------------------------\n")
         @printf(io, "doing VTK output =  %s\n", outprefix)
@@ -236,15 +235,15 @@ let
     viscosity = 50
     nmoist = 3
     ntrace = 0
-    Ne = (10, 36)
+    Ne = (10, 10)
     N = 4
     dim = 2
     timeend = 20000.0
 
-    xmin = -1500.0
-    xmax =  1500.0
-    zmin =     0.0
-    zmax =  6000.0
+    xmin = 0.0
+    xmax = 3000.0
+    zmin = 0.0
+    zmax = 6000.0
     
     DFloat = Float64
     for ArrayType in (Array,)

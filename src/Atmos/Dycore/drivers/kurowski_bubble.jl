@@ -110,7 +110,7 @@ function kurowski_bubble(x...; ntrace=0, nmoist=0, dim=3)
 
   rc		= 300.0
   # Circle centered at x = 0 and y = 900 m 
-  r		= sqrt((x[1])^2+(x[dim]-900)^2)
+  r		= sqrt((x[1]-1500)^2+(x[dim]-900)^2)
   dtheta	= thetac * exp(-(r/rc)^sigma)
   dRH		= 80.0 * exp(-(r/rc)^sigma)
   dqv		= dRH * qvs / 100.0
@@ -210,9 +210,9 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, Ne,
     end
 
     step = [0]
-    mkpath("vtk")
+    mkpath("vtk_kurowski")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
-      outprefix = @sprintf("vtk/RTB_%dD_step%04d_mpirank%04d", dim, step[1],MPI.Comm_rank(mpicomm))
+      outprefix = @sprintf("vtk_kurowski/RTB_%dD_step%04d_mpirank%04d", dim, step[1],MPI.Comm_rank(mpicomm))
         @printf(io,
                 "-------------------------------------------------------------\n")
         @printf(io, "doing VTK output =  %s\n", outprefix)
@@ -237,16 +237,16 @@ let
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
     
-    viscosity = 75
+    viscosity = 2.5
     nmoist = 3
     ntrace = 0
-    Ne = (5, 40)
+    Ne = (25, 25)
     N = 4
     dim = 2
-    timeend = 2000.0
+    timeend = 10000.0
 
-    xmin = -500
-    xmax = 500
+    xmin = 0
+    xmax = 3000
     zmin = 0.0
     zmax = 3000
     

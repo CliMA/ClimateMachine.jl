@@ -1127,15 +1127,10 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         TM             = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
         q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
         PM             = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
-<<<<<<< HEAD
-        θvM            = virtual_pottemp(TM, PM, q_mM[1], q_liqM, q_iceM)
-=======
-
         ##θvM            = virtual_pottemp(TM, PM, q_mM[1], q_liqM, q_iceM)
         #ρM             = air_density(TM, PM, q_mM[1], q_liqM, q_iceM)
         #E_intM         = internal_energy(TM, q_mM[1], q_liqM, q_iceM)
         #EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorzM
->>>>>>> origin/first-cloud
         
         if bc == 0
           
@@ -1156,14 +1151,10 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           TP             = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
           q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
           PP             = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
-<<<<<<< HEAD
           θvP            = virtual_pottemp(TP, PP, q_mP[1], q_liqP, q_iceP)
-=======
-          #θvP            = virtual_pottemp(TP, PP, q_mP[1], q_liqP, q_iceP)
           #ρP             = air_density(TP, PP, q_mP[1], q_liqP, q_iceP)
           #E_intP         = internal_energy(TP, q_mP[1], q_liqP, q_iceP)
           #EP             = E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * gravity * yorzP
->>>>>>> origin/first-cloud
           
           ρxP = grad[vidP, _ρx, eP]
           ρyP = grad[vidP, _ρy, eP]
