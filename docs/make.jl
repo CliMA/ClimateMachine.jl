@@ -25,11 +25,12 @@ makedocs(
     "Mesh" => "Mesh.md",
     "AtmosDycore" => "AtmosDycore.md",
     "Arrays" => "Arrays.md",
+    "DGmethods" => "DGmethods.md",
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
       "VariableList.md",
-    ]
+    ],
   ],
 )
 
