@@ -16,7 +16,7 @@ uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.3"
 
 [[CLIMA]]
-deps = ["Canary", "Coverage", "DocStringExtensions", "Documenter", "LinearAlgebra", "Literate", "Logging", "MPI", "Printf", "Requires", "WriteVTK"]
+deps = ["Canary", "Coverage", "DelimitedFiles", "DocStringExtensions", "Documenter", "LinearAlgebra", "Literate", "Logging", "MPI", "Printf", "Requires", "StaticArrays", "WriteVTK"]
 path = ".."
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
@@ -91,9 +91,9 @@ version = "0.7.0"
 
 [[Documenter]]
 deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "JSON", "LibGit2", "Logging", "Markdown", "Pkg", "REPL", "Random", "Test", "Unicode"]
-git-tree-sha1 = "e09c7cbf0192113723bc3ba2e736652ede46d516"
+git-tree-sha1 = "13a6d15102410d8e70146533b759fc48d844a1d0"
 uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-version = "0.22.0"
+version = "0.22.3"
 
 [[DocumenterTools]]
 deps = ["Base64", "DocStringExtensions", "LibGit2", "Pkg", "Test"]
@@ -109,9 +109,9 @@ version = "0.5.3"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "LinearAlgebra", "Pkg", "Printf", "Random", "Serialization", "Sockets", "Test"]
-git-tree-sha1 = "41bd911efffb56957b45366770eaaa443de3f782"
+git-tree-sha1 = "08c4fc28ae58479f93616d5df164ab6b73541f2d"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.38.1"
+version = "0.39.0"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "Distributed", "IniFile", "MbedTLS", "Random", "Sockets", "Test"]
@@ -159,18 +159,18 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[Literate]]
 deps = ["Base64", "JSON", "REPL", "Test"]
-git-tree-sha1 = "9ab90d884e1b229ca8a6beaa7dd0e1c502b253d4"
+git-tree-sha1 = "021e2e3106713e22a7f3769ebf9f2f4469670444"
 uuid = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
-version = "1.0.5"
+version = "1.1.0"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MPI]]
 deps = ["BinDeps", "Compat", "Distributed", "Libdl", "LinearAlgebra", "Printf", "Random", "Statistics", "Test"]
-git-tree-sha1 = "b932f8e7115a60208692d474c45d5d6fcea10659"
+git-tree-sha1 = "3f587ce1c67cbc10f10039a917d47205fc6d10ab"
 uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
-version = "0.7.2"
+version = "0.8.0"
 
 [[Markdown]]
 deps = ["Base64"]
@@ -221,15 +221,15 @@ version = "0.3.0"
 
 [[PlotUtils]]
 deps = ["Colors", "Dates", "Printf", "Random", "Reexport", "Test"]
-git-tree-sha1 = "fd28f30a294a38ec847de95d8ac7ac916ccd7c06"
+git-tree-sha1 = "8e87bbb778c26f575fbe47fd7a49c7b5ca37c0c6"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "0.5.5"
+version = "0.5.8"
 
 [[Plots]]
 deps = ["Base64", "Contour", "Dates", "FixedPointNumbers", "GR", "JSON", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "Reexport", "Requires", "Showoff", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "Test", "UUIDs"]
-git-tree-sha1 = "30ba6839fca563b9753f6e77085b408265b36598"
+git-tree-sha1 = "5bcc6dbc8b7fe0823d9a63dde87d7d4542149693"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "0.23.2"
+version = "0.24.0"
 
 [[Printf]]
 deps = ["Unicode"]

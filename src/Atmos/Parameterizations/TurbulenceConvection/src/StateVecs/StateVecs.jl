@@ -7,7 +7,7 @@ tuples of the variable name and the number of its components.
 module StateVecs
 
 using ..Grids
-export StateVec, over_sub_domains, Slice
+export StateVec, over_sub_domains, Cut
 
 struct FieldsPerElement{T}
   vals::Vector{T}
@@ -119,20 +119,20 @@ function Base.setindex!(sv::StateVec, val, name::Symbol, k, i_sd = 1)
   sv.fields[k].vals[sv.var_mapper[name][i_sd]] = val
 end
 
-abstract type AbstractSlice{I} end
+abstract type AbstractCut{I} end
 
 """
-    Slice{I} <: AbstractSlice{I}
+    Cut{I} <: AbstractCut{I}
 
-A slice struct used to slice the state
+A Cut struct used to slice the state
 vector along the grid-element dimension.
-This is used to as an API to pass slices
+This is used to as an API to pass Cuts
 into local derivative/interpolation routines.
 """
-struct Slice{I} <: AbstractSlice{I}
+struct Cut{I} <: AbstractCut{I}
   e::I
 end
-Base.getindex(sv::StateVec, name::Symbol, slice::Slice, i_sd=1) = [sv[name, k, i_sd] for k in slice.e-1:slice.e+1]
+Base.getindex(sv::StateVec, name::Symbol, Cut::Cut, i_sd=1) = [sv[name, k, i_sd] for k in Cut.e-1:Cut.e+1]
 
 Base.isnan(sv::StateVec) = any([any(isnan.(fpe.vals)) for fpe in sv.fields])
 Base.isinf(sv::StateVec) = any([any(isinf.(fpe.vals)) for fpe in sv.fields])

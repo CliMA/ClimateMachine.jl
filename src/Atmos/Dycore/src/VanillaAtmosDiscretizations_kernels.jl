@@ -529,7 +529,6 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   q_m = zeros(DFloat, max(3, nmoist))
   ymax = maximum(vgeo[:,:,_y,:])
   xmax = maximum(vgeo[:,:,_x,:])
-
   @inbounds for e in elems
 
     delta  = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
