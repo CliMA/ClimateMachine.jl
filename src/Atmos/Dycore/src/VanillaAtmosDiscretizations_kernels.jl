@@ -66,8 +66,6 @@ function volumegrad!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       q_m[3] = q_ice
 
       P = air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
-      #ρ = air_density(T, P, q_m[1], q_m[2], q_m[3])
-        
       for m = 1:nmoist
         s = _nstate+ m 
 	Q[i,j,s,e] = ρ * q_m[m]
@@ -529,6 +527,8 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   l_v = Array{DFloat}(undef, Nq, Nq)
 
   q_m = zeros(DFloat, max(3, nmoist))
+  ymax = maximum(vgeo[:,:,_y,:])
+  xmax = maximum(vgeo[:,:,_x,:])
 
   @inbounds for e in elems
 
@@ -540,7 +540,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
       ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
       y      = vgeo[i,j,_y,e]
- 
+      x      = vgeo[i,j,_x,e]
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
       E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
@@ -561,7 +561,6 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
 #        end
       P            =    air_pressure(T, ρ, q_m[1], q_m[2], q_m[3])
       θv           = virtual_pottemp(T, P, q_m[1], q_m[2], q_m[3])
-        
       #Update rho, E after saturation adjustment
       #ρ            =     air_density(T, P, q_m[1], q_m[2], q_m[3])
       #E_int        = internal_energy(T,    q_m[1], q_m[2], q_m[3])
@@ -655,29 +654,25 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # to a sin^4 function instead of the cosines 
       # proposed by D & K 
       # ------------------------------------
+      
       # Define Sponge Boundaries
-      ymax = maximum(vgeo[:,:,_y,:])
-      xmax = maximum(vgeo[:,:,_x,:])
+      # FIXME: sponge function needs cleanup
+      # FIXME: currently assumes positive domain (i,e domain minimum is (0,0))
       xsponge = 0.85 * xmax
-      ysponge = 0.85 * ymax
+      ysponge = 0.85 * ymax 
       xspongel = 0.15 * xmax
-      yspongel = 0.15 * ymax
       # Damping coefficient
-      α = 1.00
+      α = 1.00 
       if (y > ysponge)
-        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * U
-        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (y-ysponge)/(ymax-ysponge))^4 * V
-      elseif (y < yspongel)
-        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (yspongel-y)/(yspongel))^4 * U
-        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (yspongel-y)/(yspongel))^4 * V
+        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (y-ysponge)/(ymax-ysponge))^4 * U 
+        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (y-ysponge)/(ymax-ysponge))^4 * V
       elseif (x > xsponge)
-        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (x-xsponge)/(xmax-xsponge))^4 * U
-        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (x-xsponge)/(xmax-xsponge))^4 * V
+        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (x-xsponge)/(xmax-xsponge))^4 * U 
+        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (x-xsponge)/(xmax-xsponge))^4 * V
       elseif (x < xspongel)
-        rhs[i, j, _U, e] -= ρ * α * sin(π/2 * (xspongel-x)/(xspongel))^4 * U
-        rhs[i, j, _V, e] -= ρ * α * sin(π/2 * (xspongel-x)/(xspongel))^4 * V
-      end
-
+        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * U 
+        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * V
+      end      
       # ---------------------------
       # End implementation of sponge layer
       # ---------------------------
@@ -1119,12 +1114,11 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         TM             = saturation_adjustment(E_intM/ρM , ρM, q_mM[1])
         q_liqM, q_iceM = phase_partitioning_eq(TM, ρM, q_mM[1])
         PM             = air_pressure(TM, ρM, q_mM[1], q_liqM, q_iceM) 
-
         ##θvM            = virtual_pottemp(TM, PM, q_mM[1], q_liqM, q_iceM)
         #ρM             = air_density(TM, PM, q_mM[1], q_liqM, q_iceM)
         #E_intM         = internal_energy(TM, q_mM[1], q_liqM, q_iceM)
         #EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorzM
-        
+          
         if bc == 0
           
           ρP = Q[vidP, _ρ, eP]
