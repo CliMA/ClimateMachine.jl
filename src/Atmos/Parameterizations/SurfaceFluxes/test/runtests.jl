@@ -41,7 +41,7 @@ end
                                               tol_abs,
                                               iter_max
                                               )
-  @test u_star ≈ 0.201347256193615
+  @test u_star ≈ 0.201347256193615 atol=tol_abs
 
 
   Ri, z_b, z_0, Pr_0 = 10, 2.0, 5.0, 0.74
@@ -68,7 +68,7 @@ end
   u_ave, θ, flux, Δz, z_0, a = 110, 350, 20, 100, 0.01, 5
   Ψ_m_tol, tol_abs, iter_max = 1e-3, 1e-3, 10
   u_star = Nishizawa2018.compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
-  @test u_star ≈ 5.526644550864822
+  @test u_star ≈ 5.526644550864822 atol=tol_abs
 
   z, F_m, F_h, a, u_star, θ, flux, Pr = 1.0, 2.0, 3.0, 5, 110, 350, 20, 0.74
 

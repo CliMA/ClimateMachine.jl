@@ -2,162 +2,130 @@
 # RootSolvers
 
 Module containing functions for solving roots of non-linear
-equations. The returned result is a tuple of the root and
-a Bool indicating convergence.
+equations. See [`find_zero`](@ref).
+
+
+## Example
 
 ```
-find_zero(f::F,
-           x_0::T,
-           x_1::T,
-           args::Tuple,
-           iter_params::IterParams{R, Int},
-           method::RootSolvingMethod
-           )::Tuple{T, Bool} where {F, R, T <: Union{R, AbstractArray{R}}}
-```
+using CLIMA.Utilities.RootSolvers
 
----
-
-## Interface
-- [`find_zero`](@ref) compute x^* such that f(x^*) = 0
-
-## Arguments
-- `f` equation roots function, where `f` is callable via `f(x, args...)`
-- `x_0, x_1` initial guesses
-- [`IterParams`](@ref) struct containing absolute tolerance on f(x^*) and maximum iterations
-- [`RootSolvingMethod`](@ref) Algorithm to solve roots of the equation:
-  - [`SecantMethod`](@ref) Secant method
-  - [`RegulaFalsiMethod`](@ref) Regula Falsi Method
-
-## Single example
-```
-julia> using RootSolvers
-x_0 = 0.0
-x_1 = 1.0
-f(x, y) = x^2 - y
-x_star2 = 10000.0
-args = Tuple(x_star2)
-x_star = sqrt(x_star2)
-tol_abs = 1.0e-3
-iter_max = 100
-
-x_root, converged = find_zero(f,
-                              x_0,
-                              x_1,
-                              args,
-                              IterParams(tol_abs, iter_max),
-                              SecantMethod())
-```
-
-## Broadcast example
-
-To broadcast, wrap arguments that need not be broadcasted in a Ref.
-
-```
-julia> using RootSolvers
-x_0 = rand(5,5)
-x_1 = rand(5,5).+2.0
-f(x, y) = x^2 - y
-x_star2 = 10000.0
-args = Tuple(x_star2)
-x_star = sqrt(x_star2)
-tol_abs = 1.0e-3
-iter_max = 100
-x_root, converged = find_zero.(f,
-                               x_0,
-                               x_1,
-                               Ref(args),
-                               Ref(IterParams(tol_abs, iter_max)),
-                               Ref(SecantMethod()))
+x_root, converged = find_zero(x -> x^2 - 100^2, 0.0, 1000.0, SecantMethod())
 ```
 
 """
 module RootSolvers
 
-export find_zero
-export IterParams
+export find_zero, SecantMethod, RegulaFalsiMethod, NewtonsMethod
 
-export SecantMethod
-export RegulaFalsiMethod
-
-struct IterParams{R<:AbstractFloat, I<:Int}
-  tol_abs::R
-  iter_max::I
-end
+import ForwardDiff
 
 abstract type RootSolvingMethod end
-struct SecantMethod<:RootSolvingMethod end
-struct RegulaFalsiMethod<:RootSolvingMethod end
+Base.broadcastable(method::RootSolvingMethod) = Ref(method)
 
-get_solve_methods() = (SecantMethod(), RegulaFalsiMethod())
+struct SecantMethod <: RootSolvingMethod end
+struct RegulaFalsiMethod <: RootSolvingMethod end
+struct NewtonsMethod <: RootSolvingMethod end
+
+# TODO: CuArrays.jl has trouble with isapprox on 1.1
+# we use simple checks for now, will switch to relative checks later.
 
 """
-`find_zero(f, x_0, x_1, args, iter_params, SecantMethod)`
+    x, converged = find_zero(f, x0[, x1], method;
+                             xatol=0, xrtol=sqrt(eps(eltype(x0))), 
+                             yatol=sqrt(eps(eltype(x0))), maxiters=10_000)
 
-Solves the root equation, `f`, using Secant method.
-See [RootSolvers](@ref) for more information.
+Finds the nearest root of `f` to `x0` and `x1`. Returns a the value of the root `x` such
+that `f(x) ≈ 0`, and a Boolean value `converged` indicating convergence.
+
+`method` can be one of:
+- `SecantMethod()`: [Secant method](https://en.wikipedia.org/wiki/Secant_method)
+- `RegulaFalsiMethod()`: [Regula Falsi method](https://en.wikipedia.org/wiki/False_position_method#The_regula_falsi_(false_position)_method).
+- `NewtonsMethod()`: [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
+  - The `x1` argument is omitted for Newton's method.
+
+The keyword arguments:
+- `xatol` is the absolute tolerance of the input.
+- `maxiters` is the maximum number of iterations.
 """
-function find_zero(f::F,
-                   x_0::T,
-                   x_1::T,
-                   args::Tuple,
-                   iter_params::IterParams{R, Int},
-                   method::SecantMethod
-                   )::Tuple{T, Bool} where {F, R, T <: Union{R, AbstractArray{R}}}
-  iter_max = iter_params.iter_max
-  tol_abs = iter_params.tol_abs
-  Δx = x_1 - x_0
-  y_0 = f(x_0, args...)
-  y_1 = f(x_1, args...)
-  x = x_1 - y_1 * Δx / (y_1 - y_0) # puts x in outer scope, & saves iter_max = 0 case
-  for i in 1:iter_max
-    x = x_1 - y_1 * Δx / (y_1 - y_0)
-    y_0 = y_1
-    x_0 = x_1
-    x_1 = x
-    y_1 = f(x_1, args...)
-    Δx = x_1 - x_0
-    if abs(y_1) < tol_abs
-      return x, true
+function find_zero end
+
+function find_zero(f::F, x0::T, x1::T, ::SecantMethod;
+                   xatol=T(1e-3),
+                   maxiters=10_000) where {F, T<:AbstractFloat}
+  y0 = f(x0)
+  y1 = f(x1)
+  for i in 1:maxiters
+    Δx = x1 - x0
+    Δy = y1 - y0
+    x0, y0 = x1, y1
+    x1 -= y1 * Δx / Δy
+    y1 = f(x1)
+    if abs(x0-x1) <= xatol
+      return x1, true
+    end
+  end
+  return x1, false
+end
+
+function find_zero(f::F, x0::T, x1::T, ::RegulaFalsiMethod;
+                   xatol=T(1e-3),
+                   maxiters=10_000) where {F, T<:AbstractFloat}
+  y0 = f(x0)
+  y1 = f(x1)
+  @assert y0 * y1 < 0
+  lastside = 0
+  local x
+  for i in 1:maxiters
+    x = (x0 * y1 - x1 * y0)/ (y1 - y0)
+    y = f(x)
+    if y * y0 < 0
+      if abs(x-x1) <= xatol
+        return x, true
+      end
+      x1, y1 = x, y
+      if lastside == +1
+        y0 /= 2
+      end
+      lastside = +1
+    else
+      if abs(x0-x) <= xatol
+        return x, true
+      end
+      x0, y0 = x, y
+      if lastside == -1
+        y1 /= 2
+      end
+      lastside = -1
     end
   end
   return x, false
 end
 
-"""
-`find_zero(f, x_0, x_1, args, iter_params, RegulaFalsiMethod)`
 
-Solves the root equation, `f`, using Regula Falsi method.
-See [RootSolvers](@ref) for more information.
 """
-function find_zero(f::F,
-                   x_0::T,
-                   x_1::T,
-                   args::Tuple,
-                   iter_params::IterParams{R, Int},
-                   method::RegulaFalsiMethod
-                   )::Tuple{T, Bool} where {F, R, T <: Union{R, AbstractArray{R}}}
-  iter_max = iter_params.iter_max
-  tol_abs = iter_params.tol_abs
-  a = x_0
-  b = x_1
-  fa = f(a, args...)
-  fb = f(b, args...)
-  c = a
-  i = 0
-  for i in 1:iter_max
-    fa = f(a, args...)
-    fb = f(b, args...)
-    c = (a * fb - b * fa)/ (fb - fa)
-    fc = f(c, args...)
-    if abs(fc) < tol_abs
-      return c, true
-    elseif fc * fa < 0
-      b = c
-    else
-      a = c
+    value_deriv(f, x)
+
+Compute the value and derivative `f(x)` using ForwardDiff.jl.
+"""
+function value_deriv(f, x::T) where {T}
+    tag = typeof(ForwardDiff.Tag(f, T))
+    y = f(ForwardDiff.Dual{tag}(x,one(x)))
+    ForwardDiff.value(tag, y), ForwardDiff.partials(tag, y, 1)
+end
+
+function find_zero(f::F, x0::T, ::NewtonsMethod;
+                   xatol=1e-3,
+                   maxiters=10_000) where {F, T<:AbstractFloat}
+  for i in 1:maxiters
+    y,y′ = value_deriv(f, x0)
+    x1 = x0 - y/y′
+    if abs(x0-x1) <= xatol
+      return x1, true
     end
-  end
-  return c, false
+    x0 = x1
+  end  
+  return x0, false
 end
 
 end
