@@ -529,6 +529,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   q_m = zeros(DFloat, max(3, nmoist))
   ymax = maximum(vgeo[:,:,_y,:])
   xmax = maximum(vgeo[:,:,_x,:])
+  xmin = minimum(vgeo[:,:,_x,:])
 
   @inbounds for e in elems
 
@@ -656,8 +657,6 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # ------------------------------------
       
       # Define Sponge Boundaries
-      # FIXME: sponge function needs cleanup
-      # FIXME: currently assumes positive domain (i,e domain minimum is (0,0))
       xc = (xmax - xmin)/2
       ysponge  = 0.85 * ymax
       xsponger = xmax - 0.15*abs(xmax - xc)
