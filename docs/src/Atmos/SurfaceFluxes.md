@@ -26,7 +26,7 @@ Pr_0 = 0.74
 
 plot(Ri_range,
     [Byun1990.compute_exchange_coefficients(Ri,scale*z_0,z_0,γ_m,γ_h,β_m,β_h,Pr_0)[1]
-        for Ri in Ri_range, scale in scales], 
+        for Ri in Ri_range, scale in scales],
     xlabel="Bulk Richardson number (Ri_b)", ylabel="Drag coefficient", title="Momentum exchange coefficient",
     labels=scales, legendtitle=L"z/z_0")
 
@@ -40,7 +40,7 @@ Recreation of Figure 4(a) from Byun (1990)
 ```@example byun1990
 plot(Ri_range,
     [Byun1990.compute_exchange_coefficients(Ri,scale*z_0,z_0,γ_m,γ_h,β_m,β_h,Pr_0)[2]
-        for Ri in Ri_range, scale in scales], 
+        for Ri in Ri_range, scale in scales],
     xlabel="Bulk Richardson number (Ri_b)", ylabel="Exchange coefficient", title="Heat exchange coefficient",
     labels=scales, legendtitle=L"z/z_0")
 
@@ -62,6 +62,7 @@ a = 4.7
 θ = 350
 z_0 = 10
 u_ave = 10
+flux = 1
 Δz = range(10.0, stop=100.0, length=100)
 Ψ_m_tol, tol_abs, iter_max = 1e-3, 1e-3, 10
 u_star = Nishizawa2018.compute_friction_velocity.(
@@ -96,7 +97,7 @@ Nishizawa2018.compute_exchange_coefficients
   doi: [10.1029/2018MS001534](https://doi.org/10.1029/2018MS001534)
 
 - Byun, Daewon W. "On the analytical solutions of flux-profile relationships for the
-  atmospheric surface layer." Journal of Applied Meteorology 29.7 (1990): 652-657.  
+  atmospheric surface layer." Journal of Applied Meteorology 29.7 (1990): 652-657.
   doi: [10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2](http://dx.doi.org/10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2)
 
 - Wyngaard, John C. "Modeling the planetary boundary layer-Extension to the stable case."
