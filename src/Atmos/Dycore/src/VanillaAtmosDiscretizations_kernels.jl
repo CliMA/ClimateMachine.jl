@@ -529,6 +529,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   q_m = zeros(DFloat, max(3, nmoist))
   ymax = maximum(vgeo[:,:,_y,:])
   xmax = maximum(vgeo[:,:,_x,:])
+  xmin = minimum(vgeo[:,:,_x,:])
   @inbounds for e in elems
 
     delta  = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
@@ -655,22 +656,22 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # ------------------------------------
       
       # Define Sponge Boundaries
-      # FIXME: sponge function needs cleanup
-      # FIXME: currently assumes positive domain (i,e domain minimum is (0,0))
-      xsponge = 0.85 * xmax
-      ysponge = 0.85 * ymax 
-      xspongel = 0.15 * xmax
+      xc = (xmax - xmin)/2
+      ysponge  = 0.85 * ymax
+      xsponger = xmax - 0.15*abs(xmax - xc)
+      xspongel = xmin + 0.15*abs(xmin - xc)
+        
       # Damping coefficient
       α = 1.00 
       if (y > ysponge)
-        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (y-ysponge)/(ymax-ysponge))^4 * U 
-        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (y-ysponge)/(ymax-ysponge))^4 * V
-      elseif (x > xsponge)
-        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (x-xsponge)/(xmax-xsponge))^4 * U 
-        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (x-xsponge)/(xmax-xsponge))^4 * V
+        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4 * U 
+        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4 * V
+      elseif (x > xsponger)
+        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (x - xsponger)/(xmax - xsponge))^4 * U 
+        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (x - xsponger)/(xmax - xsponge))^4 * V
       elseif (x < xspongel)
-        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * U 
-        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * V
+        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4 * U 
+        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4 * V
       end
       # ---------------------------
       # End implementation of sponge layer
@@ -1117,7 +1118,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
         #ρM             = air_density(TM, PM, q_mM[1], q_liqM, q_iceM)
         #E_intM         = internal_energy(TM, q_mM[1], q_liqM, q_iceM)
         #EM             = E_intM + (UM^2 + VM^2 + WM^2)/(2*ρM) + ρM * gravity * yorzM
-        
+          
         if bc == 0
           
           ρP = Q[vidP, _ρ, eP]
