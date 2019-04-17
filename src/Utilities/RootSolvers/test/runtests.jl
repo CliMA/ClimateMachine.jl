@@ -38,12 +38,5 @@ end
     @test all(converged)
     @test eltype(X_roots) == eltype(X0)
     @test all(X_roots .≈ 100)
-
-    result = RootSolvers.find_zero.(f, X0, X1, RegulaFalsiMethod())
-    X_roots = first.(result)
-    converged = last.(result)
-    @test all(converged)
-    @test eltype(X_roots) == eltype(X0)
-    @test all(X_roots .≈ 100)
   end
 end
