@@ -2,7 +2,8 @@ module Topologies
 
 using DocStringExtensions
 
-export AbstractTopology, BrickTopology, StackedBrickTopology, CubedShellTopology, StackedCubedSphereTopology
+export AbstractTopology, BrickTopology, StackedBrickTopology,
+       CubedShellTopology, StackedCubedSphereTopology
 
 """
     AbstractTopology{dim}
@@ -17,10 +18,12 @@ using MPI
 """
     BoxElementTopology{dim, T} <: AbstractTopology{dim}
 
-The local topology of a larger MPI-distributed topology, represented by `dim`-dimensional box elements.
+The local topology of a larger MPI-distributed topology, represented by
+`dim`-dimensional box elements.
 
-This contains the necessary information for the connectivity elements of the elements on
-the local process, along with "ghost" elements from neighbouring processes.
+This contains the necessary information for the connectivity elements of the
+elements on the local process, along with "ghost" elements from neighbouring
+processes.
 
 # Fields
 
@@ -54,8 +57,8 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   sendelems::Array{Int64, 1}
 
   """
-  Element to vertex coordinates; `elemtocoord[d,i,e]` is the `d`th coordinate of corner
-  `i` of element `e`
+  Element to vertex coordinates; `elemtocoord[d,i,e]` is the `d`th coordinate of
+  corner `i` of element `e`
 
   !!! note
       currently coordinates always are of size 3 for `(x, y, z)`
@@ -105,53 +108,75 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   """
   nabrtosend::Array{UnitRange{Int64}, 1}
 
+  """
+  boolean for whether or not this topology has a boundary
+  """
+  hasboundary::Bool
 end
+
+"""
+    hasboundary(topology::AbstractTopology)
+
+query function to check whether a topology has a boundary (i.e., not fully
+periodic)
+"""
+hasboundary(topology::AbstractTopology) = topology.hasboundary
 
 """
     BrickTopology{dim, T} <: AbstractTopology{dim}
 
-A simple grid-based topolgy. This is a convenience wrapper around [`BoxElementTopology`](@ref).
+A simple grid-based topology. This is a convenience wrapper around
+[`BoxElementTopology`](@ref).
 """
 struct BrickTopology{dim, T} <: AbstractTopology{dim}
   topology::BoxElementTopology{dim, T}
 end
-Base.getproperty(a::BrickTopology, p::Symbol) = getproperty(getfield(a, :topology), p)
+Base.getproperty(a::BrickTopology, p::Symbol) =
+getproperty(getfield(a, :topology), p)
 
 """
     CubedShellTopology{T} <: AbstractTopology{2}
 
-A cube-shell topolgy. This is a convenience wrapper around [`BoxElementTopology`](@ref).
+A cube-shell topology. This is a convenience wrapper around
+[`BoxElementTopology`](@ref).
 """
 struct CubedShellTopology{T} <: AbstractTopology{2}
   topology::BoxElementTopology{2, T}
 end
-Base.getproperty(a::CubedShellTopology, p::Symbol) = getproperty(getfield(a, :topology), p)
+Base.getproperty(a::CubedShellTopology, p::Symbol) =
+getproperty(getfield(a, :topology), p)
 
 
 """
     StackedBrickTopology{dim, T} <: AbstractTopology{dim}
 
-A simple grid-based topolgy, where all elements on the trailing dimension are stacked to be contiguous. This is a convenience wrapper around [`BoxElementTopology`](@ref).
+A simple grid-based topology, where all elements on the trailing dimension are
+stacked to be contiguous. This is a convenience wrapper around
+[`BoxElementTopology`](@ref).
 """
 struct StackedBrickTopology{dim, T} <: AbstractTopology{dim}
   topology::BoxElementTopology{dim, T}
   stacksize::Int64
 end
 function Base.getproperty(a::StackedBrickTopology, p::Symbol)
-  return p == :stacksize ? getproperty(a, p) : getproperty(getfield(a, :topology), p)
+  return p == :stacksize ? getproperty(a, p) :
+                           getproperty(getfield(a, :topology), p)
 end
 
 """
     StackedCubedSphereTopology{3, T} <: AbstractTopology{3}
 
-A cube-sphere topology. All elements on the same "vertical" dimension are stacked to be contiguous. This is a convenience wrapper around [`BoxElementTopology`](@ref).
+A cube-sphere topology. All elements on the same "vertical" dimension are
+stacked to be contiguous. This is a convenience wrapper around
+[`BoxElementTopology`](@ref).
 """
 struct StackedCubedSphereTopology{T} <: AbstractTopology{3}
   topology::BoxElementTopology{3, T}
   stacksize::Int64
 end
 function Base.getproperty(a::StackedCubedSphereTopology, p::Symbol)
-  return p == :stacksize ? getproperty(a, p) : getproperty(getfield(a, :topology), p)
+  return p == :stacksize ? getproperty(a, p) :
+                           getproperty(getfield(a, :topology), p)
 end
 
 """ A wrapper for the BrickTopology """
@@ -273,7 +298,7 @@ function BrickTopology(mpicomm, elemrange;
               topology.ghostelems, topology.sendelems, topology.elemtocoord,
               topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
               topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-              topology.nabrtosend))
+              topology.nabrtosend, !minimum(periodicity)))
 end
 
 """ A wrapper for the StackedBrickTopology """
@@ -509,12 +534,12 @@ function StackedBrickTopology(mpicomm, elemrange;
                    for n = 1:length(nabrtorank)]
 
   T = eltype(basetopo.elemtocoord)
-  
+
   StackedBrickTopology{dim, T}(
     BoxElementTopology{dim, T}(
       mpicomm, elems, realelems, ghostelems, sendelems,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend),
+      nabrtorank, nabrtorecv, nabrtosend, !minimum(periodicity)),
     stacksize)
 end
 
@@ -595,13 +620,14 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
       topology.ghostelems, topology.sendelems, elemtocoord,
       topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
       topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-      topology.nabrtosend))
+      topology.nabrtosend, false))
 end
 
 """
     cubedshellmesh(T, Ne; part=1, numparts=1)
 
-Generate a cubed mesh with each of the "cubes" has an `Ne X Ne` grid of elements.
+Generate a cubed mesh with each of the "cubes" has an `Ne X Ne` grid of
+elements.
 
 The mesh can optionally be partitioned into `numparts` and this returns
 partition `part`.  This is a simple Cartesian partition and further partitioning
@@ -729,7 +755,7 @@ function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
     y, z = X * x, Y * x
     x,y,z
   end
-  
+
   fdim = argmax(abs.((a, b, c)))
   if fdim == 1 && a < 0
     # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
@@ -917,7 +943,7 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
     BoxElementTopology{3, T}(
       mpicomm, elems, realelems, ghostelems, sendelems,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend),
+      nabrtorank, nabrtorecv, nabrtosend, true),
     stacksize)
 end
 
