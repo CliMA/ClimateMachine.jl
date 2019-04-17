@@ -28,7 +28,7 @@ uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.5.3"
 
 [[CLIMA]]
-deps = ["Canary", "Coverage", "DocStringExtensions", "Documenter", "LinearAlgebra", "Literate", "Logging", "MPI", "Printf", "Requires", "StaticArrays", "WriteVTK"]
+deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "DocStringExtensions", "Documenter", "ForwardDiff", "LinearAlgebra", "Literate", "Logging", "MPI", "Printf", "Requires", "StaticArrays", "WriteVTK"]
 path = "../../"
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
