@@ -399,13 +399,11 @@ function writevtk(prefix, vgeo::Array, Q::Array,
  # 
  # writemesh(prefix, X...; fields=fields, realelems=G.topology.realelems)
 
-   
+  fields = ntuple(i->("Q$i", reshape((@view Q[:,i,:]), ntuple(j->Nq,dim)...,nelem)), size(Q,2)) 
+  
   writemesh(prefix, X...;
-            fields=(("rho", ρ), ("U", U), ("V", V), ("W", W), ("E", E), ("Qtot", Qt),("Qliq", Ql)),
+            fields=fields,
             realelems=G.topology.realelems)
-  #   writemesh(prefix, X...;
-  #             fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
-  #             realelems=G.topology.realelems)
   
 end
 end

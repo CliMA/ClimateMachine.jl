@@ -672,7 +672,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       elseif (x < xspongel)
         rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * U 
         rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (xspongel-x)/(xspongel))^4 * V
-      end      
+      end
       # ---------------------------
       # End implementation of sponge layer
       # ---------------------------
@@ -1138,7 +1138,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
           TP             = saturation_adjustment(E_intP/ρP, ρP, q_mP[1])
           q_liqP, q_iceP = phase_partitioning_eq(TP, ρP, q_mP[1])
           PP             = air_pressure(TP, ρP, q_mP[1], q_liqP, q_iceP) 
-          #θvP            = virtual_pottemp(TP, PP, q_mP[1], q_liqP, q_iceP)
+          θvP            = virtual_pottemp(TP, PP, q_mP[1], q_liqP, q_iceP)
           #ρP             = air_density(TP, PP, q_mP[1], q_liqP, q_iceP)
           #E_intP         = internal_energy(TP, q_mP[1], q_liqP, q_iceP)
           #EP             = E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * gravity * yorzP
