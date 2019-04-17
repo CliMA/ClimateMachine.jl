@@ -34,6 +34,7 @@ Topologies.StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 ```@docs
 Topologies.cubedshellmesh
 Topologies.cubedshellwarp
+Topologies.hasboundary
 ```
 
 ## `Grids`
