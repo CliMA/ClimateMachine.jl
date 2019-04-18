@@ -672,7 +672,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       if r_sponge <= r_actual
         rhs[i, j, _U, e] -= α * sinpi(1/2 * (r_actual - r_sponge)/(r_sponge))^4 * U 
         rhs[i, j, _V, e] -= α * sinpi(1/2 * (r_actual - r_sponge)/(r_sponge))^4 * V
-      elseif r_sponge<= 2 * r_actual
+      elseif 2 * r_sponge <= r_actual
         rhs[i, j, _U, e] -= α * U 
         rhs[i, j, _V, e] -= α * V
       end
