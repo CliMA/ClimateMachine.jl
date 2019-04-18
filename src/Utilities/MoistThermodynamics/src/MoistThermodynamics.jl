@@ -34,14 +34,10 @@ export saturation_excess
 export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, phase_partitioning_eq
 
 # Auxiliary functions, e.g., for diagnostic purposes
-<<<<<<< HEAD
-export liquid_ice_pottemp, dry_pottemp, exner, virtual_pottemp
-=======
 export air_temperature_from_liquid_ice_pottemp, dry_pottemp, virtual_pottemp, exner
 export liquid_ice_pottemp, liquid_ice_pottemp_sat
 
 include("states.jl")
->>>>>>> origin
 
 
 """
@@ -950,13 +946,11 @@ function exner(p::DT, q_tot::DT=DT(0), q_liq::DT=DT(0), q_ice::DT=DT(0)) where D
     return (p/DT(MSLP))^(_R_m/_cp_m)
 end
 
-<<<<<<< HEAD
 function virtual_pottemp(T, p, q_tot=0, q_liq=0, q_ice=0)
   q_vap = q_tot - q_liq - q_ice
   theta = dry_pottemp(T, p, q_tot, q_liq, q_ice)
   return theta * (1.0 + 0.61 * q_vap - q_liq - q_ice)
 end
-=======
 """
     exner(ts::ThermodynamicState)
 
@@ -966,5 +960,4 @@ exner(ts::ThermodynamicState) =
   exner(air_pressure(ts), ts.q_tot, phase_partitioning_eq(ts)...)
 
 
->>>>>>> origin
 end #module MoistThermodynamics.jl
