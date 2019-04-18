@@ -530,6 +530,7 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
   ymax = maximum(vgeo[:,:,_y,:])
   xmax = maximum(vgeo[:,:,_x,:])
   xmin = minimum(vgeo[:,:,_x,:])
+
   @inbounds for e in elems
 
     delta  = Grids.compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
@@ -539,8 +540,8 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       MJ     = vgeo[i, j, _MJ, e]
       ξx, ξy = vgeo[i,j,_ξx,e], vgeo[i,j,_ξy,e]
       ηx, ηy = vgeo[i,j,_ηx,e], vgeo[i,j,_ηy,e]
-      y      = vgeo[i,j,_y,e]
       x      = vgeo[i,j,_x,e]
+      y      = vgeo[i,j,_y,e]
       U, V = Q[i, j, _U, e], Q[i, j, _V, e]
       ρ, E = Q[i, j, _ρ, e], Q[i, j, _E, e]
       E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
@@ -656,26 +657,42 @@ function volumerhs!(::Val{2}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
       # ------------------------------------
       
       # Define Sponge Boundaries
+      #=
       xc = (xmax - xmin)/2
       ysponge  = 0.85 * ymax
       xsponger = xmax - 0.15*abs(xmax - xc)
       xspongel = xmin + 0.15*abs(xmin - xc)
-        
+      =#
+      
       # Damping coefficient
       α = 1.00 
-      if (y > ysponge)
-        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4 * U 
-        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4 * V
-      elseif (x > xsponger)
-        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (x - xsponger)/(xmax - xsponge))^4 * U 
-        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (x - xsponger)/(xmax - xsponge))^4 * V
-      elseif (x < xspongel)
-        rhs[i, j, _U, e] -= ρ * α * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4 * U 
-        rhs[i, j, _V, e] -= ρ * α * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4 * V
+      r_actual = sqrt((x-1900)^2 + (y-800)^2)
+      r_sponge = 1500
+
+      if r_sponge <= r_actual
+        rhs[i, j, _U, e] -= α * sinpi(1/2 * (r_actual - r_sponge)/(r_sponge))^4 * U 
+        rhs[i, j, _V, e] -= α * sinpi(1/2 * (r_actual - r_sponge)/(r_sponge))^4 * V
+      elseif r_sponge<= 2 * r_actual
+        rhs[i, j, _U, e] -= α * U 
+        rhs[i, j, _V, e] -= α * V
       end
+      
       # ---------------------------
       # End implementation of sponge layer
       # ---------------------------
+      
+      #= OBSOLETE
+      if (y > ysponge)
+        rhs[i, j, _U, e] -= α * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4 * U 
+        rhs[i, j, _V, e] -= α * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4 * V
+      elseif (x > xsponger)
+        rhs[i, j, _U, e] -= α * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4 * U 
+        rhs[i, j, _V, e] -= α * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4 * V
+      elseif (x < xspongel)
+        rhs[i, j, _U, e] -= α * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4 * U 
+        rhs[i, j, _V, e] -= α * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4 * V
+      end
+      =#
       
       # Store velocity
       l_u[i, j], l_v[i, j] = u, v
