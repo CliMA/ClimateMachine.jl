@@ -8,22 +8,22 @@ using ...MPIStateArrays
 
 export VanillaAtmosDiscretization
 
-
 using ...ParametersType
-using ...PlanetParameters: cp_d, cv_d, grav, MSLP
-using ...MoistThermodynamics
+using ...PlanetParameters: cp_d, cv_d, R_d, grav, MSLP
+using CLIMA.MoistThermodynamics
 
 # ASR Correction to Prandtl number from 7.1 to 0.71
 @parameter prandtl 71//100 "Prandtl number: ratio of momentum diffusivity to thermal diffusivity"
 @parameter λ_stokes  -2//3  "scaling for viscous effect associated with volume change"
 @parameter k_μ cp_d/prandtl "thermal conductivity / dynamic viscosity"
+@parameter Cs      12//100  "Smagorinsky constant"
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
-const _nstategrad = 15
+const _nstategrad = 18
 const (_ρx, _ρy, _ρz, _ux, _uy, _uz, _vx, _vy, _vz, _wx, _wy, _wz,
-       _Tx, _Ty, _Tz) = 1:_nstategrad
+       _Tx, _Ty, _Tz, _θx, _θy, _θz) = 1:_nstategrad
 
 """
     VanillaAtmosDiscretization{nmoist, ntrace}(grid; gravity = true,
@@ -45,7 +45,7 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
   "gravitational acceleration (m/s^2)"
   gravity::T
 
-              "viscosity constant"
+  "viscosity constant"
   viscosity::T
 
   "storage for the grad"
@@ -68,7 +68,7 @@ struct VanillaAtmosDiscretization{T, dim, polynomialorder, numberofDOFs,
                                       ) where {T, dim, N, Np, DA,
                                                nmoist, ntrace}
     topology = grid.topology
-
+    
     ngrad = _nstategrad + 3*nmoist
     # FIXME: Remove after updating CUDA
     h_vgeo = Array(grid.vgeo)
@@ -148,7 +148,7 @@ function MPIStateArrays.MPIStateArray(disc::VanillaAtmosDiscretization{
   Q = MPIStateArray(disc)
 
   nvar = _nstate + nmoist + ntrace
-  G = disc.grid
+  G    = disc.grid
   vgeo = G.vgeo
 
   # FIXME: GPUify me
@@ -187,13 +187,13 @@ Given a discretization `disc` and a state `Q` compute an estimate for the time
 step
 
 !!! todo
-
     This estimate is currently very conservative, needs to be revisited
 """
 function estimatedt(disc::VanillaAtmosDiscretization{T, dim, N, Np, DA, nmoist},
                     Q::MPIStateArray) where {T, dim, N, Np, DA, nmoist}
   
   @assert T == eltype(Q)
+
   G = disc.grid
   vgeo = G.vgeo
   # FIXME: GPUify me
@@ -216,6 +216,9 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
   # Allocate 3 spaces for moist tracers qm, with a zero default value
   q_m = zeros(DFloat, max(3, nmoist))
 
+  #Allocate at least three spaces for qm, with a zero default value
+  #q_m = zeros(DFloat, 3)
+    
   if dim == 2
     @inbounds for e = 1:nelem, n = 1:Np
       ρ, U, V = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e]
@@ -228,11 +231,11 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
           s = _nstate + m
           q_m[m] = Q[n, s, e]/ρ
       end
+      
       E_int = E - (U^2 + V^2)/(2*ρ) - ρ * gravity * y
       # get adjusted temperature and liquid and ice specific humidities
-      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
-      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
-    
+      T            = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+     
       ξx, ξy, ηx, ηy = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e],
                        vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e]
       
@@ -259,9 +262,8 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
       end
 
       # get adjusted temperature and liquid and ice specific humidities
-      T = saturation_adjustment(E_int/ρ, ρ, q_m[1])
-      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_m[1])
-      
+      T            = saturation_adjustment(E_int/ρ, ρ, q_m[1])
+     
       ξx, ξy, ξz = vgeo[n, G.ξxid, e], vgeo[n, G.ξyid, e], vgeo[n, G.ξzid, e]
       ηx, ηy, ηz = vgeo[n, G.ηxid, e], vgeo[n, G.ηyid, e], vgeo[n, G.ηzid, e]
       ζx, ζy, ζz = vgeo[n, G.ζxid, e], vgeo[n, G.ζyid, e], vgeo[n, G.ζzid, e]
@@ -271,7 +273,7 @@ function estimatedt(::Val{dim}, ::Val{N}, ::Val{nmoist}, G, gravity, Q, vgeo,
                         abs(U * ζx + V * ζy + W * ζz) + ρ * soundspeed_air(T))
       dt[1] = min(dt[1], loc_dt)
    
-  end
+    end
   end
 
   MPI.Allreduce(dt[1], MPI.MIN, mpicomm) / N^√2
@@ -306,6 +308,7 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
   DFloat = eltype(Q)
   @assert DFloat == eltype(Q)
   @assert DFloat == eltype(vgeo)
+  @assert DFloat == eltype(sgeo)
   @assert DFloat == eltype(Dmat)
   @assert DFloat == eltype(grad)
   @assert DFloat == eltype(dQ)
@@ -340,6 +343,7 @@ function rhs!(dQ::MPIStateArray{S, T}, Q::MPIStateArray{S, T}, t::T,
   facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), dQ.Q, Q.Q, grad.Q,
            vgeo, sgeo, gravity, viscosity, topology.realelems, vmapM, vmapP,
            elemtobndy)
+
 end
 # }}}
 
@@ -368,21 +372,40 @@ function writevtk(prefix, vgeo::Array, Q::Array,
                   G::Grids.AbstractGrid{T, dim, N}) where {T, dim, N}
 
   Nq  = N+1
-
   nelem = size(Q)[end]
   Xid = (G.xid, G.yid, G.zid)
   X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
                         ntuple(j->Nq, dim)...,
                         nelem), dim)
+ 
+  # Tuple splat output for final plots
+  #ntuple(j->(reshape(@view Q[:, j, :]),
+  #             ntuple(j->Nq,dim)...,nelem),dim)
+
   ρ = reshape((@view Q[:, _ρ, :]), ntuple(j->Nq, dim)..., nelem)
   U = reshape((@view Q[:, _U, :]), ntuple(j->Nq, dim)..., nelem)
   V = reshape((@view Q[:, _V, :]), ntuple(j->Nq, dim)..., nelem)
   W = reshape((@view Q[:, _W, :]), ntuple(j->Nq, dim)..., nelem)
   E = reshape((@view Q[:, _E, :]), ntuple(j->Nq, dim)..., nelem)
+  Qt= reshape((@view Q[:, _nstate+1, :]), ntuple(j->Nq, dim)..., nelem)
+  Ql= reshape((@view Q[:, _nstate+2, :]), ntuple(j->Nq, dim)..., nelem)
+
+  #[_, nstates, _] = size(Q)    
+  #nmoist = nstates - (ndim + 2)
+        
+ # var_string = ["DENSI" , "U" , "U" , "W", "E"]
+ #    error("NSTATES ", size(Q))
+ # fields = ntuple(i->(var_string[i], reshape((@view Q[:,i,:]), ntuple(j->Nq,dim)...,nelem)), size(Q,2))
+ # 
+ # writemesh(prefix, X...; fields=fields, realelems=G.topology.realelems)
+
+  fields = ntuple(i->("Q$i", reshape((@view Q[:,i,:]), ntuple(j->Nq,dim)...,nelem)), size(Q,2)) 
+  
   writemesh(prefix, X...;
-            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
+            fields=fields,
             realelems=G.topology.realelems)
-  end
+  
+end
 end
 
 

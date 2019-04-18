@@ -946,6 +946,11 @@ function exner(p::DT, q_tot::DT=DT(0), q_liq::DT=DT(0), q_ice::DT=DT(0)) where D
     return (p/DT(MSLP))^(_R_m/_cp_m)
 end
 
+function virtual_pottemp(T, p, q_tot=0, q_liq=0, q_ice=0)
+  q_vap = q_tot - q_liq - q_ice
+  theta = dry_pottemp(T, p, q_tot, q_liq, q_ice)
+  return theta * (1.0 + 0.61 * q_vap - q_liq - q_ice)
+end
 """
     exner(ts::ThermodynamicState)
 
