@@ -9,7 +9,8 @@ using CLIMA.GenericCallbacks
 using CLIMA.AtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
-using Printf
+using Logging, Printf, Dates
+using Test
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, T_triple, MSLP
@@ -63,15 +64,15 @@ end
 
 
 function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
-              timeend; gravity=true, dt=nothing,
+              timeend, bricktopo; gravity=true, dt=nothing,
               exact_timeend=true)
   dim = length(brickrange)
-  topl = BrickTopology(# MPI communicator to connect elements/partition
-                       mpicomm,
-                       # tuple of point element edges in each dimension
-                       # (dim is inferred from this)
-                       brickrange,
-                       periodicity=(true, ntuple(j->false, dim-1)...))
+  topl = bricktopo(# MPI communicator to connect elements/partition
+                   mpicomm,
+                   # tuple of point element edges in each dimension
+                   # (dim is inferred from this)
+                   brickrange,
+                   periodicity=(true, ntuple(j->false, dim-1)...))
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           # Compute floating point type
@@ -120,26 +121,22 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   lsrk = LowStorageRungeKutta(getrhsfunction(spacedisc), Q; dt = dt, t0 = 0)
 
   # Get the initial energy
-  io = MPI.Comm_rank(mpicomm) == 0 ? stdout : open("/dev/null", "w")
   eng0 = norm(Q)
-  @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
+  @info @sprintf """Starting
+  norm(Q₀) = %.16e""" eng0
 
   # Set up the information callback
-  timer = [time_ns()]
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  starttime = Ref(now())
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
-      timer[1] = time_ns()
+      starttime[] = now()
     else
-      run_time = (time_ns() - timer[1]) * 1e-9
-      (min, sec) = fldmod(run_time, 60)
-      (hrs, min) = fldmod(min, 60)
-      @printf(io,
-              "-------------------------------------------------------------\n")
-      @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
-      @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
-      @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
+      energy = norm(Q)
+      @info @sprintf """Update
+  simtime = %.16e
+  runtime = %s
+  norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") energy
     end
-    nothing
   end
 
   #= Paraview calculators:
@@ -148,12 +145,13 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
   =#
   step = [0]
   mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
-    outprefix = @sprintf("vtk/RTB_%dD_step%04d", dim, step[1])
-    @printf(io,
-            "-------------------------------------------------------------\n")
-    @printf(io, "doing VTK output =  %s\n", outprefix)
-    VanillaAtmosDiscretizations.writevtk(outprefix, Q, spacedisc)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
+    outprefix = @sprintf("vtk/IS_%dD_rank_%d_of_%d_step%04d", dim,
+                         MPI.Comm_rank(mpicomm)+1, MPI.Comm_size(mpicomm),
+                         step[1])
+    @debug "doing VTK output" outprefix
+    step[1] == 0 &&
+      VanillaAtmosDiscretizations.writevtk(outprefix, Q, spacedisc)
     step[1] += 1
     nothing
   end
@@ -162,16 +160,17 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
 
   # Print some end of the simulation information
   engf = norm(Q)
-  @printf(io, "-------------------------------------------------------------\n")
-  @printf(io, "||Q||₂ ( final ) =  %.16e\n", engf)
-  @printf(io, "||Q||₂ (initial) / ||Q||₂ ( final ) = %+.16e\n", engf / eng0)
-  @printf(io, "||Q||₂ ( final ) - ||Q||₂ (initial) = %+.16e\n", eng0 - engf)
+  @info @sprintf """Finished
+  norm(Q)            = %.16e
+  norm(Q) / norm(Q₀) = %.16e
+  norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
 
   h_Q = ArrayType == Array ? Q.Q : Array(Q.Q)
   for (j, n) = enumerate(spacedisc.tracerange)
-    @assert -j * (@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
+    @test -j * (@view h_Q[:, spacedisc.ρid, :]) ≈ (@view h_Q[:, n, :])
   end
 
+  engf
 end
 
 let
@@ -180,16 +179,32 @@ let
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
 
+  if MPI.Comm_rank(mpicomm) == 0
+    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+    loglevel = ll == "DEBUG" ? Logging.Debug :
+               ll == "WARN"  ? Logging.Warn  :
+               ll == "ERROR" ? Logging.Error : Logging.Info
+    global_logger(ConsoleLogger(stderr, loglevel))
+  else
+    global_logger(NullLogger())
+  end
+
   nmoist = 1
-  ntrace = 1
-  Ne = (10, 10, 10)
-  N = 2
-  timeend = 0.1
-  for DFloat in (Float64, Float32)
+  ntrace = 2
+  Ne = (10, 10, 1)
+  N = 3
+  dt = 1e-3
+  timeend = 2dt
+  for DFloat in (Float64, )
     for ArrayType in (Array,)
-      for dim in 2:3
-        brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000), dim)
-        main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N, timeend)
+      for bricktopo in (BrickTopology, StackedBrickTopology)
+        for dim in 2:3
+          brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1000),
+                              dim)
+          main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
+               timeend, bricktopo; dt=dt)
+          @test true
+        end
       end
     end
   end
