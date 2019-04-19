@@ -149,7 +149,7 @@ specific_volume(T::DT, p::DT, q_tot::DT=DT(0), q_liq::DT=DT(0), q_ice::DT=DT(0))
 The (moist-)air specific volume from the equation of
 state (ideal gas law), given a thermodynamic state `ts`.
 """
-specific_volume(ts::ThermodynamicState) = 1/ts.density
+specific_volume(ts::ThermodynamicState) = specific_volume(air_temperature(ts), air_pressure(ts), ts.q_tot, phase_partitioning_eq(ts)...)
 
 """
     cp_m([q_tot=0, q_liq=0, q_ice=0])
@@ -896,7 +896,7 @@ The virtual potential temperature,
 given a thermodynamic state `ts`.
 """
 virtual_pottemp(ts::ThermodynamicState) =
-  virtual_pottemp(air_temperature(ts), ts.q_tot, phase_partitioning_eq(ts)...)
+  virtual_pottemp(air_temperature(ts), air_pressure(ts), ts.q_tot, phase_partitioning_eq(ts)...)
 
 
 """
