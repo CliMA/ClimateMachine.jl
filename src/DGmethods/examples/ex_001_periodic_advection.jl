@@ -269,7 +269,7 @@ function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64,
   # we can create the grid of degrees of free using
   grid = DiscontinuousSpectralElementGrid(topology; polynomialorder =
                                           polynomialorder, FloatType = DFloat,
-  DeviceArray = ArrayType,)
+                                          DeviceArray = ArrayType,)
   # Note: This constructor also takes in a `FloatType` which specifies the
   # floating point type to be used (e.g., for the coordinate points and geometry
   # metric terms). The argument `ArrayType` is used to determine the compute
