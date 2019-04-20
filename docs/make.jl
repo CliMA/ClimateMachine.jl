@@ -8,6 +8,7 @@ GENERATED_BL_EXAMPLES =
 [joinpath("examples", "DGmethods", "generated", f) for f in
  (
   "ex_001_periodic_advection.md",
+  "ex_002_solid_body_rotation.md",
  )]
 
 makedocs(
