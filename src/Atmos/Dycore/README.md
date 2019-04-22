@@ -31,13 +31,13 @@ MPI in your path.
 ## Running locally with CPUs
 
 ```bash
-mpirun -n 4 julia --project=@. drivers/rising_thermal_bubble.jl
+mpirun -n 4 julia --project=@. test/rising_thermal_bubble.jl
 ```
 
 ## Running locally with GPUs
 
 ```bash
-mpirun -n 4 julia --project=../../../env/gpu/ drivers/rising_thermal_bubble.jl
+mpirun -n 4 julia --project=../../../env/gpu/ test/rising_thermal_bubble.jl
 ```
 
 [0]: https://github.com/JuliaParallel/MPI.jl
