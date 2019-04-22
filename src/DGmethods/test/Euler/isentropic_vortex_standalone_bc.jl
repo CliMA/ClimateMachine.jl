@@ -41,23 +41,12 @@ if !@isdefined integration_testing
 end
 
 # preflux computation
-@inline function preflux(Q, aux, t)
+@inline function preflux(Q, _...)
   γ::eltype(Q) = γ_exact
-  @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-  @inbounds U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
+  @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
   u, v, w = ρinv * U, ρinv * V, ρinv * W
   ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
-end
-
-@inline function correctQ!(Q, aux)
-  @inbounds Q[_U] -= aux[1]
-  @inbounds Q[_V] -= aux[2]
-  @inbounds Q[_W] -= aux[3]
-end
-
-@inline function auxiliary_state_initialization!(aux, x, y, z)
-  @inbounds aux[1], aux[2], aux[3] = rand(), rand(), rand()
 end
 
 # max eigenvalue
@@ -68,12 +57,11 @@ end
 
 # physical flux function
 eulerflux!(F, Q, aux, t) =
-eulerflux!(F, Q, aux, t, preflux(Q, aux, t)...)
+eulerflux!(F, Q, aux, t, preflux(Q)...)
 
 @inline function eulerflux!(F, Q, aux, t, P, u, v, w, ρinv)
   @inbounds begin
-    ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-    U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
+    ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
     F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -83,9 +71,21 @@ eulerflux!(F, Q, aux, t, preflux(Q, aux, t)...)
   end
 end
 
+@inline function auxiliary_state_initialization!(aux, x, y, z)
+  @inbounds aux[1], aux[2], aux[3] = x, y, z
+end
+
+@inline function bcstate!(QP, _, _, auxM, bctype, t, _...)
+  @inbounds begin
+    x, y, z = auxM[1], auxM[2], auxM[3]
+    isentropicvortex!(QP, t, x, y, z)
+    nothing
+  end
+end
+
 # initial condition
 const halfperiod = 5
-function isentropicvortex!(Q, t, x, y, z, aux)
+function isentropicvortex!(Q, t, x, y, z, _...)
   DFloat = eltype(Q)
 
   γ::DFloat    = γ_exact
@@ -111,9 +111,9 @@ function isentropicvortex!(Q, t, x, y, z, aux)
 
   ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
   p = ρ^γ
-  U = ρ*u + aux[1]
-  V = ρ*v + aux[2]
-  W = ρ*w + aux[3]
+  U = ρ*u
+  V = ρ*v
+  W = ρ*w
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
   if integration_testing
@@ -135,17 +135,19 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
+  numflux!(x...) = NumericalFluxes.rusanov!(x..., eulerflux!, wavespeed,
+                                            preflux)
+  numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., eulerflux!,
+                                                           bcstate!, wavespeed,
+                                                           preflux)
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            inviscid_flux! = eulerflux!,
-                           inviscid_numerical_flux! = (x...) ->
-                           NumericalFluxes.rusanov!(x..., eulerflux!,
-                                                    wavespeed,
-                                                    preflux,
-                                                    correctQ!),
+                           inviscid_numerical_flux! = numflux!,
                            auxiliary_state_length = 3,
                            auxiliary_state_initialization! =
                            auxiliary_state_initialization!,
+                           inviscid_numerical_boundary_flux! = numbcflux!,
                           )
 
   # This is a actual state/function that lives on the grid
@@ -190,6 +192,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
+
   # Print some end of the simulation information
   engf = norm(Q)
   if integration_testing
@@ -218,7 +221,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
-  topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
+  topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->false, dim))
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 end
 
@@ -244,12 +247,12 @@ let
     polynomialorder = 4
 
     expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_error[1,1] = 5.7115689019456650e-01
-    expected_error[1,2] = 6.9418982796517287e-02
-    expected_error[1,3] = 3.2927550219067365e-03
-    expected_error[2,1] = 1.8061566743070270e+00
-    expected_error[2,2] = 2.1952209848917140e-01
-    expected_error[2,3] = 1.0412605646156937e-02
+    expected_error[1,1] = 5.7105308450995285e-01
+    expected_error[1,2] = 6.9418479834512270e-02
+    expected_error[1,3] = 3.2927533553245305e-03
+    expected_error[2,1] = 1.7598355942969304e+00
+    expected_error[2,2] = 2.1585634095568529e-01
+    expected_error[2,3] = 1.0298579367557497e-02
     lvls = size(expected_error, 2)
 
     for DFloat in (Float64,) #Float32)
@@ -283,10 +286,10 @@ let
     mpicomm = MPI.COMM_WORLD
 
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    check_engf_eng0[2, 1, Float64] = 9.9999784637552236e-01
-    check_engf_eng0[3, 1, Float64] = 9.9999657640450179e-01
-    check_engf_eng0[2, 3, Float64] = 9.9999927972044056e-01
-    check_engf_eng0[3, 3, Float64] = 9.9999661971173426e-01
+    check_engf_eng0[2, 1, Float64] = 9.9999647263376656e-01
+    check_engf_eng0[3, 1, Float64] = 9.9999538532437882e-01
+    check_engf_eng0[2, 3, Float64] = 9.9999678213110155e-01
+    check_engf_eng0[3, 3, Float64] = 9.9999479423880178e-01
 
     for DFloat in (Float64,) #Float32)
       for dim = 2:3

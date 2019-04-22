@@ -123,18 +123,13 @@ function compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, i
       return (log(z_1 / z_0) - compute_ψ_m(u)) / k_Karman # Eq. 10 in Ref. Byun1990
     end
     compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
-    compute_u_ave(u) = u*compute_u_ave_over_ustar(u)
-    compute_ustar_roots(u) = u_ave - compute_u_ave(u) # Eq. 10 in Ref. Byun1990
 
     if (abs(flux) > 0)
       ustar_1 = compute_ustar(ustar_0)
-      args = ()
-      ustar, converged = RootSolvers.find_zero(compute_ustar_roots,
-                                               ustar_0, ustar_1,
-                                               args,
-                                               IterParams(tol_abs, iter_max),
-                                               SecantMethod()
-                                               )
+      ustar, converged = RootSolvers.find_zero(
+        u -> u_ave - u*compute_u_ave_over_ustar(u),
+        ustar_0, ustar_1, SecantMethod();
+        xatol=tol_abs, maxiters=iter_max)
     end
 
   end
@@ -266,16 +261,11 @@ function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_a
       return (temp1+temp2+temp3+temp4) / k_Karman
     end
     compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
-    compute_u_ave(u) = u*compute_u_ave_over_ustar(u)
-    compute_ustar_roots(u) = u_ave - compute_u_ave(u)
-    args = ()
     ustar_1 = compute_ustar(ustar_0)
-    ustar, converged = RootSolvers.find_zero(compute_ustar_roots,
-                                             ustar_0, ustar_1,
-                                             args,
-                                             IterParams(tol_abs, iter_max),
-                                             SecantMethod()
-                                             )
+    ustar, converged = RootSolvers.find_zero(
+      u -> u_ave - u*compute_u_ave_over_ustar(u),
+      ustar_0, ustar_1, SecantMethod();
+      xatol=tol_abs, maxiters=iter_max)
   end
   return ustar
 end

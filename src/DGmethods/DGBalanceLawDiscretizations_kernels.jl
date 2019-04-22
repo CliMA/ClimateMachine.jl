@@ -104,7 +104,8 @@ end
 
 """
     facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
-             ::Val{nauxstate}, numericalflux!, rhs::Array, Q, Qgrad, auxstate,
+             ::Val{nauxstate}, inviscid_numerical_flux!,
+             inviscid_numerical_boundary_flux!, rhs::Array, Q, Qgrad, auxstate,
              vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
              elems) where {dim, N, nstate, ngradstate, nauxstate}
 
@@ -116,7 +117,8 @@ See [`odefun!`](@ref) for usage.
 function facerhs!(::Val{dim}, ::Val{N},
                   ::Val{nstate}, ::Val{ngradstate},
                   ::Val{nauxstate},
-                  numericalflux!,
+                  inviscid_numerical_flux!,
+                  inviscid_numerical_boundary_flux!,
                   rhs::Array, Q, Qgrad, auxstate,
                   vgeo, sgeo,
                   t, vmapM, vmapP, elemtobndy,
@@ -183,14 +185,15 @@ function facerhs!(::Val{dim}, ::Val{N},
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        # Fix up for boundary conditions
-        bc = elemtobndy[f, e]
-        @assert bc == 0 #cannot handle bc yet
 
-        numericalflux!(l_F, nM,
-                       l_QM, l_auxM,
-                       l_QP, l_auxP,
-                       t)
+        bctype =
+            inviscid_numerical_boundary_flux! === nothing ? 0 : elemtobndy[f, e]
+        if bctype == 0
+          inviscid_numerical_flux!(l_F, nM, l_QM, l_auxM, l_QP, l_auxP, t)
+        else
+          inviscid_numerical_boundary_flux!(l_F, nM, l_QM, l_auxM, l_QP, l_auxP,
+                                            bctype, t)
+        end
 
         #Update RHS
         for s = 1:nstate

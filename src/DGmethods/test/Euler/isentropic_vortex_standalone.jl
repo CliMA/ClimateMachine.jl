@@ -126,7 +126,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            inviscid_flux! = eulerflux!,
-                           inviscid_numericalflux! = (x...) ->
+                           inviscid_numerical_flux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux))
