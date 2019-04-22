@@ -28,47 +28,46 @@ There are several types of functions:
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
-A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_tot`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities `q_liq` and `q_ice` from the internal energy `e_int` by saturation adjustment:
+A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_tot`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities (`q.liq` and `q.ice`) from the internal energy `e_int` by saturation adjustment:
 ```julia
-    T = saturation_adjustment(e_int, ρ, q_tot);
-    q_liq, q_ice = phase_partitioning_eq(T, ρ, q_tot);
+T = saturation_adjustment(e_int, ρ, q_tot);
+q = PhasePartition_equil(T, ρ, q_tot);
 ```
 here, `ρ` is the density of the moist air, and the internal energy `e_int = e_tot - e_kin - geopotential` is the total energy `e_tot` minus kinetic energy `e_kin` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
 
 Schematically, the workflow in such a core would look as follows:
 ```julia
+# initialize
+geopotential = grav * z
+q_tot          = ...
+ρ            = ...
 
-    # initialize
-    geopotential = grav * z
-    q_tot          = ...
-    ρ            = ...
+(u, v, w)    = ...
+e_kin           = 0.5 * (u^2 + v^2 + w^2)
 
-    (u, v, w)    = ...
-    e_kin           = 0.5 * (u.^2 .+ v.^2 .+ w.^2)
+e_tot        = total_energy(e_kin, geopotential, T, q_tot)
 
-    e_tot        = total_energy(e_kin, geopotential, T, q_tot)
+do timestep   # timestepping loop
 
-    do timestep   # timestepping loop
+  # advance dynamical variables by a timestep (temperature typically
+  # appears in terms on the rhs, such as radiative transfer)
+  advance(u, v, w, ρ, e_tot, q_tot)
 
-      # advance dynamical variables by a timestep (temperature typically
-      # appears in terms on the rhs, such as radiative transfer)
-      advance(u, v, w, ρ, e_tot, q_tot)
+  # compute internal energy from dynamic variables
+  e_int = e_tot - 0.5 * (u^2 + v^2 + w^2) - geopotential
 
-      # compute internal energy from dynamic variables
-      e_int = e_tot - 0.5 * (u.^2 .+ v.^2 .+ w.^2) - geopotential
+  # compute temperature, pressure and condensate specific humidities,
+  T = saturation_adjustment(e_int, ρ, q_tot);
+  q = PhasePartition_equil(T, ρ, q_tot);
+  p = air_pressure(T, ρ, q)
 
-      # compute temperature, pressure and condensate specific humidities,
-      T = saturation_adjustment(e_int, ρ, q_tot);
-      q_liq, q_ice = phase_partitioning_eq(T, ρ, q_tot);
-      p = air_pressure(T, ρ, q_tot, q_liq, q_ice)
-
-    end
+end
 ```
 
-For a dynamical core that additionally uses the liquid and ice specific humidities `q_liq` and `q_ice` as prognostic variables, and thus explicitly allows the presence of non-equilibrium phases such as supercooled water, the saturation adjustment in the above workflow is replaced by a direct calculation of temperature and pressure:
+For a dynamical core that additionally uses the liquid and ice specific humidities `q.liq` and `q.ice` as prognostic variables, and thus explicitly allows the presence of non-equilibrium phases such as supercooled water, the saturation adjustment in the above workflow is replaced by a direct calculation of temperature and pressure:
 ```julia
-    T = air_temperature(e_int, q_tot, q_liq, q_ice)
-    p = air_pressure(T, ρ, q_tot, q_liq, q_ice)
+T = air_temperature(e_int, q)
+p = air_pressure(T, ρ, q)
 ```
 
 ## Functions
@@ -78,6 +77,8 @@ CurrentModule = CLIMA.MoistThermodynamics
 ```
 
 ```@docs
+PhasePartition
+PhasePartition_equil
 ThermodynamicState
 PhaseEquil
 PhaseNonEquil
@@ -106,7 +107,6 @@ liquid_fraction_nonequil
 liquid_ice_pottemp
 liquid_ice_pottemp_sat
 moist_gas_constants
-phase_partitioning_eq
 saturation_adjustment
 saturation_excess
 saturation_shum
