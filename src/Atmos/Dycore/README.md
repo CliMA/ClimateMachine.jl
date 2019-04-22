@@ -34,11 +34,5 @@ MPI in your path.
 mpirun -n 4 julia --project=@. test/rising_thermal_bubble.jl
 ```
 
-## Running locally with GPUs
-
-```bash
-mpirun -n 4 julia --project=../../../env/gpu/ test/rising_thermal_bubble.jl
-```
-
 [0]: https://github.com/JuliaParallel/MPI.jl
 [1]: https://cmake.org
