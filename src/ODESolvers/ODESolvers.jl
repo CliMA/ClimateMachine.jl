@@ -3,6 +3,11 @@ module ODESolvers
 export solve!
 
 abstract type AbstractODESolver end
+"""
+    gettime(solver::AbstractODESolver)
+
+Returns the current simulation time of the ODE solver `solver`
+"""
 gettime(solver::AbstractODESolver) = solver.t[1]
 dostep!(Q, solver::AbstractODESolver, tf, afs) = throw(MethodError(dostep!, (Q, solver, tf, afs)))
 # {{{ run!

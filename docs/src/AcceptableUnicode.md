@@ -1,4 +1,4 @@
-# Acceptable Unicode characters:
+# Acceptable Unicode characters
 
 Using Unicode seems to be irresistible. However, we
 must ensure avoiding problematic Unicode usage.
@@ -8,7 +8,7 @@ Below is a list of acceptable Unicode characters.
 forbid the use of accents (dot, hat, vec, etc.), because
 this can lead to visually ambiguous characters.
 
-## Acceptable lower-case Greek letters:
+## Acceptable lower-case Greek letters
 
 ```
 α # (alpha)
@@ -34,7 +34,7 @@ this can lead to visually ambiguous characters.
 φ # (varphi)
 ```
 
-## Acceptable upper-case Greek letters:
+## Acceptable upper-case Greek letters
 
 ```
 Δ # (Delta)
@@ -45,7 +45,7 @@ this can lead to visually ambiguous characters.
 <!-- Φ # (Phi) removed in favor of lowercase psi -->
 ```
 
-## Acceptable mathematical symbols:
+## Acceptable mathematical symbols
 
 ```
 ∫ # (int)

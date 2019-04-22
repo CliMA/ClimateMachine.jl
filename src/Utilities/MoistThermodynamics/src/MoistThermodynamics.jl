@@ -767,10 +767,9 @@ function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
   else # If saturated, iterate
     # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
     T_2 = air_temperature(e_int, q_tot, DT(0), q_tot) # Assume all ice
-    eos_root(T, args) = internal_energy_sat(T, ρ, q_tot) - e_int
-    T, converged = find_zero(eos_root, T_1, T_2, Tuple(1),
-                             IterParams(DT(1e-3)*DT(cv_d), 10),
-                             SecantMethod())
+    T, converged = find_zero(
+      T -> internal_energy_sat(T, ρ, q_tot) - e_int,
+      T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
     return T
   end
 end
@@ -795,10 +794,9 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::DT, q_tot::DT, ρ::D
     return T_1
   else  # If saturated, iterate
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, q_tot, DT(0), q_tot) # Assume all ice
-    eos_root(T, args) = θ_liq_ice - liquid_ice_pottemp_sat(T, p, q_tot, phase_partitioning_eq(T, ρ, q_tot)...)
-    T, converged = find_zero(eos_root, T_1, T_2, Tuple(1),
-                             IterParams(DT(1e-3), 10),
-                             SecantMethod())
+    T, converged = find_zero(
+      T -> θ_liq_ice - liquid_ice_pottemp_sat(T, p, q_tot, phase_partitioning_eq(T, ρ, q_tot)...),
+      T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
     return T
   end
 end
