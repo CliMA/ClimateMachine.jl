@@ -10,12 +10,6 @@ assumes that you have a working MPI installation and [CMake][1] installed.
 julia --project=@. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
 ```
 
-## Setup with GPUs
-
-```bash
-julia --project=../../../env/gpu/ -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
-```
-
 ## Problems building MPI.jl
 
 If you are having problems building MPI.jl then most likely CMake cannot find
