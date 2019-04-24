@@ -603,9 +603,7 @@ R_{z0m}              & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceMomentumFlux & = -\FrictionVelocity^2                , \label{eq:SurfaceMomentumFlux}  \\
 \end{align}
 ```
-where
-
- - $\Psi_m$ and $\Psi_h$ are defined in Appendix A, equations A5 and A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
+where $\Psi_m$ is defined in Appendix A, equations A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
 
 ### Temperature scale
 NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in [Surface fluxes](@ref) must be solved simultaneously
@@ -620,6 +618,7 @@ R_{z0h}                          & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceHeatFlux                 & = -\FrictionVelocity\TemperatureScale , \label{eq:SurfaceHeatFlux}  \\
 \end{align}
 ```
+where $\Psi_h$ is defined in Appendix A, equation A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
 
 ## Shear production
 
