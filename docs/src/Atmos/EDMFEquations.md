@@ -168,6 +168,8 @@ Here, $\SDi{\phi}$ and $\SDi{\psi}$ are a dummy variables for the following 7 un
 \end{align}
 ```
 
+From the large-scale model perspective, $\DM{\phi}$ represents the resolved grid-scale (GS) mean, and $\TCV{\phi}{\psi}$ represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations in the following sections, \eqref{eq:AreaFracGov}, \eqref{eq:1stMoment} and \eqref{eq:2ndMoment}, are solved on $z_{min} \le z \le z_{max}$ and $t \ge 0$. There are $8 \Nsd$ equations in total.
+
 ## Domain averaged equations
 The EDMF model can be used in the context of a stand-alone single column, or integrated with a dynamical core. Either way, the EDMF model relies on domain-averaged variables, which may be prescribed or solved for. Taking an area fraction-weighted average of the SD equations yields the domain-averaged equations (which should be consistent with variables in the dynamical core).
 
@@ -259,7 +261,7 @@ The 1st moment sub-domain equations are:
 \end{align}
 ```
 
-In addition, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. From the large-scale model perspective, $\DM{\phi}$ represents the resolved grid-scale (GS) mean, and $\TCV{\phi}{\psi}$ represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations ``\eqref{eq:AreaFracGov}`` and ``\eqref{eq:1stMoment}`` are solved on $z_{min} \le z \le z_{max}$ and $t \ge 0$. There are $8 \Nsd$ equations in total. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
+Here, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
 
 ### Source terms per equation
 The source terms common to all unknowns are:
@@ -342,6 +344,7 @@ The 2nd moment sub-domain equations are of the exact same form as the 1st moment
   , \quad i = 1,2,..., \Nsd{}. \\
 \end{align}
 ```
+Here, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
 
 ### Source terms per equation
 The source terms common to all unknowns are:
@@ -600,6 +603,9 @@ R_{z0m}              & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceMomentumFlux & = -\FrictionVelocity^2                , \label{eq:SurfaceMomentumFlux}  \\
 \end{align}
 ```
+where
+
+ - $\Psi_m$ and $\Psi_h$ are defined in Appendix A, equations A5 and A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
 
 ### Temperature scale
 NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in [Surface fluxes](@ref) must be solved simultaneously
