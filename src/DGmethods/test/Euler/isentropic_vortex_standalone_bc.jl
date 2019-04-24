@@ -56,10 +56,10 @@ end
 end
 
 # physical flux function
-eulerflux!(F, Q, aux, t) =
-eulerflux!(F, Q, aux, t, preflux(Q)...)
+eulerflux!(F, Q, QV, aux, t) =
+eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
 
-@inline function eulerflux!(F, Q, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -75,7 +75,7 @@ end
   @inbounds aux[1], aux[2], aux[3] = x, y, z
 end
 
-@inline function bcstate!(QP, _, _, auxM, bctype, t, _...)
+@inline function bcstate!(QP, _, _, _, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[1], auxM[2], auxM[3]
     isentropicvortex!(QP, t, x, y, z)
@@ -142,12 +142,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                                            preflux)
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
-                           inviscid_flux! = eulerflux!,
-                           inviscid_numerical_flux! = numflux!,
+                           flux! = eulerflux!,
+                           numerical_flux! = numflux!,
                            auxiliary_state_length = 3,
                            auxiliary_state_initialization! =
                            auxiliary_state_initialization!,
-                           inviscid_numerical_boundary_flux! = numbcflux!,
+                           numerical_boundary_flux! = numbcflux!,
                           )
 
   # This is a actual state/function that lives on the grid

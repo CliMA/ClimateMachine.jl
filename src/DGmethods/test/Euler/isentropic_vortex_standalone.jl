@@ -56,10 +56,10 @@ end
 end
 
 # physical flux function
-eulerflux!(F, Q, aux, t) =
-eulerflux!(F, Q, aux, t, preflux(Q)...)
+eulerflux!(F, Q, QV, aux, t) =
+eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
 
-@inline function eulerflux!(F, Q, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -125,8 +125,8 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
-                           inviscid_flux! = eulerflux!,
-                           inviscid_numerical_flux! = (x...) ->
+                           flux! = eulerflux!,
+                           numerical_flux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux))
