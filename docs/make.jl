@@ -20,6 +20,7 @@ makedocs(
     "Atmos" => Any[
       "Atmos/SurfaceFluxes.md",
       "Atmos/TurbulenceConvection.md",
+      "Atmos/EDMFEquations.md",
     ],
     "ODESolvers" => "ODESolvers.md",
     "Mesh" => "Mesh.md",
