@@ -14,7 +14,7 @@
 # ## Introduction
 #
 # In this example we will solve the constant coefficient advection equation on a
-# periodic domain; domain is taken to be the unit square or cube depending on
+# periodic domain; the domain is taken to be the unit square or cube depending on
 # whether the problem is two- or three-dimensional.
 #
 # The partial differential equation we wish to solve is
@@ -183,14 +183,14 @@ end
 #------------------------------------------------------------------------------
 
 # ### Exact Solution
-# For periodic constant velocity advection the exact solution is trivial to
+# For periodic constant-velocity advection the exact solution is trivial to
 # compute. Assuming that $\phi(x)$ is the periodically replicated initial
 # condition, the analytic solution is
 # ```math
 # q(\vec{x}, t) = \phi(\vec{x} - \vec{u} t).
 # ```
 # This will be useful later since it will allow us to check our work by
-# computing error in our solution and estimate the convergence rate.
+# computing the error in our solution and estimating the convergence rate.
 #
 # For a general initial condition on the unit domain the following function can
 # be used:
