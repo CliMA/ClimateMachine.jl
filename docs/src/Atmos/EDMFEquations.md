@@ -876,8 +876,8 @@ Bottom boundary
 ```math
 \begin{align}
 \BCB{\SDi{w}} &= 0 \\
-\PD_z \BCB{\SDi{\qt}} &= \DM{\qt} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\qt}{\qt}} \\
-\PD_z \BCB{\SDi{\hint}} &= \DM{\hint} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\hint}{\hint}} \\
+\BCB{\SDi{\qt}} &= \DM{\qt} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\qt}{\qt}} \\
+\BCB{\SDi{\hint}} &= \DM{\hint} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\hint}{\hint}} \\
 \end{align}
 ```
 where additional variable/function definitions are in:
