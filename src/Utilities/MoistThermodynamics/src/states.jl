@@ -1,6 +1,37 @@
+export PhasePartition
 # Thermodynamic states
 export ThermodynamicState, PhaseEquil,
   PhaseNonEquil, LiquidIcePotTempSHumEquil
+
+"""
+    PhasePartition
+
+Represents the mass fractions of the moist air mixture.
+
+# Constructors
+
+    PhasePartition(q_tot::Real[, q_liq::Real[, q_ice::Real]])
+    PhasePartition(ts::ThermodynamicState)
+
+See also [`PhasePartition_equil`](@ref)
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct PhasePartition{DT<:Real}
+  "total specific humidity"
+  tot::DT
+  "liquid water specific humidity (default: `0`)"
+  liq::DT
+  "ice specific humidity (default: `0`)"
+  ice::DT
+end
+
+PhasePartition(q_tot::DT,q_liq::DT) where {DT<:Real} =
+  PhasePartition(q_tot, q_liq, zero(DT))
+PhasePartition(q_tot::DT) where {DT<:Real} =
+  PhasePartition(q_tot, zero(DT), zero(DT))
 
 
 """
@@ -52,8 +83,8 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from liquid-ice potential 
 """
 function LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
     T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ, p)
-    q_liq, q_ice = phase_partitioning_eq(T, ρ, q_tot)
-    e_int = internal_energy(T, q_tot, q_liq, q_ice)
+    q = PhasePartition(T, ρ, q_tot)
+    e_int = internal_energy(T, q)
     PhaseEquil(e_int, q_tot, ρ, T)
 end
 
@@ -66,7 +97,7 @@ be computed directly).
 
 # Constructors
 
-    PhaseNonEquil(e_int, q_tot, q_liq, q_ice, ρ)
+    PhaseNonEquil(e_int, q::PhasePartition, ρ)
 
 # Fields
 
@@ -76,13 +107,8 @@ $(DocStringExtensions.FIELDS)
 struct PhaseNonEquil{DT} <: ThermodynamicState{DT}
   "internal energy"
   e_int::DT
-  "total specific humidity"
-  q_tot::DT
-  "specific humidity of liquid"
-  q_liq::DT
-  "specific humidity of ice"
-  q_ice::DT
+  "phase partition"
+  q::PhasePartition{DT}
   "density of air (potentially moist)"
   density::DT
 end
-

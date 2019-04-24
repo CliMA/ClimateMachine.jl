@@ -57,7 +57,7 @@ total specific humidity `qt_b`, liquid specific humidity `ql_b`,
 ice specific humidity `qi_b` and specific `alpha0_0`.
 """
 function compute_buoyancy_flux(shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0)
-  cp_ = cp_m(qt_b, ql_b, qi_b)
+  cp_ = cp_m(PhasePartition(qt_b, ql_b, qi_b))
   lv = latent_heat_vapor(T_b)
   temp1 = (molmass_ratio-1)
   temp2 = (shf + temp1 * cp_ * T_b * lhf /lv)
