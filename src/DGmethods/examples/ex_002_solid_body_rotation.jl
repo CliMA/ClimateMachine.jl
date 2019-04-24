@@ -361,8 +361,8 @@ end
 #------------------------------------------------------------------------------
 
 # ### Finalizing MPI (if necessary)
-Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-isinteractive() || MPI.Finalize()
+Sys.iswindows() || MPI.finalize_atexit()
+Sys.iswindows() && !isinteractive() && MPI.Finalize()
 #md nothing # hide
 
 #md # ## [Plain Program](@id ex_002_solid_body_rotation-plain-program)
