@@ -812,12 +812,12 @@ Here, we specify boundary conditions (BCs) by their type, Dirichlet (D) or Neuma
 \begin{align}
 \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_1, F_2)
 & = \begin{cases}
-    4 \frac{F_1 F_2}{\FrictionVelocity^2} (1 - 8.3\zLL/\MOLen) & \MOLen < 0 \\
+    4 \frac{F_1 F_2}{\FrictionVelocity^2} (1 - 8.3\zLL/\MOLen)^{-2/3} & \MOLen < 0 \\
     4 \frac{F_1 F_2}{\FrictionVelocity^2} & \text{otherwise}
 \end{cases} \\
 \Gamma_{TKE}(\FrictionVelocity, \zLL, \MOLen, \ConvectiveVelocity)
 & = \begin{cases}
-    3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} & \MOLen < 0 \\
+    3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 + {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} & \MOLen < 0 \\
     3.75 {\FrictionVelocity}^2 & \text{otherwise}
 \end{cases} \\
 \SensibleSurfaceHeatFlux & = \BC{\TCV{w}{\hint}} c_{pm} \rhoRef \\
