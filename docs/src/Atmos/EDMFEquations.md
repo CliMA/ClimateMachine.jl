@@ -675,6 +675,8 @@ where additional variable definitions are in:
 
  - [Monin-Obhukov length](@ref) ($\MOLen$).
 
+ - [Friction velocity](@ref) ($\FrictionVelocity$).
+
  - [Buoyancy gradient](@ref) ($\BuoyancyGrad$).
 
  - [Potential temperatures](@ref) ($\ThetaDry$, $\ThetaVirt$).
@@ -685,12 +687,12 @@ Smoothing function is provided in python file. The Prandtl number was used from 
 
 ```math
 \begin{align}\label{eq:EddyDiffusivity}
-\SDi{K_m} = \begin{cases}
+\SDi{K_m} & = \begin{cases}
 c_K \SDio{{l_{mix},}} \sqrt{\SDi{TKE}} & i = \iEnv
 0 & \text{otherwise}
 \end{cases} \\
-c_K = 0.1 \\
-\SDi{K_h} = \frac{\SDi{K_m}}{Pr} \\
+c_K & = 0.1 \\
+\SDi{K_h} & = \frac{\SDi{K_m}}{Pr} \\
 Pr &= \frac{K_m}{K_h} \\
 \end{align}
 ```
