@@ -168,6 +168,8 @@ Here, $\SDi{\phi}$ and $\SDi{\psi}$ are a dummy variables for the following 7 un
 \end{align}
 ```
 
+From the large-scale model perspective, $\DM{\phi}$ represents the resolved grid-scale (GS) mean, and $\TCV{\phi}{\psi}$ represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations in the following sections, \eqref{eq:AreaFracGov}, \eqref{eq:1stMoment} and \eqref{eq:2ndMoment}, are solved on $z_{min} \le z \le z_{max}$ and $t \ge 0$. There are $8 \Nsd$ equations in total.
+
 ## Domain averaged equations
 The EDMF model can be used in the context of a stand-alone single column, or integrated with a dynamical core. Either way, the EDMF model relies on domain-averaged variables, which may be prescribed or solved for. Taking an area fraction-weighted average of the SD equations yields the domain-averaged equations (which should be consistent with variables in the dynamical core).
 
@@ -259,7 +261,7 @@ The 1st moment sub-domain equations are:
 \end{align}
 ```
 
-In addition, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. From the large-scale model perspective, $\DM{\phi}$ represents the resolved grid-scale (GS) mean, and $\TCV{\phi}{\psi}$ represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations ``\eqref{eq:AreaFracGov}`` and ``\eqref{eq:1stMoment}`` are solved on $z_{min} \le z \le z_{max}$ and $t \ge 0$. There are $8 \Nsd$ equations in total. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
+Here, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
 
 ### Source terms per equation
 The source terms common to all unknowns are:
@@ -342,6 +344,7 @@ The 2nd moment sub-domain equations are of the exact same form as the 1st moment
   , \quad i = 1,2,..., \Nsd{}. \\
 \end{align}
 ```
+Here, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
 
 ### Source terms per equation
 The source terms common to all unknowns are:
@@ -600,6 +603,7 @@ R_{z0m}              & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceMomentumFlux & = -\FrictionVelocity^2                , \label{eq:SurfaceMomentumFlux}  \\
 \end{align}
 ```
+where $\Psi_m$ is defined in Appendix A, equations A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
 
 ### Temperature scale
 NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in [Surface fluxes](@ref) must be solved simultaneously
@@ -614,6 +618,7 @@ R_{z0h}                          & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceHeatFlux                 & = -\FrictionVelocity\TemperatureScale , \label{eq:SurfaceHeatFlux}  \\
 \end{align}
 ```
+where $\Psi_h$ is defined in Appendix A, equation A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
 
 ## Shear production
 
@@ -675,6 +680,8 @@ where additional variable definitions are in:
 
  - [Monin-Obhukov length](@ref) ($\MOLen$).
 
+ - [Friction velocity](@ref) ($\FrictionVelocity$).
+
  - [Buoyancy gradient](@ref) ($\BuoyancyGrad$).
 
  - [Potential temperatures](@ref) ($\ThetaDry$, $\ThetaVirt$).
@@ -685,12 +692,12 @@ Smoothing function is provided in python file. The Prandtl number was used from 
 
 ```math
 \begin{align}\label{eq:EddyDiffusivity}
-\SDi{K_m} = \begin{cases}
+\SDi{K_m} & = \begin{cases}
 c_K \SDio{{l_{mix},}} \sqrt{\SDi{TKE}} & i = \iEnv
 0 & \text{otherwise}
 \end{cases} \\
-c_K = 0.1 \\
-\SDi{K_h} = \frac{\SDi{K_m}}{Pr} \\
+c_K & = 0.1 \\
+\SDi{K_h} & = \frac{\SDi{K_m}}{Pr} \\
 Pr &= \frac{K_m}{K_h} \\
 \end{align}
 ```
@@ -812,12 +819,12 @@ Here, we specify boundary conditions (BCs) by their type, Dirichlet (D) or Neuma
 \begin{align}
 \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_1, F_2)
 & = \begin{cases}
-    4 \frac{F_1 F_2}{\FrictionVelocity^2} (1 - 8.3\zLL/\MOLen) & \MOLen < 0 \\
+    4 \frac{F_1 F_2}{\FrictionVelocity^2} (1 - 8.3\zLL/\MOLen)^{-2/3} & \MOLen < 0 \\
     4 \frac{F_1 F_2}{\FrictionVelocity^2} & \text{otherwise}
 \end{cases} \\
 \Gamma_{TKE}(\FrictionVelocity, \zLL, \MOLen, \ConvectiveVelocity)
 & = \begin{cases}
-    3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} & \MOLen < 0 \\
+    3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 + {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} & \MOLen < 0 \\
     3.75 {\FrictionVelocity}^2 & \text{otherwise}
 \end{cases} \\
 \SensibleSurfaceHeatFlux & = \BC{\TCV{w}{\hint}} c_{pm} \rhoRef \\
@@ -868,8 +875,8 @@ Bottom boundary
 ```math
 \begin{align}
 \BCB{\SDi{w}} &= 0 \\
-\PD_z \BCB{\SDi{\qt}} &= \DM{\qt} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\qt}{\qt}} \\
-\PD_z \BCB{\SDi{\hint}} &= \DM{\hint} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\hint}{\hint}} \\
+\BCB{\SDi{\qt}} &= \DM{\qt} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\qt}{\qt}} \\
+\BCB{\SDi{\hint}} &= \DM{\hint} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\hint}{\hint}} \\
 \end{align}
 ```
 where additional variable/function definitions are in:
