@@ -476,7 +476,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
 
     # TODO: volumegrad!
 
-    MPIStateArrays.finish_ghost_exchange!(Q)
+    MPIStateArrays.finish_ghost_recv!(Q)
 
     # TODO: facegrad!
 
@@ -491,16 +491,20 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
              disc.inviscid_flux!, disc.source!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q,
              vgeo, t, Dmat, topology.realelems)
 
-  MPIStateArrays.finish_ghost_exchange!(ngradstate > 0 ? Qgrad : Q)
+  MPIStateArrays.finish_ghost_recv!(ngradstate > 0 ? Qgrad : Q)
 
-  ngradstate > 0 && MPIStateArrays.finish_ghost_exchange!(Qgrad)
-  ngradstate == 0 && MPIStateArrays.finish_ghost_exchange!(Q)
+  ngradstate > 0 && MPIStateArrays.finish_ghost_recv!(Qgrad)
+  ngradstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
            disc.inviscid_numerical_flux!,
            disc.inviscid_numerical_boundary_flux!, dQ.Q, Q.Q, Qgrad.Q,
            auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
            topology.realelems)
+
+  # Just to be safe, we wait on the sends we started.
+  MPIStateArrays.finish_ghost_send!(Qgrad)
+  MPIStateArrays.finish_ghost_send!(Q)
 end
 
 """

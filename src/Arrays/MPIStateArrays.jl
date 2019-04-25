@@ -206,7 +206,7 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
   dorecvs && post_Irecvs!(Q)
 
   # wait on (prior) MPI sends
-  MPI.Waitall!(Q.sendreq)
+  finish_ghost_send!(Q)
 
   # pack data in send buffer
   fillsendbuf!(Q.host_sendQ, Q.device_sendQ, Q.Q, Q.sendelems)
@@ -222,15 +222,35 @@ end
 """
     finish_ghost_exchange!(Q::MPIStateArray)
 
-Complete the exchange of data and fill the data array on the device
+Complete the exchange of data and fill the data array on the device. Note this
+completes both the send and the receive communication. For more fine level
+control see [finish_ghost_exchange_recv!](@ref) and
+[finish_ghost_exchange_send!](@ref)
 """
 function finish_ghost_exchange!(Q::MPIStateArray)
+  finish_ghost_recv!(Q::MPIStateArray)
+  finish_ghost_send!(Q::MPIStateArray)
+end
+
+"""
+    finish_ghost_recv!(Q::MPIStateArray)
+
+Complete the receive of data and fill the data array on the device
+"""
+function finish_ghost_recv!(Q::MPIStateArray)
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
 
   # copy data to state vectors
   transferrecvbuf!(Q.device_recvQ, Q.host_recvQ, Q, length(Q.realelems))
 end
+
+"""
+    finish_ghost_send!(Q::MPIStateArray)
+
+Waits on the send of data to be complete
+"""
+finish_ghost_send!(Q::MPIStateArray) = MPI.Waitall!(Q.sendreq)
 
 # {{{ MPI Buffer handling
 fillsendbuf!(h, d, b::MPIStateArray, e) = fillsendbuf!(h, d, b.Q, e)
