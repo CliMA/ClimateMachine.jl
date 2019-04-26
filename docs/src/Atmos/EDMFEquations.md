@@ -37,9 +37,9 @@
 \newcommand{\IntraCVSDj}[2]{\overline{{#1}_{j      }'{#2}_{j      }'}}
 \newcommand{\IntraCVSDe}[2]{\overline{{#1}_{\iEnv{}}'{#2}_{\iEnv{}}'}}
 
-\newcommand{\InterCVSDi}[2]{\overline{{#1}_{i      }'}\overline{{#2}_{i      }'}}
-\newcommand{\InterCVSDj}[2]{\overline{{#1}_{j      }'}\overline{{#2}_{j      }'}}
-\newcommand{\InterCVSDe}[2]{\overline{{#1}_{\iEnv{}}'}\overline{{#2}_{\iEnv{}}'}}
+\newcommand{\InterCVSDi}[2]{\overline{{#1}_{i      }'}~\overline{{#2}_{i      }'}}
+\newcommand{\InterCVSDj}[2]{\overline{{#1}_{j      }'}~\overline{{#2}_{j      }'}}
+\newcommand{\InterCVSDe}[2]{\overline{{#1}_{\iEnv{}}'}~\overline{{#2}_{\iEnv{}}'}}
 
 \newcommand{\TCV}[2]{\langle {#1}^*{#2}^* \rangle}
 
@@ -238,7 +238,7 @@ We note that the net exchange is zero $\sum_i \SDi{S_{\epsilon\delta}}^a = 0$. T
 \begin{align}
 \SDi{S_{\epsilon\delta}}^a =
 \begin{cases}
-  \rho a_i \SDi{w} \left( -\delta_i + \sum_{j\ne i} \epsilon_{j} \right) & i \ne \iEnv{} \\
+  \rho a_i \SDi{w} \left( -\delta_i + \epsilon_{\iEnv{}} \right) & i \ne \iEnv{} \\
   0 - \sum_{j \ne \iEnv{}} \SDj{S_{\epsilon\delta}}^a & i = \iEnv{} \\
 \end{cases},
 \end{align}
@@ -247,7 +247,7 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Entrainment-Detrainment](@ref) ($\epsilon_{ij}$) and ($\delta_i$).
+ - [Entrainment-Detrainment](@ref) ($\epsilon_{i}$) and ($\delta_i$).
 
 ## Sub-domain equations: 1st moment
 
@@ -306,10 +306,10 @@ Note: The sum of the total pressure and gravity are recast into the sum of the n
 \begin{align}
 \SDi{S_{\epsilon\delta}}^{\phi} &=
 \begin{cases}
-  \rhoRef{} a_i \SDi{w} \left( -\delta_i \SDi{\phi} + \epsilon_{i} \SDj{\phi} \right) & i \ne \iEnv{} \\
+  \rhoRef{} a_i \SDi{w} \left( -\delta_i \SDi{\phi} + \epsilon_{i} \SDe{\phi} \right) & i \ne \iEnv{} \\
   0 - \sum_{j \ne \iEnv{}} \SDj{S_{\epsilon\delta}}^{\phi} & i=\iEnv{} \\
 \end{cases} \\
-\SDi{S_{\text{turb-transp}}}^{\phi} & =  -\PD_z (\rhoRef{} a_i \IntraCVSDi{w}{w}) \\
+\SDi{S_{\text{turb-transp}}}^{\phi} & =  -\PD_z (\rhoRef{} a_i \IntraCVSDi{w}{\phi}) \\
  & = \PD_z (\rhoRef{} a_i K_i^m \PD_z \SDi{\phi}) \\
 \SDi{S_{\text{nh-press}}} &= -\rhoRef{} \aSDi{a} \left( \alpha_b \SDi{b}  + \alpha_d \frac{(\SDi{w} - \SDe{w}) || \SDi{w} - \SDe{w} || }{r_d \aSDi{a}^{1/2}} \right) \\
 \alpha_b &= 1/3, \quad \alpha_d = 0.375, \quad r_d      = 500 [m] \\
@@ -326,7 +326,7 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Entrainment-Detrainment](@ref) ($\epsilon_{ij}$) and ($\delta_i$).
+ - [Entrainment-Detrainment](@ref) ($\epsilon_{i}$) and ($\delta_i$).
 
  - [Buoyancy](@ref) ($\Buoyancy$).
 
@@ -388,17 +388,17 @@ Additional source terms exist in other equations:
 \begin{align}
 \SDi{S_{\epsilon\delta}}^{\phi\psi} &=
 \begin{cases}
-  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \IntraCVSDi{\phi}{\psi} + \sum_{j\ne i}\epsilon_{ij}
+  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \IntraCVSDi{\phi}{\psi} + \epsilon_{i}
 \left(
-\IntraCVSDj{\phi}{\psi} + (\SDj{\phi} - \SDi{\phi})(\SDj{\psi} - \SDi{\psi})
+\IntraCVSDe{\phi}{\psi} + (\SDe{\phi} - \SDi{\phi})(\SDe{\psi} - \SDi{\psi})
 \right) \right] & i \ne \iEnv \\
   0 - \sum_{j\ne \iEnv} \SDj{S_{\epsilon\delta}}^{\phi\psi} & i=\iEnv \\
 \end{cases} \\
 \SDi{S_{\epsilon\delta}}^{TKE} &=
 \begin{cases}
-  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \SDi{TKE} + \sum_{j\ne i}\epsilon_{ij}
+  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \SDi{TKE} + \epsilon_{i}
 \left(
-\SDj{TKE} + \frac{1}{2} (\SDj{w} - \SDi{w})^2
+\SDe{TKE} + \frac{1}{2} (\SDe{w} - \SDi{w})^2
 \right) \right] & i \ne \iEnv \\
   0 - \sum_{j\ne \iEnv} \SDj{S_{\epsilon\delta}}^{TKE} & i=\iEnv \\
 \end{cases} \\
@@ -433,7 +433,7 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Entrainment-Detrainment](@ref) ($\epsilon_{ij}$) and ($\delta_i$).
+ - [Entrainment-Detrainment](@ref) ($\epsilon_{i}$) and ($\delta_i$).
 
  - [Eddy diffusivity](@ref) ($K_i$).
 
@@ -754,10 +754,10 @@ where additional variable definitions are in:
 
 ## Entrainment-Detrainment
 
-Entrainment ($\epsilon_{ij}$)
+Entrainment ($\epsilon_{i}$)
 ```math
 \begin{align}\label{eq:Entrainment}
-\epsilon_{ij} &= c_{\epsilon} \frac{\max(\SDi{b}, 0)}{\SDi{w}^2} \\
+\epsilon_{i} &= c_{\epsilon} \frac{\max(\SDi{b}, 0)}{\SDi{w}^2} \\
 c_{\epsilon} &= 0.12 \\
 \alpha_i &= \frac{\Rd \SDi{T}}{\pRef} (1 - \SDi{\qt} + \epsvi \SDi{\qv}) \\
 \SDi{\qv} &= \SDi{\qt} - \SDi{\ql} - \SDi{\qi} \\
