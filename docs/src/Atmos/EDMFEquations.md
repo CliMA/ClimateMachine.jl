@@ -48,18 +48,21 @@
 \newcommand{\BCB}[1]{{#1|_{z_{min}}}}
 \newcommand{\BCG}[1]{{#1|_{z_{boundary}}}}
 
+\newcommand{\WindSpeed}{|u|}
 \newcommand{\LayerThickness}{\param{\Delta z}}
 \newcommand{\SurfaceRoughness}[1]{\param{z_{0#1}}}
 \newcommand{\SensibleSurfaceHeatFlux}{F_{\mathrm{sensible}''}}
 \newcommand{\LatentSurfaceHeatFlux}{F_{\mathrm{latent}''}}
 \newcommand{\FrictionVelocity}{u_*}
+\newcommand{\Buoyancy}{b}
+\newcommand{\BuoyancyGrad}{\PD_z \Buoyancy}
+\newcommand{\BuoyancyFlux}{\IntraCVSDi{w}{\theta}}
 \newcommand{\TemperatureScale}{\theta_*}
 \newcommand{\SurfaceMomentumFlux}{\BC{\overline{w'u'}}}
 \newcommand{\SurfaceHeatFlux}{\BC{\overline{w'\theta'}}}
-\newcommand{\SurfaceBuoyancyFlux}{\overline{w'\theta'}}
+\newcommand{\SurfaceBuoyancyFlux}{\BC{\IntraCVSDi{w}{\theta}}}
 \newcommand{\ConvectiveVelocity}{{w_*}} % Convective velocity near the surface
 \newcommand{\InversionHeight}{{z_*}}
-\newcommand{\BuoyancyGrad}{\PD_z b}
 \newcommand{\MOLen}{\Lambda_{M-O}}
 \newcommand{\zLL}{\param{z_{||}}} % z at the first surface level (we should make this grid-independent)
 
@@ -97,34 +100,35 @@
 \newcommand{\gammaH}{\hyperparam{\gamma_h}}
 
 \newcommand{\PTilde}{\param{\tilde{p}}}
-\newcommand{\RefLHv}{\param{L_{v,0}}}
-\newcommand{\RefLHs}{\param{L_{s,0}}}
-\newcommand{\RefLHf}{\param{L_{f,0}}}
-\newcommand{\Rd}{\param{R_d}}
-\newcommand{\Rv}{\param{R_v}}
 \newcommand{\VKConst}{\param{\kappa_{\mathrm{Von-Karman}}}}
 \newcommand{\Nsd}{\hyperparam{N_{sd}}}
 \newcommand{\grav}{\param{g}}
-\newcommand{\epsvi}{\param{\varepsilon_{vi}}}
-\newcommand{\MRatio}{\param{M_{\mathrm{ratio}}}}
 \newcommand{\TZero}{\param{T_{0}}}
 \newcommand{\RefHintV}{\param{{\hint}_{v,0}}}
 \newcommand{\RefHintI}{\param{{\hint}_{i,0}}}
 
-
+\newcommand{\epsvi}{\param{\varepsilon_{vi}}}
+\newcommand{\MRatio}{\param{M_{\mathrm{ratio}}}}
+\newcommand{\Rd}{\param{R_d}}
+\newcommand{\Rv}{\param{R_v}}
 \newcommand{\Cp}[1]{\param{c_{p#1}}}
 \newcommand{\Cv}[1]{\param{c_{v#1}}}
 \newcommand{\Cvd}{\Cv{d}}
 \newcommand{\Cvv}{\Cv{v}}
 \newcommand{\Cvl}{\Cv{l}}
 \newcommand{\Cvi}{\Cv{i}}
+
 \newcommand{\DeltaCp}{\param{\Delta c_p}}
-\newcommand{\RefLatentHeat}{\param{L_0}}
 \newcommand{\TTriple}{\param{T_{\mathrm{tr}}}}
 \newcommand{\PTriple}{\param{p_{\mathrm{tr}}}}
 \newcommand{\TFreeze}{\param{T_{\mathrm{freeze}}}}
 
-\newcommand{\LatentHeat}[1]{L(#1)}
+\newcommand{\RefLHv}{\param{L_{v,0}}}
+\newcommand{\RefLHs}{\param{L_{s,0}}}
+\newcommand{\RefLHf}{\param{L_{f,0}}}
+\newcommand{\LatentHeatV}[1]{L_{vap}(#1)}
+\newcommand{\LatentHeatS}[1]{L_{sub}(#1)}
+\newcommand{\LatentHeatF}[1]{L_{fus}(#1)}
 ```
 
 # Eddy-Diffusivity Mass-Flux (EDMF) equations
@@ -311,7 +315,7 @@ Note: The sum of the total pressure and gravity are recast into the sum of the n
 \alpha_b &= 1/3, \quad \alpha_d = 0.375, \quad r_d      = 500 [m] \\
 \SDi{S_{\text{buoy}}} &= \rhoRef{} \aSDi{a} \SDi{b} \\
 \SDi{S_{\text{coriolis}}} & = f(\SDi{\mathbf{u}} - {\SDi{\mathbf{u}_{\text{geo-wind}}}}) \\
-\SDi{S_{\text{rad}}}  &= \left( \PD_t {\SDi{\h}} \right)_{radiation} \qquad \text{Radiation, not in BOMEX} \\
+\SDi{S_{\text{rad}}}  &= \left( \PD_t {\SDi{\h}} \right)_{radiation} \\
 \SDi{S_{\text{grav}}} &= - \rhoRef{} \grav \\
 \SDi{S_{\text{MP-MSS}}}^{\qt} & = \\
 \SDi{S_{\text{MP-MSS}}}^{\h} & = \\
@@ -324,7 +328,7 @@ where additional variable definitions are in:
 
  - [Entrainment-Detrainment](@ref) ($\epsilon_{ij}$) and ($\delta_i$).
 
- - [Buoyancy](@ref) ($b$).
+ - [Buoyancy](@ref) ($\Buoyancy$).
 
  - [Eddy diffusivity](@ref) ($K_i$).
 
@@ -418,7 +422,7 @@ c_e & = 2 \\
                       \IntraCVSDi{v}{(\partial_y p^{\dagger})} +
                       \IntraCVSDi{w}{(\partial_z p^{\dagger})}\right]  \\
 & = 0, \qquad \text{for now, need to derive correct formulation} \\
-\SDi{S_{\text{buoyancy}}}^{TKE} & = \rhoRef{} \aSDi{a} \IntraCVSDi{w}{b} \\
+\SDi{S_{\text{buoyancy}}}^{TKE} & = \rhoRef{} \aSDi{a} \BuoyancyFlux \\
 \SDi{S_{\text{MP-MSSP}}}^{\qt\qt}
 & = \\
 \SDi{S_{\text{MP-MSSP}}}^{\h\h}
@@ -435,11 +439,20 @@ where additional variable definitions are in:
 
  - [Mixing length](@ref) ($l_{mix}$).
 
- - [Buoyancy flux](@ref) ($\IntraCVSDi{w}{b}$).
+ - [Buoyancy flux](@ref) ($\BuoyancyFlux$).
 
 # EDMF variable definitions
 
 The following definitions are ordered in a dependency fashion; all variables are defined from variables already defined in previous subsections.
+
+## Constants
+
+```math
+\begin{align}
+c_K & = 0.1 \\
+\text{tol}_{\InversionHeight\mathrm{-stable}} & = 0.01 \\
+\end{align}
+```
 
 ## Reference state profiles
 Reference state profiles are (suppressing $i$ subscript):
@@ -462,11 +475,27 @@ c_{pm} &= (1 - \SDi{\qt}) \Cp{d} + \SDi{\qt} \Cp{v} \\
 \end{align}
 ```
 
+## Latent heat
+
+```math
+\begin{align}
+\LatentHeatV{T} &= \RefLHv + \Cp{v} - \Cp{l} (T - \TTriple) \\
+\end{align}
+```
+
 ## Mixing ratios
 ```math
 \begin{align}\label{eq:MixingRatios}
 r_c & = \frac{\SDi{\qt}+\SDi{\ql}}{1 - \SDi{\qt}} \\
 r_v & = \frac{\SDi{\qt}-\SDi{\ql}-\SDi{\qi}}{1 - \SDi{\qt}} \\
+\end{align}
+```
+
+## Shear production
+
+```math
+\begin{align}\label{eq:ShearProduction}
+|S|^2 &= (\PD_z \DM{u})^2 + (\PD_z \DM{v})^2 + (\PD_z \SDe{w})^2 \\
 \end{align}
 ```
 
@@ -483,7 +512,7 @@ The roots of the following system are satisfied when $\SDi{\qt} > \qvsat(T)$, ot
 ```math
 \begin{align}
 \hint(T) &= c_{vm} (T - \TZero)  + \qv \RefHintV - \qi \RefHintI \\
-\pvsat(T) &= \PTriple \left( \frac{T}{\TTriple} \right)^{\frac{\DeltaCp}{\Rv}} \exp{\frac{\RefLatentHeat - \DeltaCp \TZero}{\Rv} \left( \frac{1}{\TTriple} - \frac{1}{T} \right)} \\
+\pvsat(T) &= \PTriple \left( \frac{T}{\TTriple} \right)^{\frac{\DeltaCp}{\Rv}} \exp{\frac{\RefLHv - \DeltaCp \TZero}{\Rv} \left( \frac{1}{\TTriple} - \frac{1}{T} \right)} \\
 \qvsat &= \frac{\pvsat(T)}{\rho \Rv T} \\
 \qc &= \max(\qt - \qvsat, 0) \\
 \qv &= \qt - \ql - \qi \\
@@ -519,7 +548,7 @@ where additional variable definitions are in:
 ## Buoyancy
 ```math
 \begin{align}\label{eq:Buoyancy}
-\SDi{b}^{\dagger} = \grav (\alpha_i - \alphaRef)/\alphaRef \\
+\SDi{b}^{\dagger} = \grav (\SDi{\alpha} - \alphaRef)/\alphaRef \\
 \SDi{b} = \SDi{b}^{\dagger} - \sum_j a_j \SDj{b}^{\dagger} \\
 \end{align}
 ```
@@ -560,9 +589,9 @@ Long buoyancy gradient
 \PD_z \SDi{\qt}      \left[ (1-f_c) \PD_{\qt} b |_d + f_c \PD_{\qt} b |_s \right] \\
 f_c &= 0 \qquad \text{good for simple cases, need to confirm for more complex cases} \\
 \PD_{\ThetaL} b |_d & = \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\qt} \right] \\
-\PD_{\ThetaL} b |_s &= \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \frac{\Rv}{\Rd} \left(1 + \frac{\LatentHeat{\SDi{T}}}{\Rv \SDi{T}} \right) \SDi{q_s} - \SDi{\qt} \right] \left( 1 + \frac{{\LatentHeat{\SDi{T}}}^2}{\param{c_p} \Rv \SDi{T}^2} \SDi{q_s} \right)^{-1} \\
+\PD_{\ThetaL} b |_s &= \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \frac{\Rv}{\Rd} \left(1 + \frac{\LatentHeatV{\SDi{T}}}{\Rv \SDi{T}} \right) \SDi{q_s} - \SDi{\qt} \right] \left( 1 + \frac{{\LatentHeatV{\SDi{T}}}^2}{\param{c_p} \Rv \SDi{T}^2} \SDi{q_s} \right)^{-1} \\
 \PD_{\qt} b |_d &= \frac{\grav}{\DM{\ThetaVirt}} \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\theta} \\
-\PD_{\qt} b |_s &= \left( \frac{{\LatentHeat{\SDi{T}}}}{\param{c_p} \SDi{T}} \PD_{\ThetaL} b |_s - \frac{\grav}{\DM{\ThetaVirt}} \right) \SDi{\theta} \\
+\PD_{\qt} b |_s &= \left( \frac{{\LatentHeatV{\SDi{T}}}}{\param{c_p} \SDi{T}} \PD_{\ThetaL} b |_s - \frac{\grav}{\DM{\ThetaVirt}} \right) \SDi{\theta} \\
 \SDi{\theta} &= \SDi{T}(\pRef{}/\PTilde{})^{-\Rd/\Cp{d}} \\
 \SDi{q_r} & = q_{rain} = 0 \qquad \text{for now} \\
 \SDi{q_s} & = \qvsat \\
@@ -573,6 +602,8 @@ where additional variable definitions are in:
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
  - [Potential temperatures](@ref) ($\ThetaDry$, $\ThetaVirt$).
+
+ - [Latent heat](@ref) ($\LatentHeatV{T}$).
 
 ## Surface fluxes
 
@@ -619,14 +650,6 @@ R_{z0h}                          & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \end{align}
 ```
 where $\Psi_h$ is defined in Appendix A, equation A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
-
-## Shear production
-
-```math
-\begin{align}\label{eq:ShearProduction}
-|S|^2 &= (\PD_z \DM{u})^2 + (\PD_z \DM{v})^2 + (\PD_z \SDe{w})^2 \\
-\end{align}
-```
 
 ## Prandtl number
 
@@ -676,6 +699,8 @@ l_3 &= \sqrt{\frac{c_{\varepsilon}}{c_K}} \sqrt{\SDe{TKE}}
 ```
 where additional variable definitions are in:
 
+ - [Constants](@ref).
+
  - [Shear production](@ref) ($S$).
 
  - [Monin-Obhukov length](@ref) ($\MOLen$).
@@ -686,6 +711,8 @@ where additional variable definitions are in:
 
  - [Potential temperatures](@ref) ($\ThetaDry$, $\ThetaVirt$).
 
+ - [Prandtl number](@ref) ($Pr$).
+
 Smoothing function is provided in python file. The Prandtl number was used from Eq. 75 in Dan Li 2019 "Turbulent Prandtl number in the atmospheric BL - where are we now".
 
 ## Eddy diffusivity
@@ -693,15 +720,15 @@ Smoothing function is provided in python file. The Prandtl number was used from 
 ```math
 \begin{align}\label{eq:EddyDiffusivity}
 \SDi{K_m} & = \begin{cases}
-c_K \SDio{{l_{mix},}} \sqrt{\SDi{TKE}} & i = \iEnv
+c_K \SDio{{l_{mix},}} \sqrt{\SDi{TKE}} & i = \iEnv \\
 0 & \text{otherwise}
 \end{cases} \\
-c_K & = 0.1 \\
 \SDi{K_h} & = \frac{\SDi{K_m}}{Pr} \\
-Pr &= \frac{K_m}{K_h} \\
 \end{align}
 ```
 where additional variable definitions are in:
+
+ - [Constants](@ref).
 
  - [Mixing length](@ref) ($l_{mix}$).
 
@@ -711,15 +738,17 @@ where additional variable definitions are in:
 
 !!! todo
 
-    Currently, $\IntraCVSDi{w}{b}$ is hard-coded from the first expression (which was used in SCAMPy), however, this value should be computed from the SurfaceFluxes section.
+    Currently, $\BuoyancyFlux$ is hard-coded from the first expression (which was used in SCAMPy), however, this value should be computed from the SurfaceFluxes section.
 
 ```math
 \begin{align}\label{eq:BuoyancyFlux}
-\IntraCVSDi{w}{b} & = \frac{\grav \BC{\alphaRef}}{c_{pm} \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\epsvi - 1) c_{pm} \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeat{\BC{\SDi{T}}}) \\
-\IntraCVSDi{w}{b} & = K_i \BuoyancyGrad \\
+\SurfaceBuoyancyFlux & = \frac{\grav \BC{\alphaRef}}{c_{pm} \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\epsvi - 1) c_{pm} \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeatV{\BC{\SDi{T}}}) \\
+\BuoyancyFlux & = - K_i \BuoyancyGrad \\
 \end{align}
 ```
  - [Eddy diffusivity](@ref) ($K_i$).
+
+ - [Latent heat](@ref) ($\LatentHeatV{T}$).
 
  - [Buoyancy gradient](@ref) ($\BuoyancyGrad$).
 
@@ -751,9 +780,9 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Saturation adjustment](@ref) Temperature ($\SDi{T}$) and specific humidity of liquid ($\SDi{\ql}$)
+ - [Saturation adjustment](@ref) Temperature ($\SDi{T}$) and specific humidity of liquid ($\SDi{\ql}$).
 
- - [Buoyancy](@ref) ($b$).
+ - [Buoyancy](@ref) ($\Buoyancy$).
 
 ## Inversion height
 
@@ -761,7 +790,7 @@ where additional variable definitions are in:
 \begin{align}\label{eq:InversionHeight}
 \SDio{\InversionHeight} &=
 \begin{cases}
-  \left[ (\PD_z \theta_{\rho})^{-1} (\BC{\theta_{\rho}} - \theta_{\rho}|_{z_1}) + z_1 \right] & \simparam{\BC{\DM{u}}}^2 + \simparam{\BC{\DM{v}}}^2 <= \text{tol} \\
+  \left[ (\PD_z \theta_{\rho})^{-1} (\BC{\theta_{\rho}} - \theta_{\rho}|_{z_1}) + z_1 \right] & \simparam{\BC{\DM{u}}}^2 + \simparam{\BC{\DM{v}}}^2 <= \text{tol}_{\InversionHeight\mathrm{-stable}} \\
   \left[ (\PD_z Ri_{bulk})^{-1} (\hyperparam{Ri_{bulk, crit}} - Ri_{bulk}|_{z_2}) + z_2 \right] & \text{otherwise} \\
 \end{cases} \\
 z_1 &= \min_z (\theta_{\rho}(z) > \BC{\theta_{\rho}}) \\
@@ -777,14 +806,14 @@ where additional variable definitions are in:
 
 ```math
 \begin{align}\label{eq:ConvectiveVelocity}
-\SDio{\ConvectiveVelocity} &= (\max(\IntraCVSDi{w}{b} \SDio{\InversionHeight}, 0))^{1/3} \\
+\SDio{\ConvectiveVelocity} &= (\max(\BuoyancyFlux \SDio{\InversionHeight}, 0))^{1/3} \\
 \end{align}
 ```
 where additional variable definitions are in:
 
- - [Inversion height](@ref) ($\SDio{\InversionHeight}$)
+ - [Inversion height](@ref) ($\SDio{\InversionHeight}$).
 
- - [Buoyancy flux](@ref) ($\IntraCVSDi{w}{b}$).
+ - [Buoyancy flux](@ref) ($\BuoyancyFlux$).
 
 ## Non-local mixing length
 
@@ -803,11 +832,11 @@ l_A &= \VKConst z \left( 1 + a_l \frac{z}{\MOLen} \right)^{b_l} \\
 ```
 where additional variable definitions are in:
 
- - [Inversion height](@ref) ($\SDio{\InversionHeight}$)
+ - [Inversion height](@ref) ($\SDio{\InversionHeight}$).
 
  - [Monin-Obhukov length](@ref) ($\MOLen$).
 
- - [Convective velocity](@ref) ($\SDio{\ConvectiveVelocity}$)
+ - [Convective velocity](@ref) ($\SDio{\ConvectiveVelocity}$).
 
 # Boundary Conditions
 
@@ -817,24 +846,35 @@ Here, we specify boundary conditions (BCs) by their type, Dirichlet (D) or Neuma
 
 ```math
 \begin{align}
-\Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_1, F_2)
+\Gamma_{\phi}(F_1, F_2)
 & = \begin{cases}
     4 \frac{F_1 F_2}{\FrictionVelocity^2} (1 - 8.3\zLL/\MOLen)^{-2/3} & \MOLen < 0 \\
     4 \frac{F_1 F_2}{\FrictionVelocity^2} & \text{otherwise}
 \end{cases} \\
-\Gamma_{TKE}(\FrictionVelocity, \zLL, \MOLen, \ConvectiveVelocity)
+\Gamma_{TKE}
 & = \begin{cases}
     3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 + {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} & \MOLen < 0 \\
     3.75 {\FrictionVelocity}^2 & \text{otherwise}
 \end{cases} \\
 \SensibleSurfaceHeatFlux & = \BC{\TCV{w}{\hint}} c_{pm} \rhoRef \\
-\LatentSurfaceHeatFlux   & = \BC{\TCV{w}{\qt}}  \LatentHeat{T} \rhoRef \\
+\LatentSurfaceHeatFlux   & = \BC{\TCV{w}{\qt}}  \LatentHeatV{T} \rhoRef \\
 F_{\hint}(\SensibleSurfaceHeatFlux)  & = \frac{\SensibleSurfaceHeatFlux}{c_{pm}}       = \BC{\TCV{w}{\hint}} \rhoRef \\
-F_{\qt}(\LatentSurfaceHeatFlux)      & = \frac{\LatentSurfaceHeatFlux}{\LatentHeat{T}} = \BC{\TCV{w}{\qt}}   \rhoRef \\
+F_{\qt}(\LatentSurfaceHeatFlux)      & = \frac{\LatentSurfaceHeatFlux}{\LatentHeatV{T}} = \BC{\TCV{w}{\qt}}   \rhoRef \\
 \end{align}
 ```
+where additional variable definitions are in:
 
-Equation \eqref{eq:TopPercentile} represents the mean of the top $x$-fraction of a standard normal distribution (Neggers et al., 2009).
+ - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
+
+ - [Monin-Obhukov length](@ref) ($\MOLen$).
+
+ - [Convective velocity](@ref) ($\SDio{\ConvectiveVelocity}$).
+
+ - [Friction velocity](@ref) ($\FrictionVelocity$).
+
+ - [Latent heat](@ref) ($\LatentHeatV{T}$).
+
+and equation \eqref{eq:TopPercentile} represents the mean of the top $x$-fraction of a standard normal distribution (Neggers et al., 2009).
 
 ```math
 \begin{align}
@@ -866,47 +906,51 @@ c_{frac} = 0.1, \quad
 Top boundary
 ```math
 \begin{align}
-\BCT{\SDi{w}} &= 0 \\
-\PD_z \BCT{\SDi{\qt}} &= 0 \\
+\BCT{\SDi{w}}           &= 0 \\
+\PD_z \BCT{\SDi{\qt}}   &= 0 \\
 \PD_z \BCT{\SDi{\hint}} &= 0 \\
 \end{align}
 ```
 Bottom boundary
 ```math
 \begin{align}
-\BCB{\SDi{w}} &= 0 \\
-\BCB{\SDi{\qt}} &= \DM{\qt} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\qt}{\qt}} \\
-\BCB{\SDi{\hint}} &= \DM{\hint} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\hint}{\hint}} \\
+\BCB{\SDi{w}}     &= 0 \\
+- \SDi{K_m} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
+- \SDi{K_m} \PD_z \BCB{\SDi{\hint}} &= \TCV{w}{\hint} + \mathcal D(\aSDi{a}) \sqrt{C_{\hint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\hint}, \TCV{w}{\hint} )} \\
 \end{align}
 ```
 where additional variable/function definitions are in:
 
- - [BC functions](@ref) $\mathcal D$
+ - [BC functions](@ref) $\mathcal D$.
 
 ## 2nd order moments
 
 Top boundary
 ```math
 \begin{align}
-\BCB{\SDi{TKE}} & = \Gamma_{TKE}(\FrictionVelocity, \zLL, \MOLen, \ConvectiveVelocity) \\
-\BCB{\IntraCVSDi{\qt}{\qt}}       & = \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL) \\
-\BCB{\IntraCVSDi{\hint}{\hint}}   & = \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_{\hint}(\SensibleSurfaceHeatFlux)\alphaLL, F_{\hint}(\SensibleSurfaceHeatFlux)\alphaLL) \\
-\BCB{\IntraCVSDi{\hint}{\qt}}     & = \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_{\hint}(\SensibleSurfaceHeatFlux)\alphaLL, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL) \\
+\BCT{\SDi{TKE}}                         & = 0 \\
+\PD_z \BCT{\IntraCVSDi{\qt}{\qt}}       & = 0 \\
+\PD_z \BCT{\IntraCVSDi{\hint}{\hint}}   & = 0 \\
+\PD_z \BCT{\IntraCVSDi{\hint}{\qt}}     & = 0 \\
 \end{align}
 ```
+
+!!! todo
+
+    Currently, we only account for the _intra_ sub-domain covariance, but we would like to also account for the _inter_ sub-domain covariance for all but the $TKE$.
 
 Bottom boundary
 ```math
 \begin{align}
-\BCB{\SDi{TKE}} & = \Gamma_{TKE}(\FrictionVelocity, \zLL, \MOLen, \ConvectiveVelocity) \\
-\BCB{\IntraCVSDi{\qt}{\qt}}       & = \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL) \\
-\BCB{\IntraCVSDi{\hint}{\hint}}   & = \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_{\hint}(\SensibleSurfaceHeatFlux)\alphaLL, F_{\hint}(\SensibleSurfaceHeatFlux)\alphaLL) \\
-\BCB{\IntraCVSDi{\hint}{\qt}}     & = \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_{\hint}(\SensibleSurfaceHeatFlux)\alphaLL, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL) \\
+\BCB{\SDi{TKE}}                   & = \Gamma_{TKE} \\
+\BCB{\IntraCVSDi{\qt}{\qt}}       & = \Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   ) \\
+\BCB{\IntraCVSDi{\hint}{\hint}}   & = \Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\hint} ) \\
+\BCB{\IntraCVSDi{\hint}{\qt}}     & = \Gamma_{\phi}(\TCV{w}{\hint}, \TCV{w}{\hint} ) \\
 \end{align}
 ```
 where additional variable/function definitions are in:
 
- - [BC functions](@ref) $\Gamma_{TKE}$, $\Gamma_{\phi}$, $F_{\hint}$, $\SensibleSurfaceHeatFlux$, $F_{\qt}$, $\LatentSurfaceHeatFlux$
+ - [BC functions](@ref) $\Gamma_{TKE}$, $\Gamma_{\phi}$, $F_{\hint}$, $\SensibleSurfaceHeatFlux$, $F_{\qt}$, $\LatentSurfaceHeatFlux$.
 
 ## Case-specific configurations
 
