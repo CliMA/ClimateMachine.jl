@@ -238,7 +238,7 @@ We note that the net exchange is zero $\sum_i \SDi{S_{\epsilon\delta}}^a = 0$. T
 \begin{align}
 \SDi{S_{\epsilon\delta}}^a =
 \begin{cases}
-  \rho a_i \SDi{w} \left( -\delta_i + \epsilon_{\iEnv{}} \right) & i \ne \iEnv{} \\
+  \rho a_i \SDi{w} \left( -\delta_i + \epsilon_{i} \right) & i \ne \iEnv{} \\
   0 - \sum_{j \ne \iEnv{}} \SDj{S_{\epsilon\delta}}^a & i = \iEnv{} \\
 \end{cases},
 \end{align}
