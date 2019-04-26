@@ -415,7 +415,7 @@ Additional source terms exist in other equations:
 & = \PD_z (\rhoRef{} a_i K_i \PD_z \IntraCVSDi{\phi}{\psi}) \\
 \SDi{S_{\text{turb-transp}}}^{TKE} & = \PD_z (\rhoRef{} a_i K_i \PD_z \SDi{TKE}) \\
 \SDi{S_{\text{dissip}}}
-& = -c_e \IntraCVSDi{\phi}{\psi} \frac{\SDi{TKE}^{1/2}}{\SDio{{l_{mix}}}}, \quad \text{Equation 38 in Tan et al.} \\
+& = - \rhoRef{} a_i c_e \IntraCVSDi{\phi}{\psi} \frac{\SDi{TKE}^{1/2}}{\SDio{{l_{mix}}}}, \quad \text{Equation 38 in Tan et al.} \\
 c_e & = 2 \\
 \SDi{S_{\text{press}}}
 & = - \aSDi{a} \left[ \IntraCVSDi{u}{(\partial_x p^{\dagger})} +
