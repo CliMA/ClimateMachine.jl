@@ -311,7 +311,7 @@ Note: The sum of the total pressure and gravity are recast into the sum of the n
 \end{cases} \\
 \SDi{S_{\text{turb-transp}}}^{\phi} & =  -\PD_z (\rhoRef{} a_i \IntraCVSDi{w}{\phi}) \\
  & = \PD_z (\rhoRef{} a_i K_i^m \PD_z \SDi{\phi}) \\
-\SDi{S_{\text{nh-press}}} &= -\rhoRef{} \aSDi{a} \left( \alpha_b \SDi{b}  + \alpha_d \frac{(\SDi{w} - \SDe{w}) || \SDi{w} - \SDe{w} || }{r_d \aSDi{a}^{1/2}} \right) \\
+\SDi{S_{\text{nh-press}}} &= -\rhoRef{} \aSDi{a} \left( \alpha_b \SDi{b}  + \alpha_d \frac{(\SDi{w} - \SDe{w}) | \SDi{w} - \SDe{w} | }{r_d \aSDi{a}^{1/2}} \right) \\
 \alpha_b &= 1/3, \quad \alpha_d = 0.375, \quad r_d      = 500 [m] \\
 \SDi{S_{\text{buoy}}} &= \rhoRef{} \aSDi{a} \SDi{b} \\
 \SDi{S_{\text{coriolis}}} & = f(\SDi{\mathbf{u}} - {\SDi{\mathbf{u}_{\text{geo-wind}}}}) \\
@@ -589,9 +589,9 @@ Long buoyancy gradient
 \PD_z \SDi{\qt}      \left[ (1-f_c) \PD_{\qt} b |_d + f_c \PD_{\qt} b |_s \right] \\
 f_c &= 0 \qquad \text{good for simple cases, need to confirm for more complex cases} \\
 \PD_{\ThetaL} b |_d & = \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\qt} \right] \\
-\PD_{\ThetaL} b |_s &= \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \frac{\Rv}{\Rd} \left(1 + \frac{\LatentHeatV{\SDi{T}}}{\Rv \SDi{T}} \right) \SDi{q_s} - \SDi{\qt} \right] \left( 1 + \frac{{\LatentHeatV{\SDi{T}}}^2}{\param{c_p} \Rv \SDi{T}^2} \SDi{q_s} \right)^{-1} \\
+\PD_{\ThetaL} b |_s &= \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \frac{\Rv}{\Rd} \left(1 + \frac{\LatentHeatV{\SDi{T}}}{\Rv \SDi{T}} \right) \SDi{q_s} - \SDi{\qt} \right] \left( 1 + \frac{{\LatentHeatV{\SDi{T}}}^2}{c_{pm} \Rv \SDi{T}^2} \SDi{q_s} \right)^{-1} \\
 \PD_{\qt} b |_d &= \frac{\grav}{\DM{\ThetaVirt}} \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\theta} \\
-\PD_{\qt} b |_s &= \left( \frac{{\LatentHeatV{\SDi{T}}}}{\param{c_p} \SDi{T}} \PD_{\ThetaL} b |_s - \frac{\grav}{\DM{\ThetaVirt}} \right) \SDi{\theta} \\
+\PD_{\qt} b |_s &= \left( \frac{{\LatentHeatV{\SDi{T}}}}{c_{pm} \SDi{T}} \PD_{\ThetaL} b |_s - \frac{\grav}{\DM{\ThetaVirt}} \right) \SDi{\theta} \\
 \SDi{\theta} &= \SDi{T}(\pRef{}/\PTilde{})^{-\Rd/\Cp{d}} \\
 \SDi{q_r} & = q_{rain} = 0 \qquad \text{for now} \\
 \SDi{q_s} & = \qvsat \\
@@ -915,8 +915,8 @@ Bottom boundary
 ```math
 \begin{align}
 \BCB{\SDi{w}}     &= 0 \\
-- \SDi{K_m} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
-- \SDi{K_m} \PD_z \BCB{\SDi{\hint}} &= \TCV{w}{\hint} + \mathcal D(\aSDi{a}) \sqrt{C_{\hint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\hint}, \TCV{w}{\hint} )} \\
+- \SDi{K_h} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
+- \SDi{K_h} \PD_z \BCB{\SDi{\hint}} &= \TCV{w}{\hint} + \mathcal D(\aSDi{a}) \sqrt{C_{\hint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\hint}, \TCV{w}{\hint} )} \\
 \end{align}
 ```
 where additional variable/function definitions are in:
