@@ -266,7 +266,7 @@ function transferrecvbuf!(device_recvbuf::Array, host_recvbuf, buf::Array,
 end
 # }}}
 
-# {{{ L2 Energy (for all dimensions)
+# Integral based metrics
 function LinearAlgebra.norm(Q::MPIStateArray; p::Real=2)
 
   @assert p == 2
@@ -288,26 +288,26 @@ function knl_norm2(::Val{Np}, Q, elems) where {Np}
   DFloat = eltype(Q)
   (_, nstate, nelem) = size(Q)
 
-  energy = zero(DFloat)
+  nrm = zero(DFloat)
 
   @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    energy += Q[i, q, e]^2
+    nrm += Q[i, q, e]^2
   end
 
-  energy
+  nrm
 end
 
 function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
   DFloat = eltype(Q)
   (_, nstate, nelem) = size(Q)
 
-  energy = zero(DFloat)
+  nrm = zero(DFloat)
 
   @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    energy += weights[i, e] * Q[i, q, e]^2
+    nrm += weights[i, e] * Q[i, q, e]^2
   end
 
-  energy
+  nrm
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
@@ -354,8 +354,6 @@ function knl_L2dist(::Val{Np}, A, B, weights, elems) where {Np}
 
   dist
 end
-
-# }}}
 
 using Requires
 
