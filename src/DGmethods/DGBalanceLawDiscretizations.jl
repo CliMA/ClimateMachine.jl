@@ -156,7 +156,7 @@ The numerical flux function is called with data from two DOFs as
 numerical_flux!(F, nM, QM, VM, auxM, QP, VP, auxP, t)
 ```
 where
-- `F` is an `MArray` of size `(dim, length_state_vector)` to be filled with the
+- `F` is an `MVector` of length `length_state_vector` to be filled with the
   numerical flux across the face (note that this is uninitialized so user must
   set to zero if is this desired)
 - `nM` is the unit outward normal to the face with respect to the minus side
