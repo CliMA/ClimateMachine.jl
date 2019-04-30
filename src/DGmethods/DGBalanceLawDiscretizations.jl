@@ -80,20 +80,38 @@ struct DGBalanceLaw <: AbstractDGMethod
   "number of state"
   nstate::Int
 
+  "physical flux function"
+  flux!::Function
+
+  "numerical flux function"
+  numerical_flux!::Function
+
+  "numerical boundary flux function"
+  numerical_boundary_flux!::Union{Nothing, Function}
+
+  "storage for the viscous flux state"
+  QV::MPIStateArray
+
+  "number of states in needed for viscous_transform!"
+  nviscstate::Int
+
+  "number of states needed for the viscous_flux!"
+  nviscfluxstate::Int
+
   "tuple of states to take the gradient of"
   gradstates::Tuple
 
-  "physical inviscid flux function"
-  inviscid_flux!::Function
+  "transform from state to variables to take gradient of"
+  viscous_transform!::Union{Nothing, Function}
 
-  "inviscid numerical flux function"
-  inviscid_numerical_flux!::Function
+  "physical viscous flux function"
+  viscous_flux!::Union{Nothing, Function}
 
-  "inviscid numerical boundary flux function"
-  inviscid_numerical_boundary_flux!::Union{Nothing, Function}
+  "viscous gradient numerical flux function"
+  viscous_numerical_flux!::Union{Nothing, Function}
 
-  "storage for the grad"
-  Qgrad::MPIStateArray
+  "viscous gradient numerical boundary flux function (e.g., Dirichlet)"
+  viscous_boundary_numerical_flux!::Union{Nothing, Function}
 
   "auxiliary state array"
   auxstate::MPIStateArray
@@ -104,35 +122,38 @@ end
 
 """
      DGBalanceLaw(; grid::DiscontinuousSpectralElementGrid, length_state_vector,
-                  inviscid_flux!, inviscid_numerical_flux!,
-                  inviscid_numerical_boundary_flux! = nothing,
+                  flux!, numerical_flux!, numerical_boundary_flux! = nothing,
+                  viscous_flux! = nothing,
+                  viscous_numerical_flux! = nothing,
+                  viscous_boundary_numerical_flux! = nothing,
                   auxiliary_state_length=0,
                   auxiliary_state_initialization! = nothing,
                   source! = nothing)
 
 Constructs a `DGBalanceLaw` spatial discretization type for the physics defined
-by `inviscid_flux!` and `source!`. The computational domain is defined by
-`grid`. The number of state variables is defined by `length_state_vector`. The
-user may also specify an auxiliary state which will be unpacked by the compute
-kernel passed on to the user-defined flux and numerical flux functions. The
-source function `source!` is optional.
+by `flux!` and `source!`. The computational domain is defined by `grid`. The
+number of state variables is defined by `length_state_vector`. The user may also
+specify an auxiliary state which will be unpacked by the compute kernel passed
+on to the user-defined flux and numerical flux functions. The source function
+`source!` is optional.
 
-The inviscid flux function is called with data from a degree of freedom (DOF) as
+The flux function is called with data from a degree of freedom (DOF) as
 ```
-inviscid_flux!(F, Q, aux, t)
+flux!(F, Q, V, aux, t)
 ```
 where
 - `F` is an `MArray` of size `(dim, length_state_vector)` to be filled (note
   that this is uninitialized so the user must set to zero if is this desired)
 - `Q` is the state to evaluate (`MArray`)
+- `V` is the viscous state to evaluate (`MArray`)
 - `aux` is the user-defined auxiliary state (`MArray`)
 - `t` is the current simulation time
 Warning: Modifications to `Q` or `aux` may cause side effects and should be
 avoided.
 
-The inviscid numerical flux function is called with data from two DOFs as
+The numerical flux function is called with data from two DOFs as
 ```
-inviscid_numerical_flux!(F, nM, QM, auxM, QP, auxP, t)
+numerical_flux!(F, nM, QM, VM, auxM, QP, VP, auxP, t)
 ```
 where
 - `F` is an `MArray` of size `(dim, length_state_vector)` to be filled with the
@@ -141,16 +162,17 @@ where
 - `nM` is the unit outward normal to the face with respect to the minus side
   (`MVector` of length `3`)
 - `QM` and `QP` are the minus and plus side states (`MArray`)
+- `VM` and `VP` are the minus and plus viscous side states (`MArray`)
 - `auxM` and `auxP` are the auxiliary states (`MArray`)
 - `t` is the current simulation time
 Warning: Modifications to `nM`, `QM`, `auxM`, `QP`, or `auxP` may cause side
 effects and should be avoided.
 
 If `grid.topology` has a boundary then the function
-`inviscid_numerical_boundary_flux!` must be specified. This function is called
+`numerical_boundary_flux!` must be specified. This function is called
 with the data from the neighbouring DOF as
 ```
-inviscid_numerical_boundary_flux!(F, nM, QM, auxM, QP, auxP, bctype, t)
+numerical_boundary_flux!(F, nM, QM, VM, auxM, QP, VP, auxP, bctype, t)
 ```
 where
 - `F` is an `MArray` of size `(dim, length_state_vector)` to be filled with the
@@ -159,6 +181,7 @@ where
 - `nM` is the unit outward normal to the face with respect to the minus side
   (`MVector` of length `3`)
 - `QM` and `QP` are the minus and plus side states (`MArray`)
+- `VM` and `VP` are the minus and plus viscous side states (`MArray`)
 - `auxM` and `auxP` are the auxiliary states (`MArray`)
 - `bctype` is the boundary condition flag for the connected face and element of
    `grid.elemtobndy`
@@ -175,8 +198,8 @@ If present the source function is called with data from a DOF as
 source!(S, Q, aux, t)
 ```
 where `S` is an `MVector` of length `length_state_vector` to be filled; other
-arguments are the same as `inviscid_flux!` and the same warning concerning `Q`
-and `aux` applies.
+arguments are the same as `flux!` and the same warning concerning `Q` and `aux`
+applies.
 
 When `auxiliary_state_initialization! !== nothing` then this is called on the
 auxiliary state (assuming `auxiliary_state_length > 0`) as
@@ -188,6 +211,13 @@ Cartesian coordinate locations `(x, y, z)`; see also
 [`grad_auxiliary_state!`](@ref) allows the user to take the gradient of a field
 stored in the auxiliary state.
 
+TODO: Add docs for
+```
+viscous_flux!
+viscous_numerical_flux!
+viscous_boundary_numerical_flux!
+```
+
 !!! note
 
     If `(x, y, z)`, or data derived from this such as spherical coordinates, is
@@ -198,21 +228,23 @@ stored in the auxiliary state.
 
     - support viscous fluxes (`gradstates` is in the argument list as part of
       this future interface)
-    - Revisit how to handle plus side state in
-      `inviscid_numerical_boundary_flux!` after gradient state is handled (how
-      to or not propagate changes without adverse side effects).
 
 """
 function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
-                      length_state_vector, inviscid_flux!,
-                      inviscid_numerical_flux!,
-                      inviscid_numerical_boundary_flux! = nothing,
+                      length_state_vector, flux!,
+                      numerical_flux!,
+                      numerical_boundary_flux! = nothing,
                       gradstates=(),
+                      nviscstate=0,
+                      nviscfluxstate=0,
+                      viscous_transform! = nothing,
+                      viscous_flux! = nothing,
+                      viscous_numerical_flux! = nothing,
+                      viscous_boundary_numerical_flux! = nothing,
                       auxiliary_state_length=0,
                       auxiliary_state_initialization! = nothing,
                       source! = nothing)
 
-  ngradstate = length(gradstates)
   topology = grid.topology
   Np = dofs_per_element(grid)
   h_vgeo = Array(grid.vgeo)
@@ -220,23 +252,23 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
   DA = arraytype(grid)
 
   (Topologies.hasboundary(topology) &&
-   inviscid_numerical_boundary_flux! === nothing &&
-   error("no `inviscid_numerical_boundary_flux!` given when topology "*
+   numerical_boundary_flux! === nothing &&
+   error("no `numerical_boundary_flux!` given when topology "*
          "has boundary"))
 
   # TODO: Clean up this MPIStateArray interface...
-  Qgrad = MPIStateArray{Tuple{Np, ngradstate},
-                        DFloat, DA
-                       }(topology.mpicomm,
-                         length(topology.elems),
-                         realelems=topology.realelems,
-                         ghostelems=topology.ghostelems,
-                         sendelems=topology.sendelems,
-                         nabrtorank=topology.nabrtorank,
-                         nabrtorecv=topology.nabrtorecv,
-                         nabrtosend=topology.nabrtosend,
-                         weights=view(h_vgeo, :, grid.Mid, :),
-                         commtag=111)
+  QV = MPIStateArray{Tuple{Np, nviscfluxstate},
+                     DFloat, DA
+                    }(topology.mpicomm,
+                      length(topology.elems),
+                      realelems=topology.realelems,
+                      ghostelems=topology.ghostelems,
+                      sendelems=topology.sendelems,
+                      nabrtorank=topology.nabrtorank,
+                      nabrtorecv=topology.nabrtorecv,
+                      nabrtosend=topology.nabrtosend,
+                      weights=view(h_vgeo, :, grid.Mid, :),
+                      commtag=111)
 
   auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, DFloat, DA
                           }(topology.mpicomm,
@@ -262,9 +294,11 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   end
 
-  DGBalanceLaw(grid, length_state_vector, gradstates, inviscid_flux!,
-               inviscid_numerical_flux!, inviscid_numerical_boundary_flux!,
-               Qgrad, auxstate, source!)
+  DGBalanceLaw(grid, length_state_vector, flux!,
+               numerical_flux!, numerical_boundary_flux!,
+               QV, nviscstate, nviscfluxstate, gradstates,
+               viscous_transform!, viscous_flux!, viscous_numerical_flux!,
+               viscous_boundary_numerical_flux!, auxstate, source!)
 end
 
 """
@@ -452,11 +486,11 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   dim = dimensionality(grid)
   N = polynomialorder(grid)
 
-  Qgrad = disc.Qgrad
+  QV = disc.QV
   auxstate = disc.auxstate
 
   nstate = disc.nstate
-  ngradstate = length(disc.gradstates)
+  nviscfluxstate = disc.nviscfluxstate
   nauxstate = size(auxstate, 2)
 
   Dmat = grid.D
@@ -471,7 +505,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ########################
   MPIStateArrays.start_ghost_exchange!(Q)
 
-  if ngradstate > 0
+  if nviscfluxstate > 0
     error("Grad not implemented yet")
 
     # TODO: volumegrad!
@@ -480,30 +514,30 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
 
     # TODO: facegrad!
 
-    MPIStateArrays.start_ghost_exchange!(Qgrad)
+    MPIStateArrays.start_ghost_exchange!(QV)
   end
 
   ###################
   # RHS Computation #
   ###################
 
-  volumerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
-             disc.inviscid_flux!, disc.source!, dQ.Q, Q.Q, Qgrad.Q, auxstate.Q,
+  volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscfluxstate), Val(nauxstate),
+             disc.flux!, disc.source!, dQ.Q, Q.Q, QV.Q, auxstate.Q,
              vgeo, t, Dmat, topology.realelems)
 
-  MPIStateArrays.finish_ghost_recv!(ngradstate > 0 ? Qgrad : Q)
+  MPIStateArrays.finish_ghost_recv!(nviscfluxstate > 0 ? QV : Q)
 
-  ngradstate > 0 && MPIStateArrays.finish_ghost_recv!(Qgrad)
-  ngradstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
+  nviscfluxstate > 0 && MPIStateArrays.finish_ghost_recv!(QV)
+  nviscfluxstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
-  facerhs!(Val(dim), Val(N), Val(nstate), Val(ngradstate), Val(nauxstate),
-           disc.inviscid_numerical_flux!,
-           disc.inviscid_numerical_boundary_flux!, dQ.Q, Q.Q, Qgrad.Q,
+  facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscfluxstate), Val(nauxstate),
+           disc.numerical_flux!,
+           disc.numerical_boundary_flux!, dQ.Q, Q.Q, QV.Q,
            auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
            topology.realelems)
 
   # Just to be safe, we wait on the sends we started.
-  MPIStateArrays.finish_ghost_send!(Qgrad)
+  MPIStateArrays.finish_ghost_send!(QV)
   MPIStateArrays.finish_ghost_send!(Q)
 end
 
