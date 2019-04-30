@@ -1,5 +1,6 @@
 module MPIStateArrays
 using LinearAlgebra
+using DoubleFloats
 
 using MPI
 
@@ -379,13 +380,15 @@ function weightedsum(A::MPIStateArray, states=1:size(A, 2))
   isempty(A.weights) && error("`weightedsum` requires weights")
   locwsum = knl_weightedsum(Val(Np), h_A, A.weights, A.realelems, states)
 
-  MPI.Allreduce([locwsum], MPI.SUM, A.mpicomm)[1]
+  DFloat = eltype(A)
+  # Need to use anomous function version of sum else MPI.jl using MPI_SUM
+  DFloat(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
 end
 
 function knl_weightedsum(::Val{Np}, A, weights, elems, states) where {Np}
   DFloat = eltype(A)
 
-  wsum = zero(BigFloat)
+  wsum = zero(DoubleFloat{DFloat})
 
   @inbounds for e = elems
     for q = states, i = 1:Np
@@ -393,7 +396,7 @@ function knl_weightedsum(::Val{Np}, A, weights, elems, states) where {Np}
     end
   end
 
-  DFloat(wsum)
+  wsum
 end
 
 using Requires
