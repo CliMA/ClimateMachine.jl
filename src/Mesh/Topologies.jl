@@ -617,7 +617,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
   CubedShellTopology{T}(
     BoxElementTopology{2, T}(
       mpicomm, topology.elems, topology.realelems,
-      topology.ghostelems, topology.sendelems, elemtocoord,
+      topology.ghostelems, topology.sendelems, topology.elemtocoord,
       topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
       topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
       topology.nabrtosend, false))
