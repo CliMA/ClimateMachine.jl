@@ -266,6 +266,11 @@ let
   dt = CFL / polynomialorder^2
   lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
   finaltime = 1.0
+  if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
+      && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
+    parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
+    finaltime = 2dt                                           #src
+  end                                                         #src
 
   # For simplicity we only include the vtk callback
 
@@ -335,6 +340,11 @@ let
     h = 1 / Ne
     CFL = h / (2π)
     dt = CFL / polynomialorder^2
+    if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
+        && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
+      parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
+      finaltime = 2dt                                           #src
+    end                                                         #src
     lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
 
     solve!(Q, lsrk; timeend = finaltime)

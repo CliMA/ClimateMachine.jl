@@ -350,6 +350,11 @@ let
   # initial condition `Q`. The solution will be updated in place so that the
   # final solution will also be stored in `Q`.
   finaltime = 1.0
+  if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
+      && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
+    parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
+    finaltime = 2dt                                           #src
+  end                                                         #src
   solve!(Q, lsrk; timeend = finaltime)
 
   # The final solution can be visualized in a similar manner to the initial
@@ -407,6 +412,11 @@ let
   dt = CFL / polynomialorder^2
   lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
   finaltime = 1.0
+  if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
+      && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
+    parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
+    finaltime = 2dt                                           #src
+  end                                                         #src
 
   # The ODE solver callback functions are called both before the ODE solver
   # begins and then after each time step.
@@ -530,6 +540,11 @@ let
     h = 1 / Ne
     CFL = h / maximum(abs.(uvec[1:dim]))
     dt = CFL / polynomialorder^2
+    if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
+        && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
+      parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
+      finaltime = 2dt                                           #src
+    end                                                         #src
     lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
 
     solve!(Q, lsrk; timeend = finaltime)
