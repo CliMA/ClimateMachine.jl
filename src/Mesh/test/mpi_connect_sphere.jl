@@ -19,7 +19,8 @@ function main()
   csize = MPI.Comm_size(comm)
 
   Rrange = T.(accumulate(+,1:Nstack+1))
-  topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange; bc=(1,2))
+  topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange;
+                                        boundary=(1,2))
   grid = DiscontinuousSpectralElementGrid(topology; FloatType=T,
                                           DeviceArray=DA, polynomialorder=N,
                                           meshwarp=Topologies.cubedshellwarp)

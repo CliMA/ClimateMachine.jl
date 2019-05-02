@@ -1,7 +1,7 @@
 """
-    volumerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
-               ::Val{nauxstate}, flux!, source!, rhs::Array, Q, Qgrad, auxstate,
-               vgeo, t, D, elems) where {dim, N, nstate, ngradstate,
+    volumerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscfluxstate},
+               ::Val{nauxstate}, flux!, source!, rhs::Array, Q, QV, auxstate,
+               vgeo, t, D, elems) where {dim, N, nstate, nviscfluxstate,
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
 `DGBalanceLaw` semi-discretization.
@@ -9,12 +9,12 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 See [`odefun!`](@ref) for usage.
 """
 function volumerhs!(::Val{dim}, ::Val{N},
-                    ::Val{nstate}, ::Val{ngradstate},
+                    ::Val{nstate}, ::Val{nviscfluxstate},
                     ::Val{nauxstate},
                     flux!, source!,
                     rhs::Array,
-                    Q, Qgrad, auxstate, vgeo, t,
-                    D, elems) where {dim, N, nstate, ngradstate,
+                    Q, QV, auxstate, vgeo, t,
+                    D, elems) where {dim, N, nstate, nviscfluxstate,
                                      nauxstate}
   DFloat = eltype(Q)
 
@@ -25,7 +25,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
   nelem = size(Q)[end]
 
   Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
-  Qgrad = reshape(Qgrad, Nq, Nq, Nqk, ngradstate, nelem)
+  QV = reshape(QV, Nq, Nq, Nqk, nviscfluxstate, nelem)
   rhs = reshape(rhs, Nq, Nq, Nqk, nstate, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
   auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
@@ -34,7 +34,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
 
   source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qgrad = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_QV = MArray{Tuple{nviscfluxstate}, DFloat}(undef)
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
@@ -51,15 +51,15 @@ function volumerhs!(::Val{dim}, ::Val{N},
         l_Q[s] = Q[i, j, k, s, e]
       end
 
-      for s = 1:ngradstate
-        l_Qgrad[s] = Qgrad[i, j, k, s, e]
+      for s = 1:nviscfluxstate
+        l_QV[s] = QV[i, j, k, s, e]
       end
 
       for s = 1:nauxstate
         l_aux[s] = auxstate[i, j, k, s, e]
       end
 
-      flux!(l_F, l_Q, l_aux, t)
+      flux!(l_F, l_Q, l_QV, l_aux, t)
 
       for s = 1:nstate
         s_F[1,i,j,k,s] = MJ * (ξx * l_F[1, s] + ξy * l_F[2, s] + ξz * l_F[3, s])
@@ -103,11 +103,11 @@ function volumerhs!(::Val{dim}, ::Val{N},
 end
 
 """
-    facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{ngradstate},
-             ::Val{nauxstate}, inviscid_numerical_flux!,
-             inviscid_numerical_boundary_flux!, rhs::Array, Q, Qgrad, auxstate,
+    facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscfluxstate},
+             ::Val{nauxstate}, numerical_flux!,
+             numerical_boundary_flux!, rhs::Array, Q, QV, auxstate,
              vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-             elems) where {dim, N, nstate, ngradstate, nauxstate}
+             elems) where {dim, N, nstate, nviscfluxstate, nauxstate}
 
 Computational kernel: Evaluate the surface integrals on right-hand side of a
 `DGBalanceLaw` semi-discretization.
@@ -115,14 +115,14 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 See [`odefun!`](@ref) for usage.
 """
 function facerhs!(::Val{dim}, ::Val{N},
-                  ::Val{nstate}, ::Val{ngradstate},
+                  ::Val{nstate}, ::Val{nviscfluxstate},
                   ::Val{nauxstate},
-                  inviscid_numerical_flux!,
-                  inviscid_numerical_boundary_flux!,
-                  rhs::Array, Q, Qgrad, auxstate,
+                  numerical_flux!,
+                  numerical_boundary_flux!,
+                  rhs::Array, Q, QV, auxstate,
                   vgeo, sgeo,
                   t, vmapM, vmapP, elemtobndy,
-                  elems) where {dim, N, nstate, ngradstate, nauxstate}
+                  elems) where {dim, N, nstate, nviscfluxstate, nauxstate}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -140,11 +140,11 @@ function facerhs!(::Val{dim}, ::Val{N},
   end
 
   l_QM = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QgradM = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_QVM = MArray{Tuple{nviscfluxstate}, DFloat}(undef)
   l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_QP = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QgradP = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_QVP = MArray{Tuple{nviscfluxstate}, DFloat}(undef)
   l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   l_F = MArray{Tuple{nstate}, DFloat}(undef)
@@ -164,8 +164,8 @@ function facerhs!(::Val{dim}, ::Val{N},
           l_QM[s] = Q[vidM, s, eM]
         end
 
-        for s = 1:ngradstate
-          l_QgradM[s] = Qgrad[vidM, s, eM]
+        for s = 1:nviscfluxstate
+          l_QVM[s] = QV[vidM, s, eM]
         end
 
         for s = 1:nauxstate
@@ -177,8 +177,8 @@ function facerhs!(::Val{dim}, ::Val{N},
           l_QP[s] = Q[vidP, s, eP]
         end
 
-        for s = 1:ngradstate
-          l_QgradP[s] = Qgrad[vidP, s, eP]
+        for s = 1:nviscfluxstate
+          l_QVP[s] = QV[vidP, s, eP]
         end
 
         for s = 1:nauxstate
@@ -187,12 +187,12 @@ function facerhs!(::Val{dim}, ::Val{N},
 
 
         bctype =
-            inviscid_numerical_boundary_flux! === nothing ? 0 : elemtobndy[f, e]
+            numerical_boundary_flux! === nothing ? 0 : elemtobndy[f, e]
         if bctype == 0
-          inviscid_numerical_flux!(l_F, nM, l_QM, l_auxM, l_QP, l_auxP, t)
+          numerical_flux!(l_F, nM, l_QM, l_QVM, l_auxM, l_QP, l_QVP, l_auxP, t)
         else
-          inviscid_numerical_boundary_flux!(l_F, nM, l_QM, l_auxM, l_QP, l_auxP,
-                                            bctype, t)
+          numerical_boundary_flux!(l_F, nM, l_QM, l_QVM, l_auxM, l_QP, l_QVP,
+                                   l_auxP, bctype, t)
         end
 
         #Update RHS

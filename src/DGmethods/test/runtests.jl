@@ -24,6 +24,8 @@ using MPI, Test
                  (3, "Euler/isentropic_vortex_standalone_source.jl")
                  (1, "Euler/isentropic_vortex_standalone_bc.jl")
                  (3, "Euler/isentropic_vortex_standalone_bc.jl")
+                 (1, "conservation/sphere.jl")
+                 (3, "conservation/sphere.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
@@ -31,5 +33,21 @@ using MPI, Test
     #   Balance Law Solver | No tests
     # since external tests are not returned as passed/fail
     @test (run(cmd); true)
+  end
+
+  if "linux" != lowercase(get(ENV,"TRAVIS_OS_NAME",""))
+    for (n, f) in [
+                   (1, "../examples/ex_001_periodic_advection.jl")
+                   (3, "../examples/ex_001_periodic_advection.jl")
+                   (1, "../examples/ex_002_solid_body_rotation.jl")
+                   (3, "../examples/ex_002_solid_body_rotation.jl")
+                  ]
+      cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
+      @info "Running MPI test..." n f cmd
+      # Running this way prevents:
+      #   Balance Law Solver | No tests
+      # since external tests are not returned as passed/fail
+      @test (run(cmd); true)
+    end
   end
 end
