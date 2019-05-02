@@ -26,6 +26,8 @@ using MPI, Test
                  (3, "Euler/isentropic_vortex_standalone_bc.jl")
                  (1, "conservation/sphere.jl")
                  (3, "conservation/sphere.jl")
+                 (1, "compressible_Navier_Stokes/mms_bc.jl")
+                 (3, "compressible_Navier_Stokes/mms_bc.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
