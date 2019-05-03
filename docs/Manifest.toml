@@ -10,10 +10,10 @@ uuid = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
 version = "0.8.10"
 
 [[BinaryProvider]]
-deps = ["Libdl", "Pkg", "SHA", "Test"]
-git-tree-sha1 = "055eb2690182ebc31087859c3dd8598371d3ef9e"
+deps = ["Libdl", "SHA"]
+git-tree-sha1 = "c7361ce8a2129f20b0e05a89f7070820cfed6648"
 uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
-version = "0.5.3"
+version = "0.5.4"
 
 [[CLIMA]]
 deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "LinearAlgebra", "Literate", "Logging", "MPI", "Printf", "Requires", "StaticArrays", "WriteVTK"]
@@ -349,10 +349,10 @@ deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[StatsBase]]
-deps = ["DataStructures", "DelimitedFiles", "LinearAlgebra", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "Test"]
-git-tree-sha1 = "435707791dc85a67d98d671c1c3fcf1b20b00f94"
+deps = ["DataStructures", "LinearAlgebra", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics"]
+git-tree-sha1 = "8a0f4b09c7426478ab677245ab2b0b68552143c7"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.29.0"
+version = "0.30.0"
 
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
@@ -378,7 +378,7 @@ uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[WriteVTK]]
-deps = ["Base64", "CodecZlib", "LightXML", "Printf", "Random", "SHA", "Test", "TranscodingStreams"]
-git-tree-sha1 = "9aa900089a09fdb7af6cc02f70bc6ae9d78f57d2"
+deps = ["Base64", "CodecZlib", "LightXML", "Printf", "TranscodingStreams"]
+git-tree-sha1 = "f7c7fb5fb3c7d47b17b3490256105d8186477c7c"
 uuid = "64499a7a-5c06-52f2-abe2-ccb03c286192"
-version = "1.0.1"
+version = "1.0.2"
