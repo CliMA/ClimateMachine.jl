@@ -597,8 +597,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   auxstate = disc.auxstate
 
   nstate = disc.nstate
-  nviscstates = disc.number_viscous_states
-  ngradstates = disc.number_gradient_states
+  nviscstate = disc.number_viscous_states
+  ngradstate = disc.number_gradient_states
   nauxstate = size(auxstate, 2)
   states_grad = disc.states_for_gradient_transform
 
@@ -615,17 +615,17 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   ########################
   MPIStateArrays.start_ghost_exchange!(Q)
 
-  if nviscstates > 0
+  if nviscstate > 0
 
     volumeviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
-                     Val(ngradstates), Val(nviscstates), Val(nauxstate),
+                     Val(ngradstate), Val(nviscstate), Val(nauxstate),
                      disc.viscous_transform!, disc.gradient_transform!, Q.Q,
                      Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems)
 
     MPIStateArrays.finish_ghost_recv!(Q)
 
     faceviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
-                   Val(ngradstates), Val(nviscstates), Val(nauxstate),
+                   Val(ngradstate), Val(nviscstate), Val(nauxstate),
                    disc.viscous_penalty!,
                    disc.viscous_boundary_penalty!,
                    disc.gradient_transform!, Q.Q, Qvisc.Q, auxstate.Q,
@@ -638,18 +638,18 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   # RHS Computation #
   ###################
 
-  volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstates), Val(nauxstate),
+  volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate),
              disc.flux!, disc.source!, dQ.Q, Q.Q, Qvisc.Q, auxstate.Q,
              vgeo, t, Dmat, topology.realelems)
 
-  MPIStateArrays.finish_ghost_recv!(nviscstates > 0 ? Qvisc : Q)
+  MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
   # The main reason for this protection is not for the MPI.Waitall!, but the
   # make sure that we do not recopy data to the GPU
-  nviscstates > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
-  nviscstates == 0 && MPIStateArrays.finish_ghost_recv!(Q)
+  nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
+  nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
-  facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstates), Val(nauxstate),
+  facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate),
            disc.numerical_flux!,
            disc.numerical_boundary_flux!, dQ.Q, Q.Q, Qvisc.Q,
            auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
