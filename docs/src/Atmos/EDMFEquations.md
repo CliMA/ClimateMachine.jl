@@ -633,7 +633,7 @@ Fix: which virtual potential temperature is used
 \ThetaLiqIce & = \ThetaDry (1 - (\RefLHv \ql + \RefLHs \qi))/(\Cpm T) \\
 \ThetaVirt   & = \ThetaDry (1 - r_c + 0.61 r_v) \\
 \ThetaVirt   & = \theta \left(1 + 0.61 \qr - \ql \right) \\
-\ThetaRho    & = T (1 - \qt + \EpsDV \qv)/\ExnerD \\
+\ThetaRho    & = T \Rm/\ExnerD \\
 \end{align}
 ```
 where additional variable definitions are in:
@@ -657,7 +657,7 @@ where additional variable definitions are in:
 \begin{align}\label{eq:Buoyancy}
 \SDi{b}^{\dagger} & = \grav (\SDi{\alpha} - \alphaRef)/\alphaRef \\
 \SDi{b} & = \SDi{b}^{\dagger} - \sum_j a_j \SDj{b}^{\dagger} \\
-\alpha_i & = \frac{\Rd \SDi{T}}{\pRef} (1 - \SDi{\qt} + \EpsDV \SDi{\qv}) \\
+\alpha_i & = \frac{\SDi{\Rm} \SDi{T}}{\pRef} \\
 \end{align}
 ```
 where additional variable definitions are in:
