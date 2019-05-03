@@ -172,7 +172,7 @@ end
   end
 end
 
-@inline function bcstate2D!(QP, VFP, auxP, QM, VFM, auxM, bctype, t, _...)
+@inline function bcstate2D!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
     initialcondition!(Val(2), QP, t, x, y, z)
@@ -180,7 +180,7 @@ end
     nothing
   end
 end
-@inline function bcstate3D!(QP, VFP, auxP, QM, VFM, auxM, bctype, t, _...)
+@inline function bcstate3D!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
     initialcondition!(Val(3), QP, t, x, y, z)

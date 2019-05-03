@@ -81,7 +81,7 @@ end
 The function `bcstate!` is used to calculate the plus side state for the
 boundary condition `bctype`. The calling convention is:
 ```
-PP = bcstate!(QP, QVP, auxP, QM, QVM, auxM, bctype, t, preflux(QM, auxM, t)...)
+PP = bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, preflux(QM, auxM, t)...)
 ```
 where `QP`, `QVP`, and `auxP` are the plus side state, viscous state, and
 auxiliary state to be filled from the given data; other arguments should not be
@@ -102,7 +102,7 @@ function rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM,
                                 correctQ! = nothing
                                ) where {nstate}
   PM = preflux(QM, QVM, auxM, t)
-  PP = bcstate!(QP, QVP, auxP, QM, QVM, auxM, bctype, t, PM...)
+  PP = bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, PM...)
   PP === nothing && (PP = preflux(QP, QVP, auxP, t))
   rusanov!(F, nM, QM, QVM, auxM, QP, QVP, auxP, t, flux!, wavespeed, preflux,
            correctQ!, PM, PP)
