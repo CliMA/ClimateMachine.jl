@@ -225,13 +225,13 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
   auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
   vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
 
-  s_H = MArray{Tuple{Nq, Nq, Nqk, nviscstate}, DFloat}(undef)
+  s_G = MArray{Tuple{Nq, Nq, Nqk, nviscstate}, DFloat}(undef)
 
   l_Q = MArray{Tuple{ngradstate}, DFloat}(undef)
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_H = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_G = MArray{Tuple{nviscstate}, DFloat}(undef)
   l_Qvisc = MArray{Tuple{nviscfluxstate}, DFloat}(undef)
-  l_gradH = MArray{Tuple{3, nviscstate}, DFloat}(undef)
+  l_gradG = MArray{Tuple{3, nviscstate}, DFloat}(undef)
 
   @inbounds for e in elems
     for k = 1:Nqk, j = 1:Nq, i = 1:Nq
@@ -243,9 +243,9 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
         l_aux[s] = auxstate[i, j, k, s, e]
       end
 
-      gradient_transform!(l_H, l_Q, l_aux, t)
+      gradient_transform!(l_G, l_Q, l_aux, t)
       for s = 1:nviscstate
-        s_H[i, j, k, s] = l_H[s]
+        s_G[i, j, k, s] = l_G[s]
       end
     end
 
@@ -260,18 +260,18 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
       end
 
       for s = 1:nviscstate
-        Hξ = Hη = Hζ = zero(DFloat)
+        Gξ = Gη = Gζ = zero(DFloat)
         for n = 1:Nq
-          Hξ += D[i, n] * s_H[n, j, k, s]
-          Hη += D[j, n] * s_H[i, n, k, s]
-          dim == 3 && (Hζ += D[k, n] * s_H[i, j, n, s])
+          Gξ += D[i, n] * s_G[n, j, k, s]
+          Gη += D[j, n] * s_G[i, n, k, s]
+          dim == 3 && (Gζ += D[k, n] * s_G[i, j, n, s])
         end
-        l_gradH[1, s] = ξx * Hξ + ηx * Hη + ζx * Hζ
-        l_gradH[2, s] = ξy * Hξ + ηy * Hη + ζy * Hζ
-        l_gradH[3, s] = ξz * Hξ + ηz * Hη + ζz * Hζ
+        l_gradG[1, s] = ξx * Gξ + ηx * Gη + ζx * Gζ
+        l_gradG[2, s] = ξy * Gξ + ηy * Gη + ζy * Gζ
+        l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
       end
 
-      viscous_transform!(l_Qvisc, l_gradH, l_Q, l_aux, t)
+      viscous_transform!(l_Qvisc, l_gradG, l_Q, l_aux, t)
 
       for s = 1:nviscfluxstate
         Qvisc[i, j, k, s, e] = l_Qvisc[s]
@@ -308,11 +308,11 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
 
   l_QM = MArray{Tuple{ngradstate}, DFloat}(undef)
   l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_HM = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_GM = MArray{Tuple{nviscstate}, DFloat}(undef)
 
   l_QP = MArray{Tuple{ngradstate}, DFloat}(undef)
   l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_HP = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_GP = MArray{Tuple{nviscstate}, DFloat}(undef)
 
   l_Qvisc = MArray{Tuple{nviscfluxstate}, DFloat}(undef)
 
@@ -335,7 +335,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        gradient_transform!(l_HM, l_QM, l_auxM, t)
+        gradient_transform!(l_GM, l_QM, l_auxM, t)
 
         # Load plus side data
         for s = 1:ngradstate
@@ -346,16 +346,16 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        gradient_transform!(l_HP, l_QP, l_auxP, t)
+        gradient_transform!(l_GP, l_QP, l_auxP, t)
 
         bctype =
             viscous_boundary_penalty! === nothing ? 0 : elemtobndy[f, e]
         if bctype == 0
-          viscous_penalty!(l_Qvisc, nM, l_HM, l_QM, l_auxM, l_HP,
+          viscous_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
         else
-          viscous_boundary_penalty!(l_Qvisc, nM, l_HM, l_QM, l_auxM,
-                                           l_HP, l_QP, l_auxP, bctype, t)
+          viscous_boundary_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM,
+                                           l_GP, l_QP, l_auxP, bctype, t)
         end
 
         for s = 1:nviscfluxstate
