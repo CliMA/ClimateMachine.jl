@@ -644,6 +644,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
 
   MPIStateArrays.finish_ghost_recv!(nviscstates > 0 ? Qvisc : Q)
 
+  # The main reason for this protection is not for the MPI.Waitall!, but the
+  # make sure that we do not recopy data to the GPU
   nviscstates > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
   nviscstates == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
