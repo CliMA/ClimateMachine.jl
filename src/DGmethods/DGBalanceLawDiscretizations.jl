@@ -73,15 +73,6 @@ using ..Topologies
 
 export DGBalanceLaw
 
-# {{{ FIXME: remove this after we've figure out how to pass through to kernel
-const _nvgeo = 14
-const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
-       _x, _y, _z = 1:_nvgeo
-
-const _nsgeo = 5
-const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
-# }}}
-
 include("DGBalanceLawDiscretizations_kernels.jl")
 include("NumericalFluxes.jl")
 
