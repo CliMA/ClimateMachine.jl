@@ -50,10 +50,14 @@ end
   ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
 end
 
-@inline function correctQ!(Q, aux)
-  @inbounds Q[_U] -= aux[1]
-  @inbounds Q[_V] -= aux[2]
-  @inbounds Q[_W] -= aux[3]
+@inline function computeQjump!(ΔQ, QM, auxM, QP, auxP)
+  @inbounds begin
+    ΔQ[_ρ] = QM[_ρ] - QP[_ρ]
+    ΔQ[_U] = (QM[_U] - auxM[1]) - (QP[_U] - auxP[1])
+    ΔQ[_V] = (QM[_V] - auxM[2]) - (QP[_V] - auxP[2])
+    ΔQ[_W] = (QM[_W] - auxM[3]) - (QP[_W] - auxP[3])
+    ΔQ[_E] = QM[_E] - QP[_E]
+  end
 end
 
 @inline function auxiliary_state_initialization!(aux, x, y, z)
@@ -142,7 +146,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux,
-                                                    correctQ!),
+                                                    computeQjump!),
                            auxiliary_state_length = 3,
                            auxiliary_state_initialization! =
                            auxiliary_state_initialization!,
