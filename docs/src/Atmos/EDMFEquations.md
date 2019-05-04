@@ -565,7 +565,7 @@ T & = T(\qt, \eint, \rhoRef) \\
 \end{align}
 ```
 
-### ($\qt, \ThetaLiqIce, \pRef, \rhoRef$)-formulation
+### ($\qt, \ThetaLiqIce, \rhoRef, \pRef$)-formulation
 
 Here, $T$ conditionally satisfies the non-linear set of equations, which can be solved using a standard root solver (e.g., Secant method):
 
@@ -590,28 +590,25 @@ Functionally,
 
 ```math
 \begin{align}
-T & = T(\qt, \ThetaLiqIce, \pRef, \rhoRef) \\
+T & = T(\qt, \ThetaLiqIce, \rhoRef, \pRef) \\
 \end{align}
 ```
 
 ## Reference state profiles
-Reference state profiles are computed using hydrostatic balance and ideal gas law:
+Using the hydrostatic balance, $\PD_z \pRef = - \rhoRef{} \grav$, and the ideal gas law, $\pRef = \rhoRef{} \Rm \TRef$, the reference state profiles are computed as:
 
- - $\PD_z \pRef = - \rhoRef{} \grav$
-
- - $\pRef = \rhoRef{} \Rm \TRef$
-
-This yields:
 ```math
 \begin{align}
-\PD_z \pRef & = - \grav \frac{\pRef}{\TRef \DM{\Rm}} \\
-\int_{\BC{\pRef}}^{\pRef} \frac{1}{\pRef} \PD \pRef & = - \frac{\grav}{\DM{\Rm}} \int_{z_{min}}^{z} \frac{1}{\TRef} \PD z \\
-\log(\pRef) & = \BC{\log(\pRef)} - \frac{\grav}{\BC{\DM{\Rm}}} \int_{z_{min}}^{z} \frac{1}{\TRef(\BC{\DM{\qt}}, \BC{\DM{\ThetaLiqIce}}, \pRef{})} \PD z \\
-\rhoRef{} & = \frac{\pRef{}}{\hyperparam{\BC{\TRef}} \BC{\DM{\Rm}}} \\
+\PD_z \pRef & = - \grav \frac{\pRef}{\TRef \Rm} \\
+\int_{\BC{\pRef}}^{\pRef} \frac{\TRef^{\dagger}(\pRef)}{\pRef} \PD \pRef & = - \frac{\grav}{\BC{\DM{\Rm}}} \int_{z_{min}}^{z} \PD z \\
+\rhoRef{} & = \frac{\pRef{}}{\TRef^{\dagger}(\pRef) \BC{\DM{\Rm}}} \\
 \alphaRef & = \frac{1}{\rhoRef} \\
+\TRef^{\dagger}(\pRef) & = \TRef(\BC{\DM{\qt}}, \BC{\DM{\ThetaLiqIce}}, \BC{\DM{\rhoRef}}, \pRef) \\
 \end{align}
 ```
 where additional variable definitions are in:
+
+ - [Temperature](@ref) ($T$).
 
  - [Gas constants](@ref) ($\Rm$).
 
