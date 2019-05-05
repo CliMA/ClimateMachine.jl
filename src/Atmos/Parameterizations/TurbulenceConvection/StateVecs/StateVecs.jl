@@ -13,10 +13,6 @@ struct FieldsPerElement{T}
   vals::Vector{T}
 end
 
-function Base.show(io::IO, fpe::FieldsPerElement)
-  print(io, "fpe = ",fpe.vals)
-end
-
 """
     StateVec{T, I, NT}
 
@@ -86,9 +82,13 @@ function Base.show(io::IO, sv::StateVec)
   println(io, "----------------------- State Vector")
   println(io, "n_subdomains    = ", sv.n_subdomains)
   println(io, "var_mapper      = ", sv.var_mapper)
-  for fpe in sv.fields
-    println(io, fpe)
-  end
+  headers = [ length(over_sub_domains(sv, name))==1 ? string(name) : string(name)*"_"*string(i_sd)
+             for name in sv.var_names for i_sd in over_sub_domains(sv, name)]
+  n_vars = length(headers)
+  n_elem = length(sv.fields)
+  data = reshape([sv[name, k, i_sd] for name in sv.var_names for
+    i_sd in over_sub_domains(sv, name) for k in 1:n_elem], n_elem, n_vars)
+  Base.print_matrix(io, [reshape(Text.(headers), 1, n_vars); data])
   println(io, "-----------------------")
 end
 

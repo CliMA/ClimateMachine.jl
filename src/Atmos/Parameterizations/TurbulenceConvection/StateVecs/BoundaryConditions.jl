@@ -48,7 +48,11 @@ end
 """
     Neumann!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
 
-Apply Neumann boundary conditions at the bottom of the domain
+Apply Neumann boundary conditions at the bottom of the domain.
+
+    ∇u = g n̂
+
+Where `n̂` is the outward facing normal and `u` is the variable `name` in `sv`.
 """
 function Neumann!(sv::StateVec, name::Symbol, val, grid, ::Bottom, i_sd=1)
   e = grid.n_ghost
@@ -59,6 +63,10 @@ end
     Neumann!(sv::StateVec, name::Symbol, val, grid, ::Top, i_sd=1)
 
 Apply Neumann boundary conditions at the bottom of the domain
+
+    ∇u = g n̂
+
+Where `n̂` is the outward facing normal and `u` is the variable `name` in `sv`.
 """
 function Neumann!(sv::StateVec, name::Symbol, val, grid, ::Top, i_sd=1)
   e = grid.n_elem - (grid.n_ghost-1)
