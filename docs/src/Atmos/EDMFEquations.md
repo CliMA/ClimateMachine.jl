@@ -197,7 +197,7 @@ The domain-averaged equations for $\DM{\phi} \in [w, \qt, \eint, \uH]$ are:
 + \PD_z (\rhoRef{} \DM{w} \DM{\phi})
 + \nabla_h \DOT \left( \rhoRef{} \DM{\phi} \otimes \DM{\phi} \right)
 = \\
-  \DM{S}_{\text{diff}}
+  \DM{S}_{\text{diff}}^{\DM{\phi}}
 + \DM{S}_{\text{press}}
 + \DM{S}_{\text{coriolis}}
 + \DM{S}_{\text{subsidence}},
@@ -206,10 +206,11 @@ The domain-averaged equations for $\DM{\phi} \in [w, \qt, \eint, \uH]$ are:
 where
 ```math
 \begin{align}
-\DM{S}_{\text{diff}}       & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
-\DM{S}_{\text{press}}      & = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
-\DM{S}_{\text{coriolis}}   & = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
-\DM{S}_{\text{subsidence}} & = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
+\DM{S}_{\text{diff}}^{\DM{\phi}} & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
+\DM{S}_{\text{diff}}^{w}         & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
+\DM{S}_{\text{press}}            & = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
+\DM{S}_{\text{coriolis}}         & = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
+\DM{S}_{\text{subsidence}}       & = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
 \end{align}
 ```
 
@@ -425,7 +426,7 @@ Additional source terms exist in other equations:
 \rhoRef{} a_i \SDi{\Km} \left[ \left(\PD_z\DM{u}\right)^2 + \left(\PD_z\DM{v}\right)^2 + \left(\PD_z\DM{w}\right)^2 \right] \\
 \SDi{S_{\text{turb-transp}}}^{\phi\psi} & = - \PD_z (\rhoRef{} a_i \overline{w'_i\phi'_i\psi'_i}) \\
 & = \PD_z (\rhoRef{} a_i \SDi{\Kh} \PD_z \IntraCVSDi{\phi}{\psi}) \\
-\SDi{S_{\text{turb-transp}}}^{TKE} & = \PD_z (\rhoRef{} a_i \SDi{\Kh} \PD_z \SDi{TKE}) \\
+\SDi{S_{\text{turb-transp}}}^{TKE} & = \PD_z (\rhoRef{} a_i \SDi{\Km} \PD_z \SDi{TKE}) \\
 \SDi{S_{\text{dissip}}}
 & = - \rhoRef{} a_i c_e \IntraCVSDi{\phi}{\psi} \frac{\SDi{TKE}^{1/2}}{\SDio{{l_{mix}}}}, \quad \text{Equation 38 in Tan et al.} \\
 c_e & = 2 \\
@@ -860,7 +861,7 @@ where additional variable definitions are in:
 ```math
 \begin{align}\label{eq:BuoyancyFlux}
 \SurfaceBuoyancyFlux & = \frac{\grav \BC{\alphaRef}}{\Cpm \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\EpsDV - 1) \Cpm \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeatV{\BC{\SDi{T}}}) \\
-\BuoyancyFlux & = - \SDi{\Km} \SDi{\BuoyancyGrad} \\
+\BuoyancyFlux & = - \SDi{\Kh} \SDi{\BuoyancyGrad} \\
 \end{align}
 ```
  - [Eddy diffusivity](@ref) ($\Km, \Kh$).
