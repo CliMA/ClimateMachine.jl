@@ -1,5 +1,4 @@
 # Advection on the Sphere test case.  This is a case similar to the one presented in:
-#
 #@article{WILLIAMSON1992211,
 #title = "A standard test set for numerical approximations to the shallow water equations in spherical geometry",
 #journal = "Journal of Computational Physics",
@@ -27,15 +26,17 @@ using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
+using Random
 
 const uid, vid, wid = 1:3
-const integration_testing = true
+const radians = true
 const γ_exact = 7 // 5
 
+const integration_testing = false
 if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  using Random
+    const integration_testing =
+        parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
+    using Random
 end
 
 # preflux computation: NOT needed for this test
@@ -65,12 +66,12 @@ end
 #}}} wavespeed
 
 #{{{ Cartesian->Spherical
-@inline function cartesian_to_spherical(x,y,z,format)
+@inline function cartesian_to_spherical(x,y,z,radians)
     #Conversion Constants
-    if format == "degrees"
-        c=180/π
-    elseif format == "radians"
+    if radians
         c=1.0
+    else
+        c=180/π
     end
     λ_max=2π*c
     λ_min=0*c
@@ -89,7 +90,7 @@ end
 @inline function velocity_init!(vel, x, y, z)
     @inbounds begin
         DFloat = eltype(vel)
-        (r, λ, ϕ) = cartesian_to_spherical(x,y,z,"radians")
+        (r, λ, ϕ) = cartesian_to_spherical(x,y,z,radians)
         #w = 2 * DFloat(π) * cos(ϕ) #Case 1 -> shear flow
         w = 2 * DFloat(π) * cos(ϕ) * r #Case 2 -> solid body flow
         uλ, uϕ = w, 0
@@ -104,13 +105,20 @@ end
 function advection_sphere!(Q, t, x, y, z, vel)
     DFloat = eltype(Q)
     rc=1.5
-    (r, λ, ϕ) = cartesian_to_spherical(x,y,z,"radians")
+    (r, λ, ϕ) = cartesian_to_spherical(x,y,z,radians)
     if (abs(r-rc) <= 0.25)
-        Q[1] = exp(-((3λ)^2 + (3ϕ)^2))
+        ρ = exp(-((3λ)^2 + (3ϕ)^2))
     else
-        #            Q[1]=0
-        Q[1] = exp(-((3λ)^2 + (3ϕ)^2))
+        #            ρ=0
+        ρ = exp(-((3λ)^2 + (3ϕ)^2))
     end
+
+    if integration_testing
+        @inbounds Q[1] = ρ
+    else
+        @inbounds Q[1], vel[1], vel[2], vel[3] = 10+rand(), rand(), rand(), rand()
+    end
+
 end
 
 #{{{ Main
@@ -123,7 +131,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 
     #{{{ numerical fluxex
     numflux!(x...) = NumericalFluxes.rusanov!(x..., advectionflux!, wavespeed,preflux)
-    numbcflux!(x...) =  F.=0 #zero flux at the boundaries: not entirely accurate but good enough
+    numbcflux!(F, x...) =  F.=0 #zero flux at the boundaries: not entirely accurate but good enough
 
     #Define Spatial Discretization
     spacedisc=DGBalanceLaw(grid = grid,
@@ -148,27 +156,23 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 
     #------------Set Callback Info--------------------------------#
     # Set up the information callback
-    timer = [time_ns()]
+    starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
         if s
-            timer[1] = time_ns()
+            starttime[] = now()
         else
-            run_time = (time_ns() - timer[1]) * 1e-9
-            (min, sec) = fldmod(run_time, 60)
-            (hrs, min) = fldmod(min, 60)
-            @printf(io, "----\n")
-            @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
-            @printf(io, "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n", hrs, min, sec)
-            @printf(io, " Δmass =  %.16e\n", abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe) )
+            @info @sprintf """Update
+            simtime = %.16e
+            runtime = %s
+            Δmass   = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe)
         end
         nothing
     end
 
     # Set up the information callback
     cbmass = GenericCallbacks.EveryXSimulationSteps(1000) do
-        @printf(io, "----\n")
-        @printf(io, " Δmass =  %.16e\n", abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe) )
-        nothing
+        @info @sprintf """Update
+            Δmass   = %.16e""" abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe)
     end
 
     step = [0]
@@ -176,8 +180,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         outprefix = @sprintf("vtk/advection_sphere_%dD_mpirank%04d_step%04d",
                              3, MPI.Comm_rank(mpicomm), step[1])
-        @printf(io, "----\n")
-        @printf(io, "doing VTK output =  %s\n", outprefix)
+        @debug "doing VTK output" outprefix
         DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, ("ρ", ))
         step[1] += 1
         nothing
@@ -192,9 +195,16 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
         error = euclidean_distance(Q, Qe) / norm(Qe)
         Δmass = abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe)
         @info @sprintf """Finished
-        error = %.16e
-        Δmass = %.16e
-        """ error Δmass
+            error = %.16e
+            Δmass = %.16e
+            """ error Δmass
+    else
+        error = euclidean_distance(Q, Qe) / norm(Qe)
+        Δmass = abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe)
+        @info @sprintf """Finished
+            error = %.16e
+            Δmass = %.16e
+            """ error Δmass
     end
 
     #return diagnostics
@@ -205,7 +215,7 @@ end
 #{{{ Run Script
 function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ArrayType)
     Rrange=range(DFloat(1); length=Nvertical+1, stop=2)
-    topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(0,0))
+    topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
     (error, Δmass) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 end
 #}}} Run Script
@@ -236,9 +246,13 @@ let
         dt=1e-2*5 #stable dt for N=4 and Ne=5
 
         expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
-        expected_error[1] = 1.5684355102513664e-01 #Ne=2
-        expected_error[2] = 8.8549044843092145e-03 #Ne=4
-        expected_error[3] = 2.2163001051913196e-04 #Ne=8
+        expected_error[1] = 1.5694890877887144e-01 #Ne=2
+        expected_error[2] = 8.8553536706191920e-03 #Ne=4
+        expected_error[3] = 2.2388104046289426e-04 #Ne=8
+        expected_mass = Array{Float64}(undef, 3) # h-refinement levels lvl
+        expected_mass[1] = 0.0000000000000000e+00 #Ne=2
+        expected_mass[2] = 1.8219438767875646e-15 #Ne=4
+        expected_mass[3] = 6.1665533536019044e-15 #Ne=8
         lvls = length(expected_error)
 
         for DFloat in (Float64,) #Float32)
@@ -250,9 +264,16 @@ let
                 dt=dt/Nhorizontal
                 nsteps = ceil(Int64, timeend / dt)
                 dt = timeend / nsteps
-                @show(Nhorizontal,Nvertical,N,dt,nsteps)
+                @info @sprintf """Run Configuration
+                Nhorizontal = %.16e
+                Nvertical   = %.16e
+                N           = %.16e
+                dt          = %.16e
+                nstep       = %.16e
+                """ Nhorizontal Nvertical N dt nsteps
                 (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ArrayType)
-                @test err[l] ≈ DFloat(expected_error[l])
+                @test err[l]  ≈ DFloat(expected_error[l])
+                @test mass[l] ≈ DFloat(expected_mass[l])
             end
             @info begin
                 msg = ""
@@ -262,6 +283,32 @@ let
                 end
                 msg
             end
+        end
+    else
+        timeend = 1
+        numelem = (2, 2) #(Nhorizontal,Nvertical)
+        N = 4
+        ArrayType = Array
+        dt=1e-2*5 #stable dt for N=4 and Ne=5
+
+        Nhorizontal = numelem[1]
+        Nvertical   = numelem[2]
+        dt=dt/Nhorizontal
+
+        numproc=MPI.Comm_size(mpicomm)
+        @show numproc
+
+        expected_error = Array{Float64}(undef, 2)
+        expected_error[1] = 2.1279090506529808e-02
+        expected_error[2] = 2.1334545498364030e-02
+        expected_mass = Array{Float64}(undef, 2)
+        expected_mass[1] = 1.8462425827083886e-16
+        expected_mass[2] = 1.8480965431931998e-16
+        for DFloat in (Float64,) #Float32)
+            Random.seed!(0)
+            (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ArrayType)
+            @test error ≈ DFloat(expected_error[numproc])
+            @test mass ≈ DFloat(expected_mass[numproc])
         end
     end
     #Perform Integration Testing for three different grid resolutions
@@ -287,4 +334,3 @@ end #Test
 isinteractive() || MPI.Finalize()
 
 #nothing
-println("Done")
