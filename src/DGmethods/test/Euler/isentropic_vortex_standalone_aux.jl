@@ -50,10 +50,14 @@ end
   ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
 end
 
-@inline function correctQ!(Q, aux)
-  @inbounds Q[_U] -= aux[1]
-  @inbounds Q[_V] -= aux[2]
-  @inbounds Q[_W] -= aux[3]
+@inline function computeQjump!(ΔQ, QM, auxM, QP, auxP)
+  @inbounds begin
+    ΔQ[_ρ] = QM[_ρ] - QP[_ρ]
+    ΔQ[_U] = (QM[_U] - auxM[1]) - (QP[_U] - auxP[1])
+    ΔQ[_V] = (QM[_V] - auxM[2]) - (QP[_V] - auxP[2])
+    ΔQ[_W] = (QM[_W] - auxM[3]) - (QP[_W] - auxP[3])
+    ΔQ[_E] = QM[_E] - QP[_E]
+  end
 end
 
 @inline function auxiliary_state_initialization!(aux, x, y, z)
@@ -67,10 +71,10 @@ end
 end
 
 # physical flux function
-eulerflux!(F, Q, aux, t) =
-eulerflux!(F, Q, aux, t, preflux(Q, aux, t)...)
+eulerflux!(F, Q, QV, aux, t) =
+eulerflux!(F, Q, QV, aux, t, preflux(Q, aux, t)...)
 
-@inline function eulerflux!(F, Q, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
     U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
@@ -137,12 +141,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
-                           inviscid_flux! = eulerflux!,
-                           inviscid_numerical_flux! = (x...) ->
+                           flux! = eulerflux!,
+                           numerical_flux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux,
-                                                    correctQ!),
+                                                    computeQjump!),
                            auxiliary_state_length = 3,
                            auxiliary_state_initialization! =
                            auxiliary_state_initialization!,
