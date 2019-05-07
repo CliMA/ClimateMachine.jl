@@ -16,16 +16,11 @@ using MPI, Test
 
   for (n, f) in [
                  (1, "Euler/isentropic_vortex_standalone.jl")
-                 (3, "Euler/isentropic_vortex_standalone.jl")
                  (1, "Euler/isentropic_vortex_standalone_aux.jl")
-                 (3, "Euler/isentropic_vortex_standalone_aux.jl")
                  (1, "util/grad_test.jl")
                  (1, "Euler/isentropic_vortex_standalone_source.jl")
-                 (3, "Euler/isentropic_vortex_standalone_source.jl")
                  (1, "Euler/isentropic_vortex_standalone_bc.jl")
-                 (3, "Euler/isentropic_vortex_standalone_bc.jl")
                  (1, "conservation/sphere.jl")
-                 (3, "conservation/sphere.jl")
                  (1, "compressible_Navier_Stokes/mms_bc.jl")
                  (3, "compressible_Navier_Stokes/mms_bc.jl")
                  (1, "Sphere/advection_sphere.jl")
@@ -37,6 +32,24 @@ using MPI, Test
     #   Balance Law Solver | No tests
     # since external tests are not returned as passed/fail
     @test (run(cmd); true)
+  end
+
+  if !parse(Bool, lowercase(get(ENV,"TRAVIS","false")))
+    for (n, f) in [
+                 (3, "Euler/isentropic_vortex_standalone.jl")
+                 (3, "Euler/isentropic_vortex_standalone_aux.jl")
+                 (3, "Euler/isentropic_vortex_standalone_source.jl")
+                 (3, "Euler/isentropic_vortex_standalone_bc.jl")
+                 (3, "conservation/sphere.jl")
+                 (3, "compressible_Navier_Stokes/mms_bc.jl")
+                  ]
+      cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
+      @info "Running MPI test..." n f cmd
+      # Running this way prevents:
+      #   Balance Law Solver | No tests
+      # since external tests are not returned as passed/fail
+      @test (run(cmd); true)
+    end
   end
 
   if "linux" != lowercase(get(ENV,"TRAVIS_OS_NAME",""))
@@ -54,4 +67,5 @@ using MPI, Test
       @test (run(cmd); true)
     end
   end
+
 end
