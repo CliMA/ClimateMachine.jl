@@ -617,7 +617,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
   CubedShellTopology{T}(
     BoxElementTopology{2, T}(
       mpicomm, topology.elems, topology.realelems,
-      topology.ghostelems, topology.sendelems, elemtocoord,
+      topology.ghostelems, topology.sendelems, topology.elemtocoord,
       topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
       topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
       topology.nabrtosend, false))
@@ -784,14 +784,14 @@ end
 
 """
    StackedCubedSphereTopology(mpicomm, Nhorz, Rrange;
-                              bc=(1,1)) <: AbstractTopology{3}
+                              boundary=(1,1)) <: AbstractTopology{3}
 
 Generate a stacked cubed sphere topology with `Nhorz` by `Nhorz` cells for each
 horizontal face and `Rrange` is the radius edges of the stacked elements.  This
 topology actual creates a cube mesh, and the warping should be done after the
 grid is created using the `cubedshellwarp` function. The coordinates of the
 points will be of type `eltype(Rrange)`. The inner boundary condition type is
-`bc[1]` and the outer boundary condition type is `bc[2]`.
+`boundary[1]` and the outer boundary condition type is `boundary[2]`.
 
 The elements are stacked such that the vertical elements are contiguous in the
 element ordering.
@@ -822,7 +822,7 @@ MPI.Finalize()
 ```
 Note that the faces are listed in Cartesian order.
 """
-function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
+function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
                                     connectivity=:face, ghostsize=1)
   T = eltype(Rrange)
 
@@ -925,8 +925,8 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; bc = (1, 1),
     eb = stacksize*(i-1) + 1
     et = stacksize*(i-1) + stacksize
 
-    elemtobndy[2(dim-1)+1, eb] = bc[1]
-    elemtobndy[2(dim-1)+2, et] = bc[2]
+    elemtobndy[2(dim-1)+1, eb] = boundary[1]
+    elemtobndy[2(dim-1)+2, et] = boundary[2]
   end
 
   nabrtorank = basetopo.nabrtorank

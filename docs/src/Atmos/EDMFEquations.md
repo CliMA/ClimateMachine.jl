@@ -17,6 +17,7 @@
 \newcommand{\GRAD}{\nabla}
 \newcommand{\DOT}{\bullet}
 \newcommand{\PD}{\partial}
+\newcommand{\PDFz}{\frac{\PD}{\PD z}}
 \newcommand{\DM}[1]{\langle #1 \rangle}
 \newcommand{\iEnv}{e}
 \newcommand{\SD}[2]{{\overline{#1}}_{#2}}
@@ -37,9 +38,9 @@
 \newcommand{\IntraCVSDj}[2]{\overline{{#1}_{j      }'{#2}_{j      }'}}
 \newcommand{\IntraCVSDe}[2]{\overline{{#1}_{\iEnv{}}'{#2}_{\iEnv{}}'}}
 
-\newcommand{\InterCVSDi}[2]{\overline{{#1}_{i      }'}\overline{{#2}_{i      }'}}
-\newcommand{\InterCVSDj}[2]{\overline{{#1}_{j      }'}\overline{{#2}_{j      }'}}
-\newcommand{\InterCVSDe}[2]{\overline{{#1}_{\iEnv{}}'}\overline{{#2}_{\iEnv{}}'}}
+\newcommand{\InterCVSDi}[2]{\overline{{#1}_{i      }'}~\overline{{#2}_{i      }'}}
+\newcommand{\InterCVSDj}[2]{\overline{{#1}_{j      }'}~\overline{{#2}_{j      }'}}
+\newcommand{\InterCVSDe}[2]{\overline{{#1}_{\iEnv{}}'}~\overline{{#2}_{\iEnv{}}'}}
 
 \newcommand{\TCV}[2]{\langle {#1}^*{#2}^* \rangle}
 
@@ -48,6 +49,10 @@
 \newcommand{\BCB}[1]{{#1|_{z_{min}}}}
 \newcommand{\BCG}[1]{{#1|_{z_{boundary}}}}
 
+\newcommand{\TEquilib}{T_{\mathrm{iterated}}}
+\newcommand{\PhasePartition}{q}
+\newcommand{\ExnerD}{\Pi_d}
+\newcommand{\ExnerM}{\Pi_m}
 \newcommand{\WindSpeed}{|u|}
 \newcommand{\LayerThickness}{\param{\Delta z}}
 \newcommand{\SurfaceRoughness}[1]{\param{z_{0#1}}}
@@ -67,23 +72,24 @@
 \newcommand{\zLL}{\param{z_{||}}} % z at the first surface level (we should make this grid-independent)
 
 \newcommand{\qt}{q_{\mathrm{tot}}}
+\newcommand{\qr}{q_{\mathrm{rain}}}
 \newcommand{\ql}{q_{\mathrm{liq}}}
 \newcommand{\qi}{q_{\mathrm{ice}}}
 \newcommand{\qv}{q_{\mathrm{vap}}}
 \newcommand{\qvsat}{q_{\mathrm{vap}}^*}
 \newcommand{\pvsat}{p_{\mathrm{vap}}^*}
 \newcommand{\qc}{q_{\mathrm{con}}}
-\newcommand{\ThetaL}{{\theta_{\mathrm{liq}}}}
 \newcommand{\ThetaVap}{{\theta_{\mathrm{vap}}}}
 \newcommand{\ThetaVirt}{{\theta_{\mathrm{virt}}}}
 \newcommand{\ThetaRho}{{\theta_{\rho}}}
+\newcommand{\ThetaLiq}{{\theta_{\mathrm{liq}}}}
 \newcommand{\ThetaLiqIce}{{\theta_{\mathrm{liq-ice}}}}
 \newcommand{\ThetaLiqIceSat}{{\theta^*_{\mathrm{liq-ice}}}}
 \newcommand{\ThetaDry}{{\theta_{\mathrm{dry}}}}
-\newcommand{\h}{{e_{\mathrm{int}}}}
-\newcommand{\hint}{e_{\mathrm{int}}}
-\newcommand{\htot}{e_{\mathrm{tot}}}
+\newcommand{\eint}{e_{\mathrm{int}}}
+\newcommand{\etot}{e_{\mathrm{tot}}}
 
+\newcommand{\TRef}{{T}_0}
 \newcommand{\alphaRef}{{\alpha}_0}
 \newcommand{\rhoRef}{{\rho}_0}
 \newcommand{\pRef}{{p}_0}
@@ -104,11 +110,14 @@
 \newcommand{\Nsd}{\hyperparam{N_{sd}}}
 \newcommand{\grav}{\param{g}}
 \newcommand{\TZero}{\param{T_{0}}}
-\newcommand{\RefHintV}{\param{{\hint}_{v,0}}}
-\newcommand{\RefHintI}{\param{{\hint}_{i,0}}}
+\newcommand{\RefHintV}{\param{{\eint}_{v,0}}}
+\newcommand{\RefHintI}{\param{{\eint}_{i,0}}}
 
-\newcommand{\epsvi}{\param{\varepsilon_{vi}}}
-\newcommand{\MRatio}{\param{M_{\mathrm{ratio}}}}
+\newcommand{\EpsDV}{\param{\varepsilon_{dv}}}
+\newcommand{\EpsVD}{\param{\varepsilon_{vd}}}
+\newcommand{\Rm}{R_m}
+\newcommand{\Cpm}{c_{pm}}
+\newcommand{\Cvm}{c_{vm}}
 \newcommand{\Rd}{\param{R_d}}
 \newcommand{\Rv}{\param{R_v}}
 \newcommand{\Cp}[1]{\param{c_{p#1}}}
@@ -162,13 +171,13 @@ While our model is 1D along $z$ and there is no spatial discretization in the ho
 Here, $\SDi{\phi}$ and $\SDi{\psi}$ are a dummy variables for the following 7 unknowns:
 ```math
 \begin{align}
-  \SDi{w}                  & \quad \text{vertical velocity}, \\
-  \SDi{\h}                 & \quad \text{internal energy},  \\
-  \SDi{\qt}                & \quad \text{total water specific humidity},  \\
-  \SDi{TKE}                & \quad \text{turbulent kinetic energy ($0.5(\IntraCVSDi{u}{u}+\IntraCVSDi{v}{v}+\IntraCVSDi{w}{w})$)},  \\
-  \IntraCVSDi{\h}{\h}      & \quad \text{intra subdomain covariance of $\h'$ and $\h'$},  \\
-  \IntraCVSDi{\qt}{\qt}    & \quad \text{intra subdomain covariance of $\qt'$ and $\qt'$}, \\
-  \IntraCVSDi{\h}{\qt}     & \quad \text{intra subdomain covariance of $\h'$ and $\qt'$}.
+  \SDi{w}                   & \quad \text{vertical velocity}, \\
+  \SDi{\eint}               & \quad \text{internal energy},  \\
+  \SDi{\qt}                 & \quad \text{total water specific humidity},  \\
+  \SDi{TKE}                 & \quad \text{turbulent kinetic energy ($0.5(\IntraCVSDi{u}{u}+\IntraCVSDi{v}{v}+\IntraCVSDi{w}{w})$)},  \\
+  \IntraCVSDi{\eint}{\eint} & \quad \text{intra subdomain covariance of $\eint'$ and $\eint'$},  \\
+  \IntraCVSDi{\qt}{\qt}     & \quad \text{intra subdomain covariance of $\qt'$ and $\qt'$}, \\
+  \IntraCVSDi{\eint}{\qt}   & \quad \text{intra subdomain covariance of $\eint'$ and $\qt'$}.
 \end{align}
 ```
 
@@ -177,7 +186,7 @@ From the large-scale model perspective, $\DM{\phi}$ represents the resolved grid
 ## Domain averaged equations
 The EDMF model can be used in the context of a stand-alone single column, or integrated with a dynamical core. Either way, the EDMF model relies on domain-averaged variables, which may be prescribed or solved for. Taking an area fraction-weighted average of the SD equations yields the domain-averaged equations (which should be consistent with variables in the dynamical core).
 
-The domain-averaged equations for $\DM{\phi} \in [w, \qt, \h, \uH]$ are:
+The domain-averaged equations for $\DM{\phi} \in [w, \qt, \eint, \uH]$ are:
 
 ```math
 \begin{align}
@@ -238,7 +247,7 @@ We note that the net exchange is zero $\sum_i \SDi{S_{\epsilon\delta}}^a = 0$. T
 \begin{align}
 \SDi{S_{\epsilon\delta}}^a =
 \begin{cases}
-  \rho a_i \SDi{w} \left( -\delta_i + \sum_{j\ne i} \epsilon_{j} \right) & i \ne \iEnv{} \\
+  \rho a_i \SDi{w} \left( -\delta_i + \epsilon_{i} \right) & i \ne \iEnv{} \\
   0 - \sum_{j \ne \iEnv{}} \SDj{S_{\epsilon\delta}}^a & i = \iEnv{} \\
 \end{cases},
 \end{align}
@@ -247,7 +256,7 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Entrainment-Detrainment](@ref) ($\epsilon_{ij}$) and ($\delta_i$).
+ - [Entrainment-Detrainment](@ref) ($\epsilon_{i}$) and ($\delta_i$).
 
 ## Sub-domain equations: 1st moment
 
@@ -286,10 +295,10 @@ Additional source terms exist in other equations:
 + \SDi{S_{\text{buoy}}}
 + \SDi{S_{\text{nh-press}}}
 + \SDi{S_{\text{coriolis}}}, \\
-\SDi{S}^{\h} &=
-  \SDi{S_{\epsilon\delta}}^{\h}
-+ \SDi{S_{\text{turb-transp}}}^{\h}
-+ \SDi{S_{\text{MP-MSS}}}^{\h}
+\SDi{S}^{\eint} &=
+  \SDi{S_{\epsilon\delta}}^{\eint}
++ \SDi{S_{\text{turb-transp}}}^{\eint}
++ \SDi{S_{\text{MP-MSS}}}^{\eint}
 + \SDi{S_{\text{rad}}}, \\
 \SDi{S}^{\qt} &=
   \SDi{S_{\epsilon\delta}}^{\qt}
@@ -306,19 +315,19 @@ Note: The sum of the total pressure and gravity are recast into the sum of the n
 \begin{align}
 \SDi{S_{\epsilon\delta}}^{\phi} &=
 \begin{cases}
-  \rhoRef{} a_i \SDi{w} \left( -\delta_i \SDi{\phi} + \epsilon_{i} \SDj{\phi} \right) & i \ne \iEnv{} \\
+  \rhoRef{} a_i \SDi{w} \left( -\delta_i \SDi{\phi} + \epsilon_{i} \SDe{\phi} \right) & i \ne \iEnv{} \\
   0 - \sum_{j \ne \iEnv{}} \SDj{S_{\epsilon\delta}}^{\phi} & i=\iEnv{} \\
 \end{cases} \\
-\SDi{S_{\text{turb-transp}}}^{\phi} & =  -\PD_z (\rhoRef{} a_i \IntraCVSDi{w}{w}) \\
+\SDi{S_{\text{turb-transp}}}^{\phi} & =  -\PD_z (\rhoRef{} a_i \IntraCVSDi{w}{\phi}) \\
  & = \PD_z (\rhoRef{} a_i K_i^m \PD_z \SDi{\phi}) \\
-\SDi{S_{\text{nh-press}}} &= -\rhoRef{} \aSDi{a} \left( \alpha_b \SDi{b}  + \alpha_d \frac{(\SDi{w} - \SDe{w}) || \SDi{w} - \SDe{w} || }{r_d \aSDi{a}^{1/2}} \right) \\
+\SDi{S_{\text{nh-press}}} &= -\rhoRef{} \aSDi{a} \left( \alpha_b \SDi{b}  + \alpha_d \frac{(\SDi{w} - \SDe{w}) | \SDi{w} - \SDe{w} | }{r_d \aSDi{a}^{1/2}} \right) \\
 \alpha_b &= 1/3, \quad \alpha_d = 0.375, \quad r_d      = 500 [m] \\
 \SDi{S_{\text{buoy}}} &= \rhoRef{} \aSDi{a} \SDi{b} \\
 \SDi{S_{\text{coriolis}}} & = f(\SDi{\mathbf{u}} - {\SDi{\mathbf{u}_{\text{geo-wind}}}}) \\
-\SDi{S_{\text{rad}}}  &= \left( \PD_t {\SDi{\h}} \right)_{radiation} \\
+\SDi{S_{\text{rad}}}  &= \left( \PD_t {\SDi{\eint}} \right)_{radiation} \\
 \SDi{S_{\text{grav}}} &= - \rhoRef{} \grav \\
 \SDi{S_{\text{MP-MSS}}}^{\qt} & = \\
-\SDi{S_{\text{MP-MSS}}}^{\h} & = \\
+\SDi{S_{\text{MP-MSS}}}^{\eint} & = \\
 \end{align}
 ```
 
@@ -326,7 +335,7 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Entrainment-Detrainment](@ref) ($\epsilon_{ij}$) and ($\delta_i$).
+ - [Entrainment-Detrainment](@ref) ($\epsilon_{i}$) and ($\delta_i$).
 
  - [Buoyancy](@ref) ($\Buoyancy$).
 
@@ -378,7 +387,7 @@ Additional source terms exist in other equations:
 + \SDi{S_{\text{x-grad flux}}}^{\phi\psi}
 + \SDi{S_{\text{turb-transp}}}^{\phi\psi}
 + \SDi{S_{\text{MP-MSS}}}^{\phi\psi}.
-\quad \phi\psi \in [\qt\qt, \h\h, \h \qt].
+\quad \phi\psi \in [\qt\qt, \eint\eint, \eint \qt].
 \end{align}
 ```
 
@@ -388,17 +397,17 @@ Additional source terms exist in other equations:
 \begin{align}
 \SDi{S_{\epsilon\delta}}^{\phi\psi} &=
 \begin{cases}
-  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \IntraCVSDi{\phi}{\psi} + \sum_{j\ne i}\epsilon_{ij}
+  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \IntraCVSDi{\phi}{\psi} + \epsilon_{i}
 \left(
-\IntraCVSDj{\phi}{\psi} + (\SDj{\phi} - \SDi{\phi})(\SDj{\psi} - \SDi{\psi})
+\IntraCVSDe{\phi}{\psi} + (\SDe{\phi} - \SDi{\phi})(\SDe{\psi} - \SDi{\psi})
 \right) \right] & i \ne \iEnv \\
   0 - \sum_{j\ne \iEnv} \SDj{S_{\epsilon\delta}}^{\phi\psi} & i=\iEnv \\
 \end{cases} \\
 \SDi{S_{\epsilon\delta}}^{TKE} &=
 \begin{cases}
-  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \SDi{TKE} + \sum_{j\ne i}\epsilon_{ij}
+  \rhoRef{} a_i \SDi{w} \left[ -\delta_i \SDi{TKE} + \epsilon_{i}
 \left(
-\SDj{TKE} + \frac{1}{2} (\SDj{w} - \SDi{w})^2
+\SDe{TKE} + \frac{1}{2} (\SDe{w} - \SDi{w})^2
 \right) \right] & i \ne \iEnv \\
   0 - \sum_{j\ne \iEnv} \SDj{S_{\epsilon\delta}}^{TKE} & i=\iEnv \\
 \end{cases} \\
@@ -415,7 +424,7 @@ Additional source terms exist in other equations:
 & = \PD_z (\rhoRef{} a_i K_i \PD_z \IntraCVSDi{\phi}{\psi}) \\
 \SDi{S_{\text{turb-transp}}}^{TKE} & = \PD_z (\rhoRef{} a_i K_i \PD_z \SDi{TKE}) \\
 \SDi{S_{\text{dissip}}}
-& = -c_e \IntraCVSDi{\phi}{\psi} \frac{\SDi{TKE}^{1/2}}{\SDio{{l_{mix}}}}, \quad \text{Equation 38 in Tan et al.} \\
+& = - \rhoRef{} a_i c_e \IntraCVSDi{\phi}{\psi} \frac{\SDi{TKE}^{1/2}}{\SDio{{l_{mix}}}}, \quad \text{Equation 38 in Tan et al.} \\
 c_e & = 2 \\
 \SDi{S_{\text{press}}}
 & = - \aSDi{a} \left[ \IntraCVSDi{u}{(\partial_x p^{\dagger})} +
@@ -425,7 +434,7 @@ c_e & = 2 \\
 \SDi{S_{\text{buoyancy}}}^{TKE} & = \rhoRef{} \aSDi{a} \BuoyancyFlux \\
 \SDi{S_{\text{MP-MSSP}}}^{\qt\qt}
 & = \\
-\SDi{S_{\text{MP-MSSP}}}^{\h\h}
+\SDi{S_{\text{MP-MSSP}}}^{\eint\eint}
 & = \\
 \end{align}
 ```
@@ -433,7 +442,7 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Entrainment-Detrainment](@ref) ($\epsilon_{ij}$) and ($\delta_i$).
+ - [Entrainment-Detrainment](@ref) ($\epsilon_{i}$) and ($\delta_i$).
 
  - [Eddy diffusivity](@ref) ($K_i$).
 
@@ -454,15 +463,38 @@ c_K & = 0.1 \\
 \end{align}
 ```
 
-## Reference state profiles
-Reference state profiles are (suppressing $i$ subscript):
+## Phase partition
 
 ```math
 \begin{align}
-\log{\pRef} = \log{\hyperparam{\BC{\pRef}}} + \frac{-\grav}{\Rd} \int_{z_{min}}^{z} \frac{1}{\text{denom}} dz \\
-\text{denom} = \hyperparam{\BC{\DM{T}}} (1 - \hyperparam{\BC{\DM{\qt}}} + \epsvi (\hyperparam{\BC{\DM{\qt}}} - \DM{\ql} - \DM{\qi})) \\
-\rhoRef{} = \frac{\pRef{}}{\hyperparam{\BC{T}} \left[ R_d ( 1 + (\MRatio - 1) \hyperparam{\BC{\DM{\qt}}} - \MRatio (\DM{\ql} + \DM{\qi}) ) \right]} \\
-\alphaRef = \frac{1}{\rhoRef} \\
+\PhasePartition &= \{\qv, \ql, \qi\} \\
+\qv &= \qt - \ql - \qi \\
+\pvsat(T) &= \PTriple \left( \frac{T}{\TTriple} \right)^{\frac{\DeltaCp}{\Rv}} \exp{\frac{\RefLHv - \DeltaCp \TZero}{\Rv} \left( \frac{1}{\TTriple} - \frac{1}{T} \right)} \label{eq:pvsat} \\
+\qvsat(T, \rho) &= \frac{\pvsat(T)}{\rho \Rv T}                                                                                                                            \label{eq:qvsat} \\
+\qc &= \max(\qt - \qvsat, 0)                                                                                                                                               \label{eq:qc} \\
+\ql &= \lambda \qc                                                                                                                                                         \label{eq:ql} \\
+\qi &= (1-\lambda) \qc                                                                                                                                                     \label{eq:qi} \\
+\lambda(T) &= \Heaviside(T-\TFreeze)                                                                                                                                       \label{eq:lambda} \\
+\Heaviside &= \text{Heaviside function} \\
+\end{align}
+```
+
+Functionally,
+
+```math
+\begin{align}
+\PhasePartition & = \PhasePartition(\qt, T, \rho) \\
+\qvsat & = \qvsat(T, \rho) \\
+\end{align}
+```
+
+## Gas constants
+
+```math
+\begin{align}
+\EpsDV & = \frac{\Rv}{\Rd} \approx 1.61 \\
+\EpsVD & = \frac{\Rd}{\Rv} \approx 0.62 \\
+\Rm & = \Rd \left[1 + (\EpsDV-1) \qt - \EpsDV (\ql+\qi) \right] \\
 \end{align}
 ```
 
@@ -470,8 +502,8 @@ Reference state profiles are (suppressing $i$ subscript):
 
 ```math
 \begin{align}
-c_{vm} &= (1 - \SDi{\qt}) \Cv{d} + \SDi{\qv} \Cv{v} + \SDi{\ql} \Cv{l} + \SDi{\qi} \Cv{i} \\
-c_{pm} &= (1 - \SDi{\qt}) \Cp{d} + \SDi{\qt} \Cp{v} \\
+\Cvm &= (1 - \SDi{\qt}) \Cv{d} + \SDi{\qv} \Cv{v} + \SDi{\ql} \Cv{l} + \SDi{\qi} \Cv{i} \\
+\Cpm &= (1 - \SDi{\qt}) \Cp{d} + \SDi{\qt} \Cp{v} \\
 \end{align}
 ```
 
@@ -483,13 +515,134 @@ c_{pm} &= (1 - \SDi{\qt}) \Cp{d} + \SDi{\qt} \Cp{v} \\
 \end{align}
 ```
 
+## Exner functions
+
+```math
+\begin{align}
+\ExnerD(\pRef{})    = \left(\frac{\pRef{}}{\PTilde{}} \right)^{\Rd/\Cp{d}} \\
+\ExnerM(\pRef{}, \PhasePartition) = \left(\frac{\pRef{}}{\PTilde{}} \right)^{\Rm/\Cpm} \\
+\end{align}
+```
+where additional variable definitions are in:
+
+ - [Specific heats](@ref) $\Cpm$ and $\Cvm$.
+
+ - [Gas constants](@ref) ($\Rm$).
+
+ - [Phase partition](@ref) $\PhasePartition, \qt, \qv, \ql, \qi, \qvsat$.
+
+## Temperature
+
+Note that, while temperature may be computed using different thermodynamic formulations, [`ThermodynamicState`](@ref CLIMA.MoistThermodynamics.ThermodynamicState)'s are immediately converted to the ($\qt, \eint, \rhoRef{}$)-formulation.
+
+### ($\qt, \eint, \rhoRef{}$)-formulation
+
+Here, $T$ conditionally satisfies the non-linear set of equations, which can be solved using a standard root solver (e.g., Secant method):
+
+```math
+\begin{align}
+T =
+\begin{cases}
+\mathrm{satisfies} & \eint(T) = \Cvm (T - \TZero)  + \qv \RefHintV - \qi \RefHintI & \qt > \qvsat(T, \rhoRef{}) \\
+& \TZero + \frac{\eint(T)}{(1-\qt)\Cv{d} + \qt \Cv{v}} + \qt \RefHintV & \text{otherwise} \\
+\end{cases}
+\end{align}
+```
+
+where additional variable definitions are in:
+
+ - [Phase partition](@ref) $\PhasePartition, \qt, \qv, \ql, \qi, \qvsat$.
+
+ - [Specific heats](@ref) $\Cpm$ and $\Cvm$.
+
+ - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
+
+Functionally,
+
+```math
+\begin{align}
+T & = T(\qt, \eint, \rhoRef) \\
+\end{align}
+```
+
+### ($\qt, \ThetaLiqIce, \pRef, \rhoRef$)-formulation
+
+Here, $T$ conditionally satisfies the non-linear set of equations, which can be solved using a standard root solver (e.g., Secant method):
+
+```math
+\begin{align}
+T =
+\begin{cases}
+\mathrm{satisfies} & \ThetaLiqIce \ExnerM = T \left(1 - \frac{ \RefLHv \ql + \RefLHs \qi}{\Cpm T} \right) & \qt > \qvsat(T, \rhoRef{}) \\
+& \ThetaLiqIce \ExnerD & \text{otherwise} \\
+\end{cases}
+\end{align}
+```
+where additional variable definitions are in:
+
+ - [Phase partition](@ref) $\PhasePartition, \qt, \qv, \ql, \qi, \qvsat$.
+
+ - [Specific heats](@ref) $\Cpm$ and $\Cvm$.
+
+ - [Exner functions](@ref) $\ExnerD$ and $\ExnerM$.
+
+Functionally,
+
+```math
+\begin{align}
+T & = T(\qt, \ThetaLiqIce, \pRef, \rhoRef) \\
+\end{align}
+```
+
+## Reference state profiles
+Reference state profiles are computed using hydrostatic balance and ideal gas law:
+
+ - $\PD_z \pRef = - \rhoRef{} \grav$
+
+ - $\pRef = \rhoRef{} \Rm \TRef$
+
+This yields:
+```math
+\begin{align}
+\PD_z \pRef & = - \grav \frac{\pRef}{\TRef \DM{\Rm}} \\
+\int_{\BC{\pRef}}^{\pRef} \frac{1}{\pRef} \PD \pRef & = - \frac{\grav}{\DM{\Rm}} \int_{z_{min}}^{z} \frac{1}{\TRef} \PD z \\
+\log(\pRef) & = \BC{\log(\pRef)} - \frac{\grav}{\BC{\DM{\Rm}}} \int_{z_{min}}^{z} \frac{1}{\TRef(\BC{\DM{\qt}}, \BC{\DM{\ThetaLiqIce}}, \pRef{})} \PD z \\
+\rhoRef{} & = \frac{\pRef{}}{\hyperparam{\BC{\TRef}} \BC{\DM{\Rm}}} \\
+\alphaRef & = \frac{1}{\rhoRef} \\
+\end{align}
+```
+where additional variable definitions are in:
+
+ - [Gas constants](@ref) ($\Rm$).
+
+ - [Specific heats](@ref) $\Cpm$ and $\Cvm$.
+
 ## Mixing ratios
 ```math
 \begin{align}\label{eq:MixingRatios}
-r_c & = \frac{\SDi{\qt}+\SDi{\ql}}{1 - \SDi{\qt}} \\
-r_v & = \frac{\SDi{\qt}-\SDi{\ql}-\SDi{\qi}}{1 - \SDi{\qt}} \\
+r_c & = \frac{\qt+\ql}{1 - \qt} \\
+r_v & = \frac{\qt-\ql    - \qi}{1 - \qt} \\
 \end{align}
 ```
+
+## Potential temperatures
+Fix: which virtual potential temperature is used
+```math
+\begin{align}\label{eq:Theta}
+\ThetaDry    & = T/\ExnerD \\
+\ThetaLiqIce & = \ThetaDry (1 - (\RefLHv \ql + \RefLHs \qi))/(\Cpm T) \\
+\ThetaVirt   & = \ThetaDry (1 - r_c + 0.61 r_v) \\
+\ThetaVirt   & = \theta \left(1 + 0.61 \qr - \ql \right) \\
+\ThetaRho    & = T \Rm/\ExnerD \\
+\end{align}
+```
+where additional variable definitions are in:
+
+ - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
+
+ - [Exner functions](@ref) ($\ExnerM$).
+
+ - [Mixing ratios](@ref) ($r_c$, $r_v$).
 
 ## Shear production
 
@@ -499,102 +652,36 @@ r_v & = \frac{\SDi{\qt}-\SDi{\ql}-\SDi{\qi}}{1 - \SDi{\qt}} \\
 \end{align}
 ```
 
-## Saturation adjustment
-When assuming phase equilibrium, a non-linear equation must be solved to determine the temperature that satisfies this equilibrium.
-This set of equations can be solved using a standard root solver (e.g., Secant method).
-
-The roots of the following system are satisfied when $\SDi{\qt} > \qvsat(T)$, otherwise $\SDi{T} = \TZero + \frac{\hint(T)}{(1-\qt)\Cv{d} + \qt \Cv{v}} + \qt \RefHintV$.
-
- - Knowns: $\SDi{\qt}, \SDi{\h}, \rhoRef{}$
-
- - Unknowns: $\SDi{T}$
-
-```math
-\begin{align}
-\hint(T) &= c_{vm} (T - \TZero)  + \qv \RefHintV - \qi \RefHintI \\
-\pvsat(T) &= \PTriple \left( \frac{T}{\TTriple} \right)^{\frac{\DeltaCp}{\Rv}} \exp{\frac{\RefLHv - \DeltaCp \TZero}{\Rv} \left( \frac{1}{\TTriple} - \frac{1}{T} \right)} \\
-\qvsat &= \frac{\pvsat(T)}{\rho \Rv T} \\
-\qc &= \max(\qt - \qvsat, 0) \\
-\qv &= \qt - \ql - \qi \\
-\ql &= \lambda \qc \\
-\qi &= (1-\lambda) \qc \\
-\lambda(T) &= \mathcal{H}(T-\TFreeze), \quad \mathcal{H} = \text{heaviside function} \\
-\end{align}
-```
-where additional variable definitions are in:
-
- - [Specific heats](@ref) $c_{pm}$ and $c_{vm}$.
-
- - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
-
-This set of equations are only necessary when converting from a ($\ThetaL,\qt$) formulation to our ($\hint,\qt$) formulation. The roots of the following system are satisfied when $\SDi{\qt} > \qvsat(T)$, otherwise $\SDi{\ql} = 0,$ and $\SDi{T} = \SDi{\ThetaL} \left(\frac{\pRef}{\PTilde}\right)^{\frac{\Rd}{\Cp{d}}}$.
-
- - Knowns: $\SDi{\qt}, \SDi{\ThetaL}, \pRef$
-
- - Unknowns: $\SDi{T}$
-
-```math
-\begin{align}
-\SDi{\ThetaL} = \SDi{T} \left(\frac{\PTilde}{\pRef}\right)^{\frac{R_m}{c_{pm}}}
-\left(1 - \frac{ \RefLHv \SDi{\ql} + \RefLHs \SDi{\qi}}{c_{pm} \SDi{T}} \right) \\
-\end{align}
-```
-where additional variable definitions are in:
-
- - [Specific heats](@ref) $c_{pm}$ and $c_{vm}$.
-
- - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
-
 ## Buoyancy
 ```math
 \begin{align}\label{eq:Buoyancy}
-\SDi{b}^{\dagger} = \grav (\SDi{\alpha} - \alphaRef)/\alphaRef \\
-\SDi{b} = \SDi{b}^{\dagger} - \sum_j a_j \SDj{b}^{\dagger} \\
+\SDi{b}^{\dagger} & = \grav (\SDi{\alpha} - \alphaRef)/\alphaRef \\
+\SDi{b} & = \SDi{b}^{\dagger} - \sum_j a_j \SDj{b}^{\dagger} \\
+\alpha_i & = \frac{\SDi{\Rm} \SDi{T}}{\pRef} \\
 \end{align}
 ```
 where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
-## Potential temperatures
-Fix: which virtual potential temperature is used
-```math
-\begin{align}\label{eq:Theta}
-\SDi{\ThetaDry} &= \SDi{T}(\pRef{}/\PTilde{})^{-\Rd/\Cp{d}} \\
-\SDi{\ThetaVirt} & = \SDi{\ThetaDry} (1 - r_c + 0.61 r_v) \\
-\SDi{\ThetaVirt} &= \SDi{\theta} \left(1 + 0.61 \SDi{q_r} - \SDi{\ql} \right) \\
-\SDi{\ThetaRho} &= \frac{\SDi{T} (1 - \SDi{\qt} + \epsvi \qv)}{(\pRef/\PTilde)^{\param{\kappa}}} \\
-\end{align}
-```
-where additional variable definitions are in:
+ - [Phase partition](@ref) $\PhasePartition, \qt, \qv, \ql, \qi, \qvsat$.
 
- - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
-
- - [Mixing ratios](@ref) ($r_c$, $r_v$).
+ - [Temperature](@ref) ($T$).
 
 ## Buoyancy gradient
 
-Short buoyancy gradient
-```math
-\begin{align}\label{eq:BuoyancyGrad}
-\BuoyancyGrad & = - \frac{\grav}{\DM{\ThetaVirt}} \PD_z \SDi{\ThetaVirt} \\
-\end{align}
-```
+### ($\qt, \ThetaLiqIce, \pRef, \rhoRef$)-formulation
 
-Long buoyancy gradient
 ```math
 \begin{align}\label{eq:BuoyancyGradLong}
-\BuoyancyGrad & = - \PD_z \SDi{\ThetaL}
-\left[ (1-f_c) \PD_{\ThetaL} b |_d  + f_c \PD_{\ThetaL} b |_s \right] -
+\SDi{\BuoyancyGrad} & = - \PD_z \SDi{\ThetaLiqIce}
+\left[ (1-f_c) \PD_{\ThetaLiqIce} b |_d  + f_c \PD_{\ThetaLiqIce} b |_s \right] -
 \PD_z \SDi{\qt}      \left[ (1-f_c) \PD_{\qt} b |_d + f_c \PD_{\qt} b |_s \right] \\
 f_c &= 0 \qquad \text{good for simple cases, need to confirm for more complex cases} \\
-\PD_{\ThetaL} b |_d & = \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\qt} \right] \\
-\PD_{\ThetaL} b |_s &= \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \frac{\Rv}{\Rd} \left(1 + \frac{\LatentHeatV{\SDi{T}}}{\Rv \SDi{T}} \right) \SDi{q_s} - \SDi{\qt} \right] \left( 1 + \frac{{\LatentHeatV{\SDi{T}}}^2}{\param{c_p} \Rv \SDi{T}^2} \SDi{q_s} \right)^{-1} \\
-\PD_{\qt} b |_d &= \frac{\grav}{\DM{\ThetaVirt}} \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\theta} \\
-\PD_{\qt} b |_s &= \left( \frac{{\LatentHeatV{\SDi{T}}}}{\param{c_p} \SDi{T}} \PD_{\ThetaL} b |_s - \frac{\grav}{\DM{\ThetaVirt}} \right) \SDi{\theta} \\
-\SDi{\theta} &= \SDi{T}(\pRef{}/\PTilde{})^{-\Rd/\Cp{d}} \\
-\SDi{q_r} & = q_{rain} = 0 \qquad \text{for now} \\
-\SDi{q_s} & = \qvsat \\
+\PD_{\ThetaLiqIce} b |_d & = \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\qt} \right] \\
+\PD_{\ThetaLiqIce} b |_s &= \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \frac{\Rv}{\Rd} \left(1 + \frac{\LatentHeatV{\SDi{T}}}{\Rv \SDi{T}} \right) \SDi{\qvsat} - \SDi{\qt} \right] \left( 1 + \frac{{\LatentHeatV{\SDi{T}}}^2}{\Cpm \Rv \SDi{T}^2} \SDi{\qvsat} \right)^{-1} \\
+\PD_{\qt} b |_d &= \frac{\grav}{\DM{\ThetaVirt}} \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\ThetaDry} \\
+\PD_{\qt} b |_s &= \left( \frac{{\LatentHeatV{\SDi{T}}}}{\Cpm \SDi{T}} \PD_{\ThetaLiqIce} b |_s - \frac{\grav}{\DM{\ThetaVirt}} \right) \SDi{\ThetaDry} \\
 \end{align}
 ```
 where additional variable definitions are in:
@@ -603,9 +690,19 @@ where additional variable definitions are in:
 
  - [Potential temperatures](@ref) ($\ThetaDry$, $\ThetaVirt$).
 
+ - [Phase partition](@ref) $\PhasePartition, \qt, \qv, \ql, \qi, \qvsat$.
+
  - [Latent heat](@ref) ($\LatentHeatV{T}$).
 
+### ($\qt, \eint, \rhoRef{}$)-formulation
+
+Pending.
+
 ## Surface fluxes
+
+!!! todo
+
+    Add definitions for universal functions (e.g., $\Psi_m$).
 
 Variables in this section must be computed simultaneously because it requires the solution of a non-linear equation.
 
@@ -742,8 +839,8 @@ where additional variable definitions are in:
 
 ```math
 \begin{align}\label{eq:BuoyancyFlux}
-\SurfaceBuoyancyFlux & = \frac{\grav \BC{\alphaRef}}{c_{pm} \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\epsvi - 1) c_{pm} \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeatV{\BC{\SDi{T}}}) \\
-\BuoyancyFlux & = - K_i \BuoyancyGrad \\
+\SurfaceBuoyancyFlux & = \frac{\grav \BC{\alphaRef}}{\Cpm \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\EpsDV - 1) \Cpm \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeatV{\BC{\SDi{T}}}) \\
+\BuoyancyFlux & = - K_i \SDi{\BuoyancyGrad} \\
 \end{align}
 ```
  - [Eddy diffusivity](@ref) ($K_i$).
@@ -752,35 +849,34 @@ where additional variable definitions are in:
 
  - [Buoyancy gradient](@ref) ($\BuoyancyGrad$).
 
+ - [Specific heats](@ref) $\Cpm$ and $\Cvm$.
+
 ## Entrainment-Detrainment
 
-Entrainment ($\epsilon_{ij}$)
+Entrainment ($\epsilon_{i}$)
 ```math
 \begin{align}\label{eq:Entrainment}
-\epsilon_{ij} &= c_{\epsilon} \frac{\max(\SDi{b}, 0)}{\SDi{w}^2} \\
+\epsilon_{i} &= c_{\epsilon} \frac{\max(\SDi{b}, 0)}{\SDi{w}^2} \\
 c_{\epsilon} &= 0.12 \\
-\alpha_i &= \frac{\Rd \SDi{T}}{\pRef} (1 - \SDi{\qt} + \epsvi \SDi{\qv}) \\
-\SDi{\qv} &= \SDi{\qt} - \SDi{\ql} - \SDi{\qi} \\
-\SDi{\qi} &= 0, \quad \text{may change later} \\
 \end{align}
 ```
 
 Detrainment ($\delta_{j}$):
 ```math
 \begin{align}\label{eq:Detrainment}
-\delta_{i} &= c_{\delta} \frac{|\min(\SDi{b}, 0)|}{\SDi{w}^2} + \delta_{B} \mathcal{H}(\SDi{\ql}) \\
+\delta_{i} &= c_{\delta} \frac{|\min(\SDi{b}, 0)|}{\SDi{w}^2} + \delta_{B} \Heaviside(\SDi{\ql}) \\
 c_{\delta} &= c_{\delta,0} + \Gamma(\aSDi{a}) \\
 \Gamma(\aSDi{a}) &= 0 \\
 c_{\delta,0} &= c_{\epsilon} = 0.12 \\
 \delta_B &= 0.004 [m^{-1}] \\
-\mathcal{H} &= \text{Heaviside function} \\
+\Heaviside &= \text{Heaviside function} \\
 \end{align}
 ```
 where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Saturation adjustment](@ref) Temperature ($\SDi{T}$) and specific humidity of liquid ($\SDi{\ql}$).
+ - [Temperature](@ref) ($T$).
 
  - [Buoyancy](@ref) ($\Buoyancy$).
 
@@ -790,12 +886,12 @@ where additional variable definitions are in:
 \begin{align}\label{eq:InversionHeight}
 \SDio{\InversionHeight} &=
 \begin{cases}
-  \left[ (\PD_z \theta_{\rho})^{-1} (\BC{\theta_{\rho}} - \theta_{\rho}|_{z_1}) + z_1 \right] & \simparam{\BC{\DM{u}}}^2 + \simparam{\BC{\DM{v}}}^2 <= \text{tol}_{\InversionHeight\mathrm{-stable}} \\
+  \left[ (\PD_z \ThetaRho)^{-1} (\BC{\ThetaRho} - \ThetaRho|_{z_1}) + z_1 \right] & \simparam{\BC{\DM{u}}}^2 + \simparam{\BC{\DM{v}}}^2 <= \text{tol}_{\InversionHeight\mathrm{-stable}} \\
   \left[ (\PD_z Ri_{bulk})^{-1} (\hyperparam{Ri_{bulk, crit}} - Ri_{bulk}|_{z_2}) + z_2 \right] & \text{otherwise} \\
 \end{cases} \\
-z_1 &= \min_z (\theta_{\rho}(z) > \BC{\theta_{\rho}}) \\
+z_1 &= \min_z (\ThetaRho(z) > \BC{\ThetaRho}) \\
 z_2 &= \min_z (Ri_{bulk}(z) > \hyperparam{Ri_{bulk, crit}}) \\
-Ri_{bulk} &= \grav z \frac{(\theta_{\rho}/\BC{\theta_{\rho}} - 1)}{\simparam{\DM{u}}^2 + \simparam{\DM{v}}^2} \\
+Ri_{bulk} &= \grav z \frac{(\ThetaRho/\BC{\ThetaRho} - 1)}{\simparam{\DM{u}}^2 + \simparam{\DM{v}}^2} \\
 \end{align}
 ```
 where additional variable definitions are in:
@@ -856,9 +952,9 @@ Here, we specify boundary conditions (BCs) by their type, Dirichlet (D) or Neuma
     3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 + {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} & \MOLen < 0 \\
     3.75 {\FrictionVelocity}^2 & \text{otherwise}
 \end{cases} \\
-\SensibleSurfaceHeatFlux & = \BC{\TCV{w}{\hint}} c_{pm} \rhoRef \\
+\SensibleSurfaceHeatFlux & = \BC{\TCV{w}{\eint}} \Cpm \rhoRef \\
 \LatentSurfaceHeatFlux   & = \BC{\TCV{w}{\qt}}  \LatentHeatV{T} \rhoRef \\
-F_{\hint}(\SensibleSurfaceHeatFlux)  & = \frac{\SensibleSurfaceHeatFlux}{c_{pm}}       = \BC{\TCV{w}{\hint}} \rhoRef \\
+F_{\eint}(\SensibleSurfaceHeatFlux)  & = \frac{\SensibleSurfaceHeatFlux}{\Cpm}       = \BC{\TCV{w}{\eint}} \rhoRef \\
 F_{\qt}(\LatentSurfaceHeatFlux)      & = \frac{\LatentSurfaceHeatFlux}{\LatentHeatV{T}} = \BC{\TCV{w}{\qt}}   \rhoRef \\
 \end{align}
 ```
@@ -908,15 +1004,15 @@ Top boundary
 \begin{align}
 \BCT{\SDi{w}}           &= 0 \\
 \PD_z \BCT{\SDi{\qt}}   &= 0 \\
-\PD_z \BCT{\SDi{\hint}} &= 0 \\
+\PD_z \BCT{\SDi{\eint}} &= 0 \\
 \end{align}
 ```
 Bottom boundary
 ```math
 \begin{align}
 \BCB{\SDi{w}}     &= 0 \\
-- \SDi{K_m} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
-- \SDi{K_m} \PD_z \BCB{\SDi{\hint}} &= \TCV{w}{\hint} + \mathcal D(\aSDi{a}) \sqrt{C_{\hint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\hint}, \TCV{w}{\hint} )} \\
+- \SDi{K_h} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
+- \SDi{K_h} \PD_z \BCB{\SDi{\eint}} &= \TCV{w}{\eint} + \mathcal D(\aSDi{a}) \sqrt{C_{\eint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\eint}, \TCV{w}{\eint} )} \\
 \end{align}
 ```
 where additional variable/function definitions are in:
@@ -930,8 +1026,8 @@ Top boundary
 \begin{align}
 \BCT{\SDi{TKE}}                         & = 0 \\
 \PD_z \BCT{\IntraCVSDi{\qt}{\qt}}       & = 0 \\
-\PD_z \BCT{\IntraCVSDi{\hint}{\hint}}   & = 0 \\
-\PD_z \BCT{\IntraCVSDi{\hint}{\qt}}     & = 0 \\
+\PD_z \BCT{\IntraCVSDi{\eint}{\eint}}   & = 0 \\
+\PD_z \BCT{\IntraCVSDi{\eint}{\qt}}     & = 0 \\
 \end{align}
 ```
 
@@ -944,24 +1040,24 @@ Bottom boundary
 \begin{align}
 \BCB{\SDi{TKE}}                   & = \Gamma_{TKE} \\
 \BCB{\IntraCVSDi{\qt}{\qt}}       & = \Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   ) \\
-\BCB{\IntraCVSDi{\hint}{\hint}}   & = \Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\hint} ) \\
-\BCB{\IntraCVSDi{\hint}{\qt}}     & = \Gamma_{\phi}(\TCV{w}{\hint}, \TCV{w}{\hint} ) \\
+\BCB{\IntraCVSDi{\eint}{\eint}}   & = \Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\eint} ) \\
+\BCB{\IntraCVSDi{\eint}{\qt}}     & = \Gamma_{\phi}(\TCV{w}{\eint}, \TCV{w}{\eint} ) \\
 \end{align}
 ```
 where additional variable/function definitions are in:
 
- - [BC functions](@ref) $\Gamma_{TKE}$, $\Gamma_{\phi}$, $F_{\hint}$, $\SensibleSurfaceHeatFlux$, $F_{\qt}$, $\LatentSurfaceHeatFlux$.
+ - [BC functions](@ref) $\Gamma_{TKE}$, $\Gamma_{\phi}$, $F_{\eint}$, $\SensibleSurfaceHeatFlux$, $F_{\qt}$, $\LatentSurfaceHeatFlux$.
 
 ## Case-specific configurations
 
-| **Case** | **Variable**            | **Value**                        | **Reference**    |
-|:---------|-------------------------|----------------------------------|------------------|
-| Bomex    | $\BC{p_s}$              | 1000 [hPa]                       |                  |
-| Bomex    | $\BC{\DM{\qt}}$         | 5 [g/kg]                         |                  |
-| Bomex    | $\BC{\DM{\ThetaL}}$     | 300 [K]                          |                  |
-| Bomex    | $\BC{\TCV{w}{\qt}}$     | $5.2 \times 10^{-5} [m s^{-1}]$  |                  |
-| Bomex    | $\BC{\TCV{w}{\ThetaL}}$ | $8 \times 10^{-3} [K m s^{-1}]$  |                  |
-| Soares   | $\BC{\TCV{w}{\qt}}$     | $2.5 \times 10^{-5} [m s^{-1}]$  |                  |
-| Soares   | $\BC{\TCV{w}{\ThetaL}}$ | $6 \times 10^{-2} [K m s^{-1}]$  |                  |
-|          |                         |                                  |                  |
+| **Case** | **Variable**                 | **Value**                        | **Reference**    |
+|:---------|------------------------------|----------------------------------|------------------|
+| Bomex    | $\BC{p_s}$                   | 1000 [hPa]                       |                  |
+| Bomex    | $\BC{\DM{\qt}}$              | 5 [g/kg]                         |                  |
+| Bomex    | $\BC{\DM{\ThetaLiqIce}}$     | 300 [K]                          |                  |
+| Bomex    | $\BC{\TCV{w}{\qt}}$          | $5.2 \times 10^{-5} [m s^{-1}]$  |                  |
+| Bomex    | $\BC{\TCV{w}{\ThetaLiqIce}}$ | $8 \times 10^{-3} [K m s^{-1}]$  |                  |
+| Soares   | $\BC{\TCV{w}{\qt}}$          | $2.5 \times 10^{-5} [m s^{-1}]$  |                  |
+| Soares   | $\BC{\TCV{w}{\ThetaLiqIce}}$ | $6 \times 10^{-2} [K m s^{-1}]$  |                  |
+|          |                              |                                  |                  |
 
