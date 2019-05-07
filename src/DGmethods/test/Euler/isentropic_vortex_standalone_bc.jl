@@ -75,7 +75,7 @@ end
   @inbounds aux[1], aux[2], aux[3] = x, y, z
 end
 
-@inline function bcstate!(QP, _, _, _, _, auxM, bctype, t, _...)
+@inline function bcstate!(QP, _, _, _, _, _, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[1], auxM[2], auxM[3]
     isentropicvortex!(QP, t, x, y, z)
