@@ -39,6 +39,7 @@ const uid, vid, wid = 1:3
 const radians = true
 const γ_exact = 7 // 5
 
+const integration_testing = false
 if !@isdefined integration_testing
     const integration_testing =
         parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -119,7 +120,6 @@ function advection_sphere!(Q, t, x, y, z, vel)
     else
         @inbounds Q[1], vel[1], vel[2], vel[3] = 10+rand(), rand(), rand(), rand()
     end
-
 end
 
 #{{{ Main
