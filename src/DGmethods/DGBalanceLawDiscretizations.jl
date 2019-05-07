@@ -70,6 +70,7 @@ using StaticArrays
 using ..SpaceMethods
 using DocStringExtensions
 using ..Topologies
+using GPUifyLoops
 
 export DGBalanceLaw
 
@@ -620,11 +621,18 @@ and after the call `dQ += F(Q, t)`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
                               Q::MPIStateArray, t)
+
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
   grid = disc.grid
   topology = grid.topology
 
   dim = dimensionality(grid)
   N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+  Nfp = Nq * Nqk
+  nrealelem = length(topology.realelems)
 
   Qvisc = disc.Qvisc
   auxstate = disc.auxstate
@@ -671,9 +679,10 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   # RHS Computation #
   ###################
 
-  volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate),
-             disc.flux!, disc.source!, dQ.Q, Q.Q, Qvisc.Q, auxstate.Q,
-             vgeo, t, Dmat, topology.realelems)
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+          volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
+                     Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
+                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
@@ -682,11 +691,12 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
-  facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate),
-           disc.numerical_flux!,
-           disc.numerical_boundary_flux!, dQ.Q, Q.Q, Qvisc.Q,
-           auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-           topology.realelems)
+  @launch(device, threads=Nfp, blocks=nrealelem,
+          facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
+                   Val(nauxstate), disc.numerical_flux!,
+                   disc.numerical_boundary_flux!, dQ.Q, Q.Q, Qvisc.Q,
+                   auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                   topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
   MPIStateArrays.finish_ghost_send!(Qvisc)
