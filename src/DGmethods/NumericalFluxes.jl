@@ -35,8 +35,8 @@ function rusanov!(F::MArray{Tuple{nstate}}, nM,
                   t, flux!, wavespeed,
                   preflux = (_...) -> (),
                   computeQjump! = nothing,
-                  PM = preflux(QM, auxM, t),
-                  PP = preflux(QP, auxP, t)
+                  PM = preflux(QM, QVM, auxM, t),
+                  PP = preflux(QP, QVP, auxP, t)
                  ) where {nstate}
   λM = wavespeed(nM, QM, auxM, t, PM...)
   FM = similar(F, Size(3, nstate))
