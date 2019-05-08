@@ -24,6 +24,14 @@ using StaticArrays
 using Logging, Printf, Dates
 using Random
 
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAnative
+  using CuArrays
+  const ArrayTypes = (Array, CuArray)
+else
+  const ArrayTypes = (Array, )
+end
+
 const _nstate = 2
 const _q, _p = 1:_nstate
 const stateid = (qid = _q, pid = _p)
@@ -79,8 +87,7 @@ end
   end
 end
 
-function run(mpicomm, N, Nhorz, Rrange, timeend, DFloat, dt)
-  ArrayType = Array
+function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, DFloat, dt)
 
   topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 
@@ -151,6 +158,9 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
+  @static if Base.find_package("CUDAnative") !== nothing
+    device!(MPI.Comm_rank(mpicomm))
+  end
 
   dt = 1e-4
   timeend = 100*dt
@@ -160,10 +170,12 @@ let
   Nhorz = 4
   Rrange = 1.0:0.25:2.0
 
-  for DFloat in (Float64,) #Float32)
-    Random.seed!(0)
-    delta_mass = run(mpicomm, polynomialorder, Nhorz, Rrange, timeend, DFloat, dt)
-    @test abs(delta_mass) < 1e-15
+  for ArrayType in ArrayTypes
+    for DFloat in (Float64,) #Float32)
+      Random.seed!(0)
+      delta_mass = run(mpicomm, ArrayType, polynomialorder, Nhorz, Rrange, timeend, DFloat, dt)
+      @test abs(delta_mass) < 1e-15
+    end
   end
 end
 
