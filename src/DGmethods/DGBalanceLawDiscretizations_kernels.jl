@@ -478,51 +478,73 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
 
   nelem = size(vgeo)[end]
 
-  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
+  s_f = @shmem DFloat (Nq, Nq, Nqk)
+  s_D = @shmem DFloat (Nq, Nq)
 
-  s_f = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
-  l_fξ = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
-  l_fη = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
-  l_fζ = MArray{Tuple{Nq, Nq, Nqk}, DFloat}(undef)
+  l_fξ = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_fη = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_fζ = @scratch DFloat (Nq, Nq, Nqk) 3
 
-  @inbounds for e in elems
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      s_f[i,j,k] = Q[i,j,k,s,e]
-    end
-
-    # loop of ξ-grid lines
-    l_fξ .= 0
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      for n = 1:Nq
-        l_fξ[i, j, k] += D[i, n] * s_f[n, j, k]
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_D[i, j] = D[i, j]
       end
     end
-    # loop of η-grid lines
-    l_fη .= 0
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      for n = 1:Nq
-        l_fη[i, j, k] += D[j, n] * s_f[i, n, k]
+  end
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          s_f[i, j, k] = Q[ijk, s, e]
+        end
       end
     end
-    # loop of ζ-grid lines
-    l_fζ .= 0
-    if Nqk > 1
-      for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-        for n = 1:Nq
-          l_fζ[i, j, k] += D[k, n] * s_f[i, j, n]
+    @synchronize
+
+    # reference gradient
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          l_fξ[i, j, k] = 0
+          l_fη[i, j, k] = 0
+          l_fζ[i, j, k] = 0
+          @unroll for n = 1:Nq
+            Din = s_D[i, n]
+            Djn = s_D[j, n]
+            Nqk > 1 && (Dkn = s_D[k, n])
+
+            # ξ-grid lines
+            l_fξ[i, j, k] += Din * s_f[n, j, k]
+
+            # η-grid lines
+            l_fη[i, j, k] += Djn * s_f[i, n, k]
+
+            # ζ-grid lines
+            Nqk > 1 && (l_fζ[i, j, k] += Dkn * s_f[i, j, n])
+          end
         end
       end
     end
 
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
-      ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
-      ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+    # Physical gradient
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
 
-      Q[i,j,k,sx,e] = ξx * l_fξ[i,j,k] + ηx * l_fη[i,j,k] + ζx * l_fζ[i,j,k]
-      Q[i,j,k,sy,e] = ξy * l_fξ[i,j,k] + ηy * l_fη[i,j,k] + ζy * l_fζ[i,j,k]
-      Q[i,j,k,sz,e] = ξz * l_fξ[i,j,k] + ηz * l_fη[i,j,k] + ζz * l_fζ[i,j,k]
+          ξx, ξy, ξz = vgeo[ijk, _ξx, e], vgeo[ijk, _ξy, e], vgeo[ijk, _ξz, e]
+          ηx, ηy, ηz = vgeo[ijk, _ηx, e], vgeo[ijk, _ηy, e], vgeo[ijk, _ηz, e]
+          ζx, ζy, ζz = vgeo[ijk, _ζx, e], vgeo[ijk, _ζy, e], vgeo[ijk, _ζz, e]
+
+          Q[ijk, sx, e] = ξx * l_fξ[ijk] + ηx * l_fη[ijk] + ζx * l_fζ[ijk]
+          Q[ijk, sy, e] = ξy * l_fξ[ijk] + ηy * l_fη[ijk] + ζy * l_fζ[ijk]
+          Q[ijk, sz, e] = ξz * l_fξ[ijk] + ηz * l_fη[ijk] + ζz * l_fζ[ijk]
+        end
+      end
     end
+    @synchronize
   end
 end

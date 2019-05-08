@@ -733,8 +733,15 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   Dmat = grid.D
   vgeo = grid.vgeo
 
-  elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate, vgeo,
-                   Dmat, topology.elems, id, idx, idy, idz)
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
+          elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
+                           Dmat, topology.elems, id, idx, idy, idz))
 end
 
 end
