@@ -259,6 +259,10 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
         l_Q[s] = Q[i, j, k, states_grad[s], e]
       end
 
+      for s = 1:nauxstate
+        l_aux[s] = auxstate[i, j, k, s, e]
+      end
+
       for s = 1:ngradstate
         Gξ = Gη = Gζ = zero(DFloat)
         for n = 1:Nq
