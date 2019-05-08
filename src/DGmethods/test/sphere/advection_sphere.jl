@@ -37,6 +37,14 @@ using StaticArrays
 using Logging, Printf, Dates
 using Random
 
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAnative
+  using CuArrays
+  const ArrayTypes = (Array, CuArray)
+else
+  const ArrayTypes = (Array, )
+end
+
 const uid, vid, wid = 1:3
 const radians = true
 const γ_exact = 7 // 5
@@ -70,7 +78,8 @@ end
 
 #{{{ wavespeed
 @inline function wavespeed(n, Q, vel, t...)
-  abs(dot(vel,n))
+  # abs(dot(vel,n)) # FIXME: Nice to do this, but breaks with cassette
+  abs(vel[1] * n[1] + vel[2] * n[2] + vel[3] * n[3])
 end
 #}}} wavespeed
 
@@ -134,9 +143,14 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 
   #{{{ numerical fluxex
   numflux!(x...) = NumericalFluxes.rusanov!(x..., advectionflux!,
-                                            wavespeed,preflux)
+                                            wavespeed, preflux)
+
   # zero flux at the boundaries: not entirely accurate but good enough
-  numbcflux!(F, x...) =  F.=0
+  function numbcflux!(F, _...)
+    for s = 1:length(F)
+      F[s] = 0
+    end
+  end
 
   # Define Spatial Discretization
   spacedisc=DGBalanceLaw(grid = grid,
@@ -241,13 +255,15 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
+  @static if Base.find_package("CUDAnative") !== nothing
+    device!(MPI.Comm_rank(mpicomm))
+  end
 
   # Perform Integration Testing for three different grid resolutions
   if integration_testing
     timeend = 1
     numelem = (2, 2) #(Nhorizontal,Nvertical)
     N = 4
-    ArrayType = Array
     dt=1e-2*5 # stable dt for N=4 and Ne=5
 
     expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
@@ -260,41 +276,42 @@ let
     expected_mass[3] = 6.1665533536019044e-15 # Ne=8
     lvls = length(expected_error)
 
-    for DFloat in (Float64,) # Float32)
-      err = zeros(DFloat, lvls)
-      mass= zeros(DFloat, lvls)
-      for l = 1:lvls
-        Nhorizontal = 2^(l-1) * numelem[1]
-        Nvertical   = 2^(l-1) * numelem[2]
-        dt=dt/Nhorizontal
-        nsteps = ceil(Int64, timeend / dt)
-        dt = timeend / nsteps
-        @info @sprintf """Run Configuration
-        Nhorizontal = %d
-        Nvertical   = %d
-        N           = %d
-        dt          = %.16e
-        nstep       = %d
-        """ Nhorizontal Nvertical N dt nsteps
-        (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
-                                DFloat, dt, ArrayType)
-        @test err[l]  ≈ DFloat(expected_error[l])
-        #                @test mass[l] ≈ DFloat(expected_mass[l])
-      end
-      @info begin
-        msg = ""
-        for l = 1:lvls-1
-          rate = log2(err[l]) - log2(err[l+1])
-          msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+    for ArrayType in ArrayTypes
+      for DFloat in (Float64,) # Float32)
+        err = zeros(DFloat, lvls)
+        mass= zeros(DFloat, lvls)
+        for l = 1:lvls
+          Nhorizontal = 2^(l-1) * numelem[1]
+          Nvertical   = 2^(l-1) * numelem[2]
+          dt=dt/Nhorizontal
+          nsteps = ceil(Int64, timeend / dt)
+          dt = timeend / nsteps
+          @info @sprintf """Run Configuration
+          Nhorizontal = %d
+          Nvertical   = %d
+          N           = %d
+          dt          = %.16e
+          nstep       = %d
+          """ Nhorizontal Nvertical N dt nsteps
+          (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
+                                  DFloat, dt, ArrayType)
+          @test err[l]  ≈ DFloat(expected_error[l])
+          #                @test mass[l] ≈ DFloat(expected_mass[l])
         end
-        msg
+        @info begin
+          msg = ""
+          for l = 1:lvls-1
+            rate = log2(err[l]) - log2(err[l+1])
+            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+          end
+          msg
+        end
       end
     end
   else
     timeend = 1
     numelem = (2, 2) #(Nhorizontal,Nvertical)
     N = 4
-    ArrayType = Array
     dt=1e-2*5 # stable dt for N=4 and Ne=5
 
     Nhorizontal = numelem[1]
@@ -309,11 +326,14 @@ let
     expected_mass = Array{Float64}(undef, 2)
     expected_mass[1] = 1.8462425827083886e-16
     expected_mass[2] = 1.8480965431931998e-16
-    for DFloat in (Float64,) # Float32)
-      Random.seed!(0)
-      (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ArrayType)
-      @test error ≈ DFloat(expected_error[numproc])
-      #            @test mass ≈ DFloat(expected_mass[numproc])
+    for ArrayType in ArrayTypes
+      for DFloat in (Float64,) # Float32)
+        Random.seed!(0)
+        (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat,
+                            dt, ArrayType)
+        @test error ≈ DFloat(expected_error[numproc])
+        #            @test mass ≈ DFloat(expected_mass[numproc])
+      end
     end
   end
   # Perform Integration Testing for three different grid resolutions
