@@ -658,19 +658,23 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
 
   if nviscstate > 0
 
-    volumeviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
-                     Val(ngradstate), Val(nviscstate), Val(nauxstate),
-                     disc.viscous_transform!, disc.gradient_transform!, Q.Q,
-                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems)
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+            volumeviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
+                             Val(ngradstate), Val(nviscstate), Val(nauxstate),
+                             disc.viscous_transform!, disc.gradient_transform!,
+                             Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
+                             topology.realelems))
 
     MPIStateArrays.finish_ghost_recv!(Q)
 
-    faceviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
-                   Val(ngradstate), Val(nviscstate), Val(nauxstate),
-                   disc.viscous_penalty!,
-                   disc.viscous_boundary_penalty!,
-                   disc.gradient_transform!, Q.Q, Qvisc.Q, auxstate.Q,
-                   vgeo, sgeo, t, vmapM, vmapP, elemtobndy, topology.realelems)
+    @launch(device, threads=Nfp, blocks=nrealelem,
+            faceviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
+                           Val(ngradstate), Val(nviscstate), Val(nauxstate),
+                           disc.viscous_penalty!,
+                           disc.viscous_boundary_penalty!,
+                           disc.gradient_transform!, Q.Q, Qvisc.Q, auxstate.Q,
+                           vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                           topology.realelems))
 
     MPIStateArrays.start_ghost_exchange!(Qvisc)
   end

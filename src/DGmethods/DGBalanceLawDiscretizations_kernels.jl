@@ -245,7 +245,7 @@ end
 function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
                           ::Val{states_grad}, ::Val{ngradstate},
                           ::Val{nviscstate}, ::Val{nauxstate},
-                          viscous_transform!, gradient_transform!, Q::Array,
+                          viscous_transform!, gradient_transform!, Q,
                           Qvisc, auxstate, vgeo, t, D,
                           elems) where {dim, N, states_grad, ngradstate,
                                         nviscstate, nstate, nauxstate}
@@ -258,67 +258,80 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
   nelem = size(Q)[end]
   ngradtransformstate = length(states_grad)
 
-  Q = reshape(Q, Nq, Nq, Nqk, nstate, nelem)
-  Qvisc = reshape(Qvisc, Nq, Nq, Nqk, nviscstate, nelem)
-  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
-  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
+  s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
+  s_D = @shmem DFloat (Nq, Nq)
 
-  s_G = MArray{Tuple{Nq, Nq, Nqk, ngradstate}, DFloat}(undef)
-
-  l_Q = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_Q = @scratch DFloat (ngradtransformstate, Nq, Nq, Nqk) 3
+  l_aux = @scratch DFloat (nauxstate, Nq, Nq, Nqk) 3
   l_G = MArray{Tuple{ngradstate}, DFloat}(undef)
   l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
   l_gradG = MArray{Tuple{3, ngradstate}, DFloat}(undef)
 
-  @inbounds for e in elems
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      for s = 1:ngradtransformstate
-        l_Q[s] = Q[i, j, k, states_grad[s], e]
-      end
-
-      for s = 1:nauxstate
-        l_aux[s] = auxstate[i, j, k, s, e]
-      end
-
-      gradient_transform!(l_G, l_Q, l_aux, t)
-      for s = 1:ngradstate
-        s_G[i, j, k, s] = l_G[s]
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_D[i, j] = D[i, j]
       end
     end
+  end
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          @unroll for s = 1:ngradtransformstate
+            l_Q[s, i, j, k] = Q[ijk, states_grad[s], e]
+          end
+
+          @unroll for s = 1:nauxstate
+            l_aux[s, i, j, k] = auxstate[ijk, s, e]
+          end
+
+          gradient_transform!(l_G, l_Q[:, i, j, k], l_aux[:, i, j, k], t)
+          @unroll for s = 1:ngradstate
+            s_G[i, j, k, s] = l_G[s]
+          end
+        end
+      end
+    end
+    @synchronize
 
     # Compute gradient of each state
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      ξx, ξy, ξz = vgeo[i,j,k,_ξx,e], vgeo[i,j,k,_ξy,e], vgeo[i,j,k,_ξz,e]
-      ηx, ηy, ηz = vgeo[i,j,k,_ηx,e], vgeo[i,j,k,_ηy,e], vgeo[i,j,k,_ηz,e]
-      ζx, ζy, ζz = vgeo[i,j,k,_ζx,e], vgeo[i,j,k,_ζy,e], vgeo[i,j,k,_ζz,e]
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          ξx, ξy, ξz = vgeo[ijk, _ξx, e], vgeo[ijk, _ξy, e], vgeo[ijk, _ξz, e]
+          ηx, ηy, ηz = vgeo[ijk, _ηx, e], vgeo[ijk, _ηy, e], vgeo[ijk, _ηz, e]
+          ζx, ζy, ζz = vgeo[ijk, _ζx, e], vgeo[ijk, _ζy, e], vgeo[ijk, _ζz, e]
 
-      for s = 1:ngradtransformstate
-        l_Q[s] = Q[i, j, k, states_grad[s], e]
-      end
+          @unroll for s = 1:ngradstate
+            Gξ = Gη = Gζ = zero(DFloat)
+            @unroll for n = 1:Nq
+              Din = s_D[i, n]
+              Djn = s_D[j, n]
+              Nqk > 1 && (Dkn = s_D[k, n])
 
-      for s = 1:nauxstate
-        l_aux[s] = auxstate[i, j, k, s, e]
-      end
+              Gξ += Din * s_G[n, j, k, s]
+              Gη += Djn * s_G[i, n, k, s]
+              Nqk > 1 && (Gζ += Dkn * s_G[i, j, n, s])
+            end
+            l_gradG[1, s] = ξx * Gξ + ηx * Gη + ζx * Gζ
+            l_gradG[2, s] = ξy * Gξ + ηy * Gη + ζy * Gζ
+            l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
+          end
 
-      for s = 1:ngradstate
-        Gξ = Gη = Gζ = zero(DFloat)
-        for n = 1:Nq
-          Gξ += D[i, n] * s_G[n, j, k, s]
-          Gη += D[j, n] * s_G[i, n, k, s]
-          dim == 3 && (Gζ += D[k, n] * s_G[i, j, n, s])
+          viscous_transform!(l_Qvisc, l_gradG, l_Q[:, i, j, k],
+                             l_aux[:, i, j, k], t)
+
+          @unroll for s = 1:nviscstate
+            Qvisc[ijk, s, e] = l_Qvisc[s]
+          end
         end
-        l_gradG[1, s] = ξx * Gξ + ηx * Gη + ζx * Gζ
-        l_gradG[2, s] = ξy * Gξ + ηy * Gη + ζy * Gζ
-        l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
-      end
-
-      viscous_transform!(l_Qvisc, l_gradG, l_Q, l_aux, t)
-
-      for s = 1:nviscstate
-        Qvisc[i, j, k, s, e] = l_Qvisc[s]
       end
     end
+    @synchronize
   end
 end
 
@@ -326,7 +339,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
                         ::Val{ngradstate}, ::Val{nviscstate},
                         ::Val{nauxstate}, viscous_penalty!,
                         viscous_boundary_penalty!, gradient_transform!,
-                        Q::Array, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                        Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, N, states_grad,
                                                   ngradstate, nviscstate,
                                                   nstate, nauxstate}
@@ -358,9 +371,9 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
 
   l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
 
-  @inbounds for e in elems
+  @inbounds @loop for e in (elems; blockIdx().x)
     for f = 1:nface
-      for n = 1:Nfp
+      @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
         sMJ, vMJI = sgeo[_sMJ, n, f, e], sgeo[_vMJI, n, f, e]
         idM, idP = vmapM[n, f, e], vmapP[n, f, e]
@@ -369,22 +382,22 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
         vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
 
         # Load minus side data
-        for s = 1:ngradtransformstate
+        @unroll for s = 1:ngradtransformstate
           l_QM[s] = Q[vidM, states_grad[s], eM]
         end
 
-        for s = 1:nauxstate
+        @unroll for s = 1:nauxstate
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
         gradient_transform!(l_GM, l_QM, l_auxM, t)
 
         # Load plus side data
-        for s = 1:ngradtransformstate
+        @unroll for s = 1:ngradtransformstate
           l_QP[s] = Q[vidP, states_grad[s], eP]
         end
 
-        for s = 1:nauxstate
+        @unroll for s = 1:nauxstate
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
@@ -400,14 +413,15 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
                                            l_GP, l_QP, l_auxP, bctype, t)
         end
 
-        for s = 1:nviscstate
+        @unroll for s = 1:nviscstate
           Qvisc[vidM, s, eM] += vMJI * sMJ * l_Qvisc[s]
         end
-
       end
+      # Need to wait after even faces to avoid race conditions
+      f % 2 == 0 && @synchronize
     end
   end
-
+  nothing
 end
 
 
