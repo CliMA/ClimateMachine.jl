@@ -25,9 +25,10 @@ using Logging, Printf, Dates
 using Random
 
 @static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = (Array, CuArray)
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )
 end
@@ -159,7 +160,7 @@ let
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
   @static if Base.find_package("CUDAnative") !== nothing
-    device!(MPI.Comm_rank(mpicomm))
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
   dt = 1e-4
@@ -170,9 +171,11 @@ let
   Nhorz = 4
   Rrange = 1.0:0.25:2.0
 
+  dim = 3
   for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       Random.seed!(0)
+      @info (ArrayType, DFloat, dim)
       delta_mass = run(mpicomm, ArrayType, polynomialorder, Nhorz, Rrange, timeend, DFloat, dt)
       @test abs(delta_mass) < 1e-15
     end

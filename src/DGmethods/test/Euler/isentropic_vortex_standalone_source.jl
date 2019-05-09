@@ -30,9 +30,10 @@ using StaticArrays
 using Logging, Printf, Dates
 
 @static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = (Array, CuArray)
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )
 end
@@ -258,7 +259,7 @@ let
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
   @static if Base.find_package("CUDAnative") !== nothing
-    device!(MPI.Comm_rank(mpicomm))
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
   if integration_testing
@@ -285,6 +286,7 @@ let
             dt = 1e-2 / Ne[1]
             nsteps = ceil(Int64, timeend / dt)
             dt = timeend / nsteps
+            @info (ArrayType, DFloat, dim)
             err[l] = run(mpicomm, ArrayType, dim, Ne, polynomialorder, timeend,
                          DFloat, dt)
             @test err[l] ≈ DFloat(expected_error[dim-1, l])
@@ -317,6 +319,7 @@ let
       for DFloat in (Float64,) #Float32)
         for dim = 2:3
           Random.seed!(0)
+          @info (ArrayType, DFloat, dim)
           engf_eng0 = run(mpicomm, ArrayType, dim, numelem[1:dim],
                           polynomialorder, timeend, DFloat, dt)
           @test check_engf_eng0[dim, MPI.Comm_size(mpicomm), DFloat] ≈ engf_eng0

@@ -12,9 +12,10 @@ using StaticArrays
 using Logging, Printf, Dates
 
 @static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = (CuArray, Array)
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )
 end
@@ -328,7 +329,7 @@ let
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
   @static if Base.find_package("CUDAnative") !== nothing
-    device!(MPI.Comm_rank(mpicomm))
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
   polynomialorder = 4

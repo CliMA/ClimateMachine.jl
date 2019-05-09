@@ -38,9 +38,10 @@ using Logging, Printf, Dates
 using Random
 
 @static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = (Array, CuArray)
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )
 end
@@ -256,7 +257,7 @@ let
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
   @static if Base.find_package("CUDAnative") !== nothing
-    device!(MPI.Comm_rank(mpicomm))
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
   # Perform Integration Testing for three different grid resolutions
@@ -293,6 +294,7 @@ let
           dt          = %.16e
           nstep       = %d
           """ Nhorizontal Nvertical N dt nsteps
+          @info (ArrayType, DFloat, dim)
           (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
                                   DFloat, dt, ArrayType)
           @test err[l]  ≈ DFloat(expected_error[l])
@@ -329,6 +331,7 @@ let
     for ArrayType in ArrayTypes
       for DFloat in (Float64,) # Float32)
         Random.seed!(0)
+        @info (ArrayType, DFloat, dim)
         (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat,
                             dt, ArrayType)
         @test error ≈ DFloat(expected_error[numproc])

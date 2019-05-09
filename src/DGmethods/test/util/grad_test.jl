@@ -4,11 +4,13 @@ using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using Printf
 using LinearAlgebra
-
+using Logging
 
 @static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
   using CuArrays
-  const ArrayTypes = (Array, CuArray)
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )
 end
@@ -30,12 +32,7 @@ end
 end
 
 using Test
-function run(dim, ArrayType, Ne, N, DFloat)
-
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-
-  mpicomm = MPI.COMM_WORLD
+function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
 
   brickrange = ntuple(j->range(DFloat(-1); length=Ne[j]+1, stop=1), dim)
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
@@ -63,6 +60,20 @@ function run(dim, ArrayType, Ne, N, DFloat)
 end
 
 let
+  MPI.Initialized() || MPI.Init()
+  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
+
+  mpicomm = MPI.COMM_WORLD
+  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+  loglevel = ll == "DEBUG" ? Logging.Debug :
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
+  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+  global_logger(ConsoleLogger(logger_stream, loglevel))
+  @static if Base.find_package("CUDAnative") !== nothing
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
+  end
+
   numelem = (5, 5, 1)
   lvls = 1
 
@@ -73,7 +84,8 @@ let
       for dim = 2:3
         err = zeros(DFloat, lvls)
         for l = 1:lvls
-          run(dim, ArrayType, ntuple(j->2^(l-1) * numelem[j], dim),
+          @info (ArrayType, DFloat, dim)
+          run(mpicomm, dim, ArrayType, ntuple(j->2^(l-1) * numelem[j], dim),
               polynomialorder, DFloat)
         end
       end
