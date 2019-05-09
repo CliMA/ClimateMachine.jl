@@ -291,8 +291,6 @@ let
 
     polynomialorder = 4
 
-    mpicomm = MPI.COMM_WORLD
-
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
     check_engf_eng0[2, 1, Float64] = 9.9999808508887378e-01
     check_engf_eng0[3, 1, Float64] = 9.9999644038110480e-01

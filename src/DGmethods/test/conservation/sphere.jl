@@ -157,7 +157,6 @@ let
 
   polynomialorder = 4
 
-  mpicomm = MPI.COMM_WORLD
   Nhorz = 4
   Rrange = 1.0:0.25:2.0
 
