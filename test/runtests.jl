@@ -1,5 +1,7 @@
 using Test, Pkg
 
+ENV["JULIA_LOG_LEVEL"] = "WARN"
+
 for submodule in ["Utilities/ParametersType",
                   "Utilities/PlanetParameters",
                   "Utilities/RootSolvers",
@@ -8,6 +10,7 @@ for submodule in ["Utilities/ParametersType",
                   "Atmos/Parameterizations/TurbulenceConvection",
                   "Mesh",
                   "DGmethods",
+                  "Atmos/Dycore"
                   ]
 
   println("Testing $submodule")

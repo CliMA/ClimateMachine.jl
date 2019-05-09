@@ -1,4 +1,15 @@
+Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
+
 using CLIMA, Documenter
+
+include("generate.jl")
+
+GENERATED_BL_EXAMPLES =
+[joinpath("examples", "DGmethods", "generated", f) for f in
+ (
+  "ex_001_periodic_advection.md",
+  "ex_002_solid_body_rotation.md",
+ )]
 
 makedocs(
   sitename = "CLIMA",
@@ -18,19 +29,29 @@ makedocs(
       "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
     ],
     "Atmos" => Any[
-      "Atmos/SurfaceFluxes.md"
+      "Atmos/SurfaceFluxes.md",
+      "Atmos/TurbulenceConvection.md",
+      "Atmos/EDMFEquations.md",
     ],
     "ODESolvers" => "ODESolvers.md",
     "Mesh" => "Mesh.md",
     "AtmosDycore" => "AtmosDycore.md",
-    "TurbulenceConvection" => "TurbulenceConvection.md",
+    "Arrays" => "Arrays.md",
+    "DGmethods" => "DGmethods.md",
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
       "VariableList.md",
-    ]
+    ],
+    "Balance Law Examples" => ["BalanceLawOverview.md",
+                               GENERATED_BL_EXAMPLES...]
   ],
 )
+
+# make sure there are no *.vtu files left around from the build
+cd(joinpath(@__DIR__, "build", "examples", "DGmethods", "generated")) do
+    foreach(file -> endswith(file, ".vtu") && rm(file), readdir())
+end
 
 deploydocs(
            repo = "github.com/climate-machine/CLIMA.git",

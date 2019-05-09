@@ -110,6 +110,22 @@ end
     @test topology.nabrtorecv == UnitRange{Int}[]
     @test topology.nabrtosend == UnitRange{Int}[]
   end
+
+  let
+    comm = MPI.COMM_SELF
+    for px in (true, false)
+      topology = BrickTopology(comm, (0:10,), periodicity=(px,))
+      @test Topologies.hasboundary(topology) == !px
+    end
+    for py = (true, false), px in (true, false)
+      topology = BrickTopology(comm, (0:10,0:3), periodicity=(px,py))
+      @test Topologies.hasboundary(topology) == !(px && py)
+    end
+    for pz = (true, false), py = (true, false), px in (true, false)
+      topology = BrickTopology(comm, (0:10,0:3,-1:3), periodicity=(px,py,pz))
+      @test Topologies.hasboundary(topology) == !(px && py && pz)
+    end
+  end
 end
 
 @testset "StackedBrickTopology tests" begin
@@ -157,4 +173,26 @@ end
     @test topology.nabrtorecv == UnitRange{Int}[]
     @test topology.nabrtosend == UnitRange{Int}[]
   end
+  let
+    comm = MPI.COMM_SELF
+    for py = (true, false), px in (true, false)
+      topology = StackedBrickTopology(comm, (0:10,0:3), periodicity=(px,py))
+      @test Topologies.hasboundary(topology) == !(px && py)
+    end
+    for pz = (true, false), py = (true, false), px in (true, false)
+      topology = StackedBrickTopology(comm, (0:10,0:3,-1:3),
+                                      periodicity=(px,py,pz))
+      @test Topologies.hasboundary(topology) == !(px && py && pz)
+    end
+  end
+end
+
+@testset "StackedCubedSphereTopology tests" begin
+  topology = StackedCubedSphereTopology(MPI.COMM_SELF, 3, 1.0:3.0)
+  @test Topologies.hasboundary(topology)
+end
+
+@testset "CubedShellTopology tests" begin
+  topology = CubedShellTopology(MPI.COMM_SELF, 3, Float64)
+  @test !Topologies.hasboundary(topology)
 end

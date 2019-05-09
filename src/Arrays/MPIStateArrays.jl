@@ -1,9 +1,10 @@
 module MPIStateArrays
 using LinearAlgebra
+using DoubleFloats
 
 using MPI
 
-export MPIStateArray, euclidean_distance
+export MPIStateArray, euclidean_distance, weightedsum
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -206,7 +207,7 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
   dorecvs && post_Irecvs!(Q)
 
   # wait on (prior) MPI sends
-  MPI.Waitall!(Q.sendreq)
+  finish_ghost_send!(Q)
 
   # pack data in send buffer
   fillsendbuf!(Q.host_sendQ, Q.device_sendQ, Q.Q, Q.sendelems)
@@ -222,15 +223,35 @@ end
 """
     finish_ghost_exchange!(Q::MPIStateArray)
 
-Complete the exchange of data and fill the data array on the device
+Complete the exchange of data and fill the data array on the device. Note this
+completes both the send and the receive communication. For more fine level
+control see [finish_ghost_exchange_recv!](@ref) and
+[finish_ghost_exchange_send!](@ref)
 """
 function finish_ghost_exchange!(Q::MPIStateArray)
+  finish_ghost_recv!(Q::MPIStateArray)
+  finish_ghost_send!(Q::MPIStateArray)
+end
+
+"""
+    finish_ghost_recv!(Q::MPIStateArray)
+
+Complete the receive of data and fill the data array on the device
+"""
+function finish_ghost_recv!(Q::MPIStateArray)
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
 
   # copy data to state vectors
   transferrecvbuf!(Q.device_recvQ, Q.host_recvQ, Q, length(Q.realelems))
 end
+
+"""
+    finish_ghost_send!(Q::MPIStateArray)
+
+Waits on the send of data to be complete
+"""
+finish_ghost_send!(Q::MPIStateArray) = MPI.Waitall!(Q.sendreq)
 
 # {{{ MPI Buffer handling
 fillsendbuf!(h, d, b::MPIStateArray, e) = fillsendbuf!(h, d, b.Q, e)
@@ -246,7 +267,7 @@ function transferrecvbuf!(device_recvbuf::Array, host_recvbuf, buf::Array,
 end
 # }}}
 
-# {{{ L2 Energy (for all dimensions)
+# Integral based metrics
 function LinearAlgebra.norm(Q::MPIStateArray; p::Real=2)
 
   @assert p == 2
@@ -261,33 +282,33 @@ function LinearAlgebra.norm(Q::MPIStateArray; p::Real=2)
     locnorm2 = knl_L2norm(Val(Np), h_Q, Q.weights, Q.realelems)
   end
 
-  sqrt(MPI.allreduce([locnorm2], MPI.SUM, Q.mpicomm)[1])
+  sqrt(MPI.Allreduce([locnorm2], MPI.SUM, Q.mpicomm)[1])
 end
 
 function knl_norm2(::Val{Np}, Q, elems) where {Np}
   DFloat = eltype(Q)
   (_, nstate, nelem) = size(Q)
 
-  energy = zero(DFloat)
+  nrm = zero(DFloat)
 
   @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    energy += Q[i, q, e]^2
+    nrm += Q[i, q, e]^2
   end
 
-  energy
+  nrm
 end
 
 function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
   DFloat = eltype(Q)
   (_, nstate, nelem) = size(Q)
 
-  energy = zero(DFloat)
+  nrm = zero(DFloat)
 
   @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    energy += weights[i, e] * Q[i, q, e]^2
+    nrm += weights[i, e] * Q[i, q, e]^2
   end
 
-  energy
+  nrm
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
@@ -306,7 +327,7 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
     locdist = knl_L2dist(Val(Np), h_A, h_B, A.weights, A.realelems)
   end
 
-  sqrt(MPI.allreduce([locdist], MPI.SUM, A.mpicomm)[1])
+  sqrt(MPI.Allreduce([locdist], MPI.SUM, A.mpicomm)[1])
 end
 
 function knl_dist(::Val{Np}, A, B, elems) where {Np}
@@ -335,7 +356,48 @@ function knl_L2dist(::Val{Np}, A, B, weights, elems) where {Np}
   dist
 end
 
-# }}}
+"""
+    weightedsum(A[, states])
+
+Compute the weighted sum of the `MPIStateArray` `A`. If `states` is specified on
+the listed states are summed, otherwise all the states in `A` are used.
+
+A typical use case for this is when the weights have been initialized with
+quadrature weights from a grid, thus this becomes an integral approximation.
+
+!!! note
+
+    This implementation is not optimal and should be revisited when we work out
+    the GPUify version!
+
+"""
+function weightedsum(A::MPIStateArray, states=1:size(A, 2))
+
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  Np = size(A, 1)
+
+  isempty(A.weights) && error("`weightedsum` requires weights")
+  locwsum = knl_weightedsum(Val(Np), h_A, A.weights, A.realelems, states)
+
+  DFloat = eltype(A)
+  # Need to use anomous function version of sum else MPI.jl using MPI_SUM
+  DFloat(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
+end
+
+function knl_weightedsum(::Val{Np}, A, weights, elems, states) where {Np}
+  DFloat = eltype(A)
+
+  wsum = zero(DoubleFloat{DFloat})
+
+  @inbounds for e = elems
+    for q = states, i = 1:Np
+      wsum += weights[i, e] * A[i, q, e]
+    end
+  end
+
+  wsum
+end
 
 using Requires
 

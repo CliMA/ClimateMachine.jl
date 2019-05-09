@@ -54,15 +54,15 @@ end
   @test state_vec[:ρ_0, k] ≈ 2
 end
 
-@testset "Slices" begin
+@testset "Cuts" begin
   state_vec[:ρ_0, 1] = 1.0
   state_vec[:ρ_0, 2] = 2.0
   state_vec[:ρ_0, 3] = 3.0
   state_vec[:a, 1] = 1.0
   state_vec[:a, 2] = 2.0
   state_vec[:a, 3] = 3.0
-  ρα_0_slice = state_vec[:ρ_0, Slice(2)].*state_vec[:a, Slice(2)]
-  @test all(ρα_0_slice .== ρα_0_slice)
+  ρα_0_cut = state_vec[:ρ_0, Cut(2)].*state_vec[:a, Cut(2)]
+  @test all(ρα_0_cut .== ρα_0_cut)
 end
 
 @testset "Auxiliary" begin
