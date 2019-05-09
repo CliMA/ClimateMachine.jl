@@ -207,7 +207,7 @@ where
 ```math
 \begin{align}
 \DM{S}_{\text{diff}}^{\DM{\phi}} & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
-\DM{S}_{\text{diff}}^{w}         & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
+\DM{S}_{\text{diff}}^{w}         & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion_w} \\
 \DM{S}_{\text{press}}            & = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
 \DM{S}_{\text{coriolis}}         & = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
 \DM{S}_{\text{subsidence}}       & = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
@@ -226,8 +226,8 @@ The EDMF equations take the form of advection-diffusion equations. The size of t
   (\rhoRef{} \aSDi{a} \DM{\uH})
   =
   \SDi{S}^a
-  , \quad i = 1,2,..., \Nsd{}, \label{eq:AreaFracGov} \\
-  \sum_i \aSDi{a} = 1, \label{eq:AreaFracConserve} \\
+  , \quad i \ne \iEnv, \label{eq:AreaFracGov} \\
+  \aSDi{a} = 1 - \sum_{j\ne\iEnv} \aSDj{a}, \quad i = \iEnv, \label{eq:AreaFracConserve} \\
   \qquad 0 < \aSDi{a} < 1. \label{eq:AreaFracConstraint}
 \end{gather}
 ```
@@ -274,7 +274,7 @@ The 1st moment sub-domain equations are:
   (\rhoRef{} \aSDi{a} \DM{\uH} \SDi{\phi})
   =
   \SDi{S}^\phi
-  , \quad i = 1,2,..., \Nsd{}. \\
+  , \quad \forall i. \\
 \end{align}
 ```
 
@@ -358,7 +358,7 @@ The 2nd moment sub-domain equations are of the exact same form as the 1st moment
   (\rhoRef{} \aSDi{a} \DM{\uH} \SDi{\phi})
   =
   \SDi{S}^\phi
-  , \quad i = 1,2,..., \Nsd{}. \\
+  , \quad \forall i. \\
 \end{align}
 ```
 Here, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
