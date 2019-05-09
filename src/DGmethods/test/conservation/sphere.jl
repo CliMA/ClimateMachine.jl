@@ -145,22 +145,18 @@ let
   MPI.Initialized() || MPI.Init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
-  if MPI.Comm_rank(mpicomm) == 0
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-    global_logger(ConsoleLogger(stderr, loglevel))
-  else
-    global_logger(NullLogger())
-  end
+  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+  loglevel = ll == "DEBUG" ? Logging.Debug :
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
+  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+  global_logger(ConsoleLogger(logger_stream, loglevel))
 
   dt = 1e-4
   timeend = 100*dt
 
   polynomialorder = 4
 
-  mpicomm = MPI.COMM_WORLD
   Nhorz = 4
   Rrange = 1.0:0.25:2.0
 
