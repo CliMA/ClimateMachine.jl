@@ -125,7 +125,7 @@ function single_eddy!(Q, t, x, z, _...)
   qt_0::DFloat = 15 * 1e-3
   z_0::DFloat  = 0
 
-  R_m, cp_m, cv_m, γ = moist_gas_constants(qt_0)
+  R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
 
   # pressure profile assuming hydrostatic and constant θ and qt profiles
   # TODO - check
@@ -171,14 +171,14 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            flux! = eulerflux!,
-                           numericalflux! = (x...) ->
+                           numerical_flux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
                                                     preflux,
                                                     correctQ!
                                                    ),
-                           length_constant_auxiliary = _nauxcstate,
-                           constant_auxiliary_init! = constant_auxiliary_init!,
+                           auxiliary_state_length = _nauxcstate,
+                           auxiliary_state_initialization! = constant_auxiliary_init!,
                            source! = source!)
 
   # This is a actual state/function that lives on the grid
