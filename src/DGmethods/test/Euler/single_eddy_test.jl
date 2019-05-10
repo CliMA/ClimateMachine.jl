@@ -26,9 +26,13 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
-using Printf
 using LinearAlgebra
 using StaticArrays
+using Printf
+
+using CLIMA.PlanetParameters
+using CLIMA.MoistThermodynamics
+using CLIMA.Microphysics
 
 const _nstate = 8
 const _ρ, _U, _W, _E, _qt, _ql, _qi, _qr = 1:_nstate
@@ -38,10 +42,6 @@ const statenames = ("ρ", "U", "W", "E", "qt", "ql", "qi", "qr")
 
 const _nauxcstate = 1
 const _c_z = 1
-
-using CLIMA.PlanetParameters
-using CLIMA.MoistThermodynamics
-using CLIMA.Microphysics
 
 # preflux computation
 @inline function preflux(Q, _...)
@@ -60,9 +60,6 @@ using CLIMA.Microphysics
 end
 
 # max eigenvalue
-#TODO - plus rain terminal velocity?
-#TODO - removed sound_speed - velocity is prescribed and density is const
-#TODO - arguments...
 @inline function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, u, w, rain_w)
   @inbounds abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
 end
@@ -71,35 +68,43 @@ end
   @inbounds Q[_ρ] = Q[_U] = Q[_W] = 0
 end
 
-@inline function constant_auxiliary_init!(auxc, x, z, _...)
-  @inbounds auxc[_c_z] = z
+@inline function constant_auxiliary_init!(aux, x, z, _...)
+  @inbounds aux[_c_z] = z
 end
 
-@inline function source!(S, Q, G, auxc, auxd, t)
+@inline function source!(S, Q, aux, t)
   @inbounds begin
     ρ, E, U, W, qt, ql, qi = Q[_ρ], Q[_E], Q[_U], Q[_W], Q[_qt], Q[_ql], Q[_qi]
-    z = auxc[_c_z]
+    z = aux[_c_z]
 
     timescale::eltype(Q) = 1
 
     e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
-    
+
     e_int > 0 || @show e_int, ρ, qt
     T = saturation_adjustment(e_int, ρ, qt)
-    dqldt, dqidt = qv2qli(qt, ql, qi, T, ρ, timescale)
-    dqrdt = ql2qr(ql, timescale, 1e-8)
-    S .= 0
-    #S[_ql], S[_qi] = dqldt, dqidt  #TODO add src to E and ql
-    S[_ql], S[_qi], S[_qr], S[_qt] = dqldt - dqrdt, dqidt, dqrdt, -dqrdt #TODO add src to E and ql
 
-end
+    # TODO is there a better way to do it?
+    # Is pp created every time I calculate sources?
+    pp = PhasePartition_equil(T, ρ, qt)
+    dqldt, dqidt = qv2qli(pp, T, ρ, timescale)
+    #dqrdt = ql2qr(pp, timescale, 1e-8)
+    dqrdt = ql2qr(PhasePartition_equil(T, ρ, qt), timescale, 1e-8)
+    S .= 0
+
+    #TODO add src to E and ql
+    S[_ql] = dqldt - dqrdt
+    S[_qi] = dqidt
+    S[_qr] = dqrdt
+    S[_qt] = -dqrdt
+  end
 end
 
 # physical flux function
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t) =
-eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, preflux(Q)...)
+eulerflux!(F, Q, QV, aux, t) =
+eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
 
-@inline function eulerflux!(F, Q, G, ϕ_c, ϕ_d, t, u, w, rain_w)
+@inline function eulerflux!(F, Q, QV, aux, t, u, w, rain_w)
   @inbounds begin
     E, qt, ql, qi, qr = Q[_E], Q[_qt], Q[_ql], Q[_qi], Q[_qr]
 
@@ -136,10 +141,14 @@ function single_eddy!(Q, t, x, z, _...)
   T::DFloat = θ_0 * exner(p)
   ρ::DFloat = p / R_m / T
 
-  qt::DFloat = qt_0
-  ql::DFloat, qi::DFloat = phase_partitioning_eq(T, ρ, qt)
-  qr::DFloat = 0
+  # TODO - check what they do
+  pp_init = PhasePartition_equil(T, ρ, qt_0)
+  thermo_state_init = PhaseEquil(internal_energy(T, pp_init), qt_0, ρ)
 
+  qt::DFloat = qt_0
+  # TODO - how does it work without T and p provided?
+  ql::DFloat, qi::DFloat = pp_init.liq, pp_init.ice
+  qr::DFloat = 0
 
   # TODO should this be more "grid aware"?
   # the velocity is calculated as derivative of streamfunction
@@ -149,7 +158,7 @@ function single_eddy!(Q, t, x, z, _...)
   u = U/ρ
   w = W/ρ
 
-  E = ρ * (grav * z + (1//2)*(u^2 + w^2) + internal_energy(T, qt))
+  E = ρ * (grav * z + (1//2)*(u^2 + w^2) + internal_energy(thermo_state_init))
 
   @inbounds Q[_ρ], Q[_U], Q[_W], Q[_E], Q[_qt], Q[_ql], Q[_qi], Q[_qr] =
             ρ, U, W, E, qt, ql, qi, qr
@@ -178,7 +187,8 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                                     correctQ!
                                                    ),
                            auxiliary_state_length = _nauxcstate,
-                           auxiliary_state_initialization! = constant_auxiliary_init!,
+                           auxiliary_state_initialization! =
+                             constant_auxiliary_init!,
                            source! = source!)
 
   # This is a actual state/function that lives on the grid
