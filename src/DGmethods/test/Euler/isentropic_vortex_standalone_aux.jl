@@ -183,10 +183,11 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
-    outprefix = @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
+    outprefix = @sprintf("vtk/isentropicvortex_aux_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
+    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames,
+                                         spacedisc.auxstate, ("aU", "aV", "aW"))
     step[1] += 1
     nothing
   end
@@ -231,15 +232,12 @@ let
   MPI.Initialized() || MPI.Init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
-  if MPI.Comm_rank(mpicomm) == 0
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-    global_logger(ConsoleLogger(stderr, loglevel))
-  else
-    global_logger(NullLogger())
-  end
+  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+  loglevel = ll == "DEBUG" ? Logging.Debug :
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
+  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+  global_logger(ConsoleLogger(logger_stream, loglevel))
 
   if integration_testing
     timeend = 1
@@ -283,8 +281,6 @@ let
     timeend = 2dt
 
     polynomialorder = 4
-
-    mpicomm = MPI.COMM_WORLD
 
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
     check_engf_eng0[2, 1, Float64] = 9.9999784637552236e-01
