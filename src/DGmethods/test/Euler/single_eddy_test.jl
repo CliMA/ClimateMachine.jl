@@ -60,7 +60,7 @@ const _c_z = 1
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, G, ϕ_c, ϕ_d, t, u, w, rain_w)
+@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
   @inbounds abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
 end
 
@@ -183,9 +183,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            numerical_flux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
-                                                    preflux,
-                                                    correctQ!
-                                                   ),
+                                                    preflux),
                            auxiliary_state_length = _nauxcstate,
                            auxiliary_state_initialization! =
                              constant_auxiliary_init!,
