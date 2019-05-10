@@ -63,13 +63,13 @@ Much of the notation used in this module follows Hesthaven and Warburton (2008).
 module DGBalanceLawDiscretizations
 
 using MPI
-using ...Grids
-using ...MPIStateArrays
+using ..Grids
+using ..MPIStateArrays
 using Documenter
 using StaticArrays
-using ...SpaceMethods
+using ..SpaceMethods
 using DocStringExtensions
-using ...Topologies
+using ..Topologies
 
 export DGBalanceLaw
 
