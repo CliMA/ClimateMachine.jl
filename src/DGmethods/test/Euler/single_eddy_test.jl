@@ -1,5 +1,5 @@
-# The test is based on a modelling set-up designed for the 
-# 8th International Cloud Modelling Workshop 
+# The test is based on a modelling set-up designed for the
+# 8th International Cloud Modelling Workshop
 # (ICMW, Muhlbauer et al., 2013, case 1, doi:10.1175/BAMS-D-12-00188.1)
 #
 # See chapter 2 in Arabas et al 2015 for setup details:
@@ -40,8 +40,9 @@ const stateid = (ρid = _ρ, Uid = _U, Wid = _W, Eid = _E,
                  qtid = _qt, qlid = _ql, qiid = _qi, qrid = _qr)
 const statenames = ("ρ", "U", "W", "E", "qt", "ql", "qi", "qr")
 
-const _nauxcstate = 1
+const _nauxcstate = 2
 const _c_z = 1
+const _c_x = 2
 
 # preflux computation
 @inline function preflux(Q, _...)
@@ -60,22 +61,20 @@ const _c_z = 1
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t, u, w, rain_w)
   @inbounds abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
-end
-
-@inline function correctQ!(Q, _...)
-  @inbounds Q[_ρ] = Q[_U] = Q[_W] = 0
 end
 
 @inline function constant_auxiliary_init!(aux, x, z, _...)
   @inbounds aux[_c_z] = z
+  @inbounds aux[_c_x] = x #TODO - tmp for printing
 end
 
 @inline function source!(S, Q, aux, t)
   @inbounds begin
     ρ, E, U, W, qt, ql, qi = Q[_ρ], Q[_E], Q[_U], Q[_W], Q[_qt], Q[_ql], Q[_qi]
     z = aux[_c_z]
+    x = aux[_c_x]
 
     timescale::eltype(Q) = 1
 
@@ -84,19 +83,24 @@ end
     e_int > 0 || @show e_int, ρ, qt
     T = saturation_adjustment(e_int, ρ, qt)
 
-    # TODO is there a better way to do it?
-    # Is pp created every time I calculate sources?
+    # TODO is pp created every time I calculate sources?
     pp = PhasePartition_equil(T, ρ, qt)
     dqldt, dqidt = qv2qli(pp, T, ρ, timescale)
-    #dqrdt = ql2qr(pp, timescale, 1e-8)
-    dqrdt = ql2qr(PhasePartition_equil(T, ρ, qt), timescale, 1e-8)
+    dqrdt = ql2qr(pp, timescale, 1e-8)
     S .= 0
 
-    #TODO add src to E and ql
-    S[_ql] = dqldt - dqrdt
-    S[_qi] = dqidt
-    S[_qr] = dqrdt
-    S[_qt] = -dqrdt
+    if x == 0
+      @printf("z = %5.5f  T = %5.3f  qt =  %5.4f  ql = %5.8f\n", z, T, qt, ql)
+    end
+
+    # TODO
+    #S[_ql] = dqldt - dqrdt
+    #S[_qi] = dqidt
+    #S[_qr] = dqrdt
+    #S[_qt] = -dqrdt
+
+    # TODO add src to E
+
   end
 end
 
@@ -125,29 +129,30 @@ const X_max = 1.5
 function single_eddy!(Q, t, x, z, _...)
   DFloat = eltype(Q)
 
-  θ_0::DFloat  = 289
-  p_0::DFloat  = 101500
-  qt_0::DFloat = 15 * 1e-3
-  z_0::DFloat  = 0
+  # initial condition
+  θ_0::DFloat    = 289
+  p_0::DFloat    = 101500
+  p_1000::DFloat = 100000
+  qt_0::DFloat   = 7.5 * 1e-3
+  z_0::DFloat    = 0
 
   R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
 
   # pressure profile assuming hydrostatic and constant θ and qt profiles
-  # TODO - check
-  p = MSLP * ((p_0 / MSLP)^(R_m / cp_m) -
-              R_m / cp_m * grav / θ_0 / R_m * (z - z_0)
-             )^(cp_m / R_m)
+  # It is done this way to be consistent with Arabas paper.
+  # It's not neccesarily the best way to initialize with our model variables
+  p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
+              R_d / cp_d * grav / θ_0 / R_m * (z - z_0) * 1e3
+             )^(cp_d / R_d)
 
-  T::DFloat = θ_0 * exner(p)
+  T::DFloat = θ_0 * exner(p, PhasePartition(qt_0))
   ρ::DFloat = p / R_m / T
 
-  # TODO - check what they do
   pp_init = PhasePartition_equil(T, ρ, qt_0)
   thermo_state_init = PhaseEquil(internal_energy(T, pp_init), qt_0, ρ)
-
   qt::DFloat = qt_0
-  # TODO - how does it work without T and p provided?
-  ql::DFloat, qi::DFloat = pp_init.liq, pp_init.ice
+  ql::DFloat = pp_init.liq
+  qi::DFloat = pp_init.ice
   qr::DFloat = 0
 
   # TODO should this be more "grid aware"?
@@ -162,9 +167,6 @@ function single_eddy!(Q, t, x, z, _...)
 
   @inbounds Q[_ρ], Q[_U], Q[_W], Q[_E], Q[_qt], Q[_ql], Q[_qi], Q[_qr] =
             ρ, U, W, E, qt, ql, qi, qr
-
-  #TODO - plot velocity and E and qt fields
-  #TODO - should I do saturation adjustemnt in my init cond?
 end
 
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
@@ -257,10 +259,11 @@ function run(dim, Ne, N, timeend, DFloat)
   brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1.5), 2)
 
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(i->true, dim))
+  #dt = 0.001 # not a general purpose dt calculation
   dt = 0.001 # not a general purpose dt calculation
 
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
-  
+
 end
 
 using Test
