@@ -44,6 +44,7 @@ const _nauxcstate = 2
 const _c_z = 1
 const _c_x = 2
 
+
 # preflux computation
 @inline function preflux(Q, _...)
   DFloat = eltype(Q)
@@ -57,18 +58,47 @@ const _c_x = 2
   rain_w = terminal_velocity(qt, qr, ρ, ρ_ground)
   rain_w = 0
 
+  # return 2 velocity components and rain fall speed for wave speed calculation
   (u, w, rain_w)
 end
+
+
+# boundary condition
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t,
+                          uM, wM, rain_wM)
+  @inbounds begin
+
+    UM, WM, EM         = QM[_U],  QM[_W],  QM[_E]
+    qtM, qlM, qiM, qrM = QM[_qt], QM[_ql], QM[_qi], QM[_qr]
+
+    UnM = nM[1] * UM + nM[2] * WM
+    QP[_U] = UM - 2 * nM[1] * UnM
+    QP[_W] = WM - 2 * nM[2] * UnM # TODO - what to do about rain fall speed?
+
+    QP[_E], QP[_qt], QP[_ql], QP[_qi], QP[_qr] = EM, qtM, qlM, qiM, qrM
+
+    auxM .= auxP
+
+    # To calculate uP and wP we use the preflux function
+    preflux(QP, auxP, t)
+
+    # Required return from this function is either nothing
+    # or preflux with plus state as arguments
+  end
+end
+
 
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, u, w, rain_w)
   @inbounds abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
 end
 
+
 @inline function constant_auxiliary_init!(aux, x, z, _...)
   @inbounds aux[_c_z] = z
   @inbounds aux[_c_x] = x #TODO - tmp for printing
 end
+
 
 @inline function source!(S, Q, aux, t)
   @inbounds begin
@@ -80,7 +110,7 @@ end
 
     e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
 
-    e_int > 0 || @show e_int, ρ, qt
+    #e_int > 0 || @show e_int, ρ, qt
     T = saturation_adjustment(e_int, ρ, qt)
 
     # TODO is pp created every time I calculate sources?
@@ -89,9 +119,9 @@ end
     dqrdt = ql2qr(pp, timescale, 1e-8)
     S .= 0
 
-    if x == 0
-      @printf("z = %5.5f  T = %5.3f  qt =  %5.4f  ql = %5.8f\n", z, T, qt, ql)
-    end
+    #if x == 0
+    #  @printf("z = %5.5f  T = %5.3f  qt =  %5.4f  ql = %5.8f\n", z, T, qt, ql)
+    #end
 
     # TODO
     #S[_ql] = dqldt - dqrdt
@@ -104,22 +134,25 @@ end
   end
 end
 
+
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) =
-eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
+eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
 
 @inline function eulerflux!(F, Q, QV, aux, t, u, w, rain_w)
   @inbounds begin
     E, qt, ql, qi, qr = Q[_E], Q[_qt], Q[_ql], Q[_qi], Q[_qr]
 
     F .= 0
+    # advect the moisture and energy
     F[1, _qt], F[2, _qt] = u * qt, w * qt
     F[1, _ql], F[2, _ql] = u * ql, w * ql
     F[1, _qi], F[2, _qi] = u * qi, w * qi
     F[1, _qr], F[2, _qr] = u * qr, (w + rain_w) * qr
     F[1, _E],  F[2, _E]  = u *  E, w * E
+    # don't advect momentum (kinematic setup)
   end
 end
+
 
 # initial condition
 const w_max = .6
@@ -138,9 +171,9 @@ function single_eddy!(Q, t, x, z, _...)
 
   R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
 
-  # pressure profile assuming hydrostatic and constant θ and qt profiles
+  # Pressure profile assuming hydrostatic and constant θ and qt profiles.
   # It is done this way to be consistent with Arabas paper.
-  # It's not neccesarily the best way to initialize with our model variables
+  # It's not neccesarily the best way to initialize with our model variables.
   p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
               R_d / cp_d * grav / θ_0 / R_m * (z - z_0) * 1e3
              )^(cp_d / R_d)
@@ -177,15 +210,24 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
+  numflux!(x...) = NumericalFluxes.rusanov!(x...,
+                                            eulerflux!,
+                                            wavespeed,
+                                            preflux
+                                           )
+  numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x...,
+                                                            eulerflux!,
+                                                            bcstate!,
+                                                            wavespeed,
+                                                            preflux
+                                                           )
 
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            flux! = eulerflux!,
-                           numerical_flux! = (x...) ->
-                           NumericalFluxes.rusanov!(x..., eulerflux!,
-                                                    wavespeed,
-                                                    preflux),
+                           numerical_flux! = numflux!,
+                           numerical_boundary_flux! = numbcflux!,
                            auxiliary_state_length = _nauxcstate,
                            auxiliary_state_initialization! =
                              constant_auxiliary_init!,
@@ -220,10 +262,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
     nothing
   end
 
-  #= Paraview calculators:
-  P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
-  theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
-  =#
   step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
@@ -258,9 +296,8 @@ function run(dim, Ne, N, timeend, DFloat)
 
   brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1.5), 2)
 
-  topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(i->true, dim))
-  #dt = 0.001 # not a general purpose dt calculation
-  dt = 0.001 # not a general purpose dt calculation
+  topl = BrickTopology(mpicomm, brickrange, periodicity=(true, false))
+  dt = 0.001 # TODO not a general purpose dt calculation
 
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 
