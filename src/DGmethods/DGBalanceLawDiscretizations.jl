@@ -63,24 +63,16 @@ Much of the notation used in this module follows Hesthaven and Warburton (2008).
 module DGBalanceLawDiscretizations
 
 using MPI
-using ...Grids
-using ...MPIStateArrays
+using ..Grids
+using ..MPIStateArrays
 using Documenter
 using StaticArrays
-using ...SpaceMethods
+using ..SpaceMethods
 using DocStringExtensions
-using ...Topologies
+using ..Topologies
+using GPUifyLoops
 
 export DGBalanceLaw
-
-# {{{ FIXME: remove this after we've figure out how to pass through to kernel
-const _nvgeo = 14
-const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
-       _x, _y, _z = 1:_nvgeo
-
-const _nsgeo = 5
-const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
-# }}}
 
 include("DGBalanceLawDiscretizations_kernels.jl")
 include("NumericalFluxes.jl")
@@ -545,13 +537,42 @@ function writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw,
   writevtk_helper(prefix, h_vgeo, h_Q, disc.grid, fieldnames)
 end
 
+"""
+    writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw, fieldnames,
+             auxstate::MPIStateArray, auxfieldnames)
+
+Write a vtk file for all the fields in the state array `Q` and auxiliary state
+`auxstate` using geometry and connectivity information from `disc.grid`. The
+filename will start with `prefix` which may also contain a directory path. The
+names used for each of the fields in the vtk file can be specified through the
+collection of strings `fieldnames` and `auxfieldnames`.
+
+If `fieldnames === nothing` then the fields names will be `"Q1"` through `"Qk"`
+where `k` is the number of states in `Q`, i.e., `k = size(Q,2)`.
+
+If `auxfieldnames === nothing` then the fields names will be `"aux1"` through
+`"auxk"` where `k` is the number of states in `auxstate`, i.e., `k =
+size(auxstate,2)`.
+
+"""
+function writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw,
+                  fieldnames, auxstate, auxfieldnames)
+  vgeo = disc.grid.vgeo
+  host_array = Array ∈ typeof(Q).parameters
+  (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.Q, auxstate.Q) :
+                                      (Array(vgeo), Array(Q), Array(auxstate))
+  writevtk_helper(prefix, h_vgeo, h_Q, disc.grid, fieldnames, h_aux,
+                  auxfieldnames)
+end
+
 
 """
     writevtk_helper(prefix, vgeo::Array, Q::Array, grid, fieldnames)
 
 Internal helper function for `writevtk`
 """
-function writevtk_helper(prefix, vgeo::Array, Q::Array, grid, fieldnames)
+function writevtk_helper(prefix, vgeo::Array, Q::Array, grid,
+                         fieldnames, auxstate=nothing, auxfieldnames=nothing)
 
   dim = dimensionality(grid)
   N = polynomialorder(grid)
@@ -571,6 +592,19 @@ function writevtk_helper(prefix, vgeo::Array, Q::Array, grid, fieldnames)
                                                ntuple(j->Nq, dim)..., nelem)),
                     size(Q, 2))
   end
+  if auxstate !== nothing
+    if auxfieldnames === nothing
+      auxfields = ntuple(i->("aux$i", reshape((@view auxstate[:, i, :]),
+                                              ntuple(j->Nq, dim)..., nelem)),
+                         size(auxstate, 2))
+    else
+      auxfields = ntuple(i->(auxfieldnames[i], reshape((@view auxstate[:, i, :]),
+                                                       ntuple(j->Nq, dim)...,
+                                                       nelem)),
+                         size(auxstate, 2))
+    end
+    fields = (fields..., auxfields...)
+  end
   writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
 end
 
@@ -587,11 +621,18 @@ and after the call `dQ += F(Q, t)`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
                               Q::MPIStateArray, t)
+
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
   grid = disc.grid
   topology = grid.topology
 
   dim = dimensionality(grid)
   N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+  Nfp = Nq * Nqk
+  nrealelem = length(topology.realelems)
 
   Qvisc = disc.Qvisc
   auxstate = disc.auxstate
@@ -617,19 +658,23 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
 
   if nviscstate > 0
 
-    volumeviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
-                     Val(ngradstate), Val(nviscstate), Val(nauxstate),
-                     disc.viscous_transform!, disc.gradient_transform!, Q.Q,
-                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems)
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+            volumeviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
+                             Val(ngradstate), Val(nviscstate), Val(nauxstate),
+                             disc.viscous_transform!, disc.gradient_transform!,
+                             Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
+                             topology.realelems))
 
     MPIStateArrays.finish_ghost_recv!(Q)
 
-    faceviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
-                   Val(ngradstate), Val(nviscstate), Val(nauxstate),
-                   disc.viscous_penalty!,
-                   disc.viscous_boundary_penalty!,
-                   disc.gradient_transform!, Q.Q, Qvisc.Q, auxstate.Q,
-                   vgeo, sgeo, t, vmapM, vmapP, elemtobndy, topology.realelems)
+    @launch(device, threads=Nfp, blocks=nrealelem,
+            faceviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
+                           Val(ngradstate), Val(nviscstate), Val(nauxstate),
+                           disc.viscous_penalty!,
+                           disc.viscous_boundary_penalty!,
+                           disc.gradient_transform!, Q.Q, Qvisc.Q, auxstate.Q,
+                           vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                           topology.realelems))
 
     MPIStateArrays.start_ghost_exchange!(Qvisc)
   end
@@ -638,9 +683,10 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   # RHS Computation #
   ###################
 
-  volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate),
-             disc.flux!, disc.source!, dQ.Q, Q.Q, Qvisc.Q, auxstate.Q,
-             vgeo, t, Dmat, topology.realelems)
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+          volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
+                     Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
+                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
@@ -649,11 +695,12 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
-  facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate),
-           disc.numerical_flux!,
-           disc.numerical_boundary_flux!, dQ.Q, Q.Q, Qvisc.Q,
-           auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-           topology.realelems)
+  @launch(device, threads=Nfp, blocks=nrealelem,
+          facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
+                   Val(nauxstate), disc.numerical_flux!,
+                   disc.numerical_boundary_flux!, dQ.Q, Q.Q, Qvisc.Q,
+                   auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                   topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
   MPIStateArrays.finish_ghost_send!(Qvisc)
@@ -690,8 +737,15 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   Dmat = grid.D
   vgeo = grid.vgeo
 
-  elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate, vgeo,
-                   Dmat, topology.elems, id, idx, idy, idz)
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
+          elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
+                           Dmat, topology.elems, id, idx, idy, idz))
 end
 
 end

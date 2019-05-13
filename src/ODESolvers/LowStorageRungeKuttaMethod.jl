@@ -11,9 +11,9 @@ using Requires
   include("LowStorageRungeKuttaMethod_cuda.jl")
 end
 
-using ...ODESolvers
+using ..ODESolvers
 ODEs = ODESolvers
-using ...SpaceMethods
+using ..SpaceMethods
 
 """
     LowStorageRungeKutta(f, Q; dt, t0 = 0)

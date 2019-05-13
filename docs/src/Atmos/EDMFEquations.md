@@ -49,6 +49,8 @@
 \newcommand{\BCB}[1]{{#1|_{z_{min}}}}
 \newcommand{\BCG}[1]{{#1|_{z_{boundary}}}}
 
+\newcommand{\Km}{K^m}
+\newcommand{\Kh}{K^h}
 \newcommand{\TEquilib}{T_{\mathrm{iterated}}}
 \newcommand{\PhasePartition}{q}
 \newcommand{\ExnerD}{\Pi_d}
@@ -86,6 +88,7 @@
 \newcommand{\ThetaLiqIce}{{\theta_{\mathrm{liq-ice}}}}
 \newcommand{\ThetaLiqIceSat}{{\theta^*_{\mathrm{liq-ice}}}}
 \newcommand{\ThetaDry}{{\theta_{\mathrm{dry}}}}
+\newcommand{\TDry}{{T_{dry}}}
 \newcommand{\eint}{e_{\mathrm{int}}}
 \newcommand{\etot}{e_{\mathrm{tot}}}
 
@@ -194,7 +197,7 @@ The domain-averaged equations for $\DM{\phi} \in [w, \qt, \eint, \uH]$ are:
 + \PD_z (\rhoRef{} \DM{w} \DM{\phi})
 + \nabla_h \DOT \left( \rhoRef{} \DM{\phi} \otimes \DM{\phi} \right)
 = \\
-  \DM{S}_{\text{diff}}
+  \DM{S}_{\text{diff}}^{\DM{\phi}}
 + \DM{S}_{\text{press}}
 + \DM{S}_{\text{coriolis}}
 + \DM{S}_{\text{subsidence}},
@@ -203,10 +206,11 @@ The domain-averaged equations for $\DM{\phi} \in [w, \qt, \eint, \uH]$ are:
 where
 ```math
 \begin{align}
-\DM{S}_{\text{diff}}       & = \PD_z (\rhoRef{} \aSDe{a} K_{\iEnv{}} \PD_z \DM{\phi}), \label{eq:gm_diffusion} \\
-\DM{S}_{\text{press}}      & = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
-\DM{S}_{\text{coriolis}}   & = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
-\DM{S}_{\text{subsidence}} & = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
+\DM{S}_{\text{diff}}^{\DM{\phi}} & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
+\DM{S}_{\text{diff}}^{w}         & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion_w} \\
+\DM{S}_{\text{press}}            & = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
+\DM{S}_{\text{coriolis}}         & = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
+\DM{S}_{\text{subsidence}}       & = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
 \end{align}
 ```
 
@@ -222,8 +226,8 @@ The EDMF equations take the form of advection-diffusion equations. The size of t
   (\rhoRef{} \aSDi{a} \DM{\uH})
   =
   \SDi{S}^a
-  , \quad i = 1,2,..., \Nsd{}, \label{eq:AreaFracGov} \\
-  \sum_i \aSDi{a} = 1, \label{eq:AreaFracConserve} \\
+  , \quad i \ne \iEnv, \label{eq:AreaFracGov} \\
+  \aSDi{a} = 1 - \sum_{j\ne\iEnv} \aSDj{a}, \quad i = \iEnv, \label{eq:AreaFracConserve} \\
   \qquad 0 < \aSDi{a} < 1. \label{eq:AreaFracConstraint}
 \end{gather}
 ```
@@ -270,7 +274,7 @@ The 1st moment sub-domain equations are:
   (\rhoRef{} \aSDi{a} \DM{\uH} \SDi{\phi})
   =
   \SDi{S}^\phi
-  , \quad i = 1,2,..., \Nsd{}. \\
+  , \quad \forall i. \\
 \end{align}
 ```
 
@@ -319,7 +323,7 @@ Note: The sum of the total pressure and gravity are recast into the sum of the n
   0 - \sum_{j \ne \iEnv{}} \SDj{S_{\epsilon\delta}}^{\phi} & i=\iEnv{} \\
 \end{cases} \\
 \SDi{S_{\text{turb-transp}}}^{\phi} & =  -\PD_z (\rhoRef{} a_i \IntraCVSDi{w}{\phi}) \\
- & = \PD_z (\rhoRef{} a_i K_i^m \PD_z \SDi{\phi}) \\
+ & = \PD_z (\rhoRef{} a_i \SDi{\Km} \PD_z \SDi{\phi}) \\
 \SDi{S_{\text{nh-press}}} &= -\rhoRef{} \aSDi{a} \left( \alpha_b \SDi{b}  + \alpha_d \frac{(\SDi{w} - \SDe{w}) | \SDi{w} - \SDe{w} | }{r_d \aSDi{a}^{1/2}} \right) \\
 \alpha_b &= 1/3, \quad \alpha_d = 0.375, \quad r_d      = 500 [m] \\
 \SDi{S_{\text{buoy}}} &= \rhoRef{} \aSDi{a} \SDi{b} \\
@@ -339,7 +343,7 @@ where additional variable definitions are in:
 
  - [Buoyancy](@ref) ($\Buoyancy$).
 
- - [Eddy diffusivity](@ref) ($K_i$).
+ - [Eddy diffusivity](@ref) ($\Km, \Kh$).
 
 
 ## Sub-domain equations: 2nd moment
@@ -354,7 +358,7 @@ The 2nd moment sub-domain equations are of the exact same form as the 1st moment
   (\rhoRef{} \aSDi{a} \DM{\uH} \SDi{\phi})
   =
   \SDi{S}^\phi
-  , \quad i = 1,2,..., \Nsd{}. \\
+  , \quad \forall i. \\
 \end{align}
 ```
 Here, $\SDi{S}^{\phi}$ are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, $\SDi{S}^{\phi}$ and $\SDi{S}^{a}$ may depend on $\SDj{\phi}$ and or $\aSDj{a}$ for any $j$.
@@ -416,13 +420,13 @@ Additional source terms exist in other equations:
 - \rhoRef{} a_i \IntraCVSDi{w}{\psi} \PD_z \SDi{\phi}
 - \rhoRef{} a_i \IntraCVSDi{w}{\phi} \PD_z \SDi{\psi} \\
 & =
- \rhoRef{} a_i K_i \PD_z \SDi{\psi} \PD_z \SDi{\phi} \\
+ \rhoRef{} a_i \SDi{\Kh} \PD_z \SDi{\psi} \PD_z \SDi{\phi} \\
 \SDi{S_{\text{x-grad flux}}}^{TKE}
 & =
-\rhoRef{} a_i K_i \left[ \left(\PD_z\DM{u}\right)^2 + \left(\PD_z\DM{v}\right)^2 + \left(\PD_z\DM{w}\right)^2 \right] \\
+\rhoRef{} a_i \SDi{\Km} \left[ \left(\PD_z\DM{u}\right)^2 + \left(\PD_z\DM{v}\right)^2 + \left(\PD_z\DM{w}\right)^2 \right] \\
 \SDi{S_{\text{turb-transp}}}^{\phi\psi} & = - \PD_z (\rhoRef{} a_i \overline{w'_i\phi'_i\psi'_i}) \\
-& = \PD_z (\rhoRef{} a_i K_i \PD_z \IntraCVSDi{\phi}{\psi}) \\
-\SDi{S_{\text{turb-transp}}}^{TKE} & = \PD_z (\rhoRef{} a_i K_i \PD_z \SDi{TKE}) \\
+& = \PD_z (\rhoRef{} a_i \SDi{\Kh} \PD_z \IntraCVSDi{\phi}{\psi}) \\
+\SDi{S_{\text{turb-transp}}}^{TKE} & = \PD_z (\rhoRef{} a_i \SDi{\Km} \PD_z \SDi{TKE}) \\
 \SDi{S_{\text{dissip}}}
 & = - \rhoRef{} a_i c_e \IntraCVSDi{\phi}{\psi} \frac{\SDi{TKE}^{1/2}}{\SDio{{l_{mix}}}}, \quad \text{Equation 38 in Tan et al.} \\
 c_e & = 2 \\
@@ -444,7 +448,7 @@ where additional variable definitions are in:
 
  - [Entrainment-Detrainment](@ref) ($\epsilon_{i}$) and ($\delta_i$).
 
- - [Eddy diffusivity](@ref) ($K_i$).
+ - [Eddy diffusivity](@ref) ($\Km, \Kh$).
 
  - [Mixing length](@ref) ($l_{mix}$).
 
@@ -535,6 +539,25 @@ where additional variable definitions are in:
 
 Note that, while temperature may be computed using different thermodynamic formulations, [`ThermodynamicState`](@ref CLIMA.MoistThermodynamics.ThermodynamicState)'s are immediately converted to the ($\qt, \eint, \rhoRef{}$)-formulation.
 
+### Dry temperature
+
+```math
+\begin{align}
+\TDry & = \ThetaLiqIce \ExnerD \\
+\end{align}
+```
+where additional variable definitions are in:
+
+ - [Exner functions](@ref) $\ExnerD$ and $\ExnerM$.
+
+Functionally,
+
+```math
+\begin{align}
+\TDry & = \TDry(\ThetaLiqIce, \pRef) \\
+\end{align}
+```
+
 ### ($\qt, \eint, \rhoRef{}$)-formulation
 
 Here, $T$ conditionally satisfies the non-linear set of equations, which can be solved using a standard root solver (e.g., Secant method):
@@ -565,7 +588,7 @@ T & = T(\qt, \eint, \rhoRef) \\
 \end{align}
 ```
 
-### ($\qt, \ThetaLiqIce, \pRef, \rhoRef$)-formulation
+### ($\qt, \ThetaLiqIce, \rhoRef, \pRef$)-formulation
 
 Here, $T$ conditionally satisfies the non-linear set of equations, which can be solved using a standard root solver (e.g., Secant method):
 
@@ -574,11 +597,13 @@ Here, $T$ conditionally satisfies the non-linear set of equations, which can be 
 T =
 \begin{cases}
 \mathrm{satisfies} & \ThetaLiqIce \ExnerM = T \left(1 - \frac{ \RefLHv \ql + \RefLHs \qi}{\Cpm T} \right) & \qt > \qvsat(T, \rhoRef{}) \\
-& \ThetaLiqIce \ExnerD & \text{otherwise} \\
+& \TDry & \text{otherwise} \\
 \end{cases}
 \end{align}
 ```
 where additional variable definitions are in:
+
+ - [Dry temperature](@ref) $\TDry$.
 
  - [Phase partition](@ref) $\PhasePartition, \qt, \qv, \ql, \qi, \qvsat$.
 
@@ -590,28 +615,24 @@ Functionally,
 
 ```math
 \begin{align}
-T & = T(\qt, \ThetaLiqIce, \pRef, \rhoRef) \\
+T & = T(\qt, \ThetaLiqIce, \rhoRef, \pRef) \\
 \end{align}
 ```
 
 ## Reference state profiles
-Reference state profiles are computed using hydrostatic balance and ideal gas law:
+Using the hydrostatic balance, $\PD_z \pRef = - \rhoRef{} \grav$, and the ideal gas law, $\pRef = \rhoRef{} \Rm \TRef$, the reference state profiles are computed as:
 
- - $\PD_z \pRef = - \rhoRef{} \grav$
-
- - $\pRef = \rhoRef{} \Rm \TRef$
-
-This yields:
 ```math
 \begin{align}
-\PD_z \pRef & = - \grav \frac{\pRef}{\TRef \DM{\Rm}} \\
-\int_{\BC{\pRef}}^{\pRef} \frac{1}{\pRef} \PD \pRef & = - \frac{\grav}{\DM{\Rm}} \int_{z_{min}}^{z} \frac{1}{\TRef} \PD z \\
-\log(\pRef) & = \BC{\log(\pRef)} - \frac{\grav}{\BC{\DM{\Rm}}} \int_{z_{min}}^{z} \frac{1}{\TRef(\BC{\DM{\qt}}, \BC{\DM{\ThetaLiqIce}}, \pRef{})} \PD z \\
-\rhoRef{} & = \frac{\pRef{}}{\hyperparam{\BC{\TRef}} \BC{\DM{\Rm}}} \\
-\alphaRef & = \frac{1}{\rhoRef} \\
+\PD_z \pRef & = - \grav \frac{\pRef}{\TRef \Rm} \\
+\int_{\BC{\pRef}}^{\pRef} \frac{\TDry(\BC{\DM{\ThetaLiqIce}}, \pRef)}{\pRef} \PD \pRef & = - \frac{\grav}{\BC{\DM{\Rm}}} \int_{z_{min}}^{z} \PD z \\
+\rhoRef{}(\pRef) & = \frac{\pRef{}}{\TDry(\BC{\DM{\ThetaLiqIce}}, \pRef) \BC{\DM{\Rm}}} \\
+\alphaRef & = \frac{1}{\rhoRef{}(\pRef)} \\
 \end{align}
 ```
 where additional variable definitions are in:
+
+ - [Temperature](@ref) ($T$ and $\TDry$).
 
  - [Gas constants](@ref) ($\Rm$).
 
@@ -666,7 +687,7 @@ where additional variable definitions are in:
 
  - [Phase partition](@ref) $\PhasePartition, \qt, \qv, \ql, \qi, \qvsat$.
 
- - [Temperature](@ref) ($T$).
+ - [Temperature](@ref) ($T$ and $\TDry$).
 
 ## Buoyancy gradient
 
@@ -816,11 +837,11 @@ Smoothing function is provided in python file. The Prandtl number was used from 
 
 ```math
 \begin{align}\label{eq:EddyDiffusivity}
-\SDi{K_m} & = \begin{cases}
+\SDi{\Km} & = \begin{cases}
 c_K \SDio{{l_{mix},}} \sqrt{\SDi{TKE}} & i = \iEnv \\
 0 & \text{otherwise}
 \end{cases} \\
-\SDi{K_h} & = \frac{\SDi{K_m}}{Pr} \\
+\SDi{\Kh} & = \frac{\SDi{\Km}}{Pr} \\
 \end{align}
 ```
 where additional variable definitions are in:
@@ -840,10 +861,10 @@ where additional variable definitions are in:
 ```math
 \begin{align}\label{eq:BuoyancyFlux}
 \SurfaceBuoyancyFlux & = \frac{\grav \BC{\alphaRef}}{\Cpm \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\EpsDV - 1) \Cpm \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeatV{\BC{\SDi{T}}}) \\
-\BuoyancyFlux & = - K_i \SDi{\BuoyancyGrad} \\
+\BuoyancyFlux & = - \SDi{\Kh} \SDi{\BuoyancyGrad} \\
 \end{align}
 ```
- - [Eddy diffusivity](@ref) ($K_i$).
+ - [Eddy diffusivity](@ref) ($\Km, \Kh$).
 
  - [Latent heat](@ref) ($\LatentHeatV{T}$).
 
@@ -876,7 +897,7 @@ where additional variable definitions are in:
 
  - [Reference state profiles](@ref) ($\pRef{}$, $\rhoRef{}$, and $\alphaRef{}$).
 
- - [Temperature](@ref) ($T$).
+ - [Temperature](@ref) ($T$ and $\TDry$).
 
  - [Buoyancy](@ref) ($\Buoyancy$).
 
@@ -1011,8 +1032,8 @@ Bottom boundary
 ```math
 \begin{align}
 \BCB{\SDi{w}}     &= 0 \\
-- \SDi{K_h} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
-- \SDi{K_h} \PD_z \BCB{\SDi{\eint}} &= \TCV{w}{\eint} + \mathcal D(\aSDi{a}) \sqrt{C_{\eint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\eint}, \TCV{w}{\eint} )} \\
+- \SDi{\Kh} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
+- \SDi{\Kh} \PD_z \BCB{\SDi{\eint}} &= \TCV{w}{\eint} + \mathcal D(\aSDi{a}) \sqrt{C_{\eint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\eint}, \TCV{w}{\eint} )} \\
 \end{align}
 ```
 where additional variable/function definitions are in:

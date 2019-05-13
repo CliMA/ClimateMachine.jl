@@ -10,7 +10,7 @@ module MoistThermodynamics
 using DocStringExtensions
 
 using ..RootSolvers
-using ...PlanetParameters
+using ..PlanetParameters
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
