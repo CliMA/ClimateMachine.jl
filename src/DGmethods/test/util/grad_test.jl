@@ -4,6 +4,16 @@ using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using Printf
 using LinearAlgebra
+using Logging
+
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+else
+  const ArrayTypes = (Array, )
+end
 
 @inline function auxiliary_state_initialization!(aux, x, y, z, dim)
   @inbounds begin
@@ -22,13 +32,7 @@ using LinearAlgebra
 end
 
 using Test
-function run(dim, Ne, N, DFloat)
-  ArrayType = Array
-
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-
-  mpicomm = MPI.COMM_WORLD
+function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
 
   brickrange = ntuple(j->range(DFloat(-1); length=Ne[j]+1, stop=1), dim)
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
@@ -49,22 +53,41 @@ function run(dim, Ne, N, DFloat)
 
   DGBalanceLawDiscretizations.grad_auxiliary_state!(spacedisc, 1, (2,3,4))
 
-  @test spacedisc.auxstate.Q[:, 2, :] ≈ spacedisc.auxstate.Q[:, 5, :]
-  @test spacedisc.auxstate.Q[:, 3, :] ≈ spacedisc.auxstate.Q[:, 6, :]
-  @test spacedisc.auxstate.Q[:, 4, :] ≈ spacedisc.auxstate.Q[:, 7, :]
+  # Wrapping in Array ensure both GPU and CPU code use same approx
+  @test Array(spacedisc.auxstate.Q[:, 2, :]) ≈ Array(spacedisc.auxstate.Q[:, 5, :])
+  @test Array(spacedisc.auxstate.Q[:, 3, :]) ≈ Array(spacedisc.auxstate.Q[:, 6, :])
+  @test Array(spacedisc.auxstate.Q[:, 4, :]) ≈ Array(spacedisc.auxstate.Q[:, 7, :])
 end
 
 let
+  MPI.Initialized() || MPI.Init()
+  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
+
+  mpicomm = MPI.COMM_WORLD
+  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+  loglevel = ll == "DEBUG" ? Logging.Debug :
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
+  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+  global_logger(ConsoleLogger(logger_stream, loglevel))
+  @static if Base.find_package("CUDAnative") !== nothing
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
+  end
+
   numelem = (5, 5, 1)
   lvls = 1
 
   polynomialorder = 4
 
-  for DFloat in (Float64,) #Float32)
-    for dim = 2:3
-      err = zeros(DFloat, lvls)
-      for l = 1:lvls
-        run(dim, ntuple(j->2^(l-1) * numelem[j], dim), polynomialorder, DFloat)
+  for ArrayType in ArrayTypes
+    for DFloat in (Float64,) #Float32)
+      for dim = 2:3
+        err = zeros(DFloat, lvls)
+        for l = 1:lvls
+          @info (ArrayType, DFloat, dim)
+          run(mpicomm, dim, ArrayType, ntuple(j->2^(l-1) * numelem[j], dim),
+              polynomialorder, DFloat)
+        end
       end
     end
   end

@@ -29,6 +29,15 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+else
+  const ArrayTypes = (Array, )
+end
+
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
@@ -173,7 +182,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
-
   # Print some end of the simulation information
   engf = norm(Q)
   if integration_testing
@@ -197,9 +205,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   integration_testing ? errf : (engf / eng0)
 end
 
-function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
-  ArrayType = Array
-
+function run(mpicomm, ArrayType, dim, Ne, N, timeend, DFloat, dt)
   brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
@@ -211,14 +217,14 @@ let
   MPI.Initialized() || MPI.Init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
-  if MPI.Comm_rank(mpicomm) == 0
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-    global_logger(ConsoleLogger(stderr, loglevel))
-  else
-    global_logger(NullLogger())
+  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+  loglevel = ll == "DEBUG" ? Logging.Debug :
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
+  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+  global_logger(ConsoleLogger(logger_stream, loglevel))
+  @static if Base.find_package("CUDAnative") !== nothing
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
   if integration_testing
@@ -236,24 +242,28 @@ let
     expected_error[2,3] = 1.0412605646145325e-02
     lvls = size(expected_error, 2)
 
-    for DFloat in (Float64,) #Float32)
-      for dim = 2:3
-        err = zeros(DFloat, lvls)
-        for l = 1:lvls
-          Ne = ntuple(j->2^(l-1) * numelem[j], dim)
-          dt = 1e-2 / Ne[1]
-          nsteps = ceil(Int64, timeend / dt)
-          dt = timeend / nsteps
-          err[l] = run(mpicomm, dim, Ne, polynomialorder, timeend, DFloat, dt)
-          @test err[l] ≈ DFloat(expected_error[dim-1, l])
-        end
-        @info begin
-          msg = ""
-          for l = 1:lvls-1
-            rate = log2(err[l]) - log2(err[l+1])
-            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+    for ArrayType in ArrayTypes
+      for DFloat in (Float64,) #Float32)
+        for dim = 2:3
+          err = zeros(DFloat, lvls)
+          for l = 1:lvls
+            Ne = ntuple(j->2^(l-1) * numelem[j], dim)
+            dt = 1e-2 / Ne[1]
+            nsteps = ceil(Int64, timeend / dt)
+            dt = timeend / nsteps
+            @info (ArrayType, DFloat, dim)
+            err[l] = run(mpicomm, ArrayType, dim, Ne, polynomialorder, timeend,
+                         DFloat, dt)
+            @test err[l] ≈ DFloat(expected_error[dim-1, l])
           end
-          msg
+          @info begin
+            msg = ""
+            for l = 1:lvls-1
+              rate = log2(err[l]) - log2(err[l+1])
+              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+            end
+            msg
+          end
         end
       end
     end
@@ -264,20 +274,21 @@ let
 
     polynomialorder = 4
 
-    mpicomm = MPI.COMM_WORLD
-
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
     check_engf_eng0[2, 1, Float64] = 9.9999795068862996e-01
     check_engf_eng0[3, 1, Float64] = 9.9999641494886327e-01
     check_engf_eng0[2, 3, Float64] = 9.9999876109562658e-01
     check_engf_eng0[3, 3, Float64] = 9.9999654059181553e-01
 
-    for DFloat in (Float64,) #Float32)
-      for dim = 2:3
-        Random.seed!(0)
-        engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
-                        DFloat, dt)
-        @test check_engf_eng0[dim, MPI.Comm_size(mpicomm), DFloat] ≈ engf_eng0
+    for ArrayType in ArrayTypes
+      for DFloat in (Float64,) #Float32)
+        for dim = 2:3
+          Random.seed!(0)
+          @info (ArrayType, DFloat, dim)
+          engf_eng0 = run(mpicomm, ArrayType, dim, numelem[1:dim],
+                          polynomialorder, timeend, DFloat, dt)
+          @test check_engf_eng0[dim, MPI.Comm_size(mpicomm), DFloat] ≈ engf_eng0
+        end
       end
     end
   end

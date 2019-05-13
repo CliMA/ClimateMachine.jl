@@ -38,11 +38,6 @@ before_script:
       brew cask uninstall oclint # Prevent conflict with gcc
       brew install mpich
     fi
-  # Temporary fix for nightly build path
-  - julia -e 'if VERSION >= v"1.2.0-DEV.42";
-                 using Pkg;
-                 Pkg.develop(PackageSpec(url="https://github.com/climate-machine/Canary.jl"));
-               end'
   # - |
   #   if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
   #     curl -LO https://raw.githubusercontent.com/GiovanniBussi/macports-ci/master/macports-ci
