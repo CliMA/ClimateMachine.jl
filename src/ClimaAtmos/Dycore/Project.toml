@@ -1,0 +1,22 @@
+name = "CLIMAAtmosDycore"
+uuid = "1c620338-02f4-11e9-26ab-abe1dcdd7c6d"
+
+[deps]
+Canary = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
+Dierckx = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+ParametersType = "046d00ba-03b1-11e9-3cca-b5213a01defd"
+PlanetParameters = "50a4fe1a-031f-11e9-2493-0505e0da639e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+Utilities = "d528e2a8-1396-11e9-0475-bb99f588b544"
+WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
