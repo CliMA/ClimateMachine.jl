@@ -39,13 +39,14 @@ function qv2qli(q::PhasePartition, T::DT, ρ::DT, x::DT, z::DT, timescale::DT=DT
         q.ice - (DT(1) - liquid_fraction_equil(T)) * saturation_excess(T, ρ, q)
       ) / timescale
 
-  if q.liq != 0 && x ==0
-    @printf("z = %1.1f, q_l = %.16e, se = %.16e, dqldt = %.16e, dqidt = %.16e \n",
-             z, q.liq, saturation_excess(T, ρ, q), dqldt, dqidt)
-  end
-
-  #if z == 0
-  #  @printf("  \n")
+  #if q.liq != 0 && x ==0
+  #  if z > 1.3
+  #      @printf("z = %1.1f, q_l = %.16e, dqldt = %.16e \n",
+  #           z, q.liq, dqldt)
+  #  end
+  #  if z == 0
+  #      @printf("  \n")
+  #  end
   #end
 
   return (dqldt, dqidt)

@@ -106,23 +106,22 @@ end
     z = aux[_c_z]
     x = aux[_c_x]
 
-    timescale::eltype(Q) = 1
+    timescale::eltype(Q) = 1e-2
 
     e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
 
-    # TODO
-
     # TODO pp created every time I calculate sources...
-    #pp = PhasePartition(qt, ql)
+    pp = PhasePartition(qt, ql)
 
     #TODO - add also the equilibrum case example
     #T = saturation_adjustment(e_int, ρ, qt)
-    #T = air_temperature(e_int, pp)
+    T = air_temperature(e_int, pp)
 
-    #dqldt, dqidt = qv2qli(pp, T, ρ, x, z, timescale)
+    dqldt, dqidt = qv2qli(pp, T, ρ, x, z, timescale)
 
+    # TODO
     #dqrdt = ql2qr(pp, timescale)
-    #dqrdt = 0
+    dqrdt = 0
 
     #if x == 0
     #  @printf("z = %5.5f  dqrdt =  %5.5f\n ", z, dqrdt)
@@ -170,19 +169,19 @@ end
 
 
 # initial condition
-const w_max = .6
-const Z_max = 1.5
-const X_max = 1.5
+const w_max = .6    # m/s
+const Z_max = 1500. # m
+const X_max = 1500. # m
 
 function single_eddy!(Q, t, x, z, _...)
   DFloat = eltype(Q)
 
   # initial condition
-  θ_0::DFloat    = 289
-  p_0::DFloat    = 101500
-  p_1000::DFloat = 100000
-  qt_0::DFloat   = 7.5 * 1e-3
-  z_0::DFloat    = 0
+  θ_0::DFloat    = 289         # K
+  p_0::DFloat    = 101500      # Pa
+  p_1000::DFloat = 100000      # Pa
+  qt_0::DFloat   = 7.5 * 1e-3  # kg/kg
+  z_0::DFloat    = 0           # m
 
   R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
 
@@ -190,7 +189,7 @@ function single_eddy!(Q, t, x, z, _...)
   # It is done this way to be consistent with Arabas paper.
   # It's not neccesarily the best way to initialize with our model variables.
   p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
-              R_d / cp_d * grav / θ_0 / R_m * (z - z_0) * 1e3
+              R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
              )^(cp_d / R_d)
 
   T::DFloat = θ_0 * exner(p, PhasePartition(qt_0))
@@ -309,10 +308,10 @@ function run(dim, Ne, N, timeend, DFloat)
 
   mpicomm = MPI.COMM_WORLD
 
-  brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=1.5), 2)
+  brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=Z_max), 2)
 
   topl = BrickTopology(mpicomm, brickrange, periodicity=(true, false))
-  dt = 0.001 # TODO not a general purpose dt calculation
+  dt = 1. # TODO not a general purpose dt calculation
 
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 
@@ -320,7 +319,7 @@ end
 
 using Test
 let
-  timeend = 10
+  timeend = 30 * 60
   numelem = (75, 75)
   lvls = 3
   dim = 2
