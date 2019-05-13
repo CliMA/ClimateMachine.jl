@@ -12,6 +12,8 @@ using DocStringExtensions
 using ..RootSolvers
 using ..PlanetParameters
 
+using Printf
+
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
 
@@ -671,6 +673,7 @@ Compute the temperature that is consistent with
 See also [`saturation_adjustment_q_t_θ_l`](@ref).
 """
 function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
+
   T_1 = max(DT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = saturation_shum(T_1, ρ)
   if q_tot <= q_v_sat # If not saturated return T_1

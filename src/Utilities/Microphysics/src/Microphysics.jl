@@ -10,6 +10,8 @@ module Microphysics
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 
+using Printf
+
 # rates of conversion between microphysics categories
 export qv2qli, ql2qr, qr2qv
 
@@ -27,7 +29,8 @@ and sublimation/resublimation (for qi)
 The source terms are obtained assuming a relaxation to equilibrum with a
 constant timescale. The timescale is an optional parameter.
 """
-function qv2qli(q::PhasePartition, T::DT, ρ::DT, timescale::DT=DT(1)) where {DT<:Real}
+#function qv2qli(q::PhasePartition, T::DT, ρ::DT, timescale::DT=DT(1)) where {DT<:Real} TODO
+function qv2qli(q::PhasePartition, T::DT, ρ::DT, x::DT, z::DT, timescale::DT=DT(1)) where {DT<:Real}
     dqldt = - (
         q.liq - liquid_fraction_equil(T) * saturation_excess(T, ρ, q)
       ) / timescale
@@ -35,6 +38,15 @@ function qv2qli(q::PhasePartition, T::DT, ρ::DT, timescale::DT=DT(1)) where {DT
     dqidt = - (
         q.ice - (DT(1) - liquid_fraction_equil(T)) * saturation_excess(T, ρ, q)
       ) / timescale
+
+  if q.liq != 0 && x ==0
+    @printf("z = %1.1f, q_l = %.16e, se = %.16e, dqldt = %.16e, dqidt = %.16e \n",
+             z, q.liq, saturation_excess(T, ρ, q), dqldt, dqidt)
+  end
+
+  #if z == 0
+  #  @printf("  \n")
+  #end
 
   return (dqldt, dqidt)
 end
@@ -50,6 +62,7 @@ The assumed timescale and autoconverion threshold ql_0 are optional parameters.
 function ql2qr(q::PhasePartition, timescale::DT=DT(1), ql_0::DT=DT(1e-4)) where {DT<:Real}
 
   dqrdt = max(DT(0), q.liq - ql_0) / timescale
+
   return dqrdt
 end
 

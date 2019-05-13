@@ -110,13 +110,25 @@ end
 
     e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
 
-    #e_int > 0 || @show e_int, ρ, qt
-    T = saturation_adjustment(e_int, ρ, qt)
+    # TODO
 
-    # TODO is pp created every time I calculate sources?
-    pp = PhasePartition_equil(T, ρ, qt)
-    dqldt, dqidt = qv2qli(pp, T, ρ, timescale)
-    dqrdt = ql2qr(pp, timescale, 1e-8)
+    # TODO pp created every time I calculate sources...
+    #pp = PhasePartition(qt, ql)
+
+    #TODO - add also the equilibrum case example
+    #T = saturation_adjustment(e_int, ρ, qt)
+    #T = air_temperature(e_int, pp)
+
+    #dqldt, dqidt = qv2qli(pp, T, ρ, x, z, timescale)
+
+    #dqrdt = ql2qr(pp, timescale)
+    #dqrdt = 0
+
+    #if x == 0
+    #  @printf("z = %5.5f  dqrdt =  %5.5f\n ", z, dqrdt)
+    #  @printf("  ")
+    #end
+
     S .= 0
 
     #if x == 0
@@ -124,8 +136,11 @@ end
     #end
 
     # TODO
+    #S[_ql] = dqldt
     #S[_ql] = dqldt - dqrdt
+
     #S[_qi] = dqidt
+
     #S[_qr] = dqrdt
     #S[_qt] = -dqrdt
 

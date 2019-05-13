@@ -59,6 +59,12 @@ repo-url = "https://github.com/climate-machine/Canary.jl"
 uuid = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
 version = "0.1.0"
 
+[[CodeTracking]]
+deps = ["InteractiveUtils", "Test", "UUIDs"]
+git-tree-sha1 = "9b21a2dfe51ba71fdc5688039075819196595367"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "0.5.7"
+
 [[CodecZlib]]
 deps = ["BinaryProvider", "Libdl", "Test", "TranscodingStreams"]
 git-tree-sha1 = "36bbf5374c661054d41410dc53ff752972583b9b"
@@ -104,10 +110,10 @@ deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
-deps = ["Compat", "DocStringExtensions", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews"]
-git-tree-sha1 = "c4560b4ae808770bc58a31f8c796b3f195e6239a"
+deps = ["Compat", "DocStringExtensions", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "MuladdMacro", "Parameters", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews"]
+git-tree-sha1 = "4dcb0ae5060a4493159903ab79080bb44a6c184d"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "5.7.0"
+version = "5.8.0"
 
 [[DiffEqCallbacks]]
 deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "OrdinaryDiffEq", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Test"]
@@ -221,6 +227,9 @@ git-tree-sha1 = "6fad21cd7637d0ad6a7661f8abea1149922d6c9c"
 uuid = "d4d017d3-3776-5f7e-afef-a10c40355c18"
 version = "1.4.0"
 
+[[FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Test"]
 git-tree-sha1 = "4c9269860074f5e9cf3f9078c49228bf13e4b33b"
@@ -278,6 +287,12 @@ git-tree-sha1 = "1f7a25b53ec67f5e9422f1f551ee216503f4a0fa"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.20.0"
 
+[[JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "553281260578bb50d6d550977f438754e7e93397"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.5.1"
+
 [[LazyArrays]]
 deps = ["FillArrays", "LinearAlgebra", "MacroTools", "StaticArrays", "Test"]
 git-tree-sha1 = "78f4dd7e19b21d82f3541a59a887ab92f0ab00b6"
@@ -315,6 +330,12 @@ version = "1.1.0"
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
+[[LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "c530b90b64249b525f1e40e71f64d5382c62f073"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "0.3.4"
+
 [[MPI]]
 deps = ["BinDeps", "Compat", "Distributed", "Libdl", "LinearAlgebra", "Printf", "Random", "Statistics", "Test"]
 git-tree-sha1 = "3f587ce1c67cbc10f10039a917d47205fc6d10ab"
@@ -344,10 +365,10 @@ uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
 version = "0.6.8"
 
 [[Missings]]
-deps = ["Dates", "InteractiveUtils", "SparseArrays", "Test"]
-git-tree-sha1 = "d1d2585677f2bd93a97cfeb8faa7a0de0f982042"
+deps = ["SparseArrays", "Test"]
+git-tree-sha1 = "f0719736664b4358aa9ec173077d4285775f8007"
 uuid = "e1d29d7a-bbdc-5cf2-9ac0-f12de2c33e28"
-version = "0.4.0"
+version = "0.4.1"
 
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
@@ -481,6 +502,12 @@ deps = ["Random", "StaticArrays", "Test"]
 git-tree-sha1 = "8b4f6cf3c97530e1ba7177ad3bc2b134373da851"
 uuid = "ae5879a3-cd67-5da8-be7f-38c6eb64a37b"
 version = "0.6.0"
+
+[[Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "UUIDs", "Unicode"]
+git-tree-sha1 = "f4cd86477685d5095f8cbce2a47f69ae9cf5c963"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "2.1.4"
 
 [[Rmath]]
 deps = ["BinaryProvider", "Libdl", "Random", "Statistics", "Test"]
