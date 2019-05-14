@@ -83,7 +83,7 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from liquid-ice potential 
 """
 function LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
     T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ, p)
-    q = PhasePartition(T, ρ, q_tot)
+    q = PhasePartition_equil(T, ρ, q_tot)
     e_int = internal_energy(T, q)
     PhaseEquil(e_int, q_tot, ρ, T)
 end

@@ -106,43 +106,50 @@ end
     z = aux[_c_z]
     x = aux[_c_x]
 
-    timescale::eltype(Q) = 1e-2
+    ## 1) no sources
+    ##S .= 0
+
+    ## 2) saturation adjustment (TODO overwrite ql, qi for output)
+    #S .= 0
+    #e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
+    #ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
+    #Q[_ql] = PhasePartition(ts).liq
+    #Q[_qi] = PhasePartition(ts).ice
+
+    # 3) saturation adjustment try 2
+
+    S .= 0
 
     e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
 
-    # TODO pp created every time I calculate sources...
-    pp = PhasePartition(qt, ql)
+    ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
 
-    #TODO - add also the equilibrum case example
-    #T = saturation_adjustment(e_int, ρ, qt)
-    T = air_temperature(e_int, pp)
+    timescale::eltype(Q) = .5
 
-    dqldt, dqidt = qv2qli(pp, T, ρ, x, z, timescale)
+    dqldt = (PhasePartition(ts).liq - ql) / timescale
+    dqidt = 0
 
-    # TODO
-    #dqrdt = ql2qr(pp, timescale)
-    dqrdt = 0
+    #if x == 0 && z >= 750
+    #  @printf("z = %4.2f  ql_old = %.8e  ql_new = %.8e  dqldt = %.8e \n", z, ql,  PhasePartition(ts).liq, dqldt)
+    #  if z == 1500
+    #      @printf("  ")
+    #  end
+    #end
+
+    S[_ql] = dqldt
+    S[_qi] = dqidt
+
+    # 4) relaxation to equilibrium microphysics
+
+    #TODO - should be using this function
+    #dqldt, dqidt = qv2qli(pp, T, ρ, x, z, timescale)
 
     #if x == 0
     #  @printf("z = %5.5f  dqrdt =  %5.5f\n ", z, dqrdt)
     #  @printf("  ")
     #end
 
-    S .= 0
-
-    #if x == 0
-    #  @printf("z = %5.5f  T = %5.3f  qt =  %5.4f  ql = %5.8f\n", z, T, qt, ql)
-    #end
-
-    # TODO
-    #S[_ql] = dqldt
-    #S[_ql] = dqldt - dqrdt
-
-    #S[_qi] = dqidt
-
-    #S[_qr] = dqrdt
-    #S[_qt] = -dqrdt
-
+    # TODO add rain
     # TODO add src to E
 
   end
@@ -219,6 +226,8 @@ end
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
               ArrayType, dt) where {dim}
 
+  ArrayType = CuArray
+
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
@@ -278,8 +287,11 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   step = [0]
   mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-    outprefix = @sprintf("vtk/single_eddy_source_%dD_mpirank%04d_step%04d",
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+    #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
+    outprefix = @sprintf("vtk/single_eddy_sat_adj_%dD_mpirank%04d_step%04d",
+    #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
+    #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @printf(io, "----\n")
     @printf(io, "doing VTK output =  %s\n", outprefix)
@@ -319,7 +331,7 @@ end
 
 using Test
 let
-  timeend = 30 * 60
+  timeend = 15. * 60 # 5 minutes (should be 30 minutes)
   numelem = (75, 75)
   lvls = 3
   dim = 2
