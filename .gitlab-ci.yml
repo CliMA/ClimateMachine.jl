@@ -33,13 +33,11 @@ gpu:test:dev:
   extends: .gputest
   variables:
     CI_VERSION_TAG: 'dev'
-  allow_failure: true
 
 cpu:test:dev:
   extends: .cputest
   variables:
     CI_VERSION_TAG: 'dev'
-  allow_failure: true
 
 gpu:test:v1.1:
   extends: .gputest

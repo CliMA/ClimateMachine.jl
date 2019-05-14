@@ -11,6 +11,15 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+else
+  const ArrayTypes = (Array, )
+end
+
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
@@ -22,13 +31,13 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
 const _ngradstates = 3
 const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 
-include("mms_solution_generated.jl")
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
   using Random
 end
+
+include("mms_solution_generated.jl")
 
 # preflux computation
 @inline function preflux(Q, _...)
@@ -172,26 +181,41 @@ end
   end
 end
 
-@inline function bcstate2D!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, _...)
+@inline function bcstate2D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-    initialcondition!(Val(2), QP, t, x, y, z)
-    VFP.=VFM
-    nothing
+    if integration_testing
+      initialcondition!(Val(2), QP, t, x, y, z)
+    else
+      for s = 1:length(QP)
+        QP[s] = QM[length(QP)+1-s]
+      end
+      for s = 1:_nviscstates
+        QVP[s] = QVM[s]
+      end
+    end
   end
+  nothing
 end
-@inline function bcstate3D!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, _...)
+
+@inline function bcstate3D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-    initialcondition!(Val(3), QP, t, x, y, z)
-    VFP.=VFM
-    nothing
+    if integration_testing
+      initialcondition!(Val(3), QP, t, x, y, z)
+    else
+      for s = 1:length(QP)
+        QP[s] = QM[length(QP)+1-s]
+      end
+      for s = 1:_nviscstates
+        QVP[s] = QVM[s]
+      end
+    end
   end
+  nothing
 end
 
-function run(mpicomm, dim, topl, warpfun, N, timeend, DFloat, dt)
-
-  ArrayType = Array
+function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -203,10 +227,9 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, DFloat, dt)
   # spacedisc = data needed for evaluating the right-hand side function
   numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed,
                                             preflux)
+  bcstate! = dim == 2 ?  bcstate2D! : bcstate3D!
   numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!,
-                                                            dim == 2 ?
-                                                            bcstate2D! :
-                                                            bcstate3D!,
+                                                            bcstate!,
                                                             wavespeed, preflux)
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
@@ -220,7 +243,8 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, DFloat, dt)
                            gradient_transform! = velocities!,
                            viscous_transform! = compute_stresses!,
                            viscous_penalty! = stresses_penalty!,
-                           viscous_boundary_penalty! = stresses_boundary_penalty!,
+                           viscous_boundary_penalty! =
+                           stresses_boundary_penalty!,
                            auxiliary_state_length = _nauxstate,
                            auxiliary_state_initialization! =
                            auxiliary_state_initialization!,
@@ -298,14 +322,14 @@ let
   MPI.Initialized() || MPI.Init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
-  if MPI.Comm_rank(mpicomm) == 0
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-    global_logger(ConsoleLogger(stderr, loglevel))
-  else
-    global_logger(NullLogger())
+  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+  loglevel = ll == "DEBUG" ? Logging.Debug :
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
+  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+  global_logger(ConsoleLogger(logger_stream, loglevel))
+  @static if Base.find_package("CUDAnative") !== nothing
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
   polynomialorder = 4
@@ -320,64 +344,68 @@ let
     expected_result[2,3] = 9.1108572847298699e-05
     lvls = size(expected_result, 2)
   else
-    Random.seed!(0)
     expected_result = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    expected_result[2, 1, Float64] = 9.9078326104422132e-01
-    expected_result[3, 1, Float64] = 1.0099397450352541e+00
-    expected_result[2, 3, Float64] = 9.9071582555176441e-01
-    expected_result[3, 3, Float64] = 1.0099061322152851e+00
+    expected_result[2, 1, Float64] = 9.9075897196717488e-01
+    expected_result[3, 1, Float64] = 1.0099522817205739e+00
+    expected_result[2, 3, Float64] = 9.9072475063319887e-01
+    expected_result[3, 3, Float64] = 1.0099521111150005e+00
     lvls = 1
   end
 
 
-  for DFloat in (Float64,) #Float32)
-    result = zeros(DFloat, lvls)
-    for dim = 2:3
-      for l = 1:lvls
-        if dim == 2
-          Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-          brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                        range(DFloat(0); length=Ne[2]+1, stop=1))
-          topl = BrickTopology(mpicomm, brickrange, periodicity = (false, false))
-          dt = 1e-2 / Ne[1]
-          warpfun = (x, y, _) -> begin
-            (x + sin(x*y), y + sin(2*x*y), 0)
-          end
+  for ArrayType in ArrayTypes
+    for DFloat in (Float64,) #Float32)
+      result = zeros(DFloat, lvls)
+      for dim = 2:3
+        for l = 1:lvls
+          integration_testing || Random.seed!(0)
+          if dim == 2
+            Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
+            brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
+                          range(DFloat(0); length=Ne[2]+1, stop=1))
+            topl = BrickTopology(mpicomm, brickrange,
+                                 periodicity = (false, false))
+            dt = 1e-2 / Ne[1]
+            warpfun = (x, y, _) -> begin
+              (x + sin(x*y), y + sin(2*x*y), 0)
+            end
 
-        elseif dim == 3
-          Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-          brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                        range(DFloat(0); length=Ne[2]+1, stop=1),
-                        range(DFloat(0); length=Ne[2]+1, stop=1))
-          topl = BrickTopology(mpicomm, brickrange,
-                               periodicity = (false, false, false))
-          dt = 5e-3 / Ne[1]
-          warpfun = (x, y, z) -> begin
-            (x + (x-1/2)*cos(2*π*y*z)/4,
-             y + exp(sin(2π*(x*y+z)))/20,
-             z + x/4 + y^2/2 + sin(x*y*z))
+          elseif dim == 3
+            Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
+            brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
+                          range(DFloat(0); length=Ne[2]+1, stop=1),
+            range(DFloat(0); length=Ne[2]+1, stop=1))
+            topl = BrickTopology(mpicomm, brickrange,
+                                 periodicity = (false, false, false))
+            dt = 5e-3 / Ne[1]
+            warpfun = (x, y, z) -> begin
+              (x + (x-1/2)*cos(2*π*y*z)/4,
+               y + exp(sin(2π*(x*y+z)))/20,
+              z + x/4 + y^2/2 + sin(x*y*z))
+            end
+          end
+          timeend = integration_testing ? 1 : 2dt
+          nsteps = ceil(Int64, timeend / dt)
+          dt = timeend / nsteps
+
+          @info (ArrayType, DFloat, dim)
+          result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
+                          polynomialorder, timeend, DFloat, dt)
+          if integration_testing
+            @test result[l] ≈ DFloat(expected_result[dim-1, l])
+          else
+            @test result[l] ≈ expected_result[dim, MPI.Comm_size(mpicomm), DFloat]
           end
         end
-        timeend = integration_testing ? 1 : 2dt
-        nsteps = ceil(Int64, timeend / dt)
-        dt = timeend / nsteps
-
-        result[l] = run(mpicomm, dim, topl, warpfun, polynomialorder, timeend,
-                     DFloat, dt)
         if integration_testing
-          @test result[l] ≈ DFloat(expected_result[dim-1, l])
-        else
-          @test result[l] ≈ expected_result[dim, MPI.Comm_size(mpicomm), DFloat]
-        end
-      end
-      if integration_testing
-        @info begin
-          msg = ""
-          for l = 1:lvls-1
-            rate = log2(result[l]) - log2(result[l+1])
-            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+          @info begin
+            msg = ""
+            for l = 1:lvls-1
+              rate = log2(result[l]) - log2(result[l+1])
+              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+            end
+            msg
           end
-          msg
         end
       end
     end
