@@ -1,10 +1,10 @@
 # This file is machine-generated - editing it directly is not advised
 
 [[AbstractFFTs]]
-deps = ["LinearAlgebra", "Test"]
-git-tree-sha1 = "dfaf23dba016254bb0eed6de326510caea2889bf"
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "380e36c66edfa099cd90116b24c1ce8cafccac40"
 uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
-version = "0.4.0"
+version = "0.4.1"
 
 [[Adapt]]
 deps = ["LinearAlgebra", "Test"]
@@ -52,7 +52,7 @@ uuid = "764a87c0-6b3e-53db-9096-fe964310641d"
 version = "2.2.3"
 
 [[CLIMA]]
-deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "LinearAlgebra", "Literate", "Logging", "MPI", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
+deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "LinearAlgebra", "Literate", "Logging", "MPI", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
 path = "../../"
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
@@ -64,20 +64,24 @@ uuid = "00ebfdb7-1f24-5e51-bd34-a7502290713f"
 version = "0.5.2"
 
 [[CUDAapi]]
-deps = ["Libdl", "Logging", "Test"]
-git-tree-sha1 = "125122309a4387e0d18787cef0f03800fa57702a"
+deps = ["Libdl", "Logging"]
+git-tree-sha1 = "7700585ef08123a4087ad4c0c225d2d33ed44b42"
 uuid = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
-version = "0.6.3"
+version = "1.0.0"
 
 [[CUDAdrv]]
 deps = ["CUDAapi", "Libdl", "Printf"]
-git-tree-sha1 = "ac4ff4daf5d5c031ad52ae2b360a99dbd2a423ce"
+git-tree-sha1 = "9b2d99981b984378799ec70dd005cb7e7b4e914c"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaGPU/CUDAdrv.jl.git"
 uuid = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
-version = "3.0.0"
+version = "3.0.1"
 
 [[CUDAnative]]
 deps = ["Adapt", "CUDAapi", "CUDAdrv", "DataStructures", "InteractiveUtils", "LLVM", "Libdl", "Logging", "Pkg", "Printf", "TimerOutputs"]
-git-tree-sha1 = "b4f7ba69cece0a9dcfcbfc944ef33fe464256399"
+git-tree-sha1 = "c2cca6ae3fd248e877825c3ff33a4f0f96bfb13a"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaGPU/CUDAnative.jl.git"
 uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
 version = "2.1.0"
 
@@ -94,6 +98,12 @@ repo-rev = "master"
 repo-url = "https://github.com/climate-machine/Canary.jl"
 uuid = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
 version = "0.1.0"
+
+[[Cassette]]
+deps = ["InteractiveUtils", "LinearAlgebra", "Test"]
+git-tree-sha1 = "5536cf95a81ff784f4d1eca2df39bb2629a7ee59"
+uuid = "7057c7e9-c182-5462-911a-8362d720325c"
+version = "0.2.3"
 
 [[CodecZlib]]
 deps = ["BinaryProvider", "Libdl", "Test", "TranscodingStreams"]
@@ -133,9 +143,11 @@ version = "4.0.0"
 
 [[CuArrays]]
 deps = ["AbstractFFTs", "Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Requires", "SparseArrays", "TimerOutputs"]
-git-tree-sha1 = "f95cbe4fe78b1fff00691aa1d2e533542f095358"
+git-tree-sha1 = "27e1db92ffd901acf5de0f46fad6e568cdc9f61d"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaGPU/CuArrays.jl.git"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
-version = "1.0.2"
+version = "2.0.0"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections", "Random", "Serialization", "Test"]
@@ -258,10 +270,10 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.7.0"
 
 [[Documenter]]
-deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "JSON", "LibGit2", "Logging", "Markdown", "Pkg", "REPL", "Random", "Test", "Unicode"]
-git-tree-sha1 = "13a6d15102410d8e70146533b759fc48d844a1d0"
+deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "JSON", "LibGit2", "Logging", "Markdown", "REPL", "Unicode"]
+git-tree-sha1 = "38509269fc99a9bc450fdb9e17e805021f3e5b1b"
 uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-version = "0.22.3"
+version = "0.22.4"
 
 [[DoubleFloats]]
 deps = ["GenericSVD", "LinearAlgebra", "Polynomials", "Random", "Test"]
@@ -302,8 +314,18 @@ version = "1.0.0"
 [[GPUArrays]]
 deps = ["Adapt", "FFTW", "FillArrays", "LinearAlgebra", "Printf", "Random", "Serialization", "StaticArrays", "Test"]
 git-tree-sha1 = "83abe5537d6f35f558cef7af309a428d055394db"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaGPU/GPUArrays.jl.git"
 uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
 version = "0.7.0"
+
+[[GPUifyLoops]]
+deps = ["Cassette", "Requires", "StaticArrays"]
+git-tree-sha1 = "fccadea8b6d40125a3e34eb1ae6750b463b8d63a"
+repo-rev = "master"
+repo-url = "https://github.com/vchuravy/GPUifyLoops.jl.git"
+uuid = "ba82f77b-6841-5d2e-bd9f-4daf811aec27"
+version = "0.2.3"
 
 [[GenericSVD]]
 deps = ["LinearAlgebra", "Random", "Test"]
@@ -416,10 +438,10 @@ uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
 version = "0.6.8"
 
 [[Missings]]
-deps = ["Dates", "InteractiveUtils", "SparseArrays", "Test"]
-git-tree-sha1 = "d1d2585677f2bd93a97cfeb8faa7a0de0f982042"
+deps = ["SparseArrays", "Test"]
+git-tree-sha1 = "f0719736664b4358aa9ec173077d4285775f8007"
 uuid = "e1d29d7a-bbdc-5cf2-9ac0-f12de2c33e28"
-version = "0.4.0"
+version = "0.4.1"
 
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
@@ -636,7 +658,7 @@ uuid = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
 version = "6.1.1"
 
 [[SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "SparseArrays"]
+deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[Sundials]]
