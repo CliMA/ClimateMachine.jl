@@ -36,8 +36,10 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using Random
+using Pkg
 
-@static if Base.find_package("CuArrays") !== nothing
+const HAVE_CUDA = haskey(Pkg.installed(), "CuArrays")
+@static if HAVE_CUDA
   using CUDAdrv
   using CUDAnative
   using CuArrays
@@ -256,7 +258,7 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if Base.find_package("CUDAnative") !== nothing
+  @static if HAVE_CUDA
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
@@ -294,7 +296,7 @@ let
           dt          = %.16e
           nstep       = %d
           """ Nhorizontal Nvertical N dt nsteps
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, DFloat)
           (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
                                   DFloat, dt, ArrayType)
           @test err[l]  ≈ DFloat(expected_error[l])
@@ -331,7 +333,7 @@ let
     for ArrayType in ArrayTypes
       for DFloat in (Float64,) # Float32)
         Random.seed!(0)
-        @info (ArrayType, DFloat, dim)
+        @info (ArrayType, DFloat)
         (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat,
                             dt, ArrayType)
         @test error ≈ DFloat(expected_error[numproc])
