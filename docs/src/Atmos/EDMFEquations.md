@@ -695,8 +695,8 @@ where additional variable definitions are in:
 
 ```math
 \begin{align}\label{eq:BuoyancyGradLong}
-\SDi{\BuoyancyGrad} & = - \PD_z \SDi{\ThetaLiqIce}
-\left[ (1-f_c) \PD_{\ThetaLiqIce} b |_d  + f_c \PD_{\ThetaLiqIce} b |_s \right] -
+\SDi{\BuoyancyGrad} & = \PD_z \SDi{\ThetaLiqIce}
+\left[ (1-f_c) \PD_{\ThetaLiqIce} b |_d  + f_c \PD_{\ThetaLiqIce} b |_s \right] +
 \PD_z \SDi{\qt}      \left[ (1-f_c) \PD_{\qt} b |_d + f_c \PD_{\qt} b |_s \right] \\
 f_c &= 0 \qquad \text{good for simple cases, need to confirm for more complex cases} \\
 \PD_{\ThetaLiqIce} b |_d & = \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\qt} \right] \\
