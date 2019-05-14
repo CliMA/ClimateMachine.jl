@@ -18,6 +18,7 @@ using MPI, Test
                  (1, "Euler/isentropic_vortex_standalone.jl")
                  (1, "Euler/isentropic_vortex_standalone_aux.jl")
                  (1, "util/grad_test.jl")
+                 (1, "util/grad_test_sphere.jl")
                  (1, "Euler/isentropic_vortex_standalone_source.jl")
                  (1, "Euler/isentropic_vortex_standalone_bc.jl")
                  (1, "conservation/sphere.jl")
