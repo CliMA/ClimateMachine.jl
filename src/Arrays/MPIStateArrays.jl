@@ -4,7 +4,7 @@ using DoubleFloats
 
 using MPI
 
-export MPIStateArray, euclidean_distance, weightedsum
+export MPIStateArray, euclidean_distance, weightedsum, global_max, global_min, global_extrema_diff
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -398,6 +398,108 @@ function knl_weightedsum(::Val{Np}, A, weights, elems, states) where {Np}
 
   wsum
 end
+
+"""
+    global_max(A[, states])
+
+Compute the global max of the `MPIStateArray` `A`. If `states` is specified on
+the listed states are summed, otherwise all the states in `A` are used.
+
+!!! note
+
+    This implementation is not optimal and should be revisited when we work out
+    the GPUify version!
+
+"""
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  locmax = maximum(view(h_A, :, states, A.realelems))
+  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+"""
+    global_min(A[, states])
+
+Compute the global min of the `MPIStateArray` `A`. If `states` is specified on
+the listed states are summed, otherwise all the states in `A` are used.
+
+!!! note
+
+    This implementation is not optimal and should be revisited when we work out
+    the GPUify version!
+
+"""
+function global_min(A::MPIStateArray, states=1:size(A, 2))
+
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  locmax = minimum(view(h_A, :, states, A.realelems))
+  MPI.Allreduce([locmax], MPI.MIN, A.mpicomm)[1]
+end
+
+"""
+    global_extrema_diff(A[, states],B[, states], state)
+
+Compute the global extrema of the difference between `MPIStateArray` `A` and `MPIStateArray` `B` for the given
+    state `state`.
+
+!!! note
+
+    This implementation is not optimal and should be revisited when we work out
+    the GPUify version!
+
+"""
+#=
+function global_extrema_diff_v0(A::MPIStateArray, B::MPIStateArray)
+
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  (Np, nstate, nelem) = size(A)
+  host_array = Array ∈ typeof(B).parameters
+  h_B = host_array ? B : Array(B)
+  @assert Np === size(B, 1)
+
+  DFloat = eltype(A)
+  locmax=DFloat(-10^6)
+  locmin=DFloat(+10^6)
+    @inbounds for e = A.realelems
+        for q = 1:1, i = 1:Np
+            locmax = max( locmax, A[i, q, e] - B[i,q,e] )
+            locmin = min( locmin, A[i, q, e] - B[i,q,e] )
+        end
+  end
+  globmax = DFloat( MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1])
+  globmin = DFloat( MPI.Allreduce([locmin], MPI.MIN, A.mpicomm)[1])
+  return(globmax,globmin)
+
+end
+=#
+function global_extrema_diff(A::MPIStateArray, B::MPIStateArray, state=1:size(A, 2))
+
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  (Np, nstate, nelem) = size(A)
+  host_array = Array ∈ typeof(B).parameters
+  h_B = host_array ? B : Array(B)
+  @assert Np === size(B, 1)
+
+  DFloat = eltype(A)
+  locmax=DFloat(-10^6)
+  locmin=DFloat(+10^6)
+    @inbounds for e = A.realelems
+        for i = 1:Np
+            locmax = max( locmax, A[i, state, e] - B[i, state, e] )
+            locmin = min( locmin, A[i, state, e] - B[i, state, e] )
+        end
+  end
+  globmax = DFloat( MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1])
+  globmin = DFloat( MPI.Allreduce([locmin], MPI.MIN, A.mpicomm)[1])
+  return(globmax,globmin)
+
+end
+
 
 using Requires
 
