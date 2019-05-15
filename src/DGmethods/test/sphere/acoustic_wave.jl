@@ -443,14 +443,15 @@ let
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm=MPI.COMM_WORLD
 
-    if MPI.Comm_rank(mpicomm) == 0
-        ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-        loglevel = ll == "DEBUG" ? Logging.Debug :
-        ll == "WARN"  ? Logging.Warn  :
-        ll == "ERROR" ? Logging.Error : Logging.Info
-        global_logger(ConsoleLogger(stderr, loglevel))
-    else
-        global_logger(NullLogger())
+    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+    loglevel = ll == "DEBUG" ? Logging.Debug :
+    ll == "WARN"  ? Logging.Warn  :
+    ll == "ERROR" ? Logging.Error : Logging.Info
+    global_logger(ConsoleLogger(stderr, loglevel))
+    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+    global_logger(ConsoleLogger(logger_stream, loglevel))
+    @static if Base.find_package("CUDAnative") !== nothing
+      device!(MPI.Comm_rank(mpicomm) % length(devices()))
     end
 
     #This snippet of code allows one to run just one instance/configuration. Before running this, Comment the Integration Testing block above
