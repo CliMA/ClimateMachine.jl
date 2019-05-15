@@ -485,7 +485,7 @@ end
 function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, nsimstep, ArrayType)
     height_min=earth_radius
     height_max=earth_radius + ztop
-    Rrange=range(DFloat(height_min); length=Nhorizontal+1, stop=height_max)
+    Rrange=range(DFloat(height_min); length=Nvertical+1, stop=height_max)
     topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
     (error, Δmass, Δenergy) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, nsimstep)
 end
