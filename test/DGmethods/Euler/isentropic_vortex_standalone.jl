@@ -177,6 +177,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, spacedisc, statenames)
+    pvtuprefix = @sprintf("isentropicvortex_%dD_step%04d", dim, step[1])
+    prefixes = ntuple(i->
+                      @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
+                               dim, i-1, step[1]),
+                      MPI.Comm_size(mpicomm))
+    writepvtu(pvtuprefix, prefixes, statenames)
     step[1] += 1
     nothing
   end
