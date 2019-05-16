@@ -10,12 +10,6 @@ assumes that you have a working MPI installation and [CMake][1] installed.
 julia --project=@. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
 ```
 
-## Setup with GPUs
-
-```bash
-julia --project=../../../env/gpu/ -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
-```
-
 ## Problems building MPI.jl
 
 If you are having problems building MPI.jl then most likely CMake cannot find
@@ -31,13 +25,7 @@ MPI in your path.
 ## Running locally with CPUs
 
 ```bash
-mpirun -n 4 julia --project=@. drivers/rising_thermal_bubble.jl
-```
-
-## Running locally with GPUs
-
-```bash
-mpirun -n 4 julia --project=../../../env/gpu/ drivers/rising_thermal_bubble.jl
+mpirun -n 4 julia --project=@. test/rising_thermal_bubble.jl
 ```
 
 [0]: https://github.com/JuliaParallel/MPI.jl
