@@ -1,6 +1,7 @@
 using MPI
 using CLIMA.Topologies
 using CLIMA.Grids
+using CLIMA.DGModels
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -20,6 +21,7 @@ else
   const ArrayTypes = (Array, )
 end
 
+
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
@@ -31,6 +33,7 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
 const _ngradstates = 3
 const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 
+const _nauxstate = 3
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -38,6 +41,15 @@ if !@isdefined integration_testing
 end
 
 include("mms_solution_generated.jl")
+
+# Define MMSModel
+@model MMSModel{Dim, N} <: DGModel{Dim, N}
+hasbctype(::MMSModel)   = true
+nstate(::MMSModel)      = _nstate
+nviscstate(::MMSModel)  = _nviscstates
+ngradstate(::MMSModel)  = _ngradstates
+nauxstate(::MMSModel)   = _nauxstate
+states_grad(::MMSModel) = _states_for_gradient_transform
 
 # preflux computation
 @inline function preflux(Q, _...)
@@ -54,8 +66,15 @@ end
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
+numerical_flux!(::MMSModel, x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
+
+function numerical_boundary_flux(::MMSModel{Dim}) where Dim
+    bcstate! = Dim == 2 ?  bcstate2D! : bcstate3D!
+    NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
+end
+
 # flux function
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
+flux!(::MMSModel, F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
 
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
   @inbounds begin
@@ -85,7 +104,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
 end
 
 # Compute the velocity from the state
-@inline function velocities!(vel, Q, _...)
+@inline function gradient_transform!(::MMSModel, vel, Q, _...)
   @inbounds begin
     # ordering should match states_for_gradient_transform
     ρ, U, V, W = Q[1], Q[2], Q[3], Q[4]
@@ -94,8 +113,8 @@ end
   end
 end
 
-# Visous flux
-@inline function compute_stresses!(VF, grad_vel, _...)
+# Viscous flux
+@inline function viscous_transform!(::MMSModel, VF, grad_vel, args...)
   μ::eltype(VF) = μ_exact
   @inbounds begin
     dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
@@ -120,17 +139,17 @@ end
   end
 end
 
-@inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
+@inline function viscous_penalty!(model::MMSModel, VF, nM, velM, QM, aM, velP, QP, aP, t)
   @inbounds begin
     n_Δvel = similar(VF, Size(3, 3))
     for j = 1:3, i = 1:3
       n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
     end
-    compute_stresses!(VF, n_Δvel)
+    viscous_transform!(model, VF, n_Δvel)
   end
 end
 
-@inline stresses_boundary_penalty!(VF, _...) = VF.=0
+@inline viscous_boundary_penalty!(::MMSModel, VF, _...) = VF .= 0
 
 # initial condition
 function initialcondition!(dim, Q, t, x, y, z, _...)
@@ -149,7 +168,6 @@ function initialcondition!(dim, Q, t, x, y, z, _...)
   end
 end
 
-const _nauxstate = 3
 const _a_x, _a_y, _a_z = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
   @inbounds begin
@@ -159,25 +177,14 @@ const _a_x, _a_y, _a_z = 1:_nauxstate
   end
 end
 
-@inline function source3D!(S, Q, aux, t)
+@inline function source!(::MMSModel{Dim}, S, Q, aux, t) where Dim
   @inbounds begin
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    S[_ρ] = Sρ_g(t, x, y, z, Val(3))
-    S[_U] = SU_g(t, x, y, z, Val(3))
-    S[_V] = SV_g(t, x, y, z, Val(3))
-    S[_W] = SW_g(t, x, y, z, Val(3))
-    S[_E] = SE_g(t, x, y, z, Val(3))
-  end
-end
-
-@inline function source2D!(S, Q, aux, t)
-  @inbounds begin
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    S[_ρ] = Sρ_g(t, x, y, z, Val(2))
-    S[_U] = SU_g(t, x, y, z, Val(2))
-    S[_V] = SV_g(t, x, y, z, Val(2))
-    S[_W] = SW_g(t, x, y, z, Val(2))
-    S[_E] = SE_g(t, x, y, z, Val(2))
+    S[_ρ] = Sρ_g(t, x, y, z, Val(Dim))
+    S[_U] = SU_g(t, x, y, z, Val(Dim))
+    S[_V] = SV_g(t, x, y, z, Val(Dim))
+    S[_W] = SW_g(t, x, y, z, Val(Dim))
+    S[_E] = SE_g(t, x, y, z, Val(Dim))
   end
 end
 
@@ -225,30 +232,11 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed,
-                                            preflux)
-  bcstate! = dim == 2 ?  bcstate2D! : bcstate3D!
-  numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!,
-                                                            bcstate!,
-                                                            wavespeed, preflux)
+
   spacedisc = DGBalanceLaw(grid = grid,
-                           length_state_vector = _nstate,
-                           flux! = cns_flux!,
-                           numerical_flux! = numflux!,
-                           numerical_boundary_flux! = numbcflux!,
-                           number_gradient_states = _ngradstates,
-                           states_for_gradient_transform =
-                             _states_for_gradient_transform,
-                           number_viscous_states = _nviscstates,
-                           gradient_transform! = velocities!,
-                           viscous_transform! = compute_stresses!,
-                           viscous_penalty! = stresses_penalty!,
-                           viscous_boundary_penalty! =
-                           stresses_boundary_penalty!,
-                           auxiliary_state_length = _nauxstate,
+                           model = MMSModel{dim, N}(),
                            auxiliary_state_initialization! =
-                           auxiliary_state_initialization!,
-                           source! = dim == 2 ? source2D! : source3D!)
+                           auxiliary_state_initialization!)
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = initialcondition!(Val(dim), Q, DFloat(0), x...)

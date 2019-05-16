@@ -3,6 +3,10 @@ using Requires
   using .CUDAnative
 end
 
+import ..DGModels: flux!, gradient_transform!, viscous_transform!,
+                   viscous_penalty!, viscous_boundary_penalty!, source!,
+                   hasbctype, numerical_flux!, numerical_boundary_flux!
+
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
 const _nvgeo = 14
 const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
@@ -22,13 +26,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(::Val{dim}, ::Val{N},
-                    ::Val{nstate}, ::Val{nviscstate},
-                    ::Val{nauxstate},
-                    flux!, source!,
+function volumerhs!(model::DGModel{dim, N},
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    D, elems) where {dim, N, nstate, nviscstate,
-                                     nauxstate}
+                    D, elems) where {dim, N}
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -37,15 +37,17 @@ function volumerhs!(::Val{dim}, ::Val{N},
 
   nelem = size(Q)[end]
 
-  s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
+  s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate(model))
   s_D = @shmem DFloat (Nq, Nq)
-  l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
+  l_rhs = @scratch DFloat (nstate(model), Nq, Nq, Nqk) 3
 
-  source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
+  l_S = MArray{Tuple{nstate(model)}, DFloat}(undef)
+  l_S .= -zero(DFloat)
+
+  l_Q = MArray{Tuple{nstate(model)}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate(model)}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate(model)}, DFloat}(undef)
+  l_F = MArray{Tuple{3, nstate(model)}, DFloat}(undef)
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -65,43 +67,41 @@ function volumerhs!(::Val{dim}, ::Val{N},
           ηx, ηy, ηz = vgeo[ijk,_ηx,e], vgeo[ijk,_ηy,e], vgeo[ijk,_ηz,e]
           ζx, ζy, ζz = vgeo[ijk,_ζx,e], vgeo[ijk,_ζy,e], vgeo[ijk,_ζz,e]
 
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nstate(model)
             l_rhs[s, i, j, k] = rhs[ijk, s, e]
           end
 
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nstate(model)
             l_Q[s] = Q[ijk, s, e]
           end
 
-          @unroll for s = 1:nviscstate
+          @unroll for s = 1:nviscstate(model)
             l_Qvisc[s] = Qvisc[ijk, s, e]
           end
 
-          @unroll for s = 1:nauxstate
+          @unroll for s = 1:nauxstate(model)
             l_aux[s] = auxstate[ijk, s, e]
           end
 
-          flux!(l_F, l_Q, l_Qvisc, l_aux, t)
+          flux!(model, l_F, l_Q, l_Qvisc, l_aux, t)
 
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nstate(model)
             s_F[1,i,j,k,s] = MJ * (ξx*l_F[1,s] + ξy*l_F[2,s] + ξz*l_F[3,s])
             s_F[2,i,j,k,s] = MJ * (ηx*l_F[1,s] + ηy*l_F[2,s] + ηz*l_F[3,s])
             s_F[3,i,j,k,s] = MJ * (ζx*l_F[1,s] + ζy*l_F[2,s] + ζz*l_F[3,s])
           end
 
-          if source! !== nothing
-            source!(l_S, l_Q, l_aux, t)
+          source!(model, l_S, l_Q, l_aux, t)
 
-            @unroll for s = 1:nstate
+          @unroll for s = 1:nstate(model)
               l_rhs[s, i, j, k] += l_S[s]
-            end
           end
         end
       end
     end
     @synchronize
 
-    @unroll for s = 1:nstate
+    @unroll for s = 1:nstate(model)
       @loop for k in (1:Nqk; threadIdx().z)
         @loop for j in (1:Nq; threadIdx().y)
           @loop for i in (1:Nq; threadIdx().x)
@@ -124,7 +124,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
         end
       end
     end
-    @unroll for s = 1:nstate
+    @unroll for s = 1:nstate(model)
       @loop for k in (1:Nqk; threadIdx().z)
         @loop for j in (1:Nq; threadIdx().y)
           @loop for i in (1:Nq; threadIdx().x)
@@ -151,11 +151,9 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-                  ::Val{nauxstate}, numerical_flux!, numerical_boundary_flux!,
+function facerhs!(model::DGModel{dim, N},
                   rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                  elemtobndy, elems) where {dim, N, nstate, nviscstate,
-                                            nauxstate}
+                  elemtobndy, elems) where {dim, N}
 
   DFloat = eltype(Q)
 
@@ -173,15 +171,15 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
     nface = 6
   end
 
-  l_QM = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QviscM = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_QM = MArray{Tuple{nstate(model)}, DFloat}(undef)
+  l_QviscM = MArray{Tuple{nviscstate(model)}, DFloat}(undef)
+  l_auxM = MArray{Tuple{nauxstate(model)}, DFloat}(undef)
 
-  l_QP = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QviscP = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_QP = MArray{Tuple{nstate(model)}, DFloat}(undef)
+  l_QviscP = MArray{Tuple{nviscstate(model)}, DFloat}(undef)
+  l_auxP = MArray{Tuple{nauxstate(model)}, DFloat}(undef)
 
-  l_F = MArray{Tuple{nstate}, DFloat}(undef)
+  l_F = MArray{Tuple{nstate(model)}, DFloat}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     for f = 1:nface
@@ -194,43 +192,42 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
         vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
 
         # Load minus side data
-        @unroll for s = 1:nstate
+        @unroll for s = 1:nstate(model)
           l_QM[s] = Q[vidM, s, eM]
         end
 
-        @unroll for s = 1:nviscstate
+        @unroll for s = 1:nviscstate(model)
           l_QviscM[s] = Qvisc[vidM, s, eM]
         end
 
-        @unroll for s = 1:nauxstate
+        @unroll for s = 1:nauxstate(model)
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
         # Load plus side data
-        @unroll for s = 1:nstate
+        @unroll for s = 1:nstate(model)
           l_QP[s] = Q[vidP, s, eP]
         end
 
-        @unroll for s = 1:nviscstate
+        @unroll for s = 1:nviscstate(model)
           l_QviscP[s] = Qvisc[vidP, s, eP]
         end
 
-        @unroll for s = 1:nauxstate
+        @unroll for s = 1:nauxstate(model)
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        bctype =
-            numerical_boundary_flux! === nothing ? 0 : elemtobndy[f, e]
+        bctype = hasbctype(model) ? 0 : elemtobndy[f, e]
         if bctype == 0
-          numerical_flux!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
+          numerical_flux!(model, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
         else
-          numerical_boundary_flux!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
+          numerical_boundary_flux!(model, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
                                    l_QviscP, l_auxP, bctype, t)
         end
 
         #Update RHS
-        @unroll for s = 1:nstate
+        @unroll for s = 1:nstate(model)
           # FIXME: Should we pretch these?
           rhs[vidM, s, eM] -= vMJI * sMJ * l_F[s]
         end
@@ -242,13 +239,9 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
   nothing
 end
 
-function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
-                          ::Val{states_grad}, ::Val{ngradstate},
-                          ::Val{nviscstate}, ::Val{nauxstate},
-                          viscous_transform!, gradient_transform!, Q,
+function volumeviscterms!(model::DGModel{dim, N}, Q,
                           Qvisc, auxstate, vgeo, t, D,
-                          elems) where {dim, N, states_grad, ngradstate,
-                                        nviscstate, nstate, nauxstate}
+                          elems) where {dim, N}
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -256,16 +249,16 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
   Nqk = dim == 2 ? 1 : Nq
 
   nelem = size(Q)[end]
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = length(states_grad(model))
 
-  s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
+  s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate(model))
   s_D = @shmem DFloat (Nq, Nq)
 
   l_Q = @scratch DFloat (ngradtransformstate, Nq, Nq, Nqk) 3
-  l_aux = @scratch DFloat (nauxstate, Nq, Nq, Nqk) 3
-  l_G = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_gradG = MArray{Tuple{3, ngradstate}, DFloat}(undef)
+  l_aux = @scratch DFloat (nauxstate(model), Nq, Nq, Nqk) 3
+  l_G = MArray{Tuple{ngradstate(model)}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate(model)}, DFloat}(undef)
+  l_gradG = MArray{Tuple{3, ngradstate(model)}, DFloat}(undef)
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -281,15 +274,15 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
           @unroll for s = 1:ngradtransformstate
-            l_Q[s, i, j, k] = Q[ijk, states_grad[s], e]
+              l_Q[s, i, j, k] = Q[ijk, states_grad(model)[s], e]
           end
 
-          @unroll for s = 1:nauxstate
+          @unroll for s = 1:nauxstate(model)
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
-          gradient_transform!(l_G, l_Q[:, i, j, k], l_aux[:, i, j, k], t)
-          @unroll for s = 1:ngradstate
+          gradient_transform!(model, l_G, l_Q[:, i, j, k], l_aux[:, i, j, k], t)
+          @unroll for s = 1:ngradstate(model)
             s_G[i, j, k, s] = l_G[s]
           end
         end
@@ -306,7 +299,7 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
           ηx, ηy, ηz = vgeo[ijk, _ηx, e], vgeo[ijk, _ηy, e], vgeo[ijk, _ηz, e]
           ζx, ζy, ζz = vgeo[ijk, _ζx, e], vgeo[ijk, _ζy, e], vgeo[ijk, _ζz, e]
 
-          @unroll for s = 1:ngradstate
+          @unroll for s = 1:ngradstate(model)
             Gξ = Gη = Gζ = zero(DFloat)
             @unroll for n = 1:Nq
               Din = s_D[i, n]
@@ -322,10 +315,10 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
             l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
           end
 
-          viscous_transform!(l_Qvisc, l_gradG, l_Q[:, i, j, k],
+          viscous_transform!(model, l_Qvisc, l_gradG, l_Q[:, i, j, k],
                              l_aux[:, i, j, k], t)
 
-          @unroll for s = 1:nviscstate
+          @unroll for s = 1:nviscstate(model)
             Qvisc[ijk, s, e] = l_Qvisc[s]
           end
         end
@@ -335,14 +328,9 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
   end
 end
 
-function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
-                        ::Val{ngradstate}, ::Val{nviscstate},
-                        ::Val{nauxstate}, viscous_penalty!,
-                        viscous_boundary_penalty!, gradient_transform!,
+function faceviscterms!(model::DGModel{dim, N},
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) where {dim, N, states_grad,
-                                                  ngradstate, nviscstate,
-                                                  nstate, nauxstate}
+                        elemtobndy, elems) where {dim, N}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -359,17 +347,17 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
     nface = 6
   end
 
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = length(states_grad(model))
 
   l_QM = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
-  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_GM = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_auxM = MArray{Tuple{nauxstate(model)}, DFloat}(undef)
+  l_GM = MArray{Tuple{ngradstate(model)}, DFloat}(undef)
 
   l_QP = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
-  l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_GP = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_auxP = MArray{Tuple{nauxstate(model)}, DFloat}(undef)
+  l_GP = MArray{Tuple{ngradstate(model)}, DFloat}(undef)
 
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate(model)}, DFloat}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     for f = 1:nface
@@ -383,37 +371,36 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
 
         # Load minus side data
         @unroll for s = 1:ngradtransformstate
-          l_QM[s] = Q[vidM, states_grad[s], eM]
+          l_QM[s] = Q[vidM, states_grad(model)[s], eM]
         end
 
-        @unroll for s = 1:nauxstate
+        @unroll for s = 1:nauxstate(model)
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        gradient_transform!(l_GM, l_QM, l_auxM, t)
+        gradient_transform!(model, l_GM, l_QM, l_auxM, t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
-          l_QP[s] = Q[vidP, states_grad[s], eP]
+          l_QP[s] = Q[vidP, states_grad(model)[s], eP]
         end
 
-        @unroll for s = 1:nauxstate
+        @unroll for s = 1:nauxstate(model)
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        gradient_transform!(l_GP, l_QP, l_auxP, t)
+        gradient_transform!(model, l_GP, l_QP, l_auxP, t)
 
-        bctype =
-            viscous_boundary_penalty! === nothing ? 0 : elemtobndy[f, e]
+        bctype = hasbctype(model) ? 0 : elemtobndy[f, e]
         if bctype == 0
-          viscous_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
+          viscous_penalty!(model, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
         else
-          viscous_boundary_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM,
+          viscous_boundary_penalty!(model, l_Qvisc, nM, l_GM, l_QM, l_auxM,
                                            l_GP, l_QP, l_auxP, bctype, t)
         end
 
-        @unroll for s = 1:nviscstate
+        @unroll for s = 1:nviscstate(model)
           Qvisc[vidM, s, eM] += vMJI * sMJ * l_Qvisc[s]
         end
       end
