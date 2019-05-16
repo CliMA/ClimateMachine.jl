@@ -10,6 +10,7 @@ using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
+using CLIMA.Vtk
 
 @static if Base.find_package("CuArrays") !== nothing
   using CUDAdrv
@@ -284,7 +285,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
+    writevtk(outprefix, Q, spacedisc, statenames)
     step[1] += 1
     nothing
   end

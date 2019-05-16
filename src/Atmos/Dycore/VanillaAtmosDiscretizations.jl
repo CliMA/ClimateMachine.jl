@@ -356,33 +356,4 @@ using Requires
 
 include("VanillaAtmosDiscretizations_kernels.jl")
 
-include("../../../Mesh/vtk.jl")
-function writevtk(prefix, Q::MPIStateArray, disc::VanillaAtmosDiscretization)
-  vgeo = disc.grid.vgeo
-  host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
-  writevtk(prefix, h_vgeo, h_Q, disc.grid)
 end
-
-function writevtk(prefix, vgeo::Array, Q::Array,
-                  G::Grids.AbstractGrid{T, dim, N}) where {T, dim, N}
-
-  Nq  = N+1
-
-  nelem = size(Q)[end]
-  Xid = (G.xid, G.yid, G.zid)
-  X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
-                        ntuple(j->Nq, dim)...,
-                        nelem), dim)
-  ρ = reshape((@view Q[:, _ρ, :]), ntuple(j->Nq, dim)..., nelem)
-  U = reshape((@view Q[:, _U, :]), ntuple(j->Nq, dim)..., nelem)
-  V = reshape((@view Q[:, _V, :]), ntuple(j->Nq, dim)..., nelem)
-  W = reshape((@view Q[:, _W, :]), ntuple(j->Nq, dim)..., nelem)
-  E = reshape((@view Q[:, _E, :]), ntuple(j->Nq, dim)..., nelem)
-  writemesh(prefix, X...;
-            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
-            realelems=G.topology.realelems)
-  end
-end
-
-

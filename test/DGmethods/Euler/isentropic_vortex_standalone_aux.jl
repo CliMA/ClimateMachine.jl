@@ -28,6 +28,7 @@ using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
+using CLIMA.Vtk
 
 @static if Base.find_package("CuArrays") !== nothing
   using CUDAdrv
@@ -195,8 +196,8 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
     outprefix = @sprintf("vtk/isentropicvortex_aux_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames,
-                                         spacedisc.auxstate, ("aU", "aV", "aW"))
+    writevtk(outprefix, Q, spacedisc, statenames,
+             spacedisc.auxstate, ("aU", "aV", "aW"))
     step[1] += 1
     nothing
   end

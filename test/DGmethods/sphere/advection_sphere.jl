@@ -36,6 +36,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using Random
+using CLIMA.Vtk
 
 @static if Base.find_package("CuArrays") !== nothing
   using CUDAdrv
@@ -204,7 +205,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
     outprefix = @sprintf("vtk/advection_sphere_%dD_mpirank%04d_step%04d",
                          3, MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, ("ρ", ))
+    writevtk(outprefix, Q, spacedisc, ("ρ", ))
     step[1] += 1
     nothing
   end

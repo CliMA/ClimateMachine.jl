@@ -11,6 +11,7 @@ using CLIMA.AtmosDycore
 using CLIMA.MoistThermodynamics
 using LinearAlgebra
 using Logging, Printf, Dates
+using CLIMA.Vtk
 
 using CLIMA.ParametersType
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP
@@ -139,7 +140,7 @@ function main(mpicomm, DFloat, ArrayType, brickrange, nmoist, ntrace, N,
                          step[1])
     @debug "doing VTK output" outprefix
     step[1] == 0 &&
-      VanillaAtmosDiscretizations.writevtk(outprefix, Q, spacedisc)
+      writevtk(outprefix, Q, spacedisc)
     step[1] += 1
     nothing
   end
