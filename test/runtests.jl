@@ -14,5 +14,5 @@ for submodule in ["Utilities/ParametersType",
                   ]
 
   println("Testing $submodule")
-  include(joinpath("../src",submodule,"test/runtests.jl"))
+  include(joinpath(submodule,"runtests.jl"))
 end
