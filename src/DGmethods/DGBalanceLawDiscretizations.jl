@@ -401,32 +401,33 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
 end
 
 """
-    MPIStateArray(disc::DGBalanceLaw; commtag=888)
+    MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate, commtag=888)
 
 Given a discretization `disc` constructs an `MPIStateArrays` for holding a
-solution state. The optional `commtag` allows the user to set the tag to use for
-communication with this `MPIStateArray`.
+solution state. The optional 'nstate' arguments allows the user to specify a
+specific number of states. The optional `commtag` allows the user to set the tag
+to use for communication with this `MPIStateArray`.
 """
-function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; commtag=888)
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
+                                      commtag=888)
   grid = disc.grid
   topology = disc.grid.topology
-  nvar = disc.nstate
   # FIXME: Remove after updating CUDA
   h_vgeo = Array(disc.grid.vgeo)
   DFloat = eltype(h_vgeo)
   Np = dofs_per_element(grid)
   DA = arraytype(grid)
-  MPIStateArray{Tuple{Np, nvar}, DFloat, DA}(topology.mpicomm,
-                                             length(topology.elems),
-                                             realelems=topology.realelems,
-                                             ghostelems=topology.ghostelems,
-                                             sendelems=topology.sendelems,
-                                             nabrtorank=topology.nabrtorank,
-                                             nabrtorecv=topology.nabrtorecv,
-                                             nabrtosend=topology.nabrtosend,
-                                             weights=view(h_vgeo, :,
-                                                          disc.grid.Mid, :),
-                                             commtag=commtag)
+  MPIStateArray{Tuple{Np, nstate}, DFloat, DA}(topology.mpicomm,
+                                               length(topology.elems),
+                                               realelems=topology.realelems,
+                                               ghostelems=topology.ghostelems,
+                                               sendelems=topology.sendelems,
+                                               nabrtorank=topology.nabrtorank,
+                                               nabrtorecv=topology.nabrtorecv,
+                                               nabrtosend=topology.nabrtosend,
+                                               weights=view(h_vgeo, :,
+                                                            disc.grid.Mid, :),
+                                               commtag=commtag)
 end
 
 """
@@ -746,6 +747,57 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
           elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
                            Dmat, topology.elems, id, idx, idy, idz))
+end
+
+"""
+    dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw,
+                   Q::MPIStateArray)
+
+Iterate over each dof to fill `R` using the `dof_fun!`. The syntax of the
+`dof_fun!` is
+```
+dof_fun!(l_R, l_Q, l_Qvisc, l_aux)
+```
+where `l_R`, `l_Q`, `l_Qvisc`, and `l_aux` are of type `MArray` filled initially
+with the values at a single degree of freedom. After the call the values in
+`l_R` will be written back to the degree of freedom of `R`.
+"""
+function dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw,
+                        Q::MPIStateArray)
+  grid = disc.grid
+  topology = grid.topology
+
+  @assert size(R)[end] == size(Q)[end] == size(disc.auxstate)[end]
+  @assert size(R)[1] == size(Q)[1] == size(disc.auxstate)[1]
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  Qvisc = disc.Qvisc
+  auxstate = disc.auxstate
+
+  nstate = size(Q, 2)
+  nviscstate = size(Qvisc, 2)
+  nauxstate = size(auxstate, 2)
+
+  nRstate = size(R, 2)
+
+  Dmat = grid.D
+  vgeo = grid.vgeo
+
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+  Np = Nq * Nq * Nqk
+
+  nrealelem = length(topology.realelems)
+
+  @launch(device, threads=(Np,), blocks=nrealelem,
+          knl_dof_iteration!(Val(dim), Val(N), Val(nRstate), Val(nstate),
+                             Val(nviscstate), Val(nauxstate), dof_fun!, R.Q,
+                             Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
 end
 
 end

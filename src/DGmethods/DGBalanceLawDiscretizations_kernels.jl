@@ -562,3 +562,59 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
     @synchronize
   end
 end
+
+"""
+    knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
+                       ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
+                       QV, auxstate, elems) where {dim, N, nRstate, nstate,
+                                                   nviscstate, nauxstate}
+
+Computational kernel: fill postprocessing array
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
+                            ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
+                            QV, auxstate, elems) where {dim, N, nRstate, nstate,
+                                                        nviscstate, nauxstate}
+  DFloat = eltype(R)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  nelem = size(auxstate)[end]
+
+  l_R = MArray{Tuple{nRstate}, DFloat}(undef)
+  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nRstate
+        l_R[s] = R[n, s, e]
+      end
+
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nviscstate
+        l_Qvisc[s] = QV[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+
+      dof_fun!(l_R, l_Q, l_Qvisc, l_aux)
+
+      @unroll for s = 1:nRstate
+        R[n, s, e] = l_R[s]
+      end
+    end
+  end
+end

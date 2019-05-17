@@ -278,13 +278,26 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     end
   end
 
+  npoststates = 5
+  _P, _u, _v, _w, _ρinv = 1:npoststates
+  postnames = ("P", "u", "v", "w", "ρinv")
+  postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+
   step = [0]
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
+    DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
+                                               Q) do R, Q, QV, aux
+      @inbounds let
+        (R[_P], R[_u], R[_v], R[_w], R[_ρinv]) = preflux(Q)
+      end
+    end
+
     outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
+    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames,
+                                         postprocessarray, postnames)
     step[1] += 1
     nothing
   end
