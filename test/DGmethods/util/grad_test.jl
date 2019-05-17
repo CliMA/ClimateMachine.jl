@@ -10,6 +10,7 @@ using Logging
   using CUDAdrv
   using CUDAnative
   using CuArrays
+  CuArrays.allowscalar(false)
   const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )

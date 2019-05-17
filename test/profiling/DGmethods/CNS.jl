@@ -1,5 +1,6 @@
 using CUDAnative
 using CuArrays
+CuArrays.allowscalar(false)
 try
   isdefined(NumericalFluxes, :rusanov!)
 catch
