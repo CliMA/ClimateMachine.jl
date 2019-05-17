@@ -1,5 +1,9 @@
 # ODESolvers
 
+```@meta
+CurrentModule = CLIMA
+```
+
 ## `LowStorageRungeKutta`
 
 ```@docs
@@ -18,4 +22,5 @@ GenericCallbacks.EveryXSimulationSteps
 
 ```@docs
 ODESolvers.solve!
+ODESolvers.gettime
 ```

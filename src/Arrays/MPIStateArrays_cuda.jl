@@ -40,7 +40,7 @@ function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray, d_sendelems)
   if nsendelem > 0
     @cuda(threads=Np, blocks=nsendelem,
           knl_fillsendbuf!(Val(Np), Val(nvar), d_sendbuf, d_buf, d_sendelems))
-    sendbuf .= d_sendbuf
+    copyto!(sendbuf, d_sendbuf)
   end
 end
 
@@ -49,7 +49,7 @@ function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf::CuArray, nrealelem
   Np = size(d_buf, 1)
   nvar = size(d_buf, 2)
   if nrecvelem > 0
-    d_recvbuf .= recvbuf
+    copyto!(d_recvbuf, recvbuf)
     @cuda(threads=Np, blocks=nrecvelem,
           knl_transferrecvbuf!(Val(Np), Val(nvar), d_buf, d_recvbuf,
                                nrecvelem, nrealelem))

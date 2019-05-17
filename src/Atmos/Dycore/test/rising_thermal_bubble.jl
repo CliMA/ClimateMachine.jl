@@ -49,9 +49,9 @@ function rising_thermal_bubble(x...; ntrace=0, nmoist=0, dim=3)
   # Calculation of energy per unit mass
   e_kin = (u^2 + v^2 + w^2) / 2  
   e_pot = gravity * x[dim]
-  e_int = MoistThermodynamics.internal_energy(T, 0.0, 0.0, 0.0)
+  e_int = MoistThermodynamics.internal_energy(T)
   # Total energy 
-  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T, 0.0, 0.0, 0.0)
+  E = ρ * MoistThermodynamics.total_energy(e_kin, e_pot, T)
   (ρ=ρ, U=U, V=V, W=W, E=E, Qmoist=(ρ * q_tot,)) 
 end
 
@@ -162,15 +162,12 @@ let
 
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
-  if MPI.Comm_rank(mpicomm) == 0
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-               ll == "WARN"  ? Logging.Warn  :
-               ll == "ERROR" ? Logging.Error : Logging.Info
-    global_logger(ConsoleLogger(stderr, loglevel))
-  else
-    global_logger(NullLogger())
-  end
+  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+  loglevel = ll == "DEBUG" ? Logging.Debug :
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
+  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+  global_logger(ConsoleLogger(logger_stream, loglevel))
 
   nmoist = 1
   ntrace = 0

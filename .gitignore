@@ -6,6 +6,7 @@
 deps/deps.jl
 docs/build/
 docs/site/
+docs/src/examples/
 src/**/Manifest.toml
 *.vtk
 *.dat
