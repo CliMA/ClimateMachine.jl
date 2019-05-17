@@ -34,6 +34,15 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+else
+  const ArrayTypes = (Array, )
+end
+
 const _nstate = 8
 const _ρ, _U, _W, _E, _qt, _ql, _qi, _qr = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Wid = _W, Eid = _E,
