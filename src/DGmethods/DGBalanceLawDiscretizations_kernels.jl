@@ -35,8 +35,6 @@ function volumerhs!(::Val{dim}, ::Val{N},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(Q)[end]
-
   s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
   s_D = @shmem DFloat (Nq, Nq)
   l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
@@ -255,7 +253,6 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(Q)[end]
   ngradtransformstate = length(states_grad)
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
@@ -489,8 +486,6 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
-
-  nelem = size(vgeo)[end]
 
   s_f = @shmem DFloat (Nq, Nq, Nqk)
   s_D = @shmem DFloat (Nq, Nq)
