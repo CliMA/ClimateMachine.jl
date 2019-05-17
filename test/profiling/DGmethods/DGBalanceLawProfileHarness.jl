@@ -1,5 +1,5 @@
 using GPUifyLoops
-include("DGBalanceLawDiscretizations_kernels.jl")
+include("../../src/DGmethods/DGBalanceLawDiscretizations_kernels.jl")
 using Random
 using StaticArrays
 

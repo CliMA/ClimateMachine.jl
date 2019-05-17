@@ -3,10 +3,10 @@ using CuArrays
 try
   isdefined(NumericalFluxes, :rusanov!)
 catch
-  include("../NumericalFluxes.jl")
+  include("../../src/DGmethods/NumericalFluxes.jl")
 end
 
-include("../DGBalanceLawProfileHarness.jl")
+include("DGBalanceLawProfileHarness.jl")
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
