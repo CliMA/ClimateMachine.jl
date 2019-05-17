@@ -43,6 +43,7 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+using CLIMA.Vtk
 using LinearAlgebra
 using Logging
 using Dates
@@ -256,7 +257,7 @@ let
   spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
   Q = MPIStateArray(spatialdiscretization, initialcondition!)
   filename = @sprintf("initialcondition_mpirank%04d", MPI.Comm_rank(mpicomm))
-  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+  writevtk(filename, Q, spatialdiscretization,
                                        ("q",))
 
   h = 1 / Ne
@@ -280,7 +281,7 @@ let
     vtk_step += 1
     filename = @sprintf("vtk/solid_body_rotation_mpirank%04d_step%04d",
                          MPI.Comm_rank(mpicomm), vtk_step)
-    DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+    writevtk(filename, Q, spatialdiscretization,
                                          ("q",))
     nothing
   end
@@ -288,7 +289,7 @@ let
   solve!(Q, lsrk; timeend = finaltime, callbacks = (cb_vtk, ))
 
   filename = @sprintf("finalsolution_mpirank%04d", MPI.Comm_rank(mpicomm))
-  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+  writevtk(filename, Q, spatialdiscretization,
                                        ("q",))
 
   # As with the initial condition, we need to catch the auxiliary state `uvec`

@@ -45,11 +45,13 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+using CLIMA.Vtk
 using LinearAlgebra
 using Logging
 using Dates
 using Printf
 using StaticArrays
+
 # Start up MPI if this has not already been done
 MPI.Initialized() || MPI.Init()
 #md nothing # hide
@@ -325,7 +327,7 @@ let
   # generated with the following command (the last `Tuple` gives strings for the
   # names of the state fields)
   filename = @sprintf("initialcondition_mpirank%04d", MPI.Comm_rank(mpicomm))
-  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+  writevtk(filename, Q, spatialdiscretization,
                                        ("q",))
   # Note: Currently the `writevtk` function writes one file for each MPI rank,
   # and the user is responsible for opening each of the files to "stitch"
@@ -360,7 +362,7 @@ let
   # The final solution can be visualized in a similar manner to the initial
   # condition
   filename = @sprintf("finalsolution_mpirank%04d", MPI.Comm_rank(mpicomm))
-  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+  writevtk(filename, Q, spatialdiscretization,
                                        ("q",))
 
   # Using the `finaltime` and `exactsolution!` we can calculate the exact
@@ -405,7 +407,7 @@ let
   spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
   Q = MPIStateArray(spatialdiscretization, initialcondition!)
   filename = @sprintf("initialcondition_mpirank%04d", MPI.Comm_rank(mpicomm))
-  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+  writevtk(filename, Q, spatialdiscretization,
                                        ("q",))
   h = 1 / Ne
   CFL = h / maximum(abs.(uvec[1:dim]))
@@ -445,7 +447,7 @@ let
     vtk_step += 1
     filename = @sprintf("vtk/advection_mpirank%04d_step%04d",
                          MPI.Comm_rank(mpicomm), vtk_step)
-    DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+    writevtk(filename, Q, spatialdiscretization,
                                          ("q",))
     nothing
   end
@@ -490,7 +492,7 @@ let
 
   # The remainder of the function is the same as above
   filename = @sprintf("finalsolution_mpirank%04d", MPI.Comm_rank(mpicomm))
-  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+  writevtk(filename, Q, spatialdiscretization,
                                        ("q",))
 
   Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z
