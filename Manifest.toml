@@ -89,6 +89,20 @@ git-tree-sha1 = "87aafc2c6bf6f58693c71900e41be7a5737e3434"
 uuid = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
 version = "0.9.1"
 
+[[Crayons]]
+deps = ["Test"]
+git-tree-sha1 = "f621b8ef51fd2004c7cf157ea47f027fdeac5523"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.0.0"
+
+[[Cthulhu]]
+deps = ["Crayons", "InteractiveUtils", "Requires", "TerminalMenus", "Unicode"]
+git-tree-sha1 = "5266a54bac5238f5310790f38b2f4c6c3c92b662"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaDebug/Cthulhu.jl"
+uuid = "f68482b8-f384-11e8-15f7-abe071a5a75f"
+version = "0.1.0"
+
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections", "Random", "Serialization", "Test"]
 git-tree-sha1 = "ca971f03e146cf144a9e2f2ce59674f5bf0e8038"
@@ -146,10 +160,10 @@ uuid = "78ddff82-25fc-5f2b-89aa-309469cbf16f"
 version = "0.14.0"
 
 [[DiffEqNoiseProcess]]
-deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "Random", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "ResettableStacks", "StaticArrays", "Statistics", "Test"]
-git-tree-sha1 = "328e3c1629059a7ad150801310cba831557c7e2e"
+deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "Random", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "ResettableStacks", "StaticArrays", "Statistics"]
+git-tree-sha1 = "9fdc9e76893565d5c03756893e92a79dc5a36c70"
 uuid = "77a26b50-5914-5dd7-bc55-306e6241c503"
-version = "3.1.0"
+version = "3.2.0"
 
 [[DiffEqOperators]]
 deps = ["DiffEqBase", "ForwardDiff", "LinearAlgebra", "SparseArrays", "StaticArrays", "SuiteSparse"]
@@ -404,9 +418,9 @@ version = "1.1.0"
 
 [[OrdinaryDiffEq]]
 deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqOperators", "ExponentialUtilities", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "RecursiveArrayTools", "Reexport", "StaticArrays"]
-git-tree-sha1 = "ba5dce61ef10d064301f90b866f0467497d521ee"
+git-tree-sha1 = "303576079177e7e2675b5597ccaf65fd9980d092"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.6.0"
+version = "5.6.1"
 
 [[PDMats]]
 deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
@@ -566,13 +580,13 @@ uuid = "9672c7b4-1e72-59bd-8a11-6ac3964bc41f"
 version = "1.4.0"
 
 [[StochasticDiffEq]]
-deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqNoiseProcess", "DiffEqOperators", "Distributed", "ForwardDiff", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "SparseArrays", "StaticArrays", "Test"]
-git-tree-sha1 = "af003918bf0ccc7a712b1c8b4d40df59bc76ca8d"
+deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqNoiseProcess", "DiffEqOperators", "ForwardDiff", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "StaticArrays"]
+git-tree-sha1 = "d95567a374f2d1e010bbc3cecf3b784f4ab4b4b7"
 uuid = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
-version = "6.1.1"
+version = "6.2.0"
 
 [[SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
+deps = ["Libdl", "LinearAlgebra", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[Sundials]]
@@ -586,6 +600,12 @@ deps = ["IteratorInterfaceExtensions"]
 git-tree-sha1 = "b1ad568ba658d8cbb3b892ed5380a6f3e781a81e"
 uuid = "3783bdb8-4a98-5b6b-af9a-565f29a5fe9c"
 version = "1.0.0"
+
+[[TerminalMenus]]
+deps = ["Compat", "REPL", "Test"]
+git-tree-sha1 = "9ae6ed0c94eee4d898e049820942af21daf15efc"
+uuid = "dc548174-15c3-5faf-af27-7997cfbde655"
+version = "0.1.0"
 
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]

@@ -34,6 +34,15 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+else
+  const ArrayTypes = (Array, )
+end
+
 const _nstate = 8
 const _ρ, _U, _W, _E, _qt, _ql, _qi, _qr = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Wid = _W, Eid = _E,
@@ -109,25 +118,24 @@ end
     ## 1) no sources
     ##S .= 0
 
-    ## 2) saturation adjustment (TODO overwrite ql, qi for output)
+    ## 2) saturation adjustment (TODO use Jeremys new aux output to set sat adj)
     #S .= 0
+    # TODO - this should all be in post-processing
     #e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
     #ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
     #Q[_ql] = PhasePartition(ts).liq
     #Q[_qi] = PhasePartition(ts).ice
 
-    # 3) saturation adjustment try 2
+    # 3) saturation adjustment + rain
 
     S .= 0
-
     e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
-
     ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
 
-    timescale::eltype(Q) = .5
+    timescale::eltype(Q) = .35
 
-    dqldt = (PhasePartition(ts).liq - ql) / timescale
-    dqidt = 0
+    #dqldt = (PhasePartition(ts).liq - ql) / timescale
+    #dqidt = 0
 
     #if x == 0 && z >= 750
     #  @printf("z = %4.2f  ql_old = %.8e  ql_new = %.8e  dqldt = %.8e \n", z, ql,  PhasePartition(ts).liq, dqldt)
@@ -136,10 +144,8 @@ end
     #  end
     #end
 
-    S[_ql] = dqldt
-    S[_qi] = dqidt
-
-    # 4) relaxation to equilibrium microphysics
+    #S[_ql] = dqldt
+    #S[_qi] = dqidt
 
     #TODO - should be using this function
     #dqldt, dqidt = qv2qli(pp, T, ρ, x, z, timescale)
@@ -149,8 +155,15 @@ end
     #  @printf("  ")
     #end
 
+    #TODO - output also terminal velocities
+
+    dqrdt = ql2qr(PhasePartition(ts), timescale)
+    S[_qr]  = dqrdt
+    #S[_ql] -= dqrdt
+    S[_qt] -= dqrdt
+
     # TODO add rain
-    # TODO add src to E
+    # TODO add src to E due to rain
 
   end
 end
@@ -169,6 +182,7 @@ eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
     F[1, _ql], F[2, _ql] = u * ql, w * ql
     F[1, _qi], F[2, _qi] = u * qi, w * qi
     F[1, _qr], F[2, _qr] = u * qr, (w + rain_w) * qr
+    #F[1, _qr], F[2, _qr] = u * qr, w * qr
     F[1, _E],  F[2, _E]  = u *  E, w * E
     # don't advect momentum (kinematic setup)
   end
@@ -226,7 +240,7 @@ end
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
               ArrayType, dt) where {dim}
 
-  ArrayType = CuArray
+  #ArrayType = CuArray
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -262,6 +276,8 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   DGBalanceLawDiscretizations.writevtk("initial_condition", Q, spacedisc, statenames)
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  @show(minimum(diff(collect(lsrk.RKC))) * dt )
+  @show(maximum(diff(collect(lsrk.RKC))) * dt )
 
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
@@ -289,7 +305,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   mkpath("vtk")
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
     #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
-    outprefix = @sprintf("vtk/single_eddy_sat_adj_%dD_mpirank%04d_step%04d",
+    outprefix = @sprintf("vtk/todo_relax_sat_adj_%dD_mpirank%04d_step%04d",
     #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
     #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
@@ -331,7 +347,7 @@ end
 
 using Test
 let
-  timeend = 15. * 60 # 5 minutes (should be 30 minutes)
+  timeend = 30. * 60 # (should be 30 minutes)
   numelem = (75, 75)
   lvls = 3
   dim = 2
