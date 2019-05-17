@@ -64,6 +64,10 @@ function ql2qr(q::PhasePartition, timescale::DT=DT(1), ql_0::DT=DT(1e-4)) where 
 
   dqrdt = max(DT(0), q.liq - ql_0) / timescale
 
+  #if dqrdt > q.liq
+  #  @show(q.liq, dqrdt)
+  #end
+
   return dqrdt
 end
 
@@ -83,8 +87,18 @@ Return rain terminal velocity.
 TODO - add citation
 """
 function terminal_velocity(qt::DT, qr::DT, ρ::DT, ρ_ground::DT) where {DT<:Real}
-    rr = q2r(qr, qt)
-    return DT(14.34) * ρ_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
+    rr  = q2r(qr, qt)
+    vel = 0
+
+    #if (rr < 0 && x < 750)
+    #  @show(rr)
+    #end
+
+    if (rr > 0) # TODO - assert positive definite elswhere
+      vel = DT(14.34) * ρ_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
+    end
+
+    return vel
 end
 
 """
