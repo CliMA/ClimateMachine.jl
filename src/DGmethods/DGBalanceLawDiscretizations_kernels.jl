@@ -433,33 +433,25 @@ See [`DGBalanceLaw`](@ref) for usage.
 function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
                        auxstate, vgeo, elems) where {dim, N, nauxstate}
 
-  # Should only be called in this case I think?
-  @assert nauxstate > 0
-
   DFloat = eltype(auxstate)
 
   Nq = N + 1
-
   Nqk = dim == 2 ? 1 : Nq
-
-  nelem = size(auxstate)[end]
-
-  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
+  Np = Nq * Nq * Nqk
 
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
-  @inbounds for e in elems
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      x, y, z = vgeo[i,j,k,_x,e], vgeo[i,j,k,_y,e], vgeo[i,j,k,_z,e]
-      for s = 1:nauxstate
-        l_aux[s] = auxstate[i, j, k, s, e]
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      x, y, z = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
       end
 
       auxstatefun!(l_aux, x, y, z)
 
-      for s = 1:nauxstate
-        auxstate[i, j, k, s, e] = l_aux[s]
+      @unroll for s = 1:nauxstate
+        auxstate[n, s, e] = l_aux[s]
       end
     end
   end
