@@ -273,6 +273,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = single_eddy!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
+
+  postnames = ("todo",)
+  npoststates = 1
+  _todo, = 1:npoststates
+  postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+
   DGBalanceLawDiscretizations.writevtk("initial_condition", Q, spacedisc, statenames)
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
@@ -303,15 +309,26 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   step = [0]
   mkpath("vtk")
+
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+
+    DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
+                                               Q) do R, Q, QV, aux
+      @inbounds let
+        ρ_ground::DFloat = 1 #TODO ρ[0]
+        R[_todo] = terminal_velocity(Q[_qt], Q[_qr], Q[_ρ], ρ_ground)
+      end
+    end
+
     #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
-    outprefix = @sprintf("vtk/todo_relax_sat_adj_%dD_mpirank%04d_step%04d",
+    outprefix = @sprintf("vtk/new_output_sat_adj_%dD_mpirank%04d_step%04d",
     #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
     #outprefix = @sprintf("vtk/single_eddy_no_source_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @printf(io, "----\n")
     @printf(io, "doing VTK output =  %s\n", outprefix)
-    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
+    DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames,
+                                              postprocessarray, postnames)
     step[1] += 1
     nothing
   end
