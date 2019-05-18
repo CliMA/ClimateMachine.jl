@@ -130,7 +130,7 @@ end
 
     S .= 0
     e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
-    ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
+    #ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
 
     timescale::eltype(Q) = .35
 
@@ -157,9 +157,9 @@ end
 
     #TODO - output also terminal velocities
 
-    dqrdt = ql2qr(PhasePartition(ts), timescale)
-    S[_qr]  = dqrdt
-    S[_qt] -= dqrdt
+    #dqrdt = ql2qr(PhasePartition(ts), timescale)
+    #S[_qr]  = dqrdt
+    #S[_qt] -= dqrdt
 
     # TODO add src to E due to rain
 
