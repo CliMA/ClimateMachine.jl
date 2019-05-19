@@ -30,6 +30,7 @@ using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
@@ -135,7 +136,7 @@ function advection_sphere!(Q, t, x, y, z, vel)
 end
 
 #{{{ Main
-function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
+function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
@@ -170,7 +171,13 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
   Qe = copy(Q)
 
   # Define Time-Integration Method
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  if ti_method == "LSRK"
+      TimeIntegrator = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  elseif ti_method == "SSP32"
+      TimeIntegrator = StrongStabilityPreservingRungeKutta32(spacedisc, Q; dt = dt, t0 = 0)
+  elseif ti_method == "SSP43"
+      TimeIntegrator = StrongStabilityPreservingRungeKutta43(spacedisc, Q; dt = dt, t0 = 0)
+  end
 
   #------------Set Callback Info--------------------------------#
   # Set up the information callback
@@ -183,7 +190,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
                      simtime = %.16e
                      runtime = %s
                      Δmass   = %.16e""",
-                     ODESolvers.gettime(lsrk),
+                     ODESolvers.gettime(TimeIntegrator),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
@@ -211,7 +218,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
   #------------Set Callback Info--------------------------------#
 
   # Perform Time-Integration
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbmass, cbvtk))
+  solve!(Q, TimeIntegrator; timeend=timeend, callbacks=(cbinfo, cbmass, cbvtk))
 
   # Print some end of the simulation information
   if integration_testing
@@ -236,10 +243,10 @@ end
 #}}} Main
 
 #{{{ Run Script
-function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ArrayType)
+function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, ArrayType)
   Rrange=range(DFloat(1); length=Nvertical+1, stop=2)
   topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
-  (error, Δmass) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
+  (error, Δmass) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
 end
 #}}} Run Script
 
@@ -261,7 +268,8 @@ let
   end
 
   # Perform Integration Testing for three different grid resolutions
-  if integration_testing
+    #=
+    if integration_testing
     timeend = 1
     numelem = (2, 2) #(Nhorizontal,Nvertical)
     N = 4
@@ -340,25 +348,22 @@ let
     end
   end
   # Perform Integration Testing for three different grid resolutions
+  =#
 
-  #=
   # This snippet of code allows one to run just one instance/configuration.
   # Before running this, Comment the Integration Testing block above
   DFloat = Float64
   N=4
   ArrayType = Array
   dt=1e-2*5 # stable dt for N=4 and Ne=5
-
+  ti_method = "SSP43" #LSRK or SSP
   timeend=1.0
   Nhorizontal = 2 # number of horizontal elements per face of cubed-sphere grid
   Nvertical = 2 # number of horizontal elements per face of cubed-sphere grid
   dt=dt/Nhorizontal
   nsteps = ceil(Int64, timeend / dt)
   dt = timeend / nsteps
-  (error, Δmass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt,
-                       ArrayType)
-  =#
-
+  (error, Δmass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, ArrayType)
 end # Test
 
 isinteractive() || MPI.Finalize()

@@ -14,6 +14,7 @@ include("DGmethods/SpaceMethods.jl")
 include("DGmethods/DGBalanceLawDiscretizations.jl")
 include("ODESolvers/ODESolvers.jl")
 include("ODESolvers/LowStorageRungeKuttaMethod.jl")
+include("ODESolvers/StrongStabilityPreservingRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
 
 

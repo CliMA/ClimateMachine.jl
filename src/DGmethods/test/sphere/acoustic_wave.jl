@@ -30,6 +30,7 @@ using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
@@ -103,21 +104,19 @@ end
         if bctype == 1 #no-flux
             #Store values at left of boundary ("-" values)
             ρM, UM, VM, WM, EM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E]
-            ϕM=auxM[_a_ϕ]
 
             #Scalars are the same on both sides of the boundary
-            ρP=ρM; PP=PM; ϕP=ϕM
+            ρP=ρM; EP=EM
             nx, ny, nz = nM[1], nM[2], nM[3]
 
             #reflect velocities
-            uN=nx*uM + ny*vM + nz*wM
-            uP=uM - 2*uN*nx
-            vP=vM - 2*uN*ny
-            wP=wM - 2*uN*nz
+            UN=nx*UM + ny*VM + nz*WM
+            UP=UM - 2*UN*nx
+            VP=VM - 2*UN*ny
+            WP=WM - 2*UN*nz
 
             #Construct QP state
-            QP[_ρ], QP[_U], QP[_V], QP[_W] = ρP, ρP*uP, ρP*vP, ρP*wP
-            QP[_E]= PP/(γ-1) + 0.5*ρP*( uP^2 + vP^2 + wP^2) + ρP*ϕP
+            QP[_ρ], QP[_U], QP[_V], QP[_W], QP[_E] = ρP, UP, VP, WP, EP
         end
     nothing
   end
@@ -278,7 +277,7 @@ function acoustic_wave!(Q, t, x, y, z, aux, _...)
 end
 
 #{{{ Main
-function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, nsimstep)
+function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method, nsimstep)
 
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
@@ -312,8 +311,12 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, nsimstep)
     #Store Initial Condition as Exact Solution
     Qe = copy(Q)
 
-    #Define Time-Integration Method
-    lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+    # Define Time-Integration Method
+    if ti_method == "LSRK"
+        TimeIntegrator = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+    elseif ti_method == "SSP"
+        TimeIntegrator = StrongStabilityPreservingRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+    end
 
     #------------Set Callback Info--------------------------------#
 #    nsimstep=10
@@ -341,7 +344,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, nsimstep)
         δW_max = %.16e
         δW_min = %.16e
         δE_max = %.16e
-        δE_min = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") abs(weightedsum(Q,_ρ) - weightedsum(Qe,_ρ)) / weightedsum(Qe,_ρ) abs(weightedsum(Q,_E) - weightedsum(Qe,_E)) / weightedsum(Qe,_E) δρ_max δρ_min δU_max δU_min δV_max δV_min δW_max δW_min δE_max δE_min
+        δE_min = %.16e""" ODESolvers.gettime(TimeIntegrator) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") abs(weightedsum(Q,_ρ) - weightedsum(Qe,_ρ)) / weightedsum(Qe,_ρ) abs(weightedsum(Q,_E) - weightedsum(Qe,_E)) / weightedsum(Qe,_E) δρ_max δρ_min δU_max δU_min δV_max δV_min δW_max δW_min δE_max δE_min
         nothing
     end
 
@@ -398,7 +401,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, nsimstep)
     #------------Set Callback Info--------------------------------#
 
     #Perform Time-Integration
-    solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+    solve!(Q, TimeIntegrator; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
     # Print some end of the simulation information
     if integration_testing
@@ -427,12 +430,12 @@ end
 #}}} Main
 
 #{{{ Run Script
-function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, nsimstep, ArrayType)
+function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, nsimstep, ArrayType)
     height_min=earth_radius
     height_max=earth_radius + ztop
     Rrange=range(DFloat(height_min); length=Nvertical+1, stop=height_max)
     topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
-    (error, Δmass, Δenergy) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, nsimstep)
+    (error, Δmass, Δenergy) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method, nsimstep)
 end
 #}}} Run Script
 
@@ -459,14 +462,16 @@ let
     N=4
     ArrayType = Array
     dt=1 #stable dt for N=4 and Nhorizontal=5
+    ti_method = "LSRK" #LSRK or SSP
     timeend=1000
     nsimstep=100
     Nhorizontal = 4 #number of horizontal elements per face of cubed-sphere grid
     Nvertical = 4 #number of horizontal elements per face of cubed-sphere grid
-#    dt=dt/Nhorizontal
+    #    dt=dt/Nhorizontal
+    @show(N,Nhorizontal,Nvertical,ti_method)
     nsteps = ceil(Int64, timeend / dt)
     dt = timeend / nsteps
-    (error, Δmass,  Δenergy) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, nsimstep, ArrayType)
+    (error, Δmass,  Δenergy) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, nsimstep, ArrayType)
 
 end #Test
 
