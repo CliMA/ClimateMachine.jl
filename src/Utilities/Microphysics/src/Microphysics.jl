@@ -29,25 +29,11 @@ and sublimation/resublimation (for qi)
 The source terms are obtained assuming a relaxation to equilibrum with a
 constant timescale. The timescale is an optional parameter.
 """
-#function qv2qli(q::PhasePartition, T::DT, ρ::DT, timescale::DT=DT(1)) where {DT<:Real} TODO
-function qv2qli(q::PhasePartition, T::DT, ρ::DT, x::DT, z::DT, timescale::DT=DT(1)) where {DT<:Real}
-    dqldt = - (
-        q.liq - liquid_fraction_equil(T) * saturation_excess(T, ρ, q)
-      ) / timescale
+function qv2qli(q_sa::PhasePartition, q::PhasePartition,
+                timescale::DT=DT(1)) where {DT<:Real}
 
-    dqidt = - (
-        q.ice - (DT(1) - liquid_fraction_equil(T)) * saturation_excess(T, ρ, q)
-      ) / timescale
-
-  #if q.liq != 0 && x ==0
-  #  if z > 1.3
-  #      @printf("z = %1.1f, q_l = %.16e, dqldt = %.16e \n",
-  #           z, q.liq, dqldt)
-  #  end
-  #  if z == 0
-  #      @printf("  \n")
-  #  end
-  #end
+    dqldt = (q_sa.liq - q.liq) / timescale
+    dqidt = (q_sa.ice - q.ice) / timescale
 
   return (dqldt, dqidt)
 end
@@ -60,13 +46,9 @@ Return the qr source term due to collisions between cloud droplets
 Contrary to the Kessler paper the process is not assumed to be instanteneous.
 The assumed timescale and autoconverion threshold ql_0 are optional parameters.
 """
-function ql2qr(q::PhasePartition, timescale::DT=DT(1), ql_0::DT=DT(1e-4)) where {DT<:Real}
+function ql2qr(ql::DT, timescale::DT=DT(1), ql_0::DT=DT(1e-4)) where {DT<:Real}
 
-  dqrdt = max(DT(0), q.liq - ql_0) / timescale
-
-  #if dqrdt > q.liq
-  #  @show(q.liq, dqrdt)
-  #end
+  dqrdt = max(DT(0), ql - ql_0) / timescale
 
   return dqrdt
 end
@@ -86,13 +68,10 @@ end
 Return rain terminal velocity.
 TODO - add citation
 """
-function terminal_velocity(qt::DT, qr::DT, ρ::DT, ρ_ground::DT) where {DT<:Real}
+function terminal_velocity(qt::DT, qr::DT, ρ::DT,
+                           ρ_ground::DT) where {DT<:Real}
     rr  = q2r(qr, qt)
     vel = 0
-
-    #if (rr < 0 && x < 750)
-    #  @show(rr)
-    #end
 
     if (rr > 0) # TODO - assert positive definite elswhere
       vel = DT(14.34) * ρ_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
