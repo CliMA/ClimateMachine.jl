@@ -31,7 +31,7 @@ end
   grid = Grids.Grid(0.0, 1.0, n_elems_real)
   f = [2, 2, 3]
   K = [1, 2, 1]
-  @test ∇_z(f, grid) ≈ (f[1] + f[3] - 2*f[2])*grid.dzi
+  @test ∇_z(f, grid) ≈ (f[3] - f[1])/(2*grid.dz)
   @test Δ_z(f, grid) ≈ (f[3] - 2*f[2] + f[1])*grid.dzi2
   @test Δ_z(f, grid, K) ≈ 150.0
   u = [2, 3, 4]

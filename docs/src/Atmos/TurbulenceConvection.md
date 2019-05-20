@@ -92,6 +92,93 @@ nothing # hide
 ```
 ![](T.svg)
 
+## Solving a diffusion equation Neumann BCs Top
+
+Here, we solve a simple diffusion equation
+
+``∂_t T = K ΔT, \qquad ∂_z T = 1 ∈ z_{min}, T = 0 ∈ z_{max}``
+
+using Explicit Euler with `StateVec` and `Grid` constructs.
+
+```@example Diffusion equation
+
+using CLIMA.TurbulenceConvection.Grids
+using CLIMA.TurbulenceConvection.GridOperators
+using CLIMA.TurbulenceConvection.BoundaryConditions
+using CLIMA.TurbulenceConvection.StateVecs
+using CLIMA.TurbulenceConvection.StateVecFuncs
+using Plots
+
+n_sd = 1 # number of sub-domains
+K = 1.0 # diffusion coefficient
+maxiter = 200 # time-step iterations
+Δt = 0.001 # time step
+
+grid = Grid(0.0, 1.0, 10)
+q = StateVec(((:T, n_sd),), grid)
+rhs = deepcopy(q)
+
+for i in 1:maxiter
+  for k in over_elems_real(grid)
+    rhs[:T, k] = K*Δ_z(q[:T, Cut(k)], grid)
+  end
+  for k in over_elems(grid)
+    q[:T, k] += Δt*rhs[:T, k]
+  end
+  q_flux = 1 # Leaving domain
+  q_bc = -q_flux/K
+  Neumann!(q, :T, q_bc, grid, Top())
+  Dirichlet!(q, :T, 0.0, grid, Bottom())
+end
+plot_state(q, grid, "./", "T_NeumannTop.svg", :T) # for visualizing
+nothing # hide
+```
+![](T_NeumannTop.svg)
+
+## Solving a diffusion equation Neumann BCs Bottom
+
+Here, we solve a simple diffusion equation
+
+``∂_t T = K ΔT, \qquad ∂_z T = 1 ∈ z_{min}, T = 0 ∈ z_{max}``
+
+using Explicit Euler with `StateVec` and `Grid` constructs.
+
+```@example Diffusion equation
+
+using CLIMA.TurbulenceConvection.Grids
+using CLIMA.TurbulenceConvection.GridOperators
+using CLIMA.TurbulenceConvection.BoundaryConditions
+using CLIMA.TurbulenceConvection.StateVecs
+using CLIMA.TurbulenceConvection.StateVecFuncs
+using Plots
+
+n_sd = 1 # number of sub-domains
+K = 1.0 # diffusion coefficient
+maxiter = 200 # time-step iterations
+Δt = 0.001 # time step
+
+grid = Grid(0.0, 1.0, 10)
+q = StateVec(((:T, n_sd),), grid)
+rhs = deepcopy(q)
+
+for i in 1:maxiter
+  for k in over_elems_real(grid)
+    rhs[:T, k] = K*Δ_z(q[:T, Cut(k)], grid)
+  end
+  for k in over_elems(grid)
+    q[:T, k] += Δt*rhs[:T, k]
+  end
+  Dirichlet!(q, :T, 0.0, grid, Top())
+
+  q_flux = 1 # Entering domain
+  q_bc = -q_flux/K
+  Dirichlet!(q, :T, q_bc, grid, Bottom())
+end
+plot_state(q, grid, "./", "T_NeumannBot.svg", :T) # for visualizing
+nothing # hide
+```
+![](T_NeumannBot.svg)
+
 ## Solving a variable coefficient diffusion equation
 
 Here, we solve a variable coefficient diffusion equation
@@ -193,3 +280,57 @@ nothing # hide
 ```
 ![](u_initial.svg)
 ![](u_final.svg)
+
+## Solving a non-linear advection equation conservative form
+
+Here, we solve a non-linear advection equation
+
+``∂_t u + ∇•(uu) = 0, \qquad u = 0 ∈ ∂Ω``
+
+``u(t=0) = Gaussian(σ, μ)``
+
+using Explicit Euler method.
+
+```@example Diffusion equation
+
+using CLIMA.TurbulenceConvection.Grids
+using CLIMA.TurbulenceConvection.GridOperators
+using CLIMA.TurbulenceConvection.BoundaryConditions
+using CLIMA.TurbulenceConvection.StateVecs
+using CLIMA.TurbulenceConvection.StateVecFuncs
+using Plots
+
+n_sd = 1 # number of sub-domains
+maxiter = 400 # time-step iterations
+Δt = 0.00001 # time step
+
+grid = Grid(0.0, 1.0, 200)
+unknowns = ( (:u, n_sd), )
+vars = ( (:u_initial, n_sd), )
+q = StateVec(unknowns, grid)
+tmp = StateVec(vars, grid)
+rhs = deepcopy(q)
+
+σ, μ, c = .05, 0.3, 1.0
+T = maxiter*Δt
+ic(z) = 1/(σ*sqrt(2*π))*exp(-1/2*((z-μ)/σ)^2)
+for k in over_elems_real(grid)
+  tmp[:u_initial, k] = ic(get_z(grid, k))
+  q[:u, k] = tmp[:u_initial, k]
+end
+plot_state(tmp, grid, "./", "u_initialNonLinear.svg", :u_initial) # for visualizing
+for i in 1:maxiter
+  for k in over_elems_real(grid)
+    rhs[:u, k] = - adv_upwind_conservative(q[:u, Cut(k)], q[:u, Cut(k)], grid)
+  end
+  for k in over_elems(grid)
+    q[:u, k] += Δt*rhs[:u, k]
+  end
+  Dirichlet!(q, :u, 0.0, grid, Top())
+  Dirichlet!(q, :u, 0.0, grid, Bottom())
+end
+plot_state(q, grid, "./", "u_finalNonLinear.svg", :u) # for visualizing
+nothing # hide
+```
+![](u_initialNonLinear.svg)
+![](u_finalNonLinear.svg)

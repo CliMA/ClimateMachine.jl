@@ -57,10 +57,10 @@ Note that `domain_average!` is the inverse function of `distribute!`.
 """
 function domain_average!(dst::StateVec, src::StateVec, weight::StateVec,
                          dst_idxs, src_idxs, weight_idx, grid::Grid)
-  for k in over_elems(grid)
-    for (dst_idx, src_idx) in zip(dst_idxs, src_idxs)
+  @inbounds for k in over_elems(grid)
+    @inbounds for (dst_idx, src_idx) in zip(dst_idxs, src_idxs)
       dst[dst_idx, k] = 0
-      for i in over_sub_domains(src)
+      @inbounds for i in over_sub_domains(src)
         dst[dst_idx, k] += src[src_idx, k, i]*weight[weight_idx, k, i]
       end
     end
@@ -84,8 +84,8 @@ across multiple sub-domains.
 Note that `distribute!` is the inverse function of `domain_average!`.
 """
 function distribute!(dst::StateVec, src::StateVec, dst_idxs, src_idxs, grid::Grid)
-  for k in over_elems(grid), i in over_sub_domains(dst)
-    for (dst_idx, src_idx) in zip(dst_idxs, src_idxs)
+  @inbounds for k in over_elems(grid), i in over_sub_domains(dst)
+    @inbounds for (dst_idx, src_idx) in zip(dst_idxs, src_idxs)
       dst[dst_idx, k, i] = src[src_idx, k]
     end
   end
@@ -117,12 +117,12 @@ sub-domains, which are weighted by area fractions ``a_i``.
 """
 function total_covariance!(dst::StateVec, src::StateVec, cv::StateVec, weights::StateVec,
                            dst_idxs, cv_idxs, weight_idx, grid::Grid, decompose_ϕ_ψ::Function)
-  for k in over_elems(grid), (dst_idx, cv_idx) in zip(dst_idxs, cv_idxs)
+  @inbounds for k in over_elems(grid), (dst_idx, cv_idx) in zip(dst_idxs, cv_idxs)
     _ϕ, _ψ = decompose_ϕ_ψ(cv_idx)
     dst[dst_idx, k] = 0
-    for i in over_sub_domains(weights)
+    @inbounds for i in over_sub_domains(weights)
       dst[dst_idx, k] += weights[weight_idx, k, i]*cv[cv_idx, k, i]
-      for j in over_sub_domains(src)
+      @inbounds for j in over_sub_domains(src)
         dst[dst_idx, k] += weights[weight_idx, k, i]*
                            weights[weight_idx, k, j]*
                            src[_ϕ, k, i]*(src[_ψ, k, i] - src[_ψ, k, j])
@@ -187,11 +187,11 @@ function integrate_ode!(sv::StateVec,
                         i_sd::Int = 1)
   k = first_elem_above_surface(grid)
   sv[name, k-1, i_sd] = 0
-  for k in over_elems_real(grid)
+  @inbounds for k in over_elems_real(grid)
     f = func(get_z(grid, k), args)
     sv[name, k, i_sd] = sv[name, k-1, i_sd] + grid.dz * f
   end
-  for k in over_elems_real(grid)
+  @inbounds for k in over_elems_real(grid)
     sv[name, k, i_sd] += y_0
   end
   assign_ghost!(sv, name, 0.0, grid, i_sd)
@@ -267,11 +267,11 @@ function export_state(sv::StateVec, grid::Grid, dir, filename, ::UseVTK)
   fields = ((headers[i], data[:,i]) for i in 1:n_vars)
   points = [1, length(domain)]
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, n_elem)
-  for k in domain
+  @inbounds for k in domain
     cells[k] = MeshCell(VTKCellTypes.VTK_LINE, [k, k+1])
   end
   vtkfile = vtk_grid("$(filename)", z, cells; compress=false)
-  for (name, v) in fields
+  @inbounds for (name, v) in fields
     vtk_point_data(vtkfile, v, name)
   end
   outfiles = vtk_save(vtkfile)
@@ -302,13 +302,13 @@ function plot_state(sv::StateVec,
                     filename::AbstractString,
                     name_idx::Symbol = nothing,
                     i_sd = 1,
-                    include_ghost = false,
+                    include_ghost = true,
                     xlims::Union{Nothing, Tuple{R, R}} = nothing,
                     ylims::Union{Nothing, Tuple{R, R}} = nothing
                     ) where R
   if name_idx == nothing
     domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
-    for name_idx in sv.var_names
+    @inbounds for name_idx in sv.var_names
       x = [grid.z[k] for k in domain_range]
       y = [sv[name_idx, k, i_sd] for k in domain_range]
       plot(y, x)
@@ -317,7 +317,7 @@ function plot_state(sv::StateVec,
     if xlims != nothing; plot!(xlims = xlims); end
     if ylims != nothing; plot!(ylims = xlims); end
   else
-    x_name = string(name_idx)
+    x_name = filename
     domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
     x = [grid.z[k] for k in domain_range]
     y = [sv[name_idx, k, i_sd] for k in domain_range]

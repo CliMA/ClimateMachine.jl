@@ -6,7 +6,7 @@ operator functions.
 """
 module GridOperators
 
-export ∇_z, Δ_z, adv_upwind
+export ∇_z, Δ_z, adv_upwind, adv_upwind_conservative, upwind_conservative
 using ..Grids
 
 """
@@ -15,7 +15,7 @@ using ..Grids
 Computes the local derivative of field ``f``:
 ``∇f``
 """
-∇_z(f, grid::Grid) = (f[1] + f[3] - 2*f[2])*grid.dzi
+∇_z(f, grid::Grid) = (f[3] - f[1])/(2*grid.dz)
 
 """
     Δ_z(f, grid::Grid)
@@ -39,12 +39,45 @@ function Δ_z(f, grid::Grid, K)
 end
 
 """
-    adv_upwind(ϕ, u, grid::Grid)
+    adv_upwind(ϕ, w, grid::Grid)
 
-Local upwind advection operator ``u • ∇ϕ``. This
+Local upwind advection operator ``w • ∇ϕ``. This
 operator is stable but numerically diffusive.
 """
-adv_upwind(ϕ, u, grid::Grid) = u[2] > 0 ? u[ 2 ]*(ϕ[2] - ϕ[1]) * grid.dzi :
-                                          u[ 2 ]*(ϕ[3] - ϕ[2]) * grid.dzi
+function adv_upwind(ϕ, w, grid::Grid)
+  if w[2] > 0
+    return w[ 2 ]*(ϕ[2] - ϕ[1]) * grid.dzi
+  else
+    return w[ 2 ]*(ϕ[3] - ϕ[2]) * grid.dzi
+  end
+end
+
+"""
+    adv_upwind_conservative(ϕ, w, grid::Grid)
+
+Local upwind advection operator ``∇ • (wϕ)``. This
+operator is stable but numerically diffusive.
+"""
+function adv_upwind_conservative(ϕ, w, grid::Grid)
+  w_dual = [(w[1]+w[2])/2,
+            (w[2]+w[3])/2]
+  g_dual = [w_dual[1] > 0 ? ϕ[1] : ϕ[2],
+            w_dual[2] > 0 ? ϕ[2] : ϕ[3]]
+  return (w_dual[2]*g_dual[2] - w_dual[1]*g_dual[1]) * grid.dzi
+end
+
+"""
+    upwind_conservative(ϕ, w, grid::Grid)
+
+Local upwind gradient operator ``∇ϕ``. This
+operator is stable but numerically diffusive.
+"""
+function upwind_conservative(ϕ, w, grid::Grid)
+  w_dual = [(w[1]+w[2])/2,
+            (w[2]+w[3])/2]
+  g_dual = [w_dual[1] > 0 ? ϕ[1] : ϕ[2],
+            w_dual[2] > 0 ? ϕ[2] : ϕ[3]]
+  return (g_dual[2] - g_dual[1]) * grid.dzi
+end
 
 end
