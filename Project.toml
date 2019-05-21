@@ -4,10 +4,8 @@ authors = ["Climate Modeling Alliance"]
 version = "0.1.0"
 
 [deps]
-CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
 Canary = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
 Coverage = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
-CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
@@ -30,3 +28,6 @@ WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 [extras]
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Pkg", "Test"]
