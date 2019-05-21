@@ -28,6 +28,7 @@ using Random
   using CUDAdrv
   using CUDAnative
   using CuArrays
+  CuArrays.allowscalar(false)
   const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )
@@ -39,12 +40,12 @@ const stateid = (qid = _q, pid = _p)
 const statenames = ("q", "p")
 
 const _nauxstate = 3
-# use a random velocity field
 @inline function velocity_initialization!(vel, x, y, z)
   @inbounds begin
-    vel[1] = rand()
-    vel[2] = rand()
-    vel[3] = rand()
+    r = x^2 + y^2 + z^2
+    vel[1] = cos(10*π*x) * sin(10*π*y) + cos(20 * π * z)
+    vel[2] = exp(sin(π*r))
+    vel[3] = sin(π * (x + y + z))
   end
 end
 
@@ -65,7 +66,6 @@ end
     unM = nM[1] * uM + nM[2] * vM + nM[3] * wM
     uP, vP, wP = velP[1], velP[2], velP[3]
     unP = nM[1] * uP + nM[2] * vP + nM[3] * wP
-    # since the velocity field is random we average here the two sides
     un = (unP + unM) / 2
 
     if un > 0

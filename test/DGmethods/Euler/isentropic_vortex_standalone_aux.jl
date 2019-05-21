@@ -34,6 +34,7 @@ using CLIMA.Vtk
   using CUDAdrv
   using CUDAnative
   using CuArrays
+  CuArrays.allowscalar(false)
   const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
   const ArrayTypes = (Array, )
@@ -71,7 +72,8 @@ end
 end
 
 @inline function auxiliary_state_initialization!(aux, x, y, z)
-  @inbounds aux[1], aux[2], aux[3] = rand(), rand(), rand()
+  r2 = x^2 + y^2 + z^2
+  @inbounds aux[1], aux[2], aux[3] = cos(π * x), sin(π * y), cos(π * r2)
 end
 
 # max eigenvalue
@@ -257,12 +259,12 @@ let
     polynomialorder = 4
 
     expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_error[1,1] = 5.7115689019456650e-01
-    expected_error[1,2] = 6.9418982796517287e-02
-    expected_error[1,3] = 3.2927550219067365e-03
-    expected_error[2,1] = 1.8061566743070270e+00
-    expected_error[2,2] = 2.1952209848917140e-01
-    expected_error[2,3] = 1.0412605646156937e-02
+    expected_error[1,1] = 5.7115689019456284e-01
+    expected_error[1,2] = 6.9418982796501105e-02
+    expected_error[1,3] = 3.2927550219120443e-03
+    expected_error[2,1] = 1.8061566743070017e+00
+    expected_error[2,2] = 2.1952209848914694e-01
+    expected_error[2,3] = 1.0412605646170595e-02
     lvls = size(expected_error, 2)
 
     for ArrayType in ArrayTypes
@@ -298,10 +300,10 @@ let
     polynomialorder = 4
 
     check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    check_engf_eng0[2, 1, Float64] = 9.9999784637552236e-01
-    check_engf_eng0[3, 1, Float64] = 9.9999657640450179e-01
-    check_engf_eng0[2, 3, Float64] = 9.9999927972044056e-01
-    check_engf_eng0[3, 3, Float64] = 9.9999661971173426e-01
+    check_engf_eng0[2, 1, Float64] = 9.9999889893859584e-01
+    check_engf_eng0[3, 1, Float64] = 9.9999669139386949e-01
+    check_engf_eng0[2, 3, Float64] = 9.9999933683840259e-01
+    check_engf_eng0[3, 3, Float64] = 9.9999717798502208e-01
 
     for ArrayType in ArrayTypes
       for DFloat in (Float64,) #Float32)
