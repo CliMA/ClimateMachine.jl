@@ -6,10 +6,6 @@
 module StateVecFuncs
 
 using Requires
-@init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
-  using .Plots
-  export plot_state
-end
 
 using DelimitedFiles, WriteVTK, ..Grids, ..StateVecs
 export surface_val, first_elem_above_surface_val
@@ -279,55 +275,58 @@ end
 
 @init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
 
-"""
-    plot_state(sv::StateVec,
-                    grid::Grid,
-                    name_idx::Symbol = nothing,
-                    directory::AbstractString,
-                    filename::AbstractString,
-                    i_sd = 1,
-                    include_ghost = false,
-                    xlims::Union{Nothing, Tuple{R, R}} = nothing,
-                    ylims::Union{Nothing, Tuple{R, R}} = nothing
-                    ) where R
+  using .Plots
+  export plot_state
 
-Save the plot variable along the z-direction in `StateVec` given the
-grid, `grid`, variable name `name_idx`, directory `directory`,
-filename `filename`, sub-domain `i_sd`, and a `Bool`, `include_ghost`,
-indicating to include include or exclude the ghost points.
-"""
-function plot_state(sv::StateVec,
-                    grid::Grid,
-                    directory::AbstractString,
-                    filename::AbstractString,
-                    name_idx::Symbol = nothing,
-                    i_sd = 1,
-                    include_ghost = true,
-                    xlims::Union{Nothing, Tuple{R, R}} = nothing,
-                    ylims::Union{Nothing, Tuple{R, R}} = nothing
-                    ) where R
-  if name_idx == nothing
-    domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
-    @inbounds for name_idx in sv.var_names
+  """
+      plot_state(sv::StateVec,
+                      grid::Grid,
+                      name_idx::Symbol = nothing,
+                      directory::AbstractString,
+                      filename::AbstractString,
+                      i_sd = 1,
+                      include_ghost = false,
+                      xlims::Union{Nothing, Tuple{R, R}} = nothing,
+                      ylims::Union{Nothing, Tuple{R, R}} = nothing
+                      ) where R
+
+  Save the plot variable along the z-direction in `StateVec` given the
+  grid, `grid`, variable name `name_idx`, directory `directory`,
+  filename `filename`, sub-domain `i_sd`, and a `Bool`, `include_ghost`,
+  indicating to include include or exclude the ghost points.
+  """
+  function plot_state(sv::StateVec,
+                      grid::Grid,
+                      directory::AbstractString,
+                      filename::AbstractString,
+                      name_idx::Symbol = nothing,
+                      i_sd = 1,
+                      include_ghost = true,
+                      xlims::Union{Nothing, Tuple{R, R}} = nothing,
+                      ylims::Union{Nothing, Tuple{R, R}} = nothing
+                      ) where R
+    if name_idx == nothing
+      domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
+      @inbounds for name_idx in sv.var_names
+        x = [grid.z[k] for k in domain_range]
+        y = [sv[name_idx, k, i_sd] for k in domain_range]
+        plot(y, x)
+      end
+      plot!(title = "state vector vs z", xlabel = "state vector", ylabel = "z")
+      if xlims != nothing; plot!(xlims = xlims); end
+      if ylims != nothing; plot!(ylims = xlims); end
+    else
+      x_name = filename
+      domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
       x = [grid.z[k] for k in domain_range]
       y = [sv[name_idx, k, i_sd] for k in domain_range]
       plot(y, x)
+      plot!(title = x_name * " vs z", xlabel = x_name, ylabel = "z")
+      if xlims != nothing; plot!(xlims = xlims); end
+      if ylims != nothing; plot!(ylims = xlims); end
     end
-    plot!(title = "state vector vs z", xlabel = "state vector", ylabel = "z")
-    if xlims != nothing; plot!(xlims = xlims); end
-    if ylims != nothing; plot!(ylims = xlims); end
-  else
-    x_name = filename
-    domain_range = include_ghost ? over_elems(grid) : over_elems_real(grid)
-    x = [grid.z[k] for k in domain_range]
-    y = [sv[name_idx, k, i_sd] for k in domain_range]
-    plot(y, x)
-    plot!(title = x_name * " vs z", xlabel = x_name, ylabel = "z")
-    if xlims != nothing; plot!(xlims = xlims); end
-    if ylims != nothing; plot!(ylims = xlims); end
+    savefig(joinpath(directory, filename))
   end
-  savefig(joinpath(directory, filename))
-end
 
 end
 
