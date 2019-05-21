@@ -324,6 +324,7 @@ end
 
 function run(dim, Ne, N, timeend, DFloat)
   ArrayType = CuArray
+  #ArrayType = Array
 
   MPI.Initialized() || MPI.Init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
