@@ -1,4 +1,5 @@
 using MPI
+using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
@@ -6,7 +7,7 @@ using Printf
 using LinearAlgebra
 using Logging
 
-@static if Base.find_package("CuArrays") !== nothing
+@static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
   using CuArrays
@@ -71,7 +72,7 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if Base.find_package("CUDAnative") !== nothing
+  @static if haspkg("CUDAnative")
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
