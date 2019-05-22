@@ -77,6 +77,9 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   "1-D derivative operator on the device"
   D::DAT2
 
+  "1-D indefinite integral operator on the device"
+  Imat::DAT2
+
   function DiscontinuousSpectralElementGrid(topology::AbstractTopology{dim};
                                             FloatType = nothing,
                                             DeviceArray = nothing,
@@ -89,6 +92,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
 
     N = polynomialorder
     (ξ, ω) = Canary.lglpoints(FloatType, N)
+    Imat = indefinite_integral_interpolation_matrix(ξ, ω)
     D = Canary.spectralderivative(ξ)
 
     (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
@@ -106,6 +110,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      vmapP = DeviceArray(vmapP)
      sendelems = DeviceArray(topology.sendelems)
      D = DeviceArray(D)
+     Imat = DeviceArray(Imat)
 
      # FIXME: There has got to be a better way!
      DAT2 = typeof(D)
@@ -118,7 +123,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
 
     new{FloatType, dim, N, Np, DeviceArray, DAT2, DAT3, DAT4, DAI1, DAI2, DAI3,
         TOP
-       }(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems, D)
+       }(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems, D, Imat)
   end
 end
 
@@ -256,6 +261,60 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
     error("dim $dim not implemented")
   end
   (vgeo, sgeo)
+end
+# }}}
+
+# {{{ indefinite integral matrix
+"""
+    indefinite_integral_interpolation_matrix(r, ω)
+
+Given a set of integration points `r` and integration weights `ω` this computes
+a matrix that will compute the indefinite integral of the (interpolant) of a
+function and evaluate the indefinite integral at the points `r`.
+
+Namely, let
+```math
+    q(ξ) = ∫_{ξ_{0}}^{ξ} f(ξ') dξ'
+```
+then we have that
+```
+I∫ * f.(r) = q.(r)
+```
+where `I∫` is the integration and interpolation matrix defined by this function.
+
+!!! note
+
+    The integration is done using the provided quadrature weight, so if these
+    cannot integrate `f(ξ)` exactly, `f` is first interpolated and then
+    integrated using quadrature. Namely, we have that:
+    ```math
+        q(ξ) = ∫_{ξ_{0}}^{ξ} I(f(ξ')) dξ'
+    ```
+    where `I` is the interpolation operator.
+
+"""
+function indefinite_integral_interpolation_matrix(r, ω)
+  Nq = length(r)
+
+  I∫ = similar(r, Nq, Nq)
+  # first value is zero
+  I∫[1, :] .= 0
+
+  # barycentric weights for interpolation
+  wbary = Canary.baryweights(r)
+
+  # Compute the interpolant of the indefinite integral
+  for n = 2:Nq
+    # grid from first dof to current point
+    rdst = (1 .- r)/2 * r[1] + (1 .+ r)/2 * r[n]
+    # interpolation matrix
+    In = Canary.interpolationmatrix(r, rdst, wbary)
+    # scaling from LGL to current of the interval
+    Δ = (r[n] -  r[1]) / 2
+    # row of the matrix we have computed
+    I∫[n, :] .= (Δ * ω' * In)[:]
+  end
+  I∫
 end
 # }}}
 
