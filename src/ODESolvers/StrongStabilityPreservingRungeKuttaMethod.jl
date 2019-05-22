@@ -117,7 +117,7 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
 end
 
 # {{{ Update solution (for all dimensions)
-function update!(::Val{nstates}, ::Val{Np}, rhs, Q0, Q, elems, rka, rkb, dt) where {nstates, Np, T}
+function update!(::Val{nstates}, ::Val{Np}, rhs::Array{T,3}, Q0, Q, elems, rka, rkb, dt) where {nstates, Np, T}
     @inbounds for e = elems, s = 1:nstates, i = 1:Np
         Q[i, s, e] = rka[1]*Q0[i, s, e] + rka[2]*Q[i, s, e] + dt*rkb*rhs[i, s, e]
     end

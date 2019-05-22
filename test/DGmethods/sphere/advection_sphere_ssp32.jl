@@ -330,7 +330,7 @@ let
         numproc=MPI.Comm_size(mpicomm)
 
         expected_error = Array{Float64}(undef, 2)
-        expected_error[1] = 2.1364893340232546e-022
+        expected_error[1] = 2.1364893340232546e-02
         expected_error[2] = 2.1364893340232546e-02
         expected_mass = Array{Float64}(undef, 2)
         expected_mass[1] = 3.8810027407057198e-15
