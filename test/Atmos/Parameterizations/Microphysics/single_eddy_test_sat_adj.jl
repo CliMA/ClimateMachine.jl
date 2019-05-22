@@ -62,7 +62,6 @@ end
 # boundary condition
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, wM)
   @inbounds begin
-
     UM, WM, EM = QM[_U],  QM[_W],  QM[_E]
     qtM        = QM[_qt]
 
@@ -113,7 +112,7 @@ const w_max = .6    # m/s
 const Z_max = 1500. # m
 const X_max = 1500. # m
 
-function single_eddy!(Q, t, x, z, _...)
+@inline function single_eddy!(Q, t, x, z, _...)
   DFloat = eltype(Q)
 
   # initial condition

@@ -334,7 +334,7 @@ function run(dim, Ne, N, timeend, DFloat)
   brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=Z_max), 2)
 
   topl = BrickTopology(mpicomm, brickrange, periodicity=(true, false))
-  dt = .1
+  dt = 1
 
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 

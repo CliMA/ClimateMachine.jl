@@ -71,7 +71,7 @@ TODO - add citation
 function terminal_velocity(qt::DT, qr::DT, ρ::DT,
                            ρ_ground::DT) where {DT<:Real}
     rr  = q2r(qr, qt)
-    vel = 0
+    vel::DT = 0
 
     if (rr > 0) # TODO - assert positive definite elswhere
       vel = DT(14.34) * ρ_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
