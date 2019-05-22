@@ -17,14 +17,16 @@ dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
 arraytype(::AbstractGrid{T, D, N, Np, DA}) where {T, D, N, Np, DA} = DA
 
 # {{{
-const _nvgeo = 14
+const _nvgeo = 15
 const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-       _x, _y, _z = 1:_nvgeo
+       _x, _y, _z, _JcV = 1:_nvgeo
 const vgeoid = (ξxid = _ξx, ηxid = _ηx, ζxid = _ζx,
                 ξyid = _ξy, ηyid = _ηy, ζyid = _ζy,
                 ξzid = _ξz, ηzid = _ηz, ζzid = _ζz,
                 Mid  = _M , MIid = _MI,
-                xid  = _x , yid  = _y , zid  = _z)
+                xid  = _x , yid  = _y , zid  = _z,
+                JcVid = _JcV)
+# JcV is the vertical line integral Jacobian
 
 const _nsgeo = 5
 const _nx, _ny, _nz, _sM, _vMI = 1:_nsgeo
@@ -205,7 +207,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   vgeo = zeros(DFloat, Nq^dim, _nvgeo, nelem)
   sgeo = zeros(DFloat, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z) =
+  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z, JcV) =
       ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
   J = similar(x)
   (nx, ny, nz, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
@@ -236,6 +238,23 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
   sMJ .= sM .* sJ
 
+  # Compute |r'(ζ)| for vertical line integrals
+  if dim == 2
+    map!(JcV, J, ξx, ξy) do J, ξx, ξy
+      xη = J * ξy
+      yη = J * ξx
+      hypot(xη, yη)
+    end
+  elseif dim == 3
+    map!(JcV, J, ξx, ξy, ξz, ηx, ηy, ηz) do J, ξx, ξy, ξz, ηx, ηy, ηz
+      xζ = J * (ξy * ηz - ηy * ξz)
+      yζ = J * (ξz * ηx - ηz * ξx)
+      zζ = J * (ξx * ηy - ηx * ξy)
+      hypot(xζ, yζ, zζ)
+    end
+  else
+    error("dim $dim not implemented")
+  end
   (vgeo, sgeo)
 end
 # }}}
