@@ -485,7 +485,7 @@ end
 function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, nsimstep, ArrayType)
     height_min=earth_radius
     height_max=earth_radius + ztop
-    Rrange=range(DFloat(height_min); length=Nvertical+1, stop=height_max)
+    Rrange=range(DFloat(height_min); length=Nhorizontal+1, stop=height_max)
     topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
     (error, Δmass, Δenergy) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, nsimstep)
 end
@@ -498,14 +498,14 @@ let
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm=MPI.COMM_WORLD
 
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-    global_logger(ConsoleLogger(logger_stream, loglevel))
-    @static if Base.find_package("CUDAnative") !== nothing
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
+    if MPI.Comm_rank(mpicomm) == 0
+        ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+        loglevel = ll == "DEBUG" ? Logging.Debug :
+        ll == "WARN"  ? Logging.Warn  :
+        ll == "ERROR" ? Logging.Error : Logging.Info
+        global_logger(ConsoleLogger(stderr, loglevel))
+    else
+        global_logger(NullLogger())
     end
 
     #This snippet of code allows one to run just one instance/configuration. Before running this, Comment the Integration Testing block above

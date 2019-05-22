@@ -18,8 +18,8 @@
 #--------------------------------#
 #--------------------------------#
 # Can be run with:
-# Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=true mpirun -n 1 julia --project=@. advection_sphere_lsrk.jl
-# No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 2 julia --project=@. advection_sphere_lsrk.jl
+# Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=true mpirun -n 1 julia --project=@. advection_sphere_ssp43.jl
+# No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 2 julia --project=@. advection_sphere_ssp43.jl
 #--------------------------------#
 #--------------------------------#
 
@@ -268,7 +268,7 @@ let
     end
 
     # Perform Integration Testing for three different grid resolutions
-    ti_method = "LSRK" #LSRK or SSP
+    ti_method = "SSP43" #LSRK or SSP
     if integration_testing
         timeend = 1
         numelem = (2, 2) #(Nhorizontal,Nvertical)
@@ -276,13 +276,13 @@ let
         dt=1e-2*5 # stable dt for N=4 and Ne=5
 
         expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
-        expected_error[1] = 1.5694890877887144e-01 # Ne=2
-        expected_error[2] = 8.8553536706191920e-03 # Ne=4
-        expected_error[3] = 2.2388104046289426e-04 # Ne=8
+        expected_error[1] = 2.1747884619563834e-01 # Ne=2
+        expected_error[2] = 1.2161683394578116e-02 # Ne=4
+        expected_error[3] = 2.2529850289795472e-04 # Ne=8
         expected_mass = Array{Float64}(undef, 3) # h-refinement levels lvl
-        expected_mass[1] = 0.0000000000000000e+00 # Ne=2
-        expected_mass[2] = 1.8219438767875646e-15 # Ne=4
-        expected_mass[3] = 6.1665533536019044e-15 # Ne=8
+        expected_mass[1] = 2.1031020568795386e-15 # Ne=2
+        expected_mass[2] = 7.4279250361339182e-15 # Ne=4
+        expected_mass[3] = 6.7271491130202594e-14 # Ne=8
         lvls = length(expected_error)
 
         for ArrayType in ArrayTypes
@@ -330,11 +330,11 @@ let
         numproc=MPI.Comm_size(mpicomm)
 
         expected_error = Array{Float64}(undef, 2)
-        expected_error[1] = 2.1279090506529826e-02
-        expected_error[2] = 2.1334545498364027e-02
+        expected_error[1] = 2.1881282358529316e-02
+        expected_error[2] = 2.1890633646296072e-02
         expected_mass = Array{Float64}(undef, 2)
-        expected_mass[1] = 1.8462425827083886e-16
-        expected_mass[2] = 1.8480965431931998e-16
+        expected_mass[1] = 2.0308668409792276e-15
+        expected_mass[2] = 2.0329061975125196e-15
         for ArrayType in ArrayTypes
             for DFloat in (Float64,) # Float32)
                 Random.seed!(0)
