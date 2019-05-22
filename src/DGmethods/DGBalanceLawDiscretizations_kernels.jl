@@ -4,12 +4,14 @@ using Requires
 end
 
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
-const _nvgeo = 14
-const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
-       _x, _y, _z = 1:_nvgeo
+const _ξx, _ηx, _ζx = Grids._ξx, Grids._ηx, Grids._ζx
+const _ξy, _ηy, _ζy = Grids._ξy, Grids._ηy, Grids._ζy
+const _ξz, _ηz, _ζz = Grids._ξz, Grids._ηz, Grids._ζz
+const _M, _MI = Grids._M, Grids._MI
+const _x, _y, _z = Grids._x, Grids._y, Grids._z
 
-const _nsgeo = 5
-const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
+const _nx, _ny, _nz = Grids._nx, Grids._ny, Grids._nz
+const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 """
@@ -58,7 +60,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-          MJ = vgeo[ijk, _MJ, e]
+          MJ = vgeo[ijk, _M, e]
           ξx, ξy, ξz = vgeo[ijk,_ξx,e], vgeo[ijk,_ξy,e], vgeo[ijk,_ξz,e]
           ηx, ηy, ηz = vgeo[ijk,_ηx,e], vgeo[ijk,_ηy,e], vgeo[ijk,_ηz,e]
           ζx, ζy, ζz = vgeo[ijk,_ζx,e], vgeo[ijk,_ζy,e], vgeo[ijk,_ζz,e]
@@ -104,7 +106,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
         @loop for j in (1:Nq; threadIdx().y)
           @loop for i in (1:Nq; threadIdx().x)
             ijk = i + Nq * ((j-1) + Nq * (k-1))
-            MJI = vgeo[ijk, _MJI, e]
+            MJI = vgeo[ijk, _MI, e]
             for n = 1:Nq
               Dni = s_D[n, i]
               Dnj = s_D[n, j]
@@ -185,7 +187,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
-        sMJ, vMJI = sgeo[_sMJ, n, f, e], sgeo[_vMJI, n, f, e]
+        sMJ, vMJI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
         idM, idP = vmapM[n, f, e], vmapP[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
@@ -372,7 +374,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
-        sMJ, vMJI = sgeo[_sMJ, n, f, e], sgeo[_vMJI, n, f, e]
+        sMJ, vMJI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
         idM, idP = vmapM[n, f, e], vmapP[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
