@@ -82,7 +82,9 @@ struct LowStorageRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
            T(2006345519317) / T(3224310063776),
            T(2802321613138) / T(2924317926251))
 
-    new{T, AT, length(RKA)}(dt, t0, rhs!, similar(Q), RKA, RKB, RKC)
+    dQ = similar(Q)
+    fill!(dQ, 0)
+    new{T, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
   end
 end
 
