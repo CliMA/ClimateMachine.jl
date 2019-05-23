@@ -96,12 +96,13 @@ end
 function writevtk(prefix, Q::MPIStateArray, disc::VanillaAtmosDiscretization)
   vgeo = disc.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
-  writevtk(prefix, h_vgeo, h_Q, disc.grid)
+  (vgeo, Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
+  writevtk_VanillaAtmosDiscretization(prefix, vgeo, Q, disc.grid)
 end
 
-function writevtk(prefix, vgeo::Array, Q::Array,
-                  G::Grids.AbstractGrid{T, dim, N}) where {T, dim, N}
+function writevtk_VanillaAtmosDiscretization(prefix, vgeo::Array, Q::Array,
+                                             G::Grids.AbstractGrid{T, dim, N}
+                                            ) where {T, dim, N}
 
   Nq  = N+1
 
@@ -110,6 +111,13 @@ function writevtk(prefix, vgeo::Array, Q::Array,
   X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
                         ntuple(j->Nq, dim)...,
                         nelem), dim)
+
+  _ρ = VanillaAtmosDiscretizations._ρ
+  _U = VanillaAtmosDiscretizations._U
+  _V = VanillaAtmosDiscretizations._V
+  _W = VanillaAtmosDiscretizations._W
+  _E = VanillaAtmosDiscretizations._E
+
   ρ = reshape((@view Q[:, _ρ, :]), ntuple(j->Nq, dim)..., nelem)
   U = reshape((@view Q[:, _U, :]), ntuple(j->Nq, dim)..., nelem)
   V = reshape((@view Q[:, _V, :]), ntuple(j->Nq, dim)..., nelem)
