@@ -153,7 +153,7 @@ end
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
               ArrayType, dt) where {dim}
 
-  ArrayType = CuArray
+  ArrayType = Array
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
