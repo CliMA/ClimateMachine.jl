@@ -1,21 +1,21 @@
 module CLIMA
 
-include("Utilities/ParametersType/src/ParametersType.jl")
-include("Utilities/PlanetParameters/src/PlanetParameters.jl")
-include("Utilities/RootSolvers/src/RootSolvers.jl")
-include("Utilities/MoistThermodynamics/src/MoistThermodynamics.jl")
+include("Utilities/ParametersType/ParametersType.jl")
+include("Utilities/PlanetParameters/PlanetParameters.jl")
+include("Utilities/RootSolvers/RootSolvers.jl")
+include("Utilities/MoistThermodynamics/MoistThermodynamics.jl")
 include("Utilities/Microphysics/src/Microphysics.jl")
-include("Atmos/Parameterizations/SurfaceFluxes/src/SurfaceFluxes.jl")
-include("Atmos/Parameterizations/TurbulenceConvection/src/TurbulenceConvection.jl")
+include("Atmos/Parameterizations/SurfaceFluxes/SurfaceFluxes.jl")
+include("Atmos/Parameterizations/TurbulenceConvection/TurbulenceConvection.jl")
 include("Mesh/Topologies.jl")
 include("Mesh/Grids.jl")
 include("Arrays/MPIStateArrays.jl")
-include("Atmos/Dycore/src/AtmosDycore.jl")
+include("Atmos/Dycore/AtmosDycore.jl")
 include("DGmethods/SpaceMethods.jl")
 include("DGmethods/DGBalanceLawDiscretizations.jl")
 include("ODESolvers/ODESolvers.jl")
 include("ODESolvers/LowStorageRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
-
+include("InputOutput/Vtk/Vtk.jl")
 
 end

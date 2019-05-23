@@ -571,6 +571,8 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
                                                         nviscstate, nauxstate}
   DFloat = eltype(R)
 
+  #@show("AQQ")
+
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
