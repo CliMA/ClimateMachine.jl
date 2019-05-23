@@ -63,10 +63,6 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
     host_sendQ = zeros(T, S.parameters..., numsendelem)
     host_recvQ = zeros(T, S.parameters..., numrecvelem)
 
-    fill!(Q, 0)
-    fill!(device_sendQ, 0)
-    fill!(device_recvQ, 0)
-
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
@@ -80,9 +76,9 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
                                            device_sendQ, device_recvQ, weights,
                                            commtag)
   end
-
-
 end
+
+Base.fill!(Q::MPIStateArray, x) = fill!(Q.Q, x)
 
 """
    MPIStateArray{S, T, DA}(mpicomm, numelem; realelems=1:numelem,
