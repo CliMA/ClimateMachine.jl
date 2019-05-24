@@ -695,8 +695,8 @@ where additional variable definitions are in:
 
 ```math
 \begin{align}\label{eq:BuoyancyGradLong}
-\SDi{\BuoyancyGrad} & = - \PD_z \SDi{\ThetaLiqIce}
-\left[ (1-f_c) \PD_{\ThetaLiqIce} b |_d  + f_c \PD_{\ThetaLiqIce} b |_s \right] -
+\SDi{\BuoyancyGrad} & = \PD_z \SDi{\ThetaLiqIce}
+\left[ (1-f_c) \PD_{\ThetaLiqIce} b |_d  + f_c \PD_{\ThetaLiqIce} b |_s \right] +
 \PD_z \SDi{\qt}      \left[ (1-f_c) \PD_{\qt} b |_d + f_c \PD_{\qt} b |_s \right] \\
 f_c &= 0 \qquad \text{good for simple cases, need to confirm for more complex cases} \\
 \PD_{\ThetaLiqIce} b |_d & = \frac{\grav}{\DM{\ThetaVirt}} \left[ 1 + \left( \frac{\Rv}{\Rd} - 1 \right) \SDi{\qt} \right] \\
@@ -801,18 +801,18 @@ where additional variable definitions are in:
 \begin{align}\label{eq:MixingLength}
 \SDio{{l_{mix}^m,}} &= \frac{\sum_j l_j e^{-l_j}}{\sum_j e^{-l_j}}, \qquad j = 1,2,3 \\
 l_1 &= \frac{\sqrt{c_w\SDe{TKE}}}{\SDe{N}} \\
+c_w &= 0.4 \\
 \SDe{N} &= \frac{\grav \PD_z \SDe{\ThetaVirt}}{\SDe{\ThetaVirt}} , \qquad \text{(buoyancy frequency of environment)} \\
-l_2 &= \frac{\VKConst z}{c_K \kappa^* \phi_m(\xi)} \\
-\xi &= z/\MOLen \\
-\phi_m(\xi) &= \left( 1 + a_l \frac{z}{\MOLen} \right)^{-b_l} \\
-(a_l, b_l) &=
+l_2 &= \frac{\VKConst z}{c_K \kappa^* \phi_m(z/\MOLen)} \\
+\phi_m(\xi) &= \left( 1 + a_l(\MOLen) \xi \right)^{-b_l(\MOLen)} \\
+(a_l(\MOLen), b_l(\MOLen)) &=
 \begin{cases}
   (-100, 0.2) & \MOLen < 0 \\
   (2.7, -1) & \text{otherwise} \\
 \end{cases} \\
 \kappa^* &= \frac{\FrictionVelocity}{\sqrt{\SDe{TKE}}} \\
 l_3 &= \sqrt{\frac{c_{\varepsilon}}{c_K}} \sqrt{\SDe{TKE}}
-\left[ |S|^2 - \frac{1}{Pr(z)} \BuoyancyGrad \right]^{-1/2} \\
+\left[ \max(|S|^2 - \frac{1}{Pr(z)} \BuoyancyGrad, 0) \right]^{-1/2} \\
 \end{align}
 ```
 where additional variable definitions are in:

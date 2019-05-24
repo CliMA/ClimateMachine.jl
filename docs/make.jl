@@ -38,6 +38,7 @@ makedocs(
     "AtmosDycore" => "AtmosDycore.md",
     "Arrays" => "Arrays.md",
     "DGmethods" => "DGmethods.md",
+    "InputOutput.md",
     "Developer docs" => Any[
       "CodingConventions.md",
       "AcceptableUnicode.md",
