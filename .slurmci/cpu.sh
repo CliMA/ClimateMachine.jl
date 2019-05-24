@@ -6,7 +6,8 @@
 
 set -euo pipefail
 
-export JULIA_DEPOT_PATH="${HOME}/.slurmci/clima_cpu"
+# to avoid race conditions
+export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot_cpu"
 
 module load julia/1.1.0 cmake/3.10.2 openmpi/3.1.2
 
