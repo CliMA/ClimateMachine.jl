@@ -9,7 +9,7 @@ set -euo pipefail
 
 # to avoid race conditions
 export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot_gpu"
-export PATH="${PATH}:${HOME}/julia-1.2/bin"
+export PATH="${PATH}:${HOME}/julia-1.2-gpu/bin"
 
 module load cmake/3.10.2 openmpi/3.1.2 cuda/9.1
 
