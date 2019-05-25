@@ -297,7 +297,7 @@ let
           dt          = %.16e
           nstep       = %d
           """ Nhorizontal Nvertical N dt nsteps
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, DFloat)
           (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
                                   DFloat, dt, ArrayType)
           @test err[l]  ≈ DFloat(expected_error[l])
@@ -334,7 +334,7 @@ let
     for ArrayType in ArrayTypes
       for DFloat in (Float64,) # Float32)
         Random.seed!(0)
-        @info (ArrayType, DFloat, dim)
+        @info (ArrayType, DFloat)
         (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat,
                             dt, ArrayType)
         @test error ≈ DFloat(expected_error[numproc])
