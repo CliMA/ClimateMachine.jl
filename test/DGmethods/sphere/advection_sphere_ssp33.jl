@@ -48,8 +48,7 @@ using Random
     using CUDAdrv
     using CUDAnative
     using CuArrays
-#    const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
-    const ArrayTypes = (CuArray, )
+    const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
 else
     const ArrayTypes = (Array, )
 end
@@ -280,7 +279,6 @@ let
         timeend = 1
         numelem = (2, 2) #(Nhorizontal,Nvertical)
         N = 4
-        dt=1e-2*5/2 # stable dt for N=4 and Ne=5
 
         expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
         expected_error[1] = 1.5877357567325232e-01 # Ne=2
@@ -293,6 +291,7 @@ let
         lvls = length(expected_error)
 
         for ArrayType in ArrayTypes
+            dt=1e-2*5/2 # stable dt for N=4 and Ne=5
             for DFloat in (Float64,) # Float32)
                 err = zeros(DFloat, lvls)
                 mass= zeros(DFloat, lvls)
@@ -307,7 +306,7 @@ let
                     Nvertical   = %d
                     N           = %d
                     dt          = %.16e
-                     nstep       = %d
+                    nsteps       = %d
                     """ Nhorizontal Nvertical N dt nsteps
                     @info (ArrayType, DFloat)
                     (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, ArrayType)
@@ -329,11 +328,11 @@ let
         numelem = (2, 2) #(Nhorizontal,Nvertical)
         N = 4
         dt=1e-2*5/2 # stable dt for N=4 and Ne=5
-
+	
         Nhorizontal = numelem[1]
         Nvertical   = numelem[2]
         dt=dt/Nhorizontal
-
+        nsteps = ceil(Int64, timeend / dt)
         numproc=MPI.Comm_size(mpicomm)
 
         expected_error = Array{Float64}(undef, 2)
@@ -345,6 +344,13 @@ let
         for ArrayType in ArrayTypes
             for DFloat in (Float64,) # Float32)
                 Random.seed!(0)
+                @info @sprintf """Run Configuration
+                Nhorizontal = %d
+                Nvertical   = %d
+                N           = %d
+                dt          = %.16e
+                nsteps       = %d
+                """ Nhorizontal Nvertical N dt nsteps
                 @info (ArrayType, DFloat)
                 (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, ArrayType)
                 @test error ≈ DFloat(expected_error[numproc])

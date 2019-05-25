@@ -22,6 +22,11 @@
 # No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 2 julia --project=@. advection_sphere_lsrk.jl
 #--------------------------------#
 #--------------------------------#
+# Can be run on the GPU with:
+# Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=true mpirun -n 1 julia --project=/home/fxgiraldo/CLIMA/env/gpu advection_sphere_lsrk.jl
+# No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 1 julia --project=/home/fxgiraldo/CLIMA/env/gpu advection_sphere_lsrk.jl
+#--------------------------------#
+#--------------------------------#
 
 using MPI
 using CLIMA.Topologies
@@ -33,6 +38,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+using CLIMA.Vtk
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -211,7 +217,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
         outprefix = @sprintf("vtk/advection_sphere_%dD_mpirank%04d_step%04d",
                              3, MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
-        DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, ("ρ", ))
+        writevtk(outprefix, Q, spacedisc, ("ρ", ))
         step[1] += 1
         nothing
     end
@@ -273,7 +279,6 @@ let
         timeend = 1
         numelem = (2, 2) #(Nhorizontal,Nvertical)
         N = 4
-        dt=1e-2*5 # stable dt for N=4 and Ne=5
 
         expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
         expected_error[1] = 1.5694890877887144e-01 # Ne=2
@@ -286,6 +291,7 @@ let
         lvls = length(expected_error)
 
         for ArrayType in ArrayTypes
+            dt=1e-2*5 # stable dt for N=4 and Ne=5
             for DFloat in (Float64,) # Float32)
                 err = zeros(DFloat, lvls)
                 mass= zeros(DFloat, lvls)
@@ -300,7 +306,7 @@ let
                     Nvertical   = %d
                     N           = %d
                     dt          = %.16e
-                     nstep       = %d
+                    nsteps       = %d
                     """ Nhorizontal Nvertical N dt nsteps
                     @info (ArrayType, DFloat)
                     (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, ArrayType)
@@ -326,8 +332,8 @@ let
         Nhorizontal = numelem[1]
         Nvertical   = numelem[2]
         dt=dt/Nhorizontal
-
-        numproc=MPI.Comm_size(mpicomm)
+        nsteps = ceil(Int64, timeend / dt)
+	numproc=MPI.Comm_size(mpicomm)
 
         expected_error = Array{Float64}(undef, 2)
         expected_error[1] = 2.1279090506529826e-02
@@ -338,6 +344,13 @@ let
         for ArrayType in ArrayTypes
             for DFloat in (Float64,) # Float32)
                 Random.seed!(0)
+                @info @sprintf """Run Configuration
+                Nhorizontal = %d
+                Nvertical   = %d
+                N           = %d
+                dt          = %.16e
+                nsteps       = %d
+                """ Nhorizontal Nvertical N dt nsteps
                 @info (ArrayType, DFloat)
                 (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method, ArrayType)
                 @test error ≈ DFloat(expected_error[numproc])
