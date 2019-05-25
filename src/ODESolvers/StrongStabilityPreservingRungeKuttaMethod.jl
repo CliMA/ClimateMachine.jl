@@ -18,7 +18,7 @@ ODEs = ODESolvers
 using ..SpaceMethods
 
 """
-StrongStabilityPreservingRungeKutta(f, Q; dt, t0 = 0)
+    StrongStabilityPreservingRungeKutta(f, Q; dt, t0 = 0)
 
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
@@ -86,10 +86,10 @@ end
 
 
 """
-updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt)
+    updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt)
+
 Change the time step size to `dt` for `ssp.
 """
-
 updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
 
 function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adjustfinalstep)
