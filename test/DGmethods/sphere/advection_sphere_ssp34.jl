@@ -45,6 +45,7 @@ using Logging, Printf, Dates
 using Random
 
 @static if Base.find_package("CuArrays") !== nothing
+#@static if haspkg("CUDAnative")
     using CUDAdrv
     using CUDAnative
     using CuArrays

@@ -24,8 +24,8 @@ using MPI, Test
                  (1, "conservation/sphere.jl")
                  (1, "compressible_Navier_Stokes/mms_bc.jl")
                  (1, "sphere/advection_sphere_lsrk.jl")
-                 (1, "sphere/advection_sphere_ssp32.jl")
-                 (1, "sphere/advection_sphere_ssp43.jl")
+                 (1, "sphere/advection_sphere_ssp33.jl")
+                 (1, "sphere/advection_sphere_ssp34.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
