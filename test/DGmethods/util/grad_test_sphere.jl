@@ -17,7 +17,7 @@ end
   using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+  const ArrayTypes = (CuArray, )
 else
   const ArrayTypes = (Array, )
 end
