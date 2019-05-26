@@ -1,5 +1,4 @@
 status = [
-  "ci/gitlab/%",
   "continuous-integration/travis-ci/push",
   "continuous-integration/appveyor/branch",
   "ci/slurmci"
