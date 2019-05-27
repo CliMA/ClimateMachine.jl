@@ -16,5 +16,6 @@ include("ODESolvers/ODESolvers.jl")
 include("ODESolvers/LowStorageRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
 include("InputOutput/Vtk/Vtk.jl")
+include("misc.jl")
 
 end
