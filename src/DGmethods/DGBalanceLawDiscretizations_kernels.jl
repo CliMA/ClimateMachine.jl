@@ -4,12 +4,14 @@ using Requires
 end
 
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
-const _nvgeo = 14
-const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
-       _x, _y, _z = 1:_nvgeo
+const _ξx, _ηx, _ζx = Grids._ξx, Grids._ηx, Grids._ζx
+const _ξy, _ηy, _ζy = Grids._ξy, Grids._ηy, Grids._ζy
+const _ξz, _ηz, _ζz = Grids._ξz, Grids._ηz, Grids._ζz
+const _M, _MI = Grids._M, Grids._MI
+const _x, _y, _z = Grids._x, Grids._y, Grids._z
 
-const _nsgeo = 5
-const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
+const _nx, _ny, _nz = Grids._nx, Grids._ny, Grids._nz
+const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 """
@@ -35,8 +37,6 @@ function volumerhs!(::Val{dim}, ::Val{N},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(Q)[end]
-
   s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
   s_D = @shmem DFloat (Nq, Nq)
   l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
@@ -60,7 +60,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-          MJ = vgeo[ijk, _MJ, e]
+          MJ = vgeo[ijk, _M, e]
           ξx, ξy, ξz = vgeo[ijk,_ξx,e], vgeo[ijk,_ξy,e], vgeo[ijk,_ξz,e]
           ηx, ηy, ηz = vgeo[ijk,_ηx,e], vgeo[ijk,_ηy,e], vgeo[ijk,_ηz,e]
           ζx, ζy, ζz = vgeo[ijk,_ζx,e], vgeo[ijk,_ζy,e], vgeo[ijk,_ζz,e]
@@ -106,7 +106,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
         @loop for j in (1:Nq; threadIdx().y)
           @loop for i in (1:Nq; threadIdx().x)
             ijk = i + Nq * ((j-1) + Nq * (k-1))
-            MJI = vgeo[ijk, _MJI, e]
+            MJI = vgeo[ijk, _MI, e]
             for n = 1:Nq
               Dni = s_D[n, i]
               Dnj = s_D[n, j]
@@ -187,7 +187,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
-        sMJ, vMJI = sgeo[_sMJ, n, f, e], sgeo[_vMJI, n, f, e]
+        sMJ, vMJI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
         idM, idP = vmapM[n, f, e], vmapP[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
@@ -255,7 +255,6 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(Q)[end]
   ngradtransformstate = length(states_grad)
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
@@ -375,7 +374,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
-        sMJ, vMJI = sgeo[_sMJ, n, f, e], sgeo[_vMJI, n, f, e]
+        sMJ, vMJI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
         idM, idP = vmapM[n, f, e], vmapP[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
@@ -436,33 +435,25 @@ See [`DGBalanceLaw`](@ref) for usage.
 function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
                        auxstate, vgeo, elems) where {dim, N, nauxstate}
 
-  # Should only be called in this case I think?
-  @assert nauxstate > 0
-
   DFloat = eltype(auxstate)
 
   Nq = N + 1
-
   Nqk = dim == 2 ? 1 : Nq
-
-  nelem = size(auxstate)[end]
-
-  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
+  Np = Nq * Nq * Nqk
 
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
-  @inbounds for e in elems
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      x, y, z = vgeo[i,j,k,_x,e], vgeo[i,j,k,_y,e], vgeo[i,j,k,_z,e]
-      for s = 1:nauxstate
-        l_aux[s] = auxstate[i, j, k, s, e]
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      x, y, z = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
       end
 
       auxstatefun!(l_aux, x, y, z)
 
-      for s = 1:nauxstate
-        auxstate[i, j, k, s, e] = l_aux[s]
+      @unroll for s = 1:nauxstate
+        auxstate[n, s, e] = l_aux[s]
       end
     end
   end
@@ -489,8 +480,6 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
-
-  nelem = size(vgeo)[end]
 
   s_f = @shmem DFloat (Nq, Nq, Nqk)
   s_D = @shmem DFloat (Nq, Nq)
@@ -560,5 +549,61 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
       end
     end
     @synchronize
+  end
+end
+
+"""
+    knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
+                       ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
+                       QV, auxstate, elems) where {dim, N, nRstate, nstate,
+                                                   nviscstate, nauxstate}
+
+Computational kernel: fill postprocessing array
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
+                            ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
+                            QV, auxstate, elems) where {dim, N, nRstate, nstate,
+                                                        nviscstate, nauxstate}
+  DFloat = eltype(R)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  nelem = size(auxstate)[end]
+
+  l_R = MArray{Tuple{nRstate}, DFloat}(undef)
+  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nRstate
+        l_R[s] = R[n, s, e]
+      end
+
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nviscstate
+        l_Qvisc[s] = QV[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+
+      dof_fun!(l_R, l_Q, l_Qvisc, l_aux)
+
+      @unroll for s = 1:nRstate
+        R[n, s, e] = l_R[s]
+      end
+    end
   end
 end

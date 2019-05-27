@@ -17,14 +17,15 @@ dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
 arraytype(::AbstractGrid{T, D, N, Np, DA}) where {T, D, N, Np, DA} = DA
 
 # {{{
-const _nvgeo = 14
+const _nvgeo = 15
 const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-       _x, _y, _z = 1:_nvgeo
+       _x, _y, _z, _Jcζ = 1:_nvgeo
 const vgeoid = (ξxid = _ξx, ηxid = _ηx, ζxid = _ζx,
                 ξyid = _ξy, ηyid = _ηy, ζyid = _ζy,
                 ξzid = _ξz, ηzid = _ηz, ζzid = _ζz,
                 Mid  = _M , MIid = _MI,
-                xid  = _x , yid  = _y , zid  = _z)
+                xid  = _x , yid  = _y , zid  = _z,
+                Jcζid = _Jcζ)
 
 const _nsgeo = 5
 const _nx, _ny, _nz, _sM, _vMI = 1:_nsgeo
@@ -87,6 +88,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
 
     N = polynomialorder
     (ξ, ω) = Canary.lglpoints(FloatType, N)
+    indefinite_integral_interpolation_matrix(ξ, ω)
     D = Canary.spectralderivative(ξ)
 
     (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
@@ -205,7 +207,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   vgeo = zeros(DFloat, Nq^dim, _nvgeo, nelem)
   sgeo = zeros(DFloat, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z) =
+  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z, Jcζ) =
       ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
   J = similar(x)
   (nx, ny, nz, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
@@ -236,138 +238,69 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
   sMJ .= sM .* sJ
 
+  # Compute |r'(ζ)| for vertical line integrals
+  map!(Jcζ, J, ξx, ξy, ξz, ηx, ηy, ηz) do J, ξx, ξy, ξz, ηx, ηy, ηz
+    xζ = J * (ξy * ηz - ηy * ξz)
+    yζ = J * (ξz * ηx - ηz * ξx)
+    zζ = J * (ξx * ηy - ηx * ξy)
+    hypot(xζ, yζ, zζ)
+  end
   (vgeo, sgeo)
 end
 # }}}
 
+# {{{ indefinite integral matrix
+"""
+    indefinite_integral_interpolation_matrix(r, ω)
 
-# {{{ compute element size for box domain 
-function compute_element_size(dim, Nq, vgeo, e) 
+Given a set of integration points `r` and integration weights `ω` this computes
+a matrix that will compute the indefinite integral of the (interpolant) of a
+function and evaluate the indefinite integral at the points `r`.
 
-    DFloat = eltype(vgeo)
-    
-    if (dim == 2)
-        
-        x, y = zeros(DFloat, 4), zeros(DFloat, 4)
-        
-        x[1], y[1] = vgeo[1, 1,   _x, e], vgeo[1, 1,   _y, e]
-        x[2], y[2] = vgeo[Nq, 1,  _x, e], vgeo[Nq, 1,  _y, e]
-        x[3], y[3] = vgeo[1, Nq,  _x, e], vgeo[1, Nq,  _y, e]
-        x[4], y[4] = vgeo[Nq, Nq, _x, e], vgeo[Nq, Nq, _y, e]        
+Namely, let
+```math
+    q(ξ) = ∫_{ξ_{0}}^{ξ} f(ξ') dξ'
+```
+then we have that
+```
+I∫ * f.(r) = q.(r)
+```
+where `I∫` is the integration and interpolation matrix defined by this function.
 
-        #Element sizes (as if it were linear)
-        dx = maximum(x[:]) - minimum(x[:])
-        dy = maximum(y[:]) - minimum(y[:])
+!!! note
 
-        
-        #Average distance between LGL points inside the element:
-        dx_mean = dx/max(Nq - 1, 1)
-        dy_mean = dy/max(Nq - 1, 1)
-        
-        ds = (dx, dy, dx_mean, dy_mean)
-    
-    elseif (dim == 3)
-        
-        x, y, z = zeros(DFloat, 8), zeros(DFloat, 8), zeros(DFloat, 8)
-         
-        x[1], y[1], z[1] = vgeo[1, 1,   1, _x, e], vgeo[1, 1,   1, _y, e], vgeo[1, 1,   1, _z, e]
-        x[2], y[2], z[2] = vgeo[Nq, 1,  1, _x, e], vgeo[Nq, 1,  1, _y, e], vgeo[Nq, 1,  1, _z, e]
-        x[3], y[3], z[3] = vgeo[1, Nq,  1, _x, e], vgeo[1, Nq,  1, _y, e], vgeo[1, Nq,  1, _z, e]
-        x[4], y[4], z[4] = vgeo[Nq, Nq, 1, _x, e], vgeo[Nq, Nq, 1, _y, e], vgeo[Nq, Nq, 1, _z, e]
+    The integration is done using the provided quadrature weight, so if these
+    cannot integrate `f(ξ)` exactly, `f` is first interpolated and then
+    integrated using quadrature. Namely, we have that:
+    ```math
+        q(ξ) = ∫_{ξ_{0}}^{ξ} I(f(ξ')) dξ'
+    ```
+    where `I` is the interpolation operator.
 
-        
-        x[5], y[5], z[5] = vgeo[1, 1,   Nq, _x, e], vgeo[1, 1,   Nq, _y, e], vgeo[1, 1,   Nq, _z, e]
-        x[6], y[6], z[6] = vgeo[Nq, 1,  Nq, _x, e], vgeo[Nq, 1,  Nq, _y, e], vgeo[Nq, 1,  Nq, _z, e]
-        x[7], y[7], z[7] = vgeo[1, Nq,  Nq, _x, e], vgeo[1, Nq,  Nq, _y, e], vgeo[1, Nq,  Nq, _z, e]
-        x[8], y[8], z[8] = vgeo[Nq, Nq, Nq, _x, e], vgeo[Nq, Nq, Nq, _y, e], vgeo[Nq, Nq, Nq, _z, e]
-        
-        
-        
-        #Element sizes (as if it were linear)
-        dx = maximum(x[:]) - minimum(x[:])
-        dy = maximum(y[:]) - minimum(y[:])
-        dz = maximum(z[:]) - minimum(z[:])
+"""
+function indefinite_integral_interpolation_matrix(r, ω)
+  Nq = length(r)
 
-        
-        #Average distance between LGL points inside the element:
-        dx_mean = dx/max(Nq - 1, 1)
-        dy_mean = dy/max(Nq - 1, 1)
-        dz_mean = dz/max(Nq - 1, 1)
-        
-        ds = (dx, dy, dz, dx_mean, dy_mean, dz_mean)
-    
-    end
-        
-  return ds
+  I∫ = similar(r, Nq, Nq)
+  # first value is zero
+  I∫[1, :] .= 0
+
+  # barycentric weights for interpolation
+  wbary = Canary.baryweights(r)
+
+  # Compute the interpolant of the indefinite integral
+  for n = 2:Nq
+    # grid from first dof to current point
+    rdst = (1 .- r)/2 * r[1] + (1 .+ r)/2 * r[n]
+    # interpolation matrix
+    In = Canary.interpolationmatrix(r, rdst, wbary)
+    # scaling from LGL to current of the interval
+    Δ = (r[n] -  r[1]) / 2
+    # row of the matrix we have computed
+    I∫[n, :] .= (Δ * ω' * In)[:]
+  end
+  I∫
 end
 # }}}
-
-
-# {{{ Computes `fcoe` for anisotropic grids using the definition of
-#     Lilly in:
-#     A. Scotti, C. Meneveau, D.K. Lilly, Generalized Smagorinsky model for anisotropic grids, Phys. Fluids 5 (1993) 2306–2308.
-#
-function compute_anisotropic_grid_factor(dim, Nq, vgeo, e)
-
-    DFloat = eltype(vgeo)
-    
-    ds  = compute_element_size(dim, Nq, vgeo, e)
-       
-    Nq2 = Nq*Nq
-
-    max_length_flg = 1 #WARNING should the user decide this?
-    
-    if dim == 2
-        
-        dx, dy = ds[1], ds[2]
-        ds_mean = sqrt(dx*dx + dy*dy)
-
-        delta  = sqrt(dx*dy/Nq2)
-        delta2 = delta*delta
-        
-        #Compute Lambda:
-        fcoe   = 1.0
-        Lambda = fcoe*delta
-        
-    elseif dim == 3
-
-        dx, dy, dz = ds[1], ds[2], ds[3]
-        dx_mean, dy_mean, dz_mean = ds[4], ds[5], ds[6]
-        
-        ds_mean = (1 - max_length_flg)*min(dx_mean, dy_mean, dz_mean) + max_length_flg*max(dx_mean, dy_mean, dz_mean)
-        
-        delta = (dx_mean*dy_mean*dz_mean)^(1.0/3.0)
-        #delta = (dx*dy*dz)^(1.0/3.0)
-        delta2 = delta*delta
-
-        fcoe = 1.0
-        #Get the two smaller dimensions of the cell:
-        if (dx > dy && dx > dz)
-            deltai = dy
-            deltak = dz
-        elseif (dy > dx && dy > dz)
-            deltai = dx
-            deltak = dz
-        elseif (dz > dx && dz > dy)
-            deltai = dx
-            deltak = dy
-        else
-            deltai = dx
-            deltak = dy
-        end
-        a1 = deltai/max(dx, dy, dz)
-        a2 = deltak/max(dx, dy, dz)
-        
-        fcoe = cosh((4.0/27.0)*(log(a1)*log(a1) - log(a1)*log(a2) + log(a2)*log(a2)))
-        
-        #Compute Lambda:
-        Lambda = fcoe*delta
-    end
-    
-  return Lambda
-end
-# }}}
-
-
 
 end
