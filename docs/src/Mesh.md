@@ -20,11 +20,21 @@ Topologies.CubedShellTopology
 Topologies.StackedCubedSphereTopology
 ```
 
+### Constructors
+
+```@docs
+Topologies.BrickTopology(mpicomm, Nelems)
+Topologies.StackedBrickTopology(mpicomm, elemrange)
+Topologies.CubedShellTopology(mpicomm, Neside, T)
+Topologies.StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
+```
+
 ### Functions
 
 ```@docs
 Topologies.cubedshellmesh
 Topologies.cubedshellwarp
+Topologies.hasboundary
 ```
 
 ## `Grids`
