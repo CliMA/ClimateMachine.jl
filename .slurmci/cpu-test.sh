@@ -9,6 +9,8 @@ set -euo pipefail
 # to avoid race conditions
 export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot_cpu"
 
+set -x #echo on
+
 module load julia/1.1.0 cmake/3.10.2 openmpi/3.1.2
 
 julia --color=no --project test/runtests.jl
