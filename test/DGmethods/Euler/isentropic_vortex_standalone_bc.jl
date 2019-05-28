@@ -266,9 +266,9 @@ let
     expected_error[1,1] = 5.7105308450995285e-01
     expected_error[1,2] = 6.9418479834512270e-02
     expected_error[1,3] = 3.2927533553245305e-03
-    expected_error[2,1] = 1.7598355942969304e+00
-    expected_error[2,2] = 2.1585634095568529e-01
-    expected_error[2,3] = 1.0298579367557497e-02
+    expected_error[2,1] = 1.7598468932900311e+00
+    expected_error[2,2] = 2.1585417477588997e-01
+    expected_error[2,3] = 1.0294897699765810e-02
     lvls = size(expected_error, 2)
 
     for ArrayType in ArrayTypes

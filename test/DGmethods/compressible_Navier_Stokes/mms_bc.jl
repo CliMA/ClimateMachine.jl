@@ -352,17 +352,18 @@ let
   base_num_elem = 4
   if integration_testing
     expected_result = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_result[1,1] = 1.6687745307357629e-01
-    expected_result[1,2] = 5.4179126727473799e-03
-    expected_result[1,3] = 2.3066157635992409e-04
-    expected_result[2,1] = 3.3669188610024728e-02
-    expected_result[2,2] = 1.7603468555920912e-03
-    expected_result[2,3] = 9.1108572847298699e-05
+    expected_result[1,1] = 1.6694692228358385e-01
+    expected_result[1,2] = 5.4178716366661958e-03
+    expected_result[1,3] = 2.3066909145467751e-04
+    expected_result[2,1] = 3.3672363726626506e-02
+    expected_result[2,2] = 1.7603808016182680e-03
+    expected_result[2,3] = 9.1108327587381303e-05
     lvls = size(expected_result, 2)
   else
     expected_result = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
     expected_result[2, 1, Float64] = 9.9075897196717488e-01
-    expected_result[3, 1, Float64] = 1.0099522817205739e+00
+    expected_result[2, 1, Float64] = 9.9075905625223155e-01
+    expected_result[3, 1, Float64] = 1.0099522661232498e+00
     expected_result[2, 3, Float64] = 9.9072475063319887e-01
     expected_result[3, 3, Float64] = 1.0099521111150005e+00
     lvls = 1
