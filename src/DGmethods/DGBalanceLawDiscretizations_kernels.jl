@@ -35,8 +35,6 @@ function volumerhs!(::Val{dim}, ::Val{N},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(Q)[end]
-
   s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
   s_D = @shmem DFloat (Nq, Nq)
   l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
@@ -255,7 +253,6 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  nelem = size(Q)[end]
   ngradtransformstate = length(states_grad)
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
@@ -436,33 +433,25 @@ See [`DGBalanceLaw`](@ref) for usage.
 function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
                        auxstate, vgeo, elems) where {dim, N, nauxstate}
 
-  # Should only be called in this case I think?
-  @assert nauxstate > 0
-
   DFloat = eltype(auxstate)
 
   Nq = N + 1
-
   Nqk = dim == 2 ? 1 : Nq
-
-  nelem = size(auxstate)[end]
-
-  vgeo = reshape(vgeo, Nq, Nq, Nqk, _nvgeo, nelem)
-  auxstate = reshape(auxstate, Nq, Nq, Nqk, nauxstate, nelem)
+  Np = Nq * Nq * Nqk
 
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
-  @inbounds for e in elems
-    for k = 1:Nqk, j = 1:Nq, i = 1:Nq
-      x, y, z = vgeo[i,j,k,_x,e], vgeo[i,j,k,_y,e], vgeo[i,j,k,_z,e]
-      for s = 1:nauxstate
-        l_aux[s] = auxstate[i, j, k, s, e]
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      x, y, z = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
       end
 
       auxstatefun!(l_aux, x, y, z)
 
-      for s = 1:nauxstate
-        auxstate[i, j, k, s, e] = l_aux[s]
+      @unroll for s = 1:nauxstate
+        auxstate[n, s, e] = l_aux[s]
       end
     end
   end
@@ -489,8 +478,6 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
-
-  nelem = size(vgeo)[end]
 
   s_f = @shmem DFloat (Nq, Nq, Nqk)
   s_D = @shmem DFloat (Nq, Nq)
@@ -560,5 +547,61 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
       end
     end
     @synchronize
+  end
+end
+
+"""
+    knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
+                       ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
+                       QV, auxstate, elems) where {dim, N, nRstate, nstate,
+                                                   nviscstate, nauxstate}
+
+Computational kernel: fill postprocessing array
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
+                            ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
+                            QV, auxstate, elems) where {dim, N, nRstate, nstate,
+                                                        nviscstate, nauxstate}
+  DFloat = eltype(R)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  nelem = size(auxstate)[end]
+
+  l_R = MArray{Tuple{nRstate}, DFloat}(undef)
+  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nRstate
+        l_R[s] = R[n, s, e]
+      end
+
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nviscstate
+        l_Qvisc[s] = QV[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+
+      dof_fun!(l_R, l_Q, l_Qvisc, l_aux)
+
+      @unroll for s = 1:nRstate
+        R[n, s, e] = l_R[s]
+      end
+    end
   end
 end
