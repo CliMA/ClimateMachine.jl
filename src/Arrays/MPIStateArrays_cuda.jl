@@ -33,7 +33,11 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray, d_sendelems)
+# TODO: Revisit when not D ≠ (:, :), may want to pack data perhaps differently
+# for the GPU?
+function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray,
+                      d_sendelems::CuArray,
+                      D::NTuple{2, Colon})
   nsendelem = length(d_sendelems)
   Np = size(d_buf, 1)
   nvar = size(d_buf, 2)
@@ -44,7 +48,10 @@ function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray, d_sendelems)
   end
 end
 
-function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf::CuArray, nrealelem)
+# TODO: Revisit when not D ≠ (:, :), may want to pack data perhaps differently
+# for the GPU?
+function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf::CuArray, nrealelem,
+                          D::NTuple{2, Colon})
   nrecvelem = size(recvbuf)[end]
   Np = size(d_buf, 1)
   nvar = size(d_buf, 2)
