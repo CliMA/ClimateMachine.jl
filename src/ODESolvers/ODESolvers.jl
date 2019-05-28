@@ -1,5 +1,7 @@
 module ODESolvers
 
+using ..MPIStateArrays
+
 export solve!
 
 abstract type AbstractODESolver end
@@ -10,6 +12,18 @@ Returns the current simulation time of the ODE solver `solver`
 """
 gettime(solver::AbstractODESolver) = solver.t[1]
 dostep!(Q, solver::AbstractODESolver, tf, afs) = throw(MethodError(dostep!, (Q, solver, tf, afs)))
+
+# realview is used for testing ODE solvers independently of spatial discretisations,
+# using plain arrays as state vectors
+realview(Q::MPIStateArray) = view(Q.Q, axes(Q.Q)[1:end-1]..., Q.realelems)
+realview(Q::Array) = Q
+
+using Requires
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  realview(Q::CuArray) = Q
+end
+
 # {{{ run!
 """
     solve!(Q, solver::AbstractODESolver; timeend,
