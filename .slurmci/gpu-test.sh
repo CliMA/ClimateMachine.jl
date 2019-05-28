@@ -4,13 +4,13 @@
 #SBATCH --nodes=1          # number of nodes
 #SBATCH --mem-per-cpu=4G   # memory per CPU core
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=hpc-23-38 # has libcuda issue
 
 set -euo pipefail
 
 # to avoid race conditions
 export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot_gpu"
 export PATH="${PATH}:${HOME}/julia-1.2-gpu/bin"
+export CUDA_PATH="/lib64"
 
 set -x #echo on
 
