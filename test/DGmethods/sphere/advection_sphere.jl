@@ -24,6 +24,7 @@
 #--------------------------------#
 
 using MPI
+using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
@@ -38,12 +39,12 @@ using Logging, Printf, Dates
 using Random
 using CLIMA.Vtk
 
-@static if Base.find_package("CuArrays") !== nothing
+@static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+  const ArrayTypes = (CuArray, )
 else
   const ArrayTypes = (Array, )
 end
@@ -258,7 +259,7 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if Base.find_package("CUDAnative") !== nothing
+  @static if haspkg("CUDAnative")
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
@@ -296,7 +297,7 @@ let
           dt          = %.16e
           nstep       = %d
           """ Nhorizontal Nvertical N dt nsteps
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, DFloat)
           (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
                                   DFloat, dt, ArrayType)
           @test err[l]  ≈ DFloat(expected_error[l])
@@ -333,7 +334,7 @@ let
     for ArrayType in ArrayTypes
       for DFloat in (Float64,) # Float32)
         Random.seed!(0)
-        @info (ArrayType, DFloat, dim)
+        @info (ArrayType, DFloat)
         (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat,
                             dt, ArrayType)
         @test error ≈ DFloat(expected_error[numproc])
