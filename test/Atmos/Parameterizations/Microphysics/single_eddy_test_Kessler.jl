@@ -44,50 +44,51 @@ else
 end
 
 const _nstate = 6
-const _ρ, _U, _W, _E, _qt, _qr = 1:_nstate
-const stateid = (ρid = _ρ, Uid = _U, Wid = _W, Eid = _E,
-                 qtid = _qt, qrid = _qr)
-const statenames = ("ρ", "U", "W", "E", "qt", "qr")
+const _ρ, _ρu, _ρw, _ρet, _ρqt, _ρqr = 1:_nstate
+const stateid = (ρid = _ρ, ρuid = _ρu, ρwid = _ρw, ρetid = _ρet,
+                 ρqtid = _ρqt, ρqrid = _ρqr)
+const statenames = ("ρ", "ρu", "ρw", "ρet", "ρqt", "ρqr")
 
-const _nauxcstate = 2
-const _c_z = 1
-const _c_x = 2
+const _nauxcstate = 3
+const _c_z, _c_x, _c_p = 1:_nauxcstate
 
 
 # preflux computation
 @inline function preflux(Q, _...)
   DFloat = eltype(Q)
+  @inbounds begin
+    # unpack all the state variables
+    ρ, ρu, ρw, ρqt, ρqr, ρet = Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρqt], Q[_ρqr], Q[_ρet]
+    u, w, qt, qr, et = ρu / ρ, ρw / ρ, ρqt / ρ, ρqr / ρ, ρet / ρ
 
-  @inbounds ρ, U, W, qt, qr = Q[_ρ], Q[_U], Q[_W], Q[_qt], Q[_qr]
+    # compute rain fall speed
+    ρ_ground::DFloat = 1 #TODO ρ[0]
+    rain_w = terminal_velocity(qt, qr, ρ, ρ_ground)
 
-  ρ_ground::DFloat = 1 #TODO ρ[0]
-
-  u, w = U / ρ, W / ρ
-  rain_w = terminal_velocity(qt, qr, ρ, ρ_ground)
-
-  # return 2 velocity components and rain fall speed for wave speed calculation
-  (u, w, rain_w)
+    (u, w, rain_w, ρ, qt, qr, et)
+  end
 end
 
 
 # boundary condition
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t,
-                          uM, wM, rain_wM)
+                          u, w, rain_w, ρ, qt, qr, et)
   @inbounds begin
 
-    UM, WM, EM = QM[_U],  QM[_W],  QM[_E]
-    qtM, qrM   = QM[_qt], QM[_qr]
+    ρu_M, ρw_M, ρet_M, ρqt_M, ρqr_M =
+      QM[_ρu], QM[_ρw], QM[_ρet], QM[_ρqt], QM[_ρqr]
 
-    UnM = nM[1] * UM + nM[2] * WM
-    QP[_U] = UM - 2 * nM[1] * UnM
-    QP[_W] = WM - 2 * nM[2] * UnM # TODO - what to do about rain fall speed?
+    ρu_nM = nM[1] * ρu_M + nM[2] * ρw_M
 
-    QP[_E], QP[_qt], QP[_qr] = EM, qtM, qrM
+    QP[_ρu] = ρu_M - 2 * nM[1] * ρu_nM
+    QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM # TODO - what to do about rain fall speed?
+
+    QP[_ρet], QP[_ρqt], QP[_ρqr] = ρet_M, ρqt_M, ρqr_M
 
     auxM .= auxP
 
     # To calculate uP and wP we use the preflux function
-    preflux(QP, auxP, t)
+    #preflux(QP, auxP, t) # TODO - check
 
     # Required return from this function is either nothing
     # or preflux with plus state as arguments
@@ -96,38 +97,68 @@ end
 
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, u, w, rain_w)
-  @inbounds abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
+#wavespeed(nM, QM, auxM, t, preflux(QM, auxM, t)...) #TODO
+wavespeed(n, Q, aux, t, _...) = wavespeed(n, Q, aux, t, preflux(Q)...)
+@inline function wavespeed(n, Q, aux, t, u, w, rain_w, ρ, qt, qr, et)
+  @inbounds begin
+    # TODO - how to correctly pass preflux here?
+    PF = preflux(Q, aux, t)
+    u, w, rain_w = PF[0], PF[1], PF[2]
+    abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
+  end
 end
 
 
 @inline function constant_auxiliary_init!(aux, x, z, _...)
-  @inbounds aux[_c_z] = z
-  @inbounds aux[_c_x] = x #TODO - tmp for printing
+  @inbounds begin
+    aux[_c_z] = z  # for gravity
+    aux[_c_x] = x  # tmp for printing
+
+    DFloat = eltype(aux)
+
+    # initial condition
+    θ_0::DFloat    = 289         # K
+    p_0::DFloat    = 101500      # Pa
+    p_1000::DFloat = 100000      # Pa
+    qt_0::DFloat   = 7.5 * 1e-3  # kg/kg
+    z_0::DFloat    = 0           # m
+
+    R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
+
+    # Pressure profile assuming hydrostatic and constant θ and qt profiles.
+    # It is done this way to be consistent with Arabas paper.
+    # It's not neccesarily the best way to initialize with our model variables.
+    p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
+                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
+               )^(cp_d / R_d)
+
+    aux[_c_p] = p  # for prescribed pressure gradient (kinematic setup)
+  end
 end
 
 
-@inline function source!(S, Q, aux, t)
+# time tendencies
+source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
+@inline function source!(S, Q, aux, t, u, w, rain_w, ρ, qt, qr, et)
   @inbounds begin
     DFloat = eltype(Q)
 
-    ρ, E, U, W, qt, qr = Q[_ρ], Q[_E], Q[_U], Q[_W], Q[_qt], Q[_qr]
     z = aux[_c_z]
     x = aux[_c_x]
 
     S .= 0
-    e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
-    ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
-    q_sat_adj = PhasePartition(ts)
 
-    timescale::eltype(Q) = 10
+    #ei = et - 1//2 * (u^2 + w^2) - grav * z
+    #@show et, ei, qt
+    #ts = PhaseEquil(ei, qt, ρ) # hidden saturation adjustment here
+    #pp = PhasePartition(ts)
 
-    dqrdt = ql2qr(q_sat_adj.liq, timescale)
+    #timescale::DFloat = 10
+    #dqrdt = ql2qr(pp.liq, timescale)
 
-    S[_qr]  = dqrdt
-    #S[_qt] -= dqrdt
-    #S[_E]  -= dqrdt * DFloat(e_int_v0) # TODO - move to microphysics sources
-
+    #S[_ρqr]  = ρ * dqrdt
+    #S[_ρqt] -= ρ * dqrdt
+    #S[_ρet] -= ρ * dqrdt * DFloat(e_int_v0) # TODO - move to microphysics sources
     # TODO add rain evaporation
 
     #if x == 0 && z >= 750
@@ -144,20 +175,21 @@ end
   end
 end
 
-
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
-
-@inline function eulerflux!(F, Q, QV, aux, t, u, w, rain_w)
+#TODO
+@inline function eulerflux!(F, Q, QV, aux, t, _...)#, u, w, rain_w, ρ, qt, qr, et)
   @inbounds begin
-    E, qt, qr = Q[_E], Q[_qt], Q[_qr]
+    p = aux[_c_p]
+
+    #TODO
+    PF = preflux(Q)
+    u, w, rain_w, ρ, qt, qr, et = PF[1], PF[2], PF[3], PF[4], PF[5], PF[6], PF[7]
 
     F .= 0
     # advect the moisture and energy
-    F[1, _E],  F[2, _E]  = u *  E, w * E
-    F[1, _qt], F[2, _qt] = u * qt, w * qt
-    F[1, _qr], F[2, _qr] = u * qr, w * qr
-    #F[1, _qr], F[2, _qr] = u * qr, (w + rain_w) * qr
+    F[1, _ρqt], F[2, _ρqt] = u *  ρ * qt,      w           *  ρ * qt
+    F[1, _ρqr], F[2, _ρqr] = u *  ρ * qr,     (w + rain_w) *  ρ * qr
+    F[1, _ρet], F[2, _ρet] = u * (ρ * et + p), w           * (ρ * et + p)
     # don't advect momentum (kinematic setup)
   end
 end
@@ -180,32 +212,31 @@ function single_eddy!(Q, t, x, z, _...)
 
   R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
 
-  # Pressure profile assuming hydrostatic and constant θ and qt profiles.
-  # It is done this way to be consistent with Arabas paper.
-  # It's not neccesarily the best way to initialize with our model variables.
-  p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
-              R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-             )^(cp_d / R_d)
+  @inbounds begin
+    # Pressure profile assuming hydrostatic and constant θ and qt profiles.
+    # It is done this way to be consistent with Arabas paper.
+    # It's not neccesarily the best way to initialize with our model variables.
+    p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
+                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
+               )^(cp_d / R_d)
+    T::DFloat = θ_0 * exner(p, PhasePartition(qt_0))
+    ρ::DFloat = p / R_m / T
 
-  T::DFloat = θ_0 * exner(p, PhasePartition(qt_0))
-  ρ::DFloat = p / R_m / T
+    # TODO should this be more "grid aware"?
+    # the velocity is calculated as derivative of streamfunction
+    ρu::DFloat = w_max * X_max/Z_max * cos(π * z/Z_max) * cos(2*π * x/X_max)
+    ρw::DFloat = 2*w_max * sin(π * z/Z_max) * sin(2*π * x/X_max)
+    u = ρu / ρ
+    w = ρw / ρ
 
-  pp_init = PhasePartition_equil(T, ρ, qt_0)
-  thermo_state_init = PhaseEquil(internal_energy(T, pp_init), qt_0, ρ)
-  qt::DFloat = qt_0
-  qr::DFloat = 0
+    ρqt::DFloat = ρ * qt_0
+    ρqr::DFloat = 0
 
-  # TODO should this be more "grid aware"?
-  # the velocity is calculated as derivative of streamfunction
-  U::DFloat = w_max * X_max/Z_max * cos(π * z/Z_max) * cos(2*π * x/X_max)
-  W::DFloat = 2*w_max * sin(π * z/Z_max) * sin(2*π * x/X_max)
+    ei = internal_energy(T, PhasePartition(qt_0))
+    ρet = ρ * (grav * z + (1//2)*(u^2 + w^2) + ei)
 
-  u = U/ρ
-  w = W/ρ
-
-  E = ρ * (grav * z + (1//2)*(u^2 + w^2) + internal_energy(thermo_state_init))
-
-  @inbounds Q[_ρ], Q[_U], Q[_W], Q[_E], Q[_qt], Q[_qr] = ρ, U, W, E, qt, qr
+    Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρet], Q[_ρqt], Q[_ρqr] = ρ, ρu, ρw, ρet, ρqt, ρqr
+  end
 end
 
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
@@ -243,9 +274,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   initialcondition(Q, x...) = single_eddy!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
-  npoststates = 3
-  _ql, _qi, _term_vel = 1:npoststates
-  postnames = ("ql", "qi", "terminal_vel")
+  npoststates = 12
+  v_ql, v_qi, v_qt, v_qv, v_qr, v_term_vel, v_p, v_T, v_ek, v_ep, v_ei, v_et =
+    1:npoststates
+  postnames = ("ql", "qi", "qt", "qv", "qr", "terminal_vel", "p", "T",
+               "e_kin", "e_pot", "e_int", "e_tot")
+
   postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
   writevtk("initial_condition", Q, spacedisc, statenames)
@@ -283,22 +317,35 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
-      @inbounds let
+      @inbounds begin
+        #TODO - how to get preflux(Q) here?
         DFloat = eltype(Q)
 
-        ρ, E, U, W, qt = Q[_ρ], Q[_E], Q[_U], Q[_W], Q[_qt]
+        ρ, ρet, ρu, ρw, ρqt, ρqr = Q[_ρ], Q[_ρet], Q[_ρu], Q[_ρw], Q[_ρqt], Q[_ρqr]
+        u, w, qt, qr, et = ρu / ρ, ρw / ρ, ρqt / ρ, ρqr / ρ, ρet / ρ
         z = aux[_c_z]
-        e_int = (E - 1//2 * (U^2 + W^2) - grav * z) / ρ
+        p = aux[_c_p]
 
-        ts  =  PhaseEquil(e_int, qt, ρ)  # hidden saturation adjustment here
-        q_sat_adj = PhasePartition(ts)
+        ei = et - 1//2 * (u^2 + w^2) - grav * z
+        ts = PhaseEquil(ei, qt, ρ)  # hidden saturation adjustment here
+        pp = PhasePartition(ts)
 
-        R[_ql] = q_sat_adj.liq
-        R[_qi] = q_sat_adj.ice
+        R[v_T] = ts.T
+        R[v_p] = p
+
+        R[v_ql] = pp.liq
+        R[v_qi] = pp.ice
+        R[v_qt] = qt
+        R[v_qv] = qt - pp.liq - pp.ice
+        R[v_qr] = qr
+
+        R[v_et] = et
+        R[v_ei] = ei
+        R[v_ek] = 1//2 * (u^2 + w^2)
+        R[v_ep] = grav * z
 
         ρ_ground::DFloat = 1 #TODO ρ[0]
-        R[_term_vel] = terminal_velocity(Q[_qt], Q[_qr], Q[_ρ], ρ_ground)
-
+        R[v_term_vel] = terminal_velocity(qt, qr, ρ, ρ_ground)
       end
     end
 
@@ -343,7 +390,7 @@ end
 
 using Test
 let
-  timeend = 2 # (should be 30 minutes)
+  timeend = 15 * 60 # TODO 30 * 60
   numelem = (75, 75)
   lvls = 3
   dim = 2

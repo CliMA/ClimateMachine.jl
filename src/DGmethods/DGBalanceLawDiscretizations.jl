@@ -72,7 +72,7 @@ using DocStringExtensions
 using ..Topologies
 using GPUifyLoops
 
-using CUDAdrv
+#using CUDAdrv
 
 export DGBalanceLaw
 
@@ -707,7 +707,7 @@ function dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw
 
   nrealelem = length(topology.realelems)
 
-  @profile @launch(device, threads=(Np,), blocks=nrealelem,
+  @launch(device, threads=(Np,), blocks=nrealelem,
           knl_dof_iteration!(Val(dim), Val(N), Val(nRstate), Val(nstate),
                              Val(nviscstate), Val(nauxstate), dof_fun!, R.Q,
                              Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
