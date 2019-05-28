@@ -7,11 +7,15 @@ using StaticArrays
 using Logging, Printf, Dates
 using Dierckx 
 using DelimitedFiles
-# GPUIFY
-using CUDAdrv
-using CUDAnative
-using CuArrays
 
+@static if Base.find_package("CuArrays") !== nothing
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  const ArrayType = VERSION >= v"1.2-pre.25" ? CuArray : Array
+else
+  const ArrayType = Array
+end
 # Load modules specific to CliMA project
 using CLIMA.Topologies
 using CLIMA.Grids
@@ -21,7 +25,7 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
-
+using CLIMA.Vtk
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
 # Even for the dry example shown here, we load the moist thermodynamics module 
 # and consider the dry equation set to be the same as the moist equations but
@@ -163,9 +167,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + k_μ * vTy
     F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + k_μ * vTz 
     # Viscous contributions to mass flux terms
-    F[1, _ρ] -=  vqx
-    F[2, _ρ] -=  vqy
-    F[3, _ρ] -=  vqz
+    # CF equations in documentation  : diffusive moisture term in mass flux (?)
+    F[1, _ρ] -= 0 * vqx
+    F[2, _ρ] -= 0 * vqy
+    F[3, _ρ] -= 0 * vqz
     F[1, _QT] -=  vqx
     F[2, _QT] -=  vqy
     F[3, _QT] -=  vqz
@@ -179,8 +184,8 @@ end
 #md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
-velocities!(vel, Q, aux, t, _...) = velocities!(vel, Q, aux, t, preflux(Q,~,aux)...)
-@inline function velocities!(vel, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
+@inline function gradient_vars!(vel, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
   @inbounds begin
     y = aux[_a_y]
     # ordering should match states_for_gradient_transform
@@ -317,7 +322,8 @@ end
 
   # Typically these sources are imported from modules
   @inbounds begin
-    source_geopot!(S, Q, aux, t)
+    source_gravity!(S, Q, aux, t)
+    source_sponge!(S, Q, aux, t)
   end
 end
 
@@ -354,7 +360,7 @@ end
     S[_V] -= beta * V  
 end
 
-@inline function source_geopot!(S,Q,aux,t)
+@inline function source_gravity!(S,Q,aux,t)
   gravity::eltype(Q) = grav
   @inbounds begin
     ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
@@ -450,8 +456,6 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-  ArrayType = CuArray
-
   brickrange = (range(DFloat(xmin), length=Nex+1, DFloat(xmax)),
                 range(DFloat(ymin), length=Ney+1, DFloat(ymax)),
                 range(DFloat(zmin), length=Nez+1, DFloat(zmax)))
@@ -479,7 +483,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                            states_for_gradient_transform =
                             _states_for_gradient_transform,
                            number_viscous_states = _nviscstates,
-                           gradient_transform! = velocities!,
+                           gradient_transform! = gradient_vars!,
                            viscous_transform! = compute_stresses!,
                            viscous_penalty! = stresses_penalty!,
                            viscous_boundary_penalty! = stresses_boundary_penalty!,
