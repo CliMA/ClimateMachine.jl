@@ -327,37 +327,43 @@ end
   end
 end
 
+@inline function source_radiation!(S, Q, aux, t)
+  S[_E] += 0 
+end
+
 @inline function source_sponge!(S, Q, aux, t)
+    z = aux[_a_z]
     y = aux[_a_y]
     x = aux[_a_x]
     V = Q[_V]
     # Define Sponge Boundaries      
     xc       = (xmax + xmin)/2
-    ysponge  = 0.85 * ymax
+    zsponge  = 0.90 * zmax
     xsponger = xmax - 0.15*abs(xmax - xc)
     xspongel = xmin + 0.15*abs(xmin - xc)
     csxl  = 0.0
     csxr  = 0.0
     ctop  = 0.0
-    csx   = 0.0 #1.0
+    csx   = 1.0
     ct    = 1.0 
     #x left and right
     #xsl
-    if (x <= xspongel)
+    if (x <= xspongel) || (y <= xspongel)
         csxl = csx * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4
     end
     #xsr
-    if (x >= xsponger)
+    if (x >= xsponger || y >= xsponger)
         csxr = csx * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4
     end
     #Vertical sponge:         
-    if (y >= ysponge)
-        ctop = ct * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4
+    if (z >= zsponge)
+        ctop = ct * sinpi(1/2 * (z - zsponge)/(ymax - zsponge))^4
     end
     beta  = 1.0 - (1.0 - ctop)*(1.0 - csxl)*(1.0 - csxr)
     beta  = min(beta, 1.0)
-    alpha = 1.0 - beta
+    S[_U] -= beta * U
     S[_V] -= beta * V  
+    S[_W] -= beta * W
 end
 
 @inline function source_gravity!(S,Q,aux,t)
@@ -424,6 +430,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     dataq          = dataq * 1.0e-3
     
     randnum   = rand(1)[1] / 100
+    # Replace with wavenumber perturbations ? 
     q_tot = dataq + randnum * dataq
     qvar = PhasePartition(q_tot)
     R_gas::DFloat   = gas_constant_air(qvar)
@@ -438,7 +445,6 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     ρ     = air_density(T, P, qvar)
 
     #Get q_liq from q_tot and T
-
     qvar = PhasePartition(q_tot)
     
     u, v, w       = 0*datau, 0*datav, 0.0 
@@ -590,7 +596,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney, Nez)
     dt = 0.001
-    timeend = 3600 * 4
+    timeend = 3600 * 4 # Four hour sim time
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
