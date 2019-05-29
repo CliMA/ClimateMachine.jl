@@ -49,7 +49,9 @@ using Random
     using CUDAdrv
     using CUDAnative
     using CuArrays
-    const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+    @assert VERSION >= v"1.2-pre.25"
+    CuArrays.allowscalar(false)
+    const ArrayTypes = (CuArray,)
 else
     const ArrayTypes = (Array, )
 end
