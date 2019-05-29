@@ -52,7 +52,7 @@ uuid = "764a87c0-6b3e-53db-9096-fe964310641d"
 version = "2.2.3"
 
 [[CLIMA]]
-deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "LinearAlgebra", "Literate", "Logging", "MPI", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
+deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "LinearAlgebra", "Literate", "Logging", "MPI", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
 path = "../../"
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
@@ -168,6 +168,12 @@ version = "5.2.0"
 [[DelimitedFiles]]
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+
+[[Dierckx]]
+deps = ["BinaryProvider", "Libdl", "Random", "Test"]
+git-tree-sha1 = "27a74763c20938a814da26f31a9e8408d16fec44"
+uuid = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
+version = "0.4.1"
 
 [[DiffEqBase]]
 deps = ["Compat", "DocStringExtensions", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "MuladdMacro", "Parameters", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews"]
