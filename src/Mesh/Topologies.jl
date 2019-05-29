@@ -3,7 +3,7 @@ module Topologies
 using DocStringExtensions
 
 export AbstractTopology, BrickTopology, StackedBrickTopology,
-       CubedShellTopology, StackedCubedSphereTopology
+       CubedShellTopology, StackedCubedSphereTopology, isstacked
 
 """
     AbstractTopology{dim}
@@ -121,6 +121,12 @@ query function to check whether a topology has a boundary (i.e., not fully
 periodic)
 """
 hasboundary(topology::AbstractTopology) = topology.hasboundary
+
+if VERSION >= v"1.2-"
+  isstacked(::T) where {T<:AbstractTopology} = hasfield(T, :stacksize)
+else
+  isstacked(::T) where {T<:AbstractTopology} = Base.fieldindex(T, :stacksize, false) > 0
+end
 
 """
     BrickTopology{dim, T} <: AbstractTopology{dim}
