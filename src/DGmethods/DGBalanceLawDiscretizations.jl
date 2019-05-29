@@ -134,6 +134,9 @@ struct DGBalanceLaw <: AbstractDGMethod
 
   "source function"
   source!::Union{Nothing, Function}
+
+  "callback function for before the `odefun!`"
+  preodefun!::Union{Nothing, Function}
 end
 
 """
@@ -151,7 +154,8 @@ end
                  viscous_boundary_penalty! = nothing,
                  auxiliary_state_length = 0,
                  auxiliary_state_initialization! = nothing,
-                 source! = nothing)
+                 source! = nothing,
+                 preodefun! = nothing)
 
 Constructs a `DGBalanceLaw` spatial discretization type for the physics defined
 by `flux!` and `source!`. The computational domain is defined by `grid`. The
@@ -306,6 +310,26 @@ viscous_boundary_penalty!(V, nM, HM, QM, auxM, HP, QP, auxP, bctype, t)
 where the required behaviour mimics that of `viscous_penalty!` and
 `numerical_boundary_flux!`.
 
+If `preodefun!` is called right before the rest of the ODE function, with the
+main purpose to allow the user to populate/modify the auxiliary state
+`disc.auxstate` to be consistent with the current time `t` and solution vector
+`Q`
+```
+preodefun!(disc, Q, t)
+```
+where `disc` is the `DGBalanceLaw` structure and `Q` is the current state being
+used to evaluate the ODE function.
+
+!!! note "notes on `preodefun!`"
+
+    Unlike the other callbacks, this function is not called at the device (or
+    kernel) level but the host level.
+
+    MPI communication of `Q` occurs after the `odefun!` and no MPI communication
+    of `auxstate` is performed (if this is needed we will need to determine a
+    way to handle it in order to overlap communication and computation as well
+    only comm update fields).
+
 !!! note
 
     If `(x, y, z)`, or data derived from this such as spherical coordinates, is
@@ -326,7 +350,8 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                       viscous_boundary_penalty! = nothing,
                       auxiliary_state_length=0,
                       auxiliary_state_initialization! = nothing,
-                      source! = nothing)
+                      source! = nothing,
+                      preodefun! = nothing)
 
   topology = grid.topology
   Np = dofs_per_element(grid)
@@ -399,7 +424,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                Qvisc, number_gradient_states, number_viscous_states,
                states_for_gradient_transform, gradient_transform!,
                viscous_transform!, viscous_penalty!,
-               viscous_boundary_penalty!, auxstate, source!)
+               viscous_boundary_penalty!, auxstate, source!, preodefun!)
 end
 
 """
@@ -561,6 +586,10 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   vmapP = grid.vmapP
   elemtobndy = grid.elemtobndy
 
+  ################################
+  # Allow the user to update aux #
+  ################################
+  disc.preodefun! !== nothing && disc.preodefun!(disc, Q, t)
 
   ########################
   # Gradient Computation #
