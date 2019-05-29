@@ -59,7 +59,7 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
     ρ, ρu, ρw, ρet, ρqt = Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρet], Q[_ρqt]
     u, w, et, qt = ρu / ρ, ρw / ρ, ρet / ρ, ρqt / ρ
 
-    (u, w, ρ, qt, et)
+    return (u, w, ρ, qt, et)
   end
 end
 
@@ -81,7 +81,7 @@ end
 
     # Required return from this function is either nothing
     # or preflux with plus state as arguments
-    preflux(QP, auxP, t)
+    return preflux(QP)
   end
 end
 
@@ -121,6 +121,7 @@ end
 
 
 # physical flux function
+eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
 @inline function eulerflux!(F, Q, QV, aux, t, u, w, ρ, qt, et)
   @inbounds begin
     p = aux[_c_p]
@@ -253,9 +254,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
       @inbounds begin
-        # TODO - how to get preflux(Q) here?
-        ρ, ρet, ρu, ρw, ρqt = Q[_ρ], Q[_ρet], Q[_ρu], Q[_ρw], Q[_ρqt]
-        u, w, qt, et = ρu / ρ, ρw / ρ, ρqt / ρ, ρet / ρ
+        u, w, ρ, qt, et = preflux(Q)
         z = aux[_c_z]
         p = aux[_c_p]
 
@@ -319,7 +318,7 @@ end
 
 using Test
 let
-  timeend = 15 * 60 # TODO 30 * 60
+  timeend = 30 * 60
   numelem = (75, 75)
   lvls = 3
   dim = 2

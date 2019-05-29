@@ -46,7 +46,7 @@ Return the qr source term due to collisions between cloud droplets
 Contrary to the Kessler paper the process is not assumed to be instanteneous.
 The assumed timescale and autoconverion threshold ql_0 are optional parameters.
 """
-function ql2qr(ql::DT, timescale::DT=DT(1), ql_0::DT=DT(1e-4)) where {DT<:Real}
+function ql2qr(ql::DT, timescale::DT=DT(1), ql_0::DT=DT(5e-4)) where {DT<:Real}
 
   dqrdt = max(DT(0), ql - ql_0) / timescale
 
@@ -73,8 +73,9 @@ function terminal_velocity(qt::DT, qr::DT, ρ::DT,
     rr  = q2r(qr, qt)
     vel::DT = 0
 
-    if (rr > 0) # TODO - assert positive definite elswhere
+    if (qr > DT(1e-8)) # TODO - assert positive definite elswhere
       vel = DT(14.34) * ρ_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
+      #vel = 1e-2  #TODO - tmp
     end
 
     return vel
@@ -86,18 +87,29 @@ end
 Return rain evaportaion rate.
 TODO - add citation
 """
-function qr2qv(q::PhasePartition, T::DT, ρ::DT, p::DT) where {DT<:Real}
-  qv_star = saturation_shum(T, ρ, q.liq, q.ice)
-  qv = q.tot - q.liq - q.ice
+function qr2qv(q::PhasePartition, T::DT, ρ::DT, p::DT, qr::DT) where {DT<:Real}
 
-  rr = q2r(qr, q.tot)
-  rv = q2r(qv, q.tot)
-  rsat = q2r(qsat, q.tot)
+  ret::DT = 0
 
-  C = DT(1.6) + DT(124.9) * (DT(1e-3) * ρ * rr)^DT(0.2046) # ventilation factor
+  if (qr > 0) # TODO - assert positive definite elswhere
 
-  return (DT(1) - q.tot) * (DT(1) - rv/rsat) * C * (DT(1e-3) * ρ * rr)^DT(0.525) /
-          ρ / (DT(540) + DT(2.55) * DT(1e5) / (p * rsat))
+    qv_sat = saturation_shum(T, ρ, q)
+    qv = q.tot - q.liq - q.ice
+
+    rr = q2r(qr, q.tot)
+    rv = q2r(qv, q.tot)
+    rv_sat = q2r(qv_sat, q.tot)
+
+    # ventilation factor
+    C = DT(1.6) + DT(124.9) * (DT(1e-3) * ρ * rr)^DT(0.2046)
+
+    ret = (DT(1) - q.tot) * (DT(1) - rv/rv_sat) * C *
+          (DT(1e-3) * ρ * rr)^DT(0.525) /
+          ρ / (DT(540) + DT(2.55) * DT(1e5) / (p * rv_sat))
+  end
+
+  return ret
+
 end
 
 end #module Microphysics.jl

@@ -65,7 +65,7 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
     ρ_ground::DFloat = 1 #TODO ρ[0]
     rain_w = terminal_velocity(qt, qr, ρ, ρ_ground)
 
-    (u, w, rain_w, ρ, qt, qr, et)
+    return (u, w, rain_w, ρ, qt, qr, et)
   end
 end
 
@@ -87,23 +87,16 @@ end
 
     auxM .= auxP
 
-    # To calculate uP and wP we use the preflux function
-    #preflux(QP, auxP, t) # TODO - check
-
     # Required return from this function is either nothing
     # or preflux with plus state as arguments
+    return preflux(QP)
   end
 end
 
 
 # max eigenvalue
-#wavespeed(nM, QM, auxM, t, preflux(QM, auxM, t)...) #TODO
-wavespeed(n, Q, aux, t, _...) = wavespeed(n, Q, aux, t, preflux(Q)...)
 @inline function wavespeed(n, Q, aux, t, u, w, rain_w, ρ, qt, qr, et)
   @inbounds begin
-    # TODO - how to correctly pass preflux here?
-    PF = preflux(Q, aux, t)
-    u, w, rain_w = PF[0], PF[1], PF[2]
     abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
   end
 end
@@ -141,25 +134,27 @@ end
 source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
 @inline function source!(S, Q, aux, t, u, w, rain_w, ρ, qt, qr, et)
   @inbounds begin
-    DFloat = eltype(Q)
+    DF = eltype(Q)
 
     z = aux[_c_z]
     x = aux[_c_x]
+    p = aux[_c_p]
 
     S .= 0
 
-    #ei = et - 1//2 * (u^2 + w^2) - grav * z
-    #@show et, ei, qt
-    #ts = PhaseEquil(ei, qt, ρ) # hidden saturation adjustment here
-    #pp = PhasePartition(ts)
+    ei = et - 1//2 * (u^2 + w^2) - grav * z
+    ts = PhaseEquil(ei, qt, ρ) # hidden saturation adjustment here
+    pp = PhasePartition(ts)
 
-    #timescale::DFloat = 10
-    #dqrdt = ql2qr(pp.liq, timescale)
+    timescale::DF = 1
+    ql_0::DF = 5 * 1e-4  # default
+    #       autoconversion                   rain evaporation
+    dqrdt = ql2qr(pp.liq, timescale, ql_0) - qr2qv(pp, ts.T, ρ, p, qr)
 
-    #S[_ρqr]  = ρ * dqrdt
-    #S[_ρqt] -= ρ * dqrdt
-    #S[_ρet] -= ρ * dqrdt * DFloat(e_int_v0) # TODO - move to microphysics sources
-    # TODO add rain evaporation
+    S[_ρqr]  = ρ * dqrdt
+    S[_ρqt] -= ρ * dqrdt
+    #                      TODO - move to microphysics module??
+    S[_ρet] -= ρ * dqrdt * (DF(e_int_v0) - (DF(cv_v) - DF(cv_d)) * (ts.T - DF(T_0)))
 
     #if x == 0 && z >= 750
     #  @printf("z = %4.2f qt = %.8e ql = %.8e qr = %.8e dqrdt = %.8e \n", z, qt, q_sat_adj.liq, qr, dqrdt)
@@ -168,22 +163,16 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
     #  end
     #end
 
-    #if qt < 0
-    #    @show(qt)
-    #end
-
   end
 end
 
 # physical flux function
-#TODO
-@inline function eulerflux!(F, Q, QV, aux, t, _...)#, u, w, rain_w, ρ, qt, qr, et)
+eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
+@inline function eulerflux!(F, Q, QV, aux, t, u, w, rain_w, ρ, qt, qr, et)
   @inbounds begin
     p = aux[_c_p]
 
-    #TODO
-    PF = preflux(Q)
-    u, w, rain_w, ρ, qt, qr, et = PF[1], PF[2], PF[3], PF[4], PF[5], PF[6], PF[7]
+    rain_w = 0
 
     F .= 0
     # advect the moisture and energy
@@ -313,16 +302,14 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   step = [0]
   mkpath("vtk")
 
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
 
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
       @inbounds begin
-        #TODO - how to get preflux(Q) here?
         DFloat = eltype(Q)
 
-        ρ, ρet, ρu, ρw, ρqt, ρqr = Q[_ρ], Q[_ρet], Q[_ρu], Q[_ρw], Q[_ρqt], Q[_ρqr]
-        u, w, qt, qr, et = ρu / ρ, ρw / ρ, ρqt / ρ, ρqr / ρ, ρet / ρ
+        u, w, rain_w, ρ, qt, qr, et = preflux(Q)
         z = aux[_c_z]
         p = aux[_c_p]
 
