@@ -182,10 +182,10 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
     # Define Time-Integration Method
     if ti_method == "LSRK"
         TimeIntegrator = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
-    elseif ti_method == "SSP32"
-        TimeIntegrator = StrongStabilityPreservingRungeKutta32(spacedisc, Q; dt = dt, t0 = 0)
-    elseif ti_method == "SSP43"
-        TimeIntegrator = StrongStabilityPreservingRungeKutta43(spacedisc, Q; dt = dt, t0 = 0)
+    elseif ti_method == "SSP33"
+        TimeIntegrator = StrongStabilityPreservingRungeKutta33(spacedisc, Q; dt = dt, t0 = 0)
+    elseif ti_method == "SSP34"
+        TimeIntegrator = StrongStabilityPreservingRungeKutta34(spacedisc, Q; dt = dt, t0 = 0)
     end
 
     #------------Set Callback Info--------------------------------#
@@ -336,7 +336,7 @@ let
         Nvertical   = numelem[2]
         dt=dt/Nhorizontal
         nsteps = ceil(Int64, timeend / dt)
-	numproc=MPI.Comm_size(mpicomm)
+        numproc=MPI.Comm_size(mpicomm)
 
         expected_error = Array{Float64}(undef, 2)
         expected_error[1] = 2.1279090506529826e-02
@@ -370,7 +370,7 @@ let
     N=4
     ArrayType = Array
     dt=1e-2*5 # stable dt for N=4 and Ne=5
-    ti_method = "SSP43" #LSRK or SSP
+    ti_method = "SSP34" #LSRK or SSP
     timeend=1.0
     Nhorizontal = 2 # number of horizontal elements per face of cubed-sphere grid
     Nvertical = 2 # number of horizontal elements per face of cubed-sphere grid

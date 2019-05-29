@@ -17,7 +17,7 @@
 # dependence on CLIMA moist thermodynamics)
 #--------------------------------#
 #--------------------------------#
-# Can be run on the CPU with:
+# Can be run with:
 # Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=true mpirun -n 1 julia --project=@. advection_sphere_ssp33.jl
 # No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 2 julia --project=@. advection_sphere_ssp33.jl
 #--------------------------------#
@@ -331,7 +331,7 @@ let
         numelem = (2, 2) #(Nhorizontal,Nvertical)
         N = 4
         dt=1e-2*5/2 # stable dt for N=4 and Ne=5
-	
+
         Nhorizontal = numelem[1]
         Nvertical   = numelem[2]
         dt=dt/Nhorizontal
@@ -370,7 +370,7 @@ let
     N=4
     ArrayType = Array
     dt=1e-2*5 # stable dt for N=4 and Ne=5
-    ti_method = "SSP43" #LSRK or SSP
+    ti_method = "SSP34" #LSRK or SSP
     timeend=1.0
     Nhorizontal = 2 # number of horizontal elements per face of cubed-sphere grid
     Nvertical = 2 # number of horizontal elements per face of cubed-sphere grid
