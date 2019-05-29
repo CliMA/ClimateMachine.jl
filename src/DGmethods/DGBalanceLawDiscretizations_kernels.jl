@@ -574,8 +574,6 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
 
   Np = Nq * Nq * Nqk
 
-  nelem = size(auxstate)[end]
-
   l_R = MArray{Tuple{nRstate}, DFloat}(undef)
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
