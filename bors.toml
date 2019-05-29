@@ -3,5 +3,5 @@ status = [
   "continuous-integration/appveyor/branch",
   "ci/slurmci"
 ]
-
+delete_merged_branches = true
 timeout_sec = 14400
