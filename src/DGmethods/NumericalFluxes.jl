@@ -78,11 +78,6 @@ PP = bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t,
 where `QP`, `QVP`, and `auxP` are the plus side state, viscous state, and
 auxiliary state to be filled from the given data; other arguments should not be
 modified.
-
-The function `bcstate!` should return either `preflux(QP, auxP, t)` or
-`nothing`; if `nothing` is returned then `preflux(QP, auxP, t)` is called by
-`rusanov_boundary_flux!`. The reason for this behaviour is to allow the user to
-avoid redoing expensive calculations.
 """
 function rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM,
                                 QM, QVM, auxM,
@@ -94,8 +89,8 @@ function rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM,
                                 computeQjump! = nothing
                                ) where {nstate}
   PM = preflux(QM, QVM, auxM, t)
-  PP = bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, PM...)
-  PP === nothing && (PP = preflux(QP, QVP, auxP, t))
+  bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, PM...)
+  PP = preflux(QP, QVP, auxP, t)
   rusanov!(F, nM, QM, QVM, auxM, QP, QVP, auxP, t, flux!, wavespeed, preflux,
            computeQjump!, PM, PP)
 end

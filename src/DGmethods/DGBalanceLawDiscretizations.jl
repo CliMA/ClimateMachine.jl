@@ -65,7 +65,6 @@ module DGBalanceLawDiscretizations
 using MPI
 using ..Grids
 using ..MPIStateArrays
-using Documenter
 using StaticArrays
 using ..SpaceMethods
 using DocStringExtensions

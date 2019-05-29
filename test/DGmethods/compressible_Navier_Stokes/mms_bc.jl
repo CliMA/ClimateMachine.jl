@@ -1,4 +1,5 @@
 using MPI
+using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
@@ -12,11 +13,12 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
 
-@static if Base.find_package("CuArrays") !== nothing
+@static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+  CuArrays.allowscalar(false)
+  const ArrayTypes = (CuArray, )
 else
   const ArrayTypes = (Array, )
 end
@@ -297,7 +299,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, spacedisc, statenames)
+    writevtk(outprefix, Q, spacedisc, statenames,
+             postprocessarray, postnames)
     step[1] += 1
     nothing
   end
@@ -341,7 +344,7 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if Base.find_package("CUDAnative") !== nothing
+  @static if haspkg("CUDAnative")
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
