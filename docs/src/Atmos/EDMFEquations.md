@@ -63,7 +63,7 @@
 \newcommand{\FrictionVelocity}{u_*}
 \newcommand{\Buoyancy}{b}
 \newcommand{\BuoyancyGrad}{\PD_z \Buoyancy}
-\newcommand{\BuoyancyFlux}{\IntraCVSDi{w}{\theta}}
+\newcommand{\BuoyancyFlux}{\IntraCVSDi{w}{b}}
 \newcommand{\TemperatureScale}{\theta_*}
 \newcommand{\SurfaceMomentumFlux}{\BC{\overline{w'u'}}}
 \newcommand{\SurfaceHeatFlux}{\BC{\overline{w'\theta'}}}
@@ -207,7 +207,7 @@ where
 ```math
 \begin{align}
 \DM{S}_{\text{diff}}^{\DM{\phi}} & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
-\DM{S}_{\text{diff}}^{w}         & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion_w} \\
+\DM{S}_{\text{diff}}^{w}         & = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{w})   ,   \label{eq:gm_diffusion_w} \\
 \DM{S}_{\text{press}}            & = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
 \DM{S}_{\text{coriolis}}         & = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
 \DM{S}_{\text{subsidence}}       & = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
@@ -329,7 +329,6 @@ Note: The sum of the total pressure and gravity are recast into the sum of the n
 \SDi{S_{\text{buoy}}} &= \rhoRef{} \aSDi{a} \SDi{b} \\
 \SDi{S_{\text{coriolis}}} & = f(\SDi{\mathbf{u}} - {\SDi{\mathbf{u}_{\text{geo-wind}}}}) \\
 \SDi{S_{\text{rad}}}  &= \left( \PD_t {\SDi{\eint}} \right)_{radiation} \\
-\SDi{S_{\text{grav}}} &= - \rhoRef{} \grav \\
 \SDi{S_{\text{MP-MSS}}}^{\qt} & = \\
 \SDi{S_{\text{MP-MSS}}}^{\eint} & = \\
 \end{align}
@@ -420,7 +419,7 @@ Additional source terms exist in other equations:
 - \rhoRef{} a_i \IntraCVSDi{w}{\psi} \PD_z \SDi{\phi}
 - \rhoRef{} a_i \IntraCVSDi{w}{\phi} \PD_z \SDi{\psi} \\
 & =
- \rhoRef{} a_i \SDi{\Kh} \PD_z \SDi{\psi} \PD_z \SDi{\phi} \\
+ 2 \rhoRef{} a_i \SDi{\Kh} \PD_z \SDi{\psi} \PD_z \SDi{\phi} \\
 \SDi{S_{\text{x-grad flux}}}^{TKE}
 & =
 \rhoRef{} a_i \SDi{\Km} \left[ \left(\PD_z\DM{u}\right)^2 + \left(\PD_z\DM{v}\right)^2 + \left(\PD_z\DM{w}\right)^2 \right] \\
@@ -804,8 +803,8 @@ l_1 &= \frac{\sqrt{c_w\SDe{TKE}}}{\SDe{N}} \\
 c_w &= 0.4 \\
 \SDe{N} &= \frac{\grav \PD_z \SDe{\ThetaVirt}}{\SDe{\ThetaVirt}} , \qquad \text{(buoyancy frequency of environment)} \\
 l_2 &= \frac{\VKConst z}{c_K \kappa^* \phi_m(z/\MOLen)} \\
-\phi_m(\xi) &= \left( 1 + a_l(\MOLen) \xi \right)^{-b_l(\MOLen)} \\
-(a_l(\MOLen), b_l(\MOLen)) &=
+\phi_m(\xi) &= \left( 1 + a_l \xi \right)^{-b_l} \\
+(a_l, b_l) &=
 \begin{cases}
   (-100, 0.2) & \MOLen < 0 \\
   (2.7, -1) & \text{otherwise} \\
@@ -1029,11 +1028,18 @@ Top boundary
 \end{align}
 ```
 Bottom boundary
+!!! todo
+
+    Need value for $C_{\eint}$.
+
 ```math
 \begin{align}
 \BCB{\SDi{w}}     &= 0 \\
-- \SDi{\Kh} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}  \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
-- \SDi{\Kh} \PD_z \BCB{\SDi{\eint}} &= \TCV{w}{\eint} + \mathcal D(\aSDi{a}) \sqrt{C_{\eint}\WindSpeed^2\Gamma_{\phi}(\TCV{w}{\eint}, \TCV{w}{\eint} )} \\
+- \SDi{\Kh} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}^2   \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
+- \SDi{\Kh} \PD_z \BCB{\SDi{\eint}} &= \TCV{w}{\eint} + \mathcal D(\aSDi{a}) \sqrt{C_{\eint}^2 \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\eint}, \TCV{w}{\eint} )} \\
+C_{\qt} = 0.001133 \\
+C_{\ThetaLiqIce} = 0.001094 \\
+C_{\eint} =  \\
 \end{align}
 ```
 where additional variable/function definitions are in:
