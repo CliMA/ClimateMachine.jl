@@ -679,7 +679,7 @@ function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
     # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
     T_2 = air_temperature(e_int, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
-    T -> internal_energy_sat(T, ρ, q_tot) - e_int,
+      T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
       if !converged
         @show "SA did not converge" #TODO - error/warning handling

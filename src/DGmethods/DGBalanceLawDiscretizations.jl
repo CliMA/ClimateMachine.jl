@@ -71,8 +71,6 @@ using DocStringExtensions
 using ..Topologies
 using GPUifyLoops
 
-#using CUDAdrv
-
 export DGBalanceLaw
 
 include("DGBalanceLawDiscretizations_kernels.jl")
