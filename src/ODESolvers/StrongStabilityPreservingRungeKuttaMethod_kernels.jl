@@ -3,9 +3,9 @@ using Requires
   using .CUDAnative
 end
 
-function update!(rhs, Q0, Q, rka1, rka2, rkb, dt)
+function update!(rhs, Q, Qstage, rka1, rka2, rkb, dt)
   @inbounds @loop for i = (1:length(Q);
                            (blockIdx().x - 1) * blockDim().x + threadIdx().x)
-    Q[i] = rka1 * Q0[i] + rka2 * Q[i] + dt * rkb * rhs[i]
+    Qstage[i] = rka1 * Q[i] + rka2 * Qstage[i] + dt * rkb * rhs[i]
   end
 end

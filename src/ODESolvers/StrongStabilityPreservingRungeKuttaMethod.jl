@@ -22,10 +22,11 @@ equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 with the required time step size `dt` and optional initial time `t0`.  This
 time stepping object is intended to be passed to the `solve!` command.
 
-This uses either 2nd or 3rd order Strong-Stability-Preserving (SS) time-integrators.
+This uses either 3-stage or 4-stage 3rd order Strong-Stability-Preserving (SS) time-integrators.
 
 ### References
-S. Gottlieb and C.-W. Shu,Total variation diminishing Runge-Kutta schemes, Math .Comp .,67 (1998), pp .73–85
+S. Gottlieb and C.-W. Shu, Total variation diminishing Runge-Kutta schemes, Math .Comp .,67 (1998), pp .73–85
+R.J. Spiteri and S.J. Ruuth, A new class of optimal high-order strong-stability-preserving time discretization methods, SIAM J. Numer. Anal., 40 (2002), pp .469–491
 """
 
 struct StrongStabilityPreservingRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
@@ -36,9 +37,9 @@ t::Array{T,1}
 "rhs function"
 rhs!::Function
 "Storage for RHS during the StrongStabilityPreservingRungeKutta update"
-Rstages::NTuple{Nstages,AT}
-"Storage for RHS during the StrongStabilityPreservingRungeKutta update"
-Qstages::NTuple{Nstages,AT}
+Rstage::AT
+"Storage for the stage state during the StrongStabilityPreservingRungeKutta update"
+Qstage::AT
 "RK coefficient vector A (rhs scaling)"
 RKA::Array{T,2}
 "RK coefficient vector B (rhs add in scaling)"
@@ -53,7 +54,7 @@ function StrongStabilityPreservingRungeKutta(rhs!::Function, RKA, RKB, RKC, Q::A
     T = eltype(Q)
     dt = [T(dt)]
     t0 = [T(t0)]
-    new{T, AT, length(RKB)}(dt, t0, rhs!, ntuple(i->similar(Q), length(RKB)), ntuple(i->similar(Q), length(RKB)), RKA, RKB, RKC)
+    new{T, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
 end
 end
 
@@ -94,23 +95,25 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
     end
     RKA, RKB, RKC = ssp.RKA, ssp.RKB, ssp.RKC
     rhs! = ssp.rhs!
-    Rstages, Qstages = ssp.Rstages, ssp.Qstages
+    Rstage, Qstage = ssp.Rstage, ssp.Qstage
+    
     rv_Q = ODEs.realview(Q)
-    rv_Q0 = ODEs.realview(Qstages[1])
+    rv_Rstage = ODEs.realview(Rstage)
+    rv_Qstage = ODEs.realview(Qstage)
 
     threads = 1024
     blocks = div(length(rv_Q) + threads - 1, threads)
-    for s = 1:length(RKB)
-        rv_Rstage = ODEs.realview(Rstages[s])
-        rv_Qstage = ODEs.realview(Qstages[s])
 
-        rv_Qstage .= Q
+    rv_Qstage .= rv_Q
+    for s = 1:length(RKB)
         rv_Rstage .= 0
-        rhs!(Rstages[s], Qstages[s], time + RKC[s] * dt)
-       
+        rhs!(Rstage, Qstage, time + RKC[s] * dt)
+      
         @launch(device(Q), threads = threads, blocks = blocks,
-                update!(rv_Rstage, rv_Q0, rv_Q, RKA[s,1], RKA[s,2], RKB[s], dt))
+                update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))
     end
+    rv_Q .= rv_Qstage
+
     if dt == ssp.dt[1]
         ssp.t[1] += dt
     else
