@@ -66,7 +66,7 @@ function StrongStabilityPreservingRungeKutta33(F::Union{Function, AbstractSpaceM
     T=eltype(Q)
     RKA = [ T(1) T(0); T(3//4) T(1//4); T(1//3) T(2//3) ]
     RKB = [T(1), T(1//4), T(2//3)]
-    RKC = [ T(0), T(1//4), T(2//3) ]
+    RKC = [ T(0), T(1), T(1//2) ]
     StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
@@ -74,7 +74,7 @@ function StrongStabilityPreservingRungeKutta34(F::Union{Function, AbstractSpaceM
     T=eltype(Q)
     RKA = [ T(1) T(0); T(0) T(1); T(2//3) T(1//3); T(0) T(1) ]
     RKB = [ T(1//2); T(1//2); T(1//6); T(1//2) ]
-    RKC = [ T(0); T(1//4); T(2//3); T(3//3) ]
+    RKC = [ T(0); T(1//2); T(1); T(1//2) ]
     StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
@@ -110,7 +110,6 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
        
         @launch(device(Q), threads = threads, blocks = blocks,
                 update!(rv_Rstage, rv_Q0, rv_Q, RKA[s,1], RKA[s,2], RKB[s], dt))
-        time += RKC[s] * dt
     end
     if dt == ssp.dt[1]
         ssp.t[1] += dt
