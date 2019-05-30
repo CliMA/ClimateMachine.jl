@@ -3,15 +3,9 @@ export StrongStabilityPreservingRungeKutta, updatedt!
 export StrongStabilityPreservingRungeKutta33
 export StrongStabilityPreservingRungeKutta34
 
-using Requires
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays
-    using .CuArrays.CUDAnative
-    using .CuArrays.CUDAnative.CUDAdrv
-
-    include("StrongStabilityPreservingRungeKuttaMethod_cuda.jl")
-end
+using GPUifyLoops
+include("StrongStabilityPreservingRungeKuttaMethod_kernels.jl")
 
 using ..ODESolvers
 ODEs = ODESolvers
@@ -68,20 +62,20 @@ function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA
     StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-function StrongStabilityPreservingRungeKutta33(spacedisc, Q; dt=nothing,t0=0)
+function StrongStabilityPreservingRungeKutta33(F::Union{Function, AbstractSpaceMethod}, Q; dt=nothing, t0=0)
     T=eltype(Q)
     RKA = [ T(1) T(0); T(3//4) T(1//4); T(1//3) T(2//3) ]
     RKB = [T(1), T(1//4), T(2//3)]
     RKC = [ T(0), T(1//4), T(2//3) ]
-    StrongStabilityPreservingRungeKutta(spacedisc, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+    StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-function StrongStabilityPreservingRungeKutta34(spacedisc, Q; dt=nothing,t0=0)
+function StrongStabilityPreservingRungeKutta34(F::Union{Function, AbstractSpaceMethod}, Q; dt=nothing,t0=0)
     T=eltype(Q)
     RKA = [ T(1) T(0); T(0) T(1); T(2//3) T(1//3); T(0) T(1) ]
     RKB = [ T(1//2); T(1//2); T(1//6); T(1//2) ]
     RKC = [ T(0); T(1//4); T(2//3); T(3//3) ]
-    StrongStabilityPreservingRungeKutta(spacedisc, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+    StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 
@@ -101,11 +95,21 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
     RKA, RKB, RKC = ssp.RKA, ssp.RKB, ssp.RKC
     rhs! = ssp.rhs!
     Rstages, Qstages = ssp.Rstages, ssp.Qstages
+    rv_Q = ODEs.realview(Q)
+    rv_Q0 = ODEs.realview(Qstages[1])
+
+    threads = 1024
+    blocks = div(length(rv_Q) + threads - 1, threads)
     for s = 1:length(RKB)
-        Qstages[s] .= Q
-        Rstages[s].Q .= 0
-        rhs!(Rstages[s], Qstages[s], time)
-        update!(Val(size(Q,2)), Val(size(Q,1)), Rstages[s].Q, Qstages[1].Q, Q.Q, Q.realelems, RKA[s,1], RKA[s,2], RKB[s], dt)
+        rv_Rstage = ODEs.realview(Rstages[s])
+        rv_Qstage = ODEs.realview(Qstages[s])
+
+        rv_Qstage .= Q
+        rv_Rstage .= 0
+        rhs!(Rstages[s], Qstages[s], time + RKC[s] * dt)
+       
+        @launch(device(Q), threads = threads, blocks = blocks,
+                update!(rv_Rstage, rv_Q0, rv_Q, RKA[s,1], RKA[s,2], RKB[s], dt))
         time += RKC[s] * dt
     end
     if dt == ssp.dt[1]
@@ -115,13 +119,5 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
     end
 
 end
-
-# {{{ Update solution (for all dimensions)
-function update!(::Val{nstates}, ::Val{Np}, rhs::Array{T,3}, Q0, Q, elems, rka1, rka2, rkb, dt) where {nstates, Np, T}
-    @inbounds for e = elems, s = 1:nstates, i = 1:Np
-        Q[i, s, e] = rka1*Q0[i, s, e] + rka2*Q[i, s, e] + dt*rkb*rhs[i, s, e]
-    end
-end
-# }}}
 
 end
