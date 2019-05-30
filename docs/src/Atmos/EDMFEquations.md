@@ -53,8 +53,8 @@
 \newcommand{\Kh}{K^h}
 \newcommand{\TEquilib}{T_{\mathrm{iterated}}}
 \newcommand{\PhasePartition}{q}
-\newcommand{\ExnerD}{\Pi_d}
-\newcommand{\ExnerM}{\Pi_m}
+\newcommand{\ExnerD}{\Pi_{dry}}
+\newcommand{\ExnerM}{\Pi_{moist}}
 \newcommand{\WindSpeed}{|u|}
 \newcommand{\LayerThickness}{\param{\Delta z}}
 \newcommand{\SurfaceRoughness}[1]{\param{z_{0#1}}}
@@ -640,8 +640,8 @@ where additional variable definitions are in:
 ## Mixing ratios
 ```math
 \begin{align}\label{eq:MixingRatios}
-r_c & = \frac{\qt+\ql}{1 - \qt} \\
-r_v & = \frac{\qt-\ql    - \qi}{1 - \qt} \\
+r_{con} & = \frac{\qt+\ql}{1 - \qt} \\
+r_{vap} & = \frac{\qt-\ql    - \qi}{1 - \qt} \\
 \end{align}
 ```
 
@@ -651,7 +651,7 @@ Fix: which virtual potential temperature is used
 \begin{align}\label{eq:Theta}
 \ThetaDry    & = T/\ExnerD \\
 \ThetaLiqIce & = \ThetaDry (1 - (\RefLHv \ql + \RefLHs \qi))/(\Cpm T) \\
-\ThetaVirt   & = \ThetaDry (1 - r_c + 0.61 r_v) \\
+\ThetaVirt   & = \ThetaDry (1 - r_{con} + 0.61 r_{vap}) \\
 \ThetaVirt   & = \theta \left(1 + 0.61 \qr - \ql \right) \\
 \ThetaRho    & = T \Rm/\ExnerD \\
 \end{align}
@@ -662,7 +662,7 @@ where additional variable definitions are in:
 
  - [Exner functions](@ref) ($\ExnerM$).
 
- - [Mixing ratios](@ref) ($r_c$, $r_v$).
+ - [Mixing ratios](@ref) ($r_{con}$, $r_{vap}$).
 
 ## Shear production
 
@@ -1037,9 +1037,9 @@ Bottom boundary
 \BCB{\SDi{w}}     &= 0 \\
 - \SDi{\Kh} \PD_z \BCB{\SDi{\qt}}   &= \TCV{w}{\qt}   + \mathcal D(\aSDi{a}) \sqrt{C_{\qt}^2   \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\qt}  , \TCV{w}{\qt}   )} \\
 - \SDi{\Kh} \PD_z \BCB{\SDi{\eint}} &= \TCV{w}{\eint} + \mathcal D(\aSDi{a}) \sqrt{C_{\eint}^2 \WindSpeed^2\Gamma_{\phi}(\TCV{w}{\eint}, \TCV{w}{\eint} )} \\
-C_{\qt} = 0.001133 \\
-C_{\ThetaLiqIce} = 0.001094 \\
-C_{\eint} =  \\
+C_{\qt} &= 0.001133 \\
+C_{\ThetaLiqIce} &= 0.001094 \\
+C_{\eint} &=  \\
 \end{align}
 ```
 where additional variable/function definitions are in:
