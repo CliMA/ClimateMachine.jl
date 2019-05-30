@@ -18,8 +18,13 @@
 #--------------------------------#
 #--------------------------------#
 # Can be run with:
-# Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=true mpirun -n 1 julia --project=@. advection_sphere.jl
-# No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 2 julia --project=@. advection_sphere.jl
+# Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=true mpirun -n 1 julia --project=@. advection_sphere_ssp34.jl
+# No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 2 julia --project=@. advection_sphere_ssp34.jl
+#--------------------------------#
+#--------------------------------#
+# Can be run on the GPU with:
+# Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=true mpirun -n 1 julia --project=/home/fxgiraldo/CLIMA/env/gpu advection_sphere_ssp34.jl
+# No Integration Testing: JULIA_CLIMA_INTEGRATION_TESTING=false mpirun -n 1 julia --project=/home/fxgiraldo/CLIMA/env/gpu advection_sphere_ssp34.jl
 #--------------------------------#
 #--------------------------------#
 
@@ -31,20 +36,22 @@ using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+using CLIMA.Vtk
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using Random
-using CLIMA.Vtk
 
-@static if haspkg("CuArrays")
+@static if haspkg("CUDAnative")
   using CUDAdrv
   using CUDAnative
   using CuArrays
+  @assert VERSION >= v"1.2-pre.25"
   CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
+  const ArrayTypes = (CuArray,)
 else
   const ArrayTypes = (Array, )
 end
@@ -138,7 +145,7 @@ function advection_sphere!(Q, t, x, y, z, vel)
 end
 
 #{{{ Main
-function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
+function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
@@ -173,7 +180,15 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
   Qe = copy(Q)
 
   # Define Time-Integration Method
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  if ti_method == "LSRK"
+    TimeIntegrator = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  elseif ti_method == "SSP33"
+    TimeIntegrator = StrongStabilityPreservingRungeKutta33(spacedisc, Q;
+                                                           dt = dt, t0 = 0)
+  elseif ti_method == "SSP34"
+    TimeIntegrator = StrongStabilityPreservingRungeKutta34(spacedisc, Q;
+                                                           dt = dt, t0 = 0)
+  end
 
   #------------Set Callback Info--------------------------------#
   # Set up the information callback
@@ -186,7 +201,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
                      simtime = %.16e
                      runtime = %s
                      Δmass   = %.16e""",
-                     ODESolvers.gettime(lsrk),
+                     ODESolvers.gettime(TimeIntegrator),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
@@ -214,7 +229,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
   #------------Set Callback Info--------------------------------#
 
   # Perform Time-Integration
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbmass, cbvtk))
+  solve!(Q, TimeIntegrator; timeend=timeend, callbacks=(cbinfo, cbmass, cbvtk))
 
   # Print some end of the simulation information
   if integration_testing
@@ -239,10 +254,12 @@ end
 #}}} Main
 
 #{{{ Run Script
-function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ArrayType)
+function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method,
+             ArrayType)
   Rrange=range(DFloat(1); length=Nvertical+1, stop=2)
   topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
-  (error, Δmass) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
+  (error, Δmass) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt,
+                        ti_method)
 end
 #}}} Run Script
 
@@ -264,23 +281,24 @@ let
   end
 
   # Perform Integration Testing for three different grid resolutions
+  ti_method = "SSP34" #LSRK or SSP
   if integration_testing
     timeend = 1
     numelem = (2, 2) #(Nhorizontal,Nvertical)
     N = 4
-    dt=1e-2*5 # stable dt for N=4 and Ne=5
 
     expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
-    expected_error[1] = 1.5694890877887144e-01 # Ne=2
-    expected_error[2] = 8.8553536706191920e-03 # Ne=4
-    expected_error[3] = 2.2388104046289426e-04 # Ne=8
+    expected_error[1] = 2.1747884619563834e-01 # Ne=2
+    expected_error[2] = 1.2161683394578116e-02 # Ne=4
+    expected_error[3] = 2.2529850289795472e-04 # Ne=8
     expected_mass = Array{Float64}(undef, 3) # h-refinement levels lvl
-    expected_mass[1] = 0.0000000000000000e+00 # Ne=2
-    expected_mass[2] = 1.8219438767875646e-15 # Ne=4
-    expected_mass[3] = 6.1665533536019044e-15 # Ne=8
+    expected_mass[1] = 2.1031020568795386e-15 # Ne=2
+    expected_mass[2] = 7.4279250361339182e-15 # Ne=4
+    expected_mass[3] = 6.7271491130202594e-14 # Ne=8
     lvls = length(expected_error)
 
     for ArrayType in ArrayTypes
+      dt=1e-2*5 # stable dt for N=4 and Ne=5
       for DFloat in (Float64,) # Float32)
         err = zeros(DFloat, lvls)
         mass= zeros(DFloat, lvls)
@@ -295,11 +313,11 @@ let
           Nvertical   = %d
           N           = %d
           dt          = %.16e
-          nstep       = %d
+          nsteps       = %d
           """ Nhorizontal Nvertical N dt nsteps
           @info (ArrayType, DFloat)
           (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
-                                  DFloat, dt, ArrayType)
+                                  DFloat, dt, ti_method, ArrayType)
           @test err[l]  ≈ DFloat(expected_error[l])
           #                @test mass[l] ≈ DFloat(expected_mass[l])
         end
@@ -322,21 +340,28 @@ let
     Nhorizontal = numelem[1]
     Nvertical   = numelem[2]
     dt=dt/Nhorizontal
-
+    nsteps = ceil(Int64, timeend / dt)
     numproc=MPI.Comm_size(mpicomm)
 
     expected_error = Array{Float64}(undef, 2)
-    expected_error[1] = 2.1279090506529808e-02
-    expected_error[2] = 2.1334545498364030e-02
+    expected_error[1] = 2.1881282358529316e-02
+    expected_error[2] = 2.1890633646296072e-02
     expected_mass = Array{Float64}(undef, 2)
-    expected_mass[1] = 1.8462425827083886e-16
-    expected_mass[2] = 1.8480965431931998e-16
+    expected_mass[1] = 2.0308668409792276e-15
+    expected_mass[2] = 2.0329061975125196e-15
     for ArrayType in ArrayTypes
       for DFloat in (Float64,) # Float32)
         Random.seed!(0)
+        @info @sprintf """Run Configuration
+        Nhorizontal = %d
+        Nvertical   = %d
+        N           = %d
+        dt          = %.16e
+        nsteps       = %d
+        """ Nhorizontal Nvertical N dt nsteps
         @info (ArrayType, DFloat)
         (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat,
-                            dt, ArrayType)
+                            dt, ti_method, ArrayType)
         @test error ≈ DFloat(expected_error[numproc])
         #            @test mass ≈ DFloat(expected_mass[numproc])
       end
@@ -351,7 +376,7 @@ let
   N=4
   ArrayType = Array
   dt=1e-2*5 # stable dt for N=4 and Ne=5
-
+  ti_method = "SSP34" #LSRK or SSP
   timeend=1.0
   Nhorizontal = 2 # number of horizontal elements per face of cubed-sphere grid
   Nvertical = 2 # number of horizontal elements per face of cubed-sphere grid
@@ -359,7 +384,7 @@ let
   nsteps = ceil(Int64, timeend / dt)
   dt = timeend / nsteps
   (error, Δmass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt,
-                       ArrayType)
+                       ti_method, ArrayType)
   =#
 
 end # Test

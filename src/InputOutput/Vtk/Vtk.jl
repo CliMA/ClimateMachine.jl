@@ -1,8 +1,9 @@
 module Vtk
 
-export writevtk
+export writevtk, writepvtu
 
 include("writemesh.jl")
 include("writevtk.jl")
+include("writepvtu.jl")
 
 end
