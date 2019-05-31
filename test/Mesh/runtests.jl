@@ -26,7 +26,11 @@ MPI.Finalize()
                  (3, "mpi_connect_stacked.jl")
                  (2, "mpi_connect_stacked_3d.jl")
                  (5, "mpi_connect_sphere.jl")]
-    cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
+    if haskey(ENV, "SLURM_JOB_ID")
+      cmd =  `mpiexec --oversubscribe -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
+    else
+      cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
+    end
     @info "Running MPI test..." n f cmd
     @test (run(cmd); true)
   end
