@@ -15,9 +15,7 @@ using MPI, Test
   testdir = dirname(@__FILE__)
 
   for (n, f) in [(1, "tracers_test.jl")
-                 (3, "tracers_test.jl")
                  (1, "rising_thermal_bubble.jl")
-                 (3, "rising_thermal_bubble.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd

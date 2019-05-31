@@ -55,28 +55,13 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
     N = length(S.parameters)+1
     numsendelem = length(sendelems)
     numrecvelem = length(ghostelems)
-    (Q, device_sendQ, device_recvQ) = try
+    (Q, device_sendQ, device_recvQ) =
       (DA{T, N}(undef, S.parameters..., numelem),
        DA{T, N}(undef, S.parameters..., numsendelem),
        DA{T, N}(undef, S.parameters..., numrecvelem))
-    catch
-      try
-        # TODO: Remove me after CUDA upgrade...
-        (DA{T, N}(S.parameters..., numelem),
-         DA{T, N}(S.parameters..., numsendelem),
-         DA{T, N}(S.parameters..., numrecvelem))
-      catch
-        error("MPIStateArray:Cannot construct array")
-      end
-    end
 
     host_sendQ = zeros(T, S.parameters..., numsendelem)
     host_recvQ = zeros(T, S.parameters..., numrecvelem)
-
-    # Length check is to work around a CuArrays bug.
-    length(Q) > 0 && fill!(Q, 0)
-    length(device_sendQ) > 0 && fill!(device_sendQ, 0)
-    length(device_recvQ) > 0 && fill!(device_recvQ, 0)
 
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
@@ -91,9 +76,9 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
                                            device_sendQ, device_recvQ, weights,
                                            commtag)
   end
-
-
 end
+
+Base.fill!(Q::MPIStateArray, x) = fill!(Q.Q, x)
 
 """
    MPIStateArray{S, T, DA}(mpicomm, numelem; realelems=1:numelem,
