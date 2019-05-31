@@ -33,51 +33,52 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-struct LowStorageRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
+struct LowStorageRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
-  dt::Array{T,1}
+  dt::Array{RT,1}
   "time"
-  t::Array{T,1}
+  t::Array{RT,1}
   "rhs function"
   rhs!::Function
   "Storage for RHS during the LowStorageRungeKutta update"
   dQ::AT
   "low storage RK coefficient vector A (rhs scaling)"
-  RKA::NTuple{Nstages, T}
+  RKA::NTuple{Nstages, RT}
   "low storage RK coefficient vector B (rhs add in scaling)"
-  RKB::NTuple{Nstages, T}
+  RKB::NTuple{Nstages, RT}
   "low storage RK coefficient vector C (time scaling)"
-  RKC::NTuple{Nstages, T}
+  RKC::NTuple{Nstages, RT}
   function LowStorageRungeKutta(rhs!::Function, Q::AT; dt=nothing,
                                 t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
 
     T = eltype(Q)
+    RT = real(T)
     dt = [T(dt)]
     t0 = [T(t0)]
     # FIXME: Add reference
-    RKA = (T(0),
-           T(-567301805773)  / T(1357537059087),
-           T(-2404267990393) / T(2016746695238),
-           T(-3550918686646) / T(2091501179385),
-           T(-1275806237668) / T(842570457699 ))
+    RKA = (RT(0),
+           RT(-567301805773  // 1357537059087),
+           RT(-2404267990393 // 2016746695238),
+           RT(-3550918686646 // 2091501179385),
+           RT(-1275806237668 // 842570457699 ))
 
-    RKB = (T(1432997174477) / T(9575080441755 ),
-           T(5161836677717) / T(13612068292357),
-           T(1720146321549) / T(2090206949498 ),
-           T(3134564353537) / T(4481467310338 ),
-           T(2277821191437) / T(14882151754819))
+    RKB = (RT(1432997174477 // 9575080441755 ),
+           RT(5161836677717 // 13612068292357),
+           RT(1720146321549 // 2090206949498 ),
+           RT(3134564353537 // 4481467310338 ),
+           RT(2277821191437 // 14882151754819))
 
-    RKC = (T(0),
-           T(1432997174477) / T(9575080441755),
-           T(2526269341429) / T(6820363962896),
-           T(2006345519317) / T(3224310063776),
-           T(2802321613138) / T(2924317926251))
+    RKC = (RT(0),
+           RT(1432997174477 // 9575080441755),
+           RT(2526269341429 // 6820363962896),
+           RT(2006345519317 // 3224310063776),
+           RT(2802321613138 // 2924317926251))
 
     dQ = similar(Q)
     fill!(dQ, 0)
-    new{T, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
+    new{T, RT, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
   end
 end
 

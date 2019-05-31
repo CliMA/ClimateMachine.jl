@@ -29,11 +29,11 @@ S. Gottlieb and C.-W. Shu, Total variation diminishing Runge-Kutta schemes, Math
 R.J. Spiteri and S.J. Ruuth, A new class of optimal high-order strong-stability-preserving time discretization methods, SIAM J. Numer. Anal., 40 (2002), pp .469–491
 """
 
-struct StrongStabilityPreservingRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
+struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
 "time step"
-dt::Array{T,1}
+dt::Array{RT,1}
 "time"
-t::Array{T,1}
+t::Array{RT,1}
 "rhs function"
 rhs!::Function
 "Storage for RHS during the StrongStabilityPreservingRungeKutta update"
@@ -41,20 +41,21 @@ Rstage::AT
 "Storage for the stage state during the StrongStabilityPreservingRungeKutta update"
 Qstage::AT
 "RK coefficient vector A (rhs scaling)"
-RKA::Array{T,2}
+RKA::Array{RT,2}
 "RK coefficient vector B (rhs add in scaling)"
-RKB::Array{T,1}
+RKB::Array{RT,1}
 "RK coefficient vector C (time scaling)"
-RKC::Array{T,1}
+RKC::Array{RT,1}
 
 function StrongStabilityPreservingRungeKutta(rhs!::Function, RKA, RKB, RKC, Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
 
     T = eltype(Q)
-    dt = [T(dt)]
-    t0 = [T(t0)]
-    new{T, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
+    RT = real(T)
+    dt = [dt]
+    t0 = [t0]
+    new{T, RT, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
 end
 end
 
@@ -65,17 +66,19 @@ end
 
 function StrongStabilityPreservingRungeKutta33(F::Union{Function, AbstractSpaceMethod}, Q; dt=nothing, t0=0)
     T=eltype(Q)
-    RKA = [ T(1) T(0); T(3//4) T(1//4); T(1//3) T(2//3) ]
-    RKB = [T(1), T(1//4), T(2//3)]
-    RKC = [ T(0), T(1), T(1//2) ]
+    RT=real(T)
+    RKA = [ RT(1) RT(0); RT(3//4) RT(1//4); RT(1//3) RT(2//3) ]
+    RKB = [ RT(1), RT(1//4), RT(2//3)]
+    RKC = [ RT(0), RT(1), RT(1//2) ]
     StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 function StrongStabilityPreservingRungeKutta34(F::Union{Function, AbstractSpaceMethod}, Q; dt=nothing,t0=0)
     T=eltype(Q)
-    RKA = [ T(1) T(0); T(0) T(1); T(2//3) T(1//3); T(0) T(1) ]
-    RKB = [ T(1//2); T(1//2); T(1//6); T(1//2) ]
-    RKC = [ T(0); T(1//2); T(1); T(1//2) ]
+    RT=real(T)
+    RKA = [ RT(1) RT(0); RT(0) RT(1); RT(2//3) RT(1//3); RT(0) RT(1) ]
+    RKB = [ RT(1//2); RT(1//2); RT(1//6); RT(1//2) ]
+    RKC = [ RT(0); RT(1//2); RT(1); RT(1//2) ]
     StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
