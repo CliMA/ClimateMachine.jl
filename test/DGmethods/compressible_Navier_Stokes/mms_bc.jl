@@ -60,10 +60,6 @@ end
 struct State{T}
   arr::T
 end
-struct Flux{T}
-  arr::T
-end
-
 function Base.getproperty(state::State, sym::Symbol)
   arr = getfield(state,:arr)
   if sym == :ρ
@@ -78,6 +74,11 @@ function Base.getproperty(state::State, sym::Symbol)
     error("no property $sym")
   end
 end
+
+struct Flux{T}
+  arr::T
+end
+
 function Base.setproperty!(flux::Flux, sym::Symbol, val)
   arr = getfield(flux,:arr)
   if sym == :ρ
@@ -104,6 +105,21 @@ function Base.getproperty(stress::Stress, sym::Symbol)
     error("no property $sym")
   end
 end
+function Base.setproperty!(stress::Stress, sym::Symbol, val)
+  arr = getfield(stress,:arr)
+  if sym == :𝛕    
+    @inbounds begin
+      arr[_τ11] = val[1,1]
+      arr[_τ22] = val[2,2]
+      arr[_τ33] = val[3,3]
+      arr[_τ12] = val[1,2]
+      arr[_τ13] = val[1,3]
+      arr[_τ23] = val[2,3]
+    end
+  else
+    error("no property $sym")
+  end
+end
 
 
 # flux function
@@ -120,39 +136,16 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
 end
 
 # Compute the velocity from the state
-@inline function velocities!(vel, Q, _...)
-  @inbounds begin
-    # ordering should match states_for_gradient_transform
-    ρ, U, V, W = Q[1], Q[2], Q[3], Q[4]
-    ρinv = 1 / ρ
-    vel[1], vel[2], vel[3] = ρinv * U, ρinv * V, ρinv * W
-  end
+@inline function velocities!(𝐮, Q, _...)
+  state = State(Q)
+  𝐮 .= state.𝐮
 end
 
 # Visous flux
-@inline function compute_stresses!(VF, grad_vel, _...)
+@inline function compute_stresses!(VF, ∇𝐮, _...)
   μ::eltype(VF) = μ_exact
-  @inbounds begin
-    dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-    dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-    dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
-
-    # strains
-    ϵ11 = dudx
-    ϵ22 = dvdy
-    ϵ33 = dwdz
-    ϵ12 = (dudy + dvdx) / 2
-    ϵ13 = (dudz + dwdx) / 2
-    ϵ23 = (dvdz + dwdy) / 2
-
-    # deviatoric stresses
-    VF[_τ11] = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ22] = 2μ * (ϵ22 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ33] = 2μ * (ϵ33 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ12] = 2μ * ϵ12
-    VF[_τ13] = 2μ * ϵ13
-    VF[_τ23] = 2μ * ϵ23
-  end
+  stress = Stress(VF)
+  stress.𝛕 = μ * ((∇𝐮 + ∇𝐮') - 2*tr(∇𝐮)/3*I)
 end
 
 @inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
