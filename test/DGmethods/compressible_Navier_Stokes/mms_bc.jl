@@ -57,34 +57,66 @@ end
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
+struct State{T}
+  arr::T
+end
+struct Flux{T}
+  arr::T
+end
+
+function Base.getproperty(state::State, sym::Symbol)
+  arr = getfield(state,:arr)
+  if sym == :ρ
+    @inbounds arr[_ρ]
+  elseif sym == :ρ𝐮
+    @inbounds SVector(arr[_U], arr[_V], arr[_W])
+  elseif sym == :𝐮
+    @inbounds SVector(arr[_U], arr[_V], arr[_W]) ./ arr[_ρ]
+  elseif sym == :ρe
+    @inbounds arr[_E]
+  else
+    error("no property $sym")
+  end
+end
+function Base.setproperty!(flux::Flux, sym::Symbol, val)
+  arr = getfield(flux,:arr)
+  if sym == :ρ
+    @inbounds arr[:,_ρ] = val
+  elseif sym == :ρ𝐮
+    @inbounds arr[:,_U:_W] = val
+  elseif sym == :ρe
+    @inbounds arr[:,_E] = val
+  else
+    error("no property $sym")
+  end
+end
+
+struct Stress{T}
+  arr::T
+end
+function Base.getproperty(stress::Stress, sym::Symbol)
+  arr = getfield(stress,:arr)
+  if sym == :𝛕
+    @inbounds SMatrix{3,3}(arr[_τ11], arr[_τ12], arr[_τ13],
+                           arr[_τ12], arr[_τ22], arr[_τ23],
+                           arr[_τ13], arr[_τ23], arr[_τ33])
+  else
+    error("no property $sym")
+  end
+end
+
+
 # flux function
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
 
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
-  @inbounds begin
-    ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+  flux = Flux(F)
+  state = State(Q)
+  stress = Stress(VF)
 
-    τ11, τ22, τ33 = VF[_τ11], VF[_τ22], VF[_τ33]
-    τ12 = τ21 = VF[_τ12]
-    τ13 = τ31 = VF[_τ13]
-    τ23 = τ32 = VF[_τ23]
-
-    # inviscid terms
-    F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
-    F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
-    F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
-    F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-    F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-
-    # viscous terms
-    F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
-    F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
-    F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
-
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33
-  end
+  flux.ρ  = state.ρ𝐮
+  flux.ρ𝐮 = state.𝐮 * state.ρ𝐮' + P*I - stress.𝛕
+  flux.ρe  = (state.ρe + P) * state.𝐮 - stress.𝛕 * state.𝐮
 end
 
 # Compute the velocity from the state
