@@ -692,7 +692,8 @@ end
 """
     indefinite_stack_integral!(disc, f, Q, out_states, [P=disc.auxstate])
 
-Computes the indefinite integral along an element stack using state `Q`
+Computes an indefinite line integral along the trailing dimension (`zeta` in
+3-D and `η` in 2-D) up an element stack using state `Q`
 ```math
 ∫_{ζ_{0}}^{ζ} f(q; aux, t)
 ```
@@ -708,11 +709,6 @@ the `MVectors` for the state and auxiliary state at a single degree of freedom.
 The function is responsible for filling `F`.
 
 Requires the `isstacked(disc.grid.topology) == true`
-
-!!! note
-
-    When the topology has one two dimensions the integral is computed along the
-    `η` direction.
 """
 function indefinite_stack_integral!(disc::DGBalanceLaw, f, Q, out_states,
                                     P=disc.auxstate)
