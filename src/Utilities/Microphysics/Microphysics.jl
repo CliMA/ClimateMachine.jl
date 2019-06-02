@@ -7,8 +7,8 @@ TODO: Snow, ice, and 2-moment formulation
 """
 module Microphysics
 
-using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using ..MoistThermodynamics
+using ..PlanetParameters
 
 using Printf
 

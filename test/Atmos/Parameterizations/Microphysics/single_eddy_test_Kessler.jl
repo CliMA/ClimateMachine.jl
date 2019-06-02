@@ -63,7 +63,8 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
 
     # compute rain fall speed
     ρ_ground::DFloat = 1 #TODO ρ[0]
-    rain_w = terminal_velocity(qt, qr, ρ, ρ_ground)
+    #rain_w = terminal_velocity(qt, qr, ρ, ρ_ground)
+    rain_w = 0
 
     return (u, w, rain_w, ρ, qt, qr, et)
   end

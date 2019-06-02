@@ -253,7 +253,7 @@ internal_energy(ts::PhaseEquil) = ts.e_int
 internal_energy(ts::PhaseNonEquil) = ts.e_int
 
 """
-    internal_energy_sat(T, ρ, q_tot) #TODO - rename or change documentation (this is misleading)
+    internal_energy_sat(T, ρ, q_tot)
 
 The internal energy per unit mass in thermodynamic equilibrium at saturation where
 
@@ -682,7 +682,7 @@ function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
       if !converged
-        @show "SA did not converge" #TODO - error/warning handling
+        @show "saturation adjustment did not converge" #TODO - error/warning handing
       end
     return T
   end
