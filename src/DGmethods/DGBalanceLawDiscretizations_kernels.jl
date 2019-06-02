@@ -608,7 +608,7 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
 end
 
 """
-    function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
+    knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
                                             ::Val{nauxstate}, ::Val{nvertelem},
                                             int_knl!, Q, auxstate, vgeo, Imat,
                                             elems, ::Val{outstate}
