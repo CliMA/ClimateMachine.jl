@@ -24,8 +24,8 @@ let
       errors = similar(dts)
       for (n, dt) in enumerate(dts)
         Q = [q0]
-        lsrk = method(rhs!, Q; dt = dt, t0 = 0.0)
-        solve!(Q, lsrk; timeend = finaltime)
+        solver = method(rhs!, Q; dt = dt, t0 = 0.0)
+        solve!(Q, solver; timeend = finaltime)
         errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
       end
       rates = log2.(errors[1:end-1] ./ errors[2:end])
@@ -47,8 +47,8 @@ let
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = CuArray(q0s)
-          lsrk = method(rhs!, Q; dt = dt, t0 = 0.0)
-          solve!(Q, lsrk; timeend = finaltime)
+          solver = method(rhs!, Q; dt = dt, t0 = 0.0)
+          solve!(Q, solver; timeend = finaltime)
           Q = Array(Q)
           errors[n] = maximum(abs.(Q .- exactsolution.(q0s, finaltime)))
         end
