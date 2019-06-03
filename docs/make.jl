@@ -27,6 +27,7 @@ makedocs(
     "Utilites" => Any[
       "RootSolvers" => "Utilities/RootSolvers.md",
       "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
+      "Microphysics" => "Utilities/Microphysics.md",
     ],
     "Atmos" => Any[
       "Atmos/SurfaceFluxes.md",
