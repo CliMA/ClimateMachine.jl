@@ -4,6 +4,7 @@
 #SBATCH --nodes=1          # number of nodes
 #SBATCH --mem-per-cpu=4G   # memory per CPU core
 #SBATCH --gres=gpu:1
+#SBATCH --exclude=hpc-22-36,hpc-23-38,hpc-93-38 # use different CUDA versions
 
 set -euo pipefail
 
