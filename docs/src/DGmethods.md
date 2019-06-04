@@ -36,9 +36,9 @@ DGBalanceLawDiscretizations.DGBalanceLaw(;)
 
 ### Functions
 ```@docs
-DGBalanceLawDiscretizations.writevtk
-DGBalanceLawDiscretizations.writevtk_helper
 DGBalanceLawDiscretizations.grad_auxiliary_state!
+DGBalanceLawDiscretizations.indefinite_stack_integral!
+DGBalanceLawDiscretizations.dof_iteration!
 ```
 
 ### Pirated Type Functions
@@ -52,12 +52,18 @@ CLIMA.SpaceMethods.odefun!(::DGBalanceLawDiscretizations.DGBalanceLaw, dQ, Q, t)
 ```@docs
 DGBalanceLawDiscretizations.volumerhs!
 DGBalanceLawDiscretizations.facerhs!
+DGBalanceLawDiscretizations.volumeviscterms!
+DGBalanceLawDiscretizations.faceviscterms!
+DGBalanceLawDiscretizations.initauxstate!
 DGBalanceLawDiscretizations.initauxstate!
 DGBalanceLawDiscretizations.elem_grad_field!
+DGBalanceLawDiscretizations.knl_dof_iteration!
+DGBalanceLawDiscretizations.knl_indefinite_stack_integral!
 ```
 
 ## `DGBalanceLawDiscretizations.NumericalFluxes`
 
 ```@docs
 DGBalanceLawDiscretizations.NumericalFluxes.rusanov!
+DGBalanceLawDiscretizations.rusanov_boundary_flux!
 ```

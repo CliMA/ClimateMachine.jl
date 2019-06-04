@@ -9,6 +9,7 @@ const _ξy, _ηy, _ζy = Grids._ξy, Grids._ηy, Grids._ζy
 const _ξz, _ηz, _ζz = Grids._ξz, Grids._ηz, Grids._ζz
 const _M, _MI = Grids._M, Grids._MI
 const _x, _y, _z = Grids._x, Grids._y, Grids._z
+const _JcV = Grids._JcV
 
 const _nx, _ny, _nz = Grids._nx, Grids._ny, Grids._nz
 const _sM, _vMI = Grids._sM, Grids._vMI
@@ -574,8 +575,6 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
 
   Np = Nq * Nq * Nqk
 
-  nelem = size(auxstate)[end]
-
   l_R = MArray{Tuple{nRstate}, DFloat}(undef)
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
@@ -606,4 +605,111 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
       end
     end
   end
+end
+
+"""
+    knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
+                                            ::Val{nauxstate}, ::Val{nvertelem},
+                                            int_knl!, Q, auxstate, vgeo, Imat,
+                                            elems, ::Val{outstate}
+                                           ) where {dim, N, nstate, nauxstate,
+                                                    outstate, nvertelem}
+
+Computational kernel: compute indefinite integral along the vertical stack
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
+                                        ::Val{nauxstate}, ::Val{nvertelem},
+                                        int_knl!, P, Q, auxstate, vgeo, Imat,
+                                        elems, ::Val{outstate}
+                                       ) where {dim, N, nstate, nauxstate,
+                                                outstate, nvertelem}
+  DFloat = eltype(Q)
+
+  Nq = N + 1
+  Nq = Nq
+  Nqj = dim == 2 ? 1 : Nq
+
+  nout = length(outstate)
+
+  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_knl = MArray{Tuple{nout, Nq}, DFloat}(undef)
+  # note that k is the second not 4th index (since this is scratch memory and k
+  # needs to be persistent across threads)
+  l_int = @scratch DFloat (nout, Nq, Nq, Nqj) 2
+
+  s_I = @shmem DFloat (Nq, Nq)
+
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for i in (1:Nq; threadIdx().x)
+      @unroll for n = 1:Nq
+        s_I[i, n] = Imat[i, n]
+      end
+    end
+  end
+  @synchronize
+
+  @inbounds @loop for eh in (elems; blockIdx().x)
+    # Initialize the constant state at zero
+    @loop for j in (1:Nqj; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        @unroll for k in 1:Nq
+          @unroll for s = 1:nout
+            l_int[s, k, i, j] = 0
+          end
+        end
+      end
+    end
+    # Loop up the stack of elements
+    for ev = 1:nvertelem
+      e = ev + (eh - 1) * nvertelem
+
+      # Evaluate the integral kernel at each DOF in the slabk
+      @loop for j in (1:Nqj; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          # loop up the pencil
+          @unroll for k in 1:Nq
+            ijk = i + Nq * ((j-1) + Nqj * (k-1))
+            Jc = vgeo[ijk, _JcV, e]
+            @unroll for s = 1:nstate
+              l_Q[s] = Q[ijk, s, e]
+            end
+
+            @unroll for s = 1:nauxstate
+              l_aux[s] = auxstate[ijk, s, e]
+            end
+
+            int_knl!(view(l_knl, :, k), l_Q, l_aux)
+
+            # multiply in the curve jacobian
+            @unroll for s = 1:nout
+              l_knl[s, k] *= Jc
+            end
+          end
+
+          # Evaluate the integral up the element
+          @unroll for s = 1:nout
+            @unroll for k in 1:Nq
+              @unroll for n in 1:Nq
+                l_int[s, k, i, j] += s_I[k, n] * l_knl[s, n]
+              end
+            end
+          end
+
+          # Store out to memory and reset the background value for next element
+          @unroll for k in 1:Nq
+            ijk = i + Nq * ((j-1) + Nqj * (k-1))
+            @unroll for ind_out = 1:nout
+              s = outstate[ind_out]
+              P[ijk, s, e] = l_int[ind_out, k, i, j]
+              l_int[ind_out, k, i, j] = l_int[ind_out, Nq, i, j]
+            end
+          end
+        end
+      end
+    end
+  end
+  nothing
 end

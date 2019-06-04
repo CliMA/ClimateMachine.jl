@@ -2,6 +2,7 @@ using MPI
 using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
+using CLIMA.MPIStateArrays
 using CLIMA.DGBalanceLawDiscretizations
 using Printf
 using LinearAlgebra
@@ -17,27 +18,35 @@ else
   const ArrayTypes = (Array, )
 end
 
+const _nauxstate = 7
 @inline function auxiliary_state_initialization!(aux, x, y, z, dim)
   @inbounds begin
+    aux[1] = x
+    aux[2] = y
+    aux[3] = z
     if dim == 2
-      aux[1] = x^2 + y^3 - x*y
-      aux[5] = 2*x - y
-      aux[6] = 3*y^2 - x
-      aux[7] = 0
+      aux[4] = x*y + z*y
+      aux[5] = 2*x*y + sin(x)*y^2/2 - (z-1)^2*y^3/3
     else
-      aux[1] = x^2 + y^3 + z^2*y^2 - x*y*z
-      aux[5] = 2*x - y*z
-      aux[6] = 3*y^2 + 2*z^2*y - x*z
-      aux[7] = 2*z*y^2 - x*y
+      aux[4] = x*z + z^2/2
+      aux[5] = 2*x*z + sin(x)*y*z - (1+(z-1)^3)*y^2/3
     end
+  end
+end
+@inline function integral_knl(val, Q, aux)
+  @inbounds begin
+    x, y, z = aux[1], aux[2], aux[3]
+    val[1] = x + z
+    val[2] = 2*x + sin(x)*y - (z-1)^2*y^2
   end
 end
 
 using Test
 function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
 
-  brickrange = ntuple(j->range(DFloat(-1); length=Ne[j]+1, stop=1), dim)
-  topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
+  brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=3), dim)
+  topl = StackedBrickTopology(mpicomm, brickrange,
+                              periodicity=ntuple(j->true, dim))
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -49,16 +58,19 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
                            length_state_vector = 0,
                            flux! = (x...) -> (),
                            numerical_flux! = (x...) -> (),
-                           auxiliary_state_length = 7,
+                           auxiliary_state_length = _nauxstate,
                            auxiliary_state_initialization! = (x...) ->
                            auxiliary_state_initialization!(x..., dim))
 
-  DGBalanceLawDiscretizations.grad_auxiliary_state!(spacedisc, 1, (2,3,4))
+  Q = MPIStateArray(spacedisc)
+
+  DGBalanceLawDiscretizations.indefinite_stack_integral!(spacedisc,
+                                                         integral_knl, Q,
+                                                         (6, 7))
 
   # Wrapping in Array ensure both GPU and CPU code use same approx
-  @test Array(spacedisc.auxstate.Q[:, 2, :]) ≈ Array(spacedisc.auxstate.Q[:, 5, :])
-  @test Array(spacedisc.auxstate.Q[:, 3, :]) ≈ Array(spacedisc.auxstate.Q[:, 6, :])
-  @test Array(spacedisc.auxstate.Q[:, 4, :]) ≈ Array(spacedisc.auxstate.Q[:, 7, :])
+  @test Array(spacedisc.auxstate.Q[:, 4, :]) ≈ Array(spacedisc.auxstate.Q[:, 6, :])
+  @test Array(spacedisc.auxstate.Q[:, 5, :]) ≈ Array(spacedisc.auxstate.Q[:, 7, :])
 end
 
 let
@@ -76,12 +88,12 @@ let
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
-  numelem = (5, 5, 1)
+  numelem = (5, 5, 5)
   lvls = 1
 
   polynomialorder = 4
 
-  for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       for dim = 2:3
         err = zeros(DFloat, lvls)

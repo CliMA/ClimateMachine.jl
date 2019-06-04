@@ -344,12 +344,18 @@ end
 # }}}
 
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
-const _nvgeo = 14
-const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _MJ, _MJI,
-       _x, _y, _z = 1:_nvgeo
+const _nvgeo = Grids._nvgeo
+const _nsgeo = Grids._nsgeo
 
-const _nsgeo = 5
-const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
+const _ξx, _ηx, _ζx = Grids._ξx, Grids._ηx, Grids._ζx
+const _ξy, _ηy, _ζy = Grids._ξy, Grids._ηy, Grids._ζy
+const _ξz, _ηz, _ζz = Grids._ξz, Grids._ηz, Grids._ζz
+const _MJ, _MJI = Grids._M, Grids._MI
+const _x, _y, _z = Grids._x, Grids._y, Grids._z
+const _JcV = Grids._JcV
+
+const _nx, _ny, _nz = Grids._nx, Grids._ny, Grids._nz
+const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 using Requires

@@ -1,3 +1,7 @@
 status = [
-  "ci/gitlab/%"
+  "continuous-integration/travis-ci/push",
+  "continuous-integration/appveyor/branch",
+  "ci/slurmci"
 ]
+delete_merged_branches = true
+timeout_sec = 14400

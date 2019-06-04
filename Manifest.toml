@@ -222,10 +222,10 @@ uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 version = "0.22.3"
 
 [[DoubleFloats]]
-deps = ["GenericSVD", "LinearAlgebra", "Polynomials", "Random", "Test"]
-git-tree-sha1 = "0adca7017ef5356aedfc57be3c513c9d51ebc1b5"
+deps = ["GenericSVD", "GenericSchur", "LinearAlgebra", "Polynomials", "Quadmath", "Random"]
+git-tree-sha1 = "a1e82c58531c88b82a0a658a44bd38f208435a17"
 uuid = "497a8b3b-efae-58df-a0af-a86822472b78"
-version = "0.7.21"
+version = "0.8.2"
 
 [[ExponentialUtilities]]
 deps = ["LinearAlgebra", "Printf", "Random", "SparseArrays", "Test"]
@@ -264,6 +264,12 @@ deps = ["LinearAlgebra", "Random", "Test"]
 git-tree-sha1 = "8aa93c3f3d81562a8962047eafcc5712af0a0f59"
 uuid = "01680d73-4ee2-5a08-a1aa-533608c188bb"
 version = "0.2.1"
+
+[[GenericSchur]]
+deps = ["LinearAlgebra", "Printf"]
+git-tree-sha1 = "25992e6d023b72860348553f976599184c85d914"
+uuid = "c145ed77-6b09-5dd9-b285-bf645a82121e"
+version = "0.2.3"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "Distributed", "IniFile", "MbedTLS", "Random", "Sockets", "Test"]
@@ -452,6 +458,12 @@ git-tree-sha1 = "389fd27b958a33df5234772cc464b663b208273d"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 version = "2.0.4"
 
+[[Quadmath]]
+deps = ["Random", "SpecialFunctions"]
+git-tree-sha1 = "573d56ebc1857b7825f03edfff08696426218bcd"
+uuid = "be4d8f0f-7fa4-5f49-b795-2f01399ab2dd"
+version = "0.4.0"
+
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -578,7 +590,7 @@ uuid = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
 version = "6.3.0"
 
 [[SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
+deps = ["Libdl", "LinearAlgebra", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[Sundials]]

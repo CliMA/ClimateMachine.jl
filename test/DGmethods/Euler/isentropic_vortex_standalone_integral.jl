@@ -36,9 +36,9 @@ using CLIMA.Vtk
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
+  const ArrayTypes = (CuArray, )
 else
-  const ArrayTypes = (Array,)
+  const ArrayTypes = (Array, )
 end
 
 const _nstate = 5
@@ -49,7 +49,6 @@ const γ_exact = 7 // 5
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  using Random
 end
 
 # preflux computation
@@ -83,9 +82,12 @@ eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
   end
 end
 
+const _nauxstate = 2
+const _a_intρ, _a_intρ2 = 1:_nauxstate
+
 # initial condition
 const halfperiod = 5
-function isentropicvortex!(Q, t, x, y, z)
+function isentropicvortex!(Q, t, x, y, z, _...)
   DFloat = eltype(Q)
 
   γ::DFloat    = γ_exact
@@ -116,13 +118,20 @@ function isentropicvortex!(Q, t, x, y, z)
   W = ρ*w
   E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
-  if integration_testing
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
-  else
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] =
-    10+rand(), rand(), rand(), rand(), 10+rand()
-  end
+  @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 
+end
+
+@inline function integral_knl(val, Q, aux)
+  @inbounds begin
+    ρ = Q[_ρ]
+    val[1] = ρ
+    val[2] = ρ^2
+  end
+end
+function integral_computation(disc, Q, t)
+  DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
+                                                         (_a_intρ, _a_intρ2))
 end
 
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
@@ -135,17 +144,23 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
+  numflux!(x...) = NumericalFluxes.rusanov!(x..., eulerflux!, wavespeed,
+                                            preflux)
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            flux! = eulerflux!,
-                           numerical_flux! = (x...) ->
-                           NumericalFluxes.rusanov!(x..., eulerflux!,
-                                                    wavespeed,
-                                                    preflux))
+                           numerical_flux! = numflux!,
+                           auxiliary_state_length = _nauxstate,
+                           preodefun! = integral_computation,
+                          )
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
+
+  # Compute the initial integral (which will be compared with final integral)
+  integral_computation(spacedisc, Q, 0)
+  exact_aux = copy(spacedisc.auxstate)
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
 
@@ -178,12 +193,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, spacedisc, statenames)
-    pvtuprefix = @sprintf("isentropicvortex_%dD_step%04d", dim, step[1])
-    prefixes = ntuple(i->
-                      @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
-                               dim, i-1, step[1]),
-                      MPI.Comm_size(mpicomm))
-    writepvtu(pvtuprefix, prefixes, statenames)
     step[1] += 1
     nothing
   end
@@ -191,33 +200,30 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
+
   # Print some end of the simulation information
   engf = norm(Q)
-  if integration_testing
-    Qe = MPIStateArray(spacedisc,
-                       (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
-    engfe = norm(Qe)
-    errf = euclidean_distance(Q, Qe)
-    @info @sprintf """Finished
-    norm(Q)                 = %.16e
-    norm(Q) / norm(Q₀)      = %.16e
-    norm(Q) - norm(Q₀)      = %.16e
-    norm(Q - Qe)            = %.16e
-    norm(Q - Qe) / norm(Qe) = %.16e
-    """ engf engf/eng0 engf-eng0 errf errf / engfe
-  else
-    @info @sprintf """Finished
-    norm(Q)            = %.16e
-    norm(Q) / norm(Q₀) = %.16e
-    norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-  end
-  integration_testing ? errf : (engf / eng0)
+  Qe = MPIStateArray(spacedisc,
+                     (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
+  engfe = norm(Qe)
+  errf = euclidean_distance(Q, Qe)
+  err_int = euclidean_distance(spacedisc.auxstate, exact_aux)
+  @info @sprintf """Finished
+  norm(Q)                 = %.16e
+  norm(Q) / norm(Q₀)      = %.16e
+  norm(Q) - norm(Q₀)      = %.16e
+  norm(Q - Qe)            = %.16e
+  norm(Q - Qe) / norm(Qe) = %.16e
+  err_int                 = %.16e
+  """ engf engf/eng0 engf-eng0 errf errf / engfe err_int
+  (errf, err_int)
 end
 
 function run(mpicomm, ArrayType, dim, Ne, N, timeend, DFloat, dt)
   brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
-  topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
+  topl = StackedBrickTopology(mpicomm, brickrange,
+                              periodicity=ntuple(j->true, dim))
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 end
 
@@ -236,67 +242,58 @@ let
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
-  if integration_testing
-    timeend = 1
-    numelem = (5, 5, 1)
+  timeend = 2halfperiod
+  numelem = (5, 5, 1)
 
-    polynomialorder = 4
+  polynomialorder = 4
 
-    expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_error[1,1] = 5.7115689019456495e-01
-    expected_error[1,2] = 6.9418982796523573e-02
-    expected_error[1,3] = 3.2927550219067014e-03
-    expected_error[2,1] = 1.8061566743070110e+00
-    expected_error[2,2] = 2.1952209848920567e-01
-    expected_error[2,3] = 1.0412605646145325e-02
-    lvls = size(expected_error, 2)
+  expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
+  expected_error[1,1] = 1.0948999661850387e+00
+  expected_error[1,2] = 2.0267925216657484e-01
+  expected_error[1,3] = 5.5082585722351137e-03
+  expected_error[2,1] = 3.4623777032091780e+00
+  expected_error[2,2] = 6.4092807130049356e-01
+  expected_error[2,3] = 1.7418643028977332e-02
+  expected_integral_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
+  expected_integral_error[1,1] = 4.1357870721227102e-01
+  expected_integral_error[1,2] = 7.8773719266673065e-02
+  expected_integral_error[1,3] = 2.0484416156969962e-03
+  expected_integral_error[2,1] = 4.6757171545810277e+00
+  expected_integral_error[2,2] = 1.0436120580825130e+00
+  expected_integral_error[2,3] = 3.7405058634240596e-02
+  lvls = integration_testing ? size(expected_error, 2) : 1
 
-    for ArrayType in ArrayTypes
-      for DFloat in (Float64,) #Float32)
-        for dim = 2:3
-          err = zeros(DFloat, lvls)
-          for l = 1:lvls
-            Ne = ntuple(j->2^(l-1) * numelem[j], dim)
-            dt = 1e-2 / Ne[1]
-            nsteps = ceil(Int64, timeend / dt)
-            dt = timeend / nsteps
-            @info (ArrayType, DFloat, dim)
-            err[l] = run(mpicomm, ArrayType, dim, Ne, polynomialorder, timeend,
-                         DFloat, dt)
-            @test err[l] ≈ DFloat(expected_error[dim-1, l])
-          end
-          @info begin
-            msg = ""
-            for l = 1:lvls-1
-              rate = log2(err[l]) - log2(err[l+1])
-              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-            end
-            msg
-          end
-        end
-      end
-    end
-  else
-    numelem = (3, 4, 5)
-    dt = 1e-3
-    timeend = 2dt
-
-    polynomialorder = 4
-
-    check_engf_eng0 = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    check_engf_eng0[2, 1, Float64] = 9.9999795068862996e-01
-    check_engf_eng0[3, 1, Float64] = 9.9999641494886327e-01
-    check_engf_eng0[2, 3, Float64] = 9.9999876109562658e-01
-    check_engf_eng0[3, 3, Float64] = 9.9999654059181553e-01
-
-    for ArrayType in ArrayTypes
-      for DFloat in (Float64,) #Float32)
-        for dim = 2:3
-          Random.seed!(0)
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+    for DFloat in (Float64,) #Float32)
+      for dim = 2:3
+        err = zeros(DFloat, lvls)
+        int_err = zeros(DFloat, lvls)
+        for l = 1:lvls
+          Ne = ntuple(j->2^(l-1) * numelem[j], dim)
+          dt = 1e-2 / Ne[1]
+          nsteps = ceil(Int64, timeend / dt)
+          dt = timeend / nsteps
           @info (ArrayType, DFloat, dim)
-          engf_eng0 = run(mpicomm, ArrayType, dim, numelem[1:dim],
-                          polynomialorder, timeend, DFloat, dt)
-          @test check_engf_eng0[dim, MPI.Comm_size(mpicomm), DFloat] ≈ engf_eng0
+          (err[l], int_err[l]) = run(mpicomm, ArrayType, dim, Ne,
+                                     polynomialorder, timeend, DFloat, dt)
+          @test err[l] ≈ DFloat(expected_error[dim-1, l])
+          @test int_err[l] ≈ DFloat(expected_integral_error[dim-1, l])
+        end
+        @info begin
+          msg = "solution rates"
+          for l = 1:lvls-1
+            rate = log2(err[l]) - log2(err[l+1])
+            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+          end
+          msg
+        end
+        @info begin
+          msg = "integral rates"
+          for l = 1:lvls-1
+            rate = log2(int_err[l]) - log2(int_err[l+1])
+            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+          end
+          msg
         end
       end
     end
