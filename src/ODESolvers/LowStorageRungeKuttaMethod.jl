@@ -84,8 +84,8 @@ end
 
 function LowStorageRungeKutta(spacedisc::AbstractSpaceMethod, Q; dt=nothing,
                               t0=0)
-  LowStorageRungeKutta((x...) -> SpaceMethods.odefun!(spacedisc, x...),
-                       Q; dt=dt, t0=t0)
+  rhs! = (x...; incremental) -> SpaceMethods.odefun!(spacedisc, x..., incremental = incremental)
+  LowStorageRungeKutta(rhs!, Q; dt=dt, t0=t0)
 end
 
 
@@ -113,7 +113,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
   blocks = div(length(rv_Q) + threads - 1, threads)
 
   for s = 1:length(RKA)
-    rhs!(dQ, Q, time + RKC[s] * dt)
+    rhs!(dQ, Q, time + RKC[s] * dt, incremental = true)
     # update solution and scale RHS
     @launch(device(Q), threads=threads, blocks=blocks,
             update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt))

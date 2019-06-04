@@ -5,11 +5,15 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 
 let 
-  function rhs!(dQ, Q, time)
-    dQ .+= Q * cos(time)
+  function rhs!(dQ, Q, time; incremental)
+    if incremental
+      dQ .+= Q * cos(time)
+    else
+      dQ .= Q * cos(time)
+    end
   end
   exactsolution(q0, time) = q0 * exp(sin(time))
-
+  
   method_order = [(LowStorageRungeKutta, 4),
                   (StrongStabilityPreservingRungeKutta33, 3),
                   (StrongStabilityPreservingRungeKutta34, 3)
