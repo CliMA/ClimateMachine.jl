@@ -17,8 +17,8 @@ using ..PlanetParameters
 using ..MicrophysicsParameters
 
 # rain fall speed
+export terminal_velocity_single_drop_coeff
 export terminal_velocity
-export terminal_velocity_emp
 
 # rates of conversion between microphysics categories
 export conv_q_vap_to_q_liq
@@ -26,6 +26,21 @@ export conv_q_liq_to_q_rai_acnv
 export conv_q_liq_to_q_rai_accr
 export conv_q_rai_to_q_vap
 
+"""
+    terminal_velocity_single_drop_coeff(ρ)
+
+where:
+  - `ρ` is the density of air
+
+Returns the proportionality coefficient between terminal velocity of an
+individual water drop and the square root of its radius.
+"""
+function terminal_velocity_single_drop_coeff(ρ::DT) where {DT<:Real}
+
+    # terminal_vel_of_individual_drop = v_drop_coeff * drop_radius^(1/2)
+    v_c = sqrt(DT(8/3) * grav/C_drag * (dens_liquid / ρ - DT(1)))
+    return v_c
+end
 
 """
     terminal_velocity(q_rai, ρ)
@@ -39,19 +54,18 @@ Marshall_Palmer_1948 distribution of rain drops.
 """
 function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
 
-    # TODO - should it be multiplied by ρ/ρ_ground?
-
     vel::DT = 0
 
     # terminal_vel_of_individual_drop = v_drop_coeff * drop_radius^(1/2)
-    v_drop_coeff::DT = sqrt(DT(8/3) * grav/C_drag * (dens_liquid / ρ - DT(1)))
+    v_c = terminal_velocity_single_drop_coeff(ρ)
 
     # gamma(9/2)
     gamma_9_2::DT = 11.63
 
-    v_coeff = gamma_9_2 * v_drop_coeff / DT(6) / sqrt(DT(2)) *
+    v_coeff = gamma_9_2 * v_c / DT(6) / sqrt(DT(2)) *
               (DT(1) / π / MP_n_0)^(DT(1/8))
 
+    # TODO - should it be multiplied by ρ/ρ_ground?
     if (q_rai > DT(0)) # TODO - assert positive definite elsewhere
       vel = v_coeff * (ρ / dens_liquid)^(DT(1/8)) * q_rai^DT(1/8)
     end
@@ -110,14 +124,17 @@ Returns the q_rai tendency due to collisions between cloud droplets
 and rain drops (accretion) parametrized following Kessler_1995
 and Ogura_and_Takahashi_1971.
 """
-function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT) where {DT<:Real}
+function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT, ρ::DT) where {DT<:Real}
 
-  #julia> gamma(7/4)
-  #0.9190625268488832
+  # terminal_vel_of_individual_drop = v_drop_coeff * drop_radius^(1/2)
+  v_c = terminal_velocity_single_drop_coeff(ρ)
 
-  accr_coeff = E * (π * n_0)^DT(1/8) * (ρ/ρ_w)^DT(7/8)# * ...TODO
+  #gamma(7/2)
+  gamma_7_2 = DT(3.32)
 
-  src_q_rai = accr_coeff * q_liq * q_rai^(DT(7/8))
+  accr_coeff = gamma_7_2 * (π * MP_n_0)^DT(1/8) * v_c * E_col / DT(4) / sqrt(DT(2))
+
+  src_q_rai = accr_coeff * (ρ / dens_liquid)^DT(7/8) * q_liq * q_rai^DT(7/8)
 
   return src_q_rai
 end

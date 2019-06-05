@@ -14,7 +14,6 @@ using ..ParametersType
 @exportparameter q_liq_threshold 5e-4    "autoconversion threshold [kg/kg]  ∈(0.5, 1) * 1e-3 "
 @exportparameter τ_acnv          1e3     "autoconversion timescale [s]      ∈(1e3, 1e4) "
 
-@exportparameter τ_accr          42      "accretion timescale [s]"
-@exportparameter E_col           42      "collision efficiency"
+@exportparameter E_col           1       "collision efficiency"
 
 end

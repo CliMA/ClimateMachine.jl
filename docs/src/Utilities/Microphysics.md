@@ -88,10 +88,10 @@ function terminal_velocity_empirical(q_rai::DT, q_tot::DT, ρ::DT, ρ_air_ground
 end
 
 q_rain_range = range(0, stop=5e-3, length=100)
-ρ_air, q_tot, ρ_air_ground = 1.2, 10 * 1e-3, 1.22
+ρ_air, q_tot, ρ_air_ground = 1.2, 20 * 1e-3, 1.22
 
 plot(q_rain_range * 1e3,  [terminal_velocity(q_rai, ρ_air) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="velocity [m/s]", title="Average terminal velocity of rain", label="CLIMA")
-plot!(q_rain_range * 1e3, [terminal_velocity_empirical(q_rai, q_tot, ρ_air, ρ_air_ground) for q_rai in q_rain_range], label="empirical")
+plot!(q_rain_range * 1e3, [terminal_velocity_empirical(q_rai, q_tot, ρ_air, ρ_air_ground) for q_rai in q_rain_range], label="Empirical")
 savefig("rain_terminal_velocity.svg") # hide
 nothing # hide
 ```
@@ -121,9 +121,50 @@ where:
  - ``q_{liq}`` - liquid water specific humidity.
  - ``\tau_{acnv}`` - timescale (parameter in `Microphysics` module)
  - ``q_{liq\_threshold}`` - autoconversion (parameter in `MicrophysicsParameters` module).
+
 ## accretion
 
-Accretion defines the rate of conversion from cloud to rain water resulting from collisions between cloud droplets and rain drops. It is parameterized following Kessler 1995 and Ogura and Takahashi_1971.
+Accretion defines the rate of conversion from cloud to rain water resulting from collisions between cloud droplets and rain drops. It is parameterized following Kessler 1995:
+```math
+\begin{equation}
+\left. \frac{d \; q_{rai}}{dt} \right|_{accr} = \int_0^\infty n(r) \pi r^2 v_c r^{1/2} E_{col} q_{liq} dr
+\end{equation}
+```
+where:
+ - ``E_{col}`` is the collision efficiency
+
+Integrating over the distribution and using the RWC to eliminate the ``\lambda_{MP}`` results in:
+```math
+\begin{equation}
+\left. \frac{d \; q_{rai}}{dt} \right|_{accr}  = \Gamma \left(\frac{7}{2} \right) (\pi n_{0_{MP}})^{1/8}  \frac{v_c E_{col}}{4 \sqrt{2}} \left(\frac{\rho}{\rho_{water}}\right)^{7/8} q_{liq} q_{rai}^{7/8}
+\end{equation}
+```
+
+The collision efficiency ``E_coll`` is chosen such that the accretion rate values match the empirical accretion rate formulation in Smolarkiewicz and Grabowski 1996.
+
+```@example accretion
+using CLIMA.Microphysics
+using Plots, LaTeXStrings
+
+# eq. 5b in Smolarkiewicz and Grabowski 1996
+# https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
+function accretion_empirical(q_rai::DT, q_liq::DT, q_tot::DT) where {DT<:Real}
+    rr  = q_rai / (DT(1) - q_tot)
+    rl  = q_liq / (DT(1) - q_tot)
+    return DT(2.2) * rl * rr^DT(7/8)
+end
+
+q_rain_range = range(0, stop=5e-3, length=100)
+ρ_air, q_liq, q_tot = 1.2, 7 * 1e-3, 20 * 1e-3
+
+plot(q_rain_range * 1e3,  [conv_q_liq_to_q_rai_accr(q_liq, q_rai, ρ_air) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="accretion rate [1/s]", title="Accretion", label="CLIMA")
+plot!(q_rain_range * 1e3, [accretion_empirical(q_rai, q_liq, q_tot) for q_rai in q_rain_range], label="empirical")
+savefig("accretion_rate.svg") # hide
+nothing # hide
+```
+![](accretion_rate.svg)
+
+
 
 ## rain evaporation
 
