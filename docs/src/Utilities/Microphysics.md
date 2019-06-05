@@ -72,7 +72,7 @@ Eliminating ``\lambda_{MP}`` between the two equations and dividing by ``RWC`` r
 v_t = \Gamma \left( \frac{9}{2} \right) \; \frac{v_c}{6 \sqrt{2}} \; (n_{0_{MP}} \; \pi)^{-1/8} \left( \frac{\rho}{\rho_{water}} \right)^{1/8} q_{rai}^{1/8} = v_{t_{c}} \left( \frac{\rho}{\rho_{water}} \right)^{1/8} q_{rai}^{1/8}
 \end{equation}
 ```
-The default values of the two parameters in the equation for ``v_t`` are ``n_{0_{MP}} = 8e6 \; 1/m^4`` and ``C_{drag} = 0.55``. The ``n_{0_{MP}}`` value is taken from the Marshal Palmer 1948. The ``C_{drag}`` is chosen such that the ``v_t`` values match the empirical terminal velocity formulation in Smolarkiewicz and Grabowski 1996. Assuming a constant drag coefficient is an approximation as it should be size and flow dependent, see [drag_coefficient](https://www.grc.nasa.gov/www/K-12/airplane/dragsphere.html).
+The default values of the two parameters in the equation for ``v_t`` are ``n_{0_{MP}} = 8e6 \; 1/m^4`` and ``C_{drag} = 0.55``. The ``n_{0_{MP}}`` value is taken from the Marshal Palmer 1948. The ``C_{drag}`` is chosen such that the ``v_t`` values are close to the empirical terminal velocity formulation in Smolarkiewicz and Grabowski 1996. Assuming a constant drag coefficient is an approximation as it should be size and flow dependent, see [drag_coefficient](https://www.grc.nasa.gov/www/K-12/airplane/dragsphere.html).
 
 
 ```@example rain_terminal_velocity
@@ -140,11 +140,12 @@ Integrating over the distribution and using the RWC to eliminate the ``\lambda_{
 \end{equation}
 ```
 
-The collision efficiency ``E_coll`` is chosen such that the accretion rate values match the empirical accretion rate formulation in Smolarkiewicz and Grabowski 1996.
+Integarting from ``0`` to ``\infty`` and assuming a constant ``E_{col}`` are both approximations. See for example [collision efficiency](https://journals.ametsoc.org/doi/10.1175/1520-0469%282001%29058%3C0742%3ACEODIA%3E2.0.CO%3B2).
+The collision efficiency ``E_coll`` is set to be 0.8 so that the resulting accretion rate is close to the empirical accretion rate in Smolarkiewicz and Grabowski 1996.
 
 ```@example accretion
 using CLIMA.Microphysics
-using Plots, LaTeXStrings
+using Plots
 
 # eq. 5b in Smolarkiewicz and Grabowski 1996
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
@@ -154,8 +155,9 @@ function accretion_empirical(q_rai::DT, q_liq::DT, q_tot::DT) where {DT<:Real}
     return DT(2.2) * rl * rr^DT(7/8)
 end
 
-q_rain_range = range(0, stop=5e-3, length=100)
-ρ_air, q_liq, q_tot = 1.2, 7 * 1e-3, 20 * 1e-3
+# some example values
+q_rain_range = range(0, stop=5e-4, length=100)
+ρ_air, q_liq, q_tot = 1.2, 5e-4, 20e-3
 
 plot(q_rain_range * 1e3,  [conv_q_liq_to_q_rai_accr(q_liq, q_rai, ρ_air) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="accretion rate [1/s]", title="Accretion", label="CLIMA")
 plot!(q_rain_range * 1e3, [accretion_empirical(q_rai, q_liq, q_tot) for q_rai in q_rain_range], label="empirical")
@@ -165,10 +167,9 @@ nothing # hide
 ![](accretion_rate.svg)
 
 
-
 ## rain evaporation
 
-
+TODO
 
 
 ```@meta

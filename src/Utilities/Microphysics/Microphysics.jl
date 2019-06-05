@@ -50,7 +50,7 @@ where:
   - `ρ`     - density of air
 
 Returns the mass weighted average rain terminal velocity assuming
-Marshall_Palmer_1948 distribution of rain drops.
+Marshall Palmer 1948 distribution of rain drops.
 """
 function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
 
@@ -75,7 +75,7 @@ end
 
 
 """
-    conv_q_vap_to_q_liq(q_sat::PhasePartition, q::PhasePartition)
+    conv_q_vap_to_q_liq(q_sat, q)
 
 where:
 - `q_sat` - PhasePartition at equilibrium saturation
@@ -104,10 +104,11 @@ end
 """
     conv_q_liq_to_q_rai_acnv(q_liq)
 
+where:
+- `q_liq` - is the liquid water specific humidity
+
 Returns the q_rai tendency due to collisions between cloud droplets
-(autoconversion) parametrized following Kessler_1995.
-The timescale and autoconversion threshold q_liq_0 are parameters and are
-defined in MicrophysicsParameters module.
+(autoconversion) parametrized following Kessler 1995.
 """
 function conv_q_liq_to_q_rai_acnv(q_liq::DT) where {DT<:Real}
 
@@ -118,11 +119,15 @@ end
 
 
 """
-    conv_q_liq_to_q_rai_accr(q_liq)
+    conv_q_liq_to_q_rai_accr(q_liq, q_rai, ρ)
+
+where:
+- `q_liq` - is the liquid water specific humidity
+- `q_rai` - is the rain water specific humidity
+- `ρ` - is the density of air
 
 Returns the q_rai tendency due to collisions between cloud droplets
-and rain drops (accretion) parametrized following Kessler_1995
-and Ogura_and_Takahashi_1971.
+and rain drops (accretion) parametrized following Kessler 1995.
 """
 function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT, ρ::DT) where {DT<:Real}
 
@@ -150,14 +155,13 @@ function q2r(q_::DT, qt::DT) where {DT<:Real}
     return q_ / (DT(1) - qt)
 end
 
-
 """
-    qr2qv(qt, PhasePartition, T, ρ, p)
+    conv_q_rai_to_q_vap(qt, PhasePartition, T, ρ, p)
 
 Return rain evaporation rate.
-TODO - add citation
+TODO
 """
-function qr2qv(q::PhasePartition, T::DT, ρ::DT, p::DT, qr::DT) where {DT<:Real}
+function conv_q_rai_to_q_vap(q::PhasePartition, T::DT, ρ::DT, p::DT, qr::DT) where {DT<:Real}
 
   ret::DT = 0
 
