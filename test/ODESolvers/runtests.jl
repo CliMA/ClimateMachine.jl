@@ -6,8 +6,8 @@ using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 
 let 
-  function rhs!(dQ, Q, time; incremental)
-    if incremental
+  function rhs!(dQ, Q, time; increment)
+    if increment
       dQ .+= Q * cos(time)
     else
       dQ .= Q * cos(time)
@@ -65,55 +65,55 @@ let
 end
 
 let 
-  c = 100.0
-  function rhs!(dQ, Q, time; incremental)
-    if incremental
-      dQ .+= im * c * Q .+ exp(im * time)
-    else
-      dQ .= im * c * Q .+ exp(im * time)
-    end
-  end
-  
-  function rhs_linear!(dQ, Q, time; incremental)
-    if incremental
-      dQ .+= im * c * Q
-    else
-      dQ .= im * c * Q
-    end
-  end
-  
-  function solve_linear_problem!(Qtt, Qhat, rhs_linear!, a)
-    Qtt .= Qhat ./ (1 - a * im * c)
-  end
+ c = 100.0
+ function rhs!(dQ, Q, time; increment)
+   if increment
+     dQ .+= im * c * Q .+ exp(im * time)
+   else
+     dQ .= im * c * Q .+ exp(im * time)
+   end
+ end
+ 
+ function rhs_linear!(dQ, Q, time; increment)
+   if increment
+     dQ .+= im * c * Q
+   else
+     dQ .= im * c * Q
+   end
+ end
+ 
+ function solve_linear_problem!(Qtt, Qhat, rhs_linear!, a)
+   Qtt .= Qhat ./ (1 - a * im * c)
+ end
 
-  function exactsolution(q0, time)
-    q0 * exp(im * c * time) + (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
-  end
+ function exactsolution(q0, time)
+   q0 * exp(im * c * time) + (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
+ end
 
-  @testset "Stiff Problem" begin
-    q0 = ComplexF64(1)
-    finaltime = pi / 2
-    dts = [2.0 ^ (-k) for k = 2:13]
+ @testset "Stiff Problem" begin
+   q0 = ComplexF64(1)
+   finaltime = pi / 2
+   dts = [2.0 ^ (-k) for k = 2:13]
 
-    #for (method, expected_order) in [(StrongStabilityPreservingRungeKutta33, 3)]
-    for (method, expected_order) in [(AdditiveRungeKutta, 2)]
-      errors = similar(dts)
-      for (n, dt) in enumerate(dts)
-        Q = [q0]
-        solver = method(rhs!, rhs_linear!, solve_linear_problem!, Q; dt = dt, t0 = 0.0)
-        solve!(Q, solver; timeend = finaltime)
-        errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
-      end
+   #for (method, expected_order) in [(StrongStabilityPreservingRungeKutta33, 3)]
+   for (method, expected_order) in [(AdditiveRungeKutta, 2)]
+     errors = similar(dts)
+     for (n, dt) in enumerate(dts)
+       Q = [q0]
+       solver = method(rhs!, rhs_linear!, solve_linear_problem!, Q; dt = dt, t0 = 0.0)
+       solve!(Q, solver; timeend = finaltime)
+       errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
+     end
 
-      rates = log2.(errors[1:end-1] ./ errors[2:end])
-      #println("dts = $dts")
-      #println("error = $errors")
-      #println("rates = $rates")
-      @test errors[1] < 2.0
-      @test isapprox(rates[end], expected_order; atol = 0.1)
-    end
-  end
-  
+     rates = log2.(errors[1:end-1] ./ errors[2:end])
+     #println("dts = $dts")
+     #println("error = $errors")
+     #println("rates = $rates")
+     @test errors[1] < 2.0
+     @test isapprox(rates[end], expected_order; atol = 0.1)
+   end
+ end
+ 
   @static if haspkg("CuArrays")
     using CuArrays
     CuArrays.allowscalar(false)

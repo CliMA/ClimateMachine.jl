@@ -27,8 +27,8 @@ function volumerhs!(::Val{dim}, ::Val{N},
                     ::Val{nauxstate},
                     flux!, source!,
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    D, elems, incremental) where {dim, N, nstate, nviscstate,
-                                                  nauxstate}
+                    D, elems, increment) where {dim, N, nstate, nviscstate,
+                                                nauxstate}
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -64,7 +64,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
           ζx, ζy, ζz = vgeo[ijk,_ζx,e], vgeo[ijk,_ζy,e], vgeo[ijk,_ζz,e]
 
           @unroll for s = 1:nstate
-            l_rhs[s, i, j, k] = incremental ? rhs[ijk, s, e] : zero(DFloat)
+            l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(DFloat)
           end
 
           @unroll for s = 1:nstate

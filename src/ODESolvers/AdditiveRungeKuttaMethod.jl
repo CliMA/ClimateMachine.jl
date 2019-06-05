@@ -97,7 +97,7 @@ end
 
 function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod, Q; dt=nothing,
                               t0=0)
-  rhs! = (x...; incremental) -> SpaceMethods.odefun!(spacedisc, x..., incremental = incremental)
+  rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   AdditiveRungeKutta(rhs!, Q; dt=dt, t0=t0)
 end
 
@@ -137,7 +137,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
 
   rv_Qstages[1] .= rv_Q
   for is = 2:nstages
-    rhs!(Rstages[is-1], Qstages[is-1], time + RKC[is-1] * dt, incremental = false)
+    rhs!(Rstages[is-1], Qstages[is-1], time + RKC[is-1] * dt, increment = false)
 
     #construct QE
     rv_QE .= rv_Q
@@ -162,7 +162,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
   end
  
   # compute the rhs for the final stage
-  rhs!(Rstages[nstages], Qstages[nstages], time + RKC[nstages] * dt; incremental = false)
+  rhs!(Rstages[nstages], Qstages[nstages], time + RKC[nstages] * dt; increment = false)
 
   # compose the final solution
   for is = 1:nstages

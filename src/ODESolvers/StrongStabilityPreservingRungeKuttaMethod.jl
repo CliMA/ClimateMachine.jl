@@ -60,7 +60,7 @@ end
 end
 
 function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,Q; dt=nothing, t0=0)
-    rhs! = (x...; incremental) -> SpaceMethods.odefun!(spacedisc, x..., incremental = incremental)
+    rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
     StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
@@ -109,7 +109,7 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
 
     rv_Qstage .= rv_Q
     for s = 1:length(RKB)
-        rhs!(Rstage, Qstage, time + RKC[s] * dt, incremental = false)
+        rhs!(Rstage, Qstage, time + RKC[s] * dt, increment = false)
       
         @launch(device(Q), threads = threads, blocks = blocks,
                 update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))

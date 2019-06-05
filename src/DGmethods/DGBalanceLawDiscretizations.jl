@@ -520,20 +520,20 @@ MPIStateArrays.MPIStateArray(f::Function,
 
 
 """
-    odefun!(disc::DGBalanceLaw, dQ::MPIStateArray, Q::MPIStateArray, t; incremental)
+    odefun!(disc::DGBalanceLaw, dQ::MPIStateArray, Q::MPIStateArray, t; increment)
 
 Evaluates the right-hand side of the discontinuous Galerkin semi-discretization
 defined by `disc` at time `t` with state `Q`. The result is either added into
-`dQ` if `incremental` is true or stored in `dQ` if it is false.
+`dQ` if `increment` is true or stored in `dQ` if it is false.
 Namely, the semi-discretization is of the form
 ```math
 Q̇ = F(Q, t)
 ```
-and after the call `dQ += F(Q, t)` if `incremental == true`
-or `dQ = F(Q, t)` if `incremental == false`
+and after the call `dQ += F(Q, t)` if `increment == true`
+or `dQ = F(Q, t)` if `increment == false`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
-                              Q::MPIStateArray, t; incremental)
+                              Q::MPIStateArray, t; increment)
 
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -600,7 +600,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
           volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
                      Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
                      Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems,
-                     incremental))
+                     increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
