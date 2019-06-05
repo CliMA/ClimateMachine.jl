@@ -53,7 +53,7 @@ using CLIMA.Vtk
 
 # Load the MoistThermodynamics and PlanetParameters modules:
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0, Omega
 #md nothing # hide
 
 # Define the ids for each dynamics and moist states:
@@ -78,7 +78,7 @@ end
 
 const γ_exact = 7 // 5
 const μ_exact = 75
-
+const Ω = Omega
 # Domain:
 const xmin =    0
 const zmin =    0
@@ -89,9 +89,9 @@ const ymax = 1500 #domain height
 const xc   = (xmax + xmin) / 2
 const zc   = (zmax + zmin) / 2
 const yc   = (ymax + ymin) / 2
-const f_coriolis = 1.0
-const U_geostrophic = -7.0
-const V_geostrophic = 5.5 
+const f_coriolis = 7.62e-5
+const U_geostrophic = 7.0
+const V_geostrophic = -5.5 
 
 @inline function preflux(Q,VF, aux, _...)
     γ::eltype(Q) = γ_exact
@@ -123,7 +123,7 @@ end
     u, v, w = ρinv * U, ρinv * V, ρinv * W
     e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * xvert) / ρ
     qt = QT / ρ
-    TS           = PhaseEquil(e_int, qt, ρ)
+    TS = PhaseEquil(e_int, qt, ρ)
     @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
 end
 
@@ -309,6 +309,7 @@ by terms defined elsewhere
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
         #source_radiation!(S, Q, aux, t) 
+        source_coriolis!(S, Q, aux, t)
         source_geostrophic!(S, Q, aux, t)
         source_subsidence!(S, Q, aux, t)
     end
@@ -396,14 +397,28 @@ specify a large scale forcing function.
 end
 
 """
+Coriolis force
+"""
+@inline function source_coriolis!(S,Q,aux,t)
+  f_coriolis::eltype(Q) = f_coriolis
+  @inbounds begin
+    U, V, W = Q[_U], Q[_V], Q[_W]
+    S[_U] -= 0
+    S[_V] -= 0
+    S[_W] -= 0
+  end
+end
+
+
+"""
 Geostrophic wind forcing
 """
 @inline function source_geostrophic!(S,Q,aux,t)
+    f_coriolis::eltype(Q) = f_coriolis
     @inbounds begin
       W = Q[_W]
       U = Q[_U]
       V = Q[_V]
-      D_subsidence = 3.75e-6
       S[_U] -= f_coriolis * (U - U_geostrophic)
       S[_V] -= f_coriolis * (V - V_geostrophic)
     end
