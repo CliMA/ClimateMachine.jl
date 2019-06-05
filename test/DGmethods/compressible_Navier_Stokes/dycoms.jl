@@ -486,7 +486,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
-    xvert          = y
+    xvert          = z
     
     datat          = spl_tinit(xvert)
     dataq          = spl_qinit(xvert)
@@ -645,8 +645,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (20, 20, 20)
-    dt = 1e-2
-    timeend = 200
+    dt = 0.005
+    timeend = 3600
     polynomialorder = 5
     for DFloat in (Float64,) #Float32)
         for dim = 3:3
