@@ -1,0 +1,18 @@
+  Updating registry at `~/.julia/registries/General`
+  Updating git-repo `https://github.com/JuliaRegistries/General.git`
+[?25l[2K[?25h Resolving package versions...
+  Updating `/central/home/asridhar/CLIMA/Project.toml`
+ [no changes]
+  Updating `/central/home/asridhar/CLIMA/Manifest.toml`
+ [no changes]
+ Resolving package versions...
+  Updating `/central/home/asridhar/CLIMA/Project.toml`
+ [no changes]
+  Updating `/central/home/asridhar/CLIMA/Manifest.toml`
+ [no changes]
+ Resolving package versions...
+  Updating `/central/home/asridhar/CLIMA/Project.toml`
+ [no changes]
+  Updating `/central/home/asridhar/CLIMA/Manifest.toml`
+ [no changes]
+  Building LLVM ──────→ `~/.julia/packages/LLVM/ViliQ/deps/build.log`
