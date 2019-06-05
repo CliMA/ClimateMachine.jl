@@ -10,36 +10,6 @@ Microphysics parameterization based on Kessler_1995:
   - rain terminal velocity
 """
 
-#@article{Marshall_Palmer_1948,
-#author = {Marshall, J. S. and Palmer, W. Mc K.},
-#title = {The distribution of raindrops with size},
-#journal = {Journal of Meteorology},
-#volume = {5},
-#number = {4},
-#pages = {165-166},
-#year = {1948},
-#doi = {10.1175/1520-0469(1948)005<0165:TDORWS>2.0.CO;2}}
-
-#@article{Ogura_and_Takahashi_1971,
-#author = {Oqura, Yoshimitsu and Takahashi, Tsutomu},
-#title = {Numerical simulation of the life cycle of a thunderstorm cell},
-#journal = {Monthly Weather Review},
-#volume = {99},
-#number = {12},
-#pages = {895-911},
-#year = {1971},
-#doi = {10.1175/1520-0493(1971)099<0895:NSOTLC>2.3.CO;2}}
-
-#@article{Kessler_1995,
-#author = "E. Kessler",
-#title = "On the continuity and distribution of water substance in atmospheric circulations",
-#journal = "Atmospheric Research",
-#volume = "38",
-#number = "1",
-#pages = "109 - 145",
-#year = "1995",
-#doi = "https://doi.org/10.1016/0169-8095(94)00090-Z"}
-
 module Microphysics
 
 using ..MoistThermodynamics
@@ -48,6 +18,7 @@ using ..MicrophysicsParameters
 
 # rain fall speed
 export terminal_velocity
+export terminal_velocity_emp
 
 # rates of conversion between microphysics categories
 export conv_q_vap_to_q_liq
@@ -63,15 +34,12 @@ where:
   - `q_rai` - rain water specific humidity
   - `ρ`     - density of air
 
-Return mass weighted average rain terminal velocity assuming
-Marshall_Palmer_1948 distribution of rain drops. It's derived following
-Ogura_and_Takahashi_1971 but without substituting empirical relations.
+Returns the mass weighted average rain terminal velocity assuming
+Marshall_Palmer_1948 distribution of rain drops.
 """
 function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
 
     # TODO - should it be multiplied by ρ/ρ_ground?
-    # TODO - check how it compares with SG 1996
-    #        vel = DT(14.34) * ρ_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
 
     vel::DT = 0
 
@@ -84,8 +52,8 @@ function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
     v_coeff = gamma_9_2 * v_drop_coeff / DT(6) / sqrt(DT(2)) *
               (DT(1) / π / MP_n_0)^(DT(1/8))
 
-    if (qr > DT(0)) # TODO - assert positive definite elsewhere
-      vel = v_coeff * (ρ / dens_liquid)^(DT(1/8)) * q_rain
+    if (q_rai > DT(0)) # TODO - assert positive definite elsewhere
+      vel = v_coeff * (ρ / dens_liquid)^(DT(1/8)) * q_rai^DT(1/8)
     end
 
     return vel
@@ -93,26 +61,29 @@ end
 
 
 """
-    conv_q_vap_to_q_liq_ice(q_sat::PhasePartition, q::PhasePartition)
+    conv_q_vap_to_q_liq(q_sat::PhasePartition, q::PhasePartition)
 
 where:
 - `q_sat` - PhasePartition at equilibrium saturation
 - `q`     - current PhasePartition
 
-Returns the q_liq tendency due to condensation/evaporation
-and q_ice tendency due to sublimation/resublimation.
-The tendencies are obtained assuming a relaxation to equilibrium with
-constant timescales and the timescales are defined in
-MicrophysicsParameters module.
+Returns the q_liq tendency due to condensation/evaporation.
+The tendency is obtained assuming a relaxation to equilibrium with
+constant timescale.
 """
-function conv_q_vap_to_q_liq_ice(q_sat::PhasePartition,
-                                 q::PhasePartition,
-                                ) where {DT<:Real}
+function conv_q_vap_to_q_liq(q_sat::PhasePartition,
+                             q::PhasePartition,
+                            ) where {DT<:Real}
 
   src_q_liq = (q_sat.liq - q.liq) / τ_cond_evap
-  src_q_ice = (q_sat.ice - q.ice) / τ_subl_resubl
 
-  return (src_q_liq, src_q_ice)
+  if q_sat.ice != DT(0)
+    @show("1-moment bulk microphysics is not defined for snow/ice")
+    #This should be the q_ice tendency due to sublimation/resublimation.
+    #src_q_ice = (q_sat.ice - q.ice) / τ_subl_resubl
+  end
+
+  return src_q_liq
 end
 
 
@@ -141,14 +112,15 @@ and Ogura_and_Takahashi_1971.
 """
 function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT) where {DT<:Real}
 
-  accr_coeff = E * (π * n_0)^DT(1/8) * (ρ/ρ_w)^DT(7/8) * ...TODO
+  #julia> gamma(7/4)
+  #0.9190625268488832
+
+  accr_coeff = E * (π * n_0)^DT(1/8) * (ρ/ρ_w)^DT(7/8)# * ...TODO
 
   src_q_rai = accr_coeff * q_liq * q_rai^(DT(7/8))
 
   return src_q_rai
 end
-
-
 
 
 
@@ -160,6 +132,7 @@ Convert specific humidity to mixing ratio
 function q2r(q_::DT, qt::DT) where {DT<:Real}
     return q_ / (DT(1) - qt)
 end
+
 
 """
     qr2qv(qt, PhasePartition, T, ρ, p)
