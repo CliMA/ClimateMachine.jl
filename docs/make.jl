@@ -35,7 +35,6 @@ makedocs(
     ],
     "ODESolvers" => "ODESolvers.md",
     "Mesh" => "Mesh.md",
-    "AtmosDycore" => "AtmosDycore.md",
     "Arrays" => "Arrays.md",
     "DGmethods" => "DGmethods.md",
     "InputOutput.md",
