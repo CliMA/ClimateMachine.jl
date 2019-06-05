@@ -2,7 +2,7 @@ module ODESolvers
 
 using ..MPIStateArrays
 
-export solve!
+export solve!, order
 
 abstract type AbstractODESolver end
 """
@@ -12,6 +12,14 @@ Returns the current simulation time of the ODE solver `solver`
 """
 gettime(solver::AbstractODESolver) = solver.t[1]
 dostep!(Q, solver::AbstractODESolver, tf, afs) = throw(MethodError(dostep!, (Q, solver, tf, afs)))
+
+"""
+    order(solver)
+
+Returns the numerical order of accuracy of the ODE solver `solver`.
+The argument `solver` can be either a solver type or a solver instance.
+"""
+order(solver::AbstractODESolver) = order(typeof(solver))
 
 # realview is used for testing ODE solvers independently of spatial discretisations,
 # using plain arrays as state vectors

@@ -96,6 +96,8 @@ Change the time step size to `dt` for `lsrk.
 """
 updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
 
+ODEs.order(::Type{<:LowStorageRungeKutta}) = 4
+
 function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
                       adjustfinalstep)
   time, dt = lsrk.t[1], lsrk.dt[1]

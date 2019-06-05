@@ -101,6 +101,8 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod, Q; dt=nothing,
   AdditiveRungeKutta(rhs!, Q; dt=dt, t0=t0)
 end
 
+ODEs.order(::Type{<:AdditiveRungeKutta}) = 2
+
 """
     updatedt!(ark::AdditiveRungeKutta, dt)
 

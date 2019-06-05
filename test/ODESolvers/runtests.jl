@@ -15,17 +15,17 @@ let
   end
   exactsolution(q0, time) = q0 * exp(sin(time))
   
-  method_order = [(LowStorageRungeKutta, 4),
-                  (StrongStabilityPreservingRungeKutta33, 3),
-                  (StrongStabilityPreservingRungeKutta34, 3)
-                 ]
+  methods = [LowStorageRungeKutta,
+             StrongStabilityPreservingRungeKutta33,
+             StrongStabilityPreservingRungeKutta34,
+            ]
 
   @testset "ODE Solvers Convergence" begin
     q0 = 1.0
     finaltime = 20.0
     dts = [2.0 ^ (-k) for k = 0:7]
 
-    for (method, expected_order) in method_order
+    for method in methods
       errors = similar(dts)
       for (n, dt) in enumerate(dts)
         Q = [q0]
@@ -34,7 +34,7 @@ let
         errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
       end
       rates = log2.(errors[1:end-1] ./ errors[2:end])
-      @test isapprox(rates[end], expected_order; atol = 0.1)
+      @test isapprox(rates[end], order(method); atol = 0.1)
     end
   end
 
@@ -48,7 +48,7 @@ let
       finaltime = 20.0
       dts = [2.0 ^ (-k) for k = 0:7]
 
-      for (method, expected_order) in method_order
+      for method in methods
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = CuArray(q0s)
@@ -58,7 +58,7 @@ let
           errors[n] = maximum(abs.(Q .- exactsolution.(q0s, finaltime)))
         end
         rates = log2.(errors[1:end-1] ./ errors[2:end])
-        @test isapprox(rates[end], expected_order; atol = 0.1)
+        @test isapprox(rates[end], order(method); atol = 0.1)
       end
     end
   end
@@ -95,8 +95,7 @@ let
    finaltime = pi / 2
    dts = [2.0 ^ (-k) for k = 2:13]
 
-   #for (method, expected_order) in [(StrongStabilityPreservingRungeKutta33, 3)]
-   for (method, expected_order) in [(AdditiveRungeKutta, 2)]
+   for method in [AdditiveRungeKutta]
      errors = similar(dts)
      for (n, dt) in enumerate(dts)
        Q = [q0]
@@ -110,7 +109,7 @@ let
      #println("error = $errors")
      #println("rates = $rates")
      @test errors[1] < 2.0
-     @test isapprox(rates[end], expected_order; atol = 0.1)
+     @test isapprox(rates[end], order(method); atol = 0.1)
    end
  end
  
@@ -124,7 +123,7 @@ let
       dts = [2.0 ^ (-k) for k = 2:13]
 
       #for (method, expected_order) in [(StrongStabilityPreservingRungeKutta33, 3)]
-      for (method, expected_order) in [(AdditiveRungeKutta, 2)]
+      for method in [AdditiveRungeKutta]
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = CuArray{ComplexF64}(q0s)
@@ -139,7 +138,7 @@ let
         #println("error = $errors")
         #println("rates = $rates")
         @test errors[1] < 2.0
-        @test isapprox(rates[end], expected_order; atol = 0.1)
+        @test isapprox(rates[end], order(method); atol = 0.1)
       end
     end
   end
