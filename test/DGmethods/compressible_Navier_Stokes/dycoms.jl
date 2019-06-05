@@ -27,6 +27,9 @@ using StaticArrays
 using Logging, Printf, Dates
 using DelimitedFiles
 using Dierckx
+using CUDAnative
+using CUDAdrv
+using CuArrays
 
 # Load modules specific to CliMA project
 using CLIMA.Topologies
@@ -38,6 +41,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Vtk
+
 #md nothing # hide
 
 # The prognostic equations are conservations laws solved with respect to
@@ -57,7 +61,7 @@ const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames    = ("ρ", "U", "V", "W", "E", "Qtot")
-const auxstatenames = ("ax","ay","az","Qliq")
+const auxstatenames = ("ax","ay","az","maxz", "int","noidea")
 
 const _nviscstates = 6
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
@@ -73,44 +77,29 @@ if !@isdefined integration_testing
 end
 
 const γ_exact = 7 // 5
-const μ_exact = 10
+const μ_exact = 75
 
 # Domain:
 const xmin =    0
 const zmin =    0
 const ymin =    0
 const xmax = 1500 #domain length
-const zmax =  150 #domain depth
-const ymax = 1500 #domain height (vertical)
+const zmax = 1500 #domain depth
+const ymax = 1500 #domain height
 const xc   = (xmax + xmin) / 2
 const zc   = (zmax + zmin) / 2
 const yc   = (ymax + ymin) / 2
+const f_coriolis = 1.0
+const U_geostrophic = -7.0
+const V_geostrophic = 5.5 
 
-# NOTICE: Gravity in the current setting acts along y
-# This will be changed to z in the next revision
-#md nothing # hide
-
-
-# -------------------------------------------------------------------------
-# Preflux calculation: This function computes parameters required for the 
-# DG RHS (but not explicitly solved for as a prognostic variable)
-# In the case of the dycoms test: the saturation
-# adjusted temperature and pressure are such examples. Since we define
-# the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. 
-# The preflux function interacts with the following  
-# Modules: NumericalFluxes.jl 
-# functions: wavespeed, cns_flux!, bcstate!
-# -------------------------------------------------------------------------
 @inline function preflux(Q,VF, aux, _...)
     γ::eltype(Q) = γ_exact
     gravity::eltype(Q) = grav
     R_gas::eltype(Q) = R_d
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     ρinv = 1 / ρ
-
-    xvert = aux[_a_y]
-    
+    xvert = aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
     e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * xvert) / ρ
     qt = QT / ρ
@@ -119,16 +108,23 @@ const yc   = (ymax + ymin) / 2
     T            = air_temperature(TS)
     P            = air_pressure(TS) # Test with dry atmosphere
     q_phase_part = PhasePartition(TS)
-        
     (P, u, v, w, ρinv)
-    # Preflux returns pressure, 3 velocity components, and 1/ρ
 end
 
 # -------------------------------------------------------------------------
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
     γ::eltype(Q) = γ_exact
-    @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
+    gravity::eltype(Q) = grav
+    R_gas::eltype(Q) = R_d
+    @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    ρinv = 1 / ρ
+    xvert = aux[_a_z]
+    u, v, w = ρinv * U, ρinv * V, ρinv * W
+    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * xvert) / ρ
+    qt = QT / ρ
+    TS           = PhaseEquil(e_int, qt, ρ)
+    @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
 end
 
 
@@ -216,13 +212,14 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model, 
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-const _nauxstate = 4
-const _a_x, _a_y, _a_z, _a_ql = 1:_nauxstate
+const _nauxstate = 6
+const _a_x, _a_y, _a_z, _a_ymax, _a_int1, _a_int2 = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x]  = x
         aux[_a_y]  = y
         aux[_a_z]  = z
+        aux[_a_ymax] = ymax
     end
 end
 
@@ -280,10 +277,7 @@ end
         QP[_E] = EM
         QP[_QT] = QTM
         VFP .= VFM
-        # To calculate PP, uP, vP, wP, ρinvP we use the preflux function 
         nothing
-        #preflux(QP, auxP, t)
-        # Required return from this function is either nothing or preflux with plus state as arguments
     end
 end
 # -------------------------------------------------------------------------
@@ -310,47 +304,39 @@ on the governing equations.
 by terms defined elsewhere
 """
 @inline function source!(S,Q,aux,t)
-    # Initialise the final block source term 
     S .= 0
-
-    # Typically these sources are imported from modules
     @inbounds begin
         source_geopot!(S, Q, aux, t)
+        source_sponge!(S, Q, aux, t)
+        #source_radiation!(S, Q, aux, t) 
+        source_geostrophic!(S, Q, aux, t)
+        source_subsidence!(S, Q, aux, t)
     end
 end
 
-# Sponge: classical Rayleigh type absorbing layers:
-@inline function sponge_rectangular(S, Q, aux)
 
-    
+"""
+Rayleigh sponge (damps reflected waves at lateral and top boundaries)
+"""
+@inline function source_sponge!(S, Q, aux, t)
+
     U, V, W = Q[_U], Q[_V], Q[_W]
     x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
-    
-    xmin = brickrange[1][1]
-    xmax = brickrange[1][end]
-    ymin = brickrange[2][1]
-    ymax = brickrange[2][end]
-    zmin = brickrange[3][1]
-    zmax = brickrange[3][end]
     
     # Define Sponge Boundaries      
     xc       = (xmax + xmin)/2
     yc       = (ymax + ymin)/2
-    
     zsponge  = 0.85 * zmax
     xsponger = xmax - 0.15*abs(xmax - xc)
     xspongel = xmin + 0.15*abs(xmin - xc)
     ysponger = ymax - 0.15*abs(ymax - yc)
     yspongel = ymin + 0.15*abs(ymin - yc)
-    
     csxl, csxr  = 0.0, 0.0
     csyl, csyr  = 0.0, 0.0
     ctop        = 0.0
-    
-    csx         = 0.0
-    csy         = 0.0
+    csx         = 1.0
+    csy         = 1.0
     ct          = 1.0
-       
     #x left and right
     #xsl
     if (x <= xspongel)
@@ -367,18 +353,15 @@ end
     end
     #ysr
     if (y >= ysponger)
-        csyr = csy * sinpi(1/2 * (y - ysponger)/(ymay - ysponger))^4
+        csyr = csy * sinpi(1/2 * (y - ysponger)/(ymax - ysponger))^4
     end
     
     #Vertical sponge:         
     if (z >= zsponge)
         ctop = ct * sinpi(1/2 * (z - zsponge)/(zmax - zsponge))^4
     end
-
     beta  = 1.0 - (1.0 - ctop) * (1.0 - csxl)*(1.0 - csxr) * (1.0 - csyl)*(1.0 - csyr)
     beta  = min(beta, 1.0)
-    alpha = 1.0 - beta
-
     @inbounds begin
         S[_U] -= beta * U
         S[_V] -= beta * V
@@ -386,7 +369,6 @@ end
     end
     
 end
-#---END SPONGE
 
 """
 Geopotential source term. Gravity forcing applied to the vertical
@@ -396,7 +378,7 @@ momentum equation
     gravity::eltype(Q) = grav
     @inbounds begin
         ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-        S[_V] += - ρ * gravity
+        S[_W] -= ρ * gravity
     end
 end
 
@@ -405,10 +387,63 @@ Large scale subsidence common to several atmospheric observational
 campaigns. In the absence of a GCM to drive the flow we may need to 
 specify a large scale forcing function. 
 """
-@inline function source_ls_subsidence!(S,Q,aux,t)
+@inline function source_subsidence!(S,Q,aux,t)
     @inbounds begin
-        nothing
+      W = Q[_W]
+      D_subsidence = 3.75e-6
+      S[_W] -= D_subsidence * W
     end
+end
+
+"""
+Geostrophic wind forcing
+"""
+@inline function source_geostrophic!(S,Q,aux,t)
+    @inbounds begin
+      W = Q[_W]
+      U = Q[_U]
+      V = Q[_V]
+      D_subsidence = 3.75e-6
+      S[_U] -= f_coriolis * (U - U_geostrophic)
+      S[_V] -= f_coriolis * (V - V_geostrophic)
+    end
+end
+
+"""
+Radiation source term in energy equation 
+"""
+@inline function source_radiation!(S, Q, aux, t)
+  @inbounds ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+  F_0 = 70
+  F_1 = 22
+  c_p = 1015
+  α_z = 1.0
+  κ_rad = 85
+
+  # Compute integrals 
+  #integral_computation(spacedisc, Q, t)
+end
+
+
+@inline function integral_knl(val, Q, aux)
+  gravity::eltype(Q) = grav
+  @inbounds begin
+    ρ, U, V, W, E, QT  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    ρinv = 1 / ρ
+    y_local = aux[_a_y]
+    y_max = aux[_a_ymax]
+    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y_local) / ρ
+    qt = QT / ρ
+    # Establish the current thermodynamic state using the prognostic variables
+    TS           = PhaseEquil(e_int, qt, ρ)
+    q_liq        = PhasePartition(TS).liq
+    val[1]       = 85 * q_liq * ρ
+    val[2]       = 1
+  end
+end
+
+function integral_computation(disc, Q, t) 
+  DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q, (_a_int1, _a_int2))
 end
 
 # ------------------------------------------------------------------
@@ -488,8 +523,7 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-    ArrayType = Array
-    # CuArray option (TODO merge new master)
+    ArrayType = CuArray
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
@@ -497,7 +531,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    topl = BrickTopology(mpicomm, brickrange, periodicity=(false,false,false))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
 
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
@@ -513,6 +547,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              flux! = cns_flux!,
                              numerical_flux! = numflux!,
                              numerical_boundary_flux! = numbcflux!, 
+                             preodefun! = integral_computation,
                              number_gradient_states = _ngradstates,
                              states_for_gradient_transform =
                              _states_for_gradient_transform,
@@ -553,13 +588,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     step = [0]
-    mkpath("vtk")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
-        outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
+    mkpath("vtk-dycoms")
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+        outprefix = @sprintf("vtk-dycoms/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames, spacedisc.auxstate, auxstatenames)
-        
         step[1] += 1
         nothing
     end
@@ -610,9 +644,9 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (10,10, 1)
+    numelem = (20, 20, 20)
     dt = 1e-2
-    timeend = 10
+    timeend = 200
     polynomialorder = 5
     for DFloat in (Float64,) #Float32)
         for dim = 3:3
