@@ -43,7 +43,6 @@ using CLIMA.Vtk
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using Random
 
 @static if haspkg("CUDAnative")
   using CUDAdrv
@@ -63,7 +62,6 @@ const γ_exact = 7 // 5
 if !@isdefined integration_testing
   const integration_testing =
   parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  using Random
 end
 
 # preflux computation: NOT needed for this test
@@ -137,11 +135,7 @@ function advection_sphere!(Q, t, x, y, z, vel)
   (r, λ, ϕ) = cartesian_to_spherical(x,y,z,radians)
   ρ = exp(-((3λ)^2 + (3ϕ)^2))
 
-  if integration_testing
-    @inbounds Q[1] = ρ
-  else
-    @inbounds Q[1], vel[1], vel[2], vel[3] = 10+rand(), rand(), rand(), rand()
-  end
+  @inbounds Q[1] = ρ
 end
 
 #{{{ Main
@@ -232,21 +226,12 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
   solve!(Q, TimeIntegrator; timeend=timeend, callbacks=(cbinfo, cbmass, cbvtk))
 
   # Print some end of the simulation information
-  if integration_testing
-    error = euclidean_distance(Q, Qe) / norm(Qe)
-    Δmass = abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe)
-    @info @sprintf """Finished
-    error = %.16e
-    Δmass = %.16e
-    """ error Δmass
-  else
-    error = euclidean_distance(Q, Qe) / norm(Qe)
-    Δmass = abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe)
-    @info @sprintf """Finished
-    error = %.16e
-    Δmass = %.16e
-    """ error Δmass
-  end
+  error = euclidean_distance(Q, Qe) / norm(Qe)
+  Δmass = abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe)
+  @info @sprintf """Finished
+  error = %.16e
+  Δmass = %.16e
+  """ error Δmass
 
   # return diagnostics
   return (error, Δmass)
@@ -282,76 +267,31 @@ let
 
   # Perform Integration Testing for three different grid resolutions
   ti_method = "SSP34" #LSRK or SSP
-  if integration_testing
-    timeend = 1
-    numelem = (2, 2) #(Nhorizontal,Nvertical)
-    N = 4
+  timeend = 1
+  numelem = (2, 2) #(Nhorizontal,Nvertical)
+  N = 4
 
-    expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
-    expected_error[1] = 2.1747884619563834e-01 # Ne=2
-    expected_error[2] = 1.2161683394578116e-02 # Ne=4
-    expected_error[3] = 2.2529850289795472e-04 # Ne=8
-    expected_mass = Array{Float64}(undef, 3) # h-refinement levels lvl
-    expected_mass[1] = 2.1031020568795386e-15 # Ne=2
-    expected_mass[2] = 7.4279250361339182e-15 # Ne=4
-    expected_mass[3] = 6.7271491130202594e-14 # Ne=8
-    lvls = length(expected_error)
+  expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
+  expected_error[1] = 2.1747884619563834e-01 # Ne=2
+  expected_error[2] = 1.2161683394578116e-02 # Ne=4
+  expected_error[3] = 2.2529850289795472e-04 # Ne=8
+  expected_mass = Array{Float64}(undef, 3) # h-refinement levels lvl
+  expected_mass[1] = 2.1031020568795386e-15 # Ne=2
+  expected_mass[2] = 7.4279250361339182e-15 # Ne=4
+  expected_mass[3] = 6.7271491130202594e-14 # Ne=8
+  lvls = integration_testing ? length(expected_error) : 1
 
-    for ArrayType in ArrayTypes
-      dt=1e-2*5 # stable dt for N=4 and Ne=5
-      for DFloat in (Float64,) # Float32)
-        err = zeros(DFloat, lvls)
-        mass= zeros(DFloat, lvls)
-        for l = 1:lvls
-          Nhorizontal = 2^(l-1) * numelem[1]
-          Nvertical   = 2^(l-1) * numelem[2]
-          dt=dt/Nhorizontal
-          nsteps = ceil(Int64, timeend / dt)
-          dt = timeend / nsteps
-          @info @sprintf """Run Configuration
-          Nhorizontal = %d
-          Nvertical   = %d
-          N           = %d
-          dt          = %.16e
-          nsteps       = %d
-          """ Nhorizontal Nvertical N dt nsteps
-          @info (ArrayType, DFloat)
-          (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
-                                  DFloat, dt, ti_method, ArrayType)
-          @test err[l]  ≈ DFloat(expected_error[l])
-          #                @test mass[l] ≈ DFloat(expected_mass[l])
-        end
-        @info begin
-          msg = ""
-          for l = 1:lvls-1
-            rate = log2(err[l]) - log2(err[l+1])
-            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-          end
-          msg
-        end
-      end
-    end
-  else
-    timeend = 1
-    numelem = (2, 2) #(Nhorizontal,Nvertical)
-    N = 4
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     dt=1e-2*5 # stable dt for N=4 and Ne=5
-
-    Nhorizontal = numelem[1]
-    Nvertical   = numelem[2]
-    dt=dt/Nhorizontal
-    nsteps = ceil(Int64, timeend / dt)
-    numproc=MPI.Comm_size(mpicomm)
-
-    expected_error = Array{Float64}(undef, 2)
-    expected_error[1] = 2.1881282358529316e-02
-    expected_error[2] = 2.1890633646296072e-02
-    expected_mass = Array{Float64}(undef, 2)
-    expected_mass[1] = 2.0308668409792276e-15
-    expected_mass[2] = 2.0329061975125196e-15
-    for ArrayType in ArrayTypes
-      for DFloat in (Float64,) # Float32)
-        Random.seed!(0)
+    for DFloat in (Float64,) # Float32)
+      err = zeros(DFloat, lvls)
+      mass= zeros(DFloat, lvls)
+      for l = 1:lvls
+        Nhorizontal = 2^(l-1) * numelem[1]
+        Nvertical   = 2^(l-1) * numelem[2]
+        dt=dt/Nhorizontal
+        nsteps = ceil(Int64, timeend / dt)
+        dt = timeend / nsteps
         @info @sprintf """Run Configuration
         Nhorizontal = %d
         Nvertical   = %d
@@ -360,14 +300,21 @@ let
         nsteps       = %d
         """ Nhorizontal Nvertical N dt nsteps
         @info (ArrayType, DFloat)
-        (error, mass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat,
-                            dt, ti_method, ArrayType)
-        @test error ≈ DFloat(expected_error[numproc])
-        #            @test mass ≈ DFloat(expected_mass[numproc])
+        (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
+                                DFloat, dt, ti_method, ArrayType)
+        @test err[l]  ≈ DFloat(expected_error[l])
+        #                @test mass[l] ≈ DFloat(expected_mass[l])
+      end
+      @info begin
+        msg = ""
+        for l = 1:lvls-1
+          rate = log2(err[l]) - log2(err[l+1])
+          msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+        end
+        msg
       end
     end
   end
-  # Perform Integration Testing for three different grid resolutions
 
   #=
   # This snippet of code allows one to run just one instance/configuration.
