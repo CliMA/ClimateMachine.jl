@@ -400,7 +400,6 @@ end
 Coriolis force
 """
 @inline function source_coriolis!(S,Q,aux,t)
-  f_coriolis::eltype(Q) = f_coriolis
   @inbounds begin
     U, V, W = Q[_U], Q[_V], Q[_W]
     S[_U] -= 0
@@ -414,7 +413,6 @@ end
 Geostrophic wind forcing
 """
 @inline function source_geostrophic!(S,Q,aux,t)
-    f_coriolis::eltype(Q) = f_coriolis
     @inbounds begin
       W = Q[_W]
       U = Q[_U]
@@ -559,7 +557,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              flux! = cns_flux!,
                              numerical_flux! = numflux!,
                              numerical_boundary_flux! = numbcflux!, 
-                             preodefun! = nothing,
                              number_gradient_states = _ngradstates,
                              states_for_gradient_transform =
                              _states_for_gradient_transform,
@@ -571,7 +568,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              auxiliary_state_length = _nauxstate,
                              auxiliary_state_initialization! =
                              auxiliary_state_initialization!,
-                             source! = source!)
+                             source! = source!,
+                             preodefun! = nothing)
 
     # This is a actual state/function that lives on the grid
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
@@ -610,7 +608,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
       @inbounds let
-        (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R_[_q_liq]) = preflux(Q, QV, aux)
+        (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq]) = preflux(Q, QV, aux)
       end
     end
 
@@ -668,9 +666,9 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (10, 10, 10)
+    numelem = (25, 25, 25)
     dt = 0.005
-    timeend = 3600
+    timeend = 3600 * 4
     polynomialorder = 5
     for DFloat in (Float64,) #Float32)
         for dim = 3:3
