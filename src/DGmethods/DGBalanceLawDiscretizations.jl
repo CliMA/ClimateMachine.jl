@@ -679,6 +679,7 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   @assert 0 < min(id, idx, idy, idz)
   @assert allunique((idx, idy, idz))
 
+  lgl_weights_vec = grid.ω
   Dmat = grid.D
   vgeo = grid.vgeo
 
@@ -690,7 +691,8 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
           elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
-                           Dmat, topology.elems, id, idx, idy, idz))
+                           lgl_weights_vec, Dmat, topology.elems,
+                           id, idx, idy, idz))
 end
 
 """
