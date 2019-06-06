@@ -61,7 +61,7 @@ const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames    = ("ρ", "U", "V", "W", "E", "Qtot")
-const auxstatenames = ("ax","ay","az","maxz", "int","noidea")
+const auxstatenames = ("ax","ay","az","maxz")
 
 const _nviscstates = 6
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
@@ -141,7 +141,7 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    fsounding  = open(joinpath(@__DIR__, "./soundings/sounding_DYCOMS_TEST1.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -212,8 +212,8 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model, 
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-const _nauxstate = 6
-const _a_x, _a_y, _a_z, _a_ymax, _a_int1, _a_int2 = 1:_nauxstate
+const _nauxstate = 4
+const _a_x, _a_y, _a_z, _a_ymax = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x]  = x
