@@ -14,17 +14,16 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
 
-# Load CUDA modules 
-# FIXME: local env/gpu + cuarrays 
-@static if Base.find_package("CuArrays") !== nothing
+if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+  const ArrayType = CuArray
 else
-  const ArrayTypes = (Array, )
+  const ArrayType = Array
 end
+
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
 # For the dry example shown here, we load the moist thermodynamics module 
 # and consider the dry equation set to be the same as the moist equations but
@@ -427,7 +426,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                 range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
                 
-  ArrayType = CuArray
   
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
