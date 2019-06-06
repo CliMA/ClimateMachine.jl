@@ -1,7 +1,6 @@
 using ..Grids
 using ..MPIStateArrays
 using ..DGBalanceLawDiscretizations
-using ..AtmosDycore.VanillaAtmosDiscretizations
 
 """
     writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw [, fieldnames])
@@ -92,39 +91,3 @@ function writevtk_helper(prefix, vgeo::Array, Q::Array, grid,
   end
   writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
 end
-
-function writevtk(prefix, Q::MPIStateArray, disc::VanillaAtmosDiscretization)
-  vgeo = disc.grid.vgeo
-  host_array = Array ∈ typeof(Q).parameters
-  (vgeo, Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
-  writevtk_VanillaAtmosDiscretization(prefix, vgeo, Q, disc.grid)
-end
-
-function writevtk_VanillaAtmosDiscretization(prefix, vgeo::Array, Q::Array,
-                                             G::Grids.AbstractGrid{T, dim, N}
-                                            ) where {T, dim, N}
-
-  Nq  = N+1
-
-  nelem = size(Q)[end]
-  Xid = (G.xid, G.yid, G.zid)
-  X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
-                        ntuple(j->Nq, dim)...,
-                        nelem), dim)
-
-  _ρ = VanillaAtmosDiscretizations._ρ
-  _U = VanillaAtmosDiscretizations._U
-  _V = VanillaAtmosDiscretizations._V
-  _W = VanillaAtmosDiscretizations._W
-  _E = VanillaAtmosDiscretizations._E
-
-  ρ = reshape((@view Q[:, _ρ, :]), ntuple(j->Nq, dim)..., nelem)
-  U = reshape((@view Q[:, _U, :]), ntuple(j->Nq, dim)..., nelem)
-  V = reshape((@view Q[:, _V, :]), ntuple(j->Nq, dim)..., nelem)
-  W = reshape((@view Q[:, _W, :]), ntuple(j->Nq, dim)..., nelem)
-  E = reshape((@view Q[:, _E, :]), ntuple(j->Nq, dim)..., nelem)
-  writemesh(prefix, X...;
-            fields=(("ρ", ρ), ("U", U), ("V", V), ("W", W), ("E", E)),
-            realelems=G.topology.realelems)
-end
-

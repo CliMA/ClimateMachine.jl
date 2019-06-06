@@ -23,8 +23,9 @@ using MPI, Test
                  (1, "Euler/isentropic_vortex_standalone_bc.jl")
                  (1, "conservation/sphere.jl")
                  (1, "compressible_Navier_Stokes/mms_bc.jl")
-                 (3, "compressible_Navier_Stokes/mms_bc.jl")
-                 (1, "sphere/advection_sphere.jl")
+                 (1, "sphere/advection_sphere_lsrk.jl")
+                 (1, "sphere/advection_sphere_ssp33.jl")
+                 (1, "sphere/advection_sphere_ssp34.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
@@ -34,31 +35,10 @@ using MPI, Test
     @test (run(cmd); true)
   end
 
-  if !parse(Bool, lowercase(get(ENV,"TRAVIS","false")))
-    for (n, f) in [
-                 (3, "Euler/isentropic_vortex_standalone.jl")
-                 (3, "Euler/isentropic_vortex_standalone_aux.jl")
-                 (3, "Euler/isentropic_vortex_standalone_source.jl")
-                 (3, "Euler/isentropic_vortex_standalone_bc.jl")
-                 (3, "conservation/sphere.jl")
-                 (3, "compressible_Navier_Stokes/mms_bc.jl")
-                 (2, "sphere/advection_sphere.jl")
-                  ]
-      cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
-      @info "Running MPI test..." n f cmd
-      # Running this way prevents:
-      #   Balance Law Solver | No tests
-      # since external tests are not returned as passed/fail
-      @test (run(cmd); true)
-    end
-  end
-
   if "linux" != lowercase(get(ENV,"TRAVIS_OS_NAME",""))
     for (n, f) in [
                    (1, "../../examples/DGmethods/ex_001_periodic_advection.jl")
-                   (3, "../../examples/DGmethods/ex_001_periodic_advection.jl")
                    (1, "../../examples/DGmethods/ex_002_solid_body_rotation.jl")
-                   (3, "../../examples/DGmethods/ex_002_solid_body_rotation.jl")
                   ]
       cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
       @info "Running MPI test..." n f cmd
