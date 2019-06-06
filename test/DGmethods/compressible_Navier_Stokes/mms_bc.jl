@@ -320,12 +320,12 @@ let
   polynomialorder = 4
   base_num_elem = 4
   expected_result = Array{Float64}(undef, 2, 3) # dim-1, lvl
-  expected_result[1,1] = 1.6694692228358385e-01
-  expected_result[1,2] = 5.4178716366661958e-03
-  expected_result[1,3] = 2.3066909145467751e-04
-  expected_result[2,1] = 3.3672363726626506e-02
-  expected_result[2,2] = 1.7603808016182680e-03
-  expected_result[2,3] = 9.1108327587381303e-05
+  expected_result[1,1] = 1.5606226382564500e-01
+  expected_result[1,2] = 5.3302790086802504e-03
+  expected_result[1,3] = 2.2574728860707139e-04
+  expected_result[2,1] = 2.5803100360042141e-02
+  expected_result[2,2] = 1.1794776908545315e-03
+  expected_result[2,3] = 6.1785354745749247e-05
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes

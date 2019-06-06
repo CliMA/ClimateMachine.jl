@@ -579,6 +579,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   nauxstate = size(auxstate, 2)
   states_grad = disc.states_for_gradient_transform
 
+  lgl_weights_vec = grid.ω
   Dmat = grid.D
   vgeo = grid.vgeo
   sgeo = grid.sgeo
@@ -626,7 +627,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
                      Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
-                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems))
+                     Qvisc.Q, auxstate.Q, vgeo, t, lgl_weights_vec, Dmat,
+                     topology.realelems))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
