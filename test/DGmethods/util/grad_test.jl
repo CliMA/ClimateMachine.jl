@@ -81,7 +81,7 @@ let
 
   polynomialorder = 4
 
-  for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       for dim = 2:3
         err = zeros(DFloat, lvls)

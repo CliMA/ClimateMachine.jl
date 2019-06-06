@@ -87,7 +87,7 @@ let
 
   lvls = integration_testing ? length(expected_result) : 1
 
-  for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       err = zeros(DFloat, lvls)
       for l = 1:lvls

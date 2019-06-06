@@ -37,7 +37,6 @@ const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  using Random
 end
 
 include("mms_solution_generated.jl")
@@ -144,12 +143,7 @@ function initialcondition!(dim, Q, t, x, y, z, _...)
   W::DFloat = W_g(t, x, y, z, dim)
   E::DFloat = E_g(t, x, y, z, dim)
 
-  if integration_testing
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
-  else
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] =
-    10+rand(), rand(), rand(), rand(), 10+rand()
-  end
+  @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 end
 
 const _nauxstate = 3
@@ -187,16 +181,7 @@ end
 @inline function bcstate2D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-    if integration_testing
-      initialcondition!(Val(2), QP, t, x, y, z)
-    else
-      for s = 1:length(QP)
-        QP[s] = QM[length(QP)+1-s]
-      end
-      for s = 1:_nviscstates
-        QVP[s] = QVM[s]
-      end
-    end
+    initialcondition!(Val(2), QP, t, x, y, z)
   end
   nothing
 end
@@ -204,16 +189,7 @@ end
 @inline function bcstate3D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-    if integration_testing
-      initialcondition!(Val(3), QP, t, x, y, z)
-    else
-      for s = 1:length(QP)
-        QP[s] = QM[length(QP)+1-s]
-      end
-      for s = 1:_nviscstates
-        QVP[s] = QVM[s]
-      end
-    end
+    initialcondition!(Val(3), QP, t, x, y, z)
   end
   nothing
 end
@@ -311,26 +287,19 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   # Print some end of the simulation information
   engf = norm(Q)
-  if integration_testing
-    Qe = MPIStateArray(spacedisc,
-                       (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                      DFloat(timeend), x...))
-    engfe = norm(Qe)
-    errf = euclidean_distance(Q, Qe)
-    @info @sprintf """Finished
-    norm(Q)                 = %.16e
-    norm(Q) / norm(Q₀)      = %.16e
-    norm(Q) - norm(Q₀)      = %.16e
-    norm(Q - Qe)            = %.16e
-    norm(Q - Qe) / norm(Qe) = %.16e
-    """ engf engf/eng0 engf-eng0 errf errf / engfe
-  else
-    @info @sprintf """Finished
-    norm(Q)            = %.16e
-    norm(Q) / norm(Q₀) = %.16e
-    norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-  end
-  integration_testing ? errf : (engf / eng0)
+  Qe = MPIStateArray(spacedisc,
+                     (Q, x...) -> initialcondition!(Val(dim), Q,
+                                                    DFloat(timeend), x...))
+  engfe = norm(Qe)
+  errf = euclidean_distance(Q, Qe)
+  @info @sprintf """Finished
+  norm(Q)                 = %.16e
+  norm(Q) / norm(Q₀)      = %.16e
+  norm(Q) - norm(Q₀)      = %.16e
+  norm(Q - Qe)            = %.16e
+  norm(Q - Qe) / norm(Qe) = %.16e
+  """ engf engf/eng0 engf-eng0 errf errf / engfe
+  errf
 end
 
 using Test
@@ -350,31 +319,20 @@ let
 
   polynomialorder = 4
   base_num_elem = 4
-  if integration_testing
-    expected_result = Array{Float64}(undef, 2, 3) # dim-1, lvl
-    expected_result[1,1] = 1.6687745307357629e-01
-    expected_result[1,2] = 5.4179126727473799e-03
-    expected_result[1,3] = 2.3066157635992409e-04
-    expected_result[2,1] = 3.3669188610024728e-02
-    expected_result[2,2] = 1.7603468555920912e-03
-    expected_result[2,3] = 9.1108572847298699e-05
-    lvls = size(expected_result, 2)
-  else
-    expected_result = Dict{Tuple{Int64, Int64, DataType}, AbstractFloat}()
-    expected_result[2, 1, Float64] = 9.9075897196717488e-01
-    expected_result[3, 1, Float64] = 1.0099522817205739e+00
-    expected_result[2, 3, Float64] = 9.9072475063319887e-01
-    expected_result[3, 3, Float64] = 1.0099521111150005e+00
-    lvls = 1
-  end
+  expected_result = Array{Float64}(undef, 2, 3) # dim-1, lvl
+  expected_result[1,1] = 1.6687745307357629e-01
+  expected_result[1,2] = 5.4179126727473799e-03
+  expected_result[1,3] = 2.3066157635992409e-04
+  expected_result[2,1] = 3.3669188610024728e-02
+  expected_result[2,2] = 1.7603468555920912e-03
+  expected_result[2,3] = 9.1108572847298699e-05
+  lvls = integration_testing ? size(expected_result, 2) : 1
 
-
-  for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       result = zeros(DFloat, lvls)
       for dim = 2:3
         for l = 1:lvls
-          integration_testing || Random.seed!(0)
           if dim == 2
             Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
             brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
@@ -400,18 +358,14 @@ let
               z + x/4 + y^2/2 + sin(x*y*z))
             end
           end
-          timeend = integration_testing ? 1 : 2dt
+          timeend = 1
           nsteps = ceil(Int64, timeend / dt)
           dt = timeend / nsteps
 
           @info (ArrayType, DFloat, dim)
           result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
                           polynomialorder, timeend, DFloat, dt)
-          if integration_testing
-            @test result[l] ≈ DFloat(expected_result[dim-1, l])
-          else
-            @test result[l] ≈ expected_result[dim, MPI.Comm_size(mpicomm), DFloat]
-          end
+          @test result[l] ≈ DFloat(expected_result[dim-1, l])
         end
         if integration_testing
           @info begin
