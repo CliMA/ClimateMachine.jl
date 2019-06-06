@@ -81,14 +81,14 @@ const μ_exact = 75
 const Ω = Omega
 # Domain:
 const xmin =    0
-const zmin =    0
 const ymin =    0
+const zmin =    0
 const xmax = 1500 #domain length
-const zmax = 1500 #domain depth
 const ymax = 1500 #domain height
+const zmax = 1500 #domain depth
 const xc   = (xmax + xmin) / 2
-const zc   = (zmax + zmin) / 2
 const yc   = (ymax + ymin) / 2
+const zc   = (zmax + zmin) / 2
 const f_coriolis = 7.62e-5
 const U_geostrophic = 7.0
 const V_geostrophic = -5.5 
@@ -434,12 +434,9 @@ Radiation source term in energy equation
   c_p = 1015
   α_z = 1.0
   κ_rad = 85
-
-  # Compute integrals 
-  #integral_computation(spacedisc, Q, t)
 end
 
-
+#=
 @inline function integral_knl(val, Q, aux)
   gravity::eltype(Q) = grav
   @inbounds begin
@@ -460,6 +457,7 @@ end
 function integral_computation(disc, Q, t) 
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q, (_a_int1, _a_int2))
 end
+=# 
 
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
@@ -485,11 +483,11 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     # the same. Care required in assigning array values
     # height theta qv    u     v     pressure
     zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
-    sounding[:, 2],
-    sounding[:, 3],
-    sounding[:, 4],
-    sounding[:, 5],
-    sounding[:, 6]    
+                                                sounding[:, 2],
+                                                sounding[:, 3],
+                                                sounding[:, 4],
+                                                sounding[:, 5],
+                                                sounding[:, 6]    
     #------------------------------------------------------
     # GET SPLINE FUNCTION
     #------------------------------------------------------
@@ -502,7 +500,6 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
     xvert          = z
-    
     datat          = spl_tinit(xvert)
     dataq          = spl_qinit(xvert)
     datau          = spl_uinit(xvert)
@@ -562,7 +559,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              flux! = cns_flux!,
                              numerical_flux! = numflux!,
                              numerical_boundary_flux! = numbcflux!, 
-                             preodefun! = integral_computation,
+                             preodefun! = nothing,
                              number_gradient_states = _ngradstates,
                              states_for_gradient_transform =
                              _states_for_gradient_transform,
@@ -671,7 +668,7 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (20, 20, 20)
+    numelem = (10, 10, 10)
     dt = 0.005
     timeend = 3600
     polynomialorder = 5
