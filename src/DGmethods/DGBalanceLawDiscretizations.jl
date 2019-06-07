@@ -40,11 +40,6 @@ Much of the notation used in this module follows Hesthaven and Warburton (2008).
     Currently all the functions take the same parameters and the gradient
     transform can take a user-specified subset of the state vector.
 
-!!! note
-
-    We plan to switch to a skew-symmetric formulation (at which time this note
-    will be removed)
-
 !!! references
 
     ```
