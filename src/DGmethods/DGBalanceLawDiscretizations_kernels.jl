@@ -628,7 +628,6 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
   DFloat = eltype(Q)
 
   Nq = N + 1
-  Nq = Nq
   Nqj = dim == 2 ? 1 : Nq
 
   nout = length(outstate)
@@ -705,6 +704,53 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
               s = outstate[ind_out]
               P[ijk, s, e] = l_int[ind_out, k, i, j]
               l_int[ind_out, k, i, j] = l_int[ind_out, Nq, i, j]
+            end
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
+
+function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
+                                                ::Val{nvertelem}, P, elems,
+                                                ::Val{outstate},
+                                                ::Val{instate}
+                                               ) where {dim, N, outstate,
+                                                        instate, nvertelem}
+  DFloat = eltype(P)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+
+  nout = length(outstate)
+
+  # note that k is the second not 4th index (since this is scratch memory and k
+  # needs to be persistent across threads)
+  l_T = MArray{Tuple{nout}, DFloat}(undef)
+  l_V = MArray{Tuple{nout}, DFloat}(undef)
+
+  @inbounds @loop for eh in (elems; blockIdx().x)
+    # Initialize the constant state at zero
+    @loop for j in (1:Nqj; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        ijk = i + Nq * ((j-1) + Nqj * (Nq-1))
+        et = nvertelem + (eh - 1) * nvertelem
+        @unroll for s = 1:nout
+          l_T[s] = P[ijk, instate[s], et]
+        end
+
+        # Loop up the stack of elements
+        for ev = 1:nvertelem
+          e = ev + (eh - 1) * nvertelem
+          @unroll for k in 1:Nq
+            ijk = i + Nq * ((j-1) + Nqj * (k-1))
+            @unroll for s = 1:nout
+              l_V[s] = P[ijk, instate[s], e]
+            end
+            @unroll for s = 1:nout
+              P[ijk, outstate[s], e] = l_T[s] - l_V[s]
             end
           end
         end

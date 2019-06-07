@@ -688,7 +688,6 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
                            Dmat, topology.elems, id, idx, idy, idz))
 end
 
-
 """
     indefinite_stack_integral!(disc, f, Q, out_states, [P=disc.auxstate])
 
@@ -740,6 +739,47 @@ function indefinite_stack_integral!(disc::DGBalanceLaw, f, Q, out_states,
                                          Val(nauxstate), Val(nvertelem), f, P.Q,
                                          Q.Q, auxstate.Q, vgeo, Imat,
                                          1:nhorzelem, Val(out_states)))
+end
+
+"""
+    reverse_indefinite_stack_integral!(disc, oustate, instate,
+                                       [P=disc.auxstate])
+
+reverse previously computed indefinite integral(s) computed with
+`indefinite_stack_integral!` to be
+```math
+∫_{ζ}^{ζ_{max}} f(q; aux, t)
+```
+
+The states `instate[i]` is reverse and stored in `instate[i]`.
+
+Requires the `isstacked(disc.grid.topology) == true`
+"""
+function reverse_indefinite_stack_integral!(disc::DGBalanceLaw, oustate,
+                                            instate, P=disc.auxstate)
+  grid = disc.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+  @assert length(oustate) == length(instate)
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  device = typeof(P.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+  @assert nelem == nvertelem * nhorzelem
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_reverse_indefinite_stack_integral!(Val(dim), Val(N),
+                                                 Val(nvertelem), P.Q,
+                                                 1:nhorzelem, Val(oustate),
+                                                 Val(instate)))
 end
 
 """
