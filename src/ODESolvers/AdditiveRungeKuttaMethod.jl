@@ -2,6 +2,7 @@ module AdditiveRungeKuttaMethod
 export AdditiveRungeKutta, updatedt!
 
 using GPUifyLoops
+include("AdditiveRungeKuttaMethod_kernels.jl")
 
 using StaticArrays
 
@@ -44,8 +45,6 @@ struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESol
   Qstages::NTuple{Nstages, AT}
   "Storage for RHS during the AdditiveRungeKutta update"
   Rstages::NTuple{Nstages, AT}
-  "Storage for the explicit solution"
-  QE::AT
   "Storage for the linear solver rhs vector"
   Qhat::AT
   "Storage for the linear solver solution variable"
@@ -84,14 +83,13 @@ struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESol
     
     nstages = length(RKB)
 
-    Qstages = ntuple(i -> similar(Q), nstages)
+    Qstages = (Q, ntuple(i -> similar(Q), nstages - 1)...)
     Rstages = ntuple(i -> similar(Q), nstages)
     
-    QE = similar(Q)
     Qhat = similar(Q)
     Qtt = similar(Q)
 
-    new{T, RT, AT, nstages, nstages ^ 2}(dt, t0, rhs!, rhs_linear!, solve_linear_problem!, Qstages, Rstages, QE, Qhat, Qtt, RKA_explicit, RKA_implicit, RKB, RKC)
+    new{T, RT, AT, nstages, nstages ^ 2}(dt, t0, rhs!, rhs_linear!, solve_linear_problem!, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implicit, RKB, RKC)
   end
 end
 
@@ -123,12 +121,11 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
   RKB, RKC = ark.RKB, ark.RKC
   rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
   Qstages, Rstages = ark.Qstages, ark.Rstages
-  QE, Qhat, Qtt = ark.QE, ark.Qhat, ark.Qtt
+  Qhat, Qtt = ark.Qhat, ark.Qtt
 
   rv_Q = ODEs.realview(Q)
   rv_Qstages = ODEs.realview.(Qstages)
   rv_Rstages = ODEs.realview.(Rstages)
-  rv_QE = ODEs.realview(QE)
   rv_Qhat = ODEs.realview(Qhat)
   rv_Qtt = ODEs.realview(Qtt)
 
@@ -137,39 +134,26 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
   threads = 1024
   blocks = div(length(rv_Q) + threads - 1, threads)
 
-  rv_Qstages[1] .= rv_Q
-  for is = 2:nstages
-    rhs!(Rstages[is-1], Qstages[is-1], time + RKC[is-1] * dt, increment = false)
+  # calculate the rhs at first stage to initialize the stage loop
+  rhs!(Rstages[1], Qstages[1], time + RKC[1] * dt, increment = false)
 
-    #construct QE
-    rv_QE .= rv_Q
-    for js = 1:is-1
-      rv_QE .+= dt * RKA_explicit[is, js] * rv_Rstages[js]
-    end
-    
-    #construct Qhat
-    rv_Qhat .= rv_QE
-    for js = 1:is-1
-      rv_Qhat .+= (RKA_implicit[is, js] - RKA_explicit[is, js]) / RKA_implicit[is, is] * rv_Qstages[js]
-    end
+  # note that it is important that this loop does not modify Q!
+  for is = 2:nstages
+    @launch(device(Q), threads = threads, blocks = blocks,
+            stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, RKA_explicit, RKA_implicit, dt, Val(is)))
 
     #solves Q_tt = Qhat + dt * RKA_implicit[is, is] * rhs_linear!(Q_tt)
     ark.solve_linear_problem!(Qtt, Qhat, rhs_linear!, dt * RKA_implicit[is, is])
     
     #update Qstages
-    rv_Qstages[is] .= rv_Qtt
-    for js = 1:is-1
-      rv_Qstages[is] .-= (RKA_implicit[is, js] - RKA_explicit[is, js]) / RKA_implicit[is, is] * rv_Qstages[js]
-    end
+    rv_Qstages[is] .+= rv_Qtt
+    
+    rhs!(Rstages[is], Qstages[is], time + RKC[is] * dt, increment = false)
   end
- 
-  # compute the rhs for the final stage
-  rhs!(Rstages[nstages], Qstages[nstages], time + RKC[nstages] * dt; increment = false)
 
   # compose the final solution
-  for is = 1:nstages
-    rv_Q .+= RKB[is] * dt * rv_Rstages[is]
-  end
+  @launch(device(Q), threads = threads, blocks = blocks,
+          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages)))
 
   if dt == ark.dt[1]
     ark.t[1] += dt
