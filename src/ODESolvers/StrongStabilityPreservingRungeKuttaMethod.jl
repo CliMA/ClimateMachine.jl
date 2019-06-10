@@ -3,7 +3,6 @@ export StrongStabilityPreservingRungeKutta, updatedt!
 export StrongStabilityPreservingRungeKutta33
 export StrongStabilityPreservingRungeKutta34
 
-
 using GPUifyLoops
 include("StrongStabilityPreservingRungeKuttaMethod_kernels.jl")
 
@@ -109,7 +108,7 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
         rv_Rstage .= 0
         rhs!(Rstage, Qstage, time + RKC[s] * dt)
       
-        @launch(device(Q), threads = threads, blocks = blocks,
+        @launch(ODEs.device(Q), threads = threads, blocks = blocks,
                 update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))
     end
     rv_Q .= rv_Qstage

@@ -153,8 +153,6 @@ Base.eltype(Q::MPIStateArray, x...;kw...) = eltype(Q.Q, x...;kw...)
 
 Base.Array(Q::MPIStateArray) = Array(Q.Q)
 
-GPUifyLoops.device(Q::MPIStateArray) = GPUifyLoops.device(Q.Q)
-
 function Base.copyto!(dst::MPIStateArray, src::Array)
   copyto!(dst.Q, src)
   dst
