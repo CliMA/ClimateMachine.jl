@@ -1,7 +1,6 @@
 module MPIStateArrays
 using LinearAlgebra
 using DoubleFloats
-using GPUifyLoops
 
 using MPI
 
