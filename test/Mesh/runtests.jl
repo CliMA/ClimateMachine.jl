@@ -3,6 +3,7 @@ using MPI, Test
 MPI.Init()
 
 include("topology.jl")
+include("grid_integral.jl")
 
 MPI.Finalize()
 

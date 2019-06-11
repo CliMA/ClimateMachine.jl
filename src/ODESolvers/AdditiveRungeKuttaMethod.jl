@@ -306,7 +306,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
 
   # note that it is important that this loop does not modify Q!
   for istage = 2:nstages
-    @launch(device(Q), threads = threads, blocks = blocks,
+    @launch(ODEs.device(Q), threads = threads, blocks = blocks,
             stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat,
                           RKA_explicit, RKA_implicit, dt, Val(istage)))
 
@@ -320,7 +320,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
   end
 
   # compose the final solution
-  @launch(device(Q), threads = threads, blocks = blocks,
+  @launch(ODEs.device(Q), threads = threads, blocks = blocks,
           solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages)))
 
   if dt == ark.dt[1]
