@@ -48,6 +48,11 @@ struct LowStorageRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   RKB::NTuple{Nstages, RT}
   "low storage RK coefficient vector C (time scaling)"
   RKC::NTuple{Nstages, RT}
+  "numerical order of accuracy"
+  order::Int
+
+  ODEs.order(::Type{LowStorageRungeKutta}) = 4
+
   function LowStorageRungeKutta(rhs!::Function, Q::AT; dt=nothing,
                                 t0=0) where {AT<:AbstractArray}
 
@@ -78,7 +83,9 @@ struct LowStorageRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
 
     dQ = similar(Q)
     fill!(dQ, 0)
-    new{T, RT, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
+    
+    order = ODEs.order(LowStorageRungeKutta)
+    new{T, RT, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC, order)
   end
 end
 
@@ -88,15 +95,12 @@ function LowStorageRungeKutta(spacedisc::AbstractSpaceMethod, Q; dt=nothing,
   LowStorageRungeKutta(rhs!, Q; dt=dt, t0=t0)
 end
 
-
 """
     updatedt!(lsrk::LowStorageRungeKutta, dt)
 
 Change the time step size to `dt` for `lsrk.
 """
 updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
-
-ODEs.order(::Type{<:LowStorageRungeKutta}) = 4
 
 function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
                       adjustfinalstep)

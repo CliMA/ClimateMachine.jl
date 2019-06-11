@@ -5,6 +5,27 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 
+const explicit_methods = [LowStorageRungeKutta,
+                          StrongStabilityPreservingRungeKutta33,
+                          StrongStabilityPreservingRungeKutta34,
+                         ]
+const imex_methods = [AdditiveRungeKutta2a, AdditiveRungeKutta5]
+
+@testset "ODE Solvers `order` function" begin
+  dummy!(dQ, Q, time; increment) = nothing
+  another_dummy!(Qtt, Qhat, rhs_linear!, a) = nothing
+  
+  for method in explicit_methods
+    solver = method(dummy!, [0.0]; dt = 1.0)
+    @test order(method) == order(solver)
+  end
+
+  for method in imex_methods
+    solver = method(dummy!, dummy!, another_dummy!, [0.0]; dt = 1.0)
+    @test order(method) == order(solver)
+  end
+end
+
 let 
   function rhs!(dQ, Q, time; increment)
     if increment
@@ -14,18 +35,13 @@ let
     end
   end
   exactsolution(q0, time) = q0 * exp(sin(time))
-  
-  methods = [LowStorageRungeKutta,
-             StrongStabilityPreservingRungeKutta33,
-             StrongStabilityPreservingRungeKutta34,
-            ]
 
   @testset "ODE Solvers Convergence" begin
     q0 = 1.0
     finaltime = 20.0
     dts = [2.0 ^ (-k) for k = 0:7]
 
-    for method in methods
+    for method in explicit_methods
       errors = similar(dts)
       for (n, dt) in enumerate(dts)
         Q = [q0]
@@ -48,7 +64,7 @@ let
       finaltime = 20.0
       dts = [2.0 ^ (-k) for k = 0:7]
 
-      for method in methods
+      for method in explicit_methods
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = CuArray(q0s)
@@ -65,8 +81,6 @@ let
 end
 
 let 
-  imex_methods = [AdditiveRungeKutta2a, AdditiveRungeKutta5]
-
   c = 100.0
   function rhs!(dQ, Q, time; increment)
     if increment

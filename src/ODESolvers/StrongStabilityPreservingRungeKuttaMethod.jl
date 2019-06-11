@@ -44,8 +44,10 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
   RKB::Array{RT,1}
   "RK coefficient vector C (time scaling)"
   RKC::Array{RT,1}
+  "numerical order of accuracy"
+  order::Int
 
-  function StrongStabilityPreservingRungeKutta(rhs!::Function, RKA, RKB, RKC,
+  function StrongStabilityPreservingRungeKutta(rhs!::Function, RKA, RKB, RKC, order,
                                                Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
     @assert dt != nothing
     
@@ -53,7 +55,7 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
     RT = real(T)
     dt = [dt]
     t0 = [t0]
-    new{T, RT, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
+    new{T, RT, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC, order)
   end
 end
 
@@ -103,8 +105,8 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
   end
 end
 
-struct StrongStabilityPreservingRungeKutta33{T, RT, AT, Nstages} <: ODEs.AbstractODESolver 
-  ssp::StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages}
+struct StrongStabilityPreservingRungeKutta33 <: ODEs.AbstractODESolver 
+  ODEs.order(::Type{StrongStabilityPreservingRungeKutta33}) = 3
 
   function StrongStabilityPreservingRungeKutta33(F::Union{Function, AbstractSpaceMethod},
                                                  Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
@@ -113,23 +115,14 @@ struct StrongStabilityPreservingRungeKutta33{T, RT, AT, Nstages} <: ODEs.Abstrac
     RKA = [ RT(1) RT(0); RT(3//4) RT(1//4); RT(1//3) RT(2//3) ]
     RKB = [ RT(1), RT(1//4), RT(2//3) ]
     RKC = [ RT(0), RT(1), RT(1//2) ]
-    ssp = StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
-    new{T, RT, AT, length(RKB)}(ssp)
+    order = ODEs.order(StrongStabilityPreservingRungeKutta33)
+    ssp = StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, order, Q; dt=dt, t0=t0)
+    return ssp # note that this returns the generic type !
   end
 end
 
-ODEs.order(::Type{<:StrongStabilityPreservingRungeKutta33}) = 3
-
-# delegate methods to the memeber ssp struct
-updatedt!(ssp33::StrongStabilityPreservingRungeKutta33, dt) = updatedt!(ssp33.ssp, dt)
-ODEs.gettime(ssp33::StrongStabilityPreservingRungeKutta33) = ODEs.gettime(ssp33.ssp)
-
-function ODEs.dostep!(Q, ssp33::StrongStabilityPreservingRungeKutta33, timeend, adjustfinalstep)
-  ODEs.dostep!(Q, ssp33.ssp, timeend, adjustfinalstep)
-end
-
-struct StrongStabilityPreservingRungeKutta34{T, RT, AT, Nstages} <: ODEs.AbstractODESolver 
-  ssp::StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages}
+struct StrongStabilityPreservingRungeKutta34 <: ODEs.AbstractODESolver 
+  ODEs.order(::Type{StrongStabilityPreservingRungeKutta34}) = 3
 
   function StrongStabilityPreservingRungeKutta34(F::Union{Function, AbstractSpaceMethod},
                                                  Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
@@ -138,19 +131,10 @@ struct StrongStabilityPreservingRungeKutta34{T, RT, AT, Nstages} <: ODEs.Abstrac
     RKA = [ RT(1) RT(0); RT(0) RT(1); RT(2//3) RT(1//3); RT(0) RT(1) ]
     RKB = [ RT(1//2); RT(1//2); RT(1//6); RT(1//2) ]
     RKC = [ RT(0); RT(1//2); RT(1); RT(1//2) ]
-    ssp = StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
-    new{T, RT, AT, length(RKB)}(ssp)
+    order = ODEs.order(StrongStabilityPreservingRungeKutta34)
+    ssp = StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, order, Q; dt=dt, t0=t0)
+    return ssp # note that this returns the generic type !
   end
-end
-
-ODEs.order(::Type{<:StrongStabilityPreservingRungeKutta34}) = 3
-
-# delegate methods to the member ssp struct
-updatedt!(ssp34::StrongStabilityPreservingRungeKutta34, dt) = updatedt!(ssp34.ssp, dt)
-ODEs.gettime(ssp34::StrongStabilityPreservingRungeKutta34) = ODEs.gettime(ssp34.ssp)
-
-function ODEs.dostep!(Q, ssp34::StrongStabilityPreservingRungeKutta34, timeend, adjustfinalstep)
-  ODEs.dostep!(Q, ssp34.ssp, timeend, adjustfinalstep)
 end
 
 end

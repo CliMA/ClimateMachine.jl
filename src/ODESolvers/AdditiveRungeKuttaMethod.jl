@@ -58,11 +58,13 @@ struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESol
   RKB::SArray{Tuple{Nstages}, RT, 1, Nstages}
   "RK coefficient vector C (time scaling)"
   RKC::SArray{Tuple{Nstages}, RT, 1, Nstages}
+  "numerical order of accuracy"
+  order::Int
 
   function AdditiveRungeKutta(rhs!::Function,
                               rhs_linear!::Function,
                               solve_linear_problem!::Function,
-                              RKA_explicit, RKA_implicit, RKB, RKC,
+                              RKA_explicit, RKA_implicit, RKB, RKC, order,
                               Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
@@ -83,24 +85,24 @@ struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESol
     new{T, RT, AT, nstages, nstages ^ 2}(dt, t0,
                                          rhs!, rhs_linear!, solve_linear_problem!,
                                          Qstages, Rstages, Qhat, Qtt,
-                                         RKA_explicit, RKA_implicit, RKB, RKC)
+                                         RKA_explicit, RKA_implicit, RKB, RKC, order)
   end
 end
 
 function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                             spacedisc_linear::AbstractSpaceMethod,
                             solve_linear_problem!::Function,
-                            RKA_explicit, RKA_implicit, RKB, RKC,
+                            RKA_explicit, RKA_implicit, RKB, RKC, order,
                             Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   rhs_linear! = (x...; increment) -> SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
   AdditiveRungeKutta(rhs!, rhs_linear!, solve_linear_problem!,
-                     RKA_explicit, RKA_implicit, RKB, RKC,
+                     RKA_explicit, RKA_implicit, RKB, RKC, order,
                      Q; dt=dt, t0=t0)
 end
 
-struct AdditiveRungeKutta2a{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
-  ark::AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq}
+struct AdditiveRungeKutta2a <: ODEs.AbstractODESolver
+  ODEs.order(::Type{AdditiveRungeKutta2a}) = 2
 
   function AdditiveRungeKutta2a(F::Union{Function, AbstractSpaceMethod},
                                 L::Union{Function, AbstractSpaceMethod},
@@ -125,26 +127,17 @@ struct AdditiveRungeKutta2a{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODES
     RKC = [RT(0), RT(2 - sqrt(2)), RT(1)]
     
     nstages = length(RKB)
+    order = ODEs.order(AdditiveRungeKutta2a)
 
     ark = AdditiveRungeKutta(F, L, solve_linear_problem!,
-                             RKA_explicit, RKA_implicit, RKB, RKC,
+                             RKA_explicit, RKA_implicit, RKB, RKC, order,
                              Q; dt=dt, t0=t0)
-    new{T, RT, AT, nstages, nstages ^ 2}(ark)
+    return ark # note that this returns the generic type !
   end
 end
 
-ODEs.order(::Type{<:AdditiveRungeKutta2a}) = 2
-
-# delegate methods to the member ark struct
-updatedt!(ark2a::AdditiveRungeKutta2a, dt) = updatedt!(ark2a.ark, dt)
-ODEs.gettime(ark2a::AdditiveRungeKutta2a) = ODEs.gettime(ark2a.ark)
-
-function ODEs.dostep!(Q, ark2a::AdditiveRungeKutta2a, timeend, adjustfinalstep)
-  ODEs.dostep!(Q, ark2a.ark, timeend, adjustfinalstep)
-end
-
-struct AdditiveRungeKutta5{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
-  ark::AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq}
+struct AdditiveRungeKutta5 <: ODEs.AbstractODESolver
+  ODEs.order(::Type{AdditiveRungeKutta5}) = 5
 
   function AdditiveRungeKutta5(F::Union{Function, AbstractSpaceMethod},
                                L::Union{Function, AbstractSpaceMethod},
@@ -164,7 +157,7 @@ struct AdditiveRungeKutta5{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESo
     RKA_implicit = zeros(RT, nstages, nstages)
     RKB = zeros(RT, nstages)
     RKC = zeros(RT, nstages)
-  
+
     # the main diagonal
     for is = 2:nstages
       RKA_implicit[is, is] = gamma
@@ -251,21 +244,13 @@ struct AdditiveRungeKutta5{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESo
     RKB = SVector{nstages}(RKB)
     RKC = SVector{nstages}(RKC)
 
+    order = ODEs.order(AdditiveRungeKutta5)
+
     ark = AdditiveRungeKutta(F, L, solve_linear_problem!,
-                             RKA_explicit, RKA_implicit, RKB, RKC,
+                             RKA_explicit, RKA_implicit, RKB, RKC, order,
                              Q; dt=dt, t0=t0)
-    new{T, RT, AT, nstages, nstages ^ 2}(ark)
+    return ark # note that this returns the generic type !
   end
-end
-
-ODEs.order(::Type{<:AdditiveRungeKutta5}) = 5
-
-# delegate methods to the member ark struct
-updatedt!(ark5::AdditiveRungeKutta5, dt) = updatedt!(ark5.ark, dt)
-ODEs.gettime(ark5::AdditiveRungeKutta5) = ODEs.gettime(ark5.ark)
-
-function ODEs.dostep!(Q, ark5::AdditiveRungeKutta5, timeend, adjustfinalstep)
-  ODEs.dostep!(Q, ark5.ark, timeend, adjustfinalstep)
 end
 
 """
