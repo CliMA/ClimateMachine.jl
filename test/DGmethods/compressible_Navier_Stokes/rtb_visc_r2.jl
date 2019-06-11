@@ -45,9 +45,8 @@ end
 const Prandtl = 71 // 100
 const Prandtl_t = 1 // 3
 const k_μ = cp_d / Prandtl_t
-const μ_exact = 2.5
+const μ_exact = 10
 const γ_exact = 7 // 5
-
 const xmin = 0
 const ymin = 0
 const zmin = 0
@@ -135,9 +134,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
         F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
         # Energy dissipation
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vTx
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vTz
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 #+ vTx
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 #+ vTy
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 #+ vTz
     end
 end
 
@@ -190,6 +189,38 @@ end
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 #md # (pending)
 @inline function compute_stresses!(VF, grad_vel, _...)
+  μ::eltype(VF) = μ_exact
+  @inbounds begin
+    dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
+    dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
+    dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
+    # strains
+    ϵ11 = dudx
+    ϵ22 = dvdy
+    ϵ33 = dwdz
+    ϵ12 = (dudy + dvdx) / 2
+    ϵ13 = (dudz + dwdx) / 2
+    ϵ23 = (dvdz + dwdy) / 2
+    # --------------------------------------------
+    # SMAGORINSKY COEFFICIENT COMPONENTS
+    # --------------------------------------------
+    SijSij = (ϵ11 + ϵ22 + ϵ33
+              + 2.0 * ϵ12
+              + 2.0 * ϵ13 
+              + 2.0 * ϵ23) 
+    # mod strain rate ϵ ---------------------------
+    # deviatoric stresses
+    VF[_τ11] = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
+    VF[_τ22] = 2μ * (ϵ22 - (ϵ11 + ϵ22 + ϵ33) / 3)
+    VF[_τ33] = 2μ * (ϵ33 - (ϵ11 + ϵ22 + ϵ33) / 3)
+    VF[_τ12] = 2μ * ϵ12
+    VF[_τ13] = 2μ * ϵ13
+    VF[_τ23] = 2μ * ϵ23
+
+  end
+end
+
+@inline function compute_stresses_1!(VF, grad_vel, _...)
   gravity::eltype(VF) = grav
   @inbounds begin
     dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
@@ -522,7 +553,7 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (20,30)
+    numelem = (10,15)
     dt = 0.01
     timeend = 800
     polynomialorder = 4
