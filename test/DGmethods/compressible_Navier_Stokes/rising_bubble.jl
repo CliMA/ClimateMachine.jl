@@ -68,12 +68,12 @@ const γ_exact = 7 // 5
 # TODO: link to module SubGridScaleTurbulence
 
 # Physical domain extents 
-(xmin, xmax) = (0, 25600)
-(ymin, ymax) = (0, 6400)
+(xmin, xmax) = (0, 1000)
+(ymin, ymax) = (0, 1500)
 # Can be extended to a 3D test case 
 (zmin, zmax) = (0, 6400)
-(Nex, Ney, Nez) = (64, 32, 1)
-Npoly = 4
+(Nex, Ney, Nez) = (20, 30, 1)
+Npoly = 10
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 const C_smag = 0.23
@@ -380,7 +380,7 @@ end
 # -------------END DEF SOURCES-------------------------------------# 
 
 # initial condition
-function density_current!(dim, Q, t, x, y, z, _...)
+function rising_bubble!(dim, Q, t, x, y, z, _...)
   DFloat                = eltype(Q)
   R_gas::DFloat         = R_d
   c_p::DFloat           = cp_d
@@ -392,11 +392,10 @@ function density_current!(dim, Q, t, x, y, z, _...)
   q_liq::DFloat         = 0
   q_ice::DFloat         = 0 
   # perturbation parameters for rising bubble
-  rx                    = 4000
-  ry                    = 2000
-  r                     = sqrt(x^2/rx^2 + (y-3000)^2/ry^2)
+  rc                    = 250
+  r                     = sqrt((x-500)^2/rc^2 + (y-260)^2/rc^2)
   θ_ref::DFloat         = 300
-  θ_c::DFloat           = -15.0
+  θ_c::DFloat           = 0.5
   Δθ::DFloat            = 0.0
   if r <= 1
     Δθ = θ_c * (1 + cospi(r))/2
@@ -455,7 +454,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                            source! = source!)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = density_current!(Val(dim), Q, DFloat(0), x...)
+  initialcondition(Q, x...) = rising_bubble!(Val(dim), Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
@@ -560,8 +559,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.05
-    timeend = 5400
+    dt = 0.01
+    timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
     dim = 2

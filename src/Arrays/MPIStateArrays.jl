@@ -4,7 +4,7 @@ using DoubleFloats
 
 using MPI
 
-export MPIStateArray, euclidean_distance, weightedsum
+export MPIStateArray, euclidean_distance, weightedsum,global_max 
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -383,6 +383,49 @@ function knl_weightedsum(::Val{Np}, A, weights, elems, states) where {Np}
 
   wsum
 end
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+    host_array = Array ∈ typeof(A).parameters
+    h_A = host_array ? A : Array(A)
+    locmax = maximum(view(h_A, :, states, A.realelems))
+    MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+function global_extrema_diff(A::MPIStateArray, B::MPIStateArray, state=1:size(A, 2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  (Np, nstate, nelem) = size(A)
+  host_array = Array ∈ typeof(B).parameters
+  h_B = host_array ? B : Array(B)
+  @assert Np === size(B, 1)
+  DFloat = eltype(A)
+  locmax=DFloat(-10^6)
+  locmin=DFloat(+10^6)
+  @inbounds for e = A.realelems
+    for i = 1:Np
+      locmax = max( locmax, A[i, state, e] - B[i, state, e] )
+      locmin = min( locmin, A[i, state, e] - B[i, state, e] )
+    end
+  end
+  globmax = DFloat( MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1])
+  globmin = DFloat( MPI.Allreduce([locmin], MPI.MIN, A.mpicomm)[1])
+  return(globmax,globmin)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 using Requires
 
