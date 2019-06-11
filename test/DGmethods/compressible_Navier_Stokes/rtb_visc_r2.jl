@@ -45,7 +45,7 @@ end
 const Prandtl = 71 // 100
 const Prandtl_t = 1 // 3
 const k_μ = cp_d / Prandtl_t
-const μ_exact = 10
+const μ_exact = 2.5
 const γ_exact = 7 // 5
 
 const xmin = 0
