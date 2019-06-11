@@ -22,10 +22,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(::Val{dim}, ::Val{N},
+function volumerhs!(dg::DGModel, ::Val{dim}, ::Val{N},
                     ::Val{nstate}, ::Val{nviscstate},
                     ::Val{nauxstate},
-                    flux!, source!,
                     rhs, Q, Qvisc, auxstate, vgeo, t,
                     D, elems) where {dim, N, nstate, nviscstate,
                                      nauxstate}
@@ -79,7 +78,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
             l_aux[s] = auxstate[ijk, s, e]
           end
 
-          flux!(l_F, l_Q, l_Qvisc, l_aux, t)
+          flux!(dg.balancelaw, l_F, l_Q, l_Qvisc, l_aux, t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = MJ * (ξx*l_F[1,s] + ξy*l_F[2,s] + ξz*l_F[3,s])
@@ -87,13 +86,13 @@ function volumerhs!(::Val{dim}, ::Val{N},
             s_F[3,i,j,k,s] = MJ * (ζx*l_F[1,s] + ζy*l_F[2,s] + ζz*l_F[3,s])
           end
 
-          if source! !== nothing
-            source!(l_S, l_Q, l_aux, t)
+          # if source! !== nothing
+            source!(dg.balancelaw, l_S, l_Q, l_aux, t)
 
             @unroll for s = 1:nstate
               l_rhs[s, i, j, k] += l_S[s]
             end
-          end
+          # end
         end
       end
     end
@@ -149,7 +148,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
+function facerhs!(dg::DGModel, ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
                   ::Val{nauxstate}, numerical_flux!, numerical_boundary_flux!,
                   rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                   elemtobndy, elems) where {dim, N, nstate, nviscstate,
@@ -217,13 +216,11 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        bctype =
-            numerical_boundary_flux! === nothing ? 0 : elemtobndy[f, e]
         if bctype == 0
-          numerical_flux!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
+          numerical_flux!(dg.dnf, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
         else
-          numerical_boundary_flux!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
+          numerical_boundary_flux!(dg.dnf, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
                                    l_QviscP, l_auxP, bctype, t)
         end
 
@@ -240,11 +237,11 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
   nothing
 end
 
-function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
+function volumeviscterms!(dg::DGModel,
+                          ::Val{dim}, ::Val{N}, ::Val{nstate},
                           ::Val{states_grad}, ::Val{ngradstate},
                           ::Val{nviscstate}, ::Val{nauxstate},
-                          viscous_transform!, gradient_transform!, Q,
-                          Qvisc, auxstate, vgeo, t, D,
+                          Q, Qvisc, auxstate, vgeo, t, D,
                           elems) where {dim, N, states_grad, ngradstate,
                                         nviscstate, nstate, nauxstate}
   DFloat = eltype(Q)
@@ -285,7 +282,7 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
-          gradient_transform!(l_G, l_Q[:, i, j, k], l_aux[:, i, j, k], t)
+          transform!(dg.balancelaw, l_G, l_Q[:, i, j, k], l_aux[:, i, j, k], t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -319,7 +316,7 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
             l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
           end
 
-          viscous_transform!(l_Qvisc, l_gradG, l_Q[:, i, j, k],
+          diffusive!(dg.balancelaw, l_Qvisc, l_gradG, l_Q[:, i, j, k],
                              l_aux[:, i, j, k], t)
 
           @unroll for s = 1:nviscstate
@@ -332,10 +329,10 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
   end
 end
 
-function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
+function faceviscterms!(dg::DGModel,
+                        ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
                         ::Val{ngradstate}, ::Val{nviscstate},
-                        ::Val{nauxstate}, viscous_penalty!,
-                        viscous_boundary_penalty!, gradient_transform!,
+                        ::Val{nauxstate},
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, N, states_grad,
                                                   ngradstate, nviscstate,
@@ -387,7 +384,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        gradient_transform!(l_GM, l_QM, l_auxM, t)
+        transform!(dg.balancelaw, l_GM, l_QM, l_auxM, t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
@@ -398,15 +395,14 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        gradient_transform!(l_GP, l_QP, l_auxP, t)
+        transform!(dg.blanacelaw, l_GP, l_QP, l_auxP, t)
 
-        bctype =
-            viscous_boundary_penalty! === nothing ? 0 : elemtobndy[f, e]
+        bctype = elemtobndy[f, e]
         if bctype == 0
-          viscous_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
+          diffusive_penalty!(df.gradnumflux, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
         else
-          viscous_boundary_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM,
+          diffusive_boundary_penalty!(df.gradnumflux, l_Qvisc, nM, l_GM, l_QM, l_auxM,
                                            l_GP, l_QP, l_auxP, bctype, t)
         end
 

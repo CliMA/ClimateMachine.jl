@@ -2,6 +2,41 @@ module NumericalFluxes
 using StaticArrays
 
 """
+    GradNumericalFlux
+
+Any `P <: GradNumericalFlux` should define the following:
+
+- `diffusive_penalty!(gnf::P, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, t)`
+- `diffusive_boundary_penalty!(gnf::P, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype, t)`
+"""
+abstract type GradNumericalFlux end
+
+function diffusive_penalty! end
+function diffusive_boundary_penalty! end
+
+"""
+    DivNumFlux
+
+Any `N <: GradNumericalFlux` should define the following:
+
+- `numerical_flux!(dnf::N, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, t)`
+- `numerical_boundary_flux!(dnf::N, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, bctype, t)`
+"""
+abstract type DivNumericalFlux end
+
+
+function numerical_boundary_flux!(dnf::DivNumericalFlux, balancelaw::BalanceLaw,
+                                  F::MArray{Tuple{nstate}}, nM,
+                                  QM, QVM, auxM,
+                                  QP, QVP, auxP,
+                                  bctype, t) where {nstate}
+  boundarycondition!(balancelaw, QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t)
+  numerical_flux!(dnf, balancelaw, F, nM, QM, QVM, auxM, QP, QVP, auxP, t)
+end
+
+
+
+"""
     rusanov!(F::MArray, nM, QM, QVM, auxM, QP, QVP, auxP, t, flux!, wavespeed,
              [preflux = (_...) -> (), computeQjump!])
 
@@ -29,70 +64,39 @@ correcting `Q` to include discontinuous reference states.
     `rusanov_boundary_flux!`
 
 """
-function rusanov!(F::MArray{Tuple{nstate}}, nM,
-                  QM, QVM, auxM,
-                  QP, QVP, auxP,
-                  t, flux!, wavespeed,
-                  preflux = (_...) -> (),
-                  computeQjump! = nothing,
-                  PM = preflux(QM, QVM, auxM, t),
-                  PP = preflux(QP, QVP, auxP, t)
-                 ) where {nstate}
-  λM = wavespeed(nM, QM, auxM, t, PM...)
-  FM = similar(F, Size(3, nstate))
-  flux!(FM, QM, QVM, auxM, t, PM...)
+struct Rusanov <: DivNumericalFlux
+end
 
-  λP = wavespeed(nM, QP, auxP, t, PP...)
+
+function numerical_flux!(::Rusanov, balancelaw::BalanceLaw,
+                         F::MArray{Tuple{nstate}}, nM,
+                         QM, QVM, auxM,
+                         QP, QVP, auxP,
+                         t) where {nstate}
+
+  λM = wavespeed(balancelaw, nM, QM, auxM, t)
+  FM = similar(F, Size(3, nstate))
+  flux!(balancelaw, FM, QM, QVM, auxM, t)
+  
+  λP = wavespeed(balancelaw, nM, QP, auxP, t)
   FP = similar(F, Size(3, nstate))
-  flux!(FP, QP, QVP, auxP, t, PP...)
+  flux!(balancelaw, FP, QP, QVP, auxP, t)
 
   λ  =  max(λM, λP)
 
-  if computeQjump! === nothing
+  # if computeQjump! === nothing
     @inbounds for s = 1:nstate
       F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
               nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM[s] - QP[s])) / 2
     end
-  else
-    ΔQ = copy(QM)
-    computeQjump!(ΔQ, QM, auxM, QP, auxP)
-    @inbounds for s = 1:nstate
-      F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-              nM[3] * (FM[3, s] + FP[3, s]) + λ * ΔQ[s]) / 2
-    end
-  end
-end
-
-"""
-    rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM, QM, QVM, auxM, QP, QVP,
-                           auxP, bctype, t, flux!, bcstate!, wavespeed,
-                           preflux = (_...) -> (), computeQjump! = nothing
-                           ) where {nstate}
-
-The function `bcstate!` is used to calculate the plus side state for the
-boundary condition `bctype`. The calling convention is:
-```
-PP = bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t,
-              preflux(QM, auxM, t)...)
-```
-where `QP`, `QVP`, and `auxP` are the plus side state, viscous state, and
-auxiliary state to be filled from the given data; other arguments should not be
-modified.
-"""
-function rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM,
-                                QM, QVM, auxM,
-                                QP, QVP, auxP,
-                                bctype, t,
-                                flux!, bcstate!,
-                                wavespeed,
-                                preflux = (_...) -> (),
-                                computeQjump! = nothing
-                               ) where {nstate}
-  PM = preflux(QM, QVM, auxM, t)
-  bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, PM...)
-  PP = preflux(QP, QVP, auxP, t)
-  rusanov!(F, nM, QM, QVM, auxM, QP, QVP, auxP, t, flux!, wavespeed, preflux,
-           computeQjump!, PM, PP)
+  # else
+  #   ΔQ = copy(QM)
+  #   computeQjump!(ΔQ, QM, auxM, QP, auxP)
+  #   @inbounds for s = 1:nstate
+  #     F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
+  #             nM[3] * (FM[3, s] + FP[3, s]) + λ * ΔQ[s]) / 2
+  #   end
+  # end
 end
 
 end
