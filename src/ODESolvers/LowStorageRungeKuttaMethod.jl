@@ -1,5 +1,5 @@
 module LowStorageRungeKuttaMethod
-export LowStorageRungeKutta, updatedt!
+export LowStorageRungeKutta
 
 using GPUifyLoops
 include("LowStorageRungeKuttaMethod_kernels.jl")
@@ -95,12 +95,7 @@ function LowStorageRungeKutta(spacedisc::AbstractSpaceMethod, Q; dt=nothing,
   LowStorageRungeKutta(rhs!, Q; dt=dt, t0=t0)
 end
 
-"""
-    updatedt!(lsrk::LowStorageRungeKutta, dt)
-
-Change the time step size to `dt` for `lsrk.
-"""
-updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
+ODEs.updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
 
 function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
                       adjustfinalstep)

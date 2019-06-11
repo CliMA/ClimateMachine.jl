@@ -1,6 +1,5 @@
 module AdditiveRungeKuttaMethod
 export AdditiveRungeKutta, AdditiveRungeKutta2a, AdditiveRungeKutta5
-export updatedt!
 
 using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
@@ -253,12 +252,7 @@ struct AdditiveRungeKutta5 <: ODEs.AbstractODESolver
   end
 end
 
-"""
-    updatedt!(ark::AdditiveRungeKutta, dt)
-
-Change the time step size to `dt` for `ark`.
-"""
-updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
+ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
 
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
                       adjustfinalstep)

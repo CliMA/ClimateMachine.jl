@@ -3,7 +3,7 @@ module ODESolvers
 using ..MPIStateArrays
 using GPUifyLoops
 
-export solve!, order
+export solve!, order, updatedt!
 
 abstract type AbstractODESolver end
 """
@@ -13,6 +13,14 @@ Returns the current simulation time of the ODE solver `solver`
 """
 gettime(solver::AbstractODESolver) = solver.t[1]
 dostep!(Q, solver::AbstractODESolver, tf, afs) = throw(MethodError(dostep!, (Q, solver, tf, afs)))
+
+"""
+    updatedt!(solver::AbstractODESolver, dt)
+
+Change the time step size to `dt` for the ODE solver `solver`.
+"""
+updatedt!(solver::AbstractODESolver, dt) =
+  error("Variable time stepping not implemented for $(typeof(solver))")
 
 """
     order(solver)

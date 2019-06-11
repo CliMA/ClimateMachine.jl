@@ -1,5 +1,5 @@
 module StrongStabilityPreservingRungeKuttaMethod
-export StrongStabilityPreservingRungeKutta, updatedt!
+export StrongStabilityPreservingRungeKutta
 export StrongStabilityPreservingRungeKutta33
 export StrongStabilityPreservingRungeKutta34
 
@@ -65,12 +65,7 @@ function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA
   StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-"""
-    updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt)
-
-Change the time step size to `dt` for `ssp.
-"""
-updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
+#ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
 
 function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adjustfinalstep)
   time, dt = ssp.t[1], ssp.dt[1]
