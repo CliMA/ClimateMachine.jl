@@ -1,15 +1,8 @@
 module LowStorageRungeKuttaMethod
 export LowStorageRungeKutta, updatedt!
 
-using Requires
-
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-  using .CuArrays
-  using .CuArrays.CUDAnative
-  using .CuArrays.CUDAnative.CUDAdrv
-
-  include("LowStorageRungeKuttaMethod_cuda.jl")
-end
+using GPUifyLoops
+include("LowStorageRungeKuttaMethod_kernels.jl")
 
 using ..ODESolvers
 ODEs = ODESolvers
@@ -111,15 +104,18 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
   end
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
   rhs!, dQ = lsrk.rhs!, lsrk.dQ
+
+  rv_Q = ODEs.realview(Q)
+  rv_dQ = ODEs.realview(dQ)
+
+  threads = 1024
+  blocks = div(length(rv_Q) + threads - 1, threads)
+
   for s = 1:length(RKA)
-    rhs!(dQ, Q, time)
-
+    rhs!(dQ, Q, time + RKC[s] * dt)
     # update solution and scale RHS
-    # FIXME: GPUify
-    update!(Val(size(Q,2)), Val(size(Q,1)), dQ.Q, Q.Q, Q.realelems,
-            RKA[s%length(RKA)+1], RKB[s], dt)
-
-    time += RKC[s] * dt
+    @launch(ODEs.device(Q), threads=threads, blocks=blocks,
+            update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt))
   end
   if dt == lsrk.dt[1]
     lsrk.t[1] += dt
@@ -128,16 +124,5 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
   end
 
 end
-
-# {{{ Update solution (for all dimensions)
-function update!(::Val{nstates}, ::Val{Np}, rhs::Array{T, 3}, Q, elems, rka,
-                 rkb, dt) where {nstates, Np, T}
-  @inbounds for e = elems, s = 1:nstates, i = 1:Np
-    Q[i, s, e] += rkb * dt * rhs[i, s, e]
-    rhs[i, s, e] *= rka
-    
-  end
-end
-# }}}
 
 end

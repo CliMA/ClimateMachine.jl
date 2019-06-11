@@ -3,15 +3,8 @@ export StrongStabilityPreservingRungeKutta, updatedt!
 export StrongStabilityPreservingRungeKutta33
 export StrongStabilityPreservingRungeKutta34
 
-using Requires
-
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays
-    using .CuArrays.CUDAnative
-    using .CuArrays.CUDAnative.CUDAdrv
-
-    include("StrongStabilityPreservingRungeKuttaMethod_cuda.jl")
-end
+using GPUifyLoops
+include("StrongStabilityPreservingRungeKuttaMethod_kernels.jl")
 
 using ..ODESolvers
 ODEs = ODESolvers
@@ -28,10 +21,11 @@ equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 with the required time step size `dt` and optional initial time `t0`.  This
 time stepping object is intended to be passed to the `solve!` command.
 
-This uses either 2nd or 3rd order Strong-Stability-Preserving (SS) time-integrators.
+This uses either 3-stage or 4-stage 3rd order Strong-Stability-Preserving (SS) time-integrators.
 
 ### References
-S. Gottlieb and C.-W. Shu,Total variation diminishing Runge-Kutta schemes, Math .Comp .,67 (1998), pp .73–85
+S. Gottlieb and C.-W. Shu, Total variation diminishing Runge-Kutta schemes, Math .Comp .,67 (1998), pp .73–85
+R.J. Spiteri and S.J. Ruuth, A new class of optimal high-order strong-stability-preserving time discretization methods, SIAM J. Numer. Anal., 40 (2002), pp .469–491
 """
 
 struct StrongStabilityPreservingRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
@@ -42,9 +36,9 @@ t::Array{T,1}
 "rhs function"
 rhs!::Function
 "Storage for RHS during the StrongStabilityPreservingRungeKutta update"
-Rstages::NTuple{Nstages,AT}
-"Storage for RHS during the StrongStabilityPreservingRungeKutta update"
-Qstages::NTuple{Nstages,AT}
+Rstage::AT
+"Storage for the stage state during the StrongStabilityPreservingRungeKutta update"
+Qstage::AT
 "RK coefficient vector A (rhs scaling)"
 RKA::Array{T,2}
 "RK coefficient vector B (rhs add in scaling)"
@@ -59,7 +53,7 @@ function StrongStabilityPreservingRungeKutta(rhs!::Function, RKA, RKB, RKC, Q::A
     T = eltype(Q)
     dt = [T(dt)]
     t0 = [T(t0)]
-    new{T, AT, length(RKB)}(dt, t0, rhs!, ntuple(i->similar(Q), length(RKB)), ntuple(i->similar(Q), length(RKB)), RKA, RKB, RKC)
+    new{T, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
 end
 end
 
@@ -68,20 +62,20 @@ function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA
     StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-function StrongStabilityPreservingRungeKutta33(spacedisc, Q; dt=nothing,t0=0)
+function StrongStabilityPreservingRungeKutta33(F::Union{Function, AbstractSpaceMethod}, Q; dt=nothing, t0=0)
     T=eltype(Q)
     RKA = [ T(1) T(0); T(3//4) T(1//4); T(1//3) T(2//3) ]
     RKB = [T(1), T(1//4), T(2//3)]
-    RKC = [ T(0), T(1//4), T(2//3) ]
-    StrongStabilityPreservingRungeKutta(spacedisc, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+    RKC = [ T(0), T(1), T(1//2) ]
+    StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-function StrongStabilityPreservingRungeKutta34(spacedisc, Q; dt=nothing,t0=0)
+function StrongStabilityPreservingRungeKutta34(F::Union{Function, AbstractSpaceMethod}, Q; dt=nothing,t0=0)
     T=eltype(Q)
     RKA = [ T(1) T(0); T(0) T(1); T(2//3) T(1//3); T(0) T(1) ]
     RKB = [ T(1//2); T(1//2); T(1//6); T(1//2) ]
-    RKC = [ T(0); T(1//4); T(2//3); T(3//3) ]
-    StrongStabilityPreservingRungeKutta(spacedisc, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+    RKC = [ T(0); T(1//2); T(1); T(1//2) ]
+    StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 
@@ -100,14 +94,25 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
     end
     RKA, RKB, RKC = ssp.RKA, ssp.RKB, ssp.RKC
     rhs! = ssp.rhs!
-    Rstages, Qstages = ssp.Rstages, ssp.Qstages
+    Rstage, Qstage = ssp.Rstage, ssp.Qstage
+    
+    rv_Q = ODEs.realview(Q)
+    rv_Rstage = ODEs.realview(Rstage)
+    rv_Qstage = ODEs.realview(Qstage)
+
+    threads = 1024
+    blocks = div(length(rv_Q) + threads - 1, threads)
+
+    rv_Qstage .= rv_Q
     for s = 1:length(RKB)
-        Qstages[s] .= Q
-        Rstages[s].Q .= 0
-        rhs!(Rstages[s], Qstages[s], time)
-        update!(Val(size(Q,2)), Val(size(Q,1)), Rstages[s].Q, Qstages[1].Q, Q.Q, Q.realelems, RKA[s,1], RKA[s,2], RKB[s], dt)
-        time += RKC[s] * dt
+        rv_Rstage .= 0
+        rhs!(Rstage, Qstage, time + RKC[s] * dt)
+      
+        @launch(ODEs.device(Q), threads = threads, blocks = blocks,
+                update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))
     end
+    rv_Q .= rv_Qstage
+
     if dt == ssp.dt[1]
         ssp.t[1] += dt
     else
@@ -115,13 +120,5 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
     end
 
 end
-
-# {{{ Update solution (for all dimensions)
-function update!(::Val{nstates}, ::Val{Np}, rhs::Array{T,3}, Q0, Q, elems, rka1, rka2, rkb, dt) where {nstates, Np, T}
-    @inbounds for e = elems, s = 1:nstates, i = 1:Np
-        Q[i, s, e] = rka1*Q0[i, s, e] + rka2*Q[i, s, e] + dt*rkb*rhs[i, s, e]
-    end
-end
-# }}}
 
 end
