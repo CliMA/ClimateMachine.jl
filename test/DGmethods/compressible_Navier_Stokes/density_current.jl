@@ -471,14 +471,17 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       starttime[] = now()
     else
       energy = norm(Q)
+      globmean = global_mean(Q, _ρ) 
       @info @sprintf("""Update
                      simtime = %.16e
                      runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
+                     norm(Q) = %.16e
+                     mean(ρ) = %.16e""", 
+                     ODESolvers.gettime(lsrk),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
-                     energy)
+                     energy, globmean)
     end
   end
 
@@ -561,7 +564,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney)
     dt = 0.05
-    timeend = 5400
+    timeend = 100
     polynomialorder = Npoly
     DFloat = Float64
     dim = 2
