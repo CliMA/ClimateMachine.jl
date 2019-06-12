@@ -6,6 +6,7 @@ using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 
 const explicit_methods = [(LSRK54CarpenterKennedy, 4)
+                          (LSRK144NiegemannDiehlBusch, 4)
                           (SSPRK33ShuOsher, 3)
                           (SSPRK34SpiteriRuuth, 3)
                          ]
@@ -38,7 +39,7 @@ let
         errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
       end
       rates = log2.(errors[1:end-1] ./ errors[2:end])
-      @test isapprox(rates[end], expected_order; atol = 0.1)
+      @test isapprox(rates[end], expected_order; atol = 0.15)
     end
   end
 
@@ -62,7 +63,7 @@ let
           errors[n] = maximum(abs.(Q .- exactsolution.(q0s, finaltime)))
         end
         rates = log2.(errors[1:end-1] ./ errors[2:end])
-        @test isapprox(rates[end], expected_order; atol = 0.1)
+        @test isapprox(rates[end], expected_order; atol = 0.25)
       end
     end
   end

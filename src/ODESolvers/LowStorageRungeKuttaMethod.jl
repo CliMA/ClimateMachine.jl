@@ -1,5 +1,5 @@
 module LowStorageRungeKuttaMethod
-export LSRK54CarpenterKennedy
+export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch
 
 using GPUifyLoops
 include("LowStorageRungeKuttaMethod_kernels.jl")
@@ -123,7 +123,6 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
 """
 function LSRK54CarpenterKennedy(F::Union{Function, AbstractSpaceMethod},
                                 Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
-
   T = eltype(Q)
   RT = real(T)
 
@@ -145,7 +144,60 @@ function LSRK54CarpenterKennedy(F::Union{Function, AbstractSpaceMethod},
          RT(2006345519317 // 3224310063776),
          RT(2802321613138 // 2924317926251))
 
-  lsrk = LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+  LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+end
+
+function LSRK144NiegemannDiehlBusch(F::Union{Function, AbstractSpaceMethod},
+                                    Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+  T = eltype(Q)
+  RT = real(T)
+
+  RKA = (RT(0),
+         RT(-0.7188012108672410),
+         RT(-0.7785331173421570),
+         RT(-0.0053282796654044),
+         RT(-0.8552979934029281),
+         RT(-3.9564138245774565),
+         RT(-1.5780575380587385),
+         RT(-2.0837094552574054),
+         RT(-0.7483334182761610),
+         RT(-0.7032861106563359),
+         RT( 0.0013917096117681),
+         RT(-0.0932075369637460),
+         RT(-0.9514200470875948),
+         RT(-7.1151571693922548))
+
+  RKB = (RT(0.0367762454319673),
+         RT(0.3136296607553959),
+         RT(0.1531848691869027),
+         RT(0.0030097086818182),
+         RT(0.3326293790646110),
+         RT(0.2440251405350864),
+         RT(0.3718879239592277),
+         RT(0.6204126221582444),
+         RT(0.1524043173028741),
+         RT(0.0760894927419266),
+         RT(0.0077604214040978),
+         RT(0.0024647284755382),
+         RT(0.0780348340049386),
+         RT(5.5059777270269628))
+
+  RKC = (RT(0),
+         RT(0.0367762454319673),
+         RT(0.1249685262725025),
+         RT(0.2446177702277698),
+         RT(0.2476149531070420),
+         RT(0.2969311120382472),
+         RT(0.3978149645802642),
+         RT(0.5270854589440328),
+         RT(0.6981269994175695),
+         RT(0.8190890835352128),
+         RT(0.8527059887098624),
+         RT(0.8604711817462826),
+         RT(0.8627060376969976),
+         RT(0.8734213127600976))
+
+  LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 end
