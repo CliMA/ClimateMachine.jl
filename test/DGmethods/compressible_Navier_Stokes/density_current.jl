@@ -168,9 +168,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
     F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
     # Energy dissipation
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vTx 
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vTz 
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 # +vTx 
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 # +vTy
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 # +vTz 
     # Viscous contributions to mass flux terms
   end
 end
@@ -263,7 +263,7 @@ end
     k_e = k_μ * ν_e 
     # TODO: Viscous stresse come from SubgridScaleTurbulence module
     VF[_qx], VF[_qy], VF[_qz] = D_e*dqdx, D_e*dqdy, D_e*dqdz
-    VF[_Tx], VF[_Ty], VF[_Tz] = k_e*dTdx, k_e*dTdy, k_e*dTdz
+    VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
     VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
     VF[_SijSij] = SijSij
   end
@@ -388,7 +388,7 @@ function density_current!(dim, Q, t, x, y, z, _...)
   p0::DFloat            = MSLP
   gravity::DFloat       = grav
   # initialise with dry domain 
-  q_tot::DFloat         = 0
+  q_tot::DFloat         = 0.0014
   q_liq::DFloat         = 0
   q_ice::DFloat         = 0 
   # perturbation parameters for rising bubble
@@ -563,7 +563,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.05
+    dt = 0.01
     timeend = 100
     polynomialorder = Npoly
     DFloat = Float64
