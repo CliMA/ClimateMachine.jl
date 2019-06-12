@@ -52,11 +52,10 @@ if !@isdefined integration_testing
 end
 
 # Problem constants (TODO: parameters module (?)) 
-const Prandtl   = 71 // 100
-const Prandtl_t = 1 // 3
-const ν_e       = 20
-const k_e       = cp_d /Prandtl
+const Prandtl   = 0.5
+const μ_exact   = 2.5
 const γ_exact   = 7 // 5
+
 
 # Problem description 
 # --------------------
@@ -69,14 +68,14 @@ const γ_exact   = 7 // 5
 
 # Physical domain extents 
 (xmin, xmax) = (0, 1000)
-(ymin, ymax) = (0, 1000)
+(ymin, ymax) = (0, 1500)
 # Can be extended to a 3D test case 
 (zmin, zmax) = (0, 1000)
-(Nex, Ney, Nez) = (10, 10, 1)
-Npoly = 4
+(Nex, Ney, Nez) = (30, 45, 1)
+Npoly = 5
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-const C_smag = 0.23
+const C_smag = 0.14
 const Δx = (xmax-xmin) / ((Nex * Npoly) + 1)
 const Δy = (ymax-ymin) / ((Ney * Npoly) + 1)
 const Δz = (zmax-zmin) / ((Nez * Npoly) + 1)
@@ -152,15 +151,15 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
         F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
         
-        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
-        
-        vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-        
         # Stress tensor : FIXME: use Julia Tensors.jl (?)
         τ11, τ22, τ33 = VF[_τ11] , VF[_τ22], VF[_τ33]
         τ12 = τ21 = VF[_τ12] 
         τ13 = τ31 = VF[_τ13]
         τ23 = τ32 = VF[_τ23]
+        
+        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
+        vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+        
         
         # Buoyancy correction 
         #dθdy = VF[_θy]
@@ -172,9 +171,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         # Energy dissipation
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vTx
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vTz 
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + k_μ*vTx
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + k_μ*vTy
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + k_μ*vTz 
         # Viscous contributions to mass flux terms
     end
 end
@@ -251,22 +250,27 @@ end
                   + 2.0 * S13^2 
                   + 2.0 * S23^2) 
         modSij = sqrt(2.0 * SijSij)
+        
+        #Richardson = (grav/θ) * dθdy / modSij
+        #auxr = max(0.0, 1.0 - Richardson/Prandtl)
+        ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
+        k_e = ν_t * Prandtl/cp_d
 
         #--------------------------------------------
         # deviatoric stresses
         # Fix up index magic numbers
-        VF[_τ11] = 2 * ν_e * (S11 - (S11 + S22 + S33) / 3)
-        VF[_τ22] = 2 * ν_e * (S22 - (S11 + S22 + S33) / 3)
-        VF[_τ33] = 2 * ν_e * (S33 - (S11 + S22 + S33) / 3)
-        VF[_τ12] = 2 * ν_e * S12
-        VF[_τ13] = 2 * ν_e * S13
-        VF[_τ23] = 2 * ν_e * S23
+        VF[_τ11] = 2 * ν_t * (S11 - (S11 + S22 + S33) / 3)
+        VF[_τ22] = 2 * ν_t * (S22 - (S11 + S22 + S33) / 3)
+        VF[_τ33] = 2 * ν_t * (S33 - (S11 + S22 + S33) / 3)
+        VF[_τ12] = 2 * ν_t * S12
+        VF[_τ13] = 2 * ν_t * S13
+        VF[_τ23] = 2 * ν_t * S23
         
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
         #VF[_qx], VF[_qy], VF[_qz] = D_e*dqdx, D_e*dqdy, D_e*dqdz
         VF[_Tx], VF[_Ty], VF[_Tz] = k_e*dTdx, k_e*dTdy, k_e*dTdz
         
-        VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
+        #VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_SijSij] = SijSij
     end
 end
@@ -493,7 +497,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk")
+    mkpath("vtk-smago")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -502,7 +506,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-smago/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -565,8 +569,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.01
-    timeend = 800
+    dt = 0.005
+    timeend = 1000
     polynomialorder = Npoly
     DFloat = Float64
     dim = 2
