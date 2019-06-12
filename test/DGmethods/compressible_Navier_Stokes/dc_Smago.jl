@@ -66,19 +66,43 @@ const γ_exact   = 7 // 5
 # filters are tested against this benchmark problem
 # TODO: link to module SubGridScaleTurbulence
 
+#
+# User input on geometric properties:
+#
+# Resolution
+Δx    = 100
+Δy    = 100
+
+#Polynomial order
+Npoly = 4
+
 # Physical domain extents 
-(xmin, xmax) = (0, 1000)
-(ymin, ymax) = (0, 1500)
+(xmin, xmax) = (0, 25600)
+(ymin, ymax) = (0, 6400)
+#
+# End user input
+#
+
+#Get Nex, Ney from resolution
+Lx = xmax - xmin
+Ly = ymax - ymin
+ratiox = (Lx/Δx - 1)/Npoly
+ratioy = (Ly/Δy - 1)/Npoly
+const Nex = ceil(Int64, ratiox)
+const Ney = ceil(Int64, ratioy)
+
 # Can be extended to a 3D test case 
-(zmin, zmax) = (0, 1000)
-(Nex, Ney, Nez) = (30, 45, 1)
-Npoly = 5
+#(Nex, Ney, Nez) = (64, 16)
+#const Δx = Lx / ((Nex * Npoly) + 1)
+#const Δy = Ly / ((Ney * Npoly) + 1)
+
+@info @sprintf """ ----------------------------------"""
+@info @sprintf """ Density current                   """
+@info @sprintf """ Resolution: (Nex, Ney) = (%d, %d) """ Nex Ney
+@info @sprintf """ ----------------------------------"""
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 const C_smag = 0.14
-const Δx = (xmax-xmin) / ((Nex * Npoly) + 1)
-const Δy = (ymax-ymin) / ((Ney * Npoly) + 1)
-const Δz = (zmax-zmin) / ((Nez * Npoly) + 1)
 # Equivalent grid-scale
 Δ = sqrt(Δx * Δy)
 const Δsqr = Δ * Δ
