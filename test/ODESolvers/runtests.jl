@@ -5,7 +5,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 
-const explicit_methods = [LowStorageRungeKutta,
+const explicit_methods = [LSRKCarpenterKennedy54,
                           StrongStabilityPreservingRungeKutta33,
                           StrongStabilityPreservingRungeKutta34,
                          ]

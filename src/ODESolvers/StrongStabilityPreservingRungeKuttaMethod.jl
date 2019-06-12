@@ -65,7 +65,7 @@ function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA
   StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-#ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
+ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
 
 function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adjustfinalstep)
   time, dt = ssp.t[1], ssp.dt[1]

@@ -175,7 +175,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
 
   # Define Time-Integration Method
   if ti_method == "LSRK"
-    TimeIntegrator = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+    TimeIntegrator = LSRKCarpenterKennedy54(spacedisc, Q; dt = dt, t0 = 0)
   elseif ti_method == "SSP33"
     TimeIntegrator = StrongStabilityPreservingRungeKutta33(spacedisc, Q;
                                                            dt = dt, t0 = 0)

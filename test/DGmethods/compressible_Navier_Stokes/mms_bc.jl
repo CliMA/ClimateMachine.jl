@@ -233,7 +233,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   initialcondition(Q, x...) = initialcondition!(Val(dim), Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRKCarpenterKennedy54(spacedisc, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
