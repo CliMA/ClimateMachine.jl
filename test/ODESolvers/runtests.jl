@@ -5,26 +5,14 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 
-const explicit_methods = [LSRKCarpenterKennedy54,
-                          StrongStabilityPreservingRungeKutta33,
-                          StrongStabilityPreservingRungeKutta34,
+const explicit_methods = [(LSRKCarpenterKennedy54, 4)
+                          (StrongStabilityPreservingRungeKutta33, 3)
+                          (StrongStabilityPreservingRungeKutta34, 3)
                          ]
-const imex_methods = [AdditiveRungeKutta2a, AdditiveRungeKutta5]
 
-@testset "ODE Solvers `order` function" begin
-  dummy!(dQ, Q, time; increment) = nothing
-  another_dummy!(Qtt, Qhat, rhs_linear!, a) = nothing
-  
-  for method in explicit_methods
-    solver = method(dummy!, [0.0]; dt = 1.0)
-    @test order(method) == order(solver)
-  end
-
-  for method in imex_methods
-    solver = method(dummy!, dummy!, another_dummy!, [0.0]; dt = 1.0)
-    @test order(method) == order(solver)
-  end
-end
+const imex_methods = [(AdditiveRungeKutta2a, 2),
+                      (AdditiveRungeKutta5, 5)
+                     ]
 
 let 
   function rhs!(dQ, Q, time; increment)
@@ -41,7 +29,7 @@ let
     finaltime = 20.0
     dts = [2.0 ^ (-k) for k = 0:7]
 
-    for method in explicit_methods
+    for (method, expected_order) in explicit_methods
       errors = similar(dts)
       for (n, dt) in enumerate(dts)
         Q = [q0]
@@ -50,7 +38,7 @@ let
         errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
       end
       rates = log2.(errors[1:end-1] ./ errors[2:end])
-      @test isapprox(rates[end], order(method); atol = 0.1)
+      @test isapprox(rates[end], expected_order; atol = 0.1)
     end
   end
 
@@ -64,7 +52,7 @@ let
       finaltime = 20.0
       dts = [2.0 ^ (-k) for k = 0:7]
 
-      for method in explicit_methods
+      for (method, expected_order) in explicit_methods
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = CuArray(q0s)
@@ -74,7 +62,7 @@ let
           errors[n] = maximum(abs.(Q .- exactsolution.(q0s, finaltime)))
         end
         rates = log2.(errors[1:end-1] ./ errors[2:end])
-        @test isapprox(rates[end], order(method); atol = 0.1)
+        @test isapprox(rates[end], expected_order; atol = 0.1)
       end
     end
   end
@@ -111,7 +99,7 @@ let
     finaltime = pi / 2
     dts = [2.0 ^ (-k) for k = 2:13]
 
-    for method in imex_methods
+    for (method, expected_order) in imex_methods
       errors = similar(dts)
       for (n, dt) in enumerate(dts)
         Q = [q0]
@@ -121,11 +109,8 @@ let
       end
 
       rates = log2.(errors[1:end-1] ./ errors[2:end])
-      #println("dts = $dts")
-      #println("error = $errors")
-      #println("rates = $rates")
       @test errors[1] < 2.0
-      @test isapprox(rates[end], order(method); atol = 0.1)
+      @test isapprox(rates[end], expected_order; atol = 0.1)
     end
   end
 
@@ -138,7 +123,7 @@ let
       finaltime = pi / 2
       dts = [2.0 ^ (-k) for k = 2:13]
 
-      for method in imex_methods
+      for (method, expected_order) in imex_methods
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = CuArray{ComplexF64}(q0s)
@@ -149,11 +134,8 @@ let
         end
 
         rates = log2.(errors[1:end-1] ./ errors[2:end])
-        #println("dts = $dts")
-        #println("error = $errors")
-        #println("rates = $rates")
         @test errors[1] < 2.0
-        @test isapprox(rates[end], order(method); atol = 0.1)
+        @test isapprox(rates[end], expected_order; atol = 0.1)
       end
     end
   end

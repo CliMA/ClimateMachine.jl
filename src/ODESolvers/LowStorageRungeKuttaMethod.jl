@@ -9,7 +9,7 @@ ODEs = ODESolvers
 using ..SpaceMethods
 
 """
-    LowStorageRungeKutta2N(f, RKA, RKB, RKC, order, Q; dt, t0 = 0)
+    LowStorageRungeKutta2N(f, RKA, RKB, RKC, Q; dt, t0 = 0)
 
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
@@ -41,11 +41,9 @@ struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   RKB::NTuple{Nstages, RT}
   "low storage RK coefficient vector C (time scaling)"
   RKC::NTuple{Nstages, RT}
-  "numerical order of accuracy"
-  order::Int
 
   function LowStorageRungeKutta2N(rhs!::Function, RKA, RKB, RKC,
-                                  order, Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+                                  Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
 
@@ -57,14 +55,14 @@ struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
     dQ = similar(Q)
     fill!(dQ, 0)
     
-    new{T, RT, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC, order)
+    new{T, RT, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
   end
 end
 
 function LowStorageRungeKutta2N(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
-                                order, Q; dt=nothing, t0=0)
+                                Q; dt=nothing, t0=0)
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-  LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, order, Q; dt=dt, t0=t0)
+  LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = lsrk.dt[1] = dt
@@ -123,38 +121,31 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-struct LSRKCarpenterKennedy54 <: ODEs.AbstractODESolver
-  ODEs.order(::Type{LSRKCarpenterKennedy54}) = 4
+function LSRKCarpenterKennedy54(F::Union{Function, AbstractSpaceMethod},
+                                Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
 
-  function LSRKCarpenterKennedy54(F::Union{Function, AbstractSpaceMethod},
-                                  Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+  T = eltype(Q)
+  RT = real(T)
 
-    T = eltype(Q)
-    RT = real(T)
+  RKA = (RT(0),
+         RT(-567301805773  // 1357537059087),
+         RT(-2404267990393 // 2016746695238),
+         RT(-3550918686646 // 2091501179385),
+         RT(-1275806237668 // 842570457699 ))
 
-    RKA = (RT(0),
-           RT(-567301805773  // 1357537059087),
-           RT(-2404267990393 // 2016746695238),
-           RT(-3550918686646 // 2091501179385),
-           RT(-1275806237668 // 842570457699 ))
+  RKB = (RT(1432997174477 // 9575080441755 ),
+         RT(5161836677717 // 13612068292357),
+         RT(1720146321549 // 2090206949498 ),
+         RT(3134564353537 // 4481467310338 ),
+         RT(2277821191437 // 14882151754819))
 
-    RKB = (RT(1432997174477 // 9575080441755 ),
-           RT(5161836677717 // 13612068292357),
-           RT(1720146321549 // 2090206949498 ),
-           RT(3134564353537 // 4481467310338 ),
-           RT(2277821191437 // 14882151754819))
+  RKC = (RT(0),
+         RT(1432997174477 // 9575080441755),
+         RT(2526269341429 // 6820363962896),
+         RT(2006345519317 // 3224310063776),
+         RT(2802321613138 // 2924317926251))
 
-    RKC = (RT(0),
-           RT(1432997174477 // 9575080441755),
-           RT(2526269341429 // 6820363962896),
-           RT(2006345519317 // 3224310063776),
-           RT(2802321613138 // 2924317926251))
-
-    order = ODEs.order(LSRKCarpenterKennedy54)
-    lsrk = LowStorageRungeKutta2N(F, RKA, RKB, RKC, order, Q; dt=dt, t0=t0)
-
-    return lsrk # note that this returns the generic type !
-  end
+  lsrk = LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 end

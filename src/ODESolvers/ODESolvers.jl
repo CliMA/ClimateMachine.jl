@@ -3,7 +3,7 @@ module ODESolvers
 using ..MPIStateArrays
 using GPUifyLoops
 
-export solve!, order, updatedt!
+export solve!, updatedt!
 
 abstract type AbstractODESolver end
 """
@@ -21,14 +21,6 @@ Change the time step size to `dt` for the ODE solver `solver`.
 """
 updatedt!(solver::AbstractODESolver, dt) =
   error("Variable time stepping not implemented for $(typeof(solver))")
-
-"""
-    order(solver)
-
-Returns the numerical order of accuracy of the ODE solver `solver`.
-The argument `solver` can be either a solver type or a solver instance.
-"""
-order(solver::AbstractODESolver) = solver.order
 
 # `realview` and `device` are used for testing ODE solvers independently of spatial discretisations,
 # i.e. using plain arrays as state vectors
