@@ -97,6 +97,8 @@ const Ney = ceil(Int64, ratioy)
 #const Δx = Lx / ((Nex * Npoly) + 1)
 #const Δy = Ly / ((Ney * Npoly) + 1)
 
+
+
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """ ______ _      _____ __  ________      """     
 @info @sprintf """|  ____| |    |_   _|  ...  |  __  |   """  
@@ -108,8 +110,8 @@ const Ney = ceil(Int64, ratioy)
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """ Density current                                     """
 @info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy)   = (%d, %d)                           """ Nex Ney
-@info @sprintf """     (Nex, Ney) = (%.2e, %.2e)                       """ Δx Δy
+@info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
+@info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
 @info @sprintf """ ----------------------------------------------------"""
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
@@ -290,7 +292,7 @@ end
         #auxr = max(0.0, 1.0 - Richardson/Prandtl)
         ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
         k_e = ν_t * Prandtl/cp_d
-
+        
         #--------------------------------------------
         # deviatoric stresses
         # Fix up index magic numbers
@@ -303,7 +305,7 @@ end
         
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
         #VF[_qx], VF[_qy], VF[_qz] = D_e*dqdx, D_e*dqdy, D_e*dqdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = k_e*dTdx, k_e*dTdy, k_e*dTdz
+        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
         
         #VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_SijSij] = SijSij
