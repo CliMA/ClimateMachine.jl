@@ -86,20 +86,31 @@ Npoly = 4
 #Get Nex, Ney from resolution
 Lx = xmax - xmin
 Ly = ymax - ymin
+
 ratiox = (Lx/Δx - 1)/Npoly
 ratioy = (Ly/Δy - 1)/Npoly
 const Nex = ceil(Int64, ratiox)
 const Ney = ceil(Int64, ratioy)
 
 # Can be extended to a 3D test case 
-#(Nex, Ney, Nez) = (64, 16)
+#(Nex, Ney) = (64, 16)
 #const Δx = Lx / ((Nex * Npoly) + 1)
 #const Δy = Ly / ((Ney * Npoly) + 1)
 
-@info @sprintf """ ----------------------------------"""
-@info @sprintf """ Density current                   """
-@info @sprintf """ Resolution: (Nex, Ney) = (%d, %d) """ Nex Ney
-@info @sprintf """ ----------------------------------"""
+@info @sprintf """ ----------------------------------------------------"""
+@info @sprintf """ ______ _      _____ __  ________      """     
+@info @sprintf """|  ____| |    |_   _|  ...  |  __  |   """  
+@info @sprintf """| |    | |      | | |   .   | |  | |     """ 
+@info @sprintf """| |    | |      | | | |   | | |__| |     """
+@info @sprintf """| |____| |____ _| |_| |   | | |  | |     """
+@info @sprintf """| _____|______|_____|_|   |_|_|  |_|     """
+@info @sprintf """                                        """
+@info @sprintf """ ----------------------------------------------------"""
+@info @sprintf """ Density current                                     """
+@info @sprintf """   Resolution:                                       """ 
+@info @sprintf """     (Δx, Δy)   = (%d, %d)                           """ Nex Ney
+@info @sprintf """     (Nex, Ney) = (%.2e, %.2e)                       """ Δx Δy
+@info @sprintf """ ----------------------------------------------------"""
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 const C_smag = 0.14
@@ -195,9 +206,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         # Energy dissipation
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + k_μ*vTx
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + k_μ*vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + k_μ*vTz 
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vTx
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vTy
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vTz 
         # Viscous contributions to mass flux terms
     end
 end
@@ -521,7 +532,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-smago")
+    mkpath("vtk-DC-smago")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -530,7 +541,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-smago/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-DC-smago/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -593,8 +604,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.005
-    timeend = 1000
+    dt = 0.001
+    timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
     dim = 2
