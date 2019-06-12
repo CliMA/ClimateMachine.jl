@@ -78,8 +78,8 @@ Npoly = 4
 #(Nex, Ney, Nez) = (64, 16, 1)
 
 # Physical domain extents 
-(xmin, xmax) = (0, 20000)
-(ymin, ymax) = (0,  6400)
+(xmin, xmax) = (0, 10000)
+(ymin, ymax) = (0,  6000)
 
 # Can be extended to a 3D test case 
 (zmin, zmax) = (0, 1000)
@@ -312,7 +312,7 @@ end
         
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
         #VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = 75*dTdx, 75*dTdy, 75*dTdz
+        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
         
         #VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_ν_t] = ν_t 
