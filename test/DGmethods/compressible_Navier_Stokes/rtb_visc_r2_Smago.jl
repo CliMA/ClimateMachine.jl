@@ -53,7 +53,7 @@ if !@isdefined integration_testing
 end
 
 # Problem constants (TODO: parameters module (?))
-const μ_sgs   = 75.0
+const μ_sgs   = 15.0
 const Prandtl = 71 // 100
 const k_μ     = μ_sgs * cp_d / Prandtl
 
@@ -70,16 +70,16 @@ const k_μ     = μ_sgs * cp_d / Prandtl
 # User Input
 #
 const numdims = 2
-Δx    = 100
-Δy    = 100
+Δx    = 10
+Δy    = 10
 Δz    = 20
 Npoly = 4
 
 #(Nex, Ney, Nez) = (64, 16, 1)
 
 # Physical domain extents 
-(xmin, xmax) = (0, 20000)
-(ymin, ymax) = (0,  6400)
+(xmin, xmax) = (0, 1000)
+(ymin, ymax) = (0, 1000)
 
 # Can be extended to a 3D test case 
 (zmin, zmax) = (0, 1000)
@@ -117,7 +117,7 @@ const Δsqr = Δ * Δ
 @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
 @info @sprintf """                                                     """
 @info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Density Current                                     """
+@info @sprintf """ Robert Rising Thermal Bubble                        """
 @info @sprintf """   Resolution:                                       """ 
 @info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
 @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
@@ -208,9 +208,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         # Energy dissipation
-        F[1, _E] -= u * τ11 * f_R + v * τ12 * f_R + w * τ13 * f_R + k_μ*vTx
-        F[2, _E] -= u * τ21 * f_R + v * τ22 * f_R + w * τ23 * f_R + k_μ*vTy
-        F[3, _E] -= u * τ31 * f_R + v * τ32 * f_R + w * τ33 * f_R + k_μ*vTz 
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + k_μ*vTx
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + k_μ*vTy
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + k_μ*vTz 
         # Viscous contributions to mass flux terms
         #F[1, _ρ] -=  vqx
         #F[2, _ρ] -=  vqy
@@ -298,7 +298,7 @@ end
         #auxr = max(0.0, 1.0 - Richardson/Prandtl)
         #ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
         ν_t = 0.5
-
+        
         #--------------------------------------------
         # deviatoric stresses
         # Fix up index magic numbers
@@ -348,9 +348,9 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        #QP[_ρ] = ρM
-        #QP[_E] = EM
-        #QP[_QT] = QTM
+        QP[_ρ] = ρM
+        QP[_E] = EM
+        QP[_QT] = QTM
         nothing
     end
 end
@@ -441,13 +441,13 @@ function density_current!(dim, Q, t, x, y, z, _...)
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0 
     # perturbation parameters for rising bubble
-    rx                    = 4000
-    ry                    = 2000
-    xc                    = 0
-    yc                    = 3000
+    rx                    = 250
+    ry                    = 250
+    xc                    = 500
+    yc                    = 300
     r                     = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
     θ_ref::DFloat         = 300
-    θ_c::DFloat           = -15.0
+    θ_c::DFloat           = 0.5
     Δθ::DFloat            = 0.0
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
@@ -540,7 +540,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-DC-smago")
+    mkpath("vtk-smago")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -549,7 +549,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-DC-smago/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-smago/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -612,8 +612,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.005
-    timeend = 900
+    dt = 0.01
+    timeend = 1000
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
