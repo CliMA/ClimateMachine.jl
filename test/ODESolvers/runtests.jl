@@ -5,13 +5,13 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 
-const explicit_methods = [(LSRKCarpenterKennedy54, 4)
-                          (StrongStabilityPreservingRungeKutta33, 3)
-                          (StrongStabilityPreservingRungeKutta34, 3)
+const explicit_methods = [(LSRK54CarpenterKennedy, 4)
+                          (SSPRK33ShuOsher, 3)
+                          (SSPRK34SpiteriRuuth, 3)
                          ]
 
-const imex_methods = [(AdditiveRungeKutta2a, 2),
-                      (AdditiveRungeKutta5, 5)
+const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
+                      (ARK548L2SA2KennedyCarpenter, 5)
                      ]
 
 let 

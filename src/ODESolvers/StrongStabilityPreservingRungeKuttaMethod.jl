@@ -1,7 +1,6 @@
 module StrongStabilityPreservingRungeKuttaMethod
 export StrongStabilityPreservingRungeKutta
-export StrongStabilityPreservingRungeKutta33
-export StrongStabilityPreservingRungeKutta34
+export SSPRK33ShuOsher, SSPRK34SpiteriRuuth
 
 using GPUifyLoops
 include("StrongStabilityPreservingRungeKuttaMethod_kernels.jl")
@@ -98,24 +97,24 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
   end
 end
 
-function StrongStabilityPreservingRungeKutta33(F::Union{Function, AbstractSpaceMethod},
-                                               Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function SSPRK33ShuOsher(F::Union{Function, AbstractSpaceMethod},
+                         Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
   RKA = [ RT(1) RT(0); RT(3//4) RT(1//4); RT(1//3) RT(2//3) ]
   RKB = [ RT(1), RT(1//4), RT(2//3) ]
   RKC = [ RT(0), RT(1), RT(1//2) ]
-  ssp = StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+  StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-function StrongStabilityPreservingRungeKutta34(F::Union{Function, AbstractSpaceMethod},
-                                               Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function SSPRK34SpiteriRuuth(F::Union{Function, AbstractSpaceMethod},
+                             Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
   RKA = [ RT(1) RT(0); RT(0) RT(1); RT(2//3) RT(1//3); RT(0) RT(1) ]
   RKB = [ RT(1//2); RT(1//2); RT(1//6); RT(1//2) ]
   RKC = [ RT(0); RT(1//2); RT(1); RT(1//2) ]
-  ssp = StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
+  StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 end

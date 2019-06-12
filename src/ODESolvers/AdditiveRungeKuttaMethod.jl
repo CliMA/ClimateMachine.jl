@@ -1,5 +1,6 @@
 module AdditiveRungeKuttaMethod
-export AdditiveRungeKutta, AdditiveRungeKutta2a, AdditiveRungeKutta5
+export AdditiveRungeKutta
+export ARK2GiraldoKellyConstantinescu, ARK548L2SA2KennedyCarpenter
 
 using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
@@ -98,10 +99,10 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                      Q; dt=dt, t0=t0)
 end
 
-function AdditiveRungeKutta2a(F::Union{Function, AbstractSpaceMethod},
-                              L::Union{Function, AbstractSpaceMethod},
-                              solve_linear_problem!::Function,
-                              Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+function ARK2GiraldoKellyConstantinescu(F::Union{Function, AbstractSpaceMethod},
+                                        L::Union{Function, AbstractSpaceMethod},
+                                        solve_linear_problem!::Function,
+                                        Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -122,15 +123,15 @@ function AdditiveRungeKutta2a(F::Union{Function, AbstractSpaceMethod},
   
   nstages = length(RKB)
 
-  ark = AdditiveRungeKutta(F, L, solve_linear_problem!,
-                           RKA_explicit, RKA_implicit, RKB, RKC,
-                           Q; dt=dt, t0=t0)
+  AdditiveRungeKutta(F, L, solve_linear_problem!,
+                     RKA_explicit, RKA_implicit, RKB, RKC,
+                     Q; dt=dt, t0=t0)
 end
 
-function AdditiveRungeKutta5(F::Union{Function, AbstractSpaceMethod},
-                             L::Union{Function, AbstractSpaceMethod},
-                             solve_linear_problem!::Function,
-                             Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+function ARK548L2SA2KennedyCarpenter(F::Union{Function, AbstractSpaceMethod},
+                                     L::Union{Function, AbstractSpaceMethod},
+                                     solve_linear_problem!::Function,
+                                     Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
   @assert dt != nothing
 

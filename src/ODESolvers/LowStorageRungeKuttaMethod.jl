@@ -1,5 +1,5 @@
 module LowStorageRungeKuttaMethod
-export LSRKCarpenterKennedy54
+export LSRK54CarpenterKennedy
 
 using GPUifyLoops
 include("LowStorageRungeKuttaMethod_kernels.jl")
@@ -24,7 +24,7 @@ storage based on the provided `RKA`, `RKB` and `RKC` coefficient arrays.
 
 For concrete implementations see:
 
-  * [LSRKCarpenterKennedy54](@ref)
+  * [LSRK54CarpenterKennedy](@ref)
 """
 struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
@@ -98,7 +98,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, timeend,
 end
 
 """
-    LSRKCarpenterKennedy54(f, Q; dt, t0 = 0)
+    LSRK54CarpenterKennedy(f, Q; dt, t0 = 0)
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 
@@ -121,7 +121,7 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-function LSRKCarpenterKennedy54(F::Union{Function, AbstractSpaceMethod},
+function LSRK54CarpenterKennedy(F::Union{Function, AbstractSpaceMethod},
                                 Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
 
   T = eltype(Q)
