@@ -208,9 +208,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         # Energy dissipation
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + k_μ*vTx
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + k_μ*vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + k_μ*vTz 
+        F[1, _E] -= u * τ11 * f_R + v * τ12 * f_R + w * τ13 * f_R + k_μ*vTx
+        F[2, _E] -= u * τ21 * f_R + v * τ22 * f_R + w * τ23 * f_R + k_μ*vTy
+        F[3, _E] -= u * τ31 * f_R + v * τ32 * f_R + w * τ33 * f_R + k_μ*vTz 
         # Viscous contributions to mass flux terms
         #F[1, _ρ] -=  vqx
         #F[2, _ρ] -=  vqy
