@@ -298,7 +298,7 @@ end
         #Richardson = (grav/θ) * dθdy / modSij
         #auxr = max(0.0, 1.0 - Richardson/Prandtl)
         #ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
-        ν_t = 37.5
+        ν_t = 0.5
 
         #--------------------------------------------
         # deviatoric stresses
