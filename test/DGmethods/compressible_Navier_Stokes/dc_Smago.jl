@@ -1,3 +1,4 @@
+
 # Load Modules 
 using MPI
 using CLIMA
@@ -39,7 +40,7 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
 const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _ν_t  = 1:_nviscstates
 
 # Gradient state labels
 const _ngradstates = 6
@@ -51,11 +52,10 @@ if !@isdefined integration_testing
     using Random
 end
 
-# Problem constants (TODO: parameters module (?)) 
-const Prandtl   = 0.5
-const μ_exact   = 2.5
-const γ_exact   = 7 // 5
-
+# Problem constants (TODO: parameters module (?))
+const μ_sgs   = 75.0
+const Prandtl = 71 // 100
+const k_μ     = μ_sgs * cp_d / Prandtl
 
 # Problem description 
 # --------------------
@@ -67,56 +67,61 @@ const γ_exact   = 7 // 5
 # TODO: link to module SubGridScaleTurbulence
 
 #
-# User input on geometric properties:
+# User Input
 #
-# Resolution
+const numdims = 2
 Δx    = 100
 Δy    = 100
-
-#Polynomial order
+Δz    = 20
 Npoly = 4
 
+#(Nex, Ney, Nez) = (64, 16, 1)
+
 # Physical domain extents 
-(xmin, xmax) = (0, 25600)
-(ymin, ymax) = (0, 6400)
-#
-# End user input
-#
+(xmin, xmax) = (0, 20000)
+(ymin, ymax) = (0,  6400)
+
+# Can be extended to a 3D test case 
+(zmin, zmax) = (0, 1000)
+
 
 #Get Nex, Ney from resolution
 Lx = xmax - xmin
 Ly = ymax - ymin
+Lz = zmax - ymin
 
 ratiox = (Lx/Δx - 1)/Npoly
 ratioy = (Ly/Δy - 1)/Npoly
+ratioz = (Lz/Δz - 1)/Npoly
 const Nex = ceil(Int64, ratiox)
 const Ney = ceil(Int64, ratioy)
+const Nez = ceil(Int64, ratioz)
 
-# Can be extended to a 3D test case 
-#(Nex, Ney) = (64, 16)
 #const Δx = Lx / ((Nex * Npoly) + 1)
 #const Δy = Ly / ((Ney * Npoly) + 1)
-
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ ______ _      _____ __  ________      """     
-@info @sprintf """|  ____| |    |_   _|  ...  |  __  |   """  
-@info @sprintf """| |    | |      | | |   .   | |  | |     """ 
-@info @sprintf """| |    | |      | | | |   | | |__| |     """
-@info @sprintf """| |____| |____ _| |_| |   | | |  | |     """
-@info @sprintf """| _____|______|_____|_|   |_|_|  |_|     """
-@info @sprintf """                                        """
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Density current                                     """
-@info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy)   = (%d, %d)                           """ Nex Ney
-@info @sprintf """     (Nex, Ney) = (%.2e, %.2e)                       """ Δx Δy
-@info @sprintf """ ----------------------------------------------------"""
+#const Δz = Lz / ((Nez * Npoly) + 1)
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-const C_smag = 0.14
+const C_smag = 0.23
 # Equivalent grid-scale
 Δ = sqrt(Δx * Δy)
 const Δsqr = Δ * Δ
+
+
+@info @sprintf """ ----------------------------------------------------"""
+@info @sprintf """   ______ _      _____ __  ________                  """     
+@info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
+@info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
+@info @sprintf """  | |    | |      | | | |   | | |__| |               """
+@info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
+@info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
+@info @sprintf """                                                     """
+@info @sprintf """ ----------------------------------------------------"""
+@info @sprintf """ Density Current                                     """
+@info @sprintf """   Resolution:                                       """ 
+@info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
+@info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
+@info @sprintf """ ----------------------------------------------------"""
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -191,25 +196,28 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         τ12 = τ21 = VF[_τ12] 
         τ13 = τ31 = VF[_τ13]
         τ23 = τ32 = VF[_τ23]
-        
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-        
-        
         # Buoyancy correction 
         #dθdy = VF[_θy]
-        #SijSij = VF[_SijSij]
-        f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
+        #f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
+        f_R = μ_sgs
         
         # Viscous contributions
         F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
         F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         # Energy dissipation
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vTx
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vTz 
+        F[1, _E] -= u * τ11 * f_R + v * τ12 * f_R + w * τ13 * f_R + k_μ*vTx
+        F[2, _E] -= u * τ21 * f_R + v * τ22 * f_R + w * τ23 * f_R + k_μ*vTy
+        F[3, _E] -= u * τ31 * f_R + v * τ32 * f_R + w * τ33 * f_R + k_μ*vTz 
         # Viscous contributions to mass flux terms
+        #F[1, _ρ] -=  vqx
+        #F[2, _ρ] -=  vqy
+        #F[3, _ρ] -=  vqz
+        #F[1, _QT] -=  vqx
+        #F[2, _QT] -=  vqy
+        #F[3, _QT] -=  vqz
     end
 end
 
@@ -288,9 +296,9 @@ end
         
         #Richardson = (grav/θ) * dθdy / modSij
         #auxr = max(0.0, 1.0 - Richardson/Prandtl)
-        ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
-        k_e = ν_t * Prandtl/cp_d
-
+        #ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
+        ν_t = 0.5
+        
         #--------------------------------------------
         # deviatoric stresses
         # Fix up index magic numbers
@@ -302,11 +310,11 @@ end
         VF[_τ23] = 2 * ν_t * S23
         
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
-        #VF[_qx], VF[_qy], VF[_qz] = D_e*dqdx, D_e*dqdy, D_e*dqdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = k_e*dTdx, k_e*dTdy, k_e*dTdz
+        #VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
+        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
         
         #VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
-        VF[_SijSij] = SijSij
+        VF[_ν_t] = ν_t 
     end
 end
 # -------------------------------------------------------------------------
@@ -340,9 +348,9 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρM
-        QP[_E] = EM
-        QP[_QT] = QTM
+        #QP[_ρ] = ρM
+        #QP[_E] = EM
+        #QP[_QT] = QTM
         nothing
     end
 end
@@ -433,13 +441,13 @@ function density_current!(dim, Q, t, x, y, z, _...)
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0 
     # perturbation parameters for rising bubble
-    rx                    = 250
-    ry                    = 250
-    xc                    = 500
-    yc                    = 300
+    rx                    = 4000
+    ry                    = 2000
+    xc                    = 0
+    yc                    = 3000
     r                     = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
     θ_ref::DFloat         = 300
-    θ_c::DFloat           = 0.5
+    θ_c::DFloat           = -15.0
     Δθ::DFloat            = 0.0
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
@@ -526,18 +534,18 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 8
-    _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+    npoststates = 9
+    _post_sgs, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("SGS", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
     mkpath("vtk-DC-smago")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = preflux(Q, QV, aux)
+                                                           (R[_post_sgs], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (QV[_ν_t],preflux(Q, QV, aux)...)
                                                        end
                                                    end
 
@@ -604,11 +612,11 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.001
+    dt = 0.005
     timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
-    dim = 2
+    dim = numdims
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
 end
