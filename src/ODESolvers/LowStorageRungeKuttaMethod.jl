@@ -1,4 +1,5 @@
 module LowStorageRungeKuttaMethod
+export LowStorageRungeKutta2N
 export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch
 
 using GPUifyLoops
@@ -14,17 +15,20 @@ using ..SpaceMethods
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 
-    Q̇ = f(Q, t)
+```math
+  \\dot{Q} = f(Q, t)
+```
 
 with the required time step size `dt` and optional initial time `t0`.  This
 time stepping object is intended to be passed to the `solve!` command.
 
-This a generic implementation of low-storage Runge-Kutta scheme using 2N
+The constructor builds a low-storage Runge-Kutta scheme using 2N
 storage based on the provided `RKA`, `RKB` and `RKC` coefficient arrays.
 
-For concrete implementations see:
+The available concrete implementations are:
 
-  * [LSRK54CarpenterKennedy](@ref)
+  - [`LSRK54CarpenterKennedy`](@ref)
+  - [`LSRK144NiegemannDiehlBusch`](@ref)
 """
 struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
@@ -99,10 +103,14 @@ end
 
 """
     LSRK54CarpenterKennedy(f, Q; dt, t0 = 0)
-This is a time stepping object for explicitly time stepping the differential
+
+This function returns a [`LowStorageRungeKutta2N`](@ref) time stepping object
+for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 
-    Q̇ = f(Q, t)
+```math
+  \\dot{Q} = f(Q, t)
+```
 
 with the required time step size `dt` and optional initial time `t0`.  This
 time stepping object is intended to be passed to the `solve!` command.
@@ -147,6 +155,36 @@ function LSRK54CarpenterKennedy(F::Union{Function, AbstractSpaceMethod},
   LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
+"""
+    LSRK144NiegemannDiehlBusch((f, Q; dt, t0 = 0)
+
+This function returns a [`LowStorageRungeKutta2N`](@ref) time stepping object
+for explicitly time stepping the differential
+equation given by the right-hand-side function `f` with the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = f(Q, t)
+```
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+This uses the fourth-order, 14-stage, low-storage, Runge--Kutta scheme of
+Niegemann, Diehl, and Busch (2012) with optimized stability region
+
+### References
+
+    @article{niegemann2012efficient,
+      title={Efficient low-storage Runge--Kutta schemes with optimized stability regions},
+      author={Niegemann, Jens and Diehl, Richard and Busch, Kurt},
+      journal={Journal of Computational Physics},
+      volume={231},
+      number={2},
+      pages={364--372},
+      year={2012},
+      publisher={Elsevier}
+    }
+"""
 function LSRK144NiegemannDiehlBusch(F::Union{Function, AbstractSpaceMethod},
                                     Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)

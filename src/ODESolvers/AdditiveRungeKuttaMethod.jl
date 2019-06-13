@@ -12,24 +12,29 @@ ODEs = ODESolvers
 using ..SpaceMethods
 
 """
-    AdditiveRungeKutta(f, l, Q; dt, t0 = 0)
+    AdditiveRungeKutta(f, l, linsol, RKAe, RKAi, RKB, RKC, Q; dt, t0 = 0)
 
 This is a time stepping object for implicit-explicit time stepping of the
-decomposed differential equation given by the chosen linear operator 'l',
-the full right-hand-side function `f` and the state `Q`, i.e.
+decomposed differential equation given by the chosen linear operator `l`,
+the full right-hand-side function `f` and the state `Q`, i.e.,
 
-Q̇ = [l(Q, t)] + [f(Q, t) - l(Q, t)],
+```math
+  \\dot{Q} = [l(Q, t)] + [f(Q, t) - l(Q, t)]
+```
 
 with the required time step size `dt` and optional initial time `t0`. The
 linear operator `l` is integrated implicitly whereas the remaining part
 `f - l` is integrated explicitly. This time stepping object is intended
 to be passed to the `solve!` command.
 
-This uses the second-order-accurate additive Runge--Kutta scheme of
-Giraldo, Kelly and Constantinescu (2013).
+The constructor builds an additive Runge--Kutta scheme 
+based on the provided `RKAe`, `RKAi`, `RKB` and `RKC` coefficient arrays.
+The resulting linear systems are solved using the provided `linsol` function.
 
-### References
-F. X. Giraldo, J. Kelly, and E. M. Constantinescu, Implicit-explicit formulations of a three-dimensional nonhydrostatic unified model of the atmosphere (NUMA). SIAM J. Sci. Comput., 35(5), pp. B1162–B1194
+The available concrete implementations are:
+
+  - [`ARK2GiraldoKellyConstantinescu`](@ref)
+  - [`ARK548L2SA2KennedyCarpenter`](@ref)
 """
 struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
@@ -99,6 +104,40 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                      Q; dt=dt, t0=t0)
 end
 
+"""
+    ARK2GiraldoKellyConstantinescu(f, l, linsol, Q; dt, t0 = 0)
+
+This function returns an [`AdditiveRungeKutta`](@ref) 
+time stepping object for implicit-explicit time stepping of the
+decomposed differential equation given by the chosen linear operator `l`,
+the full right-hand-side function `f` and the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = [l(Q, t)] + [f(Q, t) - l(Q, t)]
+```
+
+with the required time step size `dt` and optional initial time `t0`. The
+linear operator `l` is integrated implicitly whereas the remaining part
+`f - l` is integrated explicitly. This time stepping object is intended
+to be passed to the `solve!` command.
+
+The resulting linear systems are solved using the provided `linsol` function.
+
+This uses the second-order-accurate 3-stage additive Runge--Kutta scheme of
+Giraldo, Kelly and Constantinescu (2013).
+
+### References
+    @article{giraldo2013implicit,
+      title={Implicit-explicit formulations of a three-dimensional nonhydrostatic unified model of the atmosphere ({NUMA})},
+      author={Giraldo, Francis X and Kelly, James F and Constantinescu, Emil M},
+      journal={SIAM Journal on Scientific Computing},
+      volume={35},
+      number={5},
+      pages={B1162--B1194},
+      year={2013},
+      publisher={SIAM}
+    }
+"""
 function ARK2GiraldoKellyConstantinescu(F::Union{Function, AbstractSpaceMethod},
                                         L::Union{Function, AbstractSpaceMethod},
                                         solve_linear_problem!::Function,
@@ -128,6 +167,40 @@ function ARK2GiraldoKellyConstantinescu(F::Union{Function, AbstractSpaceMethod},
                      Q; dt=dt, t0=t0)
 end
 
+"""
+    ARK548L2SA2KennedyCarpenter(f, l, linsol, Q; dt, t0 = 0)
+
+This function returns an [`AdditiveRungeKutta`](@ref) 
+time stepping object for implicit-explicit time stepping of the
+decomposed differential equation given by the chosen linear operator `l`,
+the full right-hand-side function `f` and the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = [l(Q, t)] + [f(Q, t) - l(Q, t)]
+```
+
+with the required time step size `dt` and optional initial time `t0`. The
+linear operator `l` is integrated implicitly whereas the remaining part
+`f - l` is integrated explicitly. This time stepping object is intended
+to be passed to the `solve!` command.
+
+The resulting linear systems are solved using the provided `linsol` function.
+
+This uses the fifth-order-accurate 8-stage additive Runge--Kutta scheme of
+Kennedy and Carpenter (2013).
+
+### References
+
+    @article{kennedy2019higher,
+      title={Higher-order additive Runge--Kutta schemes for ordinary differential equations},
+      author={Kennedy, Christopher A and Carpenter, Mark H},
+      journal={Applied Numerical Mathematics},
+      volume={136},
+      pages={183--205},
+      year={2019},
+      publisher={Elsevier}
+    }
+"""
 function ARK548L2SA2KennedyCarpenter(F::Union{Function, AbstractSpaceMethod},
                                      L::Union{Function, AbstractSpaceMethod},
                                      solve_linear_problem!::Function,

@@ -10,21 +10,25 @@ ODEs = ODESolvers
 using ..SpaceMethods
 
 """
-    StrongStabilityPreservingRungeKutta(f, Q; dt, t0 = 0)
+    StrongStabilityPreservingRungeKutta(f, RKA, RKB, RKC, Q; dt, t0 = 0)
 
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 
-        Q̇ = f(Q)
+```math
+  \\dot{Q} = f(Q, t)
+```
 
 with the required time step size `dt` and optional initial time `t0`.  This
 time stepping object is intended to be passed to the `solve!` command.
 
-This uses either 3-stage or 4-stage 3rd order Strong-Stability-Preserving (SS) time-integrators.
+The constructor builds a strong-stability-preserving Runge--Kutta scheme
+based on the provided `RKA`, `RKB` and `RKC` coefficient arrays.
 
-### References
-S. Gottlieb and C.-W. Shu, Total variation diminishing Runge-Kutta schemes, Math .Comp .,67 (1998), pp .73–85
-R.J. Spiteri and S.J. Ruuth, A new class of optimal high-order strong-stability-preserving time discretization methods, SIAM J. Numer. Anal., 40 (2002), pp .469–491
+The available concrete implementations are:
+
+  - [`SSPRK33ShuOsher`](@ref)  
+  - [`SSPRK34SpiteriRuuth`](@ref)  
 """
 struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
@@ -97,6 +101,35 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
   end
 end
 
+"""
+    SSPRK33ShuOsher(f, Q; dt, t0 = 0)
+
+This function returns a [`StrongStabilityPreservingRungeKutta`](@ref) time stepping object
+for explicitly time stepping the differential
+equation given by the right-hand-side function `f` with the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = f(Q, t)
+```
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+This uses the third-order, 3-stage, strong-stability-preserving, Runge--Kutta scheme
+of Shu and Osher (1988)
+
+### References
+    @article{shu1988efficient,
+      title={Efficient implementation of essentially non-oscillatory shock-capturing schemes},
+      author={Shu, Chi-Wang and Osher, Stanley},
+      journal={Journal of computational physics},
+      volume={77},
+      number={2},
+      pages={439--471},
+      year={1988},
+      publisher={Elsevier}
+    }
+"""
 function SSPRK33ShuOsher(F::Union{Function, AbstractSpaceMethod},
                          Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
@@ -107,6 +140,35 @@ function SSPRK33ShuOsher(F::Union{Function, AbstractSpaceMethod},
   StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
+"""
+    SSPRK34SpiteriRuuth(f, Q; dt, t0 = 0)
+
+This function returns a [`StrongStabilityPreservingRungeKutta`](@ref) time stepping object
+for explicitly time stepping the differential
+equation given by the right-hand-side function `f` with the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = f(Q, t)
+```
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+This uses the third-order, 4-stage, strong-stability-preserving, Runge--Kutta scheme
+of Spiteri and Ruuth (1988)
+
+### References
+    @article{spiteri2002new,
+      title={A new class of optimal high-order strong-stability-preserving time discretization methods},
+      author={Spiteri, Raymond J and Ruuth, Steven J},
+      journal={SIAM Journal on Numerical Analysis},
+      volume={40},
+      number={2},
+      pages={469--491},
+      year={2002},
+      publisher={SIAM}
+    }
+"""
 function SSPRK34SpiteriRuuth(F::Union{Function, AbstractSpaceMethod},
                              Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
