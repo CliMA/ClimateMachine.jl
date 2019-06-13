@@ -201,7 +201,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         SijSij = VF[_SijSij]
         
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e = 37.5
+        ν_e = 75.0
         
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -215,9 +215,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
         
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e * 2
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e * 2
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e * 2
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
         
     end
 end
@@ -344,9 +344,14 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
+        
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
-        VFP .= 0 
+
+        #Viscous T gradients:
+        VFP .= 0   # --> thermal b.l.
+        #VFP[_Ty] = VFM[_Ty]   # --> NaN
+
         nothing
     end
 end
