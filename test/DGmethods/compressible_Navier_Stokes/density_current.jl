@@ -155,22 +155,27 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
     # Stress tensor : FIXME: use Julia Tensors.jl (?)
-    τ11, τ22, τ33 = VF[_τ11] , VF[_τ22], VF[_τ33]
-    τ12 = τ21 = VF[_τ12] 
-    τ13 = τ31 = VF[_τ13]
-    τ23 = τ32 = VF[_τ23] 
     # Buoyancy correction 
+    
     dθdy = VF[_θy]
     SijSij = VF[_SijSij]
     f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
+    
+    ν_e::eltype(VF) = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+    D_e= ν_e / Prandtl_t
+    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    τ12 = τ21 = VF[_τ12] * ν_e 
+    τ13 = τ31 = VF[_τ13] * ν_e               
+    τ23 = τ32 = VF[_τ23] * ν_e
     # Viscous contributions
     F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
     F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
     F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+    
     # Energy dissipation
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 # +vTx 
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 # +vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 # +vTz 
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
     # Viscous contributions to mass flux terms
   end
 end
@@ -248,21 +253,18 @@ end
                           + 2.0 * S23^2) 
     modSij = sqrt(2.0 * SijSij) 
     
-    ν_e::eltype(VF) = 75.0 
-    D_e= ν_e / Prandtl_t
     #--------------------------------------------
     # deviatoric stresses
     # Fix up index magic numbers
-    VF[_τ11] = 2 * ν_e * (S11 - (S11 + S22 + S33) / 3)
-    VF[_τ22] = 2 * ν_e * (S22 - (S11 + S22 + S33) / 3)
-    VF[_τ33] = 2 * ν_e * (S33 - (S11 + S22 + S33) / 3)
-    VF[_τ12] = 2 * ν_e * S12
-    VF[_τ13] = 2 * ν_e * S13
-    VF[_τ23] = 2 * ν_e * S23
+    VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
+    VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
+    VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
+    VF[_τ12] = 2 * S12
+    VF[_τ13] = 2 * S13
+    VF[_τ23] = 2 * S23
 
-    k_e = k_μ * ν_e 
     # TODO: Viscous stresse come from SubgridScaleTurbulence module
-    VF[_qx], VF[_qy], VF[_qz] = D_e*dqdx, D_e*dqdy, D_e*dqdz
+    VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
     VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
     VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
     VF[_SijSij] = SijSij
@@ -299,15 +301,17 @@ end
     QP[_U] = UM - 2 * nM[1] * UnM
     QP[_V] = VM - 2 * nM[2] * UnM
     QP[_W] = WM - 2 * nM[3] * UnM
-    QP[_ρ] = ρM
-    QP[_E] = EM
-    QP[_QT] = QTM
+    #QP[_ρ] = ρM
+    #QP[_QT] = QTM
+    VFP .= 0 
     nothing
   end
 end
-# -------------------------------------------------------------------------
 
-@inline stresses_boundary_penalty!(VF, _...) = VF.=0
+# -------------------------------------------------------------------------
+@inline function stresses_boundary_penalty!(VF, _...) 
+  VF .= 0
+end
 
 @inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
   @inbounds begin
@@ -563,8 +567,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.01
-    timeend = 100
+    dt = 0.05
+    timeend = 5400
     polynomialorder = Npoly
     DFloat = Float64
     dim = 2
