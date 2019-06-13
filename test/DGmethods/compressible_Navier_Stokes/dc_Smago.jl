@@ -202,16 +202,17 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         # Buoyancy correction 
         #dθdy = VF[_θy]
         #f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
-        diff = 100
+       
+        # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
+        F[1, _U] -= τ11 * μ_sgs ; F[2, _U] -= τ12 * μ_sgs ; F[3, _U] -= τ13 * μ_sgs
+        F[1, _V] -= τ21 * μ_sgs ; F[2, _V] -= τ22 * μ_sgs ; F[3, _V] -= τ23 * μ_sgs
+        F[1, _W] -= τ31 * μ_sgs ; F[2, _W] -= τ32 * μ_sgs ; F[3, _W] -= τ33 * μ_sgs
+
+        # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
+        F[1, _E] -= u * F[1, _U] + v * F[2, _U] + w * F[3, _U] + k_μ*vTx
+        F[2, _E] -= u * F[1, _V] + v * F[2, _V] + w * F[3, _V] + k_μ*vTy
+        F[3, _E] -= u * F[1, _W] + v * F[2, _W] + w * F[3, _W] + k_μ*vTz
         
-        # Viscous contributions
-        F[1, _U] -= τ11 * diff ; F[2, _U] -= τ12 * diff ; F[3, _U] -= τ13 * diff
-        F[1, _V] -= τ21 * diff ; F[2, _V] -= τ22 * diff ; F[3, _V] -= τ23 * diff
-        F[1, _W] -= τ31 * diff ; F[2, _W] -= τ32 * diff ; F[3, _W] -= τ33 * diff
-        # Energy dissipation
-        F[1, _E] -= u * τ11 * diff + v * τ12 * diff + w * τ13 * diff + vTx * k_μ
-        F[2, _E] -= u * τ21 * diff + v * τ22 * diff + w * τ23 * diff + vTy * k_μ
-        F[3, _E] -= u * τ31 * diff + v * τ32 * diff + w * τ33 * diff + vTz * k_μ
         # Viscous contributions to mass flux terms
         #F[1, _ρ] -=  vqx
         #F[2, _ρ] -=  vqy

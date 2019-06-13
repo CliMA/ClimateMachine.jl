@@ -200,17 +200,18 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
         # Buoyancy correction 
         #dθdy = VF[_θy]
-        #f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
-        f_R = μ_sgs
+        f_R = 1.0 # buoyancy_correction_smag(SijSij, θ, dθdy)
+        #f_R = μ_sgs
         
         # Viscous contributions
         F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
         F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+
         # Energy dissipation
-        F[1, _E] -= u * τ11 * f_R + v * τ12 * f_R + w * τ13 * f_R + k_μ*vTx
-        F[2, _E] -= u * τ21 * f_R + v * τ22 * f_R + w * τ23 * f_R + k_μ*vTy
-        F[3, _E] -= u * τ31 * f_R + v * τ32 * f_R + w * τ33 * f_R + k_μ*vTz 
+        F[1, _E] -= u * F[1, _U] + v * F[2, _U] + w * F[3, _U] + k_μ*vTx
+        F[2, _E] -= u * F[1, _V] + v * F[2, _V] + w * F[3, _V] + k_μ*vTy
+        F[3, _E] -= u * F[1, _W] + v * F[2, _W] + w * F[3, _W] + k_μ*vTz 
         # Viscous contributions to mass flux terms
         #F[1, _ρ] -=  vqx
         #F[2, _ρ] -=  vqy
@@ -296,8 +297,8 @@ end
         
         #Richardson = (grav/θ) * dθdy / modSij
         #auxr = max(0.0, 1.0 - Richardson/Prandtl)
-        #ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
-        ν_t = 0.5
+        ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
+        #ν_t = 0.5
         
         #--------------------------------------------
         # deviatoric stresses
