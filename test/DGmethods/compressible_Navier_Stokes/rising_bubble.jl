@@ -57,7 +57,7 @@ if !@isdefined integration_testing
 end
 
 const Prandtl = 71 // 100
-const k_μ = cp_d / Prandtl
+const conductivity = cp_d / Prandtl
 const μ_exact = 2.5
 const (xmin, xmax) = (0, 3000)
 const (ymin, ymax) = (0, 3000)
@@ -135,6 +135,7 @@ end
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
   gravity::eltype(Q) = grav
+  k_μ::eltype(VF) = conductivity
   @inbounds begin
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     # Inviscid contributions 
@@ -156,9 +157,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
     F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
     # Energy dissipation
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vTx
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vTz
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + k_μ * vTx
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + k_μ * vTy
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + k_μ * vTz
     # Viscous contributions to mass flux term
     F[1, _ρ] -=  vqx
     F[2, _ρ] -=  vqy
@@ -231,7 +232,7 @@ end
     VF[_τ13] = 2 * μ_smag * ϵ13
     VF[_τ23] = 2 * μ_smag * ϵ23
     VF[_qx], VF[_qy], VF[_qz]  = dqdx, dqdy, dqdz
-    VF[_Tx], VF[_Ty], VF[_Tz]  = k_μ*dTdx, k_μ*dTdy, k_μ*dTdz
+    VF[_Tx], VF[_Ty], VF[_Tz]  = dTdx, dTdy, dTdz
     VF[_nu_t] = μ_smag 
   end
 end
