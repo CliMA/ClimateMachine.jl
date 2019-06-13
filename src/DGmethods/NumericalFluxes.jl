@@ -6,8 +6,8 @@ using StaticArrays
 
 Any `P <: GradNumericalFlux` should define the following:
 
-- `diffusive_penalty!(gnf::P, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, t)`
-- `diffusive_boundary_penalty!(gnf::P, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype, t)`
+- `diffusive_penalty!(gnf::P, bl::BalanceLaw, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, t)`
+- `diffusive_boundary_penalty!(gnf::P, bl::BalanceLaw, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype, t)`
 """
 abstract type GradNumericalFlux end
 
@@ -15,22 +15,24 @@ function diffusive_penalty! end
 function diffusive_boundary_penalty! end
 
 """
-    DivNumFlux
+    DivNumericalFlux
 
-Any `N <: GradNumericalFlux` should define the following:
+Any `N <: DivNumericalFlux` should define the following:
 
-- `numerical_flux!(dnf::N, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, t)`
-- `numerical_boundary_flux!(dnf::N, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, bctype, t)`
+- `numerical_flux!(dnf::N, bl::BalanceLaw, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, t)`
+- `numerical_boundary_flux!(dnf::N, bl::BalanceLaw, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, bctype, t)`
 """
 abstract type DivNumericalFlux end
 
 
-function numerical_boundary_flux!(dnf::DivNumericalFlux, balancelaw::BalanceLaw,
+function numerical_boundary_flux!(dnf::DivNumericalFlux, bl::BalanceLaw,
                                   F::MArray{Tuple{nstate}}, nM,
                                   QM, QVM, auxM,
                                   QP, QVP, auxP,
                                   bctype, t) where {nstate}
-  boundarycondition!(balancelaw, QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t)
+  boundarycondition!(bl, State{vars_state(bl)}(QP), State{vars_diffusive(bl)}(QVP), State{vars_aux(bl)}(auxP),
+                     nM, State{vars_state(bl)}(QM), State{vars_diffusive(bl)}(QVM), State{vars_aux(bl)}(auxM),
+                     bctype, t)
   numerical_flux!(dnf, balancelaw, F, nM, QM, QVM, auxM, QP, QVP, auxP, t)
 end
 
@@ -74,13 +76,13 @@ function numerical_flux!(::Rusanov, balancelaw::BalanceLaw,
                          QP, QVP, auxP,
                          t) where {nstate}
 
-  λM = wavespeed(balancelaw, nM, QM, auxM, t)
+  λM = wavespeed(balancelaw, nM, State{vars_state(bl)}(QM), State{vars_aux(bl)}(auxM), t)
   FM = similar(F, Size(3, nstate))
-  flux!(balancelaw, FM, QM, QVM, auxM, t)
+  flux!(balancelaw, FM, State{vars_state(bl)}(QM), State{vars_diffusive(bl)}(QVM), State{vars_aux(bl)}(auxM), t)
   
-  λP = wavespeed(balancelaw, nM, QP, auxP, t)
+  λP = wavespeed(balancelaw, nM, State{vars_state(bl)}(QP), State{vars_aux(bl)}(auxP), t)
   FP = similar(F, Size(3, nstate))
-  flux!(balancelaw, FP, QP, QVP, auxP, t)
+  flux!(balancelaw, FP, State{vars_state(bl)}(QP), State{vars_diffusive(bl)}(QVP), State{vars_aux(bl)}(auxP), t)
 
   λ  =  max(λM, λP)
 

@@ -34,9 +34,11 @@ num_diffusive(m::BalanceLaw) = length(vars_diffusive(m)) # number_viscous_states
 has_diffusive(m::BalanceLaw) = num_diffusive(m) > 0
 
 # TODO: allow aliases and vector values
-struct State{vars, M<:MArray}
+struct State{vars, A<:StaticVector}
   arr::M
 end
+State{vars}(arr::A) where {vars,A<:StaticVector} = State{vars,A}(arr)
+
 Base.propertynames(s::State{vars}) where {vars} = vars
 function Base.getproperty(s::State{vars}, sym::Symbol) where {vars}
   i = findfirst(isequal(sym), vars)
@@ -50,9 +52,11 @@ function Base.setproperty!(s::State{vars}, sym::Symbol, val) where {vars}
 end
 
 
-struct Grad{vars, M<:MArray}
-  arr::M
+struct Grad{vars, A<:StaticMatrix}
+  arr::A
 end
+Grad{vars}(arr::A) where {vars,A<:StaticMatrix} = Grad{vars,A}(arr)
+
 Base.propertynames(s::Grad{vars}) where {vars} = vars
 function Base.getproperty(∇s::Grad{vars}, sym::Symbol) where {vars}
   i = findfirst(isequal(sym), vars)

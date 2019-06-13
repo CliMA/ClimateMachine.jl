@@ -6,7 +6,6 @@ struct DGModel{BL,P,G,NF,GNF}
   gradnumflus::GNF
 end
 
-
 function (dg::DGModel)(dQdt, Q, param, t)
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 

@@ -28,6 +28,8 @@ function volumerhs!(dg::DGModel, ::Val{dim}, ::Val{N},
                     rhs, Q, Qvisc, auxstate, vgeo, t,
                     D, elems) where {dim, N, nstate, nviscstate,
                                      nauxstate}
+
+  bl = dg.balancelaw
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -78,7 +80,8 @@ function volumerhs!(dg::DGModel, ::Val{dim}, ::Val{N},
             l_aux[s] = auxstate[ijk, s, e]
           end
 
-          flux!(dg.balancelaw, l_F, l_Q, l_Qvisc, l_aux, t)
+          flux!(bl, Grad{vars_state(bl)}(l_F), State{vars_state(bl)}(l_Q),
+                State{vars_diffusive(bl)}(l_Qvisc), State{vars_aux(bl)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = MJ * (ξx*l_F[1,s] + ξy*l_F[2,s] + ξz*l_F[3,s])
@@ -87,11 +90,12 @@ function volumerhs!(dg::DGModel, ::Val{dim}, ::Val{N},
           end
 
           # if source! !== nothing
-            source!(dg.balancelaw, l_S, l_Q, l_aux, t)
+          source!(bl, State{vars_state(bl})(l_S), State{vars_state(bl)}(l_Q),
+                  State{vars_aux(bl)}(l_aux), t)
 
-            @unroll for s = 1:nstate
-              l_rhs[s, i, j, k] += l_S[s]
-            end
+          @unroll for s = 1:nstate
+            l_rhs[s, i, j, k] += l_S[s]
+          end
           # end
         end
       end
@@ -217,10 +221,10 @@ function facerhs!(dg::DGModel, ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscs
         end
 
         if bctype == 0
-          numerical_flux!(dg.dnf, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
+          numerical_flux!(dg.dnf, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
         else
-          numerical_boundary_flux!(dg.dnf, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
+          numerical_boundary_flux!(dg.dnf, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
                                    l_QviscP, l_auxP, bctype, t)
         end
 
@@ -244,6 +248,7 @@ function volumeviscterms!(dg::DGModel,
                           Q, Qvisc, auxstate, vgeo, t, D,
                           elems) where {dim, N, states_grad, ngradstate,
                                         nviscstate, nstate, nauxstate}
+  bl = dg.balancelaw
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -282,7 +287,8 @@ function volumeviscterms!(dg::DGModel,
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
-          transform!(dg.balancelaw, l_G, l_Q[:, i, j, k], l_aux[:, i, j, k], t)
+          transform!(bl, State{vars_transform(bl)}(l_G), State{vars_state(bl)}(l_Q[:, i, j, k]),
+                     State{vars_aux(bl)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -316,8 +322,8 @@ function volumeviscterms!(dg::DGModel,
             l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
           end
 
-          diffusive!(dg.balancelaw, l_Qvisc, l_gradG, l_Q[:, i, j, k],
-                             l_aux[:, i, j, k], t)
+          diffusive!(bl, State{vars_diffusive(bl)}(l_Qvisc), Grad{vars_transform(bl)}(l_gradG),
+                     State{vars_state(bl)}(l_Q[:, i, j, k]), State{vars_aux(bl)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -337,6 +343,7 @@ function faceviscterms!(dg::DGModel,
                         elemtobndy, elems) where {dim, N, states_grad,
                                                   ngradstate, nviscstate,
                                                   nstate, nauxstate}
+  bl = dg.balancelaw
   DFloat = eltype(Q)
 
   if dim == 1
@@ -384,7 +391,8 @@ function faceviscterms!(dg::DGModel,
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        transform!(dg.balancelaw, l_GM, l_QM, l_auxM, t)
+        transform!(bl, State{vars_transform(bl)}(l_GM), State{vars_state(bl)}(l_QM),
+                   State{vars_aux(bl)}(l_auxM), t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
@@ -395,14 +403,15 @@ function faceviscterms!(dg::DGModel,
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        transform!(dg.blanacelaw, l_GP, l_QP, l_auxP, t)
+        transform!(bl, State{vars_transform(bl)}(l_GP), State{vars_state(bl)}(l_QP),
+                   State{vars_aux(bl)}(l_auxP), t)
 
         bctype = elemtobndy[f, e]
         if bctype == 0
-          diffusive_penalty!(df.gradnumflux, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
+          diffusive_penalty!(df.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
         else
-          diffusive_boundary_penalty!(df.gradnumflux, l_Qvisc, nM, l_GM, l_QM, l_auxM,
+          diffusive_boundary_penalty!(df.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
                                            l_GP, l_QP, l_auxP, bctype, t)
         end
 

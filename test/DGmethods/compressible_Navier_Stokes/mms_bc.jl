@@ -23,16 +23,106 @@ else
   const ArrayTypes = (Array, )
 end
 
-const _nstate = 5
-const _ρ, _U, _V, _W, _E = 1:_nstate
-const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
-const statenames = ("ρ", "U", "V", "W", "E")
 
-const _nviscstates = 6
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
+struct AtmosModel <: BalanceLaw
+end
 
-const _ngradstates = 3
-const _states_for_gradient_transform = (_ρ, _U, _V, _W)
+dimension(::AtmosModel) = 3
+vars_aux(::AtmosModel) = ()
+vars_state(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw, :ρe)
+vars_state_for_transform(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw)
+vars_transform(::AtmosModel) = (:u, :v, :w)
+vars_diffusive(::AtmosModel) = (:τ11, :τ22, :τ33, :τ12, :τ13, :τ23)
+
+function flux!(::AtmosModel, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)
+  # preflux
+  γ = γ_exact  
+  ρinv = 1 / state.ρ
+  u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
+  P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)
+
+  # invisc terms
+  flux.ρ  = (state.ρu          , state.ρv          , state.ρw)
+  flux.ρu = (u * state.ρu  + P , v * state.ρu      , w * state.ρu)
+  flux.ρv = (u * state.ρv      , v * state.ρv + P  , w * state.ρv)
+  flux.ρw = (u * state.ρw      , v * state.ρw      , w * state.ρw + P)
+  flux.ρe = (u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
+
+  # viscous terms
+  flux.ρu .-= (diffstate.τ11, diffstate.τ12, diffstate.τ13)
+  flux.ρv .-= (diffstate.τ12, diffstate.τ22, diffstate.τ23)
+  flux.ρw .-= (diffstate.τ13, diffstate.τ23, diffstate.τ33)
+
+  flux.ρe .-= (u * diffstate.τ11 + v * diffstate.τ12 + w * diffstate.τ13,
+               u * diffstate.τ12 + v * diffstate.τ22 + w * diffstate.τ23,
+               u * diffstate.τ13 + v * diffstate.τ23 + w * diffstate.τ33)
+end
+
+function transform!(::AtmosModel, transformstate::State, state::State, auxstate::State, t::Real)
+  ρinv = 1 / state.ρ
+  transformstate.u = ρinv * state.ρu,
+  transformstate.v = ρinv * state.ρv
+  transformstate.w = ρinv * state.ρw
+end
+
+function diffusive!(::AtmosModel, diff::State, ∇transform::Grad)
+  dudx, dudy, dudz = ∇transform.u
+  dvdx, dvdy, dvdz = ∇transform.v
+  dwdx, dwdy, dwdz = ∇transform.w
+
+  # strains
+  ϵ11 = dudx
+  ϵ22 = dvdy
+  ϵ33 = dwdz
+  ϵ12 = (dudy + dvdx) / 2
+  ϵ13 = (dudz + dwdx) / 2
+  ϵ23 = (dvdz + dwdy) / 2
+
+  # deviatoric stresses
+  diff.τ11 = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
+  diff.τ22 = 2μ * (ϵ22 - (ϵ11 + ϵ22 + ϵ33) / 3)
+  diff.τ33 = 2μ * (ϵ33 - (ϵ11 + ϵ22 + ϵ33) / 3)
+  diff.τ12 = 2μ * ϵ12
+  diff.τ13 = 2μ * ϵ13
+  diff.τ23 = 2μ * ϵ23
+end
+
+function source!(::AtmosModel, source::State, state::State, aux::State, t::Real)
+  S.ρ  = Sρ_g(t, aux.x, aux.y, aux.z, Val(3))
+  S.ρu = SU_g(t, aux.x, aux.y, aux.z, Val(3))
+  S.ρv = SV_g(t, aux.x, aux.y, aux.z, Val(3))
+  S.ρw = SW_g(t, aux.x, aux.y, aux.z, Val(3))
+  S.ρe = SE_g(t, aux.x, aux.y, aux.z, Val(3))
+end
+
+function wavespeed(::AtmosModel, nM, state::State, aux::State, t::Real)
+  γ = γ_exact
+  ρinv = 1 / state.ρ
+  u, v, w = ρinv * state.ρu, ρinv * ρv, ρinv * state.ρw
+  P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)
+
+  return abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
+end
+
+function boundarycondition!(::AtmosModel, stateP::State, diffP::State, auxP::State, nM, stateM::State, diffM::State, auxM::State, bctype, t)
+  initialcondition!(stateP, t, auxM.x, auxM.y, auxM.z)
+end
+
+struct MyGradNumFlux <: GradNumericalFlux
+end
+
+function diffusive_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, nM, velM, QM, aM, velP, QP, aP, t)
+  @inbounds begin
+    n_Δvel = similar(VF, Size(dimension(bl), vars_diffusive(bl))
+    for j = 1:vars_diffusive(bl), i = 1:dimension(bl)
+      n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
+    end
+    diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_transform(bl)}(n_Δvel))
+  end
+end
+
+@inline diffusive_boundary_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, _...) = VF.=0
+
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -41,98 +131,7 @@ end
 
 include("mms_solution_generated.jl")
 
-# preflux computation
-@inline function preflux(Q, _...)
-  γ::eltype(Q) = γ_exact
-  @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-  ρinv = 1 / ρ
-  u, v, w = ρinv * U, ρinv * V, ρinv * W
-  ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
-end
 
-# max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
-  γ::eltype(Q) = γ_exact
-  @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
-end
-
-# flux function
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
-
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
-  @inbounds begin
-    ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-
-    τ11, τ22, τ33 = VF[_τ11], VF[_τ22], VF[_τ33]
-    τ12 = τ21 = VF[_τ12]
-    τ13 = τ31 = VF[_τ13]
-    τ23 = τ32 = VF[_τ23]
-
-    # inviscid terms
-    F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
-    F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
-    F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
-    F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-    F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-
-    # viscous terms
-    F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
-    F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
-    F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
-
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33
-  end
-end
-
-# Compute the velocity from the state
-@inline function velocities!(vel, Q, _...)
-  @inbounds begin
-    # ordering should match states_for_gradient_transform
-    ρ, U, V, W = Q[1], Q[2], Q[3], Q[4]
-    ρinv = 1 / ρ
-    vel[1], vel[2], vel[3] = ρinv * U, ρinv * V, ρinv * W
-  end
-end
-
-# Visous flux
-@inline function compute_stresses!(VF, grad_vel, _...)
-  μ::eltype(VF) = μ_exact
-  @inbounds begin
-    dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-    dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-    dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
-
-    # strains
-    ϵ11 = dudx
-    ϵ22 = dvdy
-    ϵ33 = dwdz
-    ϵ12 = (dudy + dvdx) / 2
-    ϵ13 = (dudz + dwdx) / 2
-    ϵ23 = (dvdz + dwdy) / 2
-
-    # deviatoric stresses
-    VF[_τ11] = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ22] = 2μ * (ϵ22 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ33] = 2μ * (ϵ33 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ12] = 2μ * ϵ12
-    VF[_τ13] = 2μ * ϵ13
-    VF[_τ23] = 2μ * ϵ23
-  end
-end
-
-@inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
-  @inbounds begin
-    n_Δvel = similar(VF, Size(3, 3))
-    for j = 1:3, i = 1:3
-      n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
-    end
-    compute_stresses!(VF, n_Δvel)
-  end
-end
-
-@inline stresses_boundary_penalty!(VF, _...) = VF.=0
 
 # initial condition
 function initialcondition!(dim, Q, t, x, y, z, _...)
@@ -146,53 +145,6 @@ function initialcondition!(dim, Q, t, x, y, z, _...)
   @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 end
 
-const _nauxstate = 3
-const _a_x, _a_y, _a_z = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z)
-  @inbounds begin
-    aux[_a_x] = x
-    aux[_a_y] = y
-    aux[_a_z] = z
-  end
-end
-
-@inline function source3D!(S, Q, aux, t)
-  @inbounds begin
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    S[_ρ] = Sρ_g(t, x, y, z, Val(3))
-    S[_U] = SU_g(t, x, y, z, Val(3))
-    S[_V] = SV_g(t, x, y, z, Val(3))
-    S[_W] = SW_g(t, x, y, z, Val(3))
-    S[_E] = SE_g(t, x, y, z, Val(3))
-  end
-end
-
-@inline function source2D!(S, Q, aux, t)
-  @inbounds begin
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    S[_ρ] = Sρ_g(t, x, y, z, Val(2))
-    S[_U] = SU_g(t, x, y, z, Val(2))
-    S[_V] = SV_g(t, x, y, z, Val(2))
-    S[_W] = SW_g(t, x, y, z, Val(2))
-    S[_E] = SE_g(t, x, y, z, Val(2))
-  end
-end
-
-@inline function bcstate2D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
-  @inbounds begin
-    x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-    initialcondition!(Val(2), QP, t, x, y, z)
-  end
-  nothing
-end
-
-@inline function bcstate3D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
-  @inbounds begin
-    x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-    initialcondition!(Val(3), QP, t, x, y, z)
-  end
-  nothing
-end
 
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
