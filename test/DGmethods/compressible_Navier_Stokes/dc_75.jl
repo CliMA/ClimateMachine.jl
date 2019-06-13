@@ -53,10 +53,10 @@ if !@isdefined integration_testing
 end
 
 # Problem constants (TODO: parameters module (?))
-const μ_sgs           = 100.0
-const Prandtl         = 71 // 100
-const Prandtl_t       = 1 // 3
-const cp_over_prandtl = cp_d / Prandtl_t
+const μ_sgs     = 75
+const Prandtl   = 71 // 100
+const Prandtl_t = 1 // 3
+const cp_over_prandtl = cp_d / Prandtl
 
 # Problem description 
 # --------------------
@@ -71,16 +71,16 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # User Input
 #
 const numdims = 2
-Δx    = 10
-Δy    = 10
-Δz    = 10
+Δx    = 100
+Δy    = 100
+Δz    = 20
 Npoly = 4
 
 #(Nex, Ney, Nez) = (64, 16, 1)
 
 # Physical domain extents 
-(xmin, xmax) = (0, 1000)
-(ymin, ymax) = (0, 1500)
+(xmin, xmax) = (0, 25600)
+(ymin, ymax) = (0,  6400)
 
 # Can be extended to a 3D test case 
 (zmin, zmax) = (0, 1000)
@@ -118,7 +118,7 @@ const Δsqr = Δ * Δ
 @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
 @info @sprintf """                                                     """
 @info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Robert rising thermal bubble                        """
+@info @sprintf """ Density Current                                     """
 @info @sprintf """   Resolution:                                       """ 
 @info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
 @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
@@ -197,14 +197,11 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
         vθy = VF[_θy]
       
-        #Richardson contribution:
-       
+        #|S|
         SijSij = VF[_SijSij]
-        f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
-
+        
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e::eltype(VF) = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
-        D_e = ν_e / Prandtl_t
+        ν_e = 37.5
         
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -213,22 +210,15 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         τ23 = τ32 = VF[_τ23] * ν_e
         
         # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-        F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
-        F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
-        F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+        F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
+        F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
+        F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
         
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e * 2
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e * 2
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e * 2
         
-        # Viscous contributions to mass flux terms
-        #F[1, _ρ] -=  vqx
-        #F[2, _ρ] -=  vqy
-        #F[3, _ρ] -=  vqz
-        #F[1, _QT] -=  vqx
-        #F[2, _QT] -=  vqy
-        #F[3, _QT] -=  vqz
     end
 end
 
@@ -449,13 +439,13 @@ function density_current!(dim, Q, t, x, y, z, _...)
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0 
     # perturbation parameters for rising bubble
-    rx                    = 250
-    ry                    = 250
-    xc                    = 500
-    yc                    = 260
+    rx                    = 4000
+    ry                    = 2000
+    xc                    = 0
+    yc                    = 3000
     r                     = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
     θ_ref::DFloat         = 300
-    θ_c::DFloat           = 0.5
+    θ_c::DFloat           = -15.0
     Δθ::DFloat            = 0.0
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
@@ -549,7 +539,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-DC-smago")
+    mkpath("vtk-DC-75")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -558,7 +548,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-DC-smago/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-DC-75/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -621,8 +611,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.001
-    timeend = 800
+    dt = 0.05
+    timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims

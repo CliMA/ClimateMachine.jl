@@ -53,10 +53,10 @@ if !@isdefined integration_testing
 end
 
 # Problem constants (TODO: parameters module (?))
-const μ_sgs     = 100.0
-const Prandtl   = 71 // 100
-const Prandtl_t = 1 // 3
-const k_μ       = cp_d / Prandtl_t
+const μ_sgs           = 100.0
+const Prandtl         = 71 // 100
+const Prandtl_t       = 1 // 3
+const cp_over_prandtl = cp_d / Prandtl_t
 
 # Problem description 
 # --------------------
@@ -217,17 +217,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         
-        #F[1, _U] -= τ11 * μ_sgs ; F[2, _U] -= τ12 * μ_sgs ; F[3, _U] -= τ13 * μ_sgs
-        #F[1, _V] -= τ21 * μ_sgs ; F[2, _V] -= τ22 * μ_sgs ; F[3, _V] -= τ23 * μ_sgs
-        #F[1, _W] -= τ31 * μ_sgs ; F[2, _W] -= τ32 * μ_sgs ; F[3, _W] -= τ33 * μ_sgs
-
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
-        #F[1, _E] -= u * F[1, _U] + v * F[2, _U] + w * F[3, _U] + k_μ*vTx
-        #F[2, _E] -= u * F[1, _V] + v * F[2, _V] + w * F[3, _V] + k_μ*vTy
-        #F[3, _E] -= u * F[1, _W] + v * F[2, _W] + w * F[3, _W] + k_μ*vTz
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
         
         # Viscous contributions to mass flux terms
         #F[1, _ρ] -=  vqx
@@ -312,11 +305,6 @@ end
                   + 2.0 * S23^2) 
         modSij = sqrt(2.0 * SijSij)
         
-        #Richardson = (grav/θ) * dθdy / modSij
-        #auxr = max(0.0, 1.0 - Richardson/Prandtl)
-        #ν_t = C_smag * C_smag * Δsqr * modSij #* sqrt(auxr)
-        #ν_t = 0.5
-
         #--------------------------------------------
         # deviatoric stresses
         # Fix up index magic numbers
@@ -373,26 +361,6 @@ end
     end
 end
 
-#=
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
-    @inbounds begin
-        x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-        ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
-        # No flux boundary conditions
-        # No shear on walls (free-slip condition)
-        UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        QP[_U] = UM - 2 * nM[1] * UnM
-        QP[_V] = VM - 2 * nM[2] * UnM
-        QP[_W] = WM - 2 * nM[3] * UnM
-        VFP[_Tx] = VFM[_Tx]
-        VFP[_Ty] = VFM[_Ty]
-        QP[_ρ] = ρM
-        QP[_E] = EM
-        #QP[_QT] = QTM
-        nothing
-    end
-end
-=#
 # -------------------------------------------------------------------------
 @inline function stresses_boundary_penalty!(VF, _...) 
     VF .= 0
