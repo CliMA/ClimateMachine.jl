@@ -53,7 +53,7 @@ if !@isdefined integration_testing
 end
 
 # Problem constants (TODO: parameters module (?))
-const μ_sgs   = 75.0
+const μ_sgs   = 100.0
 const Prandtl = 71 // 100
 const k_μ     = μ_sgs * cp_d / Prandtl
 
@@ -202,16 +202,16 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         # Buoyancy correction 
         #dθdy = VF[_θy]
         #f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
-        f_R = 75
+        diff = 100
         
         # Viscous contributions
-        F[1, _U] -= τ11 * 75 ; F[2, _U] -= τ12 * 75 ; F[3, _U] -= τ13 * 75
-        F[1, _V] -= τ21 * 75 ; F[2, _V] -= τ22 * 75 ; F[3, _V] -= τ23 * 75
-        F[1, _W] -= τ31 * 75 ; F[2, _W] -= τ32 * 75 ; F[3, _W] -= τ33 * 75
+        F[1, _U] -= τ11 * diff ; F[2, _U] -= τ12 * diff ; F[3, _U] -= τ13 * diff
+        F[1, _V] -= τ21 * diff ; F[2, _V] -= τ22 * diff ; F[3, _V] -= τ23 * diff
+        F[1, _W] -= τ31 * diff ; F[2, _W] -= τ32 * diff ; F[3, _W] -= τ33 * diff
         # Energy dissipation
-        F[1, _E] -= u * τ11 * 75 + v * τ12 * 75 + w * τ13 * 75 + 75*vTx
-        F[2, _E] -= u * τ21 * 75 + v * τ22 * 75 + w * τ23 * 75 + 75*vTy
-        F[3, _E] -= u * τ31 * 75 + v * τ32 * 75 + w * τ33 * 75 + 75*vTz 
+        F[1, _E] -= u * τ11 * diff + v * τ12 * diff + w * τ13 * diff + vTx * k_μ
+        F[2, _E] -= u * τ21 * diff + v * τ22 * diff + w * τ23 * diff + vTy * k_μ
+        F[3, _E] -= u * τ31 * diff + v * τ32 * diff + w * τ33 * diff + vTz * k_μ
         # Viscous contributions to mass flux terms
         #F[1, _ρ] -=  vqx
         #F[2, _ρ] -=  vqy
@@ -349,8 +349,10 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        #QP[_ρ] = ρM
-        #QP[_E] = EM
+        VFP[_Tx] = VFM[_Tx]
+        VFP[_Ty] = VFM[_Ty]
+        QP[_ρ] = ρM
+        QP[_E] = EM
         #QP[_QT] = QTM
         nothing
     end
