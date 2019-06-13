@@ -43,6 +43,26 @@ let
     end
   end
 
+  @testset "ODE Solvers Composition of solve!" begin
+    q0 = 1.0
+    halftime = 10.0
+    finaltime = 20.0
+    dt = 0.75
+
+    for (method, _) in explicit_methods
+      Q1 = [q0]
+      solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
+      solve!(Q1, solver1; timeend = finaltime)
+      
+      Q2 = [q0]
+      solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
+      solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
+      solve!(Q2, solver2; timeend = finaltime)
+
+      @test Q2 == Q1
+    end
+  end
+
   @static if haspkg("CuArrays")
     using CuArrays
     CuArrays.allowscalar(false)
@@ -64,6 +84,29 @@ let
         end
         rates = log2.(errors[1:end-1] ./ errors[2:end])
         @test isapprox(rates[end], expected_order; atol = 0.25)
+      end
+    end
+
+    @testset "CUDA ODE Solvers Composition of solve!" begin
+      ninitial = 1337
+      q0s = range(1.0, 2.0, length = ninitial)
+      halftime = 10.0
+      finaltime = 20.0
+      dt = 0.75
+
+      for (method, _) in explicit_methods
+        Q1 = CuArray(q0s)
+        solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
+        solve!(Q1, solver1; timeend = finaltime)
+        
+        Q2 = CuArray(q0s)
+        solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
+        solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
+        solve!(Q2, solver2; timeend = finaltime)
+
+        Q1 = Array(Q1)
+        Q2 = Array(Q2)
+        @test Q2 == Q1
       end
     end
   end
