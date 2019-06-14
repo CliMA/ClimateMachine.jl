@@ -1,6 +1,8 @@
 module MPIStateArrays
 using LinearAlgebra
 using DoubleFloats
+using LazyArrays
+using StaticArrays
 
 using MPI
 
@@ -43,9 +45,7 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
   device_sendQ::DATN
   device_recvQ::DATN
 
-  # FIXME: Later we should relax this if we compute on the GPU and probably
-  # should let this be a more generic type...
-  weights::Array{T, Nm1}
+  weights::DATN
 
   commtag::Int
   function MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
@@ -122,9 +122,9 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
 
   N = length(S.parameters)+1
   if weights == nothing
-    weights = Array{T}(undef, ntuple(j->0, N-1))
-  elseif !(typeof(weights) <: Array)
-    weights = Array(weights)
+    weights = DA{T}(undef, ntuple(j->0, N))
+  elseif !(typeof(weights) <: DA)
+    weights = DA(weights)
   end
   MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
                           sendelems, nabrtorank, nabrtorecv,
@@ -258,91 +258,38 @@ end
 
 # Integral based metrics
 function LinearAlgebra.norm(Q::MPIStateArray; p::Real=2)
+  T = eltype(Q)
+  rQ = @view Q.Q[:, :, Q.realelems]
 
-  @assert p == 2
-
-  host_array = Array ∈ typeof(Q).parameters
-  h_Q = host_array ? Q : Array(Q)
-  Np = size(Q, 1)
-
-  if isempty(Q.weights)
-    locnorm2 = knl_norm2(Val(Np), h_Q, Q.realelems)
+  if isfinite(p)
+    E = @~ abs.(rQ).^p
+    op, mpiop, init = +, MPI.SUM, zero(T)
   else
-    locnorm2 = knl_L2norm(Val(Np), h_Q, Q.weights, Q.realelems)
+    E = @~ abs.(rQ)
+    op, mpiop, init = max, MPI.MAX, typemin(T)
   end
 
-  sqrt(MPI.Allreduce([locnorm2], MPI.SUM, Q.mpicomm)[1])
-end
-
-function knl_norm2(::Val{Np}, Q, elems) where {Np}
-  DFloat = eltype(Q)
-  (_, nstate, nelem) = size(Q)
-
-  nrm = zero(DFloat)
-
-  @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    nrm += Q[i, q, e]^2
+  if ~isempty(Q.weights)
+    w = @view Q.weights[:, :, Q.realelems]
+    E = @~ E .* w
   end
 
-  nrm
-end
-
-function knl_L2norm(::Val{Np}, Q, weights, elems) where {Np}
-  DFloat = eltype(Q)
-  (_, nstate, nelem) = size(Q)
-
-  nrm = zero(DFloat)
-
-  @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    nrm += weights[i, e] * Q[i, q, e]^2
-  end
-
-  nrm
+  locnorm = mapreduce(identity, op, E, init=init)
+  sqrt(MPI.Allreduce([locnorm], mpiop, Q.mpicomm)[1])
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
+  rA = @view A.Q[:, :, A.realelems]
+  rB = @view B.Q[:, :, B.realelems]
+  E = @~ (rA .- rB).^2
 
-  host_array = Array ∈ typeof(A).parameters
-  h_A = host_array ? A : Array(A)
-  Np = size(A, 1)
-
-  host_array = Array ∈ typeof(B).parameters
-  h_B = host_array ? B : Array(B)
-  @assert Np === size(B, 1)
-
-  if isempty(A.weights)
-    locdist = knl_dist(Val(Np), h_A, h_B, A.realelems)
-  else
-    locdist = knl_L2dist(Val(Np), h_A, h_B, A.weights, A.realelems)
+  if ~isempty(A.weights)
+    w = @view A.weights[:, :, A.realelems]
+    E = @~ E .* w
   end
 
-  sqrt(MPI.Allreduce([locdist], MPI.SUM, A.mpicomm)[1])
-end
-
-function knl_dist(::Val{Np}, A, B, elems) where {Np}
-  DFloat = eltype(A)
-  (_, nstate, nelem) = size(A)
-
-  dist = zero(DFloat)
-
-  @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    dist += (A[i, q, e] - B[i, q, e])^2
-  end
-
-  dist
-end
-
-function knl_L2dist(::Val{Np}, A, B, weights, elems) where {Np}
-  DFloat = eltype(A)
-  (_, nstate, nelem) = size(A)
-
-  dist = zero(DFloat)
-
-  @inbounds for e = elems, q = 1:nstate, i = 1:Np
-    dist += weights[i, e] * (A[i, q, e] - B[i, q, e])^2
-  end
-
-  dist
+  locnorm = mapreduce(identity, +, E, init=zero(eltype(A)))
+  sqrt(MPI.Allreduce([locnorm], MPI.SUM, A.mpicomm)[1])
 end
 
 """
@@ -353,39 +300,23 @@ the listed states are summed, otherwise all the states in `A` are used.
 
 A typical use case for this is when the weights have been initialized with
 quadrature weights from a grid, thus this becomes an integral approximation.
-
-!!! note
-
-    This implementation is not optimal and should be revisited when we work out
-    the GPUify version!
-
 """
 function weightedsum(A::MPIStateArray, states=1:size(A, 2))
-
-  host_array = Array ∈ typeof(A).parameters
-  h_A = host_array ? A : Array(A)
-  Np = size(A, 1)
-
   isempty(A.weights) && error("`weightedsum` requires weights")
-  locwsum = knl_weightedsum(Val(Np), h_A, A.weights, A.realelems, states)
 
-  DFloat = eltype(A)
+  T = eltype(A)
+  states = SVector{length(states)}(states)
+
+  C = @view A.Q[:, states, A.realelems]
+  w = @view A.weights[:, :, A.realelems]
+  init = zero(DoubleFloat{T})
+
+  E = @~ DoubleFloat{T}.(C) .* DoubleFloat{T}.(w)
+
+  locwsum = mapreduce(identity, +, E, init=init)
+
   # Need to use anomous function version of sum else MPI.jl using MPI_SUM
-  DFloat(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
-end
-
-function knl_weightedsum(::Val{Np}, A, weights, elems, states) where {Np}
-  DFloat = eltype(A)
-
-  wsum = zero(DoubleFloat{DFloat})
-
-  @inbounds for e = elems
-    for q = states, i = 1:Np
-      wsum += weights[i, e] * A[i, q, e]
-    end
-  end
-
-  wsum
+  T(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
 end
 
 using Requires
