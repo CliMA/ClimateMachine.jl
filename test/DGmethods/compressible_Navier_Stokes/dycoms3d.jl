@@ -89,9 +89,9 @@ const numdims = 3
 Npoly = 4
 
 # Physical domain extents 
-(xmin, xmax) = (0, 1500)
-(ymin, ymax) = (0, 1500)
-(zmin, zmax) = (0,  150)
+(xmin, xmax) = (0, 3820)
+(ymin, ymax) = (0, 1200)
+(zmin, zmax) = (0, 1910)
 
 
 #Get Nex, Ney from resolution
@@ -356,7 +356,7 @@ end
         VF[_τ23] = 2 * S23
         
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
-        #VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
+        VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
         VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
         VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_SijSij] = SijSij
@@ -593,7 +593,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false,true))
 
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
@@ -659,7 +659,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     step = [0]
     mkpath("vtk-dycoms")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(200) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
