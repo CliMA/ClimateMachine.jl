@@ -396,8 +396,8 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
-        #VFP .= 0 
-        VFP .= VFM
+        VFP .= 0 
+        #VFP .= VFM
         nothing
     end
 end
@@ -730,7 +730,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.01
+    dt = 0.0025
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
