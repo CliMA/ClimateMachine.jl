@@ -14,6 +14,8 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
+using DelimitedFiles
+using Dierckx
 
 if haspkg("CuArrays")
     using CUDAdrv
@@ -70,20 +72,26 @@ const cp_over_prandtl = cp_d / Prandtl_t
 #
 # User Input
 #
-const numdims = 2
-Δx    = 5
+const numdims = 3
+
+#
+# Define grid size 
+#
+Δx    = 35
 Δy    = 5
-Δz    = 5
+Δz    = 35
+#
+# OR:
+#
+# Set Δx < 0 and define  Nex, Ney, Nez:
+#
+(Nex, Ney, Nez) = (10, 10, 1)
 Npoly = 4
 
-#(Nex, Ney, Nez) = (64, 16, 1)
-
 # Physical domain extents 
-(xmin, xmax) = (0, 1000)
+(xmin, xmax) = (0, 1500)
 (ymin, ymax) = (0, 1500)
-
-# Can be extended to a 3D test case 
-(zmin, zmax) = (0, 1000)
+(zmin, zmax) = (0,  150)
 
 
 #Get Nex, Ney from resolution
@@ -91,21 +99,32 @@ Lx = xmax - xmin
 Ly = ymax - ymin
 Lz = zmax - ymin
 
-ratiox = (Lx/Δx - 1)/Npoly
-ratioy = (Ly/Δy - 1)/Npoly
-ratioz = (Lz/Δz - 1)/Npoly
-const Nex = ceil(Int64, ratiox)
-const Ney = ceil(Int64, ratioy)
-const Nez = ceil(Int64, ratioz)
-
-#const Δx = Lx / ((Nex * Npoly) + 1)
-#const Δy = Ly / ((Ney * Npoly) + 1)
-#const Δz = Lz / ((Nez * Npoly) + 1)
+if ( Δx > 0)
+    #
+    # User defines the grid size:
+    #
+    ratiox = (Lx/Δx - 1)/Npoly
+    ratioy = (Ly/Δy - 1)/Npoly
+    ratioz = (Lz/Δz - 1)/Npoly
+    Nex = ceil(Int64, ratiox)
+    Ney = ceil(Int64, ratioy)
+    Nez = ceil(Int64, ratioz)
+ 
+else
+    #
+    # User defines the number of elements:
+    #
+    (Nex, Ney, Nez) = (10, 10, 1)
+    
+    Δx = Lx / ((Nex * Npoly) + 1)
+    Δy = Ly / ((Ney * Npoly) + 1)
+    Δz = Lz / ((Nez * Npoly) + 1)
+end
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 const C_smag = 0.23
 # Equivalent grid-scale
-Δ = sqrt(Δx * Δy)
+Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
 
 
@@ -118,13 +137,11 @@ const Δsqr = Δ * Δ
 @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
 @info @sprintf """                                                     """
 @info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Robert (1993) rising thermal bubble                        """
+@info @sprintf """ Dycoms                                              """
 @info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
-@info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
+@info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δx Δy Δz
+@info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
 @info @sprintf """ ----------------------------------------------------"""
-
- #Grids.READTOPOtxt_header(0, 0, 0, 0)
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -169,6 +186,30 @@ end
         TS = PhaseEquil(e_int, q_tot, ρ)
         (n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
     end
+end
+
+
+# -------------------------------------------------------------------------
+# ### read sounding
+#md # 
+#md # The sounding file contains the following quantities along a 1D column.
+#md # It needs to have the following structure:
+#md #
+#md # z[m]   theta[K]  q[g/kg]   u[m/s]   v[m/s]   p[Pa]
+#md # ...      ...       ...      ...      ...      ...
+#md #
+#md #
+# -------------------------------------------------------------------------
+function read_sounding()
+    #read in the original squal sounding
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    sounding = readdlm(fsounding)
+    close(fsounding)
+    (nzmax, ncols) = size(sounding)
+    if nzmax == 0
+        error("SOUNDING ERROR: The Sounding file is empty!")
+    end
+    return (sounding, nzmax, ncols)
 end
 
 # -------------------------------------------------------------------------
@@ -225,12 +266,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
         
         # Viscous contributions to mass flux terms
-        #F[1, _ρ] -=  vqx
-        #F[2, _ρ] -=  vqy
-        #F[3, _ρ] -=  vqz
-        #F[1, _QT] -=  vqx
-        #F[2, _QT] -=  vqy
-        #F[3, _QT] -=  vqz
+        F[1, _QT] -=  vqx * D_e
+        F[2, _QT] -=  vqy * D_e
+        F[3, _QT] -=  vqz * D_e
     end
 end
 
@@ -358,7 +396,8 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
-        VFP .= 0 
+        #VFP .= 0 
+        VFP .= VFM
         nothing
     end
 end
@@ -390,22 +429,39 @@ end
     end
 end
 
-@inline function source_sponge!(S, Q, aux, t)
-    y = aux[_a_y]
-    x = aux[_a_x]
-    U = Q[_U]
-    V = Q[_V]
-    W = Q[_W]
+
+# Sponge: classical Rayleigh type absorbing layers:
+@inline function sponge_rectangular(S, Q, aux)
+
+    
+    U, V, W = Q[_U], Q[_V], Q[_W]
+    x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+    
+    xmin = brickrange[1][1]
+    xmax = brickrange[1][end]
+    ymin = brickrange[2][1]
+    ymax = brickrange[2][end]
+    zmin = brickrange[3][1]
+    zmax = brickrange[3][end]
+    
     # Define Sponge Boundaries      
     xc       = (xmax + xmin)/2
-    ysponge  = 0.85 * ymax
+    yc       = (ymax + ymin)/2
+    
+    zsponge  = 0.85 * zmax
     xsponger = xmax - 0.15*abs(xmax - xc)
     xspongel = xmin + 0.15*abs(xmin - xc)
-    csxl  = 0.0
-    csxr  = 0.0
-    ctop  = 0.0
-    csx   = 1.0
-    ct    = 1.0 
+    ysponger = ymax - 0.15*abs(ymax - yc)
+    yspongel = ymin + 0.15*abs(ymin - yc)
+    
+    csxl, csxr  = 0.0, 0.0
+    csyl, csyr  = 0.0, 0.0
+    ctop        = 0.0
+    
+    csx         = 0.0
+    csy         = 0.0
+    ct          = 1.0
+       
     #x left and right
     #xsl
     if (x <= xspongel)
@@ -414,17 +470,34 @@ end
     #xsr
     if (x >= xsponger)
         csxr = csx * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4
+    end        
+    #y left and right
+    #ysl
+    if (y <= yspongel)
+        csyl = csy * sinpi(1/2 * (y - yspongel)/(ymin - yspongel))^4
     end
+    #ysr
+    if (y >= ysponger)
+        csyr = csy * sinpi(1/2 * (y - ysponger)/(ymay - ysponger))^4
+    end
+    
     #Vertical sponge:         
-    if (y >= ysponge)
-        ctop = ct * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4
+    if (z >= zsponge)
+        ctop = ct * sinpi(1/2 * (z - zsponge)/(zmax - zsponge))^4
     end
-    beta  = 1.0 - (1.0 - ctop)*(1.0 - csxl)*(1.0 - csxr)
+
+    beta  = 1.0 - (1.0 - ctop) * (1.0 - csxl)*(1.0 - csxr) * (1.0 - csyl)*(1.0 - csyr)
     beta  = min(beta, 1.0)
-    S[_U] -= beta * U  
-    S[_V] -= beta * V  
-    S[_W] -= beta * W
+    alpha = 1.0 - beta
+
+    @inbounds begin
+        S[_U] -= beta * U
+        S[_V] -= beta * V
+        S[_W] -= beta * W
+    end
+    
 end
+#---END SPONGE
 
 @inline function source_geopot!(S,Q,aux,t)
     gravity::eltype(Q) = grav
@@ -435,66 +508,92 @@ end
 end
 
 
+# initial condition
+"""
+User-specified. Required. 
+This function specifies the initial conditions
+for the dycoms driver. 
+"""
+function dycoms!(dim, Q, t, x, y, z, _...)
+    DFloat         = eltype(Q)
+    p0::DFloat      = MSLP
+    gravity::DFloat = grav
+    
+    # ----------------------------------------------------
+    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
+    # This driver accepts data in 6 column format
+    # ----------------------------------------------------
+    (sounding, _, ncols) = read_sounding()
+    
+    # WARNING: Not all sounding data is formatted/scaled 
+    # the same. Care required in assigning array values
+    # height theta qv    u     v     pressure
+    zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
+    sounding[:, 2],
+    sounding[:, 3],
+    sounding[:, 4],
+    sounding[:, 5],
+    sounding[:, 6]    
+    #------------------------------------------------------
+    # GET SPLINE FUNCTION
+    #------------------------------------------------------
+    spl_tinit    = Spline1D(zinit, tinit; k=1)
+    spl_qinit    = Spline1D(zinit, qinit; k=1)
+    spl_uinit    = Spline1D(zinit, uinit; k=1)
+    spl_vinit    = Spline1D(zinit, vinit; k=1)
+    spl_pinit    = Spline1D(zinit, pinit; k=1)
+    # --------------------------------------------------
+    # INITIALISE ARRAYS FOR INTERPOLATED VALUES
+    # --------------------------------------------------
+    xvert          = y
+    
+    datat          = spl_tinit(xvert)
+    dataq          = spl_qinit(xvert)
+    datau          = spl_uinit(xvert)
+    datav          = spl_vinit(xvert)
+    datap          = spl_pinit(xvert)
+    dataq          = dataq * 1.0e-3
+    
+    randnum   = rand(1)[1] / 100
+
+    θ_liq = datat
+    q_tot = dataq + randnum * dataq
+    P     = datap    
+    T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
+    ρ     = air_density(T, P)
+        
+    # energy definitions
+    u, v, w     = 0*datau, 0*datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    U           = ρ * u
+    V           = ρ * v
+    W           = ρ * w
+    e_kin       = (u^2 + v^2 + w^2) / 2  
+    e_pot       = gravity * xvert
+    e_int       = internal_energy(T, PhasePartition(q_tot))
+    E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
+    
+    #Get q_liq and q_ice
+    TS           = PhaseEquil(e_int, q_tot, ρ)
+    q_phase_part = PhasePartition(TS)
+    
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+    
+end
+
+
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
-
-# initial condition
-function density_current!(dim, Q, t, x, y, z, _...)
-    DFloat                = eltype(Q)
-    R_gas::DFloat         = R_d
-    c_p::DFloat           = cp_d
-    c_v::DFloat           = cv_d
-    p0::DFloat            = MSLP
-    gravity::DFloat       = grav
-    # initialise with dry domain 
-    q_tot::DFloat         = 0
-    q_liq::DFloat         = 0
-    q_ice::DFloat         = 0 
-    # perturbation parameters for rising bubble
-    rx                    = 250
-    ry                    = 250
-    xc                    = 500
-    yc                    = 260
-    #r                     = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2 )
-    r                     = sqrt( (x - xc)^2 + (y - yc)^2 )
-    
-    θ_ref::DFloat         = 303.0
-    θ_c::DFloat           =   0.5
-    Δθ::DFloat            =   0.0
-    a::DFloat             =  50.0
-    s::DFloat             = 100.0
-    #if r <= 1
-    #Δθ = θ_c * (1 + cospi(r))/2
-    if r <= a
-        Δθ = θ_c
-    elseif r > a
-        Δθ = θ_c * exp(-(r - a)^2 / s^2)
-    end
-    qvar                  = PhasePartition(q_tot)
-    θ                     = θ_ref + Δθ # potential temperature
-    π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
-    ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-
-    P                     = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-    T                     = P / (ρ * R_gas) # temperature
-    U, V, W               = 0.0 , 0.0 , 0.0  # momentum components
-    # energy definitions
-    e_kin                 = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
-    e_pot                 = gravity * y
-    e_int                 = internal_energy(T, qvar)
-    E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
-end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+                  range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
     
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
 
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
@@ -524,7 +623,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              source! = source!)
 
     # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = density_current!(Val(dim), Q, DFloat(0), x...)
+    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
 
     lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
@@ -559,7 +658,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-robert-smago")
+    mkpath("vtk-dycoms")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -568,7 +667,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-robert-smago/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-dycoms/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -630,9 +729,9 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (Nex,Ney)
-    dt = 0.005
-    timeend = 1080.0
+    numelem = (Nex,Ney,Nez)
+    dt = 0.01
+    timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims

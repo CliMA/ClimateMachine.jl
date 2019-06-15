@@ -71,8 +71,8 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # User Input
 #
 const numdims = 2
-Δx    = 100
-Δy    = 100
+Δx    = 50
+Δy    = 50
 Δz    = 20
 Npoly = 4
 
@@ -622,7 +622,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney)
     dt = 0.05
-    timeend = 900
+    timeend = 1200
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
