@@ -40,13 +40,13 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-struct LowStorageRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
+struct LowStorageRungeKutta{F, T, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{T,1}
   "time"
   t::Array{T,1}
   "rhs function"
-  rhs!::Function
+  rhs!::F
   "Storage for RHS during the LowStorageRungeKutta update"
   dQ::AT
   "low storage RK coefficient vector A (rhs scaling)"
@@ -55,8 +55,8 @@ struct LowStorageRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
   RKB::NTuple{Nstages, T}
   "low storage RK coefficient vector C (time scaling)"
   RKC::NTuple{Nstages, T}
-  function LowStorageRungeKutta(rhs!::Function, Q::AT; dt=nothing,
-                                t0=0) where {AT<:AbstractArray}
+  function LowStorageRungeKutta(rhs!::F, Q::AT; dt=nothing,
+                                t0=0) where {F, AT<:AbstractArray}
 
     @assert dt != nothing
 
@@ -84,14 +84,8 @@ struct LowStorageRungeKutta{T, AT, Nstages} <: ODEs.AbstractODESolver
 
     dQ = similar(Q)
     fill!(dQ, 0)
-    new{T, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
+    new{F, T, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
   end
-end
-
-function LowStorageRungeKutta(spacedisc::AbstractSpaceMethod, Q; dt=nothing,
-                              t0=0)
-  LowStorageRungeKutta((x...) -> SpaceMethods.odefun!(spacedisc, x...),
-                       Q; dt=dt, t0=t0)
 end
 
 
@@ -102,8 +96,8 @@ Change the time step size to `dt` for `lsrk.
 """
 updatedt!(lsrk::LowStorageRungeKutta, dt) = lsrk.dt[1] = dt
 
-function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
-                      adjustfinalstep)
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, param,
+                      timeend, adjustfinalstep)
   time, dt = lsrk.t[1], lsrk.dt[1]
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
@@ -112,7 +106,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta, timeend,
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
   rhs!, dQ = lsrk.rhs!, lsrk.dQ
   for s = 1:length(RKA)
-    rhs!(dQ, Q, time)
+    rhs!(dQ, Q, param, time)
 
     # update solution and scale RHS
     # FIXME: GPUify

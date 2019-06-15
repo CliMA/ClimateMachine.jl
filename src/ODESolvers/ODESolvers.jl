@@ -9,7 +9,8 @@ abstract type AbstractODESolver end
 Returns the current simulation time of the ODE solver `solver`
 """
 gettime(solver::AbstractODESolver) = solver.t[1]
-dostep!(Q, solver::AbstractODESolver, tf, afs) = throw(MethodError(dostep!, (Q, solver, tf, afs)))
+function dostep! end
+
 # {{{ run!
 """
     solve!(Q, solver::AbstractODESolver; timeend,
@@ -21,7 +22,7 @@ updated inplace. The final time `timeend` or `numberofsteps` must be specified.
 A series of optional callback functions can be specified using the tuple
 `callbacks`; see [`GenericCallbacks`](@ref).
 """
-function solve!(Q, solver::AbstractODESolver; timeend::Real=Inf,
+function solve!(Q, solver::AbstractODESolver, param; timeend::Real=Inf,
                 adjustfinalstep=true, numberofsteps::Integer=0, callbacks=())
 
   @assert isfinite(timeend) || numberofsteps > 0
@@ -41,7 +42,7 @@ function solve!(Q, solver::AbstractODESolver; timeend::Real=Inf,
   while time < timeend
     step += 1
 
-    time = dostep!(Q, solver, timeend, adjustfinalstep)
+    time = dostep!(Q, solver, param, timeend, adjustfinalstep)
 
     # FIXME: Determine better way to handle postcallback behavior
     # Current behavior:

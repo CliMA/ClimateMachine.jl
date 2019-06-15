@@ -2,8 +2,8 @@ using MPI
 using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
+using CLIMA.DGmethods
+using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
@@ -23,12 +23,17 @@ else
   const ArrayTypes = (Array, )
 end
 
+import CLIMA.DGmethods: dimension, vars_aux, vars_state, vars_state_for_transform, vars_transform, vars_diffusive,
+flux!, source!, wavespeed, boundarycondition!, transform!, diffusive!,
+init_aux!, init_state!, init_ode_param, init_ode_state
+
+
 
 struct AtmosModel <: BalanceLaw
 end
 
 dimension(::AtmosModel) = 3
-vars_aux(::AtmosModel) = ()
+vars_aux(::AtmosModel) = (:x,:y,:z)
 vars_state(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw, :ρe)
 vars_state_for_transform(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw)
 vars_transform(::AtmosModel) = (:u, :v, :w)
@@ -60,12 +65,14 @@ end
 
 function transform!(::AtmosModel, transformstate::State, state::State, auxstate::State, t::Real)
   ρinv = 1 / state.ρ
-  transformstate.u = ρinv * state.ρu,
+  transformstate.u = ρinv * state.ρu
   transformstate.v = ρinv * state.ρv
   transformstate.w = ρinv * state.ρw
 end
 
-function diffusive!(::AtmosModel, diff::State, ∇transform::Grad)
+function diffusive!(::AtmosModel, diff::State, ∇transform::Grad, state::State, auxstate::State, t::Real)
+  μ = μ_exact
+  
   dudx, dudy, dudz = ∇transform.u
   dvdx, dvdy, dvdz = ∇transform.v
   dwdx, dwdy, dwdz = ∇transform.w
@@ -105,15 +112,32 @@ function wavespeed(::AtmosModel, nM, state::State, aux::State, t::Real)
 end
 
 function boundarycondition!(::AtmosModel, stateP::State, diffP::State, auxP::State, nM, stateM::State, diffM::State, auxM::State, bctype, t)
-  initialcondition!(stateP, t, auxM.x, auxM.y, auxM.z)
+  init_state!(stateP, t, auxM.x, auxM.y, auxM.z)
 end
+
+function init_aux!(::AtmosModel, aux::State, (x,y,z))
+  aux.x = x
+  aux.y = y
+  aux.z = z
+end
+
+function init_state!(bl::AtmosModel, state::State, aux::State, (x,y,z), t)
+  dim = dimension(bl)
+  state.ρ = ρ_g(t, x, y, z, Val(dim))
+  state.ρu = U_g(t, x, y, z, Val(dim))
+  state.ρv = V_g(t, x, y, z, Val(dim))
+  state.ρw = W_g(t, x, y, z, Val(dim))
+  state.ρe = E_g(t, x, y, z, Val(dim))
+end
+
+import CLIMA.DGmethods.NumericalFluxes: GradNumericalFlux, diffusive_penalty!, diffusive_boundary_penalty!
 
 struct MyGradNumFlux <: GradNumericalFlux
 end
 
 function diffusive_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, nM, velM, QM, aM, velP, QP, aP, t)
   @inbounds begin
-    n_Δvel = similar(VF, Size(dimension(bl), vars_diffusive(bl))
+    n_Δvel = similar(VF, Size(dimension(bl), vars_diffusive(bl)))
     for j = 1:vars_diffusive(bl), i = 1:dimension(bl)
       n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
     end
@@ -122,6 +146,7 @@ function diffusive_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, nM, velM, QM, a
 end
 
 @inline diffusive_boundary_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, _...) = VF.=0
+
 
 
 if !@isdefined integration_testing
@@ -133,18 +158,7 @@ include("mms_solution_generated.jl")
 
 
 
-# initial condition
-function initialcondition!(dim, Q, t, x, y, z, _...)
-  DFloat = eltype(Q)
-  ρ::DFloat = ρ_g(t, x, y, z, dim)
-  U::DFloat = U_g(t, x, y, z, dim)
-  V::DFloat = V_g(t, x, y, z, dim)
-  W::DFloat = W_g(t, x, y, z, dim)
-  E::DFloat = E_g(t, x, y, z, dim)
-
-  @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
-end
-
+# initial condition                     
 
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
@@ -154,38 +168,16 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                           polynomialorder = N,
                                           meshwarp = warpfun,
                                          )
+  dg = DGModel(AtmosModel(),
+                  grid,
+                  Rusanov(),
+                  MyGradNumFlux())
 
-  # spacedisc = data needed for evaluating the right-hand side function
-  numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed,
-                                            preflux)
-  bcstate! = dim == 2 ?  bcstate2D! : bcstate3D!
-  numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!,
-                                                            bcstate!,
-                                                            wavespeed, preflux)
-  spacedisc = DGBalanceLaw(grid = grid,
-                           length_state_vector = _nstate,
-                           flux! = cns_flux!,
-                           numerical_flux! = numflux!,
-                           numerical_boundary_flux! = numbcflux!,
-                           number_gradient_states = _ngradstates,
-                           states_for_gradient_transform =
-                             _states_for_gradient_transform,
-                           number_viscous_states = _nviscstates,
-                           gradient_transform! = velocities!,
-                           viscous_transform! = compute_stresses!,
-                           viscous_penalty! = stresses_penalty!,
-                           viscous_boundary_penalty! =
-                           stresses_boundary_penalty!,
-                           auxiliary_state_length = _nauxstate,
-                           auxiliary_state_initialization! =
-                           auxiliary_state_initialization!,
-                           source! = dim == 2 ? source2D! : source3D!)
-
-  # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = initialcondition!(Val(dim), Q, DFloat(0), x...)
-  Q = MPIStateArray(spacedisc, initialcondition)
-
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  param = init_ode_param(dg)
+  Q = init_ode_state(dg, param, DFloat(0))
+  
+  
+  lsrk = LowStorageRungeKutta(dg, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -209,39 +201,38 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     end
   end
 
-  npoststates = 5
-  _P, _u, _v, _w, _ρinv = 1:npoststates
-  postnames = ("P", "u", "v", "w", "ρinv")
-  postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+  # npoststates = 5
+  # _P, _u, _v, _w, _ρinv = 1:npoststates
+  # postnames = ("P", "u", "v", "w", "ρinv")
+  # postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-  step = [0]
-  mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
-    DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
-                                               Q) do R, Q, QV, aux
-      @inbounds let
-        (R[_P], R[_u], R[_v], R[_w], R[_ρinv]) = preflux(Q)
-      end
-    end
+  # step = [0]
+  # mkpath("vtk")
+  # cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
+  #   DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
+  #                                              Q) do R, Q, QV, aux
+  #     @inbounds let
+  #       (R[_P], R[_u], R[_v], R[_w], R[_ρinv]) = preflux(Q)
+  #     end
+  #   end
 
-    outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
-                         MPI.Comm_rank(mpicomm), step[1])
-    @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, spacedisc, statenames,
-             postprocessarray, postnames)
-    step[1] += 1
-    nothing
-  end
+  #   outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
+  #                        MPI.Comm_rank(mpicomm), step[1])
+  #   @debug "doing VTK output" outprefix
+  #   writevtk(outprefix, Q, spacedisc, statenames,
+  #            postprocessarray, postnames)
+  #   step[1] += 1
+  #   nothing
+  # end
 
-  # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, ))
+  # solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = MPIStateArray(spacedisc,
-                     (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                    DFloat(timeend), x...))
+  Q = init_ode_state(model, param, DFloat(timeend))
+
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished

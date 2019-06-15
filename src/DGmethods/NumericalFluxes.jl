@@ -1,5 +1,11 @@
 module NumericalFluxes
+
+export Rusanov
+
 using StaticArrays
+import ..BalanceLaw
+
+
 
 """
     GradNumericalFlux

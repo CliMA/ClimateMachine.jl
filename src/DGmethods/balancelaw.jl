@@ -22,6 +22,9 @@ Subtypes `L` should define the following methods:
 - `source!(::L, source::State, state::State, auxstate::State, t::Real)`
 - `wavespeed(::L, nM, state::State, aux::State, t::Real)`
 - `boundarycondition!(::L, stateP::State, diffP::State, auxP::State, normalM, stateM::State, diffM::State, auxM::State, bctype, t)`
+- `init_aux!(::L, aux::State, coords, args...)`
+- `init_state!(::L, state::State, aux::State, coords, args...)`
+
 """
 abstract type BalanceLaw end # PDE part
 
@@ -30,12 +33,31 @@ num_state(m::BalanceLaw) = length(vars_state(m)) # nstate
 num_transform(m::BalanceLaw) = length(vars_transform(m))  # number_gradient_states
 num_diffusive(m::BalanceLaw) = length(vars_diffusive(m)) # number_viscous_states
 
-
 has_diffusive(m::BalanceLaw) = num_diffusive(m) > 0
+
+# function stubs
+function dimension end
+function vars_aux end
+function vars_state end
+function vars_state_for_transform end
+function vars_transform end
+function vars_diffusive end
+
+function flux! end
+function transform! end
+function diffusive! end
+function source! end 
+function transform! end 
+function wavespeed end
+function boundarycondition! end
+function init_aux! end
+function init_state! end
+
+
 
 # TODO: allow aliases and vector values
 struct State{vars, A<:StaticVector}
-  arr::M
+  arr::A
 end
 State{vars}(arr::A) where {vars,A<:StaticVector} = State{vars,A}(arr)
 

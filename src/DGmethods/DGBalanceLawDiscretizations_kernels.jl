@@ -90,7 +90,7 @@ function volumerhs!(dg::DGModel, ::Val{dim}, ::Val{N},
           end
 
           # if source! !== nothing
-          source!(bl, State{vars_state(bl})(l_S), State{vars_state(bl)}(l_Q),
+          source!(bl, State{vars_state(bl)}(l_S), State{vars_state(bl)}(l_Q),
                   State{vars_aux(bl)}(l_aux), t)
 
           @unroll for s = 1:nstate
@@ -408,10 +408,10 @@ function faceviscterms!(dg::DGModel,
 
         bctype = elemtobndy[f, e]
         if bctype == 0
-          diffusive_penalty!(df.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
+          diffusive_penalty!(dg.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
         else
-          diffusive_boundary_penalty!(df.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
+          diffusive_boundary_penalty!(dg.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
                                            l_GP, l_QP, l_auxP, bctype, t)
         end
 
@@ -427,6 +427,8 @@ function faceviscterms!(dg::DGModel,
 end
 
 
+
+
 """
     initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
                   auxstate, vgeo, elems) where {dim, N, nauxstate}
@@ -435,7 +437,7 @@ Computational kernel: Initialize the auxiliary state
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
+function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nauxstate},
                        auxstate, vgeo, elems) where {dim, N, nauxstate}
 
   DFloat = eltype(auxstate)
@@ -448,12 +450,12 @@ function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      x, y, z = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      coords = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
 
-      auxstatefun!(l_aux, x, y, z)
+      init_aux!(bl, State{vars_aux(bl)}(l_aux), coords)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]

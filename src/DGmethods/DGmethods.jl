@@ -9,12 +9,12 @@ using DocStringExtensions
 using ..Topologies
 using GPUifyLoops
 
-export DGBalanceLaw
+export BalanceLaw, DGModel, State, Grad
 
 include("balancelaw.jl")
+include("dgmodel.jl")
 include("DGBalanceLawDiscretizations_kernels.jl")
 include("NumericalFluxes.jl")
-include("dgmodel.jl")
 
 
 
