@@ -13,8 +13,8 @@ export BalanceLaw, DGModel, State, Grad
 
 include("balancelaw.jl")
 include("dgmodel.jl")
-include("DGBalanceLawDiscretizations_kernels.jl")
 include("NumericalFluxes.jl")
+include("DGBalanceLawDiscretizations_kernels.jl")
 
 
 

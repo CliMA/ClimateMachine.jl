@@ -1,3 +1,5 @@
+using .NumericalFluxes: diffusive_boundary_penalty!, diffusive_penalty!, numerical_flux!, numerical_boundary_flux!
+
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
   using .CUDAnative
@@ -153,11 +155,10 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 See [`odefun!`](@ref) for usage.
 """
 function facerhs!(dg::DGModel, ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-                  ::Val{nauxstate}, numerical_flux!, numerical_boundary_flux!,
-                  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                  ::Val{nauxstate}, rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                   elemtobndy, elems) where {dim, N, nstate, nviscstate,
                                             nauxstate}
-
+  bl = dg.balancelaw
   DFloat = eltype(Q)
 
   if dim == 1
@@ -220,11 +221,12 @@ function facerhs!(dg::DGModel, ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscs
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
+        bctype = elemtobndy[f, e]
         if bctype == 0
-          numerical_flux!(dg.dnf, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
+          numerical_flux!(dg.divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
         else
-          numerical_boundary_flux!(dg.dnf, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
+          numerical_boundary_flux!(dg.divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
                                    l_QviscP, l_auxP, bctype, t)
         end
 

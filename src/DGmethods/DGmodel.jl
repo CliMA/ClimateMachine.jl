@@ -65,7 +65,7 @@ function (dg::DGModel)(dQdt, Q, param, t)
   ###################
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(Val(dim), Val(N), Val(num_state(bl)), Val(nviscstate),
+          volumerhs!(dg, Val(dim), Val(N), Val(num_state(bl)), Val(nviscstate),
                      Val(nauxstate), dQdt.Q, Q.Q,
                      Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems))
 
@@ -77,7 +77,7 @@ function (dg::DGModel)(dQdt, Q, param, t)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(Val(dim), Val(N), Val(num_state(bl)), Val(nviscstate),
+          facerhs!(dg, Val(dim), Val(N), Val(num_state(bl)), Val(nviscstate),
                    Val(nauxstate),
                    dQdt.Q, Q.Q, Qvisc.Q,
                    auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,

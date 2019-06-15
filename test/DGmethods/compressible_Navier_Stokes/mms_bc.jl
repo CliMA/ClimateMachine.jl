@@ -39,7 +39,7 @@ vars_state_for_transform(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw)
 vars_transform(::AtmosModel) = (:u, :v, :w)
 vars_diffusive(::AtmosModel) = (:τ11, :τ22, :τ33, :τ12, :τ13, :τ23)
 
-function flux!(::AtmosModel, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)
+function flux!(::AtmosModel, flux::Grad, state::State, diff::State, auxstate::State, t::Real)
   # preflux
   γ = γ_exact  
   ρinv = 1 / state.ρ
@@ -54,13 +54,13 @@ function flux!(::AtmosModel, flux::Grad, state::State, diffstate::State, auxstat
   flux.ρe = (u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
 
   # viscous terms
-  flux.ρu .-= (diffstate.τ11, diffstate.τ12, diffstate.τ13)
-  flux.ρv .-= (diffstate.τ12, diffstate.τ22, diffstate.τ23)
-  flux.ρw .-= (diffstate.τ13, diffstate.τ23, diffstate.τ33)
+  flux.ρu -= SVector(diff.τ11, diff.τ12, diff.τ13)
+  flux.ρv -= SVector(diff.τ12, diff.τ22, diff.τ23)
+  flux.ρw -= SVector(diff.τ13, diff.τ23, diff.τ33)
 
-  flux.ρe .-= (u * diffstate.τ11 + v * diffstate.τ12 + w * diffstate.τ13,
-               u * diffstate.τ12 + v * diffstate.τ22 + w * diffstate.τ23,
-               u * diffstate.τ13 + v * diffstate.τ23 + w * diffstate.τ33)
+  flux.ρe -= SVector(u * diff.τ11 + v * diff.τ12 + w * diff.τ13,
+                     u * diff.τ12 + v * diff.τ22 + w * diff.τ23,
+                     u * diff.τ13 + v * diff.τ23 + w * diff.τ33)
 end
 
 function transform!(::AtmosModel, transformstate::State, state::State, auxstate::State, t::Real)
@@ -95,24 +95,24 @@ function diffusive!(::AtmosModel, diff::State, ∇transform::Grad, state::State,
 end
 
 function source!(::AtmosModel, source::State, state::State, aux::State, t::Real)
-  S.ρ  = Sρ_g(t, aux.x, aux.y, aux.z, Val(3))
-  S.ρu = SU_g(t, aux.x, aux.y, aux.z, Val(3))
-  S.ρv = SV_g(t, aux.x, aux.y, aux.z, Val(3))
-  S.ρw = SW_g(t, aux.x, aux.y, aux.z, Val(3))
-  S.ρe = SE_g(t, aux.x, aux.y, aux.z, Val(3))
+  source.ρ  = Sρ_g(t, aux.x, aux.y, aux.z, Val(3))
+  source.ρu = SU_g(t, aux.x, aux.y, aux.z, Val(3))
+  source.ρv = SV_g(t, aux.x, aux.y, aux.z, Val(3))
+  source.ρw = SW_g(t, aux.x, aux.y, aux.z, Val(3))
+  source.ρe = SE_g(t, aux.x, aux.y, aux.z, Val(3))
 end
 
 function wavespeed(::AtmosModel, nM, state::State, aux::State, t::Real)
   γ = γ_exact
   ρinv = 1 / state.ρ
-  u, v, w = ρinv * state.ρu, ρinv * ρv, ρinv * state.ρw
+  u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
   P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)
 
-  return abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
+  return abs(nM[1] * u + nM[2] * v + nM[3] * w) + sqrt(ρinv * γ * P)
 end
 
-function boundarycondition!(::AtmosModel, stateP::State, diffP::State, auxP::State, nM, stateM::State, diffM::State, auxM::State, bctype, t)
-  init_state!(stateP, t, auxM.x, auxM.y, auxM.z)
+function boundarycondition!(bl::AtmosModel, stateP::State, diffP::State, auxP::State, nM, stateM::State, diffM::State, auxM::State, bctype, t)
+  init_state!(bl, stateP, auxP, (auxM.x, auxM.y, auxM.z), t)
 end
 
 function init_aux!(::AtmosModel, aux::State, (x,y,z))
@@ -137,11 +137,12 @@ end
 
 function diffusive_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, nM, velM, QM, aM, velP, QP, aP, t)
   @inbounds begin
-    n_Δvel = similar(VF, Size(dimension(bl), vars_diffusive(bl)))
-    for j = 1:vars_diffusive(bl), i = 1:dimension(bl)
+    n_Δvel = similar(VF, Size(dimension(bl), CLIMA.DGmethods.num_diffusive(bl)))
+    for j = 1:CLIMA.DGmethods.num_diffusive(bl), i = 1:dimension(bl)
       n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
     end
-    diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_transform(bl)}(n_Δvel))
+    diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_transform(bl)}(n_Δvel),
+               State{vars_state(bl)}(QM), State{vars_aux(bl)}(aM), t)
   end
 end
 
@@ -231,7 +232,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Q = init_ode_state(model, param, DFloat(timeend))
+  Q = init_ode_state(dg, param, DFloat(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -274,7 +275,7 @@ let
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       result = zeros(DFloat, lvls)
-      for dim = 2:3
+      for dim = 3:3
         for l = 1:lvls
           if dim == 2
             Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
