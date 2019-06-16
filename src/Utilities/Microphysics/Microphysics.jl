@@ -1,11 +1,10 @@
 """
     one-moment bulk Microphysics scheme
 
-Microphysics parameterization based on Kessler_1995:
-  - condensation/evaporation and sublimation/resublimation
-    (as relaxation to equilibrium)
+Microphysics parameterization based on the ideas of Kessler_1995:
+  - condensation/evaporation as relaxation to equilibrium
   - autoconversion
-  - TODO: accretion
+  - accretion
   - rain evaporation
   - rain terminal velocity
 """
@@ -33,12 +32,12 @@ where:
   - `ρ` is the density of air
 
 Returns the proportionality coefficient between terminal velocity of an
-individual water drop and the square root of its radius.
+individual water drop and the square root of its radius * g.
 """
 function terminal_velocity_single_drop_coeff(ρ::DT) where {DT<:Real}
 
-    # terminal_vel_of_individual_drop = v_drop_coeff * drop_radius^(1/2)
-    v_c = sqrt(DT(8/3) * grav/C_drag * (dens_liquid / ρ - DT(1)))
+    # terminal_vel_of_individual_drop = v_drop_coeff * (g * drop_radius)^(1/2)
+    v_c::DT = sqrt(DT(8/3) / C_drag * (dens_liquid / ρ - DT(1)))
     return v_c
 end
 
@@ -56,18 +55,17 @@ function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
 
     vel::DT = 0
 
-    # terminal_vel_of_individual_drop = v_drop_coeff * drop_radius^(1/2)
     v_c = terminal_velocity_single_drop_coeff(ρ)
 
     # gamma(9/2)
-    gamma_9_2::DT = 11.63
+    gamma_9_2::DT = DT(11.63)
 
-    v_coeff = gamma_9_2 * v_c / DT(6) / sqrt(DT(2)) *
-              (DT(1) / π / MP_n_0)^(DT(1/8))
+    v_coeff::DT = gamma_9_2 * v_c / DT(6) *
+                  (DT(8) * π)^DT(-1/8) * (ρ / dens_liquid)^(DT(1/8))
 
     # TODO - should it be multiplied by ρ/ρ_ground?
     if (q_rai > DT(0)) # TODO - assert positive definite elsewhere
-      vel = v_coeff * (ρ / dens_liquid)^(DT(1/8)) * q_rai^DT(1/8)
+      vel = v_coeff * MP_n_0^(DT(-1/8)) * grav^DT(1/2) * q_rai^DT(1/8)
     end
 
     return vel
@@ -89,7 +87,7 @@ function conv_q_vap_to_q_liq(q_sat::PhasePartition,
                              q::PhasePartition,
                             ) where {DT<:Real}
 
-  src_q_liq = (q_sat.liq - q.liq) / τ_cond_evap
+  src_q_liq::DT = (q_sat.liq - q.liq) / τ_cond_evap
 
   if q_sat.ice != DT(0)
     @show("1-moment bulk microphysics is not defined for snow/ice")
@@ -112,7 +110,7 @@ Returns the q_rai tendency due to collisions between cloud droplets
 """
 function conv_q_liq_to_q_rai_acnv(q_liq::DT) where {DT<:Real}
 
-  src_q_rai = max(DT(0), q_liq - q_liq_threshold) / τ_acnv
+  src_q_rai::DT = max(DT(0), q_liq - q_liq_threshold) / τ_acnv
 
   return src_q_rai
 end
@@ -132,54 +130,57 @@ and rain drops (accretion) parametrized following Kessler 1995.
 function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT, ρ::DT) where {DT<:Real}
 
   # terminal_vel_of_individual_drop = v_drop_coeff * drop_radius^(1/2)
-  v_c = terminal_velocity_single_drop_coeff(ρ)
+  v_c::DT = terminal_velocity_single_drop_coeff(ρ)
 
   #gamma(7/2)
-  gamma_7_2 = DT(3.32)
+  gamma_7_2::DT = DT(3.32)
 
-  accr_coeff = gamma_7_2 * (π * MP_n_0)^DT(1/8) * v_c * E_col / DT(4) / sqrt(DT(2))
+  accr_coeff::DT = gamma_7_2 * DT(8)^DT(-7/8) * π^DT(1/8) * v_c * E_col * (ρ / dens_liquid)^DT(7/8)
 
-  src_q_rai = accr_coeff * (ρ / dens_liquid)^DT(7/8) * q_liq * q_rai^DT(7/8)
+  src_q_rai::DT = accr_coeff * MP_n_0^DT(1/8) * grav^DT(1/2) * q_liq * q_rai^DT(7/8)
 
   return src_q_rai
 end
 
-
-
 """
-    q2r(q_, qt)
+    conv_q_rai_to_q_vap(q_rai, q, T, p, ρ)
 
-Convert specific humidity to mixing ratio
-"""
-function q2r(q_::DT, qt::DT) where {DT<:Real}
-    return q_ / (DT(1) - qt)
-end
+where:
+ - q_rai - rain water specific humidity
+ - q - current PhasePartition
+ - T - temperature
+ - p - pressure
+ - ρ - air density
 
+Returns the q_rai tendency due to rain evaporation. Parameterized following
+Smolarkiewicz and Grabowski 1996.
 """
-    conv_q_rai_to_q_vap(qt, PhasePartition, T, ρ, p)
-
-Return rain evaporation rate.
-TODO
-"""
-function conv_q_rai_to_q_vap(q::PhasePartition, T::DT, ρ::DT, p::DT, qr::DT) where {DT<:Real}
+function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition,
+                             T::DT, p::DT, ρ::DT) where {DT<:Real}
 
   ret::DT = 0
-
-  if (qr > 0) # TODO - assert positive definite elsewhere
+  if (qr > DT(0)) # TODO - assert positive definite elsewhere
 
     qv_sat = saturation_shum(T, ρ, q)
-    qv = q.tot - q.liq - q.ice
+    q_v::DT = q.tot - q.liq - q.ice
+    S::DT = q_v/qv_sat - DT(1)
 
-    rr = q2r(qr, q.tot)
-    rv = q2r(qv, q.tot)
-    rv_sat = q2r(qv_sat, q.tot)
+    L::DT = latent_heat_vapor(T)
+    p_vs::DT = saturation_vapor_pressure(T, Liquid())
+    G::DT = DT(1) / (
+              L / K_therm / T * (L / R_v / T - DT(1)) + R_v * T / D_vapor / p_vs
+            )
 
-    # ventilation factor
-    C = DT(1.6) + DT(124.9) * (DT(1e-3) * ρ * rr)^DT(0.2046)
+    gamma_11_4::DT = DT(1.61)
+    N_Sc::DT = ν_air / D_vapor
+    v_c::DT = terminal_velocity_single_drop_coeff(ρ)
 
-    ret = (DT(1) - q.tot) * (DT(1) - rv/rv_sat) * C *
-          (DT(1e-3) * ρ * rr)^DT(0.525) /
-          ρ / (DT(540) + DT(2.55) * DT(1e5) / (p * rv_sat))
+    av = DT(2 * π)^DT(1/2) * a_vent * (ρ / dens_liquid)^DT(1/2)
+    bv = DT(2)^DT(7/16) * gamma_11_4 * π^DT(5/16) * b_vent * (N_Sc)^DT(1/3) * v_c^DT(1/2) * (ρ / dens_liquid)^DT(11/16)
+
+    F::DT = av * qr^DT(1/2) + bv * grav^DT(1/4) / (MP_n_0)^DT(3/16) / ν_air^DT(1/2) * qr^DT(11/16)
+
+    ret = S * F * G * (MP_n_0)^DT(1/2) / ρ
   end
 
   return ret
