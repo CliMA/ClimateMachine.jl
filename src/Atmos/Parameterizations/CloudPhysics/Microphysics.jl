@@ -11,8 +11,8 @@ Microphysics parameterization based on the ideas of Kessler_1995:
 
 module Microphysics
 
-using ..MoistThermodynamics
-using ..PlanetParameters
+using CLIMA.MoistThermodynamics
+using CLIMA.PlanetParameters
 using ..MicrophysicsParameters
 
 # rain fall speed

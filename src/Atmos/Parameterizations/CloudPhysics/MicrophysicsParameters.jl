@@ -4,7 +4,7 @@
 Module containing 1-moment bulk microphysics parameters.
 """
 module MicrophysicsParameters
-using ..ParametersType
+using CLIMA.ParametersType
 
 @exportparameter MP_n_0          8e6 * 2         "Marshal-Palmer distribution n_0 coeff [1/m4]"
 @exportparameter C_drag          0.55            "drag coefficient for rain drops [-]"
