@@ -78,7 +78,7 @@ const numdims = 3
 # Define grid size 
 #
 Δx    = 35
-Δy    = 5
+Δy    = 10
 Δz    = 35
 #
 # OR:
@@ -89,9 +89,12 @@ const numdims = 3
 Npoly = 4
 
 # Physical domain extents 
-(xmin, xmax) = (0, 3820)
-(ymin, ymax) = (0, 1200)
-(zmin, zmax) = (0, 1910)
+(xmin, xmax) = (0, 1000)
+(ymin, ymax) = (0, 1200) #VERTICAL
+(zmin, zmax) = (0,  500)
+#(xmin, xmax) = (0, 3820)
+#(ymin, ymax) = (0, 1200) #VERTICAL
+#(zmin, zmax) = (0, 1910)
 
 
 #Get Nex, Ney from resolution
@@ -425,77 +428,91 @@ end
     # Typically these sources are imported from modules
     @inbounds begin
         source_geopot!(S, Q, aux, t)
-        #source_sponge!(S, Q, aux, t)
+        #source_sponge_rectangular!(S, Q, aux)
     end
+    
 end
 
 
 # Sponge: classical Rayleigh type absorbing layers:
-@inline function sponge_rectangular(S, Q, aux)
+@inline function source_sponge_rectangular!(S, Q, aux)
 
+    #THIS IS BREAKING IN MEMORY OR SOMETHING ON GPU FOR SOME UNKNOWM REASON
     
     U, V, W = Q[_U], Q[_V], Q[_W]
-    x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+
+    #
+    # User sponge intensity inputs:   
+    #    
+    cs_left_right = 0.0
+    cs_front_back = 0.0
+    ct            = 1.0
+
+    #BEGIN  User modification on domain parameters.
+    #Only change the first index of brickrange if your axis are
+    #oriented differently:    
+    x, y, z = aux[_a_x], aux[_a_z], aux[_a_y]
     
-    xmin = brickrange[1][1]
-    xmax = brickrange[1][end]
-    ymin = brickrange[2][1]
-    ymax = brickrange[2][end]
-    zmin = brickrange[3][1]
-    zmax = brickrange[3][end]
+    domain_left  = brickrange[1][1]
+    domain_right = brickrange[1][end]
+    
+    domain_front = brickrange[3][1]
+    domain_back  = brickrange[3][end]
+    
+    domain_bott  = brickrange[2][1]
+    domain_top   = brickrange[2][end]
+    #END User modification on domain parameters.
     
     # Define Sponge Boundaries      
-    xc       = (xmax + xmin)/2
-    yc       = (ymax + ymin)/2
+    xc       = 0.5*(domain_right + domain_left)
+    yc       = 0.5*(domain_back + domain_front)
+    zc       = 0.5*(domain_top + domain_bott)
     
-    zsponge  = 0.85 * zmax
-    xsponger = xmax - 0.15*abs(xmax - xc)
-    xspongel = xmin + 0.15*abs(xmin - xc)
-    ysponger = ymax - 0.15*abs(ymax - yc)
-    yspongel = ymin + 0.15*abs(ymin - yc)
+    top_sponge  = 0.85 * domain_top
+    xsponger = domain_right - 0.15*(domain_right - xc)
+    xspongel = domain_left  + 0.15*(xc - domain_left)
+    ysponger = domain_back  - 0.15*(domain_back - yc)
+    yspongel = domain_front + 0.15*(yc - domain_front)
     
-    csxl, csxr  = 0.0, 0.0
-    csyl, csyr  = 0.0, 0.0
-    ctop        = 0.0
+    (csleft, csright)  = (0.0, 0.0)
+    (csfront, csback)  = (0.0, 0.0)
+    ctop               = 0.0
     
-    csx         = 0.0
-    csy         = 0.0
-    ct          = 1.0
-       
     #x left and right
     #xsl
-    if (x <= xspongel)
-        csxl = csx * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4
+    if x <= xspongel
+        csleft = cs_left_right * sinpi(1/2 * (x - xspongel)/(domain_left - xspongel))^4
     end
+    
     #xsr
-    if (x >= xsponger)
-        csxr = csx * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4
+    if x >= xsponger
+        csright = cs_left_right * sinpi(1/2 * (x - xsponger)/(domain_right - xsponger))^4
     end        
     #y left and right
     #ysl
-    if (y <= yspongel)
-        csyl = csy * sinpi(1/2 * (y - yspongel)/(ymin - yspongel))^4
+    if y <= yspongel
+        csfront = cs_front_back * sinpi(1/2 * (y - yspongel)/(domain_front - yspongel))^4
     end
     #ysr
-    if (y >= ysponger)
-        csyr = csy * sinpi(1/2 * (y - ysponger)/(ymay - ysponger))^4
+    if y >= ysponger
+        csback = cs_front_back * sinpi(1/2 * (y - ysponger)/(ymay - ysponger))^4
     end
     
     #Vertical sponge:         
-    if (z >= zsponge)
-        ctop = ct * sinpi(1/2 * (z - zsponge)/(zmax - zsponge))^4
+    if z >= top_sponge
+        ctop = ct * sinpi(1/2 * (z - top_sponge)/(domain_top - top_sponge))^4
     end
 
-    beta  = 1.0 - (1.0 - ctop) * (1.0 - csxl)*(1.0 - csxr) * (1.0 - csyl)*(1.0 - csyr)
+    beta  = 1.0 - (1.0 - ctop)*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
     beta  = min(beta, 1.0)
     alpha = 1.0 - beta
-
+    
     @inbounds begin
         S[_U] -= beta * U
         S[_V] -= beta * V
         S[_W] -= beta * W
     end
-    
+   
 end
 #---END SPONGE
 
