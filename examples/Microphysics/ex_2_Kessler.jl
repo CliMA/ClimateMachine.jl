@@ -43,39 +43,51 @@ else
   const ArrayTypes = (Array, )
 end
 
-const _nstate = 5
-const _ρ, _ρu, _ρw, _ρet, _ρqt = 1:_nstate
-const stateid = (ρid = _ρ, ρuid = _ρu, ρwid = _ρw, ρetid = _ρet, ρqtid = _ρqt)
-const statenames = ("ρ", "ρu", "ρw", "ρet", "ρqt")
+const _nstate = 7
+const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_rai = 1:_nstate
+const stateid = (ρ_id = _ρ, ρu_id = _ρu, ρw_id = _ρw, ρe_tot_id = _ρe_tot,
+                 ρq_tot_id = _ρq_tot, ρq_liq_id = _ρq_liq, ρq_rai_id = _ρq_rai)
+const statenames = ("ρ", "ρu", "ρw", "ρe_tot", "ρq_tot", "ρq_liq", "ρq_rai")
 
 const _nauxcstate = 3
 const _c_z, _c_x, _c_p = 1:_nauxcstate
 
 
-# preflux computation for wavespeed function
+# preflux computation
 @inline function preflux(Q, _...)
+  DFloat = eltype(Q)
   @inbounds begin
     # unpack all the state variables
-    ρ, ρu, ρw, ρet, ρqt = Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρet], Q[_ρqt]
-    u, w, et, qt = ρu / ρ, ρw / ρ, ρet / ρ, ρqt / ρ
+    ρ, ρu, ρw, ρq_tot, ρq_liq, ρq_rai, ρe_tot = Q[_ρ], Q[_ρu], Q[_ρw],
+                                                Q[_ρq_tot], Q[_ρq_liq],
+                                                Q[_ρq_rai], Q[_ρe_tot]
+    u, w, q_tot, q_liq, q_rai, e_tot = ρu / ρ, ρw / ρ,
+                                       ρq_tot / ρ, ρq_liq / ρ,
+                                       ρq_rai / ρ, ρe_tot / ρ
 
-    return (u, w, ρ, qt, et)
+    # compute rain fall speed
+    rain_w = terminal_velocity(q_rai, ρ)
+
+    return (u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot)
   end
 end
 
 
 # boundary condition
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t,
-                          u, w, ρ, qt, et)
+                          u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot)
   @inbounds begin
-    ρu_M, ρw_M, ρet_M, ρqt_M = QM[_ρu], QM[_ρw], QM[_ρet], QM[_ρqt]
+
+    ρu_M, ρw_M, ρe_tot_M, ρq_tot_M, ρq_liq_M, ρq_rai_M =
+      QM[_ρu], QM[_ρw], QM[_ρe_tot], QM[_ρq_tot], QM[_ρq_liq], QM[_ρq_rai]
 
     ρu_nM = nM[1] * ρu_M + nM[2] * ρw_M
 
     QP[_ρu] = ρu_M - 2 * nM[1] * ρu_nM
-    QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM
+    QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM # TODO - what to do about rain fall speed?
 
-    QP[_ρet], QP[_ρqt] = ρet_M, ρqt_M
+    QP[_ρe_tot], QP[_ρq_tot], QP[_ρq_liq], QP[_ρq_rai] =
+      ρe_tot_M, ρq_tot_M, ρq_liq_M, ρq_rai_M
 
     auxM .= auxP
 
@@ -87,15 +99,18 @@ end
 
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, u, w, ρ, qt, et)
-  @inbounds abs(n[1] * u + n[2] * w)
+@inline function wavespeed(n, Q, aux, t, u, w, rain_w,
+                           ρ, q_tot, q_liq, q_rai, e_tot)
+  @inbounds begin
+    abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
+  end
 end
 
 
 @inline function constant_auxiliary_init!(aux, x, z, _...)
   @inbounds begin
     aux[_c_z] = z  # for gravity
-    aux[_c_x] = x  # tmp for printing
+    aux[_c_x] = x
 
     DFloat = eltype(aux)
 
@@ -120,16 +135,65 @@ end
 end
 
 
+# time tendencies
+source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
+@inline function source!(S, Q, aux, t, u, w, rain_w, ρ,
+                         q_tot, q_liq, q_rai, e_tot)
+  @inbounds begin
+    DF = eltype(Q)
+
+    z = aux[_c_z]
+    p = aux[_c_p]
+
+    S .= 0
+    if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
+      # current state
+      e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
+      q     = PhasePartition(q_tot, q_liq, DF(0))
+      T     = air_temperature(e_int, q)
+      # equilibrium state (hidden saturation adjustment here)
+      ts_eq = PhaseEquil(e_int, q_tot, ρ)
+      q_eq  = PhasePartition(ts_eq)
+
+      # compute tendencies
+      src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
+      src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(q.liq)
+      src_q_rai_accr = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
+      src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
+      src_q_rai_tot = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
+
+
+      S[_ρq_liq]  = ρ * src_q_liq
+
+      S[_ρq_rai]  = ρ * src_q_rai_tot
+      S[_ρq_tot] -= ρ * src_q_rai_tot
+      S[_ρe_tot] -= ρ * src_q_rai_tot *
+                    (DF(e_int_v0) - (DF(cv_v) - DF(cv_d)) * (T - DF(T_0)))
+      #             TODO - move to microphysics module??
+
+      #if x == 0 && z >= 750
+      #  @printf("z = %4.2f qt = %.8e ql = %.8e qr = %.8e dqrdt = %.8e \n", z, qt, q_sat_adj.liq, qr, dqrdt)
+      #  if z == 1500
+      #      @printf("  ")
+      #  end
+      #end
+    end
+  end
+end
+
 # physical flux function
 eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
-@inline function eulerflux!(F, Q, QV, aux, t, u, w, ρ, qt, et)
+@inline function eulerflux!(F, Q, QV, aux, t, u, w, rain_w, ρ,
+                            q_tot, q_liq, q_rai, e_tot)
   @inbounds begin
     p = aux[_c_p]
 
     F .= 0
     # advect the moisture and energy
-    F[1, _ρqt], F[2, _ρqt] = u *  ρ * qt,      w *  ρ * qt
-    F[1, _ρet], F[2, _ρet] = u * (ρ * et + p), w * (ρ * et + p)
+    F[1, _ρq_tot], F[2, _ρq_tot] = u *  ρ * q_tot,      w           *  ρ * q_tot
+    F[1, _ρq_liq], F[2, _ρq_liq] = u *  ρ * q_liq,      w           *  ρ * q_liq
+    F[1, _ρq_rai], F[2, _ρq_rai] = u *  ρ * q_rai,     (w + rain_w) *  ρ * q_rai
+    F[1, _ρe_tot], F[2, _ρe_tot] = u * (ρ * e_tot + p), w           * (ρ * e_tot + p)
     # don't advect momentum (kinematic setup)
   end
 end
@@ -140,7 +204,7 @@ const w_max = .6    # m/s
 const Z_max = 1500. # m
 const X_max = 1500. # m
 
-@inline function single_eddy!(Q, t, x, z, _...)
+function single_eddy!(Q, t, x, z, _...)
   DFloat = eltype(Q)
 
   # initial condition
@@ -169,15 +233,17 @@ const X_max = 1500. # m
     u = ρu / ρ
     w = ρw / ρ
 
-    ρqt::DFloat = ρ * qt_0
+    ρq_tot::DFloat = ρ * qt_0
+    ρq_liq::DFloat = 0
+    ρq_rai::DFloat = 0
 
-    ei  = internal_energy(T, PhasePartition(qt_0))
-    ρet = ρ * (grav * z + (1//2)*(u^2 + w^2) + ei)
+    e_int = internal_energy(T, PhasePartition(qt_0))
+    ρe_tot = ρ * (grav * z + (1//2)*(u^2 + w^2) + e_int)
 
-    Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρet], Q[_ρqt] = ρ, ρu, ρw, ρet, ρqt
+    Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_rai] =
+      ρ, ρu, ρw, ρe_tot, ρq_tot, ρq_liq, ρq_rai
   end
 end
-
 
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
               ArrayType, dt) where {dim}
@@ -199,8 +265,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                                             preflux
                                                            )
 
-
-
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
@@ -209,21 +273,26 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            numerical_boundary_flux! = numbcflux!,
                            auxiliary_state_length = _nauxcstate,
                            auxiliary_state_initialization! =
-                             constant_auxiliary_init!)
+                             constant_auxiliary_init!,
+                           source! = source!)
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = single_eddy!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
-  npoststates = 10
-  v_ql, v_qi, v_qv, v_qt, v_p, v_T, v_et, v_ei, v_ek, v_ep = 1:npoststates
-  postnames = ("ql", "qi", "qv","qt", "p", "T",
-               "e_tot", "e_int", "e_kin", "e_pot")
+  npoststates = 11
+  v_q_liq, v_q_tot, v_q_vap, v_q_rai, v_term_vel, v_p, v_T, v_e_kin, v_e_pot,
+    v_e_int, v_e_tot = 1:npoststates
+  postnames = ("q_liq", "q_tot", "q_vap", "q_rai", "terminal_vel", "p", "T",
+               "e_kin", "e_pot", "e_int", "e_tot")
+
   postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
   writevtk("initial_condition", Q, spacedisc, statenames)
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  @show(minimum(diff(collect(lsrk.RKC))) * dt )
+  @show(maximum(diff(collect(lsrk.RKC))) * dt )
 
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
@@ -250,34 +319,38 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   step = [0]
   mkpath("vtk")
 
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(60) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
       @inbounds begin
-        u, w, ρ, qt, et = preflux(Q)
+        DF = eltype(Q)
+
+        u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot = preflux(Q)
         z = aux[_c_z]
         p = aux[_c_p]
 
-        ei = et - 1//2 * (u^2 + w^2) - grav * z
-        ts = PhaseEquil(ei, qt, ρ)  # saturation adjustment happens here
-        pp = PhasePartition(ts)
-        R[v_T] = ts.T #air_temperature(e_int, pp)
+        e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
+        q = PhasePartition(q_tot, q_liq, DF(0))
+
+        R[v_T] = air_temperature(e_int, q)
         R[v_p] = p
 
-        R[v_qt] = qt
-        R[v_qv] = qt - pp.liq - pp.ice
-        R[v_ql] = pp.liq
-        R[v_qi] = pp.ice
+        R[v_q_liq] = q_liq
+        R[v_q_tot] = q_tot
+        R[v_q_vap] = q_tot - q_liq
+        R[v_q_rai] = q_rai
 
-        R[v_et] = et
-        R[v_ei] = ei
-        R[v_ek] = 1//2 * (u^2 + w^2)
-        R[v_ep] = grav * z
+        R[v_e_tot] = e_tot
+        R[v_e_int] = e_int
+        R[v_e_kin] = 1//2 * (u^2 + w^2)
+        R[v_e_pot] = grav * z
 
+        R[v_term_vel] = terminal_velocity(q_rai, ρ)
       end
     end
 
-    outprefix = @sprintf("vtk/eddy_sat_adj_%dD_mpirank%04d_step%04d",
+    outprefix = @sprintf("vtk/ex_2_microphysics_Kessler_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @printf(io, "----\n")
     @printf(io, "doing VTK output =  %s\n", outprefix)

@@ -83,9 +83,9 @@ Returns the q_liq tendency due to condensation/evaporation.
 The tendency is obtained assuming a relaxation to equilibrium with
 constant timescale.
 """
-function conv_q_vap_to_q_liq(q_sat::PhasePartition,
-                             q::PhasePartition,
-                            ) where {DT<:Real}
+function conv_q_vap_to_q_liq(q_sat::PhasePartition, q::PhasePartition)
+
+  DT = eltype(q.tot)
 
   src_q_liq::DT = (q_sat.liq - q.liq) / τ_cond_evap
 
@@ -96,6 +96,7 @@ function conv_q_vap_to_q_liq(q_sat::PhasePartition,
   end
 
   return src_q_liq
+
 end
 
 
