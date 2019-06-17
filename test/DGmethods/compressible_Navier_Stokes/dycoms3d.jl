@@ -90,7 +90,7 @@ Npoly = 4
 
 # Physical domain extents 
 (xmin, xmax) = (0, 1000)
-(ymin, ymax) = (0, 1200) #VERTICAL
+(ymin, ymax) = (0, 1500) #VERTICAL
 (zmin, zmax) = (0,  500)
 #(xmin, xmax) = (0, 3820)
 #(ymin, ymax) = (0, 1200) #VERTICAL
@@ -205,7 +205,8 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_from_PyCles.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -244,7 +245,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vθy = VF[_θy]
       
         #Richardson contribution:
-      
+       
         SijSij = VF[_SijSij]
         f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
 
@@ -296,6 +297,20 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
     end
 end
 
+# -------------------------------------------------------------------------
+#md ### Auxiliary Function (Not required)
+#md # In this example the auxiliary function is used to store the spatial
+#md # coordinates. 
+# -------------------------------------------------------------------------
+const _nauxstate = 3
+const _a_x, _a_y, _a_z, = 1:_nauxstate
+@inline function auxiliary_state_initialization!(aux, x, y, z)
+    @inbounds begin
+        aux[_a_x] = x
+        aux[_a_y] = y
+        aux[_a_z] = z
+    end
+end
 # -------------------------------------------------------------------------
 #md ### Viscous fluxes. 
 #md # The viscous flux function compute_stresses computes the components of 
@@ -386,7 +401,6 @@ end
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
         VFP .= 0 
-        #VFP .= VFM
         nothing
     end
 end
@@ -413,16 +427,21 @@ end
 
     # Typically these sources are imported from modules
     @inbounds begin
-
         source_geopot!(S, Q, aux, t)
-        #source_sponge!(S, Q, aux, t)
+        source_sponge!(S, Q, aux, t)
     end
 end
 
 
 @inline function source_sponge!(S,Q,aux,t)
     gravity::eltype(Q) = grav
-
+     
+    csleft  = 0.0
+    csright = 0.0
+    csfront = 0.0
+    csback  = 0.0
+    ctop    = 0.0
+    
     cs_left_right = 0.0
     cs_front_back = 0.0
     ct            = 1.0
@@ -442,7 +461,7 @@ end
         domain_back  = 500.0 # brickrange[3][end]
         
         domain_bott  = 0.0 # brickrange[2][1]
-        domain_top   = 1200.0 # brickrange[2][end]
+        domain_top   = 1500.0 # brickrange[2][end]
 
          #END User modification on domain parameters.
         
@@ -456,13 +475,7 @@ end
         xspongel    = domain_left  + 0.15*(xc - domain_left)
         ysponger    = domain_back  - 0.15*(domain_back - yc)
         yspongel    = domain_front + 0.15*(yc - domain_front)
-        
-        csleft  = 0.0
-        csright = 0.0
-        csfront = 0.0
-        csback  = 0.0
-        ctop    = 0.0
-        
+       
         #x left and right
         #xsl
         if x <= xspongel
@@ -509,6 +522,9 @@ end
     end
 end
 
+
+# ------------------------------------------------------------------
+# -------------END DEF SOURCES-------------------------------------# 
 
 # initial condition
 """

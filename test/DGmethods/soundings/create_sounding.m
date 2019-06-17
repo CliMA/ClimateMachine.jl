@@ -116,7 +116,7 @@ sounding(:, 3) = 1e+3*ddataq';
 sounding(:, 4) = ug;
 sounding(:, 5) = vg;
 sounding(:, 6) = ddatap';
-sounding(:, 7) = ddatatempe';
+%sounding(:, 7) = ddatatempe';
 
 [nzmax, ncols] = size(sounding);
 
