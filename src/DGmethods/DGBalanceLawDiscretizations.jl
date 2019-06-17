@@ -134,6 +134,9 @@ struct DGBalanceLaw <: AbstractDGMethod
 
   "source function"
   source!::Union{Nothing, Function}
+
+  "callback function for before the `odefun!`"
+  preodefun!::Union{Nothing, Function}
 end
 
 """
@@ -151,7 +154,8 @@ end
                  viscous_boundary_penalty! = nothing,
                  auxiliary_state_length = 0,
                  auxiliary_state_initialization! = nothing,
-                 source! = nothing)
+                 source! = nothing,
+                 preodefun! = nothing)
 
 Constructs a `DGBalanceLaw` spatial discretization type for the physics defined
 by `flux!` and `source!`. The computational domain is defined by `grid`. The
@@ -306,6 +310,26 @@ viscous_boundary_penalty!(V, nM, HM, QM, auxM, HP, QP, auxP, bctype, t)
 where the required behaviour mimics that of `viscous_penalty!` and
 `numerical_boundary_flux!`.
 
+If `preodefun!` is called right before the rest of the ODE function, with the
+main purpose to allow the user to populate/modify the auxiliary state
+`disc.auxstate` to be consistent with the current time `t` and solution vector
+`Q`
+```
+preodefun!(disc, Q, t)
+```
+where `disc` is the `DGBalanceLaw` structure and `Q` is the current state being
+used to evaluate the ODE function.
+
+!!! note "notes on `preodefun!`"
+
+    Unlike the other callbacks, this function is not called at the device (or
+    kernel) level but the host level.
+
+    MPI communication of `Q` occurs after the `odefun!` and no MPI communication
+    of `auxstate` is performed (if this is needed we will need to determine a
+    way to handle it in order to overlap communication and computation as well
+    only comm update fields).
+
 !!! note
 
     If `(x, y, z)`, or data derived from this such as spherical coordinates, is
@@ -326,7 +350,8 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                       viscous_boundary_penalty! = nothing,
                       auxiliary_state_length=0,
                       auxiliary_state_initialization! = nothing,
-                      source! = nothing)
+                      source! = nothing,
+                      preodefun! = nothing)
 
   topology = grid.topology
   Np = dofs_per_element(grid)
@@ -399,7 +424,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                Qvisc, number_gradient_states, number_viscous_states,
                states_for_gradient_transform, gradient_transform!,
                viscous_transform!, viscous_penalty!,
-               viscous_boundary_penalty!, auxstate, source!)
+               viscous_boundary_penalty!, auxstate, source!, preodefun!)
 end
 
 """
@@ -520,18 +545,21 @@ MPIStateArrays.MPIStateArray(f::Function,
 
 
 """
-    odefun!(disc::DGBalanceLaw, dQ::MPIStateArray, Q::MPIStateArray, t)
+    odefun!(disc::DGBalanceLaw, dQ::MPIStateArray, Q::MPIStateArray, t; increment)
 
 Evaluates the right-hand side of the discontinuous Galerkin semi-discretization
-defined by `disc` at time `t` with state `Q`. The result is added into
-`dQ`. Namely, the semi-discretization is of the form
-```math
-Q̇ = F(Q, t)
-```
-and after the call `dQ += F(Q, t)`
+defined by `disc` at time `t` with state `Q`.
+The result is either added into
+`dQ` if `increment` is true or stored in `dQ` if it is false.
+Namely, the semi-discretization is of the form
+``
+  \\dot{Q} = F(Q, t)
+``
+and after the call `dQ += F(Q, t)` if `increment == true`
+or `dQ = F(Q, t)` if `increment == false`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
-                              Q::MPIStateArray, t)
+                              Q::MPIStateArray, t; increment)
 
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -561,6 +589,10 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   vmapP = grid.vmapP
   elemtobndy = grid.elemtobndy
 
+  ################################
+  # Allow the user to update aux #
+  ################################
+  disc.preodefun! !== nothing && disc.preodefun!(disc, Q, t)
 
   ########################
   # Gradient Computation #
@@ -597,7 +629,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
                      Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
-                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems))
+                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems,
+                     increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
@@ -657,6 +690,100 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
           elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
                            Dmat, topology.elems, id, idx, idy, idz))
+end
+
+"""
+    indefinite_stack_integral!(disc, f, Q, out_states, [P=disc.auxstate])
+
+Computes an indefinite line integral along the trailing dimension (`zeta` in
+3-D and `η` in 2-D) up an element stack using state `Q`
+```math
+∫_{ζ_{0}}^{ζ} f(q; aux, t)
+```
+and stores the result of the integral in field of `P` indicated by
+`out_states`
+
+The syntax of the integral kernel is:
+```
+f(F, Q, aux)
+```
+where `F` is an `MVector` of length `length(out_states)`, `Q` and `aux` are
+the `MVectors` for the state and auxiliary state at a single degree of freedom.
+The function is responsible for filling `F`.
+
+Requires the `isstacked(disc.grid.topology) == true`
+"""
+function indefinite_stack_integral!(disc::DGBalanceLaw, f, Q, out_states,
+                                    P=disc.auxstate)
+  grid = disc.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  auxstate = disc.auxstate
+  nauxstate = size(auxstate, 2)
+  nstate = size(Q, 2)
+
+  Imat = grid.Imat
+  vgeo = grid.vgeo
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+  @assert nelem == nvertelem * nhorzelem
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_indefinite_stack_integral!(Val(dim), Val(N), Val(nstate),
+                                         Val(nauxstate), Val(nvertelem), f, P.Q,
+                                         Q.Q, auxstate.Q, vgeo, Imat,
+                                         1:nhorzelem, Val(out_states)))
+end
+
+"""
+    reverse_indefinite_stack_integral!(disc, oustate, instate,
+                                       [P=disc.auxstate])
+
+reverse previously computed indefinite integral(s) computed with
+`indefinite_stack_integral!` to be
+```math
+∫_{ζ}^{ζ_{max}} f(q; aux, t)
+```
+
+The states `instate[i]` is reverse and stored in `instate[i]`.
+
+Requires the `isstacked(disc.grid.topology) == true`
+"""
+function reverse_indefinite_stack_integral!(disc::DGBalanceLaw, oustate,
+                                            instate, P=disc.auxstate)
+  grid = disc.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+  @assert length(oustate) == length(instate)
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  device = typeof(P.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+  @assert nelem == nvertelem * nhorzelem
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_reverse_indefinite_stack_integral!(Val(dim), Val(N),
+                                                 Val(nvertelem), P.Q,
+                                                 1:nhorzelem, Val(oustate),
+                                                 Val(instate)))
 end
 
 """

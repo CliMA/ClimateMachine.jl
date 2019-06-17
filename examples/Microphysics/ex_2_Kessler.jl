@@ -304,7 +304,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   writevtk("initial_condition", Q, spacedisc, statenames)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
   @show(minimum(diff(collect(lsrk.RKC))) * dt )
   @show(maximum(diff(collect(lsrk.RKC))) * dt )
 

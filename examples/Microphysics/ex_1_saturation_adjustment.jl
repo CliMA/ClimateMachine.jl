@@ -225,7 +225,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   writevtk("initial_condition", Q, spacedisc, statenames)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
