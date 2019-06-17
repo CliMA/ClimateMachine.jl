@@ -38,6 +38,7 @@ DGBalanceLawDiscretizations.DGBalanceLaw(;)
 ```@docs
 DGBalanceLawDiscretizations.grad_auxiliary_state!
 DGBalanceLawDiscretizations.indefinite_stack_integral!
+DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!
 DGBalanceLawDiscretizations.dof_iteration!
 ```
 
@@ -59,6 +60,7 @@ DGBalanceLawDiscretizations.initauxstate!
 DGBalanceLawDiscretizations.elem_grad_field!
 DGBalanceLawDiscretizations.knl_dof_iteration!
 DGBalanceLawDiscretizations.knl_indefinite_stack_integral!
+DGBalanceLawDiscretizations.knl_reverse_indefinite_stack_integral!
 ```
 
 ## `DGBalanceLawDiscretizations.NumericalFluxes`

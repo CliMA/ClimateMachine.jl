@@ -39,7 +39,6 @@ const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  using Random
 end
 
 const γ_exact = 7 // 5
@@ -47,8 +46,8 @@ const μ_exact = 10
 const xmin = 0
 const ymin = 0
 const zmin = 0
-const xmax = 1500
-const ymax = 1500
+const xmax = 1000
+const ymax = 1000
 const zmax =  150
 const xc   = xmax / 2
 const yc   = ymax / 2
@@ -440,26 +439,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   # Print some end of the simulation information
   engf = norm(Q)
-  if integration_testing
-    Qe = MPIStateArray(spacedisc,
-                       (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                      DFloat(timeend), x...))
-    engfe = norm(Qe)
-    errf = euclidean_distance(Q, Qe)
-    @info @sprintf """Finished
-    norm(Q)                 = %.16e
-    norm(Q) / norm(Q₀)      = %.16e
-    norm(Q) - norm(Q₀)      = %.16e
-    norm(Q - Qe)            = %.16e
-    norm(Q - Qe) / norm(Qe) = %.16e
-    """ engf engf/eng0 engf-eng0 errf errf / engfe
-  else
-    @info @sprintf """Finished
-    norm(Q)            = %.16e
-    norm(Q) / norm(Q₀) = %.16e
-    norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-  end
-  integration_testing ? errf : (engf / eng0)
+  @info @sprintf """Finished
+  norm(Q)            = %.16e
+  norm(Q) / norm(Q₀) = %.16e
+  norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
+  engf/eng0
 end
 
 using Test
@@ -480,9 +464,9 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (5,5,1)
+    numelem = (50,50,1)
     dt = 1e-2
-    timeend = 10
+    timeend = 900
     polynomialorder = 5
     for DFloat in (Float64,) #Float32)
       for dim = 3:3

@@ -23,9 +23,9 @@ else
   const ArrayTypes = (Array, )
 end
 
-const _nauxstate = 4
-const _a_r, _a_θ, _a_ϕ, _a_f = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z, Rinner)
+const _nauxstate = 6
+const _a_r, _a_θ, _a_ϕ, _a_f, _a_fdown = 1:_nauxstate
+@inline function auxiliary_state_initialization!(aux, x, y, z, Rinner, Router)
   @inbounds begin
     r = hypot(x, y, z)
     θ = atan(y , x)
@@ -37,6 +37,7 @@ const _a_r, _a_θ, _a_ϕ, _a_f = 1:_nauxstate
     # Exact integral
     a = 1 + sin(θ)^2 + sin(ϕ)^2
     aux[_a_f] = exp(-a * r^2) - exp(-a * Rinner^2)
+    aux[_a_fdown] = exp(-a * Router^2) - exp(-a * r^2)
   end
 end
 
@@ -49,7 +50,7 @@ end
 end
 
 using Test
-function run(mpicomm, topl, ArrayType, N, DFloat, Rinner)
+function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
@@ -63,7 +64,8 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner)
                            numerical_flux! = (x...) -> (),
                            auxiliary_state_length = _nauxstate,
                            auxiliary_state_initialization! = (x...) ->
-                           auxiliary_state_initialization!(x..., Rinner),
+                           auxiliary_state_initialization!(x..., Rinner,
+                                                           Router),
                            numerical_boundary_flux! = (x...) -> ())
 
   Q = MPIStateArray(spacedisc)
@@ -71,7 +73,9 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner)
 
   DGBalanceLawDiscretizations.indefinite_stack_integral!(spacedisc,
                                                          integral_knl, Q,
-                                                         _nauxstate)
+                                                         _a_f)
+  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(spacedisc,
+                                                                 _a_fdown, _a_f)
 
   euclidean_distance(exact_aux, spacedisc.auxstate)
 end
@@ -100,11 +104,10 @@ let
 
   polynomialorder = 4
 
-  expected_result = [4.4043147275367782e-07;
-                     6.8386492128632267e-09;
-                     1.0679315671964862e-10;
-                     1.6687191893223590e-12]
-
+  expected_result = [6.228615762850257e-7
+                     9.671308320438864e-9
+                     1.5102832678375277e-10
+                     2.359860999112363e-12]
 
   lvls = integration_testing ? length(expected_result) : 1
 
@@ -118,7 +121,7 @@ let
         Rrange = range(DFloat(Rinner); length=Nvert+1, stop=Router)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
         err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat,
-                     DFloat(Rinner))
+                     DFloat(Rinner), DFloat(Router))
         @test expected_result[l] ≈ err[l]
       end
       if integration_testing

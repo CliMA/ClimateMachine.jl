@@ -6,14 +6,16 @@
 #SBATCH --gres=gpu:1
 
 set -euo pipefail
-
-# to avoid race conditions
-export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot_gpu"
-export PATH="${PATH}:${HOME}/julia-1.2-gpu/bin"
-export CUDA_PATH="/lib64"
-
 set -x #echo on
+
+export PATH="${PATH}:${HOME}/julia-1.2/bin"
+export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot/${SLURM_JOB_ID}/${HOSTNAME}:$(pwd)/.slurmdepot/common"
+export CUDA_PATH="/lib64"
 
 module load cmake/3.10.2 openmpi/3.1.2 cuda/9.1
 
-mpiexec julia --startup-file=no --project=env/gpu $1
+# we need to build CUDA on each device
+# to avoid race conditions we create a separate depot per job
+mpiexec -pernode julia --color=no --project=env/gpu -e 'using Pkg; pkg"instantiate"; pkg"precompile"'
+
+mpiexec julia --color=no --project=env/gpu $1

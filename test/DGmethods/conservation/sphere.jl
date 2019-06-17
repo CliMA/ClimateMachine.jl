@@ -173,7 +173,7 @@ let
   Rrange = 1.0:0.25:2.0
 
   dim = 3
-  for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       Random.seed!(0)
       @info (ArrayType, DFloat, dim)
