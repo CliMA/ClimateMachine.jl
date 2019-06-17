@@ -1,6 +1,6 @@
 module NumericalFluxes
 
-export Rusanov
+export Rusanov, DefaultGradNumericalFlux
 
 using StaticArrays
 import ..DGmethods:  BalanceLaw, Grad,State, vars_state, vars_diffusive, vars_aux, boundarycondition!, wavespeed, flux!
@@ -16,6 +16,29 @@ Any `P <: GradNumericalFlux` should define the following:
 - `diffusive_boundary_penalty!(gnf::P, bl::BalanceLaw, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype, t)`
 """
 abstract type GradNumericalFlux end
+
+"""
+    DefaultGradNumericalFlux
+
+"""
+struct DefaultGradNumericalFlux <: GradNumericalFlux
+end
+
+function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, VF, nM, velM, QM, aM, velP, QP, aP, t)
+  @inbounds begin
+    n_Δvel = similar(VF, Size(dimension(bl), CLIMA.DGmethods.num_diffusive(bl)))
+    for j = 1:CLIMA.DGmethods.num_diffusive(bl), i = 1:dimension(bl)
+      n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
+    end
+    diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_gradtransform(bl)}(n_Δvel),
+               State{vars_state(bl)}(QM), State{vars_aux(bl)}(aM), t)
+  end
+end
+
+@inline diffusive_boundary_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, VF, _...) = VF.=0
+
+
+
 
 function diffusive_penalty! end
 function diffusive_boundary_penalty! end

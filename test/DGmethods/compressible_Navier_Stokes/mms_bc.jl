@@ -23,8 +23,8 @@ else
   const ArrayTypes = (Array, )
 end
 
-import CLIMA.DGmethods: dimension, vars_aux, vars_state, vars_state_for_transform, vars_transform, vars_diffusive,
-flux!, source!, wavespeed, boundarycondition!, transform!, diffusive!,
+import CLIMA.DGmethods: dimension, vars_aux, vars_state, vars_state_for_gradtransform, vars_gradtransform, vars_diffusive,
+flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
 init_aux!, init_state!, init_ode_param, init_ode_state
 
 
@@ -35,11 +35,11 @@ end
 dimension(::AtmosModel) = 3
 vars_aux(::AtmosModel) = (:x,:y,:z)
 vars_state(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw, :ρe)
-vars_state_for_transform(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw)
-vars_transform(::AtmosModel) = (:u, :v, :w)
+vars_state_for_gradtransform(::AtmosModel) = (:ρ, :ρu, :ρv, :ρw)
+vars_gradtransform(::AtmosModel) = (:u, :v, :w)
 vars_diffusive(::AtmosModel) = (:τ11, :τ22, :τ33, :τ12, :τ13, :τ23)
 
-function flux!(::AtmosModel, flux::Grad, state::State, diff::State, auxstate::State, t::Real)
+function flux!(::AtmosModel, flux::Grad, state::State, diffusive::State, auxstate::State, t::Real)
   # preflux
   γ = γ_exact  
   ρinv = 1 / state.ρ
@@ -54,23 +54,23 @@ function flux!(::AtmosModel, flux::Grad, state::State, diff::State, auxstate::St
   flux.ρe = (u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
 
   # viscous terms
-  flux.ρu -= SVector(diff.τ11, diff.τ12, diff.τ13)
-  flux.ρv -= SVector(diff.τ12, diff.τ22, diff.τ23)
-  flux.ρw -= SVector(diff.τ13, diff.τ23, diff.τ33)
+  flux.ρu -= SVector(diffusive.τ11, diffusive.τ12, diffusive.τ13)
+  flux.ρv -= SVector(diffusive.τ12, diffusive.τ22, diffusive.τ23)
+  flux.ρw -= SVector(diffusive.τ13, diffusive.τ23, diffusive.τ33)
 
-  flux.ρe -= SVector(u * diff.τ11 + v * diff.τ12 + w * diff.τ13,
-                     u * diff.τ12 + v * diff.τ22 + w * diff.τ23,
-                     u * diff.τ13 + v * diff.τ23 + w * diff.τ33)
+  flux.ρe -= SVector(u * diffusive.τ11 + v * diffusive.τ12 + w * diffusive.τ13,
+                     u * diffusive.τ12 + v * diffusive.τ22 + w * diffusive.τ23,
+                     u * diffusive.τ13 + v * diffusive.τ23 + w * diffusive.τ33)
 end
 
-function transform!(::AtmosModel, transformstate::State, state::State, auxstate::State, t::Real)
+function gradtransform!(::AtmosModel, transformstate::State, state::State, auxstate::State, t::Real)
   ρinv = 1 / state.ρ
   transformstate.u = ρinv * state.ρu
   transformstate.v = ρinv * state.ρv
   transformstate.w = ρinv * state.ρw
 end
 
-function diffusive!(::AtmosModel, diff::State, ∇transform::Grad, state::State, auxstate::State, t::Real)
+function diffusive!(::AtmosModel, diffusive::State, ∇transform::Grad, state::State, auxstate::State, t::Real)
   μ = μ_exact
   
   dudx, dudy, dudz = ∇transform.u
@@ -86,12 +86,12 @@ function diffusive!(::AtmosModel, diff::State, ∇transform::Grad, state::State,
   ϵ23 = (dvdz + dwdy) / 2
 
   # deviatoric stresses
-  diff.τ11 = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
-  diff.τ22 = 2μ * (ϵ22 - (ϵ11 + ϵ22 + ϵ33) / 3)
-  diff.τ33 = 2μ * (ϵ33 - (ϵ11 + ϵ22 + ϵ33) / 3)
-  diff.τ12 = 2μ * ϵ12
-  diff.τ13 = 2μ * ϵ13
-  diff.τ23 = 2μ * ϵ23
+  diffusive.τ11 = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
+  diffusive.τ22 = 2μ * (ϵ22 - (ϵ11 + ϵ22 + ϵ33) / 3)
+  diffusive.τ33 = 2μ * (ϵ33 - (ϵ11 + ϵ22 + ϵ33) / 3)
+  diffusive.τ12 = 2μ * ϵ12
+  diffusive.τ13 = 2μ * ϵ13
+  diffusive.τ23 = 2μ * ϵ23
 end
 
 function source!(::AtmosModel, source::State, state::State, aux::State, t::Real)
@@ -130,26 +130,6 @@ function init_state!(bl::AtmosModel, state::State, aux::State, (x,y,z), t)
   state.ρe = E_g(t, x, y, z, Val(dim))
 end
 
-import CLIMA.DGmethods.NumericalFluxes: GradNumericalFlux, diffusive_penalty!, diffusive_boundary_penalty!
-
-struct MyGradNumFlux <: GradNumericalFlux
-end
-
-function diffusive_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, nM, velM, QM, aM, velP, QP, aP, t)
-  @inbounds begin
-    n_Δvel = similar(VF, Size(dimension(bl), CLIMA.DGmethods.num_diffusive(bl)))
-    for j = 1:CLIMA.DGmethods.num_diffusive(bl), i = 1:dimension(bl)
-      n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
-    end
-    diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_transform(bl)}(n_Δvel),
-               State{vars_state(bl)}(QM), State{vars_aux(bl)}(aM), t)
-  end
-end
-
-@inline diffusive_boundary_penalty!(::MyGradNumFlux, bl::BalanceLaw, VF, _...) = VF.=0
-
-
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -170,9 +150,9 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                           meshwarp = warpfun,
                                          )
   dg = DGModel(AtmosModel(),
-                  grid,
-                  Rusanov(),
-                  MyGradNumFlux())
+               grid,
+               Rusanov(),
+               DefaultGradNumericalFlux())
 
   param = init_ode_param(dg)
   Q = init_ode_state(dg, param, DFloat(0))
@@ -232,7 +212,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Q = init_ode_state(dg, param, DFloat(timeend))
+  Qe = init_ode_state(dg, param, DFloat(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)

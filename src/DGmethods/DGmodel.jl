@@ -23,9 +23,9 @@ function (dg::DGModel)(dQdt, Q, param, t)
   auxstate = param.aux
 
   nviscstate = num_diffusive(bl)
-  ngradstate = num_transform(bl)
+  ngradstate = num_gradtransform(bl)
   nauxstate = size(auxstate, 2)
-  states_grad = map(var -> findfirst(isequal(var), vars_state(bl)), vars_state_for_transform(bl))
+  states_grad = map(var -> findfirst(isequal(var), vars_state(bl)), vars_state_for_gradtransform(bl))
 
   Dmat = grid.D
   vgeo = grid.vgeo
@@ -43,17 +43,13 @@ function (dg::DGModel)(dQdt, Q, param, t)
   if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(dg, Val(dim), Val(N), Val(num_state(bl)), Val(states_grad),
-                             Val(ngradstate), Val(nviscstate), Val(nauxstate),
-                             Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
+            volumeviscterms!(dg, Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
                              topology.realelems))
 
     MPIStateArrays.finish_ghost_recv!(Q)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(dg, Val(dim), Val(N), Val(num_state(bl)), Val(states_grad),
-                           Val(ngradstate), Val(nviscstate), Val(nauxstate),
-                           Q.Q, Qvisc.Q, auxstate.Q,
+            faceviscterms!(dg, Q.Q, Qvisc.Q, auxstate.Q,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
 
@@ -65,9 +61,8 @@ function (dg::DGModel)(dQdt, Q, param, t)
   ###################
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(dg, Val(dim), Val(N), Val(num_state(bl)), Val(nviscstate),
-                     Val(nauxstate), dQdt.Q, Q.Q,
-                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems))
+          volumerhs!(dg, dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
+                     vgeo, t, Dmat, topology.realelems))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
@@ -77,9 +72,7 @@ function (dg::DGModel)(dQdt, Q, param, t)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(dg, Val(dim), Val(N), Val(num_state(bl)), Val(nviscstate),
-                   Val(nauxstate),
-                   dQdt.Q, Q.Q, Qvisc.Q,
+          facerhs!(dg, dQdt.Q, Q.Q, Qvisc.Q,
                    auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
 
@@ -92,7 +85,11 @@ end
 
 
 
+"""
+    init_ode_param(dg::DGModel)
 
+Initialize the ODE parameter object, containing the auxiliary and diffusive states. The extra `args...` are passed through to `init_state!`.
+"""
 function init_ode_param(dg::DGModel)
   bl = dg.balancelaw
   grid = dg.grid
@@ -137,8 +134,7 @@ function init_ode_param(dg::DGModel)
     device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     @launch(device, threads=(Np,), blocks=nrealelem,
-            initauxstate!(bl, Val(dim), Val(N), Val(num_aux(bl)),
-                          auxstate.Q, vgeo, topology.realelems))
+            initauxstate!(dg, auxstate.Q, vgeo, topology.realelems))
     MPIStateArrays.start_ghost_exchange!(auxstate)
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   # end
@@ -147,6 +143,11 @@ end
 
 
 
+"""
+    init_ode_state(dg::DGModel, param, args...)
+
+Initialize the ODE state array. 
+"""
 function init_ode_state(dg::DGModel, param, args...; commtag=888)
   bl = dg.balancelaw
   grid = dg.grid

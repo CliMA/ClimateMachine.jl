@@ -15,23 +15,27 @@ const _nx, _ny, _nz, _sMJ, _vMJI = 1:_nsgeo
 # }}}
 
 """
-    volumerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-               ::Val{nauxstate}, flux!, source!, rhs, Q, Qvisc, auxstate,
-               vgeo, t, D, elems) where {dim, N, nstate, nviscstate,
+    volumerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate,
+               vgeo, t, D, elems)
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
 `DGBalanceLaw` semi-discretization.
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(dg::DGModel, ::Val{dim}, ::Val{N},
-                    ::Val{nstate}, ::Val{nviscstate},
-                    ::Val{nauxstate},
+function volumerhs!(dg::DGModel,
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    D, elems) where {dim, N, nstate, nviscstate,
-                                     nauxstate}
+                    D, elems)
 
   bl = dg.balancelaw
+  dim = dimension(bl)
+  nstate = num_state(bl)
+  nviscstate = num_diffusive(bl)
+  nauxstate = num_aux(bl)
+
+  N = polynomialorder(dg.grid)
+  
+  
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -143,22 +147,26 @@ function volumerhs!(dg::DGModel, ::Val{dim}, ::Val{N},
 end
 
 """
-    facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-             ::Val{nauxstate}, numerical_flux!,
-             numerical_boundary_flux!, rhs, Q, Qvisc, auxstate,
+    facerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate,
              vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-             elems) where {dim, N, nstate, nviscstate, nauxstate}
+             elems)
 
 Computational kernel: Evaluate the surface integrals on right-hand side of a
 `DGBalanceLaw` semi-discretization.
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(dg::DGModel, ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-                  ::Val{nauxstate}, rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                  elemtobndy, elems) where {dim, N, nstate, nviscstate,
-                                            nauxstate}
+function facerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                  elemtobndy, elems)
+
   bl = dg.balancelaw
+  dim = dimension(bl)
+  nstate = num_state(bl)
+  nviscstate = num_diffusive(bl)
+  nauxstate = num_aux(bl)
+
+  N = polynomialorder(dg.grid)
+
   DFloat = eltype(Q)
 
   if dim == 1
@@ -244,13 +252,18 @@ function facerhs!(dg::DGModel, ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscs
 end
 
 function volumeviscterms!(dg::DGModel,
-                          ::Val{dim}, ::Val{N}, ::Val{nstate},
-                          ::Val{states_grad}, ::Val{ngradstate},
-                          ::Val{nviscstate}, ::Val{nauxstate},
                           Q, Qvisc, auxstate, vgeo, t, D,
-                          elems) where {dim, N, states_grad, ngradstate,
-                                        nviscstate, nstate, nauxstate}
+                          elems)
   bl = dg.balancelaw
+  dim = dimension(bl)
+  nstate = num_state(bl)
+  ngradstate = num_gradtransform(bl)
+  nviscstate = num_diffusive(bl)
+  nauxstate = num_aux(bl)
+  states_grad = indices_state_for_gradtransform(bl)
+  
+  N = polynomialorder(dg.grid)
+  
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -289,7 +302,7 @@ function volumeviscterms!(dg::DGModel,
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
-          transform!(bl, State{vars_transform(bl)}(l_G), State{vars_state(bl)}(l_Q[:, i, j, k]),
+          gradtransform!(bl, State{vars_gradtransform(bl)}(l_G), State{vars_state(bl)}(l_Q[:, i, j, k]),
                      State{vars_aux(bl)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
@@ -324,7 +337,7 @@ function volumeviscterms!(dg::DGModel,
             l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
           end
 
-          diffusive!(bl, State{vars_diffusive(bl)}(l_Qvisc), Grad{vars_transform(bl)}(l_gradG),
+          diffusive!(bl, State{vars_diffusive(bl)}(l_Qvisc), Grad{vars_gradtransform(bl)}(l_gradG),
                      State{vars_state(bl)}(l_Q[:, i, j, k]), State{vars_aux(bl)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
@@ -338,14 +351,17 @@ function volumeviscterms!(dg::DGModel,
 end
 
 function faceviscterms!(dg::DGModel,
-                        ::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
-                        ::Val{ngradstate}, ::Val{nviscstate},
-                        ::Val{nauxstate},
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) where {dim, N, states_grad,
-                                                  ngradstate, nviscstate,
-                                                  nstate, nauxstate}
+                        elemtobndy, elems) 
   bl = dg.balancelaw
+  dim = dimension(bl)
+  nstate = num_state(bl)
+  ngradstate = num_gradtransform(bl)
+  nviscstate = num_diffusive(bl)
+  nauxstate = num_aux(bl)
+  states_grad = indices_state_for_gradtransform(bl)
+  
+  N = polynomialorder(dg.grid)
   DFloat = eltype(Q)
 
   if dim == 1
@@ -393,7 +409,7 @@ function faceviscterms!(dg::DGModel,
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        transform!(bl, State{vars_transform(bl)}(l_GM), State{vars_state(bl)}(l_QM),
+        gradtransform!(bl, State{vars_gradtransform(bl)}(l_GM), State{vars_state(bl)}(l_QM),
                    State{vars_aux(bl)}(l_auxM), t)
 
         # Load plus side data
@@ -405,7 +421,7 @@ function faceviscterms!(dg::DGModel,
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        transform!(bl, State{vars_transform(bl)}(l_GP), State{vars_state(bl)}(l_QP),
+        gradtransform!(bl, State{vars_gradtransform(bl)}(l_GP), State{vars_state(bl)}(l_QP),
                    State{vars_aux(bl)}(l_auxP), t)
 
         bctype = elemtobndy[f, e]
@@ -432,16 +448,20 @@ end
 
 
 """
-    initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
-                  auxstate, vgeo, elems) where {dim, N, nauxstate}
+    initauxstate!(dg::DGModel, auxstate, vgeo, elems)
 
 Computational kernel: Initialize the auxiliary state
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nauxstate},
-                       auxstate, vgeo, elems) where {dim, N, nauxstate}
+function initauxstate!(dg::DGModel, auxstate, vgeo, elems)
 
+  bl = dg.balancelaw
+  dim = dimension(bl)
+  nauxstate = num_aux(bl)
+
+  N = polynomialorder(dg.grid)
+  
   DFloat = eltype(auxstate)
 
   Nq = N + 1

@@ -17,7 +17,7 @@ Subtypes `L` should define the following methods:
 - `vars_transform(::L)`: a tuple of symbols containing the transformed variables of which gradients are computed
 - `vars_diffusive(::L)`: a tuple of symbols containing the diffusive variables
 - `flux!(::L, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)`
-- `transform!(::L, transformstate::State, state::State, auxstate::State, t::Real)`
+- `gradtransform!(::L, transformstate::State, state::State, auxstate::State, t::Real)`
 - `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`
 - `source!(::L, source::State, state::State, auxstate::State, t::Real)`
 - `wavespeed(::L, nM, state::State, aux::State, t::Real)`
@@ -30,24 +30,26 @@ abstract type BalanceLaw end # PDE part
 
 num_aux(m::BalanceLaw) = length(vars_aux(m)) 
 num_state(m::BalanceLaw) = length(vars_state(m)) # nstate
-num_transform(m::BalanceLaw) = length(vars_transform(m))  # number_gradient_states
+num_gradtransform(m::BalanceLaw) = length(vars_gradtransform(m))  # number_gradient_states
 num_diffusive(m::BalanceLaw) = length(vars_diffusive(m)) # number_viscous_states
 
 has_diffusive(m::BalanceLaw) = num_diffusive(m) > 0
+
+indices_state_for_gradtransform(bl::BalanceLaw) = map(var -> findfirst(isequal(var), vars_state(bl)), vars_state_for_gradtransform(bl))
+
 
 # function stubs
 function dimension end
 function vars_aux end
 function vars_state end
-function vars_state_for_transform end
-function vars_transform end
+function vars_state_for_gradtransform end
+function vars_gradtransform end
 function vars_diffusive end
 
 function flux! end
-function transform! end
+function gradtransform! end
 function diffusive! end
 function source! end 
-function transform! end 
 function wavespeed end
 function boundarycondition! end
 function init_aux! end
