@@ -78,8 +78,8 @@ const numdims = 3
 # Define grid size 
 #
 Δx    = 35
-Δy    = 10
-Δz    = 35
+Δy    = 35
+Δz    = 10
 #
 # OR:
 #
@@ -89,9 +89,9 @@ const numdims = 3
 Npoly = 4
 
 # Physical domain extents 
-(xmin, xmax) = (0, 1000)
-(ymin, ymax) = (0, 1500) #VERTICAL
-(zmin, zmax) = (0,  500)
+(xmin, xmax) = (0, 100)
+(ymin, ymax) = (0, 100) #VERTICAL
+(zmin, zmax) = (0, 1500)
 #(xmin, xmax) = (0, 3820)
 #(ymin, ymax) = (0, 1200) #VERTICAL
 #(zmin, zmax) = (0, 1910)
@@ -156,13 +156,12 @@ const Δsqr = Δ * Δ
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
 @inline function preflux(Q,VF, aux, _...)
-    gravity::eltype(Q) = grav
     R_gas::eltype(Q) = R_d
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     ρinv = 1 / ρ
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
+    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
     q_tot = QT / ρ
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
@@ -177,12 +176,11 @@ end
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-    gravity::eltype(Q) = grav
     @inbounds begin 
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
         u, v, w = ρinv * U, ρinv * V, ρinv * W
-        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
+        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
         q_tot = QT / ρ
         TS = PhaseEquil(e_int, q_tot, ρ)
         (n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
@@ -226,7 +224,6 @@ end
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-    gravity::eltype(Q) = grav
     @inbounds begin
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         # Inviscid contributions
@@ -242,7 +239,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
         vθy = VF[_θy]
       
-        #Richardson contribution:
+        # Radiation contribution 
+        F_rad = radiation(aux)  
+        aux[_a_rad] = F_rad
        
         SijSij = VF[_SijSij]
         f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
@@ -295,6 +294,26 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
     end
 end
 
+@inline function radiation(aux)
+
+  z_to_inf = -aux[_a_inf2z]
+  zero_to_z = aux[_a_02z]
+  z = aux[_a_z]
+  z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
+  (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0 
+  # Constants 
+  F_0 = 70 
+  F_1 = 22
+  α_z = 1
+  ρ_i = 1.22
+  D_subsidence = 3.75e-6
+  term1 = F_0 * exp(-z_to_inf) 
+  term2 = F_1 * exp(-zero_to_z)
+  term3 = ρ_i * cp_d * D_subsidence * α_z * (0.25 * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
+  F_rad = term1 + term2 + term3  
+  return F_rad
+end
+
 # -------------------------------------------------------------------------
 #md ### Viscous fluxes. 
 #md # The viscous flux function compute_stresses computes the components of 
@@ -303,7 +322,6 @@ end
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 #md # (pending)
 @inline function compute_stresses!(VF, grad_vel, _...)
-    gravity::eltype(VF) = grav
     @inbounds begin
         dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
         dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
@@ -359,8 +377,8 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model, 
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-const _nauxstate = 4
-const _a_x, _a_y, _a_z, _sponge = 1:_nauxstate
+const _nauxstate = 7
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_inf2z, _a_rad = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
@@ -381,16 +399,17 @@ const _a_x, _a_y, _a_z, _sponge = 1:_nauxstate
         #BEGIN  User modification on domain parameters.
         #Only change the first index of brickrange if your axis are
         #oriented differently:    
-        x, y, z = aux[_a_x], aux[_a_z], aux[_a_y]
+        #x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+        #TODO z is the vertical coordinate
+        #
+        domain_left  = xmin 
+        domain_right = xmax
         
-        domain_left  = xmin # brickrange[1][1]
-        domain_right = xmax # brickrange[1][end]
+        domain_front = ymin 
+        domain_back  = ymax 
         
-        domain_front = zmin # brickrange[3][1]
-        domain_back  = zmax # brickrange[3][end]
-        
-        domain_bott  = ymin # brickrange[2][1]
-        domain_top   = ymax # brickrange[2][end]
+        domain_bott  = zmin 
+        domain_top   = zmax 
 
          #END User modification on domain parameters.
         
@@ -431,7 +450,7 @@ const _a_x, _a_y, _a_z, _sponge = 1:_nauxstate
         
         beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
         beta  = min(beta, 1.0)
-        aux[_sponge] = beta
+        aux[_a_sponge] = beta
         
     end
 end
@@ -488,8 +507,7 @@ end
     
     @inbounds begin
         U, V, W  = Q[_U], Q[_V], Q[_W]        
-        beta     = aux[_sponge]
-        
+        beta     = aux[_a_sponge]
         S[_U] -= beta * U
         S[_V] -= beta * V
         S[_W] -= beta * W
@@ -499,13 +517,36 @@ end
 #---END SPONGE
 
 @inline function source_geopot!(S,Q,aux,t)
-    gravity::eltype(Q) = grav
     @inbounds begin
         ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-        S[_V] += - ρ * gravity
+        S[_W] += - ρ * grav
     end
 end
 
+# Test integral exactly according to the isentropic vortex example
+@inline function integral_knl(val, Q, aux)
+  κ = 85.0
+  @inbounds begin
+    @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    ρinv = 1 / ρ
+    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    u, v, w = ρinv * U, ρinv * V, ρinv * W
+    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+    q_tot = QT / ρ
+    # Establish the current thermodynamic state using the prognostic variables
+    TS = PhaseEquil(e_int, q_tot, ρ)
+    q_liq = PhasePartition(TS).liq
+    val[1] = ρ * κ * q_liq 
+  end
+end
+
+function integral_computation(disc, Q, t)
+  DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
+                                                         (_a_02z))
+  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
+                                                                 _a_inf2z,
+                                                                 _a_02z)
+end
 
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
@@ -519,7 +560,6 @@ end
 function dycoms!(dim, Q, t, x, y, z, _...)
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
-    gravity::DFloat = grav
     
     # ----------------------------------------------------
     # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
@@ -547,7 +587,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
-    xvert          = y
+    xvert          = z
     
     datat          = spl_tinit(xvert)
     dataq          = spl_qinit(xvert)
@@ -570,7 +610,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     V           = ρ * v
     W           = ρ * w
     e_kin       = (u^2 + v^2 + w^2) / 2  
-    e_pot       = gravity * xvert
+    e_pot       = grav * xvert
     e_int       = internal_energy(T, PhasePartition(q_tot))
     E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
     
@@ -622,12 +662,13 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              auxiliary_state_length = _nauxstate,
                              auxiliary_state_initialization! =
                              auxiliary_state_initialization!,
-                             source! = source!)
+                             source! = source!,
+                             preodefun! = integral_computation)
 
     # This is a actual state/function that lives on the grid
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
-
+    
     lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
@@ -654,9 +695,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 9
-    _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+    npoststates = 11
+    _int1, _int2, _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
@@ -665,8 +706,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           beta = aux[_sponge]
-                                                           (R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (beta, preflux(Q, QV, aux)...)
+                                                          F_rad_out = radiation(aux)
+                                                           beta = aux[_a_sponge]
+                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], F_rad_out, beta, preflux(Q, QV, aux)...)
                                                        end
                                                    end
 
@@ -686,6 +728,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         step[1] += 1
         nothing
     end
+
+    # Initialise the integration computation. Kernels calculate this at every timestep?? 
+    integral_computation(spacedisc, Q, 0) 
     
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
