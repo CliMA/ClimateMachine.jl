@@ -117,8 +117,6 @@ else
     #
     # User defines the number of elements:
     #
-    (Nex, Ney, Nez) = (10, 10, 1)
-    
     Δx = Lx / ((Nex * Npoly) + 1)
     Δy = Ly / ((Ney * Npoly) + 1)
     Δz = Lz / ((Nez * Npoly) + 1)
@@ -298,20 +296,6 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
 end
 
 # -------------------------------------------------------------------------
-#md ### Auxiliary Function (Not required)
-#md # In this example the auxiliary function is used to store the spatial
-#md # coordinates. 
-# -------------------------------------------------------------------------
-const _nauxstate = 3
-const _a_x, _a_y, _a_z, = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z)
-    @inbounds begin
-        aux[_a_x] = x
-        aux[_a_y] = y
-        aux[_a_z] = z
-    end
-end
-# -------------------------------------------------------------------------
 #md ### Viscous fluxes. 
 #md # The viscous flux function compute_stresses computes the components of 
 #md # the velocity gradient tensor, and the corresponding strain rates to
@@ -375,13 +359,80 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model, 
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-const _nauxstate = 3
-const _a_x, _a_y, _a_z, = 1:_nauxstate
+const _nauxstate = 4
+const _a_x, _a_y, _a_z, _sponge = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
+
+        #Sponge
+        csleft  = 0.0
+        csright = 0.0
+        csfront = 0.0
+        csback  = 0.0
+        ctop    = 0.0
+        
+        cs_left_right = 0.0
+        cs_front_back = 0.0
+        ct            = 1.0
+
+        #BEGIN  User modification on domain parameters.
+        #Only change the first index of brickrange if your axis are
+        #oriented differently:    
+        x, y, z = aux[_a_x], aux[_a_z], aux[_a_y]
+        
+        domain_left  = xmin # brickrange[1][1]
+        domain_right = xmax # brickrange[1][end]
+        
+        domain_front = zmin # brickrange[3][1]
+        domain_back  = zmax # brickrange[3][end]
+        
+        domain_bott  = ymin # brickrange[2][1]
+        domain_top   = ymax # brickrange[2][end]
+
+         #END User modification on domain parameters.
+        
+        # Define Sponge Boundaries      
+        xc       = 0.5*(domain_right + domain_left)
+        yc       = 0.5*(domain_back  + domain_front)
+        zc       = 0.5*(domain_top   + domain_bott)
+        
+        top_sponge  = 0.85 * domain_top
+        xsponger    = domain_right - 0.15*(domain_right - xc)
+        xspongel    = domain_left  + 0.15*(xc - domain_left)
+        ysponger    = domain_back  - 0.15*(domain_back - yc)
+        yspongel    = domain_front + 0.15*(yc - domain_front)
+       
+        #x left and right
+        #xsl
+        if x <= xspongel
+            csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+        end
+        #xsr
+        if x >= xsponger
+            csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+        end        
+        #y left and right
+        #ysl
+        if y <= yspongel
+            csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+        end
+        #ysr
+        if y >= ysponger
+            csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+        end
+                
+        #Vertical sponge:         
+        if z >= top_sponge
+            ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
+        end
+        
+        beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        beta  = min(beta, 1.0)
+        aux[_sponge] = beta
+        
     end
 end
 
@@ -434,77 +485,10 @@ end
 
 
 @inline function source_sponge!(S,Q,aux,t)
-    gravity::eltype(Q) = grav
-     
-    csleft  = 0.0
-    csright = 0.0
-    csfront = 0.0
-    csback  = 0.0
-    ctop    = 0.0
     
-    cs_left_right = 0.0
-    cs_front_back = 0.0
-    ct            = 1.0
-
     @inbounds begin
         U, V, W  = Q[_U], Q[_V], Q[_W]        
-        
-        #BEGIN  User modification on domain parameters.
-        #Only change the first index of brickrange if your axis are
-        #oriented differently:    
-        x, y, z = aux[_a_x], aux[_a_z], aux[_a_y]
-        
-        domain_left  = 0.0 # brickrange[1][1]
-        domain_right = 1000.0 # brickrange[1][end]
-        
-        domain_front = 0.0 # brickrange[3][1]
-        domain_back  = 500.0 # brickrange[3][end]
-        
-        domain_bott  = 0.0 # brickrange[2][1]
-        domain_top   = 1500.0 # brickrange[2][end]
-
-         #END User modification on domain parameters.
-        
-        # Define Sponge Boundaries      
-        xc       = 0.5*(domain_right + domain_left)
-        yc       = 0.5*(domain_back  + domain_front)
-        zc       = 0.5*(domain_top   + domain_bott)
-        
-        top_sponge  = 0.85 * domain_top
-        xsponger    = domain_right - 0.15*(domain_right - xc)
-        xspongel    = domain_left  + 0.15*(xc - domain_left)
-        ysponger    = domain_back  - 0.15*(domain_back - yc)
-        yspongel    = domain_front + 0.15*(yc - domain_front)
-       
-        #x left and right
-        #xsl
-        if x <= xspongel
-            csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
-        end
-        #xsr
-        if x >= xsponger
-            csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
-        end        
-        #y left and right
-        #ysl
-        if y <= yspongel
-            csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
-        end
-        #ysr
-        if y >= ysponger
-            csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
-        end
-                
-        #Vertical sponge:         
-        if z >= top_sponge
-            ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
-        end
-
-        
-        beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        beta  = min(beta, 1.0)
-
-        #aux[_sponge] = beta
+        beta     = aux[_sponge]
         
         S[_U] -= beta * U
         S[_V] -= beta * V
@@ -671,8 +655,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     npoststates = 9
-    _post_sgs, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("SGS", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+    _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
@@ -681,7 +665,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
+                                                           beta = aux[_sponge]
+                                                           (R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (beta, preflux(Q, QV, aux)...)
                                                        end
                                                    end
 
