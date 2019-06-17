@@ -124,7 +124,7 @@ const Δsqr = Δ * Δ
 @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
 @info @sprintf """ ----------------------------------------------------"""
 
- #Grids.READTOPOtxt_header(0, 0, 0, 0)
+ Grids.READTOPOtxt_header(0, 0, 0, 0)
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 

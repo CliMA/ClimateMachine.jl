@@ -112,7 +112,7 @@ if ( Δx > 0)
     Nex = ceil(Int64, ratiox)
     Ney = ceil(Int64, ratioy)
     Nez = ceil(Int64, ratioz)
- 
+    
 else
     #
     # User defines the number of elements:
@@ -244,7 +244,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vθy = VF[_θy]
       
         #Richardson contribution:
-       
+      
         SijSij = VF[_SijSij]
         f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
 
@@ -296,20 +296,6 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
     end
 end
 
-# -------------------------------------------------------------------------
-#md ### Auxiliary Function (Not required)
-#md # In this example the auxiliary function is used to store the spatial
-#md # coordinates. 
-# -------------------------------------------------------------------------
-const _nauxstate = 3
-const _a_x, _a_y, _a_z, = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z)
-    @inbounds begin
-        aux[_a_x] = x
-        aux[_a_y] = y
-        aux[_a_z] = z
-    end
-end
 # -------------------------------------------------------------------------
 #md ### Viscous fluxes. 
 #md # The viscous flux function compute_stresses computes the components of 
@@ -427,92 +413,91 @@ end
 
     # Typically these sources are imported from modules
     @inbounds begin
+
         source_geopot!(S, Q, aux, t)
-        #source_sponge_rectangular!(S, Q, aux)
+        #source_sponge!(S, Q, aux, t)
     end
-    
 end
 
 
-# Sponge: classical Rayleigh type absorbing layers:
-@inline function source_sponge_rectangular!(S, Q, aux)
+@inline function source_sponge!(S,Q,aux,t)
+    gravity::eltype(Q) = grav
 
-    #THIS IS BREAKING IN MEMORY OR SOMETHING ON GPU FOR SOME UNKNOWM REASON
-    
-    U, V, W = Q[_U], Q[_V], Q[_W]
-
-    #
-    # User sponge intensity inputs:   
-    #    
     cs_left_right = 0.0
     cs_front_back = 0.0
     ct            = 1.0
 
-    #BEGIN  User modification on domain parameters.
-    #Only change the first index of brickrange if your axis are
-    #oriented differently:    
-    x, y, z = aux[_a_x], aux[_a_z], aux[_a_y]
-    
-    domain_left  = brickrange[1][1]
-    domain_right = brickrange[1][end]
-    
-    domain_front = brickrange[3][1]
-    domain_back  = brickrange[3][end]
-    
-    domain_bott  = brickrange[2][1]
-    domain_top   = brickrange[2][end]
-    #END User modification on domain parameters.
-    
-    # Define Sponge Boundaries      
-    xc       = 0.5*(domain_right + domain_left)
-    yc       = 0.5*(domain_back + domain_front)
-    zc       = 0.5*(domain_top + domain_bott)
-    
-    top_sponge  = 0.85 * domain_top
-    xsponger = domain_right - 0.15*(domain_right - xc)
-    xspongel = domain_left  + 0.15*(xc - domain_left)
-    ysponger = domain_back  - 0.15*(domain_back - yc)
-    yspongel = domain_front + 0.15*(yc - domain_front)
-    
-    (csleft, csright)  = (0.0, 0.0)
-    (csfront, csback)  = (0.0, 0.0)
-    ctop               = 0.0
-    
-    #x left and right
-    #xsl
-    if x <= xspongel
-        csleft = cs_left_right * sinpi(1/2 * (x - xspongel)/(domain_left - xspongel))^4
-    end
-    
-    #xsr
-    if x >= xsponger
-        csright = cs_left_right * sinpi(1/2 * (x - xsponger)/(domain_right - xsponger))^4
-    end        
-    #y left and right
-    #ysl
-    if y <= yspongel
-        csfront = cs_front_back * sinpi(1/2 * (y - yspongel)/(domain_front - yspongel))^4
-    end
-    #ysr
-    if y >= ysponger
-        csback = cs_front_back * sinpi(1/2 * (y - ysponger)/(ymay - ysponger))^4
-    end
-    
-    #Vertical sponge:         
-    if z >= top_sponge
-        ctop = ct * sinpi(1/2 * (z - top_sponge)/(domain_top - top_sponge))^4
-    end
-
-    beta  = 1.0 - (1.0 - ctop)*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-    beta  = min(beta, 1.0)
-    alpha = 1.0 - beta
-    
     @inbounds begin
+        U, V, W  = Q[_U], Q[_V], Q[_W]        
+        
+        #BEGIN  User modification on domain parameters.
+        #Only change the first index of brickrange if your axis are
+        #oriented differently:    
+        x, y, z = aux[_a_x], aux[_a_z], aux[_a_y]
+        
+        domain_left  = 0.0 # brickrange[1][1]
+        domain_right = 1000.0 # brickrange[1][end]
+        
+        domain_front = 0.0 # brickrange[3][1]
+        domain_back  = 500.0 # brickrange[3][end]
+        
+        domain_bott  = 0.0 # brickrange[2][1]
+        domain_top   = 1200.0 # brickrange[2][end]
+
+         #END User modification on domain parameters.
+        
+        # Define Sponge Boundaries      
+        xc       = 0.5*(domain_right + domain_left)
+        yc       = 0.5*(domain_back  + domain_front)
+        zc       = 0.5*(domain_top   + domain_bott)
+        
+        top_sponge  = 0.85 * domain_top
+        xsponger    = domain_right - 0.15*(domain_right - xc)
+        xspongel    = domain_left  + 0.15*(xc - domain_left)
+        ysponger    = domain_back  - 0.15*(domain_back - yc)
+        yspongel    = domain_front + 0.15*(yc - domain_front)
+        
+        csleft  = 0.0
+        csright = 0.0
+        csfront = 0.0
+        csback  = 0.0
+        ctop    = 0.0
+        
+        #x left and right
+        #xsl
+        if x <= xspongel
+            csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+        end
+        #xsr
+        if x >= xsponger
+            csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+        end        
+        #y left and right
+        #ysl
+        if y <= yspongel
+            csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+        end
+        #ysr
+        if y >= ysponger
+            csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+        end
+                
+        #Vertical sponge:         
+        if z >= top_sponge
+            ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
+        end
+
+        
+        beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        beta  = min(beta, 1.0)
+
+        #aux[_sponge] = beta
+        
         S[_U] -= beta * U
         S[_V] -= beta * V
         S[_W] -= beta * W
+        
     end
-   
 end
 #---END SPONGE
 
@@ -527,10 +512,10 @@ end
 
 # initial condition
 """
-User-specified. Required. 
-This function specifies the initial conditions
-for the dycoms driver. 
-"""
+    User-specified. Required. 
+    This function specifies the initial conditions
+    for the dycoms driver. 
+    """
 function dycoms!(dim, Q, t, x, y, z, _...)
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
@@ -578,7 +563,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     P     = datap    
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
-        
+    
     # energy definitions
     u, v, w     = 0*datau, 0*datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
