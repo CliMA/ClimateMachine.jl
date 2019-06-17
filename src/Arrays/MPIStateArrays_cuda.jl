@@ -33,7 +33,11 @@ end
 # }}}
 
 # {{{ MPI Buffer handling
-function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray, d_sendelems)
+# TODO: Revisit when not D ≠ (:, :), may want to pack data perhaps differently
+# for the GPU?
+function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray,
+                      d_sendelems::CuArray,
+                      D::NTuple{2, Colon})
   nsendelem = length(d_sendelems)
   Np = size(d_buf, 1)
   nvar = size(d_buf, 2)
@@ -44,7 +48,10 @@ function fillsendbuf!(sendbuf, d_sendbuf::CuArray, d_buf::CuArray, d_sendelems)
   end
 end
 
-function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf::CuArray, nrealelem)
+# TODO: Revisit when not D ≠ (:, :), may want to pack data perhaps differently
+# for the GPU?
+function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf::CuArray, nrealelem,
+                          D::NTuple{2, Colon})
   nrecvelem = size(recvbuf)[end]
   Np = size(d_buf, 1)
   nvar = size(d_buf, 2)
@@ -55,67 +62,4 @@ function transferrecvbuf!(d_recvbuf::CuArray, recvbuf, d_buf::CuArray, nrealelem
                                nrecvelem, nrealelem))
   end
 end
-# }}}
-
-# {{{ Kernel wrappers
-function volumegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                     d_grad::CuArray, d_Q, d_vgeo, gravity, d_D,
-                     elems) where {dim, N, nmoist, ntrace}
-  ngrad = _nstategrad + 3nmoist
-  Qshape    = (ntuple(j->N+1, dim)..., size(d_Q, 2), size(d_Q, 3))
-  gradshape = (ntuple(j->N+1, dim)..., ngrad, size(d_Q, 3))
-  vgeoshape = (ntuple(j->N+1, dim)..., size(d_vgeo, 2), size(d_Q, 3))
-
-  d_gradC = reshape(d_grad, gradshape)
-  d_QC = reshape(d_Q, Qshape)
-  d_vgeoC = reshape(d_vgeo, vgeoshape)
-
-  nelem = length(elems)
-  @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
-        knl_volumegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), d_gradC,
-                        d_QC, d_vgeoC, gravity, d_D, nelem))
-end
-
-function facegrad!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                   d_grad::CuArray, d_Q, d_vgeo, d_sgeo, gravity, elems,
-                   d_vmapM, d_vmapP, d_elemtobndy) where {dim, N, nmoist,
-                                                          ntrace}
-  nelem = length(elems)
-  @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        knl_facegrad!(Val(dim), Val(N), Val(nmoist), Val(ntrace), d_grad, d_Q,
-                      d_vgeo, d_sgeo, gravity, nelem, d_vmapM, d_vmapP,
-                      d_elemtobndy))
-end
-
-function volumerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                    d_rhs::CuArray, d_Q, d_grad, d_vgeo, gravity, viscosity,
-                    d_D, elems) where {dim, N, nmoist, ntrace}
-  ngrad = _nstategrad + 3nmoist
-
-  Qshape    = (ntuple(j->N+1, dim)..., size(d_Q, 2), size(d_Q, 3))
-  gradshape = (ntuple(j->N+1, dim)..., ngrad, size(d_Q, 3))
-  vgeoshape = (ntuple(j->N+1, dim)..., size(d_vgeo,2), size(d_Q, 3))
-
-  d_rhsC = reshape(d_rhs, Qshape...)
-  d_QC = reshape(d_Q, Qshape)
-  d_gradC = reshape(d_grad, gradshape)
-  d_vgeoC = reshape(d_vgeo, vgeoshape)
-
-  nelem = length(elems)
-  @cuda(threads=ntuple(j->N+1, dim), blocks=nelem,
-        knl_volumerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), d_rhsC, d_QC,
-                       d_gradC, d_vgeoC, gravity, viscosity, d_D, nelem))
-end
-
-function facerhs!(::Val{dim}, ::Val{N}, ::Val{nmoist}, ::Val{ntrace},
-                  d_rhs::CuArray, d_Q, d_grad, d_vgeo, d_sgeo, gravity,
-                  viscosity, elems, d_vmapM, d_vmapP,
-                  d_elemtobndy) where {dim, N, nmoist, ntrace}
-  nelem = length(elems)
-  @cuda(threads=(ntuple(j->N+1, dim-1)..., 1), blocks=nelem,
-        knl_facerhs!(Val(dim), Val(N), Val(nmoist), Val(ntrace), d_rhs, d_Q,
-                     d_grad, d_vgeo, d_sgeo, gravity, viscosity, nelem,
-                     d_vmapM, d_vmapP, d_elemtobndy))
-end
-
 # }}}

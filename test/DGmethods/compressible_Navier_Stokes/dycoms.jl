@@ -69,7 +69,6 @@ const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 if !@isdefined integration_testing
     const integration_testing =
         parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-    using Random
 end
 
 const γ_exact = 7 // 5
@@ -530,7 +529,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
 
-    lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
     
     eng0 = norm(Q)
     @info @sprintf """Starting norm(Q₀) = %.16e""" eng0
@@ -570,26 +569,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     # Print some end of the simulation information
     engf = norm(Q)
-    if integration_testing
-        Qe = MPIStateArray(spacedisc,
-                           (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                          DFloat(timeend), x...))
-        engfe = norm(Qe)
-        errf = euclidean_distance(Q, Qe)
-        @info @sprintf """Finished
-        norm(Q)                 = %.16e
-        norm(Q) / norm(Q₀)      = %.16e
-        norm(Q) - norm(Q₀)      = %.16e
-        norm(Q - Qe)            = %.16e
-        norm(Q - Qe) / norm(Qe) = %.16e
-        """ engf engf/eng0 engf-eng0 errf errf / engfe
-    else
-        @info @sprintf """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-    end
-    integration_testing ? errf : (engf / eng0)
+    @info @sprintf """Finished
+    norm(Q)            = %.16e
+    norm(Q) / norm(Q₀) = %.16e
+    norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
+    engf / eng0
 end
 
 using Test

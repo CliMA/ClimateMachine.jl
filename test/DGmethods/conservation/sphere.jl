@@ -117,7 +117,7 @@ function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, DFloat, dt)
   end
   Q = MPIStateArray(spacedisc, initialcondition!)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   sum0 = weightedsum(Q)
@@ -173,7 +173,7 @@ let
   Rrange = 1.0:0.25:2.0
 
   dim = 3
-  for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       Random.seed!(0)
       @info (ArrayType, DFloat, dim)
