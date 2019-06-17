@@ -36,6 +36,11 @@ individual water drop and the square root of its radius * g.
 """
 function terminal_velocity_single_drop_coeff(ρ::DT) where {DT<:Real}
 
+    tmp::DT = DT(8/3) / C_drag * (dens_liquid / ρ - DT(1))
+    if tmp < DT(0)
+      @show(dens_liquid, ρ, (dens_liquid / ρ - DT(1)), tmp)
+    end
+
     # terminal_vel_of_individual_drop = v_drop_coeff * (g * drop_radius)^(1/2)
     v_c::DT = sqrt(DT(8/3) / C_drag * (dens_liquid / ρ - DT(1)))
     return v_c

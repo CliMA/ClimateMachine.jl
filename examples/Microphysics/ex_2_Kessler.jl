@@ -65,8 +65,13 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
                                        ρq_tot / ρ, ρq_liq / ρ,
                                        ρq_rai / ρ, ρe_tot / ρ
 
-    # compute rain fall speed
-    rain_w = terminal_velocity(q_rai, ρ)
+    DF = eltype(ρ)
+    if(q_rai >= DF(0))
+      # compute rain fall speed
+      rain_w = terminal_velocity(q_rai, ρ)
+    else
+      rain_w = DF(0)
+    end
 
     return (u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot)
   end
@@ -142,8 +147,13 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
   @inbounds begin
     DF = eltype(Q)
 
+    x = aux[_c_x]
     z = aux[_c_z]
     p = aux[_c_p]
+
+    if ρ < DF(1)
+      @show(ρ, x, z)
+    end
 
     S .= 0
     if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
@@ -161,7 +171,6 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
       src_q_rai_accr = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
       src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
       src_q_rai_tot = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
-
 
       S[_ρq_liq]  = ρ * src_q_liq
 
@@ -188,7 +197,12 @@ eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
   @inbounds begin
     p = aux[_c_p]
 
-    F .= 0
+    DF = eltype(Q)
+
+    rain_w = DF(0)
+
+    F .= DF(0)
+
     # advect the moisture and energy
     F[1, _ρq_tot], F[2, _ρq_tot] = u *  ρ * q_tot,      w           *  ρ * q_tot
     F[1, _ρq_liq], F[2, _ρq_liq] = u *  ρ * q_liq,      w           *  ρ * q_liq
@@ -319,7 +333,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   step = [0]
   mkpath("vtk")
 
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(60) do (init=false)
 
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
