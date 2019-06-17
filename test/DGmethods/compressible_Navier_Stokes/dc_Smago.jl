@@ -39,8 +39,8 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
+const _nviscstates = 17
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e = 1:_nviscstates
 
 # Gradient state labels
 const _ngradstates = 6
@@ -98,16 +98,22 @@ const Nex = ceil(Int64, ratiox)
 const Ney = ceil(Int64, ratioy)
 const Nez = ceil(Int64, ratioz)
 
-#const Δx = Lx / ((Nex * Npoly) + 1)
-#const Δy = Ly / ((Ney * Npoly) + 1)
-#const Δz = Lz / ((Nez * Npoly) + 1)
-
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 const C_smag = 0.23
 # Equivalent grid-scale
 Δ = sqrt(Δx * Δy)
 const Δsqr = Δ * Δ
 
+# Anisotropic grid computation
+function anisotropic_coefficient_sgs(Δx, Δy, Δz) 
+  Δ_sorted = sort([Δx, Δy, Δz])  
+  Δ_s1 = Δ_sorted[1]
+  Δ_s2 = Δ_sorted[2]
+  a1 = Δ_s1 / max(Δx,Δy, Δz) / (Npoly + 1)
+  a2 = Δ_s2 / max(Δx,Δy, Δz) / (Npoly + 1)
+  f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2 )  
+  return f_anisotropic
+end
 
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """   ______ _      _____ __  ________                  """     
@@ -157,16 +163,16 @@ end
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-    gravity::eltype(Q) = grav
+  gravity::eltype(Q) = grav
     @inbounds begin 
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-        u, v, w = ρinv * U, ρinv * V, ρinv * W
-        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
-        q_tot = QT / ρ
-        TS = PhaseEquil(e_int, q_tot, ρ)
-        (n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
-    end
+      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+      x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+      u, v, w = ρinv * U, ρinv * V, ρinv * W
+      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
+      q_tot = QT / ρ
+      TS = PhaseEquil(e_int, q_tot, ρ)
+      (n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
+  end
 end
 
 # -------------------------------------------------------------------------
@@ -200,10 +206,11 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         #Richardson contribution:
        
         SijSij = VF[_SijSij]
-        f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
+        f_R = 1.0
 
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e::eltype(VF) = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        ν_e *= f_anisotropic 
         D_e = ν_e / Prandtl_t
         
         # Multiply stress tensor by viscosity coefficient:
@@ -320,6 +327,7 @@ end
         VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
         VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_SijSij] = SijSij
+        VF[_ν_e] = SijSij
     end
 end
 # -------------------------------------------------------------------------
@@ -554,7 +562,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
+                                                         ν_e = QV[_ν_e]
+                                                         (R[_post_sgs], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (ν_e, preflux(Q, QV, aux))
                                                        end
                                                    end
 
