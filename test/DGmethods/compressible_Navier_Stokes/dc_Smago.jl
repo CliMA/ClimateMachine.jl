@@ -115,6 +115,8 @@ function anisotropic_coefficient_sgs(Δx, Δy, Δz)
   return f_anisotropic
 end
 
+const f_anisotropic = anisotropic_coefficient_sgs(Δx, Δy, Δz) 
+
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """   ______ _      _____ __  ________                  """     
 @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  

@@ -628,10 +628,6 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
   DFloat = eltype(Q)
 
   Nq = N + 1
-<<<<<<< HEAD
-  Nq = Nq
-=======
->>>>>>> 362b63ec842221b51dbb201586800c38cb4456a7
   Nqj = dim == 2 ? 1 : Nq
 
   nout = length(outstate)
@@ -716,8 +712,6 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
   end
   nothing
 end
-<<<<<<< HEAD
-=======
 
 function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
                                                 ::Val{nvertelem}, P, elems,
@@ -765,4 +759,3 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
   end
   nothing
 end
->>>>>>> 362b63ec842221b51dbb201586800c38cb4456a7
