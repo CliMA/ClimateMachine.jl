@@ -90,7 +90,7 @@ q_rai = specific humidity, rain [kg/kg]
 
 terminal_velocity = mass weighted average rain fall speed [m/s]
 
-conv_q_vap_to_q_liq_ice  = tendency to q_liq and q_ice due to
+conv_q_vap_to_q_liq      = tendency to q_liq and q_ice due to
                            condensation/evaporation and
                            sublimation/resublimation from q_vap [1/s]
 conv_q_liq_to_q_rai_acnv = tendency to q_rai due to autoconversion from q_liq [1/s]
