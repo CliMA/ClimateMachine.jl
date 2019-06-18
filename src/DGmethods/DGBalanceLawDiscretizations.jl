@@ -15,7 +15,7 @@ ordinary differential equations methods; see [`ODESolvers`](@ref).
 
 The flux function `F_{i}` is taken to be of the form:
 ```math
-F_{i} := F_{i}(q, σ; a)
+F_{i} := F_{i}(q, σ; a)\\\\
 σ = H(q, ∇G(q; a); a)
 ```
 where ``a`` is a set of parameters and viscous terms enter through ``σ``
@@ -280,32 +280,32 @@ The function `viscous_penalty!` is the penalty terms to be used for the
 DG-gradient calculation. It is called with data from two neighbouring degrees of
 freedom as
 ```
-viscous_penalty!(V, nM, HM, QM, auxM, HP, QP, auxP, t)
+viscous_penalty!(V, nM, GM, QM, auxM, GP, QP, auxP, t)
 ```
 where:
 - `V` is an `MVector` of length `number_viscous_states` to be filled with the
   numerical penalty across the face; see below.
 - `nM` is the unit outward normal to the face with respect to the minus side
   (`MVector` of length `3`)
-- `HM` and `HP` are the minus and plus evaluation of `gradient_transform!` on
+- `GM` and `GP` are the minus and plus evaluation of `gradient_transform!` on
   either side of the face
 - `QM` and `QP` are the minus and plus side states (`MArray`); filled only with
   `states_for_gradient_transform` states.
 - `auxM` and `auxP` are the auxiliary states (`MArray`)
 - `t` is the current simulation time
-The viscous penalty function is should compute on the faces
+The viscous penalty function should compute on the faces
 ```math
 n^{-} \\cdot H^{*} - n^{-} \\cdot H^{-}
 ```
 where ``n^{-} \\cdot H^{*}`` is the "numerical-flux" for the viscous state
 computation and ``H^{-}`` is the value of `viscous_transform!` evaluated on the
-minus side ``n^{-} \\cdot G^{-}`` as an argument.
+minus side with ``n^{-} \\cdot G^{-}`` as an argument.
 
 If `grid.topology` has a boundary then the function `viscous_boundary_penalty!`
 must be specified. This function is called with the data from the neighbouring
 DOF as
 ```
-viscous_boundary_penalty!(V, nM, HM, QM, auxM, HP, QP, auxP, bctype, t)
+viscous_boundary_penalty!(V, nM, GM, QM, auxM, GP, QP, auxP, bctype, t)
 ```
 where the required behaviour mimics that of `viscous_penalty!` and
 `numerical_boundary_flux!`.
