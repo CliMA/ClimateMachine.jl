@@ -406,7 +406,7 @@ end
 
 using Test
 let
-  timeend = 30 * 60
+  timeend = 5 * 60 #TODO - 30 * 60
   numelem = (75, 75)
   lvls = 3
   dim = 2
