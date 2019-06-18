@@ -36,13 +36,9 @@ individual water drop and the square root of its radius * g.
 """
 function terminal_velocity_single_drop_coeff(ρ::DT) where {DT<:Real}
 
-    tmp::DT = DT(8/3) / C_drag * (dens_liquid / ρ - DT(1))
-    if tmp < DT(0)
-      @show(dens_liquid, ρ, (dens_liquid / ρ - DT(1)), tmp)
-    end
-
     # terminal_vel_of_individual_drop = v_drop_coeff * (g * drop_radius)^(1/2)
     v_c::DT = sqrt(DT(8/3) / C_drag * (dens_liquid / ρ - DT(1)))
+
     return v_c
 end
 
@@ -58,8 +54,6 @@ Marshall Palmer 1948 distribution of rain drops.
 """
 function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
 
-    vel::DT = 0
-
     v_c = terminal_velocity_single_drop_coeff(ρ)
 
     # gamma(9/2)
@@ -68,10 +62,7 @@ function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
     v_coeff::DT = gamma_9_2 * v_c / DT(6) *
                   (DT(8) * π)^DT(-1/8) * (ρ / dens_liquid)^(DT(1/8))
 
-    # TODO - should it be multiplied by ρ/ρ_ground?
-    if (q_rai > DT(0)) # TODO - assert positive definite elsewhere
-      vel = v_coeff * MP_n_0^(DT(-1/8)) * grav^DT(1/2) * q_rai^DT(1/8)
-    end
+    vel = v_coeff * MP_n_0^(DT(-1/8)) * sqrt(grav) * q_rai^DT(1/8)
 
     return vel
 end
@@ -141,9 +132,11 @@ function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT, ρ::DT) where {DT<:Real}
   #gamma(7/2)
   gamma_7_2::DT = DT(3.32)
 
-  accr_coeff::DT = gamma_7_2 * DT(8)^DT(-7/8) * π^DT(1/8) * v_c * E_col * (ρ / dens_liquid)^DT(7/8)
+  accr_coeff::DT = gamma_7_2 * DT(8)^DT(-7/8) * π^DT(1/8) * v_c * E_col *
+                   (ρ / dens_liquid)^DT(7/8)
 
-  src_q_rai::DT = accr_coeff * MP_n_0^DT(1/8) * grav^DT(1/2) * q_liq * q_rai^DT(7/8)
+  src_q_rai::DT = accr_coeff * MP_n_0^DT(1/8) * sqrt(grav) *
+                  q_liq * q_rai^DT(7/8)
 
   return src_q_rai
 end
@@ -164,30 +157,29 @@ Smolarkiewicz and Grabowski 1996.
 function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition,
                              T::DT, p::DT, ρ::DT) where {DT<:Real}
 
-  ret::DT = 0
-  if (qr > DT(0)) # TODO - assert positive definite elsewhere
+  qv_sat = saturation_shum(T, ρ, q)
+  q_v::DT = q.tot - q.liq - q.ice
+  S::DT = q_v/qv_sat - DT(1)
 
-    qv_sat = saturation_shum(T, ρ, q)
-    q_v::DT = q.tot - q.liq - q.ice
-    S::DT = q_v/qv_sat - DT(1)
+  L::DT = latent_heat_vapor(T)
+  p_vs::DT = saturation_vapor_pressure(T, Liquid())
+  G::DT = DT(1) / (
+            L / K_therm / T * (L / R_v / T - DT(1)) + R_v * T / D_vapor / p_vs
+          )
 
-    L::DT = latent_heat_vapor(T)
-    p_vs::DT = saturation_vapor_pressure(T, Liquid())
-    G::DT = DT(1) / (
-              L / K_therm / T * (L / R_v / T - DT(1)) + R_v * T / D_vapor / p_vs
-            )
+  # gamma(11/4)
+  gamma_11_4::DT = DT(1.61)
+  N_Sc::DT = ν_air / D_vapor
+  v_c::DT = terminal_velocity_single_drop_coeff(ρ)
 
-    gamma_11_4::DT = DT(1.61)
-    N_Sc::DT = ν_air / D_vapor
-    v_c::DT = terminal_velocity_single_drop_coeff(ρ)
+  av = sqrt(2 * π) * a_vent * sqrt(ρ / dens_liquid)
+  bv = DT(2)^DT(7/16) * gamma_11_4 * π^DT(5/16) * b_vent * (N_Sc)^DT(1/3) *
+       sqrt(v_c) * (ρ / dens_liquid)^DT(11/16)
 
-    av = DT(2 * π)^DT(1/2) * a_vent * (ρ / dens_liquid)^DT(1/2)
-    bv = DT(2)^DT(7/16) * gamma_11_4 * π^DT(5/16) * b_vent * (N_Sc)^DT(1/3) * v_c^DT(1/2) * (ρ / dens_liquid)^DT(11/16)
+  F::DT = av * sqrt(qr) +
+          bv * grav^DT(1/4) / (MP_n_0)^DT(3/16) / sqrt(ν_air) * qr^DT(11/16)
 
-    F::DT = av * qr^DT(1/2) + bv * grav^DT(1/4) / (MP_n_0)^DT(3/16) / ν_air^DT(1/2) * qr^DT(11/16)
-
-    ret = S * F * G * (MP_n_0)^DT(1/2) / ρ
-  end
+  ret = S * F * G * sqrt(MP_n_0) / ρ
 
   return ret
 

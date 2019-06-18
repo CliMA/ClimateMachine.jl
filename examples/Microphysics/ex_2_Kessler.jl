@@ -68,7 +68,8 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
     DF = eltype(ρ)
     if(q_rai >= DF(0))
       # compute rain fall speed
-      rain_w = terminal_velocity(q_rai, ρ)
+      # rain_w = terminal_velocity(q_rai, ρ) TODO - tmp
+      rain_w = DF(0)
     else
       rain_w = DF(0)
     end
@@ -89,7 +90,7 @@ end
     ρu_nM = nM[1] * ρu_M + nM[2] * ρw_M
 
     QP[_ρu] = ρu_M - 2 * nM[1] * ρu_nM
-    QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM # TODO - what to do about rain fall speed?
+    QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM # TODO - what to do with rain fall speed
 
     QP[_ρe_tot], QP[_ρq_tot], QP[_ρq_liq], QP[_ρq_rai] =
       ρe_tot_M, ρq_tot_M, ρq_liq_M, ρq_rai_M
@@ -172,20 +173,11 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
       src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
       src_q_rai_tot = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
 
-      S[_ρq_liq]  = ρ * src_q_liq
-
+      S[_ρq_liq]  = ρ * (src_q_liq - src_q_rai_acnv - src_q_rai_accr)
       S[_ρq_rai]  = ρ * src_q_rai_tot
       S[_ρq_tot] -= ρ * src_q_rai_tot
       S[_ρe_tot] -= ρ * src_q_rai_tot *
                     (DF(e_int_v0) - (DF(cv_v) - DF(cv_d)) * (T - DF(T_0)))
-      #             TODO - move to microphysics module??
-
-      #if x == 0 && z >= 750
-      #  @printf("z = %4.2f qt = %.8e ql = %.8e qr = %.8e dqrdt = %.8e \n", z, qt, q_sat_adj.liq, qr, dqrdt)
-      #  if z == 1500
-      #      @printf("  ")
-      #  end
-      #end
     end
   end
 end
@@ -198,17 +190,21 @@ eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
     p = aux[_c_p]
 
     DF = eltype(Q)
-
-    rain_w = DF(0)
-
     F .= DF(0)
 
     # advect the moisture and energy
-    F[1, _ρq_tot], F[2, _ρq_tot] = u *  ρ * q_tot,      w           *  ρ * q_tot
-    F[1, _ρq_liq], F[2, _ρq_liq] = u *  ρ * q_liq,      w           *  ρ * q_liq
-    F[1, _ρq_rai], F[2, _ρq_rai] = u *  ρ * q_rai,     (w + rain_w) *  ρ * q_rai
-    F[1, _ρe_tot], F[2, _ρe_tot] = u * (ρ * e_tot + p), w           * (ρ * e_tot + p)
-    # don't advect momentum (kinematic setup)
+    # don't advect momentum and density (kinematic setup)
+
+    F[1, _ρq_tot] = u *  ρ * q_tot
+    F[1, _ρq_liq] = u *  ρ * q_liq
+    F[1, _ρq_rai] = u *  ρ * q_rai
+    F[1, _ρe_tot] = u * (ρ * e_tot + p)
+
+    F[2, _ρq_tot] =  w           *  ρ * q_tot
+    F[2, _ρq_liq] =  w           *  ρ * q_liq
+    F[2, _ρq_rai] = (w + rain_w) *  ρ * q_rai
+    F[2, _ρe_tot] =  w           * (ρ * e_tot + p)
+
   end
 end
 
@@ -360,7 +356,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
         R[v_e_kin] = 1//2 * (u^2 + w^2)
         R[v_e_pot] = grav * z
 
-        R[v_term_vel] = terminal_velocity(q_rai, ρ)
+        if(q_rai > DF(0))
+          R[v_term_vel] = terminal_velocity(q_rai, ρ)
+        else
+          R[v_term_vel] = DF(0)
+        end
+
       end
     end
 
