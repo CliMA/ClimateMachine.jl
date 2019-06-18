@@ -32,7 +32,7 @@ end
 # and consider the dry equation set to be the same as the moist equations but
 # with total specific humidity = 0. 
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
+using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0, Omega
 
 # State labels 
 const _nstate = 6
@@ -77,30 +77,30 @@ const numdims = 3
 #
 # Define grid size 
 #
-Δx    = 50
-Δy    = 50
+Δx    = 35
+Δy    = 35
 Δz    = 10
 #
 # OR:
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (10, 10, 1)
-Npoly = 4
+const (Nex, Ney, Nez) = (10, 10, 1)
+const Npoly = 4
 
 # Physical domain extents 
-(xmin, xmax) = (0, 200)
-(ymin, ymax) = (0, 200) #VERTICAL
-(zmin, zmax) = (0, 1500)
+const (xmin, xmax) = (0, 3820)
+const (ymin, ymax) = (0, 3820) #VERTICAL
+const (zmin, zmax) = (0, 1500)
 #(xmin, xmax) = (0, 3820)
 #(ymin, ymax) = (0, 1200) #VERTICAL
 #(zmin, zmax) = (0, 1910)
 
 
 #Get Nex, Ney from resolution
-Lx = xmax - xmin
-Ly = ymax - ymin
-Lz = zmax - ymin
+const Lx = xmax - xmin
+const Ly = ymax - ymin
+const Lz = zmax - ymin
 
 if ( Δx > 0)
     #
@@ -240,14 +240,14 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vθy = VF[_θy]
       
         # Radiation contribution 
-        F_rad = radiation(aux)  
+        F_rad = ρ * radiation(aux)  
         aux[_a_rad] = F_rad
        
         SijSij = VF[_SijSij]
         f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
 
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e::eltype(VF) = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
         D_e = ν_e / Prandtl_t
         
         # Multiply stress tensor by viscosity coefficient:
@@ -266,6 +266,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
         
+        F[1, _E] -= 0
+        F[2, _E] -= 0
+        F[3, _E] -= F_rad
         # Viscous contributions to mass flux terms
         F[1, _QT] -=  vqx * D_e
         F[2, _QT] -=  vqy * D_e
@@ -413,15 +416,15 @@ const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_02inf, _a_rad = 1:_nauxstate
          #END User modification on domain parameters.
         
         # Define Sponge Boundaries      
-        xc       = 0.5*(domain_right + domain_left)
-        yc       = 0.5*(domain_back  + domain_front)
-        zc       = 0.5*(domain_top   + domain_bott)
+        xc       = 0.5 * (domain_right + domain_left)
+        yc       = 0.5 * (domain_back  + domain_front)
+        zc       = 0.5 * (domain_top   + domain_bott)
         
         top_sponge  = 0.85 * domain_top
-        xsponger    = domain_right - 0.15*(domain_right - xc)
-        xspongel    = domain_left  + 0.15*(xc - domain_left)
-        ysponger    = domain_back  - 0.15*(domain_back - yc)
-        yspongel    = domain_front + 0.15*(yc - domain_front)
+        xsponger    = domain_right - 0.15 * (domain_right - xc)
+        xspongel    = domain_left  + 0.15 * (xc - domain_left)
+        ysponger    = domain_back  - 0.15 * (domain_back - yc)
+        yspongel    = domain_front + 0.15 * (yc - domain_front)
        
         #x left and right
         #xsl
@@ -498,9 +501,39 @@ end
     @inbounds begin
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
+        source_coriolis!(S, Q, aux, t)
+        source_geostrophic!(S, Q, aux, t)
     end
 end
 
+"""
+Coriolis force
+"""
+const f_coriolis = 7.62e-5
+const U_geostrophic = 7.0
+const V_geostrophic = -5.5 
+const Ω = Omega
+@inline function source_coriolis!(S,Q,aux,t)
+  @inbounds begin
+    U, V, W = Q[_U], Q[_V], Q[_W]
+    S[_U] -= 0
+    S[_V] -= 0
+    S[_W] -= 0
+  end
+end
+
+"""
+Geostrophic wind forcing
+"""
+@inline function source_geostrophic!(S,Q,aux,t)
+    @inbounds begin
+      W = Q[_W]
+      U = Q[_U]
+      V = Q[_V]
+      S[_U] -= f_coriolis * (U - U_geostrophic)
+      S[_V] -= f_coriolis * (V - V_geostrophic)
+    end
+end
 
 @inline function source_sponge!(S,Q,aux,t)
     @inbounds begin
@@ -657,8 +690,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              viscous_penalty! = stresses_penalty!,
                              viscous_boundary_penalty! = stresses_boundary_penalty!,
                              auxiliary_state_length = _nauxstate,
-                             auxiliary_state_initialization! =
-                             auxiliary_state_initialization!,
+                             auxiliary_state_initialization! = (x...) ->
+                             auxiliary_state_initialization!(x...),
                              source! = source!,
                              preodefun! = integral_computation)
 
