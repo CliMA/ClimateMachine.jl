@@ -17,22 +17,24 @@ Supertype for discontinuous Galerkin spatial discretizations
 abstract type AbstractDGMethod <: AbstractSpaceMethod end
 
 """
-    odefun!(disc::AbstractSpaceMethod, dQ, Q, t)
+    odefun!(disc::AbstractSpaceMethod, dQ, Q, t; increment)
 
 Evaluates the right-hand side of the spatial discretization defined by `disc` at
-time `t` with state `Q`. The result is added into `dQ`. Namely, the
-semi-discretization is of the form
+time `t` with state `Q`.
+The result is either added into `dQ` if `increment` is true or stored in `dQ` if it is false.
+Namely, the semi-discretization is of the form
 ``
-    Q̇ = F(Q, t)
+  \\dot{Q} = F(Q, t)
 ``
-and after the call `dQ += F(Q, t)`
+and after the call `dQ += F(Q, t)` if `increment == true`
+or `dQ = F(Q, t)` if `increment == false`
 
 !!! note
 
     There is no generic implementation of this function. This must be
     implemented for each subtype of `AbstractSpaceMethod`
 """
-odefun!(m::AbstractSpaceMethod, dQ, Q, t) =
-throw(MethodError(odefun!, (m, dQ, Q, t)))
+odefun!(m::AbstractSpaceMethod, dQ, Q, t; increment) =
+throw(MethodError(odefun!, (m, dQ, Q, t, increment)))
 
 end

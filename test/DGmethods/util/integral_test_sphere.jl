@@ -23,18 +23,34 @@ else
   const ArrayTypes = (Array, )
 end
 
-@inline function auxiliary_state_initialization!(aux, x, y, z)
+const _nauxstate = 6
+const _a_r, _a_θ, _a_ϕ, _a_f, _a_fdown = 1:_nauxstate
+@inline function auxiliary_state_initialization!(aux, x, y, z, Rinner, Router)
   @inbounds begin
     r = hypot(x, y, z)
-    aux[1] = r
-    aux[2] = x / r
-    aux[3] = y / r
-    aux[4] = z / r
+    θ = atan(y , x)
+    ϕ = asin(z / r)
+    aux[_a_r] = r
+    aux[_a_θ] = θ
+    aux[_a_ϕ] = ϕ
+
+    # Exact integral
+    a = 1 + sin(θ)^2 + sin(ϕ)^2
+    aux[_a_f] = exp(-a * r^2) - exp(-a * Rinner^2)
+    aux[_a_fdown] = exp(-a * Router^2) - exp(-a * r^2)
+  end
+end
+
+@inline function integral_knl(val, Q, aux)
+  @inbounds begin
+    r, θ, ϕ = aux[_a_r], aux[_a_θ], aux[_a_ϕ]
+    a = 1 + sin(θ)^2 + sin(ϕ)^2
+    val[1] = -2r * a * exp(-a * r^2)
   end
 end
 
 using Test
-function run(mpicomm, topl, ArrayType, N, DFloat)
+function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
@@ -46,14 +62,20 @@ function run(mpicomm, topl, ArrayType, N, DFloat)
                            length_state_vector = 0,
                            flux! = (x...) -> (),
                            numerical_flux! = (x...) -> (),
-                           numerical_boundary_flux! = (x...) -> (),
-                           auxiliary_state_length = 4,
+                           auxiliary_state_length = _nauxstate,
                            auxiliary_state_initialization! = (x...) ->
-                           auxiliary_state_initialization!(x...))
+                           auxiliary_state_initialization!(x..., Rinner,
+                                                           Router),
+                           numerical_boundary_flux! = (x...) -> ())
 
+  Q = MPIStateArray(spacedisc)
   exact_aux = copy(spacedisc.auxstate)
 
-  DGBalanceLawDiscretizations.grad_auxiliary_state!(spacedisc, 1, (2,3,4))
+  DGBalanceLawDiscretizations.indefinite_stack_integral!(spacedisc,
+                                                         integral_knl, Q,
+                                                         _a_f)
+  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(spacedisc,
+                                                                 _a_fdown, _a_f)
 
   euclidean_distance(exact_aux, spacedisc.auxstate)
 end
@@ -73,8 +95,6 @@ let
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
-  numelem = (5, 5, 1)
-
   polynomialorder = 4
 
   base_Nhorz = 4
@@ -82,10 +102,12 @@ let
   Rinner = 1//2
   Router = 1
 
-  expected_result = [2.0924087890777517e-04;
-                     1.3897932154337201e-05;
-                     8.8256018429045312e-07;
-                     5.5381072850485303e-08];
+  polynomialorder = 4
+
+  expected_result = [6.228615762850257e-7
+                     9.671308320438864e-9
+                     1.5102832678375277e-10
+                     2.359860999112363e-12]
 
   lvls = integration_testing ? length(expected_result) : 1
 
@@ -98,8 +120,8 @@ let
         Nvert = 2^(l-1) * base_Nvert
         Rrange = range(DFloat(Rinner); length=Nvert+1, stop=Router)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat)
-
+        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat,
+                     DFloat(Rinner), DFloat(Router))
         @test expected_result[l] ≈ err[l]
       end
       if integration_testing
@@ -119,3 +141,4 @@ end
 isinteractive() || MPI.Finalize()
 
 nothing
+

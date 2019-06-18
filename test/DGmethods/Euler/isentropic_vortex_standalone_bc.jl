@@ -160,7 +160,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -236,7 +236,7 @@ let
   @static if haspkg("CUDAnative")
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
-
+  
   timeend = 1
   numelem = (5, 5, 1)
 
@@ -246,9 +246,9 @@ let
   expected_error[1,1] = 5.7105308450995285e-01
   expected_error[1,2] = 6.9418479834512270e-02
   expected_error[1,3] = 3.2927533553245305e-03
-  expected_error[2,1] = 1.7598355942969304e+00
-  expected_error[2,2] = 2.1585634095568529e-01
-  expected_error[2,3] = 1.0298579367557497e-02
+  expected_error[2,1] = 1.7598468932900311e+00
+  expected_error[2,2] = 2.1585417477588997e-01
+  expected_error[2,3] = 1.0294897699765810e-02
   lvls = integration_testing ? size(expected_error, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
