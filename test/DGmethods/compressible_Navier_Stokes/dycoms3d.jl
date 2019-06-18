@@ -77,8 +77,8 @@ const numdims = 3
 #
 # Define grid size 
 #
-Δx    = 35
-Δy    = 35
+Δx    = 50
+Δy    = 50
 Δz    = 10
 #
 # OR:
@@ -89,8 +89,8 @@ const numdims = 3
 Npoly = 4
 
 # Physical domain extents 
-(xmin, xmax) = (0, 100)
-(ymin, ymax) = (0, 100) #VERTICAL
+(xmin, xmax) = (0, 200)
+(ymin, ymax) = (0, 200) #VERTICAL
 (zmin, zmax) = (0, 1500)
 #(xmin, xmax) = (0, 3820)
 #(ymin, ymax) = (0, 1200) #VERTICAL
@@ -282,22 +282,21 @@ end
 # Compute the velocity from the state
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(vel, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-    @inbounds begin
-        y = aux[_a_y]
-        # ordering should match states_for_gradient_transform
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        E, QT = Q[_E], Q[_QT]
-        ρinv = 1 / ρ
-        vel[1], vel[2], vel[3] = u, v, w
-        vel[4], vel[5], vel[6] = E, QT, T
-        vel[7] = θ
-    end
+  @inbounds begin
+    y = aux[_a_y]
+    # ordering should match states_for_gradient_transform
+    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    E, QT = Q[_E], Q[_QT]
+    ρinv = 1 / ρ
+    vel[1], vel[2], vel[3] = u, v, w
+    vel[4], vel[5], vel[6] = E, QT, T
+    vel[7] = θ
+  end
 end
 
 @inline function radiation(aux)
-
-  z_to_inf = -aux[_a_inf2z]
   zero_to_z = aux[_a_02z]
+  z_to_inf = aux[_a_02inf] - zero_to_z
   z = aux[_a_z]
   z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
   (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0 
@@ -322,51 +321,51 @@ end
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 #md # (pending)
 @inline function compute_stresses!(VF, grad_vel, _...)
-    @inbounds begin
-        dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-        dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-        dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
-        # compute gradients of moist vars and temperature
-        dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
-        dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
-        dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
-        # virtual potential temperature gradient: for richardson calculation
-        # strains
-        # --------------------------------------------
-        # SMAGORINSKY COEFFICIENT COMPONENTS
-        # --------------------------------------------
-        S11 = dudx
-        S22 = dvdy
-        S33 = dwdz
-        S12 = (dudy + dvdx) / 2
-        S13 = (dudz + dwdx) / 2
-        S23 = (dvdz + dwdy) / 2
-        # --------------------------------------------
-        # SMAGORINSKY COEFFICIENT COMPONENTS
-        # --------------------------------------------
-        # FIXME: Grab functions from module SubgridScaleTurbulence 
-        SijSij = (S11^2 + S22^2 + S33^2
-                  + 2.0 * S12^2
-                  + 2.0 * S13^2 
-                  + 2.0 * S23^2) 
-        modSij = sqrt(2.0 * SijSij)
-        
-        #--------------------------------------------
-        # deviatoric stresses
-        # Fix up index magic numbers
-        VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
-        VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
-        VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
-        VF[_τ12] = 2 * S12
-        VF[_τ13] = 2 * S13
-        VF[_τ23] = 2 * S23
-        
-        # TODO: Viscous stresse come from SubgridScaleTurbulence module
-        VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
-        VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
-        VF[_SijSij] = SijSij
-    end
+  @inbounds begin
+    dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
+    dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
+    dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
+    # compute gradients of moist vars and temperature
+    dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
+    dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
+    dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
+    # virtual potential temperature gradient: for richardson calculation
+    # strains
+    # --------------------------------------------
+    # SMAGORINSKY COEFFICIENT COMPONENTS
+    # --------------------------------------------
+    S11 = dudx
+    S22 = dvdy
+    S33 = dwdz
+    S12 = (dudy + dvdx) / 2
+    S13 = (dudz + dwdx) / 2
+    S23 = (dvdz + dwdy) / 2
+    # --------------------------------------------
+    # SMAGORINSKY COEFFICIENT COMPONENTS
+    # --------------------------------------------
+    # FIXME: Grab functions from module SubgridScaleTurbulence 
+    SijSij = (S11^2 + S22^2 + S33^2
+              + 2.0 * S12^2
+              + 2.0 * S13^2 
+              + 2.0 * S23^2) 
+    modSij = sqrt(2.0 * SijSij)
+    
+    #--------------------------------------------
+    # deviatoric stresses
+    # Fix up index magic numbers
+    VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
+    VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
+    VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
+    VF[_τ12] = 2 * S12
+    VF[_τ13] = 2 * S13
+    VF[_τ23] = 2 * S23
+    
+    # TODO: Viscous stresse come from SubgridScaleTurbulence module
+    VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
+    VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+    VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
+    VF[_SijSij] = SijSij
+  end
 end
 # -------------------------------------------------------------------------
 # -------------------------------------------------------------------------
@@ -378,13 +377,13 @@ end
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
 const _nauxstate = 7
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_inf2z, _a_rad = 1:_nauxstate
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_02inf, _a_rad = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
-
+        
         #Sponge
         csleft  = 0.0
         csright = 0.0
@@ -504,7 +503,6 @@ end
 
 
 @inline function source_sponge!(S,Q,aux,t)
-    
     @inbounds begin
         U, V, W  = Q[_U], Q[_V], Q[_W]        
         beta     = aux[_a_sponge]
@@ -544,7 +542,7 @@ function integral_computation(disc, Q, t)
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
                                                          (_a_02z))
   DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
-                                                                 _a_inf2z,
+                                                                 _a_02inf,
                                                                  _a_02z)
 end
 
@@ -596,10 +594,9 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     datap          = spl_pinit(xvert)
     dataq          = dataq * 1.0e-3
     
-    randnum   = rand(1)[1] / 100
 
     θ_liq = datat
-    q_tot = dataq + randnum * dataq
+    q_tot = dataq
     P     = datap    
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
@@ -707,8 +704,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
                                                           F_rad_out = radiation(aux)
-                                                           beta = aux[_a_sponge]
-                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], F_rad_out, beta, preflux(Q, QV, aux)...)
+                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_02inf], F_rad_out, preflux(Q, QV, aux)...)
                                                        end
                                                    end
 
@@ -731,7 +727,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     # Initialise the integration computation. Kernels calculate this at every timestep?? 
     integral_computation(spacedisc, Q, 0) 
-    
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
