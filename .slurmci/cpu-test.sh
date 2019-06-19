@@ -8,8 +8,9 @@ set -euo pipefail
 set -x #echo on
 
 export PATH="${PATH}:${HOME}/julia-1.2/bin"
-export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot/common"
+export JULIA_DEPOT_PATH="${HOME}/.julia-slurmci/"
 
 module load cmake/3.10.2 openmpi/3.1.2
 
+julia --project -e 'push!(LOAD_PATH, "@pkglock"); using PkgLock; PkgLock.instantiate_precompile()'
 julia --color=no --project test/runtests.jl
