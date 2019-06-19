@@ -89,8 +89,8 @@ const numdims = 3
 const Npoly = 4
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 1000)
-const (ymin, ymax) = (0, 1000) #VERTICAL
+const (xmin, xmax) = (0, 100)
+const (ymin, ymax) = (0, 100) #VERTICAL
 const (zmin, zmax) = (0, 1500)
 #(xmin, xmax) = (0, 3820)
 #(ymin, ymax) = (0, 1200) #VERTICAL
@@ -299,7 +299,7 @@ end
 
 @inline function radiation(aux)
   zero_to_z = aux[_a_02z]
-  z_to_inf = aux[_a_02inf] - zero_to_z
+  z_to_inf = aux[_a_z2inf]
   z = aux[_a_z]
   z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
   (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0 
@@ -380,7 +380,7 @@ end
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
 const _nauxstate = 7
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_02inf, _a_rad = 1:_nauxstate
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
@@ -575,7 +575,7 @@ function integral_computation(disc, Q, t)
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
                                                          (_a_02z))
   DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
-                                                                 _a_02inf,
+                                                                 _a_z2inf,
                                                                  _a_02z)
 end
 
@@ -732,12 +732,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     step = [0]
     mkpath("vtk-dycoms")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
                                                           F_rad_out = radiation(aux)
-                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_02inf], F_rad_out, preflux(Q, QV, aux)...)
+                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_z2inf], F_rad_out, preflux(Q, QV, aux)...)
                                                        end
                                                    end
 

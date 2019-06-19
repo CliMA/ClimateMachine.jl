@@ -77,8 +77,8 @@ const numdims = 3
 #
 # !!!!!!! EITHER grid size !!!!!!!!!
 #
-Δx    =  50
-Δy    =  50
+Δx    =  25
+Δy    =  25
 Δz    =  50
 #
 # !!!!!!! OR: !!!!!!!
@@ -290,20 +290,6 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
 end
 
 # -------------------------------------------------------------------------
-#md ### Auxiliary Function (Not required)
-#md # In this example the auxiliary function is used to store the spatial
-#md # coordinates. 
-# -------------------------------------------------------------------------
-const _nauxstate = 3
-const _a_x, _a_y, _a_z, = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z)
-    @inbounds begin
-        aux[_a_x] = x
-        aux[_a_y] = y
-        aux[_a_z] = z
-    end
-end
-# -------------------------------------------------------------------------
 #md ### Viscous fluxes. 
 #md # The viscous flux function compute_stresses computes the components of 
 #md # the velocity gradient tensor, and the corresponding strain rates to
@@ -428,39 +414,6 @@ end
         source_geopot!(S, Q, aux, t)
     end
 end
-
-@inline function source_sponge!(S, Q, aux, t)
-    y = aux[_a_y]
-    x = aux[_a_x]
-    U = Q[_U]
-    V = Q[_V]
-    W = Q[_W]
-    # Define Sponge Boundaries      
-    xc       = (xmax + xmin)/2
-    ysponge  = 0.85 * ymax
-    xsponger = xmax - 0.15*abs(xmax - xc)
-    xspongel = xmin + 0.15*abs(xmin - xc)
-    csxl  = 0.0
-    csxr  = 0.0
-    ctop  = 0.0
-    csx   = 1.0
-    ct    = 1.0 
-    #x left and right
-    #xsl
-    if (x <= xspongel)
-        csxl = csx * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4
-    end
-    #xsr
-    if (x >= xsponger)
-
-@inline function source_geopot!(S,Q,aux,t)
-    gravity::eltype(Q) = grav
-    @inbounds begin
-        ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-        S[_V] += - ρ * gravity
-    end
-end
-
 
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 

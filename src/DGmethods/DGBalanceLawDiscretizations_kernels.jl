@@ -757,13 +757,11 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
           e = ev + (eh - 1) * nvertelem
           @unroll for k in 1:Nq
             ijk = i + Nq * ((j-1) + Nqj * (k-1))
-            #=
             @unroll for s = 1:nout
               l_V[s] = P[ijk, instate[s], e]
             end
-            =# 
             @unroll for s = 1:nout
-              P[ijk, outstate[s], e] = l_T[s] #l_T[s] - l_V[s]
+              P[ijk, outstate[s], e] = l_T[s] - l_V[s]
             end
           end
         end
