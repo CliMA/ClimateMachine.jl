@@ -55,6 +55,17 @@ function volumerhs!(::Val{dim}, ::Val{N},
       end
     end
   end
+    
+  #=  
+  @inbounds @loop for e in (elems; blockIdx().x)
+    k = Nqk 
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        l_aux[] = 
+      end
+    end
+  end
+  =#
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for k in (1:Nqk; threadIdx().z)
@@ -92,7 +103,6 @@ function volumerhs!(::Val{dim}, ::Val{N},
 
           if source! !== nothing
             source!(l_S, l_Q, l_aux, t)
-
             @unroll for s = 1:nstate
               l_rhs[s, i, j, k] += l_S[s]
             end
@@ -637,7 +647,7 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
   l_knl = MArray{Tuple{nout, Nq}, DFloat}(undef)
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
-  l_int = @scratch DFloat (nout, Nq, Nq, Nqj) 2
+  l_int = @scratch DFloat (nout + 1, Nq, Nq, Nqj) 2
 
   s_I = @shmem DFloat (Nq, Nq)
 
@@ -706,6 +716,7 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
               l_int[ind_out, k, i, j] = l_int[ind_out, Nq, i, j]
             end
           end
+        #FIXME
         end
       end
     end
@@ -746,8 +757,17 @@ function knl_top_indefinite_stack_integral!(::Val{dim}, ::Val{N},
           e = ev + (eh - 1) * nvertelem
           @unroll for k in 1:Nq
             ijk = i + Nq * ((j-1) + Nqj * (k-1))
+            #=
             @unroll for s = 1:nout
+<<<<<<< HEAD
               P[ijk, outstate[s], e] = l_T[s] 
+=======
+              l_V[s] = P[ijk, instate[s], e]
+            end
+            =# 
+            @unroll for s = 1:nout
+              P[ijk, outstate[s], e] = l_T[s] #l_T[s] - l_V[s]
+>>>>>>> 1b275555c3efccfccb7c2219d0a8470aa852e6d2
             end
           end
         end
