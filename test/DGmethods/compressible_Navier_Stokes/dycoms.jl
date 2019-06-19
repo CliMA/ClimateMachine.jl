@@ -320,7 +320,6 @@ end
 
 # Sponge: classical Rayleigh type absorbing layers:
 @inline function sponge_rectangular(S, Q, aux)
-
     
     U, V, W = Q[_U], Q[_V], Q[_W]
     x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]

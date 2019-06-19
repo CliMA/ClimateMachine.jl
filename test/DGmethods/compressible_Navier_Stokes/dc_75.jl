@@ -53,10 +53,10 @@ if !@isdefined integration_testing
 end
 
 # Problem constants (TODO: parameters module (?))
-const μ_sgs     = 75
-const Prandtl   = 71 // 100
-const Prandtl_t = 1 // 3
-const cp_over_prandtl = cp_d / Prandtl
+const μ_sgs           = 100.0
+const Prandtl         = 71 // 100
+const Prandtl_t       = 1 // 3
+const cp_over_prandtl = cp_d / Prandtl_t
 
 # Problem description 
 # --------------------
@@ -70,20 +70,28 @@ const cp_over_prandtl = cp_d / Prandtl
 #
 # User Input
 #
-const numdims = 2
-Δx    = 100
-Δy    = 100
-Δz    = 20
-Npoly = 4
+const numdims = 3
 
-#(Nex, Ney, Nez) = (64, 16, 1)
+#
+# Define:
+#
+# !!!!!!! EITHER grid size !!!!!!!!!
+#
+Δx    =  50
+Δy    =  50
+Δz    =  50
+#
+# !!!!!!! OR: !!!!!!!
+#
+# Set Δx < 0 and define  Nex, Ney, Nez:
+#
+(Nex, Ney, Nez) = (64, 16, 1)
+Npoly = 4
 
 # Physical domain extents 
 (xmin, xmax) = (0, 25600)
-(ymin, ymax) = (0,  6400)
-
-# Can be extended to a 3D test case 
-(zmin, zmax) = (0, 1000)
+(ymin, ymax) = (0,  6400) #VERTICAL
+(zmin, zmax) = (0,   200)
 
 
 #Get Nex, Ney from resolution
@@ -91,22 +99,51 @@ Lx = xmax - xmin
 Ly = ymax - ymin
 Lz = zmax - ymin
 
-ratiox = (Lx/Δx - 1)/Npoly
-ratioy = (Ly/Δy - 1)/Npoly
-ratioz = (Lz/Δz - 1)/Npoly
-const Nex = ceil(Int64, ratiox)
-const Ney = ceil(Int64, ratioy)
-const Nez = ceil(Int64, ratioz)
-
-#const Δx = Lx / ((Nex * Npoly) + 1)
-#const Δy = Ly / ((Ney * Npoly) + 1)
-#const Δz = Lz / ((Nez * Npoly) + 1)
+if ( Δx > 0)
+    #
+    # User defines the grid size:
+    #
+    ratiox = (Lx/Δx - 1)/Npoly
+    ratioy = (Ly/Δy - 1)/Npoly
+    ratioz = (Lz/Δz - 1)/Npoly
+    Nex = ceil(Int64, ratiox)
+    Ney = ceil(Int64, ratioy)
+    Nez = ceil(Int64, ratioz)
+    
+else
+    #
+    # User defines the number of elements:
+    #
+    Δx = Lx / ((Nex * Npoly) + 1)
+    Δy = Ly / ((Ney * Npoly) + 1)
+    Δz = Lz / ((Nez * Npoly) + 1)
+end
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 const C_smag = 0.23
 # Equivalent grid-scale
-Δ = sqrt(Δx * Δy)
-const Δsqr = Δ * Δ
+#Δ = sqrt(Δx * Δy)
+#const Δsqr = Δ * Δ
+
+# Anisotropic grid computation
+function anisotropic_coefficient_sgs(Δx, Δy, Δz)
+
+    Δ = (Δx * Δy *  Δz)^(1/3)
+    
+    Δ_sorted = sort([Δx, Δy, Δz])  
+    Δ_s1 = Δ_sorted[1]
+    Δ_s2 = Δ_sorted[2]
+    a1 = Δ_s1 / max(Δx,Δy,Δz) / (Npoly + 1)
+    a2 = Δ_s2 / max(Δx,Δy,Δz) / (Npoly + 1)
+    f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2 )
+    
+    Δ = Δ*f_anisotropic
+    Δsqr = Δ * Δ
+    
+    return Δsqr
+end
+
+const Δsqr = anisotropic_coefficient_sgs(Δx, Δy, Δz)
 
 
 @info @sprintf """ ----------------------------------------------------"""
@@ -120,8 +157,8 @@ const Δsqr = Δ * Δ
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """ Density Current                                     """
 @info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
-@info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
+@info @sprintf """     (Δx, Δy, Δz)    = (%.2e, %.2e, %.2e)            """ Δx Δy Δz
+@info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
 @info @sprintf """ ----------------------------------------------------"""
 
 # -------------------------------------------------------------------------
@@ -196,13 +233,15 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
         vθy = VF[_θy]
-      
-        #|S|
-        SijSij = VF[_SijSij]
         
+        #Richardson contribution:
+        
+        SijSij = VF[_SijSij]
+        f_R = 0.5 # buoyancy_correction_smag(SijSij, θ, dθdy)
+
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = 75.0
-        
+                
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
         τ12 = τ21 = VF[_τ12] * ν_e 
@@ -210,15 +249,22 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         τ23 = τ32 = VF[_τ23] * ν_e
         
         # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-        F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
-        F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
-        F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
+        F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
+        F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
+        F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
         F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
         F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
         
+        # Viscous contributions to mass flux terms
+        #F[1, _ρ] -=  vqx
+        #F[2, _ρ] -=  vqy
+        #F[3, _ρ] -=  vqz
+        #F[1, _QT] -=  vqx
+        #F[2, _QT] -=  vqy
+        #F[3, _QT] -=  vqz
     end
 end
 
@@ -238,7 +284,7 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
         E, QT = Q[_E], Q[_QT]
         ρinv = 1 / ρ
         vel[1], vel[2], vel[3] = u, v, w
-        vel[4], vel[5], vel[6] = E, QT, T
+        vel[4], vel[5], vel[6] = E, QT, T       
         vel[7] = θ
     end
 end
@@ -344,14 +390,15 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
-
-        #Viscous T gradients:
-        VFP .= 0   # --> thermal b.l.
-        #VFP[_Ty] = VFM[_Ty]   # --> NaN
-
+        VFP .= 0
+        
+        dTdz     = -grav/cp_d
+        #VFP[_Tx] = 0
+        VFP[_Ty] = cp_over_prandtl * dTdz
+        #VFP[_Tz] = 0
+        
         nothing
     end
 end
@@ -379,45 +426,9 @@ end
     # Typically these sources are imported from modules
     @inbounds begin
         source_geopot!(S, Q, aux, t)
-        #source_sponge!(S, Q, aux, t)
     end
 end
 
-@inline function source_sponge!(S, Q, aux, t)
-    y = aux[_a_y]
-    x = aux[_a_x]
-    U = Q[_U]
-    V = Q[_V]
-    W = Q[_W]
-    # Define Sponge Boundaries      
-    xc       = (xmax + xmin)/2
-    ysponge  = 0.85 * ymax
-    xsponger = xmax - 0.15*abs(xmax - xc)
-    xspongel = xmin + 0.15*abs(xmin - xc)
-    csxl  = 0.0
-    csxr  = 0.0
-    ctop  = 0.0
-    csx   = 1.0
-    ct    = 1.0 
-    #x left and right
-    #xsl
-    if (x <= xspongel)
-        csxl = csx * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4
-    end
-    #xsr
-    if (x >= xsponger)
-        csxr = csx * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4
-    end
-    #Vertical sponge:         
-    if (y >= ysponge)
-        ctop = ct * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4
-    end
-    beta  = 1.0 - (1.0 - ctop)*(1.0 - csxl)*(1.0 - csxr)
-    beta  = min(beta, 1.0)
-    S[_U] -= beta * U  
-    S[_V] -= beta * V  
-    S[_W] -= beta * W
-end
 
 @inline function source_geopot!(S,Q,aux,t)
     gravity::eltype(Q) = grav
@@ -474,12 +485,13 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+                  range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
     
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false,false))
 
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
@@ -516,7 +528,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     eng0 = norm(Q)
     @info @sprintf """Starting
-      norm(Q₀) = %.16e""" eng0
+          norm(Q₀) = %.16e""" eng0
 
     # Set up the information callback
     starttime = Ref(now())
@@ -527,9 +539,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             energy = norm(Q)
             #globmean = global_mean(Q, _ρ)
             @info @sprintf("""Update
-                         simtime = %.16e
-                         runtime = %s
-                         norm(Q) = %.16e""", 
+                             simtime = %.16e
+                             runtime = %s
+                             norm(Q) = %.16e""", 
                            ODESolvers.gettime(lsrk),
                            Dates.format(convert(Dates.DateTime,
                                                 Dates.now()-starttime[]),
@@ -544,7 +556,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-DC-75")
+    mkpath("vtk-DC-smago")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -553,7 +565,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-DC-75/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-DC-smago/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -582,17 +594,17 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         engfe = norm(Qe)
         errf = euclidean_distance(Q, Qe)
         @info @sprintf """Finished
-        norm(Q)                 = %.16e
-        norm(Q) / norm(Q₀)      = %.16e
-        norm(Q) - norm(Q₀)      = %.16e
-        norm(Q - Qe)            = %.16e
-        norm(Q - Qe) / norm(Qe) = %.16e
-        """ engf engf/eng0 engf-eng0 errf errf / engfe
+            norm(Q)                 = %.16e
+            norm(Q) / norm(Q₀)      = %.16e
+            norm(Q) - norm(Q₀)      = %.16e
+            norm(Q - Qe)            = %.16e
+            norm(Q - Qe) / norm(Qe) = %.16e
+            """ engf engf/eng0 engf-eng0 errf errf / engfe
     else
         @info @sprintf """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
+            norm(Q)            = %.16e
+            norm(Q) / norm(Q₀) = %.16e
+            norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
     end
 integration_testing ? errf : (engf / eng0)
 end
@@ -615,8 +627,8 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (Nex,Ney)
-    dt = 0.05
+    numelem = (Nex,Ney,Nez)
+    dt = 0.0125
     timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
