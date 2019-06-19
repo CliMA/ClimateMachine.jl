@@ -724,7 +724,7 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
   nothing
 end
 
-function knl_top_indefinite_stack_integral!(::Val{dim}, ::Val{N},
+function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
                                                 ::Val{nvertelem}, P, elems,
                                                 ::Val{outstate},
                                                 ::Val{instate}
@@ -759,15 +759,11 @@ function knl_top_indefinite_stack_integral!(::Val{dim}, ::Val{N},
             ijk = i + Nq * ((j-1) + Nqj * (k-1))
             #=
             @unroll for s = 1:nout
-<<<<<<< HEAD
-              P[ijk, outstate[s], e] = l_T[s] 
-=======
               l_V[s] = P[ijk, instate[s], e]
             end
             =# 
             @unroll for s = 1:nout
               P[ijk, outstate[s], e] = l_T[s] #l_T[s] - l_V[s]
->>>>>>> 1b275555c3efccfccb7c2219d0a8470aa852e6d2
             end
           end
         end
