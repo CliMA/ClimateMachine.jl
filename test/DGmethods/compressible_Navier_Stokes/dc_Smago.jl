@@ -77,9 +77,9 @@ const numdims = 3
 #
 # !!!!!!! EITHER grid size !!!!!!!!!
 #
-Δx    =  25
-Δy    =  25
-Δz    =  50
+Δx    =  100
+Δy    =  100
+Δz    =   50
 #
 # !!!!!!! OR: !!!!!!!
 #
@@ -414,6 +414,16 @@ end
         source_geopot!(S, Q, aux, t)
     end
 end
+
+
+@inline function source_geopot!(S,Q,aux,t)
+    gravity::eltype(Q) = grav
+    @inbounds begin
+        ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+        S[_V] += - ρ * gravity
+    end
+end
+
 
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
