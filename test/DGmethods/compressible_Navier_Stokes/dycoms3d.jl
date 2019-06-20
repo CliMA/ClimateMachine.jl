@@ -123,7 +123,7 @@ Memory_need_estimate = DoF*16
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-const C_smag = 0.18
+const C_smag = 0.15
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -685,8 +685,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
     
-    lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
-
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    
     #=eng0 = norm(Q)
     @info @sprintf """Starting
       norm(Q₀) = %.16e""" eng0
@@ -793,7 +793,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
+    dt = 0.0015
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64

@@ -124,7 +124,7 @@ const Δsqr = Δ * Δ
 @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
 @info @sprintf """ ----------------------------------------------------"""
 
- #Grids.READTOPOtxt_header(0, 0, 0, 0)
+ Grids.READTOPOtxt_header(0, 0, 0, 0)
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -390,41 +390,6 @@ end
     end
 end
 
-@inline function source_sponge!(S, Q, aux, t)
-    y = aux[_a_y]
-    x = aux[_a_x]
-    U = Q[_U]
-    V = Q[_V]
-    W = Q[_W]
-    # Define Sponge Boundaries      
-    xc       = (xmax + xmin)/2
-    ysponge  = 0.85 * ymax
-    xsponger = xmax - 0.15*abs(xmax - xc)
-    xspongel = xmin + 0.15*abs(xmin - xc)
-    csxl  = 0.0
-    csxr  = 0.0
-    ctop  = 0.0
-    csx   = 1.0
-    ct    = 1.0 
-    #x left and right
-    #xsl
-    if (x <= xspongel)
-        csxl = csx * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4
-    end
-    #xsr
-    if (x >= xsponger)
-        csxr = csx * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4
-    end
-    #Vertical sponge:         
-    if (y >= ysponge)
-        ctop = ct * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4
-    end
-    beta  = 1.0 - (1.0 - ctop)*(1.0 - csxl)*(1.0 - csxr)
-    beta  = min(beta, 1.0)
-    S[_U] -= beta * U  
-    S[_V] -= beta * V  
-    S[_W] -= beta * W
-end
 
 @inline function source_geopot!(S,Q,aux,t)
     gravity::eltype(Q) = grav
@@ -527,8 +492,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     initialcondition(Q, x...) = density_current!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
 
-    lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
-
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    
     eng0 = norm(Q)
     @info @sprintf """Starting
       norm(Q₀) = %.16e""" eng0
