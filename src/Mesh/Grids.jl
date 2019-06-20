@@ -349,12 +349,17 @@ end
             """
 function READTOPOtxt_header(nlon, nlat, deltaLon, deltaLat)
 
-
     ftopo_header  = open(joinpath(@__DIR__, "../../test/DGmethods/topographies/Text-files-NOAA/monterey.hdr"))
     @info @sprintf """ Grids.jl: Opening topography header file ... DONE"""
  
     topo_header = readdlm(ftopo_header)
-   
+    (nrows, _) = size(topo_header)
+    if nrows == 0
+        error(" ERROR Grids.jl --> READTOPOtxt_header: grid header file is empty!")
+        return
+    end
+    
+    
     nlon      =   Int64(topo_header[1,2])
     nlat      =   Int64(topo_header[2,2])
     lonmin    = Float64(topo_header[3,2])
@@ -380,12 +385,7 @@ function READTOPOtxt_header(nlon, nlat, deltaLon, deltaLat)
     close(ftopo_header)
     @info @sprintf """ Grids.jl: Closing topography header file ... DONE"""
         
-    #(nzmax, ncols) = size(topo_header)
-    #if nzmax == 0
-    #    error("SOUNDING ERROR: The Sounding file is empty!")
-    #end
-    #return (sounding, nzmax, ncols)
-    
+  
     #txt_inputfile = ''
     
 end

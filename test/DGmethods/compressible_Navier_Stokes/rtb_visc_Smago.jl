@@ -527,8 +527,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     initialcondition(Q, x...) = density_current!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
 
-    lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
-
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    
     eng0 = norm(Q)
     @info @sprintf """Starting
       norm(Q₀) = %.16e""" eng0
