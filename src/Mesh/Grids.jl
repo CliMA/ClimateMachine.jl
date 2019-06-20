@@ -17,14 +17,16 @@ dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
 arraytype(::AbstractGrid{T, D, N, Np, DA}) where {T, D, N, Np, DA} = DA
 
 # {{{
-const _nvgeo = 14
+const _nvgeo = 15
 const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-       _x, _y, _z = 1:_nvgeo
+       _x, _y, _z, _JcV = 1:_nvgeo
 const vgeoid = (ξxid = _ξx, ηxid = _ηx, ζxid = _ζx,
                 ξyid = _ξy, ηyid = _ηy, ζyid = _ζy,
                 ξzid = _ξz, ηzid = _ηz, ζzid = _ζz,
                 Mid  = _M , MIid = _MI,
-                xid  = _x , yid  = _y , zid  = _z)
+                xid  = _x , yid  = _y , zid  = _z,
+                JcVid = _JcV)
+# JcV is the vertical line integral Jacobian
 
 const _nsgeo = 5
 const _nx, _ny, _nz, _sM, _vMI = 1:_nsgeo
@@ -75,6 +77,9 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   "1-D derivative operator on the device"
   D::DAT2
 
+  "1-D indefinite integral operator on the device"
+  Imat::DAT2
+
   function DiscontinuousSpectralElementGrid(topology::AbstractTopology{dim};
                                             FloatType = nothing,
                                             DeviceArray = nothing,
@@ -87,6 +92,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
 
     N = polynomialorder
     (ξ, ω) = Canary.lglpoints(FloatType, N)
+    Imat = indefinite_integral_interpolation_matrix(ξ, ω)
     D = Canary.spectralderivative(ξ)
 
     (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
@@ -104,6 +110,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      vmapP = DeviceArray(vmapP)
      sendelems = DeviceArray(topology.sendelems)
      D = DeviceArray(D)
+     Imat = DeviceArray(Imat)
 
      # FIXME: There has got to be a better way!
      DAT2 = typeof(D)
@@ -116,7 +123,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
 
     new{FloatType, dim, N, Np, DeviceArray, DAT2, DAT3, DAT4, DAI1, DAI2, DAI3,
         TOP
-       }(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems, D)
+       }(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems, D, Imat)
   end
 end
 
@@ -205,7 +212,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   vgeo = zeros(DFloat, Nq^dim, _nvgeo, nelem)
   sgeo = zeros(DFloat, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z) =
+  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z, JcV) =
       ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
   J = similar(x)
   (nx, ny, nz, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
@@ -236,7 +243,78 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
   sMJ .= sM .* sJ
 
+  # Compute |r'(ζ)| for vertical line integrals
+  if dim == 2
+    map!(JcV, J, ξx, ξy) do J, ξx, ξy
+      xη = J * ξy
+      yη = J * ξx
+      hypot(xη, yη)
+    end
+  elseif dim == 3
+    map!(JcV, J, ξx, ξy, ξz, ηx, ηy, ηz) do J, ξx, ξy, ξz, ηx, ηy, ηz
+      xζ = J * (ξy * ηz - ηy * ξz)
+      yζ = J * (ξz * ηx - ηz * ξx)
+      zζ = J * (ξx * ηy - ηx * ξy)
+      hypot(xζ, yζ, zζ)
+    end
+  else
+    error("dim $dim not implemented")
+  end
   (vgeo, sgeo)
+end
+# }}}
+
+# {{{ indefinite integral matrix
+"""
+    indefinite_integral_interpolation_matrix(r, ω)
+
+Given a set of integration points `r` and integration weights `ω` this computes
+a matrix that will compute the indefinite integral of the (interpolant) of a
+function and evaluate the indefinite integral at the points `r`.
+
+Namely, let
+```math
+    q(ξ) = ∫_{ξ_{0}}^{ξ} f(ξ') dξ'
+```
+then we have that
+```
+I∫ * f.(r) = q.(r)
+```
+where `I∫` is the integration and interpolation matrix defined by this function.
+
+!!! note
+
+    The integration is done using the provided quadrature weight, so if these
+    cannot integrate `f(ξ)` exactly, `f` is first interpolated and then
+    integrated using quadrature. Namely, we have that:
+    ```math
+        q(ξ) = ∫_{ξ_{0}}^{ξ} I(f(ξ')) dξ'
+    ```
+    where `I` is the interpolation operator.
+
+"""
+function indefinite_integral_interpolation_matrix(r, ω)
+  Nq = length(r)
+
+  I∫ = similar(r, Nq, Nq)
+  # first value is zero
+  I∫[1, :] .= 0
+
+  # barycentric weights for interpolation
+  wbary = Canary.baryweights(r)
+
+  # Compute the interpolant of the indefinite integral
+  for n = 2:Nq
+    # grid from first dof to current point
+    rdst = (1 .- r)/2 * r[1] + (1 .+ r)/2 * r[n]
+    # interpolation matrix
+    In = Canary.interpolationmatrix(r, rdst, wbary)
+    # scaling from LGL to current of the interval
+    Δ = (r[n] -  r[1]) / 2
+    # row of the matrix we have computed
+    I∫[n, :] .= (Δ * ω' * In)[:]
+  end
+  I∫
 end
 # }}}
 

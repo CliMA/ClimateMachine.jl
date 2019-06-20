@@ -1,4 +1,5 @@
 using MPI
+using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
@@ -12,11 +13,12 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-@static if Base.find_package("CuArrays") !== nothing
+@static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+  CuArrays.allowscalar(false)
+  const ArrayTypes = (CuArray, )
 else
   const ArrayTypes = (Array, )
 end
@@ -37,6 +39,7 @@ function run(mpicomm, topl, ArrayType, N, DFloat)
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
+                                          meshwarp = Topologies.cubedshellwarp,
                                          )
 
   spacedisc = DGBalanceLaw(grid = grid,
@@ -66,7 +69,7 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if Base.find_package("CUDAnative") !== nothing
+  @static if haspkg("CUDAnative")
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
@@ -79,14 +82,14 @@ let
   Rinner = 1//2
   Router = 1
 
-  expected_result = [2.6990557059226476e-04;
-                     1.5939109758106752e-05;
-                     1.0009810808262489e-06;
-                     6.2636204797003758e-08]
+  expected_result = [2.0924087890777517e-04;
+                     1.3897932154337201e-05;
+                     8.8256018429045312e-07;
+                     5.5381072850485303e-08];
 
   lvls = integration_testing ? length(expected_result) : 1
 
-  for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for DFloat in (Float64,) #Float32)
       err = zeros(DFloat, lvls)
       for l = 1:lvls
@@ -96,6 +99,7 @@ let
         Rrange = range(DFloat(Rinner); length=Nvert+1, stop=Router)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
         err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat)
+
         @test expected_result[l] ≈ err[l]
       end
       if integration_testing
