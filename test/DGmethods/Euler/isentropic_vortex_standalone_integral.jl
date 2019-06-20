@@ -82,8 +82,13 @@ eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
   end
 end
 
+<<<<<<< HEAD
+const _nauxstate = 2
+const _a_intρ, _a_intρ2 = 1:_nauxstate
+=======
 const _nauxstate = 3
 const _a_intρ, _a_intρ2, _a_intρ_reverse = 1:_nauxstate
+>>>>>>> 362b63ec842221b51dbb201586800c38cb4456a7
 
 # initial condition
 const halfperiod = 5
@@ -132,9 +137,12 @@ end
 function integral_computation(disc, Q, t)
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
                                                          (_a_intρ, _a_intρ2))
+<<<<<<< HEAD
+=======
   DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
                                                                  _a_intρ_reverse,
                                                                  _a_intρ)
+>>>>>>> 362b63ec842221b51dbb201586800c38cb4456a7
 end
 
 function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
@@ -165,7 +173,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   integral_computation(spacedisc, Q, 0)
   exact_aux = copy(spacedisc.auxstate)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -258,12 +266,21 @@ let
   expected_error[2,2] = 6.4092807130049356e-01
   expected_error[2,3] = 1.7418643028977332e-02
   expected_integral_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
+<<<<<<< HEAD
+  expected_integral_error[1,1] = 4.1357870721227102e-01
+  expected_integral_error[1,2] = 7.8773719266673065e-02
+  expected_integral_error[1,3] = 2.0484416156969962e-03
+  expected_integral_error[2,1] = 4.6757171545810277e+00
+  expected_integral_error[2,2] = 1.0436120580825130e+00
+  expected_integral_error[2,3] = 3.7405058634240596e-02
+=======
   expected_integral_error[1,1] = 4.8681695495452398e-01
   expected_integral_error[1,2] = 8.8617915194155406e-02
   expected_integral_error[1,3] = 2.3262199146720022e-03
   expected_integral_error[2,1] = 5.2924082817426514e+00
   expected_integral_error[2,2] = 1.1950747332395113e+00
   expected_integral_error[2,3] = 4.2466533227878363e-02
+>>>>>>> 362b63ec842221b51dbb201586800c38cb4456a7
   lvls = integration_testing ? size(expected_error, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes

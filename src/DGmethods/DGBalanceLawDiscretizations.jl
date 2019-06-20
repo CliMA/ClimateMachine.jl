@@ -545,18 +545,21 @@ MPIStateArrays.MPIStateArray(f::Function,
 
 
 """
-    odefun!(disc::DGBalanceLaw, dQ::MPIStateArray, Q::MPIStateArray, t)
+    odefun!(disc::DGBalanceLaw, dQ::MPIStateArray, Q::MPIStateArray, t; increment)
 
 Evaluates the right-hand side of the discontinuous Galerkin semi-discretization
-defined by `disc` at time `t` with state `Q`. The result is added into
-`dQ`. Namely, the semi-discretization is of the form
-```math
-Q̇ = F(Q, t)
-```
-and after the call `dQ += F(Q, t)`
+defined by `disc` at time `t` with state `Q`.
+The result is either added into
+`dQ` if `increment` is true or stored in `dQ` if it is false.
+Namely, the semi-discretization is of the form
+``
+  \\dot{Q} = F(Q, t)
+``
+and after the call `dQ += F(Q, t)` if `increment == true`
+or `dQ = F(Q, t)` if `increment == false`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
-                              Q::MPIStateArray, t)
+                              Q::MPIStateArray, t; increment)
 
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -626,7 +629,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
                      Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
-                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems))
+                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems,
+                     increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
@@ -686,6 +690,60 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
           elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
                            Dmat, topology.elems, id, idx, idy, idz))
+end
+
+
+"""
+    indefinite_stack_integral!(disc, f, Q, out_states, [P=disc.auxstate])
+
+Computes an indefinite line integral along the trailing dimension (`zeta` in
+3-D and `η` in 2-D) up an element stack using state `Q`
+```math
+∫_{ζ_{0}}^{ζ} f(q; aux, t)
+```
+and stores the result of the integral in field of `P` indicated by
+`out_states`
+
+The syntax of the integral kernel is:
+```
+f(F, Q, aux)
+```
+where `F` is an `MVector` of length `length(out_states)`, `Q` and `aux` are
+the `MVectors` for the state and auxiliary state at a single degree of freedom.
+The function is responsible for filling `F`.
+
+Requires the `isstacked(disc.grid.topology) == true`
+"""
+function indefinite_stack_integral!(disc::DGBalanceLaw, f, Q, out_states,
+                                    P=disc.auxstate)
+  grid = disc.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  auxstate = disc.auxstate
+  nauxstate = size(auxstate, 2)
+  nstate = size(Q, 2)
+
+  Imat = grid.Imat
+  vgeo = grid.vgeo
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+  @assert nelem == nvertelem * nhorzelem
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_indefinite_stack_integral!(Val(dim), Val(N), Val(nstate),
+                                         Val(nauxstate), Val(nvertelem), f, P.Q,
+                                         Q.Q, auxstate.Q, vgeo, Imat,
+                                         1:nhorzelem, Val(out_states)))
 end
 
 """
