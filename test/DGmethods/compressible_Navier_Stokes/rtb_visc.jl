@@ -46,8 +46,8 @@ const μ_exact = 10
 const xmin = 0
 const ymin = 0
 const zmin = 0
-const xmax = 1500
-const ymax = 1500
+const xmax = 1000
+const ymax = 1000
 const zmax =  150
 const xc   = xmax / 2
 const yc   = ymax / 2
@@ -464,9 +464,9 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (5,5,1)
+    numelem = (50,50,1)
     dt = 1e-2
-    timeend = 10
+    timeend = 900
     polynomialorder = 5
     for DFloat in (Float64,) #Float32)
       for dim = 3:3
