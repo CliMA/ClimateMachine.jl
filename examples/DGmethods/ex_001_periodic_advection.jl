@@ -346,7 +346,7 @@ let
   dt = CFL / polynomialorder^2         # DG time step scaling (for this
                                        ## particular RK scheme could go with a
                                        ## factor of ~2 larger time step)
-  lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
 
   # Here we run the ODE solver until the final time `timeend` using `Q` as the
   # initial condition `Q`. The solution will be updated in place so that the
@@ -412,7 +412,7 @@ let
   h = 1 / Ne
   CFL = h / maximum(abs.(uvec[1:dim]))
   dt = CFL / polynomialorder^2
-  lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
   finaltime = 1.0
   if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
       && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
@@ -547,7 +547,7 @@ let
       parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
       finaltime = 2dt                                           #src
     end                                                         #src
-    lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
+    lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
 
     solve!(Q, lsrk; timeend = finaltime)
 
