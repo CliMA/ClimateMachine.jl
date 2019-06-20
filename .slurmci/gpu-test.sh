@@ -14,5 +14,5 @@ export CUDA_PATH="/lib64"
 
 module load cmake/3.10.2 openmpi/3.1.2 cuda/9.1
 
-julia --project -e 'push!(LOAD_PATH, "@pkglock"); using PkgLock; PkgLock.instantiate_precompile()'
+julia --color=no --project=env/gpu -e 'push!(LOAD_PATH, "@pkglock"); using PkgLock; PkgLock.instantiate_precompile()'
 julia --color=no --project=env/gpu test/runtests.jl
