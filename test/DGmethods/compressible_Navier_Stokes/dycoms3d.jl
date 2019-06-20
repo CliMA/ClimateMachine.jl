@@ -73,29 +73,25 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # User Input
 #
 const numdims = 3
+const Npoly = 4
 
 #
 # Define grid size 
 #
 Δx    = 35
 Δy    = 35
-Δz    = 5
+Δz    = 10
 #
 # OR:
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
 (Nex, Ney, Nez) = (10, 10, 1)
-const Npoly = 4
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 100)
-const (ymin, ymax) = (0, 100) #VERTICAL
+const (xmin, xmax) = (0, 840)
+const (ymin, ymax) = (0, 840)
 const (zmin, zmax) = (0, 1500)
-#(xmin, xmax) = (0, 3820)
-#(ymin, ymax) = (0, 1200) #VERTICAL
-#(zmin, zmax) = (0, 1910)
-
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -122,27 +118,15 @@ else
     Δz = Lz / ((Nez * Npoly) + 1)
 end
 
+DoF = (Nex*Npoly+1)*(Ney*Npoly+1)*(Nez*Npoly+1)*(_nstate + _nviscstates)
+Memory_need_estimate = DoF*16
+
+
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 const C_smag = 0.23
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
-
-
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """   ______ _      _____ __  ________                  """     
-@info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
-@info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
-@info @sprintf """  | |    | |      | | | |   | | |__| |               """
-@info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-@info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-@info @sprintf """                                                     """
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Dycoms                                              """
-@info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δx Δy Δz
-@info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
-@info @sprintf """ ----------------------------------------------------"""
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -396,7 +380,7 @@ const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
         
         cs_left_right = 0.0
         cs_front_back = 0.0
-        ct            = 1.0
+        ct            = 0.75
 
         #BEGIN  User modification on domain parameters.
         #Only change the first index of brickrange if your axis are
@@ -627,15 +611,17 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     datap          = spl_pinit(xvert)
     dataq          = dataq * 1.0e-3
     
-
-    θ_liq = datat
-    q_tot = dataq
+    randnum1   = rand(1)[1] / 100
+    randnum2   = rand(1)[1] / 100
+    
+    θ_liq = datat + randnum1 * datat
+    q_tot = dataq + randnum2 * dataq
     P     = datap    
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
     
     # energy definitions
-    u, v, w     = 0*datau, 0*datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w
@@ -731,8 +717,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-dycoms")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
+    mkpath("vtk-dycoms-test")
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
@@ -741,7 +727,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-dycoms/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-dycoms-test/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -806,11 +792,33 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.0001
+    dt = 0.005
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
+
+    if MPI.Comm_rank(mpicomm) == 0
+        @info @sprintf """ ----------------------------------------------------"""
+        @info @sprintf """   ______ _      _____ __  ________                  """     
+        @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
+        @info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
+        @info @sprintf """  | |    | |      | | | |   | | |__| |               """
+        @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
+        @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
+        @info @sprintf """                                                     """
+        @info @sprintf """ ----------------------------------------------------"""
+        @info @sprintf """ Dycoms                                              """
+        @info @sprintf """   Resolution:                                       """ 
+        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δx Δy Δz
+        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
+        @info @sprintf """     DoF = %d                                        """ DoF
+        @info @sprintf """     Minimum necessary memory to run this test: %d   """ Memory_need_estimate
+        @info @sprintf """     Time step dt: %.2e                              """ dt
+        @info @sprintf """     End time  t : %d                                """ timeend
+        @info @sprintf """ ----------------------------------------------------"""
+    end
+    
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
 end
