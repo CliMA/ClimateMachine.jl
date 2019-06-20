@@ -233,7 +233,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   initialcondition(Q, x...) = initialcondition!(Val(dim), Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -320,12 +320,12 @@ let
   polynomialorder = 4
   base_num_elem = 4
   expected_result = Array{Float64}(undef, 2, 3) # dim-1, lvl
-  expected_result[1,1] = 1.6687745307357629e-01
-  expected_result[1,2] = 5.4179126727473799e-03
-  expected_result[1,3] = 2.3066157635992409e-04
-  expected_result[2,1] = 3.3669188610024728e-02
-  expected_result[2,2] = 1.7603468555920912e-03
-  expected_result[2,3] = 9.1108572847298699e-05
+  expected_result[1,1] = 1.6694692228358385e-01
+  expected_result[1,2] = 5.4178716366661958e-03
+  expected_result[1,3] = 2.3066909145467751e-04
+  expected_result[2,1] = 3.3672363726626506e-02
+  expected_result[2,2] = 1.7603808016182680e-03
+  expected_result[2,3] = 9.1108327587381303e-05
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes

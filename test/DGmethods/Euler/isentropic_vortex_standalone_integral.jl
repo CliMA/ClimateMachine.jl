@@ -173,7 +173,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   integral_computation(spacedisc, Q, 0)
   exact_aux = copy(spacedisc.auxstate)
 
-  lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
+  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting

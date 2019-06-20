@@ -123,7 +123,7 @@ Memory_need_estimate = DoF*16
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-const C_smag = 0.18
+const C_smag = 0.15
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -793,7 +793,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
+    dt = 0.0015
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64

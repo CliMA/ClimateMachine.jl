@@ -1,4 +1,4 @@
-# ODESolvers
+# DGmethods
 
 ```@meta
 CurrentModule = CLIMA
