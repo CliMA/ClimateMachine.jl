@@ -92,7 +92,7 @@ function _parameters!(blk, params_args, call_args, domains_vals)
         push!(params_args, Expr(:kw, var, esc(defexpr)))
         push!(call_args, var)
         push!(domains_vals, domexpr)
-        
+
         blk.args[i] = lhs
 
       elseif ei.head == :call && ei.args[1] in (:∈, :in)
@@ -105,7 +105,7 @@ function _parameters!(blk, params_args, call_args, domains_vals)
           var = lhs.args[1]
         else
           # something else, e.g. inline inner constructor
-          #   F(...) 
+          #   F(...)
           continue
         end
         domexpr = ei.args[3]
@@ -114,14 +114,14 @@ function _parameters!(blk, params_args, call_args, domains_vals)
           domexpr = :(RealDomain($(esc(domexpr.args[1])), $(esc(domexpr.args[1]))))
         else
           domexpr = esc(domexpr)
-        end        
-        
+        end
+
         push!(params_args, var)
         push!(call_args, var)
         push!(domains_vals, domexpr)
-        
+
         blk.args[i] = lhs
-        
+
       elseif ei.head == :(::) && ei.args[1] isa Symbol
         # var::Typ
         var = ei.args[1]

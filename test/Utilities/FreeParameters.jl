@@ -1,6 +1,8 @@
 using Test
 using CLIMA.FreeParameters
 
+const ∞ =  Inf
+
 @parameters struct FooParam
   a::Float64 =0.5 ∈(0,1)
   b::Float64 =5.0 ∈(-∞,+∞)
@@ -11,11 +13,11 @@ end
 
 foo = FooParam(d=4.0,e=5.0)
 
-vec = FreeParameters.flatten(Foo, foo)
+v = FreeParameters.flatten(Foo, foo)
 
 FreeParameters.flatten(Foo, foo)
 
 
 
 
-  
+

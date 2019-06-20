@@ -12,6 +12,14 @@ function domains(::Type{T}) where {T} # fallback
     map(name -> fieldtype(T, name), fieldnames(T))
   end
 end
+function dimension(::Type{T}) where {T} # fallback
+  @static if VERSION > v"1.1"
+    sum(dimension,fieldtypes(T))
+  else
+    sum(name -> dimension(fieldtype(T, name)), fieldnames(T))
+  end
+end
+
 
 
 abstract type Domain end
@@ -26,10 +34,10 @@ struct ConstDomain{T} <: Domain
 end
 dimension(d::ConstDomain) = 0
 
-function flatten!(vec, ::ConstDomain, val, offset)
+function flatten!(v, ::ConstDomain, val, offset)
     return offset
 end
-function unflatten(vec, d::ConstDomain, offset)
+function unflatten(v, d::ConstDomain, offset)
     return d.val, offset
 end
 
@@ -91,11 +99,11 @@ fromcartesian(d::LowerBoundedRealDomain, cval::Real) = exp(cval) + d.lo
 fromcartesian(d::UpperBoundedRealDomain, cval::Real) = d.hi - exp(-cval)
 fromcartesian(d::IntervalRealDomain, cval::Real) = d.lo + (d.hi-d.lo)/(1+exp(-cval))
 
-function flatten!(vec, d::RealDomain, val::Real, offset)
-    vec[offset] = tocartesian(d, val)
+function flatten!(v, d::RealDomain, val::Real, offset)
+    v[offset] = tocartesian(d, val)
     return offset+1
 end
-function unflatten(vec, d::RealDomain, offset)
-    val = fromcartesian(d, vect[offset])
+function unflatten(v, d::RealDomain, offset)
+    val = fromcartesian(d, v[offset])
     return val, offset+1
 end
