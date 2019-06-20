@@ -78,8 +78,8 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 35
-Δy    = 35
+Δx    = 15
+Δy    = 15
 Δz    = 10
 #
 # OR:
@@ -123,7 +123,7 @@ Memory_need_estimate = DoF*16
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-const C_smag = 0.23
+const C_smag = 0.18
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -687,27 +687,25 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
 
-    eng0 = norm(Q)
+    #=eng0 = norm(Q)
     @info @sprintf """Starting
       norm(Q₀) = %.16e""" eng0
-
+    =#
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
         if s
             starttime[] = now()
         else
-            energy = norm(Q)
+            #energy = norm(Q)
             #globmean = global_mean(Q, _ρ)
             @info @sprintf("""Update
                          simtime = %.16e
-                         runtime = %s
-                         norm(Q) = %.16e""", 
+                         runtime = %s""",
                            ODESolvers.gettime(lsrk),
                            Dates.format(convert(Dates.DateTime,
                                                 Dates.now()-starttime[]),
-                                        Dates.dateformat"HH:MM:SS"),
-                           energy )#, globmean)
+                                        Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
         end
     end
 
@@ -717,7 +715,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-dycoms-test")
+    mkpath("vtk-dycoms")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -727,7 +725,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-dycoms-test/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-dycoms/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -749,6 +747,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
+#=
     # Print some end of the simulation information
     engf = norm(Q)
     if integration_testing
@@ -771,6 +770,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
     end
 integration_testing ? errf : (engf / eng0)
+=#
+
 end
 
 using Test
