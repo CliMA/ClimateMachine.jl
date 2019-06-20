@@ -68,7 +68,7 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
     DF = eltype(ρ)
     if(q_rai >= DF(0))
       # compute rain fall speed
-      # rain_w = terminal_velocity(q_rai, ρ) TODO - tmp
+      #rain_w = terminal_velocity(q_rai, ρ)# TODO - tmp
       rain_w = DF(0)
     else
       rain_w = DF(0)
@@ -90,10 +90,12 @@ end
     ρu_nM = nM[1] * ρu_M + nM[2] * ρw_M
 
     QP[_ρu] = ρu_M - 2 * nM[1] * ρu_nM
-    QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM # TODO - what to do with rain fall speed
+    QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM
 
-    QP[_ρe_tot], QP[_ρq_tot], QP[_ρq_liq], QP[_ρq_rai] =
-      ρe_tot_M, ρq_tot_M, ρq_liq_M, ρq_rai_M
+    QP[_ρe_tot], QP[_ρq_tot], QP[_ρq_liq] = ρe_tot_M, ρq_tot_M, ρq_liq_M
+
+    DF = eltype(ρ)
+    QP[_ρq_rai] = DF(0)
 
     auxM .= auxP
 
@@ -162,9 +164,8 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
       e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
       q     = PhasePartition(q_tot, q_liq, DF(0))
       T     = air_temperature(e_int, q)
-      # equilibrium state (hidden saturation adjustment here)
-      ts_eq = PhaseEquil(e_int, q_tot, ρ)
-      q_eq  = PhasePartition(ts_eq)
+      # equilibrium state
+      q_eq = PhasePartition_equil(T, ρ, q_tot)
 
       # compute tendencies
       src_q_liq = conv_q_vap_to_q_liq(q_eq, q)

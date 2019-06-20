@@ -1,6 +1,6 @@
 # Microphysics Module
 
-The `Microphysics` module provides 1-moment bulk parameterization of cloud microphysical processes. The module describes the warm rain (no ice and snow) formation and is based on the ideas of Kessler 1995.
+The `Microphysics` module describes warm rain bulk parameterization of cloud microphysical processes. The module describes the warm rain (no ice and snow) formation and is based on the ideas of Kessler 1995.
 
 Parameterized processes include:
   - rain sedimentation with mass weighted average terminal velocity,
@@ -35,7 +35,7 @@ Parameters used in the parameterization are defined in `MicrophysicsParameters` 
 The rain-drop size distribution is assumed to follow Marshall-Palmer distribution (Marshall Palmer 1948 eq. 1):
 ```math
 \begin{equation}
-n(r) = n_{0_{MP}} exp\left(- \lambda_{MP} \; r \right)
+n(r) = n_{0_{MP}} exp\left(- \lambda_{MP} \, r \right)
 \end{equation}
 ```
 where:
@@ -44,10 +44,11 @@ where:
 
 ## Terminal velocity
 
-The terminal velocity of an individual rain drop is defined by the balance between the gravity (taking into account the density difference between water and air) and the drag force:
+The terminal velocity of an individual rain drop is defined by the balance between the gravitational acceleration (taking into account the density difference between water and air) and the drag force:
 ```math
 \begin{equation}
-v_{drop} = \left(\frac{8}{3 \; C_{drag}} \left( \frac{\rho_{water}}{\rho} -1 \right) \right)^{1/2} g^{1/2} \; r^{1/2} = v_c(\rho) \; g^{1/2} \; r^{1/2}
+v_{drop} = \left(\frac{8}{3 \, C_{drag}} \left( \frac{\rho_{water}}{\rho} -1 \right) \right)^{1/2} (g \, r)^{1/2} = v_c(\rho) \, (g \, r)^{1/2}
+\label{eq:vdrop}
 \end{equation}
 ```
 where:
@@ -60,27 +61,35 @@ The mass weighted terminal velocity ``v_t`` is defined following Ogura and Takah
 ```math
 \begin{equation}
 v_t = \frac{F_{rain}}{RWC}
+\label{eq:vt}
 \end{equation}
 ```
 where:
- - ``F_{rain} = \int_0^\infty n(r) \; m(r) \; v_{drop}(r) dr`` is the vertical flux of rain drops,
- - ``RWC = \int_0^\infty n(r) \; m(r) dr = \rho \; q_{rai}`` is the rain water content.
+ - ``F_{rain} = \int_0^\infty n(r) \, m(r) \, v_{drop}(r) \, dr`` is the vertical flux of rain drops,
+ - ``RWC = \int_0^\infty n(r) \, m(r) \, dr = \rho \, q_{rai}`` is the rain water content.
 
 Integrating over the assumed Marshall-Palmer distribution results in
 ```math
 \begin{equation}
-RWC = \frac{8 \pi \; n_{0_{MP}} \; \rho_{water}}{\lambda_{MP}^4}
+RWC = \frac{8 \pi \, n_{0_{MP}} \, \rho_{water}}{\lambda_{MP}^4}
 \label{eq:lambda}
 \end{equation}
 ```
 ```math
-F_{rain} = \Gamma \left(\frac{9}{2} \right) \frac{4}{3} n_{0_{MP}} \; \pi \; \rho_{water} v_c(\rho) \; g^{1/2} (\lambda_{MP})^{-9/2}
+\begin{equation}
+F_{rain} = \Gamma \left(\frac{9}{2} \right) \frac{4}{3} n_{0_{MP}} \, \pi \, \rho_{water} v_c(\rho) \, g^{1/2} (\lambda_{MP})^{-9/2}
+\label{eq:frain}
+\end{equation}
 ```
-Eliminating ``\lambda_{MP}`` between the two equations and dividing by ``RWC`` results in
+Substituting eq.(\ref{eq:lambda}) and eq.(\ref{eq:frain}) into eq.(\ref{eq:vt}) results in:
 ```math
 \begin{equation}
-v_t = \Gamma \left( \frac{9}{2} \right) \; \frac{v_c(\rho)}{6} \; (8 \pi)^{-1/8} \left( \frac{\rho}{\rho_{water}} \right)^{1/8} n_{0_{MP}}^{-1/8} g^{1/2} q_{rai}^{1/8} = v_{t_{c}}(\rho) \; n_{0_{MP}}^{-1/8} g^{1/2} q_{rai}^{1/8}
+v_t = \Gamma \left( \frac{9}{2} \right) \, \frac{v_c(\rho)}{6} \, \left( \frac{g}{\lambda_{MP}}\right)^{1/2}
 \end{equation}
+```
+where ``\lambda_{MP}`` is computed as
+```math
+\lambda_{MP} = \left( \frac{8 \pi \rho_{water} n_{0_{MP}}}{\rho q_{rai}} \right)^{1/4}
 ```
 The default value of ``C_{drag}`` is chosen such that the ``v_t`` is close to the empirical terminal velocity formulation in Smolarkiewicz and Grabowski 1996. Assuming a constant drag coefficient is an approximation as it should be size and flow dependent, see [drag_coefficient](https://www.grc.nasa.gov/www/K-12/airplane/dragsphere.html).
 
@@ -109,10 +118,10 @@ nothing # hide
 
 ## Cloud condensation/evaporation
 
-Condensation and evaporation of cloud water is parameterized as a relaxation to equilibrium. The equilibrium state is calculated using saturation adjustment defined in the `MoistThermodynamics` module.
+Condensation and evaporation of cloud water is parameterized as a relaxation to equilibrium value at the current time step.
 ```math
 \begin{equation}
-  \left. \frac{d \; q_{liq}}{dt} \right|_{cond, evap} = \frac{q^{eq}_{liq} - q_{liq}}{\tau_{cond\_evap}}
+  \left. \frac{d \, q_{liq}}{dt} \right|_{cond, evap} = \frac{q^{eq}_{liq} - q_{liq}}{\tau_{cond\_evap}}
 \end{equation}
 ```
 where:
@@ -125,7 +134,7 @@ where:
 Autoconversion defines the rate of conversion form cloud to rain water due to collisions between cloud droplets. It is parameterized following Kessler 1995:
 ```math
 \begin{equation}
-  \left. \frac{d \; q_{rai}}{dt} \right|_{acnv} = \frac{max(0, q_{liq} - q_{liq\_threshold})}{\tau_{acnv}}
+  \left. \frac{d \, q_{rai}}{dt} \right|_{acnv} = \frac{max(0, q_{liq} - q_{liq\_threshold})}{\tau_{acnv}}
 \end{equation}
 ```
 where:
@@ -140,16 +149,17 @@ The default values of ``\tau_{acnv}`` and ``q_{liq\_threshold}`` are based on Sm
 Accretion defines the rate of conversion from cloud to rain water resulting from collisions between cloud droplets and rain drops. It is parameterized following Kessler 1995:
 ```math
 \begin{equation}
-\left. \frac{d \; q_{rai}}{dt} \right|_{accr} = \int_0^\infty n(r) \; \pi r^2 \; v_c(\rho) \; g^{1/2} \; r^{1/2} E_{col} q_{liq} dr
+\left. \frac{d \, q_{rai}}{dt} \right|_{accr} = \int_0^\infty n(r) \, \pi r^2 \, v_{drop} E_{col} q_{liq} dr
 \end{equation}
 ```
 where:
- - ``E_{col}`` is the collision efficiency.
+ - ``E_{col}`` is the collision efficiency,
+ - ``v_{drop}`` is defined in eq.(\ref{eq:vdrop}).
 
 Integrating over the distribution and using the RWC to eliminate the ``\lambda_{MP}`` results in:
 ```math
 \begin{equation}
-\left. \frac{d \; q_{rai}}{dt} \right|_{accr}  = \Gamma \left(\frac{7}{2} \right) \pi^{1/8} 8^{-7/8} E_{col} v_c(\rho) \; \left(\frac{\rho}{\rho_{water}}\right)^{7/8} n_{0_{MP}}^{1/8} g^{1/2} q_{liq} q_{rai}^{7/8} = A(\rho) \; n_{0_{MP}}^{1/8} g^{1/2} q_{liq} q_{rai}^{7/8}
+\left. \frac{d \, q_{rai}}{dt} \right|_{accr}  = \Gamma \left(\frac{7}{2} \right) \pi^{1/8} 8^{-7/8} E_{col} v_c(\rho) \, \left(\frac{\rho}{\rho_{water}}\right)^{7/8} n_{0_{MP}}^{1/8} g^{1/2} q_{liq} q_{rai}^{7/8} = A(\rho) \, n_{0_{MP}}^{1/8} g^{1/2} q_{liq} q_{rai}^{7/8}
 \end{equation}
 ```
 The default value of collision efficiency ``E_{coll}`` is set to 0.8 so that the resulting accretion rate is close to the empirical accretion rate in Smolarkiewicz and Grabowski 1996. Assuming a constant ``E_{col}`` is an approximation, see for example [collision efficiency](https://journals.ametsoc.org/doi/10.1175/1520-0469%282001%29058%3C0742%3ACEODIA%3E2.0.CO%3B2).
@@ -190,21 +200,22 @@ r \frac{dr}{dt} = \frac{1}{\rho_{water}}
                     \frac{L}{KT} \left(\frac{L}{R_v T} - 1 \right) +
                     \frac{R_v T}{p_{vap}^{sat} D}
                   \right)^{-1}
-                = \frac{1}{\rho_{water}} S(q_{vap}, q_{vap}^{sat}) \; G(T)
+                = \frac{1}{\rho_{water}} S(q_{vap}, q_{vap}^{sat}) \, G(T)
 \end{equation}
 ```
 where:
- - ``q_{vap}{sat}`` is the saturation vapor specific humidity,
+ - ``q_{vap}^{sat}`` is the saturation vapor specific humidity,
  - ``L`` is the latent heat of vaporization,
  - ``K_{thermo}`` is the thermal conductivity of air,
  - ``R_v`` is the gas constant of water vapor,
  - ``D_{vapor}`` is the diffusivity of water vapor,
- - ``S`` is commonly labeled as supersaturation.
+ - ``S(q_{vap}, q_{vap}^{sat}) = \frac{q_{vap}}{q_{vap}^{sat}} - 1 `` is commonly labeled as supersaturation,
+ - ``G(T) = \left(\frac{L}{KT} \left(\frac{L}{R_v T} - 1 \right) + \frac{R_v T}{p_{vap}^{sat} D} \right)^{-1}`` combines the effects of thermal conductivity and water diffusivity.
 
 The rate of ``q_{rai}`` evaporation is:
 ```math
 \begin{equation}
-\left. \frac{d \; q_{rai}}{dt} \right|_{evap}  =  \int_0^\infty \frac{1}{\rho} \; 4 \pi \; r \; S(q_{vap}, q_{vap}^{sat}) \; G(T) \; F(r) \; n(r) \; dr
+\left. \frac{d \, q_{rai}}{dt} \right|_{evap}  =  \int_0^\infty \frac{1}{\rho} \, 4 \pi \, r \, S(q_{vap}, q_{vap}^{sat}) \, G(T) \, F(r) \, n(r) \, dr
 \end{equation}
 ```
 where:
@@ -228,19 +239,19 @@ where:
  - ``\nu_{air}`` is the kinematic viscosity of air.
 The Reynolds number of a rain drop is defined as:
 ```math
-N_{Re} = \frac{2 \; r \; v_{drop}(r, \rho)}{\nu_{air}} = \frac{2 v_c(\rho) \; g^{1/2} \; r^{3/2}}{\nu_{air}}
+N_{Re} = \frac{2 \, r \, v_{drop}(r, \rho)}{\nu_{air}} = \frac{2 v_c(\rho) \, g^{1/2} \, r^{3/2}}{\nu_{air}}
 ```
 The final integral is:
 ```math
 \begin{equation}
-\left. \frac{d \; q_{rai}}{dt} \right|_{evap}  =  4 \pi S(q_{vap}, q_{vap}^{sat}) \frac{n_{0_{MP}} G(T)}{\rho}
+\left. \frac{d \, q_{rai}}{dt} \right|_{evap}  =  4 \pi S(q_{vap}, q_{vap}^{sat}) \frac{n_{0_{MP}} G(T)}{\rho}
                                                   \int_0^\infty \left( a_{vent} r + b_{vent} N_{Sc}^{1/3} (2 v_c(\rho))^{1/2} \frac{g^{1/4}}{\nu_{air}^{1/2}} r^{7/4} \right) exp(-\lambda_{MP} r) dr
 \end{equation}
 ```
 Integrating and eliminating ``\lambda_{MP}`` using eq.(\ref{eq:lambda}) results in:
 ```math
 \begin{equation}
-\left. \frac{d \; q_{rai}}{dt} \right|_{evap}  = S(q_{vap}, q_{vap}^{sat}) \frac{G(T) n_{0_{MP}}^{1/2}}{\rho} \left( A q_{rai}^{1/2} + B \frac{g^{1/4}}{n_{0_{MP}}^{3/16} \nu_{air}^{1/2}} q_{rai}^{11/16} \right)
+\left. \frac{d \, q_{rai}}{dt} \right|_{evap}  = S(q_{vap}, q_{vap}^{sat}) \frac{G(T) n_{0_{MP}}^{1/2}}{\rho} \left( A q_{rai}^{1/2} + B \frac{g^{1/4}}{n_{0_{MP}}^{3/16} \nu_{air}^{1/2}} q_{rai}^{11/16} \right)
 \end{equation}
 ```
 where:

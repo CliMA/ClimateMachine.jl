@@ -2,6 +2,7 @@ using Test
 using CLIMA.Microphysics
 using CLIMA.MicrophysicsParameters
 using CLIMA.MoistThermodynamics
+using CLIMA.PlanetParameters
 
 @testset "RainDropFallSpeed" begin
   # two typical rain drop sizes

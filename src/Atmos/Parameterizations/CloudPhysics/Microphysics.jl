@@ -59,10 +59,9 @@ function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
     # gamma(9/2)
     gamma_9_2::DT = DT(11.63)
 
-    v_coeff::DT = gamma_9_2 * v_c / DT(6) *
-                  (DT(8) * π)^DT(-1/8) * (ρ / dens_liquid)^(DT(1/8))
+    lambda::DT = (DT(8) * π * dens_liquid * MP_n_0 / ρ / q_rai)^DT(1/4)
 
-    vel = v_coeff * MP_n_0^(DT(-1/8)) * sqrt(grav) * q_rai^DT(1/8)
+    vel = gamma_9_2 * v_c / DT(6) * sqrt(grav / lambda)
 
     return vel
 end
@@ -72,7 +71,7 @@ end
     conv_q_vap_to_q_liq(q_sat, q)
 
 where:
-- `q_sat` - PhasePartition at equilibrium saturation
+- `q_sat` - PhasePartition at equilibrium
 - `q`     - current PhasePartition
 
 Returns the q_liq tendency due to condensation/evaporation.
