@@ -37,9 +37,7 @@ individual water drop and the square root of its radius * g.
 function terminal_velocity_single_drop_coeff(ρ::DT) where {DT<:Real}
 
     # terminal_vel_of_individual_drop = v_drop_coeff * (g * drop_radius)^(1/2)
-    v_c::DT = sqrt(DT(8/3) / C_drag * (dens_liquid / ρ - DT(1)))
-
-    return v_c
+    return sqrt(DT(8/3) / C_drag * (dens_liquid / ρ - DT(1)))
 end
 
 """
@@ -57,13 +55,11 @@ function terminal_velocity(q_rai::DT, ρ::DT) where {DT<:Real}
     v_c = terminal_velocity_single_drop_coeff(ρ)
 
     # gamma(9/2)
-    gamma_9_2::DT = DT(11.63)
+    gamma_9_2 = DT(11.631728396567448)
 
     lambda::DT = (DT(8) * π * dens_liquid * MP_n_0 / ρ / q_rai)^DT(1/4)
 
-    vel = gamma_9_2 * v_c / DT(6) * sqrt(grav / lambda)
-
-    return vel
+    return gamma_9_2 * v_c / DT(6) * sqrt(grav / lambda)
 end
 
 
@@ -78,20 +74,16 @@ Returns the q_liq tendency due to condensation/evaporation.
 The tendency is obtained assuming a relaxation to equilibrium with
 constant timescale.
 """
-function conv_q_vap_to_q_liq(q_sat::PhasePartition, q::PhasePartition)
-
-  DT = eltype(q.tot)
-
-  src_q_liq::DT = (q_sat.liq - q.liq) / τ_cond_evap
+function conv_q_vap_to_q_liq(q_sat::PhasePartition{DT},
+                             q::PhasePartition{DT}) where {DT<:Real}
 
   if q_sat.ice != DT(0)
-    @show("1-moment bulk microphysics is not defined for snow/ice")
+    error("1-moment bulk microphysics is not defined for snow/ice")
     #This should be the q_ice tendency due to sublimation/resublimation.
     #src_q_ice = (q_sat.ice - q.ice) / τ_subl_resubl
   end
 
-  return src_q_liq
-
+  return (q_sat.liq - q.liq) / τ_cond_evap
 end
 
 
@@ -106,9 +98,7 @@ Returns the q_rai tendency due to collisions between cloud droplets
 """
 function conv_q_liq_to_q_rai_acnv(q_liq::DT) where {DT<:Real}
 
-  src_q_rai::DT = max(DT(0), q_liq - q_liq_threshold) / τ_acnv
-
-  return src_q_rai
+  return max(DT(0), q_liq - q_liq_threshold) / τ_acnv
 end
 
 
@@ -129,15 +119,13 @@ function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT, ρ::DT) where {DT<:Real}
   v_c::DT = terminal_velocity_single_drop_coeff(ρ)
 
   #gamma(7/2)
-  gamma_7_2::DT = DT(3.32)
+  gamma_7_2 = DT(3.3233509704478426)
 
   accr_coeff::DT = gamma_7_2 * DT(8)^DT(-7/8) * π^DT(1/8) * v_c * E_col *
                    (ρ / dens_liquid)^DT(7/8)
 
-  src_q_rai::DT = accr_coeff * MP_n_0^DT(1/8) * sqrt(grav) *
-                  q_liq * q_rai^DT(7/8)
-
-  return src_q_rai
+  return accr_coeff * DT(MP_n_0)^DT(1/8) * sqrt(DT(grav)) *
+         q_liq * q_rai^DT(7/8)
 end
 
 """
@@ -153,7 +141,7 @@ where:
 Returns the q_rai tendency due to rain evaporation. Parameterized following
 Smolarkiewicz and Grabowski 1996.
 """
-function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition,
+function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition{DT},
                              T::DT, p::DT, ρ::DT) where {DT<:Real}
 
   qv_sat = saturation_shum(T, ρ, q)
@@ -167,7 +155,7 @@ function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition,
           )
 
   # gamma(11/4)
-  gamma_11_4::DT = DT(1.61)
+  gamma_11_4 = DT(1.6083594219855457)
   N_Sc::DT = ν_air / D_vapor
   v_c::DT = terminal_velocity_single_drop_coeff(ρ)
 
@@ -178,10 +166,7 @@ function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition,
   F::DT = av * sqrt(qr) +
           bv * grav^DT(1/4) / (MP_n_0)^DT(3/16) / sqrt(ν_air) * qr^DT(11/16)
 
-  ret = S * F * G * sqrt(MP_n_0) / ρ
-
-  return ret
-
+  return S * F * G * sqrt(MP_n_0) / ρ
 end
 
 end #module Microphysics.jl
