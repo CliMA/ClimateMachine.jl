@@ -47,7 +47,7 @@ struct LowStorageRungeKutta2N{F, T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   RKC::NTuple{Nstages, RT}
 
   function LowStorageRungeKutta2N(rhs!::F, RKA, RKB, RKC,
-                                  Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+                                  Q::AT; dt=nothing, t0=0) where {F,AT<:AbstractArray}
 
     @assert dt != nothing
 
@@ -129,8 +129,7 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-function LSRK54CarpenterKennedy(F::Union{Function, AbstractSpaceMethod},
-                                Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function LSRK54CarpenterKennedy(F, Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
 
