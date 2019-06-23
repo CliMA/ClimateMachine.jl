@@ -3,6 +3,7 @@ using ..Topologies
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorder
+export referencepoints
 import Canary
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
@@ -14,7 +15,16 @@ polynomialorder(::AbstractGrid{T, dim, N}) where {T, dim, N} = N
 
 dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
 
+Base.eltype(::AbstractGrid{T}) where {T} = T
+
 arraytype(::AbstractGrid{T, D, N, Np, DA}) where {T, D, N, Np, DA} = DA
+
+"""
+    referencepoints(::AbstractGrid)
+
+Returns the points on the reference element.
+"""
+referencepoints(::AbstractGrid) = error("needs to be implemented")
 
 # {{{
 const _nvgeo = 15
@@ -125,6 +135,16 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
         TOP
        }(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems, D, Imat)
   end
+end
+
+"""
+    referencepoints(::DiscontinuousSpectralElementGrid)
+
+Returns the 1D interpolation points used for the reference element.
+"""
+function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}) where {T, dim, N}
+  ξ, _ = Canary.lglpoints(T, N)
+  ξ
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
