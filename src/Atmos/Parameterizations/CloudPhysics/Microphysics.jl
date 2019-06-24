@@ -116,7 +116,7 @@ and rain drops (accretion) parametrized following Kessler 1995.
 function conv_q_liq_to_q_rai_accr(q_liq::DT, q_rai::DT, ρ::DT) where {DT<:Real}
 
   # terminal_vel_of_individual_drop = v_drop_coeff * drop_radius^(1/2)
-  v_c::DT = terminal_velocity_single_drop_coeff(ρ)
+  v_c = terminal_velocity_single_drop_coeff(ρ)
 
   #gamma(7/2)
   gamma_7_2 = DT(3.3233509704478426)
@@ -145,11 +145,11 @@ function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition{DT},
                              T::DT, p::DT, ρ::DT) where {DT<:Real}
 
   qv_sat = saturation_shum(T, ρ, q)
-  q_v::DT = q.tot - q.liq - q.ice
-  S::DT = q_v/qv_sat - DT(1)
+  q_v = q.tot - q.liq - q.ice
+  S = q_v/qv_sat - 1
 
-  L::DT = latent_heat_vapor(T)
-  p_vs::DT = saturation_vapor_pressure(T, Liquid())
+  L = latent_heat_vapor(T)
+  p_vs = saturation_vapor_pressure(T, Liquid())
   G::DT = DT(1) / (
             L / K_therm / T * (L / R_v / T - DT(1)) + R_v * T / D_vapor / p_vs
           )
@@ -157,10 +157,10 @@ function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition{DT},
   # gamma(11/4)
   gamma_11_4 = DT(1.6083594219855457)
   N_Sc::DT = ν_air / D_vapor
-  v_c::DT = terminal_velocity_single_drop_coeff(ρ)
+  v_c = terminal_velocity_single_drop_coeff(ρ)
 
-  av = sqrt(2 * π) * a_vent * sqrt(ρ / dens_liquid)
-  bv = DT(2)^DT(7/16) * gamma_11_4 * π^DT(5/16) * b_vent * (N_Sc)^DT(1/3) *
+  av::DT = sqrt(2 * π) * a_vent * sqrt(ρ / dens_liquid)
+  bv::DT = DT(2)^DT(7/16) * gamma_11_4 * π^DT(5/16) * b_vent * (N_Sc)^DT(1/3) *
        sqrt(v_c) * (ρ / dens_liquid)^DT(11/16)
 
   F::DT = av * sqrt(qr) +

@@ -35,7 +35,7 @@ end
   # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
   function terminal_velocity_empir(q_rai::DT, q_tot::DT, ρ::DT,
                                       ρ_air_ground::DT) where {DT<:Real}
-      rr  = q_rai / (DT(1) - q_tot)
+      rr  = q_rai / (1 - q_tot)
       vel = DT(14.34) * ρ_air_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
       return vel
   end
@@ -104,18 +104,18 @@ end
 
       q_sat  = saturation_shum(T, ρ, q)
       q_vap  = q.tot - q.liq
-      rr     = q_rai / (DT(1) - q.tot)
-      rv_sat = q_sat / (DT(1) - q.tot)
-      S      = q_vap/q_sat - DT(1)
+      rr     = q_rai / (1 - q.tot)
+      rv_sat = q_sat / (1 - q.tot)
+      S      = q_vap/q_sat - 1
 
-      ag, bg = 5.4 * 1e2, 2.55 * 1e5
+      ag, bg = DT(5.4 * 1e2), DT(2.55 * 1e5)
       G = DT(1) / (ag + bg / p / rv_sat) / ρ
 
-      av, bv = 1.6, 124.9
+      av, bv = DT(1.6), DT(124.9)
       F = av * (ρ/DT(1e3))^DT(0.525)  * rr^DT(0.525) +
           bv * (ρ/DT(1e3))^DT(0.7296) * rr^DT(0.7296)
 
-      return DT(1) / (DT(1) - q.tot) * S * F * G
+      return 1 / (1 - q.tot) * S * F * G
   end
 
   # example values
