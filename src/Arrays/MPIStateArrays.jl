@@ -4,6 +4,8 @@ using DoubleFloats
 
 using MPI
 
+using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
+
 export MPIStateArray, euclidean_distance, weightedsum
 
 """
@@ -131,12 +133,17 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
                           nabrtosend, weights, commtag)
 end
 
-# FIXME: should general cases should be handled?
-function Base.similar(Q::MPIStateArray{S, T, DA}; commtag=Q.commtag
-                     ) where {S, T, DA}
-  MPIStateArray{S, T, DA}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
-                          Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
-                          Q.nabrtosend, Q.weights, commtag)
+# FIXME: should general cases be handled?
+function Base.similar(Q::MPIStateArray{S, T, DA}, ::Type{TN}; commtag=Q.commtag
+                     ) where {S, T, DA, TN}
+  MPIStateArray{S, TN, DA}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
+                           Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
+                           Q.nabrtosend, Q.weights, commtag)
+end
+
+function Base.similar(Q::MPIStateArray{S, T}; commtag=Q.commtag
+                     ) where {S, T}
+  similar(Q, T, commtag = commtag)
 end
 
 # FIXME: Only show real size
@@ -160,6 +167,41 @@ Base.copyto!(dst::Array, src::MPIStateArray) = copyto!(dst, src.Q)
 function Base.copyto!(dst::MPIStateArray, src::MPIStateArray)
   copyto!(dst.Q, src.Q)
   dst
+end
+
+# broadcasting stuff
+
+# find the first MPIStateArray among `bc` arguments
+# based on https://docs.julialang.org/en/v1/manual/interfaces/#Selecting-an-appropriate-output-array-1
+find_mpisa(bc::Broadcasted) = find_mpisa(bc.args)
+find_mpisa(args::Tuple) = find_mpisa(find_mpisa(args[1]), Base.tail(args))
+find_mpisa(x) = x
+find_mpisa(a::MPIStateArray, rest) = a
+find_mpisa(::Any, rest) = find_mpisa(rest)
+
+Base.BroadcastStyle(::Type{<:MPIStateArray}) = ArrayStyle{MPIStateArray}()
+function Base.similar(bc::Broadcasted{ArrayStyle{MPIStateArray}}, ::Type{T}) where T
+  similar(find_mpisa(bc), T)
+end
+
+# transform all arguments of `bc` from MPIStateArrays to Arrays
+function transform_broadcasted(bc::Broadcasted, ::Array)
+  transform_array(bc)
+end
+function transform_array(bc::Broadcasted)
+  Broadcasted(bc.f, transform_array.(bc.args), bc.axes)
+end
+transform_array(mpisa::MPIStateArray) = mpisa.Q
+transform_array(x) = x
+
+@inline function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
+  # check for the case a .= b, where b is a MPIStateArray
+  if bc.f == identity
+    Base.copyto!(dest.Q, bc.args[1])
+  else
+    Base.copyto!(dest.Q, transform_broadcasted(bc, dest.Q))
+  end
+  dest
 end
 
 """
@@ -394,6 +436,18 @@ using Requires
   using .CuArrays
   using .CuArrays.CUDAnative
   using .CuArrays.CUDAnative.CUDAdrv
+
+  # transform all arguments of `bc` from MPIStateArrays to CuArrays
+  # and replace CPU function with GPU variants
+  function transform_broadcasted(bc::Broadcasted, ::CuArray)
+    transform_cuarray(bc)
+  end
+
+  function transform_cuarray(bc::Broadcasted)
+    Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
+  end
+  transform_cuarray(mpisa::MPIStateArray) = mpisa.Q
+  transform_cuarray(x) = x
 
   include("MPIStateArrays_cuda.jl")
 end
