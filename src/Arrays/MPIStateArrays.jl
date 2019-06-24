@@ -24,9 +24,10 @@ export MPIStateArray, euclidean_distance, weightedsum
 
 """
 struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
-                     DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
+                     DATN<:AbstractArray{T,N}, Nm1, DAI1, DAV} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
   Q::DATN
+  realQ::DAV
 
   realelems::UnitRange{Int64}
   ghostelems::UnitRange{Int64}
@@ -62,6 +63,9 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
        DA{T, N}(undef, S.parameters..., numsendelem),
        DA{T, N}(undef, S.parameters..., numrecvelem))
 
+    realQ = view(Q, axes(Q)[1:end-1]..., realelems)
+    DAV = typeof(realQ)
+
     host_sendQ = zeros(T, S.parameters..., numsendelem)
     host_recvQ = zeros(T, S.parameters..., numrecvelem)
 
@@ -71,12 +75,13 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
 
     sendelems = typeof(sendelems) <: DA ? sendelems : DA(sendelems)
     DAI1 = typeof(sendelems)
-    new{S, T, DA, N, typeof(Q), N-1, DAI1}(mpicomm, Q, realelems, ghostelems,
-                                           sendelems, sendreq, recvreq,
-                                           host_sendQ, host_recvQ, nabrtorank,
-                                           nabrtorecv, nabrtosend,
-                                           device_sendQ, device_recvQ, weights,
-                                           commtag)
+    new{S, T, DA, N, typeof(Q), N-1, DAI1, DAV}(mpicomm, Q, realQ,
+                                                realelems, ghostelems,
+                                                sendelems, sendreq, recvreq,
+                                                host_sendQ, host_recvQ, nabrtorank,
+                                                nabrtorecv, nabrtosend,
+                                                device_sendQ, device_recvQ, weights,
+                                                commtag)
   end
 end
 
@@ -146,28 +151,15 @@ function Base.similar(Q::MPIStateArray{S, T}; commtag=Q.commtag
   similar(Q, T, commtag = commtag)
 end
 
-# FIXME: Only show real size
-Base.size(Q::MPIStateArray, x...;kw...) = size(Q.Q, x...;kw...)
+Base.size(Q::MPIStateArray, x...;kw...) = size(Q.realQ, x...;kw...)
 
-# FIXME: Only let get index access real elements?
-Base.getindex(Q::MPIStateArray, x...;kw...) = getindex(Q.Q, x...;kw...)
+Base.getindex(Q::MPIStateArray, x...;kw...) = getindex(Q.realQ, x...;kw...)
 
-# FIXME: Only let set index access real elements?
-Base.setindex!(Q::MPIStateArray, x...;kw...) = setindex!(Q.Q, x...;kw...)
+Base.setindex!(Q::MPIStateArray, x...;kw...) = setindex!(Q.realQ, x...;kw...)
 
 Base.eltype(Q::MPIStateArray, x...;kw...) = eltype(Q.Q, x...;kw...)
 
 Base.Array(Q::MPIStateArray) = Array(Q.Q)
-
-function Base.copyto!(dst::MPIStateArray, src::Array)
-  copyto!(dst.Q, src)
-  dst
-end
-Base.copyto!(dst::Array, src::MPIStateArray) = copyto!(dst, src.Q)
-function Base.copyto!(dst::MPIStateArray, src::MPIStateArray)
-  copyto!(dst.Q, src.Q)
-  dst
-end
 
 # broadcasting stuff
 
@@ -191,15 +183,21 @@ end
 function transform_array(bc::Broadcasted)
   Broadcasted(bc.f, transform_array.(bc.args), bc.axes)
 end
-transform_array(mpisa::MPIStateArray) = mpisa.Q
+transform_array(mpisa::MPIStateArray) = mpisa.realQ
 transform_array(x) = x
 
+Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.realQ)
+
 @inline function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
-  # check for the case a .= b, where b is a MPIStateArray
+  # check for the case a .= b, where b is an array
   if bc.f == identity
-    Base.copyto!(dest.Q, bc.args[1])
+    if typeof(bc.args[1]) <: MPIStateArray
+      Base.copyto!(dest.realQ, bc.args[1].realQ)
+    else
+      Base.copyto!(dest.Q, bc.args[1])
+    end
   else
-    Base.copyto!(dest.Q, transform_broadcasted(bc, dest.Q))
+    Base.copyto!(dest.realQ, transform_broadcasted(bc, dest.Q))
   end
   dest
 end
@@ -446,7 +444,7 @@ using Requires
   function transform_cuarray(bc::Broadcasted)
     Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
   end
-  transform_cuarray(mpisa::MPIStateArray) = mpisa.Q
+  transform_cuarray(mpisa::MPIStateArray) = mpisa.realQ
   transform_cuarray(x) = x
 
   include("MPIStateArrays_cuda.jl")
