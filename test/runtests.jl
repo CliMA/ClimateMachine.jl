@@ -10,7 +10,8 @@ for submodule in ["Utilities/ParametersType",
                   "Atmos/Parameterizations/TurbulenceConvection",
                   "Mesh",
                   "DGmethods",
-                  "ODESolvers"
+                  "ODESolvers",
+                  "Arrays",
                   ]
 
   println("Starting tests for $submodule")
