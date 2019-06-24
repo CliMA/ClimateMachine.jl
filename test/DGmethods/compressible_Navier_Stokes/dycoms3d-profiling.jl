@@ -78,7 +78,7 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 30
+Δx    = -30
 Δy    = 30
 Δz    = 5
 #
@@ -86,7 +86,7 @@ const Npoly = 4
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (10, 10, 1)
+(Nex, Ney, Nez) = (5, 5, 10)
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 840)
@@ -630,6 +630,10 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     e_int       = internal_energy(T, PhasePartition(q_tot))
     E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
     
+    #Get q_liq and q_ice
+    TS           = PhaseEquil(e_int, q_tot, ρ)
+    q_phase_part = PhasePartition(TS)
+    
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     
 end
@@ -790,7 +794,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.0025
-    timeend = 14400
+    timeend = dt
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
