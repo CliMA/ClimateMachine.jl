@@ -78,9 +78,9 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 15
-Δy    = 15
-Δz    = 10
+Δx    = 30
+Δy    = 30
+Δz    = 5
 #
 # OR:
 #
@@ -715,7 +715,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-dycoms")
+    mkpath("/central/scratch/smarras/vtk-dycoms-30mX30mX5m")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -725,7 +725,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-dycoms/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("/central/scratch/smarras/vtk-dycoms-30mX30mX5m/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -793,7 +793,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.0015
+    dt = 0.0025
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64

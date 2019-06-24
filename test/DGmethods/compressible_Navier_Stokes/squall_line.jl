@@ -78,20 +78,20 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = -35
-Δy    = 35
-Δz    = 10
+Δx    = 200
+Δy    = 200
+Δz    = 200
 #
 # OR:
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (40, 30, 24)
+(Nex, Ney, Nez) = (50, 1, 30)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 160000)
-const (ymin, ymax) = (0, 120000)
-const (zmin, zmax) = (0, 24000)
+const (xmin, xmax) = (0, 20000)
+const (ymin, ymax) = (0,  1200)
+const (zmin, zmax) = (0, 20000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -403,36 +403,72 @@ const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
         xc       = 0.5 * (domain_right + domain_left)
         yc       = 0.5 * (domain_back  + domain_front)
         zc       = 0.5 * (domain_top   + domain_bott)
-        
-        top_sponge  = 0.85 * domain_top
-        xsponger    = domain_right - 0.15 * (domain_right - xc)
-        xspongel    = domain_left  + 0.15 * (xc - domain_left)
-        ysponger    = domain_back  - 0.15 * (domain_back - yc)
-        yspongel    = domain_front + 0.15 * (yc - domain_front)
-       
-        #x left and right
-        #xsl
-        if x <= xspongel
-            csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
-        end
-        #xsr
-        if x >= xsponger
-            csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
-        end        
-        #y left and right
-        #ysl
-        if y <= yspongel
-            csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
-        end
-        #ysr
-        if y >= ysponger
-            csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
-        end
-                
-        #Vertical sponge:         
-        if z >= top_sponge
-            ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
-        end
+
+        sponge_type = 2
+        if sponge_type == 1
+            
+            bc_zscale   = 7000.0
+            top_sponge  = 0.85 * domain_top
+            zd          = domain_top - bc_zscale
+            xsponger    = domain_right - 0.15 * (domain_right - xc)
+            xspongel    = domain_left  + 0.15 * (xc - domain_left)
+            ysponger    = domain_back  - 0.15 * (domain_back - yc)
+            yspongel    = domain_front + 0.15 * (yc - domain_front)
+
+            #x left and right
+            #xsl
+            if x <= xspongel
+                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+            end
+            #xsr
+            if x >= xsponger
+                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+            end        
+            #y left and right
+            #ysl
+            if y <= yspongel
+                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+            end
+            #ysr
+            if y >= ysponger
+                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+            end
+            
+            #Vertical sponge:         
+            if z >= top_sponge
+                ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
+            end
+            
+        elseif sponge_type == 2
+
+            
+            alpha_coe = 0.5
+            bc_zscale = 7500.0
+            zd        = domain_top - bc_zscale
+            xsponger  = domain_right - 0.15 * (domain_right - xc)
+            xspongel  = domain_left  + 0.15 * (xc - domain_left)
+            ysponger  = domain_back  - 0.15 * (domain_back - yc)
+            yspongel  = domain_front + 0.15 * (yc - domain_front)
+
+            #
+            # top damping
+            # first layer: damp lee waves
+            #
+            ctop = 0.0
+            ct   = 0.5
+            if z >= zd 
+                zid = (z - zd)/(domain_top - zd) # normalized coordinate
+                if zid >= 0.0 && zid <= 0.5
+                    abstaud = alpha_coe*(1.0 - cos(zid*pi))
+
+                else
+                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+                    
+                end
+                ctop = ct*abstaud
+            end
+            
+        end #sponge_type
         
         beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
         beta  = min(beta, 1.0)
@@ -619,7 +655,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     yc                    =  (ymin + ymax)/2
     zc                    =  2000.0
     
-    r                     = sqrt((x - xc)^2/rx^2 + (y - yc)^2/ry^2 + (z - zc)^2/rz^2 )
+    r                     = sqrt((x - xc)^2/rx^2 + 0*(y - yc)^2/ry^2 + (z - zc)^2/rz^2 )
     θ_ref::DFloat         = 300.0
     θ_c::DFloat           =   5.0
     Δθ::DFloat            =   0.0
@@ -713,7 +749,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             starttime[] = now()
         else            
             #energy = norm(Q)
-            ##globmean = global_mean(Q, _ρ)
+            #globmean = global_mean(Q, _ρ)
             #@info @sprintf("""Update
             #             simtime = %.16e
             #             runtime = %s
@@ -741,7 +777,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-squall-line3d")
+    mkpath("/central/scratch/smarras/vtk-squall-line3d")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -750,7 +786,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-squall-line3d/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("/central/scratch/smarras/vtk-squall-line3d/sql_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -809,7 +845,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.025
+    dt = 0.001
     timeend = 4500
     polynomialorder = Npoly
     DFloat = Float64
@@ -829,6 +865,7 @@ let
         @info @sprintf """   Resolution:                                       """ 
         @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δx Δy Δz
         @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
+        @info @sprintf """     Nelements = %d                                  """ Nex*Ney*Nez
         @info @sprintf """     DoF = %d                                        """ DoF
         @info @sprintf """     Minimum necessary memory to run this test: %d   """ Memory_need_estimate
         @info @sprintf """     Time step dt: %.2e                              """ dt
