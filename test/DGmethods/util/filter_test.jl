@@ -36,7 +36,7 @@ function run(mpicomm, dim, ArrayType, Ne, DFloat)
                            flux! = (x...) -> (),
                            numerical_flux! = (x...) -> ())
 
-  filter = Grids.CutoffFilter(grid, 2)
+  filter = CutoffFilter(grid, 2)
 
   # Legendre Polynomials
   l0(r) = 1
