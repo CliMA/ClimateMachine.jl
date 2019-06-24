@@ -78,7 +78,7 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 30
+Δx    = -30
 Δy    = 30
 Δz    = 5
 #
@@ -86,7 +86,7 @@ const Npoly = 4
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (10, 10, 1)
+(Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 840)
