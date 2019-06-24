@@ -78,9 +78,10 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = -30
+Δx    = 30
 Δy    = 30
 Δz    = 5
+
 #
 # OR:
 #
@@ -794,7 +795,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.0025
-    timeend = dt
+    timeend = 10*dt
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
