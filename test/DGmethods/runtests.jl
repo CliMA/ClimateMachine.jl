@@ -15,19 +15,10 @@ using MPI, Test
   testdir = dirname(@__FILE__)
 
   for (n, f) in [
-                 (1, "Euler/isentropic_vortex_standalone.jl")
-                 (1, "Euler/isentropic_vortex_standalone_aux.jl")
                  (1, "util/grad_test.jl")
                  (1, "util/grad_test_sphere.jl")
                  (1, "util/integral_test.jl")
                  (1, "util/integral_test_sphere.jl")
-                 (1, "Euler/isentropic_vortex_standalone_source.jl")
-                 (1, "Euler/isentropic_vortex_standalone_bc.jl")
-                 (1, "conservation/sphere.jl")
-                 (1, "compressible_Navier_Stokes/mms_bc.jl")
-                 (1, "sphere/advection_sphere_lsrk.jl")
-                 (1, "sphere/advection_sphere_ssp33.jl")
-                 (1, "sphere/advection_sphere_ssp34.jl")
                 ]
     cmd =  `mpiexec -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
     @info "Running MPI test..." n f cmd
