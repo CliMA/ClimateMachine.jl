@@ -63,7 +63,7 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
        DA{T, N}(undef, S.parameters..., numsendelem),
        DA{T, N}(undef, S.parameters..., numrecvelem))
 
-    realQ = view(Q, axes(Q)[1:end-1]..., realelems)
+    realQ = view(Q, fill(Colon(), ndims(Q) - 1)..., realelems)
     DAV = typeof(realQ)
 
     host_sendQ = zeros(T, S.parameters..., numsendelem)
@@ -187,6 +187,11 @@ transform_array(mpisa::MPIStateArray) = mpisa.realQ
 transform_array(x) = x
 
 Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.realQ)
+
+function Base.copyto!(dest::MPIStateArray, src::MPIStateArray)
+  copyto!(dest.realQ, src.realQ)
+  dest
+end
 
 @inline function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
   # check for the case a .= b, where b is an array
