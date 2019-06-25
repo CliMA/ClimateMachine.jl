@@ -19,9 +19,9 @@ globalA = vcat([A for _ in 1:mpisize]...)
 QA = MPIStateArray{Tuple{localsize[1:2]...}, Float32, Array}(mpicomm, localsize[3])
 QA .= A
 
-@test isapprox(norm(QA, p = 1), norm(globalA, 1))
+@test isapprox(norm(QA, 1), norm(globalA, 1))
 @test isapprox(norm(QA), norm(globalA))
-@test isapprox(norm(QA, p = Inf), norm(globalA, Inf))
+@test isapprox(norm(QA, Inf), norm(globalA, Inf))
 
 B = Array{Float32}(reshape(reverse(1:prod(localsize)), localsize))
 globalB = vcat([B for _ in 1:mpisize]...)
@@ -43,9 +43,9 @@ QB .= B
   QA = MPIStateArray{Tuple{localsize[1:2]...}, Float32, CuArray}(mpicomm, localsize[3])
   QA .= A
 
-  @test isapprox(norm(QA, p = 1), norm(globalA, 1))
+  @test isapprox(norm(QA, 1), norm(globalA, 1))
   @test isapprox(norm(QA), norm(globalA))
-  @test isapprox(norm(QA, p = Inf), norm(globalA, Inf))
+  @test isapprox(norm(QA, Inf), norm(globalA, Inf))
 
   B = Array{Float32}(reshape(reverse(1:prod(localsize)), localsize))
   globalB = vcat([B for _ in 1:mpisize]...)
