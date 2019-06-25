@@ -12,7 +12,7 @@ for submodule in ["Utilities/ParametersType",
                   "DGmethods",
                   "ODESolvers",
                   "Arrays",
-                  ]
+                 ]
 
   println("Starting tests for $submodule")
   t = @elapsed include(joinpath(submodule,"runtests.jl"))
