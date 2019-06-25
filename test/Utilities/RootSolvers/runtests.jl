@@ -1,7 +1,6 @@
 using Test
+using CLIMA
 using CLIMA.RootSolvers
-
-const HAVE_CUDA = Base.identify_package("CuArrays") !== nothing
 
 @testset "RootSolvers correctness" begin
   f(x) = x^2 - 100^2
@@ -23,7 +22,7 @@ const HAVE_CUDA = Base.identify_package("CuArrays") !== nothing
   end  
 end
 
-@static if HAVE_CUDA
+@static if haspkg("CuArrays")
   using CuArrays
   CuArrays.allowscalar(false)
   
