@@ -1,5 +1,8 @@
 module CLIMA
-
+#
+# Manually append a new include for
+# each new modules that you add to the code
+#
 include("Utilities/ParametersType/ParametersType.jl")
 include("Utilities/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
@@ -19,5 +22,7 @@ include("ODESolvers/GenericCallbacks.jl")
 include("InputOutput/Vtk/Vtk.jl")
 include("misc.jl")
 include("Atmos/Parameterizations/SubgridScaleTurbulence/SubgridScaleTurbulence.jl")
+include("InputOutput/UserInput/ReadConfigurationFile.jl")
+
 #include("")
 end
