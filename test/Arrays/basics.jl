@@ -22,23 +22,27 @@ const mpicomm = MPI.COMM_WORLD
   
   Q[2, 3, 4] = 2fillval
   @test Q[2, 3, 4] != fillval
+
+  Qp = copy(Q)
+  
+  @test typeof(Qp) == typeof(Q)
+  @test eltype(Qp) == eltype(Q)
+  @test size(Qp) == size(Q)
+  @test Array(Qp) == Array(Q)
   
   Qp = similar(Q)
   
   @test typeof(Qp) == typeof(Q)
   @test eltype(Qp) == eltype(Q)
   @test size(Qp) == size(Q)
-  
-  A = rand(Float32, size(Q)...)
-  Q .= A
-  @test Array(Q) == A
-  
-  Qp .= Q
+
+  copyto!(Qp, Q)
   @test Array(Qp) == Array(Q)
 end
 
 @static if haspkg("CuArrays")
   using CuArrays
+  CuArrays.allowscalar(false)
   @testset "CUDA MPIStateArray basics" begin
     Q = MPIStateArray{Tuple{4, 6}, Float32, CuArray}(mpicomm, 8)
 
@@ -48,6 +52,7 @@ end
     fillval = 0.5f0
     fill!(Q, fillval)
 
+    CuArrays.allowscalar(true)
     @test Q[1] ==  fillval
     @test Q[2, 3, 4] == fillval
     @test Q[end] == fillval
@@ -56,6 +61,14 @@ end
     
     Q[2, 3, 4] = 2fillval
     @test Q[2, 3, 4] != fillval
+    CuArrays.allowscalar(false)
+
+    Qp = copy(Q)
+    
+    @test typeof(Qp) == typeof(Q)
+    @test eltype(Qp) == eltype(Q)
+    @test size(Qp) == size(Q)
+    @test Array(Qp) == Array(Q)
     
     Qp = similar(Q)
     
@@ -63,11 +76,7 @@ end
     @test eltype(Qp) == eltype(Q)
     @test size(Qp) == size(Q)
     
-    A = rand(Float32, size(Q)...)
-    Q .= A
-    @test Array(Q) == A
-    
-    Qp .= Q
+    copyto!(Qp, Q)
     @test Array(Qp) == Array(Q)
   end
 end

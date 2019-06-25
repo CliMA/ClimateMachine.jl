@@ -17,6 +17,9 @@ const mpicomm = MPI.COMM_WORLD
     QA .= A
     QB .= B
 
+    @test Array(QA) == A
+    @test Array(QB) == B
+
     QC = QA .+ QB
     @test typeof(QC) == typeof(QA)
     C = Array(QC)
@@ -72,6 +75,9 @@ end
       
       QA .= A
       QB .= B
+      
+      @test Array(QA) == A
+      @test Array(QB) == B
 
       QC = QA .+ QB
       @test typeof(QC) == typeof(QA)

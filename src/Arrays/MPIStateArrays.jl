@@ -186,7 +186,7 @@ end
 transform_array(mpisa::MPIStateArray) = mpisa.realQ
 transform_array(x) = x
 
-Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.realQ)
+Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.Q)
 
 function Base.copyto!(dest::MPIStateArray, src::MPIStateArray)
   copyto!(dest.realQ, src.realQ)
