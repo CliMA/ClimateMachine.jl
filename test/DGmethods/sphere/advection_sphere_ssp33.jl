@@ -270,13 +270,13 @@ let
   N = 4
 
   expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
-  expected_error[1] = 1.5877357567325232e-01 # Ne=2
-  expected_error[2] = 9.3722790149339662e-03 # Ne=4
-  expected_error[3] = 2.2415908102497328e-04 # Ne=8
+  expected_error[1] = 1.7384538840988145e-01 # Ne=2
+  expected_error[2] = 1.0290516493360552e-02 # Ne=4
+  expected_error[3] = 1.7777672927112156e-04 # Ne=8
   expected_mass = Array{Float64}(undef, 3) # h-refinement levels lvl
-  expected_mass[1] = 4.4866177213430159e-15 # Ne=2
-  expected_mass[2] = 1.6397494891088082e-14 # Ne=4
-  expected_mass[3] = 1.4014893985458873e-13 # Ne=8
+  expected_mass[1] = 3.3649632910072617e-15 # Ne=2
+  expected_mass[2] = 1.1492261376660025e-14 # Ne=4
+  expected_mass[3] = 9.9645896236612585e-14 # Ne=8
   lvls = integration_testing ? length(expected_error) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
