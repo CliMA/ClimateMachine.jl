@@ -156,10 +156,6 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
     z = aux[_c_z]
     p = aux[_c_p]
 
-    if ρ < DF(1)
-      @show(ρ, x, z)
-    end
-
     S .= 0
     if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
       # current state
@@ -304,8 +300,8 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   writevtk("initial_condition", Q, spacedisc, statenames)
 
   lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-  @show(minimum(diff(collect(lsrk.RKC))) * dt )
-  @show(maximum(diff(collect(lsrk.RKC))) * dt )
+  #@show(minimum(diff(collect(lsrk.RKC))) * dt )
+  #@show(maximum(diff(collect(lsrk.RKC))) * dt )
 
   io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
   eng0 = norm(Q)
