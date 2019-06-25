@@ -16,6 +16,7 @@
 #}
 
 using MPI
+using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
@@ -34,13 +35,14 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
-@static if Base.find_package("CuArrays") !== nothing
+@static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
   using CuArrays
-  const ArrayTypes = VERSION >= v"1.2-pre.25" ? (Array, CuArray) : (Array,)
+  CuArrays.allowscalar(false)
+  const DeviceArrayType = CuArray
 else
-  const ArrayTypes = (Array, )
+  const DeviceArrayType = Array
 end
 
 const _nstate = 5
@@ -300,8 +302,7 @@ end
 
 function run(dim, Ne, N, timeend, DFloat)
 
-  #ArrayType = CuArray
-  ArrayType = Array
+  ArrayType = DeviceArrayType
 
   MPI.Initialized() || MPI.Init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
