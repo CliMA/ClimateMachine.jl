@@ -23,8 +23,8 @@ include("../testhelpers.jl")
   if "linux" != lowercase(get(ENV,"TRAVIS_OS_NAME",""))
     moretests = [(1, "../../examples/DGmethods/ex_001_periodic_advection.jl")
                  (1, "../../examples/DGmethods/ex_002_solid_body_rotation.jl")
+                 (1, "../../examples/DGmethods/ex_003_acoustic_wave.jl")
                 ]
     runmpi(moretests, @__FILE__)
   end
-
 end
