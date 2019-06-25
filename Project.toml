@@ -33,8 +33,8 @@ WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 julia = ">= 1.1"
 
 [extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Dierckx = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]

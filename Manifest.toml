@@ -146,10 +146,10 @@ uuid = "c894b116-72e5-5b58-be3c-e6d8d4ac2b12"
 version = "6.1.1"
 
 [[DiffEqMonteCarlo]]
-deps = ["DiffEqBase", "Distributed", "Random", "RecursiveArrayTools", "StaticArrays", "Statistics", "Test"]
-git-tree-sha1 = "abaf6fa95b05c5c49fd1fb57a901caed10aacd0e"
+deps = ["DiffEqBase", "RecursiveArrayTools", "StaticArrays"]
+git-tree-sha1 = "b28f38791d6aaba8042f93278ab8373be51a2237"
 uuid = "78ddff82-25fc-5f2b-89aa-309469cbf16f"
-version = "0.14.0"
+version = "0.15.0"
 
 [[DiffEqNoiseProcess]]
 deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "Random", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "Requires", "ResettableStacks", "StaticArrays", "Statistics"]
@@ -253,7 +253,7 @@ version = "1.0.0"
 
 [[GPUifyLoops]]
 deps = ["Cassette", "Requires", "StaticArrays"]
-git-tree-sha1 = "1053133cc136ee6b543c2d349cdc96ab75dfb448"
+git-tree-sha1 = "3d8dbb59cc48e20e52026c880f3df1acaf3af474"
 repo-rev = "master"
 repo-url = "https://github.com/vchuravy/GPUifyLoops.jl.git"
 uuid = "ba82f77b-6841-5d2e-bd9f-4daf811aec27"
@@ -589,10 +589,10 @@ uuid = "9672c7b4-1e72-59bd-8a11-6ac3964bc41f"
 version = "1.4.0"
 
 [[StochasticDiffEq]]
-deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqNoiseProcess", "DiffEqOperators", "ForwardDiff", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "StaticArrays"]
-git-tree-sha1 = "31edb0151bfcefd11d14c4dc4134fc5a757eb5d3"
+deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqNoiseProcess", "DiffEqOperators", "FillArrays", "ForwardDiff", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "StaticArrays"]
+git-tree-sha1 = "83be179dc849f11f83dcfa715c7818ef551a0f6c"
 uuid = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
-version = "6.4.0"
+version = "6.5.0"
 
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
@@ -600,9 +600,9 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[Sundials]]
 deps = ["BinaryProvider", "DataStructures", "DiffEqBase", "Libdl", "LinearAlgebra", "Logging", "Reexport", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "db69684adeeed878d989171ef35a13e387f91e66"
+git-tree-sha1 = "9af4eb72683f0dafe84c6a5bd31aea1ebca4d46c"
 uuid = "c3572dad-4567-51f8-b174-8c6c989267f4"
-version = "3.6.0"
+version = "3.6.1"
 
 [[TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
