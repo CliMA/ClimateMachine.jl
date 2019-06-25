@@ -15,91 +15,153 @@ export anisotropic_minimum_dissipation_viscosity
 export anisotropic_minimum_dissipation_diffusivity
 export anisotropic_coefficient_sgs
 
-function anisotropic_coefficient_sgs(Δx, Δy, Δz, Npoly)
-    Δ = (Δx * Δy * Δz)^(1/3)
-    Δ_sorted = sort([Δx, Δy, Δz])  
-    Δ_s1 = Δ_sorted[1]
-    Δ_s2 = Δ_sorted[2]
-    a1 = Δ_s1 / max(Δx,Δy,Δz) / (Npoly + 1)
-    a2 = Δ_s2 / max(Δx,Δy,Δz) / (Npoly + 1)
-    f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2 )
-    Δ = Δ*f_anisotropic
-    Δsqr = Δ * Δ
-    return Δsqr
-end
 
-const γ = cp_d / cv_d 
-const μ_sgs = 100.0
-const C_ss = 0.14 # Typical value of the Smagorinsky-Lilly coeff 0.18 for isotropic turb and 0.23 for atmos flows
-const Prandtl_turb = 1 // 3
-const Prandtl = 71 // 100
+  """
+  Model constants.
+  C_ss takes typical values of 0.14 - 0.23 (flow dependent empirical coefficient) 
 
-"""
-compute_velgrad_tensor takes in the 9 velocity gradient terms and assembles them into a tensor
-for algebraic manipulation in the subgrid-scale turbulence computations
-"""
-function compute_velgrad_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
- @inbounds begin
-    dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-    dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-    dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
+  article{doi:10.1063/1.869251,
+  author = {Canuto,V. M.  and Cheng,Y. },
+  title = {Determination of the Smagorinsky–Lilly constant CS},
+  journal = {Physics of Fluids},
+  volume = {9},
+  number = {5},
+  pages = {1368-1378},
+  year = {1997},
+  doi = {10.1063/1.869251},
+  URL = {https://doi.org/10.1063/1.869251},
+  eprint = {https://doi.org/10.1063/1.869251}
+  }
+  """
+  const C_ss = 0.14 
+  const Prandtl_turb = 1 // 3
+  const Prandtl = 71 // 100
+
+  """
+  Smagorinsky model coefficient for anisotropic grids.
+  Given a description of the grid in terms of Δx, Δy, Δz
+  and polynomial order Npoly, computes the anisotropic equivalent grid
+  coefficient such that the Smagorinsky coefficient is modified as follows
+
+  Eddy viscosity          ν_e
+  Smagorinsky coefficient C_ss
+  Δeq                     Equivalent anisotropic grid
+
+  ν_e = (C_ss Δeq)^2 * sqrt(2 * SijSij) 
+
+  @article{doi:10.1063/1.858537,
+  author = {Scotti,Alberto  and Meneveau,Charles  and Lilly,Douglas K. },
+  title = {Generalized Smagorinsky model for anisotropic grids},
+    journal = {Physics of Fluids A: Fluid Dynamics},
+    volume = {5},
+    number = {9},
+    pages = {2306-2308},
+    year = {1993},
+    doi = {10.1063/1.858537},
+    URL = {https://doi.org/10.1063/1.858537},
+    eprint = {https://doi.org/10.1063/1.858537}
+  }
+  """
+  function anisotropic_coefficient_sgs(Δx, Δy, Δz, Npoly)
+      Δ = (Δx * Δy * Δz)^(1/3)
+      Δ_sorted = sort([Δx, Δy, Δz])  
+      Δ_s1 = Δ_sorted[1]
+      Δ_s2 = Δ_sorted[2]
+      a1 = Δ_s1 / max(Δx,Δy,Δz) / (Npoly + 1)
+      a2 = Δ_s2 / max(Δx,Δy,Δz) / (Npoly + 1)
+      f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2 )
+      Δ = Δ*f_anisotropic
+      Δsqr = Δ * Δ
+      return Δsqr
   end
-  D11, D12, D13 = dudx, dudy, dudz
-  D21, D22, D23 = dvdx, dvdy, dvdz 
-  D31, D32, D33 = dwdx, dwdy, dwdz
-  return (D11, D12, D13, D21, D22, D23, D31, D32, D33)
-end
 
-"""
-compute_strainrate_tensor accepts 9 velocity gradient terms as arguments, calls compute_velgrad_tensor
-to assemble the gradient tensor, and returns the strain rate tensor 
-Dij = ∇u .................................................. [1]
-Sij = 1/2 (∇u + (∇u)ᵀ) .....................................[2]
-τij = 2 * ν_e * Sij ........................................[3]
-"""
-function compute_strainrate_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
-  S11, S12, S13 = dudx, (dudy + dvdx) / 2, (dudz + dwdx) / 2
-  S22, S23      = dvdy, (dvdz + dwdy) / 2
-  S33           = dwdz
-  SijSij = S11^2 + S22^2 + S33^2 + 2 * (S12^2 + S13^2 + S23^2)  
-  return (S11, S22, S33, S12, S13, S23, SijSij)
-end
+  """
+  Compute components of velocity gradient tensor
+  Dij = (∇u)_ij  where i,j represent row, column indices  
+  """
+  function compute_velgrad_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
+   @inbounds begin
+      dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
+      dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
+      dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
+    end
+    D11, D12, D13 = dudx, dudy, dudz
+    D21, D22, D23 = dvdx, dvdy, dvdz 
+    D31, D32, D33 = dwdx, dwdy, dwdz
+    return (D11, D12, D13, D21, D22, D23, D31, D32, D33)
+  end
 
-"""
-Smagorinksy-Lilly SGS Turbulence
---------------------------------
-The constant coefficient Smagorinsky SGS turbulence model for 
-eddy viscosity ν_e 
-and eddy diffusivity D_e 
-The resolved scale stress tensor is calculated as in [3]
-where Sij represents the components of the resolved
-scale rate of strain tensor. ν_t is the unknown eddy
-viscosity which is computed here using the assumption
-that subgrid turbulence production and dissipation are 
-balanced. 
+  """
+  Compute components of strain-rate tensor 
+  Dij = ∇u .................................................. [1]
+  Sij = 1/2 (∇u + (∇u)ᵀ) .....................................[2]
+  τij = 2 * ν_e * Sij ........................................[3]
+  """
+  function compute_strainrate_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
+    S11, S12, S13 = dudx, (dudy + dvdx) / 2, (dudz + dwdx) / 2
+    S22, S23      = dvdy, (dvdz + dwdy) / 2
+    S33           = dwdz
+    SijSij = S11^2 + S22^2 + S33^2 + 2 * (S12^2 + S13^2 + S23^2)  
+    return (S11, S22, S33, S12, S13, S23, SijSij)
+  end
 
-The eddy viscosity ν_e and eddy diffusivity D_e
-are returned. Inputs to the function are the grid descriptors
-(number of elements and polynomial order) and the components
-of the resolved scale rate of strain tensor
+  """
+  Smagorinksy-Lilly SGS Turbulence
+  --------------------------------
+  The constant coefficient Standard Smagorinsky Model model for 
+  (1) eddy viscosity ν_e 
+  (2) and eddy diffusivity D_e 
 
-"""
-function standard_smagorinsky(SijSij, Δ2)
-  ν_e = sqrt(2.0 * SijSij) * C_ss * C_ss * Δ2
-  D_e = ν_e / Prandtl_turb 
-  return (ν_e, D_e)
-end
+  The resolved scale stress tensor is calculated as in [3]
+  where Sij represents the components of the resolved
+  scale rate of strain tensor. ν_t is the unknown eddy
+  viscosity which is computed here using the assumption
+  that subgrid turbulence production and dissipation are 
+  balanced.
 
-"""
-Buoyancy adjusted Smagorinsky coefficient for stratified flows
-Ri = gravity / θᵥ * ∂θ∂z / 2 |S_{ij}|
-"""
-function buoyancy_correction!(ν_e, D_e, SijSij, θ, dθdz)
-  N2 = grav / θ * dθdz 
-  Richardson = N2 / (2 * SijSij)
-  buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
-  ν_e *= buoyancy_factor
-  D_e *= buoyancy_factor
-  return (ν_e, D_e)
-end
+  article{doi:10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2,
+  author = {Smagorinksy, J.},
+  title = {General circulation experiments with the primitive equations},
+  journal = {Monthly Weather Review},
+  volume = {91},
+  number = {3},
+  pages = {99-164},
+  year = {1963},
+  doi = {10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
+  URL = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
+  eprint = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2}
+  }
+  """
+  function standard_smagorinsky(SijSij, Δ2)
+    ν_e = sqrt(2.0 * SijSij) * C_ss * C_ss * Δ2
+    D_e = ν_e / Prandtl_turb 
+    return (ν_e, D_e)
+  end
+
+  """
+  Buoyancy adjusted Smagorinsky coefficient for stratified flows
+  
+  Ri = gravity / θᵥ * ∂θ∂z / 2 |S_{ij}|
+  article{doi:10.1111/j.2153-3490.1962.tb00128.x,
+  author = {LILLY, D. K.},
+  title = {On the numerical simulation of buoyant convection},
+  journal = {Tellus},
+  volume = {14},
+  number = {2},
+  pages = {148-172},
+  doi = {10.1111/j.2153-3490.1962.tb00128.x},
+  url = {https://onlinelibrary.wiley.com/doi/abs/10.1111/j.2153-3490.1962.tb00128.x},
+  eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.2153-3490.1962.tb00128.x},
+  year = {1962}
+  }
+  """
+  function buoyancy_correction!(ν_e, D_e, SijSij, θ, dθdz)
+    N2 = grav / θ * dθdz 
+    Richardson = N2 / (2 * SijSij)
+    buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
+    ν_e *= buoyancy_factor
+    D_e *= buoyancy_factor
+    return (ν_e, D_e)
+  end
+
 end

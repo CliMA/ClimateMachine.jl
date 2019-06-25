@@ -67,10 +67,7 @@ const cp_over_prandtl = cp_d / Prandtl
 const numdims = 3
 
 
-const C_smag = 0.14
-#
 # Define grid size 
-#
 const Δx    =  100
 const Δy    =  100
 const Δz    =  100
@@ -244,16 +241,16 @@ end
 #md # populate the viscous flux array VF. SijSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 #md # (pending)
-@inline function compute_stresses!(VF, grad_vel, _...)
+@inline function compute_stresses!(VF, grad_vars, _...)
     gravity::eltype(VF) = grav
     @inbounds begin
-        dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-        dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-        dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
+        dudx, dudy, dudz = grad_vars[1, 1], grad_vars[2, 1], grad_vars[3, 1]
+        dvdx, dvdy, dvdz = grad_vars[1, 2], grad_vars[2, 2], grad_vars[3, 2]
+        dwdx, dwdy, dwdz = grad_vars[1, 3], grad_vars[2, 3], grad_vars[3, 3]
         # compute gradients of moist vars and temperature
-        dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
-        dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
-        dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
+        dqdx, dqdy, dqdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
+        dTdx, dTdy, dTdz = grad_vars[1, 6], grad_vars[2, 6], grad_vars[3, 6]
+        dθdx, dθdy, dθdz = grad_vars[1, 7], grad_vars[2, 7], grad_vars[3, 7]
         
         # --------------------------------------------
         (S11, S22, S33, S12, S13, S23, SijSij) = compute_strainrate_tensor(dudx, dudy, dudz,
@@ -281,15 +278,15 @@ end
 #md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
-gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
-@inline function gradient_vars!(vel, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+gradient_vars!(grad_list, Q, aux, t, _...) = gradient_vars!(grad_list, Q, aux, t, preflux(Q,~,aux)...)
+@inline function gradient_vars!(grad_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
     @inbounds begin
         y = aux[_a_y]
         # ordering should match states_for_gradient_transform
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        vel[1], vel[2], vel[3] = u, v, w
-        vel[4], vel[5], vel[6] = E, QT, T
-        vel[7] = θ
+        grad_list[1], grad_list[2], grad_list[3] = u, v, w
+        grad_list[4], grad_list[5], grad_list[6] = E, QT, T
+        grad_list[7] = θ
     end
 end
 
@@ -313,13 +310,13 @@ end
     VF .= 0
 end
 
-@inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
+@inline function stresses_penalty!(VF, nM, grad_listM, QM, aM, grad_listP, QP, aP, t)
     @inbounds begin
-        n_Δvel = similar(VF, Size(3, 3))
-        for j = 1:3, i = 1:3
-            n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
+        n_Δgrad_list = similar(VF, Size(3, 3))
+        for j = 1:3, i = 1:7
+            n_Δgrad_list[i, j] = nM[i] * (grad_listP[j] - grad_listM[j]) / 2
         end
-        compute_stresses!(VF, n_Δvel)
+        compute_stresses!(VF, n_Δgrad_list)
     end
 end
 # -------------------------------------------------------------------------
