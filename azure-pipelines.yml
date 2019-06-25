@@ -18,16 +18,19 @@ jobs:
         JULIA_VERSION: '1.1'
 
   steps:
-  - script: |
+  - bash: |
+      set -o xtrace
       wget -nv https://julialang-s3.julialang.org/bin/linux/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz
       mkdir julia-$(JULIA_VERSION)
       tar zxf julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz -C julia-$(JULIA_VERSION) --strip-components 1
     displayName: 'Download and extract Julia'
-  - script: |
+  - bash: |
+      set -o xtrace
       sudo apt-get update
       sudo apt-get install cmake gfortran mpich libmpich-dev
     displayName: 'Install dependencies'
-  - script: |
+  - bash: |
+      set -o xtrace
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
@@ -45,18 +48,21 @@ jobs:
         JULIA_VERSION: '1.1'
 
   steps:
-  - script: |
+  - bash: |
+      set -o xtrace
       wget -nv https://julialang-s3.julialang.org/bin/mac/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-mac64.dmg
       mkdir juliamnt
       hdiutil mount -readonly -mountpoint juliamnt julia-$(JULIA_VERSION)-latest-mac64.dmg
       cp -a juliamnt/*.app/Contents/Resources/julia julia-$(JULIA_VERSION)
     displayName: 'Download and extract Julia'
-  - script: |
+  - bash: |
+      set -o xtrace
       brew update
       brew upgrade
       brew install mpich cmake
     displayName: 'Install dependencies'
-  - script: |
+  - bash: |
+      set -o xtrace
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
@@ -75,14 +81,17 @@ jobs:
 
   steps:
   - powershell: |
+      Set-PSDebug -Trace 1
       wget https://julialang-s3.julialang.org/bin/winnt/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-win64.exe -OutFile julia-$(JULIA_VERSION)-latest-win64.exe
       Start-Process -FilePath .\julia-$(JULIA_VERSION)-latest-win64.exe -ArgumentList "/S /D=C:\julia-$(JULIA_VERSION)" -NoNewWindow -Wait
     displayName: 'Download and extract Julia'
   - powershell: |
+      Set-PSDebug -Trace 1
       wget https://download.microsoft.com/download/2/E/C/2EC96D7F-687B-4613-80F6-E10F670A2D97/msmpisetup.exe -OutFile MSMpiSetup.exe
       Start-Process -FilePath .\MSMpiSetup.exe "-unattend -minimal"
     displayName: 'Install dependencies'
   - powershell: |
+      Set-PSDebug -Trace 1
       C:\julia-$(JULIA_VERSION)\bin\julia.exe -e 'using InteractiveUtils; versioninfo()'
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.instantiate()'
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.test()'
