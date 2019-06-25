@@ -18,4 +18,4 @@ module load cmake/3.10.2 openmpi/3.1.2 cuda/9.1
 # to avoid race conditions we create a separate depot per job
 julia --color=no --project=env/gpu -e 'using Pkg; pkg"instantiate"; pkg"precompile"'
 
-julia --color=no --project=env/gpu test/runtests.jl
+julia --color=no --project=env/gpu test/runtests_gpu.jl
