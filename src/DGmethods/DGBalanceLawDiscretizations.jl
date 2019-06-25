@@ -40,11 +40,6 @@ Much of the notation used in this module follows Hesthaven and Warburton (2008).
     Currently all the functions take the same parameters and the gradient
     transform can take a user-specified subset of the state vector.
 
-!!! note
-
-    We plan to switch to a skew-symmetric formulation (at which time this note
-    will be removed)
-
 !!! references
 
     ```
@@ -378,6 +373,9 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                                            nothing)
   end
 
+  weights = view(h_vgeo, :, grid.Mid, :)
+  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
+
   # TODO: Clean up this MPIStateArray interface...
   Qvisc = MPIStateArray{Tuple{Np, number_viscous_states},
                      DFloat, DA
@@ -389,7 +387,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                       nabrtorank=topology.nabrtorank,
                       nabrtorecv=topology.nabrtorecv,
                       nabrtosend=topology.nabrtosend,
-                      weights=view(h_vgeo, :, grid.Mid, :),
+                      weights=weights,
                       commtag=111)
 
   auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, DFloat, DA
@@ -401,7 +399,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                             nabrtorank=topology.nabrtorank,
                             nabrtorecv=topology.nabrtorecv,
                             nabrtosend=topology.nabrtosend,
-                            weights=view(h_vgeo, :, grid.Mid, :),
+                            weights=weights,
                             commtag=222)
 
   if auxiliary_state_initialization! !== nothing
@@ -444,6 +442,10 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
   DFloat = eltype(h_vgeo)
   Np = dofs_per_element(grid)
   DA = arraytype(grid)
+
+  weights = view(h_vgeo, :, grid.Mid, :)
+  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
+
   MPIStateArray{Tuple{Np, nstate}, DFloat, DA}(topology.mpicomm,
                                                length(topology.elems),
                                                realelems=topology.realelems,
@@ -452,8 +454,7 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
                                                nabrtorank=topology.nabrtorank,
                                                nabrtorecv=topology.nabrtorecv,
                                                nabrtosend=topology.nabrtosend,
-                                               weights=view(h_vgeo, :,
-                                                            disc.grid.Mid, :),
+                                               weights=weights,
                                                commtag=commtag)
 end
 
@@ -582,6 +583,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   nauxstate = size(auxstate, 2)
   states_grad = disc.states_for_gradient_transform
 
+  lgl_weights_vec = grid.ω
   Dmat = grid.D
   vgeo = grid.vgeo
   sgeo = grid.sgeo
@@ -629,8 +631,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
                      Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
-                     Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems,
-                     increment))
+                     Qvisc.Q, auxstate.Q, vgeo, t, lgl_weights_vec, Dmat,
+                     topology.realelems, increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
@@ -678,6 +680,7 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   @assert 0 < min(id, idx, idy, idz)
   @assert allunique((idx, idy, idz))
 
+  lgl_weights_vec = grid.ω
   Dmat = grid.D
   vgeo = grid.vgeo
 
@@ -689,7 +692,8 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
           elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
-                           Dmat, topology.elems, id, idx, idy, idz))
+                           lgl_weights_vec, Dmat, topology.elems,
+                           id, idx, idy, idz))
 end
 
 """

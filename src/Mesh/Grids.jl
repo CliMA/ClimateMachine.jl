@@ -64,7 +64,8 @@ the mesh is created; the mesh degrees of freedom are orginally assigned using a
 trilinear blend of the element corner locations.
 """
 struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
-                                        DAT2, DAT3, DAT4, DAI1, DAI2, DAI3,
+                                        DAT1, DAT2, DAT3, DAT4,
+                                        DAI1, DAI2, DAI3,
                                         TOP
                                        } <: AbstractGrid{T, dim, N, Np, DA }
   "mesh topology"
@@ -87,6 +88,9 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
 
   "list of elements that need to be communicated (in neighbors order)"
   sendelems::DAI1
+
+  "1-D lvl weights on the device"
+  ω::DAT1
 
   "1-D derivative operator on the device"
   D::DAT2
@@ -123,10 +127,12 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      vmapM = DeviceArray(vmapM)
      vmapP = DeviceArray(vmapP)
      sendelems = DeviceArray(topology.sendelems)
+     ω = DeviceArray(ω)
      D = DeviceArray(D)
      Imat = DeviceArray(Imat)
 
      # FIXME: There has got to be a better way!
+     DAT1 = typeof(ω)
      DAT2 = typeof(D)
      DAT3 = typeof(vgeo)
      DAT4 = typeof(sgeo)
@@ -135,9 +141,9 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      DAI3 = typeof(vmapM)
      TOP = typeof(topology)
 
-    new{FloatType, dim, N, Np, DeviceArray, DAT2, DAT3, DAT4, DAI1, DAI2, DAI3,
-        TOP
-       }(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems, D, Imat)
+    new{FloatType, dim, N, Np, DeviceArray, DAT1, DAT2, DAT3, DAT4, DAI1, DAI2,
+        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems,
+                   ω, D, Imat)
   end
 end
 
