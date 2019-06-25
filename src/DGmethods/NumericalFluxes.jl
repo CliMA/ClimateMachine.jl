@@ -3,7 +3,9 @@ module NumericalFluxes
 export Rusanov, DefaultGradNumericalFlux
 
 using StaticArrays
-import ..DGmethods:  BalanceLaw, Grad,State, vars_state, vars_diffusive, vars_aux, boundarycondition!, wavespeed, flux!
+import ..DGmethods:  BalanceLaw, Grad, State, dimension, 
+   vars_state, vars_diffusive, vars_aux, vars_gradtransform, boundarycondition!, wavespeed, flux!, diffusive!,
+   num_diffusive
 
 
 
@@ -26,8 +28,9 @@ end
 
 function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, VF, nM, velM, QM, aM, velP, QP, aP, t)
   @inbounds begin
-    n_Δvel = similar(VF, Size(dimension(bl), CLIMA.DGmethods.num_diffusive(bl)))
-    for j = 1:CLIMA.DGmethods.num_diffusive(bl), i = 1:dimension(bl)
+    ndim = 3 # should this be dimension(bl)?
+    n_Δvel = similar(VF, Size(ndim, num_diffusive(bl)))
+    for j = 1:num_diffusive(bl), i = 1:ndim
       n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
     end
     diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_gradtransform(bl)}(n_Δvel),

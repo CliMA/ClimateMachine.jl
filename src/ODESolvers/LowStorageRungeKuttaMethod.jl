@@ -47,9 +47,7 @@ struct LowStorageRungeKutta2N{F, T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   RKC::NTuple{Nstages, RT}
 
   function LowStorageRungeKutta2N(rhs!::F, RKA, RKB, RKC,
-                                  Q::AT; dt=nothing, t0=0) where {F,AT<:AbstractArray}
-
-    @assert dt != nothing
+                                  Q::AT; dt, t0=0) where {F,AT<:AbstractArray}
 
     T = eltype(Q)
     RT = real(T)
@@ -60,13 +58,6 @@ struct LowStorageRungeKutta2N{F, T, RT, AT, Nstages} <: ODEs.AbstractODESolver
     fill!(dQ, 0)
     new{F, T, RT, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
   end
-end
-
-
-function LowStorageRungeKutta2N(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
-                                Q; dt=nothing, t0=0)
-  rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-  LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = lsrk.dt[1] = dt

@@ -5,7 +5,7 @@ struct DGModel{BL,G,NF,GNF}
   gradnumflux::GNF
 end
 
-function (dg::DGModel)(dQdt, Q, param, t)
+function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   bl = dg.balancelaw
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -63,7 +63,7 @@ function (dg::DGModel)(dQdt, Q, param, t)
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(dg, dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
-                     vgeo, t, lgl_weights_vec, Dmat, topology.realelems))
+                     vgeo, t, lgl_weights_vec, Dmat, topology.realelems, increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
@@ -101,6 +101,11 @@ function init_ode_param(dg::DGModel)
   DFloat = eltype(h_vgeo)
   DA = arraytype(grid)
 
+  weights = view(h_vgeo, :, grid.Mid, :)
+  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
+
+
+
   
   # TODO: Clean up this MPIStateArray interface...
   diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl)},DFloat, DA}(
@@ -112,7 +117,7 @@ function init_ode_param(dg::DGModel)
     nabrtorank=topology.nabrtorank,
     nabrtorecv=topology.nabrtorecv,
     nabrtosend=topology.nabrtosend,
-    weights=view(h_vgeo, :, grid.Mid, :),
+    weights=weights,
     commtag=111)
 
   auxstate = MPIStateArray{Tuple{Np, num_aux(bl)}, DFloat, DA}(
@@ -124,7 +129,7 @@ function init_ode_param(dg::DGModel)
     nabrtorank=topology.nabrtorank,
     nabrtorecv=topology.nabrtorecv,
     nabrtosend=topology.nabrtosend,
-    weights=view(h_vgeo, :, grid.Mid, :),
+    weights=weights,
     commtag=222)
 
   # if auxiliary_state_initialization! !== nothing
@@ -158,6 +163,10 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   DFloat = eltype(h_vgeo)
   Np = dofs_per_element(grid)
   DA = arraytype(grid)
+
+  weights = view(h_vgeo, :, grid.Mid, :)
+  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
+    
   Q = MPIStateArray{Tuple{Np, num_state(bl)}, DFloat, DA}(topology.mpicomm,
                                                length(topology.elems),
                                                realelems=topology.realelems,
@@ -166,8 +175,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
                                                nabrtorank=topology.nabrtorank,
                                                nabrtorecv=topology.nabrtorecv,
                                                nabrtosend=topology.nabrtosend,
-                                               weights=view(h_vgeo, :,
-                                                            grid.Mid, :),
+                                               weights=weights,
                                                commtag=commtag)
 
 
