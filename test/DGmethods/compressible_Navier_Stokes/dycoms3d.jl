@@ -48,6 +48,9 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
+const _nauxstate = 7
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
+
 if !@isdefined integration_testing
     const integration_testing =
         parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -119,8 +122,10 @@ else
     Δz = Lz / ((Nez * Npoly) + 1)
 end
 
-DoF = (Nex*Npoly+1)*(Ney*Npoly+1)*(Nez*Npoly+1)*(_nstate + _nviscstates)
-Memory_need_estimate = DoF*16
+
+DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
+DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
+             (Nex*Ney*Nez)*(Npoly+1)^(numdims-1)*2^numdims*(CLIMA.Grids._nsgeo)
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
@@ -364,8 +369,6 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model, 
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-const _nauxstate = 7
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
@@ -791,30 +794,31 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.0025
-    timeend = 14400
+    timeend = 10*dt
+    # timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
 
     if MPI.Comm_rank(mpicomm) == 0
-        @info @sprintf """ ----------------------------------------------------"""
-        @info @sprintf """   ______ _      _____ __  ________                  """     
-        @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
-        @info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
-        @info @sprintf """  | |    | |      | | | |   | | |__| |               """
-        @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-        @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-        @info @sprintf """                                                     """
-        @info @sprintf """ ----------------------------------------------------"""
-        @info @sprintf """ Dycoms                                              """
-        @info @sprintf """   Resolution:                                       """ 
-        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δx Δy Δz
-        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
-        @info @sprintf """     DoF = %d                                        """ DoF
-        @info @sprintf """     Minimum necessary memory to run this test: %d   """ Memory_need_estimate
-        @info @sprintf """     Time step dt: %.2e                              """ dt
-        @info @sprintf """     End time  t : %d                                """ timeend
-        @info @sprintf """ ----------------------------------------------------"""
+        @info @sprintf """ ------------------------------------------------------"""
+        @info @sprintf """   ______ _      _____ __  ________                    """     
+        @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |                 """  
+        @info @sprintf """  | |    | |      | | |   .   | |  | |                 """ 
+        @info @sprintf """  | |    | |      | | | |   | | |__| |                 """
+        @info @sprintf """  | |____| |____ _| |_| |   | | |  | |                 """
+        @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|                 """
+        @info @sprintf """                                                       """
+        @info @sprintf """ ------------------------------------------------------"""
+        @info @sprintf """ Dycoms                                                """
+        @info @sprintf """   Resolution:                                         """ 
+        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
+        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
+        @info @sprintf """     DoF = %d                                          """ DoF
+        @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
+        @info @sprintf """     Time step dt: %.2e                                """ dt
+        @info @sprintf """     End time  t : %d                                  """ timeend
+        @info @sprintf """ ------------------------------------------------------"""
     end
     
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
