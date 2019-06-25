@@ -12,7 +12,7 @@ using GPUifyLoops
 export BalanceLaw, DGModel, State, Grad
 
 include("balancelaw.jl")
-include("dgmodel.jl")
+include("DGmodel.jl")
 include("NumericalFluxes.jl")
 include("DGBalanceLawDiscretizations_kernels.jl")
 
