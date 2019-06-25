@@ -304,13 +304,12 @@ end
 # Integral based metrics
 function LinearAlgebra.norm(Q::MPIStateArray; p::Real=2)
   T = eltype(Q)
-  rQ = @view Q.Q[:, :, Q.realelems]
 
   if isfinite(p)
-    E = @~ abs.(rQ).^p
+    E = @~ abs.(Q).^p
     op, mpiop, init = +, MPI.SUM, zero(T)
   else
-    E = @~ abs.(rQ)
+    E = @~ abs.(Q)
     op, mpiop, init = max, MPI.MAX, typemin(T)
   end
 
@@ -328,9 +327,7 @@ function LinearAlgebra.norm(Q::MPIStateArray; p::Real=2)
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
-  rA = @view A.Q[:, :, A.realelems]
-  rB = @view B.Q[:, :, B.realelems]
-  E = @~ (rA .- rB).^2
+  E = @~ (A .- B).^2
 
   if ~isempty(A.weights)
     w = @view A.weights[:, :, A.realelems]
