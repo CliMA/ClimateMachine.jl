@@ -306,10 +306,10 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2)
   T = eltype(Q)
 
   if isfinite(p)
-    E = @~ abs.(Q).^p
+    E = @~ abs.(Q.realQ).^p
     op, mpiop, init = +, MPI.SUM, zero(T)
   else
-    E = @~ abs.(Q)
+    E = @~ abs.(Q.realQ)
     op, mpiop, init = max, MPI.MAX, typemin(T)
   end
 
@@ -327,7 +327,7 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2)
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
-  E = @~ (A .- B).^2
+  E = @~ (A.realQ .- B.realQ).^2
 
   if ~isempty(A.weights)
     w = @view A.weights[:, :, A.realelems]
