@@ -9,13 +9,14 @@ function kernel!(B, A)
     q_tot = A[i, 1]
     ρ     = A[i, 2]
     e_int = A[i, 3]
+    T = 273
 
     TS = PhaseEquil(e_int, q_tot, ρ)
-    part = PhasePartition(TS)
+    # part = PhasePartition(TS)
 
-    B[i, 1] = part.ice
-    B[i, 2] = part.liq
-    B[i, 3] = part.tot
+    B[i, 1] = TS.q_tot
+    B[i, 2] = TS.T
+    B[i, 3] = TS.e_int
   end
   nothing
 end
