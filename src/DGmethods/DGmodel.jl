@@ -27,6 +27,7 @@ function (dg::DGModel)(dQdt, Q, param, t)
   nauxstate = size(auxstate, 2)
   states_grad = map(var -> findfirst(isequal(var), vars_state(bl)), vars_state_for_gradtransform(bl))
 
+  lgl_weights_vec = grid.ω
   Dmat = grid.D
   vgeo = grid.vgeo
   sgeo = grid.sgeo
@@ -62,7 +63,7 @@ function (dg::DGModel)(dQdt, Q, param, t)
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(dg, dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
-                     vgeo, t, Dmat, topology.realelems))
+                     vgeo, t, lgl_weights_vec, Dmat, topology.realelems))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 
