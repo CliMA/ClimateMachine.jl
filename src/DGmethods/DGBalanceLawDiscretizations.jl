@@ -373,6 +373,9 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                                            nothing)
   end
 
+  weights = view(h_vgeo, :, grid.Mid, :)
+  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
+
   # TODO: Clean up this MPIStateArray interface...
   Qvisc = MPIStateArray{Tuple{Np, number_viscous_states},
                      DFloat, DA
@@ -384,7 +387,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                       nabrtorank=topology.nabrtorank,
                       nabrtorecv=topology.nabrtorecv,
                       nabrtosend=topology.nabrtosend,
-                      weights=view(h_vgeo, :, grid.Mid, :),
+                      weights=weights,
                       commtag=111)
 
   auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, DFloat, DA
@@ -396,7 +399,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                             nabrtorank=topology.nabrtorank,
                             nabrtorecv=topology.nabrtorecv,
                             nabrtosend=topology.nabrtosend,
-                            weights=view(h_vgeo, :, grid.Mid, :),
+                            weights=weights,
                             commtag=222)
 
   if auxiliary_state_initialization! !== nothing
@@ -439,6 +442,10 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
   DFloat = eltype(h_vgeo)
   Np = dofs_per_element(grid)
   DA = arraytype(grid)
+
+  weights = view(h_vgeo, :, grid.Mid, :)
+  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
+
   MPIStateArray{Tuple{Np, nstate}, DFloat, DA}(topology.mpicomm,
                                                length(topology.elems),
                                                realelems=topology.realelems,
@@ -447,8 +454,7 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
                                                nabrtorank=topology.nabrtorank,
                                                nabrtorecv=topology.nabrtorecv,
                                                nabrtosend=topology.nabrtosend,
-                                               weights=view(h_vgeo, :,
-                                                            disc.grid.Mid, :),
+                                               weights=weights,
                                                commtag=commtag)
 end
 
