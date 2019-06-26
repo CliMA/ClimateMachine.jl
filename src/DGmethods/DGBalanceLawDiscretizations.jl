@@ -483,10 +483,6 @@ through as an `MArray` through the `aux` argument
 
     Modifications of the `aux` array will be discarded.
 
-!!! todo
-
-    GPUify this function to remove `host` and `device` data transfers
-
 """
 function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
                                       ic!::Function; commtag=888)
@@ -494,35 +490,22 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
 
   nvar = disc.nstate
   grid = disc.grid
-  vgeo = grid.vgeo
-  Np = dofs_per_element(grid)
+  topology = grid.topology
   auxstate = disc.auxstate
   nauxstate = size(auxstate, 2)
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Np = dofs_per_element(grid)
+  vgeo = grid.vgeo
+  nrealelem = length(topology.realelems)
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
 
-  # FIXME: GPUify me
-  host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q, h_auxstate) = host_array ? (vgeo, Q, auxstate) :
-                                       (Array(vgeo), Array(Q), Array(auxstate))
-  Qdof = MArray{Tuple{nvar}, eltype(h_Q)}(undef)
-  auxdof = MArray{Tuple{nauxstate}, eltype(h_Q)}(undef)
-  @inbounds for e = 1:size(Q, 3), i = 1:Np
-    (x, y, z) = (h_vgeo[i, grid.xid, e], h_vgeo[i, grid.yid, e],
-                 h_vgeo[i, grid.zid, e])
-    if nauxstate > 0
-      for s = 1:nauxstate
-        auxdof[s] = h_auxstate[i, s, e]
-      end
-      ic!(Qdof, x, y, z, auxdof)
-    else
-      ic!(Qdof, x, y, z)
-    end
-    for n = 1:nvar
-      h_Q[i, n, e] = Qdof[n]
-    end
-  end
-  if !host_array
-    Q .= h_Q
-  end
+  @launch(device, threads=(Np,), blocks=nrealelem,
+          initstate!(Val(dim), Val(N), Val(nvar), Val(nauxstate),
+                     ic!, Q.Q, auxstate.Q, vgeo, topology.realelems))
+
+  MPIStateArrays.start_ghost_exchange!(Q)
+  MPIStateArrays.finish_ghost_exchange!(Q)
 
   Q
 end
