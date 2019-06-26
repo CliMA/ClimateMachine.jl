@@ -18,6 +18,10 @@ using DelimitedFiles
 using Dierckx
 using Random
 
+using TimerOutputs
+
+const to = TimerOutput()
+
 if haspkg("CuArrays")
     using CUDAdrv
     using CUDAnative
@@ -654,9 +658,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
+    @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
 
-    grid = DiscontinuousSpectralElementGrid(topl,
+    @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
                                             DeviceArray = ArrayType,
                                             polynomialorder = N)
@@ -665,7 +669,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
 
     # spacedisc = data needed for evaluating the right-hand side function
-    spacedisc = DGBalanceLaw(grid = grid,
+    @timeit to "Space Disc init" spacedisc = DGBalanceLaw(grid = grid,
                              length_state_vector = _nstate,
                              flux! = cns_flux!,
                              numerical_flux! = numflux!,
@@ -685,71 +689,75 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              preodefun! = integral_computation)
 
     # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
-    Q = MPIStateArray(spacedisc, initialcondition)
-    
-    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-    
-    #=eng0 = norm(Q)
-    @info @sprintf """Starting
-      norm(Q₀) = %.16e""" eng0
-    =#
-    # Set up the information callback
-    starttime = Ref(now())
-    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
-        if s
-            starttime[] = now()
-        else
-            #energy = norm(Q)
-            #globmean = global_mean(Q, _ρ)
-            @info @sprintf("""Update
-                         simtime = %.16e
-                         runtime = %s""",
-                           ODESolvers.gettime(lsrk),
-                           Dates.format(convert(Dates.DateTime,
-                                                Dates.now()-starttime[]),
-                                        Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
-        end
+    @timeit to "IC init" begin
+      initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
+      Q = MPIStateArray(spacedisc, initialcondition)
     end
+    
+    @timeit to "Time stepping init" begin
+      lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
-    npoststates = 11
-    _int1, _int2, _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
-    postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+      #=eng0 = norm(Q)
+      @info @sprintf """Starting
+        norm(Q₀) = %.16e""" eng0
+      =#
+      # Set up the information callback
+      starttime = Ref(now())
+      cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+          if s
+              starttime[] = now()
+          else
+              #energy = norm(Q)
+              #globmean = global_mean(Q, _ρ)
+              @info @sprintf("""Update
+                           simtime = %.16e
+                           runtime = %s""",
+                             ODESolvers.gettime(lsrk),
+                             Dates.format(convert(Dates.DateTime,
+                                                  Dates.now()-starttime[]),
+                                          Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+          end
+      end
 
-    step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
-        DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
-                                                   Q) do R, Q, QV, aux
-                                                       @inbounds let
-                                                          F_rad_out = radiation(aux)
-                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_z2inf], F_rad_out, preflux(Q, QV, aux)...)
-                                                       end
-                                                   end
+      npoststates = 11
+      _int1, _int2, _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+      postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+      postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-        outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
-                             MPI.Comm_rank(mpicomm), step[1])
-        @debug "doing VTK output" outprefix
-        writevtk(outprefix, Q, spacedisc, statenames,
-                 postprocessarray, postnames)
-        #= 
-        pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
-        prefixes = ntuple(i->
-        @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
-        dim, i-1, step[1]),
-        MPI.Comm_size(mpicomm))
-        writepvtu(pvtuprefix, prefixes, postnames)
-        =# 
-        step[1] += 1
-        nothing
+      step = [0]
+      cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+          DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
+                                                     Q) do R, Q, QV, aux
+                                                         @inbounds let
+                                                            F_rad_out = radiation(aux)
+                                                             (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_z2inf], F_rad_out, preflux(Q, QV, aux)...)
+                                                         end
+                                                     end
+
+          outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
+                               MPI.Comm_rank(mpicomm), step[1])
+          @debug "doing VTK output" outprefix
+          writevtk(outprefix, Q, spacedisc, statenames,
+                   postprocessarray, postnames)
+          #= 
+          pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
+          prefixes = ntuple(i->
+          @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
+          dim, i-1, step[1]),
+          MPI.Comm_size(mpicomm))
+          writepvtu(pvtuprefix, prefixes, postnames)
+          =# 
+          step[1] += 1
+          nothing
+      end
     end
 
     @info @sprintf """Starting...
       norm(Q) = %25.16e""" norm(Q)
 
     # Initialise the integration computation. Kernels calculate this at every timestep?? 
-    integral_computation(spacedisc, Q, 0) 
-    solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+    @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
+    @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
     @info @sprintf """Finished...
@@ -831,6 +839,8 @@ let
     
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
+
+    show(to)
 end
 
 isinteractive() || MPI.Finalize()
