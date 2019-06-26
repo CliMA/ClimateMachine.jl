@@ -546,10 +546,7 @@ end
 #---END SPONGE
 
 @inline function source_geopot!(S,Q,aux,t)
-    @inbounds begin
-        ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-        S[_W] += - ρ * grav
-    end
+  @inbounds S[_W] += - Q[_ρ] * grav
 end
 
 # Test integral exactly according to the isentropic vortex example
