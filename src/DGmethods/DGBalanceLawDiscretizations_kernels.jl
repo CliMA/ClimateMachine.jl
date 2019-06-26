@@ -1,4 +1,5 @@
-using .NumericalFluxes: diffusive_boundary_penalty!, diffusive_penalty!, numerical_flux!, numerical_boundary_flux!
+using .NumericalFluxes: GradNumericalFlux, diffusive_boundary_penalty!, diffusive_penalty!,
+  DivNumericalFlux, numerical_flux!, numerical_boundary_flux!
 
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
@@ -18,7 +19,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 """
-    volumerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate,
+    volumerhs!(bl::BalanceLaw, Val(polyorder), rhs, Q, Qvisc, auxstate,
                vgeo, t, D, elems)
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
@@ -220,16 +221,17 @@ function volumerhs!(bl::BalanceLaw, ::Val{polyorder},
 end
 
 """
-    facerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate,
+    facerhs!(bl::BalanceLaw, Val(polyorder), divnumflux::DivNumericalFlux, 
+             rhs, Q, Qvisc, auxstate,
              vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
              elems)
 
 Computational kernel: Evaluate the surface integrals on right-hand side of a
-`DGBalanceLaw` semi-discretization.
+`BalanceLaw` semi-discretization.
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(bl::BalanceLaw, ::Val{polyorder}, divnumflux,
+function facerhs!(bl::BalanceLaw, ::Val{polyorder}, divnumflux::DivNumericalFlux,
                   rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                   elemtobndy, elems) where {polyorder}
 
@@ -422,7 +424,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
   end
 end
 
-function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux,
+function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumericalFlux,
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {polyorder}
   dim = dimension(bl)
