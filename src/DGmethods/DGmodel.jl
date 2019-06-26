@@ -167,7 +167,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
     
-  Q = MPIStateArray{Tuple{Np, num_state(bl)}, DFloat, DA}(topology.mpicomm,
+  state = MPIStateArray{Tuple{Np, num_state(bl)}, DFloat, DA}(topology.mpicomm,
                                                length(topology.elems),
                                                realelems=topology.realelems,
                                                ghostelems=topology.ghostelems,
@@ -178,35 +178,17 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
                                                weights=weights,
                                                commtag=commtag)
 
-
-
-  vgeo = grid.vgeo
-  Np = dofs_per_element(grid)
   auxstate = param.aux
-  nauxstate = size(auxstate, 2)
+  dim = dimensionality(grid)
+  polyorder = polynomialorder(grid)
+  vgeo = grid.vgeo
+  device = typeof(state.Q) <: Array ? CPU() : CUDA()
+  nrealelem = length(topology.realelems)
+  @launch(device, threads=(Np,), blocks=nrealelem,
+          initstate!(bl, Val(polyorder), state.Q, auxstate.q, vgeo, topology.realelems, args...))
+  MPIStateArrays.start_ghost_exchange!(state)
+  MPIStateArrays.finish_ghost_exchange!(state)
 
-  # FIXME: GPUify me
-  host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q, h_auxstate) = host_array ? (vgeo, Q, auxstate) :
-                                       (Array(vgeo), Array(Q), Array(auxstate))
-  Qdof = MArray{Tuple{num_state(bl)}, eltype(h_Q)}(undef)
-  auxdof = MArray{Tuple{nauxstate}, eltype(h_Q)}(undef)
-  @inbounds for e = 1:size(Q, 3), i = 1:Np
-    coords = (h_vgeo[i, grid.xid, e], h_vgeo[i, grid.yid, e],
-                 h_vgeo[i, grid.zid, e])
-
-    for s = 1:nauxstate
-      auxdof[s] = h_auxstate[i, s, e]
-    end
-    init_state!(bl, State{vars_state(bl)}(Qdof), State{vars_aux(bl)}(auxdof), coords, args...)
-    for n = 1:num_state(bl)
-      h_Q[i, n, e] = Qdof[n]
-    end
-  end
-  if !host_array
-    Q .= h_Q
-  end
-
-  Q
+  return state
 end
 

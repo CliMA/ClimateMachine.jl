@@ -519,6 +519,38 @@ function faceviscterms!(dg::DGModel,
 end
 
 
+function initstate!(bl::BalanceLaw, ::Val{polyorder}, state, auxstate, vgeo, elems, args...) where {polyorder}
+  dim = dimension(bl)
+  nauxstate = num_aux(bl)
+  nstate = num_state(bl)
+
+  N = polyorder
+  
+  DFloat = eltype(auxstate)
+
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+  Np = Nq * Nq * Nqk
+
+  l_state = MArray{Tuple{nstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      coords = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+      @unroll for s = 1:nstate
+        l_state[s] = state[n, s, e]
+      end
+      init_state!(bl, State{vars_state(bl)}(l_state), State{vars_aux(bl)}(l_aux), coords, args...)
+      @unroll for s = 1:nstate
+        state[n, s, e] = l_state[s]
+      end
+    end
+  end
+end
 
 
 """
