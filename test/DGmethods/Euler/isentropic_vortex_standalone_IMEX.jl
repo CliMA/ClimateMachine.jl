@@ -49,6 +49,7 @@ end
 
 const _nstate = 5
 const _δρ, _δρu, _δρv, _δρw, _δρe = 1:_nstate
+const _δρu⃗ = SVector(_δρu, _δρv, _δρw)
 const stateid = (ρid = _δρ, ρuid = _δρu, ρvid = _δρv, ρwid = _δρw, ρeid = _δρe)
 const statenames = ("δρ", "δρu", "δρv", "δρw", "δρe")
 const _nauxstate = 5
@@ -88,8 +89,15 @@ end
 end
 
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) =
-eulerflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
+combineflux!(F, Q, QV, aux, t) =
+combineflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
+
+@inline function combineflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
+  F .= 0
+  eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
+  linearized_eulerflux!(1, F, Q, QV, aux, t)
+  linearized_eulerflux!(-1, F, Q, QV, aux, t)
+end
 
 @inline function eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
   @inbounds begin
@@ -104,9 +112,38 @@ eulerflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
 
     ρu⃗ = ρu⃗_ref + δρu⃗
 
-    F[:, _δρ ] = ρu⃗
-    F[:, _δρu:_δρw] = u⃗ * ρu⃗' + P * I
-    F[:, _δρe] = u⃗ * (ρe + P)
+    F[:, _δρ ] += ρu⃗
+    F[:, _δρu⃗] += u⃗ * ρu⃗' + P * I
+    F[:, _δρe] += u⃗ * (ρe + P)
+  end
+end
+
+@inline function linearized_eulerflux!(α, F, Q, QV, aux, t)
+  @inbounds begin
+    DFloat = eltype(Q)
+    γ::DFloat = γ_exact
+
+    δρ, δρe = Q[_δρ], Q[_δρe]
+    δρu⃗ = SVector(Q[_δρu], Q[_δρv], Q[_δρw])
+
+    ρ_ref, ρe_ref = aux[_a_ρ_ref], aux[_a_ρe_ref]
+    ρu⃗_ref = SVector(aux[_a_ρu_ref], aux[_a_ρv_ref], aux[_a_ρw_ref])
+
+    ρinv_ref = 1 / ρ_ref
+    u⃗_ref = ρinv_ref * ρu⃗_ref
+    e_ref = ρinv_ref * ρe_ref
+
+    P_ref = (γ-1)*(ρe_ref - u⃗_ref' * ρu⃗_ref / 2)
+    δP = (γ-1)*(δρe - u⃗_ref' * δρu⃗ + u⃗_ref' * u⃗_ref * δρ)
+
+    p_ref = ρinv_ref * P_ref
+
+    F[:, _δρ ] += α * (ρu⃗_ref + δρu⃗)
+    F[:, _δρu⃗] += α * (ρu⃗_ref * u⃗_ref' - (u⃗_ref * u⃗_ref') * δρ
+                       + δρu⃗ * u⃗_ref' + u⃗_ref * δρu⃗'
+                       + (P_ref + δP) * I)
+    F[:, _δρe] += α * ((e_ref + p_ref) * ρu⃗_ref + (e_ref + p_ref) * δρu⃗ +
+                       (δρe + δP) * u⃗_ref - (e_ref + p_ref) * u⃗_ref * δρ)
   end
 end
 
@@ -199,9 +236,9 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # spacedisc = data needed for evaluating the right-hand side function
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
-                           flux! = eulerflux!,
+                           flux! = combineflux!,
                            numerical_flux! = (x...) ->
-                           NumericalFluxes.rusanov!(x..., eulerflux!,
+                           NumericalFluxes.rusanov!(x..., combineflux!,
                                                     wavespeed,
                                                     preflux),
                            auxiliary_state_length = _nauxstate,
