@@ -744,10 +744,16 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         nothing
     end
 
+    @info @sprintf """Starting...
+      norm(Q) = %25.16e""" norm(Q)
+
     # Initialise the integration computation. Kernels calculate this at every timestep?? 
     integral_computation(spacedisc, Q, 0) 
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
+
+    @info @sprintf """Finished...
+      norm(Q) = %25.16e""" norm(Q)
 
 #=
     # Print some end of the simulation information
