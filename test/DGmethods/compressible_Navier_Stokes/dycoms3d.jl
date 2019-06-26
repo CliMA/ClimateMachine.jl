@@ -53,8 +53,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 7
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
+const _nauxstate = 8
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_sa_T = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -161,7 +161,7 @@ const Δsqr = Δ * Δ
     e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
     q_tot = QT / ρ
     # Establish the current thermodynamic state using the prognostic variables
-    TS = PhaseEquil(e_int, q_tot, ρ)
+    TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
     T = air_temperature(TS)
     P = air_pressure(TS) # Test with dry atmosphere
     q_liq = PhasePartition(TS).liq
@@ -179,7 +179,7 @@ end
         u, v, w = ρinv * U, ρinv * V, ρinv * W
         e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
         q_tot = QT / ρ
-        TS = PhaseEquil(e_int, q_tot, ρ)
+        TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
         (n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
     end
 end
@@ -559,11 +559,24 @@ end
     u, v, w = ρinv * U, ρinv * V, ρinv * W
     e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
     q_tot = QT / ρ
-    # Establish the current thermodynamic state using the prognostic variables
-    TS = PhaseEquil(e_int, q_tot, ρ)
+    TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
     q_liq = PhasePartition(TS).liq
     val[1] = ρ * κ * q_liq 
   end
+end
+
+function preodefun!(disc, Q, t)
+  DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
+    @inbounds let
+      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+      z = aux[_a_z]
+      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+      q_tot = QT / ρ
+      R[_a_sa_T] = saturation_adjustment(e_int, ρ, q_tot)
+    end
+  end
+
+  integral_computation(disc, Q, t)
 end
 
 function integral_computation(disc, Q, t)
@@ -663,7 +676,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              auxiliary_state_initialization! = (x...) ->
                              auxiliary_state_initialization!(x...),
                              source! = source!,
-                             preodefun! = integral_computation)
+                             preodefun! = preodefun!)
 
     # This is a actual state/function that lives on the grid
     @timeit to "IC init" begin
