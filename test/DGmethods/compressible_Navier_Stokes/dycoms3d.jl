@@ -583,33 +583,10 @@ end
     This function specifies the initial conditions
     for the dycoms driver. 
     """
-function dycoms!(dim, Q, t, x, y, z, _...)
+function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
+                 spl_pinit, x, y, z, _...)
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
-    
-    # ----------------------------------------------------
-    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-    # This driver accepts data in 6 column format
-    # ----------------------------------------------------
-    (sounding, _, ncols) = read_sounding()
-    
-    # WARNING: Not all sounding data is formatted/scaled 
-    # the same. Care required in assigning array values
-    # height theta qv    u     v     pressure
-    zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
-    sounding[:, 2],
-    sounding[:, 3],
-    sounding[:, 4],
-    sounding[:, 5],
-    sounding[:, 6]    
-    #------------------------------------------------------
-    # GET SPLINE FUNCTION
-    #------------------------------------------------------
-    spl_tinit    = Spline1D(zinit, tinit; k=1)
-    spl_qinit    = Spline1D(zinit, qinit; k=1)
-    spl_uinit    = Spline1D(zinit, uinit; k=1)
-    spl_vinit    = Spline1D(zinit, vinit; k=1)
-    spl_pinit    = Spline1D(zinit, pinit; k=1)
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
@@ -690,7 +667,33 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     # This is a actual state/function that lives on the grid
     @timeit to "IC init" begin
-      initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
+      # ----------------------------------------------------
+      # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
+      # This driver accepts data in 6 column format
+      # ----------------------------------------------------
+      (sounding, _, ncols) = read_sounding()
+
+      # WARNING: Not all sounding data is formatted/scaled 
+      # the same. Care required in assigning array values
+      # height theta qv    u     v     pressure
+      zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
+      sounding[:, 2],
+      sounding[:, 3],
+      sounding[:, 4],
+      sounding[:, 5],
+      sounding[:, 6]    
+      #------------------------------------------------------
+      # GET SPLINE FUNCTION
+      #------------------------------------------------------
+      spl_tinit    = Spline1D(zinit, tinit; k=1)
+      spl_qinit    = Spline1D(zinit, qinit; k=1)
+      spl_uinit    = Spline1D(zinit, uinit; k=1)
+      spl_vinit    = Spline1D(zinit, vinit; k=1)
+      spl_pinit    = Spline1D(zinit, pinit; k=1)
+
+      initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
+                                          spl_qinit, spl_uinit, spl_vinit,
+                                          spl_pinit, x...)
       Q = MPIStateArray(spacedisc, initialcondition)
     end
     
