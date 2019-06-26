@@ -82,17 +82,15 @@ const cp_over_prandtl = cp_d / Prandtl_t
 const numdims = get(dict_user_input, "nsd", "nsd NOT DEFINED")
 const Npoly   = get(dict_user_input, "Npoly", "Npoly NOT DEFINED")
 
-Δx = get(dict_user_input, "Δx", "Δx NOT DEFINED")
-Δy = get(dict_user_input, "Δy", "Δy NOT DEFINED")
-Δz = get(dict_user_input, "Δz", "Δz NOT DEFINED")
-
-xmin = get(dict_user_input, "xmin", "xmin NOT DEFINED")
-xmax = get(dict_user_input, "xmax", "xmax NOT DEFINED")
-ymin = get(dict_user_input, "ymin", "ymax NOT DEFINED")
-ymax = get(dict_user_input, "ymax", "ymax NOT DEFINED")
-zmin = get(dict_user_input, "zmin", "zmin NOT DEFINED")
-zmax = get(dict_user_input, "zmax", "zmax NOT DEFINED")
-
+Δx      = get(dict_user_input, "Δx", "Δx NOT DEFINED")
+Δy      = get(dict_user_input, "Δy", "Δy NOT DEFINED")
+Δz      = get(dict_user_input, "Δz", "Δz NOT DEFINED")
+xmin    = get(dict_user_input, "xmin", "xmin NOT DEFINED")
+xmax    = get(dict_user_input, "xmax", "xmax NOT DEFINED")
+ymin    = get(dict_user_input, "ymin", "ymax NOT DEFINED")
+ymax    = get(dict_user_input, "ymax", "ymax NOT DEFINED")
+zmin    = get(dict_user_input, "zmin", "zmin NOT DEFINED")
+zmax    = get(dict_user_input, "zmax", "zmax NOT DEFINED")
 dt      = get(dict_user_input, "dt", "dt NOT DEFINED")
 timeend = get(dict_user_input, "tfinal", "tfinal NOT DEFINED")
 

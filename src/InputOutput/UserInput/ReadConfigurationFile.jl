@@ -68,7 +68,7 @@ function read_configuration_file()
     @info @sprintf """ ----------------------------------------------------"""
     
     split_chars = ["=", ",", ";", "->", "_"]
-    filein      = open(joinpath(@__DIR__, "./configuration.ini"))
+    filein      = open(joinpath(@__DIR__, "./../../src/InputOutput/configuration.ini"))
     
     #Detect precision first of all:
     for line in eachline(filein)
