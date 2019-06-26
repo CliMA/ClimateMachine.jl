@@ -526,7 +526,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              source! = source!)
 
     # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
+    initialcondition(Q, x...) = dycoms!(Val(dim), Q, 0, x...)
     Q = MPIStateArray(spacedisc, initialcondition)
 
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
