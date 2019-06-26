@@ -230,7 +230,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                            source! = dim == 2 ? source2D! : source3D!)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = initialcondition!(Val(dim), Q, DFloat(0), x...)
+  initialcondition(Q, x...) = initialcondition!(Val(dim), Q, 0, x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
@@ -289,7 +289,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   engf = norm(Q)
   Qe = MPIStateArray(spacedisc,
                      (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                    DFloat(timeend), x...))
+                                                    timeend, x...))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished
