@@ -16,6 +16,7 @@ using Logging, Printf, Dates
 using CLIMA.Vtk
 using DelimitedFiles
 using Dierckx
+using Random
 
 if haspkg("CuArrays")
     using CUDAdrv
@@ -54,7 +55,6 @@ const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
 if !@isdefined integration_testing
     const integration_testing =
         parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-    using Random
 end
 
 # Problem constants (TODO: parameters module (?))
@@ -62,6 +62,9 @@ const μ_sgs           = 100.0
 const Prandtl         = 71 // 100
 const Prandtl_t       = 1 // 3
 const cp_over_prandtl = cp_d / Prandtl_t
+
+# Random number seed
+const seed = MersenneTwister(0)
 
 # Problem description 
 # --------------------
@@ -615,8 +618,8 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     datap          = spl_pinit(xvert)
     dataq          = dataq * 1.0e-3
     
-    randnum1   = rand(1)[1] / 100
-    randnum2   = rand(1)[1] / 100
+    randnum1   = rand(seed, DFloat) / 100
+    randnum2   = rand(seed, DFloat) / 100
     
     θ_liq = datat + randnum1 * datat
     q_tot = dataq + randnum2 * dataq
