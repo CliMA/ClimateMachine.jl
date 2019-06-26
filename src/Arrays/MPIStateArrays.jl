@@ -63,7 +63,7 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
        DA{T, N}(undef, S.parameters..., numsendelem),
        DA{T, N}(undef, S.parameters..., numrecvelem))
 
-    realQ = view(Q, fill(Colon(), ndims(Q) - 1)..., realelems)
+    realQ = view(Q, ntuple(i -> Colon(), ndims(Q) - 1)..., realelems)
     DAV = typeof(realQ)
 
     host_sendQ = zeros(T, S.parameters..., numsendelem)
@@ -139,11 +139,21 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
 end
 
 # FIXME: should general cases be handled?
+function Base.similar(Q::MPIStateArray{S, T, DA}, ::Type{TN}, ::Type{DAN}; commtag=Q.commtag
+                     ) where {S, T, DA, TN, DAN <: AbstractArray}
+  MPIStateArray{S, TN, DAN}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
+                            Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
+                            Q.nabrtosend, Q.weights, commtag)
+end
+
 function Base.similar(Q::MPIStateArray{S, T, DA}, ::Type{TN}; commtag=Q.commtag
                      ) where {S, T, DA, TN}
-  MPIStateArray{S, TN, DA}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
-                           Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
-                           Q.nabrtosend, Q.weights, commtag)
+  similar(Q, TN, DA, commtag = commtag)
+end
+
+function Base.similar(Q::MPIStateArray{S, T}, ::Type{DAN}; commtag=Q.commtag
+                     ) where {S, T, DAN <: AbstractArray}
+  similar(Q, T, DAN, commtag = commtag)
 end
 
 function Base.similar(Q::MPIStateArray{S, T}; commtag=Q.commtag
@@ -197,7 +207,8 @@ end
   # check for the case a .= b, where b is an array
   if bc.f == identity
     if typeof(bc.args[1]) <: MPIStateArray
-      Base.copyto!(dest.realQ, bc.args[1].realQ)
+      realindices = CartesianIndices((axes(dest.Q)[1:end-1]..., dest.realelems))
+      Base.copyto!(dest.Q, realindices, bc.args[1].Q, realindices)
     else
       Base.copyto!(dest.Q, bc.args[1])
     end

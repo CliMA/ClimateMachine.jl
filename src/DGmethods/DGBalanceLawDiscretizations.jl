@@ -483,6 +483,10 @@ through as an `MArray` through the `aux` argument
 
     Modifications of the `aux` array will be discarded.
 
+!!! todo
+
+    Remove `host` and `device` data transfers.
+
 """
 function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
                                       ic!::Function; commtag=888)
@@ -498,11 +502,20 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
   Np = dofs_per_element(grid)
   vgeo = grid.vgeo
   nrealelem = length(topology.realelems)
-  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+
+  # FIXME: initialize directly on the device
+  device = CPU()
+  h_vgeo = Array(vgeo)
+  h_Q = similar(Q, Array)
+  h_auxstate = similar(auxstate, Array)
+  
+  h_auxstate .= auxstate
 
   @launch(device, threads=(Np,), blocks=nrealelem,
           initstate!(Val(dim), Val(N), Val(nvar), Val(nauxstate),
-                     ic!, Q.Q, auxstate.Q, vgeo, topology.realelems))
+                     ic!, h_Q.Q, h_auxstate.Q, h_vgeo, topology.realelems))
+
+  Q .= h_Q
 
   MPIStateArrays.start_ghost_exchange!(Q)
   MPIStateArrays.finish_ghost_exchange!(Q)
