@@ -60,9 +60,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   ###################
   # RHS Computation #
   ###################
-
+  polyorder = polynomialorder(dg.grid)
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(dg, dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
+          volumerhs!(bl, Val(polyorder), dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
                      vgeo, t, lgl_weights_vec, Dmat, topology.realelems, increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
@@ -185,7 +185,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   device = typeof(state.Q) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
   @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(polyorder), state.Q, auxstate.q, vgeo, topology.realelems, args...))
+          initstate!(bl, Val(polyorder), state.Q, auxstate.Q, vgeo, topology.realelems, args...))
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 

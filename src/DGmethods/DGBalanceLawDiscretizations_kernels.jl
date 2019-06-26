@@ -26,17 +26,16 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(dg::DGModel,
+function volumerhs!(bl::BalanceLaw, ::Val{polyorder},
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    ω, D, elems, increment)
+                    ω, D, elems, increment) where {polyorder}
 
-  bl = dg.balancelaw
   dim = dimension(bl)
   nstate = num_state(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
 
-  N = polynomialorder(dg.grid)
+  N = polyorder
   DFloat = eltype(Q)
 
   Nq = N + 1
