@@ -74,39 +74,38 @@ const _vinf = 1
     ρe = ρe_ref + δρe
 
     ρinv = 1 / ρ
-    u, v, w = ρinv * ρu, ρinv * ρv, ρinv * ρw
-    ((γ-1)*(ρe - ρinv * (ρu^2 + ρv^2 + ρw^2) / 2), u, v, w, ρinv)
+    u⃗ = SVector(ρinv * ρu, ρinv * ρv, ρinv * ρw)
+    ((γ-1)*(ρe - ρinv * (ρu^2 + ρv^2 + ρw^2) / 2), u⃗, ρinv)
   end
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t, P, u⃗, ρinv)
+  n⃗ = SVector(n)
   γ::eltype(Q) = γ_exact
-  @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
+  abs(n⃗' * u⃗) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
 eulerflux!(F, Q, QV, aux, t) =
 eulerflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
 
-@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
   @inbounds begin
-    δρ, δρu, δρv, δρw, δρe = Q[_δρ], Q[_δρu], Q[_δρv], Q[_δρw], Q[_δρe]
+    δρ, δρe = Q[_δρ], Q[_δρe]
+    δρu⃗ = SVector(Q[_δρu], Q[_δρv], Q[_δρw])
 
     ρ_ref, ρe_ref = aux[_a_ρ_ref], aux[_a_ρe_ref]
-    ρu_ref, ρv_ref, ρw_ref = aux[_a_ρu_ref], aux[_a_ρv_ref], aux[_a_ρw_ref]
+    ρu⃗_ref = SVector(aux[_a_ρu_ref], aux[_a_ρv_ref], aux[_a_ρw_ref])
 
     ρ = ρ_ref + δρ
-    ρu = ρu_ref + δρu
-    ρv = ρv_ref + δρv
-    ρw = ρw_ref + δρw
     ρe = ρe_ref + δρe
 
-    F[1, _δρ ], F[2, _δρ ], F[3, _δρ ] = ρu          , ρv          , ρw
-    F[1, _δρu], F[2, _δρu], F[3, _δρu] = u * ρu  + P , v * ρu      , w * ρu
-    F[1, _δρv], F[2, _δρv], F[3, _δρv] = u * ρv      , v * ρv + P  , w * ρv
-    F[1, _δρw], F[2, _δρw], F[3, _δρw] = u * ρw      , v * ρw      , w * ρw + P
-    F[1, _δρe], F[2, _δρe], F[3, _δρe] = u * (ρe + P), v * (ρe + P), w * (ρe + P)
+    ρu⃗ = ρu⃗_ref + δρu⃗
+
+    F[:, _δρ ] = ρu⃗
+    F[:, _δρu:_δρw] = u⃗ * ρu⃗' + P * I
+    F[:, _δρe] = u⃗ * (ρe + P)
   end
 end
 
@@ -121,7 +120,7 @@ end
     Tinf::DFloat = _Tinf
 
     ρ_ref = (Tinf)^(1/(γ-1))
-    p_ref = ρ_ref^γ
+    P_ref = ρ_ref^γ
 
     u_ref = uinf
     v_ref = vinf
@@ -131,7 +130,7 @@ end
     ρv_ref = ρ_ref * v_ref
     ρw_ref = ρ_ref * w_ref
 
-    ρe_ref = p_ref/(γ-1) + (1//2)*ρ_ref*(u_ref^2 + v_ref^2 + w_ref^2)
+    ρe_ref = P_ref/(γ-1) + (1//2)*ρ_ref*(u_ref^2 + v_ref^2 + w_ref^2)
 
     aux[_a_ρ_ref]  = ρ_ref
     aux[_a_ρu_ref] = ρu_ref
@@ -171,11 +170,11 @@ function isentropicvortex!(Q, t, x, y, z, aux)
     w = zero(DFloat)
 
     ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
-    p = ρ^γ
+    P = ρ^γ
     ρu = ρ*u
     ρv = ρ*v
     ρw = ρ*w
-    ρe = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
+    ρe = P/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
 
     δρ = ρ - ρ_ref
     δρu = ρu - ρu_ref
