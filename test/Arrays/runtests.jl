@@ -2,7 +2,7 @@ using Test, MPI
 include("../testhelpers.jl")
 
 
-MPI.Init()
+MPI.Initialized() || MPI.Init()
 
 include("basics.jl")
 include("broadcasting.jl")
