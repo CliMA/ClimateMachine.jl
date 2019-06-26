@@ -626,7 +626,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   # RHS Computation #
   ###################
 
-  @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+@launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
                      Val(nauxstate), disc.flux!, disc.source!, dQ.Q, Q.Q,
                      Qvisc.Q, auxstate.Q, vgeo, t, Dmat, topology.realelems,
