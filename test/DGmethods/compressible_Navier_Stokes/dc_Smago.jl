@@ -1,4 +1,3 @@
-
 # Load Modules 
 using MPI
 using CLIMA
@@ -14,6 +13,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
+using CLIMA.ReadConfigurationFile
 
 if haspkg("CuArrays")
     using CUDAdrv
@@ -67,6 +67,14 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # filters are tested against this benchmark problem
 # TODO: link to module SubGridScaleTurbulence
 
+#
+# Read user configuration file:
+#
+dict_user_input = read_configuration_file()
+
+@info @sprintf """ INPITS:      %s""" dict_user_input[1]
+
+return
 #
 # User Input
 #

@@ -1,21 +1,6 @@
-# Load modules that are used in the CliMA project.
-# These are general modules not necessarily specific
-# to CliMA
+# Load Modules 
 using MPI
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-
-@static if Base.find_package("CuArrays") !== nothing
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  const ArrayType = VERSION >= v"1.2-pre.25" ? CuArray : Array
-else
-  const ArrayType = Array
-end
-
-# Load modules specific to CliMA project
+using CLIMA
 using CLIMA.Topologies
 using CLIMA.Grids
 using CLIMA.DGBalanceLawDiscretizations
@@ -24,23 +9,39 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+using LinearAlgebra
+using StaticArrays
+using Logging, Printf, Dates
 using CLIMA.Vtk
+
+if haspkg("CuArrays")
+  using CUDAdrv
+  using CUDAnative
+  using CuArrays
+  CuArrays.allowscalar(false)
+  const ArrayType = CuArray
+else
+  const ArrayType = Array
+end
+
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
-# Even for the dry example shown here, we load the moist thermodynamics module 
+# For the dry example shown here, we load the moist thermodynamics module 
 # and consider the dry equation set to be the same as the moist equations but
 # with total specific humidity = 0. 
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 
-# For a three dimensional problem 
+# State labels 
 const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
-const statenames = ("ρ", "U", "V", "W", "E", "QT")
+const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
+# Viscous state labels
 const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _modSij = 1:_nviscstates
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
 
+# Gradient state labels
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
@@ -50,35 +51,39 @@ if !@isdefined integration_testing
   using Random
 end
 
+# Problem constants (TODO: parameters module (?)) 
 const Prandtl = 71 // 100
 const Prandtl_t = 1 // 3
-const k_μ = cp_d / Prandtl
-const γ_exact = 7 // 5
+const k_μ = cp_d / Prandtl_t
 const μ_exact = 75
-const xmin = 0
-const ymin = 0
-const zmin = 0
-const xmax = 3000
-const ymax = 3000
-const zmax = 3000
-const xc   = xmax / 2
-const yc   = ymax / 2
-const zc   = zmax / 2
-const Nex = 30
-const Ney = 30
-const Nez = 1
-const numdims = 2
-const Npoly = 5
-# Smagorinsky model requirements
-const C_smag = 0.18
+const γ_exact = 7 // 5
+
+# Problem description 
+# --------------------
+# 2D thermal perturbation (cold bubble) in a neutrally stratified atmosphere
+# No wall-shear, lateral periodic boundaries with no-flux walls at the domain
+# top and bottom. 
+# Inviscid, Constant viscosity, StandardSmagorinsky, MinimumDissipation
+# filters are tested against this benchmark problem
+# TODO: link to module SubGridScaleTurbulence
+
+# Physical domain extents 
+(xmin, xmax) = (0, 25600)
+(ymin, ymax) = (0, 6400)
+# Can be extended to a 3D test case 
+(zmin, zmax) = (0, 6400)
+(Nex, Ney, Nez) = (64, 32, 1)
+Npoly = 4
+
+# Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
+const C_smag = 0.23
 const Δx = (xmax-xmin) / ((Nex * Npoly) + 1)
 const Δy = (ymax-ymin) / ((Ney * Npoly) + 1)
 const Δz = (zmax-zmin) / ((Nez * Npoly) + 1)
-  
-if numdims == 2
-  Δ = sqrt(Δx * Δy)
-  const Δ2 = Δ * Δ
-end
+# Equivalent grid-scale
+Δ = sqrt(Δx * Δy)
+const Δsqr = Δ * Δ
+
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -149,27 +154,29 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     
     vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-    # Stress tensor
-    τ11, τ22, τ33 = VF[_τ11] , VF[_τ22], VF[_τ33]
-    τ12 = τ21 = VF[_τ12] 
-    τ13 = τ31 = VF[_τ13]
-    τ23 = τ32 = VF[_τ23] 
+    # Stress tensor : FIXME: use Julia Tensors.jl (?)
+    # Buoyancy correction 
+    
     dθdy = VF[_θy]
-    modSij = VF[_modSij]
-    Ri = gravity / θ * dθdy / (modSij + eps(modSij)) / (modSij + eps(modSij))
-    f_R = sqrt(max(0.0, 1 - 3*Ri))
+    SijSij = VF[_SijSij]
+    f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
+    
+    ν_e::eltype(VF) = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+    D_e= ν_e / Prandtl_t
+    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    τ12 = τ21 = VF[_τ12] * ν_e 
+    τ13 = τ31 = VF[_τ13] * ν_e               
+    τ23 = τ32 = VF[_τ23] * ν_e
     # Viscous contributions
     F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
     F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
     F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+    
     # Energy dissipation
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + k_μ * vTx 
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + k_μ * vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + k_μ * vTz 
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
     # Viscous contributions to mass flux terms
-    F[1, _QT] -= vqx
-    F[2, _QT] -= vqy
-    F[3, _QT] -= vqz
   end
 end
 
@@ -189,7 +196,7 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
     E, QT = Q[_E], Q[_QT]
     ρinv = 1 / ρ
     vel[1], vel[2], vel[3] = u, v, w
-    vel[4], vel[5], vel[6] = ρinv * E, QT, T
+    vel[4], vel[5], vel[6] = E, QT, T
     vel[7] = θ
   end
 end
@@ -197,10 +204,7 @@ end
 # -------------------------------------------------------------------------
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
-#md # coordinates. This may also be used to store variables for which gradients
-#md # are needed, but are not available through teh prognostic variable 
-#md # calculations. (An example of this will follow - in the Smagorinsky model, 
-#md # where a local Richardson number via potential temperature gradient is required)
+#md # coordinates. 
 # -------------------------------------------------------------------------
 const _nauxstate = 3
 const _a_x, _a_y, _a_z, = 1:_nauxstate
@@ -220,7 +224,6 @@ end
 #md # (pending)
 @inline function compute_stresses!(VF, grad_vel, _...)
   gravity::eltype(VF) = grav
-  Prandltl::eltype(VF) = Prandtl
   @inbounds begin
     dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
     dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
@@ -231,32 +234,40 @@ end
     dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
     # virtual potential temperature gradient: for richardson calculation
     # strains
-    ϵ11 = dudx
-    ϵ22 = dvdy
-    ϵ33 = dwdz
-    ϵ12 = (dudy + dvdx) / 2
-    ϵ13 = (dudz + dwdx) / 2
-    ϵ23 = (dvdz + dwdy) / 2
     # --------------------------------------------
     # SMAGORINSKY COEFFICIENT COMPONENTS
     # --------------------------------------------
-    SijSij = (ϵ11^2 + ϵ22^2 + ϵ33^2
-              + 2.0 * ϵ12^2
-              + 2.0 * ϵ13^2 
-              + 2.0 * ϵ23^2) 
-    ν_t = C_smag * C_smag * Δ2 * sqrt(2.0 * SijSij)
+    S11 = dudx
+    S22 = dvdy
+    S33 = dwdz
+    S12 = (dudy + dvdx) / 2
+    S13 = (dudz + dwdx) / 2
+    S23 = (dvdz + dwdy) / 2
     # --------------------------------------------
+    # SMAGORINSKY COEFFICIENT COMPONENTS
+    # --------------------------------------------
+    # FIXME: Grab functions from module SubgridScaleTurbulence 
+    SijSij = (S11^2 + S22^2 + S33^2
+                          + 2.0 * S12^2
+                          + 2.0 * S13^2 
+                          + 2.0 * S23^2) 
+    modSij = sqrt(2.0 * SijSij) 
+    
+    #--------------------------------------------
     # deviatoric stresses
-    VF[_τ11] = 2 * ν_t * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ22] = 2 * ν_t * (ϵ22 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ33] = 2 * ν_t * (ϵ33 - (ϵ11 + ϵ22 + ϵ33) / 3)
-    VF[_τ12] = 2 * ν_t * ϵ12
-    VF[_τ13] = 2 * ν_t * ϵ13
-    VF[_τ23] = 2 * ν_t * ϵ23
-    VF[_qx], VF[_qy], VF[_qz]  = dqdx, dqdy, dqdz
-    VF[_Tx], VF[_Ty], VF[_Tz]  = dTdx, dTdy, dTdz
-    VF[_θx], VF[_θy], VF[_θz]  = dθdx, dθdy, dθdz
-    VF[_modSij] = sqrt(2.0 * SijSij)
+    # Fix up index magic numbers
+    VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
+    VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
+    VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
+    VF[_τ12] = 2 * S12
+    VF[_τ13] = 2 * S13
+    VF[_τ23] = 2 * S23
+
+    # TODO: Viscous stresse come from SubgridScaleTurbulence module
+    VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
+    VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+    VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
+    VF[_SijSij] = SijSij
   end
 end
 # -------------------------------------------------------------------------
@@ -284,20 +295,23 @@ end
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
     ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+    # No flux boundary conditions
+    # No shear on walls (free-slip condition)
     UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
     QP[_U] = UM - 2 * nM[1] * UnM
     QP[_V] = VM - 2 * nM[2] * UnM
     QP[_W] = WM - 2 * nM[3] * UnM
-    QP[_ρ] = ρM
-    QP[_E] = EM
-    QP[_QT] = QTM
-    VFP .= VFM
+    #QP[_ρ] = ρM
+    #QP[_QT] = QTM
+    VFP .= 0 
     nothing
   end
 end
-# -------------------------------------------------------------------------
 
-@inline stresses_boundary_penalty!(VF, _...) = VF.=0
+# -------------------------------------------------------------------------
+@inline function stresses_boundary_penalty!(VF, _...) 
+  VF .= 0
+end
 
 @inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
   @inbounds begin
@@ -317,13 +331,16 @@ end
   # Typically these sources are imported from modules
   @inbounds begin
     source_geopot!(S, Q, aux, t)
+    #source_sponge!(S, Q, aux, t)
   end
 end
 
 @inline function source_sponge!(S, Q, aux, t)
     y = aux[_a_y]
     x = aux[_a_x]
+    U = Q[_U]
     V = Q[_V]
+    W = Q[_W]
     # Define Sponge Boundaries      
     xc       = (xmax + xmin)/2
     ysponge  = 0.85 * ymax
@@ -332,7 +349,7 @@ end
     csxl  = 0.0
     csxr  = 0.0
     ctop  = 0.0
-    csx   = 0.0 #1.0
+    csx   = 1.0
     ct    = 1.0 
     #x left and right
     #xsl
@@ -349,8 +366,9 @@ end
     end
     beta  = 1.0 - (1.0 - ctop)*(1.0 - csxl)*(1.0 - csxr)
     beta  = min(beta, 1.0)
-    alpha = 1.0 - beta
+    S[_U] -= beta * U  
     S[_V] -= beta * V  
+    S[_W] -= beta * W
 end
 
 @inline function source_geopot!(S,Q,aux,t)
@@ -366,7 +384,7 @@ end
 # -------------END DEF SOURCES-------------------------------------# 
 
 # initial condition
-function rising_thermal_bubble!(dim, Q, t, x, y, z, _...)
+function density_current!(dim, Q, t, x, y, z, _...)
   DFloat                = eltype(Q)
   R_gas::DFloat         = R_d
   c_p::DFloat           = cp_d
@@ -374,17 +392,18 @@ function rising_thermal_bubble!(dim, Q, t, x, y, z, _...)
   p0::DFloat            = MSLP
   gravity::DFloat       = grav
   # initialise with dry domain 
-  q_tot::DFloat         = 0
+  q_tot::DFloat         = 0.0014
   q_liq::DFloat         = 0
   q_ice::DFloat         = 0 
   # perturbation parameters for rising bubble
-  r                     = sqrt((x-xc)^2 + (y-500)^2)
-  rc::DFloat            = 300
+  rx                    = 4000
+  ry                    = 2000
+  r                     = sqrt(x^2/rx^2 + (y-3000)^2/ry^2)
   θ_ref::DFloat         = 300
-  θ_c::DFloat           = 5.0
+  θ_c::DFloat           = -15.0
   Δθ::DFloat            = 0.0
-  if r <= rc 
-    Δθ = θ_c * (1 + cospi(r/rc))/2
+  if r <= 1
+    Δθ = θ_c * (1 + cospi(r))/2
   end
   qvar                  = PhasePartition(q_tot)
   θ                     = θ_ref + Δθ # potential temperature
@@ -404,10 +423,8 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-  ArrayType = Array
-
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                range(DFloat(xmin), length=Ne[2]+1, DFloat(xmax)))
+                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
                 
   
   # User defined periodicity in the topl assignment
@@ -442,7 +459,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                            source! = source!)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = rising_thermal_bubble!(Val(dim), Q, DFloat(0), x...)
+  initialcondition(Q, x...) = density_current!(Val(dim), Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
@@ -453,34 +470,57 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(5, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
       energy = norm(Q)
+      globmean = global_mean(Q, _ρ) 
       @info @sprintf("""Update
                      simtime = %.16e
                      runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
+                     norm(Q) = %.16e
+                     mean(ρ) = %.16e""", 
+                     ODESolvers.gettime(lsrk),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
-                     energy)
+                     energy, globmean)
     end
   end
 
-  step = [0]
-  mkpath("vtk-lr-smag")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
-    outprefix = @sprintf("vtk-lr-smag/cns_%dD_mpirank%04d_step%04d", dim,
-                         MPI.Comm_rank(mpicomm), step[1])
-      @debug "doing VTK output" outprefix
-      DGBalanceLawDiscretizations.writevtk(outprefix, Q, spacedisc, statenames)
-      step[1] += 1
-      nothing
-  end
+  npoststates = 8
+  _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+  postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+  postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-  # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
+  step = [0]
+  mkpath("vtk-density-current")
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
+                                               Q) do R, Q, QV, aux
+      @inbounds let
+        (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = preflux(Q, QV, aux)
+      end
+    end
+
+    outprefix = @sprintf("vtk-density-current/cns_%dD_mpirank%04d_step%04d", dim,
+                         MPI.Comm_rank(mpicomm), step[1])
+    @debug "doing VTK output" outprefix
+    writevtk(outprefix, Q, spacedisc, statenames,
+                                         postprocessarray, postnames)
+    #= 
+    pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
+    prefixes = ntuple(i->
+                      @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
+                               dim, i-1, step[1]),
+                      MPI.Comm_size(mpicomm))
+    writepvtu(pvtuprefix, prefixes, postnames)
+    =# 
+    step[1] += 1
+    nothing
+  end
+  
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
@@ -526,12 +566,12 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelem = (Nex,Ney, Nez)
-    dt = 0.01
-    timeend = 1000
+    numelem = (Nex,Ney)
+    dt = 0.05
+    timeend = 5400
     polynomialorder = Npoly
     DFloat = Float64
-    dim = numdims
+    dim = 2
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
 end
