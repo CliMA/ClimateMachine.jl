@@ -522,19 +522,17 @@ end
 
 
 """
-    initauxstate!(dg::DGModel, auxstate, vgeo, elems)
+    initauxstate!(bl::BalanceLaw, Val(polyorder), auxstate, vgeo, elems)
 
 Computational kernel: Initialize the auxiliary state
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function initauxstate!(dg::DGModel, auxstate, vgeo, elems)
-
-  bl = dg.balancelaw
+function initauxstate!(bl::BalanceLaw, ::Val{polyorder}, auxstate, vgeo, elems) where {polyorder}
   dim = dimension(bl)
   nauxstate = num_aux(bl)
 
-  N = polynomialorder(dg.grid)
+  N = polyorder
   
   DFloat = eltype(auxstate)
 

@@ -135,12 +135,12 @@ function init_ode_param(dg::DGModel)
   # if auxiliary_state_initialization! !== nothing
   #   @assert auxiliary_state_length > 0
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    polyorder = polynomialorder(grid)
     vgeo = grid.vgeo
     device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     @launch(device, threads=(Np,), blocks=nrealelem,
-            initauxstate!(dg, auxstate.Q, vgeo, topology.realelems))
+            initauxstate!(bl, Val(polyorder), auxstate.Q, vgeo, topology.realelems))
     MPIStateArrays.start_ghost_exchange!(auxstate)
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   # end
