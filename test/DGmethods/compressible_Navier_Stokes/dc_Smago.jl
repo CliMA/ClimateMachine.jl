@@ -94,6 +94,7 @@ zmax    = get(dict_user_input, "zmax", "zmax NOT DEFINED")
 dt      = get(dict_user_input, "dt", "dt NOT DEFINED")
 timeend = get(dict_user_input, "tfinal", "tfinal NOT DEFINED")
 
+
 #@info @sprintf """ NumDims from dict %d""" numdims
 #@info @sprintf """ dx dy dz          %.16e %.16e %.16e""" Δx Δy Δz
 #@info @sprintf """ Npoly             %d""" Npoly
@@ -102,7 +103,6 @@ timeend = get(dict_user_input, "tfinal", "tfinal NOT DEFINED")
 #@info @sprintf """ (zmin zmax)       %.16e %.16e""" zmin zmax
 #@info @sprintf """ dt                %.16e""" dt
 #@info @sprintf """ timeend           %.16e""" timeend
-
 
 #Get Nex, Ney from resolution
 Lx = xmax - xmin
