@@ -153,20 +153,22 @@ const Δsqr = Δ * Δ
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
 @inline function preflux(Q,VF, aux, _...)
-    R_gas::eltype(Q) = R_d
-    @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    ρinv = 1 / ρ
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-    q_tot = QT / ρ
-    # Establish the current thermodynamic state using the prognostic variables
-    TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
-    T = air_temperature(TS)
-    P = air_pressure(TS) # Test with dry atmosphere
-    q_liq = PhasePartition(TS).liq
-    θ = virtual_pottemp(TS)
-    (P, u, v, w, ρinv, q_liq,T,θ)
+    @inbounds begin
+      R_gas::eltype(Q) = R_d
+      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+      ρinv = 1 / ρ
+      z = aux[_a_z]
+      u, v, w = ρinv * U, ρinv * V, ρinv * W
+      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+      q_tot = QT / ρ
+      # Establish the current thermodynamic state using the prognostic variables
+      TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
+      T = air_temperature(TS)
+      P = air_pressure(TS) # Test with dry atmosphere
+      q_liq = aux[_a_q_liq]
+      θ = virtual_pottemp(TS)
+      (P, u, v, w, ρinv, q_liq,T,θ)
+    end
 end
 
 #-------------------------------------------------------------------------
@@ -295,22 +297,23 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
 end
 
 @inline function radiation(aux)
-  zero_to_z = aux[_a_02z]
-  z_to_inf = aux[_a_z2inf]
-  z = aux[_a_z]
-  z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
-  (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0 
-  # Constants 
-  F_0 = 70 
-  F_1 = 22
-  α_z = 1
-  ρ_i = 1.22
-  D_subsidence = 3.75e-6
-  term1 = F_0 * exp(-z_to_inf) 
-  term2 = F_1 * exp(-zero_to_z)
-  term3 = ρ_i * cp_d * D_subsidence * α_z * (0.25 * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
-  F_rad = term1 + term2 + term3  
-  return F_rad
+  @inbounds begin
+    zero_to_z = aux[_a_02z]
+    z_to_inf = aux[_a_z2inf]
+    z = aux[_a_z]
+    z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
+    (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0 
+    # Constants 
+    F_0 = 70 
+    F_1 = 22
+    α_z = 1
+    ρ_i = 1.22
+    D_subsidence = 3.75e-6
+    term1 = F_0 * exp(-z_to_inf) 
+    term2 = F_1 * exp(-zero_to_z)
+    term3 = ρ_i * cp_d * D_subsidence * α_z * (0.25 * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
+    F_rad = term1 + term2 + term3  
+  end
 end
 
 # -------------------------------------------------------------------------
