@@ -78,15 +78,15 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 15
-Δy    = 15
-Δz    = 10
+Δx    = -30
+Δy    = 30
+Δz    = 5
 #
 # OR:
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (10, 10, 1)
+(Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 840)
@@ -630,10 +630,6 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     e_int       = internal_energy(T, PhasePartition(q_tot))
     E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
     
-    #Get q_liq and q_ice
-    TS           = PhaseEquil(e_int, q_tot, ρ)
-    q_phase_part = PhasePartition(TS)
-    
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     
 end
@@ -685,8 +681,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
     
-    lsrk = LowStorageRungeKutta(spacedisc, Q; dt = dt, t0 = 0)
-
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    
     #=eng0 = norm(Q)
     @info @sprintf """Starting
       norm(Q₀) = %.16e""" eng0
@@ -715,7 +711,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-dycoms")
+    mkpath("/central/scratch/smarras/vtk-dycoms-30mX30mX5m")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -725,7 +721,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-dycoms/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("/central/scratch/smarras/vtk-dycoms-30mX30mX5m/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -793,7 +789,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.0015
+    dt = 0.0025
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
