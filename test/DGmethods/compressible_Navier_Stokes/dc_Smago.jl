@@ -1,3 +1,4 @@
+
 # Load Modules 
 using MPI
 using CLIMA
@@ -70,36 +71,39 @@ const cp_over_prandtl = cp_d / Prandtl_t
 #
 # Read user configuration file:
 #
-dict_user_input = read_configuration_file()
+ dict_user_input = read_configuration_file()
 
-@info @sprintf """ INPITS:      %s""" dict_user_input[1]
+##Print dictionary keys and values:
+#for key in dict_user_input
+#    @info @sprintf """ Dictionaryxx: %s %s %s""" (key[1]) (key[2]) typeof((key[2]))
+#end
 
-return
-#
-# User Input
-#
-const numdims = 3
+#const numdims = 3
+const numdims = get(dict_user_input, "nsd", "nsd NOT DEFINED")
+const Npoly   = get(dict_user_input, "Npoly", "Npoly NOT DEFINED")
 
-#
-# Define:
-#
-# !!!!!!! EITHER grid size !!!!!!!!!
-#
-Δx    =  100
-Δy    =  100
-Δz    =   50
-#
-# !!!!!!! OR: !!!!!!!
-#
-# Set Δx < 0 and define  Nex, Ney, Nez:
-#
-(Nex, Ney, Nez) = (64, 16, 1)
-Npoly = 4
+Δx = get(dict_user_input, "Δx", "Δx NOT DEFINED")
+Δy = get(dict_user_input, "Δy", "Δy NOT DEFINED")
+Δz = get(dict_user_input, "Δz", "Δz NOT DEFINED")
 
-# Physical domain extents 
-(xmin, xmax) = (0, 25600)
-(ymin, ymax) = (0,  6400) #VERTICAL
-(zmin, zmax) = (0,   200)
+xmin = get(dict_user_input, "xmin", "xmin NOT DEFINED")
+xmax = get(dict_user_input, "xmax", "xmax NOT DEFINED")
+ymin = get(dict_user_input, "ymin", "ymax NOT DEFINED")
+ymax = get(dict_user_input, "ymax", "ymax NOT DEFINED")
+zmin = get(dict_user_input, "zmin", "zmin NOT DEFINED")
+zmax = get(dict_user_input, "zmax", "zmax NOT DEFINED")
+
+dt      = get(dict_user_input, "dt", "dt NOT DEFINED")
+timeend = get(dict_user_input, "tfinal", "tfinal NOT DEFINED")
+
+#@info @sprintf """ NumDims from dict %d""" numdims
+#@info @sprintf """ dx dy dz          %.16e %.16e %.16e""" Δx Δy Δz
+#@info @sprintf """ Npoly             %d""" Npoly
+#@info @sprintf """ (xmin xmax)       %.16e %.16e""" xmin xmax
+#@info @sprintf """ (ymin ymax)       %.16e %.16e""" ymin ymax
+#@info @sprintf """ (zmin zmax)       %.16e %.16e""" zmin zmax
+#@info @sprintf """ dt                %.16e""" dt
+#@info @sprintf """ timeend           %.16e""" timeend
 
 
 #Get Nex, Ney from resolution
@@ -622,8 +626,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.0125
-    timeend = 900
+    #dt = 0.0125
+    #timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims

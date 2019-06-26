@@ -68,7 +68,7 @@ function read_configuration_file()
     @info @sprintf """ ----------------------------------------------------"""
     
     split_chars = ["=", ",", ";", "->", "_"]
-    filein      = open(joinpath("./configuration.ini"))
+    filein      = open(joinpath(@__DIR__, "./configuration.ini"))
     
     #Detect precision first of all:
     for line in eachline(filein)
@@ -283,7 +283,7 @@ function read_configuration_file()
 end
 #}}}
 
-     dict_user_input = read_configuration_file()
+     #dict_user_input = read_configuration_file()
 
      ##Print dictionary keys and values:
      #for key in dict_user_input
