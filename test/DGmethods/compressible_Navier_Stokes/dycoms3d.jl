@@ -53,8 +53,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 9
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_sa_T, _a_q_liq = 1:_nauxstate
+const _nauxstate = 12
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_T, _a_P, _a_q_liq, _a_θ, _a_soundspeed_air  = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -152,38 +152,21 @@ const Δsqr = Δ * Δ
 # Modules: NumericalFluxes.jl 
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
-@inline function preflux(Q,VF, aux, _...)
-    @inbounds begin
-      R_gas::eltype(Q) = R_d
-      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-      ρinv = 1 / ρ
-      z = aux[_a_z]
-      u, v, w = ρinv * U, ρinv * V, ρinv * W
-      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-      q_tot = QT / ρ
-      # Establish the current thermodynamic state using the prognostic variables
-      TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
-      T = air_temperature(TS)
-      P = air_pressure(TS) # Test with dry atmosphere
-      q_liq = aux[_a_q_liq]
-      θ = virtual_pottemp(TS)
-      (P, u, v, w, ρinv, q_liq,T,θ)
-    end
+@inline function preflux(Q, VF, aux, _...)
+  @inbounds begin
+    ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
+    ρinv = 1 / ρ
+    u, v, w = ρinv * U, ρinv * V, ρinv * W
+  end
 end
 
 #-------------------------------------------------------------------------
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-    @inbounds begin 
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-        u, v, w = ρinv * U, ρinv * V, ρinv * W
-        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-        q_tot = QT / ρ
-        TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
-        (n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
-    end
+@inline function wavespeed(n, Q, aux, t, u, v, w)
+  @inbounds begin
+    (n[1] * u + n[2] * v + n[3] * w) + aux[_a_soundspeed_air]
+  end
 end
 
 
@@ -222,9 +205,10 @@ end
 #md # to cns_flux!
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
     @inbounds begin
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        P = aux[_a_P]
         # Inviscid contributions
         F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
         F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -283,13 +267,12 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
-@inline function gradient_vars!(vel, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function gradient_vars!(vel, Q, aux, t, u, v, w)
   @inbounds begin
-    y = aux[_a_y]
-    # ordering should match states_for_gradient_transform
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    T, θ = aux[_a_T], aux[_a_θ]
     E, QT = Q[_E], Q[_QT]
-    ρinv = 1 / ρ
+
+    # ordering should match states_for_gradient_transform
     vel[1], vel[2], vel[3] = u, v, w
     vel[4], vel[5], vel[6] = E, QT, T
     vel[7] = θ
@@ -458,21 +441,18 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
-    @inbounds begin
-        x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-        ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
-        # No flux boundary conditions
-        # No shear on walls (free-slip condition)
-        UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        QP[_U] = UM - 2 * nM[1] * UnM
-        QP[_V] = VM - 2 * nM[2] * UnM
-        QP[_W] = WM - 2 * nM[3] * UnM
-        #QP[_ρ] = ρM
-        #QP[_QT] = QTM
-        VFP .= 0 
-        nothing
-    end
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
+  @inbounds begin
+    UM, VM, WM = QM[_U], QM[_V], QM[_W]
+    # No flux boundary conditions
+    # No shear on walls (free-slip condition)
+    UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+    QP[_U] = UM - 2 * nM[1] * UnM
+    QP[_V] = VM - 2 * nM[2] * UnM
+    QP[_W] = WM - 2 * nM[3] * UnM
+    VFP .= 0
+    nothing
+  end
 end
 
 # -------------------------------------------------------------------------
@@ -568,10 +548,16 @@ function preodefun!(disc, Q, t)
       q_tot = QT / ρ
 
       TS = PhaseEquil(e_int, q_tot, ρ)
+      T = air_temperature(TS)
+      P = air_pressure(TS) # Test with dry atmosphere
+      θ = virtual_pottemp(TS)
       q_liq = PhasePartition(TS).liq
-
-      R[_a_sa_T] = TS.T
+ 
+      R[_a_T] = T
+      R[_a_P] = P
+      R[_a_θ] = θ
       R[_a_q_liq] = q_liq
+      R[_a_soundspeed_air] = soundspeed_air(TS)
     end
   end
 
@@ -734,36 +720,46 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           end
       end
 
-      npoststates = 11
-      _int1, _int2, _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-      postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+      npoststates = 10
+      _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq, _T, _θ = 1:npoststates
+      postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq", "T", "THETA")
       postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
       step = [0]
       cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
           DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                      Q) do R, Q, QV, aux
-                                                         @inbounds let
-                                                            F_rad_out = radiation(aux)
-                                                             (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_z2inf], F_rad_out, preflux(Q, QV, aux)...)
-                                                         end
-                                                     end
+          @inbounds let
+            F_rad_out = radiation(aux)
+            u, v, w = preflux(Q, QV, aux)
+            R[_int1] = aux[_a_02z]
+            R[_int2] = aux[_a_z2inf]
+            R[_betaout] = F_rad_out
+            R[_P] =aux[_a_P]
+            R[_u] = u
+            R[_v] = v
+            R[_w] = w
+            R[_q_liq] = aux[_a_q_liq]
+            R[_T] = aux[_a_q_T]
+            R[_θ] = aux[_a_q_θ]
+          end
+        end
 
-          outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
-                               MPI.Comm_rank(mpicomm), step[1])
-          @debug "doing VTK output" outprefix
-          writevtk(outprefix, Q, spacedisc, statenames,
-                   postprocessarray, postnames)
-          #= 
-          pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
-          prefixes = ntuple(i->
-          @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
-          dim, i-1, step[1]),
-          MPI.Comm_size(mpicomm))
-          writepvtu(pvtuprefix, prefixes, postnames)
-          =# 
-          step[1] += 1
-          nothing
+        outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
+                             MPI.Comm_rank(mpicomm), step[1])
+        @debug "doing VTK output" outprefix
+        writevtk(outprefix, Q, spacedisc, statenames,
+                 postprocessarray, postnames)
+        #= 
+        pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
+        prefixes = ntuple(i->
+        @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
+        dim, i-1, step[1]),
+        MPI.Comm_size(mpicomm))
+        writepvtu(pvtuprefix, prefixes, postnames)
+        =# 
+        step[1] += 1
+        nothing
       end
     end
 
