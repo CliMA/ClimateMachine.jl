@@ -53,8 +53,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 8
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_sa_T = 1:_nauxstate
+const _nauxstate = 9
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_sa_T, _a_q_liq = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -551,17 +551,11 @@ end
 
 # Test integral exactly according to the isentropic vortex example
 @inline function integral_knl(val, Q, aux)
-  κ = 85.0
+  κ = 85
   @inbounds begin
-    @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    ρinv = 1 / ρ
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-    q_tot = QT / ρ
-    TS = PhaseEquil(e_int, q_tot, ρ, aux[_a_sa_T])
-    q_liq = PhasePartition(TS).liq
-    val[1] = ρ * κ * q_liq 
+    ρ = Q[_ρ]
+    q_liq = aux[_a_q_liq]
+    val[1] = ρ * κ * q_liq
   end
 end
 
@@ -572,7 +566,12 @@ function preodefun!(disc, Q, t)
       z = aux[_a_z]
       e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
       q_tot = QT / ρ
-      R[_a_sa_T] = saturation_adjustment(e_int, ρ, q_tot)
+
+      TS = PhaseEquil(e_int, q_tot, ρ)
+      q_liq = PhasePartition(TS).liq
+
+      R[_a_sa_T] = TS.T
+      R[_a_q_liq] = q_liq
     end
   end
 
