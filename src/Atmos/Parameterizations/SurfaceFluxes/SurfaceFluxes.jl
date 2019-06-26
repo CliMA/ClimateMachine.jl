@@ -4,16 +4,13 @@
   Surface flux functions, e.g., for buoyancy flux,
   friction velocity, and exchange coefficients.
 
-## Sub-modules
-  - module Byun1990
-  - module Nishizawa2018
-
 ## Interface
-  - [`compute_buoyancy_flux`](@ref) computes the buoyancy flux
-  - In addition, each sub-module has the following functions:
-    - [`compute_MO_len`](@ref) computes the Monin-Obukhov length
-    - [`compute_friction_velocity`](@ref) computes the friction velocity
-    - [`compute_exchange_coefficients`](@ref) computes the exchange coefficients
+  - [`surface_conditions`](@ref) computes
+    - buoyancy flux
+    - Monin-Obukhov length
+    - friction velocity
+    - temperature scale
+    - exchange coefficients
 
 ## References
 
@@ -45,8 +42,93 @@ module SurfaceFluxes
 using ..RootSolvers
 using ..MoistThermodynamics
 using ..PlanetParameters
+using DocStringExtensions
 
-# export compute_buoyancy_flux
+export surface_conditions
+
+"""
+    SurfaceFluxConditions{T}
+
+Surface flux conditions, returned from `surface_conditions`.
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct SurfaceFluxConditions{T}
+  momentum_flux::T
+  buoyancy_flux::T
+  Monin_Obukhov_length::T
+  friction_velocity::T
+  temperature_scale::T
+  exchange_coeff_momentum::T
+  exchange_coeff_heat::T
+end
+
+function Base.show(io::IO, sfc::SurfaceFluxConditions)
+  println(io, "----------------------- SurfaceFluxConditions")
+  println(io, "momentum_flux           = ", sfc.momentum_flux)
+  println(io, "buoyancy_flux           = ", sfc.buoyancy_flux)
+  println(io, "Monin_Obukhov_length    = ", sfc.Monin_Obukhov_length)
+  println(io, "friction_velocity       = ", sfc.friction_velocity)
+  println(io, "temperature_scale       = ", sfc.temperature_scale)
+  println(io, "exchange_coeff_momentum = ", sfc.exchange_coeff_momentum)
+  println(io, "exchange_coeff_heat     = ", sfc.exchange_coeff_heat)
+  println(io, "-----------------------")
+end
+
+"""
+    surface_conditions(u_ave::DT, θ_bar::DT, Δz::DT, z_0_m::DT, z_0_h::DT,
+        z::DT, F_m::DT, F_h::DT, a::DT, θ_s::DT, Pr::DT) where DT<:AbstractFloat
+
+Surface conditions given
+ - `u_ave` volume-averaged horizontal wind speed
+ - `θ_ave` volume-averaged potential temperature
+ - `θ_bar` basic potential temperature
+ - `θ_s` surface potential temperature
+ - `Δz` layer thickness
+ - `z_0_m` roughness length for momentum
+ - `z_0_h` roughness length for heat
+ - `z` coordinate axis
+ - `F_m` momentum flux at the top
+ - `F_h` heat flux at the top
+ - `a` free model parameter with prescribed value of 4.7
+ - `Pr` Prantl number at neutral stratification
+ - `pottemp_flux` potential temperature flux
+"""
+function surface_conditions(u_ave::DT,
+                            θ_bar::DT,
+                            θ_ave::DT,
+                            θ_s::DT,
+                            Δz::DT,
+                            z_0_m::DT,
+                            z_0_h::DT,
+                            z::DT,
+                            F_m::DT,
+                            F_h::DT,
+                            a::DT,
+                            Pr::DT,
+                            pottemp_flux::DT
+                            ) where DT<:AbstractFloat
+
+  @assert 0 <= z <= z_0_m
+  @assert 0 <= z <= z_0_h
+
+  tol_abs, iter_max = DT(1e-3), 100
+  u_star = compute_physical_scale(Δz, a, tol_abs, iter_max, θ_bar, pottemp_flux, z_0_m, u_ave, 0, 1)
+  θ_star = compute_physical_scale(Δz, a, tol_abs, iter_max, θ_bar, pottemp_flux, z_0_h, θ_ave, θ_s, 1/Pr)
+  momentum_flux = -u_star^2
+  buoyancy_flux = -u_star*θ_star
+  K_m, K_h, L_MO = compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ_star, θ_bar, Pr, pottemp_flux)
+
+  return SurfaceFluxConditions(L_MO,
+                               momentum_flux,
+                               buoyancy_flux,
+                               u_star,
+                               θ_star,
+                               K_m,
+                               K_h)
+end
 
 """
     compute_buoyancy_flux(shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0)
@@ -63,128 +145,6 @@ function compute_buoyancy_flux(shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0)
   temp2 = (shf + temp1 * cp_ * T_b * lhf /lv)
   return (grav * alpha0_0 / cp_ / T_b * temp2)
 end
-
-module Byun1990
-
-using ...RootSolvers
-using ...MoistThermodynamics
-using ...PlanetParameters
-
-""" Computes ψ_m for stable case. See Eq. 12 Ref. Byun1990 """
-ψ_m_stable(ζ, ζ_0, β_m) = -β_m * (ζ - ζ_0)
-
-""" Computes ψ_h for stable case. See Eq. 13 Ref. Byun1990 """
-ψ_h_stable(ζ, ζ_0, β_h) = -β_h * (ζ - ζ_0)
-
-""" Computes ψ_m for unstable case. See Eq. 14 Ref. Byun1990 """
-function ψ_m_unstable(ζ, ζ_0, γ_m)
-  x(ζ) = sqrt(sqrt(1 - γ_m * ζ))
-  temp(ζ, ζ_0) = log1p((ζ - ζ_0)/(1 + ζ_0))  # log((1 + ζ)/(1 + ζ_0))
-  ψ_m = (2 * temp(x(ζ), x(ζ_0)) + temp(x(ζ)^2, x(ζ_0)^2) - 2 * atan(x(ζ)) + 2 * atan(x(ζ_0)))
-  return ψ_m
-end
-
-""" Computes ψ_h for unstable case. See Eq. 15 Ref. Byun1990 """
-function ψ_h_unstable(ζ, ζ_0, γ_h)
-  y(ζ) = sqrt(1 - γ_h * ζ )
-  ψ_h = 2 * log1p((y(ζ) - y(ζ_0))/(1 + y(ζ_0))) # log((1 + y(ζ))/(1 + y(ζ_0)))
-  return ψ_h
-end
-
-"""
-    compute_MO_len(u, flux)
-
-Computes the Monin-Obukhov length (Eq. 3 Ref. Byun1990)
-"""
-compute_MO_len(u, flux) = - u^3 / (flux * k_Karman)
-
-"""
-    compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, iter_max)
-
-Computes roots of friction velocity equation (Eq. 10 in Ref. Byun1990)
-
-`u_ave = u_* ( ln(z/z_0) - ψ_m(z/L, z_0/L) ) /κ        Eq. 10 in Ref. Byun1990`
-"""
-function compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, iter_max)
-
-  ustar_0 = u_ave * k_Karman / log(z_1 / z_0)
-  ustar = ustar_0
-  let u_ave=u_ave, flux=flux, z_0=z_0, z_1=z_1, β_m=β_m, γ_m=γ_m
-
-    # use neutral condition as first guess
-    stable = z_1/compute_MO_len(ustar_0, flux) >= 0
-    function compute_ψ_m(u)
-      L_MO = compute_MO_len(u, flux)
-      ζ   = z_1/L_MO
-      ζ_0 = z_0/L_MO
-      return stable ? ψ_m_stable(ζ, ζ_0, β_m) : ψ_m_unstable(ζ, ζ_0, γ_m)
-    end
-    function compute_u_ave_over_ustar(u)
-      return (log(z_1 / z_0) - compute_ψ_m(u)) / k_Karman # Eq. 10 in Ref. Byun1990
-    end
-    compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
-
-    if (abs(flux) > 0)
-      ustar_1 = compute_ustar(ustar_0)
-      ustar, converged = RootSolvers.find_zero(
-        u -> u_ave - u*compute_u_ave_over_ustar(u),
-        ustar_0, ustar_1, SecantMethod();
-        xatol=tol_abs, maxiters=iter_max)
-    end
-
-  end
-
-  return ustar
-end
-
-"""
-    compute_exchange_coefficients(Ri, z_b, z_0, γ_m, γ_h, β_m, β_h, Pr_0)
-
-Computes exchange transfer coefficients:
- - C_D  momentum exchange coefficient      (Eq. 36)
- - C_H  thermodynamic exchange coefficient (Eq. 37)
- - L_mo Monin-Obukhov length               (re-arranged Eq. 3)
-"""
-function compute_exchange_coefficients(Ri, z_b, z_0, γ_m, γ_h, β_m, β_h, Pr_0)
-  logz = log(z_b/z_0)
-  zfactor = z_b/(z_b-z_0)*logz
-  s_b = Ri/Pr_0
-  if Ri > 0
-    temp = ((1-2*β_h*Ri)-sqrt(1+4*(β_h - β_m)*s_b))
-    ζ = zfactor/(2*β_h*(β_m*Ri - 1))*temp                    # Eq. 19 in Ref. Byun1990
-    L_mo = z_b/ζ                                             # LHS of Eq. 3 in Byun1990
-    ζ_0 = z_0/L_mo
-    ψ_m = ψ_m_stable(ζ, ζ_0, β_m)
-    ψ_h = ψ_h_stable(ζ, ζ_0, β_h)
-  else
-    Q_b = 1/9 * (1 /(γ_m^2) + 3 * γ_h/γ_m * s_b^2)           # Eq. 31 in Ref. Byun1990
-    P_b = 1/54 * (-2/(γ_m^3) + 9/γ_m * (-γ_h/γ_m + 3)*s_b^2) # Eq. 32 in Ref. Byun1990
-    crit = Q_b^3 - P_b^2
-    if crit < 0
-      T_b = cbrt(sqrt(-crit) + abs(P_b))                     # Eq. 34 in Ref. Byun1990
-      ζ = zfactor * (1/(3*γ_m)-(T_b + Q_b/T_b))              # Eq. 29 in Ref. Byun1990
-    else
-      θ_b = acos(P_b/sqrt(Q_b^3))                            # Eq. 33 in Ref. Byun1990
-      ζ = zfactor * (-2 * sqrt(Q_b) * cos(θ_b/3)+1/(3*γ_m))  # Eq. 28 in Ref. Byun1990
-    end
-    L_mo = z_b/ζ                                             # LHS of Eq. 3 in Byun1990
-    ζ_0 = z_0/L_mo
-    ψ_m = ψ_m_unstable(ζ, ζ_0, γ_m)
-    ψ_h = ψ_h_unstable(ζ, ζ_0, γ_h)
-  end
-  cu = k_Karman/(logz-ψ_m)                  # Eq. 10 in Ref. Byun1990, solved for u^*
-  cth = k_Karman/(logz-ψ_h)/Pr_0            # Eq. 11 in Ref. Byun1990, solved for h^*
-  C_D = cu^2                                                 # Eq. 36 in Byun1990
-  C_H = cu*cth                                               # Eq. 37 in Byun1990
-  return C_D, C_H, L_mo
-end
-
-end # Byun1990 module
-
-module Nishizawa2018
-using ...RootSolvers
-using ...MoistThermodynamics
-using ...PlanetParameters
 
 """ Computes R_z0 expression, defined after Eq. 15 Ref. Nishizawa2018 """
 compute_R_z0(z_0, Δz) = 1 - z_0/Δz
@@ -205,8 +165,8 @@ end
 compute_ψ_h(ζ, L, a, Pr) = L>=0 ? -a*ζ/Pr : 2*log((1+compute_f_h(ζ))/2)
 
 """ Computes Ψ_m in Eq. A5 Ref. Nishizawa2018 """
-function compute_Ψ_m(ζ, L, a, tol)
-  if ζ < tol
+function compute_Ψ_m(ζ, L, a)
+  if abs(ζ) < eps(typeof(L))
     return ζ>=0 ? -a*ζ/2 : -15*ζ/8 # Computes Ψ_m in Eq. A13 Ref. Nishizawa2018
   else
     f_m = compute_f_m(ζ)
@@ -217,8 +177,8 @@ function compute_Ψ_m(ζ, L, a, tol)
 end
 
 """ Computes Ψ_h in Eq. A6 Ref. Nishizawa2018 """
-function compute_Ψ_h(ζ, L, a, Pr, tol)
-  if ζ < tol
+function compute_Ψ_h(ζ, L, a, Pr)
+  if abs(ζ) < eps(typeof(L))
     return ζ>=0 ? -a*ζ/(2*Pr) : -9*ζ/4 # Computes Ψ_h in Eq. A14 Ref. Nishizawa2018
   else
     f_h = compute_f_h(ζ)
@@ -231,66 +191,80 @@ end
 
 Computes Monin-Obukhov length. Eq. 3 Ref. Nishizawa2018
 """
-compute_MO_len(u, θ, flux) = - u^3* θ / (k_Karman * grav * flux)
+compute_MO_len(u, θ_bar, flux) = - u^3* θ_bar / (k_Karman * grav * flux)
+
+
+struct Heat end
+struct Momentum end
+
 
 """
-    compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
+    transport_flux_m(u)
 
-Computes friction velocity, in Eq. 12 in
-Ref. Nishizawa2018, by solving the
-non-linear equation:
-
-`u_ave = ustar/κ * ( ln(Δz/z_0) - Ψ_m(Δz/L) + z_0/Δz * Ψ_m(z_0/L) + R_z0 [ψ_m(z_0/L) - 1] )`
-
-where `L` is a non-linear function of `ustar` (see `compute_MO_len`).
+Momentum transport flux
 """
-function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
-  ustar_0 = u_ave * k_Karman / log(Δz / z_0)
-  ustar = ustar_0
-  let u_ave=u_ave, θ=θ, flux=flux, Δz=Δz, z_0=z_0, a=a, Ψ_m_tol=Ψ_m_tol, tol_abs=tol_abs, iter_max=iter_max
+transport_flux(u, ::Momentum) = -u^2
+
+"""
+    transport_flux_h(u)
+
+Thermal heat transport flux
+"""
+transport_flux_h(u, θ) = -u*θ
+
+"""
+    compute_physical_scale(Δz, a, tol_abs, iter_max, θ_bar, pottemp_flux, z_0, x_ave, x_s, coeff)
+
+`x_star = κ/denom*(x_ave-x_s)`
+
+where
+
+`denom = ln(Δz/z_0) - Ψ_m(Δz/L) + z_0/Δz * Ψ_m(z_0/L) + R_z0 (ψ_m(z_0/L) - 1)`
+"""
+function compute_physical_scale(Δz, a, tol_abs, iter_max, θ_bar, pottemp_flux, z_0, x_ave, x_s, coeff)
+  x_star_0 = x_ave * k_Karman / log(Δz / z_0)
+  x_star = x_star_0
+  let x_ave=x_ave, θ_bar=θ_bar, Δz=Δz, z_0=z_0, a=a, tol_abs=tol_abs, iter_max=iter_max
     # Note the lowercase psi (ψ) and uppercase psi (Ψ):
-    Ψ_m_closure(ζ, L) = compute_Ψ_m(ζ, L, a, Ψ_m_tol)
+    Ψ_m_closure(ζ, L) = compute_Ψ_m(ζ, L, a)
     ψ_m_closure(ζ, L) = compute_ψ_m(ζ, L, a)
-    function compute_u_ave_over_ustar(u)
-      L = compute_MO_len(u, θ, flux)
+    function compute_x_star(x)
+      L = compute_MO_len(x, θ_bar, pottemp_flux)
       R_z0 = compute_R_z0(z_0, Δz)
       temp1 = log(Δz/z_0)
       temp2 = - Ψ_m_closure(Δz/L, L)
       temp3 = z_0/Δz * Ψ_m_closure(z_0/L, L)
       temp4 = R_z0 * (ψ_m_closure(z_0/L, L) - 1)
-      return (temp1+temp2+temp3+temp4) / k_Karman
+      return coeff*k_Karman/(temp1+temp2+temp3+temp4)*(x_ave-x_s)
     end
-    compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
-    ustar_1 = compute_ustar(ustar_0)
-    ustar, converged = RootSolvers.find_zero(
-      u -> u_ave - u*compute_u_ave_over_ustar(u),
-      ustar_0, ustar_1, SecantMethod();
-      xatol=tol_abs, maxiters=iter_max)
+    compute_roots(x) = x - compute_x_star(x)
+    x_star_1 = compute_x_star(x_star_0)
+    x_star, converged = RootSolvers.find_zero(x -> compute_roots(x), x_star_0, x_star_1, SecantMethod();
+                                              xatol=tol_abs, maxiters=iter_max)
   end
-  return ustar
+  return x_star
 end
 
+
 """
-    compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ, flux, Pr)
+    compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ_star, θ_bar, Pr)
 
 Computes exchange transfer coefficients:
 
   - K_D  momentum exchange coefficient
   - K_H  thermodynamic exchange coefficient
-  - L_mo Monin-Obukhov length
+  - L_MO Monin-Obukhov length
 """
-function compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ, flux, Pr)
+function compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ_star, θ_bar, Pr, pottemp_flux)
 
-  L_mo = compute_MO_len(u_star, θ, flux)
-  ψ_m = compute_ψ_m(z/L_mo, L_mo, a)
-  ψ_h = compute_ψ_h(z/L_mo, L_mo, a, Pr)
+  L_MO = compute_MO_len(u_star, θ_bar, pottemp_flux)
+  ψ_m = compute_ψ_m(z/L_MO, L_MO, a)
+  ψ_h = compute_ψ_h(z/L_MO, L_MO, a, Pr)
 
   K_m = -F_m*k_Karman*z/(u_star * ψ_m) # Eq. 19 in Ref. Nishizawa2018
-  K_h = -F_h*k_Karman*z/(Pr * θ * ψ_h) # Eq. 20 in Ref. Nishizawa2018
+  K_h = -F_h*k_Karman*z/(Pr * θ_star * ψ_h) # Eq. 20 in Ref. Nishizawa2018
 
-  return K_m, K_h, L_mo
+  return K_m, K_h, L_MO
 end
-
-end # Nishizawa2018 module
 
 end # SurfaceFluxes module
