@@ -34,7 +34,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   vmapM = grid.vmapM
   vmapP = grid.vmapP
   elemtobndy = grid.elemtobndy
-
+  polyorder = polynomialorder(dg.grid)
 
   ########################
   # Gradient Computation #
@@ -44,13 +44,13 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(dg, Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
+            volumeviscterms!(bl, Val(polyorder), Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
                              topology.realelems))
 
     MPIStateArrays.finish_ghost_recv!(Q)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(dg, Q.Q, Qvisc.Q, auxstate.Q,
+            faceviscterms!(bl, Val(polyorder), dg.divnumflux. Qvisc.Q, auxstate.Q,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
 
@@ -60,7 +60,6 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   ###################
   # RHS Computation #
   ###################
-  polyorder = polynomialorder(dg.grid)
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(bl, Val(polyorder), dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
                      vgeo, t, lgl_weights_vec, Dmat, topology.realelems, increment))
@@ -73,7 +72,8 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(dg, dQdt.Q, Q.Q, Qvisc.Q,
+          facerhs!(bl, Val(polyorder), dg.divnumflux,
+                   dQdt.Q, Q.Q, Qvisc.Q,
                    auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
 

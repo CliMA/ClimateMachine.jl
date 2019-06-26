@@ -229,16 +229,16 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                  elemtobndy, elems)
+function facerhs!(bl::BalanceLaw, ::Val{polyorder}, divnumflux,
+                  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                  elemtobndy, elems) where {polyorder}
 
-  bl = dg.balancelaw
   dim = dimension(bl)
   nstate = num_state(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
 
-  N = polynomialorder(dg.grid)
+  N = polyorder
 
   DFloat = eltype(Q)
 
@@ -304,10 +304,10 @@ function facerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vm
 
         bctype = elemtobndy[f, e]
         if bctype == 0
-          numerical_flux!(dg.divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
+          numerical_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
         else
-          numerical_boundary_flux!(dg.divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
+          numerical_boundary_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
                                    l_QviscP, l_auxP, bctype, t)
         end
 
@@ -324,10 +324,9 @@ function facerhs!(dg::DGModel, rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vm
   nothing
 end
 
-function volumeviscterms!(dg::DGModel,
+function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
                           Q, Qvisc, auxstate, vgeo, t, D,
-                          elems)
-  bl = dg.balancelaw
+                          elems) where {polyorder}
   dim = dimension(bl)
   nstate = num_state(bl)
   ngradstate = num_gradtransform(bl)
@@ -335,7 +334,7 @@ function volumeviscterms!(dg::DGModel,
   nauxstate = num_aux(bl)
   states_grad = indices_state_for_gradtransform(bl)
   
-  N = polynomialorder(dg.grid)
+  N = polyorder
   
   DFloat = eltype(Q)
 
@@ -423,10 +422,9 @@ function volumeviscterms!(dg::DGModel,
   end
 end
 
-function faceviscterms!(dg::DGModel,
+function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux,
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) 
-  bl = dg.balancelaw
+                        elemtobndy, elems) where {polyorder}
   dim = dimension(bl)
   nstate = num_state(bl)
   ngradstate = num_gradtransform(bl)
@@ -434,7 +432,7 @@ function faceviscterms!(dg::DGModel,
   nauxstate = num_aux(bl)
   states_grad = indices_state_for_gradtransform(bl)
   
-  N = polynomialorder(dg.grid)
+  N = polyorder
   DFloat = eltype(Q)
 
   if dim == 1
@@ -499,10 +497,10 @@ function faceviscterms!(dg::DGModel,
 
         bctype = elemtobndy[f, e]
         if bctype == 0
-          diffusive_penalty!(dg.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
+          diffusive_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
         else
-          diffusive_boundary_penalty!(dg.gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
+          diffusive_boundary_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
                                            l_GP, l_QP, l_auxP, bctype, t)
         end
 
