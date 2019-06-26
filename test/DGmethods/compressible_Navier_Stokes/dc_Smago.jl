@@ -157,22 +157,6 @@ end
 
 const Δsqr = anisotropic_coefficient_sgs(Δx, Δy, Δz)
 
-
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """   ______ _      _____ __  ________                  """     
-@info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
-@info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
-@info @sprintf """  | |    | |      | | | |   | | |__| |               """
-@info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-@info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-@info @sprintf """                                                     """
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Density Current                                     """
-@info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy, Δz)    = (%.2e, %.2e, %.2e)            """ Δx Δy Δz
-@info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
-@info @sprintf """ ----------------------------------------------------"""
-
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
