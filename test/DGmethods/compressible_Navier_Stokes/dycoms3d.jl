@@ -46,15 +46,15 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
+const _nviscstates = 13
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _SijSij = 1:_nviscstates
 
 # Gradient state labels
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 const _nauxstate = 12
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_T, _a_P, _a_q_liq, _a_θ, _a_soundspeed_air  = 1:_nauxstate
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_T, _a_P, _a_q_liq, _a_soundspeed_air  = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -220,14 +220,12 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         #Derivative of T and Q:
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-        vθy = VF[_θy]
       
         # Radiation contribution 
         F_rad = ρ * radiation(aux)  
         aux[_a_rad] = F_rad
        
         SijSij = VF[_SijSij]
-        f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
 
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
@@ -240,9 +238,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         τ23 = τ32 = VF[_τ23] * ν_e
         
         # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-        F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
-        F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
-        F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+        F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
+        F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
+        F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
         
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
         F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
@@ -269,13 +267,12 @@ end
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(vel, Q, aux, t, u, v, w)
   @inbounds begin
-    T, θ = aux[_a_T], aux[_a_θ]
+    T = aux[_a_T]
     E, QT = Q[_E], Q[_QT]
 
     # ordering should match states_for_gradient_transform
     vel[1], vel[2], vel[3] = u, v, w
     vel[4], vel[5], vel[6] = E, QT, T
-    vel[7] = θ
   end
 end
 
@@ -314,7 +311,6 @@ end
     # compute gradients of moist vars and temperature
     dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
     dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
-    dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
     # virtual potential temperature gradient: for richardson calculation
     # strains
     # --------------------------------------------
@@ -349,7 +345,6 @@ end
     # TODO: Viscous stresse come from SubgridScaleTurbulence module
     VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
     VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
-    VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
     VF[_SijSij] = SijSij
   end
 end
@@ -550,12 +545,10 @@ function preodefun!(disc, Q, t)
       TS = PhaseEquil(e_int, q_tot, ρ)
       T = air_temperature(TS)
       P = air_pressure(TS) # Test with dry atmosphere
-      θ = virtual_pottemp(TS)
       q_liq = PhasePartition(TS).liq
  
       R[_a_T] = T
       R[_a_P] = P
-      R[_a_θ] = θ
       R[_a_q_liq] = q_liq
       R[_a_soundspeed_air] = soundspeed_air(TS)
     end
@@ -721,8 +714,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
 
       npoststates = 10
-      _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq, _T, _θ = 1:npoststates
-      postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq", "T", "THETA")
+      _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq, _T = 1:npoststates
+      postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq", "T")
       postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
       step = [0]
@@ -741,7 +734,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             R[_w] = w
             R[_q_liq] = aux[_a_q_liq]
             R[_T] = aux[_a_q_T]
-            R[_θ] = aux[_a_q_θ]
           end
         end
 
