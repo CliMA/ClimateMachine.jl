@@ -93,13 +93,13 @@ function boundarycondition!(bl::MMSModel, stateP::State, diffP::State, auxP::Sta
   init_state!(bl, stateP, auxP, (auxM.x, auxM.y, auxM.z), t)
 end
 
-function init_aux!(::MMSModel, aux::State, (x,y,z))
+@inline function init_aux!(::MMSModel, aux::State, (x,y,z))
   aux.x = x
   aux.y = y
   aux.z = z
 end
 
-function init_state!(bl::MMSModel{dim}, state::State, aux::State, (x,y,z), t) where {dim}
+@inline function init_state!(bl::MMSModel{dim}, state::State, aux::State, (x,y,z), t) where {dim}
   state.ρ = ρ_g(t, x, y, z, Val(dim))
   state.ρu = U_g(t, x, y, z, Val(dim))
   state.ρv = V_g(t, x, y, z, Val(dim))
