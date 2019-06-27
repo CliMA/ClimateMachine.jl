@@ -410,7 +410,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
     device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     @launch(device, threads=(Np,), blocks=nrealelem,
-            initauxstate!(Val(dim), Val(N), Val(auxiliary_state_length),
+            initauxstate!(bl, Val(dim), Val(N), Val(auxiliary_state_length),
                           auxiliary_state_initialization!, auxstate.Q, vgeo,
                           topology.realelems))
     MPIStateArrays.start_ghost_exchange!(auxstate)
@@ -424,6 +424,10 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                viscous_transform!, viscous_penalty!,
                viscous_boundary_penalty!, auxstate, source!, preodefun!)
 end
+
+
+
+
 
 """
     MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate, commtag=888)
