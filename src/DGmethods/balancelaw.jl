@@ -113,7 +113,7 @@ Base.propertynames(s::Grad{vars}) where {vars} = vars
   for var in vars
     push!(expr.args, quote
       if sym == $(QuoteNode(var))
-        return getfield(s,:arr)[:, $(i+=1)]
+        return getfield(∇s,:arr)[:, $(i+=1)]
       end
     end)
   end
@@ -127,7 +127,7 @@ end
   for var in vars
     push!(expr.args, quote
       if sym == $(QuoteNode(var))
-        return getfield(s,:arr)[:, $(i+=1)] = val
+        return getfield(∇s,:arr)[:, $(i+=1)] = val
       end
     end)
   end
