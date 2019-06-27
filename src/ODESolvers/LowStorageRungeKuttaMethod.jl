@@ -82,7 +82,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, param, timeend,
     rhs!(dQ, Q, param, time + RKC[s] * dt, increment = true)
     # update solution and scale RHS
     @launch(ODEs.device(Q), threads=threads, blocks=blocks,
-            update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt))
+            update!(rv_dQ, rv_Q, RKA[s], RKB[s], dt))
   end
   if dt == lsrk.dt[1]
     lsrk.t[1] += dt
