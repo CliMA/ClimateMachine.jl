@@ -5,7 +5,7 @@ export Rusanov, DefaultGradNumericalFlux
 using StaticArrays
 import ..DGmethods:  BalanceLaw, Grad, State, dimension, 
    vars_state, vars_diffusive, vars_aux, vars_gradtransform, boundarycondition!, wavespeed, flux!, diffusive!,
-   num_gradtransform
+   num_state, num_gradtransform
 
 
 
@@ -107,7 +107,7 @@ end
 
 
 function numerical_flux!(::Rusanov, bl::BalanceLaw,
-                         F::MArray nM,
+                         F::MArray, nM,
                          QM, QVM, auxM,
                          QP, QVP, auxP,
                          t)
