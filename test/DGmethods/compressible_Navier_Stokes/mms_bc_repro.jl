@@ -60,3 +60,14 @@ dg = DGModel(MMSModel{3}(),
 
 param = init_ode_param(dg)
 Q = init_ode_state(dg, param, 0.0)
+
+dt = 5e-3 / Ne[1]
+
+
+
+
+lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+# rhs!(lsrk.dQ, Q, param, dt, increment = true)
+
+solve!(Q, lsrk, param; timeend=1)
+ 
