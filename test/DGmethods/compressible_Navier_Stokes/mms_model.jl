@@ -15,7 +15,8 @@ vars_diffusive(::MMSModel) = (:τ11, :τ22, :τ33, :τ12, :τ13, :τ23)
 
 function flux!(::MMSModel, flux::Grad, state::State, diffusive::State, auxstate::State, t::Real)
   # preflux
-  γ = γ_exact  
+  T = eltype(flux)
+  γ = T(γ_exact)
   ρinv = 1 / state.ρ
   u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
   P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)
@@ -45,7 +46,8 @@ function gradtransform!(::MMSModel, transformstate::State, state::State, auxstat
 end
 
 function diffusive!(::MMSModel, diffusive::State, ∇transform::Grad, state::State, auxstate::State, t::Real)
-  μ = μ_exact
+  T = eltype(diffusive)
+  μ = T(μ_exact)
   
   dudx, dudy, dudz = ∇transform.u
   dvdx, dvdy, dvdz = ∇transform.v
@@ -77,7 +79,8 @@ function source!(::MMSModel{dim}, source::State, state::State, aux::State, t::Re
 end
 
 function wavespeed(::MMSModel, nM, state::State, aux::State, t::Real)
-  γ = γ_exact
+  T = eltype(state)
+  γ = T(γ_exact)
   ρinv = 1 / state.ρ
   u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
   P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)

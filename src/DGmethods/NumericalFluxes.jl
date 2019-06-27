@@ -26,11 +26,15 @@ abstract type GradNumericalFlux end
 struct DefaultGradNumericalFlux <: GradNumericalFlux
 end
 
-function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, VF, nM, velM, QM, aM, velP, QP, aP, t)
+function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, 
+  VF, nM, 
+  velM, QM, aM, 
+  velP, QP, aP, t)
   @inbounds begin
     ndim = 3 # should this be dimension(bl)?
-    n_Δvel = similar(VF, Size(ndim, num_diffusive(bl)))
-    for j = 1:num_diffusive(bl), i = 1:ndim
+    ngradstate = num_gradtransform(bl)
+    n_Δvel = similar(VF, Size(ndim, ngradstate))
+    for j = 1:ngradstate, i = 1:ndim
       n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
     end
     diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_gradtransform(bl)}(n_Δvel),

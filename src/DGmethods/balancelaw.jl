@@ -97,7 +97,7 @@ end
   push!(expr.args, :(throw(GetFieldException(sym))))
   expr
 end
-
+Base.eltype(s::State) = eltype(getfield(s,:arr))
 
 struct Grad{vars, A<:StaticMatrix}
   arr::A
@@ -133,3 +133,5 @@ end
   push!(expr.args, :(throw(GetFieldException(sym))))
   expr
 end
+
+Base.eltype(∇s::Grad) = eltype(getfield(∇s,:arr))
