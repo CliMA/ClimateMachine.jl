@@ -25,7 +25,6 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   nviscstate = num_diffusive(bl)
   ngradstate = num_gradtransform(bl)
   nauxstate = size(auxstate, 2)
-  states_grad = map(var -> findfirst(isequal(var), vars_state(bl)), vars_state_for_gradtransform(bl))
 
   lgl_weights_vec = grid.ω
   Dmat = grid.D
