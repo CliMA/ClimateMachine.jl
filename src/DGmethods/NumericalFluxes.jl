@@ -5,7 +5,7 @@ export Rusanov, DefaultGradNumericalFlux
 using StaticArrays
 import ..DGmethods:  BalanceLaw, Grad, State, dimension, 
    vars_state, vars_diffusive, vars_aux, vars_gradtransform, boundarycondition!, wavespeed, flux!, diffusive!,
-   num_diffusive
+   num_gradtransform
 
 
 
