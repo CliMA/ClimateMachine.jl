@@ -93,10 +93,8 @@ combineflux!(F, Q, QV, aux, t) =
 combineflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
 
 @inline function combineflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
-  F .= 0
   eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
-  linearized_eulerflux!(1, F, Q, QV, aux, t)
-  linearized_eulerflux!(-1, F, Q, QV, aux, t)
+  linearized_eulerflux!(F, Q, QV, aux, t, true, -1)
 end
 
 @inline function eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
@@ -112,13 +110,14 @@ end
 
     ρu⃗ = ρu⃗_ref + δρu⃗
 
-    F[:, _δρ ] += ρu⃗
-    F[:, _δρu⃗] += u⃗ * ρu⃗' + P * I
-    F[:, _δρe] += u⃗ * (ρe + P)
+    F[:, _δρ ] = ρu⃗
+    F[:, _δρu⃗] = u⃗ * ρu⃗' + P * I
+    F[:, _δρe] = u⃗ * (ρe + P)
   end
 end
 
-@inline function linearized_eulerflux!(α, F, Q, QV, aux, t)
+@inline function linearized_eulerflux!(F, Q, QV, aux, t, increment=false, α=1)
+  increment || (F .= 0)
   @inbounds begin
     DFloat = eltype(Q)
     γ::DFloat = γ_exact
@@ -234,22 +233,37 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  spacedisc = DGBalanceLaw(grid = grid,
-                           length_state_vector = _nstate,
-                           flux! = combineflux!,
-                           numerical_flux! = (x...) ->
-                           NumericalFluxes.rusanov!(x..., combineflux!,
-                                                    wavespeed,
-                                                    preflux),
-                           auxiliary_state_length = _nauxstate,
-                           auxiliary_state_initialization! =
-                           auxiliary_state_initialization!)
+  nonlin_spacedisc = DGBalanceLaw(grid = grid,
+                                  length_state_vector = _nstate,
+                                  flux! = combineflux!,
+                                  numerical_flux! = (x...) ->
+                                  NumericalFluxes.rusanov!(x..., combineflux!,
+                                                           wavespeed,
+                                                           preflux),
+                                  auxiliary_state_length = _nauxstate,
+                                  auxiliary_state_initialization! =
+                                  auxiliary_state_initialization!)
+
+  lin_spacedisc = DGBalanceLaw(grid = grid,
+                               length_state_vector = _nstate,
+                               flux! = linearized_eulerflux!,
+                               numerical_flux! = (x...) ->
+                               NumericalFluxes.rusanov!(x...,
+                                                        linearized_eulerflux!,
+                                                        (_...)->0),
+                               auxiliary_state_length = _nauxstate,
+                               auxiliary_state_initialization! =
+                               auxiliary_state_initialization!)
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
-  Q = MPIStateArray(spacedisc, initialcondition)
+  Q = MPIStateArray(nonlin_spacedisc, initialcondition)
 
-  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+  function odefun!(x...; increment)
+    SpaceMethods.odefun!(nonlin_spacedisc, x...; increment = increment)
+    SpaceMethods.odefun!(lin_spacedisc, x...; increment = true)
+  end
+  lsrk = LSRK54CarpenterKennedy(odefun!, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -279,7 +293,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
     outprefix = @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
                          dim, MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, spacedisc, statenames)
+    writevtk(outprefix, Q, nonlin_spacedisc, statenames)
     pvtuprefix = @sprintf("isentropicvortex_%dD_step%04d", dim, step[1])
     prefixes = ntuple(i->
                       @sprintf("vtk/isentropicvortex_%dD_mpirank%04d_step%04d",
@@ -295,7 +309,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = MPIStateArray(spacedisc,
+  Qe = MPIStateArray(nonlin_spacedisc,
                      (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
