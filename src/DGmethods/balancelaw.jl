@@ -106,19 +106,31 @@ end
 Grad{vars}(arr::A) where {vars,A<:StaticMatrix} = Grad{vars,A}(arr)
 
 Base.propertynames(s::Grad{vars}) where {vars} = vars
-function Base.getproperty(∇s::Grad{vars}, sym::Symbol) where {vars}
-  @unroll for i = 1:length(vars)
-    if vars[i] == sym
-      return getfield(∇s,:arr)[:,i]
-    end
-  end 
-  throw(GetFieldException(sym))
+@generated function Base.getproperty(∇s::Grad{vars}, sym::Symbol) where {vars}
+  expr = quote
+  end
+  i = 0
+  for var in vars
+    push!(expr.args, quote
+      if sym == $(QuoteNode(var))
+        return getfield(s,:arr)[:, $(i+=1)]
+      end
+    end)
+  end
+  push!(expr.args, :(throw(GetFieldException(sym))))
+  expr
 end
-function Base.setproperty!(∇s::Grad{vars}, sym::Symbol, val) where {vars}
-  @unroll for i = 1:length(vars)
-    if vars[i] == sym
-      return getfield(∇s,:arr)[:,i] = val
-    end
-  end 
-  throw(GetFieldException(sym))
+@generated function Base.setproperty!(∇s::Grad{vars}, sym::Symbol, val) where {vars}
+  expr = quote
+  end
+  i = 0
+  for var in vars
+    push!(expr.args, quote
+      if sym == $(QuoteNode(var))
+        return getfield(s,:arr)[:, $(i+=1)] = val
+      end
+    end)
+  end
+  push!(expr.args, :(throw(GetFieldException(sym))))
+  expr
 end

@@ -21,11 +21,11 @@ function flux!(::MMSModel, flux::Grad, state::State, diffusive::State, auxstate:
   P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)
 
   # invisc terms
-  flux.ρ  = (state.ρu          , state.ρv          , state.ρw)
-  flux.ρu = (u * state.ρu  + P , v * state.ρu      , w * state.ρu)
-  flux.ρv = (u * state.ρv      , v * state.ρv + P  , w * state.ρv)
-  flux.ρw = (u * state.ρw      , v * state.ρw      , w * state.ρw + P)
-  flux.ρe = (u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
+  flux.ρ  = SVector(state.ρu          , state.ρv          , state.ρw)
+  flux.ρu = SVector(u * state.ρu  + P , v * state.ρu      , w * state.ρu)
+  flux.ρv = SVector(u * state.ρv      , v * state.ρv + P  , w * state.ρv)
+  flux.ρw = SVector(u * state.ρw      , v * state.ρw      , w * state.ρw + P)
+  flux.ρe = SVector(u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
 
   # viscous terms
   flux.ρu -= SVector(diffusive.τ11, diffusive.τ12, diffusive.τ13)
