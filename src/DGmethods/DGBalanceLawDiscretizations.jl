@@ -841,4 +841,39 @@ function dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw
                              Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
 end
 
+"""
+    apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
+           horizontal = true, vertical = true)
+
+Applies `filter` to the `states` of `Q`.
+
+The arguments `horizontal` and `vertical` are used to control if the filter
+is applied in the horizontal and vertical reference directions, respectively.
+Note, it is assumed that the trailing dimension is the vertical dimension and
+the rest are horizontal.
+"""
+function apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
+                horizontal = true, vertical = true)
+  grid = disc.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  nstate = size(Q, 2)
+
+  filtermatrix = filter.filter
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nrealelem = length(topology.realelems)
+
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+          knl_apply_filter!(Val(dim), Val(N), Val(nstate), Val(horizontal), Val(vertical),
+                            Q.Q, Val(states), filtermatrix, topology.realelems))
+end
+
 end
