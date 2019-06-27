@@ -71,14 +71,20 @@ end
 
 Base.propertynames(s::State{vars}) where {vars} = vars
 function Base.getproperty(s::State{vars}, sym::Symbol) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(s,:arr)[i]
+  @unroll for i = 1:length(vars)
+    if vars[i] == sym
+      return getfield(s,:arr)[i]
+    end
+  end 
+  throw(GetFieldException(sym))
 end
 function Base.setproperty!(s::State{vars}, sym::Symbol, val) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(s,:arr)[i] = val
+  @unroll for i = 1:length(vars)
+    if vars[i] == sym
+      return getfield(s,:arr)[i] = val
+    end
+  end 
+  throw(GetFieldException(sym))
 end
 
 
@@ -89,12 +95,18 @@ Grad{vars}(arr::A) where {vars,A<:StaticMatrix} = Grad{vars,A}(arr)
 
 Base.propertynames(s::Grad{vars}) where {vars} = vars
 function Base.getproperty(∇s::Grad{vars}, sym::Symbol) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(∇s,:arr)[:,i]
+  @unroll for i = 1:length(vars)
+    if vars[i] == sym
+      return getfield(∇s,:arr)[:,i]
+    end
+  end 
+  throw(GetFieldException(sym))
 end
 function Base.setproperty!(∇s::Grad{vars}, sym::Symbol, val) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(∇s,:arr)[:,i] .= val
+  @unroll for i = 1:length(vars)
+    if vars[i] == sym
+      return getfield(∇s,:arr)[:,i] = val
+    end
+  end 
+  throw(GetFieldException(sym))
 end
