@@ -11,11 +11,11 @@ q_{,t} + Σ_{i=1,...d} F_{i,i} = s
 
 Subtypes `L` should define the following methods:
 - `dimension(::L)` the number of dimensions
-- `vars_aux(::L)`: a tuple of symbols containing the auxiliary variables
-- `vars_state(::L)`: a tuple of symbols containing the state variables
-- `vars_state_for_transform(::L)`: a tuple of symbols containing the state variables which are passed to the `transform!` function.
-- `vars_transform(::L)`: a tuple of symbols containing the transformed variables of which gradients are computed
-- `vars_diffusive(::L)`: a tuple of symbols containing the diffusive variables
+- `varmap_aux(::L)`: a tuple of symbols containing the auxiliary variables
+- `varmap_state(::L)`: a tuple of symbols containing the state variables
+- `varmap_state_for_transform(::L)`: a tuple of symbols containing the state variables which are passed to the `transform!` function.
+- `varmap_transform(::L)`: a tuple of symbols containing the transformed variables of which gradients are computed
+- `varmap_diffusive(::L)`: a tuple of symbols containing the diffusive variables
 - `flux!(::L, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)`
 - `gradtransform!(::L, transformstate::State, state::State, auxstate::State, t::Real)`
 - `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`
@@ -28,23 +28,23 @@ Subtypes `L` should define the following methods:
 """
 abstract type BalanceLaw end # PDE part
 
-num_aux(m::BalanceLaw) = length(vars_aux(m)) 
-num_state(m::BalanceLaw) = length(vars_state(m)) # nstate
-num_gradtransform(m::BalanceLaw) = length(vars_gradtransform(m))  # number_gradient_states
-num_diffusive(m::BalanceLaw) = length(vars_diffusive(m)) # number_viscous_states
-
 has_diffusive(m::BalanceLaw) = num_diffusive(m) > 0
 
-indices_state_for_gradtransform(bl::BalanceLaw) = map(var -> findfirst(isequal(var), vars_state(bl)), vars_state_for_gradtransform(bl))
-
-
 # function stubs
+function num_aux end
+function num_state end
+function num_gradtransform end
+function num_diffusive end
+
+function num_state_for_gradtransform end
+
 function dimension end
-function vars_aux end
-function vars_state end
-function vars_state_for_gradtransform end
-function vars_gradtransform end
-function vars_diffusive end
+function varmap_aux end
+function varmap_state end
+function varmap_gradtransform end
+function varmap_diffusive end
+
+function varmap_state_for_gradtransform end
 
 function flux! end
 function gradtransform! end
@@ -58,10 +58,10 @@ function init_state! end
 
 
 # TODO: allow aliases and vector values
-struct State{vars, A<:StaticVector}
+struct State{varmap, A<:StaticVector}
   arr::A
 end
-State{vars}(arr::A) where {vars,A<:StaticVector} = State{vars,A}(arr)
+State{varmap}(arr::A) where {varmap,A<:StaticVector} = State{varmap,A}(arr)
 
 struct GetFieldException <: Exception
   sym::Symbol
@@ -69,32 +69,44 @@ end
 
 
 
-Base.propertynames(s::State{vars}) where {vars} = vars
-function Base.getproperty(s::State{vars}, sym::Symbol) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(s,:arr)[i]
+Base.propertynames(s::State{varmap}) where {varmap} = propertynames(varmap)
+@inline function Base.getproperty(s::State{varmap}, sym::Symbol) where {varmap}
+  i = getfield(varmap, sym)
+  if i isa Integer
+    return getfield(s,:arr)[i]
+  else
+    return getfield(s,:arr)[SVector(i...)]
+  end
 end
-function Base.setproperty!(s::State{vars}, sym::Symbol, val) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(s,:arr)[i] = val
+@inline function Base.setproperty!(s::State{varmap}, sym::Symbol, val) where {varmap}
+  i = getfield(varmap, sym)
+  if i isa Integer
+    return getfield(s,:arr)[i] = val
+  else
+    return getfield(s,:arr)[SVector(i...)] = val
+  end
 end
 
 
-struct Grad{vars, A<:StaticMatrix}
+struct Grad{varmap, A<:StaticMatrix}
   arr::A
 end
-Grad{vars}(arr::A) where {vars,A<:StaticMatrix} = Grad{vars,A}(arr)
+Grad{varmap}(arr::A) where {varmap,A<:StaticMatrix} = Grad{varmap,A}(arr)
 
-Base.propertynames(s::Grad{vars}) where {vars} = vars
-function Base.getproperty(∇s::Grad{vars}, sym::Symbol) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(∇s,:arr)[:,i]
+Base.propertynames(s::Grad{varmap}) where {varmap} = propertynames(varmap)
+@inline function Base.getproperty(∇s::Grad{varmap}, sym::Symbol) where {varmap}
+  i = getfield(varmap, sym)
+  if i isa Integer
+    return getfield(∇s,:arr)[:,i]
+  else
+    return getfield(∇s,:arr)[:,SVector(i...)]
+  end
 end
-function Base.setproperty!(∇s::Grad{vars}, sym::Symbol, val) where {vars}
-  i = findfirst(isequal(sym), vars)
-  i === nothing && throw(GetFieldException(sym))
-  getfield(∇s,:arr)[:,i] .= val
+@inline function Base.setproperty!(∇s::Grad{varmap}, sym::Symbol, val) where {varmap}
+  i = getfield(varmap, sym)
+  if i isa Integer
+    return getfield(∇s,:arr)[:,i] = val
+  else
+    return getfield(∇s,:arr)[:,SVector(i...)] = val
+  end
 end

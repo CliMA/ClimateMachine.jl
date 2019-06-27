@@ -4,7 +4,7 @@ export Rusanov, DefaultGradNumericalFlux
 
 using StaticArrays
 import ..DGmethods:  BalanceLaw, Grad, State, dimension, 
-   vars_state, vars_diffusive, vars_aux, vars_gradtransform, boundarycondition!, wavespeed, flux!, diffusive!,
+   varmap_state, varmap_diffusive, varmap_aux, varmap_gradtransform, boundarycondition!, wavespeed, flux!, diffusive!,
    num_diffusive
 
 
@@ -33,8 +33,8 @@ function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, VF, nM, 
     for j = 1:num_diffusive(bl), i = 1:ndim
       n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
     end
-    diffusive!(bl, State{vars_diffusive(bl)}(VF), Grad{vars_gradtransform(bl)}(n_Δvel),
-               State{vars_state(bl)}(QM), State{vars_aux(bl)}(aM), t)
+    diffusive!(bl, State{varmap_diffusive(bl)}(VF), Grad{varmap_gradtransform(bl)}(n_Δvel),
+               State{varmap_state(bl)}(QM), State{varmap_aux(bl)}(aM), t)
   end
 end
 
@@ -62,8 +62,8 @@ function numerical_boundary_flux!(dnf::DivNumericalFlux, bl::BalanceLaw,
                                   QM, QVM, auxM,
                                   QP, QVP, auxP,
                                   bctype, t) where {nstate}
-  boundarycondition!(bl, State{vars_state(bl)}(QP), State{vars_diffusive(bl)}(QVP), State{vars_aux(bl)}(auxP),
-                     nM, State{vars_state(bl)}(QM), State{vars_diffusive(bl)}(QVM), State{vars_aux(bl)}(auxM),
+  boundarycondition!(bl, State{varmap_state(bl)}(QP), State{varmap_diffusive(bl)}(QVP), State{varmap_aux(bl)}(auxP),
+                     nM, State{varmap_state(bl)}(QM), State{varmap_diffusive(bl)}(QVM), State{varmap_aux(bl)}(auxM),
                      bctype, t)
   numerical_flux!(dnf, bl, F, nM, QM, QVM, auxM, QP, QVP, auxP, t)
 end
@@ -108,13 +108,13 @@ function numerical_flux!(::Rusanov, bl::BalanceLaw,
                          QP, QVP, auxP,
                          t) where {nstate}
 
-  λM = wavespeed(bl, nM, State{vars_state(bl)}(QM), State{vars_aux(bl)}(auxM), t)
+  λM = wavespeed(bl, nM, State{varmap_state(bl)}(QM), State{varmap_aux(bl)}(auxM), t)
   FM = similar(F, Size(3, nstate))
-  flux!(bl, Grad{vars_state(bl)}(FM), State{vars_state(bl)}(QM), State{vars_diffusive(bl)}(QVM), State{vars_aux(bl)}(auxM), t)
+  flux!(bl, Grad{varmap_state(bl)}(FM), State{varmap_state(bl)}(QM), State{varmap_diffusive(bl)}(QVM), State{varmap_aux(bl)}(auxM), t)
   
-  λP = wavespeed(bl, nM, State{vars_state(bl)}(QP), State{vars_aux(bl)}(auxP), t)
+  λP = wavespeed(bl, nM, State{varmap_state(bl)}(QP), State{varmap_aux(bl)}(auxP), t)
   FP = similar(F, Size(3, nstate))
-  flux!(bl, Grad{vars_state(bl)}(FP), State{vars_state(bl)}(QP), State{vars_diffusive(bl)}(QVP), State{vars_aux(bl)}(auxP), t)
+  flux!(bl, Grad{varmap_state(bl)}(FP), State{varmap_state(bl)}(QP), State{varmap_diffusive(bl)}(QVP), State{varmap_aux(bl)}(auxP), t)
 
   λ  =  max(λM, λP)
 

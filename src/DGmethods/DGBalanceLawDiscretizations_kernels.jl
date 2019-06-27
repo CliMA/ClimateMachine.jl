@@ -105,8 +105,8 @@ function volumerhs!(bl::BalanceLaw, ::Val{polyorder},
             l_aux[s] = auxstate[ijk, s, e]
           end
 
-          flux!(bl, Grad{vars_state(bl)}(l_F), State{vars_state(bl)}(l_Q),
-                State{vars_diffusive(bl)}(l_Qvisc), State{vars_aux(bl)}(l_aux), t)
+          flux!(bl, Grad{varmap_state(bl)}(l_F), State{varmap_state(bl)}(l_Q),
+                State{varmap_diffusive(bl)}(l_Qvisc), State{varmap_aux(bl)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -115,8 +115,8 @@ function volumerhs!(bl::BalanceLaw, ::Val{polyorder},
           end
 
           # if source! !== nothing
-          source!(bl, State{vars_state(bl)}(l_S), State{vars_state(bl)}(l_Q),
-                  State{vars_aux(bl)}(l_aux), t)
+          source!(bl, State{varmap_state(bl)}(l_S), State{varmap_state(bl)}(l_Q),
+                  State{varmap_aux(bl)}(l_aux), t)
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
@@ -334,7 +334,6 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
   ngradstate = num_gradtransform(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
-  states_grad = indices_state_for_gradtransform(bl)
   
   N = polyorder
   
@@ -344,7 +343,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = num_state_for_gradtransform(bl)
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
   s_D = @shmem DFloat (Nq, Nq)
@@ -369,15 +368,15 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
           @unroll for s = 1:ngradtransformstate
-            l_Q[s, i, j, k] = Q[ijk, states_grad[s], e]
+            l_Q[s, i, j, k] = Q[ijk, s, e]
           end
 
           @unroll for s = 1:nauxstate
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
-          gradtransform!(bl, State{vars_gradtransform(bl)}(l_G), State{vars_state(bl)}(l_Q[:, i, j, k]),
-                     State{vars_aux(bl)}(l_aux[:, i, j, k]), t)
+          gradtransform!(bl, State{varmap_gradtransform(bl)}(l_G), State{varmap_state(bl)}(l_Q[:, i, j, k]),
+                     State{varmap_aux(bl)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -411,8 +410,8 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
             l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
           end
 
-          diffusive!(bl, State{vars_diffusive(bl)}(l_Qvisc), Grad{vars_gradtransform(bl)}(l_gradG),
-                     State{vars_state(bl)}(l_Q[:, i, j, k]), State{vars_aux(bl)}(l_aux[:, i, j, k]), t)
+          diffusive!(bl, State{varmap_diffusive(bl)}(l_Qvisc), Grad{varmap_gradtransform(bl)}(l_gradG),
+                     State{varmap_state(bl)}(l_Q[:, i, j, k]), State{varmap_aux(bl)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -432,7 +431,6 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
   ngradstate = num_gradtransform(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
-  states_grad = indices_state_for_gradtransform(bl)
   
   N = polyorder
   DFloat = eltype(Q)
@@ -451,7 +449,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
     nface = 6
   end
 
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = num_state_for_gradtransform(bl)
 
   l_QM = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
   l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
@@ -475,27 +473,27 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
 
         # Load minus side data
         @unroll for s = 1:ngradtransformstate
-          l_QM[s] = Q[vidM, states_grad[s], eM]
+          l_QM[s] = Q[vidM, s, eM]
         end
 
         @unroll for s = 1:nauxstate
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        gradtransform!(bl, State{vars_gradtransform(bl)}(l_GM), State{vars_state(bl)}(l_QM),
-                   State{vars_aux(bl)}(l_auxM), t)
+        gradtransform!(bl, State{varmap_gradtransform(bl)}(l_GM), State{varmap_state(bl)}(l_QM),
+                   State{varmap_aux(bl)}(l_auxM), t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
-          l_QP[s] = Q[vidP, states_grad[s], eP]
+          l_QP[s] = Q[vidP, s, eP]
         end
 
         @unroll for s = 1:nauxstate
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        gradtransform!(bl, State{vars_gradtransform(bl)}(l_GP), State{vars_state(bl)}(l_QP),
-                   State{vars_aux(bl)}(l_auxP), t)
+        gradtransform!(bl, State{varmap_gradtransform(bl)}(l_GP), State{varmap_state(bl)}(l_QP),
+                   State{varmap_aux(bl)}(l_auxP), t)
 
         bctype = elemtobndy[f, e]
         if bctype == 0
@@ -543,7 +541,7 @@ function initstate!(bl::BalanceLaw, ::Val{polyorder}, state, auxstate, vgeo, ele
       @unroll for s = 1:nstate
         l_state[s] = state[n, s, e]
       end
-      init_state!(bl, State{vars_state(bl)}(l_state), State{vars_aux(bl)}(l_aux), coords, args...)
+      init_state!(bl, State{varmap_state(bl)}(l_state), State{varmap_aux(bl)}(l_aux), coords, args...)
       @unroll for s = 1:nstate
         state[n, s, e] = l_state[s]
       end
@@ -580,7 +578,7 @@ function initauxstate!(bl::BalanceLaw, ::Val{polyorder}, auxstate, vgeo, elems) 
         l_aux[s] = auxstate[n, s, e]
       end
 
-      init_aux!(bl, State{vars_aux(bl)}(l_aux), coords)
+      init_aux!(bl, State{varmap_aux(bl)}(l_aux), coords)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]

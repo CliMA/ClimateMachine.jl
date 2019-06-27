@@ -1,4 +1,4 @@
-import CLIMA.DGmethods: BalanceLaw, dimension, vars_aux, vars_state, vars_state_for_gradtransform, vars_gradtransform, vars_diffusive,
+import CLIMA.DGmethods: BalanceLaw, dimension, varmap_aux, num_aux, varmap_state, num_state, num_state_for_gradtransform, varmap_gradtransform, num_gradtransform, num_diffusive, varmap_diffusive,
 flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
 init_aux!, init_state!, init_ode_param, init_ode_state
 
@@ -7,11 +7,15 @@ struct MMSModel{dim} <: BalanceLaw
 end
 
 dimension(::MMSModel{dim}) where {dim} = dim
-vars_aux(::MMSModel) = (:x,:y,:z)
-vars_state(::MMSModel) = (:ρ, :ρu, :ρv, :ρw, :ρe)
-vars_state_for_gradtransform(::MMSModel) = (:ρ, :ρu, :ρv, :ρw)
-vars_gradtransform(::MMSModel) = (:u, :v, :w)
-vars_diffusive(::MMSModel) = (:τ11, :τ22, :τ33, :τ12, :τ13, :τ23)
+num_aux(::MMSModel) = 3
+varmap_aux(::MMSModel) = (x=1, y=2, z=3)
+num_state(::MMSModel) = 5
+varmap_state(::MMSModel) = (ρ=1, ρu=2, ρv=3, ρw=4, ρe=5)
+num_state_for_gradtransform(::MMSModel) = 4
+num_gradtransform(::MMSModel) = 3
+varmap_gradtransform(::MMSModel) = (u=1, v=2, w=3)
+num_diffusive(::MMSModel) = 6
+varmap_diffusive(::MMSModel) = (τ11=1, τ22=2, τ33=3, τ12=4, τ13=5, τ23=6)
 
 function flux!(::MMSModel, flux::Grad, state::State, diffusive::State, auxstate::State, t::Real)
   # preflux
@@ -21,11 +25,11 @@ function flux!(::MMSModel, flux::Grad, state::State, diffusive::State, auxstate:
   P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)
 
   # invisc terms
-  flux.ρ  = (state.ρu          , state.ρv          , state.ρw)
-  flux.ρu = (u * state.ρu  + P , v * state.ρu      , w * state.ρu)
-  flux.ρv = (u * state.ρv      , v * state.ρv + P  , w * state.ρv)
-  flux.ρw = (u * state.ρw      , v * state.ρw      , w * state.ρw + P)
-  flux.ρe = (u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
+  flux.ρ  = SVector(state.ρu          , state.ρv          , state.ρw)
+  flux.ρu = SVector(u * state.ρu  + P , v * state.ρu      , w * state.ρu)
+  flux.ρv = SVector(u * state.ρv      , v * state.ρv + P  , w * state.ρv)
+  flux.ρw = SVector(u * state.ρw      , v * state.ρw      , w * state.ρw + P)
+  flux.ρe = SVector(u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
 
   # viscous terms
   flux.ρu -= SVector(diffusive.τ11, diffusive.τ12, diffusive.τ13)
