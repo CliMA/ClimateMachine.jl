@@ -549,11 +549,11 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
   # --------------------------------------------------
   xvert          = z
 
-  datat          = spl_tinit(xvert)
-  dataq          = spl_qinit(xvert)
-  datau          = spl_uinit(xvert)
-  datav          = spl_vinit(xvert)
-  datap          = spl_pinit(xvert)
+  datat          = DFloat(spl_tinit(xvert))
+  dataq          = DFloat(spl_qinit(xvert))
+  datau          = DFloat(spl_uinit(xvert))
+  datav          = DFloat(spl_vinit(xvert))
+  datap          = DFloat(spl_pinit(xvert))
   dataq          = dataq / 1000
 
   randnum1   = rand(seed, DFloat) / 100
