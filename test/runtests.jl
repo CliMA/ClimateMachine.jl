@@ -10,8 +10,9 @@ for submodule in ["Utilities/ParametersType",
                   "Atmos/Parameterizations/TurbulenceConvection",
                   "Mesh",
                   "DGmethods",
-                  "Atmos/Dycore"
-                  ]
+                  "ODESolvers",
+                  "Arrays",
+                 ]
 
   println("Starting tests for $submodule")
   t = @elapsed include(joinpath(submodule,"runtests.jl"))
