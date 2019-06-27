@@ -30,6 +30,7 @@ QB = similar(QA)
 QB .= B
 
 @test isapprox(euclidean_distance(QA, QB), norm(globalA .- globalB))
+@test isapprox(dot(QA, QB), dot(globalA, globalB))
 
 @static if haspkg("CuArrays")
   using CuArrays
@@ -54,6 +55,7 @@ QB .= B
   QB .= B
 
   @test isapprox(euclidean_distance(QA, QB), norm(globalA .- globalB))
+  @test isapprox(dot(QA, QB), dot(globalA, globalB))
 end
 
 
