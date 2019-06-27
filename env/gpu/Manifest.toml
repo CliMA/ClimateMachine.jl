@@ -52,7 +52,7 @@ uuid = "764a87c0-6b3e-53db-9096-fe964310641d"
 version = "2.2.3"
 
 [[CLIMA]]
-deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
+deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "GaussQuadrature", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
 path = "../../"
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
@@ -332,6 +332,12 @@ repo-rev = "master"
 repo-url = "https://github.com/vchuravy/GPUifyLoops.jl.git"
 uuid = "ba82f77b-6841-5d2e-bd9f-4daf811aec27"
 version = "0.2.5"
+
+[[GaussQuadrature]]
+deps = ["LinearAlgebra", "Printf", "SpecialFunctions", "Test"]
+git-tree-sha1 = "3113b28de0e25576348c06731327f3df8de6ad90"
+uuid = "d54b0c1a-921d-58e0-8e36-89d8069c0969"
+version = "0.5.0"
 
 [[GenericSVD]]
 deps = ["LinearAlgebra", "Random", "Test"]
