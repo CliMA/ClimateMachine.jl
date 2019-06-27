@@ -480,8 +480,8 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        gradtransform!(bl, State{varmap_gradtransform(bl)}(l_GM), State{varmap_state(bl)}(l_QM),
-                   State{varmap_aux(bl)}(l_auxM), t)
+        gradtransform!(bl, State(l_GM, varmap_gradtransform(bl)), State(l_QM,varmap_state(bl)),
+                   State(l_auxM,varmap_aux(bl)), t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
@@ -492,8 +492,8 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        gradtransform!(bl, State{varmap_gradtransform(bl)}(l_GP), State{varmap_state(bl)}(l_QP),
-                   State{varmap_aux(bl)}(l_auxP), t)
+        gradtransform!(bl, State(l_GP, varmap_gradtransform(bl)), State(l_QP, varmap_state(bl)),
+                   State(l_auxP, varmap_aux(bl)), t)
 
         bctype = elemtobndy[f, e]
         if bctype == 0
@@ -541,7 +541,7 @@ function initstate!(bl::BalanceLaw, ::Val{polyorder}, state, auxstate, vgeo, ele
       @unroll for s = 1:nstate
         l_state[s] = state[n, s, e]
       end
-      init_state!(bl, State{varmap_state(bl)}(l_state), State{varmap_aux(bl)}(l_aux), coords, args...)
+      init_state!(bl, State(l_state,varmap_state(bl)), State(l_aux,varmap_aux(bl)), coords, args...)
       @unroll for s = 1:nstate
         state[n, s, e] = l_state[s]
       end
@@ -578,7 +578,7 @@ function initauxstate!(bl::BalanceLaw, ::Val{polyorder}, auxstate, vgeo, elems) 
         l_aux[s] = auxstate[n, s, e]
       end
 
-      init_aux!(bl, State{varmap_aux(bl)}(l_aux), coords)
+      init_aux!(bl, State(l_aux, varmap_aux(bl)), coords)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]

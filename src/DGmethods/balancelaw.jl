@@ -58,28 +58,22 @@ function init_state! end
 
 
 # TODO: allow aliases and vector values
-struct State{varmap, A<:StaticVector}
+struct State{A<:StaticVector,V}
   arr::A
-end
-State{varmap}(arr::A) where {varmap,A<:StaticVector} = State{varmap,A}(arr)
-
-struct GetFieldException <: Exception
-  sym::Symbol
+  varmap::V
 end
 
-
-
-Base.propertynames(s::State{varmap}) where {varmap} = propertynames(varmap)
-@inline function Base.getproperty(s::State{varmap}, sym::Symbol) where {varmap}
-  i = getfield(varmap, sym)
+Base.propertynames(s::State) = propertynames(s.varmap)
+@inline function Base.getproperty(s::State, sym::Symbol)
+  i = getfield(s.varmap, sym)
   if i isa Integer
     return getfield(s,:arr)[i]
   else
     return getfield(s,:arr)[SVector(i...)]
   end
 end
-@inline function Base.setproperty!(s::State{varmap}, sym::Symbol, val) where {varmap}
-  i = getfield(varmap, sym)
+@inline function Base.setproperty!(s::State, sym::Symbol, val)
+  i = getfield(s.varmap, sym)
   if i isa Integer
     return getfield(s,:arr)[i] = val
   else
@@ -88,22 +82,22 @@ end
 end
 
 
-struct Grad{varmap, A<:StaticMatrix}
+struct Grad{A<:StaticMatrix,V}
   arr::A
+  varmap::V
 end
-Grad{varmap}(arr::A) where {varmap,A<:StaticMatrix} = Grad{varmap,A}(arr)
 
-Base.propertynames(s::Grad{varmap}) where {varmap} = propertynames(varmap)
-@inline function Base.getproperty(∇s::Grad{varmap}, sym::Symbol) where {varmap}
-  i = getfield(varmap, sym)
+Base.propertynames(s::Grad) = propertynames(s.varmap)
+@inline function Base.getproperty(∇s::Grad, sym::Symbol)
+  i = getfield(∇s.varmap, sym)
   if i isa Integer
     return getfield(∇s,:arr)[:,i]
   else
     return getfield(∇s,:arr)[:,SVector(i...)]
   end
 end
-@inline function Base.setproperty!(∇s::Grad{varmap}, sym::Symbol, val) where {varmap}
-  i = getfield(varmap, sym)
+@inline function Base.setproperty!(∇s::Grad, sym::Symbol, val)
+  i = getfield(∇s.varmap, sym)
   if i isa Integer
     return getfield(∇s,:arr)[:,i] = val
   else
