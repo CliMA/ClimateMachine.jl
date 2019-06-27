@@ -157,22 +157,27 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
     p = aux[_c_p]
 
     S .= 0
-    if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
-      # current state
-      e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
-      q     = PhasePartition(q_tot, q_liq, DF(0))
-      T     = air_temperature(e_int, q)
-      # equilibrium state
-      q_eq = PhasePartition_equil(T, ρ, q_tot)
 
-      # compute tendencies
-      src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
+    # current state
+    e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
+    q     = PhasePartition(q_tot, q_liq, DF(0))
+    T     = air_temperature(e_int, q)
+    # equilibrium state
+    q_eq = PhasePartition_equil(T, ρ, q_tot)
+
+    # cloud water condensation/evaporation
+    src_q_liq  = conv_q_vap_to_q_liq(q_eq, q)
+    S[_ρq_liq] = ρ * src_q_liq
+
+    # compute tendencies
+    if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
+
       src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(q.liq)
       src_q_rai_accr = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
       src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
       src_q_rai_tot = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
 
-      S[_ρq_liq]  = ρ * (src_q_liq - src_q_rai_acnv - src_q_rai_accr)
+      S[_ρq_liq] -= ρ * (src_q_rai_acnv + src_q_rai_accr)
       S[_ρq_rai]  = ρ * src_q_rai_tot
       S[_ρq_tot] -= ρ * src_q_rai_tot
       S[_ρe_tot] -= ρ * src_q_rai_tot *
