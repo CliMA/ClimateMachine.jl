@@ -2,9 +2,9 @@ using MPI, Test
 include("../testhelpers.jl")
 
 @testset "Balance Law Solver" begin
-
   tests = [(1, "Euler/isentropic_vortex_standalone.jl")
            (1, "Euler/isentropic_vortex_standalone_aux.jl")
+           (1, "util/filter_test.jl")
            (1, "util/grad_test.jl")
            (1, "util/grad_test_sphere.jl")
            (1, "util/integral_test.jl")

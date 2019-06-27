@@ -6,6 +6,7 @@ MPI.Init()
 
 include("topology.jl")
 include("grid_integral.jl")
+include("filter.jl")
 
 MPI.Finalize()
 
