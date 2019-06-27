@@ -76,7 +76,7 @@ Base.propertynames(s::State{vars}) where {vars} = vars
   i = 0
   for var in vars
     push!(expr.args, quote
-      if sym == $var
+      if sym == $(QuoteNode(var))
         return getfield(s,:arr)[$(i+=1)]
       end
     end)
@@ -90,7 +90,7 @@ end
   i = 0
   for var in vars
     push!(expr.args, quote
-      if sym == $var
+      if sym == $(QuoteNode(var))
         return getfield(s,:arr)[$(i+=1)] = val
       end
     end)
