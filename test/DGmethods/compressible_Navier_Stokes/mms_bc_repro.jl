@@ -67,7 +67,8 @@ dt = 5e-3 / Ne[1]
 
 
 lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-dg(lsrk.dQ, Q, param, dt, increment = true)
+#dg(lsrk.dQ, Q, param, dt, increment = false)
+#dg(lsrk.dQ, Q, param, dt, increment = true)
 
-# solve!(Q, lsrk, param; timeend=1)
+solve!(Q, lsrk, param; timeend=1)
  

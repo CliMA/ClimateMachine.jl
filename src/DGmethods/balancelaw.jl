@@ -71,6 +71,7 @@ end
 Base.propertynames(s::State{vars}) where {vars} = vars
 @generated function Base.getproperty(s::State{vars}, sym::Symbol) where {vars}
   expr = quote
+      Base.@_inline_meta
   end
   i = 0
   for var in vars
@@ -85,6 +86,7 @@ Base.propertynames(s::State{vars}) where {vars} = vars
 end
 @generated function Base.setproperty!(s::State{vars}, sym::Symbol, val) where {vars}
   expr = quote
+    Base.@_inline_meta
   end
   i = 0
   for var in vars
@@ -107,6 +109,7 @@ Grad{vars}(arr::A) where {vars,A<:StaticMatrix} = Grad{vars,A}(arr)
 Base.propertynames(s::Grad{vars}) where {vars} = vars
 @generated function Base.getproperty(∇s::Grad{vars}, sym::Symbol) where {vars}
   expr = quote
+    Base.@_inline_meta
   end
   i = 0
   for var in vars
@@ -121,6 +124,7 @@ Base.propertynames(s::Grad{vars}) where {vars} = vars
 end
 @generated function Base.setproperty!(∇s::Grad{vars}, sym::Symbol, val) where {vars}
   expr = quote
+    Base.@_inline_meta
   end
   i = 0
   for var in vars
