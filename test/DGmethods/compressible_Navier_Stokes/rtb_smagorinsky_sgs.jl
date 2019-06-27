@@ -68,15 +68,15 @@ const numdims = 3
 
 
 # Define grid size 
-const Δx    =  25
-const Δy    =  25
-const Δz    =  25
+const Δx    =  5
+const Δy    =  5
+const Δz    =  150
 const Npoly = 4
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 25600)
-const (ymin, ymax) = (0,  6400) #VERTICAL
-const (zmin, zmax) = (0,  30)
+const (xmin, xmax) = (0, 1000)
+const (ymin, ymax) = (0, 1500) #VERTICAL
+const (zmin, zmax) = (0,  200)
 
 
 #Get Nex, Ney from resolution
@@ -313,7 +313,7 @@ end
 @inline function stresses_penalty!(VF, nM, grad_listM, QM, aM, grad_listP, QP, aP, t)
     @inbounds begin
         n_Δgrad_list = similar(VF, Size(3, 3))
-        for j = 1:3, i = 1:_ngradstates
+        for j = 1:3, i = 1:7
             n_Δgrad_list[i, j] = nM[i] * (grad_listP[j] - grad_listM[j]) / 2
         end
         compute_stresses!(VF, n_Δgrad_list)
@@ -392,13 +392,12 @@ function density_current!(dim, Q, t, x, y, z, _...)
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0 
     # perturbation parameters for rising bubble
-    rx                    = 4000
-    ry                    = 2000
-    xc                    = 0
-    yc                    = 3000
-    r                     = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
+    rc                    = 250
+    xc                    = 500
+    yc                    = 350
+    r                     = sqrt( (x - xc)^2/rc^2 + (y - yc)^2/rc^2)
     θ_ref::DFloat         = 300
-    θ_c::DFloat           = -15.0
+    θ_c::DFloat           = 0.5
     Δθ::DFloat            = 0.0
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
@@ -469,7 +468,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
         if s
             starttime[] = now()
         else
@@ -493,8 +492,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-dc")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
+    mkpath("vtk-robert")
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
@@ -502,7 +501,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-dc/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-robert/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -565,7 +564,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.01
+    dt = 0.005
     timeend = 1200
     polynomialorder = Npoly
     DFloat = Float64
