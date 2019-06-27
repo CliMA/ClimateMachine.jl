@@ -334,7 +334,6 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
   ngradstate = num_gradtransform(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
-  states_grad = indices_state_for_gradtransform(bl)
   
   N = polyorder
   
@@ -344,7 +343,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = num_state_for_gradtransform(bl)
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
   s_D = @shmem DFloat (Nq, Nq)
@@ -369,7 +368,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
           @unroll for s = 1:ngradtransformstate
-            l_Q[s, i, j, k] = Q[ijk, states_grad[s], e]
+            l_Q[s, i, j, k] = Q[ijk, s, e]
           end
 
           @unroll for s = 1:nauxstate
@@ -432,7 +431,6 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
   ngradstate = num_gradtransform(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
-  states_grad = indices_state_for_gradtransform(bl)
   
   N = polyorder
   DFloat = eltype(Q)
@@ -451,7 +449,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
     nface = 6
   end
 
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = num_state_for_gradtransform(bl)
 
   l_QM = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
   l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
@@ -475,7 +473,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
 
         # Load minus side data
         @unroll for s = 1:ngradtransformstate
-          l_QM[s] = Q[vidM, states_grad[s], eM]
+          l_QM[s] = Q[vidM, s, eM]
         end
 
         @unroll for s = 1:nauxstate
@@ -487,7 +485,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumer
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
-          l_QP[s] = Q[vidP, states_grad[s], eP]
+          l_QP[s] = Q[vidP, s, eP]
         end
 
         @unroll for s = 1:nauxstate

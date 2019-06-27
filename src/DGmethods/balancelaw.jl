@@ -35,8 +35,7 @@ num_diffusive(m::BalanceLaw) = length(vars_diffusive(m)) # number_viscous_states
 
 has_diffusive(m::BalanceLaw) = num_diffusive(m) > 0
 
-indices_state_for_gradtransform(bl::BalanceLaw) = map(var -> findfirst(isequal(var), vars_state(bl)), vars_state_for_gradtransform(bl))
-
+num_state_for_gradtransform(bl::BalanceLaw) = num_state(m)
 
 # function stubs
 function dimension end
