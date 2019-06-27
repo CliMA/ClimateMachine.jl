@@ -3,7 +3,7 @@ module Topography
 using DocStringExtensions
 using Printf
 
-export TopographyReadExternal, TopoBuildAnalytic
+export TopographyReadExternal
 
 import Canary
 using MPI
@@ -39,8 +39,8 @@ end
        of the topography from a NOAA text file
     """
 function ReadExternalHeader(header_file_in)
-
-    @info @sprintf """ Topography header file %s ... DONE""" ftopo_header
+    
+    @info @sprintf """ Topography header file %s ... DONE""" header_file_in
     
     ftopo_header = open(header_file_in)
     @info @sprintf """ Grids.jl: Opening topography header file ... DONE"""
