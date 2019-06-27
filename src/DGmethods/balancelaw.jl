@@ -70,21 +70,33 @@ end
 
 
 Base.propertynames(s::State{vars}) where {vars} = vars
-@inline function Base.getproperty(s::State{vars}, sym::Symbol) where {vars}
-  @unroll for i = 1:length(vars)
-    if vars[i] == sym
-      return @inbounds getfield(s,:arr)[i]
-    end
-  end 
-  throw(GetFieldException(sym))
+@generated function Base.getproperty(s::State{vars}, sym::Symbol) where {vars}
+  expr = quote
+  end
+  i = 0
+  for var in vars
+    push!(expr.args, quote
+      if sym == $var
+        return getfield(s,:arr)[$(i+=1)]
+      end
+    end)
+  end
+  push!(expr.args, :(throw(GetFieldException(sym))))
+  expr
 end
-@inline function Base.setproperty!(s::State{vars}, sym::Symbol, val) where {vars}
-  @unroll for i = 1:length(vars)
-    if vars[i] == sym
-      return @inbounds getfield(s,:arr)[i] = val
-    end
-  end 
-  throw(GetFieldException(sym))
+@generated function Base.setproperty!(s::State{vars}, sym::Symbol, val) where {vars}
+  expr = quote
+  end
+  i = 0
+  for var in vars
+    push!(expr.args, quote
+      if sym == $var
+        return getfield(s,:arr)[$(i+=1)] = val
+      end
+    end)
+  end
+  push!(expr.args, :(throw(GetFieldException(sym))))
+  expr
 end
 
 
