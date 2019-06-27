@@ -107,10 +107,11 @@ end
 
 
 function numerical_flux!(::Rusanov, bl::BalanceLaw,
-                         F::MArray{Tuple{nstate}}, nM,
+                         F::MArray nM,
                          QM, QVM, auxM,
                          QP, QVP, auxP,
-                         t) where {nstate}
+                         t)
+  nstate = num_state(bl)
 
   λM = wavespeed(bl, nM, State{vars_state(bl)}(QM), State{vars_aux(bl)}(auxM), t)
   FM = similar(F, Size(3, nstate))
