@@ -78,45 +78,103 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 100
-Δy    = 100
-Δz    = 100
-#
-# OR:
-#
-# Set Δx < 0 and define  Nex, Ney, Nez:
-#
-(Nex, Ney, Nez) = (1, 1, 1)
 
-# Physical domain extents 
-const (xmin, xmax) = (0, 25600)
-const (ymin, ymax) = (0, 1000)
-const (zmin, zmax) = (0, 6400)
-
-#Get Nex, Ney from resolution
-const Lx = xmax - xmin
-const Ly = ymax - ymin
-const Lz = zmax - ymin
-
-if ( Δx > 0)
+#
+#Read external topography:
+#
+const lread_external_grid = "n"
+if lread_external_grid == "y"
+    
+    header_file_in                                           = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
+    (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
+    
+    Δx    = dlon
+    Δy    = dlat
+    Δz    = 5000
+    
     #
-    # User defines the grid size:
+    # OR:
     #
-    ratiox = (Lx/Δx - 1)/Npoly
-    ratioy = (Ly/Δy - 1)/Npoly
-    ratioz = (Lz/Δz - 1)/Npoly
-    Nex = ceil(Int64, ratiox)
-    Ney = ceil(Int64, ratioy)
-    Nez = ceil(Int64, ratioz)
+    # Set Δx < 0 and define  Nex, Ney, Nez:
+    #
+    (Nex, Ney, Nez) = (nlon, nlat, 10)
+
+    # Physical domain extents 
+    const (xmin, xmax) = (lonmin, lonmax)
+    const (ymin, ymax) = (latmin, latmax)
+    const (zmin, zmax) = (0, 30000)
+    const Lz = zmax - zmin
+    
+    if ( Δz > 0)
+        #
+        # User defines the grid size:
+        #
+        ratioz = (Lz/Δz - 1)/Npoly
+        Nez    = ceil(Int64, ratioz)
+        
+    else
+        #
+        # User defines the number of elements:
+        #
+         Nez = 10
+        
+        # Physical domain extents 
+        const (xmin, xmax) = (0, 10000)
+        const (ymin, ymax) = (0, 10000)
+        const (zmin, zmax) = (0, 30000)
+        
+        Δz = Lz / ((Nez * Npoly) + 1)
+    end
+    
+    @info @sprintf """ Nex %d""" nlon
+    @info @sprintf """ Nex %d""" nlat
+    @info @sprintf """ xmin-max %.16e %.16e""" lonmin lonmax
+    @info @sprintf """ ymin-max %.16e %.16e""" latmin latmax
     
 else
+    
+    Δx    = -100
+    Δy    = 100
+    Δz    = 100
     #
-    # User defines the number of elements:
+    # OR:
     #
-    Δx = Lx / ((Nex * Npoly) + 1)
-    Δy = Ly / ((Ney * Npoly) + 1)
-    Δz = Lz / ((Nez * Npoly) + 1)
+    # Set Δx < 0 and define  Nex, Ney, Nez:
+    #
+    (Nex, Ney, Nez) = (20, 20, 1)
+
+    # Physical domain extents 
+    const (xmin, xmax) = (0, 1000)
+    const (ymin, ymax) = (0, 1500)
+    const (zmin, zmax) = (0, 2000)
+    
+    #Get Nex, Ney from resolution
+    const Lx = xmax - xmin
+    const Ly = ymax - ymin
+    const Lz = zmax - zmin
+
+    if ( Δx > 0)
+        #
+        # User defines the grid size:
+        #
+        ratiox = (Lx/Δx - 1)/Npoly
+        ratioy = (Ly/Δy - 1)/Npoly
+        ratioz = (Lz/Δz - 1)/Npoly
+        Nex = ceil(Int64, ratiox)
+        Ney = ceil(Int64, ratioy)
+        Nez = ceil(Int64, ratioz)
+        
+    else
+        #
+        # User defines the number of elements:
+        #
+        Δx = Lx / ((Nex * Npoly) + 1)
+        Δy = Ly / ((Ney * Npoly) + 1)
+        Δz = Lz / ((Nez * Npoly) + 1)
+    end
+    
 end
+
 
 DoF = (Nex*Npoly+1)*(Ney*Npoly+1)*(Nez*Npoly+1)*(_nstate + _nviscstates)
 Memory_need_estimate = DoF*16
@@ -642,21 +700,57 @@ end
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
 
-function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
+function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)    
+   
+    function warp_agnesi(xin, yin, zin)
+        
+        """
+           Classical agnesi mountain:
+        """
+
+        mountain_top = 1000.0
+        
+        a_c    = xmax * 0.65;
+        hm     = 1000.0
+        xc     = 0.5*(xmax + xmin)
+        yc     = 0.5*(ymax + ymin)
+        z_diff = hm/(1.0 + ( (xin - xc)^2 + (yin - yc)^2)/a_c)
+
+        x, y, z = xin, yin, zin + z_diff * (zmax - zin)/zmax
+    end
+
+    function warp_external_topography(xin, yin, zin)
+        """
+          Topography from file
+        """
+        
+        body_file_in   = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.xyz")
+        (Topography, nlon, nlat, xmin, xmax, ymin, ymax, dlon, dlat) = TopographyReadExternal("NOAA", header_file_in, body_file_in, "all")
+
+        x, y = xin, yin
+        z    = Topography
+        
+    end
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                   range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+    
+    #brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
+    #              range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+    #              range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
     
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
     topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
 
+    
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
                                             DeviceArray = ArrayType,
-                                            polynomialorder = N)
+                                            polynomialorder = N,
+                                            meshwarp = warp_agnesi)
     
     numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
     numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
@@ -798,13 +892,7 @@ let
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
-
     
-    header_file_in = joinpath(@__DIR__, "../../TopographyFiles/NOAA-text-files/monterey.hdr")
-    body_file_in   = joinpath(@__DIR__, "../../TopographyFiles/NOAA-text-files/monterey.xyz")
-    TopographyReadExternal("NOAA", header_file_in, body_file_in)
-    error("STOP HERE")
-
     if MPI.Comm_rank(mpicomm) == 0
         @info @sprintf """ ----------------------------------------------------"""
         @info @sprintf """   ______ _      _____ __  ________                  """     
