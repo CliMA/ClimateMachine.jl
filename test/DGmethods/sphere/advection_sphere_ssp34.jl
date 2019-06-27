@@ -167,7 +167,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
                          auxiliary_state_initialization! = velocity_init!)
 
   # Initial Condition
-  initialcondition(Q, x...) = advection_sphere!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = advection_sphere!(Q, 0, x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # Store Initial Condition as Exact Solution
