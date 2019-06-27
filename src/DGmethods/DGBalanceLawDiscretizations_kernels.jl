@@ -30,8 +30,8 @@ function volumerhs!(::Val{dim}, ::Val{N},
                     ::Val{nauxstate},
                     flux!, source!,
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    D, elems, increment) where {dim, N, nstate, nviscstate,
-                                                nauxstate}
+                    ω, D, elems, increment) where {dim, N, nstate, nviscstate,
+                                     nauxstate}
   DFloat = eltype(Q)
 
   Nq = N + 1
@@ -39,7 +39,8 @@ function volumerhs!(::Val{dim}, ::Val{N},
   Nqk = dim == 2 ? 1 : Nq
 
   s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
-  s_D = @shmem DFloat (Nq, Nq)
+  s_ω = @shmem DFloat (Nq, )
+  s_half_D = @shmem DFloat (Nq, Nq)
   l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
 
   source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
@@ -47,11 +48,22 @@ function volumerhs!(::Val{dim}, ::Val{N},
   l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
   l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
+  l_M = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ξx = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ξy = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ξz = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ηx = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ηy = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ηz = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ζx = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ζy = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ζz = @scratch DFloat (Nq, Nq, Nqk) 3
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
+      s_ω[j] = ω[j]
       @loop for i in (1:Nq; threadIdx().x)
-        s_D[i, j] = D[i, j]
+        s_half_D[i, j] = D[i, j] / 2
       end
     end
   end
@@ -61,10 +73,16 @@ function volumerhs!(::Val{dim}, ::Val{N},
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-          MJ = vgeo[ijk, _M, e]
-          ξx, ξy, ξz = vgeo[ijk,_ξx,e], vgeo[ijk,_ξy,e], vgeo[ijk,_ξz,e]
-          ηx, ηy, ηz = vgeo[ijk,_ηx,e], vgeo[ijk,_ηy,e], vgeo[ijk,_ηz,e]
-          ζx, ζy, ζz = vgeo[ijk,_ζx,e], vgeo[ijk,_ζy,e], vgeo[ijk,_ζz,e]
+          l_M[i, j, k] = vgeo[ijk, _M, e]
+          l_ξx[i, j, k] = vgeo[ijk, _ξx, e]
+          l_ξy[i, j, k] = vgeo[ijk, _ξy, e]
+          l_ξz[i, j, k] = vgeo[ijk, _ξz, e]
+          l_ηx[i, j, k] = vgeo[ijk, _ηx, e]
+          l_ηy[i, j, k] = vgeo[ijk, _ηy, e]
+          l_ηz[i, j, k] = vgeo[ijk, _ηz, e]
+          l_ζx[i, j, k] = vgeo[ijk, _ζx, e]
+          l_ζy[i, j, k] = vgeo[ijk, _ζy, e]
+          l_ζz[i, j, k] = vgeo[ijk, _ζz, e]
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(DFloat)
@@ -85,9 +103,9 @@ function volumerhs!(::Val{dim}, ::Val{N},
           flux!(l_F, l_Q, l_Qvisc, l_aux, t)
 
           @unroll for s = 1:nstate
-            s_F[1,i,j,k,s] = MJ * (ξx*l_F[1,s] + ξy*l_F[2,s] + ξz*l_F[3,s])
-            s_F[2,i,j,k,s] = MJ * (ηx*l_F[1,s] + ηy*l_F[2,s] + ηz*l_F[3,s])
-            s_F[3,i,j,k,s] = MJ * (ζx*l_F[1,s] + ζy*l_F[2,s] + ζz*l_F[3,s])
+            s_F[1,i,j,k,s] = l_F[1,s]
+            s_F[2,i,j,k,s] = l_F[2,s]
+            s_F[3,i,j,k,s] = l_F[3,s]
           end
 
           if source! !== nothing
@@ -102,24 +120,79 @@ function volumerhs!(::Val{dim}, ::Val{N},
     end
     @synchronize
 
+    # Weak "outside metrics" derivative
+    @unroll for s = 1:nstate
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            @unroll for n = 1:Nq
+              Dni = s_half_D[n, i] * s_ω[n] / s_ω[i]
+              Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
+              Nqk > 1 && (Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k])
+
+              # ξ-grid lines
+              l_rhs[s, i, j, k] += l_ξx[i, j, k] * Dni * s_F[1, n, j, k, s]
+              l_rhs[s, i, j, k] += l_ξy[i, j, k] * Dni * s_F[2, n, j, k, s]
+              l_rhs[s, i, j, k] += l_ξz[i, j, k] * Dni * s_F[3, n, j, k, s]
+
+              # η-grid lines
+              l_rhs[s, i, j, k] += l_ηx[i, j, k] * Dnj * s_F[1, i, n, k, s]
+              l_rhs[s, i, j, k] += l_ηy[i, j, k] * Dnj * s_F[2, i, n, k, s]
+              l_rhs[s, i, j, k] += l_ηz[i, j, k] * Dnj * s_F[3, i, n, k, s]
+
+              # ζ-grid lines
+              if Nqk > 1
+                l_rhs[s, i, j, k] += l_ζx[i, j, k] * Dnk * s_F[1, i, j, n, s]
+                l_rhs[s, i, j, k] += l_ζy[i, j, k] * Dnk * s_F[2, i, j, n, s]
+                l_rhs[s, i, j, k] += l_ζz[i, j, k] * Dnk * s_F[3, i, j, n, s]
+              end
+            end
+          end
+        end
+      end
+    end
+    @synchronize
+
+    # Build "inside metrics" flux
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          @unroll for s = 1:nstate
+            F1, F2, F3 = s_F[1,i,j,k,s], s_F[2,i,j,k,s], s_F[3,i,j,k,s]
+            s_F[1,i,j,k,s] = l_M[i, j, k] * (l_ξx[i, j, k] * F1 +
+                                              l_ξy[i, j, k] * F2 +
+                                              l_ξz[i, j, k] * F3)
+            s_F[2,i,j,k,s] = l_M[i, j, k] * (l_ηx[i, j, k] * F1 +
+                                              l_ηy[i, j, k] * F2 +
+                                              l_ηz[i, j, k] * F3)
+            s_F[3,i,j,k,s] = l_M[i, j, k] * (l_ζx[i, j, k] * F1 +
+                                              l_ζy[i, j, k] * F2 +
+                                              l_ζz[i, j, k] * F3)
+          end
+        end
+      end
+    end
+    @synchronize
+
+    # Weak "inside metrics" derivative
     @unroll for s = 1:nstate
       @loop for k in (1:Nqk; threadIdx().z)
         @loop for j in (1:Nq; threadIdx().y)
           @loop for i in (1:Nq; threadIdx().x)
             ijk = i + Nq * ((j-1) + Nq * (k-1))
-            MJI = vgeo[ijk, _MI, e]
-            for n = 1:Nq
-              Dni = s_D[n, i]
-              Dnj = s_D[n, j]
-              Nqk > 1 && (Dnk = s_D[n, k])
+            MI = vgeo[ijk, _MI, e]
+            @unroll for n = 1:Nq
+              Dni = s_half_D[n, i]
+              Dnj = s_half_D[n, j]
+              Nqk > 1 && (Dnk = s_half_D[n, k])
               # ξ-grid lines
-              l_rhs[s, i, j, k] += MJI * Dni * s_F[1, n, j, k, s]
+              l_rhs[s, i, j, k] += MI * Dni * s_F[1, n, j, k, s]
 
               # η-grid lines
-              l_rhs[s, i, j, k] += MJI * Dnj * s_F[2, i, n, k, s]
+              l_rhs[s, i, j, k] += MI * Dnj * s_F[2, i, n, k, s]
 
               # ζ-grid lines
-              Nqk > 1 && (l_rhs[s, i, j, k] += MJI * Dnk * s_F[3, i, j, n, s])
+              Nqk > 1 && (l_rhs[s, i, j, k] += MI * Dnk * s_F[3, i, j, n, s])
             end
           end
         end
@@ -188,7 +261,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
-        sMJ, vMJI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
+        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
         idM, idP = vmapM[n, f, e], vmapP[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
@@ -233,7 +306,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
         #Update RHS
         @unroll for s = 1:nstate
           # FIXME: Should we pretch these?
-          rhs[vidM, s, eM] -= vMJI * sMJ * l_F[s]
+          rhs[vidM, s, eM] -= vMI * sM * l_F[s]
         end
       end
       # Need to wait after even faces to avoid race conditions
@@ -375,7 +448,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_nx, n, f, e], sgeo[_ny, n, f, e], sgeo[_nz, n, f, e])
-        sMJ, vMJI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
+        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
         idM, idP = vmapM[n, f, e], vmapP[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
@@ -414,7 +487,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
         end
 
         @unroll for s = 1:nviscstate
-          Qvisc[vidM, s, eM] += vMJI * sMJ * l_Qvisc[s]
+          Qvisc[vidM, s, eM] += vMI * sM * l_Qvisc[s]
         end
       end
       # Need to wait after even faces to avoid race conditions
@@ -474,7 +547,7 @@ it in `sx`, `sy`, and `sz` of `Q`.
 
 """
 function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
-                          D, elems, s, sx, sy, sz) where {dim, N, nstate}
+                          ω, D, elems, s, sx, sy, sz) where {dim, N, nstate}
 
   DFloat = eltype(vgeo)
 
@@ -482,17 +555,21 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
 
   Nqk = dim == 2 ? 1 : Nq
 
-  s_f = @shmem DFloat (Nq, Nq, Nqk)
-  s_D = @shmem DFloat (Nq, Nq)
+  s_f = @shmem DFloat (3, Nq, Nq, Nqk)
+  s_half_D = @shmem DFloat (Nq, Nq)
 
-  l_fξ = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_fη = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_fζ = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_f  = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_fd = @scratch DFloat (3, Nq, Nq, Nqk) 3
+
+  l_J = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ξd = @scratch DFloat (3, Nq, Nq, Nqk) 3
+  l_ηd = @scratch DFloat (3, Nq, Nq, Nqk) 3
+  l_ζd = @scratch DFloat (3, Nq, Nq, Nqk) 3
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
       @loop for i in (1:Nq; threadIdx().x)
-        s_D[i, j] = D[i, j]
+        s_half_D[i, j] = D[i, j] / 2
       end
     end
   end
@@ -502,35 +579,84 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-          s_f[i, j, k] = Q[ijk, s, e]
+          M = dim == 2 ? ω[i] * ω[j] : ω[i] * ω[j] * ω[k]
+          l_J[i, j, k] = vgeo[ijk, _M, e] / M
+          l_ξd[1, i, j, k] = vgeo[ijk, _ξx, e]
+          l_ξd[2, i, j, k] = vgeo[ijk, _ξy, e]
+          l_ξd[3, i, j, k] = vgeo[ijk, _ξz, e]
+          l_ηd[1, i, j, k] = vgeo[ijk, _ηx, e]
+          l_ηd[2, i, j, k] = vgeo[ijk, _ηy, e]
+          l_ηd[3, i, j, k] = vgeo[ijk, _ηz, e]
+          l_ζd[1, i, j, k] = vgeo[ijk, _ζx, e]
+          l_ζd[2, i, j, k] = vgeo[ijk, _ζy, e]
+          l_ζd[3, i, j, k] = vgeo[ijk, _ζz, e]
+          l_f[i, j, k] = s_f[1, i, j, k] = Q[ijk, s, e]
         end
       end
     end
     @synchronize
 
-    # reference gradient
+    # reference gradient: outside metrics
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
-          l_fξ[i, j, k] = 0
-          l_fη[i, j, k] = 0
-          l_fζ[i, j, k] = 0
+          fξ = DFloat(0)
+          fη = DFloat(0)
+          fζ = DFloat(0)
           @unroll for n = 1:Nq
-            Din = s_D[i, n]
-            Djn = s_D[j, n]
-            Nqk > 1 && (Dkn = s_D[k, n])
+            Din = s_half_D[i, n]
+            Djn = s_half_D[j, n]
+            Nqk > 1 && (Dkn = s_half_D[k, n])
 
             # ξ-grid lines
-            l_fξ[i, j, k] += Din * s_f[n, j, k]
+            fξ += Din * s_f[1, n, j, k]
 
             # η-grid lines
-            l_fη[i, j, k] += Djn * s_f[i, n, k]
+            fη += Djn * s_f[1, i, n, k]
 
             # ζ-grid lines
-            Nqk > 1 && (l_fζ[i, j, k] += Dkn * s_f[i, j, n])
+            Nqk > 1 && (fζ += Dkn * s_f[1, i, j, n])
+          end
+          @unroll for d = 1:3
+            l_fd[d, i, j, k] = l_ξd[d, i, j, k] * fξ +
+                               l_ηd[d, i, j, k] * fη +
+                               l_ζd[d, i, j, k] * fζ
           end
         end
       end
+    end
+    @synchronize
+
+    # Build "inside metrics" flux
+    for d = 1:3
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            s_f[1,i,j,k] = l_J[i, j, k] * l_ξd[d, i, j, k] * l_f[i, j, k]
+            s_f[2,i,j,k] = l_J[i, j, k] * l_ηd[d, i, j, k] * l_f[i, j, k]
+            s_f[3,i,j,k] = l_J[i, j, k] * l_ζd[d, i, j, k] * l_f[i, j, k]
+          end
+        end
+      end
+      @synchronize
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            fd = DFloat(0)
+            JI = 1 / l_J[i, j, k]
+            @unroll for n = 1:Nq
+              Din = s_half_D[i, n]
+              Djn = s_half_D[j, n]
+              Nqk > 1 && (Dkn = s_half_D[k, n])
+
+              l_fd[d, i, j, k] += JI * Din * s_f[1, n, j, k]
+              l_fd[d, i, j, k] += JI * Djn * s_f[2, i, n, k]
+              Nqk > 1 && (l_fd[d, i, j, k] += JI * Dkn * s_f[3, i, j, n])
+            end
+          end
+        end
+      end
+      @synchronize
     end
 
     # Physical gradient
@@ -538,14 +664,9 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-
-          ξx, ξy, ξz = vgeo[ijk, _ξx, e], vgeo[ijk, _ξy, e], vgeo[ijk, _ξz, e]
-          ηx, ηy, ηz = vgeo[ijk, _ηx, e], vgeo[ijk, _ηy, e], vgeo[ijk, _ηz, e]
-          ζx, ζy, ζz = vgeo[ijk, _ζx, e], vgeo[ijk, _ζy, e], vgeo[ijk, _ζz, e]
-
-          Q[ijk, sx, e] = ξx * l_fξ[ijk] + ηx * l_fη[ijk] + ζx * l_fζ[ijk]
-          Q[ijk, sy, e] = ξy * l_fξ[ijk] + ηy * l_fη[ijk] + ζy * l_fζ[ijk]
-          Q[ijk, sz, e] = ξz * l_fξ[ijk] + ηz * l_fη[ijk] + ζz * l_fζ[ijk]
+          Q[ijk, sx, e] = l_fd[1, i, j, k]
+          Q[ijk, sy, e] = l_fd[2, i, j, k]
+          Q[ijk, sz, e] = l_fd[3, i, j, k]
         end
       end
     end
