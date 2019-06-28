@@ -67,11 +67,10 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
                                        ρq_tot / ρ, ρq_liq / ρ,
                                        ρq_rai / ρ, ρe_tot / ρ
 
+    # compute rain fall speed
     DF = eltype(ρ)
-    if(q_rai >= DF(0))
-      # compute rain fall speed
-      #rain_w = terminal_velocity(q_rai, ρ)# TODO - tmp
-      rain_w = DF(0)
+    if(q_rai >= DF(0)) #TODO - need a way to prevent negative values
+      rain_w = terminal_velocity(q_rai, ρ)
     else
       rain_w = DF(0)
     end
@@ -162,14 +161,15 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q)...)
     e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
     q     = PhasePartition(q_tot, q_liq, DF(0))
     T     = air_temperature(e_int, q)
-    # equilibrium state
+    # equilibrium state at current T
     q_eq = PhasePartition_equil(T, ρ, q_tot)
 
     # cloud water condensation/evaporation
-    src_q_liq  = conv_q_vap_to_q_liq(q_eq, q)
+    src_q_liq  = conv_q_vap_to_q_liq(q_eq, q) # TODO - ensure positive definite
     S[_ρq_liq] = ρ * src_q_liq
 
-    # compute tendencies
+    # tendencies from rain
+    # TODO - ensure positive definite
     if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
 
       src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(q.liq)
@@ -333,7 +333,8 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   step = [0]
   mkpath("vtk")
 
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(60) do (init=false)
+  # set output frequency
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(120) do (init=false)
 
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
@@ -360,7 +361,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
         R[v_e_kin] = 1//2 * (u^2 + w^2)
         R[v_e_pot] = grav * z
 
-        if(q_rai > DF(0))
+        if(q_rai > DF(0)) # TODO - ensure positive definite elswhere
           R[v_term_vel] = terminal_velocity(q_rai, ρ)
         else
           R[v_term_vel] = DF(0)
@@ -401,7 +402,7 @@ function run(dim, Ne, N, timeend, DFloat)
   brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=Z_max), 2)
 
   topl = BrickTopology(mpicomm, brickrange, periodicity=(true, false))
-  dt = 1
+  dt = 0.5
 
   main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
 
