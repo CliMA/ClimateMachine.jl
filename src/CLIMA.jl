@@ -16,6 +16,8 @@ include("ODESolvers/LowStorageRungeKuttaMethod.jl")
 include("ODESolvers/StrongStabilityPreservingRungeKuttaMethod.jl")
 include("ODESolvers/AdditiveRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
+include("LinearSolvers/LinearSolvers.jl")
+include("LinearSolvers/GeneralizedConjugateResidualSolver.jl")
 include("InputOutput/Vtk/Vtk.jl")
 include("misc.jl")
 
