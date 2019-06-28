@@ -112,7 +112,7 @@ end
 @inline function wavespeed(n, Q, aux, t, u, w, rain_w,
                            ρ, q_tot, q_liq, q_rai, e_tot)
   @inbounds begin
-    abs(n[1] * u + n[2] * max(w, rain_w, w+rain_w))
+    abs(n[1] * u + n[2] * max(w, rain_w, w-rain_w))
   end
 end
 
@@ -206,7 +206,7 @@ eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
 
     F[2, _ρq_tot] =  w           *  ρ * q_tot
     F[2, _ρq_liq] =  w           *  ρ * q_liq
-    F[2, _ρq_rai] = (w + rain_w) *  ρ * q_rai
+    F[2, _ρq_rai] = (w - rain_w) *  ρ * q_rai
     F[2, _ρe_tot] =  w           * (ρ * e_tot + p)
 
   end
