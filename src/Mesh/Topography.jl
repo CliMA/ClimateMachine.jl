@@ -135,6 +135,12 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
             xTopography[i, j] = topo_body[k,1]
             yTopography[i, j] = topo_body[k,2]
             zTopography[i, j] = topo_body[k,3]
+
+            #if topo_body[k,3] < 0.0 && TopoBathy_flg == "all"
+                zTopography[i, j] = topo_body[k,3]
+            #else
+            #    zTopography[i, j] = 0.0
+            #end
         end
     end    
     @info @sprintf """ Grids.jl: Reading topography file ... DONE""" 
