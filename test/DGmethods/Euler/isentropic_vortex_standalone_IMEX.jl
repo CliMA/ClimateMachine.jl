@@ -350,12 +350,12 @@ let
   polynomialorder = 4
 
   expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-  expected_error[1,1] = 5.7115689019456495e-01
-  expected_error[1,2] = 6.9418982796523573e-02
-  expected_error[1,3] = 3.2927550219067014e-03
-  expected_error[2,1] = 1.8061566743070110e+00
-  expected_error[2,2] = 2.1952209848920567e-01
-  expected_error[2,3] = 1.0412605646145325e-02
+  expected_error[1,1] = 5.7099742412102117e-01
+  expected_error[1,2] = 6.9419139015287706e-02
+  expected_error[1,3] = 3.2929663297875029e-03
+  expected_error[2,1] = 1.8056523983051178e+00
+  expected_error[2,2] = 2.1952259249630343e-01
+  expected_error[2,3] = 1.0413273860337417e-02
   lvls = integration_testing ? size(expected_error, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
@@ -364,7 +364,7 @@ let
         err = zeros(DFloat, lvls)
         for l = 1:lvls
           Ne = ntuple(j->2^(l-1) * numelem[j], dim)
-          dt = 1e-2 / Ne[1]
+          dt = 3e-1 / Ne[1]
           nsteps = ceil(Int64, timeend / dt)
           dt = timeend / nsteps
           @info (ArrayType, DFloat, dim)
