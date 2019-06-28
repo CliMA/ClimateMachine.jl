@@ -4,7 +4,7 @@ using Printf
 using DelimitedFiles
 using Dierckx
 
-export TopographyReadExternal
+export TopographyReadExternal, ReadExternalHeader, ReadExternalTxtCoordinates
 
 import Canary
 using MPI
@@ -24,14 +24,14 @@ function TopographyReadExternal(file_type, header_file_in, body_file_in, TopoBat
         
         (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
         
-        Topography = ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
+        (xTopography, yTopography, zTopography) = ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
     else
         error( " Mesh/Topography.jl:
                          ONLY NOAA txt files can be read in at this time. 
                          Feel free to add your own reader. ") 
     end
 
-    return (Topography, nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat)
+    return (xTopography, yTopography, zTopography, nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat)
     
 end
 
@@ -123,13 +123,18 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
 
     # Create array on the device
     nnodes_lon, nnodes_lat = nlon, nlat #Linear grid
-    LonLatZ = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
+    xTopography = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
+    yTopography = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
+    zTopography = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
     
     k = 0
     for j = nnodes_lat:-1:1
         for i = 1:1:nnodes_lon
             k = k + 1
-            Topography[i, j] = topo_body[k,3]
+            
+            xTopography[i, j] = topo_body[k,1]
+            yTopography[i, j] = topo_body[k,2]
+            zTopography[i, j] = topo_body[k,3]
         end
     end    
     @info @sprintf """ Grids.jl: Reading topography file ... DONE""" 
@@ -144,7 +149,7 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
     close(ftopo_body)
     @info @sprintf """ Grids.jl: Closing topography      ... DONE"""
 
-    return Topography
+    return (xTopography, yTopography, zTopography)
     
 end
 #}}}
