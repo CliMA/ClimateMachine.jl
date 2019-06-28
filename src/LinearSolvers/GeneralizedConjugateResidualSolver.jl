@@ -18,7 +18,7 @@ struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolve
   L_p::NTuple{K, AT}
   alpha::MArray{Tuple{K}, T, 1, K}
   normsq::MArray{Tuple{K}, T, 1, K}
-  tolerance::T
+  tolerance::MArray{Tuple{1}, T, 1, 1}
 
   function GeneralizedConjugateResidual(K, Q::AT, tolerance) where AT
     T = eltype(Q)
@@ -30,7 +30,7 @@ struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolve
     alpha = @MArray zeros(K)
     normsq = @MArray zeros(K)
 
-    new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, tolerance)
+    new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, (tolerance,))
   end
 end
 
@@ -56,7 +56,7 @@ function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidua
   L_p = solver.L_p
   normsq = solver.normsq
   alpha = solver.alpha
-  tolerance = solver.tolerance
+  tolerance = solver.tolerance[1]
 
   weighted = true
   

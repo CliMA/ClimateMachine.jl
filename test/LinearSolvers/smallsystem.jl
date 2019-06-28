@@ -30,6 +30,17 @@ using Random
     iters = linearsolve!(mulbyA!, x, b, gcrk)
 
     @test iters == expected_iters[T]
+    # TODO: get rid of the magic 20 factor 
     @test norm(A * x - b, Inf) <= 20tol
+   
+    newtol = 1000tol
+    settolerance!(gcrk, newtol)
+    
+    x = ones(n)
+    iters = linearsolve!(mulbyA!, x, b, gcrk)
+
+    @test norm(A * x - b, Inf) <= 20newtol
+    @test norm(A * x - b, Inf) >= 20tol
+
   end
 end

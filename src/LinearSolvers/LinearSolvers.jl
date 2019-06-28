@@ -16,7 +16,7 @@ abstract type AbstractLinearSolver end
 abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 
 settolerance!(solver::AbstractIterativeLinearSolver, tolerance) =
-  (solver.tolerance = tolerance)
+  (solver.tolerance[1] = tolerance)
 
 doiteration!(Q, solver::AbstractIterativeLinearSolver, tolerance) =
   throw(MethodError(doiteration!, (Q, solver, tolerance))) 
