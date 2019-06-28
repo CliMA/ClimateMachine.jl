@@ -12,15 +12,15 @@ using StaticArrays
 const LS = LinearSolvers
 
 struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolver
-  linearoperator!::Function
   residual::AT
   L_residual::AT
   p::NTuple{K, AT}
   L_p::NTuple{K, AT}
   alpha::MArray{Tuple{K}, T, 1, K}
   normsq::MArray{Tuple{K}, T, 1, K}
+  tolerance::T
 
-  function GeneralizedConjugateResidual(K, linearoperator!, Q::AT, Qrhs::AT) where AT
+  function GeneralizedConjugateResidual(K, Q::AT, tolerance) where AT
     T = eltype(Q)
 
     residual = similar(Q)
@@ -29,26 +29,34 @@ struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolve
     L_p = ntuple(i -> similar(Q), K)
     alpha = @MArray zeros(K)
     normsq = @MArray zeros(K)
-    
-    linearoperator!(residual, Q)
-    residual .-= Qrhs
 
-    p[1] .= residual
-    linearoperator!(L_p[1], p[1])
-
-    new{K, T, AT}(linearoperator!, residual, L_residual, p, L_p, alpha, normsq)
+    new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, tolerance)
   end
 end
 
-function LS.doiteration!(Q, solver::GeneralizedConjugateResidual{K}, tolerance) where K
+function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateResidual)
+    residual = solver.residual
+    p = solver.p
+    L_p = solver.L_p
+
+    @assert size(Q) == size(residual)
+
+    linearoperator!(residual, Q)
+    residual .-= Qrhs
+    
+    p[1] .= residual
+    linearoperator!(L_p[1], p[1])
+end
+
+function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidual{K}) where K
  
-  linearoperator! = solver.linearoperator!
   residual = solver.residual
   p = solver.p
   L_residual = solver.L_residual
   L_p = solver.L_p
   normsq = solver.normsq
   alpha = solver.alpha
+  tolerance = solver.tolerance
 
   weighted = true
   
