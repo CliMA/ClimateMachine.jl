@@ -117,7 +117,7 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
     DFloat = Float64 #CHANGE THIS TO GENERAL
     
     ftopo_body = open(body_file_in)
-    @info @sprintf """ Grids.jl: Opening topography      ... DONE"""
+    @info @sprintf """ Grids.jl: Opening topography file ... DONE"""
     
     topo_body = readdlm(ftopo_body)
 
@@ -147,7 +147,7 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
     end
     
     close(ftopo_body)
-    @info @sprintf """ Grids.jl: Closing topography      ... DONE"""
+    @info @sprintf """ Grids.jl: Closing topography file ... DONE"""
 
     return (xTopography, yTopography, zTopography)
     
