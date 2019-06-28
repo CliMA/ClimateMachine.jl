@@ -16,7 +16,7 @@
   SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_003_acoustic_wave.jl`, ntasks=3)
   SlurmJob(`.slurmci/cpu.sh examples/Microphysics/ex_1_saturation_adjustment.jl`, ntasks=3)
   SlurmJob(`.slurmci/cpu.sh examples/Microphysics/ex_2_Kessler.jl`, ntasks=3)
-  SlurmJob(`.slurmci/gpu-test.sh`)
+  # SlurmJob(`.slurmci/gpu-test.sh`)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_aux.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_source.jl`, ntasks=3)
