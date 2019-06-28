@@ -73,7 +73,7 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # User Input
 #
 const numdims = 3
-const Npoly = 1
+const Npoly = 3
 
 #
 # Define grid size 
@@ -721,27 +721,25 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     """
       Topography from file
-    """   
+    """
     header_file_in = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
     body_file_in   = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.xyz")
     (topoX, topoY, topoZ, nlon, nlat, xmin, xmax, ymin, ymax, dlon, dlat) = TopographyReadExternal("NOAA", header_file_in, body_file_in, "all")
     
     warp_external_topography(xin, yin, zin) = warp_external_topography(xin, yin, zin; topoXYZ...)
-    @inline function warp_external_topography(xin, yin, zin, topoX=topoX, topoY=topoY, topoZ=topoZ)
+    @inline function warp_external_topography(xin, yin, zin, a::Array=topoX, b::Array=topoY, c::Array=topoZ)
         
         xout, yout, zout = xin, yin, zin
         for j = 1:nlat
             for i = 1:nlon
-                if (abs(xin - topoX[i,j]) <= 1.0e-2 &&
-                    abs(yin - topoY[i,j]) <= 1.0e-2)
-                    z = topoZ[i,j]                   
+                if (abs(xin - a[i,j]) <= 1.0e-8 &&
+                    abs(yin - b[i,j]) <= 1.0e-8)
+                    z = topoZ[i,j]
                     xout, yout, zout = xin, yin, z
                end
             end
         end
-
-        x, y, z = xout, yout, zout
-        
+        x, y, z = xout, yout, zout        
     end
     
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
