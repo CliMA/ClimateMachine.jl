@@ -73,7 +73,7 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # User Input
 #
 const numdims = 3
-const Npoly = 4
+const Npoly = 1
 
 #
 # Define grid size 
@@ -82,8 +82,8 @@ const Npoly = 4
 #
 #Read external topography:
 #
-const lread_external_grid = "n"
-if lread_external_grid == "y"
+#const lread_external_grid = "y"
+#if lread_external_grid == "y"
     
     header_file_in                                           = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
     (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
@@ -97,14 +97,14 @@ if lread_external_grid == "y"
     #
     # Set Δx < 0 and define  Nex, Ney, Nez:
     #
-    (Nex, Ney, Nez) = (nlon, nlat, 10)
+    (Nex, Ney, Nez) = (nlon, nlat, 1)
 
     # Physical domain extents 
     const (xmin, xmax) = (lonmin, lonmax)
     const (ymin, ymax) = (latmin, latmax)
     const (zmin, zmax) = (0, 30000)
     const Lz = zmax - zmin
-    
+
     if ( Δz > 0)
         #
         # User defines the grid size:
@@ -130,7 +130,7 @@ if lread_external_grid == "y"
     @info @sprintf """ Nex %d""" nlat
     @info @sprintf """ xmin-max %.16e %.16e""" lonmin lonmax
     @info @sprintf """ ymin-max %.16e %.16e""" latmin latmax
-    
+#=    
 else
     
     Δx    = -100
@@ -141,7 +141,7 @@ else
     #
     # Set Δx < 0 and define  Nex, Ney, Nez:
     #
-    (Nex, Ney, Nez) = (20, 20, 1)
+    (Nex, Ney, Nez) = (2, 1, 1)
 
     # Physical domain extents 
     const (xmin, xmax) = (0, 1000)
@@ -174,7 +174,7 @@ else
     end
     
 end
-
+=#
 
 DoF = (Nex*Npoly+1)*(Ney*Npoly+1)*(Nez*Npoly+1)*(_nstate + _nviscstates)
 Memory_need_estimate = DoF*16
@@ -699,7 +699,6 @@ end
 
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
-
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)    
    
     function warp_agnesi(xin, yin, zin)
@@ -717,28 +716,37 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         z_diff = hm/(1.0 + ( (xin - xc)^2 + (yin - yc)^2)/a_c)
 
         x, y, z = xin, yin, zin + z_diff * (zmax - zin)/zmax
-    end
-
-    function warp_external_topography(xin, yin, zin)
-        """
-          Topography from file
-        """
-        
-        body_file_in   = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.xyz")
-        (Topography, nlon, nlat, xmin, xmax, ymin, ymax, dlon, dlat) = TopographyReadExternal("NOAA", header_file_in, body_file_in, "all")
-
-        x, y = xin, yin
-        z    = Topography
         
     end
 
+    """
+      Topography from file
+    """   
+    header_file_in = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
+    body_file_in   = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.xyz")
+    (topoX, topoY, topoZ, nlon, nlat, xmin, xmax, ymin, ymax, dlon, dlat) = TopographyReadExternal("NOAA", header_file_in, body_file_in, "all")
+    
+    warp_external_topography(xin, yin, zin) = warp_external_topography(xin, yin, zin; topoXYZ...)
+    @inline function warp_external_topography(xin, yin, zin, topoX=topoX, topoY=topoY, topoZ=topoZ)
+        
+        xout, yout, zout = xin, yin, zin
+        for j = 1:nlat
+            for i = 1:nlon
+                if (abs(xin - topoX[i,j]) <= 1.0e-2 &&
+                    abs(yin - topoY[i,j]) <= 1.0e-2)
+                    z = topoZ[i,j]                   
+                    xout, yout, zout = xin, yin, z
+               end
+            end
+        end
+
+        x, y, z = xout, yout, zout
+        
+    end
+    
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                   range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
-    
-    #brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-    #              range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
-    #              range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
     
     
     # User defined periodicity in the topl assignment
@@ -750,7 +758,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             FloatType = DFloat,
                                             DeviceArray = ArrayType,
                                             polynomialorder = N,
-                                            meshwarp = warp_agnesi)
+                                            meshwarp = warp_external_topography)
     
     numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
     numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
@@ -774,7 +782,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              auxiliary_state_initialization!(x...),
                              source! = source!,
                              preodefun! = integral_computation)
-
+    
     # This is a actual state/function that lives on the grid
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
