@@ -1,4 +1,4 @@
-import CLIMA.DGmethods: BalanceLaw, dimension, vars_aux, vars_state, num_state_for_gradtransform, vars_gradtransform, vars_diffusive,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, num_state_for_gradtransform, vars_gradtransform, vars_diffusive,
 flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
 init_aux!, init_state!, init_ode_param, init_ode_state
 
@@ -6,7 +6,6 @@ init_aux!, init_state!, init_ode_param, init_ode_state
 struct MMSModel{dim} <: BalanceLaw
 end
 
-dimension(::MMSModel{dim}) where {dim} = dim
 vars_aux(::MMSModel) = (:x,:y,:z)
 vars_state(::MMSModel) = (:ρ, :ρu, :ρv, :ρw, :ρe)
 num_state_for_gradtransform(::MMSModel) = 4
@@ -96,6 +95,8 @@ function init_aux!(::MMSModel, aux::State, (x,y,z))
   aux.x = x
   aux.y = y
   aux.z = z
+
+
 end
 
 function init_state!(bl::MMSModel{dim}, state::State, aux::State, (x,y,z), t) where {dim}

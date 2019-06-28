@@ -27,11 +27,10 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(bl::BalanceLaw, ::Val{polyorder},
+function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    ω, D, elems, increment) where {polyorder}
+                    ω, D, elems, increment) where {dim, polyorder}
 
-  dim = dimension(bl)
   nstate = num_state(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
@@ -231,11 +230,10 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(bl::BalanceLaw, ::Val{polyorder}, divnumflux::DivNumericalFlux,
+function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, divnumflux::DivNumericalFlux,
                   rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                  elemtobndy, elems) where {polyorder}
+                  elemtobndy, elems) where {dim, polyorder}
 
-  dim = dimension(bl)
   nstate = num_state(bl)
   nviscstate = num_diffusive(bl)
   nauxstate = num_aux(bl)
@@ -326,10 +324,9 @@ function facerhs!(bl::BalanceLaw, ::Val{polyorder}, divnumflux::DivNumericalFlux
   nothing
 end
 
-function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
+function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                           Q, Qvisc, auxstate, vgeo, t, D,
-                          elems) where {polyorder}
-  dim = dimension(bl)
+                          elems) where {dim, polyorder}
   nstate = num_state(bl)
   ngradstate = num_gradtransform(bl)
   nviscstate = num_diffusive(bl)
@@ -423,10 +420,9 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{polyorder},
   end
 end
 
-function faceviscterms!(bl::BalanceLaw, ::Val{polyorder}, gradnumflux::GradNumericalFlux,
+function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflux::GradNumericalFlux,
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) where {polyorder}
-  dim = dimension(bl)
+                        elemtobndy, elems) where {dim, polyorder}
   nstate = num_state(bl)
   ngradstate = num_gradtransform(bl)
   nviscstate = num_diffusive(bl)
@@ -554,8 +550,7 @@ function initstate!(::Val{dim}, ::Val{N}, ::Val{nvar}, ::Val{nauxstate},
   end
 end
 
-function initstate!(bl::BalanceLaw, ::Val{polyorder}, state, auxstate, vgeo, elems, args...) where {polyorder}
-  dim = dimension(bl)
+function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstate, vgeo, elems, args...) where {dim, polyorder}
   nauxstate = num_aux(bl)
   nstate = num_state(bl)
 
@@ -595,8 +590,7 @@ Computational kernel: Initialize the auxiliary state
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function initauxstate!(bl::BalanceLaw, ::Val{polyorder}, auxstate, vgeo, elems) where {polyorder}
-  dim = dimension(bl)
+function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems) where {dim, polyorder}
   nauxstate = num_aux(bl)
 
   N = polyorder

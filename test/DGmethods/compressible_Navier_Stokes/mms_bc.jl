@@ -48,6 +48,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                DefaultGradNumericalFlux())
 
   param = init_ode_param(dg)
+
   Q = init_ode_state(dg, param, DFloat(0))
   
   

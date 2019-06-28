@@ -43,13 +43,13 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(bl, Val(polyorder), Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
+            volumeviscterms!(bl, Val(dim), Val(polyorder), Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
                              topology.realelems))
 
     MPIStateArrays.finish_ghost_recv!(Q)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(polyorder), dg.gradnumflux, 
+            faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux, 
                            Q.Q, Qvisc.Q, auxstate.Q,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
@@ -61,7 +61,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   # RHS Computation #
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(polyorder), dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
+          volumerhs!(bl, Val(dim), Val(polyorder), dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
                      vgeo, t, lgl_weights_vec, Dmat, topology.realelems, increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
@@ -72,7 +72,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(polyorder), dg.divnumflux,
+          facerhs!(bl, Val(dim), Val(polyorder), dg.divnumflux,
                    dQdt.Q, Q.Q, Qvisc.Q,
                    auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
@@ -140,7 +140,7 @@ function init_ode_param(dg::DGModel)
     device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     @launch(device, threads=(Np,), blocks=nrealelem,
-            initauxstate!(bl, Val(polyorder), auxstate.Q, vgeo, topology.realelems))
+            initauxstate!(bl, Val(dim), Val(polyorder), auxstate.Q, vgeo, topology.realelems))
     MPIStateArrays.start_ghost_exchange!(auxstate)
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   # end
@@ -185,7 +185,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   device = typeof(state.Q) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
   @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(polyorder), state.Q, auxstate.Q, vgeo, topology.realelems, args...))
+          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo, topology.realelems, args...))
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 

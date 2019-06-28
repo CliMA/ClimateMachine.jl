@@ -10,7 +10,6 @@ q_{,t} + Σ_{i=1,...d} F_{i,i} = s
 ```
 
 Subtypes `L` should define the following methods:
-- `dimension(::L)` the number of dimensions
 - `vars_aux(::L)`: a tuple of symbols containing the auxiliary variables
 - `vars_state(::L)`: a tuple of symbols containing the state variables
 - `vars_state_for_transform(::L)`: a tuple of symbols containing the state variables which are passed to the `transform!` function.
@@ -38,7 +37,6 @@ has_diffusive(m::BalanceLaw) = num_diffusive(m) > 0
 num_state_for_gradtransform(bl::BalanceLaw) = num_state(m)
 
 # function stubs
-function dimension end
 function vars_aux end
 function vars_state end
 function vars_state_for_gradtransform end
