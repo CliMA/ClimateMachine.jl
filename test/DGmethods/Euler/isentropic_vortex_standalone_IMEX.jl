@@ -24,13 +24,15 @@ using CLIMA.SpaceMethods
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
+using CLIMA.LinearSolvers
+using CLIMA.GeneralizedConjugateResidualSolver
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -87,15 +89,20 @@ end
   γ::eltype(Q) = γ_exact
   abs(n⃗' * u⃗) + sqrt(ρinv * γ * P)
 end
+@inline function wavespeed_linear(n, Q, aux, t)
+  ρ_ref, ρe_ref = aux[_a_ρ_ref], aux[_a_ρe_ref]
+  ρu⃗_ref = SVector(aux[_a_ρu_ref], aux[_a_ρv_ref], aux[_a_ρw_ref])
+  ρinv_ref = 1 / ρ_ref
+  n⃗ = SVector(n)
+  γ::eltype(Q) = γ_exact
+  u⃗_ref = ρinv_ref * ρu⃗_ref
+  P_ref = (γ-1)*(ρe_ref - u⃗_ref' * ρu⃗_ref / 2)
+  abs(n⃗' * u⃗_ref) + sqrt(ρinv_ref * γ * P_ref)
+end
 
 # physical flux function
-combineflux!(F, Q, QV, aux, t) =
-combineflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
-
-@inline function combineflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
-  eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
-  linearized_eulerflux!(F, Q, QV, aux, t, true, -1)
-end
+eulerflux!(F, Q, QV, aux, t) =
+eulerflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
 
 @inline function eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
   @inbounds begin
@@ -116,8 +123,7 @@ end
   end
 end
 
-@inline function linearized_eulerflux!(F, Q, QV, aux, t, increment=false, α=1)
-  increment || (F .= 0)
+@inline function linearized_eulerflux!(F, Q, QV, aux, t)
   @inbounds begin
     DFloat = eltype(Q)
     γ::DFloat = γ_exact
@@ -137,12 +143,23 @@ end
 
     p_ref = ρinv_ref * P_ref
 
-    F[:, _δρ ] += α * (ρu⃗_ref + δρu⃗)
-    F[:, _δρu⃗] += α * (ρu⃗_ref * u⃗_ref' - (u⃗_ref * u⃗_ref') * δρ
-                       + δρu⃗ * u⃗_ref' + u⃗_ref * δρu⃗'
-                       + (P_ref + δP) * I)
-    F[:, _δρe] += α * ((e_ref + p_ref) * ρu⃗_ref + (e_ref + p_ref) * δρu⃗ +
-                       (δρe + δP) * u⃗_ref - (e_ref + p_ref) * u⃗_ref * δρ)
+    # FIXME: Not sure these pure reference terms are right...
+    #=
+    F[:, _δρ ] = (ρu⃗_ref + δρu⃗)
+    F[:, _δρu⃗] = (ρu⃗_ref * u⃗_ref' - (u⃗_ref * u⃗_ref') * δρ
+                  + δρu⃗ * u⃗_ref' + u⃗_ref * δρu⃗'
+                  + (P_ref + δP) * I)
+    F[:, _δρe] = ((e_ref + p_ref) * ρu⃗_ref + (e_ref + p_ref) * δρu⃗ +
+                  (δρe + δP) * u⃗_ref - (e_ref + p_ref) * u⃗_ref * δρ)
+    =#
+    F[:, _δρ ] = δρu⃗
+    F[:, _δρu⃗] = (+ δρu⃗ * u⃗_ref'
+                  + u⃗_ref * δρu⃗'
+                  - (u⃗_ref * u⃗_ref') * δρ
+                  + δP * I)
+    F[:, _δρe] = ((e_ref + p_ref) * δρu⃗
+                  + u⃗_ref * (δρe + δP)
+                  - (e_ref + p_ref) * u⃗_ref * δρ)
   end
 end
 
@@ -235,9 +252,9 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # spacedisc = data needed for evaluating the right-hand side function
   nonlin_spacedisc = DGBalanceLaw(grid = grid,
                                   length_state_vector = _nstate,
-                                  flux! = combineflux!,
+                                  flux! = eulerflux!,
                                   numerical_flux! = (x...) ->
-                                  NumericalFluxes.rusanov!(x..., combineflux!,
+                                  NumericalFluxes.rusanov!(x..., eulerflux!,
                                                            wavespeed,
                                                            preflux),
                                   auxiliary_state_length = _nauxstate,
@@ -250,7 +267,8 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                numerical_flux! = (x...) ->
                                NumericalFluxes.rusanov!(x...,
                                                         linearized_eulerflux!,
-                                                        (_...)->0),
+                                                        (_...)->0), # central
+                                                        # wavespeed_linear), # rusanov!
                                auxiliary_state_length = _nauxstate,
                                auxiliary_state_initialization! =
                                auxiliary_state_initialization!)
@@ -258,12 +276,11 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
   Q = MPIStateArray(nonlin_spacedisc, initialcondition)
+  dQ = similar(Q)
 
-  function odefun!(x...; increment)
-    SpaceMethods.odefun!(nonlin_spacedisc, x...; increment = increment)
-    SpaceMethods.odefun!(lin_spacedisc, x...; increment = true)
-  end
-  lsrk = LSRK54CarpenterKennedy(odefun!, Q; dt = dt, t0 = 0)
+  linearsolver = GeneralizedConjugateResidual(3, Q, 1e-10)
+  ark = ARK548L2SA2KennedyCarpenter(nonlin_spacedisc, lin_spacedisc,
+                                    linearsolver, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -279,7 +296,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
       @info @sprintf """Update
   simtime = %.16e
   runtime = %s
-  norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") energy
+  norm(Q) = %.16e""" ODESolvers.gettime(ark) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") energy
     end
   end
 
@@ -304,8 +321,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
     nothing
   end
 
-  # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, ark; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -350,12 +366,12 @@ let
   polynomialorder = 4
 
   expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-  expected_error[1,1] = 5.7099742412102117e-01
-  expected_error[1,2] = 6.9419139015287706e-02
-  expected_error[1,3] = 3.2929663297875029e-03
-  expected_error[2,1] = 1.8056523983051178e+00
-  expected_error[2,2] = 2.1952259249630343e-01
-  expected_error[2,3] = 1.0413273860337417e-02
+  expected_error[1,1] = 5.7107915113422314e-01
+  expected_error[1,2] = 6.9428317829549141e-02
+  expected_error[1,3] = 3.2924199180417437e-03
+  expected_error[2,1] = 1.8059108422662815e+00
+  expected_error[2,2] = 2.1955161886731539e-01
+  expected_error[2,3] = 1.0411547208036219e-02
   lvls = integration_testing ? size(expected_error, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
