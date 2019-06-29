@@ -73,7 +73,7 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # User Input
 #
 const numdims = 3
-const Npoly = 4
+const Npoly   = 4
 
 #
 # Define grid size 
@@ -82,125 +82,46 @@ const Npoly = 4
 #
 #Read external topography:
 #
-const lread_external_grid = 1
-if lread_external_grid == 1
-    
-    header_file_in                                           = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
-    (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
-    
-    #Δx    = dlon
-    #Δy    = dlat
-    # Δz    = 50
-    
-    #
-    # OR:
-    #
-    # Set Δx < 0 and define  Nex, Ney, Nez:
-    #
-    (Nex, Ney, Nez) = (nlon-1, nlat-1, 1)
-    #(Nex, Ney, Nez) = (10, 10, 10)
-    #nlon = Nex + 1
-    #nlat = Ney + 1
-    
-    #const lonmin, lonmax = -100, -1
-    #const latmin, latmax = -100, -1   
-    if lonmin < 0
-        lonminaux = lonmin - lonmin
-        lonmaxaux = lonmax - lonmin
-        lonmin, lonmax = lonminaux, lonmaxaux
-    end
-    
-    if latmin < 0
-        latminaux = latmin - latmin
-        latmaxaux = latmax - latmin
-        latmin, latmax = latminaux, latmaxaux
-    end
-   
 
-    
-    
-    # Physical domain extents 
-    const (xmin, xmax) = (abs(lonmin), abs(lonmax)) #(lonmin - lonmin, lonmax - lonmin)
-    const (ymin, ymax) = (abs(latmin), abs(latmax))
-    const (zmin, zmax) = (0, 1000)
-    const Lx = abs(xmax - xmin)
-    const Ly = abs(ymax - ymin)
-    const Lz = abs(zmax - zmin)
-    
-    Δx = Lx / ((Nex * Npoly) + 1)
-    Δy = Ly / ((Ney * Npoly) + 1)
-    Δz = Lz / ((Nez * Npoly) + 1)
-    
-    #= if ( Δz > 0)
-        #
-        # User defines the grid size:
-        #
-        ratioz = (Lz/Δz - 1)/Npoly
-        Nez    = ceil(Int64, ratioz)
-        
-    else
-        #
-        # User defines the number of elements:
-        #
-         Nez = 10
-        
-        # Physical domain extents 
-        const (xmin, xmax) = (0, 10000)
-        const (ymin, ymax) = (0, 10000)
-        const (zmin, zmax) = (0, 30000)
-        
-        Δz = Lz / ((Nez * Npoly) + 1)
-    end
-    =#
-    @info @sprintf """ Nex %d""" nlon-1
-    @info @sprintf """ Ney %d""" nlat-1
-    @info @sprintf """ Nez %d""" Nez
-    @info @sprintf """ xmin-max %.16e %.16e""" xmin xmax
-    @info @sprintf """ ymin-max %.16e %.16e""" ymin ymax
-    
-else
-    
-    Δx    = -100
-    Δy    = 100
-    Δz    = 100
-    #
-    # OR:
-    #
-    # Set Δx < 0 and define  Nex, Ney, Nez:
-    #
-    (Nex, Ney, Nez) = (10, 10, 10)
+header_file_in                                           = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
+(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
 
-    # Physical domain extents 
-    const (xmin, xmax) = (0, 1000)
-    const (ymin, ymax) = (0, 1500)
-    const (zmin, zmax) = (0, 2000)
-    
-    #Get Nex, Ney from resolution
-    const Lx = abs(xmax - xmin)
-    const Ly = abs(ymax - ymin)
-    const Lz = abs(zmax - zmin)
-
-    if ( Δx > 0)
-        #
-        # User defines the grid size:
-        #
-        ratiox = (Lx/Δx - 1)/Npoly
-        ratioy = (Ly/Δy - 1)/Npoly
-        ratioz = (Lz/Δz - 1)/Npoly
-        Nex = ceil(Int64, ratiox)
-        Ney = ceil(Int64, ratioy)
-        Nez = ceil(Int64, ratioz)
-        
-    else
-        #
-        # User defines the number of elements:
-        #
-        Δx = Lx / ((Nex * Npoly) + 1)
-        Δy = Ly / ((Ney * Npoly) + 1)
-        Δz = Lz / ((Nez * Npoly) + 1)
-    end
-    
+#
+# OR:
+#
+# Set Δx < 0 and define  Nex, Ney, Nez:
+#
+(Nex, Ney, Nez) = (nlon-1, nlat-1, 1)
+if lonmin < 0
+    lonminaux = lonmin - lonmin
+    lonmaxaux = lonmax - lonmin
+    lonmin, lonmax = lonminaux, lonmaxaux
 end
+
+if latmin < 0
+    latminaux = latmin - latmin
+    latmaxaux = latmax - latmin
+    latmin, latmax = latminaux, latmaxaux
+end
+
+
+# Physical domain extents 
+const (xmin, xmax) = (lonmin, lonmax) #(lonmin - lonmin, lonmax - lonmin)
+const (ymin, ymax) = (latmin, latmax)
+const (zmin, zmax) = (0, 10000)
+const Lx = abs(xmax - xmin)
+const Ly = abs(ymax - ymin)
+const Lz = abs(zmax - zmin)
+
+Δx = Lx / ((Nex * Npoly) + 1)
+Δy = Ly / ((Ney * Npoly) + 1)
+Δz = Lz / ((Nez * Npoly) + 1)
+
+@info @sprintf """ Nex %d""" nlon-1
+@info @sprintf """ Ney %d""" nlat-1
+@info @sprintf """ Nez %d""" Nez
+@info @sprintf """ xmin-max %.16e %.16e""" xmin xmax
+@info @sprintf """ ymin-max %.16e %.16e""" ymin ymax
 
 
 DoF = (Nex*Npoly+1)*(Ney*Npoly+1)*(Nez*Npoly+1)*(_nstate + _nviscstates)
@@ -657,7 +578,7 @@ end
     This function specifies the initial conditions
     for the dycoms driver. 
     """
-function dycoms!(dim, Q, t, x, y, z, _...)
+function test_external_grid!(dim, Q, t, x, y, z, _...)
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
     
@@ -720,12 +641,10 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     q_phase_part = PhasePartition(TS)
     
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
-    
 end
 
-#
+#{{{
 # Analytic topography
-#
 function warp_agnesi(xin, yin, zin)
     
     """
@@ -740,19 +659,23 @@ function warp_agnesi(xin, yin, zin)
     x, y, z = xin, yin, zin + z_diff * (zmax - zin)/zmax
     
 end
+#}}}
 
 
-
+#{{{
 #
-# Topograpny from topography file
+# DISCUSS WHERE TO EMBED THIS and how to interface this with the user.
+#
 
-TopoBathy_flg = 0
+# Topograpny from topography file
 header_file_in                                           = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
-(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
-  
 body_file_in                                             = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.xyz")
-(TopoX, TopoY, TopoZ)                                    = ReadExternalTxtCoordinates(body_file_in, "all", nlon, nlat)
-TopoSpline                                               = Spline2D(TopoX[:,1] .- TopoX[1,1], TopoY[1,:] .- TopoY[1,1], TopoZ)
+
+(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
+(xTopo, yTopo, zTopo)                                    = ReadExternalTxtCoordinates(body_file_in, "topo", nlon, nlat)
+TopoSpline                                               = Spline2D(xTopo, yTopo, zTopo)
+
+@info @sprintf """ Grids.jl: Importing topography file to CLIMA ... DONE""" 
 warp_external_topography(xin, yin, zin) = warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
 function warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
     """
@@ -766,40 +689,17 @@ function warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
     zdiff = TopoSpline(x, y) * (zmax - zin)/zmax
     x, y, z + zdiff
 end
-
-#=
-"""
-   Topography from file
-"""
-#header_file_in = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
-#body_file_in   = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.xyz")
-#(topoX, topoY, topoZ, nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = TopographyReadExternal("NOAA", header_file_in, body_file_in, "all")
-
-warp_external_topography(xin, yin, zin) = warp_external_topography(xin, yin, zin; topoXYZ...)
-@inline function warp_external_topography(xin, yin, zin, a::Array=topoX, b::Array=topoY, c::Array=topoZ)
-    
-    xout, yout, zout = xin, yin, zin
-    for j = 1:nlat
-        for i = 1:nlon
-            if (abs(xin - a[i,j]) <= 1.0e-8 &&
-                abs(yin - b[i,j]) <= 1.0e-8)
-                z = c[i,j]
-                xout, yout, zout = xin, yin, z
-            end
-        end
-    end
-    x, y, z = xout, yout, zout        
-end
-=#
-
+#}}}
 
 # ------------------------------------------------------------------
-# -------------END DEF SOURCES-------------------------------------# 
+# -------------END DEF SOURCES-------------------------------------#
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)    
+   
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                   range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+    
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
@@ -834,64 +734,41 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              auxiliary_state_initialization!(x...),
                              source! = source!,
                              preodefun! = integral_computation)
-    
+
     # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
+    initialcondition(Q, x...) = test_external_grid!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
     
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
     
-    #=eng0 = norm(Q)
-    @info @sprintf """Starting
-    norm(Q₀) = %.16e""" eng0
-    =#
-    # Set up the information callback
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
         if s
             starttime[] = now()
-        else
-            #energy = norm(Q)
-            #globmean = global_mean(Q, _ρ)
-            @info @sprintf("""Update
-                             simtime = %.16e
-                             runtime = %s""",
-                           ODESolvers.gettime(lsrk),
-                           Dates.format(convert(Dates.DateTime,
-                                                Dates.now()-starttime[]),
-                                        Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
         end
     end
 
-    npoststates = 11
-    _int1, _int2, _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+    npoststates = 8
+    _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-dycoms-15mX15mX10m")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    mkpath("GRIDS")
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           F_rad_out = radiation(aux)
-                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_z2inf], F_rad_out, preflux(Q, QV, aux)...)
+                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-dycoms-15mX15mX10m/cns_%dD_mpirank%04d_step%04d", dim,
-                             MPI.Comm_rank(mpicomm), step[1])
+        outprefix = @sprintf("GRIDS/GRID_%dD_mpirank%04d", dim,
+                             MPI.Comm_rank(mpicomm))
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
                  postprocessarray, postnames)
-        #= 
-        pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
-        prefixes = ntuple(i->
-        @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
-        dim, i-1, step[1]),
-        MPI.Comm_size(mpicomm))
-        writepvtu(pvtuprefix, prefixes, postnames)
-        =# 
+        
         step[1] += 1
         nothing
     end
@@ -899,33 +776,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # Initialise the integration computation. Kernels calculate this at every timestep?? 
     integral_computation(spacedisc, Q, 0) 
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
-
-#=
-# Print some end of the simulation information
-engf = norm(Q)
-if integration_testing
-Qe = MPIStateArray(spacedisc,
-(Q, x...) -> initialcondition!(Val(dim), Q,
-DFloat(timeend), x...))
-engfe = norm(Qe)
-errf = euclidean_distance(Q, Qe)
-@info @sprintf """Finished
-norm(Q)                 = %.16e
-norm(Q) / norm(Q₀)      = %.16e
-norm(Q) - norm(Q₀)      = %.16e
-norm(Q - Qe)            = %.16e
-norm(Q - Qe) / norm(Qe) = %.16e
-""" engf engf/eng0 engf-eng0 errf errf / engfe
-else
-@info @sprintf """Finished
-norm(Q)            = %.16e
-norm(Q) / norm(Q₀) = %.16e
-norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-end
-integration_testing ? errf : (engf / eng0)
-=#
-
 end
 
 using Test
@@ -948,7 +798,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.025
-    timeend = 900
+    timeend = dt
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
@@ -963,7 +813,7 @@ let
         @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
         @info @sprintf """                                                     """
         @info @sprintf """ ----------------------------------------------------"""
-        @info @sprintf """ Density current                                     """
+        @info @sprintf """ EXTERNAL GRID TEST                                  """
         @info @sprintf """   Resolution:                                       """ 
         @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δx Δy Δz
         @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez

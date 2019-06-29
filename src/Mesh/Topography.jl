@@ -1,4 +1,8 @@
 module Topography
+"""
+ module Topography
+    
+"""
 
 using Printf
 using DelimitedFiles
@@ -9,40 +13,13 @@ export TopographyReadExternal, ReadExternalHeader, ReadExternalTxtCoordinates
 import Canary
 using MPI
 
-# {{{ 
-"""
-       READTOPOtxt_header(txt_inputfile,nlon, nlat, deltaLon, deltaLat)
-
-       reads the header file containing the details 
-       of the topography from a NOAA text file
-    """
-function TopographyReadExternal(file_type, header_file_in, body_file_in, TopoBathy_flg)
-    #
-    # TopoBathy_flg = 'all/topo/bathy' for both/only topography/only bathymetry
-    #    
-    if file_type == "NOAA" || file_type == "noaa" || file_type == "txt"
-        
-        (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
-        
-        (xTopography, yTopography, zTopography) = ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
-    else
-        error( " Mesh/Topography.jl:
-                         ONLY NOAA txt files can be read in at this time. 
-                         Feel free to add your own reader. ") 
-    end
-
-    return (xTopography, yTopography, zTopography, nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat)
-    
-end
-
 
 # {{{ READTOPOtxt_header
 """
-       READTOPOtxt_header(txt_inputfile,nlon, nlat, deltaLon, deltaLat)
+   READTOPOtxt_header(txt_inputfile,nlon, nlat, deltaLon, deltaLat)
 
-       reads the header file containing the details 
-       of the topography from a NOAA text file
-    """
+   reads the header file containing the details of the topography from a NOAA text file
+"""
 function ReadExternalHeader(header_file_in)
     
     @info @sprintf """ Topography header file %s ... DONE""" header_file_in
@@ -76,15 +53,6 @@ function ReadExternalHeader(header_file_in)
     dlon  = lonmax - lonmin
     dlat  = latmax - latmin
 
-    @info @sprintf """ File type: NOAA Text header:"""
-    @info @sprintf """     %s %s""" topo_header[7,1] topo_header[7,2]  #units
-    @info @sprintf """     %s %d""" topo_header[1,1] nlon              #ncols (LON)
-    @info @sprintf """     %s %d""" topo_header[2,1] nlat              #nrows (LAT)
-    @info @sprintf """     Lon_min, Lon_max: %f, %f""" lonmin lonmax #
-    @info @sprintf """     Lat_min, Lat_max: %f, %f""" latmin latmax #
-    @info @sprintf """     Δlon:    %f""" dlon #
-    @info @sprintf """     Δlat:    %f""" dlat #
-    
     return (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat)
     
 end
@@ -93,70 +61,97 @@ end
 
 # {{{ READTOPOtxt_header
 """
-                   READTOPOtxt_file(txt_inputfile,nlon, nlat, deltaLon, deltaLat)
+  READTOPOtxt_file(txt_inputfile,nlon, nlat, deltaLon, deltaLat)
 
-                   Reads the topography from a NOAA text file of shape [1:nnodes][3]
-                   where the first and second column are the ordered lat-lon coordinates
-                   and the third column is the height of topography at that specific
-                   coordinate point.
-                 
-                  1) XYZ files from NOAA
-                   
-                  READTOPOtxt_header() reads the parameters from the header file (*.hdr)
-                  READTOPOtxt_file()   reads the actual file of coordinates      (*.xyz)
+   Reads the topography from a NOAA text file of shape [1:nnodes][3]
+   where the first and second column are the ordered lat-lon coordinates
+   and the third column is the height of topography at that specific
+   coordinate point.
                      
-                  2) DEM files
-                  
-                  READTOPO_DEM()       reads a DEM file from NOAA page (file extension: *.asc)
-                 
-                    """
+    1) XYZ files from NOAA
+                       
+     READTOPOtxt_header() reads the parameters from the header file (*.hdr)
+     READTOPOtxt_file()   reads the actual file of coordinates      (*.xyz)
+                         
+     2) DEM files
+                      
+     READTOPO_DEM()       reads a DEM file from NOAA page (file extension: *.asc)
+                     
+    returns xTopo1d, yTopo1d, zTopo2d
+
+ """
 function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
 
     @info @sprintf """ Topography file: %s""" body_file_in
 
-    DFloat = Float64 #CHANGE THIS TO GENERAL
-    
+    DFloat  = Float64 #NOTICE: I recommend the grid is always build in double precision even if the code is run in single 
+     
     ftopo_body = open(body_file_in)
     @info @sprintf """ Grids.jl: Opening topography file ... DONE"""
-    
+   
     topo_body = readdlm(ftopo_body)
-
-    # Create array on the device
-    nnodes_lon, nnodes_lat = nlon, nlat #Linear grid
-    xTopography = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
-    yTopography = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
-    zTopography = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
-    
-    k = 0
-    for j = nnodes_lat:-1:1
-        for i = 1:1:nnodes_lon
-            k = k + 1
-            
-            xTopography[i, j] = topo_body[k,1]
-            yTopography[i, j] = topo_body[k,2]
-            zTopography[i, j] = topo_body[k,3]
-
-            #if topo_body[k,3] < 0.0 && TopoBathy_flg == "all"
-                zTopography[i, j] = topo_body[k,3]
-            #else
-            #    zTopography[i, j] = 0.0
-            #end
-        end
-    end    
-    @info @sprintf """ Grids.jl: Reading topography file ... DONE""" 
-
-    #Check that the file is not empty
-    (nrows, _) = size(topo_body)
-    if nrows == 0
+    (npoin_linear_grid, _) = size(topo_body)
+    if npoin_linear_grid == 0
         error(" ERROR Grids.jl --> READTOPOtxt_xyz: grid file is empty!")
         return
     end
+    #
+    # Create array
+    #
+    nnodes_lon, nnodes_lat, nnodes = nlon, nlat, nlon*nlat #Linear grid
+    zTopo2d = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
+    
+    xTopo1d = Array{DFloat, 1}(undef, nnodes_lon)
+    yTopo1d = Array{DFloat, 1}(undef, nnodes_lat)
+    
+    k = 0
+    for j = 1:nnodes_lat
+        for i = 1:nnodes_lon
+            k = k + 1
+            zTopo2d[i,j] = topo_body[k,3]
+        end
+    end
+    npoin = k
+    
+    #
+    # Store 1D X array in the x direction: size -> nnodes_lat
+    # and order in increasing order
+    for i = 1:nnodes_lon     
+        xTopo1d[i] = topo_body[i,1]    
+        #@info @sprintf """ X[%d]: %.16e""" i xTopo1d[i]
+    end
+    if minimum(xTopo1d) < 0
+        xTopo1d =  xTopo1d .- minimum(xTopo1d)
+    end
+    if xTopo1d[1] > xTopo1d[end]
+        xTopo1d = reverse(xTopo1d)
+    end
+  
+    #
+    # Store 1D X array in the x direction: size -> nnodes_lat
+    # and order in increasing order
+    l = 0
+    interval = nnodes_lon
+    for k = 1:interval:nnodes
+        l = l + 1
+        yTopo1d[l] = topo_body[k,2]
+        #@info @sprintf """ Y[%d]: %.16e""" l yTopo1d[l]
+    end 
+    
+    #Shift if negative
+    if minimum(yTopo1d) < 0
+        yTopo1d =  yTopo1d .- minimum(yTopo1d)
+    end   
+    if yTopo1d[1] > yTopo1d[end]
+        yTopo1d = reverse(yTopo1d)
+    end
     
     close(ftopo_body)
-    @info @sprintf """ Grids.jl: Closing topography file ... DONE"""
-
-    return (xTopography, yTopography, zTopography)
     
+    @info @sprintf """ Grids.jl: Closing topography file ... DONE"""
+    
+    return xTopo1d, yTopo1d, zTopo2d
+ 
 end
 #}}}
 
