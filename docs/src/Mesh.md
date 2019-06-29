@@ -48,9 +48,9 @@ Grids.DiscontinuousSpectralElementGrid
 ## `Topography and bathymetry`
 Topography and bathymetry can either be read from an external topography file (2D files obtained from the NOAA database in txt file, NetCDf, or DEM) or, for user defined tests, by means of a user-defined analytic function.
 
-To read an external topography, the user needs to use the functions defined in `Grids.DiscontinuousSpectralElementGrid`
+To read an external topography, the user needs to use the functions defined in ```CLIMA.Topography```
 
 
 ```@docs
-Grids.DiscontinuousSpectralElementGrid
+Grids.Topography
 ```
