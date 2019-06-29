@@ -1,24 +1,39 @@
 module Topography
 """
- module Topography
-    
-"""
+    # Topography:
 
+    This module contains:
+
+    -  ReadExternalHeader(header_file_in)
+    -  ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
+
+    to read extenral grid files. 
+
+    ## The current implementation can only read ASCII files from the NOAA database
+        url{https://www.ngdc.noaa.gov/mgg/topo/}
+
+"""
 using Printf
 using DelimitedFiles
 using Dierckx
 
-export TopographyReadExternal, ReadExternalHeader, ReadExternalTxtCoordinates
+export ReadExternalHeader, ReadExternalTxtCoordinates
 
 import Canary
 using MPI
 
-
 # {{{ READTOPOtxt_header
-"""
-   READTOPOtxt_header(txt_inputfile,nlon, nlat, deltaLon, deltaLat)
+"""   
+    ReadExternalHeader(header_file_in)
+  
+    reads the header file containing the details of the topography from 
+    - NOAA ASCII file
+    - (NCDF and DEM files to be added. See reader in MMesh3D)
+  
+    
+    returns nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat
 
-   reads the header file containing the details of the topography from a NOAA text file
+ 
 """
 function ReadExternalHeader(header_file_in)
     
@@ -61,12 +76,12 @@ end
 
 # {{{ READTOPOtxt_header
 """
-  READTOPOtxt_file(txt_inputfile,nlon, nlat, deltaLon, deltaLat)
+    ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
 
-   Reads the topography from a NOAA text file of shape [1:nnodes][3]
-   where the first and second column are the ordered lat-lon coordinates
-   and the third column is the height of topography at that specific
-   coordinate point.
+    Reads the topography from a NOAA text file of shape [1:nnodes][3]
+    where the first and second column are the ordered lat-lon coordinates
+    and the third column is the height of topography at that specific
+    coordinate point.
                      
     1) XYZ files from NOAA
                        
