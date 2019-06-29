@@ -38,9 +38,9 @@ using LinearAlgebra
 using Dates
 using Printf
 using CLIMA
-using CLIMA.Topologies
+using CLIMA.Mesh.Topologies
 using CLIMA.MPIStateArrays
-using CLIMA.Grids
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.Vtk
