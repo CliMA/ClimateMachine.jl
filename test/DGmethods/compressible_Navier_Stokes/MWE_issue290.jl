@@ -78,37 +78,21 @@ const Npoly   = 4
 #
 # Define grid size 
 #
+(Nex, Ney, Nez) = (10, 10, 10)
 
-#
-#Read external topography:
-#
-
-header_file_in                                           = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
-(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
-
-#
-# OR:
-#
-# Set Δx < 0 and define  Nex, Ney, Nez:
-#
-(Nex, Ney, Nez) = (nlon-1, nlat-1, 1)
-if lonmin < 0
-    lonminaux = lonmin - lonmin
-    lonmaxaux = lonmax - lonmin
-    lonmin, lonmax = lonminaux, lonmaxaux
-end
-
-if latmin < 0
-    latminaux = latmin - latmin
-    latmaxaux = latmax - latmin
-    latmin, latmax = latminaux, latmaxaux
-end
+# Physical domain extents
 
 
-# Physical domain extents 
-const (xmin, xmax) = (lonmin, lonmax) #(lonmin - lonmin, lonmax - lonmin)
-const (ymin, ymax) = (latmin, latmax)
-const (zmin, zmax) = (0, 10000)
+# UNCOMMENT FOR CORRETLY WORKING EXAMPLE
+#const (xmin, xmax) = (1, 100) #(lonmin - lonmin, lonmax - lonmin)
+#const (ymin, ymax) = (0, 100)
+#const (zmin, zmax) = (0, 100)
+
+# UNCOMMENT FOR WRONG EXAMPLE
+const (xmin, xmax) = (-100, -1) #(lonmin - lonmin, lonmax - lonmin)
+const (ymin, ymax) = (-100, -1)
+const (zmin, zmax) = (0, 100)
+
 const Lx = abs(xmax - xmin)
 const Ly = abs(ymax - ymin)
 const Lz = abs(zmax - zmin)
@@ -177,30 +161,6 @@ end
     end
 end
 
-
-# -------------------------------------------------------------------------
-# ### read sounding
-#md # 
-#md # The sounding file contains the following quantities along a 1D column.
-#md # It needs to have the following structure:
-#md #
-#md # z[m]   theta[K]  q[g/kg]   u[m/s]   v[m/s]   p[Pa]
-#md # ...      ...       ...      ...      ...      ...
-#md #
-#md #
-# -------------------------------------------------------------------------
-function read_sounding()
-    #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_from_PyCles.dat"))
-    sounding = readdlm(fsounding)
-    close(fsounding)
-    (nzmax, ncols) = size(sounding)
-    if nzmax == 0
-        error("SOUNDING ERROR: The Sounding file is empty!")
-    end
-    return (sounding, nzmax, ncols)
-end
 
 # -------------------------------------------------------------------------
 # ### Physical Flux (Required)
@@ -572,16 +532,40 @@ end
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
 
+
+# -------------------------------------------------------------------------
+# ### read sounding
+#md # 
+#md # The sounding file contains the following quantities along a 1D column.
+#md # It needs to have the following structure:
+#md #
+#md # z[m]   theta[K]  q[g/kg]   u[m/s]   v[m/s]   p[Pa]
+#md # ...      ...       ...      ...      ...      ...
+#md #
+#md #
+# -------------------------------------------------------------------------
+function read_sounding()
+    #read in the original squal sounding
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    sounding = readdlm(fsounding)
+    close(fsounding)
+    (nzmax, ncols) = size(sounding)
+    if nzmax == 0
+        error("SOUNDING ERROR: The Sounding file is empty!")
+    end
+    return (sounding, nzmax, ncols)
+end
+
+
 # initial condition
 """
     User-specified. Required. 
     This function specifies the initial conditions
     for the dycoms driver. 
     """
-function test_external_grid!(dim, Q, t, x, y, z, _...)
-    DFloat         = eltype(Q)
-    p0::DFloat      = MSLP
-    
+function MWE!(dim, Q, t, x, y, z, _...)
+
+  
     # ----------------------------------------------------
     # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
     # This driver accepts data in 6 column format
@@ -627,12 +611,12 @@ function test_external_grid!(dim, Q, t, x, y, z, _...)
     ρ     = air_density(T, P)
     
     # energy definitions
-    u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    u, v, w     = 0.0, 0.0, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w
     e_kin       = (u^2 + v^2 + w^2) / 2  
-    e_pot       = grav * xvert
+    e_pot       = grav * z
     e_int       = internal_energy(T, PhasePartition(q_tot))
     E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
     
@@ -662,35 +646,6 @@ end
 #}}}
 
 
-#{{{
-#
-# DISCUSS WHERE TO EMBED THIS and how to interface this with the user.
-#
-
-# Topograpny from topography file
-header_file_in                                           = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
-body_file_in                                             = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.xyz")
-
-(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
-(xTopo, yTopo, zTopo)                                    = ReadExternalTxtCoordinates(body_file_in, "topo", nlon, nlat)
-TopoSpline                                               = Spline2D(xTopo, yTopo, zTopo)
-
-@info @sprintf """ Grids.jl: Importing topography file to CLIMA ... DONE""" 
-warp_external_topography(xin, yin, zin) = warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
-function warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
-    """
-       Given the input set of spatial coordinates based on the DG transform
-       Interpolate using the 2D spline to get the mesh warp on the entire grid,
-       pointwise. 
-    """
-    x     = xin
-    y     = yin
-    z     = zin
-    zdiff = TopoSpline(x, y) * (zmax - zin)/zmax
-    x, y, z + zdiff
-end
-#}}}
-
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------#
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)    
@@ -710,7 +665,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             FloatType = DFloat,
                                             DeviceArray = ArrayType,
                                             polynomialorder = N,
-                                            meshwarp = warp_external_topography)
+                                            meshwarp = warp_agnesi)
     
     numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
     numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
@@ -736,7 +691,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              preodefun! = integral_computation)
 
     # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = test_external_grid!(Val(dim), Q, DFloat(0), x...)
+    initialcondition(Q, x...) = MWE!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
     
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
@@ -763,8 +718,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("GRIDS/GRID_%dD_mpirank%04d", dim,
-                             MPI.Comm_rank(mpicomm))
+        outprefix = @sprintf("GRIDS/MWE_GRID_issue290_mpirank%04d", MPI.Comm_rank(mpicomm))
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
                  postprocessarray, postnames)
