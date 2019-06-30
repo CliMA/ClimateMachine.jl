@@ -112,20 +112,16 @@ if ( Δx > 0)
     #
     # User defines the grid size:
     #
-    ratiox = (Lx/Δx - 1)/Npoly
-    ratioy = (Ly/Δy - 1)/Npoly
-    ratioz = (Lz/Δz - 1)/Npoly
-    Nex = ceil(Int64, ratiox)
-    Ney = ceil(Int64, ratioy)
-    Nez = ceil(Int64, ratioz)
-    
+    Nex = ceil(Int64, Lx / (Δx * Npoly))
+    Ney = ceil(Int64, Ly / (Δy * Npoly))
+    Nez = ceil(Int64, Lz / (Δz * Npoly))
 else
     #
     # User defines the number of elements:
     #
-    Δx = Lx / ((Nex * Npoly) + 1)
-    Δy = Ly / ((Ney * Npoly) + 1)
-    Δz = Lz / ((Nez * Npoly) + 1)
+    Δx = Lx / (Nex * Npoly)
+    Δy = Ly / (Ney * Npoly)
+    Δz = Lz / (Nez * Npoly)
 end
 
 
