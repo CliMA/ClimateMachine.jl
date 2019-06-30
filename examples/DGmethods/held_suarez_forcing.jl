@@ -2,7 +2,7 @@
 #
 #md # !!! jupyter
 #md #     This example is also available as a Jupyter notebook:
-#md #     [`held_suarez_balanced.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods/generated/held_suarez_balanced.html)
+#md #     [`held_suarez_forcing.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods/generated/held_suarez_forcing.html)
 #
 # ## Introduction
 #
@@ -24,7 +24,7 @@
 
 # Below is a program interspersed with comments.
 #md # The full program, without comments, can be found in the next
-#md # [section](@ref held_suarez_balanced-plain-program).
+#md # [section](@ref held_suarez_forcing-plain-program).
 #
 # ## Commented Program
 
@@ -32,8 +32,8 @@
 #--------------------------------#
 #--------------------------------#
 # Can be run with:
-# CPU: mpirun -n 1 julia --project=@. held_suarez_balanced.jl
-# GPU: mpirun -n 1 julia --project=/home/fxgiraldo/CLIMA/env/gpu held_suarez_balanced.jl
+# CPU: mpirun -n 1 julia --project=@. held_suarez_forcing.jl
+# GPU: mpirun -n 1 julia --project=/home/fxgiraldo/CLIMA/env/gpu held_suarez_forcing.jl
 #--------------------------------#
 #--------------------------------#
 
@@ -97,10 +97,10 @@ const _statenames = ("δρ", "ρu", "ρv", "ρw", "δρe")
 
 # These will be the auxiliary state which will contain the geopotential,
 # gradient of the geopotential, and reference values for density and total
-# energy
-const _nauxstate = 6
-const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_ρ_ref, _a_ρe_ref = 1:_nauxstate
-const _auxnames = ("ϕ", "ϕx", "ϕy", "ϕz", "ρ_ref", "ρe_ref")
+# energy, as well as the coordinates
+const _nauxstate = 9
+const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_ρ_ref, _a_ρe_ref, _a_x, _a_y, _a_z = 1:_nauxstate
+const _auxnames = ("ϕ", "ϕx", "ϕy", "ϕz", "ρ_ref", "ρe_ref", "x", "y", "z")
 #md nothing # hide
 
 #------------------------------------------------------------------------------
@@ -149,11 +149,17 @@ function eulerflux!(F, Q, _, aux, t)
 end
 #md nothing # hide
 
-# Define the geopotential source from the solution and auxiliary variables
+# FXG: Source function => Define the geopotential and Held-Suarez source from the solution and auxiliary variables
 function geopotential!(S, Q, aux, t)
   @inbounds begin
-    ρ_ref, ϕx, ϕy, ϕz = aux[_a_ρ_ref], aux[_a_ϕx], aux[_a_ϕy], aux[_a_ϕz]
-    dρ = Q[_dρ]
+
+    ## Store values
+    dρ, ρu, ρv, ρw, dρe = Q[_dρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_dρe]
+    ρ_ref, ρe_ref = aux[_a_ρ_ref], aux[_a_ρe_ref]
+    ϕ, ϕx, ϕy, ϕz = aux[_a_ϕ], aux[_a_ϕx], aux[_a_ϕy], aux[_a_ϕz]
+    x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+
+    ## Add Geopotential source
     S[_dρ ] = 0
     if PDE_level_hydrostatic_balance
       S[_ρu ] = -dρ * ϕx
@@ -166,6 +172,68 @@ function geopotential!(S, Q, aux, t)
       S[_ρw ] = -ρ * ϕz
     end
     S[_dρe] = 0
+
+    ## Add Held-Suarez Source
+    #Extract Temperature
+    ρ = ρ_ref + dρ
+    ρe = ρe_ref + dρe
+    e = ρe / ρ
+    u, v, w = ρu / ρ, ρv / ρ, ρw / ρ
+    e_int = e - (u^2 + v^2 + w^2)/2 - ϕ
+    T = air_temperature(e_int)
+    P = air_pressure(T, ρ)
+    
+    #Create Held-Suarez forcing
+    (kv,kt,T_eq)=held_suarez_forcing(x,y,z,T,P)    
+    
+    #Apply forcing
+    S[_ρu ]  -= kv*ρu
+    S[_ρv ]  -= kv*ρv
+    S[_ρw ]  -= kv*ρw
+    S[_dρe ] -= ( kt*ρ*e_int + kv*(ρu*ρu + ρv*ρv + ρw*ρw)/ρ )
+    
+end
+end
+#md nothing # hide
+
+# FXG: Held-Suarez forcing function
+function held_suarez_forcing(x, y, z, T, P)
+  @inbounds begin
+    DFloat = eltype(T)
+
+    #Store Held-Suarez constants
+    p0 :: DFloat = MSLP
+    θ0 :: DFloat = 315
+    N_bv :: DFloat = 0.0158725
+    gravity :: DFloat = grav
+    ka :: DFloat = 1 // 40 // 86400
+    kf :: DFloat = 1 // 86400
+    ks :: DFloat = 1 // 4 // 86400
+    ΔT_y :: DFloat = 60 
+    ΔT_z :: DFloat = 10   
+    temp0 :: DFloat = 315
+    temp_min :: DFloat = 200
+    hd :: DFloat = 7000 #from Smolarkiewicz JAS 2001 paper    
+    σ_b :: DFloat = 7 // 10
+    
+    #Compute Rayleigh Damping terms from Held-Suarez 1994 paper
+    (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
+    h = r - DFloat(planet_radius) # height above the planet surface
+    σ = exp(-h/hd) #both approx of sigma behave similarly
+#    σ = P/p0        #both approx of sigma behave similarly
+    Δσ = (σ - σ_b)/(1 - σ_b)
+    π = σ^(R_d/cp_d)
+    c = max(0, Δσ)
+    T_eq = ( temp0 - ΔT_y*sin(φ)^2 - ΔT_z*log10(σ)*cos(φ)^2 )*π
+    T_eq = max(temp_min, T_eq)
+    kt = ka + (ks-ka)*c*cos(φ)^4
+    kv = kf*c
+    kt = kt*(1 - T_eq/T)
+
+    #println("h = ",h,", φ = ",φ,", T_eq = ",T_eq,", T = ",T)
+
+    #Pass Held-Suarez data
+    (kv, kt, T_eq)
   end
 end
 #md nothing # hide
@@ -245,10 +313,10 @@ end
 function auxiliary_state_initialization!(T0, aux, x, y, z)
   @inbounds begin
     DFloat = eltype(aux)
-    p0 = DFloat(MSLP)
-    θ0 = DFloat(315)
-    N_bv=DFloat(0.0158725)
-    gravity=DFloat(grav)
+    p0 :: DFloat = MSLP
+    θ0 :: DFloat = 315
+    N_bv :: DFloat = 0.0158725
+    gravity :: DFloat = grav
     
     ## Convert to Spherical coordinates
     (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
@@ -284,6 +352,9 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     aux[_a_ϕz] = 0
     aux[_a_ρ_ref]  = ρ_ref
     aux[_a_ρe_ref] = ρe_ref
+    aux[_a_x] = x
+    aux[_a_y] = y
+    aux[_a_z] = z
   end
 end
 #md nothing # hide
@@ -293,7 +364,7 @@ end
 function initialcondition!(domain_height, Q, x, y, z, aux, _...)
   @inbounds begin
     DFloat = eltype(Q)
-    p0 = DFloat(MSLP)
+    p0 :: DFloat = MSLP
 
     (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
     h = r - DFloat(planet_radius)
@@ -461,8 +532,8 @@ let
   days = 86400
 #  finaltime = 0.1*days
 #  outputtime = 0.01*days
-  finaltime = 1000
-  outputtime =100
+  finaltime = 1*days
+  outputtime =1*days
   
   @show(polynomialorder,Ne_horizontal,Ne_vertical,dt,finaltime,finaltime/dt)
 
@@ -473,7 +544,7 @@ let
   mkpath(VTKDIR)
   function do_output(vtk_step)
     ## name of the file that this MPI rank will write
-    filename = @sprintf("%s/held_suarez_balanced_mpirank%04d_step%04d",
+    filename = @sprintf("%s/held_suarez_forcing_mpirank%04d_step%04d",
                         VTKDIR, MPI.Comm_rank(mpicomm), vtk_step)
 
     ## fill the `δP` array with the pressure perturbation
@@ -486,11 +557,11 @@ let
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
       ## name of the pvtu file
-      pvtuprefix = @sprintf("held_suarez_balanced_step%04d", vtk_step)
+      pvtuprefix = @sprintf("held_suarez_forcing_step%04d", vtk_step)
 
       ## name of each of the ranks vtk files
       prefixes = ntuple(i->
-                        @sprintf("%s/held_suarez_balanced_mpirank%04d_step%04d",
+                        @sprintf("%s/held_suarez_forcing_mpirank%04d_step%04d",
                                  VTKDIR, i-1, vtk_step),
                         MPI.Comm_size(mpicomm))
 
@@ -569,11 +640,11 @@ Sys.iswindows() || MPI.finalize_atexit()
 Sys.iswindows() && !isinteractive() && MPI.Finalize()
 #md nothing # hide
 
-#md # ## [Plain Program](@id held_suarez_balanced-plain-program)
+#md # ## [Plain Program](@id held_suarez_forcing-plain-program)
 #md #
 #md # Below follows a version of the program without any comments.
 #md # The file is also available here:
-#md # [ex\_003\_acoustic\_wave.jl](held_suarez_balanced.jl)
+#md # [ex\_003\_acoustic\_wave.jl](held_suarez_forcing.jl)
 #md #
 #md # ```julia
 #md # @__CODE__
