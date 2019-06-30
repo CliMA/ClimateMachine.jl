@@ -10,7 +10,7 @@ export compute_strainrate_tensor
 export compute_stress_tensor
 export standard_smagorinsky
 export dynamic_smagorinsky
-export buoyancy_correction!
+export buoyancy_correction
 export anisotropic_minimum_dissipation_viscosity
 export anisotropic_minimum_dissipation_diffusivity
 export anisotropic_coefficient_sgs
@@ -33,7 +33,7 @@ export anisotropic_coefficient_sgs
   eprint = {https://doi.org/10.1063/1.869251}
   }
   """
-  const C_ss = 0.14 
+  const C_ss = 0.23
   const Prandtl_turb = 1 // 3
   const Prandtl = 71 // 100
 
@@ -72,7 +72,7 @@ export anisotropic_coefficient_sgs
       f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2 )
       Δ = Δ*f_anisotropic
       Δsqr = Δ * Δ
-      return Δsqr
+      return (f_anisotropic,Δsqr)
   end
 
   """
@@ -98,9 +98,12 @@ export anisotropic_coefficient_sgs
   τij = 2 * ν_e * Sij ........................................[3]
   """
   function compute_strainrate_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
-    S11, S12, S13 = dudx, (dudy + dvdx) / 2, (dudz + dwdx) / 2
-    S22, S23      = dvdy, (dvdz + dwdy) / 2
-    S33           = dwdz
+    S11, = dudx
+    S12  = (dudy + dvdx) / 2
+    S13  = (dudz + dwdx) / 2
+    S22  = dvdy
+    S23  = (dvdz + dwdy) / 2
+    S33  = dwdz
     SijSij = S11^2 + S22^2 + S33^2 + 2 * (S12^2 + S13^2 + S23^2)  
     return (S11, S22, S33, S12, S13, S23, SijSij)
   end
@@ -132,16 +135,17 @@ export anisotropic_coefficient_sgs
   eprint = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2}
   }
   """
-  function standard_smagorinsky(SijSij, Δ2)
-    ν_e = sqrt(2.0 * SijSij) * C_ss * C_ss * Δ2
-    D_e = ν_e / Prandtl_turb 
+  function standard_smagorinsky(SijSij, Δsqr)
+    ν_e::eltype(SijSij) = sqrt(2.0 * SijSij) * C_ss * C_ss * Δsqr
+    D_e::eltype(SijSij) = ν_e / Prandtl_turb 
     return (ν_e, D_e)
   end
 
   """
   Buoyancy adjusted Smagorinsky coefficient for stratified flows
   
-  Ri = gravity / θᵥ * ∂θ∂z / 2 |S_{ij}|
+  Ri = N² / (2*SijSij)
+  Ri = gravity / ρ * ∂ρ∂z / 2 |S_{ij}|
   article{doi:10.1111/j.2153-3490.1962.tb00128.x,
   author = {LILLY, D. K.},
   title = {On the numerical simulation of buoyant convection},
@@ -155,13 +159,11 @@ export anisotropic_coefficient_sgs
   year = {1962}
   }
   """
-  function buoyancy_correction!(ν_e, D_e, SijSij, θ, dθdz)
-    N2 = grav / θ * dθdz 
-    Richardson = N2 / (2 * SijSij)
+  function buoyancy_correction(SijSij, ρ, dρdz)
+    N2 = grav / ρ * dρdz 
+    Richardson = N2 / (2 * SijSij + eps(SijSij))
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
-    ν_e *= buoyancy_factor
-    D_e *= buoyancy_factor
-    return (ν_e, D_e)
+    return buoyancy_factor
   end
 
 end

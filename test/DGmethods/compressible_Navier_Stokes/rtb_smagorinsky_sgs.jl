@@ -39,11 +39,11 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
+const _nviscstates = 17
+const _ρy, _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
 
 # Gradient state labels
-const _ngradstates = 7
+const _ngradstates = 8
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 if !@isdefined integration_testing
@@ -64,13 +64,13 @@ const cp_over_prandtl = cp_d / Prandtl
 # filters are tested against this benchmark problem
 
 # User Input
-const numdims = 3
+const numdims = 2
 
 
 # Define grid size 
 const Δx    =  5
 const Δy    =  5
-const Δz    =  150
+const Δz    =  5
 const Npoly = 4
 
 # Physical domain extents 
@@ -105,7 +105,7 @@ else
 end
 
 # Anisotropic grid computation
-const Δsqr = SubgridScaleTurbulence.anisotropic_coefficient_sgs(Δx, Δy, Δz, Npoly)
+const (f_anisotropic,Δsqr) = SubgridScaleTurbulence.anisotropic_coefficient_sgs(Δx, Δy, Δz, Npoly)
 
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """   ______ _      _____ __  ________                  """     
@@ -209,17 +209,17 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
         vθy = VF[_θy]
+        vρy = VF[_ρy]
         
         #Dynamic eddy viscosity from Smagorinsky:
         SijSij = VF[_SijSij]
-        (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
-        SubgridScaleTurbulence.buoyancy_correction!(ν_e, D_e, SijSij, θ, vθy)
+        f_buoyancy = SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
 
         # Multiply stress tensor by viscosity coefficient:
-        τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22] * ν_e, VF[_τ33] * ν_e
-        τ12 = τ21 = VF[_τ12] * ν_e 
-        τ13 = τ31 = VF[_τ13] * ν_e               
-        τ23 = τ32 = VF[_τ23] * ν_e
+        τ11, τ22, τ33 = VF[_τ11] * f_buoyancy  , VF[_τ22] * f_buoyancy, VF[_τ33] * f_buoyancy
+        τ12 = τ21 = VF[_τ12] * f_buoyancy 
+        τ13 = τ31 = VF[_τ13] * f_buoyancy 
+        τ23 = τ32 = VF[_τ23] * f_buoyancy 
         
         # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
         F[1, _U] -= τ11 ; F[2, _U] -= τ12 ; F[3, _U] -= τ13 
@@ -227,9 +227,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _W] -= τ31 ; F[2, _W] -= τ32 ; F[3, _W] -= τ33 
         
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * f_buoyancy 
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * f_buoyancy 
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * f_buoyancy 
         
     end
 end
@@ -251,24 +251,30 @@ end
         dqdx, dqdy, dqdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
         dTdx, dTdy, dTdz = grad_vars[1, 6], grad_vars[2, 6], grad_vars[3, 6]
         dθdx, dθdy, dθdz = grad_vars[1, 7], grad_vars[2, 7], grad_vars[3, 7]
+        dρdy= grad_vars[2, 8]
         
         # --------------------------------------------
         (S11, S22, S33, S12, S13, S23, SijSij) = compute_strainrate_tensor(dudx, dudy, dudz,
                                                                            dvdx, dvdy, dvdz, 
                                                                            dwdx, dwdy, dwdz)
+        
+        (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
         #--------------------------------------------
         # deviatoric stresses
-        VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
-        VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
-        VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
-        VF[_τ12] = 2 * S12
-        VF[_τ13] = 2 * S13
-        VF[_τ23] = 2 * S23
+        VF[_τ11] = 2 *ν_e * (S11 - (S11 + S22 + S33) / 3)
+        VF[_τ22] = 2 *ν_e * (S22 - (S11 + S22 + S33) / 3)
+        VF[_τ33] = 2 *ν_e * (S33 - (S11 + S22 + S33) / 3)
+        VF[_τ12] = 2 *ν_e * S12
+        VF[_τ13] = 2 *ν_e * S13
+        VF[_τ23] = 2 *ν_e * S23
         
         VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+        VF[_Tx] = dTdx*ν_e 
+        VF[_Ty] = dTdy*ν_e
+        VF[_Tz] = dTdz*ν_e
         VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_SijSij] = SijSij
+        VF[_ρy] = dρdy
     end
 end
 # -------------------------------------------------------------------------
@@ -287,6 +293,7 @@ gradient_vars!(grad_list, Q, aux, t, _...) = gradient_vars!(grad_list, Q, aux, t
         grad_list[1], grad_list[2], grad_list[3] = u, v, w
         grad_list[4], grad_list[5], grad_list[6] = E, QT, T
         grad_list[7] = θ
+        grad_list[8] = ρ
     end
 end
 
@@ -313,7 +320,7 @@ end
 @inline function stresses_penalty!(VF, nM, grad_listM, QM, aM, grad_listP, QP, aP, t)
     @inbounds begin
         n_Δgrad_list = similar(VF, Size(3, 3))
-        for j = 1:3, i = 1:7
+        for j = 1:3, i = 1:_ngradstates
             n_Δgrad_list[i, j] = nM[i] * (grad_listP[j] - grad_listM[j]) / 2
         end
         compute_stresses!(VF, n_Δgrad_list)
@@ -421,8 +428,7 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
-                  range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
     
     
     # User defined periodicity in the topl assignment
@@ -486,14 +492,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 9
-    _post_sgs, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("SGS", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+    npoststates = 8
+    _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-robert")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    mkpath("vtk-robert-test-B")
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
@@ -501,7 +507,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-robert/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-robert-test-B/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -565,7 +571,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.005
-    timeend = 1200
+    timeend = 1080
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims

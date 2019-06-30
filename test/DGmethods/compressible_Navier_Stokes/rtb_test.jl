@@ -68,15 +68,15 @@ const numdims = 2
 
 
 # Define grid size 
-const Δx    =  25
-const Δy    =  25
-const Δz    =  25
+const Δx    =  5
+const Δy    =  5
+const Δz    =  5
 const Npoly = 4
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 25600)
-const (ymin, ymax) = (0,  6400) #VERTICAL
-const (zmin, zmax) = (0,  30)
+const (xmin, xmax) = (0, 1000)
+const (ymin, ymax) = (0, 1500) #VERTICAL
+const (zmin, zmax) = (0,  200)
 
 
 #Get Nex, Ney from resolution
@@ -107,8 +107,6 @@ end
 # Anisotropic grid computation
 const (f_anisotropic,Δsqr) = SubgridScaleTurbulence.anisotropic_coefficient_sgs(Δx, Δy, Δz, Npoly)
 
-@info @sprintf """f_anisotropic %.16e""" f_anisotropic
-
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """   ______ _      _____ __  ________                  """     
 @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
@@ -132,11 +130,11 @@ const (f_anisotropic,Δsqr) = SubgridScaleTurbulence.anisotropic_coefficient_sgs
 const _nauxstate = 3
 const _a_x, _a_y, _a_z, = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
-  @inbounds begin
-    aux[_a_x] = x
-    aux[_a_y] = y
-    aux[_a_z] = z
-  end
+    @inbounds begin
+        aux[_a_x] = x
+        aux[_a_y] = y
+        aux[_a_z] = z
+    end
 end
 
 # -------------------------------------------------------------------------
@@ -208,15 +206,14 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
 
         #Derivative of T and Q:
-        vρy = VF[_ρy]
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
         vθy = VF[_θy]
+        vρy = VF[_ρy]
         
         #Dynamic eddy viscosity from Smagorinsky:
         SijSij = VF[_SijSij]
-        
-        f_buoyancy = SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
+        f_buoyancy = 1.0 # SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
 
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * f_buoyancy  , VF[_τ22] * f_buoyancy, VF[_τ33] * f_buoyancy
@@ -233,7 +230,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * f_buoyancy 
         F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * f_buoyancy 
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * f_buoyancy 
-
+        
     end
 end
 
@@ -323,7 +320,7 @@ end
 @inline function stresses_penalty!(VF, nM, grad_listM, QM, aM, grad_listP, QP, aP, t)
     @inbounds begin
         n_Δgrad_list = similar(VF, Size(3, 3))
-        for j = 1:3, i = 1:_ngradstates
+        for j = 1:3, i = 1:7
             n_Δgrad_list[i, j] = nM[i] * (grad_listP[j] - grad_listM[j]) / 2
         end
         compute_stresses!(VF, n_Δgrad_list)
@@ -402,13 +399,12 @@ function density_current!(dim, Q, t, x, y, z, _...)
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0 
     # perturbation parameters for rising bubble
-    rx                    = 4000
-    ry                    = 2000
-    xc                    = 0
-    yc                    = 3000
-    r                     = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
+    rc                    = 250
+    xc                    = 500
+    yc                    = 350
+    r                     = sqrt( (x - xc)^2/rc^2 + (y - yc)^2/rc^2)
     θ_ref::DFloat         = 300
-    θ_c::DFloat           = -15.0
+    θ_c::DFloat           = 0.5
     Δθ::DFloat            = 0.0
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
@@ -478,7 +474,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
         if s
             starttime[] = now()
         else
@@ -502,7 +498,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-dc-test-B")
+    mkpath("vtk-robert-test")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -511,7 +507,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-dc-test-B/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-robert-test/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -574,8 +570,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.01
-    timeend = 1200
+    dt = 0.005
+    timeend = 1080
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
