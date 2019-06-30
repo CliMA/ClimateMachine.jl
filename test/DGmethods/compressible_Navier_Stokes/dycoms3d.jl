@@ -689,7 +689,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           R[_v] = v
           R[_w] = w
           R[_q_liq] = aux[_a_q_liq]
-          R[_T] = aux[_a_q_T]
+          R[_T] = aux[_a_T]
         end
       end
 
