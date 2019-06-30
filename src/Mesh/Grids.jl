@@ -1,6 +1,5 @@
 module Grids
 using ..Topologies
-using Printf
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorder
