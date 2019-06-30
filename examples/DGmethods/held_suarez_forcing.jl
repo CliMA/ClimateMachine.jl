@@ -1,26 +1,19 @@
-# # Example 003: Acoustic Wave on Sphere
+# # Held-Suarez on the Sphere
 #
 #md # !!! jupyter
 #md #     This example is also available as a Jupyter notebook:
-#md #     [`held_suarez_forcing.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods/generated/held_suarez_forcing.html)
+#md #     [`held_suarez_balanced.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods/generated/held_suarez_balanced.html)
 #
 # ## Introduction
 #
-# In this example we will set up and run the acoustic wave test problem from
-# [Tomita and Satoh (2004)](https://doi.org/10.1016/j.fluiddyn.2004.03.003).
-# ```
-# @article{TomitaSatoh2004,
-#   author = {Hirofumi Tomita and Masaki Satoh},
-#   title = {A new dynamical framework of nonhydrostatic global model using the
-#            icosahedral grid},
-#   journal = {Fluid Dynamics Research},
-#   volume = {34},
-#   number = {6},
-#   pages = {357-400},
-#   year = {2004},
-#   doi = {10.1016/j.fluiddyn.2004.03.003},
-# }
-# ```
+# In this example we will set up and run the Held-Suarez test case from 
+# Held and Suarez (1994) (https://journals.ametsoc.org/doi/pdf/10.1175/1520-0477%281994%29075%3C1825%3AAPFTIO%3E2.0.CO%3B2)
+
+# Below is a program interspersed with comments.
+#md # The full program, without comments, can be found in the next
+#md # [section](@ref held_suarez_balanced-plain-program).
+#
+# ## Commented Program
 
 # Below is a program interspersed with comments.
 #md # The full program, without comments, can be found in the next
