@@ -205,15 +205,15 @@ end
 
 @inline function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
   # check for the case a .= b, where b is an array
-  if bc.f == identity
-    if typeof(bc.args[1]) <: MPIStateArray
+  if bc.f === identity && bc.args isa Tuple{AbstractArray}
+    if bc.args isa Tuple{MPIStateArray}
       realindices = CartesianIndices((axes(dest.Q)[1:end-1]..., dest.realelems))
-      Base.copyto!(dest.Q, realindices, bc.args[1].Q, realindices)
+      copyto!(dest.Q, realindices, bc.args[1].Q, realindices)
     else
-      Base.copyto!(dest.Q, bc.args[1])
+      copyto!(dest.Q, bc.args[1])
     end
   else
-    Base.copyto!(dest.realQ, transform_broadcasted(bc, dest.Q))
+    copyto!(dest.realQ, transform_broadcasted(bc, dest.Q))
   end
   dest
 end

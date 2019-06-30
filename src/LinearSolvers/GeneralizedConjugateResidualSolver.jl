@@ -84,18 +84,17 @@ function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidua
     # one kernel call for each and simplify restart
     expr_p = residual
     expr_L_p = L_residual
-    # FIXME: iterate over 1:k once broadcasting handles the final assignment correctly !
-    for l = 1:k-1
+    for l = 1:k
       expr_p = @~ @. expr_p + alpha[l] * p[l]
       expr_L_p = @~ @. expr_L_p + alpha[l] * L_p[l]
     end
 
     if k < K
-      p[k + 1] .= @. expr_p + alpha[k] * p[k]
-      L_p[k + 1] .= @. expr_L_p + alpha[k] * L_p[k]
+      p[k + 1] .= expr_p
+      L_p[k + 1] .= expr_L_p
     else # restart
-      p[1] .= @. expr_p + alpha[k] * p[k] 
-      L_p[1] .= @. expr_L_p + alpha[k] * L_p[k]  
+      p[1] .= expr_p
+      L_p[1] .= expr_L_p
     end
   end
   
