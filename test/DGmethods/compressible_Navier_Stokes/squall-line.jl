@@ -623,7 +623,7 @@ end
 function grid_stretching(DFloat,
                          xmin, xmax, ymin, ymax, zmin, zmax,
                          Ne,
-                         xstretch_flg, ystretch_flg, zstretch_flg, )
+                         xstretch_flg, ystretch_flg, zstretch_flg)
 
     #build physical range to be stratched
     x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
@@ -636,24 +636,23 @@ function grid_stretching(DFloat,
     zeta = (range(DFloat(0), length=Ne[3]+1, DFloat(1)))
 
     xstretch_coe = 0.0
-    if xstretch_flg == "y"
+    if xstretch_flg == 1
         xstretch_coe = 0.5
+        x_range_stretched = (xmax - xmin).*(exp.(xstretch_coe * ksi)  .- 1.0)./(exp(xstretch_coe) - 1.0)
     end
     
     ystretch_coe = 0.0
-    if ystretch_flg == "y"
+    if ystretch_flg == 1
         ystretch_coe = 0.5
+        y_range_stretched = (ymax - ymin).*(exp.(ystretch_coe * eta)  .- 1.0)./(exp(ystretch_coe) - 1.0)
     end
     
     zstretch_coe = 0.0
-    if zstretch_flg == "y"
+    if zstretch_flg == 1
         zstretch_coe = 0.5
+        z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
     end
     
-    x_range_stretched = (xmax - xmin).*(exp.(xstretch_coe * ksi)  .- 1.0)./(exp(xstretch_coe) - 1.0)
-    y_range_stretched = (ymax - ymin).*(exp.(ystretch_coe * eta)  .- 1.0)./(exp(ystretch_coe) - 1.0)
-    z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
-
     return x_range_stretched, y_range_stretched, z_range_stretched
     
 end
@@ -662,7 +661,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 
     #Build stretching along each direction
-    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, "n", "n", "y")
+    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 0)
     
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
