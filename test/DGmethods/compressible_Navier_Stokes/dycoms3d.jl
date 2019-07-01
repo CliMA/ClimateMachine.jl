@@ -596,14 +596,16 @@ end
             Courantx = - floatmax(DFloat)
             Couranty = - floatmax(DFloat)
             Courantz = - floatmax(DFloat)
-           
-            @inbounds for e = Q.realelems, n = 1:Np
-                ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
-                ξx = vgeo[n, _ξx, e]
-                ηy = vgeo[n, _ηy, e]
-                ζz = vgeo[n, _ζz, e]
-                z = vgeo[n, _z, e]
-            end
+     
+     @inbounds for e = nelem
+         for n = 1:Np
+             ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
+             ξx = vgeo[n, _ξx, e]
+             ηy = vgeo[n, _ηy, e]
+             ζz = vgeo[n, _ζz, e]
+             z = vgeo[n, _z, e]
+         end
+     end
      #=
                 P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
                 u, v, w = U/ρ, V/ρ, W/ρ
