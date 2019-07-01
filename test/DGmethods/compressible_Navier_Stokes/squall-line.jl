@@ -779,7 +779,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+        mkpath("vtk-squall-line")
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     F_rad_out = radiation(aux)
@@ -796,7 +797,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("vtk-squall-line/cns_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
