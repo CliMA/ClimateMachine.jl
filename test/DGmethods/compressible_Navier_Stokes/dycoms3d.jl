@@ -596,7 +596,7 @@ end
             Courantx = - floatmax(DFloat)
             Couranty = - floatmax(DFloat)
             Courantz = - floatmax(DFloat)
-            
+         #=   
             @inbounds for e = Q.realelems, n = 1:Np
                 ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
                 ξx = vgeo[n, _ξx, e]
@@ -633,7 +633,8 @@ end
             CFLz = MPI.Allreduce(Courantz, MPI.MAX, mpicomm)
             CFLmax = max(CFLx, CFLy, CFLz) 
             return (CFLx, CFLy, CFLz, CFLmax) 
-            
+     =#
+     return nothing
         end
 
         
@@ -710,8 +711,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     @timeit to "Time stepping init" begin
 
         #Compute max acoustic CFL and adapt dt
-        (CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
-        @info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
+        get_maximum_Courant(Q, grid.vgeo)
+        #(CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
+        #@info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
        
