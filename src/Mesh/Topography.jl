@@ -1,4 +1,15 @@
 module Topography
+using Printf
+using DelimitedFiles
+using Dierckx
+
+export ReadExternalHeader, ReadExternalTxtCoordinates
+
+import Canary
+using MPI
+
+
+
 """
     # Topography:
 
@@ -13,14 +24,6 @@ module Topography
         url{https://www.ngdc.noaa.gov/mgg/topo/}
 
 """
-using Printf
-using DelimitedFiles
-using Dierckx
-
-export ReadExternalHeader, ReadExternalTxtCoordinates
-
-import Canary
-using MPI
 
 # {{{ READTOPOtxt_header
 """   

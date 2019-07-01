@@ -590,12 +590,12 @@ end
             DFloat = eltype(Q) 
             locmax = DFloat(-10^6)
             locmin = DFloat(10^6)
-            dt = [floatmax(DFloat)]
+            dt = floatmax(DFloat)
             gravity::eltype(Q) = grav
             γ::eltype(Q) = 1.4
-            Courantx = - [floatmax(DFloat)]
-            Couranty = - [floatmax(DFloat)]
-            Courantz = - [floatmax(DFloat)]
+            Courantx = - floatmax(DFloat)
+            Couranty = - floatmax(DFloat)
+            Courantz = - floatmax(DFloat)
             
             @inbounds for e = Q.realelems, n = 1:Np
                 ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
@@ -622,15 +622,15 @@ end
                 loc_Couranty = wave_speedy*dt_locy*N/dy
                 loc_Courantz = wave_speedz*dt_locz*N/dz
                 
-                Courantx[1] = max(Courantx[1], loc_Courantx)
-                Couranty[1] = max(Couranty[1], loc_Couranty)
-                Courantz[1] = max(Courantz[1], loc_Courantz)
+                Courantx = max(Courantx, loc_Courantx)
+                Couranty = max(Couranty, loc_Couranty)
+                Courantz = max(Courantz, loc_Courantz)
                 
             end
             
-            CFLx = MPI.Allreduce(Courantx[1], MPI.MAX, mpicomm)
-            CFLy = MPI.Allreduce(Couranty[1], MPI.MAX, mpicomm)
-            CFLz = MPI.Allreduce(Courantz[1], MPI.MAX, mpicomm)
+            CFLx = MPI.Allreduce(Courantx, MPI.MAX, mpicomm)
+            CFLy = MPI.Allreduce(Couranty, MPI.MAX, mpicomm)
+            CFLz = MPI.Allreduce(Courantz, MPI.MAX, mpicomm)
             CFLmax = max(CFLx, CFLy, CFLz) 
             return (CFLx, CFLy, CFLz, CFLmax) 
             
@@ -708,8 +708,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     @timeit to "Time stepping init" begin
 
         #Compute max acoustic CFL and adapt dt
-        (CFLx, CFLy, CFLz) = get_maximum_Courant(Q, grid.vgeo)
-        @info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
+  #      (CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
+ #       @info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
        
