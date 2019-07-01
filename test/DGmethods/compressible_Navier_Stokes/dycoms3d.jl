@@ -606,6 +606,7 @@ end
              z = vgeo[n, _z, e]
          end
      end
+     
      #=
                 P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
                 u, v, w = U/ρ, V/ρ, W/ρ
