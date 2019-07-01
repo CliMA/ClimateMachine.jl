@@ -620,9 +620,10 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
 
-function grid_stretching(xmin, xmax, ymin, ymax, zmin, zmax,
+function grid_stretching(DFloat,
+                         xmin, xmax, ymin, ymax, zmin, zmax,
                          Ne,
-                         xstretch_flg, ystretch_flg, zstretch_flg)
+                         xstretch_flg, ystretch_flg, zstretch_flg, )
 
     #build physical range to be stratched
     x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
@@ -661,7 +662,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 
     #Build stretching along each direction
-    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(xmin, xmax, ymin, ymax, zmin, zmax, Ne, "n", "n", "y")
+    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, "n", "n", "y")
     
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
