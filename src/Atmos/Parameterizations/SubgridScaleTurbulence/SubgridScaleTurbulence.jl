@@ -31,9 +31,11 @@ export buoyancy_correction
 
   """
   Smagorinsky model coefficient for anisotropic grids.
-  Given a description of the grid in terms of Δx, Δy, Δz
+  Given a description of the grid in terms of Δhoriz1, Δhoriz2, Δvert
   and polynomial order Npoly, computes the anisotropic equivalent grid
   coefficient such that the Smagorinsky coefficient is modified as follows
+
+  Function with multiple methods for two and three dimensions. 
 
   Eddy viscosity          ν_e
   Smagorinsky coefficient C_ss
@@ -54,17 +56,27 @@ export buoyancy_correction
     eprint = {https://doi.org/10.1063/1.858537}
   }
   """
-  function anisotropic_coefficient_sgs(Δx, Δy, Δz, Npoly)
-      Δ = (Δx * Δy * Δz)^(1/3)
-      Δ_sorted = sort([Δx, Δy, Δz])  
+  function anisotropic_coefficient_sgs(Δhoriz1, Δvert, Npoly)
+      Δ = (Δhoriz1 * Δvert) ^ 1/2
+      Δ_sorted = sort([Δhoriz1, Δvert])  
+      Δ_s1 = Δ_sorted[1]
+      # In 2D we specify the filter width as the smallest grid dimension
+      Δsqr = Δ_s1 * Δ_s1
+      return Δsqr
+  end
+  
+  function anisotropic_coefficient_sgs(Δhoriz1, Δhoriz2, Δvert, Npoly)
+      Δ = (Δhoriz1 * Δhoriz2 * Δvert) ^ 1/3
+      Δ_sorted = sort([Δhoriz1, Δhoriz2, Δvert])  
       Δ_s1 = Δ_sorted[1]
       Δ_s2 = Δ_sorted[2]
-      a1 = Δ_s1 / max(Δx,Δy,Δz) / (Npoly + 1)
-      a2 = Δ_s2 / max(Δx,Δy,Δz) / (Npoly + 1)
+      a1 = Δ_s1 / max(Δhoriz1,Δhoriz2,Δvert) / (Npoly + 1)
+      a2 = Δ_s2 / max(Δhoriz1,Δhoriz2,Δvert) / (Npoly + 1)
+      # In 3D we compute a scaling factor for anisotropic grids
       f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2 )
       Δ = Δ*f_anisotropic
       Δsqr = Δ * Δ
-      return (f_anisotropic,Δsqr)
+      return Δsqr
   end
 
   """
