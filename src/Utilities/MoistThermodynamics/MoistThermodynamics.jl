@@ -681,6 +681,9 @@ function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
     T, converged = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
+      if !converged
+        error("saturation adjustment did not converge")
+      end
     return T
   end
 end

@@ -32,7 +32,7 @@ struct NewtonsMethod <: RootSolvingMethod end
 
 """
     x, converged = find_zero(f, x0[, x1], method;
-                             xatol=0, xrtol=sqrt(eps(eltype(x0))), 
+                             xatol=0, xrtol=sqrt(eps(eltype(x0))),
                              yatol=sqrt(eps(eltype(x0))), maxiters=10_000)
 
 Finds the nearest root of `f` to `x0` and `x1`. Returns a the value of the root `x` such
@@ -124,7 +124,7 @@ function find_zero(f::F, x0::T, ::NewtonsMethod;
       return x1, true
     end
     x0 = x1
-  end  
+  end
   return x0, false
 end
 

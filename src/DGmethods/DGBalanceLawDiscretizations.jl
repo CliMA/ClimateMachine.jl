@@ -15,7 +15,7 @@ ordinary differential equations methods; see [`ODESolvers`](@ref).
 
 The flux function `F_{i}` is taken to be of the form:
 ```math
-F_{i} := F_{i}(q, σ; a)
+F_{i} := F_{i}(q, σ; a)\\\\
 σ = H(q, ∇G(q; a); a)
 ```
 where ``a`` is a set of parameters and viscous terms enter through ``σ``
@@ -275,32 +275,32 @@ The function `viscous_penalty!` is the penalty terms to be used for the
 DG-gradient calculation. It is called with data from two neighbouring degrees of
 freedom as
 ```
-viscous_penalty!(V, nM, HM, QM, auxM, HP, QP, auxP, t)
+viscous_penalty!(V, nM, GM, QM, auxM, GP, QP, auxP, t)
 ```
 where:
 - `V` is an `MVector` of length `number_viscous_states` to be filled with the
   numerical penalty across the face; see below.
 - `nM` is the unit outward normal to the face with respect to the minus side
   (`MVector` of length `3`)
-- `HM` and `HP` are the minus and plus evaluation of `gradient_transform!` on
+- `GM` and `GP` are the minus and plus evaluation of `gradient_transform!` on
   either side of the face
 - `QM` and `QP` are the minus and plus side states (`MArray`); filled only with
   `states_for_gradient_transform` states.
 - `auxM` and `auxP` are the auxiliary states (`MArray`)
 - `t` is the current simulation time
-The viscous penalty function is should compute on the faces
+The viscous penalty function should compute on the faces
 ```math
 n^{-} \\cdot H^{*} - n^{-} \\cdot H^{-}
 ```
 where ``n^{-} \\cdot H^{*}`` is the "numerical-flux" for the viscous state
 computation and ``H^{-}`` is the value of `viscous_transform!` evaluated on the
-minus side ``n^{-} \\cdot G^{-}`` as an argument.
+minus side with ``n^{-} \\cdot G^{-}`` as an argument.
 
 If `grid.topology` has a boundary then the function `viscous_boundary_penalty!`
 must be specified. This function is called with the data from the neighbouring
 DOF as
 ```
-viscous_boundary_penalty!(V, nM, HM, QM, auxM, HP, QP, auxP, bctype, t)
+viscous_boundary_penalty!(V, nM, GM, QM, auxM, GP, QP, auxP, bctype, t)
 ```
 where the required behaviour mimics that of `viscous_penalty!` and
 `numerical_boundary_flux!`.
@@ -485,7 +485,7 @@ through as an `MArray` through the `aux` argument
 
 !!! todo
 
-    GPUify this function to remove `host` and `device` data transfers
+    Remove `host` and `device` data transfers.
 
 """
 function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
@@ -494,35 +494,31 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
 
   nvar = disc.nstate
   grid = disc.grid
-  vgeo = grid.vgeo
-  Np = dofs_per_element(grid)
+  topology = grid.topology
   auxstate = disc.auxstate
   nauxstate = size(auxstate, 2)
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Np = dofs_per_element(grid)
+  vgeo = grid.vgeo
+  nrealelem = length(topology.realelems)
 
-  # FIXME: GPUify me
-  host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q, h_auxstate) = host_array ? (vgeo, Q, auxstate) :
-                                       (Array(vgeo), Array(Q), Array(auxstate))
-  Qdof = MArray{Tuple{nvar}, eltype(h_Q)}(undef)
-  auxdof = MArray{Tuple{nauxstate}, eltype(h_Q)}(undef)
-  @inbounds for e = 1:size(Q, 3), i = 1:Np
-    (x, y, z) = (h_vgeo[i, grid.xid, e], h_vgeo[i, grid.yid, e],
-                 h_vgeo[i, grid.zid, e])
-    if nauxstate > 0
-      for s = 1:nauxstate
-        auxdof[s] = h_auxstate[i, s, e]
-      end
-      ic!(Qdof, x, y, z, auxdof)
-    else
-      ic!(Qdof, x, y, z)
-    end
-    for n = 1:nvar
-      h_Q[i, n, e] = Qdof[n]
-    end
-  end
-  if !host_array
-    Q .= h_Q
-  end
+  # FIXME: initialize directly on the device
+  device = CPU()
+  h_vgeo = Array(vgeo)
+  h_Q = similar(Q, Array)
+  h_auxstate = similar(auxstate, Array)
+  
+  h_auxstate .= auxstate
+
+  @launch(device, threads=(Np,), blocks=nrealelem,
+          initstate!(Val(dim), Val(N), Val(nvar), Val(nauxstate),
+                     ic!, h_Q.Q, h_auxstate.Q, h_vgeo, topology.realelems))
+
+  Q .= h_Q
+
+  MPIStateArrays.start_ghost_exchange!(Q)
+  MPIStateArrays.finish_ghost_exchange!(Q)
 
   Q
 end
@@ -839,6 +835,41 @@ function dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw
           knl_dof_iteration!(Val(dim), Val(N), Val(nRstate), Val(nstate),
                              Val(nviscstate), Val(nauxstate), dof_fun!, R.Q,
                              Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
+end
+
+"""
+    apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
+           horizontal = true, vertical = true)
+
+Applies `filter` to the `states` of `Q`.
+
+The arguments `horizontal` and `vertical` are used to control if the filter
+is applied in the horizontal and vertical reference directions, respectively.
+Note, it is assumed that the trailing dimension is the vertical dimension and
+the rest are horizontal.
+"""
+function apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
+                horizontal = true, vertical = true)
+  grid = disc.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  nstate = size(Q, 2)
+
+  filtermatrix = filter.filter
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nrealelem = length(topology.realelems)
+
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+          knl_apply_filter!(Val(dim), Val(N), Val(nstate), Val(horizontal), Val(vertical),
+                            Q.Q, Val(states), filtermatrix, topology.realelems))
 end
 
 end

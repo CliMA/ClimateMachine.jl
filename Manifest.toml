@@ -259,6 +259,12 @@ repo-url = "https://github.com/vchuravy/GPUifyLoops.jl.git"
 uuid = "ba82f77b-6841-5d2e-bd9f-4daf811aec27"
 version = "0.2.5"
 
+[[GaussQuadrature]]
+deps = ["LinearAlgebra", "Printf", "SpecialFunctions", "Test"]
+git-tree-sha1 = "3113b28de0e25576348c06731327f3df8de6ad90"
+uuid = "d54b0c1a-921d-58e0-8e36-89d8069c0969"
+version = "0.5.0"
+
 [[GenericSVD]]
 deps = ["LinearAlgebra", "Random", "Test"]
 git-tree-sha1 = "8aa93c3f3d81562a8962047eafcc5712af0a0f59"
