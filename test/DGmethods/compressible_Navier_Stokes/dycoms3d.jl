@@ -640,6 +640,8 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
+    #(stretching_range_x, stratching_range_y, stratching_range_z) = stretching(xmin, xmax, ymin, ymax, zmin, zmax, Ne)
+
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                   range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
@@ -708,8 +710,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     @timeit to "Time stepping init" begin
 
         #Compute max acoustic CFL and adapt dt
-  #      (CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
- #       @info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
+        (CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
+        @info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
        
