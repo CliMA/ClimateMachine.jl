@@ -651,6 +651,7 @@ function grid_stretching(DFloat,
     if zstretch_flg == 1
         zstretch_coe = 0.5
         z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
+        error( "HOLA")
     end
     
     return x_range_stretched, y_range_stretched, z_range_stretched
@@ -779,7 +780,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("vtk-squall-line")
+        mkpath("./CLIMA-output-scratch/vtk-squall-line")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
@@ -794,7 +795,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
