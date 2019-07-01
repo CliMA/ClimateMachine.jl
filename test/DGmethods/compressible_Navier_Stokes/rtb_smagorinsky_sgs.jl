@@ -254,9 +254,9 @@ end
         dρdy= grad_vars[2, 8]
         
         # --------------------------------------------
-        (S11, S22, S33, S12, S13, S23, SijSij) = compute_strainrate_tensor(dudx, dudy, dudz,
-                                                                           dvdx, dvdy, dvdz, 
-                                                                           dwdx, dwdy, dwdz)
+        (S11, S22, S33, S12, S13, S23, SijSij) = SubgridScaleTurbulence.compute_strainrate_tensor(dudx, dudy, dudz,
+                                                                                                   dvdx, dvdy, dvdz, 
+                                                                                                   dwdx, dwdy, dwdz)
         
         (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
         #--------------------------------------------
@@ -314,13 +314,13 @@ end
 
 # -------------------------------------------------------------------------
 @inline function stresses_boundary_penalty!(VF, _...) 
-    VF .= 0
+  compute_stresses!(VF, 0) 
 end
 
 @inline function stresses_penalty!(VF, nM, grad_listM, QM, aM, grad_listP, QP, aP, t)
     @inbounds begin
         n_Δgrad_list = similar(VF, Size(3, 3))
-        for j = 1:3, i = 1:_ngradstates
+        for j = 1:_ngradstates, i = 1:3
             n_Δgrad_list[i, j] = nM[i] * (grad_listP[j] - grad_listM[j]) / 2
         end
         compute_stresses!(VF, n_Δgrad_list)

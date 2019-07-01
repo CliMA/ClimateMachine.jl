@@ -1,20 +1,12 @@
 module SubgridScaleTurbulence
 
 # Module dependencies
-using CLIMA.MoistThermodynamics
-using CLIMA.Grids
 using CLIMA.PlanetParameters: grav, cp_d, cv_d
 
 # Module exported functions 
 export compute_strainrate_tensor
-export compute_stress_tensor
 export standard_smagorinsky
-export dynamic_smagorinsky
 export buoyancy_correction
-export anisotropic_minimum_dissipation_viscosity
-export anisotropic_minimum_dissipation_diffusivity
-export anisotropic_coefficient_sgs
-
 
   """
   Model constants.
