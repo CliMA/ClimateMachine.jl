@@ -773,14 +773,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 10
-        _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq, _T = 1:npoststates
-        postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq", "T")
+        npoststates = 9
+        _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq = 1:npoststates
+        postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
         mkpath("vtk-squall-line")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     F_rad_out = radiation(aux)
@@ -793,7 +793,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[_v] = v
                     R[_w] = w
                     R[_q_liq] = aux[_a_q_liq]
-                    R[_T] = aux[_a_q_T]
+                    #R[_T] = aux[_a_q_T]
                 end
             end
 
@@ -873,8 +873,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.0025
-    #timeend = 10*dt
-    timeend = 14400
+    timeend = dt
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
