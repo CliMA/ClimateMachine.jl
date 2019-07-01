@@ -661,7 +661,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 
     #Build stretching along each direction
-    (x_range_stretched, y_range_stretched, z_range_stretched) = stretching(xmin, xmax, ymin, ymax, zmin, zmax, Ne, "n", "n", "y")
+    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(xmin, xmax, ymin, ymax, zmin, zmax, Ne, "n", "n", "y")
     
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
