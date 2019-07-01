@@ -662,6 +662,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     #Build stretching along each direction
     (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 0)
+#=
+    #build physical range to be stratched
+    x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
+    y_range_stretched = (range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+    z_range_stretched = (range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+
+    #build logical space
+    ksi  = (range(DFloat(0), length=Ne[1]+1, DFloat(1)))
+    eta  = (range(DFloat(0), length=Ne[2]+1, DFloat(1)))
+    zeta = (range(DFloat(0), length=Ne[3]+1, DFloat(1)))
+  
+    zstretch_coe = 0.5
+    z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
+    =#
     
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
@@ -730,7 +744,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     @timeit to "Time stepping init" begin
 
         #Compute max acoustic CFL and adapt dt
-        get_maximum_Courant(Q, grid.vgeo)
+        #get_maximum_Courant(Q, grid.vgeo)
         #(CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
         #@info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
         
