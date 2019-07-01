@@ -579,6 +579,65 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
 
+ function get_maximum_Courant(Q::MPIStateArray, vgeo) 
+            _nvgeo = 15
+            R_gas::eltype(Q) = R_d
+            c_v::eltype(Q) = cv_d
+            _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
+            _x, _y, _z, _JcV = 1:_nvgeo
+            _ρ, _U, _V, _W, _E = 1:5
+            (Np, nstate, nelem) = size(Q)
+            DFloat = eltype(Q) 
+            locmax = DFloat(-10^6)
+            locmin = DFloat(10^6)
+            dt = [floatmax(DFloat)]
+            gravity::eltype(Q) = grav
+            γ::eltype(Q) = 1.4
+            Courantx = - [floatmax(DFloat)]
+            Couranty = - [floatmax(DFloat)]
+            Courantz = - [floatmax(DFloat)]
+            
+            @inbounds for e = Q.realelems, n = 1:Np
+                ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
+                ξx = vgeo[n, _ξx, e]
+                ηy = vgeo[n, _ηy, e]
+                ζz = vgeo[n, _ζz, e]
+                z = vgeo[n, _z, e]
+
+                P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
+                u, v, w = U/ρ, V/ρ, W/ρ
+                dx = 1.0/(2*ξx)
+                dy = 1.0/(2*ηy)
+                dz = 1.0/(2*ζz)
+                
+                wave_speedx = (u + sqrt(γ * P / ρ))
+                wave_speedy = (v + sqrt(γ * P / ρ))
+                wave_speedz = (w + sqrt(γ * P / ρ))
+
+                dt_locx = 1.0/wave_speedx/N/dx
+                dt_locy = 1.0/wave_speedy/N/dy
+                dt_locz = 1.0/wave_speedz/N/dz
+                
+                loc_Courantx = wave_speedx*dt_locx*N/dx
+                loc_Couranty = wave_speedy*dt_locy*N/dy
+                loc_Courantz = wave_speedz*dt_locz*N/dz
+                
+                Courantx[1] = max(Courantx[1], loc_Courantx)
+                Couranty[1] = max(Couranty[1], loc_Couranty)
+                Courantz[1] = max(Courantz[1], loc_Courantz)
+                
+            end
+            
+            CFLx = MPI.Allreduce(Courantx[1], MPI.MAX, mpicomm)
+            CFLy = MPI.Allreduce(Couranty[1], MPI.MAX, mpicomm)
+            CFLz = MPI.Allreduce(Courantz[1], MPI.MAX, mpicomm)
+            CFLmax = max(CFLx, CFLy, CFLz) 
+            return (CFLx, CFLy, CFLz, CFLmax) 
+            
+        end
+
+        
+
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
@@ -647,68 +706,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     @timeit to "Time stepping init" begin
-        lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-        #=
-        function get_maximum_Courant(Q::MPIStateArray, vgeo) 
-            _nvgeo = 15
-            R_gas::eltype(Q) = R_d
-            c_v::eltype(Q) = cv_d
-            _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-            _x, _y, _z, _JcV = 1:_nvgeo
-            _ρ, _U, _V, _W, _E = 1:5
-            (Np, nstate, nelem) = size(Q)
-            DFloat = eltype(Q) 
-            locmax = DFloat(-10^6)
-            locmin = DFloat(10^6)
-            dt = [floatmax(DFloat)]
-            gravity::eltype(Q) = grav
-            γ::eltype(Q) = 1.4
-            Courantx = - [floatmax(DFloat)]
-            Couranty = - [floatmax(DFloat)]
-            Courantz = - [floatmax(DFloat)]
-            
-            @inbounds for e = Q.realelems, n = 1:Np
-                ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
-                ξx = vgeo[n, _ξx, e]
-                ηy = vgeo[n, _ηy, e]
-                ζz = vgeo[n, _ζz, e]
-                z = vgeo[n, _z, e]
 
-                P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
-                u, v, w = U/ρ, V/ρ, W/ρ
-                dx = 1.0/(2*ξx)
-                dy = 1.0/(2*ηy)
-                dz = 1.0/(2*ζz)
-                
-                wave_speedx = (u + sqrt(γ * P / ρ))
-                wave_speedy = (v + sqrt(γ * P / ρ))
-                wave_speedz = (w + sqrt(γ * P / ρ))
-
-                dt_locx = 1.0/wave_speedx/N/dx
-                dt_locy = 1.0/wave_speedy/N/dy
-                dt_locz = 1.0/wave_speedz/N/dz
-                
-                loc_Courantx = wave_speedx*dt_locx*N/dx
-                loc_Couranty = wave_speedy*dt_locy*N/dy
-                loc_Courantz = wave_speedz*dt_locz*N/dz
-                
-                Courantx[1] = max(Courantx[1], loc_Courantx)
-                Couranty[1] = max(Couranty[1], loc_Couranty)
-                Courantz[1] = max(Courantz[1], loc_Courantz)
-                
-            end
-            
-            CFLx = MPI.Allreduce(Courantx[1], MPI.MAX, mpicomm)
-            CFLy = MPI.Allreduce(Couranty[1], MPI.MAX, mpicomm)
-            CFLz = MPI.Allreduce(Courantz[1], MPI.MAX, mpicomm)
-            CFLmax = max(CFLx, CFLy, CFLz) 
-            return (CFLx, CFLy, CFLz, CFLmax) 
-            
-        end
-
+        #Compute max acoustic CFL and adapt dt
         (CFLx, CFLy, CFLz) = get_maximum_Courant(Q, grid.vgeo)
-        @show(max(CFLx,CFLy,CFLz)) 
-        =#
+        @info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
+        
+        lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+       
+        
         #=eng0 = norm(Q)
         @info @sprintf """Starting
         norm(Q₀) = %.16e""" eng0
