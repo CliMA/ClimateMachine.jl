@@ -15,6 +15,11 @@ abstract type AbstractLinearSolver end
 
 abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 
+"""
+    settolerance!(solver::AbstractIterativeLinearSolver, tolerance)
+
+Sets the tolerance of the iterative linear solver `solver` to `tolerance`.
+"""
 settolerance!(solver::AbstractIterativeLinearSolver, tolerance) =
   (solver.tolerance[1] = tolerance)
 
@@ -25,10 +30,16 @@ initialize!(Q, Qrhs, solver::AbstractIterativeLinearSolver) =
   throw(MethodError(initialize!, (Q, Qrhs, solver))) 
 
 """
-    linearsolve!(Q, solver::AbstractIterativeLinearSolver, tolerance)
+    linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver)
 
-Solves a linear problem using the `solver` with the specifed `tolerance`
-storing the solution in `Q`.
+Solves a linear problem defined by the `linearoperator!` function and the state
+`Qrhs`, i.e,
+
+```math
+  L(Q) = Q_{rhs}
+```
+
+using the `solver` and the initial guess `Q`. After the call `Q` contains the solution.
 """
 function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver)
   converged = false

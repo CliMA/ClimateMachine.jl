@@ -11,6 +11,33 @@ using StaticArrays
 
 const LS = LinearSolvers
 
+"""
+    GeneralizedConjugateResidual(K, Q, tolerance)
+
+This is an object for solving linear systems using an iterative Krylov method.
+The constructor parameter `K` is the number of steps after which the algorithm
+is restarted, `Q` is a reference state used only to allocate the solver internal
+state, and `tolerance` specifies the convergence threshold based on the residual
+norm. Since the amount of additional memory required by the solver is 
+`(2K + 2) * size(Q)` in practical applications `K` should be kept small. A value between
+1 and 4 is recommended. This object is intended to be passed to the [`linearsolve!`](@ref)
+command.
+
+This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983).
+
+### References
+
+    @article{eisenstat1983variational,
+      title={Variational iterative methods for nonsymmetric systems of linear equations},
+      author={Eisenstat, Stanley C and Elman, Howard C and Schultz, Martin H},
+      journal={SIAM Journal on Numerical Analysis},
+      volume={20},
+      number={2},
+      pages={345--357},
+      year={1983},
+      publisher={SIAM}
+    }
+"""
 struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolver
   residual::AT
   L_residual::AT
