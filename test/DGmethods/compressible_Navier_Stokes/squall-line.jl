@@ -650,9 +650,9 @@ function grid_stretching(DFloat,
         zstretch_coe = 0.5
     end
     
-    x_range_stretched .= (xmax - xmin).*(exp(xstretch_coe * ksi)  - 1.0)./(exp(xstretch_coe) - 1.0)
-    y_range_stretched .= (ymax - ymin).*(exp(ystretch_coe * eta)  - 1.0)./(exp(ystretch_coe) - 1.0)
-    z_range_stretched .= (zmax - zmin).*(exp(zstretch_coe * zeta) - 1.0)./(exp(zstretch_coe) - 1.0)
+    x_range_stretched = (xmax - xmin).*(exp.(xstretch_coe * ksi)  .- 1.0)./(exp(xstretch_coe) - 1.0)
+    y_range_stretched = (ymax - ymin).*(exp.(ystretch_coe * eta)  .- 1.0)./(exp(ystretch_coe) - 1.0)
+    z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
 
     return x_range_stretched, y_range_stretched, z_range_stretched
     
