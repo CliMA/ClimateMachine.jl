@@ -87,8 +87,8 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 500
-Δy    = 500
+Δx    = 1000
+Δy    = 1000
 Δz    = 200
 
 #
@@ -99,8 +99,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 120000)
-const (ymin, ymax) = (0, 120000)
+const (xmin, xmax) = (0, 40000)
+const (ymin, ymax) = (0, 10000)
 const (zmin, zmax) = (0,  22000)
 
 #Get Nex, Ney from resolution
@@ -773,9 +773,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 9
-        _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq = 1:npoststates
-        postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq")
+        npoststates = 6
+        _betaout, _P, _u, _v, _w, _q_liq = 1:npoststates
+        postnames = ("BETA", "P", "u", "v", "w", "_q_liq")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
@@ -785,31 +785,21 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 @inbounds let
                     F_rad_out = radiation(aux)
                     u, v, w = preflux(Q, QV, aux)
-                    R[_int1] = aux[_a_02z]
-                    R[_int2] = aux[_a_z2inf]
                     R[_betaout] = F_rad_out
                     R[_P] = aux[_a_P]
                     R[_u] = u
                     R[_v] = v
                     R[_w] = w
                     R[_q_liq] = aux[_a_q_liq]
-                    #R[_T] = aux[_a_q_T]
                 end
             end
 
-            outprefix = @sprintf("vtk-squall-line/cns_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
                      postprocessarray, postnames)
-            #= 
-            pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
-            prefixes = ntuple(i->
-            @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
-            dim, i-1, step[1]),
-            MPI.Comm_size(mpicomm))
-            writepvtu(pvtuprefix, prefixes, postnames)
-            =# 
+            
             step[1] += 1
             nothing
         end
