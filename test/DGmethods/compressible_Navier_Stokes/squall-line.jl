@@ -87,9 +87,9 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 30
-Δy    = 30
-Δz    = 5
+Δx    = 500
+Δy    = 500
+Δz    = 200
 
 #
 # OR:
@@ -99,9 +99,9 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 3820)
-const (ymin, ymax) = (0, 3820)
-const (zmin, zmax) = (0, 1500)
+const (xmin, xmax) = (0, 120000)
+const (ymin, ymax) = (0, 120000)
+const (zmin, zmax) = (0,  22000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -620,22 +620,52 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
 
+function grid_stretching(xmin, xmax, ymin, ymax, zmin, zmax,
+                         Ne,
+                         xstretch_flg, ystretch_flg, zstretch_flg)
+
+    #build physical range to be stratched
+    x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
+    y_range_stretched = (range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+    z_range_stretched = (range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+
+    #build logical space
+    ksi  = (range(DFloat(0), length=Ne[1]+1, DFloat(1)))
+    eta  = (range(DFloat(0), length=Ne[2]+1, DFloat(1)))
+    zeta = (range(DFloat(0), length=Ne[3]+1, DFloat(1)))
+
+    xstretch_coe = 0.0
+    if xstretch_flg == "y"
+        xstretch_coe = 0.5
+    end
+    
+    ystretch_coe = 0.0
+    if ystretch_flg == "y"
+        ystretch_coe = 0.5
+    end
+    
+    zstretch_coe = 0.0
+    if zstretch_flg == "y"
+        zstretch_coe = 0.5
+    end
+    
+    x_range_stretched .= (xmax - xmin).*(exp(xstretch_coe * ksi)  - 1.0)./(exp(xstretch_coe) - 1.0)
+    y_range_stretched .= (ymax - ymin).*(exp(ystretch_coe * eta)  - 1.0)./(exp(ystretch_coe) - 1.0)
+    z_range_stretched .= (zmax - zmin).*(exp(zstretch_coe * zeta) - 1.0)./(exp(zstretch_coe) - 1.0)
+
+    return x_range_stretched, y_range_stretched, z_range_stretched
+    
+end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-    #(stretching_range_x, stratching_range_y, stratching_range_z) = stretching(xmin, xmax, ymin, ymax, zmin, zmax, Ne)
 
-    stretching_range_x = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
-    stretching_range_y = (range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
-    stretching_range_z = (range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+    #Build stretching along each direction
+    (x_range_stretched, y_range_stretched, z_range_stretched) = stretching(xmin, xmax, ymin, ymax, zmin, zmax, Ne, "n", "n", "y")
     
-    zstretch_coe = 0.3   
-    h = (zmax-zmin)*(exp(zstretch_coe .* stretching_range_z) - 1.0)/(exp(zstretch_coe) - 1.0)
-    stretching_range_z .= h
+    #Build (stretched) grid:
+    brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
     
-    brickrange = (stretching_range_x, stretching_range_y, stretching_range_z)
-    
-
 
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
