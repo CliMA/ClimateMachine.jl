@@ -580,22 +580,22 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 end
 
  function get_maximum_Courant(Q::MPIStateArray, vgeo) 
-            _nvgeo = 15
-            R_gas::eltype(Q) = R_d
-            c_v::eltype(Q) = cv_d
-            _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-            _x, _y, _z, _JcV = 1:_nvgeo
-            _ρ, _U, _V, _W, _E = 1:5
-            (Np, nstate, nelem) = size(Q)
-            DFloat = eltype(Q) 
-            locmax = DFloat(-10^6)
-            locmin = DFloat(10^6)
-            dt = floatmax(DFloat)
-            gravity::eltype(Q) = grav
-            γ::eltype(Q) = 1.4
-            Courantx = - floatmax(DFloat)
-            Couranty = - floatmax(DFloat)
-            Courantz = - floatmax(DFloat)
+     _nvgeo = 15
+     R_gas::eltype(Q) = R_d
+     c_v::eltype(Q) = cv_d
+     _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
+     _x, _y, _z, _JcV = 1:_nvgeo
+     _ρ, _U, _V, _W, _E = 1:5
+     (Np, nstate, nelem) = size(Q)
+     DFloat = eltype(Q) 
+     locmax = DFloat(-10^6)
+     locmin = DFloat(10^6)
+     dt = floatmax(DFloat)
+     gravity::eltype(Q) = grav
+     γ::eltype(Q) = 1.4
+     Courantx = - floatmax(DFloat)
+     Couranty = - floatmax(DFloat)
+     Courantz = - floatmax(DFloat)
      
      @inbounds for e = nelem
          for n = 1:Np
