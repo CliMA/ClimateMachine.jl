@@ -661,7 +661,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 
     #Build stretching along each direction
-    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 0)
+    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 1)
 #=
     #build physical range to be stratched
     x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
