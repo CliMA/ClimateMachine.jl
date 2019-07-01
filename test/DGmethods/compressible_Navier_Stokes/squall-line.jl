@@ -649,9 +649,8 @@ function grid_stretching(DFloat,
     
     zstretch_coe = 0.0
     if zstretch_flg == 1
-        zstretch_coe = 0.5
+        zstretch_coe = 0.1
         z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
-        error( "HOLA")
     end
     
     return x_range_stretched, y_range_stretched, z_range_stretched
