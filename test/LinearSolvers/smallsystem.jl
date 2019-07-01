@@ -4,19 +4,19 @@ using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
 
 using LinearAlgebra
-using Random
 
 @testset "LinearSolvers small system" begin
   n = 8
-  Random.seed!(44)
 
-  expected_iters = Dict(Float32 => 12, Float64 => 5)
+  expected_iters = Dict(Float32 => 21, Float64 => 11)
 
   for T in [Float32, Float64]
-    B = rand(T, n, n)
+    B = T[mod(i + j, 3) + mod(2i - j, 5) for j = 1:n, i = 1:n]
     A = B' * B
+
+    A ./= (maximum(A))
     
-    xsol = rand(T, n)
+    xsol = T[i ^ 2 for i = 1:n]
     normalize!(xsol)
 
     b = A * xsol
@@ -26,21 +26,20 @@ using Random
     tol = eps(T)
     gcrk = GeneralizedConjugateResidual(3, b, tol)
     
-    x = rand(T, n)
+    x = ones(T, n)
     iters = linearsolve!(mulbyA!, x, b, gcrk)
 
     @test iters == expected_iters[T]
-    # TODO: get rid of the magic 20 factor 
     @test norm(A * x - b, Inf) <= 20tol
    
     newtol = 1000tol
     settolerance!(gcrk, newtol)
     
-    x = ones(n)
-    iters = linearsolve!(mulbyA!, x, b, gcrk)
+    x = ones(T, n)
+    linearsolve!(mulbyA!, x, b, gcrk)
 
     @test norm(A * x - b, Inf) <= 20newtol
-    @test norm(A * x - b, Inf) >= 20tol
+    @test norm(A * x - b, Inf) >= tol
 
   end
 end
