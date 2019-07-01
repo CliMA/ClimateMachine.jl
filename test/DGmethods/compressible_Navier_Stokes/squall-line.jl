@@ -182,7 +182,7 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/.dat"))
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_JCP2013_with_pressure.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -583,7 +583,7 @@ end
             This function specifies the initial conditions
             for the dycoms driver.
         """
-function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
+function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
     DFloat         = eltype(Q)
     # --------------------------------------------------
@@ -721,7 +721,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         spl_vinit    = Spline1D(zinit, vinit; k=1)
         spl_pinit    = Spline1D(zinit, pinit; k=1)
 
-        initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
+        initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
                                             spl_qinit, spl_uinit, spl_vinit,
                                             spl_pinit, x...)
         Q = MPIStateArray(spacedisc, initialcondition)
@@ -874,7 +874,7 @@ let
         @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|                 """
         @info @sprintf """                                                       """
         @info @sprintf """ ------------------------------------------------------"""
-        @info @sprintf """ Dycoms                                                """
+        @info @sprintf """ Squall line                                           """
         @info @sprintf """   Resolution:                                         """ 
         @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
         @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
