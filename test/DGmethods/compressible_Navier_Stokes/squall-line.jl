@@ -620,77 +620,21 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
 
-function get_maximum_Courant(Q::MPIStateArray, vgeo) 
-    _nvgeo = 15
-    R_gas::eltype(Q) = R_d
-    c_v::eltype(Q) = cv_d
-    _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-    _x, _y, _z, _JcV = 1:_nvgeo
-    _ρ, _U, _V, _W, _E = 1:5
-    (Np, nstate, nelem) = size(Q)
-    DFloat = eltype(Q) 
-    locmax = DFloat(-10^6)
-    locmin = DFloat(10^6)
-    dt = floatmax(DFloat)
-    gravity::eltype(Q) = grav
-    γ::eltype(Q) = 1.4
-    Courantx = - floatmax(DFloat)
-    Couranty = - floatmax(DFloat)
-    Courantz = - floatmax(DFloat)
-    
-    @inbounds for e = nelem
-        for n = 1:Np
-            ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
-            ξx = vgeo[n, _ξx, e]
-            ηy = vgeo[n, _ηy, e]
-            ζz = vgeo[n, _ζz, e]
-            z = vgeo[n, _z, e]
-        end
-    end
-    
-    #=
-    P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
-    u, v, w = U/ρ, V/ρ, W/ρ
-    dx = 1.0/(2*ξx)
-    dy = 1.0/(2*ηy)
-    dz = 1.0/(2*ζz)
-    
-    wave_speedx = (u + sqrt(γ * P / ρ))
-    wave_speedy = (v + sqrt(γ * P / ρ))
-    wave_speedz = (w + sqrt(γ * P / ρ))
-
-    dt_locx = 1.0/wave_speedx/N/dx
-    dt_locy = 1.0/wave_speedy/N/dy
-    dt_locz = 1.0/wave_speedz/N/dz
-    
-    loc_Courantx = wave_speedx*dt_locx*N/dx
-    loc_Couranty = wave_speedy*dt_locy*N/dy
-    loc_Courantz = wave_speedz*dt_locz*N/dz
-    
-    Courantx = max(Courantx, loc_Courantx)
-    Couranty = max(Couranty, loc_Couranty)
-    Courantz = max(Courantz, loc_Courantz)
-    
-    end
-    
-    CFLx = MPI.Allreduce(Courantx, MPI.MAX, mpicomm)
-    CFLy = MPI.Allreduce(Couranty, MPI.MAX, mpicomm)
-    CFLz = MPI.Allreduce(Courantz, MPI.MAX, mpicomm)
-    CFLmax = max(CFLx, CFLy, CFLz) 
-    return (CFLx, CFLy, CFLz, CFLmax) 
-    =#
-    return nothing
-end
-
-
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     #(stretching_range_x, stratching_range_y, stratching_range_z) = stretching(xmin, xmax, ymin, ymax, zmin, zmax, Ne)
 
-    brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
-                  range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+    stretching_range_x = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
+    stretching_range_y = (range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+    stretching_range_z = (range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+    
+    zstretch_coe = 0.3   
+    h = (zmax-zmin)*(exp(zstretch_coe .* stretching_range_z) - 1.0)/(exp(zstretch_coe) - 1.0)
+    stretching_range_z .= h
+    
+    brickrange = (stretching_range_x, stretching_range_y, stretching_range_z)
+    
 
 
     # User defined periodicity in the topl assignment
