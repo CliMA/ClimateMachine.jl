@@ -650,11 +650,11 @@ function warp_agnesi(xin, yin, zin)
     """
        Classical agnesi mountain:
     """    
-    a_c    = abs(xmax)*0.8;
+    a_c    = xmax*0.8;
     hm     = 100.0
-    xc     = 0.5*abs(xmax + xmin)
-    yc     = 0.5*abs(ymax + ymin)
-    z_diff = hm/(1.0 + ( (xin - xc)^2/a_c + (yin - yc)^2/a_c)
+    xc     = 0.5*(xmax + xmin)
+    yc     = 0.5*(ymax + ymin)
+    z_diff = hm/(1.0 + ( (xin - xc)^2 + (yin - yc)^2)/a_c)
 
     x, y, z = xin, yin, zin + z_diff * (zmax - zin)/zmax
     

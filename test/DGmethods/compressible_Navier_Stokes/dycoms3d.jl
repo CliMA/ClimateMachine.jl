@@ -421,7 +421,7 @@ end
 
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
-
+#
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
     @inbounds begin
         UM, VM, WM = QM[_U], QM[_V], QM[_W]
@@ -438,13 +438,14 @@ end
 
 # -------------------------------------------------------------------------
 @inline function stresses_boundary_penalty!(VF, _...) 
-    VF .= 0
+    #VF .= 0
+    compute_stresses!(VF, 0) #
 end
 
 @inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
     @inbounds begin
         n_Δvel = similar(VF, Size(3, 3))
-        for j = 1:3, i = 1:3
+        for j = 1:_ngradstates, i = 1:3
             n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
         end
         compute_stresses!(VF, n_Δvel)
@@ -647,7 +648,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     @timeit to "Time stepping init" begin
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
+        #=
         function get_maximum_Courant(Q::MPIStateArray, vgeo) 
             _nvgeo = 15
             R_gas::eltype(Q) = R_d
@@ -707,6 +708,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
         (CFLx, CFLy, CFLz) = get_maximum_Courant(Q, grid.vgeo)
         @show(max(CFLx,CFLy,CFLz)) 
+        =#
         #=eng0 = norm(Q)
         @info @sprintf """Starting
         norm(Q₀) = %.16e""" eng0
@@ -828,8 +830,8 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.0025
-    timeend = 10*dt
-    # timeend = 14400
+    #timeend = 10*dt
+     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
