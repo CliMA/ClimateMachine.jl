@@ -81,15 +81,15 @@ const seed = MersenneTwister(0)
 #
 # User Input
 #
-const numdims = 3
+const numdims = 2
 const Npoly = 4
 
 #
 # Define grid size 
 #
-Δx    = 1000
+Δx    =  500
 Δy    = 1000
-Δz    = 200
+Δz    =  200
 
 #
 # OR:
@@ -99,9 +99,9 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 40000)
-const (ymin, ymax) = (0, 10000)
-const (zmin, zmax) = (0,  22000)
+const (xmin, xmax) = (0,160000)
+const (ymin, ymax) = (0,  1000)
+const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -649,7 +649,7 @@ function grid_stretching(DFloat,
     
     zstretch_coe = 0.0
     if zstretch_flg == 1
-        zstretch_coe = 2.5
+        zstretch_coe = 2.0
         z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
     end
 
@@ -662,23 +662,10 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     #Build stretching along each direction
     (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 1)
-#=
-    #build physical range to be stratched
-    x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
-    y_range_stretched = (range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
-    z_range_stretched = (range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
-
-    #build logical space
-    ksi  = (range(DFloat(0), length=Ne[1]+1, DFloat(1)))
-    eta  = (range(DFloat(0), length=Ne[2]+1, DFloat(1)))
-    zeta = (range(DFloat(0), length=Ne[3]+1, DFloat(1)))
-  
-    zstretch_coe = 0.5
-    z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
-    =#
     
     #Build (stretched) grid:
-    brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
+    #brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
+    brickrange = (x_range_stretched, z_range_stretched)
     
 
     # User defined periodicity in the topl assignment
@@ -862,8 +849,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.0025
-    timeend = dt
+    dt = 0.01
+    timeend = 9000
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
