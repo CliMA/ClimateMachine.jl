@@ -94,9 +94,9 @@ const _statenames = ("δρ", "ρu", "ρv", "ρw", "δρe")
 # These will be the auxiliary state which will contain the geopotential,
 # gradient of the geopotential, and reference values for density and total
 # energy, as well as the coordinates
-const _nauxstate = 9
-const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_ρ_ref, _a_ρe_ref, _a_x, _a_y, _a_z = 1:_nauxstate
-const _auxnames = ("ϕ", "ϕx", "ϕy", "ϕz", "ρ_ref", "ρe_ref", "x", "y", "z")
+const _nauxstate = 10
+const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_ρ_ref, _a_ρe_ref, _a_x, _a_y, _a_z, _a_sponge = 1:_nauxstate
+const _auxnames = ("ϕ", "ϕx", "ϕy", "ϕz", "ρ_ref", "ρe_ref", "x", "y", "z", "sponge_coefficient")
 #md nothing # hide
 
 #------------------------------------------------------------------------------
@@ -196,7 +196,11 @@ function source!(S, Q, aux, t)
     S[_ρv ]  -= kv*ρv
     S[_ρw ]  -= kv*ρw
     S[_dρe ] -= ( kt*ρ*cv_d*T + kv*(ρu*ρu + ρv*ρv + ρw*ρw)/ρ )
-    
+
+    sponge_coefficient = aux[_a_sponge]
+    S[_ρu ] -= sponge_coefficient*ρu
+    S[_ρv ] -= sponge_coefficient*ρv
+    S[_ρw ] -= sponge_coefficient*ρw
 end
 end
 #md nothing # hide
@@ -322,7 +326,7 @@ end
 
 # FXG: reference state
 # Setup the reference state based on a N=0.0158725 uniformly stratified atmosphere with θ0=315K
-function auxiliary_state_initialization!(T0, aux, x, y, z)
+function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z)
   @inbounds begin
     DFloat = eltype(aux)
     p0 :: DFloat = MSLP
@@ -352,6 +356,16 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     e_int = internal_energy(T_ref)
     ρe_ref = e_int * ρ_ref + ρ_ref * ϕ
 
+    ## Sponge coefficient (from dycoms3d)
+    ct = DFloat(0.75)
+    top_sponge  = DFloat(0.85) * (domain_height - planet_radius) + planet_radius
+
+    if r >= top_sponge
+      sponge_coefficient = ct * (sinpi((r - top_sponge)/2/(domain_height - top_sponge)))^4
+    else
+      sponge_coefficient = zero(DFloat)
+    end
+
     ## Fill the auxiliary state array
     aux[_a_ϕ] = ϕ
     ## gradient of the geopotential will be computed numerically below
@@ -363,6 +377,7 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     aux[_a_x] = x
     aux[_a_y] = y
     aux[_a_z] = z
+    aux[_a_sponge] = sponge_coefficient
   end
 end
 #md nothing # hide
@@ -462,7 +477,7 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
                                                             nofluxbc!,
                                                             wavespeed)
 
-  auxinit(x...) = auxiliary_state_initialization!(T0, x...)
+  auxinit(x...) = auxiliary_state_initialization!(T0, domain_height, x...)
   ## Define the balance law solver
   spatialdiscretization = DGBalanceLaw(grid = grid,
                                        length_state_vector = _nstate,
