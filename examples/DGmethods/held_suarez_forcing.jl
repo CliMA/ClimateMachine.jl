@@ -322,6 +322,12 @@ function cartesian_to_spherical(DFloat, x, y, z)
     φ = asin(z / r)
     (r, λ, φ)
 end
+function spherical_to_cartesian(r, λ, φ)
+  x = r*cos(φ)*cos(λ)
+  y = r*cos(φ)*sin(λ)
+  z = r*sin(φ)
+  (x, y, z)
+end
 #md nothing # hide
 
 # FXG: reference state
