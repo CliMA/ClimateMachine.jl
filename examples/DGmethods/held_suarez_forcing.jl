@@ -202,7 +202,7 @@ end
 #md nothing # hide
 
 # FXG: Held-Suarez forcing function
-function held_suarez_forcing(x, y, z, T, P)
+function held_suarez_forcing(x, y, z, T, P, t)
   @inbounds begin
     DFloat = eltype(T)
 
