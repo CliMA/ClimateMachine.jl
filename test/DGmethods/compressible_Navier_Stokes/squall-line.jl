@@ -38,14 +38,14 @@ end
 # and consider the dry equation set to be the same as the moist equations but
 # with total specific humidity = 0.
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0, Omega
+using CLIMA.PlanetParameters
 using CLIMA.Microphysics
 
 # State labels
 const _nstate = 9
 const _ρ, _ρu, _ρv, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_ice, _ρq_rai =1:_nstate
 const stateid = (ρid = _ρ, ρu_id = _ρu, ρv_id = _ρv, ρw_id = _ρw,
-                 ρe_tot_id = _ρe_tot, ρq_tot_id = _ρq_tot, ρq_liq_id = _ρq_liq
+                 ρe_tot_id = _ρe_tot, ρq_tot_id = _ρq_tot, ρq_liq_id = _ρq_liq,
                  ρq_ice_id = _ρq_ice, ρq_rai_id = _ρq_rai)
 const statenames = ("ρ", "ρu", "ρv", "ρw", "ρe_tot", "ρq_tot", "ρq_liq",
                     "ρq_ice", "ρq_rai")
@@ -172,8 +172,8 @@ const Δsqr = Δ * Δ
 
       # unpack model variables
       ρ, ρu, ρv, ρw, ρq_tot, ρq_liq, ρq_ice, ρq_rai, ρe_tot =
-        Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_rai],
-        Q[_ρe_tot]
+        Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_ice],
+        Q[_ρq_rai], Q[_ρe_tot]
       u, v, w, q_tot, q_liq, q_ice, q_rai, e_tot =
         ρu / ρ, ρv / ρ, ρw / ρ, ρq_tot / ρ, ρq_liq / ρ, ρq_ice / ρ, ρq_rai / ρ,
         ρe_tot / ρ
@@ -525,7 +525,8 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 #
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t,
+                          u, v, w, rain_wM, ρ, q_tot, q_liq, q_ice, q_rai, e_tot)
     @inbounds begin
         ρu_M, ρv_M, ρw_M = QM[_ρu], QM[_ρv], QM[_ρw]
         # No flux boundary conditions
@@ -556,20 +557,24 @@ end
 end
 # -------------------------------------------------------------------------
 
-@inline function source!(S,Q,aux,t)
+source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
+@inline function source!(S, Q, aux, t, u, v, w, rain_w, ρ,
+                         q_tot, q_liq, q_ice, q_rai, e_tot)
     # Initialise the final block source term
     S .= 0
 
     # Typically these sources are imported from modules
     @inbounds begin
-        source_microphysics!(S, Q, aux, t)
+        source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
+                             q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
         source_geostrophic!(S, Q, aux, t)
     end
 end
 
-@inline function source_microphysics!(S, Q, aux, t)
+@inline function source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
+                             q_tot, q_liq, q_ice, q_rai, e_tot)
 
   DF = eltype(Q)
 
@@ -579,15 +584,16 @@ end
     p = aux[_a_p]
 
     # current state
-    e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
+    e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
     q     = PhasePartition(q_tot, q_liq, q_ice)
     T     = air_temperature(e_int, q)
     # equilibrium state at current T
     q_eq = PhasePartition_equil(T, ρ, q_tot)
 
     # cloud water condensation/evaporation
-    src_q_liq, src_q_ice = conv_q_vap_to_q_liq_ice(q_eq, q)
-    S[_ρq_liq] += ρ * (src_q_liq + src_q_ice) #TODO - tmp
+    src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
+    src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
+    S[_ρq_liq] += ρ * (src_q_liq + src_q_ice) #TODO - tmp - only warm rain for now
 
     # tendencies from rain
     # TODO - ensure positive definite
@@ -612,28 +618,29 @@ end
 @inline function source_geostrophic!(S,Q,aux,t)
     DFloat = eltype(S)
     f_coriolis = DFloat(7.62e-5)
-    U_geostrophic = DFloat(7)
-    V_geostrophic = DFloat(-5.5)
+    u_geostrophic = DFloat(7)
+    v_geostrophic = DFloat(-5.5)
     @inbounds begin
-        U = Q[_U]
-        V = Q[_V]
-        S[_U] -= f_coriolis * (U - U_geostrophic)
-        S[_V] -= f_coriolis * (V - V_geostrophic)
+        ρ = Q[_ρ]
+        ρu = Q[_ρu]
+        ρv = Q[_ρv]
+        S[_ρu] -= f_coriolis * (ρu - ρ * u_geostrophic)
+        S[_ρv] -= f_coriolis * (ρu - ρ * v_geostrophic)
     end
 end
 
 @inline function source_sponge!(S,Q,aux,t)
     @inbounds begin
-        U, V, W  = Q[_U], Q[_V], Q[_W]
+        ρu, ρv, ρw  = Q[_ρu], Q[_ρv], Q[_ρw]
         beta     = aux[_a_sponge]
-        S[_U] -= beta * U
-        S[_V] -= beta * V
-        S[_W] -= beta * W
+        S[_ρu] -= beta * ρu
+        S[_ρv] -= beta * ρv
+        S[_ρw] -= beta * ρw
     end
 end
 
 @inline function source_geopot!(S,Q,aux,t)
-    @inbounds S[_W] += - Q[_ρ] * grav
+    @inbounds S[_ρw] += - Q[_ρ] * grav
 end
 
 # Test integral exactly according to the isentropic vortex example
@@ -654,9 +661,11 @@ function preodefun!(disc, Q, t)
               Q[_ρq_ice], Q[_ρq_rai]
             z = aux[_a_z]
 
-            q_tot, q_liq, q_ice = ρq_tot / ρ, ρq_liq / ρ, ρq_ice / ρ
+            q_tot = ρq_tot / ρ; q_liq = ρq_liq / ρ; q_ice = ρq_ice / ρ
+            u = ρu / ρ; v = ρv / ρ; w = ρw / ρ
+            e_tot = ρe_tot / ρ
 
-            e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
+            e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
             q     = PhasePartition(q_tot, q_liq, q_ice)
             T     = air_temperature(e_int, q)
             p     = air_pressure(T, ρ, q)
@@ -874,41 +883,58 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 15
-        _betaout, _p, _u, _v, _w, _rain_w, _ρ, _q_tot, _q_liq, _q_ice, _q_rai,
-          _e_tot, _e_int, _e_kin, _e_pot = 1:npoststates
-        postnames = ("BETA", "p", "u", "v", "w", "rain_w", "ρ", "q_tot",
-          "q_liq", "q_ice", "q_rai", "e_tot", "e_int", "e_kin", "e_pot")
+        #npoststates = 17
+        #_betaout, _T, _u, _v, _w, _rain_w, _ρ, _q_tot, _q_vap, _q_liq,
+        #  _q_ice, _q_rai, _e_tot, _e_int, _e_kin, _e_pot, output_z = 1:npoststates
+        #postnames = ("BETA", "T", "u", "v", "w", "rain_w", "ρ", "q_tot",
+        #  "q_vap", "q_liq", "q_ice", "q_rai", "e_tot", "e_int", "e_kin", "e_pot", "output_z")
+        #postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+
+        npoststates = 17
+        out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w = 1:npoststates
+        postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-squall-line")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
+                    DF = eltype(Q)
 
                     u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot =
                       preflux(Q, QV, aux)
 
-                    e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
-                    q = PhasePartition(q_tot, q_liq, DF(0))
+                    e_kin = 1//2 * (u^2 + v^2 + w^2)
+                    e_pot = grav * aux[_a_z]
+                    e_int = e_tot - e_kin - e_pot
+                    q = PhasePartition(q_tot, q_liq, q_ice)
 
+                    R[out_z] = aux[_a_z]
+                    R[out_p] = aux[_a_p]
+                    R[out_beta] = radiation(aux)
+                    R[out_T] = air_temperature(e_int, q)
 
+                    R[out_u] = u
+                    R[out_v] = v
+                    R[out_w] = w
 
+                    R[out_q_tot] = q_tot
+                    R[out_q_vap] = q_tot - q_liq - q_ice
+                    R[out_q_liq] = q_liq
+                    R[out_q_ice] = q_ice
+                    R[out_q_rai] = q_rai
 
+                    R[out_e_tot] = e_tot
+                    R[out_e_int] = e_int
+                    R[out_e_kin] = e_kin
+                    R[out_e_pot] = e_pot
 
-                    R[_betaout] = radiation(aux)
-                    R[_p] = aux[_a_p]
-
-                    R[_u], R[_v], R[_w], R[_rain_w], R[_ρ], R[_q_tot],
-                      R[_q_liq], R[_q_ice], R[_q_rai], R[_e_tot] =
-                      preflux(Q, QV, aux)
-
-        R[v_T] = air_temperature(e_int, q)
-
-                    R[_e_int] =
-                    R[_e_kin] =
-                    R[_e_pot] =
+                    if(q_rai > DF(0)) # TODO - ensure positive definite elswhere
+                      R[out_rain_w] = terminal_velocity(q_rai, ρ)
+                    else
+                      R[out_rain_w] = DF(0)
+                    end
                 end
             end
 
@@ -989,11 +1015,11 @@ let
     if MPI.Comm_rank(mpicomm) == 0
         @info @sprintf """ ------------------------------------------------------"""
         @info @sprintf """   ______ _      _____ __  ________                    """
-        @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |                 """
-        @info @sprintf """  | |    | |      | | |   .   | |  | |                 """
-        @info @sprintf """  | |    | |      | | | |   | | |__| |                 """
-        @info @sprintf """  | |____| |____ _| |_| |   | | |  | |                 """
-        @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|                 """
+        @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |      _____      """
+        @info @sprintf """  | |    | |      | | |   .   | |  | |     (     )     """
+        @info @sprintf """  | |    | |      | | | |   | | |__| |    (       )    """
+        @info @sprintf """  | |____| |____ _| |_| |   | | |  | |   (         )   """
+        @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|  (___________)  """
         @info @sprintf """                                                       """
         @info @sprintf """ ------------------------------------------------------"""
         @info @sprintf """ Squall line                                           """
