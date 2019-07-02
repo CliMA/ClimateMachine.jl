@@ -87,7 +87,7 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    =  500
+Δx    =  250
 Δy    = 1000
 Δz    =  200
 
@@ -99,7 +99,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0,160000)
+const (xmin, xmax) = (-25000,25000)
 const (ymin, ymax) = (0,  5000)
 const (zmin, zmax) = (0, 24000)
 
@@ -745,6 +745,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         #get_maximum_Courant(Q, grid.vgeo)
         #(CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
         #@info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
+
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
         
