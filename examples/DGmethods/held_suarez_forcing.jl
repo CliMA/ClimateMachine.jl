@@ -146,7 +146,7 @@ end
 #md nothing # hide
 
 # FXG: Source function => Define the geopotential and Held-Suarez source from the solution and auxiliary variables
-function geopotential!(S, Q, aux, t)
+function source!(S, Q, aux, t)
   @inbounds begin
 
     ## Store values
@@ -467,7 +467,7 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
   spatialdiscretization = DGBalanceLaw(grid = grid,
                                        length_state_vector = _nstate,
                                        flux! = eulerflux!,
-                                       source! = geopotential!,
+                                       source! = source!,
                                        numerical_flux! = numflux!,
                                        numerical_boundary_flux! = numbcflux!,
                                        auxiliary_state_length = _nauxstate,
