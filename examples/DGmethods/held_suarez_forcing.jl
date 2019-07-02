@@ -74,6 +74,9 @@ end
 # Specify whether to enforce hydrostatic balance at PDE level or not
 const PDE_level_hydrostatic_balance = true
 
+# Specify if forcings are ramped up or full forcing are applied from the beginning
+const ramp_up_forcings = true
+
 # check whether to use default VTK directory or define something else
 VTKDIR = get(ENV, "CLIMA_VTK_DIR", "vtk")
 
@@ -186,7 +189,7 @@ function geopotential!(S, Q, aux, t)
     P = air_pressure(T, ρ)
     
     #Create Held-Suarez forcing
-    (kv,kt,T_eq)=held_suarez_forcing(x,y,z,T,P)    
+    (kv,kt,T_eq)=held_suarez_forcing(x,y,z,T,P,t) 
     
     #Apply forcing
     S[_ρu ]  -= kv*ρu
@@ -231,6 +234,13 @@ function held_suarez_forcing(x, y, z, T, P)
     kt = ka + (ks-ka)*c*cos(φ)^4
     kv = kf*c
     kt = kt*(1 - T_eq/T)
+
+    if ramp_up_forcing
+      t_ramp :: DFloat = 86400
+      ramp_factor = (1 - exp(-2t / t_ramp)) / (1 + exp(-2t / t_ramp))
+      kv *= ramp_factor
+      kt *= ramp_factor
+    end
 
     #println("h = ",h,", φ = ",φ,", T_eq = ",T_eq,", T = ",T)
 
