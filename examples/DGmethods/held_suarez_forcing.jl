@@ -572,7 +572,19 @@ let
 
   ## Since we are using explicit time stepping the acoustic wave speed will
   ## dominate our CFL restriction along with the vertical element size
-  element_size = (domain_height / Ne_vertical)
+
+  if use_exponential_vertical_warp
+    # this assumes the stretching increases radially
+    first_elem_top = planet_radius + domain_height / Ne_vertical
+    (_, _, first_elem_top) =
+      exponentialverticalwarp(domain_height, zero(DFloat), zero(DFloat),
+                              first_elem_top)
+    element_size = first_elem_top - planet_radius
+  else
+    element_size = (domain_height / Ne_vertical)
+  end
+
+
   acoustic_speed = soundspeed_air(DFloat(T0))
   dt = element_size / acoustic_speed / polynomialorder^2
 
