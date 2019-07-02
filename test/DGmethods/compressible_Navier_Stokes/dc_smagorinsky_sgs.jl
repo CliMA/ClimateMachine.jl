@@ -72,9 +72,9 @@ Problem Description
 """
 
 const numdims = 2
-Δx    = 25
-Δy    = 25
-Δz    = 25
+Δx    = 50
+Δy    = 50
+Δz    = 50
 Npoly = 4
 
 # Physical domain extents 
@@ -97,7 +97,6 @@ const Ney = ceil(Int64, ratioy)
 const Nez = ceil(Int64, ratioz)
 
 # Equivalent grid-scale
-const (_,Δsqr) = SubgridScaleTurbulence.anisotropic_coefficient_sgs(Δx, Δy, Δz, Npoly) 
 
 @info @sprintf """ ----------------------------------------------------"""
 @info @sprintf """   ______ _      _____ __  ________                  """     
@@ -113,6 +112,28 @@ const (_,Δsqr) = SubgridScaleTurbulence.anisotropic_coefficient_sgs(Δx, Δy, �
 @info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
 @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
 @info @sprintf """ ----------------------------------------------------"""
+
+# -------------------------------------------------------------------------
+#md ### Auxiliary Function (Not required)
+#md # In this example the auxiliary function is used to store the spatial
+#md # coordinates. This may also be used to store variables for which gradients
+#md # are needed, but are not available through teh prognostic variable 
+#md # calculations. (An example of this will follow - in the Smagorinsky model, 
+#md # where a local Richardson number via potential temperature gradient is required)
+# -------------------------------------------------------------------------
+const _nauxstate = 7
+const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_dz, _a_Δsqr = 1:_nauxstate
+@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
+    @inbounds begin
+        aux[_a_x] = x
+        aux[_a_y] = y
+        aux[_a_z] = z
+        aux[_a_dx] = dx
+        aux[_a_dy] = dy
+        aux[_a_dz] = dz
+        aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_coefficient_sgs2D(dx, dy)
+    end
+end
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -147,16 +168,16 @@ end
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-    gravity::eltype(Q) = grav
-    @inbounds begin 
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-        u, v, w = ρinv * U, ρinv * V, ρinv * W
-        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
-        q_tot = QT / ρ
-        TS = PhaseEquil(e_int, q_tot, ρ)
-        (n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
-    end
+  gravity::eltype(Q) = grav
+  @inbounds begin 
+    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    u, v, w = ρinv * U, ρinv * V, ρinv * W
+    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
+    q_tot = QT / ρ
+    TS = PhaseEquil(e_int, q_tot, ρ)
+    abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
+  end
 end
 
 # -------------------------------------------------------------------------
@@ -171,44 +192,46 @@ end
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-    gravity::eltype(Q) = grav
-    @inbounds begin
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        # Inviscid contributions
-        F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
-        F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
-        F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
-        F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-        F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-        F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
+  gravity::eltype(Q) = grav
+  @inbounds begin
+    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    # Inviscid contributions
+    F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
+    F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
+    F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
+    F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
+    F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
+    F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
 
-        #Derivative of T and Q:
-        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
-        vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-        vρy = VF[_ρy]
-      
-        #Richardson contribution:
-        SijSij = VF[_SijSij]
-        #Dynamic eddy viscosity from Smagorinsky:
-        (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
-        f_R = buoyancy_correction(SijSij, ρ, vρy)
-        
-        # Multiply stress tensor by viscosity coefficient:
-        τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-        τ12 = τ21 = VF[_τ12] * ν_e 
-        τ13 = τ31 = VF[_τ13] * ν_e               
-        τ23 = τ32 = VF[_τ23] * ν_e
-        
-        # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-        F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
-        F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
-        F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+    #Derivative of T and Q:
+    vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
+    vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+    vρy = VF[_ρy]
+    
+    #Richardson contribution:
+    SijSij = VF[_SijSij]
+    
+    #Dynamic eddy viscosity from Smagorinsky:
+    Δsqr = aux[_a_Δsqr]
+    (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
+    f_R = SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
+    
+    # Multiply stress tensor by viscosity coefficient:
+    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    τ12 = τ21 = VF[_τ12] * ν_e 
+    τ13 = τ31 = VF[_τ13] * ν_e               
+    τ23 = τ32 = VF[_τ23] * ν_e
+    
+    # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
+    F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
+    F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
+    F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
 
-        # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
-    end
+    # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
+  end
 end
 
 # -------------------------------------------------------------------------
@@ -267,24 +290,6 @@ end
         VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
         VF[_ρx], VF[_ρy], VF[_ρz] = dρdx, dρdy, dρdz
         VF[_SijSij] = SijSij
-    end
-end
-# -------------------------------------------------------------------------
-# -------------------------------------------------------------------------
-#md ### Auxiliary Function (Not required)
-#md # In this example the auxiliary function is used to store the spatial
-#md # coordinates. This may also be used to store variables for which gradients
-#md # are needed, but are not available through teh prognostic variable 
-#md # calculations. (An example of this will follow - in the Smagorinsky model, 
-#md # where a local Richardson number via potential temperature gradient is required)
-# -------------------------------------------------------------------------
-const _nauxstate = 3
-const _a_x, _a_y, _a_z, = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z)
-    @inbounds begin
-        aux[_a_x] = x
-        aux[_a_y] = y
-        aux[_a_z] = z
     end
 end
 

@@ -568,7 +568,6 @@ function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
       ζx, ζy, ζz = vgeo[n, _ζx, e], vgeo[n, _ζy, e], vgeo[n, _ζz, e]
       dx = 1/(ξx*2 + ηx*2 + ζx*2) 
       dy = 1/(ξy*2 + ηy*2 + ζy*2)
-
       dz = Nqk == 1 ? 0 : 1/(ξz*2 + ηz*2 + ζz*2)
       dV = dx*dy*dz# Compute volume 
       
