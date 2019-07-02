@@ -340,11 +340,12 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
 
     ## Reference Potential Temperature from constant Brunt-Vaisala definition
     #θ_ref = θ0 * exp( N_bv^2*h/gravity )
-    θ_ref = θ0
+    ΔT_y :: DFloat = 60 
+    θ_ref = θ0 - ΔT_y
 
     ## Reference Exner Pressure from hydrostatic equation
     #π_ref = 1 + gravity^2/(cp_d*θ0*N_bv^2)*(exp(-N_bv^2*h/gravity) - 1)
-    π_ref = 1 - gravity/(cp_d*θ0)*h
+    π_ref = 1 - gravity/(cp_d*θ_ref)*h
 
     ## Calculate pressure from exner pressure definition
     P_ref = p0*(π_ref)^(cp_d/R_d)
