@@ -50,7 +50,7 @@ using CLIMA.GenericCallbacks
 
 # Though not required, here we are explicit about which values we read out the
 # `PlanetParameters` and `MoistThermodynamics`
-using CLIMA.PlanetParameters: planet_radius, R_d, cp_d, grav, cv_d, MSLP
+using CLIMA.PlanetParameters: planet_radius, R_d, cp_d, grav, cv_d, MSLP, Omega
 using CLIMA.MoistThermodynamics: air_temperature, air_pressure, internal_energy,
                                  soundspeed_air, air_density, gas_constant_air
 
