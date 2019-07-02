@@ -313,7 +313,7 @@ end
 # }}}
 
 # Integral based metrics
-function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2)
+function LinearAlgebra.norm(Q::MPIStateArray, p::Real=Int32(2))
   T = eltype(Q)
 
   if isfinite(p)
