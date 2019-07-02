@@ -199,15 +199,15 @@ function held_suarez_forcing(x, y, z, T, P)
     θ0 :: DFloat = 315
     N_bv :: DFloat = 0.0158725
     gravity :: DFloat = grav
-    ka :: DFloat = 1 // 40 // 86400
-    kf :: DFloat = 1 // 86400
-    ks :: DFloat = 1 // 4 // 86400
+    ka :: DFloat = 1 / 40 / 86400
+    kf :: DFloat = 1 / 86400
+    ks :: DFloat = 1 / 4 / 86400
     ΔT_y :: DFloat = 60 
     ΔT_z :: DFloat = 10   
     temp0 :: DFloat = 315
     temp_min :: DFloat = 200
     hd :: DFloat = 7000 #from Smolarkiewicz JAS 2001 paper    
-    σ_b :: DFloat = 7 // 10
+    σ_b :: DFloat = 7 / 10
     
     #Compute Rayleigh Damping terms from Held-Suarez 1994 paper
     (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
