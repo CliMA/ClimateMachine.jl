@@ -3,43 +3,41 @@ using CLIMA
 using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
 
-using LinearAlgebra
+using LinearAlgebra, Random
 
-@testset "LinearSolvers small system" begin
-  n = 8
+Random.seed!(44)
 
-  expected_iters = Dict(Float32 => 21, Float64 => 11)
+# this test setup is partly based on IterativeSolvers.jl, see e.g
+# https://github.com/JuliaMath/IterativeSolvers.jl/blob/master/test/cg.jl
+@testset "LinearSolvers small full system" begin
+  n = 10
+
+  expected_iters = Dict(Float32 => 3, Float64 => 4)
 
   for T in [Float32, Float64]
-    B = T[mod(i + j, 3) + mod(2i - j, 5) for j = 1:n, i = 1:n]
-    A = B' * B
-
-    A ./= (maximum(A))
-    
-    xsol = T[i ^ 2 for i = 1:n]
-    normalize!(xsol)
-
-    b = A * xsol
+    A = rand(T, n, n)
+    A = A' * A + I
+    b = rand(T, n)
 
     mulbyA!(y, x) = (y .= A * x)
 
-    tol = eps(T)
+    tol = sqrt(eps(T))
     gcrk = GeneralizedConjugateResidual(3, b, tol)
     
-    x = ones(T, n)
+    x = rand(T, n)
     iters = linearsolve!(mulbyA!, x, b, gcrk)
 
     @test iters == expected_iters[T]
-    @test norm(A * x - b, Inf) <= 20tol
+    @test norm(A * x - b, Inf) / norm(b, Inf) <= tol
    
-    newtol = 1000tol
+    newtol = 100tol
     settolerance!(gcrk, newtol)
     
-    x = ones(T, n)
+    x = rand(T, n)
     linearsolve!(mulbyA!, x, b, gcrk)
 
-    @test norm(A * x - b, Inf) <= 20newtol
-    @test norm(A * x - b, Inf) >= tol
+    @test norm(A * x - b, Inf) / norm(b, Inf) <= newtol
+    @test norm(A * x - b, Inf) / norm(b, Inf) >= tol
 
   end
 end
