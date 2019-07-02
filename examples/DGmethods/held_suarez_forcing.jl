@@ -183,7 +183,7 @@ function geopotential!(S, Q, aux, t)
     S[_ρu ]  -= kv*ρu
     S[_ρv ]  -= kv*ρv
     S[_ρw ]  -= kv*ρw
-    S[_dρe ] -= ( kt*ρ*e_int + kv*(ρu*ρu + ρv*ρv + ρw*ρw)/ρ )
+    S[_dρe ] -= ( kt*ρ*cv_d*T + kv*(ρu*ρu + ρv*ρv + ρw*ρw)/ρ )
     
 end
 end
