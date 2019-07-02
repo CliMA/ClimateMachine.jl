@@ -217,7 +217,7 @@ function held_suarez_forcing(x, y, z, T, P)
     Δσ = (σ - σ_b)/(1 - σ_b)
     π = σ^(R_d/cp_d)
     c = max(0, Δσ)
-    T_eq = ( temp0 - ΔT_y*sin(φ)^2 - ΔT_z*log10(σ)*cos(φ)^2 )*π
+    T_eq = ( temp0 - ΔT_y*sin(φ)^2 - ΔT_z*log(σ)*cos(φ)^2 )*π
     T_eq = max(temp_min, T_eq)
     kt = ka + (ks-ka)*c*cos(φ)^4
     kv = kf*c
