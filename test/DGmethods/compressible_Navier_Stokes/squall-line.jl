@@ -597,7 +597,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     datav          = DFloat(spl_vinit(xvert))
     datap          = DFloat(spl_pinit(xvert))
     dataq          = dataq / 1000
-
+    
     θ_c =     5.0
     rx  = 10000.0
     ry  =  1500.0
