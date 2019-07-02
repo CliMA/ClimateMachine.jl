@@ -613,8 +613,8 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         Δθ = θ_c * (cospi(0.5*r))^2
     end
     θ_liq = datat + Δθ
-    qvar  = PhasePartition(q_tot)
     q_tot = dataq
+    qvar  = PhasePartition(q_tot)
     P     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
