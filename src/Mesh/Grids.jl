@@ -1,5 +1,6 @@
 module Grids
 using ..Topologies
+using Printf
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export ExponentialFilter, CutoffFilter, AbstractFilter
@@ -252,7 +253,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   Canary.creategrid!(X..., topology.elemtocoord, ξ)
 
   @inbounds for j = 1:length(x)
-    (x[j], y[j], z[j]) = meshwarp(x[j], y[j], z[j])
+      (x[j], y[j], z[j]) = meshwarp(x[j], y[j], z[j])
   end
 
   # Compute the metric terms

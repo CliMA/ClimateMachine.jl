@@ -1,0 +1,14 @@
+input_eqv
+begin name_equiv
+end name_equiv
+begin constant
+	EOL_type text Unix
+	file_title text coloradoHIRES
+end constant
+
+ASCII_input_file_header_separate_varied	"selection header"
+create_format 0 0 text 0
+
+ASCII_input_data	"Unix text::elev_m"
+elev_m    1   10 ARRAY["lat" 41.000000 to 37.000000 by 0.00833333333 sb 1]["lon" -109.050000 to -102.016667 by 0.00833333333] OF float64 0
+EOL    8441 8441 ARRAY["lat" 41.000000 to 37.000000 by 0.00833333333 sb 8440] OF NEWLINE 0
