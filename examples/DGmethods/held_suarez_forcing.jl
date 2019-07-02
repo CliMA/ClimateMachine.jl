@@ -452,6 +452,20 @@ end
 
 #------------------------------------------------------------------------------
 
+function exponentialverticalwarp(domain_height, x, y, z)
+  r, λ, φ = cartesian_to_spherical(x, y, z)
+
+  # vertical grid stretching
+  htop = domain_height
+  H = 7000 # stretching length scale
+
+  h = r - planet_radius
+  h = - H * log(1 - h / htop * (1 - exp(-htop / H)))
+
+  r = planet_radius + h
+  spherical_to_cartesian(r, λ, φ)
+end
+
 # ### Initialize the DG Method
 function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
                  ArrayType, domain_height, T0, DFloat)
@@ -463,6 +477,9 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
   ## Set up the mesh topology for the sphere
   topology = StackedCubedSphereTopology(mpicomm, Ne_horizontal, Rrange)
 
+  meshwarp = (x...)->exponentialverticalwarp(domain_height,
+                                             Topologies.cubedshellwarp(x...)...)
+
   ## Set up the grid for the sphere. Note that here we need to pass the
   ## `cubedshellwarp` shell `meshwarp` function so that the degrees of freedom
   ## lay on the sphere (and not just stacked cubes)
@@ -470,7 +487,7 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
                                           polynomialorder = polynomialorder,
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
-                                          meshwarp = Topologies.cubedshellwarp)
+                                          meshwarp = meshwarp)
 
   ## Here we use the Rusanov numerical flux which requires the physical flux and
   ## wavespeed
