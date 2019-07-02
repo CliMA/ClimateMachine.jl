@@ -235,7 +235,7 @@ function held_suarez_forcing(x, y, z, T, P, t)
     kv = kf*c
     kt = kt*(1 - T_eq/T)
 
-    if ramp_up_forcing
+    if ramp_up_forcings
       t_ramp :: DFloat = 86400
       ramp_factor = (1 - exp(-2t / t_ramp)) / (1 + exp(-2t / t_ramp))
       kv *= ramp_factor
