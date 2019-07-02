@@ -9,6 +9,12 @@ export standard_smagorinsky
 export buoyancy_correction
 
   """
+  This module addresses §4 (Subgrid-Scale Models) of the CLiMA-atmos documentation.
+  
+  We define the strain-rate tensor in terms of the velocity gradient components
+  ϵ = (∇u) + (∇u)ᵀ where ᵀ represents the transpose operator. 
+
+  
   Model constants.
   C_ss takes typical values of 0.14 - 0.23 (flow dependent empirical coefficient) 
 
@@ -31,11 +37,9 @@ export buoyancy_correction
 
   """
   Smagorinsky model coefficient for anisotropic grids.
-  Given a description of the grid in terms of Δhoriz1, Δhoriz2, Δvert
+  Given a description of the grid in terms of Δ1, Δ2, Δ3
   and polynomial order Npoly, computes the anisotropic equivalent grid
   coefficient such that the Smagorinsky coefficient is modified as follows
-
-  Function with multiple methods for two and three dimensions. 
 
   Eddy viscosity          ν_e
   Smagorinsky coefficient C_ss
@@ -57,39 +61,43 @@ export buoyancy_correction
   }
 
   In addition, simple alternative methods of computing the geometric average
-  are also included (in accordance with Deardorff's methods). 
+  are also included (in accordance with Deardorff's methods).
   """
-  function anisotropic_coefficient_sgs3D(Δhoriz1, Δhoriz2, Δvert)
-      Δ = cbrt(Δhoriz1 * Δhoriz2 * Δvert)
-      Δ_sorted = sort([Δhoriz1, Δhoriz2, Δvert])  
-      # Get smallest two dimensions
-      Δ_s1 = Δ_sorted[1]
-      Δ_s2 = Δ_sorted[2]
-      a1 = Δ_s1 / max(Δhoriz1,Δhoriz2,Δvert) 
-      a2 = Δ_s2 / max(Δhoriz1,Δhoriz2,Δvert) 
-      # In 3D we compute a scaling factor for anisotropic grids
-      f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
-      Δ = Δ*f_anisotropic
-      Δsqr = Δ * Δ
-      return Δsqr
+  function anisotropic_coefficient_sgs3D(Δ1, Δ2, Δ3)
+    # Arguments are the lengthscales in each of the coordinate directions
+    # For a cube: this is the edge length
+    # For a sphere: the arc length provides one approximation of many
+    Δ = cbrt(Δ1 * Δ2 * Δ3)
+    Δ_sorted = sort([Δ1, Δ2, Δ3])  
+    # Get smallest two dimensions
+    Δ_s1 = Δ_sorted[1]
+    Δ_s2 = Δ_sorted[2]
+    a1 = Δ_s1 / max(Δ1,Δ2,Δ3) 
+    a2 = Δ_s2 / max(Δ1,Δ2,Δ3) 
+    # In 3D we compute a scaling factor for anisotropic grids
+    f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
+    Δ = Δ*f_anisotropic
+    Δsqr = Δ * Δ
+    return Δsqr
   end
   
-  function anisotropic_coefficient_sgs2D(Δhoriz, Δvert)
-      Δ = min(Δhoriz, Δvert)
-      Δsqr = Δ * Δ
-      return Δsqr
+  function anisotropic_coefficient_sgs2D(Δ1, Δ3)
+    # Order of arguments does not matter.
+    Δ = min(Δ1, Δ3)
+    Δsqr = Δ * Δ
+    return Δsqr
   end
   
-  function standard_coefficient_sgs3D(Δhoriz1,Δhoriz2, Δvert)
-      Δ = cbrt(Δhoriz1 * Δhoriz2 * Δvert) 
-      Δsqr = Δ * Δ
-      return Δsqr
+  function standard_coefficient_sgs3D(Δ1,Δ2,Δ3)
+    Δ = cbrt(Δ1 * Δ2 * Δ3) 
+    Δsqr = Δ * Δ
+    return Δsqr
   end
   
-  function standard_coefficient_sgs2D(Δhoriz, Δvert)
-      Δ = sqrt(Δhoriz * Δvert)
-      Δsqr = Δ * Δ
-      return Δsqr
+  function standard_coefficient_sgs2D(Δ1, Δ2)
+    Δ = sqrt(Δ1 * Δ2)
+    Δsqr = Δ * Δ
+    return Δsqr
   end
   
   """
@@ -99,6 +107,7 @@ export buoyancy_correction
   τij = 2 * ν_e * Sij ........................................[3]
   """
   function compute_strainrate_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
+    # Assemble components of the strain-rate tensor 
     S11, = dudx
     S12  = (dudy + dvdx) / 2
     S13  = (dudz + dwdx) / 2
@@ -137,6 +146,8 @@ export buoyancy_correction
   }
   """
   function standard_smagorinsky(SijSij, Δsqr)
+    # Eddy viscosity is a function of the magnitude of the strain-rate tensor
+    # This is for use on both spherical and cartesian grids. 
     ν_e::eltype(SijSij) = sqrt(2.0 * SijSij) * C_ss * C_ss * Δsqr
     D_e::eltype(SijSij) = ν_e / Prandtl_turb 
     return (ν_e, D_e)
