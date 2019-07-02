@@ -226,7 +226,7 @@ function held_suarez_forcing(x, y, z, T, P, t)
     σ_b :: DFloat = 7 / 10
     
     #Compute Rayleigh Damping terms from Held-Suarez 1994 paper
-    (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
+    (r, λ, φ) = cartesian_to_spherical(x, y, z)
     h = r - DFloat(planet_radius) # height above the planet surface
     σ = exp(-h/hd) #both approx of sigma behave similarly
 #    σ = P/p0        #both approx of sigma behave similarly
@@ -316,7 +316,7 @@ end
 
 # First it is useful to have a conversion function going between Cartesian and
 # spherical coordinates (defined here in terms of radians)
-function cartesian_to_spherical(DFloat, x, y, z)
+function cartesian_to_spherical(x, y, z)
     r = hypot(x, y, z)
     λ = atan(y, x)
     φ = asin(z / r)
@@ -340,7 +340,7 @@ function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z)
     gravity :: DFloat = grav
     
     ## Convert to Spherical coordinates
-    (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
+    (r, λ, φ) = cartesian_to_spherical(x, y, z)
 
     ## Calculate the geopotential ϕ
     h = r - DFloat(planet_radius) # height above the planet surface
@@ -395,7 +395,7 @@ function initialcondition!(domain_height, Q, x, y, z, aux, _...)
     DFloat = eltype(Q)
     p0 :: DFloat = MSLP
 
-    (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
+    (r, λ, φ) = cartesian_to_spherical(x, y, z)
     h = r - DFloat(planet_radius)
 
     ## Get the reference pressure from the previously defined reference state
