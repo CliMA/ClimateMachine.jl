@@ -766,7 +766,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-squall-line")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     F_rad_out = radiation(aux)
@@ -848,7 +848,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.01
+    dt = 0.25
     timeend = 9000
     polynomialorder = Npoly
     DFloat = Float64
