@@ -76,6 +76,10 @@ const PDE_level_hydrostatic_balance = true
 
 # Specify if forcings are ramped up or full forcing are applied from the beginning
 const ramp_up_forcings = true
+const use_held_suarez_forcings = false
+const use_sponge = false
+const use_exponential_vertical_warp = false
+const use_coriolis = false
 
 # check whether to use default VTK directory or define something else
 VTKDIR = get(ENV, "CLIMA_VTK_DIR", "vtk")
@@ -170,13 +174,15 @@ function source!(S, Q, aux, t)
     S[_dρe] = 0
     
     # Coriolis force
-    coriolis_x =  2Omega * ρv
-    coriolis_y = -2Omega * ρu
-    coriolis_z =  0
+    if use_coriolis
+      coriolis_x =  2Omega * ρv
+      coriolis_y = -2Omega * ρu
+      coriolis_z =  0
 
-    S[_ρu ] += coriolis_x
-    S[_ρv ] += coriolis_y
-    S[_ρw ] += coriolis_z
+      S[_ρu ] += coriolis_x
+      S[_ρv ] += coriolis_y
+      S[_ρw ] += coriolis_z
+    end
 
     ## Add Held-Suarez Source
     #Extract Temperature
@@ -192,15 +198,19 @@ function source!(S, Q, aux, t)
     (kv,kt,T_eq)=held_suarez_forcing(x,y,z,T,P,t) 
     
     #Apply forcing
-    S[_ρu ]  -= kv*ρu
-    S[_ρv ]  -= kv*ρv
-    S[_ρw ]  -= kv*ρw
-    S[_dρe ] -= ( kt*ρ*cv_d*T + kv*(ρu*ρu + ρv*ρv + ρw*ρw)/ρ )
+    if use_held_suarez_forcings
+      S[_ρu ]  -= kv*ρu
+      S[_ρv ]  -= kv*ρv
+      S[_ρw ]  -= kv*ρw
+      S[_dρe ] -= ( kt*ρ*cv_d*T + kv*(ρu*ρu + ρv*ρv + ρw*ρw)/ρ )
+    end
 
-    sponge_coefficient = aux[_a_sponge]
-    S[_ρu ] -= sponge_coefficient*ρu
-    S[_ρv ] -= sponge_coefficient*ρv
-    S[_ρw ] -= sponge_coefficient*ρw
+    if use_sponge
+      sponge_coefficient = aux[_a_sponge]
+      S[_ρu ] -= sponge_coefficient*ρu
+      S[_ρv ] -= sponge_coefficient*ρv
+      S[_ρw ] -= sponge_coefficient*ρw
+    end
 end
 end
 #md nothing # hide
@@ -477,8 +487,12 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
   ## Set up the mesh topology for the sphere
   topology = StackedCubedSphereTopology(mpicomm, Ne_horizontal, Rrange)
 
-  meshwarp = (x...)->exponentialverticalwarp(domain_height,
-                                             Topologies.cubedshellwarp(x...)...)
+  if use_exponential_vertical_warp
+    meshwarp = (x...)->exponentialverticalwarp(domain_height,
+                                               Topologies.cubedshellwarp(x...)...)
+  else
+    meshwarp = Topologies.cubedshellwarp
+  end
 
   ## Set up the grid for the sphere. Note that here we need to pass the
   ## `cubedshellwarp` shell `meshwarp` function so that the degrees of freedom
