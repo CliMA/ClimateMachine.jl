@@ -337,10 +337,10 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     ϕ = gravity * h
 
     ## Reference Temperature
-    T_ref = θ0 - 60
+    T_ref = 255
 
     ## Reference Exner Pressure
-    π_ref = exp(-gravity * h / (c_pd * T_ref))
+    π_ref = exp(-gravity * h / (cp_d * T_ref))
 
     ## Calculate pressure from exner pressure definition
     P_ref = p0*(π_ref)^(cp_d/R_d)
