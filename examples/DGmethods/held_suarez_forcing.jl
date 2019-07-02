@@ -47,12 +47,157 @@ using CLIMA.Vtk
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+using CLIMA.ParametersType
+using StaticArrays
 
 # Though not required, here we are explicit about which values we read out the
 # `PlanetParameters` and `MoistThermodynamics`
 using CLIMA.PlanetParameters: planet_radius, R_d, cp_d, grav, cv_d, MSLP, Omega
 using CLIMA.MoistThermodynamics: air_temperature, air_pressure, internal_energy,
                                  soundspeed_air, air_density, gas_constant_air
+
+@parameter C_ss 0.23 "C_ss"
+@parameter Prandtl_turb 1//3 "Prandtl_turb"
+@parameter Prandtl 71//100 "Prandtl"
+@parameter k_μ    cp_d/Prandtl "k_μ"
+
+"""
+Smagorinsky model coefficient for anisotropic grids.
+Given a description of the grid in terms of Δ1, Δ2, Δ3
+and polynomial order Npoly, computes the anisotropic equivalent grid
+coefficient such that the Smagorinsky coefficient is modified as follows
+Eddy viscosity          ν_e
+Smagorinsky coefficient C_ss
+Δeq                     Equivalent anisotropic grid
+ν_e = (C_ss Δeq)^2 * sqrt(2 * SijSij)
+
+@article{doi:10.1063/1.858537,
+author = {Scotti,Alberto  and Meneveau,Charles  and Lilly,Douglas K. },
+title = {Generalized Smagorinsky model for anisotropic grids},
+  journal = {Physics of Fluids A: Fluid Dynamics},
+  volume = {5},
+  number = {9},
+  pages = {2306-2308},
+  year = {1993},
+  doi = {10.1063/1.858537},
+  URL = {https://doi.org/10.1063/1.858537},
+  eprint = {https://doi.org/10.1063/1.858537}
+}
+In addition, simple alternative methods of computing the geometric average
+are also included (in accordance with Deardorff's methods).
+"""
+function anisotropic_coefficient_sgs3D(Δ1, Δ2, Δ3)
+  # Arguments are the lengthscales in each of the coordinate directions
+  # For a cube: this is the edge length
+  # For a sphere: the arc length provides one approximation of many
+  Δ = cbrt(Δ1 * Δ2 * Δ3)
+  Δ_sorted = sort([Δ1, Δ2, Δ3])
+  # Get smallest two dimensions
+  Δ_s1 = Δ_sorted[1]
+  Δ_s2 = Δ_sorted[2]
+  a1 = Δ_s1 / max(Δ1,Δ2,Δ3)
+  a2 = Δ_s2 / max(Δ1,Δ2,Δ3)
+  # In 3D we compute a scaling factor for anisotropic grids
+  f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
+  Δ = Δ*f_anisotropic
+  Δsqr = Δ * Δ
+  return Δsqr
+end
+
+function anisotropic_coefficient_sgs2D(Δ1, Δ3)
+  # Order of arguments does not matter.
+  Δ = min(Δ1, Δ3)
+  Δsqr = Δ * Δ
+  return Δsqr
+end
+
+function standard_coefficient_sgs3D(Δ1,Δ2,Δ3)
+  Δ = cbrt(Δ1 * Δ2 * Δ3) 
+  Δsqr = Δ * Δ
+  return Δsqr
+end
+
+function standard_coefficient_sgs2D(Δ1, Δ2)
+  Δ = sqrt(Δ1 * Δ2)
+  Δsqr = Δ * Δ
+  return Δsqr
+end
+
+"""
+Compute components of strain-rate tensor 
+Dij = ∇u .................................................. [1]
+Sij = 1/2 (∇u + (∇u)ᵀ) .....................................[2]
+τij = 2 * ν_e * Sij ........................................[3]
+"""
+function compute_strainrate_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
+  # Assemble components of the strain-rate tensor 
+  S11, = dudx
+  S12  = (dudy + dvdx) / 2
+  S13  = (dudz + dwdx) / 2
+  S22  = dvdy
+  S23  = (dvdz + dwdy) / 2
+  S33  = dwdz
+  SijSij = S11^2 + S22^2 + S33^2 + 2 * (S12^2 + S13^2 + S23^2)
+  return (S11, S22, S33, S12, S13, S23, SijSij)
+end
+
+"""
+Smagorinksy-Lilly SGS Turbulence
+--------------------------------
+The constant coefficient Standard Smagorinsky Model model for 
+(1) eddy viscosity ν_e 
+(2) and eddy diffusivity D_e 
+The resolved scale stress tensor is calculated as in [3]
+where Sij represents the components of the resolved
+scale rate of strain tensor. ν_t is the unknown eddy
+viscosity which is computed here using the assumption
+that subgrid turbulence production and dissipation are 
+balanced.
+article{doi:10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2,
+author = {Smagorinksy, J.},
+title = {General circulation experiments with the primitive equations},
+journal = {Monthly Weather Review},
+volume = {91},
+number = {3},
+pages = {99-164},
+year = {1963},
+doi = {10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
+URL = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
+eprint = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2}
+}
+"""
+function standard_smagorinsky(SijSij, Δsqr)
+  # Eddy viscosity is a function of the magnitude of the strain-rate tensor
+  # This is for use on both spherical and cartesian grids.
+  ν_e::eltype(SijSij) = sqrt(2SijSij) * C_ss * C_ss * Δsqr
+  D_e::eltype(SijSij) = ν_e / Prandtl_turb
+  return (ν_e, D_e)
+end
+
+"""
+Buoyancy adjusted Smagorinsky coefficient for stratified flows
+
+Ri = N² / (2*SijSij)
+Ri = gravity / ρ * ∂ρ∂z / 2 |S_{ij}|
+article{doi:10.1111/j.2153-3490.1962.tb00128.x,
+author = {LILLY, D. K.},
+title = {On the numerical simulation of buoyant convection},
+journal = {Tellus},
+volume = {14},
+number = {2},
+pages = {148-172},
+doi = {10.1111/j.2153-3490.1962.tb00128.x},
+url = {https://onlinelibrary.wiley.com/doi/abs/10.1111/j.2153-3490.1962.tb00128.x},
+eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.2153-3490.1962.tb00128.x},
+year = {1962}
+}
+"""
+function buoyancy_correction(SijSij, ρ, dρdz)
+  N2 = grav / ρ * dρdz
+  Richardson = N2 / (2SijSij + eps(SijSij))
+  buoyancy_factor = N2 <= 0 ? one(SijSij) : sqrt(max(zero(SijSij), 1 - Richardson/Prandtl_turb))
+  return buoyancy_factor
+end
 
 # Start up MPI if this has not already been done
 MPI.Initialized() || MPI.Init()
@@ -95,20 +240,96 @@ const _dρ, _ρu, _ρv, _ρw, _dρe = 1:_nstate
 const _statenames = ("δρ", "ρu", "ρv", "ρw", "δρe")
 #md nothing # hide
 
+"""
+Viscous state labels
+"""
+const _nviscstates = 16
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _ρx, _ρy, _ρz, _SijSij = 1:_nviscstates
+
+"""
+Number of variables of which gradients are required 
+"""
+const _ngradstates = 6
+
+"""
+Number of states being loaded for gradient computation
+"""
+const _states_for_gradient_transform = (_dρ, _ρu, _ρv, _ρw, _dρe)
+
+
 # These will be the auxiliary state which will contain the geopotential,
 # gradient of the geopotential, and reference values for density and total
 # energy, as well as the coordinates
-const _nauxstate = 10
-const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_ρ_ref, _a_ρe_ref, _a_x, _a_y, _a_z, _a_sponge = 1:_nauxstate
+const _nauxstate = 11
+const _a_ϕ, _a_ϕx, _a_ϕy, _a_ϕz, _a_ρ_ref, _a_ρe_ref, _a_x, _a_y, _a_z, _a_sponge, _a_Δsqr  = 1:_nauxstate
 const _auxnames = ("ϕ", "ϕx", "ϕy", "ϕz", "ρ_ref", "ρe_ref", "x", "y", "z", "sponge_coefficient")
 #md nothing # hide
 
-#------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+#md # Here we define a function to extract the velocity components from the 
+#md # prognostic equations (i.e. the momentum and density variables). This 
+#md # function is not required in general, but provides useful functionality 
+#md # in some cases. 
+# -------------------------------------------------------------------------
+# Compute the velocity from the state
+function gradient_vars!(gradient_list, Q, aux, t)
+  @inbounds begin
+    dρ, ρu, ρv, ρw, dρe = Q[_dρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_dρe]
+    ρ_ref, ρe_ref, ϕ = aux[_a_ρ_ref], aux[_a_ρe_ref], aux[_a_ϕ]
+
+    ρ = ρ_ref + dρ
+    ρe = ρe_ref + dρe
+    e = ρe / ρ
+
+    u = ρu/ρ
+    v = ρv/ρ
+    w = ρw/ρ
+
+    e_int = e - (u^2 + v^2 + w^2)/2 - ϕ
+    T = air_temperature(e_int)
+
+    gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
+    gradient_list[4], gradient_list[5], gradient_list[6] = ρe, T, ρ
+  end
+end
+
+function compute_stresses!(VF, grad_vars, _...)
+  gravity::eltype(VF) = grav
+  @inbounds begin
+    dudx, dudy, dudz = grad_vars[1, 1], grad_vars[2, 1], grad_vars[3, 1]
+    dvdx, dvdy, dvdz = grad_vars[1, 2], grad_vars[2, 2], grad_vars[3, 2]
+    dwdx, dwdy, dwdz = grad_vars[1, 3], grad_vars[2, 3], grad_vars[3, 3]
+    # compute gradients of moist vars and temperature
+    dqdx, dqdy, dqdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
+    dTdx, dTdy, dTdz = grad_vars[1, 6], grad_vars[2, 6], grad_vars[3, 6]
+    dρdx, dρdy, dρdz = grad_vars[1, 7], grad_vars[2, 7], grad_vars[3, 7]
+    # virtual potential temperature gradient: for richardson calculation
+    # strains
+    # --------------------------------------------
+    (S11,S22,S33,S12,S13,S23,SijSij) = compute_strainrate_tensor(dudx, dudy,
+                                                                 dudz, dvdx,
+                                                                 dvdy, dvdz,
+                                                                 dwdx, dwdy,
+                                                                 dwdz)
+    #--------------------------------------------
+    # deviatoric stresses
+    VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
+    VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
+    VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
+    VF[_τ12] = 2 * S12
+    VF[_τ13] = 2 * S13
+    VF[_τ23] = 2 * S23
+
+    VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+    VF[_ρx], VF[_ρy], VF[_ρz] = dρdx, dρdy, dρdz
+    VF[_SijSij] = SijSij
+  end
+end
 
 # ### Definition of the physics
 #md # Now we define a function which given the state and auxiliary state defines
 #md # the physical Euler flux
-function eulerflux!(F, Q, _, aux, t)
+function eulerflux!(F, Q, VF, aux, t)
   @inbounds begin
     ## extract the states
     dρ, ρu, ρv, ρw, dρe = Q[_dρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_dρe]
@@ -145,6 +366,36 @@ function eulerflux!(F, Q, _, aux, t)
       F[1, _ρw], F[2, _ρw], F[3, _ρw] = u * ρw     , v * ρw    , w * ρw + P
     end
     F[1, _dρe], F[2, _dρe], F[3, _dρe] = u * (ρe + P), v * (ρe + P), w * (ρe + P)
+
+    #Derivative of T and Q:
+    vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
+    vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+    vρx, vρy, vρz = VF[_Tx], VF[_Ty], VF[_Tz]
+
+    #Richardson contribution:
+    SijSij = VF[_SijSij]
+
+    #Dynamic eddy viscosity from Smagorinsky:
+    Δsqr = aux[_a_Δsqr]
+    (ν_e, D_e) = standard_smagorinsky(SijSij, Δsqr)
+    # FIXME f_R = buoyancy_correction(SijSij, ρ, vρy)
+    f_R = 1
+
+    # Multiply stress tensor by viscosity coefficient:
+    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    τ12 = τ21 = VF[_τ12] * ν_e
+    τ13 = τ31 = VF[_τ13] * ν_e
+    τ23 = τ32 = VF[_τ23] * ν_e
+
+    # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
+    F[1, _ρu] -= τ11 * f_R ; F[2, _ρu] -= τ12 * f_R ; F[3, _ρu] -= τ13 * f_R
+    F[1, _ρv] -= τ21 * f_R ; F[2, _ρv] -= τ22 * f_R ; F[3, _ρv] -= τ23 * f_R
+    F[1, _ρw] -= τ31 * f_R ; F[2, _ρw] -= τ32 * f_R ; F[3, _ρw] -= τ33 * f_R
+
+    # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
+    F[1, _dρe] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx
+    F[2, _dρe] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+    F[3, _dρe] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz
   end
 end
 #md nothing # hide
@@ -294,7 +545,7 @@ end
 # defines the plus-side (exterior) values from the minus-side (inside) values.
 # This plus-side value will then be fed into the numerical flux routine in order
 # to enforce the boundary condition.
-function nofluxbc!(QP, _, _, nM, QM, _, auxM, _...)
+function nofluxbc!(QP, VFP, _, nM, QM, _, auxM, _...)
   @inbounds begin
     DFloat = eltype(QM)
     ## get the minus values
@@ -312,11 +563,36 @@ function nofluxbc!(QP, _, _, nM, QM, _, auxM, _...)
     ρvP = ρvM - 2mag_ρu⃗ * ny
     ρwP = ρwM - 2mag_ρu⃗ * nz
 
+    # FIXME Do we want zero Neumann?
+    VFP .= 0
+
     ## Construct QP state
     QP[_dρ], QP[_ρu], QP[_ρv], QP[_ρw], QP[_dρe] = dρP, ρuP, ρvP, ρwP, dρeP
   end
 end
 #md nothing # hide
+
+"""
+Boundary correction for Neumann boundaries
+"""
+@inline function stresses_boundary_penalty!(VF, _...) 
+  # FIXME Do we want zero Neumann?
+  compute_stresses!(VF, 0)
+end
+
+"""
+Gradient term flux correction 
+"""
+@inline function stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
+  @inbounds begin
+    n_Δgradient_list = similar(VF, Size(3, _ngradstates))
+    for j = 1:_ngradstates, i = 1:3
+      n_Δgradient_list[i, j] = nM[i] * (gradient_listP[j] - gradient_listM[j]) / 2
+    end
+    compute_stresses!(VF, n_Δgradient_list)
+  end
+end
+#
 
 #------------------------------------------------------------------------------
 
@@ -342,7 +618,7 @@ end
 
 # FXG: reference state
 # Setup the reference state based on a N=0.0158725 uniformly stratified atmosphere with θ0=315K
-function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z)
+function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z, dx, dy, dz)
   @inbounds begin
     DFloat = eltype(aux)
     p0 :: DFloat = MSLP
@@ -394,6 +670,7 @@ function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z)
     aux[_a_y] = y
     aux[_a_z] = z
     aux[_a_sponge] = sponge_coefficient
+    aux[_a_Δsqr] = anisotropic_coefficient_sgs3D(dx, dy, dz)
   end
 end
 #md nothing # hide
@@ -514,7 +791,7 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
                                                             nofluxbc!,
                                                             wavespeed)
 
-  auxinit(x...) = auxiliary_state_initialization!(T0, domain_height, x...)
+  auxinit!(x...) = auxiliary_state_initialization!(T0, domain_height, x...)
   ## Define the balance law solver
   spatialdiscretization = DGBalanceLaw(grid = grid,
                                        length_state_vector = _nstate,
@@ -523,8 +800,14 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
                                        numerical_flux! = numflux!,
                                        numerical_boundary_flux! = numbcflux!,
                                        auxiliary_state_length = _nauxstate,
-                                       auxiliary_state_initialization! =
-                                       auxinit,
+                                       auxiliary_state_initialization! = auxinit!,
+                                       number_gradient_states = _ngradstates,
+                                       states_for_gradient_transform = _states_for_gradient_transform,
+                                       number_viscous_states = _nviscstates,
+                                       gradient_transform! = gradient_vars!,
+                                       viscous_transform! = compute_stresses!,
+                                       viscous_penalty! = stresses_penalty!,
+                                       viscous_boundary_penalty! = stresses_boundary_penalty!
                                       )
 
   ## Compute Gradient of Geopotential
