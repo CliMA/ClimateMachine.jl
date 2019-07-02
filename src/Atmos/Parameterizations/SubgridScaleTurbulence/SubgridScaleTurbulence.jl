@@ -42,7 +42,7 @@ export buoyancy_correction
   Δeq                     Equivalent anisotropic grid
 
   ν_e = (C_ss Δeq)^2 * sqrt(2 * SijSij) 
-
+  
   @article{doi:10.1063/1.858537,
   author = {Scotti,Alberto  and Meneveau,Charles  and Lilly,Douglas K. },
   title = {Generalized Smagorinsky model for anisotropic grids},
@@ -55,46 +55,43 @@ export buoyancy_correction
     URL = {https://doi.org/10.1063/1.858537},
     eprint = {https://doi.org/10.1063/1.858537}
   }
+
+  In addition, simple alternative methods of computing the geometric average
+  are also included (in accordance with Deardorff's methods). 
   """
-  function anisotropic_coefficient_sgs(Δhoriz1, Δvert, Npoly)
-      Δ = (Δhoriz1 * Δvert) ^ 1/2
-      Δ_sorted = sort([Δhoriz1, Δvert])  
-      Δ_s1 = Δ_sorted[1]
-      # In 2D we specify the filter width as the smallest grid dimension
-      Δsqr = Δ_s1 * Δ_s1
-      return Δsqr
-  end
-  
-  function anisotropic_coefficient_sgs(Δhoriz1, Δhoriz2, Δvert, Npoly)
-      Δ = (Δhoriz1 * Δhoriz2 * Δvert) ^ 1/3
+  function anisotropic_coefficient_sgs3D(Δhoriz1, Δhoriz2, Δvert)
+      Δ = cbrt(Δhoriz1 * Δhoriz2 * Δvert)
       Δ_sorted = sort([Δhoriz1, Δhoriz2, Δvert])  
+      # Get smallest two dimensions
       Δ_s1 = Δ_sorted[1]
       Δ_s2 = Δ_sorted[2]
-      a1 = Δ_s1 / max(Δhoriz1,Δhoriz2,Δvert) / (Npoly + 1)
-      a2 = Δ_s2 / max(Δhoriz1,Δhoriz2,Δvert) / (Npoly + 1)
+      a1 = Δ_s1 / max(Δhoriz1,Δhoriz2,Δvert) 
+      a2 = Δ_s2 / max(Δhoriz1,Δhoriz2,Δvert) 
       # In 3D we compute a scaling factor for anisotropic grids
-      f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2 )
+      f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
       Δ = Δ*f_anisotropic
       Δsqr = Δ * Δ
       return Δsqr
   end
-
-  """
-  Compute components of velocity gradient tensor
-  Dij = (∇u)_ij  where i,j represent row, column indices  
-  """
-  function compute_velgrad_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
-   @inbounds begin
-      dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-      dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-      dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
-    end
-    D11, D12, D13 = dudx, dudy, dudz
-    D21, D22, D23 = dvdx, dvdy, dvdz 
-    D31, D32, D33 = dwdx, dwdy, dwdz
-    return (D11, D12, D13, D21, D22, D23, D31, D32, D33)
+  
+  function anisotropic_coefficient_sgs2D(Δhoriz, Δvert)
+      Δ = min(Δhoriz, Δvert)
+      Δsqr = Δ * Δ
+      return Δsqr
   end
-
+  
+  function standard_coefficient_sgs3D(Δhoriz1,Δhoriz2, Δvert)
+      Δ = cbrt(Δhoriz1 * Δhoriz2 * Δvert) 
+      Δsqr = Δ * Δ
+      return Δsqr
+  end
+  
+  function standard_coefficient_sgs2D(Δhoriz, Δvert)
+      Δ = sqrt(Δhoriz * Δvert)
+      Δsqr = Δ * Δ
+      return Δsqr
+  end
+  
   """
   Compute components of strain-rate tensor 
   Dij = ∇u .................................................. [1]
