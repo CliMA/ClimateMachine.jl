@@ -165,6 +165,15 @@ function geopotential!(S, Q, aux, t)
       S[_ρw ] = -ρ * ϕz
     end
     S[_dρe] = 0
+    
+    # Coriolis force
+    coriolis_x =  2Omega * ρv
+    coriolis_y = -2Omega * ρu
+    coriolis_z =  0
+
+    S[_ρu ] += coriolis_x
+    S[_ρv ] += coriolis_y
+    S[_ρw ] += coriolis_z
 
     ## Add Held-Suarez Source
     #Extract Temperature
