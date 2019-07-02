@@ -598,11 +598,22 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     datap          = DFloat(spl_pinit(xvert))
     dataq          = dataq / 1000
 
-    randnum1   = rand(seed, DFloat) / 100
-    randnum2   = rand(seed, DFloat) / 100
-
-    θ_liq = datat + randnum1 * datat
-    q_tot = dataq + randnum2 * dataq
+    θ_c =     5.0
+    rx  = 10000.0
+    ry  =  1500.0
+    xc  = 0.5*(xmax + xmin)
+    yc  = 0.5*(ymax + ymin)
+    zc  = 2000.0
+    
+    cylinder_flg = 0.0
+    r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+    Δθ  = 0.0
+    if r <= 1.0
+        Δθ = θ_c * (cospi(0.5*r))^2
+    end
+    θ_liq = datat + Δθ
+    qvar  = PhasePartition(q_tot)
+    q_tot = dataq
     P     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
