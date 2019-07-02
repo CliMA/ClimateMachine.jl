@@ -81,7 +81,7 @@ const seed = MersenneTwister(0)
 #
 # User Input
 #
-const numdims = 2
+const numdims = 3
 const Npoly = 4
 
 #
@@ -664,8 +664,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 1)
     
     #Build (stretched) grid:
-    #brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
-    brickrange = (x_range_stretched, z_range_stretched)
+    brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
     
 
     # User defined periodicity in the topl assignment
