@@ -327,7 +327,8 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     DFloat = eltype(aux)
     p0 :: DFloat = MSLP
     θ0 :: DFloat = 315
-    N_bv :: DFloat = 0.0158725
+    #N_bv :: DFloat = 0.0158725
+    N_bv :: DFloat = 0.01
     gravity :: DFloat = grav
     
     ## Convert to Spherical coordinates
@@ -530,11 +531,11 @@ let
 
   ## Adjust the time step so we exactly hit 1 hour for VTK output
   #dt = 60 * 60 / ceil(60 * 60 / dt)
-  dt=1
+  #dt=1
   
   lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
 
-  filter = Grids.CutoffFilter(spatialdiscretization.grid)
+  filter = Grids.CutoffFilter(spatialdiscretization.grid, 3)
 #  filter = Grids.ExponentialFilter(spatialdiscretization.grid)
 
   ## Uncomment line below to extend simulation time and output less frequently
@@ -544,7 +545,7 @@ let
   days = 86400
 #  finaltime = 0.1*days
 #  outputtime = 0.01*days
-  finaltime = 1*days
+  finaltime = 5*days
   outputtime =1*days
   
   @show(polynomialorder,Ne_horizontal,Ne_vertical,dt,finaltime,finaltime/dt)
@@ -600,8 +601,8 @@ let
   cb_filter = GenericCallbacks.EveryXSimulationSteps(1) do
     DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spatialdiscretization,
                                        filter;
-                                       horizontal=false,
-                                       vertical=false)
+                                       horizontal=true,
+                                       vertical=true)
     nothing
   end
 
