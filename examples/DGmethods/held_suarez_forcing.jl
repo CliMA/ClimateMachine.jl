@@ -327,8 +327,6 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     DFloat = eltype(aux)
     p0 :: DFloat = MSLP
     θ0 :: DFloat = 315
-    #N_bv :: DFloat = 0.0158725
-    N_bv :: DFloat = 0.01
     gravity :: DFloat = grav
     
     ## Convert to Spherical coordinates
@@ -338,20 +336,14 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     h = r - DFloat(planet_radius) # height above the planet surface
     ϕ = gravity * h
 
-    ## Reference Potential Temperature from constant Brunt-Vaisala definition
-    #θ_ref = θ0 * exp( N_bv^2*h/gravity )
-    ΔT_y :: DFloat = 60 
-    θ_ref = θ0 - ΔT_y
+    ## Reference Temperature
+    T_ref = θ0 - 60
 
-    ## Reference Exner Pressure from hydrostatic equation
-    #π_ref = 1 + gravity^2/(cp_d*θ0*N_bv^2)*(exp(-N_bv^2*h/gravity) - 1)
-    π_ref = 1 - gravity/(cp_d*θ_ref)*h
+    ## Reference Exner Pressure
+    π_ref = exp(-gravity * h / (c_pd * T_ref))
 
     ## Calculate pressure from exner pressure definition
     P_ref = p0*(π_ref)^(cp_d/R_d)
-
-    ## Calculate temperature
-    T_ref=θ_ref*π_ref
 
     ## Density from the ideal gas law
     ρ_ref = air_density(T_ref, P_ref)
