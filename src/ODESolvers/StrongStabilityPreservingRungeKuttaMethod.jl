@@ -82,7 +82,7 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
   rv_Rstage = ODEs.realview(Rstage)
   rv_Qstage = ODEs.realview(Qstage)
   
-  threads = 1024
+  threads = 256
   blocks = div(length(rv_Q) + threads - 1, threads)
   
   rv_Qstage .= rv_Q
