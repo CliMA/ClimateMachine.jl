@@ -583,6 +583,12 @@ end
     z = aux[_a_z]
     p = aux[_a_p]
 
+    #TODO - tmp
+    q_tot = max(DF(0), q_tot)
+    q_liq = max(DF(0), q_liq)
+    q_ice = max(DF(0), q_ice)
+    q_rai = max(DF(0), q_rai)
+
     # current state
     e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
     q     = PhasePartition(q_tot, q_liq, q_ice)
@@ -599,28 +605,28 @@ end
     # tendencies from rain
     # TODO - ensure positive definite
     # TODO - temporary handling ice
-    if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
+    #if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
 
-      src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
+    src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
 
-      src_q_rai_acnv_liq = conv_q_liq_to_q_rai_acnv(q.liq)
-      src_q_rai_accr_liq = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
+    src_q_rai_acnv_liq = conv_q_liq_to_q_rai_acnv(q.liq)
+    src_q_rai_accr_liq = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
 
-      src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
-      src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
+    src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
+    src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
 
-      src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap + src_q_rai_acnv_ice + src_q_rai_accr_ice
+    src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap + src_q_rai_acnv_ice + src_q_rai_accr_ice
 
-      S[_ρq_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
-      S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
+    S[_ρq_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
+    S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
 
-      S[_ρq_rai] += ρ * src_q_rai_tot
-      S[_ρq_tot] -= ρ * src_q_rai_tot
+    S[_ρq_rai] += ρ * src_q_rai_tot
+    S[_ρq_tot] -= ρ * src_q_rai_tot
 
-      S[_ρe_tot] -= (src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
-                    (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0)) -
-                    (src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))) * ρ
-    end
+    S[_ρe_tot] -= (src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
+                  (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0)) -
+                  (src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))) * ρ
+    #end
   end
 end
 """
@@ -905,7 +911,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
         step = [0]
         mkpath("./vtk")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(400) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(12000) do (init=false) #every 5 minutes = (0.025) * 40 * 60 * 5
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
@@ -1020,7 +1026,7 @@ let
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
     dt = 0.025
-    timeend = 5 * 60 #9000
+    timeend = 9000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
