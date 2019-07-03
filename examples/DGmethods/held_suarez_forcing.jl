@@ -237,10 +237,10 @@ const PDE_level_hydrostatic_balance = true
 
 # Specify if forcings are ramped up or full forcing are applied from the beginning
 const ramp_up_forcings = true
-const use_held_suarez_forcings = false
-const use_sponge = false
-const use_exponential_vertical_warp = false
-const use_coriolis = false
+const use_held_suarez_forcings = true
+const use_sponge = true
+const use_exponential_vertical_warp = true
+const use_coriolis = true
 
 # check whether to use default VTK directory or define something else
 VTKDIR = get(ENV, "CLIMA_VTK_DIR", "vtk")
@@ -660,9 +660,9 @@ function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z, dx, dy
     e_int = internal_energy(T_ref)
     ρe_ref = e_int * ρ_ref + ρ_ref * ϕ
 
-    ## Sponge coefficient (from dycoms3d)
-    ct = DFloat(0.75)
-    top_sponge  = DFloat(0.85) * (domain_height - planet_radius) + planet_radius
+    ## Sponge coefficient
+    ct = DFloat(1 / 2880)
+    top_sponge  = planet_radius + 15400
 
     if r >= top_sponge
       sponge_coefficient = ct * (sinpi((r - top_sponge)/2/(domain_height - top_sponge)))^4
@@ -841,11 +841,11 @@ let
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 
   ## parameters for defining the cubed sphere.
-  Ne_vertical   = 6  # number of vertical elements (small for CI/docs reasons)
+  Ne_vertical   = 12  # number of vertical elements (small for CI/docs reasons)
   ## Ne_vertical   = 30 # Resolution required for stable long time result
   ## cubed sphere will use Ne_horizontal * Ne_horizontal horizontal elements in
   ## each of the 6 faces
-  Ne_horizontal = 3
+  Ne_horizontal = 6
 
   polynomialorder = 5
 
@@ -889,7 +889,7 @@ let
   
   lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
 
-  filter = Grids.CutoffFilter(spatialdiscretization.grid, 3)
+  filter = Grids.CutoffFilter(spatialdiscretization.grid)
 #  filter = Grids.ExponentialFilter(spatialdiscretization.grid)
 
   ## Uncomment line below to extend simulation time and output less frequently
@@ -898,9 +898,9 @@ let
   hours = 3600
   days = 86400
 #  finaltime = 0.1*days
-#  outputtime = 0.01*days
   finaltime = 5*days
-  outputtime =1*days
+  outputtime = 0.001*days
+#  outputtime =1*days
   
   @show(polynomialorder,Ne_horizontal,Ne_vertical,dt,finaltime,finaltime/dt)
 
