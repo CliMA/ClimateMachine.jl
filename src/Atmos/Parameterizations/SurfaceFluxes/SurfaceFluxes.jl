@@ -280,7 +280,7 @@ function compute_friction_velocity(Δz, a, xatol, maxiters, θ_bar, pottemp_flux
     end
     compute_roots(x) = x - compute_x_star(x)
     x_star_1 = compute_x_star(x_star_0)
-    x_star, converged = RootSolvers.find_zero(x -> compute_roots(x), x_star_0, x_star_1, SecantMethod();
+    x_star, converged = RootSolvers.find_zero(x -> compute_roots(x), x_star_0, x_star_1, SecantMethod(),
                                               xatol, maxiters)
   end
   return x_star
@@ -318,7 +318,7 @@ function compute_temperature_scale(Δz, a, xatol, maxiters, θ_bar, pottemp_flux
     end
     compute_roots(x) = x - compute_x_star(x)
     x_star_1 = compute_x_star(x_star_0)
-    x_star, converged = RootSolvers.find_zero(x -> compute_roots(x), x_star_0, x_star_1, SecantMethod();
+    x_star, converged = RootSolvers.find_zero(x -> compute_roots(x), x_star_0, x_star_1, SecantMethod(),
                                               xatol, maxiters)
   end
   return x_star
