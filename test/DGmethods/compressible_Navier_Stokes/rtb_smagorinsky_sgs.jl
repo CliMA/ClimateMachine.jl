@@ -31,9 +31,9 @@ end
 State labels
 """
 const _nstate = 6
-const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
-const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
-const statenames = ("RHO", "U", "V", "W", "E", "QT")
+const _δρ, _U, _V, _W, _δE, _QT = 1:_nstate
+const stateid = (ρid = _δρ, Uid = _U, Vid = _V, Wid = _W, Eid = _δE, QTid = _QT)
+const statenames = ("δρ", "U", "V", "W", "δE", "QT")
 
 
 """
@@ -50,7 +50,7 @@ const _ngradstates = 7
 """
 Number of states being loaded for gradient computation
 """
-const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
+const _states_for_gradient_transform = (_δρ, _U, _V, _W, _δE, _QT)
 
 
 if !@isdefined integration_testing
@@ -118,10 +118,13 @@ const Nez = ceil(Int64, ratioz)
 #md # In this example the auxiliary function is used to store the spatial
 #md # coordinates and the equivalent grid lengthscale coefficient. 
 # -------------------------------------------------------------------------
-const _nauxstate = 6
-const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
+const _nauxstate = 8
+const _a_ρ0, _a_E0, _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z) #JK, dx, dy, dz)
     @inbounds begin
+        ρ0, E0 = reference2D_ρ_E(x, y, z)
+        aux[_a_ρ0] = ρ0
+        aux[_a_E0] = E0
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
@@ -145,7 +148,10 @@ end
 @inline function preflux(Q,VF, aux, _...)
     gravity::eltype(Q) = grav
     R_gas::eltype(Q) = R_d
-    @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    @inbounds δρ, U, V, W, δE, QT = Q[_δρ], Q[_U], Q[_V], Q[_W], Q[_δE], Q[_QT]
+    @inbounds ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
+    ρ = ρ0 + δρ
+    E = E0 + δE
     ρinv = 1 / ρ
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
@@ -166,7 +172,10 @@ end
 @inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
   gravity::eltype(Q) = grav
   @inbounds begin 
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    δρ, U, V, W, δE, QT = Q[_δρ], Q[_U], Q[_V], Q[_W], Q[_δE], Q[_QT]
+    ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
+    ρ = ρ0 + δρ
+    E = E0 + δE
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
     e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
@@ -190,13 +199,16 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
   gravity::eltype(Q) = grav
   @inbounds begin
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    δρ, U, V, W, δE, QT = Q[_δρ], Q[_U], Q[_V], Q[_W], Q[_δE], Q[_QT]
+    ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
+    ρ = ρ0 + δρ
+    E = E0 + δE
     # Inviscid contributions
-    F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
+    F[1, _δρ], F[2, _δρ], F[3, _δρ] = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
     F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
     F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-    F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
+    F[1, _δE], F[2, _δE], F[3, _δE] = u * (E + P), v * (E + P), w * (E + P)
     F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
 
     #Derivative of T and Q:
@@ -225,9 +237,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
 
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
+    F[1, _δE] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
+    F[2, _δE] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+    F[3, _δE] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
   end
 end
 
@@ -243,8 +255,10 @@ gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q
     @inbounds begin
         y = aux[_a_y]
         # ordering should match states_for_gradient_transform
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        E, QT = Q[_E], Q[_QT]
+        δρ, U, V, W, δE, QT = Q[_δρ], Q[_U], Q[_V], Q[_W], Q[_δE], Q[_QT]
+        ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
+        ρ = ρ0 + δρ
+        E = E0 + δE
         ρinv = 1 / ρ
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
         gradient_list[4], gradient_list[5], gradient_list[6] = E, QT, T
@@ -299,7 +313,10 @@ end
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-        ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        δρM, UM, VM, WM, δEM, QTM = QM[_δρ], QM[_U], QM[_V], QM[_W], QM[_δE], QM[_QT]
+        ρM0, EM0 = auxM[_a_ρ0], auxM[_a_E0]
+        ρM = ρM0 + δρM
+        EM = EM0 + δEM
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
@@ -384,7 +401,9 @@ end
 @inline function source_geopot!(S,Q,aux,t)
     gravity::eltype(Q) = grav
     @inbounds begin
-        ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+        δρ = Q[_δρ]
+        ρ0 = aux[_a_ρ0]
+        ρ = ρ0 + δρ
         S[_V] += - ρ * gravity
     end
 end
@@ -394,7 +413,53 @@ end
 # -------------END DEF SOURCES-------------------------------------# 
 
 # initial condition
-function rising_bubble!(dim, Q, t, x, y, z, _...)
+function reference2D_ρ_E(x, y, z)
+    DFloat                = eltype(x)
+    R_gas::DFloat         = R_d
+    c_p::DFloat           = cp_d
+    c_v::DFloat           = cv_d
+    p0::DFloat            = MSLP
+    gravity::DFloat       = grav
+    # initialise with dry domain 
+    q_tot::DFloat         = 0
+    q_liq::DFloat         = 0
+    q_ice::DFloat         = 0 
+    # perturbation parameters for rising bubble
+    rx                    = 250
+    ry                    = 250
+    xc                    = 500
+    yc                    = 260
+    r                     = sqrt( (x - xc)^2 + (y - yc)^2 )
+    
+    θ_ref::DFloat         = 303.0
+    θ_c::DFloat           =   0.5
+    Δθ::DFloat            =   0.0
+    a::DFloat             =  50.0
+    s::DFloat             = 100.0
+    #=
+    if r <= a
+        Δθ = θ_c
+    elseif r > a
+        Δθ = θ_c * exp(-(r - a)^2 / s^2)
+    end
+    =#
+    qvar                  = PhasePartition(q_tot)
+    θ                     = θ_ref + Δθ # potential temperature
+    π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
+    ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
+
+    P                     = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
+    T                     = P / (ρ * R_gas) # temperature
+    U, V, W               = 0.0 , 0.0 , 0.0  # momentum components
+    # energy definitions
+    e_kin                 = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
+    e_pot                 = gravity * y
+    e_int                 = internal_energy(T, qvar)
+    E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
+    # @inbounds Q[_δρ], Q[_U], Q[_V], Q[_W], Q[_δE], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+    ρ, E
+end
+function rising_bubble!(dim, Q, t, x, y, z, aux)
     DFloat                = eltype(Q)
     R_gas::DFloat         = R_d
     c_p::DFloat           = cp_d
@@ -435,7 +500,9 @@ function rising_bubble!(dim, Q, t, x, y, z, _...)
     e_pot                 = gravity * y
     e_int                 = internal_energy(T, qvar)
     E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+
+    @inbounds ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
+    @inbounds Q[_δρ], Q[_U], Q[_V], Q[_W], Q[_δE], Q[_QT] = ρ-ρ0, U, V, W, E-E0, ρ * q_tot
 end
 
 
@@ -492,7 +559,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             starttime[] = now()
         else
             energy = norm(Q)
-            #globmean = global_mean(Q, _ρ)
+            #globmean = global_mean(Q, _δρ)
             @info @sprintf("""Update
                          simtime = %.16e
                          runtime = %s
