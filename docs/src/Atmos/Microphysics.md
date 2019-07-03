@@ -270,7 +270,7 @@ using Plots
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
 function rain_evap_empirical(q_rai::DT, q::PhasePartition, T::DT, p::DT, ρ::DT) where {DT<:Real}
 
-    q_sat  = saturation_shum(T, ρ, q)
+    q_sat  = q_vap_saturation(T, ρ, q)
     q_vap  = q.tot - q.liq
     rr     = q_rai / (DT(1) - q.tot)
     rv_sat = q_sat / (DT(1) - q.tot)

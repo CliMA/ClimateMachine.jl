@@ -46,13 +46,13 @@ using LinearAlgebra
   @test saturation_vapor_pressure(DT(T_triple), Liquid()) ≈ press_triple
   @test saturation_vapor_pressure(DT(T_triple), Ice()) ≈ press_triple
 
-  @test saturation_shum(DT(T_triple), ρ, PhasePartition(DT(0))) == ρ_v_triple / ρ
-  @test saturation_shum(DT(T_triple), ρ, PhasePartition(q_tot,q_tot)) == ρ_v_triple / ρ
+  @test q_vap_saturation(DT(T_triple), ρ, PhasePartition(DT(0))) == ρ_v_triple / ρ
+  @test q_vap_saturation(DT(T_triple), ρ, PhasePartition(q_tot,q_tot)) == ρ_v_triple / ρ
 
-  @test saturation_shum_generic(DT(T_triple), ρ; phase=Liquid()) == ρ_v_triple / ρ
-  @test saturation_shum_generic(DT(T_triple), ρ; phase=Ice()) == ρ_v_triple / ρ
-  @test saturation_shum_generic.(DT(T_triple-20), ρ; phase=Liquid()) >=
-        saturation_shum_generic.(DT(T_triple-20), ρ; phase=Ice())
+  @test q_vap_saturation_generic(DT(T_triple), ρ; phase=Liquid()) == ρ_v_triple / ρ
+  @test q_vap_saturation_generic(DT(T_triple), ρ; phase=Ice()) == ρ_v_triple / ρ
+  @test q_vap_saturation_generic.(DT(T_triple-20), ρ; phase=Liquid()) >=
+        q_vap_saturation_generic.(DT(T_triple-20), ρ; phase=Ice())
 
   @test saturation_excess(DT(T_triple), ρ, PhasePartition(q_tot)) ==  q_tot - ρ_v_triple/ρ
   @test saturation_excess(DT(T_triple), ρ, PhasePartition(q_tot/1000)) == 0.0
@@ -64,20 +64,20 @@ using LinearAlgebra
 
   @test air_temperature(cv_m(PhasePartition(DT(0)))*(T-T_0), PhasePartition(DT(0))) === DT(T)
   @test air_temperature(cv_m(PhasePartition(DT(q_tot)))*(T-T_0) + q_tot*e_int_v0, PhasePartition(q_tot)) ≈ DT(T)
-  
+
   @test total_energy(DT(e_kin),DT(e_pot), DT(T_0)) === DT(e_kin) + DT(e_pot)
   @test total_energy(DT(e_kin),DT(e_pot), DT(T)) ≈ DT(e_kin) + DT(e_pot) + cv_d*(T-T_0)
   @test total_energy(DT(0),DT(0), DT(T_0), PhasePartition(q_tot)) ≈ q_tot*e_int_v0
 
   # phase partitioning in equilibrium
-  q_liq = DT(0.1);  
+  q_liq = DT(0.1);
   T = DT(T_icenuc-10); ρ = DT(1.0); q_tot = DT(0.21)
   @test liquid_fraction_equil(T) === DT(0)
   @test liquid_fraction_equil(T, PhasePartition(q_tot,q_liq,q_liq)) === DT(0.5)
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.liq ≈ DT(0)
   @test 0 < q.ice <= q_tot
-  
+
   T = DT(T_freeze+10); ρ = DT(0.1); q_tot = DT(0.60)
   @test liquid_fraction_equil(T) === DT(1)
   @test liquid_fraction_equil(T, PhasePartition(q_tot,q_liq,q_liq/2)) === DT(2/3)
@@ -93,12 +93,12 @@ using LinearAlgebra
   q_tot = DT(0.21); ρ = DT(0.1)
   @test saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot) ≈ 200.0
   q = PhasePartition_equil(T, ρ, q_tot)
-  @test q.tot - q.liq - q.ice ≈ saturation_shum(T, ρ)
+  @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
 
   q_tot = DT(0.78); ρ = DT(1)
   @test saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
   q = PhasePartition_equil(T, ρ, q_tot)
-  @test q.tot - q.liq - q.ice ≈ saturation_shum(T, ρ)
+  @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
 
   # potential temperatures
   T = DT(300)
@@ -139,7 +139,7 @@ using LinearAlgebra
     @test latent_heat_vapor(ts) isa typeof(e_int)
     @test latent_heat_sublim(ts) isa typeof(e_int)
     @test latent_heat_fusion(ts) isa typeof(e_int)
-    @test saturation_shum(ts) isa typeof(e_int)
+    @test q_vap_saturation(ts) isa typeof(e_int)
     @test saturation_excess(ts) isa typeof(e_int)
     @test liquid_fraction_equil(ts) isa typeof(e_int)
     @test liquid_fraction_nonequil(ts) isa typeof(e_int)

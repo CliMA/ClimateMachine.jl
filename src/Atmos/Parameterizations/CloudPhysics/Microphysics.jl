@@ -144,7 +144,7 @@ Smolarkiewicz and Grabowski 1996.
 function conv_q_rai_to_q_vap(qr::DT, q::PhasePartition{DT},
                              T::DT, p::DT, ρ::DT) where {DT<:Real}
 
-  qv_sat = saturation_shum(T, ρ, q)
+  qv_sat = q_vap_saturation(T, ρ, q)
   q_v = q.tot - q.liq - q.ice
   S = q_v/qv_sat - 1
 
