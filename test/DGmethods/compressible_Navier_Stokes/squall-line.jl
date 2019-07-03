@@ -593,22 +593,32 @@ end
     # cloud water condensation/evaporation
     src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
     src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
-    S[_ρq_liq] += ρ * (src_q_liq + src_q_ice) #TODO - tmp - only warm rain for now
+    S[_ρq_liq] += ρ * src_q_liq
+    S[_ρq_ice] += ρ * src_q_ice
 
     # tendencies from rain
     # TODO - ensure positive definite
     if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
 
-      src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(q.liq)
-      src_q_rai_accr = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
       src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
-      src_q_rai_tot = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
 
-      S[_ρq_liq] -= ρ * (src_q_rai_acnv + src_q_rai_accr)
+      src_q_rai_acnv_liq = conv_q_liq_to_q_rai_acnv(q.liq)
+      src_q_rai_accr_liq = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
+
+      src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
+      src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
+
+      src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap + src_q_rai_acnv_ice + src_q_rai_accr_ice
+
+      S[_ρq_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
+      S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
+
       S[_ρq_rai] += ρ * src_q_rai_tot
       S[_ρq_tot] -= ρ * src_q_rai_tot
-      S[_ρe_tot] -= ρ * src_q_rai_tot *
-                    (DF(e_int_v0) - (DF(cv_v) - DF(cv_d)) * (T - DF(T_0)))
+
+      S[_ρe_tot] -= (src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
+                    (src_q_rain_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0)) -
+                    (src_q_rain_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))) * ρ
     end
   end
 end
@@ -890,9 +900,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         #  "q_vap", "q_liq", "q_ice", "q_rai", "e_tot", "e_int", "e_kin", "e_pot", "output_z")
         #postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-        npoststates = 17
-        out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w = 1:npoststates
-        postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w")
+        npoststates = 18
+        out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_theta = 1:npoststates
+        postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
@@ -910,10 +920,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     e_int = e_tot - e_kin - e_pot
                     q = PhasePartition(q_tot, q_liq, q_ice)
 
+                    T = air_temperature(e_int, q)
+                    p = aux[_a_p]
+
                     R[out_z] = aux[_a_z]
-                    R[out_p] = aux[_a_p]
+                    R[out_p] = p
                     R[out_beta] = radiation(aux)
-                    R[out_T] = air_temperature(e_int, q)
+                    R[out_T] = T
+                    R[out_theta] = liquid_ice_pottemp(T, p, q)
 
                     R[out_u] = u
                     R[out_v] = v
