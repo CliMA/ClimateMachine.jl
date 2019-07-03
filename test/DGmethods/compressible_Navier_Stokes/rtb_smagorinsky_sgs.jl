@@ -13,7 +13,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
 
-using CLIMA.SubgridScaleTurbulence
+#JK using CLIMA.SubgridScaleTurbulence
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 
@@ -120,14 +120,14 @@ const Nez = ceil(Int64, ratioz)
 # -------------------------------------------------------------------------
 const _nauxstate = 6
 const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
+@inline function auxiliary_state_initialization!(aux, x, y, z) #JK, dx, dy, dz)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
-        aux[_a_dx] = dx
-        aux[_a_dy] = dy
-        aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_coefficient_sgs2D(dx, dy) 
+        aux[_a_dx] = 0 #JK dx
+        aux[_a_dy] = 0 #JK dy
+        aux[_a_Δsqr] = 0 #JK SubgridScaleTurbulence.anisotropic_coefficient_sgs2D(dx, dy) 
     end
 end
 
@@ -208,10 +208,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     #Dynamic eddy viscosity from Smagorinsky:
     dx, dy= aux[_a_dx], aux[_a_dy]
     Δsqr = aux[_a_Δsqr]
-    (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
+    (ν_e, D_e) = (0,0) #JK SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
     
     #Richardson contribution:
-    f_R = SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
+    f_R = 0 #JK SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
     
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -272,9 +272,12 @@ end
         # virtual potential temperature gradient: for richardson calculation
         # strains
         # --------------------------------------------
+        #=
         (S11,S22,S33,S12,S13,S23,SijSij) = SubgridScaleTurbulence.compute_strainrate_tensor(dudx, dudy, dudz,
                                                                                             dvdx, dvdy, dvdz,
                                                                                             dwdx, dwdy, dwdz)
+        =#
+        (S11,S22,S33,S12,S13,S23,SijSij) = (0,0,0,0,0,0,0)
         #--------------------------------------------
         # deviatoric stresses
         VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
@@ -311,8 +314,10 @@ end
 """
 Boundary correction for Neumann boundaries
 """
-@inline function stresses_boundary_penalty!(VF, _...) 
-  compute_stresses!(VF, 0) 
+@inline function stresses_boundary_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
+  #JK compute_stresses!(VF, 0) 
+  gradient_listP .= 0
+  stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
 
 
@@ -562,7 +567,7 @@ end
 using Test
 let
     MPI.Initialized() || MPI.Init()
-    Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
+    #JK Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
     if MPI.Comm_rank(mpicomm) == 0
         ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
