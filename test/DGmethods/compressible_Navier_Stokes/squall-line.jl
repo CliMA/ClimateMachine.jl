@@ -900,8 +900,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/vtk-squall-line")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
+        mkpath("./vtk")
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(400) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
@@ -947,7 +947,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./vtk/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
@@ -1016,7 +1016,7 @@ let
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
     dt = 0.025
-    timeend = 9000
+    timeend = 5 * 60 #9000
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
