@@ -101,7 +101,7 @@ figure(1)
 plot(thetal, dataz, '*r', theta, dataz, '--g')
 xlabel('theta')
 ylabel('z [m]')
-title(" Thetal (red), theta (blue) [K]")
+title(' Thetal (red), theta (blue) [K]')
 ylim([100 1200])
 
 figure(2)

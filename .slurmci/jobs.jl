@@ -14,6 +14,8 @@
   SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_001_periodic_advection.jl`, ntasks=3)
   SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_002_solid_body_rotation.jl`, ntasks=3)
   SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_003_acoustic_wave.jl`, ntasks=3)
+  SlurmJob(`.slurmci/cpu.sh examples/Microphysics/ex_1_saturation_adjustment.jl`, ntasks=3)
+  SlurmJob(`.slurmci/cpu.sh examples/Microphysics/ex_2_Kessler.jl`, ntasks=3)
   # SlurmJob(`.slurmci/gpu-test.sh`)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_aux.jl`, ntasks=3)
@@ -25,5 +27,7 @@
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_ssp33.jl`, ntasks=2)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_ssp34.jl`, ntasks=2)
   SlurmJob(`.slurmci/gpu.sh examples/DGmethods/ex_003_acoustic_wave.jl`, ntasks=3)
+  SlurmJob(`.slurmci/gpu.sh examples/Microphysics/ex_1_saturation_adjustment.jl`, ntasks=3)
+  SlurmJob(`.slurmci/gpu.sh examples/Microphysics/ex_2_Kessler.jl`, ntasks=3)
   ]
  ]
