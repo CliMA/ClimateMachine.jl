@@ -20,6 +20,7 @@ include("ODESolvers/AdditiveRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
 include("InputOutput/Vtk/Vtk.jl")
 include("misc.jl")
+include("Atmos/Parameterizations/SubgridScaleTurbulence/SubgridScaleParameters.jl")
 include("Atmos/Parameterizations/SubgridScaleTurbulence/SubgridScaleTurbulence.jl")
 
 end

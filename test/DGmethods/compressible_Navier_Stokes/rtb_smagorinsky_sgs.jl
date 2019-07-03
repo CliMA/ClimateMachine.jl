@@ -116,10 +116,7 @@ const Nez = ceil(Int64, ratioz)
 # -------------------------------------------------------------------------
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
-#md # coordinates. This may also be used to store variables for which gradients
-#md # are needed, but are not available through teh prognostic variable 
-#md # calculations. (An example of this will follow - in the Smagorinsky model, 
-#md # where a local Richardson number via potential temperature gradient is required)
+#md # coordinates and the equivalent grid lengthscale coefficient. 
 # -------------------------------------------------------------------------
 const _nauxstate = 6
 const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
@@ -140,7 +137,7 @@ end
 # In the case of the rising_thermal_bubble example: the saturation
 # adjusted temperature and pressure are such examples. Since we define
 # the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. 
+# around its behaviour. Future drivers won't use the preflux function.  
 # The preflux function interacts with the following  
 # Modules: NumericalFluxes.jl 
 # functions: wavespeed, cns_flux!, bcstate!

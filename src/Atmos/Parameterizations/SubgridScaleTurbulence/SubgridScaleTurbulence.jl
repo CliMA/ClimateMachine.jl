@@ -1,22 +1,47 @@
+"""
+  Parameterisations and models for subgrid scale turbulent stresses. Based on 
+  physical energy cascade (Alternatives not included here apply 
+  artificial hyperviscosity for stabilisation)
+
+Scope of module 
+---------------
+This module addresses §4 (Subgrid-Scale Models) of the CLiMA-atmos documentation.
+(1-4) are eddy-viscosity, eddy-diffusivity models. Structure function based models
+are presently not considered. Tools for computing local lengthscales based on pointwise
+inputs by the user are included. A density stratification correction is also included. 
+
+1) Standard Smagorinsky Model (SSM) 
+2) Anisotropic Smagorinsky Model (ASM)
+Future additions
+3) Anisotropic Minimum Dissipation (AMD)
+4) Residual-based Dynamic SGS Model (DYN-SGS)
+
+"""
+
 module SubgridScaleTurbulence
 
 # Module dependencies
 using CLIMA.PlanetParameters: grav, cp_d, cv_d
+using ..SubgridScaleParameters
 
 # Module exported functions 
-export compute_strainrate_tensor
+export anisotropic_lengthscale_3D
+export anisotropic_lengthscale_2D
+export geo_mean_lengthscale_3D
+export geo_mean_lengthscale_2D
+export strainrate_tensor_components
+export anisotropic_smagorinsky
 export standard_smagorinsky
 export buoyancy_correction
 
   """
-  This module addresses §4 (Subgrid-Scale Models) of the CLiMA-atmos documentation.
   
   We define the strain-rate tensor in terms of the velocity gradient components
   ϵ = (∇u) + (∇u)ᵀ where ᵀ represents the transpose operator. 
 
   
   Model constants.
-  C_ss takes typical values of 0.14 - 0.23 (flow dependent empirical coefficient) 
+  C_smag takes typical values of 0.14 - 0.23 (flow dependent empirical coefficient) 
 
   article{doi:10.1063/1.869251,
   author = {Canuto,V. M.  and Cheng,Y. },
@@ -31,21 +56,15 @@ export buoyancy_correction
   eprint = {https://doi.org/10.1063/1.869251}
   }
   """
-  const C_ss = 0.23
-  const Prandtl_turb = 1 // 3
   const Prandtl = 71 // 100
 
   """
-  Smagorinsky model coefficient for anisotropic grids.
-  Given a description of the grid in terms of Δ1, Δ2, Δ3
-  and polynomial order Npoly, computes the anisotropic equivalent grid
-  coefficient such that the Smagorinsky coefficient is modified as follows
+    anisotropic_lengthscale_3D(Δ1, Δ2, Δ3) 
+    return Δ², the equivalent anisotropic lengthscale squared
 
-  Eddy viscosity          ν_e
-  Smagorinsky coefficient C_ss
-  Δeq                     Equivalent anisotropic grid
-
-  ν_e = (C_ss Δeq)^2 * sqrt(2 * SijSij) 
+  Given a description of the grid in terms of three lengthscales Δ1,Δ2,Δ3,
+  computes the anisotropic equivalent grid coefficient described by Scotti et. al.
+  for the generalised Smagorinsky model for anisotropic grids. 
   
   @article{doi:10.1063/1.858537,
   author = {Scotti,Alberto  and Meneveau,Charles  and Lilly,Douglas K. },
@@ -59,11 +78,8 @@ export buoyancy_correction
     URL = {https://doi.org/10.1063/1.858537},
     eprint = {https://doi.org/10.1063/1.858537}
   }
-
-  In addition, simple alternative methods of computing the geometric average
-  are also included (in accordance with Deardorff's methods).
   """
-  function anisotropic_coefficient_sgs3D(Δ1, Δ2, Δ3)
+  function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
     # Arguments are the lengthscales in each of the coordinate directions
     # For a cube: this is the edge length
     # For a sphere: the arc length provides one approximation of many
@@ -81,32 +97,74 @@ export buoyancy_correction
     return Δsqr
   end
   
-  function anisotropic_coefficient_sgs2D(Δ1, Δ3)
+  """
+    anisotropic_lengthscale_2D(Δ1, Δ2)
+    return Δ², the equivalent anisotropic lengthscale squared
+
+  For a 2-D problem, compute the anisotropic length-scale
+  given the two local grid dimensions. For example, edge length
+  for cube meshes and arc length for curved grids. The local element
+  length can be computed within the auxiliary state initialisation kernel
+  and passed to the auxiliary state in a manner similar to the coordinate
+  terms.
+  """
+
+  function anisotropic_lengthscale_2D(Δ1, Δ2)
     # Order of arguments does not matter.
-    Δ = min(Δ1, Δ3)
+    Δ = min(Δ1, Δ2)
     Δsqr = Δ * Δ
     return Δsqr
   end
   
-  function standard_coefficient_sgs3D(Δ1,Δ2,Δ3)
+  """
+    geo_mean_lengthscale_3D(Δ1, Δ2, Δ3)
+    return Δ², the geometric mean lengthscale squared
+
+  For a 3-D problem, compute the standard, geometric mean
+  lengthscale based on the three coordinate dimensions 
+  Δ1, Δ2, Δ3. The local element length can be computed 
+  within the auxiliary state initialisation kernel
+  by passing in the metric terms as arguments and 
+  stored therein for use throughout the driver.
+  """
+  function standard_lengthscale_3D(Δ1,Δ2,Δ3)
     Δ = cbrt(Δ1 * Δ2 * Δ3) 
     Δsqr = Δ * Δ
     return Δsqr
   end
   
-  function standard_coefficient_sgs2D(Δ1, Δ2)
+  """
+    geo_mean_lengthscale_2D(Δ1, Δ2)
+    return Δ², the geometric mean lengthscale squared
+
+  For a 2-D problem, compute the standard, geometric mean
+  lengthscale based on the three coordinate dimensions 
+  Δ1, Δ2, Δ3. The local element length can be computed 
+  within the auxiliary state initialisation kernel
+  by passing in the metric terms as arguments and 
+  stored therein for use throughout the driver.
+  """
+  function geo_mean_lengthscale_2D(Δ1, Δ2)
     Δ = sqrt(Δ1 * Δ2)
     Δsqr = Δ * Δ
     return Δsqr
   end
-  
+
   """
-  Compute components of strain-rate tensor 
+    strainrate_tensor_components(dudx, dudy, dudz, dvdx, dvdy, dvdz [, dwdx, dwdy, dwdz])
+    return (S11, S22, S33, S12, S13, S23, SijSij)
+    Sij are components of the strain-rate tensor, and SijSij is the tensor-inner-product
+
+  Compute components of strain-rate tensor from velocity gradient terms provided in 
+  driver. Note that the gradient terms are computed in Cartesian space even on the spherical
+  grid, with velocities and other key variables projected onto spherical coordinates for 
+  visualisation 
+
   Dij = ∇u .................................................. [1]
   Sij = 1/2 (∇u + (∇u)ᵀ) .....................................[2]
   τij = 2 * ν_e * Sij ........................................[3]
   """
-  function compute_strainrate_tensor(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
+  function strainrate_tensor_components(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
     # Assemble components of the strain-rate tensor 
     S11, = dudx
     S12  = (dudy + dvdx) / 2
@@ -119,6 +177,9 @@ export buoyancy_correction
   end
 
   """
+    standard_smagorinsky(SijSij, Δsqr)
+    return (ν_e, D_e), the eddy viscosity and diffusivity respectively
+
   Smagorinksy-Lilly SGS Turbulence
   --------------------------------
   The constant coefficient Standard Smagorinsky Model model for 
@@ -148,16 +209,46 @@ export buoyancy_correction
   function standard_smagorinsky(SijSij, Δsqr)
     # Eddy viscosity is a function of the magnitude of the strain-rate tensor
     # This is for use on both spherical and cartesian grids. 
-    ν_e::eltype(SijSij) = sqrt(2.0 * SijSij) * C_ss * C_ss * Δsqr
-    D_e::eltype(SijSij) = ν_e / Prandtl_turb 
+    DFloat = eltype(SijSij)
+    ν_e::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * Δsqr
+    D_e::DFloat = ν_e / Prandtl_turb 
     return (ν_e, D_e)
   end
 
   """
-  Buoyancy adjusted Smagorinsky coefficient for stratified flows
+    anisotropic_smagorinsky(SijSij, Δ1, Δ2[, Δ3])
+    return (ν_1, ν_2, ν_3, D_1, D_2, D_3), 
+    directional viscosity and diffusivity
+
+  Simple extension of the Standard Smagorinsky Model to accommodate
+  anisotropic viscosity dependent on the characterstic lengthscale
+  in each coordinate direction 
+  """
+  function anisotropic_smagorinsky(SijSij, Δ1, Δ2, Δ3)
+    # Order of arguments is irrelevant as long as self-consistency
+    # with governing equations is maintained.
+    DFloat = eltype(SijSij)
+    ν_1::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * (Δ1)^2
+    ν_2::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * (Δ2)^2
+    ν_3::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * (Δ3)^2
+    D_1::DFloat = ν_1 / Prandtl_turb 
+    D_2::DFloat = ν_2 / Prandtl_turb 
+    D_3::DFloat = ν_3 / Prandtl_turb 
+    return (ν_1, ν_2, ν_3, D_1, D_2, D_3)
+  end
   
+  """
+    buoyancy_correction(SijSij, ρ, dρdz)
+    return buoyancy_factor, scaling coefficient for Standard Smagorinsky Model
+    in stratified flows
+
+  Compute the buoyancy adjustment coefficient for stratified flows 
+  given the strain rate tensor inner product SijSij, local density 
+  ρ and the vertical density gradient dρdz
+
   Ri = N² / (2*SijSij)
   Ri = gravity / ρ * ∂ρ∂z / 2 |S_{ij}|
+  
   article{doi:10.1111/j.2153-3490.1962.tb00128.x,
   author = {LILLY, D. K.},
   title = {On the numerical simulation of buoyant convection},
@@ -172,8 +263,11 @@ export buoyancy_correction
   }
   """
   function buoyancy_correction(SijSij, ρ, dρdz)
+    # Brunt-Vaisala frequency
     N2 = grav / ρ * dρdz 
+    # Richardson number
     Richardson = N2 / (2 * SijSij + eps(SijSij))
+    # Buoyancy correction factor
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
     return buoyancy_factor
   end
