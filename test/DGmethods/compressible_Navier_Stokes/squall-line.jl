@@ -620,7 +620,6 @@ end
       S[_ρe_tot] -= (src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
                     (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0)) -
                     (src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))) * ρ
-
     end
   end
 end
