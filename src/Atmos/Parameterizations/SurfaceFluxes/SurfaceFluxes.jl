@@ -109,7 +109,7 @@ Surface conditions given
  - `F_h` heat flux at the top
  - `a` free model parameter with prescribed value of 4.7
  - `Pr` Prantl number at neutral stratification
- - [`pottemp_flux`] potential temperature flux (optional)
+ - `pottemp_flux` potential temperature flux (optional)
 
 If `pottemp_flux` is not given, then it is computed by iteration
 of equations 3, 17, and 18 in Nishizawa2018.
