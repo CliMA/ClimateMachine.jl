@@ -249,7 +249,7 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 """
 Number of variables of which gradients are required 
 """
-const _ngradstates = 6
+const _ngradstates = 7
 
 """
 Number of states being loaded for gradient computation
