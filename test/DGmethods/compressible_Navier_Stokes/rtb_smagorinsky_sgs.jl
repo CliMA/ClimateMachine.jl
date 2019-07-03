@@ -12,6 +12,9 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
+using CLIMA.LinearSolvers
+using CLIMA.GeneralizedConjugateResidualSolver
+using CLIMA.AdditiveRungeKuttaMethod
 
 #JK using CLIMA.SubgridScaleTurbulence
 using CLIMA.MoistThermodynamics
@@ -32,6 +35,7 @@ State labels
 """
 const _nstate = 6
 const _δρ, _U, _V, _W, _δE, _QT = 1:_nstate
+const _U⃗ = SVector(_U, _V, _V)
 const stateid = (ρid = _δρ, Uid = _U, Vid = _V, Wid = _W, Eid = _δE, QTid = _QT)
 const statenames = ("δρ", "U", "V", "W", "δE", "QT")
 
@@ -506,7 +510,92 @@ function rising_bubble!(dim, Q, t, x, y, z, aux)
 end
 
 
-function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
+# {{{ Linearization
+const γ_exact = 7 // 5 # FIXME: Remove this for some moist thermo approach
+@inline function lin_eulerflux!(F, Q, QV, aux, t)
+  F .= 0
+  gravity::eltype(Q) = grav
+  @inbounds begin
+    DFloat = eltype(Q)
+    γ::DFloat = γ_exact # FIXME: Remove this for some moist thermo approach
+
+    δρ, δE = Q[_δρ], Q[_δE]
+    U⃗ = SVector(Q[_U], Q[_V], Q[_W])
+
+    ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
+    y = aux[_a_y]
+
+    ρinv0 = 1 / ρ0
+    e0 = ρinv0 * E0
+
+    P0 = (γ-1)*E0
+    δP = (γ-1)*(δE - δρ * grav * y)
+
+    p0 = ρinv0 * P0
+
+    F[:, _δρ] = U⃗
+    F[:, _U⃗ ] = δP * I + @SMatrix zeros(3,3)
+    F[:, _δE] = (e0 + p0) * U⃗
+  end
+end
+
+@inline function wavespeed_linear(n, Q, aux, t)
+  DFloat = eltype(Q)
+  gravity::eltype(Q) = grav
+  γ::DFloat = γ_exact # FIXME: Remove this for some moist thermo approach
+
+  ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
+  y = aux[_a_y]
+  ρinv0 = 1 / ρ0
+  P0 = (γ-1)*(E0 - ρ0 * gravity * y)
+  sqrt(ρinv0 * γ * P0)
+end
+
+@inline function lin_source!(S,Q,aux,t)
+  # Initialise the final block source term 
+  S .= 0
+
+  # Typically these sources are imported from modules
+  @inbounds begin
+    lin_source_geopot!(S, Q, aux, t)
+  end
+end
+@inline function lin_source_geopot!(S,Q,aux,t)
+  gravity::eltype(Q) = grav
+  @inbounds begin
+    δρ = Q[_δρ]
+    S[_V] += - δρ * gravity
+  end
+end
+
+@inline function lin_bcstate!(QP, VFP, auxP,
+                              nM,
+                              QM, VFM, auxM,
+                              bctype, t)
+  @inbounds begin
+    UM, VM, WM = QM[_U], QM[_V], QM[_W]
+    UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+    QP[_U] = UM - 2 * nM[1] * UnM
+    QP[_V] = VM - 2 * nM[2] * UnM
+    QP[_W] = WM - 2 * nM[3] * UnM
+    nothing
+  end
+end
+
+function linearoperator!(LQ, Q, rhs_linear!, α)
+  rhs_linear!(LQ, Q, 0.0; increment = false)
+  @. LQ = Q - α * LQ
+end
+
+function solve_linear_problem!(Qtt, Qhat, rhs_linear!, α, gcrk)
+  linearoperator!(Qtt, Qhat, rhs_linear!, α)
+  LinearSolvers.linearsolve!((Ax, x) -> linearoperator!(Ax, x, rhs_linear!, α),
+                             Qtt, Qhat, gcrk)
+end
+# }}}
+
+
+function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
@@ -546,7 +635,35 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     initialcondition(Q, x...) = rising_bubble!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
 
-    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    # {{{ Lineariztion Setup
+    lin_numflux!(x...) = NumericalFluxes.rusanov!(x..., lin_eulerflux!,
+                                                  # (_...)->0) # central
+                                                  wavespeed_linear)
+    lin_numbcflux!(x...) =
+    NumericalFluxes.rusanov_boundary_flux!(x..., lin_eulerflux!, lin_bcstate!,
+                                           # (_...)->0) # central
+                                           wavespeed_linear)
+    lin_spacedisc = DGBalanceLaw(grid = grid,
+                                 length_state_vector = _nstate,
+                                 flux! = lin_eulerflux!,
+                                 numerical_flux! = lin_numflux!,
+                                 numerical_boundary_flux! = lin_numbcflux!,
+                                 auxiliary_state_length = _nauxstate,
+                                 auxiliary_state_initialization! =
+                                 auxiliary_state_initialization!,
+                                 source! = lin_source!)
+
+
+    gcrk = GeneralizedConjugateResidual(3, Q, 1e-10)
+    rhs_linear!(x...;increment) = SpaceMethods.odefun!(lin_spacedisc, x...;
+                                                       increment=increment)
+    # linearoperator!(dQ, Q, rhs_linear!, 1)
+    lin_solve!(x...) = solve_linear_problem!(x..., gcrk)
+    timestepper = ARK548L2SA2KennedyCarpenter(spacedisc, lin_spacedisc,
+                                              lin_solve!, Q; dt = dt, t0 = 0)
+    # }}}
+
+    # timestepper = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -564,7 +681,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                          simtime = %.16e
                          runtime = %s
                          norm(Q) = %.16e""", 
-                           ODESolvers.gettime(lsrk),
+                           ODESolvers.gettime(timestepper),
                            Dates.format(convert(Dates.DateTime,
                                                 Dates.now()-starttime[]),
                                         Dates.dateformat"HH:MM:SS"),
@@ -579,7 +696,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     step = [0]
     mkpath("vtk-RTB-BASSM")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(output_steps) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
@@ -604,7 +721,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         nothing
     end
     
-    solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+    solve!(Q, timestepper; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
     # Print some end of the simulation information
@@ -650,13 +767,22 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.005
+    #JK dt = 0.005
+
+    # Stable explicit time step
+    dt = 2min(Δx, Δy, Δz) / soundspeed_air(300.0) / Npoly
+    output_steps = 10
+
+    # run with bigger step
+    dt *= 2
+    output_steps /= 2
+
     timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
-                    DFloat, dt)
+                    DFloat, dt, output_steps)
 end
 
 isinteractive() || MPI.Finalize()
