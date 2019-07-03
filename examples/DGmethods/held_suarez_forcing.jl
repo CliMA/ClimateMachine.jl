@@ -576,9 +576,6 @@ function nofluxbc!(QP, VFP, _, nM, QM, _, auxM, _...)
     ρvP = ρvM - 2mag_ρu⃗ * ny
     ρwP = ρwM - 2mag_ρu⃗ * nz
 
-    # FIXME Do we want zero Neumann?
-    VFP .= 0
-
     ## Construct QP state
     QP[_dρ], QP[_ρu], QP[_ρv], QP[_ρw], QP[_dρe] = dρP, ρuP, ρvP, ρwP, dρeP
   end
@@ -588,10 +585,11 @@ end
 """
 Boundary correction for Neumann boundaries
 """
-@inline function stresses_boundary_penalty!(VF, _...) 
-  # FIXME Do we want zero Neumann?
-  compute_stresses!(VF, 0)
+@inline function stresses_boundary_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
+  QP .= 0
+  stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
+
 
 """
 Gradient term flux correction 
