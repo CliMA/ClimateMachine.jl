@@ -102,6 +102,7 @@ In addition, simple alternative methods of computing the geometric average
 are also included (in accordance with Deardorff's methods).
 """
 function anisotropic_coefficient_sgs3D(Δ1, Δ2, Δ3)
+  DFloat = typeof(Δ1)
   # Arguments are the lengthscales in each of the coordinate directions
   # For a cube: this is the edge length
   # For a sphere: the arc length provides one approximation of many
@@ -113,7 +114,7 @@ function anisotropic_coefficient_sgs3D(Δ1, Δ2, Δ3)
   a1 = Δ_s1 / max(Δ1,Δ2,Δ3)
   a2 = Δ_s2 / max(Δ1,Δ2,Δ3)
   # In 3D we compute a scaling factor for anisotropic grids
-  f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
+  f_anisotropic = 1 + DFloat(2/27) * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
   Δ = Δ*f_anisotropic
   Δsqr = Δ * Δ
   return Δsqr
