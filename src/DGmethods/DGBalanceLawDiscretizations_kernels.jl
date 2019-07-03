@@ -558,11 +558,19 @@ function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
       x, y, z = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      ξx, ξy, ξz = vgeo[n, _ξx, e], vgeo[n, _ξy, e], vgeo[n, _ξz, e]
+      ηx, ηy, ηz = vgeo[n, _ηx, e], vgeo[n, _ηy, e], vgeo[n, _ηz, e]
+      ζx, ζy, ζz = vgeo[n, _ζx, e], vgeo[n, _ζy, e], vgeo[n, _ζz, e]
+
+      dx = 1/(2hypot(ξx, ηx, ζx))
+      dy = 1/(2hypot(ξy, ηy, ζy))
+      dz = 1/(2hypot(ξz, ηz, ζz))
+
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
 
-      auxstatefun!(l_aux, x, y, z)
+      auxstatefun!(l_aux, x, y, z, dx, dy, dz)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
