@@ -357,7 +357,7 @@ function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z)
     ϕ = gravity * h
 
     ## Reference Temperature
-    T_ref = 255
+    T_ref::DFloat = 255
 
     ## Reference Exner Pressure
     π_ref = exp(-gravity * h / (cp_d * T_ref))
