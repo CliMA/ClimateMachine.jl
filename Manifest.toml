@@ -89,6 +89,12 @@ git-tree-sha1 = "f9780daf3fea51ad2d7b7ed4f480ac34ab36587f"
 uuid = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
 version = "0.9.2"
 
+[[Crayons]]
+deps = ["Test"]
+git-tree-sha1 = "f621b8ef51fd2004c7cf157ea47f027fdeac5523"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.0.0"
+
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections", "Random", "Serialization", "Test"]
 git-tree-sha1 = "ca971f03e146cf144a9e2f2ce59674f5bf0e8038"
@@ -101,9 +107,9 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
 [[DelayDiffEq]]
 deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "ForwardDiff", "MuladdMacro", "NLSolversBase", "OrdinaryDiffEq", "RecursiveArrayTools", "Reexport", "Roots"]
-git-tree-sha1 = "e708554b9d58f3a6d67093b0da5e1864e6bbcbfc"
+git-tree-sha1 = "d933682653f8c3c922592d75e50b5a30689ede6d"
 uuid = "bcd4f6db-9728-5f36-b5f7-82caef46ccdb"
-version = "5.4.0"
+version = "5.4.1"
 
 [[DelimitedFiles]]
 deps = ["Mmap"]
@@ -116,10 +122,10 @@ uuid = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
 version = "0.4.1"
 
 [[DiffEqBase]]
-deps = ["Compat", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "MuladdMacro", "Parameters", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews"]
-git-tree-sha1 = "5980fe57cf40766474b153673b41d33798d6fafe"
+deps = ["Compat", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "MuladdMacro", "Parameters", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews"]
+git-tree-sha1 = "ca30d4e41c6591183812ebd29498e32b0dd3a327"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "5.10.1"
+version = "5.11.1"
 
 [[DiffEqCallbacks]]
 deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "OrdinaryDiffEq", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Test"]
@@ -129,9 +135,9 @@ version = "2.5.2"
 
 [[DiffEqDiffTools]]
 deps = ["LinearAlgebra", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "19add9fe03568da945997cd7052c3405b84d302f"
+git-tree-sha1 = "c83f4ce45d4b723f9d21b9ea3d314a503fd40def"
 uuid = "01453d9d-ee7c-5054-8395-0335cb756afa"
-version = "0.11.0"
+version = "0.12.0"
 
 [[DiffEqFinancial]]
 deps = ["DiffEqBase", "DiffEqNoiseProcess", "LinearAlgebra", "Markdown", "RandomNumbers", "Test"]
@@ -146,10 +152,10 @@ uuid = "c894b116-72e5-5b58-be3c-e6d8d4ac2b12"
 version = "6.1.1"
 
 [[DiffEqMonteCarlo]]
-deps = ["DiffEqBase", "Distributed", "Random", "RecursiveArrayTools", "StaticArrays", "Statistics", "Test"]
-git-tree-sha1 = "abaf6fa95b05c5c49fd1fb57a901caed10aacd0e"
+deps = ["DiffEqBase", "Distributed", "RecursiveArrayTools", "StaticArrays", "Statistics"]
+git-tree-sha1 = "edffd3e114b5c2cad15e7790db6d82f69e3f42ae"
 uuid = "78ddff82-25fc-5f2b-89aa-309469cbf16f"
-version = "0.14.0"
+version = "0.15.1"
 
 [[DiffEqNoiseProcess]]
 deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "Random", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "Requires", "ResettableStacks", "StaticArrays", "Statistics"]
@@ -229,9 +235,9 @@ version = "0.9.1"
 
 [[ExponentialUtilities]]
 deps = ["LinearAlgebra", "Printf", "SparseArrays"]
-git-tree-sha1 = "d361793944a554d8aeeaaf619b92a45495d75685"
+git-tree-sha1 = "85e1ce16aa9b98793df704e17e7a0ceadefe404f"
 uuid = "d4d017d3-3776-5f7e-afef-a10c40355c18"
-version = "1.5.0"
+version = "1.5.1"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Test"]
@@ -273,9 +279,9 @@ version = "0.2.3"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
-git-tree-sha1 = "854fad2a2b9cc6678f70ed15a65fc7e572056d39"
+git-tree-sha1 = "6e59e7ec3c71eda9e0261c98896da5d3d008fa7d"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.8.2"
+version = "0.8.3"
 
 [[IniFile]]
 deps = ["Test"]
@@ -454,9 +460,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "389fd27b958a33df5234772cc464b663b208273d"
+git-tree-sha1 = "438630b843c210b375b2a246329200c113acc61b"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.0.4"
+version = "2.1.0"
 
 [[Quadmath]]
 deps = ["Random", "Requires"]
@@ -583,10 +589,10 @@ uuid = "9672c7b4-1e72-59bd-8a11-6ac3964bc41f"
 version = "1.4.0"
 
 [[StochasticDiffEq]]
-deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqNoiseProcess", "DiffEqOperators", "ForwardDiff", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "StaticArrays"]
-git-tree-sha1 = "31edb0151bfcefd11d14c4dc4134fc5a757eb5d3"
+deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqNoiseProcess", "DiffEqOperators", "FillArrays", "ForwardDiff", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "StaticArrays"]
+git-tree-sha1 = "83be179dc849f11f83dcfa715c7818ef551a0f6c"
 uuid = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
-version = "6.4.0"
+version = "6.5.0"
 
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "SparseArrays"]
@@ -594,9 +600,9 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[Sundials]]
 deps = ["BinaryProvider", "DataStructures", "DiffEqBase", "Libdl", "LinearAlgebra", "Logging", "Reexport", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "db69684adeeed878d989171ef35a13e387f91e66"
+git-tree-sha1 = "9af4eb72683f0dafe84c6a5bd31aea1ebca4d46c"
 uuid = "c3572dad-4567-51f8-b174-8c6c989267f4"
-version = "3.6.0"
+version = "3.6.1"
 
 [[TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -607,6 +613,12 @@ version = "1.0.0"
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[TimerOutputs]]
+deps = ["Crayons", "Printf", "Test", "Unicode"]
+git-tree-sha1 = "b80671c06f8f8bae08c55d67b5ce292c5ae2660c"
+uuid = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+version = "0.5.0"
 
 [[Tokenize]]
 git-tree-sha1 = "0de343efc07da00cd449d5b04e959ebaeeb3305d"

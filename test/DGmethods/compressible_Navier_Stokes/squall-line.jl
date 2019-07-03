@@ -617,7 +617,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     qvar  = PhasePartition(q_tot)
     P     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
-    ρ     = air_density(T, P)
+    ρ     = air_density(T, P)    
 
     # energy definitions
     u, v, w     = datau, datav, zero(DFloat) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
@@ -773,8 +773,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
 
         npoststates = 6
-        _betaout, _P, _u, _v, _w, _q_liq = 1:npoststates
-        postnames = ("BETA", "P", "u", "v", "w", "_q_liq")
+        _betaout, _P, _u, _v, _w, _q_liq, _ = 1:npoststates
+        postnames = ("BETA", "P", "u", "v", "w", "_q_liq", "HEIGHT")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
@@ -790,6 +790,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[_v] = v
                     R[_w] = w
                     R[_q_liq] = aux[_a_q_liq]
+                    R[_q_liq] = aux[_a_z]
                 end
             end
 
