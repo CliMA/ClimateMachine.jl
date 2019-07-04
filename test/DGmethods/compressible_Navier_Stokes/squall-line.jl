@@ -882,19 +882,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     @timeit to "Time stepping init" begin
-
-        #Compute max acoustic CFL and adapt dt
-        #get_maximum_Courant(Q, grid.vgeo)
-        #(CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
-        #@info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
-
-
+        
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
         #
         # Courant start
         #
         #@show(spacedisc.auxstate)
+        cfl_safety_factor = 0.85
         Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
         
         @info @sprintf("""Courant_max = %.16e ------ %.16e """, Courant_max, global_max(spacedisc.auxstate, _a_timescale))
