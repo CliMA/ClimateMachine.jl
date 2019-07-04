@@ -61,6 +61,21 @@ using CLIMA.MoistThermodynamics: air_temperature, air_pressure, internal_energy,
 @parameter Prandtl 71//100 "Prandtl"
 @parameter k_μ    cp_d/Prandtl "k_μ"
 
+function Base.sort!(a::MArray{Tuple{3}})
+  # Use a (Bose-Nelson Algorithm based) sorting network from
+  # <http://pages.ripco.net/~jgamble/nw.html>.
+  a[2], a[3] = minmax(a[2], a[3])
+  a[1], a[3] = minmax(a[1], a[3])
+  a[1], a[2] = minmax(a[1], a[2])
+end
+
+function Base.sort(a::SArray{Tuple{3}})
+  b = similar(a)
+  b .= a
+  sort!(b)
+  b
+end
+
 """
 Smagorinsky model coefficient for anisotropic grids.
 Given a description of the grid in terms of Δ1, Δ2, Δ3
@@ -87,18 +102,19 @@ In addition, simple alternative methods of computing the geometric average
 are also included (in accordance with Deardorff's methods).
 """
 function anisotropic_coefficient_sgs3D(Δ1, Δ2, Δ3)
+  DFloat = typeof(Δ1)
   # Arguments are the lengthscales in each of the coordinate directions
   # For a cube: this is the edge length
   # For a sphere: the arc length provides one approximation of many
   Δ = cbrt(Δ1 * Δ2 * Δ3)
-  Δ_sorted = sort([Δ1, Δ2, Δ3])
+  Δ_sorted = sort(@SVector [Δ1, Δ2, Δ3])
   # Get smallest two dimensions
   Δ_s1 = Δ_sorted[1]
   Δ_s2 = Δ_sorted[2]
   a1 = Δ_s1 / max(Δ1,Δ2,Δ3)
   a2 = Δ_s2 / max(Δ1,Δ2,Δ3)
   # In 3D we compute a scaling factor for anisotropic grids
-  f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
+  f_anisotropic = 1 + DFloat(2/27) * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
   Δ = Δ*f_anisotropic
   Δsqr = Δ * Δ
   return Δsqr
@@ -221,10 +237,10 @@ const PDE_level_hydrostatic_balance = true
 
 # Specify if forcings are ramped up or full forcing are applied from the beginning
 const ramp_up_forcings = true
-const use_held_suarez_forcings = false
-const use_sponge = false
-const use_exponential_vertical_warp = false
-const use_coriolis = false
+const use_held_suarez_forcings = true
+const use_sponge = true
+const use_exponential_vertical_warp = true
+const use_coriolis = true
 
 # check whether to use default VTK directory or define something else
 VTKDIR = get(ENV, "CLIMA_VTK_DIR", "vtk")
@@ -243,13 +259,13 @@ const _statenames = ("δρ", "ρu", "ρv", "ρw", "δρe")
 """
 Viscous state labels
 """
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _ρx, _ρy, _ρz, _SijSij = 1:_nviscstates
+const _nviscstates = 13
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _Tx, _Ty, _Tz, _ρx, _ρy, _ρz, _SijSij = 1:_nviscstates
 
 """
 Number of variables of which gradients are required 
 """
-const _ngradstates = 7
+const _ngradstates = 5
 
 """
 Number of states being loaded for gradient computation
@@ -289,7 +305,7 @@ function gradient_vars!(gradient_list, Q, aux, t)
     T = air_temperature(e_int)
 
     gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
-    gradient_list[4], gradient_list[5], gradient_list[6] = ρe, T, ρ
+    gradient_list[4], gradient_list[5] = T, ρ
   end
 end
 
@@ -300,9 +316,8 @@ function compute_stresses!(VF, grad_vars, _...)
     dvdx, dvdy, dvdz = grad_vars[1, 2], grad_vars[2, 2], grad_vars[3, 2]
     dwdx, dwdy, dwdz = grad_vars[1, 3], grad_vars[2, 3], grad_vars[3, 3]
     # compute gradients of moist vars and temperature
-    dqdx, dqdy, dqdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
-    dTdx, dTdy, dTdz = grad_vars[1, 6], grad_vars[2, 6], grad_vars[3, 6]
-    dρdx, dρdy, dρdz = grad_vars[1, 7], grad_vars[2, 7], grad_vars[3, 7]
+    dTdx, dTdy, dTdz = grad_vars[1, 4], grad_vars[2, 4], grad_vars[3, 4]
+    dρdx, dρdy, dρdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
     # virtual potential temperature gradient: for richardson calculation
     # strains
     # --------------------------------------------
@@ -368,7 +383,6 @@ function eulerflux!(F, Q, VF, aux, t)
     F[1, _dρe], F[2, _dρe], F[3, _dρe] = u * (ρe + P), v * (ρe + P), w * (ρe + P)
 
     #Derivative of T and Q:
-    vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
     vρx, vρy, vρz = VF[_Tx], VF[_Ty], VF[_Tz]
 
@@ -646,9 +660,9 @@ function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z, dx, dy
     e_int = internal_energy(T_ref)
     ρe_ref = e_int * ρ_ref + ρ_ref * ϕ
 
-    ## Sponge coefficient (from dycoms3d)
-    ct = DFloat(0.75)
-    top_sponge  = DFloat(0.85) * (domain_height - planet_radius) + planet_radius
+    ## Sponge coefficient
+    ct = DFloat(1 / 2880)
+    top_sponge  = planet_radius + 15400
 
     if r >= top_sponge
       sponge_coefficient = ct * (sinpi((r - top_sponge)/2/(domain_height - top_sponge)))^4
@@ -827,11 +841,11 @@ let
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 
   ## parameters for defining the cubed sphere.
-  Ne_vertical   = 6  # number of vertical elements (small for CI/docs reasons)
+  Ne_vertical   = 12  # number of vertical elements (small for CI/docs reasons)
   ## Ne_vertical   = 30 # Resolution required for stable long time result
   ## cubed sphere will use Ne_horizontal * Ne_horizontal horizontal elements in
   ## each of the 6 faces
-  Ne_horizontal = 3
+  Ne_horizontal = 6
 
   polynomialorder = 5
 
@@ -875,7 +889,7 @@ let
   
   lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
 
-  filter = Grids.CutoffFilter(spatialdiscretization.grid, 3)
+  filter = Grids.CutoffFilter(spatialdiscretization.grid)
 #  filter = Grids.ExponentialFilter(spatialdiscretization.grid)
 
   ## Uncomment line below to extend simulation time and output less frequently
@@ -884,9 +898,9 @@ let
   hours = 3600
   days = 86400
 #  finaltime = 0.1*days
-#  outputtime = 0.01*days
   finaltime = 5*days
-  outputtime =1*days
+  outputtime = 0.001*days
+#  outputtime =1*days
   
   @show(polynomialorder,Ne_horizontal,Ne_vertical,dt,finaltime,finaltime/dt)
 
