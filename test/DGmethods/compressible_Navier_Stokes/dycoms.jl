@@ -101,7 +101,7 @@ const yc   = (ymax + ymin) / 2
 # Modules: NumericalFluxes.jl 
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
-@inline function preflux(Q,VF, aux, _...)
+@inline function preflux(Q, aux)
     γ::eltype(Q) = γ_exact
     gravity::eltype(Q) = grav
     R_gas::eltype(Q) = R_d
@@ -125,7 +125,8 @@ end
 
 # -------------------------------------------------------------------------
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+    P, u, v, w, ρinv = preflux(Q, aux)
     γ::eltype(Q) = γ_exact
     @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
@@ -164,8 +165,8 @@ end
 #md # Note that the preflux calculation is splatted at the end of the function call
 #md # to cns_flux!
 # -------------------------------------------------------------------------
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
+@inline function cns_flux!(F, Q, VF, aux, t)
+    P, u, v, w, ρinv = preflux(Q, aux)
     @inbounds begin
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         # Inviscid contributions 
@@ -267,7 +268,8 @@ end
 
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
+  PM, uM, vM, wM, ρinvM = preflux(QM, auxM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
@@ -281,8 +283,6 @@ end
         VFP .= VFM
         # To calculate PP, uP, vP, wP, ρinvP we use the preflux function 
         nothing
-        #preflux(QP, auxP, t)
-        # Required return from this function is either nothing or preflux with plus state as arguments
     end
 end
 # -------------------------------------------------------------------------
@@ -503,8 +503,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             DeviceArray = ArrayType,
                                             polynomialorder = N)
     
-    numflux!(x...)   = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
-    numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
+    numflux!(x...)   = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed)
+    numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed)
 
     # spacedisc = data needed for evaluating the right-hand side function
     spacedisc = DGBalanceLaw(grid = grid,
