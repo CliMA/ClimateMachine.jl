@@ -64,8 +64,8 @@ const _ngradstates = 9
 const _states_for_gradient_transform = (_ρ, _ρu, _ρv, _ρw, _ρe_tot, _ρq_tot,
                                         _ρq_liq, _ρq_ice, _ρq_rai)
 
-const _nauxstate = 7
-const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_p, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 11
+const _a_z, _a_dx, _a_dy, _a_dz, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_p, _a_soundspeed_air, _a_timescale = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -273,7 +273,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-        D_e = ν_e / Prandtl_t
+        D_e = 200.0 # ν_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -690,9 +690,16 @@ function preodefun!(disc, Q, t)
             T     = air_temperature(e_int, q)
             p     = air_pressure(T, ρ, q)
 
+
+            dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+            
             R[_a_T] = T
             R[_a_p] = p
             R[_a_soundspeed_air] = soundspeed_air(T, q)
+            u_wavespeed = (abs(u) + soundspeed) / dx
+            v_wavespeed = (abs(v) + soundspeed) / dy 
+            w_wavespeed = (abs(w) + soundspeed) / dz
+            R[_a_timescale] = max(u_wavespeed,v_wavespeed,w_wavespeed)
         end
     end
 
@@ -884,7 +891,26 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
+        #
+        # Courant start
+        #
+        #@show(spacedisc.auxstate)
+        Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
+        
+        @info @sprintf("""Courant_max = %.16e ------ %.16e """, Courant_max, global_max(spacedisc.auxstate, _a_timescale))
 
+        if (Courant_max >= 1)
+            dt = dt / Courant_max * cfl_safety_factor
+        else
+            dt = cfl_safety_factor / Courant_max * dt
+        end
+
+        ODESolvers.updatedt!(lsrk, dt)
+        @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt Courant_max
+        #
+        # Courant end
+        #
+        
         #=eng0 = norm(Q)
         @info @sprintf """Starting
         norm(Q₀) = %.16e""" eng0
