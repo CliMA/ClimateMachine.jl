@@ -105,7 +105,7 @@ air_density(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<
 The (moist-)air density from the equation of state
 (ideal gas law), given a thermodynamic state `ts`.
 """
-air_density(ts::ThermodynamicState) = ts.density
+air_density(ts::ThermodynamicState) = ts.ρ
 
 """
     specific_volume(T, p[, q::PhasePartition])
