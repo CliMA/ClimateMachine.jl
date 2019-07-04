@@ -393,6 +393,9 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
 end
 
 
+
+
+
 using Requires
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
