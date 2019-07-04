@@ -885,7 +885,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
-        #
+        #=
         # Courant start
         #
         #@show(spacedisc.auxstate)
@@ -904,7 +904,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt Courant_max
         #
         # Courant end
-        #
+        =#
         
         #=eng0 = norm(Q)
         @info @sprintf """Starting
