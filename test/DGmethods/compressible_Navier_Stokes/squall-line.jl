@@ -109,7 +109,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-25000,25000)
+const (xmin, xmax) = (-30000,30000)
 const (ymin, ymax) = (0,  5000)
 const (zmin, zmax) = (0, 24000)
 
@@ -216,7 +216,7 @@ end
 function read_sounding()
     #read in the original squal sounding
     #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_JCP2013_with_pressure.dat"))
-    fsounding  = open(joinpath(@__DIR__, "../soundings/SOUNDING_sounding_squall_line_JAS_trierEtAl.dat"))
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_gabersek.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -794,7 +794,7 @@ function grid_stretching(DFloat,
 
     zstretch_coe = 0.0
     if zstretch_flg == 1
-        zstretch_coe = 2.0
+        zstretch_coe = 2.5
         z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
     end
 
