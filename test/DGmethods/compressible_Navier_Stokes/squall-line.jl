@@ -413,10 +413,14 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model,
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-@inline function auxiliary_state_initialization!(aux, x, y, z)
+@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
     @inbounds begin
         DFloat = eltype(aux)
         aux[_a_z] = z
+
+        aux[_a_dx] = dx
+        aux[_a_dy] = dy
+        aux[_a_dz] = dz
 
         #Sponge
         csleft  = 0.0
@@ -679,7 +683,9 @@ function preodefun!(disc, Q, t)
             ρ, ρu, ρv, ρw, ρe_tot, ρq_tot, ρq_liq, ρq_ice, ρq_rai =
               Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot], Q[_ρq_liq],
               Q[_ρq_ice], Q[_ρq_rai]
+
             z = aux[_a_z]
+            dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
 
             q_tot = ρq_tot / ρ; q_liq = ρq_liq / ρ; q_ice = ρq_ice / ρ
             u = ρu / ρ; v = ρv / ρ; w = ρw / ρ
@@ -689,17 +695,15 @@ function preodefun!(disc, Q, t)
             q     = PhasePartition(q_tot, q_liq, q_ice)
             T     = air_temperature(e_int, q)
             p     = air_pressure(T, ρ, q)
-
-
-            dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+            
             
             R[_a_T] = T
             R[_a_p] = p
             R[_a_soundspeed_air] = soundspeed_air(T, q)
-            u_wavespeed = (abs(u) + soundspeed) / dx
-            v_wavespeed = (abs(v) + soundspeed) / dy 
-            w_wavespeed = (abs(w) + soundspeed) / dz
-            R[_a_timescale] = max(u_wavespeed,v_wavespeed,w_wavespeed)
+            #u_wavespeed = (abs(u) + soundspeed) / dx
+            #v_wavespeed = (abs(v) + soundspeed) / dy 
+            #w_wavespeed = (abs(w) + soundspeed) / dz
+            #R[_a_timescale] = max(u_wavespeed,v_wavespeed,w_wavespeed)
         end
     end
 

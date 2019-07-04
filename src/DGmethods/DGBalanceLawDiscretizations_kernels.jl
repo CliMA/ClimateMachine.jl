@@ -558,11 +558,22 @@ function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
       x, y, z = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      # Load the mesh metric terms to compute the local dx, dy, dz 
+      # horizontal and vertical spacings. Useful for filter definitions
+      # and computations for anisotropic gridscales.
+      #TODO: Review by LCW / SM79
+      ξx, ξy, ξz = vgeo[n, _ξx, e], vgeo[n, _ξy, e], vgeo[n, _ξz, e]
+      ηx, ηy, ηz = vgeo[n, _ηx, e], vgeo[n, _ηy, e], vgeo[n, _ηz, e]
+      ζx, ζy, ζz = vgeo[n, _ζx, e], vgeo[n, _ζy, e], vgeo[n, _ζz, e]
+      dx = 1/(ξx*2 + ηx*2 + ζx*2) 
+      dy = 1/(ξy*2 + ηy*2 + ζy*2)
+      dz = Nqk == 1 ? 0 : 1/(ξz*2 + ηz*2 + ζz*2)
+        
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
 
-      auxstatefun!(l_aux, x, y, z)
+      auxstatefun!(l_aux, x, y, z, dx, dy, dz)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
