@@ -8,7 +8,7 @@ using MPI
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
-export MPIStateArray, euclidean_distance, weightedsum, global_max, global_mean
+export MPIStateArray, euclidean_distance, weightedsum,  global_max, global_mean
 
 
 """
