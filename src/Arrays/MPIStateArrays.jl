@@ -10,6 +10,7 @@ using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
 export MPIStateArray, euclidean_distance, weightedsum, global_max, global_mean
 
+
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
                   DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
