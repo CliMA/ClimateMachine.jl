@@ -238,8 +238,8 @@ const PDE_level_hydrostatic_balance = true
 # Specify if forcings are ramped up or full forcing are applied from the beginning
 const ramp_up_forcings = true
 const use_held_suarez_forcings = true
-const use_sponge = true
-const use_exponential_vertical_warp = true
+const use_sponge = false
+const use_exponential_vertical_warp = false
 const use_coriolis = true
 
 # check whether to use default VTK directory or define something else
@@ -382,34 +382,34 @@ function eulerflux!(F, Q, VF, aux, t)
     end
     F[1, _dρe], F[2, _dρe], F[3, _dρe] = u * (ρe + P), v * (ρe + P), w * (ρe + P)
 
-    #Derivative of T and Q:
-    vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-    vρx, vρy, vρz = VF[_Tx], VF[_Ty], VF[_Tz]
+    # #Derivative of T and Q:
+    # vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+    # vρx, vρy, vρz = VF[_Tx], VF[_Ty], VF[_Tz]
 
-    #Richardson contribution:
-    SijSij = VF[_SijSij]
+    # #Richardson contribution:
+    # SijSij = VF[_SijSij]
 
-    #Dynamic eddy viscosity from Smagorinsky:
-    Δsqr = aux[_a_Δsqr]
-    (ν_e, D_e) = standard_smagorinsky(SijSij, Δsqr)
-    # FIXME f_R = buoyancy_correction(SijSij, ρ, vρy)
-    f_R = 1
+    # #Dynamic eddy viscosity from Smagorinsky:
+    # Δsqr = aux[_a_Δsqr]
+    # (ν_e, D_e) = standard_smagorinsky(SijSij, Δsqr)
+    # # FIXME f_R = buoyancy_correction(SijSij, ρ, vρy)
+    # f_R = 1
 
-    # Multiply stress tensor by viscosity coefficient:
-    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-    τ12 = τ21 = VF[_τ12] * ν_e
-    τ13 = τ31 = VF[_τ13] * ν_e
-    τ23 = τ32 = VF[_τ23] * ν_e
+    # # Multiply stress tensor by viscosity coefficient:
+    # τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    # τ12 = τ21 = VF[_τ12] * ν_e
+    # τ13 = τ31 = VF[_τ13] * ν_e
+    # τ23 = τ32 = VF[_τ23] * ν_e
 
-    # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _ρu] -= τ11 * f_R ; F[2, _ρu] -= τ12 * f_R ; F[3, _ρu] -= τ13 * f_R
-    F[1, _ρv] -= τ21 * f_R ; F[2, _ρv] -= τ22 * f_R ; F[3, _ρv] -= τ23 * f_R
-    F[1, _ρw] -= τ31 * f_R ; F[2, _ρw] -= τ32 * f_R ; F[3, _ρw] -= τ33 * f_R
+    # # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
+    # F[1, _ρu] -= τ11 * f_R ; F[2, _ρu] -= τ12 * f_R ; F[3, _ρu] -= τ13 * f_R
+    # F[1, _ρv] -= τ21 * f_R ; F[2, _ρv] -= τ22 * f_R ; F[3, _ρv] -= τ23 * f_R
+    # F[1, _ρw] -= τ31 * f_R ; F[2, _ρw] -= τ32 * f_R ; F[3, _ρw] -= τ33 * f_R
 
-    # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _dρe] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx
-    F[2, _dρe] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
-    F[3, _dρe] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz
+    # # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
+    # F[1, _dρe] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx
+    # F[2, _dρe] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+    # F[3, _dρe] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz
   end
 end
 #md nothing # hide
@@ -813,13 +813,13 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
                                        numerical_boundary_flux! = numbcflux!,
                                        auxiliary_state_length = _nauxstate,
                                        auxiliary_state_initialization! = auxinit!,
-                                       number_gradient_states = _ngradstates,
-                                       states_for_gradient_transform = _states_for_gradient_transform,
-                                       number_viscous_states = _nviscstates,
-                                       gradient_transform! = gradient_vars!,
-                                       viscous_transform! = compute_stresses!,
-                                       viscous_penalty! = stresses_penalty!,
-                                       viscous_boundary_penalty! = stresses_boundary_penalty!
+                                       # number_gradient_states = _ngradstates,
+                                       # states_for_gradient_transform = _states_for_gradient_transform,
+                                       # number_viscous_states = _nviscstates,
+                                       # gradient_transform! = gradient_vars!,
+                                       # viscous_transform! = compute_stresses!,
+                                       # viscous_penalty! = stresses_penalty!,
+                                       # viscous_boundary_penalty! = stresses_boundary_penalty!
                                       )
 
   ## Compute Gradient of Geopotential
@@ -841,11 +841,11 @@ let
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 
   ## parameters for defining the cubed sphere.
-  Ne_vertical   = 12  # number of vertical elements (small for CI/docs reasons)
+  Ne_vertical   = 6  # number of vertical elements (small for CI/docs reasons)
   ## Ne_vertical   = 30 # Resolution required for stable long time result
   ## cubed sphere will use Ne_horizontal * Ne_horizontal horizontal elements in
   ## each of the 6 faces
-  Ne_horizontal = 6
+  Ne_horizontal = 3
 
   polynomialorder = 5
 
@@ -889,7 +889,7 @@ let
   
   lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
 
-  filter = Grids.CutoffFilter(spatialdiscretization.grid)
+  filter = Grids.CutoffFilter(spatialdiscretization.grid, 3)
 #  filter = Grids.ExponentialFilter(spatialdiscretization.grid)
 
   ## Uncomment line below to extend simulation time and output less frequently
@@ -897,9 +897,9 @@ let
   minutes = 60
   hours = 3600
   days = 86400
-#  finaltime = 0.1*days
-  finaltime = 5*days
-  outputtime = 0.001*days
+  outputtime = 0.1*days
+  finaltime = 20*days
+#  outputtime = 0.001*days
 #  outputtime =1*days
   
   @show(polynomialorder,Ne_horizontal,Ne_vertical,dt,finaltime,finaltime/dt)
