@@ -26,8 +26,6 @@ function main()
 
     @test A_all == B_all
   end
-
-  MPI.Finalize()
 end
 
 main()

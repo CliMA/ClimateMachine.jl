@@ -12,8 +12,6 @@ include("topology.jl")
 include("grid_integral.jl")
 include("filter.jl")
 
-MPI.Finalize()
-
 @testset "MPI Jobs" begin
 
   tests = [(3, "mpi_centroid.jl")
