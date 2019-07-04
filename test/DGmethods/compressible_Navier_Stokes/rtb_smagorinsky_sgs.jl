@@ -588,7 +588,7 @@ function linearoperator!(LQ, Q, rhs_linear!, α)
 end
 
 function solve_linear_problem!(Qtt, Qhat, rhs_linear!, α, gcrk)
-  linearoperator!(Qtt, Qhat, rhs_linear!, α)
+  # linearoperator!(Qtt, Qhat, rhs_linear!, α)
   LinearSolvers.linearsolve!((Ax, x) -> linearoperator!(Ax, x, rhs_linear!, α),
                              Qtt, Qhat, gcrk)
 end
