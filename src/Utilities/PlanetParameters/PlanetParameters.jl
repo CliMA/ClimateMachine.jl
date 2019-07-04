@@ -24,7 +24,7 @@ using ..ParametersType
 @exportparameter cv_d              cp_d - R_d    "Isochoric specific heat dry air"
 
 # Properties of water
-@exportparameter ρ_water           1e3           "Density of liquid water (kg/m^3)"
+@exportparameter ρ_liquid          1e3           "Density of liquid water (kg/m^3)"
 @exportparameter molmass_water     18.01528e-3   "Molecular weight (kg/mol)"
 @exportparameter molmass_ratio     molmass_dryair/
                                    molmass_water "Molar mass ratio dry air/water"
