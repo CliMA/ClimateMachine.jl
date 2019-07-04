@@ -21,7 +21,7 @@ export terminal_velocity
 
 # rates of conversion between microphysics categories
 export conv_q_vap_to_q_liq
-export conv_q_vap_to_q_ice
+#export conv_q_vap_to_q_ice
 export conv_q_liq_to_q_rai_acnv
 export conv_q_liq_to_q_rai_accr
 export conv_q_rai_to_q_vap
@@ -78,27 +78,29 @@ constant timescale.
 function conv_q_vap_to_q_liq(q_sat::PhasePartition{DT},
                              q::PhasePartition{DT}) where {DT<:Real}
 
-  return (q_sat.liq - q.liq) / τ_cond_evap
+  #return (q_sat.liq - q.liq) / τ_cond_evap
+  return (max(q_sat.liq, q_sat.ice) - q.liq) / τ_cond_evap # TODO - tmp
+
 
 end
 
-"""
-    conv_q_vap_to_q_ice(q_sat, q)
-
-where:
-- `q_sat` - PhasePartition at equilibrium
-- `q`     - current PhasePartition
-
-Returns the q_ice tendency due to sublimation/resublimation.
-The tendency is obtained assuming a relaxation to equilibrium with
-constant timescale.
-"""
-function conv_q_vap_to_q_ice(q_sat::PhasePartition{DT},
-                             q::PhasePartition{DT}) where {DT<:Real}
-
-  return (q_sat.ice - q.ice) / τ_subl_resubl
-
-end
+#"""
+#    conv_q_vap_to_q_ice(q_sat, q)
+#
+#where:
+#- `q_sat` - PhasePartition at equilibrium
+#- `q`     - current PhasePartition
+#
+#Returns the q_ice tendency due to sublimation/resublimation.
+#The tendency is obtained assuming a relaxation to equilibrium with
+#constant timescale.
+#"""
+#function conv_q_vap_to_q_ice(q_sat::PhasePartition{DT},
+#                             q::PhasePartition{DT}) where {DT<:Real}
+#
+#  return (q_sat.ice - q.ice) / τ_subl_resubl
+#
+#end
 
 """
     conv_q_liq_to_q_rai_acnv(q_liq)
