@@ -599,9 +599,9 @@ end
 
     # cloud water condensation/evaporation
     src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
-    src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
+    #src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
     S[_ρq_liq] += ρ * src_q_liq
-    S[_ρq_ice] += ρ * src_q_ice
+    #S[_ρq_ice] += ρ * src_q_ice
 
     # tendencies from rain
     # TODO - ensure positive definite
@@ -613,20 +613,22 @@ end
     src_q_rai_acnv_liq = conv_q_liq_to_q_rai_acnv(q.liq)
     src_q_rai_accr_liq = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
 
-    src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
-    src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
+    #src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
+    #src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
 
-    src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap + src_q_rai_acnv_ice + src_q_rai_accr_ice
+    src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
 
     S[_ρq_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
-    S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
+    #S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
 
     S[_ρq_rai] += ρ * src_q_rai_tot
     S[_ρq_tot] -= ρ * src_q_rai_tot
 
-    S[_ρe_tot] -= (src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
-                  (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0)) -
-                  (src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))) * ρ
+    S[_ρe_tot] -= (
+                    src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
+                    (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
+                    #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
+                  ) * ρ
     #end
   end
 end
