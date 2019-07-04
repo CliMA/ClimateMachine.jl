@@ -468,12 +468,13 @@ for communication with this `MPIStateArray`.
 After allocation the `MPIStateArray` is initialized using the function
 `initialization!` which will be called as:
 ```
-initialization!(Q, x, y, z, [aux])
+initialization!(Q, x, y, z, aux)
 ```
 where `Q` is an `MArray` with the solution state at a single degree of freedom
-(DOF) to initialize and `(x,y,z)` is the coordinate point for the allocation. If
-`disc` contains an auxiliary data the values of this at the DOF are passed
-through as an `MArray` through the `aux` argument
+(DOF) to initialize and `(x,y,z)` is the coordinate point for the allocation.
+The auxiliary data the values at the DOF are passed through as an `MArray`
+through the `aux` argument; if `disc` does not have auxiliary data then the
+length of the `MArray` will be zero.
 
 !!! note
 

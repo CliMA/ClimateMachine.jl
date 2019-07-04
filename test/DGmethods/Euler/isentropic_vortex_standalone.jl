@@ -85,7 +85,7 @@ end
 
 # initial condition
 const halfperiod = 5
-function isentropicvortex!(Q, t, x, y, z)
+function isentropicvortex!(Q, t, x, y, z, _...)
   DFloat = eltype(Q)
 
   γ::DFloat    = γ_exact
