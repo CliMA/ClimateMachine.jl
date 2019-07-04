@@ -63,7 +63,6 @@ const _nviscstates = 6
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
 
 const _ngradstates = 3
-const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 #md nothing # hide
 
 if !@isdefined integration_testing
@@ -200,7 +199,6 @@ end
 # Compute the velocity from the state
 @inline function velocities!(vel, Q, _...)
     @inbounds begin
-        # ordering should match states_for_gradient_transform
         ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
         ρinv = 1 / ρ
         vel[1], vel[2], vel[3] = ρinv * U, ρinv * V, ρinv * W
@@ -513,8 +511,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              numerical_flux! = numflux!,
                              numerical_boundary_flux! = numbcflux!, 
                              number_gradient_states = _ngradstates,
-                             states_for_gradient_transform =
-                             _states_for_gradient_transform,
                              number_viscous_states = _nviscstates,
                              gradient_transform! = velocities!,
                              viscous_transform! = compute_stresses!,
