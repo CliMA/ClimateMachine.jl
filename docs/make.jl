@@ -32,6 +32,7 @@ makedocs(
       "Atmos/SurfaceFluxes.md",
       "Atmos/TurbulenceConvection.md",
       "Atmos/EDMFEquations.md",
+      "Microphysics" => "Atmos/Microphysics.md",
     ],
     "ODESolvers" => "ODESolvers.md",
     "Mesh" => "Mesh.md",

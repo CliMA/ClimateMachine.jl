@@ -680,7 +680,10 @@ function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
     T_2 = air_temperature(e_int, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
-      T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
+      T_1, T_2, SecantMethod(), DT(1e-3), 10)
+      if !converged
+        error("saturation adjustment did not converge")
+      end
     return T
   end
 end
@@ -707,7 +710,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::DT, q_tot::DT, ρ::D
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
       T -> θ_liq_ice - liquid_ice_pottemp_sat(T, p, PhasePartition_equil(T, ρ, q_tot)),
-      T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
+      T_1, T_2, SecantMethod(), DT(1e-3), 10)
     return T
   end
 end

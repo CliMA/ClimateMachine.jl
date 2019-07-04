@@ -17,7 +17,6 @@ q_ice = specific humidity, ice
 q_con = specific humidity, condensate
 q_tot = specific humidity, total
 
-
 P_<species>     = pressure, species (no subscript == default working fluid moist air)
 ρ_<species>     = density, species (no subscript == default working fluid moist air)
 R_m             = gas constant, moist
@@ -83,6 +82,20 @@ cp_d             = isobaric specific heat, dry air
 cp_l             = isobaric specific heat, liquid water
 cp_v             = isobaric specific heat, water vapour
 cp_i             = isobaric specific heat, ice
+```
+
+### 2.6 Microphysics
+```
+q_rai = specific humidity, rain [kg/kg]
+
+terminal_velocity = mass weighted average rain fall speed [m/s]
+
+conv_q_vap_to_q_liq      = tendency to q_liq and q_ice due to
+                           condensation/evaporation and
+                           sublimation/resublimation from q_vap [1/s]
+conv_q_liq_to_q_rai_acnv = tendency to q_rai due to autoconversion from q_liq [1/s]
+conv_q_liq_to_q_rai_accr = tendency to q_rai due to accretion from q_liq [1/s]
+conv_q_rai_to_q_vap      = tendency to q_vap due to evaporation from q_rai [1/s]
 ```
 
 ### TODO
