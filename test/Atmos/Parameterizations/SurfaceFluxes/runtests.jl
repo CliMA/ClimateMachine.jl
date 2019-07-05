@@ -21,7 +21,10 @@ using CLIMA.RootSolvers
   z = 0.5
   θ_bar = 300.0
   a = 4.7
-  args = x_initial, x_ave, x_s, z_0, F_exchange, dimensionless_number, θ_bar, Δz, z, a
+  pottemp_flux_given = -200.0
+  args = x_initial, x_ave, x_s, z_0, F_exchange, dimensionless_number, θ_bar, Δz, z, a, pottemp_flux_given
+  sfc = surface_conditions(args[1:end-1]...)
+  @show sfc
   sfc = surface_conditions(args...)
   @show sfc
 end
