@@ -51,26 +51,22 @@ Surface flux conditions, returned from `surface_conditions`.
 $(DocStringExtensions.FIELDS)
 """
 struct SurfaceFluxConditions{T}
-  momentum_flux::T
-  buoyancy_flux::T
-  Monin_Obukhov_length::T
-  friction_velocity::T
-  temperature_scale::T
-  pottemp_flux::T
-  exchange_coeff_momentum::T
-  exchange_coeff_heat::T
+  L_MO::T
+  pottemp_flux_star::T
+  flux::Vector{T}
+  x_star::Vector{T}
+  K_m::T
+  K_h::T
 end
 
 function Base.show(io::IO, sfc::SurfaceFluxConditions)
   println(io, "----------------------- SurfaceFluxConditions")
-  println(io, "momentum_flux           = ", sfc.momentum_flux)
-  println(io, "buoyancy_flux           = ", sfc.buoyancy_flux)
-  println(io, "Monin_Obukhov_length    = ", sfc.Monin_Obukhov_length)
-  println(io, "friction_velocity       = ", sfc.friction_velocity)
-  println(io, "temperature_scale       = ", sfc.temperature_scale)
-  println(io, "pottemp_flux            = ", sfc.pottemp_flux)
-  println(io, "exchange_coeff_momentum = ", sfc.exchange_coeff_momentum)
-  println(io, "exchange_coeff_heat     = ", sfc.exchange_coeff_heat)
+  println(io, "L_MO              = ", sfc.L_MO)
+  println(io, "pottemp_flux_star = ", sfc.pottemp_flux_star)
+  println(io, "flux              = ", sfc.flux)
+  println(io, "x_star            = ", sfc.x_star)
+  println(io, "K_m               = ", sfc.K_m)
+  println(io, "K_h               = ", sfc.K_h)
   println(io, "-----------------------")
 end
 
@@ -94,62 +90,54 @@ struct Heat end
                        ) where DT<:AbstractFloat
 
 Surface conditions given
- - `u_ave` volume-averaged horizontal wind speed
- - `θ_ave` volume-averaged potential temperature
+ - `x_initial` initial guess for solution
+ - `x_ave` volume-averaged value for variable `x`
+ - `x_s` surface value for variable `x`
  - `θ_bar` basic potential temperature
- - `θ_s` surface potential temperature
  - `Δz` layer thickness (not spatial discretization)
- - `z_0_m` roughness length for momentum
- - `z_0_h` roughness length for heat
+ - `z_0` roughness length for variable `x`
  - `z` coordinate axis
- - `F_m` momentum flux at the top
- - `F_h` heat flux at the top
+ - `F_exchange` flux at the top for variable `x`
  - `a` free model parameter with prescribed value of 4.7
- - `dimensionless_number` Prantl number at neutral stratification
+ - `dimensionless_number` dimensionless number for variable `x`
+      - Momentum: 1
+      - Heat: turbulent Prantl number at neutral stratification
+      - Mass: Schmidt number
  - `pottemp_flux` potential temperature flux (optional)
 
 If `pottemp_flux` is not given, then it is computed by iteration
 of equations 3, 17, and 18 in Nishizawa2018.
 """
-function surface_conditions(u_ave::DT,
-                            θ_bar::DT,
-                            θ_ave::DT,
-                            θ_s::DT,
-                            Δz::DT,
-                            z_0_m::DT,
-                            z_0_h::DT,
-                            z::DT,
-                            F_m::DT,
-                            F_h::DT,
-                            a::DT,
-                            dimensionless_number::DT) where DT<:AbstractFloat
+function surface_conditions(x_initial, x_ave, x_s, z_0, F_exchange, dimensionless_number, θ_bar, Δz, z, a)
 
-  initial_x = [100, 15.0, 350.0] # TODO: improve initial guess
-  function f!(F, x)
-      L_MO, u, θ = x[1], x[2], x[3]
+  n_vars = length(x_initial)-1
+  function f!(F, x_all)
+      L_MO, x_vec = x_all[1], x_all[2:end]
+      u, θ = x_vec[1], x_vec[2]
       pottemp_flux = - u * θ
       F[1] = L_MO - compute_MO_len(u, θ_bar, pottemp_flux)
-      F[2] = u - compute_physical_scale(u, u, Δz, a, θ_bar, pottemp_flux, z_0_m, u_ave, 0, 1, Momentum())
-      F[3] = θ - compute_physical_scale(θ, u, Δz, a, θ_bar, pottemp_flux, z_0_h, θ_ave, θ_s, dimensionless_number, Heat())
+      for i in 1:n_vars
+        ϕ = x_vec[i]
+        transport = i==1 ? Momentum() : Heat()
+        F[i+1] = ϕ - compute_physical_scale(ϕ, u, Δz, a, θ_bar, pottemp_flux, z_0[i], x_ave[i], x_s[i], dimensionless_number[i], transport)
+      end
   end
-  sol = nlsolve(f!, initial_x, autodiff = :forward)
+  sol = nlsolve(f!, x_initial, autodiff = :forward)
   if converged(sol)
-    L_MO, u_star, θ_star = sol.zero
+    L_MO, x_star = sol.zero[1], sol.zero[2:end]
+    u_star, θ_star = x_star[1], x_star[2]
   else
     error("Unconverged surface fluxes")
   end
-  pottemp_flux_star = -u_star^3*θ_bar/(k_Karman*grav*L_MO)
 
-  momentum_flux = -u_star^2
-  buoyancy_flux = -u_star*θ_star
-  K_m, K_h, L_MO = compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ_star, θ_bar, dimensionless_number, pottemp_flux_star)
+  pottemp_flux_star = -u_star^3*θ_bar/(k_Karman*grav*L_MO)
+  flux = -u_star*x_star
+  K_m, K_h = compute_exchange_coefficients(z, F_exchange[1], F_exchange[2], a, u_star, θ_star, θ_bar, dimensionless_number[2], L_MO)
 
   return SurfaceFluxConditions(L_MO,
-                               momentum_flux,
-                               buoyancy_flux,
-                               u_star,
-                               θ_star,
                                pottemp_flux_star,
+                               flux,
+                               x_star,
                                K_m,
                                K_h)
 end
@@ -221,16 +209,15 @@ Computes exchange transfer coefficients
   - `K_H`  thermodynamic exchange coefficient
   - `L_MO` Monin-Obukhov length
 """
-function compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ_star, θ_bar, dimensionless_number, pottemp_flux)
+function compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ_star, θ_bar, dimensionless_number, L_MO)
 
-  L_MO = compute_MO_len(u_star, θ_bar, pottemp_flux)
   psi_m = compute_psi(z/L_MO, L_MO, a, 1, Momentum())
   psi_h = compute_psi(z/L_MO, L_MO, a, dimensionless_number, Heat())
 
   K_m = -F_m*k_Karman*z/(u_star * psi_m) # Eq. 19 in Ref. Nishizawa2018
   K_h = -F_h*k_Karman*z/(dimensionless_number * θ_star * psi_h) # Eq. 20 in Ref. Nishizawa2018
 
-  return K_m, K_h, L_MO
+  return K_m, K_h
 end
 
 end # SurfaceFluxes module

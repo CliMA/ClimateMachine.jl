@@ -10,20 +10,18 @@ using CLIMA.RootSolvers
 
 @testset "SurfaceFluxes" begin
 
-  F_m, F_h = 2.0, 3.0
+  x_initial = [100, 15.0, 350.0]
+  F_exchange = [2.0, 3.0]
+  z_0 = [1.0, 1.0]
+  dimensionless_number = [1.0, 0.74]
+  x_ave = [5.0, 350.0]
+  x_s   = [0.0, 300.0]
+
   Δz = 2.0
   z = 0.5
-  z_0_m = 1.0
-  z_0_h = 1.0
-
-  Pr = 0.74
-  u_ave = 5.0
-  θ_ave = 300.0
-  θ_bar = 350.0
-  θ_s   = 300.0
+  θ_bar = 300.0
   a = 4.7
-
-  args = u_ave, θ_ave, θ_bar, θ_s, Δz, z_0_m, z_0_h, z, F_m, F_h, a, Pr
+  args = x_initial, x_ave, x_s, z_0, F_exchange, dimensionless_number, θ_bar, Δz, z, a
   sfc = surface_conditions(args...)
   @show sfc
 end
