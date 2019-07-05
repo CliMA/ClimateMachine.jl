@@ -8,10 +8,10 @@ This module provides a means to compute surface fluxes given several variables, 
 
 ## Interface
   - [`surface_conditions`](@ref) computes
-    - buoyancy flux
     - Monin-Obukhov length
-    - friction velocity
-    - temperature scale
+    - Potential temperature flux (if not given) using Monin-Obukhov theory
+    - transport fluxes using Monin-Obukhov theory
+    - friction velocity/temperature scale/tracer scales
     - exchange coefficients
 
 ## API
