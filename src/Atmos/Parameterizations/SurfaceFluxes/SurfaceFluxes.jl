@@ -110,6 +110,12 @@ function surface_conditions(x_initial::Vector{T},
                             ) where T<:AbstractFloat
 
   n_vars = length(x_initial)-1
+  @assert length(x_initial)==n_vars+1
+  @assert length(x_ave)==n_vars
+  @assert length(x_s)==n_vars
+  @assert length(z_0)==n_vars
+  @assert length(F_exchange)==n_vars
+  @assert length(dimensionless_number)==n_vars
   function f!(F, x_all)
       L_MO, x_vec = x_all[1], x_all[2:end]
       u, θ = x_vec[1], x_vec[2]
@@ -126,6 +132,7 @@ function surface_conditions(x_initial::Vector{T},
     L_MO, x_star = sol.zero[1], sol.zero[2:end]
     u_star, θ_star = x_star[1], x_star[2]
   else
+    @show sol
     error("Unconverged surface fluxes")
   end
 
