@@ -13,6 +13,7 @@ for submodule in ["Utilities/ParametersType",
                   "DGmethods",
                   "ODESolvers",
                   "Arrays",
+                  "LinearSolvers",
                  ]
 
   println("Starting tests for $submodule")

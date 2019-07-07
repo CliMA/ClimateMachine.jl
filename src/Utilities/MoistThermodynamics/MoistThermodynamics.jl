@@ -26,7 +26,7 @@ export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
 
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
-export saturation_vapor_pressure, saturation_shum_generic, saturation_shum
+export saturation_vapor_pressure, q_vap_saturation_generic, q_vap_saturation
 export saturation_excess
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
@@ -105,7 +105,7 @@ air_density(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<
 The (moist-)air density from the equation of state
 (ideal gas law), given a thermodynamic state `ts`.
 """
-air_density(ts::ThermodynamicState) = ts.density
+air_density(ts::ThermodynamicState) = ts.ρ
 
 """
     specific_volume(T, p[, q::PhasePartition])
@@ -401,7 +401,7 @@ latent_heat_generic(T::Real, LH_0::Real, Δcp::Real) =
 
 A phase condensate, to dispatch over
 [`saturation_vapor_pressure`](@ref) and
-[`saturation_shum_generic`](@ref).
+[`q_vap_saturation_generic`](@ref).
 """
 abstract type Phase end
 
@@ -410,7 +410,7 @@ abstract type Phase end
 
 A liquid phase, to dispatch over
 [`saturation_vapor_pressure`](@ref) and
-[`saturation_shum_generic`](@ref).
+[`q_vap_saturation_generic`](@ref).
 """
 struct Liquid <: Phase end
 
@@ -419,7 +419,7 @@ struct Liquid <: Phase end
 
 An ice phase, to dispatch over
 [`saturation_vapor_pressure`](@ref) and
-[`saturation_shum_generic`](@ref).
+[`q_vap_saturation_generic`](@ref).
 """
 struct Ice <: Phase end
 
@@ -472,7 +472,7 @@ function saturation_vapor_pressure(T::DT, LH_0::DT, Δcp::DT) where DT
 end
 
 """
-    saturation_shum_generic(T, ρ[; phase=Liquid()])
+    q_vap_saturation_generic(T, ρ[; phase=Liquid()])
 
 Compute the saturation specific humidity over a plane surface of condensate, given
 
@@ -482,13 +482,13 @@ and, optionally,
  - `Liquid()` indicating condensate is liquid
  - `Ice()` indicating condensate is ice
 """
-function saturation_shum_generic(T::DT, ρ::DT; phase::Phase=Liquid()) where DT
+function q_vap_saturation_generic(T::DT, ρ::DT; phase::Phase=Liquid()) where DT
     p_v_sat = saturation_vapor_pressure(T, phase)
-    return saturation_shum_from_pressure(T, ρ, p_v_sat)
+    return q_vap_saturation_from_pressure(T, ρ, p_v_sat)
 end
 
 """
-    saturation_shum(T, ρ[, q::PhasePartition])
+    q_vap_saturation(T, ρ[, q::PhasePartition])
 
 Compute the saturation specific humidity, given
 
@@ -510,7 +510,7 @@ zero, the saturation specific humidity is that over a mixture of liquid and ice,
 with the fraction of liquid given by temperature dependent `liquid_fraction_equil(T)`
 and the fraction of ice by the complement `1 - liquid_fraction_equil(T)`.
 """
-function saturation_shum(T::DT, ρ::DT, q::PhasePartition=PhasePartition(zero(DT))) where DT
+function q_vap_saturation(T::DT, ρ::DT, q::PhasePartition=PhasePartition(zero(DT))) where DT
 
     # get phase partitioning
     _liquid_frac = liquid_fraction_equil(T, q)
@@ -524,20 +524,20 @@ function saturation_shum(T::DT, ρ::DT, q::PhasePartition=PhasePartition(zero(DT
     # saturation vapor pressure over possible mixture of liquid and ice
     p_v_sat = saturation_vapor_pressure(T, DT(LH_0), Δcp)
 
-    return saturation_shum_from_pressure(T, ρ, p_v_sat)
+    return q_vap_saturation_from_pressure(T, ρ, p_v_sat)
 
 end
 
 """
-    saturation_shum(ts::ThermodynamicState)
+    q_vap_saturation(ts::ThermodynamicState)
 
 Compute the saturation specific humidity, given a thermodynamic state `ts`.
 """
-saturation_shum(ts::ThermodynamicState) =
-  saturation_shum(air_temperature(ts), air_density(ts), PhasePartition(ts))
+q_vap_saturation(ts::ThermodynamicState) =
+  q_vap_saturation(air_temperature(ts), air_density(ts), PhasePartition(ts))
 
 """
-    saturation_shum_from_pressure(T, ρ, p_v_sat)
+    q_vap_saturation_from_pressure(T, ρ, p_v_sat)
 
 Compute the saturation specific humidity, given
 
@@ -545,7 +545,7 @@ Compute the saturation specific humidity, given
  - `ρ` density
  - `p_v_sat` saturation vapor pressure
 """
-saturation_shum_from_pressure(T::DT, ρ::DT, p_v_sat::DT) where {DT<:Real} =
+q_vap_saturation_from_pressure(T::DT, ρ::DT, p_v_sat::DT) where {DT<:Real} =
   min(1, p_v_sat / (ρ * DT(R_v) * T))
 
 """
@@ -562,7 +562,7 @@ and the saturation specific humidity in equilibrium, and it is defined to be
 nonzero only if this difference is positive.
 """
 saturation_excess(T::DT, ρ::DT, q::PhasePartition) where {DT} =
-  max(0, q.tot - saturation_shum(T, ρ, q))
+  max(0, q.tot - q_vap_saturation(T, ρ, q))
 
 """
     saturation_excess(ts::ThermodynamicState)
@@ -672,7 +672,7 @@ See also [`saturation_adjustment_q_t_θ_l`](@ref).
 """
 function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
   T_1 = max(DT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
-  q_v_sat = saturation_shum(T_1, ρ)
+  q_v_sat = q_vap_saturation(T_1, ρ)
   if q_tot <= q_v_sat # If not saturated return T_1
     return T_1
   else # If saturated, iterate
@@ -680,7 +680,7 @@ function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where DT
     T_2 = air_temperature(e_int, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
-      T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
+      T_1, T_2, SecantMethod(), DT(1e-3), 10)
       if !converged
         error("saturation adjustment did not converge")
       end
@@ -703,14 +703,14 @@ See also [`saturation_adjustment`](@ref).
 """
 function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::DT, q_tot::DT, ρ::DT, p::DT) where DT
   T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p) # Assume all vapor
-  q_v_sat = saturation_shum(T_1, ρ)
+  q_v_sat = q_vap_saturation(T_1, ρ)
   if q_tot <= q_v_sat # If not saturated
     return T_1
   else  # If saturated, iterate
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
       T -> θ_liq_ice - liquid_ice_pottemp_sat(T, p, PhasePartition_equil(T, ρ, q_tot)),
-      T_1, T_2, SecantMethod(); xatol=DT(1e-3), maxiters=10)
+      T_1, T_2, SecantMethod(), DT(1e-3), 10)
     return T
   end
 end
@@ -810,7 +810,7 @@ and, optionally,
 """
 function liquid_ice_pottemp_sat(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT}
     ρ = air_density(T, p, q)
-    q_v_sat = saturation_shum(T, ρ, q)
+    q_v_sat = q_vap_saturation(T, ρ, q)
     return liquid_ice_pottemp(T, p, PhasePartition(q_v_sat))
 end
 

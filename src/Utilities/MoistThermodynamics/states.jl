@@ -64,7 +64,7 @@ struct PhaseEquil{DT} <: ThermodynamicState{DT}
   "total specific humidity"
   q_tot::DT
   "density of air (potentially moist)"
-  density::DT
+  ρ::DT
   "temperature: computed via [`saturation_adjustment`](@ref)"
   T::DT
 end
@@ -90,7 +90,7 @@ end
 
 
 """
-    PhaseNonEquil{DT} <: ThermodynamicState
+   	 PhaseNonEquil{DT} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic non-equilibrium (therefore, temperature can
 be computed directly).
@@ -110,5 +110,5 @@ struct PhaseNonEquil{DT} <: ThermodynamicState{DT}
   "phase partition"
   q::PhasePartition{DT}
   "density of air (potentially moist)"
-  density::DT
+  ρ::DT
 end
