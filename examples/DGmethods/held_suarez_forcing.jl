@@ -238,8 +238,8 @@ const PDE_level_hydrostatic_balance = true
 # Specify if forcings are ramped up or full forcing are applied from the beginning
 const ramp_up_forcings = true
 const use_held_suarez_forcings = true
-const use_sponge = false
-const use_exponential_vertical_warp = false
+const use_sponge = true
+const use_exponential_vertical_warp = true
 const use_coriolis = true
 
 # check whether to use default VTK directory or define something else
@@ -661,8 +661,8 @@ function auxiliary_state_initialization!(T0, domain_height, aux, x, y, z, dx, dy
     ρe_ref = e_int * ρ_ref + ρ_ref * ϕ
 
     ## Sponge coefficient
-    ct = DFloat(1 / 2880)
-    top_sponge  = planet_radius + 15400
+    ct = DFloat(1)
+    top_sponge  = planet_radius + 10400
 
     if r >= top_sponge
       sponge_coefficient = ct * (sinpi((r - top_sponge)/2/(domain_height - top_sponge)))^4
@@ -843,16 +843,16 @@ let
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 
   ## parameters for defining the cubed sphere.
-  Ne_vertical   = 6  # number of vertical elements (small for CI/docs reasons)
+  Ne_vertical   = 8  # number of vertical elements (small for CI/docs reasons)
   ## Ne_vertical   = 30 # Resolution required for stable long time result
   ## cubed sphere will use Ne_horizontal * Ne_horizontal horizontal elements in
   ## each of the 6 faces
-  Ne_horizontal = 3
+  Ne_horizontal = 6
 
   polynomialorder = 5
 
   ## top of the domain and temperature from Tomita and Satoh (2004)
-  domain_height = 30e3
+  domain_height = 15e3
 
   ## isothermal temperature state
   T0 = 315
@@ -883,7 +883,7 @@ let
 
 
   acoustic_speed = soundspeed_air(DFloat(T0))
-  dt = element_size / acoustic_speed / polynomialorder^2
+  dt = 4*element_size / acoustic_speed / polynomialorder^2
 
   ## Adjust the time step so we exactly hit 1 hour for VTK output
   #dt = 60 * 60 / ceil(60 * 60 / dt)
@@ -891,8 +891,8 @@ let
   
   lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
 
-  filter = Grids.CutoffFilter(spatialdiscretization.grid, 3)
-#  filter = Grids.ExponentialFilter(spatialdiscretization.grid)
+#  filter = Grids.CutoffFilter(spatialdiscretization.grid, 5)
+  filter = Grids.ExponentialFilter(spatialdiscretization.grid)
 
   ## Uncomment line below to extend simulation time and output less frequently
   seconds = 1
