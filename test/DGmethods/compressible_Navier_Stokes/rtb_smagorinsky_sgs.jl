@@ -72,9 +72,9 @@ Problem Description
 """
 
 const numdims = 2
-Δx    = 5
-Δy    = 5
-Δz    = 5
+Δx    = 20
+Δy    = 20
+Δz    = 20
 Npoly = 4
 
 # Physical domain extents 
@@ -120,14 +120,17 @@ const Nez = ceil(Int64, ratioz)
 # -------------------------------------------------------------------------
 const _nauxstate = 6
 const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
+@inline function auxiliary_state_initialization!(aux, x, y, z, MTS)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
-        aux[_a_dx] = dx
-        aux[_a_dy] = dy
-        aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_coefficient_sgs2D(dx, dy) 
+        ξx, ξy, ξz = MTS.ξx, MTS.ξy, MTS.ξz
+        ηx, ηy, ηz = MTS.ηx, MTS.ηy, MTS.ηz
+        ζx, ζy, ζz = MTS.ζx, MTS.ζy, MTS.ζz
+        aux[_a_dx] = 1/2hypot(ξx,ηx,ζx)
+        aux[_a_dy] = 1/2hypot(ξy,ηy,ζy)
+        aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_lengthscale_2D(aux[_a_dx],aux[_a_dy]) 
     end
 end
 
@@ -244,8 +247,6 @@ gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q
         y = aux[_a_y]
         # ordering should match states_for_gradient_transform
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        E, QT = Q[_E], Q[_QT]
-        ρinv = 1 / ρ
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
         gradient_list[4], gradient_list[5], gradient_list[6] = E, QT, T
         gradient_list[7] = ρ
@@ -272,9 +273,9 @@ end
         # virtual potential temperature gradient: for richardson calculation
         # strains
         # --------------------------------------------
-        (S11,S22,S33,S12,S13,S23,SijSij) = SubgridScaleTurbulence.compute_strainrate_tensor(dudx, dudy, dudz,
-                                                                                            dvdx, dvdy, dvdz,
-                                                                                            dwdx, dwdy, dwdz)
+        (S11,S22,S33,S12,S13,S23,SijSij) = SubgridScaleTurbulence.strainrate_tensor_components(dudx, dudy, dudz,
+                                                                                                dvdx, dvdy, dvdz,
+                                                                                                dwdx, dwdy, dwdz)
         #--------------------------------------------
         # deviatoric stresses
         VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
@@ -303,7 +304,8 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        VFP .= 0 
+        QP[_ρ] = ρM
+        QP[_QT] = QTM
         nothing
     end
 end
@@ -311,10 +313,10 @@ end
 """
 Boundary correction for Neumann boundaries
 """
-@inline function stresses_boundary_penalty!(VF, _...) 
-  compute_stresses!(VF, 0) 
+@inline function stresses_boundary_penalty!(VF,nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
+  QP .= 0 
+  stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
-
 
 """
 Gradient term flux correction 
@@ -578,7 +580,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney)
-    dt = 0.005
+    dt = 0.01
     timeend = 900
     polynomialorder = Npoly
     DFloat = Float64

@@ -13,6 +13,20 @@ const _JcV = Grids._JcV
 
 const _nx, _ny, _nz = Grids._nx, Grids._ny, Grids._nz
 const _sM, _vMI = Grids._sM, Grids._vMI
+
+struct MetricTermStruct{T}
+  ξx::T
+  ηx::T
+  ζx::T
+  ξy::T
+  ηy::T
+  ζy::T
+  ξz::T
+  ηz::T
+  ζz::T
+end
+
+
 # }}}
 
 """
@@ -565,15 +579,13 @@ function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
       ξx, ξy, ξz = vgeo[n, _ξx, e], vgeo[n, _ξy, e], vgeo[n, _ξz, e]
       ηx, ηy, ηz = vgeo[n, _ηx, e], vgeo[n, _ηy, e], vgeo[n, _ηz, e]
       ζx, ζy, ζz = vgeo[n, _ζx, e], vgeo[n, _ζy, e], vgeo[n, _ζz, e]
-      dx = 1/(ξx*2 + ηx*2 + ζx*2) 
-      dy = 1/(ξy*2 + ηy*2 + ζy*2)
-      dz = Nqk == 1 ? 0 : 1/(ξz*2 + ηz*2 + ζz*2)
       
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
       
-      auxstatefun!(l_aux, x, y, z, dx, dy, dz)
+      MTS = MetricTermStruct{DFloat}(ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz)
+      auxstatefun!(l_aux, x, y, z, MTS)
       
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]

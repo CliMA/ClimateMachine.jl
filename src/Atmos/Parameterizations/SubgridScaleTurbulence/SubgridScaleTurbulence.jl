@@ -209,14 +209,14 @@ export buoyancy_correction
   function standard_smagorinsky(SijSij, Δsqr)
     # Eddy viscosity is a function of the magnitude of the strain-rate tensor
     # This is for use on both spherical and cartesian grids. 
-    DFloat = eltype(SijSij)
-    ν_e::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * Δsqr
-    D_e::DFloat = ν_e / Prandtl_turb 
+    DF = eltype(SijSij)
+    ν_e::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+    D_e::DF = ν_e / Prandtl_turb 
     return (ν_e, D_e)
   end
 
   """
-    anisotropic_smagorinsky(SijSij, Δ1, Δ2[, Δ3])
+    anisotropic_smagorinsky(SijSij, Δ1, Δ2[, Δ3=0])
     return (ν_1, ν_2, ν_3, D_1, D_2, D_3), 
     directional viscosity and diffusivity
 
@@ -224,16 +224,16 @@ export buoyancy_correction
   anisotropic viscosity dependent on the characterstic lengthscale
   in each coordinate direction 
   """
-  function anisotropic_smagorinsky(SijSij, Δ1, Δ2, Δ3)
+  function anisotropic_smagorinsky(SijSij, Δ1, Δ2, Δ3=0)
     # Order of arguments is irrelevant as long as self-consistency
     # with governing equations is maintained.
-    DFloat = eltype(SijSij)
-    ν_1::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * (Δ1)^2
-    ν_2::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * (Δ2)^2
-    ν_3::DFloat = sqrt(2.0 * SijSij) * C_smag * C_smag * (Δ3)^2
-    D_1::DFloat = ν_1 / Prandtl_turb 
-    D_2::DFloat = ν_2 / Prandtl_turb 
-    D_3::DFloat = ν_3 / Prandtl_turb 
+    DF = eltype(SijSij)
+    ν_1::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δ1^2
+    ν_2::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δ2^2
+    ν_3::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δ3^2
+    D_1::DF = ν_1 / Prandtl_turb 
+    D_2::DF = ν_2 / Prandtl_turb 
+    D_3::DF = ν_3 / Prandtl_turb 
     return (ν_1, ν_2, ν_3, D_1, D_2, D_3)
   end
   

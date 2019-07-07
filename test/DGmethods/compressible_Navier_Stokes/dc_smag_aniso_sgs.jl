@@ -72,14 +72,14 @@ Problem Description
 """
 
 const numdims = 2
-Δx    = 150
+Δx    = 50
 Δy    = 50
-Δz    = 50
+Δz    = 20
 Npoly = 4
 
 # Physical domain extents 
 (xmin, xmax) = (0, 25600)
-(ymin, ymax) = (0,  6400)
+(ymin, ymax) = (0,  6000)
 
 # Can be extended to a 3D test case 
 (zmin, zmax) = (0, 1000)
@@ -107,7 +107,7 @@ const Nez = ceil(Int64, ratioz)
 @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
 @info @sprintf """                                                     """
 @info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Density Current                                     """
+@info @sprintf """ Rising Bubble                                       """
 @info @sprintf """   Resolution:                                       """ 
 @info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
 @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
@@ -116,28 +116,31 @@ const Nez = ceil(Int64, ratioz)
 # -------------------------------------------------------------------------
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
-#md # coordinates.
+#md # coordinates and the equivalent grid lengthscale coefficient. 
 # -------------------------------------------------------------------------
 const _nauxstate = 6
-const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_dz = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
+const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
+@inline function auxiliary_state_initialization!(aux, x, y, z, MTS)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
-        aux[_a_dx] = dx
-        aux[_a_dy] = dy
-        aux[_a_dz] = dz
+        ξx, ξy, ξz = MTS.ξx, MTS.ξy, MTS.ξz
+        ηx, ηy, ηz = MTS.ηx, MTS.ηy, MTS.ηz
+        ζx, ζy, ζz = MTS.ζx, MTS.ζy, MTS.ζz
+        aux[_a_dx] = 1/2hypot(ξx,ηx,ζx)
+        aux[_a_dy] = 1/2hypot(ξy,ηy,ζy)
+        aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_lengthscale_2D(aux[_a_dx],aux[_a_dy]) 
     end
 end
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
-# In the case of the density current example: the saturation
+# In the case of the rising_thermal_bubble example: the saturation
 # adjusted temperature and pressure are such examples. Since we define
 # the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. 
+# around its behaviour. Future drivers won't use the preflux function.  
 # The preflux function interacts with the following  
 # Modules: NumericalFluxes.jl 
 # functions: wavespeed, cns_flux!, bcstate!
@@ -203,42 +206,39 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
     vρy = VF[_ρy]
-    
-    #Richardson contribution:
     SijSij = VF[_SijSij]
     
     #Dynamic eddy viscosity from Smagorinsky:
-    dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
-    (ν_x,ν_y,ν_z,D_x,D_y,ν_z) = SubgridScaleTurbulence.anisotropic_smagorinsky(SijSij, dx, dy, dz)
+    dx, dy= aux[_a_dx], aux[_a_dy]
+    Δsqr = aux[_a_Δsqr]
+    (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
+    
+    #Richardson contribution:
     f_R = SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
     
     # Multiply stress tensor by viscosity coefficient:
-    τ11 = f_R * ν_x * VF[_τ11]
-    τ12 = f_R * ν_x * VF[_τ12]
-    τ13 = f_R * ν_x * VF[_τ13]
-    τ21 = f_R * ν_y * VF[_τ12]
-    τ22 = f_R * ν_y * VF[_τ22]
-    τ23 = f_R * ν_y * VF[_τ23]
-    τ31 = f_R * ν_z * VF[_τ13]
-    τ32 = f_R * ν_z * VF[_τ23]
-    τ33 = f_R * ν_z * VF[_τ33]
+    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    τ12 = τ21 = VF[_τ12] * ν_e 
+    τ13 = τ31 = VF[_τ13] * ν_e               
+    τ23 = τ32 = VF[_τ23] * ν_e
     
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _U] -= τ11 ; F[2, _U] -= τ12 ; F[3, _U] -= τ13
-    F[1, _V] -= τ21 ; F[2, _V] -= τ22 ; F[3, _V] -= τ23
-    F[1, _W] -= τ31 ; F[2, _W] -= τ32 ; F[3, _W] -= τ33 
+    F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
+    F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
+    F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
 
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_x * k_μ * vTx 
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_y * k_μ * vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_z * k_μ * vTz 
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
   end
 end
 
 # -------------------------------------------------------------------------
 #md # Here we define a function to extract the velocity components from the 
-#md # prognostic equations (i.e. the momentum and density variables). This
-#md # function is required for viscous flows. 
+#md # prognostic equations (i.e. the momentum and density variables). This 
+#md # function is not required in general, but provides useful functionality 
+#md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
@@ -247,8 +247,6 @@ gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q
         y = aux[_a_y]
         # ordering should match states_for_gradient_transform
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        E, QT = Q[_E], Q[_QT]
-        ρinv = 1 / ρ
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
         gradient_list[4], gradient_list[5], gradient_list[6] = E, QT, T
         gradient_list[7] = ρ
@@ -276,8 +274,8 @@ end
         # strains
         # --------------------------------------------
         (S11,S22,S33,S12,S13,S23,SijSij) = SubgridScaleTurbulence.strainrate_tensor_components(dudx, dudy, dudz,
-                                                                                               dvdx, dvdy, dvdz,
-                                                                                               dwdx, dwdy, dwdz)
+                                                                                                dvdx, dvdy, dvdz,
+                                                                                                dwdx, dwdy, dwdz)
         #--------------------------------------------
         # deviatoric stresses
         VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
@@ -293,19 +291,19 @@ end
     end
 end
 
-"""
-Boundary condition
-"""
+# -------------------------------------------------------------------------
+# generic bc for 2d , 3d
+
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        # No flux boundary conditions
+        # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρM
-        QP[_QT] = QTM
         VFP .= 0 
         nothing
     end
@@ -314,10 +312,10 @@ end
 """
 Boundary correction for Neumann boundaries
 """
-@inline function stresses_boundary_penalty!(VF, _...) 
-  compute_stresses!(VF, 0) 
+@inline function stresses_boundary_penalty!(VF,nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
+  QP .= 0 
+  stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
-
 
 """
 Gradient term flux correction 
@@ -331,11 +329,8 @@ Gradient term flux correction
         compute_stresses!(VF, n_Δgradient_list)
     end
 end
+# -------------------------------------------------------------------------
 
-
-"""
-Sources
-"""
 @inline function source!(S,Q,aux,t)
     # Initialise the final block source term 
     S .= 0
@@ -390,6 +385,10 @@ end
     end
 end
 
+
+# ------------------------------------------------------------------
+# -------------END DEF SOURCES-------------------------------------# 
+
 # initial condition
 function density_current!(dim, Q, t, x, y, z, _...)
     DFloat                = eltype(Q)
@@ -429,6 +428,7 @@ function density_current!(dim, Q, t, x, y, z, _...)
     E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
 end
+
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
@@ -502,7 +502,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("vtk-DC-anisosmag-B")
+    mkpath("vtk-DC")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -511,7 +511,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("vtk-DC-anisosmag-B/cns_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("vtk-DC/cns_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -569,6 +569,10 @@ let
     else
         global_logger(NullLogger())
     end
+    # User defined number of elements
+    # User defined timestep estimate
+    # User defined simulation end time
+    # User defined polynomial order 
     numelem = (Nex,Ney)
     dt = 0.01
     timeend = 900
