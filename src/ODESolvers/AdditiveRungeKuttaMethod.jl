@@ -336,7 +336,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
 
   nstages = length(RKB)
 
-  threads = 1024
+  threads = 256
   blocks = div(length(rv_Q) + threads - 1, threads)
 
   # calculate the rhs at first stage to initialize the stage loop
