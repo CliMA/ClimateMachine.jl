@@ -964,42 +964,36 @@ let
 
   ## Setup a callback to display simulation runtime information
   starttime = Ref(now())
-  cb_info = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (init=false)
+  cb_info = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     if init
       starttime[] = now()
     end
     with_logger(mpi_logger) do
-      @info @sprintf("""Update
-                     simtime = %.16e
-                     runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
-                     Dates.format(convert(Dates.DateTime,
-                                          Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"),
-                     norm(Q))
-    end
-  end
 
-  ## Setup a callback to display simulation runtime information
-  starttime = Ref(now())
-  cb_info2 = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (init=false)
-    if init
-      starttime[] = now()
-    end
-    with_logger(mpi_logger) do
+      DGBalanceLawDiscretizations.dof_iteration!(compute_extra!, extra,
+                                                 spatialdiscretization, Q)
+
+      P = copy(@view extra.Q[:, 2, extra.realelems])
+      minP = MPI.Allreduce([minimum(P)], MPI.MIN, extra.mpicomm)[1]
+
+      T = copy(@view extra.Q[ :, 3, extra.realelems])
+      minT = MPI.Allreduce([minimum(T)], MPI.MIN, extra.mpicomm)[1]
+
       @info @sprintf("""Update
                      simtime = %.16e
                      runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
+                     min(P) = %.16e
+                     min(T) = %.16e""",
+                     ODESolvers.gettime(lsrk),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
-                     norm(Q))
+                     minP, minT)
     end
   end
 
   solve!(Q, lsrk; timeend = finaltime,
-         callbacks = (cb_vtk, cb_filter, cb_info, cb_info2))
+         callbacks = (cb_vtk, cb_filter, cb_info))
 
 end
 #md nothing # hide
