@@ -717,7 +717,7 @@ end
 # This function compute the pressure perturbation for a given state. It will be
 # used only in the computation of the pressure perturbation prior to writing the
 # VTK output.
-function compute_δP!(δP, Q, _, aux)
+function compute_extra!(extra, Q, _, aux)
   @inbounds begin
     ## extract the states
     dρ, ρu, ρv, ρw, dρe = Q[_dρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_dρe]
@@ -744,7 +744,9 @@ function compute_δP!(δP, Q, _, aux)
     P = air_pressure(T, ρ)
 
     ## store the pressure perturbation
-    δP[1] = P - P_ref
+    extra[1] = P - P_ref
+    extra[2] = P
+    extra[3] = T
   end
 end
 #md nothing # hide
@@ -905,7 +907,7 @@ let
   @show(polynomialorder,Ne_horizontal,Ne_vertical,dt,finaltime,finaltime/dt)
 
   ## We will use this array for storing the pressure to write out to VTK
-  δP = MPIStateArray(spatialdiscretization; nstate = 1)
+  extra = MPIStateArray(spatialdiscretization; nstate = 3)
 
   ## Define a convenience function for VTK output
   mkpath(VTKDIR)
@@ -914,12 +916,12 @@ let
     filename = @sprintf("%s/held_suarez_forcing_mpirank%04d_step%04d",
                         VTKDIR, MPI.Comm_rank(mpicomm), vtk_step)
 
-    ## fill the `δP` array with the pressure perturbation
-    DGBalanceLawDiscretizations.dof_iteration!(compute_δP!, δP,
+    ## fill the `extra` array with the pressure perturbation
+    DGBalanceLawDiscretizations.dof_iteration!(compute_extra!, extra,
                                                spatialdiscretization, Q)
 
     ## write the vtk file for this MPI rank
-    writevtk(filename, Q, spatialdiscretization, _statenames, δP, ("δP",))
+    writevtk(filename, Q, spatialdiscretization, _statenames, extra, ("δP", "P", "T"))
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
@@ -933,7 +935,7 @@ let
                         MPI.Comm_size(mpicomm))
 
       ## Write out the pvtu file
-      writepvtu(pvtuprefix, prefixes, (_statenames..., "δP",))
+      writepvtu(pvtuprefix, prefixes, (_statenames..., "δP", "P", "T",))
 
       ## write that we have written the file
       with_logger(mpi_logger) do
