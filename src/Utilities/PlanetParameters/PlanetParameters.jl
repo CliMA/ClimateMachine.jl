@@ -24,7 +24,7 @@ using ..ParametersType
 @exportparameter cv_d              cp_d - R_d    "Isochoric specific heat dry air"
 
 # Properties of water
-@exportparameter dens_liquid       1e3           "Density of liquid water (kg/m^3)"
+@exportparameter ρ_liquid          1e3           "Density of liquid water (kg/m^3)"
 @exportparameter molmass_water     18.01528e-3   "Molecular weight (kg/mol)"
 @exportparameter molmass_ratio     molmass_dryair/
                                    molmass_water "Molar mass ratio dry air/water"
@@ -51,7 +51,7 @@ using ..ParametersType
 @exportparameter press_triple      611.657       "Triple point vapor pressure (Pa)"
 
 # Properties of sea water
-@exportparameter dens_ocean        1.035e3       "Reference density sea water (kg/m^3)"
+@exportparameter ρ_ocean           1.035e3       "Reference density sea water (kg/m^3)"
 @exportparameter cp_ocean          3989.25       "Specific heat sea water (J/kg/K)"
 
 # Planetary parameters
