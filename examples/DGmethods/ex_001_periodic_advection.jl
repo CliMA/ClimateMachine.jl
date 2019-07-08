@@ -177,7 +177,9 @@ end
 # actually two-dimensional; since when $x_3 = 0$ the function $\exp(\sin(2\pi
 # x_{3})) = 1$ we can safely assume the dimensionality is always $3$ in our
 # implication of the initial condition.
-function initialcondition!(Q, x_1, x_2, x_3)
+#
+# Note: The last argument needs to be caught but not used for this example
+function initialcondition!(Q, x_1, x_2, x_3, _...)
   @inbounds Q[1] = exp(sin(2π * x_1)) * exp(sin(2π * x_2)) * exp(sin(2π * x_3))
 end
 #md nothing # hide
@@ -196,7 +198,7 @@ end
 #
 # For a general initial condition on the unit domain the following function can
 # be used:
-function exactsolution!(dim, Q, t, x_1, x_2, x_3)
+function exactsolution!(dim, Q, t, x_1, x_2, x_3, _...)
   @inbounds begin
     DFloat = eltype(Q)
 
@@ -367,7 +369,7 @@ let
 
   # Using the `finaltime` and `exactsolution!` we can calculate the exact
   # solution
-  Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z
+  Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, aux
     exactsolution!(dim, Qin, finaltime, x, y, z)
   end
   # and then compute the error by evaluating the Euclidean distance between the
@@ -495,7 +497,7 @@ let
   writevtk(filename, Q, spatialdiscretization,
                                        ("q",))
 
-  Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z
+  Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, aux
     exactsolution!(dim, Qin, finaltime, x, y, z)
   end
   error = euclidean_distance(Q, Qe)
@@ -551,7 +553,7 @@ let
 
     solve!(Q, lsrk; timeend = finaltime)
 
-    Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z
+    Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, aux
       exactsolution!(dim, Qin, finaltime, x, y, z)
     end
 
