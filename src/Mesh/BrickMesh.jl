@@ -1,5 +1,7 @@
 module BrickMesh
 
+export brickmesh, centroidtocode, connectmesh, partition, mappings
+
 using MPI
 
 """
