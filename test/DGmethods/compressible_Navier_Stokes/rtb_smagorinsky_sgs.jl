@@ -71,10 +71,9 @@ Problem Description
 2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
 """
 
-const numdims = 2
-Δx    = 20
-Δy    = 20
-Δz    = 20
+Δx    = 15
+Δy    = 15
+Δz    = 15
 Npoly = 4
 
 # Physical domain extents 
@@ -97,22 +96,6 @@ const Ney = ceil(Int64, ratioy)
 const Nez = ceil(Int64, ratioz)
 
 # Equivalent grid-scale
-
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """   ______ _      _____ __  ________                  """     
-@info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
-@info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
-@info @sprintf """  | |    | |      | | | |   | | |__| |               """
-@info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-@info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-@info @sprintf """                                                     """
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Rising Bubble                                       """
-@info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
-@info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
-@info @sprintf """ ----------------------------------------------------"""
-
 # -------------------------------------------------------------------------
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
@@ -236,15 +219,13 @@ end
 
 # -------------------------------------------------------------------------
 #md # Here we define a function to extract the velocity components from the 
-#md # prognostic equations (i.e. the momentum and density variables). This 
-#md # function is not required in general, but provides useful functionality 
-#md # in some cases. 
+#md # prognostic equations (i.e. the momentum and density variables). Required
+#md # for viscous flows. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
     @inbounds begin
-        y = aux[_a_y]
         # ordering should match states_for_gradient_transform
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
@@ -575,18 +556,33 @@ let
     else
         global_logger(NullLogger())
     end
-    # User defined number of elements
-    # User defined timestep estimate
-    # User defined simulation end time
-    # User defined polynomial order 
-    numelem = (Nex,Ney)
-    dt = 0.01
-    timeend = 900
-    polynomialorder = Npoly
-    DFloat = Float64
-    dim = numdims
-    engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
-                    DFloat, dt)
+    @testset for numdims = 2:2
+      numelem = (Nex,Ney)
+      dt = 0.01
+      timeend = 900
+      polynomialorder = Npoly
+      DFloat = Float64
+
+      @info @sprintf """ ----------------------------------------------------"""
+      @info @sprintf """   ______ _      _____ __  ________                  """     
+      @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
+      @info @sprintf """  | |    | |      | | | |   | | |__| |               """
+      @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
+      @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
+      @info @sprintf """                                                     """
+      @info @sprintf """ ----------------------------------------------------"""
+      @info @sprintf """ Rising Bubble                                       """
+      @info @sprintf """   Resolution:                                       """ 
+      @info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
+      @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
+      @info @sprintf """ ----------------------------------------------------"""
+
+     dim = numdims
+      engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
+                      DFloat, dt)
+      # Based on expected numerical solution for specific resolution
+      @test engf_eng0 ≈ DFloat(1.0000075242807756e+00)
+    end
 end
 
 isinteractive() || MPI.Finalize()

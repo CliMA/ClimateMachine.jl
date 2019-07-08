@@ -64,6 +64,11 @@ Problem constants
 """
 const Prandtl   = 71 // 100
 const k_μ       = cp_d / Prandtl
+const (xmin, xmax) = (0, 25600)
+const (ymin, ymax) = (0,  6000)
+const  Δx    = 150
+const  Δy    = 150
+const  Δz    = 150
 
 """
 Problem Description
@@ -71,48 +76,7 @@ Problem Description
 2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
 """
 
-const numdims = 2
-Δx    = 50
-Δy    = 50
-Δz    = 20
-Npoly = 4
-
-# Physical domain extents 
-(xmin, xmax) = (0, 25600)
-(ymin, ymax) = (0,  6000)
-
-# Can be extended to a 3D test case 
-(zmin, zmax) = (0, 1000)
-
-#Get Nex, Ney from resolution
-Lx = xmax - xmin
-Ly = ymax - ymin
-Lz = zmax - ymin
-
-ratiox = (Lx/Δx - 1)/Npoly
-ratioy = (Ly/Δy - 1)/Npoly
-ratioz = (Lz/Δz - 1)/Npoly
-const Nex = ceil(Int64, ratiox)
-const Ney = ceil(Int64, ratioy)
-const Nez = ceil(Int64, ratioz)
-
 # Equivalent grid-scale
-
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """   ______ _      _____ __  ________                  """     
-@info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
-@info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
-@info @sprintf """  | |    | |      | | | |   | | |__| |               """
-@info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-@info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-@info @sprintf """                                                     """
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ Rising Bubble                                       """
-@info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
-@info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
-@info @sprintf """ ----------------------------------------------------"""
-
 # -------------------------------------------------------------------------
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
@@ -135,19 +99,13 @@ const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
 end
 
 # -------------------------------------------------------------------------
-# Preflux calculation: This function computes parameters required for the 
-# DG RHS (but not explicitly solved for as a prognostic variable)
-# In the case of the rising_thermal_bubble example: the saturation
-# adjusted temperature and pressure are such examples. Since we define
-# the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. Future drivers won't use the preflux function.  
+# Preflux calculation: Obsolete in future builds
 # The preflux function interacts with the following  
 # Modules: NumericalFluxes.jl 
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
 @inline function preflux(Q,VF, aux, _...)
     gravity::eltype(Q) = grav
-    R_gas::eltype(Q) = R_d
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     ρinv = 1 / ρ
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
@@ -236,15 +194,13 @@ end
 
 # -------------------------------------------------------------------------
 #md # Here we define a function to extract the velocity components from the 
-#md # prognostic equations (i.e. the momentum and density variables). This 
-#md # function is not required in general, but provides useful functionality 
-#md # in some cases. 
+#md # prognostic equations (i.e. the momentum and density variables). Required
+#md # for viscous flows. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
     @inbounds begin
-        y = aux[_a_y]
         # ordering should match states_for_gradient_transform
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
@@ -259,7 +215,7 @@ end
 #md # the velocity gradient tensor, and the corresponding strain rates to
 #md # populate the viscous flux array VF. SijSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
-#md # (pending)
+# -------------------------------------------------------------------------
 @inline function compute_stresses!(VF, grad_vars, _...)
     gravity::eltype(VF) = grav
     @inbounds begin
@@ -293,7 +249,6 @@ end
 
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
-
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
@@ -304,6 +259,8 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
+        QP[_ρ] = ρM
+        QP[_QT] = QTM
         VFP .= 0 
         nothing
     end
@@ -339,42 +296,6 @@ end
     @inbounds begin
         source_geopot!(S, Q, aux, t)
     end
-end
-
-@inline function source_sponge!(S, Q, aux, t)
-    y = aux[_a_y]
-    x = aux[_a_x]
-    U = Q[_U]
-    V = Q[_V]
-    W = Q[_W]
-    # Define Sponge Boundaries      
-    xc       = (xmax + xmin)/2
-    ysponge  = 0.85 * ymax
-    xsponger = xmax - 0.15*abs(xmax - xc)
-    xspongel = xmin + 0.15*abs(xmin - xc)
-    csxl  = 0.0
-    csxr  = 0.0
-    ctop  = 0.0
-    csx   = 1.0
-    ct    = 1.0 
-    #x left and right
-    #xsl
-    if (x <= xspongel)
-        csxl = csx * sinpi(1/2 * (x - xspongel)/(xmin - xspongel))^4
-    end
-    #xsr
-    if (x >= xsponger)
-        csxr = csx * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4
-    end
-    #Vertical sponge:         
-    if (y >= ysponge)
-        ctop = ct * sinpi(1/2 * (y - ysponge)/(ymax - ysponge))^4
-    end
-    beta  = 1.0 - (1.0 - ctop)*(1.0 - csxl)*(1.0 - csxr)
-    beta  = min(beta, 1.0)
-    S[_U] -= beta * U  
-    S[_V] -= beta * V  
-    S[_W] -= beta * W
 end
 
 @inline function source_geopot!(S,Q,aux,t)
@@ -569,18 +490,47 @@ let
     else
         global_logger(NullLogger())
     end
-    # User defined number of elements
-    # User defined timestep estimate
-    # User defined simulation end time
-    # User defined polynomial order 
-    numelem = (Nex,Ney)
-    dt = 0.01
-    timeend = 900
-    polynomialorder = Npoly
-    DFloat = Float64
-    dim = numdims
-    engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
-                    DFloat, dt)
+    
+    @testset for numdims = 2:2
+      # Resolution for test-set set to 150m
+      Npoly = 4
+      # Physical domain extents 
+      # This is a 2D benchmark 
+
+      #Get Nex, Ney from resolution
+      Lx = xmax - xmin
+      Ly = ymax - ymin
+
+      ratiox = (Lx/Δx - 1)/Npoly
+      ratioy = (Ly/Δy - 1)/Npoly
+      Nex = ceil(Int64, ratiox)
+      Ney = ceil(Int64, ratioy)
+
+      numelem = (Nex,Ney)
+      dt = 0.03
+      timeend = 900
+      polynomialorder = Npoly
+      DFloat = Float64
+      dim = numdims
+
+      @info @sprintf """ ----------------------------------------------------"""
+      @info @sprintf """   ______ _      _____ __  ________                  """     
+      @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
+      @info @sprintf """  | |    | |      | | | |   | | |__| |               """
+      @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
+      @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
+      @info @sprintf """                                                     """
+      @info @sprintf """ ----------------------------------------------------"""
+      @info @sprintf """ Rising Bubble                                       """
+      @info @sprintf """   Resolution:                                       """ 
+      @info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
+      @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
+      @info @sprintf """ ----------------------------------------------------"""
+
+      engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
+                      DFloat, dt)
+      @test engf_eng0 ≈ DFloat(1.0003722665470953e+00)
+    end
 end
 
 isinteractive() || MPI.Finalize()
