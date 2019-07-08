@@ -883,16 +883,16 @@ let
 
 
   acoustic_speed = soundspeed_air(DFloat(T0))
-  dt = 4*element_size / acoustic_speed / polynomialorder^2
+  dt = 14*element_size / acoustic_speed / polynomialorder^2
 
   ## Adjust the time step so we exactly hit 1 hour for VTK output
   #dt = 60 * 60 / ceil(60 * 60 / dt)
   #dt=1
   
-  lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
+  lsrk = LSRK144NiegemannDiehlBusch(spatialdiscretization, Q; dt = dt, t0 = 0)
 
 #  filter = Grids.CutoffFilter(spatialdiscretization.grid, 5)
-  filter = Grids.ExponentialFilter(spatialdiscretization.grid)
+  filter = Grids.ExponentialFilter(spatialdiscretization.grid, 0, 12)
 
   ## Uncomment line below to extend simulation time and output less frequently
   seconds = 1
@@ -900,7 +900,7 @@ let
   hours = 3600
   days = 86400
   outputtime = 0.1*days
-  finaltime = 20*days
+  finaltime = 200*days
 #  outputtime = 0.001*days
 #  outputtime =1*days
   
@@ -964,7 +964,7 @@ let
 
   ## Setup a callback to display simulation runtime information
   starttime = Ref(now())
-  cb_info = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+  cb_info = GenericCallbacks.EveryXWallTimeSeconds(30, mpicomm) do (init=false)
     if init
       starttime[] = now()
     end
@@ -989,6 +989,9 @@ let
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
                      minP, minT)
+      if isnan(minP) | isnan(minT)
+        exit()
+      end
     end
   end
 
