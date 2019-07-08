@@ -820,6 +820,7 @@ let
     @static if haspkg("CUDAnative")
         device!(MPI.Comm_rank(mpicomm) % length(devices()))
     end
+
     
     # User defined number of elements
     # User defined timestep estimate
@@ -831,7 +832,6 @@ let
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
-
     if MPI.Comm_rank(mpicomm) == 0
         @info @sprintf """ ------------------------------------------------------"""
         @info @sprintf """   ______ _      _____ __  ________                    """     
