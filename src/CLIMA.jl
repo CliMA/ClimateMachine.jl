@@ -3,6 +3,7 @@ module CLIMA
 include("Utilities/ParametersType/ParametersType.jl")
 include("Utilities/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
+include("Utilities/VariableTemplates/VariableTemplates.jl")
 include("Utilities/MoistThermodynamics/MoistThermodynamics.jl")
 include("Atmos/Parameterizations/CloudPhysics/MicrophysicsParameters.jl")
 include("Atmos/Parameterizations/CloudPhysics/Microphysics.jl")

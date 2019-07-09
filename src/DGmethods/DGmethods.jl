@@ -1,12 +1,12 @@
 module DGmethods
 
 using MPI
-using ..Grids
 using ..MPIStateArrays
+using ..Mesh.Grids
+using ..Mesh.Topologies
 using StaticArrays
 using ..SpaceMethods
 using DocStringExtensions
-using ..Topologies
 using GPUifyLoops
 
 export BalanceLaw, DGModel, State, Grad
