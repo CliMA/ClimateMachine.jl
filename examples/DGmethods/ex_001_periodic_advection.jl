@@ -38,8 +38,8 @@
 # ### Preliminaries
 # Load in modules needed for solving the problem
 using MPI
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
@@ -236,7 +236,7 @@ function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64,
 
   @assert ArrayType === Array
 
-  # We will use the `BrickTopology` from `CLIMA.Topologies` to define the mesh.
+  # We will use the `BrickTopology` from `CLIMA.Mesh.Topologies` to define the mesh.
   # The "topology" in CLIMA is the element connectivity information (e.g.,
   # neighbouring elements and interface data) along with coordinate locations
   # for corners of the elements. The `BrickTopology` creates a regular mesh of a

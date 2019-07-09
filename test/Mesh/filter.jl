@@ -17,14 +17,14 @@
 
     N = size(W, 1) - 1
 
-    topology = CLIMA.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0);
+    topology = CLIMA.Mesh.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0);
 
-    grid = CLIMA.Grids.DiscontinuousSpectralElementGrid(topology;
+    grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(topology;
                                                         polynomialorder = N,
                                                         FloatType = Float64,
                                                         DeviceArray = Array)
 
-    filter = CLIMA.Grids.ExponentialFilter(grid, 0, 32)
+    filter = CLIMA.Mesh.Grids.ExponentialFilter(grid, 0, 32)
     @test filter.filter ≈ W
   end
 
@@ -39,13 +39,13 @@
 
     N = size(W, 1) - 1
 
-    topology = CLIMA.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0);
-    grid = CLIMA.Grids.DiscontinuousSpectralElementGrid(topology;
+    topology = CLIMA.Mesh.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0);
+    grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(topology;
                                                         polynomialorder = N,
                                                         FloatType = Float64,
                                                         DeviceArray = Array)
 
-    filter = CLIMA.Grids.ExponentialFilter(grid, 1, 4)
+    filter = CLIMA.Mesh.Grids.ExponentialFilter(grid, 1, 4)
     @test filter.filter ≈ W
   end
 
@@ -54,13 +54,13 @@
     N = 5
     Nc = 4
 
-    topology = CLIMA.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0);
-    grid = CLIMA.Grids.DiscontinuousSpectralElementGrid(topology;
+    topology = CLIMA.Mesh.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0);
+    grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(topology;
                                                         polynomialorder = N,
                                                         FloatType = T,
                                                         DeviceArray = Array)
 
-    ξ = CLIMA.Grids.referencepoints(grid)
+    ξ = CLIMA.Mesh.Grids.referencepoints(grid)
     a, b = GaussQuadrature.legendre_coefs(T, N)
     V = GaussQuadrature.orthonormal_poly(ξ, a, b)
 
@@ -69,7 +69,7 @@
 
     W = V*Diagonal(Σ)/V
 
-    filter = CLIMA.Grids.CutoffFilter(grid, Nc)
+    filter = CLIMA.Mesh.Grids.CutoffFilter(grid, Nc)
     @test filter.filter ≈ W
   end
 end
