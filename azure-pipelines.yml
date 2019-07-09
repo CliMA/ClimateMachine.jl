@@ -31,14 +31,14 @@ jobs:
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
-      export TRAVIS_PULL_REQUEST="$SYSTEM_PULLREQUEST_PULLREQUESTNUMBER"
-      export TRAVIS_BRANCH="$BUILD_SOURCEBRANCH"
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
     displayName: 'Run the tests'
   - bash: |
       set -o xtrace
+      export TRAVIS_PULL_REQUEST="$SYSTEM_PULLREQUEST_PULLREQUESTNUMBER"
+      export TRAVIS_BRANCH="$BUILD_SOURCEBRANCH"
       ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ -e 'using Pkg; Pkg.instantiate();
                                                                         Pkg.develop(PackageSpec(path=pwd()));
                                                                         Pkg.build()'
