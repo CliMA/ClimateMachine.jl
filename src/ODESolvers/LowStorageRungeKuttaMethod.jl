@@ -84,7 +84,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, timeend,
   rv_Q = ODEs.realview(Q)
   rv_dQ = ODEs.realview(dQ)
 
-  threads = 1024
+  threads = 256
   blocks = div(length(rv_Q) + threads - 1, threads)
 
   for s = 1:length(RKA)

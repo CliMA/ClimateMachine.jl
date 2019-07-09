@@ -18,8 +18,8 @@
 
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -158,7 +158,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                           )
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = isentropicvortex!(Q, 0, x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # Compute the initial integral (which will be compared with final integral)
@@ -207,7 +207,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # Print some end of the simulation information
   engf = norm(Q)
   Qe = MPIStateArray(spacedisc,
-                     (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
+                     (Q, x...) -> isentropicvortex!(Q, timeend, x...))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   err_int = euclidean_distance(spacedisc.auxstate, exact_aux)

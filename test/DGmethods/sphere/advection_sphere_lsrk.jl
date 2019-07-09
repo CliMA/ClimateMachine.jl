@@ -30,8 +30,8 @@
 
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -167,7 +167,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
                          auxiliary_state_initialization! = velocity_init!)
 
   # Initial Condition
-  initialcondition(Q, x...) = advection_sphere!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = advection_sphere!(Q, 0, x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # Store Initial Condition as Exact Solution
@@ -270,13 +270,13 @@ let
   N = 4
 
   expected_error = Array{Float64}(undef, 3) # h-refinement levels lvl
-  expected_error[1] = 1.5694890877887144e-01 # Ne=2
-  expected_error[2] = 8.8553536706191920e-03 # Ne=4
-  expected_error[3] = 2.2388104046289426e-04 # Ne=8
+  expected_error[1] = 1.7501966878661540e-01 # Ne=2
+  expected_error[2] = 9.8077688360037538e-03 # Ne=4
+  expected_error[3] = 1.7739284567936140e-04 # Ne=8
   expected_mass = Array{Float64}(undef, 3) # h-refinement levels lvl
-  expected_mass[1] = 0.0000000000000000e+00 # Ne=2
+  expected_mass[1] = 2.8041360758393849e-16 # Ne=2
   expected_mass[2] = 1.8219438767875646e-15 # Ne=4
-  expected_mass[3] = 6.1665533536019044e-15 # Ne=8
+  expected_mass[3] = 6.3067022934564928e-15 # Ne=8
   lvls = integration_testing ? length(expected_error) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes

@@ -1,9 +1,14 @@
 module Grids
 using ..Topologies
+import ..Metrics, ..Elements
+
+using LinearAlgebra, GaussQuadrature
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
+export ExponentialFilter, CutoffFilter, AbstractFilter
 export dofs_per_element, arraytype, dimensionality, polynomialorder
-import Canary
+export referencepoints
+
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
                          DeviceArray} end
@@ -14,7 +19,16 @@ polynomialorder(::AbstractGrid{T, dim, N}) where {T, dim, N} = N
 
 dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
 
+Base.eltype(::AbstractGrid{T}) where {T} = T
+
 arraytype(::AbstractGrid{T, D, N, Np, DA}) where {T, D, N, Np, DA} = DA
+
+"""
+    referencepoints(::AbstractGrid)
+
+Returns the points on the reference element.
+"""
+referencepoints(::AbstractGrid) = error("needs to be implemented")
 
 # {{{
 const _nvgeo = 15
@@ -50,7 +64,8 @@ the mesh is created; the mesh degrees of freedom are orginally assigned using a
 trilinear blend of the element corner locations.
 """
 struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
-                                        DAT2, DAT3, DAT4, DAI1, DAI2, DAI3,
+                                        DAT1, DAT2, DAT3, DAT4,
+                                        DAI1, DAI2, DAI3,
                                         TOP
                                        } <: AbstractGrid{T, dim, N, Np, DA }
   "mesh topology"
@@ -74,6 +89,9 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   "list of elements that need to be communicated (in neighbors order)"
   sendelems::DAI1
 
+  "1-D lvl weights on the device"
+  ω::DAT1
+
   "1-D derivative operator on the device"
   D::DAT2
 
@@ -91,9 +109,9 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
     @assert polynomialorder != nothing
 
     N = polynomialorder
-    (ξ, ω) = Canary.lglpoints(FloatType, N)
+    (ξ, ω) = Elements.lglpoints(FloatType, N)
     Imat = indefinite_integral_interpolation_matrix(ξ, ω)
-    D = Canary.spectralderivative(ξ)
+    D = Elements.spectralderivative(ξ)
 
     (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
                               topology.elemtoordr)
@@ -109,10 +127,12 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      vmapM = DeviceArray(vmapM)
      vmapP = DeviceArray(vmapP)
      sendelems = DeviceArray(topology.sendelems)
+     ω = DeviceArray(ω)
      D = DeviceArray(D)
      Imat = DeviceArray(Imat)
 
      # FIXME: There has got to be a better way!
+     DAT1 = typeof(ω)
      DAT2 = typeof(D)
      DAT3 = typeof(vgeo)
      DAT4 = typeof(sgeo)
@@ -121,10 +141,20 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      DAI3 = typeof(vmapM)
      TOP = typeof(topology)
 
-    new{FloatType, dim, N, Np, DeviceArray, DAT2, DAT3, DAT4, DAI1, DAI2, DAI3,
-        TOP
-       }(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems, D, Imat)
+    new{FloatType, dim, N, Np, DeviceArray, DAT1, DAT2, DAT3, DAT4, DAI1, DAI2,
+        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems,
+                   ω, D, Imat)
   end
+end
+
+"""
+    referencepoints(::DiscontinuousSpectralElementGrid)
+
+Returns the 1D interpolation points used for the reference element.
+"""
+function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}) where {T, dim, N}
+  ξ, _ = Elements.lglpoints(T, N)
+  ξ
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
@@ -219,7 +249,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   sJ = similar(sMJ)
 
   X = ntuple(j->(@view vgeo[:, _x+j-1, :]), dim)
-  Canary.creategrid!(X..., topology.elemtocoord, ξ)
+  Metrics.creategrid!(X..., topology.elemtocoord, ξ)
 
   @inbounds for j = 1:length(x)
     (x[j], y[j], z[j]) = meshwarp(x[j], y[j], z[j])
@@ -227,11 +257,11 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
 
   # Compute the metric terms
   if dim == 1
-    Canary.computemetric!(x, J, ξx, sJ, nx, D)
+    Metrics.computemetric!(x, J, ξx, sJ, nx, D)
   elseif dim == 2
-    Canary.computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
+    Metrics.computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
   elseif dim == 3
-    Canary.computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ,
+    Metrics.computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ,
                    nx, ny, nz, D)
   end
 
@@ -301,14 +331,14 @@ function indefinite_integral_interpolation_matrix(r, ω)
   I∫[1, :] .= 0
 
   # barycentric weights for interpolation
-  wbary = Canary.baryweights(r)
+  wbary = Elements.baryweights(r)
 
   # Compute the interpolant of the indefinite integral
   for n = 2:Nq
     # grid from first dof to current point
     rdst = (1 .- r)/2 * r[1] + (1 .+ r)/2 * r[n]
     # interpolation matrix
-    In = Canary.interpolationmatrix(r, rdst, wbary)
+    In = Elements.interpolationmatrix(r, rdst, wbary)
     # scaling from LGL to current of the interval
     Δ = (r[n] -  r[1]) / 2
     # row of the matrix we have computed
@@ -318,4 +348,89 @@ function indefinite_integral_interpolation_matrix(r, ω)
 end
 # }}}
 
+# {{{ filters
+"""
+    spectral_filter_matrix(r, Nc, σ)
+
+Returns the filter matrix that takes function values at the interpolation
+`N+1` points, `r`, converts them into Legendre polynomial basis coefficients,
+multiplies
+```math
+σ((n-N_c)/(N-N_c))
+```
+against coefficients `n=Nc:N` and evaluates the resulting polynomial at the
+points `r`.
+"""
+function spectral_filter_matrix(r, Nc, σ)
+  N = length(r)-1
+  T = eltype(r)
+
+  @assert N >= 0
+  @assert 0 <= Nc <= N
+
+  a, b = GaussQuadrature.legendre_coefs(T, N)
+  V = GaussQuadrature.orthonormal_poly(r, a, b)
+
+  Σ = ones(T, N+1)
+  Σ[(Nc:N).+1] .= σ.(((Nc:N).-Nc)./(N-Nc))
+
+  V*Diagonal(Σ)/V
 end
+
+abstract type AbstractFilter end
+
+"""
+    ExponentialFilter(grid, Nc=0, s=32, α=-log(eps(eltype(grid))))
+
+Returns the spectral filter with the filter function
+```math
+σ(η) = \exp(-α η^s)
+```
+where `s` is the filter order (must be even), the filter starts with
+polynomial order `Nc`, and `alpha` is a parameter controlling the smallest
+value of the filter function.
+"""
+struct ExponentialFilter <: AbstractFilter
+  "filter matrix"
+  filter
+
+  function ExponentialFilter(grid, Nc=0, s=32,
+                             α=-log(eps(eltype(grid))))
+    AT = arraytype(grid)
+    N = polynomialorder(grid)
+    ξ = referencepoints(grid)
+
+    @assert iseven(s)
+    @assert 0 <= Nc <= N
+
+    σ(η) = exp(-α*η^s)
+    filter = spectral_filter_matrix(ξ, Nc, σ)
+
+    new(AT(filter))
+  end
+end
+
+"""
+    CutoffFilter(grid, Nc=polynomialorder(grid))
+
+Returns the spectral filter that zeros out polynomial modes greater than or
+equal to `Nc`.
+"""
+struct CutoffFilter <: AbstractFilter
+  "filter matrix"
+  filter
+
+  function CutoffFilter(grid, Nc=polynomialorder(grid))
+    AT = arraytype(grid)
+    ξ = referencepoints(grid)
+
+    σ(η) = 0
+    filter = spectral_filter_matrix(ξ, Nc, σ)
+
+    new(AT(filter))
+  end
+end
+
+# }}}
+
+end # module
