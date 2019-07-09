@@ -528,8 +528,8 @@ const γ_exact = 7 // 5 # FIXME: Remove this for some moist thermo approach
     ρinv0 = 1 / ρ0
     e0 = ρinv0 * E0
 
-    P0 = (γ-1)*E0
-    δP = (γ-1)*(δE - δρ * grav * y)
+    P0 = (γ-1)*(E0 - ρ0 * gravity * y + R_d * T_0 * ρ0)
+    δP = (γ-1)*(δE - δρ * grav * y + R_d * T_0 * δρ)
 
     p0 = ρinv0 * P0
 
@@ -547,7 +547,7 @@ end
   ρ0, E0 = aux[_a_ρ0], aux[_a_E0]
   y = aux[_a_y]
   ρinv0 = 1 / ρ0
-  P0 = (γ-1)*(E0 - ρ0 * gravity * y)
+  P0 = (γ-1)*(E0 - ρ0 * gravity * y + R_d * T_0 * ρ0)
   sqrt(ρinv0 * γ * P0)
 end
 
