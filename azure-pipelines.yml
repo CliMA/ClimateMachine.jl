@@ -36,7 +36,7 @@ jobs:
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
     displayName: 'Run the tests'
   - bash: |
-      condition: always()
+      always: true
       set -o xtrace
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ -e 'using Pkg; Pkg.instantiate();
