@@ -37,7 +37,7 @@ jobs:
     displayName: 'Run the tests'
   - bash: |
       set -o xtrace
-      export TRAVIS_REPO_SLUG="$BUILD_REPOSITORYNAME"
+      export TRAVIS_REPO_SLUG="$BUILD_REPOSITORY_NAME"
       export TRAVIS_PULL_REQUEST="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-false}"
       if [[ $BUILD_SOURCEBRANCH == /refs/tags/* ]]; then
         export TRAVIS_TAG="${BUILD_SOURCEBRANCH:11}"
