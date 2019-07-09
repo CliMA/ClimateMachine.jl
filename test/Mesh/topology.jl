@@ -1,5 +1,5 @@
 @testset "cubedshellwarp tests" begin
-  import CLIMA.Topologies: cubedshellwarp
+  import CLIMA.Mesh.Topologies: cubedshellwarp
 
   @testset "check radius" begin
     @test hypot(cubedshellwarp( 3.0,-2.2, 1.3)...) ≈ 3.0 rtol=eps()
@@ -29,7 +29,7 @@
 end
 
 @testset "BrickTopology tests" begin
-  using CLIMA.Topologies
+  using CLIMA.Mesh.Topologies
 
   let
     comm = MPI.COMM_SELF

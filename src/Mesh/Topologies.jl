@@ -1,5 +1,6 @@
 module Topologies
-
+import ..BrickMesh
+import MPI
 using DocStringExtensions
 
 export AbstractTopology, BrickTopology, StackedBrickTopology,
@@ -11,9 +12,6 @@ export AbstractTopology, BrickTopology, StackedBrickTopology,
 Represents the connectivity of individual elements, with local dimension `dim`.
 """
 abstract type AbstractTopology{dim} end
-
-import Canary
-using MPI
 
 """
     BoxElementTopology{dim, T} <: AbstractTopology{dim}
@@ -292,10 +290,10 @@ function BrickTopology(mpicomm, elemrange;
 
   mpirank = MPI.Comm_rank(mpicomm)
   mpisize = MPI.Comm_size(mpicomm)
-  topology = Canary.brickmesh(elemrange, periodicity, part=mpirank+1,
+  topology = BrickMesh.brickmesh(elemrange, periodicity, part=mpirank+1,
                               numparts=mpisize, boundary=boundary)
-  topology = Canary.partition(mpicomm, topology...)
-  topology = Canary.connectmesh(mpicomm, topology...)
+  topology = BrickMesh.partition(mpicomm, topology...)
+  topology = BrickMesh.connectmesh(mpicomm, topology...)
 
   dim = length(elemrange)
   T = eltype(topology.elemtocoord)
@@ -602,7 +600,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
 
   topology = cubedshellmesh(Neside, part=mpirank+1, numparts=mpisize)
 
-  topology = Canary.partition(mpicomm, topology...)
+  topology = BrickMesh.partition(mpicomm, topology...)
 
   dim, nvert = 3, 4
   elemtovert = topology[1]
@@ -617,7 +615,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
     end
   end
 
-  topology = Canary.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
+  topology = BrickMesh.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
                                 topology[4]; dim = 2)
 
   CubedShellTopology{T}(
@@ -683,7 +681,7 @@ function cubedshellmesh(Ne; part=1, numparts=1)
   nface = 2dim  # 4
 
   # linearly partition to figure out which elements we own
-  elemlocal = Canary.linearpartition(prod(globalnelems), part, numparts)
+  elemlocal = BrickMesh.linearpartition(prod(globalnelems), part, numparts)
 
   # elemen to vertex maps which we own
   elemtovert = Array{Int}(undef, nvert, length(elemlocal))

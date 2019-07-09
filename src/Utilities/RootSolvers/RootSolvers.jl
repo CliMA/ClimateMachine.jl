@@ -31,9 +31,9 @@ struct NewtonsMethod <: RootSolvingMethod end
 # we use simple checks for now, will switch to relative checks later.
 
 """
-    x, converged = find_zero(f, x0[, x1], method;
-                             xatol=0, xrtol=sqrt(eps(eltype(x0))), 
-                             yatol=sqrt(eps(eltype(x0))), maxiters=10_000)
+    x, converged = find_zero(f, x0[, x1], method,
+                             xatol=1e-3,
+                             maxiters=10_000)
 
 Finds the nearest root of `f` to `x0` and `x1`. Returns a the value of the root `x` such
 that `f(x) ≈ 0`, and a Boolean value `converged` indicating convergence.
@@ -50,7 +50,7 @@ The keyword arguments:
 """
 function find_zero end
 
-function find_zero(f::F, x0::T, x1::T, ::SecantMethod;
+function find_zero(f::F, x0::T, x1::T, ::SecantMethod,
                    xatol=T(1e-3),
                    maxiters=10_000) where {F, T<:AbstractFloat}
   y0 = f(x0)
@@ -68,7 +68,7 @@ function find_zero(f::F, x0::T, x1::T, ::SecantMethod;
   return x1, false
 end
 
-function find_zero(f::F, x0::T, x1::T, ::RegulaFalsiMethod;
+function find_zero(f::F, x0::T, x1::T, ::RegulaFalsiMethod,
                    xatol=T(1e-3),
                    maxiters=10_000) where {F, T<:AbstractFloat}
   y0 = f(x0)
@@ -114,7 +114,7 @@ function value_deriv(f, x::T) where {T}
     ForwardDiff.value(tag, y), ForwardDiff.partials(tag, y, 1)
 end
 
-function find_zero(f::F, x0::T, ::NewtonsMethod;
+function find_zero(f::F, x0::T, ::NewtonsMethod,
                    xatol=1e-3,
                    maxiters=10_000) where {F, T<:AbstractFloat}
   for i in 1:maxiters
@@ -124,7 +124,7 @@ function find_zero(f::F, x0::T, ::NewtonsMethod;
       return x1, true
     end
     x0 = x1
-  end  
+  end
   return x0, false
 end
 

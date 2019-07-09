@@ -109,8 +109,8 @@ liquid_ice_pottemp_sat
 moist_gas_constants
 saturation_adjustment
 saturation_excess
-saturation_shum
-saturation_shum_generic
+q_vap_saturation
+q_vap_saturation_generic
 saturation_vapor_pressure
 soundspeed_air
 specific_volume

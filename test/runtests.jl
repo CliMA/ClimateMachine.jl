@@ -8,10 +8,12 @@ for submodule in ["Utilities/ParametersType",
                   "Utilities/MoistThermodynamics",
                   "Atmos/Parameterizations/SurfaceFluxes",
                   "Atmos/Parameterizations/TurbulenceConvection",
+                  "Atmos/Parameterizations/Microphysics",
                   "Mesh",
                   "DGmethods",
                   "ODESolvers",
                   "Arrays",
+                  "LinearSolvers",
                  ]
 
   println("Starting tests for $submodule")
