@@ -1,14 +1,14 @@
 module Grids
 using ..Topologies
+import ..Metrics, ..Elements
+
+using LinearAlgebra, GaussQuadrature
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export ExponentialFilter, CutoffFilter, AbstractFilter
 export dofs_per_element, arraytype, dimensionality, polynomialorder
 export referencepoints
-import Canary
 
-using LinearAlgebra
-using GaussQuadrature: legendre_coefs, orthonormal_poly
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
                          DeviceArray} end
@@ -109,9 +109,9 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
     @assert polynomialorder != nothing
 
     N = polynomialorder
-    (ξ, ω) = Canary.lglpoints(FloatType, N)
+    (ξ, ω) = Elements.lglpoints(FloatType, N)
     Imat = indefinite_integral_interpolation_matrix(ξ, ω)
-    D = Canary.spectralderivative(ξ)
+    D = Elements.spectralderivative(ξ)
 
     (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
                               topology.elemtoordr)
@@ -153,7 +153,7 @@ end
 Returns the 1D interpolation points used for the reference element.
 """
 function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}) where {T, dim, N}
-  ξ, _ = Canary.lglpoints(T, N)
+  ξ, _ = Elements.lglpoints(T, N)
   ξ
 end
 
@@ -249,7 +249,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   sJ = similar(sMJ)
 
   X = ntuple(j->(@view vgeo[:, _x+j-1, :]), dim)
-  Canary.creategrid!(X..., topology.elemtocoord, ξ)
+  Metrics.creategrid!(X..., topology.elemtocoord, ξ)
 
   @inbounds for j = 1:length(x)
     (x[j], y[j], z[j]) = meshwarp(x[j], y[j], z[j])
@@ -257,11 +257,11 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
 
   # Compute the metric terms
   if dim == 1
-    Canary.computemetric!(x, J, ξx, sJ, nx, D)
+    Metrics.computemetric!(x, J, ξx, sJ, nx, D)
   elseif dim == 2
-    Canary.computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
+    Metrics.computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
   elseif dim == 3
-    Canary.computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ,
+    Metrics.computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ,
                    nx, ny, nz, D)
   end
 
@@ -331,14 +331,14 @@ function indefinite_integral_interpolation_matrix(r, ω)
   I∫[1, :] .= 0
 
   # barycentric weights for interpolation
-  wbary = Canary.baryweights(r)
+  wbary = Elements.baryweights(r)
 
   # Compute the interpolant of the indefinite integral
   for n = 2:Nq
     # grid from first dof to current point
     rdst = (1 .- r)/2 * r[1] + (1 .+ r)/2 * r[n]
     # interpolation matrix
-    In = Canary.interpolationmatrix(r, rdst, wbary)
+    In = Elements.interpolationmatrix(r, rdst, wbary)
     # scaling from LGL to current of the interval
     Δ = (r[n] -  r[1]) / 2
     # row of the matrix we have computed
@@ -368,8 +368,8 @@ function spectral_filter_matrix(r, Nc, σ)
   @assert N >= 0
   @assert 0 <= Nc <= N
 
-  a, b = legendre_coefs(T, N)
-  V = orthonormal_poly(r, a, b)
+  a, b = GaussQuadrature.legendre_coefs(T, N)
+  V = GaussQuadrature.orthonormal_poly(r, a, b)
 
   Σ = ones(T, N+1)
   Σ[(Nc:N).+1] .= σ.(((Nc:N).-Nc)./(N-Nc))
@@ -433,4 +433,4 @@ end
 
 # }}}
 
-end
+end # module

@@ -40,7 +40,7 @@ uuid = "764a87c0-6b3e-53db-9096-fe964310641d"
 version = "2.2.3"
 
 [[CLIMA]]
-deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "LinearAlgebra", "Literate", "Logging", "MPI", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
+deps = ["Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "GaussQuadrature", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
 path = ".."
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
@@ -56,14 +56,6 @@ deps = ["Compat"]
 git-tree-sha1 = "f60954495a7afcee4136f78d1d60350abd37a409"
 uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.4.1"
-
-[[Canary]]
-deps = ["MPI"]
-git-tree-sha1 = "bd3311c6527e10d7f0ad904addf11b11cbba2401"
-repo-rev = "master"
-repo-url = "https://github.com/climate-machine/Canary.jl"
-uuid = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
-version = "0.1.0"
 
 [[Cassette]]
 deps = ["InteractiveUtils", "LinearAlgebra", "Test"]
@@ -300,6 +292,12 @@ deps = ["Base64", "DelimitedFiles", "LinearAlgebra", "Pkg", "Printf", "Random", 
 git-tree-sha1 = "537b61986d8a5fd21e577541f8f0735e481eb3ed"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
 version = "0.39.1"
+
+[[GaussQuadrature]]
+deps = ["LinearAlgebra", "Printf", "SpecialFunctions", "Test"]
+git-tree-sha1 = "3113b28de0e25576348c06731327f3df8de6ad90"
+uuid = "d54b0c1a-921d-58e0-8e36-89d8069c0969"
+version = "0.5.0"
 
 [[GenericSVD]]
 deps = ["LinearAlgebra", "Random", "Test"]
