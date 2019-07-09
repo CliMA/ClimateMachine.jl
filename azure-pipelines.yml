@@ -37,12 +37,20 @@ jobs:
     displayName: 'Run the tests'
   - bash: |
       set -o xtrace
-      export TRAVIS_PULL_REQUEST="$SYSTEM_PULLREQUEST_PULLREQUESTNUMBER"
-      export TRAVIS_BRANCH="$BUILD_SOURCEBRANCH"
+      export TRAVIS_REPO_SLUG="$BUILD_REPOSITORYNAME"
+      export TRAVIS_PULL_REQUEST="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-false}"
+      if [[ $BUILD_SOURCEBRANCH == /refs/tags/* ]]; then
+        export TRAVIS_TAG="${BUILD_SOURCEBRANCH:11}"
+      fi
+      if [[ $BUILD_SOURCEBRANCH == /refs/heads/* ]]; then
+        export TRAVIS_BRANCH="${BUILD_SOURCEBRANCH:12}"
+      fi
       ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ -e 'using Pkg; Pkg.instantiate();
                                                                         Pkg.develop(PackageSpec(path=pwd()));
                                                                         Pkg.build()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ docs/make.jl
+    env:
+      DOCUMENTER_KEY: $(documenter_key)
     displayName: 'Deploy the docs'
 
 - job: macOS
