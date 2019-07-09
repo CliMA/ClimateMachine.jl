@@ -431,9 +431,10 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
   end
 
   step = [0]
-  mkpath("vtk-RTB-BASSM_IMEX")
+  vtkdir = "vtk_RTB"
+  mkpath(vtkdir)
   cbvtk = GenericCallbacks.EveryXSimulationSteps(output_steps) do (init=false)
-    outprefix = @sprintf("vtk-RTB-BASSN_IMEX/cns_%dD_mpirank%04d_step%04d", dim,
+    outprefix = @sprintf("%s/cns_%dD_mpirank%04d_step%04d", vtkdir, dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, spacedisc, statenames)
