@@ -472,7 +472,7 @@ end
             bc_yscale   = 0.0
             bc_zscale   = 7000.0
             top_sponge  = 0.85 * domain_top
-            zd          = domain_top - bc_zscale
+            zd          = domain_top   - bc_zscale
             xsponger    = domain_right - bc_xscale #- 0.15 * (domain_right - xc)
             xspongel    = domain_left  + bc_xscale #+ 0.15 * (xc - domain_left)
             ysponger    = domain_back  #- 0.15 * (domain_back - yc)
@@ -506,8 +506,12 @@ end
 
 
             #Lateral coefficients
-            cs_left_right = 0.25
-            cs_front_back = 0.25
+            bc_xscale     = 12500.0
+            bc_yscale     = 0.0
+            
+            cs_left_right = 0.2
+            cs_front_back = 0.2
+            
             #Top coefficients
             alpha_coe     = 0.5 
             bc_zscale     = 7500.0
@@ -517,27 +521,27 @@ end
             #
             # Lateral damping
             #                                
-            xsponger  = domain_right - 0.25 * (domain_right - xc)
-            xspongel  = domain_left  + 0.25 * (xc - domain_left)
+            xsponger  = domain_right - bc_xscale #0.25 * (domain_right - xc)
+            xspongel  = domain_left  + bc_xscale #0.25 * (xc - domain_left)
             ysponger  = domain_back  - 0.25 * (domain_back - yc)
             yspongel  = domain_front + 0.25 * (yc - domain_front)
             #x left and right
             #xsl
             if x <= xspongel
-                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))
             end
             #xsr
             if x >= xsponger
-                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))
             end
             #y left and right
             #ysl
             if y <= yspongel
-                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))
             end
             #ysr
             if y >= ysponger
-                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))
             end
             
             #
