@@ -435,49 +435,4 @@ end
 # }}}
 
 
-"""
-    grid_stretching(DFloat,
-                         xmin, xmax, ymin, ymax, zmin, zmax,
-                         Ne,
-                         xstretch_flg, ystretch_flg, zstretch_flg)
-
-Stretches the grid based on the user's choice of stretching method.
-"""
-
-
-# -------------------------------------------------------------------------
-#md ### 
-#md # Grid strewtching function
-#md # 
-# -------------------------------------------------------------------------
-function grid_stretching_cube( xmin, xmax, ymin, ymax, zmin, zmax,
-                               Ne,
-                               xstretch_flg, ystretch_flg, zstretch_flg,
-                               xstretch_coe, ystretch_coe, zstretch_coe,
-                               ndims)
-    
-    x_range_stretched = (range(Float64(xmin), length=Ne[1]   + 1, Float64(xmax)))
-    y_range_stretched = (range(Float64(ymin), length=Ne[2]   + 1, Float64(ymax)))
-    z_range_stretched = (range(Float64(zmin), length=Ne[end] + 1, Float64(zmax)))
-    
-    #build logical space
-    ksi  = (range(Float64(0.0), length=Ne[1]   + 1, Float64(1.0)))
-    eta  = (range(Float64(0.0), length=Ne[2]   + 1, Float64(1.0)))
-    zeta = (range(Float64(0.0), length=Ne[end] + 1, Float64(1.0)))
-
-    #
-    # X_XSTRETCHING TO BE CODED --> it should stretch towards an internal attraction point   
-    # x_range_stretched,
-    #
-    # Y_STRETCHING TO BE CODED --> it should stretch towards an internal attraction point
-    # y_range_stretched
-        
-    #if (zstretch_flg == 1 && zstretch_coe > 0.0)
-    z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta)  .- 1.0)./(exp(zstretch_coe) - 1.0)
-    #end
-    
-    return x_range_stretched, y_range_stretched, z_range_stretched
-end
-# }}}
-
 end
