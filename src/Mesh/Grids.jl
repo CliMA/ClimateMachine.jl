@@ -5,7 +5,8 @@ import ..Metrics, ..Elements
 using LinearAlgebra, GaussQuadrature
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
-export ExponentialFilter, CutoffFilter, AbstractFilter
+export AbstractSpectralFilter, AbstractFilter
+export ExponentialFilter, CutoffFilter
 export dofs_per_element, arraytype, dimensionality, polynomialorder
 export referencepoints
 
@@ -378,6 +379,7 @@ function spectral_filter_matrix(r, Nc, σ)
 end
 
 abstract type AbstractFilter end
+abstract type AbstractSpectralFilter <: AbstractFilter end
 
 """
     ExponentialFilter(grid, Nc=0, s=32, α=-log(eps(eltype(grid))))
@@ -390,7 +392,7 @@ where `s` is the filter order (must be even), the filter starts with
 polynomial order `Nc`, and `alpha` is a parameter controlling the smallest
 value of the filter function.
 """
-struct ExponentialFilter <: AbstractFilter
+struct ExponentialFilter <: AbstractSpectralFilter
   "filter matrix"
   filter
 
@@ -416,7 +418,7 @@ end
 Returns the spectral filter that zeros out polynomial modes greater than or
 equal to `Nc`.
 """
-struct CutoffFilter <: AbstractFilter
+struct CutoffFilter <: AbstractSpectralFilter
   "filter matrix"
   filter
 
