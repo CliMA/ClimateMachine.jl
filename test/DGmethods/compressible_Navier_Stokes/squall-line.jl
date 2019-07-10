@@ -119,7 +119,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-40000,40000)
+const (xmin, xmax) = (-30000,30000)
 const (ymin, ymax) = (0,  5000)
 const (zmin, zmax) = (0, 24000)
 
@@ -277,7 +277,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
 
         # Radiation contribution
-        #F_rad = ρ * radiation(aux)
+        F_rad = ρ * radiation(aux)
 
         SijSij = VF[_SijSij]
 
@@ -302,7 +302,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[2, _ρe_tot] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _ρe_tot] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
-        #F[3, _ρe_tot] -= F_rad
+        F[3, _ρe_tot] -= F_rad
 
         # Viscous contributions to mass flux terms
         F[1, _ρq_tot] -= vq_tot_x * D_e; F[2, _ρq_tot] -= vq_tot_y * D_e; F[3, _ρq_tot] -= vq_tot_z * D_e
@@ -468,15 +468,13 @@ end
         sponge_type = 2
         if sponge_type == 1
 
-            bc_xscale   = 12500.0
-            bc_yscale   = 0.0
             bc_zscale   = 7000.0
             top_sponge  = 0.85 * domain_top
-            zd          = domain_top   - bc_zscale
-            xsponger    = domain_right - bc_xscale #- 0.15 * (domain_right - xc)
-            xspongel    = domain_left  + bc_xscale #+ 0.15 * (xc - domain_left)
-            ysponger    = domain_back  #- 0.15 * (domain_back - yc)
-            yspongel    = domain_front #+ 0.15 * (yc - domain_front)
+            zd          = domain_top - bc_zscale
+            xsponger    = domain_right - 0.15 * (domain_right - xc)
+            xspongel    = domain_left  + 0.15 * (xc - domain_left)
+            ysponger    = domain_back  - 0.15 * (domain_back - yc)
+            yspongel    = domain_front + 0.15 * (yc - domain_front)
 
             #x left and right
             #xsl
@@ -505,53 +503,20 @@ end
         elseif sponge_type == 2
 
 
-            #Lateral coefficients
-            bc_xscale     = 12500.0
-            bc_yscale     = 0.0
-            
-            cs_left_right = 0.05
-            cs_front_back = 0.05
-            
-            #Top coefficients
-            alpha_coe     = 0.5 
-            bc_zscale     = 7500.0
-            ct            = 0.9
-            # End parameters
-            
-            #
-            # Lateral damping
-            #=                              
-            xsponger  = domain_right - bc_xscale #0.25 * (domain_right - xc)
-            xspongel  = domain_left  + bc_xscale #0.25 * (xc - domain_left)
-            ysponger  = domain_back  - 0.25 * (domain_back - yc)
-            yspongel  = domain_front + 0.25 * (yc - domain_front)
-            #x left and right
-            #xsl
-            if x <= xspongel
-                #csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))
-                csleft = cs_left_right * (1.0 - cos(pi*(x - xspongel)/(domain_left - xspongel)))
-            end
-            #xsr
-            if x >= xsponger
-                #csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))
-                csright = cs_left_right * (1.0 - cos(pi*(x - xsponger)/(domain_right - xsponger)))
-            end
-            #y left and right
-            #ysl
-            if y <= yspongel
-                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))
-            end
-            #ysr
-            if y >= ysponger
-                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))
-            end
-            =#
+            alpha_coe = 0.5
+            bc_zscale = 7500.0
+            zd        = domain_top - bc_zscale
+            xsponger  = domain_right - 0.15 * (domain_right - xc)
+            xspongel  = domain_left  + 0.15 * (xc - domain_left)
+            ysponger  = domain_back  - 0.15 * (domain_back - yc)
+            yspongel  = domain_front + 0.15 * (yc - domain_front)
+
             #
             # top damping
             # first layer: damp lee waves
             #
-            zd   = domain_top   - bc_zscale
             ctop = 0.0
+            ct   = 0.5
             if z >= zd
                 zid = (z - zd)/(domain_top - zd) # normalized coordinate
                 if zid >= 0.0 && zid <= 0.5
@@ -566,8 +531,7 @@ end
 
         end #sponge_type
 
-        #beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        beta  = 1.0 - (1.0 - ctop) *(1.0 - csleft)*(1.0 - csright) #*(1.0 - csfront)*(1.0 - csback)
+        beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
         beta  = min(beta, 1.0)
         aux[_a_sponge] = beta
     end
@@ -620,7 +584,7 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
                              q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
-        #source_geostrophic!(S, Q, aux, t)
+        source_geostrophic!(S, Q, aux, t)
     end
 end
 
@@ -935,32 +899,31 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
         
-        #=eng0 = norm(Q)
-        @info @sprintf """Starting
-        norm(Q₀) = %.16e""" eng0
-        =#
         # Set up the information callback
         starttime = Ref(now())
         cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
             if s
                 starttime[] = now()
             else
+                #energy = norm(Q)
+                #globmean = global_mean(Q, _ρ)
                 qt_max = global_max(Q, _ρq_tot)
                 ql_max = global_max(Q, _ρq_liq)
                 qr_max = global_max(Q, _ρq_rai)
                 @info @sprintf("""Update
-                                       simtime = %.16e
-                                       runtime = %s
-                                       max(Qtot) = %.16e
-                                       max(Qliq) = %.16e
-                                       max(Qrai) = %.16e""",
+                               simtime = %.16e
+                               runtime = %s
+                               maxQ_tot = %.16e
+                               maxQ_liq = %.16e
+                               maxQ_rai = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS"),
                                qt_max, ql_max, qr_max)
 
-                #@info @sprintf """dt = %25.16e""" dt                
+                #@info @sprintf """dt = %25.16e""" dt
+                
             end
         end
 
@@ -970,8 +933,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("/central/scratch/smarras/vtk-squall-line-2d3d/")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+        mkpath("./CLIMA-output-scratch/vtk-squall-line/")
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
@@ -1002,7 +965,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("/central/scratch/smarras/vtk-squall-line-2d3d/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
@@ -1016,14 +979,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
 
-#=
+#
 # Dynamic dt
 #
 cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
-                                                       Npoly2 = Npoly*Npoly
+                                                       Npoly2 = (2*Npoly + 1)
                                                        
                                                        dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
                                                        z = aux[_a_z]
@@ -1039,7 +1002,7 @@ cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
                                                        R[_a_timescale] = max(u_timescale, v_timescale, w_timescale)
                                                    end
                                                end
-    cfl_safety_factor = 1.00
+    cfl_safety_factor = 0.8
     Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
     if (Courant_max >= 1)
         dt = dt / Courant_max * cfl_safety_factor
@@ -1051,7 +1014,7 @@ cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
 end
 #
 # END Dynamic dt
-=#
+#
 
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
