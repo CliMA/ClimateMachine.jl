@@ -108,7 +108,7 @@ const Npoly = 4
 # Define grid size
 #
 Δx    =  250
-Δy    =  250
+Δy    =  500
 Δz    =  200
 
 #
@@ -120,7 +120,7 @@ const Npoly = 4
 
 # Physical domain extents
 const (xmin, xmax) = (-30000,30000)
-const (ymin, ymax) = (   0,  30000)
+const (ymin, ymax) = (   0,  10000)
 const (zmin, zmax) = (   0,  24000)
 
 #Get Nex, Ney from resolution
@@ -791,7 +791,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         dataq = 0.0
     end
 
-    θ_c =     5.0
+    θ_c =     3.0
     rx  = 10000.0
     ry  =  1500.0
     rz  =  1500.0
@@ -800,7 +800,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     zc  = 2000.0
 
     cylinder_flg = 0.0
-    r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+    r   = sqrt( (x - xc)^2/rx^2 + (z - zc)^2/rz^2)
     Δθ  = 0.0
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
@@ -1112,7 +1112,7 @@ let
     # User defined simulation end time
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
-    dt = 0.025
+    dt = 0.02
     timeend = 9000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
