@@ -124,6 +124,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalRes
       break
     end
   end
+  # @show k
 
   # reusing storage
   exp_coeffs = givens_cos

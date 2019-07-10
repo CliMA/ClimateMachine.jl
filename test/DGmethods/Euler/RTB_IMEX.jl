@@ -14,6 +14,7 @@ using Logging, Printf, Dates
 using CLIMA.Vtk
 using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
+using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.AdditiveRungeKuttaMethod
 
 const γ_exact = 7 // 5 # FIXME: Remove this for some moist thermo approach
@@ -334,9 +335,9 @@ function linearoperator!(LQ, Q, rhs_linear!, α)
 end
 
 function solve_linear_problem!(Qtt, Qhat, rhs_linear!, α, gcrk)
-  # linearoperator!(Qtt, Qhat, rhs_linear!, α)
+  Qtt .= Qhat
   LinearSolvers.linearsolve!((Ax, x) -> linearoperator!(Ax, x, rhs_linear!, α),
-  Qtt, Qhat, gcrk)
+                             Qtt, Qhat, gcrk)
   #=
   Qtt .= Qhat
   =#
@@ -395,16 +396,21 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
                                source! = lin_source!)
 
 
-  gcrk = GeneralizedConjugateResidual(3, Q, 1e-10)
+  # linsolver = GeneralizedConjugateResidual(3, Q, 1e-10)
+  linsolver = GeneralizedMinimalResidual(30, Q, 1e-10)
   rhs_linear!(x...;increment) = SpaceMethods.odefun!(lin_spacedisc, x...;
                                                      increment=increment)
   # linearoperator!(dQ, Q, rhs_linear!, 1)
-  lin_solve!(x...) = solve_linear_problem!(x..., gcrk)
+  lin_solve!(x...) = solve_linear_problem!(x..., linsolver)
+  #=
   timestepper = ARK548L2SA2KennedyCarpenter(spacedisc, lin_spacedisc,
                                             lin_solve!, Q; dt = dt, t0 = 0)
+  =#
+  timestepper = ARK2GiraldoKellyConstantinescu(spacedisc, lin_spacedisc,
+                                               lin_solve!, Q; dt = dt, t0 = 0)
   # }}}
 
-  # timestepper = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+  # timestepper = LSRK144NiegemannDiehlBusch(spacedisc, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -431,7 +437,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
   end
 
   step = [0]
-  vtkdir = "vtk_RTB"
+  vtkdir = "vtk_RTB_IMEX_GKC"
   mkpath(vtkdir)
   cbvtk = GenericCallbacks.EveryXSimulationSteps(output_steps) do (init=false)
     outprefix = @sprintf("%s/cns_%dD_mpirank%04d_step%04d", vtkdir, dim,
@@ -479,7 +485,10 @@ let
   # dt = 0.005
 
   # Stable explicit time step
-  dt = 10min(Δx, Δy, Δz) / soundspeed_air(300.0) / Npoly
+  dt = min(Δx, Δy, Δz) / soundspeed_air(300.0) / Npoly
+
+  dt *= 4
+
   output_time = 0.5
   output_steps = ceil(output_time / dt)
   # dt = output_time / output_steps
