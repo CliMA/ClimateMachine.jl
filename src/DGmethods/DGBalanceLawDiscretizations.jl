@@ -828,7 +828,7 @@ function dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw
 end
 
 """
-    apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
+    apply!(Q, states, disc::DGBalanceLaw, filter::AbstractSpectralFilter;
            horizontal = true, vertical = true)
 
 Applies `filter` to the `states` of `Q`.
@@ -838,7 +838,7 @@ is applied in the horizontal and vertical reference directions, respectively.
 Note, it is assumed that the trailing dimension is the vertical dimension and
 the rest are horizontal.
 """
-function apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
+function apply!(Q, states, disc::DGBalanceLaw, filter::AbstractSpectralFilter;
                 horizontal = true, vertical = true)
   grid = disc.grid
   topology = grid.topology
