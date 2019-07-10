@@ -909,18 +909,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             if s
                 starttime[] = now()
             else
-                #energy = norm(Q)
-                #globmean = global_mean(Q, _ρ)
+                qt_max = global_max(Q, _ρq_tot)
+                ql_max = global_max(Q, _ρq_liq)
                 @info @sprintf("""Update
-                               simtime = %.16e
-                               runtime = %s""",
+                                       simtime = %.16e
+                                       runtime = %s
+                                       max(Qtot) = %.16e
+                                       max(Qliq) = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
-                                            Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+                                            Dates.dateformat"HH:MM:SS"),
+                               qt_max, ql_max)
 
-              @info @sprintf """dt = %25.16e""" dt
-                
+                #@info @sprintf """dt = %25.16e""" dt                
             end
         end
 
@@ -931,7 +933,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-squall-line/")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)

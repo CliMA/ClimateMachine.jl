@@ -108,7 +108,7 @@ const Npoly = 4
 # Define grid size
 #
 Δx    =  250
-Δy    = 1000
+Δy    =  250
 Δz    =  200
 
 #
@@ -119,9 +119,9 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-30000,30000)
-const (ymin, ymax) = (0,  5000)
-const (zmin, zmax) = (0, 24000)
+const (xmin, xmax) = (-30000, 30000)
+const (ymin, ymax) = (-30000, 30000)
+const (zmin, zmax) = (     0, 24000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -283,7 +283,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-        D_e = 200.0 # ν_e / Prandtl_t
+        D_e = 300.0 # ν_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -909,17 +909,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             if s
                 starttime[] = now()
             else
-                #energy = norm(Q)
-                #globmean = global_mean(Q, _ρ)
+                qt_max = global_max(Q, _ρq_tot)
+                ql_max = global_max(Q, _ρq_liq)
                 @info @sprintf("""Update
-                               simtime = %.16e
-                               runtime = %s""",
+                                   simtime = %.16e
+                                   runtime = %s
+                                   max(Qtot) = %.16e
+                                   max(Qliq) = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
-                                            Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+                                            Dates.dateformat"HH:MM:SS"),
+                               qt_max, ql_max)
 
-              @info @sprintf """dt = %25.16e""" dt
+              #@info @sprintf """dt = %25.16e""" dt
                 
             end
         end
@@ -931,7 +934,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-squall-line/")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
