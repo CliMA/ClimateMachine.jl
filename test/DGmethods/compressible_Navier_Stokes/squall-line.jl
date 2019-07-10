@@ -148,7 +148,7 @@ DoFstorage = (Nex*Ney*Nez) *
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module
-@parameter C_smag 0.15 "C_smag"
+@parameter C_smag 0.18 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -932,9 +932,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 18
-        out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_tht = 1:npoststates
-        postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
+        npoststates = 8
+        out_u, out_v, out_w, out_q_tot, out_q_liq, out_q_ice, out_q_rai, out_tht = 1:npoststates
+        postnames = ("u", "v", "w", "q_tot", "q_liq", "q_ice", "q_rai", "theta")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
@@ -956,32 +956,17 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     p = aux[_a_p]
                     tht = liquid_ice_pottemp(T, p, q)
 
-                    R[out_z] = aux[_a_z]
-                    R[out_p] = p
-                    R[out_beta] = radiation(aux)
-                    R[out_T] = T
                     R[out_tht] = tht
-
+                    
                     R[out_u] = u
                     R[out_v] = v
                     R[out_w] = w
-
+                    
                     R[out_q_tot] = q_tot
-                    R[out_q_vap] = q_tot - q_liq - q_ice
                     R[out_q_liq] = q_liq
                     R[out_q_ice] = q_ice
                     R[out_q_rai] = q_rai
-
-                    R[out_e_tot] = e_tot
-                    R[out_e_int] = e_int
-                    R[out_e_kin] = e_kin
-                    R[out_e_pot] = e_pot
-
-                    if(q_rai > DF(0)) # TODO - ensure positive definite elswhere
-                      R[out_rain_w] = terminal_velocity(q_rai, ρ)
-                    else
-                      R[out_rain_w] = DF(0)
-                    end
+                    
                 end
             end
 
@@ -1039,15 +1024,17 @@ let
     MPI.Initialized() || MPI.Init()
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
-    if MPI.Comm_rank(mpicomm) == 0
-        ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-        loglevel = ll == "DEBUG" ? Logging.Debug :
-            ll == "WARN"  ? Logging.Warn  :
-            ll == "ERROR" ? Logging.Error : Logging.Info
-        global_logger(ConsoleLogger(stderr, loglevel))
-    else
-        global_logger(NullLogger())
+
+    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+    loglevel = ll == "DEBUG" ? Logging.Debug :
+        ll == "WARN"  ? Logging.Warn  :
+        ll == "ERROR" ? Logging.Error : Logging.Info
+    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+    global_logger(ConsoleLogger(logger_stream, loglevel))
+    @static if haspkg("CUDAnative")
+        device!(MPI.Comm_rank(mpicomm) % length(devices()))
     end
+    
     # User defined number of elements
     # User defined timestep estimate
     # User defined simulation end time
@@ -1071,8 +1058,8 @@ let
         @info @sprintf """ ------------------------------------------------------"""
         @info @sprintf """ Squall line                                           """
         @info @sprintf """   Resolution:                                         """
-        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
-        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
+        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz Δx*Δy*Δz
+        @info @sprintf """     (Nex, Ney, Nez), Netoto = (%d, %d, %d), %d        """ Nex Ney Nez
         @info @sprintf """     DoF = %d                                          """ DoF
         @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
         @info @sprintf """     Time step dt: %.2e                                """ dt
