@@ -503,20 +503,52 @@ end
         elseif sponge_type == 2
 
 
-            alpha_coe = 0.5
-            bc_zscale = 7500.0
-            zd        = domain_top - bc_zscale
+            #Lateral coefficients
+            cs_left_right = 0.75
+            cs_front_back = 0.75
+            #Top coefficients
+            alpha_coe     = 0.5 
+            bc_zscale     = 7500.0
+            ct            = 0.9
+
+            # End parameters
+            
+
+
+           
+
+            #
+            # Lateral damping
+            #                                
             xsponger  = domain_right - 0.15 * (domain_right - xc)
             xspongel  = domain_left  + 0.15 * (xc - domain_left)
             ysponger  = domain_back  - 0.15 * (domain_back - yc)
             yspongel  = domain_front + 0.15 * (yc - domain_front)
-
+            #x left and right
+            #xsl
+            if x <= xspongel
+                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+            end
+            #xsr
+            if x >= xsponger
+                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+            end
+            #y left and right
+            #ysl
+            if y <= yspongel
+                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+            end
+            #ysr
+            if y >= ysponger
+                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+            end
+            
             #
             # top damping
             # first layer: damp lee waves
             #
+            zd   = domain_top   - bc_zscale
             ctop = 0.0
-            ct   = 0.5
             if z >= zd
                 zid = (z - zd)/(domain_top - zd) # normalized coordinate
                 if zid >= 0.0 && zid <= 0.5
@@ -531,7 +563,8 @@ end
 
         end #sponge_type
 
-        beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        #beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        beta  = 1.0 - (1.0 - ctop) *(1.0 - csleft)*(1.0 - csright) #*(1.0 - csfront)*(1.0 - csback)
         beta  = min(beta, 1.0)
         aux[_a_sponge] = beta
     end
@@ -932,7 +965,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/vtk-squall-line/")
+        mkpath("./CLIMA-output-scratch/vtk-squall-line-3d/")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
@@ -964,7 +997,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line-3d/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,

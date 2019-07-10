@@ -108,7 +108,7 @@ const Npoly = 4
 # Define grid size
 #
 Δx    =  250
-Δy    = 1000
+Δy    =  250
 Δz    =  200
 
 #
@@ -120,7 +120,7 @@ const Npoly = 4
 
 # Physical domain extents
 const (xmin, xmax) = (-30000,30000)
-const (ymin, ymax) = (0,  5000)
+const (ymin, ymax) = (0, 20000)
 const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
@@ -1072,7 +1072,7 @@ let
     # User defined simulation end time
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
-    dt = 0.025
+    dt = 0.02
     timeend = 9000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
