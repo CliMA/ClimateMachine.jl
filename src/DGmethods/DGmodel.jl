@@ -22,9 +22,8 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   Qvisc = param.diff
   auxstate = param.aux
 
-  nviscstate = num_diffusive(bl)
-  ngradstate = num_gradtransform(bl)
-  nauxstate = size(auxstate, 2)
+  DFloat = eltype(Q)
+  nviscstate = num_diffusive(bl, DFloat)
 
   lgl_weights_vec = grid.ω
   Dmat = grid.D
@@ -108,7 +107,7 @@ function init_ode_param(dg::DGModel)
 
   
   # TODO: Clean up this MPIStateArray interface...
-  diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl)},DFloat, DA}(
+  diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
     topology.mpicomm,
     length(topology.elems),
     realelems=topology.realelems,
@@ -120,7 +119,7 @@ function init_ode_param(dg::DGModel)
     weights=weights,
     commtag=111)
 
-  auxstate = MPIStateArray{Tuple{Np, num_aux(bl)}, DFloat, DA}(
+  auxstate = MPIStateArray{Tuple{Np, num_aux(bl,DFloat)}, DFloat, DA}(
     topology.mpicomm,
     length(topology.elems),
     realelems=topology.realelems,
@@ -167,7 +166,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
     
-  state = MPIStateArray{Tuple{Np, num_state(bl)}, DFloat, DA}(topology.mpicomm,
+  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
                                                length(topology.elems),
                                                realelems=topology.realelems,
                                                ghostelems=topology.ghostelems,

@@ -3,6 +3,25 @@ import CLIMA.DGmethods: BalanceLaw, dimension, vars_aux, vars_state, num_state_f
   flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
   init_aux!, init_state!, preodefun!
 
+
+  function state(m::AtmosModel, T)
+    NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :moisture, :radiation), 
+    Tuple{T, SVector{3,T}, T, state(m.turbulence,T), state(m.moisture,T), state(m.radiation, T)}}
+  end
+  
+  state(m::ConstViscosity, T) = NamedTuple{}
+  state(m::EquilMoist, T) = NamedTuple{(:ρqt,), Tuple{T}}
+  state(m::NoRadiation, T) = NamedTuple{}
+  
+  model = AtmosModel(ConstViscosity(), EquilMoist(), NoRadiation())
+  
+  st = state(model, Float64)
+  
+  v = Vars{st}(zeros(MVector{6,Float64}))
+  g = Grad{st}(zeros(MMatrix{3,6,Float64}))
+
+  
+  
 struct AtmosModel{T,M,R} <: BalanceLaw
   turbulence::T
   moisture::M

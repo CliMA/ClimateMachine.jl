@@ -36,6 +36,7 @@ struct Vars{S,A,offset}
 end
 Vars{S}(array) where {S} = Vars{S,typeof(array),0}(array)
 
+Base.eltype(v::Vars) = eltype(getfield(v,:array))
 Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
 
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
@@ -98,7 +99,7 @@ struct Grad{S,A,offset}
 end
 Grad{S}(array) where {S} = Grad{S,typeof(array),0}(array)
 
-
+Base.eltype(g::Grad) = eltype(getfield(g,:array))
 Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
 
 @generated function Base.getproperty(v::Grad{S,A,offset}, sym::Symbol) where {S,A,offset}
@@ -109,7 +110,7 @@ Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
   for k in fieldnames(S)
     T = fieldtype(S,k)
     if T <: Real      
-      retexpr = :(SVector{$M,$T}($([:(array[$i]) for i = 1:M]...)))
+      retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
       N = length(T)

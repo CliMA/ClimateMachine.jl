@@ -1,4 +1,6 @@
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, num_state_for_gradtransform, vars_gradtransform, vars_diffusive,
+using CLIMA.VariableTemplates
+
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_transform, vars_diffusive,
 flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
 init_aux!, init_state!, init_ode_param, init_ode_state
 
@@ -6,13 +8,12 @@ init_aux!, init_state!, init_ode_param, init_ode_state
 struct MMSModel{dim} <: BalanceLaw
 end
 
-vars_aux(::MMSModel) = (:x,:y,:z)
-vars_state(::MMSModel) = (:ρ, :ρu, :ρv, :ρw, :ρe)
-num_state_for_gradtransform(::MMSModel) = 4
-vars_gradtransform(::MMSModel) = (:u, :v, :w)
-vars_diffusive(::MMSModel) = (:τ11, :τ22, :τ33, :τ12, :τ13, :τ23)
+vars_aux(::MMSModel,T) = NamedTuple{(:x,:y,:z),NTuple{3,T}}
+vars_state(::MMSModel, T) = NamedTuple{(:ρ, :ρu, :ρv, :ρw, :ρe),NTuple{5,T}}
+vars_transform(::MMSModel, T) = NamedTuple{(:u, :v, :w),NTuple{3,T}}
+vars_diffusive(::MMSModel, T) = NamedTuple{(:τ11, :τ22, :τ33, :τ12, :τ13, :τ23),NTuple{6,T}}
 
-function flux!(::MMSModel, flux::Grad, state::State, diffusive::State, auxstate::State, t::Real)
+function flux!(::MMSModel, flux::Grad, state::Vars, diffusive::Vars, auxstate::Vars, t::Real)
   # preflux
   T = eltype(flux)
   γ = T(γ_exact)
@@ -37,14 +38,14 @@ function flux!(::MMSModel, flux::Grad, state::State, diffusive::State, auxstate:
                      u * diffusive.τ13 + v * diffusive.τ23 + w * diffusive.τ33)
 end
 
-function gradtransform!(::MMSModel, transformstate::State, state::State, auxstate::State, t::Real)
+function gradtransform!(::MMSModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
   ρinv = 1 / state.ρ
   transformstate.u = ρinv * state.ρu
   transformstate.v = ρinv * state.ρv
   transformstate.w = ρinv * state.ρw
 end
 
-function diffusive!(::MMSModel, diffusive::State, ∇transform::Grad, state::State, auxstate::State, t::Real)
+function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
   T = eltype(diffusive)
   μ = T(μ_exact)
   
@@ -69,7 +70,7 @@ function diffusive!(::MMSModel, diffusive::State, ∇transform::Grad, state::Sta
   diffusive.τ23 = 2μ * ϵ23
 end
 
-function source!(::MMSModel{dim}, source::State, state::State, aux::State, t::Real) where {dim}
+function source!(::MMSModel{dim}, source::Vars, state::Vars, aux::Vars, t::Real) where {dim}
   source.ρ  = Sρ_g(t, aux.x, aux.y, aux.z, Val(dim))
   source.ρu = SU_g(t, aux.x, aux.y, aux.z, Val(dim))
   source.ρv = SV_g(t, aux.x, aux.y, aux.z, Val(dim))
@@ -77,21 +78,20 @@ function source!(::MMSModel{dim}, source::State, state::State, aux::State, t::Re
   source.ρe = SE_g(t, aux.x, aux.y, aux.z, Val(dim))
 end
 
-function wavespeed(::MMSModel, nM, state::State, aux::State, t::Real)
+function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
   T = eltype(state)
   γ = T(γ_exact)
   ρinv = 1 / state.ρ
   u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
   P = (γ-1)*(state.ρe - ρinv * (state.ρu^2 + state.ρv^2 + state.ρw^2) / 2)
-
   return abs(nM[1] * u + nM[2] * v + nM[3] * w) + sqrt(ρinv * γ * P)
 end
 
-function boundarycondition!(bl::MMSModel, stateP::State, diffP::State, auxP::State, nM, stateM::State, diffM::State, auxM::State, bctype, t)
+function boundarycondition!(bl::MMSModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
   init_state!(bl, stateP, auxP, (auxM.x, auxM.y, auxM.z), t)
 end
 
-function init_aux!(::MMSModel, aux::State, (x,y,z))
+function init_aux!(::MMSModel, aux::Vars, (x,y,z))
   aux.x = x
   aux.y = y
   aux.z = z
@@ -99,7 +99,7 @@ function init_aux!(::MMSModel, aux::State, (x,y,z))
 
 end
 
-function init_state!(bl::MMSModel{dim}, state::State, aux::State, (x,y,z), t) where {dim}
+function init_state!(bl::MMSModel{dim}, state::Vars, aux::Vars, (x,y,z), t) where {dim}
   state.ρ = ρ_g(t, x, y, z, Val(dim))
   state.ρu = U_g(t, x, y, z, Val(dim))
   state.ρv = V_g(t, x, y, z, Val(dim))
