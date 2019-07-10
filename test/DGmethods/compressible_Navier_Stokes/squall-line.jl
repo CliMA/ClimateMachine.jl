@@ -119,7 +119,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-30000,30000)
+const (xmin, xmax) = (-40000,40000)
 const (ymin, ymax) = (0,  5000)
 const (zmin, zmax) = (0, 24000)
 
@@ -509,8 +509,8 @@ end
             bc_xscale     = 12500.0
             bc_yscale     = 0.0
             
-            cs_left_right = 0.2
-            cs_front_back = 0.2
+            cs_left_right = 0.025
+            cs_front_back = 0.025
             
             #Top coefficients
             alpha_coe     = 0.5 
