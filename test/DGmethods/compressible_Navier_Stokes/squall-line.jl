@@ -468,13 +468,15 @@ end
         sponge_type = 2
         if sponge_type == 1
 
+            bc_xscale   = 12500.0
+            bc_yscale   = 0.0
             bc_zscale   = 7000.0
             top_sponge  = 0.85 * domain_top
             zd          = domain_top - bc_zscale
-            xsponger    = domain_right - 0.15 * (domain_right - xc)
-            xspongel    = domain_left  + 0.15 * (xc - domain_left)
-            ysponger    = domain_back  - 0.15 * (domain_back - yc)
-            yspongel    = domain_front + 0.15 * (yc - domain_front)
+            xsponger    = domain_right - bc_xscale #- 0.15 * (domain_right - xc)
+            xspongel    = domain_left  + bc_xscale #+ 0.15 * (xc - domain_left)
+            ysponger    = domain_back  #- 0.15 * (domain_back - yc)
+            yspongel    = domain_front #+ 0.15 * (yc - domain_front)
 
             #x left and right
             #xsl
@@ -939,6 +941,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             else
                 qt_max = global_max(Q, _ρq_tot)
                 ql_max = global_max(Q, _ρq_liq)
+                qr_max = global_max(Q, _ρq_rai)
                 @info @sprintf("""Update
                                        simtime = %.16e
                                        runtime = %s
