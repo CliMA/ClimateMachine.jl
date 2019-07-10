@@ -19,6 +19,7 @@ include("ODESolvers/AdditiveRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
 include("LinearSolvers/LinearSolvers.jl")
 include("LinearSolvers/GeneralizedConjugateResidualSolver.jl")
+include("LinearSolvers/GeneralizedMinimalResidualSolver.jl")
 include("InputOutput/Vtk/Vtk.jl")
 include("misc.jl")
 
