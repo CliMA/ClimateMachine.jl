@@ -520,7 +520,7 @@ end
             
             #
             # Lateral damping
-            #                                
+            #=                              
             xsponger  = domain_right - bc_xscale #0.25 * (domain_right - xc)
             xspongel  = domain_left  + bc_xscale #0.25 * (xc - domain_left)
             ysponger  = domain_back  - 0.25 * (domain_back - yc)
@@ -545,7 +545,7 @@ end
             if y >= ysponger
                 csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))
             end
-            
+            =#
             #
             # top damping
             # first layer: damp lee waves

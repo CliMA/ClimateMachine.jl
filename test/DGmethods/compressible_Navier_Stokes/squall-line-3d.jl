@@ -1064,30 +1064,6 @@ end
 @info @sprintf """Finished...
             norm(Q) = %25.16e""" norm(Q)
 
-#=
-# Print some end of the simulation information
-engf = norm(Q)
-if integration_testing
-Qe = MPIStateArray(spacedisc,
-(Q, x...) -> initialcondition!(Val(dim), Q,
-DFloat(timeend), x...))
-engfe = norm(Qe)
-errf = euclidean_distance(Q, Qe)
-@info @sprintf """Finished
-norm(Q)                 = %.16e
-norm(Q) / norm(Q₀)      = %.16e
-norm(Q) - norm(Q₀)      = %.16e
-norm(Q - Qe)            = %.16e
-norm(Q - Qe) / norm(Qe) = %.16e
-""" engf engf/eng0 engf-eng0 errf errf / engfe
-else
-@info @sprintf """Finished
-norm(Q)            = %.16e
-norm(Q) / norm(Q₀) = %.16e
-norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-end
-integration_testing ? errf : (engf / eng0)
-=#
 
 end
 
