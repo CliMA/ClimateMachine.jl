@@ -17,28 +17,7 @@
 
 #------------------------------------------------------------------------------
 
-# ### Preliminaries
-# Load modules that are used in the CliMA project.
-# These are general modules not necessarily specific
-# to CliMA
-using MPI
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-using DelimitedFiles
-using Dierckx
-
-# Load modules specific to CliMA project
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Vtk
-#md nothing # hide
+include(joinpath("..", "shared","DGDriverPrep.jl"))
 
 # The prognostic equations are conservations laws solved with respect to
 # the dynamics and moisture quantities:
@@ -91,14 +70,14 @@ const yc   = (ymax + ymin) / 2
 
 
 # -------------------------------------------------------------------------
-# Preflux calculation: This function computes parameters required for the 
+# Preflux calculation: This function computes parameters required for the
 # DG RHS (but not explicitly solved for as a prognostic variable)
 # In the case of the dycoms test: the saturation
 # adjusted temperature and pressure are such examples. Since we define
 # the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. 
-# The preflux function interacts with the following  
-# Modules: NumericalFluxes.jl 
+# around its behaviour.
+# The preflux function interacts with the following
+# Modules: NumericalFluxes.jl
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
 @inline function preflux(Q,VF, aux, _...)
@@ -109,7 +88,7 @@ const yc   = (ymax + ymin) / 2
     ρinv = 1 / ρ
 
     xvert = aux[_a_y]
-    
+
     u, v, w = ρinv * U, ρinv * V, ρinv * W
     e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * xvert) / ρ
     qt = QT / ρ
@@ -118,7 +97,7 @@ const yc   = (ymax + ymin) / 2
     T            = air_temperature(TS)
     P            = air_pressure(TS) # Test with dry atmosphere
     q_phase_part = PhasePartition(TS)
-        
+
     (P, u, v, w, ρinv)
     # Preflux returns pressure, 3 velocity components, and 1/ρ
 end
@@ -133,7 +112,7 @@ end
 
 # -------------------------------------------------------------------------
 # ### read sounding
-#md # 
+#md #
 #md # The sounding file contains the following quantities along a 1D column.
 #md # It needs to have the following structure:
 #md #
@@ -168,13 +147,13 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
     @inbounds begin
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        # Inviscid contributions 
+        # Inviscid contributions
         F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
         F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
         F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
         F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
         F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-        F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
+        F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT
         # Stress tensor
         τ11, τ22, τ33 = VF[_τ11], VF[_τ22], VF[_τ33]
         τ12 = τ21 = VF[_τ12]
@@ -192,10 +171,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 end
 
 # -------------------------------------------------------------------------
-#md # Here we define a function to extract the velocity components from the 
-#md # prognostic equations (i.e. the momentum and density variables). This 
-#md # function is not required in general, but provides useful functionality 
-#md # in some cases. 
+#md # Here we define a function to extract the velocity components from the
+#md # prognostic equations (i.e. the momentum and density variables). This
+#md # function is not required in general, but provides useful functionality
+#md # in some cases.
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 @inline function velocities!(vel, Q, _...)
@@ -211,8 +190,8 @@ end
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
 #md # coordinates. This may also be used to store variables for which gradients
-#md # are needed, but are not available through the prognostic variable 
-#md # calculations. (An example of this will follow - in the Smagorinsky model, 
+#md # are needed, but are not available through the prognostic variable
+#md # calculations. (An example of this will follow - in the Smagorinsky model,
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
 const _nauxstate = 4
@@ -226,8 +205,8 @@ const _a_x, _a_y, _a_z, _a_ql = 1:_nauxstate
 end
 
 # -------------------------------------------------------------------------
-#md ### Viscous fluxes. 
-#md # The viscous flux function compute_stresses computes the components of 
+#md ### Viscous fluxes.
+#md # The viscous flux function compute_stresses computes the components of
 #md # the velocity gradient tensor, and the corresponding strain rates to
 #md # populate the viscous flux array VF. SijSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
@@ -250,8 +229,8 @@ end
         # --------------------------------------------
         SijSij = (ϵ11 + ϵ22 + ϵ33
                   + 2.0 * ϵ12
-                  + 2.0 * ϵ13 
-                  + 2.0 * ϵ23) 
+                  + 2.0 * ϵ13
+                  + 2.0 * ϵ23)
         # mod strain rate ϵ ---------------------------
         # deviatoric stresses
         VF[_τ11] = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
@@ -279,7 +258,7 @@ end
         QP[_E] = EM
         QP[_QT] = QTM
         VFP .= VFM
-        # To calculate PP, uP, vP, wP, ρinvP we use the preflux function 
+        # To calculate PP, uP, vP, wP, ρinvP we use the preflux function
         nothing
         #preflux(QP, auxP, t)
         # Required return from this function is either nothing or preflux with plus state as arguments
@@ -302,14 +281,14 @@ end
 # --------------DEFINE SOURCES HERE -------------------------------
 # -----------------------------------------------------------------
 """
-The function source! collects all the individual source terms 
-associated with a given problem. We do not define sources here, 
+The function source! collects all the individual source terms
+associated with a given problem. We do not define sources here,
 rather we only call those source terms which are necessary based
-on the governing equations. 
+on the governing equations.
 by terms defined elsewhere
 """
 @inline function source!(S,Q,aux,t)
-    # Initialise the final block source term 
+    # Initialise the final block source term
     S .= 0
 
     # Typically these sources are imported from modules
@@ -321,35 +300,35 @@ end
 # Sponge: classical Rayleigh type absorbing layers:
 @inline function sponge_rectangular(S, Q, aux)
 
-    
+
     U, V, W = Q[_U], Q[_V], Q[_W]
     x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
-    
+
     xmin = brickrange[1][1]
     xmax = brickrange[1][end]
     ymin = brickrange[2][1]
     ymax = brickrange[2][end]
     zmin = brickrange[3][1]
     zmax = brickrange[3][end]
-    
-    # Define Sponge Boundaries      
+
+    # Define Sponge Boundaries
     xc       = (xmax + xmin)/2
     yc       = (ymax + ymin)/2
-    
+
     zsponge  = 0.85 * zmax
     xsponger = xmax - 0.15*abs(xmax - xc)
     xspongel = xmin + 0.15*abs(xmin - xc)
     ysponger = ymax - 0.15*abs(ymax - yc)
     yspongel = ymin + 0.15*abs(ymin - yc)
-    
+
     csxl, csxr  = 0.0, 0.0
     csyl, csyr  = 0.0, 0.0
     ctop        = 0.0
-    
+
     csx         = 0.0
     csy         = 0.0
     ct          = 1.0
-       
+
     #x left and right
     #xsl
     if (x <= xspongel)
@@ -358,7 +337,7 @@ end
     #xsr
     if (x >= xsponger)
         csxr = csx * sinpi(1/2 * (x - xsponger)/(xmax - xsponger))^4
-    end        
+    end
     #y left and right
     #ysl
     if (y <= yspongel)
@@ -368,8 +347,8 @@ end
     if (y >= ysponger)
         csyr = csy * sinpi(1/2 * (y - ysponger)/(ymay - ysponger))^4
     end
-    
-    #Vertical sponge:         
+
+    #Vertical sponge:
     if (z >= zsponge)
         ctop = ct * sinpi(1/2 * (z - zsponge)/(zmax - zsponge))^4
     end
@@ -383,7 +362,7 @@ end
         S[_V] -= beta * V
         S[_W] -= beta * W
     end
-    
+
 end
 #---END SPONGE
 
@@ -401,8 +380,8 @@ end
 
 """
 Large scale subsidence common to several atmospheric observational
-campaigns. In the absence of a GCM to drive the flow we may need to 
-specify a large scale forcing function. 
+campaigns. In the absence of a GCM to drive the flow we may need to
+specify a large scale forcing function.
 """
 @inline function source_ls_subsidence!(S,Q,aux,t)
     @inbounds begin
@@ -411,26 +390,26 @@ specify a large scale forcing function.
 end
 
 # ------------------------------------------------------------------
-# -------------END DEF SOURCES-------------------------------------# 
+# -------------END DEF SOURCES-------------------------------------#
 
 # initial condition
 """
-User-specified. Required. 
+User-specified. Required.
 This function specifies the initial conditions
-for the dycoms driver. 
+for the dycoms driver.
 """
 function dycoms!(dim, Q, t, x, y, z, _...)
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
     gravity::DFloat = grav
-    
+
     # ----------------------------------------------------
     # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
     # This driver accepts data in 6 column format
     # ----------------------------------------------------
     (sounding, _, ncols) = read_sounding()
-    
-    # WARNING: Not all sounding data is formatted/scaled 
+
+    # WARNING: Not all sounding data is formatted/scaled
     # the same. Care required in assigning array values
     # height theta qv    u     v     pressure
     zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
@@ -438,7 +417,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     sounding[:, 3],
     sounding[:, 4],
     sounding[:, 5],
-    sounding[:, 6]    
+    sounding[:, 6]
     #------------------------------------------------------
     # GET SPLINE FUNCTION
     #------------------------------------------------------
@@ -451,38 +430,38 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
     xvert          = y
-    
+
     datat          = spl_tinit(xvert)
     dataq          = spl_qinit(xvert)
     datau          = spl_uinit(xvert)
     datav          = spl_vinit(xvert)
     datap          = spl_pinit(xvert)
     dataq          = dataq * 1.0e-3
-    
+
     randnum   = rand(1)[1] / 100
 
     θ_liq = datat
     q_tot = dataq + randnum * dataq
-    P     = datap    
+    P     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
-        
+
     # energy definitions
     u, v, w     = 0*datau, 0*datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w
-    e_kin       = (u^2 + v^2 + w^2) / 2  
+    e_kin       = (u^2 + v^2 + w^2) / 2
     e_pot       = gravity * xvert
     e_int       = internal_energy(T, PhasePartition(q_tot))
     E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
-    
+
     #Get q_liq and q_ice
     TS           = PhaseEquil(e_int, q_tot, ρ)
     q_phase_part = PhasePartition(TS)
-    
+
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
-    
+
 end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
@@ -493,7 +472,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                   range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
-    
+
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
     topl = BrickTopology(mpicomm, brickrange, periodicity=(false,false,false))
@@ -502,7 +481,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             FloatType = DFloat,
                                             DeviceArray = ArrayType,
                                             polynomialorder = N)
-    
+
     numflux!(x...)   = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
     numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
 
@@ -511,7 +490,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              length_state_vector = _nstate,
                              flux! = cns_flux!,
                              numerical_flux! = numflux!,
-                             numerical_boundary_flux! = numbcflux!, 
+                             numerical_boundary_flux! = numbcflux!,
                              number_gradient_states = _ngradstates,
                              states_for_gradient_transform =
                              _states_for_gradient_transform,
@@ -530,7 +509,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     Q = MPIStateArray(spacedisc, initialcondition)
 
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-    
+
     eng0 = norm(Q)
     @info @sprintf """Starting norm(Q₀) = %.16e""" eng0
 
@@ -558,7 +537,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames, spacedisc.auxstate, auxstatenames)
-        
+
         step[1] += 1
         nothing
     end
@@ -578,22 +557,11 @@ end
 
 using Test
 let
-    MPI.Initialized() || MPI.Init()
-    Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-    mpicomm = MPI.COMM_WORLD
-    if MPI.Comm_rank(mpicomm) == 0
-        ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-        loglevel = ll == "DEBUG" ? Logging.Debug :
-            ll == "WARN"  ? Logging.Warn  :
-            ll == "ERROR" ? Logging.Error : Logging.Info
-        global_logger(ConsoleLogger(stderr, loglevel))
-    else
-        global_logger(NullLogger())
-    end
+    include(joinpath("..", "shared","PrepLogger.jl"))
     # User defined number of elements
     # User defined timestep estimate
     # User defined simulation end time
-    # User defined polynomial order 
+    # User defined polynomial order
     numelem = (10,10, 1)
     dt = 1e-2
     timeend = 10

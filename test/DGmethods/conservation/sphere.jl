@@ -10,30 +10,7 @@ The boundary conditions are `p = q` when `dot(n, u) > 0` and
 `q = p` when `dot(n, u) < 0` (i.e., `p` flows into `q` and vice-sersa).
 =#
 
-using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-using Random
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array, )
-end
+include(joinpath("..", "shared","DGDriverPrep.jl"))
 
 const _nstate = 2
 const _q, _p = 1:_nstate
@@ -151,18 +128,7 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-  mpicomm = MPI.COMM_WORLD
-  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-  loglevel = ll == "DEBUG" ? Logging.Debug :
-  ll == "WARN"  ? Logging.Warn  :
-  ll == "ERROR" ? Logging.Error : Logging.Info
-  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-  global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
+  include(joinpath("..", "shared","PrepLogger.jl"))
 
   dt = 1e-4
   timeend = 100*dt

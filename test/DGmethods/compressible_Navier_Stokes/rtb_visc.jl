@@ -1,30 +1,16 @@
 # Load modules that are used in the CliMA project.
 # These are general modules not necessarily specific
 # to CliMA
-using MPI
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-
-# Load modules specific to CliMA project
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Vtk
+include(joinpath("..", "shared","DGDriverPrep.jl"))
 
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
-# Even for the dry example shown here, we load the moist thermodynamics module 
+# Even for the dry example shown here, we load the moist thermodynamics module
 # and consider the dry equation set to be the same as the moist equations but
-# with total specific humidity = 0. 
+# with total specific humidity = 0.
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
 
-# For a three dimensional problem 
+# For a three dimensional problem
 const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
@@ -35,11 +21,6 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
 
 const _ngradstates = 3
 const _states_for_gradient_transform = (_ρ, _U, _V, _W)
-
-if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
 
 const γ_exact = 7 // 5
 const μ_exact = 10
@@ -54,14 +35,14 @@ const yc   = ymax / 2
 const zc   = zmax / 2
 
 # -------------------------------------------------------------------------
-# Preflux calculation: This function computes parameters required for the 
+# Preflux calculation: This function computes parameters required for the
 # DG RHS (but not explicitly solved for as a prognostic variable)
 # In the case of the rising_thermal_bubble example: the saturation
 # adjusted temperature and pressure are such examples. Since we define
 # the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. 
-# The preflux function interacts with the following  
-# Modules: NumericalFluxes.jl 
+# around its behaviour.
+# The preflux function interacts with the following
+# Modules: NumericalFluxes.jl
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
 @inline function preflux(Q,VF, aux, _...)
@@ -103,13 +84,13 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    # Inviscid contributions 
+    # Inviscid contributions
     F[1, _ρ], F[2, _ρ], F[3, _ρ]    = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U]    = u * U  + P , v * U      , w * U
     F[1, _V], F[2, _V], F[3, _V]    = u * V      , v * V + P  , w * V
     F[1, _W], F[2, _W], F[3, _W]    = u * W      , v * W      , w * W + P
     F[1, _E], F[2, _E], F[3, _E]    = u * (E + P), v * (E + P), w * (E + P)
-    F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
+    F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT
     # Stress tensor
     τ11, τ22, τ33 = VF[_τ11], VF[_τ22], VF[_τ33]
     τ12 = τ21 = VF[_τ12]
@@ -127,10 +108,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 end
 
 # -------------------------------------------------------------------------
-#md # Here we define a function to extract the velocity components from the 
-#md # prognostic equations (i.e. the momentum and density variables). This 
-#md # function is not required in general, but provides useful functionality 
-#md # in some cases. 
+#md # Here we define a function to extract the velocity components from the
+#md # prognostic equations (i.e. the momentum and density variables). This
+#md # function is not required in general, but provides useful functionality
+#md # in some cases.
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 @inline function velocities!(vel, Q, _...)
@@ -146,8 +127,8 @@ end
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
 #md # coordinates. This may also be used to store variables for which gradients
-#md # are needed, but are not available through teh prognostic variable 
-#md # calculations. (An example of this will follow - in the Smagorinsky model, 
+#md # are needed, but are not available through teh prognostic variable
+#md # calculations. (An example of this will follow - in the Smagorinsky model,
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
 const _nauxstate = 3
@@ -161,8 +142,8 @@ const _a_x, _a_y, _a_z, = 1:_nauxstate
 end
 
 # -------------------------------------------------------------------------
-#md ### Viscous fluxes. 
-#md # The viscous flux function compute_stresses computes the components of 
+#md ### Viscous fluxes.
+#md # The viscous flux function compute_stresses computes the components of
 #md # the velocity gradient tensor, and the corresponding strain rates to
 #md # populate the viscous flux array VF. SijSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
@@ -185,8 +166,8 @@ end
     # --------------------------------------------
     SijSij = (ϵ11 + ϵ22 + ϵ33
               + 2.0 * ϵ12
-              + 2.0 * ϵ13 
-              + 2.0 * ϵ23) 
+              + 2.0 * ϵ13
+              + 2.0 * ϵ23)
     # mod strain rate ϵ ---------------------------
     # deviatoric stresses
     VF[_τ11] = 2μ * (ϵ11 - (ϵ11 + ϵ22 + ϵ33) / 3)
@@ -214,7 +195,7 @@ end
     QP[_E] = EM
     QP[_QT] = QTM
     VFP .= VFM
-    # To calculate PP, uP, vP, wP, ρinvP we use the preflux function 
+    # To calculate PP, uP, vP, wP, ρinvP we use the preflux function
     nothing
     #preflux(QP, auxP, t)
     # Required return from this function is either nothing or preflux with plus state as arguments
@@ -239,15 +220,15 @@ end
 #  TODO: Make sure that the source values are not being over-written
 # ------------------------------------------------------------------
 """
-The function source! collects all the individual source terms 
-associated with a given problem. We do not define sources here, 
+The function source! collects all the individual source terms
+associated with a given problem. We do not define sources here,
 rather we only call those source terms which are necessary based
-on the governing equations. 
+on the governing equations.
 by terms defined elsewhere
 """
 @inline function source!(S,Q,aux,t)
 
-  # Initialise the final block source term 
+  # Initialise the final block source term
   S .= 0
 
   # Typically these sources are imported from modules
@@ -269,8 +250,8 @@ at the boundaries to a still atmosphere.
   α = 1.0
   U, V, W = Q[_U], Q[_V], Q[_W]
   x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
-  rp = (x^4 + y^4 + z^4)^(1/4) 
-  rsponge = 0.85 * xmax # Sponge damper extent  
+  rp = (x^4 + y^4 + z^4)^(1/4)
+  rsponge = 0.85 * xmax # Sponge damper extent
   @inbounds begin
     if rp > rsponge
       S[_U] += -α * sinpi(1/2 * (rp-rsponge)/rsponge) ^ 4 * U
@@ -298,7 +279,7 @@ end
 
 """
 Large scale subsidence common to several atmospheric observational
-campaigns. In the absence of a GCM to drive the flow we may need to 
+campaigns. In the absence of a GCM to drive the flow we may need to
 specify a large scale forcing function.
 """
 @inline function source_ls_subsidence!(S,Q,aux,t)
@@ -308,35 +289,35 @@ specify a large scale forcing function.
 end
 
 # ------------------------------------------------------------------
-# -------------END DEF SOURCES-------------------------------------# 
+# -------------END DEF SOURCES-------------------------------------#
 
 # initial condition
 """
-User-specified. Required. 
+User-specified. Required.
 This function specifies the initial conditions for the Rising Thermal
-Bubble driver. 
+Bubble driver.
 """
 function rising_thermal_bubble!(dim, Q, t, x, y, z, _...)
   DFloat                = eltype(Q)
   γ::DFloat             = γ_exact
-  # can override default gas constants 
-  # to moist values later in the driver 
+  # can override default gas constants
+  # to moist values later in the driver
   R_gas::DFloat         = R_d
   c_p::DFloat           = cp_d
   c_v::DFloat           = cv_d
   p0::DFloat            = MSLP
   gravity::DFloat       = grav
-  # initialise with dry domain 
-  q_tot::DFloat         = 0 
+  # initialise with dry domain
+  q_tot::DFloat         = 0
   q_liq::DFloat         = 0
-  q_ice::DFloat         = 0 
+  q_ice::DFloat         = 0
   # perturbation parameters for rising bubble
   r                     = sqrt((x - xc)^2 + (y - yc)^2)
   rc::DFloat            = 300
   θ_ref::DFloat         = 300
   θ_c::DFloat           = 5.0
   Δθ::DFloat            = 0.0
-  if r <= rc 
+  if r <= rc
     Δθ = θ_c * (1 + cospi(r/rc))/2
   end
   θ                     = θ_ref + Δθ # potential temperature
@@ -362,7 +343,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                 range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                 range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
-  
+
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
   topl = BrickTopology(mpicomm, brickrange, periodicity=(false,false,false))
@@ -371,7 +352,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N)
-  
+
   numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
   numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
 
@@ -380,7 +361,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                            length_state_vector = _nstate,
                            flux! = cns_flux!,
                            numerical_flux! = numflux!,
-                           numerical_boundary_flux! = numbcflux!, 
+                           numerical_boundary_flux! = numbcflux!,
                            number_gradient_states = _ngradstates,
                            states_for_gradient_transform =
                             _states_for_gradient_transform,
@@ -448,22 +429,11 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-  mpicomm = MPI.COMM_WORLD
-  if MPI.Comm_rank(mpicomm) == 0
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-    global_logger(ConsoleLogger(stderr, loglevel))
-  else
-    global_logger(NullLogger())
-  end
+    include(joinpath("..", "shared","PrepLogger.jl"))
     # User defined number of elements
     # User defined timestep estimate
     # User defined simulation end time
-    # User defined polynomial order 
+    # User defined polynomial order
     numelem = (5,5,1)
     dt = 1e-2
     timeend = 10

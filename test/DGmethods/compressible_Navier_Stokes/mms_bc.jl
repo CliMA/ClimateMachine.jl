@@ -1,27 +1,4 @@
-using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-using CLIMA.Vtk
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+include(joinpath("..", "shared","DGDriverPrep.jl"))
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
@@ -33,11 +10,6 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
 
 const _ngradstates = 3
 const _states_for_gradient_transform = (_ρ, _U, _V, _W)
-
-if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
 
 include("mms_solution_generated.jl")
 
@@ -304,18 +276,7 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-  mpicomm = MPI.COMM_WORLD
-  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-  loglevel = ll == "DEBUG" ? Logging.Debug :
-  ll == "WARN"  ? Logging.Warn  :
-  ll == "ERROR" ? Logging.Error : Logging.Info
-  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-  global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
+  include(joinpath("..", "shared","PrepLogger.jl"))
 
   polynomialorder = 4
   base_num_elem = 4

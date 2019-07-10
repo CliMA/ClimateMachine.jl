@@ -1,33 +1,4 @@
-using Test, MPI
-
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf
-
-using CLIMA
-using CLIMA.LinearSolvers
-using CLIMA.GeneralizedConjugateResidualSolver
-
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.MPIStateArrays
-using CLIMA.SpaceMethods
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
-
-if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
+include(joinpath("..", "shared","DGDriverPrep.jl"))
 
 function physical_flux!(F, state, visc_state, _...)
   @inbounds F[:, 1] = visc_state[:]
@@ -39,8 +10,8 @@ end
 
   @inbounds fs[1] = ( nM[1] * (viscM[1] + viscP[1])
                     + nM[2] * (viscM[2] + viscP[2])
-                    + nM[3] * (viscM[3] + viscP[3]) ) / 2 
- 
+                    + nM[3] * (viscM[3] + viscP[3]) ) / 2
+
 
   @inbounds fs[1] -= tau * (stateM[1] - stateP[1])
 end
@@ -117,18 +88,7 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
 end
 
 let
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-  mpicomm = MPI.COMM_WORLD
-  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-  loglevel = ll == "DEBUG" ? Logging.Debug :
-  ll == "WARN"  ? Logging.Warn  :
-  ll == "ERROR" ? Logging.Error : Logging.Info
-  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-  global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
+  include(joinpath("..", "shared","PrepLogger.jl"))
 
   polynomialorder = 4
   base_num_elem = 4
@@ -151,7 +111,7 @@ let
           Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
           brickrange = ntuple(d -> range(DFloat(0), length = Ne[d], stop = 1), dim)
           periodicity = ntuple(d -> true, dim)
-          
+
           @info (ArrayType, DFloat, dim)
           result[l] = run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity)
 

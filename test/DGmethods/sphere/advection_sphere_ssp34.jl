@@ -28,32 +28,7 @@
 #--------------------------------#
 #--------------------------------#
 
-using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.StrongStabilityPreservingRungeKuttaMethod
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Vtk
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-
-@static if haspkg("CUDAnative")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  @assert VERSION >= v"1.2-pre.25"
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array, )
-end
+include(joinpath("..", "shared","DGDriverPrep.jl"))
 
 const uid, vid, wid = 1:3
 const radians = true
@@ -249,19 +224,7 @@ end
 #{{{ Run Program
 using Test
 let
-  MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
-  mpicomm=MPI.COMM_WORLD
-
-  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-  loglevel = ll == "DEBUG" ? Logging.Debug :
-  ll == "WARN"  ? Logging.Warn  :
-  ll == "ERROR" ? Logging.Error : Logging.Info
-  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-  global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
+  include(joinpath("..", "shared","PrepLogger.jl"))
 
   # Perform Integration Testing for three different grid resolutions
   ti_method = "SSP34" #LSRK or SSP
