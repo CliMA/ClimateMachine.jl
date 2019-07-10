@@ -16,7 +16,7 @@
 # This version runs the isentropic vortex as a stand alone test (no dependence
 # on CLIMA moist thermodynamics)
 
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
@@ -208,7 +208,7 @@ end
 
 using Test
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   timeend = 1
   numelem = (5, 5, 1)

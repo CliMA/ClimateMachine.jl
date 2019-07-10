@@ -13,6 +13,9 @@ using CLIMA.Vtk
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
+using Random
+using DelimitedFiles
+using Dierckx
 
 @static if haspkg("CUDAnative")
   using CUDAdrv

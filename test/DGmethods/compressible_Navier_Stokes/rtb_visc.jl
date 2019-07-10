@@ -1,7 +1,7 @@
 # Load modules that are used in the CliMA project.
 # These are general modules not necessarily specific
 # to CliMA
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
 # Even for the dry example shown here, we load the moist thermodynamics module
@@ -429,7 +429,7 @@ end
 
 using Test
 let
-    include(joinpath("..", "shared","PrepLogger.jl"))
+    include(joinpath("..", "..", "shared", "PrepLogger.jl"))
     # User defined number of elements
     # User defined timestep estimate
     # User defined simulation end time

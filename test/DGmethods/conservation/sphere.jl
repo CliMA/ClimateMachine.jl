@@ -10,7 +10,7 @@ The boundary conditions are `p = q` when `dot(n, u) > 0` and
 `q = p` when `dot(n, u) < 0` (i.e., `p` flows into `q` and vice-sersa).
 =#
 
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 const _nstate = 2
 const _q, _p = 1:_nstate
@@ -128,7 +128,7 @@ end
 
 using Test
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   dt = 1e-4
   timeend = 100*dt

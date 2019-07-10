@@ -1,4 +1,4 @@
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 @inline function auxiliary_state_initialization!(aux, x, y, z)
   @inbounds begin
@@ -36,7 +36,7 @@ function run(mpicomm, topl, ArrayType, N, DFloat)
 end
 
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   numelem = (5, 5, 1)
 

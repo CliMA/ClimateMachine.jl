@@ -28,7 +28,7 @@
 #--------------------------------#
 #--------------------------------#
 
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 const uid, vid, wid = 1:3
 const radians = true
@@ -224,7 +224,7 @@ end
 #{{{ Run Program
 using Test
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   # Perform Integration Testing for three different grid resolutions
   ti_method = "SSP34" #LSRK or SSP

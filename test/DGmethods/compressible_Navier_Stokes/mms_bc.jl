@@ -1,4 +1,4 @@
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
@@ -276,7 +276,7 @@ end
 
 using Test
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   polynomialorder = 4
   base_num_elem = 4

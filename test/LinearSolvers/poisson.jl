@@ -1,4 +1,4 @@
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 function physical_flux!(F, state, visc_state, _...)
   @inbounds F[:, 1] = visc_state[:]
@@ -88,7 +88,7 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
 end
 
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   polynomialorder = 4
   base_num_elem = 4

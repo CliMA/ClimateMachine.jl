@@ -74,7 +74,7 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
 end
 
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   numelem = (5, 5, 5)
   lvls = 1

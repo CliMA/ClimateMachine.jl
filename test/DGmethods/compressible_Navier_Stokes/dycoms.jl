@@ -17,7 +17,7 @@
 
 #------------------------------------------------------------------------------
 
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 # The prognostic equations are conservations laws solved with respect to
 # the dynamics and moisture quantities:
@@ -557,7 +557,7 @@ end
 
 using Test
 let
-    include(joinpath("..", "shared","PrepLogger.jl"))
+    include(joinpath("..", "..", "shared", "PrepLogger.jl"))
     # User defined number of elements
     # User defined timestep estimate
     # User defined simulation end time

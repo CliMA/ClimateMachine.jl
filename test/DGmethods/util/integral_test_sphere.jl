@@ -1,4 +1,4 @@
-include(joinpath("..", "shared","DGDriverPrep.jl"))
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 const _nauxstate = 6
 const _a_r, _a_θ, _a_ϕ, _a_f, _a_fdown = 1:_nauxstate
@@ -58,7 +58,7 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
 end
 
 let
-  include(joinpath("..", "shared","PrepLogger.jl"))
+  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
 
   polynomialorder = 4
 
