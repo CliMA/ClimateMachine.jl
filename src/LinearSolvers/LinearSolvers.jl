@@ -23,8 +23,8 @@ Sets the tolerance of the iterative linear solver `solver` to `tolerance`.
 settolerance!(solver::AbstractIterativeLinearSolver, tolerance) =
   (solver.tolerance[1] = tolerance)
 
-doiteration!(Q, solver::AbstractIterativeLinearSolver, tolerance) =
-  throw(MethodError(doiteration!, (Q, solver, tolerance))) 
+doiteration!(Q, Qrhs, solver::AbstractIterativeLinearSolver, tolerance) =
+  throw(MethodError(doiteration!, (Q, Qrhs, solver, tolerance)))
 
 initialize!(Q, Qrhs, solver::AbstractIterativeLinearSolver) =
   throw(MethodError(initialize!, (Q, Qrhs, solver))) 
@@ -48,7 +48,7 @@ function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearS
   initialize!(linearoperator!, Q, Qrhs, solver)
 
   while !converged
-    converged, residual_norm = doiteration!(linearoperator!, Q, solver)
+    converged, residual_norm = doiteration!(linearoperator!, Q, Qrhs, solver)
     iters += 1
   end
   
