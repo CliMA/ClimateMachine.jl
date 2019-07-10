@@ -119,8 +119,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-30000, 30000)
-const (ymin, ymax) = (     0, 30000)
+const (xmin, xmax) = (-5000, 5000)
+const (ymin, ymax) = (     0, 5000)
 const (zmin, zmax) = (     0, 24000)
 
 #Get Nex, Ney from resolution
