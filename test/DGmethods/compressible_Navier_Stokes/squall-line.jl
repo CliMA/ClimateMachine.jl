@@ -950,12 +950,13 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                        simtime = %.16e
                                        runtime = %s
                                        max(Qtot) = %.16e
-                                       max(Qliq) = %.16e""",
+                                       max(Qliq) = %.16e
+                                       max(Qrai) = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS"),
-                               qt_max, ql_max)
+                               qt_max, ql_max, qr_max)
 
                 #@info @sprintf """dt = %25.16e""" dt                
             end
