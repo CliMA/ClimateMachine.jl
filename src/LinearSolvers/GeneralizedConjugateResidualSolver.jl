@@ -75,7 +75,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateRe
     linearoperator!(L_p[1], p[1])
 end
 
-function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidual{K}) where K
+function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateResidual{K}) where K
  
   residual = solver.residual
   p = solver.p
