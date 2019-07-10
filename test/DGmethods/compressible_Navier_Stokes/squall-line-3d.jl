@@ -119,8 +119,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-40000,40000)
-const (ymin, ymax) = (0,  5000)
+const (xmin, xmax) = (-30000,30000)
+const (ymin, ymax) = (0,     30000)
 const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
@@ -225,8 +225,8 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_JCP2013_with_pressure.dat"))
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_gabersek.dat"))
+    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_gabersek.dat"))
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_gabersek_3deg_warmer.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -922,7 +922,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             Dates.dateformat"HH:MM:SS"),
                                qt_max, ql_max, qr_max)
 
-                #@info @sprintf """dt = %25.16e""" dt
+                @info @sprintf """dt = %25.16e""" dt
                 
             end
         end
@@ -933,7 +933,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/vtk-squall-line-3d/")
+        mkpath("./CLIMA-output-scratch/vtk-squall-line/")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
@@ -965,7 +965,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line-3d/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
