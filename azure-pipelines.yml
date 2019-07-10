@@ -37,12 +37,20 @@ jobs:
     displayName: 'Run the tests'
   - bash: |
       set -o xtrace
-      export TRAVIS_PULL_REQUEST="$SYSTEM_PULLREQUEST_PULLREQUESTNUMBER"
-      export TRAVIS_BRANCH="$BUILD_SOURCEBRANCH"
+      export TRAVIS_REPO_SLUG="$BUILD_REPOSITORY_NAME"
+      export TRAVIS_PULL_REQUEST="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-false}"
+      if [[ $BUILD_SOURCEBRANCH == /refs/tags/* ]]; then
+        export TRAVIS_TAG="${BUILD_SOURCEBRANCH:11}"
+      fi
+      if [[ $BUILD_SOURCEBRANCH == /refs/heads/* ]]; then
+        export TRAVIS_BRANCH="${BUILD_SOURCEBRANCH:12}"
+      fi
       ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ -e 'using Pkg; Pkg.instantiate();
                                                                         Pkg.develop(PackageSpec(path=pwd()));
                                                                         Pkg.build()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ docs/make.jl
+    env:
+      DOCUMENTER_KEY: $(documenter_key)
     displayName: 'Deploy the docs'
 
 - job: macOS
@@ -104,3 +112,44 @@ jobs:
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.instantiate()'
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.test()'
     displayName: 'Run the tests'
+
+- job: Documentation
+
+  pool:
+    vmImage: 'ubuntu-16.04'
+
+  strategy:
+    matrix:
+      Julia 1.1:
+        JULIA_VERSION: '1.1'
+
+  steps:
+  - bash: |
+      set -o xtrace
+      wget -nv https://julialang-s3.julialang.org/bin/linux/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz
+      mkdir julia-$(JULIA_VERSION)
+      tar zxf julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz -C julia-$(JULIA_VERSION) --strip-components 1
+    displayName: 'Download and extract Julia'
+  - bash: |
+      set -o xtrace
+      sudo apt-get update
+      sudo apt-get install cmake gfortran mpich libmpich-dev
+    displayName: 'Install dependencies'
+  - bash: |
+      set -o xtrace
+      export TRAVIS_REPO_SLUG="$BUILD_REPOSITORY_NAME"
+      export TRAVIS_PULL_REQUEST="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-false}"
+      if [[ $BUILD_SOURCEBRANCH == /refs/tags/* ]]; then
+        export TRAVIS_TAG="${BUILD_SOURCEBRANCH:11}"
+      fi
+      if [[ $BUILD_SOURCEBRANCH == /refs/heads/* ]]; then
+        export TRAVIS_BRANCH="${BUILD_SOURCEBRANCH:12}"
+      fi
+      ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
+      ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ -e 'using Pkg; Pkg.instantiate();
+                                                                        Pkg.develop(PackageSpec(path=pwd()));
+                                                                        Pkg.build()'
+      ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ docs/make.jl
+    env:
+      DOCUMENTER_KEY: $(documenter_key)
+    displayName: 'Build and deploy docs'
