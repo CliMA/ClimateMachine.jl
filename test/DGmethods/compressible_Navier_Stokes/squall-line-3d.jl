@@ -120,7 +120,7 @@ const Npoly = 4
 
 # Physical domain extents
 const (xmin, xmax) = (-30000, 30000)
-const (ymin, ymax) = (-30000, 30000)
+const (ymin, ymax) = (     0, 30000)
 const (zmin, zmax) = (     0, 24000)
 
 #Get Nex, Ney from resolution
@@ -277,7 +277,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
 
         # Radiation contribution
-        F_rad = ρ * radiation(aux)
+        #F_rad = ρ * radiation(aux)
 
         SijSij = VF[_SijSij]
 
@@ -584,7 +584,7 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
                              q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
-        source_geostrophic!(S, Q, aux, t)
+        #source_geostrophic!(S, Q, aux, t)
     end
 end
 

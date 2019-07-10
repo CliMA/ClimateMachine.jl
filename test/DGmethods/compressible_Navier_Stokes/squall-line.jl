@@ -584,7 +584,7 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
                              q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
-        source_geostrophic!(S, Q, aux, t)
+        #source_geostrophic!(S, Q, aux, t)
     end
 end
 
