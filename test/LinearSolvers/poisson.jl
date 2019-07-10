@@ -1,4 +1,4 @@
-include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
+include(joinpath("..", "shared", "DGDriverPrep.jl"))
 
 function physical_flux!(F, state, visc_state, _...)
   @inbounds F[:, 1] = visc_state[:]

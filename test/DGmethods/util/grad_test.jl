@@ -1,21 +1,4 @@
-using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using Printf
-using LinearAlgebra
-using Logging
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 @inline function auxiliary_state_initialization!(aux, x, y, z, dim)
   @inbounds begin

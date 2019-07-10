@@ -4,7 +4,7 @@ CuArrays.allowscalar(false)
 try
   isdefined(NumericalFluxes, :rusanov!)
 catch
-  include("../../src/DGmethods/NumericalFluxes.jl")
+  include(joinpath("..","..","src","DGmethods","NumericalFluxes.jl"))
 end
 
 include("DGBalanceLawProfileHarness.jl")

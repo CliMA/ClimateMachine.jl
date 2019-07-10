@@ -1,22 +1,4 @@
-using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.MPIStateArrays
-using Printf
-using LinearAlgebra
-using Logging
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+include(joinpath("..", "..", "shared", "DGDriverPrep.jl"))
 
 using Test
 function run(mpicomm, dim, ArrayType, Ne, DFloat)

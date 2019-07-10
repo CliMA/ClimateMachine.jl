@@ -15,7 +15,7 @@ const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
                       (ARK548L2SA2KennedyCarpenter, 5)
                      ]
 
-let 
+let
   function rhs!(dQ, Q, time; increment)
     if increment
       dQ .+= Q * cos(time)
@@ -53,7 +53,7 @@ let
       Q1 = [q0]
       solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
       solve!(Q1, solver1; timeend = finaltime)
-      
+
       Q2 = [q0]
       solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
       solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
@@ -66,7 +66,7 @@ let
   @static if haspkg("CuArrays")
     using CuArrays
     CuArrays.allowscalar(false)
-    
+
     @testset "CUDA ODE Solvers Convergence" begin
       ninitial = 1337
       q0s = range(1.0, 2.0, length = ninitial)
@@ -98,7 +98,7 @@ let
         Q1 = CuArray(q0s)
         solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
         solve!(Q1, solver1; timeend = finaltime)
-        
+
         Q2 = CuArray(q0s)
         solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
         solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
@@ -112,7 +112,7 @@ let
   end
 end
 
-let 
+let
   c = 100.0
   function rhs!(dQ, Q, time; increment)
     if increment
@@ -121,7 +121,7 @@ let
       dQ .= im * c * Q .+ exp(im * time)
     end
   end
- 
+
   function rhs_linear!(dQ, Q, time; increment)
     if increment
       dQ .+= im * c * Q
@@ -129,7 +129,7 @@ let
       dQ .= im * c * Q
     end
   end
- 
+
   function solve_linear_problem!(Qtt, Qhat, rhs_linear!, a)
     Qtt .= Qhat ./ (1 - a * im * c)
   end
