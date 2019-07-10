@@ -919,7 +919,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
 
-                @info @sprintf """dt = %25.16e""" dt
+              # @info @sprintf """dt = %25.16e""" dt
                 
             end
         end
@@ -978,7 +978,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 #
 # Dynamic dt
-#
+#=
 cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
                                                Q) do R, Q, QV, aux
@@ -1010,7 +1010,7 @@ cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
 end
 #
 # END Dynamic dt
-#
+=#
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
 @timeit to "initial integral" integral_computation(spacedisc, Q, 0)
