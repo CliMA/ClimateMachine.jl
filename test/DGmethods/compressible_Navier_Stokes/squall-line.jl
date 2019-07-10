@@ -528,11 +528,13 @@ end
             #x left and right
             #xsl
             if x <= xspongel
-                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))
+                #csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))
+                csleft = cs_left_right * (1.0 - cos(pi*(x - xspongel)/(domain_left - xspongel)))
             end
             #xsr
             if x >= xsponger
-                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))
+                #csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))
+                csright = cs_left_right * (1.0 - cos(pi*(x - xsponger)/(domain_right - xsponger)))
             end
             #y left and right
             #ysl
