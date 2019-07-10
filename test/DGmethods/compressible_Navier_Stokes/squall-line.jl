@@ -33,6 +33,16 @@ else
     const ArrayType = Array
 end
 
+
+# Global max mean functions 
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  locmax = maximum(view(h_A, :, states, A.realelems)) 
+  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
 # For the dry example shown here, we load the moist thermodynamics module
 # and consider the dry equation set to be the same as the moist equations but
@@ -888,27 +898,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     @timeit to "Time stepping init" begin
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
-        #=
-        # Courant start
-        #
-        #@show(spacedisc.auxstate)
-        cfl_safety_factor = 0.85
-        Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
-        
-        @info @sprintf("""Courant_max = %.16e ------ %.16e """, Courant_max, global_max(spacedisc.auxstate, _a_timescale))
-
-        if (Courant_max >= 1)
-            dt = dt / Courant_max * cfl_safety_factor
-        else
-            dt = cfl_safety_factor / Courant_max * dt
-        end
-
-        ODESolvers.updatedt!(lsrk, dt)
-        @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt Courant_max
-        #
-        # Courant end
-        =#
         
         #=eng0 = norm(Q)
         @info @sprintf """Starting
@@ -929,6 +918,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+
+                @info @sprintf """dt = %25.16e""" dt
+                
             end
         end
 
@@ -939,7 +931,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
         step = [0]
         mkpath("./CLIMA-output-scratch")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
@@ -984,9 +976,45 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
 
+#
+# Dynamic dt
+#
+cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
+                                               Q) do R, Q, QV, aux
+                                                   @inbounds let
+                                                       dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+                                                       z = aux[_a_z]
+                                                       ρ, U, V, W, E, QT = Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot]
+                                                       e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+                                                       q_tot = QT / ρ
+                                                       u, v, w = U/ρ, V/ρ, W/ρ
+                                                       TS = PhaseEquil(e_int, q_tot, ρ)
+                                                       soundspeed  = soundspeed_air(TS)
+                                                       u_timescale = (abs(u) + soundspeed) * Npoly/ dx
+                                                       v_timescale = (abs(v) + soundspeed) * Npoly/ dy 
+                                                       w_timescale = (abs(w) + soundspeed) * Npoly/ dz 
+                                                       R[_a_timescale] = max(u_timescale, v_timescale, w_timescale)
+                                                   end
+                                               end
+    cfl_safety_factor = 1.00
+    Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
+    if (Courant_max >= 1)
+        dt = dt / Courant_max * cfl_safety_factor
+    else
+        dt = cfl_safety_factor / Courant_max * dt
+    end
+    ODESolvers.updatedt!(lsrk, dt)
+    step[1] += 1
+    nothing
+end
+#
+# END Dynamic dt
+#
+
 # Initialise the integration computation. Kernels calculate this at every timestep??
 @timeit to "initial integral" integral_computation(spacedisc, Q, 0)
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdt))
 
 
 @info @sprintf """Finished...
@@ -1058,8 +1086,8 @@ let
         @info @sprintf """ ------------------------------------------------------"""
         @info @sprintf """ Squall line                                           """
         @info @sprintf """   Resolution:                                         """
-        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz Δx*Δy*Δz
-        @info @sprintf """     (Nex, Ney, Nez), Netoto = (%d, %d, %d), %d        """ Nex Ney Nez
+        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
+        @info @sprintf """     (Nex, Ney, Nez), Netoto = (%d, %d, %d), %d        """ Nex Ney Nez Nex*Ney*Nez 
         @info @sprintf """     DoF = %d                                          """ DoF
         @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
         @info @sprintf """     Time step dt: %.2e                                """ dt
