@@ -277,7 +277,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
 
         # Radiation contribution
-        F_rad = ρ * radiation(aux)
+        #F_rad = ρ * radiation(aux)
 
         SijSij = VF[_SijSij]
 
@@ -302,7 +302,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[2, _ρe_tot] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _ρe_tot] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
-        F[3, _ρe_tot] -= F_rad
+        #F[3, _ρe_tot] -= F_rad
 
         # Viscous contributions to mass flux terms
         F[1, _ρq_tot] -= vq_tot_x * D_e; F[2, _ρq_tot] -= vq_tot_y * D_e; F[3, _ρq_tot] -= vq_tot_z * D_e

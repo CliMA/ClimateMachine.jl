@@ -119,8 +119,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-5000, 5000)
-const (ymin, ymax) = (     0, 5000)
+const (xmin, xmax) = (-30000, 30000)
+const (ymin, ymax) = (     0, 30000)
 const (zmin, zmax) = (     0, 24000)
 
 #Get Nex, Ney from resolution
@@ -302,7 +302,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[2, _ρe_tot] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _ρe_tot] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
-        F[3, _ρe_tot] -= F_rad
+        #F[3, _ρe_tot] -= F_rad
 
         # Viscous contributions to mass flux terms
         F[1, _ρq_tot] -= vq_tot_x * D_e; F[2, _ρq_tot] -= vq_tot_y * D_e; F[3, _ρq_tot] -= vq_tot_z * D_e
