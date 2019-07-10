@@ -907,20 +907,17 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             else
                 #energy = norm(Q)
                 #globmean = global_mean(Q, _ρ)
-                qt_max = global_max(Q, _ρq_tot)
-                ql_max = global_max(Q, _ρq_liq)
-                qr_max = global_max(Q, _ρq_rai)
+                #qt_max = global_max(Q, _ρq_tot)
+                #ql_max = global_max(Q, _ρq_liq)
+                #qr_max = global_max(Q, _ρq_rai)
                 @info @sprintf("""Update
                                simtime = %.16e
-                               runtime = %s
-                               maxQ_tot = %.16e
-                               maxQ_liq = %.16e
-                               maxQ_rai = %.16e""",
+                               runtime = %s""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
-                                            Dates.dateformat"HH:MM:SS"),
-                               qt_max, ql_max, qr_max)
+                                            Dates.dateformat"HH:MM:SS")) #,
+                               #qt_max, ql_max, qr_max)
 
                 @info @sprintf """dt = %25.16e""" dt
                 
