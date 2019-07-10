@@ -408,6 +408,13 @@ let
   mpicomm = MPI.COMM_WORLD
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 
+  ## Select the GPU device
+  @static if haspkg("CuArrays")
+    lcomm = MPI.Comm_split_type(mpicomm, MPI.MPI_COMM_TYPE_SHARED,
+                                MPI.Comm_rank(mpicomm))
+    CUDAnative.device!(MPI.Comm_rank(lcomm))
+  end
+
   ## parameters for defining the cubed sphere.
   Ne_vertical   = 4  # number of vertical elements (small for CI/docs reasons)
   ## Ne_vertical   = 30 # Resolution required for stable long time result

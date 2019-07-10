@@ -307,6 +307,13 @@ let
   # called in a logging block deadlock will occur since `NullLogger` code is
   # not executed.
 
+  # Select the GPU device
+  @static if haspkg("CuArrays")
+    lcomm = MPI.Comm_split_type(mpicomm, MPI.MPI_COMM_TYPE_SHARED,
+                                MPI.Comm_rank(mpicomm))
+    CUDAnative.device!(MPI.Comm_rank(lcomm))
+  end
+
   # Dimensionality to run
   dim = 2
 
@@ -403,6 +410,11 @@ let
   # code is the same as above until the `solve!` call
   mpicomm = MPI.COMM_WORLD
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
+  @static if haspkg("CuArrays")
+    lcomm = MPI.Comm_split_type(mpicomm, MPI.MPI_COMM_TYPE_SHARED,
+                                MPI.Comm_rank(mpicomm))
+    CUDAnative.device!(MPI.Comm_rank(lcomm))
+  end
   dim = 2
   Ne = 20
   polynomialorder = 4

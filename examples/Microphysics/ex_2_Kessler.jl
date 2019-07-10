@@ -399,6 +399,12 @@ function run(dim, Ne, N, timeend, DFloat)
 
   mpicomm = MPI.COMM_WORLD
 
+  @static if haspkg("CuArrays")
+    lcomm = MPI.Comm_split_type(mpicomm, MPI.MPI_COMM_TYPE_SHARED,
+                                MPI.Comm_rank(mpicomm))
+    CUDAnative.device!(MPI.Comm_rank(lcomm))
+  end
+
   brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=Z_max), 2)
 
   topl = BrickTopology(mpicomm, brickrange, periodicity=(true, false))
