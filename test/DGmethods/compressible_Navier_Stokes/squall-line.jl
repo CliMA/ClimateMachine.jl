@@ -919,7 +919,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
 
-              # @info @sprintf """dt = %25.16e""" dt
+              @info @sprintf """dt = %25.16e""" dt
                 
             end
         end
@@ -930,7 +930,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch")
+        mkpath("./CLIMA-output-scratch/squall-adaptive-dt/")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
@@ -962,7 +962,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/squall-adaptive-dt/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
@@ -978,11 +978,13 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 #
 # Dynamic dt
-#=
+
 cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
+                                                       Npoly2 = Npoly*Npoly
+                                                       
                                                        dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
                                                        z = aux[_a_z]
                                                        ρ, U, V, W, E, QT = Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot]
@@ -991,9 +993,9 @@ cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
                                                        u, v, w = U/ρ, V/ρ, W/ρ
                                                        TS = PhaseEquil(e_int, q_tot, ρ)
                                                        soundspeed  = soundspeed_air(TS)
-                                                       u_timescale = (abs(u) + soundspeed) * Npoly/ dx
-                                                       v_timescale = (abs(v) + soundspeed) * Npoly/ dy 
-                                                       w_timescale = (abs(w) + soundspeed) * Npoly/ dz 
+                                                       u_timescale = (abs(u) + soundspeed) * Npoly2/ dx
+                                                       v_timescale = (abs(v) + soundspeed) * Npoly2/ dy 
+                                                       w_timescale = (abs(w) + soundspeed) * Npoly2/ dz 
                                                        R[_a_timescale] = max(u_timescale, v_timescale, w_timescale)
                                                    end
                                                end
@@ -1005,16 +1007,15 @@ cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         dt = cfl_safety_factor / Courant_max * dt
     end
     ODESolvers.updatedt!(lsrk, dt)
-    step[1] += 1
     nothing
 end
 #
 # END Dynamic dt
-=#
+
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
 @timeit to "initial integral" integral_computation(spacedisc, Q, 0)
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdt))
 
 
 @info @sprintf """Finished...
