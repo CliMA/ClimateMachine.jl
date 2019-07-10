@@ -107,7 +107,7 @@ const Npoly = 4
 #
 # Define grid size
 #
-Δx    =  -250
+Δx    =  250
 Δy    = 1000
 Δz    =  200
 
@@ -116,11 +116,11 @@ const Npoly = 4
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (40, 30, 24)
+(Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-80000, 80000)
-const (ymin, ymax) = (-60000, 60000)
+const (xmin, xmax) = (-30000,30000)
+const (ymin, ymax) = (0,  5000)
 const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
@@ -283,7 +283,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-        D_e = 400.0 # ν_e / Prandtl_t
+        D_e = 200.0 # ν_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -753,16 +753,16 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         dataq = 0.0
     end
 
-    θ_c =     3.0
+    θ_c =     5.0
     rx  = 10000.0
-    ry  =  7000.0
+    ry  =  1500.0
     rz  =  1500.0
     xc  = 0.5*(xmax + xmin)
     yc  = 0.5*(ymax + ymin)
     zc  = 2000.0
 
     cylinder_flg = 0.0
-    r   = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+    r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
     Δθ  = 0.0
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
@@ -817,7 +817,7 @@ function grid_stretching(DFloat,
 
     zstretch_coe = 0.0
     if zstretch_flg == 1
-        zstretch_coe = 2.5
+        zstretch_coe = 2.0
         z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
     end
 
@@ -829,7 +829,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 
     #Build stretching along each direction
-    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 0)
+    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 1)
 
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
@@ -919,7 +919,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
 
-              #@info @sprintf """dt = %25.16e""" dt
+              @info @sprintf """dt = %25.16e""" dt
                 
             end
         end
@@ -930,7 +930,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/vtk-squall-line-3d/")
+        mkpath("./CLIMA-output-scratch/vtk-squall-line/")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
@@ -962,7 +962,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line-3d/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
@@ -1070,7 +1070,7 @@ let
     # User defined simulation end time
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
-    dt = 0.02
+    dt = 0.025
     timeend = 9000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
@@ -1086,7 +1086,7 @@ let
         @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|  (___________)  """
         @info @sprintf """                                                       """
         @info @sprintf """ ------------------------------------------------------"""
-        @info @sprintf """ Squall line  3D                                       """
+        @info @sprintf """ Squall line                                           """
         @info @sprintf """   Resolution:                                         """
         @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
         @info @sprintf """     (Nex, Ney, Nez), Netoto = (%d, %d, %d), %d        """ Nex Ney Nez Nex*Ney*Nez 
