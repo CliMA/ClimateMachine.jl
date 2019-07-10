@@ -504,26 +504,21 @@ end
 
 
             #Lateral coefficients
-            cs_left_right = 0.75
-            cs_front_back = 0.75
+            cs_left_right = 0.25
+            cs_front_back = 0.25
             #Top coefficients
             alpha_coe     = 0.5 
             bc_zscale     = 7500.0
             ct            = 0.9
-
             # End parameters
             
-
-
-           
-
             #
             # Lateral damping
             #                                
-            xsponger  = domain_right - 0.15 * (domain_right - xc)
-            xspongel  = domain_left  + 0.15 * (xc - domain_left)
-            ysponger  = domain_back  - 0.15 * (domain_back - yc)
-            yspongel  = domain_front + 0.15 * (yc - domain_front)
+            xsponger  = domain_right - 0.25 * (domain_right - xc)
+            xspongel  = domain_left  + 0.25 * (xc - domain_left)
+            ysponger  = domain_back  - 0.25 * (domain_back - yc)
+            yspongel  = domain_front + 0.25 * (yc - domain_front)
             #x left and right
             #xsl
             if x <= xspongel
