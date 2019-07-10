@@ -755,14 +755,14 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     θ_c =     3.0
     rx  = 10000.0
-    ry  =  1500.0
+    ry  =  7000.0
     rz  =  1500.0
     xc  = 0.5*(xmax + xmin)
     yc  = 0.5*(ymax + ymin)
     zc  = 2000.0
 
     cylinder_flg = 0.0
-    r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+    r   = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2 + (z - zc)^2/rz^2)
     Δθ  = 0.0
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
@@ -919,7 +919,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
 
-              @info @sprintf """dt = %25.16e""" dt
+              #@info @sprintf """dt = %25.16e""" dt
                 
             end
         end
@@ -930,7 +930,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/vtk-squall-line/")
+        mkpath("./CLIMA-output-scratch/vtk-squall-line-3d/")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3200) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
@@ -962,7 +962,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-squall-line-3d/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
