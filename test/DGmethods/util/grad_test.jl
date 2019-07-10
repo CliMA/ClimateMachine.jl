@@ -73,7 +73,9 @@ let
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
   @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
+    lcomm = MPI.Comm_split_type(mpicomm, MPI.MPI_COMM_TYPE_SHARED,
+                                MPI.Comm_rank(mpicomm))
+    CUDAnative.device!(MPI.Comm_rank(lcomm))
   end
 
   numelem = (5, 5, 1)
