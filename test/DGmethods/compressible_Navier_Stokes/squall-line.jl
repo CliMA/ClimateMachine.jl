@@ -509,8 +509,8 @@ end
             bc_xscale     = 12500.0
             bc_yscale     = 0.0
             
-            cs_left_right = 0.025
-            cs_front_back = 0.025
+            cs_left_right = 0.05
+            cs_front_back = 0.05
             
             #Top coefficients
             alpha_coe     = 0.5 
