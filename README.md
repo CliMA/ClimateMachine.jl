@@ -1,18 +1,15 @@
 # CLIMA
 Climate Machine
 
-| **Documentation**                             | **Build Status**                                                                                                                                         |
-|:--------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [![latest][docs-latest-img]][docs-latest-url] | [![travis][travis-img]][travis-url] [![appveyor][appveyor-img]][appveyor-url] [![codecov][codecov-img]][codecov-url] |
+| **Documentation**                             | **Build Status**                                                        |
+|:--------------------------------------------- |:------------------------------------------------------------------------|
+| [![latest][docs-latest-img]][docs-latest-url] | [![azure][azure-img]][azure-url] [![codecov][codecov-img]][codecov-url] |
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://climate-machine.github.io/CLIMA/latest/
 
-[travis-img]: https://travis-ci.org/climate-machine/CLIMA.svg?branch=master
-[travis-url]: https://travis-ci.org/climate-machine/CLIMA
-
-[appveyor-img]: https://ci.appveyor.com/api/projects/status/anqnislvfn75tduv/branch/master?svg=true
-[appveyor-url]: https://ci.appveyor.com/project/climate-machine/clima/branch/master
+[azure-img]: https://dev.azure.com/spjbyrne/CLIMA/_apis/build/status/CLIMA?branchName=master
+[azure-url]: https://dev.azure.com/spjbyrne/CLIMA/_build/latest?definitionId=1&branchName=master
 
 [codecov-img]: https://codecov.io/gh/climate-machine/CLIMA/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/climate-machine/CLIMA
