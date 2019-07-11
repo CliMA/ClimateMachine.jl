@@ -17,7 +17,6 @@ using Logging, Printf, Dates
 using CLIMA.Vtk
 using DelimitedFiles
 using Dierckx
-using Random
 
 using TimerOutputs
 
@@ -31,15 +30,6 @@ if haspkg("CuArrays")
     const ArrayType = CuArray
 else
     const ArrayType = Array
-end
-
-
-# Global max mean functions 
-function global_max(A::MPIStateArray, states=1:size(A, 2))
-  host_array = Array ∈ typeof(A).parameters
-  h_A = host_array ? A : Array(A)
-  locmax = maximum(view(h_A, :, states, A.realelems)) 
-  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
 end
 
 
@@ -86,9 +76,6 @@ end
 @parameter Prandtl_t 1//3 "Prandtl_t"
 @parameter cp_over_prandtl cp_d / Prandtl_t "cp_over_prandtl"
 
-# Random number seed
-const seed = MersenneTwister(0)
-
 # Problem description
 # --------------------
 # 2D thermal perturbation (cold bubble) in a neutrally stratified atmosphere
@@ -120,7 +107,7 @@ const Npoly = 4
 
 # Physical domain extents
 const (xmin, xmax) = (-30000,30000)
-const (ymin, ymax) = (0,      5000)
+const (ymin, ymax) = (0,  10000)
 const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
@@ -753,7 +740,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         dataq = 0.0
     end
 
-    θ_c =     5.0
+    θ_c =     3.0
     rx  = 10000.0
     ry  =  1500.0
     rz  =  1500.0
@@ -905,20 +892,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             if s
                 starttime[] = now()
             else
-                #energy = norm(Q)
-                #globmean = global_mean(Q, _ρ)
-                #qt_max = global_max(Q, _ρq_tot)
-                #ql_max = global_max(Q, _ρq_liq)
-                #qr_max = global_max(Q, _ρq_rai)
+                qt_max = global_max(Q, _ρq_tot)
+                ql_max = global_max(Q, _ρq_liq)
+                qr_max = global_max(Q, _ρq_rai)
                 @info @sprintf("""Update
                                simtime = %.16e
-                               runtime = %s""",
+                               runtime = %s
+                               maxQt = %.16e
+                               maxQl = %.16e
+                               maxQr = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
-                                            Dates.dateformat"HH:MM:SS"))
-                #,
-                #               qt_max, ql_max, qr_max)
+                                            Dates.dateformat"HH:MM:SS"),
+                               qt_max, ql_max, qr_max)
 
                 @info @sprintf """dt = %25.16e""" dt
                 
@@ -968,6 +955,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
                      postprocessarray, postnames)
+            @info @sprintf(""" Write VTK at current time. """
 
             step[1] += 1
             nothing
@@ -979,7 +967,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 #
 # Dynamic dt
-#=
+#
 cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
                                                Q) do R, Q, QV, aux
@@ -1012,12 +1000,12 @@ cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
 end
 #
 # END Dynamic dt
-=#
+#
 
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
 @timeit to "initial integral" integral_computation(spacedisc, Q, 0)
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdt))
 
 
 @info @sprintf """Finished...
