@@ -36,3 +36,17 @@ if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
+
+
+function print_norm!(starttime, TimeIntegrator, Q_norm)
+
+  @info @sprintf("""Update
+                 simtime = %.16e
+                 runtime = %s
+                 Δmass   = %.16e""",
+                 ODESolvers.gettime(TimeIntegrator),
+                 Dates.format(convert(Dates.DateTime,
+                                      Dates.now()-starttime[]),
+                              Dates.dateformat"HH:MM:SS"),
+                 Q_norm)
+end

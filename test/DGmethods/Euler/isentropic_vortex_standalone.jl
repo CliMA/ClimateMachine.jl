@@ -127,10 +127,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
       starttime[] = now()
     else
       energy = norm(Q)
-      @info @sprintf """Update
-  simtime = %.16e
-  runtime = %s
-  norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") energy
+      print_norm!(starttime, lsrk, energy)
     end
   end
 

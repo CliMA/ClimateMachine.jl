@@ -159,15 +159,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
     if s
       starttime[] = now()
     else
-      @info @sprintf("""Update
-                     simtime = %.16e
-                     runtime = %s
-                     Δmass   = %.16e""",
-                     ODESolvers.gettime(TimeIntegrator),
-                     Dates.format(convert(Dates.DateTime,
-                                          Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"),
-                     abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe))
+      print_norm!(starttime, TimeIntegrator, abs(weightedsum(Q) - weightedsum(Qe)) / weightedsum(Qe))
     end
     nothing
   end
