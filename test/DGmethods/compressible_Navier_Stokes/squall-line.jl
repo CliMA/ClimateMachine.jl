@@ -17,7 +17,6 @@ using Logging, Printf, Dates
 using CLIMA.Vtk
 using DelimitedFiles
 using Dierckx
-using Random
 
 using TimerOutputs
 
@@ -31,15 +30,6 @@ if haspkg("CuArrays")
     const ArrayType = CuArray
 else
     const ArrayType = Array
-end
-
-
-# Global max mean functions 
-function global_max(A::MPIStateArray, states=1:size(A, 2))
-  host_array = Array ∈ typeof(A).parameters
-  h_A = host_array ? A : Array(A)
-  locmax = maximum(view(h_A, :, states, A.realelems)) 
-  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
 end
 
 
@@ -85,9 +75,6 @@ end
 # Problem constants (TODO: parameters module (?))
 @parameter Prandtl_t 1//3 "Prandtl_t"
 @parameter cp_over_prandtl cp_d / Prandtl_t "cp_over_prandtl"
-
-# Random number seed
-const seed = MersenneTwister(0)
 
 # Problem description
 # --------------------
@@ -905,21 +892,19 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             if s
                 starttime[] = now()
             else
-                #energy = norm(Q)
-                #globmean = global_mean(Q, _ρ)
-                #qt_max = global_max(Q, _ρq_tot)
-                #ql_max = global_max(Q, _ρq_liq)
-                #qr_max = global_max(Q, _ρq_rai)
+                qt_max = global_max(Q, _ρq_tot)
+                ql_max = global_max(Q, _ρq_liq)
+                qr_max = global_max(Q, _ρq_rai)
                 @info @sprintf("""Update
                                simtime = %.16e
                                runtime = %s""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
-                                            Dates.dateformat"HH:MM:SS")) #,
-                               #qt_max, ql_max, qr_max)
+                                            Dates.dateformat"HH:MM:SS"),
+                               qt_max, ql_max, qr_max)
 
-                @info @sprintf """dt = %25.16e""" dt
+                #@info @sprintf """dt = %25.16e""" dt
                 
             end
         end
@@ -978,7 +963,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 #
 # Dynamic dt
-#=
+#
 cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
                                                Q) do R, Q, QV, aux
@@ -1011,12 +996,12 @@ cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
 end
 #
 # END Dynamic dt
-=#
+#
 
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
 @timeit to "initial integral" integral_computation(spacedisc, Q, 0)
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdt))
 
 
 @info @sprintf """Finished...
