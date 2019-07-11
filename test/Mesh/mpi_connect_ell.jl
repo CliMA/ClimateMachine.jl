@@ -1,6 +1,6 @@
 using Test
 using MPI
-using CLIMA.Topologies
+using CLIMA.Mesh.Topologies
 
 function main()
   MPI.Init()
