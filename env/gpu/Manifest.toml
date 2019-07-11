@@ -53,7 +53,7 @@ version = "2.2.3"
 
 [[CLIMA]]
 deps = ["Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "GaussQuadrature", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
-path = "../../"
+path = "../.."
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
 
@@ -205,10 +205,10 @@ uuid = "9fdde737-9c7f-55bf-ade8-46b3f136cc48"
 version = "3.5.0"
 
 [[DiffEqPhysics]]
-deps = ["Dates", "DiffEqBase", "DiffEqCallbacks", "ForwardDiff", "LinearAlgebra", "Printf", "Random", "RecipesBase", "RecursiveArrayTools", "Reexport", "StaticArrays", "Test"]
-git-tree-sha1 = "d3dbc53318a6477f496ae2347db98c3ded36c486"
+deps = ["DiffEqBase", "DiffEqCallbacks", "ForwardDiff", "LinearAlgebra", "Printf", "Random", "RecipesBase", "RecursiveArrayTools", "Reexport", "StaticArrays"]
+git-tree-sha1 = "9f4b98590c63bf202d12ae20783203baad3dd27a"
 uuid = "055956cb-9e8b-5191-98cc-73ae4a59e68a"
-version = "3.1.0"
+version = "3.2.0"
 
 [[DiffResults]]
 deps = ["Compat", "StaticArrays"]
@@ -423,10 +423,10 @@ uuid = "a3b82374-2e81-5b9e-98ce-41277c0e4c87"
 version = "0.0.4"
 
 [[MbedTLS]]
-deps = ["BinaryProvider", "Dates", "Distributed", "Libdl", "Random", "Sockets", "Test"]
-git-tree-sha1 = "2d94286a9c2f52c63a16146bb86fd6cdfbf677c6"
+deps = ["BinaryProvider", "Dates", "Libdl", "Random", "Sockets"]
+git-tree-sha1 = "85f5947b53c8cfd53ccfa3f4abae31faa22c2181"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "0.6.8"
+version = "0.7.0"
 
 [[Missings]]
 deps = ["SparseArrays", "Test"]
@@ -481,9 +481,9 @@ version = "1.1.0"
 
 [[OrdinaryDiffEq]]
 deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqOperators", "ExponentialUtilities", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "RecursiveArrayTools", "Reexport", "StaticArrays"]
-git-tree-sha1 = "c1bd0e707a377b14ea260635ee033aa37ebfc031"
+git-tree-sha1 = "77b2e1d2a7e172ee671acc827ff44060ef8d65c2"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.11.0"
+version = "5.11.1"
 
 [[PDMats]]
 deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
@@ -654,7 +654,7 @@ uuid = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
 version = "6.6.0"
 
 [[SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "SparseArrays"]
+deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[Sundials]]

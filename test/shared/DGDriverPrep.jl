@@ -14,6 +14,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using Random
+using Test
 using DelimitedFiles
 using Dierckx
 
