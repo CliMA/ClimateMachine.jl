@@ -88,7 +88,7 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
 end
 
 let
-  include(joinpath("..", "..", "shared", "PrepLogger.jl"))
+  include(joinpath("..", "shared", "PrepLogger.jl"))
 
   polynomialorder = 4
   base_num_elem = 4

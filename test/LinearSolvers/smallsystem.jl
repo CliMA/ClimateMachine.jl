@@ -24,16 +24,16 @@ using LinearAlgebra, Random
 
     tol = sqrt(eps(T))
     gcrk = GeneralizedConjugateResidual(2, b, tol)
-    
+
     x = rand(T, n)
     iters = linearsolve!(mulbyA!, x, b, gcrk)
 
     @test iters == expected_iters[T]
     @test norm(A * x - b, Inf) / norm(b, Inf) <= tol
-   
+
     newtol = 1000tol
     settolerance!(gcrk, newtol)
-    
+
     x = rand(T, n)
     linearsolve!(mulbyA!, x, b, gcrk)
 
