@@ -740,7 +740,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         dataq = 0.0
     end
 
-    θ_c =     5.0
+    θ_c =     3.0
     rx  = 10000.0
     ry  =  1500.0
     rz  =  1500.0
@@ -955,6 +955,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
                      postprocessarray, postnames)
+            @info @sprintf(""" Write VTK at current time. """
 
             step[1] += 1
             nothing
