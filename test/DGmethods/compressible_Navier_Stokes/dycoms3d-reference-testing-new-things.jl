@@ -99,8 +99,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 3820)
-const (ymin, ymax) = (0, 3820)
+const (xmin, xmax) = (0, 840)
+const (ymin, ymax) = (0, 840)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -131,7 +131,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-@parameter C_smag 0.15 "C_smag"
+@parameter C_smag 0.12 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -489,16 +489,6 @@ end
   @inbounds S[_W] += - Q[_ρ] * grav
 end
 
-# Test integral exactly according to the isentropic vortex example
-@inline function integrand_knl(val, Q, aux)
-  κ = 85
-  @inbounds begin
-    ρ = Q[_ρ]
-    q_liq = aux[_a_q_liq]
-    val[1] = ρ * κ * q_liq
-    val[2] = ρ * q_liq     #LWP
-  end
-end
 
 function preodefun!(disc, Q, t)
   DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
@@ -521,6 +511,17 @@ function preodefun!(disc, Q, t)
   end
 
   integral_computation(disc, Q, t)
+end
+
+# Test integral exactly according to the isentropic vortex example
+@inline function integrand_knl(val, Q, aux)
+  κ = 85
+  @inbounds begin
+    ρ = Q[_ρ]
+    q_liq = aux[_a_q_liq]
+    val[1] = ρ * κ * q_liq
+    val[2] = ρ * q_liq     #LWP
+  end
 end
 
 function integral_computation(disc, Q, t)
