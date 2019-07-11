@@ -759,7 +759,8 @@ let
   @static if haspkg("CUDAnative")
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
-    
+
+  
   # User defined number of elements
   # User defined timestep estimate
   # User defined simulation end time
