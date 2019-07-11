@@ -9,6 +9,9 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+using CLIMA.LinearSolvers
+using CLIMA.GeneralizedConjugateResidualSolver
+using CLIMA.SpaceMethods
 using CLIMA.Vtk
 using LinearAlgebra
 using StaticArrays
