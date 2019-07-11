@@ -130,7 +130,7 @@ version = "4.0.0"
 
 [[CuArrays]]
 deps = ["AbstractFFTs", "Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Requires", "SparseArrays", "TimerOutputs"]
-git-tree-sha1 = "9fd726064739268d5688831d1d6cb7f43edae361"
+git-tree-sha1 = "e9959fe9ec016fbe0b21bf90b0b8fda711f11266"
 repo-rev = "master"
 repo-url = "https://github.com/JuliaGPU/CuArrays.jl.git"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
@@ -192,12 +192,6 @@ git-tree-sha1 = "784b979eeca8e9586aea9e63edbdcf5573bf9449"
 uuid = "c894b116-72e5-5b58-be3c-e6d8d4ac2b12"
 version = "6.1.1"
 
-[[DiffEqMonteCarlo]]
-deps = ["DiffEqBase", "Distributed", "RecursiveArrayTools", "StaticArrays", "Statistics"]
-git-tree-sha1 = "edffd3e114b5c2cad15e7790db6d82f69e3f42ae"
-uuid = "78ddff82-25fc-5f2b-89aa-309469cbf16f"
-version = "0.15.1"
-
 [[DiffEqNoiseProcess]]
 deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "Random", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "Requires", "ResettableStacks", "StaticArrays", "Statistics"]
 git-tree-sha1 = "f5333c0aa6208680e48cd24ae6f759c262a1cf85"
@@ -211,10 +205,10 @@ uuid = "9fdde737-9c7f-55bf-ade8-46b3f136cc48"
 version = "3.5.0"
 
 [[DiffEqPhysics]]
-deps = ["Dates", "DiffEqBase", "DiffEqCallbacks", "ForwardDiff", "LinearAlgebra", "Printf", "Random", "RecipesBase", "RecursiveArrayTools", "Reexport", "StaticArrays", "Test"]
-git-tree-sha1 = "d3dbc53318a6477f496ae2347db98c3ded36c486"
+deps = ["DiffEqBase", "DiffEqCallbacks", "ForwardDiff", "LinearAlgebra", "Printf", "Random", "RecipesBase", "RecursiveArrayTools", "Reexport", "StaticArrays"]
+git-tree-sha1 = "9f4b98590c63bf202d12ae20783203baad3dd27a"
 uuid = "055956cb-9e8b-5191-98cc-73ae4a59e68a"
-version = "3.1.0"
+version = "3.2.0"
 
 [[DiffResults]]
 deps = ["Compat", "StaticArrays"]
@@ -261,12 +255,6 @@ deps = ["LibGit2", "Markdown", "Pkg", "Test"]
 git-tree-sha1 = "0513f1a8991e9d83255e0140aace0d0fc4486600"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.0"
-
-[[Documenter]]
-deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "JSON", "LibGit2", "Logging", "Markdown", "Pkg", "REPL", "Random", "Test", "Unicode"]
-git-tree-sha1 = "13a6d15102410d8e70146533b759fc48d844a1d0"
-uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-version = "0.22.3"
 
 [[DoubleFloats]]
 deps = ["GenericSVD", "GenericSchur", "LinearAlgebra", "Polynomials", "Quadmath", "Random", "SpecialFunctions"]
@@ -435,10 +423,10 @@ uuid = "a3b82374-2e81-5b9e-98ce-41277c0e4c87"
 version = "0.0.4"
 
 [[MbedTLS]]
-deps = ["BinaryProvider", "Dates", "Distributed", "Libdl", "Random", "Sockets", "Test"]
-git-tree-sha1 = "2d94286a9c2f52c63a16146bb86fd6cdfbf677c6"
+deps = ["BinaryProvider", "Dates", "Libdl", "Random", "Sockets"]
+git-tree-sha1 = "85f5947b53c8cfd53ccfa3f4abae31faa22c2181"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "0.6.8"
+version = "0.7.0"
 
 [[Missings]]
 deps = ["SparseArrays", "Test"]
@@ -493,9 +481,9 @@ version = "1.1.0"
 
 [[OrdinaryDiffEq]]
 deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqOperators", "ExponentialUtilities", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "RecursiveArrayTools", "Reexport", "StaticArrays"]
-git-tree-sha1 = "c1bd0e707a377b14ea260635ee033aa37ebfc031"
+git-tree-sha1 = "77b2e1d2a7e172ee671acc827ff44060ef8d65c2"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.11.0"
+version = "5.11.1"
 
 [[PDMats]]
 deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
@@ -666,7 +654,7 @@ uuid = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
 version = "6.6.0"
 
 [[SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "SparseArrays"]
+deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[Sundials]]
