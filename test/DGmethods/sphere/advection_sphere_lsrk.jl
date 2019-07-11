@@ -34,11 +34,6 @@ const uid, vid, wid = 1:3
 const radians = true
 const γ_exact = 7 // 5
 
-if !@isdefined integration_testing
-  const integration_testing =
-  parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
-
 # preflux computation: NOT needed for this test
 @inline function preflux(Q, _...)
   γ::eltype(Q) = γ_exact

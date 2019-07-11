@@ -45,11 +45,6 @@ const _ngradstates = 3
 const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 #md nothing # hide
 
-if !@isdefined integration_testing
-    const integration_testing =
-        parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
-
 const γ_exact = 7 // 5
 const μ_exact = 10
 
