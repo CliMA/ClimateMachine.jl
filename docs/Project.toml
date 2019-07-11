@@ -1,6 +1,5 @@
 [deps]
 CLIMA = "777c4786-024f-11e9-21a3-85d5d4106250"
-Canary = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"

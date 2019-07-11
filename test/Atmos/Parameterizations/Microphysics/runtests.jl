@@ -102,7 +102,7 @@ end
   function rain_evap_empir(q_rai::DT, q::PhasePartition,
                            T::DT, p::DT, ρ::DT) where {DT<:Real}
 
-      q_sat  = saturation_shum(T, ρ, q)
+      q_sat  = q_vap_saturation(T, ρ, q)
       q_vap  = q.tot - q.liq
       rr     = q_rai / (1 - q.tot)
       rv_sat = q_sat / (1 - q.tot)

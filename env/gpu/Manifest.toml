@@ -41,9 +41,9 @@ version = "0.8.10"
 
 [[BinaryProvider]]
 deps = ["Libdl", "Logging", "SHA"]
-git-tree-sha1 = "8153fd64131cd00a79544bb23788877741f627bb"
+git-tree-sha1 = "c7361ce8a2129f20b0e05a89f7070820cfed6648"
 uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
-version = "0.5.5"
+version = "0.5.6"
 
 [[BoundaryValueDiffEq]]
 deps = ["BandedMatrices", "DiffEqBase", "DiffEqDiffTools", "ForwardDiff", "LinearAlgebra", "NLsolve", "Reexport", "SparseArrays", "Test"]
@@ -52,7 +52,7 @@ uuid = "764a87c0-6b3e-53db-9096-fe964310641d"
 version = "2.2.3"
 
 [[CLIMA]]
-deps = ["Canary", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "Documenter", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "GaussQuadrature", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NLsolve", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
+deps = ["Coverage", "Dates", "DelimitedFiles", "Dierckx", "DifferentialEquations", "Distributions", "DocStringExtensions", "DoubleFloats", "ForwardDiff", "GPUifyLoops", "GaussQuadrature", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NLsolve", "Pkg", "Printf", "Requires", "StaticArrays", "Statistics", "WriteVTK"]
 path = "../../"
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
@@ -71,33 +71,21 @@ version = "1.0.0"
 
 [[CUDAdrv]]
 deps = ["CUDAapi", "Libdl", "Printf"]
-git-tree-sha1 = "011b20223abf1d276ecfec06543aa48d63272d43"
-repo-rev = "master"
-repo-url = "https://github.com/JuliaGPU/CUDAdrv.jl.git"
+git-tree-sha1 = "9b2d99981b984378799ec70dd005cb7e7b4e914c"
 uuid = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
 version = "3.0.1"
 
 [[CUDAnative]]
 deps = ["Adapt", "CUDAapi", "CUDAdrv", "DataStructures", "InteractiveUtils", "LLVM", "Libdl", "Logging", "Printf", "TimerOutputs"]
-git-tree-sha1 = "1fc4ecaf94378a4e45687b3be2e1b47fc2470075"
-repo-rev = "master"
-repo-url = "https://github.com/JuliaGPU/CUDAnative.jl.git"
+git-tree-sha1 = "37bfdc22482ee0f21456f677c192faf77a755e0a"
 uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
-version = "2.1.3"
+version = "2.2.0"
 
 [[Calculus]]
 deps = ["Compat"]
 git-tree-sha1 = "f60954495a7afcee4136f78d1d60350abd37a409"
 uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.4.1"
-
-[[Canary]]
-deps = ["MPI"]
-git-tree-sha1 = "bd3311c6527e10d7f0ad904addf11b11cbba2401"
-repo-rev = "master"
-repo-url = "https://github.com/climate-machine/Canary.jl"
-uuid = "f104530e-ab06-11e8-1c1e-6d6e4a5d5c91"
-version = "0.1.0"
 
 [[Cassette]]
 git-tree-sha1 = "2f5d4d747eb39ce6410438993e00ccd5a0f4bc27"
@@ -142,7 +130,7 @@ version = "4.0.0"
 
 [[CuArrays]]
 deps = ["AbstractFFTs", "Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Requires", "SparseArrays", "TimerOutputs"]
-git-tree-sha1 = "bbb859bd8e202e534864fcbdada24aa66f228732"
+git-tree-sha1 = "9fd726064739268d5688831d1d6cb7f43edae361"
 repo-rev = "master"
 repo-url = "https://github.com/JuliaGPU/CuArrays.jl.git"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
@@ -176,9 +164,9 @@ version = "0.4.1"
 
 [[DiffEqBase]]
 deps = ["Compat", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "MuladdMacro", "Parameters", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews"]
-git-tree-sha1 = "d48559a6fc4229881859e61e5de62c115ee2ed3d"
+git-tree-sha1 = "76b059cad5d43fd1fcfd7ffcd8ab5696d2027595"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "5.15.0"
+version = "5.16.0"
 
 [[DiffEqCallbacks]]
 deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "OrdinaryDiffEq", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Test"]
@@ -241,10 +229,10 @@ uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "0.0.10"
 
 [[DifferentialEquations]]
-deps = ["BoundaryValueDiffEq", "DelayDiffEq", "DiffEqBase", "DiffEqCallbacks", "DiffEqFinancial", "DiffEqJump", "DiffEqMonteCarlo", "DiffEqNoiseProcess", "DiffEqPhysics", "DimensionalPlotRecipes", "LinearAlgebra", "MultiScaleArrays", "OrdinaryDiffEq", "Random", "RecursiveArrayTools", "Reexport", "SteadyStateDiffEq", "StochasticDiffEq", "Sundials"]
-git-tree-sha1 = "e5b3ca6afe2a064bdfecba483999ee75d81750c6"
+deps = ["BoundaryValueDiffEq", "DelayDiffEq", "DiffEqBase", "DiffEqCallbacks", "DiffEqFinancial", "DiffEqJump", "DiffEqNoiseProcess", "DiffEqPhysics", "DimensionalPlotRecipes", "LinearAlgebra", "MultiScaleArrays", "OrdinaryDiffEq", "Random", "RecursiveArrayTools", "Reexport", "SteadyStateDiffEq", "StochasticDiffEq", "Sundials"]
+git-tree-sha1 = "8175bc02ee194ea7430cce917f81f1cf940f6c87"
 uuid = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
-version = "6.4.0"
+version = "6.6.0"
 
 [[DimensionalPlotRecipes]]
 deps = ["LinearAlgebra", "RecipesBase", "Test"]
@@ -318,17 +306,15 @@ version = "1.0.0"
 
 [[GPUArrays]]
 deps = ["Adapt", "FFTW", "FillArrays", "LinearAlgebra", "Printf", "Random", "Serialization", "StaticArrays", "Test"]
-git-tree-sha1 = "19ecb3a5437df18e0987cbbe45cf60a9a040d04c"
+git-tree-sha1 = "6b556af6e42b71f5712a98f8df3d110a76bfdea9"
 repo-rev = "master"
 repo-url = "https://github.com/JuliaGPU/GPUArrays.jl.git"
 uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
-version = "0.7.1"
+version = "0.7.2"
 
 [[GPUifyLoops]]
 deps = ["Cassette", "Requires", "StaticArrays"]
 git-tree-sha1 = "1053133cc136ee6b543c2d349cdc96ab75dfb448"
-repo-rev = "master"
-repo-url = "https://github.com/vchuravy/GPUifyLoops.jl.git"
 uuid = "ba82f77b-6841-5d2e-bd9f-4daf811aec27"
 version = "0.2.5"
 
@@ -507,9 +493,9 @@ version = "1.1.0"
 
 [[OrdinaryDiffEq]]
 deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqOperators", "ExponentialUtilities", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "RecursiveArrayTools", "Reexport", "StaticArrays"]
-git-tree-sha1 = "3980f750a7258698533145ee6b3f8aad492245e7"
+git-tree-sha1 = "c1bd0e707a377b14ea260635ee033aa37ebfc031"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.9.0"
+version = "5.11.0"
 
 [[PDMats]]
 deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
