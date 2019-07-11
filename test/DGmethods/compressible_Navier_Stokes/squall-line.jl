@@ -897,7 +897,10 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 qr_max = global_max(Q, _ρq_rai)
                 @info @sprintf("""Update
                                simtime = %.16e
-                               runtime = %s""",
+                               runtime = %s
+                               maxQt = %.16e
+                               maxQl = %.16e
+                               maxQr = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
