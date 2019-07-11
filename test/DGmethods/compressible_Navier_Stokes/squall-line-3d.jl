@@ -955,7 +955,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
                      postprocessarray, postnames)
-            @info @sprintf(""" Write VTK at current time. """
+            @info @sprintf(""" Write VTK at current time. """)
 
             step[1] += 1
             nothing
