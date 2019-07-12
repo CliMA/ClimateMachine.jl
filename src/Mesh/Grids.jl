@@ -399,7 +399,6 @@ struct ExponentialFilter <: AbstractFilter
     AT = arraytype(grid)
     N = polynomialorder(grid)
     ξ = referencepoints(grid)
-
     @assert iseven(s)
     @assert 0 <= Nc <= N
 

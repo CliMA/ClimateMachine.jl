@@ -15,7 +15,7 @@ inputs by the user are included. A density stratification correction is also inc
 Future additions
 3) Anisotropic Minimum Dissipation (AMD)
 4) Residual-based Dynamic SGS Model (DYN-SGS)
-
+5) Deardorff TKE based modified lengthscale 
 """
 
 module SubgridScaleTurbulence
@@ -37,12 +37,16 @@ export buoyancy_correction
   """
   
   We define the strain-rate tensor in terms of the velocity gradient components
-  ϵ = (∇u) + (∇u)ᵀ where ᵀ represents the transpose operator. 
-
+  S = (∇u) + (∇u)ᵀ where ᵀ represents a transpose operation. 
   
-  Model constants.
+  Model parameters
   C_smag takes typical values of 0.14 - 0.23 (flow dependent empirical coefficient) 
+  Δ̅ = Filter-width, a function of the spatial mesh dimensions. Various options (many
+  more can be found in literature) are presented in this module. 
+  |S| = normSij is the inner-product of the strain-rate tensor. 
 
+  §4.1 in CliMA documentation. 
+  
   article{doi:10.1063/1.869251,
   author = {Canuto,V. M.  and Cheng,Y. },
   title = {Determination of the Smagorinsky–Lilly constant CS},
@@ -56,15 +60,16 @@ export buoyancy_correction
   eprint = {https://doi.org/10.1063/1.869251}
   }
   """
-  const Prandtl = 71 // 100
 
   """
     anisotropic_lengthscale_3D(Δ1, Δ2, Δ3) 
-    return Δ², the equivalent anisotropic lengthscale squared
+    return Δ̅², the equivalent anisotropic lengthscale squared
 
-  Given a description of the grid in terms of three lengthscales Δ1,Δ2,Δ3,
+  Given a description of the grid in terms of three spatial mesh dimensions Δ1,Δ2,Δ3,
   computes the anisotropic equivalent grid coefficient described by Scotti et. al.
-  for the generalised Smagorinsky model for anisotropic grids. 
+  for the generalised Smagorinsky model.
+  
+  §4.1.3 in CliMA documentation. 
   
   @article{doi:10.1063/1.858537,
   author = {Scotti,Alberto  and Meneveau,Charles  and Lilly,Douglas K. },
@@ -152,8 +157,8 @@ export buoyancy_correction
 
   """
     strainrate_tensor_components(dudx, dudy, dudz, dvdx, dvdy, dvdz [, dwdx, dwdy, dwdz])
-    return (S11, S22, S33, S12, S13, S23, SijSij)
-    Sij are components of the strain-rate tensor, and SijSij is the tensor-inner-product
+    return (S11, S22, S33, S12, S13, S23, normSij)
+    Sij are components of the strain-rate tensor, and normSij is the tensor-inner-product
 
   Compute components of strain-rate tensor from velocity gradient terms provided in 
   driver. Note that the gradient terms are computed in Cartesian space even on the spherical
@@ -172,12 +177,12 @@ export buoyancy_correction
     S22  = dvdy
     S23  = (dvdz + dwdy) / 2
     S33  = dwdz
-    SijSij = S11^2 + S22^2 + S33^2 + 2 * (S12^2 + S13^2 + S23^2)  
-    return (S11, S22, S33, S12, S13, S23, SijSij)
+    normSij = S11^2 + S22^2 + S33^2 + 2 * (S12^2 + S13^2 + S23^2)  
+    return (S11, S22, S33, S12, S13, S23, normSij)
   end
 
   """
-    standard_smagorinsky(SijSij, Δsqr)
+    standard_smagorinsky(normSij, Δsqr)
     return (ν_e, D_e), the eddy viscosity and diffusivity respectively
 
   Smagorinksy-Lilly SGS Turbulence
@@ -193,6 +198,8 @@ export buoyancy_correction
   that subgrid turbulence production and dissipation are 
   balanced.
 
+  § 4.1.1 in CliMA documentation 
+
   article{doi:10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2,
   author = {Smagorinksy, J.},
   title = {General circulation experiments with the primitive equations},
@@ -206,17 +213,17 @@ export buoyancy_correction
   eprint = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2}
   }
   """
-  function standard_smagorinsky(SijSij, Δsqr)
+  function standard_smagorinsky(normSij, Δsqr)
     # Eddy viscosity is a function of the magnitude of the strain-rate tensor
     # This is for use on both spherical and cartesian grids. 
-    DF = eltype(SijSij)
-    ν_e::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+    DF = eltype(normSij)
+    ν_e::DF = sqrt(2.0 * normSij) * C_smag^2 * Δsqr
     D_e::DF = ν_e / Prandtl_turb 
     return (ν_e, D_e)
   end
 
   """
-    anisotropic_smagorinsky(SijSij, Δ1, Δ2[, Δ3=0])
+    anisotropic_smagorinsky(normSij, Δ1, Δ2[, Δ3=0])
     return (ν_1, ν_2, ν_3, D_1, D_2, D_3), 
     directional viscosity and diffusivity
 
@@ -224,13 +231,13 @@ export buoyancy_correction
   anisotropic viscosity dependent on the characterstic lengthscale
   in each coordinate direction 
   """
-  function anisotropic_smagorinsky(SijSij, Δ1, Δ2, Δ3=0)
+  function anisotropic_smagorinsky(normSij, Δ1, Δ2, Δ3=0)
     # Order of arguments is irrelevant as long as self-consistency
     # with governing equations is maintained.
-    DF = eltype(SijSij)
-    ν_1::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δ1^2
-    ν_2::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δ2^2
-    ν_3::DF = sqrt(2.0 * SijSij) * C_smag^2 * Δ3^2
+    DF = eltype(normSij)
+    ν_1::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ1^2
+    ν_2::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ2^2
+    ν_3::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ3^2
     D_1::DF = ν_1 / Prandtl_turb 
     D_2::DF = ν_2 / Prandtl_turb 
     D_3::DF = ν_3 / Prandtl_turb 
@@ -238,17 +245,19 @@ export buoyancy_correction
   end
   
   """
-    buoyancy_correction(SijSij, ρ, dρdz)
+    buoyancy_correction(normSij, θᵥ, dθᵥdz)
     return buoyancy_factor, scaling coefficient for Standard Smagorinsky Model
     in stratified flows
 
   Compute the buoyancy adjustment coefficient for stratified flows 
-  given the strain rate tensor inner product SijSij, local density 
-  ρ and the vertical density gradient dρdz
+  given the strain rate tensor inner product normSij, local virtual potential
+  temperature θᵥ and the vertical potential temperature gradient dθvdz
 
-  Ri = N² / (2*SijSij)
-  Ri = gravity / ρ * ∂ρ∂z / 2 |S_{ij}|
+  Ri = N² / (2*normSij)
+  Ri = gravity / θᵥ * ∂θᵥ∂z / 2 |S_{ij}|
   
+  §4.1.2 in CliMA documentation. 
+
   article{doi:10.1111/j.2153-3490.1962.tb00128.x,
   author = {LILLY, D. K.},
   title = {On the numerical simulation of buoyant convection},
@@ -262,11 +271,11 @@ export buoyancy_correction
   year = {1962}
   }
   """
-  function buoyancy_correction(SijSij, ρ, dρdz)
+  function buoyancy_correction(normSij, θv, dθvdz)
     # Brunt-Vaisala frequency
-    N2 = grav / ρ * dρdz 
+    N2 = grav / θv * dθvdz 
     # Richardson number
-    Richardson = N2 / (2 * SijSij + eps(SijSij))
+    Richardson = N2 / (2 * normSij + eps(normSij))
     # Buoyancy correction factor
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
     return buoyancy_factor

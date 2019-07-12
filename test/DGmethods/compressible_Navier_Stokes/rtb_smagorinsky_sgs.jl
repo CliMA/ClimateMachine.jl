@@ -1,7 +1,7 @@
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -71,14 +71,14 @@ Problem Description
 2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
 """
 
-Δx    = 15
-Δy    = 15
-Δz    = 15
+Δx    = 50
+Δy    = 50
+Δz    = 50
 Npoly = 4
 
 # Physical domain extents 
-(xmin, xmax) = (0, 1000)
-(ymin, ymax) = (0,  1500)
+(xmin, xmax) = (0, 10e3)
+(ymin, ymax) = (0, 10e3)
 
 # Can be extended to a 3D test case 
 (zmin, zmax) = (0, 1000)
@@ -103,16 +103,13 @@ const Nez = ceil(Int64, ratioz)
 # -------------------------------------------------------------------------
 const _nauxstate = 6
 const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z, MTS)
+@inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
-        ξx, ξy, ξz = MTS.ξx, MTS.ξy, MTS.ξz
-        ηx, ηy, ηz = MTS.ηx, MTS.ηy, MTS.ηz
-        ζx, ζy, ζz = MTS.ζx, MTS.ζy, MTS.ζz
-        aux[_a_dx] = 1/2hypot(ξx,ηx,ζx)
-        aux[_a_dy] = 1/2hypot(ξy,ηy,ζy)
+        aux[_a_dx] = dx
+        aux[_a_dy] = dy
         aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_lengthscale_2D(aux[_a_dx],aux[_a_dy]) 
     end
 end
@@ -195,7 +192,6 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     dx, dy= aux[_a_dx], aux[_a_dy]
     Δsqr = aux[_a_Δsqr]
     (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
-    
     #Richardson contribution:
     f_R = SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
     
@@ -287,6 +283,7 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
+        VFP .= 0 
         nothing
     end
 end
@@ -295,7 +292,7 @@ end
 Boundary correction for Neumann boundaries
 """
 @inline function stresses_boundary_penalty!(VF,nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
-  QP .= 0 
+  gradient_listP .= gradient_listM
   stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
 
@@ -384,21 +381,18 @@ function rising_bubble!(dim, Q, t, x, y, z, _...)
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0 
     # perturbation parameters for rising bubble
-    rx                    = 250
-    ry                    = 250
-    xc                    = 500
-    yc                    = 260
-    r                     = sqrt( (x - xc)^2 + (y - yc)^2 )
+    r0                    = 2000
+    xc                    = 5000
+    yc                    = 2000
+    r                     = sqrt( (x - xc)^2 + (y - yc)^2 ) / r0
     
-    θ_ref::DFloat         = 303.0
-    θ_c::DFloat           =   0.5
+    θ_ref::DFloat         = 300.0
+    θ_c::DFloat           =   2.0
     Δθ::DFloat            =   0.0
     a::DFloat             =  50.0
     s::DFloat             = 100.0
-    if r <= a
-        Δθ = θ_c
-    elseif r > a
-        Δθ = θ_c * exp(-(r - a)^2 / s^2)
+    if r < 1 
+      Δθ = θ_c * (1-r)
     end
     qvar                  = PhasePartition(q_tot)
     θ                     = θ_ref + Δθ # potential temperature
@@ -462,6 +456,16 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     eng0 = norm(Q)
     @info @sprintf """Starting
       norm(Q₀) = %.16e""" eng0
+
+    filter = Grids.ExponentialFilter(spacedisc.grid, 0, 32)
+
+    cb_filter = GenericCallbacks.EveryXSimulationSteps(1) do
+    DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
+                                       filter;
+                                       horizontal=true,
+                                       vertical=true)
+    nothing
+  end
 
     # Set up the information callback
     starttime = Ref(now())
@@ -547,19 +551,23 @@ let
     MPI.Initialized() || MPI.Init()
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
+    
     if MPI.Comm_rank(mpicomm) == 0
-        ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-        loglevel = ll == "DEBUG" ? Logging.Debug :
-            ll == "WARN"  ? Logging.Warn  :
-            ll == "ERROR" ? Logging.Error : Logging.Info
-        global_logger(ConsoleLogger(stderr, loglevel))
-    else
-        global_logger(NullLogger())
+      ll=uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+      loglevel = ll == "DEBUG" ? Logging.Debug :
+      ll == "WARN"  ? Logging.Warn  :
+      ll == "ERROR" ? Logging.Error : Logging.Info
+      logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+      global_logger(ConsoleLogger(logger_stream, loglevel))
+      @static if haspkg("CUDAnative")
+        device!(MPI.Comm_rank(mpicomm) % length(devices()))
+      end
     end
+    
     @testset for numdims = 2:2
       numelem = (Nex,Ney)
-      dt = 0.01
-      timeend = 900
+      dt = 0.005
+      timeend = 2000
       polynomialorder = Npoly
       DFloat = Float64
 
@@ -581,7 +589,7 @@ let
       engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                       DFloat, dt)
       # Based on expected numerical solution for specific resolution
-      @test engf_eng0 ≈ DFloat(1.0000075242807756e+00)
+      @test engf_eng0 ≈ DFloat(.0000075242807756e+00)
     end
 end
 

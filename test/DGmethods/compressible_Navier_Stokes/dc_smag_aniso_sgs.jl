@@ -1,7 +1,7 @@
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -66,9 +66,9 @@ const Prandtl   = 71 // 100
 const k_μ       = cp_d / Prandtl
 const (xmin, xmax) = (0, 25600)
 const (ymin, ymax) = (0,  6000)
-const  Δx    = 150
-const  Δy    = 150
-const  Δz    = 150
+const  Δx    = 125 
+const  Δy    = 125
+const  Δz    = 200
 
 """
 Problem Description
@@ -84,16 +84,13 @@ Problem Description
 # -------------------------------------------------------------------------
 const _nauxstate = 6
 const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
-@inline function auxiliary_state_initialization!(aux, x, y, z, MTS)
+@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
-        ξx, ξy, ξz = MTS.ξx, MTS.ξy, MTS.ξz
-        ηx, ηy, ηz = MTS.ηx, MTS.ηy, MTS.ηz
-        ζx, ζy, ζz = MTS.ζx, MTS.ζy, MTS.ζz
-        aux[_a_dx] = 1/2hypot(ξx,ηx,ζx)
-        aux[_a_dy] = 1/2hypot(ξy,ηy,ζy)
+        aux[_a_dx] = dx
+        aux[_a_dy] = dy
         aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_lengthscale_2D(aux[_a_dx],aux[_a_dy]) 
     end
 end
@@ -261,7 +258,6 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
-        VFP .= 0 
         nothing
     end
 end
@@ -404,7 +400,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             starttime[] = now()
         else
             energy = norm(Q)
-            #globmean = global_mean(Q, _ρ)
             @info @sprintf("""Update
                          simtime = %.16e
                          runtime = %s
@@ -413,7 +408,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                            Dates.format(convert(Dates.DateTime,
                                                 Dates.now()-starttime[]),
                                         Dates.dateformat"HH:MM:SS"),
-                           energy )#, globmean)
+                           energy )
         end
     end
 
@@ -482,13 +477,15 @@ let
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
     if MPI.Comm_rank(mpicomm) == 0
-        ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-        loglevel = ll == "DEBUG" ? Logging.Debug :
-            ll == "WARN"  ? Logging.Warn  :
-            ll == "ERROR" ? Logging.Error : Logging.Info
-        global_logger(ConsoleLogger(stderr, loglevel))
-    else
-        global_logger(NullLogger())
+      ll=uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+      loglevel = ll == "DEBUG" ? Logging.Debug :
+      ll == "WARN"  ? Logging.Warn  :
+      ll == "ERROR" ? Logging.Error : Logging.Info
+      logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+      global_logger(ConsoleLogger(logger_stream, loglevel))
+      @static if haspkg("CUDAnative")
+        device!(MPI.Comm_rank(mpicomm) % length(devices()))
+      end
     end
     
     @testset for numdims = 2:2
@@ -507,7 +504,7 @@ let
       Ney = ceil(Int64, ratioy)
 
       numelem = (Nex,Ney)
-      dt = 0.03
+      dt = 0.01
       timeend = 900
       polynomialorder = Npoly
       DFloat = Float64
