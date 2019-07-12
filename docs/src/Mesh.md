@@ -52,4 +52,5 @@ There are methods used to cleanup state vectors.
 ```@docs
 Filters.CutoffFilter
 Filters.ExponentialFilter
+Filters.TMARFilter
 ```
