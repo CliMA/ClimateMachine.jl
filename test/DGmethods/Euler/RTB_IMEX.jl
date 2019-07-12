@@ -34,7 +34,7 @@ end
 
 const _nstate = 5
 const _δρ, _U, _V, _W, _δE = 1:_nstate
-const _U⃗ = SVector(_U, _V, _V)
+const _U⃗ = SVector(_U, _V, _W)
 const statenames = ("δρ", "U", "V", "W", "δE")
 
 const numdims = 2
