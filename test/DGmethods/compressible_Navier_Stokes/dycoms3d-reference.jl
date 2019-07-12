@@ -502,26 +502,31 @@ end
 end
 
 function preodefun!(disc, Q, t)
-  DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
-    @inbounds let
-      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-      z = aux[_a_z]
-      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-      q_tot = QT / ρ
-
-      TS = PhaseEquil(e_int, q_tot, ρ)
-      T = air_temperature(TS)
-      P = air_pressure(TS) # Test with dry atmosphere
-      q_liq = PhasePartition(TS).liq
-
-      R[_a_T] = T
-      R[_a_P] = P
-      R[_a_q_liq] = q_liq
-      R[_a_soundspeed_air] = soundspeed_air(TS)
+    DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux      
+        @inbounds let
+            ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+            z = aux[_a_z]
+            e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+            q_tot = QT / ρ
+            
+            TS = PhaseEquil(e_int, q_tot, ρ)
+            T = air_temperature(TS)
+            P = air_pressure(TS) # Test with dry atmosphere
+            q_liq = PhasePartition(TS).liq
+            
+            R[_a_T] = T
+            R[_a_P] = P
+            R[_a_q_liq] = q_liq
+            R[_a_soundspeed_air] = soundspeed_air(TS)
+        end
     end
-  end
-
-  integral_computation(disc, Q, t)
+    #FIX ME: THE TWO FOLLOWING LINES SHOULD BE REPLACED BY A BETTER SOLUTION.
+    #SEE Issue 322
+    MPIStateArrays.start_ghost_exchange!(disc.auxstate)
+    MPIStateArrays.finish_ghost_exchange!(disc.auxstate)
+    #END FIX ME
+    
+    integral_computation(disc, Q, t)
 end
 
 function integral_computation(disc, Q, t)
@@ -686,7 +691,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           R[_T]       = aux[_a_T]
         end
       end
-
+      
       outprefix = @sprintf("./CLIMA-output-scratch/dycoms-multiGPU/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
