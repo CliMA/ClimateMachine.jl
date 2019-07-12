@@ -163,4 +163,30 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
                             Q.Q, Val(states), filtermatrix, topology.realelems))
 end
 
+"""
+    apply!(Q, states, grid::DiscontinuousSpectralElementGrid, ::TMARFilter)
+
+Applies the truncation and mass aware rescaling to `states` of `Q`.  This
+rescaling keeps the states nonegative while keeping the element average
+the same.
+"""
+function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
+                ::TMARFilter)
+  topology = grid.topology
+
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nrealelem = length(topology.realelems)
+  nreduce = 2^ceil(Int, log2(Nq*Nqk))
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nrealelem,
+          knl_apply_TMAR_filter!(Val(nreduce), Val(dim), Val(N), Q.Q,
+                                 Val(states), grid.vgeo, topology.realelems))
+end
+
 end
