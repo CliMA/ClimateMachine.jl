@@ -1,10 +1,30 @@
+# This example uses the TMAR Filter from
+#
+#    @article{doi:10.1175/MWR-D-16-0220.1,
+#      author = {Light, Devin and Durran, Dale},
+#      title = {Preserving Nonnegativity in Discontinuous Galerkin
+#               Approximations to Scalar Transport via Truncation and Mass
+#               Aware Rescaling (TMAR)},
+#      journal = {Monthly Weather Review},
+#      volume = {144},
+#      number = {12},
+#      pages = {4771-4786},
+#      year = {2016},
+#      doi = {10.1175/MWR-D-16-0220.1},
+#    }
+#
+# to reproduce the example in section 4b.  It is a shear swirling
+# flow deformation of a transported quantity from LeVeque 1996.  The exact
+# solution at the final time is the same as the initial condition.
+#
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Filters
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Vtk
@@ -83,6 +103,8 @@ function preodefun!(disc, Q, t)
   DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, _, _, aux
       @inbounds R[_a_u], R[_a_v] = velocity(aux[_a_x], aux[_a_y], t)
   end
+
+  Filters.apply!(Q, 1, disc.grid, TMARFilter())
 end
 
 function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64, ArrayType=Array)
@@ -124,14 +146,21 @@ function run()
                                   DeviceArrayType)
   Q = MPIStateArray(spatialdiscretization, initialcondition!)
 
-  h = 1 / Ne
-  CFL = h / 1
-  dt = CFL / polynomialorder^2
-  lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
+  maxvelosity = 2
+  elementsize = 1 / Ne
+  dx = elementsize / polynomialorder^2
+  CFL = 1
+
+  @show dt = CFL * dx / maxvelosity
+  sork = SSPRK33ShuOsher(spatialdiscretization, Q; dt = dt, t0 = 0)
+
+  initialsumQ = weightedsum(Q)
 
   vtk_step = 0
   mkpath("vtk")
   function vtkoutput()
+    Filters.apply!(Q, 1, spatialdiscretization.grid, TMARFilter())
+
     filename = @sprintf("vtk/q_rank%04d_step%04d", rank, vtk_step)
     writevtk(filename, Q, spatialdiscretization, ("q",))
 
@@ -140,36 +169,44 @@ function run()
     sumQ = weightedsum(Q)
 
     with_logger(mpi_logger) do
-      @info @sprintf("""Run with
-                     min Q = %25.16e
-                     max Q = %25.16e
-                     sum Q = %25.16e
-                     """, minQ, maxQ, sumQ)
+      @info @sprintf("""step = %d
+                           min Q = %25.16e
+                           max Q = %25.16e
+                     sum error Q = %25.16e
+                     """, vtk_step, minQ, maxQ, (initialsumQ -
+                                                 sumQ)/initialsumQ)
     end
 
     vtk_step += 1
     nothing
   end
 
-  cb_vtk = GenericCallbacks.EveryXSimulationSteps(vtkoutput, 20)
+  cb_vtk = GenericCallbacks.EveryXSimulationSteps(vtkoutput, 40)
 
   vtkoutput()
 
   # We integrate so that the final solution is equal to the initial solution
   Qe = copy(Q)
 
-  solve!(Q, lsrk; timeend = finaltime, callbacks = (cb_vtk, ))
+  solve!(Q, sork; timeend = finaltime, callbacks = (cb_vtk, ))
 
   vtkoutput()
 
+  minQ = MPI.Reduce([minimum(Q.realQ)], MPI.MIN, 0, Q.mpicomm)[1]
+  maxQ = MPI.Reduce([maximum(Q.realQ)], MPI.MAX, 0, Q.mpicomm)[1]
+  finalsumQ = weightedsum(Q)
+  sumerror = (initialsumQ - finalsumQ) / initialsumQ
   error = euclidean_distance(Q, Qe)
   with_logger(mpi_logger) do
     @info @sprintf("""Run with
                    dim              = %d
                    Ne               = %d
                    polynomial order = %d
-                   error            = %e
-                   """, dim, Ne, polynomialorder, error)
+                   min              = %e
+                   max              = %e
+                   L2 error         = %e
+                   sum error        = %e
+                   """, dim, Ne, polynomialorder, minQ, maxQ, error, sumerror)
   end
 end
 
