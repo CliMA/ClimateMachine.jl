@@ -666,20 +666,17 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    npoststates = 9
-    _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq, _T = 1:npoststates
-    postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq", "T")
+    npoststates = 6
+    _P, _u, _v, _w, _q_liq, _T = 1:npoststates
+    postnames = ("P", "u", "v", "w", "_q_liq", "T")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           F_rad_out   = radiation(aux)
           u, v, w     = preflux(Q, QV, aux)
-          R[_int1]    = aux[_a_02z]
-          R[_int2]    = aux[_a_z2inf]
-          R[_betaout] = F_rad_out
           R[_P]       = aux[_a_P]
           R[_u]       = u
           R[_v]       = v
@@ -689,7 +686,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
 
-      outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
