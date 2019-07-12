@@ -2,6 +2,7 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Filters
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays
 using Printf
@@ -86,9 +87,8 @@ function run(mpicomm, dim, ArrayType, Ne, DFloat)
         end
       end
 
-      DGBalanceLawDiscretizations.apply!(Q, (1,3), spacedisc, filter;
-                                         horizontal=horizontal,
-                                         vertical=vertical)
+      Filters.apply!(Q, (1,3), spacedisc.grid, filter;
+                     horizontal=horizontal, vertical=vertical)
 
       @test Array(Q.Q) ≈ Array(P.Q)
     end
