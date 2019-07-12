@@ -51,7 +51,6 @@ const _nviscstates = 13
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _SijSij = 1:_nviscstates
 
 # Gradient state labels
-const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 const _nauxstate = 9
@@ -87,8 +86,8 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 35
-Δy    = 35
+Δx    = 40
+Δy    = 40
 Δz    = 5
 
 #
@@ -256,6 +255,8 @@ end
 #md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
+
+const _ngradstates = 6
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(vel, Q, aux, t, u, v, w)
   @inbounds begin
@@ -438,8 +439,8 @@ end
 
 @inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
   @inbounds begin
-    n_Δvel = similar(VF, Size(3, 3))
-    for j = 1:3, i = 1:3
+    n_Δvel = similar(VF, Size(3, _ngradstates))
+    for j = 1: _ngradstates, i = 1:3
       n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
     end
     compute_stresses!(VF, n_Δvel)
