@@ -4,6 +4,7 @@ using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.LinearSolvers
 
 const explicit_methods = [(LSRK54CarpenterKennedy, 4)
                           (LSRK144NiegemannDiehlBusch, 4)
@@ -129,9 +130,12 @@ let
       dQ .= im * c * Q
     end
   end
- 
-  function solve_linear_problem!(Qtt, Qhat, rhs_linear!, a)
-    Qtt .= Qhat ./ (1 - a * im * c)
+
+  struct DivideLinearSolver <: AbstractLinearSolver end
+  function LinearSolvers.linearsolve!(linearoperator!, Qtt, Qhat, ::DivideLinearSolver)
+    @. Qhat = 1 / Qhat
+    linearoperator!(Qtt, Qhat)
+    @. Qtt = 1 / Qtt
   end
 
   function exactsolution(q0, time)
@@ -147,7 +151,7 @@ let
       errors = similar(dts)
       for (n, dt) in enumerate(dts)
         Q = [q0]
-        solver = method(rhs!, rhs_linear!, solve_linear_problem!, Q; dt = dt, t0 = 0.0)
+        solver = method(rhs!, rhs_linear!, DivideLinearSolver(), Q; dt = dt, t0 = 0.0)
         solve!(Q, solver; timeend = finaltime)
         errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
       end
@@ -161,6 +165,7 @@ let
   @static if haspkg("CuArrays")
     using CuArrays
     CuArrays.allowscalar(false)
+
     @testset "Stiff Problem CUDA" begin
       ninitial = 1337
       q0s = range(-1, 1, length = ninitial)
@@ -171,7 +176,7 @@ let
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = CuArray{ComplexF64}(q0s)
-          solver = method(rhs!, rhs_linear!, solve_linear_problem!, Q; dt = dt, t0 = 0.0)
+          solver = method(rhs!, rhs_linear!, DivideLinearSolver(), Q; dt = dt, t0 = 0.0)
           solve!(Q, solver; timeend = finaltime)
           Q = Array(Q)
           errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
