@@ -720,23 +720,21 @@ let
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
-      ll == "WARN"  ? Logging.Warn  :
-      ll == "ERROR" ? Logging.Error : Logging.Info
+  ll == "WARN"  ? Logging.Warn  :
+  ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
   @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
+    device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
-
-  
+    
   # User defined number of elements
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex,Ney,Nez)
   dt = 0.0025
-  timeend = dt
-  # timeend = 14400
+  timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
   dim = numdims
