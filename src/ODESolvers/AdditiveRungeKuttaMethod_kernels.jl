@@ -3,7 +3,7 @@ using Requires
   using .CUDAnative
 end
 
-function stage_update!(Q, Qstages, Rstages, Qhat, RKA_explicit, RKA_implicit, dt, ::Val{is}) where is
+function stage_update!(Q, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implicit, dt, ::Val{is}) where is
   @inbounds @loop for i = (1:length(Q);
                            (blockIdx().x - 1) * blockDim().x + threadIdx().x)
     Qhat_i = Q[i]
@@ -15,6 +15,7 @@ function stage_update!(Q, Qstages, Rstages, Qhat, RKA_explicit, RKA_implicit, dt
     end
     Qstages[is][i] = Qstages_is_i
     Qhat[i] = Qhat_i
+    Qtt[i] = Qhat_i
   end
 end
 
