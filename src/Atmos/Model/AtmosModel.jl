@@ -28,18 +28,17 @@ function vars_aux(m::AtmosModel, T)
   Tuple{vars_aux(m.turbulence,T), vars_aux(m.moisture,T), vars_aux(m.radiation,T)}}
 end
 
-
 # Navier-Stokes flux terms
-function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux!(m::AtmosModel, ::Component, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # preflux
-  ρinv = 1 / state.ρ
+  ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
   
   p = pressure(m.moisture, state, diffusive, aux, t)
 
   # invisc terms
-  flux.ρ  = ρu
+  flux.ρ  = ρu 
   flux.ρu = ρu .* u' + p*I
   flux.ρe = u * (state.ρe + p)
 
@@ -61,14 +60,12 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
 end
 
-
-
 function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   source!(m.force, source, state, aux, t)
 end
 
 function wavespeed(::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
-  ρinv = 1 / state.ρ
+  ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
   return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux, t)
@@ -102,7 +99,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   ν = kinematic_viscosity_tensor(m.turbulence, normS)
 
   # momentum flux tensor
-  diffusive.τ = (-2*ν) .* S
+  diffusive.τ = momentum_flux_tensor(m.turbulence, ν, S)
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ν)

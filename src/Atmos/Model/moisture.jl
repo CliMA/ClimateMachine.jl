@@ -77,7 +77,6 @@ function flux_diffusive!(m::EquilMoist, flux::Grad, state::Vars, diffusive::Vars
   # flux.ρ += ρd_q_tot 
   flux.ρu += ρd_q_tot .* u' 
   flux.ρe += state.ρ * diffusive.moisture.J
-
   
   flux.moisture.ρq_tot = ρd_q_tot
 end
