@@ -13,7 +13,7 @@ if not specified the fields names will be `"Q1"` through `"Qk"` where `k` is the
 number of states in `Q`, i.e., `k = size(Q,2)`.
 
 """
-function writevtk(prefix, Q::MPIStateArray, dg::DGModel,
+function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames=nothing)
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
@@ -39,7 +39,7 @@ If `auxfieldnames === nothing` then the fields names will be `"aux1"` through
 size(auxstate,2)`.
 
 """
-function writevtk(prefix, Q::MPIStateArray, dg::DGModel,
+function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames, auxstate, auxfieldnames)
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters

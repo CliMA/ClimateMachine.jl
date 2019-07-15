@@ -17,8 +17,4 @@ include("DGmodel.jl")
 include("NumericalFluxes.jl")
 include("DGBalanceLawDiscretizations_kernels.jl")
 
-# legacy interface
-include("DGBalanceLawDiscretizations.jl")
-
-
 end

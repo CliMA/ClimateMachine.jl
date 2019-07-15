@@ -142,4 +142,9 @@ function numerical_flux!(::Rusanov, bl::BalanceLaw,
   # end
 end
 
+
+# legacy methods
+include("NumericalFluxes_old.jl")
+
+
 end

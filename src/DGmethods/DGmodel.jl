@@ -61,7 +61,8 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(bl, Val(dim), Val(polyorder), dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
-                     vgeo, t, lgl_weights_vec, Dmat, topology.realelems, increment))
+                     vgeo, t, lgl_weights_vec, Dmat,
+                     topology.realelems, increment))
 
   MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
 

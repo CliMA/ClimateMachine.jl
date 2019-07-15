@@ -66,10 +66,10 @@ using DocStringExtensions
 using ..Mesh.Topologies
 using GPUifyLoops
 
-export DGBalanceLaw
-
+import ..DGmethods.NumericalFluxes
 include("DGBalanceLawDiscretizations_kernels.jl")
-include("NumericalFluxes.jl")
+
+export DGBalanceLaw
 
 """
     DGBalanceLaw <: AbstractDGMethod
@@ -410,7 +410,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
     device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     @launch(device, threads=(Np,), blocks=nrealelem,
-            initauxstate!(bl, Val(dim), Val(N), Val(auxiliary_state_length),
+            initauxstate!(Val(dim), Val(N), Val(auxiliary_state_length),
                           auxiliary_state_initialization!, auxstate.Q, vgeo,
                           topology.realelems))
     MPIStateArrays.start_ghost_exchange!(auxstate)
@@ -877,4 +877,4 @@ function apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
                             Q.Q, Val(states), filtermatrix, topology.realelems))
 end
 
-end
+end # module

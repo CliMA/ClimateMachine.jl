@@ -1,5 +1,6 @@
 using .NumericalFluxes: GradNumericalFlux, diffusive_boundary_penalty!, diffusive_penalty!,
   DivNumericalFlux, numerical_flux!, numerical_boundary_flux!
+
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
   using .CUDAnative
@@ -17,51 +18,23 @@ const _nx, _ny, _nz = Grids._nx, Grids._ny, Grids._nz
 const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
-function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-    rhs, Q, Qvisc, auxstate,
-    vgeo, t, ω, D, elems, increment) where {dim, polyorder}
-  N = polyorder
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
-
-  function fluxfun!(l_F, l_Q, l_Qvisc, l_aux, t)
-    flux!(bl, Grad{vars_state(bl,DFloat)}(l_F), Vars{vars_state(bl,DFloat)}(l_Q),
-    Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Vars{vars_aux(bl,DFloat)}(l_aux), t)
-  end
-
-  function sourcefun!(l_S, l_Q, l_aux, t)
-    source!(bl, Vars{vars_state(bl,DFloat)}(l_S), Vars{vars_state(bl,DFloat)}(l_Q),
-      Vars{vars_aux(bl,DFloat)}(l_aux), t)
-  end
-
-  volumerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate),
-                    fluxfun!, sourcefun!,
-                    rhs, Q, Qvisc, auxstate, vgeo, t,
-                    ω, D, elems, increment)
-
-end
-
-
 """
-    volumerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-               ::Val{nauxstate}, flux!, source!, rhs, Q, Qvisc, auxstate,
-               vgeo, t, D, elems) where {dim, N, nstate, nviscstate,
+    volumerhs!(bl::BalanceLaw, Val(polyorder), rhs, Q, Qvisc, auxstate,
+               vgeo, t, D, elems)
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
 `DGBalanceLaw` semi-discretization.
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(::Val{dim}, ::Val{N},
-                    ::Val{nstate}, ::Val{nviscstate},
-                    ::Val{nauxstate},
-                    flux!, source!,
+function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    ω, D, elems, increment) where {dim, N, nstate, nviscstate,
-                                     nauxstate}
+                    ω, D, elems, increment) where {dim, polyorder}
+  N = polyorder
   DFloat = eltype(Q)
+  nstate = num_state(bl,DFloat)
+  nviscstate = num_diffusive(bl,DFloat)
+  nauxstate = num_aux(bl,DFloat)
 
   Nq = N + 1
 
@@ -129,7 +102,8 @@ function volumerhs!(::Val{dim}, ::Val{N},
             l_aux[s] = auxstate[ijk, s, e]
           end
 
-          flux!(l_F, l_Q, l_Qvisc, l_aux, t)
+          flux!(bl, Grad{vars_state(bl,DFloat)}(l_F), Vars{vars_state(bl,DFloat)}(l_Q),
+                Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -137,13 +111,14 @@ function volumerhs!(::Val{dim}, ::Val{N},
             s_F[3,i,j,k,s] = l_F[3,s]
           end
 
-          if source! !== nothing
-            source!(l_S, l_Q, l_aux, t)
+          # if source! !== nothing
+          source!(bl, Vars{vars_state(bl,DFloat)}(l_S), Vars{vars_state(bl,DFloat)}(l_Q),
+                  Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
-            @unroll for s = 1:nstate
-              l_rhs[s, i, j, k] += l_S[s]
-            end
+          @unroll for s = 1:nstate
+            l_rhs[s, i, j, k] += l_S[s]
           end
+          # end
         end
       end
     end
@@ -242,52 +217,25 @@ function volumerhs!(::Val{dim}, ::Val{N},
   nothing
 end
 
+"""
+    facerhs!(bl::BalanceLaw, Val(polyorder), divnumflux::DivNumericalFlux, 
+             rhs, Q, Qvisc, auxstate,
+             vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+             elems)
 
+Computational kernel: Evaluate the surface integrals on right-hand side of a
+`BalanceLaw` semi-discretization.
+
+See [`odefun!`](@ref) for usage.
+"""
 function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, divnumflux::DivNumericalFlux,
-  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-  elemtobndy, elems) where {dim, polyorder}
+                  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                  elemtobndy, elems) where {dim, polyorder}
   N = polyorder
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
   nviscstate = num_diffusive(bl,DFloat)
   nauxstate = num_aux(bl,DFloat)
-
-  function numerical_flux_fun!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
-      l_auxP, t)
-    numerical_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
-      l_auxP, t)
-  end
-  function numerical_boundary_flux_fun!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
-      l_QviscP, l_auxP, bctype, t)
-    numerical_boundary_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
-      l_QviscP, l_auxP, bctype, t)
-  end
-
-  facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate), Val(nauxstate), 
-      numerical_flux_fun!, numerical_boundary_flux_fun!,
-      rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-      elemtobndy, elems)
-end
-
-"""
-    facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-             ::Val{nauxstate}, numerical_flux!,
-             numerical_boundary_flux!, rhs, Q, Qvisc, auxstate,
-             vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-             elems) where {dim, N, nstate, nviscstate, nauxstate}
-
-Computational kernel: Evaluate the surface integrals on right-hand side of a
-`DGBalanceLaw` semi-discretization.
-
-See [`odefun!`](@ref) for usage.
-"""
-function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
-                  ::Val{nauxstate}, numerical_flux!, numerical_boundary_flux!,
-                  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                  elemtobndy, elems) where {dim, N, nstate, nviscstate,
-                                            nauxstate}
-
-  DFloat = eltype(Q)
 
   if dim == 1
     Np = (N+1)
@@ -349,13 +297,12 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        bctype =
-            numerical_boundary_flux! === nothing ? 0 : elemtobndy[f, e]
+        bctype = elemtobndy[f, e]
         if bctype == 0
-          numerical_flux!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
+          numerical_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
         else
-          numerical_boundary_flux!(l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
+          numerical_boundary_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
                                    l_QviscP, l_auxP, bctype, t)
         end
 
@@ -373,51 +320,21 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
 end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-  Q, Qvisc, auxstate, vgeo, t, D,
-  elems) where {dim, polyorder}  
+                          Q, Qvisc, auxstate, vgeo, t, D,
+                          elems) where {dim, polyorder}  
   N = polyorder
-
+  
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
   ngradstate = num_transform(bl,DFloat)
   nviscstate = num_diffusive(bl,DFloat)
   nauxstate = num_aux(bl,DFloat)
 
-  states_grad = ntuple(i->i, nstate)
-
-  function gradient_transform!(l_G, l_Qs, l_auxs, t)
-    gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_G), 
-      Vars{vars_state(bl,DFloat)}(l_Qs),
-      Vars{vars_aux(bl,DFloat)}(l_auxs), t)
-  end
-  function viscous_transform!(l_Qvisc, l_gradG, l_Qs, l_auxs, t)
-    diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), 
-    Grad{vars_transform(bl,DFloat)}(l_gradG),
-    Vars{vars_state(bl,DFloat)}(l_Qs), 
-    Vars{vars_aux(bl,DFloat)}(l_auxs), t)
-  end
-
-  volumeviscterms!(Val(dim), Val(N), Val(nstate),
-    Val(states_grad), Val(ngradstate),
-    Val(nviscstate), Val(nauxstate),
-    viscous_transform!, gradient_transform!, 
-    Q, Qvisc, auxstate, vgeo, t, D, elems)
-end
-
-function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
-                          ::Val{states_grad}, ::Val{ngradstate},
-                          ::Val{nviscstate}, ::Val{nauxstate},
-                          viscous_transform!, gradient_transform!, Q,
-                          Qvisc, auxstate, vgeo, t, D,
-                          elems) where {dim, N, states_grad, ngradstate,
-                                        nviscstate, nstate, nauxstate}
-  DFloat = eltype(Q)
-
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = nstate
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
   s_D = @shmem DFloat (Nq, Nq)
@@ -442,14 +359,15 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
           @unroll for s = 1:ngradtransformstate
-            l_Q[s, i, j, k] = Q[ijk, states_grad[s], e]
+            l_Q[s, i, j, k] = Q[ijk, s, e]
           end
 
           @unroll for s = 1:nauxstate
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
-          gradient_transform!(l_G, l_Q[:, i, j, k], l_aux[:, i, j, k], t)
+          gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_G), Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]),
+                     Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -483,8 +401,8 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
             l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
           end
 
-          viscous_transform!(l_Qvisc, l_gradG, l_Q[:, i, j, k],
-                             l_aux[:, i, j, k], t)
+          diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Grad{vars_transform(bl,DFloat)}(l_gradG),
+                     Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -496,53 +414,15 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
   end
 end
 
-
 function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflux::GradNumericalFlux,
-  Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-  elemtobndy, elems) where {dim, polyorder}  
-  
+                        Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                        elemtobndy, elems) where {dim, polyorder}  
   N = polyorder
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
   ngradstate = num_transform(bl,DFloat)
   nviscstate = num_diffusive(bl,DFloat)
   nauxstate = num_aux(bl,DFloat)
-
-  states_grad = ntuple(i->i, nstate)
-
-  function gradient_transform!(l_G, l_Qs, l_auxs, t)
-    gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_G), 
-      Vars{vars_state(bl,DFloat)}(l_Qs),
-      Vars{vars_aux(bl,DFloat)}(l_auxs), t)
-  end
-
-  function viscous_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, t)
-    diffusive_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
-      l_QP, l_auxP, t)
-  end
-
-  function viscous_boundary_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM,
-    l_GP, l_QP, l_auxP, bctype, t)
-    diffusive_boundary_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
-      l_GP, l_QP, l_auxP, bctype, t)
-  end
-
-  faceviscterms!(Val(dim), Val(N), Val(nstate), Val(states_grad),
-      Val(ngradstate), Val(nviscstate), Val(nauxstate), 
-      viscous_penalty!, viscous_boundary_penalty!, gradient_transform!,
-      Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-      elemtobndy, elems)
-end
-
-function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
-                        ::Val{ngradstate}, ::Val{nviscstate},
-                        ::Val{nauxstate}, viscous_penalty!,
-                        viscous_boundary_penalty!, gradient_transform!,
-                        Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) where {dim, N, states_grad,
-                                                  ngradstate, nviscstate,
-                                                  nstate, nauxstate}
-  DFloat = eltype(Q)
 
   if dim == 1
     Np = (N+1)
@@ -558,7 +438,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
     nface = 6
   end
 
-  ngradtransformstate = length(states_grad)
+  ngradtransformstate = nstate
 
   l_QM = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
   l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
@@ -582,33 +462,34 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
 
         # Load minus side data
         @unroll for s = 1:ngradtransformstate
-          l_QM[s] = Q[vidM, states_grad[s], eM]
+          l_QM[s] = Q[vidM, s, eM]
         end
 
         @unroll for s = 1:nauxstate
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        gradient_transform!(l_GM, l_QM, l_auxM, t)
+        gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_GM), Vars{vars_state(bl,DFloat)}(l_QM),
+                   Vars{vars_aux(bl,DFloat)}(l_auxM), t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
-          l_QP[s] = Q[vidP, states_grad[s], eP]
+          l_QP[s] = Q[vidP, s, eP]
         end
 
         @unroll for s = 1:nauxstate
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        gradient_transform!(l_GP, l_QP, l_auxP, t)
+        gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_GP), Vars{vars_state(bl,DFloat)}(l_QP),
+                   Vars{vars_aux(bl,DFloat)}(l_auxP), t)
 
-        bctype =
-            viscous_boundary_penalty! === nothing ? 0 : elemtobndy[f, e]
+        bctype = elemtobndy[f, e]
         if bctype == 0
-          viscous_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
+          diffusive_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
         else
-          viscous_boundary_penalty!(l_Qvisc, nM, l_GM, l_QM, l_auxM,
+          diffusive_boundary_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
                                            l_GP, l_QP, l_auxP, bctype, t)
         end
 
@@ -689,29 +570,17 @@ function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstat
 end
 
 
-function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems) where {dim, polyorder}
-  N = polyorder  
-  DFloat = eltype(auxstate)
-  nauxstate = num_aux(bl,DFloat)
-  function auxstatefun!(l_aux, coords...)
-    init_aux!(bl, Vars{vars_aux(bl,DFloat)}(l_aux), coords)
-  end
-  initauxstate!(Val(dim), Val(N), Val(nauxstate), auxstatefun!,
-                       auxstate, vgeo, elems)
-end
-
 """
-    initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
-                  auxstate, vgeo, elems) where {dim, N, nauxstate}
+    initauxstate!(bl::BalanceLaw, Val(polyorder), auxstate, vgeo, elems)
 
 Computational kernel: Initialize the auxiliary state
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
-                       auxstate, vgeo, elems) where {dim, N, nauxstate}
-
+function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems) where {dim, polyorder}
+  N = polyorder  
   DFloat = eltype(auxstate)
+  nauxstate = num_aux(bl,DFloat)
 
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
@@ -721,12 +590,12 @@ function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      x, y, z = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
+      coords = vgeo[n, _x, e], vgeo[n, _y, e], vgeo[n, _z, e]
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
 
-      auxstatefun!(l_aux, x, y, z)
+      init_aux!(bl, Vars{vars_aux(bl,DFloat)}(l_aux), coords)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
