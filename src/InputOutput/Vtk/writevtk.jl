@@ -1,6 +1,7 @@
 using ..Mesh.Grids
 using ..MPIStateArrays
 using ..DGmethods
+using ..DGBalanceLawDiscretizations
 
 """
     writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw [, fieldnames])
