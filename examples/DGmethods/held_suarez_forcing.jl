@@ -236,10 +236,10 @@ end
 const PDE_level_hydrostatic_balance = true
 
 # Specify if forcings are ramped up or full forcing are applied from the beginning
-const ramp_up_forcings = true
+const ramp_up_forcings = false
 const use_held_suarez_forcings = true
-const use_sponge = true
-const use_exponential_vertical_warp = true
+const use_sponge = false
+const use_exponential_vertical_warp = false
 const use_coriolis = true
 
 # check whether to use default VTK directory or define something else
@@ -852,7 +852,7 @@ let
   polynomialorder = 5
 
   ## top of the domain and temperature from Tomita and Satoh (2004)
-  domain_height = 15e3
+  domain_height = 30e3
 
   ## isothermal temperature state
   T0 = 315
@@ -892,7 +892,7 @@ let
   lsrk = LSRK144NiegemannDiehlBusch(spatialdiscretization, Q; dt = dt, t0 = 0)
 
 #  filter = Grids.CutoffFilter(spatialdiscretization.grid, 5)
-  filter = Grids.ExponentialFilter(spatialdiscretization.grid, 0, 12)
+  filter = Grids.ExponentialFilter(spatialdiscretization.grid, 0, 14)
 
   ## Uncomment line below to extend simulation time and output less frequently
   seconds = 1
