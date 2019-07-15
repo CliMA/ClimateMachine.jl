@@ -521,14 +521,10 @@ function initstate!(::Val{dim}, ::Val{N}, ::Val{nvar}, ::Val{nauxstate},
     @loop for i in (1:Np; threadIdx().x)
       x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
 
-      if nauxstate > 0
-        @unroll for s = 1:nauxstate
-          l_auxdof[s] = auxstate[i, s, e]
-        end
-        ic!(l_Qdof, x, y, z, l_auxdof)
-      else
-        ic!(l_Qdof, x, y, z)
+      @unroll for s = 1:nauxstate
+        l_auxdof[s] = auxstate[i, s, e]
       end
+      ic!(l_Qdof, x, y, z, l_auxdof)
       @unroll for n = 1:nvar
         Q[i, n, e] = l_Qdof[n]
       end

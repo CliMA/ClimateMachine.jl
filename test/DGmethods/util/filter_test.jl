@@ -1,7 +1,7 @@
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays
 using Printf
@@ -69,7 +69,7 @@ function run(mpicomm, dim, ArrayType, Ne, DFloat)
         filtered = (x...) -> zero(x[1])
       end
 
-      Q = MPIStateArray(spacedisc) do Q, x, y, z
+      Q = MPIStateArray(spacedisc) do Q, x, y, z, _...
         @inbounds begin
           Q[1] = low(x, y, z) + high(x, y, z)
           Q[2] = low(x, y, z) + high(x, y, z)
@@ -77,7 +77,7 @@ function run(mpicomm, dim, ArrayType, Ne, DFloat)
           Q[4] = low(x, y, z) + high(x, y, z)
         end
       end
-      P = MPIStateArray(spacedisc) do P, x, y, z
+      P = MPIStateArray(spacedisc) do P, x, y, z, _...
         @inbounds begin
           P[1] = low(x, y, z) + high(x, y, z) - filtered(x, y, z)
           P[2] = low(x, y, z) + high(x, y, z)

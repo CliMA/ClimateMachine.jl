@@ -205,15 +205,15 @@ end
 
 @inline function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
   # check for the case a .= b, where b is an array
-  if bc.f == identity
-    if typeof(bc.args[1]) <: MPIStateArray
+  if bc.f === identity && bc.args isa Tuple{AbstractArray}
+    if bc.args isa Tuple{MPIStateArray}
       realindices = CartesianIndices((axes(dest.Q)[1:end-1]..., dest.realelems))
-      Base.copyto!(dest.Q, realindices, bc.args[1].Q, realindices)
+      copyto!(dest.Q, realindices, bc.args[1].Q, realindices)
     else
-      Base.copyto!(dest.Q, bc.args[1])
+      copyto!(dest.Q, bc.args[1])
     end
   else
-    Base.copyto!(dest.realQ, transform_broadcasted(bc, dest.Q))
+    copyto!(dest.realQ, transform_broadcasted(bc, dest.Q))
   end
   dest
 end
@@ -313,7 +313,8 @@ end
 # }}}
 
 # Integral based metrics
-function LinearAlgebra.norm(Q::MPIStateArray, p::Real=Int32(2))
+function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true)
+  p = p isa Int64 ? Int32(p) : p
   T = eltype(Q)
 
   if isfinite(p)
@@ -324,7 +325,7 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=Int32(2))
     op, mpiop, init = max, MPI.MAX, typemin(T)
   end
 
-  if ~isempty(Q.weights)
+  if weighted && ~isempty(Q.weights)
     # TODO for more accurate L^p norms we would want to intepolate the fields
     # to a finer mesh.
     w = @view Q.weights[:, :, Q.realelems]
@@ -335,6 +336,23 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=Int32(2))
   r = MPI.Allreduce([locnorm], mpiop, Q.mpicomm)[1]
 
   isfinite(p) ? r.^(1//p) : r
+end
+
+LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool) = norm(Q, 2, weighted)
+
+function LinearAlgebra.dot(A::MPIStateArray, B::MPIStateArray, weighted::Bool=true)
+  T = eltype(A)
+
+  E = @~ A.realQ .* B.realQ
+  op, mpiop, init = +, MPI.SUM, zero(T)
+
+  if weighted && ~isempty(A.weights)
+    w = @view A.weights[:, :, A.realelems]
+    E = @~ E .* w
+  end
+
+  locnorm = mapreduce(identity, op, E, init=init)
+  MPI.Allreduce([locnorm], mpiop, A.mpicomm)[1]
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
