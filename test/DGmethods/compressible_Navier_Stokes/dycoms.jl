@@ -52,8 +52,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 15
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 16
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_μ_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air, _a_zi = 1:_nauxstate
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -104,8 +104,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 1920)
-const (ymin, ymax) = (0, 1920)
+const (xmin, xmax) = (0, 820)
+const (ymin, ymax) = (0, 820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -227,14 +227,14 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-    D_e = ν_e / Prandtl_t
+    μ_e = ρ * sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
+    D_e = μ_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
-    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-    τ12 = τ21 = VF[_τ12] * ν_e
-    τ13 = τ31 = VF[_τ13] * ν_e
-    τ23 = τ32 = VF[_τ23] * ν_e
+    τ11, τ22, τ33 = VF[_τ11] * μ_e, VF[_τ22]* μ_e, VF[_τ33] * μ_e
+    τ12 = τ21 = VF[_τ12] * μ_e
+    τ13 = τ31 = VF[_τ13] * μ_e
+    τ23 = τ32 = VF[_τ23] * μ_e
 
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
     F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
@@ -242,9 +242,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
 
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * μ_e
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
 
     F[3, _E] += F_rad
     # Viscous contributions to mass flux terms
@@ -331,7 +331,7 @@ end
     zero_to_z = aux[_a_02z]
     z_to_inf = aux[_a_z2inf]
     z = aux[_a_z]
-    z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
+    z_i = aux[_a_zi]# Start with constant inversion height of 840 meters then build in check based on q_tot
     Δz_i = max(z - z_i, zero(DFloat))
     # Constants
     F_0 = 70
@@ -358,6 +358,7 @@ end
   @inbounds begin
     DFloat = eltype(aux)
     aux[_a_z] = z
+    aux[_a_zi] = 840 # [m] inversion height
 
     #Sponge
     csleft  = zero(DFloat)
@@ -519,7 +520,7 @@ end
   @inbounds S[_W] += - Q[_ρ] * grav
 end
 
-# Test integral exactly according to the isentropic vortex example
+# Integrand 
 @inline function integrand(val, Q, aux)
   κ = 85.0
   @inbounds begin
@@ -530,11 +531,13 @@ end
     q_liq = aux[_a_q_liq]
     val[1] = ρ * κ * (q_liq / (1.0 - q_tot)) 
     val[2] = ρ * (q_liq / (1.0 - q_tot)) # Liquid Water Path Integrand
+    q_tot_i = 0.008 # kg /kg  
+    val[3] = q_tot > q_tot_i ? 1 : 0
   end
 end
 
 function preodefun!(disc, Q, t)
-  DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
+  DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc, Q) do R, Q, QV, aux
     @inbounds let
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
       z = aux[_a_z]
@@ -558,7 +561,7 @@ end
 
 function integral_computation(disc, Q, t)
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integrand, Q,
-                                                         (_a_02z, _a_LWP_02z))
+                                                         (_a_02z, _a_LWP_02z, _a_zi))
     
   DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
                                                                  _a_z2inf,
@@ -715,13 +718,13 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    npoststates = 6
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T")
+    npoststates = 7
+    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_zi = 1:npoststates
+    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "Z_inversion")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
@@ -731,10 +734,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           R[_o_w] = w
           R[_o_q_liq] = aux[_a_q_liq]
           R[_o_T] = aux[_a_T]
+          R[_o_zi] = aux[_a_zi]
         end
       end
 
-      outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("vtk-dycoms/cns_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -752,12 +756,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
   end
 
+  cbinversion = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, spacedisc, Q) do R, Q, QV, aux
+      @inbounds let
+        aux[_a_zi] = maximum(copy(@view spacedisc.auxstate[:,_a_zi, Q.realelems]))
+      end
+    end
+  end
+
   @info @sprintf """Starting...
     norm(Q) = %25.16e""" norm(Q)
 
   # Initialise the integration computation. Kernels calculate this at every timestep?? 
   @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
-  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk,cbinversion))
 
 
   @info @sprintf """Finished...
@@ -810,7 +822,7 @@ let
   # User defined polynomial order 
   numelem = (Nex,Ney,Nez)
   dt = 0.0025
-  timeend = 4*dt
+  timeend = 10*dt
   # timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
