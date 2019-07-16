@@ -184,7 +184,7 @@ Niegemann, Diehl, and Busch (2012) with optimized stability region
       publisher={Elsevier}
     }
 """
-function LSRK144NiegemannDiehlBusch(F::Union{Function, AbstractSpaceMethod},
+function LSRK144NiegemannDiehlBusch(F,
                                     Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
