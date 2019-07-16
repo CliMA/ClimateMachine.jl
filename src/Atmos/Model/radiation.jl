@@ -1,18 +1,24 @@
 abstract type RadiationModel
 end
 
+
+vars_state(::RadiationModel, T) = Tuple{}
+vars_transform(::RadiationModel, T) = Tuple{}
+vars_diffusive(::RadiationModel, T) = Tuple{}
+vars_aux(::RadiationModel, T) = Tuple{}
+
+
 struct NoRadiation <: RadiationModel
 end
-vars_aux(m::NoRadiation) = ()
-function flux!(m::NoRadiation, flux::Grad, state::State, diffusive::State, auxstate::State, t::Real)
+function flux!(m::NoRadiation, flux::Grad, state::Vars, diffusive::Vars, auxstate::Vars, t::Real)
 end
-function preodefun!(m::NoRadiation, auxstate::State, state::State, t::Real)
+function preodefun!(m::NoRadiation, auxstate::Vars, state::Vars, t::Real)
 end
 
 struct StevensRadiation <: RadiationModel
 end
 vars_aux(m::StevensRadiation) = (:z, :zero_to_z, :z_to_inf)
-function flux!(m::StevensRadiation, flux::Grad, state::State, diffusive::State, auxstate::State, t::Real)
+function flux!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, auxstate::Vars, t::Real)
     T = eltype(flux)
 
     z_i = T(840)  # Start with constant inversion height of 840 meters then build in check based on q_tot
@@ -29,5 +35,5 @@ function flux!(m::StevensRadiation, flux::Grad, state::State, diffusive::State, 
 
     flux.ρe -= SVector(T(0), T(0), state.ρ * F_rad)
 end
-function preodefun!(m::StevensRadiation, auxstate::State, state::State, t::Real)
+function preodefun!(m::StevensRadiation, auxstate::Vars, state::Vars, t::Real)
 end

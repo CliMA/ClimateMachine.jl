@@ -21,6 +21,7 @@ include("ODESolvers/LowStorageRungeKuttaMethod.jl")
 include("ODESolvers/StrongStabilityPreservingRungeKuttaMethod.jl")
 include("ODESolvers/AdditiveRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
+include("Atmos/Model/AtmosModel.jl")
 include("InputOutput/Vtk/Vtk.jl")
 include("misc.jl")
 

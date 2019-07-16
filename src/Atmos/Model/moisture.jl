@@ -6,32 +6,17 @@ vars_transform(::MoistureModel, T) = Tuple{}
 vars_diffusive(::MoistureModel, T) = Tuple{}
 vars_aux(::MoistureModel, T) = Tuple{}
 
+
+function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν)
+end
+function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+end
+
 function preodefun_elem!(::MoistureModel, aux::Vars, state::Vars, t::Real)
 end
 
 
-struct DryModel <: MoistureModel
-end
-using CLIMA.PlanetParameters: γ_exact
-function pressure(::DryModel, state::Vars, aux::Vars, t::Real)
-  T = eltype(state)
-  γ = T(γ_exact)
-  ρinv = 1 / state.ρ
-  P = (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
-end
-
-function soundspeed(::DryModel, state::Vars, aux::Vars, t::Real)
-  T = eltype(state)
-  γ = T(γ_exact)
-
-  ρinv = 1 / state.ρ
-  P = pressure(m.moisture, state, aux, t)
-  sqrt(ρinv * γ * P)
-end
-
-function diffusive!(::DryModel, diffusive, ∇transform, state, aux, t, ν)
-end
-function flux_diffusive!(m::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function gradtransform!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
 
@@ -44,14 +29,14 @@ vars_diffusive(::EquilMoist,T) = NamedTuple{(:d_q_tot, :J),Tuple{SVector{3,T},SV
 vars_aux(::EquilMoist,T) = NamedTuple{(:T,:P,:q_liq),Tuple{T,T,T}}
 
 
-function pressure(::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function pressure(::EquilMoist, state::Vars, aux::Vars, t::Real)
   aux.moisture.P
 end
-function soundspeed(::MoistureModel, state::Vars, aux::Vars, t::Real)
+function soundspeed(::EquilMoist, state::Vars, aux::Vars, t::Real)
   aux.moisture.T
 end
 
-function gradtransform!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
+function gradtransform!(::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1 / state.ρ
   transform.moisture.q_tot = ρinv * state.moisture.ρq_tot
   transform.moisture.T = aux.moisture.T
