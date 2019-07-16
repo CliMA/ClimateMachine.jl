@@ -30,9 +30,11 @@ export anisotropic_lengthscale_2D
 export geo_mean_lengthscale_3D
 export geo_mean_lengthscale_2D
 export strainrate_tensor_components
+export smagorinsky_stress
 export anisotropic_smagorinsky
 export standard_smagorinsky
 export buoyancy_correction
+export KASM_coefficient
 
   """
   
@@ -171,7 +173,7 @@ export buoyancy_correction
   """
   function strainrate_tensor_components(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
     # Assemble components of the strain-rate tensor 
-    S11, = dudx
+    S11  = dudx
     S12  = (dudy + dvdx) / 2
     S13  = (dudz + dwdx) / 2
     S22  = dvdy
@@ -221,6 +223,52 @@ export buoyancy_correction
     D_e::DF = ν_e / Prandtl_turb 
     return (ν_e, D_e)
   end
+  
+
+  """
+  smagorinsky_stress(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, Δ1, Δ2, [Δ3 = 0, anisotropic_flag=0])
+    returns six components of symmetric stress tensor. 
+    Δ1, Δ2, Δ3 are the three spatial lengthscales used to compute an appropriate filter width for a given problem
+    anisotropic_flag 
+    wrapper for stress components from the Standard Smagorinsky Model (SSM) 
+  
+  """
+  function smagorinsky_stress(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, Δ1, Δ2, Δ3=0, anisotropic_flag=0)
+    (S11, S22, S33, S12, S13, S23, normSij) = strainrate_tensor_components(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
+    DF = eltype(normSij)
+    if anisotropic_flag == 0 
+      if Δ3 == 0 
+        Δsqr = anisotropic_lengthscale_2D(Δ1, Δ2) 
+      else
+        Δsqr = anisotropic_lengthscale_3D(Δ1, Δ2, Δ3) 
+      end
+      (ν_e, D_e) = standard_smagorinsky(normSij, Δsqr)
+      # Components of stress tensor 
+      τ11 = 2 * (S11 - (S11 + S22 + S33) / 3) * ν_e
+      τ12 = 2 * S12 * ν_e 
+      τ13 = 2 * S13 * ν_e
+      τ21 = 2 * S12 * ν_e
+      τ22 = 2 * (S22 - (S11 + S22 + S33) / 3) * ν_e 
+      τ23 = 2 * S23 * ν_e 
+      τ31 = 2 * S13 * ν_e
+      τ32 = 2 * S23 * ν_e 
+      τ33 = 2 * (S33 - (S11 + S22 + S33) / 3) * ν_e
+      return (τ11, τ12, τ13, τ21, τ22, τ23, τ31, τ32, τ33, ν_e, D_e, normSij)
+    else
+      # Components of stress tensor 
+      (ν_1, ν_2, ν_3, D_1, D_2, D_3) = anisotropic_smagorinsky(normSij, Δ1, Δ2, Δ3=0)
+      τ11 = 2 * (S11 - (S11 + S22 + S33) / 3) * ν_1
+      τ12 = 2 * S12 * ν_1 
+      τ13 = 2 * S13 * ν_1
+      τ21 = 2 * S12 * ν_2
+      τ22 = 2 * (S22 - (S11 + S22 + S33) / 3) * ν_2 
+      τ23 = 2 * S23 * ν_2 
+      τ31 = 2 * S13 * ν_3
+      τ32 = 2 * S23 * ν_3 
+      τ33 = 2 * (S33 - (S11 + S22 + S33) / 3) * ν_3
+      return (τ11, τ12, τ13, τ21, τ22, τ23, τ31, τ32, τ33)
+    end
+  end
 
   """
     anisotropic_smagorinsky(normSij, Δ1, Δ2[, Δ3=0])
@@ -250,8 +298,12 @@ export buoyancy_correction
     in stratified flows
 
   Compute the buoyancy adjustment coefficient for stratified flows 
-  given the strain rate tensor inner product normSij, local virtual potential
-  temperature θᵥ and the vertical potential temperature gradient dθvdz
+  given the strain rate tensor inner product |S| ≡ SijSij ≡ normSij, 
+  local virtual potential temperature θᵥ and the vertical potential 
+  temperature gradient dθvdz. 
+  
+  Brunt-Vaisala frequency N² defined as in equation (1b) in 
+  Durran, D.R. and J.B. Klemp, 1982: On the Effects of Moisture on the Brunt-Väisälä Frequency. J. Atmos. Sci., 39, 2152–2158, https://doi.org/10.1175/1520-0469(1982)039<2152:OTEOMO>2.0.CO;2 
 
   Ri = N² / (2*normSij)
   Ri = gravity / θᵥ * ∂θᵥ∂z / 2 |S_{ij}|
@@ -279,6 +331,41 @@ export buoyancy_correction
     # Buoyancy correction factor
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
     return buoyancy_factor
+  end
+  
+"""
+    KASM_coefficient(normSij, θv, dθvdz)
+      return KASM_coeff, the multiplicative coefficient for stresses computed using the 
+      Standard Smagorinsky Model 
+  
+  Compute the correction to the Standard Smagorinsky Model using the modified lengthscale 
+  proposed by Kirkpatrick et. al. 
+
+  §4.1.2 in CliMA documentation. 
+  
+  article{doi:10.1175/JAS3651.1,
+  author = {Kirkpatrick, M. P. and Ackerman, A. S. and Stevens, D. E. and Mansour, N. N.},
+  title = {On the Application of the Dynamic Smagorinsky Model to Large-Eddy Simulations of the Cloud-Topped Atmospheric Boundary Layer},
+  journal = {Journal of the Atmospheric Sciences},
+  volume = {63},
+  number = {2},
+  pages = {526-546},
+  year = {2006},
+  doi = {10.1175/JAS3651.1},
+  URL = {https://doi.org/10.1175/JAS3651.1},
+  eprint = {https://doi.org/10.1175/JAS3651.1}
+}
+
+"""
+  function KASM_coefficient(normSij,θv, dθvdz, Δsqr)
+    # Brunt-Vaisala frequency
+    N2 = grav / θv * dθvdz 
+    # Richardson number
+    Richardson = N2 / (2 * normSij + eps(normSij))
+    # Kirkpatrick, Ackerman, Stevens, Mansour correction (≡ SSM in neutral conditions)
+    c_ϵ_KASM = c_e1_KASM + c_e2_KASM * buoyancy_correction(normSij, θv, dθvdz)
+    L_mixing = N2 <=0 ? sqrt(Δsqr) : sqrt(Δsqr)*(c_1_KASM*(1/Richardson - 1) - c_e1_KASM)/c_2_KASM
+    KASM_coeff = L_mixing <=0 ? 0 : c_3_KASM*L_mixing^2/(C_smag^2*Δsqr*sqrt(c_ϵ_KASM))
   end
 
 end

@@ -289,7 +289,7 @@ end
 end
 
 """
-Boundary correction for Neumann boundaries
+Boundary penalty (gradient boundaries)
 """
 @inline function stresses_boundary_penalty!(VF,nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
   gradient_listP .= gradient_listM
@@ -308,7 +308,10 @@ Gradient term flux correction
         compute_stresses!(VF, n_Δgradient_list)
     end
 end
-# -------------------------------------------------------------------------
+
+"""
+Source terms
+"""
 
 @inline function source!(S,Q,aux,t)
     # Initialise the final block source term 

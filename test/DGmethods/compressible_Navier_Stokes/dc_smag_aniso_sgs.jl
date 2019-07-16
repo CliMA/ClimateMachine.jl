@@ -39,13 +39,8 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT")
 """
 Viscous state labels
 """
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _ρx, _ρy, _ρz, _SijSij = 1:_nviscstates
-
-"""
-Number of variables of which gradients are required 
-"""
-const _ngradstates = 7
+const _nviscstates = 19
+const _τ11, _τ12, _τ13, _τ21, _τ22, _τ23, _τ31, _τ32, _τ33,_qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _normSij = 1:_nviscstates
 
 """
 Number of states being loaded for gradient computation
@@ -66,9 +61,9 @@ const Prandtl   = 71 // 100
 const k_μ       = cp_d / Prandtl
 const (xmin, xmax) = (0, 25600)
 const (ymin, ymax) = (0,  6000)
-const  Δx    = 125 
-const  Δy    = 125
-const  Δz    = 200
+const  Δx    = 100 
+const  Δy    = 100
+const  Δz    = 100
 
 """
 Problem Description
@@ -160,32 +155,28 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     #Derivative of T and Q:
     vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-    vρy = VF[_ρy]
-    SijSij = VF[_SijSij]
+    vθy = VF[_θy]
+    normSij = VF[_normSij]
     
     #Dynamic eddy viscosity from Smagorinsky:
     dx, dy= aux[_a_dx], aux[_a_dy]
-    Δsqr = aux[_a_Δsqr]
-    (ν_e, D_e) = SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
-    
     #Richardson contribution:
-    f_R = SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
-    
+    f_B = SubgridScaleTurbulence.buoyancy_correction(normSij, θ, vθy)
     # Multiply stress tensor by viscosity coefficient:
-    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-    τ12 = τ21 = VF[_τ12] * ν_e 
-    τ13 = τ31 = VF[_τ13] * ν_e               
-    τ23 = τ32 = VF[_τ23] * ν_e
+    τ11, τ22, τ33 = VF[_τ11] * f_B , VF[_τ22] * f_B , VF[_τ33] * f_B
+    τ12 = τ21 = VF[_τ12] * f_B
+    τ13 = τ31 = VF[_τ13] * f_B              
+    τ23 = τ32 = VF[_τ23] * f_B
     
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
-    F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
-    F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+    F[1, _U] -= τ11 ; F[2, _U] -= τ12 ; F[3, _U] -= τ13 
+    F[1, _V] -= τ21 ; F[2, _V] -= τ22 ; F[3, _V] -= τ23
+    F[1, _W] -= τ31 ; F[2, _W] -= τ32 ; F[3, _W] -= τ33 
 
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vTx 
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vTy
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vTz 
   end
 end
 
@@ -194,15 +185,14 @@ end
 #md # prognostic equations (i.e. the momentum and density variables). Required
 #md # for viscous flows. 
 # -------------------------------------------------------------------------
-# Compute the velocity from the state
+const _ngradstates = 5
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
     @inbounds begin
         # ordering should match states_for_gradient_transform
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
-        gradient_list[4], gradient_list[5], gradient_list[6] = E, QT, T
-        gradient_list[7] = ρ
+        gradient_list[4], gradient_list[5] = T, θ
     end
 end
 
@@ -210,37 +200,41 @@ end
 #md ### Viscous fluxes. 
 #md # The viscous flux function compute_stresses computes the components of 
 #md # the velocity gradient tensor, and the corresponding strain rates to
-#md # populate the viscous flux array VF. SijSij is calculated in addition
+#md # populate the viscous flux array VF. normSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 # -------------------------------------------------------------------------
-@inline function compute_stresses!(VF, grad_vars, _...)
+@inline function compute_stresses!(VF, grad_vars, ~, aux, t)
     gravity::eltype(VF) = grav
     @inbounds begin
         dudx, dudy, dudz = grad_vars[1, 1], grad_vars[2, 1], grad_vars[3, 1]
         dvdx, dvdy, dvdz = grad_vars[1, 2], grad_vars[2, 2], grad_vars[3, 2]
         dwdx, dwdy, dwdz = grad_vars[1, 3], grad_vars[2, 3], grad_vars[3, 3]
         # compute gradients of moist vars and temperature
-        dqdx, dqdy, dqdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
-        dTdx, dTdy, dTdz = grad_vars[1, 6], grad_vars[2, 6], grad_vars[3, 6]
-        dρdx, dρdy, dρdz = grad_vars[1, 7], grad_vars[2, 7], grad_vars[3, 7]
+        dTdx, dTdy, dTdz = grad_vars[1, 4], grad_vars[2, 4], grad_vars[3, 4]
+        dθdx, dθdy, dθdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
         # virtual potential temperature gradient: for richardson calculation
         # strains
         # --------------------------------------------
-        (S11,S22,S33,S12,S13,S23,SijSij) = SubgridScaleTurbulence.strainrate_tensor_components(dudx, dudy, dudz,
-                                                                                                dvdx, dvdy, dvdz,
-                                                                                                dwdx, dwdy, dwdz)
+        (τ11, τ12, τ13, τ21, τ22, τ23, τ31, τ32, τ33, ν_e, D_e, normSij) = smagorinsky_stress(dudx, dudy, dudz, 
+                                                                           dvdx, dvdy, dvdz, 
+                                                                           dwdx, dwdy, dwdz, 
+                                                                           aux[_a_dx], aux[_a_dy])
         #--------------------------------------------
         # deviatoric stresses
-        VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
-        VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
-        VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
-        VF[_τ12] = 2 * S12
-        VF[_τ13] = 2 * S13
-        VF[_τ23] = 2 * S23
+        VF[_τ11] = τ11 
+        VF[_τ12] = τ12 
+        VF[_τ13] = τ13 
+        VF[_τ21] = τ21 
+        VF[_τ22] = τ22
+        VF[_τ23] = τ23 
+        VF[_τ31] = τ31 
+        VF[_τ32] = τ32
+        VF[_τ33] = τ33 
+        VF[_τ33] = τ33 
+        VF[_normSij] = normSij
         
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
-        VF[_ρx], VF[_ρy], VF[_ρz] = dρdx, dρdy, dρdz
-        VF[_SijSij] = SijSij
+        VF[_Tx], VF[_Ty], VF[_Tz] = ν_e * k_μ *  dTdx, ν_e * k_μ *  dTdy, ν_e * k_μ *  dTdz
+        VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
     end
 end
 
@@ -258,6 +252,7 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
+        VFP .= 0 
         nothing
     end
 end
@@ -266,7 +261,7 @@ end
 Boundary correction for Neumann boundaries
 """
 @inline function stresses_boundary_penalty!(VF,nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
-  QP .= 0 
+  gradient_listP .= gradient_listM
   stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
 
@@ -279,7 +274,7 @@ Gradient term flux correction
         for j = 1:_ngradstates, i = 1:3
             n_Δgradient_list[i, j] = nM[i] * (gradient_listP[j] - gradient_listM[j]) / 2
         end
-        compute_stresses!(VF, n_Δgradient_list)
+        compute_stresses!(VF, n_Δgradient_list, ~, aM,t)
     end
 end
 # -------------------------------------------------------------------------
@@ -412,9 +407,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 8
-    _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+    npoststates = 9
+    _out_normSij, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("SijSij","P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
@@ -423,7 +418,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
+                                                          normSij = QV[_normSij]
+                                                          (R[_out_normSij],R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (normSij, preflux(Q, QV, aux)...)
                                                        end
                                                    end
 
@@ -526,7 +522,7 @@ let
 
       engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                       DFloat, dt)
-      @test engf_eng0 ≈ DFloat(1.0003722665470953e+00)
+      #@test engf_eng0 ≈ DFloat(1.0003722665470953e+00)
     end
 end
 
