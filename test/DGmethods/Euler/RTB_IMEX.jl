@@ -45,14 +45,15 @@ const Npoly = 4
 # Physical domain extents
 const (xmin, xmax) = (0, 1000)
 const (ymin, ymax) = (0, 1500)
-
-# Can be extended to a 3D test case
 const (zmin, zmax) = (0, 1000)
+
+const domain_start = (xmin, ymin, zmin)
+const domain_end = (xmax, ymax, zmax)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
 const Ly = ymax - ymin
-const Lz = zmax - ymin
+const Lz = zmax - zmin
 
 const ratiox = (Lx/Δx - 1)/Npoly
 const ratioy = (Ly/Δy - 1)/Npoly
@@ -60,12 +61,13 @@ const ratioz = (Lz/Δz - 1)/Npoly
 const Nex = ceil(Int64, ratiox)
 const Ney = ceil(Int64, ratioy)
 const Nez = ceil(Int64, ratioz)
+const numelem = (Nex, Ney, Nez)
 
 const _nauxstate = 6
 const _a_ρ0, _a_ρe0, _a_ϕ, _a_ϕ_x, _a_ϕ_y, _a_ϕ_z = 1:_nauxstate
 function auxiliary_state_initialization!(aux, x, y, z) #JK, dx, dy, dz)
   @inbounds begin
-    ρ0, ρe0 = reference2D_ρ_ρe(x, y, z)
+    ρ0, ρe0 = reference_ρ_ρe(x, y, z)
     aux[_a_ρ0] = ρ0
     aux[_a_ρe0] = ρe0
     aux[_a_ϕ] = y * grav
@@ -147,7 +149,7 @@ function nofluxbc!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
   end
 end
 
-function source!(S,Q,aux,t)
+function source!(S, Q, aux, t)
   # Initialise the final block source term
   S .= 0
 
@@ -166,7 +168,7 @@ function source_geopotential!(S, Q, aux, t)
   end
 end
 
-function reference2D_ρ_ρe(x, y, z)
+function reference_ρ_ρe(x, y, z)
   DFloat                = eltype(x)
   R_gas::DFloat         = R_d
   c_p::DFloat           = cp_d
@@ -199,21 +201,20 @@ function rising_bubble!(dim, Q, t, x, y, z, aux)
   p0::DFloat      = MSLP
   gravity::DFloat = grav
   # perturbation parameters for rising bubble
-  rx = 250
-  ry = 250
-  xc = 500
-  yc = 260
-  r  = sqrt( (x - xc)^2 + (y - yc)^2 )
+
+  r⃗ = SVector(x, y, z)
+  r⃗_center = SVector(500, 260, 500)
+  distance = norm(@view (r⃗ - r⃗_center)[1:dim])
 
   θ0::DFloat  = 303
   θ_c::DFloat = 1 // 2
   Δθ::DFloat  = -zero(DFloat)
   a::DFloat   =  50
   s::DFloat   = 100
-  if r <= a
+  if distance <= a
     Δθ = θ_c
-  elseif r > a
-    Δθ = θ_c * exp(-(r - a)^2 / s^2)
+  elseif distance > a
+    Δθ = θ_c * exp(-(distance - a)^2 / s^2)
   end
   θ       = θ0 + Δθ # potential temperature
   π_exner = 1 - gravity / (c_p * θ) * y # exner pressure
@@ -272,7 +273,7 @@ function wavespeed_linear(n, Q, aux, t)
   sqrt(ρinv0 * γ * P0)
 end
 
-function lin_source!(S,Q,aux,t)
+function lin_source!(S, Q, aux, t)
   S .= 0
   lin_source_geopotential!(S, Q, aux, t)
 end
@@ -299,12 +300,12 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
 
-  brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+  brickrange = ntuple(d -> range(domain_start[d], length = Ne[d] + 1, stop = domain_end[d]), dim)
 
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
-  topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
+  periodicity = ntuple(d -> false, dim)
+  topl = StackedBrickTopology(mpicomm, brickrange, periodicity = periodicity)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -327,7 +328,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
                            source! = source!)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = rising_bubble!(Val(dim), Q, DFloat(0), x...)
+  initialcondition(Q, x...) = rising_bubble!(dim, Q, DFloat(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # {{{ Lineariztion Setup
@@ -422,11 +423,6 @@ let
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
-  # User defined number of elements
-  # User defined timestep estimate
-  # User defined simulation end time
-  # User defined polynomial order
-  numelem = (Nex,Ney)
 
   # Stable explicit time step
   dt = min(Δx, Δy, Δz) / soundspeed_air(300.0) / Npoly
@@ -457,8 +453,7 @@ let
   expected_engf_eng0 = Dict()
   expected_engf_eng0[Float64] = 1.4389690552059924e+00
 
-  dim = numdims
-  engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
+  engf_eng0 = run(mpicomm, numdims, numelem, polynomialorder, timeend,
                   DFloat, dt, output_steps)
 
   @test engf_eng0 ≈ expected_engf_eng0[DFloat]
