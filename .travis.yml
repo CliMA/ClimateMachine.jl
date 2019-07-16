@@ -51,28 +51,3 @@ before_install:
 after_success:
   # push coverage results to Codecov
   - julia -e 'import Pkg; cd(Pkg.dir("CLIMA")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
-
-# jobs:
-#   include:
-#     - stage: "Documentation"
-#       julia: 1.0
-#       os: linux
-#       script:
-#         - export DOCUMENTER_DEBUG="true"
-#         - julia --color=yes --project=docs/ -e 'using Pkg; Pkg.instantiate()'
-#         - julia --color=yes --project=docs/ docs/make.jl
-#       after_success: skip
-
-jobs:
-  include:
-    - stage: "Documentation"
-      julia: 1.0
-      os: linux
-      script:
-        - export DOCUMENTER_DEBUG="true"
-        - julia --color=yes --project=docs/ -e 'using Pkg;
-                                                      Pkg.instantiate();
-                                                      Pkg.develop(PackageSpec(path=pwd()));
-                                                      Pkg.build("CLIMA")'
-        - julia --color=yes --project=docs/ docs/make.jl
-      after_success: skip
