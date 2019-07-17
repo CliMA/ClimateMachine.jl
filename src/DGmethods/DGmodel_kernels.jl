@@ -755,11 +755,12 @@ Computational kernel: fill postprocessing array
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
-                            ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
-                            QV, auxstate, elems) where {dim, N, nRstate, nstate,
-                                                        nviscstate, nauxstate}
+function knl_apply_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
+                            QV, auxstate, t, elems) where {dim, N}
   DFloat = eltype(R)
+  nstate = num_state(bl,DFloat)
+  nviscstate = num_diffusive(bl,DFloat)
+  nauxstate = num_aux(bl,DFloat)
 
   Nq = N + 1
 
@@ -774,10 +775,6 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      @unroll for s = 1:nRstate
-        l_R[s] = R[n, s, e]
-      end
-
       @unroll for s = 1:nstate
         l_Q[s] = Q[n, s, e]
       end
@@ -790,10 +787,10 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
         l_aux[s] = auxstate[n, s, e]
       end
 
-      dof_fun!(l_R, l_Q, l_Qvisc, l_aux)
+      f!(bl, Vars{vars_state(bl,DFloat)}(l_Q), Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
-      @unroll for s = 1:nRstate
-        R[n, s, e] = l_R[s]
+      @unroll for s = 1:nauxstate
+        auxstate[n, s, e] = l_aux[s]
       end
     end
   end

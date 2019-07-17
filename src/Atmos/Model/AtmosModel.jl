@@ -7,7 +7,7 @@ using ..VariableTemplates
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_transform, vars_diffusive,
   flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
-  init_aux!, init_state!
+  init_aux!, init_state!, update_aux!
   
 struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
   turbulence::T
@@ -102,6 +102,10 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+end
+
+function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
 include("turbulence.jl")
