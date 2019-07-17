@@ -34,6 +34,8 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   elemtobndy = grid.elemtobndy
   polyorder = polynomialorder(dg.grid)
 
+  preodefun!(bl, Q, param.aux, t)
+
   ########################
   # Gradient Computation #
   ########################

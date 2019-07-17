@@ -38,7 +38,8 @@ num_state(m::BalanceLaw, T) = varsize(vars_state(m,T)) # nstate
 num_transform(m::BalanceLaw, T) = varsize(vars_transform(m,T))  # number_gradient_states
 num_diffusive(m::BalanceLaw, T) = varsize(vars_diffusive(m,T)) # number_viscous_states
 
-
+function preodefun!(bl, Q, Qaux, t)
+end
 function flux! end
 function gradtransform! end
 function diffusive! end
