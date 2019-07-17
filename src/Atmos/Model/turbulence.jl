@@ -10,7 +10,7 @@ vars_aux(::TurbulenceClosure, T) = Tuple{}
 struct ConstantViscosityWithDivergence <: TurbulenceClosure
   ρν::Float64
 end
-scaled_kinematic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, state::Vars, aux::Vars, t::Real) = m.ρν
+dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, state::Vars, aux::Vars, t::Real) = m.ρν
 function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S)
   trS = S[1] + S[2] + S[3]  
   I = SVector(1,1,1,0,0,0)
@@ -21,7 +21,7 @@ struct SmagorinskyLilly <: TurbulenceClosure
   C_smag::Float64 # 0.15 
   Δ::Float64 # equivalent grid scale (can we get rid of this?)
 end
-function scaled_kinematic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, aux::Vars, t::Real) 
+function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, aux::Vars, t::Real) 
   # strain rate tensor norm
   # NOTE: factor of 2 scaling
   # normS = norm(2S)

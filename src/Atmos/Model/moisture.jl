@@ -27,13 +27,13 @@ vars_aux(::EquilMoist,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
 function pressure(::EquilMoist, state::Vars, aux::Vars, t::Real)
   ρ = state.ρ
-  q_tot = stat.ρq_tot / ρ
+  q_tot = state.ρq_tot / ρ
   phase = PhaseEquil(aux.moisture.e_int, q_tot, ρ, aux.moisture.temperature)
   air_pressure(phase)
 end
 function soundspeed(::EquilMoist, state::Vars, aux::Vars, t::Real)
   ρ = state.ρ
-  q_tot = stat.ρq_tot / ρ
+  q_tot = state.ρq_tot / ρ
   phase = PhaseEquil(aux.moisture.e_int, q_tot, ρ, aux.moisture.temperature)
   soundspeed_air(phase)
 end

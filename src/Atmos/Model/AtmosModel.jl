@@ -95,7 +95,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
               (∇u[2,3] + ∇u[3,2])/2)
 
   # kinematic viscosity tensor
-  ρν = scaled_kinematic_viscosity_tensor(m.turbulence, S, state, aux, t)
+  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, aux, t)
 
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
