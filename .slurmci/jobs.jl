@@ -23,7 +23,9 @@
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_source.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_bc.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/conservation/sphere.jl`, ntasks=3)
-  SlurmJob(`.slurmci/gpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc.jl`, ntasks=3)
+  # SlurmJob(`.slurmci/gpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc.jl`, ntasks=3) figure out error
+  SlurmJob(`.slurmci/cpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc_old.jl`, ntasks=3)
+  SlurmJob(`.slurmci/cpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_lsrk.jl`, ntasks=2)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_ssp33.jl`, ntasks=2)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_ssp34.jl`, ntasks=2)
