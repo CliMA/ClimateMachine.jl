@@ -1,7 +1,7 @@
 using CLIMA.VariableTemplates
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_transform, vars_diffusive,
-flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
+flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
 init_aux!, init_state!, init_ode_param, init_ode_state
 
 
@@ -10,7 +10,7 @@ end
 
 vars_aux(::MMSModel,T) = NamedTuple{(:x,:y,:z),NTuple{3,T}}
 vars_state(::MMSModel, T) = NamedTuple{(:ρ, :ρu, :ρv, :ρw, :ρe),NTuple{5,T}}
-vars_transform(::MMSModel, T) = NamedTuple{(:u, :v, :w),NTuple{3,T}}
+vars_gradient(::MMSModel, T) = NamedTuple{(:u, :v, :w),NTuple{3,T}}
 vars_diffusive(::MMSModel, T) = NamedTuple{(:τ11, :τ22, :τ33, :τ12, :τ13, :τ23),NTuple{6,T}}
 
 function flux!(::MMSModel, flux::Grad, state::Vars, diffusive::Vars, auxstate::Vars, t::Real)
@@ -38,7 +38,7 @@ function flux!(::MMSModel, flux::Grad, state::Vars, diffusive::Vars, auxstate::V
                      u * diffusive.τ13 + v * diffusive.τ23 + w * diffusive.τ33)
 end
 
-function gradtransform!(::MMSModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
+function gradvariables!(::MMSModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
   ρinv = 1 / state.ρ
   transformstate.u = ρinv * state.ρu
   transformstate.v = ρinv * state.ρv

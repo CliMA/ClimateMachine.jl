@@ -2,7 +2,7 @@
 abstract type MoistureModel end
 
 vars_state(::MoistureModel, T) = Tuple{}
-vars_transform(::MoistureModel, T) = Tuple{}
+vars_gradient(::MoistureModel, T) = Tuple{}
 vars_diffusive(::MoistureModel, T) = Tuple{}
 vars_aux(::MoistureModel, T) = Tuple{}
 
@@ -12,15 +12,40 @@ function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Va
 end
 function update_aux!(::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
-function gradtransform!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
+function gradvariables!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
+end
+
+# TODO: rewrite to use MoistThermo
+struct DryModel <: Atmos.MoistureModel
+end
+
+function pressure(::DryModel, state::Vars, aux::Vars, t::Real)
+  T = eltype(state)
+  γ = T(7)/T(5)
+
+  ρinv = 1 / state.ρ
+  return (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
+end
+
+function soundspeed(m::DryModel, state::Vars, aux::Vars, t::Real)
+  T = eltype(state)
+  γ = T(7)/T(5)
+
+  ρinv = 1 / state.ρ
+  p = pressure(m, state, aux, t)
+  sqrt(ρinv * γ * p)
 end
 
 
+"""
+    EquilMoist
 
+Assumes the moisture components are computed via thermodynamic equilibrium.
+"""
 struct EquilMoist <: MoistureModel
 end
 vars_state(::EquilMoist,T) = NamedTuple{(:ρq_tot,),Tuple{T}}
-vars_transform(::EquilMoist,T) = NamedTuple{(:q_tot),Tuple{T}}
+vars_gradient(::EquilMoist,T) = NamedTuple{(:q_vap, :q_liq, :q_ice, :temperature),Tuple{T,T,T,T}}
 vars_diffusive(::EquilMoist,T) = NamedTuple{(:ρd_q_tot, :ρJ_ρD), Tuple{SVector{3,T},SVector{3,T}}}
 vars_aux(::EquilMoist,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
@@ -38,9 +63,15 @@ function soundspeed(::EquilMoist, state::Vars, aux::Vars, t::Real)
   soundspeed_air(phase)
 end
 
-function gradtransform!(::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
-  ρinv = 1 / state.ρ
-  transform.moisture.q_tot = ρinv * state.moisture.ρq_tot
+function gradvariables!(::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
+  ρ = state.ρ
+  q_tot = state.ρq_tot / ρ
+  phase = PhaseEquil(aux.moisture.e_int, q_tot, ρ, aux.moisture.temperature)
+  q = PhasePartition(phase)
+
+  transform.moisture.q_vap = q.tot - q.liq - q.ice
+  transform.moisture.q_liq = q.liq
+  transform.moisture.q_ice = q.ice
   transform.moisture.temperature = aux.moisture.temperature
 end
 
@@ -48,21 +79,24 @@ end
 function diffusive!(::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ν::Union{Real,AbstractMatrix})
   # turbulent Prandtl number
   diag_ν = ν isa Real ? ν : diag(ν) # either a scalar or vector
-  D_q_tot = diag_ν / Prandtl_t # either a scalar or vector
+  D_q_vap = D_q_liq = D_q_ice = D_q_tot = diag_ν / Prandtl_t # either a scalar or vector
   
   # diffusive flux of q_tot
   # FIXME 
-  diffusive.moisture.ρd_q_tot = state.ρ * (-D_q_tot) .* ∇transform.moisture.q_tot # a vector
-  diffusive.moisture.ρd_q_vap = state.ρ * (-D_q_vap) .* ∇transform.moisture.q_vap # a vector
-  diffusive.moisture.ρd_q_liq = state.ρ * (-D_q_liq) .* ∇transform.moisture.q_liq # a vector
-  diffusive.moisture.ρd_q_ice = state.ρ * (-D_q_ice) .* ∇transform.moisture.q_ice # a vector
+  ρd_q_vap = state.ρ * (-D_q_vap) .* ∇transform.moisture.q_vap # a vector
+  ρd_q_liq = state.ρ * (-D_q_liq) .* ∇transform.moisture.q_liq # a vector
+  ρd_q_ice = state.ρ * (-D_q_ice) .* ∇transform.moisture.q_ice # a vector
 
-  # J is the conductive or SGS turbulent flux of sensible heat per unit mass
-  ρJ = state.ρ * (cp_d / Prandtl_t) * ν * ∇transform.moisture.temperature
+  diffusive.moisture.ρd_q_tot = ρd_q_vap + ρd_q_liq + ρd_q_ice
 
-  # D is the total specific energy flux
+  D_T = diag_ν / Prandtl_t
   phase = PhaseEquil(aux.moisture.e_int, q_tot, ρ, aux.moisture.temperature)
   q = PhasePartition(phase)
+
+  # J is the conductive or SGS turbulent flux of sensible heat per unit mass
+  ρJ = state.ρ * cv_m(q) * D_T * ∇transform.moisture.temperature
+
+  # D is the total specific energy flux
   T = aux.moisture.temperature
   u = state.ρu / state.ρ
 

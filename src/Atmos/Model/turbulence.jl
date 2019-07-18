@@ -3,7 +3,7 @@ abstract type TurbulenceClosure
 end
 
 vars_state(::TurbulenceClosure, T) = Tuple{}
-vars_transform(::TurbulenceClosure, T) = Tuple{}
+vars_gradient(::TurbulenceClosure, T) = Tuple{}
 vars_diffusive(::TurbulenceClosure, T) = Tuple{}
 vars_aux(::TurbulenceClosure, T) = Tuple{}
 

@@ -1,12 +1,15 @@
 module Atmos
 
-export AtmosModel, ConstantViscosityWithDivergence, NoRadiation
+export AtmosModel, 
+  ConstantViscosityWithDivergence, 
+  DryModel, MoistEquil,
+  NoRadiation
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_transform, vars_diffusive,
-  flux!, source!, wavespeed, boundarycondition!, gradtransform!, diffusive!,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
+  flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
   init_aux!, init_state!, update_aux!
   
 struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
@@ -23,9 +26,9 @@ function vars_state(m::AtmosModel, T)
   NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :moisture, :radiation), 
   Tuple{T, SVector{3,T}, T, vars_state(m.turbulence,T), vars_state(m.moisture,T), vars_state(m.radiation, T)}}
 end
-function vars_transform(m::AtmosModel, T)
+function vars_gradient(m::AtmosModel, T)
   NamedTuple{(:u, :turbulence, :moisture, :radiation),
-  Tuple{SVector{3,T}, vars_transform(m.turbulence,T), vars_transform(m.moisture,T), vars_transform(m.radiation,T)}}
+  Tuple{SVector{3,T}, vars_gradient(m.turbulence,T), vars_gradient(m.moisture,T), vars_gradient(m.radiation,T)}}
 end
 function vars_diffusive(m::AtmosModel, T)
   NamedTuple{(:ρτ, :turbulence, :moisture, :radiation),
@@ -37,7 +40,7 @@ function vars_aux(m::AtmosModel, T)
 end
 
 # Navier-Stokes flux terms
-function flux!(m::AtmosModel,flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -75,11 +78,11 @@ function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux, t)
 end
 
-function gradtransform!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
+function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1 / state.ρ
   transform.u = ρinv * state.ρu
 
-  gradtransform!(m.moisture, transform, state, aux, t)
+  gradvariables!(m.moisture, transform, state, aux, t)
 end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)

@@ -78,29 +78,6 @@ function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
   source.ρe = SE_g(t, x, y, z, Val(3))
 end
 
-
-
-
-struct MMSDryModel <: Atmos.MoistureModel
-end
-
-function Atmos.pressure(::MMSDryModel, state::Vars, aux::Vars, t::Real)
-  T = eltype(state)
-  γ = T(γ_exact)
-  ρinv = 1 / state.ρ
-  P = (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
-end
-
-function Atmos.soundspeed(m::MMSDryModel, state::Vars, aux::Vars, t::Real)
-  T = eltype(state)
-  γ = T(γ_exact)
-
-  ρinv = 1 / state.ρ
-  P = Atmos.pressure(m, state, aux, t)
-  sqrt(ρinv * γ * P)
-end
-
-
 # initial condition                     
 
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
@@ -113,10 +90,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
+    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
     mms2_source!, mms2_bc!, mms2_init_state!)
   else  
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
+    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
     mms3_source!, mms3_bc!, mms3_init_state!)
   end 
 
