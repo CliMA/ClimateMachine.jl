@@ -133,12 +133,12 @@ let
   base_num_elem = 4
 
   expected_result = Array{Tuple{Float64, Int}}(undef, 2, 3) # dim-1, lvl
-  expected_result[1,1] = (5.0540243611857251e-02, 5)
-  expected_result[1,2] = (1.4802275388952329e-03, 11)
-  expected_result[1,3] = (3.3852820232957334e-05, 10)
-  expected_result[2,1] = (1.4957957659520160e-02, 8)
-  expected_result[2,2] = (4.7282371916522508e-04, 11)
-  expected_result[2,3] = (1.4697446973895474e-05, 12)
+  expected_result[1,1] = (5.0540243611855433e-02, 5)
+  expected_result[1,2] = (1.4802275384964703e-03, 12)
+  expected_result[1,3] = (3.3852821534664462e-05, 11)
+  expected_result[2,1] = (1.4957957659616229e-02, 8)
+  expected_result[2,2] = (4.7282369872486289e-04, 14)
+  expected_result[2,3] = (1.4697448960448320e-05, 16)
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   for ArrayType in ArrayTypes

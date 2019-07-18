@@ -29,7 +29,7 @@ using LinearAlgebra, Random
     iters = linearsolve!(mulbyA!, x, b, gcrk)
 
     @test iters == expected_iters[T]
-    @test norm(A * x - b, Inf) / norm(b, Inf) <= tol
+    @test norm(A * x - b) / norm(b) <= tol
    
     newtol = 1000tol
     settolerance!(gcrk, newtol)
@@ -37,8 +37,8 @@ using LinearAlgebra, Random
     x = rand(T, n)
     linearsolve!(mulbyA!, x, b, gcrk)
 
-    @test norm(A * x - b, Inf) / norm(b, Inf) <= newtol
-    @test norm(A * x - b, Inf) / norm(b, Inf) >= tol
+    @test norm(A * x - b) / norm(b) <= newtol
+    @test norm(A * x - b) / norm(b) >= tol
 
   end
 end

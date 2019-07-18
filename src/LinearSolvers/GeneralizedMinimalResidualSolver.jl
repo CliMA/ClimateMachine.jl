@@ -68,14 +68,16 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResi
     residual_norm = norm(krylov_basis[1], weighted)
     g0[1] = residual_norm
     krylov_basis[1] ./= residual_norm
+
+    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
 end
 
-function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResidual{M}) where M
+function LS.doiteration!(linearoperator!, Q, Qrhs,
+                         solver::GeneralizedMinimalResidual{M}, threshold) where M
  
   krylov_basis = solver.krylov_basis
   H = solver.H
   g0 = solver.g0
-  tolerance = solver.tolerance[1]
 
   converged = false
   residual_norm = typemax(eltype(Q))
@@ -108,7 +110,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalRes
 
     residual_norm = abs(g0[j + 1])
 
-    if residual_norm < tolerance
+    if residual_norm < threshold
       converged = true
       break
     end
@@ -127,7 +129,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalRes
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver)
   
-  (converged, residual_norm)
+  (converged, residual_norm / threshold * solver.tolerance[1])
 end
 
 end

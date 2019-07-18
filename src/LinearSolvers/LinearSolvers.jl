@@ -46,10 +46,10 @@ function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearS
   converged = false
   iters = 0
 
-  initialize!(linearoperator!, Q, Qrhs, solver)
+  threshold = initialize!(linearoperator!, Q, Qrhs, solver)
 
   while !converged
-    converged, residual_norm = doiteration!(linearoperator!, Q, Qrhs, solver)
+    converged, achieved_tolerance = doiteration!(linearoperator!, Q, Qrhs, solver, threshold)
     iters += 1
   end
   
