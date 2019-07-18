@@ -34,6 +34,8 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   elemtobndy = grid.elemtobndy
   polyorder = polynomialorder(dg.grid)
 
+  Np = dofs_per_element(grid)
+
   ### update aux variables
   if hasmethod(update_aux!, Tuple{typeof(bl), Vars, Vars, Vars, DFloat})
     @launch(device, threads=(Np,), blocks=nrealelem,

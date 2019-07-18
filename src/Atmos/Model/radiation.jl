@@ -3,7 +3,7 @@ end
 
 
 vars_state(::RadiationModel, T) = Tuple{}
-vars_transform(::RadiationModel, T) = Tuple{}
+vars_gradient(::RadiationModel, T) = Tuple{}
 vars_diffusive(::RadiationModel, T) = Tuple{}
 vars_aux(::RadiationModel, T) = Tuple{}
 

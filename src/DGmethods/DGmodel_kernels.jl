@@ -326,7 +326,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
-  ngradstate = num_transform(bl,DFloat)
+  ngradstate = num_gradient(bl,DFloat)
   nviscstate = num_diffusive(bl,DFloat)
   nauxstate = num_aux(bl,DFloat)
 
@@ -366,7 +366,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
-          gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_G), Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]),
+          gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_G), Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]),
                      Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
@@ -401,7 +401,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_gradG[3, s] = ξz * Gξ + ηz * Gη + ζz * Gζ
           end
 
-          diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Grad{vars_transform(bl,DFloat)}(l_gradG),
+          diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Grad{vars_gradient(bl,DFloat)}(l_gradG),
                      Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
@@ -420,7 +420,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflu
   N = polyorder
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
-  ngradstate = num_transform(bl,DFloat)
+  ngradstate = num_gradient(bl,DFloat)
   nviscstate = num_diffusive(bl,DFloat)
   nauxstate = num_aux(bl,DFloat)
 
@@ -469,7 +469,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflu
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
-        gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_GM), Vars{vars_state(bl,DFloat)}(l_QM),
+        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GM), Vars{vars_state(bl,DFloat)}(l_QM),
                    Vars{vars_aux(bl,DFloat)}(l_auxM), t)
 
         # Load plus side data
@@ -481,7 +481,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflu
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
-        gradtransform!(bl, Vars{vars_transform(bl,DFloat)}(l_GP), Vars{vars_state(bl,DFloat)}(l_QP),
+        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GP), Vars{vars_state(bl,DFloat)}(l_QP),
                    Vars{vars_aux(bl,DFloat)}(l_auxP), t)
 
         bctype = elemtobndy[f, e]
@@ -757,7 +757,7 @@ See [`DGBalanceLaw`](@ref) for usage.
 """
 function knl_apply_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
                             QV, auxstate, t, elems) where {dim, N}
-  DFloat = eltype(R)
+  DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
   nviscstate = num_diffusive(bl,DFloat)
   nauxstate = num_aux(bl,DFloat)
@@ -768,7 +768,6 @@ function knl_apply_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
 
   Np = Nq * Nq * Nqk
 
-  l_R = MArray{Tuple{nRstate}, DFloat}(undef)
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
