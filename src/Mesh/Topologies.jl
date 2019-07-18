@@ -955,20 +955,15 @@ end
 
 
 """
-    grid_stretching(DFloat,
-                         xmin, xmax, ymin, ymax, zmin, zmax,
-                         Ne,
-                         xstretch_flg, ystretch_flg, zstretch_flg)
+    grid_stretching( xmin, xmax, ymin, ymax, zmin, zmax,
+                               Ne,
+                               xstretch_flg, ystretch_flg, zstretch_flg,
+                               xstretch_coe, ystretch_coe, zstretch_coe,
+                               ndims)
 
-Stretches the grid based on the user's choice of stretching method.
+    Stretches the grid based on the user's choice of stretching method.
 """
 
-
-# -------------------------------------------------------------------------
-#md ### 
-#md # Grid strewtching function
-#md # 
-# -------------------------------------------------------------------------
 function grid_stretching_cube( xmin, xmax, ymin, ymax, zmin, zmax,
                                Ne,
                                xstretch_flg, ystretch_flg, zstretch_flg,
@@ -997,6 +992,5 @@ function grid_stretching_cube( xmin, xmax, ymin, ymax, zmin, zmax,
     
     return x_range_stretched, y_range_stretched, z_range_stretched
 end
-# }}}
 
 end
