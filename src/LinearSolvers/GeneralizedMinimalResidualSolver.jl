@@ -12,15 +12,15 @@ using StaticArrays
 const LS = LinearSolvers
 
 """
-    GeneralizedMinimalResidual(K, Q, tolerance)
+    GeneralizedMinimalResidual(M, Q, tolerance)
 
 This is an object for solving linear systems using an iterative Krylov method.
-The constructor parameter `K` is the number of steps after which the algorithm
-is restarted, `Q` is a reference state used only to allocate the solver internal
-state, and `tolerance` specifies the convergence threshold based on the residual
-norm. Since the amount of additional memory required by the solver is 
-`(K + 1) * size(Q)` in practical applications `K` should be kept small.
-This object is intended to be passed to the [`linearsolve!`](@ref)
+The constructor parameter `M` is the number of steps after which the algorithm
+is restarted (if it has not converged), `Q` is a reference state used only to
+allocate the solver internal state, and `tolerance` specifies the convergence
+threshold based on the residual norm. Since the amount of additional memory
+required by the solver is  roughly `(M + 1) * size(Q)` in practical applications `M` 
+should be kept small. This object is intended to be passed to the [`linearsolve!`](@ref)
 command.
 
 This uses the restarted Generalized Minimal Residual method of Saad and Schultz (1986).
@@ -37,87 +37,76 @@ This uses the restarted Generalized Minimal Residual method of Saad and Schultz 
       publisher={SIAM}
     }
 """
-struct GeneralizedMinimalResidual{K, Ksq, T, AT} <: LS.AbstractIterativeLinearSolver
-  residual::AT
-  krylov_basis::NTuple{K, AT}
-  H::MArray{Tuple{K, K}, T, 2, Ksq}
-  givens_sin::MArray{Tuple{K}, T, 1, K}
-  givens_cos::MArray{Tuple{K}, T, 1, K}
-  beta::MArray{Tuple{K}, T, 1, K}
+struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <: LS.AbstractIterativeLinearSolver
+  krylov_basis::NTuple{MP1, AT}
+  H::MArray{Tuple{MP1, M}, T, 2, MMP1}
+  g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
   tolerance::MArray{Tuple{1}, T, 1, 1}
 
-  function GeneralizedMinimalResidual(K, Q::AT, tolerance) where AT
-    T = eltype(Q)
+  function GeneralizedMinimalResidual(M, Q::AT, tolerance) where AT
+    krylov_basis = ntuple(i -> similar(Q), M + 1)
+    H = @MArray zeros(M + 1, M)
+    g0 = @MArray zeros(M + 1)
 
-    residual = similar(Q)
-    krylov_basis = ntuple(i -> similar(Q), K)
-    H = @MArray zeros(K, K)
-    givens_sin = @MArray zeros(K)
-    givens_cos = @MArray zeros(K)
-    beta = @MArray zeros(K)
-
-    new{K, K ^ 2, T, AT}(residual, krylov_basis, H, givens_sin, givens_cos, beta, (tolerance,))
+    new{M, M + 1, M * (M + 1), eltype(Q), AT}(krylov_basis, H, g0, (tolerance,))
   end
 end
 
 const weighted = true
 
 function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResidual)
-    residual = solver.residual
-    beta = solver.beta
+    g0 = solver.g0
     krylov_basis = solver.krylov_basis
 
-    @assert size(Q) == size(residual)
+    @assert size(Q) == size(krylov_basis[1])
 
-    linearoperator!(residual, Q)
-    residual .*= -1
-    residual .+= Qrhs
+    # store the initial residual in krylov_basis[1]
+    linearoperator!(krylov_basis[1], Q)
+    krylov_basis[1] .*= -1
+    krylov_basis[1] .+= Qrhs
 
-    residual_norm = norm(residual, weighted)
-    beta[1] = residual_norm
-    @. krylov_basis[1] = residual / residual_norm
+    residual_norm = norm(krylov_basis[1], weighted)
+    g0[1] = residual_norm
+    krylov_basis[1] ./= residual_norm
 end
 
-function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResidual{K}) where K
+function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResidual{M}) where M
  
-  residual = solver.residual
   krylov_basis = solver.krylov_basis
   H = solver.H
-  givens_sin = solver.givens_sin
-  givens_cos = solver.givens_cos
-  beta = solver.beta
+  g0 = solver.g0
   tolerance = solver.tolerance[1]
 
   converged = false
   residual_norm = typemax(eltype(Q))
   
-  k = 1
-  for outer k = 1:K-1
+  j = 1
+  Ω = LinearAlgebra.Rotation{eltype(Q)}([])
+  for outer j = 1:M
 
-    # Arnoldi
-    linearoperator!(krylov_basis[k + 1], krylov_basis[k])
-    for l = 1:k
-      H[l, k] = dot(krylov_basis[k + 1], krylov_basis[l], weighted)
-      @. krylov_basis[k + 1] -= H[l, k] * krylov_basis[l]
+    # Arnoldi using the Modified Gram Schmidt orthonormalization
+    linearoperator!(krylov_basis[j + 1], krylov_basis[j])
+    for i = 1:j
+      H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted)
+      @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
     end
-    H[k + 1, k] = norm(krylov_basis[k + 1], weighted)
-    krylov_basis[k + 1] ./= H[k + 1, k]
+    H[j + 1, j] = norm(krylov_basis[j + 1], weighted)
+    krylov_basis[j + 1] ./= H[j + 1, j]
+   
+    # apply the previous Givens rotations to the new column of H
+    @views H[1:j, j:j] .= Ω * H[1:j, j:j]
 
-    # Givens rotation stuff
-    for l = 1:k-1
-      tmp = givens_cos[l] * H[l, k] + givens_sin[l] * H[l + 1, k]
-      H[l + 1, k] = -givens_sin[l] * H[l, k] + givens_cos[l] * H[l + 1, k]
-      H[l, k] = tmp
-    end
+    # compute a new Givens rotation to zero out H[j + 1, j]
+    G, _ = givens(H, j, j + 1, j)
 
-    givens_sin[k], givens_cos[k] = normalize(SVector(H[k + 1, k], H[k, k]))
+    # apply the new rotation to H and the rhs
+    H .= G * H
+    g0 .= G * g0
 
-    H[k, k] = givens_cos[k] * H[k, k] + givens_sin[k] * H[k + 1, k]
+    # compose the new rotation with the others
+    Ω = lmul!(G, Ω)
 
-    beta[k + 1] = -givens_sin[k] * beta[k]
-    beta[k] *= givens_cos[k]
-
-    residual_norm = abs(beta[k + 1])
+    residual_norm = abs(g0[j + 1])
 
     if residual_norm < tolerance
       converged = true
@@ -125,22 +114,13 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalRes
     end
   end
 
-  # reusing storage
-  exp_coeffs = givens_cos
-
-  # calculate the weights
-  for i = reverse(1:k)
-    t = beta[i]
-    for j = reverse(i+1:k)
-      t -= H[i,j] * exp_coeffs[j]
-    end
-    exp_coeffs[i] = t / H[i,i]
-  end
+  # solve the triangular system
+  y = @views UpperTriangular(H[1:j, 1:j]) \ g0[1:j]
 
   # compose the solution
   expr_Q = Q
-  for l = 1:k
-    expr_Q = @~ @. expr_Q + exp_coeffs[l] * krylov_basis[l]
+  for i = 1:j
+    expr_Q = @~ @. expr_Q + y[i] * krylov_basis[i]
   end
   Q .= expr_Q
 
