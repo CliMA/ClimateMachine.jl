@@ -24,8 +24,8 @@ Sets the tolerance of the iterative linear solver `solver` to `tolerance`.
 settolerance!(solver::AbstractIterativeLinearSolver, tolerance) =
   (solver.tolerance[1] = tolerance)
 
-doiteration!(Q, solver::AbstractIterativeLinearSolver, tolerance) =
-  throw(MethodError(doiteration!, (Q, solver, tolerance))) 
+doiteration!(Q, Qrhs, solver::AbstractIterativeLinearSolver, tolerance) =
+  throw(MethodError(doiteration!, (Q, Qrhs, solver, tolerance)))
 
 initialize!(Q, Qrhs, solver::AbstractIterativeLinearSolver) =
   throw(MethodError(initialize!, (Q, Qrhs, solver))) 
@@ -46,12 +46,14 @@ function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearS
   converged = false
   iters = 0
 
-  initialize!(linearoperator!, Q, Qrhs, solver)
+  threshold = initialize!(linearoperator!, Q, Qrhs, solver)
 
   while !converged
-    converged, residual_norm = doiteration!(linearoperator!, Q, solver)
-    iters += 1
-    if !isfinite(residual_norm)
+    converged, inner_iters, achieved_tolerance = 
+      doiteration!(linearoperator!, Q, Qrhs, solver, threshold)
+    iters += inner_iters
+    
+    if !isfinite(achieved_tolerance)
       error("norm of residual is not finite after $iters iterations of `doiteration!`")
     end
   end

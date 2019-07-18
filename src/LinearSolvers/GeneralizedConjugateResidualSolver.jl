@@ -61,6 +61,8 @@ struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolve
   end
 end
 
+const weighted = true
+
 function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateResidual)
     residual = solver.residual
     p = solver.p
@@ -73,9 +75,12 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateRe
     
     p[1] .= residual
     linearoperator!(L_p[1], p[1])
+
+    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
 end
 
-function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidual{K}) where K
+function LS.doiteration!(linearoperator!, Q, Qrhs,
+                         solver::GeneralizedConjugateResidual{K}, threshold) where K
  
   residual = solver.residual
   p = solver.p
@@ -83,11 +88,8 @@ function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidua
   L_p = solver.L_p
   normsq = solver.normsq
   alpha = solver.alpha
-  tolerance = solver.tolerance[1]
-
-  weighted = true
   
-  residual_norm = nothing
+  residual_norm = typemax(eltype(Q))
   for k = 1:K
     normsq[k] = norm(L_p[k], weighted) ^ 2
     beta = -dot(residual, L_p[k], weighted) / normsq[k]
@@ -95,10 +97,10 @@ function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidua
     Q .+= beta * p[k]
     residual .+= beta * L_p[k]
 
-    residual_norm = norm(residual, Inf, weighted)
+    residual_norm = norm(residual, weighted)
 
-    if residual_norm <= tolerance
-      return (true, residual_norm)
+    if residual_norm <= threshold
+      return (true, k, residual_norm)
     end
 
     linearoperator!(L_residual, residual)
@@ -125,7 +127,7 @@ function LS.doiteration!(linearoperator!, Q, solver::GeneralizedConjugateResidua
     end
   end
   
-  (false, residual_norm)
+  (false, K, residual_norm / threshold * solver.tolerance[1])
 end
 
 end
