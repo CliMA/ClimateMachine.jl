@@ -28,10 +28,10 @@ function flux!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, au
     α_z = T(1)
     ρ_i = T(1.22)
     D_subsidence = T(3.75e-6)
-    term1 = T(70) * exp(-aux.z_to_inf) 
-    term2 = T(22) * exp(-aux.zero_to_z)
-    term3 = ρ_i * T(cp_d) * D_subsidence * α_z * ((cbrt(Δz_i))^4 / 4 + z_i * cbrt(Δz_i))
-    F_rad = term1 + term2 + term3 
+    cloud_top_cooling = T(70) * exp(-aux.z_to_inf) 
+    cloud_base_warming = T(22) * exp(-aux.zero_to_z)
+    free_troposphere_cooling = ρ_i * T(cp_d) * D_subsidence * α_z * ((cbrt(Δz_i))^4 / 4 + z_i * cbrt(Δz_i))
+    F_rad = cloud_base_warming + cloud_base_warming + free_troposphere_cooling
 
     flux.ρe -= SVector(T(0), T(0), state.ρ * F_rad)
 end

@@ -51,7 +51,11 @@ function diffusive!(::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Va
   D_q_tot = diag_ν / Prandtl_t # either a scalar or vector
   
   # diffusive flux of q_tot
+  # FIXME 
   diffusive.moisture.ρd_q_tot = state.ρ * (-D_q_tot) .* ∇transform.moisture.q_tot # a vector
+  diffusive.moisture.ρd_q_vap = state.ρ * (-D_q_vap) .* ∇transform.moisture.q_vap # a vector
+  diffusive.moisture.ρd_q_liq = state.ρ * (-D_q_liq) .* ∇transform.moisture.q_liq # a vector
+  diffusive.moisture.ρd_q_ice = state.ρ * (-D_q_ice) .* ∇transform.moisture.q_ice # a vector
 
   # J is the conductive or SGS turbulent flux of sensible heat per unit mass
   ρJ = state.ρ * (cp_d / Prandtl_t) * ν * ∇transform.moisture.temperature
@@ -62,6 +66,7 @@ function diffusive!(::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Va
   T = aux.moisture.temperature
   u = state.ρu / state.ρ
 
+  # FIXME
   I_vap = cv_v * (T - T_0) + e_int_v0
   I_liq = cv_l * (T - T_0)
   I_ice = cv_v * (T - T_0) - e_int_i0
@@ -70,8 +75,7 @@ function diffusive!(::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Va
   e_tot_vap = e_kin + e_pot + I_vap
   e_tot_liq = e_kin + e_pot + I_liq
   e_tot_ice = e_kin + e_pot + I_ice
-  
-  ρD = state.ρ * ((e_tot_v + R_v*T)*(q.tot - q.liq - q.ice) + e_tot_liq*q.liq + e_tot_ice*q.ice) * u
+  ρD = state.ρ * ((e_tot_v + R_v*T)*diffusive.moisture.ρd_q_vap + e_tot_liq*diffusive.moisture.ρd_q_liq + e_tot_ice*diffusive.moisture.ρd_q_ice) 
 
   diffusive.moisture.ρJ_ρD = ρJ + ρD
 end
