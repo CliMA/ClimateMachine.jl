@@ -100,7 +100,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
     residual_norm = norm(residual, weighted)
 
     if residual_norm <= threshold
-      return (true, k, residual_norm)
+      return (true, k, residual_norm / threshold * solver.tolerance[1])
     end
 
     linearoperator!(L_residual, residual)
