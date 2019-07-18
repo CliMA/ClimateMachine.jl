@@ -66,6 +66,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResi
     krylov_basis[1] .+= Qrhs
 
     residual_norm = norm(krylov_basis[1], weighted)
+    fill!(g0, 0)
     g0[1] = residual_norm
     krylov_basis[1] ./= residual_norm
 
@@ -82,8 +83,8 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
   converged = false
   residual_norm = typemax(eltype(Q))
   
-  j = 1
   Ω = LinearAlgebra.Rotation{eltype(Q)}([])
+  j = 1
   for outer j = 1:M
 
     # Arnoldi using the Modified Gram Schmidt orthonormalization
