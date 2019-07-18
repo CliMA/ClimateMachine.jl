@@ -25,7 +25,7 @@ const _a_x, _a_y, _a_z = 1:_nauxstate
 const γ_exact = 7//5
 const μ_exact = 1//100
 
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
@@ -34,15 +34,15 @@ const μ_exact = 1//100
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # flux function
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
-
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
+@inline function cns_flux!(F, Q, VF, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -114,8 +114,7 @@ end
   end
 end
 
-numerical_flux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed,
-                                                 preflux)
+numerical_flux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed)
 let
   DFloat = Float64
   dim = 2
