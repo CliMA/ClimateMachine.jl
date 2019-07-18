@@ -62,8 +62,7 @@ const _Tinf = 1
 const _uinf = 2
 const _vinf = 1
 
-# preflux computation
-@inline function preflux(Q, _, aux, _...)
+@inline function velocity_pressure(Q, aux)
   γ::eltype(Q) = γ_exact
   @inbounds begin
     δρ, δρu, δρv, δρw, δρe = Q[_δρ], Q[_δρu], Q[_δρv], Q[_δρw], Q[_δρe]
@@ -84,7 +83,8 @@ const _vinf = 1
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u⃗, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u⃗, ρinv = velocity_pressure(Q, aux)
   n⃗ = SVector(n)
   γ::eltype(Q) = γ_exact
   abs(n⃗' * u⃗) + sqrt(ρinv * γ * P)
@@ -101,10 +101,8 @@ end
 end
 
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) =
-eulerflux!(F, Q, QV, aux, t, preflux(Q, QV, aux)...)
-
-@inline function eulerflux!(F, Q, QV, aux, t, P, u⃗, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t)
+  P, u⃗, ρinv = velocity_pressure(Q, aux)
   @inbounds begin
     δρ, δρe = Q[_δρ], Q[_δρe]
     δρu⃗ = SVector(Q[_δρu], Q[_δρv], Q[_δρw])
@@ -255,8 +253,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                   flux! = eulerflux!,
                                   numerical_flux! = (x...) ->
                                   NumericalFluxes.rusanov!(x..., eulerflux!,
-                                                           wavespeed,
-                                                           preflux),
+                                                           wavespeed),
                                   auxiliary_state_length = _nauxstate,
                                   auxiliary_state_initialization! =
                                   auxiliary_state_initialization!)
