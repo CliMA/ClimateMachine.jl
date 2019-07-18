@@ -66,10 +66,10 @@ using DocStringExtensions
 using ..Mesh.Topologies
 using GPUifyLoops
 
-export DGBalanceLaw
-
+import ..DGmethods.NumericalFluxes
 include("DGBalanceLawDiscretizations_kernels.jl")
-include("NumericalFluxes.jl")
+
+export DGBalanceLaw
 
 """
     DGBalanceLaw <: AbstractDGMethod
@@ -425,6 +425,10 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                viscous_boundary_penalty!, auxstate, source!, preodefun!)
 end
 
+
+
+
+
 """
     MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate, commtag=888)
 
@@ -557,7 +561,7 @@ and after the call `dQ += F(Q, t)` if `increment == true`
 or `dQ = F(Q, t)` if `increment == false`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
-                              Q::MPIStateArray, t; increment)
+                              Q::MPIStateArray, param, t; increment)
 
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -873,4 +877,4 @@ function apply!(Q, states, disc::DGBalanceLaw, filter::AbstractFilter;
                             Q.Q, Val(states), filtermatrix, topology.realelems))
 end
 
-end
+end # module
