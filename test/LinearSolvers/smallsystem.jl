@@ -16,9 +16,9 @@ using LinearAlgebra, Random
              (b, tol) -> GeneralizedMinimalResidual(n, b, tol)
             )
 
-  expected_iters = (Dict(Float32 => 4, Float64 => 6),
-                    Dict(Float32 => 4, Float64 => 7),
-                    Dict(Float32 => 1, Float64 => 1)
+  expected_iters = (Dict(Float32 => 8, Float64 => 11),
+                    Dict(Float32 => 10, Float64 => 21),
+                    Dict(Float32 => 7, Float64 => 10)
                    )
 
   for (m, method) in enumerate(methods), T in [Float32, Float64]

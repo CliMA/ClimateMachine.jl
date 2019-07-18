@@ -49,8 +49,9 @@ function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearS
   threshold = initialize!(linearoperator!, Q, Qrhs, solver)
 
   while !converged
-    converged, achieved_tolerance = doiteration!(linearoperator!, Q, Qrhs, solver, threshold)
-    iters += 1
+    converged, inner_iters, achieved_tolerance = 
+      doiteration!(linearoperator!, Q, Qrhs, solver, threshold)
+    iters += inner_iters
   end
   
   iters

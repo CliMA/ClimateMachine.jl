@@ -140,20 +140,20 @@ let
   expected_result = Array{Tuple{Float64, Int}}(undef, 2, 2, 3) # method, dim-1, lvl
 
   # GeneralizedConjugateResidual
-  expected_result[1, 1, 1] = (5.0540243611855433e-02, 5)
-  expected_result[1, 1, 2] = (1.4802275384964703e-03, 12)
-  expected_result[1, 1, 3] = (3.3852821534664462e-05, 11)
-  expected_result[1, 2, 1] = (1.4957957659616229e-02, 8)
-  expected_result[1, 2, 2] = (4.7282369872486289e-04, 14)
-  expected_result[1, 2, 3] = (1.4697448960448320e-05, 16)
+  expected_result[1, 1, 1] = (5.0540243611855433e-02, 15)
+  expected_result[1, 1, 2] = (1.4802275384964703e-03, 35)
+  expected_result[1, 1, 3] = (3.3852821534664462e-05, 33)
+  expected_result[1, 2, 1] = (1.4957957659616229e-02, 24)
+  expected_result[1, 2, 2] = (4.7282369872486289e-04, 42)
+  expected_result[1, 2, 3] = (1.4697448960448320e-05, 47)
   
   # GeneralizedMinimalResidual
-  expected_result[2, 1, 1] = (5.0540243640603583e-02, 5)
-  expected_result[2, 1, 2] = (1.4802275382036184e-03, 10)
-  expected_result[2, 1, 3] = (3.3852821490899936e-05, 51)
-  expected_result[2, 2, 1] = (1.4957957664036750e-02, 5)
-  expected_result[2, 2, 2] = (4.7282369925797746e-04, 13)
-  expected_result[2, 2, 3] = (1.4697449667093993e-05, 49)
+  expected_result[2, 1, 1] = (5.0540243640603583e-02, 31)
+  expected_result[2, 1, 2] = (1.4802275382036184e-03, 67)
+  expected_result[2, 1, 3] = (3.3852821490899936e-05, 354)
+  expected_result[2, 2, 1] = (1.4957957664036750e-02, 33)
+  expected_result[2, 2, 2] = (4.7282369925797746e-04, 87)
+  expected_result[2, 2, 3] = (1.4697449667093993e-05, 338)
 
   lvls = integration_testing ? size(expected_result)[end] : 1
 
