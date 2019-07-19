@@ -142,8 +142,7 @@ struct NoFluxBC <: BoundaryCondition
 end
 function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
-  getfield(stateP,:array) .= getfield(stateM,:array)
-  getfield(diffP,:array) .= getfield(diffM,:array)
+  
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM  
 end
 
