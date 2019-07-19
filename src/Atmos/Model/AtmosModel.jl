@@ -3,7 +3,8 @@ module Atmos
 export AtmosModel, 
   ConstantViscosityWithDivergence, 
   DryModel, MoistEquil,
-  NoRadiation
+  NoRadiation,
+  NoFluxBC, InitStateBC
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -126,12 +127,38 @@ function source!(bl::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   bl.source(source, state, aux, t)
 end
 
+
+# TODO: figure out a better interface for this.
+# at the moment we can just pass a function, but we should do something better
+# need to figure out how subcomponents will interact.
 function boundarycondition!(bl::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
   bl.boundarycondition(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
 end
 
+abstract type BoundaryCondition
+end
+
+struct NoFluxBC <: BoundaryCondition
+end
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
+  getfield(stateP,:array) .= getfield(stateM,:array)
+  getfield(diffP,:array) .= getfield(diffM,:array)
+  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM  
+end
+
+struct InitStateBC <: BoundaryCondition
+end
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
+  coord = (auxP.coord.x, auxP.coord.y, auxP.coord.z)
+  init_state!(bl, stateP, auxP, coord, t)
+end
+
+
+
 function init_state!(bl::AtmosModel, state::Vars, aux::Vars, coords, t)
-  bl.init_state(state,aux, coords, t)
+  bl.init_state(state, aux, coords, t)
 end
 
 end # module
