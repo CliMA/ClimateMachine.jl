@@ -89,7 +89,6 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
                            flux! = physical_flux!,
                            numerical_flux! = numerical_flux!,
                            number_gradient_states = 1,
-                           states_for_gradient_transform = (1,),
                            number_viscous_states = 3,
                            gradient_transform! = gradient_transform!,
                            viscous_transform! = viscous_transform!,
