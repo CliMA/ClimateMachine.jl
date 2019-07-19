@@ -12,7 +12,17 @@ using ..VariableTemplates
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
   init_aux!, init_state!, update_aux!
-  
+
+"""
+    AtmosModel <: BalanceLaw
+
+A `BalanceLaw` for atmosphere modelling.
+
+# Usage
+
+    AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
+
+"""
 struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
   turbulence::T
   moisture::M
@@ -138,6 +148,11 @@ end
 abstract type BoundaryCondition
 end
 
+"""
+    NoFluxBC <: BoundaryCondition
+
+Set the momentum at the boundary to be zero.
+"""
 struct NoFluxBC <: BoundaryCondition
 end
 function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
@@ -146,6 +161,11 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM  
 end
 
+"""
+    InitStateBC <: BoundaryCondition
+
+Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
+"""
 struct InitStateBC <: BoundaryCondition
 end
 function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
