@@ -7,6 +7,11 @@ vars_gradient(::TurbulenceClosure, T) = Tuple{}
 vars_diffusive(::TurbulenceClosure, T) = Tuple{}
 vars_aux(::TurbulenceClosure, T) = Tuple{}
 
+"""
+    ConstantViscosityWithDivergence <: TurbulenceClosure
+
+Turbulence with constant dynamic viscosity (`ρν`). Divergence terms are included in the momentum flux tensor.
+"""
 struct ConstantViscosityWithDivergence <: TurbulenceClosure
   ρν::Float64
 end
@@ -17,6 +22,10 @@ function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S
   return (-2*ρν) .* S .+ (2*ρν/3)*trS .* I
 end
 
+"""
+    SmagorinskyLilly <: TurbulenceClosure
+
+"""
 struct SmagorinskyLilly <: TurbulenceClosure
   C_smag::Float64 # 0.15 
   Δ::Float64 # equivalent grid scale (can we get rid of this?)
