@@ -72,8 +72,6 @@ function main()
     fc_expect = Array{Int64,1}[[1, 4, 4, 5]]
     @test fc == fc_expect
   end
-
-  MPI.Finalize()
 end
 
 main()
