@@ -66,8 +66,8 @@ using DocStringExtensions
 using ..Mesh.Topologies
 using GPUifyLoops
 
-import ..DGmethods.NumericalFluxes
 include("DGBalanceLawDiscretizations_kernels.jl")
+include("NumericalFluxes_old.jl")
 
 export DGBalanceLaw
 
