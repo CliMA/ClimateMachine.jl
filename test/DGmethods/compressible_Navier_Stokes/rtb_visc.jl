@@ -444,7 +444,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   if MPI.Comm_rank(mpicomm) == 0
     ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -470,7 +469,5 @@ let
       end
     end
   end
-
-isinteractive() || MPI.Finalize()
 
 nothing

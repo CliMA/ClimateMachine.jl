@@ -1,4 +1,8 @@
 function runmpi(tests, file)
+  MPI.Initialized() && !MPI.Finalized() &&
+  error("runmpi does not work if MPI has been "*
+        "Initialized but not Finalizd")
+
   # The code below was modified from the MPI.jl file runtests.jl
   #
   # Code coverage command line options; must correspond to src/julia.h

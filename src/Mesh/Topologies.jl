@@ -213,7 +213,6 @@ MPI.Init()
 topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
                          periodicity=(false,true),
                          boundary=[1 3; 2 4])
-MPI.Finalize()
 ```
 This returns the mesh structure for
 
@@ -338,7 +337,6 @@ MPI.Init()
 topology = StackedBrickTopology(MPI.COMM_SELF, (2:5,4:6);
                                 periodicity=(false,true),
                                 boundary=[1 3; 2 4])
-MPI.Finalize()
 ```
 This returns the mesh structure stacked in the \$x_2\$-direction for
 
@@ -584,8 +582,6 @@ x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x)
   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n], 10)
 end
-
-MPI.Finalize()
 ```
 """
 function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
@@ -821,8 +817,6 @@ x, y, z = ntuple(j->reshape(topology.elemtocoord[j, :, :],
 for n = 1:length(x)
    x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
 end
-
-MPI.Finalize()
 ```
 Note that the faces are listed in Cartesian order.
 """
