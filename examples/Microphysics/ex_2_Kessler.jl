@@ -386,7 +386,6 @@ function run(dim, Ne, N, timeend, DFloat)
   ArrayType = DeviceArrayType
 
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
   mpicomm = MPI.COMM_WORLD
 
@@ -411,7 +410,5 @@ let
 
   run(dim, ntuple(j->numelem[j], dim), polynomialorder, timeend, DFloat)
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing
