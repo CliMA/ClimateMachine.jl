@@ -151,7 +151,8 @@ function run()
   dx = elementsize / polynomialorder^2
   CFL = 1
 
-  @show dt = CFL * dx / maxvelosity
+  dt = CFL * dx / maxvelosity
+  @info @sprintf "dt = %1.2e" dt
   sork = SSPRK33ShuOsher(spatialdiscretization, Q; dt = dt, t0 = 0)
 
   initialsumQ = weightedsum(Q)
