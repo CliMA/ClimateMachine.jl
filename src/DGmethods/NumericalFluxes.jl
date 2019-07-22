@@ -8,19 +8,23 @@ import ..DGmethods:  BalanceLaw, Grad, Vars,
    num_state, num_gradient
 
 
-
 """
     GradNumericalFlux
 
-Any `P <: GradNumericalFlux` should define the following:
+Any `P <: GradNumericalFlux` should define methods for:
 
-- `diffusive_penalty!(gnf::P, bl::BalanceLaw, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, t)`
-- `diffusive_boundary_penalty!(gnf::P, bl::BalanceLaw, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype, t)`
+   diffusive_penalty!(gnf::P, bl::BalanceLaw, diffF, nM, QM, QdiffM, QauxM, QP, QdiffP, QauxP, t)
+l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, t)
+   diffusive_boundary_penalty!(gnf::P, bl::BalanceLaw, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype, t)
+
 """
 abstract type GradNumericalFlux end
 
+function diffusive_penalty! end
+function diffusive_boundary_penalty! end
+
 """
-    DefaultGradNumericalFlux
+    DefaultGradNumericalFlux <: GradNumericalFlux
 
 """
 struct DefaultGradNumericalFlux <: GradNumericalFlux
@@ -33,7 +37,7 @@ function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw,
   DFloat = eltype(QM)
 
   @inbounds begin
-    ndim = 3 # should this be dimension(bl)?
+    ndim = 3
     ngradstate = num_gradient(bl,DFloat)
     n_Δvel = similar(VF, Size(ndim, ngradstate))
     for j = 1:ngradstate, i = 1:ndim
@@ -47,21 +51,29 @@ end
 @inline diffusive_boundary_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, VF, _...) = VF.=0
 
 
-
-
-function diffusive_penalty! end
-function diffusive_boundary_penalty! end
-
 """
     DivNumericalFlux
 
-Any `N <: DivNumericalFlux` should define the following:
+Any `N <: DivNumericalFlux` should define the a method for
 
-- `numerical_flux!(dnf::N, bl::BalanceLaw, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, t)`
-- `numerical_boundary_flux!(dnf::N, bl::BalanceLaw, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP, l_auxP, bctype, t)`
+    numerical_flux!(dnf::N, bl::BalanceLaw, F, nM, QM, QdiffM, QauxM, QP, QdiffP, QauxP, t)
+
+where
+- `F` is the numerical flux array
+- `nM` is the unit normal
+- `QM`/`QP` are the minus/positive state arrays
+- `QdiffM`/`QdiffP` are the minus/positive diffusive state arrays
+- `QdiffM`/`QdiffP` are the minus/positive auxiliary state arrays
+- `t` is the time
+
+An optional method can also be defined for
+
+    boundary_numerical_flux!(dnf::N, bl::BalanceLaw, F, nM, QM, QdiffM, QauxM, QP, QdiffP, QauxP, bctype, t)
+
 """
 abstract type DivNumericalFlux end
 
+function numerical_flux! end
 
 function numerical_boundary_flux!(dnf::DivNumericalFlux, bl::BalanceLaw,
                                   F::MArray{Tuple{nstate}}, nM,
@@ -78,32 +90,15 @@ end
 
 
 """
-    rusanov!(F::MArray, nM, QM, QVM, auxM, QP, QVP, auxP, t, flux!, wavespeed,
-             [preflux = (_...) -> (), computeQjump!])
+    Rusanov <: DivNumericalFlux
 
-Calculate the Rusanov (aka local Lax-Friedrichs) numerical flux given the plus
-and minus side states/viscous states `QP`/`QVP` and `QM`/`QVM` using the physical
-flux function `flux!` and `wavespeed` calculation.
+The Rusanov (aka local Lax-Friedrichs) numerical flux.
 
-The `flux!` has almost the same calling convention as `flux!` from
-[`DGBalanceLaw`](@ref) except that `preflux(Q, aux, t)` is splatted at the end
-of the call.
+# Usage
 
-The function `wavespeed` should return the maximum wavespeed for a state and is
-called as `wavespeed(nM, QM, auxM, t, preflux(QM, auxM, t)...)` and
-`wavespeed(nM, QP, auxP, t, preflux(QP, auxP, t)...)` where `nM` is the outward
-unit normal for the minus side.
+    Rusanov()
 
-When present `computeQjump!(ΔQ, QM, auxM, QP, auxP)` will be called after so
-that the user specify the value to use for `QM - QP`; this is useful for
-correcting `Q` to include discontinuous reference states.
-
-!!! note
-
-    The undocumented arguments `PM` and `PP` for the function should not be used
-    by external callers and are used only internally by the function
-    `rusanov_boundary_flux!`
-
+Requires a `flux! and `wavespeed` method for the balance law.
 """
 struct Rusanov <: DivNumericalFlux
 end
@@ -127,6 +122,7 @@ function numerical_flux!(::Rusanov, bl::BalanceLaw,
 
   λ  =  max(λM, λP)
 
+  #TODO: support a "computeQjump!" function
   # if computeQjump! === nothing
     @inbounds for s = 1:nstate
       F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
