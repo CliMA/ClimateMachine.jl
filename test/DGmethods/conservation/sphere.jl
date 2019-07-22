@@ -12,8 +12,8 @@ The boundary conditions are `p = q` when `dot(n, u) > 0` and
 
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -152,7 +152,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -182,7 +181,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing

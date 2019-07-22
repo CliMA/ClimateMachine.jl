@@ -18,8 +18,8 @@
 
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -52,7 +52,7 @@ if !@isdefined integration_testing
 end
 
 # preflux computation
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
@@ -61,16 +61,15 @@ end
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) =
-eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
-
-@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -147,8 +146,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  numflux!(x...) = NumericalFluxes.rusanov!(x..., eulerflux!, wavespeed,
-                                            preflux)
+  numflux!(x...) = NumericalFluxes.rusanov!(x..., eulerflux!, wavespeed)
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            flux! = eulerflux!,
@@ -158,7 +156,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                           )
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = isentropicvortex!(Q, 0, x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # Compute the initial integral (which will be compared with final integral)
@@ -207,7 +205,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # Print some end of the simulation information
   engf = norm(Q)
   Qe = MPIStateArray(spacedisc,
-                     (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
+                     (Q, x...) -> isentropicvortex!(Q, timeend, x...))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   err_int = euclidean_distance(spacedisc.auxstate, exact_aux)
@@ -233,7 +231,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -302,7 +299,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing

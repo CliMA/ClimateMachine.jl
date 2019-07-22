@@ -1,6 +1,6 @@
 using Test
 using MPI
-using CLIMA.Topologies
+using CLIMA.Mesh.Topologies
 
 function main()
   MPI.Init()
@@ -99,8 +99,6 @@ function main()
   @test nabrtorank == nabrtorank_expect
   @test nabrtorecv == nabrtorecv_expect
   @test nabrtosend == nabrtosend_expect
-
-  MPI.Finalize()
 end
 
 main()

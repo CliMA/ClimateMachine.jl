@@ -36,8 +36,8 @@
 # ### Preliminaries
 # Load in modules needed for solving the problem
 using MPI
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
@@ -370,11 +370,6 @@ end
 #md nothing # hide
 
 #------------------------------------------------------------------------------
-
-# ### Finalizing MPI (if necessary)
-Sys.iswindows() || MPI.finalize_atexit()
-Sys.iswindows() && !isinteractive() && MPI.Finalize()
-#md nothing # hide
 
 #md # ## [Plain Program](@id ex_002_solid_body_rotation-plain-program)
 #md #

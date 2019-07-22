@@ -1,7 +1,7 @@
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using Printf
 using LinearAlgebra
@@ -23,7 +23,7 @@ else
   const ArrayTypes = (Array, )
 end
 
-const _nauxstate = 6
+const _nauxstate = 5
 const _a_r, _a_θ, _a_ϕ, _a_f, _a_fdown = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z, Rinner, Router)
   @inbounds begin
@@ -82,7 +82,6 @@ end
 
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -137,8 +136,6 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing
 

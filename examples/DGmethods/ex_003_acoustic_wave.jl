@@ -38,9 +38,9 @@ using LinearAlgebra
 using Dates
 using Printf
 using CLIMA
-using CLIMA.Topologies
+using CLIMA.Mesh.Topologies
 using CLIMA.MPIStateArrays
-using CLIMA.Grids
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.Vtk
@@ -521,11 +521,6 @@ let
   solve!(Q, lsrk; timeend = finaltime, callbacks = (cb_vtk, cb_info))
 
 end
-#md nothing # hide
-
-# ### Finalizing MPI (if necessary)
-Sys.iswindows() || MPI.finalize_atexit()
-Sys.iswindows() && !isinteractive() && MPI.Finalize()
 #md nothing # hide
 
 #md # ## [Plain Program](@id ex_003_acoustic_wave-plain-program)

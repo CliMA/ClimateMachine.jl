@@ -1,7 +1,7 @@
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using Printf
 using LinearAlgebra
@@ -60,7 +60,6 @@ end
 
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -115,7 +114,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing

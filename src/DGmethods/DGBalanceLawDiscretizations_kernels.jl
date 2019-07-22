@@ -317,11 +317,10 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
 end
 
 function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
-                          ::Val{states_grad}, ::Val{ngradstate},
-                          ::Val{nviscstate}, ::Val{nauxstate},
-                          viscous_transform!, gradient_transform!, Q,
-                          Qvisc, auxstate, vgeo, t, D,
-                          elems) where {dim, N, states_grad, ngradstate,
+                          ::Val{ngradstate}, ::Val{nviscstate},
+                          ::Val{nauxstate}, viscous_transform!,
+                          gradient_transform!, Q, Qvisc, auxstate, vgeo, t, D,
+                          elems) where {dim, N, ngradstate,
                                         nviscstate, nstate, nauxstate}
   DFloat = eltype(Q)
 
@@ -329,12 +328,11 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
 
   Nqk = dim == 2 ? 1 : Nq
 
-  ngradtransformstate = length(states_grad)
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
   s_D = @shmem DFloat (Nq, Nq)
 
-  l_Q = @scratch DFloat (ngradtransformstate, Nq, Nq, Nqk) 3
+  l_Q = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
   l_aux = @scratch DFloat (nauxstate, Nq, Nq, Nqk) 3
   l_G = MArray{Tuple{ngradstate}, DFloat}(undef)
   l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
@@ -353,8 +351,8 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-          @unroll for s = 1:ngradtransformstate
-            l_Q[s, i, j, k] = Q[ijk, states_grad[s], e]
+          @unroll for s = 1:nstate
+            l_Q[s, i, j, k] = Q[ijk, s, e]
           end
 
           @unroll for s = 1:nauxstate
@@ -408,14 +406,13 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
   end
 end
 
-function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
+function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
                         ::Val{ngradstate}, ::Val{nviscstate},
                         ::Val{nauxstate}, viscous_penalty!,
                         viscous_boundary_penalty!, gradient_transform!,
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) where {dim, N, states_grad,
-                                                  ngradstate, nviscstate,
-                                                  nstate, nauxstate}
+                        elemtobndy, elems) where {dim, N, ngradstate,
+                                                  nviscstate, nstate, nauxstate}
   DFloat = eltype(Q)
 
   if dim == 1
@@ -432,13 +429,11 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
     nface = 6
   end
 
-  ngradtransformstate = length(states_grad)
-
-  l_QM = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
+  l_QM = MArray{Tuple{nstate}, DFloat}(undef)
   l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
   l_GM = MArray{Tuple{ngradstate}, DFloat}(undef)
 
-  l_QP = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
+  l_QP = MArray{Tuple{nstate}, DFloat}(undef)
   l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
   l_GP = MArray{Tuple{ngradstate}, DFloat}(undef)
 
@@ -455,8 +450,8 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
         vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
 
         # Load minus side data
-        @unroll for s = 1:ngradtransformstate
-          l_QM[s] = Q[vidM, states_grad[s], eM]
+        @unroll for s = 1:nstate
+          l_QM[s] = Q[vidM, s, eM]
         end
 
         @unroll for s = 1:nauxstate
@@ -466,8 +461,8 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
         gradient_transform!(l_GM, l_QM, l_auxM, t)
 
         # Load plus side data
-        @unroll for s = 1:ngradtransformstate
-          l_QP[s] = Q[vidP, states_grad[s], eP]
+        @unroll for s = 1:nstate
+          l_QP[s] = Q[vidP, s, eP]
         end
 
         @unroll for s = 1:nauxstate
@@ -497,6 +492,40 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{states_grad},
   nothing
 end
 
+"""
+    initstate!(::Val{dim}, ::Val{N}, ::Val{nvar}, ::Val{nauxstate},
+               ic!, Q, auxstate, vgeo, elems) where {dim, N, nvar, nauxstate}
+
+Computational kernel: Initialize the state
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function initstate!(::Val{dim}, ::Val{N}, ::Val{nvar}, ::Val{nauxstate},
+                    ic!, Q, auxstate, vgeo, elems) where {dim, N, nvar, nauxstate}
+
+  DFloat = eltype(Q)
+
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+  Np = Nq * Nq * Nqk
+
+  l_Qdof = MArray{Tuple{nvar}, DFloat}(undef)
+  l_auxdof = MArray{Tuple{nauxstate}, DFloat}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for i in (1:Np; threadIdx().x)
+      x, y, z = vgeo[i, _x, e], vgeo[i, _y, e], vgeo[i, _z, e]
+
+      @unroll for s = 1:nauxstate
+        l_auxdof[s] = auxstate[i, s, e]
+      end
+      ic!(l_Qdof, x, y, z, l_auxdof)
+      @unroll for n = 1:nvar
+        Q[i, n, e] = l_Qdof[n]
+      end
+    end
+  end
+end
 
 """
     initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
@@ -877,6 +906,155 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
         end
       end
     end
+  end
+  nothing
+end
+
+"""
+    knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{horizontal},
+                      ::Val{vertical}, Q, ::Val{states}, filtermatrix,
+                      elems) where {dim, N, nstate, states, horizontal, vertical}
+
+Computational kernel: Applies the `filtermatrix` to the `states` of `Q`.
+
+The arguments `horizontal` and `vertical` are used to control if the filter is
+applied in the horizontal and vertical reference directions, respectively.
+"""
+function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
+                           ::Val{horizontal}, ::Val{vertical}, Q,
+                           ::Val{states}, filtermatrix,
+                           elems) where {dim, N, nstate, horizontal, vertical,
+                                         states}
+  DFloat = eltype(Q)
+
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  filterinξ = horizontal
+  filterinη = dim == 2 ? vertical : horizontal
+  filterinζ = dim == 2 ? false : vertical
+
+  # Return if we are not filtering in any direction
+  if !(filterinξ || filterinη || filterinζ)
+    return
+  end
+
+  nfilterstates = length(states)
+
+  s_filter = @shmem DFloat (Nq, Nq)
+  s_Q = @shmem DFloat (Nq, Nq, Nqk, nfilterstates)
+  l_Qfiltered = @scratch DFloat (nfilterstates, Nq, Nq, Nqk) 3
+
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_filter[i, j] = filtermatrix[i, j]
+      end
+    end
+  end
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          @unroll for fs = 1:nfilterstates
+            l_Qfiltered[fs, i, j, k] = zero(DFloat)
+          end
+
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+
+          @unroll for fs = 1:nfilterstates
+            s_Q[i, j, k, fs] = Q[ijk, states[fs], e]
+          end
+        end
+      end
+    end
+
+
+    if filterinξ
+      @synchronize
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            @unroll for n = 1:Nq
+              @unroll for fs = 1:nfilterstates
+                l_Qfiltered[fs, i, j, k] += s_filter[i, n] * s_Q[n, j, k, fs]
+              end
+            end
+          end
+        end
+      end
+
+      if filterinη || filterinζ
+        @loop for k in (1:Nqk; threadIdx().z)
+          @loop for j in (1:Nq; threadIdx().y)
+            @loop for i in (1:Nq; threadIdx().x)
+              @unroll for fs = 1:nfilterstates
+                s_Q[i, j, k, fs] = l_Qfiltered[fs, i, j, k]
+                l_Qfiltered[fs, i, j, k] = zero(DFloat)
+              end
+            end
+          end
+        end
+      end
+    end
+
+    if filterinη
+      @synchronize
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            @unroll for n = 1:Nq
+              @unroll for fs = 1:nfilterstates
+                l_Qfiltered[fs, i, j, k] += s_filter[j, n] * s_Q[i, n, k, fs]
+              end
+            end
+          end
+        end
+      end
+
+      if filterinζ
+        @loop for k in (1:Nqk; threadIdx().z)
+          @loop for j in (1:Nq; threadIdx().y)
+            @loop for i in (1:Nq; threadIdx().x)
+              @unroll for fs = 1:nfilterstates
+                s_Q[i, j, k, fs] = l_Qfiltered[fs, i, j, k]
+                (l_Qfiltered[fs, i, j, k] = zero(DFloat))
+              end
+            end
+          end
+        end
+      end
+    end
+
+    if filterinζ
+      @synchronize
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            @unroll for n = 1:Nq
+              @unroll for fs = 1:nfilterstates
+                l_Qfiltered[fs, i, j, k] += s_filter[k, n] * s_Q[i, j, n, fs]
+              end
+            end
+          end
+        end
+      end
+    end
+
+    # Store result
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          @unroll for fs = 1:nfilterstates
+            Q[ijk, states[fs], e] = l_Qfiltered[fs, i, j, k]
+          end
+        end
+      end
+    end
+
+    @synchronize
   end
   nothing
 end

@@ -1,7 +1,7 @@
 using Test
 using MPI
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.MPIStateArrays
 
 function main()
@@ -12,7 +12,6 @@ function main()
   DA = Array
 
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
   comm = MPI.COMM_WORLD
   crank = MPI.Comm_rank(comm)
@@ -75,5 +74,3 @@ function main()
   nothing
 end
 isinteractive() || main()
-
-isinteractive() || MPI.Finalize()

@@ -1,5 +1,6 @@
 module Topologies
-
+import ..BrickMesh
+import MPI
 using DocStringExtensions
 
 export AbstractTopology, BrickTopology, StackedBrickTopology,
@@ -11,9 +12,6 @@ export AbstractTopology, BrickTopology, StackedBrickTopology,
 Represents the connectivity of individual elements, with local dimension `dim`.
 """
 abstract type AbstractTopology{dim} end
-
-import Canary
-using MPI
 
 """
     BoxElementTopology{dim, T} <: AbstractTopology{dim}
@@ -215,7 +213,6 @@ MPI.Init()
 topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
                          periodicity=(false,true),
                          boundary=[1 3; 2 4])
-MPI.Finalize()
 ```
 This returns the mesh structure for
 
@@ -292,10 +289,10 @@ function BrickTopology(mpicomm, elemrange;
 
   mpirank = MPI.Comm_rank(mpicomm)
   mpisize = MPI.Comm_size(mpicomm)
-  topology = Canary.brickmesh(elemrange, periodicity, part=mpirank+1,
+  topology = BrickMesh.brickmesh(elemrange, periodicity, part=mpirank+1,
                               numparts=mpisize, boundary=boundary)
-  topology = Canary.partition(mpicomm, topology...)
-  topology = Canary.connectmesh(mpicomm, topology...)
+  topology = BrickMesh.partition(mpicomm, topology...)
+  topology = BrickMesh.connectmesh(mpicomm, topology...)
 
   dim = length(elemrange)
   T = eltype(topology.elemtocoord)
@@ -340,7 +337,6 @@ MPI.Init()
 topology = StackedBrickTopology(MPI.COMM_SELF, (2:5,4:6);
                                 periodicity=(false,true),
                                 boundary=[1 3; 2 4])
-MPI.Finalize()
 ```
 This returns the mesh structure stacked in the \$x_2\$-direction for
 
@@ -586,8 +582,6 @@ x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x)
   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n], 10)
 end
-
-MPI.Finalize()
 ```
 """
 function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
@@ -602,7 +596,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
 
   topology = cubedshellmesh(Neside, part=mpirank+1, numparts=mpisize)
 
-  topology = Canary.partition(mpicomm, topology...)
+  topology = BrickMesh.partition(mpicomm, topology...)
 
   dim, nvert = 3, 4
   elemtovert = topology[1]
@@ -617,7 +611,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
     end
   end
 
-  topology = Canary.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
+  topology = BrickMesh.connectmesh(mpicomm, topology[1], elemtocoord, topology[3],
                                 topology[4]; dim = 2)
 
   CubedShellTopology{T}(
@@ -683,7 +677,7 @@ function cubedshellmesh(Ne; part=1, numparts=1)
   nface = 2dim  # 4
 
   # linearly partition to figure out which elements we own
-  elemlocal = Canary.linearpartition(prod(globalnelems), part, numparts)
+  elemlocal = BrickMesh.linearpartition(prod(globalnelems), part, numparts)
 
   # elemen to vertex maps which we own
   elemtovert = Array{Int}(undef, nvert, length(elemlocal))
@@ -823,8 +817,6 @@ x, y, z = ntuple(j->reshape(topology.elemtocoord[j, :, :],
 for n = 1:length(x)
    x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
 end
-
-MPI.Finalize()
 ```
 Note that the faces are listed in Cartesian order.
 """

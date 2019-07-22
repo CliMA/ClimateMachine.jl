@@ -18,8 +18,8 @@
 
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -52,7 +52,7 @@ if !@isdefined integration_testing
 end
 
 # preflux computation
-@inline function preflux(Q, QV, aux, t)
+@inline function preflux(Q, aux)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   @inbounds U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
@@ -77,16 +77,15 @@ end
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u, v, w, ρinv = preflux(Q, aux)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) =
-eulerflux!(F, Q, QV, aux, t, preflux(Q, QV, aux, t)...)
-
-@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t)
+  P, u, v, w, ρinv = preflux(Q, aux)
   @inbounds begin
     ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
     U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
@@ -152,7 +151,6 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            numerical_flux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
                                                     wavespeed,
-                                                    preflux,
                                                     computeQjump!),
                            auxiliary_state_length = 3,
                            auxiliary_state_initialization! =
@@ -160,7 +158,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                           )
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = isentropicvortex!(Q, 0, x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
@@ -205,7 +203,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # Print some end of the simulation information
   engf = norm(Q)
   Qe = MPIStateArray(spacedisc,
-                     (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
+                     (Q, x...) -> isentropicvortex!(Q, timeend, x...))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished
@@ -228,7 +226,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -280,7 +277,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing

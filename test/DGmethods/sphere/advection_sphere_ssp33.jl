@@ -30,8 +30,8 @@
 
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -64,8 +64,7 @@ if !@isdefined integration_testing
   parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-# preflux computation: NOT needed for this test
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds ρ = Q[1]
   ρinv = 1 / ρ
@@ -74,9 +73,8 @@ end
 end
 
 #{{{ advectionflux
-advectionflux!(F, Q, QV, aux, t) = advectionflux!(F, Q, QV, aux, t,
-                                                  preflux(Q)...)
-@inline function advectionflux!(F,Q,QV,aux,t,P,u,v,w,ρinv)
+@inline function advectionflux!(F,Q,QV,aux,t)
+  P, u, v, w, ρinv = preflux(Q)
   @inbounds begin
     u,v,w = aux[uid], aux[vid], aux[wid]
     ρ=Q[1]
@@ -148,7 +146,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
 
   #{{{ numerical fluxex
   numflux!(x...) = NumericalFluxes.rusanov!(x..., advectionflux!,
-                                            wavespeed, preflux)
+                                            wavespeed)
 
   # zero flux at the boundaries: not entirely accurate but good enough
   function numbcflux!(F, _...)
@@ -167,7 +165,7 @@ function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
                          auxiliary_state_initialization! = velocity_init!)
 
   # Initial Condition
-  initialcondition(Q, x...) = advection_sphere!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = advection_sphere!(Q, 0, x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # Store Initial Condition as Exact Solution
@@ -250,7 +248,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm=MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -334,7 +331,5 @@ let
   =#
 
 end # Test
-
-isinteractive() || MPI.Finalize()
 
 # nothing
