@@ -52,7 +52,7 @@ if !@isdefined integration_testing
 end
 
 # preflux computation
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
@@ -61,16 +61,15 @@ end
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) =
-eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
-
-@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -86,7 +85,7 @@ end
   @inbounds aux[1], aux[2], aux[3] = x, y, z
 end
 
-@inline function bcstate!(QP, _, _, _, QM, _, auxM, bctype, t, _...)
+@inline function bcstate!(QP, _, _, _, QM, _, auxM, bctype, t)
   @inbounds begin
     x, y, z = auxM[1], auxM[2], auxM[3]
     isentropicvortex!(QP, t, x, y, z)
@@ -141,11 +140,9 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  numflux!(x...) = NumericalFluxes.rusanov!(x..., eulerflux!, wavespeed,
-                                            preflux)
+  numflux!(x...) = NumericalFluxes.rusanov!(x..., eulerflux!, wavespeed)
   numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., eulerflux!,
-                                                           bcstate!, wavespeed,
-                                                           preflux)
+                                                            bcstate!, wavespeed)
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            flux! = eulerflux!,
@@ -225,7 +222,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -277,7 +273,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing

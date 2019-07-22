@@ -371,11 +371,6 @@ end
 
 #------------------------------------------------------------------------------
 
-# ### Finalizing MPI (if necessary)
-Sys.iswindows() || MPI.finalize_atexit()
-Sys.iswindows() && !isinteractive() && MPI.Finalize()
-#md nothing # hide
-
 #md # ## [Plain Program](@id ex_002_solid_body_rotation-plain-program)
 #md #
 #md # Below follows a version of the program without any comments.
