@@ -17,7 +17,7 @@ const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
                      ]
 
 let 
-  function rhs!(dQ, Q, time; increment)
+  function rhs!(dQ, Q, param, time; increment)
     if increment
       dQ .+= Q * cos(time)
     else
@@ -115,7 +115,7 @@ end
 
 let 
   c = 100.0
-  function rhs!(dQ, Q, time; increment)
+  function rhs!(dQ, Q, param, time; increment)
     if increment
       dQ .+= im * c * Q .+ exp(im * time)
     else
@@ -123,7 +123,7 @@ let
     end
   end
  
-  function rhs_linear!(dQ, Q, time; increment)
+  function rhs_linear!(dQ, Q, param, time; increment)
     if increment
       dQ .+= im * c * Q
     else

@@ -99,7 +99,7 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
   Qrhs = MPIStateArray(spacedisc, (args...) -> rhs!(dim, args...))
   Qexact = MPIStateArray(spacedisc, (args...) -> exactsolution!(dim, args...))
 
-  linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, 0, increment = false)
+  linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, nothing, 0, increment = false)
 
   tol = 1e-9
   gcrk = GeneralizedConjugateResidual(3, Q, tol)
