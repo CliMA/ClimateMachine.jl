@@ -109,7 +109,7 @@ function diffusive!(::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Va
   e_tot_vap = e_kin + e_pot + I_vap
   e_tot_liq = e_kin + e_pot + I_liq
   e_tot_ice = e_kin + e_pot + I_ice
-  ρD = state.ρ * ((e_tot_v + R_v*T)*diffusive.moisture.ρd_q_vap + e_tot_liq*diffusive.moisture.ρd_q_liq + e_tot_ice*diffusive.moisture.ρd_q_ice) 
+  ρD = state.ρ * ((e_tot_vap + R_v*T)*diffusive.moisture.ρd_q_vap + e_tot_liq*diffusive.moisture.ρd_q_liq + e_tot_ice*diffusive.moisture.ρd_q_ice) 
 
   diffusive.moisture.ρJ_ρD = ρJ + ρD
 end

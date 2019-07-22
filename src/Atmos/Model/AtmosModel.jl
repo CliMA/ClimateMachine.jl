@@ -174,8 +174,6 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
   init_state!(bl, stateP, auxP, coord, t)
 end
 
-
-
 function init_state!(bl::AtmosModel, state::Vars, aux::Vars, coords, t)
   bl.init_state(state, aux, coords, t)
 end
