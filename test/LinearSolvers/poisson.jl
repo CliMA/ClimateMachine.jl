@@ -89,7 +89,6 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
                            flux! = physical_flux!,
                            numerical_flux! = numerical_flux!,
                            number_gradient_states = 1,
-                           states_for_gradient_transform = (1,),
                            number_viscous_states = 3,
                            gradient_transform! = gradient_transform!,
                            viscous_transform! = viscous_transform!,
@@ -100,7 +99,7 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
   Qrhs = MPIStateArray(spacedisc, (args...) -> rhs!(dim, args...))
   Qexact = MPIStateArray(spacedisc, (args...) -> exactsolution!(dim, args...))
 
-  linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, 0, increment = false)
+  linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, nothing, 0, increment = false)
 
   tol = 1e-9
   gcrk = GeneralizedConjugateResidual(3, Q, tol)
@@ -118,7 +117,6 @@ end
 
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -173,7 +171,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing

@@ -28,6 +28,8 @@
   SlurmJob(`.slurmci/cpu.sh test/DGmethods/Euler/RTB_IMEX.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/conservation/sphere.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc.jl`, ntasks=3)
+  #  SlurmJob(`.slurmci/cpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl`, ntasks=3)
+  SlurmJob(`.slurmci/cpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_lsrk.jl`, ntasks=2)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_ssp33.jl`, ntasks=2)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_ssp34.jl`, ntasks=2)
