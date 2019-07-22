@@ -36,7 +36,7 @@ struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time"
   t::Array{RT,1}
   "rhs function"
-  rhs!::Function
+  rhs!
   "Storage for RHS during the LowStorageRungeKutta update"
   dQ::AT
   "low storage RK coefficient vector A (rhs scaling)"
@@ -46,7 +46,7 @@ struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "low storage RK coefficient vector C (time scaling)"
   RKC::NTuple{Nstages, RT}
 
-  function LowStorageRungeKutta2N(rhs!::Function, RKA, RKB, RKC,
+  function LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC,
                                   Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
@@ -64,14 +64,14 @@ struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
 end
 
 function LowStorageRungeKutta2N(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
-                                Q; dt=nothing, t0=0)
+                                Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = lsrk.dt[1] = dt
 
-function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, timeend,
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, param, timeend,
                       adjustfinalstep)
   time, dt = lsrk.t[1], lsrk.dt[1]
   if adjustfinalstep && time + dt > timeend
@@ -88,7 +88,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, timeend,
   blocks = div(length(rv_Q) + threads - 1, threads)
 
   for s = 1:length(RKA)
-    rhs!(dQ, Q, time + RKC[s] * dt, increment = true)
+    rhs!(dQ, Q, param, time + RKC[s] * dt, increment = true)
     # update solution and scale RHS
     @launch(ODEs.device(Q), threads=threads, blocks=blocks,
             update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt))
@@ -129,8 +129,7 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-function LSRK54CarpenterKennedy(F::Union{Function, AbstractSpaceMethod},
-                                Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function LSRK54CarpenterKennedy(F, Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
 
@@ -185,7 +184,7 @@ Niegemann, Diehl, and Busch (2012) with optimized stability region
       publisher={Elsevier}
     }
 """
-function LSRK144NiegemannDiehlBusch(F::Union{Function, AbstractSpaceMethod},
+function LSRK144NiegemannDiehlBusch(F,
                                     Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
