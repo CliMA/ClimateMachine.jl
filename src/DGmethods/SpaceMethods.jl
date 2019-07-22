@@ -34,7 +34,6 @@ or `dQ = F(Q, t)` if `increment == false`
     There is no generic implementation of this function. This must be
     implemented for each subtype of `AbstractSpaceMethod`
 """
-odefun!(m::AbstractSpaceMethod, dQ, Q, t; increment) =
-throw(MethodError(odefun!, (m, dQ, Q, t, increment)))
+function odefun! end
 
 end

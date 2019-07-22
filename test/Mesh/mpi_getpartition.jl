@@ -37,8 +37,6 @@ function main()
   codea = (1:Nelemtotal)[as[crank+1]]
 
   @test sort(codec) == codea
-
-  MPI.Finalize()
 end
 
 main()
