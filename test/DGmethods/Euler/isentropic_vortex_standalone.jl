@@ -53,7 +53,7 @@ const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
 
 # preflux computation
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
@@ -62,16 +62,15 @@ const γ_exact = 7 // 5
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) =
-eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
-
-@inline function eulerflux!(F, Q, QV, aux, t, P, u, v, w, ρinv)
+@inline function eulerflux!(F, Q, QV, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -135,8 +134,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                            flux! = eulerflux!,
                            numerical_flux! = (x...) ->
                            NumericalFluxes.rusanov!(x..., eulerflux!,
-                                                    wavespeed,
-                                                    preflux))
+                                                    wavespeed))
 
   # This is a actual state/function that lives on the grid
   initialcondition(Q, x...) = isentropicvortex!(Q, 0, x...)
@@ -212,7 +210,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -264,7 +261,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing

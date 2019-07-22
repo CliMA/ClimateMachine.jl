@@ -1,5 +1,6 @@
 using ..Mesh.Grids
 using ..MPIStateArrays
+using ..DGmethods
 using ..DGBalanceLawDiscretizations
 
 """
@@ -13,12 +14,12 @@ if not specified the fields names will be `"Q1"` through `"Qk"` where `k` is the
 number of states in `Q`, i.e., `k = size(Q,2)`.
 
 """
-function writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw,
+function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames=nothing)
-  vgeo = disc.grid.vgeo
+  vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
-  writevtk_helper(prefix, h_vgeo, h_Q, disc.grid, fieldnames)
+  writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames)
 end
 
 """
@@ -39,13 +40,13 @@ If `auxfieldnames === nothing` then the fields names will be `"aux1"` through
 size(auxstate,2)`.
 
 """
-function writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw,
+function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames, auxstate, auxfieldnames)
-  vgeo = disc.grid.vgeo
+  vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.Q, auxstate.Q) :
                                       (Array(vgeo), Array(Q), Array(auxstate))
-  writevtk_helper(prefix, h_vgeo, h_Q, disc.grid, fieldnames, h_aux,
+  writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames, h_aux,
                   auxfieldnames)
 end
 

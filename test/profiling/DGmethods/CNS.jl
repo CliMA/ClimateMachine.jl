@@ -18,7 +18,6 @@ const _nviscstates = 6
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
 
 const _ngradstates = 3
-const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 
 const _nauxstate = 3
 const _a_x, _a_y, _a_z = 1:_nauxstate
@@ -26,7 +25,7 @@ const _a_x, _a_y, _a_z = 1:_nauxstate
 const γ_exact = 7//5
 const μ_exact = 1//100
 
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
@@ -35,15 +34,15 @@ const μ_exact = 1//100
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # flux function
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
-
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
+@inline function cns_flux!(F, Q, VF, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -73,8 +72,7 @@ end
 # Compute the velocity from the state
 @inline function velocities!(vel, Q, _...)
   @inbounds begin
-    # ordering should match states_for_gradient_transform
-    ρ, U, V, W = Q[1], Q[2], Q[3], Q[4]
+    ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
     ρinv = 1 / ρ
     vel[1], vel[2], vel[3] = ρinv * U, ρinv * V, ρinv * W
   end
@@ -116,8 +114,7 @@ end
   end
 end
 
-numerical_flux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed,
-                                                 preflux)
+numerical_flux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed)
 let
   DFloat = Float64
   dim = 2
@@ -127,7 +124,6 @@ let
                       numerical_flux!;
                       stateoffset = ((_E, 20), (_ρ, 1)),
                       ngradstate = _ngradstates,
-                      states_grad = _states_for_gradient_transform,
                       nviscstate = _nviscstates,
                       gradient_transform! = velocities!,
                       viscous_transform! = compute_stresses!,
@@ -138,7 +134,6 @@ let
                       numerical_flux!;
                       stateoffset = ((_E, 20), (_ρ, 1)),
                       ngradstate = _ngradstates,
-                      states_grad = _states_for_gradient_transform,
                       nviscstate = _nviscstates,
                       gradient_transform! = velocities!,
                       viscous_transform! = compute_stresses!,
