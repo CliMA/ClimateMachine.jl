@@ -963,7 +963,8 @@ end
         Add more functions to the function Mesh.Topologies.grid_stretching_1d.
         
 """
-function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
+
+function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, attractor_value=0)
 
     DFloat = eltype(coord_min)
     
@@ -971,15 +972,20 @@ function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
     range_stretched = range(DFloat(coord_min), length = Ne + 1, DFloat(coord_max))
    
     #build logical space
-    ksi  = range(DFloat(0), length=Ne[1]+1, DFloat(1))
+    s  = range(DFloat(0), length=Ne[1]+1, DFloat(1))
 
     stretch_coe = 0.0
-    if (stretching_type == "boundary_layer")
+    if (stretching_type == "boundary_stretching")
         stretch_coe = 2.5
-        range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
-    elseif (stretching_type == "top_layer")
+        range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
+    elseif (stretching_type == "top_stretching")
         stretch_coe = 2.5
-        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
+        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
+
+    elseif (stretching_type == "interior_stretching")
+        stretch_coe     = 1.2;
+        L               = (coord_max - coord_min);
+        range_stretched = L*s +  stretch_coe*(attractor_value - L*s).*(1.0 - s).*s;          
     end
     return range_stretched
     
