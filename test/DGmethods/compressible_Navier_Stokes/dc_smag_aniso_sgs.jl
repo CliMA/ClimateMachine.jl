@@ -27,24 +27,14 @@ else
     const ArrayType = Array
 end
 
-"""
-State labels
-"""
 const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
-
-"""
-Viscous state labels
-"""
 const _nviscstates = 19
 const _τ11, _τ12, _τ13, _τ21, _τ22, _τ23, _τ31, _τ32, _τ33,_qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _normSij = 1:_nviscstates
 
-"""
-Number of states being loaded for gradient computation
-"""
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 
@@ -53,10 +43,6 @@ if !@isdefined integration_testing
         parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
     using Random
 end
-
-"""
-Problem constants 
-"""
 const Prandtl   = 71 // 100
 const k_μ       = cp_d / Prandtl
 const (xmin, xmax) = (0, 25600)
@@ -65,11 +51,6 @@ const  Δx    = 100
 const  Δy    = 100
 const  Δz    = 100
 
-"""
-Problem Description
--------------------
-2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
-"""
 
 # Equivalent grid-scale
 # -------------------------------------------------------------------------

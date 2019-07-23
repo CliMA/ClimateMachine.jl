@@ -27,29 +27,15 @@ else
     const ArrayType = Array
 end
 
-"""
-State labels
-"""
 const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
-
-"""
-Viscous state labels
-"""
 const _nviscstates = 16
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _ρx, _ρy, _ρz, _SijSij = 1:_nviscstates
-
-"""
-Number of variables of which gradients are required 
-"""
 const _ngradstates = 7
 
-"""
-Number of states being loaded for gradient computation
-"""
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 
@@ -58,18 +44,9 @@ if !@isdefined integration_testing
         parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
     using Random
 end
-
-"""
-Problem constants 
-"""
 const Prandtl   = 71 // 100
 const k_μ       = cp_d / Prandtl
 
-"""
-Problem Description
--------------------
-2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
-"""
 
 Δx    = 50
 Δy    = 50
@@ -288,17 +265,11 @@ end
     end
 end
 
-"""
-Boundary penalty (gradient boundaries)
-"""
 @inline function stresses_boundary_penalty!(VF,nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
   gradient_listP .= gradient_listM
   stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
 
-"""
-Gradient term flux correction 
-"""
 @inline function stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
     @inbounds begin
         n_Δgradient_list = similar(VF, Size(3, _ngradstates))
@@ -308,10 +279,6 @@ Gradient term flux correction
         compute_stresses!(VF, n_Δgradient_list)
     end
 end
-
-"""
-Source terms
-"""
 
 @inline function source!(S,Q,aux,t)
     # Initialise the final block source term 
