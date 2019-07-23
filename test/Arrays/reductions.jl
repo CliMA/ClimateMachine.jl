@@ -5,7 +5,6 @@ using CLIMA
 using CLIMA.MPIStateArrays
 
 MPI.Initialized() || MPI.Init()
-Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
 const mpicomm = MPI.COMM_WORLD
 
@@ -58,6 +57,4 @@ QB .= B
   @test isapprox(dot(QA, QB), dot(globalA, globalB))
 end
 
-
-isinteractive() || MPI.Finalize()
 nothing

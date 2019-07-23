@@ -24,8 +24,6 @@ function main()
     code_expect = UInt64[0x0000000000000000 0x1555555555555555 0xffffffffffffffff 0x5555555555555555 0x6aaaaaaaaaaaaaaa 0xaaaaaaaaaaaaaaaa; 0x0000000000000000 0x5555555555555555 0xffffffffffffffff 0x5555555555555555 0xaaaaaaaaaaaaaaaa 0xaaaaaaaaaaaaaaaa]
     @test code_all == code_expect
   end
-
-  MPI.Finalize()
 end
 
 main()
