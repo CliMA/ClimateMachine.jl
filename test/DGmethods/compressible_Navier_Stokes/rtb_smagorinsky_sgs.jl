@@ -85,9 +85,9 @@ const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
-        aux[_a_dx] = dx
-        aux[_a_dy] = dy
-        aux[_a_Δsqr] = SubgridScaleTurbulence.anisotropic_lengthscale_2D(aux[_a_dx],aux[_a_dy]) 
+        aux[_a_dx] = Δx
+        aux[_a_dy] = Δy
+        aux[_a_Δsqr] = SubgridScaleTurbulence.geo_mean_lengthscale_2D(Δ1, Δ2)
     end
 end
 
@@ -95,14 +95,9 @@ end
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
 # In the case of the rising_thermal_bubble example: the saturation
-# adjusted temperature and pressure are such examples. Since we define
-# the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. Future drivers won't use the preflux function.  
-# The preflux function interacts with the following  
-# Modules: NumericalFluxes.jl 
-# functions: wavespeed, cns_flux!, bcstate!
+# adjusted temperature and pressure are such examples.
 # -------------------------------------------------------------------------
-@inline function preflux(Q,VF, aux, _...)
+@inline function diagnostics(Q,VF, aux, _...)
     gravity::eltype(Q) = grav
     R_gas::eltype(Q) = R_d
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
@@ -123,11 +118,12 @@ end
 #-------------------------------------------------------------------------
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function wavespeed(n, Q, aux, t)
   gravity::eltype(Q) = grav
   @inbounds begin 
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    ρinv = 1/ρ
     u, v, w = ρinv * U, ρinv * V, ρinv * W
     e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * y) / ρ
     q_tot = QT / ρ
@@ -143,10 +139,8 @@ end
 #md # $\frac{\partial Q}{\partial t} + \nabla \cdot \boldsymbol{F} = \boldsymbol {S}$
 #md # $\boldsymbol{F}$ contains both the viscous and inviscid flux components
 #md # and $\boldsymbol{S}$ contains source terms.
-#md # Note that the preflux calculation is splatted at the end of the function call
-#md # to cns_flux!
 # -------------------------------------------------------------------------
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
+cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, diagnostics(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
   gravity::eltype(Q) = grav
   @inbounds begin
@@ -196,7 +190,7 @@ end
 #md # for viscous flows. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
-gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
+gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, diagnostics(Q,~,aux)...)
 @inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
     @inbounds begin
         # ordering should match states_for_gradient_transform
@@ -248,7 +242,7 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
@@ -395,8 +389,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             DeviceArray = ArrayType,
                                             polynomialorder = N)
     
-    numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
-    numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
+    numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed)
+    numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed)
 
     # spacedisc = data needed for evaluating the right-hand side function
     spacedisc = DGBalanceLaw(grid = grid,
@@ -405,8 +399,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              numerical_flux! = numflux!,
                              numerical_boundary_flux! = numbcflux!, 
                              number_gradient_states = _ngradstates,
-                             states_for_gradient_transform =
-                             _states_for_gradient_transform,
                              number_viscous_states = _nviscstates,
                              gradient_transform! = gradient_vars!,
                              viscous_transform! = compute_stresses!,
@@ -468,7 +460,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
+                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (diagnostics(Q, QV, aux))
                                                        end
                                                    end
 
@@ -534,7 +526,7 @@ let
       end
     end
     
-    @testset for numdims = 2:2
+      numdims = 2
       numelem = (Nex,Ney)
       dt = 0.005
       timeend = 2000
@@ -559,8 +551,6 @@ let
       engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                       DFloat, dt)
       # Based on expected numerical solution for specific resolution
-      @test engf_eng0 ≈ DFloat(.0000075242807756e+00)
-    end
 end
 
 isinteractive() || MPI.Finalize()
