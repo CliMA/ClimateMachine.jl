@@ -48,21 +48,24 @@ end
 #
 region_name = "monterey"
 
-joinpath(@__DIR__,
+CLIMA_HOME      = @__DIR__;
+topo_files_path = joinpath(@__DIR__, "test/DGmethods/mesh/TopographyFiles/")
+mkpath(topo_files_path)
 
-mkpath(joinpath(@__DIR__, "test/DGmethods")
 header_file_in   = string(region_name, ".hdr")
-header_file_path = string("./TopographyFiles/", header_file_in);
+header_file_path = string(topo_files_path, header_file_in);
+
 body_file_in     = string(region_name, ".xyz")
-body_file_path   = string("./TopographyFiles/", body_file_in);
+body_file_path   = string(topo_files_path, body_file_in);
 if !isfile(header_file_path)
-    mypath = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".hdr");
-    Base.run(`wget $mypath`)
-    Base.run(`mv $header_file_in $header_file_path`);
+    db_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".hdr");
+    cd(topo_files_path)
+    Base.run(`wget $db_path`)
+    cd()
 end
 if !isfile(body_file_path)
-    mypath = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".xyz");
-    Base.run(`wget $mypath`)
+    db_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".xyz");
+    Base.run(`wget $db_path`)
     Base.run(`mv $body_file_in $body_file_path`);
 end
 
