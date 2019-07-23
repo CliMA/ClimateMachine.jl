@@ -1,26 +1,25 @@
 module Topography
-"""
-    # Topography:
+#
+#    # Topography:
+#
+#    This module contains:
+#
+#    -  ReadExternalHeader(header_file_in)
+#    -  ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
+#
+#    to read extenral grid files. 
+#
+#    ## The current implementation can only read ASCII files from the NOAA database
+#        url{https://www.ngdc.noaa.gov/mgg/topo/}
+#
+#
+import MPI
 
-    This module contains:
-
-    -  ReadExternalHeader(header_file_in)
-    -  ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
-
-    to read extenral grid files. 
-
-    ## The current implementation can only read ASCII files from the NOAA database
-        url{https://www.ngdc.noaa.gov/mgg/topo/}
-
-"""
 using Printf
 using DelimitedFiles
 using Dierckx
 
 export ReadExternalHeader, ReadExternalTxtCoordinates
-
-import Canary
-using MPI
 
 # {{{ READTOPOtxt_header
 """   

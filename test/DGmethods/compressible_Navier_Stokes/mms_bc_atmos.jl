@@ -14,7 +14,6 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.Vtk
-using CLIMA.Topography
 
 @static if haspkg("CuArrays")
   using CUDAdrv
