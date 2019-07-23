@@ -71,6 +71,18 @@ end
 
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
+    #
+    # Define grid size 
+    #
+
+    #
+    #Read external topography:
+    #
+
+    header_file_in = joinpath(@__DIR__, "../../TopographyFiles/NOAA/monterey.hdr")
+    (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
+
+    
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
                                           DeviceArray = ArrayType,
