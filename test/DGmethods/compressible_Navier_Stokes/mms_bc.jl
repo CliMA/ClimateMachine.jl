@@ -32,7 +32,6 @@ const _nviscstates = 6
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23 = 1:_nviscstates
 
 const _ngradstates = 3
-const _states_for_gradient_transform = (_ρ, _U, _V, _W)
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -42,7 +41,7 @@ end
 include("mms_solution_generated.jl")
 
 # preflux computation
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
   ρinv = 1 / ρ
@@ -51,15 +50,16 @@ include("mms_solution_generated.jl")
 end
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv)
+@inline function wavespeed(n, Q, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   γ::eltype(Q) = γ_exact
   @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # flux function
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q)...)
 
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv)
+@inline function cns_flux!(F, Q, VF, aux, t)
+  P, u, v, w, ρinv = preflux(Q)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
 
@@ -89,8 +89,7 @@ end
 # Compute the velocity from the state
 @inline function velocities!(vel, Q, _...)
   @inbounds begin
-    # ordering should match states_for_gradient_transform
-    ρ, U, V, W = Q[1], Q[2], Q[3], Q[4]
+    ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
     ρinv = 1 / ρ
     vel[1], vel[2], vel[3] = ρinv * U, ρinv * V, ρinv * W
   end
@@ -178,7 +177,7 @@ end
   end
 end
 
-@inline function bcstate2D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
+@inline function bcstate2D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
     initialcondition!(Val(2), QP, t, x, y, z)
@@ -186,7 +185,7 @@ end
   nothing
 end
 
-@inline function bcstate3D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t, _...)
+@inline function bcstate3D!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t)
   @inbounds begin
     x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
     initialcondition!(Val(3), QP, t, x, y, z)
@@ -204,20 +203,17 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   # spacedisc = data needed for evaluating the right-hand side function
-  numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed,
-                                            preflux)
+  numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed)
   bcstate! = dim == 2 ?  bcstate2D! : bcstate3D!
   numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!,
                                                             bcstate!,
-                                                            wavespeed, preflux)
+                                                            wavespeed)
   spacedisc = DGBalanceLaw(grid = grid,
                            length_state_vector = _nstate,
                            flux! = cns_flux!,
                            numerical_flux! = numflux!,
                            numerical_boundary_flux! = numbcflux!,
                            number_gradient_states = _ngradstates,
-                           states_for_gradient_transform =
-                             _states_for_gradient_transform,
                            number_viscous_states = _nviscstates,
                            gradient_transform! = velocities!,
                            viscous_transform! = compute_stresses!,
@@ -305,7 +301,6 @@ end
 using Test
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -381,7 +376,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing
