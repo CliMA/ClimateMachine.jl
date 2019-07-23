@@ -36,7 +36,7 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
   "time"
   t::Array{RT,1}
   "rhs function"
-  rhs!::Function
+  rhs!
   "Storage for RHS during the StrongStabilityPreservingRungeKutta update"
   Rstage::AT
   "Storage for the stage state during the StrongStabilityPreservingRungeKutta update"
@@ -48,7 +48,7 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
   "RK coefficient vector C (time scaling)"
   RKC::Array{RT,1}
 
-  function StrongStabilityPreservingRungeKutta(rhs!::Function, RKA, RKB, RKC,
+  function StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC,
                                                Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
     @assert dt != nothing
     
@@ -61,14 +61,14 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
 end
 
 function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
-                                             Q; dt=nothing, t0=0)
+                                             Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
 
-function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adjustfinalstep)
+function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, param, timeend, adjustfinalstep)
   time, dt = ssp.t[1], ssp.dt[1]
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
@@ -87,7 +87,7 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend, adju
   
   rv_Qstage .= rv_Q
   for s = 1:length(RKB)
-    rhs!(Rstage, Qstage, time + RKC[s] * dt, increment = false)
+    rhs!(Rstage, Qstage, param, time + RKC[s] * dt, increment = false)
   
     @launch(ODEs.device(Q), threads = threads, blocks = blocks,
             update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))
@@ -130,8 +130,7 @@ of Shu and Osher (1988)
       publisher={Elsevier}
     }
 """
-function SSPRK33ShuOsher(F::Union{Function, AbstractSpaceMethod},
-                         Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function SSPRK33ShuOsher(F, Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
   RKA = [ RT(1) RT(0); RT(3//4) RT(1//4); RT(1//3) RT(2//3) ]
@@ -169,8 +168,7 @@ of Spiteri and Ruuth (1988)
       publisher={SIAM}
     }
 """
-function SSPRK34SpiteriRuuth(F::Union{Function, AbstractSpaceMethod},
-                             Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function SSPRK34SpiteriRuuth(F, Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
   RKA = [ RT(1) RT(0); RT(0) RT(1); RT(2//3) RT(1//3); RT(0) RT(1) ]

@@ -574,14 +574,6 @@ end
 
 #------------------------------------------------------------------------------
 
-# ### Finalizing MPI (if necessary)
-# If we are running interactively we do not want to finalize MPI now but at
-# exit; this does not work for windows hence the check. Otherwise we can
-# finalize MPI now.
-Sys.iswindows() || MPI.finalize_atexit()
-Sys.iswindows() && !isinteractive() && MPI.Finalize()
-#md nothing # hide
-
 #md # ## [Plain Program](@id ex_001_periodic_advection-plain-program)
 #md #
 #md # Below follows a version of the program without any comments.

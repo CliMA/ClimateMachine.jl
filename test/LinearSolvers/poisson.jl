@@ -100,7 +100,7 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
   Qrhs = MPIStateArray(spacedisc, (args...) -> rhs!(dim, args...))
   Qexact = MPIStateArray(spacedisc, (args...) -> exactsolution!(dim, args...))
 
-  linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, 0, increment = false)
+  linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, nothing, 0, increment = false)
 
   tol = 1e-9
   linearsolver = linmethod(Q, tol)
@@ -118,7 +118,6 @@ end
 
 let
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -187,7 +186,5 @@ let
     end
   end
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing
