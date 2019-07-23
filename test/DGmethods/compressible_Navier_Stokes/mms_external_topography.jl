@@ -49,7 +49,7 @@ end
 region_name = "monterey"
 
 CLIMA_HOME      = @__DIR__;
-topo_files_path = joinpath(@__DIR__, "test/DGmethods/mesh/TopographyFiles/")
+topo_files_path = joinpath(CLIMA_HOME, "test/DGmethods/mesh/TopographyFiles/")
 mkpath(topo_files_path)
 
 header_file_in   = string(region_name, ".hdr")
@@ -61,18 +61,19 @@ if !isfile(header_file_path)
     db_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".hdr");
     cd(topo_files_path)
     Base.run(`wget $db_path`)
-    cd()
+    cd(CLIMA_HOME)
 end
 if !isfile(body_file_path)
     db_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".xyz");
+    cd(topo_files_path)
     Base.run(`wget $db_path`)
-    Base.run(`mv $body_file_in $body_file_path`);
+    cd(CLIMA_HOME)
 end
 
-(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_in)
+(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_path)
 (xTopo, yTopo, zTopo)                                    = ReadExternalTxtCoordinates(body_file_in, "topo", nlon, nlat)
 TopoSpline                                               = Spline2D(xTopo, yTopo, zTopo)
-
+error("QUI")
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
