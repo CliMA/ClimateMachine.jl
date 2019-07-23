@@ -48,6 +48,9 @@ end
 #
 region_name = "monterey"
 
+joinpath(@__DIR__,
+
+mkpath(joinpath(@__DIR__, "test/DGmethods")
 header_file_in   = string(region_name, ".hdr")
 header_file_path = string("./TopographyFiles/", header_file_in);
 body_file_in     = string(region_name, ".xyz")
@@ -127,6 +130,43 @@ end
 
 
 
+include("mms_solution_generated.jl")
+
+function mms2_init_state!(state::Vars, aux::Vars, (x,y,z), t)
+  state.ρ = ρ_g(t, x, y, z, Val(2))
+  state.ρu = SVector(U_g(t, x, y, z, Val(2)),
+                     V_g(t, x, y, z, Val(2)),
+                     W_g(t, x, y, z, Val(2)))
+  state.ρe = E_g(t, x, y, z, Val(2))
+end
+
+function mms2_source!(source::Vars, state::Vars, aux::Vars, t::Real)
+  x,y,z = aux.coord.x, aux.coord.y, aux.coord.z
+  source.ρ  = Sρ_g(t, x, y, z, Val(2))
+  source.ρu = SVector(SU_g(t, x, y, z, Val(2)),
+                      SV_g(t, x, y, z, Val(2)),
+                      SW_g(t, x, y, z, Val(2)))
+  source.ρe = SE_g(t, x, y, z, Val(2))
+end
+
+function mms3_init_state!(state::Vars, aux::Vars, (x,y,z), t)
+  state.ρ = ρ_g(t, x, y, z, Val(3))
+  state.ρu = SVector(U_g(t, x, y, z, Val(3)),
+                     V_g(t, x, y, z, Val(3)),
+                     W_g(t, x, y, z, Val(3)))
+  state.ρe = E_g(t, x, y, z, Val(3))
+end
+
+function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
+  x,y,z = aux.coord.x, aux.coord.y, aux.coord.z
+  source.ρ  = Sρ_g(t, x, y, z, Val(3))
+  source.ρu = SVector(SU_g(t, x, y, z, Val(3)),
+                      SV_g(t, x, y, z, Val(3)),
+                      SW_g(t, x, y, z, Val(3)))
+  source.ρe = SE_g(t, x, y, z, Val(3))
+end
+
+
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     
     grid = DiscontinuousSpectralElementGrid(topl,
@@ -154,16 +194,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     step = [0]
     statenames = ("RHO", "U", "V", "W", "E")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-        outprefix = @sprintf("./vtk-mesh/topography_%dD_mpirank%04d_step%04d",
-                             dim, MPI.Comm_rank(mpicomm), step[1])
+        outprefix = @sprintf("./vtk-mesh/stretched_grid")
+        
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, dg, statenames)
-        pvtuprefix = @sprintf("_%dD_step%04d", dim, step[1])
-        prefixes = ntuple(i->
-                          @sprintf("./vtk-mesh/topography_%dD_mpirank%04d_step%04d",
-                                   dim, i-1, step[1]),
-                          MPI.Comm_size(mpicomm))
-        writepvtu(pvtuprefix, prefixes, statenames)
         step[1] += 1
         nothing
     end
@@ -213,6 +247,4 @@ let
 end
 
 end
-
-
 #nothing
