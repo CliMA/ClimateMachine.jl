@@ -430,7 +430,6 @@ struct CutoffFilter <: AbstractFilter
     new(AT(filter))
   end
 end
-
 # }}}
 
 end # module
