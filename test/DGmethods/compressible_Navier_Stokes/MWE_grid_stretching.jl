@@ -17,10 +17,6 @@ using DelimitedFiles
 using Dierckx
 using Random
 
-using TimerOutputs
-
-const to = TimerOutput()
-
 if haspkg("CuArrays")
     using CUDAdrv
     using CUDAnative
@@ -521,46 +517,41 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     #-----------------------------------------------------------------
     
 
-   
-  # User defined periodicity in the topl assignment
-  # brickrange defines the domain extents
-  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
+    
+    # User defined periodicity in the topl assignment
+    # brickrange defines the domain extents
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
 
-  @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
-                                                                 FloatType = DFloat,
-                                                                 DeviceArray = ArrayType,
-                                                                 polynomialorder = N)
+    grid = DiscontinuousSpectralElementGrid(topl,
+                                            FloatType = DFloat,
+                                            DeviceArray = ArrayType,
+                                            polynomialorder = N)
 
-  numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
-  numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
+    numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
+    numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
 
-  # spacedisc = data needed for evaluating the right-hand side function
-  @timeit to "Space Disc init" spacedisc = DGBalanceLaw(grid = grid,
-                                                        length_state_vector = _nstate,
-                                                        flux! = cns_flux!,
-                                                        numerical_flux! = numflux!,
-                                                        numerical_boundary_flux! = numbcflux!, 
-                                                        number_gradient_states = _ngradstates,
-                                                        states_for_gradient_transform =
-                                                        _states_for_gradient_transform,
-                                                        number_viscous_states = _nviscstates,
-                                                        gradient_transform! = gradient_vars!,
-                                                        viscous_transform! = compute_stresses!,
-                                                        viscous_penalty! = stresses_penalty!,
-                                                        viscous_boundary_penalty! = stresses_boundary_penalty!,
-                                                        auxiliary_state_length = _nauxstate,
-                                                        auxiliary_state_initialization! = (x...) ->
-                                                        auxiliary_state_initialization!(x...),
-                                                        source! = source!,
-                                                        preodefun! = preodefun!)
+    # spacedisc = data needed for evaluating the right-hand side function
+    spacedisc = DGBalanceLaw(grid = grid,
+                             length_state_vector = _nstate,
+                             flux! = cns_flux!,
+                             numerical_flux! = numflux!,
+                             numerical_boundary_flux! = numbcflux!, 
+                             number_gradient_states = _ngradstates,                                                        
+                             number_viscous_states = _nviscstates,
+                             gradient_transform! = gradient_vars!,
+                             viscous_transform! = compute_stresses!,
+                             viscous_penalty! = stresses_penalty!,
+                             viscous_boundary_penalty! = stresses_boundary_penalty!,
+                             auxiliary_state_length = _nauxstate,
+                             auxiliary_state_initialization! = (x...) ->
+                             auxiliary_state_initialization!(x...),
+                             source! = source!,
+                             preodefun! = preodefun!)
 
   # This is a actual state/function that lives on the grid
-  @timeit to "IC init" begin      
     initialcondition(Q, x...) = dc!(Val(dim), Q, DFloat(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
-  end
-
-  @timeit to "Time stepping init" begin
+    
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
     #=eng0 = norm(Q)
@@ -570,19 +561,19 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
-      if s
-        starttime[] = now()
-      else
-        #energy = norm(Q)
-        #globmean = global_mean(Q, _ρ)
-        @info @sprintf("""Update
-                       simtime = %.16e
-                       runtime = %s""",
-                       ODESolvers.gettime(lsrk),
-                       Dates.format(convert(Dates.DateTime,
-                                            Dates.now()-starttime[]),
-                                    Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
-      end
+        if s
+            starttime[] = now()
+        else
+            #energy = norm(Q)
+            #globmean = global_mean(Q, _ρ)
+            @info @sprintf("""Update
+                                       simtime = %.16e
+                                       runtime = %s""",
+                           ODESolvers.gettime(lsrk),
+                           Dates.format(convert(Dates.DateTime,
+                                                Dates.now()-starttime[]),
+                                        Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+        end
     end
 
     npoststates = 3
@@ -592,29 +583,29 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
-      DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
-        @inbounds let
-          u, v, w = preflux(Q, QV, aux)
-          R[_o_u] = u
-          R[_o_v] = v
-          R[_o_w] = w
+        DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+            @inbounds let
+                u, v, w = preflux(Q, QV, aux)
+                R[_o_u] = u
+                R[_o_v] = v
+                R[_o_w] = w
+            end
         end
-      end
 
-      outprefix = @sprintf("./CLIMA-output-scratch/stretching/dy_%dD_mpirank%04d_step%04d", dim,
-                           MPI.Comm_rank(mpicomm), step[1])
-      @debug "doing VTK output" outprefix
-      writevtk(outprefix, Q, spacedisc, statenames, postprocessarray, postnames)
-      
-      step[1] += 1
-      nothing
+        outprefix = @sprintf("./CLIMA-output-scratch/stretching/dy_%dD_mpirank%04d_step%04d", dim,
+                             MPI.Comm_rank(mpicomm), step[1])
+        @debug "doing VTK output" outprefix
+        writevtk(outprefix, Q, spacedisc, statenames, postprocessarray, postnames)
+        
+        step[1] += 1
+        nothing
     end
-  end
+
 
   @info @sprintf """ ---- COMPLETE: Grid built successfully ----"""
 
   # Initialise the integration computation. Kernels calculate this at every timestep?? 
-  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 end
 
 using Test
