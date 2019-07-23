@@ -134,10 +134,6 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
         
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, dg, statenames)
-        #pvtuprefix = @sprintf("_%dD_step%04d", dim, step[1])
-        #prefixes = ntuple(i->
-        #                  @sprintf("./vtk-mesh/stretched_grid"), MPI.Comm_size(mpicomm))
-        #writepvtu(pvtuprefix, prefixes, statenames)
         step[1] += 1
         nothing
     end
