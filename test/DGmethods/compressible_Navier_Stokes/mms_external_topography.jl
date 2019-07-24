@@ -39,41 +39,61 @@ Npoly = 4
 #
 # Read topography files:
 #
-if isfile("TopographyFiles")
-    Base.run(`mkdir TopographyFiles`);
+#if isfile("TopographyFiles")
+#    Base.run(`mkdir TopographyFiles`);
+#end
+
+###################################################################
+# USER DEFINED REGION NAME based ON THE GRID FILE TO BE DOWNLOADED
+###################################################################
+region_name        = "monterey"
+topography_db_type = "NOAA_XYZ"
+
+
+
+##################################################################
+# READING AND INTERPOLATING EXTERNAL GRID
+##################################################################
+if topography_db_type == "NOAA_XYZ"
+    region_file_name_hdr = string(region_name, ".hdr");
+    region_file_name_xyz = string(region_name, ".xyz");
+    TEST_DIR             = @__DIR__
+    topo_files_str       = string(TEST_DIR, "/TopographyFiles/")
+    if !isfile(topo_files_str)
+        #create directory IF directory not created yet:
+        mkpath(topo_files_str)    
+    end
+    
+    #NOAA HEADER FILE
+    header_file_name_and_path = string(topo_files_str, region_file_name_hdr);
+    if !isfile(header_file_name_and_path)
+        url_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_file_name_hdr);
+        cd(topo_files_str)
+        Base.run(`wget $url_path`)
+        cd(TEST_DIR)
+    end
+    
+    #NOAA COORDINATES FILE
+    body_file_name_and_path = string(topo_files_str, region_file_name_xyz);
+    if !isfile(body_file_name_and_path)
+        url_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_file_name_xyz);
+        cd(topo_files_str)
+        Base.run(`wget $url_path`)
+        cd(TEST_DIR)
+    end
+
+    #Read Header file
+    (nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_name_and_path)
+    (xTopo, yTopo, zTopo)                                    = ReadExternalTxtCoordinates(body_file_name_and_path, "topo", nlon, nlat)
+    
+else
+    error(" EXTERNAL GRID READING ERROR: only NOAA_XYZ files acceopted so far");        
 end
+#Interpolate topography:
+TopoSpline = Spline2D(xTopo, yTopo, zTopo)
 
-#
-# USER DEFINE REGION NAME BASED ON THE GRID FILE TO BE DOWNLOADED
-#
-region_name = "monterey"
 
-CLIMA_HOME      = @__DIR__;
-topo_files_path = joinpath(CLIMA_HOME, "test/DGmethods/mesh/TopographyFiles/")
-mkpath(topo_files_path)
 
-header_file_in   = string(region_name, ".hdr")
-header_file_path = string(topo_files_path, header_file_in);
-
-body_file_in     = string(region_name, ".xyz")
-body_file_path   = string(topo_files_path, body_file_in);
-if !isfile(header_file_path)
-    db_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".hdr");
-    cd(topo_files_path)
-    Base.run(`wget $db_path`)
-    cd(CLIMA_HOME)
-end
-if !isfile(body_file_path)
-    db_path = string("https://web.njit.edu/~smarras/TopographyFiles/NOAA/", region_name, ".xyz");
-    cd(topo_files_path)
-    Base.run(`wget $db_path`)
-    cd(CLIMA_HOME)
-end
-
-(nlon, nlat, lonmin, lonmax, latmin, latmax, dlon, dlat) = ReadExternalHeader(header_file_path)
-(xTopo, yTopo, zTopo)                                    = ReadExternalTxtCoordinates(body_file_in, "topo", nlon, nlat)
-TopoSpline                                               = Spline2D(xTopo, yTopo, zTopo)
-error("QUI")
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
@@ -114,16 +134,17 @@ Lz = abs(zmax - zmin)
 @info @sprintf """ ------------------------------- """
 @info @sprintf """ Grids.jl: Importing topography file to CLIMA ... DONE"""
 
+
 #
 # Warp topography read from file
 #
 warp_external_topography(xin, yin, zin) = warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
 function warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
     """
-       Given the input set of spatial coordinates based on the DG transform
-       Interpolate using the 2D spline to get the mesh warp on the entire grid,
-       pointwise. 
-    """
+           Given the input set of spatial coordinates based on the DG transform
+           Interpolate using the 2D spline to get the mesh warp on the entire grid,
+           pointwise. 
+        """
     x     = xin
     y     = yin
     z     = zin
@@ -132,42 +153,46 @@ function warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
 end
 #}}}
 
+##################################################################
+# END READING AND INTERPOLATING EXTERNAL GRID
+##################################################################
+
 
 
 include("mms_solution_generated.jl")
 
 function mms2_init_state!(state::Vars, aux::Vars, (x,y,z), t)
-  state.ρ = ρ_g(t, x, y, z, Val(2))
-  state.ρu = SVector(U_g(t, x, y, z, Val(2)),
-                     V_g(t, x, y, z, Val(2)),
-                     W_g(t, x, y, z, Val(2)))
-  state.ρe = E_g(t, x, y, z, Val(2))
+    state.ρ = ρ_g(t, x, y, z, Val(2))
+    state.ρu = SVector(U_g(t, x, y, z, Val(2)),
+                       V_g(t, x, y, z, Val(2)),
+                       W_g(t, x, y, z, Val(2)))
+    state.ρe = E_g(t, x, y, z, Val(2))
 end
 
 function mms2_source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  x,y,z = aux.coord.x, aux.coord.y, aux.coord.z
-  source.ρ  = Sρ_g(t, x, y, z, Val(2))
-  source.ρu = SVector(SU_g(t, x, y, z, Val(2)),
-                      SV_g(t, x, y, z, Val(2)),
-                      SW_g(t, x, y, z, Val(2)))
-  source.ρe = SE_g(t, x, y, z, Val(2))
+    x,y,z = aux.coord.x, aux.coord.y, aux.coord.z
+    source.ρ  = Sρ_g(t, x, y, z, Val(2))
+    source.ρu = SVector(SU_g(t, x, y, z, Val(2)),
+                        SV_g(t, x, y, z, Val(2)),
+                        SW_g(t, x, y, z, Val(2)))
+    source.ρe = SE_g(t, x, y, z, Val(2))
 end
 
 function mms3_init_state!(state::Vars, aux::Vars, (x,y,z), t)
-  state.ρ = ρ_g(t, x, y, z, Val(3))
-  state.ρu = SVector(U_g(t, x, y, z, Val(3)),
-                     V_g(t, x, y, z, Val(3)),
-                     W_g(t, x, y, z, Val(3)))
-  state.ρe = E_g(t, x, y, z, Val(3))
+    state.ρ = ρ_g(t, x, y, z, Val(3))
+    state.ρu = SVector(U_g(t, x, y, z, Val(3)),
+                       V_g(t, x, y, z, Val(3)),
+                       W_g(t, x, y, z, Val(3)))
+    state.ρe = E_g(t, x, y, z, Val(3))
 end
 
 function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  x,y,z = aux.coord.x, aux.coord.y, aux.coord.z
-  source.ρ  = Sρ_g(t, x, y, z, Val(3))
-  source.ρu = SVector(SU_g(t, x, y, z, Val(3)),
-                      SV_g(t, x, y, z, Val(3)),
-                      SW_g(t, x, y, z, Val(3)))
-  source.ρe = SE_g(t, x, y, z, Val(3))
+    x,y,z = aux.coord.x, aux.coord.y, aux.coord.z
+    source.ρ  = Sρ_g(t, x, y, z, Val(3))
+    source.ρu = SVector(SU_g(t, x, y, z, Val(3)),
+                        SV_g(t, x, y, z, Val(3)),
+                        SW_g(t, x, y, z, Val(3)))
+    source.ρe = SE_g(t, x, y, z, Val(3))
 end
 
 
@@ -181,8 +206,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                             )
     
     model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
-                           mms3_source!, InitStateBC(), mms3_init_state!)
-   
+                       mms3_source!, InitStateBC(), mms3_init_state!)
+    
     dg = DGModel(model,
                  grid,
                  Rusanov(),
@@ -206,12 +231,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
         nothing
     end
     solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbvtk, ))
-        
+    
 end
 
 using Test
-
-
 let
     MPI.Initialized() || MPI.Init()
     mpicomm = MPI.COMM_WORLD
@@ -239,16 +262,13 @@ let
                          periodicity = (false, false, false))
     dt = 0.00001
     warpfun = warp_external_topography
-   
+    
     timeend = dt
     nsteps = ceil(Int64, timeend / dt)
     
-    @info (ArrayType, DFloat, dim)
-    result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
-                    polynomialorder, timeend, DFloat, dt)
+    run(mpicomm, ArrayType, dim, topl, warpfun,
+        polynomialorder, timeend, DFloat, dt)
     
     
 end
-
-end
-#nothing
+nothing
