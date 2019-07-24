@@ -64,7 +64,12 @@ function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearS
   while !converged
     converged, inner_iters, achieved_tolerance = 
       doiteration!(linearoperator!, Q, Qrhs, solver, threshold)
+
     iters += inner_iters
+
+    if !isfinite(residual_norm)
+      error("norm of residual is not finite after $iters iterations of `doiteration!`")
+    end
   end
   
   iters
