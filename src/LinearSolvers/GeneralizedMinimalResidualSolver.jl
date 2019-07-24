@@ -53,7 +53,7 @@ struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <: LS.AbstractIterativeLi
   end
 end
 
-const weighted = true
+const weighted = false
 
 function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResidual)
     g0 = solver.g0

@@ -60,7 +60,7 @@ struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolve
   end
 end
 
-const weighted = true
+const weighted = false
 
 function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateResidual)
     residual = solver.residual
