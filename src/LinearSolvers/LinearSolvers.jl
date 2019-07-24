@@ -12,8 +12,21 @@ LinearAlgebra.dot(A::Array, B::Array, weighted) = dot(A, B)
 export linearsolve!, settolerance!
 export AbstractLinearSolver, AbstractIterativeLinearSolver
 
+"""
+This is an abstract type representing a generic linear solver.
+
+"""
 abstract type AbstractLinearSolver end
 
+"""
+This is an abstract type representing a generic iterative
+linear solver.
+
+The available concrete implementations are:
+
+  - [GeneralizedConjugateResidual](@ref)
+  - [GeneralizedMinimalResidual](@ref)
+"""
 abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 
 """

@@ -16,12 +16,11 @@ const LS = LinearSolvers
 
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `M` is the number of steps after which the algorithm
-is restarted (if it has not converged), `Q` is a reference state used only to
-allocate the solver internal state, and `tolerance` specifies the convergence
-threshold based on the residual norm. Since the amount of additional memory
-required by the solver is  roughly `(M + 1) * size(Q)` in practical applications `M` 
-should be kept small. This object is intended to be passed to the [`linearsolve!`](@ref)
-command.
+is restarted (if it has not converged), `Q` is a reference state used only
+to allocate the solver internal state, and `tolerance` specifies the convergence
+criterion based on the relative residual norm. The amount of memory 
+required for the solver state is roughly `(M + 1) * size(Q)`.
+This object is intended to be passed to the [`linearsolve!`](@ref) command.
 
 This uses the restarted Generalized Minimal Residual method of Saad and Schultz (1986).
 
@@ -39,7 +38,9 @@ This uses the restarted Generalized Minimal Residual method of Saad and Schultz 
 """
 struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <: LS.AbstractIterativeLinearSolver
   krylov_basis::NTuple{MP1, AT}
+  "Hessenberg matrix"
   H::MArray{Tuple{MP1, M}, T, 2, MMP1}
+  "rhs of the least squares problem"
   g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
   tolerance::MArray{Tuple{1}, T, 1, 1}
 

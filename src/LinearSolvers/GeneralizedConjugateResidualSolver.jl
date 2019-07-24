@@ -16,12 +16,11 @@ const LS = LinearSolvers
 
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `K` is the number of steps after which the algorithm
-is restarted, `Q` is a reference state used only to allocate the solver internal
-state, and `tolerance` specifies the convergence threshold based on the residual
-norm. Since the amount of additional memory required by the solver is 
-`(2K + 2) * size(Q)` in practical applications `K` should be kept small. A value between
-1 and 4 is recommended. This object is intended to be passed to the [`linearsolve!`](@ref)
-command.
+is restarted (if it has not converged), `Q` is a reference state used only
+to allocate the solver internal state, and `tolerance` specifies the convergence
+criterion based on the relative residual norm. The amount of memory
+required by the solver state is roughly `(2K + 2) * size(Q)`.
+This object is intended to be passed to the [`linearsolve!`](@ref) command.
 
 This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983).
 
