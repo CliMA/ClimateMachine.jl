@@ -36,13 +36,6 @@ end
 
 Npoly = 4
 
-#
-# Read topography files:
-#
-#if isfile("TopographyFiles")
-#    Base.run(`mkdir TopographyFiles`);
-#end
-
 ###################################################################
 # USER DEFINED REGION NAME based ON THE GRID FILE TO BE DOWNLOADED
 ###################################################################
