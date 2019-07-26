@@ -27,6 +27,7 @@
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_aux.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_source.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_bc.jl`, ntasks=3)
+  SlurmJob(`.slurmci/gpu.sh test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_integral.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/isentropic_vortex_standalone_IMEX.jl`, ntasks=3)
   SlurmJob(`.slurmci/gpu.sh test/DGmethods/Euler/RTB_IMEX.jl`, ntasks=3)
