@@ -4,7 +4,7 @@ using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
 using CLIMA.GeneralizedMinimalResidualSolver
 
-using LinearAlgebra, Random
+using StaticArrays, LinearAlgebra, Random
 
 # this test setup is partly based on IterativeSolvers.jl, see e.g
 # https://github.com/JuliaMath/IterativeSolvers.jl/blob/master/test/cg.jl
@@ -16,24 +16,24 @@ using LinearAlgebra, Random
              (b, tol) -> GeneralizedMinimalResidual(n, b, tol)
             )
 
-  expected_iters = (Dict(Float32 => 8, Float64 => 11),
-                    Dict(Float32 => 10, Float64 => 21),
-                    Dict(Float32 => 7, Float64 => 10)
+  expected_iters = (Dict(Float32 => 7, Float64 => 11),
+                    Dict(Float32 => 9, Float64 => 21),
+                    Dict(Float32 => 6, Float64 => 10)
                    )
 
   for (m, method) in enumerate(methods), T in [Float32, Float64]
     Random.seed!(44)
 
-    A = rand(T, n, n)
+    A = @MMatrix rand(T, n, n)
     A = A' * A + I
-    b = rand(T, n)
+    b = @MVector rand(T, n)
 
     mulbyA!(y, x) = (y .= A * x)
 
     tol = sqrt(eps(T))
     linearsolver = method(b, tol)
     
-    x = rand(T, n)
+    x = @MVector rand(T, n)
     iters = linearsolve!(mulbyA!, x, b, linearsolver)
 
     @test iters == expected_iters[m][T]
@@ -42,7 +42,7 @@ using LinearAlgebra, Random
     newtol = 1000tol
     settolerance!(linearsolver, newtol)
     
-    x = rand(T, n)
+    x = @MVector rand(T, n)
     linearsolve!(mulbyA!, x, b, linearsolver)
 
     @test norm(A * x - b) / norm(b) <= newtol

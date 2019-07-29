@@ -2,12 +2,12 @@ module LinearSolvers
 
 using ..MPIStateArrays
 
-using LinearAlgebra
+using StaticArrays, LinearAlgebra
 
 # just for testing LinearSolvers
-LinearAlgebra.norm(A::Array, p::Real, weighted::Bool) = norm(A, p)
-LinearAlgebra.norm(A::Array, weighted::Bool) = norm(A, 2, weighted)
-LinearAlgebra.dot(A::Array, B::Array, weighted) = dot(A, B)
+LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
+LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
+LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)
 
 export linearsolve!, settolerance!
 export AbstractLinearSolver, AbstractIterativeLinearSolver
