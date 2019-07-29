@@ -59,15 +59,19 @@ dg = DGModel(MMSModel{2}(),
 
 param = init_ode_param(dg)
 Q = init_ode_state(dg, param, 0.0)
-
+dQ = similar(Q)
 dt = 5e-3 / Ne[1]
 
+function foo(dg::T, dQ, Q, param, dt, n) where {T}
+    for i = 1:n
+        dg(dQ, Q, param, i*dt, increment = true)
+    end
+end
+foo(dg, dQ, Q, param, dt, 100)
 
-
-
-lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-# dg(lsrk.dQ, Q, param, dt, increment = false)
-# CLIMA.ODESolvers.dostep!(Q, lsrk, param, dt, true)
-
-solve!(Q, lsrk, param; timeend=1)
+# lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+# for i = 1:n
+#     CLIMA.ODESolvers.dostep!(Q, lsrk, param, n*dt, true)
+# end
+# solve!(Q, lsrk, param; timeend=3*dt)
  

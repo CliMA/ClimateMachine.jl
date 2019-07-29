@@ -52,7 +52,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   ########################
   MPIStateArrays.start_ghost_exchange!(Q)
 
-  if nviscstate > 0
+  if false #nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             volumeviscterms!(bl, Val(dim), Val(polyorder), Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
