@@ -1,7 +1,7 @@
 using MPI
 using CLIMA
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
@@ -37,13 +37,12 @@ DFloat = Float64
 Ne = (4, 4)
 
 brickrange = (range(0.0; length=Ne[1]+1, stop=1),
-              range(0.0; length=Ne[2]+1, stop=1),
               range(0.0; length=Ne[2]+1, stop=1))
 
 
 MPI.Initialized() || MPI.Init()
 mpicomm = MPI.COMM_WORLD
-topl = BrickTopology(mpicomm, brickrange,  periodicity = (false, false, false))
+topl = BrickTopology(mpicomm, brickrange,  periodicity = (false, false))
 
 grid = DiscontinuousSpectralElementGrid(topl,
   FloatType = Float64,
@@ -52,7 +51,7 @@ grid = DiscontinuousSpectralElementGrid(topl,
   meshwarp = warpfun,
 )
 
-dg = DGModel(MMSModel{3}(),
+dg = DGModel(MMSModel{2}(),
   grid,
   Rusanov(),
   DefaultGradNumericalFlux())
@@ -67,8 +66,8 @@ dt = 5e-3 / Ne[1]
 
 
 lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-#dg(lsrk.dQ, Q, param, dt, increment = false)
-#dg(lsrk.dQ, Q, param, dt, increment = true)
+# dg(lsrk.dQ, Q, param, dt, increment = false)
+# CLIMA.ODESolvers.dostep!(Q, lsrk, param, dt, true)
 
 solve!(Q, lsrk, param; timeend=1)
  
