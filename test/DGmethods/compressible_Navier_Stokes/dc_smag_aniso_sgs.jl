@@ -45,7 +45,7 @@ if !@isdefined integration_testing
 end
 const Prandtl   = 71 // 100
 const k_μ       = cp_d / Prandtl
-const (xmin, xmax) = (0, 25600)
+const (xmin, xmax) = (0, 12250)
 const (ymin, ymax) = (0,  6000)
 const  Δx    = 100 
 const  Δy    = 100
@@ -67,7 +67,7 @@ const _a_x, _a_y, _a_z, _a_dx, _a_dy, _a_Δsqr = 1:_nauxstate
         aux[_a_z] = z
         aux[_a_dx] = Δx
         aux[_a_dy] = Δy
-        aux[_a_Δsqr] = SubgridScaleTurbulence.geo_mean_lengthscale_2D(Δ1, Δ2)
+        aux[_a_Δsqr] = SubgridScaleTurbulence.geo_mean_lengthscale_2D(Δx, Δy)
     end
 end
 
@@ -205,7 +205,6 @@ end
         VF[_τ31] = τ31 
         VF[_τ32] = τ32
         VF[_τ33] = τ33 
-        VF[_τ33] = τ33 
         VF[_normSij] = normSij
         
         VF[_Tx], VF[_Ty], VF[_Tz] = ν_e * k_μ *  dTdx, ν_e * k_μ *  dTdy, ν_e * k_μ *  dTdz
@@ -226,6 +225,7 @@ end
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
+        QP[_E] = EM
         QP[_QT] = QTM
         VFP .= 0 
         nothing
@@ -236,8 +236,7 @@ end
 Boundary correction for Neumann boundaries
 """
 @inline function stresses_boundary_penalty!(VF,nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
-  gradient_listP .= gradient_listM
-  stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
+  VF .= 0 
 end
 
 """
@@ -474,7 +473,7 @@ let
 
       numelem = (Nex,Ney)
       dt = 0.01
-      timeend = 900
+      timeend = 1500
       polynomialorder = Npoly
       DFloat = Float64
       dim = numdims
