@@ -24,7 +24,7 @@ updatedt!(solver::AbstractODESolver, dt) =
 
 # `realview` and `device` are used for testing ODE solvers independently of spatial discretisations,
 # i.e. using plain arrays as state vectors
-realview(Q::MPIStateArray) = view(Q.Q, axes(Q.Q)[1:end-1]..., Q.realelems)
+realview(Q::MPIStateArray) = Q.realQ
 realview(Q::Array) = Q
 device(::Array) = CPU()
 device(Q::MPIStateArray) = device(Q.Q)
