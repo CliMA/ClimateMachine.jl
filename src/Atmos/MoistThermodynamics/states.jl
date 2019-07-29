@@ -1,7 +1,7 @@
 export PhasePartition
 # Thermodynamic states
 export ThermodynamicState, PhaseEquil,
-  PhaseNonEquil, LiquidIcePotTempSHumEquil
+  PhaseNonEquil, LiquidIcePotTempSHumEquil, LiquidIcePotTempSHumEquil_no_ρ
 
 """
     PhasePartition
@@ -74,7 +74,7 @@ PhaseEquil(e_int, q_tot, ρ) =
 """
     LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
 
-Constructs a [`PhaseEquil`](@ref) thermodynamic state from liquid-ice potential temperature.
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 
  - `θ_liq_ice` - liquid-ice potential temperature
  - `q_tot` - total specific humidity
@@ -88,6 +88,25 @@ function LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
     PhaseEquil(e_int, q_tot, ρ, T)
 end
 
+"""
+    LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_tot, p)
+
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
+
+ - `θ_liq_ice` - liquid-ice potential temperature
+ - `q_tot` - total specific humidity
+ - `p` - pressure
+"""
+function LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_tot, p)
+    q_pt_dry = PhasePartition(q_tot)
+    T_dry = θ_liq_ice * exner(p, q_pt_dry)
+    ρ_dry = air_density(T_dry, p, q_pt_dry)
+    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ_dry, p)
+    ρ = air_density(T, p, q_pt_dry)
+    q_pt = PhasePartition_equil(T, ρ, q_tot)
+    e_int = internal_energy(T, q_pt)
+    PhaseEquil(e_int, q_tot, ρ, T)
+end
 
 """
    	 PhaseNonEquil{DT} <: ThermodynamicState

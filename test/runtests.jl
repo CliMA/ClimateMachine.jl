@@ -5,7 +5,7 @@ ENV["JULIA_LOG_LEVEL"] = "WARN"
 for submodule in ["Utilities/ParametersType",
                   "Utilities/PlanetParameters",
                   "Utilities/RootSolvers",
-                  "Utilities/MoistThermodynamics",
+                  "Atmos/MoistThermodynamics",
                   "Atmos/Parameterizations/SurfaceFluxes",
                   "Atmos/Parameterizations/TurbulenceConvection",
                   "Atmos/Parameterizations/Microphysics",
