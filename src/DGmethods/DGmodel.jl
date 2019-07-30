@@ -1,8 +1,3 @@
-using Requires
-@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-end
-
 struct DGModel{BL,G,NF,GNF}
   balancelaw::BL
   grid::G
@@ -52,7 +47,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   ########################
   MPIStateArrays.start_ghost_exchange!(Q)
 
-  if false #nviscstate > 0
+  if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             volumeviscterms!(bl, Val(dim), Val(polyorder), Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,

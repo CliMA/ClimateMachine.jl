@@ -10,6 +10,7 @@ using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -63,15 +64,24 @@ dQ = similar(Q)
 dt = 5e-3 / Ne[1]
 
 function foo(dg::T, dQ, Q, param, dt, n) where {T}
+    bl = dg.balancelaw
+    device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+    grid = dg.grid
+    topology = grid.topology
+
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    nrealelem = length(topology.realelems)
+
     for i = 1:n
-        dg(dQ, Q, param, i*dt, increment = true)
+        @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+                CLIMA.DGmethods.volumerhs!(bl, Val(dim), Val(N), dQ.Q, Q.Q, param.diff.Q, param.aux.Q,
+                           grid.vgeo, i*dt, grid.ω, grid.D,
+                           topology.realelems, false))
     end
 end
-foo(dg, dQ, Q, param, dt, 100)
-
-# lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-# for i = 1:n
-#     CLIMA.ODESolvers.dostep!(Q, lsrk, param, n*dt, true)
-# end
-# solve!(Q, lsrk, param; timeend=3*dt)
+foo(dg, dQ, Q, param, dt, 80)
  
