@@ -1,13 +1,15 @@
 module Atmos
 
-export AtmosModel, 
-  ConstantViscosityWithDivergence, 
+export AtmosModel,
+  ConstantViscosityWithDivergence,
   DryModel, MoistEquil,
   NoRadiation,
   NoFluxBC, InitStateBC
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
+using ..MoistThermodynamics
+using ..PlanetParameters
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
@@ -34,7 +36,7 @@ struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
 end
 
 function vars_state(m::AtmosModel, T)
-  NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :moisture, :radiation), 
+  NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :moisture, :radiation),
   Tuple{T, SVector{3,T}, T, vars_state(m.turbulence,T), vars_state(m.moisture,T), vars_state(m.radiation, T)}}
 end
 function vars_gradient(m::AtmosModel, T)
@@ -56,11 +58,11 @@ function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Var
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
-  
+
   p = pressure(m.moisture, state, aux, t)
 
   # invisc terms
-  flux.ρ  = ρu 
+  flux.ρ  = ρu
   flux.ρu = ρu .* u' + p*I
   flux.ρe = u * (state.ρe + p)
 
@@ -98,9 +100,9 @@ end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   ∇u = ∇transform.u
-  
+
   # strain rate tensor
-  # TODO: we use an SVector for this, but should define a "SymmetricSMatrix"? 
+  # TODO: we use an SVector for this, but should define a "SymmetricSMatrix"?
   S = SVector(∇u[1,1],
               ∇u[2,2],
               ∇u[3,3],
@@ -155,10 +157,10 @@ Set the momentum at the boundary to be zero.
 """
 struct NoFluxBC <: BoundaryCondition
 end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
-  
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM  
+
+  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
 end
 
 """
@@ -168,7 +170,7 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 """
 struct InitStateBC <: BoundaryCondition
 end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
   coord = (auxP.coord.x, auxP.coord.y, auxP.coord.z)
   init_state!(bl, stateP, auxP, coord, t)

@@ -66,7 +66,7 @@ function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
   source.ρe = SE_g(t, x, y, z, Val(3))
 end
 
-# initial condition                     
+# initial condition
 
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
@@ -80,10 +80,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   if dim == 2
     model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
     mms2_source!, InitStateBC(), mms2_init_state!)
-  else  
+  else
     model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
     mms3_source!, InitStateBC(), mms3_init_state!)
-  end 
+  end
 
   dg = DGModel(model,
                grid,
@@ -93,8 +93,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   param = init_ode_param(dg)
 
   Q = init_ode_state(dg, param, DFloat(0))
-  
-  
+
+
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
