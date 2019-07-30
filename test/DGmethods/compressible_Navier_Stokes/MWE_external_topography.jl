@@ -136,13 +136,21 @@ function warp_external_topography(xin, yin, zin; SplineFunction=TopoSpline)
     """
            Given the input set of spatial coordinates based on the DG transform
            Interpolate using the 2D spline to get the mesh warp on the entire grid,
-           pointwise. 
+           pointwise.
         """
-    x     = xin
-    y     = yin
-    z     = zin
-    zdiff = TopoSpline(x, y) * (zmax - zin)/zmax
-    x, y, z + zdiff
+#    x     = xin
+#    y     = yin
+#    z     = zin
+    zdiff = TopoSpline(xin, yin) * (zmax - zin)/zmax
+    xin, yin, zin + zdiff
+    
+    #lon = xin
+    #lat = yin
+    #R = 6371e+3
+    #x = R * cos(lat) * cos(lon)
+    #y = R * cos(lat) * sin(lon)   
+    #z = R *sin(lat)
+        
 end
 #}}}
 
@@ -216,7 +224,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     step = [0]
     statenames = ("RHO", "U", "V", "W", "E")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-        outprefix = @sprintf("./vtk-mesh/stretched_grid")
+        outprefix = @sprintf("./vtk-mesh/external_topography")
         
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, dg, statenames)
@@ -246,7 +254,7 @@ let
 
     DFloat = Float64
     dim = 3
-    
+
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                   range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))

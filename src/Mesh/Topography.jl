@@ -117,15 +117,9 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
     
     xTopo1d = Array{DFloat, 1}(undef, nnodes_lon)
     yTopo1d = Array{DFloat, 1}(undef, nnodes_lat)
-    
-    k = 0
-    for j = 1:nnodes_lat
-        for i = 1:nnodes_lon
-            k = k + 1
-            zTopo2d[i,j] = topo_body[k,3]
-        end
-    end
-    npoin = k
+       
+    zTopo2d = reshape(topo_body[:,3], nnodes_lon, nnodes_lat);
+    #npoin = k
     
     #
     # Store 1D X array in the x direction: size -> nnodes_lat
@@ -146,11 +140,7 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
     # and order in increasing order
     l = 0
     interval = nnodes_lon
-    for k = 1:interval:nnodes
-        l = l + 1
-        yTopo1d[l] = topo_body[k,2]
-        #@info @sprintf """ Y[%d]: %.16e""" l yTopo1d[l]
-    end 
+    yTopo1d = topo_body[1:interval:nnodes,2]
     
     #Shift if negative
     if minimum(yTopo1d) < 0
