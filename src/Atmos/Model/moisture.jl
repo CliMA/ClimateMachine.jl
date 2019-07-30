@@ -21,20 +21,21 @@ end
 
 vars_aux(::DryModel,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
-function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function compute_internal_energy(m::DryModel, state::Vars, aux::Vars, t::Real)
   T = eltype(state)
-  ρ = state.ρ
-  q_tot = T(0)
-  q_pt = PhasePartition(q_tot)
-  ρinv = 1 / ρ
+  q_pt = PhasePartition(T(0))
+  ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
-  ρe_pot = ρ * grav * aux.coord.z
+  ρe_pot = state.ρ * grav * aux.coord.z
   ρe_int = state.ρe - ρe_kin
   # ρe_int = state.ρe - ρe_kin - ρe_pot # FIXME: Should we always include/exclude ρe_pot?
   e_int = ρinv*ρe_int - cv_m(q_pt)*T_0
+  return e_int
+end
 
-  aux.moisture.e_int = e_int
-  TS = PhaseEquil(aux.moisture.e_int, q_tot, ρ)
+function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  aux.moisture.e_int = compute_internal_energy(m, state, aux, t)
+  TS = PhaseEquil(aux.moisture.e_int, eltype(state.ρ)(0), state.ρ)
   aux.moisture.temperature = air_temperature(TS)
   nothing
 end
@@ -43,20 +44,12 @@ thermo_state(m::DryModel, state::Vars, aux::Vars, t::Real) = PhaseEquil(aux.mois
 
 function pressure(m::DryModel, state::Vars, aux::Vars, t::Real)
   T = eltype(state)
-
-  q_tot = T(0)
-  q_pt = PhasePartition(q_tot)
+  q_pt = PhasePartition(T(0))
+  e_int = compute_internal_energy(m, state, aux, t) + cv_m(q_pt)*T_0
   TS = thermo_state(m, state, aux, t)
 
-  ρ = state.ρ
-  ρinv = 1 / ρ
-  ρe_kin = ρinv*sum(abs2, state.ρu)/2
-  ρe_pot = ρ * grav * aux.coord.z
-  ρe_int = state.ρe - ρe_kin
-  # ρe_int = state.ρe - ρe_kin - ρe_pot # FIXME: Should potential be included or not?
-  e_int = ρinv*ρe_int
   T_old = e_int/cv_d
-  p_old = ρ*gas_constant_air(TS)*T_old
+  p_old = state.ρ*gas_constant_air(TS)*T_old
   p_new = air_pressure(TS)
   T_new = air_temperature(TS)
   Δe_int = internal_energy(T_old, q_pt) - internal_energy(TS)
@@ -87,21 +80,23 @@ vars_gradient(::EquilMoist,T) = NamedTuple{(:q_vap, :q_liq, :q_ice, :temperature
 vars_diffusive(::EquilMoist,T) = NamedTuple{(:ρd_q_tot, :ρJ_ρD), Tuple{SVector{3,T},SVector{3,T}}}
 vars_aux(::EquilMoist,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
-function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  ρ = state.ρ
-  ρinv = 1 / ρ
+function compute_internal_energy(m::EquilMoist, state::Vars, aux::Vars, t::Real)
   T = eltype(state)
-  q_tot = state.ρq_tot * ρinv
-  q_pt = PhasePartition(q_tot)
+  q_pt = PhasePartition(state.ρq_tot/state.ρ)
+  ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
-  ρe_pot = ρ * grav * aux.coord.z
+  ρe_pot = state.ρ * grav * aux.coord.z
   ρe_int = state.ρe - ρe_kin
   # ρe_int = state.ρe - ρe_kin - ρe_pot # FIXME: Should we always include/exclude ρe_pot?
   e_int = ρinv*ρe_int - cv_m(q_pt)*T_0
+  return e_int
+end
 
-  aux.moisture.e_int = e_int
-  TS = PhaseEquil(aux.moisture.e_int, q_tot, ρ)
+function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  aux.moisture.e_int = compute_internal_energy(m, state, diffusive, aux, t)
+  TS = PhaseEquil(aux.moisture.e_int, state.ρq_tot, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
+  nothing
 end
 
 thermo_state(m::EquilMoist, state::Vars, aux::Vars, t::Real) = PhaseEquil(aux.moisture.e_int, state.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
