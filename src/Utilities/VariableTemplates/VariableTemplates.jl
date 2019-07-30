@@ -45,7 +45,7 @@ Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :($T(array[$(offset+1)]))
       offset += 1
     elseif T <: StaticArray
@@ -65,12 +65,12 @@ Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
 end
 
 @generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val) where {S,A,offset}
-  expr = quote 
+  expr = quote
     array = getfield(v, :array)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :(array[$(offset+1)] = val)
       offset += 1
     elseif T <: StaticArray
@@ -109,7 +109,7 @@ Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
@@ -130,12 +130,12 @@ end
 
 @generated function Base.setproperty!(v::Grad{S,A,offset}, sym::Symbol, val) where {S,A,offset}
   M = size(A,1)
-  expr = quote 
+  expr = quote
     array = getfield(v, :array)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :(array[:, $(offset+1)] = val)
       offset += 1
     elseif T <: StaticArray
