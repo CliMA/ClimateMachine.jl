@@ -15,7 +15,7 @@ end
 function gradvariables!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
-function compute_internal_energy(m::MoistureModel, state::Vars, aux::Vars)
+function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   T = eltype(state)
   q_pt = get_phase_partition(m, state)
   ρinv = 1 / state.ρ
@@ -23,7 +23,7 @@ function compute_internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   ρe_pot = state.ρ * grav * aux.coord.z
   ρe_int = state.ρe - ρe_kin
   # ρe_int = state.ρe - ρe_kin - ρe_pot # FIXME: Should we always include/exclude ρe_pot?
-  e_int = ρinv*ρe_int - cv_m(q_pt)*T_0
+  e_int = ρinv*ρe_int
   return e_int
 end
 
@@ -31,7 +31,7 @@ pressure(m::MoistureModel  , state::Vars, aux::Vars) = air_pressure(thermo_state
 soundspeed(m::MoistureModel, state::Vars, aux::Vars) = soundspeed_air(thermo_state(m, state, aux))
 
 function update_aux!(m::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  aux.moisture.e_int = compute_internal_energy(m, state, aux)
+  aux.moisture.e_int = internal_energy(m, state, aux)
   TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
   nothing
@@ -49,22 +49,6 @@ vars_aux(::DryModel,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
 get_phase_partition(::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
 thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, eltype(state.ρ)(0), state.ρ, aux.moisture.temperature)
-
-function mms_pressure_temperature(m::DryModel, state::Vars, aux::Vars)
-  q_pt = get_phase_partition(m, state)
-  e_int = compute_internal_energy(m, state, aux)
-  TS = thermo_state(m, state, aux)
-  T_mms = (e_int + cv_m(q_pt)*T_0)/cv_d
-  p_mms = state.ρ*gas_constant_air(TS)*T_mms
-  return p_mms, T_mms
-end
-
-function mms_soundspeed(m::DryModel, state::Vars, aux::Vars)
-  q_pt = get_phase_partition(m, state)
-  p, T = mms_pressure_temperature(m, state, aux)
-  soundspeed_air(T, q_pt)
-end
-
 
 """
     EquilMoist

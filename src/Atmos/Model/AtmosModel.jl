@@ -59,7 +59,7 @@ function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Var
   ρu = state.ρu
   u = ρinv * ρu
 
-  p, T = mms_pressure_temperature(m.moisture, state, aux)
+  p = pressure(m.moisture, state, aux)
 
   # invisc terms
   flux.ρ  = ρu
