@@ -3,6 +3,7 @@ using LinearAlgebra
 using DoubleFloats
 using LazyArrays
 using StaticArrays
+using GPUifyLoops
 
 using MPI
 
@@ -457,10 +458,23 @@ weighted_dot_impl(Q1, Q2, W) = dot_impl(@~ @. W * Q1, Q2)
 
 using Requires
 
+# `realview` and `device` are helpers that enable 
+# testing ODESolvers and LinearSolvers without using MPIStateArrays
+# They could be potentially useful elsewhere and exported but probably need
+# better names, for example `device` is also defined in CUDAdrv
+
+device(::Array) = CPU()
+device(Q::MPIStateArray) = device(Q.Q)
+
+realview(Q::Array) = Q
+realview(Q::MPIStateArray) = Q.realQ
+
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
   using .CuArrays
   using .CuArrays.CUDAnative
-  using .CuArrays.CUDAnative.CUDAdrv
+
+  device(::CuArray) = CUDA()
+  realview(Q::CuArray) = Q
 
   # transform all arguments of `bc` from MPIStateArrays to CuArrays
   # and replace CPU function with GPU variants
