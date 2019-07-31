@@ -463,10 +463,10 @@ using Requires
 # They could be potentially useful elsewhere and exported but probably need
 # better names, for example `device` is also defined in CUDAdrv
 
-device(::Array) = CPU()
+device(::Union{Array, SArray, MArray}) = CPU()
 device(Q::MPIStateArray) = device(Q.Q)
 
-realview(Q::Array) = Q
+realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realQ
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
