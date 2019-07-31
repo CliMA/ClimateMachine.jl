@@ -2,18 +2,31 @@ module LinearSolvers
 
 using ..MPIStateArrays
 
-using LinearAlgebra
+using StaticArrays, LinearAlgebra
 
 # just for testing LinearSolvers
-LinearAlgebra.norm(A::Array, p::Real, weighted::Bool) = norm(A, p)
-LinearAlgebra.norm(A::Array, weighted::Bool) = norm(A, 2, weighted)
-LinearAlgebra.dot(A::Array, B::Array, weighted) = dot(A, B)
+LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
+LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
+LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)
 
 export linearsolve!, settolerance!
 export AbstractLinearSolver, AbstractIterativeLinearSolver
 
+"""
+This is an abstract type representing a generic linear solver.
+
+"""
 abstract type AbstractLinearSolver end
 
+"""
+This is an abstract type representing a generic iterative
+linear solver.
+
+The available concrete implementations are:
+
+  - [GeneralizedConjugateResidual](@ref)
+  - [GeneralizedMinimalResidual](@ref)
+"""
 abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 
 """
@@ -24,8 +37,8 @@ Sets the tolerance of the iterative linear solver `solver` to `tolerance`.
 settolerance!(solver::AbstractIterativeLinearSolver, tolerance) =
   (solver.tolerance[1] = tolerance)
 
-doiteration!(Q, solver::AbstractIterativeLinearSolver, tolerance) =
-  throw(MethodError(doiteration!, (Q, solver, tolerance))) 
+doiteration!(Q, Qrhs, solver::AbstractIterativeLinearSolver, tolerance) =
+  throw(MethodError(doiteration!, (Q, Qrhs, solver, tolerance)))
 
 initialize!(Q, Qrhs, solver::AbstractIterativeLinearSolver) =
   throw(MethodError(initialize!, (Q, Qrhs, solver))) 
@@ -46,14 +59,19 @@ function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearS
   converged = false
   iters = 0
 
-  initialize!(linearoperator!, Q, Qrhs, solver)
+  threshold = initialize!(linearoperator!, Q, Qrhs, solver)
 
   while !converged
-    converged, residual_norm = doiteration!(linearoperator!, Q, solver)
-    iters += 1
+    converged, inner_iters, residual_norm = 
+      doiteration!(linearoperator!, Q, Qrhs, solver, threshold)
+
+    iters += inner_iters
+
     if !isfinite(residual_norm)
       error("norm of residual is not finite after $iters iterations of `doiteration!`")
     end
+    
+    achieved_tolerance = residual_norm / threshold * solver.tolerance[1]
   end
   
   iters
