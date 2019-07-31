@@ -88,7 +88,7 @@ function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
-  return abs(dot(nM, u)) + mms_soundspeed(m.moisture, state, aux)
+  return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux)
 end
 
 function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)

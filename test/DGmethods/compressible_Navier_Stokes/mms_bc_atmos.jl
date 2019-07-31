@@ -10,6 +10,8 @@ using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
+using CLIMA.MoistThermodynamics
+using CLIMA.PlanetParameters
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -32,21 +34,42 @@ end
 
 include("mms_solution_generated.jl")
 
-function temperature(m::DryModel, state::Vars, aux::Vars)
-  e_int = internal_energy(m, state, aux)
+using CLIMA.Atmos
+using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!, vars_aux
+
+"""
+    MMSDryModel
+
+Assumes the moisture components is in the dry limit.
+"""
+struct MMSDryModel <: MoistureModel
+end
+
+vars_aux(::MMSDryModel,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
+
+function update_aux!(m::MMSDryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  aux.moisture.e_int = internal_energy(DryModel(), state, aux)
+  TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(DryModel(), state).tot, state.ρ)
+  aux.moisture.temperature = air_temperature(TS)
+  nothing
+end
+
+function temperature(m::MMSDryModel, state::Vars, aux::Vars)
+  e_int = internal_energy(DryModel(), state, aux)
   T_mms = e_int/cv_d # mms-specific
   return T_mms
 end
 
-function pressure(m::DryModel, state::Vars, aux::Vars)
+function pressure(m::MMSDryModel, state::Vars, aux::Vars)
   T = temperature(m, state, aux)
-  TS = thermo_state(m, state, aux)
+  TS = thermo_state(DryModel(), state, aux)
   p = state.ρ*gas_constant_air(TS)*T
   return p
 end
 
-function soundspeed(m::DryModel, state::Vars, aux::Vars)
-  q_pt = get_phase_partition(m, state)
+function soundspeed(m::MMSDryModel, state::Vars, aux::Vars)
+  q_pt = PhasePartition(eltype(state)(0))
   T = temperature(m, state, aux)
   soundspeed_air(T, q_pt)
 end
@@ -97,10 +120,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
+    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
     mms2_source!, InitStateBC(), mms2_init_state!)
   else
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
+    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
     mms3_source!, InitStateBC(), mms3_init_state!)
   end
 
