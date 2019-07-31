@@ -352,7 +352,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
   # NOTE: In order to get the same results on the CPU and GPU we force ourselves
   # to take the same number of iterations by setting at really high tolerance
   # specifying the number of restarts
-  linearsolver = GeneralizedConjugateResidual(3, Q, 1e-4)
+  linearsolver = GeneralizedConjugateResidual(3, Q, 1e-8)
 
   timestepper = ARK548L2SA2KennedyCarpenter(spacedisc, lin_spacedisc,
                                             linearsolver, Q; dt = dt, t0 = 0)
@@ -455,7 +455,7 @@ let
   polynomialorder = Npoly
   DFloat = Float64
   expected_engf_eng0 = Dict()
-  expected_engf_eng0[Float64] = 1.4389690552059924e+00
+  expected_engf_eng0[Float64] = 1.4389690784788478e+00
 
   dim = numdims
   engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
