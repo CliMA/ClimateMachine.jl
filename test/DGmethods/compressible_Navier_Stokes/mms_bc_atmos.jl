@@ -32,6 +32,25 @@ end
 
 include("mms_solution_generated.jl")
 
+function temperature(m::DryModel, state::Vars, aux::Vars)
+  e_int = internal_energy(m, state, aux)
+  T_mms = e_int/cv_d # mms-specific
+  return T_mms
+end
+
+function pressure(m::DryModel, state::Vars, aux::Vars)
+  T = temperature(m, state, aux)
+  TS = thermo_state(m, state, aux)
+  p = state.ρ*gas_constant_air(TS)*T
+  return p
+end
+
+function soundspeed(m::DryModel, state::Vars, aux::Vars)
+  q_pt = get_phase_partition(m, state)
+  T = temperature(m, state, aux)
+  soundspeed_air(T, q_pt)
+end
+
 function mms2_init_state!(state::Vars, aux::Vars, (x,y,z), t)
   state.ρ = ρ_g(t, x, y, z, Val(2))
   state.ρu = SVector(U_g(t, x, y, z, Val(2)),
