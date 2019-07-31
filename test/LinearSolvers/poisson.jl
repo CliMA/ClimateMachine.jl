@@ -7,6 +7,7 @@ using Logging, Printf
 using CLIMA
 using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
+using CLIMA.GeneralizedMinimalResidualSolver
 
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -76,7 +77,7 @@ end
   @inbounds Q[1] = prod(sol1d.(xs[1:dim]))
 end
 
-function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity)
+function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod)
 
   topology = BrickTopology(mpicomm, brickrange, periodicity=periodicity)
   grid = DiscontinuousSpectralElementGrid(topology,
@@ -102,9 +103,9 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
   linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, nothing, 0, increment = false)
 
   tol = 1e-9
-  gcrk = GeneralizedConjugateResidual(3, Q, tol)
+  linearsolver = linmethod(Q, tol)
 
-  iters = linearsolve!(linearoperator!, Q, Qrhs, gcrk)
+  iters = linearsolve!(linearoperator!, Q, Qrhs, linearsolver)
 
   error = euclidean_distance(Q, Qexact)
 
@@ -131,41 +132,55 @@ let
   polynomialorder = 4
   base_num_elem = 4
 
-  expected_result = Array{Tuple{Float64, Int}}(undef, 2, 3) # dim-1, lvl
-  expected_result[1,1] = (5.0540243611857251e-02, 5)
-  expected_result[1,2] = (1.4802275388952329e-03, 11)
-  expected_result[1,3] = (3.3852820232957334e-05, 10)
-  expected_result[2,1] = (1.4957957659520160e-02, 8)
-  expected_result[2,2] = (4.7282371916522508e-04, 11)
-  expected_result[2,3] = (1.4697446973895474e-05, 12)
-  lvls = integration_testing ? size(expected_result, 2) : 1
+  linmethods = ((b, tol) -> GeneralizedConjugateResidual(3, b, tol),
+                (b, tol) -> GeneralizedMinimalResidual(7, b, tol)
+               )
 
-  for ArrayType in ArrayTypes
-    for DFloat in (Float64,)
-      result = Array{Tuple{DFloat, Int}}(undef, lvls)
-      for dim = 2:3
+  expected_result = Array{Tuple{Float64, Int}}(undef, 2, 2, 3) # method, dim-1, lvl
 
-        for l = 1:lvls
-          Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
-          brickrange = ntuple(d -> range(DFloat(0), length = Ne[d], stop = 1), dim)
-          periodicity = ntuple(d -> true, dim)
-          
-          @info (ArrayType, DFloat, dim)
-          result[l] = run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity)
+  # GeneralizedConjugateResidual
+  expected_result[1, 1, 1] = (5.0540243572728571e-02, 47)
+  expected_result[1, 1, 2] = (1.4802275323264813e-03, 83)
+  expected_result[1, 1, 3] = (3.3852821122627772e-05, 178)
+  expected_result[1, 2, 1] = (1.4957957670815243e-02, 41)
+  expected_result[1, 2, 2] = (4.7282368959409714e-04, 76)
+  expected_result[1, 2, 3] = (1.4697449010125117e-05, 172)
+  
+  # GeneralizedMinimalResidual
+  expected_result[2, 1, 1] = (5.0540243587512974e-02, 33)
+  expected_result[2, 1, 2] = (1.4802275409186198e-03, 69)
+  expected_result[2, 1, 3] = (3.3852820080010072e-05, 166)
+  expected_result[2, 2, 1] = (1.4957957659220977e-02, 35)
+  expected_result[2, 2, 2] = (4.7282369895963722e-04, 89)
+  expected_result[2, 2, 3] = (1.4697448947662151e-05, 226)
 
-          @test isapprox(result[l][1], DFloat(expected_result[dim-1, l][1]))
-          @test result[l][2] == expected_result[dim-1, l][2]
-        end
+  lvls = integration_testing ? size(expected_result)[end] : 1
 
-        if integration_testing
-          @info begin
-            msg = ""
-            for l = 1:lvls-1
-              rate = log2(result[l][1]) - log2(result[l + 1][1])
-              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-            end
-            msg
+  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), DFloat in (Float64,)
+    result = Array{Tuple{DFloat, Int}}(undef, lvls)
+    for dim = 2:3
+
+      for l = 1:lvls
+        Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
+        brickrange = ntuple(d -> range(DFloat(0), length = Ne[d], stop = 1), dim)
+        periodicity = ntuple(d -> true, dim)
+        
+        @info (ArrayType, DFloat, m, dim)
+        result[l] = run(mpicomm, ArrayType, DFloat,
+                        dim, polynomialorder, brickrange, periodicity, linmethod)
+
+        @test isapprox(result[l][1], DFloat(expected_result[m, dim-1, l][1]))
+        @test result[l][2] == expected_result[m, dim-1, l][2]
+      end
+
+      if integration_testing
+        @info begin
+          msg = ""
+          for l = 1:lvls-1
+            rate = log2(result[l][1]) - log2(result[l + 1][1])
+            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
           end
+          msg
         end
       end
     end
