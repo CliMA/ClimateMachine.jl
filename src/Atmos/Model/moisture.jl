@@ -27,6 +27,9 @@ function compute_internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   return e_int
 end
 
+pressure(m::MoistureModel  , state::Vars, aux::Vars) = air_pressure(thermo_state(m, state, aux))
+soundspeed(m::MoistureModel, state::Vars, aux::Vars) = soundspeed_air(thermo_state(m, state, aux))
+
 function update_aux!(m::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = compute_internal_energy(m, state, aux)
   TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
@@ -44,33 +47,21 @@ end
 
 vars_aux(::DryModel,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
-get_phase_partition(m::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
-thermo_state(m::DryModel, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, eltype(state.ρ)(0), state.ρ, aux.moisture.temperature)
+get_phase_partition(::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
+thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, eltype(state.ρ)(0), state.ρ, aux.moisture.temperature)
 
-function pressure_temperature(m::DryModel, state::Vars, aux::Vars)
+function mms_pressure_temperature(m::DryModel, state::Vars, aux::Vars)
   q_pt = get_phase_partition(m, state)
   e_int = compute_internal_energy(m, state, aux)
   TS = thermo_state(m, state, aux)
-
-  ρe_pot = state.ρ * grav * aux.coord.z
-  T_old = (e_int + cv_m(q_pt)*T_0)/cv_d
-  # T_old = (e_int + ρe_pot + cv_m(q_pt)*T_0)/cv_d
-  p_old = state.ρ*gas_constant_air(TS)*T_old
-
-  p_new = air_pressure(TS)
-  T_new = air_temperature(TS)
-
-  Δe_int = internal_energy(T_old, q_pt) - internal_energy(TS)
-
-  # p, T = p_new, T_new
-  p, T = p_old, T_old
-  @show Δe_int, p_old, p_new, T_old, T_new
-  return p, T
+  T_mms = (e_int + cv_m(q_pt)*T_0)/cv_d
+  p_mms = state.ρ*gas_constant_air(TS)*T_mms
+  return p_mms, T_mms
 end
 
-function soundspeed(m::DryModel, state::Vars, aux::Vars)
+function mms_soundspeed(m::DryModel, state::Vars, aux::Vars)
   q_pt = get_phase_partition(m, state)
-  p, T = pressure_temperature(m, state, aux)
+  p, T = mms_pressure_temperature(m, state, aux)
   soundspeed_air(T, q_pt)
 end
 
@@ -87,10 +78,8 @@ vars_gradient(::EquilMoist,T) = NamedTuple{(:q_vap, :q_liq, :q_ice, :temperature
 vars_diffusive(::EquilMoist,T) = NamedTuple{(:ρd_q_tot, :ρJ_ρD), Tuple{SVector{3,T},SVector{3,T}}}
 vars_aux(::EquilMoist,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
-get_phase_partition(m::EquilMoist, state::Vars) = PhasePartition(state.ρq_tot/state.ρ)
-thermo_state(m::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, state.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
-pressure(::EquilMoist  , state::Vars, aux::Vars) = air_pressure(thermo_state(m, state, aux))
-soundspeed(::EquilMoist, state::Vars, aux::Vars) = soundspeed_air(thermo_state(m, state, aux))
+get_phase_partition(::EquilMoist, state::Vars) = PhasePartition(state.ρq_tot/state.ρ)
+thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, state.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
 
 function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρ = state.ρ
