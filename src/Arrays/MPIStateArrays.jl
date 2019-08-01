@@ -330,6 +330,8 @@ end
 LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool) = norm(Q, 2, weighted)
 
 function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=true)
+  @assert length(Q1.realQ) == length(Q2.realQ)
+
   if weighted && ~isempty(Q1.weights)
     W = @view Q1.weights[:, :, Q1.realelems]
     locnorm = weighted_dot_impl(Q1.realQ, Q2.realQ, W)
@@ -409,8 +411,14 @@ function weighted_norm_impl(Q::SubArray{T, N, A}, W, ::Val{p}) where {T, N, A<:A
   accum
 end
 
-dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}) where {T, N, A<:Array} =
-  dot(view(Q1, :), view(Q2, :))
+function dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}) where {T, N, A<:Array}
+  accum = -zero(T)
+  @simd for i in eachindex(Q1)
+    accum += Q1[i] * Q2[i]
+  end
+  accum
+end
+  
 
 function weighted_dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}, W) where {T, N, A<:Array}
   nq, ns, ne = size(Q1)
