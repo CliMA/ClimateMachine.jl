@@ -56,7 +56,7 @@ const _c_z, _c_x, _c_p = 1:_nauxcstate
 
 
 # preflux computation for wavespeed function
-@inline function preflux(Q, _...)
+@inline function preflux(Q)
   @inbounds begin
     # unpack all the state variables
     ρ, ρu, ρw, ρe_tot, ρq_tot = Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot]
@@ -68,8 +68,7 @@ end
 
 
 # boundary condition
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t,
-                          u, w, ρ, q_tot, e_tot)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
   @inbounds begin
     ρu_M, ρw_M, ρe_tot_M, ρq_tot_M = QM[_ρu], QM[_ρw], QM[_ρe_tot], QM[_ρq_tot]
 
@@ -81,16 +80,13 @@ end
     QP[_ρe_tot], QP[_ρq_tot] = ρe_tot_M, ρq_tot_M
 
     auxM .= auxP
-
-    # Required return from this function is either nothing
-    # or preflux with plus state as arguments
-    return preflux(QP)
   end
 end
 
 
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, u, w, ρ, q_tot, e_tot)
+@inline function wavespeed(n, Q, aux, t)
+  u, w, ρ, q_tot, e_tot = preflux(Q)
   @inbounds abs(n[1] * u + n[2] * w)
 end
 
@@ -124,8 +120,8 @@ end
 
 
 # physical flux function
-eulerflux!(F, Q, QV, aux, t) = eulerflux!(F, Q, QV, aux, t, preflux(Q)...)
-@inline function eulerflux!(F, Q, QV, aux, t, u, w, ρ, q_tot, e_tot)
+@inline function eulerflux!(F, Q, QV, aux, t)
+  u, w, ρ, q_tot, e_tot = preflux(Q)
   @inbounds begin
     p = aux[_c_p]
 
@@ -192,14 +188,12 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                          )
   numflux!(x...) = NumericalFluxes.rusanov!(x...,
                                             eulerflux!,
-                                            wavespeed,
-                                            preflux
+                                            wavespeed
                                            )
   numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x...,
                                                             eulerflux!,
                                                             bcstate!,
-                                                            wavespeed,
-                                                            preflux
+                                                            wavespeed
                                                            )
 
 
@@ -305,7 +299,6 @@ function run(dim, Ne, N, timeend, DFloat)
   ArrayType = DeviceArrayType
 
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
   mpicomm = MPI.COMM_WORLD
 
@@ -330,7 +323,5 @@ let
 
   run(dim, ntuple(j->numelem[j], dim), polynomialorder, timeend, DFloat)
 end
-
-isinteractive() || MPI.Finalize()
 
 nothing
