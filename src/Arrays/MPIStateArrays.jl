@@ -413,7 +413,7 @@ end
 
 function dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}) where {T, N, A<:Array}
   accum = -zero(T)
-  @simd for i in eachindex(Q1)
+  @inbounds @simd for i in eachindex(Q1)
     accum += Q1[i] * Q2[i]
   end
   accum
