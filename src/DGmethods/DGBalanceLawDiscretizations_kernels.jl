@@ -124,8 +124,8 @@ function volumerhs!(::Val{dim}, ::Val{N},
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
-          @unroll for s = 1:nstate
-            @unroll for n = 1:Nq
+          @unroll for n = 1:Nq
+            @unroll for s = 1:nstate
               Dni = s_half_D[n, i] * s_ω[n] / s_ω[i]
               Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
               Nqk > 1 && (Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k])
