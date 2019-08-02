@@ -49,15 +49,18 @@ end
 vars_aux(::MMSDryModel,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
 
 function update_aux!(m::MMSDryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  aux.moisture.e_int = internal_energy(DryModel(), state, aux)
+  e_pot = grav * aux.coord.z
+  e_int = internal_energy(DryModel(), state, aux)
+  aux.moisture.e_int = e_int+e_pot # mms-specific, does not take gravity into account
   TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(DryModel(), state).tot, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
   nothing
 end
 
 function temperature(m::MMSDryModel, state::Vars, aux::Vars)
+  e_pot = grav * aux.coord.z
   e_int = internal_energy(DryModel(), state, aux)
-  T_mms = e_int/cv_d # mms-specific
+  T_mms = (e_int+e_pot)/cv_d # mms-specific temperature relation, and does not take gravity into account
   return T_mms
 end
 
