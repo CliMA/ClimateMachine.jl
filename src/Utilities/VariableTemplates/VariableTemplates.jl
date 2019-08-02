@@ -41,6 +41,7 @@ Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
 
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
+    Base.@_inline_meta
     array = getfield(v, :array)
   end
   for k in fieldnames(S)
@@ -66,6 +67,7 @@ end
 
 @generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val) where {S,A,offset}
   expr = quote 
+    Base.@_inline_meta
     array = getfield(v, :array)
   end
   for k in fieldnames(S)
@@ -105,6 +107,7 @@ Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
 @generated function Base.getproperty(v::Grad{S,A,offset}, sym::Symbol) where {S,A,offset}
   M = size(A,1)
   expr = quote
+    Base.@_inline_meta
     array = getfield(v, :array)
   end
   for k in fieldnames(S)
@@ -131,6 +134,7 @@ end
 @generated function Base.setproperty!(v::Grad{S,A,offset}, sym::Symbol, val) where {S,A,offset}
   M = size(A,1)
   expr = quote 
+    Base.@_inline_meta
     array = getfield(v, :array)
   end
   for k in fieldnames(S)
