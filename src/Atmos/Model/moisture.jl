@@ -21,8 +21,7 @@ function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
   ρe_pot = state.ρ * grav * aux.coord.z
-  ρe_int = state.ρe - ρe_kin
-  # ρe_int = state.ρe - ρe_kin - ρe_pot # FIXME: Should we always include/exclude ρe_pot?
+  ρe_int = state.ρe - ρe_kin - ρe_pot
   e_int = ρinv*ρe_int
   return e_int
 end
