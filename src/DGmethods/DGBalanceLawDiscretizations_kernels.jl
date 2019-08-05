@@ -911,6 +911,122 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
 end
 
 """
+    knl_state_firstnode_info!(::Val{dim}, ::Val{N}, ::Val{nstate},
+                                            ::Val{nauxstate}, ::Val{nvertelem},
+                                            int_knl!, Q, auxstate, vgeo, Imat,
+                                            elems, ::Val{outstate}
+                                           ) where {dim, N, nstate, nauxstate,
+                                                    outstate, nvertelem}
+
+Allows user to specify list of prognostic states for which values at the first DG node are 
+required. 
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function knl_state_firstnode_info!(::Val{dim}, ::Val{N}, ::Val{nstate},
+                                        ::Val{nauxstate}, ::Val{nvertelem},
+                                        P, Q, auxstate, vgeo,
+                                        elems, ::Val{outstate},
+                                        ::Val{instate}
+                                       ) where {dim, N, nstate, nauxstate,
+                                                outstate, instate, nvertelem}
+  DFloat = eltype(Q)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+
+  nout = length(outstate)
+
+  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
+  # note that k is the second not 4th index (since this is scratch memory and k
+  # needs to be persistent across threads)
+  l_V = MArray{Tuple{nout}, DFloat}(undef)
+  
+  @inbounds @loop for eh in (elems; blockIdx().x)
+    # Loop up the first element along all horizontal elements
+    ev = 1  
+    e = ev + (eh - 1) * nvertelem
+    @loop for j in (1:Nqj; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        # loop up the pencil
+        k = 2  
+        ijk = i + Nq * ((j-1) + Nqj * (k-1))
+        # local storage for `first-node` values of the state Q
+        @unroll for s = 1:nout
+          l_V[s] = Q[ijk, instate[s], e]
+        end
+        # Accessible in drivers at the lowest two levels via aux-state
+        # (User specifies aux-state indices)
+        @unroll for k in 1:2
+          ijk = i + Nq * ((j-1) + Nqj * (k-1))
+          x, y, z = vgeo[ijk, _x, e], vgeo[ijk, _y, e], vgeo[ijk, _z, e]
+          @unroll for s = 1:nout
+            P[ijk, outstate[s], e] = l_V[s]
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
+
+"""
+    knl_aux_firstnode_info!(::Val{dim}, ::Val{N}, ::Val{nstate},
+                                            ::Val{nauxstate}, ::Val{nvertelem},
+                                            int_knl!, Q, auxstate, vgeo, Imat,
+                                            elems, ::Val{outstate}
+                                           ) where {dim, N, nstate, nauxstate,
+                                                    outstate, nvertelem}
+Allows user to specify list of aux states for which values at the first DG node are 
+required. (Currently we may not need access to all aux states so this is separated from the
+state kernel)
+
+See [`DGBalanceLaw`](@ref) for usage.
+"""
+function knl_aux_firstnode_info!(::Val{dim}, ::Val{N}, ::Val{nstate},
+                                        ::Val{nauxstate}, ::Val{nvertelem},
+                                        P, Q, auxstate, vgeo,
+                                        elems, ::Val{outstate},
+                                        ::Val{instate}
+                                       ) where {dim, N, nstate, nauxstate,
+                                                outstate, instate, nvertelem}
+  DFloat = eltype(Q)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+
+  nout = length(outstate)
+
+  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
+  # note that k is the second not 4th index (since this is scratch memory and k
+  # needs to be persistent across threads)
+  l_V = MArray{Tuple{nout}, DFloat}(undef)
+  @inbounds @loop for eh in (elems; blockIdx().x)
+    # Loop up the first element along all horizontal elements
+    ev = 1
+    e = ev + (eh - 1) * nvertelem
+    @loop for j in (1:Nqj; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        # loop up the pencil
+        k = 2 
+        ijk = i + Nq * ((j-1) + Nqj * (k-1))
+        # local storage for `first-node` values of the auxiliary state
+        @unroll for s = 1:nout
+          l_V[s] = auxstate[ijk, instate[s], e]
+        end
+        # Accessible in drivers at the lowest two levels via aux-state
+        # (User specifies aux-state indices)
+        @unroll for k in 1:2
+          ijk = i + Nq * ((j-1) + Nqj * (k-1))
+          @unroll for s = 1:nout
+            P[ijk, outstate[s], e] = l_V[s]
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
+"""
     knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{horizontal},
                       ::Val{vertical}, Q, ::Val{states}, filtermatrix,
                       elems) where {dim, N, nstate, states, horizontal, vertical}
