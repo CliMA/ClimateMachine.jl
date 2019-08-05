@@ -77,7 +77,7 @@ end
   @inbounds Q[1] = prod(sol1d.(xs[1:dim]))
 end
 
-function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod)
+function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod, tol)
 
   topology = BrickTopology(mpicomm, brickrange, periodicity=periodicity)
   grid = DiscontinuousSpectralElementGrid(topology,
@@ -102,7 +102,6 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
 
   linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, nothing, 0, increment = false)
 
-  tol = 1e-9
   linearsolver = linmethod(Q, tol)
 
   iters = linearsolve!(linearoperator!, Q, Qrhs, linearsolver)
@@ -131,28 +130,29 @@ let
 
   polynomialorder = 4
   base_num_elem = 4
+  tol = 1e-9
 
   linmethods = ((b, tol) -> GeneralizedConjugateResidual(3, b, tol),
                 (b, tol) -> GeneralizedMinimalResidual(7, b, tol)
                )
 
-  expected_result = Array{Tuple{Float64, Int}}(undef, 2, 2, 3) # method, dim-1, lvl
+  expected_result = Array{Float64}(undef, 2, 2, 3) # method, dim-1, lvl
 
   # GeneralizedConjugateResidual
-  expected_result[1, 1, 1] = (5.0540243616448058e-02, 49)
-  expected_result[1, 1, 2] = (1.4802275366044065e-03, 81)
-  expected_result[1, 1, 3] = (3.3852821250953670e-05, 167)
-  expected_result[1, 2, 1] = (1.4957957657736221e-02, 34)
-  expected_result[1, 2, 2] = (4.7282369781541172e-04, 73)
-  expected_result[1, 2, 3] = (1.4697449577757257e-05, 148)
+  expected_result[1, 1, 1] = 5.0540243616448058e-02
+  expected_result[1, 1, 2] = 1.4802275366044011e-03
+  expected_result[1, 1, 3] = 3.3852821775121401e-05
+  expected_result[1, 2, 1] = 1.4957957657736219e-02
+  expected_result[1, 2, 2] = 4.7282369781541172e-04
+  expected_result[1, 2, 3] = 1.4697449643351771e-05
   
   # GeneralizedMinimalResidual
-  expected_result[2, 1, 1] = (5.0540243587512988e-02, 33)
-  expected_result[2, 1, 2] = (1.4802275409186178e-03, 69)
-  expected_result[2, 1, 3] = (3.3852820667486435e-05, 167)
-  expected_result[2, 2, 1] = (1.4957957659220943e-02, 35)
-  expected_result[2, 2, 2] = (4.7282369895963695e-04, 89)
-  expected_result[2, 2, 3] = (1.4697449596942856e-05, 214)
+  expected_result[2, 1, 1] = 5.0540243587512981e-02
+  expected_result[2, 1, 2] = 1.4802275409186211e-03
+  expected_result[2, 1, 3] = 3.3852820667079927e-05
+  expected_result[2, 2, 1] = 1.4957957659220951e-02
+  expected_result[2, 2, 2] = 4.7282369895963614e-04
+  expected_result[2, 2, 3] = 1.4697449516628483e-05
 
   lvls = integration_testing ? size(expected_result)[end] : 1
 
@@ -166,11 +166,10 @@ let
         periodicity = ntuple(d -> true, dim)
         
         @info (ArrayType, DFloat, m, dim)
-        result[l] = run(mpicomm, ArrayType, DFloat,
-                        dim, polynomialorder, brickrange, periodicity, linmethod)
+        result[l] = run(mpicomm, ArrayType, DFloat, dim,
+                        polynomialorder, brickrange, periodicity, linmethod, tol)
 
-        @test isapprox(result[l][1], DFloat(expected_result[m, dim-1, l][1]))
-        @test result[l][2] == expected_result[m, dim-1, l][2]
+        @test isapprox(result[l][1], DFloat(expected_result[m, dim-1, l]), rtol = sqrt(tol))
       end
 
       if integration_testing
