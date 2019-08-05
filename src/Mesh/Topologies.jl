@@ -52,7 +52,7 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   ghostelems::UnitRange{Int64}
 
   """
-  Array of send element indices sorted so that
+  Array of send element indices
   """
   sendelems::Array{Int64, 1}
 

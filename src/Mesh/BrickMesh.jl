@@ -731,7 +731,7 @@ returns a connected mesh.  This returns a `NamedTuple` of:
  - `elems` the range of element indices
  - `realelems` the range of real (aka nonghost) element indices
  - `ghostelems` the range of ghost element indices
- - `sendelems` an array of send element indices sorted so that
+ - `sendelems` an array of send element indices
  - `elemtocoord` element to vertex coordinates; `elemtocoord[d,i,e]` is the
     `d`th coordinate of corner `i` of element `e`
  - `elemtoelem` element to neighboring element; `elemtoelem[f,e]` is the
