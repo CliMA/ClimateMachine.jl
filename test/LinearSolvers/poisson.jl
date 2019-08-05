@@ -77,7 +77,7 @@ end
   @inbounds Q[1] = prod(sol1d.(xs[1:dim]))
 end
 
-function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod, tol)
+function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod)
 
   topology = BrickTopology(mpicomm, brickrange, periodicity=periodicity)
   grid = DiscontinuousSpectralElementGrid(topology,
@@ -102,7 +102,7 @@ function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, perio
 
   linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, nothing, 0, increment = false)
 
-  linearsolver = linmethod(Q, tol)
+  linearsolver = linmethod(Q)
 
   iters = linearsolve!(linearoperator!, Q, Qrhs, linearsolver)
 
@@ -132,8 +132,8 @@ let
   base_num_elem = 4
   tol = 1e-9
 
-  linmethods = ((b, tol) -> GeneralizedConjugateResidual(3, b, tol),
-                (b, tol) -> GeneralizedMinimalResidual(7, b, tol)
+  linmethods = (b -> GeneralizedConjugateResidual(3, b, tol),
+                b -> GeneralizedMinimalResidual(7, b, tol)
                )
 
   expected_result = Array{Float64}(undef, 2, 2, 3) # method, dim-1, lvl
@@ -167,7 +167,7 @@ let
         
         @info (ArrayType, DFloat, m, dim)
         result[l] = run(mpicomm, ArrayType, DFloat, dim,
-                        polynomialorder, brickrange, periodicity, linmethod, tol)
+                        polynomialorder, brickrange, periodicity, linmethod)
 
         @test isapprox(result[l][1], DFloat(expected_result[m, dim-1, l]), rtol = sqrt(tol))
       end
