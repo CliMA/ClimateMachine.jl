@@ -735,6 +735,66 @@ function indefinite_stack_integral!(disc::DGBalanceLaw, f, Q, out_states,
                                          1:nhorzelem, Val(out_states)))
 end
 
+function aux_firstnode_values!(disc::DGBalanceLaw, Q, out_states, in_states,
+                                    P=disc.auxstate)
+  grid = disc.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  auxstate = disc.auxstate
+  nauxstate = size(auxstate, 2)
+  nstate = size(Q, 2)
+
+  vgeo = grid.vgeo
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+  @assert nelem == nvertelem * nhorzelem
+  
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+                  knl_aux_firstnode_info!(Val(dim), Val(N), Val(nstate),
+                                         Val(nauxstate), Val(nvertelem), P.Q,
+                                         Q.Q, auxstate.Q, vgeo,
+                                         1:nhorzelem, Val(out_states), Val(in_states)))
+end
+function state_firstnode_values!(disc::DGBalanceLaw, Q, out_states, in_states,
+                                    P=disc.auxstate)
+  grid = disc.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  auxstate = disc.auxstate
+  nauxstate = size(auxstate, 2)
+  nstate = size(Q, 2)
+
+  vgeo = grid.vgeo
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+  @assert nelem == nvertelem * nhorzelem
+  
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+                  knl_state_firstnode_info!(Val(dim), Val(N), Val(nstate),
+                                         Val(nauxstate), Val(nvertelem), P.Q,
+                                         Q.Q, auxstate.Q, vgeo,
+                                         1:nhorzelem, Val(out_states), Val(in_states)))
+end
 """
     reverse_indefinite_stack_integral!(disc, oustate, instate,
                                        [P=disc.auxstate])
