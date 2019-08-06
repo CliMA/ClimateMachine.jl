@@ -1,8 +1,5 @@
 module ODESolvers
 
-using ..MPIStateArrays
-using GPUifyLoops
-
 export solve!, updatedt!
 
 abstract type AbstractODESolver end
@@ -21,20 +18,6 @@ Change the time step size to `dt` for the ODE solver `solver`.
 """
 updatedt!(solver::AbstractODESolver, dt) =
   error("Variable time stepping not implemented for $(typeof(solver))")
-
-# `realview` and `device` are used for testing ODE solvers independently of spatial discretisations,
-# i.e. using plain arrays as state vectors
-realview(Q::MPIStateArray) = view(Q.Q, axes(Q.Q)[1:end-1]..., Q.realelems)
-realview(Q::Array) = Q
-device(::Array) = CPU()
-device(Q::MPIStateArray) = device(Q.Q)
-
-using Requires
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-  using .CuArrays
-  realview(Q::CuArray) = Q
-  device(::CuArray) = CUDA()
-end
 
 # {{{ run!
 """
@@ -100,4 +83,3 @@ end
 # }}}
 
 end # module
-
