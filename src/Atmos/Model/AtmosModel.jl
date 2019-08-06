@@ -81,7 +81,6 @@ Computes flux `F` in:
 ∂t
 ```
 Where
-
  - `F_{adv}`      Advective flux                                  , see [`flux_advective!`]@ref()    for this term
  - `F_{press}`    Pressure flux                                   , see [`flux_pressure!`]@ref()     for this term
  - `F_{nondiff}`  Fluxes that do *not* contain gradients          , see [`flux_nondiffusive!`]@ref() for this term
@@ -90,7 +89,7 @@ Where
 function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   flux_advective!(m, flux, state, diffusive, aux, t)
   flux_pressure!(m, flux, state, diffusive, aux, t)
-  # flux_nondiffusive!(m, flux, state, diffusive, aux, t)
+  flux_nondiffusive!(m, flux, state, diffusive, aux, t)
   flux_diffusive!(m, flux, state, diffusive, aux, t)
 end
 
@@ -116,8 +115,8 @@ function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars,
   flux.ρe += u*p
 end
 
-# function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-# end
+function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+end
 
 function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
@@ -131,6 +130,7 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
   flux.ρu += ρτ
   flux.ρe += ρτ*u
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
+  flux_diffusive!(m.turbconv, flux, state, diffusive, aux, t)
 end
 
 function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
@@ -145,6 +145,7 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   transform.u = ρinv * state.ρu
 
   gradvariables!(m.moisture, transform, state, aux, t)
+  gradvariables!(m.turbconv, transform, state, aux, t)
 end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
@@ -167,6 +168,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+  diffusive!(m.turbconv, diffusive, ∇transform, state, aux, t, ρν)
 end
 
 function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
