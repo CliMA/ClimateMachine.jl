@@ -11,6 +11,7 @@ using ..ODESolvers
 ODEs = ODESolvers
 using ..SpaceMethods
 using ..LinearSolvers
+using ..MPIStateArrays: device, realview
 
 """
     AdditiveRungeKutta(f, l, linsol, RKAe, RKAi, RKB, RKC, Q; dt, t0 = 0)
@@ -332,11 +333,11 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
   Qstages, Rstages = ark.Qstages, ark.Rstages
   Qhat, Qtt = ark.Qhat, ark.Qtt
 
-  rv_Q = ODEs.realview(Q)
-  rv_Qstages = ODEs.realview.(Qstages)
-  rv_Rstages = ODEs.realview.(Rstages)
-  rv_Qhat = ODEs.realview(Qhat)
-  rv_Qtt = ODEs.realview(Qtt)
+  rv_Q = realview(Q)
+  rv_Qstages = realview.(Qstages)
+  rv_Rstages = realview.(Rstages)
+  rv_Qhat = realview(Qhat)
+  rv_Qtt = realview(Qtt)
 
   nstages = length(RKB)
 
@@ -350,7 +351,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
   for istage = 2:nstages
     stagetime = time + RKC[istage] * dt
     # this kernel also initializes Qtt for the linear solver
-    @launch(ODEs.device(Q), threads = threads, blocks = blocks,
+    @launch(device(Q), threads = threads, blocks = blocks,
             stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
                           RKA_explicit, RKA_implicit, dt, Val(istage)))
 
@@ -369,7 +370,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
   end
 
   # compose the final solution
-  @launch(ODEs.device(Q), threads = threads, blocks = blocks,
+  @launch(device(Q), threads = threads, blocks = blocks,
           solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages)))
 
   if dt == ark.dt[1]

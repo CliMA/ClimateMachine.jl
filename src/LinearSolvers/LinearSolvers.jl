@@ -4,6 +4,9 @@ using ..MPIStateArrays
 
 using StaticArrays, LinearAlgebra
 
+using GPUifyLoops
+include("LinearSolvers_kernels.jl")
+
 # just for testing LinearSolvers
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
