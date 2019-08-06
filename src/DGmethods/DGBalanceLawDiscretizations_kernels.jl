@@ -121,11 +121,11 @@ function volumerhs!(::Val{dim}, ::Val{N},
     @synchronize
 
     # Weak "outside metrics" derivative
-    @unroll for s = 1:nstate
-      @loop for k in (1:Nqk; threadIdx().z)
-        @loop for j in (1:Nq; threadIdx().y)
-          @loop for i in (1:Nq; threadIdx().x)
-            @unroll for n = 1:Nq
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          @unroll for n = 1:Nq
+            @unroll for s = 1:nstate
               Dni = s_half_D[n, i] * s_ω[n] / s_ω[i]
               Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
               Nqk > 1 && (Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k])
@@ -175,12 +175,12 @@ function volumerhs!(::Val{dim}, ::Val{N},
     @synchronize
 
     # Weak "inside metrics" derivative
-    @unroll for s = 1:nstate
-      @loop for k in (1:Nqk; threadIdx().z)
-        @loop for j in (1:Nq; threadIdx().y)
-          @loop for i in (1:Nq; threadIdx().x)
-            ijk = i + Nq * ((j-1) + Nq * (k-1))
-            MI = vgeo[ijk, _MI, e]
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          MI = vgeo[ijk, _MI, e]
+          @unroll for s = 1:nstate
             @unroll for n = 1:Nq
               Dni = s_half_D[n, i]
               Dnj = s_half_D[n, j]
@@ -198,11 +198,11 @@ function volumerhs!(::Val{dim}, ::Val{N},
         end
       end
     end
-    @unroll for s = 1:nstate
-      @loop for k in (1:Nqk; threadIdx().z)
-        @loop for j in (1:Nq; threadIdx().y)
-          @loop for i in (1:Nq; threadIdx().x)
-            ijk = i + Nq * ((j-1) + Nq * (k-1))
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          @unroll for s = 1:nstate
             rhs[ijk, s, e] = l_rhs[s, i, j, k]
           end
         end

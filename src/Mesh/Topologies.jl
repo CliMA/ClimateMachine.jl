@@ -4,7 +4,9 @@ import MPI
 using DocStringExtensions
 
 export AbstractTopology, BrickTopology, StackedBrickTopology,
-       CubedShellTopology, StackedCubedSphereTopology, isstacked
+    CubedShellTopology, StackedCubedSphereTopology, isstacked
+
+export grid_stretching_1d
 
 """
     AbstractTopology{dim}
@@ -213,7 +215,6 @@ MPI.Init()
 topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
                          periodicity=(false,true),
                          boundary=[1 3; 2 4])
-MPI.Finalize()
 ```
 This returns the mesh structure for
 
@@ -338,7 +339,6 @@ MPI.Init()
 topology = StackedBrickTopology(MPI.COMM_SELF, (2:5,4:6);
                                 periodicity=(false,true),
                                 boundary=[1 3; 2 4])
-MPI.Finalize()
 ```
 This returns the mesh structure stacked in the \$x_2\$-direction for
 
@@ -584,8 +584,6 @@ x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x)
   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n], 10)
 end
-
-MPI.Finalize()
 ```
 """
 function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
@@ -821,8 +819,6 @@ x, y, z = ntuple(j->reshape(topology.elemtocoord[j, :, :],
 for n = 1:length(x)
    x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
 end
-
-MPI.Finalize()
 ```
 Note that the faces are listed in Cartesian order.
 """
@@ -950,5 +946,50 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
       nabrtorank, nabrtorecv, nabrtosend, true),
     stacksize)
 end
+
+
+"""    
+    grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
+
+        This function is the extrema of a 1D domain (e.g. the z direction of the mesh at hand)
+        and stretches the 1D grid in that direction.
+
+        It returns the 1D range `range_stretched` to be then passed to `brickrange = (x_range, y_range, z_range)` in the driver
+        in place of `x_range`, or `y_range` or `z_range`
+
+        The use needs to define the type of stretching `stretching_type` 
+        Now `boundary_layer` and `top_layer` are the only options availabe.
+
+        Add more functions to the function Mesh.Topologies.grid_stretching_1d.
+        
+"""
+
+function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, attractor_value=0)
+
+    DFloat = eltype(coord_min)
+    
+    #build physical range to be stratched
+    range_stretched = range(DFloat(coord_min), length = Ne + 1, DFloat(coord_max))
+   
+    #build logical space
+    s  = range(DFloat(0), length=Ne[1]+1, DFloat(1))
+
+    stretch_coe = 0.0
+    if (stretching_type == "boundary_stretching")
+        stretch_coe = 2.5
+        range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
+    elseif (stretching_type == "top_stretching")
+        stretch_coe = 2.5
+        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
+
+    elseif (stretching_type == "interior_stretching")
+        stretch_coe     = 1.2;
+        L               = (coord_max - coord_min);
+        range_stretched = L*s +  stretch_coe*(attractor_value - L*s).*(1.0 - s).*s;          
+    end
+    return range_stretched
+    
+end
+#}}}
 
 end
