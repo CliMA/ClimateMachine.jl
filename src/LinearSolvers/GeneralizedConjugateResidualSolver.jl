@@ -3,25 +3,24 @@ module GeneralizedConjugateResidualSolver
 export GeneralizedConjugateResidual
 
 using ..LinearSolvers
-using ..MPIStateArrays
+const LS = LinearSolvers
+using ..MPIStateArrays: device, realview
 
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-
-const LS = LinearSolvers
+using GPUifyLoops
 
 """
     GeneralizedConjugateResidual(K, Q, tolerance)
 
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `K` is the number of steps after which the algorithm
-is restarted, `Q` is a reference state used only to allocate the solver internal
-state, and `tolerance` specifies the convergence threshold based on the residual
-norm. Since the amount of additional memory required by the solver is 
-`(2K + 2) * size(Q)` in practical applications `K` should be kept small. A value between
-1 and 4 is recommended. This object is intended to be passed to the [`linearsolve!`](@ref)
-command.
+is restarted (if it has not converged), `Q` is a reference state used only
+to allocate the solver internal state, and `tolerance` specifies the convergence
+criterion based on the relative residual norm. The amount of memory
+required by the solver state is roughly `(2K + 2) * size(Q)`.
+This object is intended to be passed to the [`linearsolve!`](@ref) command.
 
 This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983).
 
@@ -61,7 +60,7 @@ struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolve
   end
 end
 
-const weighted = true
+const weighted = false
 
 function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateResidual)
     residual = solver.residual
@@ -100,7 +99,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
     residual_norm = norm(residual, weighted)
 
     if residual_norm <= threshold
-      return (true, k, residual_norm / threshold * solver.tolerance[1])
+      return (true, k, residual_norm)
     end
 
     linearoperator!(L_residual, residual)
@@ -109,25 +108,33 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
       alpha[l] = -dot(L_residual, L_p[l], weighted) / normsq[l]
     end
 
-    # first build `Broadcasted` expressions for p_{k+1} and L_{k+1} to do only
-    # one kernel call for each and simplify restart
-    expr_p = residual
-    expr_L_p = L_residual
-    for l = 1:k
-      expr_p = @~ @. expr_p + alpha[l] * p[l]
-      expr_L_p = @~ @. expr_L_p + alpha[l] * L_p[l]
-    end
-
     if k < K
-      p[k + 1] .= expr_p
-      L_p[k + 1] .= expr_L_p
+      rv_nextp = realview(p[k + 1])
+      rv_L_nextp = realview(L_p[k + 1])
     else # restart
-      p[1] .= expr_p
-      L_p[1] .= expr_L_p
+      rv_nextp = realview(p[1])
+      rv_L_nextp = realview(L_p[1])
     end
+    
+    rv_residual = realview(residual)
+    rv_p = realview.(p)
+    rv_L_p = realview.(L_p)
+    rv_L_residual = realview(L_residual)
+
+    threads = 256
+    blocks = div(length(rv_nextp) + threads - 1, threads)
+
+    T = eltype(alpha)
+    @launch(device(Q), threads = threads, blocks = blocks,
+            LS.linearcombination!(rv_nextp, (one(T), alpha[1:k]...),
+                                  (rv_residual, rv_p[1:k]...), false))
+    
+    @launch(device(Q), threads = threads, blocks = blocks,
+            LS.linearcombination!(rv_L_nextp, (one(T), alpha[1:k]...),
+                                  (rv_L_residual, rv_L_p[1:k]...), false))
   end
   
-  (false, K, residual_norm / threshold * solver.tolerance[1])
+  (false, K, residual_norm)
 end
 
 end

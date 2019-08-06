@@ -3,25 +3,24 @@ module GeneralizedMinimalResidualSolver
 export GeneralizedMinimalResidual
 
 using ..LinearSolvers
-using ..MPIStateArrays
+const LS = LinearSolvers
+using ..MPIStateArrays: device, realview
 
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-
-const LS = LinearSolvers
+using GPUifyLoops
 
 """
     GeneralizedMinimalResidual(M, Q, tolerance)
 
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `M` is the number of steps after which the algorithm
-is restarted (if it has not converged), `Q` is a reference state used only to
-allocate the solver internal state, and `tolerance` specifies the convergence
-threshold based on the residual norm. Since the amount of additional memory
-required by the solver is  roughly `(M + 1) * size(Q)` in practical applications `M` 
-should be kept small. This object is intended to be passed to the [`linearsolve!`](@ref)
-command.
+is restarted (if it has not converged), `Q` is a reference state used only
+to allocate the solver internal state, and `tolerance` specifies the convergence
+criterion based on the relative residual norm. The amount of memory 
+required for the solver state is roughly `(M + 1) * size(Q)`.
+This object is intended to be passed to the [`linearsolve!`](@ref) command.
 
 This uses the restarted Generalized Minimal Residual method of Saad and Schultz (1986).
 
@@ -39,7 +38,9 @@ This uses the restarted Generalized Minimal Residual method of Saad and Schultz 
 """
 struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <: LS.AbstractIterativeLinearSolver
   krylov_basis::NTuple{MP1, AT}
+  "Hessenberg matrix"
   H::MArray{Tuple{MP1, M}, T, 2, MMP1}
+  "rhs of the least squares problem"
   g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
   tolerance::MArray{Tuple{1}, T, 1, 1}
 
@@ -52,7 +53,7 @@ struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <: LS.AbstractIterativeLi
   end
 end
 
-const weighted = true
+const weighted = false
 
 function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResidual)
     g0 = solver.g0
@@ -118,19 +119,20 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
   end
 
   # solve the triangular system
-  y = @views UpperTriangular(H[1:j, 1:j]) \ g0[1:j]
+  y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
 
-  # compose the solution
-  expr_Q = Q
-  for i = 1:j
-    expr_Q = @~ @. expr_Q + y[i] * krylov_basis[i]
-  end
-  Q .= expr_Q
+  ## compose the solution
+  rv_Q = realview(Q)
+  rv_krylov_basis = realview.(krylov_basis)
+  threads = 256
+  blocks = div(length(rv_Q) + threads - 1, threads)
+  @launch(device(Q), threads = threads, blocks = blocks,
+          LS.linearcombination!(rv_Q, y, rv_krylov_basis, true))
 
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver)
   
-  (converged, j, residual_norm / threshold * solver.tolerance[1])
+  (converged, j, residual_norm)
 end
 
 end
