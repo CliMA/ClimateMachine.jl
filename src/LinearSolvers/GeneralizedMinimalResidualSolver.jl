@@ -3,13 +3,13 @@ module GeneralizedMinimalResidualSolver
 export GeneralizedMinimalResidual
 
 using ..LinearSolvers
-using ..MPIStateArrays
+const LS = LinearSolvers
+using ..MPIStateArrays: device, realview
 
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-
-const LS = LinearSolvers
+using GPUifyLoops
 
 """
     GeneralizedMinimalResidual(M, Q, tolerance)
@@ -119,14 +119,15 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
   end
 
   # solve the triangular system
-  y = @views UpperTriangular(H[1:j, 1:j]) \ g0[1:j]
+  y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
 
-  # compose the solution
-  expr_Q = Q
-  for i = 1:j
-    expr_Q = @~ @. expr_Q + y[i] * krylov_basis[i]
-  end
-  Q .= expr_Q
+  ## compose the solution
+  rv_Q = realview(Q)
+  rv_krylov_basis = realview.(krylov_basis)
+  threads = 256
+  blocks = div(length(rv_Q) + threads - 1, threads)
+  @launch(device(Q), threads = threads, blocks = blocks,
+          LS.linearcombination!(rv_Q, y, rv_krylov_basis, true))
 
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver)

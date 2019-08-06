@@ -3,6 +3,7 @@ using LinearAlgebra
 using DoubleFloats
 using LazyArrays
 using StaticArrays
+using GPUifyLoops
 
 using MPI
 
@@ -314,44 +315,31 @@ end
 
 # Integral based metrics
 function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true)
-  T = eltype(Q)
-
-  if isfinite(p)
-    E = @~ abs.(Q.realQ).^p
-    op, mpiop, init = +, MPI.SUM, zero(T)
-  else
-    E = @~ abs.(Q.realQ)
-    op, mpiop, init = max, MPI.MAX, typemin(T)
-  end
-
   if weighted && ~isempty(Q.weights)
-    # TODO for more accurate L^p norms we would want to intepolate the fields
-    # to a finer mesh.
-    w = @view Q.weights[:, :, Q.realelems]
-    E = @~ E .* w
+    W = @view Q.weights[:, :, Q.realelems]
+    locnorm = weighted_norm_impl(Q.realQ, W, Val(p))
+  else
+    locnorm = norm_impl(Q.realQ, Val(p))
   end
 
-  locnorm = mapreduce(identity, op, E, init=init)
+  mpiop = isfinite(p) ? MPI.SUM : MPI.MAX
   r = MPI.Allreduce([locnorm], mpiop, Q.mpicomm)[1]
-
-  isfinite(p) ? r.^(1//p) : r
+  isfinite(p) ? r ^ (1 // p) : r
 end
 
 LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool) = norm(Q, 2, weighted)
 
-function LinearAlgebra.dot(A::MPIStateArray, B::MPIStateArray, weighted::Bool=true)
-  T = eltype(A)
+function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=true)
+  @assert length(Q1.realQ) == length(Q2.realQ)
 
-  E = @~ A.realQ .* B.realQ
-  op, mpiop, init = +, MPI.SUM, zero(T)
-
-  if weighted && ~isempty(A.weights)
-    w = @view A.weights[:, :, A.realelems]
-    E = @~ E .* w
+  if weighted && ~isempty(Q1.weights)
+    W = @view Q1.weights[:, :, Q1.realelems]
+    locnorm = weighted_dot_impl(Q1.realQ, Q2.realQ, W)
+  else
+    locnorm = dot_impl(Q1.realQ, Q2.realQ)
   end
 
-  locnorm = mapreduce(identity, op, E, init=init)
-  MPI.Allreduce([locnorm], mpiop, A.mpicomm)[1]
+  MPI.Allreduce([locnorm], MPI.SUM, Q1.mpicomm)[1]
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
@@ -393,12 +381,108 @@ function weightedsum(A::MPIStateArray, states=1:size(A, 2))
   T(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
 end
 
+# fast CPU local norm & dot implementations
+function norm_impl(Q::SubArray{T, N, A}, ::Val{p}) where {T, N, A<:Array, p}
+  accum = isfinite(p) ? -zero(T) : typemin(T)
+  @inbounds @simd for i in eachindex(Q)
+    if isfinite(p)
+      accum += abs(Q[i]) ^ p
+    else
+      aQ_i = abs(Q[i])
+      accum = ifelse(aQ_i > accum, aQ_i, accum)
+    end
+  end
+  accum
+end
+
+function weighted_norm_impl(Q::SubArray{T, N, A}, W, ::Val{p}) where {T, N, A<:Array, p}
+  nq, ns, ne = size(Q)
+  accum = isfinite(p) ? -zero(T) : typemin(T)
+  @inbounds for k = 1:ne, j = 1:ns
+    @simd for i = 1:nq
+      if isfinite(p)
+        accum += W[i, 1, k] * abs(Q[i, j, k]) ^ p
+      else
+        waQ_ijk = W[i, j, k] * abs(Q[i, j, k]) 
+        accum = ifelse(waQ_ijk > accum, waQ_ijk, accum)
+      end
+    end
+  end
+  accum
+end
+
+function dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}) where {T, N, A<:Array}
+  accum = -zero(T)
+  @inbounds @simd for i in eachindex(Q1)
+    accum += Q1[i] * Q2[i]
+  end
+  accum
+end
+  
+
+function weighted_dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}, W) where {T, N, A<:Array}
+  nq, ns, ne = size(Q1)
+  accum = -zero(T)
+  @inbounds for k = 1:ne, j = 1:ns
+    @simd for i = 1:nq
+      accum += W[i, 1, k] * Q1[i, j, k] * Q2[i, j, k]
+    end
+  end
+  accum
+end
+
+# GPU/generic local norm & dot implementations
+function norm_impl(Q, ::Val{p}) where p
+  T = eltype(Q)
+  if isfinite(p)
+    E = @~ @. abs(Q) ^ p
+    op, init = +, zero(T)
+  else
+    E = @~ @. abs(Q)
+    op, init = max, typemin(T)
+  end
+  mapreduce(identity, op, E, init=init)
+end
+
+function weighted_norm_impl(Q, W, ::Val{p}) where p
+  T = eltype(Q)
+  if isfinite(p)
+    E = @~ @. W * abs(Q) ^ p
+    op, init = +, zero(T)
+  else
+    E = @~ @. W * abs(Q)
+    op, init = max, typemin(T)
+  end
+  mapreduce(identity, op, E, init=init)
+end
+
+function dot_impl(Q1, Q2)
+  T = eltype(Q1)
+  E = @~ @. Q1 * Q2
+  mapreduce(identity, +, E, init=zero(T))
+end
+
+weighted_dot_impl(Q1, Q2, W) = dot_impl(@~ @. W * Q1, Q2)
+
 using Requires
+
+# `realview` and `device` are helpers that enable 
+# testing ODESolvers and LinearSolvers without using MPIStateArrays
+# They could be potentially useful elsewhere and exported but probably need
+# better names, for example `device` is also defined in CUDAdrv
+
+device(::Union{Array, SArray, MArray}) = CPU()
+device(Q::MPIStateArray) = device(Q.Q)
+
+realview(Q::Union{Array, SArray, MArray}) = Q
+realview(Q::MPIStateArray) = Q.realQ
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
   using .CuArrays
   using .CuArrays.CUDAnative
-  using .CuArrays.CUDAnative.CUDAdrv
+
+  device(::CuArray) = CUDA()
+  realview(Q::CuArray) = Q
 
   # transform all arguments of `bc` from MPIStateArrays to CuArrays
   # and replace CPU function with GPU variants
