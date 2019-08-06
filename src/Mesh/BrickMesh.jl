@@ -731,7 +731,11 @@ returns a connected mesh.  This returns a `NamedTuple` of:
  - `elems` the range of element indices
  - `realelems` the range of real (aka nonghost) element indices
  - `ghostelems` the range of ghost element indices
+ - `ghostfaces` ghost element to face is received;
+   `ghostfaces[f,ge] == true` if face `f` of ghost element `ge` is received.
  - `sendelems` an array of send element indices
+ - `sendfaces` send element to face is sent;
+   `sendfaces[f,se] == true` if face `f` of send element `se` is sent.
  - `elemtocoord` element to vertex coordinates; `elemtocoord[d,i,e]` is the
     `d`th coordinate of corner `i` of element `e`
  - `elemtoelem` element to neighboring element; `elemtoelem[f,e]` is the
@@ -855,6 +859,22 @@ function connectmesh(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
       sr, se = r, e
     end
   end
+
+  # Mark which faces need to be sent
+  sendfaces = BitArray(undef, nface, length(sendelems))
+  sendfaces .= false
+  sr, se, n = -1, 0, 0
+  for i = 1:last(size(B))
+    r, e, f = B[NR,i], B[ME,i], B[MF,i]
+    if r != crank
+      if !(sr == r && se == e)
+        n += 1
+        sr, se = r, e
+      end
+      sendfaces[f, n] = true
+    end
+  end
+
   sendstarts = cumsum(counts)
   nabrtosendrank = Int[r for r = 0:csize-1
                        if sendstarts[r+2]-sendstarts[r+1] > 0]
@@ -879,10 +899,26 @@ function connectmesh(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
         counts[r+2] += 1
         sr, se = r, e
       end
-      B[NR,i] = crank
       B[NE,i] = nelem + nghost
     end
   end
+
+  # Mark which faces will be received
+  ghostfaces = BitArray(undef, nface, nghost)
+  ghostfaces .= false
+  sr, se, ge = -1, 0, 0
+  for i = 1:last(size(B))
+    r, e, f = B[NR,i], B[NE,i], B[NF,i]
+    if r != crank
+      if !(sr == r && se == e)
+        ge += 1
+        sr, se = r, e
+      end
+      B[NR,i] = crank
+      ghostfaces[f, ge] = true
+    end
+  end
+
   recvstarts = cumsum(counts)
   nabrtorecvrank = Int[r for r = 0:csize-1
                        if recvstarts[r+2]-recvstarts[r+1] > 0]
@@ -947,7 +983,9 @@ function connectmesh(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
   (elems=1:(nelem+nghost),       # range of          element indices
    realelems=1:nelem,            # range of real     element indices
    ghostelems=nelem.+(1:nghost), # range of ghost    element indices
+   ghostfaces=ghostfaces,
    sendelems=sendelems,          # array of send     element indices
+   sendfaces=sendfaces,
    elemtocoord=newelemtocoord,   # element to vertex coordinates
    elemtoelem=elemtoelem,        # element to neighboring element
    elemtoface=elemtoface,        # element to neighboring element face
