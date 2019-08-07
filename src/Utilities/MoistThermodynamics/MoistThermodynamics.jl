@@ -116,9 +116,9 @@ state (ideal gas law) where
  - `T` air temperature
  - `p` pressure
 and, optionally,
- - `R` Gas constant of (moist-)air
+ - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
 """
-specific_volume(T::DT, p::DT, R::DT) where {DT<:Real} = (R * T) / p
+specific_volume(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<:Real} = (gas_constant_air(q) * T) / p
 
 """
     specific_volume(ts::ThermodynamicState)
@@ -126,7 +126,8 @@ specific_volume(T::DT, p::DT, R::DT) where {DT<:Real} = (R * T) / p
 The (moist-)air specific volume from the equation of
 state (ideal gas law), given a thermodynamic state `ts`.
 """
-specific_volume(ts::ThermodynamicState) = specific_volume(air_temperature(ts), air_pressure(ts), gas_constant_air(ts))
+specific_volume(ts::ThermodynamicState) = specific_volume(air_temperature(ts), air_pressure(ts), PhasePartition(ts))
+specific_volume(ts::PhaseDry) = (gas_constant_air(ts) * air_temperature(ts)) / air_pressure(ts)
 
 """
     cp_m([q::PhasePartition])
