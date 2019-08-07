@@ -471,7 +471,7 @@ function saturation_vapor_pressure(ts::ThermodynamicState, ::Liquid)
 
 end
 saturation_vapor_pressure(T::DT, ::Ice) where DT = saturation_vapor_pressure(T, DT(LH_s0), DT(cp_v) - DT(cp_i))
-saturation_vapor_pressure(ts::ThermodynamicState, ::Ice) = saturation_vapor_pressure(air_temperature(ts), LH_s0, cp_v - cp_i)
+saturation_vapor_pressure(ts::ThermodynamicState{DT}, ::Ice) where DT = saturation_vapor_pressure(air_temperature(ts), DT(LH_s0), DT(cp_v) - DT(cp_i))
 
 function saturation_vapor_pressure(T::DT, LH_0::DT, Δcp::DT) where DT
 
