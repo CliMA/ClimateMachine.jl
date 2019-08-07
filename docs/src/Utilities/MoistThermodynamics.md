@@ -84,6 +84,7 @@ PhaseDry
 PhaseEquil
 PhaseNonEquil
 LiquidIcePotTempSHumEquil
+LiquidIcePotTempSHumEquil_no_ρ
 ```
 
 ```@docs
