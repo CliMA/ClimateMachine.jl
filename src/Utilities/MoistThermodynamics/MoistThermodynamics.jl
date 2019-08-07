@@ -72,7 +72,8 @@ The air pressure from the equation of state
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
 """
-air_pressure(T::DT, ρ::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<:Real} = ρ * gas_constant_air(q) * T
+air_pressure(T::DT, ρ::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<:Real} =
+  gas_constant_air(q) * ρ * T
 
 """
     air_pressure(ts::ThermodynamicState)
@@ -96,8 +97,8 @@ The (moist-)air density from the equation of state
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
 """
-air_density(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<:Real} = p / (gas_constant_air(q) * T)
-
+air_density(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<:Real} =
+  p / (gas_constant_air(q) * T)
 
 """
     air_density(ts::ThermodynamicState)
@@ -108,7 +109,7 @@ The (moist-)air density from the equation of state
 air_density(ts::ThermodynamicState) = ts.ρ
 
 """
-    specific_volume(T, p, R)
+    specific_volume(T, p[, q::PhasePartition])
 
 The (moist-)air specific volume from the equation of
 state (ideal gas law) where
@@ -118,7 +119,8 @@ state (ideal gas law) where
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
 """
-specific_volume(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<:Real} = (gas_constant_air(q) * T) / p
+specific_volume(T::DT, p::DT, q::PhasePartition=PhasePartition(zero(DT))) where {DT<:Real} =
+  (gas_constant_air(q) * T) / p
 
 """
     specific_volume(ts::ThermodynamicState)
@@ -332,7 +334,8 @@ end
 
 The speed of sound in air given a thermodynamic state `ts`.
 """
-soundspeed_air(ts::ThermodynamicState) = soundspeed_air(air_temperature(ts), PhasePartition(ts))
+soundspeed_air(ts::ThermodynamicState) =
+  soundspeed_air(air_temperature(ts), PhasePartition(ts))
 soundspeed_air(ts::PhaseDry) = sqrt(cp_m(ts)/cv_m(ts)*gas_constant_air(ts)*air_temperature(ts))
 
 
