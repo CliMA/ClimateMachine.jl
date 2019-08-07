@@ -137,6 +137,7 @@ using LinearAlgebra
     @test eltype(moist_gas_constants(ts)) == typeof(e_int)
     @test air_temperature(ts) isa typeof(e_int)
     @test internal_energy_sat(ts) isa typeof(e_int)
+    @test internal_energy(ts) isa typeof(e_int)
     @test latent_heat_vapor(ts) isa typeof(e_int)
     @test latent_heat_sublim(ts) isa typeof(e_int)
     @test latent_heat_fusion(ts) isa typeof(e_int)
