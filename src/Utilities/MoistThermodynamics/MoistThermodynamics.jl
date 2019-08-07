@@ -58,7 +58,7 @@ a thermodynamic state `ts`.
 """
 gas_constant_air(ts::ThermodynamicState) =
   gas_constant_air(PhasePartition(ts))
-gas_constant_air(ts::PhaseDry) = typeof(ts.e_int)(R_d)
+gas_constant_air(ts::PhaseDry{DT}) where DT = DT(R_d)
 
 
 """
@@ -273,6 +273,8 @@ The internal energy per unit mass in
 thermodynamic equilibrium at saturation,
 given a thermodynamic state `ts`.
 """
+internal_energy_sat(ts::PhaseDry{DT}) where DT =
+  internal_energy_sat(air_temperature(ts), air_density(ts), DT(0))
 internal_energy_sat(ts::PhaseEquil) =
   internal_energy_sat(air_temperature(ts), air_density(ts), ts.q_tot)
 internal_energy_sat(ts::PhaseNonEquil) =
@@ -658,7 +660,7 @@ function PhasePartition_equil(T::DT, ρ::DT, q_tot::DT) where {DT}
     return PhasePartition(q_tot, q_liq, q_ice)
 end
 
-PhasePartition(ts::PhaseDry) = PhasePartition(typeof(ts.e_int).zeros(3)...)
+PhasePartition(ts::PhaseDry{DT}) where DT = PhasePartition(zeros(DT, 3)...)
 PhasePartition(ts::PhaseEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
@@ -848,7 +850,6 @@ Compute the Exner function, given a thermodynamic state `ts`.
 """
 exner(ts::ThermodynamicState) =
   exner(air_pressure(ts), PhasePartition(ts))
-exner(ts::PhaseDry) = (air_pressure(ts)/typeof(ts.e_int)(MSLP))^(/cp_d)
 
 
 end #module MoistThermodynamics.jl
