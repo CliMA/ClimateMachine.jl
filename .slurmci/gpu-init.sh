@@ -15,6 +15,4 @@ export OPENBLAS_NUM_THREADS=1
 
 module load cmake/3.10.2 openmpi/4.0.1 cuda/10.0
 
-# we need to build CUDA on each device
-# to avoid race conditions we create a separate depot per job
-julia --color=no --project=env/gpu test/runtests_gpu.jl
+julia --color=no --project=env/gpu -e 'using Pkg; pkg"instantiate"; pkg"build"; pkg"precompile"'
