@@ -7,7 +7,7 @@ function stage_update!(Q, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implici
   @inbounds @loop for i = (1:length(Q);
                            (blockIdx().x - 1) * blockDim().x + threadIdx().x)
     Qhat_i = Q[i]
-    Qstages_is_i = 0
+    Qstages_is_i = -zero(eltype(Q))
     @unroll for js = 1:is-1
       commonterm = (RKA_implicit[is, js] - RKA_explicit[is, js]) / RKA_implicit[is, is] * Qstages[js][i]
       Qhat_i += commonterm + dt * RKA_explicit[is, js] * Rstages[js][i]

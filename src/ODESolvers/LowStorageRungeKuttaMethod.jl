@@ -8,6 +8,7 @@ include("LowStorageRungeKuttaMethod_kernels.jl")
 using ..ODESolvers
 ODEs = ODESolvers
 using ..SpaceMethods
+using ..MPIStateArrays: device, realview
 
 """
     LowStorageRungeKutta2N(f, RKA, RKB, RKC, Q; dt, t0 = 0)
@@ -81,8 +82,8 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, param, timeend,
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
   rhs!, dQ = lsrk.rhs!, lsrk.dQ
 
-  rv_Q = ODEs.realview(Q)
-  rv_dQ = ODEs.realview(dQ)
+  rv_Q = realview(Q)
+  rv_dQ = realview(dQ)
 
   threads = 256
   blocks = div(length(rv_Q) + threads - 1, threads)
@@ -90,7 +91,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, param, timeend,
   for s = 1:length(RKA)
     rhs!(dQ, Q, param, time + RKC[s] * dt, increment = true)
     # update solution and scale RHS
-    @launch(ODEs.device(Q), threads=threads, blocks=blocks,
+    @launch(device(Q), threads=threads, blocks=blocks,
             update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt))
   end
   if dt == lsrk.dt[1]

@@ -8,6 +8,7 @@ include("StrongStabilityPreservingRungeKuttaMethod_kernels.jl")
 using ..ODESolvers
 ODEs = ODESolvers
 using ..SpaceMethods
+using ..MPIStateArrays: device, realview
 
 """
     StrongStabilityPreservingRungeKutta(f, RKA, RKB, RKC, Q; dt, t0 = 0)
@@ -78,9 +79,9 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, param, timeen
   rhs! = ssp.rhs!
   Rstage, Qstage = ssp.Rstage, ssp.Qstage
   
-  rv_Q = ODEs.realview(Q)
-  rv_Rstage = ODEs.realview(Rstage)
-  rv_Qstage = ODEs.realview(Qstage)
+  rv_Q = realview(Q)
+  rv_Rstage = realview(Rstage)
+  rv_Qstage = realview(Qstage)
   
   threads = 256
   blocks = div(length(rv_Q) + threads - 1, threads)
@@ -89,7 +90,7 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, param, timeen
   for s = 1:length(RKB)
     rhs!(Rstage, Qstage, param, time + RKC[s] * dt, increment = false)
   
-    @launch(ODEs.device(Q), threads = threads, blocks = blocks,
+    @launch(device(Q), threads = threads, blocks = blocks,
             update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))
   end
   rv_Q .= rv_Qstage

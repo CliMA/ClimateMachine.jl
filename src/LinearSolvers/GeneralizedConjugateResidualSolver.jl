@@ -3,13 +3,13 @@ module GeneralizedConjugateResidualSolver
 export GeneralizedConjugateResidual
 
 using ..LinearSolvers
-using ..MPIStateArrays
+const LS = LinearSolvers
+using ..MPIStateArrays: device, realview
 
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-
-const LS = LinearSolvers
+using GPUifyLoops
 
 """
     GeneralizedConjugateResidual(K, Q, tolerance)
@@ -108,22 +108,30 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
       alpha[l] = -dot(L_residual, L_p[l], weighted) / normsq[l]
     end
 
-    # first build `Broadcasted` expressions for p_{k+1} and L_{k+1} to do only
-    # one kernel call for each and simplify restart
-    expr_p = residual
-    expr_L_p = L_residual
-    for l = 1:k
-      expr_p = @~ @. expr_p + alpha[l] * p[l]
-      expr_L_p = @~ @. expr_L_p + alpha[l] * L_p[l]
-    end
-
     if k < K
-      p[k + 1] .= expr_p
-      L_p[k + 1] .= expr_L_p
+      rv_nextp = realview(p[k + 1])
+      rv_L_nextp = realview(L_p[k + 1])
     else # restart
-      p[1] .= expr_p
-      L_p[1] .= expr_L_p
+      rv_nextp = realview(p[1])
+      rv_L_nextp = realview(L_p[1])
     end
+    
+    rv_residual = realview(residual)
+    rv_p = realview.(p)
+    rv_L_p = realview.(L_p)
+    rv_L_residual = realview(L_residual)
+
+    threads = 256
+    blocks = div(length(rv_nextp) + threads - 1, threads)
+
+    T = eltype(alpha)
+    @launch(device(Q), threads = threads, blocks = blocks,
+            LS.linearcombination!(rv_nextp, (one(T), alpha[1:k]...),
+                                  (rv_residual, rv_p[1:k]...), false))
+    
+    @launch(device(Q), threads = threads, blocks = blocks,
+            LS.linearcombination!(rv_L_nextp, (one(T), alpha[1:k]...),
+                                  (rv_L_residual, rv_L_p[1:k]...), false))
   end
   
   (false, K, residual_norm)
