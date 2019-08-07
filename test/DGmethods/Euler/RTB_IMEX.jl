@@ -36,33 +36,6 @@ const _δρ, _ρu, _ρv, _ρw, _δρe = 1:_nstate
 const _ρu⃗ = SVector(_ρu, _ρv, _ρw)
 const statenames = ("δρ", "ρu", "ρv", "ρw", "δρe")
 
-const numdims = 2
-const Δx    = 20
-const Δy    = 20
-const Δz    = 20
-const Npoly = 4
-
-# Physical domain extents
-const (xmin, xmax) = (0, 1000)
-const (ymin, ymax) = (0, 1500)
-const (zmin, zmax) = (0, 1000)
-
-const domain_start = (xmin, ymin, zmin)
-const domain_end = (xmax, ymax, zmax)
-
-#Get Nex, Ney from resolution
-const Lx = xmax - xmin
-const Ly = ymax - ymin
-const Lz = zmax - zmin
-
-const ratiox = (Lx/Δx - 1)/Npoly
-const ratioy = (Ly/Δy - 1)/Npoly
-const ratioz = (Lz/Δz - 1)/Npoly
-const Nex = ceil(Int64, ratiox)
-const Ney = ceil(Int64, ratioy)
-const Nez = ceil(Int64, ratioz)
-const numelem = (Nex, Ney, Nez)
-
 const _nauxstate = 6
 const _a_ρ0, _a_ρe0, _a_ϕ, _a_ϕ_x, _a_ϕ_y, _a_ϕ_z = 1:_nauxstate
 function auxiliary_state_initialization!(aux, x, y, z) #JK, dx, dy, dz)
@@ -77,7 +50,7 @@ function auxiliary_state_initialization!(aux, x, y, z) #JK, dx, dy, dz)
   end
 end
 
-function pressure(Q, aux)
+@inline function pressure(Q, aux)
   @inbounds begin
     gravity::eltype(Q) = grav
     γ::eltype(Q) = γ_exact # FIXME: Remove this for some moist thermo approach
@@ -91,7 +64,7 @@ function pressure(Q, aux)
   end
 end
 
-function wavespeed(n, Q, aux, t)
+@inline function wavespeed(n, Q, aux, t)
   γ::eltype(Q) = γ_exact # FIXME: Remove this for some moist thermo approach
   n⃗ = SVector(n)
   @inbounds begin
@@ -107,7 +80,7 @@ function wavespeed(n, Q, aux, t)
   end
 end
 
-function euler_flux!(F, Q, _, aux, t)
+@inline function euler_flux!(F, Q, _, aux, t)
   P = pressure(Q, aux)
   @inbounds begin
     δρ, δρe = Q[_δρ], Q[_δρe]
@@ -124,7 +97,7 @@ function euler_flux!(F, Q, _, aux, t)
   end
 end
 
-function bcstate!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
+@inline function bcstate!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
   if bctype == 1
     nofluxbc!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
   else
@@ -132,7 +105,7 @@ function bcstate!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
   end
 end
 
-function nofluxbc!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
+@inline function nofluxbc!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
   @inbounds begin
     ρu⃗M = SVector(QM[_ρu], QM[_ρv], QM[_ρw])
     n⃗M = SVector(nM)
@@ -149,14 +122,14 @@ function nofluxbc!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
   end
 end
 
-function source!(S, Q, aux, t)
+@inline function source!(S, Q, aux, t)
   # Initialise the final block source term
-  S .= 0
+  S .= -zero(eltype(Q))
 
   source_geopotential!(S, Q, aux, t)
 end
 
-function source_geopotential!(S, Q, aux, t)
+@inline function source_geopotential!(S, Q, aux, t)
   @inbounds begin
     δρ = Q[_δρ]
     ρ0 = aux[_a_ρ0]
@@ -236,8 +209,8 @@ function rising_bubble!(dim, Q, t, x, y, z, aux)
 end
 
 # {{{ Linearization
-function lin_eulerflux!(F, Q, _, aux, t)
-  F .= 0
+@inline function lin_eulerflux!(F, Q, _, aux, t)
+  F .= -zero(eltype(Q))
   @inbounds begin
     DFloat = eltype(Q)
     γ::DFloat = γ_exact # FIXME: Remove this for some moist thermo approach
@@ -262,22 +235,24 @@ function lin_eulerflux!(F, Q, _, aux, t)
   end
 end
 
-function wavespeed_linear(n, Q, aux, t)
-  DFloat = eltype(Q)
-  γ::DFloat = γ_exact # FIXME: Remove this for some moist thermo approach
+@inline function wavespeed_linear(n, Q, aux, t)
+  @inbounds begin
+    DFloat = eltype(Q)
+    γ::DFloat = γ_exact # FIXME: Remove this for some moist thermo approach
 
-  ρ0, ρe0, ϕ = aux[_a_ρ0], aux[_a_ρe0], aux[_a_ϕ]
-  ρinv0 = 1 / ρ0
-  P0 = (γ-1)*(ρe0 - ρ0 * ϕ)
+    ρ0, ρe0, ϕ = aux[_a_ρ0], aux[_a_ρe0], aux[_a_ϕ]
+    ρinv0 = 1 / ρ0
+    P0 = (γ-1)*(ρe0 - ρ0 * ϕ)
 
-  sqrt(ρinv0 * γ * P0)
+    sqrt(ρinv0 * γ * P0)
+  end
 end
 
-function lin_source!(S, Q, aux, t)
+@inline function lin_source!(S, Q, aux, t)
   S .= 0
   lin_source_geopotential!(S, Q, aux, t)
 end
-function lin_source_geopotential!(S, Q, aux, t)
+@inline function lin_source_geopotential!(S, Q, aux, t)
   @inbounds begin
     δρ = Q[_δρ]
     ∇ϕ = SVector(aux[_a_ϕ_x], aux[_a_ϕ_y], aux[_a_ϕ_z])
@@ -287,7 +262,7 @@ function lin_source_geopotential!(S, Q, aux, t)
   end
 end
 
-function lin_bcstate!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
+@inline function lin_bcstate!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
   if bctype == 1
     # this is already a linear boundary condition
     nofluxbc!(QP, QVP, auxP, nM, QM, QMP, auxM, bctype, t)
@@ -298,13 +273,8 @@ end
 
 # }}}
 
-function run(mpicomm, dim, Ne, N, timeend, DFloat, dt, output_steps)
+function run(mpicomm, dim, brickrange, periodicity, N, timeend, DFloat, dt, output_steps)
 
-  brickrange = ntuple(d -> range(domain_start[d], length = Ne[d] + 1, stop = domain_end[d]), dim)
-
-  # User defined periodicity in the topl assignment
-  # brickrange defines the domain extents
-  periodicity = ntuple(d -> false, dim)
   topl = StackedBrickTopology(mpicomm, brickrange, periodicity = periodicity)
 
   grid = DiscontinuousSpectralElementGrid(topl,
@@ -422,40 +392,64 @@ let
   @static if haspkg("CUDAnative")
     device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
-
-
-  # Stable explicit time step
-  dt = min(Δx, Δy, Δz) / soundspeed_air(300.0) / Npoly
-  dt *= 40
-
-  output_time = 0.5
-  output_steps = ceil(output_time / dt)
-
-  @info @sprintf """ ----------------------------------------------------"""
-  @info @sprintf """   ______ _      _____ __  ________                  """
-  @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """
-  @info @sprintf """  | |    | |      | | |   .   | |  | |               """
-  @info @sprintf """  | |    | |      | | | |   | | |__| |               """
-  @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-  @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-  @info @sprintf """                                                     """
-  @info @sprintf """ ----------------------------------------------------"""
-  @info @sprintf """ Rising Bubble                                       """
-  @info @sprintf """   Resolution:                                       """
-  @info @sprintf """     (Δx, Δy)   = (%.2e, %.2e)                       """ Δx Δy
-  @info @sprintf """     (Nex, Ney) = (%d, %d)                           """ Nex Ney
-  @info @sprintf """     dt         = %.2e                               """ dt
-  @info @sprintf """ ----------------------------------------------------"""
-
-  timeend = 10
-  polynomialorder = Npoly
+  
+  polynomialorder = 4
   DFloat = Float64
+
   expected_engf_eng0 = Dict()
-  expected_engf_eng0[Float64] = 1.4389690784788478e+00
+  expected_engf_eng0[(Float64, 2)] = 1.5850821145834655e+00
+  expected_engf_eng0[(Float64, 3)] = 1.4450465596993558e+00
 
-  engf_eng0 = run(mpicomm, numdims, numelem, polynomialorder, timeend,
-                  DFloat, dt, output_steps)
+  for dim in (2, 3)
+    # Physical domain extents
+    domain_start = (0, 0, 0)
+    domain_end = (1000, 750, 1000)
+    
+    # Stable explicit time step
+    Δxyz = MVector(25, 25, 25)
+    dt = min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
+    dt *= dim == 2 ? 40 : 20
+  
+    output_time = 0.5
+    output_steps = ceil(output_time / dt)
 
-  @test engf_eng0 ≈ expected_engf_eng0[DFloat]
+    #Get Ne from resolution
+    Ls = MVector(domain_end .- domain_start)
+    ratios = @. (Ls / Δxyz - 1) / polynomialorder
+    Ne = ceil.(Int64, ratios)
+    
+    brickrange = ntuple(d -> range(domain_start[d], length = Ne[d] + 1, stop = domain_end[d]), dim)
+    periodicity = ntuple(d -> false, dim)
+
+    timeend = dim == 2 ? 10 : 1
+
+    # only for printing
+    if dim == 2
+      Δxyz[3] = 0
+      Ne[3] = 0
+    end
+
+    @info @sprintf """ ----------------------------------------------------"""
+    @info @sprintf """   ______ _      _____ __  ________                  """
+    @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """
+    @info @sprintf """  | |    | |      | | |   .   | |  | |               """
+    @info @sprintf """  | |    | |      | | | |   | | |__| |               """
+    @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
+    @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
+    @info @sprintf """                                                     """
+    @info @sprintf """ ----------------------------------------------------"""
+    @info @sprintf """ Rising Bubble in %dD                                """ dim
+    @info @sprintf """   Resolution:                                       """
+    @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δxyz...
+    @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Ne...
+    @info @sprintf """     dt         = %.2e                               """ dt
+    @info @sprintf """ ----------------------------------------------------"""
+    
+    engf_eng0 = run(mpicomm,
+                    dim, brickrange, periodicity, polynomialorder,
+                    timeend, DFloat, dt, output_steps)
+
+    @test engf_eng0 ≈ expected_engf_eng0[DFloat, dim]
+  end
 end
 nothing
