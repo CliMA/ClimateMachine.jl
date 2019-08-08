@@ -80,6 +80,7 @@ CurrentModule = CLIMA.MoistThermodynamics
 PhasePartition
 PhasePartition_equil
 ThermodynamicState
+PhaseDry
 PhaseEquil
 PhaseNonEquil
 LiquidIcePotTempSHumEquil
