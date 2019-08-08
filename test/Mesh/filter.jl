@@ -24,7 +24,7 @@
                                                         FloatType = Float64,
                                                         DeviceArray = Array)
 
-    filter = CLIMA.Mesh.Grids.ExponentialFilter(grid, 0, 32)
+    filter = CLIMA.Mesh.Filters.ExponentialFilter(grid, 0, 32)
     @test filter.filter ≈ W
   end
 
@@ -45,7 +45,7 @@
                                                         FloatType = Float64,
                                                         DeviceArray = Array)
 
-    filter = CLIMA.Mesh.Grids.ExponentialFilter(grid, 1, 4)
+    filter = CLIMA.Mesh.Filters.ExponentialFilter(grid, 1, 4)
     @test filter.filter ≈ W
   end
 
@@ -69,7 +69,7 @@
 
     W = V*Diagonal(Σ)/V
 
-    filter = CLIMA.Mesh.Grids.CutoffFilter(grid, Nc)
+    filter = CLIMA.Mesh.Filters.CutoffFilter(grid, Nc)
     @test filter.filter ≈ W
   end
 end
