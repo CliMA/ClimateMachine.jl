@@ -2,7 +2,7 @@
 #
 #md # !!! jupyter
 #md #     This example is also available as a Jupyter notebook:
-#md #     [`ex_003_acoustic_wave.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods/generated/ex_003_acoustic_wave.html)
+#md #     [`ex_003_acoustic_wave.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods_old/generated/ex_003_acoustic_wave.html)
 #
 # ## Introduction
 #
