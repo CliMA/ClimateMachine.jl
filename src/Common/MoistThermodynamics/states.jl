@@ -1,6 +1,7 @@
 export PhasePartition
 # Thermodynamic states
 export ThermodynamicState,
+       PhaseDry,
        PhaseEquil,
        PhaseNonEquil,
        LiquidIcePotTempSHumEquil,
@@ -52,7 +53,7 @@ abstract type ThermodynamicState{DT} end
     PhaseEquil{DT} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
-is needed).
+may be needed).
 
 # Constructors
 
@@ -74,6 +75,26 @@ struct PhaseEquil{DT} <: ThermodynamicState{DT}
 end
 PhaseEquil(e_int, q_tot, ρ) =
   PhaseEquil(e_int, q_tot, ρ, saturation_adjustment(e_int, ρ, q_tot))
+
+"""
+    PhaseDry{DT} <: ThermodynamicState
+
+A dry thermodynamic state (`q_tot = 0`).
+
+# Constructors
+
+    PhaseDry(e_int, ρ)
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct PhaseDry{DT} <: ThermodynamicState{DT}
+  "internal energy"
+  e_int::DT
+  "density of dry air"
+  ρ::DT
+end
 
 """
     LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
