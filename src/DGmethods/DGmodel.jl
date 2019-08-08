@@ -72,8 +72,6 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
                      vgeo, t, lgl_weights_vec, Dmat,
                      topology.realelems, increment))
 
-  MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
-
   # The main reason for this protection is not for the MPI.Waitall!, but the
   # make sure that we do not recopy data to the GPU
   nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
