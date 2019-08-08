@@ -1,8 +1,8 @@
 # generate examples
 import Literate
 
-EXAMPLE_BL_DIR = joinpath(@__DIR__, "..", "examples", "DGmethods")
-GENERATED_BL_DIR = joinpath(@__DIR__, "src", "examples", "DGmethods", "generated")
+EXAMPLE_BL_DIR = joinpath(@__DIR__, "..", "examples", "DGmethods_old")
+GENERATED_BL_DIR = joinpath(@__DIR__, "src", "examples", "DGmethods_old", "generated")
 for example in readdir(EXAMPLE_BL_DIR)
     endswith(example, ".jl") || continue
     input = abspath(joinpath(EXAMPLE_BL_DIR, example))
