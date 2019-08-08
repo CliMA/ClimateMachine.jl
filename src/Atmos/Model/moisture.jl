@@ -24,7 +24,8 @@ function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   return e_int
 end
 
-pressure(m::MoistureModel  , state::Vars, aux::Vars) = air_pressure(thermo_state(m, state, aux))
+temperature(m::MoistureModel, state::Vars, aux::Vars) = air_temperature(thermo_state(m, state, aux))
+pressure(m::MoistureModel, state::Vars, aux::Vars) = air_pressure(thermo_state(m, state, aux))
 soundspeed(m::MoistureModel, state::Vars, aux::Vars) = soundspeed_air(thermo_state(m, state, aux))
 
 """
