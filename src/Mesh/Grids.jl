@@ -2,13 +2,11 @@ module Grids
 using ..Topologies
 import ..Metrics, ..Elements
 
-using LinearAlgebra, GaussQuadrature
+using LinearAlgebra
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
-export ExponentialFilter, CutoffFilter, AbstractFilter
 export dofs_per_element, arraytype, dimensionality, polynomialorder
 export referencepoints
-
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
                          DeviceArray} end
@@ -345,90 +343,6 @@ function indefinite_integral_interpolation_matrix(r, ω)
     I∫[n, :] .= (Δ * ω' * In)[:]
   end
   I∫
-end
-# }}}
-
-# {{{ filters
-"""
-    spectral_filter_matrix(r, Nc, σ)
-
-Returns the filter matrix that takes function values at the interpolation
-`N+1` points, `r`, converts them into Legendre polynomial basis coefficients,
-multiplies
-```math
-σ((n-N_c)/(N-N_c))
-```
-against coefficients `n=Nc:N` and evaluates the resulting polynomial at the
-points `r`.
-"""
-function spectral_filter_matrix(r, Nc, σ)
-  N = length(r)-1
-  T = eltype(r)
-
-  @assert N >= 0
-  @assert 0 <= Nc <= N
-
-  a, b = GaussQuadrature.legendre_coefs(T, N)
-  V = GaussQuadrature.orthonormal_poly(r, a, b)
-
-  Σ = ones(T, N+1)
-  Σ[(Nc:N).+1] .= σ.(((Nc:N).-Nc)./(N-Nc))
-
-  V*Diagonal(Σ)/V
-end
-
-abstract type AbstractFilter end
-
-"""
-    ExponentialFilter(grid, Nc=0, s=32, α=-log(eps(eltype(grid))))
-
-Returns the spectral filter with the filter function
-```math
-σ(η) = \exp(-α η^s)
-```
-where `s` is the filter order (must be even), the filter starts with
-polynomial order `Nc`, and `alpha` is a parameter controlling the smallest
-value of the filter function.
-"""
-struct ExponentialFilter <: AbstractFilter
-  "filter matrix"
-  filter
-
-  function ExponentialFilter(grid, Nc=0, s=32,
-                             α=-log(eps(eltype(grid))))
-    AT = arraytype(grid)
-    N = polynomialorder(grid)
-    ξ = referencepoints(grid)
-
-    @assert iseven(s)
-    @assert 0 <= Nc <= N
-
-    σ(η) = exp(-α*η^s)
-    filter = spectral_filter_matrix(ξ, Nc, σ)
-
-    new(AT(filter))
-  end
-end
-
-"""
-    CutoffFilter(grid, Nc=polynomialorder(grid))
-
-Returns the spectral filter that zeros out polynomial modes greater than or
-equal to `Nc`.
-"""
-struct CutoffFilter <: AbstractFilter
-  "filter matrix"
-  filter
-
-  function CutoffFilter(grid, Nc=polynomialorder(grid))
-    AT = arraytype(grid)
-    ξ = referencepoints(grid)
-
-    σ(η) = 0
-    filter = spectral_filter_matrix(ξ, Nc, σ)
-
-    new(AT(filter))
-  end
 end
 # }}}
 

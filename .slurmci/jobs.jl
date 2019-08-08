@@ -21,6 +21,7 @@
    SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_001_periodic_advection.jl`, ntasks=3)
    SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_002_solid_body_rotation.jl`, ntasks=3)
    SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_003_acoustic_wave.jl`, ntasks=3)
+   SlurmJob(`.slurmci/cpu.sh examples/DGmethods/ex_004_nonnegative.jl`, ntasks=3)
    SlurmJob(`.slurmci/cpu.sh examples/Microphysics/ex_1_saturation_adjustment.jl`, ntasks=3)
    SlurmJob(`.slurmci/cpu.sh examples/Microphysics/ex_2_Kessler.jl`, ntasks=3)
  ],
@@ -43,6 +44,7 @@
    SlurmJob(`.slurmci/gpu.sh test/DGmethods/sphere/advection_sphere_ssp34.jl`, ntasks=2)
    SlurmJob(`.slurmci/gpu.sh test/LinearSolvers/poisson.jl`, ntasks=2)
    SlurmJob(`.slurmci/gpu.sh examples/DGmethods/ex_003_acoustic_wave.jl`, ntasks=3)
+   SlurmJob(`.slurmci/gpu.sh examples/DGmethods/ex_004_nonnegative.jl`, ntasks=3)
    SlurmJob(`.slurmci/gpu.sh examples/Microphysics/ex_1_saturation_adjustment.jl`, ntasks=3)
    SlurmJob(`.slurmci/gpu.sh examples/Microphysics/ex_2_Kessler.jl`, ntasks=3)
  ]
