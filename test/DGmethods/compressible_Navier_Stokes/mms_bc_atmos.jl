@@ -46,35 +46,20 @@ Assumes the moisture components is in the dry limit.
 struct MMSDryModel <: MoistureModel
 end
 
-vars_aux(::MMSDryModel,T) = NamedTuple{(:e_int, :temperature),Tuple{T,T}}
-
-function update_aux!(m::MMSDryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  e_pot = grav * aux.coord.z
-  e_int = internal_energy(DryModel(), state, aux)
-  aux.moisture.e_int = e_int+e_pot # mms-specific, does not take gravity into account
-  TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(DryModel(), state).tot, state.ρ)
-  aux.moisture.temperature = air_temperature(TS)
-  nothing
-end
-
-function temperature(m::MMSDryModel, state::Vars, aux::Vars)
-  e_pot = grav * aux.coord.z
-  e_int = internal_energy(DryModel(), state, aux)
-  T_mms = (e_int+e_pot)/cv_d # mms-specific temperature relation, and does not take gravity into account
-  return T_mms
-end
-
 function pressure(m::MMSDryModel, state::Vars, aux::Vars)
-  T = temperature(m, state, aux)
-  TS = thermo_state(DryModel(), state, aux)
-  p = state.ρ*gas_constant_air(TS)*T
-  return p
+  T = eltype(state)
+  γ = T(7)/T(5)
+  ρinv = 1 / state.ρ
+  return (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
+
 end
 
 function soundspeed(m::MMSDryModel, state::Vars, aux::Vars)
-  q_pt = PhasePartition(eltype(state)(0))
-  T = temperature(m, state, aux)
-  soundspeed_air(T, q_pt)
+  T = eltype(state)
+  γ = T(7)/T(5)
+  ρinv = 1 / state.ρ
+  p = pressure(m, state, aux)
+  sqrt(ρinv * γ * p)
 end
 
 function mms2_init_state!(state::Vars, aux::Vars, (x,y,z), t)

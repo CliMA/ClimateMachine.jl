@@ -6,6 +6,8 @@ vars_gradient(::MoistureModel, T) = Tuple{}
 vars_diffusive(::MoistureModel, T) = Tuple{}
 vars_aux(::MoistureModel, T) = Tuple{}
 
+function update_aux!(::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+end
 function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν)
 end
 function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
