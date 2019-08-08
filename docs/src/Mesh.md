@@ -44,3 +44,13 @@ Grids specify the approximation within each element, and any necessary warping.
 ```@docs
 Grids.DiscontinuousSpectralElementGrid
 ```
+
+## `Filters`
+
+There are methods used to cleanup state vectors.
+
+```@docs
+Filters.CutoffFilter
+Filters.ExponentialFilter
+Filters.TMARFilter
+```
