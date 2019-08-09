@@ -52,25 +52,59 @@ function vars_aux(m::AtmosModel, T)
   Tuple{NamedTuple{(:x,:y,:z),Tuple{T,T,T}}, vars_aux(m.turbulence,T), vars_aux(m.moisture,T), vars_aux(m.radiation,T)}}
 end
 
-# Navier-Stokes flux terms
+"""
+    flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+
+Computes flux `F` in:
+
+```
+∂Y
+-- = - ∇ • F + S(Y)
+∂t
+```
+Where
+```
+F =   F_{adv}      Advective flux                                  , see flux_advective!    for this term
+    + F_{press}    Pressure flux                                   , see flux_pressure!     for this term
+    + F_{nonidff}  Fluxes that do *not* contain gradients          , see flux_nondiffusive! for this term
+    + F_{diff}     Fluxes that contain gradients of state variables, see flux_diffusive!    for this term
+```
+"""
 function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  flux_advective!(m, flux, state, diffusive, aux, t)
+  flux_pressure!(m, flux, state, diffusive, aux, t)
+  flux_nondiffusive!(m, flux, state, diffusive, aux, t)
+  flux_diffusive!(m, flux, state, diffusive, aux, t)
+end
+
+function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
+  # advective terms
+  flux.ρ   = ρu
+  flux.ρu  = ρu .* u'
+  flux.ρe  = u * state.ρe
+end
 
+function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  # preflux
+  ρinv = 1/state.ρ
+  ρu = state.ρu
+  u = ρinv * ρu
   p = pressure(m.moisture, state, aux)
+  # pressure terms
+  flux.ρu += p*I
+  flux.ρe += u*p
+end
 
-  # invisc terms
-  flux.ρ  = ρu
-  flux.ρu = ρu .* u' + p*I
-  flux.ρe = u * (state.ρe + p)
-
-  flux_diffusive!(m, flux, state, diffusive, aux, t)
+function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
 
 function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  u = (1/state.ρ) * state.ρu
+  ρinv = 1/state.ρ
+  u = ρinv * state.ρu
 
   # diffusive
   ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffusive.ρτ
@@ -79,8 +113,6 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
                     ρτ13, ρτ23, ρτ33)
   flux.ρu += ρτ
   flux.ρe += ρτ*u
-
-  # moisture-based diffusive fluxes
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
 end
 
@@ -135,16 +167,27 @@ function init_aux!(::AtmosModel, aux::Vars, (x,y,z))
   aux.coord.z = z
 end
 
-function source!(bl::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  bl.source(source, state, aux, t)
+"""
+    source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+
+Computes flux `S(Y)` in:
+
+```
+∂Y
+-- = - ∇ • F + S(Y)
+∂t
+```
+"""
+function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+  m.source(source, state, aux, t)
 end
 
 
 # TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
 # need to figure out how subcomponents will interact.
-function boundarycondition!(bl::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
-  bl.boundarycondition(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
+function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
+  m.boundarycondition(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
 end
 
 abstract type BoundaryCondition
@@ -157,7 +200,7 @@ Set the momentum at the boundary to be zero.
 """
 struct NoFluxBC <: BoundaryCondition
 end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
 
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
@@ -170,14 +213,14 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 """
 struct InitStateBC <: BoundaryCondition
 end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
   coord = (auxP.coord.x, auxP.coord.y, auxP.coord.z)
-  init_state!(bl, stateP, auxP, coord, t)
+  init_state!(m, stateP, auxP, coord, t)
 end
 
-function init_state!(bl::AtmosModel, state::Vars, aux::Vars, coords, t)
-  bl.init_state(state, aux, coords, t)
+function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
+  m.init_state(state, aux, coords, t)
 end
 
 end # module
