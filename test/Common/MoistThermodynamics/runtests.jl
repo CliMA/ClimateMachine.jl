@@ -18,18 +18,19 @@ using LinearAlgebra
   @test gas_constant_air(PhasePartition(DT(0))) === DT(R_d)
   @test gas_constant_air(PhasePartition(DT(1))) === DT(R_v)
   @test gas_constant_air(PhasePartition(DT(0.5), DT(0.5))) ≈ DT(R_d)/2
-  @test gas_constant_air() == R_d
+  @test gas_constant_air(DT) == DT(R_d)
 
   @test cp_m(PhasePartition(DT(0))) === DT(cp_d)
   @test cp_m(PhasePartition(DT(1))) === DT(cp_v)
   @test cp_m(PhasePartition(DT(1), DT(1))) === DT(cp_l)
   @test cp_m(PhasePartition(DT(1), DT(0), DT(1))) === DT(cp_i)
-  @test cp_m() == cp_d
+  @test cp_m(DT) == DT(cp_d)
 
   @test cv_m(PhasePartition(DT(0))) === DT(cp_d - R_d)
   @test cv_m(PhasePartition(DT(1))) === DT(cp_v - R_v)
   @test cv_m(PhasePartition(DT(1), DT(1))) === DT(cv_l)
   @test cv_m(PhasePartition(DT(1), DT(0), DT(1))) === DT(cv_i)
+  @test cv_m(DT) == DT(cv_d)
 
   # speed of sound
   @test soundspeed_air(T_0 + 20, PhasePartition(DT(0))) == sqrt(cp_d/cv_d * R_d * (T_0 + 20))
