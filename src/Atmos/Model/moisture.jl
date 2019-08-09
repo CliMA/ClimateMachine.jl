@@ -17,7 +17,6 @@ end
 
 function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   T = eltype(state)
-  q_pt = get_phase_partition(m, state)
   ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
   ρe_pot = state.ρ * grav * aux.coord.z
@@ -41,13 +40,12 @@ end
 vars_aux(::DryModel,T) = NamedTuple{(:e_int, :temperature), Tuple{T,T}}
 function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
-  TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
+  TS = PhaseDry(aux.moisture.e_int, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
   nothing
 end
 
-get_phase_partition(::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
-thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, eltype(state.ρ)(0), state.ρ, aux.moisture.temperature)
+thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseDry(aux.moisture.e_int, state.ρ)
 
 """
     EquilMoist
