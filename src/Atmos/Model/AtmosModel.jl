@@ -66,7 +66,7 @@ Where
 ```
 F =   F_{adv}      Advective flux                                  , see flux_advective!    for this term
     + F_{press}    Pressure flux                                   , see flux_pressure!     for this term
-    + F_{nonidff}  Fluxes that do *not* contain gradients          , see flux_nondiffusive! for this term
+    + F_{nondiff}  Fluxes that do *not* contain gradients          , see flux_nondiffusive! for this term
     + F_{diff}     Fluxes that contain gradients of state variables, see flux_diffusive!    for this term
 ```
 """
