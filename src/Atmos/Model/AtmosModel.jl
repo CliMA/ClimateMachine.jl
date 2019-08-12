@@ -36,20 +36,38 @@ struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
 end
 
 function vars_state(m::AtmosModel, T)
-  NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :moisture, :radiation),
-  Tuple{T, SVector{3,T}, T, vars_state(m.turbulence,T), vars_state(m.moisture,T), vars_state(m.radiation, T)}}
+  @vars begin
+    ρ::T
+    ρu::SVector{3,T}
+    ρe::T
+    turbulence::vars_state(m.turbulence,T)
+    moisture::vars_state(m.moisture,T)
+    radiation::vars_state(m.radiation,T)
+  end
 end
 function vars_gradient(m::AtmosModel, T)
-  NamedTuple{(:u, :turbulence, :moisture, :radiation),
-  Tuple{SVector{3,T}, vars_gradient(m.turbulence,T), vars_gradient(m.moisture,T), vars_gradient(m.radiation,T)}}
-end
+  @vars begin
+    u::SVector{3,T}
+    turbulence::vars_gradient(m.turbulence,T)
+    moisture::vars_gradient(m.moisture,T)
+    radiation::vars_gradient(m.radiation,T)
+  end
+end    
 function vars_diffusive(m::AtmosModel, T)
-  NamedTuple{(:ρτ, :turbulence, :moisture, :radiation),
-  Tuple{SVector{6,T}, vars_diffusive(m.turbulence,T), vars_diffusive(m.moisture,T), vars_diffusive(m.radiation,T)}}
+  @vars begin
+    ρτ::SVector{6,T}
+    turbulence::vars_diffusive(m.turbulence,T)
+    moisture::vars_diffusive(m.moisture,T)
+    radiation::vars_diffusive(m.radiation,T)
+  end
 end
 function vars_aux(m::AtmosModel, T)
-  NamedTuple{(:coord, :turbulence, :moisture, :radiation),
-  Tuple{NamedTuple{(:x,:y,:z),Tuple{T,T,T}}, vars_aux(m.turbulence,T), vars_aux(m.moisture,T), vars_aux(m.radiation,T)}}
+  @vars begin
+    coord::@vars(x::T,y::T,z::T)
+    turbulence::vars_aux(m.turbulence,T)
+    moisture::vars_aux(m.moisture,T)
+    radiation::vars_aux(m.radiation,T)
+  end
 end
 
 # Navier-Stokes flux terms
