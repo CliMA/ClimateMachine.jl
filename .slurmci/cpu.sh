@@ -14,3 +14,6 @@ export OPENBLAS_NUM_THREADS=1
 module load cmake/3.10.2 openmpi/4.0.1
 
 mpiexec julia --color=no --project $1
+if grep -q JULIA_CLIMA_INTEGRATION_TESTING $1; then
+  JULIA_CLIMA_INTEGRATION_TESTING=true mpiexec julia --color=no --project $1
+fi

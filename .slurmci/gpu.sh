@@ -18,3 +18,7 @@ module load cmake/3.10.2 openmpi/4.0.1 cuda/10.0
 # we need to build CUDA on each device
 # to avoid race conditions we create a separate depot per job
 mpiexec julia --color=no --project=env/gpu $1
+
+if grep -q JULIA_CLIMA_INTEGRATION_TESTING $1; then
+  JULIA_CLIMA_INTEGRATION_TESTING=true mpiexec julia --color=no --project=env/gpu $1
+fi
