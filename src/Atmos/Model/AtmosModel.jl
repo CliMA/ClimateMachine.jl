@@ -1,7 +1,7 @@
 module Atmos
 
 export AtmosModel,
-  ConstantViscosityWithDivergence, SmagorinskyLilly
+  ConstantViscosityWithDivergence, SmagorinskyLilly,
   DryModel, MoistEquil,
   NoRadiation,
   NoFluxBC, InitStateBC, RayleighBenardBC
@@ -192,6 +192,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     DFloat = eltype(stateP)
     xM, yM, zM = auxM.coord.x, auxM.coord.y, auxM.coord.z
     ρP  = stateM.ρ
+    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
     # Weak Boundary Condition Imposition
     # Prescribe no-slip wall.
     # Note that with the default resolution this results in an underresolved near-wall layer
@@ -209,8 +210,8 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     stateP.ρu = SVector(UP, VP, WP)
     stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
     diffP = diffM
-    #diffP.moisture.ρ_SGS_enthalpyflux = 
-    # _τ33   = DFloat(0)  #TODO equivalent condition for τ33 in diffP 
+    #diffP.moisture.ρ_SGS_enthalpyflux = DFloat(0)
+    diffP.ρτ = SVector(ρτ11, ρτ22, DFloat(0), ρτ12, ρτ13,ρτ23)
     nothing
   end
 end
