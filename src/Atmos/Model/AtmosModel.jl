@@ -52,7 +52,7 @@ function vars_gradient(m::AtmosModel, T)
     moisture::vars_gradient(m.moisture,T)
     radiation::vars_gradient(m.radiation,T)
   end
-end    
+end
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
     ρτ::SVector{6,T}
@@ -77,16 +77,15 @@ Computes flux `F` in:
 
 ```
 ∂Y
--- = - ∇ • F + S(Y)
+-- = - ∇ • (F_{adv} + F_{press} + F_{nondiff} + F_{diff}) + S(Y)
 ∂t
 ```
 Where
-```
-F =   F_{adv}      Advective flux                                  , see flux_advective!    for this term
-    + F_{press}    Pressure flux                                   , see flux_pressure!     for this term
-    + F_{nondiff}  Fluxes that do *not* contain gradients          , see flux_nondiffusive! for this term
-    + F_{diff}     Fluxes that contain gradients of state variables, see flux_diffusive!    for this term
-```
+
+ - `F_{adv}`      Advective flux                                  , see [`flux_advective!`]@ref()    for this term
+ - `F_{press}`    Pressure flux                                   , see [`flux_pressure!`]@ref()     for this term
+ - `F_{nondiff}`  Fluxes that do *not* contain gradients          , see [`flux_nondiffusive!`]@ref() for this term
+ - `F_{diff}`     Fluxes that contain gradients of state variables, see [`flux_diffusive!`]@ref()    for this term
 """
 function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   flux_advective!(m, flux, state, diffusive, aux, t)
