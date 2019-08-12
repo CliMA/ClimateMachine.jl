@@ -5,6 +5,7 @@ trigger:
     - master
     - staging
     - trying
+    - sb/showenv
 
 jobs:
 - job: Linux
@@ -20,6 +21,9 @@ jobs:
         JULIA_VERSION: '1.1'
 
   steps:
+  - bash: |
+      env
+    displayName: show env
   - bash: |
       set -o xtrace
       wget -nv https://julialang-s3.julialang.org/bin/linux/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz
@@ -69,6 +73,9 @@ jobs:
 
   steps:
   - bash: |
+      env
+    displayName: show env
+  - bash: |
       set -o xtrace
       wget -nv https://julialang-s3.julialang.org/bin/mac/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-mac64.dmg
       mkdir juliamnt
@@ -102,6 +109,9 @@ jobs:
         JULIA_VERSION: '1.1'
 
   steps:
+  - bash: |
+      env
+    displayName: show env
   - powershell: |
       Set-PSDebug -Trace 1
       wget https://julialang-s3.julialang.org/bin/winnt/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-win64.exe -OutFile julia-$(JULIA_VERSION)-latest-win64.exe
