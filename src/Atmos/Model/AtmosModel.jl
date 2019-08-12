@@ -1,10 +1,10 @@
 module Atmos
 
 export AtmosModel,
-  ConstantViscosityWithDivergence,
+  ConstantViscosityWithDivergence, SmagorinskyLilly
   DryModel, MoistEquil,
   NoRadiation,
-  NoFluxBC, InitStateBC
+  NoFluxBC, InitStateBC, RayleighBenardBC
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -180,4 +180,38 @@ function init_state!(bl::AtmosModel, state::Vars, aux::Vars, coords, t)
   bl.init_state(state, aux, coords, t)
 end
 
+"""
+  RayleighBenardBC <: BoundaryCondition
+"""
+struct RayleighBenardBC <: BoundaryCondition
+end
+# Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: RayleighBenardBC,IS}
+  @inbounds begin
+    DFloat = eltype(stateP)
+    xM, yM, zM = auxM.coord.x, auxM.coord.y, auxM.coord.z
+    ρP  = stateM.ρ
+    # Weak Boundary Condition Imposition
+    # Prescribe no-slip wall.
+    # Note that with the default resolution this results in an underresolved near-wall layer
+    # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
+    # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
+    UP  = DFloat(0)
+    VP  = DFloat(0) 
+    WP  = DFloat(0) 
+    if auxM.coord.z < DFloat(0.001)
+      E_intP = ρP * cv_d * (320.0 - T_0)
+    else
+      E_intP = ρP * cv_d * (240.0 - T_0) 
+    end
+    stateP.ρ = ρP
+    stateP.ρu = SVector(UP, VP, WP)
+    stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
+    diffP = diffM
+    #diffP.moisture.ρ_SGS_enthalpyflux = 
+    # _τ33   = DFloat(0)  #TODO equivalent condition for τ33 in diffP 
+    nothing
+  end
+end
 end # module
