@@ -64,7 +64,7 @@ function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x,y,z), t)
   R_gas::DFloat         = R_d
   c_p::DFloat           = cp_d
   c_v::DFloat           = cv_d
-  γ::DFloat             = 7 // 5 # c_p / c_v
+  γ::DFloat             = c_p / c_v
   p0::DFloat            = MSLP
   δT                    = z != DFloat(0) ? rand(seed, DFloat)/100 : 0 
   δw                    = z != DFloat(0) ? rand(seed, DFloat)/100 : 0
