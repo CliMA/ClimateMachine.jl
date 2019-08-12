@@ -169,7 +169,7 @@ The isochoric specific heat capacity of moist
 air given a thermodynamic state `ts`.
 """
 cv_m(ts::ThermodynamicState) = cv_m(PhasePartition(ts))
-cv_m(ts::PhaseDry{DT}) where {DT<:Real} = DT(cp_d)
+cv_m(ts::PhaseDry{DT}) where {DT<:Real} = DT(cv_d)
 
 
 """
