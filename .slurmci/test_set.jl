@@ -1,9 +1,14 @@
+# Test to run on CPU only
 cpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                  (3, "examples/DGmethods_old/ex_002_solid_body_rotation.jl"),
                  (3, "test/DGmethods_old/compressible_Navier_Stokes/dycoms.jl"),
                  (3, "test/DGmethods_old/compressible_Navier_Stokes/rtb_visc.jl"),
                 ))
 
+# Test to run on GPU only
+gpu_tests = Set()
+
+# Test to run on both the CPU and GPU
 cpu_gpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                      (3, "examples/DGmethods_old/ex_002_solid_body_rotation.jl"),
                      (3, "examples/DGmethods_old/ex_003_acoustic_wave.jl"),
@@ -27,4 +32,3 @@ cpu_gpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                      (2, "test/LinearSolvers/poisson.jl"),
                     ))
 
-gpu_tests = Set()
