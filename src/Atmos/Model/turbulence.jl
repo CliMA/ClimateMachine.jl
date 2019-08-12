@@ -34,6 +34,7 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, aux::Vars
   # strain rate tensor norm
   # NOTE: factor of 2 scaling
   # normS = norm(2S)
+  T = eltype(state)
   normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   return state.ρ * normS * T(m.C_smag * m.Δ)^2
 end
