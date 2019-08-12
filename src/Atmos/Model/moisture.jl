@@ -1,10 +1,10 @@
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
 
-vars_state(::MoistureModel, T) = Tuple{}
-vars_gradient(::MoistureModel, T) = Tuple{}
-vars_diffusive(::MoistureModel, T) = Tuple{}
-vars_aux(::MoistureModel, T) = Tuple{}
+vars_state(::MoistureModel, T) = @vars()
+vars_gradient(::MoistureModel, T) = @vars()
+vars_diffusive(::MoistureModel, T) = @vars()
+vars_aux(::MoistureModel, T) = @vars()
 
 function update_aux!(::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
@@ -17,6 +17,7 @@ end
 
 function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   T = eltype(state)
+  q_pt = get_phase_partition(m, state)
   ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
   ρe_pot = state.ρ * grav * aux.coord.z
@@ -37,15 +38,16 @@ Assumes the moisture components is in the dry limit.
 struct DryModel <: MoistureModel
 end
 
-vars_aux(::DryModel,T) = NamedTuple{(:e_int, :temperature), Tuple{T,T}}
+vars_aux(::DryModel,T) = @vars(e_int::T, temperature::T)
 function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
-  TS = PhaseDry(aux.moisture.e_int, state.ρ)
+  TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
   nothing
 end
 
-thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseDry(aux.moisture.e_int, state.ρ)
+get_phase_partition(::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
+thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, eltype(state.ρ)(0), state.ρ, aux.moisture.temperature)
 
 """
     EquilMoist
@@ -54,10 +56,10 @@ Assumes the moisture components are computed via thermodynamic equilibrium.
 """
 struct EquilMoist <: MoistureModel
 end
-vars_state(::EquilMoist,T) = NamedTuple{(:ρq_tot,),Tuple{T}}
-vars_gradient(::EquilMoist,T) = NamedTuple{(:q_tot, :total_enthalpy),Tuple{T,T,T,T}}
-vars_diffusive(::EquilMoist,T) = NamedTuple{(:ρd_q_tot, :ρ_SGS_enthalpyflux), Tuple{SVector{3,T},SVector{3,T}}}
-vars_aux(::EquilMoist,T) = NamedTuple{(:e_int, :temperature), Tuple{T,T}}
+vars_state(::EquilMoist,T) = @vars(ρq_tot::T)
+vars_gradient(::EquilMoist,T) = @vars(q_tot::T, total_enthalpy::T)
+vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρ_SGS_enthalpyflux::SVector{3,T})
+vars_aux(::EquilMoist,T) = @vars(e_int::T, temperature::T)
 
 function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
