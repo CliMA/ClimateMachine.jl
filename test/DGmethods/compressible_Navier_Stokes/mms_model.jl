@@ -8,10 +8,10 @@ init_aux!, init_state!, init_ode_param, init_ode_state
 struct MMSModel{dim} <: BalanceLaw
 end
 
-vars_aux(::MMSModel,T) = NamedTuple{(:x,:y,:z),NTuple{3,T}}
-vars_state(::MMSModel, T) = NamedTuple{(:ρ, :ρu, :ρv, :ρw, :ρe),NTuple{5,T}}
-vars_gradient(::MMSModel, T) = NamedTuple{(:u, :v, :w),NTuple{3,T}}
-vars_diffusive(::MMSModel, T) = NamedTuple{(:τ11, :τ22, :τ33, :τ12, :τ13, :τ23),NTuple{6,T}}
+vars_aux(::MMSModel,T) = @vars(x::T, y::T, z::T)
+vars_state(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
+vars_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
+vars_diffusive(::MMSModel, T) = @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
 
 function flux!(::MMSModel, flux::Grad, state::Vars, diffusive::Vars, auxstate::Vars, t::Real)
   # preflux
