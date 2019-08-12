@@ -58,5 +58,23 @@ You can test that things were installed properly with
 julia --project=$CLIMA_HOME/env/gpu $CLIMA_HOME/test/runtests.jl
 ```
 
+## Full testing
+
+Only a minimal set of tests are found in the test set `$CLIMA_HOME/test/runtests.jl`.
+
+A more complete set of tests can be run with
+```bash
+julia --project=$CLIMA_HOME $CLIMA_HOME/.slurmci/local_tests.jl
+julia --project=$CLIMA_HOME/env/gpu $CLIMA_HOME/.slurmci/local_tests.jl
+```
+
+Additionally the environment variable `JULIA_CLIMA_INTEGRATION_TESTING` can be
+used to run longer PDE solvers tests which check the error on multiple mesh
+levels:
+```bash
+JULIA_CLIMA_INTEGRATION_TESTING=true julia --project=$CLIMA_HOME $CLIMA_HOME/.slurmci/local_tests.jl
+JULIA_CLIMA_INTEGRATION_TESTING=true julia --project=$CLIMA_HOME/env/gpu $CLIMA_HOME/.slurmci/local_tests.jl
+```
+
 [0]: https://github.com/JuliaParallel/MPI.jl
 [1]: https://cmake.org
