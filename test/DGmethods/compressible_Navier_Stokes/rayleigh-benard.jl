@@ -44,7 +44,7 @@ const zmin = 0
 const xmax = 2000
 const ymax = 400
 const zmax = 2000
-const C_smag = 0.20
+const C_smag = 0.15
 const numelem = (10,2,10)
 const polynomialorder = 4
 
@@ -52,8 +52,8 @@ const Δx = (xmax-xmin)/(numelem[1]*polynomialorder+1)
 const Δy = (ymax-ymin)/(numelem[2]*polynomialorder+1)
 const Δz = (zmax-zmin)/(numelem[3]*polynomialorder+1)
 const Δ  = cbrt(Δx * Δy * Δz) 
-const dt = 0.005
-const timeend = 500
+const dt = 0.01
+const timeend = 5dt
 
 @inline function diagnostics(Q, aux)
   R_gas::eltype(Q) = R_d
@@ -109,12 +109,13 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 const _ngradstates = 4
-@inline function gradient_vars!(grad_vars, Q, _...) 
+gradient_vars!(grad_vars, Q, aux, t, _...) = gradient_vars!(grad_vars, Q, aux, t, diagnostics(Q,aux)...)
+@inline function gradient_vars!(grad_vars, Q, aux, t, T, P, u, v, w, ρinv)
   @inbounds begin
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
     ρinv = 1 / ρ
     grad_vars[1], grad_vars[2], grad_vars[3] = ρinv * U, ρinv * V, ρinv * W
-    grad_vars[4] = E 
+    grad_vars[4] = E * ρinv + R_d * T
   end
 end
 
@@ -247,7 +248,6 @@ function rayleigh_benard!(dim, Q, t, x, y, z, _...)
   c_v::DFloat           = cv_d
   p0::DFloat            = MSLP
   q_tot::DFloat         = 0
-  c_ref::DFloat         = sqrt(γ * R_gas * T_bot)
   δT::DFloat            = z != 0 ? rand(seed, DFloat)/100 : 0 
   δw::DFloat            = z != 0 ? rand(seed, DFloat)/100 : 0
   ΔT                    = T_lapse * z + δT

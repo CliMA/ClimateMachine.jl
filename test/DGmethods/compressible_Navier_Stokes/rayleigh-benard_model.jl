@@ -34,6 +34,8 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
+
+# -------------- Problem constants ------------------- # 
 const xmin = 0
 const ymin = 0
 const zmin = 0
@@ -48,7 +50,7 @@ const Δy = (ymax-ymin)/(Ne[2]*polynomialorder+1)
 const Δz = (zmax-zmin)/(Ne[3]*polynomialorder+1)
 const Δ  = cbrt(Δx * Δy * Δz) 
 const dt = 0.005
-const timeend = 1.0
+const timeend = 10dt
 const T_bot     = 320
 const T_lapse   = -0.04
 const T_top     = T_bot + T_lapse*zmax
@@ -56,41 +58,41 @@ const α_thermal = 0.0034
 const C_smag = 0.15
 const seed = MersenneTwister(0)
 
+# ------------- Initial condition function ----------- # 
 function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x,y,z), t)
   DFloat                = eltype(state)
   R_gas::DFloat         = R_d
   c_p::DFloat           = cp_d
   c_v::DFloat           = cv_d
-  γ::DFloat             = cp_d / cv_d 
+  γ::DFloat             = 7 // 5 # c_p / c_v
   p0::DFloat            = MSLP
-  c_ref::DFloat         = sqrt(γ * R_gas * T_bot)
-  δT                    = z != 0.0 ? rand(seed, DFloat)/100 : 0 
-  δw                    = z != 0.0 ? rand(seed, DFloat)/100 : 0
+  δT                    = z != DFloat(0) ? rand(seed, DFloat)/100 : 0 
+  δw                    = z != DFloat(0) ? rand(seed, DFloat)/100 : 0
   ΔT                    = T_lapse * z + δT
   T                     = T_bot + ΔT 
   P                     = p0*(T/T_bot)^(grav/R_gas/T_lapse)
   ρ                     = P / (R_gas * T)
-  ρu, ρv, ρw               = 0.0 , 0.0 , ρ * δw
+  ρu, ρv, ρw            = DFloat(0) , DFloat(0) , ρ * δw
   E_int                 = ρ * c_v * (T-T_0)
   E_pot                 = ρ * grav * z
   E_kin                 = ρ * 0.5 * δw^2 
-  E                     = E_int + E_pot + E_kin
+  ρe_tot                = E_int + E_pot + E_kin
   state.ρ               = ρ
   state.ρu              = SVector(ρu, ρv, ρw)
-  state.ρe              = E
+  state.ρe              = ρe_tot
 end
 
-function source!(source::Vars, state::Vars, aux::Vars, t::Real)
+# --------------- Gravity source --------------------- # 
+function source_geopot!(source::Vars, state::Vars, aux::Vars, t::Real)
   DFloat = eltype(state)
   source.ρu -= SVector(0,
                        0, 
-                       state.ρ * DFloat(grav))
+                       state.ρ*DFloat(grav))
 end
 
 function run(mpicomm, ArrayType, 
              topl, dim, Ne, polynomialorder, 
              timeend, DFloat, dt)
-
   # -------------- Define grid ----------------------------------- # 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -98,8 +100,10 @@ function run(mpicomm, ArrayType,
                                           polynomialorder = polynomialorder
                                          )
   # -------------- Define model ---------------------------------- # 
-  model = AtmosModel(SmagorinskyLilly(DFloat(C_smag), DFloat(Δ)), DryModel(), NoRadiation(),
-                     source!, RayleighBenardBC(), initialise_rayleigh_benard!)
+  model = AtmosModel(SmagorinskyLilly(DFloat(C_smag), DFloat(Δ)), 
+                     DryModel(), 
+                     NoRadiation(),
+                     source_geopot!, RayleighBenardBC(), initialise_rayleigh_benard!)
   # -------------- Define dgbalancelaw --------------------------- # 
   dg = DGModel(model,
                grid,
