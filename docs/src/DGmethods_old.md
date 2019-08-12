@@ -1,4 +1,4 @@
-# DGmethods
+# DGmethods_old
 
 ```@meta
 CurrentModule = CLIMA
@@ -63,9 +63,9 @@ DGBalanceLawDiscretizations.knl_indefinite_stack_integral!
 DGBalanceLawDiscretizations.knl_reverse_indefinite_stack_integral!
 ```
 
-## `DGBalanceLawDiscretizations.NumericalFluxes`
+## `DGBalanceLawDiscretizations.NumericalFluxes_old`
 
 ```@docs
-DGBalanceLawDiscretizations.NumericalFluxes.rusanov!
-DGBalanceLawDiscretizations.rusanov_boundary_flux!
+DGBalanceLawDiscretizations.NumericalFluxes_old.rusanov!
+DGBalanceLawDiscretizations.NumericalFluxes_old.rusanov_boundary_flux!
 ```
