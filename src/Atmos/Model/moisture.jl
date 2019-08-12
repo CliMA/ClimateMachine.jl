@@ -41,13 +41,13 @@ end
 vars_aux(::DryModel,T) = @vars(e_int::T, temperature::T)
 function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
-  TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
+  TS = PhaseDry(aux.moisture.e_int, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
   nothing
 end
 
 get_phase_partition(::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
-thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, eltype(state.ρ)(0), state.ρ, aux.moisture.temperature)
+thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseDry(aux.moisture.e_int, state.ρ)
 
 """
     EquilMoist
@@ -73,7 +73,7 @@ get_phase_partition(::EquilMoist, state::Vars) = PhasePartition(state.ρq_tot/st
 thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, state.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
 
 function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
-  invρ = state.ρ
+  invρ = 1/state.ρ
   transform.moisture.q_tot = state.ρq_tot * invρ
 
   phase = thermo_state(m, state, aux)
