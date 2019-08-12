@@ -87,7 +87,7 @@ function source_geopot!(source::Vars, state::Vars, aux::Vars, t::Real)
   DFloat = eltype(state)
   source.ρu -= SVector(0,
                        0, 
-                       state.ρ*DFloat(grav))
+                       state.ρ * DFloat(grav))
 end
 
 function run(mpicomm, ArrayType, 
