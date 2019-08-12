@@ -2,10 +2,10 @@ abstract type RadiationModel
 end
 
 
-vars_state(::RadiationModel, T) = Tuple{}
-vars_gradient(::RadiationModel, T) = Tuple{}
-vars_diffusive(::RadiationModel, T) = Tuple{}
-vars_aux(::RadiationModel, T) = Tuple{}
+vars_state(::RadiationModel, T) = @vars()
+vars_gradient(::RadiationModel, T) = @vars()
+vars_diffusive(::RadiationModel, T) = @vars()
+vars_aux(::RadiationModel, T) = @vars()
 
 
 struct NoRadiation <: RadiationModel
@@ -17,7 +17,7 @@ end
 
 struct StevensRadiation <: RadiationModel
 end
-vars_aux(m::StevensRadiation) = (:z, :zero_to_z, :z_to_inf)
+vars_aux(m::StevensRadiation) = @vars(z::T, zero_to_z::T, z_to_inf::T)
 function flux!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, auxstate::Vars, t::Real)
     T = eltype(flux)
 

@@ -36,7 +36,7 @@ include("mms_solution_generated.jl")
 
 using CLIMA.Atmos
 using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!, vars_aux
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
 
 """
     MMSDryModel
@@ -148,30 +148,6 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                      energy)
     end
   end
-
-  # npoststates = 5
-  # _P, _u, _v, _w, _ρinv = 1:npoststates
-  # postnames = ("P", "u", "v", "w", "ρinv")
-  # postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
-
-  # step = [0]
-  # mkpath("vtk")
-  # cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
-  #   DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
-  #                                              Q) do R, Q, QV, aux
-  #     @inbounds let
-  #       (R[_P], R[_u], R[_v], R[_w], R[_ρinv]) = preflux(Q)
-  #     end
-  #   end
-
-  #   outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
-  #                        MPI.Comm_rank(mpicomm), step[1])
-  #   @debug "doing VTK output" outprefix
-  #   writevtk(outprefix, Q, spacedisc, statenames,
-  #            postprocessarray, postnames)
-  #   step[1] += 1
-  #   nothing
-  # end
 
   solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, ))
   # solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, cbvtk))

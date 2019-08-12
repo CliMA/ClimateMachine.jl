@@ -18,18 +18,19 @@ using LinearAlgebra
   @test gas_constant_air(PhasePartition(DT(0))) === DT(R_d)
   @test gas_constant_air(PhasePartition(DT(1))) === DT(R_v)
   @test gas_constant_air(PhasePartition(DT(0.5), DT(0.5))) ≈ DT(R_d)/2
-  @test gas_constant_air() == R_d
+  @test gas_constant_air(DT) == DT(R_d)
 
   @test cp_m(PhasePartition(DT(0))) === DT(cp_d)
   @test cp_m(PhasePartition(DT(1))) === DT(cp_v)
   @test cp_m(PhasePartition(DT(1), DT(1))) === DT(cp_l)
   @test cp_m(PhasePartition(DT(1), DT(0), DT(1))) === DT(cp_i)
-  @test cp_m() == cp_d
+  @test cp_m(DT) == DT(cp_d)
 
   @test cv_m(PhasePartition(DT(0))) === DT(cp_d - R_d)
   @test cv_m(PhasePartition(DT(1))) === DT(cp_v - R_v)
   @test cv_m(PhasePartition(DT(1), DT(1))) === DT(cv_l)
   @test cv_m(PhasePartition(DT(1), DT(0), DT(1))) === DT(cv_i)
+  @test cv_m(DT) == DT(cv_d)
 
   # speed of sound
   @test soundspeed_air(T_0 + 20, PhasePartition(DT(0))) == sqrt(cp_d/cv_d * R_d * (T_0 + 20))
@@ -155,6 +156,30 @@ using LinearAlgebra
     @test liquid_ice_pottemp_sat(ts) isa typeof(e_int)
     @test specific_volume(ts) isa typeof(e_int)
     @test virtual_pottemp(ts) isa typeof(e_int)
+  end
+
+  e_int_range = -6.5e4:10000:4.5e4
+  ρ_range = 0.1:0.5:2.0
+  for e_int in e_int_range
+    for ρ in ρ_range
+      ts_dry = PhaseDry(e_int, ρ)
+      ts_eq  = PhaseEquil(e_int, typeof(ρ)(0), ρ)
+
+      @test soundspeed_air(ts_eq)           ≈ soundspeed_air(ts_dry)
+      @test air_pressure(ts_eq)             ≈ air_pressure(ts_dry)
+      @test cv_m(ts_eq)                     ≈ cv_m(ts_dry)
+      @test air_temperature(ts_eq)          ≈ air_temperature(ts_dry)
+      @test latent_heat_vapor(ts_eq)        ≈ latent_heat_vapor(ts_dry)
+      @test latent_heat_sublim(ts_eq)       ≈ latent_heat_sublim(ts_dry)
+      @test latent_heat_fusion(ts_eq)       ≈ latent_heat_fusion(ts_dry)
+      @test q_vap_saturation(ts_eq)         ≈ q_vap_saturation(ts_dry)
+      @test liquid_ice_pottemp(ts_eq)       ≈ liquid_ice_pottemp(ts_dry)
+      @test dry_pottemp(ts_eq)              ≈ dry_pottemp(ts_dry)
+      @test exner(ts_eq)                    ≈ exner(ts_dry)
+      @test liquid_ice_pottemp_sat(ts_eq)   ≈ liquid_ice_pottemp_sat(ts_dry)
+      @test virtual_pottemp(ts_eq)          ≈ virtual_pottemp(ts_dry)
+
+    end
   end
 
 end

@@ -2,10 +2,10 @@
 abstract type TurbulenceClosure
 end
 
-vars_state(::TurbulenceClosure, T) = Tuple{}
-vars_gradient(::TurbulenceClosure, T) = Tuple{}
-vars_diffusive(::TurbulenceClosure, T) = Tuple{}
-vars_aux(::TurbulenceClosure, T) = Tuple{}
+vars_state(::TurbulenceClosure, T) = @vars()
+vars_gradient(::TurbulenceClosure, T) = @vars()
+vars_diffusive(::TurbulenceClosure, T) = @vars()
+vars_aux(::TurbulenceClosure, T) = @vars()
 
 """
     ConstantViscosityWithDivergence <: TurbulenceClosure

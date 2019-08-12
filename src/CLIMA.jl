@@ -1,7 +1,7 @@
 module CLIMA
 
 include("Utilities/ParametersType/ParametersType.jl")
-include("Utilities/PlanetParameters/PlanetParameters.jl")
+include("Common/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
 include("Utilities/VariableTemplates/VariableTemplates.jl")
 include("Common/MoistThermodynamics/MoistThermodynamics.jl")
@@ -13,7 +13,7 @@ include("Mesh/Mesh.jl")
 include("Arrays/MPIStateArrays.jl")
 include("DGmethods/SpaceMethods.jl")
 include("DGmethods/DGmethods.jl")
-include("DGmethods/DGBalanceLawDiscretizations.jl")
+include("DGmethods_old/DGBalanceLawDiscretizations.jl")
 include("LinearSolvers/LinearSolvers.jl")
 include("LinearSolvers/GeneralizedConjugateResidualSolver.jl")
 include("LinearSolvers/GeneralizedMinimalResidualSolver.jl")

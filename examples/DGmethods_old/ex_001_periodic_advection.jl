@@ -2,7 +2,7 @@
 #
 #md # !!! jupyter
 #md #     This example is also available as a Jupyter notebook:
-#md #     [`ex_001_periodic_advection.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods/generated/ex_001_periodic_advection.html)
+#md #     [`ex_001_periodic_advection.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods_old/generated/ex_001_periodic_advection.html)
 #
 # Key ideas of this tutorial:
 #   - Setting up PDE
