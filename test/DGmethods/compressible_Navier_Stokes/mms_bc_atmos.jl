@@ -10,6 +10,8 @@ using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
+using CLIMA.MoistThermodynamics
+using CLIMA.PlanetParameters
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -31,6 +33,34 @@ if !@isdefined integration_testing
 end
 
 include("mms_solution_generated.jl")
+
+using CLIMA.Atmos
+using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
+
+"""
+    MMSDryModel
+
+Assumes the moisture components is in the dry limit.
+"""
+struct MMSDryModel <: MoistureModel
+end
+
+function pressure(m::MMSDryModel, state::Vars, aux::Vars)
+  T = eltype(state)
+  γ = T(7)/T(5)
+  ρinv = 1 / state.ρ
+  return (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
+
+end
+
+function soundspeed(m::MMSDryModel, state::Vars, aux::Vars)
+  T = eltype(state)
+  γ = T(7)/T(5)
+  ρinv = 1 / state.ρ
+  p = pressure(m, state, aux)
+  sqrt(ρinv * γ * p)
+end
 
 function mms2_init_state!(state::Vars, aux::Vars, (x,y,z), t)
   state.ρ = ρ_g(t, x, y, z, Val(2))
@@ -66,7 +96,7 @@ function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
   source.ρe = SE_g(t, x, y, z, Val(3))
 end
 
-# initial condition                     
+# initial condition
 
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
@@ -78,12 +108,12 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
+    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
     mms2_source!, InitStateBC(), mms2_init_state!)
-  else  
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),DryModel(),NoRadiation(),
+  else
+    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
     mms3_source!, InitStateBC(), mms3_init_state!)
-  end 
+  end
 
   dg = DGModel(model,
                grid,
@@ -93,8 +123,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   param = init_ode_param(dg)
 
   Q = init_ode_state(dg, param, DFloat(0))
-  
-  
+
+
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
@@ -118,30 +148,6 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                      energy)
     end
   end
-
-  # npoststates = 5
-  # _P, _u, _v, _w, _ρinv = 1:npoststates
-  # postnames = ("P", "u", "v", "w", "ρinv")
-  # postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
-
-  # step = [0]
-  # mkpath("vtk")
-  # cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
-  #   DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
-  #                                              Q) do R, Q, QV, aux
-  #     @inbounds let
-  #       (R[_P], R[_u], R[_v], R[_w], R[_ρinv]) = preflux(Q)
-  #     end
-  #   end
-
-  #   outprefix = @sprintf("vtk/cns_%dD_mpirank%04d_step%04d", dim,
-  #                        MPI.Comm_rank(mpicomm), step[1])
-  #   @debug "doing VTK output" outprefix
-  #   writevtk(outprefix, Q, spacedisc, statenames,
-  #            postprocessarray, postnames)
-  #   step[1] += 1
-  #   nothing
-  # end
 
   solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, ))
   # solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, cbvtk))

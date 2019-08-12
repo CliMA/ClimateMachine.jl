@@ -18,18 +18,19 @@ using LinearAlgebra
   @test gas_constant_air(PhasePartition(DT(0))) === DT(R_d)
   @test gas_constant_air(PhasePartition(DT(1))) === DT(R_v)
   @test gas_constant_air(PhasePartition(DT(0.5), DT(0.5))) ≈ DT(R_d)/2
-  @test gas_constant_air() == R_d
+  @test gas_constant_air(DT) == DT(R_d)
 
   @test cp_m(PhasePartition(DT(0))) === DT(cp_d)
   @test cp_m(PhasePartition(DT(1))) === DT(cp_v)
   @test cp_m(PhasePartition(DT(1), DT(1))) === DT(cp_l)
   @test cp_m(PhasePartition(DT(1), DT(0), DT(1))) === DT(cp_i)
-  @test cp_m() == cp_d
+  @test cp_m(DT) == DT(cp_d)
 
   @test cv_m(PhasePartition(DT(0))) === DT(cp_d - R_d)
   @test cv_m(PhasePartition(DT(1))) === DT(cp_v - R_v)
   @test cv_m(PhasePartition(DT(1), DT(1))) === DT(cv_l)
   @test cv_m(PhasePartition(DT(1), DT(0), DT(1))) === DT(cv_i)
+  @test cv_m(DT) == DT(cv_d)
 
   # speed of sound
   @test soundspeed_air(T_0 + 20, PhasePartition(DT(0))) == sqrt(cp_d/cv_d * R_d * (T_0 + 20))
@@ -125,11 +126,12 @@ using LinearAlgebra
   q_pt = PhasePartition(q_tot, q_liq, q_ice)
   θ_liq_ice = DT(300.0)
   ts_eq = PhaseEquil(e_int, q_tot, ρ)
+  ts_dry = PhaseDry(e_int, ρ)
   ts_neq = PhaseNonEquil(e_int, PhasePartition(q_tot, q_liq, q_ice), ρ)
   ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
   ts_θ_liq_ice_eq_no_ρ = LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_tot, p)
   ts_θ_liq_ice_eq_no_ρ_q_pt = LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_pt, p)
-  for ts in (ts_eq, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_no_ρ, ts_θ_liq_ice_eq_no_ρ_q_pt)
+  for ts in (ts_eq, ts_dry, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_no_ρ, ts_θ_liq_ice_eq_no_ρ_q_pt)
     @test soundspeed_air(ts) isa typeof(e_int)
     @test gas_constant_air(ts) isa typeof(e_int)
     @test air_pressure(ts) isa typeof(e_int)
@@ -139,6 +141,7 @@ using LinearAlgebra
     @test eltype(moist_gas_constants(ts)) == typeof(e_int)
     @test air_temperature(ts) isa typeof(e_int)
     @test internal_energy_sat(ts) isa typeof(e_int)
+    @test internal_energy(ts) isa typeof(e_int)
     @test latent_heat_vapor(ts) isa typeof(e_int)
     @test latent_heat_sublim(ts) isa typeof(e_int)
     @test latent_heat_fusion(ts) isa typeof(e_int)
@@ -153,6 +156,30 @@ using LinearAlgebra
     @test liquid_ice_pottemp_sat(ts) isa typeof(e_int)
     @test specific_volume(ts) isa typeof(e_int)
     @test virtual_pottemp(ts) isa typeof(e_int)
+  end
+
+  e_int_range = -6.5e4:10000:4.5e4
+  ρ_range = 0.1:0.5:2.0
+  for e_int in e_int_range
+    for ρ in ρ_range
+      ts_dry = PhaseDry(e_int, ρ)
+      ts_eq  = PhaseEquil(e_int, typeof(ρ)(0), ρ)
+
+      @test soundspeed_air(ts_eq)           ≈ soundspeed_air(ts_dry)
+      @test air_pressure(ts_eq)             ≈ air_pressure(ts_dry)
+      @test cv_m(ts_eq)                     ≈ cv_m(ts_dry)
+      @test air_temperature(ts_eq)          ≈ air_temperature(ts_dry)
+      @test latent_heat_vapor(ts_eq)        ≈ latent_heat_vapor(ts_dry)
+      @test latent_heat_sublim(ts_eq)       ≈ latent_heat_sublim(ts_dry)
+      @test latent_heat_fusion(ts_eq)       ≈ latent_heat_fusion(ts_dry)
+      @test q_vap_saturation(ts_eq)         ≈ q_vap_saturation(ts_dry)
+      @test liquid_ice_pottemp(ts_eq)       ≈ liquid_ice_pottemp(ts_dry)
+      @test dry_pottemp(ts_eq)              ≈ dry_pottemp(ts_dry)
+      @test exner(ts_eq)                    ≈ exner(ts_dry)
+      @test liquid_ice_pottemp_sat(ts_eq)   ≈ liquid_ice_pottemp_sat(ts_dry)
+      @test virtual_pottemp(ts_eq)          ≈ virtual_pottemp(ts_dry)
+
+    end
   end
 
 end

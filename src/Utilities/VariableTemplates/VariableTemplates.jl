@@ -1,6 +1,6 @@
 module VariableTemplates
 
-export varsize, Vars, Grad
+export varsize, Vars, Grad, @vars
 
 using StaticArrays
 
@@ -11,11 +11,39 @@ The number of elements specified by the template type `S`.
 """
 varsize(::Type{T}) where {T<:Real} = 1
 varsize(::Type{Tuple{}}) = 0
+varsize(::Type{NamedTuple{(),Tuple{}}}) = 0
 varsize(::Type{SVector{N,T}}) where {N,T<:Real} = N
 
 # TODO: should be possible to get rid of @generated
 @generated function varsize(::Type{S}) where {S}
-  sum(varsize, fieldtypes(S))
+  types = fieldtypes(S)
+  isempty(types) ? 0 : sum(varsize, types)
+end
+
+function process_vars!(syms, typs, expr)
+  if expr isa LineNumberNode
+     return
+  elseif expr isa Expr && expr.head == :block
+    for arg in expr.args
+      process_vars!(syms, typs, arg)
+    end
+    return
+  elseif expr.head == :(::)
+    push!(syms, expr.args[1])
+    push!(typs, expr.args[2])
+    return
+  else
+    error("Invalid expression")
+  end
+end
+
+macro vars(args...)
+  syms = Any[]
+  typs = Any[]
+  for arg in args
+    process_vars!(syms, typs, arg)
+  end
+  :(NamedTuple{$(tuple(syms...)), Tuple{$(esc.(typs)...)}})
 end
 
 struct GetVarError <: Exception
@@ -46,7 +74,7 @@ Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :($T(array[$(offset+1)]))
       offset += 1
     elseif T <: StaticArray
@@ -72,7 +100,7 @@ end
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :(array[$(offset+1)] = val)
       offset += 1
     elseif T <: StaticArray
@@ -112,7 +140,7 @@ Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
@@ -139,7 +167,7 @@ end
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real      
+    if T <: Real
       retexpr = :(array[:, $(offset+1)] = val)
       offset += 1
     elseif T <: StaticArray

@@ -1,13 +1,15 @@
 module Atmos
 
-export AtmosModel, 
-  ConstantViscosityWithDivergence, 
+export AtmosModel,
+  ConstantViscosityWithDivergence,
   DryModel, MoistEquil,
   NoRadiation,
   NoFluxBC, InitStateBC
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
+using ..MoistThermodynamics
+using ..PlanetParameters
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
@@ -34,20 +36,38 @@ struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
 end
 
 function vars_state(m::AtmosModel, T)
-  NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :moisture, :radiation), 
-  Tuple{T, SVector{3,T}, T, vars_state(m.turbulence,T), vars_state(m.moisture,T), vars_state(m.radiation, T)}}
+  @vars begin
+    ρ::T
+    ρu::SVector{3,T}
+    ρe::T
+    turbulence::vars_state(m.turbulence,T)
+    moisture::vars_state(m.moisture,T)
+    radiation::vars_state(m.radiation,T)
+  end
 end
 function vars_gradient(m::AtmosModel, T)
-  NamedTuple{(:u, :turbulence, :moisture, :radiation),
-  Tuple{SVector{3,T}, vars_gradient(m.turbulence,T), vars_gradient(m.moisture,T), vars_gradient(m.radiation,T)}}
-end
+  @vars begin
+    u::SVector{3,T}
+    turbulence::vars_gradient(m.turbulence,T)
+    moisture::vars_gradient(m.moisture,T)
+    radiation::vars_gradient(m.radiation,T)
+  end
+end    
 function vars_diffusive(m::AtmosModel, T)
-  NamedTuple{(:ρτ, :turbulence, :moisture, :radiation),
-  Tuple{SVector{6,T}, vars_diffusive(m.turbulence,T), vars_diffusive(m.moisture,T), vars_diffusive(m.radiation,T)}}
+  @vars begin
+    ρτ::SVector{6,T}
+    turbulence::vars_diffusive(m.turbulence,T)
+    moisture::vars_diffusive(m.moisture,T)
+    radiation::vars_diffusive(m.radiation,T)
+  end
 end
 function vars_aux(m::AtmosModel, T)
-  NamedTuple{(:coord, :turbulence, :moisture, :radiation),
-  Tuple{NamedTuple{(:x,:y,:z),Tuple{T,T,T}}, vars_aux(m.turbulence,T), vars_aux(m.moisture,T), vars_aux(m.radiation,T)}}
+  @vars begin
+    coord::@vars(x::T,y::T,z::T)
+    turbulence::vars_aux(m.turbulence,T)
+    moisture::vars_aux(m.moisture,T)
+    radiation::vars_aux(m.radiation,T)
+  end
 end
 
 # Navier-Stokes flux terms
@@ -56,11 +76,11 @@ function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Var
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
-  
-  p = pressure(m.moisture, state, aux, t)
+
+  p = pressure(m.moisture, state, aux)
 
   # invisc terms
-  flux.ρ  = ρu 
+  flux.ρ  = ρu
   flux.ρu = ρu .* u' + p*I
   flux.ρe = u * (state.ρe + p)
 
@@ -86,7 +106,7 @@ function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
-  return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux, t)
+  return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux)
 end
 
 function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
@@ -98,9 +118,9 @@ end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   ∇u = ∇transform.u
-  
+
   # strain rate tensor
-  # TODO: we use an SVector for this, but should define a "SymmetricSMatrix"? 
+  # TODO: we use an SVector for this, but should define a "SymmetricSMatrix"?
   S = SVector(∇u[1,1],
               ∇u[2,2],
               ∇u[3,3],
@@ -155,10 +175,10 @@ Set the momentum at the boundary to be zero.
 """
 struct NoFluxBC <: BoundaryCondition
 end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
-  
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM  
+
+  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
 end
 
 """
@@ -168,7 +188,7 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 """
 struct InitStateBC <: BoundaryCondition
 end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars, 
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
   coord = (auxP.coord.x, auxP.coord.y, auxP.coord.z)
   init_state!(bl, stateP, auxP, coord, t)
