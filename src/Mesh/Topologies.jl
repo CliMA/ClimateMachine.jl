@@ -52,9 +52,21 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   ghostelems::UnitRange{Int64}
 
   """
+  Ghost element to face is received; `ghostfaces[f,ge] == true` if face `f` of
+  ghost element `ge` is received.
+  """
+  ghostfaces::BitArray{2}
+
+  """
   Array of send element indices
   """
   sendelems::Array{Int64, 1}
+
+  """
+  Send element to face is sent; `sendfaces[f,se] == true` if face `f` of send
+  element `se` is sent.
+  """
+  sendfaces::BitArray{2}
 
   """
   Element to vertex coordinates; `elemtocoord[d,i,e]` is the `d`th coordinate of
@@ -301,10 +313,11 @@ function BrickTopology(mpicomm, elemrange;
   T = eltype(topology.elemtocoord)
   return BrickTopology{dim, T}(BoxElementTopology{dim, T}(
               mpicomm, topology.elems, topology.realelems,
-              topology.ghostelems, topology.sendelems, topology.elemtocoord,
-              topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
-              topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-              topology.nabrtosend, !minimum(periodicity)))
+              topology.ghostelems, topology.ghostfaces, topology.sendelems,
+              topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
+              topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
+              topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend,
+              !minimum(periodicity)))
 end
 
 """ A wrapper for the StackedBrickTopology """
@@ -442,6 +455,26 @@ function StackedBrickTopology(mpicomm, elemrange;
     sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
   end
 
+  ghostfaces = similar(basetopo.ghostfaces, nface, length(ghostelems))
+  ghostfaces .= false
+
+  for i=1:length(basetopo.ghostelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f = 1:2(dim-1)
+      ghostfaces[f, e] = basetopo.ghostfaces[f, i]
+    end
+  end
+
+  sendfaces = similar(basetopo.sendfaces, nface, length(sendelems))
+  sendfaces .= false
+
+  for i=1:length(basetopo.sendelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f = 1:2(dim-1)
+      sendfaces[f, e] = basetopo.sendfaces[f, i]
+    end
+  end
+
   elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
 
   for i=1:length(basetopo.elems), j=1:stacksize
@@ -542,7 +575,7 @@ function StackedBrickTopology(mpicomm, elemrange;
 
   StackedBrickTopology{dim, T}(
     BoxElementTopology{dim, T}(
-      mpicomm, elems, realelems, ghostelems, sendelems,
+      mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems, sendfaces,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
       nabrtorank, nabrtorecv, nabrtosend, !minimum(periodicity)),
     stacksize)
@@ -620,10 +653,10 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
   CubedShellTopology{T}(
     BoxElementTopology{2, T}(
       mpicomm, topology.elems, topology.realelems,
-      topology.ghostelems, topology.sendelems, topology.elemtocoord,
-      topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
-      topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-      topology.nabrtosend, false))
+      topology.ghostelems, topology.ghostfaces, topology.sendelems,
+      topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
+      topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
+      topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend, false))
 end
 
 """
@@ -849,6 +882,26 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
     sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
   end
 
+  ghostfaces = similar(basetopo.ghostfaces, nface, length(ghostelems))
+  ghostfaces .= false
+
+  for i=1:length(basetopo.ghostelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f = 1:2(dim-1)
+      ghostfaces[f, e] = basetopo.ghostfaces[f, i]
+    end
+  end
+
+  sendfaces = similar(basetopo.sendfaces, nface, length(sendelems))
+  sendfaces .= false
+
+  for i=1:length(basetopo.sendelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f=1:2(dim-1)
+      sendfaces[f, e] = basetopo.sendfaces[f, i]
+    end
+  end
+
   elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
 
   for i=1:length(basetopo.elems), j=1:stacksize
@@ -942,8 +995,8 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
 
   StackedCubedSphereTopology{T}(
     BoxElementTopology{3, T}(
-      mpicomm, elems, realelems, ghostelems, sendelems,
-      elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
+      mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems,
+      sendfaces, elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
       nabrtorank, nabrtorecv, nabrtosend, true),
     stacksize)
 end
