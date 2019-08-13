@@ -1,10 +1,10 @@
 module Atmos
 
 export AtmosModel,
-  ConstantViscosityWithDivergence, SmagorinskyLilly,
-  DryModel, EquilMoist,
-  NoRadiation,
-  NoFluxBC, InitStateBC, RayleighBenardBC
+       ConstantViscosityWithDivergence, SmagorinskyLilly,
+       DryModel, EquilMoist,
+       NoRadiation,
+       NoFluxBC, InitStateBC, RayleighBenardBC, RisingBubbleBC
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -199,6 +199,32 @@ function init_state!(bl::AtmosModel, state::Vars, aux::Vars, coords, t)
 end
 
 """
+  RisingBubbleBC<: BoundaryCondition
+"""
+struct RisingBubbleBC <: BoundaryCondition
+end
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: RisingBubbleBC,IS}
+  @inbounds begin
+    DFloat = eltype(stateP)
+    xM, yM, zM = auxM.coord.x, auxM.coord.y, auxM.coord.z
+    ρP  = stateM.ρ
+    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
+    # Weak Boundary Condition Imposition
+    # Prescribe reflective wall
+    # Note that with the default resolution this results in an underresolved near-wall layer
+    # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
+    # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
+    stateP.ρ = ρP
+    stateP.ρu = stateM.ρu - 2 * dot(stateM.ρu, nM) * collect(nM)
+    UP, VP, WP = stateP.ρu
+    stateP.ρe = (stateM.ρe + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
+    diffP = diffM 
+    nothing
+  end
+end
+
+"""
   RayleighBenardBC <: BoundaryCondition
 """
 struct RayleighBenardBC <: BoundaryCondition
@@ -228,8 +254,8 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     stateP.ρu = SVector(UP, VP, WP)
     stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
     diffP = diffM
-    #diffP.moisture.ρ_SGS_enthalpyflux = DFloat(0)
     diffP.ρτ = SVector(ρτ11, ρτ22, DFloat(0), ρτ12, ρτ13,ρτ23)
+    #diffP.moisture.ρ_SGS_enthalpyflux = DFloat(0)
     nothing
   end
 end
