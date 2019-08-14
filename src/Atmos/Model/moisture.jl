@@ -86,7 +86,6 @@ function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, 
   e_tot = state.ρe * ρinv
   
   transform.moisture.q_tot          = state.moisture.ρq_tot * ρinv
-  transform.moisture.total_enthalpy = e_tot + R_m*T
 end
 
 
