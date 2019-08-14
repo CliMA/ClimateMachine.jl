@@ -12,6 +12,8 @@ function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν)
 end
 function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
+function flux_nondiffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+end
 function gradvariables!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
@@ -78,21 +80,22 @@ thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_i
 
 function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
+
   phase = thermo_state(m, state, aux)
-  q = PhasePartition(phase)
-  R_m = gas_constant_air(q)
+  R_m = gas_constant_air(phase)
   T = aux.moisture.temperature
   e_tot = state.ρe * ρinv
   
   transform.moisture.q_tot          = state.moisture.ρq_tot * ρinv
+  transform.moisture.total_enthalpy = e_tot + R_m*T
 end
 
 
 function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ν::Union{Real,AbstractMatrix})
   # turbulent Prandtl number
   T = eltype(state)
-  diag_ν = ν isa Real ? ν : diag(ν) # either a scalar or vector
   Prandtl_t = T(1/3)
+  diag_ν = ν isa Real ? ν : diag(ν) # either a scalar or matrix
   D_T = diag_ν / Prandtl_t
 
   diffusive.moisture.ρd_q_tot = state.ρ * (-D_T) .* ∇transform.moisture.q_tot # diffusive flux of q_tot

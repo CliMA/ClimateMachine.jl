@@ -858,7 +858,8 @@ The liquid potential temperature given a thermodynamic state `ts`.
 """
 liquid_ice_pottemp_sat(ts::ThermodynamicState) =
   liquid_ice_pottemp_sat(air_temperature(ts), air_pressure(ts), PhasePartition(ts))
-liquid_ice_pottemp_sat(ts::ThermodynamicState) = liquid_ice_pottemp(ts)
+liquid_ice_pottemp_sat(ts::PhaseDry) =
+  liquid_ice_pottemp(air_temperature(ts), air_pressure(ts), PhasePartition(q_vap_saturation(ts)))
 
 """
     exner(p[, q::PhasePartition])
