@@ -48,6 +48,7 @@ end
 function vars_gradient(m::AtmosModel, T)
   @vars begin
     u::SVector{3,T}
+    total_enthalpy::T
     turbulence::vars_gradient(m.turbulence,T)
     moisture::vars_gradient(m.moisture,T)
     radiation::vars_gradient(m.radiation,T)
@@ -56,6 +57,7 @@ end
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
     ρτ::SVector{6,T}
+    ρ_SGS_enthalpyflux::SVector{3,T}
     turbulence::vars_diffusive(m.turbulence,T)
     moisture::vars_diffusive(m.moisture,T)
     radiation::vars_diffusive(m.radiation,T)
@@ -96,7 +98,7 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
                     ρτ12, ρτ22, ρτ23,
                     ρτ13, ρτ23, ρτ33)
   flux.ρu += ρτ
-  flux.ρe += ρτ*u
+  flux.ρe += ρτ*u + diffusive.ρ_SGS_enthalpyflux
 
   # moisture-based diffusive fluxes
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
@@ -110,13 +112,20 @@ function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
 end
 
 function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
-  ρinv = 1 / state.ρ
+  DF = eltype(state)
+  ρinv = 1/state.ρ
+  e_tot = state.ρe * ρinv
+  
+  # FIXME : total_enthalpy terms 
   transform.u = ρinv * state.ρu
 
+  R_m = aux.moisture.R_m
+  transform.total_enthalpy = e_tot + R_m * aux.moisture.temperature
   gradvariables!(m.moisture, transform, state, aux, t)
 end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
+  T = eltype(state)
   ∇u = ∇transform.u
 
   # strain rate tensor
@@ -130,10 +139,14 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m.turbulence, S, state, aux, t)
+  @show(ρν)
+  Prandtl_t = T(1/3)
+  D_T = ρν ./ Prandtl_t
 
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
+  diffusive.ρ_SGS_enthalpyflux = state.ρ .* (-D_T) .* ∇transform.total_enthalpy # diffusive flux of total energy
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
 end
@@ -259,4 +272,35 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     nothing
   end
 end
+
+
+"""
+  DensityCurrentBC <: BoundaryCondition
+
+"""
+struct DensityCurrentBC <: BoundaryCondition
+end
+# Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: DensityCurrentBC,IS}
+  @inbounds begin
+    DFloat = eltype(stateP)
+    xM, yM, zM = auxM.coord.x, auxM.coord.y, auxM.coord.z
+    ρP  = stateM.ρ
+    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
+    # Weak Boundary Condition Imposition
+    # Prescribe reflective wall
+    # Note that with the default resolution this results in an underresolved near-wall layer
+    # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
+    # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
+    stateP.ρ = ρP
+    stateP.ρu = stateM.ρu - 2 * dot(stateM.ρu, nM) * collect(nM)
+    UP, VP, WP = stateP.ρu
+    stateP.ρe = (stateM.ρe + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
+    diffP = diffM 
+    nothing
+  end
+end
+
+
 end # module
