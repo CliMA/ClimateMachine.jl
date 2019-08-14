@@ -144,8 +144,6 @@ function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux)
 end
 
-thermo_state(::AtmosModel, state::Vars, aux::Vars) = PhaseDry(aux.moisture.e_int, state.ρ)
-gas_constant(m::AtmosModel, state::Vars, aux::Vars) = gas_constant_air(thermo_state(m, state, aux))
 function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
   DF = eltype(state)
   ρinv = 1/state.ρ
@@ -154,7 +152,8 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   # FIXME : total_enthalpy terms 
   transform.u = ρinv * state.ρu
 
-  R_m = gas_constant_air(thermo_state(m, state, aux))
+  R_m = gas_constant_air(thermo_state(m.moisture, state, aux))
+  @show(R_m)
   transform.total_enthalpy = e_tot + R_m * aux.moisture.temperature
   gradvariables!(m.moisture, transform, state, aux, t)
 end

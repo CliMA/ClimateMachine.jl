@@ -33,6 +33,7 @@ end
 temperature(m::MoistureModel, state::Vars, aux::Vars) = air_temperature(thermo_state(m, state, aux))
 pressure(m::MoistureModel, state::Vars, aux::Vars) = air_pressure(thermo_state(m, state, aux))
 soundspeed(m::MoistureModel, state::Vars, aux::Vars) = soundspeed_air(thermo_state(m, state, aux))
+gas_constant(m::MoistureModel, state::Vars, aux::Vars) = gas_constant_air(thermo_state(m, state, aux))
 
 """
     DryModel
