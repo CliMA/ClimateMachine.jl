@@ -153,7 +153,6 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   transform.u = ρinv * state.ρu
 
   R_m = gas_constant_air(thermo_state(m.moisture, state, aux))
-  @show(R_m)
   transform.total_enthalpy = e_tot + R_m * aux.moisture.temperature
   gradvariables!(m.moisture, transform, state, aux, t)
 end
