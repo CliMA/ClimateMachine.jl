@@ -44,7 +44,7 @@ const zmin = 0
 const xmax = 2000
 const ymax = 400
 const zmax = 2000
-const C_smag = 0.15
+const C_smag = 0.18
 const numelem = (10,2,10)
 const polynomialorder = 4
 
@@ -52,8 +52,8 @@ const Δx = (xmax-xmin)/(numelem[1]*polynomialorder+1)
 const Δy = (ymax-ymin)/(numelem[2]*polynomialorder+1)
 const Δz = (zmax-zmin)/(numelem[3]*polynomialorder+1)
 const Δ  = cbrt(Δx * Δy * Δz) 
-const dt = 0.01
-const timeend = 10000dt
+const dt = 0.005
+const timeend = 3000
 
 @inline function diagnostics(Q, aux)
   R_gas::eltype(Q) = R_d
@@ -99,10 +99,10 @@ end
     F[1, _V] += τ21; F[2, _V] += τ22; F[3, _V] += τ23
     F[1, _W] += τ31; F[2, _W] += τ32; F[3, _W] += τ33
     # Energy dissipation
-    vEx, vEy, vEz = VF[_Ex], VF[_Ey], VF[_Ez]
-    F[1, _E] += u * τ11 + v * τ12 + w * τ13 + vEx * ρ
-    F[2, _E] += u * τ21 + v * τ22 + w * τ23 + vEy * ρ
-    F[3, _E] += u * τ31 + v * τ32 + w * τ33 + vEz * ρ
+    vEx, vEy, vEz = ρ * VF[_Ex], ρ * VF[_Ey], ρ*VF[_Ez]
+    F[1, _E] += u * τ11 + v * τ12 + w * τ13 + vEx
+    F[2, _E] += u * τ21 + v * τ22 + w * τ23 + vEy
+    F[3, _E] += u * τ31 + v * τ32 + w * τ33 + vEz
   end
 end
 
@@ -188,7 +188,7 @@ end
     QP[_E] = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * z)
     VFP .= VFM
     VFP[_τ33] = 0 
-    #VFP[_Ez] = 0 
+    VFP[_Ez] = 0 
     nothing
   end
 end
@@ -325,28 +325,28 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
   end
 
-  npoststates = 5
-  _o_T, _o_dEdz, _o_u, _o_v, _o_w = 1:npoststates
-  postnames =("T", "dTdz", "u", "v", "w")
-  postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+#  npoststates = 5
+#  _o_T, _o_dEdz, _o_u, _o_v, _o_w = 1:npoststates
+#  postnames =("T", "dTdz", "u", "v", "w")
+#  postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
-    DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
-      @inbounds let
-        (T, P, u, v, w, _)= diagnostics(Q, aux)
-        R[_o_dEdz] = QV[_Ez]
-        R[_o_u] = u
-        R[_o_v] = v
-        R[_o_w] = w
-        R[_o_T] = T
-      end
-    end
+#    DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+#      @inbounds let
+#        (T, P, u, v, w, _)= diagnostics(Q, aux)
+#        R[_o_dEdz] = QV[_Ez]
+#        R[_o_u] = u
+#        R[_o_v] = v
+#        R[_o_w] = w
+#        R[_o_T] = T
+#      end
+#    end
     mkpath("./vtk-rb-bc/")
     outprefix = @sprintf("./vtk-rb-bc/rb_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, spacedisc, statenames, postprocessarray, postnames)
+    writevtk(outprefix, Q, spacedisc, statenames)
     
     step[1] += 1
     nothing

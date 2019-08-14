@@ -33,7 +33,6 @@ end
 temperature(m::MoistureModel, state::Vars, aux::Vars) = air_temperature(thermo_state(m, state, aux))
 pressure(m::MoistureModel, state::Vars, aux::Vars) = air_pressure(thermo_state(m, state, aux))
 soundspeed(m::MoistureModel, state::Vars, aux::Vars) = soundspeed_air(thermo_state(m, state, aux))
-gas_constant(m::MoistureModel, state::Vars, aux::Vars) = gas_constant_air(thermo_state(m, state, aux))
 
 """
     DryModel
@@ -43,12 +42,11 @@ Assumes the moisture components is in the dry limit.
 struct DryModel <: MoistureModel
 end
 
-vars_aux(::DryModel,T) = @vars(e_int::T, temperature::T, R_m::T)
+vars_aux(::DryModel,T) = @vars(e_int::T, temperature::T)
 function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
   TS = PhaseDry(aux.moisture.e_int, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
-  aux.moisture.R_m = gas_constant_air(TS)
   nothing
 end
 

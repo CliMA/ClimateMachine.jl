@@ -48,7 +48,7 @@ const Δx        = (xmax-xmin)/(Ne[1]*polynomialorder+1)
 const Δy        = (ymax-ymin)/(Ne[2]*polynomialorder+1)
 const Δz        = (zmax-zmin)/(Ne[3]*polynomialorder+1)
 const Δ         = cbrt(Δx * Δy * Δz) 
-const dt        = 0.01
+const dt        = 0.005
 const timeend   = 10000dt
 const T_bot     = 320
 const T_lapse   = -0.04
@@ -117,6 +117,7 @@ function run(mpicomm, ArrayType,
   norm(Q₀) = %.16e""" eng0
 
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
+  # No vtk dump in current example
   starttime = Ref(now())
   cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
