@@ -53,7 +53,7 @@ const Δy = (ymax-ymin)/(numelem[2]*polynomialorder+1)
 const Δz = (zmax-zmin)/(numelem[3]*polynomialorder+1)
 const Δ  = cbrt(Δx * Δy * Δz) 
 const dt = 0.01
-const timeend = 5dt
+const timeend = 10000dt
 
 @inline function diagnostics(Q, aux)
   R_gas::eltype(Q) = R_d
@@ -115,7 +115,7 @@ gradient_vars!(grad_vars, Q, aux, t, _...) = gradient_vars!(grad_vars, Q, aux, t
     ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
     ρinv = 1 / ρ
     grad_vars[1], grad_vars[2], grad_vars[3] = ρinv * U, ρinv * V, ρinv * W
-    grad_vars[4] = E * ρinv + R_d * T
+    grad_vars[4] = (E * ρinv + R_d * T)
   end
 end
 
@@ -376,14 +376,12 @@ let
   else
     global_logger(NullLogger())
   end
-  # User defined number of elements
-  # User defined timestep estimate
-  # User defined simulation end time
-  # User defined polynomial order 
+
   for DFloat in (Float64,) 
     for dim = 3:3
       engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                       DFloat, dt)
+      @test engf_eng0 ≈ 1.0000734828671902e+00
     end
   end
 end
