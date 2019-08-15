@@ -24,10 +24,10 @@ end
 include("mms_solution_generated.jl")
 include("mms_model.jl")
 
-warpfun = (x, y, z) -> begin
-          (x + (x-1/2)*cos(2*π*y*z)/4,
-           y + exp(sin(2π*(x*y+z)))/20,
-          z + x/4 + y^2/2 + sin(x*y*z))
+warpfun = (x1, x2, x3) -> begin
+          (x1 + (x1-1/2)*cos(2*π*x2*x3)/4,
+           x2 + exp(sin(2π*(x1*x2+x3)))/20,
+          x3 + x1/4 + x2^2/2 + sin(x1*x2*x3))
 end
 
 

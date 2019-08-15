@@ -223,10 +223,10 @@ applies.
 When `auxiliary_state_initialization! !== nothing` then this is called on the
 auxiliary state (assuming `auxiliary_state_length > 0`) as
 ```
-auxiliary_state_initialization!(aux, x, y, z)
+auxiliary_state_initialization!(aux, x1, x2, x3)
 ```
 where `aux` is an `MArray` to fill with the auxiliary state for a DOF located at
-Cartesian coordinate locations `(x, y, z)`; see also
+Cartesian coordinate locations `(x1, x2, x3)`; see also
 [`grad_auxiliary_state!`](@ref) allows the user to take the gradient of a field
 stored in the auxiliary state.
 
@@ -318,7 +318,7 @@ used to evaluate the ODE function.
 
 !!! note
 
-    If `(x, y, z)`, or data derived from this such as spherical coordinates, is
+    If `(x1, x2, x3)`, or data derived from this such as spherical coordinates, is
     needed in the flux or source the user is responsible to storing this in the
     auxiliary state
 
@@ -459,13 +459,13 @@ for communication with this `MPIStateArray`.
 After allocation the `MPIStateArray` is initialized using the function
 `initialization!` which will be called as:
 ```
-initialization!(Q, x, y, z, aux)
+initialization!(Q, x1, x2, x3, aux)
 ```
 where `Q` is an `MArray` with the solution state at a single degree of freedom
-(DOF) to initialize and `(x,y,z)` is the coordinate point for the allocation.
-The auxiliary data the values at the DOF are passed through as an `MArray`
-through the `aux` argument; if `disc` does not have auxiliary data then the
-length of the `MArray` will be zero.
+(DOF) to initialize and `(x1, x2, x3)` is the coordinate point for the
+allocation.  The auxiliary data the values at the DOF are passed through as an
+`MArray` through the `aux` argument; if `disc` does not have auxiliary data then
+the length of the `MArray` will be zero.
 
 !!! note
 
@@ -521,7 +521,7 @@ end
 Wrapper function to allow for calls of the form
 
 ```
-MPIStateArray(disc) do  Q, x, y, z
+MPIStateArray(disc) do  Q, x1, x2, x3
   # fill Q
 end
 ```
@@ -641,10 +641,10 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
 end
 
 """
-    grad_auxiliary_state!(disc, i, (ix, iy, iz))
+    grad_auxiliary_state!(disc, i, (ix1, ix2, ix3)
 
 Computes the gradient of a the field `i` of the constant auxiliary state of
-`disc` and stores the `x, y, z` compoment in fields `ix, iy, iz` of constant
+`disc` and stores the `x1, x2, x3` compoment in fields `ix1, ix2, ix3` of constant
 auxiliary state.
 
 !!! note
@@ -652,7 +652,7 @@ auxiliary state.
     This only computes the element gradient not a DG gradient. If your constant
     auxiliary state is discontinuous this may or may not be what you want!
 """
-function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
+function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx1, idx2, idx3))
   grid = disc.grid
   topology = grid.topology
 
@@ -663,9 +663,9 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
 
   nauxstate = size(auxstate, 2)
 
-  @assert nauxstate >= max(id, idx, idy, idz)
-  @assert 0 < min(id, idx, idy, idz)
-  @assert allunique((idx, idy, idz))
+  @assert nauxstate >= max(id, idx1, idx2, idx3)
+  @assert 0 < min(id, idx1, idx2, idx3)
+  @assert allunique((idx1, idx2, idx3))
 
   lgl_weights_vec = grid.ω
   Dmat = grid.D
@@ -680,14 +680,14 @@ function grad_auxiliary_state!(disc::DGBalanceLaw, id, (idx, idy, idz))
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
           elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.Q, vgeo,
                            lgl_weights_vec, Dmat, topology.elems,
-                           id, idx, idy, idz))
+                           id, idx1, idx2, idx3))
 end
 
 """
     indefinite_stack_integral!(disc, f, Q, out_states, [P=disc.auxstate])
 
-Computes an indefinite line integral along the trailing dimension (`zeta` in
-3-D and `η` in 2-D) up an element stack using state `Q`
+Computes an indefinite line integral along the trailing dimension (`ξ3` in
+3-D and `ξ2` in 2-D) up an element stack using state `Q`
 ```math
 ∫_{ζ_{0}}^{ζ} f(q; aux, t)
 ```
