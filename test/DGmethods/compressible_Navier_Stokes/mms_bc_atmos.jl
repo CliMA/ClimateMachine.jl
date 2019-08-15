@@ -71,7 +71,7 @@ function mms2_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
 end
 
 function mms2_source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  x1,x2,x3 = aux.coord.x1, aux.coord.x2, aux.coord.x3
+  x1,x2,x3 = aux.coord
   source.ρ  = Sρ_g(t, x1, x2, x3, Val(2))
   source.ρu = SVector(SU_g(t, x1, x2, x3, Val(2)),
                       SV_g(t, x1, x2, x3, Val(2)),
@@ -88,7 +88,7 @@ function mms3_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
 end
 
 function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  x1,x2,x3 = aux.coord.x1, aux.coord.x2, aux.coord.x3
+  x1,x2,x3 = aux.coord
   source.ρ  = Sρ_g(t, x1, x2, x3, Val(3))
   source.ρu = SVector(SU_g(t, x1, x2, x3, Val(3)),
                       SV_g(t, x1, x2, x3, Val(3)),

@@ -22,7 +22,7 @@ function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   q_pt = get_phase_partition(m, state)
   ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
-  ρe_pot = state.ρ * grav * aux.coord.z
+  ρe_pot = state.ρ * grav * aux.coord[3]
   ρe_int = state.ρe - ρe_kin - ρe_pot
   e_int = ρinv*ρe_int
   return e_int
