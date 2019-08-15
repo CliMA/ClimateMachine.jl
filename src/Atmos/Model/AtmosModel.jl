@@ -175,12 +175,12 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m.turbulence, S, state, aux, t)
   Prandtl_t = T(1/3)
-  D_T = ρν ./ Prandtl_t
+  ρD_T = ρν ./ Prandtl_t
 
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
-  diffusive.ρ_SGS_enthalpyflux = state.ρ .* (-D_T) .* ∇transform.total_enthalpy # diffusive flux of total energy
+  diffusive.ρ_SGS_enthalpyflux = (-ρD_T) .* ∇transform.total_enthalpy # diffusive flux of total energy
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
 end
@@ -212,6 +212,7 @@ Computes flux `S(Y)` in:
 ```
 """
 function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+  fill!(getfield(source, :array), zero(eltype(source)))
   m.source(source, state, aux, t)
 end
 
@@ -313,6 +314,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
     diffP = diffM
     diffP.ρτ = SVector(ρτ11, ρτ22, DFloat(0), ρτ12, ρτ13,ρτ23)
+    diffP.ρ_SGS_enthalpyflux = SVector(diffP.ρ_SGS_enthalpyflux[1], diffP.ρ_SGS_enthalpyflux[2], DFloat(0))
     #diffP.moisture.ρ_SGS_enthalpyflux = DFloat(0)
     nothing
   end

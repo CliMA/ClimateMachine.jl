@@ -49,11 +49,11 @@ const Δy        = (ymax-ymin)/(Ne[2]*polynomialorder+1)
 const Δz        = (zmax-zmin)/(Ne[3]*polynomialorder+1)
 const Δ         = cbrt(Δx * Δy * Δz) 
 const dt        = 0.005
-const timeend   = 10000dt
+const timeend   = 3000
 const T_bot     = 320
 const T_lapse   = -0.04
 const T_top     = T_bot + T_lapse*zmax
-const C_smag    = 0.15
+const C_smag    = 0.18
 const seed      = MersenneTwister(0)
 # ------------- Initial condition function ----------- # 
 function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x,y,z), t)
