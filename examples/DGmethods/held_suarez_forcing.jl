@@ -899,7 +899,7 @@ let
   minutes = 60
   hours = 3600
   days = 86400
-  outputtime = 0.1*days
+  outputtime = 2days
   finaltime = 200*days
 #  outputtime = 0.001*days
 #  outputtime =1*days
