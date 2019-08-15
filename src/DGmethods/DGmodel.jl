@@ -46,6 +46,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   # Gradient Computation #
   ########################
   MPIStateArrays.start_ghost_exchange!(Q)
+  MPIStateArrays.start_ghost_exchange!(auxstate)
 
   if nviscstate > 0
 
@@ -54,6 +55,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
                              topology.realelems))
 
     MPIStateArrays.finish_ghost_recv!(Q)
+    MPIStateArrays.finish_ghost_recv!(auxstate)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
             faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux, 

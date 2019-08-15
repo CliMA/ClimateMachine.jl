@@ -336,8 +336,9 @@ The speed of sound in air given a thermodynamic state `ts`.
 """
 soundspeed_air(ts::ThermodynamicState) =
   soundspeed_air(air_temperature(ts), PhasePartition(ts))
-soundspeed_air(ts::PhaseDry) = sqrt(cp_m(ts)/cv_m(ts)*gas_constant_air(ts)*air_temperature(ts))
-
+function soundspeed_air(ts::PhaseDry)
+  sqrt(cp_m(ts)/cv_m(ts)*gas_constant_air(ts)*air_temperature(ts))
+end
 
 """
     latent_heat_vapor(T::DT) where {DT<:Real}
