@@ -469,9 +469,9 @@ the triple point pressure `press_triple`.
 
 """
 saturation_vapor_pressure(T::DT, ::Liquid) where {DT<:Real} = saturation_vapor_pressure(T, DT(LH_v0), DT(cp_v) - DT(cp_l))
-function saturation_vapor_pressure(ts::ThermodynamicState, ::Liquid)
+function saturation_vapor_pressure(ts::ThermodynamicState{DT}, ::Liquid) where {DT<:Real}
 
-    return saturation_vapor_pressure(air_temperature(ts), LH_v0, cp_v - cp_l)
+    return saturation_vapor_pressure(air_temperature(ts), DT(LH_v0), DT(cp_v) - DT(cp_l))
 
 end
 saturation_vapor_pressure(T::DT, ::Ice) where {DT<:Real} = saturation_vapor_pressure(T, DT(LH_s0), DT(cp_v) - DT(cp_i))
