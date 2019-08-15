@@ -63,7 +63,7 @@ function vars_diffusive(m::AtmosModel, T)
 end
 function vars_aux(m::AtmosModel, T)
   @vars begin
-    coord::@vars(x1::T,x2::T,x3::T)
+    coord::SVector{3,T}
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
@@ -178,10 +178,8 @@ include("moisture.jl")
 include("radiation.jl")
 
 # TODO: figure out a nice way to handle this
-function init_aux!(::AtmosModel, aux::Vars, (x1,x2,x3))
-  aux.coord.x1 = x1
-  aux.coord.x2 = x2
-  aux.coord.x3 = x3
+function init_aux!(::AtmosModel, aux::Vars, x)
+  aux.coord = SVector(x)
 end
 
 """
@@ -232,8 +230,7 @@ struct InitStateBC <: BoundaryCondition
 end
 function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
-  coord = (auxP.coord.x1, auxP.coord.x2, auxP.coord.x3)
-  init_state!(m, stateP, auxP, coord, t)
+  init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
