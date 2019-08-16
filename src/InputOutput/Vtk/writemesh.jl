@@ -3,8 +3,8 @@ using WriteVTK
 #=
 This is the 1D WriteMesh routine
 =#
-function writemesh(base_name, x; fields=(), realelems=1:size(x)[end])
-  (Nqr, _) = size(x)
+function writemesh(base_name, x1; fields=(), realelems=1:size(x1)[end])
+  (Nqr, _) = size(x1)
   Nsubcells = (Nqr-1)
 
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))
@@ -16,7 +16,7 @@ function writemesh(base_name, x; fields=(), realelems=1:size(x)[end])
     end
   end
 
-  vtkfile = vtk_grid("$(base_name)", @view(x[:]), cells; compress=false)
+  vtkfile = vtk_grid("$(base_name)", @view(x1[:]), cells; compress=false)
   for (name, v) ∈ fields
     vtk_point_data(vtkfile, v, name)
   end
@@ -26,9 +26,9 @@ end
 #=
 This is the 2D WriteMesh routine
 =#
-function writemesh(base_name, x, y; z=nothing, fields=(), realelems=1:size(x)[end])
-  @assert size(x) == size(y)
-  (Nqr, Nqs, _) = size(x)
+function writemesh(base_name, x1, x2; x3=nothing, fields=(), realelems=1:size(x1)[end])
+  @assert size(x1) == size(x2)
+  (Nqr, Nqs, _) = size(x1)
   Nsubcells = (Nqr-1) * (Nqs-1)
 
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))
@@ -43,11 +43,11 @@ function writemesh(base_name, x, y; z=nothing, fields=(), realelems=1:size(x)[en
     end
   end
 
-  if z == nothing
-    vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), cells;
+  if x3 == nothing
+    vtkfile = vtk_grid("$(base_name)", @view(x1[:]), @view(x2[:]), cells;
                        compress=false)
   else
-    vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), @view(z[:]),
+    vtkfile = vtk_grid("$(base_name)", @view(x1[:]), @view(x2[:]), @view(x3[:]),
                        cells; compress=false)
   end
   for (name, v) ∈ fields
@@ -59,8 +59,8 @@ end
 #=
 This is the 3D WriteMesh routine
 =#
-function writemesh(base_name, x, y, z; fields=(), realelems=1:size(x)[end])
-  (Nqr, Nqs, Nqt, _) = size(x)
+function writemesh(base_name, x1, x2, x3; fields=(), realelems=1:size(x1)[end])
+  (Nqr, Nqs, Nqt, _) = size(x1)
   (Nr, Ns, Nt) = (Nqr-1, Nqs-1, Nqt-1)
   Nsubcells = Nr * Ns * Nt
   cells = Array{MeshCell{Array{Int,1}}, 1}(undef, Nsubcells * length(realelems))
@@ -78,7 +78,7 @@ function writemesh(base_name, x, y, z; fields=(), realelems=1:size(x)[end])
     end
   end
 
-  vtkfile = vtk_grid("$(base_name)", @view(x[:]), @view(y[:]), @view(z[:]),
+  vtkfile = vtk_grid("$(base_name)", @view(x1[:]), @view(x2[:]), @view(x3[:]),
                      cells; compress=false)
   for (name, v) ∈ fields
     vtk_point_data(vtkfile, v, name)

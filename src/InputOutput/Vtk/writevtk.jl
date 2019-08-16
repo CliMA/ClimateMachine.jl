@@ -64,7 +64,7 @@ function writevtk_helper(prefix, vgeo::Array, Q::Array, grid,
   Nq  = N+1
 
   nelem = size(Q)[end]
-  Xid = (grid.xid, grid.yid, grid.zid)
+  Xid = (grid.x1id, grid.x2id, grid.x3id)
   X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
                         ntuple(j->Nq, dim)...,
                         nelem), dim)
