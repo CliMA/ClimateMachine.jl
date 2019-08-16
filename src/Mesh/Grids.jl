@@ -30,19 +30,19 @@ referencepoints(::AbstractGrid) = error("needs to be implemented")
 
 # {{{
 const _nvgeo = 15
-const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-       _x, _y, _z, _JcV = 1:_nvgeo
-const vgeoid = (ξxid = _ξx, ηxid = _ηx, ζxid = _ζx,
-                ξyid = _ξy, ηyid = _ηy, ζyid = _ζy,
-                ξzid = _ξz, ηzid = _ηz, ζzid = _ζz,
+const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI,
+       _x1, _x2, _x3, _JcV = 1:_nvgeo
+const vgeoid = (ξ1x1id = _ξ1x1, ξ2x1id = _ξ2x1, ξ3x1id = _ξ3x1,
+                ξ1x2id = _ξ1x2, ξ2x2id = _ξ2x2, ξ3x2id = _ξ3x2,
+                ξ1x3id = _ξ1x3, ξ2x3id = _ξ2x3, ξ3x3id = _ξ3x3,
                 Mid  = _M , MIid = _MI,
-                xid  = _x , yid  = _y , zid  = _z,
+                x1id  = _x1 , x2id  = _x2 , x3id  = _x3,
                 JcVid = _JcV)
 # JcV is the vertical line integral Jacobian
 
 const _nsgeo = 5
-const _nx, _ny, _nz, _sM, _vMI = 1:_nsgeo
-const sgeoid = (nxid = _nx, nyid = _ny, nzid = _nz, sMid = _sM,
+const _n1, _n2, _n3, _sM, _vMI = 1:_nsgeo
+const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM,
                 vMIid = _vMI)
 # }}}
 
@@ -150,7 +150,8 @@ end
 
 Returns the 1D interpolation points used for the reference element.
 """
-function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}) where {T, dim, N}
+function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}
+                        ) where {T, dim, N}
   ξ, _ = Elements.lglpoints(T, N)
   ξ
 end
@@ -240,27 +241,27 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   vgeo = zeros(DFloat, Nq^dim, _nvgeo, nelem)
   sgeo = zeros(DFloat, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z, JcV) =
-      ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
-  J = similar(x)
-  (nx, ny, nz, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
+  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, x1, x2, x3,
+   JcV) = ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
+  J = similar(x1)
+  (n1, n2, n3, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
   sJ = similar(sMJ)
 
-  X = ntuple(j->(@view vgeo[:, _x+j-1, :]), dim)
+  X = ntuple(j->(@view vgeo[:, _x1+j-1, :]), dim)
   Metrics.creategrid!(X..., topology.elemtocoord, ξ)
 
-  @inbounds for j = 1:length(x)
-    (x[j], y[j], z[j]) = meshwarp(x[j], y[j], z[j])
+  @inbounds for j = 1:length(x1)
+    (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
   end
 
   # Compute the metric terms
   if dim == 1
-    Metrics.computemetric!(x, J, ξx, sJ, nx, D)
+    Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D)
   elseif dim == 2
-    Metrics.computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
+    Metrics.computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
   elseif dim == 3
-    Metrics.computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ,
-                   nx, ny, nz, D)
+    Metrics.computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2,
+                           ξ1x3, ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
   end
 
   M = kron(1, ntuple(j->ω, dim)...)
@@ -271,19 +272,20 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
   sMJ .= sM .* sJ
 
-  # Compute |r'(ζ)| for vertical line integrals
+  # Compute |r'(ξ3)| for vertical line integrals
   if dim == 2
-    map!(JcV, J, ξx, ξy) do J, ξx, ξy
-      xη = J * ξy
-      yη = J * ξx
-      hypot(xη, yη)
+    map!(JcV, J, ξ1x1, ξ1x2) do J, ξ1x1, ξ1x2
+      x1ξ1 = J * ξ1x2
+      x2ξ2 = J * ξ1x1
+      hypot(x1ξ1, x2ξ2)
     end
   elseif dim == 3
-    map!(JcV, J, ξx, ξy, ξz, ηx, ηy, ηz) do J, ξx, ξy, ξz, ηx, ηy, ηz
-      xζ = J * (ξy * ηz - ηy * ξz)
-      yζ = J * (ξz * ηx - ηz * ξx)
-      zζ = J * (ξx * ηy - ηx * ξy)
-      hypot(xζ, yζ, zζ)
+    map!(JcV, J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
+        ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
+      x1ξ3 = J * (ξ1x2 * ξ2x3 - ξ2x2 * ξ1x3)
+      x2ξ3 = J * (ξ1x3 * ξ2x1 - ξ2x3 * ξ1x1)
+      x3ξ3 = J * (ξ1x1 * ξ2x2 - ξ2x1 * ξ1x2)
+      hypot(x1ξ3, x2ξ3, x3ξ3)
     end
   else
     error("dim $dim not implemented")

@@ -61,7 +61,7 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   corner `i` of element `e`
 
   !!! note
-      currently coordinates always are of size 3 for `(x, y, z)`
+      currently coordinates always are of size 3 for `(x1, x2, x3)`
   """
   elemtocoord::Array{T, 3}
 
@@ -125,7 +125,8 @@ hasboundary(topology::AbstractTopology) = topology.hasboundary
 if VERSION >= v"1.2-"
   isstacked(::T) where {T<:AbstractTopology} = hasfield(T, :stacksize)
 else
-  isstacked(::T) where {T<:AbstractTopology} = Base.fieldindex(T, :stacksize, false) > 0
+  isstacked(::T) where {T<:AbstractTopology} = Base.fieldindex(T, :stacksize,
+                                                               false) > 0
 end
 
 """
@@ -206,7 +207,7 @@ boundary number.
 # Examples
 
 We can build a 3 by 2 element two-dimensional mesh that is periodic in the
-\$x_2\$-direction with
+\$x2\$-direction with
 ```jldoctest brickmesh
 
 using CLIMA.Topologies
@@ -218,7 +219,7 @@ topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
 ```
 This returns the mesh structure for
 
-             x_2
+             x2
 
               ^
               |
@@ -232,7 +233,7 @@ This returns the mesh structure for
               |  |     |     |     |
              4-  +-----+-----+-----+
               |
-              +--|-----|-----|-----|--> x_1
+              +--|-----|-----|-----|--> x1
                  2     3     4     5
 
 For example, the (dimension by number of corners by number of elements) array
@@ -330,7 +331,7 @@ boundary number.
 # Examples
 
 We can build a 3 by 2 element two-dimensional mesh that is periodic in the
-\$x_2\$-direction with
+\$x2\$-direction with
 ```jldoctest brickmesh
 
 using CLIMA.Topologies
@@ -340,9 +341,9 @@ topology = StackedBrickTopology(MPI.COMM_SELF, (2:5,4:6);
                                 periodicity=(false,true),
                                 boundary=[1 3; 2 4])
 ```
-This returns the mesh structure stacked in the \$x_2\$-direction for
+This returns the mesh structure stacked in the \$x2\$-direction for
 
-             x_2
+             x2
 
               ^
               |
@@ -356,7 +357,7 @@ This returns the mesh structure stacked in the \$x_2\$-direction for
               |  |     |     |     |
              4-  +-----+-----+-----+
               |
-              +--|-----|-----|-----|--> x_1
+              +--|-----|-----|-----|--> x1
                  2     3     4     5
 
 For example, the (dimension by number of corners by number of elements) array
@@ -574,15 +575,15 @@ topology = CubedShellTopology(MPI.COMM_SELF, 10, Float64)
 # corners could be warped with...
 
 # Shell radius = 1
-x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
-for n = 1:length(x)
-   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
+x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
+for n = 1:length(x1)
+   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
 end
 
 # Shell radius = 10
-x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
-for n = 1:length(x)
-  x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n], 10)
+x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
+for n = 1:length(x1)
+  x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n], 10)
 end
 ```
 """
@@ -642,7 +643,7 @@ and a remapping is needed to embed the mesh in a 3-D space.
 The mesh structures for the cubes is as follows:
 
 ```
-x_2
+x2
    ^
    |
 4Ne-           +-------+
@@ -663,7 +664,7 @@ x_2
    |   |       |       |       |
   0-   +-------+-------+-------+
    |
-   +---|-------|-------|------|-> x_1
+   +---|-------|-------|------|-> x1
        0      Ne      2Ne    3Ne
 ```
 
@@ -753,35 +754,35 @@ function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
   function f(sR, ξ, η)
     X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    x = sR / sqrt(X^2 + Y^2 + 1)
-    y, z = X * x, Y * x
-    x,y,z
+    x1 = sR / sqrt(X^2 + Y^2 + 1)
+    x2, x3 = X * x1, Y * x1
+    x1,x2,x3
   end
 
   fdim = argmax(abs.((a, b, c)))
   if fdim == 1 && a < 0
     # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-    x,y,z = f(-R, b/a, c/a)
+    x1,x2,x3 = f(-R, b/a, c/a)
   elseif fdim == 2 && b < 0
     # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
-    y,x,z = f(-R, a/b, c/b)
+    x2,x1,x3 = f(-R, a/b, c/b)
   elseif fdim == 1 && a > 0
     # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
-    x,y,z = f(R, b/a, c/a)
+    x1,x2,x3 = f(R, b/a, c/a)
   elseif fdim == 2 && b > 0
     # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
-    y,x,z = f(R, a/b, c/b)
+    x2,x1,x3 = f(R, a/b, c/b)
   elseif fdim == 3 && c > 0
     # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
-    z,y,x = f(R, b/c, a/c)
+    x3,x2,x1 = f(R, b/c, a/c)
   elseif fdim == 3 && c < 0
     # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
-    z,y,x = f(-R, b/c, a/c)
+    x3,x2,x1 = f(-R, b/c, a/c)
   else
     error("invalid case for cubedshellwarp: $a, $b, $c")
   end
 
-  x, y, z
+  x1, x2, x3
 end
 
 """
@@ -814,10 +815,10 @@ Nstack = 5
 Rrange = Float64.(accumulate(+,1:Nstack+1))
 topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange)
 
-x, y, z = ntuple(j->reshape(topology.elemtocoord[j, :, :],
+x1, x2, x3 = ntuple(j->reshape(topology.elemtocoord[j, :, :],
                             2, 2, 2, length(topology.elems)), 3)
-for n = 1:length(x)
-   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
+for n = 1:length(x1)
+   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
 end
 ```
 Note that the faces are listed in Cartesian order.
@@ -951,11 +952,12 @@ end
 """    
     grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
 
-        This function is the extrema of a 1D domain (e.g. the z direction of the mesh at hand)
-        and stretches the 1D grid in that direction.
+        This function is the extrema of a 1D domain (e.g. the x3 direction of
+        the mesh at hand) and stretches the 1D grid in that direction.
 
-        It returns the 1D range `range_stretched` to be then passed to `brickrange = (x_range, y_range, z_range)` in the driver
-        in place of `x_range`, or `y_range` or `z_range`
+        It returns the 1D range `range_stretched` to be then passed to
+        `brickrange = (x1_range, x2_range, x3_range)` in the driver in place of
+        `x1_range`, or `x2_range` or `x3_range`
 
         The use needs to define the type of stretching `stretching_type` 
         Now `boundary_layer` and `top_layer` are the only options availabe.

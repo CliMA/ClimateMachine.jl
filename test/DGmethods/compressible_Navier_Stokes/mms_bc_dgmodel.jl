@@ -129,8 +129,8 @@ for DFloat in (Float64,) #Float32)
         topl = BrickTopology(mpicomm, brickrange,
                              periodicity = (false, false))
         dt = 1e-2 / Ne[1]
-        warpfun = (x, y, _) -> begin
-          (x + sin(x*y), y + sin(2*x*y), 0)
+        warpfun = (x1, x2, _) -> begin
+          (x1 + sin(x1*x2), x2 + sin(2*x1*x2), 0)
         end
 
       elseif dim == 3
@@ -141,10 +141,10 @@ for DFloat in (Float64,) #Float32)
         topl = BrickTopology(mpicomm, brickrange,
                              periodicity = (false, false, false))
         dt = 5e-3 / Ne[1]
-        warpfun = (x, y, z) -> begin
-          (x + (x-1/2)*cos(2*π*y*z)/4,
-           y + exp(sin(2π*(x*y+z)))/20,
-          z + x/4 + y^2/2 + sin(x*y*z))
+        warpfun = (x1, x2, x3) -> begin
+          (x1 + (x1-1/2)*cos(2*π*x2*x3)/4,
+           x2 + exp(sin(2π*(x1*x2+x3)))/20,
+          x3 + x1/4 + x2^2/2 + sin(x1*x2*x3))
         end
       end
       timeend = 1
