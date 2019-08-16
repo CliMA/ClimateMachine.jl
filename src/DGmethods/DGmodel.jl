@@ -56,7 +56,7 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
 
     MPIStateArrays.finish_ghost_recv!(Q)
     MPIStateArrays.finish_ghost_recv!(auxstate)
-
+    
     @launch(device, threads=Nfp, blocks=nrealelem,
             faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux, 
                            Q.Q, Qvisc.Q, auxstate.Q,

@@ -63,8 +63,8 @@ function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x,y,z), t)
   c_v::DF       = cv_d
   γ::DF         = c_p / c_v
   p0::DF        = MSLP
-  δT            = z != DF(0) ? rand(seed, DF)/100 : 0 
-  δw            = z != DF(0) ? rand(seed, DF)/100 : 0
+  δT            = 0#z != DF(0) ? rand(seed, DF)/100 : 0 
+  δw            = 0#z != DF(0) ? rand(seed, DF)/100 : 0
   ΔT            = T_lapse * z + δT
   T             = T_bot + ΔT 
   P             = p0*(T/T_bot)^(grav/R_gas/T_lapse)
@@ -81,9 +81,9 @@ end
 # --------------- Gravity source --------------------- # 
 function source_geopot!(source::Vars, state::Vars, aux::Vars, t::Real)
   DF = eltype(state)
-  source.ρu -= SVector(DF(0),
-                       DF(0),
-                       state.ρ * DF(grav))
+  source.ρu = SVector(DF(0),
+                      DF(0),
+                      -state.ρ * DF(grav))
 end
 # --------------- Driver definition ------------------ # 
 function run(mpicomm, ArrayType, 
@@ -119,7 +119,7 @@ function run(mpicomm, ArrayType,
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
   # No vtk dump in current example
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
