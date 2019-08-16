@@ -76,7 +76,7 @@ jobs:
       set -o xtrace
       brew update
       brew upgrade
-      brew install mpich cmake
+      brew install mpich
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
@@ -136,7 +136,7 @@ jobs:
   - bash: |
       set -o xtrace
       sudo apt-get update
-      sudo apt-get install cmake gfortran mpich libmpich-dev
+      sudo apt-get install mpich libmpich-dev
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace

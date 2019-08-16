@@ -13,7 +13,7 @@ export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot/gpu"
 export CUDA_PATH="/lib64"
 export OPENBLAS_NUM_THREADS=1
 
-module load cmake/3.10.2 openmpi/4.0.1 cuda/10.0
+module load cuda/10.0 openmpi/4.0.1_cuda-10.0
 
 # we need to build CUDA on each device
 # to avoid race conditions we create a separate depot per job
