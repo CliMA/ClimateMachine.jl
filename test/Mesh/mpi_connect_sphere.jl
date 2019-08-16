@@ -42,11 +42,11 @@ function main()
   # Check x1x2x3 matches before comm
   x1 = @view grid.vgeo[:, Grids._x1, :]
   x2 = @view grid.vgeo[:, Grids._x2, :]
-  x2 = @view grid.vgeo[:, Grids._x2, :]
+  x3 = @view grid.vgeo[:, Grids._x3, :]
 
   @test x1[grid.vmapM] ≈ x1[grid.vmapP]
   @test x2[grid.vmapM] ≈ x2[grid.vmapP]
-  @test x2[grid.vmapM] ≈ x2[grid.vmapP]
+  @test x3[grid.vmapM] ≈ x3[grid.vmapP]
 
   Np = (N+1)^3
   x1x2x3 = MPIStateArray{Tuple{Np, 3}, T, DA}(topology.mpicomm,
@@ -58,18 +58,18 @@ function main()
                                            nabrtorecv=topology.nabrtorecv,
                                            nabrtosend=topology.nabrtosend)
   x1x2x3.Q[:,:,topology.realelems] .=
-        @view grid.vgeo[:, [Grids._x1, Grids._x2, Grids._x2], topology.realelems]
+        @view grid.vgeo[:, [Grids._x1, Grids._x2, Grids._x3], topology.realelems]
   MPIStateArrays.start_ghost_exchange!(x1x2x3)
   MPIStateArrays.finish_ghost_exchange!(x1x2x3)
 
   # Check x1x2x3 matches after
   x1 = @view x1x2x3.Q[:, 1, :]
   x2 = @view x1x2x3.Q[:, 2, :]
-  x2 = @view x1x2x3.Q[:, 3, :]
+  x3 = @view x1x2x3.Q[:, 3, :]
 
   @test x1[grid.vmapM] ≈ x1[grid.vmapP]
   @test x2[grid.vmapM] ≈ x2[grid.vmapP]
-  @test x2[grid.vmapM] ≈ x2[grid.vmapP]
+  @test x3[grid.vmapM] ≈ x3[grid.vmapP]
 
   nothing
 end
