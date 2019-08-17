@@ -715,13 +715,13 @@ function saturation_adjustment(e_int::DT, ρ::DT, q_tot::DT) where {DT<:Real}
   else # If saturated, iterate
     # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
     T_2 = air_temperature(e_int, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
-    T, converged = find_zero(
+    sol = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
-      T_1, T_2, SecantMethod(), DT(1e-3), 10)
-      if !converged
+      T_1, T_2, SecantMethod(), CompactSolution(), DT(1e-3), 10)
+      if !sol.converged
         error("saturation adjustment did not converge")
       end
-    return T
+    return sol.root
   end
 end
 
@@ -745,10 +745,10 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::DT, q_tot::DT, ρ::D
     return T_1
   else  # If saturated, iterate
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
-    T, converged = find_zero(
+    sol = find_zero(
       T -> θ_liq_ice - liquid_ice_pottemp_sat(T, p, PhasePartition_equil(T, ρ, q_tot)),
-      T_1, T_2, SecantMethod(), DT(1e-3), 10)
-    return T
+      T_1, T_2, SecantMethod(), CompactSolution(), DT(1e-3), 10)
+    return sol.root
   end
 end
 
