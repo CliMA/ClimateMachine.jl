@@ -8,7 +8,7 @@ init_aux!, init_state!, init_ode_param, init_ode_state
 struct MMSModel{dim} <: BalanceLaw
 end
 
-vars_aux(::MMSModel,T) = @vars(x::T, y::T, z::T)
+vars_aux(::MMSModel,T) = @vars(x1::T, x2::T, x3::T)
 vars_state(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
 vars_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
 vars_diffusive(::MMSModel, T) = @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
@@ -71,11 +71,11 @@ function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars
 end
 
 function source!(::MMSModel{dim}, source::Vars, state::Vars, aux::Vars, t::Real) where {dim}
-  source.ρ  = Sρ_g(t, aux.x, aux.y, aux.z, Val(dim))
-  source.ρu = SU_g(t, aux.x, aux.y, aux.z, Val(dim))
-  source.ρv = SV_g(t, aux.x, aux.y, aux.z, Val(dim))
-  source.ρw = SW_g(t, aux.x, aux.y, aux.z, Val(dim))
-  source.ρe = SE_g(t, aux.x, aux.y, aux.z, Val(dim))
+  source.ρ  = Sρ_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
+  source.ρu = SU_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
+  source.ρv = SV_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
+  source.ρw = SW_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
+  source.ρe = SE_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
 end
 
 function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
@@ -88,21 +88,21 @@ function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
 end
 
 function boundarycondition!(bl::MMSModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
-  init_state!(bl, stateP, auxP, (auxM.x, auxM.y, auxM.z), t)
+  init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
-function init_aux!(::MMSModel, aux::Vars, (x,y,z))
-  aux.x = x
-  aux.y = y
-  aux.z = z
+function init_aux!(::MMSModel, aux::Vars, (x1,x2,x3))
+  aux.x1 = x1
+  aux.x2 = x2
+  aux.x3 = x3
 
 
 end
 
-function init_state!(bl::MMSModel{dim}, state::Vars, aux::Vars, (x,y,z), t) where {dim}
-  state.ρ = ρ_g(t, x, y, z, Val(dim))
-  state.ρu = U_g(t, x, y, z, Val(dim))
-  state.ρv = V_g(t, x, y, z, Val(dim))
-  state.ρw = W_g(t, x, y, z, Val(dim))
-  state.ρe = E_g(t, x, y, z, Val(dim))
+function init_state!(bl::MMSModel{dim}, state::Vars, aux::Vars, (x1,x2,x3), t) where {dim}
+  state.ρ = ρ_g(t, x1, x2, x3, Val(dim))
+  state.ρu = U_g(t, x1, x2, x3, Val(dim))
+  state.ρv = V_g(t, x1, x2, x3, Val(dim))
+  state.ρw = W_g(t, x1, x2, x3, Val(dim))
+  state.ρe = E_g(t, x1, x2, x3, Val(dim))
 end

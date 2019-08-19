@@ -1,49 +1,49 @@
 module Metrics
 
 """
-    creategrid!(x, elemtocoord, r)
+    creategrid!(x1, elemtocoord, r)
 
 Create a 1-D grid using `elemtocoord` (see [`brickmesh`](@ref)) using the 1-D
 `(-1, 1)` reference coordinates `r`. The element grids are filled using linear
 interpolation of the element coordinates.
 
 If `Nq = length(r)` and `nelem = size(elemtocoord, 3)` then the preallocated
-array `x` should be `Nq * nelem == length(x)`.
+array `x1` should be `Nq * nelem == length(x1)`.
 """
-function creategrid!(x, e2c, r)
+function creategrid!(x1, e2c, r)
   (d, nvert, nelem) = size(e2c)
   @assert d == 1
   Nq = length(r)
-  x = reshape(x, (Nq, nelem))
+  x1 = reshape(x1, (Nq, nelem))
 
   # linear blend
   @inbounds for e = 1:nelem
     for i = 1:Nq
-      x[i, e] = ((1 - r[i]) * e2c[1, 1, e] + (1 + r[i])e2c[1, 2, e]) / 2
+      x1[i, e] = ((1 - r[i]) * e2c[1, 1, e] + (1 + r[i])e2c[1, 2, e]) / 2
     end
   end
   nothing
 end
 
 """
-    creategrid!(x, y, elemtocoord, r)
+    creategrid!(x1, x2, elemtocoord, r)
 
 Create a 2-D tensor product grid using `elemtocoord` (see [`brickmesh`](@ref))
 using the 1-D `(-1, 1)` reference coordinates `r`. The element grids are filled
 using bilinear interpolation of the element coordinates.
 
 If `Nq = length(r)` and `nelem = size(elemtocoord, 3)` then the preallocated
-arrays `x` and `y` should be `Nq^2 * nelem == size(x) == size(y)`.
+arrays `x1` and `x2` should be `Nq^2 * nelem == size(x1) == size(x2)`.
 """
-function creategrid!(x, y, e2c, r)
+function creategrid!(x1, x2, e2c, r)
   (d, nvert, nelem) = size(e2c)
   @assert d == 2
   Nq = length(r)
-  x = reshape(x, (Nq, Nq, nelem))
-  y = reshape(y, (Nq, Nq, nelem))
+  x1 = reshape(x1, (Nq, Nq, nelem))
+  x2 = reshape(x2, (Nq, Nq, nelem))
 
   # bilinear blend of corners
-  @inbounds for (f, n) = zip((x, y), 1:d)
+  @inbounds for (f, n) = zip((x1, x2), 1:d)
     for e = 1:nelem
       for j = 1:Nq
         for i = 1:Nq
@@ -59,27 +59,27 @@ function creategrid!(x, y, e2c, r)
 end
 
 """
-    creategrid!(x, y, z, elemtocoord, r)
+    creategrid!(x1, x2, x3, elemtocoord, r)
 
 Create a 3-D tensor product grid using `elemtocoord` (see [`brickmesh`](@ref))
 using the 1-D `(-1, 1)` reference coordinates `r`. The element grids are filled
 using trilinear interpolation of the element coordinates.
 
 If `Nq = length(r)` and `nelem = size(elemtocoord, 3)` then the preallocated
-arrays `x`, `y`, and `z` should be `Nq^3 * nelem == size(x) == size(y) ==
-size(z)`.
+arrays `x1`, `x2`, and `x3` should be `Nq^3 * nelem == size(x1) == size(x2) ==
+size(x3)`.
 """
-function creategrid!(x, y, z, e2c, r)
+function creategrid!(x1, x2, x3, e2c, r)
   (d, nvert, nelem) = size(e2c)
   @assert d == 3
   # TODO: Add asserts?
   Nq = length(r)
-  x = reshape(x, (Nq, Nq, Nq, nelem))
-  y = reshape(y, (Nq, Nq, Nq, nelem))
-  z = reshape(z, (Nq, Nq, Nq, nelem))
+  x1 = reshape(x1, (Nq, Nq, Nq, nelem))
+  x2 = reshape(x2, (Nq, Nq, Nq, nelem))
+  x3 = reshape(x3, (Nq, Nq, Nq, nelem))
 
   # trilinear blend of corners
-  @inbounds for (f, n) = zip((x,y,z), 1:d)
+  @inbounds for (f, n) = zip((x1,x2,x3), 1:d)
     for e = 1:nelem
       for k = 1:Nq
         for j = 1:Nq
@@ -109,99 +109,99 @@ function creategrid!(x, y, z, e2c, r)
 end
 
 """
-    computemetric!(x, J, ξx, sJ, nx, D)
+    computemetric!(x1, J, ξ1x1, sJ, n1, D)
 
-Compute the 1-D metric terms from the element grid arrays `x`. All the arrays
+Compute the 1-D metric terms from the element grid arrays `x1`. All the arrays
 are preallocated by the user and the (square) derivative matrix `D` should be
 consistent with the reference grid `r` used in [`creategrid!`](@ref).
 
-If `Nq = size(D, 1)` and `nelem = div(length(x), Nq)` then the volume arrays
-`x`, `J`, and `ξx` should all have length `Nq * nelem`.  Similarly, the face
-arrays `sJ` and `nx` should be of length `nface * nelem` with `nface = 2`.
+If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq)` then the volume arrays
+`x1`, `J`, and `ξ1x1` should all have length `Nq * nelem`.  Similarly, the face
+arrays `sJ` and `n1` should be of length `nface * nelem` with `nface = 2`.
 """
-function computemetric!(x, J, ξx, sJ, nx, D)
+function computemetric!(x1, J, ξ1x1, sJ, n1, D)
   Nq = size(D, 1)
   nelem = div(length(J), Nq)
-  x = reshape(x, (Nq, nelem))
+  x1 = reshape(x1, (Nq, nelem))
   J = reshape(J, (Nq, nelem))
-  ξx = reshape(ξx, (Nq, nelem))
+  ξ1x1 = reshape(ξ1x1, (Nq, nelem))
   nface = 2
-  nx = reshape(nx, (1, nface, nelem))
+  n1 = reshape(n1, (1, nface, nelem))
   sJ = reshape(sJ, (1, nface, nelem))
 
   d = 1
 
   @inbounds for e = 1:nelem
-    J[:, e] = D * x[:, e]
+    J[:, e] = D * x1[:, e]
   end
-  ξx .=  1 ./ J
+  ξ1x1 .=  1 ./ J
 
-  nx[1, 1, :] .= -sign.(J[ 1, :])
-  nx[1, 2, :] .=  sign.(J[Nq, :])
+  n1[1, 1, :] .= -sign.(J[ 1, :])
+  n1[1, 2, :] .=  sign.(J[Nq, :])
   sJ .= 1
   nothing
 end
 
 """
-    computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
+    computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
 
-Compute the 2-D metric terms from the element grid arrays `x` and `y`. All the
+Compute the 2-D metric terms from the element grid arrays `x1` and `x2`. All the
 arrays are preallocated by the user and the (square) derivative matrix `D`
 should be consistent with the reference grid `r` used in [`creategrid!`](@ref).
 
-If `Nq = size(D, 1)` and `nelem = div(length(x), Nq^2)` then the volume arrays
-`x`, `y`, `J`, `ξx`, `ηx`, `ξy`, and `ηy` should all be of size `(Nq, Nq,
-nelem)`.  Similarly, the face arrays `sJ`, `nx`, and `ny` should be of size
+If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq^2)` then the volume arrays
+`x1`, `x2`, `J`, `ξ1x1`, `ξ2x1`, `ξ1x2`, and `ξ2x2` should all be of size `(Nq, Nq,
+nelem)`.  Similarly, the face arrays `sJ`, `n1`, and `n2` should be of size
 `(Nq, nface, nelem)` with `nface = 4`.
 """
-function computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
-  T = eltype(x)
+function computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
+  T = eltype(x1)
   Nq = size(D, 1)
   nelem = div(length(J), Nq^2)
   d = 2
-  x = reshape(x, (Nq, Nq, nelem))
-  y = reshape(y, (Nq, Nq, nelem))
+  x1 = reshape(x1, (Nq, Nq, nelem))
+  x2 = reshape(x2, (Nq, Nq, nelem))
   J = reshape(J, (Nq, Nq, nelem))
-  ξx = reshape(ξx, (Nq, Nq, nelem))
-  ηx = reshape(ηx, (Nq, Nq, nelem))
-  ξy = reshape(ξy, (Nq, Nq, nelem))
-  ηy = reshape(ηy, (Nq, Nq, nelem))
+  ξ1x1 = reshape(ξ1x1, (Nq, Nq, nelem))
+  ξ2x1 = reshape(ξ2x1, (Nq, Nq, nelem))
+  ξ1x2 = reshape(ξ1x2, (Nq, Nq, nelem))
+  ξ2x2 = reshape(ξ2x2, (Nq, Nq, nelem))
   nface = 4
-  nx = reshape(nx, (Nq, nface, nelem))
-  ny = reshape(ny, (Nq, nface, nelem))
+  n1 = reshape(n1, (Nq, nface, nelem))
+  n2 = reshape(n2, (Nq, nface, nelem))
   sJ = reshape(sJ, (Nq, nface, nelem))
 
   @inbounds for e = 1:nelem
     for j = 1:Nq, i = 1:Nq
-      xr = xs = zero(T)
-      yr = ys = zero(T)
+      x1ξ1 = x1ξ2 = zero(T)
+      x2ξ1 = x2ξ2 = zero(T)
       for n = 1:Nq
-        xr += D[i, n] * x[n, j, e]
-        xs += D[j, n] * x[i, n, e]
-        yr += D[i, n] * y[n, j, e]
-        ys += D[j, n] * y[i, n, e]
+        x1ξ1 += D[i, n] * x1[n, j, e]
+        x1ξ2 += D[j, n] * x1[i, n, e]
+        x2ξ1 += D[i, n] * x2[n, j, e]
+        x2ξ2 += D[j, n] * x2[i, n, e]
       end
-      J[i, j, e] = xr * ys - yr * xs
-      ξx[i, j, e] =  ys / J[i, j, e]
-      ηx[i, j, e] = -yr / J[i, j, e]
-      ξy[i, j, e] = -xs / J[i, j, e]
-      ηy[i, j, e] =  xr / J[i, j, e]
+      J[i, j, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
+      ξ1x1[i, j, e] =  x2ξ2 / J[i, j, e]
+      ξ2x1[i, j, e] = -x2ξ1 / J[i, j, e]
+      ξ1x2[i, j, e] = -x1ξ2 / J[i, j, e]
+      ξ2x2[i, j, e] =  x1ξ1 / J[i, j, e]
     end
 
     for i = 1:Nq
-      nx[i, 1, e] = -J[ 1,  i, e] * ξx[ 1,  i, e]
-      ny[i, 1, e] = -J[ 1,  i, e] * ξy[ 1,  i, e]
-      nx[i, 2, e] =  J[Nq,  i, e] * ξx[Nq,  i, e]
-      ny[i, 2, e] =  J[Nq,  i, e] * ξy[Nq,  i, e]
-      nx[i, 3, e] = -J[ i,  1, e] * ηx[ i,  1, e]
-      ny[i, 3, e] = -J[ i,  1, e] * ηy[ i,  1, e]
-      nx[i, 4, e] =  J[ i, Nq, e] * ηx[ i, Nq, e]
-      ny[i, 4, e] =  J[ i, Nq, e] * ηy[ i, Nq, e]
+      n1[i, 1, e] = -J[ 1,  i, e] * ξ1x1[ 1,  i, e]
+      n2[i, 1, e] = -J[ 1,  i, e] * ξ1x2[ 1,  i, e]
+      n1[i, 2, e] =  J[Nq,  i, e] * ξ1x1[Nq,  i, e]
+      n2[i, 2, e] =  J[Nq,  i, e] * ξ1x2[Nq,  i, e]
+      n1[i, 3, e] = -J[ i,  1, e] * ξ2x1[ i,  1, e]
+      n2[i, 3, e] = -J[ i,  1, e] * ξ2x2[ i,  1, e]
+      n1[i, 4, e] =  J[ i, Nq, e] * ξ2x1[ i, Nq, e]
+      n2[i, 4, e] =  J[ i, Nq, e] * ξ2x2[ i, Nq, e]
 
       for n = 1:4
-        sJ[i, n, e] = hypot(nx[i, n, e], ny[i, n, e])
-        nx[i, n, e] /= sJ[i, n, e]
-        ny[i, n, e] /= sJ[i, n, e]
+        sJ[i, n, e] = hypot(n1[i, n, e], n2[i, n, e])
+        n1[i, n, e] /= sJ[i, n, e]
+        n2[i, n, e] /= sJ[i, n, e]
       end
     end
   end
@@ -210,17 +210,19 @@ function computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
 end
 
 """
-    computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ, nx,
-                   ny, nz, D)
+    computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3,
+                   ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
 
-Compute the 3-D metric terms from the element grid arrays `x`, `y`, and `z`. All
-the arrays are preallocated by the user and the (square) derivative matrix `D`
-should be consistent with the reference grid `r` used in [`creategrid!`](@ref).
+Compute the 3-D metric terms from the element grid arrays `x1`, `x2`, and `x3`.
+All the arrays are preallocated by the user and the (square) derivative matrix
+`D` should be consistent with the reference grid `r` used in
+[`creategrid!`](@ref).
 
-If `Nq = size(D, 1)` and `nelem = div(length(x), Nq^3)` then the volume arrays
-`x`, `y`, `z`, `J`, `ξx`, `ηx`, `ζx`, `ξy`, `ηy`, `ζy`, `ξz`, `ηz`, and `ζz`
-should all be of length `Nq^3 * nelem`.  Similarly, the face arrays `sJ`, `nx`,
-`ny`, and `nz` should be of size `Nq^2 * nface * nelem` with `nface = 6`.
+If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq^3)` then the volume arrays
+`x1`, `x2`, `x3`, `J`, `ξ1x1`, `ξ2x1`, `ξ3x1`, `ξ1x2`, `ξ2x2`, `ξ3x2`, `ξ1x3`,
+`ξ2x3`, and `ξ3x3` should all be of length `Nq^3 * nelem`.  Similarly, the face
+arrays `sJ`, `n1`, `n2`, and `n3` should be of size `Nq^2 * nface * nelem` with
+`nface = 6`.
 
 The curl invariant formulation of Kopriva (2006), equation 37, is used.
 
@@ -229,32 +231,32 @@ Reference:
   method on curvilinear meshes." Journal of Scientific Computing 26.3 (2006):
   301-327. <https://doi.org/10.1007/s10915-005-9070-8>
 """
-function computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ, nx,
-                        ny, nz, D)
-  T = eltype(x)
+function computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3,
+                        ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
+  T = eltype(x1)
 
   Nq = size(D, 1)
   nelem = div(length(J), Nq^3)
 
-  x = reshape(x, (Nq, Nq, Nq, nelem))
-  y = reshape(y, (Nq, Nq, Nq, nelem))
-  z = reshape(z, (Nq, Nq, Nq, nelem))
+  x1 = reshape(x1, (Nq, Nq, Nq, nelem))
+  x2 = reshape(x2, (Nq, Nq, Nq, nelem))
+  x3 = reshape(x3, (Nq, Nq, Nq, nelem))
   J = reshape(J, (Nq, Nq, Nq, nelem))
-  ξx = reshape(ξx, (Nq, Nq, Nq, nelem))
-  ηx = reshape(ηx, (Nq, Nq, Nq, nelem))
-  ζx = reshape(ζx, (Nq, Nq, Nq, nelem))
-  ξy = reshape(ξy, (Nq, Nq, Nq, nelem))
-  ηy = reshape(ηy, (Nq, Nq, Nq, nelem))
-  ζy = reshape(ζy, (Nq, Nq, Nq, nelem))
-  ξz = reshape(ξz, (Nq, Nq, Nq, nelem))
-  ηz = reshape(ηz, (Nq, Nq, Nq, nelem))
-  ζz = reshape(ζz, (Nq, Nq, Nq, nelem))
+  ξ1x1 = reshape(ξ1x1, (Nq, Nq, Nq, nelem))
+  ξ2x1 = reshape(ξ2x1, (Nq, Nq, Nq, nelem))
+  ξ3x1 = reshape(ξ3x1, (Nq, Nq, Nq, nelem))
+  ξ1x2 = reshape(ξ1x2, (Nq, Nq, Nq, nelem))
+  ξ2x2 = reshape(ξ2x2, (Nq, Nq, Nq, nelem))
+  ξ3x2 = reshape(ξ3x2, (Nq, Nq, Nq, nelem))
+  ξ1x3 = reshape(ξ1x3, (Nq, Nq, Nq, nelem))
+  ξ2x3 = reshape(ξ2x3, (Nq, Nq, Nq, nelem))
+  ξ3x3 = reshape(ξ3x3, (Nq, Nq, Nq, nelem))
 
   nface = 6
   #= This code is broken when views are used
-  nx = reshape(nx, Nq, Nq, nface, nelem)
-  ny = reshape(ny, Nq, Nq, nface, nelem)
-  nz = reshape(nz, Nq, Nq, nface, nelem)
+  n1 = reshape(n1, Nq, Nq, nface, nelem)
+  n2 = reshape(n2, Nq, Nq, nface, nelem)
+  n3 = reshape(n3, Nq, Nq, nface, nelem)
   sJ = reshape(sJ, Nq, Nq, nface, nelem)
   =#
 
@@ -263,137 +265,137 @@ function computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz,
   (zxr, zxs, zxt) = (similar(JI2), similar(JI2), similar(JI2))
   (xyr, xys, xyt) = (similar(JI2), similar(JI2), similar(JI2))
 
-  ξx .= zero(T)
-  ηx .= zero(T)
-  ζx .= zero(T)
-  ξy .= zero(T)
-  ηy .= zero(T)
-  ζy .= zero(T)
-  ξz .= zero(T)
-  ηz .= zero(T)
-  ζz .= zero(T)
+  ξ1x1 .= zero(T)
+  ξ2x1 .= zero(T)
+  ξ3x1 .= zero(T)
+  ξ1x2 .= zero(T)
+  ξ2x2 .= zero(T)
+  ξ3x2 .= zero(T)
+  ξ1x3 .= zero(T)
+  ξ2x3 .= zero(T)
+  ξ3x3 .= zero(T)
 
   @inbounds for e = 1:nelem
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
-      xr = xs = xt = zero(T)
-      yr = ys = yt = zero(T)
-      zr = zs = zt = zero(T)
+      x1ξ1 = x1ξ2 = x1ξ3 = zero(T)
+      x2ξ1 = x2ξ2 = x2ξ3 = zero(T)
+      x3ξ1 = x3ξ2 = x3ξ3 = zero(T)
       for n = 1:Nq
-        xr += D[i, n] * x[n, j, k, e]
-        xs += D[j, n] * x[i, n, k, e]
-        xt += D[k, n] * x[i, j, n, e]
-        yr += D[i, n] * y[n, j, k, e]
-        ys += D[j, n] * y[i, n, k, e]
-        yt += D[k, n] * y[i, j, n, e]
-        zr += D[i, n] * z[n, j, k, e]
-        zs += D[j, n] * z[i, n, k, e]
-        zt += D[k, n] * z[i, j, n, e]
+        x1ξ1 += D[i, n] * x1[n, j, k, e]
+        x1ξ2 += D[j, n] * x1[i, n, k, e]
+        x1ξ3 += D[k, n] * x1[i, j, n, e]
+        x2ξ1 += D[i, n] * x2[n, j, k, e]
+        x2ξ2 += D[j, n] * x2[i, n, k, e]
+        x2ξ3 += D[k, n] * x2[i, j, n, e]
+        x3ξ1 += D[i, n] * x3[n, j, k, e]
+        x3ξ2 += D[j, n] * x3[i, n, k, e]
+        x3ξ3 += D[k, n] * x3[i, j, n, e]
       end
-      J[i, j, k, e] = (xr * (ys * zt - zs * yt) +
-                       yr * (zs * xt - xs * zt) +
-                       zr * (xs * yt - ys * xt))
+      J[i, j, k, e] = (x1ξ1 * (x2ξ2 * x3ξ3 - x3ξ2 * x2ξ3) +
+                       x2ξ1 * (x3ξ2 * x1ξ3 - x1ξ2 * x3ξ3) +
+                       x3ξ1 * (x1ξ2 * x2ξ3 - x2ξ2 * x1ξ3))
 
       JI2[i,j,k] = 1 / (2 * J[i,j,k,e])
 
-      yzr[i, j, k] = y[i, j, k, e] * zr - z[i, j, k, e] * yr
-      yzs[i, j, k] = y[i, j, k, e] * zs - z[i, j, k, e] * ys
-      yzt[i, j, k] = y[i, j, k, e] * zt - z[i, j, k, e] * yt
-      zxr[i, j, k] = z[i, j, k, e] * xr - x[i, j, k, e] * zr
-      zxs[i, j, k] = z[i, j, k, e] * xs - x[i, j, k, e] * zs
-      zxt[i, j, k] = z[i, j, k, e] * xt - x[i, j, k, e] * zt
-      xyr[i, j, k] = x[i, j, k, e] * yr - y[i, j, k, e] * xr
-      xys[i, j, k] = x[i, j, k, e] * ys - y[i, j, k, e] * xs
-      xyt[i, j, k] = x[i, j, k, e] * yt - y[i, j, k, e] * xt
+      yzr[i, j, k] = x2[i, j, k, e] * x3ξ1 - x3[i, j, k, e] * x2ξ1
+      yzs[i, j, k] = x2[i, j, k, e] * x3ξ2 - x3[i, j, k, e] * x2ξ2
+      yzt[i, j, k] = x2[i, j, k, e] * x3ξ3 - x3[i, j, k, e] * x2ξ3
+      zxr[i, j, k] = x3[i, j, k, e] * x1ξ1 - x1[i, j, k, e] * x3ξ1
+      zxs[i, j, k] = x3[i, j, k, e] * x1ξ2 - x1[i, j, k, e] * x3ξ2
+      zxt[i, j, k] = x3[i, j, k, e] * x1ξ3 - x1[i, j, k, e] * x3ξ3
+      xyr[i, j, k] = x1[i, j, k, e] * x2ξ1 - x2[i, j, k, e] * x1ξ1
+      xys[i, j, k] = x1[i, j, k, e] * x2ξ2 - x2[i, j, k, e] * x1ξ2
+      xyt[i, j, k] = x1[i, j, k, e] * x2ξ3 - x2[i, j, k, e] * x1ξ3
     end
 
     for k = 1:Nq, j = 1:Nq, i = 1:Nq
       for n = 1:Nq
-        ξx[i, j, k, e] += D[j, n] * yzt[i, n, k]
-        ξx[i, j, k, e] -= D[k, n] * yzs[i, j, n]
-        ηx[i, j, k, e] += D[k, n] * yzr[i, j, n]
-        ηx[i, j, k, e] -= D[i, n] * yzt[n, j, k]
-        ζx[i, j, k, e] += D[i, n] * yzs[n, j, k]
-        ζx[i, j, k, e] -= D[j, n] * yzr[i, n, k]
-        ξy[i, j, k, e] += D[j, n] * zxt[i, n, k]
-        ξy[i, j, k, e] -= D[k, n] * zxs[i, j, n]
-        ηy[i, j, k, e] += D[k, n] * zxr[i, j, n]
-        ηy[i, j, k, e] -= D[i, n] * zxt[n, j, k]
-        ζy[i, j, k, e] += D[i, n] * zxs[n, j, k]
-        ζy[i, j, k, e] -= D[j, n] * zxr[i, n, k]
-        ξz[i, j, k, e] += D[j, n] * xyt[i, n, k]
-        ξz[i, j, k, e] -= D[k, n] * xys[i, j, n]
-        ηz[i, j, k, e] += D[k, n] * xyr[i, j, n]
-        ηz[i, j, k, e] -= D[i, n] * xyt[n, j, k]
-        ζz[i, j, k, e] += D[i, n] * xys[n, j, k]
-        ζz[i, j, k, e] -= D[j, n] * xyr[i, n, k]
+        ξ1x1[i, j, k, e] += D[j, n] * yzt[i, n, k]
+        ξ1x1[i, j, k, e] -= D[k, n] * yzs[i, j, n]
+        ξ2x1[i, j, k, e] += D[k, n] * yzr[i, j, n]
+        ξ2x1[i, j, k, e] -= D[i, n] * yzt[n, j, k]
+        ξ3x1[i, j, k, e] += D[i, n] * yzs[n, j, k]
+        ξ3x1[i, j, k, e] -= D[j, n] * yzr[i, n, k]
+        ξ1x2[i, j, k, e] += D[j, n] * zxt[i, n, k]
+        ξ1x2[i, j, k, e] -= D[k, n] * zxs[i, j, n]
+        ξ2x2[i, j, k, e] += D[k, n] * zxr[i, j, n]
+        ξ2x2[i, j, k, e] -= D[i, n] * zxt[n, j, k]
+        ξ3x2[i, j, k, e] += D[i, n] * zxs[n, j, k]
+        ξ3x2[i, j, k, e] -= D[j, n] * zxr[i, n, k]
+        ξ1x3[i, j, k, e] += D[j, n] * xyt[i, n, k]
+        ξ1x3[i, j, k, e] -= D[k, n] * xys[i, j, n]
+        ξ2x3[i, j, k, e] += D[k, n] * xyr[i, j, n]
+        ξ2x3[i, j, k, e] -= D[i, n] * xyt[n, j, k]
+        ξ3x3[i, j, k, e] += D[i, n] * xys[n, j, k]
+        ξ3x3[i, j, k, e] -= D[j, n] * xyr[i, n, k]
       end
-      ξx[i, j, k, e] *= JI2[i, j, k]
-      ηx[i, j, k, e] *= JI2[i, j, k]
-      ζx[i, j, k, e] *= JI2[i, j, k]
-      ξy[i, j, k, e] *= JI2[i, j, k]
-      ηy[i, j, k, e] *= JI2[i, j, k]
-      ζy[i, j, k, e] *= JI2[i, j, k]
-      ξz[i, j, k, e] *= JI2[i, j, k]
-      ηz[i, j, k, e] *= JI2[i, j, k]
-      ζz[i, j, k, e] *= JI2[i, j, k]
+      ξ1x1[i, j, k, e] *= JI2[i, j, k]
+      ξ2x1[i, j, k, e] *= JI2[i, j, k]
+      ξ3x1[i, j, k, e] *= JI2[i, j, k]
+      ξ1x2[i, j, k, e] *= JI2[i, j, k]
+      ξ2x2[i, j, k, e] *= JI2[i, j, k]
+      ξ3x2[i, j, k, e] *= JI2[i, j, k]
+      ξ1x3[i, j, k, e] *= JI2[i, j, k]
+      ξ2x3[i, j, k, e] *= JI2[i, j, k]
+      ξ3x3[i, j, k, e] *= JI2[i, j, k]
     end
 
     for j = 1:Nq, i = 1:Nq
       #= This code is broken when views are used
-      nx[i, j, 1, e] = -J[ 1, i, j, e] * ξx[ 1, i, j, e]
-      nx[i, j, 2, e] =  J[Nq, i, j, e] * ξx[Nq, i, j, e]
-      nx[i, j, 3, e] = -J[ i, 1, j, e] * ηx[ i, 1, j, e]
-      nx[i, j, 4, e] =  J[ i,Nq, j, e] * ηx[ i,Nq, j, e]
-      nx[i, j, 5, e] = -J[ i, j, 1, e] * ζx[ i, j, 1, e]
-      nx[i, j, 6, e] =  J[ i, j,Nq, e] * ζx[ i, j,Nq, e]
-      ny[i, j, 1, e] = -J[ 1, i, j, e] * ξy[ 1, i, j, e]
-      ny[i, j, 2, e] =  J[Nq, i, j, e] * ξy[Nq, i, j, e]
-      ny[i, j, 3, e] = -J[ i, 1, j, e] * ηy[ i, 1, j, e]
-      ny[i, j, 4, e] =  J[ i,Nq, j, e] * ηy[ i,Nq, j, e]
-      ny[i, j, 5, e] = -J[ i, j, 1, e] * ζy[ i, j, 1, e]
-      ny[i, j, 6, e] =  J[ i, j,Nq, e] * ζy[ i, j,Nq, e]
-      nz[i, j, 1, e] = -J[ 1, i, j, e] * ξz[ 1, i, j, e]
-      nz[i, j, 2, e] =  J[Nq, i, j, e] * ξz[Nq, i, j, e]
-      nz[i, j, 3, e] = -J[ i, 1, j, e] * ηz[ i, 1, j, e]
-      nz[i, j, 4, e] =  J[ i,Nq, j, e] * ηz[ i,Nq, j, e]
-      nz[i, j, 5, e] = -J[ i, j, 1, e] * ζz[ i, j, 1, e]
-      nz[i, j, 6, e] =  J[ i, j,Nq, e] * ζz[ i, j,Nq, e]
+      n1[i, j, 1, e] = -J[ 1, i, j, e] * ξ1x1[ 1, i, j, e]
+      n1[i, j, 2, e] =  J[Nq, i, j, e] * ξ1x1[Nq, i, j, e]
+      n1[i, j, 3, e] = -J[ i, 1, j, e] * ξ2x1[ i, 1, j, e]
+      n1[i, j, 4, e] =  J[ i,Nq, j, e] * ξ2x1[ i,Nq, j, e]
+      n1[i, j, 5, e] = -J[ i, j, 1, e] * ξ3x1[ i, j, 1, e]
+      n1[i, j, 6, e] =  J[ i, j,Nq, e] * ξ3x1[ i, j,Nq, e]
+      n2[i, j, 1, e] = -J[ 1, i, j, e] * ξ1x2[ 1, i, j, e]
+      n2[i, j, 2, e] =  J[Nq, i, j, e] * ξ1x2[Nq, i, j, e]
+      n2[i, j, 3, e] = -J[ i, 1, j, e] * ξ2x2[ i, 1, j, e]
+      n2[i, j, 4, e] =  J[ i,Nq, j, e] * ξ2x2[ i,Nq, j, e]
+      n2[i, j, 5, e] = -J[ i, j, 1, e] * ξ3x2[ i, j, 1, e]
+      n2[i, j, 6, e] =  J[ i, j,Nq, e] * ξ3x2[ i, j,Nq, e]
+      n3[i, j, 1, e] = -J[ 1, i, j, e] * ξ1x3[ 1, i, j, e]
+      n3[i, j, 2, e] =  J[Nq, i, j, e] * ξ1x3[Nq, i, j, e]
+      n3[i, j, 3, e] = -J[ i, 1, j, e] * ξ2x3[ i, 1, j, e]
+      n3[i, j, 4, e] =  J[ i,Nq, j, e] * ξ2x3[ i,Nq, j, e]
+      n3[i, j, 5, e] = -J[ i, j, 1, e] * ξ3x3[ i, j, 1, e]
+      n3[i, j, 6, e] =  J[ i, j,Nq, e] * ξ3x3[ i, j,Nq, e]
 
       for n = 1:6
-        sJ[i, j, n, e] = hypot(nx[i, j, n, e], ny[i, j, n, e], nz[i, j, n, e])
-        nx[i, j, n, e] /= sJ[i, j, n, e]
-        ny[i, j, n, e] /= sJ[i, j, n, e]
-        nz[i, j, n, e] /= sJ[i, j, n, e]
+        sJ[i, j, n, e] = hypot(n1[i, j, n, e], n2[i, j, n, e], n3[i, j, n, e])
+        n1[i, j, n, e] /= sJ[i, j, n, e]
+        n2[i, j, n, e] /= sJ[i, j, n, e]
+        n3[i, j, n, e] /= sJ[i, j, n, e]
       end
       =#
 
       ije = i + (j-1) * Nq + (e-1) * nface * Nq^2
-      nx[ije + (1-1) * Nq^2] = -J[ 1, i, j, e] * ξx[ 1, i, j, e]
-      nx[ije + (2-1) * Nq^2] =  J[Nq, i, j, e] * ξx[Nq, i, j, e]
-      nx[ije + (3-1) * Nq^2] = -J[ i, 1, j, e] * ηx[ i, 1, j, e]
-      nx[ije + (4-1) * Nq^2] =  J[ i,Nq, j, e] * ηx[ i,Nq, j, e]
-      nx[ije + (5-1) * Nq^2] = -J[ i, j, 1, e] * ζx[ i, j, 1, e]
-      nx[ije + (6-1) * Nq^2] =  J[ i, j,Nq, e] * ζx[ i, j,Nq, e]
-      ny[ije + (1-1) * Nq^2] = -J[ 1, i, j, e] * ξy[ 1, i, j, e]
-      ny[ije + (2-1) * Nq^2] =  J[Nq, i, j, e] * ξy[Nq, i, j, e]
-      ny[ije + (3-1) * Nq^2] = -J[ i, 1, j, e] * ηy[ i, 1, j, e]
-      ny[ije + (4-1) * Nq^2] =  J[ i,Nq, j, e] * ηy[ i,Nq, j, e]
-      ny[ije + (5-1) * Nq^2] = -J[ i, j, 1, e] * ζy[ i, j, 1, e]
-      ny[ije + (6-1) * Nq^2] =  J[ i, j,Nq, e] * ζy[ i, j,Nq, e]
-      nz[ije + (1-1) * Nq^2] = -J[ 1, i, j, e] * ξz[ 1, i, j, e]
-      nz[ije + (2-1) * Nq^2] =  J[Nq, i, j, e] * ξz[Nq, i, j, e]
-      nz[ije + (3-1) * Nq^2] = -J[ i, 1, j, e] * ηz[ i, 1, j, e]
-      nz[ije + (4-1) * Nq^2] =  J[ i,Nq, j, e] * ηz[ i,Nq, j, e]
-      nz[ije + (5-1) * Nq^2] = -J[ i, j, 1, e] * ζz[ i, j, 1, e]
-      nz[ije + (6-1) * Nq^2] =  J[ i, j,Nq, e] * ζz[ i, j,Nq, e]
+      n1[ije + (1-1) * Nq^2] = -J[ 1, i, j, e] * ξ1x1[ 1, i, j, e]
+      n1[ije + (2-1) * Nq^2] =  J[Nq, i, j, e] * ξ1x1[Nq, i, j, e]
+      n1[ije + (3-1) * Nq^2] = -J[ i, 1, j, e] * ξ2x1[ i, 1, j, e]
+      n1[ije + (4-1) * Nq^2] =  J[ i,Nq, j, e] * ξ2x1[ i,Nq, j, e]
+      n1[ije + (5-1) * Nq^2] = -J[ i, j, 1, e] * ξ3x1[ i, j, 1, e]
+      n1[ije + (6-1) * Nq^2] =  J[ i, j,Nq, e] * ξ3x1[ i, j,Nq, e]
+      n2[ije + (1-1) * Nq^2] = -J[ 1, i, j, e] * ξ1x2[ 1, i, j, e]
+      n2[ije + (2-1) * Nq^2] =  J[Nq, i, j, e] * ξ1x2[Nq, i, j, e]
+      n2[ije + (3-1) * Nq^2] = -J[ i, 1, j, e] * ξ2x2[ i, 1, j, e]
+      n2[ije + (4-1) * Nq^2] =  J[ i,Nq, j, e] * ξ2x2[ i,Nq, j, e]
+      n2[ije + (5-1) * Nq^2] = -J[ i, j, 1, e] * ξ3x2[ i, j, 1, e]
+      n2[ije + (6-1) * Nq^2] =  J[ i, j,Nq, e] * ξ3x2[ i, j,Nq, e]
+      n3[ije + (1-1) * Nq^2] = -J[ 1, i, j, e] * ξ1x3[ 1, i, j, e]
+      n3[ije + (2-1) * Nq^2] =  J[Nq, i, j, e] * ξ1x3[Nq, i, j, e]
+      n3[ije + (3-1) * Nq^2] = -J[ i, 1, j, e] * ξ2x3[ i, 1, j, e]
+      n3[ije + (4-1) * Nq^2] =  J[ i,Nq, j, e] * ξ2x3[ i,Nq, j, e]
+      n3[ije + (5-1) * Nq^2] = -J[ i, j, 1, e] * ξ3x3[ i, j, 1, e]
+      n3[ije + (6-1) * Nq^2] =  J[ i, j,Nq, e] * ξ3x3[ i, j,Nq, e]
 
       for n = 1:6
-        sJ[ije + (n-1) * Nq^2] = hypot(nx[ije + (n-1) *  Nq^2],
-                                       ny[ije + (n-1) *  Nq^2],
-                                       nz[ije + (n-1) *  Nq^2])
-        nx[ije + (n-1) * Nq^2] /= sJ[ije + (n-1) *  Nq^2]
-        ny[ije + (n-1) * Nq^2] /= sJ[ije + (n-1) *  Nq^2]
-        nz[ije + (n-1) * Nq^2] /= sJ[ije + (n-1) *  Nq^2]
+        sJ[ije + (n-1) * Nq^2] = hypot(n1[ije + (n-1) *  Nq^2],
+                                       n2[ije + (n-1) *  Nq^2],
+                                       n3[ije + (n-1) *  Nq^2])
+        n1[ije + (n-1) * Nq^2] /= sJ[ije + (n-1) *  Nq^2]
+        n2[ije + (n-1) * Nq^2] /= sJ[ije + (n-1) *  Nq^2]
+        n3[ije + (n-1) * Nq^2] /= sJ[ije + (n-1) *  Nq^2]
       end
     end
   end
@@ -413,160 +415,160 @@ Create a grid using `elemtocoord` (see [`brickmesh`](@ref)) using the 1-D `(-1,
 1)` reference coordinates `r`. The element grids are filled using bilinear
 interpolation of the element coordinates.
 
-The grid is returned as a tuple of with `x` array
+The grid is returned as a tuple of with `x1` array
 """
 function creategrid(::Val{1}, e2c::AbstractArray{S, 3},
                     r::AbstractVector{T}) where {S, T}
   (d, nvert, nelem) = size(e2c)
   @assert d == 1
-  Nq = length(r)
-  x = Array{T, 2}(undef, Nq, nelem)
-  creategrid!(x, e2c, r)
-  (x=x, )
+Nq = length(r)
+x1 = Array{T, 2}(undef, Nq, nelem)
+creategrid!(x1, e2c, r)
+(x1=x1, )
 end
 
 """
-    creategrid(::Val{2}, elemtocoord::AbstractArray{S, 3},
-               r::AbstractVector{T}) where {S, T}
+  creategrid(::Val{2}, elemtocoord::AbstractArray{S, 3},
+             r::AbstractVector{T}) where {S, T}
 
 Create a 2-D tensor product grid using `elemtocoord` (see [`brickmesh`](@ref))
 using the 1-D `(-1, 1)` reference coordinates `r`. The element grids are filled
 using bilinear interpolation of the element coordinates.
 
-The grid is returned as a tuple of the `x` and `y` arrays
+The grid is returned as a tuple of the `x1` and `x2` arrays
 """
 function creategrid(::Val{2}, e2c::AbstractArray{S, 3},
-                    r::AbstractVector{T}) where {S, T}
-  (d, nvert, nelem) = size(e2c)
-  @assert d == 2
-  Nq = length(r)
-  x = Array{T, 3}(undef, Nq, Nq, nelem)
-  y = Array{T, 3}(undef, Nq, Nq, nelem)
-  creategrid!(x, y, e2c, r)
-  (x=x, y=y)
+                  r::AbstractVector{T}) where {S, T}
+(d, nvert, nelem) = size(e2c)
+@assert d == 2
+Nq = length(r)
+x1 = Array{T, 3}(undef, Nq, Nq, nelem)
+x2 = Array{T, 3}(undef, Nq, Nq, nelem)
+creategrid!(x1, x2, e2c, r)
+(x1=x1, x2=x2)
 end
 
 """
-    creategrid(::Val{3}, elemtocoord::AbstractArray{S, 3},
-               r::AbstractVector{T}) where {S, T}
+  creategrid(::Val{3}, elemtocoord::AbstractArray{S, 3},
+             r::AbstractVector{T}) where {S, T}
 
 Create a 3-D tensor product grid using `elemtocoord` (see [`brickmesh`](@ref))
 using the 1-D `(-1, 1)` reference coordinates `r`. The element grids are filled
 using bilinear interpolation of the element coordinates.
 
-The grid is returned as a tuple of the `x`, `y`, `z` arrays
+The grid is returned as a tuple of the `x1`, `x2`, `x3` arrays
 """
 function creategrid(::Val{3}, e2c::AbstractArray{S, 3},
-                    r::AbstractVector{T}) where {S, T}
-  (d, nvert, nelem) = size(e2c)
-  @assert d == 3
-  Nq = length(r)
-  x = Array{T, 4}(undef, Nq, Nq, Nq, nelem)
-  y = Array{T, 4}(undef, Nq, Nq, Nq, nelem)
-  z = Array{T, 4}(undef, Nq, Nq, Nq, nelem)
-  creategrid!(x, y, z, e2c, r)
-  (x=x, y=y, z=z)
+                  r::AbstractVector{T}) where {S, T}
+(d, nvert, nelem) = size(e2c)
+@assert d == 3
+Nq = length(r)
+x1 = Array{T, 4}(undef, Nq, Nq, Nq, nelem)
+x2 = Array{T, 4}(undef, Nq, Nq, Nq, nelem)
+x3 = Array{T, 4}(undef, Nq, Nq, Nq, nelem)
+creategrid!(x1, x2, x3, e2c, r)
+(x1=x1, x2=x2, x3=x3)
 end
 
 """
-    computemetric(x::AbstractArray{T, 2}, D::AbstractMatrix{T}) where T
+  computemetric(x1::AbstractArray{T, 2}, D::AbstractMatrix{T}) where T
 
-Compute the 1-D metric terms from the element grid array `x` using the
+Compute the 1-D metric terms from the element grid array `x1` using the
 derivative matrix `D`. The derivative matrix `D` should be consistent with the
 reference grid `r` used in [`creategrid!`](@ref).
 
 The metric terms are returned as a 'NamedTuple` of the following arrays:
 
- - `J` the Jacobian determinant
- - `ξx` derivative ∂r / ∂x'
- - `sJ` the surface Jacobian
- - 'nx` outward pointing unit normal in \$x\$-direction
+- `J` the Jacobian determinant
+- `ξ1x1` derivative ∂r / ∂x1'
+- `sJ` the surface Jacobian
+- 'n1` outward pointing unit normal in \$x1\$-direction
 """
-function computemetric(x::AbstractArray{T, 2},
-                       D::AbstractMatrix{T}) where T
+function computemetric(x1::AbstractArray{T, 2},
+                     D::AbstractMatrix{T}) where T
 
-  Nq = size(D,1)
-  nelem = size(x, 2)
-  nface = 2
+Nq = size(D,1)
+nelem = size(x1, 2)
+nface = 2
 
-  J = similar(x)
-  ξx = similar(x)
+J = similar(x1)
+ξ1x1 = similar(x1)
 
-  sJ = Array{T, 3}(undef, 1, nface, nelem)
-  nx = Array{T, 3}(undef, 1, nface, nelem)
+sJ = Array{T, 3}(undef, 1, nface, nelem)
+n1 = Array{T, 3}(undef, 1, nface, nelem)
 
-  computemetric!(x, J, ξx, sJ, nx, D)
+computemetric!(x1, J, ξ1x1, sJ, n1, D)
 
-  (J=J, ξx=ξx, sJ=sJ, nx=nx)
+(J=J, ξ1x1=ξ1x1, sJ=sJ, n1=n1)
 end
 
 
 """
-    computemetric(x::AbstractArray{T, 3}, y::AbstractArray{T, 3},
-                  D::AbstractMatrix{T}) where T
+  computemetric(x1::AbstractArray{T, 3}, x2::AbstractArray{T, 3},
+                D::AbstractMatrix{T}) where T
 
-Compute the 2-D metric terms from the element grid arrays `x` and `y` using the
-derivative matrix `D`. The derivative matrix `D` should be consistent with the
-reference grid `r` used in [`creategrid!`](@ref).
+Compute the 2-D metric terms from the element grid arrays `x1` and `x2` using
+the derivative matrix `D`. The derivative matrix `D` should be consistent with
+the reference grid `r` used in [`creategrid!`](@ref).
 
 The metric terms are returned as a 'NamedTuple` of the following arrays:
 
- - `J` the Jacobian determinant
- - `ξx` derivative ∂r / ∂x'
- - `ηx` derivative ∂s / ∂x'
- - `ξy` derivative ∂r / ∂y'
- - `ηy` derivative ∂s / ∂y'
+- `J` the Jacobian determinant
+- `ξ1x1` derivative ∂ξ1 / ∂x1'
+- `ξ2x1` derivative ∂ξ2 / ∂x1'
+ - `ξ1x2` derivative ∂ξ1 / ∂x2'
+ - `ξ2x2` derivative ∂ξ2 / ∂x2'
  - `sJ` the surface Jacobian
- - 'nx` outward pointing unit normal in \$x\$-direction
- - 'ny` outward pointing unit normal in \$y\$-direction
+ - 'n1` outward pointing unit normal in \$x1\$-direction
+ - 'n2` outward pointing unit normal in \$x2\$-direction
 """
-function computemetric(x::AbstractArray{T, 3},
-                       y::AbstractArray{T, 3},
+function computemetric(x1::AbstractArray{T, 3},
+                       x2::AbstractArray{T, 3},
                        D::AbstractMatrix{T}) where T
-  @assert size(x) == size(y)
+  @assert size(x1) == size(x2)
   Nq = size(D,1)
-  nelem = size(x, 3)
+  nelem = size(x1, 3)
   nface = 4
 
-  J = similar(x)
-  ξx = similar(x)
-  ηx = similar(x)
-  ξy = similar(x)
-  ηy = similar(x)
+  J = similar(x1)
+  ξ1x1 = similar(x1)
+  ξ2x1 = similar(x1)
+  ξ1x2 = similar(x1)
+  ξ2x2 = similar(x1)
 
   sJ = Array{T, 3}(undef, Nq, nface, nelem)
-  nx = Array{T, 3}(undef, Nq, nface, nelem)
-  ny = Array{T, 3}(undef, Nq, nface, nelem)
+  n1 = Array{T, 3}(undef, Nq, nface, nelem)
+  n2 = Array{T, 3}(undef, Nq, nface, nelem)
 
-  computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
+  computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
 
-  (J=J, ξx=ξx, ηx=ηx, ξy=ξy, ηy=ηy, sJ=sJ, nx=nx, ny=ny)
+  (J=J, ξ1x1=ξ1x1, ξ2x1=ξ2x1, ξ1x2=ξ1x2, ξ2x2=ξ2x2, sJ=sJ, n1=n1, n2=n2)
 end
 
 """
-    computemetric(x::AbstractArray{T, 3}, y::AbstractArray{T, 3},
+    computemetric(x1::AbstractArray{T, 3}, x2::AbstractArray{T, 3},
                   D::AbstractMatrix{T}) where T
 
-Compute the 3-D metric terms from the element grid arrays `x`, `y`, and `z`
+Compute the 3-D metric terms from the element grid arrays `x1`, `x2`, and `x3`
 using the derivative matrix `D`. The derivative matrix `D` should be consistent
 with the reference grid `r` used in [`creategrid!`](@ref).
 
 The metric terms are returned as a 'NamedTuple` of the following arrays:
 
  - `J` the Jacobian determinant
- - `ξx` derivative ∂r / ∂x'
- - `ηx` derivative ∂s / ∂x'
- - `ζx` derivative ∂t / ∂x'
- - `ξy` derivative ∂r / ∂y'
- - `ηy` derivative ∂s / ∂y'
- - `ζy` derivative ∂t / ∂y'
- - `ξz` derivative ∂r / ∂z'
- - `ηz` derivative ∂s / ∂z'
- - `ζz` derivative ∂t / ∂z'
+ - `ξ1x1` derivative ∂ξ1 / ∂x1'
+ - `ξ2x1` derivative ∂ξ2 / ∂x1'
+ - `ξ3x1` derivative ∂ξ3 / ∂x1'
+ - `ξ1x2` derivative ∂ξ1 / ∂x2'
+ - `ξ2x2` derivative ∂ξ2 / ∂x2'
+ - `ξ3x2` derivative ∂ξ3 / ∂x2'
+ - `ξ1x3` derivative ∂ξ1 / ∂x3'
+ - `ξ2x3` derivative ∂ξ2 / ∂x3'
+ - `ξ3x3` derivative ∂ξ3 / ∂x3'
  - `sJ` the surface Jacobian
- - 'nx` outward pointing unit normal in \$x\$-direction
- - 'ny` outward pointing unit normal in \$y\$-direction
- - 'nz` outward pointing unit normal in \$z\$-direction
+ - 'n1` outward pointing unit normal in \$x1\$-direction
+ - 'n2` outward pointing unit normal in \$x2\$-direction
+ - 'n3` outward pointing unit normal in \$x3\$-direction
 
 !!! note
 
@@ -574,37 +576,37 @@ The metric terms are returned as a 'NamedTuple` of the following arrays:
    slightly different. The volume terms used Cartesian indexing whereas the
    surface terms use linear indexing.
 """
-function computemetric(x::AbstractArray{T, 4},
-                       y::AbstractArray{T, 4},
-                       z::AbstractArray{T, 4},
+function computemetric(x1::AbstractArray{T, 4},
+                       x2::AbstractArray{T, 4},
+                       x3::AbstractArray{T, 4},
                        D::AbstractMatrix{T}) where T
 
-  @assert size(x) == size(y) == size(z)
+  @assert size(x1) == size(x2) == size(x3)
   Nq = size(D,1)
-  nelem = size(x, 4)
+  nelem = size(x1, 4)
   nface = 6
 
-  J = similar(x)
-  ξx = similar(x)
-  ηx = similar(x)
-  ζx = similar(x)
-  ξy = similar(x)
-  ηy = similar(x)
-  ζy = similar(x)
-  ξz = similar(x)
-  ηz = similar(x)
-  ζz = similar(x)
+  J = similar(x1)
+  ξ1x1 = similar(x1)
+  ξ2x1 = similar(x1)
+  ξ3x1 = similar(x1)
+  ξ1x2 = similar(x1)
+  ξ2x2 = similar(x1)
+  ξ3x2 = similar(x1)
+  ξ1x3 = similar(x1)
+  ξ2x3 = similar(x1)
+  ξ3x3 = similar(x1)
 
   sJ = Array{T, 3}(undef, Nq^2, nface, nelem)
-  nx = Array{T, 3}(undef, Nq^2, nface, nelem)
-  ny = Array{T, 3}(undef, Nq^2, nface, nelem)
-  nz = Array{T, 3}(undef, Nq^2, nface, nelem)
+  n1 = Array{T, 3}(undef, Nq^2, nface, nelem)
+  n2 = Array{T, 3}(undef, Nq^2, nface, nelem)
+  n3 = Array{T, 3}(undef, Nq^2, nface, nelem)
 
-  computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ,
-                 nx, ny, nz, D)
+  computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3,
+                 ξ3x3, sJ, n1, n2, n3, D)
 
-  (J=J, ξx=ξx, ηx=ηx, ζx=ζx, ξy=ξy, ηy=ηy, ζy=ζy, ξz=ξz, ηz=ηz, ζz=ζz, sJ=sJ,
-   nx=nx, ny=ny, nz=nz)
+  (J=J, ξ1x1=ξ1x1, ξ2x1=ξ2x1, ξ3x1=ξ3x1, ξ1x2=ξ1x2, ξ2x2=ξ2x2, ξ3x2=ξ3x2,
+   ξ1x3=ξ1x3, ξ2x3=ξ2x3, ξ3x3=ξ3x3, sJ=sJ, n1=n1, n2=n2, n3=n3)
 end
 
 end # module
