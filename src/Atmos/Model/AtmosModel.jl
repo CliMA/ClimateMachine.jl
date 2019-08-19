@@ -252,31 +252,6 @@ function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
   m.init_state(state, aux, coords, t)
 end
 
-"""
-  RisingBubbleBC<: BoundaryCondition
-"""
-struct RisingBubbleBC <: BoundaryCondition
-end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: RisingBubbleBC,IS}
-  @inbounds begin
-    DFloat = eltype(stateP)
-    xM, yM, zM = auxM.coord.x, auxM.coord.y, auxM.coord.z
-    ρP  = stateM.ρ
-    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
-    # Weak Boundary Condition Imposition
-    # Prescribe reflective wall
-    # Note that with the default resolution this results in an underresolved near-wall layer
-    # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
-    # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
-    stateP.ρ = ρP
-    stateP.ρu = stateM.ρu - 2 * dot(stateM.ρu, nM) * collect(nM)
-    UP, VP, WP = stateP.ρu
-    stateP.ρe = (stateM.ρe + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
-    diffP = diffM 
-    nothing
-  end
-end
 
 """
   RayleighBenardBC <: BoundaryCondition
@@ -287,8 +262,8 @@ end
 function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: RayleighBenardBC,IS}
   @inbounds begin
-    DFloat = eltype(stateP)
-    xM, yM, zM = auxM.coord.x, auxM.coord.y, auxM.coord.z
+    DF = eltype(stateP)
+    xM, yM, zM = auxM.coord[1], auxM.coord[2], auxM.coord[3]
     ρP  = stateM.ρ
     ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
     # Weak Boundary Condition Imposition
@@ -296,10 +271,10 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     # Note that with the default resolution this results in an underresolved near-wall layer
     # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
     # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
-    UP  = DFloat(0)
-    VP  = DFloat(0) 
-    WP  = DFloat(0) 
-    if auxM.coord.z < DFloat(0.001)
+    UP  = DF(0)
+    VP  = DF(0) 
+    WP  = DF(0) 
+    if zM < DF(0.001)
       E_intP = ρP * cv_d * (320.0 - T_0)
     else
       E_intP = ρP * cv_d * (240.0 - T_0) 
@@ -308,9 +283,8 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     stateP.ρu = SVector(UP, VP, WP)
     stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
     diffP = diffM
-    diffP.ρτ = SVector(ρτ11, ρτ22, DFloat(0), ρτ12, ρτ13,ρτ23)
-    diffP.ρ_SGS_enthalpyflux = SVector(diffP.ρ_SGS_enthalpyflux[1], diffP.ρ_SGS_enthalpyflux[2], DFloat(0))
-    #diffP.moisture.ρ_SGS_enthalpyflux = DFloat(0)
+    diffP.ρτ = SVector(ρτ11, ρτ22, DF(0), ρτ12, ρτ13,ρτ23)
+    diffP.ρ_SGS_enthalpyflux = SVector(diffP.ρ_SGS_enthalpyflux[1], diffP.ρ_SGS_enthalpyflux[2], DF(0))
     nothing
   end
 end
