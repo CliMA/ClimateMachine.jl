@@ -25,7 +25,8 @@ A `BalanceLaw` for atmosphere modelling.
     AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
 
 """
-struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{RF,T,M,R,S,BC,IS} <: BalanceLaw
+  refstate::RF
   turbulence::T
   moisture::M
   radiation::R
@@ -173,13 +174,15 @@ function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::
   update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
+include("refstate.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
 
 # TODO: figure out a nice way to handle this
-function init_aux!(::AtmosModel, aux::Vars, x)
+function init_aux!(m::AtmosModel, aux::Vars, x)
   aux.coord = SVector(x)
+  init_aux!(m.refstate, aux, x)
 end
 
 """
