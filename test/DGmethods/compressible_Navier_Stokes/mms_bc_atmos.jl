@@ -108,10 +108,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
+    model = AtmosModel(FlatOrientation(), ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
     mms2_source!, InitStateBC(), mms2_init_state!)
   else
-    model = AtmosModel(ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
+    model = AtmosModel(FlatOrientation(), ConstantViscosityWithDivergence(DFloat(μ_exact)),MMSDryModel(),NoRadiation(),
     mms3_source!, InitStateBC(), mms3_init_state!)
   end
 
