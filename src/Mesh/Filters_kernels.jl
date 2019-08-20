@@ -25,12 +25,12 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  filterinξ = horizontal
-  filterinη = dim == 2 ? vertical : horizontal
-  filterinζ = dim == 2 ? false : vertical
+  filterinξ1 = horizontal
+  filterinξ2 = dim == 2 ? vertical : horizontal
+  filterinξ3 = dim == 2 ? false : vertical
 
   # Return if we are not filtering in any direction
-  if !(filterinξ || filterinη || filterinζ)
+  if !(filterinξ1 || filterinξ2 || filterinξ3)
     return
   end
 
@@ -66,7 +66,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
     end
 
 
-    if filterinξ
+    if filterinξ1
       @synchronize
       @loop for k in (1:Nqk; threadIdx().z)
         @loop for j in (1:Nq; threadIdx().y)
@@ -80,7 +80,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
         end
       end
 
-      if filterinη || filterinζ
+      if filterinξ2 || filterinξ3
         @loop for k in (1:Nqk; threadIdx().z)
           @loop for j in (1:Nq; threadIdx().y)
             @loop for i in (1:Nq; threadIdx().x)
@@ -94,7 +94,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
       end
     end
 
-    if filterinη
+    if filterinξ2
       @synchronize
       @loop for k in (1:Nqk; threadIdx().z)
         @loop for j in (1:Nq; threadIdx().y)
@@ -108,7 +108,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
         end
       end
 
-      if filterinζ
+      if filterinξ3
         @loop for k in (1:Nqk; threadIdx().z)
           @loop for j in (1:Nq; threadIdx().y)
             @loop for i in (1:Nq; threadIdx().x)
@@ -122,7 +122,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
       end
     end
 
-    if filterinζ
+    if filterinξ3
       @synchronize
       @loop for k in (1:Nqk; threadIdx().z)
         @loop for j in (1:Nq; threadIdx().y)

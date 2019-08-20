@@ -52,16 +52,28 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   ghostelems::UnitRange{Int64}
 
   """
-  Array of send element indices sorted so that
+  Ghost element to face is received; `ghostfaces[f,ge] == true` if face `f` of
+  ghost element `ge` is received.
+  """
+  ghostfaces::BitArray{2}
+
+  """
+  Array of send element indices
   """
   sendelems::Array{Int64, 1}
+
+  """
+  Send element to face is sent; `sendfaces[f,se] == true` if face `f` of send
+  element `se` is sent.
+  """
+  sendfaces::BitArray{2}
 
   """
   Element to vertex coordinates; `elemtocoord[d,i,e]` is the `d`th coordinate of
   corner `i` of element `e`
 
   !!! note
-      currently coordinates always are of size 3 for `(x, y, z)`
+      currently coordinates always are of size 3 for `(x1, x2, x3)`
   """
   elemtocoord::Array{T, 3}
 
@@ -125,7 +137,8 @@ hasboundary(topology::AbstractTopology) = topology.hasboundary
 if VERSION >= v"1.2-"
   isstacked(::T) where {T<:AbstractTopology} = hasfield(T, :stacksize)
 else
-  isstacked(::T) where {T<:AbstractTopology} = Base.fieldindex(T, :stacksize, false) > 0
+  isstacked(::T) where {T<:AbstractTopology} = Base.fieldindex(T, :stacksize,
+                                                               false) > 0
 end
 
 """
@@ -206,7 +219,7 @@ boundary number.
 # Examples
 
 We can build a 3 by 2 element two-dimensional mesh that is periodic in the
-\$x_2\$-direction with
+\$x2\$-direction with
 ```jldoctest brickmesh
 
 using CLIMA.Topologies
@@ -218,7 +231,7 @@ topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
 ```
 This returns the mesh structure for
 
-             x_2
+             x2
 
               ^
               |
@@ -232,7 +245,7 @@ This returns the mesh structure for
               |  |     |     |     |
              4-  +-----+-----+-----+
               |
-              +--|-----|-----|-----|--> x_1
+              +--|-----|-----|-----|--> x1
                  2     3     4     5
 
 For example, the (dimension by number of corners by number of elements) array
@@ -300,10 +313,11 @@ function BrickTopology(mpicomm, elemrange;
   T = eltype(topology.elemtocoord)
   return BrickTopology{dim, T}(BoxElementTopology{dim, T}(
               mpicomm, topology.elems, topology.realelems,
-              topology.ghostelems, topology.sendelems, topology.elemtocoord,
-              topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
-              topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-              topology.nabrtosend, !minimum(periodicity)))
+              topology.ghostelems, topology.ghostfaces, topology.sendelems,
+              topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
+              topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
+              topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend,
+              !minimum(periodicity)))
 end
 
 """ A wrapper for the StackedBrickTopology """
@@ -330,7 +344,7 @@ boundary number.
 # Examples
 
 We can build a 3 by 2 element two-dimensional mesh that is periodic in the
-\$x_2\$-direction with
+\$x2\$-direction with
 ```jldoctest brickmesh
 
 using CLIMA.Topologies
@@ -340,9 +354,9 @@ topology = StackedBrickTopology(MPI.COMM_SELF, (2:5,4:6);
                                 periodicity=(false,true),
                                 boundary=[1 3; 2 4])
 ```
-This returns the mesh structure stacked in the \$x_2\$-direction for
+This returns the mesh structure stacked in the \$x2\$-direction for
 
-             x_2
+             x2
 
               ^
               |
@@ -356,7 +370,7 @@ This returns the mesh structure stacked in the \$x_2\$-direction for
               |  |     |     |     |
              4-  +-----+-----+-----+
               |
-              +--|-----|-----|-----|--> x_1
+              +--|-----|-----|-----|--> x1
                  2     3     4     5
 
 For example, the (dimension by number of corners by number of elements) array
@@ -439,6 +453,26 @@ function StackedBrickTopology(mpicomm, elemrange;
                       length(basetopo.sendelems)*stacksize)
   for i=1:length(basetopo.sendelems), j=1:stacksize
     sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
+  end
+
+  ghostfaces = similar(basetopo.ghostfaces, nface, length(ghostelems))
+  ghostfaces .= false
+
+  for i=1:length(basetopo.ghostelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f = 1:2(dim-1)
+      ghostfaces[f, e] = basetopo.ghostfaces[f, i]
+    end
+  end
+
+  sendfaces = similar(basetopo.sendfaces, nface, length(sendelems))
+  sendfaces .= false
+
+  for i=1:length(basetopo.sendelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f = 1:2(dim-1)
+      sendfaces[f, e] = basetopo.sendfaces[f, i]
+    end
   end
 
   elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
@@ -541,7 +575,7 @@ function StackedBrickTopology(mpicomm, elemrange;
 
   StackedBrickTopology{dim, T}(
     BoxElementTopology{dim, T}(
-      mpicomm, elems, realelems, ghostelems, sendelems,
+      mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems, sendfaces,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
       nabrtorank, nabrtorecv, nabrtosend, !minimum(periodicity)),
     stacksize)
@@ -574,15 +608,15 @@ topology = CubedShellTopology(MPI.COMM_SELF, 10, Float64)
 # corners could be warped with...
 
 # Shell radius = 1
-x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
-for n = 1:length(x)
-   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
+x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
+for n = 1:length(x1)
+   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
 end
 
 # Shell radius = 10
-x, y, z = ntuple(j->topology.elemtocoord[j, :, :], 3)
-for n = 1:length(x)
-  x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n], 10)
+x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
+for n = 1:length(x1)
+  x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n], 10)
 end
 ```
 """
@@ -619,10 +653,10 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
   CubedShellTopology{T}(
     BoxElementTopology{2, T}(
       mpicomm, topology.elems, topology.realelems,
-      topology.ghostelems, topology.sendelems, topology.elemtocoord,
-      topology.elemtoelem, topology.elemtoface, topology.elemtoordr,
-      topology.elemtobndy, topology.nabrtorank, topology.nabrtorecv,
-      topology.nabrtosend, false))
+      topology.ghostelems, topology.ghostfaces, topology.sendelems,
+      topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
+      topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
+      topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend, false))
 end
 
 """
@@ -642,7 +676,7 @@ and a remapping is needed to embed the mesh in a 3-D space.
 The mesh structures for the cubes is as follows:
 
 ```
-x_2
+x2
    ^
    |
 4Ne-           +-------+
@@ -663,7 +697,7 @@ x_2
    |   |       |       |       |
   0-   +-------+-------+-------+
    |
-   +---|-------|-------|------|-> x_1
+   +---|-------|-------|------|-> x1
        0      Ne      2Ne    3Ne
 ```
 
@@ -753,35 +787,35 @@ function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
   function f(sR, ξ, η)
     X, Y = tan(π * ξ / 4), tan(π * η / 4)
-    x = sR / sqrt(X^2 + Y^2 + 1)
-    y, z = X * x, Y * x
-    x,y,z
+    x1 = sR / sqrt(X^2 + Y^2 + 1)
+    x2, x3 = X * x1, Y * x1
+    x1,x2,x3
   end
 
   fdim = argmax(abs.((a, b, c)))
   if fdim == 1 && a < 0
     # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-    x,y,z = f(-R, b/a, c/a)
+    x1,x2,x3 = f(-R, b/a, c/a)
   elseif fdim == 2 && b < 0
     # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
-    y,x,z = f(-R, a/b, c/b)
+    x2,x1,x3 = f(-R, a/b, c/b)
   elseif fdim == 1 && a > 0
     # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
-    x,y,z = f(R, b/a, c/a)
+    x1,x2,x3 = f(R, b/a, c/a)
   elseif fdim == 2 && b > 0
     # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
-    y,x,z = f(R, a/b, c/b)
+    x2,x1,x3 = f(R, a/b, c/b)
   elseif fdim == 3 && c > 0
     # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
-    z,y,x = f(R, b/c, a/c)
+    x3,x2,x1 = f(R, b/c, a/c)
   elseif fdim == 3 && c < 0
     # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
-    z,y,x = f(-R, b/c, a/c)
+    x3,x2,x1 = f(-R, b/c, a/c)
   else
     error("invalid case for cubedshellwarp: $a, $b, $c")
   end
 
-  x, y, z
+  x1, x2, x3
 end
 
 """
@@ -814,10 +848,10 @@ Nstack = 5
 Rrange = Float64.(accumulate(+,1:Nstack+1))
 topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange)
 
-x, y, z = ntuple(j->reshape(topology.elemtocoord[j, :, :],
+x1, x2, x3 = ntuple(j->reshape(topology.elemtocoord[j, :, :],
                             2, 2, 2, length(topology.elems)), 3)
-for n = 1:length(x)
-   x[n], y[n], z[n] = Topologies.cubedshellwarp(x[n], y[n], z[n])
+for n = 1:length(x1)
+   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
 end
 ```
 Note that the faces are listed in Cartesian order.
@@ -846,6 +880,26 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
 
   for i=1:length(basetopo.sendelems), j=1:stacksize
     sendelems[stacksize*(i-1) + j] = stacksize*(basetopo.sendelems[i]-1) + j
+  end
+
+  ghostfaces = similar(basetopo.ghostfaces, nface, length(ghostelems))
+  ghostfaces .= false
+
+  for i=1:length(basetopo.ghostelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f = 1:2(dim-1)
+      ghostfaces[f, e] = basetopo.ghostfaces[f, i]
+    end
+  end
+
+  sendfaces = similar(basetopo.sendfaces, nface, length(sendelems))
+  sendfaces .= false
+
+  for i=1:length(basetopo.sendelems), j=1:stacksize
+    e = stacksize*(i-1) + j
+    for f=1:2(dim-1)
+      sendfaces[f, e] = basetopo.sendfaces[f, i]
+    end
   end
 
   elemtocoord = similar(basetopo.elemtocoord, dim, nvert, length(elems))
@@ -941,8 +995,8 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
 
   StackedCubedSphereTopology{T}(
     BoxElementTopology{3, T}(
-      mpicomm, elems, realelems, ghostelems, sendelems,
-      elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
+      mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems,
+      sendfaces, elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
       nabrtorank, nabrtorecv, nabrtosend, true),
     stacksize)
 end
@@ -951,11 +1005,12 @@ end
 """    
     grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
 
-        This function is the extrema of a 1D domain (e.g. the z direction of the mesh at hand)
-        and stretches the 1D grid in that direction.
+        This function is the extrema of a 1D domain (e.g. the x3 direction of
+        the mesh at hand) and stretches the 1D grid in that direction.
 
-        It returns the 1D range `range_stretched` to be then passed to `brickrange = (x_range, y_range, z_range)` in the driver
-        in place of `x_range`, or `y_range` or `z_range`
+        It returns the 1D range `range_stretched` to be then passed to
+        `brickrange = (x1_range, x2_range, x3_range)` in the driver in place of
+        `x1_range`, or `x2_range` or `x3_range`
 
         The use needs to define the type of stretching `stretching_type` 
         Now `boundary_layer` and `top_layer` are the only options availabe.
