@@ -244,6 +244,11 @@ struct DYCOMS_BC <: BoundaryCondition
 end
 function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars, diff1::Vars, aux1::Vars) where {T,M,R,S,BC <: DYCOMS_BC,IS}
+    # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
+    # at the boundaries the ⁻, minus side states are the interior values
+    # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
+    
+    # Get values from minus-side state
     ρM = stateM.ρ 
     UM, VM, WM = stateM.ρu
     EM = stateM.ρe
@@ -251,16 +256,22 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     uM, vM, wM  = UM/ρM, VM/ρM, WM/ρM
     q_totM = QTM/ρM
     UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+    
+    # Assign reflection wall boundaries (top wall)
     stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
                         VM - 2 * nM[2] * UnM,
                         WM - 2 * nM[3] * UnM)
+
+    # Assign scalar values at the boundaries 
     stateP.ρ = ρM
     stateP.moisture.ρq_tot = QTM
+    # Assign diffusive fluxes at boundaries
     diffP = diffM
     xvert = auxM.coord[3]
+    
     if xvert < 0.00001
       # ------------------------------------------------------------------------
-      # First node quantities (first-model level here represents the first node)
+      # (<var>_FN) First node values (First interior node from bottom wall)
       # ------------------------------------------------------------------------
       z_FN             = aux1.coord[3]
       ρ_FN             = state1.ρ
@@ -273,19 +284,19 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
       T_FN             = air_temperature(TS_FN)
       q_vap_FN         = q_tot_FN - PhasePartition(TS_FN).liq
-      # -----------------------------------
+      # --------------------------
       # Bottom boundary quantities 
-      # -----------------------------------
-      zM          = auxM.coord[3]
+      # --------------------------
+      zM          = auxM.coord[3] 
       q_totM      = QTM/ρM
       windspeed   = sqrt(uM^2 + vM^2 + wM^2)
       e_intM      = EM/ρM - 0.5*windspeed^2 - grav*zM
       TSM         = PhaseEquil(e_intM, q_totM, ρM) 
       q_vapM      = q_totM - PhasePartition(TSM).liq
       TM          = air_temperature(TSM)
-      # ----------------------------------------------
-      # Assigning calculated values to boundary states
-      # ----------------------------------------------
+      # ----------------------------------------------------------
+      # Extract components of diffusive momentum flux (minus-side)
+      # ----------------------------------------------------------
       ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
       
       # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
@@ -294,14 +305,18 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       ρτ13P  = -ρM * Cd * windspeed_FN * u_FN 
       ρτ23P  = -ρM * Cd * windspeed_FN * v_FN 
       
+      # Assign diffusive momentum and moisture fluxes
+      # (i.e. ρ𝚻 terms)  
       diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
       diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
-                                        diffM.moisture.ρd_q_tot[2],
-                                        +115 /(LH_v0))
+                                         diffM.moisture.ρd_q_tot[2],
+                                         +115 /(LH_v0))
 
+      # Assign diffusive enthalpy flux (i.e. ρ(𝐉 + 𝐃) terms) 
       diffP.moisture.ρ_SGS_enthalpyflux  = SVector(diffM.moisture.ρ_SGS_enthalpyflux[1],
                                                    diffM.moisture.ρ_SGS_enthalpyflux[2],
                                                    +130)
   end
 end
+
 end # module

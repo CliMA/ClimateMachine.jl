@@ -1,4 +1,3 @@
-
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
@@ -173,7 +172,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
     end
   end
 
-
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     mkpath("./vtk/")
@@ -218,6 +216,7 @@ let
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
   
+  # Problem type
   DF = Float64
   # DG polynomial order 
   polynomialorder = 4
