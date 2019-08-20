@@ -4,7 +4,8 @@ export AtmosModel,
   ConstantViscosityWithDivergence,
   DryModel, MoistEquil,
   NoRadiation,
-  NoFluxBC, InitStateBC
+  NoFluxBC, InitStateBC,
+  FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -25,7 +26,8 @@ A `BalanceLaw` for atmosphere modelling.
     AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
 
 """
-struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{O,T,M,R,S,BC,IS} <: BalanceLaw
+  orientation::O
   turbulence::T
   moisture::M
   radiation::R
@@ -64,6 +66,7 @@ end
 function vars_aux(m::AtmosModel, T)
   @vars begin
     coord::SVector{3,T}
+    orientation::vars_aux(m.orientation, T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
@@ -176,10 +179,12 @@ end
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
+include("orientation.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.coord = geom.coord
+  init_aux!(m.orientation, aux, geom)
   init_aux!(m.turbulence, aux, geom)
 end
 
@@ -216,8 +221,8 @@ Set the momentum at the boundary to be zero.
 """
 struct NoFluxBC <: BoundaryCondition
 end
-function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
+function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
 
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
 end
@@ -229,8 +234,8 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 """
 struct InitStateBC <: BoundaryCondition
 end
-function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
+function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: InitStateBC,IS}
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
