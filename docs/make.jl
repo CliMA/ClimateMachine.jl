@@ -24,9 +24,11 @@ makedocs(
   modules = [Documenter, CLIMA],
   pages = Any[
     "Home" => "index.md",
+    "Common" => Any[
+      "MoistThermodynamics" => "Common/MoistThermodynamics.md",
+    ],
     "Utilites" => Any[
       "RootSolvers" => "Utilities/RootSolvers.md",
-      "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
     ],
     "Atmos" => Any[
       "Atmos/SurfaceFluxes.md",
