@@ -250,6 +250,9 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, divnumflux::DivN
     Nfp = (N+1) * (N+1)
     nface = 6
   end
+  
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
 
   l_QM = MArray{Tuple{nstate}, DFloat}(undef)
   l_QviscM = MArray{Tuple{nviscstate}, DFloat}(undef)
@@ -259,6 +262,11 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, divnumflux::DivN
   l_QviscP = MArray{Tuple{nviscstate}, DFloat}(undef)
   l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
 
+  
+  l_Q_bot1 = MArray{Tuple{nstate}, DFloat}(undef)
+  l_Qvisc_bot1 = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_aux_bot1 = MArray{Tuple{nauxstate}, DFloat}(undef)
+  
   l_F = MArray{Tuple{nstate}, DFloat}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
@@ -302,8 +310,21 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, divnumflux::DivN
           numerical_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
         else
+          if (dim == 2 && f == 3) || (dim == 3 && f == 5) 
+            # Loop up the first element along all horizontal elements
+            @unroll for s = 1:nstate
+              l_Q_bot1[s] = Q[n + Nqk^2, s, e]
+            end
+            @unroll for s = 1:nviscstate
+              l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e]
+            end
+            @unroll for s = 1:nauxstate
+              l_aux_bot1[s] = auxstate[n+Nqk^2,s, e]
+            end
+          end
           numerical_boundary_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,
-                                   l_QviscP, l_auxP, bctype, t)
+                                   l_QviscP, l_auxP, bctype, t,
+                                   l_Q_bot1,l_Qvisc_bot1,l_aux_bot1)
         end
 
         #Update RHS

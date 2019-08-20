@@ -33,7 +33,7 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-###############
+
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     
   DF         = eltype(state)
@@ -125,6 +125,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     
 end
 
+
 function source!(source::Vars, state::Vars, aux::Vars, t::Real)
   nothing
 end
@@ -140,7 +141,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt)
   model = AtmosModel(ConstantViscosityWithDivergence(DF(1.0)),
                      EquilMoist(),
                      NoRadiation(),
-                     source!, InitStateBC(), Initialise_DYCOMS!)
+                     source!, DYCOMS_BC(), Initialise_DYCOMS!)
 
   dg = DGModel(model,
                grid,
