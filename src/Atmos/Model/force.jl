@@ -12,6 +12,6 @@ function source!(m::Gravity, source::Vars, state::Vars, aux::Vars, t::Real)
   source.ρu = SVector(
                       0,
                       0,
-                      state.ρ * T(grav)
+                      -state.ρ * T(grav)
                       )
 end
