@@ -4,7 +4,7 @@ export AtmosModel,
   ConstantViscosityWithDivergence,
   DryModel, EquilMoist,
   NoRadiation,
-  NoFluxBC, InitStateBC
+  NoFluxBC, InitStateBC, DYCOMS_BC
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -158,7 +158,7 @@ Set the momentum at the boundary to be zero.
 struct NoFluxBC <: BoundaryCondition
 end
 function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...) where {T,M,R,S,BC <: NoFluxBC,IS}
 
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
 end
@@ -171,7 +171,7 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 struct InitStateBC <: BoundaryCondition
 end
 function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...) where {T,M,R,S,BC <: InitStateBC,IS}
   coord = (auxP.coord.x, auxP.coord.y, auxP.coord.z)
   init_state!(bl, stateP, auxP, coord, t)
 end
@@ -180,4 +180,73 @@ function init_state!(bl::AtmosModel, state::Vars, aux::Vars, coords, t)
   bl.init_state(state, aux, coords, t)
 end
 
+# DYCOMS Boundary Condition 
+"""
+  DYCOMS_BC <: BoundaryCondition
+  Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
+"""
+struct DYCOMS_BC <: BoundaryCondition
+end
+function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars, diff1::Vars, aux1::Vars) where {T,M,R,S,BC <: DYCOMS_BC,IS}
+    ρM = stateM.ρ 
+    UM, VM, WM = stateM.ρu
+    EM = stateM.ρe
+    QTM = stateM.moisture.ρq_tot
+    uM, vM, wM  = UM/ρM, VM/ρM, WM/ρM
+    q_totM = QTM/ρM
+    UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+    stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
+                        VM - 2 * nM[2] * UnM,
+                        WM - 2 * nM[3] * UnM)
+    stateP.ρ = ρM
+    stateP.moisture.ρq_tot = QTM
+    diffP = diffM
+    xvert = auxM.coords[3]
+    if xvert < 0.00001
+      # ------------------------------------------------------------------------
+      # First node quantities (first-model level here represents the first node)
+      # ------------------------------------------------------------------------
+      z_FN             = aux1.coord[3]
+      ρ_FN             = state1.ρ
+      U_FN, V_FN, W_FN = state1.ρu
+      E_FN             = state1.ρe
+      u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
+      windspeed_FN     = sqrt(u_FN^2 + v_FN^2 + w_FN^2)
+      q_tot_FN         = auxM[_a_QT_FN] / ρ_FN
+      e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*z_FN
+      TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
+      T_FN             = air_temperature(TS_FN)
+      q_vap_FN         = q_tot_FN - PhasePartition(TS_FN).liq
+      # -----------------------------------
+      # Bottom boundary quantities 
+      # -----------------------------------
+      zM          = auxM.coord.x3
+      q_totM      = QTM/ρM
+      windspeed   = sqrt(uM^2 + vM^2 + wM^2)
+      e_intM      = EM/ρM - 0.5*windspeed^2 - grav*zM
+      TSM         = PhaseEquil(e_intM, q_totM, ρM) 
+      q_vapM      = q_totM - PhasePartition(TSM).liq
+      TM          = air_temperature(TSM)
+      # ----------------------------------------------
+      # Assigning calculated values to boundary states
+      # ----------------------------------------------
+      ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
+      VFP[_τ33] = 0
+      
+      # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
+      # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
+      ρτ13P  = -ρM * Cd * windspeed_FN * u_FN 
+      ρτ23P  = -ρM * Cd * windspeed_FN * v_FN 
+      
+      diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
+      diffP.moisture.q_tot  = SVector(diffM.moisture.q_tot[1],
+                                      diffM.moisture.q_tot[2],
+                                      +115 /(ρM * LH_v0))
+
+      diffP.moisture.ρ_SGS_enthalpyflux  = SVector(diffM.moisture.ρ_SGS_enthalpyflux[1],
+                                                   diffM.moisture.ρ_SGS_enthalpyflux[2],
+                                                   +130)
+  end
+end
 end # module
