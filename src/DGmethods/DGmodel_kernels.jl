@@ -319,7 +319,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, divnumflux::DivN
               l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e]
             end
             @unroll for s = 1:nauxstate
-              l_aux_bot1[s] = auxstate[n+Nqk^2,s, e]
+              l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
           numerical_boundary_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP,

@@ -33,13 +33,12 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     
   DF         = eltype(state)
   xvert::DF  = z
 
-  #These constants are those used by Stevens et al. (2005)
+  # Constants as defined in Stevens et. al (2005) 
   R_d::DF     = 287.0
   cp_d::DF    = 1015.0
   cp_v::DF    = 1859.0
@@ -56,12 +55,6 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   T_0::DF     = 285.0
   T_sfc           = P_sfc/(ρ_sfc * Rm_sfc);
   
-  # --------------------------------------------------
-  # INITIALISE ARRAYS FOR INTERPOLATED VALUES
-  # --------------------------------------------------
-  randnum1   = 0#rand(1)[1] / 100
-  randnum2   = 0#rand(1)[1] / 100
-    
   q_liq      = 0.0
   q_ice      = 0.0
   zb         = 600.0    #initial cloud bottom
@@ -138,7 +131,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt)
                                           polynomialorder = N,
                                          )
 
-  model = AtmosModel(ConstantViscosityWithDivergence(DF(1.0)),
+  model = AtmosModel(SmagorinskyLilly(DF(C_smag),DF(Δ))
                      EquilMoist(),
                      NoRadiation(),
                      source!, DYCOMS_BC(), Initialise_DYCOMS!)
@@ -209,7 +202,8 @@ let
   @static if haspkg("CUDAnative")
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
-
+  
+  # User defined domain parameters
   polynomialorder = 4
   (xmin,xmax) = (0, 1000)
   (ymin,ymax) = (0, 1000)
@@ -227,6 +221,5 @@ let
   result = run(mpicomm, ArrayType, dim, topl, 
                   polynomialorder, timeend, DF, dt)
 end
-
 
 #nothing

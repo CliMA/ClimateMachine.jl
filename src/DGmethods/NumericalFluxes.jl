@@ -84,7 +84,7 @@ function numerical_boundary_flux!(dnf::DivNumericalFlux, bl::BalanceLaw,
   DFloat = eltype(F)
   boundarycondition!(bl, Vars{vars_state(bl,DFloat)}(QP), Vars{vars_diffusive(bl,DFloat)}(QVP), Vars{vars_aux(bl,DFloat)}(auxP),
                      nM, Vars{vars_state(bl,DFloat)}(QM), Vars{vars_diffusive(bl,DFloat)}(QVM), Vars{vars_aux(bl,DFloat)}(auxM),
-                     bctype, t, Vars{vars_state(bl,DFloat)}(Q1), Vars{vars_state(bl,DFloat)}(QV1), Vars{vars_state(bl,DFloat)}(aux1))
+                     bctype, t, Vars{vars_state(bl,DFloat)}(Q1), Vars{vars_diffusive(bl,DFloat)}(QV1), Vars{vars_aux(bl,DFloat)}(aux1))
   numerical_flux!(dnf, bl, F, nM, QM, QVM, auxM, QP, QVP, auxP, t)
 end
 
