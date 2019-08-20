@@ -1,6 +1,8 @@
 using .NumericalFluxes: GradNumericalFlux, diffusive_boundary_penalty!, diffusive_penalty!,
   DivNumericalFlux, numerical_flux!, numerical_boundary_flux!
 
+using ..Mesh.Geometry
+
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
   using .CUDAnative
@@ -590,12 +592,11 @@ function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, v
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      coords = vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e]
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
 
-      init_aux!(bl, Vars{vars_aux(bl,DFloat)}(l_aux), coords)
+      init_aux!(bl, Vars{vars_aux(bl,DFloat)}(l_aux), LocalGeometry(Val(polyorder),vgeo,n,e))
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
@@ -603,6 +604,8 @@ function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, v
     end
   end
 end
+
+
 
 """
     elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo, D, elems, s,
