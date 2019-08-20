@@ -228,15 +228,14 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 struct InitStateBC <: BoundaryCondition
 end
 function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...) where {T,M,R,S,BC <: InitStateBC,IS}
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
-function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
-  m.init_state(state, aux, coords, t)
+function init_state!(m::AtmosModel, state::Vars, aux::Vars, coord, t)
+  m.init_state(state, aux, coord, t)
 end
 
-# DYCOMS Boundary Condition 
 """
   DYCOMS_BC <: BoundaryCondition
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
@@ -258,7 +257,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     stateP.ρ = ρM
     stateP.moisture.ρq_tot = QTM
     diffP = diffM
-    xvert = auxM.coords[3]
+    xvert = auxM.coord[3]
     if xvert < 0.00001
       # ------------------------------------------------------------------------
       # First node quantities (first-model level here represents the first node)
@@ -269,7 +268,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       E_FN             = state1.ρe
       u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
       windspeed_FN     = sqrt(u_FN^2 + v_FN^2 + w_FN^2)
-      q_tot_FN         = auxM[_a_QT_FN] / ρ_FN
+      q_tot_FN         = state1.moisture.ρq_tot / ρ_FN
       e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*z_FN
       TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
       T_FN             = air_temperature(TS_FN)
@@ -277,7 +276,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       # -----------------------------------
       # Bottom boundary quantities 
       # -----------------------------------
-      zM          = auxM.coord.x3
+      zM          = auxM.coord[3]
       q_totM      = QTM/ρM
       windspeed   = sqrt(uM^2 + vM^2 + wM^2)
       e_intM      = EM/ρM - 0.5*windspeed^2 - grav*zM
@@ -288,17 +287,17 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       # Assigning calculated values to boundary states
       # ----------------------------------------------
       ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
-      VFP[_τ33] = 0
       
       # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
       # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
+      Cd = 0.0011 
       ρτ13P  = -ρM * Cd * windspeed_FN * u_FN 
       ρτ23P  = -ρM * Cd * windspeed_FN * v_FN 
       
       diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
-      diffP.moisture.q_tot  = SVector(diffM.moisture.q_tot[1],
-                                      diffM.moisture.q_tot[2],
-                                      +115 /(ρM * LH_v0))
+      diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
+                                        diffM.moisture.ρd_q_tot[2],
+                                        +115 /(LH_v0))
 
       diffP.moisture.ρ_SGS_enthalpyflux  = SVector(diffM.moisture.ρ_SGS_enthalpyflux[1],
                                                    diffM.moisture.ρ_SGS_enthalpyflux[2],
