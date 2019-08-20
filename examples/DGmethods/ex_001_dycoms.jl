@@ -33,6 +33,11 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
+
+
+"""
+  Initial Condition for DYCOMS_RF01 LES
+"""
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     
   DF         = eltype(state)
@@ -76,8 +81,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   end
 
   if xvert <= 200.0
-      θ_liq += randnum1 * θ_liq 
-      q_tot += randnum2 * q_tot
+      θ_liq += θ_liq 
+      q_tot += q_tot
   end
   
   Rm       = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
@@ -119,10 +124,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
 end
 
 function source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  nothing
+  source.ρu = SVector(0, 0, -state.ρ * grav)
 end
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt)
+function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DF,
@@ -130,7 +135,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt)
                                           polynomialorder = N,
                                          )
 
-  model = AtmosModel(SmagorinskyLilly(DF(C_smag),DF(Δ))
+  model = AtmosModel(SmagorinskyLilly(DF(C_smag),DF(Δ)),
                      EquilMoist(),
                      NoRadiation(),
                      source!, DYCOMS_BC(), Initialise_DYCOMS!)
@@ -169,7 +174,19 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt)
   end
 
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, ))
+  step = [0]
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    mkpath("./vtk/")
+    outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
+                           MPI.Comm_rank(mpicomm), step[1])
+    @debug "doing VTK output" outprefix
+    writevtk(outprefix, Q, dg)
+        
+    step[1] += 1
+    nothing
+  end
+
+  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -201,13 +218,33 @@ let
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
   
-  # User defined domain parameters
-  polynomialorder = 4
-  (xmin,xmax) = (0, 1000)
-  (ymin,ymax) = (0, 1000)
-  (zmin, zmax) =(0, 1500)
-  Ne = (10,2,10)
   DF = Float64
+  # DG polynomial order 
+  polynomialorder = 4
+  # User specified grid spacing
+  Δx    = DF(35)
+  Δy    = DF(35)
+  Δz    = DF(10)
+  # SGS Filter constants
+  C_smag = DF(0.15)
+  Δ     = DF(cbrt(Δx * Δy * Δz))
+  # Physical domain extents 
+  (xmin, xmax) = (0, 2000)
+  (ymin, ymax) = (0, 2000)
+  (zmin, zmax) = (0, 1500)
+  #Get Nex, Ney from resolution
+  Lx = xmax - xmin
+  Ly = ymax - ymin
+  Lz = zmax - ymin
+  # User defines the grid size:
+  ratiox = (Lx/Δx - 1)/polynomialorder
+  ratioy = (Ly/Δy - 1)/polynomialorder
+  ratioz = (Lz/Δz - 1)/polynomialorder
+  Nex = ceil(Int64, ratiox)
+  Ney = ceil(Int64, ratioy)
+  Nez = ceil(Int64, ratioz)
+  Ne = (Nex, Ney, Nez)
+  # User defined domain parameters
   brickrange = (range(DF(xmin), length=Ne[1]+1, DF(xmax)),
                 range(DF(ymin), length=Ne[2]+1, DF(ymax)),
                 range(DF(zmin), length=Ne[3]+1, DF(zmax)))
@@ -217,7 +254,7 @@ let
   dim = 3
   @info (ArrayType, DF, dim)
   result = run(mpicomm, ArrayType, dim, topl, 
-                  polynomialorder, timeend, DF, dt)
+                  polynomialorder, timeend, DF, dt, C_smag, Δ)
 end
 
 #nothing
