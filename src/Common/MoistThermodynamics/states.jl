@@ -73,7 +73,7 @@ struct PhaseEquil{DT} <: ThermodynamicState{DT}
   "temperature: computed via [`saturation_adjustment`](@ref)"
   T::DT
 end
-PhaseEquil(e_int, q_tot, ρ) =
+PhaseEquil(e_int::DT, q_tot::DT, ρ::DT) where {DT<:Real} =
   PhaseEquil(e_int, q_tot, ρ, saturation_adjustment(e_int, ρ, q_tot))
 
 """
@@ -106,7 +106,7 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
  - `ρ` - density
  - `p` - pressure
 """
-function LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
+function LiquidIcePotTempSHumEquil(θ_liq_ice::DT, q_tot::DT, ρ::DT, p::DT) where {DT<:Real}
     T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ, p)
     q = PhasePartition_equil(T, ρ, q_tot)
     e_int = internal_energy(T, q)
@@ -122,7 +122,7 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
  - `q_tot` - total specific humidity
  - `p` - pressure
 """
-function LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice::R, q_tot::R, p::R) where R
+function LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice::DT, q_tot::DT, p::DT) where {DT<:Real}
     q_pt_dry = PhasePartition(q_tot)
     T_dry = θ_liq_ice * exner(p, q_pt_dry)
     ρ_dry = air_density(T_dry, p, q_pt_dry)
@@ -142,7 +142,7 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
  - `q_pt` - phase partition
  - `p` - pressure
 """
-function LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice::R, q_pt::PhasePartition{R}, p::R) where R
+function LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice::DT, q_pt::PhasePartition{DT}, p::DT) where {DT<:Real}
     T = θ_liq_ice * exner(p, q_pt)
     ρ = air_density(T, p, q_pt)
     e_int = internal_energy(T, q_pt)
@@ -182,7 +182,7 @@ Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
  - `q_pt` - phase partition
  - `p` - pressure
 """
-function LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq_ice::R, q_pt::PhasePartition{R}, p::R) where R
+function LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq_ice::DT, q_pt::PhasePartition{DT}, p::DT) where {DT<:Real}
     T = θ_liq_ice * exner(p, q_pt)
     ρ = air_density(T, p, q_pt)
     e_int = internal_energy(T, q_pt)

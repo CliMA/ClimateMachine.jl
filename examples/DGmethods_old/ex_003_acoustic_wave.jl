@@ -2,7 +2,7 @@
 #
 #md # !!! jupyter
 #md #     This example is also available as a Jupyter notebook:
-#md #     [`ex_003_acoustic_wave.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods/generated/ex_003_acoustic_wave.html)
+#md #     [`ex_003_acoustic_wave.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods_old/generated/ex_003_acoustic_wave.html)
 #
 # ## Introduction
 #
@@ -248,7 +248,7 @@ function auxiliary_state_initialization!(T0, aux, x, y, z)
     ϕ = DFloat(grav) * h
 
     ## Pressure assuming hydrostatic balance
-    P_ref = p0 * exp(-ϕ / (gas_constant_air() * T0))
+    P_ref = p0 * exp(-ϕ / (gas_constant_air(DFloat) * T0))
 
     ## Density from the ideal gas law
     ρ_ref = air_density(DFloat(T0), P_ref)

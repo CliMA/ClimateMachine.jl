@@ -121,10 +121,11 @@ function init_ode_param(dg::DGModel)
     length(topology.elems),
     realelems=topology.realelems,
     ghostelems=topology.ghostelems,
-    sendelems=topology.sendelems,
+    vmaprecv=grid.vmaprecv,
+    vmapsend=grid.vmapsend,
     nabrtorank=topology.nabrtorank,
-    nabrtorecv=topology.nabrtorecv,
-    nabrtosend=topology.nabrtosend,
+    nabrtovmaprecv=grid.nabrtovmaprecv,
+    nabrtovmapsend=grid.nabrtovmapsend,
     weights=weights,
     commtag=111)
 
@@ -133,10 +134,11 @@ function init_ode_param(dg::DGModel)
     length(topology.elems),
     realelems=topology.realelems,
     ghostelems=topology.ghostelems,
-    sendelems=topology.sendelems,
+    vmaprecv=grid.vmaprecv,
+    vmapsend=grid.vmapsend,
     nabrtorank=topology.nabrtorank,
-    nabrtorecv=topology.nabrtorecv,
-    nabrtosend=topology.nabrtosend,
+    nabrtovmaprecv=grid.nabrtovmaprecv,
+    nabrtovmapsend=grid.nabrtovmapsend,
     weights=weights,
     commtag=222)
 
@@ -179,10 +181,11 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
                                                length(topology.elems),
                                                realelems=topology.realelems,
                                                ghostelems=topology.ghostelems,
-                                               sendelems=topology.sendelems,
+                                               vmaprecv=grid.vmaprecv,
+                                               vmapsend=grid.vmapsend,
                                                nabrtorank=topology.nabrtorank,
-                                               nabrtorecv=topology.nabrtorecv,
-                                               nabrtosend=topology.nabrtosend,
+                                               nabrtovmaprecv=grid.nabrtovmaprecv,
+                                               nabrtovmapsend=grid.nabrtovmapsend,
                                                weights=weights,
                                                commtag=commtag)
 
