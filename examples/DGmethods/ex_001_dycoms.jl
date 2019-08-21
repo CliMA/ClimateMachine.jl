@@ -67,12 +67,14 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_tot = 1.5e-3
     
   end
-
+  
+  #=
   if xvert <= 200.0
       θ_liq += θ_liq 
       q_tot += q_tot
   end
-  
+  =# 
+
   PhPartObj = PhasePartition(q_tot, q_liq, DF(0))
   Rm    = gas_constant_air(PhPartObj)
   cpm   = cp_m(PhPartObj)
