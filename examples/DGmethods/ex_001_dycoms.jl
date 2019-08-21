@@ -40,34 +40,31 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   DF         = eltype(state)
   xvert::DF  = z
 
-  LH_v0::DF     = 2.47e6
   epsdv::DF     = molmass_ratio
   q_tot_sfc::DF = 8.1e-3
-  Rm_sfc        = gas_constant_air(PhasePartition(q_tot_sfc))
+  Rm_sfc::DF    = gas_constant_air(PhasePartition(q_tot_sfc))
   ρ_sfc::DF     = 1.22
-  P_sfc         = 1.0178e5
+  P_sfc::DF     = 1.0178e5
   T_BL::DF      = 285.0
-  T_sfc         = P_sfc/(ρ_sfc * Rm_sfc);
+  T_sfc::DF     = P_sfc/(ρ_sfc * Rm_sfc);
   
-  q_liq      = 0.0
-  q_ice      = 0.0
-  zb         = 600.0   
-  zi         = 840.0  
-  dz_cloud   = zi - zb
-  q_liq_peak = 4.5e-4
+  q_liq::DF      = 0
+  q_ice::DF      = 0
+  zb::DF         = 600   
+  zi::DF         = 840 
+  dz_cloud       = zi - zb
+  q_liq_peak::DF = 4.5e-4
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
 
   if ( xvert <= zi)
-    θ_liq  = 289.0
-    q_tot  = 8.1e-3 
+    θ_liq  = DF(289)
+    q_tot  = q_tot_sfc
   else
-    θ_liq = 297.5 + (xvert - zi)^(1/3)
-    q_tot = 1.5e-3
-    
+    θ_liq = DF(297.5) + (xvert - zi)^(DF(1//3))
+    q_tot = DF(1.5e-3)
   end
-  
   #=
   if xvert <= 200.0
       θ_liq += θ_liq 
@@ -75,45 +72,40 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   end
   =# 
 
-  PhPartObj = PhasePartition(q_tot, q_liq, DF(0))
-  Rm    = gas_constant_air(PhPartObj)
-  cpm   = cp_m(PhPartObj)
-
   #Pressure
   H = Rm_sfc * T_BL / grav;
   P = P_sfc * exp(-xvert/H);
   
-  #Exner
-  exner_dry = exner(P, PhasePartition(DF(0)))
-  
-  #T 
-  T     = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
-  
-  #Density
-  ρ  = P/(Rm*T);
-  
-  #θ, θv
-  θ      = T/exner_dry;
-  θv     = virtual_pottemp(T, P, PhPartObj)
+  # Thermodynamic state
+  q_pt = PhasePartition(q_tot, q_liq, q_ice)
+  ts = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, P)
 
+  #Density
+  ρ  = air_density(ts)
+  T  = air_temperature(ts)
+  
   # energy definitions
-  u, v, w     = 7, -5.5, 0.0 
+  u, v, w     = DF(7), DF(-5.5), DF(0) 
   U           = ρ * u
   V           = ρ * v
   W           = ρ * w
-  e_kin       = 0.5 * (u^2 + v^2 + w^2)
+  e_kin       = (u^2 + v^2 + w^2) / 2
   e_pot       = grav * xvert
-  E           = ρ * total_energy(e_kin, e_pot, T, PhPartObj)
+  E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
 
   state.ρ     = ρ
   state.ρu    = SVector(U, V, W) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
     
+  q_test = q_pt.liq
+  q_max = max(q_test,q_pt.liq)
+
 end
 
 function source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu = SVector(0, 0, -state.ρ * grav)
+  DF = eltype(state)
+  source.ρu = SVector(DF(0), DF(0), -state.ρ * grav)
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
@@ -207,7 +199,7 @@ let
   end
   
   # Problem type
-  DF = Float64
+  DF = Float32
   # DG polynomial order 
   polynomialorder = 4
   # User specified grid spacing

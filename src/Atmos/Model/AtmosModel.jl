@@ -248,6 +248,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
     # at the boundaries the ⁻, minus side states are the interior values
     # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
+    DF = eltype(stateP)
     
     # Get values from minus-side state
     ρM = stateM.ρ 
@@ -281,7 +282,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
       windspeed_FN     = sqrt(u_FN^2 + v_FN^2 + w_FN^2)
       q_tot_FN         = state1.moisture.ρq_tot / ρ_FN
-      e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*z_FN
+      e_int_FN         = E_FN/ρ_FN - windspeed_FN^2/2 - grav*z_FN
       TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
       T_FN             = air_temperature(TS_FN)
       q_vap_FN         = q_tot_FN - PhasePartition(TS_FN).liq
@@ -291,7 +292,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       zM          = auxM.coord[3] 
       q_totM      = QTM/ρM
       windspeed   = sqrt(uM^2 + vM^2 + wM^2)
-      e_intM      = EM/ρM - 0.5*windspeed^2 - grav*zM
+      e_intM      = EM/ρM - windspeed^2/2 - grav*zM
       TSM         = PhaseEquil(e_intM, q_totM, ρM) 
       q_vapM      = q_totM - PhasePartition(TSM).liq
       TM          = air_temperature(TSM)
@@ -300,23 +301,32 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       # ----------------------------------------------------------
       ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
       
+      # ----------------------------------------------------------
+      # Boundary momentum fluxes
+      # ----------------------------------------------------------
       # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
       # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
-      Cd = 0.0011 
+      Cd = DF(11/1000)
       ρτ13P  = -ρM * Cd * windspeed_FN * u_FN 
       ρτ23P  = -ρM * Cd * windspeed_FN * v_FN 
-      
       # Assign diffusive momentum and moisture fluxes
       # (i.e. ρ𝚻 terms)  
       diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
+      
+      # ----------------------------------------------------------
+      # Boundary moisture fluxes
+      # ----------------------------------------------------------
       diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
                                          diffM.moisture.ρd_q_tot[2],
-                                         +115 /(LH_v0))
+                                         DF(115) /(LH_v0))
 
-      # Assign diffusive enthalpy flux (i.e. ρ(𝐉 + 𝐃) terms) 
+      # ----------------------------------------------------------
+      # Boundary energy fluxes
+      # ----------------------------------------------------------
+      # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
       diffP.moisture.ρ_SGS_enthalpyflux  = SVector(diffM.moisture.ρ_SGS_enthalpyflux[1],
                                                    diffM.moisture.ρ_SGS_enthalpyflux[2],
-                                                   +130)
+                                                   DF(130))
   end
 end
 
