@@ -40,15 +40,13 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   DF         = eltype(state)
   xvert::DF  = z
 
-  Lv::DF        = 2.47e6
+  LH_v0::DF     = 2.47e6
   epsdv::DF     = molmass_ratio
-  p0::DF        = 1.0178e5
-  ρ0::DF        = 1.22
   q_tot_sfc::DF = 8.1e-3
-  Rm_sfc        = R_d * (1.0 + (epsdv - 1.0)*q_tot_sfc)
+  Rm_sfc        = gas_constant_air(PhasePartition(q_tot_sfc))
   ρ_sfc::DF     = 1.22
   P_sfc         = 1.0178e5
-  T_0::DF       = 285.0
+  T_BL::DF      = 285.0
   T_sfc         = P_sfc/(ρ_sfc * Rm_sfc);
   
   q_liq      = 0.0
@@ -75,27 +73,26 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
       q_tot += q_tot
   end
   
-  Rm    = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
-  cpm   = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
+  PhPartObj = PhasePartition(q_tot, q_liq, DF(0))
+  Rm    = gas_constant_air(PhPartObj)
+  cpm   = cp_m(PhPartObj)
 
   #Pressure
-  H = Rm_sfc * T_0 / grav;
+  H = Rm_sfc * T_BL / grav;
   P = P_sfc * exp(-xvert/H);
   
   #Exner
-  exner = (P/P_sfc)^(R_d/cp_d);
+  exner_dry = exner(P, PhasePartition(DF(0)))
   
-  #T, Tv 
-  T     = exner*θ_liq + Lv*q_liq/(cpm*exner);
-  Tv    = T*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+  #T 
+  T     = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
   
   #Density
   ρ  = P/(Rm*T);
   
   #θ, θv
-  θ      = T/exner;
-  θv     = θ*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
-  PhPart = PhasePartition(q_tot, q_liq, q_ice)
+  θ      = T/exner_dry;
+  θv     = virtual_pottemp(T, P, PhPartObj)
 
   # energy definitions
   u, v, w     = 7, -5.5, 0.0 
@@ -104,7 +101,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   W           = ρ * w
   e_kin       = 0.5 * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
-  E           = ρ * total_energy(e_kin, e_pot, T, PhPart)
+  E           = ρ * total_energy(e_kin, e_pot, T, PhPartObj)
 
   state.ρ     = ρ
   state.ρu    = SVector(U, V, W) 
@@ -235,7 +232,7 @@ let
   brickrange = (range(DF(xmin), length=Ne[1]+1, DF(xmax)),
                 range(DF(ymin), length=Ne[2]+1, DF(ymax)),
                 range(DF(zmin), length=Ne[3]+1, DF(zmax)))
-  topl = BrickTopology(mpicomm, brickrange,periodicity = (true, true, false))
+  topl = BrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=[1 2 3; 4 5 6])
   dt = 0.001
   timeend = dt
   dim = 3
