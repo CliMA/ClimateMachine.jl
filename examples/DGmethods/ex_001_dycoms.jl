@@ -89,7 +89,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   U           = ρ * u
   V           = ρ * v
   W           = ρ * w
-  e_kin       = (u^2 + v^2 + w^2) / 2
+  e_kin       = (u^2 + v^2 + w^2)/2
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
 
