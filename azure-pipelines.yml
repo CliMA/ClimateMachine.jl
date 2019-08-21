@@ -16,8 +16,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
@@ -61,8 +61,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
@@ -95,8 +95,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - powershell: |
@@ -123,8 +123,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
