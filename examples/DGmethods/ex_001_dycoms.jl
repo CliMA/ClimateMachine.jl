@@ -32,8 +32,6 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-
-
 """
   Initial Condition for DYCOMS_RF01 LES
 """
@@ -42,41 +40,34 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   DF         = eltype(state)
   xvert::DF  = z
 
-  # Constants as defined in Stevens et. al (2005) 
-  R_d::DF     = 287.0
-  cp_d::DF    = 1015.0
-  cp_v::DF    = 1859.0
-  cp_l::DF    = 4181.0
-  Lv::DF      = 2.47e6
-  epsdv::DF   = 1.61
-  g::DF       = grav
-  p0::DF      = 1.0178e5
-  ρ0::DF      = 1.22
-  r_tot_sfc::DF=8.1e-3
-  Rm_sfc          = R_d * (1.0 + (epsdv - 1.0)*r_tot_sfc)
-  ρ_sfc::DF   = 1.22
-  P_sfc           = 1.0178e5
-  T_0::DF     = 285.0
-  T_sfc           = P_sfc/(ρ_sfc * Rm_sfc);
+  Lv::DF        = 2.47e6
+  epsdv::DF     = molmass_ratio
+  p0::DF        = 1.0178e5
+  ρ0::DF        = 1.22
+  q_tot_sfc::DF = 8.1e-3
+  Rm_sfc        = R_d * (1.0 + (epsdv - 1.0)*q_tot_sfc)
+  ρ_sfc::DF     = 1.22
+  P_sfc         = 1.0178e5
+  T_0::DF       = 285.0
+  T_sfc         = P_sfc/(ρ_sfc * Rm_sfc);
   
   q_liq      = 0.0
   q_ice      = 0.0
-  zb         = 600.0    #initial cloud bottom
-  zi         = 840.0    #initial cloud top
+  zb         = 600.0   
+  zi         = 840.0  
   dz_cloud   = zi - zb
-  q_liq_peak = 0.00045 #cloud mixing ratio at z_i    
+  q_liq_peak = 4.5e-4
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
 
   if ( xvert <= zi)
     θ_liq  = 289.0
-    r_tot      = 8.1e-3                  #kg/kg  specific humidity --> approx. to mixing ratio is ok
-    q_tot      = r_tot #/(1.0 - r_tot)     #total water mixing ratio
+    q_tot  = 8.1e-3 
   else
     θ_liq = 297.5 + (xvert - zi)^(1/3)
-    r_tot     = 1.5e-3                    #kg/kg  specific humidity --> approx. to mixing ratio is ok
-    q_tot     = r_tot #/(1.0 - r_tot)      #total water mixing ratio
+    q_tot = 1.5e-3
+    
   end
 
   if xvert <= 200.0
@@ -84,11 +75,11 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
       q_tot += q_tot
   end
   
-  Rm       = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
-  cpm     = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
+  Rm    = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+  cpm   = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
 
   #Pressure
-  H = Rm_sfc * T_0 / g;
+  H = Rm_sfc * T_0 / grav;
   P = P_sfc * exp(-xvert/H);
   
   #Exner
@@ -236,12 +227,9 @@ let
   Ly = ymax - ymin
   Lz = zmax - ymin
   # User defines the grid size:
-  ratiox = (Lx/Δx - 1)/polynomialorder
-  ratioy = (Ly/Δy - 1)/polynomialorder
-  ratioz = (Lz/Δz - 1)/polynomialorder
-  Nex = ceil(Int64, ratiox)
-  Ney = ceil(Int64, ratioy)
-  Nez = ceil(Int64, ratioz)
+  Nex = ceil(Int64, (Lx/Δx - 1)/polynomialorder)
+  Ney = ceil(Int64, (Ly/Δy - 1)/polynomialorder)
+  Nez = ceil(Int64, (Lz/Δz - 1)/polynomialorder)
   Ne = (Nex, Ney, Nez)
   # User defined domain parameters
   brickrange = (range(DF(xmin), length=Ne[1]+1, DF(xmax)),
