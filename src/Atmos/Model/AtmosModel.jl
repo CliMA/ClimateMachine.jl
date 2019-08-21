@@ -269,7 +269,7 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
     diffP = diffM
     xvert = auxM.coord[3]
     
-    if xvert < 0.00001
+    if bctype == 5
       # ------------------------------------------------------------------------
       # (<var>_FN) First node values (First interior node from bottom wall)
       # ------------------------------------------------------------------------
