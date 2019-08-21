@@ -57,7 +57,7 @@ function parametrized_source!(::ReferenceStateEulerModel, ::HeldSuarez,
   hd :: DFloat = 7000 #from Smolarkiewicz JAS 2001 paper    
   σ_b :: DFloat = 7 / 10
 
-  r = hypot(x⃗...)
+  r = norm(x⃗, 2)
   λ = atan(x⃗[2], x⃗[1])
   φ = asin(x⃗[3] / r)
   h = r - DFloat(planet_radius)
@@ -86,7 +86,7 @@ end
 function reference_state!(::ReferenceStateEulerModel, ::HeldSuarez, aux::Vars, x⃗)
   DFloat = eltype(x⃗)
   
-  r = hypot(x⃗...)
+  r = norm(x⃗, 2)
   h = r - DFloat(planet_radius)
   ϕ = aux.gravity.ϕ
 
@@ -246,10 +246,11 @@ let
   minutes = 60
   hours = 3600
   days = 86400
-  outputtime = dt
+  outputtime = minutes / 2
   timeend = 1minutes
 
-  run(mpicomm, ArrayType, hs, topl, polynomialorder, outputtime, timeend, DFloat, dt)
-
+  expected_error = 2.4944957714032431e+09
+  error = run(mpicomm, ArrayType, hs, topl, polynomialorder, outputtime, timeend, DFloat, dt)
+  @test error ≈ expected_error
 end
 nothing

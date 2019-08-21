@@ -2,6 +2,7 @@ using CLIMA.VariableTemplates
 using StaticArrays
 using CLIMA.PlanetParameters: grav, Omega, cv_d, T_0
 using GPUifyLoops: @unroll
+using LinearAlgebra: norm
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, flux!, source!, wavespeed,
@@ -13,8 +14,8 @@ abstract type EulerProblem end
 abstract type AbstractEulerModel <: BalanceLaw end
 
 init_state!(m::AbstractEulerModel, x...) = initial_condition!(m, m.problem, x...)
-vars_gradient(::AbstractEulerModel, T) = Tuple{}
-vars_diffusive(::AbstractEulerModel, T) = Tuple{}
+vars_gradient(::AbstractEulerModel, _) = Tuple{}
+vars_diffusive(::AbstractEulerModel, _) = Tuple{}
 gradvariables!(::AbstractEulerModel, _...) = nothing
 diffusive!(::AbstractEulerModel, _...) = nothing
 
@@ -27,29 +28,29 @@ function EulerModel(problem)
   EulerModel{typeof(problem), typeof(gravity)}(problem, gravity)
 end
 
-function vars_state(::EulerModel, T)
+function vars_state(::EulerModel, DFloat)
   @vars begin
-    ρ::T
-    ρu⃗::SVector{3, T}
-    ρe::T
+    ρ::DFloat
+    ρu⃗::SVector{3, DFloat}
+    ρe::DFloat
   end
 end
 
-function vars_aux(m::EulerModel, T)
+function vars_aux(m::EulerModel, DFloat)
   @vars begin
-    gravity::vars_aux(m.gravity, T)
+    gravity::vars_aux(m.gravity, DFloat)
   end
 end
 
 const γ_exact = 7 // 5
 
-function pressure(ρ::T, ρinv, ρe, ρu⃗, ϕ) where T
-  γ::T = γ_exact
+function pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
+  DFloat = eltype(ρu⃗)
+  γ = DFloat(γ_exact)
   (γ - 1) * (ρe + ρ * cv_d * T_0 - ρinv * ρu⃗' * ρu⃗ / 2 - ϕ * ρ)
 end
 
 function nofluxbc!(scalars, stateP, nM, stateM)
-  @inbounds begin
     ## scalars are preserved
     @unroll for s in scalars
       setproperty!(stateP, s, getproperty(stateM, s))
@@ -60,7 +61,6 @@ function nofluxbc!(scalars, stateP, nM, stateM)
     n⃗ = SVector(nM)
     n⃗_ρu⃗M = n⃗' * ρu⃗M
     stateP.ρu⃗ = ρu⃗M - 2n⃗_ρu⃗M * n⃗
-  end
 end
 
 function boundarycondition!(::EulerModel, stateP::Vars, _, auxP::Vars, normalM,
@@ -93,22 +93,21 @@ function source!(m::EulerModel, source::Vars, state::Vars, aux::Vars, t::Real)
   source.ρu⃗ = @SVector zeros(eltype(source.ρu⃗), 3)
   source.ρe = 0
   geopotential_source!(m.gravity, state.ρ, source, state, aux)
-  coriolis_source!(m.coriolis, source, state, aux)
 end
 
 function init_aux!(m::EulerModel, aux::Vars, x⃗)
   init_aux!(m.gravity, aux, x⃗)
 end
 
-function wavespeed_euler(ϕ::T, ρ::T, ρu⃗, ρe::T, nM) where T
-  γ = T(γ_exact)
+function wavespeed_euler(ϕ, ρ, ρu⃗, ρe, nM)
+  DFloat = eltype(ρu⃗)
+  γ = DFloat(γ_exact)
   ρinv = 1 / ρ
   u⃗ = ρinv * ρu⃗
   p = pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
-  @inbounds n⃗ = SVector{3, T}(nM[1], nM[2], nM[3])
+  n⃗ = SVector{3, DFloat}(nM)
   abs(n⃗' * u⃗) + sqrt(ρinv * γ * p)
 end
-
 
 function wavespeed(m::EulerModel, nM, state::Vars, aux::Vars, t::Real)
   (ρ, ρu⃗, ρe) = (state.ρ, state.ρu⃗, state.ρe)
@@ -117,43 +116,43 @@ function wavespeed(m::EulerModel, nM, state::Vars, aux::Vars, t::Real)
 end
 
 abstract type GravityModel end
-vars_aux(m::GravityModel, T) = @vars(ϕ::T, ∇ϕ::SVector{3, T})
+vars_aux(m::GravityModel, DFloat) = @vars(ϕ::DFloat, ∇ϕ::SVector{3, DFloat})
 geopotential(::GravityModel, aux) = aux.gravity.ϕ
 function geopotential_source!(::GravityModel, ρ, source, state, aux)
   source.ρu⃗ -= ρ * aux.gravity.∇ϕ
 end
 
 struct NoGravity <: GravityModel end
-vars_aux(m::NoGravity, T) = @vars()
+vars_aux(m::NoGravity, _) = @vars()
 init_aux!(::NoGravity, _...) = nothing
 geopotential(::NoGravity, _...) = 0
 geopotential_source!(::NoGravity, _...) = nothing
 
-struct SphereGravity{T} <: GravityModel
-  h::T
+struct SphereGravity{DFloat} <: GravityModel
+  h::DFloat
 end
 function init_aux!(g::SphereGravity, aux, x⃗)
   x⃗ = SVector(x⃗)
-  r = hypot(x⃗...)
+  r = norm(x⃗, 2)
   aux.gravity.ϕ = grav * (r-g.h)
-  T = eltype(aux.gravity.∇ϕ)
-  aux.gravity.∇ϕ = T(grav) * x⃗ / r
+  DFloat = eltype(aux.gravity.∇ϕ)
+  aux.gravity.∇ϕ = DFloat(grav) * x⃗ / r
 end
 
 struct BoxGravity{dim} <: GravityModel end
 function init_aux!(::BoxGravity{dim}, aux, x⃗) where dim
   @inbounds aux.gravity.ϕ = grav * x⃗[dim]
 
-  T = eltype(aux.gravity.∇ϕ)
+  DFloat = eltype(aux.gravity.∇ϕ)
   if dim == 2
-    aux.gravity.∇ϕ = SVector{3, T}(0, grav, 0)
+    aux.gravity.∇ϕ = SVector{3, DFloat}(0, grav, 0)
   else
-    aux.gravity.∇ϕ = SVector{3, T}(0, 0, grav)
+    aux.gravity.∇ϕ = SVector{3, DFloat}(0, 0, grav)
   end
 end
 
 struct NoGravity <: GravityModel end
-vars_aux(m::NoGravity, T) = @vars()
+vars_aux(m::NoGravity, _) = @vars()
 init_aux!(::NoGravity, _...) = nothing
 geopotential(::NoGravity, _...) = 0
 geopotential_source!(::NoGravity, _...) = nothing
@@ -171,20 +170,20 @@ function ReferenceStateEulerModel(balanced, problem, coriolis)
   ReferenceStateEulerModel{typeof.(args)...}(balanced, args...)
 end
 
-function vars_state(::ReferenceStateEulerModel, T)
+function vars_state(::ReferenceStateEulerModel, DFloat)
   @vars begin
-    δρ::T
-    ρu⃗::SVector{3, T}
-    δρe::T
+    δρ::DFloat
+    ρu⃗::SVector{3, DFloat}
+    δρe::DFloat
   end
 end
 
-function vars_aux(m::ReferenceStateEulerModel, T)
+function vars_aux(m::ReferenceStateEulerModel, DFloat)
   @vars begin
-    coord::SVector{3, T}
-    ρ_ref::T
-    ρe_ref::T
-    gravity::vars_aux(m.gravity, T)
+    coord::SVector{3, DFloat}
+    ρ_ref::DFloat
+    ρe_ref::DFloat
+    gravity::vars_aux(m.gravity, DFloat)
   end
 end
 
@@ -224,7 +223,7 @@ function flux!(m::ReferenceStateEulerModel, flux::Grad, state::Vars, _::Vars,
   end
 
   # compute the flux!
-  flux.δρ  = ρu⃗
+  flux.δρ = ρu⃗
   flux.ρu⃗ = ρu⃗ .* u⃗' + p_ρu⃗ * I
   flux.δρe = u⃗ * (ρe + p)
 end
@@ -246,7 +245,7 @@ end
 parametrized_source!(::ReferenceStateEulerModel, ::EulerProblem, _...) = nothing
 
 abstract type CoriolisModel end
-vars_aux(m::CoriolisModel, T) = @vars()
+vars_aux(m::CoriolisModel, _) = @vars()
 function coriolis_source!(::CoriolisModel, source, state, aux)
    Ω⃗ = SVector(0, 0, Omega)
    source.ρu⃗ += -2Ω⃗ × state.ρu⃗
@@ -264,17 +263,3 @@ function boundarycondition!(::ReferenceStateEulerModel, stateP::Vars, _, auxP::V
     error("unknown boundary condition type!")
   end
 end
-
-#function nofluxbc!(stateP, nM, stateM, auxM)
-#  @inbounds begin
-#    ρM, ρu⃗M, ρeM = stateM.ρ, stateP.ρu⃗, stateM.ρe
-#
-#    ## scalars are preserved
-#    stateP.ρ, stateP.ρe = ρM, ρeM
-#
-#    ## reflect velocities
-#    n⃗ = SVector(nM)
-#    n⃗_ρu⃗M = n⃗' * ρu⃗M
-#    stateP.ρu⃗ = ρu⃗M - 2n⃗_ρu⃗M * n⃗
-#  end
-#end
