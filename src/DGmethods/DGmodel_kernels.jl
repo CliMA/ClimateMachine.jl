@@ -112,6 +112,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           # if source! !== nothing
+          fill!(l_S, -zero(eltype(l_S)))
           source!(bl, Vars{vars_state(bl,DFloat)}(l_S), Vars{vars_state(bl,DFloat)}(l_Q),
                   Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
