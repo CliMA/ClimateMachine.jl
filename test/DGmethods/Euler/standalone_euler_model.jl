@@ -68,8 +68,8 @@ end
 
 fullstate(m::EulerModel, state, aux) = fullstate(m.refstate, state, aux.refstate)
 removerefstate!(m::EulerModel, state, aux) = removerefstate!(m.refstate, state, aux.refstate)
-perturbation_pressure(m::EulerModel, aux, p, ϕ) =
-  m.pde_level_hydrostatic_balance ? perturbation_pressure(m.refstate, aux.refstate, p, ϕ) : p
+pressure_perturbation(m::EulerModel, aux, p, ϕ) =
+  m.pde_level_hydrostatic_balance ? pressure_perturbation(m.refstate, aux.refstate, p, ϕ) : p
 
 abstract type EulerReferenceState end
 init_aux!(problem, m::EulerReferenceState, rest...) = referencestate!(problem, m, rest...)
@@ -79,7 +79,7 @@ vars_aux(::NoReferenceState, _) = @vars()
 init_aux!(_, ::NoReferenceState, _...) = nothing
 fullstate(m::NoReferenceState, state, _) = (ρ = state.ρ, ρu⃗ = state.ρu⃗, ρe = state.ρe)
 removerefstate!(::NoReferenceState, _...) = nothing
-perturbation_pressure(::NoReferenceState, _, p, _) = p
+pressure_perturbation(::NoReferenceState, _, p, _) = p
 
 struct DensityEnergyReferenceState <: EulerReferenceState end
 function vars_aux(::DensityEnergyReferenceState, DFloat)
@@ -95,7 +95,7 @@ function removerefstate!(::DensityEnergyReferenceState, state, refstate)
   state.ρe -= refstate.ρe
 end
 removerefstate!(::NoReferenceState, _...) = nothing
-function perturbation_pressure(::DensityEnergyReferenceState, refstate, p, ϕ)
+function pressure_perturbation(::DensityEnergyReferenceState, refstate, p, ϕ)
   ρ_ref = refstate.ρ 
   invρ_ref = 1 / ρ_ref
   e_ref = refstate.ρe * invρ_ref
@@ -117,7 +117,7 @@ function removerefstate!(::FullReferenceState, state, refstate)
   state.ρu⃗ -= refstate.ρu⃗
   state.ρe -= refstate.ρe
 end
-function perturbation_pressure(::FullReferenceState, refstate, p, ϕ)
+function pressure_perturbation(::FullReferenceState, refstate, p, ϕ)
   ρ_ref = refstate.ρ 
   invρ_ref = 1 / ρ_ref
   e_ref = refstate.ρe * invρ_ref
@@ -167,7 +167,7 @@ function flux!(m::EulerModel, flux::Grad, state::Vars, _::Vars, aux::Vars,
   e = ρinv * ρe
   ϕ = geopotential(m.gravity, aux)
   p = air_pressure(PhaseDry(e - u⃗' * u⃗ / 2 - ϕ, ρ))
-  p_or_δp = perturbation_pressure(m, aux, p, ϕ)
+  p_or_δp = pressure_perturbation(m, aux, p, ϕ)
 
   # compute the flux!
   flux.ρ  = ρu⃗
