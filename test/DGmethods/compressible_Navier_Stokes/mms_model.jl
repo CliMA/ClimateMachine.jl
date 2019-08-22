@@ -2,7 +2,7 @@ using CLIMA.VariableTemplates
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
 flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-init_aux!, init_state!, init_ode_param, init_ode_state
+init_aux!, init_state!, init_ode_param, init_ode_state, LocalGeometry
 
 
 struct MMSModel{dim} <: BalanceLaw
@@ -91,12 +91,11 @@ function boundarycondition!(bl::MMSModel, stateP::Vars, diffP::Vars, auxP::Vars,
   init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
-function init_aux!(::MMSModel, aux::Vars, (x1,x2,x3))
+function init_aux!(::MMSModel, aux::Vars, g::LocalGeometry)
+  x1,x2,x3 = g.coord
   aux.x1 = x1
   aux.x2 = x2
   aux.x3 = x3
-
-
 end
 
 function init_state!(bl::MMSModel{dim}, state::Vars, aux::Vars, (x1,x2,x3), t) where {dim}

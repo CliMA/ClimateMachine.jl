@@ -9,6 +9,7 @@ include("Metrics.jl")
 include("topology.jl")
 include("grid_integral.jl")
 include("filter.jl")
+include("Geometry.jl")
 
 # runmpi won't work if we do not finalize
 # This is not so nice since other tests that are run direction and call MPI.Init
