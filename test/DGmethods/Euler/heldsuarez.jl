@@ -15,7 +15,7 @@ using Logging, Printf, Dates
 using CLIMA.Vtk
 using CLIMA.PlanetParameters: planet_radius, R_d, cv_d, cp_d, MSLP
 using CLIMA.MoistThermodynamics: air_pressure, air_temperature, internal_energy, air_density,
-                                 gas_constant_air, soundspeed_air
+                                 soundspeed_air
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -36,72 +36,79 @@ gravitymodel(::HeldSuarez) = SphereGravity(planet_radius)
 referencestate(::HeldSuarez) = DensityEnergyReferenceState()
 
 function problem_specific_source!(m::EulerModel, ::HeldSuarez, source::Vars, state::Vars, aux::Vars)
-  ρ, ρu⃗, ρe = fullstate(m, state, aux)
-  x⃗, ϕ = aux.coord, aux.gravity.ϕ
+  DFloat = eltype(state)
 
+  ρ, ρu⃗, ρe = fullstate(m, state, aux)
+  x⃗ = aux.coord
+  ϕ = geopotential(m.gravity, aux)
   e = ρe / ρ
   u⃗ = ρu⃗ / ρ
   e_int = e - u⃗' * u⃗ / 2 - ϕ
   T = air_temperature(e_int)
-  p = air_pressure(T, ρ)
 
-  DFloat = eltype(ρu⃗)
   # Held-Suarez constants
-  p0 :: DFloat = MSLP
-  ka :: DFloat = 1 / 40 / 86400
-  kf :: DFloat = 1 / 86400
-  ks :: DFloat = 1 / 4 / 86400
-  ΔT_y :: DFloat = 60 
-  ΔT_z :: DFloat = 10   
-  temp0 :: DFloat = 315
-  temp_min :: DFloat = 200
-  hd :: DFloat = 7000 #from Smolarkiewicz JAS 2001 paper    
-  σ_b :: DFloat = 7 / 10
+  k_a = DFloat(1 / 40 / 86400)
+  k_f = DFloat(1 / 86400)
+  k_s = DFloat(1 / 4 / 86400)
+  ΔT_y = DFloat(60)
+  Δθ_z = DFloat(10)
+  T_equator = DFloat(315)
+  T_min = DFloat(200)
+  scale_height = DFloat(7000) #from Smolarkiewicz JAS 2001 paper
+  σ_b = DFloat(7 / 10)
 
   r = norm(x⃗, 2)
-  λ = atan(x⃗[2], x⃗[1])
-  φ = asin(x⃗[3] / r)
+  @inbounds λ = atan(x⃗[2], x⃗[1])
+  @inbounds φ = asin(x⃗[3] / r)
   h = r - DFloat(planet_radius)
 
-  σ = exp(-h/hd)
-#  σ = P/p0
-  Δσ = (σ - σ_b)/(1 - σ_b)
-  π = σ^(R_d/cp_d)
-  c = max(0, Δσ)
-  T_eq = ( temp0 - ΔT_y*sin(φ)^2 - ΔT_z*log(σ)*cos(φ)^2 )*π
-  T_eq = max(temp_min, T_eq)
-  kt = ka + (ks-ka)*c*cos(φ)^4
-  kv = kf*c
-  kt = kt*(1 - T_eq/T)
+  σ = exp(-h / scale_height)
+  #p = air_pressure(T, ρ)
+#  σ = p/p0
+  exner_p = σ ^ (R_d / cp_d)
+  Δσ = (σ - σ_b) / (1 - σ_b)
+  height_factor = max(0, Δσ)
+  T_equil = (T_equator - ΔT_y * sin(φ) ^ 2 - Δθ_z * log(σ) * cos(φ) ^ 2 ) * exner_p
+  T_equil = max(T_min, T_equil)
+  k_T = k_a + (k_s - k_a) * height_factor * cos(φ) ^ 4
+  k_v = k_f * height_factor
 
-  source.δρu⃗ += -kv * ρu⃗
-  source.δρe += -(kt * ρ * cv_d * T +  kv * ρu⃗' * ρu⃗ / ρ)
+  source.δρu⃗ += -k_v * ρu⃗
+  source.δρe += -k_T * ρ * cv_d * (T - T_equil) - k_v * ρu⃗' * ρu⃗ / ρ
 end
 
-function initial_condition!(::EulerModel, ::HeldSuarez, state::Vars, _...)
-  state.δρ = 0
-  state.δρu⃗ = SVector(0, 0, 0)
-  state.δρe = 0
-end
-
-function referencestate!(::HeldSuarez, ::DensityEnergyReferenceState, aux::Vars, x⃗)
+function isothermal_state(T, x⃗, ϕ)
   DFloat = eltype(x⃗)
   
   r = norm(x⃗, 2)
   h = r - DFloat(planet_radius)
-  ϕ = aux.gravity.ϕ
 
-  T_ref = DFloat(255)
-  scale_height = R_d * T_ref / grav
+  scale_height = R_d * T / grav
 
   P_ref = MSLP * exp(-h / scale_height)
-  ρ_ref = air_density(T_ref, P_ref)
-  ρe_ref = ρ_ref * (internal_energy(T_ref) + ϕ)
+  ρ_ref = air_density(T, P_ref)
+  ρe_ref = ρ_ref * (internal_energy(T) + ϕ)
 
+  ρ_ref, ρe_ref
+end
+
+function initial_condition!(m::EulerModel, ::HeldSuarez, state::Vars, aux::Vars, x⃗, t)
+  DFloat = eltype(state)
+  T = DFloat(255)
+  ρ, ρe = isothermal_state(T, x⃗, aux.gravity.ϕ)
+  state.δρ = ρ
+  state.δρu⃗ = @SVector zeros(eltype(state.δρu⃗), 3)
+  state.δρe = ρe 
+  removerefstate!(m, state, aux)
+end
+
+function referencestate!(::HeldSuarez, ::DensityEnergyReferenceState, aux::Vars, x⃗)
+  DFloat = eltype(aux)
+  T_ref = DFloat(255)
+  ρ_ref, ρe_ref = isothermal_state(T_ref, x⃗, aux.gravity.ϕ)
   aux.refstate.ρ = ρ_ref
   aux.refstate.ρe = ρe_ref
 end
-
 
 function run(mpicomm, ArrayType, problem, topl, N, outputtime, timeend, DFloat, dt)
   grid = DiscontinuousSpectralElementGrid(topl,
