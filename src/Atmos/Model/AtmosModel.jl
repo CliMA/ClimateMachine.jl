@@ -1,8 +1,8 @@
 module Atmos
 
 export AtmosModel,
-  ConstantViscosityWithDivergence,
-  DryModel, MoistEquil,
+  ConstantViscosityWithDivergence, SmagorinskyLilly,
+  DryModel, EquilMoist,
   NoRadiation,
   NoFluxBC, InitStateBC
 
