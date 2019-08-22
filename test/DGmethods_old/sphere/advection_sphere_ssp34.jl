@@ -39,7 +39,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
-using CLIMA.Vtk
+using CLIMA.VTK
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
