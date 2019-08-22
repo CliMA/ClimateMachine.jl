@@ -13,7 +13,7 @@ using ..PlanetParameters
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-  init_aux!, init_state!, update_aux!
+  init_aux!, init_state!, update_aux!, LocalGeometry, lengthscale
 
 """
     AtmosModel <: BalanceLaw
@@ -178,8 +178,9 @@ include("moisture.jl")
 include("radiation.jl")
 
 # TODO: figure out a nice way to handle this
-function init_aux!(::AtmosModel, aux::Vars, x)
-  aux.coord = SVector(x)
+function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
+  aux.coord = geom.coord
+  init_aux!(m.turbulence, aux, geom)
 end
 
 """
