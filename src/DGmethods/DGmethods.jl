@@ -16,5 +16,6 @@ include("balancelaw.jl")
 include("DGmodel.jl")
 include("NumericalFluxes.jl")
 include("DGmodel_kernels.jl")
+include("var_names.jl")
 
 end
