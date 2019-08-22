@@ -1,6 +1,7 @@
 using CLIMA.VariableTemplates
 using StaticArrays
-using CLIMA.PlanetParameters: grav, Omega, cv_d, T_0
+using CLIMA.PlanetParameters: grav, Omega
+using CLIMA.MoistThermodynamics: PhaseDry, air_pressure, soundspeed_air
 using LinearAlgebra: norm
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
@@ -94,8 +95,12 @@ function removerefstate!(::DensityEnergyReferenceState, state, refstate)
   state.ρe -= refstate.ρe
 end
 removerefstate!(::NoReferenceState, _...) = nothing
-perturbation_pressure(::DensityEnergyReferenceState, refstate, p, ϕ) =
-  p - pressure(refstate.ρ, 1 / refstate.ρ, refstate.ρe, zeros(SVector{3, typeof(p)}), ϕ)
+function perturbation_pressure(::DensityEnergyReferenceState, refstate, p, ϕ)
+  ρ_ref = refstate.ρ 
+  invρ_ref = 1 / ρ_ref
+  e_ref = refstate.ρe * invρ_ref
+  p - air_pressure(PhaseDry(e_ref - ϕ, ρ_ref))
+end
 
 struct FullReferenceState <: EulerReferenceState end
 function vars_aux(::FullReferenceState, DFloat)
@@ -112,15 +117,12 @@ function removerefstate!(::FullReferenceState, state, refstate)
   state.ρu⃗ -= refstate.ρu⃗
   state.ρe -= refstate.ρe
 end
-perturbation_pressure(::FullReferenceState, refstate, p, ϕ) =
-  p - pressure(refstate.ρ, 1 / refstate.ρ, refstate.ρe, refstate.ρu⃗, ϕ)
-
-const γ_exact = 7 // 5
-
-function pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
-  DFloat = eltype(ρu⃗)
-  γ = DFloat(γ_exact)
-  (γ - 1) * (ρe + ρ * cv_d * T_0 - ρinv * ρu⃗' * ρu⃗ / 2 - ϕ * ρ)
+function perturbation_pressure(::FullReferenceState, refstate, p, ϕ)
+  ρ_ref = refstate.ρ 
+  invρ_ref = 1 / ρ_ref
+  e_ref = refstate.ρe * invρ_ref
+  u⃗_ref = refstate.ρu⃗ * invρ_ref
+  p - air_pressure(PhaseDry(e_ref - u⃗_ref' * u⃗_ref / 2 - ϕ, ρ_ref))
 end
 
 function nofluxbc!(stateP, nM, stateM)
@@ -146,14 +148,14 @@ end
 
 function wavespeed(m::EulerModel, nM, state::Vars, aux::Vars, _)
   DFloat = eltype(state)
-  (ρ, ρu⃗, ρe) = fullstate(m, state, aux)
-  ϕ = geopotential(m.gravity, aux)
-  γ = DFloat(γ_exact)
+  ρ, ρu⃗, ρe = fullstate(m, state, aux)
+  n⃗ = SVector{3, DFloat}(nM)
+
   ρinv = 1 / ρ
   u⃗ = ρinv * ρu⃗
-  p = pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
-  n⃗ = SVector{3, DFloat}(nM)
-  abs(n⃗' * u⃗) + sqrt(ρinv * γ * p)
+  e = ρinv * ρe
+  ϕ = geopotential(m.gravity, aux)
+  abs(n⃗' * u⃗) + soundspeed_air(PhaseDry(e - u⃗' * u⃗ / 2 - ϕ, ρ))
 end
 
 function flux!(m::EulerModel, flux::Grad, state::Vars, _::Vars, aux::Vars,
@@ -162,8 +164,9 @@ function flux!(m::EulerModel, flux::Grad, state::Vars, _::Vars, aux::Vars,
 
   ρinv = 1 / ρ
   u⃗ = ρinv * ρu⃗
+  e = ρinv * ρe
   ϕ = geopotential(m.gravity, aux)
-  p = pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
+  p = air_pressure(PhaseDry(e - u⃗' * u⃗ / 2 - ϕ, ρ))
   p_or_δp = perturbation_pressure(m, aux, p, ϕ)
 
   # compute the flux!
