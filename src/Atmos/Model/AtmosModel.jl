@@ -195,7 +195,6 @@ Computes flux `S(Y)` in:
 ```
 """
 function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  fill!(getfield(source, :array), zero(eltype(source)))
   m.source(source, state, aux, t)
 end
 
