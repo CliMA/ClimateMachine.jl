@@ -74,14 +74,14 @@ function problem_specific_source!(m::EulerModel, ::HeldSuarez, source::Vars, sta
   kv = kf*c
   kt = kt*(1 - T_eq/T)
 
-  source.ρu⃗ += -kv * ρu⃗
-  source.ρe += -(kt * ρ * cv_d * T +  kv * ρu⃗' * ρu⃗ / ρ)
+  source.δρu⃗ += -kv * ρu⃗
+  source.δρe += -(kt * ρ * cv_d * T +  kv * ρu⃗' * ρu⃗ / ρ)
 end
 
 function initial_condition!(::EulerModel, ::HeldSuarez, state::Vars, _...)
-  state.ρ = 0
-  state.ρu⃗ = SVector(0, 0, 0)
-  state.ρe = 0
+  state.δρ = 0
+  state.δρu⃗ = SVector(0, 0, 0)
+  state.δρe = 0
 end
 
 function referencestate!(::HeldSuarez, ::DensityEnergyReferenceState, aux::Vars, x⃗)

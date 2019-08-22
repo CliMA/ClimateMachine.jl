@@ -61,7 +61,7 @@ function referencestate!(iv::IsentropicVortex, ::DensityEnergyReferenceState,
 end
 function initial_condition!(m::EulerModel, iv::IsentropicVortex, state::Vars,
                             aux::Vars, (x1, x2, x3), t)
-  DFloat = eltype(state.ρ)
+  DFloat = eltype(state.δρ)
 
   halfperiod = iv.halfperiod
   γ = iv.γ
@@ -90,14 +90,14 @@ function initial_condition!(m::EulerModel, iv::IsentropicVortex, state::Vars,
   p = ρ^γ
   ρe = p / γm1 + ρ * (u1^2 + u2^2 + u3^2) / 2 - ρ * cv_d * T_0  
 
-  state.ρ = DFloat(ρ)
-  state.ρu⃗ = SVector{3, DFloat}(ρ * u1, ρ * u2, ρ * u3)
-  state.ρe = DFloat(ρe)
+  state.δρ = DFloat(ρ)
+  state.δρu⃗ = SVector{3, DFloat}(ρ * u1, ρ * u2, ρ * u3)
+  state.δρe = DFloat(ρe)
   removerefstate!(m, state, aux)
 end
 gravitymodel(::IsentropicVortex) = NoGravity()
 referencestate(::IsentropicVortex) = DensityEnergyReferenceState()
-#referencestate(::IsentropicVortex) = NoReferenceState()
+#referencestate(::IsentropicVortex) = ZeroReferenceState()
 
 function run(mpicomm, ArrayType, topl, N, timeend, DFloat, dt)
 

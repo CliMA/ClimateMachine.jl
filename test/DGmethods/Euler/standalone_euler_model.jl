@@ -13,7 +13,7 @@ abstract type EulerProblem end
 pde_level_referencestate_hydrostatic_balance(p::EulerProblem) = false
 coriolisforce(::EulerProblem) = false
 gravitymodel(::EulerProblem) = NoGravity()
-referencestate(::EulerProblem) = NoReferenceState()
+referencestate(::EulerProblem) = ZeroReferenceState()
 
 struct EulerModel{P, G, R} <: BalanceLaw
   pde_level_hydrostatic_balance::Bool
@@ -31,7 +31,7 @@ function EulerModel(problem)
                  "has no effect when gravitymodel == $gravity")
   end
   refstate = referencestate(problem)
-  if (pde_level_hydrostatic_balance && refstate isa NoReferenceState)
+  if (pde_level_hydrostatic_balance && refstate isa ZeroReferenceState)
     @warn string("pde_level_referencestate_hydrostatic_balance ",
                  "has no effect when referencestate == $refstate")
   end
@@ -41,9 +41,9 @@ end
 
 function vars_state(m::EulerModel, DFloat)
   @vars begin
-    ρ::DFloat
-    ρu⃗::SVector{3, DFloat}
-    ρe::DFloat
+    δρ::DFloat
+    δρu⃗::SVector{3, DFloat}
+    δρe::DFloat
   end
 end
 function vars_aux(m::EulerModel, DFloat)
@@ -68,18 +68,16 @@ end
 
 fullstate(m::EulerModel, state, aux) = fullstate(m.refstate, state, aux.refstate)
 removerefstate!(m::EulerModel, state, aux) = removerefstate!(m.refstate, state, aux.refstate)
-pressure_perturbation(m::EulerModel, aux, p, ϕ) =
-  m.pde_level_hydrostatic_balance ? pressure_perturbation(m.refstate, aux.refstate, p, ϕ) : p
 
 abstract type EulerReferenceState end
 init_aux!(problem, m::EulerReferenceState, rest...) = referencestate!(problem, m, rest...)
 
-struct NoReferenceState <: EulerReferenceState end
-vars_aux(::NoReferenceState, _) = @vars()
-init_aux!(_, ::NoReferenceState, _...) = nothing
-fullstate(m::NoReferenceState, state, _) = (ρ = state.ρ, ρu⃗ = state.ρu⃗, ρe = state.ρe)
-removerefstate!(::NoReferenceState, _...) = nothing
-pressure_perturbation(::NoReferenceState, _, p, _) = p
+struct ZeroReferenceState <: EulerReferenceState end
+vars_aux(::ZeroReferenceState, _) = @vars()
+init_aux!(_, ::ZeroReferenceState, _...) = nothing
+fullstate(m::ZeroReferenceState, state, _) = (ρ = state.δρ, ρu⃗ = state.δρu⃗, ρe = state.δρe)
+removerefstate!(::ZeroReferenceState, _...) = nothing
+pressure_perturbation(::ZeroReferenceState, _, p, _) = p
 
 struct DensityEnergyReferenceState <: EulerReferenceState end
 function vars_aux(::DensityEnergyReferenceState, DFloat)
@@ -89,12 +87,12 @@ function vars_aux(::DensityEnergyReferenceState, DFloat)
   end
 end
 fullstate(::DensityEnergyReferenceState, state, refstate) =
-  (ρ = state.ρ + refstate.ρ, ρu⃗ = state.ρu⃗, ρe = state.ρe + refstate.ρe)
+  (ρ = state.δρ + refstate.ρ, ρu⃗ = state.δρu⃗, ρe = state.δρe + refstate.ρe)
 function removerefstate!(::DensityEnergyReferenceState, state, refstate)
-  state.ρ -= refstate.ρ
-  state.ρe -= refstate.ρe
+  state.δρ -= refstate.ρ
+  state.δρe -= refstate.ρe
 end
-removerefstate!(::NoReferenceState, _...) = nothing
+removerefstate!(::ZeroReferenceState, _...) = nothing
 function pressure_perturbation(::DensityEnergyReferenceState, refstate, p, ϕ)
   ρ_ref = refstate.ρ 
   invρ_ref = 1 / ρ_ref
@@ -111,11 +109,11 @@ function vars_aux(::FullReferenceState, DFloat)
   end
 end
 fullstate(::FullReferenceState, state, refstate) =
-  (ρ = state.ρ + refstate.ρ, ρu⃗ = state.ρu⃗ + refstate.ρu⃗, ρe = state.ρe + refstate.ρe)
+  (ρ = state.δρ + refstate.ρ, ρu⃗ = state.δρu⃗ + refstate.ρu⃗, ρe = state.δρe + refstate.ρe)
 function removerefstate!(::FullReferenceState, state, refstate)
-  state.ρ -= refstate.ρ
-  state.ρu⃗ -= refstate.ρu⃗
-  state.ρe -= refstate.ρe
+  state.δρ -= refstate.ρ
+  state.δρu⃗ -= refstate.ρu⃗
+  state.δρe -= refstate.ρe
 end
 function pressure_perturbation(::FullReferenceState, refstate, p, ϕ)
   ρ_ref = refstate.ρ 
@@ -127,14 +125,14 @@ end
 
 function nofluxbc!(stateP, nM, stateM)
     ## scalars are preserved
-    stateP.ρ = stateM.ρ
-    stateP.ρe = stateM.ρe
+    stateP.δρ = stateM.δρ
+    stateP.δρe = stateM.δρe
 
     ## reflect velocities
-    ρu⃗M = stateM.ρu⃗
+    δρu⃗M = stateM.δρu⃗
     n⃗ = SVector(nM)
-    n⃗_ρu⃗M = n⃗' * ρu⃗M
-    stateP.ρu⃗ = ρu⃗M - 2n⃗_ρu⃗M * n⃗
+    n⃗_δρu⃗M = n⃗' * δρu⃗M
+    stateP.δρu⃗ = δρu⃗M - 2n⃗_δρu⃗M * n⃗
 end
 
 function boundarycondition!(::EulerModel, stateP::Vars, _, auxP::Vars, normalM,
@@ -167,22 +165,21 @@ function flux!(m::EulerModel, flux::Grad, state::Vars, _::Vars, aux::Vars,
   e = ρinv * ρe
   ϕ = geopotential(m.gravity, aux)
   p = air_pressure(PhaseDry(e - u⃗' * u⃗ / 2 - ϕ, ρ))
-  p_or_δp = pressure_perturbation(m, aux, p, ϕ)
+  δp_or_p = m.pde_level_hydrostatic_balance ? pressure_perturbation(m.refstate, aux.refstate, p, ϕ) : p
 
   # compute the flux!
-  flux.ρ  = ρu⃗
-  flux.ρu⃗ = ρu⃗ .* u⃗' + p_or_δp * I
-  flux.ρe = u⃗ * (ρe + p)
+  flux.δρ  = ρu⃗
+  flux.δρu⃗ = ρu⃗ .* u⃗' + δp_or_p * I
+  flux.δρe = u⃗ * (ρe + p)
 end
 
 problem_specific_source!(::EulerModel, ::EulerProblem, _...) = nothing
 function source!(m::EulerModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρ = 0
-  source.ρu⃗ = @SVector zeros(eltype(source.ρu⃗), 3)
-  source.ρe = 0
+  source.δρ = 0
+  source.δρu⃗ = @SVector zeros(eltype(source.δρu⃗), 3)
+  source.δρe = 0
 
-  ρ = m.pde_level_hydrostatic_balance ? state.ρ : fullstate(m, state, aux).ρ
-  geopotential_source!(m.gravity, ρ, source, state, aux)
+  geopotential_source!(m, m.gravity, source, state, aux)
   m.coriolis && coriolis_source!(source, state)
   problem_specific_source!(m, m.problem, source, state, aux)
 end
@@ -190,15 +187,16 @@ end
 abstract type GravityModel end
 vars_aux(m::GravityModel, DFloat) = @vars(ϕ::DFloat, ∇ϕ::SVector{3, DFloat})
 geopotential(::GravityModel, aux) = aux.gravity.ϕ
-function geopotential_source!(::GravityModel, ρ, source, state, aux)
-  source.ρu⃗ -= ρ * aux.gravity.∇ϕ
+function geopotential_source!(m::EulerModel, ::GravityModel, source, state, aux)
+  δρ_or_ρ = m.pde_level_hydrostatic_balance ? state.δρ : fullstate(m, state, aux).ρ
+  source.δρu⃗ -= δρ_or_ρ * aux.gravity.∇ϕ
 end
 
 struct NoGravity <: GravityModel end
 vars_aux(m::NoGravity, _) = @vars()
 init_aux!(::NoGravity, _...) = nothing
 geopotential(::NoGravity, _...) = 0
-geopotential_source!(::NoGravity, _...) = nothing
+geopotential_source!(::EulerModel, ::NoGravity, _...) = nothing
 
 struct SphereGravity{DFloat} <: GravityModel
   h::DFloat
@@ -225,5 +223,5 @@ end
 
 function coriolis_source!(source, state)
    Ω⃗ = SVector(0, 0, Omega)
-   source.ρu⃗ += -2Ω⃗ × state.ρu⃗
+   source.δρu⃗ += -2Ω⃗ × state.δρu⃗
 end
