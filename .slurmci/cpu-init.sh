@@ -11,7 +11,7 @@ export PATH="${PATH}:${HOME}/julia-1.2/bin"
 export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot/cpu"
 export OPENBLAS_NUM_THREADS=1
 
-module load cmake/3.10.2 openmpi/4.0.1
+module load openmpi/3.1.4
 
 julia --color=no --project -e 'using Pkg; pkg"instantiate"; pkg"build"; pkg"precompile"'
 
