@@ -30,12 +30,13 @@ struct HeldSuarez{DFloat} <: EulerProblem
   domain_height::DFloat
 end
 
-function parametrized_source!(::ReferenceStateEulerModel, ::HeldSuarez,
-                              source::Vars, state::Vars, aux::Vars)
+pde_level_referencestate_hydrostatic_balance(::HeldSuarez) = true
+coriolisforce(::HeldSuarez) = true
+gravitymodel(::HeldSuarez) = SphereGravity(planet_radius)
+referencestate(::HeldSuarez) = DensityEnergyReferenceState()
 
-  δρ, ρu⃗, δρe = state.δρ, state.ρu⃗, state.δρe
-  ρ_ref, ρe_ref = aux.ρ_ref, aux.ρe_ref
-  ρ, ρe = ρ_ref + δρ, ρe_ref + δρe
+function problem_specific_source!(m::EulerModel, ::HeldSuarez, source::Vars, state::Vars, aux::Vars)
+  ρ, ρu⃗, ρe = fullstate(m, state, aux)
   x⃗, ϕ = aux.coord, aux.gravity.ϕ
 
   e = ρe / ρ
@@ -74,16 +75,16 @@ function parametrized_source!(::ReferenceStateEulerModel, ::HeldSuarez,
   kt = kt*(1 - T_eq/T)
 
   source.ρu⃗ += -kv * ρu⃗
-  source.δρe += -(kt * ρ * cv_d * T +  kv * ρu⃗' * ρu⃗ / ρ)
+  source.ρe += -(kt * ρ * cv_d * T +  kv * ρu⃗' * ρu⃗ / ρ)
 end
 
-function initial_condition!(::ReferenceStateEulerModel, ::HeldSuarez, state::Vars, _...)
-  state.δρ = 0
+function initial_condition!(::EulerModel, ::HeldSuarez, state::Vars, _...)
+  state.ρ = 0
   state.ρu⃗ = SVector(0, 0, 0)
-  state.δρe = 0
+  state.ρe = 0
 end
 
-function reference_state!(::ReferenceStateEulerModel, ::HeldSuarez, aux::Vars, x⃗)
+function referencestate!(::HeldSuarez, ::DensityEnergyReferenceState, aux::Vars, x⃗)
   DFloat = eltype(x⃗)
   
   r = norm(x⃗, 2)
@@ -97,11 +98,10 @@ function reference_state!(::ReferenceStateEulerModel, ::HeldSuarez, aux::Vars, x
   ρ_ref = air_density(T_ref, P_ref)
   ρe_ref = ρ_ref * (internal_energy(T_ref) + ϕ)
 
-  aux.ρ_ref = ρ_ref
-  aux.ρe_ref = ρe_ref
+  aux.refstate.ρ = ρ_ref
+  aux.refstate.ρe = ρe_ref
 end
 
-gravitymodel(::HeldSuarez) = SphereGravity(planet_radius)
 
 function run(mpicomm, ArrayType, problem, topl, N, outputtime, timeend, DFloat, dt)
   grid = DiscontinuousSpectralElementGrid(topl,
@@ -111,7 +111,7 @@ function run(mpicomm, ArrayType, problem, topl, N, outputtime, timeend, DFloat, 
                                           meshwarp = Topologies.cubedshellwarp
                                          )
 
-  dg = DGModel(ReferenceStateEulerModel(true, problem, Coriolis()),
+  dg = DGModel(EulerModel(problem),
                grid,
                Rusanov(),
                DefaultGradNumericalFlux())

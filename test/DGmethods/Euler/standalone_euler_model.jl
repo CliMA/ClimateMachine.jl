@@ -1,7 +1,6 @@
 using CLIMA.VariableTemplates
 using StaticArrays
 using CLIMA.PlanetParameters: grav, Omega, cv_d, T_0
-using GPUifyLoops: @unroll
 using LinearAlgebra: norm
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
@@ -10,37 +9,111 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         init_aux!, init_state!, init_ode_param, init_ode_state
 
 abstract type EulerProblem end
+pde_level_referencestate_hydrostatic_balance(p::EulerProblem) = false
+coriolisforce(::EulerProblem) = false
+gravitymodel(::EulerProblem) = NoGravity()
+referencestate(::EulerProblem) = NoReferenceState()
 
-abstract type AbstractEulerModel <: BalanceLaw end
-
-init_state!(m::AbstractEulerModel, x...) = initial_condition!(m, m.problem, x...)
-vars_gradient(::AbstractEulerModel, _) = Tuple{}
-vars_diffusive(::AbstractEulerModel, _) = Tuple{}
-gradvariables!(::AbstractEulerModel, _...) = nothing
-diffusive!(::AbstractEulerModel, _...) = nothing
-
-struct EulerModel{P, G} <: AbstractEulerModel
+struct EulerModel{P, G, R} <: BalanceLaw
+  pde_level_hydrostatic_balance::Bool
+  coriolis::Bool
   problem::P
   gravity::G
+  refstate::R
 end
 function EulerModel(problem)
+  pde_level_hydrostatic_balance = pde_level_referencestate_hydrostatic_balance(problem)
+  coriolis = coriolisforce(problem)
   gravity = gravitymodel(problem)
-  EulerModel{typeof(problem), typeof(gravity)}(problem, gravity)
+  if (pde_level_hydrostatic_balance && gravity isa NoGravity)
+    @warn string("pde_level_referencestate_hydrostatic_balance ",
+                 "has no effect when gravitymodel == $gravity")
+  end
+  refstate = referencestate(problem)
+  if (pde_level_hydrostatic_balance && refstate isa NoReferenceState)
+    @warn string("pde_level_referencestate_hydrostatic_balance ",
+                 "has no effect when referencestate == $refstate")
+  end
+  args = (problem, gravity, refstate)
+  EulerModel{typeof.(args)...}(pde_level_hydrostatic_balance, coriolis, args...)
 end
 
-function vars_state(::EulerModel, DFloat)
+function vars_state(m::EulerModel, DFloat)
   @vars begin
     ρ::DFloat
     ρu⃗::SVector{3, DFloat}
     ρe::DFloat
   end
 end
-
 function vars_aux(m::EulerModel, DFloat)
   @vars begin
+    coord::SVector{3, DFloat} # FIXME: these are not always necessary
     gravity::vars_aux(m.gravity, DFloat)
+    refstate::vars_aux(m.refstate, DFloat)
   end
 end
+vars_gradient(::EulerModel, _) = Tuple{}
+vars_diffusive(::EulerModel, _) = Tuple{}
+
+gradvariables!(::EulerModel, _...) = nothing
+diffusive!(::EulerModel, _...) = nothing
+
+init_state!(m::EulerModel, rest...) = initial_condition!(m, m.problem, rest...)
+function init_aux!(m::EulerModel, aux, x⃗)
+  aux.coord = SVector(x⃗)
+  init_aux!(m.gravity, aux, x⃗)
+  init_aux!(m.problem, m.refstate, aux, x⃗)
+end
+
+fullstate(m::EulerModel, state, aux) = fullstate(m.refstate, state, aux.refstate)
+removerefstate!(m::EulerModel, state, aux) = removerefstate!(m.refstate, state, aux.refstate)
+perturbation_pressure(m::EulerModel, aux, p, ϕ) =
+  m.pde_level_hydrostatic_balance ? perturbation_pressure(m.refstate, aux.refstate, p, ϕ) : p
+
+abstract type EulerReferenceState end
+init_aux!(problem, m::EulerReferenceState, rest...) = referencestate!(problem, m, rest...)
+
+struct NoReferenceState <: EulerReferenceState end
+vars_aux(::NoReferenceState, _) = @vars()
+init_aux!(_, ::NoReferenceState, _...) = nothing
+fullstate(m::NoReferenceState, state, _) = (ρ = state.ρ, ρu⃗ = state.ρu⃗, ρe = state.ρe)
+removerefstate!(::NoReferenceState, _...) = nothing
+perturbation_pressure(::NoReferenceState, _, p, _) = p
+
+struct DensityEnergyReferenceState <: EulerReferenceState end
+function vars_aux(::DensityEnergyReferenceState, DFloat)
+  @vars begin
+    ρ::DFloat
+    ρe::DFloat
+  end
+end
+fullstate(::DensityEnergyReferenceState, state, refstate) =
+  (ρ = state.ρ + refstate.ρ, ρu⃗ = state.ρu⃗, ρe = state.ρe + refstate.ρe)
+function removerefstate!(::DensityEnergyReferenceState, state, refstate)
+  state.ρ -= refstate.ρ
+  state.ρe -= refstate.ρe
+end
+removerefstate!(::NoReferenceState, _...) = nothing
+perturbation_pressure(::DensityEnergyReferenceState, refstate, p, ϕ) =
+  p - pressure(refstate.ρ, 1 / refstate.ρ, refstate.ρe, zeros(SVector{3, typeof(p)}), ϕ)
+
+struct FullReferenceState <: EulerReferenceState end
+function vars_aux(::FullReferenceState, DFloat)
+  @vars begin
+    ρ::DFloat
+    ρu⃗::SVector{3, DFloat}
+    ρe::DFloat
+  end
+end
+fullstate(::FullReferenceState, state, refstate) =
+  (ρ = state.ρ + refstate.ρ, ρu⃗ = state.ρu⃗ + refstate.ρu⃗, ρe = state.ρe + refstate.ρe)
+function removerefstate!(::FullReferenceState, state, refstate)
+  state.ρ -= refstate.ρ
+  state.ρu⃗ -= refstate.ρu⃗
+  state.ρe -= refstate.ρe
+end
+perturbation_pressure(::FullReferenceState, refstate, p, ϕ) =
+  p - pressure(refstate.ρ, 1 / refstate.ρ, refstate.ρe, refstate.ρu⃗, ϕ)
 
 const γ_exact = 7 // 5
 
@@ -50,11 +123,10 @@ function pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
   (γ - 1) * (ρe + ρ * cv_d * T_0 - ρinv * ρu⃗' * ρu⃗ / 2 - ϕ * ρ)
 end
 
-function nofluxbc!(scalars, stateP, nM, stateM)
+function nofluxbc!(stateP, nM, stateM)
     ## scalars are preserved
-    @unroll for s in scalars
-      setproperty!(stateP, s, getproperty(stateM, s))
-    end
+    stateP.ρ = stateM.ρ
+    stateP.ρe = stateM.ρe
 
     ## reflect velocities
     ρu⃗M = stateM.ρu⃗
@@ -66,41 +138,16 @@ end
 function boundarycondition!(::EulerModel, stateP::Vars, _, auxP::Vars, normalM,
                             stateM::Vars, _, auxM::Vars, bctype, t)
   if bctype == 1
-    nofluxbc!((:ρ, :ρe), stateP, normalM, stateM)
+    nofluxbc!(stateP, normalM, stateM)
   else
     error("unknown boundary condition type!")
   end
 end
 
-function flux!(m::EulerModel, flux::Grad, state::Vars, _::Vars, aux::Vars,
-               t::Real)
-
-  (ρ, ρu⃗, ρe) = (state.ρ, state.ρu⃗, state.ρe)
-
-  ρinv = 1 / ρ
-  u⃗ = ρinv * ρu⃗
+function wavespeed(m::EulerModel, nM, state::Vars, aux::Vars, _)
+  DFloat = eltype(state)
+  (ρ, ρu⃗, ρe) = fullstate(m, state, aux)
   ϕ = geopotential(m.gravity, aux)
-  p = pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
-
-  # compute the flux!
-  flux.ρ  = ρu⃗
-  flux.ρu⃗ = ρu⃗ .* u⃗' + p * I
-  flux.ρe = u⃗ * (ρe + p)
-end
-
-function source!(m::EulerModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρ = 0
-  source.ρu⃗ = @SVector zeros(eltype(source.ρu⃗), 3)
-  source.ρe = 0
-  geopotential_source!(m.gravity, state.ρ, source, state, aux)
-end
-
-function init_aux!(m::EulerModel, aux::Vars, x⃗)
-  init_aux!(m.gravity, aux, x⃗)
-end
-
-function wavespeed_euler(ϕ, ρ, ρu⃗, ρe, nM)
-  DFloat = eltype(ρu⃗)
   γ = DFloat(γ_exact)
   ρinv = 1 / ρ
   u⃗ = ρinv * ρu⃗
@@ -109,10 +156,32 @@ function wavespeed_euler(ϕ, ρ, ρu⃗, ρe, nM)
   abs(n⃗' * u⃗) + sqrt(ρinv * γ * p)
 end
 
-function wavespeed(m::EulerModel, nM, state::Vars, aux::Vars, t::Real)
-  (ρ, ρu⃗, ρe) = (state.ρ, state.ρu⃗, state.ρe)
+function flux!(m::EulerModel, flux::Grad, state::Vars, _::Vars, aux::Vars,
+               t::Real)
+  ρ, ρu⃗, ρe = fullstate(m, state, aux)
+
+  ρinv = 1 / ρ
+  u⃗ = ρinv * ρu⃗
   ϕ = geopotential(m.gravity, aux)
-  wavespeed_euler(ϕ, ρ, ρu⃗, ρe, nM)
+  p = pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
+  p_or_δp = perturbation_pressure(m, aux, p, ϕ)
+
+  # compute the flux!
+  flux.ρ  = ρu⃗
+  flux.ρu⃗ = ρu⃗ .* u⃗' + p_or_δp * I
+  flux.ρe = u⃗ * (ρe + p)
+end
+
+problem_specific_source!(::EulerModel, ::EulerProblem, _...) = nothing
+function source!(m::EulerModel, source::Vars, state::Vars, aux::Vars, t::Real)
+  source.ρ = 0
+  source.ρu⃗ = @SVector zeros(eltype(source.ρu⃗), 3)
+  source.ρe = 0
+
+  ρ = m.pde_level_hydrostatic_balance ? state.ρ : fullstate(m, state, aux).ρ
+  geopotential_source!(m.gravity, ρ, source, state, aux)
+  m.coriolis && coriolis_source!(source, state)
+  problem_specific_source!(m, m.problem, source, state, aux)
 end
 
 abstract type GravityModel end
@@ -134,7 +203,7 @@ end
 function init_aux!(g::SphereGravity, aux, x⃗)
   x⃗ = SVector(x⃗)
   r = norm(x⃗, 2)
-  aux.gravity.ϕ = grav * (r-g.h)
+  aux.gravity.ϕ = grav * (r - g.h)
   DFloat = eltype(aux.gravity.∇ϕ)
   aux.gravity.∇ϕ = DFloat(grav) * x⃗ / r
 end
@@ -151,115 +220,7 @@ function init_aux!(::BoxGravity{dim}, aux, x⃗) where dim
   end
 end
 
-struct NoGravity <: GravityModel end
-vars_aux(m::NoGravity, _) = @vars()
-init_aux!(::NoGravity, _...) = nothing
-geopotential(::NoGravity, _...) = 0
-geopotential_source!(::NoGravity, _...) = nothing
-
-struct ReferenceStateEulerModel{P, C, G} <: AbstractEulerModel
-  pde_level_hydrostatic_balance::Bool
-  problem::P
-  coriolis::C
-  gravity::G
-end
-
-function ReferenceStateEulerModel(balanced, problem, coriolis)
-  gravity = gravitymodel(problem)
-  args = problem, coriolis, gravity
-  ReferenceStateEulerModel{typeof.(args)...}(balanced, args...)
-end
-
-function vars_state(::ReferenceStateEulerModel, DFloat)
-  @vars begin
-    δρ::DFloat
-    ρu⃗::SVector{3, DFloat}
-    δρe::DFloat
-  end
-end
-
-function vars_aux(m::ReferenceStateEulerModel, DFloat)
-  @vars begin
-    coord::SVector{3, DFloat}
-    ρ_ref::DFloat
-    ρe_ref::DFloat
-    gravity::vars_aux(m.gravity, DFloat)
-  end
-end
-
-function init_aux!(m::ReferenceStateEulerModel, aux::Vars, x⃗)
-  aux.coord = SVector(x⃗)
-  init_aux!(m.gravity, aux, x⃗)
-  reference_state!(m, m.problem, aux, x⃗)
-end
-
-function wavespeed(m::ReferenceStateEulerModel, nM, state::Vars, aux::Vars,
-                   t::Real)
-  δρ, ρu⃗, δρe = state.δρ, state.ρu⃗, state.δρe
-  ρ_ref, ρe_ref = aux.ρ_ref, aux.ρe_ref
-  ρ, ρe = ρ_ref + δρ, ρe_ref + δρe
-  ϕ = geopotential(m.gravity, aux)
-  wavespeed_euler(ϕ, ρ, ρu⃗, ρe, nM)
-end
-
-function flux!(m::ReferenceStateEulerModel, flux::Grad, state::Vars, _::Vars,
-               aux::Vars, t::Real)
-
-  δρ, ρu⃗, δρe = state.δρ, state.ρu⃗, state.δρe
-  ρ_ref, ρe_ref = aux.ρ_ref, aux.ρe_ref
-  ρ, ρe = ρ_ref + δρ, ρe_ref + δρe
-
-  ρinv = 1 / ρ
-  u⃗ = ρinv * ρu⃗
-  ϕ = geopotential(m.gravity, aux)
-  p = pressure(ρ, ρinv, ρe, ρu⃗, ϕ)
-
-  p_ρu⃗ = p
-  if m.pde_level_hydrostatic_balance
-    ρinv_ref = 1 / ρ_ref
-    u⃗_ref = @SVector zeros(eltype(ρu⃗), 3)
-    p_ref = pressure(ρ_ref, ρinv_ref, ρe_ref, u⃗_ref, ϕ)
-    p_ρu⃗ -= p_ref
-  end
-
-  # compute the flux!
-  flux.δρ = ρu⃗
-  flux.ρu⃗ = ρu⃗ .* u⃗' + p_ρu⃗ * I
-  flux.δρe = u⃗ * (ρe + p)
-end
-
-function source!(m::ReferenceStateEulerModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.δρ = 0
-  source.ρu⃗ = @SVector zeros(eltype(source.ρu⃗), 3)
-  source.δρe = 0
-  if m.pde_level_hydrostatic_balance
-    geopotential_source!(m.gravity, state.δρ, source, state, aux)
-  else
-    ρ = aux.ρ_ref + state.δρ
-    geopotential_source!(m.gravity, ρ, source, state, aux)
-  end
-  coriolis_source!(m.coriolis, source, state, aux)
-  
-  parametrized_source!(m, m.problem, source, state, aux)
-end
-parametrized_source!(::ReferenceStateEulerModel, ::EulerProblem, _...) = nothing
-
-abstract type CoriolisModel end
-vars_aux(m::CoriolisModel, _) = @vars()
-function coriolis_source!(::CoriolisModel, source, state, aux)
+function coriolis_source!(source, state)
    Ω⃗ = SVector(0, 0, Omega)
    source.ρu⃗ += -2Ω⃗ × state.ρu⃗
-end
-struct Coriolis <: CoriolisModel end
-
-struct NoCoriolis <: CoriolisModel end
-coriolis_source!(::NoCoriolis, _...) = nothing
-
-function boundarycondition!(::ReferenceStateEulerModel, stateP::Vars, _, auxP::Vars, normalM,
-                            stateM::Vars, _, auxM::Vars, bctype, t)
-  if bctype == 1
-    nofluxbc!((:δρ, :δρe), stateP, normalM, stateM)
-  else
-    error("unknown boundary condition type!")
-  end
 end
