@@ -12,9 +12,9 @@ using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-  init_aux!, init_state!, update_aux!, LocalGeometry, lengthscale
+  init_aux!, init_state!, update_aux!, integrate_aux!, LocalGeometry, lengthscale
 
 """
     AtmosModel <: BalanceLaw
@@ -63,8 +63,18 @@ function vars_diffusive(m::AtmosModel, T)
     radiation::vars_diffusive(m.radiation,T)
   end
 end
+
+function vars_integrals(m::AtmosModel, T)
+  @vars begin
+    radiation::vars_integrals(m.radiation, T)
+  end
+end
+
+
 function vars_aux(m::AtmosModel, T)
   @vars begin
+    ∫dz::vars_integrals(m,T)
+    ∫dnz::vars_integrals(m,T)
     coord::SVector{3,T}
     orientation::vars_aux(m.orientation, T)
     turbulence::vars_aux(m.turbulence,T)
@@ -72,6 +82,8 @@ function vars_aux(m::AtmosModel, T)
     radiation::vars_aux(m.radiation,T)
   end
 end
+
+
 
 """
     flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -174,6 +186,10 @@ end
 
 function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   update_aux!(m.moisture, state, diffusive, aux, t)
+end
+
+function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+  integrate_aux!(m.radiation, integ, state, aux)
 end
 
 include("turbulence.jl")
