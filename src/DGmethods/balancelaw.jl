@@ -32,13 +32,16 @@ function vars_state end
 function vars_aux end
 function vars_gradient end
 function vars_diffusive end
+function vars_integrals end
 
 num_aux(m::BalanceLaw, T) = varsize(vars_aux(m,T)) 
 num_state(m::BalanceLaw, T) = varsize(vars_state(m,T)) # nstate
 num_gradient(m::BalanceLaw, T) = varsize(vars_gradient(m,T))  # number_gradient_states
 num_diffusive(m::BalanceLaw, T) = varsize(vars_diffusive(m,T)) # number_viscous_states
+num_integrals(m::BalanceLaw, T) = varsize(vars_integrals(m,T))
 
 function update_aux! end
+function integrate_aux! end
 function flux! end
 function gradvariables! end
 function diffusive! end
