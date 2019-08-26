@@ -688,6 +688,8 @@ function PhasePartition_equil(T::DT, ρ::DT, q_tot::DT) where {DT<:Real}
 
     return PhasePartition(q_tot, q_liq, q_ice)
 end
+PhasePartition_equil(ts::PhaseNonEquil) = 
+
 
 function PhasePartition(ts::PhaseDry{DT}) where {DT<:Real}
   @warn "Computing `PhasePartition` of a dry `ThermodynamicState` is inefficient. Please use higher-level function calls (e.g., with `ThermodynamicState`) instead."
@@ -864,7 +866,7 @@ liquid_ice_pottemp_sat(ts::PhaseDry) =
 """
     exner(p[, q::PhasePartition])
 
-Compute the Exner function where
+The Exner function where
  - `p` pressure
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
@@ -880,11 +882,17 @@ end
 """
     exner(ts::ThermodynamicState)
 
-Compute the Exner function, given a thermodynamic state `ts`.
+The Exner function, given a thermodynamic state `ts`.
 """
 exner(ts::ThermodynamicState) =
   exner(air_pressure(ts), PhasePartition(ts))
 exner(ts::PhaseDry{DT}) where {DT<:Real} = (air_pressure(ts)/DT(MSLP))^(gas_constant_air(ts)/cp_m(ts))
 
+"""
+    relative_humidity(ts::ThermodynamicState)
+
+The relative humidity, given a thermodynamic state `ts`.
+"""
+relative_humidity(ts::ThermodynamicState) = air_pressure(ts)/saturation_vapor_pressure(ts)
 
 end #module MoistThermodynamics.jl
