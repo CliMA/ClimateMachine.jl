@@ -3,7 +3,7 @@ module Geometry
 using StaticArrays, LinearAlgebra, DocStringExtensions
 using ..Grids: _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI,
        _x1, _x2, _x3, _JcV
-export LocalGeometry, lengthscale
+export LocalGeometry, lengthscale, resolutionmetric
 
 """
     LocalGeometry
@@ -38,9 +38,6 @@ function LocalGeometry(polynomial::Val, vgeo::AbstractArray{T}, n::Integer, e::I
   LocalGeometry(polynomial, coord, invJ)
 end
 
-                       
-
-
 """
     resolutionmetric(g::LocalGeometry)
 
@@ -54,7 +51,7 @@ function resolutionmetric(g::LocalGeometry{T, Val{polyorder}}) where {T,polyorde
 end
 
 """
-    resolution(g::LocalGeometry)
+    lengthscale(g::LocalGeometry)
 
 The effective grid resolution at the point.
 """
