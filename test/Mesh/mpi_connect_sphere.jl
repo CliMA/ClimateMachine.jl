@@ -53,10 +53,11 @@ function main()
                                            length(topology.elems),
                                            realelems=topology.realelems,
                                            ghostelems=topology.ghostelems,
-                                           sendelems=topology.sendelems,
+                                           vmaprecv=grid.vmaprecv,
+                                           vmapsend=grid.vmapsend,
                                            nabrtorank=topology.nabrtorank,
-                                           nabrtorecv=topology.nabrtorecv,
-                                           nabrtosend=topology.nabrtosend)
+                                           nabrtovmaprecv=grid.nabrtovmaprecv,
+                                           nabrtovmapsend=grid.nabrtovmapsend)
   x1x2x3.Q[:,:,topology.realelems] .=
         @view grid.vgeo[:, [Grids._x1, Grids._x2, Grids._x3], topology.realelems]
   MPIStateArrays.start_ghost_exchange!(x1x2x3)

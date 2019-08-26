@@ -27,62 +27,68 @@ export MPIStateArray, euclidean_distance, weightedsum
 
 """
 struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
-                     DATN<:AbstractArray{T,N}, Nm1, DAI1, DAV} <: AbstractArray{T, N}
+                     DATN<:AbstractArray{T,N}, Nm1, DAI1, DAV,
+                     DAT2<:AbstractArray{T,2}} <: AbstractArray{T, N}
   mpicomm::MPI.Comm
   Q::DATN
   realQ::DAV
 
   realelems::UnitRange{Int64}
   ghostelems::UnitRange{Int64}
-  sendelems::DAI1
+
+  vmaprecv::DAI1
+  vmapsend::DAI1
 
   sendreq::Array{MPI.Request, 1}
   recvreq::Array{MPI.Request, 1}
 
-  host_sendQ::Array{T, N}
-  host_recvQ::Array{T, N}
+  host_sendQ::Array{T, 2}
+  host_recvQ::Array{T, 2}
 
   nabrtorank::Array{Int64, 1}
-  nabrtorecv::Array{UnitRange{Int64}, 1}
-  nabrtosend::Array{UnitRange{Int64}, 1}
+  nabrtovmaprecv::Array{UnitRange{Int64}, 1}
+  nabrtovmapsend::Array{UnitRange{Int64}, 1}
 
-  device_sendQ::DATN
-  device_recvQ::DATN
+  device_sendQ::DAT2
+  device_recvQ::DAT2
 
   weights::DATN
 
   commtag::Int
   function MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
-                                   sendelems, nabrtorank, nabrtorecv,
-                                   nabrtosend, weights, commtag
+                                   vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
+                                   nabrtovmapsend, weights, commtag
                                   ) where {S, T, DA}
     N = length(S.parameters)+1
-    numsendelem = length(sendelems)
-    numrecvelem = length(ghostelems)
-    (Q, device_sendQ, device_recvQ) =
-      (DA{T, N}(undef, S.parameters..., numelem),
-       DA{T, N}(undef, S.parameters..., numsendelem),
-       DA{T, N}(undef, S.parameters..., numrecvelem))
+    Q = DA{T, N}(undef, S.parameters..., numelem)
+
+    device_recvQ = DA{T}(undef, S.parameters[2], length(vmaprecv))
+    device_sendQ = DA{T}(undef, S.parameters[2], length(vmapsend))
 
     realQ = view(Q, ntuple(i -> Colon(), ndims(Q) - 1)..., realelems)
     DAV = typeof(realQ)
 
-    host_sendQ = zeros(T, S.parameters..., numsendelem)
-    host_recvQ = zeros(T, S.parameters..., numrecvelem)
+    host_sendQ = zeros(T, S.parameters[2], length(vmapsend))
+    host_recvQ = zeros(T, S.parameters[2], length(vmaprecv))
 
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
-    sendelems = typeof(sendelems) <: DA ? sendelems : DA(sendelems)
-    DAI1 = typeof(sendelems)
-    new{S, T, DA, N, typeof(Q), N-1, DAI1, DAV}(mpicomm, Q, realQ,
-                                                realelems, ghostelems,
-                                                sendelems, sendreq, recvreq,
-                                                host_sendQ, host_recvQ, nabrtorank,
-                                                nabrtorecv, nabrtosend,
-                                                device_sendQ, device_recvQ, weights,
-                                                commtag)
+    vmaprecv = typeof(vmaprecv) <: DA ? vmaprecv : DA(vmaprecv)
+    vmapsend = typeof(vmapsend) <: DA ? vmapsend : DA(vmapsend)
+    DAI1 = typeof(vmaprecv)
+    DAT2 = typeof(device_recvQ)
+    new{S, T, DA, N, typeof(Q), N-1, DAI1, DAV, DAT2}(mpicomm, Q, realQ,
+                                                      realelems, ghostelems,
+                                                      vmaprecv, vmapsend,
+                                                      sendreq, recvreq,
+                                                      host_sendQ, host_recvQ,
+                                                      nabrtorank, nabrtovmaprecv,
+                                                      nabrtovmapsend,
+                                                      device_sendQ,
+                                                      device_recvQ, weights,
+                                                      commtag)
   end
 end
 
@@ -91,10 +97,11 @@ Base.fill!(Q::MPIStateArray, x) = fill!(Q.Q, x)
 """
    MPIStateArray{S, T, DA}(mpicomm, numelem; realelems=1:numelem,
                            ghostelems=numelem:numelem-1,
-                           sendelems=1:0,
+                           vmaprecv=1:0,
+                           vmapsend=1:0,
                            nabrtorank=Array{Int64}(undef, 0),
-                           nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
-                           nabrtosend=Array{UnitRange{Int64}}(undef, 0),
+                           nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
+                           nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
                            weights,
                            commtag=888)
 
@@ -106,24 +113,26 @@ The range `realelems` is the number of elements that this mpirank owns, whereas
 the range `ghostelems` is the elements that are owned by other mpiranks.
 Elements are stored as 'realelems` followed by `ghostelems`.
 
-  * `sendelems` is an ordered array of elements to be sent to neighboring
-    mpiranks
+  * `vmaprecv` is an ordered array of elements to be received from neighboring
+     mpiranks.  This is a vmap index into the MPIStateArray A[:,*,:].
+  * `vmapsend` is an ordered array of elements to be sent to neighboring
+     mpiranks.  This is a vmap index into the MPIStateArray A[:,*,:].
   * `nabrtorank` is the list of neighboring mpiranks
-  * `nabrtorecv` is an `Array` of `UnitRange` that give the `ghostelems`
-    received from neighboring mpiranks (indexes into the ghost elements arrays,
-    not the full element array)
-  * nabrtosend` is an `Array` of `UnitRange` for which elements to send to
-    which neighboring mpiranks indexing into the `sendelems` ordering
+  * `nabrtovmaprecv` is an `Array` of `UnitRange` that give the ghost data to be
+    received from neighboring mpiranks (indexes into `vmaprecv`)
+  * nabrtovmapsend` is an `Array` of `UnitRange` for which elements to send to
+    which neighboring mpiranks indexing into the `vmapsend`
   * `weights` is an optional array which gives weight for each degree of freedom
     to be used when computing the 2-norm of the array
 """
 function MPIStateArray{S, T, DA}(mpicomm, numelem;
                                  realelems=1:numelem,
                                  ghostelems=numelem:numelem-1,
-                                 sendelems=1:0,
+                                 vmaprecv=1:0,
+                                 vmapsend=1:0,
                                  nabrtorank=Array{Int64}(undef, 0),
-                                 nabrtorecv=Array{UnitRange{Int64}}(undef, 0),
-                                 nabrtosend=Array{UnitRange{Int64}}(undef, 0),
+                                 nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
+                                 nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
                                  weights=nothing,
                                  commtag=888
                                 ) where {S<:Tuple, T, DA}
@@ -135,16 +144,16 @@ function MPIStateArray{S, T, DA}(mpicomm, numelem;
     weights = DA(weights)
   end
   MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
-                          sendelems, nabrtorank, nabrtorecv,
-                          nabrtosend, weights, commtag)
+                          vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
+                          nabrtovmapsend, weights, commtag)
 end
 
 # FIXME: should general cases be handled?
 function Base.similar(Q::MPIStateArray{S, T, DA}, ::Type{TN}, ::Type{DAN}; commtag=Q.commtag
                      ) where {S, T, DA, TN, DAN <: AbstractArray}
   MPIStateArray{S, TN, DAN}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
-                            Q.sendelems, Q.nabrtorank, Q.nabrtorecv,
-                            Q.nabrtosend, Q.weights, commtag)
+                            Q.vmaprecv, Q.vmapsend, Q.nabrtorank, Q.nabrtovmaprecv,
+                            Q.nabrtovmapsend, Q.weights, commtag)
 end
 
 function Base.similar(Q::MPIStateArray{S, T, DA}, ::Type{TN}; commtag=Q.commtag
@@ -224,13 +233,13 @@ end
 
 posts the `MPI.Irecv!` for `Q`
 """
-function post_Irecvs!(Q::MPIStateArray, D)
+function post_Irecvs!(Q::MPIStateArray)
   nnabr = length(Q.nabrtorank)
   for n = 1:nnabr
     # If this fails we haven't waited on previous recv!
     @assert Q.recvreq[n].buffer == nothing
 
-    Q.recvreq[n] = MPI.Irecv!((@view Q.host_recvQ[D..., Q.nabrtorecv[n]]),
+    Q.recvreq[n] = MPI.Irecv!((@view Q.host_recvQ[:, Q.nabrtovmaprecv[n]]),
                               Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
@@ -245,21 +254,20 @@ This function will fill the send buffer (on the device), copies the data from
 the device to the host, and then issues the send. Previous sends are waited on
 to ensure that they are complete.
 """
-function start_ghost_exchange!(Q::MPIStateArray, D = ntuple(i->:, ndims(Q)-1);
-                               dorecvs=true)
+function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
 
-  dorecvs && post_Irecvs!(Q, D)
+  dorecvs && post_Irecvs!(Q)
 
   # wait on (prior) MPI sends
   finish_ghost_send!(Q)
 
   # pack data in send buffer
-  fillsendbuf!(Q.host_sendQ, Q.device_sendQ, Q.Q, Q.sendelems, D)
+  fillsendbuf!(Q.host_sendQ, Q.device_sendQ, Q.Q, Q.vmapsend)
 
   # post MPI sends
   nnabr = length(Q.nabrtorank)
   for n = 1:nnabr
-    Q.sendreq[n] = MPI.Isend((@view Q.host_sendQ[D..., Q.nabrtosend[n]]),
+    Q.sendreq[n] = MPI.Isend((@view Q.host_sendQ[:, Q.nabrtovmapsend[n]]),
                            Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
@@ -282,12 +290,12 @@ end
 
 Complete the receive of data and fill the data array on the device
 """
-function finish_ghost_recv!(Q::MPIStateArray, D = ntuple(i->:, ndims(Q)-1))
+function finish_ghost_recv!(Q::MPIStateArray)
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
 
   # copy data to state vectors
-  transferrecvbuf!(Q.device_recvQ, Q.host_recvQ, Q.Q, length(Q.realelems), D)
+  transferrecvbuf!(Q.device_recvQ, Q.host_recvQ, Q.Q, Q.vmaprecv)
 end
 
 """
@@ -298,18 +306,56 @@ Waits on the send of data to be complete
 finish_ghost_send!(Q::MPIStateArray) = MPI.Waitall!(Q.sendreq)
 
 # {{{ MPI Buffer handling
-function fillsendbuf!(host_sendbuf, device_sendbuf::Array, buf::Array,
-                      sendelems::Array, D)
-  # TODO: Revisit when not D ≠ (:, :), may want to pack data perhaps
-  # differently for the GPU?
-  copyto!(@view(host_sendbuf[D..., :]), @view(buf[D..., sendelems]))
+function _fillsendbuf!(sendbuf, buf, vmapsend)
+  if length(vmapsend) > 0
+    Np = size(buf, 1)
+    nvar = size(buf, 2)
+
+    threads = 256
+    blocks = div(length(vmapsend) + threads - 1, threads)
+    @launch(device(buf), threads=threads, blocks=blocks,
+            knl_fillsendbuf!(Val(Np), Val(nvar), sendbuf, buf, vmapsend,
+                             length(vmapsend)))
+  end
 end
 
-function transferrecvbuf!(device_recvbuf, host_recvbuf, buf::Array, nrealelem,
-                          D)
-  # TODO: Revisit when not D ≠ (:, :), may want to pack data perhaps
-  # differently for the GPU?
-  copyto!(@view(buf[D..., nrealelem+1:end]), @view(host_recvbuf[D..., :]))
+function fillsendbuf!(host_sendbuf::Array, device_sendbuf::Array, buf::Array,
+                      vmapsend::Array)
+  _fillsendbuf!(host_sendbuf, buf, vmapsend)
+end
+
+function fillsendbuf!(host_sendbuf, device_sendbuf, buf, vmapsend)
+  _fillsendbuf!(device_sendbuf, buf, vmapsend,)
+
+  if length(vmapsend) > 0
+    copyto!(host_sendbuf, device_sendbuf)
+  end
+end
+
+function _transferrecvbuf!(buf, recvbuf, vmaprecv)
+  if length(vmaprecv) > 0
+    Np = size(buf, 1)
+    nvar = size(buf, 2)
+
+    threads = 256
+    blocks = div(length(vmaprecv) + threads - 1, threads)
+    @launch(device(buf), threads=threads, blocks=blocks,
+            knl_transferrecvbuf!(Val(Np), Val(nvar), buf, recvbuf,
+                                 vmaprecv, length(vmaprecv)))
+  end
+end
+
+function transferrecvbuf!(device_recvbuf::Array, host_recvbuf::Array,
+                          buf::Array, vmaprecv::Array)
+  _transferrecvbuf!(buf, host_recvbuf, vmaprecv)
+end
+
+function transferrecvbuf!(device_recvbuf, host_recvbuf, buf, vmaprecv)
+  if length(vmaprecv) > 0
+    copyto!(device_recvbuf, host_recvbuf)
+  end
+
+  _transferrecvbuf!(buf, device_recvbuf, vmaprecv)
 end
 # }}}
 
@@ -495,8 +541,8 @@ realview(Q::MPIStateArray) = Q.realQ
   end
   transform_cuarray(mpisa::MPIStateArray) = mpisa.realQ
   transform_cuarray(x) = x
-
-  include("MPIStateArrays_cuda.jl")
 end
+
+include("MPIStateArrays_kernels.jl")
 
 end

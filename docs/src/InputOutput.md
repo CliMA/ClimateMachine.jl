@@ -4,10 +4,10 @@
 CurrentModule = CLIMA
 ```
 
-## `Vtk`
+## `VTK`
 
 ### Functions
 ```@docs
-Vtk.writevtk
-Vtk.writevtk_helper
+VTK.writevtk
+VTK.writevtk_helper
 ```
