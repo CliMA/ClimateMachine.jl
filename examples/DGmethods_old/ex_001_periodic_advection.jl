@@ -45,7 +45,7 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
-using CLIMA.Vtk
+using CLIMA.VTK
 using LinearAlgebra
 using Logging
 using Dates

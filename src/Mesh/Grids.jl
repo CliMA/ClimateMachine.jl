@@ -1,6 +1,7 @@
 module Grids
 using ..Topologies
 import ..Metrics, ..Elements
+import ..BrickMesh
 
 using LinearAlgebra
 
@@ -46,6 +47,7 @@ const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM,
                 vMIid = _vMI)
 # }}}
 
+
 """
     DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
                                      polynomialorder,
@@ -84,8 +86,17 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   "volume DOF to element plus side map"
   vmapP::DAI3
 
-  "list of elements that need to be communicated (in neighbors order)"
-  sendelems::DAI1
+  "list of DOFs that need to be received (in neighbors order)"
+  vmaprecv::DAI1
+
+  "list of DOFs that need to be sent (in neighbors order)"
+  vmapsend::DAI1
+
+  "An array of ranges in `vmaprecv` to receive from each neighbor"
+  nabrtovmaprecv
+
+  "An array of ranges in `vmapsend` to send to each neighbor"
+  nabrtovmapsend
 
   "1-D lvl weights on the device"
   ω::DAT1
@@ -114,6 +125,11 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
     (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
                               topology.elemtoordr)
 
+    (vmaprecv, nabrtovmaprecv) =
+      BrickMesh.commmapping(N, topology.ghostelems, topology.ghostfaces, topology.nabrtorecv)
+    (vmapsend, nabrtovmapsend) =
+      BrickMesh.commmapping(N, topology.sendelems, topology.sendfaces, topology.nabrtosend)
+
     (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmapM)
     Np = (N+1)^dim
     @assert Np == size(vgeo, 1)
@@ -124,7 +140,8 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      elemtobndy = DeviceArray(topology.elemtobndy)
      vmapM = DeviceArray(vmapM)
      vmapP = DeviceArray(vmapP)
-     sendelems = DeviceArray(topology.sendelems)
+     vmapsend = DeviceArray(vmapsend)
+     vmaprecv = DeviceArray(vmaprecv)
      ω = DeviceArray(ω)
      D = DeviceArray(D)
      Imat = DeviceArray(Imat)
@@ -134,14 +151,14 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      DAT2 = typeof(D)
      DAT3 = typeof(vgeo)
      DAT4 = typeof(sgeo)
-     DAI1 = typeof(sendelems)
+     DAI1 = typeof(vmapsend)
      DAI2 = typeof(elemtobndy)
      DAI3 = typeof(vmapM)
      TOP = typeof(topology)
 
     new{FloatType, dim, N, Np, DeviceArray, DAT1, DAT2, DAT3, DAT4, DAI1, DAI2,
-        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems,
-                   ω, D, Imat)
+        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, vmaprecv, vmapsend,
+                   nabrtovmaprecv, nabrtovmapsend, ω, D, Imat)
   end
 end
 
