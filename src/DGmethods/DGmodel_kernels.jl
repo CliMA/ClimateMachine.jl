@@ -1,6 +1,8 @@
 using .NumericalFluxes: GradNumericalFlux, diffusive_boundary_penalty!, diffusive_penalty!,
   DivNumericalFlux, numerical_flux!, numerical_boundary_flux!
 
+using ..Mesh.Geometry
+
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
   using .CUDAnative
@@ -102,6 +104,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_aux[s] = auxstate[ijk, s, e]
           end
 
+          fill!(l_F, -zero(eltype(l_F)))
           flux!(bl, Grad{vars_state(bl,DFloat)}(l_F), Vars{vars_state(bl,DFloat)}(l_Q),
                 Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
@@ -112,6 +115,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           # if source! !== nothing
+          fill!(l_S, -zero(eltype(l_S)))
           source!(bl, Vars{vars_state(bl,DFloat)}(l_S), Vars{vars_state(bl,DFloat)}(l_Q),
                   Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
@@ -298,6 +302,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, divnumflux::DivN
         end
 
         bctype = elemtobndy[f, e]
+        fill!(l_F, -zero(eltype(l_F)))
         if bctype == 0
           numerical_flux!(divnumflux, bl, l_F, nM, l_QM, l_QviscM, l_auxM, l_QP, l_QviscP,
                           l_auxP, t)
@@ -366,6 +371,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
 
+          fill!(l_G, -zero(eltype(l_G)))
           gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_G), Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]),
                      Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
@@ -401,6 +407,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_gradG[3, s] = ξ1x3 * Gξ1 + ξ2x3 * Gξ2 + ξ3x3 * Gξ3
           end
 
+          fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
           diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Grad{vars_gradient(bl,DFloat)}(l_gradG),
                      Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
 
@@ -469,6 +476,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflu
           l_auxM[s] = auxstate[vidM, s, eM]
         end
 
+        fill!(l_GM, -zero(eltype(l_GM)))
         gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GM), Vars{vars_state(bl,DFloat)}(l_QM),
                    Vars{vars_aux(bl,DFloat)}(l_auxM), t)
 
@@ -481,10 +489,12 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflu
           l_auxP[s] = auxstate[vidP, s, eP]
         end
 
+        fill!(l_GP, -zero(eltype(l_GP)))
         gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GP), Vars{vars_state(bl,DFloat)}(l_QP),
                    Vars{vars_aux(bl,DFloat)}(l_auxP), t)
 
         bctype = elemtobndy[f, e]
+        fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
           diffusive_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
                                   l_QP, l_auxP, t)
@@ -590,12 +600,11 @@ function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, v
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      coords = vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e]
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
 
-      init_aux!(bl, Vars{vars_aux(bl,DFloat)}(l_aux), coords)
+      init_aux!(bl, Vars{vars_aux(bl,DFloat)}(l_aux), LocalGeometry(Val(polyorder),vgeo,n,e))
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
@@ -603,6 +612,8 @@ function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, v
     end
   end
 end
+
+
 
 """
     elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo, D, elems, s,
@@ -868,6 +879,7 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
               l_aux[s] = auxstate[ijk, s, e]
             end
 
+            fill!(l_knl, -zero(eltype(l_knl)))
             int_knl!(view(l_knl, :, k), l_Q, l_aux)
 
             # multiply in the curve jacobian

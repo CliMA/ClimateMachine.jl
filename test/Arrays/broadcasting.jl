@@ -45,8 +45,9 @@ const mpicomm = MPI.COMM_WORLD
     realelems = 1:7
     ghostelems = 8:12
     
-    QA = MPIStateArray{Tuple{1}, Int, Array}(mpicomm, numelems,
-                                             realelems = realelems, ghostelems = ghostelems)
+    QA = MPIStateArray{Tuple{1, 1, 1}, Int, Array}(mpicomm, numelems,
+                                                   realelems = realelems,
+                                                   ghostelems = ghostelems)
     QB  = similar(QA)
 
     fill!(QA, 1)
