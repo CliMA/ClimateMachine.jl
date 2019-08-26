@@ -2,7 +2,7 @@ using MPI, Test
 include("../testhelpers.jl")
 
 @testset "DGmethods" begin
-  tests = [(1, "BalanceLawUtilities/runtests.jl")
+  tests = [
           ]
 
   runmpi(tests, @__FILE__)
