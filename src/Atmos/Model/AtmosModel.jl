@@ -178,7 +178,7 @@ function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::
   update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
-include("hydrostaticstate.jl")
+include("hydrostatic_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
