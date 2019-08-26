@@ -54,6 +54,7 @@ g.ρu = SMatrix{3,3}(1:9)
 
 using CLIMA.DGmethods
 using CLIMA.Atmos
+using CLIMA.Atmos: vars_state, vars_aux
 
 init!() = nothing
 source!() = nothing
@@ -70,7 +71,7 @@ DF = Float64
                      NoFluxBC(),
                      init!)
 
-  @test var_names(model, DF, Atmos.vars_state) == ["ρ","ρu1","ρu2","ρu3","ρe","moisture.ρq_tot"]
-  @test var_names(model, DF, Atmos.vars_aux) == ["coord1", "coord2", "coord3", "orientation.Φ", "orientation.∇Φ1", "orientation.∇Φ2", "orientation.∇Φ3", "moisture.e_int", "moisture.temperature"]
+  @test flattenednames(vars_state(model, DF)) == ["ρ","ρu[1]","ρu[2]","ρu[3]","ρe","moisture.ρq_tot"]
+  @test flattenednames(vars_aux(model, DF)) == ["coord[1]", "coord[2]", "coord[3]", "orientation.Φ", "orientation.∇Φ[1]", "orientation.∇Φ[2]", "orientation.∇Φ[3]", "moisture.e_int", "moisture.temperature"]
 end
 
