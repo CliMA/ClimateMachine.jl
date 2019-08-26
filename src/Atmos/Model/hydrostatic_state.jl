@@ -3,7 +3,8 @@
 """
     AbstractHydrostaticState{DT}
 
-Hydrostatic state, potentially used as a reference state.
+Hydrostatic state, for example, used as initial
+condition or reference state for linearization.
 """
 abstract type AbstractHydrostaticState{DT} end
 
@@ -15,12 +16,16 @@ vars_aux(m::AbstractHydrostaticState      , DT) = @vars(ρ::DT, p::DT, T::DT, ρ
 function compute_additional_fields!(m::AbstractHydrostaticState{DT}, aux::Vars) where DT
   T = aux.hydrostatic.T
   ρ = aux.hydrostatic.p/(R_d*T)
+  z = aux.coord[3]
   aux.hydrostatic.ρ = ρ
   q_vap_sat = q_vap_saturation(T, ρ)
   ρq_tot = ρ*m.relative_humidity*q_vap_sat
   aux.hydrostatic.ρq_tot = ρq_tot
   q_pt = PhasePartition(ρq_tot, DT(0), DT(0))
   aux.hydrostatic.ρe = ρ*MoistThermodynamics.internal_energy(T, q_pt)
+  e_kin = DT(0)
+  e_pot = grav * z
+  aux.hydrostatic.ρe = ρ*MoistThermodynamics.total_energy(e_kin, e_pot, T, q_pt)
 end
 
 
