@@ -15,7 +15,7 @@ struct SubModelC{N}
 end
 
 function state(m::TestModel, T)
-  NamedTuple{(:ρ, :ρu, :ρe, :a, :b, :c), 
+  NamedTuple{(:ρ, :ρu, :ρe, :a, :b, :c),
   Tuple{T, SVector{3,T}, T, state(m.a,T), state(m.b,T), state(m.c, T)}}
 end
 
@@ -51,4 +51,26 @@ g.ρu = SMatrix{3,3}(1:9)
 
 @test size(v.c.ρk) == (5,)
 @test size(g.c.ρk) == (3,5)
+
+using CLIMA.DGmethods
+using CLIMA.Atmos
+
+init!() = nothing
+source!() = nothing
+
+DF = Float64
+
+@testset "Flatten variable list" begin
+  model = AtmosModel(
+                     FlatOrientation(),
+                     ConstantViscosityWithDivergence(DF(0)),
+                     Atmos.EquilMoist(),
+                     NoRadiation(),
+                     source!,
+                     NoFluxBC(),
+                     init!)
+
+  @test var_names(model, DF, Atmos.vars_state) == ["ρ","ρu1","ρu2","ρu3","ρe","moisture.ρq_tot"]
+  @test var_names(model, DF, Atmos.vars_aux) == ["coord1", "coord2", "coord3", "orientation.Φ", "orientation.∇Φ1", "orientation.∇Φ2", "orientation.∇Φ3", "moisture.e_int", "moisture.temperature"]
+end
 
