@@ -12,7 +12,7 @@ using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.Vtk
+using CLIMA.VTK
 using CLIMA.PlanetParameters: planet_radius, R_d, cv_d, cp_d, MSLP
 using CLIMA.MoistThermodynamics: air_pressure, air_temperature, internal_energy, air_density,
                                  soundspeed_air
@@ -92,20 +92,20 @@ function isothermal_state(T, x⃗, ϕ)
   ρ_ref, ρe_ref
 end
 
-function initial_condition!(m::EulerModel, ::HeldSuarez, state::Vars, aux::Vars, x⃗, t)
+function initial_condition!(m::EulerModel, ::HeldSuarez, state::Vars, aux::Vars, _...)
   DFloat = eltype(state)
   T = DFloat(255)
-  ρ, ρe = isothermal_state(T, x⃗, aux.gravity.ϕ)
+  ρ, ρe = isothermal_state(T, aux.coord, aux.gravity.ϕ)
   state.δρ = ρ
   state.δρu⃗ = @SVector zeros(eltype(state.δρu⃗), 3)
   state.δρe = ρe 
   removerefstate!(m, state, aux)
 end
 
-function referencestate!(::HeldSuarez, ::DensityEnergyReferenceState, aux::Vars, x⃗)
+function referencestate!(::HeldSuarez, ::DensityEnergyReferenceState, aux::Vars, _)
   DFloat = eltype(aux)
   T_ref = DFloat(255)
-  ρ_ref, ρe_ref = isothermal_state(T_ref, x⃗, aux.gravity.ϕ)
+  ρ_ref, ρe_ref = isothermal_state(T_ref, aux.coord, aux.gravity.ϕ)
   aux.refstate.ρ = ρ_ref
   aux.refstate.ρe = ρe_ref
 end

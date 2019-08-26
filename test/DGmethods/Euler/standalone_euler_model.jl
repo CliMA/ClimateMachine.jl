@@ -7,7 +7,8 @@ using LinearAlgebra: norm
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, flux!, source!, wavespeed,
                         boundarycondition!, gradvariables!, diffusive!,
-                        init_aux!, init_state!, init_ode_param, init_ode_state
+                        init_aux!, init_state!, init_ode_param, init_ode_state,
+                        LocalGeometry
 
 abstract type EulerProblem end
 pde_level_referencestate_hydrostatic_balance(p::EulerProblem) = false
@@ -60,10 +61,10 @@ gradvariables!(::EulerModel, _...) = nothing
 diffusive!(::EulerModel, _...) = nothing
 
 init_state!(m::EulerModel, rest...) = initial_condition!(m, m.problem, rest...)
-function init_aux!(m::EulerModel, aux, x⃗)
-  aux.coord = SVector(x⃗)
-  init_aux!(m.gravity, aux, x⃗)
-  init_aux!(m.problem, m.refstate, aux, x⃗)
+function init_aux!(m::EulerModel, aux, geom::LocalGeometry)
+  aux.coord = geom.coord
+  init_aux!(m.gravity, aux, geom)
+  init_aux!(m.problem, m.refstate, aux, geom)
 end
 
 fullstate(m::EulerModel, state, aux) = fullstate(m.refstate, state, aux.refstate)
@@ -201,8 +202,8 @@ geopotential_source!(::EulerModel, ::NoGravity, _...) = nothing
 struct SphereGravity{DFloat} <: GravityModel
   h::DFloat
 end
-function init_aux!(g::SphereGravity, aux, x⃗)
-  x⃗ = SVector(x⃗)
+function init_aux!(g::SphereGravity, aux, geom::LocalGeometry)
+  x⃗ = geom.coord
   r = norm(x⃗, 2)
   aux.gravity.ϕ = grav * (r - g.h)
   DFloat = eltype(aux.gravity.∇ϕ)
