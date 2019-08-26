@@ -2,7 +2,7 @@ module Atmos
 
 export AtmosModel,
   ConstantViscosityWithDivergence,
-  DryModel, MoistEquil,
+  DryModel, EquilMoist,
   NoRadiation,
   NoFluxBC, InitStateBC
 
@@ -25,8 +25,8 @@ A `BalanceLaw` for atmosphere modelling.
     AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
 
 """
-struct AtmosModel{RF,T,M,R,S,BC,IS} <: BalanceLaw
-  refstate::RF
+struct AtmosModel{H,T,M,R,S,BC,IS} <: BalanceLaw
+  hydrostatic::H
   turbulence::T
   moisture::M
   radiation::R
@@ -65,6 +65,7 @@ end
 function vars_aux(m::AtmosModel, T)
   @vars begin
     coord::SVector{3,T}
+    hydrostatic::vars_aux(m.hydrostatic,T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
@@ -174,7 +175,7 @@ function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::
   update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
-include("refstate.jl")
+include("hydrostaticstate.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
@@ -182,7 +183,7 @@ include("radiation.jl")
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, x)
   aux.coord = SVector(x)
-  init_aux!(m.refstate, aux, x)
+  init_aux!(m.hydrostatic, aux)
 end
 
 """
