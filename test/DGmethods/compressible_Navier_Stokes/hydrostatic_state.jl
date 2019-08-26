@@ -15,7 +15,7 @@ using CLIMA.PlanetParameters
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.Vtk
+using CLIMA.VTK
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -52,7 +52,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   T_s = 320.0
   RH = 0.9
   if dim == 2
-    model = AtmosModel(HydrostaticStateIsothermalAtmos(T_s, RH),
+    model = AtmosModel(FlatOrientation(),
+                       HydrostaticStateIsothermalAtmos(T_s, RH),
                        ConstantViscosityWithDivergence(DFloat(1)),
                        EquilMoist(),
                        NoRadiation(),
@@ -60,7 +61,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                        InitStateBC(),
                        init_state!)
   else
-    model = AtmosModel(HydrostaticStateIsothermalAtmos(T_s, RH),
+    model = AtmosModel(FlatOrientation(),
+                       HydrostaticStateIsothermalAtmos(T_s, RH),
                        ConstantViscosityWithDivergence(DFloat(1)),
                        EquilMoist(),
                        NoRadiation(),
