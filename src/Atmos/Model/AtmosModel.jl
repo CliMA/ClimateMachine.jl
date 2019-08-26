@@ -19,16 +19,16 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_di
 """
     AtmosModel <: BalanceLaw
 
-A `BalanceLaw` for atmosphere modelling.
+A `BalanceLaw` for atmosphere modeling.
 
 # Usage
 
-    AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
+    AtmosModel(orientation, ref_state, turbulence, moisture, radiation, source, boundarycondition, init_state)
 
 """
-struct AtmosModel{O,H,T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   orientation::O
-  hydrostatic::H
+  ref_state::RS
   turbulence::T
   moisture::M
   radiation::R
@@ -68,7 +68,7 @@ function vars_aux(m::AtmosModel, T)
   @vars begin
     coord::SVector{3,T}
     orientation::vars_aux(m.orientation, T)
-    hydrostatic::vars_aux(m.hydrostatic,T)
+    ref_state::vars_aux(m.ref_state,T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
@@ -178,7 +178,7 @@ function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::
   update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
-include("hydrostatic_state.jl")
+include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
@@ -189,7 +189,7 @@ function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.coord = geom.coord
   init_aux!(m.orientation, aux, geom)
   init_aux!(m.turbulence, aux, geom)
-  init_aux!(m.hydrostatic, aux)
+  init_aux!(m.ref_state, aux)
 end
 
 """

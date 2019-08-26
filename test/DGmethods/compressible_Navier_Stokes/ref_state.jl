@@ -53,7 +53,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   RH = 0.9
   if dim == 2
     model = AtmosModel(FlatOrientation(),
-                       HydrostaticStateIsothermalAtmos(T_s, RH),
+                       IsothermalHydrostaticState(T_s, RH),
                        ConstantViscosityWithDivergence(DFloat(1)),
                        EquilMoist(),
                        NoRadiation(),
@@ -62,7 +62,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                        init_state!)
   else
     model = AtmosModel(FlatOrientation(),
-                       HydrostaticStateIsothermalAtmos(T_s, RH),
+                       IsothermalHydrostaticState(T_s, RH),
                        ConstantViscosityWithDivergence(DFloat(1)),
                        EquilMoist(),
                        NoRadiation(),
@@ -80,7 +80,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   Q = init_ode_state(dg, param, DFloat(0))
 
   mkpath("vtk")
-  outprefix = @sprintf("vtk/hydrostate")
+  outprefix = @sprintf("vtk/refstate")
   writevtk(outprefix, param[1], dg)
   return DFloat(0)
 end
