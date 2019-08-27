@@ -1,5 +1,6 @@
 #### Turbulence closures
 using CLIMA.PlanetParameters
+using CLIMA.SubgridScaleParameters
 
 abstract type TurbulenceClosure
 end
@@ -50,16 +51,16 @@ struct SmagorinskyLilly{DT} <: TurbulenceClosure
   C_smag::DT
 end
 
-vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, ∂θ∂z::T, f_b::T)
+vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, ∂θ∂Φ::T, f_b::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
-vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂z::T)
+vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
 function init_aux!(::SmagorinskyLilly, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
-function diffusive!(m::SmagorinskyLilly, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix})
+function diffusive!(m::SmagorinskyLilly, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix}, inv_Pr_turb::Real)
   diffusive.turbulence.∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
 end
 
@@ -99,17 +100,16 @@ year = {1962}
 """
 function buoyancy_correction(S, diffusive::Vars, aux::Vars)
   DT = eltype(diffusive)
-  Prandtl_t = DT(1//3)
   N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
   normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   Richardson = N² / (normS^2 + eps(normS))
-  buoyancy_factor = N² <= DT(0) ? DT(1) : sqrt(max(DT(0), DT(1) - Richardson/Prandtl_t))^(DT(1//4))
+  buoyancy_factor = N² <= DT(0) ? DT(1) : sqrt(max(DT(0), DT(1) - Richardson*inv_Pr_turb))^(DT(1//4))
   return buoyancy_factor
 end
 function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
-  # ρν = (CₛΔf𝐛)² * √(2S:S)
+  # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
   T = eltype(state)
   f_b = buoyancy_correction(S, diffusive, aux)
   @inbounds normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))

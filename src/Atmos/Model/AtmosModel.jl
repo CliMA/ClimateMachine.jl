@@ -170,9 +170,9 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
   # diffusivity of moisture components
-  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν, inv_Pr_turb)
   # diffusion terms required for SGS turbulence computations
-  diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρν)
+  diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρν, inv_Pr_turb)
 end
 
 function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -183,6 +183,7 @@ include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
 include("orientation.jl")
+include("force.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
