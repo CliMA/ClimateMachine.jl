@@ -1,7 +1,7 @@
 module Atmos
 
 export AtmosModel,
-  ConstantViscosityWithDivergence, SmagorinskyLilly, VremanSGS,
+  ConstantViscosityWithDivergence, SmagorinskyLilly,
   DryModel, EquilMoist,
   NoRadiation,
   NoFluxBC, InitStateBC, RayleighBenardBC,
