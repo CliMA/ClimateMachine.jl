@@ -40,6 +40,7 @@ init_state!(state, aux, coords, t) = nothing
 source!(source, state, aux, t) = nothing
 
 # initial condition
+using CLIMA.Atmos: vars_aux
 
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
@@ -81,7 +82,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   mkpath("vtk")
   outprefix = @sprintf("vtk/refstate")
-  writevtk(outprefix, param[1], dg)
+  writevtk(outprefix, param[1], dg, flattenednames(vars_aux(model, DFloat)))
   return DFloat(0)
 end
 
