@@ -88,7 +88,7 @@ Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
       offset += varsize(T)
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
-      return $retexpr
+      return @inbounds $retexpr
     end))
   end
   push!(expr.args, :(throw(GetVarError(sym))))
@@ -107,14 +107,14 @@ end
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[$(offset + 1):$(offset + N)] = val)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= val)
       offset += N
     else
       offset += varsize(T)
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
-      return $retexpr
+      return @inbounds $retexpr
     end))
   end
   push!(expr.args, :(throw(SetVarError(sym))))
@@ -154,7 +154,7 @@ Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
       offset += varsize(T)
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
-      return $retexpr
+      return @inbounds $retexpr
     end))
   end
   push!(expr.args, :(throw(GetVarError(sym))))
@@ -170,18 +170,18 @@ end
   for k in fieldnames(S)
     T = fieldtype(S,k)
     if T <: Real
-      retexpr = :(array[:, $(offset+1)] = val)
+      retexpr = :(array[:, $(offset+1)] .= val)
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[:, $(offset + 1):$(offset + N)] = val)
+      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val)
       offset += N
     else
       offset += varsize(T)
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
-      return $retexpr
+      return @inbounds $retexpr
     end))
   end
   push!(expr.args, :(throw(SetVarError(sym))))
