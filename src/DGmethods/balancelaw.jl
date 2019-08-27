@@ -32,7 +32,7 @@ function vars_state end
 function vars_aux end
 function vars_gradient end
 function vars_diffusive end
-function vars_integrals end
+vars_integrals(::BalanceLaw, T) = @vars()
 
 num_aux(m::BalanceLaw, T) = varsize(vars_aux(m,T)) 
 num_state(m::BalanceLaw, T) = varsize(vars_state(m,T)) # nstate
