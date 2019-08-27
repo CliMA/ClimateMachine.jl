@@ -1,6 +1,6 @@
 ### Reference state
 
-export IsothermalHydrostaticState, HydrostaticStateNonZeroLapseRate
+export NoReferenceState, IsothermalHydrostaticState, HydrostaticStateNonZeroLapseRate
 
 """
     ReferenceState
@@ -14,6 +14,7 @@ vars_state(m::ReferenceState    , DT) = @vars()
 vars_gradient(m::ReferenceState , DT) = @vars()
 vars_diffusive(m::ReferenceState, DT) = @vars()
 vars_aux(m::ReferenceState      , DT) = @vars(ρ::DT, p::DT, T::DT, ρe::DT, ρq_tot::DT)
+init_aux!(m::ReferenceState, aux::Vars) = nothing
 
 function init_aux_hydrostatic!(m::ReferenceState, aux::Vars)
   DT = eltype(aux)
@@ -30,6 +31,12 @@ function init_aux_hydrostatic!(m::ReferenceState, aux::Vars)
   aux.ref_state.ρe = ρ*MoistThermodynamics.total_energy(e_kin, e_pot, T, q_pt)
 end
 
+"""
+    NoReferenceState <: ReferenceState
+
+No reference state used
+"""
+struct NoReferenceState <: ReferenceState end
 
 """
     IsothermalHydrostaticState{DT} <: ReferenceState
