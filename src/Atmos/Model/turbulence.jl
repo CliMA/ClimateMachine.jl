@@ -100,7 +100,7 @@ year = {1962}
 function buoyancy_correction(S, diffusive::Vars, aux::Vars)
   DT = eltype(diffusive)
   Prandtl_t = DT(1//3)
-  N² = grav / aux.moisture.θ_v * diffusive.turbulence.∂θ∂z
+  N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
   normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   Richardson = N² / (normS^2 + eps(normS))
   buoyancy_factor = N² <= DT(0) ? DT(1) : sqrt(max(DT(0), DT(1) - Richardson/Prandtl_t))^(DT(1//4))
