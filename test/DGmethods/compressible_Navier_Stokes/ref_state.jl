@@ -50,7 +50,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   T_s = 320.0
-  RH = 0.9
+  RH = 0.01
   if dim == 2
     model = AtmosModel(FlatOrientation(),
                        IsothermalHydrostaticState(T_s, RH),
@@ -58,7 +58,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                        EquilMoist(),
                        NoRadiation(),
                        source!,
-                       InitStateBC(),
+                       NoFluxBC(),
                        init_state!)
   else
     model = AtmosModel(FlatOrientation(),
@@ -67,7 +67,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                        EquilMoist(),
                        NoRadiation(),
                        source!,
-                       InitStateBC(),
+                       NoFluxBC(),
                        init_state!)
   end
   dg = DGModel(model,

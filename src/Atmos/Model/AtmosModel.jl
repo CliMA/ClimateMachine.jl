@@ -32,7 +32,6 @@ struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   turbulence::T
   moisture::M
   radiation::R
-  # TODO: a better mechanism than functions.
   source::S
   boundarycondition::BC
   init_state::IS
@@ -188,8 +187,8 @@ include("orientation.jl")
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.coord = geom.coord
   init_aux!(m.orientation, aux, geom)
-  init_aux!(m.turbulence, aux, geom)
   init_aux!(m.ref_state, aux)
+  init_aux!(m.turbulence, aux, geom)
 end
 
 """
@@ -225,8 +224,8 @@ Set the momentum at the boundary to be zero.
 """
 struct NoFluxBC <: BoundaryCondition
 end
-function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
+function boundarycondition!(m::AtmosModel{O,RS,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,RS,T,M,R,S,BC <: NoFluxBC,IS}
 
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
 end
@@ -238,8 +237,8 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 """
 struct InitStateBC <: BoundaryCondition
 end
-function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: InitStateBC,IS}
+function boundarycondition!(m::AtmosModel{O,RS,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,RS,T,M,R,S,BC <: InitStateBC,IS}
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
