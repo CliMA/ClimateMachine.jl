@@ -222,14 +222,8 @@ Set the momentum at the boundary to be zero.
 """
 struct NoFluxBC <: BoundaryCondition
 end
-<<<<<<< HEAD
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...) where {T,M,R,S,BC <: NoFluxBC,IS}
-=======
 function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
-
->>>>>>> d2cd21c0d80e0bf3566cb48b66074964bb48cdb4
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
 end
 
@@ -240,13 +234,8 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 """
 struct InitStateBC <: BoundaryCondition
 end
-<<<<<<< HEAD
-function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...) where {T,M,R,S,BC <: InitStateBC,IS}
-=======
 function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: InitStateBC,IS}
->>>>>>> d2cd21c0d80e0bf3566cb48b66074964bb48cdb4
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
@@ -259,9 +248,12 @@ end
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
 """
 struct DYCOMS_BC <: BoundaryCondition
+  C_drag
+  LHF
+  SHF
 end
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars, diff1::Vars, aux1::Vars) where {T,M,R,S,BC <: DYCOMS_BC,IS}
+function boundarycondition!(bl::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars, diff1::Vars, aux1::Vars) where {O,T,M,R,S,BC <: DYCOMS_BC,IS}
     # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
     # at the boundaries the ⁻, minus side states are the interior values
     # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
@@ -319,21 +311,20 @@ function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::
       
       # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
       # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
-      Cd = 0.0011 
-      ρτ13P  = -ρM * Cd * windspeed_FN * u_FN 
-      ρτ23P  = -ρM * Cd * windspeed_FN * v_FN 
-      
+      C_drag = bl.boundarycondition.C_drag
+      ρτ13P  = -ρM * C_drag * windspeed_FN * u_FN 
+      ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN 
       # Assign diffusive momentum and moisture fluxes
       # (i.e. ρ𝚻 terms)  
       diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
       diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
                                          diffM.moisture.ρd_q_tot[2],
-                                         +115 /(LH_v0))
+                                         bl.boundarycondition.LHF/(LH_v0))
 
       # Assign diffusive enthalpy flux (i.e. ρ(𝐉 + 𝐃) terms) 
       diffP.moisture.ρ_SGS_enthalpyflux  = SVector(diffM.moisture.ρ_SGS_enthalpyflux[1],
                                                    diffM.moisture.ρ_SGS_enthalpyflux[2],
-                                                   +130)
+                                                   bl.boundarycondition.LHF + bl.boundarycondition.SHF)
   end
 end
 

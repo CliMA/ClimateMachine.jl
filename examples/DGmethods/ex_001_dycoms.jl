@@ -15,7 +15,7 @@ using CLIMA.PlanetParameters
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.Vtk
+using CLIMA.VTK
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -43,63 +43,52 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   LH_v0::DF     = 2.47e6
   epsdv::DF     = molmass_ratio
   q_tot_sfc::DF = 8.1e-3
-  Rm_sfc        = gas_constant_air(PhasePartition(q_tot_sfc))
+  Rm_sfc::DF    = gas_constant_air(PhasePartition(q_tot_sfc))
   ρ_sfc::DF     = 1.22
-  P_sfc         = 1.0178e5
+  P_sfc::DF     = 1.0178e5
   T_BL::DF      = 285.0
   T_sfc         = P_sfc/(ρ_sfc * Rm_sfc);
   
-  q_liq      = 0.0
-  q_ice      = 0.0
-  zb         = 600.0   
-  zi         = 840.0  
-  dz_cloud   = zi - zb
-  q_liq_peak = 4.5e-4
+  q_liq::DF      = 0
+  q_ice::DF      = 0
+  zb::DF         = 600   
+  zi::DF         = 840  
+  dz_cloud       = zi - zb
+  q_liq_peak::DF = 4.5e-4
+
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
 
   if ( xvert <= zi)
-    θ_liq  = 289.0
-    q_tot  = 8.1e-3 
+    θ_liq  = DF(289)
+    q_tot  = DF(8.1e-3)
   else
-    θ_liq = 297.5 + (xvert - zi)^(1/3)
-    q_tot = 1.5e-3
-    
-  end
-
-  if xvert <= 200.0
-      θ_liq += θ_liq 
-      q_tot += q_tot
+    θ_liq = DF(297.5) + (xvert - zi)^(DF(1/3))
+    q_tot = DF(1.5e-3)
   end
   
   PhPartObj = PhasePartition(q_tot, q_liq, DF(0))
   Rm    = gas_constant_air(PhPartObj)
   cpm   = cp_m(PhPartObj)
-
   #Pressure
   H = Rm_sfc * T_BL / grav;
   P = P_sfc * exp(-xvert/H);
-  
   #Exner
   exner_dry = exner(P, PhasePartition(DF(0)))
-  
   #T 
-  T     = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
-  
+  T             = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
   #Density
-  ρ  = P/(Rm*T);
-  
+  ρ             = P/(Rm*T);
   #θ, θv
   θ      = T/exner_dry;
   θv     = virtual_pottemp(T, P, PhPartObj)
-
   # energy definitions
-  u, v, w     = 7, -5.5, 0.0 
+  u, v, w     = DF(7), DF(-5.5), DF(0)
   U           = ρ * u
   V           = ρ * v
   W           = ρ * w
-  e_kin       = 0.5 * (u^2 + v^2 + w^2)
+  e_kin       = DF(1//2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, PhPartObj)
 
@@ -122,10 +111,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
                                           polynomialorder = N,
                                          )
 
-  model = AtmosModel(SmagorinskyLilly(DF(C_smag),DF(Δ)),
+  model = AtmosModel(FlatOrientation(),
+                     SmagorinskyLilly(C_smag),
                      EquilMoist(),
                      NoRadiation(),
-                     source!, DYCOMS_BC(), Initialise_DYCOMS!)
+                     source!, 
+                     DYCOMS_BC(C_drag,LHF,SHF), 
+                     Initialise_DYCOMS!)
 
   dg = DGModel(model,
                grid,
@@ -161,12 +153,12 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
   end
 
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
-    mkpath("./vtk/")
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    mkpath("./vtk-dycoms/")
     outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg)
+    writevtk(outprefix, param[1], dg)
         
     step[1] += 1
     nothing
@@ -214,7 +206,9 @@ let
   Δz    = DF(10)
   # SGS Filter constants
   C_smag = DF(0.15)
-  Δ     = DF(cbrt(Δx * Δy * Δz))
+  LHF    = DF(115)
+  SHF    = DF(15)
+  C_drag = DF(0.0011)
   # Physical domain extents 
   (xmin, xmax) = (0, 2000)
   (ymin, ymax) = (0, 2000)
@@ -238,7 +232,7 @@ let
   dim = 3
   @info (ArrayType, DF, dim)
   result = run(mpicomm, ArrayType, dim, topl, 
-                  polynomialorder, timeend, DF, dt, C_smag, Δ)
+               polynomialorder, timeend, DF, dt, C_smag, LHF, SHF, C_drag)
 end
 
 #nothing
