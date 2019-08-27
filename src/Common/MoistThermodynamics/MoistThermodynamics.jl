@@ -688,13 +688,9 @@ function PhasePartition_equil(T::DT, ρ::DT, q_tot::DT) where {DT<:Real}
 
     return PhasePartition(q_tot, q_liq, q_ice)
 end
-PhasePartition_equil(ts::PhaseNonEquil) = 
+PhasePartition_equil(ts::PhaseNonEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 
-
-function PhasePartition(ts::PhaseDry{DT}) where {DT<:Real}
-  @warn "Computing `PhasePartition` of a dry `ThermodynamicState` is inefficient. Please use higher-level function calls (e.g., with `ThermodynamicState`) instead."
-  return PhasePartition(DT(0), DT(0), DT(0))
-end
+PhasePartition(ts::PhaseDry{DT}) where {DT<:Real} = PhasePartition(DT(0), DT(0), DT(0))
 PhasePartition(ts::PhaseEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
@@ -893,6 +889,6 @@ exner(ts::PhaseDry{DT}) where {DT<:Real} = (air_pressure(ts)/DT(MSLP))^(gas_cons
 
 The relative humidity, given a thermodynamic state `ts`.
 """
-relative_humidity(ts::ThermodynamicState) = air_pressure(ts)/saturation_vapor_pressure(ts)
+relative_humidity(ts::ThermodynamicState) = air_pressure(ts)/saturation_vapor_pressure(ts, Liquid())
 
 end #module MoistThermodynamics.jl
