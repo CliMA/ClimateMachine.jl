@@ -22,7 +22,7 @@ function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   q_pt = get_phase_partition(m, state)
   ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
-  ρe_pot = state.ρ * aux.space.Φ
+  ρe_pot = state.ρ * aux.orientation.Φ
   ρe_int = state.ρe - ρe_kin - ρe_pot
   e_int = ρinv*ρe_int
   return e_int
@@ -59,12 +59,13 @@ end
 vars_state(::EquilMoist,T) = @vars(ρq_tot::T)
 vars_gradient(::EquilMoist,T) = @vars(q_tot::T, total_enthalpy::T)
 vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρ_SGS_enthalpyflux::SVector{3,T})
-vars_aux(::EquilMoist,T) = @vars(e_int::T, temperature::T)
+vars_aux(::EquilMoist,T) = @vars(e_int::T, temperature::T, q_liq::T)
 
 function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
   TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
+  aux.moisture.q_liq = PhasePartition(TS).liq
   nothing
 end
 
@@ -75,7 +76,6 @@ thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_i
 function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
-
   phase = thermo_state(m, state, aux)
   R_m = gas_constant_air(phase)
   T = aux.moisture.temperature
