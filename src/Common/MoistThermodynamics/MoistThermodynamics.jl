@@ -35,7 +35,7 @@ export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, P
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_liquid_ice_pottemp, dry_pottemp, virtual_pottemp, exner
-export liquid_ice_pottemp, liquid_ice_pottemp_sat
+export liquid_ice_pottemp, liquid_ice_pottemp_sat, relative_humidity
 
 include("states.jl")
 
