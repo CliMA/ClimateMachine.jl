@@ -1,6 +1,6 @@
 ### Reference state
 using DocStringExtensions
-export NoReferenceState, IsothermalHydrostaticState, HydrostaticStateNonZeroLapseRate
+export NoReferenceState, HydrostaticState, IsothermalProfile, LinearTemperatureProfile
 
 """
     ReferenceState
@@ -47,10 +47,10 @@ function init_aux!(m::HydrostaticState{P,F}, aux::Vars) where {P,F}
   q_vap_sat = q_vap_saturation(T, ρ)
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
-  q_pt = PhasePartition(ρq_tot)  
+  q_pt = PhasePartition(ρq_tot)
   aux.ref_state.ρe = ρ * MoistThermodynamics.internal_energy(T, q_pt)
-  
-  e_kin = DT(0)
+
+  e_kin = F(0)
   e_pot = aux.orientation.Φ
   aux.ref_state.ρe = ρ*MoistThermodynamics.total_energy(e_kin, e_pot, T, q_pt)
 end
@@ -114,8 +114,8 @@ end
 function (profile::LinearTemperatureProfile)(orientation)
   z = orientation.Φ / grav
   T = max(profile.T_surface - profile.Γ*z, profile.T_min)
-  
-  p = (T/profile.T_surface)^(grav/(R_d*profile.Γ))  
+
+  p = (T/profile.T_surface)^(grav/(R_d*profile.Γ))
   if T == profile.T_min
     z_top = (profile.T_surface - profile.T_min) / profile.Γ
     H_min = R_d * profile.T_min / grav
