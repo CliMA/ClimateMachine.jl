@@ -1,5 +1,5 @@
 ### Reference state
-
+using DocStringExtensions
 export NoReferenceState, IsothermalHydrostaticState, HydrostaticStateNonZeroLapseRate
 
 """
@@ -13,23 +13,8 @@ abstract type ReferenceState end
 vars_state(m::ReferenceState    , DT) = @vars()
 vars_gradient(m::ReferenceState , DT) = @vars()
 vars_diffusive(m::ReferenceState, DT) = @vars()
-vars_aux(m::ReferenceState      , DT) = @vars(ρ::DT, p::DT, T::DT, ρe::DT, ρq_tot::DT)
+vars_aux(m::ReferenceState, DT) = @vars()
 init_aux!(m::ReferenceState, aux::Vars) = nothing
-
-function init_aux_hydrostatic!(m::ReferenceState, aux::Vars)
-  DT = eltype(aux)
-  T = aux.ref_state.T
-  ρ = aux.ref_state.p/(R_d*T)
-  aux.ref_state.ρ = ρ
-  q_vap_sat = q_vap_saturation(T, ρ)
-  ρq_tot = ρ*m.RH*q_vap_sat
-  aux.ref_state.ρq_tot = ρq_tot
-  q_pt = PhasePartition(ρq_tot, DT(0), DT(0))
-  aux.ref_state.ρe = ρ*MoistThermodynamics.internal_energy(T, q_pt)
-  e_kin = DT(0)
-  e_pot = aux.orientation.Φ
-  aux.ref_state.ρe = ρ*MoistThermodynamics.total_energy(e_kin, e_pot, T, q_pt)
-end
 
 """
     NoReferenceState <: ReferenceState
@@ -38,62 +23,103 @@ No reference state used
 """
 struct NoReferenceState <: ReferenceState end
 
-"""
-    IsothermalHydrostaticState{DT} <: ReferenceState
 
-A hydrostatic state assuming a uniform temperature profile,
-given
- - `T_surface` surface temperature
- - `RH` relative humidity
+
 """
-struct IsothermalHydrostaticState{DT} <: ReferenceState
-  T_surface::DT
-  RH::DT
+    HydrostaticState{P,T} <: ReferenceState
+
+A hydrostatic state specified by a temperature profile and relative humidity.
+"""
+struct HydrostaticState{P,F} <: ReferenceState
+  temperatureprofile::P
+  relativehumidity::F
 end
 
-function init_aux!(m::IsothermalHydrostaticState, aux::Vars)
-  T_s = m.T_surface
-  e_pot = aux.orientation.Φ
+vars_aux(m::HydrostaticState, DT) = @vars(ρ::DT, p::DT, T::DT, ρe::DT, ρq_tot::DT)
 
-  aux.ref_state.T = T_s
-  aux.ref_state.p = MSLP*exp(-e_pot/(R_d*T_s))
-  init_aux_hydrostatic!(m, aux)
-end
 
-"""
-    HydrostaticStateNonZeroLapseRate{DT} <: ReferenceState
-
-A hydrostatic state assuming a non-zero lapse rate, given
- - `T_min` minimum temperature
- - `T_surface` surface temperature
- - `Γ` lapse rate
- - `RH` relative humidity
-"""
-struct HydrostaticStateNonZeroLapseRate{DT} <: ReferenceState
-  T_min::DT
-  T_surface::DT
-  Γ::DT
-  RH::DT
-end
-
-function init_aux!(m::HydrostaticStateNonZeroLapseRate, aux::Vars)
-  Γ = m.Γ
-  T_s = m.T_surface
-  T_min = m.T_min
-  e_pot = aux.orientation.Φ
-  z = e_pot/grav
-
-  T = max(T_s - Γ*z, T_min)
-  H = R_d*T/grav
-  z_t = (T_s-T_min)/Γ
-  H_min = R_d*T_min/grav
-  if z<z_t
-    p = (1-Γ*z/T_s)^(grav/(R_d*Γ))
-  else
-    p = (T_min/T_s)^(grav/(R_d*Γ))*exp(-(z-z_t)/H_min)
-  end
+function init_aux!(m::HydrostaticState{P,F}, aux::Vars) where {P,F}
+  T,p = m.temperatureprofile(aux.orientation)
   aux.ref_state.T = T
   aux.ref_state.p = p
-  init_aux_hydrostatic!(m, aux)
+  aux.ref_state.ρ = ρ = p/(R_d*T)
+
+  q_vap_sat = q_vap_saturation(T, ρ)
+  aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
+
+  q_pt = PhasePartition(ρq_tot)  
+  aux.ref_state.ρe = ρ * MoistThermodynamics.internal_energy(T, q_pt)
+  
+  e_kin = DT(0)
+  e_pot = aux.orientation.Φ
+  aux.ref_state.ρe = ρ*MoistThermodynamics.total_energy(e_kin, e_pot, T, q_pt)
 end
 
+"""
+    TemperatureProfile
+
+Specifies the temperature profile for a reference state.
+
+Instances of this type are required to be callable objects with the following signature
+
+    T,p = (::TemperatureProfile)(orientation::Orientation)
+
+where `T` is the temperature (in K), and `p` is the pressure (in hPa).
+"""
+abstract type TemperatureProfile
+end
+
+
+"""
+    IsothermalProfile{F} <: TemperatureProfile
+
+A uniform temperature profile.
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct IsothermalProfile{F} <: TemperatureProfile
+  "temperature (K)"
+  T::F
+end
+
+function (profile::IsothermalProfile)(orientation)
+  p = MSLP * exp(-orientation.Φ/(R_d*profile.T))
+  return (profile.T, p)
+end
+
+"""
+    LinearTemperatureProfile{F} <: TemperatureProfile
+
+A temperature profile which decays linearly with height `z`, until it reaches a minimum specified temperature.
+
+```math
+T(z) = \\max(T_{\\text{surface}} − Γ z, T_{\\text{min}})
+```
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct LinearTemperatureProfile{F} <: TemperatureProfile
+  "minimum temperature (K)"
+  T_min::F
+  "surface temperature (K)"
+  T_surface::F
+  "lapse rate (K/m)"
+  Γ::F
+end
+
+function (profile::LinearTemperatureProfile)(orientation)
+  z = orientation.Φ / grav
+  T = max(profile.T_surface - profile.Γ*z, profile.T_min)
+  
+  p = (T/profile.T_surface)^(grav/(R_d*profile.Γ))  
+  if T == profile.T_min
+    z_top = (profile.T_surface - profile.T_min) / profile.Γ
+    H_min = R_d * profile.T_min / grav
+    p *= exp(-(z-z_top)/H_min)
+  end
+  return (T, p)
+end
