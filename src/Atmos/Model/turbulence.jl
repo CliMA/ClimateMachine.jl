@@ -61,7 +61,7 @@ function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
 function diffusive!(m::SmagorinskyLilly, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix})
-  diffusive.turbulence.∂θ∂z = ∇transform.turbulence.θ_v[3]
+  diffusive.turbulence.∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
 end
 
 """
