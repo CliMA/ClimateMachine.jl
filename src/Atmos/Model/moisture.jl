@@ -57,9 +57,15 @@ Assumes the moisture components are computed via thermodynamic equilibrium.
 struct EquilMoist <: MoistureModel
 end
 vars_state(::EquilMoist,T) = @vars(ρq_tot::T)
+<<<<<<< HEAD
 vars_gradient(::EquilMoist,T) = @vars(q_tot::T, total_enthalpy::T)
 vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρ_SGS_enthalpyflux::SVector{3,T})
 vars_aux(::EquilMoist,T) = @vars(e_int::T, temperature::T, q_liq::T)
+=======
+vars_gradient(::EquilMoist,T) = @vars(q_tot::T, h_tot::T)
+vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρd_h_tot::SVector{3,T})
+vars_aux(::EquilMoist,T) = @vars(e_int::T, temperature::T)
+>>>>>>> 5fdcb18ae26fdd054a662d90df95f7cebeaba593
 
 function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
@@ -80,7 +86,7 @@ function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, 
   R_m = gas_constant_air(phase)
   T = aux.moisture.temperature
   e_tot = state.ρe * ρinv
-  transform.moisture.total_enthalpy = e_tot + R_m*T
+  transform.moisture.h_tot = e_tot + R_m*T
 end
 
 
@@ -95,14 +101,14 @@ function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::V
   diffusive.moisture.ρd_q_tot = (-D_T) .* ∇transform.moisture.q_tot
 
   # diffusive flux of total energy
-  diffusive.moisture.ρ_SGS_enthalpyflux = (-D_T) .* ∇transform.moisture.total_enthalpy
+  diffusive.moisture.ρd_h_tot = (-D_T) .* ∇transform.transform.moisture.h_tot
 end
 
 function flux_diffusive!(m::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   u = state.ρu ./ state.ρ
   flux.ρ += diffusive.moisture.ρd_q_tot
   flux.ρu += diffusive.moisture.ρd_q_tot .* u'
-  flux.ρe += diffusive.moisture.ρ_SGS_enthalpyflux
+  flux.ρe += diffusive.moisture.ρd_h_tot
 
   flux.moisture.ρq_tot = diffusive.moisture.ρd_q_tot
 end

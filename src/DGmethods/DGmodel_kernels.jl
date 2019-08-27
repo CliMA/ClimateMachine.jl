@@ -839,18 +839,17 @@ Computational kernel: compute indefinite integral along the vertical stack
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
-                                        ::Val{nauxstate}, ::Val{nvertelem},
-                                        int_knl!, P, Q, auxstate, vgeo, Imat,
-                                        elems, ::Val{outstate}
-                                       ) where {dim, N, nstate, nauxstate,
-                                                outstate, nvertelem}
+function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nvertelem},
+                                        Q, auxstate, vgeo, Imat,
+                                        elems, ::Val{nout}
+                                       ) where {dim, N, nvertelem, 
+                                                nout}
   DFloat = eltype(Q)
+  nstate = num_state(bl,DFloat)
+  nauxstate = num_aux(bl,DFloat)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
-
-  nout = length(outstate)
 
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
@@ -900,8 +899,8 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
               l_aux[s] = auxstate[ijk, s, e]
             end
 
-            fill!(l_knl, -zero(eltype(l_knl)))
-            int_knl!(view(l_knl, :, k), l_Q, l_aux)
+            integrate_aux!(bl, Vars{vars_integrals(bl, DFloat)}(view(l_knl, :, k)),
+              Vars{vars_state(bl, DFloat)}(l_Q), Vars{vars_aux(bl,DFloat)}(l_aux))
 
             # multiply in the curve jacobian
             @unroll for s = 1:nout
@@ -922,8 +921,7 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
           @unroll for k in 1:Nq
             ijk = i + Nq * ((j-1) + Nqj * (k-1))
             @unroll for ind_out = 1:nout
-              s = outstate[ind_out]
-              P[ijk, s, e] = l_int[ind_out, k, i, j]
+              auxstate[ijk, ind_out, e] = l_int[ind_out, k, i, j]
               l_int[ind_out, k, i, j] = l_int[ind_out, Nq, i, j]
             end
           end
@@ -935,17 +933,14 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
 end
 
 function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
-                                                ::Val{nvertelem}, P, elems,
-                                                ::Val{outstate},
-                                                ::Val{instate}
-                                               ) where {dim, N, outstate,
-                                                        instate, nvertelem}
-  DFloat = eltype(P)
+                                                ::Val{nvertelem}, auxstate, elems,
+                                                ::Val{nout}
+                                               ) where {dim, N, nvertelem,
+                                                        nout}
+  DFloat = eltype(auxstate)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
-
-  nout = length(outstate)
 
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
@@ -959,7 +954,7 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
         ijk = i + Nq * ((j-1) + Nqj * (Nq-1))
         et = nvertelem + (eh - 1) * nvertelem
         @unroll for s = 1:nout
-          l_T[s] = P[ijk, instate[s], et]
+          l_T[s] = auxstate[ijk, s, et]
         end
 
         # Loop up the stack of elements
@@ -968,10 +963,10 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
           @unroll for k in 1:Nq
             ijk = i + Nq * ((j-1) + Nqj * (k-1))
             @unroll for s = 1:nout
-              l_V[s] = P[ijk, instate[s], e]
+              l_V[s] = auxstate[ijk, s, e]
             end
             @unroll for s = 1:nout
-              P[ijk, outstate[s], e] = l_T[s] - l_V[s]
+              auxstate[ijk, nout+s, e] = l_T[s] - l_V[s]
             end
           end
         end
