@@ -42,11 +42,11 @@ const zmin      = 0
 const xmax      = 1000
 const ymax      = 400
 const zmax      = 1000
-const Ne        = (20,2,20)
+const Ne        = (10,2,10)
 const polynomialorder = 4
 const dim       = 3
-const dt        = 0.002
-const timeend   = 1000
+const dt        = 0.01
+const timeend   = 10dt
 const C_smag    = 0.15
 # ------------- Initial condition function ----------- # 
 function initialise_rising_bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
@@ -195,7 +195,7 @@ let
   engf_eng0 = run(mpicomm, ArrayType, 
                   topl, dim, Ne, polynomialorder, 
                   timeend, DF, dt)
-  #  @test engf_eng0 ≈ DF(1.0001044610126686e+00)
+  @test engf_eng0 ≈ DF(9.9999993807738441e-01)
   end
 end
 

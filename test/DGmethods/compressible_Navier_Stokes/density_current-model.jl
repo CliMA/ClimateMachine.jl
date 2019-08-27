@@ -39,13 +39,13 @@ end
 
 # -------------- Problem constants ------------------- # 
 const dim               = 3
-const (xmin, xmax)      = (0,12500)
+const (xmin, xmax)      = (0,12800)
 const (ymin, ymax)      = (0,400)
-const (zmin, zmax)      = (0,6000)
-const Ne                = (20,2,20)
+const (zmin, zmax)      = (0,6400)
+const Ne                = (50,2,25)
 const polynomialorder   = 4
 const dt                = 0.01
-const timeend           = 1000
+const timeend           = 10dt
 
 # ------------- Initial condition function ----------- # 
 function initialise_density_current!(state::Vars, aux::Vars, (x1,x2,x3), t)
@@ -149,8 +149,8 @@ function run(mpicomm, ArrayType,
 
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(3000)  do (init=false)
-    mkpath("./vtk2/")
-      outprefix = @sprintf("./vtk2/RB_%dD_mpirank%04d_step%04d", dim,
+    mkpath("./vtk-dc/")
+      outprefix = @sprintf("./vtk-dc/DC_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, dg)
@@ -197,7 +197,7 @@ let
   engf_eng0 = run(mpicomm, ArrayType, 
                   topl, dim, Ne, polynomialorder, 
                   timeend, DF, dt)
-  #  @test engf_eng0 ≈ DF(1.0001044610126686e+00)
+  @test engf_eng0 ≈ DF(9.9999970927037096e-01)
   end
 end
 
