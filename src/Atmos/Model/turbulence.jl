@@ -55,7 +55,6 @@ vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂z::T)
 function init_aux!(::SmagorinskyLilly, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
-  resolutionmetric(geom)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
