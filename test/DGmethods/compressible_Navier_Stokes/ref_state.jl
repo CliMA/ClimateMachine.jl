@@ -130,11 +130,6 @@ for DFloat in (Float64,) #Float32)
         topl = BrickTopology(mpicomm, brickrange,
                              periodicity = (false, false, false))
         dt = 5e-3 / Ne[1]
-        warpfun = (x1, x2, x3) -> begin
-          (x1 + (x1-1/2)*cos(2*π*x2*x3)/4,
-           x2 + exp(sin(2π*(x1*x2+x3)))/20,
-          x3 + x1/4 + x2^2/2 + sin(x1*x2*x3))
-        end
       end
       timeend = 2*dt
       nsteps = ceil(Int64, timeend / dt)
