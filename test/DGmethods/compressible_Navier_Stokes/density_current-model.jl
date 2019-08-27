@@ -1,3 +1,4 @@
+
 # Load Packages 
 using MPI
 using CLIMA
@@ -14,6 +15,7 @@ using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
+using CLIMA.SubgridScaleParameters
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -36,55 +38,55 @@ if !@isdefined integration_testing
 end
 
 # -------------- Problem constants ------------------- # 
-const xmin      = 0
-const ymin      = 0
-const zmin      = 0
-const xmax      = 1000
-const ymax      = 400
-const zmax      = 1000
-const Ne        = (20,2,20)
-const polynomialorder = 4
-const dim       = 3
-const dt        = 0.002
-const timeend   = 1000
-const C_smag    = 0.15
+const dim               = 3
+const (xmin, xmax)      = (0,12500)
+const (ymin, ymax)      = (0,400)
+const (zmin, zmax)      = (0,6000)
+const Ne                = (20,2,20)
+const polynomialorder   = 4
+const dt                = 0.01
+const timeend           = 1000
+
 # ------------- Initial condition function ----------- # 
-function initialise_rising_bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
-  DF            = eltype(state)
-  R_gas::DF     = R_d
-  c_p::DF       = cp_d
-  c_v::DF       = cv_d
-  γ::DF         = c_p / c_v
-  p0::DF        = MSLP
-  
+function initialise_density_current!(state::Vars, aux::Vars, (x1,x2,x3), t)
+  DF                = eltype(state)
+  R_gas::DF         = R_d
+  c_p::DF           = cp_d
+  c_v::DF           = cv_d
+  p0::DF            = MSLP
+  # initialise with dry domain 
+  q_tot::DF         = 0
+  q_liq::DF         = 0
+  q_ice::DF         = 0 
   # perturbation parameters for rising bubble
-  xc::DF        = 500
-  zc::DF        = 260
-  r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
-  rc::DF        = 250
-  θ_ref::DF     = 303
-  Δθ::DF        = 0
-  
-  if r <= rc 
-    Δθ          = DF(1//2) 
+  rx                = 4000
+  rz                = 2000
+  xc                = 0
+  zc                = 3000
+  r                 = sqrt((x1 - xc)^2/rx^2 + (x3 - zc)^2/rz^2)
+  θ_ref::DF         = 300
+  θ_c::DF           = -15
+  Δθ::DF            = 0
+  if r <= 1
+    Δθ = θ_c * (1 + cospi(r))/2
   end
-  
-  #Perturbed state:
-  θ            = θ_ref + Δθ # potential temperature
-  π_exner      = DF(1) - grav / (c_p * θ) * x3 # exner pressure
-  ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-  P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T            = P / (ρ * R_gas) # temperature
-  
-  ρu           = SVector(DF(0),DF(0),DF(0))
+  qvar              = PhasePartition(q_tot)
+  θ                 = θ_ref + Δθ # potential temperature
+  π_exner           = DF(1) - grav / (c_p * θ) * x3 # exner pressure
+  ρ                 = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
+
+  P                 = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
+  T                 = P / (ρ * R_gas) # temperature
+  U, V, W           = DF(0) , DF(0) , DF(0)  # momentum components
   # energy definitions
-  e_kin        = DF(0)
-  e_pot        = grav * x3
-  ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
+  e_kin             = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
+  e_pot             = grav * x3
+  e_int             = internal_energy(T, qvar)
+  E                 = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
   
   state.ρ      = ρ
-  state.ρu     = ρu
-  state.ρe     = ρe_tot
+  state.ρu     = SVector(U, V, W)
+  state.ρe     = E
   state.moisture.ρq_tot = DF(0)
 end
 # --------------- Gravity source --------------------- # 
@@ -109,7 +111,7 @@ function run(mpicomm, ArrayType,
                      SmagorinskyLilly(C_smag), 
                      EquilMoist(), 
                      NoRadiation(),
-                     source_geopot!, NoFluxBC(), initialise_rising_bubble!)
+                     source_geopot!, NoFluxBC(), initialise_density_current!)
   # -------------- Define dgbalancelaw --------------------------- # 
   dg = DGModel(model,
                grid,
