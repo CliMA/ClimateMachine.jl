@@ -40,26 +40,24 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   DF         = eltype(state)
   xvert::DF  = z
 
-  LH_v0::DF     = 2.47e6
   epsdv::DF     = molmass_ratio
   q_tot_sfc::DF = 8.1e-3
   Rm_sfc::DF    = gas_constant_air(PhasePartition(q_tot_sfc))
   ρ_sfc::DF     = 1.22
   P_sfc::DF     = 1.0178e5
   T_BL::DF      = 285.0
-  T_sfc         = P_sfc/(ρ_sfc * Rm_sfc);
+  T_sfc::DF     = P_sfc/(ρ_sfc * Rm_sfc);
   
   q_liq::DF      = 0
   q_ice::DF      = 0
   zb::DF         = 600   
-  zi::DF         = 840  
+  zi::DF         = 840 
   dz_cloud       = zi - zb
   q_liq_peak::DF = 4.5e-4
-
+  
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
-
   if ( xvert <= zi)
     θ_liq  = DF(289)
     q_tot  = DF(8.1e-3)
@@ -67,7 +65,6 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     θ_liq = DF(297.5) + (xvert - zi)^(DF(1/3))
     q_tot = DF(1.5e-3)
   end
-  
   PhPartObj = PhasePartition(q_tot, q_liq, DF(0))
   Rm    = gas_constant_air(PhPartObj)
   cpm   = cp_m(PhPartObj)
@@ -76,12 +73,11 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   P = P_sfc * exp(-xvert/H);
   #Exner
   exner_dry = exner(P, PhasePartition(DF(0)))
-  #T 
+  #Temperature 
   T             = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
   #Density
   ρ             = P/(Rm*T);
-  #θ, θv
-  θ      = T/exner_dry;
+  #Potential Temperature
   θv     = virtual_pottemp(T, P, PhPartObj)
   # energy definitions
   u, v, w     = DF(7), DF(-5.5), DF(0)
@@ -90,7 +86,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   W           = ρ * w
   e_kin       = DF(1//2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
-  E           = ρ * total_energy(e_kin, e_pot, T, PhPartObj)
+  E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
 
   state.ρ     = ρ
   state.ρu    = SVector(U, V, W) 
@@ -100,7 +96,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
 end
 
 function source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu = SVector(0, 0, -state.ρ * grav)
+  DF = eltype(state)
+  source.ρu = SVector(DF(0), DF(0), -state.ρ * grav)
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
@@ -153,7 +150,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
   end
 
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     mkpath("./vtk-dycoms/")
     outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -197,7 +194,7 @@ let
   end
   
   # Problem type
-  DF = Float64
+  DF = Float32
   # DG polynomial order 
   polynomialorder = 4
   # User specified grid spacing
