@@ -8,6 +8,7 @@ using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.SubgridScaleParameters
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos
@@ -47,7 +48,6 @@ const polynomialorder = 4
 const dim       = 3
 const dt        = 0.01
 const timeend   = 10dt
-const C_smag    = 0.15
 # ------------- Initial condition function ----------- # 
 function initialise_rising_bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   DF            = eltype(state)
@@ -106,7 +106,7 @@ function run(mpicomm, ArrayType,
                                            )
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
-                     SmagorinskyLilly(C_smag), 
+                     SmagorinskyLilly{DF}(C_smag), 
                      EquilMoist(), 
                      NoRadiation(),
                      source_geopot!, NoFluxBC(), initialise_rising_bubble!)

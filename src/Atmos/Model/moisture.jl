@@ -71,7 +71,6 @@ function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::
   nothing
 end
 
-
 get_phase_partition(::EquilMoist, state::Vars) = PhasePartition(state.moisture.ρq_tot/state.ρ)
 thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
 
@@ -86,16 +85,13 @@ function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, 
   transform.moisture.h_tot = e_tot + R_m*T
 end
 
-
-function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix})
+function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix}, inv_Pr_turb::Real)
   # turbulent Prandtl number
   diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
-  Prandtl_t = eltype(state)(1//3)
-  D_T = diag_ρν / Prandtl_t
-
+  # Diffusivity 𝐷ₜ = ρν/Prandtl_turb
+  D_T = diag_ρν * inv_Pr_turb
   # diffusive flux of q_tot
   diffusive.moisture.ρd_q_tot = (-D_T) .* ∇transform.moisture.q_tot
-
   # diffusive flux of total energy
   diffusive.moisture.ρd_h_tot = (-D_T) .* ∇transform.moisture.h_tot
 end
@@ -105,6 +101,5 @@ function flux_diffusive!(m::EquilMoist, flux::Grad, state::Vars, diffusive::Vars
   flux.ρ += diffusive.moisture.ρd_q_tot
   flux.ρu += diffusive.moisture.ρd_q_tot .* u'
   flux.ρe += diffusive.moisture.ρd_h_tot
-
   flux.moisture.ρq_tot = diffusive.moisture.ρd_q_tot
 end
