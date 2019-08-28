@@ -42,7 +42,7 @@ source!(source, state, aux, t) = nothing
 # initial condition
 using CLIMA.Atmos: vars_aux
 
-function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
+function run(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -52,25 +52,15 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   T_s = 320.0
   RH = 0.01
-  if dim == 2
-    model = AtmosModel(FlatOrientation(),
-                       HydrostaticState(IsothermalProfile(T_s), RH),
-                       ConstantViscosityWithDivergence(DFloat(1)),
-                       EquilMoist(),
-                       NoRadiation(),
-                       source!,
-                       NoFluxBC(),
-                       init_state!)
-  else
-    model = AtmosModel(FlatOrientation(),
-                       HydrostaticState(IsothermalProfile(T_s), RH),
-                       ConstantViscosityWithDivergence(DFloat(1)),
-                       EquilMoist(),
-                       NoRadiation(),
-                       source!,
-                       NoFluxBC(),
-                       init_state!)
-  end
+  model = AtmosModel(FlatOrientation(),
+                     HydrostaticState(IsothermalProfile(T_s), RH),
+                     ConstantViscosityWithDivergence(DFloat(1)),
+                     EquilMoist(),
+                     NoRadiation(),
+                     source!,
+                     NoFluxBC(),
+                     init_state!)
+
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -109,46 +99,36 @@ let
 @testset "$(@__FILE__)" for ArrayType in ArrayTypes
 for DFloat in (Float64,) #Float32)
   result = zeros(DFloat, lvls)
-  for dim = 2:3
-    for l = 1:lvls
-      if dim == 2
-        Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-        brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                      range(DFloat(0); length=Ne[2]+1, stop=1))
-        topl = BrickTopology(mpicomm, brickrange,
-                             periodicity = (false, false))
-        dt = 1e-2 / Ne[1]
-        warpfun = (x1, x2, _) -> begin
-          (x1 + sin(x1*x2), x2 + sin(2*x1*x2), 0)
-        end
+  x_max = DFloat(25*10^3)
+  y_max = DFloat(25*10^3)
+  z_max = DFloat(25*10^3)
+  dim = 3
+  for l = 1:lvls
+    Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
+    brickrange = (range(DFloat(0); length=Ne[1]+1, stop=x_max),
+                  range(DFloat(0); length=Ne[2]+1, stop=y_max),
+                  range(DFloat(0); length=Ne[2]+1, stop=z_max))
+    topl = BrickTopology(mpicomm, brickrange,
+                         periodicity = (false, false, false))
+    dt = 5e-3 / Ne[1]
 
-      elseif dim == 3
-        Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-        brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                      range(DFloat(0); length=Ne[2]+1, stop=1),
-        range(DFloat(0); length=Ne[2]+1, stop=1))
-        topl = BrickTopology(mpicomm, brickrange,
-                             periodicity = (false, false, false))
-        dt = 5e-3 / Ne[1]
-      end
-      timeend = 2*dt
-      nsteps = ceil(Int64, timeend / dt)
-      dt = timeend / nsteps
+    timeend = 2*dt
+    nsteps = ceil(Int64, timeend / dt)
+    dt = timeend / nsteps
 
-      @info (ArrayType, DFloat, dim)
-      result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
-                      polynomialorder, timeend, DFloat, dt)
-      @test result[l] ≈ DFloat(expected_result[dim-1, l])
-    end
-    if integration_testing
-      @info begin
-        msg = ""
-        for l = 1:lvls-1
-          rate = log2(result[l]) - log2(result[l+1])
-          msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-        end
-        msg
+    @info (ArrayType, DFloat, dim)
+    result[l] = run(mpicomm, ArrayType, dim, topl,
+                    polynomialorder, timeend, DFloat, dt)
+    @test result[l] ≈ DFloat(expected_result[dim-1, l])
+  end
+  if integration_testing
+    @info begin
+      msg = ""
+      for l = 1:lvls-1
+        rate = log2(result[l]) - log2(result[l+1])
+        msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
       end
+      msg
     end
   end
 end
