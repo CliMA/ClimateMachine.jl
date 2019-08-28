@@ -406,7 +406,7 @@ specific heat capacities (heat capacity in the higher-temperature phase minus
 that in the lower-temperature phase).
 """
 latent_heat_generic(T::DT, LH_0::DT, Δcp::DT) where {DT<:Real} =
-  LH_0 + Δcp * (T - T_0)
+  LH_0 + Δcp * (T - DT(T_0))
 
 
 """
