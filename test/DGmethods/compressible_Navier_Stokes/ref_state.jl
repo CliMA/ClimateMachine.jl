@@ -42,7 +42,7 @@ source!(source, state, aux, t) = nothing
 # initial condition
 using CLIMA.Atmos: vars_aux
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
+function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -54,6 +54,40 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
   RH = 0.01
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(IsothermalProfile(T_s), RH),
+                     ConstantViscosityWithDivergence(DFloat(1)),
+                     EquilMoist(),
+                     NoRadiation(),
+                     source!,
+                     NoFluxBC(),
+                     init_state!)
+
+  dg = DGModel(model,
+               grid,
+               Rusanov(),
+               DefaultGradNumericalFlux())
+
+  param = init_ode_param(dg)
+
+  Q = init_ode_state(dg, param, DFloat(0))
+
+  mkpath("vtk")
+  outprefix = @sprintf("vtk/refstate")
+  writevtk(outprefix, param[1], dg, flattenednames(vars_aux(model, DFloat)))
+  return DFloat(0)
+end
+
+function run2(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
+
+  grid = DiscontinuousSpectralElementGrid(topl,
+                                          FloatType = DFloat,
+                                          DeviceArray = ArrayType,
+                                          polynomialorder = N
+                                         )
+
+  T_min, T_s, Γ = DFloat(290), DFloat(320), DFloat(6.5*10^-3)
+  RH = 0.01
+  model = AtmosModel(FlatOrientation(),
+                     HydrostaticState(LinearTemperatureProfile(T_min, T_s, Γ), RH),
                      ConstantViscosityWithDivergence(DFloat(1)),
                      EquilMoist(),
                      NoRadiation(),
@@ -117,9 +151,10 @@ for DFloat in (Float64,) #Float32)
     dt = timeend / nsteps
 
     @info (ArrayType, DFloat, dim)
-    result[l] = run(mpicomm, ArrayType, dim, topl,
+    result[l] = run1(mpicomm, ArrayType, dim, topl,
                     polynomialorder, timeend, DFloat, dt)
-    @test result[l] ≈ DFloat(expected_result[dim-1, l])
+    result[l] = run2(mpicomm, ArrayType, dim, topl,
+                    polynomialorder, timeend, DFloat, dt)
   end
   if integration_testing
     @info begin
