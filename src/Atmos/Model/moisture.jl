@@ -88,7 +88,7 @@ end
 function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix}, inv_Pr_turb::Real)
   # turbulent Prandtl number
   diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
-  # Diffusivity 𝐷ₜ = ρν/Prandtl_turb
+  # Diffusivity Dₜ = ρν/Prandtl_turb
   D_T = diag_ρν * inv_Pr_turb
   # diffusive flux of q_tot
   diffusive.moisture.ρd_q_tot = (-D_T) .* ∇transform.moisture.q_tot
