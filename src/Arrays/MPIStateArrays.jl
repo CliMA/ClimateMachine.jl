@@ -10,6 +10,7 @@ using MPI
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
 export MPIStateArray, euclidean_distance, weightedsum
+export normpervar
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -372,8 +373,21 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true)
   r = MPI.Allreduce([locnorm], mpiop, Q.mpicomm)[1]
   isfinite(p) ? r ^ (1 // p) : r
 end
-
 LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool) = norm(Q, 2, weighted)
+
+function normpervar(Q::MPIStateArray, p::Real=2, weighted::Bool=true)
+  if weighted && ~isempty(Q.weights)
+    W = @view Q.weights[:, :, Q.realelems]
+    locnorm = weighted_norm_impl_pervar(Q.realQ, W, Val(p); dim=(1,3))
+  else
+    locnorm = norm_impl_pervar(Q.realQ, Val(p))
+  end
+
+  mpiop = isfinite(p) ? MPI.SUM : MPI.MAX
+  r = MPI.Allreduce(locnorm, mpiop, Q.mpicomm)
+  isfinite(p) ? r .^ (1 // p) : r
+end
+normpervar(Q::MPIStateArray, weighted::Bool) = normpervar(Q, 2, weighted)
 
 function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=true)
   @assert length(Q1.realQ) == length(Q2.realQ)
@@ -441,6 +455,22 @@ function norm_impl(Q::SubArray{T, N, A}, ::Val{p}) where {T, N, A<:Array, p}
   accum
 end
 
+function norm_impl_pervar(Q::SubArray{T, N, A}, ::Val{p}) where {T, N, A<:Array, p}
+  nq, ns, ne = size(Q)
+  accum = isfinite(p) ? -zeros(T, ns) : fill!(Array{T}(typemin(T),ns))
+  @inbounds for k = 1:ne, j = 1:ns
+    @simd for i = 1:nq
+      if isfinite(p)
+        accum[j] += abs(Q[i, j, k]) ^ p
+      else
+        aQ_ijk = abs(Q[i, j, k])
+        accum[j] = ifelse(aQ_ijk > accum[j], aQ_ijk, accum[j])
+      end
+    end
+  end
+  accum
+end
+
 function weighted_norm_impl(Q::SubArray{T, N, A}, W, ::Val{p}) where {T, N, A<:Array, p}
   nq, ns, ne = size(Q)
   accum = isfinite(p) ? -zero(T) : typemin(T)
@@ -449,8 +479,24 @@ function weighted_norm_impl(Q::SubArray{T, N, A}, W, ::Val{p}) where {T, N, A<:A
       if isfinite(p)
         accum += W[i, 1, k] * abs(Q[i, j, k]) ^ p
       else
-        waQ_ijk = W[i, j, k] * abs(Q[i, j, k]) 
+        waQ_ijk = W[i, j, k] * abs(Q[i, j, k])
         accum = ifelse(waQ_ijk > accum, waQ_ijk, accum)
+      end
+    end
+  end
+  accum
+end
+
+function weighted_norm_impl_pervar(Q::SubArray{T, N, A}, W, ::Val{p}; dims) where {T, N, A<:Array, p}
+  nq, ns, ne = size(Q)
+  accum = isfinite(p) ? -zeros(T, ns) : fill!(Array{T}(typemin(T),ns))
+  @inbounds for k = 1:ne, j = 1:ns
+    @simd for i = 1:nq
+      if isfinite(p)
+        accum[j] += W[i, 1, k] * abs(Q[i, j, k]) ^ p
+      else
+        waQ_ijk = W[i, j, k] * abs(Q[i, j, k])
+        accum[j] = ifelse(waQ_ijk > accum[j], waQ_ijk, accum[j])
       end
     end
   end
@@ -464,7 +510,7 @@ function dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}) where {T, N, A<:
   end
   accum
 end
-  
+
 
 function weighted_dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}, W) where {T, N, A<:Array}
   nq, ns, ne = size(Q1)
@@ -490,6 +536,19 @@ function norm_impl(Q, ::Val{p}) where p
   mapreduce(identity, op, E, init=init)
 end
 
+function norm_impl_pervar(Q, ::Val{p}, dims=nothing) where p
+  T = eltype(Q)
+  if isfinite(p)
+    E = @~ @. abs(Q) ^ p
+    op, init = +, zero(T)
+  else
+    E = @~ @. abs(Q)
+    op, init = max, typemin(T)
+  end
+  dims==nothing ? mapreduce(identity, op, E, init=init) :
+                  reduce(op, E, init=init, dims)
+end
+
 function weighted_norm_impl(Q, W, ::Val{p}) where p
   T = eltype(Q)
   if isfinite(p)
@@ -502,6 +561,19 @@ function weighted_norm_impl(Q, W, ::Val{p}) where p
   mapreduce(identity, op, E, init=init)
 end
 
+function weighted_norm_impl_pervar(Q, W, ::Val{p}; dims=nothing) where p
+  T = eltype(Q)
+  if isfinite(p)
+    E = @~ @. W * abs(Q) ^ p
+    op, init = +, zero(T)
+  else
+    E = @~ @. W * abs(Q)
+    op, init = max, typemin(T)
+  end
+  dims==nothing ? mapreduce(identity, op, E, init=init) :
+                  reduce(op, E, init=init, dims)
+end
+
 function dot_impl(Q1, Q2)
   T = eltype(Q1)
   E = @~ @. Q1 * Q2
@@ -512,7 +584,7 @@ weighted_dot_impl(Q1, Q2, W) = dot_impl(@~ @. W * Q1, Q2)
 
 using Requires
 
-# `realview` and `device` are helpers that enable 
+# `realview` and `device` are helpers that enable
 # testing ODESolvers and LinearSolvers without using MPIStateArrays
 # They could be potentially useful elsewhere and exported but probably need
 # better names, for example `device` is also defined in CUDAdrv
