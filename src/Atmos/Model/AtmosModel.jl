@@ -230,7 +230,7 @@ function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP:
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
     DF = eltype(stateM)
     stateP.ρ = stateM.ρ
-    stateP.ρu -= 2 * dot(stateM.ρu, nM) * collect(nM)
+    stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
     diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
     diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
