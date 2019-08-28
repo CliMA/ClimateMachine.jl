@@ -1,21 +1,21 @@
 module Atmos
 
 export AtmosModel,
-  
-  ConstantViscosityWithDivergence, SmagorinskyLilly, 
+  ConstantViscosityWithDivergence, SmagorinskyLilly,
   DryModel, EquilMoist,
   NoRadiation,
-  NoFluxBC, InitStateBC, DYCOMS_BC,
+  NoFluxBC, InitStateBC, RayleighBenardBC,
   FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
+using CLIMA.SubgridScaleParameters
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-  init_aux!, init_state!, update_aux!, integrate_aux!, LocalGeometry, lengthscale
+  init_aux!, init_state!, update_aux!, LocalGeometry, lengthscale, resolutionmetric
 
 """
     AtmosModel <: BalanceLaw
@@ -64,18 +64,8 @@ function vars_diffusive(m::AtmosModel, T)
     radiation::vars_diffusive(m.radiation,T)
   end
 end
-
-function vars_integrals(m::AtmosModel, T)
-  @vars begin
-    radiation::vars_integrals(m.radiation, T)
-  end
-end
-
-
 function vars_aux(m::AtmosModel, T)
   @vars begin
-    ∫dz::vars_integrals(m,T)
-    ∫dnz::vars_integrals(m,T)
     coord::SVector{3,T}
     orientation::vars_aux(m.orientation, T)
     turbulence::vars_aux(m.turbulence,T)
@@ -83,8 +73,6 @@ function vars_aux(m::AtmosModel, T)
     radiation::vars_aux(m.radiation,T)
   end
 end
-
-
 
 """
     flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -161,6 +149,7 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   transform.u = ρinv * state.ρu
 
   gradvariables!(m.moisture, transform, state, aux, t)
+  gradvariables!(m.turbulence, transform, state, aux, t)
 end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
@@ -176,27 +165,26 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
               (∇u[2,3] + ∇u[3,2])/2)
 
   # kinematic viscosity tensor
-  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, aux, t)
+  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, aux, t)
 
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+  # diffusion terms required for SGS turbulence computations
+  diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρν)
 end
 
 function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
-function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
-  integrate_aux!(m.radiation, integ, state, aux)
-end
-
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
 include("orientation.jl")
+include("force.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
@@ -240,7 +228,12 @@ struct NoFluxBC <: BoundaryCondition
 end
 function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
+    DF = eltype(stateM)
+    UM, VM, WM = stateM.ρu
+    stateP.ρ = stateM.ρ
+    stateP.ρu -= 2 * dot(stateM.ρu, nM) * collect(nM)
+    diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
+    diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
 """
@@ -255,104 +248,8 @@ function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP:
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
-function init_state!(m::AtmosModel, state::Vars, aux::Vars, coord, t)
-  m.init_state(state, aux, coord, t)
-end
-
-"""
-  DYCOMS_BC <: BoundaryCondition
-  Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
-"""
-struct DYCOMS_BC <: BoundaryCondition
-  C_drag
-  LHF
-  SHF
-end
-function boundarycondition!(bl::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars, diff1::Vars, aux1::Vars) where {O,T,M,R,S,BC <: DYCOMS_BC,IS}
-    # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
-    # at the boundaries the ⁻, minus side states are the interior values
-    # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
-    DF = eltype(stateP)
-    
-    # Get values from minus-side state
-    ρM = stateM.ρ 
-    UM, VM, WM = stateM.ρu
-    EM = stateM.ρe
-    QTM = stateM.moisture.ρq_tot
-    uM, vM, wM  = UM/ρM, VM/ρM, WM/ρM
-    q_totM = QTM/ρM
-    UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-    
-    # Assign reflection wall boundaries (top wall)
-    stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
-                        VM - 2 * nM[2] * UnM,
-                        WM - 2 * nM[3] * UnM)
-
-    # Assign scalar values at the boundaries 
-    stateP.ρ = ρM
-    stateP.moisture.ρq_tot = QTM
-    # Assign diffusive fluxes at boundaries
-    diffP = diffM
-    xvert = auxM.coord[3]
-    
-    if bctype == 5
-      # ------------------------------------------------------------------------
-      # (<var>_FN) First node values (First interior node from bottom wall)
-      # ------------------------------------------------------------------------
-      z_FN             = aux1.coord[3]
-      ρ_FN             = state1.ρ
-      U_FN, V_FN, W_FN = state1.ρu
-      E_FN             = state1.ρe
-      u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
-      windspeed_FN     = sqrt(u_FN^2 + v_FN^2 + w_FN^2)
-      q_tot_FN         = state1.moisture.ρq_tot / ρ_FN
-      e_int_FN         = E_FN/ρ_FN - windspeed_FN^2/2 - grav*z_FN
-      TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
-      T_FN             = air_temperature(TS_FN)
-      q_vap_FN         = q_tot_FN - PhasePartition(TS_FN).liq
-      # --------------------------
-      # Bottom boundary quantities 
-      # --------------------------
-      zM          = auxM.coord[3] 
-      q_totM      = QTM/ρM
-      windspeed   = sqrt(uM^2 + vM^2 + wM^2)
-      e_intM      = EM/ρM - windspeed^2/2 - grav*zM
-      TSM         = PhaseEquil(e_intM, q_totM, ρM) 
-      q_vapM      = q_totM - PhasePartition(TSM).liq
-      TM          = air_temperature(TSM)
-      # ----------------------------------------------------------
-      # Extract components of diffusive momentum flux (minus-side)
-      # ----------------------------------------------------------
-      ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
-      
-      # ----------------------------------------------------------
-      # Boundary momentum fluxes
-      # ----------------------------------------------------------
-      # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
-      # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
-      C_drag = bl.boundarycondition.C_drag
-      ρτ13P  = -ρM * C_drag * windspeed_FN * u_FN 
-      ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN 
-      # Assign diffusive momentum and moisture fluxes
-      # (i.e. ρ𝚻 terms)  
-      diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
-      
-      # ----------------------------------------------------------
-      # Boundary moisture fluxes
-      # ----------------------------------------------------------
-      diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
-                                         diffM.moisture.ρd_q_tot[2],
-                                         bl.boundarycondition.LHF/(LH_v0))
-
-      # ----------------------------------------------------------
-      # Boundary energy fluxes
-      # ----------------------------------------------------------
-      # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-      diffP.moisture.ρ_SGS_enthalpyflux  = SVector(diffM.moisture.ρ_SGS_enthalpyflux[1],
-                                                   diffM.moisture.ρ_SGS_enthalpyflux[2],
-                                                   bl.boundarycondition.LHF + bl.boundarycondition.SHF)
-  end
+function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
+  m.init_state(state, aux, coords, t)
 end
 
 end # module
