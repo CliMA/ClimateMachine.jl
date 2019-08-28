@@ -115,10 +115,12 @@ function numerical_flux!(::Rusanov, bl::BalanceLaw,
 
   λM = wavespeed(bl, nM, Vars{vars_state(bl,DFloat)}(QM), Vars{vars_aux(bl,DFloat)}(auxM), t)
   FM = similar(F, Size(3, nstate))
+  fill!(FM, -zero(eltype(FM)))
   flux!(bl, Grad{vars_state(bl,DFloat)}(FM), Vars{vars_state(bl,DFloat)}(QM), Vars{vars_diffusive(bl,DFloat)}(QVM), Vars{vars_aux(bl,DFloat)}(auxM), t)
   
   λP = wavespeed(bl, nM, Vars{vars_state(bl,DFloat)}(QP), Vars{vars_aux(bl,DFloat)}(auxP), t)
   FP = similar(F, Size(3, nstate))
+  fill!(FP, -zero(eltype(FP)))
   flux!(bl, Grad{vars_state(bl,DFloat)}(FP), Vars{vars_state(bl,DFloat)}(QP), Vars{vars_diffusive(bl,DFloat)}(QVP), Vars{vars_aux(bl,DFloat)}(auxP), t)
 
   λ  =  max(λM, λP)
