@@ -4,17 +4,18 @@ export AtmosModel,
   ConstantViscosityWithDivergence, SmagorinskyLilly,
   DryModel, EquilMoist,
   NoRadiation,
-  NoFluxBC, InitStateBC,
+  NoFluxBC, InitStateBC, RayleighBenardBC,
   FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
+using CLIMA.SubgridScaleParameters
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-  init_aux!, init_state!, update_aux!, integrate_aux!, LocalGeometry, lengthscale
+  init_aux!, init_state!, update_aux!, integrate_aux!, LocalGeometry, lengthscale, resolutionmetric
 
 """
     AtmosModel <: BalanceLaw
@@ -160,6 +161,7 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   transform.u = ρinv * state.ρu
 
   gradvariables!(m.moisture, transform, state, aux, t)
+  gradvariables!(m.turbulence, transform, state, aux, t)
 end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
@@ -175,13 +177,15 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
               (∇u[2,3] + ∇u[3,2])/2)
 
   # kinematic viscosity tensor
-  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, aux, t)
+  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, aux, t)
 
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+  # diffusion terms required for SGS turbulence computations
+  diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρν)
 end
 
 function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -196,6 +200,7 @@ include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
 include("orientation.jl")
+include("force.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
@@ -239,8 +244,11 @@ struct NoFluxBC <: BoundaryCondition
 end
 function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
     nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
-
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
+    DF = eltype(stateM)
+    stateP.ρ = stateM.ρ
+    stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+    diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
+    diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
 """

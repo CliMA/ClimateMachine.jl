@@ -4,6 +4,7 @@
 #SBATCH --nodes=1          # number of nodes
 #SBATCH --mem-per-cpu=4G   # memory per CPU core
 #SBATCH --gres=gpu:1
+#SBATCH --exclude=hpc-23-28
 
 set -euo pipefail
 set -x #echo on
