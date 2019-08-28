@@ -11,6 +11,7 @@ using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
+import ..MoistThermodynamics: internal_energy
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,

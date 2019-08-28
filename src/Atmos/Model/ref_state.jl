@@ -48,11 +48,11 @@ function init_aux!(m::HydrostaticState{P,F}, aux::Vars) where {P,F}
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
   q_pt = PhasePartition(ρq_tot)
-  aux.ref_state.ρe = ρ * MoistThermodynamics.internal_energy(T, q_pt)
+  aux.ref_state.ρe = ρ * internal_energy(T, q_pt)
 
   e_kin = F(0)
   e_pot = aux.orientation.Φ
-  aux.ref_state.ρe = ρ*MoistThermodynamics.total_energy(e_kin, e_pot, T, q_pt)
+  aux.ref_state.ρe = ρ*total_energy(e_kin, e_pot, T, q_pt)
 end
 
 """
