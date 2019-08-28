@@ -61,11 +61,12 @@ struct SmagorinskyLilly{T} <: TurbulenceClosure
   C_smag::T
 end
 
-vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, f_b::T)
+vars_aux(::SmagorinskyLilly,T) = @vars(Δvec::SVector{3,T}, Δ::T, f_b::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
 function init_aux!(::SmagorinskyLilly, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
+  aux.turbulence.Δvec = resolutionmetric(geom)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
@@ -129,3 +130,29 @@ end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
   (-2*ρν) .* S
 end
+
+"""
+  VremanSGS{DT} <: TurbulenceClosure
+  
+  §1.3.2 in CLIMA documentation 
+Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Smagorinsky coefficient
+is specified and used to compute the equivalent Vreman coefficient. 
+
+1) ν_e = √(Bᵦ/(αᵢⱼαᵢⱼ)) where αᵢⱼ = ∂uᵢ∂uⱼ with uᵢ the resolved scale velocity component.
+2) βij = Δ²αₘᵢαᵢⱼ
+3) Bᵦ = β₁₁β₂₂ + β₂₂β₃₃ + β₁₁β₃₃ - β₁₂² - β₁₃² - β₂₃²
+βᵢⱼ is symmetric, positive-definite. 
+If Δᵢ = Δ, then β = Δ²αᵀα
+
+@article{Vreman2004,
+  title={An eddy-viscosity subgrid-scale model for turbulent shear flow: Algebraic theory and applications},
+  author={Vreman, AW},
+  journal={Physics of fluids},
+  volume={16},
+  number={10},
+  pages={3670--3681},
+  year={2004},
+  publisher={AIP}
+}
+
+"""
