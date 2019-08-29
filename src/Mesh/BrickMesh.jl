@@ -166,7 +166,7 @@ We can build a 3 by 2 element two-dimensional mesh that is periodic in the
 \$x_2\$-direction with
 ```jldoctest brickmesh
 julia> (elemtovert, elemtocoord, elemtobndy, faceconnections) =
-        brickmesh((2:5,4:6), (false,true); boundary=[1 3; 2 4]);
+        brickmesh((2:5,4:6), (false,true); boundary=((1,2), (3,4)));
 ```
 This returns the mesh structure for
 
@@ -260,7 +260,11 @@ we see that face `4` of element `5` is associated with vertices `[2 3]` (the
 vertices for face `1` of element `2`).
 """
 function brickmesh(x, periodic; part=1, numparts=1,
-                   boundary=ones(Int,2,length(x)))
+                   boundary=ntuple(j->(1,1), length(x)))
+  if boundary isa Matrix
+    boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
+  end
+  
   @assert length(x) == length(periodic)
   @assert length(x) >= 1
   @assert 1 <= part <= numparts
@@ -299,10 +303,10 @@ function brickmesh(x, periodic; part=1, numparts=1,
 
     for i=1:d
       if !periodic[i] && ec[i]==1
-        elemtobndy[2(i-1)+1,e] = boundary[1,i]
+        elemtobndy[2(i-1)+1,e] = boundary[i][1]
       end
       if !periodic[i] && ec[i]==nelemdim[i]
-        elemtobndy[2(i-1)+2,e] = boundary[2,i]
+        elemtobndy[2(i-1)+2,e] = boundary[i][2]
       end
     end
 
