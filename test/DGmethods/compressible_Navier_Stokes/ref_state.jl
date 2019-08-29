@@ -37,7 +37,6 @@ using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
 
 init_state!(state, aux, coords, t) = nothing
-source!(source, state, aux, t) = nothing
 
 # initial condition
 using CLIMA.Atmos: vars_aux
@@ -57,7 +56,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                      ConstantViscosityWithDivergence(DFloat(1)),
                      EquilMoist(),
                      NoRadiation(),
-                     source!,
+                     nothing,
                      NoFluxBC(),
                      init_state!)
 
@@ -91,7 +90,7 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                      ConstantViscosityWithDivergence(DFloat(1)),
                      EquilMoist(),
                      NoRadiation(),
-                     source!,
+                     nothing,
                      NoFluxBC(),
                      init_state!)
 
