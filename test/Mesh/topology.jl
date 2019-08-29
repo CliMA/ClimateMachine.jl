@@ -132,7 +132,7 @@ end
   let
     comm = MPI.COMM_SELF
     topology = StackedBrickTopology(comm, (2:5,4:6), periodicity=(false,true),
-                                    boundary=[1 3; 2 4])
+                                    boundary=((1,2),(3,4)))
 
     nelem = 6
 
