@@ -11,7 +11,8 @@ using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
-using CLIMA.SubgridScaleParameters
+import ..MoistThermodynamics: internal_energy
+using ..SubgridScaleParameters
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
@@ -20,19 +21,19 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_di
 """
     AtmosModel <: BalanceLaw
 
-A `BalanceLaw` for atmosphere modelling.
+A `BalanceLaw` for atmosphere modeling.
 
 # Usage
 
-    AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
+    AtmosModel(orientation, ref_state, turbulence, moisture, radiation, source, boundarycondition, init_state)
 
 """
-struct AtmosModel{O,T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   orientation::O
+  ref_state::RS
   turbulence::T
   moisture::M
   radiation::R
-  # TODO: a better mechanism than functions.
   source::S
   boundarycondition::BC
   init_state::IS
@@ -78,6 +79,7 @@ function vars_aux(m::AtmosModel, T)
     ∫dnz::vars_integrals(m,T)
     coord::SVector{3,T}
     orientation::vars_aux(m.orientation, T)
+    ref_state::vars_aux(m.ref_state,T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
@@ -196,6 +198,7 @@ function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
   integrate_aux!(m.radiation, integ, state, aux)
 end
 
+include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
@@ -206,6 +209,7 @@ include("force.jl")
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.coord = geom.coord
   init_aux!(m.orientation, aux, geom)
+  init_aux!(m.ref_state, aux)
   init_aux!(m.turbulence, aux, geom)
 end
 
@@ -242,8 +246,9 @@ Set the momentum at the boundary to be zero.
 """
 struct NoFluxBC <: BoundaryCondition
 end
-function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
+
+function boundarycondition!(m::AtmosModel{O,RS,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,RS,T,M,R,S,BC <: NoFluxBC,IS}
     DF = eltype(stateM)
     stateP.ρ = stateM.ρ
     stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
@@ -258,8 +263,8 @@ Set the value at the boundary to match the `init_state!` function. This is mainl
 """
 struct InitStateBC <: BoundaryCondition
 end
-function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: InitStateBC,IS}
+function boundarycondition!(m::AtmosModel{O,RS,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,RS,T,M,R,S,BC <: InitStateBC,IS}
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 

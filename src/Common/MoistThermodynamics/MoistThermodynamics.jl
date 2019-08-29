@@ -35,7 +35,7 @@ export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, P
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_liquid_ice_pottemp, dry_pottemp, virtual_pottemp, exner
-export liquid_ice_pottemp, liquid_ice_pottemp_sat
+export liquid_ice_pottemp, liquid_ice_pottemp_sat, relative_humidity
 
 include("states.jl")
 
@@ -688,11 +688,9 @@ function PhasePartition_equil(T::DT, ρ::DT, q_tot::DT) where {DT<:Real}
 
     return PhasePartition(q_tot, q_liq, q_ice)
 end
+PhasePartition_equil(ts::PhaseNonEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 
-function PhasePartition(ts::PhaseDry{DT}) where {DT<:Real}
-  @warn "Computing `PhasePartition` of a dry `ThermodynamicState` is inefficient. Please use higher-level function calls (e.g., with `ThermodynamicState`) instead."
-  return PhasePartition(DT(0), DT(0), DT(0))
-end
+PhasePartition(ts::PhaseDry{DT}) where {DT<:Real} = PhasePartition(DT(0), DT(0), DT(0))
 PhasePartition(ts::PhaseEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
@@ -864,7 +862,7 @@ liquid_ice_pottemp_sat(ts::PhaseDry) =
 """
     exner(p[, q::PhasePartition])
 
-Compute the Exner function where
+The Exner function where
  - `p` pressure
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
@@ -880,11 +878,17 @@ end
 """
     exner(ts::ThermodynamicState)
 
-Compute the Exner function, given a thermodynamic state `ts`.
+The Exner function, given a thermodynamic state `ts`.
 """
 exner(ts::ThermodynamicState) =
   exner(air_pressure(ts), PhasePartition(ts))
 exner(ts::PhaseDry{DT}) where {DT<:Real} = (air_pressure(ts)/DT(MSLP))^(gas_constant_air(ts)/cp_m(ts))
 
+"""
+    relative_humidity(ts::ThermodynamicState)
+
+The relative humidity, given a thermodynamic state `ts`.
+"""
+relative_humidity(ts::ThermodynamicState) = air_pressure(ts)/saturation_vapor_pressure(ts, Liquid())
 
 end #module MoistThermodynamics.jl
