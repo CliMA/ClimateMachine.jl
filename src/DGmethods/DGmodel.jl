@@ -36,6 +36,25 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
 
   Np = dofs_per_element(grid)
 
+  # do integrals
+  nintegrals = num_integrals(bl, DFloat)
+  if nintegrals > 0
+    nelem = length(topology.elems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nelem, nvertelem)
+
+    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+      knl_indefinite_stack_integral!(bl, Val(dim), Val(polyorder), 
+                                 Val(nvertelem),
+                                 Q.Q, auxstate.Q, vgeo, grid.Imat,
+                                 1:nhorzelem, Val(nintegrals)))
+
+    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+      knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
+                                 Val(nvertelem), auxstate.Q,
+                                 1:nhorzelem, Val(nintegrals)))
+  end
+
   ### update aux variables
   if hasmethod(update_aux!, Tuple{typeof(bl), Vars, Vars, Vars, DFloat})
     @launch(device, threads=(Np,), blocks=nrealelem,

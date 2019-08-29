@@ -106,7 +106,8 @@ function run(mpicomm, ArrayType,
                                            )
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
-                     SmagorinskyLilly{DF}(C_smag), 
+                     NoReferenceState(),
+                     SmagorinskyLilly{DF}(C_smag),
                      EquilMoist(), 
                      NoRadiation(),
                      source_geopot!, NoFluxBC(), initialise_rising_bubble!)
