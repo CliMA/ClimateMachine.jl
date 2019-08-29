@@ -16,7 +16,7 @@ function main()
   x = range(DFloat(0); length=Nx+1, stop=1)
   y = range(DFloat(0); length=Ny+1, stop=1)
 
-  topology = BrickTopology(comm, (x,y); boundary=[1 3; 2 4],
+  topology = BrickTopology(comm, (x,y); boundary=((1,2),(3,4)),
                            periodicity=(true,true))
 
   elems       = topology.elems
