@@ -111,6 +111,7 @@ Where
  - `F_{diff}`     Fluxes that contain gradients of state variables, see [`flux_diffusive!`]@ref()    for this term
 """
 function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  flux!(m.mass, flux, state, diffusive, aux, t)
   flux_advective!(m, flux, state, diffusive, aux, t)
   flux_pressure!(m, flux, state, diffusive, aux, t)
   # flux_nondiffusive!(m, flux, state, diffusive, aux, t)
@@ -204,24 +205,7 @@ function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
   integrate_aux!(m.radiation, integ, state, aux)
 end
 
-abstract type BoundaryCondition
-end
-
-"""
-    NoFluxBC <: BoundaryCondition
-
-Set the momentum at the boundary to be zero.
-"""
-struct NoFluxBC <: BoundaryCondition
-end
-"""
-    InitStateBC <: BoundaryCondition
-
-Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
-"""
-struct InitStateBC <: BoundaryCondition
-end
-
+include("boundaryconditions.jl")
 include("component.jl")
 include("mass.jl")
 include("ref_state.jl")
@@ -230,7 +214,6 @@ include("moisture.jl")
 include("radiation.jl")
 include("orientation.jl")
 include("source.jl")
-include("boundaryconditions.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
@@ -259,12 +242,12 @@ end
 
 
 function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
-  # atmos_boundarycondition!(m.mass, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
+  atmos_boundarycondition!(m.mass, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
   atmos_boundarycondition!(m.boundarycondition, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
 end
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
-  # atmos_init_state!(m.mass, state, aux, coords, t)
+  atmos_init_state!(m.mass, state, aux, coords, t)
   m.init_state(state, aux, coords, t)
 end
 

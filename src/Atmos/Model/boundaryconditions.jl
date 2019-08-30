@@ -6,18 +6,37 @@ function atmos_boundarycondition!(f::Function, m::AtmosModel, stateP::Vars, diff
 end
 
 # lookup boundary condition by face
-function atmos_boundarycondition!(bctup::Tuple, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)  
+function atmos_boundarycondition!(bctup::Tuple, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
   atmos_boundarycondition!(bctup[bctype], m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
 end
 
-function atmos_boundarycondition!(bc::NoFluxBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) 
+
+abstract type BoundaryCondition
+end
+
+"""
+    NoFluxBC <: BoundaryCondition
+
+Set the momentum at the boundary to be zero.
+"""
+struct NoFluxBC <: BoundaryCondition
+end
+
+function atmos_boundarycondition!(bc::NoFluxBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
     DF = eltype(stateM)
-    stateP.ρ = stateM.ρ
+    # stateP.ρ = stateM.ρ
     stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
     diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
     diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
-function atmos_boundarycondition!(bc::InitStateBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) 
+"""
+    InitStateBC <: BoundaryCondition
+
+Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
+"""
+struct InitStateBC <: BoundaryCondition
+end
+function atmos_boundarycondition!(bc::InitStateBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
   init_state!(m, stateP, auxP, auxP.coord, t)
 end

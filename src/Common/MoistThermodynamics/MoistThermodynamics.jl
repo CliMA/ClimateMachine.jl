@@ -13,7 +13,7 @@ using ..RootSolvers
 using ..PlanetParameters
 
 # Atmospheric equation of state
-export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
+export air_pressure, air_temperature, air_density, dry_air_density, specific_volume, soundspeed_air
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -99,6 +99,16 @@ and, optionally,
 """
 air_density(T::DT, p::DT, q::PhasePartition{DT}=PhasePartition{DT}(DT(0), DT(0), DT(0))) where {DT<:Real} =
   p / (gas_constant_air(q) * T)
+
+"""
+    air_density(θ, π_exner)
+
+Dry air density given
+ - `θ` dry potential temperature
+ - `π_exner` dry exner
+"""
+dry_air_density(θ::DT, π_exner::DT) where {DT<:Real} =
+  MSLP / (R_d * θ) * (π_exner)^ (cv_d / R_d)
 
 """
     air_density(ts::ThermodynamicState)

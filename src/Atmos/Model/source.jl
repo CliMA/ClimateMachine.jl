@@ -20,5 +20,5 @@ struct Gravity <: Source
 end
 
 function atmos_source!(::Gravity, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu -= state.ρ * aux.orientation.∇Φ
+  source.ρu -= state.mass.ρ * aux.orientation.∇Φ
 end

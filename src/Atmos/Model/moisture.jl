@@ -20,9 +20,9 @@ end
 function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   T = eltype(state)
   q_pt = get_phase_partition(m, state)
-  ρinv = 1 / state.ρ
+  ρinv = 1 / state.mass.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
-  ρe_pot = state.ρ * aux.orientation.Φ
+  ρe_pot = state.mass.ρ * aux.orientation.Φ
   ρe_int = state.ρe - ρe_kin - ρe_pot
   e_int = ρinv*ρe_int
   return e_int
@@ -43,13 +43,13 @@ end
 vars_aux(::DryModel,T) = @vars(e_int::T, temperature::T, θ_v::T)
 function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
-  TS = PhaseDry(aux.moisture.e_int, state.ρ)
+  TS = PhaseDry(aux.moisture.e_int, state.mass.ρ)
   aux.moisture.θ_v = virtual_pottemp(TS)
   nothing
 end
 
 get_phase_partition(::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
-thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseDry(aux.moisture.e_int, state.ρ)
+thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseDry(aux.moisture.e_int, state.mass.ρ)
 
 """
     EquilMoist
@@ -65,18 +65,17 @@ vars_aux(::EquilMoist,T) = @vars(e_int::T, temperature::T, θ_v::T)
 
 function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
-  TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
+  TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.mass.ρ)
   aux.moisture.temperature = air_temperature(TS)
   aux.moisture.θ_v = virtual_pottemp(TS)
   nothing
 end
 
-get_phase_partition(::EquilMoist, state::Vars) = PhasePartition(state.moisture.ρq_tot/state.ρ)
-thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
+get_phase_partition(::EquilMoist, state::Vars) = PhasePartition(state.moisture.ρq_tot/state.mass.ρ)
+thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, state.moisture.ρq_tot/state.mass.ρ, state.mass.ρ, aux.moisture.temperature)
 
 function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
-  println("calling gradvariables")
-  ρinv = 1/state.ρ
+  ρinv = 1/state.mass.ρ
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
 
   phase = thermo_state(m, state, aux)
@@ -98,8 +97,8 @@ function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::V
 end
 
 function flux_diffusive!(m::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  u = state.ρu / state.ρ
-  flux.ρ += diffusive.moisture.ρd_q_tot
+  u = state.ρu / state.mass.ρ
+  flux.mass.ρ += diffusive.moisture.ρd_q_tot
   flux.ρu += diffusive.moisture.ρd_q_tot .* u'
   flux.ρe += diffusive.moisture.ρd_h_tot
   flux.moisture.ρq_tot = diffusive.moisture.ρd_q_tot

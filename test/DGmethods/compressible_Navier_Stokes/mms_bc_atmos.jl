@@ -62,8 +62,10 @@ function soundspeed(m::MMSDryModel, state::Vars, aux::Vars)
   sqrt(ρinv * γ * p)
 end
 
-function mms2_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
+function mms2_init_state_mass!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.mass.ρ = ρ_g(t, x1, x2, x3, Val(2))
+end
+function mms2_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρu = SVector(U_g(t, x1, x2, x3, Val(2)),
                      V_g(t, x1, x2, x3, Val(2)),
                      W_g(t, x1, x2, x3, Val(2)))
@@ -110,7 +112,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   if dim == 2
     model = AtmosModel(FlatOrientation(),
-                       Component(Mass, bcs=InitStateBC(), ics=mms2_init_state!),
+                       Component(Mass, bcs=InitStateBC(), ics=mms2_init_state_mass!),
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(DFloat(μ_exact)),
                        MMSDryModel(),
@@ -210,7 +212,7 @@ lvls = integration_testing ? size(expected_result, 2) : 1
 @testset "$(@__FILE__)" for ArrayType in ArrayTypes
 for DFloat in (Float64,) #Float32)
   result = zeros(DFloat, lvls)
-  for dim = 2:3
+  for dim = (2,)
     for l = 1:lvls
       if dim == 2
         Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)

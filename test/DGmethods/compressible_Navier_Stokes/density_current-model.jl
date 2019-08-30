@@ -84,7 +84,7 @@ function initialise_density_current!(state::Vars, aux::Vars, (x1,x2,x3), t)
   e_int             = internal_energy(T, qvar)
   E                 = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
   
-  state.ρ      = ρ
+  state.mass.ρ      = ρ
   state.ρu     = SVector(U, V, W)
   state.ρe     = E
   state.moisture.ρq_tot = DF(0)
@@ -101,6 +101,7 @@ function run(mpicomm, ArrayType,
                                            )
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
+                     Component(Mass, bcs=NoFluxBC()),
                      NoReferenceState(),
                      SmagorinskyLilly{DF}(C_smag), 
                      EquilMoist(), 

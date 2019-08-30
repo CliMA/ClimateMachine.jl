@@ -100,41 +100,43 @@ Computes flux `S(Y)` in:
 source!(c::Component, source::Vars, state::Vars, aux::Vars, t::Real) = nothing
 atmos_source!(c::Component, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real) = nothing
 
+#### Initial conditions
 """ Default initial state """
 function atmos_init_state!(c::Component{Name}, state::Vars, aux::Vars, coords, t) where Name
+  # TODO: Unroll loop
   for f in fieldnames(vars_state(c, eltype(state)))
-    @show state
-    @show fieldnames(state)
-    @show propname(Name)
-    localstate = getfield(state, propname(Name))
-    @show localstate
-    setfield(localstate, f, eltype(state)(0))
-  end
-end
-
-""" Neumann BCs (stateP = stateM) """
-function atmos_boundarycondition!(c::Component{Name,I,Neumann,RS,S,FD,FND}, m::AtmosModel,
-                                  stateP::Vars, diffP::Vars, auxP::Vars, nM,
-                                  stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {Name,I,RS,S,FD,FND}
-  for f in fieldnames(vars_state(c, eltype(state)))
-    localstateP = getfield(stateP, propname(Name))
-    localstateM = getfield(stateM, propname(Name))
-    setfield(localstateP, f, getfield(localstateM,f))
+    localstate = getproperty(state, propname(Name))
+    setproperty!(localstate, f, eltype(state)(0))
   end
 end
 
 """ When a custom initial state kernel is passed """
-function atmos_init_state!(c::Component{N,F,B,RS,S,FD,FND}, state::Vars, aux::Vars, coords, t) where {N,F<:Function,B,RS,S,FD,FND}
+function atmos_init_state!(c::Component{N,I,B,RS,S,FD,FND}, state::Vars, aux::Vars, coords, t) where {N,I<:Function,B,RS,S,FD,FND}
   c.ics(state, aux, coords, t)
+end
+
+#### Boundary conditions
+""" No flux BCs (stateP = stateM) """
+function atmos_boundarycondition!(c::Component{Name,I,NoFluxBC,RS,S,FD,FND}, m::AtmosModel,
+                                  stateP::Vars, diffP::Vars, auxP::Vars, nM,
+                                  stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {Name,I,RS,S,FD,FND}
+  # TODO: Unroll loop
+  for f in fieldnames(vars_state(c, eltype(stateP)))
+    localstateP = getproperty(stateP, propname(Name))
+    localstateM = getproperty(stateM, propname(Name))
+    setproperty!(localstateP, f, getproperty(localstateM,f))
+  end
 end
 
 """
     InitStateBC <: BoundaryCondition
 
-Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
+Set the value at the boundary to match the `init_state!` function.
+This is mainly useful for cases where the problem has an explicit solution.
 """
 function atmos_boundarycondition!(c::Component{Name,I,InitStateBC,RS,S,FD,FND}, m::AtmosModel,
                                   stateP::Vars, diffP::Vars, auxP::Vars, nM,
                                   stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {Name,I,RS,S,FD,FND}
   atmos_init_state!(c, stateP, auxP, auxP.coord, t)
+  m.init_state(stateP, auxP, auxP.coord, t)
 end

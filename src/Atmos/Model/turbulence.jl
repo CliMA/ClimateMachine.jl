@@ -124,7 +124,7 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   f_b = buoyancy_correction(S, diffusive, aux)
   @inbounds normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
-  return state.ρ * normS * T(m.C_smag * aux.turbulence.Δ * f_b)^2
+  return state.mass.ρ * normS * T(m.C_smag * aux.turbulence.Δ * f_b)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
   (-2*ρν) .* S

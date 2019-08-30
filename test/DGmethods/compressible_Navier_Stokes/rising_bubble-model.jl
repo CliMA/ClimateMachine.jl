@@ -1,4 +1,4 @@
-# Load Packages 
+# Load Packages
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
@@ -36,7 +36,7 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-# -------------- Problem constants ------------------- # 
+# -------------- Problem constants ------------------- #
 const xmin      = 0
 const ymin      = 0
 const zmin      = 0
@@ -48,65 +48,75 @@ const polynomialorder = 4
 const dim       = 3
 const dt        = 0.01
 const timeend   = 10dt
-# ------------- Initial condition function ----------- # 
-function initialise_rising_bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
-  DF            = eltype(state)
-  R_gas::DF     = R_d
-  c_p::DF       = cp_d
-  c_v::DF       = cv_d
-  γ::DF         = c_p / c_v
-  p0::DF        = MSLP
-  
-  # perturbation parameters for rising bubble
+# ------------- Initial condition function ----------- #
+
+function rising_thermal_bubble_ic(DF, coords)
+  x1,x2,x3 = coords[1],coords[2],coords[3]
   xc::DF        = 500
   zc::DF        = 260
   r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
   rc::DF        = 250
   θ_ref::DF     = 303
   Δθ::DF        = 0
-  
-  if r <= rc 
-    Δθ          = DF(1//2) 
+  if r <= rc
+    Δθ          = DF(1//2)
   end
-  
+  return θ_ref, Δθ
+end
+
+struct RisingThermalBubble end
+import CLIMA.Atmos: atmos_init_state!
+function atmos_init_state!(c::Component{Mass,RisingThermalBubble,B,RS,S,FD,FND}, state::Vars, aux::Vars, coords, t) where {Mass,B,RS,S,FD,FND}
+  DF            = eltype(state)
+  # perturbation parameters for rising bubble
+  x3 = coords[3]
+  θ_ref, Δθ = rising_thermal_bubble_ic(DF, coords)
   #Perturbed state:
   θ            = θ_ref + Δθ # potential temperature
-  π_exner      = DF(1) - grav / (c_p * θ) * x3 # exner pressure
-  ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-  P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T            = P / (ρ * R_gas) # temperature
-  
-  ρu           = SVector(DF(0),DF(0),DF(0))
+  π_exner      = DF(1) - grav / (cp_d * θ) * x3 # exner pressure
+  state.mass.ρ = dry_air_density(θ, π_exner)
+end
+
+function initialise_rising_bubble!(state::Vars, aux::Vars, coords, t)
+  DF            = eltype(state)
+  x3 = coords[3]
+  θ_ref, Δθ = rising_thermal_bubble_ic(DF, coords)
+  #Perturbed state:
+  θ            = θ_ref + Δθ # potential temperature
+  ρ            = state.mass.ρ
+  P            = MSLP * (R_d * (ρ * θ) / MSLP) ^(cp_d/cv_d) # pressure (absolute)
+  T            = P / (ρ * R_d) # temperature
   # energy definitions
   e_kin        = DF(0)
   e_pot        = grav * x3
   ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
-  
-  state.ρ      = ρ
-  state.ρu     = ρu
+
+  # state.ρ      = ρ
+  state.ρu     = SVector(DF(0),DF(0),DF(0))
   state.ρe     = ρe_tot
   state.moisture.ρq_tot = DF(0)
 end
-# --------------- Driver definition ------------------ # 
-function run(mpicomm, ArrayType, 
-             topl, dim, Ne, polynomialorder, 
+# --------------- Driver definition ------------------ #
+function run(mpicomm, ArrayType,
+             topl, dim, Ne, polynomialorder,
              timeend, DF, dt)
-  # -------------- Define grid ----------------------------------- # 
+  # -------------- Define grid ----------------------------------- #
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DF,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder
                                            )
-  # -------------- Define model ---------------------------------- # 
+  # -------------- Define model ---------------------------------- #
   model = AtmosModel(FlatOrientation(),
+                     Component(Mass, bcs=NoFluxBC(), ics=RisingThermalBubble()),
                      NoReferenceState(),
                      SmagorinskyLilly{DF}(C_smag),
-                     EquilMoist(), 
+                     EquilMoist(),
                      NoRadiation(),
                      Gravity(),
                      NoFluxBC(),
                      initialise_rising_bubble!)
-  # -------------- Define dgbalancelaw --------------------------- # 
+  # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -168,7 +178,7 @@ function run(mpicomm, ArrayType,
   """ engf engf/eng0 engf-eng0 errf errf / engfe
 engf/eng0
 end
-# --------------- Test block / Loggers ------------------ # 
+# --------------- Test block / Loggers ------------------ #
 using Test
 let
   MPI.Initialized() || MPI.Init()
@@ -188,8 +198,8 @@ let
                 range(DF(ymin); length=Ne[2]+1, stop=ymax),
                 range(DF(zmin); length=Ne[3]+1, stop=zmax))
   topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
-  engf_eng0 = run(mpicomm, ArrayType, 
-                  topl, dim, Ne, polynomialorder, 
+  engf_eng0 = run(mpicomm, ArrayType,
+                  topl, dim, Ne, polynomialorder,
                   timeend, DF, dt)
   @test engf_eng0 ≈ DF(9.9999993807738441e-01)
   end
