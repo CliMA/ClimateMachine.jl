@@ -1,3 +1,5 @@
+using MPI
+
 function runmpi(tests, file)
   MPI.Initialized() && !MPI.Finalized() &&
   error("runmpi does not work if MPI has been "*
