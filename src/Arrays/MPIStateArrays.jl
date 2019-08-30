@@ -369,6 +369,9 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; di
   end
 
   mpiop = isfinite(p) ? MPI.SUM : MPI.MAX
+  if locnorm isa AbstractArray
+    locnorm = convert(Array, locnorm)
+  end
   r = MPI.Allreduce(locnorm, mpiop, Q.mpicomm)
   isfinite(p) ? r .^ (1 // p) : r
 end
