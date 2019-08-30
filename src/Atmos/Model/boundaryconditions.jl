@@ -10,18 +10,6 @@ function atmos_boundarycondition!(bctup::Tuple, m::AtmosModel, stateP::Vars, dif
   atmos_boundarycondition!(bctup[bctype], m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
 end
 
-
-abstract type BoundaryCondition
-end
-
-"""
-    NoFluxBC <: BoundaryCondition
-
-Set the momentum at the boundary to be zero.
-"""
-struct NoFluxBC <: BoundaryCondition
-end
-
 function atmos_boundarycondition!(bc::NoFluxBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) 
     DF = eltype(stateM)
     stateP.ρ = stateM.ρ
@@ -30,13 +18,6 @@ function atmos_boundarycondition!(bc::NoFluxBC, m::AtmosModel, stateP::Vars, dif
     diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
-"""
-    InitStateBC <: BoundaryCondition
-
-Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
-"""
-struct InitStateBC <: BoundaryCondition
-end
 function atmos_boundarycondition!(bc::InitStateBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) 
   init_state!(m, stateP, auxP, auxP.coord, t)
 end

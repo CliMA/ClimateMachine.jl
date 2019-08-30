@@ -49,7 +49,7 @@ end
 function pressure(m::MMSDryModel, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
-  ρinv = 1 / state.ρ
+  ρinv = 1 / state.mass.ρ
   return (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
 
 end
@@ -57,13 +57,13 @@ end
 function soundspeed(m::MMSDryModel, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
-  ρinv = 1 / state.ρ
+  ρinv = 1 / state.mass.ρ
   p = pressure(m, state, aux)
   sqrt(ρinv * γ * p)
 end
 
 function mms2_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
-  state.ρ = ρ_g(t, x1, x2, x3, Val(2))
+  state.mass.ρ = ρ_g(t, x1, x2, x3, Val(2))
   state.ρu = SVector(U_g(t, x1, x2, x3, Val(2)),
                      V_g(t, x1, x2, x3, Val(2)),
                      W_g(t, x1, x2, x3, Val(2)))
@@ -72,7 +72,7 @@ end
 
 function mms2_source!(source::Vars, state::Vars, aux::Vars, t::Real)
   x1,x2,x3 = aux.coord
-  source.ρ  = Sρ_g(t, x1, x2, x3, Val(2))
+  source.mass.ρ  = Sρ_g(t, x1, x2, x3, Val(2))
   source.ρu = SVector(SU_g(t, x1, x2, x3, Val(2)),
                       SV_g(t, x1, x2, x3, Val(2)),
                       SW_g(t, x1, x2, x3, Val(2)))
@@ -80,7 +80,7 @@ function mms2_source!(source::Vars, state::Vars, aux::Vars, t::Real)
 end
 
 function mms3_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
-  state.ρ = ρ_g(t, x1, x2, x3, Val(3))
+  state.mass.ρ = ρ_g(t, x1, x2, x3, Val(3))
   state.ρu = SVector(U_g(t, x1, x2, x3, Val(3)),
                      V_g(t, x1, x2, x3, Val(3)),
                      W_g(t, x1, x2, x3, Val(3)))
@@ -89,7 +89,7 @@ end
 
 function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
   x1,x2,x3 = aux.coord
-  source.ρ  = Sρ_g(t, x1, x2, x3, Val(3))
+  source.mass.ρ  = Sρ_g(t, x1, x2, x3, Val(3))
   source.ρu = SVector(SU_g(t, x1, x2, x3, Val(3)),
                       SV_g(t, x1, x2, x3, Val(3)),
                       SW_g(t, x1, x2, x3, Val(3)))
@@ -98,6 +98,7 @@ end
 
 # initial condition
 
+using CLIMA.Atmos: vars_state
 function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
@@ -109,6 +110,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   if dim == 2
     model = AtmosModel(FlatOrientation(),
+                       Component(Mass, bcs=InitStateBC(), ics=mms2_init_state!),
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(DFloat(μ_exact)),
                        MMSDryModel(),
@@ -118,6 +120,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                        mms2_init_state!)
   else
     model = AtmosModel(FlatOrientation(),
+                       Component(Mass, bcs=InitStateBC(), ics=mms3_init_state!),
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(DFloat(μ_exact)),
                        MMSDryModel(),
@@ -135,7 +138,9 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   param = init_ode_param(dg)
 
   Q = init_ode_state(dg, param, DFloat(0))
-
+  mkpath("vtk")
+  outprefix = "vtk/mms_$(dim)D_mpirank$(MPI.Comm_rank(mpicomm))_ic"
+  writevtk(outprefix, Q, dg, flattenednames(vars_state(model, DFloat)))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -222,7 +227,7 @@ for DFloat in (Float64,) #Float32)
         Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
         brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
                       range(DFloat(0); length=Ne[2]+1, stop=1),
-        range(DFloat(0); length=Ne[2]+1, stop=1))
+                      range(DFloat(0); length=Ne[2]+1, stop=1))
         topl = BrickTopology(mpicomm, brickrange,
                              periodicity = (false, false, false))
         dt = 5e-3 / Ne[1]

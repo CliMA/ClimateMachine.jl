@@ -75,6 +75,7 @@ get_phase_partition(::EquilMoist, state::Vars) = PhasePartition(state.moisture.�
 thermo_state(::EquilMoist, state::Vars, aux::Vars) = PhaseEquil(aux.moisture.e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
 
 function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
+  println("calling gradvariables")
   ρinv = 1/state.ρ
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
 
