@@ -38,17 +38,17 @@ end
 
     QC = QA .+ sqrt.(QB)
     C = Array(QC)
-    @test C == A .+ sqrt.(B)
+    @test C ≈ A .+ sqrt.(B)
 
     QC = QA .+ sqrt.(QB) .* exp.(QA .- QB .^ 2)
     C = Array(QC)
-    @test C == A .+ sqrt.(B) .* exp.(A .- B .^ 2)
+    @test C ≈ A .+ sqrt.(B) .* exp.(A .- B .^ 2)
 
     # writing to an existing array instead of creating a new one
     fill!(QC, 0)
     QC .= QA .+ sqrt.(QB) .* exp.(QA .- QB .^ 2)
     C = Array(QC)
-    @test C == A .+ sqrt.(B) .* exp.(A .- B .^ 2)
+    @test C ≈ A .+ sqrt.(B) .* exp.(A .- B .^ 2)
   end
 
   let
