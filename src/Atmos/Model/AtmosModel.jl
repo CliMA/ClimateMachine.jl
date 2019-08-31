@@ -53,6 +53,7 @@ end
 function vars_gradient(m::AtmosModel, T)
   @vars begin
     u::SVector{3,T}
+    h_tot::T
     turbulence::vars_gradient(m.turbulence,T)
     moisture::vars_gradient(m.moisture,T)
     radiation::vars_gradient(m.radiation,T)
@@ -61,6 +62,7 @@ end
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
     ρτ::SVector{6,T}
+    ρd_h_tot::SVector{3,T}
     turbulence::vars_diffusive(m.turbulence,T)
     moisture::vars_diffusive(m.moisture,T)
     radiation::vars_diffusive(m.radiation,T)
@@ -149,6 +151,7 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
                     ρτ13, ρτ23, ρτ33)
   flux.ρu += ρτ
   flux.ρe += ρτ*u
+  flux.ρe += diffusive.ρd_h_tot
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
 end
 
@@ -162,6 +165,12 @@ end
 function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1 / state.ρ
   transform.u = ρinv * state.ρu
+
+  phase = thermo_state(m.moisture, state, aux)
+  R_m = gas_constant_air(phase)
+  T = aux.moisture.temperature
+  e_tot = state.ρe * ρinv
+  transform.h_tot = e_tot + R_m*T
 
   gradvariables!(m.moisture, transform, state, aux, t)
   gradvariables!(m.turbulence, transform, state, aux, t)
@@ -184,6 +193,13 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
+
+  # turbulent Prandtl number
+  diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
+  # Diffusivity D_t = ρν/Prandtl_turb
+  D_T = diag_ρν * inv_Pr_turb
+  # diffusive flux of total energy
+  diffusive.ρd_h_tot = -D_T .* state.ρ .* ∇transform.h_tot
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)

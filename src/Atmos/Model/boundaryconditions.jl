@@ -27,7 +27,7 @@ function atmos_boundarycondition!(bc::NoFluxBC, m::AtmosModel, stateP::Vars, dif
     stateP.ρ = stateM.ρ
     stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
     diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
-    diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
+    diffP.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
 """
