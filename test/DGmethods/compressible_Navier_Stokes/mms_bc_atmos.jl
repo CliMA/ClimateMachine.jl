@@ -35,8 +35,8 @@ end
 include("mms_solution_generated.jl")
 
 using CLIMA.Atmos
-using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
+using CLIMA.Atmos: internal_energy
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!, thermo_state
 
 """
     MMSDryModel
@@ -46,12 +46,13 @@ Assumes the moisture components is in the dry limit.
 struct MMSDryModel <: MoistureModel
 end
 
+thermo_state(m::MMSDryModel, state::Vars, aux::Vars) = PhaseDry(internal_energy(m, state, aux), state.ρ)
+
 function pressure(m::MMSDryModel, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
   ρinv = 1 / state.ρ
   return (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
-
 end
 
 function soundspeed(m::MMSDryModel, state::Vars, aux::Vars)
@@ -222,7 +223,7 @@ for DFloat in (Float64,) #Float32)
         Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
         brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
                       range(DFloat(0); length=Ne[2]+1, stop=1),
-        range(DFloat(0); length=Ne[2]+1, stop=1))
+                      range(DFloat(0); length=Ne[2]+1, stop=1))
         topl = BrickTopology(mpicomm, brickrange,
                              periodicity = (false, false, false))
         dt = 5e-3 / Ne[1]

@@ -81,13 +81,9 @@ function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, 
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
 end
 
-function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix})
-  # turbulent Prandtl number
-  diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
-  # Diffusivity D_t = ρν/Prandtl_turb
-  D_T = diag_ρν * inv_Pr_turb
+function diffusive!(m::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t::Union{Real,AbstractMatrix})
   # diffusive flux of q_tot
-  diffusive.moisture.ρd_q_tot = -D_T .* state.ρ .* ∇transform.moisture.q_tot
+  diffusive.moisture.ρd_q_tot = -ρD_t .* ∇transform.moisture.q_tot
 end
 
 function flux_diffusive!(m::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)

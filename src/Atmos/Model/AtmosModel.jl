@@ -168,7 +168,7 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
 
   phase = thermo_state(m.moisture, state, aux)
   R_m = gas_constant_air(phase)
-  T = aux.moisture.temperature
+  T = air_temperature(phase)
   e_tot = state.ρe * ρinv
   transform.h_tot = e_tot + R_m*T
 
@@ -196,13 +196,13 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   # turbulent Prandtl number
   diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
-  # Diffusivity D_t = ρν/Prandtl_turb
-  D_T = diag_ρν * inv_Pr_turb
+  # Diffusivity ρD_t = ρν/Prandtl_turb
+  ρD_t = diag_ρν * inv_Pr_turb
   # diffusive flux of total energy
-  diffusive.ρd_h_tot = -D_T .* state.ρ .* ∇transform.h_tot
+  diffusive.ρd_h_tot = -ρD_t .* ∇transform.h_tot .* 0
 
   # diffusivity of moisture components
-  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρD_t)
   # diffusion terms required for SGS turbulence computations
   diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρν)
 end
