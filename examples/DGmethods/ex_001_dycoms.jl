@@ -37,54 +37,54 @@ end
 """
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     
-  DF         = eltype(state)
-  xvert::DF  = z
+  DT         = eltype(state)
+  xvert::DT  = z
 
-  epsdv::DF     = molmass_ratio
-  q_tot_sfc::DF = 8.1e-3
-  Rm_sfc::DF    = gas_constant_air(PhasePartition(q_tot_sfc))
-  ρ_sfc::DF     = 1.22
-  P_sfc::DF     = 1.0178e5
-  T_BL::DF      = 285.0
-  T_sfc::DF     = P_sfc/(ρ_sfc * Rm_sfc);
+  epsdv::DT     = molmass_ratio
+  q_tot_sfc::DT = 8.1e-3
+  Rm_sfc::DT    = gas_constant_air(PhasePartition(q_tot_sfc))
+  ρ_sfc::DT     = 1.22
+  P_sfc::DT     = 1.0178e5
+  T_BL::DT      = 285.0
+  T_sfc::DT     = P_sfc/(ρ_sfc * Rm_sfc);
   
-  q_liq::DF      = 0
-  q_ice::DF      = 0
-  zb::DF         = 600   
-  zi::DF         = 840 
+  q_liq::DT      = 0
+  q_ice::DT      = 0
+  zb::DT         = 600   
+  zi::DT         = 840 
   dz_cloud       = zi - zb
-  q_liq_peak::DF = 4.5e-4
+  q_liq_peak::DT = 4.5e-4
   
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
   if ( xvert <= zi)
-    θ_liq  = DF(289)
-    q_tot  = DF(8.1e-3)
+    θ_liq  = DT(289)
+    q_tot  = DT(8.1e-3)
   else
-    θ_liq = DF(297.5) + (xvert - zi)^(DF(1/3))
-    q_tot = DF(1.5e-3)
+    θ_liq = DT(297.5) + (xvert - zi)^(DT(1/3))
+    q_tot = DT(1.5e-3)
   end
-  PhPartObj = PhasePartition(q_tot, q_liq, DF(0))
-  Rm    = gas_constant_air(PhPartObj)
-  cpm   = cp_m(PhPartObj)
+  q_pt = PhasePartition(q_tot, q_liq, DT(0))
+  Rm    = gas_constant_air(q_pt)
+  cpm   = cp_m(q_pt)
   #Pressure
   H = Rm_sfc * T_BL / grav;
   P = P_sfc * exp(-xvert/H);
   #Exner
-  exner_dry = exner(P, PhasePartition(DF(0)))
+  exner_dry = exner(P, PhasePartition(DT(0)))
   #Temperature 
   T             = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
   #Density
   ρ             = P/(Rm*T);
   #Potential Temperature
-  θv     = virtual_pottemp(T, P, PhPartObj)
+  θv     = virtual_pottemp(T, P, q_pt)
   # energy definitions
-  u, v, w     = DF(7), DF(-5.5), DF(0)
+  u, v, w     = DT(7), DT(-5.5), DT(0)
   U           = ρ * u
   V           = ρ * v
   W           = ρ * w
-  e_kin       = DF(1//2) * (u^2 + v^2 + w^2)
+  e_kin       = DT(1//2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
 
@@ -92,28 +92,26 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   state.ρu    = SVector(U, V, W) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
-    
-end
 
-function source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  DF = eltype(state)
-  source.ρu = SVector(DF(0), DF(0), -state.ρ * grav)
-end
+end   
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
+
+function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DF,
+                                          FloatType = DT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
 
   model = AtmosModel(FlatOrientation(),
-                     SmagorinskyLilly(C_smag),
+                     NoReferenceState(),
+                     SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
-                     NoRadiation(),
-                     source!, 
-                     DYCOMS_BC(C_drag,LHF,SHF), 
+                     StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
+                     #(Gravity(), RayleighSponge{DT}(zmax, 0.75*zmax, 1)), 
+                     Gravity(),
+                     DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
   dg = DGModel(model,
@@ -123,7 +121,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
 
   param = init_ode_param(dg)
 
-  Q = init_ode_state(dg, param, DF(0))
+  Q = init_ode_state(dg, param, DT(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -165,7 +163,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DF, dt, C_smag, Δ)
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, param, DF(timeend))
+  Qe = init_ode_state(dg, param, DT(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -194,22 +192,23 @@ let
   end
   
   # Problem type
-  DF = Float32
+  DT = Float64
   # DG polynomial order 
   polynomialorder = 4
   # User specified grid spacing
-  Δx    = DF(35)
-  Δy    = DF(35)
-  Δz    = DF(10)
+  Δx    = DT(35)
+  Δy    = DT(35)
+  Δz    = DT(10)
   # SGS Filter constants
-  C_smag = DF(0.15)
-  LHF    = DF(115)
-  SHF    = DF(15)
-  C_drag = DF(0.0011)
+  C_smag = DT(0.15)
+  LHF    = DT(115)
+  SHF    = DT(15)
+  C_drag = DT(0.0011)
   # Physical domain extents 
   (xmin, xmax) = (0, 2000)
   (ymin, ymax) = (0, 2000)
   (zmin, zmax) = (0, 1500)
+  zsponge = DT(0.85 * zmax)
   #Get Nex, Ney from resolution
   Lx = xmax - xmin
   Ly = ymax - ymin
@@ -220,16 +219,16 @@ let
   Nez = ceil(Int64, (Lz/Δz - 1)/polynomialorder)
   Ne = (Nex, Ney, Nez)
   # User defined domain parameters
-  brickrange = (range(DF(xmin), length=Ne[1]+1, DF(xmax)),
-                range(DF(ymin), length=Ne[2]+1, DF(ymax)),
-                range(DF(zmin), length=Ne[3]+1, DF(zmax)))
-  topl = BrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=[1 2 3; 4 5 6])
+  brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
+                range(DT(ymin), length=Ne[2]+1, DT(ymax)),
+                range(DT(zmin), length=Ne[3]+1, DT(zmax)))
+  topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=[1 2 3; 4 5 6])
   dt = 0.001
   timeend = dt
   dim = 3
-  @info (ArrayType, DF, dim)
+  @info (ArrayType, DT, dim)
   result = run(mpicomm, ArrayType, dim, topl, 
-               polynomialorder, timeend, DF, dt, C_smag, LHF, SHF, C_drag)
+               polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
 end
 
 #nothing
