@@ -109,8 +109,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
-                     #(Gravity(), RayleighSponge{DT}(zmax, 0.75*zmax, 1)), 
-                     Gravity(),
+                     (Gravity(), RayleighSponge{DT}(zmax, 0.75*zmax, 1)), 
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
