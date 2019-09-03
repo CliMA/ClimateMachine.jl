@@ -76,7 +76,6 @@ function vars_aux(m::AtmosModel, T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
-    source::vars_aux(m.source,T)
   end
 end
 function vars_integrals(m::AtmosModel,T)

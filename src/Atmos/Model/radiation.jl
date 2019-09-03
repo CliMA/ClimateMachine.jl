@@ -46,7 +46,6 @@ vars_integrals(m::StevensRadiation, DT) = @vars(∂κLWP::DT)
 function integrate_aux!(m::StevensRadiation, integrand::Vars, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(state)
   integrand.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
-  @show(aux.moisture.q_liq)
 end
 function flux_nondiffusive!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(flux)
