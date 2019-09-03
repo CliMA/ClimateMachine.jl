@@ -25,14 +25,6 @@ function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, a
   source.ρu -= state.ρ * m.radiation.D_subsidence
 end
 
-struct Coriolis <: Source
-end
-function atmos_source!(::Coriolis, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-#  Ω = SVector(0,0,somevalue)
-#  source.ρu -= Ω⃗ × u⃗
-end
-
-
 """
   RayleighSponge{DT} <: Sponge
 Rayleigh Damping (Linear Relaxation) for top wall momentum components

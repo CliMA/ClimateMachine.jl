@@ -116,7 +116,7 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
     ρτ13P  = -ρM * C_drag * windspeed_FN * u_FN 
     ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN 
     # Assign diffusive momentum and moisture fluxes
-    # (i.e. ρ𝚻 terms)  
+    # (i.e. ρ𝛕 terms)  
     diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
     
     # ----------------------------------------------------------
