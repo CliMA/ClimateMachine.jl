@@ -101,7 +101,7 @@ Where
 function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   flux_advective!(m, flux, state, diffusive, aux, t)
   flux_pressure!(m, flux, state, diffusive, aux, t)
-  flux_nondiffusive!(m, flux, state, diffusive, aux, t)
+  #flux_nondiffusive!(m, flux, state, diffusive, aux, t)
   flux_diffusive!(m, flux, state, diffusive, aux, t)
 end
 
@@ -128,7 +128,7 @@ function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars,
 end
 
 function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  flux_nondiffusive!(m.radiation, flux, state,diffusive,aux,t)
+#  flux_nondiffusive!(m.radiation, flux, state, diffusive, aux,t)
 end
 
 function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)

@@ -17,6 +17,8 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
+using CLIMA.Atmos: vars_state, vars_aux
+
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -109,7 +111,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
-                     (Gravity(), RayleighSponge{DT}(zmax, 0.75*zmax, 1)), 
+                     (Gravity(), RayleighSponge{DT}(zmax, zsponge, 1)), 
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
@@ -152,7 +154,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, param[1], dg)
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
+             param[1], flattenednames(vars_aux(model,DT)))
         
     step[1] += 1
     nothing
@@ -207,7 +210,7 @@ let
   (xmin, xmax) = (0, 2000)
   (ymin, ymax) = (0, 2000)
   (zmin, zmax) = (0, 1500)
-  zsponge = DT(0.85 * zmax)
+  zsponge = DT(0.75 * zmax)
   #Get Nex, Ney from resolution
   Lx = xmax - xmin
   Ly = ymax - ymin
