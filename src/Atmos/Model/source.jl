@@ -25,6 +25,17 @@ function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, a
   source.ρu -= state.ρ * m.radiation.D_subsidence
 end
 
+struct GeostrophicForcing{DT} <: Source
+  f_coriolis::DT
+  u_geostrophic::DT
+  v_geostrophic::DT
+end
+function atmos_source!(s::GeostrophicForcing, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+  u = state.ρu / state.ρ
+  u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
+  source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
+end
+
 """
   RayleighSponge{DT} <: Sponge
 Rayleigh Damping (Linear Relaxation) for top wall momentum components
@@ -44,7 +55,10 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
   z = aux.orientation.Φ / grav
   zmax = s.zmax
   zsponge = s.zsponge
-  coeff_top = s.c_sponge * (sinpi(DT(1/2)*(z - zsponge)/(zmax-zsponge)))^DT(4)
-  coeff = min(1 + coeff_top, 1.0)
+  coeff = DT(0)
+  if z >= zsponge
+    coeff_top = s.c_sponge * (sinpi(DT(1/2)*(z - zsponge)/(zmax-zsponge)))^DT(4)
+    coeff = min(1 + coeff_top, 1.0)
+  end
   source.ρu -= state.ρu * coeff
 end

@@ -1,3 +1,5 @@
+using CLIMA.PlanetParameters
+
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
 # need to figure out how subcomponents will interact.
@@ -77,7 +79,7 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
   diffP = diffM
   xvert = auxM.coord[3]
   
-  if bctype == 5 # bctype identifies bottom wall 
+  if bctype == 1 # bctype identifies bottom wall 
     # ------------------------------------------------------------------------
     # (<var>_FN) First node values (First interior node from bottom wall)
     # ------------------------------------------------------------------------
@@ -112,11 +114,12 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
     # ----------------------------------------------------------
     # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
     # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
-    C_drag = bl.boundarycondition.C_drag
+    C_drag = bc.C_drag
     ρτ13P  = -ρM * C_drag * windspeed_FN * u_FN 
     ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN 
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)  
+    stateP.ρu = SVector(0,0,0)
     diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
     
     # ----------------------------------------------------------
@@ -124,15 +127,14 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
     # ----------------------------------------------------------
     diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
                                        diffM.moisture.ρd_q_tot[2],
-                                       bl.boundarycondition.LHF/(LH_v0))
-
+                                       bc.LHF/(LH_v0))
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
     diffP.moisture.ρd_h_tot  = SVector(diffM.moisture.ρd_h_tot[1],
                                        diffM.moisture.ρd_h_tot[2],
-                                       bl.boundarycondition.LHF + bl.boundarycondition.SHF)
+                                       bc.LHF + bc.SHF)
   end
 end
  

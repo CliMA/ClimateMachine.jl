@@ -60,7 +60,6 @@ end
 struct SmagorinskyLilly{T} <: TurbulenceClosure
   C_smag::T
 end
-
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, f_b::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
