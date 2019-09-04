@@ -19,6 +19,9 @@ using CLIMA.VTK
 
 using CLIMA.Atmos: vars_state, vars_aux
 
+using Random 
+const seed = MersenneTwister(0)
+
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -38,10 +41,9 @@ end
   Initial Condition for DYCOMS_RF01 LES
 """
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
-    
   DT         = eltype(state)
   xvert::DT  = z
-
+  
   epsdv::DT     = molmass_ratio
   q_tot_sfc::DT = 8.1e-3
   Rm_sfc::DT    = gas_constant_air(PhasePartition(q_tot_sfc))
@@ -67,6 +69,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     θ_liq = DT(297.5) + (xvert - zi)^(DT(1/3))
     q_tot = DT(1.5e-3)
   end
+
   q_pt = PhasePartition(q_tot, q_liq, DT(0))
   Rm    = gas_constant_air(q_pt)
   cpm   = cp_m(q_pt)
@@ -111,7 +114,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
-                     (Gravity(), RayleighSponge{DT}(zmax, zsponge, 1)), 
+                     (Gravity(), RayleighSponge{DT}(zmax, zsponge, 1), Subsidence(), GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
@@ -149,7 +152,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
   end
 
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     mkpath("./vtk-dycoms/")
     outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -198,9 +201,9 @@ let
   # DG polynomial order 
   polynomialorder = 4
   # User specified grid spacing
-  Δx    = DT(35)
-  Δy    = DT(35)
-  Δz    = DT(10)
+  Δx    = DT(50)
+  Δy    = DT(50)
+  Δz    = DT(20)
   # SGS Filter constants
   C_smag = DT(0.15)
   LHF    = DT(115)
@@ -224,9 +227,9 @@ let
   brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
                 range(DT(ymin), length=Ne[2]+1, DT(ymax)),
                 range(DT(zmin), length=Ne[3]+1, DT(zmax)))
-  topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=[1 2 3; 4 5 6])
-  dt = 0.001
-  timeend = dt
+  topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
+  dt = 0.01
+  timeend = 3600
   dim = 3
   @info (ArrayType, DT, dim)
   result = run(mpicomm, ArrayType, dim, topl, 

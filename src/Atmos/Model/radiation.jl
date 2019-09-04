@@ -43,9 +43,9 @@ struct StevensRadiation{DT} <: RadiationModel
   F_1::DT
 end
 vars_integrals(m::StevensRadiation, DT) = @vars(∂κLWP::DT)
-function integrate_aux!(m::StevensRadiation, integrand::Vars, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function integrate_aux!(m::StevensRadiation, integrand::Vars, state::Vars, aux::Vars)
   DT = eltype(state)
-  integrand.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
+  integrand.radiation.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
 end
 function flux_nondiffusive!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(flux)
