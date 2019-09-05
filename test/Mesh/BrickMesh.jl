@@ -190,7 +190,7 @@ end
   let
     (etv, etc, etb, fc) = brickmesh((-1:1,-1:1,-1:1),
                                     (false,false,false),
-                                    boundary=[11 13 15; 12 14 16])
+                                    boundary=((11,12),(13,14),(15,16)))
 
     @test etb == [11  0 11  0 11  0 11  0
                    0 12  0 12  0 12  0 12
@@ -203,7 +203,7 @@ end
   let
     x = (1:1000,)
     p = (false,)
-    b = [1; 2]
+    b = ((1,2),)
 
     (etv, etc, etb, fc) = brickmesh(x, p, boundary=b)
 
@@ -228,7 +228,7 @@ end
   let
     x = (-1:2:10,-1:1:1,-4:1:1)
     p = (true,false,true)
-    b = [1 3 5; 2 4 6];
+    b = ((1,2),(3,4),(5,6))
 
     (etv, etc, etb, fc) = brickmesh(x, p, boundary=b)
 
