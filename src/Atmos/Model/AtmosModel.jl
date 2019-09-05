@@ -199,7 +199,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   # Diffusivity ρD_t = ρν/Prandtl_turb
   ρD_t = diag_ρν * inv_Pr_turb
   # diffusive flux of total energy
-  diffusive.ρd_h_tot = -ρD_t .* ∇transform.h_tot .* 0
+  diffusive.ρd_h_tot = -ρD_t .* ∇transform.h_tot
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρD_t)

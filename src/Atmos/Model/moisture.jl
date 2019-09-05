@@ -17,15 +17,16 @@ end
 function gradvariables!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
-function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
-  T = eltype(state)
-  ρinv = 1 / state.ρ
-  ρe_kin = ρinv*sum(abs2, state.ρu)/2
-  ρe_pot = state.ρ * aux.orientation.Φ
-  ρe_int = state.ρe - ρe_kin - ρe_pot
+function internal_energy(ρ::DT, ρe::DT, ρu::AbstractVector{DT}, e_pot::DT) where DT
+  ρinv = 1 / ρ
+  ρe_kin = ρinv*sum(abs2, ρu)/2
+  ρe_pot = ρ * e_pot
+  ρe_int = ρe - ρe_kin - ρe_pot
   e_int = ρinv*ρe_int
   return e_int
 end
+
+internal_energy(m::MoistureModel, state::Vars, aux::Vars) = internal_energy(state.ρ, state.ρe, state.ρu, aux.orientation.Φ)
 
 temperature(m::MoistureModel, state::Vars, aux::Vars) = air_temperature(thermo_state(m, state, aux))
 pressure(m::MoistureModel, state::Vars, aux::Vars) = air_pressure(thermo_state(m, state, aux))
@@ -47,7 +48,6 @@ function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Re
   nothing
 end
 
-get_phase_partition(::DryModel, state::Vars) = PhasePartition(eltype(state)(0))
 thermo_state(::DryModel, state::Vars, aux::Vars) = PhaseDry(internal_energy(m, state, aux), state.ρ)
 
 """
@@ -63,17 +63,18 @@ vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T})
 vars_aux(::EquilMoist,T) = @vars(temperature::T, θ_v::T)
 
 function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  ρ = state.ρ
   e_int = internal_energy(m, state, aux)
-  TS = PhaseEquil(e_int, get_phase_partition(m, state).tot, state.ρ)
+  TS = PhaseEquil(e_int, state.moisture.ρq_tot/ρ, ρ)
   aux.moisture.temperature = air_temperature(TS)
   aux.moisture.θ_v = virtual_pottemp(TS)
   nothing
 end
 
-get_phase_partition(::EquilMoist, state::Vars) = PhasePartition(state.moisture.ρq_tot/state.ρ)
 function thermo_state(m::EquilMoist, state::Vars, aux::Vars)
+  ρ = state.ρ
   e_int = internal_energy(m, state, aux)
-  PhaseEquil(e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
+  PhaseEquil(e_int, state.moisture.ρq_tot/ρ, ρ, aux.moisture.temperature)
 end
 
 function gradvariables!(m::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)

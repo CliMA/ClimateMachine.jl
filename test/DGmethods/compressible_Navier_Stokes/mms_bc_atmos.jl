@@ -199,8 +199,9 @@ let
   polynomialorder = 4
   base_num_elem = 4
 
-  expected_result = [1.5606226382564500e-01 5.3302790086802504e-03 2.2574728860707139e-04;
-                     2.5803100360042141e-02 1.1794776908545315e-03 6.1785354745749247e-05]
+  # TODO: Get solution for integration_testing = true
+  expected_result = [0.36679329773810837 0.0 0.0;
+                     0.1075849000605965 0.0 0.0]
 lvls = integration_testing ? size(expected_result, 2) : 1
 
 @testset "$(@__FILE__)" for ArrayType in ArrayTypes

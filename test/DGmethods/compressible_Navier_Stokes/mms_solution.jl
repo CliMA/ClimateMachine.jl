@@ -1,9 +1,20 @@
 # This file generates the solution used in method of manufactured solutions
-using LinearAlgebra, SymPy, Printf
+using LinearAlgebra, SymPy, Printf, StaticArrays
+using CLIMA.PlanetParameters: R_d, cp_d, cv_d, T_0, grav
+using CLIMA.Atmos: internal_energy
 
 @syms x y z t real=true
 μ = 1 // 100
-γ = 7 // 5
+γ = cp_d/cv_d
+inv_Pr_turb = 3
+ρν = μ
+ρD_t = ρν * inv_Pr_turb
+
+# Promote to Float:
+grav_F = Float64(grav)
+T_0_F = Float64(T_0)
+cv_d_F = Float64(cv_d)
+R_d_F = Float64(R_d)
 
 output = open("mms_solution_generated.jl", "w")
 
@@ -34,6 +45,15 @@ for dim = 2:3
   dvdx, dvdy, dvdz = diff(v, x), diff(v, y), diff(v, z)
   dwdx, dwdy, dwdz = diff(w, x), diff(w, y), diff(w, z)
 
+  e_tot = E/ρ
+  e_pot = dim == 3 ? grav_F*z : grav_F*z*0
+  e_int = internal_energy(ρ, E, [U,V,W], e_pot)
+  T = T_0_F + e_int / cv_d_F # From Moist thermo
+  h_tot = e_tot + R_d_F*T
+  ρd_h_tot_x = -ρD_t .* diff(h_tot, x)
+  ρd_h_tot_y = -ρD_t .* diff(h_tot, y)
+  ρd_h_tot_z = -ρD_t .* diff(h_tot, z)
+
   ϵ11 = dudx
   ϵ22 = dvdy
   ϵ33 = dwdz
@@ -52,17 +72,17 @@ for dim = 2:3
                 u * U + P - τ11;
                 u * V     - τ12;
                 u * W     - τ13;
-                u * (E + P) - u * τ11 - v * τ12 - w * τ13], x)
+                u * (E + P) - u * τ11 - v * τ12 - w * τ13 - ρd_h_tot_x], x)
   Fy_y = diff.([V;
                 v * U     - τ21;
                 v * V + P - τ22;
                 v * W     - τ23;
-                v * (E + P) - u * τ21 - v * τ22 - w * τ23], y)
+                v * (E + P) - u * τ21 - v * τ22 - w * τ23 - ρd_h_tot_y], y)
   Fz_z = diff.([W;
                 w * U     - τ31;
                 w * V     - τ32;
                 w * W + P - τ33;
-                w * (E + P) - u * τ31 - v * τ32 - w * τ33], z)
+                w * (E + P) - u * τ31 - v * τ32 - w * τ33 - ρd_h_tot_z], z)
 
   dρdt = simplify(Fx_x[1] + Fy_y[1] + Fz_z[1] + diff(ρ, t))
   dUdt = simplify(Fx_x[2] + Fy_y[2] + Fz_z[2] + diff(U, t))
