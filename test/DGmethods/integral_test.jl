@@ -24,9 +24,9 @@ end
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, integrate_aux!,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
-                        boundarycondition!, gradvariables!, diffusive!,
-                        init_aux!, init_state!, init_ode_param, init_ode_state,
-                        LocalGeometry
+                        boundarycondition_state!, boundarycondition_diffusive!,
+                        gradvariables!, diffusive!, init_aux!, init_state!,
+                        init_ode_param, init_ode_state, LocalGeometry
 
 
 struct IntegralTestModel{dim} <: BalanceLaw
@@ -43,7 +43,8 @@ vars_diffusive(::IntegralTestModel, T) = @vars()
 flux_nondiffusive!(::IntegralTestModel, _...) = nothing
 flux_diffusive!(::IntegralTestModel, _...) = nothing
 source!(::IntegralTestModel, _...) = nothing
-boundarycondition!(::IntegralTestModel, _...) = nothing
+boundarycondition_state!(::IntegralTestModel, _...) = nothing
+boundarycondition_diffusive!(::IntegralTestModel, _...) = nothing
 init_state!(::IntegralTestModel, _...) = nothing
 wavespeed(::IntegralTestModel,_...) = 1
 
@@ -83,6 +84,7 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
   dg = DGModel(IntegralTestModel{dim}(),
                grid,
                Rusanov(),
+               CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
   param = init_ode_param(dg)

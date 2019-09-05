@@ -110,6 +110,7 @@ function run(mpicomm, ArrayType,
   dg = DGModel(model,
                grid,
                Rusanov(),
+               CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
   param = init_ode_param(dg)

@@ -2,7 +2,9 @@ using CLIMA.VariableTemplates
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, flux_nondiffusive!, flux_diffusive!,
-                        source!, wavespeed, boundarycondition!, gradvariables!,
+                        source!, wavespeed, boundarycondition_state!,
+                        boundarycondition_diffusive!,
+                        gradvariables!,
                         diffusive!, init_aux!, init_state!, init_ode_param,
                         init_ode_state, LocalGeometry
 
@@ -96,7 +98,13 @@ function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
   return abs(nM[1] * u + nM[2] * v + nM[3] * w) + sqrt(ρinv * γ * P)
 end
 
-function boundarycondition!(bl::MMSModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...)
+function boundarycondition_state!(bl::MMSModel, stateP::Vars, auxP::Vars, nM,
+                                  stateM::Vars, auxM::Vars, bctype, t, _...)
+  init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+end
+function boundarycondition_diffusive!(bl::MMSModel, stateP::Vars, diffP::Vars,
+                                      auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                                      auxM::Vars, bctype, t, _...)
   init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
