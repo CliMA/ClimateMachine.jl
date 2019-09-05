@@ -21,9 +21,12 @@ else
   const ArrayTypes = (Array, )
 end
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
-integrate_aux!, flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-init_aux!, init_state!, init_ode_param, init_ode_state, LocalGeometry
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                        vars_diffusive, vars_integrals, integrate_aux!,
+                        flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
+                        boundarycondition!, gradvariables!, diffusive!,
+                        init_aux!, init_state!, init_ode_param, init_ode_state,
+                        LocalGeometry
 
 
 struct IntegralTestSphereModel{T} <: BalanceLaw
@@ -37,7 +40,8 @@ vars_aux(m::IntegralTestSphereModel,T) = @vars(int::vars_integrals(m,T), rev_int
 vars_state(::IntegralTestSphereModel, T) = @vars()
 vars_diffusive(::IntegralTestSphereModel, T) = @vars()
 
-flux!(::IntegralTestSphereModel, _...) = nothing
+flux_nondiffusive!(::IntegralTestSphereModel, _...) = nothing
+flux_diffusive!(::IntegralTestSphereModel, _...) = nothing
 source!(::IntegralTestSphereModel, _...) = nothing
 boundarycondition!(::IntegralTestSphereModel, _...) = nothing
 init_state!(::IntegralTestSphereModel, _...) = nothing

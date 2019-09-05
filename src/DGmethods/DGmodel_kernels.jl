@@ -1,5 +1,6 @@
-using .NumericalFluxes: GradNumericalFlux, diffusive_boundary_penalty!, diffusive_penalty!,
-  DivNumericalFlux, numerical_flux!, numerical_boundary_flux!
+using .NumericalFluxes: GradNumericalFlux, diffusive_boundary_penalty!,
+                        diffusive_penalty!, DivNumericalFlux, numerical_flux!,
+                        numerical_boundary_flux!
 
 using ..Mesh.Geometry
 
@@ -105,8 +106,13 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux!(bl, Grad{vars_state(bl,DFloat)}(l_F), Vars{vars_state(bl,DFloat)}(l_Q),
-                Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Vars{vars_aux(bl,DFloat)}(l_aux), t)
+          flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(l_F),
+                             Vars{vars_state(bl,DFloat)}(l_Q),
+                             Vars{vars_aux(bl,DFloat)}(l_aux), t)
+          flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(l_F),
+                          Vars{vars_state(bl,DFloat)}(l_Q),
+                          Vars{vars_diffusive(bl,DFloat)}(l_Qvisc),
+                          Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]

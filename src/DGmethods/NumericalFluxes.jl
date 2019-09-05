@@ -5,7 +5,8 @@ export Rusanov, DefaultGradNumericalFlux
 using StaticArrays
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
                     vars_aux, vars_gradient, boundarycondition!, wavespeed,
-                    flux!, diffusive!, num_state, num_gradient
+                    flux_nondiffusive!, flux_diffusive!, diffusive!, num_state,
+                    num_gradient
 
 
 """
@@ -108,7 +109,8 @@ The Rusanov (aka local Lax-Friedrichs) numerical flux.
 
     Rusanov()
 
-Requires a `flux! and `wavespeed` method for the balance law.
+Requires a `flux_nondiffusive!`, `flux_diffusive!`, and `wavespeed` method for
+the balance law.
 """
 struct Rusanov <: DivNumericalFlux
 end
@@ -126,17 +128,25 @@ function numerical_flux!(::Rusanov, bl::BalanceLaw,
                  Vars{vars_aux(bl,DFloat)}(auxM), t)
   FM = similar(F, Size(3, nstate))
   fill!(FM, -zero(eltype(FM)))
-  flux!(bl, Grad{vars_state(bl,DFloat)}(FM), Vars{vars_state(bl,DFloat)}(QM),
-        Vars{vars_diffusive(bl,DFloat)}(QVM), Vars{vars_aux(bl,DFloat)}(auxM),
-        t)
+  flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(FM),
+                     Vars{vars_state(bl,DFloat)}(QM),
+                     Vars{vars_aux(bl,DFloat)}(auxM), t)
+  flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(FM),
+                  Vars{vars_state(bl,DFloat)}(QM),
+                  Vars{vars_diffusive(bl,DFloat)}(QVM),
+                  Vars{vars_aux(bl,DFloat)}(auxM), t)
   
   λP = wavespeed(bl, nM, Vars{vars_state(bl,DFloat)}(QP),
                  Vars{vars_aux(bl,DFloat)}(auxP), t)
   FP = similar(F, Size(3, nstate))
   fill!(FP, -zero(eltype(FP)))
-  flux!(bl, Grad{vars_state(bl,DFloat)}(FP), Vars{vars_state(bl,DFloat)}(QP),
-        Vars{vars_diffusive(bl,DFloat)}(QVP), Vars{vars_aux(bl,DFloat)}(auxP),
-        t)
+  flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(FP),
+                     Vars{vars_state(bl,DFloat)}(QP),
+                     Vars{vars_aux(bl,DFloat)}(auxP), t)
+  flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(FP),
+                  Vars{vars_state(bl,DFloat)}(QP),
+                  Vars{vars_diffusive(bl,DFloat)}(QVP),
+                  Vars{vars_aux(bl,DFloat)}(auxP), t)
 
   λ  =  max(λM, λP)
 

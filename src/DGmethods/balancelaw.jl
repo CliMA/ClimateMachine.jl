@@ -15,7 +15,8 @@ Subtypes `L` should define the following methods:
 - `vars_state_for_transform(::L)`: a tuple of symbols containing the state variables which are passed to the `transform!` function.
 - `vars_gradient(::L)`: a tuple of symbols containing the transformed variables of which gradients are computed
 - `vars_diffusive(::L)`: a tuple of symbols containing the diffusive variables
-- `flux!(::L, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)`
+- `flux_nondiffusive!(::L, flux::Grad, state::State, auxstate::State, t::Real)`
+- `flux_diffusive!(::L, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)`
 - `gradvariables!(::L, transformstate::State, state::State, auxstate::State, t::Real)`
 - `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`
 - `source!(::L, source::State, state::State, auxstate::State, t::Real)`
@@ -42,7 +43,8 @@ num_integrals(m::BalanceLaw, T) = varsize(vars_integrals(m,T))
 
 function update_aux! end
 function integrate_aux! end
-function flux! end
+function flux_nondiffusive! end
+function flux_diffusive! end
 function gradvariables! end
 function diffusive! end
 function source! end 
