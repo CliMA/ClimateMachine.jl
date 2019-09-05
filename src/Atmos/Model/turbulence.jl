@@ -31,7 +31,7 @@ Turbulence with constant dynamic viscosity (`ρν`). Divergence terms are includ
 struct ConstantViscosityWithDivergence <: TurbulenceClosure
   ρν::Float64
 end
-dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, state::Vars, diffusive::Vars, aux::Vars, t::Real) = m.ρν
+dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = m.ρν
 function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S)
   @inbounds trS = tr(S)
   return (-2*ρν) * S + (2*ρν/3)*trS * I
@@ -60,12 +60,11 @@ struct SmagorinskyLilly{T} <: TurbulenceClosure
   C_smag::T
 end
 
-vars_aux(::SmagorinskyLilly,T) = @vars(Δvec::SVector{3,T}, Δ::T, f_b::T)
+vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, f_b::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
 function init_aux!(::SmagorinskyLilly, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
-  aux.turbulence.Δvec = resolutionmetric(geom)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
@@ -123,7 +122,7 @@ function strain_rate_magnitude(S::SHermitianCompact)
   sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3])
 end
 
-function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
@@ -138,7 +137,7 @@ function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
 end
 
 """
-  VremanSGS{DT} <: TurbulenceClosure
+  Vreman{DT} <: TurbulenceClosure
   
   §1.3.2 in CLIMA documentation 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Smagorinsky coefficient
@@ -162,3 +161,27 @@ If Δᵢ = Δ, then β = Δ²αᵀα
 }
 
 """
+
+struct Vreman{DT} <: TurbulenceClosure
+  C_smag::DT
+end
+vars_aux(::Vreman,T) = @vars(Δ::T, f_b::T)
+vars_aux(::Vreman,T) = @vars(Δ::T, f_b::T)
+vars_gradient(::Vreman,T) = @vars(θ_v::T)
+vars_diffusive(::Vreman,T) = @vars(∂θ∂Φ::T)
+function init_aux!(::Vreman, aux::Vars, geom::LocalGeometry)
+  aux.turbulence.Δ = lengthscale(geom)
+end
+function dynamic_viscosity_tensor(m::Vreman, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  DT = eltype(state)
+  ∇u = ∇transform.u
+  αijαij = sum(∇u .^ 2)
+  βij = (aux.turbulence.Δ)^2 * (∇u' * ∇u)
+  Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
+  return state.ρ * max(0,(m.C_smag^2 * 2.5) * sqrt(abs(Bβ/(αijαij+eps(αijαij))))) 
+end
+function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
+  SMatrix{3,3}((-2*ρν) * S)
+end
+
+
