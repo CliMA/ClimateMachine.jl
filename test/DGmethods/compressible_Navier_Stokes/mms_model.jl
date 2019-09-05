@@ -1,8 +1,10 @@
 using CLIMA.VariableTemplates
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
-flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-init_aux!, init_state!, init_ode_param, init_ode_state, LocalGeometry
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                        vars_diffusive, flux_nondiffusive!, flux_diffusive!,
+                        source!, wavespeed, boundarycondition!, gradvariables!,
+                        diffusive!, init_aux!, init_state!, init_ode_param,
+                        init_ode_state, LocalGeometry
 
 
 struct MMSModel{dim} <: BalanceLaw
@@ -13,7 +15,8 @@ vars_state(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
 vars_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
 vars_diffusive(::MMSModel, T) = @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
 
-function flux!(::MMSModel, flux::Grad, state::Vars, diffusive::Vars, auxstate::Vars, t::Real)
+function flux_nondiffusive!(::MMSModel, flux::Grad, state::Vars,
+                            auxstate::Vars, t::Real)
   # preflux
   T = eltype(flux)
   γ = T(γ_exact)
@@ -27,6 +30,12 @@ function flux!(::MMSModel, flux::Grad, state::Vars, diffusive::Vars, auxstate::V
   flux.ρv = SVector(u * state.ρv      , v * state.ρv + P  , w * state.ρv)
   flux.ρw = SVector(u * state.ρw      , v * state.ρw      , w * state.ρw + P)
   flux.ρe = SVector(u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
+end
+
+function flux_diffusive!(::MMSModel, flux::Grad, state::Vars,
+                         diffusive::Vars, auxstate::Vars, t::Real)
+  ρinv = 1 / state.ρ
+  u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
 
   # viscous terms
   flux.ρu -= SVector(diffusive.τ11, diffusive.τ12, diffusive.τ13)
