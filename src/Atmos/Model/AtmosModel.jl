@@ -1,11 +1,11 @@
 module Atmos
 
 export AtmosModel,
-  ConstantViscosityWithDivergence, SmagorinskyLilly,
+  ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman,
   DryModel, EquilMoist,
   NoRadiation,
   Gravity,
-  NoFluxBC, InitStateBC, RayleighBenardBC,
+  NoFluxBC, InitStateBC, 
   FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
@@ -60,7 +60,7 @@ function vars_gradient(m::AtmosModel, T)
 end
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
-    ρτ::SVector{6,T}
+    ρτ::SVector{9,T}
     turbulence::vars_diffusive(m.turbulence,T)
     moisture::vars_diffusive(m.moisture,T)
     radiation::vars_diffusive(m.radiation,T)
@@ -144,6 +144,9 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
 
   # diffusive
   ρτ = diffusive.ρτ
+  ρτ = SMatrix{3,3}(ρτ[1],ρτ[4],ρτ[7],
+                    ρτ[2],ρτ[5],ρτ[8],
+                    ρτ[3],ρτ[6],ρτ[9])
   flux.ρu += ρτ
   flux.ρe += ρτ*u
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
@@ -176,13 +179,12 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   S = symmetrize(∇u)
 
   # kinematic viscosity tensor
-  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, aux, t)
+  ρν = dynamic_viscosity_tensor(m.turbulence, S, ∇transform, state, diffusive, aux, t)
 
   # momentum flux tensor
-  diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
-
+  diffusive.ρτ = SVector(scaled_momentum_flux_tensor(m.turbulence, ρν, S))
   # diffusivity of moisture components
-  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν, inv_Pr_turb)
   # diffusion terms required for SGS turbulence computations
   diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρν)
 end
