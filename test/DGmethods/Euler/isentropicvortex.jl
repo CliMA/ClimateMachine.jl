@@ -12,8 +12,7 @@ using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, FlatOrientation, NoReferenceState,
                    ConstantViscosityWithDivergence, DryModel, NoRadiation,
-                   BoundaryCondition
-import CLIMA.Atmos: atmos_boundarycondition!
+                   PeriodicBC
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 @static if haspkg("CuArrays")
@@ -25,9 +24,6 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 else
   const ArrayTypes = (Array,)
 end
-
-struct PeriodicBC <: BoundaryCondition end
-atmos_boundarycondition!(::PeriodicBC, _...) = nothing
 
 const integration_testing = true
 if !@isdefined integration_testing

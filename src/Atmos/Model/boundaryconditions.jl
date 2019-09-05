@@ -14,6 +14,17 @@ end
 abstract type BoundaryCondition
 end
 
+
+"""
+    PeriodicBC <: BoundaryCondition
+
+Assume that the topology is periodic and hence nothing special needs to be done at the boundaries.
+"""
+struct PeriodicBC <: BoundaryCondition end
+
+# TODO: assert somewhere that the topology is actually periodic when using those
+atmos_boundarycondition!(::PeriodicBC, _...) = nothing
+
 """
     NoFluxBC <: BoundaryCondition
 
