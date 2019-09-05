@@ -112,18 +112,18 @@ function buoyancy_correction(S, diffusive::Vars, aux::Vars)
   N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
   normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   Richardson = N² / (normS^2 + eps(normS))
-  buoyancy_factor = N² <= T(0) ? T(1) : (max(T(0), T(1) - Richardson*inv_Pr_turb))^(T(1//4))
-  return buoyancy_factor
+  f_b² = N² <= T(0) ? T(1) : sqrt(max(T(0), T(1) - Richardson*inv_Pr_turb))
+  return f_b²
 end
 function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
   T = eltype(state)
-  f_b = buoyancy_correction(S, diffusive, aux)
+  f_b² = buoyancy_correction(S, diffusive, aux)
   @inbounds normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
-  return state.ρ * normS * T(m.C_smag * aux.turbulence.Δ * f_b)^2
+  return state.ρ * normS * T(m.C_smag * aux.turbulence.Δ)^2 * f_b²
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
   (-2*ρν) .* S

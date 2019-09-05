@@ -27,9 +27,9 @@ const seed = MersenneTwister(0)
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayType = CuArray 
+  const ArrayTypes = (CuArray,) 
 else
-  const ArrayType = Array 
+  const ArrayTypes = (Array,)
 end
 
 if !@isdefined integration_testing
@@ -92,12 +92,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   e_kin       = DT(1//2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
-
   state.ρ     = ρ
   state.ρu    = SVector(U, V, W) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
-
 end   
 
 
@@ -114,7 +112,10 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
-                     (Gravity(), RayleighSponge{DT}(zmax, zsponge, 1), Subsidence(), GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
+                     (Gravity(), 
+                      RayleighSponge{DT}(zmax, zsponge, 1), 
+                      Subsidence(), 
+                      GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
@@ -179,7 +180,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
   norm(Q - Qe)            = %.16e
   norm(Q - Qe) / norm(Qe) = %.16e
   """ engf engf/eng0 engf-eng0 errf errf / engfe
-  errf
+  engf/eng0
 end
 
 using Test
@@ -195,45 +196,47 @@ let
   @static if haspkg("CUDAnative")
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
-  
-  # Problem type
-  DT = Float64
-  # DG polynomial order 
-  polynomialorder = 4
-  # User specified grid spacing
-  Δx    = DT(50)
-  Δy    = DT(50)
-  Δz    = DT(20)
-  # SGS Filter constants
-  C_smag = DT(0.15)
-  LHF    = DT(115)
-  SHF    = DT(15)
-  C_drag = DT(0.0011)
-  # Physical domain extents 
-  (xmin, xmax) = (0, 2000)
-  (ymin, ymax) = (0, 2000)
-  (zmin, zmax) = (0, 1500)
-  zsponge = DT(0.75 * zmax)
-  #Get Nex, Ney from resolution
-  Lx = xmax - xmin
-  Ly = ymax - ymin
-  Lz = zmax - ymin
-  # User defines the grid size:
-  Nex = ceil(Int64, (Lx/Δx - 1)/polynomialorder)
-  Ney = ceil(Int64, (Ly/Δy - 1)/polynomialorder)
-  Nez = ceil(Int64, (Lz/Δz - 1)/polynomialorder)
-  Ne = (Nex, Ney, Nez)
-  # User defined domain parameters
-  brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
-                range(DT(ymin), length=Ne[2]+1, DT(ymax)),
-                range(DT(zmin), length=Ne[3]+1, DT(zmax)))
-  topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
-  dt = 0.01
-  timeend = 3600
-  dim = 3
-  @info (ArrayType, DT, dim)
-  result = run(mpicomm, ArrayType, dim, topl, 
-               polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+    # Problem type
+    DT = Float64
+    # DG polynomial order 
+    polynomialorder = 4
+    # User specified grid spacing
+    Δx    = DT(50)
+    Δy    = DT(50)
+    Δz    = DT(20)
+    # SGS Filter constants
+    C_smag = DT(0.15)
+    LHF    = DT(115)
+    SHF    = DT(15)
+    C_drag = DT(0.0011)
+    # Physical domain extents 
+    (xmin, xmax) = (0, 2000)
+    (ymin, ymax) = (0, 2000)
+    (zmin, zmax) = (0, 1500)
+    zsponge = DT(0.75 * zmax)
+    #Get Nex, Ney from resolution
+    Lx = xmax - xmin
+    Ly = ymax - ymin
+    Lz = zmax - ymin
+    # User defines the grid size:
+    Nex = ceil(Int64, (Lx/Δx - 1)/polynomialorder)
+    Ney = ceil(Int64, (Ly/Δy - 1)/polynomialorder)
+    Nez = ceil(Int64, (Lz/Δz - 1)/polynomialorder)
+    Ne = (Nex, Ney, Nez)
+    # User defined domain parameters
+    brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
+                  range(DT(ymin), length=Ne[2]+1, DT(ymax)),
+                  range(DT(zmin), length=Ne[3]+1, DT(zmax)))
+    topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
+    dt = 0.01
+    timeend = 5
+    dim = 3
+    @info (ArrayType, DT, dim)
+    result = run(mpicomm, ArrayType, dim, topl, 
+                 polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+    @test result ≈ DT(9.9991853973902778e-01)
+  end
 end
 
 #nothing
