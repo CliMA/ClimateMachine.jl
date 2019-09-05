@@ -8,7 +8,7 @@ vars_aux(::MoistureModel, T) = @vars()
 
 function update_aux!(::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
-function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν)
+function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν, inv_Pr_turb)
 end
 function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
@@ -19,7 +19,6 @@ end
 
 function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   T = eltype(state)
-  q_pt = get_phase_partition(m, state)
   ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
   ρe_pot = state.ρ * aux.orientation.Φ
