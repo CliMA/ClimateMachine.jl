@@ -11,4 +11,9 @@ include("../testhelpers.jl")
           ]
 
   runmpi(tests, @__FILE__)
+  if "linux" != lowercase(get(ENV,"TRAVIS_OS_NAME",""))
+    moretests = [(1, "../../examples/DGmethods/ex_001_dycoms.jl")
+                ]
+    runmpi(moretests, @__FILE__)
+  end
 end
