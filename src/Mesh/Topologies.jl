@@ -227,7 +227,7 @@ using MPI
 MPI.Init()
 topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
                          periodicity=(false,true),
-                         boundary=[1 3; 2 4])
+                         boundary=((1,2),(3,4)))
 ```
 This returns the mesh structure for
 
@@ -294,9 +294,13 @@ Note that the faces are listed in Cartesian order.
 
 """
 function BrickTopology(mpicomm, elemrange;
-                       boundary=ones(Int,2,length(elemrange)),
+                       boundary=ntuple(j->(1,1), length(elemrange)),
                        periodicity=ntuple(j->false, length(elemrange)),
                        connectivity=:face, ghostsize=1)
+  
+  if boundary isa Matrix
+    boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
+  end
 
   # We cannot handle anything else right now...
   @assert connectivity == :face
@@ -352,7 +356,7 @@ using MPI
 MPI.Init()
 topology = StackedBrickTopology(MPI.COMM_SELF, (2:5,4:6);
                                 periodicity=(false,true),
-                                boundary=[1 3; 2 4])
+                                boundary=((1,2),(3,4)))
 ```
 This returns the mesh structure stacked in the \$x2\$-direction for
 
@@ -418,18 +422,21 @@ julia> topology.elemtobndy
 Note that the faces are listed in Cartesian order.
 """
 function StackedBrickTopology(mpicomm, elemrange;
-                       boundary=ones(Int,2,length(elemrange)),
+                       boundary=ntuple(j->(1,1), length(elemrange)),
                        periodicity=ntuple(j->false, length(elemrange)),
                        connectivity=:face, ghostsize=1)
 
-
+  if boundary isa Matrix
+    boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
+  end
+  
   dim = length(elemrange)
 
   dim <= 1 && error("Stacked brick topology works for 2D and 3D")
 
   # Build the base topology
   basetopo = BrickTopology(mpicomm, elemrange[1:dim-1];
-                     boundary=boundary[:,1:dim-1],
+                     boundary=boundary[1:dim-1],
                      periodicity=periodicity[1:dim-1],
                      connectivity=connectivity,
                      ghostsize=ghostsize)
@@ -551,10 +558,10 @@ function StackedBrickTopology(mpicomm, elemrange;
     bt = bb = 0
 
     if j == stacksize
-      bt = periodicity[dim] ? bt : boundary[2,dim]
+      bt = periodicity[dim] ? bt : boundary[dim][2]
     end
     if j == 1
-      bb = periodicity[dim] ? bb : boundary[1,dim]
+      bb = periodicity[dim] ? bb : boundary[dim][1]
     end
 
     elemtobndy[2(dim-1)+1, e1] = bb

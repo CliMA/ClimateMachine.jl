@@ -6,13 +6,16 @@ vars_state(::RadiationModel, T) = @vars()
 vars_gradient(::RadiationModel, T) = @vars()
 vars_diffusive(::RadiationModel, T) = @vars()
 vars_aux(::RadiationModel, T) = @vars()
+vars_integrals(::RadiationModel, T) = @vars()
 
+function flux!(::RadiationModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+end
+function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real)
+end
+function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars)
+end
 
 struct NoRadiation <: RadiationModel
-end
-function flux!(m::NoRadiation, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-end
-function preodefun!(m::NoRadiation, aux::Vars, state::Vars, t::Real)
 end
 
 struct StevensRadiation <: RadiationModel

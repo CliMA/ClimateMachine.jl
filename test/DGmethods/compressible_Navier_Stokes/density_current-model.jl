@@ -89,13 +89,6 @@ function initialise_density_current!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρe     = E
   state.moisture.ρq_tot = DF(0)
 end
-# --------------- Gravity source --------------------- # 
-function source_geopot!(source::Vars, state::Vars, aux::Vars, t::Real)
-  DF = eltype(state)
-  source.ρu = SVector(DF(0),
-                      DF(0),
-                      -state.ρ * DF(grav))
-end
 # --------------- Driver definition ------------------ # 
 function run(mpicomm, ArrayType, 
              topl, dim, Ne, polynomialorder, 
@@ -108,10 +101,11 @@ function run(mpicomm, ArrayType,
                                            )
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
+                     NoReferenceState(),
                      SmagorinskyLilly{DF}(C_smag), 
                      EquilMoist(), 
                      NoRadiation(),
-                     source_geopot!, NoFluxBC(), initialise_density_current!)
+                     Gravity(), NoFluxBC(), initialise_density_current!)
   # -------------- Define dgbalancelaw --------------------------- # 
   dg = DGModel(model,
                grid,

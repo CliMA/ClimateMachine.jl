@@ -4,6 +4,7 @@ export AtmosModel,
   ConstantViscosityWithDivergence, SmagorinskyLilly,
   DryModel, EquilMoist,
   NoRadiation,
+  Gravity,
   NoFluxBC, InitStateBC, RayleighBenardBC,
   FlatOrientation, SphericalOrientation
 
@@ -11,28 +12,29 @@ using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
-using CLIMA.SubgridScaleParameters
+import ..MoistThermodynamics: internal_energy
+using ..SubgridScaleParameters
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-  init_aux!, init_state!, update_aux!, LocalGeometry, lengthscale, resolutionmetric
+  init_aux!, init_state!, update_aux!, integrate_aux!, LocalGeometry, lengthscale, resolutionmetric
 
 """
     AtmosModel <: BalanceLaw
 
-A `BalanceLaw` for atmosphere modelling.
+A `BalanceLaw` for atmosphere modeling.
 
 # Usage
 
-    AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
+    AtmosModel(orientation, ref_state, turbulence, moisture, radiation, source, boundarycondition, init_state)
 
 """
-struct AtmosModel{O,T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   orientation::O
+  ref_state::RS
   turbulence::T
   moisture::M
   radiation::R
-  # TODO: a better mechanism than functions.
   source::S
   boundarycondition::BC
   init_state::IS
@@ -64,15 +66,28 @@ function vars_diffusive(m::AtmosModel, T)
     radiation::vars_diffusive(m.radiation,T)
   end
 end
+
+function vars_integrals(m::AtmosModel, T)
+  @vars begin
+    radiation::vars_integrals(m.radiation, T)
+  end
+end
+
+
 function vars_aux(m::AtmosModel, T)
   @vars begin
+    ∫dz::vars_integrals(m,T)
+    ∫dnz::vars_integrals(m,T)
     coord::SVector{3,T}
     orientation::vars_aux(m.orientation, T)
+    ref_state::vars_aux(m.ref_state,T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
   end
 end
+
+
 
 """
     flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -180,16 +195,23 @@ function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::
   update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
+function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+  integrate_aux!(m.radiation, integ, state, aux)
+end
+
+include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
 include("orientation.jl")
-include("force.jl")
+include("source.jl")
+include("boundaryconditions.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.coord = geom.coord
   init_aux!(m.orientation, aux, geom)
+  init_aux!(m.ref_state, aux)
   init_aux!(m.turbulence, aux, geom)
 end
 
@@ -205,47 +227,12 @@ Computes flux `S(Y)` in:
 ```
 """
 function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  m.source(source, state, aux, t)
+  atmos_source!(m.source, m, source, state, aux, t)
 end
 
 
-# TODO: figure out a better interface for this.
-# at the moment we can just pass a function, but we should do something better
-# need to figure out how subcomponents will interact.
 function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
-  m.boundarycondition(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
-end
-
-abstract type BoundaryCondition
-end
-
-"""
-    NoFluxBC <: BoundaryCondition
-
-Set the momentum at the boundary to be zero.
-"""
-struct NoFluxBC <: BoundaryCondition
-end
-function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: NoFluxBC,IS}
-    DF = eltype(stateM)
-    UM, VM, WM = stateM.ρu
-    stateP.ρ = stateM.ρ
-    stateP.ρu -= 2 * dot(stateM.ρu, nM) * collect(nM)
-    diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
-    diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
-end
-
-"""
-    InitStateBC <: BoundaryCondition
-
-Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
-"""
-struct InitStateBC <: BoundaryCondition
-end
-function boundarycondition!(m::AtmosModel{O,T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {O,T,M,R,S,BC <: InitStateBC,IS}
-  init_state!(m, stateP, auxP, auxP.coord, t)
+  atmos_boundarycondition!(m.boundarycondition, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
 end
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
