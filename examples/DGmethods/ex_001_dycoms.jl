@@ -229,13 +229,13 @@ let
                   range(DT(ymin), length=Ne[2]+1, DT(ymax)),
                   range(DT(zmin), length=Ne[3]+1, DT(zmax)))
     topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
-    dt = 0.01
-    timeend = 5
+    dt = 0.02
+    timeend = 100dt
     dim = 3
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(1.0001995245727888e+00)
+    @test result ≈ DT(0.9999735345500744)
   end
 end
 
