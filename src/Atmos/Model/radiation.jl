@@ -45,20 +45,9 @@ struct StevensRadiation{DT} <: RadiationModel
   F_1::DT
 end
 vars_integrals(m::StevensRadiation, DT) = @vars(∂κLWP::DT)
-vars_aux(m::StevensRadiation, DT) = @vars(Frad::DT)
 function integrate_aux!(m::StevensRadiation, integrand::Vars, state::Vars, aux::Vars)
   DT = eltype(state)
   integrand.radiation.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
-end
-function update_aux!(::RadiationModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  DT = eltype(flux)
-  z = aux.orientation.Φ/grav
-  Δz_i = max(z - m.z_i, -zero(DT))
-  # Constants
-  cloud_top_cooling = m.F_0 * exp(-aux.∫dnz.radiation.∂κLWP)
-  cloud_base_warming = m.F_1 * exp(-aux.∫dz.radiation.∂κLWP)
-  free_troposphere_cooling = m.ρ_i * DT(cp_d) * m.D_subsidence * m.α_z * ((cbrt(Δz_i))^4 / 4 + m.z_i * cbrt(Δz_i))
-  aux.radiation.Frad = cloud_base_warming + cloud_base_warming + free_troposphere_cooling
 end
 function flux_nondiffusive!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(flux)
