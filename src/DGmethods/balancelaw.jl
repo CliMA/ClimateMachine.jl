@@ -21,7 +21,8 @@ Subtypes `L` should define the following methods:
 - `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`
 - `source!(::L, source::State, state::State, auxstate::State, t::Real)`
 - `wavespeed(::L, nM, state::State, aux::State, t::Real)`
-- `boundarycondition!(::L, stateP::State, diffP::State, auxP::State, normalM, stateM::State, diffM::State, auxM::State, bctype, t)`
+- `boundarycondition_state!(::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
+- `boundarycondition_diffusive!(::L, stateP::State, diffP::State, auxP::State, normalM, stateM::State, diffM::State, auxM::State, bctype, t)`
 - `init_aux!(::L, aux::State, coords, args...)`
 - `init_state!(::L, state::State, aux::State, coords, args...)`
 
@@ -49,6 +50,7 @@ function gradvariables! end
 function diffusive! end
 function source! end 
 function wavespeed end
-function boundarycondition! end
+function boundarycondition_state! end
+function boundarycondition_diffusive! end
 function init_aux! end
 function init_state! end
