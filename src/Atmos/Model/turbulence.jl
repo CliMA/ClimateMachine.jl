@@ -112,7 +112,7 @@ function buoyancy_correction(S, diffusive::Vars, aux::Vars)
   N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
   normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   Richardson = N² / (normS^2 + eps(normS))
-  buoyancy_factor = N² <= T(0) ? T(1) : sqrt(max(T(0), T(1) - Richardson*inv_Pr_turb))^(T(1//4))
+  buoyancy_factor = N² <= T(0) ? T(1) : (max(T(0), T(1) - Richardson*inv_Pr_turb))^(T(1//4))
   return buoyancy_factor
 end
 function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)

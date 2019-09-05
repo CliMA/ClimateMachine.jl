@@ -53,12 +53,10 @@ end
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   DT = eltype(state)
   z = aux.orientation.Φ / grav
-  zmax = s.zmax
-  zsponge = s.zsponge
   coeff = DT(0)
-  if z >= zsponge
-    coeff_top = s.c_sponge * (sinpi(DT(1/2)*(z - zsponge)/(zmax-zsponge)))^DT(4)
-    coeff = min(1 + coeff_top, 1.0)
+  if z >= s.zsponge
+    coeff_top = s.c_sponge * (sinpi(DT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^DT(4)
+    coeff = min(coeff_top, 1.0)
   end
   source.ρu -= state.ρu * coeff
 end
