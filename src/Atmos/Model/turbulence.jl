@@ -33,9 +33,8 @@ struct ConstantViscosityWithDivergence <: TurbulenceClosure
 end
 dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, state::Vars, diffusive::Vars, aux::Vars, t::Real) = m.ρν
 function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S)
-  @inbounds trS = S[1] + S[2] + S[3]
-  I = SVector(1,1,1,0,0,0)
-  return (-2*ρν) .* S .+ (2*ρν/3)*trS .* I
+  @inbounds trS = tr(S)
+  return (-2*ρν) * S + (2*ρν/3)*trS * I
 end
 
 """
@@ -109,26 +108,33 @@ eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.2153-3490.1962.tb001
 year = {1962}
 }
 """
-function buoyancy_correction(S, diffusive::Vars, aux::Vars)
+function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
   T = eltype(diffusive)
   N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
-  normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   Richardson = N² / (normS^2 + eps(normS))
-  buoyancy_factor = N² <= T(0) ? T(1) : sqrt(max(T(0), T(1) - Richardson*inv_Pr_turb))^(T(1//4))
-  return buoyancy_factor
+  if N² <= T(0)
+    T(1) 
+  else  
+    max(T(0), sqrt(T(1) - Richardson*inv_Pr_turb))
+  end 
 end
+
+function strain_rate_magnitude(S::SHermitianCompact)
+  sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[4,2]^2 + 2*S[3,3])
+end
+
 function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
   T = eltype(state)
-  f_b = buoyancy_correction(S, diffusive, aux)
-  @inbounds normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
+  @inbounds normS = strain_rate_magnitude(S)
+  f_b² = squared_buoyancy_correction(normS, diffusive, aux)
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
-  return state.ρ * normS * T(m.C_smag * aux.turbulence.Δ * f_b)^2
+  return state.ρ * normS * f_b² * T(m.C_smag * aux.turbulence.Δ)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
-  (-2*ρν) .* S
+  (-2*ρν) * S
 end
 
 """
