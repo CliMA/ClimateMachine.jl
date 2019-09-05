@@ -83,7 +83,7 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
   dg = DGModel(IntegralTestSphereModel(Rinner, Router),
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
   Q = init_ode_state(dg, param, DFloat(0))

@@ -130,7 +130,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   dg = DGModel(model,
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
 
