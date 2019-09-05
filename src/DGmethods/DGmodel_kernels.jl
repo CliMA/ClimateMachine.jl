@@ -1,4 +1,4 @@
-using .NumericalFluxes: GradNumericalFlux, diffusive_boundary_penalty!,
+using .NumericalFluxes: GradNumericalPenalty, diffusive_boundary_penalty!,
                         diffusive_penalty!, DivNumericalFlux, numerical_flux!,
                         numerical_boundary_flux!
 
@@ -448,7 +448,8 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   end
 end
 
-function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflux::GradNumericalFlux,
+function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+                        gradnumpenalty::GradNumericalPenalty,
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, polyorder}  
   N = polyorder
@@ -504,8 +505,9 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflu
         end
 
         fill!(l_GM, -zero(eltype(l_GM)))
-        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GM), Vars{vars_state(bl,DFloat)}(l_QM),
-                   Vars{vars_aux(bl,DFloat)}(l_auxM), t)
+        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GM),
+                       Vars{vars_state(bl,DFloat)}(l_QM),
+                       Vars{vars_aux(bl,DFloat)}(l_auxM), t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
@@ -517,17 +519,19 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, gradnumflu
         end
 
         fill!(l_GP, -zero(eltype(l_GP)))
-        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GP), Vars{vars_state(bl,DFloat)}(l_QP),
-                   Vars{vars_aux(bl,DFloat)}(l_auxP), t)
+        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GP),
+                       Vars{vars_state(bl,DFloat)}(l_QP),
+                       Vars{vars_aux(bl,DFloat)}(l_auxP), t)
 
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
-          diffusive_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM, l_GP,
-                                  l_QP, l_auxP, t)
+          diffusive_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM, l_QM,
+                             l_auxM, l_GP, l_QP, l_auxP, t)
         else
-          diffusive_boundary_penalty!(gradnumflux, bl, l_Qvisc, nM, l_GM, l_QM, l_auxM,
-                                           l_GP, l_QP, l_auxP, bctype, t)
+          diffusive_boundary_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM,
+                                      l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype,
+          t)
         end
 
         @unroll for s = 1:nviscstate

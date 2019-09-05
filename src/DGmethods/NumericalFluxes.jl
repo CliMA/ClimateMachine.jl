@@ -1,6 +1,6 @@
 module NumericalFluxes
 
-export Rusanov, DefaultGradNumericalFlux
+export Rusanov, CentralGradPenalty
 
 using StaticArrays
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
@@ -10,9 +10,9 @@ import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
 
 
 """
-    GradNumericalFlux
+    GradNumericalPenalty
 
-Any `P <: GradNumericalFlux` should define methods for:
+Any `P <: GradNumericalPenalty` should define methods for:
 
    diffusive_penalty!(gnf::P, bl::BalanceLaw, diffF, nM, QM, QdiffM, QauxM, QP,
                       QdiffP, QauxP, t)
@@ -20,18 +20,18 @@ Any `P <: GradNumericalFlux` should define methods for:
                                l_auxM, l_GP, l_QP, l_auxP, bctype, t)
 
 """
-abstract type GradNumericalFlux end
+abstract type GradNumericalPenalty end
 
 function diffusive_penalty! end
 function diffusive_boundary_penalty! end
 
 """
-    DefaultGradNumericalFlux <: GradNumericalFlux
+    CentralGradPenalty <: GradNumericalPenalty
 
 """
-struct DefaultGradNumericalFlux <: GradNumericalFlux end
+struct CentralGradPenalty <: GradNumericalPenalty end
 
-function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw, 
+function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw, 
                             VF, nM, velM, QM, aM, velP, QP, aP, t)
   DFloat = eltype(QM)
 
@@ -49,7 +49,7 @@ function diffusive_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw,
   end
 end
 
-@inline diffusive_boundary_penalty!(::DefaultGradNumericalFlux, bl::BalanceLaw,
+@inline diffusive_boundary_penalty!(::CentralGradPenalty, bl::BalanceLaw,
                                     VF, _...) = VF.=0
 
 

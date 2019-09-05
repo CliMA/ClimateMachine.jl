@@ -63,7 +63,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
   dg = DGModel(model,
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
 
@@ -97,7 +97,7 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
   dg = DGModel(model,
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
 
