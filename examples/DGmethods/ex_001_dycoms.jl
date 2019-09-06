@@ -235,7 +235,7 @@ let
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(0.9999735345500744)
+    @test result ≈ DT(0.9999737128867487)
   end
 end
 
