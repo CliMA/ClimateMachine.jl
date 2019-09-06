@@ -3,6 +3,10 @@ export flattenednames
 flattenednames(::Type{NamedTuple{(),Tuple{}}}; prefix="") = ()
 flattenednames(::Type{T}; prefix="") where {T<:Real} = (prefix, )
 flattenednames(::Type{T}; prefix="") where {T<:SVector} = ntuple(i -> "$prefix[$i]", length(T))
+function flattenednames(::Type{T}; prefix="") where {T<:SHermitianCompact}
+  N = size(T,1)
+  [["$prefix[$i,$j]" for i = j:N] for j = 1:N] |> Iterators.flatten |> collect
+end
 function flattenednames(::Type{T}; prefix="") where {T<:NamedTuple}
   map(1:fieldcount(T)) do i
     Ti = fieldtype(T,i)
