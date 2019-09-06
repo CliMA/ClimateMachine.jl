@@ -11,7 +11,9 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, FlatOrientation, NoReferenceState,
-                   NoViscosity, DryModel, NoRadiation, PeriodicBC
+                   NoViscosity, DryModel, NoRadiation, PeriodicBC,
+                   vars_state
+using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 @static if haspkg("CuArrays")
@@ -169,17 +171,17 @@ function run(mpicomm, polynomialorder, numelems, setup, ArrayType, DFloat, dims,
     vtkdir = "vtk_isentropicvortex" *
       "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(DFloat)_level$(level)"
     mkpath(vtkdir)
-
+    
+    vtkstep = 0
     # output initial step
-    do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q)
+    do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)
 
     # setup the output callback
     outputtime = timeend
-    vtkstep = 0
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
       vtkstep += 1
       Qe = init_ode_state(dg, param, gettime(lsrk))
-      do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe)
+      do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
     end
     callbacks = (callbacks..., cbvtk)
   end
@@ -249,12 +251,12 @@ function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
   state.ρe = ρ * total_energy(e_kin, DFloat(0), T)
 end
 
-function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, testname = "isentropicvortex")
+function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname = "isentropicvortex")
   ## name of the file that this MPI rank will write
   filename = @sprintf("%s/%s_mpirank%04d_step%04d",
                       vtkdir, testname, MPI.Comm_rank(mpicomm), vtkstep)
 
-  statenames = ("ρ", "ρu", "ρv", "ρw", "ρe")
+  statenames = flattenednames(vars_state(model, eltype(Q)))
   exactnames = statenames .* "_exact"
 
   writevtk(filename, Q, dg, statenames, Qe, exactnames)
