@@ -14,7 +14,7 @@ function init_aux!(::TurbulenceClosure, aux::Vars, geom::LocalGeometry)
 end
 function update_aux!(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
-function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t, ν)
+function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t, ν, inv_Pr_turb)
 end
 function flux_diffusive!(::TurbulenceClosure, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
@@ -118,7 +118,7 @@ function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
   sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3]^2)
 end
 
-function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)

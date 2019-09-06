@@ -8,7 +8,7 @@ vars_aux(::MoistureModel, T) = @vars()
 
 function update_aux!(::MoistureModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
-function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν)
+function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν, inv_Pr_turb)
 end
 function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
