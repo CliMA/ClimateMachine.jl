@@ -10,7 +10,7 @@ using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
-using CLIMA.Atmos: AtmosModel, FlatOrientation, NoReferenceState,
+using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
                    NoViscosity, DryModel, NoRadiation, PeriodicBC,
                    vars_state
 using CLIMA.VariableTemplates: flattenednames
@@ -55,20 +55,20 @@ function main()
   expected_error[Float64, 2, 3] = 6.3752572004789149e-02
   expected_error[Float64, 2, 4] = 2.0984975076420455e-03
 
-  expected_error[Float64, 3, 1] = 3.7918897283243393e+00
-  expected_error[Float64, 3, 2] = 6.5818065500423617e-01
-  expected_error[Float64, 3, 3] = 2.0669666996100750e-02
-  expected_error[Float64, 3, 4] = 4.6083032825833658e-03
+  expected_error[Float64, 3, 1] = 3.7918869862613858e+00
+  expected_error[Float64, 3, 2] = 6.5816485664822677e-01
+  expected_error[Float64, 3, 3] = 2.0160333422867591e-02
+  expected_error[Float64, 3, 4] = 6.6360317881818034e-04
 
   expected_error[Float32, 2, 1] = 1.1990854263305664e+01
   expected_error[Float32, 2, 2] = 2.0812149047851563e+00
   expected_error[Float32, 2, 3] = 6.7652329802513123e-02
   expected_error[Float32, 2, 4] = 3.6849677562713623e-02
 
-  expected_error[Float32, 3, 1] = 3.7918038368225098e+00
-  expected_error[Float32, 3, 2] = 6.5812408924102783e-01
-  expected_error[Float32, 3, 3] = 2.1983036771416664e-02
-  expected_error[Float32, 3, 4] = 1.1587927117943764e-02
+  expected_error[Float32, 3, 1] = 3.7918324470520020e+00
+  expected_error[Float32, 3, 2] = 6.5811443328857422e-01
+  expected_error[Float32, 3, 3] = 2.1280560642480850e-02
+  expected_error[Float32, 3, 4] = 9.8376255482435226e-03
 
   @testset "$(@__FILE__)" begin
     for ArrayType in ArrayTypes, DFloat in (Float64, Float32), dims in (2, 3)
@@ -118,7 +118,7 @@ function run(mpicomm, polynomialorder, numelems, setup, ArrayType, DFloat, dims,
   initialcondition! = function(args...)
     isentropicvortex_initialcondition!(setup, args...)
   end
-  model = AtmosModel(FlatOrientation(),
+  model = AtmosModel(NoOrientation(),
                      NoReferenceState(),
                      NoViscosity(),
                      DryModel(),

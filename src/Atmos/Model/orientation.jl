@@ -38,3 +38,15 @@ function init_aux!(m::FlatOrientation, aux::Vars, geom::LocalGeometry)
   aux.orientation.Φ = grav * aux.coord[3]
   aux.orientation.∇Φ = SVector{3,eltype(aux)}(0,0,grav)
 end
+
+"""
+    NoOrientation <: Orientation
+
+Zeros out the geopotential (i.e., removes gravity from the problem)
+"""
+struct NoOrientation <: Orientation
+end
+function init_aux!(m::NoOrientation, aux::Vars, geom::LocalGeometry)
+  aux.orientation.Φ = 0
+  aux.orientation.∇Φ = SVector{3,eltype(aux)}(0,0,0)
+end

@@ -6,7 +6,7 @@ export AtmosModel,
   NoRadiation,
   Gravity,
   NoFluxBC, InitStateBC, RayleighBenardBC,
-  FlatOrientation, SphericalOrientation
+  NoOrientation, FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
