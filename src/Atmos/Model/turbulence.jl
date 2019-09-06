@@ -114,8 +114,8 @@ function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
   sqrt(clamp(T(1) - Richardson*inv_Pr_turb, T(0), T(1)))
 end
 
-function strain_rate_magnitude(S::SHermitianCompact)
-  sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3])
+function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
+  sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3]^2)
 end
 
 function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
