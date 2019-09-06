@@ -43,14 +43,15 @@ jobs:
                                                                  using Coverage;
                                                                  Codecov.submit_local(Codecov.process_folder();
                                                                    service = "azure_pipelines",
-                                                                   commit       = @show(ENV["BUILD_SOURCEVERSION"]),
-                                                                   pull_request = @show(get(ENV, "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER", "false")),
-                                                                   job          = @show(ENV["BUILD_DEFINITIONNAME"]),
-                                                                   slug         = @show(ENV["BUILD_REPOSITORY_NAME"]),
-                                                                   build        = @show(ENV["BUILD_BUILDID"]))'
+                                                                   commit       = ENV["BUILD_SOURCEVERSION"],
+                                                                   pull_request = get(ENV, "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER", "false"),
+                                                                   job          = ENV["BUILD_DEFINITIONNAME"],
+                                                                   slug         = ENV["BUILD_REPOSITORY_NAME"],
+                                                                   build        = ENV["BUILD_BUILDID"])'
     env:
       CODECOV_TOKEN: "d5ad49b6-c247-44f7-a529-5f749a8b0c2a"
-    displayName: 'Submit code coverage' 
+    displayName: 'Submit code coverage'
+    continueOnError: true
 
 - job: macOS
 
