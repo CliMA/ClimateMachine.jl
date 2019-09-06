@@ -10,6 +10,7 @@ function vars_aux(m::Orientation, T)
     ∇Φ::SVector{3,T}
   end
 end
+gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
 
 """
     SphericalOrientation <: Orientation

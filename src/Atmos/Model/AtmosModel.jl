@@ -177,18 +177,18 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 end
 
 function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  update_aux!(m.moisture, state, diffusive, aux, t)
+  atmos_update_aux!(m.moisture, m, state, diffusive, aux, t)
 end
 
 function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
   integrate_aux!(m.radiation, integ, state, aux)
 end
 
+include("orientation.jl")
 include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
-include("orientation.jl")
 include("source.jl")
 include("boundaryconditions.jl")
 
