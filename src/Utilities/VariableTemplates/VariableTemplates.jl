@@ -79,6 +79,11 @@ Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
     if T <: Real
       retexpr = :($T(array[$(offset+1)]))
       offset += 1
+    elseif T <: SHermitianCompact
+      LT = StaticArrays.lowertriangletype(T)
+      N = length(LT)
+      retexpr = :($T($LT($([:(array[$(offset + i)]) for i = 1:N]...))))
+      offset += N
     elseif T <: StaticArray
       N = length(T)
       retexpr = :($T($([:(array[$(offset + i)]) for i = 1:N]...)))
@@ -105,6 +110,11 @@ end
     if T <: Real
       retexpr = :(array[$(offset+1)] = val)
       offset += 1
+    elseif T <: SHermitianCompact
+      LT = StaticArrays.lowertriangletype(T)
+      N = length(LT)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle)
+      offset += N
     elseif T <: StaticArray
       N = length(T)
       retexpr = :(array[$(offset + 1):$(offset + N)] .= val)
