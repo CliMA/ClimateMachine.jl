@@ -28,8 +28,8 @@ end
 
 Turbulence with constant dynamic viscosity (`ρν`). Divergence terms are included in the momentum flux tensor.
 """
-struct ConstantViscosityWithDivergence <: TurbulenceClosure
-  ρν::Float64
+struct ConstantViscosityWithDivergence{T} <: TurbulenceClosure
+  ρν::T
 end
 dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, state::Vars, diffusive::Vars, aux::Vars, t::Real) = m.ρν
 function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S)
