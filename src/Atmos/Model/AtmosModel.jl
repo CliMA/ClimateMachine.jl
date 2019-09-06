@@ -50,6 +50,7 @@ function vars_state(m::AtmosModel, T)
     radiation::vars_state(m.radiation,T)
   end
 end
+
 function vars_gradient(m::AtmosModel, T)
   @vars begin
     turbulence::vars_gradient(m.turbulence,T)
@@ -57,6 +58,7 @@ function vars_gradient(m::AtmosModel, T)
     radiation::vars_gradient(m.radiation,T)
   end
 end
+
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
     turbulence::vars_diffusive(m.turbulence,T)
@@ -71,7 +73,6 @@ function vars_integrals(m::AtmosModel, T)
   end
 end
 
-
 function vars_aux(m::AtmosModel, T)
   @vars begin
     ∫dz::vars_integrals(m,T)
@@ -84,8 +85,6 @@ function vars_aux(m::AtmosModel, T)
     radiation::vars_aux(m.radiation,T)
   end
 end
-
-
 
 """
     flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -198,7 +197,6 @@ Computes flux `S(Y)` in:
 function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   atmos_source!(m.source, m, source, state, aux, t)
 end
-
 
 function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
   atmos_boundarycondition!(m.boundarycondition, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)

@@ -25,6 +25,10 @@ end
 
 struct NoViscosity <: TurbulenceClosure end
 
+function symmetrize(X::StaticArray{Tuple{3,3}})
+  SHermitianCompact(SVector(X[1,1], (X[2,1] + X[1,2])/2, (X[3,1] + X[1,3])/2, X[2,2], (X[3,2] + X[2,3])/2, X[3,3]))
+end
+
 function gradvariables_common!(transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1 / state.ρ
   transform.turbulence.u = ρinv * state.ρu
@@ -34,26 +38,17 @@ function flux_diffusive_common!(flux::Grad, state::Vars, diffusive::Vars, aux::V
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
 
-  # diffusive
-  ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffusive.turbulence.ρτ
-  ρτ = SMatrix{3,3}(ρτ11, ρτ12, ρτ13,
-                    ρτ12, ρτ22, ρτ23,
-                    ρτ13, ρτ23, ρτ33)
+  ρτ = diffusive.turbulence.ρτ
+
   flux.ρu += ρτ
   flux.ρe += ρτ*u
 end
 
 function diffusive_common!(m::TurbulenceClosure, diffusive, ∇transform, state, aux, t)
   ∇u = ∇transform.turbulence.u
-
+  
   # strain rate tensor
-  # TODO: we use an SVector for this, but should define a "SymmetricSMatrix"?
-  S = SVector(∇u[1,1],
-              ∇u[2,2],
-              ∇u[3,3],
-              (∇u[1,2] + ∇u[2,1])/2,
-              (∇u[1,3] + ∇u[3,1])/2,
-              (∇u[2,3] + ∇u[3,2])/2)
+  S = symmetrize(∇u)
 
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m, S, state, diffusive, aux, t)
@@ -72,7 +67,7 @@ struct ConstantViscosityWithDivergence <: TurbulenceClosure
   ρν::Float64
 end
 vars_gradient(::ConstantViscosityWithDivergence,T) = @vars(u::SVector{3,T})
-vars_diffusive(::ConstantViscosityWithDivergence,T) = @vars(ρτ::SVector{6,T})
+vars_diffusive(::ConstantViscosityWithDivergence,T) = @vars(ρτ::SHermitianCompact{3,T,6})
 function flux_diffusive!(::ConstantViscosityWithDivergence,
                          flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   flux_diffusive_common!(flux, state, diffusive, aux, t)
@@ -87,9 +82,8 @@ function gradvariables!(::ConstantViscosityWithDivergence,
 end
 dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, state::Vars, diffusive::Vars, aux::Vars, t::Real) = m.ρν
 function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S)
-  @inbounds trS = S[1] + S[2] + S[3]
-  I = SVector(1,1,1,0,0,0)
-  return (-2*ρν) .* S .+ (2*ρν/3)*trS .* I
+  @inbounds trS = tr(S)
+  return (-2*ρν) * S + (2*ρν/3)*trS * I
 end
 
 """
@@ -117,7 +111,7 @@ end
 
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, f_b::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(u::SVector{3,T}, θ_v::T)
-vars_diffusive(::SmagorinskyLilly,T) = @vars(ρτ::SVector{6,T}, ∂θ∂Φ::T)
+vars_diffusive(::SmagorinskyLilly,T) = @vars(ρτ::SHermitianCompact{3,T,6}, ∂θ∂Φ::T)
 
 function flux_diffusive!(::SmagorinskyLilly,
                          flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -172,24 +166,27 @@ eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.2153-3490.1962.tb001
 year = {1962}
 }
 """
-function buoyancy_correction(S, diffusive::Vars, aux::Vars)
+function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
   T = eltype(diffusive)
   N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
-  normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
   Richardson = N² / (normS^2 + eps(normS))
-  buoyancy_factor = N² <= T(0) ? T(1) : sqrt(max(T(0), T(1) - Richardson*inv_Pr_turb))^(T(1//4))
-  return buoyancy_factor
+  sqrt(clamp(T(1) - Richardson*inv_Pr_turb, T(0), T(1)))
 end
+
+function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
+  sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3]^2)
+end
+
 function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
   T = eltype(state)
-  f_b = buoyancy_correction(S, diffusive, aux)
-  @inbounds normS = sqrt(2*(S[1]^2 + S[2]^2 + S[3]^2 + 2*(S[4]^2 + S[5]^2 + S[6]^2)))
+  @inbounds normS = strain_rate_magnitude(S)
+  f_b² = squared_buoyancy_correction(normS, diffusive, aux)
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
-  return state.ρ * normS * T(m.C_smag * aux.turbulence.Δ * f_b)^2
+  return state.ρ * normS * f_b² * T(m.C_smag * aux.turbulence.Δ)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
-  (-2*ρν) .* S
+  (-2*ρν) * S
 end
