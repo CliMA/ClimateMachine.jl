@@ -60,7 +60,7 @@ function vars_gradient(m::AtmosModel, T)
 end
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
-    ρτ::SVector{6,T}
+    ρτ::SHermitianCompact{3,T,6}
     turbulence::vars_diffusive(m.turbulence,T)
     moisture::vars_diffusive(m.moisture,T)
     radiation::vars_diffusive(m.radiation,T)
@@ -143,10 +143,7 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
   u = ρinv * state.ρu
 
   # diffusive
-  ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffusive.ρτ
-  ρτ = SMatrix{3,3}(ρτ11, ρτ12, ρτ13,
-                    ρτ12, ρτ22, ρτ23,
-                    ρτ13, ρτ23, ρτ33)
+  ρτ = diffusive.ρτ
   flux.ρu += ρτ
   flux.ρe += ρτ*u
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
@@ -167,17 +164,16 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   gradvariables!(m.turbulence, transform, state, aux, t)
 end
 
+
+function symmetrize(X::StaticArray{Tuple{3,3}})
+  SHermitianCompact(SVector(X[1,1], (X[2,1] + X[1,2])/2, (X[3,1] + X[1,3])/2, X[2,2], (X[3,2] + X[2,3])/2, X[3,3]))
+end
+
+
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   ∇u = ∇transform.u
-
   # strain rate tensor
-  # TODO: we use an SVector for this, but should define a "SymmetricSMatrix"?
-  S = SVector(∇u[1,1],
-              ∇u[2,2],
-              ∇u[3,3],
-              (∇u[1,2] + ∇u[2,1])/2,
-              (∇u[1,3] + ∇u[3,1])/2,
-              (∇u[2,3] + ∇u[3,2])/2)
+  S = symmetrize(∇u)
 
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, aux, t)
