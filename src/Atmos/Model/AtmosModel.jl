@@ -179,7 +179,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   ρν = dynamic_viscosity_tensor(m.turbulence, S, ∇transform, state, diffusive, aux, t)
 
   # momentum flux tensor
-  diffusive.ρτ = SVector(scaled_momentum_flux_tensor(m.turbulence, ρν, S))
+  diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν, inv_Pr_turb)
   # diffusion terms required for SGS turbulence computations
