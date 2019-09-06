@@ -24,7 +24,6 @@ else
   const ArrayTypes = (Array,)
 end
 
-const integration_testing = true
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -53,17 +52,17 @@ function main()
   expected_error[Float64, 2, 2] = 2.0813000228865612e+00
   expected_error[Float64, 2, 3] = 6.3752572004789149e-02
   expected_error[Float64, 2, 4] = 2.0984975076420455e-03
-  
+
   expected_error[Float64, 3, 1] = 3.7918897283243393e+00
   expected_error[Float64, 3, 2] = 6.5818065500423617e-01
   expected_error[Float64, 3, 3] = 2.0669666996100750e-02
   expected_error[Float64, 3, 4] = 4.6083032825833658e-03
-  
+
   expected_error[Float32, 2, 1] = 1.1990854263305664e+01
   expected_error[Float32, 2, 2] = 2.0812149047851563e+00
   expected_error[Float32, 2, 3] = 6.7652329802513123e-02
   expected_error[Float32, 2, 4] = 3.6849677562713623e-02
-  
+
   expected_error[Float32, 3, 1] = 3.7918038368225098e+00
   expected_error[Float32, 3, 2] = 6.5812408924102783e-01
   expected_error[Float32, 3, 3] = 2.1983036771416664e-02
@@ -104,7 +103,7 @@ function run(mpicomm, polynomialorder, numelems, setup, ArrayType, DFloat, dims,
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
   end
-  
+
   topology = BrickTopology(mpicomm,
                            brickrange;
                            periodicity=ntuple(_ -> true, dims))
@@ -125,12 +124,12 @@ function run(mpicomm, polynomialorder, numelems, setup, ArrayType, DFloat, dims,
                      nothing,
                      PeriodicBC(),
                      initialcondition!)
-  
+
   dg = DGModel(model, grid, Rusanov(), DefaultGradNumericalFlux())
   param = init_ode_param(dg)
 
   timeend = DFloat(2 * setup.domain_halflength / 10 / setup.translation_speed)
- 
+
   # determine the time step
   elementsize = minimum(step.(brickrange))
   dt = elementsize / soundspeed_air(setup.T∞) / polynomialorder ^ 2
@@ -167,13 +166,13 @@ function run(mpicomm, polynomialorder, numelems, setup, ArrayType, DFloat, dims,
 
   if output_vtk
     # create vtk dir
-    vtkdir = "vtk_isentropicvortex" * 
+    vtkdir = "vtk_isentropicvortex" *
       "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(DFloat)_level$(level)"
     mkpath(vtkdir)
-    
+
     # output initial step
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q)
-    
+
     # setup the output callback
     outputtime = timeend
     vtkstep = 0
@@ -230,12 +229,12 @@ function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
 
   x .-= u∞ * t
   # make the function periodic
-  x .-= floor.((x + L) / 2L) * 2L 
+  x .-= floor.((x + L) / 2L) * 2L
 
   @inbounds begin
     r = sqrt(x[1] ^ 2 + x[2] ^ 2)
     δu_x = -vortex_speed * x[2] / R * exp(-(r / R) ^ 2 / 2)
-    δu_y =  vortex_speed * x[1] / R * exp(-(r / R) ^ 2 / 2) 
+    δu_y =  vortex_speed * x[1] / R * exp(-(r / R) ^ 2 / 2)
   end
   u = u∞ .+ SVector(δu_x, δu_y, 0)
 
@@ -246,7 +245,7 @@ function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
 
   state.ρ = ρ
   state.ρu = ρ * u
-  e_kin = u' * u / 2 
+  e_kin = u' * u / 2
   state.ρe = ρ * total_energy(e_kin, DFloat(0), T)
 end
 
@@ -257,7 +256,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, testname = "isentropicvo
 
   statenames = ("ρ", "ρu", "ρv", "ρw", "ρe")
   exactnames = statenames .* "_exact"
-  
+
   writevtk(filename, Q, dg, statenames, Qe, exactnames)
 
   ## Generate the pvtu file for these vtk files
