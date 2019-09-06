@@ -13,6 +13,15 @@ end
 gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
 
 """
+    NoOrientation
+
+No gravitional force or potential.
+"""
+struct NoOrientation <: Orientation
+end
+gravitational_potential(::NoOrientation, aux::Vars) = -zero(eltype(aux))
+
+"""
     SphericalOrientation <: Orientation
 
 Gravity acts towards the origin `(0,0,0)`, and the gravitational potential is relative
