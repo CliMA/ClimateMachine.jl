@@ -15,22 +15,29 @@ struct SubModelC{N}
 end
 
 function state(m::TestModel, T)
-  NamedTuple{(:ρ, :ρu, :ρe, :a, :b, :c),
-  Tuple{T, SVector{3,T}, T, state(m.a,T), state(m.b,T), state(m.c, T)}}
+  @vars begin
+    ρ::T
+    ρu::SVector{3,T}
+    ρe::T
+    a::state(m.a,T)
+    b::state(m.b,T)
+    c::state(m.c,T)
+    S::SHermitianCompact{3,T,6}
+  end
 end
 
-state(m::SubModelA, T) = Tuple{}
-state(m::SubModelB, T) = NamedTuple{(:ρqt,), Tuple{T}}
-state(m::SubModelC{N}, T) where {N} = NamedTuple{(:ρk,), Tuple{SVector{N,T}}}
+state(m::SubModelA, T) = @vars()
+state(m::SubModelB, T) = @vars(ρqt::T)
+state(m::SubModelC{N}, T) where {N} = @vars(ρk::SVector{N,T})
 
 model = TestModel(SubModelA(), SubModelB(), SubModelC{5}())
 
 st = state(model, Float64)
 
-@test varsize(st) == 11
+@test varsize(st) == 17
 
-v = Vars{st}(zeros(MVector{11,Float64}))
-g = Grad{st}(zeros(MMatrix{3,11,Float64}))
+v = Vars{st}(zeros(MVector{varsize(st),Float64}))
+g = Grad{st}(zeros(MMatrix{3,varsize(st),Float64}))
 
 @test v.ρ === 0.0
 @test v.ρu === SVector(0.0, 0.0, 0.0)
@@ -40,6 +47,21 @@ v.ρu = SVector(1,2,3)
 @test v.b.ρqt === 0.0
 v.b.ρqt = 12.0
 @test v.b.ρqt === 12.0
+
+@test v.S === zeros(SHermitianCompact{3,Float64,6})
+v.S = SHermitianCompact{3,Float64,6}(1,2,3,2,3,4,3,4,5)
+@test v.S[1,1] === 1.0
+@test v.S[1,3] === 3.0
+@test v.S[3,1] === 3.0
+@test v.S[3,3] === 5.0
+
+v.S = ones(SMatrix{3,3,Int64})
+@test v.S[1,1] === 1.0
+@test v.S[1,3] === 1.0
+@test v.S[3,1] === 1.0
+@test v.S[3,3] === 1.0
+
+
 
 @test propertynames(v.a) == ()
 @test propertynames(g.a) == ()
@@ -52,26 +74,7 @@ g.ρu = SMatrix{3,3}(1:9)
 @test size(v.c.ρk) == (5,)
 @test size(g.c.ρk) == (3,5)
 
-using CLIMA.DGmethods
-using CLIMA.Atmos
-using CLIMA.Atmos: vars_state, vars_aux
-
-init!() = nothing
-source!() = nothing
-
-DF = Float64
-
-@testset "Flatten variable list" begin
-  model = AtmosModel(
-                     FlatOrientation(),
-                     ConstantViscosityWithDivergence(DF(0)),
-                     Atmos.EquilMoist(),
-                     NoRadiation(),
-                     source!,
-                     NoFluxBC(),
-                     init!)
-
-  @test flattenednames(vars_state(model, DF)) == ["ρ","ρu[1]","ρu[2]","ρu[3]","ρe","moisture.ρq_tot"]
-  @test flattenednames(vars_aux(model, DF)) == ["coord[1]", "coord[2]", "coord[3]", "orientation.Φ", "orientation.∇Φ[1]", "orientation.∇Φ[2]", "orientation.∇Φ[3]", "moisture.e_int", "moisture.temperature"]
-end
-
+@test flattenednames(st) == ["ρ","ρu[1]","ρu[2]","ρu[3]","ρe",
+                            "b.ρqt",
+                            "c.ρk[1]","c.ρk[2]","c.ρk[3]","c.ρk[4]","c.ρk[5]",
+                            "S[1,1]", "S[2,1]", "S[3,1]", "S[2,2]", "S[3,2]", "S[3,3]"]
