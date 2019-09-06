@@ -11,8 +11,7 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, FlatOrientation, NoReferenceState,
-                   ConstantViscosityWithDivergence, DryModel, NoRadiation,
-                   PeriodicBC
+                   NoViscosity, DryModel, NoRadiation, PeriodicBC
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 @static if haspkg("CuArrays")
@@ -120,7 +119,7 @@ function run(mpicomm, polynomialorder, numelems, setup, ArrayType, DFloat, dims,
   end
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     ConstantViscosityWithDivergence(0),
+                     NoViscosity(),
                      DryModel(),
                      NoRadiation(),
                      nothing,
