@@ -113,7 +113,7 @@ end
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= val.lowertriangle)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle)
       offset += N
     elseif T <: StaticArray
       N = length(T)

@@ -55,6 +55,13 @@ v.S = SHermitianCompact{3,Float64,6}(1,2,3,2,3,4,3,4,5)
 @test v.S[3,1] === 3.0
 @test v.S[3,3] === 5.0
 
+v.S = ones(SMatrix{3,3,Int64})
+@test v.S[1,1] === 1.0
+@test v.S[1,3] === 1.0
+@test v.S[3,1] === 1.0
+@test v.S[3,3] === 1.0
+
+
 
 @test propertynames(v.a) == ()
 @test propertynames(g.a) == ()
