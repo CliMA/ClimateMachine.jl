@@ -14,7 +14,7 @@ function init_aux!(::TurbulenceClosure, aux::Vars, geom::LocalGeometry)
 end
 function update_aux!(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
-function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t, ν, inv_Pr_turb)
+function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t, ν)
 end
 function flux_diffusive!(::TurbulenceClosure, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
@@ -157,7 +157,6 @@ If Δᵢ = Δ, then β = Δ²αᵀα
 }
 
 """
-
 struct Vreman{DT} <: TurbulenceClosure
   C_smag::DT
 end
@@ -172,7 +171,7 @@ function dynamic_viscosity_tensor(m::Vreman, S, ∇transform::Grad, state::Vars,
   ∇u = ∇transform.u
   αijαij = sum(∇u .^ 2)
   βij = (aux.turbulence.Δ)^2 * (∇u' * ∇u)
-  Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
+  @inbounds Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
   return state.ρ * max(0,(m.C_smag^2 * 2.5) * sqrt(abs(Bβ/(αijαij+eps(αijαij))))) 
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)

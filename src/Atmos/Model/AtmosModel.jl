@@ -174,10 +174,8 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   ∇u = ∇transform.u
   # strain rate tensor
   S = symmetrize(∇u)
-
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m.turbulence, S, ∇transform, state, diffusive, aux, t)
-
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
   # diffusivity of moisture components
