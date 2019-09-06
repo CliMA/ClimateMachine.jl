@@ -200,8 +200,8 @@ let
   base_num_elem = 4
 
   # TODO: Get solution for integration_testing = true
-  expected_result = [0.36679329773810837 0.0 0.0;
-                     0.1075849000605965 0.0 0.0]
+  expected_result = [0.36679329773810837 0.3353991836118424 0.33691843904190333;
+                     0.1075849000605965 0.10431474199905241 0.0]
 lvls = integration_testing ? size(expected_result, 2) : 1
 
 @testset "$(@__FILE__)" for ArrayType in ArrayTypes
@@ -238,7 +238,7 @@ for DFloat in (Float64,) #Float32)
       nsteps = ceil(Int64, timeend / dt)
       dt = timeend / nsteps
 
-      @info (ArrayType, DFloat, dim)
+      @info (ArrayType, DFloat, dim, l)
       result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
                       polynomialorder, timeend, DFloat, dt)
       @test result[l] ≈ DFloat(expected_result[dim-1, l])
