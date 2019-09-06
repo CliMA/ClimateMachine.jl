@@ -166,13 +166,10 @@ vars_gradient(::Vreman,T) = @vars(θ_v::T)
 vars_diffusive(::Vreman,T) = @vars(∂θ∂Φ::T)
 function init_aux!(::Vreman, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
-  @show(resolutionmetric(geom))
 end
 function dynamic_viscosity_tensor(m::Vreman, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(state)
   ∇u = ∇transform.u
-#  β_temp = (aux.turbulence.Δ .* ∇u) # Given that we have three components to Δ, the spatial distribution 
-#  βij = β_temp'*β_temp
   αijαij = sum(∇u .^ 2)
   βij = (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
