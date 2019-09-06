@@ -111,18 +111,14 @@ function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
   T = eltype(diffusive)
   N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
   Richardson = N² / (normS^2 + eps(normS))
-  if N² <= T(0)
-    T(1) 
-  else  
-    sqrt(max(T(0), T(1) - Richardson*inv_Pr_turb))
-  end 
+  sqrt(clamp(T(1) - Richardson*inv_Pr_turb, T(0), T(1)))
 end
 
-function strain_rate_magnitude(S::SHermitianCompact)
-  sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3])
+function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
+  sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3]^2)
 end
 
-function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
@@ -165,7 +161,7 @@ If Δᵢ = Δ, then β = Δ²αᵀα
 struct Vreman{DT} <: TurbulenceClosure
   C_smag::DT
 end
-vars_aux(::Vreman,T) = @vars(Δ::T, f_b::T)
+vars_aux(::Vreman,T) = @vars(Δ::T)
 vars_gradient(::Vreman,T) = @vars(θ_v::T)
 vars_diffusive(::Vreman,T) = @vars(∂θ∂Φ::T)
 function init_aux!(::Vreman, aux::Vars, geom::LocalGeometry)
@@ -183,5 +179,5 @@ function dynamic_viscosity_tensor(m::Vreman, S, ∇transform::Grad, state::Vars,
   return state.ρ * max(0,(m.C_smag^2 * 2.5) * sqrt(abs(Bβ/(αijαij+eps(αijαij))))) 
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
-  SMatrix{3,3}((-2*ρν) * S)
+  (-2*ρν) * S
 end

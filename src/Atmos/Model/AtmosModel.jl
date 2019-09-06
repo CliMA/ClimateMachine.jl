@@ -60,7 +60,7 @@ function vars_gradient(m::AtmosModel, T)
 end
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
-    ρτ::SVector{9,T}
+    ρτ::SHermitianCompact{3,T,6}
     turbulence::vars_diffusive(m.turbulence,T)
     moisture::vars_diffusive(m.moisture,T)
     radiation::vars_diffusive(m.radiation,T)
@@ -144,9 +144,6 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
 
   # diffusive
   ρτ = diffusive.ρτ
-  ρτ = SMatrix{3,3}(ρτ[1],ρτ[4],ρτ[7],
-                    ρτ[2],ρτ[5],ρτ[8],
-                    ρτ[3],ρτ[6],ρτ[9])
   flux.ρu += ρτ
   flux.ρe += ρτ*u
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
