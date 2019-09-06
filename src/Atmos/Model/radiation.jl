@@ -1,43 +1,66 @@
-abstract type RadiationModel
-end
+using CLIMA.PlanetParameters
 
+abstract type RadiationModel end
 
-vars_state(::RadiationModel, T) = @vars()
-vars_gradient(::RadiationModel, T) = @vars()
-vars_diffusive(::RadiationModel, T) = @vars()
-vars_aux(::RadiationModel, T) = @vars()
-vars_integrals(::RadiationModel, T) = @vars()
+vars_state(::RadiationModel, DT) = @vars()
+vars_gradient(::RadiationModel, DT) = @vars()
+vars_diffusive(::RadiationModel, DT) = @vars()
+vars_aux(::RadiationModel, DT) = @vars()
+vars_integrals(::RadiationModel, DT) = @vars()
 
 function flux!(::RadiationModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+end
+function update_aux!(::RadiationModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
 function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real)
 end
 function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars)
 end
+function flux_nondiffusive!(::RadiationModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+end
 
 struct NoRadiation <: RadiationModel
 end
 
-struct StevensRadiation <: RadiationModel
+"""
+  StevensRadiation <: RadiationModel
+
+Stevens et. al (2005) version of the δ-four stream model used to represent radiative transfer. 
+Analytical description as a function of the liquid water path and inversion height zᵢ
+"""
+struct StevensRadiation{DT} <: RadiationModel
+  "κ [m^2/s] "
+  κ::DT
+  "α_z Troposphere cooling parameter [m^(-4/3)]"
+  α_z::DT
+  "z_i Inversion height [m]"
+  z_i::DT
+  "ρ_i Density"
+  ρ_i::DT
+  "D_subsidence Large scale divergence [s^(-1)]"
+  D_subsidence::DT
+  "F₀ Radiative flux parameter [W/m^2]"
+  F_0::DT
+  "F₁ Radiative flux parameter [W/m^2]"
+  F_1::DT
 end
-vars_aux(m::StevensRadiation) = @vars(z::T, zero_to_z::T, z_to_inf::T)
-
-function flux!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-    T = eltype(flux)
-
-    z_i = T(840)  # Start with constant inversion height of 840 meters then build in check based on q_tot
-    Δz_i = max(aux.z - z_i, zero(T))
-
-    # Constants
-    α_z = T(1)
-    ρ_i = T(1.22)
-    D_subsidence = T(3.75e-6)
-    cloud_top_cooling = T(70) * exp(-aux.z_to_inf)
-    cloud_base_warming = T(22) * exp(-aux.zero_to_z)
-    free_troposphere_cooling = ρ_i * T(cp_d) * D_subsidence * α_z * ((cbrt(Δz_i))^4 / 4 + z_i * cbrt(Δz_i))
-    F_rad = cloud_base_warming + cloud_base_warming + free_troposphere_cooling
-
-    flux.ρe -= SVector(T(0), T(0), state.ρ * F_rad)
+vars_integrals(m::StevensRadiation, DT) = @vars(∂κLWP::DT)
+function integrate_aux!(m::StevensRadiation, integrand::Vars, state::Vars, aux::Vars)
+  DT = eltype(state)
+  integrand.radiation.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
+end
+function flux_nondiffusive!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  DT = eltype(flux)
+  z = aux.orientation.Φ/grav
+  Δz_i = max(z - m.z_i, -zero(DT))
+  # Constants
+  cloud_top_cooling = m.F_0 * exp(-aux.∫dnz.radiation.∂κLWP)
+  cloud_base_warming = m.F_1 * exp(-aux.∫dz.radiation.∂κLWP)
+  free_troposphere_cooling = m.ρ_i * DT(cp_d) * m.D_subsidence * m.α_z * ((cbrt(Δz_i))^4 / 4 + m.z_i * cbrt(Δz_i))
+  F_rad = cloud_base_warming + cloud_base_warming + free_troposphere_cooling
+  flux.ρe += SVector(DT(0), 
+                     DT(0), 
+                     F_rad)
 end
 function preodefun!(m::StevensRadiation, aux::Vars, state::Vars, t::Real)
 end
