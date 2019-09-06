@@ -59,7 +59,7 @@ end
 struct SmagorinskyLilly{T} <: TurbulenceClosure
   C_smag::T
 end
-vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, f_b::T)
+vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
 function init_aux!(::SmagorinskyLilly, aux::Vars, geom::LocalGeometry)
@@ -108,7 +108,7 @@ year = {1962}
 """
 function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
   T = eltype(diffusive)
-  N² = inv(aux.moisture.θ_v * diffusive.turbulence.∂θ∂Φ)
+  N² = inv(aux.moisture.θ_v) * diffusive.turbulence.∂θ∂Φ
   Richardson = N² / (normS^2 + eps(normS))
   sqrt(clamp(T(1) - Richardson*inv_Pr_turb, T(0), T(1)))
 end
