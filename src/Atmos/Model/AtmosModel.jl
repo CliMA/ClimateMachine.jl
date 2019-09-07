@@ -1,35 +1,40 @@
 module Atmos
 
 export AtmosModel,
-       ConstantViscosityWithDivergence, SmagorinskyLilly,
-       DryModel, EquilMoist,
-       NoRadiation,
-       NoFluxBC, InitStateBC, RayleighBenardBC, RisingBubbleBC
+  ConstantViscosityWithDivergence, SmagorinskyLilly,
+  DryModel, EquilMoist,
+  NoRadiation, StevensRadiation,
+  Gravity, RayleighSponge, Subsidence, GeostrophicForcing,
+  NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC,
+  FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
+import ..MoistThermodynamics: internal_energy
+using ..SubgridScaleParameters
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
   flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-  init_aux!, init_state!, update_aux!
+  init_aux!, init_state!, update_aux!, integrate_aux!, LocalGeometry, lengthscale, resolutionmetric
 
 """
     AtmosModel <: BalanceLaw
 
-A `BalanceLaw` for atmosphere modelling.
+A `BalanceLaw` for atmosphere modeling.
 
 # Usage
 
-    AtmosModel(turbulence, moisture, radiation, source, boundarycondition, init_state)
+    AtmosModel(orientation, ref_state, turbulence, moisture, radiation, source, boundarycondition, init_state)
 
 """
-struct AtmosModel{T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
+  orientation::O
+  ref_state::RS
   turbulence::T
   moisture::M
   radiation::R
-  # TODO: a better mechanism than functions.
   source::S
   boundarycondition::BC
   init_state::IS
@@ -56,8 +61,7 @@ function vars_gradient(m::AtmosModel, T)
 end
 function vars_diffusive(m::AtmosModel, T)
   @vars begin
-    ρτ::SVector{6,T}
-    ρ_SGS_enthalpyflux::SVector{3,T}
+    ρτ::SHermitianCompact{3,T,6}
     turbulence::vars_diffusive(m.turbulence,T)
     moisture::vars_diffusive(m.moisture,T)
     radiation::vars_diffusive(m.radiation,T)
@@ -65,25 +69,31 @@ function vars_diffusive(m::AtmosModel, T)
 end
 function vars_aux(m::AtmosModel, T)
   @vars begin
+    ∫dz::vars_integrals(m, T)
+    ∫dnz::vars_integrals(m, T)
     coord::SVector{3,T}
+    orientation::vars_aux(m.orientation, T)
+    ref_state::vars_aux(m.ref_state,T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
   end
 end
+function vars_integrals(m::AtmosModel,T)
+  @vars begin
+    radiation::vars_integrals(m.radiation,T)
+  end
+end
 
 """
     flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-
 Computes flux `F` in:
-
 ```
 ∂Y
 -- = - ∇ • (F_{adv} + F_{press} + F_{nondiff} + F_{diff}) + S(Y)
 ∂t
 ```
 Where
-
  - `F_{adv}`      Advective flux                                  , see [`flux_advective!`]@ref()    for this term
  - `F_{press}`    Pressure flux                                   , see [`flux_pressure!`]@ref()     for this term
  - `F_{nondiff}`  Fluxes that do *not* contain gradients          , see [`flux_nondiffusive!`]@ref() for this term
@@ -92,7 +102,7 @@ Where
 function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   flux_advective!(m, flux, state, diffusive, aux, t)
   flux_pressure!(m, flux, state, diffusive, aux, t)
-  # flux_nondiffusive!(m, flux, state, diffusive, aux, t)
+  flux_nondiffusive!(m, flux, state, diffusive, aux, t)
   flux_diffusive!(m, flux, state, diffusive, aux, t)
 end
 
@@ -118,20 +128,18 @@ function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars,
   flux.ρe += u*p
 end
 
-# function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-# end
+function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  flux_nondiffusive!(m.radiation, flux, state, diffusive, aux,t)
+end
 
 function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
 
   # diffusive
-  ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffusive.ρτ
-  ρτ = SMatrix{3,3}(ρτ11, ρτ12, ρτ13,
-                    ρτ12, ρτ22, ρτ23,
-                    ρτ13, ρτ23, ρτ33)
+  ρτ = diffusive.ρτ
   flux.ρu += ρτ
-  flux.ρe += ρτ*u + diffusive.ρ_SGS_enthalpyflux
+  flux.ρe += ρτ*u + diffusive.moisture.ρd_h_tot
 
   # moisture-based diffusive fluxes
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
@@ -155,52 +163,56 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   R_m = gas_constant_air(thermo_state(m.moisture, state, aux))
   transform.total_enthalpy = e_tot + R_m * aux.moisture.temperature
   gradvariables!(m.moisture, transform, state, aux, t)
+  gradvariables!(m.turbulence, transform, state, aux, t)
+end
+
+
+function symmetrize(X::StaticArray{Tuple{3,3}})
+  SHermitianCompact(SVector(X[1,1], (X[2,1] + X[1,2])/2, (X[3,1] + X[1,3])/2, X[2,2], (X[3,2] + X[2,3])/2, X[3,3]))
 end
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   T = eltype(state)
   ∇u = ∇transform.u
-
   # strain rate tensor
-  # TODO: we use an SVector for this, but should define a "SymmetricSMatrix"?
-  S = SVector(∇u[1,1],
-              ∇u[2,2],
-              ∇u[3,3],
-              (∇u[1,2] + ∇u[2,1])/2,
-              (∇u[1,3] + ∇u[3,1])/2,
-              (∇u[2,3] + ∇u[3,2])/2)
-
+  S = symmetrize(∇u)
   # kinematic viscosity tensor
-  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, aux, t)
-  Prandtl_t = T(1/3)
-  ρD_T = ρν ./ Prandtl_t
-
+  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, aux, t)
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
-
-  diffusive.ρ_SGS_enthalpyflux = (-ρD_T) .* ∇transform.total_enthalpy # diffusive flux of total energy
   # diffusivity of moisture components
-  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν)
+  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρν, inv_Pr_turb)
+  # diffusion terms required for SGS turbulence computations
+  diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρν)
 end
 
 function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   update_aux!(m.moisture, state, diffusive, aux, t)
 end
 
+function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+  integrate_aux!(m.radiation, integ, state, aux)
+end
+
+include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
 include("radiation.jl")
+include("orientation.jl")
+include("source.jl")
+include("boundaryconditions.jl")
 
 # TODO: figure out a nice way to handle this
-function init_aux!(::AtmosModel, aux::Vars, x)
-  aux.coord = SVector(x)
+function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
+  aux.coord = geom.coord
+  init_aux!(m.orientation, aux, geom)
+  init_aux!(m.ref_state, aux)
+  init_aux!(m.turbulence, aux, geom)
 end
 
 """
     source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-
 Computes flux `S(Y)` in:
-
 ```
 ∂Y
 -- = - ∇ • F + S(Y)
@@ -208,84 +220,15 @@ Computes flux `S(Y)` in:
 ```
 """
 function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  fill!(getfield(source, :array), zero(eltype(source)))
-  m.source(source, state, aux, t)
+  atmos_source!(m.source, m, source, state, aux, t)
 end
 
-
-# TODO: figure out a better interface for this.
-# at the moment we can just pass a function, but we should do something better
-# need to figure out how subcomponents will interact.
-function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
-  m.boundarycondition(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
-end
-
-abstract type BoundaryCondition
-end
-
-"""
-    NoFluxBC <: BoundaryCondition
-
-Set the momentum at the boundary to be zero.
-"""
-struct NoFluxBC <: BoundaryCondition
-end
-function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: NoFluxBC,IS}
-
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * nM
-end
-
-"""
-    InitStateBC <: BoundaryCondition
-
-Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
-"""
-struct InitStateBC <: BoundaryCondition
-end
-function boundarycondition!(m::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: InitStateBC,IS}
-  init_state!(m, stateP, auxP, auxP.coord, t)
+function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars,diff1::Vars,aux1::Vars)
+  atmos_boundarycondition!(m.boundarycondition, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t, state1, diff1, aux1)
 end
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
   m.init_state(state, aux, coords, t)
 end
 
-
-"""
-  RayleighBenardBC <: BoundaryCondition
-"""
-struct RayleighBenardBC <: BoundaryCondition
-end
-# Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function boundarycondition!(bl::AtmosModel{T,M,R,S,BC,IS}, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t) where {T,M,R,S,BC <: RayleighBenardBC,IS}
-  @inbounds begin
-    DF = eltype(stateP)
-    xM, yM, zM = auxM.coord[1], auxM.coord[2], auxM.coord[3]
-    ρP  = stateM.ρ
-    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
-    # Weak Boundary Condition Imposition
-    # Prescribe no-slip wall.
-    # Note that with the default resolution this results in an underresolved near-wall layer
-    # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
-    # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
-    UP  = DF(0)
-    VP  = DF(0) 
-    WP  = DF(0) 
-    if zM < DF(0.001)
-      E_intP = ρP * cv_d * (320.0 - T_0)
-    else
-      E_intP = ρP * cv_d * (240.0 - T_0) 
-    end
-    stateP.ρ = ρP
-    stateP.ρu = SVector(UP, VP, WP)
-    stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * grav * zM)
-    diffP = diffM
-    diffP.ρτ = SVector(ρτ11, ρτ22, DF(0), ρτ12, ρτ13,ρτ23)
-    diffP.ρ_SGS_enthalpyflux = SVector(diffP.ρ_SGS_enthalpyflux[1], diffP.ρ_SGS_enthalpyflux[2], DF(0))
-    nothing
-  end
-end
 end # module

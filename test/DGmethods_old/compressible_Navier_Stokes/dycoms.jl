@@ -37,7 +37,7 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
-using CLIMA.Vtk
+using CLIMA.VTK
 #md nothing # hide
 
 # The prognostic equations are conservations laws solved with respect to

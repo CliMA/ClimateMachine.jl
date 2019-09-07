@@ -14,6 +14,7 @@ using ..PlanetParameters
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
+export linearized_air_pressure
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -35,7 +36,7 @@ export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, P
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_liquid_ice_pottemp, dry_pottemp, virtual_pottemp, exner
-export liquid_ice_pottemp, liquid_ice_pottemp_sat
+export liquid_ice_pottemp, liquid_ice_pottemp_sat, relative_humidity
 
 include("states.jl")
 
@@ -85,6 +86,29 @@ air_pressure(ts::ThermodynamicState) =
   air_pressure(air_temperature(ts), air_density(ts), PhasePartition(ts))
 air_pressure(ts::PhaseDry) = air_density(ts) * gas_constant_air(ts) * air_temperature(ts)
 
+"""
+    linearized_air_pressure(ρ, e_tot, e_pot[, q::PhasePartition])
+
+The air pressure, linearized around a dry rest state, from the equation of state
+(ideal gas law) where:
+
+ - `ρ` (moist-)air density
+ - `e_tot` total energy per unit mass
+ - `e_pot` potential energy per unit mass
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
+"""
+linearized_air_pressure(ρ::DT, e_tot::DT, e_pot::DT, q::PhasePartition{DT}=PhasePartition{DT}(DT(0), DT(0), DT(0))) where {DT<:Real} =
+  ρ*DT(R_d)*DT(T_0) + DT(R_d)/DT(cv_d)*(ρ*e_tot - ρ*e_pot - (ρ*q.tot - ρ*q.liq)*DT(e_int_v0) + ρ*q.ice*(DT(e_int_i0) + DT(e_int_v0)))
+
+linearized_air_pressure(e_kin::DT, e_pot::DT, ts::ThermodynamicState{DT}) where {DT<:Real} =
+  linearized_air_pressure(air_density(ts), total_energy(e_kin, e_pot, ts), e_pot, PhasePartition(ts))
+
+function linearized_air_pressure(e_kin::DT, e_pot::DT, ts::PhaseDry{DT}) where {DT<:Real}
+  ρ = air_density(ts)
+  e_tot = total_energy(e_kin, e_pot, ts)
+  return ρ*DT(R_d)*DT(T_0) + DT(R_d)/DT(cv_d)*(ρ*e_tot - ρ*e_pot)
+end
 
 """
     air_density(T, p[, q::PhasePartition])
@@ -407,7 +431,7 @@ specific heat capacities (heat capacity in the higher-temperature phase minus
 that in the lower-temperature phase).
 """
 latent_heat_generic(T::DT, LH_0::DT, Δcp::DT) where {DT<:Real} =
-  LH_0 + Δcp * (T - T_0)
+  LH_0 + Δcp * (T - DT(T_0))
 
 
 """
@@ -689,11 +713,9 @@ function PhasePartition_equil(T::DT, ρ::DT, q_tot::DT) where {DT<:Real}
 
     return PhasePartition(q_tot, q_liq, q_ice)
 end
+PhasePartition_equil(ts::PhaseNonEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 
-function PhasePartition(ts::PhaseDry{DT}) where {DT<:Real}
-  @warn "Computing `PhasePartition` of a dry `ThermodynamicState` is inefficient. Please use higher-level function calls (e.g., with `ThermodynamicState`) instead."
-  return PhasePartition(DT(0), DT(0), DT(0))
-end
+PhasePartition(ts::PhaseDry{DT}) where {DT<:Real} = PhasePartition(DT(0), DT(0), DT(0))
 PhasePartition(ts::PhaseEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
@@ -865,7 +887,7 @@ liquid_ice_pottemp_sat(ts::PhaseDry) =
 """
     exner(p[, q::PhasePartition])
 
-Compute the Exner function where
+The Exner function where
  - `p` pressure
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
@@ -881,11 +903,17 @@ end
 """
     exner(ts::ThermodynamicState)
 
-Compute the Exner function, given a thermodynamic state `ts`.
+The Exner function, given a thermodynamic state `ts`.
 """
 exner(ts::ThermodynamicState) =
   exner(air_pressure(ts), PhasePartition(ts))
 exner(ts::PhaseDry{DT}) where {DT<:Real} = (air_pressure(ts)/DT(MSLP))^(gas_constant_air(ts)/cp_m(ts))
 
+"""
+    relative_humidity(ts::ThermodynamicState)
+
+The relative humidity, given a thermodynamic state `ts`.
+"""
+relative_humidity(ts::ThermodynamicState) = air_pressure(ts)/saturation_vapor_pressure(ts, Liquid())
 
 end #module MoistThermodynamics.jl

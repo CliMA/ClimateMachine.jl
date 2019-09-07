@@ -47,6 +47,7 @@ const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM,
                 vMIid = _vMI)
 # }}}
 
+
 """
     DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
                                      polynomialorder,

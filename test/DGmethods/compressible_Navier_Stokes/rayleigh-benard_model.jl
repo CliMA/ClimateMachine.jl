@@ -16,7 +16,7 @@ using CLIMA.PlanetParameters
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.Vtk
+using CLIMA.VTK
 using Random
 
 @static if haspkg("CuArrays")
@@ -95,10 +95,14 @@ function run(mpicomm, ArrayType,
                                           polynomialorder = polynomialorder
                                            )
   # -------------- Define model ---------------------------------- # 
-  model = AtmosModel(SmagorinskyLilly(DF(C_smag), DF(Δ)), 
-                     DryModel(), 
+  model = AtmosModel(FlatOrientation(),
+                     NoReferenceState(),
+                     SmagorinskyLilly{DF}(C_smag), 
+                     EquilMoist(), 
                      NoRadiation(),
-                     source_geopot!, RayleighBenardBC(), initialise_rayleigh_benard!)
+                     Gravity(), 
+                     RayleighBenardBC{DF}(320,240), 
+                     initialise_rayleigh_benard!)
   # -------------- Define dgbalancelaw --------------------------- # 
   dg = DGModel(model,
                grid,
