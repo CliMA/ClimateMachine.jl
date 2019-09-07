@@ -10,7 +10,7 @@ vars_gradient(::TurbulenceClosure, T) = @vars()
 vars_diffusive(::TurbulenceClosure, T) = @vars()
 vars_aux(::TurbulenceClosure, T) = @vars()
 
-function init_aux!(::TurbulenceClosure, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::TurbulenceClosure, ::AtmosModel, aux::Vars, geom::LocalGeometry)
 end
 function update_aux!(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
@@ -62,7 +62,7 @@ end
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
-function init_aux!(::SmagorinskyLilly, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)

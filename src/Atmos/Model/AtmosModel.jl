@@ -195,9 +195,9 @@ include("boundaryconditions.jl")
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.coord = geom.coord
-  init_aux!(m.orientation, aux, geom)
-  init_aux!(m.ref_state, aux)
-  init_aux!(m.turbulence, aux, geom)
+  atmos_init_aux!(m.orientation, m, aux, geom)
+  atmos_init_aux!(m.ref_state, m, aux, geom)
+  atmos_init_aux!(m.turbulence, m, aux, geom)
 end
 
 """
