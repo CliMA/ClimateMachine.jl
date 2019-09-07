@@ -14,7 +14,7 @@ vars_state(m::ReferenceState    , DT) = @vars()
 vars_gradient(m::ReferenceState , DT) = @vars()
 vars_diffusive(m::ReferenceState, DT) = @vars()
 vars_aux(m::ReferenceState, DT) = @vars()
-init_aux!(m::ReferenceState, aux::Vars) = nothing
+atmos_init_aux!(::ReferenceState, ::AtmosModel, aux::Vars, geom::LocalGeometry) = nothing
 
 """
     NoReferenceState <: ReferenceState
@@ -38,8 +38,8 @@ end
 vars_aux(m::HydrostaticState, DT) = @vars(ρ::DT, p::DT, T::DT, ρe::DT, ρq_tot::DT)
 
 
-function init_aux!(m::HydrostaticState{P,F}, aux::Vars) where {P,F}
-  T,p = m.temperatureprofile(aux.orientation)
+function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars) where {P,F}
+  T,p = m.temperatureprofile(atmos.orientation, aux)
   aux.ref_state.T = T
   aux.ref_state.p = p
   aux.ref_state.ρ = ρ = p/(R_d*T)
@@ -51,9 +51,11 @@ function init_aux!(m::HydrostaticState{P,F}, aux::Vars) where {P,F}
   aux.ref_state.ρe = ρ * internal_energy(T, q_pt)
 
   e_kin = F(0)
-  e_pot = aux.orientation.Φ
+  e_pot = gravitational_potential(orientation, aux)
   aux.ref_state.ρe = ρ*total_energy(e_kin, e_pot, T, q_pt)
 end
+
+
 
 """
     TemperatureProfile
@@ -62,7 +64,7 @@ Specifies the temperature profile for a reference state.
 
 Instances of this type are required to be callable objects with the following signature
 
-    T,p = (::TemperatureProfile)(orientation::Orientation)
+    T,p = (::TemperatureProfile)(orientation::Orientation, aux::Vars)
 
 where `T` is the temperature (in K), and `p` is the pressure (in hPa).
 """
@@ -84,8 +86,8 @@ struct IsothermalProfile{F} <: TemperatureProfile
   T::F
 end
 
-function (profile::IsothermalProfile)(orientation)
-  p = MSLP * exp(-orientation.Φ/(R_d*profile.T))
+function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
+  p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T))
   return (profile.T, p)
 end
 
@@ -111,8 +113,8 @@ struct LinearTemperatureProfile{F} <: TemperatureProfile
   Γ::F
 end
 
-function (profile::LinearTemperatureProfile)(orientation)
-  z = orientation.Φ / grav
+function (profile::LinearTemperatureProfile)(orientation::Orientation, aux::Vars)
+  z = altitude(orientation, aux)
   T = max(profile.T_surface - profile.Γ*z, profile.T_min)
 
   p = (T/profile.T_surface)^(grav/(R_d*profile.Γ))
