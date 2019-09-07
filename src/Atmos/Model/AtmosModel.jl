@@ -98,14 +98,14 @@ Where
  - `F_{nondiff}`  Fluxes that do *not* contain gradients          , see [`flux_nondiffusive!`]@ref() for this term
  - `F_{diff}`     Fluxes that contain gradients of state variables, see [`flux_diffusive!`]@ref()    for this term
 """
-function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   flux_advective!(m, flux, state, diffusive, aux, t)
   flux_pressure!(m, flux, state, diffusive, aux, t)
   flux_nondiffusive!(m, flux, state, diffusive, aux, t)
   flux_diffusive!(m, flux, state, diffusive, aux, t)
 end
 
-function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -116,7 +116,7 @@ function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
   flux.ρe  = u * state.ρe
 end
 
-function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -131,7 +131,7 @@ function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::V
   flux_nondiffusive!(m.radiation, flux, state, diffusive, aux,t)
 end
 
-function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
 
@@ -142,7 +142,7 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
 end
 
-function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
+@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
