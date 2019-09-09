@@ -17,7 +17,7 @@ end
 function gradvariables!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
-function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
+@inline function internal_energy(m::MoistureModel, state::Vars, aux::Vars)
   T = eltype(state)
   ρinv = 1 / state.ρ
   q_pt = get_phase_partition(m, state)
@@ -44,7 +44,7 @@ struct DryModel <: MoistureModel
 end
 
 vars_aux(::DryModel,T) = @vars(e_int::T, temperature::T, θ_v::T)
-function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function update_aux!(m::DryModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
   TS = PhaseDry(aux.moisture.e_int, state.ρ)
   aux.moisture.θ_v = virtual_pottemp(TS)
@@ -65,7 +65,7 @@ vars_gradient(::EquilMoist,T) = @vars(q_tot::T, h_tot::T)
 vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρd_h_tot::SVector{3,T})
 vars_aux(::EquilMoist,T) = @vars(e_int::T, temperature::T, θ_v::T, q_liq::T)
 
-function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function update_aux!(m::EquilMoist, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   aux.moisture.e_int = internal_energy(m, state, aux)
   TS = PhaseEquil(aux.moisture.e_int, get_phase_partition(m, state).tot, state.ρ)
 
