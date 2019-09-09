@@ -1,7 +1,7 @@
 module Atmos
 
 export AtmosModel,
-  ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman,
+  ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss,
   DryModel, EquilMoist,
   NoRadiation, StevensRadiation,
   Gravity, RayleighSponge, Subsidence, GeostrophicForcing,
