@@ -35,7 +35,7 @@ end
 include("mms_solution_generated.jl")
 
 using CLIMA.Atmos
-using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
+using CLIMA.Atmos: internal_energy, thermo_state
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
 
 """
