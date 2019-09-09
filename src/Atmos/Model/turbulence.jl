@@ -176,3 +176,48 @@ end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S
 end
+
+"""
+  AnisoMinDiss{DT} <: TurbulenceClosure
+  
+  §1.3.2 in CLIMA documentation 
+Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Poincare coefficient
+is specified and used to compute the equivalent AnisoMinDiss coefficient. 
+
+@article{PhysRevFluids.1.041701,
+title = {Minimum-dissipation scalar transport model for large-eddy simulation of turbulent flows},
+author = {Abkar, Mahdi and Bae, Hyun J. and Moin, Parviz},
+journal = {Phys. Rev. Fluids},
+volume = {1},
+issue = {4},
+pages = {041701},
+numpages = {10},
+year = {2016},
+month = {Aug},
+publisher = {American Physical Society},
+doi = {10.1103/PhysRevFluids.1.041701},
+url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
+}
+
+"""
+struct AnisoMinDiss{DT} <: TurbulenceClosure
+  C_poincare::DT
+end
+vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
+vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::T)
+vars_diffusive(::AnisoMinDiss,T) = @vars(∂θ∂Φ::T)
+function init_aux!(::AnisoMinDiss, aux::Vars, geom::LocalGeometry)
+  aux.turbulence.Δ = lengthscale(geom)
+end
+function dynamic_viscosity_tensor(m::AnisoMinDiss, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  DT = eltype(state)
+  ∇u = ∇transform.u
+  αijαij = dot(∇u,∇u)
+  coeff = (aux.turbulence.Δ * m.C_poincare)^2
+  βij = -(∇u' * ∇u)
+  ν_e = coeff * abs(dot(βij, S) / (αijαij + eps(αijαij)))
+  return state.ρ * ν_e
+end
+function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)
+  (-2*ρν) * S
+end
