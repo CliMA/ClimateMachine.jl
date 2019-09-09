@@ -3,9 +3,9 @@ module Atmos
 export AtmosModel,
   ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman,
   DryModel, EquilMoist,
-  NoRadiation,
-  Gravity,
-  NoFluxBC, InitStateBC, 
+  NoRadiation, StevensRadiation,
+  Gravity, RayleighSponge, Subsidence, GeostrophicForcing,
+  NoFluxBC, InitStateBC, DYCOMS_BC,
   FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
@@ -66,18 +66,10 @@ function vars_diffusive(m::AtmosModel, T)
     radiation::vars_diffusive(m.radiation,T)
   end
 end
-
-function vars_integrals(m::AtmosModel, T)
-  @vars begin
-    radiation::vars_integrals(m.radiation, T)
-  end
-end
-
-
 function vars_aux(m::AtmosModel, T)
   @vars begin
-    ∫dz::vars_integrals(m,T)
-    ∫dnz::vars_integrals(m,T)
+    ∫dz::vars_integrals(m, T)
+    ∫dnz::vars_integrals(m, T)
     coord::SVector{3,T}
     orientation::vars_aux(m.orientation, T)
     ref_state::vars_aux(m.ref_state,T)
@@ -86,34 +78,34 @@ function vars_aux(m::AtmosModel, T)
     radiation::vars_aux(m.radiation,T)
   end
 end
-
-
+function vars_integrals(m::AtmosModel,T)
+  @vars begin
+    radiation::vars_integrals(m.radiation,T)
+  end
+end
 
 """
     flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-
 Computes flux `F` in:
-
 ```
 ∂Y
 -- = - ∇ • (F_{adv} + F_{press} + F_{nondiff} + F_{diff}) + S(Y)
 ∂t
 ```
 Where
-
  - `F_{adv}`      Advective flux                                  , see [`flux_advective!`]@ref()    for this term
  - `F_{press}`    Pressure flux                                   , see [`flux_pressure!`]@ref()     for this term
  - `F_{nondiff}`  Fluxes that do *not* contain gradients          , see [`flux_nondiffusive!`]@ref() for this term
  - `F_{diff}`     Fluxes that contain gradients of state variables, see [`flux_diffusive!`]@ref()    for this term
 """
-function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   flux_advective!(m, flux, state, diffusive, aux, t)
   flux_pressure!(m, flux, state, diffusive, aux, t)
-  # flux_nondiffusive!(m, flux, state, diffusive, aux, t)
+  flux_nondiffusive!(m, flux, state, diffusive, aux, t)
   flux_diffusive!(m, flux, state, diffusive, aux, t)
 end
 
-function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -124,7 +116,7 @@ function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
   flux.ρe  = u * state.ρe
 end
 
-function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -135,10 +127,11 @@ function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars,
   flux.ρe += u*p
 end
 
-# function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-# end
+function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  flux_nondiffusive!(m.radiation, flux, state, diffusive, aux,t)
+end
 
-function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
 
@@ -149,7 +142,7 @@ function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
 end
 
-function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
+@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
@@ -168,7 +161,6 @@ end
 function symmetrize(X::StaticArray{Tuple{3,3}})
   SHermitianCompact(SVector(X[1,1], (X[2,1] + X[1,2])/2, (X[3,1] + X[1,3])/2, X[2,2], (X[3,2] + X[2,3])/2, X[3,3]))
 end
-
 
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   ∇u = ∇transform.u
@@ -210,9 +202,7 @@ end
 
 """
     source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-
 Computes flux `S(Y)` in:
-
 ```
 ∂Y
 -- = - ∇ • F + S(Y)
@@ -223,9 +213,8 @@ function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   atmos_source!(m.source, m, source, state, aux, t)
 end
 
-
-function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
-  atmos_boundarycondition!(m.boundarycondition, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
+function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars,diff1::Vars,aux1::Vars)
+  atmos_boundarycondition!(m.boundarycondition, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t, state1, diff1, aux1)
 end
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)

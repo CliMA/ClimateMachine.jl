@@ -87,7 +87,7 @@ function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
   return abs(nM[1] * u + nM[2] * v + nM[3] * w) + sqrt(ρinv * γ * P)
 end
 
-function boundarycondition!(bl::MMSModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
+function boundarycondition!(bl::MMSModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...)
   init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
