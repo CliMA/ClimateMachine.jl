@@ -1,4 +1,4 @@
-module Vtk
+module VTK
 
 export writevtk, writepvtu
 

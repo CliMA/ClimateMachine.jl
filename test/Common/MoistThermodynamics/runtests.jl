@@ -4,7 +4,7 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
-@testset "moist thermodynamics" begin
+@testset "moist thermodynamics - correctness" begin
   DT = Float64
   # ideal gas law
   @test air_pressure(DT(1), DT(1), PhasePartition(DT(1))) === DT(R_v)
@@ -115,10 +115,15 @@ using LinearAlgebra
   # Exner function. FIXME: add correctness tests
   p=DT(1.e5); q_tot=DT(0.23)
   @test exner(p, PhasePartition(q_tot)) isa typeof(p)
+end
+
+@testset "moist thermodynamics - type-stability" begin
 
   DT = Float32
   ρ = DT(1.0)
   p = DT(1000.0*100)
+  e_kin = DT(5.0)
+  e_pot = DT(100.0)
   e_int = DT(2.0)
   q_tot = DT(0.01)
   q_ice = DT(0.001)
@@ -127,13 +132,16 @@ using LinearAlgebra
   θ_liq_ice = DT(300.0)
   ts_eq = PhaseEquil(e_int, q_tot, ρ)
   ts_dry = PhaseDry(e_int, ρ)
+  ts_T = TemperatureSHumEquil(air_temperature(ts_dry), q_pt.tot, air_pressure(ts_dry))
   ts_neq = PhaseNonEquil(e_int, PhasePartition(q_tot, q_liq, q_ice), ρ)
   ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
   ts_θ_liq_ice_eq_no_ρ = LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_tot, p)
   ts_θ_liq_ice_eq_no_ρ_q_pt = LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_pt, p)
-  for ts in (ts_eq, ts_dry, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_no_ρ, ts_θ_liq_ice_eq_no_ρ_q_pt)
+  for ts in (ts_eq, ts_dry, ts_T, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_no_ρ, ts_θ_liq_ice_eq_no_ρ_q_pt)
+    @test linearized_air_pressure(e_kin, e_pot, ts) isa typeof(e_int)
     @test soundspeed_air(ts) isa typeof(e_int)
     @test gas_constant_air(ts) isa typeof(e_int)
+    @test relative_humidity(ts) isa typeof(e_int)
     @test air_pressure(ts) isa typeof(e_int)
     @test air_density(ts) isa typeof(e_int)
     @test cp_m(ts) isa typeof(e_int)
@@ -157,28 +165,56 @@ using LinearAlgebra
     @test specific_volume(ts) isa typeof(e_int)
     @test virtual_pottemp(ts) isa typeof(e_int)
   end
+end
+
+@testset "moist thermodynamics - dry limit" begin
 
   e_int_range = -6.5e4:10000:4.5e4
   ρ_range = 0.1:0.5:2.0
+
+  DT = eltype(ρ_range)
+  e_kin = DT(10)
+  e_pot = DT(100.0)
+  # PhasePartition test is noisy, so do this only once:
+  ts_dry = PhaseDry(first(e_int_range), first(ρ_range))
+  ts_eq  = PhaseEquil(first(e_int_range), typeof(first(ρ_range))(0), first(ρ_range))
+  @test PhasePartition(ts_eq).tot                  ≈ PhasePartition(ts_dry).tot
+  @test PhasePartition(ts_eq).liq                  ≈ PhasePartition(ts_dry).liq
+  @test PhasePartition(ts_eq).ice                  ≈ PhasePartition(ts_dry).ice
+
   for e_int in e_int_range
     for ρ in ρ_range
       ts_dry = PhaseDry(e_int, ρ)
       ts_eq  = PhaseEquil(e_int, typeof(ρ)(0), ρ)
 
-      @test soundspeed_air(ts_eq)           ≈ soundspeed_air(ts_dry)
-      @test air_pressure(ts_eq)             ≈ air_pressure(ts_dry)
-      @test cv_m(ts_eq)                     ≈ cv_m(ts_dry)
-      @test air_temperature(ts_eq)          ≈ air_temperature(ts_dry)
-      @test latent_heat_vapor(ts_eq)        ≈ latent_heat_vapor(ts_dry)
-      @test latent_heat_sublim(ts_eq)       ≈ latent_heat_sublim(ts_dry)
-      @test latent_heat_fusion(ts_eq)       ≈ latent_heat_fusion(ts_dry)
-      @test q_vap_saturation(ts_eq)         ≈ q_vap_saturation(ts_dry)
-      @test liquid_ice_pottemp(ts_eq)       ≈ liquid_ice_pottemp(ts_dry)
-      @test dry_pottemp(ts_eq)              ≈ dry_pottemp(ts_dry)
-      @test exner(ts_eq)                    ≈ exner(ts_dry)
-      @test liquid_ice_pottemp_sat(ts_eq)   ≈ liquid_ice_pottemp_sat(ts_dry)
-      @test virtual_pottemp(ts_eq)          ≈ virtual_pottemp(ts_dry)
-
+      @test linearized_air_pressure(DT(0), e_pot, ts_dry) ≈ air_pressure(ts_dry)
+      @test linearized_air_pressure(e_kin, e_pot, ts_eq)  ≈ linearized_air_pressure(e_kin, e_pot, ts_dry)
+      @test gas_constant_air(ts_eq)                       ≈ gas_constant_air(ts_dry)
+      @test relative_humidity(ts_eq)                      ≈ relative_humidity(ts_dry)
+      @test air_pressure(ts_eq)                           ≈ air_pressure(ts_dry)
+      @test air_density(ts_eq)                            ≈ air_density(ts_dry)
+      @test specific_volume(ts_eq)                        ≈ specific_volume(ts_dry)
+      @test cp_m(ts_eq)                                   ≈ cp_m(ts_dry)
+      @test cv_m(ts_eq)                                   ≈ cv_m(ts_dry)
+      @test air_temperature(ts_eq)                        ≈ air_temperature(ts_dry)
+      @test internal_energy(ts_eq)                        ≈ internal_energy(ts_dry)
+      @test internal_energy_sat(ts_eq)                    ≈ internal_energy_sat(ts_dry)
+      @test soundspeed_air(ts_eq)                         ≈ soundspeed_air(ts_dry)
+      @test latent_heat_vapor(ts_eq)                      ≈ latent_heat_vapor(ts_dry)
+      @test latent_heat_sublim(ts_eq)                     ≈ latent_heat_sublim(ts_dry)
+      @test latent_heat_fusion(ts_eq)                     ≈ latent_heat_fusion(ts_dry)
+      @test q_vap_saturation(ts_eq)                       ≈ q_vap_saturation(ts_dry)
+      @test saturation_excess(ts_eq)                      ≈ saturation_excess(ts_dry)
+      @test liquid_fraction_equil(ts_eq)                  ≈ liquid_fraction_equil(ts_dry)
+      @test liquid_fraction_nonequil(ts_eq)               ≈ liquid_fraction_nonequil(ts_dry)
+      @test liquid_ice_pottemp(ts_eq)                     ≈ liquid_ice_pottemp(ts_dry)
+      @test dry_pottemp(ts_eq)                            ≈ dry_pottemp(ts_dry)
+      @test virtual_pottemp(ts_eq)                        ≈ virtual_pottemp(ts_dry)
+      @test liquid_ice_pottemp_sat(ts_eq)                 ≈ liquid_ice_pottemp_sat(ts_dry)
+      @test exner(ts_eq)                                  ≈ exner(ts_dry)
+      @test saturation_vapor_pressure(ts_eq, Ice())       ≈ saturation_vapor_pressure(ts_dry, Ice())
+      @test saturation_vapor_pressure(ts_eq, Liquid())    ≈ saturation_vapor_pressure(ts_dry, Liquid())
+      @test all(moist_gas_constants(ts_eq)               .≈ moist_gas_constants(ts_dry))
     end
   end
 

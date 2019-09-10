@@ -30,7 +30,7 @@ using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.Vtk
+using CLIMA.VTK
 using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
 

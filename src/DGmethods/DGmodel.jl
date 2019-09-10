@@ -1,7 +1,8 @@
-struct DGModel{BL,G,NF,GNF}
+struct DGModel{BL,G,NFND,NFD,GNF}
   balancelaw::BL
   grid::G
-  divnumflux::NF
+  numfluxnondiff::NFND
+  numfluxdiff::NFD
   gradnumflux::GNF
 end
 
@@ -36,16 +37,36 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
 
   Np = dofs_per_element(grid)
 
+  # do integrals
+  nintegrals = num_integrals(bl, DFloat)
+  if nintegrals > 0
+    nelem = length(topology.elems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nelem, nvertelem)
+
+    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+      knl_indefinite_stack_integral!(bl, Val(dim), Val(polyorder), 
+                                 Val(nvertelem),
+                                 Q.Q, auxstate.Q, vgeo, grid.Imat,
+                                 1:nhorzelem, Val(nintegrals)))
+
+    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+      knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
+                                 Val(nvertelem), auxstate.Q,
+                                 1:nhorzelem, Val(nintegrals)))
+  end
+
   ### update aux variables
   if hasmethod(update_aux!, Tuple{typeof(bl), Vars, Vars, Vars, DFloat})
     @launch(device, threads=(Np,), blocks=nrealelem,
-      knl_apply_aux!(bl, Val(dim), Val(polyorder), update_aux!, Q.Q, Qvisc.Q, auxstate.Q, t, topology.realelems)) 
+      knl_apply_aux!(bl, Val(dim), Val(polyorder), update_aux!, Q.Q, Qvisc.Q, auxstate.Q, t, topology.realelems))
   end
 
   ########################
   # Gradient Computation #
   ########################
   MPIStateArrays.start_ghost_exchange!(Q)
+  MPIStateArrays.start_ghost_exchange!(auxstate)
 
   if nviscstate > 0
 
@@ -54,9 +75,10 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
                              topology.realelems))
 
     MPIStateArrays.finish_ghost_recv!(Q)
+    MPIStateArrays.finish_ghost_recv!(auxstate)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux, 
+            faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux,
                            Q.Q, Qvisc.Q, auxstate.Q,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
@@ -72,7 +94,12 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
                      vgeo, t, lgl_weights_vec, Dmat,
                      topology.realelems, increment))
 
-  MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
+  if nviscstate > 0
+    MPIStateArrays.finish_ghost_recv!(Qvisc)
+  else
+    MPIStateArrays.finish_ghost_recv!(Q)
+    MPIStateArrays.finish_ghost_recv!(auxstate)
+  end
 
   # The main reason for this protection is not for the MPI.Waitall!, but the
   # make sure that we do not recopy data to the GPU
@@ -80,7 +107,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder), dg.divnumflux,
+          facerhs!(bl, Val(dim), Val(polyorder),
+                   dg.numfluxnondiff,
+                   dg.numfluxdiff,
                    dQdt.Q, Q.Q, Qvisc.Q,
                    auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
@@ -104,7 +133,7 @@ function init_ode_param(dg::DGModel)
   grid = dg.grid
   topology = grid.topology
   Np = dofs_per_element(grid)
-  
+
   h_vgeo = Array(grid.vgeo)
   DFloat = eltype(h_vgeo)
   DA = arraytype(grid)
@@ -114,17 +143,18 @@ function init_ode_param(dg::DGModel)
 
 
 
-  
+
   # TODO: Clean up this MPIStateArray interface...
   diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
     topology.mpicomm,
     length(topology.elems),
     realelems=topology.realelems,
     ghostelems=topology.ghostelems,
-    sendelems=topology.sendelems,
+    vmaprecv=grid.vmaprecv,
+    vmapsend=grid.vmapsend,
     nabrtorank=topology.nabrtorank,
-    nabrtorecv=topology.nabrtorecv,
-    nabrtosend=topology.nabrtosend,
+    nabrtovmaprecv=grid.nabrtovmaprecv,
+    nabrtovmapsend=grid.nabrtovmapsend,
     weights=weights,
     commtag=111)
 
@@ -133,10 +163,11 @@ function init_ode_param(dg::DGModel)
     length(topology.elems),
     realelems=topology.realelems,
     ghostelems=topology.ghostelems,
-    sendelems=topology.sendelems,
+    vmaprecv=grid.vmaprecv,
+    vmapsend=grid.vmapsend,
     nabrtorank=topology.nabrtorank,
-    nabrtorecv=topology.nabrtorecv,
-    nabrtosend=topology.nabrtosend,
+    nabrtovmaprecv=grid.nabrtovmaprecv,
+    nabrtovmapsend=grid.nabrtovmapsend,
     weights=weights,
     commtag=222)
 
@@ -160,7 +191,7 @@ end
 """
     init_ode_state(dg::DGModel, param, args...)
 
-Initialize the ODE state array. 
+Initialize the ODE state array.
 """
 function init_ode_state(dg::DGModel, param, args...; commtag=888)
   bl = dg.balancelaw
@@ -174,15 +205,16 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
-    
+
   state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
                                                length(topology.elems),
                                                realelems=topology.realelems,
                                                ghostelems=topology.ghostelems,
-                                               sendelems=topology.sendelems,
+                                               vmaprecv=grid.vmaprecv,
+                                               vmapsend=grid.vmapsend,
                                                nabrtorank=topology.nabrtorank,
-                                               nabrtorecv=topology.nabrtorecv,
-                                               nabrtosend=topology.nabrtosend,
+                                               nabrtovmaprecv=grid.nabrtovmaprecv,
+                                               nabrtovmapsend=grid.nabrtovmapsend,
                                                weights=weights,
                                                commtag=commtag)
 
