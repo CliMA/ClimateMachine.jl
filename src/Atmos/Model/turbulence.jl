@@ -2,6 +2,8 @@
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
 
+export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman
+
 abstract type TurbulenceClosure
 end
 
