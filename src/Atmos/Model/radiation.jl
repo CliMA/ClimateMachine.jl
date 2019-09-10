@@ -10,15 +10,14 @@ vars_diffusive(::RadiationModel, DT) = @vars()
 vars_aux(::RadiationModel, DT) = @vars()
 vars_integrals(::RadiationModel, DT) = @vars()
 
-function flux!(::RadiationModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-end
 function update_aux!(::RadiationModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
 function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real)
 end
 function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars)
 end
-function flux_nondiffusive!(::RadiationModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux_radiation!(::RadiationModel, flux::Grad, state::Vars,
+                         aux::Vars, t::Real)
 end
 
 struct NoRadiation <: RadiationModel
@@ -51,7 +50,8 @@ function integrate_aux!(m::StevensRadiation, integrand::Vars, state::Vars, aux::
   DT = eltype(state)
   integrand.radiation.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
 end
-function flux_nondiffusive!(m::StevensRadiation, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux_radiation!(m::StevensRadiation, flux::Grad, state::Vars,
+                         aux::Vars, t::Real)
   DT = eltype(flux)
   z = aux.orientation.Φ/grav
   Δz_i = max(z - m.z_i, -zero(DT))
