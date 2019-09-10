@@ -45,7 +45,7 @@ MPI these would be subdirectories in `/opt/local/include` and `/opt/local/lib`.
 ## Setup with GPUs
 
 ```bash
-julia --project=$CLIMA_HOME/env/gpu. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
+julia --project=$CLIMA_HOME/env/gpu -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
 ```
 where `$CLIMA_HOME` is the path to the base CLIMA directory
 

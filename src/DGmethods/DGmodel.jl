@@ -1,7 +1,8 @@
-struct DGModel{BL,G,NF,GNF}
+struct DGModel{BL,G,NFND,NFD,GNF}
   balancelaw::BL
   grid::G
-  divnumflux::NF
+  numfluxnondiff::NFND
+  numfluxdiff::NFD
   gradnumflux::GNF
 end
 
@@ -106,7 +107,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder), dg.divnumflux,
+          facerhs!(bl, Val(dim), Val(polyorder),
+                   dg.numfluxnondiff,
+                   dg.numfluxdiff,
                    dQdt.Q, Q.Q, Qvisc.Q,
                    auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
