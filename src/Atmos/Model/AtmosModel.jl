@@ -15,9 +15,13 @@ using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
-  flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-  init_aux!, init_state!, update_aux!, integrate_aux!, LocalGeometry, lengthscale, resolutionmetric
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                        vars_diffusive, vars_integrals, flux_nondiffusive!,
+                        flux_diffusive!, source!, wavespeed,
+                        boundarycondition_state!, boundarycondition_diffusive!,
+                        gradvariables!, diffusive!, init_aux!, init_state!,
+                        update_aux!, integrate_aux!, LocalGeometry, lengthscale,
+                        resolutionmetric
 
 """
     AtmosModel <: BalanceLaw
@@ -26,7 +30,8 @@ A `BalanceLaw` for atmosphere modeling.
 
 # Usage
 
-    AtmosModel(orientation, ref_state, turbulence, moisture, radiation, source, boundarycondition, init_state)
+    AtmosModel(orientation, ref_state, turbulence, moisture, radiation, source,
+               boundarycondition, init_state)
 
 """
 struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
@@ -36,6 +41,7 @@ struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   moisture::M
   radiation::R
   source::S
+  # TODO: Probably want to have different bc for state and diffusion...
   boundarycondition::BC
   init_state::IS
 end
@@ -85,27 +91,30 @@ function vars_integrals(m::AtmosModel,T)
 end
 
 """
-    flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-Computes flux `F` in:
+    flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
+                       t::Real)
+
+Computes flux non-diffusive flux portion of `F` in:
+
 ```
 ∂Y
 -- = - ∇ • (F_{adv} + F_{press} + F_{nondiff} + F_{diff}) + S(Y)
 ∂t
 ```
 Where
- - `F_{adv}`      Advective flux                                  , see [`flux_advective!`]@ref()    for this term
- - `F_{press}`    Pressure flux                                   , see [`flux_pressure!`]@ref()     for this term
- - `F_{nondiff}`  Fluxes that do *not* contain gradients          , see [`flux_nondiffusive!`]@ref() for this term
- - `F_{diff}`     Fluxes that contain gradients of state variables, see [`flux_diffusive!`]@ref()    for this term
+
+ - `F_{adv}`      Advective flux             ; see [`flux_advective!`]@ref()
+ - `F_{press}`    Pressure flux              ; see [`flux_pressure!`]@ref()
+ - `F_{diff}`     Fluxes that state gradients; see [`flux_diffusive!`]@ref()
 """
-@inline function flux!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  flux_advective!(m, flux, state, diffusive, aux, t)
-  flux_pressure!(m, flux, state, diffusive, aux, t)
-  flux_nondiffusive!(m, flux, state, diffusive, aux, t)
-  flux_diffusive!(m, flux, state, diffusive, aux, t)
+@inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
+                            t::Real)
+  flux_advective!(m, flux, state, aux, t)
+  flux_pressure!(m, flux, state, aux, t)
+  flux_radiation!(m, flux, state, aux, t)
 end
 
-@inline function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -116,7 +125,7 @@ end
   flux.ρe  = u * state.ρe
 end
 
-@inline function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -127,8 +136,9 @@ end
   flux.ρe += u*p
 end
 
-function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  flux_nondiffusive!(m.radiation, flux, state, diffusive, aux,t)
+@inline function flux_radiation!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
+                            t::Real)
+  flux_radiation!(m.radiation, flux, state, aux,t)
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -213,8 +223,19 @@ function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   atmos_source!(m.source, m, source, state, aux, t)
 end
 
-function boundarycondition!(m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars,diff1::Vars,aux1::Vars)
-  atmos_boundarycondition!(m.boundarycondition, m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t, state1, diff1, aux1)
+function boundarycondition_state!(m::AtmosModel, stateP::Vars, auxP::Vars, nM,
+                                  stateM::Vars, auxM::Vars, bctype, t,
+                                  state1::Vars, aux1::Vars)
+  atmos_boundarycondition_state!(m.boundarycondition, m, stateP, auxP, nM,
+                                 stateM, auxM, bctype, t, state1, aux1)
+end
+function boundarycondition_diffusive!(m::AtmosModel, stateP::Vars, diffP::Vars,
+                                      auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                                      auxM::Vars, bctype, t, state1::Vars,
+                                      diff1::Vars, aux1::Vars)
+  atmos_boundarycondition_diffusive!(m.boundarycondition, m, stateP, diffP,
+                                     auxP, nM, stateM, diffM, auxM, bctype, t,
+                                     state1, diff1, aux1)
 end
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
