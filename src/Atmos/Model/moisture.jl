@@ -19,7 +19,6 @@ end
 
 @inline function internal_energy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
   T = eltype(state)
-  q_pt = get_phase_partition(moist, state)
   ρinv = 1 / state.ρ
   ρe_kin = ρinv*sum(abs2, state.ρu)/2
   ρe_pot = state.ρ * gravitational_potential(orientation, aux)
