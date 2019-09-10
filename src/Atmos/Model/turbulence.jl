@@ -210,13 +210,12 @@ end
 function dynamic_viscosity_tensor(m::AnisoMinDiss, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(state)
   ∇u = ∇transform.u
-# αijαij = dot(∇u,∇u)
-# coeff = (aux.turbulence.Δ * m.C_poincare)^2
-# βij = -(∇u' * ∇u)
+  αijαij = dot(∇u,∇u)
+  coeff = (aux.turbulence.Δ * m.C_poincare)^2
+  βij = -(∇u' * ∇u)
   detS = det(S)
   trS² = tr(S .* S) + eps(S .* S)
-# ν_e = coeff * abs(dot(βij, S) / (αijαij + eps(αijαij)))
-  ν_e = max(0,m.C_poincare * (aux.turbulence.Δ)^2 * (-8*detS/trS²))
+  ν_e = coeff * abs(dot(βij, S) / (αijαij + eps(αijαij)))
   return state.ρ * ν_e
 end
 function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)
