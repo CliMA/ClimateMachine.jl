@@ -1,6 +1,8 @@
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
 
+export DryModel, EquilMoist
+
 vars_state(::MoistureModel, T) = @vars()
 vars_gradient(::MoistureModel, T) = @vars()
 vars_diffusive(::MoistureModel, T) = @vars()
