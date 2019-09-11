@@ -10,6 +10,7 @@ using CLIMA.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -26,12 +27,21 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
                         boundarycondition_state!, boundarycondition_diffusive!,
                         gradvariables!, diffusive!, init_aux!, init_state!,
-                        init_ode_param, init_ode_state, LocalGeometry
+                        init_ode_param, init_ode_state, LocalGeometry,
+                        update_aux!, num_integrals,
+                        indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!
 
 
 struct IntegralTestSphereModel{T} <: BalanceLaw
   Rinner::T
   Router::T
+end
+
+function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray,
+                     auxstate::MPIStateArray, t::Real)
+  indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
 end
 
 vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)

@@ -14,6 +14,8 @@ using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
+using GPUifyLoops
+using ..MPIStateArrays: MPIStateArray
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, flux_nondiffusive!,
@@ -21,7 +23,9 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         boundarycondition_state!, boundarycondition_diffusive!,
                         gradvariables!, diffusive!, init_aux!, init_state!,
                         update_aux!, integrate_aux!, LocalGeometry, lengthscale,
-                        resolutionmetric
+                        resolutionmetric, DGModel, num_integrals,
+                        nodal_update_aux!, indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!
 
 """
     AtmosModel <: BalanceLaw
@@ -210,8 +214,21 @@ end
 diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real,
            ::NoViscosity) = nothing
 
-function update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  atmos_update_aux!(m.moisture, m, state, diffusive, aux, t)
+function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
+                     auxstate::MPIStateArray, t::Real)
+  DFloat = eltype(Q)
+  if num_integrals(m, DFloat) > 0
+    indefinite_stack_integral!(dg, m, Q, auxstate, t)
+    reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  end
+
+  nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, auxstate, t)
+end
+
+function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
+  atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
+  atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
+  atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
 end
 
 function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
