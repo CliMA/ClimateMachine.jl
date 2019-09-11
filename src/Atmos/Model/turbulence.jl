@@ -2,9 +2,6 @@
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
 
-abstract type TurbulenceClosure
-end
-
 vars_state(::TurbulenceClosure, T) = @vars()
 vars_gradient(::TurbulenceClosure, T) = @vars()
 vars_diffusive(::TurbulenceClosure, T) = @vars()
