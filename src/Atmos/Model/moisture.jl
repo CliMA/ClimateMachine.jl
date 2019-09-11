@@ -6,7 +6,8 @@ vars_gradient(::MoistureModel, T) = @vars()
 vars_diffusive(::MoistureModel, T) = @vars()
 vars_aux(::MoistureModel, T) = @vars()
 
-function atmos_update_aux!(::MoistureModel, m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function atmos_nodal_update_aux!(::MoistureModel, m::AtmosModel, state::Vars,
+                                 aux::Vars, t::Real)
 end
 function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν, inv_Pr_turb)
 end
@@ -33,7 +34,8 @@ struct DryModel <: MoistureModel
 end
 
 vars_aux(::DryModel,T) = @vars(θ_v::T)
-@inline function update_aux!(moist::DryModel, atmos::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function atmos_nodal_update_aux!(moist::DryModel, atmos::AtmosModel,
+                                         state::Vars, aux::Vars, t::Real)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
   TS = PhaseDry(e_int, state.ρ)
   aux.moisture.θ_v = virtual_pottemp(TS)
@@ -54,7 +56,8 @@ vars_gradient(::EquilMoist,T) = @vars(q_tot::T, h_tot::T)
 vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρd_h_tot::SVector{3,T})
 vars_aux(::EquilMoist,T) = @vars(temperature::T, θ_v::T, q_liq::T)
 
-@inline function update_aux!(moist::EquilMoist, atmos::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+@inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
+                                         state::Vars, aux::Vars, t::Real)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
   TS = PhaseEquil(e_int, state.moisture.ρq_tot/state.ρ, state.ρ)
   aux.moisture.temperature = air_temperature(TS)
@@ -63,7 +66,7 @@ vars_aux(::EquilMoist,T) = @vars(temperature::T, θ_v::T, q_liq::T)
   nothing
 end
 
-function thermo_state(moist::DryModel, atmos::AtmosModel, state::Vars, aux::Vars)
+function thermo_state(moist::EquilMoist, atmos::AtmosModel, state::Vars, aux::Vars)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
   PhaseEquil(e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
 end
