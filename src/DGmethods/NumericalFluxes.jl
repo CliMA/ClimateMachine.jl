@@ -248,5 +248,4 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   end
 end
 
-
 end

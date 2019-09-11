@@ -5,6 +5,10 @@ struct DGModel{BL,G,NFND,NFD,GNF}
   numfluxdiff::NFD
   gradnumflux::GNF
 end
+function DGModel(dg::DGModel, bl::BalanceLaw)
+  return DGModel(bl, dg.grid, dg.numfluxnondiff, dg.numfluxdiff,
+                 dg.gradnumflux,)
+end
 
 function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   bl = dg.balancelaw
@@ -357,4 +361,33 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   @launch(device, threads=(Np,), blocks=nrealelem,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
                           Q.Q, auxstate.Q, t, topology.realelems))
+end
+
+function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
+                                auxstate::MPIStateArray, fldin, fldout)
+
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  DFloat = eltype(auxstate)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+
+  # do integrals
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_copy_stack_field_down!(Val(dim), Val(polyorder), Val(nvertelem),
+                                     auxstate.Q, 1:nhorzelem, Val(fldin),
+                                     Val(fldout)))
 end

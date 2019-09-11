@@ -51,6 +51,8 @@ function flux_diffusive! end
 function gradvariables! end
 function diffusive! end
 function source! end 
+function surface_flux! end 
+surface_flux!(::BalanceLaw, _...) = nothing
 function wavespeed end
 function boundary_state! end
 function init_aux! end
