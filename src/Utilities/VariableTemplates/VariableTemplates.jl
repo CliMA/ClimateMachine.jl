@@ -117,7 +117,7 @@ end
       offset += N
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= val)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:])
       offset += N
     else
       offset += varsize(T)
