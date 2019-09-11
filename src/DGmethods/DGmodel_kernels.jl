@@ -631,17 +631,13 @@ function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, v
 end
 
 """
-    knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
-                       ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
-                       QV, auxstate, elems) where {dim, N, nRstate, nstate,
-                                                   nviscstate, nauxstate}
+    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate,
+                          t, elems) where {dim, N}
 
-Computational kernel: fill postprocessing array
-
-See [`DGBalanceLaw`](@ref) for usage.
+Update the auxiliary state array
 """
-function knl_apply_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
-                            QV, auxstate, t, elems) where {dim, N}
+function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
+                               auxstate, t, elems) where {dim, N}
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
   nviscstate = num_diffusive(bl,DFloat)
@@ -654,7 +650,6 @@ function knl_apply_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
   Np = Nq * Nq * Nqk
 
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
@@ -663,15 +658,12 @@ function knl_apply_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
         l_Q[s] = Q[n, s, e]
       end
 
-      @unroll for s = 1:nviscstate
-        l_Qvisc[s] = QV[n, s, e]
-      end
-
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
 
-      f!(bl, Vars{vars_state(bl,DFloat)}(l_Q), Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Vars{vars_aux(bl,DFloat)}(l_aux), t)
+      f!(bl, Vars{vars_state(bl,DFloat)}(l_Q),
+         Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
