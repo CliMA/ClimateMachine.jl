@@ -108,7 +108,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel(FlatOrientation(),
+    model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(DFloat(μ_exact)),
                        MMSDryModel(),
@@ -117,7 +117,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                        InitStateBC(),
                        mms2_init_state!)
   else
-    model = AtmosModel(FlatOrientation(),
+    model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(DFloat(μ_exact)),
                        MMSDryModel(),
@@ -130,12 +130,12 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   dg = DGModel(model,
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralNumericalFluxDiffusive(),
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
 
   Q = init_ode_state(dg, param, DFloat(0))
-
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
