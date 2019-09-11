@@ -123,14 +123,15 @@ Where
  - `F_{press}`    Pressure flux              ; see [`flux_pressure!`]@ref()
  - `F_{diff}`     Fluxes that state gradients; see [`flux_diffusive!`]@ref()
 """
-@inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
-                            t::Real)
+@inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars,
+                                    aux::Vars, t::Real)
   flux_advective!(m, flux, state, aux, t)
   flux_pressure!(m, flux, state, aux, t)
   flux_radiation!(m, flux, state, aux, t)
 end
 
-@inline function flux_advective!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+@inline function flux_advective!(m::AtmosModel, flux::Grad, state::Vars,
+                                 aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -152,8 +153,8 @@ end
   flux.ρe += u*p
 end
 
-@inline function flux_radiation!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
-                            t::Real)
+@inline function flux_radiation!(m::AtmosModel, flux::Grad, state::Vars,
+                                 aux::Vars, t::Real)
   flux_radiation!(m.radiation, flux, state, aux,t)
 end
 
