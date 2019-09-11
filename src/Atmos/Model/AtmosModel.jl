@@ -146,7 +146,7 @@ end
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
-  p = pressure(m.moisture, state, aux)
+  p = pressure(m.moisture, m.orientation, state, aux)
   # pressure terms
   flux.ρu += p*I
   flux.ρe += u*p
