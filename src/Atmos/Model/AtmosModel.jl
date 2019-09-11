@@ -1,6 +1,6 @@
 module Atmos
 
-export AtmosModel
+export AtmosModel, NoViscosity
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
