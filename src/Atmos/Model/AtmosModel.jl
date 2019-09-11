@@ -176,13 +176,13 @@ flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Va
   return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux)
 end
 
-gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real) = 
+gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real) =
   gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real, m.turbulence)
 function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real, ::TurbulenceClosure)
   ρinv = 1 / state.ρ
   transform.u = ρinv * state.ρu
 
-  gradvariables!(m.moisture, transform, state, aux, t)
+  gradvariables!(m.moisture, m, transform, state, aux, t)
   gradvariables!(m.turbulence, transform, state, aux, t)
 end
 gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real, ::NoViscosity) = nothing
@@ -191,7 +191,7 @@ function symmetrize(X::StaticArray{Tuple{3,3}})
   SHermitianCompact(SVector(X[1,1], (X[2,1] + X[1,2])/2, (X[3,1] + X[1,3])/2, X[2,2], (X[3,2] + X[2,3])/2, X[3,3]))
 end
 
-diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real) = 
+diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real) =
   diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, m.turbulence)
 function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real,
                     ::TurbulenceClosure)
