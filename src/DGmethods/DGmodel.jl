@@ -37,29 +37,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
 
   Np = dofs_per_element(grid)
 
-  # do integrals
-  nintegrals = num_integrals(bl, DFloat)
-  if nintegrals > 0
-    nelem = length(topology.elems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nelem, nvertelem)
-
-    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-      knl_indefinite_stack_integral!(bl, Val(dim), Val(polyorder), 
-                                 Val(nvertelem),
-                                 Q.Q, auxstate.Q, vgeo, grid.Imat,
-                                 1:nhorzelem, Val(nintegrals)))
-
-    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-      knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
-                                 Val(nvertelem), auxstate.Q,
-                                 1:nhorzelem, Val(nintegrals)))
-  end
-
-  ### update aux variables
-  if hasmethod(update_aux!, Tuple{typeof(bl), Vars, Vars, Vars, DFloat})
-    @launch(device, threads=(Np,), blocks=nrealelem,
-      knl_apply_aux!(bl, Val(dim), Val(polyorder), update_aux!, Q.Q, Qvisc.Q, auxstate.Q, t, topology.realelems))
+  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
+                                  typeof(auxstate), typeof(t)})
+    update_aux!(dg, bl, Q, auxstate, t)
   end
 
   ########################
@@ -281,4 +261,90 @@ function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param::MPI
 
   @launch(device, threads=(Np,), blocks=nrealelem,
     knl_node_apply_aux!(bl, Val(dim), Val(N), f!, Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
+end
+
+function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
+                                    Q::MPIStateArray, auxstate::MPIStateArray,
+                                    t::Real)
+
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  DFloat = eltype(Q)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+
+  # do integrals
+  nintegrals = num_integrals(m, DFloat)
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_indefinite_stack_integral!(m, Val(dim), Val(polyorder),
+                                         Val(nvertelem), Q.Q, auxstate.Q,
+                                         vgeo, grid.Imat, 1:nhorzelem,
+                                         Val(nintegrals)))
+end
+
+function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
+                                            Q::MPIStateArray,
+                                            auxstate::MPIStateArray, t::Real)
+
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  DFloat = eltype(Q)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+
+  # do integrals
+  nintegrals = num_integrals(m, DFloat)
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
+                                                 Val(nvertelem), auxstate.Q,
+                                                 1:nhorzelem,
+                                                 Val(nintegrals)))
+end
+
+function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+                           auxstate::MPIStateArray, t::Real)
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  nrealelem = length(topology.realelems)
+
+  polyorder = polynomialorder(dg.grid)
+
+  Np = dofs_per_element(grid)
+
+  ### update aux variables
+  @launch(device, threads=(Np,), blocks=nrealelem,
+          knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
+                          Q.Q, auxstate.Q, t, topology.realelems))
 end
