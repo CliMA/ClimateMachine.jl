@@ -101,6 +101,12 @@ using LinearAlgebra
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
 
+  ρ = DT(1)
+  ρu = DT[1,2,3]
+  ρe = DT(1100)
+  e_pot = DT(93)
+  @test internal_energy(ρ, ρe, ρu, e_pot) ≈ 1000.0
+
   # potential temperatures
   T = DT(300)
   @test liquid_ice_pottemp(T, DT(MSLP)) === T
@@ -122,9 +128,14 @@ end
   DT = Float32
   ρ = DT(1.0)
   p = DT(1000.0*100)
+
+  ρu = DT[1,2,3]
+  ρe = DT(1000)
   e_kin = DT(5.0)
   e_pot = DT(100.0)
   e_int = DT(2.0)
+  @test internal_energy(ρ, ρe, ρu, e_pot) isa typeof(e_int)
+
   q_tot = DT(0.01)
   q_ice = DT(0.001)
   q_liq = DT(0.001)
