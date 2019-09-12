@@ -10,6 +10,7 @@ using CLIMA.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -24,9 +25,10 @@ end
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, integrate_aux!,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
-                        boundarycondition_state!, boundarycondition_diffusive!,
-                        gradvariables!, diffusive!, init_aux!, init_state!,
-                        init_ode_param, init_ode_state, LocalGeometry
+                        update_aux!, indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,  boundary_state!,
+                        init_aux!, init_state!, init_ode_param, init_ode_state,
+                        LocalGeometry
 
 
 struct IntegralTestModel{dim} <: BalanceLaw
@@ -43,8 +45,7 @@ vars_diffusive(::IntegralTestModel, T) = @vars()
 flux_nondiffusive!(::IntegralTestModel, _...) = nothing
 flux_diffusive!(::IntegralTestModel, _...) = nothing
 source!(::IntegralTestModel, _...) = nothing
-boundarycondition_state!(::IntegralTestModel, _...) = nothing
-boundarycondition_diffusive!(::IntegralTestModel, _...) = nothing
+boundary_state!(_, ::IntegralTestModel, _...) = nothing
 init_state!(::IntegralTestModel, _...) = nothing
 wavespeed(::IntegralTestModel,_...) = 1
 
@@ -58,6 +59,12 @@ function init_aux!(::IntegralTestModel{dim}, aux::Vars,
     aux.a = x*z + z^2/2
     aux.b = 2*x*z + sin(x)*y*z - (1+(z-1)^3)*y^2/3
   end
+end
+
+function update_aux!(dg::DGModel, m::IntegralTestModel, Q::MPIStateArray,
+                     auxstate::MPIStateArray, t::Real)
+  indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
 end
 
 @inline function integrate_aux!(m::IntegralTestModel, integrand::Vars,
