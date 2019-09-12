@@ -1,4 +1,5 @@
 using CLIMA.PlanetParameters
+using CLIMA.SurfaceFluxes
 
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
@@ -223,5 +224,29 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
                                        diffM.moisture.ρd_h_tot[2],
                                        bc.LHF + bc.SHF)
   end
+end
+
+"""
+  ChannelFlowBC <: BoundaryCondition
+  Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
+"""
+struct ChannelFlowBC <: BoundaryCondition
+end
+function atmos_boundary_state!(::Rusanov, bc::ChannelFlowBC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, state1::Vars, aux1::Vars)
+  DT = eltype(stateP)
+  # Zero slip boundaries at top and bottom walls
+  if bctype == 1 || bctype == 2
+    stateP.ρu =SVector(DT(0),DT(0),DT(0))
+    stateP.ρe = DT(0)
+  end
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::ChannelFlowBC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, state1::Vars, diff1::Vars,
+                               aux1::Vars)
+  nothing
 end
 

@@ -4,9 +4,9 @@ export AtmosModel,
   NoViscosity, ConstantViscosityWithDivergence, SmagorinskyLilly,
   DryModel, EquilMoist,
   NoRadiation, StevensRadiation,
-  Gravity, RayleighSponge, Subsidence, GeostrophicForcing,
-  PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC,
-  FlatOrientation, SphericalOrientation
+  Gravity, RayleighSponge, Subsidence, GeostrophicForcing, ConstPG,
+  PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, ChannelFlowBC,
+  NoOrientation, FlatOrientation, SphericalOrientation
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
