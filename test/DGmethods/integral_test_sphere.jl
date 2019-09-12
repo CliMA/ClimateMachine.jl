@@ -25,12 +25,10 @@ end
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, integrate_aux!,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
-                        boundarycondition_state!, boundarycondition_diffusive!,
-                        gradvariables!, diffusive!, init_aux!, init_state!,
-                        init_ode_param, init_ode_state, LocalGeometry,
-                        update_aux!, num_integrals,
-                        indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!
+                        update_aux!, indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,  boundary_state!,
+                        gradvariables!, init_aux!, init_state!, init_ode_param,
+                        init_ode_state, LocalGeometry
 
 
 struct IntegralTestSphereModel{T} <: BalanceLaw
@@ -53,8 +51,7 @@ vars_diffusive(::IntegralTestSphereModel, T) = @vars()
 flux_nondiffusive!(::IntegralTestSphereModel, _...) = nothing
 flux_diffusive!(::IntegralTestSphereModel, _...) = nothing
 source!(::IntegralTestSphereModel, _...) = nothing
-boundarycondition_state!(::IntegralTestSphereModel, _...) = nothing
-boundarycondition_diffusive!(::IntegralTestSphereModel, _...) = nothing
+boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
 init_state!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel,_...) = 1
 
