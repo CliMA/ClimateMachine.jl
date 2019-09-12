@@ -147,7 +147,7 @@ end
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
-  p = pressure(m.moisture, state, aux)
+  p = pressure(m.moisture, m.orientation, state, aux)
   # pressure terms
   flux.ρu += p*I
   flux.ρe += u*p
@@ -178,7 +178,7 @@ flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Va
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
-  return abs(dot(nM, u)) + soundspeed(m.moisture, state, aux)
+  return abs(dot(nM, u)) + soundspeed(m.moisture, m.orientation, state, aux)
 end
 
 gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real) =
@@ -187,7 +187,7 @@ function gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, 
   ρinv = 1 / state.ρ
   transform.u = ρinv * state.ρu
 
-  gradvariables!(m.moisture, transform, state, aux, t)
+  gradvariables!(m.moisture, m, transform, state, aux, t)
   gradvariables!(m.turbulence, transform, state, aux, t)
 end
 gradvariables!(m::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real, ::NoViscosity) = nothing
