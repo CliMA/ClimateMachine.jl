@@ -173,7 +173,7 @@ init_ode_param(::DGModel, ::BalanceLaw) = nothing
 
 Initialize the ODE state array.
 """
-function init_ode_state(dg::DGModel, param, args...; commtag=888)
+function init_ode_state(dg::DGModel, commtag)
   bl = dg.balancelaw
   grid = dg.grid
   topology = grid.topology
@@ -186,17 +186,27 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
-                                               length(topology.elems),
-                                               realelems=topology.realelems,
-                                               ghostelems=topology.ghostelems,
-                                               vmaprecv=grid.vmaprecv,
-                                               vmapsend=grid.vmapsend,
-                                               nabrtorank=topology.nabrtorank,
-                                               nabrtovmaprecv=grid.nabrtovmaprecv,
-                                               nabrtovmapsend=grid.nabrtovmapsend,
-                                               weights=weights,
-                                               commtag=commtag)
+  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat,
+                        DA}(topology.mpicomm, length(topology.elems),
+                            realelems=topology.realelems,
+                            ghostelems=topology.ghostelems,
+                            vmaprecv=grid.vmaprecv, vmapsend=grid.vmapsend,
+                            nabrtorank=topology.nabrtorank,
+                            nabrtovmaprecv=grid.nabrtovmaprecv,
+                            nabrtovmapsend=grid.nabrtovmapsend, weights=weights,
+                            commtag=commtag)
+  return state
+end
+function init_ode_state(dg::DGModel, param, args...; commtag=888)
+  state = init_ode_state(dg, commtag)
+
+  bl = dg.balancelaw
+  grid = dg.grid
+  topology = grid.topology
+  # FIXME: Remove after updating CUDA
+  h_vgeo = Array(grid.vgeo)
+  DFloat = eltype(h_vgeo)
+  Np = dofs_per_element(grid)
 
   auxstate = param.aux
   dim = dimensionality(grid)
@@ -205,7 +215,8 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   device = typeof(state.Q) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
   @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo, topology.realelems, args...))
+          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo,
+                     topology.realelems, args...))
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 
