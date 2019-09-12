@@ -4,9 +4,9 @@ export Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive
 
 using StaticArrays
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
-                    vars_aux, vars_gradient, boundarycondition_state!,
-                    boundarycondition_diffusive!, wavespeed, flux_nondiffusive!,
-                    flux_diffusive!, diffusive!, num_state, num_gradient
+                    vars_aux, vars_gradient, boundary_state!, wavespeed,
+                    flux_nondiffusive!, flux_diffusive!, diffusive!, num_state,
+                    num_gradient, gradvariables!
 
 """
     GradNumericalPenalty
@@ -30,26 +30,41 @@ function diffusive_boundary_penalty! end
 """
 struct CentralGradPenalty <: GradNumericalPenalty end
 
-function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw, 
-                            VF, nM, velM, QM, aM, velP, QP, aP, t)
+function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
+                            VF, nM, diffM, QM, aM, diffP, QP, aP, t)
   DFloat = eltype(QM)
 
   @inbounds begin
     ndim = 3
     ngradstate = num_gradient(bl,DFloat)
-    n_Δvel = similar(VF, Size(ndim, ngradstate))
+    n_Δdiff = similar(VF, Size(ndim, ngradstate))
     for j = 1:ngradstate, i = 1:ndim
-      n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
+      n_Δdiff[i, j] = nM[i] * (diffP[j] - diffM[j]) / 2
     end
     diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(VF),
-               Grad{vars_gradient(bl,DFloat)}(n_Δvel),
+               Grad{vars_gradient(bl,DFloat)}(n_Δdiff),
                Vars{vars_state(bl,DFloat)}(QM), Vars{vars_aux(bl,DFloat)}(aM),
                t)
   end
 end
 
-@inline diffusive_boundary_penalty!(::CentralGradPenalty, bl::BalanceLaw,
-                                    VF, _...) = VF.=0
+function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
+                                     VF, nM, diffM, QM, aM, diffP, QP, aP,
+                                     bctype, t, Q1, aux1)
+  DFloat = eltype(diffP)
+  boundary_state!(nf, bl, Vars{vars_state(bl,DFloat)}(QP),
+                  Vars{vars_aux(bl,DFloat)}(aP), nM,
+                  Vars{vars_state(bl,DFloat)}(QM),
+                  Vars{vars_aux(bl,DFloat)}(aM), bctype, t,
+                  Vars{vars_state(bl,DFloat)}(Q1),
+                  Vars{vars_aux(bl,DFloat)}(aux1))
+
+  gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(diffP),
+                 Vars{vars_state(bl,DFloat)}(QP),
+                 Vars{vars_aux(bl,DFloat)}(aP), t)
+
+  diffusive_penalty!(nf, bl, VF, nM, diffM, QM, aM, diffP, QP, aP, t)
+end
 
 
 """
@@ -82,12 +97,12 @@ function numerical_boundary_flux_nondiffusive!(nf::NumericalFluxNonDiffusive,
                                                auxM, QP, auxP, bctype, t,
                                                Q1, aux1) where {nstate}
   DFloat = eltype(F)
-  boundarycondition_state!(bl, Vars{vars_state(bl,DFloat)}(QP),
-                           Vars{vars_aux(bl,DFloat)}(auxP), nM,
-                           Vars{vars_state(bl,DFloat)}(QM),
-                           Vars{vars_aux(bl,DFloat)}(auxM), bctype, t,
-                           Vars{vars_state(bl,DFloat)}(Q1),
-                           Vars{vars_aux(bl,DFloat)}(aux1))
+  boundary_state!(nf, bl, Vars{vars_state(bl,DFloat)}(QP),
+                  Vars{vars_aux(bl,DFloat)}(auxP), nM,
+                  Vars{vars_state(bl,DFloat)}(QM),
+                  Vars{vars_aux(bl,DFloat)}(auxM), bctype, t,
+                  Vars{vars_state(bl,DFloat)}(Q1),
+                  Vars{vars_aux(bl,DFloat)}(aux1))
   numerical_flux_nondiffusive!(nf, bl, F, nM, QM, auxM, QP, auxP, t)
 end
 
@@ -119,7 +134,7 @@ function numerical_flux_nondiffusive!(::Rusanov, bl::BalanceLaw, F::MArray, nM,
   flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(FM),
                      Vars{vars_state(bl,DFloat)}(QM),
                      Vars{vars_aux(bl,DFloat)}(auxM), t)
-  
+
   λP = wavespeed(bl, nM, Vars{vars_state(bl,DFloat)}(QP),
                  Vars{vars_aux(bl,DFloat)}(auxP), t)
   FP = similar(F, Size(3, nstate))
@@ -169,19 +184,17 @@ function numerical_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                             bctype, t, Q1, QV1,
                                             aux1) where {nstate}
   DFloat = eltype(F)
-  boundarycondition_diffusive!(bl, Vars{vars_state(bl,DFloat)}(QP),
-                               Vars{vars_diffusive(bl,DFloat)}(QVP),
-                               Vars{vars_aux(bl,DFloat)}(auxP), nM,
-                               Vars{vars_state(bl,DFloat)}(QM),
-                               Vars{vars_diffusive(bl,DFloat)}(QVM),
-                               Vars{vars_aux(bl,DFloat)}(auxM), bctype, t,
-                               Vars{vars_state(bl,DFloat)}(Q1),
-                               Vars{vars_diffusive(bl,DFloat)}(QV1),
-                               Vars{vars_aux(bl,DFloat)}(aux1))
+  boundary_state!(nf, bl, Vars{vars_state(bl,DFloat)}(QP),
+                  Vars{vars_diffusive(bl,DFloat)}(QVP),
+                  Vars{vars_aux(bl,DFloat)}(auxP), nM,
+                  Vars{vars_state(bl,DFloat)}(QM),
+                  Vars{vars_diffusive(bl,DFloat)}(QVM),
+                  Vars{vars_aux(bl,DFloat)}(auxM), bctype, t,
+                  Vars{vars_state(bl,DFloat)}(Q1),
+                  Vars{vars_diffusive(bl,DFloat)}(QV1),
+                  Vars{vars_aux(bl,DFloat)}(aux1))
   numerical_flux_diffusive!(nf, bl, F, nM, QM, QVM, auxM, QP, QVP, auxP, t)
 end
-
-
 
 """
     CentralNumericalFluxDiffusive <: NumericalFluxDiffusive
@@ -211,7 +224,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
                   Vars{vars_state(bl,DFloat)}(QM),
                   Vars{vars_diffusive(bl,DFloat)}(QVM),
                   Vars{vars_aux(bl,DFloat)}(auxM), t)
-  
+
   FP = similar(F, Size(3, nstate))
   fill!(FP, -zero(eltype(FP)))
   flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(FP),

@@ -10,6 +10,7 @@ using CLIMA.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -24,14 +25,21 @@ end
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, integrate_aux!,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
-                        boundarycondition_state!, boundarycondition_diffusive!,
-                        gradvariables!, diffusive!, init_aux!, init_state!,
-                        init_ode_param, init_ode_state, LocalGeometry
+                        update_aux!, indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,  boundary_state!,
+                        gradvariables!, init_aux!, init_state!, init_ode_param,
+                        init_ode_state, LocalGeometry
 
 
 struct IntegralTestSphereModel{T} <: BalanceLaw
   Rinner::T
   Router::T
+end
+
+function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray,
+                     auxstate::MPIStateArray, t::Real)
+  indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
 end
 
 vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
@@ -43,8 +51,7 @@ vars_diffusive(::IntegralTestSphereModel, T) = @vars()
 flux_nondiffusive!(::IntegralTestSphereModel, _...) = nothing
 flux_diffusive!(::IntegralTestSphereModel, _...) = nothing
 source!(::IntegralTestSphereModel, _...) = nothing
-boundarycondition_state!(::IntegralTestSphereModel, _...) = nothing
-boundarycondition_diffusive!(::IntegralTestSphereModel, _...) = nothing
+boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
 init_state!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel,_...) = 1
 
