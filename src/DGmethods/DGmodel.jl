@@ -38,8 +38,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   Np = dofs_per_element(grid)
 
   if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
-                                  typeof(auxstate), typeof(t)})
-    update_aux!(dg, bl, Q, auxstate, t)
+                                  typeof(auxstate), typeof(t),
+                                  typeof(param.blparam)})
+    update_aux!(dg, bl, Q, auxstate, t, param.blparam)
   end
 
   ########################
@@ -121,9 +122,6 @@ function init_ode_param(dg::DGModel)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-
-
-
   # TODO: Clean up this MPIStateArray interface...
   diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
     topology.mpicomm,
@@ -163,8 +161,10 @@ function init_ode_param(dg::DGModel)
     MPIStateArrays.start_ghost_exchange!(auxstate)
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   # end
-  return (aux=auxstate, diff=diffstate)
+
+  return (aux=auxstate, diff=diffstate, blparam=init_ode_param(dg, bl))
 end
+init_ode_param(::DGModel, ::BalanceLaw) = nothing
 
 
 
