@@ -148,7 +148,7 @@ function run(mpicomm, ArrayType,
       outprefix = @sprintf("./vtk-dc/DC_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
-      writevtk(outprefix, Q, dg)
+      writevtk(outprefix, Q, dg, flattenednames(vars_state(model, DF)))
       step[1] += 1
       nothing
   end
