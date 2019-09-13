@@ -1,12 +1,6 @@
 module Atmos
 
-export AtmosModel,
-  NoViscosity, ConstantViscosityWithDivergence, SmagorinskyLilly,
-  DryModel, EquilMoist,
-  NoRadiation, StevensRadiation,
-  Gravity, RayleighSponge, Subsidence, GeostrophicForcing, ConstPG,
-  PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, ChannelFlowBC,
-  NoOrientation, FlatOrientation, SphericalOrientation
+export AtmosModel
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates

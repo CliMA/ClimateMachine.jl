@@ -1,3 +1,5 @@
+export DryModel, EquilMoist
+
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
 

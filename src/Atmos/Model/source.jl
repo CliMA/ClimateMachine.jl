@@ -1,3 +1,5 @@
+export Gravity, RayleighSponge, Subsidence, GeostrophicForcing
+
 # kept for compatibility
 # can be removed if no functions are using this
 function atmos_source!(f::Function, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
@@ -59,15 +61,4 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
     coeff = min(coeff_top, 1.0)
   end
   source.ρu -= state.ρu * coeff
-end
-
-"""
-  ConstPG{DT} <: Source
-"""
-struct ConstPG{DT} <: Source
-  ∂p∂x::DT
-end
-function atmos_source!(s::ConstPG, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  DT = eltype(state)
-  source.ρu -= SVector(s.∂p∂x,DT(0),DT(0))
 end
