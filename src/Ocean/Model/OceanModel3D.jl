@@ -178,7 +178,7 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, aux, t, params)
   apply!(Q, (1, 2), dg.grid, vert_filter; horizontal=false)
 
   exp_filter = params.exp_filter
-  apply!(Q, (4,), dg.grid, exp_filter)
+  apply!(Q, (4,), dg.grid, exp_filter; horizontal=false)
 
   vert_dg(vert_dQ, Q, vert_param, t; increment = false)
 

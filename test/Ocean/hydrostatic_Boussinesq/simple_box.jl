@@ -129,7 +129,7 @@ let
   update_aux!(dg, model, Q, param.aux, DFloat(0), param.blparam)
 
   step = [0]
-  vtkpath = "vtk_hydrostatic_Boussinesq_simple_box"
+  vtkpath = "vtk_hydrostatic_Boussinesq_simple_box_vert_filter"
   mkpath(vtkpath)
   function do_output(step)
     outprefix = @sprintf("%s/mpirank%04d_step%04d",vtkpath,
