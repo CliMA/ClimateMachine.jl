@@ -214,7 +214,7 @@ function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
   DFloat = eltype(Q)
   if num_integrals(m, DFloat) > 0
     indefinite_stack_integral!(dg, m, Q, auxstate, t)
-    reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
+    reverse_indefinite_stack_integral!(dg, m, auxstate, t)
   end
 
   nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, auxstate, t)
