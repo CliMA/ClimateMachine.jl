@@ -201,6 +201,7 @@ let
 
   @test errors[end,end] ≈ testval
 
+  #=
   msg = ""
   for i in length(cellsrange)-1
     rate = log2(errors[i, end] - log2(errors[i+1, end]))
@@ -214,5 +215,6 @@ let
     msg *= @sprintf("\n rate for N  %d = %e", orderrange[j], rate)
   end
   @show msg
+  =#
 
 end
