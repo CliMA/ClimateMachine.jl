@@ -103,6 +103,8 @@ let
   @show dt = 240 # (L[1] / c) / Ne[1] / N^2
   timeend = 4 * 365 * 86400
   tout = 24 * 60 * 60
+  @show nout = ceil(Int64, tout / dt)
+  @show dt = tout / nout
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DFloat,
@@ -114,8 +116,10 @@ let
   αT::DFloat = 2e-4
   νh::DFloat = 1e4
   νz::DFloat = 1e-2
+  κh::DFloat = 0
+  κz::DFloat = 0
   λ_relax::DFloat = 1 // 86400
-  model = HydrostaticBoussinesqModel(problem, c..., αT, λ_relax, νh, νz)
+  model = HydrostaticBoussinesqModel(problem, c..., αT, λ_relax, νh, νz, κh, κz)
 
   dg = DGModel(model,
                grid,
@@ -129,7 +133,7 @@ let
   update_aux!(dg, model, Q, param.aux, DFloat(0), param.blparam)
 
   step = [0]
-  vtkpath = "vtk_hydrostatic_Boussinesq_simple_box_vert_filter"
+  vtkpath = "vtk_hydrostatic_Boussinesq_simple_box_κ"
   mkpath(vtkpath)
   function do_output(step)
     outprefix = @sprintf("%s/mpirank%04d_step%04d",vtkpath,
@@ -140,7 +144,6 @@ let
     writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
   end
   do_output(step)
-  @show nout = ceil(Int64, tout / dt)
   cbvtk = GenericCallbacks.EveryXSimulationSteps(nout)  do (init=false)
     do_output(step)
     step[1] += 1

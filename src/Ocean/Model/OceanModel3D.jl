@@ -42,6 +42,8 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   λ_relax::T
   νh::T
   νz::T
+  κh::T
+  κz::T
 end
 HBModel = HydrostaticBoussinesqModel
 HBProblem = HydrostaticBoussinesqProblem
@@ -85,12 +87,14 @@ end
 function vars_gradient(m::HBModel, T)
   @vars begin
     u::SVector{2, T}
+    θ::T
   end
 end
 
 function vars_diffusive(m::HBModel, T)
   @vars begin
     ν∇u::SMatrix{3, 2, T, 6}
+    κ∇θ::SVector{3, T}
   end
 end
 
@@ -130,21 +134,26 @@ end
   return nothing
 end
 
-@inline function flux_diffusive!(::HBModel, flux::Grad, state::Vars, visc::Vars,
+@inline function flux_diffusive!(::HBModel, flux::Grad, state::Vars, diff::Vars,
                                  aux::Vars, t::Real)
-  flux.u += visc.ν∇u
+  flux.u += diff.ν∇u
+  flux.θ += diff.κ∇θ
   return nothing
 end
 
 @inline function gradvariables!(m::HBModel, grad::Vars, state::Vars, aux, t)
   grad.u = state.u
+  grad.θ = state.θ
   return nothing
 end
 
-@inline function diffusive!(m::HBModel, visc::Vars, grad::Grad, state::Vars,
+@inline function diffusive!(m::HBModel, diff::Vars, grad::Grad, state::Vars,
                             aux::Vars, t)
   ν = Diagonal(@SVector [m.νh, m.νh, m.νz])
-  visc.ν∇u = -ν * grad.u
+  diff.ν∇u = -ν * grad.u
+
+  κ = Diagonal(@SVector [m.κh, m.κh, m.κz])
+  diff.κ∇θ = -κ * grad.θ
   return nothing
 end
 
@@ -268,6 +277,7 @@ end
   state⁺.θ = state⁻.θ
   state⁺.u = -state⁻.u
   diff⁺.ν∇u = diff⁻.ν∇u
+  diff⁺.κ∇θ = -diff⁻.κ∇θ
 
   return nothing
 end
@@ -296,6 +306,7 @@ end
   state⁺.u = state⁻.u
   # aux⁺.w = -aux⁻.w
   diff⁺.ν∇u = diff⁻.ν∇u
+  diff⁺.κ∇θ = -diff⁻.κ∇θ
 
   return nothing
 end
@@ -319,7 +330,7 @@ init_aux!(::HBVerticalSupplementModel, _...) = nothing
 
     # ∇ • (v)
     # Just using θ to store w = ∇h • u
-    flux.θ += v 
+    flux.θ += v
   end
 
   return nothing
@@ -333,7 +344,7 @@ end
 boundary_state!(::CentralNumericalFluxDiffusive, m::HBVerticalSupplementModel,
                 _...) = nothing
 
-@inline function boundary_state!(::Rusanov, ::HBVerticalSupplementModel, 
+@inline function boundary_state!(::Rusanov, ::HBVerticalSupplementModel,
                                  state⁺, aux⁺, n⁻, state⁻, aux⁻, t, _...)
 
   state⁺.η = state⁻.η
