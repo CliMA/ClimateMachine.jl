@@ -1,4 +1,4 @@
-export  Gravity, RayleighSponge, Subsidence, GeostrophicForcing
+export Gravity, RayleighSponge, Subsidence, GeostrophicForcing
 
 # kept for compatibility
 # can be removed if no functions are using this
