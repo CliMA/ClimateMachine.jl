@@ -389,6 +389,7 @@ Additional source terms exist in other equations:
   \SDi{S_{\epsilon\delta}}^{\phi\psi}
 + \SDi{S_{\text{x-grad flux}}}^{\phi\psi}
 + \SDi{S_{\text{turb-transp}}}^{\phi\psi}
++ \SDi{S_{\text{dissip}}}^{\phi\psi}
 + \SDi{S_{\text{MP-MSS}}}^{\phi\psi}.
 \quad \phi\psi \in [\qt\qt, \eint\eint, \eint \qt].
 \end{align}
@@ -514,7 +515,9 @@ Functionally,
 
 ```math
 \begin{align}
-\LatentHeatV{T} &= \RefLHv + \Cp{v} - \Cp{l} (T - \TTriple) \\
+\LatentHeatV{T} &= \RefLHv + (\Cp{v} - \Cp{l}) (T - \TTriple) \\
+\LatentHeatS{T} &= \RefLHs + (\Cp{v} - \Cp{i}) (T - \TTriple) \\
+\LatentHeatF{T} &= \RefLHf + (\Cp{l} - \Cp{i}) (T - \TTriple) \\
 \end{align}
 ```
 
@@ -650,7 +653,7 @@ Fix: which virtual potential temperature is used
 ```math
 \begin{align}\label{eq:Theta}
 \ThetaDry    & = T/\ExnerD \\
-\ThetaLiqIce & = \ThetaDry (1 - (\RefLHv \ql + \RefLHs \qi))/(\Cpm T) \\
+\ThetaLiqIce & = \ThetaDry (1 - (\RefLHv \ql + \RefLHs \qi)/(\Cpm T)) \\
 \ThetaVirt   & = \ThetaDry (1 - r_{con} + 0.61 r_{vap}) \\
 \ThetaVirt   & = \theta \left(1 + 0.61 \qr - \ql \right) \\
 \ThetaRho    & = T \Rm/\ExnerD \\
