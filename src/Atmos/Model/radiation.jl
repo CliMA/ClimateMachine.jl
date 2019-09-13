@@ -1,4 +1,5 @@
 using CLIMA.PlanetParameters
+export NoRadiation, StevensRadiation
 
 abstract type RadiationModel end
 
