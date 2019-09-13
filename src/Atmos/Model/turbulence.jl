@@ -60,6 +60,7 @@ end
 """
 struct SmagorinskyLilly{T} <: TurbulenceClosure
   C_smag::T
+  Buoyancy_Flag::Bool
 end
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
@@ -125,7 +126,7 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, ∇transform::Grad, st
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
   T = eltype(state)
   @inbounds normS = strain_rate_magnitude(S)
-  f_b² = squared_buoyancy_correction(normS, diffusive, aux)
+  f_b² = m.Buoyancy_Flag ? squared_buoyancy_correction(normS, diffusive, aux) : 1
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
   return state.ρ * normS * f_b² * T(m.C_smag * aux.turbulence.Δ)^2
 end
@@ -160,6 +161,7 @@ If Δᵢ = Δ, then β = Δ²αᵀα
 """
 struct Vreman{DT} <: TurbulenceClosure
   C_smag::DT
+  Buoyancy_Flag::Bool
 end
 vars_aux(::Vreman,T) = @vars(Δ::T)
 vars_gradient(::Vreman,T) = @vars(θ_v::T)
@@ -172,10 +174,10 @@ function dynamic_viscosity_tensor(m::Vreman, S, ∇transform::Grad, state::Vars,
   ∇u = ∇transform.u
   αijαij = sum(∇u .^ 2)
   @inbounds normS = strain_rate_magnitude(S)
-  f_b² = squared_buoyancy_correction(normS, diffusive, aux)
+  f_b² = m.Buoyancy_Flag ? squared_buoyancy_correction(normS, diffusive, aux) : 1
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   @inbounds Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
-  return state.ρ * max(0,(m.C_smag^2 * 2.5) * sqrt(abs(Bβ/(αijαij+eps(αijαij))))) 
+  return state.ρ * min(0,(m.C_smag^2 * 2.5) * sqrt(abs(Bβ/(αijαij+eps(αijαij))))) 
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S

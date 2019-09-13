@@ -102,10 +102,12 @@ function run(mpicomm, ArrayType,
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     SmagorinskyLilly{DF}(C_smag), 
+                     SmagorinskyLilly{DF}(C_smag,true), 
                      EquilMoist(), 
                      NoRadiation(),
-                     Gravity(), NoFluxBC(), initialise_density_current!)
+                     Gravity(), 
+                     NoFluxBC(), 
+                     initialise_density_current!)
   # -------------- Define dgbalancelaw --------------------------- # 
   dg = DGModel(model,
                grid,
