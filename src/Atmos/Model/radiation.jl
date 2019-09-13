@@ -1,4 +1,5 @@
 using CLIMA.PlanetParameters
+export NoRadiation, StevensRadiation
 
 abstract type RadiationModel end
 
@@ -8,7 +9,8 @@ vars_diffusive(::RadiationModel, DT) = @vars()
 vars_aux(::RadiationModel, DT) = @vars()
 vars_integrals(::RadiationModel, DT) = @vars()
 
-function update_aux!(::RadiationModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars,
+                                 aux::Vars, t::Real)
 end
 function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real)
 end
