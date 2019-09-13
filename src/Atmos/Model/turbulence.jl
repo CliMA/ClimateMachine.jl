@@ -67,7 +67,7 @@ function atmos_nodal_update_aux!(::SmagorinskyLilly, ::AtmosModel, state::Vars, 
   ρ𝛕 = diffusive.ρτ
   ρ = state.ρ
   𝛕 = ρ𝛕 ./ ρ
-  @inbounds τ_w = sqrt(𝛕[1,3]^2 + 𝛕[2,3]^2)
+  @inbounds τ_w = hypot(𝛕[1,3], 𝛕[2,3])
   aux.turbulence.u_τ = sqrt(τ_w / ρ)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
