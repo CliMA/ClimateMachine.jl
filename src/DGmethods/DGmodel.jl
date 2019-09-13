@@ -307,10 +307,9 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 end
 
 function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
-                                            Q::MPIStateArray,
                                             auxstate::MPIStateArray, t::Real)
 
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   topology = grid.topology
@@ -320,7 +319,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  DFloat = eltype(Q)
+  DFloat = eltype(auxstate)
 
   vgeo = grid.vgeo
   polyorder = polynomialorder(dg.grid)
