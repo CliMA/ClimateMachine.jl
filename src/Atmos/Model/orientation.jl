@@ -23,7 +23,7 @@ No gravitional force or potential.
 """
 struct NoOrientation <: Orientation
 end
-function vars_aux!(::NoOrientation, T)
+function vars_aux(::NoOrientation, T)
   @vars()
 end
 atmos_init_aux!(::NoOrientation, ::AtmosModel, aux::Vars, geom::LocalGeometry) = nothing
