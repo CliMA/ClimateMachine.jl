@@ -63,10 +63,10 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag)
 
   model = AtmosModel(NoOrientation(),
                      NoReferenceState(),
-                     SmagorinskyLilly{DT}(C_smag),
+                     ConstantViscosityWithDivergence{DT}(1.22e-4),
                      EquilMoist(),
                      NoRadiation(),
-                     (Gravity(),ConstPG{DT}(-10/2000)),
+                     (Gravity(),ConstPG{DT}(-(1.22*180^2*(1e-4)^2))),
                      ChannelFlowBC(),
                      Initialise_ChannelFlow!)
 
@@ -106,13 +106,20 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag)
 
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
-    mkpath("./vtk-channel")
-    outprefix = @sprintf("./vtk-channel/channel_%dD_mpirank%04d_step%04d", dim,
+    vtkdir = "./vtk-channel"
+    mkpath(vtkdir)
+    outprefix = @sprintf("%s/channel_%dD_mpirank%04d_step%04d",vtkdir, dim,
                            MPI.Comm_rank(mpicomm), step[1])
-    @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
              param[1], flattenednames(vars_aux(model,DT)))
-        
+    #=
+    pvtuprefix = @sprintf("channel_%dD_step%04d", dim, step[1])
+      prefixes = ntuple(i->
+      @sprintf("%s/channel_%dD_mpirank%04d_step%04d", vtkdir,
+               dim, i-1, step[1]),
+               MPI.Comm_size(mpicomm))
+      writepvtu(pvtuprefix, prefixes, statenames)
+    =#
     step[1] += 1
     nothing
   end
@@ -153,39 +160,24 @@ let
     DT = Float32
     # DG polynomial order 
     polynomialorder = 4
-    # User specified grid spacing
-    Δx    = DT(12.5)
-    Δy    = DT(12.5)
-    Δz    = DT(12.5)
     # SGS Filter constants
     C_smag = DT(0.15)
-    # Physical domain extents 
-    (xmin, xmax) = (0, 2000)
-    (ymin, ymax) = (0, 400)
-    (zmin, zmax) = (0, 400)
-    zsponge = DT(0.75 * zmax)
-    #Get Nex, Ney from resolution
-    Lx = xmax - xmin
-    Ly = ymax - ymin
-    Lz = zmax - ymin
     # User defines the grid size:
-    Nex = ceil(Int64, (Lx/Δx - 1)/polynomialorder)
-    Ney = ceil(Int64, (Ly/Δy - 1)/polynomialorder)
-    Nez = ceil(Int64, (Lz/Δz - 1)/polynomialorder)
-    Ne = (Nex, Ney, Nez)
+    Ne = (25, 25, 25)
+    # Physical domain extents 
+    (xmin, xmax) = (0, 4)
+    (ymin, ymax) = (0, 2)
+    (zmin, zmax) = (0, 2)
     # User defined domain parameters
     brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
                   range(DT(ymin), length=Ne[2]+1, DT(ymax)),
                   range(DT(zmin), length=Ne[3]+1, DT(zmax)))
     topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
-    dt = 0.0075
+    dt = (2/25/16/330 * 0.5)
     timeend = 3600*10
     dim = 3
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  polynomialorder, timeend, DT, dt, C_smag)
-    @test result ≈ DT(0.9999737128867487)
   end
 end
-
-#nothing
