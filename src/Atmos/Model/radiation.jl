@@ -8,7 +8,7 @@ vars_diffusive(::RadiationModel, DT) = @vars()
 vars_aux(::RadiationModel, DT) = @vars()
 vars_integrals(::RadiationModel, DT) = @vars()
 
-function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars,
+function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars, diffusive::Vars,
                                  aux::Vars, t::Real)
 end
 function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real)

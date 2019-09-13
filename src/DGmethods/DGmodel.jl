@@ -37,9 +37,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
 
   Np = dofs_per_element(grid)
 
-  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
+  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q), typeof(Qvisc),
                                   typeof(auxstate), typeof(t)})
-    update_aux!(dg, bl, Q, auxstate, t)
+    update_aux!(dg, bl, Q, Qvisc, auxstate, t)
   end
 
   ########################
@@ -212,7 +212,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   return state
 end
 
-
+#=
 """
     dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw,
                    Q::MPIStateArray)
@@ -262,6 +262,7 @@ function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param::MPI
   @launch(device, threads=(Np,), blocks=nrealelem,
     knl_node_apply_aux!(bl, Val(dim), Val(N), f!, Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
 end
+=#
 
 function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                     Q::MPIStateArray, auxstate::MPIStateArray,
@@ -327,7 +328,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                                  Val(nintegrals)))
 end
 
-function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray, Qvisc::MPIStateArray,
                            auxstate::MPIStateArray, t::Real)
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -346,5 +347,5 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   ### update aux variables
   @launch(device, threads=(Np,), blocks=nrealelem,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
-                          Q.Q, auxstate.Q, t, topology.realelems))
+                          Q.Q, Qvisc.Q, auxstate.Q, t, topology.realelems))
 end

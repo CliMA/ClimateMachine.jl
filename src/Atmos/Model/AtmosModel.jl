@@ -215,7 +215,7 @@ end
 diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real,
            ::NoViscosity) = nothing
 
-function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
+function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, Qvisc::MPIStateArray,
                      auxstate::MPIStateArray, t::Real)
   DFloat = eltype(Q)
   if num_integrals(m, DFloat) > 0
@@ -223,13 +223,13 @@ function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
     reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
   end
 
-  nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, auxstate, t)
+  nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q , Qvisc, auxstate, t)
 end
 
-function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
-  atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
-  atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
-  atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
+function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  atmos_nodal_update_aux!(m.moisture, m, state, diffusive, aux, t)
+  atmos_nodal_update_aux!(m.radiation, m, state, diffusive, aux, t)
+  atmos_nodal_update_aux!(m.turbulence, m, state, diffusive, aux, t)
 end
 
 function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)

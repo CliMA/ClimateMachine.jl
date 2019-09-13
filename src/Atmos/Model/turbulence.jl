@@ -9,7 +9,7 @@ vars_aux(::TurbulenceClosure, T) = @vars()
 
 function atmos_init_aux!(::TurbulenceClosure, ::AtmosModel, aux::Vars, geom::LocalGeometry)
 end
-function atmos_nodal_update_aux!(::TurbulenceClosure, ::AtmosModel, state::Vars, aux::Vars, t::Real)
+function atmos_nodal_update_aux!(::TurbulenceClosure, ::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
 function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t, ν)
 end
@@ -56,11 +56,18 @@ end
 struct SmagorinskyLilly{T} <: TurbulenceClosure
   C_smag::T
 end
-vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
+vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, u_τ::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
+end
+function atmos_nodal_update_aux!(::SmagorinskyLilly, ::AtmosModel, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  ρ𝛕 = diffusive.ρτ
+  ρ = state.ρ
+  𝛕 = ρ𝛕 ./ ρ
+  @inbounds τ_w = sqrt(𝛕[1,3]^2 + 𝛕[2,3]^2)
+  aux.turbulence.u_τ = sqrt(τ_w / ρ)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v

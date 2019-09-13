@@ -649,7 +649,7 @@ end
 
 Update the auxiliary state array
 """
-function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
+function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, Qvisc,
                                auxstate, t, elems) where {dim, N}
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
@@ -664,6 +664,7 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
 
   l_Q = MArray{Tuple{nstate}, DFloat}(undef)
   l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
@@ -675,7 +676,11 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
         l_aux[s] = auxstate[n, s, e]
       end
 
-      f!(bl, Vars{vars_state(bl,DFloat)}(l_Q),
+      @unroll for s = 1:nviscstate
+        l_Qvisc[s] = Qvisc[n, s, e]
+      end
+      
+      f!(bl, Vars{vars_state(bl,DFloat)}(l_Q), Vars{vars_diffusive(bl,DFloat)}(l_Qvisc),
          Vars{vars_aux(bl,DFloat)}(l_aux), t)
 
       @unroll for s = 1:nauxstate

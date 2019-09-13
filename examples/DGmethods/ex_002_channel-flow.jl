@@ -107,7 +107,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag)
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
     mkpath("./vtk-channel")
-    outprefix = @sprintf("./vtk-channel/dycoms_%dD_mpirank%04d_step%04d", dim,
+    outprefix = @sprintf("./vtk-channel/channel_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
