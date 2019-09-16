@@ -9,7 +9,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.VariableTemplates: flattenednames
-using CLIMA.Ocean
+using CLIMA.ShallowWater
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
