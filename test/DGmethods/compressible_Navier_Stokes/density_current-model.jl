@@ -22,6 +22,8 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using Random
 
+using CLIMA.Atmos: vars_state, vars_aux, vars_diffusive
+
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -144,13 +146,14 @@ function run(mpicomm, ArrayType,
     end
   end
 
+  
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(3000)  do (init=false)
     mkpath("./vtk-dc/")
       outprefix = @sprintf("./vtk-dc/DC_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
-      @debug "doing VTK output" outprefix
-      writevtk(outprefix, Q, dg, flattenednames(vars_state(model, DF)))
+      paramnames = (flattenednames(vars_diffusive(model,DF)))
+      writevtk(outprefix, Q, dg, flattenednames(vars_state(model, DF)), (param.diff), paramnames)
       step[1] += 1
       nothing
   end
