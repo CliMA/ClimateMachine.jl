@@ -1,5 +1,5 @@
 @testset "cubedshellwarp tests" begin
-  import CLIMA.Topologies: cubedshellwarp
+  import CLIMA.Mesh.Topologies: cubedshellwarp
 
   @testset "check radius" begin
     @test hypot(cubedshellwarp( 3.0,-2.2, 1.3)...) ≈ 3.0 rtol=eps()
@@ -29,7 +29,7 @@
 end
 
 @testset "BrickTopology tests" begin
-  using CLIMA.Topologies
+  using CLIMA.Mesh.Topologies
 
   let
     comm = MPI.COMM_SELF
@@ -132,7 +132,7 @@ end
   let
     comm = MPI.COMM_SELF
     topology = StackedBrickTopology(comm, (2:5,4:6), periodicity=(false,true),
-                                    boundary=[1 3; 2 4])
+                                    boundary=((1,2),(3,4)))
 
     nelem = 6
 

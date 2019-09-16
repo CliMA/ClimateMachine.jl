@@ -9,13 +9,10 @@ set -euo pipefail
 set -x #echo on
 
 export PATH="${PATH}:${HOME}/julia-1.2/bin"
-export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot/${SLURM_JOB_ID}/${HOSTNAME}:$(pwd)/.slurmdepot/common"
+export JULIA_DEPOT_PATH="$(pwd)/.slurmdepot/gpu"
 export CUDA_PATH="/lib64"
+export OPENBLAS_NUM_THREADS=1
 
-module load cmake/3.10.2 openmpi/3.1.2 cuda/9.1
-
-# we need to build CUDA on each device
-# to avoid race conditions we create a separate depot per job
-julia --color=no --project=env/gpu -e 'using Pkg; pkg"instantiate"; pkg"precompile"'
+module load openmpi/3.1.4 cuda/10.0
 
 julia --color=no --project=env/gpu test/runtests_gpu.jl

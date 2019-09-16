@@ -1,15 +1,13 @@
 module Grids
 using ..Topologies
-
-export DiscontinuousSpectralElementGrid, AbstractGrid
-export ExponentialFilter, CutoffFilter, AbstractFilter
-export dofs_per_element, arraytype, dimensionality, polynomialorder
-export referencepoints
-export grid_stretching
-import Canary
+import ..Metrics, ..Elements
+import ..BrickMesh
 
 using LinearAlgebra
-using GaussQuadrature: legendre_coefs, orthonormal_poly
+
+export DiscontinuousSpectralElementGrid, AbstractGrid
+export dofs_per_element, arraytype, dimensionality, polynomialorder
+export referencepoints
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
                          DeviceArray} end
@@ -33,21 +31,22 @@ referencepoints(::AbstractGrid) = error("needs to be implemented")
 
 # {{{
 const _nvgeo = 15
-const _ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-       _x, _y, _z, _JcV = 1:_nvgeo
-const vgeoid = (ξxid = _ξx, ηxid = _ηx, ζxid = _ζx,
-                ξyid = _ξy, ηyid = _ηy, ζyid = _ζy,
-                ξzid = _ξz, ηzid = _ηz, ζzid = _ζz,
+const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI,
+       _x1, _x2, _x3, _JcV = 1:_nvgeo
+const vgeoid = (ξ1x1id = _ξ1x1, ξ2x1id = _ξ2x1, ξ3x1id = _ξ3x1,
+                ξ1x2id = _ξ1x2, ξ2x2id = _ξ2x2, ξ3x2id = _ξ3x2,
+                ξ1x3id = _ξ1x3, ξ2x3id = _ξ2x3, ξ3x3id = _ξ3x3,
                 Mid  = _M , MIid = _MI,
-                xid  = _x , yid  = _y , zid  = _z,
+                x1id  = _x1 , x2id  = _x2 , x3id  = _x3,
                 JcVid = _JcV)
 # JcV is the vertical line integral Jacobian
 
 const _nsgeo = 5
-const _nx, _ny, _nz, _sM, _vMI = 1:_nsgeo
-const sgeoid = (nxid = _nx, nyid = _ny, nzid = _nz, sMid = _sM,
+const _n1, _n2, _n3, _sM, _vMI = 1:_nsgeo
+const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM,
                 vMIid = _vMI)
 # }}}
+
 
 """
     DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
@@ -87,8 +86,17 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   "volume DOF to element plus side map"
   vmapP::DAI3
 
-  "list of elements that need to be communicated (in neighbors order)"
-  sendelems::DAI1
+  "list of DOFs that need to be received (in neighbors order)"
+  vmaprecv::DAI1
+
+  "list of DOFs that need to be sent (in neighbors order)"
+  vmapsend::DAI1
+
+  "An array of ranges in `vmaprecv` to receive from each neighbor"
+  nabrtovmaprecv
+
+  "An array of ranges in `vmapsend` to send to each neighbor"
+  nabrtovmapsend
 
   "1-D lvl weights on the device"
   ω::DAT1
@@ -110,12 +118,17 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
     @assert polynomialorder != nothing
 
     N = polynomialorder
-    (ξ, ω) = Canary.lglpoints(FloatType, N)
+    (ξ, ω) = Elements.lglpoints(FloatType, N)
     Imat = indefinite_integral_interpolation_matrix(ξ, ω)
-    D = Canary.spectralderivative(ξ)
+    D = Elements.spectralderivative(ξ)
 
     (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
                               topology.elemtoordr)
+
+    (vmaprecv, nabrtovmaprecv) =
+      BrickMesh.commmapping(N, topology.ghostelems, topology.ghostfaces, topology.nabrtorecv)
+    (vmapsend, nabrtovmapsend) =
+      BrickMesh.commmapping(N, topology.sendelems, topology.sendfaces, topology.nabrtosend)
 
     (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmapM)
     Np = (N+1)^dim
@@ -127,7 +140,8 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      elemtobndy = DeviceArray(topology.elemtobndy)
      vmapM = DeviceArray(vmapM)
      vmapP = DeviceArray(vmapP)
-     sendelems = DeviceArray(topology.sendelems)
+     vmapsend = DeviceArray(vmapsend)
+     vmaprecv = DeviceArray(vmaprecv)
      ω = DeviceArray(ω)
      D = DeviceArray(D)
      Imat = DeviceArray(Imat)
@@ -137,14 +151,14 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      DAT2 = typeof(D)
      DAT3 = typeof(vgeo)
      DAT4 = typeof(sgeo)
-     DAI1 = typeof(sendelems)
+     DAI1 = typeof(vmapsend)
      DAI2 = typeof(elemtobndy)
      DAI3 = typeof(vmapM)
      TOP = typeof(topology)
 
     new{FloatType, dim, N, Np, DeviceArray, DAT1, DAT2, DAT3, DAT4, DAI1, DAI2,
-        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, sendelems,
-                   ω, D, Imat)
+        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, vmaprecv, vmapsend,
+                   nabrtovmaprecv, nabrtovmapsend, ω, D, Imat)
   end
 end
 
@@ -153,8 +167,9 @@ end
 
 Returns the 1D interpolation points used for the reference element.
 """
-function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}) where {T, dim, N}
-  ξ, _ = Canary.lglpoints(T, N)
+function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}
+                        ) where {T, dim, N}
+  ξ, _ = Elements.lglpoints(T, N)
   ξ
 end
 
@@ -243,27 +258,27 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   vgeo = zeros(DFloat, Nq^dim, _nvgeo, nelem)
   sgeo = zeros(DFloat, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, MJ, MJI, x, y, z, JcV) =
-      ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
-  J = similar(x)
-  (nx, ny, nz, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
+  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, x1, x2, x3,
+   JcV) = ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
+  J = similar(x1)
+  (n1, n2, n3, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
   sJ = similar(sMJ)
 
-  X = ntuple(j->(@view vgeo[:, _x+j-1, :]), dim)
-  Canary.creategrid!(X..., topology.elemtocoord, ξ)
+  X = ntuple(j->(@view vgeo[:, _x1+j-1, :]), dim)
+  Metrics.creategrid!(X..., topology.elemtocoord, ξ)
 
-  @inbounds for j = 1:length(x)
-    (x[j], y[j], z[j]) = meshwarp(x[j], y[j], z[j])
+  @inbounds for j = 1:length(x1)
+    (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
   end
 
   # Compute the metric terms
   if dim == 1
-    Canary.computemetric!(x, J, ξx, sJ, nx, D)
+    Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D)
   elseif dim == 2
-    Canary.computemetric!(x, y, J, ξx, ηx, ξy, ηy, sJ, nx, ny, D)
+    Metrics.computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
   elseif dim == 3
-    Canary.computemetric!(x, y, z, J, ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz, sJ,
-                   nx, ny, nz, D)
+    Metrics.computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2,
+                           ξ1x3, ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
   end
 
   M = kron(1, ntuple(j->ω, dim)...)
@@ -274,19 +289,20 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
   sMJ .= sM .* sJ
 
-  # Compute |r'(ζ)| for vertical line integrals
+  # Compute |r'(ξ3)| for vertical line integrals
   if dim == 2
-    map!(JcV, J, ξx, ξy) do J, ξx, ξy
-      xη = J * ξy
-      yη = J * ξx
-      hypot(xη, yη)
+    map!(JcV, J, ξ1x1, ξ1x2) do J, ξ1x1, ξ1x2
+      x1ξ1 = J * ξ1x2
+      x2ξ2 = J * ξ1x1
+      hypot(x1ξ1, x2ξ2)
     end
   elseif dim == 3
-    map!(JcV, J, ξx, ξy, ξz, ηx, ηy, ηz) do J, ξx, ξy, ξz, ηx, ηy, ηz
-      xζ = J * (ξy * ηz - ηy * ξz)
-      yζ = J * (ξz * ηx - ηz * ξx)
-      zζ = J * (ξx * ηy - ηx * ξy)
-      hypot(xζ, yζ, zζ)
+    map!(JcV, J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
+        ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
+      x1ξ3 = J * (ξ1x2 * ξ2x3 - ξ2x2 * ξ1x3)
+      x2ξ3 = J * (ξ1x3 * ξ2x1 - ξ2x3 * ξ1x1)
+      x3ξ3 = J * (ξ1x1 * ξ2x2 - ξ2x1 * ξ1x2)
+      hypot(x1ξ3, x2ξ3, x3ξ3)
     end
   else
     error("dim $dim not implemented")
@@ -332,14 +348,14 @@ function indefinite_integral_interpolation_matrix(r, ω)
   I∫[1, :] .= 0
 
   # barycentric weights for interpolation
-  wbary = Canary.baryweights(r)
+  wbary = Elements.baryweights(r)
 
   # Compute the interpolant of the indefinite integral
   for n = 2:Nq
     # grid from first dof to current point
     rdst = (1 .- r)/2 * r[1] + (1 .+ r)/2 * r[n]
     # interpolation matrix
-    In = Canary.interpolationmatrix(r, rdst, wbary)
+    In = Elements.interpolationmatrix(r, rdst, wbary)
     # scaling from LGL to current of the interval
     Δ = (r[n] -  r[1]) / 2
     # row of the matrix we have computed
@@ -349,137 +365,4 @@ function indefinite_integral_interpolation_matrix(r, ω)
 end
 # }}}
 
-# {{{ filters
-"""
-    spectral_filter_matrix(r, Nc, σ)
-
-Returns the filter matrix that takes function values at the interpolation
-`N+1` points, `r`, converts them into Legendre polynomial basis coefficients,
-multiplies
-```math
-σ((n-N_c)/(N-N_c))
-```
-against coefficients `n=Nc:N` and evaluates the resulting polynomial at the
-points `r`.
-"""
-function spectral_filter_matrix(r, Nc, σ)
-  N = length(r)-1
-  T = eltype(r)
-
-  @assert N >= 0
-  @assert 0 <= Nc <= N
-
-  a, b = legendre_coefs(T, N)
-  V = orthonormal_poly(r, a, b)
-
-  Σ = ones(T, N+1)
-  Σ[(Nc:N).+1] .= σ.(((Nc:N).-Nc)./(N-Nc))
-
-  V*Diagonal(Σ)/V
-end
-
-abstract type AbstractFilter end
-
-"""
-    ExponentialFilter(grid, Nc=0, s=32, α=-log(eps(eltype(grid))))
-
-Returns the spectral filter with the filter function
-```math
-σ(η) = \exp(-α η^s)
-```
-where `s` is the filter order (must be even), the filter starts with
-polynomial order `Nc`, and `alpha` is a parameter controlling the smallest
-value of the filter function.
-"""
-struct ExponentialFilter <: AbstractFilter
-  "filter matrix"
-  filter
-
-  function ExponentialFilter(grid, Nc=0, s=32,
-                             α=-log(eps(eltype(grid))))
-    AT = arraytype(grid)
-    N = polynomialorder(grid)
-    ξ = referencepoints(grid)
-
-    @assert iseven(s)
-    @assert 0 <= Nc <= N
-
-    σ(η) = exp(-α*η^s)
-    filter = spectral_filter_matrix(ξ, Nc, σ)
-
-    new(AT(filter))
-  end
-end
-
-"""
-    CutoffFilter(grid, Nc=polynomialorder(grid))
-
-Returns the spectral filter that zeros out polynomial modes greater than or
-equal to `Nc`.
-"""
-struct CutoffFilter <: AbstractFilter
-  "filter matrix"
-  filter
-
-  function CutoffFilter(grid, Nc=polynomialorder(grid))
-    AT = arraytype(grid)
-    ξ = referencepoints(grid)
-
-    σ(η) = 0
-    filter = spectral_filter_matrix(ξ, Nc, σ)
-
-    new(AT(filter))
-  end
-end
-
-# }}}
-
-
-"""
-    grid_stretching(DFloat,
-                         xmin, xmax, ymin, ymax, zmin, zmax,
-                         Ne,
-                         xstretch_flg, ystretch_flg, zstretch_flg)
-
-Stretches the grid based on the user's choice of stretching method.
-"""
-function grid_stretching(DFloat,
-                         xmin, xmax, ymin, ymax, zmin, zmax,
-                         Ne,
-                         xstretch_flg, ystretch_flg, zstretch_flg)
-
-    #build physical range to be stratched
-    x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
-    y_range_stretched = (range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
-    z_range_stretched = (range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
-
-    #build logical space
-    ksi  = (range(DFloat(0), length=Ne[1]+1, DFloat(1)))
-    eta  = (range(DFloat(0), length=Ne[2]+1, DFloat(1)))
-    zeta = (range(DFloat(0), length=Ne[3]+1, DFloat(1)))
-
-    xstretch_coe = 0.0
-    if xstretch_flg == 1
-        xstretch_coe = 1.5
-        x_range_stretched = (xmax - xmin).*(exp.(xstretch_coe * ksi)  .- 1.0)./(exp(xstretch_coe) - 1.0)
-    end
-
-    ystretch_coe = 0.0
-    if ystretch_flg == 1
-        ystretch_coe = 1.5
-        y_range_stretched = (ymax - ymin).*(exp.(ystretch_coe * eta)  .- 1.0)./(exp(ystretch_coe) - 1.0)
-    end
-
-    zstretch_coe = 0.0
-    if zstretch_flg == 1
-        zstretch_coe = 2.5
-        z_range_stretched = (zmax - zmin).*(exp.(zstretch_coe * zeta) .- 1.0)./(exp(zstretch_coe) - 1.0)
-    end
-
-    return (x_range_stretched, y_range_stretched, z_range_stretched)
-
-end
-# }}}
-
-
-end
+end # module
