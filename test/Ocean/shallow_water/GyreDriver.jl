@@ -194,7 +194,8 @@ let
 
     for (j, N) in enumerate(orderrange)
       @info "running Ne $Ne and N $N with"
-      @info @sprintf("\n dt = %f", (Lˣ / c) / Ne / N^2)
+      dt = (Lˣ / c) / Ne / N^2
+      @info @sprintf("\n dt = %f", dt)
       errors[i, j] = run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
     end
   end
