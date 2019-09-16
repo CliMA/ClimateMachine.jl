@@ -193,8 +193,8 @@ let
                          periodicity = (false, false))
 
     for (j, N) in enumerate(orderrange)
-      println("running Ne $Ne and N $N with")
-      @show dt = (Lˣ / c) / Ne / N^2
+      @info "running Ne $Ne and N $N with"
+      @info @sprintf("\n dt = %f", (Lˣ / c) / Ne / N^2)
       errors[i, j] = run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
     end
   end
@@ -207,14 +207,14 @@ let
     rate = log2(errors[i, end] - log2(errors[i+1, end]))
     msg *= @sprintf("\n rate for Ne %d = %e", cellsrange[i], rate)
   end
-  @show msg
+  @info msg
 
   msg = ""
   for j in length(orderrange)-1
     rate = log2(errors[end, j] - log2(errors[end, j+1]))
     msg *= @sprintf("\n rate for N  %d = %e", orderrange[j], rate)
   end
-  @show msg
+  @info msg
   =#
 
 end
