@@ -1,6 +1,6 @@
 using Test
 using MPI
-using CLIMA.Topologies
+using CLIMA.Mesh.Topologies
 
 function main()
   MPI.Init()
@@ -10,7 +10,7 @@ function main()
 
   @assert csize == 5
 
-  topology = BrickTopology(comm, (0:10,); boundary=[1; 2],
+  topology = BrickTopology(comm, (0:10,); boundary=((1,2),),
                            periodicity=(true,))
 
   elems       = topology.elems
@@ -84,8 +84,6 @@ function main()
   @test nabrtorank == nabrtorank_expect
   @test nabrtorecv == nabrtorecv_expect
   @test nabrtosend == nabrtosend_expect
-
-  MPI.Finalize()
 end
 
 main()

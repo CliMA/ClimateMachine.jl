@@ -1,6 +1,6 @@
 using Test
 using MPI
-using CLIMA.Topologies
+using CLIMA.Mesh.Topologies
 
 function main()
   MPI.Init()
@@ -12,7 +12,7 @@ function main()
   @assert csize == 2
 
   topology = StackedBrickTopology(comm, (1:4,5:8,9:12), periodicity=(false,true,false),
-                                  boundary=[1 3 5; 2 4 6])
+                                  boundary=((1,2),(3,4),(5,6)))
 
   elems       = topology.elems
   realelems   = topology.realelems
@@ -132,8 +132,6 @@ function main()
   @test nabrtorank == nabrtorank_expect
   @test nabrtorecv == nabrtorecv_expect
   @test nabrtosend == nabrtosend_expect
-
-  MPI.Finalize()
 end
 
 main()
