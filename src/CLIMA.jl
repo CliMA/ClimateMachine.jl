@@ -26,6 +26,7 @@ include("ODESolvers/AdditiveRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
 include("Atmos/Model/AtmosModel.jl")
 include("InputOutput/VTK/VTK.jl")
+include("Data/Data.jl")
 include("misc.jl")
 
 end

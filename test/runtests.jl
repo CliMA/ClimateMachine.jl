@@ -14,6 +14,7 @@ for submodule in ["Utilities/ParametersType",
                   "ODESolvers",
                   "Arrays",
                   "LinearSolvers",
+                  "Data",
                  ]
 
   println("Starting tests for $submodule")
