@@ -288,6 +288,24 @@ internal_energy(ts::PhaseNonEquil) = ts.e_int
 internal_energy(ts::PhaseDry) = ts.e_int
 
 """
+    internal_energy(ρ::DT, ρe::DT, ρu::AbstractVector{DT}, e_pot::DT)
+
+The internal energy per unit mass, given
+ - `ρ` (moist-)air density
+ - `ρe` total energy
+ - `ρu` momentum vector
+ - `e_pot` potential energy (e.g., gravitational) per unit mass
+"""
+@inline function internal_energy(ρ::DT, ρe::DT, ρu::AbstractVector{DT}, e_pot::DT) where {DT<:Real}
+  ρinv = 1 / ρ
+  ρe_kin = ρinv*sum(abs2, ρu)/2
+  ρe_pot = ρ * e_pot
+  ρe_int = ρe - ρe_kin - ρe_pot
+  e_int = ρinv*ρe_int
+  return e_int
+end
+
+"""
     internal_energy_sat(T, ρ, q_tot)
 
 The internal energy per unit mass in thermodynamic equilibrium at saturation where
