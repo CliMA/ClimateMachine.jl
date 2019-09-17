@@ -61,25 +61,25 @@ function setup_model(DFloat, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ,
   model = SWModel(problem, turbulence, advection, c)
 end
 
-function shallow_init_state!(p::GyreInABox, T::TurbulenceClosure, state,
-                           aux, coords, t)
+function shallow_init_state!(p::GyreInABox, T::TurbulenceClosure, q, α,
+                             coords, t)
   if t == 0
-    null_init_state!(p, T, state, aux, coords, 0)
+    null_init_state!(p, T, q, α, coords, 0)
   else
-    gyre_init_state!(p, T, state, aux, coords, t)
+    gyre_init_state!(p, T, q, α, coords, t)
   end
 end
 
-function shallow_init_aux!(p::GyreInABox, aux, geom)
-  @inbounds y  = geom.coord[2]
+function shallow_init_aux!(p::GyreInABox, α, geom)
+  @inbounds y = geom.coord[2]
 
   Lʸ = p.Lʸ
   τₒ = p.τₒ
   fₒ = p.fₒ
   β  = p.β
 
-  aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0, 0]
-  aux.f = @SVector [0, 0, fₒ + β * (y - Lʸ/2)]
+  α.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0, 0]
+  α.f = @SVector [0, 0, fₒ + β * (y - Lʸ/2)]
 
   return nothing
 end

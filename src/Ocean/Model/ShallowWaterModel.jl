@@ -151,8 +151,7 @@ end
 
 linear_drag!(::ConstantViscosity, _...) = nothing
 
-@inline function linear_drag!(T::LinearDrag, S::Vars, q::Vars,
-                              α::Vars, t::Real)
+@inline function linear_drag!(T::LinearDrag, S::Vars, q::Vars, α::Vars, t::Real)
   λ = T.λ
   U = q.U
 
@@ -162,28 +161,27 @@ linear_drag!(::ConstantViscosity, _...) = nothing
 end
 
 function shallow_init_aux! end
-function init_aux!(m::SWModel, aux::Vars, geom::LocalGeometry)
-  shallow_init_aux!(m.problem, aux, geom)
+function init_aux!(m::SWModel, α::Vars, geom::LocalGeometry)
+  return shallow_init_aux!(m.problem, α, geom)
 end
 
 function shallow_init_state! end
-function init_state!(m::SWModel, state::Vars, aux::Vars, coords, t)
-  shallow_init_state!(m.problem, m.turbulence, state, aux, coords, t)
+function init_state!(m::SWModel, q::Vars, α::Vars, coords, t)
+  return shallow_init_state!(m.problem, m.turbulence, q, α, coords, t)
 end
 
-function boundary_state!(nf, m::SWModel, state⁺::Vars, aux⁺::Vars, n⁻,
-                         state⁻::Vars, aux⁻::Vars, bctype, t, _...)
-    shallow_boundary_state!(nf, m, m.turbulence, state⁺, aux⁺, n⁻, state⁻,
-                          aux⁻, t)
+function boundary_state!(nf, m::SWModel, q⁺::Vars, α⁺::Vars, n⁻,
+                         q⁻::Vars, α⁻::Vars, bctype, t, _...)
+  return shallow_boundary_state!(nf, m, m.turbulence, q⁺, α⁺, n⁻, q⁻, α⁻, t)
 end
 
-@inline function shallow_boundary_state!(::Rusanov, m::SWModel, ::LinearDrag, state⁺,
-                               aux⁺, n⁻, state⁻, aux⁻, t)
-  U⁻ = state⁻.U
+@inline function shallow_boundary_state!(::Rusanov, m::SWModel, ::LinearDrag,
+                                         q⁺, α⁺, n⁻, q⁻, α⁻, t)
+  U⁻ = q⁻.U
   n⁻ = SVector(n⁻)
 
-  state⁺.η = state⁻.η
-  state⁺.U = U⁻ - 2 * (n⁻⋅U⁻) * n⁻
+  q⁺.η = q⁻.η
+  q⁺.U = U⁻ - 2 * (n⁻⋅U⁻) * n⁻
 
   return nothing
 end
@@ -194,9 +192,10 @@ shallow_boundary_state!(::CentralGradPenalty, m::SWModel,
 shallow_boundary_state!(::CentralNumericalFluxDiffusive, m::SWModel,
                         ::LinearDrag, _...) = nothing
 
-function boundary_state!(nf, m::SWModel, q⁺::Vars, σ⁺::Vars, α⁺::Vars,
-                         n⁻, q⁻::Vars, σ⁻::Vars, α⁻::Vars, bctype, t, _...)
-  shallow_boundary_state!(nf, m, m.turbulence, q⁺, σ⁺, α⁺, n⁻, q⁻, σ⁻, α⁻, t)
+function boundary_state!(nf, m::SWModel, q⁺::Vars, σ⁺::Vars, α⁺::Vars, n⁻,
+                         q⁻::Vars, σ⁻::Vars, α⁻::Vars, bctype, t, _...)
+  return shallow_boundary_state!(nf, m, m.turbulence,
+                                 q⁺, σ⁺, α⁺, n⁻, q⁻, σ⁻, α⁻, t)
 end
 
 @inline function shallow_boundary_state!(::Rusanov, m::SWModel,
@@ -209,16 +208,16 @@ end
 end
 
 @inline function shallow_boundary_state!(::CentralGradPenalty, m::SWModel,
-                                         ::ConstantViscosity, q⁺, α⁺, n⁻, q⁻, α⁻, t)
+                                         ::ConstantViscosity,
+                                         q⁺, α⁺, n⁻, q⁻, α⁻, t)
   q⁺.U = -q⁻.U
 
   return nothing
 end
 
 @inline function shallow_boundary_state!(::CentralNumericalFluxDiffusive,
-                                         m::SWModel,
-                                         ::ConstantViscosity, q⁺, σ⁺, α⁺,
-                                         n⁻, q⁻, σ⁻, α⁻, t)
+                                         m::SWModel, ::ConstantViscosity,
+                                         q⁺, σ⁺, α⁺, n⁻, q⁻, σ⁻, α⁻, t)
   q⁺.U   = -q⁻.U
   σ⁺.ν∇U =  σ⁻.ν∇U
 
