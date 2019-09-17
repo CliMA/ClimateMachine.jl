@@ -8,100 +8,83 @@ end
 
 function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   bl = dg.balancelaw
+  DFloat = eltype(Q)
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  topology = grid.topology
+  Ω    = grid.topology.realelems
+  nΩ   = length(Ω)
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Nq   = N + 1
+  Nqk  = Nᵈ == 2 ? 1 : Nq
+  Nfp  = Nq * Nqk
+  Np   = dofs_per_element(grid)
 
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
-  Nq = N + 1
-  Nqk = dim == 2 ? 1 : Nq
-  Nfp = Nq * Nqk
-  nrealelem = length(topology.realelems)
+  σ  = param.diff
+  α  = param.aux
+  nσ = num_diffusive(bl, DFloat)
 
-  Qvisc = param.diff
-  auxstate = param.aux
-
-  DFloat = eltype(Q)
-  nviscstate = num_diffusive(bl, DFloat)
-
-  lgl_weights_vec = grid.ω
-  Dmat = grid.D
   vgeo = grid.vgeo
   sgeo = grid.sgeo
-  vmapM = grid.vmapM
-  vmapP = grid.vmapP
-  elemtobndy = grid.elemtobndy
-  polyorder = polynomialorder(dg.grid)
+  ω    = grid.ω
+  D    = grid.D
+  ι⁻   = grid.vmapM
+  ι⁺   = grid.vmapP
+  ιᴮ   = grid.elemtobndy
 
-  Np = dofs_per_element(grid)
-
-  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
-                                  typeof(auxstate), typeof(t)})
-    update_aux!(dg, bl, Q, auxstate, t)
+  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q), typeof(α),
+                                  typeof(t)})
+    update_aux!(dg, bl, Q, α, t)
   end
 
   ########################
   # Gradient Computation #
   ########################
   MPIStateArrays.start_ghost_exchange!(Q)
-  MPIStateArrays.start_ghost_exchange!(auxstate)
+  MPIStateArrays.start_ghost_exchange!(α)
 
-  if nviscstate > 0
-
-    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(bl, Val(dim), Val(polyorder), Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
-                             topology.realelems))
+  if nσ > 0
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nΩ,
+            volumeviscterms!(bl, Val(Nᵈ), Val(N), Q.Q, σ.Q, α.Q, vgeo, t, D, Ω))
 
     MPIStateArrays.finish_ghost_recv!(Q)
-    MPIStateArrays.finish_ghost_recv!(auxstate)
+    MPIStateArrays.finish_ghost_recv!(α)
 
-    @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux,
-                           Q.Q, Qvisc.Q, auxstate.Q,
-                           vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-                           topology.realelems))
+    @launch(device, threads=Nfp, blocks=nΩ,
+            faceviscterms!(bl, Val(Nᵈ), Val(N), dg.gradnumflux, Q.Q, σ.Q, α.Q,
+                           vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, Ω))
 
-    MPIStateArrays.start_ghost_exchange!(Qvisc)
+    MPIStateArrays.start_ghost_exchange!(σ)
   end
 
   ###################
   # RHS Computation #
   ###################
-  @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(dim), Val(polyorder), dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
-                     vgeo, t, lgl_weights_vec, Dmat,
-                     topology.realelems, increment))
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nΩ,
+          volumerhs!(bl, Val(Nᵈ), Val(N), dQdt.Q, Q.Q, σ.Q, α.Q, vgeo, t, ω, D,
+                     Ω, increment))
 
-  if nviscstate > 0
-    MPIStateArrays.finish_ghost_recv!(Qvisc)
+  if nσ > 0
+    MPIStateArrays.finish_ghost_recv!(σ)
   else
     MPIStateArrays.finish_ghost_recv!(Q)
-    MPIStateArrays.finish_ghost_recv!(auxstate)
+    MPIStateArrays.finish_ghost_recv!(α)
   end
 
   # The main reason for this protection is not for the MPI.Waitall!, but the
   # make sure that we do not recopy data to the GPU
-  nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
-  nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
+  nσ > 0  && MPIStateArrays.finish_ghost_recv!(σ)
+  nσ == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
-  @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder),
-                   dg.numfluxnondiff,
-                   dg.numfluxdiff,
-                   dQdt.Q, Q.Q, Qvisc.Q,
-                   auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-                   topology.realelems))
+  @launch(device, threads=Nfp, blocks=nΩ,
+          facerhs!(bl, Val(Nᵈ), Val(N), dg.numfluxnondiff, dg.numfluxdiff,
+                   dQdt.Q, Q.Q, σ.Q, α.Q, vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, Ω))
 
   # Just to be safe, we wait on the sends we started.
-  MPIStateArrays.finish_ghost_send!(Qvisc)
+  MPIStateArrays.finish_ghost_send!(σ)
   MPIStateArrays.finish_ghost_send!(Q)
 end
-
-
-
-
 
 """
     init_ode_param(dg::DGModel)
@@ -110,22 +93,26 @@ Initialize the ODE parameter object, containing the auxiliary and diffusive stat
 """
 function init_ode_param(dg::DGModel)
   bl = dg.balancelaw
-  grid = dg.grid
-  topology = grid.topology
-  Np = dofs_per_element(grid)
+  device = typeof(α.Q) <: Array ? CPU() : CUDA()
 
-  h_vgeo = Array(grid.vgeo)
+  grid = dg.grid
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Np   = dofs_per_element(grid)
+  vgeo = grid.vgeo
+  topology = grid.topology
+  Ω    = topology.realelems
+  nΩ   = length(Ω)
+
+  h_vgeo = Array(vgeo)
   DFloat = eltype(h_vgeo)
-  DA = arraytype(grid)
+  DA     = arraytype(grid)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-
-
-
   # TODO: Clean up this MPIStateArray interface...
-  diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
+  σ = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
     topology.mpicomm,
     length(topology.elems),
     realelems=topology.realelems,
@@ -138,7 +125,7 @@ function init_ode_param(dg::DGModel)
     weights=weights,
     commtag=111)
 
-  auxstate = MPIStateArray{Tuple{Np, num_aux(bl,DFloat)}, DFloat, DA}(
+  α = MPIStateArray{Tuple{Np, num_aux(bl,DFloat)}, DFloat, DA}(
     topology.mpicomm,
     length(topology.elems),
     realelems=topology.realelems,
@@ -151,19 +138,13 @@ function init_ode_param(dg::DGModel)
     weights=weights,
     commtag=222)
 
-  # if auxiliary_state_initialization! !== nothing
-  #   @assert auxiliary_state_length > 0
-    dim = dimensionality(grid)
-    polyorder = polynomialorder(grid)
-    vgeo = grid.vgeo
-    device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
-    nrealelem = length(topology.realelems)
-    @launch(device, threads=(Np,), blocks=nrealelem,
-            initauxstate!(bl, Val(dim), Val(polyorder), auxstate.Q, vgeo, topology.realelems))
-    MPIStateArrays.start_ghost_exchange!(auxstate)
-    MPIStateArrays.finish_ghost_exchange!(auxstate)
-  # end
-  return (aux=auxstate, diff=diffstate)
+  @launch(device, threads=(Np,), blocks=nΩ,
+          initauxstate!(bl, Val(Nᵈ), Val(N), α.Q, vgeo, Ω))
+
+  MPIStateArrays.start_ghost_exchange!(α)
+  MPIStateArrays.finish_ghost_exchange!(α)
+
+  return (aux=α, diff=σ)
 end
 
 
@@ -175,41 +156,45 @@ Initialize the ODE state array.
 """
 function init_ode_state(dg::DGModel, param, args...; commtag=888)
   bl = dg.balancelaw
+  α  = param.aux
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
   grid = dg.grid
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Np   = dofs_per_element(grid)
+  vgeo = grid.vgeo
   topology = grid.topology
+  Ω    = topology.realelems
+  nΩ   = length(Ω)
+
   # FIXME: Remove after updating CUDA
-  h_vgeo = Array(grid.vgeo)
+  h_vgeo = Array(vgeo)
   DFloat = eltype(h_vgeo)
-  Np = dofs_per_element(grid)
-  DA = arraytype(grid)
+  DA     = arraytype(grid)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
-                                               length(topology.elems),
-                                               realelems=topology.realelems,
-                                               ghostelems=topology.ghostelems,
-                                               vmaprecv=grid.vmaprecv,
-                                               vmapsend=grid.vmapsend,
-                                               nabrtorank=topology.nabrtorank,
-                                               nabrtovmaprecv=grid.nabrtovmaprecv,
-                                               nabrtovmapsend=grid.nabrtovmapsend,
-                                               weights=weights,
-                                               commtag=commtag)
+  Q = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
+      length(topology.elems),
+      realelems=topology.realelems,
+      ghostelems=topology.ghostelems,
+      vmaprecv=grid.vmaprecv,
+      vmapsend=grid.vmapsend,
+      nabrtorank=topology.nabrtorank,
+      nabrtovmaprecv=grid.nabrtovmaprecv,
+      nabrtovmapsend=grid.nabrtovmapsend,
+      weights=weights,
+      commtag=commtag)
 
-  auxstate = param.aux
-  dim = dimensionality(grid)
-  polyorder = polynomialorder(grid)
-  vgeo = grid.vgeo
-  device = typeof(state.Q) <: Array ? CPU() : CUDA()
-  nrealelem = length(topology.realelems)
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo, topology.realelems, args...))
-  MPIStateArrays.start_ghost_exchange!(state)
-  MPIStateArrays.finish_ghost_exchange!(state)
+  @launch(device, threads=(Np,), blocks=nΩ,
+          initstate!(bl, Val(Nᵈ), Val(N), Q.Q, α.Q, vgeo, Ω, args...))
 
-  return state
+  MPIStateArrays.start_ghost_exchange!(Q)
+  MPIStateArrays.finish_ghost_exchange!(Q)
+
+  return Q
 end
 
 
@@ -220,131 +205,99 @@ end
 Iterate over each dof to fill `R` using the `dof_fun!`. The syntax of the
 `dof_fun!` is
 ```
-dof_fun!(l_R, l_Q, l_Qvisc, l_aux)
+dof_fun!(l_R, l_Q, l_σ, l_aux)
 ```
-where `l_R`, `l_Q`, `l_Qvisc`, and `l_aux` are of type `MArray` filled initially
+where `l_R`, `l_Q`, `l_σ`, and `l_α` are of type `MArray` filled initially
 with the values at a single degree of freedom. After the call the values in
 `l_R` will be written back to the degree of freedom of `R`.
 """
 function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param::MPIStateArray)
   bl = dg.balancelaw
+  device = typeof(α.Q) <: Array ? CPU() : CUDA()
+
+  σ = param.diff
+  α = param.aux
 
   grid = dg.grid
-  topology = grid.topology
+  Ω    = grid.topology.realelems
+  nΩ   = length(Ω)
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Np   = dofs_per_element(grid)
 
-  @assert size(R)[end] == size(Q)[end] == size(dg.auxstate)[end]
-  @assert size(R)[1] == size(Q)[1] == size(dg.auxstate)[1]
+  @assert size(Q)[end] == size(dg.α)[end]
+  @assert size(Q)[1]   == size(dg.α)[1]
 
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
-
-  Qvisc = param.diff
-  auxstate = param.aux
-
-  nstate = size(Q, 2)
-  nviscstate = size(Qvisc, 2)
-  nauxstate = size(auxstate, 2)
-
-  nRstate = size(R, 2)
-
-  Dmat = grid.D
-  vgeo = grid.vgeo
-
-  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
-
-  nelem = length(topology.elems)
-  Nq = N + 1
-  Nqk = dim == 2 ? 1 : Nq
-  Np = Nq * Nq * Nqk
-
-  nrealelem = length(topology.realelems)
-
-  @launch(device, threads=(Np,), blocks=nrealelem,
-    knl_node_apply_aux!(bl, Val(dim), Val(N), f!, Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
+  @launch(device, threads=(Np,), blocks=nΩ,
+    knl_node_apply_aux!(bl, Val(Nᵈ), Val(N), f!, Q.Q, σ.Q, α.Q, Ω))
 end
 
 function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
-                                    Q::MPIStateArray, auxstate::MPIStateArray,
+                                    Q::MPIStateArray, α::MPIStateArray,
                                     t::Real)
-
+  DFloat = eltype(Q)
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  topology = grid.topology
-
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
-  Nq = N + 1
-  Nqk = dim == 2 ? 1 : Nq
-
-  DFloat = eltype(Q)
-
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Nq   = N + 1
+  Nqk  = Nᵈ == 2 ? 1 : Nq
   vgeo = grid.vgeo
-  polyorder = polynomialorder(dg.grid)
 
   # do integrals
+  topology = grid.topology
   nintegrals = num_integrals(m, DFloat)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_indefinite_stack_integral!(m, Val(dim), Val(polyorder),
-                                         Val(nvertelem), Q.Q, auxstate.Q,
+          knl_indefinite_stack_integral!(m, Val(Nᵈ), Val(N),
+                                         Val(nvertelem), Q.Q, α.Q,
                                          vgeo, grid.Imat, 1:nhorzelem,
                                          Val(nintegrals)))
 end
 
 function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                             Q::MPIStateArray,
-                                            auxstate::MPIStateArray, t::Real)
-
+                                            α::MPIStateArray, t::Real)
+  DFloat = eltype(Q)
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  topology = grid.topology
-
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
-  Nq = N + 1
-  Nqk = dim == 2 ? 1 : Nq
-
-  DFloat = eltype(Q)
-
-  vgeo = grid.vgeo
-  polyorder = polynomialorder(dg.grid)
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Nq   = N + 1
+  Nqk  = Nᵈ == 2 ? 1 : Nq
+  vgeo = grid.vge0
 
   # do integrals
+  topology = grid.topology
   nintegrals = num_integrals(m, DFloat)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
-                                                 Val(nvertelem), auxstate.Q,
+          knl_reverse_indefinite_stack_integral!(Val(Nᵈ), Val(N),
+                                                 Val(nvertelem), α.Q,
                                                  1:nhorzelem,
                                                  Val(nintegrals)))
 end
 
 function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
-                           auxstate::MPIStateArray, t::Real)
+                           α::MPIStateArray, t::Real)
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  topology = grid.topology
-
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
-  Nq = N + 1
-  nrealelem = length(topology.realelems)
-
-  polyorder = polynomialorder(dg.grid)
-
-  Np = dofs_per_element(grid)
+  Ω    = grid.topology.realelems
+  nΩ   = length(Ω)
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Np   = dofs_per_element(grid)
 
   ### update aux variables
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
-                          Q.Q, auxstate.Q, t, topology.realelems))
+  @launch(device, threads=(Np,), blocks=nΩ,
+          knl_nodal_update_aux!(m, Val(Nᵈ), Val(N), f!, Q.Q, α.Q, t, Ω))
 end
