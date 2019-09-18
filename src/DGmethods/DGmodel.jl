@@ -93,7 +93,6 @@ Initialize the ODE parameter object, containing the auxiliary and diffusive stat
 """
 function init_ode_param(dg::DGModel)
   bl = dg.balancelaw
-  device = typeof(α.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   Nᵈ   = dimensionality(grid)
@@ -138,6 +137,8 @@ function init_ode_param(dg::DGModel)
     weights=weights,
     commtag=222)
 
+  device = typeof(α.Q) <: Array ? CPU() : CUDA()
+
   @launch(device, threads=(Np,), blocks=nΩ,
           initauxstate!(bl, Val(Nᵈ), Val(N), α.Q, vgeo, Ω))
 
@@ -157,7 +158,6 @@ Initialize the ODE state array.
 function init_ode_state(dg::DGModel, param, args...; commtag=888)
   bl = dg.balancelaw
   α  = param.aux
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   Nᵈ   = dimensionality(grid)
@@ -187,6 +187,8 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
       nabrtovmapsend=grid.nabrtovmapsend,
       weights=weights,
       commtag=commtag)
+
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
   @launch(device, threads=(Np,), blocks=nΩ,
           initstate!(bl, Val(Nᵈ), Val(N), Q.Q, α.Q, vgeo, Ω, args...))
