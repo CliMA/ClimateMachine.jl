@@ -1056,7 +1056,7 @@ end
 
 
 
-function Generate_topology(D::Int8,ts::Float64,tf::Float64,mpicomm::MPI.Comm,Dx::Float64,Dy::Float64,Dz::Float64,O::Int32,x1::Int32,x2::Int32,y1::Int32,y2::Int32,z1::Int32,z2::Int32,Spongedepth::Float64,P1::Bool,P2::Bool,P3::Bool,B11::Int8,B12::Int8,B21::Int8,B22::Int8,B31::Int8,B32::Int8)
+function Generate_topology(D::Int64,ts::Float64,tf::Float64,mpicomm::MPI.Comm,Dx::Int64,Dy::Int64,Dz::Int64,O::Int64,x1::Float64,x2::Float64,y1::Float64,y2::Float64,z1::Float64,z2::Float64,Spongedepth::Float64,P1::Bool,P2::Bool,P3::Bool,B11::Int64,B12::Int64,B21::Int64,B22::Int64,B31::Int64,B32::Int64)
         #Problem type
         DT = Float64
         #DG Polynomial Order
