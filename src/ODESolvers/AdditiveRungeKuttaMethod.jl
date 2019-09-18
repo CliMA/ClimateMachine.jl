@@ -324,15 +324,8 @@ end
 
 ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
-                      adjustfinalstep)
-
-  # this should be removed once we get rid of the old interface
-  if !isnothing(param)
-    param, param_linear = param
-  else
-    param_linear = nothing
-  end
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, (param, param_linear),
+                      timeend, adjustfinalstep)
 
   time, dt = ark.t[1], ark.dt[1]
   if adjustfinalstep && time + dt > timeend
