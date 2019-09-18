@@ -197,13 +197,16 @@ let
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-  topl,DT,dim,timeend,dt,polynomialorder,zmax,zsponge=Generate_topology(3,Float64(0.02),14400.0,mpicomm,50,50,20,4,0.0,2000.0,0.0,2000.0,0.0,1500.0,0.75,true,true,false,0,0,0,0,1,2) 
+  topl,DT,dim,timeend,dt,polynomialorder,zmax=Generate_grid(Val(3),(50,50,20),Float64(0.02),14400,mpicomm,4,((0,2000),(0,2000),(0,1500)),(true,true,false),((0,0),(0,0),(1,2))) 
     # SGS Filter constants
     C_smag = DT(0.15)
     LHF    = DT(115)
     SHF    = DT(15)
     C_drag = DT(0.0011)
+    # Sponge
+    zsponge=DT(0.75*zmax)
     @info (ArrayType, DT, dim)
+    @info (DT,dim,timeend,dt,polynomialorder,zmax,zsponge)
     result = run(mpicomm, ArrayType, dim, topl, 
                  polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
     @test result ≈ DT(0.9999737128867487)

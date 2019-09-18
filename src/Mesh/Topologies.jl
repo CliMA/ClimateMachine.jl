@@ -7,7 +7,7 @@ export AbstractTopology, BrickTopology, StackedBrickTopology,
     CubedShellTopology, StackedCubedSphereTopology, isstacked
 
 export grid_stretching_1d
-export Generate_topology
+export Generate_grid
 """
     AbstractTopology{dim}
 
@@ -1056,24 +1056,22 @@ end
 
 
 
-function Generate_topology(D::Int64,ts::Float64,tf::Float64,mpicomm::MPI.Comm,Dx::Int64,Dy::Int64,Dz::Int64,O::Int64,x1::Float64,x2::Float64,y1::Float64,y2::Float64,z1::Float64,z2::Float64,Spongedepth::Float64,P1::Bool,P2::Bool,P3::Bool,B11::Int64,B12::Int64,B21::Int64,B22::Int64,B31::Int64,B32::Int64)
+function Generate_grid(::Val{3},DDims,ts::Float64,tf::Int64,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary)
         #Problem type
         DT = Float64
         #DG Polynomial Order
         polynomialorder=O
-        deltax=Dx
-        deltay=Dy
-        deltaz=Dz
+        deltax=DDims[1]
+        deltay=DDims[2]
+        deltaz=DDims[3]
         #Physical Domain Extents
-        (xmin,xmax)=(x1,x2)
-        (ymin,ymax)=(y1,y2)
-        (zmin,zmax)=(z1,z2)
-        #Sponge depth
-        zsponge=DT(Spongedepth*z2)
+        (xmin,xmax)=DomainSize[1]
+        (ymin,ymax)=DomainSize[2]
+        (zmin,zmax)=DomainSize[3]
         #Get Nex,Ney from resolution
-        Lx=x2-x1
-        Ly=y2-y1
-        Lz=z2-z1
+        Lx=xmax-xmin
+        Ly=ymax-ymin
+        Lz=zmax-zmin
         #User defines the grid size
         Nex = ceil(Int64, (Lx/deltax-1)/polynomialorder)
         Ney = ceil(Int64, (Ly/deltay-1)/polynomialorder)
@@ -1083,14 +1081,45 @@ function Generate_topology(D::Int64,ts::Float64,tf::Float64,mpicomm::MPI.Comm,Dx
         brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
                       range(DT(ymin), length=Ne[2]+1, DT(ymax)),
                       range(DT(zmin), length=Ne[3]+1, DT(zmax)))
-        period=(P1,P2,P3)
-        bound=((B11,B12),(B21,B22),(B31,B32))
+        period=periodicity
+        bound=Boundary
         
         topl = StackedBrickTopology(mpicomm, brickrange,periodicity = period, boundary=bound)
-        dt = tf
+        dt = ts
         timeend = tf
         dim = 3
-	return topl,DT,dim,timeend,dt,polynomialorder,zmax,zsponge
+	return topl,DT,dim,timeend,dt,polynomialorder,zmax
 end
+
+function Generate_grid(::Val{2},DDims,ts::Float64,tf::Int64,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Bound1,Bound2,Bound3)
+        #Problem type
+        DT = Float64
+        #DG Polynomial Order
+        polynomialorder=O
+        deltax1=DDims[1]
+        deltax2=DDims[2]
+        #Physical Domain Extents
+        (x1min,x2max)=DomainSize[1]
+        (x2min,x2max)=DomainSize[2]
+        #Get Nex,Ney from resolution
+        Lx1=x1max-x1min
+        Lx2=x2max-x2min
+        #User defines the grid size
+        Nex1 = ceil(Int64, (Lx1/deltax1-1)/polynomialorder)
+        Nex2 = ceil(Int64, (Lx2/deltax2-1)/polynomialorder)
+        Ne=(Nex1,Nex2)
+        # User defined domain parameters
+        brickrange = (range(DT(x1min), length=Ne[1]+1, DT(x1max)),
+                      range(DT(x2min), length=Ne[2]+1, DT(x2max)))
+        period=periodicity
+        bound=(Bound1,Bound2,Bound3)
+
+	 topl = StackedBrickTopology(mpicomm, brickrange,periodicity = period, boundary=bound)
+        dt = ts
+        timeend = tf
+        dim = 2
+        return topl,DT,dim,timeend,dt,polynomialorder,x2max
+end
+
 #}}}
 end
