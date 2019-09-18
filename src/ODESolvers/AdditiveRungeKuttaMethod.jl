@@ -327,6 +327,13 @@ ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
                       adjustfinalstep)
 
+  # this should be removed once we get rid of the old interface
+  if !isnothing(param)
+    param, param_linear = param
+  else
+    param_linear = nothing
+  end
+
   time, dt = ark.t[1], ark.dt[1]
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
@@ -367,7 +374,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
     linearoperator! = function(LQ, Q)
-      rhs_linear!(LQ, Q, param, stagetime; increment = false)
+      rhs_linear!(LQ, Q, param_linear, stagetime; increment = false)
       @. LQ = Q - α * LQ
     end
     linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
@@ -381,7 +388,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
   if split_nonlinear_linear
     for istage = 1:nstages
       stagetime = time + RKC[istage] * dt
-      rhs_linear!(Rstages[istage], Qstages[istage], param, stagetime, increment = true)
+      rhs_linear!(Rstages[istage], Qstages[istage], param_linear, stagetime, increment = true)
     end
   end
 
