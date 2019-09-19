@@ -98,9 +98,9 @@ end
 
 gradvariables!(::LinearDrag, _...) = nothing
 
-@inline function gradvariables!(T::ConstantViscosity, f::Vars, q::Vars,
+@inline function gradvariables!(T::ConstantViscosity, H::Vars, q::Vars,
                                 α::Vars, t::Real)
-  f.U = q.U
+  H.U = q.U
 
   return nothing
 end
