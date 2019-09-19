@@ -13,10 +13,10 @@ import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
 
 Any `P <: GradNumericalPenalty` should define methods for:
 
-   diffusive_penalty!(gnf::P, bl::BalanceLaw, σ, n⁻, Q⁻, H⁻, α⁻, Q⁺,
-                      H⁺, α⁺, t)
-   diffusive_boundary_penalty!(gnf::P, bl::BalanceLaw, l_δ, n⁻, l_H⁻, l_Q⁻,
-                               l_α⁻, l_H⁺, l_Q⁺, l_α⁺, bctype, t)
+   diffusive_penalty!(gnf::P, bl::BalanceLaw, σ, n⁻, Q⁻, G⁻, α⁻, Q⁺,
+                      G⁺, α⁺, t)
+   diffusive_boundary_penalty!(gnf::P, bl::BalanceLaw, l_∇G, n⁻, l_G⁻, l_Q⁻,
+                               l_α⁻, l_G⁺, l_Q⁺, l_α⁺, bctype, t)
 
 """
 abstract type GradNumericalPenalty end
@@ -31,19 +31,19 @@ function diffusive_boundary_penalty! end
 struct CentralGradPenalty <: GradNumericalPenalty end
 
 function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
-                            σ, n⁻, H⁻, Q⁻, α⁻, H⁺, Q⁺, α⁺, t)
+                            σ, n⁻, G⁻, Q⁻, α⁻, G⁺, Q⁺, α⁺, t)
   DFloat = eltype(Q⁻)
 
   @inbounds begin
     Nᵈ = 3
     ngradstate = num_gradient(bl,DFloat)
-    δ = similar(VF, Size(Nᵈ, ngradstate))
+    ∇G = similar(VF, Size(Nᵈ, ngradstate))
     for j = 1:ngradstate, i = 1:Nᵈ
-      δ[i, j] = n⁻[i] * (H⁺[j] - H⁻[j]) / 2
+      ∇G[i, j] = n⁻[i] * (G⁺[j] - G⁻[j]) / 2
     end
     diffusive!(bl,
                Vars{vars_diffusive(bl,DFloat)}(σ),
-               Grad{vars_gradient(bl,DFloat)}(δ),
+               Grad{vars_gradient(bl,DFloat)}(∇G),
                Vars{vars_state(bl,DFloat)}(Q⁻),
                Vars{vars_aux(bl,DFloat)}(α⁻),
                t)
@@ -51,9 +51,9 @@ function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
 end
 
 function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
-                                     σ, n⁻, H⁻, Q⁻, α⁻, H⁺, Q⁺, α⁺,
+                                     σ, n⁻, G⁻, Q⁻, α⁻, G⁺, Q⁺, α⁺,
                                      bctype, t, Q1, α1)
-  DFloat = eltype(H⁺)
+  DFloat = eltype(G⁺)
 
   boundary_state!(nf, bl,
                   Vars{vars_state(bl,DFloat)}(Q⁺),
@@ -66,12 +66,12 @@ function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
                   Vars{vars_aux(bl,DFloat)}(α1))
 
   gradvariables!(bl,
-                 Vars{vars_gradient(bl,DFloat)}(H⁺),
+                 Vars{vars_gradient(bl,DFloat)}(G⁺),
                  Vars{vars_state(bl,DFloat)}(Q⁺),
                  Vars{vars_aux(bl,DFloat)}(α⁺),
                  t)
 
-  diffusive_penalty!(nf, bl, σ, n⁻, H⁻, Q⁻, α⁻, H⁺, Q⁺, α⁺, t)
+  diffusive_penalty!(nf, bl, σ, n⁻, G⁻, Q⁻, α⁻, G⁺, Q⁺, α⁺, t)
 end
 
 

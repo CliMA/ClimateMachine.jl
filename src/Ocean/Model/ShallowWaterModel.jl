@@ -98,23 +98,23 @@ end
 
 gradvariables!(::LinearDrag, _...) = nothing
 
-@inline function gradvariables!(T::ConstantViscosity, H::Vars, q::Vars,
+@inline function gradvariables!(T::ConstantViscosity, G::Vars, q::Vars,
                                 α::Vars, t::Real)
-  H.U = q.U
+  G.U = q.U
 
   return nothing
 end
 
-function diffusive!(m::SWModel, σ::Vars, δ::Grad, q::Vars, α::Vars, t::Real)
-  diffusive!(m.turbulence, σ, δ, q, α, t)
+function diffusive!(m::SWModel, σ::Vars, ∇G::Grad, q::Vars, α::Vars, t::Real)
+  diffusive!(m.turbulence, σ, ∇G, q, α, t)
 end
 
 diffusive!(::LinearDrag, _...) = nothing
 
-@inline function diffusive!(T::ConstantViscosity, σ::Vars, δ::Grad, q::Vars,
+@inline function diffusive!(T::ConstantViscosity, σ::Vars, ∇G::Grad, q::Vars,
                             α::Vars, t::Real)
   ν  = T.ν
-  ∇U = δ.U
+  ∇U = ∇G.U
 
   σ.ν∇U = ν * ∇U
 
