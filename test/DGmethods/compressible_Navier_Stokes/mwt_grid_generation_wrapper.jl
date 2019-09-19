@@ -197,7 +197,7 @@ let
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-  topl,DT,dim,timeend,dt,polynomialorder,zmax=Generate_grid(Val(3),(50,50,20),Float64(0.02),14400,mpicomm,4,((0,2000),(0,2000),(0,1500)),(true,true,false),((0,0),(0,0),(1,2))) 
+  topl,DT,dim,timeend,dt,polynomialorder,zmax=Generate_grid(Val(3),(50,50,20),Float64(0.02),1,mpicomm,4,((0,2000),(0,2000),(0,1500)),(true,true,false),((0,0),(0,0),(1,2))) 
     # SGS Filter constants
     C_smag = DT(0.15)
     LHF    = DT(115)
