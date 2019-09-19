@@ -8,6 +8,7 @@ include("../testhelpers.jl")
     (1, "Euler/isentropicvortex.jl")
     (1, "compressible_Navier_Stokes/ref_state.jl")           
     (1, "compressible_Navier_Stokes/rising_bubble-model.jl")
+    (1, "compressible_Navier_Stokes/rising_bubble-model-imex.jl")
     (1, "compressible_Navier_Stokes/density_current-model.jl")
           ]
 
