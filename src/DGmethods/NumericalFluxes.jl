@@ -37,7 +37,7 @@ function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
   @inbounds begin
     Nᵈ = 3
     ngradstate = num_gradient(bl,DFloat)
-    ∇G = similar(VF, Size(Nᵈ, ngradstate))
+    ∇G = similar(σ, Size(Nᵈ, ngradstate))
     for j = 1:ngradstate, i = 1:Nᵈ
       ∇G[i, j] = n⁻[i] * (G⁺[j] - G⁻[j]) / 2
     end
