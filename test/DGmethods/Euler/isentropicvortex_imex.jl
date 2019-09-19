@@ -146,7 +146,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
   param = init_ode_param(dg)
   param_linear = init_ode_param(dg_linear)
 
-  timeend = DFloat(2 * setup.domain_halflength / 10 / setup.translation_speed)
+  timeend = DFloat(2 * setup.domain_halflength / setup.translation_speed)
 
   # determine the time step
   elementsize = minimum(step.(brickrange))
@@ -189,19 +189,20 @@ function run(mpicomm, polynomialorder, numelems, setup,
   if output_vtk
     # create vtk dir
     vtkdir = "vtk_isentropicvortex" *
-      "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(DFloat)_level$(level)"
+      "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(DFloat)_level$(level)" *
+      "_$(split_nonlinear_linear)"
     mkpath(vtkdir)
     
     vtkstep = 0
     # output initial step
-    do_output(mpicomm, vtkdir, vtkstep, dg_full, Q, Q, model)
+    do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)
 
     # setup the output callback
     outputtime = timeend
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
       vtkstep += 1
       Qe = init_ode_state(dg, param, gettime(ode_solver))
-      do_output(mpicomm, vtkdir, vtkstep, dg_full, Q, Qe, model)
+      do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
     end
     callbacks = (callbacks..., cbvtk)
   end
