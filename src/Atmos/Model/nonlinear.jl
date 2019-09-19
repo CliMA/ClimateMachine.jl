@@ -2,6 +2,7 @@ export NonLinear
 
 struct NonLinear <: ModelPart end
 
+# FIXME: this doesn't seem to work ?
 const use_linearized_pressure = false
 
 @inline function flux_advective!(m::AtmosModel{NonLinear},
@@ -66,7 +67,13 @@ end
 
   soundspeed_full = soundspeed(m.moisture, m.orientation, state, aux)
   soundspeed_linear = soundspeed(m.moisture, m.orientation, aux.ref_state, aux)
-  return abs(dot(nM, u)) - abs(dot(nM, u_ref)) + soundspeed_full - soundspeed_linear
+
+  if use_linearized_pressure
+    soundspeed_contribution = -zero(eltype(state))
+  else
+    soundspeed_contribution = soundspeed_full - soundspeed_linear
+  end
+  return abs(dot(nM, u)) - abs(dot(nM, u_ref)) + soundspeed_contribution
 end
 
 # needs to be defined for ambiguity resolution :(
