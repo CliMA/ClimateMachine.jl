@@ -274,11 +274,8 @@ end
                                        ::CentralNumericalFluxDiffusive, Q⁺,
                                        σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
 
-  Q⁺.η =  Q⁻.η
-  Q⁺.θ =  Q⁻.θ
   Q⁺.u = -Q⁻.u
 
-  σ⁺.ν∇u =  σ⁻.ν∇u
   σ⁺.κ∇θ = -σ⁻.κ∇θ
 
   return nothing
@@ -299,8 +296,8 @@ end
   SST     = α.SST_relax
   λ_relax = m.λ_relax
 
-  σ⁺.ν∇u = -σ⁻.ν∇u + 2 * @SVector [τ_wind / 1000, -0]
-  σ⁺.κ∇θ = -σ⁻.κ∇θ + 2 * λ_relax * (SST - θ)
+  σ⁺.ν∇u = -σ⁻.ν∇u - 2 * @SVector [τ_wind / 1000, -0]
+  σ⁺.κ∇θ = -σ⁻.κ∇θ + 2 * λ_relax * (θ - SST)
 
   return nothing
 end
