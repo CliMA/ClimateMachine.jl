@@ -115,11 +115,19 @@ end
 
 let 
   c = 100.0
-  function rhs!(dQ, Q, param, time; increment)
+  function rhs_full!(dQ, Q, param, time; increment)
     if increment
       dQ .+= im * c * Q .+ exp(im * time)
     else
       dQ .= im * c * Q .+ exp(im * time)
+    end
+  end
+  
+  function rhs_nonlinear!(dQ, Q, param, time; increment)
+    if increment
+      dQ .+= exp(im * time)
+    else
+      dQ .= exp(im * time)
     end
   end
  
@@ -148,17 +156,23 @@ let
     dts = [2.0 ^ (-k) for k = 2:13]
 
     for (method, expected_order) in imex_methods
-      errors = similar(dts)
-      for (n, dt) in enumerate(dts)
-        Q = [q0]
-        solver = method(rhs!, rhs_linear!, DivideLinearSolver(), Q; dt = dt, t0 = 0.0)
-        solve!(Q, solver; timeend = finaltime)
-        errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
-      end
+      for split_nonlinear_linear in (false, true)
+        errors = similar(dts)
+        for (n, dt) in enumerate(dts)
+          Q = [q0]
+          rhs! = split_nonlinear_linear ? rhs_nonlinear! : rhs_full!
+          solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
+                          Q; dt = dt, t0 = 0.0,
+                          split_nonlinear_linear = split_nonlinear_linear)
+          param = (nothing, nothing)
+          solve!(Q, solver, param; timeend = finaltime)
+          errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
+        end
 
-      rates = log2.(errors[1:end-1] ./ errors[2:end])
-      @test errors[1] < 2.0
-      @test isapprox(rates[end], expected_order; atol = 0.1)
+        rates = log2.(errors[1:end-1] ./ errors[2:end])
+        @test errors[1] < 2.0
+        @test isapprox(rates[end], expected_order; atol = 0.1)
+      end
     end
   end
 
@@ -173,18 +187,24 @@ let
       dts = [2.0 ^ (-k) for k = 2:13]
 
       for (method, expected_order) in imex_methods
-        errors = similar(dts)
-        for (n, dt) in enumerate(dts)
-          Q = CuArray{ComplexF64}(q0s)
-          solver = method(rhs!, rhs_linear!, DivideLinearSolver(), Q; dt = dt, t0 = 0.0)
-          solve!(Q, solver; timeend = finaltime)
-          Q = Array(Q)
-          errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
-        end
+        for split_nonlinear_linear in (false, true)
+          errors = similar(dts)
+          for (n, dt) in enumerate(dts)
+            Q = CuArray{ComplexF64}(q0s)
+            rhs! = split_nonlinear_linear ? rhs_nonlinear! : rhs_full!
+            solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
+                            Q; dt = dt, t0 = 0.0,
+                            split_nonlinear_linear = split_nonlinear_linear)
+            param = (nothing, nothing)
+            solve!(Q, solver, param; timeend = finaltime)
+            Q = Array(Q)
+            errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
+          end
 
-        rates = log2.(errors[1:end-1] ./ errors[2:end])
-        @test errors[1] < 2.0
-        @test isapprox(rates[end], expected_order; atol = 0.1)
+          rates = log2.(errors[1:end-1] ./ errors[2:end])
+          @test errors[1] < 2.0
+          @test isapprox(rates[end], expected_order; atol = 0.1)
+        end
       end
     end
   end
