@@ -1056,7 +1056,7 @@ end
 
 
 
-function Generate_grid(::Val{3},DDims,ts::Float64,tf::Int64,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary)
+function Generate_grid(::Val{3},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary)
         #Problem type
         DT = Float64
         #DG Polynomial Order
@@ -1085,13 +1085,11 @@ function Generate_grid(::Val{3},DDims,ts::Float64,tf::Int64,mpicomm::MPI.Comm,O:
         bound=Boundary
         
         topl = StackedBrickTopology(mpicomm, brickrange,periodicity = period, boundary=bound)
-        dt = ts
-        timeend = tf
         dim = 3
 	return topl,DT,dim,timeend,dt,polynomialorder,zmax
 end
 
-function Generate_grid(::Val{2},DDims,ts::Float64,tf::Int64,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary)
+function Generate_grid(::Val{2},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary)
         #Problem type
         DT = Float64
         #DG Polynomial Order
@@ -1113,11 +1111,8 @@ function Generate_grid(::Val{2},DDims,ts::Float64,tf::Int64,mpicomm::MPI.Comm,O:
                       range(DT(x2min), length=Ne[2]+1, DT(x2max)))
         period=periodicity
         bound=Boundary
-
+        dim=2
 	 topl = StackedBrickTopology(mpicomm, brickrange,periodicity = period, boundary=bound)
-        dt = ts
-        timeend = tf
-        dim = 2
         return topl,DT,dim,timeend,dt,polynomialorder,x2max
 end
 
