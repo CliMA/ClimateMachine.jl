@@ -58,11 +58,11 @@ struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
   function MultirateRungeKutta(slow_solver::LowStorageRungeKutta2N,
                                fast_solver::LowStorageRungeKutta2N,
                                Q=nothing;
-                               dt=slow_solver.dt[1], t0=slow_solver.t[1]
+                               dt=0, t0=slow_solver.t[1]
                               ) where {AT<:AbstractArray}
     SS = typeof(slow_solver)
     FS = typeof(fast_solver)
-    RT = typeof(dt)
+    RT = real(eltype(slow_solver.dQ))
     new{SS, FS, RT}(slow_solver, fast_solver, [dt], [t0])
   end
 end
@@ -75,6 +75,7 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS, FS}, param, timeend,
   slow_param = param[1]
   fast_param = param[2]
   time, dt = mrrk.t[1], mrrk.dt[1]
+  @assert dt > 0
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
     @assert dt > 0
