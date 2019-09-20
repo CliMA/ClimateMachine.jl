@@ -66,16 +66,16 @@ function vars_diffusive(m::SWModel, T)
   end
 end
 
-@inline function flux_nondiffusive!(m::SWModel, F::Grad, q::Vars,
+@inline function flux_nondiffusive!(m::SWModel, F::Grad, Y::Vars,
                                     α::Vars, t::Real)
-  U = q.U
-  η = q.η
+  U = Y.U
+  η = Y.η
   H = m.problem.H
 
   F.η += U
   F.U += grav * H * η * I
 
-  advective_flux!(m, m.advection, F, q, α, t)
+  advective_flux!(m, m.advection, F, Y, α, t)
 
   return nothing
 end
@@ -83,8 +83,8 @@ end
 advective_flux!(::SWModel, ::Nothing, _...) = nothing
 
 @inline function advective_flux!(m::SWModel, A::NonLinearAdvection, F::Grad,
-                                 q::Vars, α::Vars, t::Real)
-  U = q.U
+                                 Y::Vars, α::Vars, t::Real)
+  U = Y.U
   H = m.problem.H
 
   F.U += 1 / H * U ⊗ U
@@ -92,26 +92,26 @@ advective_flux!(::SWModel, ::Nothing, _...) = nothing
   return nothing
 end
 
-function gradvariables!(m::SWModel, f::Vars, q::Vars, α::Vars, t::Real)
-  gradvariables!(m.turbulence, f, q, α, t)
+function gradvariables!(m::SWModel, f::Vars, Y::Vars, α::Vars, t::Real)
+  gradvariables!(m.turbulence, f, Y, α, t)
 end
 
 gradvariables!(::LinearDrag, _...) = nothing
 
-@inline function gradvariables!(T::ConstantViscosity, G::Vars, q::Vars,
+@inline function gradvariables!(T::ConstantViscosity, G::Vars, Y::Vars,
                                 α::Vars, t::Real)
-  G.U = q.U
+  G.U = Y.U
 
   return nothing
 end
 
-function diffusive!(m::SWModel, σ::Vars, ∇G::Grad, q::Vars, α::Vars, t::Real)
-  diffusive!(m.turbulence, σ, ∇G, q, α, t)
+function diffusive!(m::SWModel, σ::Vars, ∇G::Grad, Y::Vars, α::Vars, t::Real)
+  diffusive!(m.turbulence, σ, ∇G, Y, α, t)
 end
 
 diffusive!(::LinearDrag, _...) = nothing
 
-@inline function diffusive!(T::ConstantViscosity, σ::Vars, ∇G::Grad, q::Vars,
+@inline function diffusive!(T::ConstantViscosity, σ::Vars, ∇G::Grad, Y::Vars,
                             α::Vars, t::Real)
   ν  = T.ν
   ∇U = ∇G.U
@@ -121,39 +121,39 @@ diffusive!(::LinearDrag, _...) = nothing
   return nothing
 end
 
-function flux_diffusive!(m::SWModel, F::Grad, q::Vars, σ::Vars,
+function flux_diffusive!(m::SWModel, F::Grad, Y::Vars, σ::Vars,
                          α::Vars, t::Real)
-  flux_diffusive!(m.turbulence, F, q, σ, α, t)
+  flux_diffusive!(m.turbulence, F, Y, σ, α, t)
 end
 
 flux_diffusive!(::LinearDrag, _...) = nothing
 
-@inline function flux_diffusive!(::ConstantViscosity, F::Grad, q::Vars,
+@inline function flux_diffusive!(::ConstantViscosity, F::Grad, Y::Vars,
                                  σ::Vars, α::Vars, t::Real)
   F.U -= σ.ν∇U
 
   return nothing
 end
 
-@inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
+@inline wavespeed(m::SWModel, n⁻, Y::Vars, α::Vars, t::Real) = m.c
 
-@inline function source!(m::SWModel{P}, S::Vars, q::Vars, α::Vars,
+@inline function source!(m::SWModel{P}, S::Vars, Y::Vars, α::Vars,
                          t::Real) where P
   τ = α.τ
   f = α.f
-  U = q.U
+  U = Y.U
   S.U += τ - f × U
 
-  linear_drag!(m.turbulence, S, q, α, t)
+  linear_drag!(m.turbulence, S, Y, α, t)
 
   return nothing
 end
 
 linear_drag!(::ConstantViscosity, _...) = nothing
 
-@inline function linear_drag!(T::LinearDrag, S::Vars, q::Vars, α::Vars, t::Real)
+@inline function linear_drag!(T::LinearDrag, S::Vars, Y::Vars, α::Vars, t::Real)
   λ = T.λ
-  U = q.U
+  U = Y.U
 
   S.U -= λ * U
 
@@ -166,22 +166,22 @@ function init_aux!(m::SWModel, α::Vars, geom::LocalGeometry)
 end
 
 function shallow_init_state! end
-function init_state!(m::SWModel, q::Vars, α::Vars, coords, t)
-  return shallow_init_state!(m.problem, m.turbulence, q, α, coords, t)
+function init_state!(m::SWModel, Y::Vars, α::Vars, coords, t)
+  return shallow_init_state!(m.problem, m.turbulence, Y, α, coords, t)
 end
 
-function boundary_state!(nf, m::SWModel, q⁺::Vars, α⁺::Vars, n⁻,
-                         q⁻::Vars, α⁻::Vars, bctype, t, _...)
-  return shallow_boundary_state!(nf, m, m.turbulence, q⁺, α⁺, n⁻, q⁻, α⁻, t)
+function boundary_state!(nf, m::SWModel, Y⁺::Vars, α⁺::Vars, n⁻,
+                         Y⁻::Vars, α⁻::Vars, bctype, t, _...)
+  return shallow_boundary_state!(nf, m, m.turbulence, Y⁺, α⁺, n⁻, Y⁻, α⁻, t)
 end
 
 @inline function shallow_boundary_state!(::Rusanov, m::SWModel, ::LinearDrag,
-                                         q⁺, α⁺, n⁻, q⁻, α⁻, t)
-  U⁻ = q⁻.U
+                                         Y⁺, α⁺, n⁻, Y⁻, α⁻, t)
+  U⁻ = Y⁻.U
   n⁻ = SVector(n⁻)
 
-  q⁺.η = q⁻.η
-  q⁺.U = U⁻ - 2 * (n⁻⋅U⁻) * n⁻
+  Y⁺.η = Y⁻.η
+  Y⁺.U = U⁻ - 2 * (n⁻⋅U⁻) * n⁻
 
   return nothing
 end
@@ -192,33 +192,33 @@ shallow_boundary_state!(::CentralGradPenalty, m::SWModel,
 shallow_boundary_state!(::CentralNumericalFluxDiffusive, m::SWModel,
                         ::LinearDrag, _...) = nothing
 
-function boundary_state!(nf, m::SWModel, q⁺::Vars, σ⁺::Vars, α⁺::Vars, n⁻,
-                         q⁻::Vars, σ⁻::Vars, α⁻::Vars, bctype, t, _...)
+function boundary_state!(nf, m::SWModel, Y⁺::Vars, σ⁺::Vars, α⁺::Vars, n⁻,
+                         Y⁻::Vars, σ⁻::Vars, α⁻::Vars, bctype, t, _...)
   return shallow_boundary_state!(nf, m, m.turbulence,
-                                 q⁺, σ⁺, α⁺, n⁻, q⁻, σ⁻, α⁻, t)
+                                 Y⁺, σ⁺, α⁺, n⁻, Y⁻, σ⁻, α⁻, t)
 end
 
 @inline function shallow_boundary_state!(::Rusanov, m::SWModel,
                                          ::ConstantViscosity,
-                                         q⁺, α⁺, n⁻, q⁻, α⁻, t)
-  q⁺.η =  q⁻.η
-  q⁺.U = -q⁻.U
+                                         Y⁺, α⁺, n⁻, Y⁻, α⁻, t)
+  Y⁺.η =  Y⁻.η
+  Y⁺.U = -Y⁻.U
 
   return nothing
 end
 
 @inline function shallow_boundary_state!(::CentralGradPenalty, m::SWModel,
                                          ::ConstantViscosity,
-                                         q⁺, α⁺, n⁻, q⁻, α⁻, t)
-  q⁺.U = -q⁻.U
+                                         Y⁺, α⁺, n⁻, Y⁻, α⁻, t)
+  Y⁺.U = -Y⁻.U
 
   return nothing
 end
 
 @inline function shallow_boundary_state!(::CentralNumericalFluxDiffusive,
                                          m::SWModel, ::ConstantViscosity,
-                                         q⁺, σ⁺, α⁺, n⁻, q⁻, σ⁻, α⁻, t)
-  q⁺.U   = -q⁻.U
+                                         Y⁺, σ⁺, α⁺, n⁻, Y⁻, σ⁻, α⁻, t)
+  Y⁺.U   = -Y⁻.U
   σ⁺.ν∇U =  σ⁻.ν∇U
 
   return nothing
