@@ -1,6 +1,6 @@
 module NumericalFluxes
 
-export Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive
+export CentralFlux, Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive
 
 using StaticArrays
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
@@ -119,6 +119,54 @@ function numerical_boundary_flux_nondiffusive!(nf::NumericalFluxNonDiffusive,
   numerical_flux_nondiffusive!(nf, bl, F, n⁻, Q⁻, α⁻, Q⁺, α⁺, t)
 end
 
+
+
+"""
+    CentralFlux <: NumericalFluxNonDiffusive
+
+The central numerical flux for non-diffusive terms
+
+# Usage
+
+    CentralFlux()
+
+Requires a `flux_nondiffusive!` for the balance law.
+"""
+struct CentralFlux <: NumericalFluxNonDiffusive end
+
+
+function numerical_flux_nondiffusive!(::CentralFlux,
+                                      bl::BalanceLaw, F::MArray, n⁻,
+                                      Q⁻, σ⁻, α⁻, Q⁺, σ⁺, α⁺, t)
+  DFloat = eltype(F)
+  nstate = num_state(bl,DFloat)
+
+  F⁻ = similar(F, Size(3, nstate))
+  fill!(F⁻, -zero(eltype(F⁻)))
+
+  flux_nondiffusive!(bl,
+                  Grad{vars_state(bl,DFloat)}(F⁻),
+                  Vars{vars_state(bl,DFloat)}(Q⁻),
+                  Vars{vars_diffusive(bl,DFloat)}(σ⁻),
+                  Vars{vars_aux(bl,DFloat)}(α⁻),
+                  t)
+
+  F⁺ = similar(F, Size(3, nstate))
+  fill!(F⁺, -zero(eltype(F⁺)))
+
+  flux_nondiffusive!(bl,
+                  Grad{vars_state(bl,DFloat)}(F⁺),
+                  Vars{vars_state(bl,DFloat)}(Q⁺),
+                  Vars{vars_diffusive(bl,DFloat)}(σ⁺),
+                  Vars{vars_aux(bl,DFloat)}(α⁺),
+                  t)
+
+  @inbounds for s = 1:nstate
+    F[s] += 0.5 * (n⁻[1] * (F⁻[1, s] + F⁺[1, s]) +
+                   n⁻[2] * (F⁻[2, s] + F⁺[2, s]) +
+                   n⁻[3] * (F⁻[3, s] + F⁺[3, s]))
+  end
+end
 
 
 """
