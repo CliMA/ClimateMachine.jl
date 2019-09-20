@@ -4,8 +4,11 @@ using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.MultirateRungeKuttaMethod
 using CLIMA.LinearSolvers
 
+const lsrk_methods = [(LSRK54CarpenterKennedy, 4)
+                      (LSRK144NiegemannDiehlBusch, 4)]
 const explicit_methods = [(LSRK54CarpenterKennedy, 4)
                           (LSRK144NiegemannDiehlBusch, 4)
                           (SSPRK33ShuOsher, 3)
@@ -203,6 +206,86 @@ let
 
           rates = log2.(errors[1:end-1] ./ errors[2:end])
           @test errors[1] < 2.0
+          @test isapprox(rates[end], expected_order; atol = 0.1)
+        end
+      end
+    end
+  end
+end
+
+let 
+  c = 100.0
+  function rhs_slow!(dQ, Q, param, time; increment)
+    if increment
+      dQ .+= im * c * Q
+    else
+      dQ .= im * c * Q
+    end
+  end
+  
+  function rhs_fast!(dQ, Q, param, time; increment)
+    if increment
+      dQ .+= exp(im * time)
+    else
+      dQ .= exp(im * time)
+    end
+  end
+
+  function exactsolution(q0, time)
+    q0 * exp(im * c * time) + (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
+  end
+
+  @testset "Multirate Problem" begin
+    for (slow_method, slow_expected_order) in lsrk_methods
+      for (fast_method, fast_expected_order) in lsrk_methods
+        q0 = ComplexF64(1)
+        finaltime = pi / 2
+        dts = [2.0 ^ (-k) for k = 7:13]
+
+        errors = similar(dts)
+        for (n, dt) in enumerate(dts)
+          Q = [q0]
+          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=dt),
+                                       fast_method(rhs_fast!, Q; dt=dt);
+                                       dt = dt, t0 = 0.0)
+          param = (nothing, nothing)
+          solve!(Q, solver, param; timeend = finaltime)
+          errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
+        end
+
+        rates = log2.(errors[1:end-1] ./ errors[2:end])
+        expected_order = min(slow_expected_order, fast_expected_order)
+        @test isapprox(rates[end], expected_order; atol = 0.1)
+      end
+    end
+  end
+
+  @static if haspkg("CuArrays")
+    using CuArrays
+    CuArrays.allowscalar(false)
+
+    @testset "Multirate Problem CUDA" begin
+      ninitial = 1337
+      q0s = range(-1, 1, length = ninitial)
+      finaltime = pi / 2
+      dts = [2.0 ^ (-k) for k = 2:13]
+
+      for (slow_method, slow_expected_order) in lsrk_methods
+        for (fast_method, fast_expected_order) in lsrk_methods
+          errors = similar(dts)
+          for (n, dt) in enumerate(dts)
+            Q = CuArray{ComplexF64}(q0s)
+            solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=dt),
+                                         fast_method(rhs_fast!, Q; dt=dt);
+                                         dt = dt, t0 = 0.0)
+            param = (nothing, nothing)
+            solve!(Q, solver, param; timeend = finaltime)
+            Q = Array(Q)
+            errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
+          end
+
+          rates = log2.(errors[1:end-1] ./ errors[2:end])
+          expected_order = min(slow_expected_order, fast_expected_order)
           @test isapprox(rates[end], expected_order; atol = 0.1)
         end
       end
