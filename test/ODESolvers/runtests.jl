@@ -245,8 +245,8 @@ let
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = [q0]
-          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=dt),
-                                       fast_method(rhs_fast!, Q; dt=dt);
+          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
+                                       fast_method(rhs_fast!, Q);
                                        dt = dt, t0 = 0.0)
           param = (nothing, nothing)
           solve!(Q, solver, param; timeend = finaltime)
@@ -275,8 +275,8 @@ let
           errors = similar(dts)
           for (n, dt) in enumerate(dts)
             Q = CuArray{ComplexF64}(q0s)
-            solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=dt),
-                                         fast_method(rhs_fast!, Q; dt=dt);
+            solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
+                                         fast_method(rhs_fast!, Q);
                                          dt = dt, t0 = 0.0)
             param = (nothing, nothing)
             solve!(Q, solver, param; timeend = finaltime)
