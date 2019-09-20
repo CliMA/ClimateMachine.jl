@@ -1056,7 +1056,7 @@ end
 
 
 
-function Generate_grid(::Val{3},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary)
+function Generate_grid(::Val{3},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary;Stretch=("","",""))
         #Problem type
         DT = Float64
         #DG Polynomial Order
@@ -1078,18 +1078,16 @@ function Generate_grid(::Val{3},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,peri
         Nez = ceil(Int64, (Lz/deltaz-1)/polynomialorder)
         Ne=(Nex,Ney,Nez)
 	# User defined domain parameters
-        brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
-                      range(DT(ymin), length=Ne[2]+1, DT(ymax)),
-                      range(DT(zmin), length=Ne[3]+1, DT(zmax)))
+        brickrange = (grid_stretching_1d(xmin, xmax, Nex, Stretch[1]),grid_stretching_1d(ymin, ymax, Ney, Stretch[2]),grid_stretching_1d(zmin, zmax, Nez, Stretch[3]))
         period=periodicity
         bound=Boundary
         
         topl = StackedBrickTopology(mpicomm, brickrange,periodicity = period, boundary=bound)
         dim = 3
-	return topl,DT,dim,timeend,dt,polynomialorder,zmax
+	return topl,DT,dim,polynomialorder,zmax
 end
 
-function Generate_grid(::Val{2},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary)
+function Generate_grid(::Val{2},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary;Stretch=("",""))
         #Problem type
         DT = Float64
         #DG Polynomial Order
@@ -1107,8 +1105,7 @@ function Generate_grid(::Val{2},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,peri
         Nex2 = ceil(Int64, (Lx2/deltax2-1)/polynomialorder)
         Ne=(Nex1,Nex2)
         # User defined domain parameters
-        brickrange = (range(DT(x1min), length=Ne[1]+1, DT(x1max)),
-                      range(DT(x2min), length=Ne[2]+1, DT(x2max)))
+        brickrange = (grid_stretching_1d(xmin, xmax, Ne, Stretch[1]),grid_stretching_1d(ymin, ymax, Ney, Stretch[2]))
         period=periodicity
         bound=Boundary
         dim=2
