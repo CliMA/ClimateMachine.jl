@@ -62,9 +62,9 @@ function init_aux!(::IntegralTestModel{dim}, aux::Vars,
 end
 
 function update_aux!(dg::DGModel, m::IntegralTestModel, Q::MPIStateArray,
-                     auxstate::MPIStateArray, t::Real)
+                     auxstate::MPIStateArray, t::Real, _)
   indefinite_stack_integral!(dg, m, Q, auxstate, t)
-  reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, auxstate, t)
 end
 
 @inline function integrate_aux!(m::IntegralTestModel, integrand::Vars,
