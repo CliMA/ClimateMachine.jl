@@ -38,8 +38,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   Np = dofs_per_element(grid)
 
   if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
-                                  typeof(auxstate), typeof(t)})
-    update_aux!(dg, bl, Q, auxstate, t)
+                                  typeof(auxstate), typeof(t),
+                                  typeof(param.blparam)})
+    update_aux!(dg, bl, Q, auxstate, t, param.blparam)
   end
 
   ########################
@@ -121,9 +122,6 @@ function init_ode_param(dg::DGModel)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-
-
-
   # TODO: Clean up this MPIStateArray interface...
   diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
     topology.mpicomm,
@@ -163,8 +161,10 @@ function init_ode_param(dg::DGModel)
     MPIStateArrays.start_ghost_exchange!(auxstate)
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   # end
-  return (aux=auxstate, diff=diffstate)
+
+  return (aux=auxstate, diff=diffstate, blparam=init_ode_param(dg, bl))
 end
+init_ode_param(::DGModel, ::BalanceLaw) = nothing
 
 
 
@@ -173,7 +173,7 @@ end
 
 Initialize the ODE state array.
 """
-function init_ode_state(dg::DGModel, param, args...; commtag=888)
+function init_ode_state(dg::DGModel, commtag)
   bl = dg.balancelaw
   grid = dg.grid
   topology = grid.topology
@@ -186,17 +186,27 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
-                                               length(topology.elems),
-                                               realelems=topology.realelems,
-                                               ghostelems=topology.ghostelems,
-                                               vmaprecv=grid.vmaprecv,
-                                               vmapsend=grid.vmapsend,
-                                               nabrtorank=topology.nabrtorank,
-                                               nabrtovmaprecv=grid.nabrtovmaprecv,
-                                               nabrtovmapsend=grid.nabrtovmapsend,
-                                               weights=weights,
-                                               commtag=commtag)
+  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat,
+                        DA}(topology.mpicomm, length(topology.elems),
+                            realelems=topology.realelems,
+                            ghostelems=topology.ghostelems,
+                            vmaprecv=grid.vmaprecv, vmapsend=grid.vmapsend,
+                            nabrtorank=topology.nabrtorank,
+                            nabrtovmaprecv=grid.nabrtovmaprecv,
+                            nabrtovmapsend=grid.nabrtovmapsend, weights=weights,
+                            commtag=commtag)
+  return state
+end
+function init_ode_state(dg::DGModel, param, args...; commtag=888)
+  state = init_ode_state(dg, commtag)
+
+  bl = dg.balancelaw
+  grid = dg.grid
+  topology = grid.topology
+  # FIXME: Remove after updating CUDA
+  h_vgeo = Array(grid.vgeo)
+  DFloat = eltype(h_vgeo)
+  Np = dofs_per_element(grid)
 
   auxstate = param.aux
   dim = dimensionality(grid)
@@ -205,7 +215,8 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   device = typeof(state.Q) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
   @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo, topology.realelems, args...))
+          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo,
+                     topology.realelems, args...))
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 
@@ -296,10 +307,9 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 end
 
 function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
-                                            Q::MPIStateArray,
                                             auxstate::MPIStateArray, t::Real)
 
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   topology = grid.topology
@@ -309,7 +319,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  DFloat = eltype(Q)
+  DFloat = eltype(auxstate)
 
   vgeo = grid.vgeo
   polyorder = polynomialorder(dg.grid)
