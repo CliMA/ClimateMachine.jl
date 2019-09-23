@@ -3,6 +3,11 @@ using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
 export ConstantViscosityWithDivergence, SmagorinskyLilly
 
+export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman
+
+abstract type TurbulenceClosure
+end
+
 vars_state(::TurbulenceClosure, T) = @vars()
 vars_gradient(::TurbulenceClosure, T) = @vars()
 vars_diffusive(::TurbulenceClosure, T) = @vars()
@@ -160,16 +165,18 @@ end
 vars_aux(::Vreman,T) = @vars(Δ::T)
 vars_gradient(::Vreman,T) = @vars(θ_v::T)
 vars_diffusive(::Vreman,T) = @vars(∂θ∂Φ::T)
-function init_aux!(::Vreman, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
 function dynamic_viscosity_tensor(m::Vreman, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(state)
   ∇u = ∇transform.u
   αijαij = sum(∇u .^ 2)
-  βij = (aux.turbulence.Δ)^2 * (∇u' * ∇u)
+  @inbounds normS = strain_rate_magnitude(S)
+  f_b² = squared_buoyancy_correction(normS, diffusive, aux)
+  βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   @inbounds Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
-  return state.ρ * max(0,(m.C_smag^2 * 2.5) * sqrt(abs(Bβ/(αijαij+eps(αijαij))))) 
+  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(DT))))) 
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S
