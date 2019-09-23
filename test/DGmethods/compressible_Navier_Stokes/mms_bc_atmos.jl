@@ -35,7 +35,7 @@ end
 include("mms_solution_generated.jl")
 
 using CLIMA.Atmos
-using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
+using CLIMA.Atmos: internal_energy, thermo_state
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
 
 """
@@ -46,7 +46,7 @@ Assumes the moisture components is in the dry limit.
 struct MMSDryModel <: MoistureModel
 end
 
-function pressure(m::MMSDryModel, state::Vars, aux::Vars)
+function pressure(m::MMSDryModel, orientation::Orientation, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
   ρinv = 1 / state.ρ
@@ -54,11 +54,11 @@ function pressure(m::MMSDryModel, state::Vars, aux::Vars)
 
 end
 
-function soundspeed(m::MMSDryModel, state::Vars, aux::Vars)
+function soundspeed(m::MMSDryModel, orientation::Orientation, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
   ρinv = 1 / state.ρ
-  p = pressure(m, state, aux)
+  p = pressure(m, orientation, state, aux)
   sqrt(ρinv * γ * p)
 end
 
@@ -108,7 +108,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel(FlatOrientation(),
+    model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(DFloat(μ_exact)),
                        MMSDryModel(),
@@ -117,7 +117,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                        InitStateBC(),
                        mms2_init_state!)
   else
-    model = AtmosModel(FlatOrientation(),
+    model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(DFloat(μ_exact)),
                        MMSDryModel(),
@@ -130,12 +130,12 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   dg = DGModel(model,
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralNumericalFluxDiffusive(),
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
 
   Q = init_ode_state(dg, param, DFloat(0))
-
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 

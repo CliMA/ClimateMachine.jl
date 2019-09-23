@@ -10,6 +10,7 @@ using CLIMA.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -21,14 +22,24 @@ else
   const ArrayTypes = (Array, )
 end
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
-integrate_aux!, flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-init_aux!, init_state!, init_ode_param, init_ode_state, LocalGeometry
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                        vars_diffusive, vars_integrals, integrate_aux!,
+                        flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
+                        update_aux!, indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,  boundary_state!,
+                        gradvariables!, init_aux!, init_state!, init_ode_param,
+                        init_ode_state, LocalGeometry
 
 
 struct IntegralTestSphereModel{T} <: BalanceLaw
   Rinner::T
   Router::T
+end
+
+function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray,
+                     auxstate::MPIStateArray, t::Real, _)
+  indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, auxstate, t)
 end
 
 vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
@@ -37,9 +48,10 @@ vars_aux(m::IntegralTestSphereModel,T) = @vars(int::vars_integrals(m,T), rev_int
 vars_state(::IntegralTestSphereModel, T) = @vars()
 vars_diffusive(::IntegralTestSphereModel, T) = @vars()
 
-flux!(::IntegralTestSphereModel, _...) = nothing
+flux_nondiffusive!(::IntegralTestSphereModel, _...) = nothing
+flux_diffusive!(::IntegralTestSphereModel, _...) = nothing
 source!(::IntegralTestSphereModel, _...) = nothing
-boundarycondition!(::IntegralTestSphereModel, _...) = nothing
+boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
 init_state!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel,_...) = 1
 
@@ -79,7 +91,8 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
   dg = DGModel(IntegralTestSphereModel(Rinner, Router),
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralNumericalFluxDiffusive(),
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
   Q = init_ode_state(dg, param, DFloat(0))

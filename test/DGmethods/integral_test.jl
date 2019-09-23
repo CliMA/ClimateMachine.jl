@@ -10,6 +10,7 @@ using CLIMA.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -21,27 +22,35 @@ else
   const ArrayTypes = (Array, )
 end
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integrals,
-integrate_aux!, flux!, source!, wavespeed, boundarycondition!, gradvariables!, diffusive!,
-init_aux!, init_state!, init_ode_param, init_ode_state, LocalGeometry
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                        vars_diffusive, vars_integrals, integrate_aux!,
+                        flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
+                        update_aux!, indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,  boundary_state!,
+                        init_aux!, init_state!, init_ode_param, init_ode_state,
+                        LocalGeometry
 
 
 struct IntegralTestModel{dim} <: BalanceLaw
 end
 
 vars_integrals(::IntegralTestModel, T) = @vars(a::T,b::T)
-vars_aux(m::IntegralTestModel,T) = @vars(int::vars_integrals(m,T), rev_int::vars_integrals(m,T), coord::SVector{3,T}, a::T, b::T)
+vars_aux(m::IntegralTestModel,T) = @vars(int::vars_integrals(m,T),
+                                         rev_int::vars_integrals(m,T),
+                                         coord::SVector{3,T}, a::T, b::T)
 
 vars_state(::IntegralTestModel, T) = @vars()
 vars_diffusive(::IntegralTestModel, T) = @vars()
 
-flux!(::IntegralTestModel, _...) = nothing
+flux_nondiffusive!(::IntegralTestModel, _...) = nothing
+flux_diffusive!(::IntegralTestModel, _...) = nothing
 source!(::IntegralTestModel, _...) = nothing
-boundarycondition!(::IntegralTestModel, _...) = nothing
+boundary_state!(_, ::IntegralTestModel, _...) = nothing
 init_state!(::IntegralTestModel, _...) = nothing
 wavespeed(::IntegralTestModel,_...) = 1
 
-function init_aux!(::IntegralTestModel{dim}, aux::Vars, g::LocalGeometry) where {dim}
+function init_aux!(::IntegralTestModel{dim}, aux::Vars,
+                   g::LocalGeometry) where {dim}
   x,y,z = aux.coord = g.coord
   if dim == 2
     aux.a = x*y + z*y
@@ -52,7 +61,14 @@ function init_aux!(::IntegralTestModel{dim}, aux::Vars, g::LocalGeometry) where 
   end
 end
 
-@inline function integrate_aux!(m::IntegralTestModel, integrand::Vars, state::Vars, aux::Vars)
+function update_aux!(dg::DGModel, m::IntegralTestModel, Q::MPIStateArray,
+                     auxstate::MPIStateArray, t::Real, _)
+  indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, auxstate, t)
+end
+
+@inline function integrate_aux!(m::IntegralTestModel, integrand::Vars,
+                                state::Vars, aux::Vars)
   x,y,z = aux.coord
   integrand.a = x + z
   integrand.b = 2*x + sin(x)*y - (z-1)^2*y^2
@@ -75,7 +91,8 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
   dg = DGModel(IntegralTestModel{dim}(),
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralNumericalFluxDiffusive(),
+               CentralGradPenalty())
 
   param = init_ode_param(dg)
   Q = init_ode_state(dg, param, DFloat(0))

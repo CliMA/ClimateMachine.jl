@@ -1,18 +1,16 @@
 #### Turbulence closures
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
-
-abstract type TurbulenceClosure
-end
+export ConstantViscosityWithDivergence, SmagorinskyLilly
 
 vars_state(::TurbulenceClosure, T) = @vars()
 vars_gradient(::TurbulenceClosure, T) = @vars()
 vars_diffusive(::TurbulenceClosure, T) = @vars()
 vars_aux(::TurbulenceClosure, T) = @vars()
 
-function init_aux!(::TurbulenceClosure, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::TurbulenceClosure, ::AtmosModel, aux::Vars, geom::LocalGeometry)
 end
-function update_aux!(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function atmos_nodal_update_aux!(::TurbulenceClosure, ::AtmosModel, state::Vars, aux::Vars, t::Real)
 end
 function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t, ν)
 end
@@ -62,7 +60,7 @@ end
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
-function init_aux!(::SmagorinskyLilly, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
