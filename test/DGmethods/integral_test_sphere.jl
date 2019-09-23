@@ -10,7 +10,8 @@ using CLIMA.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
-
+using CLIMA.VTK
+using CLIMA.GenericCallbacks
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -87,6 +88,12 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
 
   exact_aux = copy(param.aux)
 
+
+
+    mkpath("/home/yassine/yt-2T-drive/CLIMA-run/vtk-sphere/")
+    @debug "doing VTK output" outprefix
+    writevtk("/home/yassine/yt-2T-drive/CLIMA-run/vtk-sphere/sphere-here", Q, dg)
+
   dg(dQdt, Q, param, 0.0)
   
   euclidean_distance(exact_aux, param.aux)
@@ -129,8 +136,8 @@ let
         @info (ArrayType, DFloat, "sphere", l)
         Nhorz = 2^(l-1) * base_Nhorz
         Nvert = 2^(l-1) * base_Nvert
-        Rrange = range(DFloat(Rinner); length=Nvert+1, stop=Router)
-        topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
+	DDims=(Router-Rinner)/(4*Nvert+1)
+	topl,DT,dim,polynomialorder,Rmax=Generate_grid(Val(4),Nhorz,DDims,mpicomm,4,(Rinner,Router))
         err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat,
                      DFloat(Rinner), DFloat(Router))
         @test expected_result[l] ≈ err[l]

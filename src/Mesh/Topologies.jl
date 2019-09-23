@@ -1056,7 +1056,7 @@ end
 
 
 
-function Generate_grid(::Val{3},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary;Stretch=("","",""))
+function Generate_grid(::Val{3},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary;Stretch=("","",""),attractor=0)
         #Problem type
         DT = Float64
         #DG Polynomial Order
@@ -1087,7 +1087,7 @@ function Generate_grid(::Val{3},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,peri
 	return topl,DT,dim,polynomialorder,zmax
 end
 
-function Generate_grid(::Val{2},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary;Stretch=("",""))
+function Generate_grid(::Val{2},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,periodicity,Boundary;Stretch=("",""),attractor=0)
         #Problem type
         DT = Float64
         #DG Polynomial Order
@@ -1110,7 +1110,29 @@ function Generate_grid(::Val{2},DDims,mpicomm::MPI.Comm,O::Int64,DomainSize,peri
         bound=Boundary
         dim=2
 	 topl = StackedBrickTopology(mpicomm, brickrange,periodicity = period, boundary=bound)
-        return topl,DT,dim,timeend,dt,polynomialorder,x2max
+        return topl,DT,dim,polynomialorder,x2max
+end
+
+function Generate_grid(::Val{4},Nhorz,DDims,mpicomm::MPI.Comm,O::Int64,DomainSize;Boundary=(1,1),Stretch="",attractor=0)
+        #Problem type
+        DT = Float64
+        #DG Polynomial Order
+        polynomialorder=O
+        deltaR=DDims
+        #Physical Domain Extents
+        (Rmin,Rmax)=DomainSize
+        #Get Nex,Ney from resolution
+        LR=Rmax-Rmin
+        #User defines the grid size
+        NeR = ceil(Int64, (LR/deltaR-1)/polynomialorder)
+        # User defined domain parameters
+        Rrange=grid_stretching_1d(DT(Rmin), Rmax, NeR,Stretch)
+	Rrange=Rrange.+Rmin
+	@info (Rrange)
+        bound=Boundary
+	dim=3
+         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange,boundary=Boundary)
+        return topl,DT,dim,polynomialorder,Rmax
 end
 
 #}}}
