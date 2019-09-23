@@ -363,6 +363,13 @@ function facerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
                                              l_Q⁺₂, l_σ⁺, l_α⁺₂,
                                              bctype, t,
                                              l_Q_bot1, l_σ_bot1, l_α_bot1)
+          surface_flux!(bl,
+              Vars{vars_state(bl,DFloat)}(l_F),
+              f,
+              Vars{vars_state(bl,DFloat)}(l_Q⁻),
+              Vars{vars_diffusive(bl,DFloat)}(l_σ⁻),
+              Vars{vars_aux(bl,DFloat)}(l_α⁻),
+              t)
         end
 
         #Update RHS
@@ -846,6 +853,40 @@ function knl_reverse_indefinite_stack_integral!(::Val{Nᵈ}, ::Val{N},
             @unroll for s = 1:nout
               α[ijk, nout+s, e] = l_T[s] - l_V[s]
             end
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
+
+# TODO: Generalize to more than one field?
+function knl_copy_stack_field_down!(::Val{dim}, ::Val{N}, ::Val{nvertelem},
+                                    auxstate, elems, ::Val{fldin},
+                                    ::Val{fldout}) where {dim, N, nvertelem,
+                                                          fldin, fldout}
+  DFloat = eltype(auxstate)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+
+  # note that k is the second not 4th index (since this is scratch memory and k
+  # needs to be persistent across threads)
+  @inbounds @loop for eh in (elems; blockIdx().x)
+    # Initialize the constant state at zero
+    @loop for j in (1:Nqj; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        ijk = i + Nq * ((j-1) + Nqj * (Nq-1))
+        et = nvertelem + (eh - 1) * nvertelem
+        val = auxstate[ijk, fldin, et]
+
+        # Loop up the stack of elements
+        for ev = 1:nvertelem
+          e = ev + (eh - 1) * nvertelem
+          @unroll for k in 1:Nq
+            ijk = i + Nq * ((j-1) + Nqj * (k-1))
+            auxstate[ijk, fldout, e] = val
           end
         end
       end

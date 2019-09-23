@@ -5,6 +5,10 @@ struct DGModel{BL,G,NFND,NFD,GNF}
   numfluxdiff::NFD
   gradnumflux::GNF
 end
+function DGModel(dg::DGModel, bl::BalanceLaw)
+  return DGModel(bl, dg.grid, dg.numfluxnondiff, dg.numfluxdiff,
+                 dg.gradnumflux,)
+end
 
 function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   bl = dg.balancelaw
@@ -145,8 +149,9 @@ function init_ode_param(dg::DGModel)
   MPIStateArrays.start_ghost_exchange!(α)
   MPIStateArrays.finish_ghost_exchange!(α)
 
-  return (aux=α, diff=σ)
+  return (aux=α, diff=σ, blparam=init_ode_param(dg, bl))
 end
+init_ode_param(::DGModel, ::BalanceLaw) = nothing
 
 
 
@@ -155,9 +160,8 @@ end
 
 Initialize the ODE state array.
 """
-function init_ode_state(dg::DGModel, param, args...; commtag=888)
+function init_ode_state(dg::DGModel, commtag)
   bl = dg.balancelaw
-  α  = param.aux
 
   grid = dg.grid
   Nᵈ   = dimensionality(grid)
@@ -176,6 +180,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
+
   Q = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
       length(topology.elems),
       realelems=topology.realelems,
@@ -187,6 +192,29 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
       nabrtovmapsend=grid.nabrtovmapsend,
       weights=weights,
       commtag=commtag)
+
+  return Q
+end
+
+function init_ode_state(dg::DGModel, param, args...; commtag=888)
+  Q = init_ode_state(dg, commtag)
+
+  bl = dg.balancelaw
+  α  = param.aux
+
+  grid = dg.grid
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Np   = dofs_per_element(grid)
+  vgeo = grid.vgeo
+  topology = grid.topology
+  Ω    = topology.realelems
+  nΩ   = length(Ω)
+
+  # FIXME: Remove after updating CUDA
+  h_vgeo = Array(vgeo)
+  DFloat = eltype(h_vgeo)
+  DA     = arraytype(grid)
 
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -302,4 +330,33 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   ### update aux variables
   @launch(device, threads=(Np,), blocks=nΩ,
           knl_nodal_update_aux!(m, Val(Nᵈ), Val(N), f!, Q.Q, α.Q, t, Ω))
+end
+
+function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
+                                auxstate::MPIStateArray, fldin, fldout)
+
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  DFloat = eltype(auxstate)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+
+  # do integrals
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_copy_stack_field_down!(Val(dim), Val(polyorder), Val(nvertelem),
+                                     auxstate.Q, 1:nhorzelem, Val(fldin),
+                                     Val(fldout)))
 end

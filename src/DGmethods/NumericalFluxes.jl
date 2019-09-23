@@ -182,6 +182,7 @@ Requires a `flux_nondiffusive!` and `wavespeed` method for the balance law.
 """
 struct Rusanov <: NumericalFluxNonDiffusive end
 
+update_jump!(::Rusanov, ::BalanceLaw, _...) = nothing
 
 function numerical_flux_nondiffusive!(::Rusanov, bl::BalanceLaw, F::MArray,
                                       n⁻, Q⁻, α⁻, Q⁺, α⁺, t)
@@ -216,6 +217,15 @@ function numerical_flux_nondiffusive!(::Rusanov, bl::BalanceLaw, F::MArray,
 
   λ  =  max(λ⁻, λ⁺)
 
+  Qjump = QM - QP
+  update_jump!(nf, bl,
+                Vars{vars_state(bl, DFloat)}(Qjump),
+                nM,
+                Vars{vars_state(bl, DFloat)}(QM),
+                Vars{vars_state(bl, DFloat)}(QP),
+                Vars{vars_aux(bl, DFloat)}(auxM),
+                Vars{vars_aux(bl, DFloat)}(auxP),
+                t)
   @inbounds for s = 1:nstate
     F[s] += 0.5 * (n⁻[1] * (F⁻[1, s] + F⁺[1, s]) +
                    n⁻[2] * (F⁻[2, s] + F⁺[2, s]) +
@@ -319,6 +329,5 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
                    n⁻[3] * (F⁻[3, s] + F⁺[3, s]))
   end
 end
-
 
 end
