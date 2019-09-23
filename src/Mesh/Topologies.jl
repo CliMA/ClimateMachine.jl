@@ -99,7 +99,7 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   elemtoordr::Array{Int64, 2}
 
   """
-  Element to bounday number; `elemtobndy[f,e]` is the boundary number of face
+  Element to boundary number; `elemtobndy[f,e]` is the boundary number of face
   `f` of element `e`.  If there is a neighboring element then `elemtobndy[f,e]
   == 0`.
   """
