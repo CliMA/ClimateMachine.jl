@@ -109,7 +109,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
 
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     Vreman{DT}(C_smag*1.25,true),
+                     SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
                      (Gravity(), 
@@ -203,9 +203,9 @@ let
     # DG polynomial order 
     polynomialorder = 4
     # User specified grid spacing
-    Δx    = DT(35)
-    Δy    = DT(35)
-    Δz    = DT(35)
+    Δx    = DT(50)
+    Δy    = DT(50)
+    Δz    = DT(20)
     # SGS Filter constants
     C_smag = DT(0.15)
     LHF    = DT(115)
@@ -231,12 +231,12 @@ let
                   range(DT(zmin), length=Ne[3]+1, DT(zmax)))
     topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
-    timeend = 14400
+    timeend = 100dt
     dim = 3
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    #@test result ≈ DT(0.9999737128867487)
+    @test result ≈ DT(0.9999737128867487)
   end
 end
 
