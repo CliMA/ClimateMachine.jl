@@ -1,3 +1,5 @@
+export Gravity, RayleighSponge, Subsidence, GeostrophicForcing
+
 # kept for compatibility
 # can be removed if no functions are using this
 function atmos_source!(f::Function, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)

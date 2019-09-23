@@ -1,15 +1,36 @@
 using CLIMA.PlanetParameters
+export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC
 
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
 # need to figure out how subcomponents will interact.
-function atmos_boundarycondition!(f::Function, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
+function atmos_boundary_state!(::Rusanov, f::Function, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  f(stateP, auxP, nM, stateM, auxM, bctype, t)
+end
+
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, f::Function,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
   f(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
 end
 
 # lookup boundary condition by face
-function atmos_boundarycondition!(bctup::Tuple, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t,_...)  
-  atmos_boundarycondition!(bctup[bctype], m, stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
+function atmos_boundary_state!(nf::Rusanov, bctup::Tuple, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  atmos_boundary_state!(nf, bctup[bctype], m, stateP, auxP, nM, stateM, auxM,
+                        bctype, t)
+end
+
+function atmos_boundary_state!(nf::CentralNumericalFluxDiffusive,
+                               bctup::Tuple, m::AtmosModel, stateP::Vars,
+                               diffP::Vars, auxP::Vars, nM, stateM::Vars,
+                               diffM::Vars, auxM::Vars, bctype, t, _...)
+  atmos_boundary_state!(nf, bctup[bctype], m, stateP, diffP, auxP, nM, stateM,
+                        diffM, auxM, bctype, t)
 end
 
 
@@ -17,29 +38,63 @@ abstract type BoundaryCondition
 end
 
 """
+    PeriodicBC <: BoundaryCondition
+
+Assume that the topology is periodic and hence nothing special needs to be done at the boundaries.
+"""
+struct PeriodicBC <: BoundaryCondition end
+
+# TODO: assert somewhere that the topology is actually periodic when using those
+atmos_boundary_state!(_, ::PeriodicBC, _...) = nothing
+
+"""
     NoFluxBC <: BoundaryCondition
 
 Set the momentum at the boundary to be zero.
 """
+# TODO: This should be fixed later once BCs are figured out (likely want
+# different things here?)
 struct NoFluxBC <: BoundaryCondition
 end
 
-function atmos_boundarycondition!(bc::NoFluxBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t,_...) 
-    DF = eltype(stateM)
-    stateP.ρ = stateM.ρ
-    stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
-    diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
-    diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
+function atmos_boundary_state!(::Rusanov, bc::NoFluxBC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  DF = eltype(stateM)
+  stateP.ρ = stateM.ρ
+  stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+end
+
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  DF = eltype(stateM)
+  stateP.ρ = stateM.ρ
+  stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+  diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
+  diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
 """
     InitStateBC <: BoundaryCondition
 
-Set the value at the boundary to match the `init_state!` function. This is mainly useful for cases where the problem has an explicit solution.
+Set the value at the boundary to match the `init_state!` function. This is
+mainly useful for cases where the problem has an explicit solution.
 """
+# TODO: This should be fixed later once BCs are figured out (likely want
+# different things here?)
 struct InitStateBC <: BoundaryCondition
 end
-function atmos_boundarycondition!(bc::InitStateBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t,_...) 
+function atmos_boundary_state!(::Rusanov, bc::InitStateBC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  init_state!(m, stateP, auxP, auxP.coord, t)
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::InitStateBC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
@@ -53,7 +108,9 @@ struct DYCOMS_BC{DT} <: BoundaryCondition
   LHF::DT
   SHF::DT
 end
-function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, state1::Vars, diff1::Vars, aux1::Vars) 
+function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, state1::Vars, aux1::Vars)
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
@@ -75,10 +132,41 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
   # Assign scalar values at the boundaries 
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
+  
+  if bctype == 1 # bctype identifies bottom wall 
+    stateP.ρu = SVector(0,0,0)
+  end
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, state1::Vars, diff1::Vars,
+                               aux1::Vars)
+  # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
+  # at the boundaries the ⁻, minus side states are the interior values
+  # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
+  DT = eltype(stateP)
+  # Get values from minus-side state
+  ρM = stateM.ρ 
+  UM, VM, WM = stateM.ρu
+  EM = stateM.ρe
+  QTM = stateM.moisture.ρq_tot
+  uM, vM, wM  = UM/ρM, VM/ρM, WM/ρM
+  q_totM = QTM/ρM
+  UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+
+  # Assign reflection wall boundaries (top wall)
+  stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
+                      VM - 2 * nM[2] * UnM,
+                      WM - 2 * nM[3] * UnM)
+
+  # Assign scalar values at the boundaries 
+  stateP.ρ = ρM
+  stateP.moisture.ρq_tot = QTM
   # Assign diffusive fluxes at boundaries
   diffP = diffM
   xvert = auxM.coord[3]
-  
+
   if bctype == 1 # bctype identifies bottom wall 
     # ------------------------------------------------------------------------
     # (<var>_FN) First node values (First interior node from bottom wall)
@@ -108,7 +196,7 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
     # Extract components of diffusive momentum flux (minus-side)
     # ----------------------------------------------------------
     ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
-    
+
     # ----------------------------------------------------------
     # Boundary momentum fluxes
     # ----------------------------------------------------------
@@ -121,7 +209,7 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
     # (i.e. ρ𝛕 terms)  
     stateP.ρu = SVector(0,0,0)
     diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
-    
+
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
@@ -137,4 +225,4 @@ function atmos_boundarycondition!(bc::DYCOMS_BC, m::AtmosModel, stateP::Vars, di
                                        bc.LHF + bc.SHF)
   end
 end
- 
+

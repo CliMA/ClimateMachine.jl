@@ -1,7 +1,8 @@
-struct DGModel{BL,G,NF,GNF}
+struct DGModel{BL,G,NFND,NFD,GNF}
   balancelaw::BL
   grid::G
-  divnumflux::NF
+  numfluxnondiff::NFND
+  numfluxdiff::NFD
   gradnumflux::GNF
 end
 
@@ -36,29 +37,10 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
 
   Np = dofs_per_element(grid)
 
-  # do integrals
-  nintegrals = num_integrals(bl, DFloat)
-  if nintegrals > 0
-    nelem = length(topology.elems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nelem, nvertelem)
-
-    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-      knl_indefinite_stack_integral!(bl, Val(dim), Val(polyorder), 
-                                 Val(nvertelem),
-                                 Q.Q, auxstate.Q, vgeo, grid.Imat,
-                                 1:nhorzelem, Val(nintegrals)))
-
-    @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-      knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
-                                 Val(nvertelem), auxstate.Q,
-                                 1:nhorzelem, Val(nintegrals)))
-  end
-
-  ### update aux variables
-  if hasmethod(update_aux!, Tuple{typeof(bl), Vars, Vars, Vars, DFloat})
-    @launch(device, threads=(Np,), blocks=nrealelem,
-      knl_apply_aux!(bl, Val(dim), Val(polyorder), update_aux!, Q.Q, Qvisc.Q, auxstate.Q, t, topology.realelems))
+  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
+                                  typeof(auxstate), typeof(t),
+                                  typeof(param.blparam)})
+    update_aux!(dg, bl, Q, auxstate, t, param.blparam)
   end
 
   ########################
@@ -106,7 +88,9 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder), dg.divnumflux,
+          facerhs!(bl, Val(dim), Val(polyorder),
+                   dg.numfluxnondiff,
+                   dg.numfluxdiff,
                    dQdt.Q, Q.Q, Qvisc.Q,
                    auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
@@ -137,9 +121,6 @@ function init_ode_param(dg::DGModel)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
-
-
-
 
   # TODO: Clean up this MPIStateArray interface...
   diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
@@ -180,8 +161,10 @@ function init_ode_param(dg::DGModel)
     MPIStateArrays.start_ghost_exchange!(auxstate)
     MPIStateArrays.finish_ghost_exchange!(auxstate)
   # end
-  return (aux=auxstate, diff=diffstate)
+
+  return (aux=auxstate, diff=diffstate, blparam=init_ode_param(dg, bl))
 end
+init_ode_param(::DGModel, ::BalanceLaw) = nothing
 
 
 
@@ -190,7 +173,7 @@ end
 
 Initialize the ODE state array.
 """
-function init_ode_state(dg::DGModel, param, args...; commtag=888)
+function init_ode_state(dg::DGModel, commtag)
   bl = dg.balancelaw
   grid = dg.grid
   topology = grid.topology
@@ -203,17 +186,27 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat, DA}(topology.mpicomm,
-                                               length(topology.elems),
-                                               realelems=topology.realelems,
-                                               ghostelems=topology.ghostelems,
-                                               vmaprecv=grid.vmaprecv,
-                                               vmapsend=grid.vmapsend,
-                                               nabrtorank=topology.nabrtorank,
-                                               nabrtovmaprecv=grid.nabrtovmaprecv,
-                                               nabrtovmapsend=grid.nabrtovmapsend,
-                                               weights=weights,
-                                               commtag=commtag)
+  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat,
+                        DA}(topology.mpicomm, length(topology.elems),
+                            realelems=topology.realelems,
+                            ghostelems=topology.ghostelems,
+                            vmaprecv=grid.vmaprecv, vmapsend=grid.vmapsend,
+                            nabrtorank=topology.nabrtorank,
+                            nabrtovmaprecv=grid.nabrtovmaprecv,
+                            nabrtovmapsend=grid.nabrtovmapsend, weights=weights,
+                            commtag=commtag)
+  return state
+end
+function init_ode_state(dg::DGModel, param, args...; commtag=888)
+  state = init_ode_state(dg, commtag)
+
+  bl = dg.balancelaw
+  grid = dg.grid
+  topology = grid.topology
+  # FIXME: Remove after updating CUDA
+  h_vgeo = Array(grid.vgeo)
+  DFloat = eltype(h_vgeo)
+  Np = dofs_per_element(grid)
 
   auxstate = param.aux
   dim = dimensionality(grid)
@@ -222,7 +215,8 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   device = typeof(state.Q) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
   @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo, topology.realelems, args...))
+          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo,
+                     topology.realelems, args...))
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 
@@ -278,4 +272,89 @@ function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param::MPI
 
   @launch(device, threads=(Np,), blocks=nrealelem,
     knl_node_apply_aux!(bl, Val(dim), Val(N), f!, Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
+end
+
+function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
+                                    Q::MPIStateArray, auxstate::MPIStateArray,
+                                    t::Real)
+
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  DFloat = eltype(Q)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+
+  # do integrals
+  nintegrals = num_integrals(m, DFloat)
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_indefinite_stack_integral!(m, Val(dim), Val(polyorder),
+                                         Val(nvertelem), Q.Q, auxstate.Q,
+                                         vgeo, grid.Imat, 1:nhorzelem,
+                                         Val(nintegrals)))
+end
+
+function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
+                                            auxstate::MPIStateArray, t::Real)
+
+  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  DFloat = eltype(auxstate)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+
+  # do integrals
+  nintegrals = num_integrals(m, DFloat)
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
+                                                 Val(nvertelem), auxstate.Q,
+                                                 1:nhorzelem,
+                                                 Val(nintegrals)))
+end
+
+function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+                           auxstate::MPIStateArray, t::Real)
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  nrealelem = length(topology.realelems)
+
+  polyorder = polynomialorder(dg.grid)
+
+  Np = dofs_per_element(grid)
+
+  ### update aux variables
+  @launch(device, threads=(Np,), blocks=nrealelem,
+          knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
+                          Q.Q, auxstate.Q, t, topology.realelems))
 end
