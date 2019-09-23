@@ -1,9 +1,7 @@
 #### Turbulence closures
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
-export ConstantViscosityWithDivergence, SmagorinskyLilly
-
-export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman
+export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 
 abstract type TurbulenceClosure
 end
@@ -112,7 +110,7 @@ year = {1962}
 function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
   T = eltype(diffusive)
   N² = inv(aux.moisture.θ_v) * diffusive.turbulence.∂θ∂Φ
-  Richardson = N² / (normS^2 + eps(normS))
+  Richardson = N² / (normS^2 + eps(T))
   sqrt(clamp(T(1) - Richardson*inv_Pr_turb, T(0), T(1)))
 end
 
@@ -209,7 +207,7 @@ struct AnisoMinDiss{DT} <: TurbulenceClosure
   C_poincare::DT
 end
 vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
-function init_aux!(::AnisoMinDiss, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
 function dynamic_viscosity_tensor(m::AnisoMinDiss, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -219,8 +217,8 @@ function dynamic_viscosity_tensor(m::AnisoMinDiss, S, ∇transform::Grad, state:
   coeff = (aux.turbulence.Δ * m.C_poincare)^2
   βij = -(∇u' * ∇u)
   detS = det(S)
-  trS² = tr(S .* S) + eps(S .* S)
-  ν_e = coeff * abs(dot(βij, S) / (αijαij + eps(αijαij)))
+  trS² = tr(S .* S) + eps(DT)
+  ν_e = coeff * abs(dot(βij, S) / (αijαij + eps(DT)))
   return state.ρ * ν_e
 end
 function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)
