@@ -24,7 +24,7 @@ const use_linearized_pressure = false
   e_ref = ρ_ref_inv * ρe_ref
 
   flux.ρ   = -zero(eltype(state))
-  flux.ρu  = ρu * (u' - u_ref')
+  flux.ρu  = ρu * (u - u_ref)'
   flux.ρe  = ρu * (e - e_ref)
 end
 
