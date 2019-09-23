@@ -69,13 +69,21 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateRe
 
     @assert size(Q) == size(residual)
 
+    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
     linearoperator!(residual, Q)
     residual .-= Qrhs
+    
+    converged = false
+    residual_norm = norm(residual, weighted)
+    if residual_norm < threshold
+      converged = true
+      return converged, threshold
+    end
     
     p[1] .= residual
     linearoperator!(L_p[1], p[1])
 
-    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
+    converged, threshold
 end
 
 function LS.doiteration!(linearoperator!, Q, Qrhs,
