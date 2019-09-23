@@ -26,8 +26,10 @@ import CLIMA.DGmethods: update_aux!, vars_state, vars_aux
   CuArrays.allowscalar(false)
 end
 
-@inline function ocean_boundary_state!(m::HydrostaticBoussinesqModel,
-                                       bctype, x...)
+HBModel   = HydrostaticBoussinesqModel
+HBProblem = HydrostaticBoussinesqProblem
+
+@inline function ocean_boundary_state!(m::HBModel, bctype, x...)
   if bctype == 1
     ocean_boundary_state!(m, Coastline(), x...)
   elseif bctype == 2
@@ -37,25 +39,31 @@ end
   end
 end
 
-struct SimpleBox{T} <: HydrostaticBoussinesqProblem
-  Lx::T
-  Ly::T
+struct SimpleBox{T} <: HBProblem
+  Lˣ::T
+  Lʸ::T
   H::T
-  τ0_wind::T
+  τₒ::T
+  fₒ::T
+  β::T
+  θᴱ::T
 end
 
 # α is Filled afer the state
 function ocean_init_aux!(P::SimpleBox, α, geom)
   DFloat = eltype(α)
-  β::DFloat = 1e-11
-  f0::DFloat = 1e-4
   @inbounds y = geom.coord[2]
-  @inbounds Ly = P.Ly
-  τ0_wind = P.τ0_wind
 
-  α.f = f0 + y * β
-  α.SST_relax = 25 * (Ly - y) / Ly
-  α.τ_wind = -τ0_wind * cos(y * 2π / Ly)
+  Lʸ = P.Lʸ
+  τₒ = P.τₒ
+  fₒ = P.fₒ
+  β  = P.β
+  θᴱ = P.θᴱ
+
+  α.τ  = -τₒ * cos(y * 2π / Lʸ)
+  α.f  =  fₒ + β * y
+  α.θʳ =  θᴱ * (1 - y / Lʸ)
+
 end
 
 function ocean_init_state!(p::SimpleBox, Q, α, coords, t)
@@ -65,6 +73,29 @@ function ocean_init_state!(p::SimpleBox, Q, α, coords, t)
   Q.η = 0
   Q.θ = 9 + 8z / H
 end
+
+###################
+# PARAM SELECTION #
+###################
+DFloat = Float64
+
+const Lˣ = 1e6
+const Lʸ = 1e6
+const H  = 400
+const cʰ = sqrt(grav * H)
+const cᶻ = 0
+
+const τₒ = 1e-1
+const fₒ = 1e-4
+const β  = 1e-11
+const θᴱ = 25
+
+const αᵀ = 2e-4
+const νʰ = 1e4
+const νᶻ = 1e-2
+const κʰ = 0
+const κᶻ = 0
+const λʳ = 1 // 86400
 
 let
   MPI.Initialized() || MPI.Init()
@@ -90,12 +121,9 @@ let
 
   N = 4
   Ne = (10, 10, 4)
-  L = SVector{3, DFloat}(1e6, 1e6, 400)
+  L = SVector{3, DFloat}(Lˣ, Lʸ, H)
   timeend = 100 * 86400
-  H::DFloat = L[3]
-  ch::DFloat = sqrt(grav * H)
-  cv::DFloat = 0
-  c = @SVector [ch, ch, cv]
+  c = @SVector [cʰ, cʰ, cᶻ]
   brickrange = (range(DFloat(0); length=Ne[1]+1, stop=L[1]),
                 range(DFloat(0); length=Ne[2]+1, stop=L[2]),
                 range(DFloat(-L[3]); length=Ne[3]+1, stop=0))
@@ -114,14 +142,10 @@ let
                                           polynomialorder = N,
                                          )
 
-  problem = SimpleBox(L..., DFloat(1e-1))
-  αT::DFloat = 2e-4
-  νh::DFloat = 1e4
-  νz::DFloat = 1e-2
-  κh::DFloat = 0
-  κz::DFloat = 0
-  λ_relax::DFloat = 1 // 86400
-  model = HydrostaticBoussinesqModel(problem, c..., αT, λ_relax, νh, νz, κh, κz)
+
+  problem = SimpleBox{DFloat}(L..., τₒ, fₒ, β, θᴱ)
+
+  model = HBModel{typeof(problem),DFloat}(problem, c...,αᵀ, λʳ, νʰ, νᶻ, κʰ, κᶻ)
 
   dg = DGModel(model,
                grid,

@@ -28,35 +28,35 @@ import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 
 abstract type OceanBoundaryCondition end
-struct Coastline <: OceanBoundaryCondition end
-struct OceanFloor <: OceanBoundaryCondition end
+struct Coastline    <: OceanBoundaryCondition end
+struct OceanFloor   <: OceanBoundaryCondition end
 struct OceanSurface <: OceanBoundaryCondition end
 
 abstract type HydrostaticBoussinesqProblem end
 
 struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   problem::P
-  c1::T
-  c2::T
-  c3::T
-  αT::T
-  λ_relax::T
-  νh::T
-  νz::T
-  κh::T
-  κz::T
+  c₁::T
+  c₂::T
+  c₃::T
+  αᵀ::T
+  λʳ::T
+  νʰ::T
+  νᶻ::T
+  κʰ::T
+  κᶻ::T
 end
-HBModel = HydrostaticBoussinesqModel
+HBModel   = HydrostaticBoussinesqModel
 HBProblem = HydrostaticBoussinesqProblem
 
 struct HBVerticalSupplementModel <: BalanceLaw end
 
 function init_ode_param(dg::DGModel, m::HydrostaticBoussinesqModel)
-  vert_dg = DGModel(dg, HBVerticalSupplementModel())
-  vert_param = init_ode_param(vert_dg)
-  vert_dQ = init_ode_state(vert_dg, 948)
+  vert_dg     = DGModel(dg, HBVerticalSupplementModel())
+  vert_param  = init_ode_param(vert_dg)
+  vert_dQ     = init_ode_state(vert_dg, 948)
   vert_filter = CutoffFilter(dg.grid, polynomialorder(dg.grid)-1)
-  exp_filter = ExponentialFilter(dg.grid, 1, 32)
+  exp_filter  = ExponentialFilter(dg.grid, 1, 32)
 
   return (vert_dg = vert_dg, vert_param = vert_param, vert_dQ = vert_dQ,
           vert_filter = vert_filter, exp_filter=exp_filter)
@@ -71,17 +71,17 @@ function vars_state(m::Union{HBModel, HBVerticalSupplementModel}, T)
   end
 end
 
-# If this order is changed check  update_aux!
+# If this order is changed check update_aux!
 function vars_aux(m::HBModel, T)
   @vars begin
     w::T
-    pkin_reverse::T # ∫(-αT θ) # TODO: remove me after better integral interface
-    w_reverse::T # TODO: remove me after better integral interface
-    pkin::T # ∫(-αT θ)
-    wz0::T # w at z=0
-    SST_relax::T # TODO: Should be 2D
+    pkin_reverse::T # ∫(-αᵀ θ) # TODO: remove me after better integral interface
+    w_reverse::T               # TODO: remove me after better integral interface
+    pkin::T         # ∫(-αᵀ θ)
+    wz0::T          # w at z=0
+    θʳ::T               # TODO: Should be 2D
     f::T
-    τ_wind::T # TODO: Should be 2D
+    τ::T                  # TODO: Should be 2D
   end
 end
 
@@ -102,7 +102,7 @@ end
 function vars_integrals(m::HBModel, T)
   @vars begin
     ∇hu::T
-    αTθ::T
+    αᵀθ::T
   end
 end
 
@@ -125,7 +125,7 @@ end
     # ∇h • (g η)
     F.u += grav * η * Ih
 
-    # ∇h • (- ∫(αT θ))
+    # ∇h • (- ∫(αᵀ θ))
     F.u += pkin * Ih
 
     # ∇h • (v ⊗ u)
@@ -142,23 +142,23 @@ end
   return nothing
 end
 
-@inline function gradvariables!(m::HBModel, grad::Vars, Q::Vars, α, t)
-  grad.u = Q.u
-  grad.θ = Q.θ
+@inline function gradvariables!(m::HBModel, G::Vars, Q::Vars, α, t)
+  G.u = Q.u
+  G.θ = Q.θ
   return nothing
 end
 
-@inline function diffusive!(m::HBModel, σ::Vars, grad::Grad, Q::Vars,
+@inline function diffusive!(m::HBModel, σ::Vars, G::Grad, Q::Vars,
                             α::Vars, t)
-  ν = Diagonal(@SVector [m.νh, m.νh, m.νz])
-  σ.ν∇u = -ν * grad.u
+  ν = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
+  σ.ν∇u = -ν * G.u
 
-  κ = Diagonal(@SVector [m.κh, m.κh, m.κz])
-  σ.κ∇θ = -κ * grad.θ
+  κ = Diagonal(@SVector [m.κʰ, m.κʰ, m.κᶻ])
+  σ.κ∇θ = -κ * G.θ
   return nothing
 end
 
-@inline wavespeed(m::HBModel, n⁻, _...) = abs(SVector(m.c1, m.c2, m.c3)' * n⁻)
+@inline wavespeed(m::HBModel, n⁻, _...) = abs(SVector(m.c₁, m.c₂, m.c₃)' * n⁻)
 
 # We want not have jump penalties on η (since not a flux variable)
 update_jump!(::Rusanov, ::HBModel, Qjump::Vars, _...) = Qjump.η = -0
@@ -214,8 +214,8 @@ surface_flux!(m::HydrostaticBoussinesqModel, _...) = nothing
                                 integrand::Vars,
                                 Q::Vars,
                                 α::Vars)
-  αT = m.αT
-  integrand.αTθ = -αT * Q.θ
+  αᵀ = m.αᵀ
+  integrand.αᵀθ = -αᵀ * Q.θ
   integrand.∇hu = α.w # borrow the w value from α...
 end
 
@@ -288,16 +288,16 @@ end
 end
 
 
-@inline function ocean_boundary_state!(::HBModel, ::OceanSurface,
+@inline function ocean_boundary_state!(m::HBModel, ::OceanSurface,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
-  θ       = Q.θ
-  τ_wind  = α.τ_wind
-  SST     = α.SST_relax
-  λ_relax = m.λ_relax
+  θ  = Q⁻.θ
+  τ  = α⁻.τ
+  θʳ = α⁻.θʳ
+  λʳ = m.λʳ
 
-  σ⁺.ν∇u = -σ⁻.ν∇u - 2 * @SVector [τ_wind / 1000, -0]
-  σ⁺.κ∇θ = -σ⁻.κ∇θ + 2 * λ_relax * (θ - SST)
+  σ⁺.ν∇u = -σ⁻.ν∇u - 2 * @SMatrix [ -0 -0; -0 -0; τ / 1000 -0]
+  σ⁺.κ∇θ = -σ⁻.κ∇θ + 2 * λʳ * (θ - θʳ)
 
   return nothing
 end
@@ -335,7 +335,8 @@ end
 boundary_state!(::CentralNumericalFluxDiffusive, m::HBVerticalSupplementModel,
                 _...) = nothing
 
-@inline function boundary_state!(::Rusanov, ::HBVerticalSupplementModel,
+@inline function boundary_state!(::Union{Rusanov, CentralFlux},
+                                 ::HBVerticalSupplementModel,
                                  Q⁺, α⁺, n⁻, Q⁻, α⁻, t, _...)
 
   Q⁺.η =  Q⁻.η

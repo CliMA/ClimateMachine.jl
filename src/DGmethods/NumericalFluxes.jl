@@ -137,7 +137,7 @@ struct CentralFlux <: NumericalFluxNonDiffusive end
 
 function numerical_flux_nondiffusive!(::CentralFlux,
                                       bl::BalanceLaw, F::MArray, n⁻,
-                                      Q⁻, σ⁻, α⁻, Q⁺, σ⁺, α⁺, t)
+                                      Q⁻, α⁻, Q⁺, α⁺, t)
   DFloat = eltype(F)
   nstate = num_state(bl,DFloat)
 
@@ -147,7 +147,6 @@ function numerical_flux_nondiffusive!(::CentralFlux,
   flux_nondiffusive!(bl,
                   Grad{vars_state(bl,DFloat)}(F⁻),
                   Vars{vars_state(bl,DFloat)}(Q⁻),
-                  Vars{vars_diffusive(bl,DFloat)}(σ⁻),
                   Vars{vars_aux(bl,DFloat)}(α⁻),
                   t)
 
@@ -157,7 +156,6 @@ function numerical_flux_nondiffusive!(::CentralFlux,
   flux_nondiffusive!(bl,
                   Grad{vars_state(bl,DFloat)}(F⁺),
                   Vars{vars_state(bl,DFloat)}(Q⁺),
-                  Vars{vars_diffusive(bl,DFloat)}(σ⁺),
                   Vars{vars_aux(bl,DFloat)}(α⁺),
                   t)
 
@@ -199,7 +197,8 @@ function numerical_flux_nondiffusive!(::Rusanov, bl::BalanceLaw, F::MArray,
 
   flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(F⁻),
                      Vars{vars_state(bl,DFloat)}(Q⁻),
-                     Vars{vars_aux(bl,DFloat)}(α⁻), t)
+                     Vars{vars_aux(bl,DFloat)}(α⁻),
+                     t)
 
   λ⁺ = wavespeed(bl, n⁻,
                  Vars{vars_state(bl,DFloat)}(Q⁺),
