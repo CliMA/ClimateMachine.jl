@@ -38,20 +38,10 @@ if !@isdefined integration_testing
 end
 
 # -------------- Problem constants ------------------- # 
-<<<<<<< HEAD
-const xmin      = 0
-const ymin      = 0
-const zmin      = 0
-const xmax      = 1000
-const ymax      = 400
-const zmax      = 1000
-const Ne        = (20,2,20)
-=======
 const (xmin,xmax)      = (0,1000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,1000)
 const Ne        = (10,2,10)
->>>>>>> dc22357f6a611bdd72da43d18ff97248a29de86a
 const polynomialorder = 4
 const dim       = 3
 const dt        = 0.005
