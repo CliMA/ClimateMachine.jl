@@ -1,6 +1,6 @@
 module Atmos
 
-export AtmosModel
+export AtmosModel, Full
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -21,6 +21,9 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         reverse_indefinite_stack_integral!
 using ..DGmethods.NumericalFluxes
 
+abstract type ModelPart end
+struct Full <: ModelPart end
+
 """
     AtmosModel <: BalanceLaw
 
@@ -32,7 +35,7 @@ A `BalanceLaw` for atmosphere modeling.
                boundarycondition, init_state)
 
 """
-struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{MP<:ModelPart,O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   orientation::O
   ref_state::RS
   turbulence::T
@@ -43,6 +46,8 @@ struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   boundarycondition::BC
   init_state::IS
 end
+AtmosModel(args...) = AtmosModel{Full, typeof.(args)...}(args...)
+AtmosModel{MP}(args...) where {MP<:ModelPart} = AtmosModel{MP, typeof.(args)...}(args...)
 
 # defined here so that the main variables and flux definitions
 # can be found in this file since some of these are specialized for NoViscosity
@@ -124,7 +129,7 @@ Where
   flux_radiation!(m, flux, state, aux, t)
 end
 
-@inline function flux_advective!(m::AtmosModel, flux::Grad, state::Vars,
+@inline function flux_advective!(m::AtmosModel{Full}, flux::Grad, state::Vars,
                                  aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
@@ -136,7 +141,7 @@ end
   flux.ρe  = u * state.ρe
 end
 
-@inline function flux_pressure!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+@inline function flux_pressure!(m::AtmosModel{Full}, flux::Grad, state::Vars, aux::Vars, t::Real)
   # preflux
   ρinv = 1/state.ρ
   ρu = state.ρu
@@ -154,7 +159,9 @@ end
 
 flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) =
   flux_diffusive!(m, flux, state, diffusive, aux, t, m.turbulence)
-@inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real,
+
+@inline function flux_diffusive!(m::AtmosModel{Full},
+                                 flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real,
                                  ::TurbulenceClosure)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
@@ -165,10 +172,12 @@ flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Va
   flux.ρe += ρτ*u
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
 end
-flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real,
+
+flux_diffusive!(m::AtmosModel{Full},
+                flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real,
                 ::NoViscosity) = nothing
 
-@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
+@inline function wavespeed(m::AtmosModel{Full}, nM, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
@@ -237,6 +246,8 @@ include("moisture.jl")
 include("radiation.jl")
 include("source.jl")
 include("boundaryconditions.jl")
+include("linear.jl")
+include("nonlinear.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
