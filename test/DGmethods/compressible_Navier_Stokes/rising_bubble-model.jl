@@ -21,6 +21,8 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using Random
 
+using CLIMA.Atmos: vars_state, vars_aux
+
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -100,7 +102,7 @@ function run(mpicomm, ArrayType,
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     SmagorinskyLilly{DF}(C_smag,true),
+                     Vreman{DF}(C_smag),
                      EquilMoist(), 
                      NoRadiation(),
                      Gravity(),
