@@ -1,9 +1,17 @@
-struct DGModel{BL,G,NFND,NFD,GNF}
+struct DGModel{BL,G,NFND,NFD,GNF,AS,DS}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
   numfluxdiff::NFD
   gradnumflux::GNF
+  auxstate::AS
+  diffstate::DS
+end
+function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
+                 auxstate=create_auxstate(balancelaw, grid),
+                 diffstate=create_diffstate(balancelaw, grid))
+  DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
+          diffstate)
 end
 
 function (dg::DGModel)(dQdt, Q, param, t; increment=false)
@@ -20,8 +28,8 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   Nfp = Nq * Nqk
   nrealelem = length(topology.realelems)
 
-  Qvisc = param.diff
-  auxstate = param.aux
+  Qvisc = dg.diffstate
+  auxstate = dg.auxstate
 
   DFloat = eltype(Q)
   nviscstate = num_diffusive(bl, DFloat)
@@ -112,7 +120,7 @@ Initialize the ODE parameter object, containing the auxiliary and diffusive stat
 function init_ode_param(dg::DGModel)
   bl = dg.balancelaw
   grid = dg.grid
-  austate = create_auxstate(bl, grid)
+  auxstate = create_auxstate(bl, grid)
   diffstate = create_diffstate(bl, grid)
   return (aux=auxstate, diff=diffstate, blparam=nothing)
 end
@@ -222,7 +230,7 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   DFloat = eltype(h_vgeo)
   Np = dofs_per_element(grid)
 
-  auxstate = param.aux
+  auxstate = dg.auxstate
   dim = dimensionality(grid)
   polyorder = polynomialorder(grid)
   vgeo = grid.vgeo
@@ -251,7 +259,7 @@ where `l_R`, `l_Q`, `l_Qvisc`, and `l_aux` are of type `MArray` filled initially
 with the values at a single degree of freedom. After the call the values in
 `l_R` will be written back to the degree of freedom of `R`.
 """
-function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param::MPIStateArray)
+function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param)
   bl = dg.balancelaw
 
   grid = dg.grid
@@ -263,8 +271,8 @@ function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param::MPI
   dim = dimensionality(grid)
   N = polynomialorder(grid)
 
-  Qvisc = param.diff
-  auxstate = param.aux
+  Qvisc = dg.diffstate
+  auxstate = dg.auxstate
 
   nstate = size(Q, 2)
   nviscstate = size(Qvisc, 2)
