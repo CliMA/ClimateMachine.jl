@@ -7,8 +7,14 @@ using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.MultirateRungeKuttaMethod
 using CLIMA.LinearSolvers
 
-const lsrk_methods = [(LSRK54CarpenterKennedy, 4)
-                      (LSRK144NiegemannDiehlBusch, 4)]
+const slow_mrrk_methods = [(LSRK54CarpenterKennedy, 4)
+                           (LSRK144NiegemannDiehlBusch, 4)
+                          ]
+const fast_mrrk_methods = [(LSRK54CarpenterKennedy, 4)
+                           (LSRK144NiegemannDiehlBusch, 4)
+                           (SSPRK33ShuOsher, 3)
+                           (SSPRK34SpiteriRuuth, 3)
+                          ]
 const explicit_methods = [(LSRK54CarpenterKennedy, 4)
                           (LSRK144NiegemannDiehlBusch, 4)
                           (SSPRK33ShuOsher, 3)
@@ -234,8 +240,8 @@ let
   end
 
   @testset "Multirate Problem" begin
-    for (slow_method, slow_expected_order) in lsrk_methods
-      for (fast_method, fast_expected_order) in lsrk_methods
+    for (slow_method, slow_expected_order) in slow_mrrk_methods
+      for (fast_method, fast_expected_order) in fast_mrrk_methods
         q0 = ComplexF64(1)
         finaltime = pi / 2
         dts = [2.0 ^ (-k) for k = 7:13]
@@ -252,8 +258,11 @@ let
         end
 
         rates = log2.(errors[1:end-1] ./ errors[2:end])
-        expected_order = min(slow_expected_order, fast_expected_order)
-        @test isapprox(rates[end], expected_order; atol = 0.1)
+        min_order = min(slow_expected_order, fast_expected_order)
+        max_order = max(slow_expected_order, fast_expected_order)
+        @test (isapprox(rates[end], min_order; atol = 0.1) ||
+               isapprox(rates[end], max_order; atol = 0.1) ||
+               min_order <= rates[end] <= max_order)
       end
     end
   end
@@ -268,8 +277,8 @@ let
       finaltime = pi / 2
       dts = [2.0 ^ (-k) for k = 2:13]
 
-      for (slow_method, slow_expected_order) in lsrk_methods
-        for (fast_method, fast_expected_order) in lsrk_methods
+      for (slow_method, slow_expected_order) in slow_mrrk_methods
+        for (fast_method, fast_expected_order) in fast_mrrk_methods
           errors = similar(dts)
           for (n, dt) in enumerate(dts)
             Q = CuArray{ComplexF64}(q0s)
@@ -283,8 +292,11 @@ let
           end
 
           rates = log2.(errors[1:end-1] ./ errors[2:end])
-          expected_order = min(slow_expected_order, fast_expected_order)
-          @test isapprox(rates[end], expected_order; atol = 0.1)
+          min_order = min(slow_expected_order, fast_expected_order)
+          max_order = max(slow_expected_order, fast_expected_order)
+          @test (isapprox(rates[end], min_order; atol = 0.1) ||
+                 isapprox(rates[end], max_order; atol = 0.1) ||
+                 min_order <= rates[end] <= max_order)
         end
       end
     end
