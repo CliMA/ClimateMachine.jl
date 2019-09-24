@@ -185,7 +185,8 @@ end
   
   §1.3.2 in CLIMA documentation 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Poincare coefficient
-is specified and used to compute the equivalent AnisoMinDiss coefficient. 
+is specified and used to compute the equivalent AnisoMinDiss coefficient (computed as the solution to the 
+eigenvalue problem for the Laplacian operator). 
 
 @article{PhysRevFluids.1.041701,
 title = {Minimum-dissipation scalar transport model for large-eddy simulation of turbulent flows},
@@ -214,10 +215,8 @@ function dynamic_viscosity_tensor(m::AnisoMinDiss, S, ∇transform::Grad, state:
   C_poincare = DT(1/3)
   ∇u = ∇transform.u
   αijαij = dot(∇u,∇u)
-  coeff = (aux.turbulence.Δ * C_poincare)^2
+  coeff = (aux.turbulence.Δ / π)^2 #(aux.turbulence.Δ * C_poincare)^2
   βij = -(∇u' * ∇u)
-  #detS = det(S)
-  #trS² = tr(S .* S) + eps(DT)
   ν_e = max(0,coeff * abs(dot(βij, S) / (αijαij + eps(DT))))
   return state.ρ * ν_e
 end

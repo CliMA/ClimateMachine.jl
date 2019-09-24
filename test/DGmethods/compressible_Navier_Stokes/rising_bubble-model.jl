@@ -41,10 +41,10 @@ end
 const (xmin,xmax)      = (0,1000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,1000)
-const Ne        = (10,2,10)
+const Ne        = (20,5,20)
 const polynomialorder = 4
 const dim       = 3
-const dt        = 0.005
+const dt        = 0.0007
 const timeend   = 1000
 # ------------- Initial condition function ----------- # 
 """
@@ -108,7 +108,7 @@ function run(mpicomm, ArrayType,
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     AnisoMinDiss{DF}(1/sqrt(12)),
+                     AnisoMinDiss{DF}(),
                      EquilMoist(), 
                      NoRadiation(),
                      Gravity(),
