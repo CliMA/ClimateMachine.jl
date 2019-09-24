@@ -50,9 +50,7 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
   RKC::Array{RT,1}
 
   function StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC,
-                                               Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
-    @assert dt != nothing
-    
+                                               Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
     T = eltype(Q)
     RT = real(T)
     dt = [dt]
@@ -62,45 +60,79 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
 end
 
 function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
-                                             Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+                                             Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
 
-function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p, timeend,
-                      adjustfinalstep)
+"""
+    ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
+                       timeend::Real, adjustfinalstep::Bool)
+
+Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
+forward in time from the current time, to the time `timeend`. If
+`adjustfinalstep == true` then `dt` is adjusted so that the step does not take
+the solution beyond the `timeend`.
+"""
+function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
+                      timeend::Real, adjustfinalstep::Bool)
   time, dt = ssp.t[1], ssp.dt[1]
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
-    @assert dt > 0
   end
-  RKA, RKB, RKC = ssp.RKA, ssp.RKB, ssp.RKC
-  rhs! = ssp.rhs!
-  Rstage, Qstage = ssp.Rstage, ssp.Qstage
-  
-  rv_Q = realview(Q)
-  rv_Rstage = realview(Rstage)
-  rv_Qstage = realview(Qstage)
-  
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
-  
-  rv_Qstage .= rv_Q
-  for s = 1:length(RKB)
-    rhs!(Rstage, Qstage, p, time + RKC[s] * dt, increment = false)
-  
-    @launch(device(Q), threads = threads, blocks = blocks,
-            update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))
-  end
-  rv_Q .= rv_Qstage
-  
+  @assert dt > 0
+
+  ODEs.dostep!(Q, ssp, p, time, dt)
+
   if dt == ssp.dt[1]
     ssp.t[1] += dt
   else
     ssp.t[1] = timeend
   end
+end
+
+"""
+    ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
+                       time::Real, dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
+
+Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
+forward in time from the current time `time` to final time `time + dt`.
+
+If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
+added as an additionall ODE right-hand side source. If the optional parameter
+`slow_scaling !== nothing` then after the final stage update the scaling
+`slow_rv_dQ *= slow_scaling` is performed.
+"""
+function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
+                      time::Real, dt::Real, slow_δ = nothing,
+                      slow_rv_dQ = nothing, in_slow_scaling = nothing)
+
+  RKA, RKB, RKC = ssp.RKA, ssp.RKB, ssp.RKC
+  rhs! = ssp.rhs!
+  Rstage, Qstage = ssp.Rstage, ssp.Qstage
+
+  rv_Q = realview(Q)
+  rv_Rstage = realview(Rstage)
+  rv_Qstage = realview(Qstage)
+
+  threads = 256
+  blocks = div(length(rv_Q) + threads - 1, threads)
+
+  rv_Qstage .= rv_Q
+  for s = 1:length(RKB)
+    rhs!(Rstage, Qstage, p, time + RKC[s] * dt, increment = false)
+
+    slow_scaling = nothing
+    if s == length(RKB)
+      slow_scaling = in_slow_scaling
+    end
+    @launch(device(Q), threads = threads, blocks = blocks,
+            update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt,
+                    slow_δ, slow_rv_dQ, slow_scaling))
+  end
+  rv_Q .= rv_Qstage
 end
 
 """
@@ -132,7 +164,7 @@ of Shu and Osher (1988)
       publisher={Elsevier}
     }
 """
-function SSPRK33ShuOsher(F, Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function SSPRK33ShuOsher(F, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
   RKA = [ RT(1) RT(0); RT(3//4) RT(1//4); RT(1//3) RT(2//3) ]
@@ -170,7 +202,7 @@ of Spiteri and Ruuth (1988)
       publisher={SIAM}
     }
 """
-function SSPRK34SpiteriRuuth(F, Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+function SSPRK34SpiteriRuuth(F, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
   T = eltype(Q)
   RT = real(T)
   RKA = [ RT(1) RT(0); RT(0) RT(1); RT(2//3) RT(1//3); RT(0) RT(1) ]

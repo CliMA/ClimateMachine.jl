@@ -2,6 +2,9 @@ module MultirateRungeKuttaMethod
 using ..ODESolvers
 ODEs = ODESolvers
 using ..LowStorageRungeKuttaMethod
+LSRK2N = LowStorageRungeKutta2N
+using ..StrongStabilityPreservingRungeKuttaMethod
+SSPRK = StrongStabilityPreservingRungeKutta
 using ..MPIStateArrays: device, realview
 
 using GPUifyLoops
@@ -25,11 +28,9 @@ time stepping object is intended to be passed to the `solve!` command.
 The constructor builds a multirate Runge-Kutta scheme using two different RK
 solvers. This is based on 
 
-Currently only the following low storage RK methods can be used as fast and slow
-solvers
+Currently only the low storage RK methods can be used as slow solvers
 
-  - [`LSRK54CarpenterKennedy`](@ref)
-  - [`LSRK144NiegemannDiehlBusch`](@ref)
+  - [`LowStorageRungeKuttaMethod`](@ref)
 
 ### References
 
@@ -55,8 +56,8 @@ struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
   "time"
   t::Array{RT,1}
 
-  function MultirateRungeKutta(slow_solver::LowStorageRungeKutta2N,
-                               fast_solver::LowStorageRungeKutta2N,
+  function MultirateRungeKutta(slow_solver::LSRK2N,
+                               fast_solver::Union{LSRK2N, SSPRK},
                                Q=nothing;
                                dt=0, t0=slow_solver.t[1]
                               ) where {AT<:AbstractArray}
@@ -69,9 +70,8 @@ end
 
 ODEs.updatedt!(mrrk::MultirateRungeKutta, dt) = mrrk.dt[1] = dt
 
-function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS, FS}, param, timeend,
-                      adjustfinalstep) where {SS <: LowStorageRungeKutta2N,
-                                              FS <: LowStorageRungeKutta2N}
+function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, timeend,
+                      adjustfinalstep) where {SS <: LSRK2N}
   slow_param = param[1]
   fast_param = param[2]
   time, dt = mrrk.t[1], mrrk.dt[1]
@@ -82,14 +82,8 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS, FS}, param, timeend,
   end
 
   slow = mrrk.slow_solver
-  fast = mrrk.fast_solver
 
-  rv_Q = realview(Q)
-  slow_rv_dQ= realview(slow.dQ)
-  fast_rv_dQ = realview(fast.dQ)
-
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
+  slow_rv_dQ = realview(slow.dQ)
 
   for slow_s = 1:length(slow.RKA)
     # Currnent slow state time
@@ -107,27 +101,15 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS, FS}, param, timeend,
 
     # RKB for the slow with fractional time factor remove (since full
     # integration of fast will result in scaling by γ)
-    δ = slow.RKB[slow_s] / γ
+    slow_δ = slow.RKB[slow_s] / γ
 
-    # Fast update
-    for fast_s = 1:length(fast.RKA)
-      fast_stage_time = slow_stage_time + γ * fast.RKC[fast_s] * dt
+    # RKB for the slow with fractional time factor remove (since full
+    # integration of fast will result in scaling by γ)
+    fast_dt = γ * dt
 
-      # Evaluate the fast mode
-      fast.rhs!(fast.dQ, Q, fast_param, fast_stage_time, increment = true)
-
-      # On laste update we also need to scale slow_dQ and this catches that
-      slow_rka = nothing
-      if fast_s == length(fast.RKA)
-        slow_rka = slow.RKA[slow_s%length(slow.RKA) + 1]
-      end
-
-      # update solution and scale RHS
-      @launch(device(Q), threads=threads, blocks=blocks,
-              update!(fast_rv_dQ, slow_rv_dQ, rv_Q, δ,
-                      fast.RKA[fast_s%length(fast.RKA) + 1],
-                      γ * fast.RKB[fast_s], dt, slow_rka))
-    end
+    slow_rka = slow.RKA[slow_s%length(slow.RKA) + 1]
+    ODEs.dostep!(Q, mrrk.fast_solver, fast_param, slow_stage_time, fast_dt,
+                 slow_δ, slow_rv_dQ, slow_rka)
   end
 
   if dt == mrrk.dt[1]

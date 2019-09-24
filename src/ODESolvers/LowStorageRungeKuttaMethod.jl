@@ -70,14 +70,48 @@ end
 
 ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = lsrk.dt[1] = dt
 
-function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend,
-                      adjustfinalstep)
+"""
+    ODESolvers.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend::Real,
+                       adjustfinalstep::Bool)
+
+Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
+from the current time, to the time `timeend`. If `adjustfinalstep == true` then
+`dt` is adjusted so that the step does not take the solution beyond the
+`timeend`.
+"""
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend::Real,
+                      adjustfinalstep::Bool)
   time, dt = lsrk.t[1], lsrk.dt[1]
-  @assert dt > 0
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
-    @assert dt > 0
   end
+  @assert dt > 0
+
+  ODEs.dostep!(Q, lsrk, p, time, dt)
+
+  if dt == lsrk.dt[1]
+    lsrk.t[1] += dt
+  else
+    lsrk.t[1] = timeend
+  end
+
+end
+
+"""
+    ODESolvers.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
+                       dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
+
+Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
+from the current time `time` to final time `time + dt`.
+
+If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
+added as an additionall ODE right-hand side source. If the optional parameter
+`slow_scaling !== nothing` then after the final stage update the scaling
+`slow_rv_dQ *= slow_scaling` is performed.
+"""
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
+                      dt::Real, slow_δ = nothing, slow_rv_dQ = nothing,
+                      in_slow_scaling = nothing)
   RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
   rhs!, dQ = lsrk.rhs!, lsrk.dQ
 
@@ -89,16 +123,16 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend,
 
   for s = 1:length(RKA)
     rhs!(dQ, Q, p, time + RKC[s] * dt, increment = true)
+
+    slow_scaling = nothing
+    if s == length(RKA)
+      slow_scaling = in_slow_scaling
+    end
     # update solution and scale RHS
     @launch(device(Q), threads=threads, blocks=blocks,
-            update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt))
+            update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt,
+                    slow_δ, slow_rv_dQ, slow_scaling))
   end
-  if dt == lsrk.dt[1]
-    lsrk.t[1] += dt
-  else
-    lsrk.t[1] = timeend
-  end
-
 end
 
 """
