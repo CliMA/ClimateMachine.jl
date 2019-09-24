@@ -219,7 +219,7 @@ end
 
 let 
   c = 100.0
-  function rhs_slow!(dQ, Q, param, time; increment)
+  function rhs_fast!(dQ, Q, param, time; increment)
     if increment
       dQ .+= im * c * Q
     else
@@ -227,7 +227,7 @@ let
     end
   end
   
-  function rhs_fast!(dQ, Q, param, time; increment)
+  function rhs_slow!(dQ, Q, param, time; increment)
     if increment
       dQ .+= exp(im * time)
     else
@@ -244,7 +244,7 @@ let
       for (fast_method, fast_expected_order) in fast_mrrk_methods
         q0 = ComplexF64(1)
         finaltime = pi / 2
-        dts = [2.0 ^ (-k) for k = 7:13]
+        dts = [2.0 ^ (-k) for k = 2:11]
 
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
@@ -272,11 +272,11 @@ let
       for (fast_method, fast_expected_order) in fast_mrrk_methods
         q0 = ComplexF64(1)
         finaltime = pi / 2
-        dts = [2.0 ^ (-k) for k = 7:13]
+        dts = [2.0 ^ (-k) for k = 2:15]
 
         errors = similar(dts)
-        for (n, slow_dt) in enumerate(dts)
-          fast_dt = slow_dt / 100
+        for (n, fast_dt) in enumerate(dts)
+          slow_dt = c * fast_dt
           Q = [q0]
           solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
                                        fast_method(rhs_fast!, Q; dt=fast_dt))
@@ -333,7 +333,7 @@ let
       ninitial = 1337
       q0s = range(-1, 1, length = ninitial)
       finaltime = pi / 2
-      dts = [2.0 ^ (-k) for k = 2:11]
+      dts = [2.0 ^ (-k) for k = 2:15]
 
       for (slow_method, slow_expected_order) in slow_mrrk_methods
         for (fast_method, fast_expected_order) in fast_mrrk_methods
