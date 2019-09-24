@@ -239,7 +239,7 @@ let
     q0 * exp(im * c * time) + (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
   end
 
-  @testset "Multirate Problem" begin
+  @testset "Multirate Problem (no substeps)" begin
     for (slow_method, slow_expected_order) in slow_mrrk_methods
       for (fast_method, fast_expected_order) in fast_mrrk_methods
         q0 = ComplexF64(1)
@@ -267,6 +267,34 @@ let
     end
   end
 
+  @testset "Multirate Problem (with substeps)" begin
+    for (slow_method, slow_expected_order) in slow_mrrk_methods
+      for (fast_method, fast_expected_order) in fast_mrrk_methods
+        q0 = ComplexF64(1)
+        finaltime = pi / 2
+        dts = [2.0 ^ (-k) for k = 7:13]
+
+        errors = similar(dts)
+        for (n, slow_dt) in enumerate(dts)
+          fast_dt = slow_dt / 100
+          Q = [q0]
+          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
+                                       fast_method(rhs_fast!, Q; dt=fast_dt))
+          param = (nothing, nothing)
+          solve!(Q, solver, param; timeend = finaltime)
+          errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
+        end
+
+        rates = log2.(errors[1:end-1] ./ errors[2:end])
+        min_order = min(slow_expected_order, fast_expected_order)
+        max_order = max(slow_expected_order, fast_expected_order)
+        @test (isapprox(rates[end], min_order; atol = 0.1) ||
+               isapprox(rates[end], max_order; atol = 0.1) ||
+               min_order <= rates[end] <= max_order)
+      end
+    end
+  end
+
   @static if haspkg("CuArrays")
     using CuArrays
     CuArrays.allowscalar(false)
@@ -275,7 +303,7 @@ let
       ninitial = 1337
       q0s = range(-1, 1, length = ninitial)
       finaltime = pi / 2
-      dts = [2.0 ^ (-k) for k = 2:13]
+      dts = [2.0 ^ (-k) for k = 2:11]
 
       for (slow_method, slow_expected_order) in slow_mrrk_methods
         for (fast_method, fast_expected_order) in fast_mrrk_methods
@@ -285,6 +313,36 @@ let
             solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
                                          fast_method(rhs_fast!, Q);
                                          dt = dt, t0 = 0.0)
+            param = (nothing, nothing)
+            solve!(Q, solver, param; timeend = finaltime)
+            Q = Array(Q)
+            errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
+          end
+
+          rates = log2.(errors[1:end-1] ./ errors[2:end])
+          min_order = min(slow_expected_order, fast_expected_order)
+          max_order = max(slow_expected_order, fast_expected_order)
+          @test (isapprox(rates[end], min_order; atol = 0.1) ||
+                 isapprox(rates[end], max_order; atol = 0.1) ||
+                 min_order <= rates[end] <= max_order)
+        end
+      end
+    end
+
+    @testset "Multirate Problem CUDA (with substeps)" begin
+      ninitial = 1337
+      q0s = range(-1, 1, length = ninitial)
+      finaltime = pi / 2
+      dts = [2.0 ^ (-k) for k = 2:11]
+
+      for (slow_method, slow_expected_order) in slow_mrrk_methods
+        for (fast_method, fast_expected_order) in fast_mrrk_methods
+          errors = similar(dts)
+          for (n, fast_dt) in enumerate(dts)
+            slow_dt = c * fast_dt
+            Q = CuArray{ComplexF64}(q0s)
+            solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
+                                         fast_method(rhs_fast!, Q; dt=fast_dt))
             param = (nothing, nothing)
             solve!(Q, solver, param; timeend = finaltime)
             Q = Array(Q)

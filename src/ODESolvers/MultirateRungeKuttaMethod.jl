@@ -59,7 +59,7 @@ struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
   function MultirateRungeKutta(slow_solver::LSRK2N,
                                fast_solver::Union{LSRK2N, SSPRK},
                                Q=nothing;
-                               dt=0, t0=slow_solver.t[1]
+                               dt=ODEs.getdt(slow_solver), t0=slow_solver.t[1]
                               ) where {AT<:AbstractArray}
     SS = typeof(slow_solver)
     FS = typeof(fast_solver)
@@ -67,8 +67,6 @@ struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
     new{SS, FS, RT}(slow_solver, fast_solver, [dt], [t0])
   end
 end
-
-ODEs.updatedt!(mrrk::MultirateRungeKutta, dt) = mrrk.dt[1] = dt
 
 function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, timeend,
                       adjustfinalstep) where {SS <: LSRK2N}
@@ -82,6 +80,7 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, timeend,
   end
 
   slow = mrrk.slow_solver
+  fast = mrrk.fast_solver
 
   slow_rv_dQ = realview(slow.dQ)
 
@@ -101,15 +100,22 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, timeend,
 
     # RKB for the slow with fractional time factor remove (since full
     # integration of fast will result in scaling by γ)
-    slow_δ = slow.RKB[slow_s] / γ
+    slow_δ = slow.RKB[slow_s] / (γ)
 
     # RKB for the slow with fractional time factor remove (since full
     # integration of fast will result in scaling by γ)
-    fast_dt = γ * dt
+    nsubsteps = ODEs.getdt(fast) > 0 ? ceil(Int, γ * dt / ODEs.getdt(fast)) : 1
+    fast_dt = γ * dt / nsubsteps
 
-    slow_rka = slow.RKA[slow_s%length(slow.RKA) + 1]
-    ODEs.dostep!(Q, mrrk.fast_solver, fast_param, slow_stage_time, fast_dt,
-                 slow_δ, slow_rv_dQ, slow_rka)
+    for substep = 1:nsubsteps
+      slow_rka = nothing
+      if substep == nsubsteps
+        slow_rka = slow.RKA[slow_s%length(slow.RKA) + 1]
+      end
+      fast_time = slow_stage_time + (substep - 1) * fast_dt
+      ODEs.dostep!(Q, fast, fast_param, fast_time, fast_dt, slow_δ, slow_rv_dQ,
+                   slow_rka)
+    end
   end
 
   if dt == mrrk.dt[1]
