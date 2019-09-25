@@ -205,6 +205,7 @@ url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
 
 """
 struct AnisoMinDiss{DT} <: TurbulenceClosure
+  C_poincare::DT
 end
 vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
@@ -212,10 +213,9 @@ function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeo
 end
 function dynamic_viscosity_tensor(m::AnisoMinDiss, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   DT = eltype(state)
-  C_poincare = DT(1/3)
   ∇u = ∇transform.u
   αijαij = dot(∇u,∇u)
-  coeff = (aux.turbulence.Δ / π)^2 #(aux.turbulence.Δ * C_poincare)^2
+  coeff = (aux.turbulence.Δ * m.C_poincare)^2
   βij = -(∇u' * ∇u)
   ν_e = max(0,coeff * abs(dot(βij, S) / (αijαij + eps(DT))))
   return state.ρ * ν_e

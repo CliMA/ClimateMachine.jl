@@ -116,7 +116,7 @@ function run(mpicomm, ArrayType,
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     AnisoMinDiss{DF}(), 
+                     AnisoMinDiss{DF}(1), 
                      EquilMoist(), 
                      NoRadiation(),
                      Gravity(), NoFluxBC(), Initialise_Density_Current!)
