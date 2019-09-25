@@ -164,8 +164,7 @@ let
           solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
                           Q; dt = dt, t0 = 0.0,
                           split_nonlinear_linear = split_nonlinear_linear)
-          param = (nothing, nothing)
-          solve!(Q, solver, param; timeend = finaltime)
+          solve!(Q, solver; timeend = finaltime)
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
         end
 
@@ -195,8 +194,7 @@ let
             solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
                             Q; dt = dt, t0 = 0.0,
                             split_nonlinear_linear = split_nonlinear_linear)
-            param = (nothing, nothing)
-            solve!(Q, solver, param; timeend = finaltime)
+            solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
             errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
           end
