@@ -14,7 +14,7 @@ function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
           diffstate)
 end
 
-function (dg::DGModel)(dQdt, Q, param, t; increment=false)
+function (dg::DGModel)(dQdt, Q, t; increment=false)
   bl = dg.balancelaw
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
@@ -106,10 +106,6 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   MPIStateArrays.finish_ghost_send!(Qvisc)
   MPIStateArrays.finish_ghost_send!(Q)
 end
-
-
-
-
 
 """
     init_ode_param(dg::DGModel)

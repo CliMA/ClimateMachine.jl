@@ -50,7 +50,7 @@ function solve!(Q, solver::AbstractODESolver, param=nothing; timeend::Real=Inf,
   while time < timeend
     step += 1
 
-    time = dostep!(Q, solver, param, timeend, adjustfinalstep)
+    time = dostep!(Q, solver, timeend, adjustfinalstep)
 
     # FIXME: Determine better way to handle postcallback behavior
     # Current behavior:
