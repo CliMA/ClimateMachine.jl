@@ -142,7 +142,7 @@ let
         @info (ArrayType, DFloat, "sphere", l)
         Nhorz = 2^(l-1) * base_Nhorz
         Nvert = 2^(l-1) * base_Nvert
-        Rrange = range(DFloat(Rinner); length=Nvert+1, stop=Router)
+        Rrange = grid1d(DFloat(Rinner), DFloat(Router); nelem=Nvert)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
         err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat,
                      DFloat(Rinner), DFloat(Router))
