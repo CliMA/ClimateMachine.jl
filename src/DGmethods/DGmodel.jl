@@ -119,69 +119,7 @@ function init_ode_param(dg::DGModel)
   diffstate = create_diffstate(bl, grid)
   return (aux=auxstate, diff=diffstate)
 end
-function create_auxstate(bl, grid)
-  topology = grid.topology
-  Np = dofs_per_element(grid)
 
-  h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
-  DA = arraytype(grid)
-
-  weights = view(h_vgeo, :, grid.Mid, :)
-  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
-
-  auxstate = MPIStateArray{Tuple{Np, num_aux(bl,DFloat)}, DFloat, DA}(
-    topology.mpicomm,
-    length(topology.elems),
-    realelems=topology.realelems,
-    ghostelems=topology.ghostelems,
-    vmaprecv=grid.vmaprecv,
-    vmapsend=grid.vmapsend,
-    nabrtorank=topology.nabrtorank,
-    nabrtovmaprecv=grid.nabrtovmaprecv,
-    nabrtovmapsend=grid.nabrtovmapsend,
-    weights=weights,
-    commtag=222)
-
-  dim = dimensionality(grid)
-  polyorder = polynomialorder(grid)
-  vgeo = grid.vgeo
-  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
-  nrealelem = length(topology.realelems)
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          initauxstate!(bl, Val(dim), Val(polyorder), auxstate.Q, vgeo, topology.realelems))
-  MPIStateArrays.start_ghost_exchange!(auxstate)
-  MPIStateArrays.finish_ghost_exchange!(auxstate)
-
-  return auxstate
-end
-function create_diffstate(bl, grid)
-  topology = grid.topology
-  Np = dofs_per_element(grid)
-
-  h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
-  DA = arraytype(grid)
-
-  weights = view(h_vgeo, :, grid.Mid, :)
-  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
-
-  # TODO: Clean up this MPIStateArray interface...
-  diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
-    topology.mpicomm,
-    length(topology.elems),
-    realelems=topology.realelems,
-    ghostelems=topology.ghostelems,
-    vmaprecv=grid.vmaprecv,
-    vmapsend=grid.vmapsend,
-    nabrtorank=topology.nabrtorank,
-    nabrtovmaprecv=grid.nabrtovmaprecv,
-    nabrtovmapsend=grid.nabrtovmapsend,
-    weights=weights,
-    commtag=111)
-
-  return diffstate
-end
 
 
 
