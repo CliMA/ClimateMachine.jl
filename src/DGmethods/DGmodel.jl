@@ -46,9 +46,8 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   Np = dofs_per_element(grid)
 
   if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
-                                  typeof(auxstate), typeof(t),
-                                  typeof(param.blparam)})
-    update_aux!(dg, bl, Q, auxstate, t, param.blparam)
+                                  typeof(auxstate), typeof(t)})
+    update_aux!(dg, bl, Q, auxstate, t)
   end
 
   ########################
@@ -122,7 +121,7 @@ function init_ode_param(dg::DGModel)
   grid = dg.grid
   auxstate = create_auxstate(bl, grid)
   diffstate = create_diffstate(bl, grid)
-  return (aux=auxstate, diff=diffstate, blparam=nothing)
+  return (aux=auxstate, diff=diffstate)
 end
 function create_auxstate(bl, grid)
   topology = grid.topology
