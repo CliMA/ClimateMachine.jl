@@ -99,7 +99,7 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
 
   exact_aux = copy(dg.auxstate)
 
-  dg(dQdt, Q, 0.0)
+  dg(dQdt, Q, nothing, 0.0)
   
   euclidean_distance(exact_aux, dg.auxstate)
 end

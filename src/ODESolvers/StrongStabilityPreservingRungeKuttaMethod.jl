@@ -69,7 +69,7 @@ end
 
 ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
 
-function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend,
+function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p, timeend,
                       adjustfinalstep)
   time, dt = ssp.t[1], ssp.dt[1]
   if adjustfinalstep && time + dt > timeend
@@ -89,7 +89,7 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, timeend,
   
   rv_Qstage .= rv_Q
   for s = 1:length(RKB)
-    rhs!(Rstage, Qstage, time + RKC[s] * dt, increment = false)
+    rhs!(Rstage, Qstage, p, time + RKC[s] * dt, increment = false)
   
     @launch(device(Q), threads = threads, blocks = blocks,
             update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt))

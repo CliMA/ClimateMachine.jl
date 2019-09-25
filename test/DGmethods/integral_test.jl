@@ -97,7 +97,7 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
   Q = init_ode_state(dg, DFloat(0))
   dQdt = similar(Q)
 
-  dg(dQdt, Q, 0.0)
+  dg(dQdt, Q, nothing, 0.0)
 
   # Wrapping in Array ensure both GPU and CPU code use same approx
   @test Array(dg.auxstate.Q[:, 1, :]) ≈ Array(dg.auxstate.Q[:, 8, :])

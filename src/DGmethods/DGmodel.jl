@@ -14,7 +14,7 @@ function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
           diffstate)
 end
 
-function (dg::DGModel)(dQdt, Q, t; increment=false)
+function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   bl = dg.balancelaw
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
