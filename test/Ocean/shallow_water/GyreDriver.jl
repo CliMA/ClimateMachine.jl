@@ -113,12 +113,12 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
     outprefix = @sprintf("ic_mpirank%04d_ic", MPI.Comm_rank(mpicomm))
     statenames = flattenednames(vars_state(model, eltype(Q)))
     auxnames = flattenednames(vars_aux(model, eltype(Q)))
-    writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
+    writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
 
     outprefix = @sprintf("exact_mpirank%04d", MPI.Comm_rank(mpicomm))
     statenames = flattenednames(vars_state(model, eltype(Qe)))
     auxnames = flattenednames(vars_aux(model, eltype(Qe)))
-    writevtk(outprefix, Qe, dg, statenames, param.aux, auxnames)
+    writevtk(outprefix, Qe, dg, statenames, dg.auxstate, auxnames)
 
     step = [0]
     vtkpath = outname
@@ -129,7 +129,7 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
       @debug "doing VTK output" outprefix
       statenames = flattenednames(vars_state(model, eltype(Q)))
       auxnames = flattenednames(vars_aux(model, eltype(Q)))
-      writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
+      writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
       step[1] += 1
       nothing
     end

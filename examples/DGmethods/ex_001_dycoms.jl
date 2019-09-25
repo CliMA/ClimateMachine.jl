@@ -159,7 +159,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
-             param[1], flattenednames(vars_aux(model,DT)))
+             dg.auxstate, flattenednames(vars_aux(model,DT)))
         
     step[1] += 1
     nothing

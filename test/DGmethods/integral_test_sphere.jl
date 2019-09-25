@@ -98,11 +98,11 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
   Q = init_ode_state(dg, param, DFloat(0))
   dQdt = similar(Q)
 
-  exact_aux = copy(param.aux)
+  exact_aux = copy(dg.auxstate)
 
   dg(dQdt, Q, param, 0.0)
   
-  euclidean_distance(exact_aux, param.aux)
+  euclidean_distance(exact_aux, dg.auxstate)
 end
 
 let
