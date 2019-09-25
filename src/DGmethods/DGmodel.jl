@@ -107,56 +107,12 @@ function (dg::DGModel)(dQdt, Q, t; increment=false)
   MPIStateArrays.finish_ghost_send!(Q)
 end
 
-"""
-    init_ode_param(dg::DGModel)
-
-Initialize the ODE parameter object, containing the auxiliary and diffusive states. The extra `args...` are passed through to `init_state!`.
-"""
-function init_ode_param(dg::DGModel)
+function init_ode_state(dg::DGModel, args...; commtag=888)
   bl = dg.balancelaw
   grid = dg.grid
-  auxstate = create_auxstate(bl, grid)
-  diffstate = create_diffstate(bl, grid)
-  return (aux=auxstate, diff=diffstate)
-end
 
+  state = create_state(bl, grid, commtag)
 
-
-
-"""
-    init_ode_state(dg::DGModel, param, args...)
-
-Initialize the ODE state array.
-"""
-function init_ode_state(dg::DGModel, commtag)
-  bl = dg.balancelaw
-  grid = dg.grid
-  topology = grid.topology
-  # FIXME: Remove after updating CUDA
-  h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
-  Np = dofs_per_element(grid)
-  DA = arraytype(grid)
-
-  weights = view(h_vgeo, :, grid.Mid, :)
-  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
-
-  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat,
-                        DA}(topology.mpicomm, length(topology.elems),
-                            realelems=topology.realelems,
-                            ghostelems=topology.ghostelems,
-                            vmaprecv=grid.vmaprecv, vmapsend=grid.vmapsend,
-                            nabrtorank=topology.nabrtorank,
-                            nabrtovmaprecv=grid.nabrtovmaprecv,
-                            nabrtovmapsend=grid.nabrtovmapsend, weights=weights,
-                            commtag=commtag)
-  return state
-end
-function init_ode_state(dg::DGModel, param, args...; commtag=888)
-  state = init_ode_state(dg, commtag)
-
-  bl = dg.balancelaw
-  grid = dg.grid
   topology = grid.topology
   # FIXME: Remove after updating CUDA
   h_vgeo = Array(grid.vgeo)
@@ -177,7 +133,6 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
 
   return state
 end
-
 
 """
     dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw,

@@ -101,9 +101,8 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-  Q  = init_ode_state(dg, param, DFloat(0))
-  Qe = init_ode_state(dg, param, DFloat(timeend))
+  Q  = init_ode_state(dg, DFloat(0))
+  Qe = init_ode_state(dg, DFloat(timeend))
 
   lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
 

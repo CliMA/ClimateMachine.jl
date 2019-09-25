@@ -4,7 +4,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, flux_nondiffusive!, flux_diffusive!,
                         source!, wavespeed, boundary_state!,
                         gradvariables!,
-                        diffusive!, init_aux!, init_state!, init_ode_param,
+                        diffusive!, init_aux!, init_state!,
                         init_ode_state, LocalGeometry
 
 

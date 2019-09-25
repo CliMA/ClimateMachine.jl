@@ -124,9 +124,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-
-  Q = init_ode_state(dg, param, DT(0))
+  Q = init_ode_state(dg, DT(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -169,7 +167,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, param, DT(timeend))
+  Qe = init_ode_state(dg, DT(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)

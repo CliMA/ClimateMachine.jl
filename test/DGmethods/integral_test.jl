@@ -27,7 +27,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
                         update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!,  boundary_state!,
-                        init_aux!, init_state!, init_ode_param, init_ode_state,
+                        init_aux!, init_state!, init_ode_state,
                         LocalGeometry
 
 
@@ -94,11 +94,10 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
   dQdt = similar(Q)
 
-  dg(dQdt, Q, param, 0.0)
+  dg(dQdt, Q, 0.0)
 
   # Wrapping in Array ensure both GPU and CPU code use same approx
   @test Array(dg.auxstate.Q[:, 1, :]) ≈ Array(dg.auxstate.Q[:, 8, :])
