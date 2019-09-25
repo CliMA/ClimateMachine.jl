@@ -134,56 +134,6 @@ function init_ode_state(dg::DGModel, args...; commtag=888)
   return state
 end
 
-"""
-    dof_iteration!(dof_fun!::Function, R::MPIStateArray, disc::DGBalanceLaw,
-                   Q::MPIStateArray)
-
-Iterate over each dof to fill `R` using the `dof_fun!`. The syntax of the
-`dof_fun!` is
-```
-dof_fun!(l_R, l_Q, l_Qvisc, l_aux)
-```
-where `l_R`, `l_Q`, `l_Qvisc`, and `l_aux` are of type `MArray` filled initially
-with the values at a single degree of freedom. After the call the values in
-`l_R` will be written back to the degree of freedom of `R`.
-"""
-function node_apply_aux!(f!::Function, dg::DGModel, Q::MPIStateArray, param)
-  bl = dg.balancelaw
-
-  grid = dg.grid
-  topology = grid.topology
-
-  @assert size(R)[end] == size(Q)[end] == size(dg.auxstate)[end]
-  @assert size(R)[1] == size(Q)[1] == size(dg.auxstate)[1]
-
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
-
-  Qvisc = dg.diffstate
-  auxstate = dg.auxstate
-
-  nstate = size(Q, 2)
-  nviscstate = size(Qvisc, 2)
-  nauxstate = size(auxstate, 2)
-
-  nRstate = size(R, 2)
-
-  Dmat = grid.D
-  vgeo = grid.vgeo
-
-  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
-
-  nelem = length(topology.elems)
-  Nq = N + 1
-  Nqk = dim == 2 ? 1 : Nq
-  Np = Nq * Nq * Nqk
-
-  nrealelem = length(topology.realelems)
-
-  @launch(device, threads=(Np,), blocks=nrealelem,
-    knl_node_apply_aux!(bl, Val(dim), Val(N), f!, Q.Q, Qvisc.Q, auxstate.Q, topology.realelems))
-end
-
 function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                     Q::MPIStateArray, auxstate::MPIStateArray,
                                     t::Real)
