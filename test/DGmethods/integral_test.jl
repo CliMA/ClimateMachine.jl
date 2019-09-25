@@ -101,8 +101,8 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
   dg(dQdt, Q, param, 0.0)
 
   # Wrapping in Array ensure both GPU and CPU code use same approx
-  @test Array(param.aux.Q[:, 1, :]) ≈ Array(param.aux.Q[:, 8, :])
-  @test Array(param.aux.Q[:, 2, :]) ≈ Array(param.aux.Q[:, 9, :])
+  @test Array(dg.auxstate.Q[:, 1, :]) ≈ Array(dg.auxstate.Q[:, 8, :])
+  @test Array(dg.auxstate.Q[:, 2, :]) ≈ Array(dg.auxstate.Q[:, 9, :])
 end
 
 let
