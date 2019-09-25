@@ -66,9 +66,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
 
   mkpath("vtk")
   outprefix = @sprintf("vtk/refstate")
@@ -101,9 +99,7 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
 
   mkpath("vtk")
   outprefix = @sprintf("vtk/refstate")

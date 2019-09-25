@@ -27,7 +27,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
                         update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!,  boundary_state!,
-                        gradvariables!, init_aux!, init_state!, init_ode_param,
+                        gradvariables!, init_aux!, init_state!,
                         init_ode_state, LocalGeometry
 
 
@@ -94,13 +94,12 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
   dQdt = similar(Q)
 
   exact_aux = copy(dg.auxstate)
 
-  dg(dQdt, Q, param, 0.0)
+  dg(dQdt, Q, 0.0)
   
   euclidean_distance(exact_aux, dg.auxstate)
 end
