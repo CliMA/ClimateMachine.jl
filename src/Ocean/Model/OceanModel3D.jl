@@ -66,7 +66,7 @@ end
 function vars_state(m::Union{HBModel, HBVerticalSupplementModel}, T)
   @vars begin
     u::SVector{2, T}
-    η::T # real a 2-D variable TODO: store as 2-D not 3-D?
+    η::T # real a 2-D variable TODO: should be 2D
     θ::T
   end
 end
@@ -79,9 +79,9 @@ function vars_aux(m::HBModel, T)
     w_reverse::T               # TODO: remove me after better integral interface
     pkin::T         # ∫(-αᵀ θ)
     wz0::T          # w at z=0
-    θʳ::T               # TODO: Should be 2D
-    f::T
-    τ::T                  # TODO: Should be 2D
+    θʳ::T           # SST given    # TODO: Should be 2D
+    f::T            # coriolis
+    τ::T            # wind stress  # TODO: Should be 2D
   end
 end
 
@@ -185,10 +185,10 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, α, t, params)
   vert_param = params.vert_param
   vert_dQ = params.vert_dQ
   vert_filter = params.vert_filter
-  apply!(Q, (1, 2), dg.grid, vert_filter; horizontal=false)
+  # apply!(Q, (1, 2), dg.grid, vert_filter; horizontal=false)
 
   exp_filter = params.exp_filter
-  apply!(Q, (4,), dg.grid, exp_filter; horizontal=false)
+  # apply!(Q, (4,), dg.grid, exp_filter; horizontal=false)
 
   vert_dg(vert_dQ, Q, vert_param, t; increment = false)
 
@@ -265,6 +265,7 @@ end
                                        ::Union{Rusanov, CentralFlux, CentralGradPenalty},
                                        Q⁺, α⁺, n⁻, Q⁻, α⁻, t)
   Q⁺.u = -Q⁻.u
+  α⁺.w = -α⁻.w
 
   return nothing
 end
@@ -275,6 +276,7 @@ end
                                        σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
 
   Q⁺.u = -Q⁻.u
+  α⁺.w = -α⁻.w
 
   σ⁺.κ∇θ = -σ⁻.κ∇θ
 
@@ -284,6 +286,9 @@ end
 @inline function ocean_boundary_state!(::HBModel, ::OceanSurface,
                                        ::Union{Rusanov, CentralFlux, CentralGradPenalty},
                                        Q⁺, α⁺, n⁻, Q⁻, α⁻, t)
+  # Q⁺.θ = α⁻.θʳ
+  α⁺.w = -α⁻.w
+
   return nothing
 end
 
@@ -291,12 +296,17 @@ end
 @inline function ocean_boundary_state!(m::HBModel, ::OceanSurface,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
-  θ  = Q⁻.θ
-  τ  = α⁻.τ
-  θʳ = α⁻.θʳ
-  λʳ = m.λʳ
+  # Q⁺.θ = α⁻.θʳ
+  α⁺.w = -α⁻.w
 
-  σ⁺.ν∇u = -σ⁻.ν∇u - 2 * @SMatrix [ -0 -0; -0 -0; τ / 1000 -0]
+  τ = α⁻.τ
+  σ⁺.ν∇u = -σ⁻.ν∇u - 2 * @SMatrix [ -0 -0;
+                                    -0 -0;
+                                    τ / 1000 -0]
+
+  θ  = Q⁻.θ
+  θʳ = α⁻.θʳ
+  λʳ =  m.λʳ
   σ⁺.κ∇θ = -σ⁻.κ∇θ + 2 * λʳ * (θ - θʳ)
 
   return nothing
@@ -338,9 +348,6 @@ boundary_state!(::CentralNumericalFluxDiffusive, m::HBVerticalSupplementModel,
 @inline function boundary_state!(::Union{Rusanov, CentralFlux},
                                  ::HBVerticalSupplementModel,
                                  Q⁺, α⁺, n⁻, Q⁻, α⁻, t, _...)
-
-  Q⁺.η =  Q⁻.η
-  Q⁺.θ =  Q⁻.θ
   Q⁺.u = -Q⁻.u
 
   return nothing

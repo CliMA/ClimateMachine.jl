@@ -79,22 +79,25 @@ end
 ###################
 DFloat = Float64
 
+const timeend = 30 * 86400 # 4 * 365 * 86400
+const tout    = 6 * 60 * 60
+
 const Lˣ = 1e6
 const Lʸ = 1e6
 const H  = 400
 const cʰ = sqrt(grav * H)
 const cᶻ = 0
 
-const τₒ = 1e-1
+const τₒ = 0 # 1e-1
 const fₒ = 1e-4
 const β  = 1e-11
 const θᴱ = 25
 
-const αᵀ = 2e-4
+const αᵀ = 0 # 2e-4
 const νʰ = 1e4
 const νᶻ = 1e-2
-const κʰ = 0
-const κᶻ = 0
+const κʰ = 1e3
+const κᶻ = 1e-3
 const λʳ = 1 // 86400
 
 let
@@ -122,7 +125,6 @@ let
   N = 4
   Ne = (10, 10, 4)
   L = SVector{3, DFloat}(Lˣ, Lʸ, H)
-  timeend = 100 * 86400
   c = @SVector [cʰ, cʰ, cᶻ]
   brickrange = (range(DFloat(0); length=Ne[1]+1, stop=L[1]),
                 range(DFloat(0); length=Ne[2]+1, stop=L[2]),
@@ -130,9 +132,8 @@ let
   topl = StackedBrickTopology(mpicomm, brickrange;
                               periodicity = (false, false, false),
                               boundary = ((1, 1), (1, 1), (2, 3)))
-  @show dt = 240 # (L[1] / c) / Ne[1] / N^2
-  timeend = 4 * 365 * 86400
-  tout = 24 * 60 * 60
+
+  dt = 120 # 240 # (L[1] / c) / Ne[1] / N^2
   @show nout = ceil(Int64, tout / dt)
   @show dt = tout / nout
 
@@ -149,7 +150,7 @@ let
 
   dg = DGModel(model,
                grid,
-               CentralFlux(),
+               Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
