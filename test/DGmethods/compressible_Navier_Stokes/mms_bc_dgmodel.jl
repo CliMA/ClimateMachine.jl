@@ -77,8 +77,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     end
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, ))
-  # solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
+  # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
   # Print some end of the simulation information

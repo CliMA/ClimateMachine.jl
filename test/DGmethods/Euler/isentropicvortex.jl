@@ -218,7 +218,7 @@ function run(mpicomm, polynomialorder, numelems,
     callbacks = (callbacks..., cbvtk)
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=callbacks)
+  solve!(Q, lsrk; timeend=timeend, callbacks=callbacks)
 
   # final statistics
   Qe = init_ode_state(dg, param, timeend)

@@ -318,8 +318,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
     nothing
   end
 
-  param = (nothing, nothing)
-  solve!(Q, ark, param; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, ark; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
   # Print some end of the simulation information
   engf = norm(Q)

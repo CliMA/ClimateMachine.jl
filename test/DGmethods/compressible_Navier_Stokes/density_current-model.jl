@@ -169,7 +169,7 @@ function run(mpicomm, ArrayType,
   end
 
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo,cbvtk))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk))
   # End of the simulation information
   engf = norm(Q)
   Qe = init_ode_state(dg, param, DF(timeend))

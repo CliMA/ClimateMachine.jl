@@ -136,7 +136,7 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
     cb = (cb..., cbvtk)
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=cb)
+  solve!(Q, lsrk; timeend=timeend, callbacks=cb)
 
   error = euclidean_distance(Q, Qe) / norm(Qe)
   @info @sprintf("""Finished
