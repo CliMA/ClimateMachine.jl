@@ -37,7 +37,7 @@ struct IntegralTestSphereModel{T} <: BalanceLaw
 end
 
 function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray,
-                     auxstate::MPIStateArray, t::Real, _)
+                     auxstate::MPIStateArray, t::Real)
   indefinite_stack_integral!(dg, m, Q, auxstate, t)
   reverse_indefinite_stack_integral!(dg, m, auxstate, t)
 end

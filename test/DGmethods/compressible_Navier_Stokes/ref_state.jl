@@ -34,7 +34,7 @@ end
 
 using CLIMA.Atmos
 using CLIMA.Atmos: internal_energy, thermo_state
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed
 
 init_state!(state, aux, coords, t) = nothing
 
