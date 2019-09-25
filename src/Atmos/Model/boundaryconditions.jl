@@ -155,11 +155,6 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
   q_totM = QTM/ρM
   UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
 
-  # Assign reflection wall boundaries (top wall)
-  stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
-                      VM - 2 * nM[2] * UnM,
-                      WM - 2 * nM[3] * UnM)
-
   # Assign scalar values at the boundaries 
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
@@ -187,19 +182,16 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # --------------------------
     zM          = auxM.coord[3] 
     q_totM      = QTM/ρM
-    windspeed   = sqrt(uM^2 + vM^2 + wM^2)
-    e_intM      = EM/ρM - windspeed^2/2 - grav*zM
+    e_intM      = EM/ρM - grav*zM
     TSM         = PhaseEquil(e_intM, q_totM, ρM) 
     q_vapM      = q_totM - PhasePartition(TSM).liq
-    TM          = air_temperature(TSM)
-    # ----------------------------------------------------------
-    # Extract components of diffusive momentum flux (minus-side)
-    # ----------------------------------------------------------
-    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
-
+    TM          = DT(292.5)
+    qv_satM     = q_vap_saturation_generic(TM, stateM.ρ)
+    qvdiff      = q_vap_FN - qv_satM
     # ----------------------------------------------------------
     # Boundary momentum fluxes
     # ----------------------------------------------------------
+    ρτM = diffM.ρτ # SHermitianCompact
     # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
     # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
     C_drag = bc.C_drag
@@ -207,21 +199,21 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN 
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)  
-    stateP.ρu = SVector(0,0,0)
-    diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
-
+    diffP.ρτ = SHermitianCompact{3,DT,6}(SVector(DT(0),ρτM[2,1],ρτ13P, DT(0), ρτ23P,DT(0)))
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
-    diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
-                                       diffM.moisture.ρd_q_tot[2],
-                                       bc.LHF/(LH_v0))
+    EVAPFLUX    = -stateM.ρ * C_drag * windspeed_FN * (qvdiff)
+    diffP.moisture.ρd_q_tot  = SVector(DT(0),
+                                       DT(0),
+                                       bc.LHF/LH_v0)
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
+    ENTHALPYFLUX = -stateM.ρ * C_drag * windspeed_FN * (E_FN - stateM.ρe)
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-    diffP.moisture.ρd_h_tot  = SVector(diffM.moisture.ρd_h_tot[1],
-                                       diffM.moisture.ρd_h_tot[2],
+    diffP.moisture.ρd_h_tot  = SVector(DT(0),
+                                       DT(0),
                                        bc.LHF + bc.SHF)
   end
 end

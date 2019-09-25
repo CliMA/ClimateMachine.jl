@@ -1,10 +1,7 @@
 #### Turbulence closures
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
-export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
-
-abstract type TurbulenceClosure
-end
+export ConstantViscosityWithDivergence, SmagorinskyLilly
 
 vars_state(::TurbulenceClosure, T) = @vars()
 vars_gradient(::TurbulenceClosure, T) = @vars()
@@ -32,7 +29,7 @@ Turbulence with constant dynamic viscosity (`ρν`). Divergence terms are includ
 struct ConstantViscosityWithDivergence{T} <: TurbulenceClosure
   ρν::T
 end
-dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = m.ρν
+dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, state::Vars, diffusive::Vars, aux::Vars, t::Real) = m.ρν
 function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S)
   @inbounds trS = tr(S)
   return (-2*ρν) * S + (2*ρν/3)*trS * I
@@ -110,7 +107,7 @@ year = {1962}
 function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
   T = eltype(diffusive)
   N² = inv(aux.moisture.θ_v) * diffusive.turbulence.∂θ∂Φ
-  Richardson = N² / (normS^2 + eps(T))
+  Richardson = N² / (normS^2 + eps(normS))
   sqrt(clamp(T(1) - Richardson*inv_Pr_turb, T(0), T(1)))
 end
 
@@ -118,7 +115,7 @@ function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
   sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3]^2)
 end
 
-function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
@@ -129,54 +126,6 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, ∇transform::Grad, st
   return state.ρ * normS * f_b² * T(m.C_smag * aux.turbulence.Δ)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
-  (-2*ρν) * S
-end
-
-"""
-  Vreman{DT} <: TurbulenceClosure
-  
-  §1.3.2 in CLIMA documentation 
-Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Smagorinsky coefficient
-is specified and used to compute the equivalent Vreman coefficient. 
-
-1) ν_e = √(Bᵦ/(αᵢⱼαᵢⱼ)) where αᵢⱼ = ∂uᵢ∂uⱼ with uᵢ the resolved scale velocity component.
-2) βij = Δ²αₘᵢαₘⱼ
-3) Bᵦ = β₁₁β₂₂ + β₂₂β₃₃ + β₁₁β₃₃ - β₁₂² - β₁₃² - β₂₃²
-βᵢⱼ is symmetric, positive-definite. 
-If Δᵢ = Δ, then β = Δ²αᵀα
-
-@article{Vreman2004,
-  title={An eddy-viscosity subgrid-scale model for turbulent shear flow: Algebraic theory and applications},
-  author={Vreman, AW},
-  journal={Physics of fluids},
-  volume={16},
-  number={10},
-  pages={3670--3681},
-  year={2004},
-  publisher={AIP}
-}
-
-"""
-struct Vreman{DT} <: TurbulenceClosure
-  C_smag::DT
-end
-vars_aux(::Vreman,T) = @vars(Δ::T)
-vars_gradient(::Vreman,T) = @vars(θ_v::T)
-vars_diffusive(::Vreman,T) = @vars(∂θ∂Φ::T)
-function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
-  aux.turbulence.Δ = lengthscale(geom)
-end
-function dynamic_viscosity_tensor(m::Vreman, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  DT = eltype(state)
-  ∇u = ∇transform.u
-  αijαij = sum(∇u .^ 2)
-  @inbounds normS = strain_rate_magnitude(S)
-  f_b² = squared_buoyancy_correction(normS, diffusive, aux)
-  βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
-  @inbounds Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
-  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(DT))))) 
-end
-function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S
 end
 
