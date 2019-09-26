@@ -1,5 +1,15 @@
 using Test
 
-include("Grids.jl")
-include("StateVecs.jl")
-include("StateVecFuncs.jl")
+for submodule in [
+                  "FiniteDifferenceGrids",
+                  "DomainDecomp",
+                  "StateVecs",
+                  "StateVecFuncs",
+                  "TDMA",
+                  "PDEs",
+                  # "BOMEX",
+                  ]
+
+  println("Testing $submodule")
+  include(joinpath(submodule*".jl"))
+end
