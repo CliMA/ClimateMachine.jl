@@ -1,35 +1,32 @@
 using Test, Printf
 
-using CLIMA.TurbulenceConvection.Grids
+using CLIMA.TurbulenceConvection.FiniteDifferenceGrids
 using CLIMA.TurbulenceConvection.StateVecs
-using CLIMA.TurbulenceConvection.GridOperators
-using CLIMA.TurbulenceConvection.BoundaryConditions
 
-n_subdomains = 3 # number of sub-domains
 n_elems_real = 10 # number of elements
 
 grid = Grid(0.0, 1.0, n_elems_real)
-vars = ( (:ρ_0, 1), (:a, n_subdomains), (:w, n_subdomains) )
-state_vec = StateVec(vars, grid)
+vars = ( (:ρ_0, DomainSubSet(gm=true)),
+         (:a,   DomainSubSet(gm=true,en=true,ud=true)),
+         (:w,   DomainSubSet(gm=true,en=true,ud=true)) )
+dd = DomainDecomp(gm=1,en=1,ud=2)
+state_vec = StateVec(vars, grid, dd)
+idx = DomainIdx(state_vec)
+i_gm, i_en, i_ud, i_sd, i_al = allcombinations(idx)
 
 @testset "Memory access" begin
-  state_vec[:ρ_0, 1] = 2.0
-  @test state_vec[:ρ_0, 1] == 2.0
+  state_vec[:ρ_0, i_gm] = 2.0
+  @test state_vec[:ρ_0, i_gm] == 2.0
 
-  state_vec[:w, 1, 1] = 3.0
-  @test state_vec[:w, 1, 1] == 3.0
+  state_vec[:w, 1, i_gm] = 3.0
+  @test state_vec[:w, 1, i_gm] == 3.0
 
-  @test_throws BoundsError state_vec[:w, 1, 4] = 3.0
-  @test_throws BoundsError state_vec[:ρ_0, 1, 2] = 3.0
-
-  @test over_sub_domains(state_vec) == 1:3
-  @test over_sub_domains(state_vec, 2) == [1,3]
-  @test over_sub_domains(state_vec, :ρ_0) == 1:1
-  @test over_sub_domains(state_vec, :a) == 1:3
+  @test_throws BoundsError state_vec[:w, 1, 1000] = 3.0
+  @test_throws BoundsError state_vec[:ρ_0, 1, i_en] = 3.0
 
   for k in over_elems(grid)
     ρ_0_e = state_vec[:ρ_0, k]
-    for i in over_sub_domains(state_vec)
+    for i in alldomains(idx)
       w_0_e_i = state_vec[:w, k, i]
     end
   end
@@ -42,15 +39,15 @@ end
   state_vec[:ρ_0, 1] = 0
   state_vec[:ρ_0, 2] = 0
   k = 1
-  Dirichlet!(state_vec, :ρ_0, 2, grid, Bottom())
+  apply_Dirichlet!(state_vec, :ρ_0, grid, 2, Zmin())
   @test state_vec[:ρ_0, k] ≈ 4
-  Neumann!(state_vec, :ρ_0, -2/grid.dz, grid, Bottom())
+  apply_Neumann!(state_vec, :ρ_0, grid, -2/grid.Δz, Zmin())
   @test state_vec[:ρ_0, k] ≈ 2
 
   k = grid.n_elem
-  Dirichlet!(state_vec, :ρ_0, 2, grid, Top())
+  apply_Dirichlet!(state_vec, :ρ_0, grid, 2, Zmax())
   @test state_vec[:ρ_0, k] ≈ 4
-  Neumann!(state_vec, :ρ_0, 2/grid.dz, grid, Top())
+  apply_Neumann!(state_vec, :ρ_0, grid,  2/grid.Δz, Zmax())
   @test state_vec[:ρ_0, k] ≈ 2
 end
 
@@ -63,6 +60,8 @@ end
   state_vec[:a, 3] = 3.0
   ρα_0_cut = state_vec[:ρ_0, Cut(2)].*state_vec[:a, Cut(2)]
   @test all(ρα_0_cut .== ρα_0_cut)
+  ρα_0_dual = state_vec[:ρ_0, Dual(2)].*state_vec[:a, Dual(2)]
+  @test all(ρα_0_dual .== ρα_0_dual)
 end
 
 @testset "Auxiliary" begin
