@@ -1,7 +1,7 @@
 using CLIMA: haspkg
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
-using CLIMA.DGmethods: DGModel, init_ode_param, init_ode_state
+using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive,
                                        CentralNumericalFluxNonDiffusive
@@ -160,7 +160,6 @@ function run(mpicomm, polynomialorder, numelems,
 
   dg = DGModel(model, grid, NumericalFlux(),
                CentralNumericalFluxDiffusive(), CentralGradPenalty())
-  param = init_ode_param(dg)
 
   timeend = DFloat(2 * setup.domain_halflength / 10 / setup.translation_speed)
 
@@ -170,7 +169,7 @@ function run(mpicomm, polynomialorder, numelems,
   nsteps = ceil(Int, timeend / dt)
   dt = timeend / nsteps
 
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
@@ -212,16 +211,16 @@ function run(mpicomm, polynomialorder, numelems,
     outputtime = timeend
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
       vtkstep += 1
-      Qe = init_ode_state(dg, param, gettime(lsrk))
+      Qe = init_ode_state(dg, gettime(lsrk))
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
     end
     callbacks = (callbacks..., cbvtk)
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=callbacks)
+  solve!(Q, lsrk; timeend=timeend, callbacks=callbacks)
 
   # final statistics
-  Qe = init_ode_state(dg, param, timeend)
+  Qe = init_ode_state(dg, timeend)
   engf = norm(Q)
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)

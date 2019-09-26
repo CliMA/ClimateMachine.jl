@@ -34,7 +34,7 @@ end
 
 using CLIMA.Atmos
 using CLIMA.Atmos: internal_energy, thermo_state
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed
 
 init_state!(state, aux, coords, t) = nothing
 
@@ -66,13 +66,11 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
 
   mkpath("vtk")
   outprefix = @sprintf("vtk/refstate")
-  writevtk(outprefix, param[1], dg, flattenednames(vars_aux(model, DFloat)))
+  writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, DFloat)))
   return DFloat(0)
 end
 
@@ -101,13 +99,11 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
 
   mkpath("vtk")
   outprefix = @sprintf("vtk/refstate")
-  writevtk(outprefix, param[1], dg, flattenednames(vars_aux(model, DFloat)))
+  writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, DFloat)))
   return DFloat(0)
 end
 

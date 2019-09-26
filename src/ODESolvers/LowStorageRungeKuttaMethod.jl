@@ -72,7 +72,7 @@ end
 
 ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = lsrk.dt[1] = dt
 
-function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, param, timeend,
+function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend,
                       adjustfinalstep)
   time, dt = lsrk.t[1], lsrk.dt[1]
   if adjustfinalstep && time + dt > timeend
@@ -89,7 +89,7 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, param, timeend,
   blocks = div(length(rv_Q) + threads - 1, threads)
 
   for s = 1:length(RKA)
-    rhs!(dQ, Q, param, time + RKC[s] * dt, increment = true)
+    rhs!(dQ, Q, p, time + RKC[s] * dt, increment = true)
     # update solution and scale RHS
     @launch(device(Q), threads=threads, blocks=blocks,
             update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt))

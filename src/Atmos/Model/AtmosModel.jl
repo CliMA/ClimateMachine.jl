@@ -183,7 +183,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 end
 
 function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
-                     auxstate::MPIStateArray, t::Real, _)
+                     auxstate::MPIStateArray, t::Real)
   DFloat = eltype(Q)
   if num_integrals(m, DFloat) > 0
     indefinite_stack_integral!(dg, m, Q, auxstate, t)
