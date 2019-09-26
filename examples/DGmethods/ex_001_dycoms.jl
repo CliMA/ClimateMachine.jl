@@ -124,11 +124,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
-  # Initialise ODE, param contains param.diff and param.aux (diffusive, auxiliary variables)
-  param = init_ode_param(dg)
-  # State variables, initialisation
-  Q = init_ode_state(dg, param, DT(0))
-  # Define timestepping method 
+  Q = init_ode_state(dg, DT(0))
+
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
   # Calculating initial condition norm 
   eng0 = norm(Q)
@@ -160,16 +157,17 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
-             param[1], flattenednames(vars_aux(model,DT)))
+             dg.auxstate, flattenednames(vars_aux(model,DT)))
     step[1] += 1
     nothing
   end
 
-  # Solver function
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, param, DT(timeend))
+  Qe = init_ode_state(dg, DT(timeend))
+
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished

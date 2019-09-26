@@ -371,8 +371,7 @@ function run(mpicomm, dim, brickrange, periodicity, N, timeend, DFloat, dt, outp
     nothing
   end
 
-  param = (nothing, nothing)
-  solve!(Q, timestepper, param; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, timestepper; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
   # Print some end of the simulation information
   engf = norm(Q)

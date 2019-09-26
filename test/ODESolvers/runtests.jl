@@ -17,7 +17,7 @@ const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
                      ]
 
 let 
-  function rhs!(dQ, Q, param, time; increment)
+  function rhs!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= Q * cos(time)
     else
@@ -115,7 +115,7 @@ end
 
 let 
   c = 100.0
-  function rhs_full!(dQ, Q, param, time; increment)
+  function rhs_full!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= im * c * Q .+ exp(im * time)
     else
@@ -123,7 +123,7 @@ let
     end
   end
   
-  function rhs_nonlinear!(dQ, Q, param, time; increment)
+  function rhs_nonlinear!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= exp(im * time)
     else
@@ -131,7 +131,7 @@ let
     end
   end
  
-  function rhs_linear!(dQ, Q, param, time; increment)
+  function rhs_linear!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= im * c * Q
     else
@@ -164,8 +164,7 @@ let
           solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
                           Q; dt = dt, t0 = 0.0,
                           split_nonlinear_linear = split_nonlinear_linear)
-          param = (nothing, nothing)
-          solve!(Q, solver, param; timeend = finaltime)
+          solve!(Q, solver; timeend = finaltime)
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
         end
 
@@ -195,8 +194,7 @@ let
             solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
                             Q; dt = dt, t0 = 0.0,
                             split_nonlinear_linear = split_nonlinear_linear)
-            param = (nothing, nothing)
-            solve!(Q, solver, param; timeend = finaltime)
+            solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
             errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
           end
