@@ -115,7 +115,8 @@ function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
   sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3]^2)
 end
 
-function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
+function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, 
+  state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
@@ -160,7 +161,8 @@ vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
-function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
+function dynamic_viscosity_tensor(m::AnisoMinDiss, S, 
+  state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   DT = eltype(state)
   ∇u = ∇transform.u
   αijαij = dot(∇u,∇u)
