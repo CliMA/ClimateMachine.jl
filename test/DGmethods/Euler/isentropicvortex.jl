@@ -14,7 +14,7 @@ using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
                    DryModel, NoRadiation, PeriodicBC,
-                   NoViscosity, vars_state
+                   ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -151,7 +151,7 @@ function run(mpicomm, polynomialorder, numelems,
   end
   model = AtmosModel(NoOrientation(),
                      NoReferenceState(),
-                     NoViscosity(),
+                     ConstantViscosityWithDivergence(0.0),
                      DryModel(),
                      NoRadiation(),
                      nothing,

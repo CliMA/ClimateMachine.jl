@@ -106,7 +106,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
                      SmagorinskyLilly{DT}(C_smag),
@@ -201,42 +200,29 @@ let
     # Problem type
     DT = Float64
     # DG polynomial order 
-    polynomialorder = 4
-    # User specified grid spacing
-    Δx    = DT(50)
-    Δy    = DT(50)
-    Δz    = DT(20)
+    N = 4
     # SGS Filter constants
     C_smag = DT(0.15)
     LHF    = DT(115)
     SHF    = DT(15)
     C_drag = DT(0.0011)
-    # Physical domain extents 
-    (xmin, xmax) = (0, 2000)
-    (ymin, ymax) = (0, 2000)
-    (zmin, zmax) = (0, 1500)
-    zsponge = DT(0.75 * zmax)
-    #Get Nex, Ney from resolution
-    Lx = xmax - xmin
-    Ly = ymax - ymin
-    Lz = zmax - ymin
-    # User defines the grid size:
-    Nex = ceil(Int64, (Lx/Δx - 1)/polynomialorder)
-    Ney = ceil(Int64, (Ly/Δy - 1)/polynomialorder)
-    Nez = ceil(Int64, (Lz/Δz - 1)/polynomialorder)
-    Ne = (Nex, Ney, Nez)
     # User defined domain parameters
-    brickrange = (range(DT(xmin), length=Ne[1]+1, DT(xmax)),
-                  range(DT(ymin), length=Ne[2]+1, DT(ymax)),
-                  range(DT(zmin), length=Ne[3]+1, DT(zmax)))
-    topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
+    brickrange = (grid1d(0, 2000, elemsize=DT(50)*N),
+                  grid1d(0, 2000, elemsize=DT(50)*N),
+                  grid1d(0, 1500, elemsize=DT(20)*N))
+    zmax = brickrange[3][end]
+    zsponge = DT(0.75 * zmax)
+    
+    topl = StackedBrickTopology(mpicomm, brickrange,
+                                periodicity = (true, true, false),
+                                boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
     timeend = 100dt
     dim = 3
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(0.9999737128867487)
+                 N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+    @test result ≈ DT(0.9999712407365311)
   end
 end
 
