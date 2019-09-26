@@ -2,6 +2,7 @@
 import ..PlanetParameters: grav, planet_radius
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 
+export FlatOrientation, SphericalOrientation
 abstract type Orientation
 end
 
