@@ -21,6 +21,17 @@ end
 function gradvariables!(::TurbulenceClosure, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
+struct TensorInvariants{DT}
+  first::DT
+  second::DT
+  third::DT
+end
+function compute_principal_invariants(X::StaticArray{Tuple{3,3}})
+  first = tr(X)
+  second = 1/2 *((tr(X))^2 - tr(X .^ 2))
+  third = det(X)
+  return TensorInvariants(first,second,third)
+end
 """
     ConstantViscosityWithDivergence <: TurbulenceClosure
 
@@ -172,7 +183,8 @@ function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, �
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
-  @inbounds Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
+  Bβinvariants = compute_principal_invariants(βij)
+  @inbounds Bβ = Bβinvariants.second
   return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(DT))))) 
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
