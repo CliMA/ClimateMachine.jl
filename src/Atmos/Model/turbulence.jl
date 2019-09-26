@@ -3,6 +3,8 @@ using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 
+abstract type TurbulenceClosure end
+
 vars_state(::TurbulenceClosure, T) = @vars()
 vars_gradient(::TurbulenceClosure, T) = @vars()
 vars_diffusive(::TurbulenceClosure, T) = @vars()
@@ -37,7 +39,7 @@ function compute_principal_invariants(X::StaticArray{Tuple{3,3}})
   first = tr(X)
   second = 1/2 *((tr(X))^2 - tr(X .^ 2))
   third = det(X)
-  return PrincipalInvariants(first,second,third)
+  return PrincipalInvariants{eltype(X)}(first,second,third)
 end
 
 """
@@ -126,11 +128,11 @@ eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.2153-3490.1962.tb001
 year = {1962}
 }
 """
-function squared_buoyancy_correction(normS, diffusive::Vars, aux::Vars)
-  T = eltype(diffusive)
-  N² = inv(aux.moisture.θ_v) * diffusive.turbulence.∂θ∂Φ
+function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
+  ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
+  N² = ∂θ∂Φ / aux.moisture.θ_v
   Richardson = N² / (normS^2 + eps(normS))
-  sqrt(clamp(T(1) - Richardson*inv_Pr_turb, T(0), T(1)))
+  sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
 end
 
 function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
@@ -143,7 +145,7 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
   T = eltype(state)
   @inbounds normS = strain_rate_magnitude(S)
-  f_b² = squared_buoyancy_correction(normS, diffusive, aux)
+  f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
   return state.ρ * normS * f_b² * T(m.C_smag * aux.turbulence.Δ)^2
 end
@@ -230,7 +232,7 @@ vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
-function dynamic_viscosity_tensor(m::AnisoMinDiss, S, ∇transform::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   DT = eltype(state)
   ∇u = ∇transform.u
   αijαij = dot(∇u,∇u)
