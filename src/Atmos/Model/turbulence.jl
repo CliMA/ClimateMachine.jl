@@ -163,7 +163,6 @@ struct Vreman{DT} <: TurbulenceClosure
 end
 vars_aux(::Vreman,T) = @vars(Δ::T)
 vars_gradient(::Vreman,T) = @vars(θ_v::T)
-vars_diffusive(::Vreman,T) = @vars(∂θ∂Φ::T)
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
