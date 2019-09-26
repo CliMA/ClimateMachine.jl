@@ -199,55 +199,31 @@ let
     # Problem type
     DT = Float32
     # DG polynomial order 
-    polynomialorder = 4
-    # User specified grid spacing
-    Δx    = DT(35)
-    Δy    = DT(35)
-    Δz    = DT(35)
+    N = 4
     # SGS Filter constants
     C_smag = DT(0.15)
     LHF    = DT(115)
     SHF    = DT(15)
     C_drag = DT(0.0011)
-    # Physical domain extents 
-    (xmin, xmax) = (0, 2000)
-    (ymin, ymax) = (0, 2000)
-    (zmin, zmax) = (0, 1500)
-    zsponge = DT(0.75 * zmax)
-    #Get Nex, Ney from resolution
-    Lx = xmax - xmin
-    Ly = ymax - ymin
-    Lz = zmax - ymin
-    # User defines the grid size:
-    Nex = ceil(Int64, (Lx/Δx - 1)/polynomialorder)
-    Ney = ceil(Int64, (Ly/Δy - 1)/polynomialorder)
-    Nez = ceil(Int64, (Lz/Δz - 1)/polynomialorder)
-    Ne = (Nex, Ney, Nez)
     # User defined domain parameters
-    xrange = range(DT(xmin), length=Ne[1]+1, DT(xmax))
-    yrange = range(DT(ymin), length=Ne[2]+1, DT(ymax))
-    #zrange = range(DT(zmin), length=Ne[3]+1, DT(zmax))
-    #Element-sizes 
-    #RefineExtents
-    ref_lo = DT(650)
-    ref_hi = DT(1000)
-    zrange_1 = range(DT(zmin),DT(ref_lo), step = 150)
-    zrange_2 = range(DT(ref_lo), DT(ref_hi), step = 20)
-    zrange_3 = range(DT(ref_hi), DT(zmax), step = 150)
-    zrange = (zrange_1...,zrange_2...,zrange_3...)
-    zrange = unique(zrange)
-    #zrange = grid_stretching_1d(DT(zmin), DT(zmax), Nez, "top_stretching")
-    brickrange = (xrange,yrange,zrange)
-    topl = StackedBrickTopology(mpicomm, brickrange,periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
-    dt = 0.001
-    timeend = DT(36000)
+    brickrange = (grid1d(0, 2000, elemsize=DT(50)*N),
+                  grid1d(0, 2000, elemsize=DT(50)*N),
+                  grid1d(0, 1500, elemsize=DT(20)*N))
+    zmax = brickrange[3][end]
+    zsponge = DT(0.75 * zmax)
+    
+    topl = StackedBrickTopology(mpicomm, brickrange,
+                                periodicity = (true, true, false),
+                                boundary=((0,0),(0,0),(1,2)))
+    dt = 0.02
+    timeend = 100dt
     dim = 3
     VTKPATH = "/central/scratch/asridhar/DYC-VREMAN-PF-RF-CPU"
     @info (ArrayType, DT, dim, VTKPATH)
     @info ((Nex,Ney,Nez), (Δx, Δy, Δz), (xmax,ymax,zmax), dt, timeend)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 polynomialorder, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge, VTKPATH)
-    @test result ≈ DT(0.9999735345500744)
+                 N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+    @test result ≈ DT(0.9999712407365311)
   end
 end
 
