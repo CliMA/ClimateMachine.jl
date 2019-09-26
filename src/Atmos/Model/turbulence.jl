@@ -1,7 +1,7 @@
 #### Turbulence closures
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
-export ConstantViscosityWithDivergence, SmagorinskyLilly
+export ConstantViscosityWithDivergence, SmagorinskyLilly, AnisoMinDiss
 
 vars_state(::TurbulenceClosure, T) = @vars()
 vars_gradient(::TurbulenceClosure, T) = @vars()
