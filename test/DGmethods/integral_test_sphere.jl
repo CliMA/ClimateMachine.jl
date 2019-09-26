@@ -27,7 +27,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
                         update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!,  boundary_state!,
-                        gradvariables!, init_aux!, init_state!, init_ode_param,
+                        gradvariables!, init_aux!, init_state!,
                         init_ode_state, LocalGeometry
 
 
@@ -37,7 +37,7 @@ struct IntegralTestSphereModel{T} <: BalanceLaw
 end
 
 function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray,
-                     auxstate::MPIStateArray, t::Real, _)
+                     auxstate::MPIStateArray, t::Real)
   indefinite_stack_integral!(dg, m, Q, auxstate, t)
   reverse_indefinite_stack_integral!(dg, m, auxstate, t)
 end
@@ -94,15 +94,14 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
   dQdt = similar(Q)
 
-  exact_aux = copy(param.aux)
+  exact_aux = copy(dg.auxstate)
 
-  dg(dQdt, Q, param, 0.0)
+  dg(dQdt, Q, nothing, 0.0)
   
-  euclidean_distance(exact_aux, param.aux)
+  euclidean_distance(exact_aux, dg.auxstate)
 end
 
 let

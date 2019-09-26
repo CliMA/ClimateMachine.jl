@@ -324,8 +324,7 @@ end
 
 ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, (param, param_linear),
-                      timeend, adjustfinalstep)
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend, adjustfinalstep)
 
   time, dt = ark.t[1], ark.dt[1]
   if adjustfinalstep && time + dt > timeend
@@ -353,7 +352,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, (param, param_linear),
   blocks = div(length(rv_Q) + threads - 1, threads)
 
   # calculate the rhs at first stage to initialize the stage loop
-  rhs!(Rstages[1], Qstages[1], param, time + RKC[1] * dt, increment = false)
+  rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
   # note that it is important that this loop does not modify Q!
   for istage = 2:nstages
@@ -367,7 +366,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, (param, param_linear),
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
     linearoperator! = function(LQ, Q)
-      rhs_linear!(LQ, Q, param_linear, stagetime; increment = false)
+      rhs_linear!(LQ, Q, p, stagetime; increment = false)
       @. LQ = Q - α * LQ
     end
     linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
@@ -375,13 +374,13 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, (param, param_linear),
     #update Qstages
     Qstages[istage] .+= Qtt
     
-    rhs!(Rstages[istage], Qstages[istage], param, stagetime, increment = false)
+    rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
   end
  
   if split_nonlinear_linear
     for istage = 1:nstages
       stagetime = time + RKC[istage] * dt
-      rhs_linear!(Rstages[istage], Qstages[istage], param_linear, stagetime, increment = true)
+      rhs_linear!(Rstages[istage], Qstages[istage], p, stagetime, increment = true)
     end
   end
 
