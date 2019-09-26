@@ -46,7 +46,7 @@ const (zmin, zmax)      = (0,6400)
 const Ne                = (50,2,25)
 const polynomialorder   = 4
 const dt                = 0.01
-const timeend           = 1000
+const timeend           = 10dt
 
 # ------------- Initial condition function ----------- # 
 """
@@ -116,7 +116,7 @@ function run(mpicomm, ArrayType,
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     AnisoMinDiss{DF}(1), 
+                     SmagorinskyLilly{DF}(C_smag), 
                      EquilMoist(), 
                      NoRadiation(),
                      Gravity(), NoFluxBC(), Initialise_Density_Current!)
@@ -197,8 +197,7 @@ let
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    FloatType = (Float32,)
-    #TODO re-enable Float64 after testing is complete.
+    FloatType = (Float32, Float64)
     for DF in FloatType
       brickrange = (range(DF(xmin); length=Ne[1]+1, stop=xmax),
                     range(DF(ymin); length=Ne[2]+1, stop=ymax),
