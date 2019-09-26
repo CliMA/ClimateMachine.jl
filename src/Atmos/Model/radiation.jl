@@ -1,6 +1,8 @@
 using CLIMA.PlanetParameters
 export NoRadiation, StevensRadiation
 
+export NoRadiation, StevensRadiation
+
 abstract type RadiationModel end
 
 vars_state(::RadiationModel, DT) = @vars()
