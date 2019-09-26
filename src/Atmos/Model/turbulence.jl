@@ -170,7 +170,7 @@ end
 function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   DT = eltype(state)
   ∇u = ∇transform.u
-  αijαij = sum(∇u .^ 2)
+  αijαij = sum(abs2, ∇u)
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
