@@ -101,9 +101,8 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-  Q  = init_ode_state(dg, param, DFloat(0))
-  Qe = init_ode_state(dg, param, DFloat(timeend))
+  Q  = init_ode_state(dg, DFloat(0))
+  Qe = init_ode_state(dg, DFloat(timeend))
 
   lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
 
@@ -113,12 +112,12 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
     outprefix = @sprintf("ic_mpirank%04d_ic", MPI.Comm_rank(mpicomm))
     statenames = flattenednames(vars_state(model, eltype(Q)))
     auxnames = flattenednames(vars_aux(model, eltype(Q)))
-    writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
+    writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
 
     outprefix = @sprintf("exact_mpirank%04d", MPI.Comm_rank(mpicomm))
     statenames = flattenednames(vars_state(model, eltype(Qe)))
     auxnames = flattenednames(vars_aux(model, eltype(Qe)))
-    writevtk(outprefix, Qe, dg, statenames, param.aux, auxnames)
+    writevtk(outprefix, Qe, dg, statenames, dg.auxstate, auxnames)
 
     step = [0]
     vtkpath = outname
@@ -129,14 +128,14 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
       @debug "doing VTK output" outprefix
       statenames = flattenednames(vars_state(model, eltype(Q)))
       auxnames = flattenednames(vars_aux(model, eltype(Q)))
-      writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
+      writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
       step[1] += 1
       nothing
     end
     cb = (cb..., cbvtk)
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=cb)
+  solve!(Q, lsrk; timeend=timeend, callbacks=cb)
 
   error = euclidean_distance(Q, Qe) / norm(Qe)
   @info @sprintf("""Finished

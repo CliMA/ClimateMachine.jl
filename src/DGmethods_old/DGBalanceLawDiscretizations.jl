@@ -551,7 +551,7 @@ and after the call `dQ += F(Q, t)` if `increment == true`
 or `dQ = F(Q, t)` if `increment == false`
 """
 function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
-                              Q::MPIStateArray, param, t; increment)
+                              Q::MPIStateArray, ::Nothing, t; increment)
 
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
