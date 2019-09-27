@@ -7,7 +7,6 @@ struct GridMean{N} <: Domain{N} end
 struct Environment{N} <: Domain{N} end
 struct Updraft{N} <: Domain{N} end
 
-
 """
     get_param(::Type{Domain})
 

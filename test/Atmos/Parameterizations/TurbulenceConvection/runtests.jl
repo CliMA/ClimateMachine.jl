@@ -4,7 +4,6 @@ for submodule in [
                   "FiniteDifferenceGrids",
                   "DomainDecomp",
                   "StateVecs",
-                  "StateVecFuncs",
                   "TDMA",
                   "PDEs",
                   # "BOMEX",

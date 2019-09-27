@@ -1,6 +1,7 @@
 #### DomainSubSet
 
-export DomainSubSet, gm, en, ud, get_param
+export DomainSubSet
+export get_param
 
 """
     DomainSubSet{GM,EN,UD}

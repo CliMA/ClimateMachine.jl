@@ -7,7 +7,7 @@ for finite difference method.
 module FiniteDifferenceGrids
 
 export Grid, over_elems, over_elems_real, over_elems_ghost
-export ZBoundary, Zmin, Zmax, n_hat, binary, ghost_vec, ghost_dual, get_z
+export ZBoundary, Zmin, Zmax, n_hat, binary, ghost_vec, ghost_dual
 export first_interior, boundary, second_interior, first_ghost, boundary_points
 
 """
@@ -130,26 +130,19 @@ binary(::Zmax) = 1
 
 """
     ghost_vec(::ZBoundary)
-    ghost_dual(::ZBoundary)
 
-A 2/3-element vector near the boundary with 1's on ghost cells and 0's on interior cells
+A 3-element vector near the boundary with 1's on ghost cells and 0's on interior cells
 """
 ghost_vec(::Zmin) = [1, 0, 0]
 ghost_vec(::Zmax) = [0, 0, 1]
+
+"""
+    ghost_dual(::ZBoundary)
+
+A 2-element vector near the boundary with 1's on ghost cells and 0's on interior cells
+"""
 ghost_dual(::Zmin) = [1, 0]
 ghost_dual(::Zmax) = [0, 1]
-
-export DataLocation, Center, Edge
-abstract type DataLocation end
-struct Center <: DataLocation end
-struct Edge <: DataLocation end
-
-"""
-    get_z(grid::Grid, k::Int)
-
-Get the z-coordinate given element index
-"""
-@inline get_z(grid::Grid, k::Int) = grid.zc[k]
 
 """
     over_elems(grid::Grid)

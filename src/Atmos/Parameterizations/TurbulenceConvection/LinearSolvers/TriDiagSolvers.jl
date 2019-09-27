@@ -17,15 +17,25 @@ function TridiagonalMatrix(q::StateVec, tmp::StateVec, Δt::T, ρ::S, a::S, K::S
   return Tridiagonal(a_,b_,c_)
 end
 
-function solve_tdma!(q::StateVec, tendencies::StateVec, tmp::StateVec, x::S, ρ::S, a_τp1::S, a_τ::S, K::S, grid::Grid{T}, Δt::T, i_sd::Int=1) where {S<:Symbol, T}
-  B = [tmp[a_τ, k, i_sd]/q[a_τp1, k, i_sd]*q[x, k, i_sd] +
-  Δt*tendencies[x, k, i_sd]/(tmp[ρ, k]*q[a_τp1, k, i_sd])
+"""
+    solve_tdma!(q::StateVec, tendencies::StateVec, tmp::StateVec, x::S, ρ::S, a_τp1::S, a_τ::S, K::S, grid::Grid{T}, Δt::T, i::Int=1)
+
+Solve tri-diagonal system using Diffusion-implicit time-marching.
+"""
+function solve_tdma!(q::StateVec, tendencies::StateVec, tmp::StateVec, x::S, ρ::S, a_τp1::S, a_τ::S, K::S, grid::Grid{T}, Δt::T, i::Int=1) where {S<:Symbol, T}
+  B = [tmp[a_τ, k, i]/q[a_τp1, k, i]*q[x, k, i] +
+  Δt*tendencies[x, k, i]/(tmp[ρ, k]*q[a_τp1, k, i])
   for k in over_elems_real(grid)]
-  A = TridiagonalMatrix(q, tmp, Δt, ρ, a_τp1, K, grid, DifussionImplicit(), i_sd)
+  A = TridiagonalMatrix(q, tmp, Δt, ρ, a_τp1, K, grid, DifussionImplicit(), i)
   X = inv(A)*B
-  assign_real!(q, x, grid, X, i_sd)
+  assign_real!(q, x, grid, X, i)
 end
 
+"""
+    solve_tridiag_wrapper!(grid::Grid, sv::StateVec, ϕ::Symbol, i::Int, tri_diag::StateVec)
+
+Solve the tri-diagonal system, given by state vector `tri_diag` for variable `ϕ` in sub-domain `i`.
+"""
 function solve_tridiag_wrapper!(grid::Grid, sv::StateVec, ϕ::Symbol, i::Int, tri_diag::StateVec)
   f = [tri_diag[:f, k] for k in over_elems_real(grid)]
   a = [tri_diag[:a, k] for k in over_elems_real(grid)]

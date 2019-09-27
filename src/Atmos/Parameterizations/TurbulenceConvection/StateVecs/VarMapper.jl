@@ -1,7 +1,5 @@
 #### VarMapper
 
-export get_var_mapper, get_sd_mapped, get_sd_unmapped, get_sv_a_map
-
 """
     get_var_mapper(vars)
 

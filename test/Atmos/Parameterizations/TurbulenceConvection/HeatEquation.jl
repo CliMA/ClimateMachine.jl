@@ -143,7 +143,7 @@ end
   rhs = deepcopy(q)
   cond_thermal(z) = z > .5 ? 1 : .1
   for k in over_elems(grid)
-    tmp[:K_thermal, k] = cond_thermal(get_z(grid, k))
+    tmp[:K_thermal, k] = cond_thermal(grid.zc[k])
   end
   for i in 1:maxiter
     for k in over_elems_real(grid)
@@ -177,7 +177,7 @@ end
   end
   cond_thermal(z) = z > .5 ? 1 : .1
   for k in over_elems(grid)
-    tmp[:K_thermal, k] = cond_thermal(get_z(grid, k))
+    tmp[:K_thermal, k] = cond_thermal(grid.zc[k])
   end
   for i in 1:maxiter
     for k in over_elems_real(grid)
@@ -186,10 +186,10 @@ end
       tmp[:ΔT, k] = Δ_z(q[:T_explicit_vol, Cut(k)], grid, tmp[:K_thermal, Cut(k)])
       rhs[:T_explicit_vol, k] = tmp[:ΔT, k] + VS
       rhs[:T_implicit, k] = VS
-      k==k_star1 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :K_thermal, Zmin(), TS, Dirichlet(), DiffusionAbsorbed()))
-      k==k_star2 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
-      k==k_star1 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :K_thermal, Zmin(), TS, Dirichlet(), DiffusionAbsorbed()))
-      k==k_star2 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
+      k==k_star1 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :ρ_0, :a, :K_thermal, Zmin(), TS, Dirichlet(), DiffusionAbsorbed()))
+      k==k_star2 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :ρ_0, :a, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
+      k==k_star1 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :ρ_0, :a, :K_thermal, Zmin(), TS, Dirichlet(), DiffusionAbsorbed()))
+      k==k_star2 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :ρ_0, :a, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
     end
 
     for k in over_elems_real(grid)
@@ -242,7 +242,7 @@ end
   end
   cond_thermal(z) = 5+3*cos(6*π*z)
   for k in over_elems(grid)
-    tmp[:K_thermal, k] = cond_thermal(get_z(grid, k))
+    tmp[:K_thermal, k] = cond_thermal(grid.zc[k])
     q[:T_explicit_surf, k] = IC
     q[:T_explicit_vol, k] = IC
     q[:T_implicit, k] = IC
@@ -259,13 +259,13 @@ end
 
       tmp[:ΔT, k] = Δ_z_dual(q[:T_explicit_vol, Cut(k)], grid, tmp[:K_thermal, Dual(k)])
       rhs[:T_explicit_vol, k] = tmp[:ΔT, k] + VS
-      k==k_star1 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :K_thermal, Zmin(), F, Neumann(), DiffusionAbsorbed()))
-      k==k_star2 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
+      k==k_star1 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :ρ_0, :a, :K_thermal, Zmin(), F, Neumann(), DiffusionAbsorbed()))
+      k==k_star2 && (rhs[:T_explicit_vol, k] += bc_source(q, grid, tmp, :T_explicit_vol, :ρ_0, :a, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
 
       rhs[:T_implicit, k] = VS
 
-      k==k_star1 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :K_thermal, Zmin(), F, Neumann(), DiffusionAbsorbed()))
-      k==k_star2 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
+      k==k_star1 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :ρ_0, :a, :K_thermal, Zmin(), F, Neumann(), DiffusionAbsorbed()))
+      k==k_star2 && (rhs[:T_implicit, k] += bc_source(q, grid, tmp, :T_implicit, :ρ_0, :a, :K_thermal, Zmax(), TS, Dirichlet(), DiffusionAbsorbed()))
     end
 
     for k in over_elems_real(grid)
