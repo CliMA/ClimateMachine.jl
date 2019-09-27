@@ -40,7 +40,7 @@ print_norms = false
           print_norms && print("\n", directory, ", ", n_elems_real, ", ", wave_speed, ", ")
 
           for k in over_elems_real(grid)
-            tmp[:ϕ_initial, k] = distribution(get_z(grid, k))
+            tmp[:ϕ_initial, k] = distribution(grid.zc[k])
             q[:ϕ, k] = tmp[:ϕ_initial, k]
           end
           amax_w = max([max(tmp[:ϕ_initial, k]) for k in over_elems_real(grid)]...)
@@ -58,7 +58,7 @@ print_norms = false
             apply_Dirichlet!(q, :ϕ, grid, 0.0, Zmax())
             apply_Dirichlet!(q, :ϕ, grid, 0.0, Zmin())
           end
-          sol_analtyic = [distribution(get_z(grid, k) - wave_speed*T) for k in over_elems(grid)]
+          sol_analtyic = [distribution(grid.zc[k] - wave_speed*T) for k in over_elems(grid)]
           sol_error = [sol_analtyic[k] - q[:ϕ, k] for k in over_elems(grid)]
           L2_norm = sum(sol_error.^2)/length(sol_error)
 
@@ -132,7 +132,7 @@ end
                            Gaussian)
         for velocity_sign in (-1, 1)
           for k in over_elems_real(grid)
-            tmp[:w_initial, k] = distribution(get_z(grid, k), velocity_sign)
+            tmp[:w_initial, k] = distribution(grid.zc[k], velocity_sign)
             q[:w, k] = tmp[:w_initial, k]
           end
           amax_w = max([max(tmp[:w_initial, k]) for k in over_elems_real(grid)]...)

@@ -13,7 +13,6 @@ export UpwindAdvective,
        UpwindCollocated,
        OneSidedUp,
        OneSidedDn,
-       UpwindHalfConservative,
        CenteredUnstable
 
 function advect(f, w, grid::Grid)
@@ -26,21 +25,35 @@ function advect(f, w, grid::Grid)
   end
 end
 
+"""
+    grad(f, grid::Grid{DT}) where DT
+
+Computes local finite-difference gradient of `f`: `∇f`
+"""
 function grad(f, grid::Grid{DT}) where DT
+  @assert length(f)==3 || length(f)==2
   if length(f)==2
     return (f[2]-f[1])*grid.Δzi
-  elseif length(f)==3
-    return (f[3]-f[1])*DT(0.5)*grid.Δzi
   else
-    Error("Bad length in GridOperators.jl")
+    return (f[3]-f[1])*DT(0.5)*grid.Δzi
   end
 end
 
+"""
+    ∇_pos(f, grid::Grid)
+
+Computes a one-sided (up) local finite-difference gradient of `f`: `∇f`
+"""
 function ∇_pos(f, grid::Grid)
   @assert length(f)==3
   return (f[2]-f[1])*grid.Δzi
 end
 
+"""
+    ∇_neg(f, grid::Grid)
+
+Computes a one-sided (down) local finite-difference gradient of `f`: `∇f`
+"""
 function ∇_neg(f, grid::Grid)
   @assert length(f)==3
   return (f[3]-f[2])*grid.Δzi
@@ -139,7 +152,6 @@ abstract type ConservativeForm end
 struct UpwindCollocated <: ConservativeForm end
 struct OneSidedUp <: ConservativeForm end
 struct OneSidedDn <: ConservativeForm end
-struct UpwindHalfConservative <: ConservativeForm end
 struct CenteredUnstable <: ConservativeForm end
 
 """
@@ -187,17 +199,6 @@ function advect_old(ϕ, ϕ_dual, w, w_dual, grid::Grid, ::OneSidedDn, Δt)
   @assert length(w)==3
   @assert length(w_dual)==2
   return (w[3]*ϕ[3] - w[2]*ϕ[2]) * grid.Δzi
-end
-function advect_old(ϕ, ϕ_dual, w, w_dual, grid::Grid, ::UpwindHalfConservative, Δt)
-  @assert length(ϕ)==3
-  @assert length(ϕ_dual)==2
-  @assert length(w)==3
-  @assert length(w_dual)==2
-  if w[2] > 0
-    return 2*(w[2]*ϕ[2] - w_dual[1]*ϕ_dual[1])*(grid.Δzi)
-  else
-    return 2*(w_dual[2]*ϕ_dual[2] - w[2]*ϕ[2])*(grid.Δzi)
-  end
 end
 function advect_old(ϕ, ϕ_dual, w, w_dual, grid::Grid, ::CenteredUnstable, Δt)
   @assert length(ϕ)==3

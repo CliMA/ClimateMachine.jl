@@ -1,10 +1,6 @@
 #### DomainIdx
 
-export DomainIdx,
-       gridmean, environment, updraft,
-       subdomains, alldomains, eachdomain, allcombinations,
-       get_i_state_vec,
-       var_suffix
+export DomainIdx, subdomains, alldomains, eachdomain, allcombinations
 
 """
     DomainIdx{GM,EN,UD}
@@ -41,12 +37,41 @@ has_gridmean(   ::DomainIdx{GM,EN,UD}) where {GM,EN,UD} = !(GM==0)
 has_environment(::DomainIdx{GM,EN,UD}) where {GM,EN,UD} = !(EN==0)
 has_updraft(    ::DomainIdx{GM,EN,UD}) where {GM,EN,UD} = !(UD==(0,))
 
-# Return flat list
+# TODO: write a state-vector wrapper for the exported functions
+"""
+    subdomains(idx::DomainIdx)
+
+Tuple of sub-domain indexes, including environment and updrafts
+"""
 subdomains(idx::DomainIdx)      = (environment(idx),updraft(idx)...)
+
+"""
+    alldomains(idx::DomainIdx)
+
+Tuple of all sub-domain indexes, including grid-mean, environment and updrafts
+"""
 alldomains(idx::DomainIdx)      = (gridmean(idx),environment(idx),updraft(idx)...)
 
-# Return structured
+"""
+    eachdomain(idx::DomainIdx)
+
+Tuple of indexes including
+ - grid-mean
+ - environment
+ - Tuple of updraft indexes
+"""
 eachdomain(idx::DomainIdx)      = (gridmean(idx),environment(idx),updraft(idx))
+
+"""
+    allcombinations(idx::DomainIdx)
+
+Tuple of indexes including
+ - grid-mean
+ - environment
+ - Tuple of updraft indexes
+ - Tuple of all sub-domains
+ - Tuple of all domains
+"""
 allcombinations(idx::DomainIdx) = (gridmean(idx),environment(idx),updraft(idx),subdomains(idx),alldomains(idx))
 
 function DomainIdx(dd::DomainDecomp, dss::DomainSubSet{BGM,BEN,BUD}) where {BGM,BEN,BUD}
@@ -54,17 +79,21 @@ function DomainIdx(dd::DomainDecomp, dss::DomainSubSet{BGM,BEN,BUD}) where {BGM,
   return DomainIdx{i_gm,i_en,i_ud}()
 end
 
-@inline get_i_state_vec(vm, a_map::AbstractArray, ϕ::Symbol, i_sd=1) = vm[ϕ][a_map[i_sd]]
-@inline get_i_var(a_map::AbstractArray, i_sd=1) = a_map[i_sd]
+@inline get_i_state_vec(vm, a_map::AbstractArray, ϕ::Symbol, i) = vm[ϕ][a_map[i]]
+@inline get_i_var(a_map::AbstractArray, i) = a_map[i]
 
-function var_suffix(vm, idx::DomainIdx, idx_ss::DomainIdx, ϕ::Symbol, i_sd=1)
-  if i_sd == gridmean(idx)
-    return string(ϕ)*"_gm"
-  elseif i_sd == environment(idx)
-    return string(ϕ)*"_en"
-  elseif i_sd in updraft(idx)
-    return string(ϕ)*"_ud_"*string(i_sd)
+function var_suffix(vm, idx::DomainIdx, idx_ss::DomainIdx, ϕ::Symbol, i)
+  if i == gridmean(idx)
+    return "_gm"
+  elseif i == environment(idx)
+    return "_en"
+  elseif i in updraft(idx)
+    return "_ud_"*string(i)
   else
-    throw(BoundsError(vm[ϕ], i_sd))
+    throw(BoundsError(vm[ϕ], i))
   end
+end
+
+function var_string(vm, idx::DomainIdx, idx_ss::DomainIdx, ϕ::Symbol, i)
+  string(ϕ)*var_suffix(vm, idx, idx_ss, ϕ, i)
 end

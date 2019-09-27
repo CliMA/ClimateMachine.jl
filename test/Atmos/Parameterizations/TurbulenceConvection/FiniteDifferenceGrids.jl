@@ -3,26 +3,34 @@ using Test, Printf, ForwardDiff
 using CLIMA.TurbulenceConvection.FiniteDifferenceGrids
 
 @testset "Grid interface" begin
-  for n_ghost in (1, 2)
-    n_elems = 12
-    n_elems_real = n_elems-2*n_ghost
-    elem_indexes = 1:n_elems
-    elem_indexes_real = elem_indexes[1+n_ghost:end-n_ghost]
-    Δz = 1/n_elems_real
-    grid = Grid(0.0, 1.0, n_elems_real, n_ghost)
-    @test all(over_elems(grid) .== elem_indexes)
-    @test all(over_elems_real(grid) .== elem_indexes_real)
-    @test length(over_elems(grid)) == n_elems
-    @test length(over_elems_real(grid)) == n_elems_real
-    @test first_interior(grid, Zmax()) == n_elems-n_ghost
-    @test first_interior(grid, Zmin()) == 1+n_ghost
-    @test boundary(grid, Zmin()) == 1+n_ghost
-    @test boundary(grid, Zmax()) == n_elems-n_ghost
-    @test get_z(grid, first_interior(grid, Zmin())) ≈ grid.zn_min + Δz/2
-    @test over_elems_ghost(grid) == [(1:n_ghost)..., (n_elems+1-n_ghost:n_elems)...]
-    @test grid.zn_min ≈ 0.0
-    @test grid.zn_max  ≈ 1.0
-    sprint(show, grid)
+  for DT in (Float32, Float64)
+    for n_ghost in (1, 2)
+      n_elems = 12
+      n_elems_real = n_elems-2*n_ghost
+      elem_indexes = 1:n_elems
+      elem_indexes_real = elem_indexes[1+n_ghost:end-n_ghost]
+      Δz = DT(1/n_elems_real)
+      grid = Grid(DT(0.0), DT(1.0), n_elems_real, n_ghost)
+      @test n_hat(Zmin()) == -1
+      @test n_hat(Zmax()) == 1
+      @test binary(Zmin()) == 0
+      @test binary(Zmax()) == 1
+      @test ghost_dual(Zmin()) == [1, 0]
+      @test ghost_dual(Zmax()) == [0, 1]
+      @test eltype(grid) == DT
+      @test all(over_elems(grid) .== elem_indexes)
+      @test all(over_elems_real(grid) .== elem_indexes_real)
+      @test length(over_elems(grid)) == n_elems
+      @test length(over_elems_real(grid)) == n_elems_real
+      @test first_interior(grid, Zmax()) == n_elems-n_ghost
+      @test first_interior(grid, Zmin()) == 1+n_ghost
+      @test boundary(grid, Zmin()) == 1+n_ghost
+      @test boundary(grid, Zmax()) == n_elems-n_ghost
+      @test over_elems_ghost(grid) == [(1:n_ghost)..., (n_elems+1-n_ghost:n_elems)...]
+      @test grid.zn_min ≈ DT(0.0)
+      @test grid.zn_max  ≈ DT(1.0)
+      sprint(show, grid)
+    end
   end
 end
 
@@ -30,6 +38,28 @@ function ∇(f, x::T) where {T}
     tag = typeof(ForwardDiff.Tag(f, T))
     y = f(ForwardDiff.Dual{tag}(x,one(x)))
     ForwardDiff.partials(tag, y, 1)
+end
+
+@testset "Grid operators" begin
+  for DT in (Float32, Float64)
+    n_ghost = 1
+    n_elems = 12
+    n_elems_real = n_elems-2*n_ghost
+    elem_indexes = 1:n_elems
+    elem_indexes_real = elem_indexes[1+n_ghost:end-n_ghost]
+    Δz = DT(1/n_elems_real)
+    grid = Grid(DT(0.0), DT(1.0), n_elems_real, n_ghost)
+    f = DT[1, 5, 3]
+    w = DT[2, 3, 8]
+    @test grad(f[1:2], grid) ≈ DT(40)
+    @test grad(f, grid) ≈ DT(10)
+    @test_throws AssertionError grad(f[1], grid)
+    @test_throws AssertionError advect(f[1:2], w[1:2], grid)
+    @test advect(f, w, grid) ≈ DT(40)
+    @test advect(f, -w, grid) ≈ DT(-20)
+    @test ∇_pos(f, grid) ≈ DT(40)
+    @test ∇_neg(f, grid) ≈ DT(-20)
+  end
 end
 
 @testset "Grid operators convergence" begin
@@ -94,7 +124,6 @@ end
                                 UpwindCollocated(),
                                 OneSidedUp(),
                                 OneSidedDn(),
-                                UpwindHalfConservative(),
                                 CenteredUnstable(),
                                 )
       adv_err = [abs(∇wϕ[k] - advect_old(ϕ[k-1:k+1],
