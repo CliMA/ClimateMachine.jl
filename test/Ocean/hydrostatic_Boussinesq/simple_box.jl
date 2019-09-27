@@ -71,7 +71,7 @@ function ocean_init_state!(p::SimpleBox, Q, α, coords, t)
   @inbounds H = p.H
   Q.u = @SVector [0,0]
   Q.η = 0
-  Q.θ = 9 + 8z / H
+  Q.θ = 20 # 9 + 8z / H
 end
 
 ###################
@@ -88,7 +88,7 @@ const H  = 400
 const cʰ = sqrt(grav * H)
 const cᶻ = 0
 
-const τₒ = 0 # 1e-1
+const τₒ = 1e-1
 const fₒ = 1e-4
 const β  = 1e-11
 const θᴱ = 25
@@ -96,9 +96,9 @@ const θᴱ = 25
 const αᵀ = 0 # 2e-4
 const νʰ = 1e4
 const νᶻ = 1e-2
-const κʰ = 1e3
-const κᶻ = 1e-3
-const λʳ = 1 // 86400
+const κʰ = 0 # 1e3
+const κᶻ = 0 # 1e-3
+const λʳ = 0 # 1 // 86400
 
 let
   MPI.Initialized() || MPI.Init()

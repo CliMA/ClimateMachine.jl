@@ -40,6 +40,10 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
   if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q), typeof(α),
                                   typeof(t)})
     update_aux!(dg, bl, Q, α, t)
+  elseif hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
+                                  typeof(α), typeof(t),
+                                  typeof(param.blparam)})
+    update_aux!(dg, bl, Q, α, t, param.blparam)
   end
 
   ########################

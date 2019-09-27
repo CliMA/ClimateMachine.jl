@@ -265,7 +265,7 @@ end
                                        ::Union{Rusanov, CentralFlux, CentralGradPenalty},
                                        Q⁺, α⁺, n⁻, Q⁻, α⁻, t)
   Q⁺.u = -Q⁻.u
-  α⁺.w = -α⁻.w
+  α⁺.w =  α⁻.w
 
   return nothing
 end
@@ -276,7 +276,7 @@ end
                                        σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
 
   Q⁺.u = -Q⁻.u
-  α⁺.w = -α⁻.w
+  α⁺.w =  α⁻.w
 
   σ⁺.κ∇θ = -σ⁻.κ∇θ
 
@@ -286,8 +286,7 @@ end
 @inline function ocean_boundary_state!(::HBModel, ::OceanSurface,
                                        ::Union{Rusanov, CentralFlux, CentralGradPenalty},
                                        Q⁺, α⁺, n⁻, Q⁻, α⁻, t)
-  # Q⁺.θ = α⁻.θʳ
-  α⁺.w = -α⁻.w
+  α⁺.w = α⁻.w
 
   return nothing
 end
@@ -296,8 +295,7 @@ end
 @inline function ocean_boundary_state!(m::HBModel, ::OceanSurface,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
-  # Q⁺.θ = α⁻.θʳ
-  α⁺.w = -α⁻.w
+  α⁺.w = α⁻.w
 
   τ = α⁻.τ
   σ⁺.ν∇u = -σ⁻.ν∇u - 2 * @SMatrix [ -0 -0;
@@ -306,7 +304,7 @@ end
 
   θ  = Q⁻.θ
   θʳ = α⁻.θʳ
-  λʳ =  m.λʳ
+  λʳ = m.λʳ
   σ⁺.κ∇θ = -σ⁻.κ∇θ + 2 * λʳ * (θ - θʳ)
 
   return nothing
