@@ -184,8 +184,9 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, α, t, params)
   vert_dg = params.vert_dg
   vert_param = params.vert_param
   vert_dQ = params.vert_dQ
+  # required to ensure that after integration velocity field is diveregnce free
   vert_filter = params.vert_filter
-  # apply!(Q, (1, 2), dg.grid, vert_filter; horizontal=false)
+  apply!(Q, (1, 2), dg.grid, vert_filter; horizontal=false)
 
   exp_filter = params.exp_filter
   # apply!(Q, (4,), dg.grid, exp_filter; horizontal=false)
