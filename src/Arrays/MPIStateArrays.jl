@@ -391,7 +391,10 @@ function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
-  E = @~ (A.realQ .- B.realQ).^2
+  # work around https://github.com/JuliaArrays/LazyArrays.jl/issues/66
+  ArealQ = A.realQ
+  BrealQ = B.realQ
+  E = @~ (ArealQ .- BrealQ).^2
 
   if ~isempty(A.weights)
     w = @view A.weights[:, :, A.realelems]
