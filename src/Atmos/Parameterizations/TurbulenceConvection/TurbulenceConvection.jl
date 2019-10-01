@@ -1,9 +1,14 @@
+"""
+    TurbulenceConvection
+
+Module for solving the sub-grid-scale equations
+using the Eddy-Diffusivity-Mass-Flux (EDMF) model.
+"""
 module TurbulenceConvection
 
-include("Grids/Grids.jl")
-include("Grids/GridOperators.jl")
+include("Grids/FiniteDifferenceGrids.jl")
 include("StateVecs/StateVecs.jl")
-include("StateVecs/BoundaryConditions.jl")
-include("StateVecs/StateVecFuncs.jl")
+include("LinearSolvers/TriDiagSolvers.jl")
+# include("EDMF/EDMF.jl")
 
 end # module
