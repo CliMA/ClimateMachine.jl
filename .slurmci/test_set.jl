@@ -1,5 +1,6 @@
 cpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                  (3, "examples/DGmethods_old/ex_002_solid_body_rotation.jl"),
+                 (3, "examples/DGmethods_old/compressible_Navier_Stokes/rtb_visc.jl"),
                  (1, "test/Ocean/shallow_water/GyreDriver.jl")
                 ))
 
