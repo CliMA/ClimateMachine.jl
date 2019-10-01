@@ -1,7 +1,5 @@
 cpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                  (3, "examples/DGmethods_old/ex_002_solid_body_rotation.jl"),
-                 (3, "test/DGmethods_old/compressible_Navier_Stokes/dycoms.jl"),
-                 (3, "test/DGmethods_old/compressible_Navier_Stokes/rtb_visc.jl"),
                  (1, "test/Ocean/shallow_water/GyreDriver.jl")
                 ))
 
@@ -14,6 +12,8 @@ cpu_gpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                      (3, "test/DGmethods/Euler/isentropicvortex.jl"),
                      (3, "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl"),
                      (3, "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl"),
+                     (3, "test/DGmethods/compressible_Navier_Stokes/rising_bubble-model.jl"),
+                     (3, "test/DGmethods/compressible_Navier_Stokes/density_current-model.jl"),
                      (3, "test/DGmethods_old/Euler/RTB_IMEX.jl"),
                      (3, "test/DGmethods_old/Euler/isentropic_vortex_standalone.jl"),
                      (3, "test/DGmethods_old/Euler/isentropic_vortex_standalone_IMEX.jl"),
