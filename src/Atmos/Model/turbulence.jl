@@ -6,10 +6,10 @@ export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 
 abstract type TurbulenceClosure end
 
-vars_state(::TurbulenceClosure, T) = @vars()
-vars_gradient(::TurbulenceClosure, T) = @vars()
-vars_diffusive(::TurbulenceClosure, T) = @vars()
-vars_aux(::TurbulenceClosure, T) = @vars()
+vars_state(::TurbulenceClosure, FT) = @vars()
+vars_gradient(::TurbulenceClosure, FT) = @vars()
+vars_diffusive(::TurbulenceClosure, FT) = @vars()
+vars_aux(::TurbulenceClosure, FT) = @vars()
 
 function atmos_init_aux!(::TurbulenceClosure, ::AtmosModel, aux::Vars, geom::LocalGeometry)
 end
@@ -21,15 +21,15 @@ function gradvariables!(::TurbulenceClosure, transform::Vars, state::Vars, aux::
 end
 
 """
-  PrincipalInvariants{DT} 
+  PrincipalInvariants{FT} 
 
 Calculates principal invariants of a tensor. Returns struct with fields first,second,third 
 referring to each of the invariants. 
 """
-struct PrincipalInvariants{DT}
-  first::DT
-  second::DT
-  third::DT
+struct PrincipalInvariants{FT}
+  first::FT
+  second::FT
+  third::FT
 end
 function compute_principal_invariants(X::StaticArray{Tuple{3,3}})
   first = tr(X)
@@ -47,9 +47,9 @@ Turbulence with constant dynamic viscosity (`ρν`). Divergence terms are includ
 
 $(DocStringExtensions.FIELDS)
 """
-struct ConstantViscosityWithDivergence{T} <: TurbulenceClosure
+struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
   "Dynamic Viscosity [kg/m/s]"
-  ρν::T
+  ρν::FT
 end
 function dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, 
   state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
@@ -82,9 +82,9 @@ end
 
 $(DocStringExtensions.FIELDS)
 """
-struct SmagorinskyLilly{T} <: TurbulenceClosure
+struct SmagorinskyLilly{FT} <: TurbulenceClosure
   "Smagorinsky Coefficient [dimensionless]"
-  C_smag::T
+  C_smag::FT
 end
 
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
@@ -139,7 +139,7 @@ function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
   sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
 end
 
-function strain_rate_magnitude(S::SHermitianCompact{3,T,6}) where {T}
+function strain_rate_magnitude(S::SHermitianCompact{3,FT,6}) where {FT}
   sqrt(2*S[1,1]^2 + 4*S[2,1]^2 + 4*S[3,1]^2 + 2*S[2,2]^2 + 4*S[3,2]^2 + 2*S[3,3]^2)
 end
 
@@ -147,18 +147,18 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   # strain rate tensor norm
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
-  T = eltype(state)
+  FT = eltype(state)
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
-  return state.ρ * normS * f_b² * T(m.C_smag * aux.turbulence.Δ)^2
+  return state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
   (-2*ρν) * S
 end
 
 """
-  Vreman{DT} <: TurbulenceClosure
+  Vreman{FT} <: TurbulenceClosure
   
   §1.3.2 in CLIMA documentation 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Smagorinsky coefficient
@@ -185,12 +185,12 @@ If Δᵢ = Δ, then β = Δ²αᵀα
 
 $(DocStringExtensions.FIELDS)
 """
-struct Vreman{DT} <: TurbulenceClosure
+struct Vreman{FT} <: TurbulenceClosure
   "Smagorinsky Coefficient [dimensionless]"
-  C_smag::DT
+  C_smag::FT
 end
-vars_aux(::Vreman,T) = @vars(Δ::T)
-vars_gradient(::Vreman,T) = @vars(θ_v::T)
+vars_aux(::Vreman,FT) = @vars(Δ::FT)
+vars_gradient(::Vreman,FT) = @vars(θ_v::FT)
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
@@ -198,7 +198,7 @@ function gradvariables!(m::Vreman, transform::Vars, state::Vars, aux::Vars, t::R
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
 function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
-  DT = eltype(state)
+  FT = eltype(state)
   ∇u = ∇transform.u
   αijαij = sum(∇u .^ 2)
   @inbounds normS = strain_rate_magnitude(S)
@@ -206,14 +206,14 @@ function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, �
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   Bβinvariants = compute_principal_invariants(βij)
   @inbounds Bβ = Bβinvariants.second
-  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(DT))))) 
+  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(FT))))) 
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S
 end
 
 """
-  AnisoMinDiss{DT} <: TurbulenceClosure
+  AnisoMinDiss{FT} <: TurbulenceClosure
   
   §1.3.2 in CLIMA documentation 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Poincare coefficient
@@ -250,8 +250,8 @@ url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
 }
 
 """
-struct AnisoMinDiss{DT} <: TurbulenceClosure
-  C_poincare::DT
+struct AnisoMinDiss{FT} <: TurbulenceClosure
+  C_poincare::FT
 end
 vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
 vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::T)
@@ -262,12 +262,12 @@ function gradvariables!(m::AnisoMinDiss, transform::Vars, state::Vars, aux::Vars
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
 function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
-  DT = eltype(state)
+  FT = eltype(state)
   ∇u = ∇transform.u
   αijαij = dot(∇u,∇u)
   coeff = (aux.turbulence.Δ * m.C_poincare)^2
   βij = -(∇u' * ∇u)
-  ν_e = max(0,coeff * (dot(βij, S) / (αijαij + eps(DT))))
+  ν_e = max(0,coeff * (dot(βij, S) / (αijαij + eps(FT))))
   return state.ρ * ν_e
 end
 function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)

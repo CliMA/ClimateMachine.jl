@@ -142,21 +142,21 @@ end
 end
 
 function reference_ρ_ρe(x, y, z)
-  DFloat                = eltype(x)
-  R_gas::DFloat         = R_d
-  c_p::DFloat           = cp_d
-  c_v::DFloat           = cv_d
-  p0::DFloat            = MSLP
-  gravity::DFloat       = grav
+  FT                = eltype(x)
+  R_gas::FT         = R_d
+  c_p::FT           = cp_d
+  c_v::FT           = cv_d
+  p0::FT            = MSLP
+  gravity::FT       = grav
   # perturbation parameters for rising bubble
 
-  θ0::DFloat = 303
+  θ0::FT = 303
   π_exner    = 1 - gravity / (c_p * θ0) * y # exner pressure
   ρ          = p0 / (R_gas * θ0) * (π_exner)^ (c_v / R_gas) # density
 
   P          = p0 * (R_gas * (ρ * θ0) / p0) ^(c_p/c_v) # pressure (absolute)
   T          = P / (ρ * R_gas) # temperature
-  u⃗          = SVector(-zero(DFloat), -zero(DFloat), -zero(DFloat))
+  u⃗          = SVector(-zero(FT), -zero(FT), -zero(FT))
   # energy definitions
   e_kin = u⃗' * u⃗ / 2
   e_pot = gravity * y
@@ -167,23 +167,23 @@ end
 
 # Initial Condition
 function rising_bubble!(dim, Q, t, x, y, z, aux)
-  DFloat          = eltype(Q)
-  R_gas::DFloat   = R_d
-  c_p::DFloat     = cp_d
-  c_v::DFloat     = cv_d
-  p0::DFloat      = MSLP
-  gravity::DFloat = grav
+  FT          = eltype(Q)
+  R_gas::FT   = R_d
+  c_p::FT     = cp_d
+  c_v::FT     = cv_d
+  p0::FT      = MSLP
+  gravity::FT = grav
   # perturbation parameters for rising bubble
 
   r⃗ = SVector(x, y, z)
   r⃗_center = SVector(500, 260, 500)
   distance = norm(@view (r⃗ - r⃗_center)[1:dim])
 
-  θ0::DFloat  = 303
-  θ_c::DFloat = 1 // 2
-  Δθ::DFloat  = -zero(DFloat)
-  a::DFloat   =  50
-  s::DFloat   = 100
+  θ0::FT  = 303
+  θ_c::FT = 1 // 2
+  Δθ::FT  = -zero(FT)
+  a::FT   =  50
+  s::FT   = 100
   if distance <= a
     Δθ = θ_c
   elseif distance > a
@@ -195,7 +195,7 @@ function rising_bubble!(dim, Q, t, x, y, z, aux)
 
   P       = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
   T       = P / (ρ * R_gas) # temperature
-  u⃗       = SVector(-zero(DFloat), -zero(DFloat), -zero(DFloat))
+  u⃗       = SVector(-zero(FT), -zero(FT), -zero(FT))
   # energy definitions
   e_kin = u⃗' * u⃗ / 2
   e_pot = gravity * y
@@ -212,8 +212,8 @@ end
 @inline function lin_eulerflux!(F, Q, _, aux, t)
   F .= -zero(eltype(Q))
   @inbounds begin
-    DFloat = eltype(Q)
-    γ::DFloat = γ_exact # FIXME: Remove this for some moist thermo approach
+    FT = eltype(Q)
+    γ::FT = γ_exact # FIXME: Remove this for some moist thermo approach
 
     δρ, δρe = Q[_δρ], Q[_δρe]
     ρu⃗ = SVector(Q[_ρu], Q[_ρv], Q[_ρw])
@@ -237,8 +237,8 @@ end
 
 @inline function wavespeed_linear(n, Q, aux, t)
   @inbounds begin
-    DFloat = eltype(Q)
-    γ::DFloat = γ_exact # FIXME: Remove this for some moist thermo approach
+    FT = eltype(Q)
+    γ::FT = γ_exact # FIXME: Remove this for some moist thermo approach
 
     ρ0, ρe0, ϕ = aux[_a_ρ0], aux[_a_ρe0], aux[_a_ϕ]
     ρinv0 = 1 / ρ0
@@ -273,12 +273,12 @@ end
 
 # }}}
 
-function run(mpicomm, dim, brickrange, periodicity, N, timeend, DFloat, dt, output_steps)
+function run(mpicomm, dim, brickrange, periodicity, N, timeend, FT, dt, output_steps)
 
   topl = StackedBrickTopology(mpicomm, brickrange, periodicity = periodicity)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N)
 
@@ -298,7 +298,7 @@ function run(mpicomm, dim, brickrange, periodicity, N, timeend, DFloat, dt, outp
                            source! = source!)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = rising_bubble!(dim, Q, DFloat(0), x...)
+  initialcondition(Q, x...) = rising_bubble!(dim, Q, FT(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   # {{{ Lineariztion Setup
@@ -394,7 +394,7 @@ let
   end
   
   polynomialorder = 4
-  DFloat = Float64
+  FT = Float64
 
   expected_engf_eng0 = Dict()
   expected_engf_eng0[(Float64, 2)] = 1.5850821145834655e+00
@@ -447,9 +447,9 @@ let
     
     engf_eng0 = run(mpicomm,
                     dim, brickrange, periodicity, polynomialorder,
-                    timeend, DFloat, dt, output_steps)
+                    timeend, FT, dt, output_steps)
 
-    @test engf_eng0 ≈ expected_engf_eng0[DFloat, dim]
+    @test engf_eng0 ≈ expected_engf_eng0[FT, dim]
   end
 end
 nothing

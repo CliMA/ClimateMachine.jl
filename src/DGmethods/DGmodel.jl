@@ -38,8 +38,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   Qvisc = dg.diffstate
   auxstate = dg.auxstate
 
-  DFloat = eltype(Q)
-  nviscstate = num_diffusive(bl, DFloat)
+  FT = eltype(Q)
+  nviscstate = num_diffusive(bl, FT)
 
   lgl_weights_vec = grid.ω
   Dmat = grid.D
@@ -174,13 +174,13 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   vgeo = grid.vgeo
   polyorder = polynomialorder(dg.grid)
 
   # do integrals
-  nintegrals = num_integrals(m, DFloat)
+  nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
@@ -205,13 +205,13 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  DFloat = eltype(auxstate)
+  FT = eltype(auxstate)
 
   vgeo = grid.vgeo
   polyorder = polynomialorder(dg.grid)
 
   # do integrals
-  nintegrals = num_integrals(m, DFloat)
+  nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
