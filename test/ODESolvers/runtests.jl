@@ -6,6 +6,8 @@ using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.MultirateRungeKuttaMethod
 using CLIMA.LinearSolvers
+using StaticArrays
+using LinearAlgebra
 
 const slow_mrrk_methods = [(LSRK54CarpenterKennedy, 4)
                            (LSRK144NiegemannDiehlBusch, 4)
@@ -352,6 +354,107 @@ let
                  isapprox(rates[end], max_order; atol = 0.1) ||
                  min_order <= rates[end] <= max_order)
         end
+      end
+    end
+  end
+end
+
+#=
+Test problem (4.2) from RobertsSarsharSandu2018arxiv
+@article{RobertsSarsharSandu2018arxiv,
+  title={Coupled Multirate Infinitesimal GARK Schemes for Stiff Systems with
+         Multiple Time Scales},
+  author={Roberts, Steven and Sarshar, Arash and Sandu, Adrian},
+  journal={arXiv preprint arXiv:1812.00808},
+  year={2019}
+}
+
+Note: The actual rates are all over the place with this test and passing largely
+      depends on final dt size
+=#
+let
+  ω = 100
+  λf = -10
+  λs = -1
+  ξ = 1 // 10
+  α = 1
+  ηfs = ((1-ξ) / α) * (λf - λs);
+  ηsf = -ξ * α * (λf - λs);
+  Ω = @SMatrix [ λf ηfs;
+                ηsf  λs]
+
+  function rhs_fast!(dQ, Q, param, t; increment)
+    @inbounds begin
+      increment || (dQ .= 0)
+      yf = Q[1]
+      ys = Q[2]
+      gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+      gs = (-2 + ys^2 - cos(    t)) / 2ys
+      dQ[1] += Ω[1,1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+    end
+  end
+
+  function rhs_slow!(dQ, Q, param, t; increment)
+    @inbounds begin
+      increment || (dQ .= 0)
+      yf = Q[1]
+      ys = Q[2]
+      gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+      gs = (-2 + ys^2 - cos(    t)) / 2ys
+      dQ[2] += Ω[2,1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+    end
+  end
+
+  exactsolution(t) = [sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))]
+
+  @testset "RobertsSarsharSandu2018arxiv Multirate Problem (no substeps)" begin
+    for (slow_method, slow_expected_order) in slow_mrrk_methods
+      for (fast_method, fast_expected_order) in fast_mrrk_methods
+        finaltime = 5π / 2
+        dts = [2.0 ^ (-k) for k = 2:8]
+
+        error = similar(dts)
+        for (n, dt) in enumerate(dts)
+          Q = exactsolution(0)
+          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
+                                       fast_method(rhs_fast!, Q);
+                                       dt = dt, t0 = 0.0)
+          solve!(Q, solver; timeend = finaltime)
+          error[n] = norm(Q - exactsolution(finaltime))
+        end
+
+        rate = log2.(error[1:end-1] ./ error[2:end])
+        min_order = min(slow_expected_order, fast_expected_order)
+        max_order = max(slow_expected_order, fast_expected_order)
+        @test (isapprox(rate[end], min_order; atol = 0.3) ||
+               isapprox(rate[end], max_order; atol = 0.3) ||
+               min_order <= rate[end] <= max_order)
+      end
+    end
+  end
+
+  @testset "RobertsSarsharSandu2018arxiv Multirate Problem (with substeps)" begin
+    for (slow_method, slow_expected_order) in slow_mrrk_methods
+      for (fast_method, fast_expected_order) in fast_mrrk_methods
+        finaltime = 5π / 2
+        dts = [2.0 ^ (-k) for k = 2:9]
+
+        error = similar(dts)
+        for (n, fast_dt) in enumerate(dts)
+          Q = exactsolution(0)
+          slow_dt = ω * fast_dt
+          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
+                                       fast_method(rhs_fast!, Q; dt=fast_dt))
+          solve!(Q, solver; timeend = finaltime)
+          error[n] = norm(Q - exactsolution(finaltime))
+        end
+
+        rate = log2.(error[1:end-1] ./ error[2:end])
+        min_order = min(slow_expected_order, fast_expected_order)
+        max_order = max(slow_expected_order, fast_expected_order)
+        @test (isapprox(rate[end], min_order; atol = 0.3) ||
+               isapprox(rate[end], max_order; atol = 0.3) ||
+               min_order <= rate[end] <= max_order)
       end
     end
   end
