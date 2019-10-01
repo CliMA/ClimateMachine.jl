@@ -70,8 +70,6 @@ end
 
 function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, timeend,
                       adjustfinalstep) where {SS <: LSRK2N}
-  slow_param = param[1]
-  fast_param = param[2]
   time, dt = mrrk.t[1], mrrk.dt[1]
   @assert dt > 0
   if adjustfinalstep && time + dt > timeend
@@ -89,7 +87,7 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, timeend,
     slow_stage_time = time + slow.RKC[slow_s] * dt
 
     # Evaluate the slow mode
-    slow.rhs!(slow.dQ, Q, slow_param, slow_stage_time, increment = true)
+    slow.rhs!(slow.dQ, Q, param, slow_stage_time, increment = true)
 
     # Fractional time for slow stage
     if slow_s == length(slow.RKA)
@@ -113,7 +111,7 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, timeend,
         slow_rka = slow.RKA[slow_s%length(slow.RKA) + 1]
       end
       fast_time = slow_stage_time + (substep - 1) * fast_dt
-      ODEs.dostep!(Q, fast, fast_param, fast_time, fast_dt, slow_δ, slow_rv_dQ,
+      ODEs.dostep!(Q, fast, param, fast_time, fast_dt, slow_δ, slow_rv_dQ,
                    slow_rka)
     end
   end

@@ -252,8 +252,7 @@ let
           solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
                                        fast_method(rhs_fast!, Q);
                                        dt = dt, t0 = 0.0)
-          param = (nothing, nothing)
-          solve!(Q, solver, param; timeend = finaltime)
+          solve!(Q, solver; timeend = finaltime)
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
         end
 
@@ -280,8 +279,7 @@ let
           Q = [q0]
           solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
                                        fast_method(rhs_fast!, Q; dt=fast_dt))
-          param = (nothing, nothing)
-          solve!(Q, solver, param; timeend = finaltime)
+          solve!(Q, solver; timeend = finaltime)
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
         end
 
@@ -313,8 +311,7 @@ let
             solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
                                          fast_method(rhs_fast!, Q);
                                          dt = dt, t0 = 0.0)
-            param = (nothing, nothing)
-            solve!(Q, solver, param; timeend = finaltime)
+            solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
             errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
           end
@@ -343,8 +340,7 @@ let
             Q = CuArray{ComplexF64}(q0s)
             solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
                                          fast_method(rhs_fast!, Q; dt=fast_dt))
-            param = (nothing, nothing)
-            solve!(Q, solver, param; timeend = finaltime)
+            solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
             errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
           end
