@@ -37,6 +37,7 @@ export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, P
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_liquid_ice_pottemp, dry_pottemp, virtual_pottemp, exner
 export liquid_ice_pottemp, liquid_ice_pottemp_sat, relative_humidity
+export buoyancy_flux
 
 include("states.jl")
 
@@ -264,6 +265,11 @@ air_temperature(ts::ThermodynamicState) = air_temperature(ts.e_int, PhasePartiti
 air_temperature(ts::PhaseDry{DT}) where {DT<:Real} = DT(T_0) + ts.e_int / cv_m(ts)
 air_temperature(ts::PhaseEquil) = ts.T
 
+function buoyancy_flux(shf::DT, lhf::DT, T_b::DT, q_tot::DT, α_0::DT) where {DT<:Real}
+  cp_ = cp_m(PhasePartition(q_tot))
+  lv = latent_heat_vapor(T_b)
+  return (grav * α_0 / cp_ / T_b * (shf + ((R_v / R_d)-1) * cp_ * T_b * lhf /lv))
+end
 
 """
     internal_energy(T[, q::PhasePartition])
@@ -781,15 +787,26 @@ See also [`saturation_adjustment`](@ref).
 function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::DT, q_tot::DT, ρ::DT, p::DT) where {DT<:Real}
   T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
+  T_sol = T_1
   if q_tot <= q_v_sat # If not saturated
-    return T_1
   else  # If saturated, iterate
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, DT(0), q_tot)) # Assume all ice
-    T, converged = find_zero(
-      T -> θ_liq_ice - liquid_ice_pottemp_sat(T, p, PhasePartition_equil(T, ρ, q_tot)),
-      T_1, T_2, SecantMethod(), DT(1e-3), 10)
-    return T
+
+    # TOFIX: CLIMA implementation
+    # T, converged = find_zero(
+    #   T -> θ_liq_ice - liquid_ice_pottemp_sat(T, p, PhasePartition_equil(T, ρ, q_tot)),
+    #   T_1, T_2, SecantMethod(), DT(1e-3), 10)
+
+    function eos(T)
+      q_vap_sat = q_vap_saturation(T, ρ)
+      q_pt = PhasePartition(q_vap_sat)
+      return θ_liq_ice - dry_pottemp(T, p, q_pt) * exp(-latent_heat_vapor(T)/(T*cp_d)*(q_tot - q_vap_sat)/(1.0-q_tot))
+    end
+
+    # TOFIX: SCAMPY implementation
+    T_sol, converged = find_zero(T -> eos(T), T_1, T_2, SecantMethod(), DT(1e-3), 10)
   end
+  return T_sol
 end
 
 """

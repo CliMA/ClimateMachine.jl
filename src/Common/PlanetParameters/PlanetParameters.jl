@@ -63,6 +63,11 @@ using ..ParametersType
 @exportparameter year_anom         365.26*day    "Length of anomalistic year (s)"
 @exportparameter orbit_semimaj     1*astro_unit  "Length of semimajor orbital axis (m)"
 @exportparameter TSI               1362          "Total solar irradiance (W/m^2)"
-@exportparameter MSLP              1.01325e5     "Mean sea level pressure (Pa)"
+
+# TOFIX: CLIMA implementation
+# @exportparameter MSLP              1.01325e5     "Mean sea level pressure (Pa)"
+
+# TOFIX: SCAMPy implementation
+@exportparameter MSLP              100000.0      "Mean sea level pressure (Pa)"
 
 end

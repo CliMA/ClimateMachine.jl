@@ -9,6 +9,6 @@ module TurbulenceConvection
 include("Grids/FiniteDifferenceGrids.jl")
 include("StateVecs/StateVecs.jl")
 include("LinearSolvers/TriDiagSolvers.jl")
-# include("EDMF/EDMF.jl")
+include("EDMF/EDMF.jl")
 
 end # module

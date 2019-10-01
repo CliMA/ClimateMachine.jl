@@ -10,6 +10,7 @@ docs/src/examples/
 src/**/Manifest.toml
 *.vtk
 *.dat
+*.csv
 *.vtu
 *.pvtu
 *.swp

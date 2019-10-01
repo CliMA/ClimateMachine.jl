@@ -6,7 +6,7 @@ for submodule in [
                   "StateVecs",
                   "TDMA",
                   "PDEs",
-                  # "BOMEX",
+                  "BOMEX",
                   ]
 
   println("Testing $submodule")
