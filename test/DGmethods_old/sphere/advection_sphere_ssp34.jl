@@ -114,10 +114,10 @@ end
 #{{{ velocity initial condition
 @inline function velocity_init!(vel, x, y, z)
   @inbounds begin
-    DFloat = eltype(vel)
+    FT = eltype(vel)
     (r, λ, ϕ) = cartesian_to_spherical(x,y,z,radians)
-    # w = 2 * DFloat(π) * cos(ϕ) # Case 1 -> shear flow
-    w = 2 * DFloat(π) * cos(ϕ) * r # Case 2 -> solid body flow
+    # w = 2 * FT(π) * cos(ϕ) # Case 1 -> shear flow
+    w = 2 * FT(π) * cos(ϕ) * r # Case 2 -> solid body flow
     uλ, uϕ = w, 0
     vel[uid] = -uλ*sin(λ) - uϕ*cos(λ)*sin(ϕ)
     vel[vid] = +uλ*cos(λ) - uϕ*sin(λ)*sin(ϕ)
@@ -128,7 +128,7 @@ end
 
 # initial condition
 function advection_sphere!(Q, t, x, y, z, vel)
-  DFloat = eltype(Q)
+  FT = eltype(Q)
   rc=1.5
   (r, λ, ϕ) = cartesian_to_spherical(x,y,z,radians)
   ρ = exp(-((3λ)^2 + (3ϕ)^2))
@@ -137,9 +137,9 @@ function advection_sphere!(Q, t, x, y, z, vel)
 end
 
 #{{{ Main
-function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
+function main(mpicomm, FT, topl, N, timeend, ArrayType, dt, ti_method)
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = Topologies.cubedshellwarp)
@@ -235,11 +235,11 @@ end
 #}}} Main
 
 #{{{ Run Script
-function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method,
+function run(mpicomm, Nhorizontal, Nvertical, N, timeend, FT, dt, ti_method,
              ArrayType)
-  Rrange=range(DFloat(1); length=Nvertical+1, stop=2)
+  Rrange=range(FT(1); length=Nvertical+1, stop=2)
   topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
-  (error, Δmass) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt,
+  (error, Δmass) = main(mpicomm, FT, topl, N, timeend, ArrayType, dt,
                         ti_method)
 end
 #}}} Run Script
@@ -278,9 +278,9 @@ let
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     dt=1e-2*5 # stable dt for N=4 and Ne=5
-    for DFloat in (Float64,) # Float32)
-      err = zeros(DFloat, lvls)
-      mass= zeros(DFloat, lvls)
+    for FT in (Float64,) # Float32)
+      err = zeros(FT, lvls)
+      mass= zeros(FT, lvls)
       for l = 1:lvls
         Nhorizontal = 2^(l-1) * numelem[1]
         Nvertical   = 2^(l-1) * numelem[2]
@@ -294,11 +294,11 @@ let
         dt          = %.16e
         nsteps       = %d
         """ Nhorizontal Nvertical N dt nsteps
-        @info (ArrayType, DFloat)
+        @info (ArrayType, FT)
         (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
-                                DFloat, dt, ti_method, ArrayType)
-        @test err[l]  ≈ DFloat(expected_error[l])
-        #                @test mass[l] ≈ DFloat(expected_mass[l])
+                                FT, dt, ti_method, ArrayType)
+        @test err[l]  ≈ FT(expected_error[l])
+        #                @test mass[l] ≈ FT(expected_mass[l])
       end
       @info begin
         msg = ""
@@ -314,7 +314,7 @@ let
   #=
   # This snippet of code allows one to run just one instance/configuration.
   # Before running this, Comment the Integration Testing block above
-  DFloat = Float64
+  FT = Float64
   N=4
   ArrayType = Array
   dt=1e-2*5 # stable dt for N=4 and Ne=5
@@ -325,7 +325,7 @@ let
   dt=dt/Nhorizontal
   nsteps = ceil(Int64, timeend / dt)
   dt = timeend / nsteps
-  (error, Δmass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt,
+  (error, Δmass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, FT, dt,
                        ti_method, ArrayType)
   =#
 

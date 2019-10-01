@@ -35,8 +35,8 @@ struct Neumann <: BoundaryConditionType end
 
 Apply Dirichlet boundary conditions at the specified boundaries of the domain
 """
-function apply_Dirichlet!(q::StateVec, ϕ::Symbol, grid::Grid{DT}, val::DT,
-                          B::Union{ZBoundary,Tuple{Zmin,Zmax}}, i=0) where DT
+function apply_Dirichlet!(q::StateVec, ϕ::Symbol, grid::Grid{FT}, val::FT,
+                          B::Union{ZBoundary,Tuple{Zmin,Zmax}}, i=0) where FT
   !(B isa Tuple) && (B = (B,))
   i==0 && (i = gridmean(DomainIdx(q)))
   for b in B
@@ -55,8 +55,8 @@ Apply Neumann boundary conditions at the bottom of the domain.
 
 Where `n̂` is the outward facing normal and `u` is the variable `ϕ` in `q`.
 """
-function apply_Neumann!(q::StateVec, ϕ::Symbol, grid::Grid{DT}, val::DT,
-                        B::Union{ZBoundary,Tuple{Zmin,Zmax}}, i=0) where DT
+function apply_Neumann!(q::StateVec, ϕ::Symbol, grid::Grid{FT}, val::FT,
+                        B::Union{ZBoundary,Tuple{Zmin,Zmax}}, i=0) where FT
   !(B isa Tuple) && (B = (B,))
   i==0 && (i = gridmean(DomainIdx(q)))
   for b in B
@@ -97,21 +97,21 @@ compute `A x_bc` for any combination of
  - Dirichlet or Neumann boundary conditions
 """
 function bc_source(q::StateVec,
-                   grid::Grid{DT},
+                   grid::Grid{FT},
                    tmp::StateVec,
                    x::S, ρ::S, a::S, K::S,
                    b::ZBoundary,
                    val,
-                   ::BoundaryConditionType, ::AbsorbType, i=0) where {DT, S<:Symbol}
+                   ::BoundaryConditionType, ::AbsorbType, i=0) where {FT, S<:Symbol}
 end
 
 function bc_source(q::StateVec,
-                   grid::Grid{DT},
+                   grid::Grid{FT},
                    tmp::StateVec,
                    x::S, ρ::S, a::S, K::S,
                    b::ZBoundary,
-                   val::DT,
-                   ::Dirichlet, ::DiffusionAbsorbed, i=0) where {DT, S<:Symbol}
+                   val::FT,
+                   ::Dirichlet, ::DiffusionAbsorbed, i=0) where {FT, S<:Symbol}
   i==0 && (i = gridmean(DomainIdx(q)))
   ki = first_interior(grid, b)
   ghost_val = 2*val - q[x, ki, i]
@@ -123,12 +123,12 @@ function bc_source(q::StateVec,
 end
 
 function bc_source(q::StateVec,
-                   grid::Grid{DT},
+                   grid::Grid{FT},
                    tmp::StateVec,
                    x::S, ρ::S, a::S, K::S,
                    b::ZBoundary,
-                   val::DT,
-                   ::Neumann, ::DiffusionAbsorbed, i=0) where {DT, S<:Symbol}
+                   val::FT,
+                   ::Neumann, ::DiffusionAbsorbed, i=0) where {FT, S<:Symbol}
   i==0 && (i = gridmean(DomainIdx(q)))
   ki = first_interior(grid, b)
   kg = first_ghost(grid, b)
@@ -149,12 +149,12 @@ function bc_source(q::StateVec,
 end
 
 function bc_source(q::StateVec,
-                   grid::Grid{DT},
+                   grid::Grid{FT},
                    tmp::StateVec,
                    x::S, ρ::S, a::S, K::S,
                    b::ZBoundary,
-                   val::DT,
-                   ::Dirichlet, ::AdvectionAbsorbed, i=0) where {DT,S<:Symbol}
+                   val::FT,
+                   ::Dirichlet, ::AdvectionAbsorbed, i=0) where {FT,S<:Symbol}
   i==0 && (i = gridmean(DomainIdx(q)))
   gd = ghost_dual(b)
   ki = first_interior(grid, b)
@@ -163,12 +163,12 @@ function bc_source(q::StateVec,
 end
 
 function bc_source(q::StateVec,
-                   grid::Grid{DT},
+                   grid::Grid{FT},
                    tmp::StateVec,
                    x::S, ρ::S, a::S, K::S,
                    b::ZBoundary,
-                   val::DT,
-                   ::Neumann, ::AdvectionAbsorbed, i=0) where {DT, S<:Symbol}
+                   val::FT,
+                   ::Neumann, ::AdvectionAbsorbed, i=0) where {FT, S<:Symbol}
   i==0 && (i = gridmean(DomainIdx(q)))
   gd = ghost_dual(b)
   ki = first_interior(grid, b)

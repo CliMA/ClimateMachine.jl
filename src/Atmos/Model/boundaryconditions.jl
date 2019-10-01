@@ -60,7 +60,7 @@ end
 function atmos_boundary_state!(::Rusanov, bc::NoFluxBC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t, _...)
-  DF = eltype(stateM)
+  FT = eltype(stateM)
   stateP.ρ = stateM.ρ
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
 end
@@ -69,11 +69,11 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, _...)
-  DF = eltype(stateM)
+  FT = eltype(stateM)
   stateP.ρ = stateM.ρ
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
-  diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
-  diffP.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
+  diffP.ρτ = SVector(FT(0), FT(0), FT(0), FT(0), FT(0), FT(0))
+  diffP.ρd_h_tot =  SVector(FT(0), FT(0), FT(0))
 end
 
 """
@@ -103,10 +103,10 @@ end
   DYCOMS_BC <: BoundaryCondition
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
 """
-struct DYCOMS_BC{DT} <: BoundaryCondition
-  C_drag::DT
-  LHF::DT
-  SHF::DT
+struct DYCOMS_BC{FT} <: BoundaryCondition
+  C_drag::FT
+  LHF::FT
+  SHF::FT
 end
 function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
@@ -114,7 +114,7 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
-  DT = eltype(stateP)
+  FT = eltype(stateP)
   # Get values from minus-side state
   ρM = stateM.ρ 
   UM, VM, WM = stateM.ρu
@@ -145,7 +145,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
-  DT = eltype(stateP)
+  FT = eltype(stateP)
   # Get values from minus-side state
   ρM = stateM.ρ 
   UM, VM, WM = stateM.ρu
@@ -208,20 +208,20 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)  
     stateP.ρu = SVector(0,0,0)
-    diffP.ρτ = SHermitianCompact{3,DT,6}(SVector(DT(0),ρτM[2,1],ρτ13P, DT(0), ρτ23P,DT(0)))
+    diffP.ρτ = SHermitianCompact{3,FT,6}(SVector(FT(0),ρτM[2,1],ρτ13P, FT(0), ρτ23P,FT(0)))
 
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
-    diffP.moisture.ρd_q_tot  = SVector(DT(0),
-                                       DT(0),
+    diffP.moisture.ρd_q_tot  = SVector(FT(0),
+                                       FT(0),
                                        bc.LHF/(LH_v0))
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-    diffP.ρd_h_tot  = SVector(DT(0),
-                              DT(0),
+    diffP.ρd_h_tot  = SVector(FT(0),
+                              FT(0),
                               bc.LHF + bc.SHF)
   end
 end

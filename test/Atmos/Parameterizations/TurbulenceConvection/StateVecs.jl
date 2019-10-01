@@ -6,7 +6,7 @@ using CLIMA.TurbulenceConvection.StateVecs
 n_elems_real = 10 # number of elements
 
 grid = Grid(0.0, 1.0, n_elems_real)
-DT = eltype(grid)
+FT = eltype(grid)
 vars = ( (:ρ_0, DomainSubSet(gm=true)),
          (:a,   DomainSubSet(gm=true,en=true,ud=true)),
          (:w,   DomainSubSet(gm=true,en=true,ud=true)) )
@@ -40,13 +40,13 @@ gm, en, ud, sd, al = allcombinations(idx)
 
   assign!(q, grid, 0.0)
   k = 1
-  apply_Dirichlet!(q, :ρ_0, grid, DT(2), Zmin())
+  apply_Dirichlet!(q, :ρ_0, grid, FT(2), Zmin())
   @test q[:ρ_0, k] ≈ 4
   apply_Neumann!(q, :ρ_0, grid, -2/grid.Δz, Zmin())
   @test q[:ρ_0, k] ≈ 2
 
   k = grid.n_elem
-  apply_Dirichlet!(q, :ρ_0, grid, DT(2), Zmax())
+  apply_Dirichlet!(q, :ρ_0, grid, FT(2), Zmax())
   @test q[:ρ_0, k] ≈ 4
   apply_Neumann!(q, :ρ_0, grid,  2/grid.Δz, Zmax())
   @test q[:ρ_0, k] ≈ 2
@@ -90,8 +90,8 @@ gm, en, ud, sd, al = allcombinations(idx)
   @test all([q[:w,k,gm] for i in over_sub_domains(q,:w) for k in over_elems_real(grid)] .≈ 2.0)
   @test all([q[:w,k,gm] for i in over_sub_domains(q,:w) for k in over_elems_ghost(grid)] .≈ 0.0)
 
-  assign!(q_compare, var_names(q_compare), grid, DT(2.0))
-  assign!(q, var_names(q_compare), grid, DT(1.0))
+  assign!(q_compare, var_names(q_compare), grid, FT(2.0))
+  assign!(q, var_names(q_compare), grid, FT(1.0))
 
   D = compare(q, q, grid, eps(Float32))
   for (k,v) in D
@@ -261,7 +261,7 @@ end
 
   dd = DomainDecomp(gm=1,en=1,ud=1)
   grid = Grid(0.0, 1.0, n_elems_real)
-  DT = eltype(grid)
+  FT = eltype(grid)
   vars = ( (:a,   DomainSubSet(gm=true,en=true,ud=true)),
            (:w,   DomainSubSet(gm=true,en=true,ud=true)),
            )
@@ -274,19 +274,19 @@ end
 
   idx = DomainIdx(q)
   gm, en, ud, sd, al = allcombinations(idx)
-  assign!(tmp, :K, grid, DT(3))
-  assign!(tmp, :ρ_0, grid, DT(2))
-  assign!(q, :a, grid, DT(0.1))
+  assign!(tmp, :K, grid, FT(3))
+  assign!(tmp, :ρ_0, grid, FT(2))
+  assign!(q, :a, grid, FT(0.1))
   @test bc_source(q, grid, tmp, :w, :ρ_0, :a, :K,
-                  Zmin(), DT(2), Dirichlet(), DiffusionAbsorbed()) ≈ DT(240)
+                  Zmin(), FT(2), Dirichlet(), DiffusionAbsorbed()) ≈ FT(240)
   @test bc_source(q, grid, tmp, :w, :ρ_0, :a, :K,
-                  Zmin(), DT(2), Neumann(), DiffusionAbsorbed()) ≈ DT(-4)
+                  Zmin(), FT(2), Neumann(), DiffusionAbsorbed()) ≈ FT(-4)
 
   # TODO: Validate bc_source for `AdvectionAbsorbed`
   # @test bc_source(q, grid, tmp, :w, :ρ_0, :a, :K,
-  #                 Zmin(), DT(2), Dirichlet(), AdvectionAbsorbed()) ≈
+  #                 Zmin(), FT(2), Dirichlet(), AdvectionAbsorbed()) ≈
   # @test bc_source(q, grid, tmp,
   #                 :w, :ρ_0, :a, :K,
-  #                 Zmin(), DT(2), Neumann(), AdvectionAbsorbed()) ≈
+  #                 Zmin(), FT(2), Neumann(), AdvectionAbsorbed()) ≈
 
 end
