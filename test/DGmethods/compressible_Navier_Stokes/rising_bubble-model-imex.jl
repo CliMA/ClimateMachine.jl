@@ -98,7 +98,7 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.moisture.ρq_tot = DF(0)
 end
 # --------------- Driver definition ------------------ # 
-function run(mpicomm, ArrayType, 
+function run(mpicomm, ArrayType, LinearType,
              topl, dim, Ne, polynomialorder, 
              timeend, DF, dt)
   # -------------- Define grid ----------------------------------- # 
@@ -123,7 +123,7 @@ function run(mpicomm, ArrayType,
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  linmodel = AtmosAcousticLinearModel(model)
+  linmodel = LinearType(model)
   lindg = DGModel(linmodel,
                grid,
                Rusanov(),
@@ -207,10 +207,12 @@ let
                     range(DF(ymin); length=Ne[2]+1, stop=ymax),
                     range(DF(zmin); length=Ne[3]+1, stop=zmax))
       topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
-      engf_eng0 = run(mpicomm, ArrayType, 
-                      topl, dim, Ne, polynomialorder, 
-                      timeend, DF, dt)
-      @test engf_eng0 ≈ DF(9.9999993807738441e-01)
+      for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
+        engf_eng0 = run(mpicomm, ArrayType, LinearType,
+                        topl, dim, Ne, polynomialorder, 
+                        timeend, DF, dt)
+        @test engf_eng0 ≈ DF(9.9999993807738441e-01)
+      end
     end
   end
 end

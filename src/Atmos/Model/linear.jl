@@ -34,13 +34,13 @@ struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
   atmos::M
 end
 function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
-  DFloat = eltype(state)
+  DF = eltype(state)
   ref = aux.ref_state
   e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
   flux.ρ = state.ρu
   #pL = linear_pressure(lm.atmos.moisture, lm.atmos.orientation, state, aux)
-  pL = state.ρ * DFloat(R_d) * DFloat(T_0) + DFloat(R_d) / DFloat(cv_d) * (state.ρe - state.ρ * e_pot)
+  pL = state.ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (state.ρe - state.ρ * e_pot)
   flux.ρu += pL*I
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
   nothing
@@ -53,10 +53,13 @@ struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
   atmos::M
 end
 function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+  DF = eltype(state)
   ref = aux.ref_state
+  e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
   flux.ρ = state.ρu
-  pL = linear_pressure(lm.atmos.moisture, lm.atmos.orientation, state, aux)
+  #pL = linear_pressure(lm.atmos.moisture, lm.atmos.orientation, state, aux)
+  pL = state.ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (state.ρe - state.ρ * e_pot)
   flux.ρu += pL*I
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ)*state.ρu
   nothing
