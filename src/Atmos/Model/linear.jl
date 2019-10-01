@@ -13,21 +13,13 @@ update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, auxstate::MPISt
 integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
 flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
-  return soundspeed_air(Float64(T_0))
+  ref = aux.ref_state
+  return soundspeed_air(ref_state.T)
 end
 
 boundary_state!(nf, lm::AtmosLinearModel, x...) = nothing
 init_aux!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) = nothing
 init_state!(lm::AtmosLinearModel, state::Vars, aux::Vars, coords, t) = nothing
-
-
-function linear_pressure(moisture, orientation, state::Vars, aux::Vars)
-  ρ = state.ρ
-  invρ = inv(ρ)
-  TS = thermo_state(moisture, orientation, state, aux)
-  # TODO: avoid dividing then multiplying by ρ
-  linearized_air_pressure(ρ, state.ρe * invρ, gravitational_potential(orientation, aux), PhasePartition(TS))
-end
 
 
 struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
@@ -39,7 +31,8 @@ function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Var
   e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
   flux.ρ = state.ρu
-  #pL = linear_pressure(lm.atmos.moisture, lm.atmos.orientation, state, aux)
+  # TODO: use MoistThermodynamics.linearized_air_pressure 
+  # need to avoid dividing then multiplying by ρ
   pL = state.ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (state.ρe - state.ρ * e_pot)
   flux.ρu += pL*I
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
@@ -58,7 +51,6 @@ function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, sta
   e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
   flux.ρ = state.ρu
-  #pL = linear_pressure(lm.atmos.moisture, lm.atmos.orientation, state, aux)
   pL = state.ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (state.ρe - state.ρ * e_pot)
   flux.ρu += pL*I
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ)*state.ρu
