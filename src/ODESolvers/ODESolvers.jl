@@ -9,6 +9,14 @@ abstract type AbstractODESolver end
 Returns the current simulation time of the ODE solver `solver`
 """
 gettime(solver::AbstractODESolver) = solver.t[1]
+
+"""
+    getdt(solver::AbstractODESolver)
+
+Returns the current simulation time step of the ODE solver `solver`
+"""
+getdt(solver::AbstractODESolver) = solver.dt[1]
+
 function dostep! end
 
 """
