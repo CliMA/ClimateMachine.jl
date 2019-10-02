@@ -14,6 +14,12 @@ struct TurbConv{G, SVQ, SVT, TD, DT}
   dir_tree::DT
 end
 
+"""
+    get_ϕ_ψ(ϕ)
+
+Convenience function to get individual
+variables names from co-variance.
+"""
 function get_ϕ_ψ(ϕ)
   if ϕ == :cv_q_tot
     _ϕ = :q_tot; _ψ = :q_tot

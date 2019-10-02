@@ -6,8 +6,19 @@ using Statistics
 
 export update_surface!
 
-function update_surface!(tmp::StateVec, q::StateVec, grid::Grid{DT}, params, case::Case) where DT
-end
+"""
+    update_surface!
+
+Update surface conditions including
+ - `windspeed`
+ - `ρq_tot_flux`
+ - `ρθ_liq_flux`
+ - `bflux`
+ - `obukhov_length`
+ - `rho_uflux`
+ - `rho_vflux`
+"""
+function update_surface! end
 
 function update_surface!(tmp::StateVec, q::StateVec, grid::Grid{DT}, params, case::BOMEX) where DT
   gm, en, ud, sd, al = allcombinations(DomainIdx(tmp))
@@ -149,10 +160,4 @@ Compute Monin-Obhukov length given
 """
 function compute_MO_len(ustar::DT, bflux::DT) where {DT<:Real}
   return abs(bflux) < DT(1e-10) ? DT(0) : -ustar * ustar * ustar / bflux / k_Karman
-end
-
-function buoyancy_flux(shf::DT, lhf::DT, T_b::DT, qt_b::DT, alpha0_0::DT) where DT
-  cp_ = cp_m(PhasePartition(qt_b))
-  lv = latent_heat_vapor(T_b)
-  return (grav * alpha0_0 / cp_ / T_b * (shf + ((R_v / R_d)-1) * cp_ * T_b * lhf /lv))
 end
