@@ -89,11 +89,6 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     MPIStateArrays.finish_ghost_recv!(auxstate)
   end
 
-  # The main reason for this protection is not for the MPI.Waitall!, but the
-  # make sure that we do not recopy data to the GPU
-  nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
-  nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
-
   @launch(device, threads=Nfp, blocks=nrealelem,
           facerhs!(bl, Val(dim), Val(polyorder),
                    dg.numfluxnondiff,
