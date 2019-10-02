@@ -14,7 +14,7 @@ integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = noth
 flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
   ref = aux.ref_state
-  return soundspeed_air(ref_state.T)
+  return soundspeed_air(ref.T)
 end
 
 boundary_state!(nf, lm::AtmosLinearModel, x...) = nothing
