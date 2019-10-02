@@ -28,8 +28,6 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   grid = dg.grid
   topology = grid.topology
 
-  @assert typeof(dg.direction) <: EveryDirection
-
   dim = dimensionality(grid)
   N = polynomialorder(grid)
   Nq = N + 1
@@ -54,6 +52,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   Np = dofs_per_element(grid)
 
+  communicate = !(isstacked(topology) && tyepof(dg.direction) <: VerticalDirection)
+
   if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
                                   typeof(auxstate), typeof(t)})
     update_aux!(dg, bl, Q, auxstate, t)
@@ -62,8 +62,10 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   ########################
   # Gradient Computation #
   ########################
-  MPIStateArrays.start_ghost_exchange!(Q)
-  MPIStateArrays.start_ghost_exchange!(auxstate)
+  if communicate
+    MPIStateArrays.start_ghost_exchange!(Q)
+    MPIStateArrays.start_ghost_exchange!(auxstate)
+  end
 
   if nviscstate > 0
 
@@ -71,8 +73,10 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
             volumeviscterms!(bl, Val(dim), Val(polyorder), Q.data, Qvisc.data, auxstate.data, vgeo, t, Dmat,
                              topology.realelems))
 
-    MPIStateArrays.finish_ghost_recv!(Q)
-    MPIStateArrays.finish_ghost_recv!(auxstate)
+    if communicate
+      MPIStateArrays.finish_ghost_recv!(Q)
+      MPIStateArrays.finish_ghost_recv!(auxstate)
+    end
 
     @launch(device, threads=Nfp, blocks=nrealelem,
             faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux,
@@ -80,7 +84,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
 
-    MPIStateArrays.start_ghost_exchange!(Qvisc)
+    communicate && MPIStateArrays.start_ghost_exchange!(Qvisc)
   end
 
   ###################
@@ -91,11 +95,13 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                      vgeo, t, lgl_weights_vec, Dmat,
                      topology.realelems, increment))
 
-  if nviscstate > 0
-    MPIStateArrays.finish_ghost_recv!(Qvisc)
-  else
-    MPIStateArrays.finish_ghost_recv!(Q)
-    MPIStateArrays.finish_ghost_recv!(auxstate)
+  if communicate
+    if nviscstate > 0
+      MPIStateArrays.finish_ghost_recv!(Qvisc)
+    else
+      MPIStateArrays.finish_ghost_recv!(Q)
+      MPIStateArrays.finish_ghost_recv!(auxstate)
+    end
   end
 
   @launch(device, threads=Nfp, blocks=nrealelem,
@@ -107,8 +113,10 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                    topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
-  MPIStateArrays.finish_ghost_send!(Qvisc)
-  MPIStateArrays.finish_ghost_send!(Q)
+  if communicate
+    MPIStateArrays.finish_ghost_send!(Qvisc)
+    MPIStateArrays.finish_ghost_send!(Q)
+  end
 end
 
 function init_ode_state(dg::DGModel, args...; commtag=888)
