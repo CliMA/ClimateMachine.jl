@@ -46,7 +46,7 @@ const (zmin,zmax)      = (0,1000)
 const Ne        = (10,2,10)
 const polynomialorder = 4
 const dim       = 3
-const dt        = 0.01
+const dt        = 0.1
 const timeend   = 10dt
 # ------------- Initial condition function ----------- # 
 """
@@ -211,7 +211,7 @@ let
         engf_eng0 = run(mpicomm, ArrayType, LinearType,
                         topl, dim, Ne, polynomialorder, 
                         timeend, DF, dt)
-        @test engf_eng0 ≈ DF(9.9999993807738441e-01)
+        @test engf_eng0 ≈ DF(0.9999997771981113)
       end
     end
   end
