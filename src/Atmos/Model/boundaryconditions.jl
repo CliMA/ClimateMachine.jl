@@ -73,7 +73,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
   stateP.ρ = stateM.ρ
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
   diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
-  diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
+  diffP.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
 """
@@ -220,9 +220,9 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Boundary energy fluxes
     # ----------------------------------------------------------
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-    diffP.moisture.ρd_h_tot  = SVector(diffM.moisture.ρd_h_tot[1],
-                                       diffM.moisture.ρd_h_tot[2],
-                                       bc.LHF + bc.SHF)
+    diffP.ρd_h_tot  = SVector(diffM.ρd_h_tot[1],
+                              diffM.ρd_h_tot[2],
+                              bc.LHF + bc.SHF)
   end
 end
 
