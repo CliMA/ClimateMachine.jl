@@ -208,20 +208,20 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)  
     stateP.ρu = SVector(0,0,0)
-    diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
+    diffP.ρτ = SHermitianCompact{3,DT,6}(SVector(DT(0),ρτM[2,1],ρτ13P, DT(0), ρτ23P,DT(0)))
 
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
-    diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
-                                       diffM.moisture.ρd_q_tot[2],
+    diffP.moisture.ρd_q_tot  = SVector(DT(0),
+                                       DT(0),
                                        bc.LHF/(LH_v0))
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-    diffP.ρd_h_tot  = SVector(diffM.ρd_h_tot[1],
-                              diffM.ρd_h_tot[2],
+    diffP.ρd_h_tot  = SVector(DT(0),
+                              DT(0),
                               bc.LHF + bc.SHF)
   end
 end
