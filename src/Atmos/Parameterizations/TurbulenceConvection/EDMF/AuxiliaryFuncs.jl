@@ -1,8 +1,6 @@
 #### AuxiliaryFuncs
 
-export ActiveThermoState,
-       ActiveThermoStateCut,
-       ActiveThermoStateDual
+export ActiveThermoState
 
 export export_unsteady
 export update_dt!
@@ -29,18 +27,6 @@ quantities at element `k`.
                                    tmp[:ρ_0, k],
                                    tmp[:p_0, k])
 end
-@inline function ActiveThermoStateCut(q, tmp, k, i)
-  return LiquidIcePotTempSHumEquil.(q[:θ_liq, Cut(k), i],
-                                    q[:q_tot, Cut(k), i],
-                                    tmp[:ρ_0, Cut(k)],
-                                    tmp[:p_0, Cut(k)])
-end
-@inline function ActiveThermoStateDual(q, tmp, k, i)
-  return LiquidIcePotTempSHumEquil.(q[:θ_liq, Dual(k), i],
-                                    q[:q_tot, Dual(k), i],
-                                    tmp[:ρ_0, Dual(k)],
-                                    tmp[:p_0, Dual(k)])
-end
 
 function update_dt!(grid, params, q, t)
   gm, en, ud, sd, al = allcombinations(DomainIdx(q))
@@ -65,15 +51,11 @@ Exports unsteady fields
 """
 function export_unsteady(t, i_Δt, i_export, params, q, tmp, grid, dir_tree)
   i_export[1]+=1
-  if mod(i_export[1], 2000)==0
+  if mod(i_export[1], params[:export_frequency])==0
     directory = dir_tree[:solution_raw]*string(round(t[1], digits=5))
-    println("============================")
-    println("======== EXPORTING =========")
-    println("============================")
+    println("********* EXPORTING *********")
     println("directory = ", directory)
-    println("============================")
-    println("============================")
-    println("============================")
+    println("*****************************")
     export_plots(q, tmp, grid, directory, true, params, i_Δt)
   end
   return nothing

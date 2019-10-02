@@ -3,25 +3,25 @@
 using DifferentialEquations
 
 """
-    init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, case::Case)
+    init_state_vecs!
 
 Defines initial conditions for state vectors `q` and `tmp` for all sub-domains.
 """
-function init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, case::Case) end
+function init_state_vecs! end
 
 """
-    initialize_updrafts!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::Case)
+    initialize_updrafts!
 
 Defines initial conditions for state vectors `q` and `tmp` for the updraft sub-domains.
 """
-function initialize_updrafts!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::Case) end
+function initialize_updrafts! end
 
 """
-    initialize_updrafts!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::Case)
+    init_forcing!
 
 Defines initial conditions for forcing terms in the state vector `tmp` for all sub-domains.
 """
-function init_forcing!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::Case) end
+function init_forcing! end
 
 
 function initialize_updrafts!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::BOMEX)
@@ -123,87 +123,3 @@ function init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tr
 
 end
 
-function init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::Soares)
-  @unpack params qtg Tg Pg
-  z = grid.zc
-
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
-
-  @inbounds for k in over_elems(grid)
-    @inbounds for i in al
-      @inbounds for ϕ in var_names(q)
-        q[ϕ, k, i] = 0.0
-      end
-    end
-  end
-
-  # Unknowns
-  @inbounds for k in over_elems(grid)
-    if z[k] <= 1350.0
-      q[:q_tot, k, gm] = 5.0e-3 - 3.7e-4* z[k]/1000.0
-      q[:θ_liq, k, gm] = 300.0
-    else
-      q[:q_tot, k, gm] = 5.0e-3 - 3.7e-4 * 1.35 - 9.4e-4 * (z[k]-1350.0)/1000.0
-      q[:θ_liq, k, gm] = 300.0 + 2.0 * (z[k]-1350.0)/1000.0
-    end
-  end
-  distribute!(q, grid, :q_tot)
-  distribute!(q, grid, :θ_liq)
-  distribute!(q, grid, :w)
-
-  # FIXME:
-  # Make sure that all the water content is supposed to reside in the updrafts.
-  # domain_average!(tmp, q, q, (:gm_q_tot, :gm_θ_liq), (:q_tot, :θ_liq), :a, grid)
-
-  # Temperature
-  @inbounds for k in over_elems_real(grid)
-    ts = ActiveThermoState(q, tmp, k, gm)
-    tmp[:T, k, gm] = air_temperature(ts)
-  end # end over_elems
-  extrap!(tmp, :T, grid, gm)
-  distribute!(tmp, grid, :T)
-
-  # Large-scale velocity
-  @inbounds for k in over_elems(grid)
-    # if z[k] <= 700.0 # This condition was in SCAMPy, but does not appear to be in the paper.
-    q[:u, k, gm] = 1.0
-    # end
-  end
-
-  # @static if haspkg("Plots")
-  #   plot_state(q, grid, dir_tree[:initial_conditions], :θ_liq; i=gm)
-  #   plot_state(q, grid, dir_tree[:initial_conditions], :q_tot; i=gm)
-  #   plot_state(q, grid, dir_tree[:initial_conditions], :w; i=gm)
-  #   plot_state(tmp, grid, dir_tree[:initial_conditions], :T; i=gm)
-  # end
-
-end
-
-function init_forcing!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::Soares)
-  z = grid.zc
-  @inbounds for k in over_elems(grid)
-    # Geostrophic velocity profiles. vg = 0
-    ug.val[k] = -10.0 + (1.8e-3)*z[k]
-    # Set large-scale cooling
-    if z[k] <= 1500.0
-      tmp[:dTdt, k] =  (-2.0/(3600 * 24.0))  * exner(tmp[:p_0, k])
-    else
-      tmp[:dTdt, k] = (-2.0/(3600 * 24.0) + (z[k] - 1500.0)
-              * (0.0 - -2.0/(3600 * 24.0)) / (3000.0 - 1500.0)) * exner(tmp[:p_0, k])
-    end
-    # Set large-scale drying
-    if z[k] <= 300.0
-      tmp[:dqtdt, k] = -1.2e-8   #kg/(kg * s)
-    end
-    if z[k] > 300.0 && z[k] <= 500.0
-      tmp[:dqtdt, k] = -1.2e-8 + (z[k] - 300.0)*(0.0 - -1.2e-8)/(500.0 - 300.0) #kg/(kg * s)
-    end
-    #Set large scale subsidence
-    if z[k] <= 1500.0
-      tmp[:subsidence, k] = 0.0 + z[k]*(-0.65/100.0 - 0.0)/(1500.0 - 0.0)
-    end
-    if z[k] > 1500.0 && z[k] <= 2100.0
-      tmp[:subsidence, k] = -0.65/100 + (z[k] - 1500.0)* (0.0 - -0.65/100.0)/(2100.0 - 1500.0)
-    end
-  end
-end

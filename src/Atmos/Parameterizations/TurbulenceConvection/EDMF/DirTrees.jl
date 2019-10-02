@@ -25,22 +25,9 @@ struct DirTree
   vars :: Dict{Symbol, String}
 end
 
-Base.keys(A::DirTree) = keys(A.vars)
 Base.getindex(A::DirTree, k::Symbol) = A.vars[k]
-Base.firstindex(A::DirTree) = 1
-Base.lastindex(A::DirTree) = length(A.vars)
-function Base.setindex!(A::DirTree, B::String, k::Symbol)
-  A.vars[k] = B
-end
 
 path_separator = Sys.iswindows() ? "\\" : "/"
-
-function make_path_recursive(full_path)
-  temp = full_path
-  temp = replace(temp, "/"  => path_separator)
-  temp = replace(temp, "\\" => path_separator)
-  mkpath(temp)
-end
 
 """
     DirTree(output_folder_name::AbstractString,
@@ -50,25 +37,25 @@ Gets a DirTree struct so that output directories
 can be grabbed using, e.g., dir_tree[:variable_name].
 """
 function DirTree(output_folder_name::AbstractString, in_vars::Tuple{Vararg{Symbol}})
-  root_dir = "output"*path_separator
+  root_dir = "output"
   output_folder_name = split(output_folder_name, ".")[end]
   output_folder_name = replace(output_folder_name, "(" => "")
   output_folder_name = replace(output_folder_name, ")" => "")
 
-  output          = root_dir * output_folder_name * path_separator
-  figs            = output   * "figs" * path_separator
+  output          = joinpath(root_dir,output_folder_name)
+  figs            = joinpath(output,"figs")
 
   vars = Dict{Symbol, String}()
-  vars[:initial_conditions]           = figs * "InitialConditions"          * path_separator
-  vars[:processed_initial_conditions] = figs * "ProcessedInitialConditions" * path_separator
-  vars[:solution_raw]                 = figs * "SolutionRaw"                * path_separator
-  vars[:solution_processed]           = figs * "SolutionProcessed"          * path_separator
+  vars[:initial_conditions]           = joinpath(figs, "InitialConditions")*path_separator
+  vars[:processed_initial_conditions] = joinpath(figs, "ProcessedInitialConditions")*path_separator
+  vars[:solution_raw]                 = joinpath(figs, "SolutionRaw")*path_separator
+  vars[:solution_processed]           = joinpath(figs, "SolutionProcessed")*path_separator
 
-  make_path_recursive(output)
-  make_path_recursive(figs)
+  mkpath(output)
+  mkpath(figs)
 
   for (k, v) in vars
-    make_path_recursive(v)
+    mkpath(v)
   end
 
   return DirTree(output, figs, vars)

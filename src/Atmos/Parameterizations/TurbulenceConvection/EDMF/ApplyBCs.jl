@@ -2,7 +2,12 @@
 
 export apply_bcs!
 
-function apply_bcs!(grid::Grid, q::StateVec, tmp::StateVec, params, case::Case) end
+"""
+    apply_bcs!
+
+Apply boundary conditions to the state vector.
+"""
+function apply_bcs! end
 
 function apply_bcs!(grid::Grid, q::StateVec, tmp::StateVec, params, case::BOMEX)
   @unpack params ρq_tot_flux ρθ_liq_flux obukhov_length ustar n_updrafts surface_area wstar UpdVar

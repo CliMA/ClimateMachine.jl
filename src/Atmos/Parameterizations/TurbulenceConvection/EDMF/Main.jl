@@ -40,8 +40,6 @@ function run(case)
 
   apply_bcs!(grid, q, tmp, params, case)
 
-  # ds_io, ds = init_netcdf(q, tmp, grid, dir_tree, false, params, i_Δt)
-
   while t[1] < t_end
     assign!(q_tendencies, (:u, :v, :q_tot, :θ_liq), grid, 0.0)
 
@@ -61,8 +59,6 @@ function run(case)
 
     export_unsteady(t, i_Δt, i_export, params, q, tmp, grid, dir_tree)
   end
-
-  # close(ds)
 
   export_plots(q, tmp, grid, dir_tree[:solution_raw]*"LastTimeStep", true, params, i_Δt)
   export_plots(q, tmp, grid, dir_tree[:solution_processed]*"LastTimeStep", false, params, i_Δt)
