@@ -232,12 +232,12 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
-    timeend = 100dt
+    timeend = 1000
     dim = 3
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(0.9999712407365311)
+    @test result ≈ DT(0.9999737848359238)
   end
 end
 
