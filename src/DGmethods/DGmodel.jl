@@ -1,4 +1,9 @@
-struct DGModel{BL,G,NFND,NFD,GNF,AS,DS}
+abstract type Direction end
+struct EveryDirection <: Direction end
+struct HorizontalDirection <: Direction end
+struct VerticalDirection <: Direction end
+
+struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
@@ -6,12 +11,14 @@ struct DGModel{BL,G,NFND,NFD,GNF,AS,DS}
   gradnumflux::GNF
   auxstate::AS
   diffstate::DS
+  direction::D
 end
 function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
                  auxstate=create_auxstate(balancelaw, grid),
-                 diffstate=create_diffstate(balancelaw, grid))
+                 diffstate=create_diffstate(balancelaw, grid),
+                 direction=EveryDirection())
   DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
-          diffstate)
+          diffstate, direction)
 end
 
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
@@ -20,6 +27,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   grid = dg.grid
   topology = grid.topology
+
+  @assert typeof(dg.direction) <: EveryDirection
 
   dim = dimensionality(grid)
   N = polynomialorder(grid)
