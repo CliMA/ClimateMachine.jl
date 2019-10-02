@@ -71,16 +71,17 @@ function ocean_init_state!(p::SimpleBox, Q, α, coords, t)
   @inbounds H = p.H
   Q.u = @SVector [0,0]
   Q.η = 0
-  Q.θ = 20 # 9 + 8z / H
+  z > -200 ? Q.θ = 10 : Q.θ = 5
 end
 
 ###################
 # PARAM SELECTION #
 ###################
 DFloat = Float64
+vtkpath = "vtk_hydrostatic_Boussinesq_simple_box_κ"
 
-const timeend = 30 * 86400 # 4 * 365 * 86400
-const tout    = 6 * 60 * 60
+const timeend = 0.25 * 86400 # 4 * 365 * 86400
+const tout    = 120 # 60 * 60
 
 const Lˣ = 1e6
 const Lʸ = 1e6
@@ -123,7 +124,7 @@ let
   DFloat = Float64
 
   N = 4
-  Ne = (10, 10, 4)
+  Ne = (2, 2, 4)
   L = SVector{3, DFloat}(Lˣ, Lʸ, H)
   c = @SVector [cʰ, cʰ, cᶻ]
   brickrange = (range(DFloat(0); length=Ne[1]+1, stop=L[1]),
@@ -159,9 +160,12 @@ let
   Q = init_ode_state(dg, param, DFloat(0))
   update_aux!(dg, model, Q, param.aux, DFloat(0), param.blparam)
 
-  step = [0]
-  vtkpath = "vtk_hydrostatic_Boussinesq_simple_box_κ"
+  if isdir(vtkpath)
+    rm(vtkpath, recursive=true)
+  end
   mkpath(vtkpath)
+
+  step = [0]
   function do_output(step)
     outprefix = @sprintf("%s/mpirank%04d_step%04d",vtkpath,
                          MPI.Comm_rank(mpicomm), step[1])
@@ -178,7 +182,7 @@ let
   end
 
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else

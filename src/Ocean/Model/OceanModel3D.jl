@@ -266,7 +266,7 @@ end
                                        ::Union{Rusanov, CentralFlux, CentralGradPenalty},
                                        Q⁺, α⁺, n⁻, Q⁻, α⁻, t)
   Q⁺.u = -Q⁻.u
-  α⁺.w =  α⁻.w
+  α⁺.w = -α⁻.w
 
   return nothing
 end
@@ -277,7 +277,7 @@ end
                                        σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
 
   Q⁺.u = -Q⁻.u
-  α⁺.w =  α⁻.w
+  α⁺.w = -α⁻.w
 
   σ⁺.κ∇θ = -σ⁻.κ∇θ
 
