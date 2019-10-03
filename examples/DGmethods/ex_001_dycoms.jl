@@ -19,6 +19,9 @@ using CLIMA.VTK
 
 using CLIMA.Atmos: vars_state, vars_aux
 
+# TODO: for diagnostics; move to new CLIMA module
+using MPI
+
 using Random 
 const seed = MersenneTwister(0)
 
@@ -115,14 +118,26 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   state.moisture.ρq_tot = ρ * q_tot
 end   
 
+# TODO: temporary; move to new CLIMA module
+function gather_diags(dg, Q)
+  host_array = Array ∈ typeof(Q).parameters
+  localQ = host_array ? Q.realQ : Array(Q.realQ)
+
+  rho_localtot = sum(localQ[:, 1, :])
+  mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
+  nranks = MPI.Comm_size(MPI.COMM_WORLD)
+  rho_tot = MPI.Reduce(rho_localtot, +, 0, MPI.COMM_WORLD)
+  if mpirank == 0
+    rho_avg = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
+    @info "ρ average = $(rho_avg)"
+  end
+end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DT,
                                           DeviceArray = ArrayType,
-                                          polynomialorder = N,
-                                         )
+                                          polynomialorder = N)
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
                      SmagorinskyLilly{DT}(C_smag),
@@ -134,7 +149,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                       GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
-
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -168,7 +182,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
   end
 
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     mkpath("./vtk-dycoms/")
     outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -180,7 +194,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  cbdiags = GenericCallbacks.EveryXSimulationSteps(1500) do (init=false)
+    gather_diags(dg, Q)
+  end
+
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiags))
+
+  gather_diags(dg, Q)
 
   # Print some end of the simulation information
   engf = norm(Q)
