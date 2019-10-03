@@ -22,18 +22,18 @@ end
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_aux(::AdvectionDiffusion, T) = @vars(coord::SVector{3, T},
-                                           u::SVector{3, T},
-                                           D::SMatrix{3, 3, T, 9})
+vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, FT},
+                                           u::SVector{3, FT},
+                                           D::SMatrix{3, 3, FT, 9})
 #
 # Density is only state
-vars_state(::AdvectionDiffusion, T) = @vars(ρ::T)
+vars_state(::AdvectionDiffusion, FT) = @vars(ρ::FT)
 
 # Take the gradient of density
-vars_gradient(::AdvectionDiffusion, T) = @vars(ρ::T)
+vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
 
 # The DG auxiliary variable: D ∇ρ
-vars_diffusive(::AdvectionDiffusion, T) = @vars(σ::SVector{3,T})
+vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3,FT})
 
 """
     flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,

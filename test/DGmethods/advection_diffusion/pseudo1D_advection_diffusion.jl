@@ -80,11 +80,11 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt,
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
              n, α, β, μ, δ, vtkdir, outputtime)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
@@ -95,7 +95,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt,
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -143,7 +143,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt,
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, DFloat(timeend))
+  Qe = init_ode_state(dg, FT(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -195,17 +195,17 @@ let
   numlevels = integration_testing ? 4 : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64, Float32)
-      result = zeros(DFloat, numlevels)
+    for FT in (Float64, Float32)
+      result = zeros(FT, numlevels)
       for dim = 2:3
-        n = SVector(1, 1, dim == 2 ? 0 : 1) / DFloat(sqrt(dim))
-        α = DFloat(1)
-        β = DFloat(1 // 100)
-        μ = DFloat(-1 // 2)
-        δ = DFloat(1 // 10)
+        n = SVector(1, 1, dim == 2 ? 0 : 1) / FT(sqrt(dim))
+        α = FT(1)
+        β = FT(1 // 100)
+        μ = FT(-1 // 2)
+        δ = FT(1 // 10)
         for l = 1:numlevels
           Ne = 2^(l-1) * base_num_elem
-          brickrange = ntuple(j->range(DFloat(-1); length=Ne+1, stop=1), dim)
+          brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
           periodicity = ntuple(j->false, dim)
           topl = BrickTopology(mpicomm, brickrange; periodicity = periodicity)
           @show dt = (α/4) / (Ne * polynomialorder^2)
@@ -215,15 +215,15 @@ let
 
           dt = outputtime / ceil(Int64, outputtime / dt)
 
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, FT, dim)
           vtkdir = "vtk_advection" *
           "_poly$(polynomialorder)" *
-          "_dim$(dim)_$(ArrayType)_$(DFloat)" *
+          "_dim$(dim)_$(ArrayType)_$(FT)" *
           "_level$(l)"
           result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
-                          timeend, DFloat, dt, n, α, β, μ, δ, vtkdir,
+                          timeend, FT, dt, n, α, β, μ, δ, vtkdir,
                           outputtime)
-          @test result[l] ≈ DFloat(expected_result[dim, l, DFloat])
+          @test result[l] ≈ FT(expected_result[dim, l, FT])
         end
         @info begin
           msg = ""
