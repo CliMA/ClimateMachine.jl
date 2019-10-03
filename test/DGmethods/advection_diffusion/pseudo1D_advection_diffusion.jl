@@ -25,12 +25,7 @@ else
 end
 
 if !@isdefined integration_testing
-  if length(ARGS) > 0
-    const integration_testing = parse(Bool, ARGS[1])
-  else
-    const integration_testing =
-      parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  end
+  const integration_testing = parse(Bool, lowercase(get(ARGS, 1, "false")))
 end
 
 include("advection_diffusion_model.jl")

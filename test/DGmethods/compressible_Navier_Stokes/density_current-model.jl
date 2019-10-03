@@ -33,11 +33,6 @@ else
   const ArrayTypes = (Array,)
 end
 
-if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
-
 # -------------- Problem constants ------------------- # 
 const dim               = 3
 const (xmin, xmax)      = (0,12800)

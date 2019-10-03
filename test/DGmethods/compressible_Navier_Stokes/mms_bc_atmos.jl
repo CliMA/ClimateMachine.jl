@@ -28,8 +28,7 @@ else
 end
 
 if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
+  const integration_testing = parse(Bool, lowercase(get(ARGS, 1, "false")))
 end
 
 include("mms_solution_generated.jl")
