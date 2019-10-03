@@ -73,7 +73,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
   stateP.ρ = stateM.ρ
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
   diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
-  diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
+  diffP.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
 end
 
 """
@@ -185,9 +185,11 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     e_intM      = EM/ρM - grav*zM
     TSM         = PhaseEquil(e_intM, q_totM, ρM) 
     q_vapM      = q_totM - PhasePartition(TSM).liq
-    TM          = DT(292.5)
-    qv_satM     = q_vap_saturation_generic(TM, stateM.ρ)
-    qvdiff      = q_vap_FN - qv_satM
+    TM          = air_temperature(TSM)
+    # ----------------------------------------------------------
+    # Extract components of diffusive momentum flux (minus-side)
+    # ----------------------------------------------------------
+    ρτM = diffM.ρτ
     # ----------------------------------------------------------
     # Boundary momentum fluxes
     # ----------------------------------------------------------
@@ -203,18 +205,16 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
-    EVAPFLUX    = -stateM.ρ * C_drag * windspeed_FN * (qvdiff)
     diffP.moisture.ρd_q_tot  = SVector(DT(0),
                                        DT(0),
                                        bc.LHF/LH_v0)
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
-    ENTHALPYFLUX = -stateM.ρ * C_drag * windspeed_FN * (E_FN - stateM.ρe)
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-    diffP.moisture.ρd_h_tot  = SVector(DT(0),
-                                       DT(0),
-                                       bc.LHF + bc.SHF)
+    diffP.ρd_h_tot  = SVector(DT(0),
+                              DT(0),
+                              bc.LHF + bc.SHF)
   end
 end
 
