@@ -1,6 +1,8 @@
 module Atmos
 
-export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
+export AtmosModel,
+       AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
+       AtmosAcousticNonlinearModel
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -211,6 +213,7 @@ include("radiation.jl")
 include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
+include("nonlinear.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
