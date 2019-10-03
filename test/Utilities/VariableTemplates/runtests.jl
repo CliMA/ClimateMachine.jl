@@ -73,11 +73,11 @@ g.ρu = SMatrix{3,3}(1:9)
 
 sv = similar(v)
 @test typeof(sv) == typeof(v)
-@test size(getfield(sv,:array)) == size(getfield(v,:array))
+@test size(parent(sv)) == size(parent(v))
 
 sg = similar(g)
 @test typeof(sg) == typeof(g)
-@test size(getfield(sg,:array)) == size(getfield(g,:array))
+@test size(parent(sg)) == size(parent(g))
 
 @test flattenednames(st) == ["ρ","ρu[1]","ρu[2]","ρu[3]","ρe",
                             "b.ρqt",
