@@ -67,11 +67,14 @@ function ocean_init_aux!(P::SimpleBox, α, geom)
 end
 
 function ocean_init_state!(p::SimpleBox, Q, α, coords, t)
+  @inbounds x = coords[1]
   @inbounds z = coords[3]
   @inbounds H = p.H
+  @inbounds Lˣ = p.Lˣ
   Q.u = @SVector [0,0]
   Q.η = 0
-  z > -200 ? Q.θ = 10 : Q.θ = 5
+  # z > -200 ? Q.θ = 10 : Q.θ = 5
+  Q.θ = 9 + 8z/H
 end
 
 ###################
@@ -80,8 +83,8 @@ end
 DFloat = Float64
 vtkpath = "vtk_hydrostatic_Boussinesq_simple_box_κ"
 
-const timeend = 0.25 * 86400 # 4 * 365 * 86400
-const tout    = 120 # 60 * 60
+const timeend = 86400 # 4 * 365 * 86400
+const tout    = 60 * 60
 
 const Lˣ = 1e6
 const Lʸ = 1e6
