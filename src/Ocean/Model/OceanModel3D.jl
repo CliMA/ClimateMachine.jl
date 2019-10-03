@@ -13,7 +13,8 @@ using ..Mesh.Grids: polynomialorder
 using ..DGmethods.NumericalFluxes: Rusanov, CentralFlux, CentralGradPenalty,
                                    CentralNumericalFluxDiffusive
 
-import ..DGmethods.NumericalFluxes: update_jump!
+import ..DGmethods.NumericalFluxes: update_penalty!, numerical_flux_diffusive!,
+                                    NumericalFluxNonDiffusive
 
 import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                     vars_diffusive, vars_integrals, flux_nondiffusive!,
@@ -26,6 +27,7 @@ import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                     copy_stack_field_down!, surface_flux!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
+∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 
 abstract type OceanBoundaryCondition end
 struct Coastline    <: OceanBoundaryCondition end
@@ -161,7 +163,31 @@ end
 @inline wavespeed(m::HBModel, n⁻, _...) = abs(SVector(m.c₁, m.c₂, m.c₃)' * n⁻)
 
 # We want not have jump penalties on η (since not a flux variable)
-update_jump!(::Rusanov, ::HBModel, Qjump::Vars, _...) = Qjump.η = -0
+function update_penalty!(::Rusanov, ::HBModel, ΔQ::Vars,
+                         n⁻, λ, Q⁻, Q⁺, α⁻, α⁺, t)
+  ΔQ.η = -0
+
+  θ⁻ = Q⁻.θ
+  u⁻ = Q⁻.u
+  w⁻ = α⁻.w
+  @inbounds v⁻ = @SVector [u⁻[1], u⁻[2], w⁻]
+  n̂⨀v⁻ = n⁻∘v⁻
+
+  θ⁺ = Q⁺.θ
+  u⁺ = Q⁺.u
+  w⁺ = α⁺.w
+  @inbounds v⁺ = @SVector [u⁺[1], u⁺[2], w⁺]
+  n̂⨀v⁺ = n⁻∘v⁺
+
+  # max velocity
+  # n̂∘v = (abs(n̂∘v⁺) > abs(n̂∘v⁻) ? n̂∘v⁺ : n̂∘v⁻
+
+  # average velocity
+  n̂⨀v = (n̂⨀v⁻ + n̂⨀v⁺) / 2
+
+  ΔQ.θ = ((n̂⨀v > 0) ? 1 : -1) * (n̂⨀v⁻ * θ⁻ - n̂⨀v⁺ * θ⁺)
+  # ΔQ.θ = abs(n̂⨀v⁻) * θ⁻ - abs(n̂∘⨀v⁺) * θ⁺
+end
 
 @inline function source!(m::HBModel{P}, source::Vars, Q::Vars, α::Vars,
                          t::Real) where P
