@@ -136,8 +136,8 @@ struct CentralFlux <: NumericalFluxNonDiffusive end
 
 
 function numerical_flux_nondiffusive!(::CentralFlux,
-                                      bl::BalanceLaw, F::MArray, n⁻,
-                                      Q⁻, α⁻, Q⁺, α⁺, t)
+                                      bl::BalanceLaw, F::MArray,
+                                      n⁻, Q⁻, α⁻, Q⁺, α⁺, t)
   DFloat = eltype(F)
   nstate = num_state(bl,DFloat)
 
@@ -180,7 +180,7 @@ Requires a `flux_nondiffusive!` and `wavespeed` method for the balance law.
 """
 struct Rusanov <: NumericalFluxNonDiffusive end
 
-update_jump!(::Rusanov, ::BalanceLaw, _...) = nothing
+update_penalty!(::Rusanov, ::BalanceLaw, _...) = nothing
 
 function numerical_flux_nondiffusive!(nf::Rusanov, bl::BalanceLaw, F::MArray,
                                       n⁻, Q⁻, α⁻, Q⁺, α⁺, t)
@@ -215,22 +215,22 @@ function numerical_flux_nondiffusive!(nf::Rusanov, bl::BalanceLaw, F::MArray,
                      t)
 
   λ  =  max(λ⁻, λ⁺)
-  ΔQ = Q⁻ - Q⁺
+  ΔQ = λ * (Q⁻ - Q⁺)
 
-  update_jump!(nf, bl,
-                Vars{vars_state(bl, DFloat)}(ΔQ),
-                n⁻,
-                Vars{vars_state(bl, DFloat)}(Q⁻),
-                Vars{vars_state(bl, DFloat)}(Q⁺),
-                Vars{vars_aux(bl, DFloat)}(α⁻),
-                Vars{vars_aux(bl, DFloat)}(α⁺),
-                t)
+  update_penalty!(nf, bl,
+                  Vars{vars_state(bl, DFloat)}(ΔQ),
+                  n⁻, λ,
+                  Vars{vars_state(bl, DFloat)}(Q⁻),
+                  Vars{vars_state(bl, DFloat)}(Q⁺),
+                  Vars{vars_aux(bl, DFloat)}(α⁻),
+                  Vars{vars_aux(bl, DFloat)}(α⁺),
+                  t)
 
   @inbounds for s = 1:nstate
     F[s] += 0.5 * (n⁻[1] * (F⁻[1, s] + F⁺[1, s]) +
                    n⁻[2] * (F⁻[2, s] + F⁺[2, s]) +
                    n⁻[3] * (F⁻[3, s] + F⁺[3, s]) +
-                   λ * ΔQ[s])
+                   ΔQ[s])
   end
 end
 
