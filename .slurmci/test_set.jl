@@ -32,10 +32,10 @@ cpu_gpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                      (2, "test/LinearSolvers/poisson.jl"),
                      (4, "examples/DGmethods/ex_001_dycoms.jl"),
                      (1, "test/Ocean/shallow_water/GyreDriver.jl")
+                     (3, "test/DGmethods/integral_test_sphere.jl true"),
                     ))
 
 gpu_tests = Set(((3, "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl true"),
                  (3, "test/DGmethods/Euler/isentropicvortex.jl true"),
-                 (3, "test/DGmethods/integral_test_sphere.jl true"),
                  (3, "test/LinearSolvers/poisson.jl true"),
                ))

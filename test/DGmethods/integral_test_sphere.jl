@@ -129,7 +129,7 @@ let
   expected_result = [6.228615762850257e-7
                      9.671308320438864e-9
                      1.5102832678375277e-10
-                     2.359860999112363e-12]
+                     2.3598612210570662e-12]
 
   lvls = integration_testing ? length(expected_result) : 1
 
