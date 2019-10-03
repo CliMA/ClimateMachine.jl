@@ -459,3 +459,120 @@ let
     end
   end
 end
+
+# Simple 3-rate problem based on test of RobertsSarsharSandu2018arxiv
+#
+# NOTE: Since we have no theory to say this ODE solver is accurate, the rates
+#      suggest that things are really only 2nd order.
+let
+  ω1, ω2, ω3 = 10000, 100, 1
+  λ1, λ2, λ3 = -100, -10, -1
+  β1, β2, β3 = 2, 3, 4
+
+  ξ12 = λ2 / λ1
+  ξ13 = λ3 / λ1
+  ξ23 = λ3 / λ2
+
+  α12, α13, α23 = 1, 1, 1
+
+  η12 = ((1-ξ12) / α12) * (λ1 - λ2)
+  η13 = ((1-ξ13) / α13) * (λ1 - λ3)
+  η23 = ((1-ξ23) / α23) * (λ2 - λ3)
+
+  η21 = ξ12 * α12 * (λ2 - λ1)
+  η31 = ξ13 * α13 * (λ3 - λ1)
+  η32 = ξ23 * α23 * (λ3 - λ2)
+
+  Ω = @SMatrix [ λ1 η12 η13;
+                η21  λ2 η23;
+                η31 η32  λ3]
+
+  function rhs1!(dQ, Q, param, t; increment)
+    @inbounds begin
+      increment || (dQ .= 0)
+      y1, y2, y3 = Q[1], Q[2], Q[3]
+      g = @SVector [(-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                    (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                    (-β3 + y3^2 - cos(ω3 * t)) / 2y3]
+      dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
+    end
+  end
+  function rhs2!(dQ, Q, param, t; increment)
+    @inbounds begin
+      increment || (dQ .= 0)
+      y1, y2, y3 = Q[1], Q[2], Q[3]
+      g = @SVector [(-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                    (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                    (-β3 + y3^2 - cos(ω3 * t)) / 2y3]
+      dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
+    end
+  end
+  function rhs3!(dQ, Q, param, t; increment)
+    @inbounds begin
+      increment || (dQ .= 0)
+      y1, y2, y3 = Q[1], Q[2], Q[3]
+      g = @SVector [(-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                    (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                    (-β3 + y3^2 - cos(ω3 * t)) / 2y3]
+      dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
+    end
+  end
+  function rhs12!(dQ, Q, param, t; increment)
+    rhs1!(dQ, Q, param, t; increment=increment)
+    rhs2!(dQ, Q, param, t; increment=true)
+  end
+
+  exactsolution(t) = [sqrt(β1 + cos(ω1 * t)),
+                      sqrt(β2 + cos(ω2 * t)),
+                      sqrt(β3 + cos(ω3 * t))]
+
+  @testset "3-rate Multirate Problem (no substeps)" begin
+    for (slow_method, slow_expected_order) in slow_mrrk_methods
+      for (fast_method, fast_expected_order) in fast_mrrk_methods
+        finaltime = π / 2
+        dts = [2.0 ^ (-k) for k = 2:13]
+
+        error = similar(dts)
+        for (n, dt) in enumerate(dts)
+          Q = exactsolution(0)
+          solver = MultirateRungeKutta(slow_method(rhs3!, Q),
+                                       fast_method(rhs12!, Q);
+                                       dt = dt, t0 = 0.0)
+          solve!(Q, solver; timeend = finaltime)
+          error[n] = norm(Q - exactsolution(finaltime))
+        end
+
+        rate = log2.(error[1:end-1] ./ error[2:end])
+        min_order = min(slow_expected_order, fast_expected_order)
+        max_order = max(slow_expected_order, fast_expected_order)
+        @test (min_order-0.2<= rate[end])
+      end
+    end
+  end
+
+  @testset "3-rate Multirate Problem (with substeps)" begin
+    for (slow_method, slow_expected_order) in slow_mrrk_methods
+      for (fast_method, fast_expected_order) in fast_mrrk_methods
+        finaltime = π / 2
+        dts = [2.0 ^ (-k) for k = 10:17]
+
+        error = similar(dts)
+        for (n, dt12) in enumerate(dts)
+          Q = exactsolution(0)
+          dt3 = ω1 * dt12
+          solver = MultirateRungeKutta(slow_method(rhs3!, Q; dt=dt3),
+                                       fast_method(rhs12!, Q; dt=dt12))
+          solve!(Q, solver; timeend = finaltime)
+          error[n] = norm(Q - exactsolution(finaltime))
+        end
+
+        rate = log2.(error[1:end-1] ./ error[2:end])
+        min_order = min(slow_expected_order, fast_expected_order)
+        max_order = max(slow_expected_order, fast_expected_order)
+
+        # TODO: This is not great, but no theory to say we should be accurate!
+        @test (2.4<= rate[end])
+      end
+    end
+  end
+end
