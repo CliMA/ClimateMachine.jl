@@ -18,6 +18,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 using Random
+using CLIMA.Atmos: vars_state, vars_aux
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -49,7 +50,7 @@ const Δy        = (ymax-ymin)/(Ne[2]*polynomialorder+1)
 const Δz        = (zmax-zmin)/(Ne[3]*polynomialorder+1)
 const Δ         = cbrt(Δx * Δy * Δz) 
 const dt        = 0.001
-const timeend   = 50dt
+const timeend   = 500
 const T_bot     = 320
 const T_lapse   = -0.04
 const T_top     = T_bot + T_lapse*zmax
