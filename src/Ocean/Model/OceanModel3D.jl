@@ -171,22 +171,22 @@ function update_penalty!(::Rusanov, ::HBModel, ΔQ::Vars,
   u⁻ = Q⁻.u
   w⁻ = α⁻.w
   @inbounds v⁻ = @SVector [u⁻[1], u⁻[2], w⁻]
-  n̂⨀v⁻ = n⁻∘v⁻
+  n̂_v⁻ = n⁻∘v⁻
 
   θ⁺ = Q⁺.θ
   u⁺ = Q⁺.u
   w⁺ = α⁺.w
   @inbounds v⁺ = @SVector [u⁺[1], u⁺[2], w⁺]
-  n̂⨀v⁺ = n⁻∘v⁺
+  n̂_v⁺ = n⁻∘v⁺
 
   # max velocity
   # n̂∘v = (abs(n̂∘v⁺) > abs(n̂∘v⁻) ? n̂∘v⁺ : n̂∘v⁻
 
   # average velocity
-  n̂⨀v = (n̂⨀v⁻ + n̂⨀v⁺) / 2
+  n̂_v = (n̂_v⁻ + n̂_v⁺) / 2
 
-  ΔQ.θ = ((n̂⨀v > 0) ? 1 : -1) * (n̂⨀v⁻ * θ⁻ - n̂⨀v⁺ * θ⁺)
-  # ΔQ.θ = abs(n̂⨀v⁻) * θ⁻ - abs(n̂∘⨀v⁺) * θ⁺
+  ΔQ.θ = ((n̂_v > 0) ? 1 : -1) * (n̂_v⁻ * θ⁻ - n̂_v⁺ * θ⁺)
+  # ΔQ.θ = abs(n̂_v⁻) * θ⁻ - abs(n̂_v⁺) * θ⁺
 end
 
 @inline function source!(m::HBModel{P}, source::Vars, Q::Vars, α::Vars,

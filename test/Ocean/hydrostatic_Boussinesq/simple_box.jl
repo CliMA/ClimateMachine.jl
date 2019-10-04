@@ -81,10 +81,10 @@ end
 # PARAM SELECTION #
 ###################
 DFloat = Float64
-vtkpath = "vtk_hydrostatic_Boussinesq_simple_box_κ"
+vtkpath = "vtk_upwind"
 
-const timeend = 86400 # 4 * 365 * 86400
-const tout    = 60 * 60
+const timeend = 3 * 30 * 86400 # 4 * 365 * 86400
+const tout    = 24 * 60 * 60
 
 const Lˣ = 1e6
 const Lʸ = 1e6
@@ -127,7 +127,7 @@ let
   DFloat = Float64
 
   N = 4
-  Ne = (2, 2, 4)
+  Ne = (10, 10, 4)
   L = SVector{3, DFloat}(Lˣ, Lʸ, H)
   c = @SVector [cʰ, cʰ, cᶻ]
   brickrange = (range(DFloat(0); length=Ne[1]+1, stop=L[1]),
