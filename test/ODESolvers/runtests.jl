@@ -26,8 +26,7 @@ const explicit_methods = [(LSRK54CarpenterKennedy, 4)
 const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
                       (ARK548L2SA2KennedyCarpenter, 5)
                      ]
-
-let 
+let
   function rhs!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= Q * cos(time)
@@ -65,7 +64,7 @@ let
       Q1 = [q0]
       solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
       solve!(Q1, solver1; timeend = finaltime)
-      
+
       Q2 = [q0]
       solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
       solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
@@ -78,7 +77,7 @@ let
   @static if haspkg("CuArrays")
     using CuArrays
     CuArrays.allowscalar(false)
-    
+
     @testset "CUDA ODE Solvers Convergence" begin
       ninitial = 1337
       q0s = range(1.0, 2.0, length = ninitial)
@@ -110,7 +109,7 @@ let
         Q1 = CuArray(q0s)
         solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
         solve!(Q1, solver1; timeend = finaltime)
-        
+
         Q2 = CuArray(q0s)
         solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
         solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
@@ -124,7 +123,7 @@ let
   end
 end
 
-let 
+let
   c = 100.0
   function rhs_full!(dQ, Q, ::Nothing, time; increment)
     if increment
@@ -133,7 +132,7 @@ let
       dQ .= im * c * Q .+ exp(im * time)
     end
   end
-  
+
   function rhs_nonlinear!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= exp(im * time)
@@ -141,7 +140,7 @@ let
       dQ .= exp(im * time)
     end
   end
- 
+
   function rhs_linear!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= im * c * Q
@@ -219,7 +218,7 @@ let
   end
 end
 
-let 
+let
   c = 100.0
   function rhs_fast!(dQ, Q, param, time; increment)
     if increment
@@ -228,7 +227,7 @@ let
       dQ .= im * c * Q
     end
   end
-  
+
   function rhs_slow!(dQ, Q, param, time; increment)
     if increment
       dQ .+= exp(im * time)
@@ -251,8 +250,8 @@ let
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = [q0]
-          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
-                                       fast_method(rhs_fast!, Q);
+          solver = MultirateRungeKutta((slow_method(rhs_slow!, Q),
+                                        fast_method(rhs_fast!, Q));
                                        dt = dt, t0 = 0.0)
           solve!(Q, solver; timeend = finaltime)
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
@@ -279,8 +278,8 @@ let
         for (n, fast_dt) in enumerate(dts)
           slow_dt = c * fast_dt
           Q = [q0]
-          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
-                                       fast_method(rhs_fast!, Q; dt=fast_dt))
+          solver = MultirateRungeKutta((slow_method(rhs_slow!, Q; dt=slow_dt),
+                                        fast_method(rhs_fast!, Q; dt=fast_dt)))
           solve!(Q, solver; timeend = finaltime)
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
         end
@@ -310,8 +309,8 @@ let
           errors = similar(dts)
           for (n, dt) in enumerate(dts)
             Q = CuArray{ComplexF64}(q0s)
-            solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
-                                         fast_method(rhs_fast!, Q);
+            solver = MultirateRungeKutta((slow_method(rhs_slow!, Q),
+                                          fast_method(rhs_fast!, Q));
                                          dt = dt, t0 = 0.0)
             solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
@@ -340,8 +339,8 @@ let
           for (n, fast_dt) in enumerate(dts)
             slow_dt = c * fast_dt
             Q = CuArray{ComplexF64}(q0s)
-            solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
-                                         fast_method(rhs_fast!, Q; dt=fast_dt))
+            solver = MultirateRungeKutta((slow_method(rhs_slow!, Q; dt=slow_dt),
+                                          fast_method(rhs_fast!, Q; dt=fast_dt)))
             solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
             errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
@@ -416,8 +415,8 @@ let
         error = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = exactsolution(0)
-          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q),
-                                       fast_method(rhs_fast!, Q);
+          solver = MultirateRungeKutta((slow_method(rhs_slow!, Q),
+                                        fast_method(rhs_fast!, Q));
                                        dt = dt, t0 = 0.0)
           solve!(Q, solver; timeend = finaltime)
           error[n] = norm(Q - exactsolution(finaltime))
@@ -443,8 +442,8 @@ let
         for (n, fast_dt) in enumerate(dts)
           Q = exactsolution(0)
           slow_dt = ω * fast_dt
-          solver = MultirateRungeKutta(slow_method(rhs_slow!, Q; dt=slow_dt),
-                                       fast_method(rhs_fast!, Q; dt=fast_dt))
+          solver = MultirateRungeKutta((slow_method(rhs_slow!, Q; dt=slow_dt),
+                                        fast_method(rhs_fast!, Q; dt=fast_dt)))
           solve!(Q, solver; timeend = finaltime)
           error[n] = norm(Q - exactsolution(finaltime))
         end
@@ -464,6 +463,8 @@ end
 #
 # NOTE: Since we have no theory to say this ODE solver is accurate, the rates
 #      suggest that things are really only 2nd order.
+#
+# TODO: This is not great, but no theory to say we should be accurate!
 let
   ω1, ω2, ω3 = 10000, 100, 1
   λ1, λ2, λ3 = -100, -10, -1
@@ -527,51 +528,57 @@ let
                       sqrt(β3 + cos(ω3 * t))]
 
   @testset "3-rate Multirate Problem (no substeps)" begin
-    for (slow_method, slow_expected_order) in slow_mrrk_methods
-      for (fast_method, fast_expected_order) in fast_mrrk_methods
-        finaltime = π / 2
-        dts = [2.0 ^ (-k) for k = 2:13]
+    for (rate3_method, rate3_order) in slow_mrrk_methods
+      for (rate2_method, rate2_order) in slow_mrrk_methods
+        for (rate1_method, rate1_order) in fast_mrrk_methods
+          finaltime = π / 2
+          dts = [2.0 ^ (-k) for k = 2:10]
 
-        error = similar(dts)
-        for (n, dt) in enumerate(dts)
-          Q = exactsolution(0)
-          solver = MultirateRungeKutta(slow_method(rhs3!, Q),
-                                       fast_method(rhs12!, Q);
-                                       dt = dt, t0 = 0.0)
-          solve!(Q, solver; timeend = finaltime)
-          error[n] = norm(Q - exactsolution(finaltime))
+          error = similar(dts)
+          for (n, dt) in enumerate(dts)
+            Q = exactsolution(0)
+            solver = MultirateRungeKutta((rate3_method(rhs3!, Q),
+                                          rate2_method(rhs2!, Q),
+                                          rate1_method(rhs1!, Q));
+                                         dt = dt, t0 = 0.0)
+            solve!(Q, solver; timeend = finaltime)
+            error[n] = norm(Q - exactsolution(finaltime))
+          end
+
+          rate = log2.(error[1:end-1] ./ error[2:end])
+          min_order = min(rate3_order, rate2_order, rate1_order)
+          max_order = max(rate3_order, rate2_order, rate1_order)
+          @test 2 <= rate[end]
         end
-
-        rate = log2.(error[1:end-1] ./ error[2:end])
-        min_order = min(slow_expected_order, fast_expected_order)
-        max_order = max(slow_expected_order, fast_expected_order)
-        @test (min_order-0.2<= rate[end])
       end
     end
   end
 
   @testset "3-rate Multirate Problem (with substeps)" begin
-    for (slow_method, slow_expected_order) in slow_mrrk_methods
-      for (fast_method, fast_expected_order) in fast_mrrk_methods
-        finaltime = π / 2
-        dts = [2.0 ^ (-k) for k = 10:17]
+    for (rate3_method, rate3_order) in slow_mrrk_methods
+      for (rate2_method, rate2_order) in slow_mrrk_methods
+        for (rate1_method, rate1_order) in fast_mrrk_methods
+          finaltime = π / 2
+          dts = [2.0 ^ (-k) for k = 10:17]
 
-        error = similar(dts)
-        for (n, dt12) in enumerate(dts)
-          Q = exactsolution(0)
-          dt3 = ω1 * dt12
-          solver = MultirateRungeKutta(slow_method(rhs3!, Q; dt=dt3),
-                                       fast_method(rhs12!, Q; dt=dt12))
-          solve!(Q, solver; timeend = finaltime)
-          error[n] = norm(Q - exactsolution(finaltime))
+          error = similar(dts)
+          for (n, dt1) in enumerate(dts)
+            Q = exactsolution(0)
+            dt2 = (ω1/ω2) * dt1
+            dt3 = (ω2/ω3) * dt2
+            solver = MultirateRungeKutta((rate3_method(rhs3!, Q; dt = dt3),
+                                          rate2_method(rhs2!, Q; dt = dt2),
+                                          rate1_method(rhs1!, Q; dt = dt1)))
+            solve!(Q, solver; timeend = finaltime)
+            error[n] = norm(Q - exactsolution(finaltime))
+          end
+
+          rate = log2.(error[1:end-1] ./ error[2:end])
+          min_order = min(rate3_order, rate2_order, rate1_order)
+          max_order = max(rate3_order, rate2_order, rate1_order)
+
+          @test 2 <= rate[end]
         end
-
-        rate = log2.(error[1:end-1] ./ error[2:end])
-        min_order = min(slow_expected_order, fast_expected_order)
-        max_order = max(slow_expected_order, fast_expected_order)
-
-        # TODO: This is not great, but no theory to say we should be accurate!
-        @test (2.4<= rate[end])
       end
     end
   end
