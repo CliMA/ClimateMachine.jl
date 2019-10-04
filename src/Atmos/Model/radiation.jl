@@ -1,11 +1,11 @@
 using CLIMA.PlanetParameters
 export NoRadiation, StevensRadiation
 
+export NoRadiation, StevensRadiation
+
 abstract type RadiationModel end
 
 vars_state(::RadiationModel, DT) = @vars()
-vars_gradient(::RadiationModel, DT) = @vars()
-vars_diffusive(::RadiationModel, DT) = @vars()
 vars_aux(::RadiationModel, DT) = @vars()
 vars_integrals(::RadiationModel, DT) = @vars()
 
