@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters
-export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC
+export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
 
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
@@ -103,10 +103,10 @@ end
   DYCOMS_BC <: BoundaryCondition
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
 """
-struct DYCOMS_BC{DT} <: BoundaryCondition
-  C_drag::DT
-  LHF::DT
-  SHF::DT
+struct DYCOMS_BC{FT} <: BoundaryCondition
+  C_drag::FT
+  LHF::FT
+  SHF::FT
 end
 function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
@@ -114,7 +114,7 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
-  DT = eltype(stateP)
+  FT = eltype(stateP)
   # Get values from minus-side state
   ρM = stateM.ρ 
   UM, VM, WM = stateM.ρu
@@ -145,7 +145,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
-  DT = eltype(stateP)
+  FT = eltype(stateP)
   # Get values from minus-side state
   ρM = stateM.ρ 
   UM, VM, WM = stateM.ρu
@@ -208,20 +208,20 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)  
     stateP.ρu = SVector(0,0,0)
-    diffP.ρτ = SHermitianCompact{3,DT,6}(SVector(DT(0),ρτM[2,1],ρτ13P, DT(0), ρτ23P,DT(0)))
+    diffP.ρτ = SHermitianCompact{3,FT,6}(SVector(FT(0),ρτM[2,1],ρτ13P, FT(0), ρτ23P,FT(0)))
 
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
-    diffP.moisture.ρd_q_tot  = SVector(DT(0),
-                                       DT(0),
+    diffP.moisture.ρd_q_tot  = SVector(FT(0),
+                                       FT(0),
                                        bc.LHF/(LH_v0))
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-    diffP.ρd_h_tot  = SVector(DT(0),
-                              DT(0),
+    diffP.ρd_h_tot  = SVector(FT(0),
+                              FT(0),
                               bc.LHF + bc.SHF)
   end
 end
@@ -229,24 +229,25 @@ end
 """
   RayleighBenardBC <: BoundaryCondition
 """
-struct RayleighBenardBC{DT} <: BoundaryCondition
-  T_bot::DT
-  T_top::DT
+struct RayleighBenardBC{FT} <: BoundaryCondition
+  T_bot::FT
+  T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundarycondition!(bc::RayleighBenardBC, m::AtmosModel, stateP::Vars, diffP::Vars, auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...) 
+function atmos_boundary_state!(::Rusanov, bc::RayleighBenardBC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t,_...)
   @inbounds begin
-    DT = eltype(stateP)
+    FT = eltype(stateP)
     ρP  = stateM.ρ
-    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
     # Weak Boundary Condition Imposition
-    # Prescribe no-slip wall.
+    # Prescribe no-slip wall (Dirichlet b.c. for wall velocity)
     # Note that with the default resolution this results in an underresolved near-wall layer
     # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
     # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
-    UP  = DT(0)
-    VP  = DT(0) 
-    WP  = DT(0) 
+    UP  = FT(0)
+    VP  = FT(0) 
+    WP  = FT(0) 
     if bctype == 1 
       E_intP = ρP * cv_d * (bc.T_bot - T_0)
     else
@@ -255,8 +256,15 @@ function atmos_boundarycondition!(bc::RayleighBenardBC, m::AtmosModel, stateP::V
     stateP.ρ = ρP
     stateP.ρu = SVector(UP, VP, WP)
     stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * auxP.coord[3])
-    diffP = diffM
-    diffP.moisture.ρd_h_tot = SVector(diffP.moisture.ρd_h_tot[1], diffP.moisture.ρd_h_tot[2], DT(0))
     nothing
   end
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBenardBC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  FT = eltype(stateM)
+  diffP = diffM
+  diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))
+  nothing
 end

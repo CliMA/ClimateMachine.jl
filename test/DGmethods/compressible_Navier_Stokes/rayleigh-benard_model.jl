@@ -77,13 +77,6 @@ function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρu      = SVector(ρu, ρv, ρw)
   state.ρe      = ρe_tot
 end
-# --------------- Gravity source --------------------- # 
-function source_geopot!(source::Vars, state::Vars, aux::Vars, t::Real)
-  DF = eltype(state)
-  source.ρu = SVector(DF(0),
-                      DF(0),
-                      -state.ρ * DF(grav))
-end
 # --------------- Driver definition ------------------ # 
 function run(mpicomm, ArrayType, 
              topl, dim, Ne, polynomialorder, 
@@ -107,21 +100,20 @@ function run(mpicomm, ArrayType,
   dg = DGModel(model,
                grid,
                Rusanov(),
-               DefaultGradNumericalFlux())
+               CentralNumericalFluxDiffusive(),
+               CentralGradPenalty())
 
-  param = init_ode_param(dg)
-
-  Q = init_ode_state(dg, param, DF(0))
+  Q = init_ode_state(dg, DF(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e
-  ArrayType = %s""" eng0 ArrayType
+  ArrayType = %s
+  FloatType = %s""" eng0 ArrayType DF
 
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
-  # No vtk dump in current example
   starttime = Ref(now())
   cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
@@ -139,11 +131,21 @@ function run(mpicomm, ArrayType,
     end
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo,))
+  step = [0]
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(3000)  do (init=false)
+    mkpath("./vtk-rb/")
+      outprefix = @sprintf("./vtk-rb/RB_%dD_mpirank%04d_step%04d", dim,
+                           MPI.Comm_rank(mpicomm), step[1])
+      @debug "doing VTK output" outprefix
+      writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DF)), dg.auxstate, flattenednames(vars_aux(model,DF)))
+      step[1] += 1
+      nothing
+  end
 
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk))
   # End of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, param, DF(timeend))
+  Qe = init_ode_state(dg, DF(timeend))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished
