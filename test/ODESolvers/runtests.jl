@@ -457,6 +457,42 @@ let
       end
     end
   end
+
+  @testset "RobertsSarsharSandu2018arxiv Multirate Problem (with IMEX)" begin
+    function rhs_zero!(dQ, Q, param, t; increment)
+      if !increment
+        dQ .= 0
+      end
+    end
+
+    for (slow_method, slow_expected_order) in slow_mrrk_methods
+      for (fast_method, fast_expected_order) in imex_methods
+        finaltime = 5π / 2
+        dts = [2.0 ^ (-k) for k = 2:9]
+
+        error = similar(dts)
+        for (n, fast_dt) in enumerate(dts)
+          Q = exactsolution(0)
+          slow_dt = ω * fast_dt
+          solver = MultirateRungeKutta((slow_method(rhs_slow!, Q; dt=slow_dt),
+                                        fast_method(rhs_fast!, rhs_zero!,
+                                                    DivideLinearSolver(), Q;
+                                                    dt = fast_dt,
+                                                    split_nonlinear_linear =
+                                                    false)))
+          solve!(Q, solver; timeend = finaltime)
+          error[n] = norm(Q - exactsolution(finaltime))
+        end
+
+        rate = log2.(error[1:end-1] ./ error[2:end])
+        min_order = min(slow_expected_order, fast_expected_order)
+        max_order = max(slow_expected_order, fast_expected_order)
+        @test (isapprox(rate[end], min_order; atol = 0.3) ||
+               isapprox(rate[end], max_order; atol = 0.3) ||
+               min_order <= rate[end] <= max_order)
+      end
+    end
+  end
 end
 
 # Simple 3-rate problem based on test of RobertsSarsharSandu2018arxiv
