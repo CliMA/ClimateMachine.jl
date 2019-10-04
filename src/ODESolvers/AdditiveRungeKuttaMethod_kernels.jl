@@ -4,11 +4,17 @@ using Requires
 end
 
 function stage_update!(Q, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implicit, dt,
-                       ::Val{is}, ::Val{split_nonlinear_linear}) where {is, split_nonlinear_linear}
+                       ::Val{is}, ::Val{split_nonlinear_linear}, slow_δ,
+                       slow_dQ) where {is, split_nonlinear_linear}
   @inbounds @loop for i = (1:length(Q);
                            (blockIdx().x - 1) * blockDim().x + threadIdx().x)
     Qhat_i = Q[i]
     Qstages_is_i = -zero(eltype(Q))
+
+    if slow_δ !== nothing
+      Rstages[is-1][i] += slow_δ * slow_dQ[i]
+    end
+
     @unroll for js = 1:is-1
       if split_nonlinear_linear
         rkcoeff = RKA_implicit[is, js] / RKA_implicit[is, is]
@@ -25,9 +31,17 @@ function stage_update!(Q, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implici
   end
 end
 
-function solution_update!(Q, Rstages, RKB, dt, ::Val{nstages}) where nstages
+function solution_update!(Q, Rstages, RKB, dt, ::Val{nstages}, slow_δ,
+                          slow_dQ, slow_scaling) where nstages
   @inbounds @loop for i = (1:length(Q);
                            (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+    if slow_δ !== nothing
+      Rstages[nstages][i] += slow_δ * slow_dQ[i]
+    end
+    if slow_scaling !== nothing
+      slow_dQ[i] *= slow_scaling
+    end
+
     @unroll for is = 1:nstages
       Q[i] += RKB[is] * dt * Rstages[is][i]
     end

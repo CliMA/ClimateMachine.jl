@@ -1,5 +1,6 @@
 module MultirateRungeKuttaMethod
 using ..ODESolvers
+using ..AdditiveRungeKuttaMethod
 using ..LowStorageRungeKuttaMethod
 using ..StrongStabilityPreservingRungeKuttaMethod
 using ..MPIStateArrays: device, realview
@@ -59,7 +60,8 @@ struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
 
   function MultirateRungeKutta(slow_solver::LSRK2N,
                                fast_solver::Union{LSRK2N, SSPRK,
-                                                  MultirateRungeKutta},
+                                                  MultirateRungeKutta,
+                                                  AdditiveRungeKutta},
                                Q=nothing;
                                dt=ODEs.getdt(slow_solver), t0=slow_solver.t[1]
                               ) where {AT<:AbstractArray}
