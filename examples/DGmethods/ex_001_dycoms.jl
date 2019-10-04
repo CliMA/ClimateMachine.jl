@@ -120,16 +120,52 @@ end
 
 # TODO: temporary; move to new CLIMA module
 function gather_diags(dg, Q)
+  bl = dg.balancelaw
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+  Nfp = Nq * Nqk
+  nrealelem = length(topology.realelems)
+
+  DFloat = eltype(Q)
+
+  nstate = 1 # temporarily, \rho only
+  # nstate = num_state(bl, DFLoat)
+
+  mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
+  nranks = MPI.Comm_size(MPI.COMM_WORLD)
+
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realQ : Array(Q.realQ)
 
+  # compute \rho average
   rho_localtot = sum(localQ[:, 1, :])
-  mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
-  nranks = MPI.Comm_size(MPI.COMM_WORLD)
-  rho_tot = MPI.Reduce(rho_localtot, +, 0, MPI.COMM_WORLD)
+  rho_tot = MPI.Allreduce(rho_localtot, +, MPI.COMM_WORLD)
+  rho_avg = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
+  @info "ρ average = $(rho_avg)"
+
+  # fluctuations
+  fluct = zeros(DFloat, Nq*Nq*Nqk, nstate, nrealelem)
+  varia = zeros(DFloat, Nq*Nq*Nqk, nstate, nrealelem)
+  for e = 1:nrealelem
+    for i = 1:Nq*Nqk*Nq
+      fluct[i,1,e] = localQ[i,1,e] - rho_avg
+      varia[i,1,e] = fluct[i,1,e]^2
+    end
+  end
+
+  # standard_deviation and variance
+  rho_local_flucttot = sum(varia[:,1,:])
+  rho_flucttot = MPI.Reduce(rho_local_flucttot, +, 0, MPI.COMM_WORLD)
   if mpirank == 0
-    rho_avg = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
-    @info "ρ average = $(rho_avg)"
+    rho_standard_dev = (rho_flucttot / (size(fluct, 1) * size(fluct, 3) * nranks) )^(0.5)
+    rho_variance = rho_standard_dev^2
+    @info "ρ standard_deviation = $(rho_standard_dev)"
+    @info "ρ variance = $(rho_variance)"
   end
 end
 
