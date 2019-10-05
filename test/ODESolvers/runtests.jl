@@ -386,21 +386,19 @@ let
     @inbounds begin
       increment || (dQ .= 0)
       yf = Q[1]
-      ys = Q[2]
-      gf = (-3 + yf^2 - cos(ω * t)) / 2yf
-      gs = (-2 + ys^2 - cos(    t)) / 2ys
-      dQ[1] += Ω[1,1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+      g = @SVector [(-3 + yf^2 - cos(ω * t)) / 2yf, 0]
+      dQ .+= Ω * g
+      dQ[1] -= ω * sin(ω * t) / 2yf
     end
   end
 
   function rhs_slow!(dQ, Q, param, t; increment)
     @inbounds begin
       increment || (dQ .= 0)
-      yf = Q[1]
       ys = Q[2]
-      gf = (-3 + yf^2 - cos(ω * t)) / 2yf
-      gs = (-2 + ys^2 - cos(    t)) / 2ys
-      dQ[2] += Ω[2,1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+      g = @SVector [0, (-2 + ys^2 - cos(    t)) / 2ys]
+      dQ .+= Ω * g
+      dQ[2] -= sin(t) / 2ys
     end
   end
 
@@ -436,7 +434,7 @@ let
     for (slow_method, slow_expected_order) in slow_mrrk_methods
       for (fast_method, fast_expected_order) in fast_mrrk_methods
         finaltime = 5π / 2
-        dts = [2.0 ^ (-k) for k = 2:9]
+        dts = [2.0 ^ (-k) for k = 2:7]
 
         error = similar(dts)
         for (n, fast_dt) in enumerate(dts)
@@ -451,9 +449,7 @@ let
         rate = log2.(error[1:end-1] ./ error[2:end])
         min_order = min(slow_expected_order, fast_expected_order)
         max_order = max(slow_expected_order, fast_expected_order)
-        @test (isapprox(rate[end], min_order; atol = 0.3) ||
-               isapprox(rate[end], max_order; atol = 0.3) ||
-               min_order <= rate[end] <= max_order)
+        @test (min_order - 0.5 <= rate[end])
       end
     end
   end
@@ -529,29 +525,32 @@ let
       increment || (dQ .= 0)
       y1, y2, y3 = Q[1], Q[2], Q[3]
       g = @SVector [(-β1 + y1^2 - cos(ω1 * t)) / 2y1,
-                    (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
-                    (-β3 + y3^2 - cos(ω3 * t)) / 2y3]
-      dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
+                    0,
+                    0]
+      dQ .+= Ω * g
+      dQ[1] -= ω1 * sin(ω1 * t) / 2y1
     end
   end
   function rhs2!(dQ, Q, param, t; increment)
     @inbounds begin
       increment || (dQ .= 0)
       y1, y2, y3 = Q[1], Q[2], Q[3]
-      g = @SVector [(-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+      g = @SVector [0,
                     (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
-                    (-β3 + y3^2 - cos(ω3 * t)) / 2y3]
-      dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
+                    0]
+      dQ .+= Ω * g
+      dQ[2] -= ω2 * sin(ω2 * t) / 2y2
     end
   end
   function rhs3!(dQ, Q, param, t; increment)
     @inbounds begin
       increment || (dQ .= 0)
       y1, y2, y3 = Q[1], Q[2], Q[3]
-      g = @SVector [(-β1 + y1^2 - cos(ω1 * t)) / 2y1,
-                    (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+      g = @SVector [0,
+                    0,
                     (-β3 + y3^2 - cos(ω3 * t)) / 2y3]
-      dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
+      dQ .+= Ω * g
+      dQ[3] -= ω3 * sin(ω3 * t) / 2y3
     end
   end
 
@@ -564,7 +563,7 @@ let
       for (rate2_method, rate2_order) in slow_mrrk_methods
         for (rate1_method, rate1_order) in fast_mrrk_methods
           finaltime = π / 2
-          dts = [2.0 ^ (-k) for k = 2:10]
+          dts = [2.0 ^ (-k) for k = 5:13]
 
           error = similar(dts)
           for (n, dt) in enumerate(dts)
@@ -591,7 +590,7 @@ let
       for (rate2_method, rate2_order) in slow_mrrk_methods
         for (rate1_method, rate1_order) in fast_mrrk_methods
           finaltime = π / 2
-          dts = [2.0 ^ (-k) for k = 10:17]
+          dts = [2.0 ^ (-k) for k = 12:18]
 
           error = similar(dts)
           for (n, dt1) in enumerate(dts)
