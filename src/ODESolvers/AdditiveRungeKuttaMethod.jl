@@ -72,9 +72,7 @@ struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractOD
                               linearsolver::AbstractLinearSolver,
                               RKA_explicit, RKA_implicit, RKB, RKC,
                               split_nonlinear_linear,
-                              Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
-
-    @assert dt != nothing
+                              Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
 
     T = eltype(Q)
     LT = typeof(linearsolver)
@@ -103,7 +101,7 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                             linearsolver::AbstractLinearSolver,
                             RKA_explicit, RKA_implicit, RKB, RKC,
                             split_nonlinear_linear,
-                            Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+                            Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   rhs_linear! = (x...; increment) -> SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
   AdditiveRungeKutta(rhs!, rhs_linear!, linearsolver,
@@ -149,10 +147,8 @@ Giraldo, Kelly and Constantinescu (2013).
 """
 function ARK2GiraldoKellyConstantinescu(F, L,
                                         linearsolver::AbstractLinearSolver,
-                                        Q::AT; dt=nothing, t0=0,
+                                        Q::AT; dt=0, t0=0,
                                         split_nonlinear_linear=false) where {AT<:AbstractArray}
-
-  @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
@@ -213,10 +209,8 @@ Kennedy and Carpenter (2013).
 """
 function ARK548L2SA2KennedyCarpenter(F, L,
                                      linearsolver::AbstractLinearSolver,
-                                     Q::AT; dt=nothing, t0=0,
+                                     Q::AT; dt=0, t0=0,
                                      split_nonlinear_linear=false) where {AT<:AbstractArray}
-
-  @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
