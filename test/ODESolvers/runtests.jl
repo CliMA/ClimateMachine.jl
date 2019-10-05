@@ -554,10 +554,6 @@ let
       dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
     end
   end
-  function rhs12!(dQ, Q, param, t; increment)
-    rhs1!(dQ, Q, param, t; increment=increment)
-    rhs2!(dQ, Q, param, t; increment=true)
-  end
 
   exactsolution(t) = [sqrt(β1 + cos(ω1 * t)),
                       sqrt(β2 + cos(ω2 * t)),
