@@ -324,14 +324,27 @@ end
 
 ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend, adjustfinalstep)
-
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
+                      adjustfinalstep::Bool)
   time, dt = ark.t[1], ark.dt[1]
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
-    @assert dt > 0
+  end
+  @assert dt > 0
+
+  ODEs.dostep!(Q, ark, p, time, dt)
+
+  if dt == ark.dt[1]
+    ark.t[1] += dt
+  else
+    ark.t[1] = timeend
   end
 
+end
+
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
+                      slow_δ = nothing, slow_rv_dQ = nothing,
+                      slow_scaling = nothing)
   linearsolver = ark.linearsolver
   RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
   RKB, RKC = ark.RKB, ark.RKC
@@ -357,11 +370,12 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend, adjustfinalstep)
   # note that it is important that this loop does not modify Q!
   for istage = 2:nstages
     stagetime = time + RKC[istage] * dt
+
     # this kernel also initializes Qtt for the linear solver
     @launch(device(Q), threads = threads, blocks = blocks,
             stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
-                          RKA_explicit, RKA_implicit, dt,
-                          Val(istage), Val(split_nonlinear_linear)))
+                          RKA_explicit, RKA_implicit, dt, Val(istage),
+                          Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
@@ -386,13 +400,9 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend, adjustfinalstep)
 
   # compose the final solution
   @launch(device(Q), threads = threads, blocks = blocks,
-          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages)))
+          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages), slow_δ,
+                           slow_rv_dQ, slow_scaling))
 
-  if dt == ark.dt[1]
-    ark.t[1] += dt
-  else
-    ark.t[1] = timeend
-  end
 
 end
 

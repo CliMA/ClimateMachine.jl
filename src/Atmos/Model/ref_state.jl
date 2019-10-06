@@ -38,12 +38,11 @@ end
 vars_aux(m::HydrostaticState, DT) = @vars(ρ::DT, p::DT, T::DT, ρe::DT, ρq_tot::DT)
 
 
-function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars) where {P,F}
+function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars, geom::LocalGeometry) where {P,F}
   T,p = m.temperatureprofile(atmos.orientation, aux)
   aux.ref_state.T = T
   aux.ref_state.p = p
   aux.ref_state.ρ = ρ = p/(R_d*T)
-
   q_vap_sat = q_vap_saturation(T, ρ)
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
@@ -51,7 +50,7 @@ function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars)
   aux.ref_state.ρe = ρ * internal_energy(T, q_pt)
 
   e_kin = F(0)
-  e_pot = gravitational_potential(orientation, aux)
+  e_pot = gravitational_potential(atmos.orientation, aux)
   aux.ref_state.ρe = ρ*total_energy(e_kin, e_pot, T, q_pt)
 end
 
