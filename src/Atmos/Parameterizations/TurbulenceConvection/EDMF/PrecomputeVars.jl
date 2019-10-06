@@ -1,10 +1,7 @@
 #### PrecomputeVars
 
-abstract type BuoyancyModel end
-struct BOverW2 <: BuoyancyModel end
-
 function pre_compute_vars!(grid, q, tmp, tmp_O2, UpdVar, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
 
   diagnose_environment!(q, grid, :a, (:q_tot, :θ_liq, :w))
 
@@ -17,7 +14,7 @@ function pre_compute_vars!(grid, q, tmp, tmp_O2, UpdVar, params)
   params[:zi] = compute_inversion_height(tmp, q, grid, params)
   params[:wstar] = compute_convective_velocity(params[:bflux], params[:zi])
 
-  compute_entrainment_detrainment!(grid, UpdVar, tmp, q, params, BOverW2())
+  compute_entrainment_detrainment!(grid, UpdVar, tmp, q, params, params[:EntrDetrModel])
   compute_cloud_phys!(grid, q, tmp)
   compute_buoyancy!(grid, q, tmp, params)
 
@@ -25,7 +22,7 @@ function pre_compute_vars!(grid, q, tmp, tmp_O2, UpdVar, params)
 
   compute_cv_gm!(grid, q, :w, :w, :tke, 0.5)
   compute_mf_gm!(grid, q, tmp)
-  compute_mixing_length!(grid, q, tmp, params)
+  compute_mixing_length!(grid, q, tmp, params, params[:MixingLengthModel])
   compute_eddy_diffusivities_tke!(grid, q, tmp, params)
 
   compute_tke_buoy!(grid, q, tmp, tmp_O2, :tke)

@@ -214,43 +214,43 @@ gm, en, ud, sd, al = allcombinations(idx)
 end
 
 @testset "Domain average, distribute, diagnose environment, total covariance" begin
-  q[:a, 1, en] = 0.25
-  q[:a, 1, ud[1]] = 0.75
-  q[:w, 1, en] = 2
-  q[:w, 1, ud[1]] = 2
-  domain_average!(q, q, :w, :a, grid)
-  @test q[:w, 1, gm] ≈ 2
+  q[:a, 2, en] = 0.25
+  q[:a, 2, ud[1]] = 0.75
+  q[:w, 2, en] = 2
+  q[:w, 2, ud[1]] = 2
+  grid_mean!(q, q, :a, :w, grid)
+  @test q[:w, 2, gm] ≈ 2
 
-  q[:w, 1, gm] = 2
+  q[:w, 2, gm] = 2
   distribute!(q, grid, :w)
-  @test q[:w, 1, en] ≈ 2
+  @test q[:w, 2, en] ≈ 2
   for i in ud
-    @test q[:w, 1, i] ≈ 2
+    @test q[:w, 2, i] ≈ 2
   end
 
-  q[:a, 1, ud[1]] = 0.1
-  q[:a, 1, en] = 0.9
-  q[:a, 1, gm] = 1.0
+  q[:a, 2, ud[1]] = 0.1
+  q[:a, 2, en] = 0.9
+  q[:a, 2, gm] = 1.0
 
-  q[:w, 1, gm] = 2
+  q[:w, 2, gm] = 2
   for i in ud
-    q[:w, 1, i] = 2
+    q[:w, 2, i] = 2
   end
 
   diagnose_environment!(q, grid, :a, (:w))
-  @test q[:w, 1, en] ≈ 2
+  @test q[:w, 2, en] ≈ 2
 
-  q[:a, 1, 1] = 0.1
-  q[:a, 1, 2] = 0.2
-  q[:ϕ, 1, 1] = 1
-  q[:ϕ, 1, 2] = 2
-  q[:ψ, 1, 1] = 2
-  q[:ψ, 1, 2] = 3
-  tmp[:cv_ϕ_ψ, 1, 1] = 1.0
-  tmp[:cv_ϕ_ψ, 1, 2] = 1.0
+  q[:a, 2, 1] = 0.1
+  q[:a, 2, 2] = 0.2
+  q[:ϕ, 2, 1] = 1
+  q[:ϕ, 2, 2] = 2
+  q[:ψ, 2, 1] = 2
+  q[:ψ, 2, 2] = 3
+  tmp[:cv_ϕ_ψ, 2, 1] = 1.0
+  tmp[:cv_ϕ_ψ, 2, 2] = 1.0
   decompose_ϕ_ψ(tcv) = tcv == :TCV_ϕ_ψ ?  (:ϕ , :ψ) : error("Bad init")
   total_covariance!(tmp, q, tmp, :TCV_ϕ_ψ, :cv_ϕ_ψ, :a, grid, decompose_ϕ_ψ)
-  @test tmp[:TCV_ϕ_ψ, 1] ≈ 0.32
+  @test tmp[:TCV_ϕ_ψ, 2] ≈ 0.32
 end
 
 

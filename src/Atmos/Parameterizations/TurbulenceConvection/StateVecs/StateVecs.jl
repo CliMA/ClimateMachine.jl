@@ -8,7 +8,7 @@ environment and updrafts.
 module StateVecs
 
 using ..FiniteDifferenceGrids
-export StateVec, over_sub_domains, Cut, Dual
+export StateVec, over_sub_domains, Cut, Dual, allcombinations
 export var_names, var_string, var_suffix
 export assign!, assign_real!, assign_ghost!, extrap!, extrap_0th_order!
 export compare
@@ -119,6 +119,8 @@ end
 
 DomainIdx(sv::StateVec) = sv.idx
 
+allcombinations(sv::StateVec) = allcombinations(DomainIdx(sv))
+
 """
     over_sub_domains(sv::StateVec, ϕ::Symbol)
 
@@ -201,7 +203,7 @@ end
 Assign value `val` to variable `ϕ` for all ghost points.
 """
 function assign!(sv::StateVec, var_names, grid::Grid{DT}, val::DT) where DT
-  gm, en, ud, sd, al = allcombinations(DomainIdx(sv))
+  gm, en, ud, sd, al = allcombinations(sv)
   !(var_names isa Tuple) && (var_names = (var_names,))
   @inbounds for k in over_elems(grid), ϕ in var_names, i in over_sub_domains(sv, ϕ)
     sv[ϕ, k, i] = val
@@ -214,7 +216,7 @@ end
 Assign value `val` to all variables in state vector.
 """
 function assign!(sv::StateVec, grid::Grid{DT}, val::DT) where DT
-  gm, en, ud, sd, al = allcombinations(DomainIdx(sv))
+  gm, en, ud, sd, al = allcombinations(sv)
   @inbounds for k in over_elems(grid), ϕ in var_names(sv), i in over_sub_domains(sv, ϕ)
     sv[ϕ, k, i] = val
   end
@@ -321,11 +323,14 @@ end
 
 Extrapolate variable `ϕ` to the first ghost point using zeroth order approximation.
 """
-function extrap_0th_order!(sv::StateVec, ϕ::Symbol, grid::Grid, i=0)
+function extrap_0th_order!(sv::StateVec, var_names, grid::Grid, i=0)
+  !(var_names isa Tuple) && (var_names = (var_names,))
   i==0 && (i = gridmean(sv.idx))
-  @inbounds for b in (Zmin(), Zmax())
-    kg, ki, kii = boundary_points(grid, b)
-    sv[ϕ, kg, i] = sv[ϕ, ki, i]
+  @inbounds for ϕ in var_names
+    @inbounds for b in (Zmin(), Zmax())
+      kg, ki, kii = boundary_points(grid, b)
+      sv[ϕ, kg, i] = sv[ϕ, ki, i]
+    end
   end
 end
 

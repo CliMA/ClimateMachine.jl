@@ -1,7 +1,5 @@
 #### SolveTurbConv
 
-function update_forcing!(tmp::StateVec, q::StateVec, grid::Grid, params, ::Case) end
-
 function update!(grid::Grid,
                  q_new::StateVec,
                  q::StateVec,

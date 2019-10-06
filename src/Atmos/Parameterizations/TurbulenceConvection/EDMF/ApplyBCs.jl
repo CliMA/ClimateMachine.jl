@@ -10,8 +10,9 @@ Apply boundary conditions to the state vector.
 function apply_bcs! end
 
 function apply_bcs!(grid::Grid, q::StateVec, tmp::StateVec, params, case::BOMEX)
-  @unpack params ρq_tot_flux ρθ_liq_flux obukhov_length ustar n_updrafts surface_area wstar UpdVar
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  @unpack params ρq_tot_flux ρθ_liq_flux obukhov_length ustar surface_area wstar UpdVar
+  gm, en, ud, sd, al = allcombinations(q)
+  n_updrafts = length(ud)
   k_1 = first_interior(grid, Zmin())
   zLL = grid.zc[k_1]
   θ_liq_1 = q[:θ_liq, k_1, gm]
