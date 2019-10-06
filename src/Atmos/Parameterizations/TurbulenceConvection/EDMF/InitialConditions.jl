@@ -25,7 +25,7 @@ function init_forcing! end
 
 
 function initialize_updrafts!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, ::BOMEX)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   k_1 = first_interior(grid, Zmin())
   n_updrafts = length(ud)
   for i in ud
@@ -39,10 +39,10 @@ function initialize_updrafts!(q::StateVec, tmp::StateVec, grid::Grid, params, di
 end
 
 function init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tree::DirTree, case::BOMEX)
-  @unpack params qtg Tg Pg a_bounds a_surf
+  @unpack params qtg Tg Pg a_bounds surface_area
   z = grid.zc
 
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   k_1 = first_interior(grid, Zmin())
 
   @inbounds for k in over_elems(grid)
@@ -56,7 +56,7 @@ function init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tr
     q[:a, k, gm] = 1.0
     for i in ud
       q[:a, k, i] = bound(0.0, a_bounds)
-      k==k_1 && (q[:a, k, i] = bound(a_surf, a_bounds))
+      k==k_1 && (q[:a, k, i] = bound(surface_area, a_bounds))
     end
     q[:a, k, en] = q[:a, k, gm] - sum([q[:a, k, i] for i in ud])
 
@@ -104,11 +104,9 @@ function init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tr
   end # end over_elems
 
   # Extrapolate to ghost points
-  extrap_0th_order!(q, :θ_liq, grid, gm)
-  extrap_0th_order!(q, :q_tot, grid, gm)
-  extrap_0th_order!(q, :u, grid, gm)
+  extrap_0th_order!(q, (:θ_liq, :q_tot, :u), grid, gm)
   extrap_0th_order!(tmp, :T, grid, gm)
-  # Use domain-average for sub-domain values:
+  # Use grid-mean for sub-domain values:
 
   initialize_updrafts!(q, tmp, grid, params, dir_tree, case)
   distribute!(q, grid, (:q_tot, :θ_liq))

@@ -20,8 +20,8 @@ Update surface conditions including
 """
 function update_surface! end
 
-function update_surface!(tmp::StateVec, q::StateVec, grid::Grid{DT}, params, case::BOMEX) where DT
-  gm, en, ud, sd, al = allcombinations(DomainIdx(tmp))
+function update_surface!(tmp::StateVec, q::StateVec, grid::Grid{FT}, params, case::BOMEX) where FT
+  gm, en, ud, sd, al = allcombinations(tmp)
   k_1 = first_interior(grid, Zmin())
   z_1 = grid.zc[k_1]
   ρ_0_surf = air_density(params[:Tg], params[:Pg], PhasePartition(params[:qtg]))
@@ -34,7 +34,7 @@ function update_surface!(tmp::StateVec, q::StateVec, grid::Grid{DT}, params, cas
 
   rho_tflux =  params[:shf] /(cp_m(PhasePartition(params[:qsurface])))
 
-  params[:windspeed] = compute_windspeed(q, k_1, DT(0.0))
+  params[:windspeed] = compute_windspeed(q, k_1, FT(0.0))
   params[:ρq_tot_flux] = params[:lhf]/(latent_heat_vapor(params[:Tsurface]))
   params[:ρθ_liq_flux] = rho_tflux / exner(params[:Pg])
   params[:bflux] = buoyancy_flux(params[:shf], params[:lhf], T_1, q_tot_1, α_0_surf)
@@ -45,7 +45,7 @@ function update_surface!(tmp::StateVec, q::StateVec, grid::Grid{DT}, params, cas
 end
 
 
-function percentile_bounds_mean_norm(low_percentile::DT, high_percentile::DT, n_samples::I) where {DT<:Real, I}
+function percentile_bounds_mean_norm(low_percentile::FT, high_percentile::FT, n_samples::I) where {FT<:Real, I}
     x = rand(Normal(), n_samples)
     xp_low = quantile(Normal(), low_percentile)
     xp_high = quantile(Normal(), high_percentile)
@@ -54,7 +54,7 @@ function percentile_bounds_mean_norm(low_percentile::DT, high_percentile::DT, n_
 end
 
 """
-    surface_tke(ustar::DT, wstar::DT, zLL::DT, obukhov_length::DT) where DT<:Real
+    surface_tke(ustar::FT, wstar::FT, zLL::FT, obukhov_length::FT) where FT<:Real
 
 computes the surface tke
 
@@ -63,7 +63,7 @@ computes the surface tke
  - `zLL` elevation at the first grid level
  - `obukhov_length` Monin-Obhukov length
 """
-function surface_tke(ustar::DT, wstar::DT, zLL::DT, obukhov_length::DT) where DT<:Real
+function surface_tke(ustar::FT, wstar::FT, zLL::FT, obukhov_length::FT) where FT<:Real
   if obukhov_length < 0
     return ((3.75 + cbrt(zLL/obukhov_length * zLL/obukhov_length)) * ustar * ustar + 0.2 * wstar * wstar)
   else
@@ -72,7 +72,7 @@ function surface_tke(ustar::DT, wstar::DT, zLL::DT, obukhov_length::DT) where DT
 end
 
 """
-    surface_variance(flux1::DT, flux2::DT, ustar::DT, zLL::DT, oblength::DT) where DT<:Real
+    surface_variance(flux1::FT, flux2::FT, ustar::FT, zLL::FT, oblength::FT) where FT<:Real
 
 computes the surface variance given
 
@@ -81,7 +81,7 @@ computes the surface variance given
  - `zLL` elevation at the first grid level
  - `oblength` Monin-Obhukov length
 """
-function surface_variance(flux1::DT, flux2::DT, ustar::DT, zLL::DT, oblength::DT) where DT<:Real
+function surface_variance(flux1::FT, flux2::FT, ustar::FT, zLL::FT, oblength::FT) where FT<:Real
   c_star1 = -flux1/ustar
   c_star2 = -flux2/ustar
   if oblength < 0
@@ -98,15 +98,15 @@ Computes the convective velocity scale, given the buoyancy flux
 `bflux`, and inversion height `inversion_height`.
 FIXME: add reference
 """
-compute_convective_velocity(bflux::DT, inversion_height::DT) where DT = cbrt(max(bflux * inversion_height, DT(0)))
+compute_convective_velocity(bflux::FT, inversion_height::FT) where FT = cbrt(max(bflux * inversion_height, FT(0)))
 
 """
-    compute_windspeed(q::StateVec, k::I, windspeed_min::DT)
+    compute_windspeed(q::StateVec, k::I, windspeed_min::FT)
 
 Computes the windspeed
 """
-function compute_windspeed(q::StateVec, k::I, windspeed_min::DT) where {DT, I}
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_windspeed(q::StateVec, k::I, windspeed_min::FT) where {FT, I}
+  gm, en, ud, sd, al = allcombinations(q)
   return max(sqrt(q[:u, k, gm]^2 + q[:v, k, gm]^2), windspeed_min)
 end
 
@@ -118,7 +118,7 @@ FIXME: add reference
 """
 function compute_inversion_height(tmp::StateVec, q::StateVec, grid::Grid, params)
   @unpack params Ri_bulk_crit tke_surface_tol
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   k_1 = first_interior(grid, Zmin())
   windspeed = compute_windspeed(q, k_1, 0.0)^2
 
@@ -152,12 +152,12 @@ function compute_inversion_height(tmp::StateVec, q::StateVec, grid::Grid, params
 end
 
 """
-    compute_MO_len(ustar::DT, bflux::DT) where {DT<:Real}
+    compute_MO_len(ustar::FT, bflux::FT) where {FT<:Real}
 
 Compute Monin-Obhukov length given
  - `ustar` friction velocity
  - `bflux` buoyancy flux
 """
-function compute_MO_len(ustar::DT, bflux::DT) where {DT<:Real}
-  return abs(bflux) < DT(1e-10) ? DT(0) : -ustar * ustar * ustar / bflux / k_Karman
+function compute_MO_len(ustar::FT, bflux::FT) where {FT<:Real}
+  return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / k_Karman
 end

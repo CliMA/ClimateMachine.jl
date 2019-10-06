@@ -5,7 +5,7 @@ using NCDatasets
 using NetCDF
 
 function export_initial_conditions(q, tmp, grid, directory, include_ghost)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @static if haspkg("Plots")
     N = grid.n_elem
     @inbounds for i in al
@@ -16,13 +16,15 @@ function export_initial_conditions(q, tmp, grid, directory, include_ghost)
   end
 end
 
-function export_data(q, tmp, grid, dir_tree)
-  export_state(q, grid, dir_tree.output, "q.csv")
-  export_state(tmp, grid, dir_tree.output, "tmp.csv")
+function export_data(q, tmp, grid, dir_tree, params)
+  if params[:export_data]
+    export_state(q, grid, dir_tree.output, "q.csv")
+    export_state(tmp, grid, dir_tree.output, "tmp.csv")
+  end
 end
 
 function export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @static if haspkg("Plots")
 
     dsf = joinpath(directory,"SingleFields")
@@ -32,7 +34,7 @@ function export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt)
     mkpath(dcf)
     mkpath(ds)
     qv = (:a, :w, :q_tot, :θ_liq, :tke)
-    tv = (:buoy, :T, :K_m, :K_h, :l_mix)
+    tv = (:buoy, :T, :K_m, :K_h, :l_mix, :q_liq, :ε_model, :δ_model)
     if params[:plot_single_fields]
       @inbounds for v in qv, i in over_sub_domains(q, v)
         plot_state(q, grid, dsf, v, i=i, i_Δt=i_Δt)

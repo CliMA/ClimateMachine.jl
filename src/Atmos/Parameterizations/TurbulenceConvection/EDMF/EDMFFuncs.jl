@@ -5,14 +5,14 @@ bound(x, x_bounds) = min(max(x, x_bounds[1]), x_bounds[2])
 inside_bounds(x, x_bounds) = x > x_bounds[1] && x < x_bounds[2]
 
 function assign_new_to_values!(grid, q_new, q, tmp)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems(grid), i in ud, name in (:w, :q_tot, :θ_liq)
     q_new[name, k, i] = q[name, k, i]
   end
 end
 
 function assign_values_to_new!(grid, q, q_new, tmp)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems(grid), i in ud
     @inbounds for name in (:a, :w, :q_tot, :θ_liq)
       q[name, k, i] = q_new[name, k, i]
@@ -27,7 +27,7 @@ function assign_values_to_new!(grid, q, q_new, tmp)
 end
 
 function compute_new_ud_a!(grid, q_new, q, q_tendencies, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for i in ud
     @inbounds for k in over_elems_real(grid)
       a_predict = q[:a, k, i] + params[:Δt][1] * q_tendencies[:a, k, i]
@@ -36,8 +36,8 @@ function compute_new_ud_a!(grid, q_new, q, q_tendencies, tmp, params)
   end
 end
 
-function compute_tendencies_en_O2!(grid, q_tendencies, tmp_O2, cv)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q_tendencies))
+function compute_tendencies_en_O2!(grid::Grid{FT}, q_tendencies, tmp_O2, cv) where FT
+  gm, en, ud, sd, al = allcombinations(q_tendencies)
   k_1 = first_interior(grid, Zmin())
   @inbounds for k in over_elems_real(grid)
     q_tendencies[cv, k, en] = tmp_O2[cv][:press, k] +
@@ -46,11 +46,11 @@ function compute_tendencies_en_O2!(grid, q_tendencies, tmp_O2, cv)
                               tmp_O2[cv][:entr_gain, k] +
                               tmp_O2[cv][:rain_src, k]
   end
-  q_tendencies[cv, k_1, en] = 0.0
+  q_tendencies[cv, k_1, en] = FT(0)
 end
 
 function compute_tendencies_gm_scalars!(grid, q_tendencies, q, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   k_1 = first_interior(grid, Zmin())
   Δzi = grid.Δzi
   α_1 = tmp[:α_0, k_1]
@@ -65,7 +65,7 @@ function compute_tendencies_gm_scalars!(grid, q_tendencies, q, tmp, params)
 end
 
 function compute_tendencies_ud!(grid, q_tendencies, q, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for i in ud
     @inbounds for k in over_elems_real(grid)
 
@@ -93,7 +93,7 @@ function compute_tendencies_ud!(grid, q_tendencies, q, tmp, params)
       ρawq_tot_cut = ρaw_cut .* q_tot_cut
       ρaww_cut = ρ_cut .* a_cut .* w_cut .* w_cut
 
-      tendencies = 0.0
+      tendencies = 0
       adv = - α_0_kp * advect(ρaw_cut, w_cut, grid)
       tendencies+=adv
       ε_term =   a_k * w_i * ε_model
@@ -113,8 +113,8 @@ function compute_tendencies_ud!(grid, q_tendencies, q, tmp, params)
       tendencies = (adv + exch + buoy + nh_press)
       q_tendencies[:w, k, i] = tendencies
 
-      tendencies_θ_liq = 0.0
-      tendencies_q_tot = 0.0
+      tendencies_θ_liq = 0
+      tendencies_q_tot = 0
 
       tendencies_θ_liq += -advect(ρawθ_liq_cut, w_cut, grid)
       tendencies_q_tot += -advect(ρawq_tot_cut, w_cut, grid)
@@ -130,7 +130,7 @@ end
 
 
 function compute_new_ud_w!(grid, q_new, q, q_tendencies, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   # Solve for updraft velocity
   @inbounds for i in ud
     @inbounds for k in over_elems_real(grid)
@@ -148,7 +148,7 @@ function compute_new_ud_w!(grid, q_new, q, q_tendencies, tmp, params)
 end
 
 function compute_new_ud_scalars!(grid, q_new, q, q_tendencies, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for i in ud
     @inbounds for k in over_elems_real(grid)
       a_k = q[:a, k, i]
@@ -165,7 +165,7 @@ function compute_new_ud_scalars!(grid, q_new, q, q_tendencies, tmp, params)
 end
 
 function compute_new_en_O2!(grid, q_new, q, q_tendencies, tmp, tmp_O2, params, cv, tri_diag)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   construct_tridiag_diffusion_O2!(grid, q, tmp, params, tri_diag)
   k_1 = first_interior(grid, Zmin())
   @inbounds for k in over_elems(grid)
@@ -177,7 +177,7 @@ end
 
 
 function compute_new_gm_scalars!(grid, q_new, q, q_tendencies, params, tmp, tri_diag)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
 
   @inbounds for k in over_elems_real(grid)
     tri_diag[:ρaK, k] = q[:a, k, en]*tmp[:K_h, k, gm]*tmp[:ρ_0, k]
@@ -197,7 +197,7 @@ end
 
 
 function saturation_adjustment_sd!(grid, q, tmp)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for i in sd
     @inbounds for k in over_elems_real(grid)
       ts = ActiveThermoState(q, tmp, k, i)
@@ -209,8 +209,11 @@ function saturation_adjustment_sd!(grid, q, tmp)
   end
 end
 
-function compute_entrainment_detrainment!(grid, UpdVar, tmp, q, params, ::BOverW2)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+abstract type EntrDetrModel end
+
+struct BOverW2 <: EntrDetrModel end
+function compute_entrainment_detrainment!(grid::Grid{FT}, UpdVar, tmp, q, params, ::BOverW2) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   Δzi = grid.Δzi
   k_1 = first_interior(grid, Zmin())
   @inbounds for i in ud
@@ -221,19 +224,19 @@ function compute_entrainment_detrainment!(grid, UpdVar, tmp, q, params, ::BOverW
       if grid.zc[k] >= zi
         detr_sc = 4.0e-3 + 0.12 *abs(min(buoy,0.0)) / max(w * w, 1e-2)
       else
-        detr_sc = 0.0
+        detr_sc = FT(0)
       end
-      entr_sc = 0.12 * max(buoy,0.0) / max(w * w, 1e-2)
+      entr_sc = 0.12 * max(buoy, FT(0) ) / max(w * w, 1e-2)
       tmp[:ε_model, k, i] = entr_sc * params[:entrainment_factor]
       tmp[:δ_model, k, i] = detr_sc * params[:detrainment_factor]
     end
-    tmp[:ε_model, k_1, i] = 2.0 * Δzi
-    tmp[:δ_model, k_1, i] = 0.0
+    tmp[:ε_model, k_1, i] = 2 * Δzi
+    tmp[:δ_model, k_1, i] = FT(0)
   end
 end
 
-function compute_cloud_phys!(grid, q, tmp)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_cloud_phys!(grid::Grid{FT}, q, tmp) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems_real(grid)
     q_tot = q[:q_tot, k, en]
     ts = ActiveThermoState(q, tmp, k, en)
@@ -241,14 +244,14 @@ function compute_cloud_phys!(grid, q, tmp)
     q_liq = PhasePartition(ts).liq
     q_vap = q_tot - q_liq
     θ = dry_pottemp(ts)
-    if q_liq > 0.0
-      tmp[:CF, k] = 1.0
+    if q_liq > 0
+      tmp[:CF, k] = FT(1)
       tmp[:θ_cloudy, k]     = θ
       tmp[:t_cloudy, k]     = T
       tmp[:q_tot_cloudy, k] = q_tot
       tmp[:q_vap_cloudy, k] = q_vap
     else
-      tmp[:CF, k] = 0.
+      tmp[:CF, k] = FT(0)
       tmp[:θ_dry, k]     = θ
       tmp[:q_tot_dry, k] = q_tot
     end
@@ -258,7 +261,7 @@ end
 @inline buoyancy(α_0, α) = grav * (α - α_0)/α_0
 
 function compute_buoyancy!(grid, q, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for i in (ud...,en)
     @inbounds for k in over_elems_real(grid)
       q_tot = q[:q_tot, k, i]
@@ -288,7 +291,7 @@ end
 
 function top_of_updraft(grid::Grid, q::StateVec, params)
   @unpack params w_bounds a_bounds
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
 
   z_star_a = zeros(length(ud))
   z_star_w = zeros(length(ud))
@@ -301,7 +304,7 @@ function top_of_updraft(grid::Grid, q::StateVec, params)
 end
 
 function filter_scalars!(grid, q, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   z_star_a, z_star_w = top_of_updraft(grid, q, params)
   @inbounds for i in ud
     @inbounds for k in over_elems_real(grid)
@@ -323,7 +326,7 @@ function filter_scalars!(grid, q, tmp, params)
 end
 
 function compute_cv_gm!(grid, q, ϕ, ψ, cv, tke_factor)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems(grid)
     Δϕ = q[ϕ, k, en] - q[ϕ, k, gm]
     Δψ = q[ψ, k, en] - q[ψ, k, gm]
@@ -337,7 +340,7 @@ function compute_cv_gm!(grid, q, ϕ, ψ, cv, tke_factor)
 end
 
 function compute_mf_gm!(grid, q, tmp)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   domain_c = over_elems_real(grid)
 
   @inbounds for i in ud
@@ -357,26 +360,29 @@ function compute_mf_gm!(grid, q, tmp)
   end
 end
 
-function compute_mixing_length!(grid, q, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+abstract type MixingLengthModel end
+struct ConstantMixingLength{FT} <: MixingLengthModel
+  value::FT
+end
+function compute_mixing_length!(grid::Grid{FT}, q, tmp, params, model::ConstantMixingLength) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems(grid)
-    tmp[:l_mix, k, gm] = 100.0
+    tmp[:l_mix, k, gm] = model.value
   end
 end
 
-
-function compute_eddy_diffusivities_tke!(grid, q, tmp, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_eddy_diffusivities_tke!(grid::Grid{FT}, q, tmp, params) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems_real(grid)
-    lm = tmp[:l_mix, k, gm]
-    K_m_k = params[:tke_ed_coeff] * lm * sqrt(max(q[:tke, k, en], 0.0))
+    l_mix = tmp[:l_mix, k, gm]
+    K_m_k = params[:tke_ed_coeff] * l_mix * sqrt(max(q[:tke, k, en], FT(0)))
     tmp[:K_m, k, gm] = K_m_k
     tmp[:K_h, k, gm] = K_m_k / params[:prandtl_number]
   end
 end
 
-function compute_tke_buoy!(grid, q, tmp, tmp_O2, cv)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_tke_buoy!(grid::Grid{FT}, q, tmp, tmp_O2, cv) where FT
+  gm, en, ud, sd, al = allcombinations(q)
 
   # Note that source terms at the first interior point are not really used because that is where tke boundary condition is
   # enforced (according to MO similarity). Thus here I am being sloppy about lowest grid point
@@ -395,23 +401,23 @@ function compute_tke_buoy!(grid, q, tmp, tmp_O2, cv)
     grad_q_tot = ∇_neg(q[:q_tot, Cut(k), en], grid)
 
     prefactor = R_d * exner(p_0)/p_0
-    eps_vi = R_v / R_d
+    ε_vi = R_v / R_d
 
-    d_alpha_θ_liq_dry = prefactor * (1.0 + (eps_vi - 1.0) * q_tot_dry)
-    d_alpha_q_tot_dry = prefactor * θ_dry * (eps_vi - 1.0)
+    d_alpha_θ_liq_dry = prefactor * (1 + (ε_vi - 1) * q_tot_dry)
+    d_alpha_q_tot_dry = prefactor * θ_dry * (ε_vi - 1)
     CF_env = tmp[:CF, k]
 
-    if CF_env > 0.0
-      d_alpha_θ_liq_cloudy = (prefactor * (1.0 + eps_vi * (1.0 + lh / R_v / t_cloudy) * q_vap_cloudy - q_tot_cloudy )
-                               / (1.0 + lh * lh / cpm / R_v / t_cloudy / t_cloudy * q_vap_cloudy))
+    if CF_env > 0
+      d_alpha_θ_liq_cloudy = (prefactor * (1 + ε_vi * (1 + lh / R_v / t_cloudy) * q_vap_cloudy - q_tot_cloudy )
+                               / (1 + lh * lh / cpm / R_v / t_cloudy / t_cloudy * q_vap_cloudy))
       d_alpha_q_tot_cloudy = (lh / cpm / t_cloudy * d_alpha_θ_liq_cloudy - prefactor) * θ_cloudy
     else
-      d_alpha_θ_liq_cloudy = 0.0
-      d_alpha_q_tot_cloudy = 0.0
+      d_alpha_θ_liq_cloudy = 0
+      d_alpha_q_tot_cloudy = 0
     end
 
-    d_alpha_θ_liq_total = (CF_env * d_alpha_θ_liq_cloudy + (1.0-CF_env) * d_alpha_θ_liq_dry)
-    d_alpha_q_tot_total = (CF_env * d_alpha_q_tot_cloudy + (1.0-CF_env) * d_alpha_q_tot_dry)
+    d_alpha_θ_liq_total = (CF_env * d_alpha_θ_liq_cloudy + (1-CF_env) * d_alpha_θ_liq_dry)
+    d_alpha_q_tot_total = (CF_env * d_alpha_q_tot_cloudy + (1-CF_env) * d_alpha_q_tot_dry)
 
     K_h_k = tmp[:K_h, k, gm]
     term_1 = - K_h_k * grad_θ_liq * d_alpha_θ_liq_total
@@ -423,10 +429,10 @@ function compute_tke_buoy!(grid, q, tmp, tmp_O2, cv)
 end
 
 
-function compute_cv_entr!(grid, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_cv_entr!(grid::Grid{FT}, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems_real(grid)
-    tmp_O2[cv][:entr_gain, k] = 0.0
+    tmp_O2[cv][:entr_gain, k] = FT(0)
     @inbounds for i in ud
       Δϕ = q[ϕ, k, i] - q[ϕ, k, en]
       Δψ = q[ψ, k, i] - q[ψ, k, en]
@@ -436,12 +442,12 @@ function compute_cv_entr!(grid, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor)
   end
 end
 
-function compute_cv_shear!(grid, q, tmp, tmp_O2, ϕ, ψ, cv)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_cv_shear!(grid::Grid{FT}, q, tmp, tmp_O2, ϕ, ψ, cv) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   is_tke = cv==:tke
-  tke_factor = is_tke ? 0.5 : 1.0
-  grad_u = 0.0
-  grad_v = 0.0
+  tke_factor = is_tke ? FT(0.5) : 1
+  grad_u = 0
+  grad_v = 0
   @inbounds for k in over_elems_real(grid)
     if is_tke
       grad_u = ∇_neg(q[:u, Cut(k), gm], grid)
@@ -457,10 +463,10 @@ function compute_cv_shear!(grid, q, tmp, tmp_O2, ϕ, ψ, cv)
   end
 end
 
-function compute_cv_interdomain_src!(grid, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor)
-    gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_cv_interdomain_src!(grid::Grid{FT}, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor) where FT
+    gm, en, ud, sd, al = allcombinations(q)
     @inbounds for k in over_elems(grid)
-        tmp_O2[cv][:interdomain, k] = 0.0
+        tmp_O2[cv][:interdomain, k] = FT(0)
         @inbounds for i in ud
             Δϕ = q[ϕ, k, i] - q[ϕ, k, en]
             Δψ = q[ψ, k, i] - q[ψ, k, en]
@@ -469,27 +475,27 @@ function compute_cv_interdomain_src!(grid, q, tmp, tmp_O2, ϕ, ψ, cv, tke_facto
     end
 end
 
-function compute_tke_pressure!(grid, q, tmp, tmp_O2, cv, params)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_tke_pressure!(grid::Grid{FT}, q, tmp, tmp_O2, cv, params) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems_real(grid)
-    tmp_O2[cv][:press, k] = 0.0
+    tmp_O2[cv][:press, k] = FT(0)
     @inbounds for i in ud
       wu_half = q[:w, k, i]
       we_half = q[:w, k, en]
       a_i = q[:a, k, i]
       ρ_0_k = tmp[:ρ_0, k]
-      press_buoy = (-1.0 * ρ_0_k * a_i * tmp[:buoy, k, i] * params[:pressure_buoy_coeff])
-      press_drag_coeff = -1.0 * ρ_0_k * sqrt(a_i) * params[:pressure_drag_coeff]/params[:pressure_plume_spacing]
+      press_buoy = (-1 * ρ_0_k * a_i * tmp[:buoy, k, i] * params[:pressure_buoy_coeff])
+      press_drag_coeff = -1 * ρ_0_k * sqrt(a_i) * params[:pressure_drag_coeff]/params[:pressure_plume_spacing]
       press_drag = press_drag_coeff * (wu_half - we_half)*abs(wu_half - we_half)
       tmp_O2[cv][:press, k] += (we_half - wu_half) * (press_buoy + press_drag)
     end
   end
 end
 
-function compute_cv_env!(grid, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function compute_cv_env!(grid::Grid{FT}, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems(grid)
-    if q[:a, k, en] > 0.0
+    if q[:a, k, en] > 0
       @inbounds for i in sd
         Δϕ = q[ϕ, k, i] - q[ϕ, k, gm]
         Δψ = q[ψ, k, i] - q[ψ, k, gm]
@@ -497,22 +503,21 @@ function compute_cv_env!(grid, q, tmp, tmp_O2, ϕ, ψ, cv, tke_factor)
       end
       q[cv, k, en] = q[cv, k, en]/q[:a, k, en]
     else
-      q[cv, k, en] = 0.0
+      q[cv, k, en] = FT(0)
     end
   end
 end
 
-function cleanup_covariance!(grid, q)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
-  tmp_eps = 1e-18
+function cleanup_covariance!(grid::Grid{FT}, q) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   @inbounds for k in over_elems_real(grid)
-    q[:tke, k, en] = q[:tke, k, en] < tmp_eps ? 0.0 : q[:tke, k, en]
+    q[:tke, k, en] = q[:tke, k, en] < eps(FT) ? FT(0) : q[:tke, k, en]
   end
 end
 
 
-function construct_tridiag_diffusion_O1!(grid, q, tmp, Δt, tri_diag)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(tmp))
+function construct_tridiag_diffusion_O1!(grid::Grid{FT}, q, tmp, Δt, tri_diag) where FT
+  gm, en, ud, sd, al = allcombinations(tmp)
   k_1 = first_interior(grid, Zmin())
   k_2 = first_interior(grid, Zmax())
   dzi = grid.Δzi
@@ -522,18 +527,18 @@ function construct_tridiag_diffusion_O1!(grid, q, tmp, Δt, tri_diag)
     Z = ρaK_cut[1] * dzi * dzi
     Y = ρaK_cut[2] * dzi * dzi
     if k == k_1
-      Z = 0.0
+      Z = FT(0)
     elseif k == k_2
-      Y = 0.0
+      Y = FT(0)
     end
     tri_diag[:a, k] = - Z/X
-    tri_diag[:b, k] = 1.0 + Y/X + Z/X
+    tri_diag[:b, k] = 1 + Y/X + Z/X
     tri_diag[:c, k] = -Y/X
   end
 end
 
-function construct_tridiag_diffusion_O2!(grid, q, tmp, params, tri_diag)
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+function construct_tridiag_diffusion_O2!(grid::Grid{FT}, q, tmp, params, tri_diag) where FT
+  gm, en, ud, sd, al = allcombinations(q)
   Δzi = grid.Δzi
   Δzi2 = grid.Δzi2
   dti = 1/params[:Δt][1]
@@ -551,8 +556,8 @@ function construct_tridiag_diffusion_O2!(grid, q, tmp, params, tri_diag)
                  q[:w, k, i] *
                  tmp[:ε_model, k, i] for i in ud])
 
-    l_mix = max(tmp[:l_mix, k, gm], 1.0)
-    tke_env = max(q[:tke, k, en], 0.0)
+    l_mix = max(tmp[:l_mix, k, gm], FT(1))
+    tke_env = max(q[:tke, k, en], FT(0))
 
     tri_diag[:a, k] = (- ρa_K[2] * Δzi2 )
     tri_diag[:b, k] = (ρ_0_cut[2] * ae_cut[2] * dti
@@ -563,10 +568,10 @@ function construct_tridiag_diffusion_O2!(grid, q, tmp, params, tri_diag)
     tri_diag[:c, k] = (ρ_0_cut[3] * ae_cut[3] * w_cut[3] * Δzi - ρa_K[3] * Δzi2)
   end
 
-  tri_diag[:a, k_1] = 0.0
-  tri_diag[:b, k_1] = 1.0
-  tri_diag[:c, k_1] = 0.0
+  tri_diag[:a, k_1] = FT(0)
+  tri_diag[:b, k_1] = FT(1)
+  tri_diag[:c, k_1] = FT(0)
 
   tri_diag[:b, k_2] += tri_diag[:c, k_2]
-  tri_diag[:c, k_2] = 0.0
+  tri_diag[:c, k_2] = FT(0)
 end

@@ -24,11 +24,14 @@ markersize = [6, 4, 2]
 
 function nice_string(name)
   friendly_name = string(name)
+  friendly_name = replace(friendly_name, "εδ" => "entr-detr")
   friendly_name = replace(friendly_name, "θ" => "theta")
+  friendly_name = replace(friendly_name, "Δ" => "Delta")
   friendly_name = replace(friendly_name, "ρ" => "rho")
   friendly_name = replace(friendly_name, "α" => "alpha")
   friendly_name = replace(friendly_name, "∇" => "grad")
-  friendly_name = replace(friendly_name, "εδ" => "entr-detr")
+  friendly_name = replace(friendly_name, "ε" => "eps")
+  friendly_name = replace(friendly_name, "δ" => "delta")
   return friendly_name
 end
 
@@ -123,7 +126,7 @@ function plot_states(sv::StateVec,
 
   x = [grid.zc[k] for k in domain_range]
   plot()
-  gm, en, ud, sd, al = allcombinations(DomainIdx(sv))
+  gm, en, ud, sd, al = allcombinations(sv)
   if sources
     @inbounds for name_id in name_ids
       @inbounds for i in sd

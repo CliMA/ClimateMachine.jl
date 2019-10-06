@@ -23,7 +23,7 @@ tc = TurbulenceConvection
     export_state(tmp, grid, test_data_dir, "tmp_expected.csv")
   end
 
-  gm, en, ud, sd, al = allcombinations(DomainIdx(q))
+  gm, en, ud, sd, al = allcombinations(q)
   DT = eltype(grid)
   q_expected = deepcopy(q)
   tmp_expected = deepcopy(tmp)
