@@ -139,11 +139,6 @@ end
 
     # ∇h • (v ⊗ u)
     # F.u += v * u'
-
-    # FIXME: this is bad programming, but we'll see?
-    α.θu = θ * u[1]
-    α.θv = θ * u[2]
-    α.θw = θ * w
   end
 
   return nothing
@@ -154,17 +149,13 @@ end
   F.u += σ.ν∇u
   F.θ += σ.κ∇θ
 
-  # FIXME: this is bad programming
-  # but I need to hack in a way to save the divergences
-  @inbounds α.div2D = (σ.ν∇u[1,1] + σ.ν∇u[2,2]) / m.νʰ
-  # TODO: how do I get the ∂w/∂z ????
-
   return nothing
 end
 
 @inline function gradvariables!(m::HBModel, G::Vars, Q::Vars, α, t)
   G.u = Q.u
   G.θ = Q.θ
+
   return nothing
 end
 
@@ -175,6 +166,7 @@ end
 
   κ = Diagonal(@SVector [m.κʰ, m.κʰ, m.κᶻ])
   σ.κ∇θ = -κ * G.θ
+
   return nothing
 end
 
@@ -205,6 +197,8 @@ function update_penalty!(::Rusanov, ::HBModel, ΔQ::Vars,
 
   ΔQ.θ = ((n̂_v > 0) ? 1 : -1) * (n̂_v⁻ * θ⁻ - n̂_v⁺ * θ⁺)
   # ΔQ.θ = abs(n̂_v⁻) * θ⁻ - abs(n̂_v⁺) * θ⁺
+
+  return nothing
 end
 
 @inline function source!(m::HBModel{P}, source::Vars, Q::Vars, α::Vars,
@@ -241,6 +235,8 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, α, t, params)
   # integrated)
   function f!(::HBModel, vert_dQ, α, t)
     α.w = vert_dQ.θ
+
+    return nothing
   end
   nodal_update_aux!(f!, dg, m, vert_dQ, α, t)
 
@@ -251,6 +247,22 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, α, t, params)
   # project w(z=0) down the stack
   # Need to be consistent with vars_aux
   copy_stack_field_down!(dg, m, α, 1, 5)
+
+  #  store some diagnostic variables
+  function g!(::HBModel, Q, α, t)
+    @inbounds begin
+      α.θu = Q.θ * Q.u[1]
+      α.θv = Q.θ * Q.u[2]
+      α.θw = Q.θ * α.w
+
+      # TODO: how to properly access σ here
+      # α.div2D = (σ.ν∇u[1,1] + σ.ν∇u[2,2]) / m.νʰ
+      # TODO: how do I get the ∂w/∂z ????
+
+      return nothing
+    end
+  end
+  nodal_update_aux!(g!, dg, m, Q, α, t)
 end
 
 surface_flux!(m::HydrostaticBoussinesqModel, _...) = nothing
