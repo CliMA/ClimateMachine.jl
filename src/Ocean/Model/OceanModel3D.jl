@@ -3,8 +3,9 @@ module Ocean3D
 export HydrostaticBoussinesqModel, HydrostaticBoussinesqProblem
 
 using StaticArrays
-using ..VariableTemplates
 using LinearAlgebra: I, dot, Diagonal
+using ..VariableTemplates
+using ..MPIStateArrays
 using ..DGmethods: init_ode_state
 using ..PlanetParameters: grav
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
@@ -217,7 +218,8 @@ end
   return nothing
 end
 
-function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, α, t, params)
+function update_aux!(dg, m::HydrostaticBoussinesqModel, Q::MPIStateArray,
+                     α::MPIStateArray, σ::MPIStateArray, t, params)
   # Compute DG gradient of u -> α.w
   vert_dg = params.vert_dg
   vert_param = params.vert_param
@@ -233,12 +235,12 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, α, t, params)
 
   # Copy from vert_dQ.η which is realy ∇h•u into α.w (which will be
   # integrated)
-  function f!(::HBModel, vert_dQ, α, t)
+  function f!(::HBModel, vert_dQ, α, σ, t)
     α.w = vert_dQ.θ
 
     return nothing
   end
-  nodal_update_aux!(f!, dg, m, vert_dQ, α, t)
+  nodal_update_aux!(f!, dg, m, vert_dQ, α, σ, t)
 
   # compute integrals for w and pkin
   indefinite_stack_integral!(dg, m, Q, α, t) # bottom -> top
@@ -249,20 +251,19 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q, α, t, params)
   copy_stack_field_down!(dg, m, α, 1, 5)
 
   #  store some diagnostic variables
-  function g!(::HBModel, Q, α, t)
+  function g!(m::HBModel, Q, α, σ, t)
     @inbounds begin
       α.θu = Q.θ * Q.u[1]
       α.θv = Q.θ * Q.u[2]
       α.θw = Q.θ * α.w
 
-      # TODO: how to properly access σ here
-      # α.div2D = (σ.ν∇u[1,1] + σ.ν∇u[2,2]) / m.νʰ
+      α.div2D = (σ.ν∇u[1,1] + σ.ν∇u[2,2]) / m.νʰ
       # TODO: how do I get the ∂w/∂z ????
 
       return nothing
     end
   end
-  nodal_update_aux!(g!, dg, m, Q, α, t)
+  nodal_update_aux!(g!, dg, m, Q, α, σ, t)
 end
 
 surface_flux!(m::HydrostaticBoussinesqModel, _...) = nothing

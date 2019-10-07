@@ -44,6 +44,10 @@ function (dg::DGModel)(dQdt, Q, param, t; increment=false)
                                   typeof(α), typeof(t),
                                   typeof(param.blparam)})
     update_aux!(dg, bl, Q, α, t, param.blparam)
+  elseif hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
+                                  typeof(α), typeof(σ), typeof(t),
+                                  typeof(param.blparam)})
+    update_aux!(dg, bl, Q, α, σ, t, param.blparam)
   end
 
   ########################
@@ -320,7 +324,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 end
 
 function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
-                           α::MPIStateArray, t::Real)
+                           α::MPIStateArray, σ::MPIStateArray, t::Real)
   device = typeof(Q.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
@@ -332,7 +336,7 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
 
   ### update aux variables
   @launch(device, threads=(Np,), blocks=nΩ,
-          knl_nodal_update_aux!(m, Val(Nᵈ), Val(N), f!, Q.Q, α.Q, t, Ω))
+          knl_nodal_update_aux!(m, Val(Nᵈ), Val(N), f!, Q.Q, α.Q, σ.Q, t, Ω))
 end
 
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
