@@ -120,17 +120,98 @@ end
 
 # TODO: temporary; move to new CLIMA module
 function gather_diags(dg, Q)
+  N=polynomialorder(dg.grid)
+  Nq=N+1
+  Nqk=dimensionality(dg.grid) == 2 ? 1 : Nq
+  grid = dg.grid
+  topology = grid.topology
+  nstate = 6
+  nrealelems = length(topology.realelems)
+  nvertelems = topology.stacksize
+  nhorzelems = div(nrealelems, nvertelems)
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realQ : Array(Q.realQ)
-
+  fluctQ = zeros(Nq*Nq*Nqk,nstate,nrealelems)
+  VarQ = zeros(Nq*Nq*Nqk,nstate,nrealelems)
   rho_localtot = sum(localQ[:, 1, :])
+  U_localtot = sum(localQ[:, 2, :])
+  V_localtot = sum(localQ[:, 3, :])
+  W_localtot = sum(localQ[:, 4, :])
+  e_localtot = sum(localQ[:, 5, :])
+  qt_localtot = sum(localQ[:, 6, :])
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
   rho_tot = MPI.Reduce(rho_localtot, +, 0, MPI.COMM_WORLD)
+  U_tot = MPI.Reduce(U_localtot, +, 0, MPI.COMM_WORLD)
+  V_tot = MPI.Reduce(V_localtot, +, 0, MPI.COMM_WORLD)
+  W_tot = MPI.Reduce(W_localtot, +, 0, MPI.COMM_WORLD)
+  e_tot = MPI.Reduce(e_localtot, +, 0, MPI.COMM_WORLD)
+  qt_tot = MPI.Reduce(qt_localtot, +, 0, MPI.COMM_WORLD)
   if mpirank == 0
     rho_avg = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
+    U_avg = (U_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
+    V_avg = (V_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
+    W_avg = (W_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
+    e_avg = (e_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
+    qt_avg = (qt_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     @info "ρ average = $(rho_avg)"
+    @info "U average = $(U_avg)"
+    @info "V average = $(V_avg)"
+    @info "W average = $(W_avg)"
+    @info "e average = $(e_avg)"
+    @info "qt average = $(qt_avg)"
   end
+  AVG=SVector(rho_avg,U_avg,V_avg,W_avg,e_avg,qt_avg)
+  #fluctuations
+  for s in 1:6	
+	for e in 1:nrealelems
+		for i in 1:Nq*Nqk*Nq
+				fluctQ[i,s,e] = localQ[i,s,e]-AVG[s]
+				VarQ[i,s,e]=fluctQ[i,s,e]^2
+		end
+	end
+  end
+  #standard_deviation
+  rho_local_flucttot = sum(VarQ[:,1,:])
+  rho_flucttot = MPI.Reduce(rho_local_flucttot, +, 0, MPI.COMM_WORLD)
+  U_local_flucttot = sum(VarQ[:,2,:])
+  U_flucttot = MPI.Reduce(U_local_flucttot, +, 0, MPI.COMM_WORLD)
+  V_local_flucttot = sum(VarQ[:,3,:])
+  V_flucttot = MPI.Reduce(V_local_flucttot, +, 0, MPI.COMM_WORLD)
+  W_local_flucttot = sum(VarQ[:,4,:])
+  W_flucttot = MPI.Reduce(W_local_flucttot, +, 0, MPI.COMM_WORLD)
+  e_local_flucttot = sum(VarQ[:,5,:])
+  e_flucttot = MPI.Reduce(e_local_flucttot, +, 0, MPI.COMM_WORLD)
+  qt_local_flucttot = sum(VarQ[:,6,:])
+  qt_flucttot = MPI.Reduce(qt_local_flucttot, +, 0, MPI.COMM_WORLD)
+  if mpirank == 0
+  	rho_standard_dev = (rho_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
+	U_standard_dev = (U_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
+	V_standard_dev = (V_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
+	W_standard_dev = (W_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
+	e_standard_dev = (e_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
+	qt_standard_dev = (qt_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
+  #Variance
+	Global_Variance_rho = rho_standard_dev^2
+	Global_Variance_U = U_standard_dev^2
+	Global_Variance_V = V_standard_dev^2
+	Global_Variance_W = W_standard_dev^2
+	Global_Variance_e = e_standard_dev^2
+	Global_Variance_qt = qt_standard_dev^2
+  end
+ @info "ρ standard_deviation = $(rho_standard_dev)" 
+ @info "ρ Variance = $(Global_Variance_rho)"
+ @info "U standard_deviation = $(U_standard_dev)"
+ @info "U Variance = $(Global_Variance_U)"
+ @info "V standard_deviation = $(V_standard_dev)"
+ @info "V Variance = $(Global_Variance_V)"
+ @info "W standard_deviation = $(W_standard_dev)"
+ @info "W Variance = $(Global_Variance_W)"
+ @info "e standard_deviation = $(e_standard_dev)"
+ @info "e Variance = $(Global_Variance_e)"
+ @info "qt standard_deviation = $(qt_standard_dev)"
+ @info "qt Variance = $(Global_Variance_qt)"
+ 
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
