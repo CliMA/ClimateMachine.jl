@@ -120,7 +120,6 @@ end
 
 # TODO: temporary; move to new CLIMA module
 function gather_diags(dg, Q)
-<<<<<<< HEAD
   N=polynomialorder(dg.grid)
   Nq=N+1
   Nqk=dimensionality(dg.grid) == 2 ? 1 : Nq
@@ -297,6 +296,10 @@ for s in 1:6
      end
    end
  end
+end
+open("/home/yassine/yt-2T-drive/SecondMomentTest.txt", "w") do f
+using DelimitedFiles
+writedlm("/home/yassine/yt-2T-drive/SecondMomentTest.txt", S_avg)
 end
 end
 
