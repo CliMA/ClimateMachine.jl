@@ -120,6 +120,7 @@ end
 
 # TODO: temporary; move to new CLIMA module
 function gather_diags(dg, Q)
+<<<<<<< HEAD
   N=polynomialorder(dg.grid)
   Nq=N+1
   Nqk=dimensionality(dg.grid) == 2 ? 1 : Nq
