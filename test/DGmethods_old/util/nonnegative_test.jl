@@ -43,13 +43,13 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
   Q = MPIStateArray(spacedisc, initialcondition!)
 
   initialsumQ = weightedsum(Q)
-  @test minimum(Q.realQ) < 0
+  @test minimum(Q.realdata) < 0
 
   Filters.apply!(Q, 1, spacedisc.grid, TMARFilter())
 
   sumQ = weightedsum(Q)
 
-  @test minimum(Q.realQ) >= 0
+  @test minimum(Q.realdata) >= 0
   @test isapprox(initialsumQ, sumQ; rtol = 10eps(DFloat))
 end
 
