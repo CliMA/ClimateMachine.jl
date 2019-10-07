@@ -56,9 +56,9 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
   DGBalanceLawDiscretizations.grad_auxiliary_state!(spacedisc, 1, (2,3,4))
 
   # Wrapping in Array ensure both GPU and CPU code use same approx
-  @test Array(spacedisc.auxstate.Q[:, 2, :]) ≈ Array(spacedisc.auxstate.Q[:, 5, :])
-  @test Array(spacedisc.auxstate.Q[:, 3, :]) ≈ Array(spacedisc.auxstate.Q[:, 6, :])
-  @test Array(spacedisc.auxstate.Q[:, 4, :]) ≈ Array(spacedisc.auxstate.Q[:, 7, :])
+  @test Array(spacedisc.auxstate.data[:, 2, :]) ≈ Array(spacedisc.auxstate.data[:, 5, :])
+  @test Array(spacedisc.auxstate.data[:, 3, :]) ≈ Array(spacedisc.auxstate.data[:, 6, :])
+  @test Array(spacedisc.auxstate.data[:, 4, :]) ≈ Array(spacedisc.auxstate.data[:, 7, :])
 end
 
 let

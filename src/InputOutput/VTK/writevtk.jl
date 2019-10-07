@@ -18,7 +18,7 @@ function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames=nothing)
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
+  (h_vgeo, h_Q) = host_array ? (vgeo, Q.data) : (Array(vgeo), Array(Q))
   writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames)
 end
 
@@ -44,7 +44,7 @@ function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames, auxstate, auxfieldnames)
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.Q, auxstate.Q) :
+  (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.data, auxstate.data) :
                                       (Array(vgeo), Array(Q), Array(auxstate))
   writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames, h_aux,
                   auxfieldnames)
