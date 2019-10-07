@@ -35,10 +35,10 @@ function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
   DFloat = eltype(Y⁻)
 
   @inbounds begin
-    Nᵈ = 3
+    Nd = 3
     ngradstate = num_gradient(bl,DFloat)
-    ∇G = similar(σ, Size(Nᵈ, ngradstate))
-    for j = 1:ngradstate, i = 1:Nᵈ
+    ∇G = similar(σ, Size(Nd, ngradstate))
+    for j = 1:ngradstate, i = 1:Nd
       ∇G[i, j] = n⁻[i] * (G⁺[j] - G⁻[j]) / 2
     end
     diffusive!(bl,

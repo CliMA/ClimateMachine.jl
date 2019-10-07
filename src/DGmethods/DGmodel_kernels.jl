@@ -26,15 +26,15 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 """
-    volumerhs!(bl::BalanceLaw, Val(N), rhs, Y, σ, α, vgeo, t, D, Ω)
+    volume_tendency!(bl::BalanceLaw, Val(N), rhs, Y, σ, α, vgeo, t, D, E)
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
 `DGBalanceLaw` semi-discretization.
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
-                    rhs, Y, σ, α, vgeo, t, ω, D, Ω, increment) where {Nᵈ, N}
+function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
+                    rhs, Y, σ, α, vgeo, t, ω, D, E, increment) where {Nd, N}
   DFloat = eltype(Y)
 
   nY = num_state(bl,DFloat)
@@ -43,7 +43,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
 
   Nq = N + 1
 
-  Nqk = Nᵈ == 2 ? 1 : Nq
+  Nqk = Nd == 2 ? 1 : Nq
 
   s_F = @shmem DFloat (3, Nq, Nq, Nqk, nY)
   s_ω = @shmem DFloat (Nq, )
@@ -76,7 +76,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
     end
   end
 
-  @inbounds @loop for e in (Ω; blockIdx().x)
+  @inbounds @loop for e in (E; blockIdx().x)
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -238,44 +238,44 @@ function volumerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
 end
 
 """
-    facerhs!(bl::BalanceLaw, Val(N),
+    face_tendency!(bl::BalanceLaw, Val(N),
             numfluxnondiff::NumericalFluxNonDiffusive,
             numfluxdiff::NumericalFluxDiffusive,
             rhs, Y, σ, α,
             vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ,
-            Ω)
+            E)
 
 Computational kernel: Evaluate the surface integrals on right-hand side of a
 `BalanceLaw` semi-discretization.
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
+function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                   numfluxnondiff::NumericalFluxNonDiffusive,
                   numfluxdiff::NumericalFluxDiffusive,
-                  rhs, Y, σ, α, vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, Ω) where {Nᵈ, N}
+                  rhs, Y, σ, α, vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, E) where {Nd, N}
   DFloat = eltype(Y)
 
   nY = num_state(bl,DFloat)
   nσ = num_diffusive(bl,DFloat)
   nα = num_aux(bl,DFloat)
 
-  if Nᵈ == 1
+  if Nd == 1
     Np = (N+1)
     Nfp = 1
     nface = 2
-  elseif Nᵈ == 2
+  elseif Nd == 2
     Np = (N+1) * (N+1)
     Nfp = (N+1)
     nface = 4
-  elseif Nᵈ == 3
+  elseif Nd == 3
     Np = (N+1) * (N+1) * (N+1)
     Nfp = (N+1) * (N+1)
     nface = 6
   end
 
   Nq = N + 1
-  Nqk = Nᵈ == 2 ? 1 : Nq
+  Nqk = Nd == 2 ? 1 : Nq
 
   l_Y⁻ = MArray{Tuple{nY}, DFloat}(undef)
   l_σ⁻ = MArray{Tuple{nσ}, DFloat}(undef)
@@ -297,7 +297,7 @@ function facerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
 
   l_F = MArray{Tuple{nY}, DFloat}(undef)
 
-  @inbounds @loop for e in (Ω; blockIdx().x)
+  @inbounds @loop for e in (E; blockIdx().x)
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
@@ -343,7 +343,7 @@ function facerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
           numerical_flux_diffusive!(numfluxdiff, bl, l_F,
                                     n⁻, l_Y⁻, l_σ⁻, l_α⁻, l_Y⁺₂, l_σ⁺, l_α⁺₂, t)
         else
-          if (Nᵈ == 2 && f == 3) || (Nᵈ == 3 && f == 5)
+          if (Nd == 2 && f == 3) || (Nd == 3 && f == 5)
             # Loop up the first element along all horizontal elements
             @unroll for s = 1:nY
               l_Y_bot1[s] = Y[n + Nqk^2, s, e]
@@ -378,9 +378,9 @@ function facerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
   nothing
 end
 
-function volumeviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
+function volume_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                           Y, σ, α, vgeo, t, D,
-                          Ω) where {Nᵈ, N}
+                          E) where {Nd, N}
   DFloat = eltype(Y)
 
   nY = num_state(bl,DFloat)
@@ -390,7 +390,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
 
   Nq = N + 1
 
-  Nqk = Nᵈ == 2 ? 1 : Nq
+  Nqk = Nd == 2 ? 1 : Nq
 
   s_G = @shmem DFloat (Nq, Nq, Nqk, nG)
   s_D = @shmem DFloat (Nq, Nq)
@@ -409,7 +409,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
     end
   end
 
-  @inbounds @loop for e in (Ω; blockIdx().x)
+  @inbounds @loop for e in (E; blockIdx().x)
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -477,10 +477,10 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
   end
 end
 
-function faceviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
+function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                         gradnumpenalty::GradNumericalPenalty,
                         Y, σ, α, vgeo, sgeo, t, ι⁻, ι⁺,
-                        ιᴮ, Ω) where {Nᵈ, N}
+                        ιᴮ, E) where {Nd, N}
   DFloat = eltype(Y)
 
   nY = num_state(bl,DFloat)
@@ -488,20 +488,20 @@ function faceviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
   nσ = num_diffusive(bl,DFloat)
   nα = num_aux(bl,DFloat)
 
-  if Nᵈ == 1
+  if Nd == 1
     Np = (N+1)
     Nfp = 1
     nface = 2
-  elseif Nᵈ == 2
+  elseif Nd == 2
     Np = (N+1) * (N+1)
     Nfp = (N+1)
     nface = 4
-  elseif Nᵈ == 3
+  elseif Nd == 3
     Np = (N+1) * (N+1) * (N+1)
     Nfp = (N+1) * (N+1)
     nface = 6
   end
-  Nqk = Nᵈ == 2 ? 1 : N+1
+  Nqk = Nd == 2 ? 1 : N+1
 
   l_Y⁻ = MArray{Tuple{nY}, DFloat}(undef)
   l_α⁻ = MArray{Tuple{nα}, DFloat}(undef)
@@ -516,7 +516,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
   l_Y_bot1 = MArray{Tuple{nY}, DFloat}(undef)
   l_α_bot1 = MArray{Tuple{nα}, DFloat}(undef)
 
-  @inbounds @loop for e in (Ω; blockIdx().x)
+  @inbounds @loop for e in (E; blockIdx().x)
     for f = 1:nface
       @loop for n in (1:Nfp; threadIdx().x)
         n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
@@ -565,7 +565,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
           diffusive_penalty!(gradnumpenalty, bl, l_σ, n⁻, l_G⁻, l_Y⁻,
                              l_α⁻, l_G⁺, l_Y⁺, l_α⁺, t)
         else
-          if (Nᵈ == 2 && f == 3) || (Nᵈ == 3 && f == 5)
+          if (Nd == 2 && f == 3) || (Nd == 3 && f == 5)
             # Loop up the first element along all horizontal elements
             @unroll for s = 1:nY
               l_Y_bot1[s] = Y[n + Nqk^2, s, e]
@@ -590,20 +590,20 @@ function faceviscterms!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
   nothing
 end
 
-function initstate!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, Y, α, vgeo, Ω, args...) where {Nᵈ, N}
+function initstate!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, Y, α, vgeo, E, args...) where {Nd, N}
   DFloat = eltype(α)
 
   nα = num_aux(bl,DFloat)
   nY = num_state(bl,DFloat)
 
   Nq = N + 1
-  Nqk = Nᵈ == 2 ? 1 : Nq
+  Nqk = Nd == 2 ? 1 : Nq
   Np = Nq * Nq * Nqk
 
   l_Y = MArray{Tuple{nY}, DFloat}(undef)
   l_α = MArray{Tuple{nα}, DFloat}(undef)
 
-  @inbounds @loop for e in (Ω; blockIdx().x)
+  @inbounds @loop for e in (E; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
       coords = vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e]
       @unroll for s = 1:nα
@@ -625,24 +625,24 @@ end
 
 
 """
-    initauxstate!(bl::BalanceLaw, Val(N), α, vgeo, Ω)
+    initauxstate!(bl::BalanceLaw, Val(N), α, vgeo, E)
 
 Computational kernel: Initialize the auxiliary state
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function initauxstate!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, α, vgeo, Ω) where {Nᵈ, N}
+function initauxstate!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, α, vgeo, E) where {Nd, N}
   DFloat = eltype(α)
 
   nα = num_aux(bl,DFloat)
 
   Nq = N + 1
-  Nqk = Nᵈ == 2 ? 1 : Nq
+  Nqk = Nd == 2 ? 1 : Nq
   Np = Nq * Nq * Nqk
 
   l_α = MArray{Tuple{nα}, DFloat}(undef)
 
-  @inbounds @loop for e in (Ω; blockIdx().x)
+  @inbounds @loop for e in (E; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
       @unroll for s = 1:nα
         l_α[s] = α[n, s, e]
@@ -660,13 +660,13 @@ function initauxstate!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, α, vgeo, Ω) wher
 end
 
 """
-    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, f!, Y, α,
-                          t, Ω) where {Nᵈ, N}
+    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, f!, Y, α,
+                          t, E) where {Nd, N}
 
 Update the auxiliary state array
 """
-function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, f!, Y,
-                               α, t, Ω) where {Nᵈ, N}
+function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, f!, Y,
+                               α, t, E) where {Nd, N}
   DFloat = eltype(Y)
 
   nY = num_state(bl,DFloat)
@@ -675,14 +675,14 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, f!, Y,
 
   Nq = N + 1
 
-  Nqk = Nᵈ == 2 ? 1 : Nq
+  Nqk = Nd == 2 ? 1 : Nq
 
   Np = Nq * Nq * Nqk
 
   l_Y = MArray{Tuple{nY}, DFloat}(undef)
   l_α = MArray{Tuple{nα}, DFloat}(undef)
 
-  @inbounds @loop for e in (Ω; blockIdx().x)
+  @inbounds @loop for e in (E; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
       @unroll for s = 1:nY
         l_Y[s] = Y[n, s, e]
@@ -705,28 +705,28 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, f!, Y,
 end
 
 """
-    knl_indefinite_stack_integral!(::Val{Nᵈ}, ::Val{N}, ::Val{nY},
+    knl_indefinite_stack_integral!(::Val{Nd}, ::Val{N}, ::Val{nY},
                                             ::Val{nα}, ::Val{nvertelem},
                                             int_knl!, Y, α, vgeo, Imat,
-                                            Ω, ::Val{outstate}
-                                           ) where {Nᵈ, N, nY, nα,
+                                            E, ::Val{outstate}
+                                           ) where {Nd, N, nY, nα,
                                                     outstate, nvertelem}
 
 Computational kernel: compute indefinite integral along the vertical stack
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
+function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                                         ::Val{nvertelem},
-                                        Y, α, vgeo, Imat, Ω,
+                                        Y, α, vgeo, Imat, E,
                                         ::Val{nout}
-                                        ) where {Nᵈ, N, nvertelem, nout}
+                                        ) where {Nd, N, nvertelem, nout}
   DFloat = eltype(Y)
   nY = num_state(bl,DFloat)
   nα = num_aux(bl,DFloat)
 
   Nq = N + 1
-  Nqj = Nᵈ == 2 ? 1 : Nq
+  Nqj = Nd == 2 ? 1 : Nq
 
   l_Y = MArray{Tuple{nY}, DFloat}(undef)
   l_α = MArray{Tuple{nα}, DFloat}(undef)
@@ -746,7 +746,7 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
   end
   @synchronize
 
-  @inbounds @loop for eh in (Ω; blockIdx().x)
+  @inbounds @loop for eh in (E; blockIdx().x)
     # Initialize the constant state at zero
     @loop for j in (1:Nqj; threadIdx().y)
       @loop for i in (1:Nq; threadIdx().x)
@@ -810,22 +810,22 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
   nothing
 end
 
-function knl_reverse_indefinite_stack_integral!(::Val{Nᵈ}, ::Val{N},
-                                                ::Val{nvertelem}, α, Ω,
+function knl_reverse_indefinite_stack_integral!(::Val{Nd}, ::Val{N},
+                                                ::Val{nvertelem}, α, E,
                                                 ::Val{nout}
-                                               ) where {Nᵈ, N, nvertelem,
+                                               ) where {Nd, N, nvertelem,
                                                         nout}
   DFloat = eltype(α)
 
   Nq = N + 1
-  Nqj = Nᵈ == 2 ? 1 : Nq
+  Nqj = Nd == 2 ? 1 : Nq
 
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
   l_T = MArray{Tuple{nout}, DFloat}(undef)
   l_V = MArray{Tuple{nout}, DFloat}(undef)
 
-  @inbounds @loop for eh in (Ω; blockIdx().x)
+  @inbounds @loop for eh in (E; blockIdx().x)
     # Initialize the constant state at zero
     @loop for j in (1:Nqj; threadIdx().y)
       @loop for i in (1:Nq; threadIdx().x)

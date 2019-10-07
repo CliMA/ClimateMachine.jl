@@ -12,12 +12,12 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   device = typeof(Y.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  Ω    = grid.topology.realelems
-  nΩ   = length(Ω)
-  Nᵈ   = dimensionality(grid)
+  E    = grid.topology.realelems
+  nE   = length(E)
+  Nd   = dimensionality(grid)
   N    = polynomialorder(grid)
   Nq   = N + 1
-  Nqk  = Nᵈ == 2 ? 1 : Nq
+  Nqk  = Nd == 2 ? 1 : Nq
   Nfp  = Nq * Nqk
   Np   = dofs_per_element(grid)
 
@@ -45,15 +45,15 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   MPIStateArrays.start_ghost_exchange!(α)
 
   if nσ > 0
-    @launch(device, threads=(Nq, Nq, Nqk), blocks=nΩ,
-            volumeviscterms!(bl, Val(Nᵈ), Val(N), Y.Q, σ.Q, α.Q, vgeo, t, D, Ω))
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nE,
+            volume_diffusive_terms!(bl, Val(Nd), Val(N), Y.Q, σ.Q, α.Q, vgeo, t, D, E))
 
     MPIStateArrays.finish_ghost_recv!(Y)
     MPIStateArrays.finish_ghost_recv!(α)
 
-    @launch(device, threads=Nfp, blocks=nΩ,
-            faceviscterms!(bl, Val(Nᵈ), Val(N), dg.gradnumflux, Y.Q, σ.Q, α.Q,
-                           vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, Ω))
+    @launch(device, threads=Nfp, blocks=nE,
+            face_diffusive_terms!(bl, Val(Nd), Val(N), dg.gradnumflux, Y.Q, σ.Q, α.Q,
+                           vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, E))
 
     MPIStateArrays.start_ghost_exchange!(σ)
   end
@@ -61,9 +61,9 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   ###################
   # RHS Computation #
   ###################
-  @launch(device, threads=(Nq, Nq, Nqk), blocks=nΩ,
-          volumerhs!(bl, Val(Nᵈ), Val(N), dYdt.Q, Y.Q, σ.Q, α.Q, vgeo, t, ω, D,
-                     Ω, increment))
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nE,
+          volume_tendency!(bl, Val(Nd), Val(N), dYdt.Q, Y.Q, σ.Q, α.Q, vgeo, t, ω, D,
+                     E, increment))
 
   if nσ > 0
     MPIStateArrays.finish_ghost_recv!(σ)
@@ -77,9 +77,9 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   nσ > 0  && MPIStateArrays.finish_ghost_recv!(σ)
   nσ == 0 && MPIStateArrays.finish_ghost_recv!(Y)
 
-  @launch(device, threads=Nfp, blocks=nΩ,
-          facerhs!(bl, Val(Nᵈ), Val(N), dg.numfluxnondiff, dg.numfluxdiff,
-                   dYdt.Q, Y.Q, σ.Q, α.Q, vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, Ω))
+  @launch(device, threads=Nfp, blocks=nE,
+          face_tendency!(bl, Val(Nd), Val(N), dg.numfluxnondiff, dg.numfluxdiff,
+                   dYdt.Q, Y.Q, σ.Q, α.Q, vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, E))
 
   # Just to be safe, we wait on the sends we started.
   MPIStateArrays.finish_ghost_send!(σ)
@@ -95,13 +95,13 @@ function init_ode_param(dg::DGModel)
   bl = dg.balancelaw
 
   grid = dg.grid
-  Nᵈ   = dimensionality(grid)
+  Nd   = dimensionality(grid)
   N    = polynomialorder(grid)
   Np   = dofs_per_element(grid)
   vgeo = grid.vgeo
   topology = grid.topology
-  Ω    = topology.realelems
-  nΩ   = length(Ω)
+  E    = topology.realelems
+  nE   = length(E)
 
   h_vgeo = Array(vgeo)
   DFloat = eltype(h_vgeo)
@@ -139,8 +139,8 @@ function init_ode_param(dg::DGModel)
 
   device = typeof(α.Q) <: Array ? CPU() : CUDA()
 
-  @launch(device, threads=(Np,), blocks=nΩ,
-          initauxstate!(bl, Val(Nᵈ), Val(N), α.Q, vgeo, Ω))
+  @launch(device, threads=(Np,), blocks=nE,
+          initauxstate!(bl, Val(Nd), Val(N), α.Q, vgeo, E))
 
   MPIStateArrays.start_ghost_exchange!(α)
   MPIStateArrays.finish_ghost_exchange!(α)
@@ -160,13 +160,13 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
   α  = param.aux
 
   grid = dg.grid
-  Nᵈ   = dimensionality(grid)
+  Nd   = dimensionality(grid)
   N    = polynomialorder(grid)
   Np   = dofs_per_element(grid)
   vgeo = grid.vgeo
   topology = grid.topology
-  Ω    = topology.realelems
-  nΩ   = length(Ω)
+  E    = topology.realelems
+  nE   = length(E)
 
   # FIXME: Remove after updating CUDA
   h_vgeo = Array(vgeo)
@@ -190,8 +190,8 @@ function init_ode_state(dg::DGModel, param, args...; commtag=888)
 
   device = typeof(Y.Q) <: Array ? CPU() : CUDA()
 
-  @launch(device, threads=(Np,), blocks=nΩ,
-          initstate!(bl, Val(Nᵈ), Val(N), Y.Q, α.Q, vgeo, Ω, args...))
+  @launch(device, threads=(Np,), blocks=nE,
+          initstate!(bl, Val(Nd), Val(N), Y.Q, α.Q, vgeo, E, args...))
 
   MPIStateArrays.start_ghost_exchange!(Y)
   MPIStateArrays.finish_ghost_exchange!(Y)
@@ -221,17 +221,17 @@ function node_apply_aux!(f!::Function, dg::DGModel, Y::MPIStateArray, param::MPI
   α = param.aux
 
   grid = dg.grid
-  Ω    = grid.topology.realelems
-  nΩ   = length(Ω)
-  Nᵈ   = dimensionality(grid)
+  E    = grid.topology.realelems
+  nE   = length(E)
+  Nd   = dimensionality(grid)
   N    = polynomialorder(grid)
   Np   = dofs_per_element(grid)
 
   @assert size(Y)[end] == size(dg.α)[end]
   @assert size(Y)[1]   == size(dg.α)[1]
 
-  @launch(device, threads=(Np,), blocks=nΩ,
-    knl_node_apply_aux!(bl, Val(Nᵈ), Val(N), f!, Y.Q, σ.Q, α.Q, Ω))
+  @launch(device, threads=(Np,), blocks=nE,
+    knl_node_apply_aux!(bl, Val(Nd), Val(N), f!, Y.Q, σ.Q, α.Q, E))
 end
 
 function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
@@ -241,10 +241,10 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   device = typeof(Y.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  Nᵈ   = dimensionality(grid)
+  Nd   = dimensionality(grid)
   N    = polynomialorder(grid)
   Nq   = N + 1
-  Nqk  = Nᵈ == 2 ? 1 : Nq
+  Nqk  = Nd == 2 ? 1 : Nq
   vgeo = grid.vgeo
 
   # do integrals
@@ -255,7 +255,7 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_indefinite_stack_integral!(m, Val(Nᵈ), Val(N),
+          knl_indefinite_stack_integral!(m, Val(Nd), Val(N),
                                          Val(nvertelem), Y.Q, α.Q,
                                          vgeo, grid.Imat, 1:nhorzelem,
                                          Val(nintegrals)))
@@ -267,10 +267,10 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   device = typeof(α.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  Nᵈ   = dimensionality(grid)
+  Nd   = dimensionality(grid)
   N    = polynomialorder(grid)
   Nq   = N + 1
-  Nqk  = Nᵈ == 2 ? 1 : Nq
+  Nqk  = Nd == 2 ? 1 : Nq
   vgeo = grid.vgeo
 
   # do integrals
@@ -281,7 +281,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_reverse_indefinite_stack_integral!(Val(Nᵈ), Val(N),
+          knl_reverse_indefinite_stack_integral!(Val(Nd), Val(N),
                                                  Val(nvertelem), α.Q,
                                                  1:nhorzelem,
                                                  Val(nintegrals)))
@@ -292,13 +292,13 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Y::MPIStateArray,
   device = typeof(Y.Q) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
-  Ω    = grid.topology.realelems
-  nΩ   = length(Ω)
-  Nᵈ   = dimensionality(grid)
+  E    = grid.topology.realelems
+  nE   = length(E)
+  Nd   = dimensionality(grid)
   N    = polynomialorder(grid)
   Np   = dofs_per_element(grid)
 
   ### update aux variables
-  @launch(device, threads=(Np,), blocks=nΩ,
-          knl_nodal_update_aux!(m, Val(Nᵈ), Val(N), f!, Y.Q, α.Q, t, Ω))
+  @launch(device, threads=(Np,), blocks=nE,
+          knl_nodal_update_aux!(m, Val(Nd), Val(N), f!, Y.Q, α.Q, t, E))
 end
