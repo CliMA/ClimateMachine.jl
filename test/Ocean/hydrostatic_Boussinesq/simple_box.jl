@@ -161,7 +161,7 @@ let
   param = init_ode_param(dg)
 
   Q = init_ode_state(dg, param, DFloat(0))
-  update_aux!(dg, model, Q, param.aux, DFloat(0), param.blparam)
+  update_aux!(dg, model, Q, param.aux, param.diff, DFloat(0), param.blparam)
 
   if isdir(vtkpath)
     rm(vtkpath, recursive=true)
