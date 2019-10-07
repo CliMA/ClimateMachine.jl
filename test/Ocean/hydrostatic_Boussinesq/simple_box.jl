@@ -81,14 +81,17 @@ end
 # PARAM SELECTION #
 ###################
 DFloat = Float64
-vtkpath = "vtk_upwind"
+vtkpath = "vtk_one_vert_level"
 
-const timeend = 3 * 30 * 86400 # 4 * 365 * 86400
+const timeend = 30 * 86400 # 4 * 365 * 86400
 const tout    = 24 * 60 * 60
 
+const N  = 4
+const Ne = (10, 10, 1)
 const Lˣ = 1e6
 const Lʸ = 1e6
 const H  = 400
+
 const cʰ = sqrt(grav * H)
 const cᶻ = 0
 
@@ -124,10 +127,6 @@ let
     ArrayType = Array
   end
 
-  DFloat = Float64
-
-  N = 4
-  Ne = (10, 10, 4)
   L = SVector{3, DFloat}(Lˣ, Lʸ, H)
   c = @SVector [cʰ, cʰ, cᶻ]
   brickrange = (range(DFloat(0); length=Ne[1]+1, stop=L[1]),
