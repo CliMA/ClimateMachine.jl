@@ -84,6 +84,13 @@ function vars_aux(m::HBModel, T)
     θʳ::T           # SST given    # TODO: Should be 2D
     f::T            # coriolis
     τ::T            # wind stress  # TODO: Should be 2D
+
+    # diagnostics (should be ported elsewhere eventually)
+    div2D::T
+    # div3D::T
+    θu::T
+    θv::T
+    θw::T
   end
 end
 
@@ -132,15 +139,26 @@ end
 
     # ∇h • (v ⊗ u)
     # F.u += v * u'
+
+    # FIXME: this is bad programming, but we'll see?
+    α.θu = θ * u[1]
+    α.θv = θ * u[2]
+    α.θw = θ * w
   end
 
   return nothing
 end
 
-@inline function flux_diffusive!(::HBModel, F::Grad, Q::Vars, σ::Vars,
+@inline function flux_diffusive!(m::HBModel, F::Grad, Q::Vars, σ::Vars,
                                  α::Vars, t::Real)
   F.u += σ.ν∇u
   F.θ += σ.κ∇θ
+
+  # FIXME: this is bad programming
+  # but I need to hack in a way to save the divergences
+  @inbounds α.div2D = (σ.ν∇u[1,1] + σ.ν∇u[2,2]) / m.νʰ
+  # TODO: how do I get the ∂w/∂z ????
+
   return nothing
 end
 
