@@ -126,11 +126,33 @@ function gather_diags(dg, Q)
   grid = dg.grid
   topology = grid.topology
   nstate = 6
+  nthermo = 5
   nrealelems = length(topology.realelems)
   nvertelems = topology.stacksize
   nhorzelems = div(nrealelems, nvertelems)
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realQ : Array(Q.realQ)
+  thermoQ = zeros(Nq*Nq*Nqk,nthermo,nrealelems)
+  vgeo=grid.vgeo
+  Xid = (grid.x1id, grid.x2id, grid.x3id)
+  #for e in 1:nrealelems	
+	#for i in 1:Nq*Nqk*Nq
+  		#rho_node=localQ[i,1,e]
+		#u_node=localQ[i,2,e]
+		#w_node=localQ[i,4,e]
+		#etot_node=localQ[i,5,e]
+		#qt_node=localQ[i,6,e]
+		#e_int=e_tot-1//2*(u_node^2+w_node^2)-grav*z
+		#ts=PhaseEquil(e_int, qt_node, rho_node)
+		#Phpart = PhasePartition(ts)
+		#thermoQ[i,1,e] = Phpart.liq
+		#thermoQ[i,2,e] = Phpart.ice
+		#thermoQ[i,3,e] = qt_node-Phpart.liq-Phpart.ice
+		#thermoQ[i,4,e] = ts.T
+		#thermoQ[i,5,e] = liquid_ice_pottemp(ts)
+	#end
+  #end
+		
   fluctQ = zeros(Nq*Nq*Nqk,nstate,nrealelems)
   VarQ = zeros(Nq*Nq*Nqk,nstate,nrealelems)
   rho_localtot = sum(localQ[:, 1, :])
@@ -211,7 +233,30 @@ function gather_diags(dg, Q)
  @info "e Variance = $(Global_Variance_e)"
  @info "qt standard_deviation = $(qt_standard_dev)"
  @info "qt Variance = $(Global_Variance_qt)"
- 
+ S = zeros(Nqk, nvertelems)
+for eh in 1:nhorzelems
+  for ev in 1:nvertelems
+    e = ev + (eh - 1) * nvertelems
+
+    for k in 1:Nqk
+      for j in 1:Nq
+        for i in 1:Nq
+          ijk = i + Nq * ((j-1) + Nq * (k-1)) 
+          S[k,ev] += fluctQ[ijk, 1, e]*fluctQ[ijk,2,e]
+        end
+      end
+    end
+  end
+end
+S_avg=zeros(Nqk,nvertelems)
+ for ev in 1:nvertelems
+   for k in 1:Nqk
+     S_avg[k,ev]=MPI.Reduce(S[k,ev], +, 0, MPI.COMM_WORLD)
+     if mpirank == 0
+       S_avg[k,ev] = S_avg[k,ev]/(Nq*Nq*nhorzelems*nranks)
+     end
+   end
+ end
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
