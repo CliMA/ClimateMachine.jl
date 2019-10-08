@@ -27,7 +27,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
                         update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!,  boundary_state!,
-                        init_aux!, init_state!, init_ode_param, init_ode_state,
+                        init_aux!, init_state!, init_ode_state,
                         LocalGeometry
 
 
@@ -64,7 +64,7 @@ end
 function update_aux!(dg::DGModel, m::IntegralTestModel, Q::MPIStateArray,
                      auxstate::MPIStateArray, t::Real)
   indefinite_stack_integral!(dg, m, Q, auxstate, t)
-  reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, auxstate, t)
 end
 
 @inline function integrate_aux!(m::IntegralTestModel, integrand::Vars,
@@ -94,15 +94,14 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
   dQdt = similar(Q)
 
-  dg(dQdt, Q, param, 0.0)
+  dg(dQdt, Q, nothing, 0.0)
 
   # Wrapping in Array ensure both GPU and CPU code use same approx
-  @test Array(param.aux.Q[:, 1, :]) ≈ Array(param.aux.Q[:, 8, :])
-  @test Array(param.aux.Q[:, 2, :]) ≈ Array(param.aux.Q[:, 9, :])
+  @test Array(dg.auxstate.data[:, 1, :]) ≈ Array(dg.auxstate.data[:, 8, :])
+  @test Array(dg.auxstate.data[:, 2, :]) ≈ Array(dg.auxstate.data[:, 9, :])
 end
 
 let

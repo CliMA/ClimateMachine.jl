@@ -90,7 +90,7 @@ function run(mpicomm, dim, ArrayType, Ne, DFloat)
       Filters.apply!(Q, (1,3), spacedisc.grid, filter;
                      horizontal=horizontal, vertical=vertical)
 
-      @test Array(Q.Q) ≈ Array(P.Q)
+      @test Array(Q.data) ≈ Array(P.data)
     end
   end
 end

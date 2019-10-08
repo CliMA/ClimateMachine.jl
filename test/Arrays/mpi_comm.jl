@@ -95,17 +95,17 @@ function main()
                                                    nabrtovmapsend,
                                                    ArrayType(weights), 555)
 
-  Q = Array(A.Q)
+  Q = Array(A.data)
   Q .= -1
   shift = 100
   Q[:, 1, realelems] .= reshape((crank * 1000)          .+ (1:9*numreal), 9, numreal)
   Q[:, 2, realelems] .= reshape((crank * 1000) .+ shift .+ (1:9*numreal), 9, numreal)
-  copyto!(A.Q, Q)
+  copyto!(A.data, Q)
 
   MPIStateArrays.start_ghost_exchange!(A)
   MPIStateArrays.finish_ghost_exchange!(A)
 
-  Q = Array(A.Q)
+  Q = Array(A.data)
   @test all(         expectedghostdata .== Q[:, 1, :][:][vmaprecv])
   @test all(shift .+ expectedghostdata .== Q[:, 2, :][:][vmaprecv])
 

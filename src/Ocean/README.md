@@ -1,2 +1,1 @@
-Code for Ocean problem configurations and for specializing CLiMA core tools
-to ocean scenarios.
+Code for shallow water problem configurations and for specializing CLIMA core tools to ocean scenarios.

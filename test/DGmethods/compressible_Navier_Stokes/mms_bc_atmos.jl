@@ -35,8 +35,7 @@ end
 include("mms_solution_generated.jl")
 
 using CLIMA.Atmos
-using CLIMA.Atmos: internal_energy, thermo_state
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, total_specific_enthalpy
 
 """
     MMSDryModel
@@ -46,12 +45,14 @@ Assumes the moisture components is in the dry limit.
 struct MMSDryModel <: MoistureModel
 end
 
+function total_specific_enthalpy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
+  zero(eltype(state))
+end
 function pressure(m::MMSDryModel, orientation::Orientation, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
   ρinv = 1 / state.ρ
   return (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
-
 end
 
 function soundspeed(m::MMSDryModel, orientation::Orientation, state::Vars, aux::Vars)
@@ -133,9 +134,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-
-  Q = init_ode_state(dg, param, DFloat(0))
+  Q = init_ode_state(dg, DFloat(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -161,13 +160,13 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
     end
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, ))
-  # solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
+  # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, param, DFloat(timeend))
+  Qe = init_ode_state(dg, DFloat(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
