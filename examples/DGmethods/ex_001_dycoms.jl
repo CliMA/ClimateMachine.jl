@@ -121,9 +121,9 @@ end
 
 # TODO: temporary; move to new CLIMA module
 function gather_diags(dg, Q)
-  N=polynomialorder(dg.grid)
-  Nq=N+1
-  Nqk=dimensionality(dg.grid) == 2 ? 1 : Nq
+  N = polynomialorder(dg.grid)
+  Nq = N + 1
+  Nqk = dimensionality(dg.grid) == 2 ? 1 : Nq
   grid = dg.grid
   topology = grid.topology
   nstate = 6
@@ -136,16 +136,19 @@ function gather_diags(dg, Q)
   thermoQ = zeros(Nq*Nq*Nqk,nthermo,nrealelems)
   vgeo = grid.vgeo
   h_vgeo = host_array ? vgeo : Array(vgeo)
+  
   Xid = grid.x3id
   for e in 1:nrealelems	
-	for i in 1:Nq*Nqk*Nq
-		z =h_vgeo[i,Xid,e]
+	for i in 1:Nq * Nqk * Nq
+		
+		z = h_vgeo[i,Xid,e]
   		rho_node = localQ[i,1,e]
 		u_node = localQ[i,2,e]
 		w_node = localQ[i,4,e]
 		etot_node = localQ[i,5,e]
 		qt_node = localQ[i,6,e]
-		e_int = etot_node-1//2*(u_node^2+w_node^2)-grav*z
+		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
+		
 		ts = PhaseEquil(e_int, qt_node, rho_node)
 		Phpart = PhasePartition(ts)
 		thermoQ[i,1,e] = Phpart.liq
@@ -153,24 +156,28 @@ function gather_diags(dg, Q)
 		thermoQ[i,3,e] = qt_node-Phpart.liq-Phpart.ice
 		thermoQ[i,4,e] = ts.T
 		thermoQ[i,5,e] = liquid_ice_pottemp(ts)
+
 	end
   end
-  fluctT = zeros(Nq*Nq*Nqk,nthermo,nrealelems)		
-  fluctQ = zeros(Nq*Nq*Nqk,nstate,nrealelems)
-  VarQ = zeros(Nq*Nq*Nqk,nstate,nrealelems)
+  fluctT = zeros(Nq * Nq * Nqk, nthermo, nrealelems)		
+  fluctQ = zeros(Nq * Nq * Nqk, nstate, nrealelems)
+  VarQ = zeros(Nq * Nq * Nqk, nstate, nrealelems)
   rho_localtot = sum(localQ[:, 1, :])
   U_localtot = sum(localQ[:, 2, :])
   V_localtot = sum(localQ[:, 3, :])
   W_localtot = sum(localQ[:, 4, :])
   e_localtot = sum(localQ[:, 5, :])
   qt_localtot = sum(localQ[:, 6, :])
+
   qliq_localtot = sum(thermoQ[:, 1, :])
   qice_localtot = sum(thermoQ[:, 2, :])
   qvap_localtot = sum(thermoQ[:, 3, :])
   T_localtot = sum(thermoQ[:, 4, :])
   theta_localtot = sum(thermoQ[:, 5, :])
+
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
+
   rho_tot = MPI.Reduce(rho_localtot, +, 0, MPI.COMM_WORLD)
   U_tot = MPI.Reduce(U_localtot, +, 0, MPI.COMM_WORLD)
   V_tot = MPI.Reduce(V_localtot, +, 0, MPI.COMM_WORLD)
@@ -182,7 +189,9 @@ function gather_diags(dg, Q)
   qvap_tot =MPI.Reduce(qvap_localtot, +, 0, MPI.COMM_WORLD)
   T_tot =MPI.Reduce(T_localtot, +, 0, MPI.COMM_WORLD)
   theta_tot =MPI.Reduce(theta_localtot, +, 0, MPI.COMM_WORLD)
+
   if mpirank == 0
+
     rho_avg = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
     U_avg = (U_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     V_avg = (V_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
@@ -194,6 +203,7 @@ function gather_diags(dg, Q)
     qvap_avg = (qvap_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     T_avg = (T_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     theta_avg = (theta_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
+
     @info "ρ average = $(rho_avg)"
     @info "U average = $(U_avg)"
     @info "V average = $(V_avg)"
@@ -205,28 +215,30 @@ function gather_diags(dg, Q)
     @info "qvap average = $(qvap_avg)"
     @info "T average = $(T_avg)"
     @info "theta average = $(theta_avg)"
+
   end
-  AVG=SVector(rho_avg,U_avg,V_avg,W_avg,e_avg,qt_avg)
-  AVG_T=SVector(qliq_avg,qice_avg,qvap_avg,T_avg,theta_avg)
+  AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
+  AVG_T = SVector(qliq_avg, qice_avg, qvap_avg, T_avg, theta_avg)
   #fluctuations
   for s in 1:6	
 	for e in 1:nrealelems
 		for i in 1:Nq*Nqk*Nq
-			if s==1
-				fluctQ[i,s,e] = localQ[i,s,e]-AVG[s]
+			if s == 1
+				fluctQ[i,s,e] = localQ[i,s,e] - AVG[s]
 				VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e]-AVG_T[s]
+				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
 			elseif s<6
-				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e]-AVG[s]
+				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e]-AVG_T[s]
+				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
 			else
-				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e]-AVG[s]
+				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
 			end
 		end
 	end
   end
+
   #standard_deviation
   rho_local_flucttot = sum(VarQ[:,1,:])
   rho_flucttot = MPI.Reduce(rho_local_flucttot, +, 0, MPI.COMM_WORLD)
@@ -240,13 +252,16 @@ function gather_diags(dg, Q)
   e_flucttot = MPI.Reduce(e_local_flucttot, +, 0, MPI.COMM_WORLD)
   qt_local_flucttot = sum(VarQ[:,6,:])
   qt_flucttot = MPI.Reduce(qt_local_flucttot, +, 0, MPI.COMM_WORLD)
+
   if mpirank == 0
+
   	rho_standard_dev = (rho_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
 	U_standard_dev = (U_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
 	V_standard_dev = (V_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
 	W_standard_dev = (W_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
 	e_standard_dev = (e_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
 	qt_standard_dev = (qt_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
+  
   #Variance
 	Global_Variance_rho = rho_standard_dev^2
 	Global_Variance_U = U_standard_dev^2
@@ -255,6 +270,7 @@ function gather_diags(dg, Q)
 	Global_Variance_e = e_standard_dev^2
 	Global_Variance_qt = qt_standard_dev^2
   end
+
  @info "ρ standard_deviation = $(rho_standard_dev)" 
  @info "ρ Variance = $(Global_Variance_rho)"
  @info "U standard_deviation = $(U_standard_dev)"
@@ -267,6 +283,7 @@ function gather_diags(dg, Q)
  @info "e Variance = $(Global_Variance_e)"
  @info "qt standard_deviation = $(qt_standard_dev)"
  @info "qt Variance = $(Global_Variance_qt)"
+
  S = zeros(Nqk, nvertelems,6)
 for eh in 1:nhorzelems
   for ev in 1:nvertelems
@@ -306,7 +323,7 @@ OutputWW = zeros(nvertelems*Nqk)
 OutputWRHO = zeros(nvertelems*Nqk)
 for ev in 1:nvertelems
 	for k in 1:Nqk
-		i=k+Nqk*(ev-1)
+		i=k + Nqk * (ev - 1)
 		OutputHF[i] = S_avg[k,ev,1]
 		OutputWQVAP[i] = S_avg[k,ev,2]
 		OutputWU[i] = S_avg[k,ev,3]
@@ -396,7 +413,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
-  cbdiags = GenericCallbacks.EveryXSimulationSteps(300000) do (init=false)
+  cbdiags = GenericCallbacks.EveryXSimulationSteps(600000) do (init=false)
     gather_diags(dg, Q)
   end
 
