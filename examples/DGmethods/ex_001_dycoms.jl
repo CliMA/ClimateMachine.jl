@@ -146,7 +146,7 @@ function gather_diags(dg, Q)
 		u_node = localQ[i,2,e]
 		w_node = localQ[i,4,e]
 		etot_node = localQ[i,5,e]
-		qt_node = localQ[i,6,e]
+		qt_node = localQ[i,6,e]/localQ[i,1,e]
 		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
 		
 		ts = PhaseEquil(e_int, qt_node, rho_node)
@@ -198,9 +198,9 @@ function gather_diags(dg, Q)
     W_avg = (W_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     e_avg = (e_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     qt_avg = (qt_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
-    qliq_avg = (qliq_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
-    qice_avg = (qice_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
-    qvap_avg = (qvap_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
+    qliq_avg = (qliq_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
+    qice_avg = (qice_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
+    qvap_avg = (qvap_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     T_avg = (T_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     theta_avg = (theta_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
 
@@ -263,12 +263,12 @@ function gather_diags(dg, Q)
 	qt_standard_dev = (qt_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
   
   #Variance
-	Global_Variance_rho = rho_standard_dev^2
-	Global_Variance_U = U_standard_dev^2
-	Global_Variance_V = V_standard_dev^2
-	Global_Variance_W = W_standard_dev^2
-	Global_Variance_e = e_standard_dev^2
-	Global_Variance_qt = qt_standard_dev^2
+        Global_Variance_rho = rho_standard_dev^2
+        Global_Variance_U = U_standard_dev^2
+        Global_Variance_V = V_standard_dev^2
+        Global_Variance_W = W_standard_dev^2
+        Global_Variance_e = e_standard_dev^2
+        Global_Variance_qt = qt_standard_dev^2
   end
 
  @info "ρ standard_deviation = $(rho_standard_dev)" 
@@ -283,8 +283,8 @@ function gather_diags(dg, Q)
  @info "e Variance = $(Global_Variance_e)"
  @info "qt standard_deviation = $(qt_standard_dev)"
  @info "qt Variance = $(Global_Variance_qt)"
-
- S = zeros(Nqk, nvertelems,6)
+#Horizontal averages we might need
+ S = zeros(Nqk, nvertelems,8)
 for eh in 1:nhorzelems
   for ev in 1:nvertelems
     e = ev + (eh - 1) * nvertelems
@@ -293,43 +293,51 @@ for eh in 1:nhorzelems
       for j in 1:Nq
         for i in 1:Nq
           ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-          S[k,ev,1] += fluctQ[ijk, 4, e]*fluctT[ijk,5,e]
-	  S[k,ev,2] += fluctQ[ijk, 4, e]*fluctT[ijk,3,e]
-	  S[k,ev,3] += fluctQ[ijk, 4, e]*fluctQ[ijk,2,e]
-	  S[k,ev,4] += fluctQ[ijk, 4, e]*fluctQ[ijk,3,e]
-	  S[k,ev,5] += fluctQ[ijk, 4, e]*fluctQ[ijk,4,e]
-	  S[k,ev,6] += fluctQ[ijk, 4, e]*fluctQ[ijk,1,e]
+          S[k,ev,1] += fluctQ[ijk,4,e]*fluctT[ijk,5,e]
+	  S[k,ev,2] += fluctQ[ijk,4,e]*fluctT[ijk,3,e]
+	  S[k,ev,3] += fluctQ[ijk,4,e]*fluctQ[ijk,2,e]
+	  S[k,ev,4] += fluctQ[ijk,4,e]*fluctQ[ijk,3,e]
+	  S[k,ev,5] += fluctQ[ijk,4,e]*fluctQ[ijk,4,e]
+	  S[k,ev,6] += fluctQ[ijk,4,e]*fluctQ[ijk,1,e]
+          S[k,ev,7] += thermoQ[ijk,1,e]
+          S[k,ev,8] += fluctQ[ijk,4,e]*fluctT[ijk,1,e]
         end
       end
     end
   end
 end
 S_avg=zeros(Nqk,nvertelems,6)
-for s in 1:6
+for s in 1:8
  for ev in 1:nvertelems
    for k in 1:Nqk
      S_avg[k,ev,s]=MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
+     
      if mpirank == 0
-       S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq*Nq*nhorzelems*nranks)
+        S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq*Nq*nhorzelems*nranks)
      end
    end
  end
 end
-OutputHF = zeros(nvertelems*Nqk)
-OutputWQVAP = zeros(nvertelems*Nqk)
-OutputWU = zeros(nvertelems*Nqk)
-OutputWV = zeros(nvertelems*Nqk)
-OutputWW = zeros(nvertelems*Nqk)
-OutputWRHO = zeros(nvertelems*Nqk)
+
+OutputHF = zeros(nvertelems * Nqk)
+OutputWQVAP = zeros(nvertelems * Nqk)
+OutputWU = zeros(nvertelems * Nqk)
+OutputWV = zeros(nvertelems * Nqk)
+OutputWW = zeros(nvertelems * Nqk)
+OutputWRHO = zeros(nvertelems * Nqk)
+OutputQLIQ = zeros(nvertelems * Nqk)
+OutputWQLIQ = zeors(nvertelems * Nqk)
 for ev in 1:nvertelems
 	for k in 1:Nqk
 		i=k + Nqk * (ev - 1)
-		OutputHF[i] = S_avg[k,ev,1]
-		OutputWQVAP[i] = S_avg[k,ev,2]
-		OutputWU[i] = S_avg[k,ev,3]
-		OutputWV[i] = S_avg[k,ev,4]
-		OutputWW[i] = S_avg[k,ev,5]
-		OutputWRHO[i] = S_avg[k,ev,6]
+                OutputHF[i] = S_avg[k,ev,1]
+                OutputWQVAP[i] = S_avg[k,ev,2]
+                OutputWU[i] = S_avg[k,ev,3]
+                OutputWV[i] = S_avg[k,ev,4]
+                OutputWW[i] = S_avg[k,ev,5]
+                OutputWRHO[i] = S_avg[k,ev,6]
+                OutputQLIQ = S_avg[k,ev,7]
+                OutputWQLIQ = S_avg[k,ev,8]
 	end
 end
 open("/home/yassine/yt-2T-drive/HF.txt", "w") do f
@@ -349,6 +357,12 @@ writedlm("/home/yassine/yt-2T-drive/WW.txt", OutputWW)
 end
 open("/home/yassine/yt-2T-drive/WRHO.txt", "w") do f
 writedlm("/home/yassine/yt-2T-drive/WRHO.txt", OutputWRHO)
+end
+open("/home/yassine/yt-2T-drive/QLIQ.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/QLIQ.txt", OutputQLIQ)
+end
+open("/home/yassine/yt-2T-drive/WQLIQ.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/WQLIQ.txt", OutputWQLIQ)
 end
 end
 
