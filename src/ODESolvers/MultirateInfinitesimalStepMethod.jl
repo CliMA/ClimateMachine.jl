@@ -21,6 +21,38 @@ end
 
 using GPUifyLoops
 
+"""
+MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod,
+                           α, β, γ,
+                           Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
+
+This is a time stepping object for explicitly time stepping the partitioned differential
+equation given by right-hand-side functions `f_fast` and `f_slow` with the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = f_fast(Q, t) + f_slow(Q, t)
+```
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+The constructor builds a multirate infinitesimal step Runge-Kutta scheme
+based on the provided `α`, `β` and `γ` tableaux and `fastmethod` for solving
+the fast modes.
+
+  - [`LowStorageRungeKuttaMethod`](@ref)
+
+### References
+    @article{KnothWensch2014,
+      title={Generalized split-explicit Runge--Kutta methods for the compressible Euler equations},
+      author={Knoth, Oswald and Wensch, Joerg},
+      journal={Monthly Weather Review},
+      volume={142},
+      number={5},
+      pages={2067--2081},
+      year={2014}
+    }
+"""
 struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{RT, 1}
