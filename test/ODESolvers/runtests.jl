@@ -29,7 +29,9 @@ const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
                      ]
 
 const mis_methods = [(MIS2, 2),
-                     (MIS3C, 2)
+                     (MIS3C, 2),
+                     (MIS4, 2),
+                     (MIS4a, 2)
                     ]
 let
   function rhs!(dQ, Q, ::Nothing, time; increment)

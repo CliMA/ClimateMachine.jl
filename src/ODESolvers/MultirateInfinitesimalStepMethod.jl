@@ -4,7 +4,7 @@ using ..MPIStateArrays: device, realview
 
 using StaticArrays
 
-export MIS2, MIS3C
+export MIS2, MIS3C, MIS4, MIS4a
 
 ODEs = ODESolvers
 
@@ -72,9 +72,6 @@ end
 #end
 
 function MIS2(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
-  T = eltype(Q)
-  RT = real(T)
-
   α = [0 0              0              0;
        0 0              0              0;
        0 0.536946566710 0              0;
@@ -94,9 +91,6 @@ function MIS2(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: Ab
 end
 
 function MIS3C(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
-  T = eltype(Q)
-  RT = real(T)
-
   α = [0 0              0              0;
        0 0              0              0;
        0 0.589557277145 0              0;
@@ -111,6 +105,50 @@ function MIS3C(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: A
        0  0               0               0;
        0  0.142798786398  0               0;
        0 -0.0428918957402 0.0202720980282 0]
+
+  MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, α, β, γ, Q; dt=dt, t0=t0)
+end
+
+function MIS4(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+  α = [0 0              0              0              0;
+       0 0              0              0              0;
+       0 0.914092810304 0              0              0;
+       0 1.14274417397 -0.295211246188 0              0;
+       0 0.112965282231 0.337369411296 0.503747183119 0]
+
+  β = [ 0                0               0              0              0;
+        0.136296478423   0               0              0              0;
+        0.280462398979  -0.0160351333596 0              0              0;
+        0.904713355208  -1.04011183154   0.652337563489 0              0;
+        0.0671969845546 -0.365621862610 -0.154861470835 0.970362444469 0]
+
+  γ = [0  0              0               0              0;
+       0  0              0               0              0;
+       0  0.678951983291 0               0              0;
+       0 -1.38974164070  0.503864576302  0              0;
+       0 -0.375328608282 0.320925021109 -0.158259688945 0]
+
+  MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, α, β, γ, Q; dt=dt, t0=t0)
+end
+
+function MIS4a(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+  α = [0 0                     0                   0                   0;
+       0 0                     0                   0                   0;
+       0 0.52349249922385610   0                   0                   0;
+       0 1.1683374366893629   -0.75762080241712637 0                   0;
+       0 -0.036477233846797109 0.56936148730740477 0.47746263002599681 0]
+
+  β = [ 0                    0                   0                   0                   0;
+        0.38758444641450318  0                   0                   0                   0;
+       -0.025318448354142823 0.38668943087310403 0                   0                   0;
+        0.20899983523553325 -0.45856648476371231 0.43423187573425748 0                   0;
+       -0.46186171956333327 -0.46186171956333327 0.83045062122462809 0.27014914900250392 0]
+
+  γ = [0  0                    0                    0                    0;
+       0  0                    0                    0                    0;
+       0  0.13145089796226542  0                    0                    0;
+       0 -0.36855857648747881  0.33159232636600550  0                    0;
+       0 -0.065767130537473045 0.040591093109036858 0.064902111640806712 0]
 
   MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, α, β, γ, Q; dt=dt, t0=t0)
 end
