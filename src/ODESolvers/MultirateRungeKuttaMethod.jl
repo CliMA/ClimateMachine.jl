@@ -59,9 +59,7 @@ struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
   t::Array{RT,1}
 
   function MultirateRungeKutta(slow_solver::LSRK2N,
-                               fast_solver::Union{LSRK2N, SSPRK,
-                                                  MultirateRungeKutta,
-                                                  AdditiveRungeKutta},
+                               fast_solver,
                                Q=nothing;
                                dt=ODEs.getdt(slow_solver), t0=slow_solver.t[1]
                               ) where {AT<:AbstractArray}
