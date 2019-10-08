@@ -5,6 +5,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.MultirateRungeKuttaMethod
+using CLIMA.MultirateInfinitesimalStepMethod
 using CLIMA.LinearSolvers
 using StaticArrays
 using LinearAlgebra
@@ -26,6 +27,10 @@ const explicit_methods = [(LSRK54CarpenterKennedy, 4)
 const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
                       (ARK548L2SA2KennedyCarpenter, 5)
                      ]
+
+const mis_methods = [(MIS2, 2),
+                     (MIS3C, 2)
+                    ]
 let
   function rhs!(dQ, Q, ::Nothing, time; increment)
     if increment
@@ -290,6 +295,27 @@ let
         @test (isapprox(rates[end], min_order; atol = 0.1) ||
                isapprox(rates[end], max_order; atol = 0.1) ||
                min_order <= rates[end] <= max_order)
+      end
+    end
+  end
+
+  @testset "Multirate Problem with MIS (no substeps)" begin
+    for (mis_method, mis_expected_order) in mis_methods
+      for fast_method in (LSRK54CarpenterKennedy,)
+        q0 = ComplexF64(1)
+        finaltime = pi / 2
+        dts = [2.0 ^ (-k) for k = 2:11]
+
+        errors = similar(dts)
+        for (n, dt) in enumerate(dts)
+          Q = [q0]
+          solver = MIS3C(rhs_slow!, rhs_fast!, fast_method, Q;
+                        dt = dt, t0 = 0.0)
+          solve!(Q, solver; timeend = finaltime)
+          errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
+        end
+        rates = log2.(errors[1:end-1] ./ errors[2:end])
+        @test isapprox(rates[end], mis_expected_order; atol = 0.1)
       end
     end
   end
