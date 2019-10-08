@@ -502,14 +502,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       #-----------------------------------------------------------------
     # build physical range to be stratched
     #-----------------------------------------------------------------
-    x_range = range(xmin, length=Ne[1]   + 1, xmax)
-    y_range = range(ymin, length=Ne[2]   + 1, ymax)
+    x_range = grid1d(xmin, xmax; nelem=Ne[1])
+    y_range = grid1d(ymin, ymax; nelem=Ne[2])
     
     #-----------------------------------------------------------------
     # Build grid stretching along whichever direction
     # (ONLY Z for now. We need to decide what function we want to use for x and y)
     #-----------------------------------------------------------------
-    y_range = grid_stretching_1d(ymin, ymax, Ne[2], "boundary_layer")
+    y_range = grid1d(ymin, ymax, SingleExponentialStretching(2.5), nelem=Ne[2])
     
     #-----------------------------------------------------------------
     # END grid stretching 

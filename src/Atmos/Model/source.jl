@@ -39,7 +39,7 @@ function atmos_source!(s::GeostrophicForcing, m::AtmosModel, source::Vars, state
 end
 
 """
-  RayleighSponge{DT} <: Sponge
+  RayleighSponge{DT} <: Source
 Rayleigh Damping (Linear Relaxation) for top wall momentum components
 Assumes laterally periodic boundary conditions for LES flows. Momentum components
 are relaxed to reference values (zero velocities) at the top boundary.

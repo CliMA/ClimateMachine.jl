@@ -6,7 +6,7 @@ using DocStringExtensions
 export AbstractTopology, BrickTopology, StackedBrickTopology,
     CubedShellTopology, StackedCubedSphereTopology, isstacked
 
-export grid_stretching_1d
+export grid1d, SingleExponentialStretching, InteriorStretching
 
 """
     AbstractTopology{dim}
@@ -99,7 +99,7 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   elemtoordr::Array{Int64, 2}
 
   """
-  Element to bounday number; `elemtobndy[f,e]` is the boundary number of face
+  Element to boundary number; `elemtobndy[f,e]` is the boundary number of face
   `f` of element `e`.  If there is a neighboring element then `elemtobndy[f,e]
   == 0`.
   """
@@ -1010,48 +1010,56 @@ end
 
 
 """    
-    grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
+    grid1d(a, b[, stretch::AbstractGridStretching]; elemsize, nelem)
 
-        This function is the extrema of a 1D domain (e.g. the x3 direction of
-        the mesh at hand) and stretches the 1D grid in that direction.
+Discretize the 1D interval [`a`,`b`] into elements.
+Exactly one of the following keyword arguments must be provided:
+- `elemsize`: the average element size, or
+- `nelem`: the number of elements.
 
-        It returns the 1D range `range_stretched` to be then passed to
-        `brickrange = (x1_range, x2_range, x3_range)` in the driver in place of
-        `x1_range`, or `x2_range` or `x3_range`
+The optional `stretch` argument allows stretching, otherwise the element sizes will be uniform.
 
-        The use needs to define the type of stretching `stretching_type` 
-        Now `boundary_layer` and `top_layer` are the only options availabe.
-
-        Add more functions to the function Mesh.Topologies.grid_stretching_1d.
-        
+Returns either a range object or a vector containing the element boundaries.
 """
-
-function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, attractor_value=0)
-
-    DFloat = eltype(coord_min)
-    
-    #build physical range to be stratched
-    range_stretched = range(DFloat(coord_min), length = Ne + 1, DFloat(coord_max))
-   
-    #build logical space
-    s  = range(DFloat(0), length=Ne[1]+1, DFloat(1))
-
-    stretch_coe = 0.0
-    if (stretching_type == "boundary_stretching")
-        stretch_coe = 2.5
-        range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
-    elseif (stretching_type == "top_stretching")
-        stretch_coe = 2.5
-        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
-
-    elseif (stretching_type == "interior_stretching")
-        stretch_coe     = 1.2;
-        L               = (coord_max - coord_min);
-        range_stretched = L*s +  stretch_coe*(attractor_value - L*s).*(1.0 - s).*s;          
-    end
-    return range_stretched
-    
+function grid1d(a, b, stretch=nothing; elemsize=nothing, nelem=nothing)
+  xor(nelem === nothing, elemsize === nothing) || error("Either `elemsize` or `nelem` arguments must be provided")
+  if elemsize !== nothing
+    nelem = round(Int,abs(b-a)/elemsize)
+  end
+  grid1d(a, b, stretch, nelem)
 end
-#}}}
+function grid1d(a, b, ::Nothing, nelem)
+  range(a, stop=b, length=nelem+1)
+end
+
+# TODO: document these
+abstract type AbstractGridStretching end
+
+"""
+    SingleExponentialStretching(A)
+
+Apply single-exponential stretching: `A > 0` will increase the density of points at the lower boundary, `A < 0` will increase the density at the upper boundary.
+
+# Reference
+* "Handbook of Grid Generation" J. F. Thompson, B. K. Soni, N. P. Weatherill (Editors) RCR Press 1999, §3.6.1 Single-Exponential Function
+"""
+struct SingleExponentialStretching{T} <: AbstractGridStretching
+  A::T
+end
+function grid1d(a::A, b::B, stretch::SingleExponentialStretching, nelem) where {A,B}
+  F = float(promote_type(A,B))
+  s = range(zero(F), stop=one(F), length=nelem+1)
+  a .+ (b-a) .* expm1.(stretch.A .* s) ./ expm1(stretch.A)
+end
+
+struct InteriorStretching{T} <: AbstractGridStretching
+  attractor::T
+end
+function grid1d(a::A, b::B, stretch::InteriorStretching, nelem) where {A,B}
+  F = float(promote_type(A,B))
+  coe = F(2.5)
+  s = range(zero(F), stop=one(F), length=nelem+1)
+  range(a, stop=b, length=nelem+1) .+ coe .* (stretch.attractor .- (b-a).*s) .* (1 .-s) .* s
+end
 
 end
