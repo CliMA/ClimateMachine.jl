@@ -145,7 +145,7 @@ function gather_diags(dg, Q)
   		rho_node = localQ[i,1,e]
 		u_node = localQ[i,2,e]
 		w_node = localQ[i,4,e]
-		etot_node = localQ[i,5,e]/local[i,1,e]
+		etot_node = localQ[i,5,e]/localQ[i,1,e]
 		qt_node = localQ[i,6,e]/localQ[i,1,e]
 		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
 		
@@ -306,7 +306,7 @@ for eh in 1:nhorzelems
     end
   end
 end
-S_avg=zeros(Nqk,nvertelems,6)
+S_avg=zeros(Nqk,nvertelems,8)
 for s in 1:8
  for ev in 1:nvertelems
    for k in 1:Nqk
@@ -364,6 +364,7 @@ end
 open("/home/yassine/yt-2T-drive/WQLIQ.txt", "w") do f
 writedlm("/home/yassine/yt-2T-drive/WQLIQ.txt", OutputWQLIQ)
 end
+CSV.write("/home/yassine/test.csv", S_avg)
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
@@ -427,7 +428,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
-  cbdiags = GenericCallbacks.EveryXSimulationSteps(600000) do (init=false)
+  cbdiags = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     gather_diags(dg, Q)
   end
 
@@ -485,7 +486,7 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
-    timeend = 14400
+    timeend = 100 * dt 
     dim = 3
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
