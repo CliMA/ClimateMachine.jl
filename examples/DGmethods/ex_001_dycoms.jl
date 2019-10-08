@@ -16,6 +16,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
+using DelimitedFiles
 
 using CLIMA.Atmos: vars_state, vars_aux
 
@@ -297,9 +298,40 @@ for s in 1:6
    end
  end
 end
-open("/home/yassine/yt-2T-drive/SecondMomentTest.txt", "w") do f
-using DelimitedFiles
-writedlm("/home/yassine/yt-2T-drive/SecondMomentTest.txt", S_avg)
+OutputHF = zeros(nvertelems*Nqk)
+OutputWQVAP = zeros(nvertelems*Nqk)
+OutputWU = zeros(nvertelems*Nqk)
+OutputWV = zeros(nvertelems*Nqk)
+OutputWW = zeros(nvertelems*Nqk)
+OutputWRHO = zeros(nvertelems*Nqk)
+for ev in 1:nvertelems
+	for k in 1:Nqk
+		i=k+Nqk*(ev-1)
+		OutputHF[i] = S_avg[k,ev,1]
+		OutputWQVAP[i] = S_avg[k,ev,2]
+		OutputWU[i] = S_avg[k,ev,3]
+		OutputWV[i] = S_avg[k,ev,4]
+		OutputWW[i] = S_avg[k,ev,5]
+		OutputWRHO[i] = S_avg[k,ev,6]
+	end
+end
+open("/home/yassine/yt-2T-drive/HF.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/HF.txt", OutputHF)
+end
+open("/home/yassine/yt-2T-drive/WQVAP.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/WQVAP.txt", OutputWQVAP)
+end
+open("/home/yassine/yt-2T-drive/WU.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/WU.txt", OutputWU)
+end
+open("/home/yassine/yt-2T-drive/WV.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/WV.txt", OutputWV)
+end
+open("/home/yassine/yt-2T-drive/WW.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/WW.txt", OutputWW)
+end
+open("/home/yassine/yt-2T-drive/WRHO.txt", "w") do f
+writedlm("/home/yassine/yt-2T-drive/WRHO.txt", OutputWRHO)
 end
 end
 
@@ -364,7 +396,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
-  cbdiags = GenericCallbacks.EveryXSimulationSteps(1500) do (init=false)
+  cbdiags = GenericCallbacks.EveryXSimulationSteps(300000) do (init=false)
     gather_diags(dg, Q)
   end
 
@@ -422,7 +454,7 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
-    timeend = 100dt
+    timeend = 14400
     dim = 3
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
