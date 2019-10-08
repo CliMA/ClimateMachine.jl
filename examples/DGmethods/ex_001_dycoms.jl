@@ -145,7 +145,7 @@ function gather_diags(dg, Q)
   		rho_node = localQ[i,1,e]
 		u_node = localQ[i,2,e]
 		w_node = localQ[i,4,e]
-		etot_node = localQ[i,5,e]
+		etot_node = localQ[i,5,e]/local[i,1,e]
 		qt_node = localQ[i,6,e]/localQ[i,1,e]
 		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
 		
