@@ -81,10 +81,10 @@ end
 # PARAM SELECTION #
 ###################
 DFloat = Float64
-vtkpath = "vtk_one_vert_level"
+vtkpath = "vtk_euler_60min"
 
-const timeend = 30 * 86400 # 4 * 365 * 86400
-const tout    = 24 * 60 * 60
+const timeend = 60 * 60 # 30 * 86400 # 4 * 365 * 86400
+const tout    = 60 # 24 * 60 * 60
 
 const N  = 4
 const Ne = (10, 10, 1)
@@ -136,7 +136,7 @@ let
                               periodicity = (false, false, false),
                               boundary = ((1, 1), (1, 1), (2, 3)))
 
-  dt = 120 # 240 # (L[1] / c) / Ne[1] / N^2
+  dt = 1 # 120 # 240 # (L[1] / c) / Ne[1] / N^2
   @show nout = ceil(Int64, tout / dt)
   @show dt = tout / nout
 
@@ -200,7 +200,8 @@ let
     end
   end
 
-  lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
+  # lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
+  lsrk = LSRKEulerMethod(dg, Q; dt=dt, t0=0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
