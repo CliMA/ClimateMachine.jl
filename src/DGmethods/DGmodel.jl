@@ -52,7 +52,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   Np = dofs_per_element(grid)
 
-  communicate = !(isstacked(topology) && tyepof(dg.direction) <: VerticalDirection)
+  communicate = !(isstacked(topology) &&
+                  typeof(dg.direction) <: VerticalDirection)
 
   if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
                                   typeof(auxstate), typeof(t)})
@@ -70,7 +71,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(bl, Val(dim), Val(polyorder), Q.data, Qvisc.data, auxstate.data, vgeo, t, Dmat,
+            volumeviscterms!(bl, Val(dim), Val(polyorder), dg.direction, Q.data,
+                             Qvisc.data, auxstate.data, vgeo, t, Dmat,
                              topology.realelems))
 
     if communicate
@@ -79,8 +81,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     end
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux,
-                           Q.data, Qvisc.data, auxstate.data,
+            faceviscterms!(bl, Val(dim), Val(polyorder), dg.direction,
+                           dg.gradnumflux, Q.data, Qvisc.data, auxstate.data,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
 
@@ -91,9 +93,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   # RHS Computation #
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(dim), Val(polyorder), dQdt.data, Q.data, Qvisc.data, auxstate.data,
-                     vgeo, t, lgl_weights_vec, Dmat,
-                     topology.realelems, increment))
+          volumerhs!(bl, Val(dim), Val(polyorder), dg.direction, dQdt.data,
+                     Q.data, Qvisc.data, auxstate.data, vgeo, t,
+                     lgl_weights_vec, Dmat, topology.realelems, increment))
 
   if communicate
     if nviscstate > 0
@@ -105,7 +107,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder),
+          facerhs!(bl, Val(dim), Val(polyorder), dg.direction,
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
                    dQdt.data, Q.data, Qvisc.data,

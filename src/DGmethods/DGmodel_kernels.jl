@@ -34,9 +34,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                     rhs, Q, Qvisc, auxstate, vgeo, t,
-                    ω, D, elems, increment) where {dim, polyorder}
+                    ω, D, elems, increment) where {dim, polyorder, direction}
   N = polyorder
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
@@ -244,11 +244,11 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """
-function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                   numfluxnondiff::NumericalFluxNonDiffusive,
                   numfluxdiff::NumericalFluxDiffusive,
                   rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                  elemtobndy, elems) where {dim, polyorder}
+                  elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
@@ -373,8 +373,8 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                          Q, Qvisc, auxstate, vgeo, t, D,
-                          elems) where {dim, polyorder}  
+                          ::direction, Q, Qvisc, auxstate, vgeo, t, D,
+                          elems) where {dim, polyorder, direction}
   N = polyorder
   
   DFloat = eltype(Q)
@@ -470,9 +470,9 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                        gradnumpenalty::GradNumericalPenalty,
-                        Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) where {dim, polyorder}  
+                        ::direction, gradnumpenalty::GradNumericalPenalty, Q,
+                        Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                        elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
   DFloat = eltype(Q)
   nstate = num_state(bl,DFloat)
