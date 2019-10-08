@@ -326,7 +326,7 @@ OutputWV = zeros(nvertelems * Nqk)
 OutputWW = zeros(nvertelems * Nqk)
 OutputWRHO = zeros(nvertelems * Nqk)
 OutputQLIQ = zeros(nvertelems * Nqk)
-OutputWQLIQ = zeors(nvertelems * Nqk)
+OutputWQLIQ = zeros(nvertelems * Nqk)
 for ev in 1:nvertelems
 	for k in 1:Nqk
 		i=k + Nqk * (ev - 1)
@@ -340,31 +340,30 @@ for ev in 1:nvertelems
                 OutputWQLIQ = S_avg[k,ev,8]
 	end
 end
-open("/home/yassine/yt-2T-drive/HF.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/HF.txt", OutputHF)
+open("/home/yassine/yt-2T-drive/HF.txt", "a") do io
+writedlm(io, OutputHF)
 end
-open("/home/yassine/yt-2T-drive/WQVAP.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WQVAP.txt", OutputWQVAP)
+open("/home/yassine/yt-2T-drive/WQVAP.txt", "a") do io
+writedlm(io, OutputWQVAP)
 end
-open("/home/yassine/yt-2T-drive/WU.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WU.txt", OutputWU)
+open("/home/yassine/yt-2T-drive/WU.txt", "a") do io
+writedlm(io, OutputWU)
 end
-open("/home/yassine/yt-2T-drive/WV.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WV.txt", OutputWV)
+open("/home/yassine/yt-2T-drive/WV.txt", "a") do io
+writedlm(io, OutputWV)
 end
-open("/home/yassine/yt-2T-drive/WW.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WW.txt", OutputWW)
+open("/home/yassine/yt-2T-drive/WW.txt", "a") do io
+writedlm(io, OutputWW)
 end
-open("/home/yassine/yt-2T-drive/WRHO.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WRHO.txt", OutputWRHO)
+open("/home/yassine/yt-2T-drive/WRHO.txt", "a") do io
+writedlm(io, OutputWRHO)
 end
-open("/home/yassine/yt-2T-drive/QLIQ.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/QLIQ.txt", OutputQLIQ)
+open("/home/yassine/yt-2T-drive/QLIQ.txt", "a") do io
+writedlm(io, OutputQLIQ)
 end
-open("/home/yassine/yt-2T-drive/WQLIQ.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WQLIQ.txt", OutputWQLIQ)
+open("/home/yassine/yt-2T-drive/WQLIQ.txt", "a") do io
+writedlm(io, OutputWQLIQ)
 end
-CSV.write("/home/yassine/test.csv", S_avg)
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
