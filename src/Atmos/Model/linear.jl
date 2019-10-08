@@ -66,3 +66,44 @@ function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars,
   source.ρu = state.ρ * ∇Φ
   nothing
 end
+
+
+
+
+struct AtmosAcousticLinearModelSplitA{M} <: AtmosLinearModel
+  atmos::M
+end
+function flux_nondiffusive!(lm::AtmosAcousticLinearModelSplitA, flux::Grad, state::Vars, aux::Vars, t::Real)
+  DF = eltype(state)
+  ref = aux.ref_state
+  e_pot = gravitational_potential(lm.atmos.orientation, aux)
+
+  flux.ρ = state.ρu
+  flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
+  nothing
+end
+function source!(lm::AtmosAcousticLinearModelSplitA, source::Vars, state::Vars, aux::Vars, t::Real)
+  nothing
+end
+function boundary_state!(nf::Rusanov, lm::AtmosAcousticLinearModelSplitA, x...)
+  # not needed since applied only to momentum terms
+  nothing
+end
+
+
+struct AtmosAcousticLinearModelSplitB{M} <: AtmosLinearModel
+  atmos::M
+end
+function flux_nondiffusive!(lm::AtmosAcousticLinearModelSplitB, flux::Grad, state::Vars, aux::Vars, t::Real)
+  DF = eltype(state)
+  ref = aux.ref_state
+  e_pot = gravitational_potential(lm.atmos.orientation, aux)
+  # TODO: use MoistThermodynamics.linearized_air_pressure 
+  # need to avoid dividing then multiplying by ρ
+  pL = state.ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (state.ρe - state.ρ * e_pot)
+  flux.ρu += pL*I
+  nothing
+end
+function source!(lm::AtmosAcousticLinearModelSplitB, source::Vars, state::Vars, aux::Vars, t::Real)
+  nothing
+end
