@@ -132,7 +132,7 @@ function gather_diags(dg, Q)
   nvertelems = topology.stacksize
   nhorzelems = div(nrealelems, nvertelems)
   host_array = Array ∈ typeof(Q).parameters
-  localQ = host_array ? Q.realQ : Array(Q.realQ)
+  localQ = host_array ? Q.realdata : Array(Q.realdata)
   thermoQ = zeros(Nq*Nq*Nqk,nthermo,nrealelems)
   vgeo = grid.vgeo
   h_vgeo = host_array ? vgeo : Array(vgeo)
@@ -145,7 +145,7 @@ function gather_diags(dg, Q)
   		rho_node = localQ[i,1,e]
 		u_node = localQ[i,2,e]
 		w_node = localQ[i,4,e]
-		etot_node = localQ[i,5,e]/local[i,1,e]
+		etot_node = localQ[i,5,e]/localQ[i,1,e]
 		qt_node = localQ[i,6,e]/localQ[i,1,e]
 		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
 		
