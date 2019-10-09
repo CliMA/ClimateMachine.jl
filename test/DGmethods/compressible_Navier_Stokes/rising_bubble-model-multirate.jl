@@ -184,8 +184,10 @@ function run(mpicomm, ArrayType,
   Q = init_ode_state(dg, DF(0))
   Qinit = init_ode_state(dg, DF(-1))
 
-  slow_ode_solver = LSRK54CarpenterKennedy(slow_dg, Q; dt = dt)
-  fast_ode_solver = LSRK54CarpenterKennedy(fast_dg, Q; dt = dt)
+  slow_dt = 13dt
+  fast_dt = dt
+  slow_ode_solver = LSRK54CarpenterKennedy(slow_dg, Q; dt = slow_dt)
+  fast_ode_solver = LSRK54CarpenterKennedy(fast_dg, Q; dt = fast_dt)
 
   ode_solver = MultirateRungeKutta((slow_ode_solver, fast_ode_solver))
 
@@ -225,7 +227,7 @@ function run(mpicomm, ArrayType,
     do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
 
     # setup the output callback
-    cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
+    cbvtk = EveryXSimulationSteps(floor(outputtime / slow_dt)) do
       vtkstep += 1
       Qdiff = Q .- Qinit
       do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
