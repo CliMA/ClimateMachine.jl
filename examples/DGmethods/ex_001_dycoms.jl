@@ -133,7 +133,7 @@ function gather_diags(dg, Q)
   nhorzelems = div(nrealelems, nvertelems)
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realQ : Array(Q.realQ)
-  thermoQ = zeros(Nq*Nq*Nqk,nthermo,nrealelems)
+  thermoQ = zeros(Nq * Nq * Nqk, nthermo, nrealelems)
   vgeo = grid.vgeo
   h_vgeo = host_array ? vgeo : Array(vgeo)
   
@@ -222,15 +222,15 @@ function gather_diags(dg, Q)
   #fluctuations
   for s in 1:6	
 	for e in 1:nrealelems
-		for i in 1:Nq*Nqk*Nq
+		for i in 1:Nq * Nqk * Nq
 			if s == 1
 				fluctQ[i,s,e] = localQ[i,s,e] - AVG[s]
-				VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
+				VarQ[i,s,e] = fluctQ[i,s,e]^2
+				fluctT[i,s,e] = thermoQ[i,s,e] - AVG_T[s]
 			elseif s<6
 				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
+				fluctT[i,s,e] = thermoQ[i,s,e] - AVG_T[s]
 			else
 				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
@@ -252,7 +252,6 @@ function gather_diags(dg, Q)
   e_flucttot = MPI.Reduce(e_local_flucttot, +, 0, MPI.COMM_WORLD)
   qt_local_flucttot = sum(VarQ[:,6,:])
   qt_flucttot = MPI.Reduce(qt_local_flucttot, +, 0, MPI.COMM_WORLD)
-
   if mpirank == 0
 
   	rho_standard_dev = (rho_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
@@ -313,7 +312,7 @@ for s in 1:8
      S_avg[k,ev,s]=MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
      
      if mpirank == 0
-        S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq*Nq*nhorzelems*nranks)
+        S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq * Nq * nhorzelems * nranks)
      end
    end
  end
@@ -336,8 +335,8 @@ for ev in 1:nvertelems
                 OutputWV[i] = S_avg[k,ev,4]
                 OutputWW[i] = S_avg[k,ev,5]
                 OutputWRHO[i] = S_avg[k,ev,6]
-                OutputQLIQ = S_avg[k,ev,7]
-                OutputWQLIQ = S_avg[k,ev,8]
+                OutputQLIQ[i] = S_avg[k,ev,7]
+                OutputWQLIQ[i] = S_avg[k,ev,8]
 	end
 end
 open("/home/yassine/yt-2T-drive/HF.txt", "a") do io
