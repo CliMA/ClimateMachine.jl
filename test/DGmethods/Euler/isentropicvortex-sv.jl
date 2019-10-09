@@ -18,7 +18,7 @@ using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
                                  soundspeed_air
 using CLIMA.Atmos: AtmosModel,
-AtmosAcousticLinearModelSplitA, AtmosAcousticLinearModelSplitB, AtmosAcousticNonlinearModel,
+                   AtmosAcousticLinearModel, AtmosAcousticNonlinearModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
                    DryModel, NoRadiation, PeriodicBC,
@@ -126,16 +126,12 @@ function run(mpicomm, polynomialorder, numelems, setup,
                      PeriodicBC(),
                      initialcondition!)
   # The linear model has the fast time scales
-  fast_model_a = AtmosAcousticLinearModelSplitA(model)
-  fast_model_b = AtmosAcousticLinearModelSplitB(model)
+  fast_model = AtmosAcousticLinearModel(model)
   # The nonlinear model has the slow time scales
   slow_model = AtmosAcousticNonlinearModel(model)
 
   dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
-  fast_dg_a = DGModel(fast_model_a,
-                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
-                    auxstate=dg.auxstate)
-  fast_dg_b = DGModel(fast_model_b,
+  fast_dg = DGModel(fast_model,
                     grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
                     auxstate=dg.auxstate)
   slow_dg = DGModel(slow_model,
@@ -150,13 +146,13 @@ function run(mpicomm, polynomialorder, numelems, setup,
   slow_dt = timeend / nsteps
 
   # arbitrary and not needed for stabilty, just for testing
-  fast_dt = slow_dt / 3
+  fast_dt = slow_dt / 16
 
   Q = init_ode_state(dg, DFloat(0))
 
   slow_ode_solver = LSRK144NiegemannDiehlBusch(slow_dg, Q; dt = slow_dt)
 
-  fast_ode_solver = StormerVerlet(fast_dg_a, fast_dg_b, Q; dt = fast_dt)
+  fast_ode_solver = StormerVerlet(fast_dg, [1,5], 2:4, Q; dt = fast_dt)
 
   ode_solver = MultirateRungeKutta((slow_ode_solver, fast_ode_solver))
 
