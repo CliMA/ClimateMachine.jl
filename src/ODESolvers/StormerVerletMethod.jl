@@ -33,12 +33,13 @@ struct StormerVerlet{T, RT, AT} <: ODEs.AbstractODESolver
   "time"
   t::Array{RT,1}
   "rhs function"
-  rhsa!
-  "rhs function"
-  rhsb!
+  rhs!
+
+  mask_a
+  mask_b
 
   dQ::AT
-  function StormerVerlet(rhsa!, rhsb!, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
+  function StormerVerlet(rhs!, mask_a, mask_b, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
 
     T = eltype(Q)
     RT = real(T)
@@ -48,7 +49,7 @@ struct StormerVerlet{T, RT, AT} <: ODEs.AbstractODESolver
     dQ = similar(Q)
     fill!(dQ, 0)
     
-    new{T, RT, AT}(dt, t0, rhsa!, rhsb!, dQ)
+    new{T, RT, AT}(dt, t0, rhs!, mask_a, mask_b, dQ)
   end
 end
 
@@ -104,19 +105,37 @@ added as an additional ODE right-hand side source. If the optional parameter
 function ODEs.dostep!(Q, sv::StormerVerlet, p, time::Real,
                       dt::Real, slow_δ, slow_rv_dQ, slow_rka)
 
-  rhsa!, rhsb!, dQ = sv.rhsa!, sv.rhsb!, sv.dQ
+  rhs!, dQ = sv.rhs!, sv.dQ
+
+  Qa = @view(Q.realdata[:,sv.mask_a,:])
+  Qb = @view(Q.realdata[:,sv.mask_b,:])
+  dQa = @view(dQ.realdata[:,sv.mask_a,:])
+  dQb = @view(dQ.realdata[:,sv.mask_b,:])
+  slow_rv_dQa = @view(slow_rv_dQ[:,sv.mask_a,:])
+  slow_rv_dQb = @view(slow_rv_dQ[:,sv.mask_b,:])
 
   # do a half step
-  rhsa!(dQ, Q, p, time, increment = false)
-  Q .+= dQ .* dt/2
-  rhsb!(dQ, Q, p, time, increment = false)
+  rhs!(dQ, Q, p, time, increment = false)
   if slow_δ === nothing
-    Q .+= dQ .* dt
+    Qa .+= dQa .* dt/2
   else
-    Q .+= (dQ .+ slow_rv_dQ .* slow_δ) .* dt
+    Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
   end
-  rhsa!(dQ, Q, p, time, increment = false)
-  Q .+= dQ .* dt/2
+
+  rhs!(dQ, Q, p, time, increment = false)
+  if slow_δ === nothing
+    Qb .+= dQb .* dt
+  else
+    Qb .+= (dQb .+ slow_rv_dQb .* slow_δ) .* dt
+  end
+
+  rhs!(dQ, Q, p, time, increment = false)
+  if slow_δ === nothing
+    Qa .+= dQa .* dt/2
+  else
+    Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
+  end
+
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
   end
