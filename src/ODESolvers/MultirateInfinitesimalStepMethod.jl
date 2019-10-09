@@ -99,7 +99,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.Abstra
     for i = eachindex(c)
       c[i] = d[i] 
       if i > 1
-        c[i] += sum(j-> (α[i,j] - γ[i,j])*c[j], 1:i-1)
+        c[i] += sum(j-> (α[i,j] + γ[i,j])*c[j], 1:i-1)
       end
     end
     c̃ = α*c
