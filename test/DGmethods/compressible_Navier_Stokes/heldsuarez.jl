@@ -1,20 +1,22 @@
 using CLIMA: haspkg
-using CLIMA.Mesh.Topologies: BrickTopology
+using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
+using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive,
                                        CentralNumericalFluxNonDiffusive
 using CLIMA.ODESolvers: solve!, gettime
-using CLIMA.LowStorageRungeKuttaMethod: LSRK54CarpenterKennedy
+using CLIMA.LowStorageRungeKuttaMethod: LSRK144NiegemannDiehlBusch
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
-using CLIMA.PlanetParameters: kappa_d
-using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
+using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d
+using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
 using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
-                   DryModel, NoRadiation, PeriodicBC,
-                   ConstantViscosityWithDivergence, vars_state
+                   DryModel, NoRadiation, PeriodicBC, NoFluxBC,
+                   ConstantViscosityWithDivergence, vars_state, Gravity, Coriolis,
+                   HydrostaticState, IsothermalProfile
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -96,31 +98,31 @@ function main()
   expected_error[Float32, 3, Central, 4] = 1.2930640019476414e-02
 
   @testset "$(@__FILE__)" begin
-    for ArrayType in ArrayTypes, DFloat in (Float64, Float32), dims in (2, 3)
-      for NumericalFlux in (Rusanov, Central)
+    for ArrayType in ArrayTypes, FT in (Float64,), dims in (3,)
+      for NumericalFlux in (Rusanov, )
         @info @sprintf """Configuration
                           ArrayType     = %s
-                          DFloat        = %s
+                          FT            = %s
                           NumericalFlux = %s
                           dims          = %d
-                          """ "$ArrayType" "$DFloat" "$NumericalFlux" dims
+                          """ "$ArrayType" "$FT" "$NumericalFlux" dims
 
-        setup = HeldSuarezSetup{DFloat}()
-        errors = Vector{DFloat}(undef, numlevels)
+        setup = HeldSuarezSetup{FT}()
+        errors = Vector{FT}(undef, numlevels)
 
         for level in 1:numlevels
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
             run(mpicomm, polynomialorder, numelems,
-                NumericalFlux, setup, ArrayType, DFloat, dims, level)
+                NumericalFlux, setup, ArrayType, FT, dims, level)
 
-          rtol = sqrt(eps(DFloat))
-          # increase rtol for comparing with GPU results using Float32
-          if DFloat === Float32 && !(ArrayType === Array)
-            rtol *= 10 # why does this factor have to be so big :(
-          end
-          @test isapprox(errors[level],
-                         expected_error[DFloat, dims, NumericalFlux, level]; rtol = rtol)
+          # rtol = sqrt(eps(FT))
+          # # increase rtol for comparing with GPU results using Float32
+          # if FT === Float32 && !(ArrayType === Array)
+          #   rtol *= 10 # why does this factor have to be so big :(
+          # end
+          # @test isapprox(errors[level],
+          #                expected_error[FT, dims, NumericalFlux, level]; rtol = rtol)
         end
 
         rates = @. log2(first(errors[1:numlevels-1]) / first(errors[2:numlevels]))
@@ -132,45 +134,51 @@ function main()
 end
 
 function run(mpicomm, polynomialorder, numelems,
-             NumericalFlux, setup, ArrayType, DFloat, dims, level)
-  brickrange = ntuple(dims) do dim
-    range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
-  end
+             NumericalFlux, setup, ArrayType, FT, dims, level)
 
-  topology = BrickTopology(mpicomm,
-                           brickrange;
-                           periodicity=ntuple(_ -> true, dims))
+
+  polynomialorder = 5
+  num_elem_horz = 6
+  num_elem_vert = 8
+
+  vert_range = grid1d(FT(planet_radius), FT(planet_radius + setup.domain_height), nelem = num_elem_vert)
+  topology = StackedCubedSphereTopology(mpicomm, num_elem_horz, vert_range)
 
   grid = DiscontinuousSpectralElementGrid(topology,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
-                                          polynomialorder = polynomialorder)
+                                          polynomialorder = polynomialorder,
+                                          meshwarp = cubedshellwarp)
 
-  initialcondition! = function(args...)
-    heldsuarez_initialcondition!(setup, args...)
-  end
   model = AtmosModel(SphericalOrientation(),
-                     NoReferenceState(),
+                     HydrostaticState(IsothermalProfile(setup.T_initial), 0.0),
                      ConstantViscosityWithDivergence(0.0),
                      DryModel(),
                      NoRadiation(),
-                     nothing,
-                     PeriodicBC(),
-                     initialcondition!)
+                     (Gravity(), Coriolis(), held_suarez_forcing!), 
+                     NoFluxBC(),
+                     setup)
 
   dg = DGModel(model, grid, NumericalFlux(),
                CentralNumericalFluxDiffusive(), CentralGradPenalty())
 
-  timeend = DFloat(2 * setup.domain_halflength / 10 / setup.translation_speed)
+  timeend = 60 # FT(2 * setup.domain_halflength / 10 / setup.translation_speed)
 
   # determine the time step
-  elementsize = minimum(step.(brickrange))
-  dt = elementsize / soundspeed_air(setup.T∞) / polynomialorder ^ 2
-  nsteps = ceil(Int, timeend / dt)
-  dt = timeend / nsteps
+  element_size = (setup.domain_height / num_elem_vert)
+  acoustic_speed = soundspeed_air(FT(315))
+  lucas_magic_factor = 14
+  dt = lucas_magic_factor * element_size / acoustic_speed / polynomialorder ^ 2
 
-  Q = init_ode_state(dg, DFloat(0))
-  lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+  Q = init_ode_state(dg, FT(0))
+  lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
+
+
+  filter = ExponentialFilter(grid, 0, 14)
+  cbfilter = EveryXSimulationSteps(1) do
+    Filters.apply!(Q, 1:size(Q, 2), grid, filter)
+    nothing
+  end
 
   eng0 = norm(Q)
   dims == 2 && (numelems = (numelems..., 0))
@@ -195,12 +203,12 @@ function run(mpicomm, polynomialorder, numelems,
                         """ gettime(lsrk) runtime energy
     end
   end
-  callbacks = (cbinfo,)
+  callbacks = (cbinfo,cbfilter)
 
   #if output_vtk
   #  # create vtk dir
   #  vtkdir = "vtk_heldsuarez" *
-  #    "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(DFloat)_level$(level)"
+  #    "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)"
   #  mkpath(vtkdir)
   #  
   #  vtkstep = 0
@@ -229,55 +237,69 @@ function run(mpicomm, polynomialorder, numelems,
 end
 
 Base.@kwdef struct HeldSuarezSetup{FT}
-  p_ground::FT = MSLP
-  T_initial::FT = 255
+  p_ground::FT = Float64(MSLP)
+  T_initial::FT = 255.0
   domain_height::FT = 30e3
 end
 
-function (setup::HeldSuarezSetup)(state, aux, coords, t)
+function (setup::HeldSuarezSetup)(state, aux, coords, t) 
+  # callable to set initial conditions
   FT = eltype(state)
-  ϕ = aux.orientation.ϕ
-  state.ρ = air_density(T_initial, p_ground)
-  state.u = SVector{3, FT}(0, 0, 0)
-  state.ρe = state.ρ * (internal_energy(T) + ϕ)
+
+  r = norm(coords, 2)
+  h = r - FT(planet_radius)
+
+  scale_height = R_d * setup.T_initial / grav
+
+  P_ref = MSLP * exp(-h / scale_height)
+  state.ρ = air_density(setup.T_initial, P_ref)
+  state.ρu = SVector{3, FT}(0, 0, 0)
+  state.ρe = state.ρ * (internal_energy(setup.T_initial) + aux.orientation.Φ)
+  nothing
 end
 
-function heldsuarez_initialcondition!(setup, state, aux, coords, t)
-  DFloat = eltype(state)
-  x = MVector(coords)
 
-  ρ∞ = setup.ρ∞
-  p∞ = setup.p∞
-  T∞ = setup.T∞
-  translation_speed = setup.translation_speed
-  α = setup.translation_angle
-  vortex_speed = setup.vortex_speed
-  R = setup.vortex_radius
-  L = setup.domain_halflength
 
-  u∞ = SVector(translation_speed * cos(α), translation_speed * sin(α), 0)
+function held_suarez_forcing!(source, state, aux, t::Real)
+  FT = eltype(state)
 
-  x .-= u∞ * t
-  # make the function periodic
-  x .-= floor.((x + L) / 2L) * 2L
-
-  @inbounds begin
-    r = sqrt(x[1] ^ 2 + x[2] ^ 2)
-    δu_x = -vortex_speed * x[2] / R * exp(-(r / R) ^ 2 / 2)
-    δu_y =  vortex_speed * x[1] / R * exp(-(r / R) ^ 2 / 2)
-  end
-  u = u∞ .+ SVector(δu_x, δu_y, 0)
-
-  T = T∞ * (1 - kappa_d * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
-  # adiabatic/isentropic relation
-  p = p∞ * (T / T∞) ^ (DFloat(1) / kappa_d)
-  ρ = air_density(T, p)
-
-  state.ρ = ρ
-  state.ρu = ρ * u
-  e_kin = u' * u / 2
-  state.ρe = ρ * total_energy(e_kin, DFloat(0), T)
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  coord = aux.coord
+  Φ = aux.orientation.Φ
+  e = ρe / ρ
+  u = ρu / ρ
+  e_int = e - u' * u / 2 - Φ
+  T = air_temperature(e_int)
+  # Held-Suarez constants
+  k_a = FT(1 / 40 / 86400)
+  k_f = FT(1 / 86400)
+  k_s = FT(1 / 4 / 86400)
+  ΔT_y = FT(60)
+  Δθ_z = FT(10)
+  T_equator = FT(315)
+  T_min = FT(200)
+  scale_height = FT(7000) #from Smolarkiewicz JAS 2001 paper
+  σ_b = FT(7 / 10)
+  r = norm(coord, 2)
+  @inbounds λ = atan(coord[2], coord[1])
+  @inbounds φ = asin(coord[3] / r)
+  h = r - FT(planet_radius)
+  σ = exp(-h / scale_height)
+  #p = air_pressure(T, ρ)
+#  σ = p/p0
+  exner_p = σ ^ (R_d / cp_d)
+  Δσ = (σ - σ_b) / (1 - σ_b)
+  height_factor = max(0, Δσ)
+  T_equil = (T_equator - ΔT_y * sin(φ) ^ 2 - Δθ_z * log(σ) * cos(φ) ^ 2 ) * exner_p
+  T_equil = max(T_min, T_equil)
+  k_T = k_a + (k_s - k_a) * height_factor * cos(φ) ^ 4
+  k_v = k_f * height_factor
+  source.ρu += -k_v * ρu
+  source.ρe += -k_T * ρ * cv_d * (T - T_equil) - k_v * ρu' * ρu / ρ
 end
+
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname = "heldsuarez")
   ## name of the file that this MPI rank will write
