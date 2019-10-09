@@ -1,13 +1,16 @@
 # Load Packages 
 using MPI
 using CLIMA
+using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
+using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.MPIStateArrays
 using CLIMA.MultirateRungeKuttaMethod
+using CLIMA.LinearSolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.SubgridScaleParameters
 using CLIMA.ODESolvers
@@ -23,6 +26,7 @@ using CLIMA.VTK
 using Random
 using CLIMA.Atmos: vars_state, ReferenceState
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
+using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -44,7 +48,7 @@ const dim = 3
 const polynomialorder = 4
 const domain_start = (0, 0, 0)
 const domain_end = (1000, dim == 2 ? 1 : 1000, 1000)
-const Ne = (10, dim == 2 ? 1 : 10, 10)
+const Ne = (10, dim == 2 ? 1 : 10, 70)
 const Δxyz = @. (domain_end - domain_start) / Ne / polynomialorder
 const dt = min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
 const timeend = 100
@@ -173,9 +177,13 @@ function run(mpicomm, ArrayType,
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  fast_dg = DGModel(fast_model,
+  hor_fast_dg = DGModel(fast_model,
                     grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
-                    auxstate=dg.auxstate)
+                    auxstate=dg.auxstate, direction=HorizontalDirection())
+
+  ver_fast_dg = DGModel(fast_model,
+                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                    auxstate=dg.auxstate, direction=VerticalDirection())
 
   slow_dg = DGModel(slow_model,
                     grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
@@ -184,10 +192,15 @@ function run(mpicomm, ArrayType,
   Q = init_ode_state(dg, DF(0))
   Qinit = init_ode_state(dg, DF(-1))
 
+
   slow_dt = 13dt
   fast_dt = dt
   slow_ode_solver = LSRK54CarpenterKennedy(slow_dg, Q; dt = slow_dt)
-  fast_ode_solver = LSRK54CarpenterKennedy(fast_dg, Q; dt = fast_dt)
+
+  linearsolver = GeneralizedMinimalResidual(10, Q, sqrt(eps(DF)))
+  fast_ode_solver = ARK548L2SA2KennedyCarpenter(hor_fast_dg, ver_fast_dg,
+                                                linearsolver, Q; dt = fast_dt,
+                                                split_nonlinear_linear=true)
 
   ode_solver = MultirateRungeKutta((slow_ode_solver, fast_ode_solver))
 
