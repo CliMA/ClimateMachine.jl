@@ -283,7 +283,7 @@ function gather_diags(dg, Q)
  @info "qt standard_deviation = $(qt_standard_dev)"
  @info "qt Variance = $(Global_Variance_qt)"
 #Horizontal averages we might need
- S = zeros(Nqk, nvertelems,8)
+ S = zeros(Nqk, nvertelems,9)
 for eh in 1:nhorzelems
   for ev in 1:nvertelems
     e = ev + (eh - 1) * nvertelems
@@ -292,21 +292,22 @@ for eh in 1:nhorzelems
       for j in 1:Nq
         for i in 1:Nq
           ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-          S[k,ev,1] += fluctQ[ijk,4,e]*fluctT[ijk,5,e]
-	  S[k,ev,2] += fluctQ[ijk,4,e]*fluctT[ijk,3,e]
-	  S[k,ev,3] += fluctQ[ijk,4,e]*fluctQ[ijk,2,e]
-	  S[k,ev,4] += fluctQ[ijk,4,e]*fluctQ[ijk,3,e]
-	  S[k,ev,5] += fluctQ[ijk,4,e]*fluctQ[ijk,4,e]
-	  S[k,ev,6] += fluctQ[ijk,4,e]*fluctQ[ijk,1,e]
+          S[k,ev,1] += fluctQ[ijk,4,e] * fluctT[ijk,5,e]
+	  S[k,ev,2] += fluctQ[ijk,4,e] * fluctT[ijk,3,e]
+	  S[k,ev,3] += fluctQ[ijk,4,e] * fluctQ[ijk,2,e]
+	  S[k,ev,4] += fluctQ[ijk,4,e] * fluctQ[ijk,3,e]
+	  S[k,ev,5] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
+	  S[k,ev,6] += fluctQ[ijk,4,e] * fluctQ[ijk,1,e]
           S[k,ev,7] += thermoQ[ijk,1,e]
-          S[k,ev,8] += fluctQ[ijk,4,e]*fluctT[ijk,1,e]
+          S[k,ev,8] += fluctQ[ijk,4,e] * fluctT[ijk,1,e]
+          S[k,ev,9] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
         end
       end
     end
   end
 end
-S_avg=zeros(Nqk,nvertelems,8)
-for s in 1:8
+S_avg=zeros(Nqk,nvertelems,9)
+for s in 1:9
  for ev in 1:nvertelems
    for k in 1:Nqk
      S_avg[k,ev,s]=MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
@@ -326,6 +327,7 @@ OutputWW = zeros(nvertelems * Nqk)
 OutputWRHO = zeros(nvertelems * Nqk)
 OutputQLIQ = zeros(nvertelems * Nqk)
 OutputWQLIQ = zeros(nvertelems * Nqk)
+OutputWWW = zeros(nvertelems * Nqk )
 for ev in 1:nvertelems
 	for k in 1:Nqk
 		i=k + Nqk * (ev - 1)
@@ -337,6 +339,7 @@ for ev in 1:nvertelems
                 OutputWRHO[i] = S_avg[k,ev,6]
                 OutputQLIQ[i] = S_avg[k,ev,7]
                 OutputWQLIQ[i] = S_avg[k,ev,8]
+                OutputWWW[i] = S_avg[k,ev,9]
 	end
 end
 open("/home/yassine/yt-2T-drive/HF.txt", "a") do io
@@ -363,6 +366,10 @@ end
 open("/home/yassine/yt-2T-drive/WQLIQ.txt", "a") do io
 writedlm(io, OutputWQLIQ)
 end
+open("/home/yassine/yt-2T-drive/WWW.txt", "a") do io
+writedlm(io, OutputWWW)
+end
+
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
