@@ -143,11 +143,12 @@ function gather_diags(dg, Q)
 		
 		z = h_vgeo[i,Xid,e]
   		rho_node = localQ[i,1,e]
-		u_node = localQ[i,2,e]
-		w_node = localQ[i,4,e]
+		u_node = localQ[i,2,e] / localQ[i,1,e]
+                v_node = localQ[i,3,e] / localQ[i,1,e]
+		w_node = localQ[i,4,e] / localQ[i,1,e]
 		etot_node = localQ[i,5,e]/localQ[i,1,e]
 		qt_node = localQ[i,6,e]/localQ[i,1,e]
-		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
+		e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
 		
 		ts = PhaseEquil(e_int, qt_node, rho_node)
 		Phpart = PhasePartition(ts)
