@@ -1,6 +1,6 @@
 module LowStorageRungeKuttaMethod
 export LowStorageRungeKutta2N
-export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch
+export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch, LSRKEulerMethod
 
 using GPUifyLoops
 include("LowStorageRungeKuttaMethod_kernels.jl")
@@ -133,6 +133,38 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
             update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt,
                     slow_δ, slow_rv_dQ, slow_scaling))
   end
+end
+
+"""
+    LSRKEulerMethod(f, Q; dt, t0 = 0)
+
+This function returns a [`LowStorageRungeKutta2N`](@ref) time stepping object
+for explicitly time stepping the differential
+equation given by the right-hand-side function `f` with the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = f(Q, t)
+```
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+This method uses the LSRK2N framework to implement a simple Eulerian forward time stepping scheme for the use of debugging.
+
+### References
+
+"""
+function LSRKEulerMethod(F, Q::AT; dt=nothing, t0=0) where {AT <: AbstractArray}
+  T = eltype(Q)
+  RT = real(T)
+
+  RKA = (RT(0),)
+
+  RKB = (RT(1),)
+
+  RKC = (RT(0),)
+
+  LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
 """
