@@ -257,7 +257,7 @@ let
             periodicity = ntuple(j->false, dim)
             topl = StackedBrickTopology(mpicomm, brickrange;
                                         periodicity = periodicity)
-            @show dt = (α/4) / (Ne * polynomialorder^2)
+            @info dt = (α/4) / (Ne * polynomialorder^2)
 
             timeend = 1
             outputtime = 1
