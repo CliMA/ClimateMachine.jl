@@ -318,11 +318,7 @@ let
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
         end
         rates = log2.(errors[1:end-1] ./ errors[2:end])
-        if mis_method != MIS4a
-          @test isapprox(rates[end], mis_expected_order; atol = 0.1)
-        else
-          @test_broken isapprox(rates[end], mis_expected_order; atol = 0.1)
-        end
+        @test isapprox(rates[end], mis_expected_order; atol = 0.1)
       end
     end
   end
