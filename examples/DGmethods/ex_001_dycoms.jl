@@ -18,6 +18,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 using CLIMA.Atmos: vars_state, vars_aux
+using DelimitedFiles
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -117,7 +118,7 @@ function gather_diags(dg, Q)
   nvertelems = topology.stacksize
   nhorzelems = div(nrealelems, nvertelems)
   host_array = Array ∈ typeof(Q).parameters
-  localQ = host_array ? Q.realdata : Array(Q.realdata)
+  localQ = host_array ? Q.realQ : Array(Q.realQ)
   thermoQ = zeros(Nq * Nq * Nqk, nthermo, nrealelems)
   vgeo = grid.vgeo
   h_vgeo = host_array ? vgeo : Array(vgeo)
@@ -190,17 +191,17 @@ function gather_diags(dg, Q)
     T_avg = (T_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     theta_avg = (theta_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
 
-    @info "ρ average = $(rho_avg)"
-    @info "U average = $(U_avg)"
-    @info "V average = $(V_avg)"
-    @info "W average = $(W_avg)"
-    @info "e average = $(e_avg)"
-    @info "qt average = $(qt_avg)"
-    @info "qliq average = $(qliq_avg)"
-    @info "qice average = $(qice_avg)"
-    @info "qvap average = $(qvap_avg)"
-    @info "T average = $(T_avg)"
-    @info "theta average = $(theta_avg)"
+    @debug "ρ average = $(rho_avg)"
+    @debug "U average = $(U_avg)"
+    @debug "V average = $(V_avg)"
+    @debug "W average = $(W_avg)"
+    @debug "e average = $(e_avg)"
+    @debug "qt average = $(qt_avg)"
+    @debug "qliq average = $(qliq_avg)"
+    @debug "qice average = $(qice_avg)"
+    @debug "qvap average = $(qvap_avg)"
+    @debug "T average = $(T_avg)"
+    @debug "theta average = $(theta_avg)"
 
   end
   AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
@@ -256,18 +257,18 @@ function gather_diags(dg, Q)
         Global_Variance_qt = qt_standard_dev^2
   end
 
- @info "ρ standard_deviation = $(rho_standard_dev)" 
- @info "ρ Variance = $(Global_Variance_rho)"
- @info "U standard_deviation = $(U_standard_dev)"
- @info "U Variance = $(Global_Variance_U)"
- @info "V standard_deviation = $(V_standard_dev)"
- @info "V Variance = $(Global_Variance_V)"
- @info "W standard_deviation = $(W_standard_dev)"
- @info "W Variance = $(Global_Variance_W)"
- @info "e standard_deviation = $(e_standard_dev)"
- @info "e Variance = $(Global_Variance_e)"
- @info "qt standard_deviation = $(qt_standard_dev)"
- @info "qt Variance = $(Global_Variance_qt)"
+ @debug "ρ standard_deviation = $(rho_standard_dev)" 
+ @debug "ρ Variance = $(Global_Variance_rho)"
+ @debug "U standard_deviation = $(U_standard_dev)"
+ @debug "U Variance = $(Global_Variance_U)"
+ @debug "V standard_deviation = $(V_standard_dev)"
+ @debug "V Variance = $(Global_Variance_V)"
+ @debug "W standard_deviation = $(W_standard_dev)"
+ @debug "W Variance = $(Global_Variance_W)"
+ @debug "e standard_deviation = $(e_standard_dev)"
+ @debug "e Variance = $(Global_Variance_e)"
+ @debug "qt standard_deviation = $(qt_standard_dev)"
+ @debug "qt Variance = $(Global_Variance_qt)"
 #Horizontal averages we might need
  S = zeros(Nqk, nvertelems,9)
 for eh in 1:nhorzelems
@@ -382,7 +383,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Model definition
   model = AtmosModel(FlatOrientation(),
-                     HydrostaticReferenceState(LinearTemperatureProfile, FT(0)),
+                     NoReferenceState(),
                      SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
@@ -442,7 +443,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 
     
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiags))
 
   #Get statistics at the end of the run:
   gather_diags(dg, Q)
@@ -498,13 +499,13 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
-    timeend = 1000
+    timeend = dt
     dim = 3
-    VTKPATH = "/central/scratch/asridhar/DYC-VREMAN-PF-RF-CPU"
+    VTKPATH = "/home/yassine/yt-2T-drive/dycoms-run"
     @info (ArrayType, dt, FT, dim, VTKPATH)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ FT(0.9999737848359238)
+                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge,VTKPATH)
+   # @test result ≈ FT(0.9999737848359238)
   end
 end
 
