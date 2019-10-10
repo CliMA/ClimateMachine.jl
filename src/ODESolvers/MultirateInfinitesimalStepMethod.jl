@@ -4,6 +4,10 @@ using ..MPIStateArrays: device, realview
 
 using StaticArrays
 
+using GPUifyLoops
+include("MultirateInfinitesimalStepMethod_kernels.jl")
+
+
 export MIS2, MIS3C, MIS4, MIS4a
 
 ODEs = ODESolvers
@@ -57,7 +61,7 @@ the fast modes.
       year={2014}
     }
 """
-struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstages_sq} <: ODEs.AbstractODESolver
+struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstagesm2, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{RT, 1}
   "time"
@@ -65,7 +69,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstages_sq} <: 
   "storage for y_n"
   yn::AT
   "Storage for ``Y_nj - y_n``"
-  ΔYnj::NTuple{Nstagesm1, AT}
+  ΔYnj::NTuple{Nstagesm2, AT}
   "Storage for ``f(Y_nj)``"
   fYnj::NTuple{Nstagesm1, AT}
   "Storage for offset"
@@ -96,7 +100,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstages_sq} <: 
     Nstages = size(α, 1)
 
     yn = similar(Q)
-    ΔYnj = ntuple(_ -> similar(Q), Nstages-1)
+    ΔYnj = ntuple(_ -> similar(Q), Nstages-2)
     fYnj = ntuple(_ -> similar(Q), Nstages-1)
     offset = similar(Q)
     fastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
@@ -112,7 +116,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstages_sq} <: 
     end
     c̃ = α*c
     
-    new{T, RT, AT, Nstages, Nstages-1, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
+    new{T, RT, AT, Nstages, Nstages-1, Nstages-2, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
                                          slowrhs!, fastrhs!, fastmethod,nsubsteps,
                                          α, β, γ, d, c, c̃)
   end
@@ -166,6 +170,7 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     slowrhs!(fYnj[i-1], Q, p, time + c[i-1]*dt, increment=false)
 
     # TODO write a kernel to do this
+    #=
     if i > 2
       @. ΔYnj[i-2] = Q - yn     # == 0 for i == 2
     end
@@ -174,8 +179,15 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     for j = 2:i-1 
      Q .+= α[i, j] .* ΔYnj[j-1]
      offset .+= (γ[i, j]/d_i) .* ΔYnj[j-1] ./ dt .+ (β[i,j]/d_i) .* fYnj[j]
-    end
-    
+    end  
+    =#
+
+    threads = 256
+    blocks = div(length(realview(Q)) + threads - 1, threads)
+    @launch(device(Q), threads=threads, blocks=blocks,
+            update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]), α[i,:], β[i,:], γ[i,:], d_i, dt))
+
+
     fastrhs!.α = time + c̃[i]*dt
     fastrhs!.β = (c[i] - c̃[i]) / d_i
 
