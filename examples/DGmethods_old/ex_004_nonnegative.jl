@@ -165,8 +165,8 @@ function run()
     filename = @sprintf("vtk/q_rank%04d_step%04d", rank, vtk_step)
     writevtk(filename, Q, spatialdiscretization, ("q",))
 
-    minQ = MPI.Reduce([minimum(Q.realQ)], MPI.MIN, 0, Q.mpicomm)
-    maxQ = MPI.Reduce([maximum(Q.realQ)], MPI.MAX, 0, Q.mpicomm)
+    minQ = MPI.Reduce([minimum(Q.realdata)], MPI.MIN, 0, Q.mpicomm)
+    maxQ = MPI.Reduce([maximum(Q.realdata)], MPI.MAX, 0, Q.mpicomm)
     sumQ = weightedsum(Q)
 
     with_logger(mpi_logger) do
@@ -193,8 +193,8 @@ function run()
 
   vtkoutput()
 
-  minQ = MPI.Reduce([minimum(Q.realQ)], MPI.MIN, 0, Q.mpicomm)
-  maxQ = MPI.Reduce([maximum(Q.realQ)], MPI.MAX, 0, Q.mpicomm)
+  minQ = MPI.Reduce([minimum(Q.realdata)], MPI.MIN, 0, Q.mpicomm)
+  maxQ = MPI.Reduce([maximum(Q.realdata)], MPI.MAX, 0, Q.mpicomm)
   finalsumQ = weightedsum(Q)
   sumerror = (initialsumQ - finalsumQ) / initialsumQ
   error = euclidean_distance(Q, Qe)
