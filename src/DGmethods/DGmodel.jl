@@ -339,6 +339,22 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
           knl_nodal_update_aux!(m, Val(Nᵈ), Val(N), f!, Q.Q, α.Q, σ.Q, t, Ω))
 end
 
+function nodal_update_state!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+                           α::MPIStateArray, σ::MPIStateArray, t::Real)
+  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  Ω    = grid.topology.realelems
+  nΩ   = length(Ω)
+  Nᵈ   = dimensionality(grid)
+  N    = polynomialorder(grid)
+  Np   = dofs_per_element(grid)
+
+  ### update aux variables
+  @launch(device, threads=(Np,), blocks=nΩ,
+          knl_nodal_update_state!(m, Val(Nᵈ), Val(N), f!, Q.Q, α.Q, σ.Q, t, Ω))
+end
+
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
                                 auxstate::MPIStateArray, fldin, fldout)
 

@@ -25,7 +25,7 @@ import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                     LocalGeometry, indefinite_stack_integral!,
                     reverse_indefinite_stack_integral!, integrate_aux!,
                     init_ode_param, DGModel, nodal_update_aux!, diffusive!,
-                    copy_stack_field_down!, surface_flux!
+                    copy_stack_field_down!, surface_flux!, nodal_update_state!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -49,13 +49,15 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   κʰ::T
   κᶻ::T
 end
-HBModel   = HydrostaticBoussinesqModel
-HBProblem = HydrostaticBoussinesqProblem
 
 struct HBVerticalSupplementModel <: BalanceLaw end
 
-function init_ode_param(dg::DGModel, m::HydrostaticBoussinesqModel)
-  vert_dg     = DGModel(dg, HBVerticalSupplementModel())
+HBModel   = HydrostaticBoussinesqModel
+HBProblem = HydrostaticBoussinesqProblem
+VSModel   = HBVerticalSupplementModel
+
+function init_ode_param(dg::DGModel, m::HBModel)
+  vert_dg     = DGModel(dg, VSModel())
   vert_param  = init_ode_param(vert_dg)
   vert_dQ     = init_ode_state(vert_dg, 948)
   vert_filter = CutoffFilter(dg.grid, polynomialorder(dg.grid)-1)
@@ -66,9 +68,10 @@ function init_ode_param(dg::DGModel, m::HydrostaticBoussinesqModel)
 end
 
 # If this order is changed check the filter usage!
-function vars_state(m::Union{HBModel, HBVerticalSupplementModel}, T)
+function vars_state(m::Union{HBModel, VSModel}, T)
   @vars begin
     u::SVector{2, T}
+    wₒ::T # copy of aux.w
     η::T # real a 2-D variable TODO: should be 2D
     θ::T
   end
@@ -87,8 +90,9 @@ function vars_aux(m::HBModel, T)
     τ::T            # wind stress  # TODO: Should be 2D
 
     # diagnostics (should be ported elsewhere eventually)
+    ∂w∂z::T
     div2D::T
-    # div3D::T
+    div3D::T
     θu::T
     θv::T
     θw::T
@@ -140,6 +144,8 @@ end
 
     # ∇h • (v ⊗ u)
     # F.u += v * u'
+
+    F.wₒ = -0
   end
 
   return nothing
@@ -218,25 +224,30 @@ end
   return nothing
 end
 
-function update_aux!(dg, m::HydrostaticBoussinesqModel, Q::MPIStateArray,
+function update_aux!(dg, m::HBModel, Q::MPIStateArray,
                      α::MPIStateArray, σ::MPIStateArray, t, params)
   # Compute DG gradient of u -> α.w
   vert_dg = params.vert_dg
   vert_param = params.vert_param
   vert_dQ = params.vert_dQ
-  # required to ensure that after integration velocity field is diveregnce free
+
+  # required to ensure that after integration velocity field is divergence free
   vert_filter = params.vert_filter
+  # Q[1] = u[1] = u, Q[2] = u[2] = v
   apply!(Q, (1, 2), dg.grid, vert_filter; horizontal=false)
 
   exp_filter = params.exp_filter
+  # Q[4] = θ
   # apply!(Q, (4,), dg.grid, exp_filter; horizontal=false)
 
+  # calculate ∇ʰ⋅u
   vert_dg(vert_dQ, Q, vert_param, t; increment = false)
 
-  # Copy from vert_dQ.η which is realy ∇h•u into α.w (which will be
+  # Copy from vert_dQ.θ which is realy ∇h•u into α.w (which will be
   # integrated)
   function f!(::HBModel, vert_dQ, α, σ, t)
-    α.w = vert_dQ.θ
+    α.w  = vert_dQ.θ
+    α.div2D = vert_dQ.θ
 
     return nothing
   end
@@ -248,7 +259,28 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q::MPIStateArray,
 
   # project w(z=0) down the stack
   # Need to be consistent with vars_aux
+  # α[1] = w, α[5] = wz0
   copy_stack_field_down!(dg, m, α, 1, 5)
+
+  # copy w back to state of HBModel
+  function h!(::HBModel, Q, α, σ, t)
+    Q.wₒ  = α.w
+
+    return nothing
+  end
+  nodal_update_state!(h!, dg, m, Q, α, σ, t)
+
+  # get ∂w/∂z
+  vert_dg(vert_dQ, Q, vert_param, t; increment = false)
+
+
+  function j!(m::HBModel, vert_dQ, α, σ, t)
+    α.∂w∂z = vert_dQ.η
+    α.div3D = α.div2D + vert_dQ.η
+
+    return nothing
+  end
+  nodal_update_aux!(j!, dg, m, vert_dQ, α, σ, t)
 
   #  store some diagnostic variables
   function g!(m::HBModel, Q, α, σ, t)
@@ -257,21 +289,16 @@ function update_aux!(dg, m::HydrostaticBoussinesqModel, Q::MPIStateArray,
       α.θv = Q.θ * Q.u[2]
       α.θw = Q.θ * α.w
 
-      α.div2D = (σ.ν∇u[1,1] + σ.ν∇u[2,2]) / m.νʰ
-      # TODO: how do I get the ∂w/∂z ????
-
       return nothing
     end
   end
   nodal_update_aux!(g!, dg, m, Q, α, σ, t)
 end
 
-surface_flux!(m::HydrostaticBoussinesqModel, _...) = nothing
+surface_flux!(m::HBModel, _...) = nothing
 
-@inline function integrate_aux!(m::HydrostaticBoussinesqModel,
-                                integrand::Vars,
-                                Q::Vars,
-                                α::Vars)
+@inline function integrate_aux!(m::HBModel,
+                                integrand::Vars, Q::Vars, α::Vars)
   αᵀ = m.αᵀ
   integrand.αᵀθ = -αᵀ * Q.θ
   integrand.∇hu = α.w # borrow the w value from α...
@@ -368,19 +395,21 @@ end
   return nothing
 end
 
-# HBVerticalSupplementModel is used to compute the horizontal divergence of u
-vars_aux(::HBVerticalSupplementModel, T)  = @vars()
-vars_gradient(::HBVerticalSupplementModel, T)  = @vars()
-vars_diffusive(::HBVerticalSupplementModel, T)  = @vars()
-vars_integrals(::HBVerticalSupplementModel, T)  = @vars()
-init_aux!(::HBVerticalSupplementModel, _...) = nothing
-@inline flux_diffusive!(::HBVerticalSupplementModel, _...) = nothing
-@inline source!(::HBVerticalSupplementModel, _...) = nothing
+# VSModel is used to compute the horizontal divergence of u
+vars_aux(::VSModel, T)  = @vars()
+vars_gradient(::VSModel, T)  = @vars()
+vars_diffusive(::VSModel, T)  = @vars()
+vars_integrals(::VSModel, T)  = @vars()
+init_aux!(::VSModel, _...) = nothing
+
+@inline flux_diffusive!(::VSModel, _...) = nothing
+@inline source!(::VSModel, _...) = nothing
 
 # This allows the balance law framework to compute the horizontal gradient of u
 # (which will be stored back in the field θ)
-@inline function flux_nondiffusive!(m::HBVerticalSupplementModel, F::Grad,
-                                    Q::Vars, α::Vars, t::Real)
+# now also using η to store the full 3D gradient of (u,v,w)
+@inline function flux_nondiffusive!(m::VSModel, F::Grad, Q::Vars,
+                                    α::Vars, t::Real)
   @inbounds begin
     u = Q.u # Horizontal components of velocity
     v = @SVector [u[1], u[2], -0]
@@ -388,6 +417,11 @@ init_aux!(::HBVerticalSupplementModel, _...) = nothing
     # ∇ • (v)
     # Just using θ to store w = ∇h • u
     F.θ += v
+
+    w = @SVector [-0, -0, Q.wₒ]
+    # ∇ • (ṽ)
+    # Just using η to store ∇•(0,0,w)
+    F.η += w
   end
 
   return nothing
@@ -396,13 +430,11 @@ end
 
 # This is zero because when taking the horizontal gradient we're piggy-backing
 # on θ and want to ensure we do not use it's jump
-@inline wavespeed(m::HBVerticalSupplementModel, n⁻, _...) = -zero(eltype(n⁻))
+@inline wavespeed(m::VSModel, n⁻, _...) = -zero(eltype(n⁻))
 
-boundary_state!(::CentralNumericalFluxDiffusive, m::HBVerticalSupplementModel,
-                _...) = nothing
+boundary_state!(::CentralNumericalFluxDiffusive, m::VSModel, _...) = nothing
 
-@inline function boundary_state!(::Union{Rusanov, CentralFlux},
-                                 ::HBVerticalSupplementModel,
+@inline function boundary_state!(::Union{Rusanov, CentralFlux}, ::VSModel,
                                  Q⁺, α⁺, n⁻, Q⁻, α⁻, t, _...)
   Q⁺.u = -Q⁻.u
 

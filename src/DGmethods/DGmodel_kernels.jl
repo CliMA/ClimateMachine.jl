@@ -718,6 +718,57 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, f!, Q,
 end
 
 """
+    knl_nodal_update_state!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, f!, Q, α,
+                          t, Ω) where {Nᵈ, N}
+
+Update the state array
+"""
+function knl_nodal_update_state!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N}, f!, Q,
+                               α, σ, t, Ω) where {Nᵈ, N}
+  DFloat = eltype(Q)
+
+  nQ = num_state(bl,DFloat)
+  nσ = num_diffusive(bl,DFloat)
+  nα = num_aux(bl,DFloat)
+
+  Nq = N + 1
+
+  Nqk = Nᵈ == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  l_Q = MArray{Tuple{nQ}, DFloat}(undef)
+  l_α = MArray{Tuple{nα}, DFloat}(undef)
+  l_σ = MArray{Tuple{nσ}, DFloat}(undef)
+
+  @inbounds @loop for e in (Ω; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nQ
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nα
+        l_α[s] = α[n, s, e]
+      end
+
+      @unroll for s = 1:nσ
+        l_σ[s] = σ[n, s, e]
+      end
+
+      f!(bl,
+         Vars{vars_state(bl,DFloat)}(l_Q),
+         Vars{vars_aux(bl,DFloat)}(l_α),
+         Vars{vars_diffusive(bl,DFloat)}(l_σ),
+         t)
+
+      @unroll for s = 1:nQ
+        Q[n, s, e] = l_Q[s]
+      end
+    end
+  end
+end
+
+"""
     knl_indefinite_stack_integral!(::Val{Nᵈ}, ::Val{N}, ::Val{nQ},
                                             ::Val{nα}, ::Val{nvertelem},
                                             int_knl!, Q, α, vgeo, Imat,
