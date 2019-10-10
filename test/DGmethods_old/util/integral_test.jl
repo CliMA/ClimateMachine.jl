@@ -69,8 +69,8 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
                                                          (6, 7))
 
   # Wrapping in Array ensure both GPU and CPU code use same approx
-  @test Array(spacedisc.auxstate.Q[:, 4, :]) ≈ Array(spacedisc.auxstate.Q[:, 6, :])
-  @test Array(spacedisc.auxstate.Q[:, 5, :]) ≈ Array(spacedisc.auxstate.Q[:, 7, :])
+  @test Array(spacedisc.auxstate.data[:, 4, :]) ≈ Array(spacedisc.auxstate.data[:, 6, :])
+  @test Array(spacedisc.auxstate.data[:, 5, :]) ≈ Array(spacedisc.auxstate.data[:, 7, :])
 end
 
 let
