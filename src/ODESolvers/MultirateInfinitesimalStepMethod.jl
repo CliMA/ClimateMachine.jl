@@ -67,7 +67,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstages_sq} <: 
   "Storage for ``Y_nj - y_n``"
   ΔYnj::NTuple{Nstagesm1, AT}
   "Storage for ``f(Y_nj)``"
-  fYnj::NTuple{Nstages, AT}
+  fYnj::NTuple{Nstagesm1, AT}
   "Storage for offset"
   offset::AT
   "slow rhs function"
@@ -97,7 +97,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstages_sq} <: 
 
     yn = similar(Q)
     ΔYnj = ntuple(_ -> similar(Q), Nstages-1)
-    fYnj = ntuple(_ -> similar(Q), Nstages)
+    fYnj = ntuple(_ -> similar(Q), Nstages-1)
     offset = similar(Q)
     fastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
 
