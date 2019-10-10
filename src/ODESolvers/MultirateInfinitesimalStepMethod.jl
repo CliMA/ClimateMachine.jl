@@ -8,16 +8,19 @@ export MIS2, MIS3C, MIS4, MIS4a
 
 ODEs = ODESolvers
 
-struct OffsetRHS{O,RT}
-  "storage for offset term"
-  offset::O
-  m::Vector{RT}
+"""
+    TimeScaledRHS(α, β, rhs!)
+
+When evaluate at time `t`, evaluates `rhs!` at time `α + βt`.
+"""
+mutable struct TimeScaledRHS{RT}
+  α::RT
+  β::RT
   rhs!
 end
 
-function (o::OffsetRHS)(dQ, Q, params, tau; increment)  
-  o.rhs!(dQ, Q, params, o.m[1] + o.m[2]*tau; increment=increment)
-  dQ .+= o.offset
+function (o::TimeScaledRHS)(dQ, Q, params, tau; increment)  
+  o.rhs!(dQ, Q, params, o.α + o.β*tau; increment=increment)
 end
 
 using GPUifyLoops
@@ -65,13 +68,15 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.Abstra
   ΔYnj::NTuple{Nstages, AT}
   "Storage for ``f(Y_nj)``"
   fYnj::NTuple{Nstages, AT}
+  "Storage for offset"
+  offset::AT
   "slow rhs function"
   slowrhs!
   "RHS for fast solver"
-  fastrhs!::OffsetRHS{AT}
+  fastrhs!::TimeScaledRHS{RT}
   "fast rhs method"
   fastmethod
-  "number of substeps per timestep"
+  "number of substeps per stage"
   nsubsteps::Int
   α::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq} 
   β::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
@@ -93,7 +98,8 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.Abstra
     yn = similar(Q)
     ΔYnj = ntuple(_ -> similar(Q), Nstages)
     fYnj = ntuple(_ -> similar(Q), Nstages)
-    fastrhs! = OffsetRHS(similar(Q), zeros(real(eltype(Q)),2), fastrhs!)
+    offset = similar(Q)
+    fastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
 
     d = sum(β, dims=2)
 
@@ -106,11 +112,82 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.Abstra
     end
     c̃ = α*c
     
-    new{T, RT, AT, Nstages, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj,
+    new{T, RT, AT, Nstages, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
                                          slowrhs!, fastrhs!, fastmethod,nsubsteps,
                                          α, β, γ, d, c, c̃)
   end
 end
+
+
+# TODO almost identical functions seem to be defined for every ode solver,
+# define a common one in ODEsolvers ?
+function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, param,
+                      timeend::AbstractFloat, adjustfinalstep::Bool)
+  time, dt = mis.t[1], mis.dt[1]
+  @assert dt > 0
+  if adjustfinalstep && time + dt > timeend
+    dt = timeend - time
+    @assert dt > 0
+  end
+
+  ODEs.dostep!(Q, mis, param, time, dt)
+
+  if dt == mis.dt[1]
+    mis.t[1] += dt
+  else
+    mis.t[1] = timeend
+  end
+  return mis.t[1]
+end
+
+function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
+                      time::AbstractFloat, dt::AbstractFloat)
+  FT = eltype(dt)
+  α = mis.α
+  β = mis.β
+  γ = mis.γ
+  yn = mis.yn
+  ΔYnj = mis.ΔYnj
+  fYnj = mis.fYnj
+  c = mis.c
+  c̃ = mis.c̃
+  slowrhs! = mis.slowrhs!
+  fastmethod = mis.fastmethod
+  fastrhs! = mis.fastrhs!
+
+  nstages = size(α, 1)
+
+  # first stage
+  copyto!(yn, Q)
+  fill!(ΔYnj[1], 0)
+  slowrhs!(fYnj[1], yn, p, time + c[1]*dt, increment=false)
+
+  for i = 2:nstages
+    d_i = sum(j -> β[i, j], 1:i-1)
+
+    # TODO write a kernel to do this
+    Q .= yn .+ sum(j -> α[i, j] .* ΔYnj[j], 1:i-1)  # (1a) 
+    mis.offset .= sum(j -> γ[i, j] .* ΔYnj[j] ./ dt .+ β[i,j] .* fYnj[j], 1:i-1) ./ d_i # (1b)
+
+    fastrhs!.α = time + c̃[i]*dt
+    fastrhs!.β = (c[i] - c̃[i]) / d_i
+
+    τ = zero(FT)
+    dτ = d_i * dt / mis.nsubsteps
+    fastsolver = fastmethod(fastrhs!, Q; dt=dτ, t0=τ)
+    #solve!(Q, fastsolver, p; timeend = d_i * dτ) #(1c)
+    for k = 1:mis.nsubsteps
+      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), mis.offset)
+      τ += dτ
+    end
+
+    if i < nstages
+      slowrhs!(fYnj[i], Q, p, time + c[i]*dt, increment=false)
+      @. ΔYnj[i] = Q - yn
+    end
+  end
+end
+
 
 # TODO write this function
 #function MultirateInfinitesimalStep(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
@@ -201,74 +278,6 @@ function MIS4a(slowrhs!, fastrhs!, fastmethod, nsubsteps,  Q::AT; dt=0, t0=0) wh
        0 -0.065767130537473045 0.040591093109036858 0.064902111640806712 0]
 
   MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsubsteps, α, β, γ, Q; dt=dt, t0=t0)
-end
-
-# TODO almost identical functions seem to be defined for every ode solver,
-# define a common one in ODEsolvers ?
-function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, param,
-                      timeend::AbstractFloat, adjustfinalstep::Bool)
-  time, dt = mis.t[1], mis.dt[1]
-  @assert dt > 0
-  if adjustfinalstep && time + dt > timeend
-    dt = timeend - time
-    @assert dt > 0
-  end
-
-  ODEs.dostep!(Q, mis, param, time, dt)
-
-  if dt == mis.dt[1]
-    mis.t[1] += dt
-  else
-    mis.t[1] = timeend
-  end
-  return mis.t[1]
-end
-
-function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
-                      time::AbstractFloat, dt::AbstractFloat)
-  FT = eltype(dt)
-  α = mis.α
-  β = mis.β
-  γ = mis.γ
-  yn = mis.yn
-  ΔYnj = mis.ΔYnj
-  fYnj = mis.fYnj
-  c = mis.c
-  c̃ = mis.c̃
-  slowrhs! = mis.slowrhs!
-  fastmethod = mis.fastmethod
-  fastrhs! = mis.fastrhs!
-
-  nstages = size(α, 1)
-
-  # first stage
-  copyto!(yn, Q)
-  fill!(ΔYnj[1], 0)
-  slowrhs!(fYnj[1], yn, p, time + c[1]*dt, increment=false)
-
-  for i = 2:nstages
-    d_i = sum(j -> β[i, j], 1:i-1)
-
-    # TODO write a kernel to do this
-    Q .= yn .+ sum(j -> α[i, j] .* ΔYnj[j], 1:i-1)  # (1a) 
-    fastrhs!.offset .= sum(j -> γ[i, j] .* ΔYnj[j] ./ dt .+ β[i,j] .* fYnj[j], 1:i-1) ./ d_i # (1b)
-    fastrhs!.m[1] = time + c̃[i]*dt
-    fastrhs!.m[2] = (c[i] - c̃[i]) / d_i
-
-    τ = zero(FT)
-    dτ = d_i * dt / mis.nsubsteps
-    fastsolver = fastmethod(fastrhs!, Q; dt=dτ, t0=τ)
-    #solve!(Q, fastsolver, p; timeend = d_i * dτ) #(1c)
-    for i = 1:mis.nsubsteps
-      ODEs.dostep!(Q, fastsolver, p, τ, dτ)
-      τ += dτ
-    end
-
-    if i < nstages
-      slowrhs!(fYnj[i], Q, p, time + c[i]*dt, increment=false)
-      @. ΔYnj[i] = Q - yn
-    end
-  end
 end
 
 end
