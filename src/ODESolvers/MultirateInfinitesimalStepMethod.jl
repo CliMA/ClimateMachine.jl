@@ -57,7 +57,7 @@ the fast modes.
       year={2014}
     }
 """
-struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{RT, 1}
   "time"
@@ -65,7 +65,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.Abstra
   "storage for y_n"
   yn::AT
   "Storage for ``Y_nj - y_n``"
-  ΔYnj::NTuple{Nstages, AT}
+  ΔYnj::NTuple{Nstagesm1, AT}
   "Storage for ``f(Y_nj)``"
   fYnj::NTuple{Nstages, AT}
   "Storage for offset"
@@ -96,7 +96,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.Abstra
     Nstages = size(α, 1)
 
     yn = similar(Q)
-    ΔYnj = ntuple(_ -> similar(Q), Nstages)
+    ΔYnj = ntuple(_ -> similar(Q), Nstages-1)
     fYnj = ntuple(_ -> similar(Q), Nstages)
     offset = similar(Q)
     fastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
@@ -112,7 +112,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstages_sq} <: ODEs.Abstra
     end
     c̃ = α*c
     
-    new{T, RT, AT, Nstages, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
+    new{T, RT, AT, Nstages, Nstages-1, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
                                          slowrhs!, fastrhs!, fastmethod,nsubsteps,
                                          α, β, γ, d, c, c̃)
   end
@@ -149,6 +149,7 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
   yn = mis.yn
   ΔYnj = mis.ΔYnj
   fYnj = mis.fYnj
+  offset = mis.offset
   c = mis.c
   c̃ = mis.c̃
   slowrhs! = mis.slowrhs!
@@ -163,12 +164,18 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     d_i = sum(j -> β[i, j], 1:i-1)
 
     slowrhs!(fYnj[i-1], Q, p, time + c[i-1]*dt, increment=false)
-    @. ΔYnj[i-1] = Q - yn    
 
     # TODO write a kernel to do this
-    Q .= yn .+ sum(j -> α[i, j] .* ΔYnj[j], 1:i-1)  # (1a) 
-    mis.offset .= sum(j -> γ[i, j] .* ΔYnj[j] ./ dt .+ β[i,j] .* fYnj[j], 1:i-1) ./ d_i # (1b)
-
+    if i > 2
+      @. ΔYnj[i-2] = Q - yn     # == 0 for i == 2
+    end
+    Q .= yn
+    offset .= (β[i,1]/d_i) .* fYnj[1]
+    for j = 2:i-1 
+     Q .+= α[i, j] .* ΔYnj[j-1]
+     offset .+= (γ[i, j]/d_i) .* ΔYnj[j-1] ./ dt .+ (β[i,j]/d_i) .* fYnj[j]
+    end
+    
     fastrhs!.α = time + c̃[i]*dt
     fastrhs!.β = (c[i] - c̃[i]) / d_i
 
@@ -177,7 +184,7 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     fastsolver = fastmethod(fastrhs!, Q; dt=dτ, t0=τ)
     #solve!(Q, fastsolver, p; timeend = d_i * dτ) #(1c)
     for k = 1:mis.nsubsteps
-      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), mis.offset)
+      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), offset)
       τ += dτ
     end
   end
