@@ -58,3 +58,70 @@ function source!(nlm::AtmosAcousticNonlinearModel, source::Vars, state::Vars, au
 end
 
 #TODO: AtmosAcousticGravityNonlinearModel
+
+struct RemainderModel{M,S} <: BalanceLaw
+  main::M
+  subs::S
+end
+
+vars_state(rem::RemainderModel, T) = vars_state(rem.main,T)
+vars_gradient(rem::RemainderModel, T) = vars_gradient(rem.main,T)
+vars_diffusive(rem::RemainderModel, T) = vars_diffusive(rem.main,T)
+vars_aux(rem::RemainderModel, T) = vars_aux(rem.main,T)
+vars_integrals(rem::RemainderModel,T) = vars_integrals(rem.main,T)
+
+update_aux!(dg::DGModel, rem::RemainderModel, Q::MPIStateArray, auxstate::MPIStateArray, t::Real) =
+  update_aux!(dg, rem.main, Q, auxstate, t)
+
+integrate_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
+  integrate_aux!(rem.main, integ, state, aux)
+
+flux_diffusive!(rem::RemainderModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) =
+  flux_diffusive!(rem.main, flux, state, diffusive, aux, t)
+
+gradvariables!(rem::RemainderModel, transform::Vars, state::Vars, aux::Vars, t::Real) =
+  gradvariables!(rem.main, transform, state, aux, t)
+
+diffusive!(rem::RemainderModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real) =
+  diffusive!(rem.main, diffusive, ∇transform, state, aux, t)
+
+function wavespeed(rem::RemainderModel, nM, state::Vars, aux::Vars, t::Real)
+  ref = aux.ref_state
+  return wavespeed(rem.main, nM, state, aux, t) - sum(sub -> wavespeed(sub, nM, state, aux, t), rem.subs)
+end
+
+boundary_state!(nf, rem::RemainderModel, x...) = boundary_state!(nf, rem.main, x...)
+
+init_aux!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) = nothing
+init_state!(rem::RemainderModel, state::Vars, aux::Vars, coords, t) = nothing
+
+
+function flux_nondiffusive!(rem::RemainderModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+  m = getfield(flux, :array)
+  flux_nondiffusive!(rem.main, flux, state, aux, t)
+
+  flux_s = similar(flux)
+  m_s = getfield(flux_s, :array)
+
+  for sub in rem.subs
+    fill!(m_s, 0)
+    flux_nondiffusive!(sub, flux_s, state, aux, t)
+    m .-= m_s
+  end
+  nothing
+end
+
+function source!(rem::RemainderModel, source::Vars, state::Vars, aux::Vars, t::Real)
+  m = getfield(source, :array)
+  source!(rem.main, source, state, aux, t)
+
+  source_s = similar(source)
+  m_s = getfield(source_s, :array)
+
+  for sub in rem.subs
+    fill!(m_s, 0)
+    source!(sub, source_s, state, aux, t)
+    m .-= m_s
+  end
+  nothing
+end
