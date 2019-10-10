@@ -102,7 +102,8 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   Q = init_ode_state(dg, FT(0))
   lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
 
-  filter = ExponentialFilter(grid, 0, 14)
+  filterorder = 14
+  filter = ExponentialFilter(grid, 0, filterorder)
   cbfilter = EveryXSimulationSteps(1) do
     Filters.apply!(Q, 1:size(Q, 2), grid, filter)
     nothing
@@ -115,9 +116,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                     polynomialorder = %d
                     numelem_horz    = %d
                     numelem_vert    = %d
+                    filterorder     = %d
                     dt              = %.16e
                     norm(Q₀)        = %.16e
-                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert dt eng0
+                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert filterorder dt eng0
 
   # Set up the information callback
   starttime = Ref(now())
@@ -139,7 +141,8 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   if output_vtk
     # create vtk dir
     vtkdir = "vtk_heldsuarez" *
-      "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)_$(ArrayType)_$(FT)"
+      "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
+      "_filter$(filterorder)_$(ArrayType)_$(FT)"
     mkpath(vtkdir)
 
     vtkstep = 0
