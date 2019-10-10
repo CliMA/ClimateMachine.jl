@@ -159,11 +159,11 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
 
   # first stage
   copyto!(yn, Q)
-  fill!(ΔYnj[1], 0)
-  slowrhs!(fYnj[1], yn, p, time + c[1]*dt, increment=false)
-
   for i = 2:nstages
     d_i = sum(j -> β[i, j], 1:i-1)
+
+    slowrhs!(fYnj[i-1], Q, p, time + c[i-1]*dt, increment=false)
+    @. ΔYnj[i-1] = Q - yn    
 
     # TODO write a kernel to do this
     Q .= yn .+ sum(j -> α[i, j] .* ΔYnj[j], 1:i-1)  # (1a) 
@@ -179,11 +179,6 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     for k = 1:mis.nsubsteps
       ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), mis.offset)
       τ += dτ
-    end
-
-    if i < nstages
-      slowrhs!(fYnj[i], Q, p, time + c[i]*dt, increment=false)
-      @. ΔYnj[i] = Q - yn
     end
   end
 end
