@@ -133,7 +133,7 @@ function gather_diags(dg, Q)
   nhorzelems = div(nrealelems, nvertelems)
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realdata : Array(Q.realdata)
-  thermoQ = zeros(Nq*Nq*Nqk,nthermo,nrealelems)
+  thermoQ = zeros(Nq * Nq * Nqk, nthermo, nrealelems)
   vgeo = grid.vgeo
   h_vgeo = host_array ? vgeo : Array(vgeo)
   
@@ -141,22 +141,23 @@ function gather_diags(dg, Q)
   for e in 1:nrealelems	
 	for i in 1:Nq * Nqk * Nq
 		
-		z = h_vgeo[i,Xid,e]
-  		rho_node = localQ[i,1,e]
-		u_node = localQ[i,2,e]
-		w_node = localQ[i,4,e]
-		etot_node = localQ[i,5,e]/local[i,1,e]
-		qt_node = localQ[i,6,e]/localQ[i,1,e]
-		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
-		
-		ts = PhaseEquil(e_int, qt_node, rho_node)
-		Phpart = PhasePartition(ts)
-		thermoQ[i,1,e] = Phpart.liq
-		thermoQ[i,2,e] = Phpart.ice
-		thermoQ[i,3,e] = qt_node-Phpart.liq-Phpart.ice
-		thermoQ[i,4,e] = ts.T
-		thermoQ[i,5,e] = liquid_ice_pottemp(ts)
-
+	    z = h_vgeo[i,Xid,e]
+  	    rho_node = localQ[i,1,e]
+	    u_node = localQ[i,2,e]
+            v_node = localQ[i,3,e]
+	    w_node = localQ[i,4,e]
+	    etot_node = localQ[i,5,e]/localQ[i,1,e]
+	    qt_node = localQ[i,6,e]/localQ[i,1,e]
+	    e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
+	    
+	    ts = PhaseEquil(e_int, qt_node, rho_node)
+	    Phpart = PhasePartition(ts)
+	    thermoQ[i,1,e] = Phpart.liq
+	    thermoQ[i,2,e] = Phpart.ice
+	    thermoQ[i,3,e] = qt_node-Phpart.liq-Phpart.ice
+	    thermoQ[i,4,e] = ts.T
+	    thermoQ[i,5,e] = liquid_ice_pottemp(ts)
+            
 	end
   end
   fluctT = zeros(Nq * Nq * Nqk, nthermo, nrealelems)		
@@ -203,7 +204,7 @@ function gather_diags(dg, Q)
     qvap_avg = (qvap_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     T_avg = (T_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     theta_avg = (theta_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
-
+#=
     @info "ρ average = $(rho_avg)"
     @info "U average = $(U_avg)"
     @info "V average = $(V_avg)"
@@ -215,22 +216,22 @@ function gather_diags(dg, Q)
     @info "qvap average = $(qvap_avg)"
     @info "T average = $(T_avg)"
     @info "theta average = $(theta_avg)"
-
+=#
   end
   AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
   AVG_T = SVector(qliq_avg, qice_avg, qvap_avg, T_avg, theta_avg)
   #fluctuations
   for s in 1:6	
 	for e in 1:nrealelems
-		for i in 1:Nq*Nqk*Nq
+		for i in 1:Nq * Nqk * Nq
 			if s == 1
 				fluctQ[i,s,e] = localQ[i,s,e] - AVG[s]
-				VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
+				VarQ[i,s,e] = fluctQ[i,s,e]^2
+				fluctT[i,s,e] = thermoQ[i,s,e] - AVG_T[s]
 			elseif s<6
 				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
+				fluctT[i,s,e] = thermoQ[i,s,e] - AVG_T[s]
 			else
 				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
@@ -252,7 +253,6 @@ function gather_diags(dg, Q)
   e_flucttot = MPI.Reduce(e_local_flucttot, +, 0, MPI.COMM_WORLD)
   qt_local_flucttot = sum(VarQ[:,6,:])
   qt_flucttot = MPI.Reduce(qt_local_flucttot, +, 0, MPI.COMM_WORLD)
-
   if mpirank == 0
 
   	rho_standard_dev = (rho_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
@@ -270,7 +270,7 @@ function gather_diags(dg, Q)
         Global_Variance_e = e_standard_dev^2
         Global_Variance_qt = qt_standard_dev^2
   end
-
+#=
  @info "ρ standard_deviation = $(rho_standard_dev)" 
  @info "ρ Variance = $(Global_Variance_rho)"
  @info "U standard_deviation = $(U_standard_dev)"
@@ -283,8 +283,9 @@ function gather_diags(dg, Q)
  @info "e Variance = $(Global_Variance_e)"
  @info "qt standard_deviation = $(qt_standard_dev)"
  @info "qt Variance = $(Global_Variance_qt)"
+=#
 #Horizontal averages we might need
- S = zeros(Nqk, nvertelems,8)
+ S = zeros(Nqk, nvertelems,9)
 for eh in 1:nhorzelems
   for ev in 1:nvertelems
     e = ev + (eh - 1) * nvertelems
@@ -293,27 +294,28 @@ for eh in 1:nhorzelems
       for j in 1:Nq
         for i in 1:Nq
           ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-          S[k,ev,1] += fluctQ[ijk,4,e]*fluctT[ijk,5,e]
-	  S[k,ev,2] += fluctQ[ijk,4,e]*fluctT[ijk,3,e]
-	  S[k,ev,3] += fluctQ[ijk,4,e]*fluctQ[ijk,2,e]
-	  S[k,ev,4] += fluctQ[ijk,4,e]*fluctQ[ijk,3,e]
-	  S[k,ev,5] += fluctQ[ijk,4,e]*fluctQ[ijk,4,e]
-	  S[k,ev,6] += fluctQ[ijk,4,e]*fluctQ[ijk,1,e]
+          S[k,ev,1] += fluctQ[ijk,4,e] * fluctT[ijk,5,e]
+	  S[k,ev,2] += fluctQ[ijk,4,e] * fluctT[ijk,3,e]
+	  S[k,ev,3] += fluctQ[ijk,4,e] * fluctQ[ijk,2,e]
+	  S[k,ev,4] += fluctQ[ijk,4,e] * fluctQ[ijk,3,e]
+	  S[k,ev,5] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
+	  S[k,ev,6] += fluctQ[ijk,4,e] * fluctQ[ijk,1,e]
           S[k,ev,7] += thermoQ[ijk,1,e]
-          S[k,ev,8] += fluctQ[ijk,4,e]*fluctT[ijk,1,e]
+          S[k,ev,8] += fluctQ[ijk,4,e] * fluctT[ijk,1,e]
+          S[k,ev,9] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
         end
       end
     end
   end
 end
-S_avg=zeros(Nqk,nvertelems,6)
-for s in 1:8
+S_avg=zeros(Nqk,nvertelems,9)
+for s in 1:9
  for ev in 1:nvertelems
    for k in 1:Nqk
      S_avg[k,ev,s]=MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
      
      if mpirank == 0
-        S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq*Nq*nhorzelems*nranks)
+        S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq * Nq * nhorzelems * nranks)
      end
    end
  end
@@ -326,7 +328,8 @@ OutputWV = zeros(nvertelems * Nqk)
 OutputWW = zeros(nvertelems * Nqk)
 OutputWRHO = zeros(nvertelems * Nqk)
 OutputQLIQ = zeros(nvertelems * Nqk)
-OutputWQLIQ = zeors(nvertelems * Nqk)
+OutputWQLIQ = zeros(nvertelems * Nqk)
+OutputWWW = zeros(nvertelems * Nqk )
 for ev in 1:nvertelems
 	for k in 1:Nqk
 		i=k + Nqk * (ev - 1)
@@ -336,34 +339,39 @@ for ev in 1:nvertelems
                 OutputWV[i] = S_avg[k,ev,4]
                 OutputWW[i] = S_avg[k,ev,5]
                 OutputWRHO[i] = S_avg[k,ev,6]
-                OutputQLIQ = S_avg[k,ev,7]
-                OutputWQLIQ = S_avg[k,ev,8]
+                OutputQLIQ[i] = S_avg[k,ev,7]
+                OutputWQLIQ[i] = S_avg[k,ev,8]
+                OutputWWW[i] = S_avg[k,ev,9]
 	end
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/HF.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/HF.txt", OutputHF)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/HF.txt", "a") do io
+writedlm(io, OutputHF)
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WQVAP.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WQVAP.txt", OutputWQVAP)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WQVAP.txt", "a") do io
+writedlm(io, OutputWQVAP)
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WU.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WU.txt", OutputWU)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WU.txt", "a") do io
+writedlm(io, OutputWU)
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WV.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WV.txt", OutputWV)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WV.txt", "a") do io
+writedlm(io, OutputWV)
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WW.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WW.txt", OutputWW)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WW.txt", "a") do io
+writedlm(io, OutputWW)
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WRHO.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WRHO.txt", OutputWRHO)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WRHO.txt", "a") do io
+writedlm(io, OutputWRHO)
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/QLIQ.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/QLIQ.txt", OutputQLIQ)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/QLIQ.txt", "a") do io
+writedlm(io, OutputQLIQ)
 end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WQLIQ.txt", "w") do f
-writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WQLIQ.txt", OutputWQLIQ)
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WQLIQ.txt", "a") do io
+writedlm(io, OutputWQLIQ)
 end
+open("/home/user/2TB/work/CLIMA-run/diagnostics/35mX35mX10m/WWW.txt", "a") do io
+writedlm(io, OutputWWW)
+end
+
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
@@ -392,32 +400,31 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
-  eng0 = norm(Q)
+#=  eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e""" eng0
-
+=#
   # Set up the information callback
   starttime = Ref(now())
   cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
-      energy = norm(Q)
+#      energy = norm(Q)
       @info @sprintf("""Update
                      simtime = %.16e
                      runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
+                     """, ODESolvers.gettime(lsrk),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"),
-                     energy)
+                                  Dates.dateformat"HH:MM:SS"))
     end
   end
 
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
-    mkpath("/home/user/2TB/work/CLIMA-run/35mX35mX10m/")
-    outprefix = @sprintf("/home/user/2TB/work/CLIMA-run/35mX35mX10m/dycoms_%dD_mpirank%04d_step%04d", dim,
+    mkpath("/home/user/2TB/work/CLIMA-run/20mX20mX10m/")
+    outprefix = @sprintf("/home/user/2TB/work/CLIMA-run/20mX20mX10m/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
@@ -427,7 +434,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
-  cbdiags = GenericCallbacks.EveryXSimulationSteps(100000) do (init=false)
+  cbdiags = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     gather_diags(dg, Q)
   end
 
@@ -475,8 +482,8 @@ let
     SHF    = DT(15)
     C_drag = DT(0.0011)
     # User defined domain parameters
-    brickrange = (grid1d(0, 2000, elemsize=DT(25)*N),
-                  grid1d(0, 2000, elemsize=DT(25)*N),
+    brickrange = (grid1d(0, 2000, elemsize=DT(35)*N),
+                  grid1d(0, 2000, elemsize=DT(35)*N),
                   grid1d(0, 1500, elemsize=DT(10)*N))
     zmax = brickrange[3][end]
     zsponge = DT(0.75 * zmax)
@@ -484,7 +491,7 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.0025
+    dt = 0.005
     timeend = 14400
     dim = 3
     @info (ArrayType, DT, dim)
