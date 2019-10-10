@@ -93,10 +93,12 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
   # --------------------------------------------------
-  randnum1   = rand(seed, DFloat) / 100
-  randnum2   = rand(seed, DFloat) / 100
-  #  randnum1   = rand(1)[1] / 100
-  #  randnum2   = rand(1)[1] / 100
+  randnum1   = rand(seed, FT) / 100
+  randnum2   = rand(seed, FT) / 100
+  #randnum1   = SVector{1,FT}(rand(FT,1))/100
+  #randnum2   = SVector{1,FT}(rand(FT,1))/100
+  #randnum1   = rand(FT,1)/100
+  #randnum2   = rand(FT,1)/100
   if xvert <= 200.0
     θ_liq += randnum1 * θ_liq 
     q_tot += randnum2 * q_tot
