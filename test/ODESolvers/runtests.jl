@@ -312,7 +312,7 @@ let
         errors = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = [q0]
-          solver = mis_method(rhs_slow!, rhs_fast!, fast_method, Q;
+          solver = mis_method(rhs_slow!, rhs_fast!, fast_method, 4, Q;
                         dt = dt, t0 = 0.0)
           solve!(Q, solver; timeend = finaltime)
           errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
