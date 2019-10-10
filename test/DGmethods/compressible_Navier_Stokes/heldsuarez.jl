@@ -4,8 +4,7 @@ using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
-                                       CentralNumericalFluxDiffusive,
-                                       CentralNumericalFluxNonDiffusive
+                                       CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.LowStorageRungeKuttaMethod: LSRK144NiegemannDiehlBusch
 using CLIMA.VTK: writevtk, writepvtu
@@ -14,8 +13,10 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
 using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
-                   DryModel, NoRadiation, PeriodicBC, NoFluxBC,
-                   ConstantViscosityWithDivergence, vars_state, Gravity, Coriolis,
+                   DryModel, NoRadiation, NoFluxBC,
+                   ConstantViscosityWithDivergence,
+                   vars_state, vars_aux,
+                   Gravity, Coriolis,
                    HydrostaticState, IsothermalProfile
 using CLIMA.VariableTemplates: flattenednames
 
@@ -35,7 +36,7 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-const output_vtk = false
+const output_vtk = true
 
 function main()
   MPI.Initialized() || MPI.Init()
@@ -49,100 +50,30 @@ function main()
 
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  polynomialorder = 4
-  numlevels = integration_testing ? 4 : 1
-
-  expected_error = Dict()
-
-  # just to make it shorter and aligning
-  Central = CentralNumericalFluxNonDiffusive
-
-  expected_error[Float64, 2, Rusanov, 1] = 1.1990999506538110e+01
-  expected_error[Float64, 2, Rusanov, 2] = 2.0813000228865612e+00
-  expected_error[Float64, 2, Rusanov, 3] = 6.3752572004789149e-02
-  expected_error[Float64, 2, Rusanov, 4] = 2.0984975076420455e-03
-  
-  expected_error[Float64, 2, Central, 1] = 2.0840574601661153e+01
-  expected_error[Float64, 2, Central, 2] = 2.9255455365299827e+00
-  expected_error[Float64, 2, Central, 3] = 3.6935849488949657e-01
-  expected_error[Float64, 2, Central, 4] = 8.3528804679907434e-03
-
-  expected_error[Float64, 3, Rusanov, 1] = 3.7918869862613858e+00
-  expected_error[Float64, 3, Rusanov, 2] = 6.5816485664822677e-01
-  expected_error[Float64, 3, Rusanov, 3] = 2.0160333422867591e-02
-  expected_error[Float64, 3, Rusanov, 4] = 6.6360317881818034e-04
-  
-  expected_error[Float64, 3, Central, 1] = 6.5903683487905749e+00
-  expected_error[Float64, 3, Central, 2] = 9.2513872939749997e-01
-  expected_error[Float64, 3, Central, 3] = 1.1680141169828175e-01
-  expected_error[Float64, 3, Central, 4] = 2.6414127301659534e-03
-
-  expected_error[Float32, 2, Rusanov, 1] = 1.1990854263305664e+01
-  expected_error[Float32, 2, Rusanov, 2] = 2.0812149047851563e+00
-  expected_error[Float32, 2, Rusanov, 3] = 6.7652329802513123e-02
-  expected_error[Float32, 2, Rusanov, 4] = 3.6849677562713623e-02
-  
-  expected_error[Float32, 2, Central, 1] = 2.0840496063232422e+01
-  expected_error[Float32, 2, Central, 2] = 2.9250388145446777e+00
-  expected_error[Float32, 2, Central, 3] = 3.7026408314704895e-01
-  expected_error[Float32, 2, Central, 4] = 6.7625500261783600e-02
-
-  expected_error[Float32, 3, Rusanov, 1] = 3.7918324470520020e+00
-  expected_error[Float32, 3, Rusanov, 2] = 6.5811443328857422e-01
-  expected_error[Float32, 3, Rusanov, 3] = 2.1280560642480850e-02
-  expected_error[Float32, 3, Rusanov, 4] = 9.8376255482435226e-03
-  
-  expected_error[Float32, 3, Central, 1] = 6.5902600288391113e+00
-  expected_error[Float32, 3, Central, 2] = 9.2505264282226563e-01
-  expected_error[Float32, 3, Central, 3] = 1.1701638251543045e-01
-  expected_error[Float32, 3, Central, 4] = 1.2930640019476414e-02
-
-  @testset "$(@__FILE__)" begin
-    for ArrayType in ArrayTypes, FT in (Float64,), dims in (3,)
-      for NumericalFlux in (Rusanov, )
-        @info @sprintf """Configuration
-                          ArrayType     = %s
-                          FT            = %s
-                          NumericalFlux = %s
-                          dims          = %d
-                          """ "$ArrayType" "$FT" "$NumericalFlux" dims
-
-        setup = HeldSuarezSetup{FT}()
-        errors = Vector{FT}(undef, numlevels)
-
-        for level in 1:numlevels
-          numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
-          errors[level] =
-            run(mpicomm, polynomialorder, numelems,
-                NumericalFlux, setup, ArrayType, FT, dims, level)
-
-          # rtol = sqrt(eps(FT))
-          # # increase rtol for comparing with GPU results using Float32
-          # if FT === Float32 && !(ArrayType === Array)
-          #   rtol *= 10 # why does this factor have to be so big :(
-          # end
-          # @test isapprox(errors[level],
-          #                expected_error[FT, dims, NumericalFlux, level]; rtol = rtol)
-        end
-
-        rates = @. log2(first(errors[1:numlevels-1]) / first(errors[2:numlevels]))
-        numlevels > 1 && @info "Convergence rates\n" *
-          join(["rate for levels $l → $(l + 1) = $(rates[l])" for l in 1:numlevels-1], "\n")
-      end
-    end
-  end
-end
-
-function run(mpicomm, polynomialorder, numelems,
-             NumericalFlux, setup, ArrayType, FT, dims, level)
-
 
   polynomialorder = 5
-  num_elem_horz = 6
-  num_elem_vert = 8
+  numelem_horz = 6
+  numelem_vert = 8
+  days = 86400
+  timeend = 60 # 400days
+  outputtime = 2days
+  
+  #@testset "$(@__FILE__)" begin
+    for ArrayType in ArrayTypes, FT in (Float64,)
 
-  vert_range = grid1d(FT(planet_radius), FT(planet_radius + setup.domain_height), nelem = num_elem_vert)
-  topology = StackedCubedSphereTopology(mpicomm, num_elem_horz, vert_range)
+      run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
+          timeend, outputtime, ArrayType, FT)
+    end
+  #end
+end
+
+function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
+             timeend, outputtime, ArrayType, FT)
+
+  setup = HeldSuarezSetup{FT}()
+
+  vert_range = grid1d(FT(planet_radius), FT(planet_radius + setup.domain_height), nelem = numelem_vert)
+  topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 
   grid = DiscontinuousSpectralElementGrid(topology,
                                           FloatType = FT,
@@ -151,28 +82,25 @@ function run(mpicomm, polynomialorder, numelems,
                                           meshwarp = cubedshellwarp)
 
   model = AtmosModel(SphericalOrientation(),
-                     HydrostaticState(IsothermalProfile(setup.T_initial), 0.0),
-                     ConstantViscosityWithDivergence(0.0),
+                     HydrostaticState(IsothermalProfile(setup.T_initial), FT(0)),
+                     ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
                      (Gravity(), Coriolis(), held_suarez_forcing!), 
                      NoFluxBC(),
                      setup)
 
-  dg = DGModel(model, grid, NumericalFlux(),
+  dg = DGModel(model, grid, Rusanov(),
                CentralNumericalFluxDiffusive(), CentralGradPenalty())
 
-  timeend = 60 # FT(2 * setup.domain_halflength / 10 / setup.translation_speed)
-
   # determine the time step
-  element_size = (setup.domain_height / num_elem_vert)
+  element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(315))
   lucas_magic_factor = 14
   dt = lucas_magic_factor * element_size / acoustic_speed / polynomialorder ^ 2
 
   Q = init_ode_state(dg, FT(0))
   lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
-
 
   filter = ExponentialFilter(grid, 0, 14)
   cbfilter = EveryXSimulationSteps(1) do
@@ -181,12 +109,15 @@ function run(mpicomm, polynomialorder, numelems,
   end
 
   eng0 = norm(Q)
-  dims == 2 && (numelems = (numelems..., 0))
   @info @sprintf """Starting
-                    numelems  = (%d, %d, %d)
-                    dt        = %.16e
-                    norm(Q₀)  = %.16e
-                    """ numelems... dt eng0
+                    ArrayType       = %s
+                    FT              = %s
+                    polynomialorder = %d
+                    numelem_horz    = %d
+                    numelem_vert    = %d
+                    dt              = %.16e
+                    norm(Q₀)        = %.16e
+                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert dt eng0
 
   # Set up the information callback
   starttime = Ref(now())
@@ -203,27 +134,26 @@ function run(mpicomm, polynomialorder, numelems,
                         """ gettime(lsrk) runtime energy
     end
   end
-  callbacks = (cbinfo,cbfilter)
+  callbacks = (cbinfo, cbfilter)
 
-  #if output_vtk
-  #  # create vtk dir
-  #  vtkdir = "vtk_heldsuarez" *
-  #    "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)"
-  #  mkpath(vtkdir)
-  #  
-  #  vtkstep = 0
-  #  # output initial step
-  #  do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)
+  if output_vtk
+    # create vtk dir
+    vtkdir = "vtk_heldsuarez" *
+      "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)_$(ArrayType)_$(FT)"
+    mkpath(vtkdir)
 
-  #  # setup the output callback
-  #  outputtime = timeend
-  #  cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
-  #    vtkstep += 1
-  #    Qe = init_ode_state(dg, gettime(lsrk))
-  #    do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
-  #  end
-  #  callbacks = (callbacks..., cbvtk)
-  #end
+    vtkstep = 0
+    # output initial step
+    do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
+
+    # setup the output callback
+    cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
+      vtkstep += 1
+      Qe = init_ode_state(dg, gettime(lsrk))
+      do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
+    end
+    callbacks = (callbacks..., cbvtk)
+  end
 
   solve!(Q, lsrk; timeend=timeend, callbacks=callbacks)
 
@@ -237,8 +167,8 @@ function run(mpicomm, polynomialorder, numelems,
 end
 
 Base.@kwdef struct HeldSuarezSetup{FT}
-  p_ground::FT = Float64(MSLP)
-  T_initial::FT = 255.0
+  p_ground::FT = MSLP
+  T_initial::FT = 255
   domain_height::FT = 30e3
 end
 
@@ -250,15 +180,13 @@ function (setup::HeldSuarezSetup)(state, aux, coords, t)
   h = r - FT(planet_radius)
 
   scale_height = R_d * setup.T_initial / grav
+  p = setup.p_ground * exp(-h / scale_height)
 
-  P_ref = MSLP * exp(-h / scale_height)
-  state.ρ = air_density(setup.T_initial, P_ref)
+  state.ρ = air_density(setup.T_initial, p)
   state.ρu = SVector{3, FT}(0, 0, 0)
   state.ρe = state.ρ * (internal_energy(setup.T_initial) + aux.orientation.Φ)
   nothing
 end
-
-
 
 function held_suarez_forcing!(source, state, aux, t::Real)
   FT = eltype(state)
@@ -300,16 +228,14 @@ function held_suarez_forcing!(source, state, aux, t::Real)
   source.ρe += -k_T * ρ * cv_d * (T - T_equil) - k_v * ρu' * ρu / ρ
 end
 
-
-function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname = "heldsuarez")
+function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname = "heldsuarez")
   ## name of the file that this MPI rank will write
   filename = @sprintf("%s/%s_mpirank%04d_step%04d",
                       vtkdir, testname, MPI.Comm_rank(mpicomm), vtkstep)
 
   statenames = flattenednames(vars_state(model, eltype(Q)))
-  exactnames = statenames .* "_exact"
-
-  writevtk(filename, Q, dg, statenames, Qe, exactnames)
+  auxnames = flattenednames(vars_aux(model, eltype(Q))) 
+  writevtk(filename, Q, dg, statenames, dg.auxstate, auxnames)
 
   ## Generate the pvtu file for these vtk files
   if MPI.Comm_rank(mpicomm) == 0
@@ -321,7 +247,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname = "helds
       @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
     end
 
-    writepvtu(pvtuprefix, prefixes, (statenames..., exactnames...))
+    writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
 
     @info "Done writing VTK: $pvtuprefix"
   end
