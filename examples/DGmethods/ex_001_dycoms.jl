@@ -1,3 +1,4 @@
+# Load modules used here
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
@@ -16,15 +17,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
-using DelimitedFiles
-
 using CLIMA.Atmos: vars_state, vars_aux
-
-# TODO: for diagnostics; move to new CLIMA module
-using MPI
-
-using Random 
-const seed = MersenneTwister(0)
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -62,62 +55,54 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
-  DT         = eltype(state)
-  xvert::DT  = z
-  
-  epsdv::DT     = molmass_ratio
-  q_tot_sfc::DT = 8.1e-3
-  Rm_sfc::DT    = gas_constant_air(PhasePartition(q_tot_sfc))
-  ρ_sfc::DT     = 1.22
-  P_sfc::DT     = 1.0178e5
-  T_BL::DT      = 285.0
-  T_sfc::DT     = P_sfc/(ρ_sfc * Rm_sfc);
-  
-  q_liq::DT      = 0
-  q_ice::DT      = 0
-  zb::DT         = 600   
-  zi::DT         = 840 
+  FT            = eltype(state)
+  xvert::FT     = z
+  #These constants are those used by Stevens et al. (2005)
+  qref::FT      = 7.75e-3
+  q_tot_sfc::FT = qref
+  q_pt_sfc      = PhasePartition(q_tot_sfc)
+  Rm_sfc        = gas_constant_air(q_pt_sfc)
+  T_sfc::FT     = 292.5
+  P_sfc::FT     = MSLP
+  ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
+  # Specify moisture profiles 
+  q_liq::FT      = 0
+  q_ice::FT      = 0
+  zb::FT         = 600    # initial cloud bottom
+  zi::FT         = 840    # initial cloud top
   dz_cloud       = zi - zb
-  q_liq_peak::DT = 4.5e-4
-  
+  q_liq_peak::FT = 0.00045 #cloud mixing ratio at z_i    
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
-  if ( xvert <= zi)
-    θ_liq  = DT(289)
-    q_tot  = DT(8.1e-3)
+  if xvert <= zi
+    θ_liq = FT(289)
+    q_tot = qref
   else
-    θ_liq = DT(297.5) + (xvert - zi)^(DT(1/3))
-    q_tot = DT(1.5e-3)
+    θ_liq = FT(297.5) + (xvert - zi)^(FT(1/3))
+    q_tot = FT(1.5e-3)
   end
-
-  q_pt = PhasePartition(q_tot, q_liq, DT(0))
-  Rm    = gas_constant_air(q_pt)
-  cpm   = cp_m(q_pt)
+  # Calculate PhasePartition object for vertical domain extent
+  q_pt  = PhasePartition(q_tot, q_liq, q_ice) 
   #Pressure
-  H = Rm_sfc * T_BL / grav;
-  P = P_sfc * exp(-xvert/H);
-  #Exner
-  exner_dry = exner(P, PhasePartition(DT(0)))
-  #Temperature 
-  T             = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
-  #Density
-  ρ             = P/(Rm*T);
-  #Potential Temperature
-  θv     = virtual_pottemp(T, P, q_pt)
-  # energy definitions
-  u, v, w     = DT(7), DT(-5.5), DT(0)
-  U           = ρ * u
-  V           = ρ * v
-  W           = ρ * w
-  e_kin       = DT(1//2) * (u^2 + v^2 + w^2)
+  H     = Rm_sfc * T_sfc / grav;
+  p     = P_sfc * exp(-xvert/H);
+  #Density, Temperature
+  TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
+  ρ     = air_density(TS)
+  T     = air_temperature(TS)
+  #Assign State Variables
+  u, v, w     = FT(7), FT(-5.5), FT(0)
+  e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
   state.ρ     = ρ
-  state.ρu    = SVector(U, V, W) 
+  state.ρu    = SVector(ρ*u, ρ*v, ρ*w) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
-end   
+end
+
+
 
 # TODO: temporary; move to new CLIMA module
 function gather_diags(dg, Q)
@@ -133,7 +118,7 @@ function gather_diags(dg, Q)
   nhorzelems = div(nrealelems, nvertelems)
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realdata : Array(Q.realdata)
-  thermoQ = zeros(Nq*Nq*Nqk,nthermo,nrealelems)
+  thermoQ = zeros(Nq * Nq * Nqk, nthermo, nrealelems)
   vgeo = grid.vgeo
   h_vgeo = host_array ? vgeo : Array(vgeo)
   
@@ -143,11 +128,12 @@ function gather_diags(dg, Q)
 		
 		z = h_vgeo[i,Xid,e]
   		rho_node = localQ[i,1,e]
-		u_node = localQ[i,2,e]
-		w_node = localQ[i,4,e]
+		u_node = localQ[i,2,e] / localQ[i,1,e]
+                v_node = localQ[i,3,e] / localQ[i,1,e]
+		w_node = localQ[i,4,e] / localQ[i,1,e]
 		etot_node = localQ[i,5,e]/localQ[i,1,e]
 		qt_node = localQ[i,6,e]/localQ[i,1,e]
-		e_int = etot_node - 1//2 * (u_node^2 + w_node^2) - grav * z
+		e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
 		
 		ts = PhaseEquil(e_int, qt_node, rho_node)
 		Phpart = PhasePartition(ts)
@@ -222,15 +208,15 @@ function gather_diags(dg, Q)
   #fluctuations
   for s in 1:6	
 	for e in 1:nrealelems
-		for i in 1:Nq*Nqk*Nq
+		for i in 1:Nq * Nqk * Nq
 			if s == 1
 				fluctQ[i,s,e] = localQ[i,s,e] - AVG[s]
-				VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
+				VarQ[i,s,e] = fluctQ[i,s,e]^2
+				fluctT[i,s,e] = thermoQ[i,s,e] - AVG_T[s]
 			elseif s<6
 				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
-				fluctT[i,s,e] = thermoQ[i,s,e]/localQ[i,s,e] - AVG_T[s]
+				fluctT[i,s,e] = thermoQ[i,s,e] - AVG_T[s]
 			else
 				fluctQ[i,s,e] = localQ[i,s,e]/localQ[i,1,e] - AVG[s]
                                 VarQ[i,s,e]=fluctQ[i,s,e]^2
@@ -252,7 +238,6 @@ function gather_diags(dg, Q)
   e_flucttot = MPI.Reduce(e_local_flucttot, +, 0, MPI.COMM_WORLD)
   qt_local_flucttot = sum(VarQ[:,6,:])
   qt_flucttot = MPI.Reduce(qt_local_flucttot, +, 0, MPI.COMM_WORLD)
-
   if mpirank == 0
 
   	rho_standard_dev = (rho_flucttot / (size(fluctQ, 1) * size(fluctQ, 3) * nranks) )^(0.5)
@@ -284,7 +269,7 @@ function gather_diags(dg, Q)
  @info "qt standard_deviation = $(qt_standard_dev)"
  @info "qt Variance = $(Global_Variance_qt)"
 #Horizontal averages we might need
- S = zeros(Nqk, nvertelems,8)
+ S = zeros(Nqk, nvertelems,9)
 for eh in 1:nhorzelems
   for ev in 1:nvertelems
     e = ev + (eh - 1) * nvertelems
@@ -293,27 +278,28 @@ for eh in 1:nhorzelems
       for j in 1:Nq
         for i in 1:Nq
           ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-          S[k,ev,1] += fluctQ[ijk,4,e]*fluctT[ijk,5,e]
-	  S[k,ev,2] += fluctQ[ijk,4,e]*fluctT[ijk,3,e]
-	  S[k,ev,3] += fluctQ[ijk,4,e]*fluctQ[ijk,2,e]
-	  S[k,ev,4] += fluctQ[ijk,4,e]*fluctQ[ijk,3,e]
-	  S[k,ev,5] += fluctQ[ijk,4,e]*fluctQ[ijk,4,e]
-	  S[k,ev,6] += fluctQ[ijk,4,e]*fluctQ[ijk,1,e]
+          S[k,ev,1] += fluctQ[ijk,4,e] * fluctT[ijk,5,e]
+	  S[k,ev,2] += fluctQ[ijk,4,e] * fluctT[ijk,3,e]
+	  S[k,ev,3] += fluctQ[ijk,4,e] * fluctQ[ijk,2,e]
+	  S[k,ev,4] += fluctQ[ijk,4,e] * fluctQ[ijk,3,e]
+	  S[k,ev,5] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
+	  S[k,ev,6] += fluctQ[ijk,4,e] * fluctQ[ijk,1,e]
           S[k,ev,7] += thermoQ[ijk,1,e]
-          S[k,ev,8] += fluctQ[ijk,4,e]*fluctT[ijk,1,e]
+          S[k,ev,8] += fluctQ[ijk,4,e] * fluctT[ijk,1,e]
+          S[k,ev,9] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
         end
       end
     end
   end
 end
-S_avg=zeros(Nqk,nvertelems,8)
-for s in 1:8
+S_avg=zeros(Nqk,nvertelems,9)
+for s in 1:9
  for ev in 1:nvertelems
    for k in 1:Nqk
      S_avg[k,ev,s]=MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
      
      if mpirank == 0
-        S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq*Nq*nhorzelems*nranks)
+        S_avg[k,ev,s] = S_avg[k,ev,s]/(Nq * Nq * nhorzelems * nranks)
      end
    end
  end
@@ -327,6 +313,7 @@ OutputWW = zeros(nvertelems * Nqk)
 OutputWRHO = zeros(nvertelems * Nqk)
 OutputQLIQ = zeros(nvertelems * Nqk)
 OutputWQLIQ = zeros(nvertelems * Nqk)
+OutputWWW = zeros(nvertelems * Nqk )
 for ev in 1:nvertelems
 	for k in 1:Nqk
 		i=k + Nqk * (ev - 1)
@@ -336,70 +323,90 @@ for ev in 1:nvertelems
                 OutputWV[i] = S_avg[k,ev,4]
                 OutputWW[i] = S_avg[k,ev,5]
                 OutputWRHO[i] = S_avg[k,ev,6]
-                OutputQLIQ = S_avg[k,ev,7]
-                OutputWQLIQ = S_avg[k,ev,8]
+                OutputQLIQ[i] = S_avg[k,ev,7]
+                OutputWQLIQ[i] = S_avg[k,ev,8]
+                OutputWWW[i] = S_avg[k,ev,9]
 	end
 end
-open("/home/yassine/yt-2T-drive/HF.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/HF.txt", OutputHF)
+open("/home/yassine/yt-2T-drive/HF.txt", "a") do io
+writedlm(io, OutputHF)
 end
-open("/home/yassine/yt-2T-drive/WQVAP.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WQVAP.txt", OutputWQVAP)
+open("/home/yassine/yt-2T-drive/WQVAP.txt", "a") do io
+writedlm(io, OutputWQVAP)
 end
-open("/home/yassine/yt-2T-drive/WU.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WU.txt", OutputWU)
+open("/home/yassine/yt-2T-drive/WU.txt", "a") do io
+writedlm(io, OutputWU)
 end
-open("/home/yassine/yt-2T-drive/WV.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WV.txt", OutputWV)
+open("/home/yassine/yt-2T-drive/WV.txt", "a") do io
+writedlm(io, OutputWV)
 end
-open("/home/yassine/yt-2T-drive/WW.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WW.txt", OutputWW)
+open("/home/yassine/yt-2T-drive/WW.txt", "a") do io
+writedlm(io, OutputWW)
 end
-open("/home/yassine/yt-2T-drive/WRHO.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WRHO.txt", OutputWRHO)
+open("/home/yassine/yt-2T-drive/WRHO.txt", "a") do io
+writedlm(io, OutputWRHO)
 end
-open("/home/yassine/yt-2T-drive/QLIQ.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/QLIQ.txt", OutputQLIQ)
+open("/home/yassine/yt-2T-drive/QLIQ.txt", "a") do io
+writedlm(io, OutputQLIQ)
 end
-open("/home/yassine/yt-2T-drive/WQLIQ.txt", "w") do f
-writedlm("/home/yassine/yt-2T-drive/WQLIQ.txt", OutputWQLIQ)
+open("/home/yassine/yt-2T-drive/WQLIQ.txt", "a") do io
+writedlm(io, OutputWQLIQ)
 end
-CSV.write("/home/yassine/test.csv", S_avg)
+open("/home/yassine/yt-2T-drive/WWW.txt", "a") do io
+writedlm(io, OutputWWW)
 end
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+end
+
+
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge, VTKPATH)
+  # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DT,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
-                                          polynomialorder = N)
+                                          polynomialorder = N,
+                                         )
+  # Problem constants
+  # Radiation model
+  κ             = FT(85)
+  α_z           = FT(1) 
+  z_i           = FT(840) 
+  D_subsidence  = FT(3.75e-6)
+  ρ_i           = FT(1.13)
+  F_0           = FT(70)
+  F_1           = FT(22)
+  # Geostrophic forcing
+  f_coriolis    = FT(7.62e-5)
+  u_geostrophic = FT(7)
+  v_geostrophic = FT(-5.5)
+  
+  # Model definition
   model = AtmosModel(FlatOrientation(),
-                     NoReferenceState(),
-                     SmagorinskyLilly{DT}(C_smag),
+                     HydrostaticReferenceState(LinearTemperatureProfile, FT(0)),
+                     SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
-                     StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
+                     StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(), 
-                      RayleighSponge{DT}(zmax, zsponge, 1), 
+                      RayleighSponge{FT}(zmax, zsponge, 1), 
                       Subsidence(), 
-                      GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
-                     DYCOMS_BC{DT}(C_drag, LHF, SHF),
+                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)), 
+                     DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
+  # Balancelaw description
   dg = DGModel(model,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
-
-  Q = init_ode_state(dg, DT(0))
-
+  Q = init_ode_state(dg, FT(0))
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-
+  # Calculating initial condition norm 
   eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e""" eng0
-
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -414,31 +421,36 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      energy)
     end
   end
-
+  
+  # Setup VTK output callbacks
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
-    mkpath("./vtk-dycoms/")
-    outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(30000) do (init=false)
+    mkpath(VTKPATH)
+    outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", VTKPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
-             dg.auxstate, flattenednames(vars_aux(model,DT)))
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)), 
+             dg.auxstate, flattenednames(vars_aux(model,FT)))
         
     step[1] += 1
     nothing
   end
 
+  #Get statistics during run:
   cbdiags = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     gather_diags(dg, Q)
   end
 
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiags))
+    
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
+  #Get statistics at the end of the run:
   gather_diags(dg, Q)
 
+    
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, DT(timeend))
+  Qe = init_ode_state(dg, FT(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -467,31 +479,32 @@ let
   end
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     # Problem type
-    DT = Float64
+    FT = Float32
     # DG polynomial order 
     N = 4
     # SGS Filter constants
-    C_smag = DT(0.15)
-    LHF    = DT(115)
-    SHF    = DT(15)
-    C_drag = DT(0.0011)
+    C_smag = FT(0.15)
+    LHF    = FT(115)
+    SHF    = FT(15)
+    C_drag = FT(0.0011)
     # User defined domain parameters
-    brickrange = (grid1d(0, 2000, elemsize=DT(50)*N),
-                  grid1d(0, 2000, elemsize=DT(50)*N),
-                  grid1d(0, 1500, elemsize=DT(20)*N))
+    brickrange = (grid1d(0, 2000, elemsize=FT(50)*N),
+                  grid1d(0, 2000, elemsize=FT(50)*N),
+                  grid1d(0, 1500, elemsize=FT(20)*N))
     zmax = brickrange[3][end]
-    zsponge = DT(0.75 * zmax)
+    zsponge = FT(0.75 * zmax)
     
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
-    timeend = 100 * dt 
+    timeend = 1000
     dim = 3
-    @info (ArrayType, DT, dim)
+    VTKPATH = "/central/scratch/asridhar/DYC-VREMAN-PF-RF-CPU"
+    @info (ArrayType, dt, FT, dim, VTKPATH)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(0.9999737848359238)
+                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+    @test result ≈ FT(0.9999737848359238)
   end
 end
 
