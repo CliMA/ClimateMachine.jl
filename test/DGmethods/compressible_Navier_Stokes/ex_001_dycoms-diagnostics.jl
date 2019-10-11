@@ -20,6 +20,7 @@ using CLIMA.VTK
 using CLIMA.Atmos: vars_state, vars_aux
 using DelimitedFiles
 using Random
+using CuArrays.CURAND
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -37,7 +38,7 @@ if !@isdefined integration_testing
 end
 
 # Random number seed
-const seed = MersenneTwister(0)
+#const seed = MersenneTwister(0)
 
 
 """
@@ -93,16 +94,19 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
   # --------------------------------------------------
-  randnum1   = rand(seed, FT) / 100
-  randnum2   = rand(seed, FT) / 100
-  #randnum1   = SVector{1,FT}(rand(FT,1))/100
-  #randnum2   = SVector{1,FT}(rand(FT,1))/100
+  #randnum1   = rand(seed, FT) / 100
+    #randnum2   = rand(seed, FT) / 100
+ #   rand1 = CuArray{FT}(undef, 1);
+    randy = curand(1, 1)
+    #@info randy
+#  randnum1   = rand!(rand1) #SVector{1,FT}(rand(FT,1))/100
+#  randnum2   = rand!(rand1) #SVector{1,FT}(rand(FT,1))/100
   #randnum1   = rand(FT,1)/100
   #randnum2   = rand(FT,1)/100
-  if xvert <= 200.0
-    θ_liq += randnum1 * θ_liq 
-    q_tot += randnum2 * q_tot
-  end
+#  if xvert <= 200.0
+#    θ_liq += randnum1 * θ_liq 
+#    q_tot += randnum2 * q_tot
+#  end
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
@@ -501,7 +505,8 @@ let
   @static if haspkg("CUDAnative")
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+ #   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+  for ArrayType in ArrayTypes
     # Problem type
     FT = Float32
     # DG polynomial order 
