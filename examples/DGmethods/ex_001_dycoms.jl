@@ -19,6 +19,7 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using CLIMA.Atmos: vars_state, vars_aux
 using DelimitedFiles
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -404,7 +405,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
-  Q = init_ode_state(dg, FT(0))
+  Q = init_ode_state(dg, FT(0); device=CPU())
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
   # Calculating initial condition norm 
   eng0 = norm(Q)
