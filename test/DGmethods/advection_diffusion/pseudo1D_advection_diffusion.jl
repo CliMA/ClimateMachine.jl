@@ -13,6 +13,7 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
+using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -32,6 +33,8 @@ if !@isdefined integration_testing
       parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
   end
 end
+
+const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
 
 include("advection_diffusion_model.jl")
 
@@ -80,7 +83,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, direction, dt,
              n, α, β, μ, δ, vtkdir, outputtime)
 
   grid = DiscontinuousSpectralElementGrid(topl,
@@ -93,7 +96,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralGradPenalty(),
+               direction=direction())
 
   Q = init_ode_state(dg, FT(0))
 
@@ -175,22 +179,56 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64] = 1.2228434091602128e-02
-  expected_result[2, 2, Float64] = 8.8037798002260420e-04
-  expected_result[2, 3, Float64] = 4.8828676920661276e-05
-  expected_result[2, 4, Float64] = 2.0105646643725454e-06
-  expected_result[3, 1, Float64] = 9.5425450102548364e-03
-  expected_result[3, 2, Float64] = 5.9769045240778518e-04
-  expected_result[3, 3, Float64] = 4.0081798525590592e-05
-  expected_result[3, 4, Float64] = 2.9803558844543670e-06
-  expected_result[2, 1, Float32] = 1.2228445f-02
-  expected_result[2, 2, Float32] = 8.8042860f-04
-  expected_result[2, 3, Float32] = 4.8848684f-05
-  expected_result[2, 4, Float32] = 2.1814606f-06
-  expected_result[3, 1, Float32] = 9.5424980f-03
-  expected_result[3, 2, Float32] = 5.9770537f-04
-  expected_result[3, 3, Float32] = 4.0205956f-05
-  expected_result[3, 4, Float32] = 5.1562140f-06
+  expected_result[2, 1, Float64, EveryDirection] = 1.2228434091602128e-02
+  expected_result[2, 2, Float64, EveryDirection] = 8.8037798002260420e-04
+  expected_result[2, 3, Float64, EveryDirection] = 4.8828676920661276e-05
+  expected_result[2, 4, Float64, EveryDirection] = 2.0105646643725454e-06
+  expected_result[3, 1, Float64, EveryDirection] = 9.5425450102548364e-03
+  expected_result[3, 2, Float64, EveryDirection] = 5.9769045240778518e-04
+  expected_result[3, 3, Float64, EveryDirection] = 4.0081798525590592e-05
+  expected_result[3, 4, Float64, EveryDirection] = 2.9803558844543670e-06
+  expected_result[2, 1, Float32, EveryDirection] = 1.2228445149958134e-02
+  expected_result[2, 2, Float32, EveryDirection] = 8.8042858988046646e-04
+  expected_result[2, 3, Float32, EveryDirection] = 4.8848683945834637e-05
+  expected_result[2, 4, Float32, EveryDirection] = 2.1814605588588165e-06
+  expected_result[3, 1, Float32, EveryDirection] = 9.5424978062510490e-03
+  expected_result[3, 2, Float32, EveryDirection] = 5.9770536608994007e-04
+  expected_result[3, 3, Float32, EveryDirection] = 4.0205955883720890e-05
+  expected_result[3, 4, Float32, EveryDirection] = 5.1562137741711922e-06
+
+  expected_result[2, 1, Float64, HorizontalDirection] = 4.6773313437233156e-02
+  expected_result[2, 2, Float64, HorizontalDirection] = 4.0665907382118234e-03
+  expected_result[2, 3, Float64, HorizontalDirection] = 5.3141853450218684e-05
+  expected_result[2, 4, Float64, HorizontalDirection] = 3.9767488072903428e-07
+  expected_result[3, 1, Float64, HorizontalDirection] = 1.7293617338929253e-02
+  expected_result[3, 2, Float64, HorizontalDirection] = 1.2450424793625284e-03
+  expected_result[3, 3, Float64, HorizontalDirection] = 6.9054177134198605e-05
+  expected_result[3, 4, Float64, HorizontalDirection] = 2.8433678163945639e-06
+  expected_result[2, 1, Float32, HorizontalDirection] = 4.6773292124271393e-02
+  expected_result[2, 2, Float32, HorizontalDirection] = 4.0663531981408596e-03
+  expected_result[2, 3, Float32, HorizontalDirection] = 5.3235678933560848e-05
+  expected_result[2, 4, Float32, HorizontalDirection] = 3.5185137221560581e-06
+  expected_result[3, 1, Float32, HorizontalDirection] = 1.7293667420744896e-02
+  expected_result[3, 2, Float32, HorizontalDirection] = 1.2450854992493987e-03
+  expected_result[3, 3, Float32, HorizontalDirection] = 7.0057700213510543e-05
+  expected_result[3, 4, Float32, HorizontalDirection] = 5.5491593229817227e-05
+
+  expected_result[2, 1, Float64, VerticalDirection] = 4.6773313437233136e-02
+  expected_result[2, 2, Float64, VerticalDirection] = 4.0665907382118321e-03
+  expected_result[2, 3, Float64, VerticalDirection] = 5.3141853450244739e-05
+  expected_result[2, 4, Float64, VerticalDirection] = 3.9767488073407439e-07
+  expected_result[3, 1, Float64, VerticalDirection] = 6.6147454220062032e-02
+  expected_result[3, 2, Float64, VerticalDirection] = 5.7510277746000895e-03
+  expected_result[3, 3, Float64, VerticalDirection] = 7.5153929878994988e-05
+  expected_result[3, 4, Float64, VerticalDirection] = 5.6239720970531199e-07
+  expected_result[2, 1, Float32, VerticalDirection] = 4.6773284673690796e-02
+  expected_result[2, 2, Float32, VerticalDirection] = 4.0663606487214565e-03
+  expected_result[2, 3, Float32, VerticalDirection] = 5.3235460654832423e-05
+  expected_result[2, 4, Float32, VerticalDirection] = 3.8958251025178470e-06
+  expected_result[3, 1, Float32, VerticalDirection] = 6.6147454082965851e-02
+  expected_result[3, 2, Float32, VerticalDirection] = 5.7507432065904140e-03
+  expected_result[3, 3, Float32, VerticalDirection] = 8.3523096691351384e-05
+  expected_result[3, 4, Float32, VerticalDirection] = 2.3923123080749065e-04
 
   numlevels = integration_testing ? 4 : 1
 
@@ -198,40 +236,53 @@ let
     for FT in (Float64, Float32)
       result = zeros(FT, numlevels)
       for dim = 2:3
-        n = SVector(1, 1, dim == 2 ? 0 : 1) / FT(sqrt(dim))
-        α = FT(1)
-        β = FT(1 // 100)
-        μ = FT(-1 // 2)
-        δ = FT(1 // 10)
-        for l = 1:numlevels
-          Ne = 2^(l-1) * base_num_elem
-          brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
-          periodicity = ntuple(j->false, dim)
-          topl = BrickTopology(mpicomm, brickrange; periodicity = periodicity)
-          @show dt = (α/4) / (Ne * polynomialorder^2)
-
-          timeend = 1
-          outputtime = 1
-
-          dt = outputtime / ceil(Int64, outputtime / dt)
-
-          @info (ArrayType, FT, dim)
-          vtkdir = "vtk_advection" *
-          "_poly$(polynomialorder)" *
-          "_dim$(dim)_$(ArrayType)_$(FT)" *
-          "_level$(l)"
-          result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
-                          timeend, FT, dt, n, α, β, μ, δ, vtkdir,
-                          outputtime)
-          @test result[l] ≈ FT(expected_result[dim, l, FT])
-        end
-        @info begin
-          msg = ""
-          for l = 1:numlevels-1
-            rate = log2(result[l]) - log2(result[l+1])
-            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+        for direction in (EveryDirection, HorizontalDirection,
+                          VerticalDirection)
+          if direction <: EveryDirection
+            n = dim == 2 ? SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0) :
+                           SVector{3, FT}(1/sqrt(3), 1/sqrt(3), 1/sqrt(3))
+          elseif direction <: HorizontalDirection
+            n = dim == 2 ? SVector{3, FT}(1, 0, 0) :
+                           SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0)
+          elseif direction <: VerticalDirection
+            n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
           end
-          msg
+          α = FT(1)
+          β = FT(1 // 100)
+          μ = FT(-1 // 2)
+          δ = FT(1 // 10)
+          for l = 1:numlevels
+            Ne = 2^(l-1) * base_num_elem
+            brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
+            periodicity = ntuple(j->false, dim)
+            topl = StackedBrickTopology(mpicomm, brickrange;
+                                        periodicity = periodicity)
+            dt = (α/4) / (Ne * polynomialorder^2)
+            @info "time step" dt
+
+            timeend = 1
+            outputtime = 1
+
+            dt = outputtime / ceil(Int64, outputtime / dt)
+
+            @info (ArrayType, FT, dim, direction)
+            vtkdir = output ? "vtk_advection" *
+                              "_poly$(polynomialorder)" *
+                              "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
+                              "_level$(l)" : nothing
+            result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
+                            timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
+                            outputtime)
+            @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
+          end
+          @info begin
+            msg = ""
+            for l = 1:numlevels-1
+              rate = log2(result[l]) - log2(result[l+1])
+              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+            end
+            msg
+          end
         end
       end
     end
