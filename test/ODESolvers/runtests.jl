@@ -22,6 +22,7 @@ const explicit_methods = [(LSRK54CarpenterKennedy, 4)
                           (LSRK144NiegemannDiehlBusch, 4)
                           (SSPRK33ShuOsher, 3)
                           (SSPRK34SpiteriRuuth, 3)
+                          (LSRKEulerMethod, 1)
                          ]
 
 const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
