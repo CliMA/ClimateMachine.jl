@@ -2,7 +2,7 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       AtmosAcousticNonlinearModel, AtmosAcousticLinearModelSplitA, AtmosAcousticLinearModelSplitB
+       AtmosAcousticNonlinearModel
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
