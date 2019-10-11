@@ -97,13 +97,6 @@ vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
-function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
-  transform.turbulence.θ_v = aux.moisture.θ_v
-end
-function diffusive!(m::SmagorinskyLilly, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix})
-  diffusive.turbulence.∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
-end
-
 """
   buoyancy_correction(normSij, θᵥ, dθᵥdz)
   return buoyancy_factor, scaling coefficient for Standard Smagorinsky Model
@@ -200,6 +193,9 @@ vars_gradient(::Vreman,T) = @vars(θ_v::T)
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
+function gradvariables!(m::Vreman, transform::Vars, state::Vars, aux::Vars, t::Real)
+  transform.turbulence.θ_v = aux.moisture.θ_v
+end
 function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   DT = eltype(state)
   ∇u = ∇transform.u
@@ -223,6 +219,20 @@ Filter width Δ is the local grid resolution calculated from the mesh metric ten
 is specified and used to compute the equivalent AnisoMinDiss coefficient (computed as the solution to the 
 eigenvalue problem for the Laplacian operator). 
 
+@article{doi:10.1063/1.4928700,
+author = {Rozema,Wybe  and Bae,Hyun J.  and Moin,Parviz  and Verstappen,Roel },
+title = {Minimum-dissipation models for large-eddy simulation},
+journal = {Physics of Fluids},
+volume = {27},
+number = {8},
+pages = {085107},
+year = {2015},
+doi = {10.1063/1.4928700},
+URL = {https://aip.scitation.org/doi/abs/10.1063/1.4928700},
+eprint = {https://aip.scitation.org/doi/pdf/10.1063/1.4928700}
+}
+-------------------------------------------------------------------------------------
+# TODO: Future versions will include modifications of Abkar(2016), Verstappen(2018) 
 @article{PhysRevFluids.1.041701,
 title = {Minimum-dissipation scalar transport model for large-eddy simulation of turbulent flows},
 author = {Abkar, Mahdi and Bae, Hyun J. and Moin, Parviz},
@@ -243,8 +253,12 @@ struct AnisoMinDiss{DT} <: TurbulenceClosure
   C_poincare::DT
 end
 vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
+vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::T)
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
+end
+function gradvariables!(m::AnisoMinDiss, transform::Vars, state::Vars, aux::Vars, t::Real)
+  transform.turbulence.θ_v = aux.moisture.θ_v
 end
 function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   DT = eltype(state)
