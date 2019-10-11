@@ -20,7 +20,7 @@ using CLIMA.VTK
 using CLIMA.Atmos: vars_state, vars_aux
 using DelimitedFiles
 using Random
-using CuArrays.CURAND
+using GPUifyLoops
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -38,7 +38,7 @@ if !@isdefined integration_testing
 end
 
 # Random number seed
-#const seed = MersenneTwister(0)
+const seed = MersenneTwister(0)
 
 
 """
@@ -94,19 +94,14 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
   # --------------------------------------------------
-  #randnum1   = rand(seed, FT) / 100
-    #randnum2   = rand(seed, FT) / 100
- #   rand1 = CuArray{FT}(undef, 1);
-    randy = curand(1, 1)
-    #@info randy
-#  randnum1   = rand!(rand1) #SVector{1,FT}(rand(FT,1))/100
-#  randnum2   = rand!(rand1) #SVector{1,FT}(rand(FT,1))/100
+  randnum1   = rand(seed, FT) / 100
+  randnum2   = rand(seed, FT) / 100
   #randnum1   = rand(FT,1)/100
   #randnum2   = rand(FT,1)/100
-#  if xvert <= 200.0
-#    θ_liq += randnum1 * θ_liq 
-#    q_tot += randnum2 * q_tot
-#  end
+  if xvert <= 200.0
+    θ_liq += randnum1 * θ_liq 
+    q_tot += randnum2 * q_tot
+  end
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
@@ -427,7 +422,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
-  Q = init_ode_state(dg, FT(0))
+  Q = init_ode_state(dg, FT(0); device=CPU())
+    
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
   # Calculating initial condition norm 
   eng0 = norm(Q)
@@ -516,6 +512,7 @@ let
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
+      
     # User defined domain parameters
     brickrange = (grid1d(0, 2000, elemsize=FT(50)*N),
                   grid1d(0, 2000, elemsize=FT(50)*N),
