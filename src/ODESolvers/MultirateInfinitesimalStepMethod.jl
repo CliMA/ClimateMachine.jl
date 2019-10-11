@@ -196,7 +196,7 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     fastsolver = fastmethod(fastrhs!, Q; dt=dτ, t0=τ)
     #solve!(Q, fastsolver, p; timeend = d_i * dτ) #(1c)
     for k = 1:mis.nsubsteps
-      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), offset)
+      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset))
       τ += dτ
     end
   end
