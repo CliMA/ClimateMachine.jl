@@ -373,6 +373,26 @@ Note: The actual rates are all over the place with this test and passing largely
       end
     end
   end
+
+  @testset "MIS methods (with substeps)" begin
+    finaltime = 5π / 2
+    dts = [2.0 ^ (-k) for k = 2:10]
+    error = similar(dts)
+    for (mis_method, mis_expected_order) in mis_methods
+      for fast_method in (LSRK54CarpenterKennedy,)
+        for (n, dt) in enumerate(dts)
+          Q = exactsolution(0)
+          solver = mis_method(rhs_slow!, rhs_fast!, fast_method, 4, Q;
+                        dt = dt, t0 = 0.0)
+          solve!(Q, solver; timeend = finaltime)
+          error[n] = norm(Q - exactsolution(finaltime))
+        end
+
+        rate = log2.(error[1:end-1] ./ error[2:end])
+        @test isapprox(rate[end], mis_expected_order; atol = 0.1)
+      end
+    end
+  end
 end
 
 # Simple 3-rate problem based on test of RobertsSarsharSandu2018arxiv
