@@ -399,6 +399,7 @@ let
             solver = mis_method(rhs_slow!, rhs_fast!, fast_method, 4, Q;
                           dt = dt, t0 = 0.0)
             solve!(Q, solver; timeend = finaltime)
+            Q = Array(Q)
             errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
           end
           rates = log2.(errors[1:end-1] ./ errors[2:end])
