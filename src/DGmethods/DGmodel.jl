@@ -121,8 +121,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
-function init_ode_state(dg::DGModel, args...; device=typeof(state.data) <: Array ? CPU() : CUDA(), commtag=888)
-  array_device = typeof(state.data) <: Array ? CPU() : CUDA()
+function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+  array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
   @assert device == CPU() || device == array_device
 
   bl = dg.balancelaw
