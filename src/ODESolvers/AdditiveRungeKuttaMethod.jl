@@ -323,6 +323,7 @@ function ARK548L2SA2KennedyCarpenter(F, L,
 end
 
 ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
+ODEs.updatetime!(ark::AdditiveRungeKutta, time) = ark.t[1] = time
 
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
                       adjustfinalstep::Bool)

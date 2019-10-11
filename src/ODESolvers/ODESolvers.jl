@@ -27,6 +27,15 @@ Change the time step size to `dt` for the ODE solver `solver`.
 updatedt!(solver::AbstractODESolver, dt) =
   error("Variable time stepping not implemented for $(typeof(solver))")
 
+"""
+    updatetime!(solver::AbstractODESolver, time)
+
+Change the current time to `time` for the ODE solver `solver`.
+"""
+updatetime!(solver::AbstractODESolver, time) =
+  error("Variable time stepping not implemented for $(typeof(solver))")
+
+
 # {{{ run!
 """
     solve!(Q, solver::AbstractODESolver; timeend,
