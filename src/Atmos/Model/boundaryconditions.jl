@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters
-export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC
+export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
 
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
@@ -217,3 +217,55 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
   end
 end
 
+"""
+  RayleighBenardBC <: BoundaryCondition
+"""
+struct RayleighBenardBC{FT} <: BoundaryCondition
+  T_bot::FT
+  T_top::FT
+end
+# Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
+function atmos_boundary_state!(::Rusanov, bc::RayleighBenardBC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t,_...)
+  @inbounds begin
+    FT = eltype(stateP)
+    ρP  = stateM.ρ
+    # Weak Boundary Condition Imposition
+    # Prescribe no-slip wall (Dirichlet b.c. for wall velocity)
+    # Note that with the default resolution this results in an underresolved near-wall layer
+    # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
+    # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
+    UP  = FT(0)
+    VP  = FT(0) 
+    WP  = FT(0) 
+    if bctype == 1 
+      E_intP = ρP * cv_d * (bc.T_bot - T_0)
+    else
+      E_intP = ρP * cv_d * (bc.T_top - T_0) 
+    end
+    stateP.ρ = ρP
+    stateP.ρu = SVector(UP, VP, WP)
+    stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * auxP.coord[3] * grav)
+    nothing
+  end
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBenardBC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  FT = eltype(stateM)
+  ρP  = stateM.ρ
+  UP  = FT(0)
+  VP  = FT(0)
+  WP  = FT(0) 
+  if bctype == 1 
+    E_intP = ρP * cv_d * (bc.T_bot - T_0)
+  else
+    E_intP = ρP * cv_d * (bc.T_top - T_0) 
+  end
+  stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+  stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * auxP.coord[3] * grav)
+  diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))
+  nothing
+end
