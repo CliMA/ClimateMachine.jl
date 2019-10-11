@@ -31,6 +31,6 @@ function runmpi(tests, file)
     # Running this way prevents:
     #   Balance Law Solver | No tests
     # since external tests are not returned as passed/fail
-    @test (run(cmd); true)
+    @time @test (run(cmd); true)
   end
 end
