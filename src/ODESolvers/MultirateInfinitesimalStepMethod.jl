@@ -13,18 +13,18 @@ export MIS2, MIS3C, MIS4, MIS4a
 ODEs = ODESolvers
 
 """
-    TimeScaledRHS(α, β, rhs!)
+    TimeScaledRHS(a, b, rhs!)
 
-When evaluate at time `t`, evaluates `rhs!` at time `α + βt`.
+When evaluate at time `t`, evaluates `rhs!` at time `a + bt`.
 """
 mutable struct TimeScaledRHS{RT}
-  α::RT
-  β::RT
+  a::RT
+  b::RT
   rhs!
 end
 
 function (o::TimeScaledRHS)(dQ, Q, params, tau; increment)  
-  o.rhs!(dQ, Q, params, o.α + o.β*tau; increment=increment)
+  o.rhs!(dQ, Q, params, o.a + o.b*tau; increment=increment)
 end
 
 using GPUifyLoops
@@ -48,8 +48,6 @@ The constructor builds a multirate infinitesimal step Runge-Kutta scheme
 based on the provided `α`, `β` and `γ` tableaux and `fastmethod` for solving
 the fast modes.
 
-  - [`LowStorageRungeKuttaMethod`](@ref)
-
 ### References
     @article{KnothWensch2014,
       title={Generalized split-explicit Runge--Kutta methods for the compressible Euler equations},
@@ -61,7 +59,7 @@ the fast modes.
       year={2014}
     }
 """
-struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstagesm2, Nstages_sq} <: ODEs.AbstractODESolver
+struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{RT, 1}
   "time"
@@ -77,9 +75,9 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstagesm2, Nsta
   "slow rhs function"
   slowrhs!
   "RHS for fast solver"
-  fastrhs!::TimeScaledRHS{RT}
+  tsfastrhs!::TimeScaledRHS{RT}
   "fast rhs method"
-  fastmethod
+  fastsolver::FS
   "number of substeps per stage"
   nsubsteps::Int
   α::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq} 
@@ -103,21 +101,22 @@ struct MultirateInfinitesimalStep{T, RT, AT, Nstages, Nstagesm1, Nstagesm2, Nsta
     ΔYnj = ntuple(_ -> similar(Q), Nstages-2)
     fYnj = ntuple(_ -> similar(Q), Nstages-1)
     offset = similar(Q)
-    fastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
+    tsfastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
+    fastsolver = fastmethod(tsfastrhs!, Q)
 
     d = sum(β, dims=2)
 
     c = similar(d)
     for i = eachindex(c)
-      c[i] = d[i] 
+      c[i] = d[i]
       if i > 1
         c[i] += sum(j-> (α[i,j] + γ[i,j])*c[j], 1:i-1)
       end
     end
     c̃ = α*c
     
-    new{T, RT, AT, Nstages, Nstages-1, Nstages-2, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
-                                         slowrhs!, fastrhs!, fastmethod,nsubsteps,
+    new{T, RT, AT, typeof(fastsolver), Nstages, Nstages-1, Nstages-2, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
+                                         slowrhs!, tsfastrhs!, fastsolver, nsubsteps,
                                          α, β, γ, d, c, c̃)
   end
 end
@@ -154,61 +153,41 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
   ΔYnj = mis.ΔYnj
   fYnj = mis.fYnj
   offset = mis.offset
+  d = mis.d
   c = mis.c
   c̃ = mis.c̃
   slowrhs! = mis.slowrhs!
-  fastmethod = mis.fastmethod
-  fastrhs! = mis.fastrhs!
+  fastsolver = mis.fastsolver
+  fastrhs! = mis.tsfastrhs!
 
   nstages = size(α, 1)
 
-  # first stage
-  copyto!(yn, Q)
+  copyto!(yn, Q) # first stage
   for i = 2:nstages
-    d_i = sum(j -> β[i, j], 1:i-1)
-
     slowrhs!(fYnj[i-1], Q, p, time + c[i-1]*dt, increment=false)
-
-    # TODO write a kernel to do this
-    #=
-    if i > 2
-      @. ΔYnj[i-2] = Q - yn     # == 0 for i == 2
-    end
-    Q .= yn
-    offset .= (β[i,1]/d_i) .* fYnj[1]
-    for j = 2:i-1 
-     Q .+= α[i, j] .* ΔYnj[j-1]
-     offset .+= (γ[i, j]/d_i) .* ΔYnj[j-1] ./ dt .+ (β[i,j]/d_i) .* fYnj[j]
-    end  
-    =#
 
     threads = 256
     blocks = div(length(realview(Q)) + threads - 1, threads)
     @launch(device(Q), threads=threads, blocks=blocks,
-            update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]), α[i,:], β[i,:], γ[i,:], d_i, dt))
+            update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]), 
+            α[i,:], β[i,:], γ[i,:], d[i], dt))
 
-
-    fastrhs!.α = time + c̃[i]*dt
-    fastrhs!.β = (c[i] - c̃[i]) / d_i
+    fastrhs!.a = time + c̃[i]*dt
+    fastrhs!.b = (c[i] - c̃[i]) / d[i]
 
     τ = zero(FT)
-    dτ = d_i * dt / mis.nsubsteps
-    fastsolver = fastmethod(fastrhs!, Q; dt=dτ, t0=τ)
-    #solve!(Q, fastsolver, p; timeend = d_i * dτ) #(1c)
+    dτ = d[i] * dt / mis.nsubsteps
+    ODEs.updatetime!(fastsolver, τ)
+    ODEs.updatedt!(fastsolver, dτ)
+    # TODO: we want to be able to write
+    #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
+    # especially if we want to use StormerVerlet, but need some way to pass in `offset`
     for k = 1:mis.nsubsteps
-      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset))
+      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset))  #(1c)
       τ += dτ
     end
   end
 end
-
-
-# TODO write this function
-#function MultirateInfinitesimalStep(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
-#                                Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
-#  rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-#  MultirateInfinitesimalStep(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
-#end
 
 function MIS2(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
   α = [0 0              0              0;
