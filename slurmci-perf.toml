@@ -5,7 +5,7 @@
 cpu = []
 
 cpu_gpu = [
-    ["4", "examples/DGmethods/ex_001_dycoms.jl"],
+    { file = "examples/DGmethods/ex_001_dycoms.jl", n = 4, args = []},
 ]
 
 gpu = []
