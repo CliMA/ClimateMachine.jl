@@ -1,4 +1,9 @@
-struct DGModel{BL,G,NFND,NFD,GNF,AS,DS}
+abstract type Direction end
+struct EveryDirection <: Direction end
+struct HorizontalDirection <: Direction end
+struct VerticalDirection <: Direction end
+
+struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
@@ -6,17 +11,19 @@ struct DGModel{BL,G,NFND,NFD,GNF,AS,DS}
   gradnumflux::GNF
   auxstate::AS
   diffstate::DS
+  direction::D
 end
 function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
                  auxstate=create_auxstate(balancelaw, grid),
-                 diffstate=create_diffstate(balancelaw, grid))
+                 diffstate=create_diffstate(balancelaw, grid),
+                 direction=EveryDirection())
   DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
-          diffstate)
+          diffstate, direction)
 end
 
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   bl = dg.balancelaw
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   topology = grid.topology
@@ -45,6 +52,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   Np = dofs_per_element(grid)
 
+  communicate = !(isstacked(topology) &&
+                  typeof(dg.direction) <: VerticalDirection)
+
   if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
                                   typeof(auxstate), typeof(t)})
     update_aux!(dg, bl, Q, auxstate, t)
@@ -53,81 +63,97 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   ########################
   # Gradient Computation #
   ########################
-  MPIStateArrays.start_ghost_exchange!(Q)
-  MPIStateArrays.start_ghost_exchange!(auxstate)
+  if communicate
+    MPIStateArrays.start_ghost_exchange!(Q)
+    MPIStateArrays.start_ghost_exchange!(auxstate)
+  end
 
   if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(bl, Val(dim), Val(polyorder), Q.Q, Qvisc.Q, auxstate.Q, vgeo, t, Dmat,
+            volumeviscterms!(bl, Val(dim), Val(polyorder), dg.direction, Q.data,
+                             Qvisc.data, auxstate.data, vgeo, t, Dmat,
                              topology.realelems))
 
-    MPIStateArrays.finish_ghost_recv!(Q)
-    MPIStateArrays.finish_ghost_recv!(auxstate)
+    if communicate
+      MPIStateArrays.finish_ghost_recv!(Q)
+      MPIStateArrays.finish_ghost_recv!(auxstate)
+    end
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(dim), Val(polyorder), dg.gradnumflux,
-                           Q.Q, Qvisc.Q, auxstate.Q,
+            faceviscterms!(bl, Val(dim), Val(polyorder), dg.direction,
+                           dg.gradnumflux, Q.data, Qvisc.data, auxstate.data,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
 
-    MPIStateArrays.start_ghost_exchange!(Qvisc)
+    communicate && MPIStateArrays.start_ghost_exchange!(Qvisc)
   end
 
   ###################
   # RHS Computation #
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(dim), Val(polyorder), dQdt.Q, Q.Q, Qvisc.Q, auxstate.Q,
-                     vgeo, t, lgl_weights_vec, Dmat,
-                     topology.realelems, increment))
+          volumerhs!(bl, Val(dim), Val(polyorder), dg.direction, dQdt.data,
+                     Q.data, Qvisc.data, auxstate.data, vgeo, t,
+                     lgl_weights_vec, Dmat, topology.realelems, increment))
 
-  if nviscstate > 0
-    MPIStateArrays.finish_ghost_recv!(Qvisc)
-  else
-    MPIStateArrays.finish_ghost_recv!(Q)
-    MPIStateArrays.finish_ghost_recv!(auxstate)
+  if communicate
+    if nviscstate > 0
+      MPIStateArrays.finish_ghost_recv!(Qvisc)
+    else
+      MPIStateArrays.finish_ghost_recv!(Q)
+      MPIStateArrays.finish_ghost_recv!(auxstate)
+    end
   end
 
-  # The main reason for this protection is not for the MPI.Waitall!, but the
-  # make sure that we do not recopy data to the GPU
-  nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
-  nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
-
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder),
+          facerhs!(bl, Val(dim), Val(polyorder), dg.direction,
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
-                   dQdt.Q, Q.Q, Qvisc.Q,
-                   auxstate.Q, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                   dQdt.data, Q.data, Qvisc.data,
+                   auxstate.data, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
-  MPIStateArrays.finish_ghost_send!(Qvisc)
-  MPIStateArrays.finish_ghost_send!(Q)
+  if communicate
+    MPIStateArrays.finish_ghost_send!(Qvisc)
+    MPIStateArrays.finish_ghost_send!(Q)
+  end
 end
 
-function init_ode_state(dg::DGModel, args...; commtag=888)
+function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+  array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+  @assert device == CPU() || device == array_device
+
   bl = dg.balancelaw
   grid = dg.grid
 
   state = create_state(bl, grid, commtag)
 
   topology = grid.topology
-  # FIXME: Remove after updating CUDA
-  h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
   Np = dofs_per_element(grid)
 
   auxstate = dg.auxstate
   dim = dimensionality(grid)
   polyorder = polynomialorder(grid)
   vgeo = grid.vgeo
-  device = typeof(state.Q) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(dim), Val(polyorder), state.Q, auxstate.Q, vgeo,
+
+  if device == array_device
+    @launch(device, threads=(Np,), blocks=nrealelem,
+            initstate!(bl, Val(dim), Val(polyorder), state.data, auxstate.data, vgeo,
                      topology.realelems, args...))
+  else
+    h_vgeo = Array(vgeo)
+    h_state = similar(state, Array)
+    h_auxstate = similar(auxstate, Array)
+    h_auxstate .= auxstate
+    @launch(device, threads=(Np,), blocks=nrealelem,
+      initstate!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
+          topology.realelems, args...))
+    state .= h_state
+  end  
+
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 
@@ -138,7 +164,7 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                     Q::MPIStateArray, auxstate::MPIStateArray,
                                     t::Real)
 
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   topology = grid.topology
@@ -161,7 +187,7 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
           knl_indefinite_stack_integral!(m, Val(dim), Val(polyorder),
-                                         Val(nvertelem), Q.Q, auxstate.Q,
+                                         Val(nvertelem), Q.data, auxstate.data,
                                          vgeo, grid.Imat, 1:nhorzelem,
                                          Val(nintegrals)))
 end
@@ -169,7 +195,7 @@ end
 function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                             auxstate::MPIStateArray, t::Real)
 
-  device = typeof(auxstate.Q) <: Array ? CPU() : CUDA()
+  device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   topology = grid.topology
@@ -192,14 +218,14 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
           knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
-                                                 Val(nvertelem), auxstate.Q,
+                                                 Val(nvertelem), auxstate.data,
                                                  1:nhorzelem,
                                                  Val(nintegrals)))
 end
 
 function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
                            auxstate::MPIStateArray, t::Real)
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
   topology = grid.topology
@@ -216,5 +242,5 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   ### update aux variables
   @launch(device, threads=(Np,), blocks=nrealelem,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
-                          Q.Q, auxstate.Q, t, topology.realelems))
+                          Q.data, auxstate.data, t, topology.realelems))
 end
