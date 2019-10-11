@@ -26,14 +26,9 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
+  const ArrayType = CuArray
 else
-  const ArrayTypes = (Array,)
-end
-
-if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
+  const ArrayType = Array
 end
 
 const output_vtk = true
@@ -54,17 +49,15 @@ function main()
   polynomialorder = 5
   numelem_horz = 6
   numelem_vert = 8
-  days = 86400
+  days = 60*60*24
   timeend = 60 # 400days
   outputtime = 2days
   
-  #@testset "$(@__FILE__)" begin
-    for ArrayType in ArrayTypes, FT in (Float64,)
+  for FT in (Float64,)
 
-      run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
-          timeend, outputtime, ArrayType, FT)
-    end
-  #end
+    run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
+        timeend, outputtime, ArrayType, FT)
+  end
 end
 
 function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
@@ -211,15 +204,16 @@ function held_suarez_forcing!(source, state, aux, t::Real)
   Δθ_z = FT(10)
   T_equator = FT(315)
   T_min = FT(200)
-  scale_height = FT(7000) #from Smolarkiewicz JAS 2001 paper
   σ_b = FT(7 / 10)
   r = norm(coord, 2)
   @inbounds λ = atan(coord[2], coord[1])
   @inbounds φ = asin(coord[3] / r)
   h = r - FT(planet_radius)
+  scale_height = FT(7000) #from Smolarkiewicz JAS 2001 paper
   σ = exp(-h / scale_height)
-  #p = air_pressure(T, ρ)
-#  σ = p/p0
+  # TODO: use
+  #  p = air_pressure(T, ρ)
+  #  σ = p/p0
   exner_p = σ ^ (R_d / cp_d)
   Δσ = (σ - σ_b) / (1 - σ_b)
   height_factor = max(0, Δσ)
