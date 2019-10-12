@@ -442,14 +442,46 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     step[1] += 1
     nothing
   end
+  
+  #Delete_old_files
+  cberase = GenericCallbacks.EveryXSimulationSteps(1000000000000000) do (init=false)
+    open("/home/yassine/yt-2T-drive/HF.txt", "w") do f
+      writedlm("/home/yassine/yt-2T-drive/HF.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/WQVAP.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/WQVAP.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/WU.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/WU.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/WV.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/WV.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/WW.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/WW.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/WRHO.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/WRHO.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/QLIQ.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/QLIQ.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/WQLIQ.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/WQLIQ.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/WWW.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/WWW.txt", "")
+    end
 
+  end
+  
   #Get statistics during run:
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
     gather_diagnostics(dg, Q)
   end
 
     
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics, cberase))
 
   #Get statistics at the end of the run:
   gather_diagnostics(dg, Q)
@@ -505,7 +537,7 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.02
-    timeend = dt
+    timeend = 200 * dt
     dim = 3
     VTKPATH = "/home/yassine/yt-2T-drive/dycoms-run"
     @info (ArrayType, dt, FT, dim, VTKPATH)
