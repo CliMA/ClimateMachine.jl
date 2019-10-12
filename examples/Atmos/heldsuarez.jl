@@ -10,7 +10,7 @@ using CLIMA.LowStorageRungeKuttaMethod: LSRK144NiegemannDiehlBusch
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
-using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d
+using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d, day
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
 using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
                    DryModel, NoRadiation, NoFluxBC,
@@ -49,9 +49,8 @@ function main()
   polynomialorder = 5
   numelem_horz = 6
   numelem_vert = 8
-  days = 60*60*24
-  timeend = 60 # 400days
-  outputtime = 2days
+  timeend = 60 # 400day
+  outputtime = 2day
   
   for FT in (Float64,)
 
@@ -197,9 +196,9 @@ function held_suarez_forcing!(source, state, aux, t::Real)
   e_int = e - u' * u / 2 - Φ
   T = air_temperature(e_int)
   # Held-Suarez constants
-  k_a = FT(1 / 40 / 86400)
-  k_f = FT(1 / 86400)
-  k_s = FT(1 / 4 / 86400)
+  k_a = FT(1 / (40 * day))
+  k_f = FT(1 / day)
+  k_s = FT(1 / (4 * day))
   ΔT_y = FT(60)
   Δθ_z = FT(10)
   T_equator = FT(315)
