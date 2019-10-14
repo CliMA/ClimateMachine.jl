@@ -264,7 +264,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBena
   else
     E_intP = ρP * cv_d * (bc.T_top - T_0) 
   end
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+  stateP.ρu = SVector(UP, VP, WP)
   stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * auxP.coord[3] * grav)
   diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))
   nothing
