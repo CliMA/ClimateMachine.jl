@@ -276,7 +276,7 @@ function gather_diagnostics(dg, Q)
   end
 
   #Horizontal averages we might need
-  S = zeros(Nqk, nvertelem,9)
+  S = zeros(Nqk, nvertelem,11)
   for eh in 1:nhorzelem
     for ev in 1:nvertelem
       e = ev + (eh - 1) * nvertelem
@@ -294,14 +294,16 @@ function gather_diagnostics(dg, Q)
             S[k,ev,7] += thermoQ[ijk,1,e]
             S[k,ev,8] += fluctQ[ijk,4,e] * fluctT[ijk,1,e]
             S[k,ev,9] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
+            S[k,ev,10] += fluctQ[ijk,2,e] * fluctQ[ijk,2,e]
+            S[k,ev,11] += fluctQ[ijk,3,e] * fluctQ[ijk,3,e]
           end
         end
       end
     end
   end
 
-  S_avg = zeros(Nqk,nvertelem,9)
-  for s in 1:9
+  S_avg = zeros(Nqk,nvertelem,11)
+  for s in 1:11
     for ev in 1:nvertelem
       for k in 1:Nqk
         S_avg[k,ev,s] = MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
@@ -322,6 +324,9 @@ function gather_diagnostics(dg, Q)
   OutputQLIQ = zeros(nvertelem * Nqk)
   OutputWQLIQ = zeros(nvertelem * Nqk)
   OutputWWW = zeros(nvertelem * Nqk )
+  OutputUU = zeros(nvertelem * Nqk )
+  OutputVV = zeros(nvertelem * Nqk )
+
   for ev in 1:nvertelem
     for k in 1:Nqk
       i=k + Nqk * (ev - 1)
@@ -334,6 +339,8 @@ function gather_diagnostics(dg, Q)
       OutputQLIQ[i] = S_avg[k,ev,7]
       OutputWQLIQ[i] = S_avg[k,ev,8]
       OutputWWW[i] = S_avg[k,ev,9]
+      OutputUU[i] = S_avg[k,ev,10]
+      OutputVV[i] = S_avg[k,ev,11]
     end
   end
   open("/home/yassine/yt-2T-drive/HF.txt", "a") do io
@@ -362,6 +369,12 @@ function gather_diagnostics(dg, Q)
   end
   open("/home/yassine/yt-2T-drive/WWW.txt", "a") do io
     writedlm(io, OutputWWW)
+  end
+  open("/home/yassine/yt-2T-drive/UU.txt", "a") do io
+    writedlm(io, OutputUU)
+  end
+  open("/home/yassine/yt-2T-drive/VV.txt", "a") do io
+    writedlm(io, OutputVV)
   end
 end
 
@@ -471,6 +484,12 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     end
     open("/home/yassine/yt-2T-drive/WWW.txt", "w") do io
       writedlm("/home/yassine/yt-2T-drive/WWW.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/UU.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/UU.txt", "")
+    end
+    open("/home/yassine/yt-2T-drive/VV.txt", "w") do io
+      writedlm("/home/yassine/yt-2T-drive/VV.txt", "")
     end
 
   end
