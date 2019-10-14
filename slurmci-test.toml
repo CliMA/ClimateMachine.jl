@@ -14,9 +14,12 @@ cpu_gpu = [
   { file = "examples/Microphysics/ex_1_saturation_adjustment.jl", n = 3, args = [] },
   { file = "examples/Microphysics/ex_2_Kessler.jl", n = 3, args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex.jl", n = 3, args = [] },
+  { file = "test/DGmethods/Euler/isentropicvortex-imex.jl", n = 3, args = [] },
+  { file = "test/DGmethods/Euler/isentropicvortex-multirate.jl", n = 3, args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl", n = 3, args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl", n = 3, args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/rising_bubble-model.jl", n = 3, args = [] },
+  { file = "test/DGmethods/compressible_Navier_Stokes/rising_bubble-model-imex.jl", n = 3, args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/density_current-model.jl", n = 3, args = [] },
   { file = "test/DGmethods_old/Euler/RTB_IMEX.jl", n = 3, args = [] },
   { file = "test/DGmethods_old/Euler/isentropic_vortex_standalone.jl", n = 3, args = [] },
@@ -37,5 +40,8 @@ cpu_gpu = [
 
 gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", n = 3, args = [] },
+  # this test times out; re-enable after fixing
+  #{ file = "test/DGmethods/compressible_Navier_Stokes/rayleigh-benard_model.jl", n = 3, args = [] },
+  { file = "examples/Atmos/heldsuarez.jl", n = 3, args = [] },
 ]
 
