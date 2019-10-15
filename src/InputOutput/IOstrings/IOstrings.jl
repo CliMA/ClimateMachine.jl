@@ -1,6 +1,6 @@
 module IOstrings
 
-export IOstrings_outpath_name.jl
+export IOstrings_outpath_name
 
 using Random
 
