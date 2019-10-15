@@ -1,0 +1,12 @@
+# Performance tests to be run by SLURM CI
+#
+# Each entry specifies the number of MPI ranks to use followed by the file to run
+
+cpu = []
+
+cpu_gpu = [
+    { file = "examples/DGmethods/ex_001_dycoms.jl", n = 4, args = []},
+]
+
+gpu = []
+

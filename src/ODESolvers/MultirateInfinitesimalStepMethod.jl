@@ -59,11 +59,11 @@ the fast modes.
       year={2014}
     }
 """
-struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
-  dt::Array{RT, 1}
+  dt::RT
   "time"
-  t::Array{RT, 1}
+  t::RT
   "storage for y_n"
   yn::AT
   "Storage for ``Y_nj - y_n``"
@@ -92,8 +92,6 @@ struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, 
 
     T = eltype(Q)
     RT = real(T)
-    dt = [dt]
-    t0 = [t0]
 
     Nstages = size(α, 1)
 
@@ -115,7 +113,7 @@ struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, 
     end
     c̃ = α*c
     
-    new{T, RT, AT, typeof(fastsolver), Nstages, Nstages-1, Nstages-2, Nstages ^ 2}(dt, t0, yn, ΔYnj, fYnj, offset,
+    new{T, RT, AT, typeof(fastsolver), Nstages, Nstages-1, Nstages-2, Nstages ^ 2}(RT(dt), RT(t0), yn, ΔYnj, fYnj, offset,
                                          slowrhs!, tsfastrhs!, fastsolver, nsubsteps,
                                          α, β, γ, d, c, c̃)
   end
@@ -126,7 +124,7 @@ end
 # define a common one in ODEsolvers ?
 function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, param,
                       timeend::AbstractFloat, adjustfinalstep::Bool)
-  time, dt = mis.t[1], mis.dt[1]
+  time, dt = mis.t, mis.dt
   @assert dt > 0
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
@@ -135,12 +133,12 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, param,
 
   ODEs.dostep!(Q, mis, param, time, dt)
 
-  if dt == mis.dt[1]
-    mis.t[1] += dt
+  if dt == mis.dt
+    mis.t += dt
   else
-    mis.t[1] = timeend
+    mis.t = timeend
   end
-  return mis.t[1]
+  return mis.t
 end
 
 function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
