@@ -2,7 +2,7 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       AtmosAcousticNonlinearModel
+       RemainderModel
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -213,7 +213,7 @@ include("radiation.jl")
 include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
-include("nonlinear.jl")
+include("remainder.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
