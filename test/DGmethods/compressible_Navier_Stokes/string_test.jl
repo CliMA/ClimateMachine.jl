@@ -533,7 +533,7 @@ function IO_format_output_directory_name(problem_name, grid_resolution)
     for i = 2:ndim
         ds = grid_resolution[i]
         outpath_string = string(outpath_string, ds, "mx")
-    end        
+    end
     OUTPATH = string("./output/",problem_name, "/", outpath_string,"_", randstring(6))
 
     #                                                                                                                                                                                                                                          
