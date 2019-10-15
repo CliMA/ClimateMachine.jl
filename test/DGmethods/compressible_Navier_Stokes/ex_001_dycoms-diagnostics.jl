@@ -131,7 +131,7 @@ end
 # TODO: temporary; move to new CLIMA module
 # TODO: add an option to reduce communication: compute averages
 # locally only
-function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
+function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnostics_fileout)
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
 
@@ -369,60 +369,15 @@ function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
     end
   end
 
+  io = open(diagnostics_fileout, "a")
+     current_time_str = string(current_time_string, "\n")
+     write(io, current_time_str)
+     writedlm(io, [OutputHF OutputQLIQ OutputWQVAP OutputUU OutputVV OutputWW])
+  close(io)
 
-    Δx, Δy, Δz = grid_resolution[1], grid_resolution[2], grid_resolution[end]
-
-    #fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_HF.txt")
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_STATS.txt")
-      io = open(fileout, "a")
-      writedlm(io, [OutputHF OutputQLIQ OutputWQVAP OutputUU OutputVV OutputWW])
-    close(io)
-#=
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WQVAP.txt")
-    io = open(fileout, "a")
-         writedlm(io, OutputWQVAP)
-    close(io)
-
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_QLIQ.txt")
-    io = open(fileout, "a")
-         writedlm(io, OutputQLIQ)
-    close(io)
-
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_UU.txt")
-    io = open(fileout, "a")
-      writedlm(io, OutputUU)
-    close(io)
-
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_VV.txt")
-    io = open(fileout, "a")
-      writedlm(io, OutputVV)
-    close(io)
-
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WW.txt")
-    io = open(fileout, "a")
-      writedlm(io, OutputWW)
-    close(io)
-=#
-#=        
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WU.txt")
-    io = open(fileout, "a")
-      writedlm(io, OutputWU)
-    close(io)
-
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WV.txt")
-    io = open(fileout, "a")
-      writedlm(io, OutputWV)
-    close(io)
-
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WRHO.txt")
-    io = open(fileout, "a")
-      writedlm(io, OutputWRHO)
-    close(io)
-
-=#
 end
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, OUTPATH)
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH)
   # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -499,17 +454,19 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     step[1] += 1
     nothing
   end
-    
-  
-  #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
-    gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
+
+  #
+  # Compute and write statistics during run:
+  #
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+      current_time_str = string(ODESolvers.gettime(lsrk))
+      gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
   end
     
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   #Get statistics at the end of the run:
-  gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
+  gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
 
     
   # Print some end of the simulation information
@@ -584,10 +541,17 @@ let
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
+
+    #open diagnostics file and write header:
+    diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww.dat")
+      io = open(diagnostics_fileout, "w")
+      write(io, " #\n # HF QLIQ WQVAP UU VV WW\n #\n")
+    close(io)
+
       
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, OUTPATH)
+                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH)
 
   end
 end
