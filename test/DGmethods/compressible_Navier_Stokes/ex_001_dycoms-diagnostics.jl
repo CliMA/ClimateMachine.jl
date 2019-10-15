@@ -517,7 +517,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(25000) do (init=false)
     gather_diagnostics(dg, Q)
   end
 

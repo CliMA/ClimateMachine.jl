@@ -130,7 +130,7 @@ end
 # TODO: temporary; move to new CLIMA module
 # TODO: add an option to reduce communication: compute averages
 # locally only
-function gather_diagnostics(dg, Q, OUTPATH)
+function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
 
@@ -215,7 +215,7 @@ function gather_diagnostics(dg, Q, OUTPATH)
     qvap_avg  = (qvap_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     T_avg     = (T_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     theta_avg = (theta_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
-
+#=
     @debug "ρ average = $(rho_avg)"
     @debug "U average = $(U_avg)"
     @debug "V average = $(V_avg)"
@@ -227,6 +227,7 @@ function gather_diagnostics(dg, Q, OUTPATH)
     @debug "qvap average = $(qvap_avg)"
     @debug "T average = $(T_avg)"
     @debug "theta average = $(theta_avg)"
+=#
   end
 
   AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
@@ -259,7 +260,7 @@ function gather_diagnostics(dg, Q, OUTPATH)
   W_local_flucttot   = sum(varQ[:,4,:])
   e_local_flucttot   = sum(varQ[:,5,:])
   qt_local_flucttot  = sum(varQ[:,6,:])
-
+#=
   rho_flucttot = MPI.Reduce(rho_local_flucttot, +, 0, MPI.COMM_WORLD)
   U_flucttot   = MPI.Reduce(U_local_flucttot, +, 0, MPI.COMM_WORLD)
   V_flucttot   = MPI.Reduce(V_local_flucttot, +, 0, MPI.COMM_WORLD)
@@ -283,7 +284,8 @@ function gather_diagnostics(dg, Q, OUTPATH)
     global_variance_e = e_standard_dev^2
     global_variance_qt = qt_standard_dev^2
   end
-
+=#
+#=
  @debug "ρ standard_deviation = $(rho_standard_dev)" 
  @debug "ρ Variance = $(Global_Variance_rho)"
  @debug "U standard_deviation = $(U_standard_dev)"
@@ -295,7 +297,8 @@ function gather_diagnostics(dg, Q, OUTPATH)
  @debug "e standard_deviation = $(e_standard_dev)"
  @debug "e Variance = $(Global_Variance_e)"
  @debug "qt standard_deviation = $(qt_standard_dev)"
- @debug "qt Variance = $(Global_Variance_qt)"
+@debug "qt Variance = $(Global_Variance_qt)"
+=#
   #Horizontal averages we might need
   S = zeros(Nqk, nvertelem,11)
   for eh in 1:nhorzelem
@@ -366,83 +369,51 @@ function gather_diagnostics(dg, Q, OUTPATH)
   end
 
 
-
     Δx, Δy, Δz = grid_resolution[1], grid_resolution[2], grid_resolution[end]
                 
-    fileout = string(OUTPATH, "/", problem_name, "_dx", Δx, "mXdy", Δy, "mXdz", Δz, "_HF.txt")
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_HF.txt")
     io = open(fileout, "a")
-      writedlm(io, "")
+      writedlm(io, OutputHF)
     close(io)
 
-    fileout = string(OUTPATH, "/", problem_name, "_dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WQVAP.txt")
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WQVAP.txt")
     io = open(fileout, "a")
-      writedlm(io, "")
+         writedlm(io, OutputWQVAP)
     close(io)
 
-    fileout = string(OUTPATH, "/", problem_name, "_dx", Δx, "mXdy", Δy, "mXdz", Δz, "_UU.txt")
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_UU.txt")
     io = open(fileout, "a")
-      writedlm(io, "")
+      writedlm(io, OutputUU)
     close(io)
 
-    fileout = string(OUTPATH, "/", problem_name, "_dx", Δx, "mXdy", Δy, "mXdz", Δz, "_VV.txt")
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_VV.txt")
     io = open(fileout, "a")
-      writedlm(io, "")
+      writedlm(io, OutputVV)
     close(io)
 
-    fileout = string(OUTPATH, "/", problem_name, "_dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WW.txt")
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WW.txt")
     io = open(fileout, "a")
-      writedlm(io, "")
+      writedlm(io, OutputWW)
     close(io)
 
-        
-    fileout = string(OUTPATH, "/", problem_name, "_dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WU.txt")
+#=        
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WU.txt")
     io = open(fileout, "a")
-      writedlm(io, "")
+      writedlm(io, OutputWU)
     close(io)
 
-    fileout = string(OUTPATH, "/", problem_name, "_dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WV.txt")
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WV.txt")
     io = open(fileout, "a")
-      writedlm(io, "")
+      writedlm(io, OutputWV)
     close(io)
 
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WRHO.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputWRHO)
+    close(io)
 
-
-file = string(stats_directory, "HF.txt");
-io = open("HF.txt", "a") do io
-writedlm(io, OutputHF)
+=#
 end
-open("WQVAP.txt", "a") do io
-writedlm(io, OutputWQVAP)
-end
-open("WU.txt", "a") do io
-writedlm(io, OutputWU)
-end
-open("WV.txt", "a") do io
-writedlm(io, OutputWV)
-end
-open("WW.txt", "a") do io
-writedlm(io, OutputWW)
-end
-open("WRHO.txt", "a") do io
-writedlm(io, OutputWRHO)
-end
-open("QLIQ.txt", "a") do io
-writedlm(io, OutputQLIQ)
-end
-open("WQLIQ.txt", "a") do io
-writedlm(io, OutputWQLIQ)
-end
-open("WWW.txt", "a") do io
-writedlm(io, OutputWWW)
-end
-open("UU.txt", "a") do io
-writedlm(io, OutputUU)
-end
-open("VV.txt", "a") do io
-writedlm(io, OutputVV)
-end
-end
-
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, OUTPATH)
   # Grid setup (topl contains brickrange information)
@@ -510,7 +481,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -525,14 +496,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   #Get statistics during run:
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-    gather_diagnostics(dg, Q, OUTPATH)
+    gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
   end
-
     
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics, cberase))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   #Get statistics at the end of the run:
-  gather_diagnostics(dg, Q, OUTPATH)
+  gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
 
     
   # Print some end of the simulation information
@@ -550,6 +520,35 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   """ engf engf/eng0 engf-eng0 errf errf / engfe
   engf/eng0
 =#
+end
+
+#
+# Define output path string:
+#
+function IO_format_output_directory_name(problem_name, grid_resolution)
+
+    ndim = length(grid_resolution)
+
+    outpath_string = string(grid_resolution[1], "mx")
+    for i = 2:ndim
+        ds = grid_resolution[i]
+        outpath_string = string(outpath_string, ds, "mx")
+    end        
+    OUTPATH = string("./output/",problem_name, "/", outpath_string,"_", randstring(6))
+
+    #                                                                                                                                                                                                                                          
+    # Create output directories to store diagnostics and vtks:
+    #
+    if (isdir(OUTPATH) == false)
+        mkpath(OUTPATH)
+    else
+        #Move an existing directory to dir_previous if it already exists
+        auxi = OUTPATH[1:end]
+        previous_run = string(OUTPATH, "_previous");
+        mv(OUTPATH, previous_run, force=true)
+    end
+
+    return OUTPATH
 end
 
 using Test
@@ -582,7 +581,7 @@ let
     ymin, ymax = 0, 1500
     zmin, zmax = 0, 1500
 
-    grid_resolution = [Δx, Δy, Δz] 
+    grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
     dim = length(grid_resolution)
 
@@ -601,25 +600,14 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
 
-    problem_name = string("dycoms")
+    problem_name = "dycoms"
     dt = 0.002
     timeend = 2*dt
 
-    OUTPATH = "./vtk-dycoms/50mx50mx10m-1500mx1500mx1500m"
-
-    # 
-    # Create output directories to store diagnostics and vtks:
-    #
-    OUTPATH = string(problem_name, "/", OUTPATH, "/")
-    if (isdir(OUTPATH) == false)
-        mkpath(OUTPATH)
-    else
-        #Move an existing directory to dir_previous if it already exists
-        previous_run = string(OUTPATH, "_previous");
-        mv(OUTPATH, previous_run)
-    end
+    #Create unique output path directory:
+    OUTPATH = IO_format_output_directory_name(problem_name, grid_resolution)
       
-    @info (ArrayType, dt, FT, dim, OUTPATH)
+    @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, OUTPATH)
 
