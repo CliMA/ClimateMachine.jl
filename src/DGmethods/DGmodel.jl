@@ -121,27 +121,39 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
-function init_ode_state(dg::DGModel, args...; commtag=888)
+function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+  array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+  @assert device == CPU() || device == array_device
+
   bl = dg.balancelaw
   grid = dg.grid
 
   state = create_state(bl, grid, commtag)
 
   topology = grid.topology
-  # FIXME: Remove after updating CUDA
-  h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
   Np = dofs_per_element(grid)
 
   auxstate = dg.auxstate
   dim = dimensionality(grid)
   polyorder = polynomialorder(grid)
   vgeo = grid.vgeo
-  device = typeof(state.data) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          initstate!(bl, Val(dim), Val(polyorder), state.data, auxstate.data, vgeo,
+
+  if device == array_device
+    @launch(device, threads=(Np,), blocks=nrealelem,
+            initstate!(bl, Val(dim), Val(polyorder), state.data, auxstate.data, vgeo,
                      topology.realelems, args...))
+  else
+    h_vgeo = Array(vgeo)
+    h_state = similar(state, Array)
+    h_auxstate = similar(auxstate, Array)
+    h_auxstate .= auxstate
+    @launch(device, threads=(Np,), blocks=nrealelem,
+      initstate!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
+          topology.realelems, args...))
+    state .= h_state
+  end  
+
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 
