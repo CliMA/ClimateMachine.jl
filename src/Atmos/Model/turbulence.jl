@@ -93,7 +93,6 @@ struct SmagorinskyLilly{T} <: TurbulenceClosure
 end
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
-vars_diffusive(::SmagorinskyLilly,T) = @vars(∂θ∂Φ::T)
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
