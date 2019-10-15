@@ -1,4 +1,3 @@
-# Load modules used here
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
@@ -17,7 +16,11 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
+
 using CLIMA.Atmos: vars_state, vars_aux
+
+using Random 
+const seed = MersenneTwister(0)
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -55,102 +58,100 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
-  DT            = eltype(state)
-  xvert::DT     = z
-  #These constants are those used by Stevens et al. (2005)
-  qref::DT      = 7.75e-3
-  q_tot_sfc::DT = qref
-  q_pt_sfc      = PhasePartition(q_tot_sfc)
-  Rm_sfc        = gas_constant_air(q_pt_sfc)
-  T_sfc::DT     = 292.5
-  P_sfc::DT     = MSLP
-  ρ_sfc::DT     = P_sfc / Rm_sfc / T_sfc
-  # Specify moisture profiles 
+  DT         = eltype(state)
+  xvert::DT  = z
+  
+  epsdv::DT     = molmass_ratio
+  q_tot_sfc::DT = 8.1e-3
+  Rm_sfc::DT    = gas_constant_air(PhasePartition(q_tot_sfc))
+  ρ_sfc::DT     = 1.22
+  P_sfc::DT     = 1.0178e5
+  T_BL::DT      = 285.0
+  T_sfc::DT     = P_sfc/(ρ_sfc * Rm_sfc);
+  
   q_liq::DT      = 0
   q_ice::DT      = 0
-  zb::DT         = 600    # initial cloud bottom
-  zi::DT         = 840    # initial cloud top
+  zb::DT         = 600   
+  zi::DT         = 840 
   dz_cloud       = zi - zb
-  q_liq_peak::DT = 0.00045 #cloud mixing ratio at z_i    
+  q_liq_peak::DT = 4.5e-4
+  
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
-  if xvert <= zi
-    θ_liq = DT(289)
-    q_tot = qref
+  if ( xvert <= zi)
+    θ_liq  = DT(289)
+    q_tot  = DT(8.1e-3)
   else
     θ_liq = DT(297.5) + (xvert - zi)^(DT(1/3))
     q_tot = DT(1.5e-3)
   end
-  # Calculate PhasePartition object for vertical domain extent
-  q_pt  = PhasePartition(q_tot, q_liq, q_ice) 
+
+  q_pt = PhasePartition(q_tot, q_liq, DT(0))
+  Rm    = gas_constant_air(q_pt)
+  cpm   = cp_m(q_pt)
   #Pressure
-  H     = Rm_sfc * T_sfc / grav;
-  p     = P_sfc * exp(-xvert/H);
-  #Density, Temperature
-  TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
-  ρ     = air_density(TS)
-  T     = air_temperature(TS)
-  #Assign State Variables
+  H = Rm_sfc * T_BL / grav;
+  P = P_sfc * exp(-xvert/H);
+  #Exner
+  exner_dry = exner(P, PhasePartition(DT(0)))
+  #Temperature 
+  T             = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
+  #Density
+  ρ             = P/(Rm*T);
+  #Potential Temperature
+  θv     = virtual_pottemp(T, P, q_pt)
+  # energy definitions
   u, v, w     = DT(7), DT(-5.5), DT(0)
-  e_kin       = DT(1/2) * (u^2 + v^2 + w^2)
+  U           = ρ * u
+  V           = ρ * v
+  W           = ρ * w
+  e_kin       = DT(1//2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
   state.ρ     = ρ
-  state.ρu    = SVector(ρ*u, ρ*v, ρ*w) 
+  state.ρu    = SVector(U, V, W) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
-end
+end   
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge, VTKPATH)
-  # Grid setup (topl contains brickrange information)
+
+function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = DT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  # Problem constants
-  # Radiation model
-  κ             = DT(85)
-  α_z           = DT(1) 
-  z_i           = DT(840) 
-  D_subsidence  = DT(3.75e-6)
-  ρ_i           = DT(1.13)
-  F_0           = DT(70)
-  F_1           = DT(22)
-  # Geostrophic forcing
-  f_coriolis    = DT(7.62e-5)
-  u_geostrophic = DT(7)
-  v_geostrophic = DT(-5.5)
-  
-  # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
                      SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
-                     StevensRadiation{DT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                     StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
                      (Gravity(), 
                       RayleighSponge{DT}(zmax, zsponge, 1), 
                       Subsidence(), 
-                      GeostrophicForcing{DT}(f_coriolis, u_geostrophic, v_geostrophic)), 
+                      GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
-  # Balancelaw description
+
   dg = DGModel(model,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
+
   Q = init_ode_state(dg, DT(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-  # Calculating initial condition norm 
+
   eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e""" eng0
+
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -165,16 +166,16 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      energy)
     end
   end
-  
-  # Setup VTK output callbacks
+
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(30000) do (init=false)
-    mkpath(VTKPATH)
-    outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", VTKPATH, dim,
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    mkpath("./vtk-dycoms/")
+    outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
              dg.auxstate, flattenednames(vars_aux(model,DT)))
+        
     step[1] += 1
     nothing
   end
@@ -212,7 +213,7 @@ let
   end
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     # Problem type
-    DT = Float32
+    DT = Float64
     # DG polynomial order 
     N = 4
     # SGS Filter constants
@@ -233,9 +234,7 @@ let
     dt = 0.02
     timeend = 100dt
     dim = 3
-    VTKPATH = "/central/scratch/asridhar/DYC-VREMAN-PF-RF-CPU"
-    @info (ArrayType, DT, dim, VTKPATH)
-    @info ((Nex,Ney,Nez), (Δx, Δy, Δz), (xmax,ymax,zmax), dt, timeend)
+    @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
     @test result ≈ DT(0.9999737848359238)
