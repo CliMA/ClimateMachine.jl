@@ -155,6 +155,11 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
   q_totM = QTM/ρM
   UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
 
+  # Assign reflection wall boundaries (top wall)
+  stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
+                      VM - 2 * nM[2] * UnM,
+                      WM - 2 * nM[3] * UnM)
+
   # Assign scalar values at the boundaries 
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
@@ -182,7 +187,8 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # --------------------------
     zM          = auxM.coord[3] 
     q_totM      = QTM/ρM
-    e_intM      = EM/ρM - grav*zM
+    windspeed   = sqrt(uM^2 + vM^2 + wM^2)
+    e_intM      = EM/ρM - windspeed^2/2 - grav*zM
     TSM         = PhaseEquil(e_intM, q_totM, ρM) 
     q_vapM      = q_totM - PhasePartition(TSM).liq
     TM          = air_temperature(TSM)
@@ -190,6 +196,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Extract components of diffusive momentum flux (minus-side)
     # ----------------------------------------------------------
     ρτM = diffM.ρτ
+
     # ----------------------------------------------------------
     # Boundary momentum fluxes
     # ----------------------------------------------------------
@@ -200,13 +207,15 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN 
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)  
+    stateP.ρu = SVector(0,0,0)
     diffP.ρτ = SHermitianCompact{3,DT,6}(SVector(DT(0),ρτM[2,1],ρτ13P, DT(0), ρτ23P,DT(0)))
+
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
     diffP.moisture.ρd_q_tot  = SVector(DT(0),
                                        DT(0),
-                                       bc.LHF/LH_v0)
+                                       bc.LHF/(LH_v0))
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------

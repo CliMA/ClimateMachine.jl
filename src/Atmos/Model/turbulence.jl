@@ -17,13 +17,8 @@ function atmos_nodal_update_aux!(::TurbulenceClosure, ::AtmosModel, state::Vars,
 end
 function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t, ν)
 end
-function flux_diffusive!(::TurbulenceClosure, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-end
-function flux_nondiffusive!(::TurbulenceClosure, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-end
 function gradvariables!(::TurbulenceClosure, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
-
 
 """
   PrincipalInvariants{DT} 
@@ -91,11 +86,18 @@ struct SmagorinskyLilly{T} <: TurbulenceClosure
   "Smagorinsky Coefficient [dimensionless]"
   C_smag::T
 end
+
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
+
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
+
+function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
+  transform.turbulence.θ_v = aux.moisture.θ_v
+end
+
 """
   buoyancy_correction(normSij, θᵥ, dθᵥdz)
   return buoyancy_factor, scaling coefficient for Standard Smagorinsky Model
