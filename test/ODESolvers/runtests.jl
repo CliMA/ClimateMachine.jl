@@ -5,6 +5,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.MultirateRungeKuttaMethod
+using CLIMA.MultirateInfinitesimalStepMethod
 using CLIMA.LinearSolvers
 using StaticArrays
 using LinearAlgebra
@@ -27,7 +28,21 @@ const explicit_methods = [(LSRK54CarpenterKennedy, 4)
 const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
                       (ARK548L2SA2KennedyCarpenter, 5)
                      ]
-let
+
+const mis_methods = [(MIS2, 2),
+                     (MIS3C, 2),
+                     (MIS4, 3),
+                     (MIS4a, 3)
+                    ]
+
+ArrayTypes = (Array,)
+@static if haspkg("CuArrays")
+  using CuArrays
+  CuArrays.allowscalar(false)
+  ArrayTypes = (Array, CuArray)
+end
+
+@testset "1-rate ODE" begin
   function rhs!(dQ, Q, ::Nothing, time; increment)
     if increment
       dQ .+= Q * cos(time)
@@ -37,94 +52,49 @@ let
   end
   exactsolution(q0, time) = q0 * exp(sin(time))
 
-  @testset "ODE Solvers Convergence" begin
-    q0 = 1.0
+  @testset "Explicit methods convergence" begin
     finaltime = 20.0
     dts = [2.0 ^ (-k) for k = 0:7]
-
-    for (method, expected_order) in explicit_methods
-      errors = similar(dts)
-      for (n, dt) in enumerate(dts)
-        Q = [q0]
-        solver = method(rhs!, Q; dt = dt, t0 = 0.0)
-        solve!(Q, solver; timeend = finaltime)
-        errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
-      end
-      rates = log2.(errors[1:end-1] ./ errors[2:end])
-      @test isapprox(rates[end], expected_order; atol = 0.15)
-    end
-  end
-
-  @testset "ODE Solvers Composition of solve!" begin
-    q0 = 1.0
-    halftime = 10.0
-    finaltime = 20.0
-    dt = 0.75
-
-    for (method, _) in explicit_methods
-      Q1 = [q0]
-      solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
-      solve!(Q1, solver1; timeend = finaltime)
-
-      Q2 = [q0]
-      solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
-      solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
-      solve!(Q2, solver2; timeend = finaltime)
-
-      @test Q2 == Q1
-    end
-  end
-
-  @static if haspkg("CuArrays")
-    using CuArrays
-    CuArrays.allowscalar(false)
-
-    @testset "CUDA ODE Solvers Convergence" begin
-      ninitial = 1337
-      q0s = range(1.0, 2.0, length = ninitial)
-      finaltime = 20.0
-      dts = [2.0 ^ (-k) for k = 0:7]
-
+    errors = similar(dts)
+    for ArrayType in ArrayTypes
+      q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
       for (method, expected_order) in explicit_methods
-        errors = similar(dts)
         for (n, dt) in enumerate(dts)
-          Q = CuArray(q0s)
+          Q = ArrayType(q0)
           solver = method(rhs!, Q; dt = dt, t0 = 0.0)
           solve!(Q, solver; timeend = finaltime)
           Q = Array(Q)
-          errors[n] = maximum(abs.(Q .- exactsolution.(q0s, finaltime)))
+          errors[n] = maximum(@. abs(Q - exactsolution(q0, finaltime)))
         end
         rates = log2.(errors[1:end-1] ./ errors[2:end])
-        @test isapprox(rates[end], expected_order; atol = 0.25)
+        @test isapprox(rates[end], expected_order; atol = 0.17)
       end
     end
+  end
 
-    @testset "CUDA ODE Solvers Composition of solve!" begin
-      ninitial = 1337
-      q0s = range(1.0, 2.0, length = ninitial)
-      halftime = 10.0
-      finaltime = 20.0
-      dt = 0.75
-
+  @testset "Explicit methods composition of solve!" begin
+    halftime = 10.0
+    finaltime = 20.0
+    dt = 0.75
+    for ArrayType in ArrayTypes
       for (method, _) in explicit_methods
-        Q1 = CuArray(q0s)
+        q0 = ArrayType <: Array ? [1.0] : range(1.0, 2.0, length = 303)
+        Q1 = ArrayType(q0)
         solver1 = method(rhs!, Q1; dt = dt, t0 = 0.0)
         solve!(Q1, solver1; timeend = finaltime)
 
-        Q2 = CuArray(q0s)
+        Q2 = ArrayType(q0)
         solver2 = method(rhs!, Q2; dt = dt, t0 = 0.0)
         solve!(Q2, solver2; timeend = halftime, adjustfinalstep = false)
         solve!(Q2, solver2; timeend = finaltime)
 
-        Q1 = Array(Q1)
-        Q2 = Array(Q2)
-        @test Q2 == Q1
+        @test Array(Q2) == Array(Q1)
       end
     end
   end
 end
 
-let
+@testset "Two-rate ODE with a linear stiff part" begin
   c = 100.0
   function rhs_full!(dQ, Q, ::Nothing, time; increment)
     if increment
@@ -141,6 +111,7 @@ let
       dQ .= exp(im * time)
     end
   end
+  rhs_slow! = rhs_nonlinear!
 
   function rhs_linear!(dQ, Q, ::Nothing, time; increment)
     if increment
@@ -149,65 +120,36 @@ let
       dQ .= im * c * Q
     end
   end
-
-  struct DivideLinearSolver <: AbstractLinearSolver end
-  function LinearSolvers.linearsolve!(linearoperator!, Qtt, Qhat, ::DivideLinearSolver)
-    @. Qhat = 1 / Qhat
-    linearoperator!(Qtt, Qhat)
-    @. Qtt = 1 / Qtt
-  end
+  rhs_fast! = rhs_linear!
 
   function exactsolution(q0, time)
     q0 * exp(im * c * time) + (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
   end
 
-  @testset "Stiff Problem" begin
-    q0 = ComplexF64(1)
+  @testset "IMEX methods" begin
+    struct DivideLinearSolver <: AbstractLinearSolver end
+    function LinearSolvers.linearsolve!(linearoperator!, Qtt, Qhat, ::DivideLinearSolver)
+      @. Qhat = 1 / Qhat
+      linearoperator!(Qtt, Qhat)
+      @. Qtt = 1 / Qtt
+    end
+
     finaltime = pi / 2
     dts = [2.0 ^ (-k) for k = 2:13]
-
-    for (method, expected_order) in imex_methods
-      for split_nonlinear_linear in (false, true)
-        errors = similar(dts)
-        for (n, dt) in enumerate(dts)
-          Q = [q0]
-          rhs! = split_nonlinear_linear ? rhs_nonlinear! : rhs_full!
-          solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
-                          Q; dt = dt, t0 = 0.0,
-                          split_nonlinear_linear = split_nonlinear_linear)
-          solve!(Q, solver; timeend = finaltime)
-          errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
-        end
-
-        rates = log2.(errors[1:end-1] ./ errors[2:end])
-        @test errors[1] < 2.0
-        @test isapprox(rates[end], expected_order; atol = 0.1)
-      end
-    end
-  end
-
-  @static if haspkg("CuArrays")
-    using CuArrays
-    CuArrays.allowscalar(false)
-
-    @testset "Stiff Problem CUDA" begin
-      ninitial = 1337
-      q0s = range(-1, 1, length = ninitial)
-      finaltime = pi / 2
-      dts = [2.0 ^ (-k) for k = 2:13]
-
+    errors = similar(dts)
+    for ArrayType in ArrayTypes
+      q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
       for (method, expected_order) in imex_methods
         for split_nonlinear_linear in (false, true)
-          errors = similar(dts)
           for (n, dt) in enumerate(dts)
-            Q = CuArray{ComplexF64}(q0s)
+            Q = ArrayType{ComplexF64}(q0)
             rhs! = split_nonlinear_linear ? rhs_nonlinear! : rhs_full!
             solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
                             Q; dt = dt, t0 = 0.0,
                             split_nonlinear_linear = split_nonlinear_linear)
             solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
-            errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
+            errors[n] = maximum(@. abs(Q - exactsolution(q0, finaltime)))
           end
 
           rates = log2.(errors[1:end-1] ./ errors[2:end])
@@ -217,105 +159,23 @@ let
       end
     end
   end
-end
 
-let
-  c = 100.0
-  function rhs_fast!(dQ, Q, param, time; increment)
-    if increment
-      dQ .+= im * c * Q
-    else
-      dQ .= im * c * Q
-    end
-  end
-
-  function rhs_slow!(dQ, Q, param, time; increment)
-    if increment
-      dQ .+= exp(im * time)
-    else
-      dQ .= exp(im * time)
-    end
-  end
-
-  function exactsolution(q0, time)
-    q0 * exp(im * c * time) + (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
-  end
-
-  @testset "Multirate Problem (no substeps)" begin
-    for (slow_method, slow_expected_order) in slow_mrrk_methods
-      for (fast_method, fast_expected_order) in fast_mrrk_methods
-        q0 = ComplexF64(1)
-        finaltime = pi / 2
-        dts = [2.0 ^ (-k) for k = 2:11]
-
-        errors = similar(dts)
-        for (n, dt) in enumerate(dts)
-          Q = [q0]
-          solver = MultirateRungeKutta((slow_method(rhs_slow!, Q),
-                                        fast_method(rhs_fast!, Q));
-                                       dt = dt, t0 = 0.0)
-          solve!(Q, solver; timeend = finaltime)
-          errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
-        end
-
-        rates = log2.(errors[1:end-1] ./ errors[2:end])
-        min_order = min(slow_expected_order, fast_expected_order)
-        max_order = max(slow_expected_order, fast_expected_order)
-        @test (isapprox(rates[end], min_order; atol = 0.1) ||
-               isapprox(rates[end], max_order; atol = 0.1) ||
-               min_order <= rates[end] <= max_order)
-      end
-    end
-  end
-
-  @testset "Multirate Problem (with substeps)" begin
-    for (slow_method, slow_expected_order) in slow_mrrk_methods
-      for (fast_method, fast_expected_order) in fast_mrrk_methods
-        q0 = ComplexF64(1)
-        finaltime = pi / 2
-        dts = [2.0 ^ (-k) for k = 2:15]
-
-        errors = similar(dts)
-        for (n, fast_dt) in enumerate(dts)
-          slow_dt = c * fast_dt
-          Q = [q0]
-          solver = MultirateRungeKutta((slow_method(rhs_slow!, Q; dt=slow_dt),
-                                        fast_method(rhs_fast!, Q; dt=fast_dt)))
-          solve!(Q, solver; timeend = finaltime)
-          errors[n] = abs(Q[1] - exactsolution(q0, finaltime))
-        end
-
-        rates = log2.(errors[1:end-1] ./ errors[2:end])
-        min_order = min(slow_expected_order, fast_expected_order)
-        max_order = max(slow_expected_order, fast_expected_order)
-        @test (isapprox(rates[end], min_order; atol = 0.1) ||
-               isapprox(rates[end], max_order; atol = 0.1) ||
-               min_order <= rates[end] <= max_order)
-      end
-    end
-  end
-
-  @static if haspkg("CuArrays")
-    using CuArrays
-    CuArrays.allowscalar(false)
-
-    @testset "Multirate Problem CUDA" begin
-      ninitial = 1337
-      q0s = range(-1, 1, length = ninitial)
-      finaltime = pi / 2
-      dts = [2.0 ^ (-k) for k = 2:11]
-
+  @testset "MRRK methods (no substeps)" begin
+    finaltime = pi / 2
+    dts = [2.0 ^ (-k) for k = 2:11]
+    errors = similar(dts)
+    for ArrayType in ArrayTypes
       for (slow_method, slow_expected_order) in slow_mrrk_methods
         for (fast_method, fast_expected_order) in fast_mrrk_methods
-          errors = similar(dts)
+          q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
           for (n, dt) in enumerate(dts)
-            Q = CuArray{ComplexF64}(q0s)
+            Q = ArrayType{ComplexF64}(q0)
             solver = MultirateRungeKutta((slow_method(rhs_slow!, Q),
                                           fast_method(rhs_fast!, Q));
                                          dt = dt, t0 = 0.0)
             solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
-            errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
+            errors[n] = maximum(@. abs(Q - exactsolution(q0, finaltime)))
           end
 
           rates = log2.(errors[1:end-1] ./ errors[2:end])
@@ -327,24 +187,24 @@ let
         end
       end
     end
+  end
 
-    @testset "Multirate Problem CUDA (with substeps)" begin
-      ninitial = 1337
-      q0s = range(-1, 1, length = ninitial)
-      finaltime = pi / 2
-      dts = [2.0 ^ (-k) for k = 2:15]
-
+  @testset "MRRK methods (with substeps)" begin
+    finaltime = pi / 2
+    dts = [2.0 ^ (-k) for k = 2:15]
+    errors = similar(dts)
+    for ArrayType in ArrayTypes
       for (slow_method, slow_expected_order) in slow_mrrk_methods
         for (fast_method, fast_expected_order) in fast_mrrk_methods
-          errors = similar(dts)
+          q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
           for (n, fast_dt) in enumerate(dts)
             slow_dt = c * fast_dt
-            Q = CuArray{ComplexF64}(q0s)
+            Q = ArrayType{ComplexF64}(q0)
             solver = MultirateRungeKutta((slow_method(rhs_slow!, Q; dt=slow_dt),
                                           fast_method(rhs_fast!, Q; dt=fast_dt)))
             solve!(Q, solver; timeend = finaltime)
             Q = Array(Q)
-            errors[n] = maximum(abs.(Q - exactsolution.(q0s, finaltime)))
+            errors[n] = maximum(@. abs(Q - exactsolution(q0, finaltime)))
           end
 
           rates = log2.(errors[1:end-1] ./ errors[2:end])
@@ -353,6 +213,29 @@ let
           @test (isapprox(rates[end], min_order; atol = 0.1) ||
                  isapprox(rates[end], max_order; atol = 0.1) ||
                  min_order <= rates[end] <= max_order)
+        end
+      end
+    end
+  end
+
+  @testset "MIS methods (with substeps)" begin
+    finaltime = pi / 2
+    dts = [2.0 ^ (-k) for k = 2:11]
+    errors = similar(dts)
+    for ArrayType in ArrayTypes
+      for (mis_method, mis_expected_order) in mis_methods
+        for fast_method in (LSRK54CarpenterKennedy,)
+          q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
+          for (n, dt) in enumerate(dts)
+            Q = ArrayType{ComplexF64}(q0)
+            solver = mis_method(rhs_slow!, rhs_fast!, fast_method, 4, Q;
+                          dt = dt, t0 = 0.0)
+            solve!(Q, solver; timeend = finaltime)
+            Q = Array(Q)
+            errors[n] = maximum(@. abs(Q - exactsolution(q0, finaltime)))
+          end
+          rates = log2.(errors[1:end-1] ./ errors[2:end])
+          @test isapprox(rates[end], mis_expected_order; atol = 0.1)
         end
       end
     end
@@ -372,7 +255,7 @@ Test problem (4.2) from RobertsSarsharSandu2018arxiv
 Note: The actual rates are all over the place with this test and passing largely
       depends on final dt size
 =#
-let
+@testset "2-rate ODE from RobertsSarsharSandu2018arxiv" begin
   ω = 100
   λf = -10
   λs = -1
@@ -407,13 +290,12 @@ let
 
   exactsolution(t) = [sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))]
 
-  @testset "RobertsSarsharSandu2018arxiv Multirate Problem (no substeps)" begin
+  @testset "MRRK methods (no substeps)" begin
+    finaltime = 5π / 2
+    dts = [2.0 ^ (-k) for k = 2:8]
+    error = similar(dts)
     for (slow_method, slow_expected_order) in slow_mrrk_methods
       for (fast_method, fast_expected_order) in fast_mrrk_methods
-        finaltime = 5π / 2
-        dts = [2.0 ^ (-k) for k = 2:8]
-
-        error = similar(dts)
         for (n, dt) in enumerate(dts)
           Q = exactsolution(0)
           solver = MultirateRungeKutta((slow_method(rhs_slow!, Q),
@@ -433,13 +315,12 @@ let
     end
   end
 
-  @testset "RobertsSarsharSandu2018arxiv Multirate Problem (with substeps)" begin
+  @testset "MRRK methods (with substeps)" begin
+    finaltime = 5π / 2
+    dts = [2.0 ^ (-k) for k = 2:9]
+    error = similar(dts)
     for (slow_method, slow_expected_order) in slow_mrrk_methods
       for (fast_method, fast_expected_order) in fast_mrrk_methods
-        finaltime = 5π / 2
-        dts = [2.0 ^ (-k) for k = 2:9]
-
-        error = similar(dts)
         for (n, fast_dt) in enumerate(dts)
           Q = exactsolution(0)
           slow_dt = ω * fast_dt
@@ -459,19 +340,18 @@ let
     end
   end
 
-  @testset "RobertsSarsharSandu2018arxiv Multirate Problem (with IMEX)" begin
+  @testset "MRRK methods with IMEX fast solver" begin
     function rhs_zero!(dQ, Q, param, t; increment)
       if !increment
         dQ .= 0
       end
     end
 
+    finaltime = 5π / 2
+    dts = [2.0 ^ (-k) for k = 2:9]
+    error = similar(dts)
     for (slow_method, slow_expected_order) in slow_mrrk_methods
       for (fast_method, fast_expected_order) in imex_methods
-        finaltime = 5π / 2
-        dts = [2.0 ^ (-k) for k = 2:9]
-
-        error = similar(dts)
         for (n, fast_dt) in enumerate(dts)
           Q = exactsolution(0)
           slow_dt = ω * fast_dt
@@ -494,6 +374,26 @@ let
       end
     end
   end
+
+  @testset "MIS methods (with substeps)" begin
+    finaltime = 5π / 2
+    dts = [2.0 ^ (-k) for k = 2:10]
+    error = similar(dts)
+    for (mis_method, mis_expected_order) in mis_methods
+      for fast_method in (LSRK54CarpenterKennedy,)
+        for (n, dt) in enumerate(dts)
+          Q = exactsolution(0)
+          solver = mis_method(rhs_slow!, rhs_fast!, fast_method, 4, Q;
+                        dt = dt, t0 = 0.0)
+          solve!(Q, solver; timeend = finaltime)
+          error[n] = norm(Q - exactsolution(finaltime))
+        end
+
+        rate = log2.(error[1:end-1] ./ error[2:end])
+        @test isapprox(rate[end], mis_expected_order; atol = 0.1)
+      end
+    end
+  end
 end
 
 # Simple 3-rate problem based on test of RobertsSarsharSandu2018arxiv
@@ -502,7 +402,7 @@ end
 #      suggest that things are really only 2nd order.
 #
 # TODO: This is not great, but no theory to say we should be accurate!
-let
+@testset "3-rate ODE" begin
   ω1, ω2, ω3 = 10000, 100, 1
   λ1, λ2, λ3 = -100, -10, -1
   β1, β2, β3 = 2, 3, 4
@@ -564,14 +464,13 @@ let
                       sqrt(β2 + cos(ω2 * t)),
                       sqrt(β3 + cos(ω3 * t))]
 
-  @testset "3-rate Multirate Problem (no substeps)" begin
+  @testset "MRRK methods (no substeps)" begin
+    finaltime = π / 2
+    dts = [2.0 ^ (-k) for k = 2:10]
+    error = similar(dts)
     for (rate3_method, rate3_order) in slow_mrrk_methods
       for (rate2_method, rate2_order) in slow_mrrk_methods
         for (rate1_method, rate1_order) in fast_mrrk_methods
-          finaltime = π / 2
-          dts = [2.0 ^ (-k) for k = 2:10]
-
-          error = similar(dts)
           for (n, dt) in enumerate(dts)
             Q = exactsolution(0)
             solver = MultirateRungeKutta((rate3_method(rhs3!, Q),
@@ -591,14 +490,13 @@ let
     end
   end
 
-  @testset "3-rate Multirate Problem (with substeps)" begin
+  @testset "MRRK methods (with substeps)" begin
+    finaltime = π / 2
+    dts = [2.0 ^ (-k) for k = 10:17]
+    error = similar(dts)
     for (rate3_method, rate3_order) in slow_mrrk_methods
       for (rate2_method, rate2_order) in slow_mrrk_methods
         for (rate1_method, rate1_order) in fast_mrrk_methods
-          finaltime = π / 2
-          dts = [2.0 ^ (-k) for k = 10:17]
-
-          error = similar(dts)
           for (n, dt1) in enumerate(dts)
             Q = exactsolution(0)
             dt2 = (ω1/ω2) * dt1
