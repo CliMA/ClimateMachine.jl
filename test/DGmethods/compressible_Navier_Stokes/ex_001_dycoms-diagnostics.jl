@@ -333,9 +333,9 @@ function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
       for k in 1:Nqk
         S_avg[k,ev,s] = MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
      
-        if mpirank == 0
+        #if mpirank == 0
           S_avg[k,ev,s] = S_avg[k,ev,s] / (Nq * Nq * nhorzelem * nranks)
-        end
+        #end
       end
     end
   end
@@ -371,15 +371,21 @@ function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
 
 
     Δx, Δy, Δz = grid_resolution[1], grid_resolution[2], grid_resolution[end]
-                
-    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_HF.txt")
-    io = open(fileout, "a")
-      writedlm(io, OutputHF)
-    close(io)
 
+    #fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_HF.txt")
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_STATS.txt")
+      io = open(fileout, "a")
+      writedlm(io, [OutputHF OutputQLIQ OutputWQVAP OutputUU OutputVV OutputWW])
+    close(io)
+#=
     fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WQVAP.txt")
     io = open(fileout, "a")
          writedlm(io, OutputWQVAP)
+    close(io)
+
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_QLIQ.txt")
+    io = open(fileout, "a")
+         writedlm(io, OutputQLIQ)
     close(io)
 
     fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_UU.txt")
@@ -396,7 +402,7 @@ function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
     io = open(fileout, "a")
       writedlm(io, OutputWW)
     close(io)
-
+=#
 #=        
     fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WU.txt")
     io = open(fileout, "a")
