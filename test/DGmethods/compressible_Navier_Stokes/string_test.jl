@@ -204,7 +204,7 @@ function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
   T_tot     = MPI.Reduce(T_localtot, +, 0, MPI.COMM_WORLD)
   theta_tot = MPI.Reduce(theta_localtot, +, 0, MPI.COMM_WORLD)
 
-  if mpirank == 0
+#  if mpirank == 0
     rho_avg   = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
     U_avg     = (U_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     V_avg     = (V_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
@@ -229,7 +229,7 @@ function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
     @debug "T average = $(T_avg)"
     @debug "theta average = $(theta_avg)"
 =#
-  end
+ # end
 
   AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
   AVG_T = SVector(qliq_avg, qice_avg, qvap_avg, T_avg, theta_avg)
@@ -465,7 +465,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(2, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -482,7 +482,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -496,7 +496,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
   end
     
@@ -521,35 +521,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   """ engf engf/eng0 engf-eng0 errf errf / engfe
   engf/eng0
 =#
-end
-
-#
-# Define output path string:
-#
-function IO_format_output_directory_name(problem_name, grid_resolution)
-
-    ndim = length(grid_resolution)
-
-    outpath_string = string(grid_resolution[1], "mx")
-    for i = 2:ndim
-        ds = grid_resolution[i]
-        outpath_string = string(outpath_string, ds, "mx")
-    end
-    OUTPATH = string("./output/",problem_name, "/", outpath_string,"_", randstring(6))
-
-    #                                                                                                                                                                                                                                          
-    # Create output directories to store diagnostics and vtks:
-    #
-    if (isdir(OUTPATH) == false)
-        mkpath(OUTPATH)
-    else
-        #Move an existing directory to dir_previous if it already exists
-        auxi = OUTPATH[1:end]
-        previous_run = string(OUTPATH, "_previous");
-        mv(OUTPATH, previous_run, force=true)
-    end
-
-    return OUTPATH
 end
 
 using Test
@@ -601,12 +572,12 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
 
-    problem_name = "dycoms"
+    problem_name = "dycoms_IOstrings"
     dt = 0.002
-    timeend = 2*dt
+    timeend = 14400
 
     #Create unique output path directory:
-    OUTPATH = (problem_name, grid_resolution)
+    OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
       
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 

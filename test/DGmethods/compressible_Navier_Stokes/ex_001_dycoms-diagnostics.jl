@@ -131,7 +131,7 @@ end
 # TODO: temporary; move to new CLIMA module
 # TODO: add an option to reduce communication: compute averages
 # locally only
-function gather_diagnostics(dg, Q)
+function gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
 
@@ -204,7 +204,7 @@ function gather_diagnostics(dg, Q)
   T_tot     = MPI.Reduce(T_localtot, +, 0, MPI.COMM_WORLD)
   theta_tot = MPI.Reduce(theta_localtot, +, 0, MPI.COMM_WORLD)
 
-  if mpirank == 0
+#  if mpirank == 0
     rho_avg   = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
     U_avg     = (U_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     V_avg     = (V_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
@@ -216,7 +216,7 @@ function gather_diagnostics(dg, Q)
     qvap_avg  = (qvap_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     T_avg     = (T_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     theta_avg = (theta_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
-
+#=
     @debug "ρ average = $(rho_avg)"
     @debug "U average = $(U_avg)"
     @debug "V average = $(V_avg)"
@@ -228,7 +228,8 @@ function gather_diagnostics(dg, Q)
     @debug "qvap average = $(qvap_avg)"
     @debug "T average = $(T_avg)"
     @debug "theta average = $(theta_avg)"
-  end
+=#
+ # end
 
   AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
   AVG_T = SVector(qliq_avg, qice_avg, qvap_avg, T_avg, theta_avg)
@@ -260,7 +261,7 @@ function gather_diagnostics(dg, Q)
   W_local_flucttot   = sum(varQ[:,4,:])
   e_local_flucttot   = sum(varQ[:,5,:])
   qt_local_flucttot  = sum(varQ[:,6,:])
-
+#=
   rho_flucttot = MPI.Reduce(rho_local_flucttot, +, 0, MPI.COMM_WORLD)
   U_flucttot   = MPI.Reduce(U_local_flucttot, +, 0, MPI.COMM_WORLD)
   V_flucttot   = MPI.Reduce(V_local_flucttot, +, 0, MPI.COMM_WORLD)
@@ -284,7 +285,8 @@ function gather_diagnostics(dg, Q)
     global_variance_e = e_standard_dev^2
     global_variance_qt = qt_standard_dev^2
   end
-
+=#
+#=
  @debug "ρ standard_deviation = $(rho_standard_dev)" 
  @debug "ρ Variance = $(Global_Variance_rho)"
  @debug "U standard_deviation = $(U_standard_dev)"
@@ -296,7 +298,8 @@ function gather_diagnostics(dg, Q)
  @debug "e standard_deviation = $(e_standard_dev)"
  @debug "e Variance = $(Global_Variance_e)"
  @debug "qt standard_deviation = $(qt_standard_dev)"
- @debug "qt Variance = $(Global_Variance_qt)"
+@debug "qt Variance = $(Global_Variance_qt)"
+=#
   #Horizontal averages we might need
   S = zeros(Nqk, nvertelem,11)
   for eh in 1:nhorzelem
@@ -365,43 +368,55 @@ function gather_diagnostics(dg, Q)
       OutputVV[i] = S_avg[k,ev,11]
     end
   end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/HF.txt", "a") do io
-writedlm(io, OutputHF)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WQVAP.txt", "a") do io
-writedlm(io, OutputWQVAP)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WU.txt", "a") do io
-writedlm(io, OutputWU)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WV.txt", "a") do io
-writedlm(io, OutputWV)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WW.txt", "a") do io
-writedlm(io, OutputWW)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WRHO.txt", "a") do io
-writedlm(io, OutputWRHO)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/QLIQ.txt", "a") do io
-writedlm(io, OutputQLIQ)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WQLIQ.txt", "a") do io
-writedlm(io, OutputWQLIQ)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WWW.txt", "a") do io
-writedlm(io, OutputWWW)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/UU.txt", "a") do io
-writedlm(io, OutputUU)
-end
-open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/VV.txt", "a") do io
-writedlm(io, OutputVV)
-end
-end
 
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge, VTKPATH)
+    Δx, Δy, Δz = grid_resolution[1], grid_resolution[2], grid_resolution[end]
+                
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_HF.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputHF)
+    close(io)
+
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WQVAP.txt")
+    io = open(fileout, "a")
+         writedlm(io, OutputWQVAP)
+    close(io)
+
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_UU.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputUU)
+    close(io)
+
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_VV.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputVV)
+    close(io)
+
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WW.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputWW)
+    close(io)
+
+#=        
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WU.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputWU)
+    close(io)
+
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WV.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputWV)
+    close(io)
+
+    fileout = string(OUTPATH, "/dx", Δx, "mXdy", Δy, "mXdz", Δz, "_WRHO.txt")
+    io = open(fileout, "a")
+      writedlm(io, OutputWRHO)
+    close(io)
+
+=#
+end
+
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, OUTPATH)
   # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -468,8 +483,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Setup VTK output callbacks
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
-    mkpath(VTKPATH)
-    outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", VTKPATH, dim,
+    mkpath(OUTPATH)
+    outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)), 
@@ -478,55 +493,17 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     step[1] += 1
     nothing
   end
-  
-  #Delete_old_files
-  cberase = GenericCallbacks.EveryXSimulationSteps(1000000000000000) do (init=false)
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/HF.txt", "w") do f
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/HF.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WQVAP.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WQVAP.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WU.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WU.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WV.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WV.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WW.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WW.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WRHO.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WRHO.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/QLIQ.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/QLIQ.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WQLIQ.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WQLIQ.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WWW.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/WWW.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/UU.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/UU.txt", "")
-    end
-    open("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/VV.txt", "w") do io
-      writedlm("/home/user/2TB/work/CLIMA-run/diagnostics/50mx50mx10m-1500mx1500mx1500m/VV.txt", "")
-    end
-
-  end
+    
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(25000) do (init=false)
-    gather_diagnostics(dg, Q)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+    gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
   end
-
     
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics, cberase))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   #Get statistics at the end of the run:
-  gather_diagnostics(dg, Q)
+  gather_diagnostics(dg, Q, grid_resolution, OUTPATH)
 
     
   # Print some end of the simulation information
@@ -571,22 +548,40 @@ let
     SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    brickrange = (grid1d(0, 1500, elemsize=FT(50)*N),
-                  grid1d(0, 1500, elemsize=FT(50)*N),
-                  grid1d(0, 1500, elemsize=FT(10)*N))
-    zmax = brickrange[3][end]
+    Δx, Δy, Δz = 50, 50, 10
+    xmin, xmax = 0, 1500
+    ymin, ymax = 0, 1500
+    zmin, zmax = 0, 1500
+
+    grid_resolution = [Δx, Δy, Δz]
+    domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
+    dim = length(grid_resolution)
+
+    if(dim == 2)
+        brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+                      grid1d(ymin, ymax, elemsize=FT(grid_resolution[end])*N))
+    elseif (dim == 3)
+        brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+                      grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
+                      grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
+    end
+    zmax = brickrange[dim][end]
     zsponge = FT(0.75 * zmax)
     
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
+
+    problem_name = "dycoms_IOstrings"
     dt = 0.002
     timeend = 14400
-    dim = 3
-    VTKPATH = "./vtk-dycoms/50mx50mx10m-1500mx1500mx1500m"
-    @info (ArrayType, dt, FT, dim, VTKPATH)
+
+    #Create unique output path directory:
+    OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
+      
+    @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge, VTKPATH)
+                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, OUTPATH)
 
   end
 end
