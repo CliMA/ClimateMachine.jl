@@ -17,7 +17,7 @@ using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
                                  soundspeed_air
 using CLIMA.Atmos: AtmosModel,
-                   AtmosAcousticLinearModel, AtmosAcousticNonlinearModel,
+                   AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
                    DryModel, NoRadiation, PeriodicBC,
@@ -129,7 +129,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
   # The linear model has the fast time scales
   fast_model = AtmosAcousticLinearModel(model)
   # The nonlinear model has the slow time scales
-  slow_model = AtmosAcousticNonlinearModel(model)
+  slow_model = RemainderModel(model, (fast_model,))
 
   dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
   fast_dg = DGModel(fast_model,
