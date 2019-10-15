@@ -67,6 +67,7 @@ function LowStorageRungeKutta2N(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
 end
 
 ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = (lsrk.dt = dt)
+ODEs.updatetime!(lsrk::LowStorageRungeKutta2N, time) = (lsrk.t = time)
 
 """
     ODESolvers.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend::Real,
