@@ -32,7 +32,9 @@ const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
 const mis_methods = [(MIS2, 2),
                      (MIS3C, 2),
                      (MIS4, 3),
-                     (MIS4a, 3)
+                     (MIS4a, 3),
+                     (TVDMISA, 2),
+                     (TVDMISB, 2),
                     ]
 
 ArrayTypes = (Array,)
