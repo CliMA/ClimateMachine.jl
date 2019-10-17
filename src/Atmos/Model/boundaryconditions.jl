@@ -228,34 +228,32 @@ end
 
 """
   RayleighBenardBC <: BoundaryCondition
+
+# Fields
+$(DocStringExtensions.FIELDS)
 """
 struct RayleighBenardBC{FT} <: BoundaryCondition
+  "Prescribed bottom wall temperature [K]"
   T_bot::FT
+  "Prescribed top wall temperature [K]"
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
 function atmos_boundary_state!(::Rusanov, bc::RayleighBenardBC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t,_...)
+  # Dry Rayleigh Benard Convection
   @inbounds begin
     FT = eltype(stateP)
-    ρP  = stateM.ρ
-    # Weak Boundary Condition Imposition
-    # Prescribe no-slip wall (Dirichlet b.c. for wall velocity)
-    # Note that with the default resolution this results in an underresolved near-wall layer
-    # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
-    # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
-    UP  = FT(0)
-    VP  = FT(0) 
-    WP  = FT(0) 
+    ρP = stateM.ρ
+    stateP.ρ = ρP
+    stateP.ρu = SVector{3,FT}(0,0,0)
     if bctype == 1 
       E_intP = ρP * cv_d * (bc.T_bot - T_0)
     else
       E_intP = ρP * cv_d * (bc.T_top - T_0) 
     end
-    stateP.ρ = ρP
-    stateP.ρu = SVector(UP, VP, WP)
-    stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * auxP.coord[3] * grav)
+    stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
     nothing
   end
 end
@@ -263,18 +261,19 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBena
                                m::AtmosModel, stateP::Vars, diffP::Vars,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, _...)
-  FT = eltype(stateM)
-  ρP  = stateM.ρ
-  UP  = FT(0)
-  VP  = FT(0)
-  WP  = FT(0) 
-  if bctype == 1 
-    E_intP = ρP * cv_d * (bc.T_bot - T_0)
-  else
-    E_intP = ρP * cv_d * (bc.T_top - T_0) 
+  # Dry Rayleigh Benard Convection
+  @inbounds begin
+    FT = eltype(stateM)
+    ρP = stateM.ρ
+    stateP.ρ = ρP
+    stateP.ρu = SVector{3,FT}(0,0,0)
+    if bctype == 1 
+      E_intP = ρP * cv_d * (bc.T_bot - T_0)
+    else
+      E_intP = ρP * cv_d * (bc.T_top - T_0) 
+    end
+    stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
+    diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))
+    nothing
   end
-  stateP.ρu = SVector(UP, VP, WP)
-  stateP.ρe = (E_intP + (UP^2 + VP^2 + WP^2)/(2*ρP) + ρP * auxP.coord[3] * grav)
-  diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))
-  nothing
 end
