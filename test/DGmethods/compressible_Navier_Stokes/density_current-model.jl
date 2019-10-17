@@ -46,7 +46,7 @@ const (zmin, zmax)      = (0,6400)
 const Ne                = (100,2,50)
 const polynomialorder   = 4
 const dt                = 0.01
-const timeend           = 1000
+const timeend           = 10dt
 
 # ------------- Initial condition function ----------- # 
 """
