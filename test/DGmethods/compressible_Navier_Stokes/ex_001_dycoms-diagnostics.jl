@@ -21,6 +21,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using DelimitedFiles
 using Random
+#using Distributions: Uniform
 using GPUifyLoops
 
 @static if haspkg("CuArrays")
@@ -96,12 +97,12 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   # trigger turbulent convection
   # --------------------------------------------------
   randnum1   = rand(seed, FT) / 100
-  randnum2   = rand(seed, FT) / 100
-  #randnum1   = rand(FT,1)/100
-  #randnum2   = rand(FT,1)/100
-  if xvert <= 200.0
+  randnum2   = rand(seed, FT) / 1000
+  #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
+  #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
+  if xvert <= 25.0    
     θ_liq += randnum1 * θ_liq 
-    q_tot += randnum2 * q_tot
+    #q_tot += randnum2 * q_tot      
   end
   # --------------------------------------------------
   # END perturb initial state
@@ -118,6 +119,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   T     = air_temperature(TS)
   #Assign State Variables
   u, v, w     = FT(7), FT(-5.5), FT(0)
+
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -507,13 +509,13 @@ let
     N = 4
     # SGS Filter constants
     C_smag = FT(0.15)
-    LHF    = FT(115)
-    SHF    = FT(15)
+    LHF    = FT(-115)
+    SHF    = FT(-15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 50, 50, 10
-    xmin, xmax = 0, 1500
-    ymin, ymax = 0, 1500
+    Δx, Δy, Δz = 50, 50, 20
+    xmin, xmax = 0, 3200
+    ymin, ymax = 0, 3200
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
@@ -536,7 +538,7 @@ let
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.002
+    dt = 0.01
     timeend = 14400
 
     #Create unique output path directory:
