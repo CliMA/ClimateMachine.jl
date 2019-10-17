@@ -48,33 +48,31 @@ Currently only the low storage RK methods can be used as slow solvers
       publisher={Copernicus GmbH}
     }
 """
-struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
+mutable struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
   "slow solver"
   slow_solver::SS
   "fast solver"
   fast_solver::FS
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
 
   function MultirateRungeKutta(slow_solver::LSRK2N,
-                               fast_solver::Union{LSRK2N, SSPRK,
-                                                  MultirateRungeKutta,
-                                                  AdditiveRungeKutta},
+                               fast_solver,
                                Q=nothing;
-                               dt=ODEs.getdt(slow_solver), t0=slow_solver.t[1]
+                               dt=ODEs.getdt(slow_solver), t0=slow_solver.t
                               ) where {AT<:AbstractArray}
     SS = typeof(slow_solver)
     FS = typeof(fast_solver)
     RT = real(eltype(slow_solver.dQ))
-    new{SS, FS, RT}(slow_solver, fast_solver, [dt], [t0])
+    new{SS, FS, RT}(slow_solver, fast_solver, RT(dt), RT(t0))
   end
 end
 MRRK = MultirateRungeKutta
 
 function MultirateRungeKutta(solvers::Tuple, Q=nothing;
-                             dt=ODEs.getdt(solvers[1]), t0=solvers[1].t[1]
+                             dt=ODEs.getdt(solvers[1]), t0=solvers[1].t
                             ) where {AT<:AbstractArray}
   if length(solvers) < 2
     error("Must specify atleast two solvers")
@@ -91,7 +89,7 @@ end
 
 function ODEs.dostep!(Q, mrrk::MultirateRungeKutta, param,
                       timeend::AbstractFloat, adjustfinalstep::Bool)
-  time, dt = mrrk.t[1], mrrk.dt[1]
+  time, dt = mrrk.t, mrrk.dt
   @assert dt > 0
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
@@ -100,12 +98,12 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta, param,
 
   ODEs.dostep!(Q, mrrk, param, time, dt)
 
-  if dt == mrrk.dt[1]
-    mrrk.t[1] += dt
+  if dt == mrrk.dt
+    mrrk.t += dt
   else
-    mrrk.t[1] = timeend
+    mrrk.t = timeend
   end
-  return mrrk.t[1]
+  return mrrk.t
 end
 
 function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
