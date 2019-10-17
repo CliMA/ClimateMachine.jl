@@ -8,14 +8,14 @@ abstract type AbstractODESolver end
 
 Returns the current simulation time of the ODE solver `solver`
 """
-gettime(solver::AbstractODESolver) = solver.t[1]
+gettime(solver::AbstractODESolver) = solver.t
 
 """
     getdt(solver::AbstractODESolver)
 
 Returns the current simulation time step of the ODE solver `solver`
 """
-getdt(solver::AbstractODESolver) = solver.dt[1]
+getdt(solver::AbstractODESolver) = solver.dt
 
 function dostep! end
 
@@ -26,6 +26,15 @@ Change the time step size to `dt` for the ODE solver `solver`.
 """
 updatedt!(solver::AbstractODESolver, dt) =
   error("Variable time stepping not implemented for $(typeof(solver))")
+
+"""
+    updatetime!(solver::AbstractODESolver, time)
+
+Change the current time to `time` for the ODE solver `solver`.
+"""
+updatetime!(solver::AbstractODESolver, time) =
+  error("Variable time stepping not implemented for $(typeof(solver))")
+
 
 # {{{ run!
 """
