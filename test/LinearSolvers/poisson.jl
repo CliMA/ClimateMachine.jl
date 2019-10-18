@@ -35,8 +35,8 @@ function physical_flux!(F, state, visc_state, _...)
 end
 
 @inline function numerical_flux!(fs, nM, stateM, viscM, auxM, stateP, viscP, auxP, t)
-  DFloat = eltype(stateM)
-  tau = DFloat(1.0)
+  FT = eltype(stateM)
+  tau = FT(1.0)
 
   @inbounds fs[1] = ( nM[1] * (viscM[1] + viscP[1])
                     + nM[2] * (viscM[2] + viscP[2])
@@ -77,12 +77,12 @@ end
   @inbounds Q[1] = prod(sol1d.(xs[1:dim]))
 end
 
-function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod)
+function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodicity, linmethod)
 
   topology = BrickTopology(mpicomm, brickrange, periodicity=periodicity)
   grid = DiscontinuousSpectralElementGrid(topology,
                                           polynomialorder = polynomialorder,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType)
 
   spacedisc = DGBalanceLaw(grid = grid,
@@ -157,20 +157,20 @@ let
 
   lvls = integration_testing ? size(expected_result)[end] : 1
 
-  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), DFloat in (Float64,)
-    result = Array{Tuple{DFloat, Int}}(undef, lvls)
+  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), FT in (Float64,)
+    result = Array{Tuple{FT, Int}}(undef, lvls)
     for dim = 2:3
 
       for l = 1:lvls
         Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
-        brickrange = ntuple(d -> range(DFloat(0), length = Ne[d], stop = 1), dim)
+        brickrange = ntuple(d -> range(FT(0), length = Ne[d], stop = 1), dim)
         periodicity = ntuple(d -> true, dim)
         
-        @info (ArrayType, DFloat, m, dim)
-        result[l] = run(mpicomm, ArrayType, DFloat, dim,
+        @info (ArrayType, FT, m, dim)
+        result[l] = run(mpicomm, ArrayType, FT, dim,
                         polynomialorder, brickrange, periodicity, linmethod)
 
-        @test isapprox(result[l][1], DFloat(expected_result[m, dim-1, l]), rtol = sqrt(tol))
+        @test isapprox(result[l][1], FT(expected_result[m, dim-1, l]), rtol = sqrt(tol))
       end
 
       if integration_testing

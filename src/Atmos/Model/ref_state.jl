@@ -10,10 +10,10 @@ condition or for linearization.
 """
 abstract type ReferenceState end
 
-vars_state(m::ReferenceState    , DT) = @vars()
-vars_gradient(m::ReferenceState , DT) = @vars()
-vars_diffusive(m::ReferenceState, DT) = @vars()
-vars_aux(m::ReferenceState, DT) = @vars()
+vars_state(m::ReferenceState    , FT) = @vars()
+vars_gradient(m::ReferenceState , FT) = @vars()
+vars_diffusive(m::ReferenceState, FT) = @vars()
+vars_aux(m::ReferenceState, FT) = @vars()
 atmos_init_aux!(::ReferenceState, ::AtmosModel, aux::Vars, geom::LocalGeometry) = nothing
 
 """
@@ -35,7 +35,7 @@ struct HydrostaticState{P,F} <: ReferenceState
   relativehumidity::F
 end
 
-vars_aux(m::HydrostaticState, DT) = @vars(ρ::DT, p::DT, T::DT, ρe::DT, ρq_tot::DT)
+vars_aux(m::HydrostaticState, FT) = @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
 
 
 function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars, geom::LocalGeometry) where {P,F}
@@ -103,13 +103,13 @@ T(z) = \\max(T_{\\text{surface}} − Γ z, T_{\\text{min}})
 
 $(DocStringExtensions.FIELDS)
 """
-struct LinearTemperatureProfile{F} <: TemperatureProfile
+struct LinearTemperatureProfile{FT} <: TemperatureProfile
   "minimum temperature (K)"
-  T_min::F
+  T_min::FT
   "surface temperature (K)"
-  T_surface::F
+  T_surface::FT
   "lapse rate (K/m)"
-  Γ::F
+  Γ::FT
 end
 
 function (profile::LinearTemperatureProfile)(orientation::Orientation, aux::Vars)

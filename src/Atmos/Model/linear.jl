@@ -2,11 +2,11 @@ abstract type AtmosLinearModel <: BalanceLaw
 end
 
 
-vars_state(lm::AtmosLinearModel, T) = vars_state(lm.atmos,T)
-vars_gradient(lm::AtmosLinearModel, T) = @vars()
-vars_diffusive(lm::AtmosLinearModel, T) = @vars()
-vars_aux(lm::AtmosLinearModel, T) = vars_aux(lm.atmos,T)
-vars_integrals(lm::AtmosLinearModel,T) = @vars()
+vars_state(lm::AtmosLinearModel, FT) = vars_state(lm.atmos,FT)
+vars_gradient(lm::AtmosLinearModel, FT) = @vars()
+vars_diffusive(lm::AtmosLinearModel, FT) = @vars()
+vars_aux(lm::AtmosLinearModel, FT) = vars_aux(lm.atmos,FT)
+vars_integrals(lm::AtmosLinearModel, FT) = @vars()
 
 
 update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, auxstate::MPIStateArray, t::Real) = nothing
@@ -31,14 +31,14 @@ struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
   atmos::M
 end
 function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
-  DF = eltype(state)
+  FT = eltype(state)
   ref = aux.ref_state
   e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
   flux.ρ = state.ρu
   # TODO: use MoistThermodynamics.linearized_air_pressure 
   # need to avoid dividing then multiplying by ρ
-  pL = state.ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (state.ρe - state.ρ * e_pot)
+  pL = state.ρ * FT(R_d) * FT(T_0) + FT(R_d) / FT(cv_d) * (state.ρe - state.ρ * e_pot)
   flux.ρu += pL*I
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
   nothing
@@ -51,12 +51,12 @@ struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
   atmos::M
 end
 function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
-  DF = eltype(state)
+  FT = eltype(state)
   ref = aux.ref_state
   e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
   flux.ρ = state.ρu
-  pL = state.ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (state.ρe - state.ρ * e_pot)
+  pL = state.ρ * FT(R_d) * FT(T_0) + FT(R_d) / FT(cv_d) * (state.ρe - state.ρ * e_pot)
   flux.ρu += pL*I
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ)*state.ρu
   nothing
