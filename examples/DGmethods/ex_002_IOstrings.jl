@@ -237,14 +237,15 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-
+    mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
+    if mpirank == 0
     problem_name = "IOstring_test"
     dt = 0.00000001
     timeend = 1*dt
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
-      
+    end
 #    @info (ArrayType, dt, FT, dim)
 #    result = run(mpicomm, ArrayType, dim, topl, 
 #                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, OUTPATH)
