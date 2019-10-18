@@ -34,7 +34,7 @@ else
   const ArrayTypes = (Array,)
 end
 
-const integration_testing = true
+const integration_testing = false
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -163,7 +163,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
 
   Q = init_ode_state(dg, DFloat(0))
   
-  linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
+  linearsolver = GeneralizedMinimalResidual(10, Q, 1e-14)
   ode_solver = ARK2GiraldoKellyConstantinescu(split_nonlinear_linear ? dg_nonlinear : dg,
                                               dg_linear,
                                               linearsolver,

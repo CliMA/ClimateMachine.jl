@@ -51,7 +51,9 @@ function flux_nondiffusive!(nlm::AtmosAcousticNonlinearModel, flux::Grad, state:
 
   flux.ρ = -zero(DF)
   flux.ρu = ρu .* u' + (p - pL) * I
+  #flux.ρu = ρu .* u'
   flux.ρe = ((ρe + p) / ρ - (ref.ρe + ref.p) / ref.ρ + e_pot) * ρu
+  #flux.ρe = ((ρe + pL) / ρ - (ref.ρe + ref.p) / ref.ρ + e_pot) * ρu
 end
 function source!(nlm::AtmosAcousticNonlinearModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   source!(nlm.atmos, source, state, diffusive, aux, t)

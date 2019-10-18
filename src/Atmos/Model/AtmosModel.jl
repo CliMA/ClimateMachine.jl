@@ -84,6 +84,8 @@ function vars_aux(m::AtmosModel, T)
     turbulence::vars_aux(m.turbulence,T)
     moisture::vars_aux(m.moisture,T)
     radiation::vars_aux(m.radiation,T)
+    test_p::T
+    test_∇p::SVector{3,T}
   end
 end
 function vars_integrals(m::AtmosModel,T)

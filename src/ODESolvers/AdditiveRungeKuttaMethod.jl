@@ -119,20 +119,27 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: OD
      
       # init auxstate
       # h0 = (ρe + p) / ρ
-      schur_lhs.auxstate[:, 1, :] .= (rhs!.auxstate[:, 5, :] + rhs!.auxstate[:, 6, :]) ./ rhs!.auxstate[:, 4, :]
+      # isentropic vortex
+      #schur_lhs.auxstate[:, 1, :] .= (rhs!.auxstate[:, 5, :] + rhs!.auxstate[:, 6, :]) ./ rhs!.auxstate[:, 4, :]
+      # rtb
+      schur_lhs.auxstate[:, 1, :] .= (rhs!.auxstate[:, 9, :] .+
+                                      rhs!.auxstate[:, 11, :]) ./ rhs!.auxstate[:, 8, :] .- rhs!.auxstate[:, 4, :]
       # ∇h0
       grad_auxiliary_state!(schur_lhs, 1, (2, 3, 4))
       # Φ
-      schur_lhs.auxstate[:, 5, :] .= 0
+      # isentropic vortex
+      #schur_lhs.auxstate[:, 5, :] .= 0
+      # rtb
+      schur_lhs.auxstate[:, 5, :] .= rhs!.auxstate[:, 4, :] 
       
       schur_rhs.auxstate[:, 6:10, :] .= schur_lhs.auxstate[:, 1:5, :]
 
-      #for i = 1:8
+      #for i = 1:12
       #  @show maximum(rhs!.auxstate[:, i, :])
       #end
 
       #FIXME
-      linearsolver = GeneralizedMinimalResidual(10, schurP, 1e-10)
+      linearsolver = GeneralizedMinimalResidual(10, schurP, 1e-14)
     end
 
     LT = typeof(linearsolver)
@@ -441,20 +448,21 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
-    #let 
-    #  ρ = extrema(Qtt[:, 1, :])
-    #  u = extrema(Qtt[:, 2, :])
-    #  v = extrema(Qtt[:, 3, :])
-    #  w = extrema(Qtt[:, 4, :])
-    #  ρe = extrema(Qtt[:, 5, :])
-    #  @info @sprintf """Before stage %d
-    #  ρ  = (%.16e, %.16e)
-    #  u  = (%.16e, %.16e)
-    #  v  = (%.16e, %.16e)
-    #  w  = (%.16e, %.16e)
-    #  ρe = (%.16e, %.16e)
-    #  """ istage ρ... u... v... w... ρe...
-    #end
+    let 
+      ρ = extrema(Qtt[:, 1, :])
+      u = extrema(Qtt[:, 2, :])
+      v = extrema(Qtt[:, 3, :])
+      w = extrema(Qtt[:, 4, :])
+      ρe = extrema(Qtt[:, 5, :])
+      @info @sprintf """Before stage %d
+      ρ  = (%.16e, %.16e)
+      u  = (%.16e, %.16e)
+      v  = (%.16e, %.16e)
+      w  = (%.16e, %.16e)
+      ρe = (%.16e, %.16e)
+      """ istage ρ... u... v... w... ρe...
+    end
+    γ = 1 / (1 - kappa_d)
     if !schur
       linearoperator! = function(LQ, Q)
         rhs_linear!(LQ, Q, p, stagetime; increment = false)
@@ -462,10 +470,22 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
       end
       linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
 
-      γ = 1 / (1 - kappa_d)
-      P = extrema((γ - 1) * Qtt[:, 5, :])
+      aux = rhs!.auxstate
+      lastaux = size(aux, 2)
+      #isentropic vortex
+      #aux[:, lastaux-3, :] .= (@. (γ - 1) * (Qtt[:, 5, :] + Qtt[:, 1, :] *  R_d * T_0 / (γ - 1)))
+      # rtb
+      aux[:, lastaux-3, :] .= (@. (γ - 1) * (Qtt[:, 5, :] - Qtt[:, 1, :] * (aux[:, 4, :] - R_d * T_0 / (γ - 1))))
+      P = extrema(aux[:, lastaux-3, :])
+      grad_auxiliary_state!(rhs!, lastaux-3, (lastaux-2, lastaux-1, lastaux))
+      ∇P = (extrema(aux[:, lastaux-2, :])... , extrema(aux[:, lastaux-1, :])..., extrema(aux[:, lastaux, :])...) 
     else
-      schurP .= 0
+      aux = rhs!.auxstate
+      #schurP .= 0
+      #isentropic vortex
+      #schurP[:, 1, :] .= (@. (γ - 1) * (Qtt[:, 5, :] + Qtt[:, 1, :] *  R_d * T_0 / (γ - 1)))
+      #rtb
+      schurP[:, 1, :] .= (@. (γ - 1) * (Qtt[:, 5, :] - Qtt[:, 1, :] * (aux[:, 4, :] - R_d * T_0 / (γ - 1))))
       schur_rhs.auxstate[:, 1:5, :] .= Qhat[:, 1:5, :]
       schur_rhs(schurR, schurP, p, α; increment = false)
       linearoperator! = function(LQ, Q)
@@ -473,29 +493,45 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
       end
       linearsolve!(linearoperator!, schurP, schurR, linearsolver)
       schur_lhs(schurR, schurP, p, α; increment = false)
+      #∇P = (extrema(schur_lhs.diffstate[:, 1, :])...,
+      #      extrema(schur_lhs.diffstate[:, 2, :])...,
+      #      extrema(schur_lhs.diffstate[:, 3, :])...)
 
+      P = extrema(schurP[:, 1, :])
+      
+      lastaux = size(aux, 2)
+      aux[:, lastaux-3, :] .= schurP[:, 1, :]
+      grad_auxiliary_state!(rhs!, lastaux-3, (lastaux-2, lastaux-1, lastaux))
+      ∇P = (extrema(aux[:, lastaux-2, :])... , extrema(aux[:, lastaux-1, :])..., extrema(aux[:, lastaux, :])...) 
+
+      schur_lhs.diffstate[:, 1, :] .= aux[:, lastaux-2, :]
+      schur_lhs.diffstate[:, 2, :] .= aux[:, lastaux-1, :]
+      schur_lhs.diffstate[:, 3, :] .= aux[:, lastaux  , :]
+      
       nodal_update_schur!(schur_update!, rhs!,
                              rhs!.balancelaw, schur_lhs.balancelaw,
                              Qtt, Qhat,
                              schurP, schur_lhs.auxstate, schur_lhs.diffstate,
                              α)
-      P = extrema(schurP[:, 1, :])
     end
-    #let 
-    #  ρ = extrema(Qtt[:, 1, :])
-    #  u = extrema(Qtt[:, 2, :])
-    #  v = extrema(Qtt[:, 3, :])
-    #  w = extrema(Qtt[:, 4, :])
-    #  ρe = extrema(Qtt[:, 5, :])
-    #  @info @sprintf """After stage %d
-    #  P  = (%.16e, %.16e)
-    #  ρ  = (%.16e, %.16e)
-    #  u  = (%.16e, %.16e)
-    #  v  = (%.16e, %.16e)
-    #  w  = (%.16e, %.16e)
-    #  ρe = (%.16e, %.16e)
-    #  """ istage P... ρ... u... v... w... ρe...
-    #end
+    let 
+      ρ = extrema(Qtt[:, 1, :])
+      u = extrema(Qtt[:, 2, :])
+      v = extrema(Qtt[:, 3, :])
+      w = extrema(Qtt[:, 4, :])
+      ρe = extrema(Qtt[:, 5, :])
+      @info @sprintf """After stage %d
+      P    = (%.16e, %.16e)
+      ∇P_x = (%.16e, %.16e)
+      ∇P_y = (%.16e, %.16e)
+      ∇P_z = (%.16e, %.16e)
+      ρ    = (%.16e, %.16e)
+      u    = (%.16e, %.16e)
+      v    = (%.16e, %.16e)
+      w    = (%.16e, %.16e)
+      ρe   = (%.16e, %.16e)
+      """ istage P... ∇P... ρ... u... v... w... ρe...
+    end
     
     #update Qstages
     Qstages[istage] .+= Qtt

@@ -67,6 +67,15 @@ end
 
 boundary_state!(::CentralGradPenalty, ::SchurLHSModel, _...) = nothing
 
+function boundary_state!(::CentralNumericalFluxDiffusive, ::SchurLHSModel,
+                               stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  #stateP.p = stateM.p
+  #diffP.∇p = diffM.∇p
+  diffP.∇p = diffM.∇p - 2 * dot(diffM.∇p, nM) * nM
+end
+
 function gradvariables!(::SchurLHSModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
   transformstate.p = state.p
 end
@@ -113,6 +122,14 @@ function flux_nondiffusive!(m::SchurRHSModel, flux::Grad, state::Vars,
                             auxstate::Vars, t::Real)
   flux.p = auxstate.ρu
 end
+function boundary_state!(::CentralNumericalFluxNonDiffusive, ::SchurRHSModel,
+                         stateP::Vars,
+                         auxP::Vars, nM, stateM::Vars,
+                         auxM::Vars, bctype, t, _...)
+  auxP.ρu = auxM.ρu - 2 * dot(auxM.ρu, nM) * nM
+end
+
+boundary_state!(::CentralNumericalFluxDiffusive, ::SchurRHSModel, _...) = nothing
 
 function flux_diffusive!(::SchurRHSModel, flux::Grad, state::Vars,
                          diffusive::Vars, auxstate::Vars, t::Real)

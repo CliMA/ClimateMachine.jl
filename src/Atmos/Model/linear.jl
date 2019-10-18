@@ -20,6 +20,9 @@ end
 function boundary_state!(nf::Rusanov, lm::AtmosLinearModel, x...)
   atmos_boundary_state!(nf, NoFluxBC(), lm.atmos, x...)
 end
+function boundary_state!(nf::CentralNumericalFluxNonDiffusive, lm::AtmosLinearModel, x...)
+  atmos_boundary_state!(Rusanov(), NoFluxBC(), lm.atmos, x...)
+end
 function boundary_state!(nf::CentralNumericalFluxDiffusive, lm::AtmosLinearModel, x...)
   nothing
 end
