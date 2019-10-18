@@ -18,7 +18,8 @@ function IOstrings_outpath_name(problem_name, grid_resolution)
     # grid_resolution[2]   = Δy
     # grid_resolution[end] = Δz
     #
-    if mpirank == MPI.Comm_rank(MPI.COMM_WORLD)
+    mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
+    if mpirank == 0
         ndim = length(grid_resolution)
 
         outpath_string = string(grid_resolution[1], "mx")
