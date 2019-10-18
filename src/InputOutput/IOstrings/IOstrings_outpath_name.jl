@@ -8,6 +8,8 @@
 #    OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
 #
 #
+using MPI
+
 function IOstrings_outpath_name(problem_name, grid_resolution)
     #
     # Arguments:
@@ -16,18 +18,20 @@ function IOstrings_outpath_name(problem_name, grid_resolution)
     # grid_resolution[2]   = Δy
     # grid_resolution[end] = Δz
     #
-    ndim = length(grid_resolution)
+    if mpirank == MPI.Comm_rank(MPI.COMM_WORLD)
+        ndim = length(grid_resolution)
 
-    outpath_string = string(grid_resolution[1], "mx")
-    for i = 2:ndim
-        ds = grid_resolution[i]
-        outpath_string = string(outpath_string, ds, "mx")
-    end
-    current_time = string(Dates.format(convert(Dates.DateTime, Dates.now()), Dates.dateformat"yyyymmdd_HHMMSS"))
-    OUTPATH = string("./output/",problem_name, "/", outpath_string,"_", current_time)
+        outpath_string = string(grid_resolution[1], "mx")
+        for i = 2:ndim
+            ds = grid_resolution[i]
+            outpath_string = string(outpath_string, ds, "mx")
+        end
+        current_time = string(Dates.format(convert(Dates.DateTime, Dates.now()), Dates.dateformat"yyyymmdd_HHMMSS"))
+        OUTPATH = string("./output/",problem_name, "/", outpath_string,"_", current_time)
 
-    mkpath(OUTPATH)
+        mkpath(OUTPATH)
     
-    return OUTPATH
+        return OUTPATH
+    end
 end
 
