@@ -42,7 +42,6 @@ end
 # Random number seed
 const seed = MersenneTwister(0)
 
-
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,
@@ -91,7 +90,6 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     θ_liq = FT(297.5) + (xvert - zi)^(FT(1/3))
     q_tot = FT(1.5e-3)
   end
-
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
@@ -107,7 +105,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
-    
+
   # Calculate PhasePartition object for vertical domain extent
   q_pt  = PhasePartition(q_tot, q_liq, q_ice) 
   #Pressure
@@ -119,7 +117,6 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   T     = air_temperature(TS)
   #Assign State Variables
   u, v, w     = FT(7), FT(-5.5), FT(0)
-
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -153,9 +150,9 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   thermoQ = zeros(Nq * Nq * Nqk, nthermo, nrealelem)
   vgeo = grid.vgeo
   localvgeo = host_array ? vgeo : Array(vgeo)
-
+  Zvals = zeros(Nqk,nvertelem)
   for e in 1:nrealelem  
-    for i in 1:Nq*Nq*Nqk
+    for i in 1:Nq * Nq * Nqk
       z = localvgeo[i,grid.x3id,e]
 
       rho_node  = localQ[i,1,e]
@@ -181,10 +178,10 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   fluctQ = zeros(Nq * Nq * Nqk, nstate, nrealelem)
   varQ   = zeros(Nq * Nq * Nqk, nstate, nrealelem)
 
-  rho_localtot = sum(localQ[:, 1, :])
+  rho_localtot = sum(localQ[:, 1, :]) / (size(localQ, 1) * size(localQ, 3))
   U_localtot   = sum(localQ[:, 2, :])
   V_localtot   = sum(localQ[:, 3, :])
-  W_localtot   = sum(localQ[:, 4, :])
+  W_localtot   = sum(localQ[:, 4, :]) / (size(localQ, 1) * size(localQ, 3))
   e_localtot   = sum(localQ[:, 5, :])
   qt_localtot  = sum(localQ[:, 6, :])
 
@@ -206,11 +203,11 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   T_tot     = MPI.Reduce(T_localtot, +, 0, MPI.COMM_WORLD)
   theta_tot = MPI.Reduce(theta_localtot, +, 0, MPI.COMM_WORLD)
 
-#  if mpirank == 0
-    rho_avg   = rho_tot / (size(localQ, 1) * size(localQ, 3) * nranks)
+  if mpirank == 0
+    rho_avg   = rho_tot / (nranks)
     U_avg     = (U_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     V_avg     = (V_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
-    W_avg     = (W_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
+    W_avg     = (W_tot / (nranks * rho_avg)) 
     e_avg     = (e_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     qt_avg    = (qt_tot / (size(localQ, 1) * size(localQ, 3) * nranks))/rho_avg
     qliq_avg  = (qliq_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
@@ -218,7 +215,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
     qvap_avg  = (qvap_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     T_avg     = (T_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
     theta_avg = (theta_tot / (size(localQ, 1) * size(localQ, 3) * nranks))
-#=
+
     @debug "ρ average = $(rho_avg)"
     @debug "U average = $(U_avg)"
     @debug "V average = $(V_avg)"
@@ -230,8 +227,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
     @debug "qvap average = $(qvap_avg)"
     @debug "T average = $(T_avg)"
     @debug "theta average = $(theta_avg)"
-=#
- # end
+  end
 
   AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
   AVG_T = SVector(qliq_avg, qice_avg, qvap_avg, T_avg, theta_avg)
@@ -263,7 +259,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   W_local_flucttot   = sum(varQ[:,4,:])
   e_local_flucttot   = sum(varQ[:,5,:])
   qt_local_flucttot  = sum(varQ[:,6,:])
-#=
+
   rho_flucttot = MPI.Reduce(rho_local_flucttot, +, 0, MPI.COMM_WORLD)
   U_flucttot   = MPI.Reduce(U_local_flucttot, +, 0, MPI.COMM_WORLD)
   V_flucttot   = MPI.Reduce(V_local_flucttot, +, 0, MPI.COMM_WORLD)
@@ -286,24 +282,24 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
     global_variance_W = W_standard_dev^2
     global_variance_e = e_standard_dev^2
     global_variance_qt = qt_standard_dev^2
+
+    @debug "ρ standard_deviation = $(rho_standard_dev)" 
+    @debug "ρ variance = $(global_variance_rho)"
+    @debug "U standard_deviation = $(U_standard_dev)"
+    @debug "U variance = $(global_variance_U)"
+    @debug "V standard_deviation = $(V_standard_dev)"
+    @debug "V variance = $(global_variance_V)"
+    @debug "W standard_deviation = $(W_standard_dev)"
+    @debug "W variance = $(global_variance_W)"
+    @debug "e standard_deviation = $(e_standard_dev)"
+    @debug "e variance = $(global_variance_e)"
+    @debug "qt standard_deviation = $(qt_standard_dev)"
+    @debug "qt variance = $(global_variance_qt)"
   end
-=#
-#=
- @debug "ρ standard_deviation = $(rho_standard_dev)" 
- @debug "ρ Variance = $(Global_Variance_rho)"
- @debug "U standard_deviation = $(U_standard_dev)"
- @debug "U Variance = $(Global_Variance_U)"
- @debug "V standard_deviation = $(V_standard_dev)"
- @debug "V Variance = $(Global_Variance_V)"
- @debug "W standard_deviation = $(W_standard_dev)"
- @debug "W Variance = $(Global_Variance_W)"
- @debug "e standard_deviation = $(e_standard_dev)"
- @debug "e Variance = $(Global_Variance_e)"
- @debug "qt standard_deviation = $(qt_standard_dev)"
-@debug "qt Variance = $(Global_Variance_qt)"
-=#
+
   #Horizontal averages we might need
-  S = zeros(Nqk, nvertelem,11)
+  #Horizontal averages we might need
+  Horzavgs = zeros(Nqk, nvertelem,7)
   for eh in 1:nhorzelem
     for ev in 1:nvertelem
       e = ev + (eh - 1) * nvertelem
@@ -312,17 +308,58 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
         for j in 1:Nq
           for i in 1:Nq
             ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-            S[k,ev,1] += fluctQ[ijk,4,e] * fluctT[ijk,5,e]
-            S[k,ev,2] += fluctQ[ijk,4,e] * fluctT[ijk,3,e]
-            S[k,ev,3] += fluctQ[ijk,4,e] * fluctQ[ijk,2,e]
-            S[k,ev,4] += fluctQ[ijk,4,e] * fluctQ[ijk,3,e]
-            S[k,ev,5] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
-            S[k,ev,6] += fluctQ[ijk,4,e] * fluctQ[ijk,1,e]
-            S[k,ev,7] += thermoQ[ijk,1,e]
-            S[k,ev,8] += fluctQ[ijk,4,e] * fluctT[ijk,1,e]
-            S[k,ev,9] += fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
-            S[k,ev,10] += fluctQ[ijk,2,e] * fluctQ[ijk,2,e]
-            S[k,ev,11] += fluctQ[ijk,3,e] * fluctQ[ijk,3,e]
+            Horzavgs[k,ev,1] += localQ[ijk,1,e]
+            Horzavgs[k,ev,2] += localQ[ijk,2,e]
+            Horzavgs[k,ev,3] += localQ[ijk,3,e]
+            Horzavgs[k,ev,4] += localQ[ijk,4,e]
+            Horzavgs[k,ev,5] += thermoQ[ijk,5,e]
+            Horzavgs[k,ev,6] += thermoQ[ijk,1,e]
+            Horzavgs[k,ev,7] += thermoQ[ijk,3,e]
+          end
+        end
+      end
+    end
+  end
+  Horzavgstot = zeros(Nqk,nvertelem,7)
+for s in 1:7
+  for ev in 1:nvertelem
+       for k in 1:Nqk
+       
+            Horzavgs[k,ev,s] = Horzavgs[k,ev,s] /  (Nq * Nq * nhorzelem)
+          Horzavgstot[k,ev,s] = MPI.Reduce(Horzavgs[k,ev,s], +, 0, MPI.COMM_WORLD)
+          if mpirank == 0
+            Horzavgstot[k,ev,s] = Horzavgstot[k,ev,s] / (nranks)
+         end
+        end
+  end
+end
+  S=zeros(Nqk,nvertelem,11)
+  for eh in 1:nhorzelem
+    for ev in 1:nvertelem
+      e = ev + (eh - 1) * nvertelem
+
+
+
+      for k in 1:Nqk
+        for j in 1:Nq
+          for i in 1:Nq
+            ijk = i + Nq * ((j-1) + Nq * (k-1)) 
+            S[k,ev,1] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #fluctQ[ijk,4,e] * fluctT[ijk,5,e]
+            S[k,ev,2] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,3,e] - Horzavgstot[k,ev,7]) #fluctQ[ijk,4,e] * fluctT[ijk,3,e]
+            S[k,ev,3] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (localQ[ijk,2,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1])
+#fluctQ[ijk,4,e] * fluctQ[ijk,2,e]
+            S[k,ev,4] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (localQ[ijk,3,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,3] / Horzavgstot[k,ev,1])  
+#fluctQ[ijk,4,e] * fluctQ[ijk,3,e]
+            S[k,ev,5] += (localQ[ijk,4,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,4]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
+            S[k,ev,6] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (localQ[ijk,1,e] - Horzavgstot[k,ev,1])
+#fluctQ[ijk,4,e] * fluctQ[ijk,1,e]
+            S[k,ev,7] = Horzavgs[k,ev,6]
+            S[k,ev,8] += (localQ[ijk,4,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,4]/Horzavgstot[k,ev,1]) * (thermoQ[ijk,1,e]-Horzavgstot[k,ev,6])  #fluctQ[ijk,4,e] * fluctT[ijk,1,e]
+            S[k,ev,9] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1])^3
+#fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
+            S[k,ev,10] += (localQ[ijk,2,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,2]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,2,e] * fluctQ[ijk,2,e]
+            S[k,ev,11] += (localQ[ijk,3,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,3]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,3,e] * fluctQ[ijk,3,e]
+            Zvals[k,ev] = localvgeo[ijk,grid.x3id,e]
           end
         end
       end
@@ -333,11 +370,12 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   for s in 1:11
     for ev in 1:nvertelem
       for k in 1:Nqk
+        S[k,ev,s] = S[k,ev,s] /  (Nq * Nq * nhorzelem)
         S_avg[k,ev,s] = MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
      
-        #if mpirank == 0
-          S_avg[k,ev,s] = S_avg[k,ev,s] / (Nq * Nq * nhorzelem * nranks)
-        #end
+        if mpirank == 0
+          S_avg[k,ev,s] = S_avg[k,ev,s] / (nranks)
+        end
       end
     end
   end
@@ -353,7 +391,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   OutputWWW = zeros(nvertelem * Nqk )
   OutputUU = zeros(nvertelem * Nqk )
   OutputVV = zeros(nvertelem * Nqk )
-
+  OutputZ = zeros(nvertelem * Nqk)
   for ev in 1:nvertelem
     for k in 1:Nqk
       i=k + Nqk * (ev - 1)
@@ -368,16 +406,18 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       OutputWWW[i] = S_avg[k,ev,9]
       OutputUU[i] = S_avg[k,ev,10]
       OutputVV[i] = S_avg[k,ev,11]
+      OutputZ[i] = Zvals[k,ev]
     end
   end
-
+    
   io = open(diagnostics_fileout, "a")
      current_time_str = string(current_time_string, "\n")
      write(io, current_time_str)
-     writedlm(io, [OutputHF OutputQLIQ OutputWQVAP OutputUU OutputVV OutputWW])
+     writedlm(io, [OutputHF OutputQLIQ OutputWQVAP OutputUU OutputVV OutputWW OutputZ])
   close(io)
 
 end
+
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH)
   # Grid setup (topl contains brickrange information)
@@ -456,20 +496,21 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     step[1] += 1
     nothing
   end
-
+  
   #
   # Compute and write statistics during run:
   #
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
-      current_time_str = string(ODESolvers.gettime(lsrk))
+    current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
   end
+
     
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   #Get statistics at the end of the run:
-  gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
-
+  #current_time_str = string(ODESolvers.gettime(lsrk))
+  #gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
     
   # Print some end of the simulation information
 #=  engf = norm(Q)
@@ -501,7 +542,7 @@ let
   @static if haspkg("CUDAnative")
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
- #   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+ # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
   for ArrayType in ArrayTypes
     # Problem type
     FT = Float32
@@ -513,9 +554,9 @@ let
     SHF    = FT(-15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 50, 50, 20
-    xmin, xmax = 0, 3200
-    ymin, ymax = 0, 3200
+    Δx, Δy, Δz = 35, 35, 10
+    xmin, xmax = 0, 1000
+    ymin, ymax = 0, 1000
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
@@ -538,16 +579,16 @@ let
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.01
-    timeend = 14400
+    dt = 0.001
+    timeend = 14650
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
 
     #open diagnostics file and write header:
-    diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww.dat")
+    diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww-z-35mx35mx10m.dat")
       io = open(diagnostics_fileout, "w")
-      write(io, " #\n # HF QLIQ WQVAP UU VV WW\n #\n")
+      write(io, " #\n # HF QLIQ WQVAP UU VV WW Z\n #\n")
     close(io)
 
       
