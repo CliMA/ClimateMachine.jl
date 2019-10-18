@@ -4,14 +4,18 @@ export ARK2GiraldoKellyConstantinescu, ARK548L2SA2KennedyCarpenter
 
 using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
-
 using StaticArrays
+include("SchurModel.jl")
+
 
 using ..ODESolvers
 ODEs = ODESolvers
 using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
+using Printf
+
+using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
 
 """
     AdditiveRungeKutta(f, l, linsol, RKAe, RKAi, RKB, RKC, Q; dt, t0 = 0)
@@ -38,7 +42,7 @@ The available concrete implementations are:
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::RT
   "time"
@@ -66,18 +70,23 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
   "RK coefficient vector C (time scaling)"
   RKC::SArray{Tuple{Nstages}, RT, 1, Nstages}
   split_nonlinear_linear::Bool
+  schur_lhs::Union{Nothing, DGModel}
+  schur_rhs::Union{Nothing, DGModel}
+  schurP::AT1
+  schurR::AT1
+  schur::Bool
 
   function AdditiveRungeKutta(rhs!,
                               rhs_linear!,
                               linearsolver::AbstractLinearSolver,
                               RKA_explicit, RKA_implicit, RKB, RKC,
                               split_nonlinear_linear,
+                              schur,
                               Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
 
     T = eltype(Q)
-    LT = typeof(linearsolver)
     RT = real(T)
     
     nstages = length(RKB)
@@ -88,27 +97,71 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
     Qhat = similar(Q)
     Qtt = similar(Q)
 
-    new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
+    grid = rhs!.grid
+    schur_lhs = nothing
+    schur_rhs = nothing
+    schurP = nothing
+    schurR = nothing
+    if schur
+      schur_lhs = DGModel(SchurLHSModel(),
+                          grid,
+                          ZeroNumFluxNonDiffusive(),
+                          CentralNumericalFluxDiffusive(),
+                          CentralGradPenalty())
+      schur_rhs = DGModel(SchurRHSModel(),
+                          grid,
+                          CentralNumericalFluxNonDiffusive(),
+                          CentralNumericalFluxDiffusive(),
+                          CentralGradPenalty())
+
+      schurP = init_ode_state(schur_lhs, zero(eltype(Q)))
+      schurR = init_ode_state(schur_rhs, zero(eltype(Q)))
+     
+      # init auxstate
+      # h0 = (ρe + p) / ρ
+      schur_lhs.auxstate[:, 1, :] .= (rhs!.auxstate[:, 5, :] + rhs!.auxstate[:, 6, :]) ./ rhs!.auxstate[:, 4, :]
+      # ∇h0
+      grad_auxiliary_state!(schur_lhs, 1, (2, 3, 4))
+      # Φ
+      schur_lhs.auxstate[:, 5, :] .= 0
+      
+      schur_rhs.auxstate[:, 6:10, :] .= schur_lhs.auxstate[:, 1:5, :]
+
+      #for i = 1:8
+      #  @show maximum(rhs!.auxstate[:, i, :])
+      #end
+
+      #FIXME
+      linearsolver = GeneralizedMinimalResidual(10, schurP, 1e-10)
+    end
+
+    LT = typeof(linearsolver)
+    AT1 = typeof(schurP)
+
+    new{T, RT, AT, AT1, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, linearsolver,
                                              Qstages, Rstages, Qhat, Qtt,
                                              RKA_explicit, RKA_implicit, RKB, RKC,
-                                             split_nonlinear_linear)
+                                             split_nonlinear_linear,
+                                             schur_lhs, schur_rhs, 
+                                             schurP, schurR,
+                                             schur)
   end
 end
 
-function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
-                            spacedisc_linear::AbstractSpaceMethod,
-                            linearsolver::AbstractLinearSolver,
-                            RKA_explicit, RKA_implicit, RKB, RKC,
-                            split_nonlinear_linear,
-                            Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
-  rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-  rhs_linear! = (x...; increment) -> SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
-  AdditiveRungeKutta(rhs!, rhs_linear!, linearsolver,
-                     RKA_explicit, RKA_implicit, RKB, RKC,
-                     split_nonlinear_linear,
-                     Q; dt=dt, t0=t0)
-end
+#function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
+#                            spacedisc_linear::AbstractSpaceMethod,
+#                            linearsolver::AbstractLinearSolver,
+#                            RKA_explicit, RKA_implicit, RKB, RKC,
+#                            split_nonlinear_linear,
+#                            Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+#  rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
+#  rhs_linear! = (x...; increment) -> SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
+#  AdditiveRungeKutta(rhs!, rhs_linear!, linearsolver,
+#                     RKA_explicit, RKA_implicit, RKB, RKC,
+#                     split_nonlinear_linear,
+#                     Q; dt=dt, t0=t0)
+#end
 
 
 """
@@ -148,7 +201,8 @@ Giraldo, Kelly and Constantinescu (2013).
 function ARK2GiraldoKellyConstantinescu(F, L,
                                         linearsolver::AbstractLinearSolver,
                                         Q::AT; dt=nothing, t0=0,
-                                        split_nonlinear_linear=false) where {AT<:AbstractArray}
+                                        split_nonlinear_linear=false,
+                                        schur=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -172,6 +226,7 @@ function ARK2GiraldoKellyConstantinescu(F, L,
   AdditiveRungeKutta(F, L, linearsolver,
                      RKA_explicit, RKA_implicit, RKB, RKC,
                      split_nonlinear_linear,
+                     schur,
                      Q; dt=dt, t0=t0)
 end
 
@@ -212,7 +267,8 @@ Kennedy and Carpenter (2013).
 function ARK548L2SA2KennedyCarpenter(F, L,
                                      linearsolver::AbstractLinearSolver,
                                      Q::AT; dt=nothing, t0=0,
-                                     split_nonlinear_linear=false) where {AT<:AbstractArray}
+                                     split_nonlinear_linear=false,
+                                     schur=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -317,6 +373,7 @@ function ARK548L2SA2KennedyCarpenter(F, L,
   ark = AdditiveRungeKutta(F, L, linearsolver,
                            RKA_explicit, RKA_implicit, RKB, RKC,
                            split_nonlinear_linear,
+                           schur,
                            Q; dt=dt, t0=t0)
 end
 
@@ -351,6 +408,12 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
   Qstages, Rstages = ark.Qstages, ark.Rstages
   Qhat, Qtt = ark.Qhat, ark.Qtt
   split_nonlinear_linear = ark.split_nonlinear_linear
+  
+  schur = ark.schur
+  schur_lhs = ark.schur_lhs
+  schur_rhs = ark.schur_rhs
+  schurP = ark.schurP
+  schurR = ark.schurR
 
   rv_Q = realview(Q)
   rv_Qstages = realview.(Qstages)
@@ -378,11 +441,61 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
-    linearoperator! = function(LQ, Q)
-      rhs_linear!(LQ, Q, p, stagetime; increment = false)
-      @. LQ = Q - α * LQ
+    #let 
+    #  ρ = extrema(Qtt[:, 1, :])
+    #  u = extrema(Qtt[:, 2, :])
+    #  v = extrema(Qtt[:, 3, :])
+    #  w = extrema(Qtt[:, 4, :])
+    #  ρe = extrema(Qtt[:, 5, :])
+    #  @info @sprintf """Before stage %d
+    #  ρ  = (%.16e, %.16e)
+    #  u  = (%.16e, %.16e)
+    #  v  = (%.16e, %.16e)
+    #  w  = (%.16e, %.16e)
+    #  ρe = (%.16e, %.16e)
+    #  """ istage ρ... u... v... w... ρe...
+    #end
+    if !schur
+      linearoperator! = function(LQ, Q)
+        rhs_linear!(LQ, Q, p, stagetime; increment = false)
+        @. LQ = Q - α * LQ
+      end
+      linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
+
+      γ = 1 / (1 - kappa_d)
+      P = extrema((γ - 1) * Qtt[:, 5, :])
+    else
+      schurP .= 0
+      schur_rhs.auxstate[:, 1:5, :] .= Qhat[:, 1:5, :]
+      schur_rhs(schurR, schurP, p, α; increment = false)
+      linearoperator! = function(LQ, Q)
+        schur_lhs(LQ, Q, p, α; increment = false)
+      end
+      linearsolve!(linearoperator!, schurP, schurR, linearsolver)
+      schur_lhs(schurR, schurP, p, α; increment = false)
+
+      nodal_update_schur!(schur_update!, rhs!,
+                             rhs!.balancelaw, schur_lhs.balancelaw,
+                             Qtt, Qhat,
+                             schurP, schur_lhs.auxstate, schur_lhs.diffstate,
+                             α)
+      P = extrema(schurP[:, 1, :])
     end
-    linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
+    #let 
+    #  ρ = extrema(Qtt[:, 1, :])
+    #  u = extrema(Qtt[:, 2, :])
+    #  v = extrema(Qtt[:, 3, :])
+    #  w = extrema(Qtt[:, 4, :])
+    #  ρe = extrema(Qtt[:, 5, :])
+    #  @info @sprintf """After stage %d
+    #  P  = (%.16e, %.16e)
+    #  ρ  = (%.16e, %.16e)
+    #  u  = (%.16e, %.16e)
+    #  v  = (%.16e, %.16e)
+    #  w  = (%.16e, %.16e)
+    #  ρe = (%.16e, %.16e)
+    #  """ istage P... ρ... u... v... w... ρe...
+    #end
     
     #update Qstages
     Qstages[istage] .+= Qtt
