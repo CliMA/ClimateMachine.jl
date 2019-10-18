@@ -37,5 +37,6 @@ cpu_gpu = [
 
 gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", n = 3, args = ["true"] },
+  { file = "test/DGmethods/compressible_Navier_Stokes/rayleigh-benard_model.jl", n = 3, args = [] }, 
 ]
 
