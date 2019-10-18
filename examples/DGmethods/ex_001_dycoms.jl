@@ -406,13 +406,15 @@ end
       OutputZ[i] = Zvals[k,ev]
     end
   end
-    
+if mpirank == 0
+
   io = open(diagnostics_fileout, "a")
      current_time_str = string(current_time_string, "\n")
      write(io, current_time_str)
      writedlm(io, [OutputHF OutputQLIQ OutputWQVAP OutputUU OutputVV OutputWW OutputZ])
   close(io)
 
+end
 end
 
 
@@ -581,12 +583,17 @@ let
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
 
+
     #open diagnostics file and write header:
-    diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww-z.dat")
+    mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
+    if mpirank == 0
+
+      diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww-z.dat")
       io = open(diagnostics_fileout, "w")
       write(io, " #\n # HF QLIQ WQVAP UU VV WW Z\n #\n")
-    close(io)
+      close(io)
 
+    end
       
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
