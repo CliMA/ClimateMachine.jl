@@ -152,3 +152,69 @@ function init_aux!(::SchurRHSModel, aux::Vars, g::LocalGeometry)
 end
 function init_state!(::SchurRHSModel, state::Vars, aux::Vars, coords, t)
 end
+
+
+# UPDATE
+struct SchurUpdateModel <: BalanceLaw end
+
+vars_aux(::SchurUpdateModel, T) = @vars begin
+  h0::T
+  ∇h0::SVector{3, T}
+  Φ::T
+end
+vars_state(::SchurUpdateModel, T) = @vars begin
+  p::T
+  ρ::T
+  ρu::SVector{3, T}
+  ρe::T
+end
+vars_gradient(::SchurUpdateModel, T) = @vars(p::T)
+vars_diffusive(::SchurUpdateModel, T) = @vars(∇p::SVector{3,T})
+
+function flux_nondiffusive!(::SchurUpdateModel, flux::Grad, state::Vars,
+                            auxstate::Vars, t::Real)
+  flux.p = 0
+end
+
+function flux_diffusive!(m::SchurUpdateModel, flux::Grad, state::Vars,
+                         diffusive::Vars, auxstate::Vars, dt::Real)
+  flux.ρ = dt * (state.ρu - dt * diffusive.∇p)
+  flux.ρu += dt * (state.p * I)
+  flux.ρe = dt * (auxstate.h0 * (state.ρu - dt * diffusive.∇p))
+end
+
+function numerical_flux_nondiffusive!(::ZeroNumFluxNonDiffusive, ::SchurUpdateModel, F::MArray, nM,
+                                      QM, auxM, QP, auxP, t)
+  nothing
+end
+function boundary_state!(::ZeroNumFluxNonDiffusive, ::SchurUpdateModel,
+                         stateP::Vars, auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype, t, _...)
+  nothing
+end
+
+boundary_state!(::CentralGradPenalty, ::SchurUpdateModel, _...) = nothing
+
+function boundary_state!(::CentralNumericalFluxDiffusive, ::SchurUpdateModel,
+                               stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  stateP.p = stateM.p
+  diffP.∇p = diffM.∇p - 2 * dot(diffM.∇p, nM) * nM
+  stateP.ρu = stateM.ρu - 2 * dot(stateM.ρu, nM) * nM
+end
+
+function gradvariables!(::SchurUpdateModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
+  transformstate.p = state.p
+end
+
+function diffusive!(::SchurUpdateModel, diffusive::Vars,
+                    ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
+  diffusive.∇p = ∇transform.p
+end
+
+source!(m::SchurUpdateModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, dt::Real) = nothing
+
+function init_aux!(::SchurUpdateModel, aux::Vars, g::LocalGeometry)
+end
+function init_state!(::SchurUpdateModel, state::Vars, aux::Vars, coords, t)
+end

@@ -42,7 +42,7 @@ The available concrete implementations are:
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct AdditiveRungeKutta{T, RT, AT, AT1, AT2, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::RT
   "time"
@@ -72,8 +72,10 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: OD
   split_nonlinear_linear::Bool
   schur_lhs::Union{Nothing, DGModel}
   schur_rhs::Union{Nothing, DGModel}
+  schur_upd::Union{Nothing, DGModel}
   schurP::AT1
   schurR::AT1
+  schurU::AT2
   schur::Bool
 
   function AdditiveRungeKutta(rhs!,
@@ -100,8 +102,10 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: OD
     grid = rhs!.grid
     schur_lhs = nothing
     schur_rhs = nothing
+    schur_upd = nothing
     schurP = nothing
     schurR = nothing
+    schurU = nothing
     if schur
       schur_lhs = DGModel(SchurLHSModel(),
                           grid,
@@ -113,9 +117,17 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: OD
                           CentralNumericalFluxNonDiffusive(),
                           CentralNumericalFluxDiffusive(),
                           CentralGradPenalty())
+      
+      schur_upd = DGModel(SchurUpdateModel(),
+                          grid,
+                          ZeroNumFluxNonDiffusive(),
+                          CentralNumericalFluxDiffusive(),
+                          CentralGradPenalty(),
+                          auxstate=schur_lhs.auxstate)
 
       schurP = init_ode_state(schur_lhs, zero(eltype(Q)))
       schurR = init_ode_state(schur_rhs, zero(eltype(Q)))
+      schurU = init_ode_state(schur_upd, zero(eltype(Q)))
      
       # init auxstate
       # h0 = (ρe + p) / ρ
@@ -144,14 +156,15 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: OD
 
     LT = typeof(linearsolver)
     AT1 = typeof(schurP)
+    AT2 = typeof(schurU)
 
-    new{T, RT, AT, AT1, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
+    new{T, RT, AT, AT1, AT2, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, linearsolver,
                                              Qstages, Rstages, Qhat, Qtt,
                                              RKA_explicit, RKA_implicit, RKB, RKC,
                                              split_nonlinear_linear,
-                                             schur_lhs, schur_rhs, 
-                                             schurP, schurR,
+                                             schur_lhs, schur_rhs, schur_upd,
+                                             schurP, schurR, schurU,
                                              schur)
   end
 end
@@ -419,8 +432,10 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
   schur = ark.schur
   schur_lhs = ark.schur_lhs
   schur_rhs = ark.schur_rhs
+  schur_upd = ark.schur_upd
   schurP = ark.schurP
   schurR = ark.schurR
+  schurU = ark.schurU
 
   rv_Q = realview(Q)
   rv_Qstages = realview.(Qstages)
@@ -499,20 +514,28 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
 
       P = extrema(schurP[:, 1, :])
       
-      lastaux = size(aux, 2)
-      aux[:, lastaux-3, :] .= schurP[:, 1, :]
-      grad_auxiliary_state!(rhs!, lastaux-3, (lastaux-2, lastaux-1, lastaux))
-      ∇P = (extrema(aux[:, lastaux-2, :])... , extrema(aux[:, lastaux-1, :])..., extrema(aux[:, lastaux, :])...) 
+      #lastaux = size(aux, 2)
+      #aux[:, lastaux-3, :] .= schurP[:, 1, :]
+      #grad_auxiliary_state!(rhs!, lastaux-3, (lastaux-2, lastaux-1, lastaux))
+      #∇P = (extrema(aux[:, lastaux-2, :])... , extrema(aux[:, lastaux-1, :])..., extrema(aux[:, lastaux, :])...) 
 
-      schur_lhs.diffstate[:, 1, :] .= aux[:, lastaux-2, :]
-      schur_lhs.diffstate[:, 2, :] .= aux[:, lastaux-1, :]
-      schur_lhs.diffstate[:, 3, :] .= aux[:, lastaux  , :]
-      
-      nodal_update_schur!(schur_update!, rhs!,
-                             rhs!.balancelaw, schur_lhs.balancelaw,
-                             Qtt, Qhat,
-                             schurP, schur_lhs.auxstate, schur_lhs.diffstate,
-                             α)
+      #schur_lhs.diffstate[:, 1, :] .= aux[:, lastaux-2, :]
+      #schur_lhs.diffstate[:, 2, :] .= aux[:, lastaux-1, :]
+      #schur_lhs.diffstate[:, 3, :] .= aux[:, lastaux  , :]
+      #
+      #nodal_update_schur!(schur_update!, rhs!,
+      #                       rhs!.balancelaw, schur_lhs.balancelaw,
+      #                       Qtt, Qhat,
+      #                       schurP, schur_lhs.auxstate, schur_lhs.diffstate,
+      #                       α)
+      schurU[:, 1, :] .= schurP[:, 1, :]
+      schurU[:, 2:6, :] .= Qtt[:, 1:5, :]
+      schurD = similar(schurU)
+      schur_upd(schurD, schurU, p, α; increment = false)
+      ∇P = (extrema(schurD[:, 3, :] ./ -α)...,
+            extrema(schurD[:, 4, :] ./ -α)..., 
+            extrema(schurD[:, 5, :] ./ -α)...)
+      Qtt[:, 1:5, :] .+= schurD[:, 2:6, :]
     end
     let 
       ρ = extrema(Qtt[:, 1, :])
