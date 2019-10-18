@@ -61,8 +61,6 @@ v.S = ones(SMatrix{3,3,Int64})
 @test v.S[3,1] === 1.0
 @test v.S[3,3] === 1.0
 
-
-
 @test propertynames(v.a) == ()
 @test propertynames(g.a) == ()
 
@@ -70,9 +68,16 @@ v.S = ones(SMatrix{3,3,Int64})
 g.ρu = SMatrix{3,3}(1:9)
 @test g.ρu == SMatrix{3,3,Float64}(1:9)
 
-
 @test size(v.c.ρk) == (5,)
 @test size(g.c.ρk) == (3,5)
+
+sv = similar(v)
+@test typeof(sv) == typeof(v)
+@test size(getfield(sv,:array)) == size(getfield(v,:array))
+
+sg = similar(g)
+@test typeof(sg) == typeof(g)
+@test size(getfield(sg,:array)) == size(getfield(g,:array))
 
 @test flattenednames(st) == ["ρ","ρu[1]","ρu[2]","ρu[3]","ρe",
                             "b.ρqt",
