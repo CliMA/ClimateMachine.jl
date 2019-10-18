@@ -341,7 +341,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
   topology = grid.topology
   Np = dofs_per_element(grid)
   h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
+  FT = eltype(h_vgeo)
   DA = arraytype(grid)
 
   (Topologies.hasboundary(topology) &&
@@ -366,7 +366,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
 
   # TODO: Clean up this MPIStateArray interface...
   Qvisc = MPIStateArray{Tuple{Np, number_viscous_states},
-                     DFloat, DA
+                     FT, DA
                     }(topology.mpicomm,
                       length(topology.elems),
                       realelems=topology.realelems,
@@ -379,7 +379,7 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
                       weights=weights,
                       commtag=111)
 
-  auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, DFloat, DA
+  auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, FT, DA
                           }(topology.mpicomm,
                             length(topology.elems),
                             realelems=topology.realelems,
@@ -432,14 +432,14 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
   topology = disc.grid.topology
   # FIXME: Remove after updating CUDA
   h_vgeo = Array(disc.grid.vgeo)
-  DFloat = eltype(h_vgeo)
+  FT = eltype(h_vgeo)
   Np = dofs_per_element(grid)
   DA = arraytype(grid)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  MPIStateArray{Tuple{Np, nstate}, DFloat, DA}(topology.mpicomm,
+  MPIStateArray{Tuple{Np, nstate}, FT, DA}(topology.mpicomm,
                                                length(topology.elems),
                                                realelems=topology.realelems,
                                                ghostelems=topology.ghostelems,

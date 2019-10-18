@@ -24,13 +24,13 @@ function initialcondition!(Q, x, y, z, _)
 end
 
 using Test
-function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
-  brickrange = ntuple(j->range(DFloat(-1); length=Ne[j]+1, stop=1), dim)
+function run(mpicomm, dim, ArrayType, Ne, N, FT)
+  brickrange = ntuple(j->range(FT(-1); length=Ne[j]+1, stop=1), dim)
   topl = StackedBrickTopology(mpicomm, brickrange,
                               periodicity=ntuple(j->true, dim))
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
@@ -50,7 +50,7 @@ function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
   sumQ = weightedsum(Q)
 
   @test minimum(Q.realdata) >= 0
-  @test isapprox(initialsumQ, sumQ; rtol = 10eps(DFloat))
+  @test isapprox(initialsumQ, sumQ; rtol = 10eps(FT))
 end
 
 let
@@ -73,10 +73,10 @@ let
   polynomialorder = 4
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64, Float32)
+    for FT in (Float64, Float32)
       for dim = 2:3
-        @info (ArrayType, DFloat, dim)
-        run(mpicomm, dim, ArrayType, numelem, polynomialorder, DFloat)
+        @info (ArrayType, FT, dim)
+        run(mpicomm, dim, ArrayType, numelem, polynomialorder, FT)
       end
     end
   end

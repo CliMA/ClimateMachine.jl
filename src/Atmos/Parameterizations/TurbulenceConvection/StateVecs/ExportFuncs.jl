@@ -15,11 +15,11 @@ Export StateVec to a human-readable file `filename` in directory `dir`.
 function export_state(sv::StateVec, grid::Grid, dir, filename)
   domain = over_elems(grid)
   vn = var_names(sv)
-  DT = eltype(grid)
+  FT = eltype(grid)
 
   headers = ["z", [var_string(sv, ϕ, i) for ϕ in vn for i in over_sub_domains(sv, ϕ)]...]
 
-  data = zeros(DT,length(domain), length(headers)-1)
+  data = zeros(FT,length(domain), length(headers)-1)
   for ϕ in vn, i in over_sub_domains(sv, ϕ), k in domain
     i_eff = get_i_state_vec(sv.var_mapper, sv.a_map[ϕ], ϕ, i)
     data[k, i_eff] = sv[ϕ, k, i]
@@ -43,10 +43,10 @@ Import StateVec from a human-readable file `filename` in directory `dir`.
 function import_state!(sv::StateVec, grid::Grid, dir, filename)
   domain = over_elems(grid)
   vn = var_names(sv)
-  DT = eltype(grid)
+  FT = eltype(grid)
 
   headers = ["z", [var_string(sv, ϕ, i) for ϕ in vn for i in over_sub_domains(sv, ϕ)]...]
-  data_all = zeros(DT, length(domain), length(headers))
+  data_all = zeros(FT, length(domain), length(headers))
   mkpath(dir)
 
   file = joinpath(dir, filename)

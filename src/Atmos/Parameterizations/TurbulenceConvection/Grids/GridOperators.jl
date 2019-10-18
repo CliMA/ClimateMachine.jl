@@ -26,16 +26,16 @@ function advect(f, w, grid::Grid)
 end
 
 """
-    grad(f, grid::Grid{DT}) where DT
+    grad(f, grid::Grid{FT}) where FT
 
 Computes local finite-difference gradient of `f`: `∇f`
 """
-function grad(f, grid::Grid{DT}) where DT
+function grad(f, grid::Grid{FT}) where FT
   @assert length(f)==3 || length(f)==2
   if length(f)==2
     return (f[2]-f[1])*grid.Δzi
   else
-    return (f[3]-f[1])*DT(0.5)*grid.Δzi
+    return (f[3]-f[1])*FT(0.5)*grid.Δzi
   end
 end
 

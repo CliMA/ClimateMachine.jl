@@ -24,7 +24,7 @@ end
 
 Import `data` array from filename `filename` with headers `headers`, exported from `export_csv`.
 """
-function import_data!(data::Array{DT}, filename::S, headers::Vector{S}) where {S<:AbstractString,DT}
+function import_data!(data::Array{FT}, filename::S, headers::Vector{S}) where {S<:AbstractString,FT}
   data_all = readdlm(filename, ',')
-  data .= DT.(data_all[2:end,:]) # Remove headers
+  data .= FT.(data_all[2:end,:]) # Remove headers
 end

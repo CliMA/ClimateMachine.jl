@@ -81,9 +81,9 @@ if !@isdefined integration_testing
 end
 
 using Test
-function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
+function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = Topologies.cubedshellwarp,
@@ -94,7 +94,7 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
   dQdt = similar(Q)
 
   exact_aux = copy(dg.auxstate)
@@ -135,16 +135,16 @@ let
   lvls = integration_testing ? length(expected_result) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
-      err = zeros(DFloat, lvls)
+    for FT in (Float64,) #Float32)
+      err = zeros(FT, lvls)
       for l = 1:lvls
-        @info (ArrayType, DFloat, "sphere", l)
+        @info (ArrayType, FT, "sphere", l)
         Nhorz = 2^(l-1) * base_Nhorz
         Nvert = 2^(l-1) * base_Nvert
-        Rrange = grid1d(DFloat(Rinner), DFloat(Router); nelem=Nvert)
+        Rrange = grid1d(FT(Rinner), FT(Router); nelem=Nvert)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat,
-                     DFloat(Rinner), DFloat(Router))
+        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, FT,
+                     FT(Rinner), FT(Router))
         @test expected_result[l] ≈ err[l]
       end
       if integration_testing

@@ -34,9 +34,9 @@ end
 end
 
 using Test
-function run(mpicomm, topl, ArrayType, N, DFloat)
+function run(mpicomm, topl, ArrayType, N, FT)
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = Topologies.cubedshellwarp,
@@ -89,15 +89,15 @@ let
   lvls = integration_testing ? length(expected_result) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
-      err = zeros(DFloat, lvls)
+    for FT in (Float64,) #Float32)
+      err = zeros(FT, lvls)
       for l = 1:lvls
-        @info (ArrayType, DFloat, "sphere", l)
+        @info (ArrayType, FT, "sphere", l)
         Nhorz = 2^(l-1) * base_Nhorz
         Nvert = 2^(l-1) * base_Nvert
-        Rrange = range(DFloat(Rinner); length=Nvert+1, stop=Router)
+        Rrange = range(FT(Rinner); length=Nvert+1, stop=Router)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat)
+        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, FT)
 
         @test expected_result[l] ≈ err[l]
       end

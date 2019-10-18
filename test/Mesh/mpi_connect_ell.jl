@@ -10,11 +10,11 @@ function main()
 
   @assert csize == 2
 
-  DFloat = Float64
+  FT = Float64
   Nx = 3
   Ny = 2
-  x = range(DFloat(0); length=Nx+1, stop=1)
-  y = range(DFloat(0); length=Ny+1, stop=1)
+  x = range(FT(0); length=Nx+1, stop=1)
+  y = range(FT(0); length=Ny+1, stop=1)
 
   topology = BrickTopology(comm, (x,y); boundary=((1,2),(3,4)),
                            periodicity=(true,true))

@@ -37,7 +37,7 @@ struct AtmosAcousticNonlinearModel{M} <: AtmosNonlinearModel
   atmos::M
 end
 function flux_nondiffusive!(nlm::AtmosAcousticNonlinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
-  DF = eltype(state)
+  FT = eltype(state)
   ρ = state.ρ
   ρu = state.ρu
   ρe = state.ρe
@@ -47,9 +47,9 @@ function flux_nondiffusive!(nlm::AtmosAcousticNonlinearModel, flux::Grad, state:
   p = pressure(nlm.atmos.moisture, nlm.atmos.orientation, state, aux)
   # TODO: use MoistThermodynamics.linearized_air_pressure 
   # need to avoid dividing then multiplying by ρ
-  pL = ρ * DF(R_d) * DF(T_0) + DF(R_d) / DF(cv_d) * (ρe - ρ * e_pot)
+  pL = ρ * FT(R_d) * FT(T_0) + FT(R_d) / FT(cv_d) * (ρe - ρ * e_pot)
 
-  flux.ρ = -zero(DF)
+  flux.ρ = -zero(FT)
   flux.ρu = ρu .* u' + (p - pL) * I
   flux.ρe = ((ρe + p) / ρ - (ref.ρe + ref.p) / ref.ρ + e_pot) * ρu
 end
