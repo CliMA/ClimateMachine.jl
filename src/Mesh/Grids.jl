@@ -108,14 +108,11 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   Imat::DAT2
 
   function DiscontinuousSpectralElementGrid(topology::AbstractTopology{dim};
-                                            FloatType = nothing,
-                                            DeviceArray = nothing,
-                                            polynomialorder = nothing,
+                                            FloatType,
+                                            DeviceArray,
+                                            polynomialorder,
                                             meshwarp::Function =
                                             (x...)->identity(x)) where dim
-    @assert FloatType != nothing
-    @assert DeviceArray != nothing
-    @assert polynomialorder != nothing
 
     N = polynomialorder
     (ξ, ω) = Elements.lglpoints(FloatType, N)

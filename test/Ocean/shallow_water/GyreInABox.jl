@@ -19,13 +19,6 @@ import CLIMA.ShallowWater: shallow_init_state!, shallow_init_aux!, vars_state, v
                     shallow_boundary_state!, TurbulenceClosure, LinearDrag,
                     ConstantViscosity, AdvectionTerm, NonLinearAdvection
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-end
-
 struct GyreInABox{T} <: SWProblem
   τₒ::T
   fₒ::T # value includes τₒ, g, and ρ

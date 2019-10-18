@@ -9,17 +9,10 @@ using CLIMA.LinearSolvers
 using CLIMA.ColumnwiseLUSolver: band_lu_knl!, band_forward_knl!,
                                 band_back_knl!
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayType = CuArray
-  const device = CUDA()
-else
-  const ArrayType = Array
-  const device = CPU()
-end
+const ArrayType = CLIMA.array_type()
+const device = ArrayType == Array ? CPU() : CUDA()
+
+CLIMA.init()
 
 function band_to_full(B, p, q)
   _, n = size(B)
@@ -58,6 +51,7 @@ let
   threads = (Nq, Nq)
   blocks = nhorzelem
   d_F = ArrayType(AB)
+  
   @launch(device, threads=threads, blocks=blocks,
           band_lu_knl!(d_F, Val(Nq), Val(Nq), Val(Nq), Val(nstate), Val(nvertelem),
                        Val(nhorzelem), Val(eband)))

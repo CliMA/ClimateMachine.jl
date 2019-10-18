@@ -1,4 +1,4 @@
-using CLIMA: haspkg
+using CLIMA
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Filters
@@ -21,20 +21,12 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayType = CuArray
-else
-  const ArrayType = Array
-end
 
 const output_vtk = true
+const ArrayType = CLIMA.array_type()
 
 function main()
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))

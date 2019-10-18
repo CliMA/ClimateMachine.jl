@@ -12,15 +12,7 @@ using LinearAlgebra
 using Logging
 using GPUifyLoops
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, integrate_aux!,
@@ -76,7 +68,7 @@ end
 
 
 using Test
-function run(mpicomm, dim, ArrayType, Ne, N, FT)
+function run(mpicomm, dim, Ne, N, FT)
 
   brickrange = ntuple(j->range(FT(0); length=Ne[j]+1, stop=3), dim)
   topl = StackedBrickTopology(mpicomm, brickrange,
@@ -104,8 +96,7 @@ function run(mpicomm, dim, ArrayType, Ne, N, FT)
 end
 
 let
-  MPI.Initialized() || MPI.Init()
-
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -113,27 +104,22 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   numelem = (5, 5, 5)
   lvls = 1
 
   polynomialorder = 4
 
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for FT in (Float64,) #Float32)
       for dim = 2:3
         err = zeros(FT, lvls)
         for l = 1:lvls
           @info (ArrayType, FT, dim)
-          run(mpicomm, dim, ArrayType, ntuple(j->2^(l-1) * numelem[j], dim),
+          run(mpicomm, dim, ntuple(j->2^(l-1) * numelem[j], dim),
               polynomialorder, FT)
         end
       end
     end
-  end
 end
 
 nothing

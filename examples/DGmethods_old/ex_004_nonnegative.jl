@@ -34,17 +34,7 @@ using Dates
 using Printf
 using StaticArrays
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const DeviceArrayType = CuArray
-else
-  const DeviceArrayType = Array
-end
-
-MPI.Initialized() || MPI.Init()
+const DeviceArrayType = CLIMA.array_type()
 
 const finaltime = 5
 
@@ -129,13 +119,10 @@ function setupDG(mpicomm, dim, Ne, polynomialorder, FT=Float64, ArrayType=Array)
 end
 
 function run()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
   rank = MPI.Comm_rank(mpicomm)
-
-  @static if haspkg("CUDAnative")
-    device!(rank % length(devices()))
-  end
 
   dim = 2
   Ne = 20
