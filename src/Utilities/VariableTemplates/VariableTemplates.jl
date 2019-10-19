@@ -68,6 +68,7 @@ Vars{S}(array) where {S} = Vars{S,typeof(array),0}(array)
 
 Base.eltype(v::Vars) = eltype(getfield(v,:array))
 Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
+Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(getfield(v,:array)))
 
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
@@ -143,6 +144,7 @@ Grad{S}(array) where {S} = Grad{S,typeof(array),0}(array)
 
 Base.eltype(g::Grad) = eltype(getfield(g,:array))
 Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
+Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(getfield(g,:array)))
 
 @generated function Base.getproperty(v::Grad{S,A,offset}, sym::Symbol) where {S,A,offset}
   M = size(A,1)
