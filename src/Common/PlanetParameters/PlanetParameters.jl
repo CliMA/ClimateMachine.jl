@@ -7,7 +7,7 @@ module PlanetParameters
 using ..ParametersType
 
 # Physical constants
-@exportparameter gas_constant      8.3144598     "Universal gas constant (J/mol/K)"
+@exportparameter gas_constant      8.31446261815324 "Universal gas constant (J/mol/K)"
 @exportparameter light_speed       2.99792458e8  "Speed of light in vacuum (m/s)"
 @exportparameter h_Planck          6.626e-34     "Planck constant (m^2 kg/s)"
 @exportparameter k_Boltzmann       1.381e-23     "Boltzmann constant (m^2 kg/s^2/K)"
