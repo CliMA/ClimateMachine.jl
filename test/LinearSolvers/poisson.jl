@@ -21,9 +21,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         LocalGeometry
 
 import CLIMA.DGmethods.NumericalFluxes: NumericalFluxDiffusive,
-                                        NumericalFluxNonDiffusive,
-                                        numerical_flux_diffusive!,
-                                        numerical_flux_nondiffusive!
+                                        numerical_flux_diffusive!
                                                               
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -47,6 +45,8 @@ vars_state(::PoissonModel, T) = @vars(ϕ::T)
 vars_gradient(::PoissonModel, T) = @vars(ϕ::T)
 vars_diffusive(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
 
+boundary_state!(nf, bl::PoissonModel, _...) = nothing
+
 function flux_nondiffusive!(::PoissonModel, flux::Grad, state::Vars,
                             auxstate::Vars, t::Real)
   nothing
@@ -55,16 +55,6 @@ end
 function flux_diffusive!(::PoissonModel, flux::Grad, state::Vars,
                          diffusive::Vars, auxstate::Vars, t::Real)
   flux.ϕ = diffusive.∇ϕ
-end
-
-struct ZeroNumFluxNonDiffusive <: NumericalFluxNonDiffusive end
-function numerical_flux_nondiffusive!(::ZeroNumFluxNonDiffusive, ::PoissonModel, F::MArray, nM,
-                                      QM, auxM, QP, auxP, t)
-  nothing
-end
-function boundary_state!(::ZeroNumFluxNonDiffusive, ::PoissonModel,
-                         stateP::Vars, auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype, t, _...)
-  nothing
 end
 
 struct PenaltyNumFluxDiffusive <: NumericalFluxDiffusive end
@@ -85,13 +75,6 @@ function numerical_flux_diffusive!(::PenaltyNumFluxDiffusive,
     @inbounds F[s] -= tau * (QM[1] - QP[1])
   end
 end
-function boundary_state!(::PenaltyNumFluxDiffusive, ::PoissonModel,
-                         stateP::Vars, diffP::Vars, auxP::Vars, nM,
-                         stateM::Vars, diffM::Vars, auxM::Vars, bctype, t, _...)
-  nothing
-end
-
-boundary_state!(::CentralGradPenalty, bl::PoissonModel, _...) = nothing
 
 function gradvariables!(::PoissonModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
   transformstate.ϕ = state.ϕ
@@ -123,22 +106,22 @@ function init_state!(::PoissonModel{dim}, state::Vars, aux::Vars, coords, t) whe
   state.ϕ = prod(sol1d, view(coords, 1:dim))
 end
 
-function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod)
+function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodicity, linmethod)
 
   topology = BrickTopology(mpicomm, brickrange, periodicity=periodicity)
   grid = DiscontinuousSpectralElementGrid(topology,
                                           polynomialorder = polynomialorder,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType)
   dg = DGModel(PoissonModel{dim}(),
                grid,
-               ZeroNumFluxNonDiffusive(),
+               CentralNumericalFluxNonDiffusive(),
                PenaltyNumFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
   Qrhs = dg.auxstate
-  Qexact = init_ode_state(dg, DFloat(0))
+  Qexact = init_ode_state(dg, FT(0))
 
   linearoperator!(y, x) = dg(y, x, nothing, 0; increment = false)
 
@@ -196,20 +179,20 @@ let
 
   lvls = integration_testing ? size(expected_result)[end] : 1
 
-  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), DFloat in (Float64,)
-    result = Array{Tuple{DFloat, Int}}(undef, lvls)
+  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), FT in (Float64,)
+    result = Array{Tuple{FT, Int}}(undef, lvls)
     for dim = 2:3
 
       for l = 1:lvls
         Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
-        brickrange = ntuple(d -> range(DFloat(0), length = Ne[d], stop = 1), dim)
+        brickrange = ntuple(d -> range(FT(0), length = Ne[d], stop = 1), dim)
         periodicity = ntuple(d -> true, dim)
         
-        @info (ArrayType, DFloat, m, dim)
-        result[l] = run(mpicomm, ArrayType, DFloat, dim,
+        @info (ArrayType, FT, m, dim)
+        result[l] = run(mpicomm, ArrayType, FT, dim,
                         polynomialorder, brickrange, periodicity, linmethod)
 
-        @test isapprox(result[l][1], DFloat(expected_result[m, dim-1, l]), rtol = sqrt(tol))
+        @test isapprox(result[l][1], FT(expected_result[m, dim-1, l]), rtol = sqrt(tol))
       end
 
       if integration_testing
