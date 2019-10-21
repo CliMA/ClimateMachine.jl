@@ -127,10 +127,9 @@ end
 # TODO: temporary; move to new CLIMA module
 # TODO: add an option to reduce communication: compute averages
 # locally only
-function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnostics_fileout)
+function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnostics_fileout,κ,LWP_fileout)
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
-
   grid = dg.grid
   topology = grid.topology
   N = polynomialorder(grid)
@@ -139,11 +138,13 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   nrealelem = length(topology.realelems)
   nvertelem = topology.stacksize
   nhorzelem = div(nrealelem, nvertelem)
-
+  aux1=dg.auxstate
   nstate = 6
-  nthermo = 5
+  nthermo = 7
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realdata : Array(Q.realdata)
+  host_array1 = Array ∈ typeof(dg.auxstate).parameters
+  localaux = host_array1 ? aux1.realdata : Array(aux1.realdata)
   thermoQ = zeros(Nq * Nq * Nqk, nthermo, nrealelem)
   vgeo = grid.vgeo
   localvgeo = host_array ? vgeo : Array(vgeo)
@@ -158,6 +159,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       w_node    = localQ[i,4,e] / localQ[i,1,e]
       etot_node = localQ[i,5,e]/localQ[i,1,e]
       qt_node   = localQ[i,6,e]/localQ[i,1,e]
+      
 
       e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
 
@@ -168,6 +170,8 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       thermoQ[i,3,e] = qt_node-Phpart.liq-Phpart.ice
       thermoQ[i,4,e] = ts.T
       thermoQ[i,5,e] = liquid_ice_pottemp(ts)
+      thermoQ[i,6,e] = dry_pottemp(ts)
+      thermoQ[i,7,e] = virtual_pottemp(ts)
     end
   end
 
@@ -228,7 +232,8 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
 
   AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
   AVG_T = SVector(qliq_avg, qice_avg, qvap_avg, T_avg, theta_avg)
-
+#the commented part is outdated but might be useful to someone
+#=
   #fluctuations
   for s in 1:6  
     for e in 1:nrealelem
@@ -293,10 +298,11 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
     @debug "qt standard_deviation = $(qt_standard_dev)"
     @debug "qt variance = $(global_variance_qt)"
   end
-
+=#
   #Horizontal averages we might need
   #Horizontal averages we might need
-  Horzavgs = zeros(Nqk, nvertelem,7)
+  Horzavgs = zeros(Nqk, nvertelem,10)
+  LWP_local = 0
   for eh in 1:nhorzelem
     for ev in 1:nvertelem
       e = ev + (eh - 1) * nvertelem
@@ -305,20 +311,27 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
         for j in 1:Nq
           for i in 1:Nq
             ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-            Horzavgs[k,ev,1] += localQ[ijk,1,e]
-            Horzavgs[k,ev,2] += localQ[ijk,2,e]
-            Horzavgs[k,ev,3] += localQ[ijk,3,e]
-            Horzavgs[k,ev,4] += localQ[ijk,4,e]
-            Horzavgs[k,ev,5] += thermoQ[ijk,5,e]
-            Horzavgs[k,ev,6] += thermoQ[ijk,1,e]
-            Horzavgs[k,ev,7] += thermoQ[ijk,3,e]
+            Horzavgs[k,ev,1] += localQ[ijk,1,e] #density average
+            Horzavgs[k,ev,2] += localQ[ijk,2,e] #U average 
+            Horzavgs[k,ev,3] += localQ[ijk,3,e] #V average
+            Horzavgs[k,ev,4] += localQ[ijk,4,e] #W average
+            Horzavgs[k,ev,5] += thermoQ[ijk,5,e] # theta l  average
+            Horzavgs[k,ev,6] += thermoQ[ijk,1,e] #qliq average
+            Horzavgs[k,ev,7] += thermoQ[ijk,3,e] #qvap average 
+            Horzavgs[k,ev,8] += thermoQ[ijk,6,e] #dry theta average
+            Horzavgs[k,ev,9] += localQ[ijk,6,e] #qt average
+            Horzavgs[k,ev,10] += thermoQ[ijk,7,e] #virtual theta average
+            #The next three lines are for the liquid water path
+            if ev == floor(nvertelem/2) && k==floor(Nqk/2)
+                LWP_local += (localaux[ijk,1,e] + localaux[ijk,2,e])/κ / (Nq * Nq * nhorzelem)
+            end
           end
         end
       end
     end
   end
-  Horzavgstot = zeros(Nqk,nvertelem,7)
-for s in 1:7
+  Horzavgstot = zeros(Nqk,nvertelem,10)
+for s in 1:10
   for ev in 1:nvertelem
        for k in 1:Nqk
        
@@ -330,7 +343,10 @@ for s in 1:7
         end
   end
 end
-  S=zeros(Nqk,nvertelem,11)
+if mpirank == 0
+ LWP=MPI.Reduce(LWP_local, +, 0, MPI.COMM_WORLD) / (nranks) 
+end
+  S=zeros(Nqk,nvertelem,18)
   for eh in 1:nhorzelem
     for ev in 1:nvertelem
       e = ev + (eh - 1) * nvertelem
@@ -341,7 +357,7 @@ end
         for j in 1:Nq
           for i in 1:Nq
             ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-            S[k,ev,1] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #fluctQ[ijk,4,e] * fluctT[ijk,5,e]
+            S[k,ev,1] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,6,e] - Horzavgstot[k,ev,8]) #fluctQ[ijk,4,e] * fluctT[ijk,5,e]
             S[k,ev,2] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,3,e] - Horzavgstot[k,ev,7]) #fluctQ[ijk,4,e] * fluctT[ijk,3,e]
             S[k,ev,3] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (localQ[ijk,2,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1])
 #fluctQ[ijk,4,e] * fluctQ[ijk,2,e]
@@ -357,14 +373,23 @@ end
             S[k,ev,10] += (localQ[ijk,2,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,2]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,2,e] * fluctQ[ijk,2,e]
             S[k,ev,11] += (localQ[ijk,3,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,3]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,3,e] * fluctQ[ijk,3,e]
             Zvals[k,ev] = localvgeo[ijk,grid.x3id,e]
+            S[k,ev,12] = (Horzavgstot[k,ev,8])
+            S[k,ev,13] = (Horzavgstot[k,ev,9]/Horzavgs[k,ev,1])
+            S[k,ev,14] += S[k,ev,15]*(localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1])
+            S[k,ev,15] = (Horzavgstot[k,ev,5])
+            S[k,ev,16] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,7,e] - Horzavgstot[k,ev,10])
+            S[k,ev,17] += 0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11])
+            S[k,ev,18] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5])
           end
         end
       end
     end
   end
 
-  S_avg = zeros(Nqk,nvertelem,11)
-  for s in 1:11
+#See Outputs below for what S[k,ev,:] are respectively.
+
+  S_avg = zeros(Nqk,nvertelem,18)
+  for s in 1:18
     for ev in 1:nvertelem
       for k in 1:Nqk
         S[k,ev,s] = S[k,ev,s] /  (Nq * Nq * nhorzelem)
@@ -377,7 +402,7 @@ end
     end
   end
 
-  OutputHF = zeros(nvertelem * Nqk)
+  OutputWtheta = zeros(nvertelem * Nqk)
   OutputWQVAP = zeros(nvertelem * Nqk)
   OutputWU = zeros(nvertelem * Nqk)
   OutputWV = zeros(nvertelem * Nqk)
@@ -389,21 +414,40 @@ end
   OutputUU = zeros(nvertelem * Nqk )
   OutputVV = zeros(nvertelem * Nqk )
   OutputZ = zeros(nvertelem * Nqk)
+  OutputU = zeros(nvertelem * Nqk)
+  OutputV = zeros(nvertelem * Nqk)
+  Outputtheta = zeros(nvertelem * Nqk)
+  Outputqt = zeros(nvertelem * Nqk)
+  OutputWqt = zeros(nvertelem * Nqk)
+  Outputthetaliq = zeros(nvertelem * Nqk)
+  OutputWthetav = zeros(nvertelem * Nqk)
+  OutputTKE = zeros(nvertelem * Nqk)
+  OutputWthetal = zeros(nvertelem * Nqk)
+  
   for ev in 1:nvertelem
     for k in 1:Nqk
       i=k + Nqk * (ev - 1)
-      OutputHF[i] = S_avg[k,ev,1]
-      OutputWQVAP[i] = S_avg[k,ev,2]
-      OutputWU[i] = S_avg[k,ev,3]
-      OutputWV[i] = S_avg[k,ev,4]
-      OutputWW[i] = S_avg[k,ev,5]
-      OutputWRHO[i] = S_avg[k,ev,6]
-      OutputQLIQ[i] = S_avg[k,ev,7]
-      OutputWQLIQ[i] = S_avg[k,ev,8]
-      OutputWWW[i] = S_avg[k,ev,9]
-      OutputUU[i] = S_avg[k,ev,10]
-      OutputVV[i] = S_avg[k,ev,11]
-      OutputZ[i] = Zvals[k,ev]
+      OutputWtheta[i] = S_avg[k,ev,1] # <w'theta'>
+      OutputWQVAP[i] = S_avg[k,ev,2] # <w'qvap'>
+      OutputWU[i] = S_avg[k,ev,3] # <w'u'>
+      OutputWV[i] = S_avg[k,ev,4] # <w'v'>
+      OutputWW[i] = S_avg[k,ev,5] # <w'w'>
+      OutputWRHO[i] = S_avg[k,ev,6] #<w'rho'>
+      OutputQLIQ[i] = S_avg[k,ev,7] # qliq 
+      OutputWQLIQ[i] = S_avg[k,ev,8] # <w'qliq'>
+      OutputWWW[i] = S_avg[k,ev,9]  #<w'w'w'>
+      OutputUU[i] = S_avg[k,ev,10] #<u'u'>
+      OutputVV[i] = S_avg[k,ev,11] #<v'v'>
+      OutputZ[i] = Zvals[k,ev] # Height
+      OutputU[i] =  Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1] # <u> 
+      OutputV[i] =  Horzavgstot[k,ev,3] / Horzavgstot[k,ev,1] # <v>
+      Outputtheta[i] = S_avg[k,ev,12] # <theta> 
+      Outputqt[i] = S_avg[k,ev,13]  # <qt>
+      OutputWqt[i] = S_avg[k,ev,14] #<w'qt'> 
+      Outputthetaliq[i] = S_avg[k,ev,15] # <thetaliq>
+      OutputWthetav[i] = S_avg[k,ev,16] # <w'thetav'>
+      OutputTKE[i] = S_avg[k,ev,17] # <TKE>
+      OutputWthetal[i] = S_avg[k,ev,18] # <w'thetal'>
     end
   end
 if mpirank == 0
@@ -411,14 +455,18 @@ if mpirank == 0
   io = open(diagnostics_fileout, "a")
      current_time_str = string(current_time_string, "\n")
      write(io, current_time_str)
-     writedlm(io, [OutputHF OutputQLIQ OutputWQVAP OutputUU OutputVV OutputWW OutputZ])
+     writedlm(io, [OutputWtheta OutputWQVAP OutputWU OutputWV OutputWW OutputWRHO OutputQLIQ OutputWQLIQ OutputWWW OutputUU OutputVV OutputU OutputV Outputtheta Outputqt OutputWqt Outputthetaliq OutputWthetav OutputTKE OutputWthetal OutputZ])
   close(io)
-
+  io = open(LWP_fileout, "a")
+     current_time_str = string(current_time_string, "\n")
+     write(io, current_time_str)
+     writedlm(io, LWP)
+  close(io)
 end
 end
 
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH)
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH,LWP_fileout)
   # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -499,7 +547,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   #Get statistics during run:
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(50) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
-      gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
+      gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
 
     
@@ -507,7 +555,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
   #Get statistics at the end of the run:
   current_time_str = string(ODESolvers.gettime(lsrk))
-  gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
+  gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
 
     
   # Print some end of the simulation information
@@ -588,16 +636,19 @@ let
     mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
     if mpirank == 0
 
-      diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww-z.dat")
+      diagnostics_fileout = string(OUTPATH, "/statistic_diagnostics.dat")
       io = open(diagnostics_fileout, "w")
-      write(io, " #\n # HF QLIQ WQVAP UU VV WW Z\n #\n")
+      writedlm(io, ["\n theta flux" "Wqvap" "WU" "WV" "WW" "Mass flux" "qliq" "qliq flux" "WWW" "UU" "VV" "U" "V" "qt"  "qt flux" "thetaL" "thetaVflux" "TKE" "thetaL flux" "Z\n"])
       close(io)
-
+      LWP_fileout = string(OUTPATH, "/LWP_calc.dat")
+      io = open(LWP_fileout, "w")
+      write(io, "\n LWP \n")
+      close(io)
     end
       
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH)
+                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH, LWP_fileout)
 
   end
 end
