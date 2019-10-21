@@ -28,7 +28,7 @@ function IOstrings_outpath_name(problem_name, grid_resolution)
             outpath_string = string(outpath_string, ds, "mx")
         end
         current_time = string(Dates.format(convert(Dates.DateTime, Dates.now()), Dates.dateformat"yyyymmdd_HHMMSS"))
-        outpath = joinpath("./output/",problem_name,outpath_string, "_", current_time)
+        outpath = joinpath("output",problem_name,string(outpath_string, "_", current_time))
 
         mkpath(outpath)
     
