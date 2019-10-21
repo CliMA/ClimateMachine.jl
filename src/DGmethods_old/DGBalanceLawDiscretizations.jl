@@ -365,32 +365,26 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
   # TODO: Clean up this MPIStateArray interface...
-  Qvisc = MPIStateArray{Tuple{Np, number_viscous_states},
-                     FT, DA
-                    }(topology.mpicomm,
-                      length(topology.elems),
-                      realelems=topology.realelems,
-                      ghostelems=topology.ghostelems,
-                      vmaprecv=grid.vmaprecv,
-                      vmapsend=grid.vmapsend,
-                      nabrtorank=topology.nabrtorank,
-                      nabrtovmaprecv=grid.nabrtovmaprecv,
-                      nabrtovmapsend=grid.nabrtovmapsend,
-                      weights=weights,
-                      commtag=111)
+  Qvisc = MPIStateArray{FT, DA}(topology.mpicomm, Np, number_viscous_states,
+                                 length(topology.elems),
+                                 realelems=topology.realelems,
+                                 ghostelems=topology.ghostelems,
+                                 vmaprecv=grid.vmaprecv, vmapsend=grid.vmapsend,
+                                 nabrtorank=topology.nabrtorank,
+                                 nabrtovmaprecv=grid.nabrtovmaprecv,
+                                 nabrtovmapsend=grid.nabrtovmapsend,
+                                 weights=weights, commtag=111)
 
-  auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, FT, DA
-                          }(topology.mpicomm,
-                            length(topology.elems),
-                            realelems=topology.realelems,
-                            ghostelems=topology.ghostelems,
-                            vmaprecv=grid.vmaprecv,
-                            vmapsend=grid.vmapsend,
-                            nabrtorank=topology.nabrtorank,
-                            nabrtovmaprecv=grid.nabrtovmaprecv,
-                            nabrtovmapsend=grid.nabrtovmapsend,
-                            weights=weights,
-                            commtag=222)
+  auxstate = MPIStateArray{FT, DA}(topology.mpicomm, Np, auxiliary_state_length,
+                                   length(topology.elems),
+                                   realelems=topology.realelems,
+                                   ghostelems=topology.ghostelems,
+                                   vmaprecv=grid.vmaprecv,
+                                   vmapsend=grid.vmapsend,
+                                   nabrtorank=topology.nabrtorank,
+                                   nabrtovmaprecv=grid.nabrtovmaprecv,
+                                   nabrtovmapsend=grid.nabrtovmapsend,
+                                   weights=weights, commtag=222)
 
   if auxiliary_state_initialization! !== nothing
     @assert auxiliary_state_length > 0
@@ -439,17 +433,13 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  MPIStateArray{Tuple{Np, nstate}, FT, DA}(topology.mpicomm,
-                                               length(topology.elems),
-                                               realelems=topology.realelems,
-                                               ghostelems=topology.ghostelems,
-                                               vmaprecv=grid.vmaprecv,
-                                               vmapsend=grid.vmapsend,
-                                               nabrtorank=topology.nabrtorank,
-                                               nabrtovmaprecv=grid.nabrtovmaprecv,
-                                               nabrtovmapsend=grid.nabrtovmapsend,
-                                               weights=weights,
-                                               commtag=commtag)
+  MPIStateArray{FT, DA}(topology.mpicomm, Np, nstate, length(topology.elems),
+                        realelems=topology.realelems,
+                        ghostelems=topology.ghostelems, vmaprecv=grid.vmaprecv,
+                        vmapsend=grid.vmapsend, nabrtorank=topology.nabrtorank,
+                        nabrtovmaprecv=grid.nabrtovmaprecv,
+                        nabrtovmapsend=grid.nabrtovmapsend, weights=weights,
+                        commtag=commtag)
 end
 
 """
