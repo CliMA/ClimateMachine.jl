@@ -88,12 +88,12 @@ function main()
 
   weights = Array{Int64}(undef, (0, 0, 0))
 
-  A = MPIStateArray{Tuple{9, 2}, Int64, ArrayType}(comm, numelem, realelems,
-                                                   ghostelems, ArrayType(vmaprecv),
-                                                   ArrayType(vmapsend),
-                                                   nabrtorank, nabrtovmaprecv,
-                                                   nabrtovmapsend,
-                                                   ArrayType(weights), 555)
+  A = MPIStateArray{Int64, ArrayType}(comm, 9, 2, numelem, realelems,
+                                      ghostelems, ArrayType(vmaprecv),
+                                      ArrayType(vmapsend),
+                                      nabrtorank, nabrtovmaprecv,
+                                      nabrtovmapsend,
+                                      ArrayType(weights), 555)
 
   Q = Array(A.data)
   Q .= -1

@@ -49,15 +49,15 @@ function main()
   @test x3[grid.vmapM] ≈ x3[grid.vmapP]
 
   Np = (N+1)^3
-  x1x2x3 = MPIStateArray{Tuple{Np, 3}, T, DA}(topology.mpicomm,
-                                           length(topology.elems),
-                                           realelems=topology.realelems,
-                                           ghostelems=topology.ghostelems,
-                                           vmaprecv=grid.vmaprecv,
-                                           vmapsend=grid.vmapsend,
-                                           nabrtorank=topology.nabrtorank,
-                                           nabrtovmaprecv=grid.nabrtovmaprecv,
-                                           nabrtovmapsend=grid.nabrtovmapsend)
+  x1x2x3 = MPIStateArray{T, DA}(topology.mpicomm, Np, 3,
+                                length(topology.elems),
+                                realelems=topology.realelems,
+                                ghostelems=topology.ghostelems,
+                                vmaprecv=grid.vmaprecv,
+                                vmapsend=grid.vmapsend,
+                                nabrtorank=topology.nabrtorank,
+                                nabrtovmaprecv=grid.nabrtovmaprecv,
+                                nabrtovmapsend=grid.nabrtovmapsend)
   x1x2x3.data[:,:,topology.realelems] .=
         @view grid.vgeo[:, [Grids._x1, Grids._x2, Grids._x3], topology.realelems]
   MPIStateArrays.start_ghost_exchange!(x1x2x3)
