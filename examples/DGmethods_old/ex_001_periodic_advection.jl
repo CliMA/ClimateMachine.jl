@@ -71,10 +71,10 @@ const uvec = (1, 2, 3)
 #md # Note: for two-dimensional simulations the flux `MMatrix` will also be of
 #md # size `(3, 1)` but the function need only fill the first two rows
 function advectionflux!(F, state, _...)
-  DFloat = eltype(state) # get the floating point type we are using
+  FT = eltype(state) # get the floating point type we are using
   @inbounds begin
     q = state[1]
-    F[:, 1] = SVector{3, DFloat}(uvec) * q
+    F[:, 1] = SVector{3, FT}(uvec) * q
   end
 end
 #md nothing # hide
@@ -140,10 +140,10 @@ end
 # ```
 # This is done in the following function
 function upwindflux!(fs, nM, stateM, viscM, auxM, stateP, viscP, auxP, t)
-  DFloat = eltype(fs)
+  FT = eltype(fs)
   @inbounds begin
     ## determine the advection speed and direction
-    un = dot(nM, DFloat.(uvec))
+    un = dot(nM, FT.(uvec))
     qM = stateM[1]
     qP = stateP[1]
     ## Determine which state is "upwind" of the minus side
@@ -200,16 +200,16 @@ end
 # be used:
 function exactsolution!(dim, Q, t, x_1, x_2, x_3, _...)
   @inbounds begin
-    DFloat = eltype(Q)
+    FT = eltype(Q)
 
     ## trace back the point (x_1, x_2, x_3) in the velocity field and
     ## determine where in our "original" [0, L_1] X [0, L_2] X [0, L_3] domain
     ## this point is located
-    y_1 = mod(x_1 - DFloat(uvec[1]) * t, 1)
-    y_2 = mod(x_2 - DFloat(uvec[2]) * t, 1)
+    y_1 = mod(x_1 - FT(uvec[1]) * t, 1)
+    y_2 = mod(x_2 - FT(uvec[2]) * t, 1)
 
     ## if we are really just 2-D we do not want to change the x_3 coordinate
-    y_3 = dim == 3 ? mod(x_3 - DFloat(uvec[3]) * t, 1) : x_3
+    y_3 = dim == 3 ? mod(x_3 - FT(uvec[3]) * t, 1) : x_3
 
     initialcondition!(Q, y_1, y_2, y_3)
   end
@@ -226,12 +226,12 @@ end
 # over a given MPI communicator `mpicomm`, for a given `polynomialorder`, using
 # `dim` dimensions. The mesh used will be `Ne` x `Ne` elements when `dim == 2`
 # and `Ne` x `Ne` x `Ne` elements when `dim == 3`. The floating point type of
-# the computation is `DFloat` and whether the CPU or GPU is used is determined
+# the computation is `FT` and whether the CPU or GPU is used is determined
 # by `ArrayType`; `ArrayType === Array` is for the CPU and `ArrayType ===
 # CuArray` is for NVIDIA GPUs.
 #
 # Note: This whole code chunk is in a function block
-function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64,
+function setupDG(mpicomm, dim, Ne, polynomialorder, FT=Float64,
                  ArrayType=Array)
 
   @assert ArrayType === Array
@@ -244,9 +244,9 @@ function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64,
   # coordinate points of the element corners along each dimension. Here, we want
   # to mesh the unit square or cube with `Ne` elements in each dimension, thus
   # we specify the following `Tuple` of `range`s:
-  brickrange = (range(DFloat(0); length=Ne+1, stop=1), # x_1 corner locations
-                range(DFloat(0); length=Ne+1, stop=1), # x_2 corner locations
-                range(DFloat(0); length=Ne+1, stop=1)) # x_3 corner locations
+  brickrange = (range(FT(0); length=Ne+1, stop=1), # x_1 corner locations
+                range(FT(0); length=Ne+1, stop=1), # x_2 corner locations
+                range(FT(0); length=Ne+1, stop=1)) # x_3 corner locations
   # these coordinates will be combined in a tensor product fashion to define the
   # element corners.
   #
@@ -272,7 +272,7 @@ function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64,
   # interpolation and quadrature weights). Given a topology and polynomial order
   # we can create the grid of degrees of free using
   grid = DiscontinuousSpectralElementGrid(topology; polynomialorder =
-                                          polynomialorder, FloatType = DFloat,
+                                          polynomialorder, FloatType = FT,
                                           DeviceArray = ArrayType,)
   # Note: This constructor also takes in a `FloatType` which specifies the
   # floating point type to be used (e.g., for the coordinate points and geometry

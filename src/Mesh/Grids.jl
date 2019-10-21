@@ -249,14 +249,14 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
                          vmapM) where {dim}
   # Compute metric terms
   Nq = size(D, 1)
-  DFloat = eltype(D)
+  FT = eltype(D)
 
   (nface, nelem) = size(topology.elemtoelem)
 
   # crd = creategrid(Val(dim), elemtocoord(topology), ξ)
 
-  vgeo = zeros(DFloat, Nq^dim, _nvgeo, nelem)
-  sgeo = zeros(DFloat, _nsgeo, Nq^(dim-1), nface, nelem)
+  vgeo = zeros(FT, Nq^dim, _nvgeo, nelem)
+  sgeo = zeros(FT, _nsgeo, Nq^(dim-1), nface, nelem)
 
   (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, x1, x2, x3,
    JcV) = ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
@@ -286,7 +286,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmapM]
 
-  sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
+  sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)
   sMJ .= sM .* sJ
 
   # Compute |r'(ξ3)| for vertical line integrals

@@ -96,14 +96,14 @@ end
     aux[_c_z] = z  # for gravity
     aux[_c_x] = x
 
-    DFloat = eltype(aux)
+    FT = eltype(aux)
 
     # initial condition
-    θ_0::DFloat    = 289         # K
-    p_0::DFloat    = 101500      # Pa
-    p_1000::DFloat = 100000      # Pa
-    qt_0::DFloat   = 7.5 * 1e-3  # kg/kg
-    z_0::DFloat    = 0           # m
+    θ_0::FT    = 289         # K
+    p_0::FT    = 101500      # Pa
+    p_1000::FT = 100000      # Pa
+    qt_0::FT   = 7.5 * 1e-3  # kg/kg
+    z_0::FT    = 0           # m
 
     R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
 
@@ -140,14 +140,14 @@ const Z_max = 1500. # m
 const X_max = 1500. # m
 
 @inline function single_eddy!(Q, t, x, z, _...)
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   # initial condition
-  θ_0::DFloat    = 289         # K
-  p_0::DFloat    = 101500      # Pa
-  p_1000::DFloat = 100000      # Pa
-  qt_0::DFloat   = 7.5 * 1e-3  # kg/kg
-  z_0::DFloat    = 0           # m
+  θ_0::FT    = 289         # K
+  p_0::FT    = 101500      # Pa
+  p_1000::FT = 100000      # Pa
+  qt_0::FT   = 7.5 * 1e-3  # kg/kg
+  z_0::FT    = 0           # m
 
   R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
 
@@ -158,17 +158,17 @@ const X_max = 1500. # m
     p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
                 R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
                )^(cp_d / R_d)
-    T::DFloat = θ_0 * exner(p, PhasePartition(qt_0))
-    ρ::DFloat = p / R_m / T
+    T::FT = θ_0 * exner(p, PhasePartition(qt_0))
+    ρ::FT = p / R_m / T
 
     # TODO should this be more "grid aware"?
     # the velocity is calculated as derivative of streamfunction
-    ρu::DFloat = w_max * X_max/Z_max * cos(π * z/Z_max) * cos(2*π * x/X_max)
-    ρw::DFloat = 2*w_max * sin(π * z/Z_max) * sin(2*π * x/X_max)
+    ρu::FT = w_max * X_max/Z_max * cos(π * z/Z_max) * cos(2*π * x/X_max)
+    ρw::FT = 2*w_max * sin(π * z/Z_max) * sin(2*π * x/X_max)
     u = ρu / ρ
     w = ρw / ρ
 
-    ρq_tot::DFloat = ρ * qt_0
+    ρq_tot::FT = ρ * qt_0
 
     e_int  = internal_energy(T, PhasePartition(qt_0))
     ρe_tot = ρ * (grav * z + (1//2)*(u^2 + w^2) + e_int)
@@ -178,11 +178,11 @@ const X_max = 1500. # m
 end
 
 
-function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
+function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
               ArrayType, dt) where {dim}
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
@@ -209,7 +209,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                              constant_auxiliary_init!)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = single_eddy!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = single_eddy!(Q, FT(0), x...)
   Q = MPIStateArray(spacedisc, initialcondition)
 
   npoststates = 9
@@ -286,7 +286,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
   Qe = MPIStateArray(spacedisc,
-                    (Q, x...) -> single_eddy!(Q, DFloat(timeend), x...))
+                    (Q, x...) -> single_eddy!(Q, FT(timeend), x...))
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -294,7 +294,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   @printf(io, "||Q||₂ ( final ) = %.16e\n", engf)
 end
 
-function run(dim, Ne, N, timeend, DFloat)
+function run(dim, Ne, N, timeend, FT)
 
   ArrayType = DeviceArrayType
 
@@ -302,12 +302,12 @@ function run(dim, Ne, N, timeend, DFloat)
 
   mpicomm = MPI.COMM_WORLD
 
-  brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=Z_max), 2)
+  brickrange = ntuple(j->range(FT(0); length=Ne[j]+1, stop=Z_max), 2)
 
   topl = BrickTopology(mpicomm, brickrange, periodicity=(true, false))
   dt = 1
 
-  main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
+  main(mpicomm, FT, topl, N, timeend, ArrayType, dt)
 
 end
 
@@ -317,11 +317,11 @@ let
   numelem = (75, 75)
   lvls = 3
   dim = 2
-  DFloat = Float64
+  FT = Float64
 
   polynomialorder = 4
 
-  run(dim, ntuple(j->numelem[j], dim), polynomialorder, timeend, DFloat)
+  run(dim, ntuple(j->numelem[j], dim), polynomialorder, timeend, FT)
 end
 
 nothing

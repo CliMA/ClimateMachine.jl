@@ -42,14 +42,14 @@ end
 end
 
 using Test
-function run(mpicomm, dim, ArrayType, Ne, N, DFloat)
+function run(mpicomm, dim, ArrayType, Ne, N, FT)
 
-  brickrange = ntuple(j->range(DFloat(0); length=Ne[j]+1, stop=3), dim)
+  brickrange = ntuple(j->range(FT(0); length=Ne[j]+1, stop=3), dim)
   topl = StackedBrickTopology(mpicomm, brickrange,
                               periodicity=ntuple(j->true, dim))
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
@@ -93,13 +93,13 @@ let
   polynomialorder = 4
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
+    for FT in (Float64,) #Float32)
       for dim = 2:3
-        err = zeros(DFloat, lvls)
+        err = zeros(FT, lvls)
         for l = 1:lvls
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, FT, dim)
           run(mpicomm, dim, ArrayType, ntuple(j->2^(l-1) * numelem[j], dim),
-              polynomialorder, DFloat)
+              polynomialorder, FT)
         end
       end
     end

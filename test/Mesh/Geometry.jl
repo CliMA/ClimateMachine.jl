@@ -7,7 +7,7 @@ using StaticArrays
 MPI.Initialized() || MPI.Init()
 
 @testset "LocalGeometry" begin
-  DF = Float64
+  FT = Float64
   ArrayType = Array
 
   xmin      = 0
@@ -21,13 +21,13 @@ MPI.Initialized() || MPI.Init()
 
   polynomialorder = 4
 
-  brickrange = (range(DF(xmin); length=Ne[1]+1, stop=xmax),
-                range(DF(ymin); length=Ne[2]+1, stop=ymax),
-                range(DF(zmin); length=Ne[3]+1, stop=zmax))
+  brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
+                range(FT(ymin); length=Ne[2]+1, stop=ymax),
+                range(FT(zmin); length=Ne[3]+1, stop=zmax))
   topl = StackedBrickTopology(MPI.COMM_SELF, brickrange, periodicity = (true, true, false))
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DF,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder
                                           )

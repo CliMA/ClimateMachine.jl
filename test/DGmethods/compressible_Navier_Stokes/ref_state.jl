@@ -41,10 +41,10 @@ init_state!(state, aux, coords, t) = nothing
 # initial condition
 using CLIMA.Atmos: vars_aux
 
-function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
+function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N
                                          )
@@ -53,7 +53,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
   RH = 0.01
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(IsothermalProfile(T_s), RH),
-                     ConstantViscosityWithDivergence(DFloat(1)),
+                     ConstantViscosityWithDivergence(FT(1)),
                      EquilMoist(),
                      NoRadiation(),
                      nothing,
@@ -66,27 +66,27 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
 
   mkpath("vtk")
   outprefix = @sprintf("vtk/refstate")
-  writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, DFloat)))
-  return DFloat(0)
+  writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, FT)))
+  return FT(0)
 end
 
-function run2(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
+function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N
                                          )
 
-  T_min, T_s, Γ = DFloat(290), DFloat(320), DFloat(6.5*10^-3)
+  T_min, T_s, Γ = FT(290), FT(320), FT(6.5*10^-3)
   RH = 0.01
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(LinearTemperatureProfile(T_min, T_s, Γ), RH),
-                     ConstantViscosityWithDivergence(DFloat(1)),
+                     ConstantViscosityWithDivergence(FT(1)),
                      EquilMoist(),
                      NoRadiation(),
                      nothing,
@@ -99,12 +99,12 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
 
   mkpath("vtk")
   outprefix = @sprintf("vtk/refstate")
-  writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, DFloat)))
-  return DFloat(0)
+  writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, FT)))
+  return FT(0)
 end
 
 using Test
@@ -128,17 +128,17 @@ let
   lvls = integration_testing ? size(expected_result, 2) : 1
 
 @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-for DFloat in (Float64,) #Float32)
-  result = zeros(DFloat, lvls)
-  x_max = DFloat(25*10^3)
-  y_max = DFloat(25*10^3)
-  z_max = DFloat(25*10^3)
+for FT in (Float64,) #Float32)
+  result = zeros(FT, lvls)
+  x_max = FT(25*10^3)
+  y_max = FT(25*10^3)
+  z_max = FT(25*10^3)
   dim = 3
   for l = 1:lvls
     Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-    brickrange = (range(DFloat(0); length=Ne[1]+1, stop=x_max),
-                  range(DFloat(0); length=Ne[2]+1, stop=y_max),
-                  range(DFloat(0); length=Ne[2]+1, stop=z_max))
+    brickrange = (range(FT(0); length=Ne[1]+1, stop=x_max),
+                  range(FT(0); length=Ne[2]+1, stop=y_max),
+                  range(FT(0); length=Ne[2]+1, stop=z_max))
     topl = BrickTopology(mpicomm, brickrange,
                          periodicity = (false, false, false))
     dt = 5e-3 / Ne[1]
@@ -147,11 +147,11 @@ for DFloat in (Float64,) #Float32)
     nsteps = ceil(Int64, timeend / dt)
     dt = timeend / nsteps
 
-    @info (ArrayType, DFloat, dim)
+    @info (ArrayType, FT, dim)
     result[l] = run1(mpicomm, ArrayType, dim, topl,
-                    polynomialorder, timeend, DFloat, dt)
+                    polynomialorder, timeend, FT, dt)
     result[l] = run2(mpicomm, ArrayType, dim, topl,
-                    polynomialorder, timeend, DFloat, dt)
+                    polynomialorder, timeend, FT, dt)
   end
   if integration_testing
     @info begin

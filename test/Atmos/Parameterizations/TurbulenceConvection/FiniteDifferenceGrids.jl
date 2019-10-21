@@ -3,21 +3,21 @@ using Test, Printf, ForwardDiff
 using CLIMA.TurbulenceConvection.FiniteDifferenceGrids
 
 @testset "Grid interface" begin
-  for DT in (Float32, Float64)
+  for FT in (Float32, Float64)
     for n_ghost in (1, 2)
       n_elems = 12
       n_elems_real = n_elems-2*n_ghost
       elem_indexes = 1:n_elems
       elem_indexes_real = elem_indexes[1+n_ghost:end-n_ghost]
-      Δz = DT(1/n_elems_real)
-      grid = Grid(DT(0.0), DT(1.0), n_elems_real, n_ghost)
+      Δz = FT(1/n_elems_real)
+      grid = Grid(FT(0.0), FT(1.0), n_elems_real, n_ghost)
       @test n_hat(Zmin()) == -1
       @test n_hat(Zmax()) == 1
       @test binary(Zmin()) == 0
       @test binary(Zmax()) == 1
       @test ghost_dual(Zmin()) == [1, 0]
       @test ghost_dual(Zmax()) == [0, 1]
-      @test eltype(grid) == DT
+      @test eltype(grid) == FT
       @test all(over_elems(grid) .== elem_indexes)
       @test all(over_elems_real(grid) .== elem_indexes_real)
       @test length(over_elems(grid)) == n_elems
@@ -27,8 +27,8 @@ using CLIMA.TurbulenceConvection.FiniteDifferenceGrids
       @test boundary(grid, Zmin()) == 1+n_ghost
       @test boundary(grid, Zmax()) == n_elems-n_ghost
       @test over_elems_ghost(grid) == [(1:n_ghost)..., (n_elems+1-n_ghost:n_elems)...]
-      @test grid.zn_min ≈ DT(0.0)
-      @test grid.zn_max  ≈ DT(1.0)
+      @test grid.zn_min ≈ FT(0.0)
+      @test grid.zn_max  ≈ FT(1.0)
       sprint(show, grid)
     end
   end
@@ -41,24 +41,24 @@ function ∇(f, x::T) where {T}
 end
 
 @testset "Grid operators" begin
-  for DT in (Float32, Float64)
+  for FT in (Float32, Float64)
     n_ghost = 1
     n_elems = 12
     n_elems_real = n_elems-2*n_ghost
     elem_indexes = 1:n_elems
     elem_indexes_real = elem_indexes[1+n_ghost:end-n_ghost]
-    Δz = DT(1/n_elems_real)
-    grid = Grid(DT(0.0), DT(1.0), n_elems_real, n_ghost)
-    f = DT[1, 5, 3]
-    w = DT[2, 3, 8]
-    @test grad(f[1:2], grid) ≈ DT(40)
-    @test grad(f, grid) ≈ DT(10)
+    Δz = FT(1/n_elems_real)
+    grid = Grid(FT(0.0), FT(1.0), n_elems_real, n_ghost)
+    f = FT[1, 5, 3]
+    w = FT[2, 3, 8]
+    @test grad(f[1:2], grid) ≈ FT(40)
+    @test grad(f, grid) ≈ FT(10)
     @test_throws AssertionError grad(f[1], grid)
     @test_throws AssertionError advect(f[1:2], w[1:2], grid)
-    @test advect(f, w, grid) ≈ DT(40)
-    @test advect(f, -w, grid) ≈ DT(-20)
-    @test ∇_pos(f, grid) ≈ DT(40)
-    @test ∇_neg(f, grid) ≈ DT(-20)
+    @test advect(f, w, grid) ≈ FT(40)
+    @test advect(f, -w, grid) ≈ FT(-20)
+    @test ∇_pos(f, grid) ≈ FT(40)
+    @test ∇_neg(f, grid) ≈ FT(-20)
   end
 end
 
