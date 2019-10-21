@@ -94,14 +94,14 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
   # --------------------------------------------------
-  randnum1   = rand(seed, FT) / 100
-  randnum2   = rand(seed, FT) / 1000
-  #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
-  #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
-  if xvert <= 25.0    
-    θ_liq += randnum1 * θ_liq 
-    #q_tot += randnum2 * q_tot      
-  end
+  #randnum1   = rand(seed, FT) / 100
+  #randnum2   = rand(seed, FT) / 1000
+  randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
+  randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
+  #if xvert <= 50.0
+  #  θ_liq += randnum1 * θ_liq 
+  #  #q_tot += randnum2 * q_tot      
+  #end
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
@@ -485,7 +485,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(50000) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -500,7 +500,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   #
   # Compute and write statistics during run:
   #
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(50000) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout)
   end
@@ -555,8 +555,8 @@ let
     C_drag = FT(0.0011)
     # User defined domain parameters
     Δx, Δy, Δz = 35, 35, 10
-    xmin, xmax = 0, 1000
-    ymin, ymax = 0, 1000
+    xmin, xmax = 0, 2000
+    ymin, ymax = 0, 2000
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
@@ -579,14 +579,15 @@ let
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.001
-    timeend = 14650
+    dt = 0.002
+    timeend = 14450
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
 
     #open diagnostics file and write header:
-    diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww-z-35mx35mx10m.dat")
+    #diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww-z-", Δx,"mx", Δy,"mx", Δz,"m.dat")
+    diagnostics_fileout = string(OUTPATH, "/HF-ql-wqv-uu-vv-ww-z-test.dat")
       io = open(diagnostics_fileout, "w")
       write(io, " #\n # HF QLIQ WQVAP UU VV WW Z\n #\n")
     close(io)
