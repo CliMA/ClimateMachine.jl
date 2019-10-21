@@ -31,11 +31,11 @@ The available concrete implementations are:
   - [`SSPRK33ShuOsher`](@ref)  
   - [`SSPRK34SpiteriRuuth`](@ref)  
 """
-struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
+mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
   "rhs function"
   rhs!
   "Storage for RHS during the StrongStabilityPreservingRungeKutta update"
@@ -53,9 +53,7 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
                                                Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
     T = eltype(Q)
     RT = real(T)
-    dt = [dt]
-    t0 = [t0]
-    new{T, RT, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
+    new{T, RT, AT, length(RKB)}(RT(dt), RT(t0), rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
   end
 end
 
@@ -65,7 +63,8 @@ function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA
   StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
+ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = (ssp.dt = dt)
+ODEs.updatetime!(lsrk::StrongStabilityPreservingRungeKutta, time) = (lsrk.t = time)
 
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
@@ -78,7 +77,7 @@ the solution beyond the `timeend`.
 """
 function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                       timeend::Real, adjustfinalstep::Bool)
-  time, dt = ssp.t[1], ssp.dt[1]
+  time, dt = ssp.t, ssp.dt
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
   end
@@ -86,10 +85,10 @@ function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
 
   ODEs.dostep!(Q, ssp, p, time, dt)
 
-  if dt == ssp.dt[1]
-    ssp.t[1] += dt
+  if dt == ssp.dt
+    ssp.t += dt
   else
-    ssp.t[1] = timeend
+    ssp.t = timeend
   end
 end
 

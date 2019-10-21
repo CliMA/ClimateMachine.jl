@@ -17,7 +17,7 @@ using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
                                  soundspeed_air
 using CLIMA.Atmos: AtmosModel,
-                   AtmosAcousticLinearModel, AtmosAcousticNonlinearModel,
+                   AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
                    DryModel, NoRadiation, PeriodicBC,
@@ -70,25 +70,25 @@ function main()
   expected_error[Float64, ARK2GiraldoKellyConstantinescu, 4] = 3.8777995619211627e-03
 
   @testset "$(@__FILE__)" begin
-    for ArrayType in ArrayTypes, DFloat in (Float64,), dims in 2
+    for ArrayType in ArrayTypes, FT in (Float64,), dims in 2
       for FastMethod in (SSPRK33ShuOsher, ARK2GiraldoKellyConstantinescu)
         @info @sprintf """Configuration
                           ArrayType  = %s
                           FastMethod = %s
-                          DFloat     = %s
+                          FT     = %s
                           dims       = %d
-                          """ "$ArrayType" "$FastMethod" "$DFloat" dims
+                          """ "$ArrayType" "$FastMethod" "$FT" dims
 
-        setup = IsentropicVortexSetup{DFloat}()
-        errors = Vector{DFloat}(undef, numlevels)
+        setup = IsentropicVortexSetup{FT}()
+        errors = Vector{FT}(undef, numlevels)
 
         for level in 1:numlevels
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
             run(mpicomm, polynomialorder, numelems, setup,
-                ArrayType, DFloat, FastMethod, dims, level)
+                ArrayType, FT, FastMethod, dims, level)
 
-          @test errors[level] ≈ expected_error[DFloat, FastMethod, level]
+          @test errors[level] ≈ expected_error[FT, FastMethod, level]
         end
 
         rates = @. log2(first(errors[1:numlevels-1]) / first(errors[2:numlevels]))
@@ -100,7 +100,7 @@ function main()
 end
 
 function run(mpicomm, polynomialorder, numelems, setup,
-             ArrayType, DFloat, FastMethod, dims, level)
+             ArrayType, FT, FastMethod, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
   end
@@ -110,7 +110,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
                            periodicity=ntuple(_ -> true, dims))
 
   grid = DiscontinuousSpectralElementGrid(topology,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
@@ -119,8 +119,8 @@ function run(mpicomm, polynomialorder, numelems, setup,
   end
 
   model = AtmosModel(NoOrientation(),
-                     IsentropicVortexReferenceState{DFloat}(setup),
-                     ConstantViscosityWithDivergence(DFloat(0)),
+                     IsentropicVortexReferenceState{FT}(setup),
+                     ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
                      nothing,
@@ -129,7 +129,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
   # The linear model has the fast time scales
   fast_model = AtmosAcousticLinearModel(model)
   # The nonlinear model has the slow time scales
-  slow_model = AtmosAcousticNonlinearModel(model)
+  slow_model = RemainderModel(model, (fast_model,))
 
   dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
   fast_dg = DGModel(fast_model,
@@ -139,7 +139,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
                     grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
                     auxstate=dg.auxstate)
 
-  timeend = DFloat(2 * setup.domain_halflength / setup.translation_speed)
+  timeend = FT(2 * setup.domain_halflength / setup.translation_speed)
   # determine the slow time step
   elementsize = minimum(step.(brickrange))
   slow_dt = 8 * elementsize / soundspeed_air(setup.T∞) / polynomialorder ^ 2
@@ -149,7 +149,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
   # arbitrary and not needed for stabilty, just for testing
   fast_dt = slow_dt / 3
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
 
   slow_ode_solver = LSRK144NiegemannDiehlBusch(slow_dg, Q; dt = slow_dt)
 
@@ -194,7 +194,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
   if output_vtk
     # create vtk dir
     vtkdir = "vtk_isentropicvortex_multirate" *
-      "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(DFloat)" *
+      "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)" *
       "_$(FastMethod)_level$(level)"
     mkpath(vtkdir)
     
@@ -229,21 +229,21 @@ function run(mpicomm, polynomialorder, numelems, setup,
   errf
 end
 
-Base.@kwdef struct IsentropicVortexSetup{DFloat}
-  p∞::DFloat = 10 ^ 5
-  T∞::DFloat = 300
-  ρ∞::DFloat = air_density(DFloat(T∞), DFloat(p∞))
-  translation_speed::DFloat = 150
-  translation_angle::DFloat = pi / 4
-  vortex_speed::DFloat = 50
-  vortex_radius::DFloat = 1 // 200
-  domain_halflength::DFloat = 1 // 20
+Base.@kwdef struct IsentropicVortexSetup{FT}
+  p∞::FT = 10 ^ 5
+  T∞::FT = 300
+  ρ∞::FT = air_density(FT(T∞), FT(p∞))
+  translation_speed::FT = 150
+  translation_angle::FT = pi / 4
+  vortex_speed::FT = 50
+  vortex_radius::FT = 1 // 200
+  domain_halflength::FT = 1 // 20
 end
 
-struct IsentropicVortexReferenceState{DFloat} <: ReferenceState
-  setup::IsentropicVortexSetup{DFloat}
+struct IsentropicVortexReferenceState{FT} <: ReferenceState
+  setup::IsentropicVortexSetup{FT}
 end
-vars_aux(::IsentropicVortexReferenceState, DT) = @vars(ρ::DT, ρe::DT, p::DT, T::DT)
+vars_aux(::IsentropicVortexReferenceState, FT) = @vars(ρ::FT, ρe::FT, p::FT, T::FT)
 function atmos_init_aux!(m::IsentropicVortexReferenceState, atmos::AtmosModel, aux::Vars, geom::LocalGeometry)
   setup = m.setup
   ρ∞ = setup.ρ∞
@@ -257,7 +257,7 @@ function atmos_init_aux!(m::IsentropicVortexReferenceState, atmos::AtmosModel, a
 end
 
 function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
-  DFloat = eltype(state)
+  FT = eltype(state)
   x = MVector(coords)
 
   ρ∞ = setup.ρ∞
@@ -284,13 +284,13 @@ function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
 
   T = T∞ * (1 - kappa_d * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
   # adiabatic/isentropic relation
-  p = p∞ * (T / T∞) ^ (DFloat(1) / kappa_d)
+  p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
   ρ = air_density(T, p)
 
   state.ρ = ρ
   state.ρu = ρ * u
   e_kin = u' * u / 2
-  state.ρe = ρ * total_energy(e_kin, DFloat(0), T)
+  state.ρe = ρ * total_energy(e_kin, FT(0), T)
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model,

@@ -2,7 +2,7 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       AtmosAcousticNonlinearModel
+       RemainderModel
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -46,49 +46,49 @@ struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   init_state::IS
 end
 
-function vars_state(m::AtmosModel, T)
+function vars_state(m::AtmosModel, FT)
   @vars begin
-    ρ::T
-    ρu::SVector{3,T}
-    ρe::T
-    turbulence::vars_state(m.turbulence,T)
-    moisture::vars_state(m.moisture,T)
-    radiation::vars_state(m.radiation,T)
+    ρ::FT
+    ρu::SVector{3,FT}
+    ρe::FT
+    turbulence::vars_state(m.turbulence, FT)
+    moisture::vars_state(m.moisture, FT)
+    radiation::vars_state(m.radiation, FT)
   end
 end
-function vars_gradient(m::AtmosModel, T)
+function vars_gradient(m::AtmosModel, FT)
   @vars begin
-    u::SVector{3,T}
-    h_tot::T
-    turbulence::vars_gradient(m.turbulence,T)
-    moisture::vars_gradient(m.moisture,T)
+    u::SVector{3,FT}
+    h_tot::FT
+    turbulence::vars_gradient(m.turbulence,FT)
+    moisture::vars_gradient(m.moisture,FT)
   end
 end
-function vars_diffusive(m::AtmosModel, T)
+function vars_diffusive(m::AtmosModel, FT)
   @vars begin
-    ρτ::SHermitianCompact{3,T,6}
-    ρd_h_tot::SVector{3,T}
-    turbulence::vars_diffusive(m.turbulence,T)
-    moisture::vars_diffusive(m.moisture,T)
+    ρτ::SHermitianCompact{3,FT,6}
+    ρd_h_tot::SVector{3,FT}
+    turbulence::vars_diffusive(m.turbulence,FT)
+    moisture::vars_diffusive(m.moisture,FT)
   end
 end
 
 
-function vars_aux(m::AtmosModel, T)
+function vars_aux(m::AtmosModel, FT)
   @vars begin
-    ∫dz::vars_integrals(m, T)
-    ∫dnz::vars_integrals(m, T)
-    coord::SVector{3,T}
-    orientation::vars_aux(m.orientation, T)
-    ref_state::vars_aux(m.ref_state,T)
-    turbulence::vars_aux(m.turbulence,T)
-    moisture::vars_aux(m.moisture,T)
-    radiation::vars_aux(m.radiation,T)
+    ∫dz::vars_integrals(m, FT)
+    ∫dnz::vars_integrals(m, FT)
+    coord::SVector{3,FT}
+    orientation::vars_aux(m.orientation, FT)
+    ref_state::vars_aux(m.ref_state,FT)
+    turbulence::vars_aux(m.turbulence,FT)
+    moisture::vars_aux(m.moisture,FT)
+    radiation::vars_aux(m.radiation,FT)
   end
 end
-function vars_integrals(m::AtmosModel,T)
+function vars_integrals(m::AtmosModel,FT)
   @vars begin
-    radiation::vars_integrals(m.radiation,T)
+    radiation::vars_integrals(m.radiation,FT)
   end
 end
 
@@ -186,8 +186,8 @@ end
 
 function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
                      auxstate::MPIStateArray, t::Real)
-  DFloat = eltype(Q)
-  if num_integrals(m, DFloat) > 0
+  FT = eltype(Q)
+  if num_integrals(m, FT) > 0
     indefinite_stack_integral!(dg, m, Q, auxstate, t)
     reverse_indefinite_stack_integral!(dg, m, auxstate, t)
   end
@@ -213,7 +213,7 @@ include("radiation.jl")
 include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
-include("nonlinear.jl")
+include("remainder.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)

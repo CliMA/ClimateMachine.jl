@@ -35,13 +35,13 @@ function vars_state end
 function vars_aux end
 function vars_gradient end
 function vars_diffusive end
-vars_integrals(::BalanceLaw, T) = @vars()
+vars_integrals(::BalanceLaw, FT) = @vars()
 
-num_aux(m::BalanceLaw, T) = varsize(vars_aux(m,T)) 
-num_state(m::BalanceLaw, T) = varsize(vars_state(m,T)) # nstate
-num_gradient(m::BalanceLaw, T) = varsize(vars_gradient(m,T))  # number_gradient_states
-num_diffusive(m::BalanceLaw, T) = varsize(vars_diffusive(m,T)) # number_viscous_states
-num_integrals(m::BalanceLaw, T) = varsize(vars_integrals(m,T))
+num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
+num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate
+num_gradient(m::BalanceLaw, FT) = varsize(vars_gradient(m,FT))  # number_gradient_states
+num_diffusive(m::BalanceLaw, FT) = varsize(vars_diffusive(m,FT)) # number_viscous_states
+num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m,FT))
 
 function update_aux! end
 function integrate_aux! end
@@ -59,14 +59,14 @@ function create_state(bl::BalanceLaw, grid, commtag)
   topology = grid.topology
   # FIXME: Remove after updating CUDA
   h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
+  FT = eltype(h_vgeo)
   Np = dofs_per_element(grid)
   DA = arraytype(grid)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat,
+  state = MPIStateArray{Tuple{Np, num_state(bl,FT)}, FT,
                         DA}(topology.mpicomm, length(topology.elems),
                             realelems=topology.realelems,
                             ghostelems=topology.ghostelems,
@@ -83,13 +83,13 @@ function create_auxstate(bl, grid, commtag=222)
   Np = dofs_per_element(grid)
 
   h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
+  FT = eltype(h_vgeo)
   DA = arraytype(grid)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  auxstate = MPIStateArray{Tuple{Np, num_aux(bl,DFloat)}, DFloat, DA}(
+  auxstate = MPIStateArray{Tuple{Np, num_aux(bl,FT)}, FT, DA}(
     topology.mpicomm,
     length(topology.elems),
     realelems=topology.realelems,
@@ -120,14 +120,14 @@ function create_diffstate(bl, grid, commtag=111)
   Np = dofs_per_element(grid)
 
   h_vgeo = Array(grid.vgeo)
-  DFloat = eltype(h_vgeo)
+  FT = eltype(h_vgeo)
   DA = arraytype(grid)
 
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
   # TODO: Clean up this MPIStateArray interface...
-  diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,DFloat)},DFloat, DA}(
+  diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,FT)},FT, DA}(
     topology.mpicomm,
     length(topology.elems),
     realelems=topology.realelems,

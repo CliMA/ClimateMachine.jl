@@ -31,11 +31,11 @@ The available concrete implementations are:
   - [`LSRK54CarpenterKennedy`](@ref)
   - [`LSRK144NiegemannDiehlBusch`](@ref)
 """
-struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
+mutable struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
   "rhs function"
   rhs!
   "Storage for RHS during the LowStorageRungeKutta update"
@@ -52,13 +52,11 @@ struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
 
     T = eltype(Q)
     RT = real(T)
-    dt = [dt]
-    t0 = [t0]
 
     dQ = similar(Q)
     fill!(dQ, 0)
     
-    new{T, RT, AT, length(RKA)}(dt, t0, rhs!, dQ, RKA, RKB, RKC)
+    new{T, RT, AT, length(RKA)}(RT(dt), RT(t0), rhs!, dQ, RKA, RKB, RKC)
   end
 end
 
@@ -68,7 +66,8 @@ function LowStorageRungeKutta2N(spacedisc::AbstractSpaceMethod, RKA, RKB, RKC,
   LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = lsrk.dt[1] = dt
+ODEs.updatedt!(lsrk::LowStorageRungeKutta2N, dt) = (lsrk.dt = dt)
+ODEs.updatetime!(lsrk::LowStorageRungeKutta2N, time) = (lsrk.t = time)
 
 """
     ODESolvers.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend::Real,
@@ -81,7 +80,7 @@ from the current time, to the time `timeend`. If `adjustfinalstep == true` then
 """
 function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend::Real,
                       adjustfinalstep::Bool)
-  time, dt = lsrk.t[1], lsrk.dt[1]
+  time, dt = lsrk.t, lsrk.dt
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
   end
@@ -89,10 +88,10 @@ function ODEs.dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend::Real,
 
   ODEs.dostep!(Q, lsrk, p, time, dt)
 
-  if dt == lsrk.dt[1]
-    lsrk.t[1] += dt
+  if dt == lsrk.dt
+    lsrk.t += dt
   else
-    lsrk.t[1] = timeend
+    lsrk.t = timeend
   end
 
 end

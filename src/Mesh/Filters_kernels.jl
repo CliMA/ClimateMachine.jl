@@ -20,7 +20,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
                            ::Val{states}, filtermatrix,
                            elems) where {dim, N, nstate, horizontal, vertical,
                                          states}
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
@@ -36,9 +36,9 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
 
   nfilterstates = length(states)
 
-  s_filter = @shmem DFloat (Nq, Nq)
-  s_Q = @shmem DFloat (Nq, Nq, Nqk, nfilterstates)
-  l_Qfiltered = @scratch DFloat (nfilterstates, Nq, Nq, Nqk) 3
+  s_filter = @shmem FT (Nq, Nq)
+  s_Q = @shmem FT (Nq, Nq, Nqk, nfilterstates)
+  l_Qfiltered = @scratch FT (nfilterstates, Nq, Nq, Nqk) 3
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -53,7 +53,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           @unroll for fs = 1:nfilterstates
-            l_Qfiltered[fs, i, j, k] = zero(DFloat)
+            l_Qfiltered[fs, i, j, k] = zero(FT)
           end
 
           ijk = i + Nq * ((j-1) + Nq * (k-1))
@@ -86,7 +86,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
             @loop for i in (1:Nq; threadIdx().x)
               @unroll for fs = 1:nfilterstates
                 s_Q[i, j, k, fs] = l_Qfiltered[fs, i, j, k]
-                l_Qfiltered[fs, i, j, k] = zero(DFloat)
+                l_Qfiltered[fs, i, j, k] = zero(FT)
               end
             end
           end
@@ -114,7 +114,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
             @loop for i in (1:Nq; threadIdx().x)
               @unroll for fs = 1:nfilterstates
                 s_Q[i, j, k, fs] = l_Qfiltered[fs, i, j, k]
-                (l_Qfiltered[fs, i, j, k] = zero(DFloat))
+                (l_Qfiltered[fs, i, j, k] = zero(FT))
               end
             end
           end
@@ -157,7 +157,7 @@ end
 function knl_apply_TMAR_filter!(::Val{nreduce}, ::Val{dim}, ::Val{N}, Q,
                                 ::Val{filterstates}, vgeo,
                                 elems) where {nreduce, dim, N, filterstates}
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
@@ -166,12 +166,12 @@ function knl_apply_TMAR_filter!(::Val{nreduce}, ::Val{dim}, ::Val{N}, Q,
 
   # note that k is the second not 4th index (since this is scratch memory and
   # k needs to be persistent across threads)
-  l_Q = @scratch DFloat (nfilterstates, Nq, Nq, Nqj) 2
+  l_Q = @scratch FT (nfilterstates, Nq, Nq, Nqj) 2
 
-  l_MJ = @scratch DFloat (Nq, Nq, Nqj) 2
+  l_MJ = @scratch FT (Nq, Nq, Nqj) 2
 
-  s_MJQ = @shmem DFloat (Nq * Nqj, nfilterstates)
-  s_MJQclipped = @shmem DFloat (Nq * Nqj, nfilterstates)
+  s_MJQ = @shmem FT (Nq * Nqj, nfilterstates)
+  s_MJQclipped = @shmem FT (Nq * Nqj, nfilterstates)
 
   nelemperblock = 1
 
@@ -195,7 +195,7 @@ function knl_apply_TMAR_filter!(::Val{nreduce}, ::Val{dim}, ::Val{N}, Q,
     @loop for j in (1:Nqj; threadIdx().y)
       @loop for i in (1:Nq; threadIdx().x)
         @unroll for sf = 1:nfilterstates
-          MJQ, MJQclipped = zero(DFloat), zero(DFloat)
+          MJQ, MJQclipped = zero(FT), zero(FT)
 
           @unroll for k in 1:Nq
             MJ = l_MJ[k, i, j]
@@ -240,7 +240,7 @@ function knl_apply_TMAR_filter!(::Val{nreduce}, ::Val{dim}, ::Val{N}, Q,
           qs_average = s_MJQ[1, sf]
           qs_clipped_average = s_MJQclipped[1, sf]
 
-          r = qs_average > 0 ? qs_average / qs_clipped_average : zero(DFloat)
+          r = qs_average > 0 ? qs_average / qs_clipped_average : zero(FT)
 
           s = filterstates[sf]
           @unroll for k in 1:Nq

@@ -61,8 +61,8 @@ end
 cosbell(τ, q) = τ ≤ 1 ? ((1 + cospi(τ))/2)^q : zero(τ)
 
 function initialcondition!(Q, x, y, z, _)
-  DFloat = eltype(Q)
-  x0, y0 = DFloat(1//4), DFloat(1//4)
+  FT = eltype(Q)
+  x0, y0 = FT(1//4), FT(1//4)
   τ = 4hypot(x-x0, y-y0)
   @inbounds Q[1] = cosbell(τ, 3)
 end
@@ -107,15 +107,15 @@ function preodefun!(disc, Q, t)
   Filters.apply!(Q, 1, disc.grid, TMARFilter())
 end
 
-function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64, ArrayType=Array)
-  brickrange = (range(DFloat(0); length=Ne+1, stop=1),
-                range(DFloat(0); length=Ne+1, stop=1),
-                range(DFloat(0); length=Ne+1, stop=1))
+function setupDG(mpicomm, dim, Ne, polynomialorder, FT=Float64, ArrayType=Array)
+  brickrange = (range(FT(0); length=Ne+1, stop=1),
+                range(FT(0); length=Ne+1, stop=1),
+                range(FT(0); length=Ne+1, stop=1))
 
   topology = BrickTopology(mpicomm, brickrange[1:dim])
 
   grid = DiscontinuousSpectralElementGrid(topology; polynomialorder =
-                                          polynomialorder, FloatType = DFloat,
+                                          polynomialorder, FloatType = FT,
                                           DeviceArray = ArrayType,)
 
   spatialdiscretization = DGBalanceLaw(grid = grid, length_state_vector = 1,
@@ -140,9 +140,9 @@ function run()
   dim = 2
   Ne = 20
   polynomialorder = 4
-  DFloat = Float64
+  FT = Float64
 
-  spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder, DFloat,
+  spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder, FT,
                                   DeviceArrayType)
   Q = MPIStateArray(spatialdiscretization, initialcondition!)
 

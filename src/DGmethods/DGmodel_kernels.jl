@@ -38,38 +38,38 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                     rhs, Q, Qvisc, auxstate, vgeo, t,
                     ω, D, elems, increment) where {dim, polyorder, direction}
   N = polyorder
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
-  s_ω = @shmem DFloat (Nq, )
-  s_half_D = @shmem DFloat (Nq, Nq)
-  l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
+  s_F = @shmem FT (3, Nq, Nq, Nqk, nstate)
+  s_ω = @shmem FT (Nq, )
+  s_half_D = @shmem FT (Nq, Nq)
+  l_rhs = @scratch FT (nstate, Nq, Nq, Nqk) 3
 
-  source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
-  l_M = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ1x1 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ1x2 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ1x3 = @scratch DFloat (Nq, Nq, Nqk) 3
+  source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+  l_F = MArray{Tuple{3, nstate}, FT}(undef)
+  l_M = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ1x1 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ1x2 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ1x3 = @scratch FT (Nq, Nq, Nqk) 3
   if dim == 3 || (dim == 2 && direction == EveryDirection)
-    l_ξ2x1 = @scratch DFloat (Nq, Nq, Nqk) 3
-    l_ξ2x2 = @scratch DFloat (Nq, Nq, Nqk) 3
-    l_ξ2x3 = @scratch DFloat (Nq, Nq, Nqk) 3
+    l_ξ2x1 = @scratch FT (Nq, Nq, Nqk) 3
+    l_ξ2x2 = @scratch FT (Nq, Nq, Nqk) 3
+    l_ξ2x3 = @scratch FT (Nq, Nq, Nqk) 3
   end
   if dim == 3 && direction == EveryDirection
-    l_ξ3x1 = @scratch DFloat (Nq, Nq, Nqk) 3
-    l_ξ3x2 = @scratch DFloat (Nq, Nq, Nqk) 3
-    l_ξ3x3 = @scratch DFloat (Nq, Nq, Nqk) 3
+    l_ξ3x1 = @scratch FT (Nq, Nq, Nqk) 3
+    l_ξ3x2 = @scratch FT (Nq, Nq, Nqk) 3
+    l_ξ3x3 = @scratch FT (Nq, Nq, Nqk) 3
   end
 
   @inbounds @loop for k in (1; threadIdx().z)
@@ -102,7 +102,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           end
 
           @unroll for s = 1:nstate
-            l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(DFloat)
+            l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(FT)
           end
 
           @unroll for s = 1:nstate
@@ -118,13 +118,13 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(l_F),
-                             Vars{vars_state(bl,DFloat)}(l_Q),
-                             Vars{vars_aux(bl,DFloat)}(l_aux), t)
-          flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(l_F),
-                          Vars{vars_state(bl,DFloat)}(l_Q),
-                          Vars{vars_diffusive(bl,DFloat)}(l_Qvisc),
-                          Vars{vars_aux(bl,DFloat)}(l_aux), t)
+          flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+                             Vars{vars_state(bl,FT)}(l_Q),
+                             Vars{vars_aux(bl,FT)}(l_aux), t)
+          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+                          Vars{vars_state(bl,FT)}(l_Q),
+                          Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                          Vars{vars_aux(bl,FT)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -134,8 +134,8 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
           # if source! !== nothing
           fill!(l_S, -zero(eltype(l_S)))
-          source!(bl, Vars{vars_state(bl,DFloat)}(l_S), Vars{vars_state(bl,DFloat)}(l_Q),
-                  Vars{vars_aux(bl,DFloat)}(l_aux), t)
+          source!(bl, Vars{vars_state(bl,FT)}(l_S), Vars{vars_state(bl,FT)}(l_Q),
+                  Vars{vars_aux(bl,FT)}(l_aux), t)
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
@@ -254,30 +254,30 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                     ::VerticalDirection, rhs, Q, Qvisc, auxstate, vgeo, t,
                     ω, D, elems, increment) where {dim, polyorder}
   N = polyorder
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
-  s_ω = @shmem DFloat (Nq, )
-  s_half_D = @shmem DFloat (Nq, Nq)
-  l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
+  s_F = @shmem FT (3, Nq, Nq, Nqk, nstate)
+  s_ω = @shmem FT (Nq, )
+  s_half_D = @shmem FT (Nq, Nq)
+  l_rhs = @scratch FT (nstate, Nq, Nq, Nqk) 3
 
-  source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
-  l_M = @scratch DFloat (Nq, Nq, Nqk) 3
+  source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+  l_F = MArray{Tuple{3, nstate}, FT}(undef)
+  l_M = @scratch FT (Nq, Nq, Nqk) 3
 
-  l_ζx1 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ζx2 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ζx3 = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ζx1 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ζx2 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ζx3 = @scratch FT (Nq, Nq, Nqk) 3
 
   _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
   _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
@@ -303,7 +303,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           l_ζx3[i, j, k] = vgeo[ijk, _ζx3, e]
 
           @unroll for s = 1:nstate
-            l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(DFloat)
+            l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(FT)
           end
 
           @unroll for s = 1:nstate
@@ -319,13 +319,13 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(l_F),
-                             Vars{vars_state(bl,DFloat)}(l_Q),
-                             Vars{vars_aux(bl,DFloat)}(l_aux), t)
-          flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(l_F),
-                          Vars{vars_state(bl,DFloat)}(l_Q),
-                          Vars{vars_diffusive(bl,DFloat)}(l_Qvisc),
-                          Vars{vars_aux(bl,DFloat)}(l_aux), t)
+          flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+                             Vars{vars_state(bl,FT)}(l_Q),
+                             Vars{vars_aux(bl,FT)}(l_aux), t)
+          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+                          Vars{vars_state(bl,FT)}(l_Q),
+                          Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                          Vars{vars_aux(bl,FT)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -335,8 +335,8 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
           # if source! !== nothing
           fill!(l_S, -zero(eltype(l_S)))
-          source!(bl, Vars{vars_state(bl,DFloat)}(l_S), Vars{vars_state(bl,DFloat)}(l_Q),
-                  Vars{vars_aux(bl,DFloat)}(l_aux), t)
+          source!(bl, Vars{vars_state(bl,FT)}(l_S), Vars{vars_state(bl,FT)}(l_Q),
+                  Vars{vars_aux(bl,FT)}(l_aux), t)
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
@@ -440,10 +440,10 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                   rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                   elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   if dim == 1
     Np = (N+1)
@@ -469,26 +469,26 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  l_QM = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QviscM = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_QM = MArray{Tuple{nstate}, FT}(undef)
+  l_QviscM = MArray{Tuple{nviscstate}, FT}(undef)
+  l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
 
   # Need two copies since numerical_flux_nondiffusive! can modify QP
-  l_QPnondiff = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QPdiff = MArray{Tuple{nstate}, DFloat}(undef)
+  l_QPnondiff = MArray{Tuple{nstate}, FT}(undef)
+  l_QPdiff = MArray{Tuple{nstate}, FT}(undef)
 
   # Need two copies since numerical_flux_nondiffusive! can modify auxP
-  l_auxPnondiff = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_auxPdiff = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_auxPnondiff = MArray{Tuple{nauxstate}, FT}(undef)
+  l_auxPdiff = MArray{Tuple{nauxstate}, FT}(undef)
 
-  l_QviscP = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_QviscP = MArray{Tuple{nviscstate}, FT}(undef)
 
   
-  l_Q_bot1 = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qvisc_bot1 = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_aux_bot1 = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
+  l_Qvisc_bot1 = MArray{Tuple{nviscstate}, FT}(undef)
+  l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
   
-  l_F = MArray{Tuple{nstate}, DFloat}(undef)
+  l_F = MArray{Tuple{nstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     for f in faces
@@ -574,11 +574,11 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                           elems) where {dim, polyorder, direction}
   N = polyorder
   
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  ngradstate = num_gradient(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  ngradstate = num_gradient(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   Nq = N + 1
 
@@ -586,14 +586,14 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
   ngradtransformstate = nstate
 
-  s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
-  s_D = @shmem DFloat (Nq, Nq)
+  s_G = @shmem FT (Nq, Nq, Nqk, ngradstate)
+  s_D = @shmem FT (Nq, Nq)
 
-  l_Q = @scratch DFloat (ngradtransformstate, Nq, Nq, Nqk) 3
-  l_aux = @scratch DFloat (nauxstate, Nq, Nq, Nqk) 3
-  l_G = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_gradG = MArray{Tuple{3, ngradstate}, DFloat}(undef)
+  l_Q = @scratch FT (ngradtransformstate, Nq, Nq, Nqk) 3
+  l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
+  l_G = MArray{Tuple{ngradstate}, FT}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_gradG = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -617,8 +617,8 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_G, -zero(eltype(l_G)))
-          gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_G), Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]),
-                     Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
+          gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_G), Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                     Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -641,7 +641,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           @unroll for s = 1:ngradstate
-            Gξ1 = Gξ2 = Gξ3 = zero(DFloat)
+            Gξ1 = Gξ2 = Gξ3 = zero(FT)
             @unroll for n = 1:Nq
               Gξ1 += s_D[i, n] * s_G[n, j, k, s]
               if dim == 3 || (dim == 2 && direction == EveryDirection)
@@ -669,8 +669,8 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
-          diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(l_Qvisc), Grad{vars_gradient(bl,DFloat)}(l_gradG),
-                     Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
+          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc), Grad{vars_gradient(bl,FT)}(l_gradG),
+                     Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -687,11 +687,11 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                           elems) where {dim, polyorder}
   N = polyorder
 
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  ngradstate = num_gradient(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  ngradstate = num_gradient(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   Nq = N + 1
 
@@ -699,14 +699,14 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
   ngradtransformstate = nstate
 
-  s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
-  s_D = @shmem DFloat (Nq, Nq)
+  s_G = @shmem FT (Nq, Nq, Nqk, ngradstate)
+  s_D = @shmem FT (Nq, Nq)
 
-  l_Q = @scratch DFloat (ngradtransformstate, Nq, Nq, Nqk) 3
-  l_aux = @scratch DFloat (nauxstate, Nq, Nq, Nqk) 3
-  l_G = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_gradG = MArray{Tuple{3, ngradstate}, DFloat}(undef)
+  l_Q = @scratch FT (ngradtransformstate, Nq, Nq, Nqk) 3
+  l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
+  l_G = MArray{Tuple{ngradstate}, FT}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_gradG = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
   _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
@@ -734,9 +734,9 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_G, -zero(eltype(l_G)))
-          gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_G),
-                         Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]),
-                         Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
+          gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_G),
+                         Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                         Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -755,7 +755,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           ζx3 = vgeo[ijk, _ζx3, e]
 
           @unroll for s = 1:ngradstate
-            Gζ = zero(DFloat)
+            Gζ = zero(FT)
             @unroll for n = 1:Nq
               if dim == 2
                 Gζ += s_D[j, n] * s_G[i, n, k, s]
@@ -769,10 +769,10 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
-          diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(l_Qvisc),
-                     Grad{vars_gradient(bl,DFloat)}(l_gradG),
-                     Vars{vars_state(bl,DFloat)}(l_Q[:, i, j, k]),
-                     Vars{vars_aux(bl,DFloat)}(l_aux[:, i, j, k]), t)
+          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                     Grad{vars_gradient(bl,FT)}(l_gradG),
+                     Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                     Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -789,11 +789,11 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                         Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  ngradstate = num_gradient(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  ngradstate = num_gradient(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   if dim == 1
     Np = (N+1)
@@ -820,18 +820,18 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
   ngradtransformstate = nstate
 
-  l_QM = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
-  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_GM = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_QM = MArray{Tuple{ngradtransformstate}, FT}(undef)
+  l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
+  l_GM = MArray{Tuple{ngradstate}, FT}(undef)
 
-  l_QP = MArray{Tuple{ngradtransformstate}, DFloat}(undef)
-  l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_GP = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_QP = MArray{Tuple{ngradtransformstate}, FT}(undef)
+  l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
+  l_GP = MArray{Tuple{ngradstate}, FT}(undef)
 
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
 
-  l_Q_bot1 = MArray{Tuple{nstate}, DFloat}(undef)
-  l_aux_bot1 = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
+  l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     for f in faces
@@ -853,9 +853,9 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         end
 
         fill!(l_GM, -zero(eltype(l_GM)))
-        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GM),
-                       Vars{vars_state(bl,DFloat)}(l_QM),
-                       Vars{vars_aux(bl,DFloat)}(l_auxM), t)
+        gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_GM),
+                       Vars{vars_state(bl,FT)}(l_QM),
+                       Vars{vars_aux(bl,FT)}(l_auxM), t)
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
@@ -867,9 +867,9 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         end
 
         fill!(l_GP, -zero(eltype(l_GP)))
-        gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(l_GP),
-                       Vars{vars_state(bl,DFloat)}(l_QP),
-                       Vars{vars_aux(bl,DFloat)}(l_auxP), t)
+        gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_GP),
+                       Vars{vars_state(bl,FT)}(l_QP),
+                       Vars{vars_aux(bl,FT)}(l_auxP), t)
 
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
@@ -904,16 +904,16 @@ end
 
 function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstate, vgeo, elems, args...) where {dim, polyorder}
   N = polyorder
-  DFloat = eltype(auxstate)
-  nauxstate = num_aux(bl,DFloat)
-  nstate = num_state(bl,DFloat)
+  FT = eltype(auxstate)
+  nauxstate = num_aux(bl,FT)
+  nstate = num_state(bl,FT)
 
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
   Np = Nq * Nq * Nqk
 
-  l_state = MArray{Tuple{nstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_state = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
@@ -924,7 +924,7 @@ function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstat
       @unroll for s = 1:nstate
         l_state[s] = state[n, s, e]
       end
-      init_state!(bl, Vars{vars_state(bl,DFloat)}(l_state), Vars{vars_aux(bl,DFloat)}(l_aux), coords, args...)
+      init_state!(bl, Vars{vars_state(bl,FT)}(l_state), Vars{vars_aux(bl,FT)}(l_aux), coords, args...)
       @unroll for s = 1:nstate
         state[n, s, e] = l_state[s]
       end
@@ -942,14 +942,14 @@ See [`DGBalanceLaw`](@ref) for usage.
 """
 function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems) where {dim, polyorder}
   N = polyorder  
-  DFloat = eltype(auxstate)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(auxstate)
+  nauxstate = num_aux(bl,FT)
 
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
   Np = Nq * Nq * Nqk
 
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
@@ -957,7 +957,7 @@ function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, v
         l_aux[s] = auxstate[n, s, e]
       end
 
-      init_aux!(bl, Vars{vars_aux(bl,DFloat)}(l_aux), LocalGeometry(Val(polyorder),vgeo,n,e))
+      init_aux!(bl, Vars{vars_aux(bl,FT)}(l_aux), LocalGeometry(Val(polyorder),vgeo,n,e))
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
@@ -974,10 +974,10 @@ Update the auxiliary state array
 """
 function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
                                auxstate, t, elems) where {dim, N}
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  nviscstate = num_diffusive(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   Nq = N + 1
 
@@ -985,8 +985,8 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
 
   Np = Nq * Nq * Nqk
 
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
@@ -998,8 +998,8 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
         l_aux[s] = auxstate[n, s, e]
       end
 
-      f!(bl, Vars{vars_state(bl,DFloat)}(l_Q),
-         Vars{vars_aux(bl,DFloat)}(l_aux), t)
+      f!(bl, Vars{vars_state(bl,FT)}(l_Q),
+         Vars{vars_aux(bl,FT)}(l_aux), t)
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
@@ -1025,21 +1025,21 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::
                                         elems, ::Val{nout}
                                        ) where {dim, N, nvertelem, 
                                                 nout}
-  DFloat = eltype(Q)
-  nstate = num_state(bl,DFloat)
-  nauxstate = num_aux(bl,DFloat)
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nauxstate = num_aux(bl,FT)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
 
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_knl = MArray{Tuple{nout, Nq}, DFloat}(undef)
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+  l_knl = MArray{Tuple{nout, Nq}, FT}(undef)
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
-  l_int = @scratch DFloat (nout, Nq, Nq, Nqj) 2
+  l_int = @scratch FT (nout, Nq, Nq, Nqj) 2
 
-  s_I = @shmem DFloat (Nq, Nq)
+  s_I = @shmem FT (Nq, Nq)
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for i in (1:Nq; threadIdx().x)
@@ -1080,8 +1080,8 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::
               l_aux[s] = auxstate[ijk, s, e]
             end
 
-            integrate_aux!(bl, Vars{vars_integrals(bl, DFloat)}(view(l_knl, :, k)),
-              Vars{vars_state(bl, DFloat)}(l_Q), Vars{vars_aux(bl,DFloat)}(l_aux))
+            integrate_aux!(bl, Vars{vars_integrals(bl, FT)}(view(l_knl, :, k)),
+              Vars{vars_state(bl, FT)}(l_Q), Vars{vars_aux(bl,FT)}(l_aux))
 
             # multiply in the curve jacobian
             @unroll for s = 1:nout
@@ -1118,15 +1118,15 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
                                                 ::Val{nout}
                                                ) where {dim, N, nvertelem,
                                                         nout}
-  DFloat = eltype(auxstate)
+  FT = eltype(auxstate)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
 
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
-  l_T = MArray{Tuple{nout}, DFloat}(undef)
-  l_V = MArray{Tuple{nout}, DFloat}(undef)
+  l_T = MArray{Tuple{nout}, FT}(undef)
+  l_V = MArray{Tuple{nout}, FT}(undef)
 
   @inbounds @loop for eh in (elems; blockIdx().x)
     # Initialize the constant state at zero
