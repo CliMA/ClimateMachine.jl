@@ -5,7 +5,7 @@ using CLIMA, Documenter
 include("generate.jl")
 
 GENERATED_BL_EXAMPLES =
-[joinpath("examples", "DGmethods", "generated", f) for f in
+[joinpath("examples", "DGmethods_old", "generated", f) for f in
  (
   "ex_001_periodic_advection.md",
   "ex_002_solid_body_rotation.md",
@@ -24,9 +24,11 @@ makedocs(
   modules = [Documenter, CLIMA],
   pages = Any[
     "Home" => "index.md",
+    "Common" => Any[
+      "MoistThermodynamics" => "Common/MoistThermodynamics.md",
+    ],
     "Utilites" => Any[
       "RootSolvers" => "Utilities/RootSolvers.md",
-      "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
     ],
     "Atmos" => Any[
       "Atmos/SurfaceFluxes.md",
@@ -38,7 +40,7 @@ makedocs(
     "LinearSolvers" => "LinearSolvers.md",
     "Mesh" => "Mesh.md",
     "Arrays" => "Arrays.md",
-    "DGmethods" => "DGmethods.md",
+    "DGmethods_old" => "DGmethods_old.md",
     "InputOutput.md",
     "Developer docs" => Any[
       "CodingConventions.md",
@@ -51,7 +53,7 @@ makedocs(
 )
 
 # make sure there are no *.vtu files left around from the build
-cd(joinpath(@__DIR__, "build", "examples", "DGmethods", "generated")) do
+cd(joinpath(@__DIR__, "build", "examples", "DGmethods_old", "generated")) do
     foreach(file -> endswith(file, ".vtu") && rm(file), readdir())
 end
 

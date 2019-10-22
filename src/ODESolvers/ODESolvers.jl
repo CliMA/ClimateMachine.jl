@@ -1,8 +1,5 @@
 module ODESolvers
 
-using ..MPIStateArrays
-using GPUifyLoops
-
 export solve!, updatedt!
 
 abstract type AbstractODESolver end
@@ -12,7 +9,15 @@ abstract type AbstractODESolver end
 Returns the current simulation time of the ODE solver `solver`
 """
 gettime(solver::AbstractODESolver) = solver.t[1]
-dostep!(Q, solver::AbstractODESolver, tf, afs) = throw(MethodError(dostep!, (Q, solver, tf, afs)))
+
+"""
+    getdt(solver::AbstractODESolver)
+
+Returns the current simulation time step of the ODE solver `solver`
+"""
+getdt(solver::AbstractODESolver) = solver.dt[1]
+
+function dostep! end
 
 """
     updatedt!(solver::AbstractODESolver, dt)
@@ -21,20 +26,6 @@ Change the time step size to `dt` for the ODE solver `solver`.
 """
 updatedt!(solver::AbstractODESolver, dt) =
   error("Variable time stepping not implemented for $(typeof(solver))")
-
-# `realview` and `device` are used for testing ODE solvers independently of spatial discretisations,
-# i.e. using plain arrays as state vectors
-realview(Q::MPIStateArray) = view(Q.Q, axes(Q.Q)[1:end-1]..., Q.realelems)
-realview(Q::Array) = Q
-device(::Array) = CPU()
-device(Q::MPIStateArray) = device(Q.Q)
-
-using Requires
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-  using .CuArrays
-  realview(Q::CuArray) = Q
-  device(::CuArray) = CUDA()
-end
 
 # {{{ run!
 """
@@ -47,7 +38,7 @@ updated inplace. The final time `timeend` or `numberofsteps` must be specified.
 A series of optional callback functions can be specified using the tuple
 `callbacks`; see [`GenericCallbacks`](@ref).
 """
-function solve!(Q, solver::AbstractODESolver; timeend::Real=Inf,
+function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
                 adjustfinalstep=true, numberofsteps::Integer=0, callbacks=())
 
   @assert isfinite(timeend) || numberofsteps > 0
@@ -67,7 +58,7 @@ function solve!(Q, solver::AbstractODESolver; timeend::Real=Inf,
   while time < timeend
     step += 1
 
-    time = dostep!(Q, solver, timeend, adjustfinalstep)
+    time = dostep!(Q, solver, p, timeend, adjustfinalstep)
 
     # FIXME: Determine better way to handle postcallback behavior
     # Current behavior:
@@ -100,4 +91,3 @@ end
 # }}}
 
 end # module
-

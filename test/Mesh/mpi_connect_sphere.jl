@@ -1,7 +1,7 @@
 using Test
 using MPI
-using CLIMA.Topologies
-using CLIMA.Grids
+using CLIMA.Mesh.Topologies
+using CLIMA.Mesh.Grids
 using CLIMA.MPIStateArrays
 
 function main()
@@ -12,7 +12,6 @@ function main()
   DA = Array
 
   MPI.Initialized() || MPI.Init()
-  Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
 
   comm = MPI.COMM_WORLD
   crank = MPI.Comm_rank(comm)
@@ -40,40 +39,39 @@ function main()
   @show nabrtosend  = topology.nabrtosend
   =#
 
-  # Check xyz matches before comm
-  x = @view grid.vgeo[:, Grids._x, :]
-  y = @view grid.vgeo[:, Grids._y, :]
-  z = @view grid.vgeo[:, Grids._z, :]
+  # Check x1x2x3 matches before comm
+  x1 = @view grid.vgeo[:, Grids._x1, :]
+  x2 = @view grid.vgeo[:, Grids._x2, :]
+  x3 = @view grid.vgeo[:, Grids._x3, :]
 
-  @test x[grid.vmapM] ≈ x[grid.vmapP]
-  @test y[grid.vmapM] ≈ y[grid.vmapP]
-  @test z[grid.vmapM] ≈ z[grid.vmapP]
+  @test x1[grid.vmapM] ≈ x1[grid.vmapP]
+  @test x2[grid.vmapM] ≈ x2[grid.vmapP]
+  @test x3[grid.vmapM] ≈ x3[grid.vmapP]
 
   Np = (N+1)^3
-  xyz = MPIStateArray{Tuple{Np, 3}, T, DA}(topology.mpicomm,
+  x1x2x3 = MPIStateArray{Tuple{Np, 3}, T, DA}(topology.mpicomm,
                                            length(topology.elems),
                                            realelems=topology.realelems,
                                            ghostelems=topology.ghostelems,
-                                           sendelems=topology.sendelems,
+                                           vmaprecv=grid.vmaprecv,
+                                           vmapsend=grid.vmapsend,
                                            nabrtorank=topology.nabrtorank,
-                                           nabrtorecv=topology.nabrtorecv,
-                                           nabrtosend=topology.nabrtosend)
-  xyz.Q[:,:,topology.realelems] .=
-        @view grid.vgeo[:, [Grids._x, Grids._y, Grids._z], topology.realelems]
-  MPIStateArrays.start_ghost_exchange!(xyz)
-  MPIStateArrays.finish_ghost_exchange!(xyz)
+                                           nabrtovmaprecv=grid.nabrtovmaprecv,
+                                           nabrtovmapsend=grid.nabrtovmapsend)
+  x1x2x3.data[:,:,topology.realelems] .=
+        @view grid.vgeo[:, [Grids._x1, Grids._x2, Grids._x3], topology.realelems]
+  MPIStateArrays.start_ghost_exchange!(x1x2x3)
+  MPIStateArrays.finish_ghost_exchange!(x1x2x3)
 
-  # Check xyz matches after
-  x = @view xyz.Q[:, 1, :]
-  y = @view xyz.Q[:, 2, :]
-  z = @view xyz.Q[:, 3, :]
+  # Check x1x2x3 matches after
+  x1 = @view x1x2x3.data[:, 1, :]
+  x2 = @view x1x2x3.data[:, 2, :]
+  x3 = @view x1x2x3.data[:, 3, :]
 
-  @test x[grid.vmapM] ≈ x[grid.vmapP]
-  @test y[grid.vmapM] ≈ y[grid.vmapP]
-  @test z[grid.vmapM] ≈ z[grid.vmapP]
+  @test x1[grid.vmapM] ≈ x1[grid.vmapP]
+  @test x2[grid.vmapM] ≈ x2[grid.vmapP]
+  @test x3[grid.vmapM] ≈ x3[grid.vmapP]
 
   nothing
 end
 isinteractive() || main()
-
-isinteractive() || MPI.Finalize()

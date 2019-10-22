@@ -10,6 +10,8 @@ using StaticArrays
 using ..ODESolvers
 ODEs = ODESolvers
 using ..SpaceMethods
+using ..LinearSolvers
+using ..MPIStateArrays: device, realview
 
 """
     AdditiveRungeKutta(f, l, linsol, RKAe, RKAi, RKB, RKC, Q; dt, t0 = 0)
@@ -36,17 +38,17 @@ The available concrete implementations are:
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
 """
-struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::Array{RT,1}
   "time"
   t::Array{RT,1}
   "rhs function"
-  rhs!::Function
+  rhs!
   "rhs linear operator"
-  rhs_linear!::Function
+  rhs_linear!
   "linear solver"
-  solve_linear_problem!::Function
+  linearsolver::LT
   "Storage for solution during the AdditiveRungeKutta update"
   Qstages::NTuple{Nstages, AT}
   "Storage for RHS during the AdditiveRungeKutta update"
@@ -63,16 +65,19 @@ struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESol
   RKB::SArray{Tuple{Nstages}, RT, 1, Nstages}
   "RK coefficient vector C (time scaling)"
   RKC::SArray{Tuple{Nstages}, RT, 1, Nstages}
+  split_nonlinear_linear::Bool
 
-  function AdditiveRungeKutta(rhs!::Function,
-                              rhs_linear!::Function,
-                              solve_linear_problem!::Function,
+  function AdditiveRungeKutta(rhs!,
+                              rhs_linear!,
+                              linearsolver::AbstractLinearSolver,
                               RKA_explicit, RKA_implicit, RKB, RKC,
+                              split_nonlinear_linear,
                               Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
 
     T = eltype(Q)
+    LT = typeof(linearsolver)
     RT = real(T)
     dt = [RT(dt)]
     t0 = [RT(t0)]
@@ -85,24 +90,28 @@ struct AdditiveRungeKutta{T, RT, AT, Nstages, Nstages_sq} <: ODEs.AbstractODESol
     Qhat = similar(Q)
     Qtt = similar(Q)
 
-    new{T, RT, AT, nstages, nstages ^ 2}(dt, t0,
-                                         rhs!, rhs_linear!, solve_linear_problem!,
-                                         Qstages, Rstages, Qhat, Qtt,
-                                         RKA_explicit, RKA_implicit, RKB, RKC)
+    new{T, RT, AT, LT, nstages, nstages ^ 2}(dt, t0,
+                                             rhs!, rhs_linear!, linearsolver,
+                                             Qstages, Rstages, Qhat, Qtt,
+                                             RKA_explicit, RKA_implicit, RKB, RKC,
+                                             split_nonlinear_linear)
   end
 end
 
 function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                             spacedisc_linear::AbstractSpaceMethod,
-                            solve_linear_problem!::Function,
+                            linearsolver::AbstractLinearSolver,
                             RKA_explicit, RKA_implicit, RKB, RKC,
+                            split_nonlinear_linear,
                             Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   rhs_linear! = (x...; increment) -> SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
-  AdditiveRungeKutta(rhs!, rhs_linear!, solve_linear_problem!,
+  AdditiveRungeKutta(rhs!, rhs_linear!, linearsolver,
                      RKA_explicit, RKA_implicit, RKB, RKC,
+                     split_nonlinear_linear,
                      Q; dt=dt, t0=t0)
 end
+
 
 """
     ARK2GiraldoKellyConstantinescu(f, l, linsol, Q; dt, t0 = 0)
@@ -138,10 +147,10 @@ Giraldo, Kelly and Constantinescu (2013).
       publisher={SIAM}
     }
 """
-function ARK2GiraldoKellyConstantinescu(F::Union{Function, AbstractSpaceMethod},
-                                        L::Union{Function, AbstractSpaceMethod},
-                                        solve_linear_problem!::Function,
-                                        Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+function ARK2GiraldoKellyConstantinescu(F, L,
+                                        linearsolver::AbstractLinearSolver,
+                                        Q::AT; dt=nothing, t0=0,
+                                        split_nonlinear_linear=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -162,8 +171,9 @@ function ARK2GiraldoKellyConstantinescu(F::Union{Function, AbstractSpaceMethod},
   
   nstages = length(RKB)
 
-  AdditiveRungeKutta(F, L, solve_linear_problem!,
+  AdditiveRungeKutta(F, L, linearsolver,
                      RKA_explicit, RKA_implicit, RKB, RKC,
+                     split_nonlinear_linear,
                      Q; dt=dt, t0=t0)
 end
 
@@ -201,10 +211,10 @@ Kennedy and Carpenter (2013).
       publisher={Elsevier}
     }
 """
-function ARK548L2SA2KennedyCarpenter(F::Union{Function, AbstractSpaceMethod},
-                                     L::Union{Function, AbstractSpaceMethod},
-                                     solve_linear_problem!::Function,
-                                     Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+function ARK548L2SA2KennedyCarpenter(F, L,
+                                     linearsolver::AbstractLinearSolver,
+                                     Q::AT; dt=nothing, t0=0,
+                                     split_nonlinear_linear=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -306,33 +316,48 @@ function ARK548L2SA2KennedyCarpenter(F::Union{Function, AbstractSpaceMethod},
   RKB = SVector{nstages}(RKB)
   RKC = SVector{nstages}(RKC)
 
-  ark = AdditiveRungeKutta(F, L, solve_linear_problem!,
+  ark = AdditiveRungeKutta(F, L, linearsolver,
                            RKA_explicit, RKA_implicit, RKB, RKC,
+                           split_nonlinear_linear,
                            Q; dt=dt, t0=t0)
 end
 
 ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
-                      adjustfinalstep)
-
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
+                      adjustfinalstep::Bool)
   time, dt = ark.t[1], ark.dt[1]
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
-    @assert dt > 0
+  end
+  @assert dt > 0
+
+  ODEs.dostep!(Q, ark, p, time, dt)
+
+  if dt == ark.dt[1]
+    ark.t[1] += dt
+  else
+    ark.t[1] = timeend
   end
 
+end
+
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
+                      slow_δ = nothing, slow_rv_dQ = nothing,
+                      slow_scaling = nothing)
+  linearsolver = ark.linearsolver
   RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
   RKB, RKC = ark.RKB, ark.RKC
   rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
   Qstages, Rstages = ark.Qstages, ark.Rstages
   Qhat, Qtt = ark.Qhat, ark.Qtt
+  split_nonlinear_linear = ark.split_nonlinear_linear
 
-  rv_Q = ODEs.realview(Q)
-  rv_Qstages = ODEs.realview.(Qstages)
-  rv_Rstages = ODEs.realview.(Rstages)
-  rv_Qhat = ODEs.realview(Qhat)
-  rv_Qtt = ODEs.realview(Qtt)
+  rv_Q = realview(Q)
+  rv_Qstages = realview.(Qstages)
+  rv_Rstages = realview.(Rstages)
+  rv_Qhat = realview(Qhat)
+  rv_Qtt = realview(Qtt)
 
   nstages = length(RKB)
 
@@ -340,32 +365,44 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, timeend,
   blocks = div(length(rv_Q) + threads - 1, threads)
 
   # calculate the rhs at first stage to initialize the stage loop
-  rhs!(Rstages[1], Qstages[1], time + RKC[1] * dt, increment = false)
+  rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
   # note that it is important that this loop does not modify Q!
   for istage = 2:nstages
-    @launch(ODEs.device(Q), threads = threads, blocks = blocks,
-            stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat,
-                          RKA_explicit, RKA_implicit, dt, Val(istage)))
+    stagetime = time + RKC[istage] * dt
+
+    # this kernel also initializes Qtt for the linear solver
+    @launch(device(Q), threads = threads, blocks = blocks,
+            stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
+                          RKA_explicit, RKA_implicit, dt, Val(istage),
+                          Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-    ark.solve_linear_problem!(Qtt, Qhat, rhs_linear!, dt * RKA_implicit[istage, istage])
+    α = dt * RKA_implicit[istage, istage]
+    linearoperator! = function(LQ, Q)
+      rhs_linear!(LQ, Q, p, stagetime; increment = false)
+      @. LQ = Q - α * LQ
+    end
+    linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
     
     #update Qstages
-    rv_Qstages[istage] .+= rv_Qtt
+    Qstages[istage] .+= Qtt
     
-    rhs!(Rstages[istage], Qstages[istage], time + RKC[istage] * dt, increment = false)
+    rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
+  end
+ 
+  if split_nonlinear_linear
+    for istage = 1:nstages
+      stagetime = time + RKC[istage] * dt
+      rhs_linear!(Rstages[istage], Qstages[istage], p, stagetime, increment = true)
+    end
   end
 
   # compose the final solution
-  @launch(ODEs.device(Q), threads = threads, blocks = blocks,
-          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages)))
+  @launch(device(Q), threads = threads, blocks = blocks,
+          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages), slow_δ,
+                           slow_rv_dQ, slow_scaling))
 
-  if dt == ark.dt[1]
-    ark.t[1] += dt
-  else
-    ark.t[1] = timeend
-  end
 
 end
 
