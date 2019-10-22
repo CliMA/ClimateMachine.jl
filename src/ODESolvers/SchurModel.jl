@@ -5,7 +5,8 @@ using CLIMA.PlanetParameters: kappa_d, R_d, T_0
 
 using LinearAlgebra
 
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_gradient,
+                        vars_state, vars_instate, vars_outstate,
                         vars_diffusive, flux_nondiffusive!, flux_diffusive!,
                         source!, boundary_state!,
                         gradvariables!,
@@ -105,28 +106,29 @@ end
 struct SchurRHSModel <: BalanceLaw end
 
 vars_aux(::SchurRHSModel, T) = @vars begin
-  ρ::T
-  ρu::SVector{3, T}
-  ρe::T
   h0::T
   ∇h0::SVector{3, T}
   Φ::T
 end
 
-
-vars_state(::SchurRHSModel, T) = @vars(p::T)
+vars_instate(::SchurRHSModel, T) = @vars begin
+  ρ::T
+  ρu::SVector{3, T}
+  ρe::T
+end
+vars_outstate(::SchurRHSModel, T) = @vars(p::T)
 vars_gradient(::SchurRHSModel, T) = @vars()
 vars_diffusive(::SchurRHSModel, T) = @vars()
 
 function flux_nondiffusive!(m::SchurRHSModel, flux::Grad, state::Vars,
                             auxstate::Vars, t::Real)
-  flux.p = auxstate.ρu
+  flux.p = state.ρu
 end
 function boundary_state!(::CentralNumericalFluxNonDiffusive, ::SchurRHSModel,
                          stateP::Vars,
                          auxP::Vars, nM, stateM::Vars,
                          auxM::Vars, bctype, t, _...)
-  auxP.ρu = auxM.ρu - 2 * dot(auxM.ρu, nM) * nM
+  stateP.ρu = stateM.ρu - 2 * dot(stateM.ρu, nM) * nM
 end
 
 boundary_state!(::CentralNumericalFluxDiffusive, ::SchurRHSModel, _...) = nothing
@@ -138,9 +140,9 @@ end
 
 function source!(m::SchurRHSModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, dt::Real)
   γ = 1 / (1 - kappa_d)
-  ρe = aux.ρe
-  ρu = aux.ρu
-  ρ = aux.ρ
+  ρe = state.ρe
+  ρu = state.ρu
+  ρ = state.ρ
   Φ = aux.Φ - R_d * T_0 / (γ - 1)
   h0 = aux.h0
   ∇h0 = aux.∇h0
@@ -161,9 +163,16 @@ vars_aux(::SchurUpdateModel, T) = @vars begin
   h0::T
   ∇h0::SVector{3, T}
   Φ::T
+  ρu::SVector{3, T}
 end
-vars_state(::SchurUpdateModel, T) = @vars begin
-  p::T
+#vars_state(::SchurUpdateModel, T) = @vars begin
+#  p::T
+#  ρ::T
+#  ρu::SVector{3, T}
+#  ρe::T
+#end
+vars_instate(::SchurUpdateModel, T) = @vars(p::T)
+vars_outstate(::SchurUpdateModel, T) = @vars begin
   ρ::T
   ρu::SVector{3, T}
   ρe::T
@@ -173,14 +182,13 @@ vars_diffusive(::SchurUpdateModel, T) = @vars(∇p::SVector{3,T})
 
 function flux_nondiffusive!(::SchurUpdateModel, flux::Grad, state::Vars,
                             auxstate::Vars, t::Real)
-  flux.p = 0
 end
 
 function flux_diffusive!(m::SchurUpdateModel, flux::Grad, state::Vars,
                          diffusive::Vars, auxstate::Vars, dt::Real)
-  flux.ρ = dt * (state.ρu - dt * diffusive.∇p)
+  flux.ρ = dt * (auxstate.ρu - dt * diffusive.∇p)
   flux.ρu += dt * (state.p * I)
-  flux.ρe = dt * (auxstate.h0 * (state.ρu - dt * diffusive.∇p))
+  flux.ρe = dt * (auxstate.h0 * (auxstate.ρu - dt * diffusive.∇p))
 end
 
 function numerical_flux_nondiffusive!(::ZeroNumFluxNonDiffusive, ::SchurUpdateModel, F::MArray, nM,
@@ -200,7 +208,7 @@ function boundary_state!(::CentralNumericalFluxDiffusive, ::SchurUpdateModel,
                                auxM::Vars, bctype, t, _...)
   stateP.p = stateM.p
   diffP.∇p = diffM.∇p - 2 * dot(diffM.∇p, nM) * nM
-  stateP.ρu = stateM.ρu - 2 * dot(stateM.ρu, nM) * nM
+  auxP.ρu = auxM.ρu - 2 * dot(auxM.ρu, nM) * nM
 end
 
 function gradvariables!(::SchurUpdateModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)

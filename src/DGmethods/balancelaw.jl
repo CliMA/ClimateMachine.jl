@@ -36,9 +36,13 @@ function vars_aux end
 function vars_gradient end
 function vars_diffusive end
 vars_integrals(::BalanceLaw, T) = @vars()
+vars_instate(bl::BalanceLaw, T) = vars_state(bl, T)
+vars_outstate(bl::BalanceLaw, T) = vars_state(bl, T)
 
 num_aux(m::BalanceLaw, T) = varsize(vars_aux(m,T)) 
 num_state(m::BalanceLaw, T) = varsize(vars_state(m,T)) # nstate
+num_instate(m::BalanceLaw, T) = varsize(vars_instate(m,T))
+num_outstate(m::BalanceLaw, T) = varsize(vars_outstate(m,T))
 num_gradient(m::BalanceLaw, T) = varsize(vars_gradient(m,T))  # number_gradient_states
 num_diffusive(m::BalanceLaw, T) = varsize(vars_diffusive(m,T)) # number_viscous_states
 num_integrals(m::BalanceLaw, T) = varsize(vars_integrals(m,T))
@@ -66,7 +70,7 @@ function create_state(bl::BalanceLaw, grid, commtag)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  state = MPIStateArray{Tuple{Np, num_state(bl,DFloat)}, DFloat,
+  state = MPIStateArray{Tuple{Np, num_outstate(bl,DFloat)}, DFloat,
                         DA}(topology.mpicomm, length(topology.elems),
                             realelems=topology.realelems,
                             ghostelems=topology.ghostelems,

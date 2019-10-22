@@ -64,10 +64,17 @@ function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
 
   step = 0
   time = t0
+  total = 0.0
   while time < timeend
     step += 1
 
+    elap = @elapsed begin
     time = dostep!(Q, solver, p, timeend, adjustfinalstep)
+    end
+
+    if step >= 2
+      total += elap
+    end
 
     # FIXME: Determine better way to handle postcallback behavior
     # Current behavior:
@@ -95,6 +102,7 @@ function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
       return gettime(solver)
     end
   end
+  @info "Total time = $total"
   gettime(solver)
 end
 # }}}
