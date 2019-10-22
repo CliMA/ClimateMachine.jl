@@ -7,8 +7,8 @@ using LinearAlgebra
 @testset "moist thermodynamics - correctness" begin
   FT = Float64
   # ideal gas law
-  @test air_pressure(FT(1), FT(1), PhasePartition(FT(1))) === FT(R_v)
-  @test air_pressure(FT(1), FT(2), PhasePartition(FT(1), FT(0.5), FT(0))) === FT(R_v)
+  @test air_pressure(FT(1), FT(1), PhasePartition(FT(1))) ≈ FT(R_v) rtol=3eps(FT)
+  @test air_pressure(FT(1), FT(2), PhasePartition(FT(1), FT(0.5), FT(0))) ≈ FT(R_v) rtol=3eps(FT)
   @test air_pressure(FT(1), FT(1)) === FT(R_d)
   @test air_pressure(FT(1), FT(2)) === 2*FT(R_d)
   @test air_density(FT(1), FT(1)) === 1/FT(R_d)
@@ -16,7 +16,7 @@ using LinearAlgebra
 
   # gas constants and heat capacities
   @test gas_constant_air(PhasePartition(FT(0))) === FT(R_d)
-  @test gas_constant_air(PhasePartition(FT(1))) === FT(R_v)
+  @test gas_constant_air(PhasePartition(FT(1))) ≈ FT(R_v) rtol=3eps(FT)
   @test gas_constant_air(PhasePartition(FT(0.5), FT(0.5))) ≈ FT(R_d)/2
   @test gas_constant_air(FT) == FT(R_d)
 
