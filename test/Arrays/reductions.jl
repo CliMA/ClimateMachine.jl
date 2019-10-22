@@ -26,7 +26,7 @@ mpisize = MPI.Comm_size(mpicomm)
   A = Array{Float32}(reshape(1:prod(localsize), localsize))
   globalA = vcat([A for _ in 1:mpisize]...)
 
-  QA = MPIStateArray{Float32, ArrayType}(mpicomm, localsize...)
+  QA = MPIStateArray{Float32}(mpicomm, ArrayType, localsize...)
   QA .= A
 
 
