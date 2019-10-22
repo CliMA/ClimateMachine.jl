@@ -190,11 +190,11 @@ let
   expected_result[2, 1, Float32, EveryDirection] = 1.2228445149958134e-02
   expected_result[2, 2, Float32, EveryDirection] = 8.8042858988046646e-04
   expected_result[2, 3, Float32, EveryDirection] = 4.8848683945834637e-05
-  expected_result[2, 4, Float32, EveryDirection] = 2.1814605588588165e-06
+  expected_result[2, 4, Float32, EveryDirection] = 2.1847356492799008e-06
   expected_result[3, 1, Float32, EveryDirection] = 9.5424978062510490e-03
   expected_result[3, 2, Float32, EveryDirection] = 5.9770536608994007e-04
   expected_result[3, 3, Float32, EveryDirection] = 4.0205955883720890e-05
-  expected_result[3, 4, Float32, EveryDirection] = 5.1562137741711922e-06
+  expected_result[3, 4, Float32, EveryDirection] = 5.1591650844784454e-06
 
   expected_result[2, 1, Float64, HorizontalDirection] = 4.6773313437233156e-02
   expected_result[2, 2, Float64, HorizontalDirection] = 4.0665907382118234e-03
