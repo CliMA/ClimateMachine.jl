@@ -10,7 +10,7 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.SubgridScaleParameters
 using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
+using CLIMA.GenericCallbacks: EveryXSimulationSteps, EveryXWallTimeSeconds
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
@@ -38,14 +38,17 @@ if !@isdefined integration_testing
 end
 
 # -------------- Problem constants ------------------- # 
-const (xmin,xmax)      = (0,1000)
-const (ymin,ymax)      = (0,400)
-const (zmin,zmax)      = (0,1000)
-const Ne        = (10,2,10)
+const dim = 3
 const polynomialorder = 4
-const dim       = 3
-const dt        = 0.01
-const timeend   = 10dt
+const domain_start = (0, 0, 0)
+const domain_end = (1000, dim == 2 ? 1 : 1000, 1000)
+const Ne = (10, dim == 2 ? 1 : 10, 10)
+const Δxyz = @. (domain_end - domain_start) / Ne / polynomialorder
+const dt = min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
+const timeend = 10
+const output_vtk = false
+const outputtime = 5
+const smooth_bubble = true
 # ------------- Initial condition function ----------- # 
 """
 @article{doi:10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2,
@@ -71,14 +74,30 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   
   xc::DF        = 500
   zc::DF        = 260
-  r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
+  r             = sqrt((x1 - xc)^2 + (x2 - xc)^2 + (x3 - zc)^2)
   rc::DF        = 250
   θ_ref::DF     = 303
   Δθ::DF        = 0
-  
-  if r <= rc 
-    Δθ          = DF(1//2) 
+  θ_c::DF = 1 // 2
+ 
+  if smooth_bubble
+    a::DF   =  50
+    s::DF   = 100
+    if r <= a
+      Δθ = θ_c
+    elseif r > a
+      Δθ = θ_c * exp(-(r - a)^2 / s^2)
+    end
+  else
+    if r <= rc 
+      Δθ          = θ_c
+    end
   end
+  
+  if t < 0
+    Δθ = 0
+  end
+
   #Perturbed state:
   θ            = θ_ref + Δθ # potential temperature
   π_exner      = DF(1) - grav / (c_p * θ) * x3 # exner pressure
@@ -93,7 +112,7 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρ      = ρ
   state.ρu     = ρu
   state.ρe     = ρe_tot
-  state.moisture.ρq_tot = DF(0)
+  #state.moisture.ρq_tot = DF(0)
 end
 # --------------- Driver definition ------------------ # 
 function run(mpicomm, ArrayType, 
@@ -104,12 +123,13 @@ function run(mpicomm, ArrayType,
                                           FloatType = DF,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder
-                                           )
+                                         )
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     Vreman{DF}(C_smag),
-                     EquilMoist(), 
+                     ConstantViscosityWithDivergence(DF(0)),
+                     DryModel(), 
+                     #EquilMoist(), 
                      NoRadiation(),
                      Gravity(),
                      NoFluxBC(),
@@ -122,6 +142,7 @@ function run(mpicomm, ArrayType,
                CentralGradPenalty())
 
   Q = init_ode_state(dg, DF(0))
+  Qinit = init_ode_state(dg, DF(-1))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -133,7 +154,7 @@ function run(mpicomm, ArrayType,
 
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -148,19 +169,29 @@ function run(mpicomm, ArrayType,
                      energy)
     end
   end
+  callbacks = (cbinfo,)
 
-  step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(3000)  do (init=false)
-    mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirank%04d_step%04d", dim,
-                           MPI.Comm_rank(mpicomm), step[1])
-      @debug "doing VTK output" outprefix
-      writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DF)), dg.auxstate, flattenednames(vars_aux(model,DF)))
-      step[1] += 1
-      nothing
+  if output_vtk
+    # create vtk dir
+    vtkdir = "vtk_rtb"
+    mkpath(vtkdir)
+    
+    vtkstep = 0
+    # output initial step
+    Qdiff = Q .- Qinit
+    do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
+
+    # setup the output callback
+    cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
+      vtkstep += 1
+      Qdiff = Q .- Qinit
+      do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
+    end
+    callbacks = (callbacks..., cbvtk)
   end
 
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk))
+  callbacks = ()
+  solve!(Q, lsrk; timeend=timeend, callbacks=callbacks)
   # End of the simulation information
   engf = norm(Q)
   Qe = init_ode_state(dg, DF(timeend))
@@ -175,6 +206,31 @@ function run(mpicomm, ArrayType,
   """ engf engf/eng0 engf-eng0 errf errf / engfe
 engf/eng0
 end
+
+function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname = "rtb")
+  ## name of the file that this MPI rank will write
+  filename = @sprintf("%s/%s_mpirank%04d_step%04d",
+                      vtkdir, testname, MPI.Comm_rank(mpicomm), vtkstep)
+
+  statenames = flattenednames(vars_state(model, eltype(Q)))
+  writevtk(filename, Q, dg, statenames)
+
+  ## Generate the pvtu file for these vtk files
+  if MPI.Comm_rank(mpicomm) == 0
+    ## name of the pvtu file
+    pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
+
+    ## name of each of the ranks vtk files
+    prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+      @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
+    end
+
+    writepvtu(pvtuprefix, prefixes, statenames)
+
+    @info "Done writing VTK: $pvtuprefix"
+  end
+end
+
 # --------------- Test block / Loggers ------------------ # 
 using Test
 let
@@ -190,16 +246,14 @@ let
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    FloatType = (Float32, Float64)
+    FloatType = (Float64,)
     for DF in FloatType
-      brickrange = (range(DF(xmin); length=Ne[1]+1, stop=xmax),
-                    range(DF(ymin); length=Ne[2]+1, stop=ymax),
-                    range(DF(zmin); length=Ne[3]+1, stop=zmax))
-      topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
+      brickrange = ntuple(d -> range(DF(domain_start[d]); length=Ne[d]+1, stop=domain_end[d]), 3)
+      topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, false, false))
       engf_eng0 = run(mpicomm, ArrayType, 
                       topl, dim, Ne, polynomialorder, 
                       timeend, DF, dt)
-      @test engf_eng0 ≈ DF(9.9999993807738441e-01)
+      #@test engf_eng0 ≈ DF(9.9999993807738441e-01)
     end
   end
 end

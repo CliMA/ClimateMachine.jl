@@ -14,6 +14,7 @@ using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
 using Printf
+using TimerOutputs
 
 using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
 
@@ -42,7 +43,7 @@ The available concrete implementations are:
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, AT1, AT2, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct AdditiveRungeKutta{T, RT, AT, AT1, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::RT
   "time"
@@ -75,8 +76,6 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, AT2, LT, Nstages, Nstages_sq} 
   schur_upd::Union{Nothing, DGModel}
   schurP::AT1
   schurR::AT1
-  schurU::AT2
-  schurD::AT2
   schur::Bool
 
   function AdditiveRungeKutta(rhs!,
@@ -106,8 +105,6 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, AT2, LT, Nstages, Nstages_sq} 
     schur_upd = nothing
     schurP = nothing
     schurR = nothing
-    schurU = nothing
-    schurD = nothing
     if schur
       schur_lhs = DGModel(SchurLHSModel(),
                           grid,
@@ -131,8 +128,6 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, AT2, LT, Nstages, Nstages_sq} 
       schurP = init_ode_state(schur_lhs, zero(eltype(Q)))
       #schurR = init_ode_state(schur_rhs, zero(eltype(Q)))
       schurR = similar(schurP)
-      schurU = init_ode_state(schur_upd, zero(eltype(Q)))
-      schurD = similar(schurU)
      
       # init auxstate
       # h0 = (ρe + p) / ρ
@@ -162,18 +157,17 @@ mutable struct AdditiveRungeKutta{T, RT, AT, AT1, AT2, LT, Nstages, Nstages_sq} 
 
     LT = typeof(linearsolver)
     AT1 = typeof(schurP)
-    AT2 = typeof(schurU)
 
     #@show typeof(schurP)
     #@show typeof(schurR)
     #@show typeof(schurU)
-    new{T, RT, AT, AT1, AT2, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
+    new{T, RT, AT, AT1, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, linearsolver,
                                              Qstages, Rstages, Qhat, Qtt,
                                              RKA_explicit, RKA_implicit, RKB, RKC,
                                              split_nonlinear_linear,
                                              schur_lhs, schur_rhs, schur_upd,
-                                             schurP, schurR, schurU, schurD,
+                                             schurP, schurR,
                                              schur)
   end
 end
@@ -444,8 +438,6 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
   schur_upd = ark.schur_upd
   schurP = ark.schurP
   schurR = ark.schurR
-  schurU = ark.schurU
-  schurD = ark.schurD
 
   rv_Q = realview(Q)
   rv_Qstages = realview.(Qstages)
@@ -516,7 +508,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
       linearoperator! = function(LQ, Q)
         schur_lhs(LQ, Q, p, α; increment = false)
       end
-      linearsolve!(linearoperator!, schurP, schurR, linearsolver)
+      @timeit "linearsolver!" linearsolve!(linearoperator!, schurP, schurR, linearsolver)
       #schur_lhs(schurR, schurP, p, α; increment = false)
       #∇P = (extrema(schur_lhs.diffstate[:, 1, :])...,
       #      extrema(schur_lhs.diffstate[:, 2, :])...,

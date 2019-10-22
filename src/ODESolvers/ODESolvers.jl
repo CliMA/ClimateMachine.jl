@@ -1,5 +1,7 @@
 module ODESolvers
 
+using TimerOutputs
+
 export solve!, updatedt!
 
 abstract type AbstractODESolver end
@@ -50,6 +52,8 @@ A series of optional callback functions can be specified using the tuple
 function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
                 adjustfinalstep=true, numberofsteps::Integer=0, callbacks=())
 
+  reset_timer!()
+
   @assert isfinite(timeend) || numberofsteps > 0
 
   t0 = gettime(solver)
@@ -64,17 +68,10 @@ function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
 
   step = 0
   time = t0
-  total = 0.0
   while time < timeend
     step += 1
 
-    elap = @elapsed begin
-    time = dostep!(Q, solver, p, timeend, adjustfinalstep)
-    end
-
-    if step >= 2
-      total += elap
-    end
+    time = @timeit "dostep!" dostep!(Q, solver, p, timeend, adjustfinalstep)
 
     # FIXME: Determine better way to handle postcallback behavior
     # Current behavior:
@@ -102,7 +99,8 @@ function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
       return gettime(solver)
     end
   end
-  @info "Total time = $total"
+  print_timer()
+  println()
   gettime(solver)
 end
 # }}}

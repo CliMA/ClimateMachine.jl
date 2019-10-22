@@ -46,7 +46,7 @@ const domain_start = (0, 0, 0)
 const domain_end = (1000, dim == 2 ? 1 : 1000, 1000)
 const Ne = (10, dim == 2 ? 1 : 10, 10)
 const Δxyz = @. (domain_end - domain_start) / Ne / polynomialorder
-const dt = 40 * min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
+const dt = 60 * min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
 const timeend = 10
 const output_vtk = false
 const outputtime = 5
