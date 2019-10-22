@@ -8,7 +8,7 @@ using GPUifyLoops
 include("MultirateInfinitesimalStepMethod_kernels.jl")
 
 
-export MIS2, MIS3C, MIS4, MIS4a
+export MIS2, MIS3C, MIS4, MIS4a, TVDMISA, TVDMISB
 
 ODEs = ODESolvers
 
@@ -267,6 +267,50 @@ function MIS4a(slowrhs!, fastrhs!, fastmethod, nsubsteps,  Q::AT; dt=0, t0=0) wh
        0  0.13145089796226542  0                    0                    0;
        0 -0.36855857648747881  0.33159232636600550  0                    0;
        0 -0.065767130537473045 0.040591093109036858 0.064902111640806712 0]
+
+  MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsubsteps, α, β, γ, Q; dt=dt, t0=t0)
+end
+
+function TVDMISA(slowrhs!, fastrhs!, fastmethod, nsubsteps,  Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+  FT = eltype(Q)
+  RT = real(FT)
+  
+  α = [0 0                    0                  0;
+       0 0                    0                  0;
+       0 0.1946360605647457   0                  0;
+       0 0.3971200136786614   0.2609434606211801 0]
+
+  β = [ 0                    0                   0                   0;
+        RT(2//3)             0                   0                   0;
+       -0.28247174703488398  RT(4//9)            0                   0;
+       -0.31198081960042401  0.18082737579913699 RT(9//16)           0]
+
+  γ = [0  0                    0                    0;
+       0  0                    0                    0;
+       0  0.5624048933209129   0                    0;
+       0  0.4408467475713277  -0.2459300561692391   0]
+
+  MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsubsteps, α, β, γ, Q; dt=dt, t0=t0)
+end
+
+function TVDMISB(slowrhs!, fastrhs!, fastmethod, nsubsteps,  Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+  FT = eltype(Q)
+  RT = real(FT)
+
+  α = [0 0                     0                   0;
+       0 0                     0                   0;
+       0 0.42668232863311001   0                   0;
+       0 0.26570779016173801   0.41489966891866698 0]
+
+  β = [ 0                    0                   0                   0;
+        RT(2//3)             0                   0                   0;
+       -0.25492859100078202  RT(4//9)            0                   0;
+       -0.26452517179288798  0.11424084424766399 RT(9//16)           0]
+
+  γ = [0  0                    0                    0;
+       0  0                    0                    0;
+       0  0.28904389120139701  0                    0;
+       0  0.45113560071334202 -0.25006656847591002  0]
 
   MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsubsteps, α, β, γ, Q; dt=dt, t0=t0)
 end
