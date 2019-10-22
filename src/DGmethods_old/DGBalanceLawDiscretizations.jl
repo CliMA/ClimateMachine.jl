@@ -491,16 +491,14 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
   # FIXME: initialize directly on the device
   device = CPU()
   h_vgeo = Array(vgeo)
-  h_Q = similar(Q, Array)
-  h_auxstate = similar(auxstate, Array)
-  
-  h_auxstate .= auxstate
+  h_Q = Array(Q.data)
+  h_auxstate = Array(auxstate.data)
 
   @launch(device, threads=(Np,), blocks=nrealelem,
           initstate!(Val(dim), Val(N), Val(nvar), Val(nauxstate),
-                     ic!, h_Q.data, h_auxstate.data, h_vgeo, topology.realelems))
+                     ic!, h_Q, h_auxstate, h_vgeo, topology.realelems))
 
-  Q .= h_Q
+  copyto!(Q.data, h_Q)
 
   MPIStateArrays.start_ghost_exchange!(Q)
   MPIStateArrays.finish_ghost_exchange!(Q)
