@@ -99,10 +99,10 @@ end
 
 # initial condition
 
-function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
+function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = warpfun,
@@ -111,7 +111,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   if dim == 2
     model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
-                       ConstantViscosityWithDivergence(DFloat(μ_exact)),
+                       ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
                        NoRadiation(),
                        mms2_source!,
@@ -120,7 +120,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
   else
     model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
-                       ConstantViscosityWithDivergence(DFloat(μ_exact)),
+                       ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
                        NoRadiation(),
                        mms3_source!,
@@ -134,7 +134,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -166,7 +166,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, DFloat(timeend))
+  Qe = init_ode_state(dg, FT(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -202,14 +202,14 @@ let
 lvls = integration_testing ? size(expected_result, 2) : 1
 
 @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-for DFloat in (Float64,) #Float32)
-  result = zeros(DFloat, lvls)
+for FT in (Float64,) #Float32)
+  result = zeros(FT, lvls)
   for dim = 2:3
     for l = 1:lvls
       if dim == 2
         Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-        brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                      range(DFloat(0); length=Ne[2]+1, stop=1))
+        brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                      range(FT(0); length=Ne[2]+1, stop=1))
         topl = BrickTopology(mpicomm, brickrange,
                              periodicity = (false, false))
         dt = 1e-2 / Ne[1]
@@ -219,9 +219,9 @@ for DFloat in (Float64,) #Float32)
 
       elseif dim == 3
         Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-        brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                      range(DFloat(0); length=Ne[2]+1, stop=1),
-        range(DFloat(0); length=Ne[2]+1, stop=1))
+        brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                      range(FT(0); length=Ne[2]+1, stop=1),
+        range(FT(0); length=Ne[2]+1, stop=1))
         topl = BrickTopology(mpicomm, brickrange,
                              periodicity = (false, false, false))
         dt = 5e-3 / Ne[1]
@@ -235,10 +235,10 @@ for DFloat in (Float64,) #Float32)
       nsteps = ceil(Int64, timeend / dt)
       dt = timeend / nsteps
 
-      @info (ArrayType, DFloat, dim)
+      @info (ArrayType, FT, dim)
       result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
-                      polynomialorder, timeend, DFloat, dt)
-      @test result[l] ≈ DFloat(expected_result[dim-1, l])
+                      polynomialorder, timeend, FT, dt)
+      @test result[l] ≈ FT(expected_result[dim-1, l])
     end
     if integration_testing
       @info begin

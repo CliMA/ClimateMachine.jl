@@ -38,11 +38,11 @@ The available concrete implementations are:
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
 """
-struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
   "rhs function"
   rhs!
   "rhs linear operator"
@@ -79,8 +79,6 @@ struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractOD
     T = eltype(Q)
     LT = typeof(linearsolver)
     RT = real(T)
-    dt = [RT(dt)]
-    t0 = [RT(t0)]
     
     nstages = length(RKB)
 
@@ -90,7 +88,7 @@ struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractOD
     Qhat = similar(Q)
     Qtt = similar(Q)
 
-    new{T, RT, AT, LT, nstages, nstages ^ 2}(dt, t0,
+    new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, linearsolver,
                                              Qstages, Rstages, Qhat, Qtt,
                                              RKA_explicit, RKA_implicit, RKB, RKC,
@@ -322,11 +320,12 @@ function ARK548L2SA2KennedyCarpenter(F, L,
                            Q; dt=dt, t0=t0)
 end
 
-ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
+ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = (ark.dt = dt)
+ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
                       adjustfinalstep::Bool)
-  time, dt = ark.t[1], ark.dt[1]
+  time, dt = ark.t, ark.dt
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
   end
@@ -334,10 +333,10 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
 
   ODEs.dostep!(Q, ark, p, time, dt)
 
-  if dt == ark.dt[1]
-    ark.t[1] += dt
+  if dt == ark.dt
+    ark.t += dt
   else
-    ark.t[1] = timeend
+    ark.t = timeend
   end
 
 end

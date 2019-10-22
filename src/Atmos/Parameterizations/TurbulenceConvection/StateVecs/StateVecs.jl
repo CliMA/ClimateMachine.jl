@@ -200,7 +200,7 @@ end
 
 Assign value `val` to variable `ϕ` for all ghost points.
 """
-function assign!(sv::StateVec, var_names, grid::Grid{DT}, val::DT) where DT
+function assign!(sv::StateVec, var_names, grid::Grid{FT}, val::FT) where FT
   gm, en, ud, sd, al = allcombinations(DomainIdx(sv))
   !(var_names isa Tuple) && (var_names = (var_names,))
   @inbounds for k in over_elems(grid), ϕ in var_names, i in over_sub_domains(sv, ϕ)
@@ -213,7 +213,7 @@ end
 
 Assign value `val` to all variables in state vector.
 """
-function assign!(sv::StateVec, grid::Grid{DT}, val::DT) where DT
+function assign!(sv::StateVec, grid::Grid{FT}, val::FT) where FT
   gm, en, ud, sd, al = allcombinations(DomainIdx(sv))
   @inbounds for k in over_elems(grid), ϕ in var_names(sv), i in over_sub_domains(sv, ϕ)
     sv[ϕ, k, i] = val
@@ -265,7 +265,7 @@ end
 A dictionary, with keys in `var_names(vs)`, containing a `Bool` indicating
 that `sv` ≈ `sv_expected` for all of their sub-domains for all elements.
 """
-function compare(sv::StateVec, sv_expected::StateVec, grid::Grid{DT}, tol) where DT
+function compare(sv::StateVec, sv_expected::StateVec, grid::Grid{FT}, tol) where FT
   D = Dict(ϕ => [true for i in over_sub_domains(sv, ϕ)] for ϕ in var_names(sv))
   @inbounds for k in over_elems(grid)
     @inbounds for ϕ in var_names(sv)

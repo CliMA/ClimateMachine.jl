@@ -207,7 +207,7 @@ end
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
     @inbounds begin
-        DFloat = eltype(F)
+        FT = eltype(F)
         D_subsidence = 3.75e-6
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         P = aux[_a_P]
@@ -337,7 +337,7 @@ end
 # -------------------------------------------------------------------------
 @inline function auxiliary_state_initialization!(aux, x, y, z)
   @inbounds begin
-      DFloat = eltype(aux)
+      FT = eltype(aux)
       xvert = y
       aux[_a_y] = xvert
   end
@@ -458,25 +458,25 @@ end
 # NEW FUNCTION
 # initial condition
 function dc!(dim, Q, t, x, y, z, _...)
-    DFloat                = eltype(Q)
-    R_gas::DFloat         = R_d
-    c_p::DFloat           = cp_d
-    c_v::DFloat           = cv_d
-    p0::DFloat            = MSLP
-    gravity::DFloat       = grav
+    FT                = eltype(Q)
+    R_gas::FT         = R_d
+    c_p::FT           = cp_d
+    c_v::FT           = cv_d
+    p0::FT            = MSLP
+    gravity::FT       = grav
     # initialise with dry domain 
-    q_tot::DFloat         = 0
-    q_liq::DFloat         = 0
-    q_ice::DFloat         = 0 
+    q_tot::FT         = 0
+    q_liq::FT         = 0
+    q_ice::FT         = 0 
     # perturbation parameters for rising bubble
     rx                    = 4000
     ry                    = 2000
     xc                    = 0
     yc                    = 3000
     r                     = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
-    θ_ref::DFloat         = 300
-    θ_c::DFloat           = -15.0
-    Δθ::DFloat            = 0.0
+    θ_ref::FT         = 300
+    θ_c::FT           = -15.0
+    Δθ::FT            = 0.0
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
     end
@@ -496,7 +496,7 @@ function dc!(dim, Q, t, x, y, z, _...)
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
 end
 
-function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
+function run(mpicomm, dim, Ne, N, timeend, FT, dt)
 
     ##
       #-----------------------------------------------------------------
@@ -527,7 +527,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
   @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
 
   @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
-                                                                 FloatType = DFloat,
+                                                                 FloatType = FT,
                                                                  DeviceArray = ArrayType,
                                                                  polynomialorder = N)
 
@@ -556,7 +556,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   # This is a actual state/function that lives on the grid
   @timeit to "IC init" begin      
-    initialcondition(Q, x...) = dc!(Val(dim), Q, DFloat(0), x...)
+    initialcondition(Q, x...) = dc!(Val(dim), Q, FT(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
   end
 
@@ -639,7 +639,7 @@ let
   dt = 0.025
   timeend = dt
   polynomialorder = Npoly
-  DFloat = Float64
+  FT = Float64
   dim = numdims
 
   if MPI.Comm_rank(mpicomm) == 0
@@ -657,14 +657,14 @@ let
     @info @sprintf """     (Δx, Δy) = (%.2e, %.2e)                           """ Δx Δy
     @info @sprintf """     (Nex, Ney) = (%d, %d)                             """ Nex Ney
     @info @sprintf """     DoF = %d                                          """ DoF
-    @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
+    @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(FT))/1000^3
     @info @sprintf """     Time step dt: %.2e                                """ dt
     @info @sprintf """     End time  t : %.2e                                """ timeend
     @info @sprintf """ ------------------------------------------------------"""
   end
 
   engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
-                  DFloat, dt)
+                  FT, dt)
 
   show(to)
 end
