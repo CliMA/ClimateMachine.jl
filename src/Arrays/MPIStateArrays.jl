@@ -4,18 +4,27 @@ using DoubleFloats
 using LazyArrays
 using StaticArrays
 using GPUifyLoops
+import ..haspkg
 
 using MPI
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
+# This is so we can do things like
+#   similar(Array{Float64}, Int, 3, 4)
+Base.similar(::Type{Array}, ::Type{FT}, dims...) where {FT} = similar(Array{FT}, dims...)
+@static if haspkg("CuArrays")
+  using CuArrays
+  Base.similar(::Type{CuArray}, ::Type{FT}, dims...) where {FT} = similar(CuArray{FT}, dims...)
+end
+
 export MPIStateArray, euclidean_distance, weightedsum
 
 """
-    MPIStateArray{FT, DeviceArray, DATN<:AbstractArray{FT,N}, Nm1,
-                  DAI1} <: AbstractArray{FT, 3}
+    MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
+                  DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
 """
-struct MPIStateArray{FT, DeviceArray, DATN<:AbstractArray{FT,3}, DAI1, DAV,
+struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
                      DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
   mpicomm::MPI.Comm
   data::DATN
@@ -43,14 +52,15 @@ struct MPIStateArray{FT, DeviceArray, DATN<:AbstractArray{FT,3}, DAI1, DAV,
   weights::DATN
 
   commtag::Int
-  function MPIStateArray{FT, DA}(mpicomm, Np, nstate, numelem, realelems,
-                                 ghostelems, vmaprecv, vmapsend, nabrtorank,
-                                 nabrtovmaprecv, nabrtovmapsend, weights, commtag
-                                ) where {FT, DA}
-    data = DA{FT, 3}(undef, Np, nstate, numelem)
 
-    device_recv_buffer = DA{FT}(undef, nstate, length(vmaprecv))
-    device_send_buffer = DA{FT}(undef, nstate, length(vmapsend))
+  function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems,
+                             ghostelems, vmaprecv, vmapsend, nabrtorank,
+                             nabrtovmaprecv, nabrtovmapsend, weights, commtag
+                            ) where {FT}
+    data = similar(DA, FT, Np, nstate, numelem)
+
+    device_recv_buffer = similar(data, FT, nstate, length(vmaprecv))
+    device_send_buffer = similar(data, FT, nstate, length(vmapsend))
 
     realdata = view(data, ntuple(i -> Colon(), ndims(data) - 1)..., realelems)
     DAV = typeof(realdata)
@@ -62,37 +72,52 @@ struct MPIStateArray{FT, DeviceArray, DATN<:AbstractArray{FT,3}, DAI1, DAV,
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
-    vmaprecv = typeof(vmaprecv) <: DA ? vmaprecv : DA(vmaprecv)
-    vmapsend = typeof(vmapsend) <: DA ? vmapsend : DA(vmapsend)
+    # If vmap is not on the device we need to copy it up (we also do not want to
+    # put it up everytime, so if it's already on the device then we do not do
+    # anything).
+    #
+    # Better way than checking the type names?
+    if typeof(vmaprecv).name != typeof(data).name
+      vmaprecv = copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)),
+                         vmaprecv)
+    end
+    if typeof(vmapsend).name != typeof(data).name
+      vmapsend = copyto!(similar(DA, eltype(vmapsend), size(vmapsend)),
+                         vmapsend)
+    end
+    if typeof(weights).name != typeof(data).name
+      weights = copyto!(similar(DA, eltype(weights), size(weights)), weights)
+    end
+
     DAI1 = typeof(vmaprecv)
     DAT2 = typeof(device_recv_buffer)
-    new{FT, DA, typeof(data), DAI1, DAV, DAT2}(mpicomm, data, realdata,
-                                                      realelems, ghostelems,
-                                                      vmaprecv, vmapsend,
-                                                      sendreq, recvreq,
-                                                      host_send_buffer,
-                                                      host_recv_buffer,
-                                                      nabrtorank,
-                                                      nabrtovmaprecv,
-                                                      nabrtovmapsend,
-                                                      device_send_buffer,
-                                                      device_recv_buffer,
-                                                      weights, commtag)
+    new{FT, typeof(data), DAI1, DAV, DAT2}(mpicomm, data, realdata,
+                                           realelems, ghostelems,
+                                           vmaprecv, vmapsend,
+                                           sendreq, recvreq,
+                                           host_send_buffer,
+                                           host_recv_buffer,
+                                           nabrtorank,
+                                           nabrtovmaprecv,
+                                           nabrtovmapsend,
+                                           device_send_buffer,
+                                           device_recv_buffer,
+                                           weights, commtag)
   end
 end
 
 Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
 
 """
-   MPIStateArray{FT, DA}(mpicomm, Np, nstate, numelem; realelems=1:numelem,
-                         ghostelems=numelem:numelem-1,
-                         vmaprecv=1:0,
-                         vmapsend=1:0,
-                         nabrtorank=Array{Int64}(undef, 0),
-                         nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
-                         nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
-                         weights,
-                         commtag=888)
+   MPIStateArray{FT}(mpicomm, Np, nstate, numelem; realelems=1:numelem,
+                     ghostelems=numelem:numelem-1,
+                     vmaprecv=1:0,
+                     vmapsend=1:0,
+                     nabrtorank=Array{Int64}(undef, 0),
+                     nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
+                     nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
+                     weights,
+                     commtag=888)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
 elements, using array type `DA` with element type `eltype`. The arrays that are
@@ -114,44 +139,32 @@ Elements are stored as 'realelems` followed by `ghostelems`.
   * `weights` is an optional array which gives weight for each degree of freedom
     to be used when computing the 2-norm of the array
 """
-function MPIStateArray{FT, DA}(mpicomm, Np, nstate, numelem;
-                               realelems=1:numelem,
-                               ghostelems=numelem:numelem-1,
-                               vmaprecv=1:0,
-                               vmapsend=1:0,
-                               nabrtorank=Array{Int64}(undef, 0),
-                               nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
-                               nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
-                               weights=nothing,
-                               commtag=888
-                              ) where {FT, DA}
+function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
+                           realelems=1:numelem,
+                           ghostelems=numelem:numelem-1,
+                           vmaprecv=1:0,
+                           vmapsend=1:0,
+                           nabrtorank=Array{Int64}(undef, 0),
+                           nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
+                           nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
+                           weights=nothing,
+                           commtag=888
+                          ) where {FT}
 
   if weights == nothing
-    weights = DA{FT}(undef, ntuple(j->0, 3))
-  elseif !(typeof(weights) <: DA)
-    weights = DA(weights)
+    weights = similar(DA, FT, ntuple(j->0, 3))
   end
-  MPIStateArray{FT, DA}(mpicomm, Np, nstate, numelem, realelems, ghostelems,
-                       vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
-                       nabrtovmapsend, weights, commtag)
+  MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems, ghostelems,
+                    vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
+                    nabrtovmapsend, weights, commtag)
 end
 
 # FIXME: should general cases be handled?
-function Base.similar(Q::MPIStateArray{FT, DA}, ::Type{TN}, ::Type{DAN}; commtag=Q.commtag
-                     ) where {FT, DA, TN, DAN <: AbstractArray}
-  MPIStateArray{TN, DAN}(Q.mpicomm, size(Q.data)..., Q.realelems, Q.ghostelems,
-                         Q.vmaprecv, Q.vmapsend, Q.nabrtorank, Q.nabrtovmaprecv,
-                         Q.nabrtovmapsend, Q.weights, commtag)
-end
-
-function Base.similar(Q::MPIStateArray{FT, DA}, ::Type{TN}; commtag=Q.commtag
-                     ) where {FT, DA, TN}
-  similar(Q, TN, DA, commtag = commtag)
-end
-
-function Base.similar(Q::MPIStateArray{FT}, ::Type{DAN}; commtag=Q.commtag
-                     ) where {FT, DAN <: AbstractArray}
-  similar(Q, FT, DAN, commtag = commtag)
+function Base.similar(Q::MPIStateArray, ::Type{FTN}; commtag=Q.commtag
+                     ) where {FTN}
+  MPIStateArray{FTN}(Q.mpicomm, Q.data, size(Q.data)..., Q.realelems,
+                     Q.ghostelems, Q.vmaprecv, Q.vmapsend, Q.nabrtorank,
+                     Q.nabrtovmaprecv, Q.nabrtovmapsend, Q.weights, commtag)
 end
 
 function Base.similar(Q::MPIStateArray{FT}; commtag=Q.commtag) where {FT}
