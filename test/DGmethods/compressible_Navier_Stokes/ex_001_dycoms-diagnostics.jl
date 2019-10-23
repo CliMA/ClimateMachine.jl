@@ -366,20 +366,22 @@ end
             S[k,ev,5] += (localQ[ijk,4,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,4]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
             S[k,ev,6] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (localQ[ijk,1,e] - Horzavgstot[k,ev,1])
 #fluctQ[ijk,4,e] * fluctQ[ijk,1,e]
-            S[k,ev,7] = Horzavgs[k,ev,6]
+            S[k,ev,7] += Horzavgs[k,ev,6]
             S[k,ev,8] += (localQ[ijk,4,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,4]/Horzavgstot[k,ev,1]) * (thermoQ[ijk,1,e]-Horzavgstot[k,ev,6])  #fluctQ[ijk,4,e] * fluctT[ijk,1,e]
             S[k,ev,9] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1])^3
 #fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
             S[k,ev,10] += (localQ[ijk,2,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,2]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,2,e] * fluctQ[ijk,2,e]
             S[k,ev,11] += (localQ[ijk,3,e]/localQ[ijk,1,e]-Horzavgstot[k,ev,3]/Horzavgs[k,ev,1])^2  #fluctQ[ijk,3,e] * fluctQ[ijk,3,e]
-            Zvals[k,ev] = localvgeo[ijk,grid.x3id,e]
-            S[k,ev,12] = (Horzavgstot[k,ev,8])
-            S[k,ev,13] = (Horzavgstot[k,ev,9]/Horzavgs[k,ev,1])
+
+            S[k,ev,12] += (Horzavgstot[k,ev,8])
+            S[k,ev,13] += (Horzavgstot[k,ev,9]/Horzavgs[k,ev,1])
             S[k,ev,14] += S[k,ev,15]*(localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1])
-            S[k,ev,15] = (Horzavgstot[k,ev,5])
+            S[k,ev,15] += (Horzavgstot[k,ev,5])
             S[k,ev,16] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,7,e] - Horzavgstot[k,ev,10])
             S[k,ev,17] += 0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11])
             S[k,ev,18] += (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1]) * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5])
+
+              Zvals[k,ev] = localvgeo[ijk,grid.x3id,e]
           end
         end
       end
@@ -547,7 +549,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -624,7 +626,7 @@ let
 
     problem_name = "./output/dycoms_IOstrings"
     dt = 0.01
-    timeend =  14400.0
+    timeend =  dt
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
