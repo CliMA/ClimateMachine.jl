@@ -634,14 +634,14 @@ let
     mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
     if mpirank == 0
 
-      #Write diagnostics file:
+      # Write diagnostics file:
       diagnostics_fileout = string(OUTPATH, "/statistic_diagnostics.dat")
       io = open(diagnostics_fileout, "w")
         diags_header_str = string("<theta>  <thetal>  <qt>  <ql>  <u>  <v>  <th.w>  <thv.w>  <u.u>  <v.v>  <w.w>  <u.w>  <v.w>  <w.w.w>  <rho.w>  <qv.w>  <ql.w>  <qt.w>  z\n")
         write(io, diags_header_str)
       close(io)
 
-      #Write LWP file:  
+      # Write LWP file:  
       LWP_fileout = string(OUTPATH, "/LWP_calc.dat")
         io = open(LWP_fileout, "w")
         write(io, "LWP \n")
