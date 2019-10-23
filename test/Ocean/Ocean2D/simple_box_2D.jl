@@ -26,8 +26,9 @@ import CLIMA.DGmethods: update_aux!, vars_state, vars_aux
 end
 
 struct SimpleBox2D{T} <: HB2DProblem
-  Lˣ::T
+  L::T
   H::T
+  τ::T
   θᴱ::T
 end
 
@@ -37,42 +38,62 @@ function hb2d_init_aux!(P::SimpleBox2D, α, geom)
     x = geom.coord[1]
     y = geom.coord[2]
 
-    Lˣ = P.Lˣ
+    L  = P.L
     H  = P.H
+    τ  = P.τ
     θᴱ = P.θᴱ
 
     # stream function
-    # Ψ(x,y) = cos(π//Lˣ * (x - Lˣ//2)) * cos(π//H * (y + H/2))
-    u = -π/Lˣ * cos.(π/Lˣ * (x .- Lˣ/2)) .* sin.(π/H * (y .+ H/2))
-    v =  π/H  * sin.(π/Lˣ * (x .- Lˣ/2)) .* cos.(π/H * (y .+ H/2))
-    w =  0.0
+    # Ψ(x,y) =  (L*H/τ) * cos.(π * (x/L .- 1/2)) .* cos.(π * (y/H .+ 1/2))
+    u = -π*L/τ * cos.(π * (x/L .- 1/2)) .* sin.(π * (y/H .+ 1/2))
+    v =  π*H/τ * sin.(π * (x/L .- 1/2)) .* cos.(π * (y/H .+ 1/2))
 
+
+    # stream function
+    # Ψ(x,y) =  (L*H/τ) * cos.(π * (x/L .- 1/2)) .* cos.(π * (y/H .+ 1/5)).^10
+    # u = -π*L/τ * cos.(π * (x/L .- 1/2)) .* sin.(π * (y/H .+ 1/5)) * 10 * cos.(π * (y/H .+ 1/5)).^9
+    # v =  π*H/τ * sin.(π * (x/L .- 1/2)) .* cos.(π * (y/H .+ 1/5)).^10
+
+    # stream function
+    # Ψ(x,y) =  (L*H/τ) * sin.(π * (x/L)) .* sin.(π * (y/H).^2)
+    u = -π*L/τ * sin.(π * (x/L)) .* cos.(π * (y/H).^2) * 2 * (y/H)
+    v =  π*H/τ * cos.(π * (x/L)) .* sin.(π * (y/H).^2)
+    
+    w =  0.0
     α.u = @SVector [ u, v, w ]
 
-    # α.θʳ =  θᴱ * (1 - x / Lˣ)
+    # α.θʳ =  θᴱ * (1 - x / L)
   end
 end
 
 function hb2d_init_state!(P::SimpleBox2D, Q, α, coords, t)
+  @inbounds x = coords[1]
   @inbounds y = coords[2]
   @inbounds H = P.H
+  @inbounds L = P.L
 
   Q.θ = 9 + 8y/H
+
+  σ = 1.0
+  x° = 3//4 * L
+  y° = -H/2
+  # Q.θ = 10 * exp(-σ * ((x - x°)^2 + (y - y°)^2))
 end
 
 ###################
 # PARAM SELECTION #
 ###################
 DFloat = Float64
-vtkpath = "vtk_box2D"
+vtkpath = "vtk_box2D_boundary"
 
-const timeend = 30 * 86400 # 4 * 365 * 86400
-const tout    = 24 * 60 * 60
+const timeend = 86400 # 4 * 365 * 86400
+const tout    = 60 * 60
 
-const N  = 4
+const N  = 12
 const Ne = (10, 10)
-const Lˣ = 1e6
+const L  = 1e6
 const H  = 400
+const τ  = 86400
 
 const cʰ = sqrt(grav * H)
 const cᶻ = 0
@@ -102,12 +123,12 @@ let
     ArrayType = Array
   end
 
-  brickrange = (range(DFloat(0);  length=Ne[1]+1, stop=Lˣ),
+  brickrange = (range(DFloat(0);  length=Ne[1]+1, stop=L),
                 range(DFloat(-H); length=Ne[2]+1, stop=0))
   topl = StackedBrickTopology(mpicomm, brickrange;
-                              periodicity = (true, true))
+                              periodicity = (false, false))
 
-  dt = 1 # 240 # (L[1] / c) / Ne[1] / N^2
+  dt = 60 # 240 # (L[1] / c) / Ne[1] / N^2
   @show nout = ceil(Int64, tout / dt)
   @show dt = tout / nout
 
@@ -118,7 +139,7 @@ let
                                          )
 
 
-  problem = SimpleBox2D{DFloat}(Lˣ, H, θᴱ)
+  problem = SimpleBox2D{DFloat}(L, H, τ, θᴱ)
 
   model = HB2DModel{typeof(problem),DFloat}(problem, cʰ, cᶻ)
 
@@ -138,6 +159,7 @@ let
   mkpath(vtkpath)
 
   step = [0]
+  
   function do_output(step)
     outprefix = @sprintf("%s/mpirank%04d_step%04d",vtkpath,
                          MPI.Comm_rank(mpicomm), step[1])
@@ -145,12 +167,16 @@ let
     statenames = flattenednames(vars_state(model, eltype(Q)))
     auxnames = flattenednames(vars_aux(model, eltype(Q)))
     writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
+
+    return nothing
   end
+  
   do_output(step)
+  
   cbvtk = GenericCallbacks.EveryXSimulationSteps(nout)  do (init=false)
     do_output(step)
     step[1] += 1
-    nothing
+    return nothing
   end
 
   starttime = Ref(now())
