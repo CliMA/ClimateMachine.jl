@@ -2,13 +2,16 @@ using CLIMA: haspkg
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Filters
-using CLIMA.DGmethods: DGModel, init_ode_state
+using CLIMA.DGmethods: DGModel, init_ode_state, VerticalDirection
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.LowStorageRungeKuttaMethod: LSRK144NiegemannDiehlBusch
+using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
+using CLIMA.GeneralizedMinimalResidualSolver
+using CLIMA.LinearSolvers
 using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d, day
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
@@ -17,7 +20,8 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, Coriolis,
-                   HydrostaticState, IsothermalProfile
+                   HydrostaticState, IsothermalProfile,
+                   AtmosAcousticGravityLinearModel
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -49,7 +53,7 @@ function main()
   polynomialorder = 5
   numelem_horz = 6
   numelem_vert = 8
-  timeend = 60 # 400day
+  timeend = 400day
   outputtime = 2day
   
   for FT in (Float64,)
@@ -85,14 +89,27 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   dg = DGModel(model, grid, Rusanov(),
                CentralNumericalFluxDiffusive(), CentralGradPenalty())
 
+  linmodel = AtmosAcousticGravityLinearModel(model)
+  lindg = DGModel(linmodel,
+                  grid,
+                  Rusanov(),
+                  CentralNumericalFluxDiffusive(),
+                  CentralGradPenalty();
+                  auxstate=dg.auxstate,
+                  direction=VerticalDirection())
+
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(315))
-  lucas_magic_factor = 14
+  lucas_magic_factor = 10 * 14
   dt = lucas_magic_factor * element_size / acoustic_speed / polynomialorder ^ 2
 
   Q = init_ode_state(dg, FT(0))
-  lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
+
+  linearsolver = GeneralizedMinimalResidual(30, Q, sqrt(eps(FT)))
+  ode_solver = ARK548L2SA2KennedyCarpenter(dg, lindg,
+                                           linearsolver, Q; dt = dt,
+                                           split_nonlinear_linear=false)
 
   filterorder = 14
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -125,7 +142,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                         simtime = %.16e
                         runtime = %s
                         norm(Q) = %.16e
-                        """ gettime(lsrk) runtime energy
+                        """ gettime(ode_solver) runtime energy
     end
   end
   callbacks = (cbinfo, cbfilter)
@@ -144,13 +161,13 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
     # setup the output callback
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
       vtkstep += 1
-      Qe = init_ode_state(dg, gettime(lsrk))
+      Qe = init_ode_state(dg, gettime(ode_solver))
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
     end
     callbacks = (callbacks..., cbvtk)
   end
 
-  solve!(Q, lsrk; timeend=timeend, callbacks=callbacks)
+  solve!(Q, ode_solver; timeend=timeend, callbacks=callbacks)
 
   # final statistics
   engf = norm(Q)
