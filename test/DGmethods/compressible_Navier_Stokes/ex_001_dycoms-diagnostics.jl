@@ -483,7 +483,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   κ             = FT(85)
   α_z           = FT(1) 
   z_i           = FT(840) 
-  D_subsidence  = FT(3.75e-6)
+  D_subsidence  = FT(0.0) #FT(3.75e-6)
   ρ_i           = FT(1.13)
   F_0           = FT(70)
   F_1           = FT(22)
@@ -499,7 +499,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(), 
-                      RayleighSponge{FT}(zmax, zsponge, 1), 
+                      RayleighSponge{FT}(zmax, zsponge, 1),
                       Subsidence(), 
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)), 
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
@@ -536,7 +536,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(100000) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -549,7 +549,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -605,8 +605,8 @@ let
     C_drag = FT(0.0011)
     # User defined domain parameters
     Δx, Δy, Δz = 50, 50, 20
-    xmin, xmax = 0, 3200
-    ymin, ymax = 0, 3200
+    xmin, xmax = 0, 2000
+    ymin, ymax = 0, 2000
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
@@ -618,15 +618,15 @@ let
                    grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
     
     zmax = brickrange[dim][end]
-    zsponge = FT(0.75 * zmax)
+    zsponge = FT(zmax - 100) # FT(0.75 * zmax)
     
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
 
-    problem_name = "./output/dycoms_IOstrings"
+    problem_name = "dycoms_IOstrings"
     dt = 0.01
-    timeend =  dt
+    timeend = 14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
