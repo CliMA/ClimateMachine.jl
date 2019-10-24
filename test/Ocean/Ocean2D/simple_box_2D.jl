@@ -84,23 +84,24 @@ end
 # PARAM SELECTION #
 ###################
 DFloat = Float64
-vtkpath = "vtk_box2D_boundary"
+vtkpath = "vtk_box2D_filtering"
 
-const timeend = 86400 # 4 * 365 * 86400
+const timeend = 5 * 86400 # 4 * 365 * 86400
 const tout    = 60 * 60
 
-const N  = 12
+const N  = 8
 const Ne = (10, 10)
 const L  = 1e6
 const H  = 400
 const τ  = 86400
 
 const cʰ = sqrt(grav * H)
-const cᶻ = 0
+const cᵛ = 0
+
+const κʰ = 0 # 1e4
+const κᵛ = 0 # 1e-2
 
 const θᴱ = 25
-const κʰ = 0 # 1e3
-const κᶻ = 0 # 1e-3
 const λʳ = 0 # 1 // 86400
 
 let
@@ -141,7 +142,7 @@ let
 
   problem = SimpleBox2D{DFloat}(L, H, τ, θᴱ)
 
-  model = HB2DModel{typeof(problem),DFloat}(problem, cʰ, cᶻ)
+  model = HB2DModel{typeof(problem),DFloat}(problem, cʰ, cᵛ, κʰ, κᵛ)
 
   dg = DGModel(model,
                grid,
@@ -180,7 +181,7 @@ let
   end
 
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else

@@ -81,13 +81,13 @@ end
 # PARAM SELECTION #
 ###################
 DFloat = Float64
-vtkpath = "vtk_euler_60min"
+vtkpath = "vtk_higher_diffusion"
 
-const timeend = 60 * 60 # 30 * 86400 # 4 * 365 * 86400
-const tout    = 60 # 24 * 60 * 60
+const timeend = 30 * 86400 # 4 * 365 * 86400
+const tout    = 24 * 60 * 60
 
 const N  = 4
-const Ne = (10, 10, 1)
+const Ne = (10, 10, 10)
 const Lˣ = 1e6
 const Lʸ = 1e6
 const H  = 400
@@ -103,8 +103,8 @@ const θᴱ = 25
 const αᵀ = 0 # 2e-4
 const νʰ = 1e4
 const νᶻ = 1e-2
-const κʰ = 0 # 1e3
-const κᶻ = 0 # 1e-3
+const κʰ = 5e3
+const κᶻ = 5e-3
 const λʳ = 0 # 1 // 86400
 
 let
@@ -136,7 +136,7 @@ let
                               periodicity = (false, false, false),
                               boundary = ((1, 1), (1, 1), (2, 3)))
 
-  dt = 1 # 120 # 240 # (L[1] / c) / Ne[1] / N^2
+  dt = 120 # 240 # (L[1] / c) / Ne[1] / N^2
   @show nout = ceil(Int64, tout / dt)
   @show dt = tout / nout
 
@@ -200,8 +200,8 @@ let
     end
   end
 
-  # lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
-  lsrk = LSRKEulerMethod(dg, Q; dt=dt, t0=0)
+  lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
+  # lsrk = LSRKEulerMethod(dg, Q; dt=dt, t0=0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
