@@ -120,8 +120,8 @@ end
 
 function update_aux!(dg::DGModel, m::HB2DModel, Q::MPIStateArray,
                      α::MPIStateArray, t, params)
-  apply!(Q, (1, ), dg.grid, params.filter)
-  apply!(α, (1,2), dg.grid, params.filter)
+  # apply!(Q, (1, ), dg.grid, params.filter)
+  # apply!(α, (1,2), dg.grid, params.filter)
 
   return nothing
 end
@@ -152,7 +152,7 @@ end
 
 @inline function hb2d_boundary_state!(m::HB2DModel, Q⁺, α⁺, n⁻, Q⁻, α⁻, t)
   if m.κʰ == 0 && m.κᵛ == 0
-    Q⁺.θ = -Q⁻.θ
+    Q⁺.θ = Q⁻.θ
   end
 
   return nothing
@@ -160,7 +160,7 @@ end
 
 @inline function hb2d_boundary_state!(m::HB2DModel, Q⁺, σ⁺, α⁺, n⁻, Q⁻, σ⁻, α⁻, t)
   if m.κʰ == 0 && m.κᵛ == 0
-    Q⁺.θ = -Q⁻.θ
+    Q⁺.θ = Q⁻.θ
   else
     σ⁺.κ∇θ = -σ⁻.κ∇θ
   end

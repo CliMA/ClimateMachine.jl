@@ -56,8 +56,8 @@ function hb2d_init_aux!(P::SimpleBox2D, α, geom)
 
     # stream function
     # Ψ(x,y) =  (L*H/τ) * sin.(π * (x/L)) .* sin.(π * (y/H).^2)
-    u = -π*L/τ * sin.(π * (x/L)) .* cos.(π * (y/H).^2) * 2 * (y/H)
-    v =  π*H/τ * cos.(π * (x/L)) .* sin.(π * (y/H).^2)
+    # u = -π*L/τ * sin.(π * (x/L)) .* cos.(π * (y/H).^2) * 2 * (y/H)
+    # v =  π*H/τ * cos.(π * (x/L)) .* sin.(π * (y/H).^2)
     
     w =  0.0
     α.u = @SVector [ u, v, w ]
@@ -84,22 +84,22 @@ end
 # PARAM SELECTION #
 ###################
 DFloat = Float64
-vtkpath = "vtk_box2D_filtering"
+vtkpath = "vtk_mitGCM_low_diffusion"
 
-const timeend = 5 * 86400 # 4 * 365 * 86400
-const tout    = 60 * 60
+const timeend = 400 * 60 * 60 # 4 * 365 * 86400
+const tout    = 25 * 60 * 60
 
-const N  = 8
+const N  = 4
 const Ne = (10, 10)
 const L  = 1e6
 const H  = 400
-const τ  = 86400
+const τ  = 10 * 86400
 
 const cʰ = sqrt(grav * H)
 const cᵛ = 0
 
-const κʰ = 0 # 1e4
-const κᵛ = 0 # 1e-2
+const κʰ = 1e2
+const κᵛ = 1e-4
 
 const θᴱ = 25
 const λʳ = 0 # 1 // 86400
@@ -129,7 +129,7 @@ let
   topl = StackedBrickTopology(mpicomm, brickrange;
                               periodicity = (false, false))
 
-  dt = 60 # 240 # (L[1] / c) / Ne[1] / N^2
+  dt = 900 # 240 # (L[1] / c) / Ne[1] / N^2
   @show nout = ceil(Int64, tout / dt)
   @show dt = tout / nout
 
