@@ -3,6 +3,36 @@ using Requires
   using .CUDAnative
 end
 
+function stage_update_noqtt!(Q, Lstages, Rstages, Qhat, Qstages, RKA_explicit, RKA_implicit, dt,
+                       ::Val{is}, ::Val{split_nonlinear_linear}) where {is, split_nonlinear_linear}
+  @inbounds @loop for i = (1:length(Q);
+                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+    Qhat_i = Q[i]
+    @unroll for js = 1:is-1
+      Qhat_i += dt * RKA_explicit[is, js] * Rstages[js][i]
+      if !split_nonlinear_linear
+        Qhat_i -= dt * RKA_explicit[is, js] * Lstages[js][i]
+      end
+      Qhat_i += dt * RKA_implicit[is, js] * Lstages[js][i]
+    end
+    Qhat[i] = Qhat_i
+    Qstages[is][i] = Qhat_i
+  end
+end
+
+function solution_update_noqtt!(Q, Lstages, Rstages, RKB, dt,
+                  ::Val{split_nonlinear_linear}, ::Val{nstages}) where {split_nonlinear_linear, nstages}
+  @inbounds @loop for i = (1:length(Q);
+                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+    @unroll for is = 1:nstages
+      Q[i] += RKB[is] * dt * Rstages[is][i]
+      if split_nonlinear_linear
+        Q[i] += RKB[is] * dt * Lstages[is][i]
+      end
+    end
+  end
+end
+
 function stage_update!(Q, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implicit, dt,
                        ::Val{is}, ::Val{split_nonlinear_linear}, slow_δ,
                        slow_dQ) where {is, split_nonlinear_linear}
