@@ -114,6 +114,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   T     = air_temperature(TS)
   #Assign State Variables
   u, v, w     = FT(7), FT(-5.5), FT(0)
+  if (xvert > 1500.0)
+      u = FT(0)
+      v = FT(0)
+  end
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -164,23 +168,23 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
       e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z*ρ_node)
 
-      Phpart = PhasePartition(qt_node)
-      T      = air_temperature(e_int, Phpart)
-      p      = air_pressure(T, ρ_node, Phpart)
-      θ_l    = liquid_ice_pottemp(T, p, Phpart)
-      θ_v    = virtual_pottemp(T, p, Phpart)
-      θ      = dry_pottemp(T, p, Phpart)
+      #Phpart = PhasePartition(qt_node)
+      #T      = air_temperature(e_int, Phpart)
+      #p      = air_pressure(T, ρ_node, Phpart)
+      #θ_l    = liquid_ice_pottemp(T, p, Phpart)
+      #θ_v    = virtual_pottemp(T, p, Phpart)
+      #θ      = dry_pottemp(T, p, Phpart)
       
-      #ts = PhaseEquil(e_int, qt_node, ρ_node)
-      #Phpart = PhasePartition(ts)
+      ts = PhaseEquil(e_int, qt_node, ρ_node)
+      Phpart = PhasePartition(ts)
         
       thermoQ[i,1,e] = Phpart.liq
       thermoQ[i,2,e] = Phpart.ice
       thermoQ[i,3,e] = qt_node - Phpart.liq - Phpart.ice
-      thermoQ[i,4,e] = T #ts.T
-      thermoQ[i,5,e] = θ_l #liquid_ice_pottemp(ts)
-      thermoQ[i,6,e] = θ   #dry_pottemp(ts)
-      thermoQ[i,7,e] = θ_v #virtual_pottemp(ts)
+      thermoQ[i,4,e] = ts.T
+      thermoQ[i,5,e] = liquid_ice_pottemp(ts)
+      thermoQ[i,6,e] = dry_pottemp(ts)
+      thermoQ[i,7,e] = virtual_pottemp(ts)
     end
   end
     
@@ -196,16 +200,16 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
         for j in 1:Nq
           for i in 1:Nq
             ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-            Horzavgs[k,ev,1]  += localQ[ijk,1,e]  #<ρ> 
-            Horzavgs[k,ev,2]  += localQ[ijk,2,e]  #<ρu>
-            Horzavgs[k,ev,3]  += localQ[ijk,3,e]  #<ρv>
-            Horzavgs[k,ev,4]  += localQ[ijk,4,e]  #<ρw>
-            Horzavgs[k,ev,5]  += thermoQ[ijk,5,e] #<θl>
-            Horzavgs[k,ev,6]  += thermoQ[ijk,1,e] #<ql>
-            Horzavgs[k,ev,7]  += thermoQ[ijk,3,e] #<qv>
-            Horzavgs[k,ev,8]  += thermoQ[ijk,6,e] #<θ> 
-            Horzavgs[k,ev,9]  += localQ[ijk,6,e]  #<qt>
-            Horzavgs[k,ev,10] += thermoQ[ijk,7,e] #<θv>
+            Horzavgs[k,ev,1]  += localQ[ijk,1,e]  #ρ
+            Horzavgs[k,ev,2]  += localQ[ijk,2,e]  #ρu
+            Horzavgs[k,ev,3]  += localQ[ijk,3,e]  #ρv
+            Horzavgs[k,ev,4]  += localQ[ijk,4,e]  #ρw
+            Horzavgs[k,ev,5]  += thermoQ[ijk,5,e] #θl
+            Horzavgs[k,ev,6]  += thermoQ[ijk,1,e] #ql
+            Horzavgs[k,ev,7]  += thermoQ[ijk,3,e] #qv
+            Horzavgs[k,ev,8]  += thermoQ[ijk,6,e] #θ
+            Horzavgs[k,ev,9]  += localQ[ijk,6,e]  #qt
+            Horzavgs[k,ev,10] += thermoQ[ijk,7,e] #θv
             #The next three lines are for the liquid water path
             if ev == floor(nvertelem/2) && k==floor(Nqk/2)
                 LWP_local += (localaux[ijk,1,e] + localaux[ijk,2,e])/κ / (Nq * Nq * nhorzelem)
@@ -364,7 +368,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   κ             = FT(85)
   α_z           = FT(1) 
   z_i           = FT(840) 
-  D_subsidence  = FT(0.0) #FT(3.75e-6)
+  D_subsidence  = FT(3.75e-6)
   ρ_i           = FT(1.13)
   F_0           = FT(70)
   F_1           = FT(22)
@@ -400,7 +404,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -417,7 +421,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(100000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -430,7 +434,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -486,8 +490,8 @@ let
     C_drag = FT(0.0011)
     # User defined domain parameters
     Δx, Δy, Δz = 50, 50, 20
-    xmin, xmax = 0, 2000
-    ymin, ymax = 0, 2000
+    xmin, xmax = 0, 1000
+    ymin, ymax = 0, 1000
     zmin, zmax = 0, 1700
 
     grid_resolution = [Δx, Δy, Δz]
@@ -506,8 +510,8 @@ let
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.005
-    timeend = 14400
+    dt = 0.005e-5
+    timeend = dt
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
