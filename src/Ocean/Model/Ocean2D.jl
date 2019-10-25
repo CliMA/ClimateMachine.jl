@@ -64,7 +64,7 @@ end
   θ = Q.θ
   u = α.u
 
-  F.θ += u * θ
+  F.θ += u * θ / 2
 
   return nothing
 end
@@ -106,10 +106,20 @@ end
                             α::Vars, t::Real)
   κ = Diagonal(@SVector [m.κʰ, m.κᵛ, -0])
   σ.κ∇θ = -κ * ∇G.θ
+
+  return nothing
 end
 
-source!(m::HB2DModel, S::Vars, Q::Vars, α::Vars,
-                         t::Real) = nothing
+@inline function source!(m::HB2DModel, S::Vars, Q::Vars, α::Vars,
+                         σ::Vars, t::Real)
+  κ⁺ = @SVector [1/m.κʰ, 1/m.κᵛ, -0]
+  ∇θ = κ⁺ .* σ.κ∇θ
+  u = α.u
+
+  S.θ += u∘∇θ / 2
+
+  return nothing
+end
 
 function init_ode_param(dg::DGModel, m::HB2DModel)
   # filter = CutoffFilter(dg.grid, div(polynomialorder(dg.grid),2))
@@ -164,7 +174,7 @@ end
   else
     σ⁺.κ∇θ = -σ⁻.κ∇θ
   end
-  
+
   return nothing
 end
 

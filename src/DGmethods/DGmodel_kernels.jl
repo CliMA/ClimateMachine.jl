@@ -128,10 +128,11 @@ function volumerhs!(bl::BalanceLaw, ::Val{Nᵈ}, ::Val{N},
           end
 
           # if source! !== nothing
-          fill!(l_S, -zero(eltype(l_S)))
+          fill!(l_S, -zeros(eltype(l_S)))
           source!(bl,
                   Vars{vars_state(bl,DFloat)}(l_S), Vars{vars_state(bl,DFloat)}(l_Q),
                   Vars{vars_aux(bl,DFloat)}(l_α),
+                  Vars{vars_diffusive(bl,DFloat)}(l_σ),
                   t)
 
           @unroll for s = 1:nQ
