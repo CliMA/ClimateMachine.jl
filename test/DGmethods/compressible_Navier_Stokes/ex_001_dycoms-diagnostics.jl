@@ -607,7 +607,7 @@ let
     Δx, Δy, Δz = 50, 50, 20
     xmin, xmax = 0, 2000
     ymin, ymax = 0, 2000
-    zmin, zmax = 0, 1500
+    zmin, zmax = 0, 1700
 
     grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
@@ -618,14 +618,14 @@ let
                    grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
     
     zmax = brickrange[dim][end]
-    zsponge = FT(zmax - 100) # FT(0.75 * zmax)
+    zsponge = FT(0.75 * zmax)
     
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.01
+    dt = 0.005
     timeend = 14400
 
     #Create unique output path directory:
