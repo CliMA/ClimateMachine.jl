@@ -125,6 +125,18 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   state.ρu    = SVector(ρ*u, ρ*v, ρ*w) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
+
+  #writing initialized thermodynamic quantities
+  q_vap=q_tot-q_liq-q_ice
+  p   = air_pressure(T,ρ,q_pt)
+  θ   = dry_pottemp(T,p,q_pt)
+  θ_v = virtual_pottemp(T,p,q_pt)
+  if x == 0 && y == 0
+    io = open("./output/ICs.dat", "a")
+      writedlm(io, [z ρ p θ θ_v θ_liq q_tot q_liq q_vap])
+    close(io)
+  end
+    
 end
 
 
@@ -352,6 +364,12 @@ if mpirank == 0
   LWP_string = string(current_time_str, " ", LWP, "\n")
   write(io, LWP_string)
   close(io)
+
+  #Write ICs file
+  ICs_fileout = string("./output/ICs.dat")
+  io = open(ICs_fileout, "w")
+     writedlm(io, ["z" "theta" "theta_v" "theta_liq" "q_tot" "q_liq" "q_vap"])
+  close(io) 
 end
 end
 
