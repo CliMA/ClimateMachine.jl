@@ -178,14 +178,14 @@ function run(mpicomm, ArrayType, LinearType,
   end
 
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(3000)  do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false)
     mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirank%04d_step%04d", dim,
-                           MPI.Comm_rank(mpicomm), step[1])
-      @debug "doing VTK output" outprefix
-      writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)), param[1], flattenednames(vars_aux(model,FT)))
-      step[1] += 1
-      nothing
+    outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirank%04d_step%04d", dim,
+                         MPI.Comm_rank(mpicomm), step[1])
+    @debug "doing VTK output" outprefix
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)))
+    step[1] += 1
+    nothing
   end
 
   solve!(Q, ark; timeend=timeend, callbacks=(cbinfo,cbvtk))
