@@ -1,7 +1,7 @@
 module NumericalFluxes
 
 export Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive,
-       CentralNumericalFluxNonDiffusive
+       CentralNumericalFluxNonDiffusive, Upwind
 
 using StaticArrays
 using GPUifyLoops: @unroll
@@ -110,6 +110,24 @@ function numerical_boundary_flux_nondiffusive!(nf::NumericalFluxNonDiffusive,
   numerical_flux_nondiffusive!(nf, bl, F, nM, QM, auxM, QP, auxP, t)
 end
 
+"""
+    Upwind <: NumericalFluxNonDiffusive
+
+The Upwind numerical flux.
+
+# Usage
+
+    Upwind()
+
+!!! note
+
+    A balance law must provide a concrete implementation of
+    `numerical_flux_nondiffusive!(::Upwind, bl::BalanceLaw, F, nM,
+                                  QM, auxM, QP, auxP, t)`
+    for this flux to be used
+
+"""
+struct Upwind <: NumericalFluxNonDiffusive end
 
 
 """
