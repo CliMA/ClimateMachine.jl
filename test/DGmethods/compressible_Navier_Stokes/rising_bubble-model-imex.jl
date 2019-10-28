@@ -99,8 +99,8 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
 end
 # --------------- Driver definition ------------------ # 
 function run(mpicomm, ArrayType, LinearType,
-             topl, dim, Ne, polynomialorder, 
-             timeend, FT, dt)
+             topl, dim, Ne, polynomialorder,
+             timeend, FT, dt, split_nonlinear_linear)
   # -------------- Define grid ----------------------------------- # 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -130,17 +130,31 @@ function run(mpicomm, ArrayType, LinearType,
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty(); auxstate=dg.auxstate)
 
+  if split_nonlinear_linear
+    nonlinmodel = RemainderModel(model, (linmodel,))
+    dg_nonlinear = DGModel(nonlinmodel,
+                           grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                           CentralGradPenalty(); auxstate=dg.auxstate)
+  end
+
   Q = init_ode_state(dg, FT(0))
 
   linearsolver = GeneralizedMinimalResidual(10, Q, sqrt(eps(FT)))
-  ark = ARK548L2SA2KennedyCarpenter(dg, lindg, linearsolver, Q; dt = dt, t0 = 0)
+  ark = ARK548L2SA2KennedyCarpenter(split_nonlinear_linear ? dg_nonlinear : dg,
+                                    lindg,
+                                    linearsolver,
+                                    Q; dt = dt, t0 = 0,
+                                    split_nonlinear_linear = split_nonlinear_linear)
 
 
   eng0 = norm(Q)
+  split = split_nonlinear_linear ? "(Nonlinear, Linear)" : "(Full, Linear)"
   @info @sprintf """Starting
   norm(Q₀) = %.16e
   ArrayType = %s
-  FloatType = %s""" eng0 ArrayType FT
+  FloatType = %s
+  splitting = %s
+  """ eng0 ArrayType FT split
 
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
   starttime = Ref(now())
@@ -203,15 +217,17 @@ let
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     FloatType = (Float32, Float64)
     for FT in FloatType
-      brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
-                    range(FT(ymin); length=Ne[2]+1, stop=ymax),
-                    range(FT(zmin); length=Ne[3]+1, stop=zmax))
-      topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
-      for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
-        engf_eng0 = run(mpicomm, ArrayType, LinearType,
-                        topl, dim, Ne, polynomialorder, 
-                        timeend, FT, dt)
-        @test engf_eng0 ≈ FT(0.9999997771981113)
+      for split_nonlinear_linear in (true, false)
+        brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
+                      range(FT(ymin); length=Ne[2]+1, stop=ymax),
+                      range(FT(zmin); length=Ne[3]+1, stop=zmax))
+        topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
+        for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
+          engf_eng0 = run(mpicomm, ArrayType, LinearType,
+                          topl, dim, Ne, polynomialorder,
+                          timeend, FT, dt, split_nonlinear_linear)
+          @test engf_eng0 ≈ FT(0.9999997771981113)
+        end
       end
     end
   end
