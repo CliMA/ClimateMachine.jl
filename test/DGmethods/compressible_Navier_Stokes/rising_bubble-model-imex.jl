@@ -100,7 +100,8 @@ end
 # --------------- Driver definition ------------------ # 
 function run(mpicomm, ArrayType, LinearType,
              topl, dim, Ne, polynomialorder,
-             timeend, FT, dt, split_nonlinear_linear)
+             timeend, FT, dt, split_nonlinear_linear,
+             linear_num_flux)
   # -------------- Define grid ----------------------------------- # 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -126,7 +127,7 @@ function run(mpicomm, ArrayType, LinearType,
   linmodel = LinearType(model)
   lindg = DGModel(linmodel,
                grid,
-               Rusanov(),
+               linear_num_flux,
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty(); auxstate=dg.auxstate)
 
@@ -155,7 +156,8 @@ function run(mpicomm, ArrayType, LinearType,
   FloatType = %s
   splitting = %s
   linear type = %s
-  """ eng0 ArrayType FT split LinearType
+  linear numerical flux = %s
+  """ eng0 ArrayType FT split LinearType linear_num_flux
 
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
   starttime = Ref(now())
@@ -199,7 +201,7 @@ function run(mpicomm, ArrayType, LinearType,
   norm(Q - Qe)            = %.16e
   norm(Q - Qe) / norm(Qe) = %.16e
   """ engf engf/eng0 engf-eng0 errf errf / engfe
-engf/eng0
+  engf/eng0
 end
 # --------------- Test block / Loggers ------------------ # 
 using Test
@@ -224,10 +226,14 @@ let
                       range(FT(zmin); length=Ne[3]+1, stop=zmax))
         topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
         for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
-          engf_eng0 = run(mpicomm, ArrayType, LinearType,
-                          topl, dim, Ne, polynomialorder,
-                          timeend, FT, dt, split_nonlinear_linear)
-          @test engf_eng0 ≈ FT(0.9999997771981113)
+          lnf = split_nonlinear_linear && LinearType == AtmosAcousticLinearModel ?  (Upwind(), Rusanov()) : (Rusanov(),)
+          for linear_num_flux in lnf
+            engf_eng0 = run(mpicomm, ArrayType, LinearType,
+                            topl, dim, Ne, polynomialorder,
+                            timeend, FT, dt, split_nonlinear_linear,
+                            linear_num_flux)
+            @test engf_eng0 ≈ FT(0.9999997771981113)
+          end
         end
       end
     end
