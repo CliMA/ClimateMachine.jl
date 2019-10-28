@@ -126,10 +126,10 @@ function run(mpicomm, ArrayType, LinearType,
 
   linmodel = LinearType(model)
   lindg = DGModel(linmodel,
-               grid,
-               linear_num_flux,
-               CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(); auxstate=dg.auxstate)
+                  grid,
+                  linear_num_flux,
+                  CentralNumericalFluxDiffusive(),
+                  CentralGradPenalty(); auxstate=dg.auxstate)
 
   if split_nonlinear_linear
     nonlinmodel = RemainderModel(model, (linmodel,))
