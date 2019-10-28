@@ -226,7 +226,7 @@ let
                       range(FT(zmin); length=Ne[3]+1, stop=zmax))
         topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
         for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
-          lnf = split_nonlinear_linear && LinearType == AtmosAcousticLinearModel ?  (Upwind(), Rusanov()) : (Rusanov(),)
+          lnf = split_nonlinear_linear ? (Upwind(), Rusanov()) : (Rusanov(),)
           for linear_num_flux in lnf
             engf_eng0 = run(mpicomm, ArrayType, LinearType,
                             topl, dim, Ne, polynomialorder,
