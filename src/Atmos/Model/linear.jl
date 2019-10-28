@@ -67,3 +67,89 @@ function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars,
   source.ρu = state.ρ * ∇Φ
   nothing
 end
+
+function NumericalFluxes.numerical_flux_nondiffusive!(nf::Upwind,
+                                                      bl::AtmosAcousticLinearModel,
+                                                      F::MArray, nM::SVector,
+                                                      QM::MArray, auxM::MArray,
+                                                      QP::MArray, auxP::MArray,
+                                                      t)
+
+  FT = eltype(QM)
+  NumericalFluxes.numerical_flux_nondiffusive!(nf, bl,
+                                               Vars{vars_state(bl, FT)}(F),
+                                               nM,
+                                               Vars{vars_state(bl, FT)}(QM),
+                                               Vars{vars_aux(bl, FT)}(auxM),
+                                               Vars{vars_state(bl, FT)}(QP),
+                                               Vars{vars_aux(bl, FT)}(auxP),
+                                               t)
+end
+
+# Note: this assumes that the reference state is continuous across element
+# boundaries
+function NumericalFluxes.numerical_flux_nondiffusive!(::Upwind,
+                                                      lm::AtmosAcousticLinearModel,
+                                                      F::Vars, nM::SVector,
+                                                      QM::Vars, auxM::Vars,
+                                                      QP::Vars, auxP::Vars,
+                                                      t)
+
+  FT = eltype(QM)
+
+  e_pot = gravitational_potential(lm.atmos.orientation, auxM)
+  ref = auxM.ref_state
+
+  # Coefficients for the flux matrix
+  α = FT(R_d) * FT(T_0) - e_pot * FT(R_d) / FT(cv_d)
+  β = FT(R_d) / FT(cv_d)
+  γ = (ref.ρe + ref.p)/ref.ρ - e_pot
+
+  # wave speed
+  λ = sqrt(β * γ + α)
+
+  #=
+  # Matrix for the flux is:
+  Tn = [1 0    0     0   0;
+        0 n[1] n[2] n[3] 0;
+        0 0    0    0    1]
+
+  B = [0 1 0;
+       α 0 β;
+       0 γ 0]
+
+  An = Tn' * B * Tn
+
+  # The upwinding is based on the following eigenvalue decomposition of B
+  V = [-1  β 1;
+        λ  0 λ;
+       -γ -α γ]
+
+  W = [-α / (2α + 2γ * β)   1 / 2λ  -β / (2α + 2γ * β);
+       2γ / (2α + 2γ * β)   0       -2 / (2α + 2γ * β);
+        α / (2α + 2γ * β)   1 / 2λ   β / (2α + 2γ * β)]
+
+  @assert B ≈ V * Diagonal([-λ, 0, λ]) * W
+  =#
+
+  # rotated state vector based on outward normal
+  ρM, ρuM, ρeM = QM.ρ, nM' * QM.ρu, QM.ρe
+  ρP, ρuP, ρeP = QP.ρ, nM' * QP.ρu, QP.ρe
+
+  # Left eigenvector entries
+  δ1 = -α / (2α + 2γ * β)
+  δ2 =  1 / 2λ
+  δ3 = -β / (2α + 2γ * β)
+
+  # incoming wave
+  ωP = -λ * ( δ1 * ρP + δ2 * ρuP + δ3 * ρeP)
+
+  # outgoing wave
+  ωM =  λ * (-δ1 * ρM + δ2 * ρuM - δ3 * ρeM)
+
+  # compute the upwind flux using the right eigenvectors and rotate back based
+  # on the outward normal
+  F.ρ = ωM - ωP
+  F.ρu = λ * (ωP + ωM) * nM
+  F.ρe = γ * (ωM - ωP)
+end
