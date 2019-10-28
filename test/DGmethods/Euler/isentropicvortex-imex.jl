@@ -3,7 +3,8 @@ using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
-                                       CentralNumericalFluxDiffusive
+                                       CentralNumericalFluxDiffusive,
+                                       Upwind
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
@@ -57,52 +58,61 @@ function main()
 
   expected_error = Dict()
   
-  expected_error[Float64, false, 1] = 2.3225467541870387e+01
-  expected_error[Float64, false, 2] = 5.2663709730295070e+00
-  expected_error[Float64, false, 3] = 1.2183770894070467e-01
-  expected_error[Float64, false, 4] = 2.8660813871243937e-03
-  
-  expected_error[Float64, true, 1] = 2.3225467618783981e+01
-  expected_error[Float64, true, 2] = 5.2663710765946341e+00
-  expected_error[Float64, true, 3] = 1.2183771242881866e-01
-  expected_error[Float64, true, 4] = 2.8660023410820249e-03
+  expected_error[Float64, false, Rusanov(), 1] = 2.3225467541870387e+01
+  expected_error[Float64, false, Rusanov(), 2] = 5.2663709730295070e+00
+  expected_error[Float64, false, Rusanov(), 3] = 1.2183770894070467e-01
+  expected_error[Float64, false, Rusanov(), 4] = 2.8660813871243937e-03
+
+  expected_error[Float64, true, Rusanov(), 1] = 2.3225467618783981e+01
+  expected_error[Float64, true, Rusanov(), 2] = 5.2663710765946341e+00
+  expected_error[Float64, true, Rusanov(), 3] = 1.2183771242881866e-01
+  expected_error[Float64, true, Rusanov(), 4] = 2.8660023410820249e-03
+
+  expected_error[Float64, true, Upwind(), 1] = 2.4949665744531330e+01
+  expected_error[Float64, true, Upwind(), 2] = 3.2748555105529706e+00
+  expected_error[Float64, true, Upwind(), 3] = 8.8650707202835563e-02
+  expected_error[Float64, true, Upwind(), 4] = 2.9564948906359682e-03
 
   @testset "$(@__FILE__)" begin
     for ArrayType in ArrayTypes, FT in (Float64,), dims in 2
-      for split_nonlinear_linear in (false, true)
-        let
-          split = split_nonlinear_linear ? "(Nonlinear, Linear)" :
-                                           "(Full, Linear)"
-          @info @sprintf """Configuration
-                            ArrayType = %s
-                            FT    = %s
-                            dims      = %d
-                            splitting = %s
-                            """ "$ArrayType" "$FT" dims split
-        end
+      for split_nonlinear_linear in (true, false)
+        for linear_num_flux in (split_nonlinear_linear ? (Upwind(), Rusanov()) : (Rusanov(),))
+          let
+            split = split_nonlinear_linear ? "(Nonlinear, Linear)" :
+            "(Full, Linear)"
+            @info @sprintf """Configuration
+            ArrayType = %s
+            FT    = %s
+            dims      = %d
+            splitting = %s
+            linear numerical flux = %s
+            """ "$ArrayType" "$FT" dims split linear_num_flux
+          end
 
-        setup = IsentropicVortexSetup{FT}()
-        errors = Vector{FT}(undef, numlevels)
+          setup = IsentropicVortexSetup{FT}()
+          errors = Vector{FT}(undef, numlevels)
 
-        for level in 1:numlevels
-          numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
-          errors[level] =
+          for level in 1:numlevels
+            numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
+            errors[level] =
             run(mpicomm, polynomialorder, numelems, setup, split_nonlinear_linear,
-                ArrayType, FT, dims, level)
+                linear_num_flux, ArrayType, FT, dims, level)
 
-          @test errors[level] ≈ expected_error[FT, split_nonlinear_linear, level]
-        end
+            @test errors[level] ≈ expected_error[FT, split_nonlinear_linear,
+                                                 linear_num_flux, level]
+          end
 
-        rates = @. log2(first(errors[1:numlevels-1]) / first(errors[2:numlevels]))
-        numlevels > 1 && @info "Convergence rates\n" *
+          rates = @. log2(first(errors[1:numlevels-1]) / first(errors[2:numlevels]))
+          numlevels > 1 && @info "Convergence rates\n" *
           join(["rate for levels $l → $(l + 1) = $(rates[l])" for l in 1:numlevels-1], "\n")
+        end
       end
     end
   end
 end
 
 function run(mpicomm, polynomialorder, numelems, setup,
-             split_nonlinear_linear, ArrayType, FT, dims, level)
+             split_nonlinear_linear, linear_num_flux, ArrayType, FT, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
   end
@@ -136,13 +146,14 @@ function run(mpicomm, polynomialorder, numelems, setup,
   dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
 
   dg_linear = DGModel(linear_model,
-                      grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                      grid, linear_num_flux, CentralNumericalFluxDiffusive(),
+                      CentralGradPenalty();
                       auxstate=dg.auxstate)
 
   if split_nonlinear_linear
     dg_nonlinear = DGModel(nonlinear_model,
-                           grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
-                           auxstate=dg.auxstate)
+                           grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                           CentralGradPenalty(); auxstate=dg.auxstate)
   end
 
   timeend = FT(2 * setup.domain_halflength / setup.translation_speed)
