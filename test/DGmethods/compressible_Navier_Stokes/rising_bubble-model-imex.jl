@@ -154,7 +154,8 @@ function run(mpicomm, ArrayType, LinearType,
   ArrayType = %s
   FloatType = %s
   splitting = %s
-  """ eng0 ArrayType FT split
+  linear type = %s
+  """ eng0 ArrayType FT split LinearType
 
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
   starttime = Ref(now())
