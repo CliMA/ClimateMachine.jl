@@ -30,17 +30,17 @@ Returns the points on the reference element.
 referencepoints(::AbstractGrid) = error("needs to be implemented")
 
 # {{{
-const _nvgeo = 15
-const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI,
+const _nvgeo = 17
+const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI, _MH, _MHI,
        _x1, _x2, _x3, _JcV = 1:_nvgeo
 const vgeoid = (ξ1x1id = _ξ1x1, ξ2x1id = _ξ2x1, ξ3x1id = _ξ3x1,
                 ξ1x2id = _ξ1x2, ξ2x2id = _ξ2x2, ξ3x2id = _ξ3x2,
                 ξ1x3id = _ξ1x3, ξ2x3id = _ξ2x3, ξ3x3id = _ξ3x3,
-                Mid  = _M , MIid = _MI,
+                Mid  = _M , MIid = _MI, MHid = _MH, MHIid = _MHI,
                 x1id  = _x1 , x2id  = _x2 , x3id  = _x3,
                 JcVid = _JcV)
 # JcV is the vertical line integral Jacobian
-
+# The MH terms are for integrating over a plane.
 const _nsgeo = 5
 const _n1, _n2, _n3, _sM, _vMI = 1:_nsgeo
 const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM,
@@ -258,9 +258,10 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   vgeo = zeros(FT, Nq^dim, _nvgeo, nelem)
   sgeo = zeros(FT, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, x1, x2, x3,
+  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, MHJH, MHJHI, x1, x2, x3,
    JcV) = ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
   J = similar(x1)
+  JH = similar(x1)
   (n1, n2, n3, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
   sJ = similar(sMJ)
 
@@ -278,13 +279,18 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
     Metrics.computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
   elseif dim == 3
     Metrics.computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2,
-                           ξ1x3, ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
+                           ξ1x3, ξ2x3, ξ3x3, sJ, n1, n2, n3, D, JH)
   end
 
   M = kron(1, ntuple(j->ω, dim)...)
   MJ .= M .* J
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmapM]
+
+  MH = kron(1, ntuple(j->ω, dim)...)
+  MHJH .= MH .* JH
+  MHJHI .= 1 ./MHJH
+
 
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)
   sMJ .= sM .* sJ
