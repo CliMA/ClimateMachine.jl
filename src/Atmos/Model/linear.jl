@@ -68,32 +68,35 @@ function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars,
   nothing
 end
 
-function NumericalFluxes.numerical_flux_nondiffusive!(nf::Upwind,
-                                                      bl::AtmosAcousticLinearModel,
-                                                      F::MArray, nM::SVector,
-                                                      QM::MArray, auxM::MArray,
-                                                      QP::MArray, auxP::MArray,
-                                                      t)
+import ..DGmethods.NumericalFluxes: numerical_flux_nondiffusive!
+function numerical_flux_nondiffusive!(nf::Upwind,
+                                      bl::Union{AtmosAcousticLinearModel,
+                                                AtmosAcousticGravityLinearModel},
+                                      F::MArray, nM::SVector,
+                                      QM::MArray, auxM::MArray,
+                                      QP::MArray, auxP::MArray,
+                                      t)
 
   FT = eltype(QM)
-  NumericalFluxes.numerical_flux_nondiffusive!(nf, bl,
-                                               Vars{vars_state(bl, FT)}(F),
-                                               nM,
-                                               Vars{vars_state(bl, FT)}(QM),
-                                               Vars{vars_aux(bl, FT)}(auxM),
-                                               Vars{vars_state(bl, FT)}(QP),
-                                               Vars{vars_aux(bl, FT)}(auxP),
-                                               t)
+  numerical_flux_nondiffusive!(nf, bl,
+                               Vars{vars_state(bl, FT)}(F),
+                               nM,
+                               Vars{vars_state(bl, FT)}(QM),
+                               Vars{vars_aux(bl, FT)}(auxM),
+                               Vars{vars_state(bl, FT)}(QP),
+                               Vars{vars_aux(bl, FT)}(auxP),
+                               t)
 end
 
 # Note: this assumes that the reference state is continuous across element
 # boundaries
-function NumericalFluxes.numerical_flux_nondiffusive!(::Upwind,
-                                                      lm::AtmosAcousticLinearModel,
-                                                      F::Vars, nM::SVector,
-                                                      QM::Vars, auxM::Vars,
-                                                      QP::Vars, auxP::Vars,
-                                                      t)
+function numerical_flux_nondiffusive!(::Upwind,
+                                      lm::Union{AtmosAcousticLinearModel,
+                                                AtmosAcousticGravityLinearModel},
+                                      F::Vars, nM::SVector,
+                                      QM::Vars, auxM::Vars,
+                                      QP::Vars, auxP::Vars,
+                                      t)
 
   FT = eltype(QM)
 
@@ -103,7 +106,8 @@ function NumericalFluxes.numerical_flux_nondiffusive!(::Upwind,
   # Coefficients for the flux matrix
   α = FT(R_d) * FT(T_0) - e_pot * FT(R_d) / FT(cv_d)
   β = FT(R_d) / FT(cv_d)
-  γ = (ref.ρe + ref.p)/ref.ρ - e_pot
+  γ = typeof(lm) <: AtmosAcousticLinearModel ? (ref.ρe + ref.p)/ref.ρ - e_pot :
+                    (ref.ρe + ref.p)/ref.ρ
 
   # wave speed
   λ = sqrt(β * γ + α)
