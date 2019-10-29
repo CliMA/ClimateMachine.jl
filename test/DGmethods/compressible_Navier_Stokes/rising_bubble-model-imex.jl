@@ -179,11 +179,13 @@ function run(mpicomm, ArrayType, LinearType,
 
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false)
-    mkpath("./vtk-rtb/")
-    outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirank%04d_step%04d", dim,
+    vtk_dir = "./vtk-rtb-imex_$(FT)_$(LinearType)_split_$(split_nonlinear_linear)_linflux_$(typeof(linear_num_flux))"
+    mkpath(vtk_dir)
+    outprefix = @sprintf("%s/DC_%dD_mpirank%04d_step%04d", vtk_dir, dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)))
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)),
+             dg.auxstate, flattenednames(vars_aux(model,FT)))
     step[1] += 1
     nothing
   end
