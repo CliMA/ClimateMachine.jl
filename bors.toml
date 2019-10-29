@@ -1,6 +1,6 @@
 status = [
   "CLIMA",
-  "ci/slurmci"
+  "slurm/test"
 ]
 delete_merged_branches = true
 timeout_sec = 86400
