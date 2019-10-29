@@ -39,6 +39,7 @@ using ..ParametersType
 @exportparameter cv_i              cp_i          "Isochoric specific heat ice (J/kg/K)"
 @exportparameter T_freeze          273.15        "Freezing point temperature (K)"
 @exportparameter T_min             150.0         "Minimum temperature guess in saturation adjustment (K)"
+@exportparameter T_max             450.0         "Maximum temperature guess in saturation adjustment (K)"
 @exportparameter T_icenuc          233.00        "Homogeneous nucleation temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"
