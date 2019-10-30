@@ -232,7 +232,7 @@ Reference:
   301-327. <https://doi.org/10.1007/s10915-005-9070-8>
 """
 function computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3,
-                        ξ2x3, ξ3x3, sJ, n1, n2, n3, D, JH)
+                        ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
   T = eltype(x1)
 
   Nq = size(D, 1)
@@ -242,7 +242,6 @@ function computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2,
   x2 = reshape(x2, (Nq, Nq, Nq, nelem))
   x3 = reshape(x3, (Nq, Nq, Nq, nelem))
   J = reshape(J, (Nq, Nq, Nq, nelem))
-  JH = reshape(JH, (Nq, Nq, Nq, nelem))
   ξ1x1 = reshape(ξ1x1, (Nq, Nq, Nq, nelem))
   ξ2x1 = reshape(ξ2x1, (Nq, Nq, Nq, nelem))
   ξ3x1 = reshape(ξ3x1, (Nq, Nq, Nq, nelem))
@@ -292,7 +291,6 @@ function computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2,
         x3ξ2 += D[j, n] * x3[i, n, k, e]
         x3ξ3 += D[k, n] * x3[i, j, n, e]
       end
-      JH[i, j, k, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
       J[i, j, k, e] = (x1ξ1 * (x2ξ2 * x3ξ3 - x3ξ2 * x2ξ3) +
                        x2ξ1 * (x3ξ2 * x1ξ3 - x1ξ2 * x3ξ3) +
                        x3ξ1 * (x1ξ2 * x2ξ3 - x2ξ2 * x1ξ3))

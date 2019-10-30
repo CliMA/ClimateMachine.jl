@@ -30,13 +30,13 @@ Returns the points on the reference element.
 referencepoints(::AbstractGrid) = error("needs to be implemented")
 
 # {{{
-const _nvgeo = 17
-const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI, _MH, _MHI,
+const _nvgeo = 16
+const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI, _MH,
        _x1, _x2, _x3, _JcV = 1:_nvgeo
 const vgeoid = (ξ1x1id = _ξ1x1, ξ2x1id = _ξ2x1, ξ3x1id = _ξ3x1,
                 ξ1x2id = _ξ1x2, ξ2x2id = _ξ2x2, ξ3x2id = _ξ3x2,
                 ξ1x3id = _ξ1x3, ξ2x3id = _ξ2x3, ξ3x3id = _ξ3x3,
-                Mid  = _M , MIid = _MI, MHid = _MH, MHIid = _MHI,
+                Mid  = _M , MIid = _MI, MHid = _MH,
                 x1id  = _x1 , x2id  = _x2 , x3id  = _x3,
                 JcVid = _JcV)
 # JcV is the vertical line integral Jacobian
@@ -258,7 +258,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   vgeo = zeros(FT, Nq^dim, _nvgeo, nelem)
   sgeo = zeros(FT, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, MHJH, MHJHI, x1, x2, x3,
+  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, MHJH, x1, x2, x3,
    JcV) = ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
   J = similar(x1)
   JH = similar(x1)
@@ -286,11 +286,8 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   MJ .= M .* J
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmapM]
-
-  MH = kron(1, ntuple(j->ω, dim)...)
-  MHJH .= MH .* JH
-  MHJHI .= 1 ./MHJH
-
+  
+  MH = kron(1, ntuple(j->ω, dim-1)...)
 
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)
   sMJ .= sM .* sJ
@@ -302,6 +299,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
       x2ξ2 = J * ξ1x1
       hypot(x1ξ1, x2ξ2)
     end
+
   elseif dim == 3
     map!(JcV, J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
         ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
@@ -310,6 +308,11 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
       x3ξ3 = J * (ξ1x1 * ξ2x2 - ξ2x1 * ξ1x2)
       hypot(x1ξ3, x2ξ3, x3ξ3)
     end
+    map!(JH, J, ξ1x3, ξ2x3, ξ3x3
+        ) do J, ξ1x3, ξ2x3, ξ3x3
+      hypot(J*ξ1x3 ,J*ξ2x3, J*ξ3x3)
+    end
+    MHJH .= JH .* MH
   else
     error("dim $dim not implemented")
   end

@@ -16,12 +16,13 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
-
+using DelimitedFiles
 using CLIMA.Atmos: vars_state, vars_aux
-
+using JLD2
+using FileIO
+using GPUifyLoops
 using Random 
 const seed = MersenneTwister(0)
-
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -36,7 +37,14 @@ if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
-
+#this portion is for testing restarting, to enable restarting set the variable at the next line to zero
+#If you wish to restart enable restarting at your initialization function
+const _dorestart = 1
+if _dorestart == 1
+  @load "restarter.jld2" localQ localvgeo
+  const _RestartData = CuArray(localQ)
+  const _RestartGeo = CuArray(localvgeo)
+end
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,
@@ -57,7 +65,8 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
+function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t; restart=1, r=0)
+  if restart == 0
   DT         = eltype(state)
   xvert::DT  = z
   
@@ -113,7 +122,30 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   state.ρu    = SVector(U, V, W) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
+  elseif restart == 1
+  Nq = size(_RestartData,1)
+  Ne = size(_RestartData,3)
+  es = 1
+  is = 1
+  host_array = Array ∈ typeof(_RestartData).parameters
+  localQ = host_array ? _RestartData.realdata : Array(_RestartData.realdata)
+  localvgeo = host_array ? _RestartData.realdata : Array(_RestartData.realdata)
+  #for e in 1:Ne
+   # for i in 1:Nq
+    #  if x == _RestartGeo[is,12,es] && y == _RestartGeo[is,13,es] && z == _RestartGeo[is,14,es]
+     #   es = e
+#	is = i
+#	break
+ #     end
+  #  end
+ # end
+  state.ρ    = DT(localQ[is,1,es])
+  state.ρu    = SVector(DT(localQ[is,2,es]), DT(localQ[is,3,es]), DT(localQ[is,4,es]))
+  state.ρe    = DT(localQ[is,5,es])
+  state.moisture.ρq_tot = DT(localQ[is,6,es])
+  end
 end   
+
 
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
@@ -123,6 +155,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
+  rowcount=0
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
                      SmagorinskyLilly{DT}(C_smag),
@@ -180,12 +213,17 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
+  
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
   # Print some end of the simulation information
   engf = norm(Q)
   Qe = init_ode_state(dg, DT(timeend))
-
+  host_array = Array ∈ typeof(Q).parameters
+  localQ = host_array ? Q.realdata : Array(Q.realdata)
+  vgeo = grid.vgeo
+  localvgeo = host_array ? vgeo : Array(vgeo)
+  @save "restarter.jld2" localQ localvgeo
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished
