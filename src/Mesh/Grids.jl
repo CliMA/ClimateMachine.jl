@@ -279,7 +279,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
     Metrics.computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
   elseif dim == 3
     Metrics.computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2,
-                           ξ1x3, ξ2x3, ξ3x3, sJ, n1, n2, n3, D, JH)
+                           ξ1x3, ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
   end
 
   M = kron(1, ntuple(j->ω, dim)...)
@@ -287,7 +287,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmapM]
   
-  MH = kron(1, ntuple(j->ω, dim-1)...)
+  MH = kron(1, ntuple(j->ω, dim)...)
 
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)
   sMJ .= sM .* sJ
