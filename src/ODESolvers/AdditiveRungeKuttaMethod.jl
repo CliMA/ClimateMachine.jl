@@ -53,10 +53,9 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
   Qstages::NTuple{Nstages, AT}
   "Storage for RHS during the AdditiveRungeKutta update"
   Rstages::NTuple{Nstages, AT}
+  Lstages::NTuple{Nstages, AT}
   "Storage for the linear solver rhs vector"
   Qhat::AT
-  "Storage for the linear solver solution variable"
-  Qtt::AT
   "RK coefficient matrix A for the explicit scheme"
   RKA_explicit::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
   "RK coefficient matrix A for the implicit scheme"
@@ -83,14 +82,14 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
     nstages = length(RKB)
 
     Qstages = (Q, ntuple(i -> similar(Q), nstages - 1)...)
+    Lstages = ntuple(i -> similar(Q), nstages)
     Rstages = ntuple(i -> similar(Q), nstages)
     
     Qhat = similar(Q)
-    Qtt = similar(Q)
 
     new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, linearsolver,
-                                             Qstages, Rstages, Qhat, Qtt,
+                                             Qstages, Lstages, Rstages, Qhat,
                                              RKA_explicit, RKA_implicit, RKB, RKC,
                                              split_nonlinear_linear)
   end
@@ -348,15 +347,15 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
   RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
   RKB, RKC = ark.RKB, ark.RKC
   rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
-  Qstages, Rstages = ark.Qstages, ark.Rstages
-  Qhat, Qtt = ark.Qhat, ark.Qtt
+  Qstages, Rstages, Lstages = ark.Qstages, ark.Rstages, ark.Lstages
+  Qhat = ark.Qhat
   split_nonlinear_linear = ark.split_nonlinear_linear
 
   rv_Q = realview(Q)
   rv_Qstages = realview.(Qstages)
+  rv_Lstages = realview.(Lstages)
   rv_Rstages = realview.(Rstages)
   rv_Qhat = realview(Qhat)
-  rv_Qtt = realview(Qtt)
 
   nstages = length(RKB)
 
@@ -365,14 +364,16 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
 
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
+  rhs_linear!(Lstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
   # note that it is important that this loop does not modify Q!
   for istage = 2:nstages
     stagetime = time + RKC[istage] * dt
 
-    # this kernel also initializes Qtt for the linear solver
+    # this kernel also initializes Qstages[istage] with an initial guess
+    # for the linear solver
     @launch(device(Q), threads = threads, blocks = blocks,
-            stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
+            stage_update!(rv_Q, rv_Qstages, rv_Lstages, rv_Rstages, rv_Qhat,
                           RKA_explicit, RKA_implicit, dt, Val(istage),
                           Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
 
@@ -382,27 +383,17 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
       rhs_linear!(LQ, Q, p, stagetime; increment = false)
       @. LQ = Q - α * LQ
     end
-    linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
-    
-    #update Qstages
-    Qstages[istage] .+= Qtt
+    linearsolve!(linearoperator!, Qstages[istage], Qhat, linearsolver)
     
     rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
-  end
- 
-  if split_nonlinear_linear
-    for istage = 1:nstages
-      stagetime = time + RKC[istage] * dt
-      rhs_linear!(Rstages[istage], Qstages[istage], p, stagetime, increment = true)
-    end
+    rhs_linear!(Lstages[istage], Qstages[istage], p, stagetime, increment = false)
   end
 
   # compose the final solution
   @launch(device(Q), threads = threads, blocks = blocks,
-          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages), slow_δ,
-                           slow_rv_dQ, slow_scaling))
-
-
+          solution_update!(rv_Q, rv_Lstages, rv_Rstages, RKB, dt,
+                           Val(nstages), Val(split_nonlinear_linear),
+                           slow_δ, slow_rv_dQ, slow_scaling))
 end
 
 end
