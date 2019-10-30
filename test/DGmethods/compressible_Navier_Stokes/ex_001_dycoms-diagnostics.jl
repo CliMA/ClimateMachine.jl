@@ -75,6 +75,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   q_ice::FT      = 0
   zb::FT         = 600    # initial cloud bottom
   zi::FT         = 840    # initial cloud top
+  ziplus::FT     = 875
   dz_cloud       = zi - zb
   q_liq_peak::FT = 0.00045 #cloud mixing ratio at z_i    
   if xvert > zb && xvert <= zi        
@@ -109,14 +110,25 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
   #Density, Temperature
-  TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
+  #TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
+  TS    = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, q_pt, p)
   ρ     = air_density(TS)
   T     = air_temperature(TS)
+
   #Assign State Variables
-  u, v, w     = FT(7), FT(-5.5), FT(0)
-  if (xvert > 1500.0)
-      u = FT(0)
-      v = FT(0)
+  u1, u2 = FT(6), FT(7)
+  v1, v2 = FT(-4.25), FT(-5.5)
+  w = FT(0)
+  if (xvert <= zi)
+      u, v = u1, v1
+  elseif (xvert >= ziplus)
+      u, v = u2, v2
+  else
+      m = (ziplus - zi)/(u2 - u1)
+      u = (xvert - zi)/m + u1
+      
+      m = (ziplus - zi)/(v2 - v1)
+      v = (xvert - zi)/m + v1
   end
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
@@ -133,7 +145,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   θ_v = virtual_pottemp(T,p,q_pt)
   if x == 0 && y == 0
     io = open("./output/ICs.dat", "a")
-      writedlm(io, [z ρ p θ θ_v θ_liq q_tot q_liq q_vap])
+      writedlm(io, [z state.ρ θ θ_v θ_liq q_tot q_liq q_vap])
     close(io)
   end
     
@@ -368,7 +380,7 @@ if mpirank == 0
   #Write ICs file
   ICs_fileout = string("./output/ICs.dat")
   io = open(ICs_fileout, "w")
-     writedlm(io, ["z" "theta" "theta_v" "theta_liq" "q_tot" "q_liq" "q_vap"])
+     writedlm(io, ["z" "rho" "theta" "theta_v" "theta_liq" "q_tot" "q_liq" "q_vap"])
   close(io) 
 end
 end
@@ -422,7 +434,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -439,7 +451,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -452,7 +464,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -507,10 +519,10 @@ let
     SHF    = FT(-15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 50, 50, 20
-    xmin, xmax = 0, 1000
-    ymin, ymax = 0, 1000
-    zmin, zmax = 0, 1700
+    Δx, Δy, Δz = 50, 50, 25
+    xmin, xmax = 0, 1500
+    ymin, ymax = 0, 1500
+    zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
@@ -521,15 +533,15 @@ let
                    grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
     
     zmax = brickrange[dim][end]
-    zsponge = FT(0.75 * zmax)
+    zsponge = FT(1200.0) #FT(0.75 * zmax)
     
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.005e-5
-    timeend = dt
+    dt = 0.01
+    timeend = 14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
