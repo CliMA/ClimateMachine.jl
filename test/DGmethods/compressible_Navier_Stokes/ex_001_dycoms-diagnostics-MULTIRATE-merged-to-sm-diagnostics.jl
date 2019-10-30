@@ -9,7 +9,7 @@ using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.MultirateRungeKuttaMethod
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
-using CLIMA.AdditiveRungeKuttaMethods
+using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos
@@ -389,7 +389,7 @@ end
 end
 
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH,LWP_fileout)
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, FastMethod, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH,LWP_fileout)
   # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -422,6 +422,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)), 
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
+
+  # The linear model has the fast time scales
+  fast_model = AtmosAcousticLinearModel(model)
+    
+  # The nonlinear model has the slow time scales
+  slow_model = RemainderModel(model, (fast_model,))
+    
   # Balancelaw description
   dg = DGModel(model,
                grid,
@@ -429,7 +436,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-fast_dg = DGModel(fast_model,
+  fast_dg = DGModel(fast_model,
                     grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
                     auxstate=dg.auxstate)
   
@@ -585,7 +592,8 @@ let
         write(io, "LWP \n")
       close(io)
     end
-      
+
+    FastMethod = SSPRK33ShuOsher
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
                  N, timeend, FT, FastMethod, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH, LWP_fileout)
