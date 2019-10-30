@@ -121,15 +121,17 @@ using LinearAlgebra
 
   # Exner function. FIXME: add correctness tests
   p=FT(1.e5); q_tot=FT(0.23)
-  @test exner(p, PhasePartition(q_tot)) isa typeof(p)
+  @test exner_given_pressure(p, PhasePartition(q_tot)) isa typeof(p)
 end
 
 
 @testset "moist thermodynamics - constructor consistency" begin
   # Make sure `ThermodynamicState` arguments are returned unchanged
 
-  # Variable ranges:
-  n = 10
+  # FIXME/TODO: Increasing `n` to 40 results in broken tests
+  # due to failure in saturation adjustment. This needs
+  # to be improved/made more robust.
+  n = 35
   FT = Float64
   θ_liq_ice = collect(range(250,400,length=n))
   T = collect(range(250,400,length=n))
@@ -141,8 +143,6 @@ end
 
   e_int = collect(range(10_000.0,200_000.0,length=n))
   p = collect(range(10_000.0,200_000.0,length=n))
-  # p = ones(n) .* FT(MSLP) # some cases fail using these parameters
-  # ρ = ones(n) .* 1.0      # some cases fail using these parameters
   q_pt_dry = PhasePartition.(q_tot_dry, q_liq .* 0, q_ice .* 0)
   q_pt_moist = PhasePartition.(q_tot_moist, q_liq, q_ice)
 
@@ -195,7 +195,8 @@ end
 
   # LiquidIcePotTempSHumEquil: Moist case
   ts = LiquidIcePotTempSHumEquil.(θ_liq_ice, q_tot_moist, ρ)
-  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
+  @test all(abs.(liquid_ice_pottemp.(ts) - θ_liq_ice) .< FT(1e-8))
+  @test maximum(abs.(liquid_ice_pottemp.(ts) - θ_liq_ice)) ./ eps(FT) < sqrt(1/(eps(FT)))
   @test all(air_density.(ts) .≈ ρ)
   @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot_moist)
 
@@ -203,6 +204,14 @@ end
   ts = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, q_pt_moist, p)
   @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
   @test all(air_pressure.(ts) .≈ p)
+  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist,:tot))
+  @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist,:liq))
+  @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt_moist,:ice))
+
+  # LiquidIcePotTempSHumNonEquil_density(θ_liq_ice::FT, q_pt::PhasePartition{FT}, ρ::FT): Moist case
+  ts = LiquidIcePotTempSHumNonEquil_density.(θ_liq_ice, q_pt_moist, ρ)
+  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
+  @test all(air_density.(ts) .≈ ρ)
   @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist,:tot))
   @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist,:liq))
   @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt_moist,:ice))
@@ -232,10 +241,10 @@ end
   ts_dry = PhaseDry(e_int, ρ)
   ts_T = TemperatureSHumEquil(air_temperature(ts_dry), q_pt.tot, air_pressure(ts_dry))
   ts_neq = PhaseNonEquil(e_int, PhasePartition(q_tot, q_liq, q_ice), ρ)
-  ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ, p)
-  ts_θ_liq_ice_eq_no_ρ = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ)
+  ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ)
   ts_θ_liq_ice_neq = LiquidIcePotTempSHumNonEquil(θ_liq_ice, q_pt, p)
-  for ts in (ts_eq, ts_dry, ts_T, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_no_ρ, ts_θ_liq_ice_neq)
+  ts_θ_liq_ice_neq_ρ = LiquidIcePotTempSHumNonEquil_density(θ_liq_ice, q_pt, ρ)
+  for ts in (ts_eq, ts_dry, ts_T, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_neq, ts_θ_liq_ice_neq_ρ)
     @test linearized_air_pressure(e_kin, e_pot, ts) isa typeof(e_int)
     @test soundspeed_air(ts) isa typeof(e_int)
     @test gas_constant_air(ts) isa typeof(e_int)

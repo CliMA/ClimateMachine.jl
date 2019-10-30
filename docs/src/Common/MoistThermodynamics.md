@@ -83,7 +83,10 @@ ThermodynamicState
 PhaseDry
 PhaseEquil
 PhaseNonEquil
+TemperatureSHumEquil
 LiquidIcePotTempSHumEquil
+LiquidIcePotTempSHumNonEquil
+LiquidIcePotTempSHumNonEquil_density
 ```
 
 ```@docs
