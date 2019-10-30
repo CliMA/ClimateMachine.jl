@@ -3,5 +3,5 @@ status = [
   "slurm/test"
 ]
 delete_merged_branches = true
-timeout_sec = 86400
+timeout_sec = 300
 block_labels = [ "do-not-merge-yet" ]
