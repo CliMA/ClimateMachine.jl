@@ -20,19 +20,21 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
+
 using CLIMA.Atmos: vars_state, vars_aux
 using DelimitedFiles
 using GPUifyLoops
 using Random
 using CLIMA.IOstrings
+
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,) 
+  const ArrayType = CuArray
 else
-  const ArrayTypes = (Array,)
+  const ArrayType = Array
 end
 
 if !@isdefined integration_testing
@@ -146,11 +148,11 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   p   = air_pressure(T,ρ,q_pt)
   θ   = dry_pottemp(T,p,q_pt)
   θ_v = virtual_pottemp(T,p,q_pt)
-  if x == 0 && y == 0
+#=  if x == 0 && y == 0
     io = open("./output/ICs.dat", "a")
       writedlm(io, [z state.ρ θ θ_v θ_liq q_tot q_liq q_vap])
     close(io)
-  end
+  end=#
     
 end
 
@@ -158,6 +160,7 @@ end
 # TODO: temporary; move to new CLIMA module
 # TODO: add an option to reduce communication: compute averages
 # locally only
+#=
 function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnostics_fileout,κ,LWP_fileout)
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
@@ -364,6 +367,8 @@ end
       OutputZ[i] = Zvals[k,ev] # Height
     end
   end
+
+#=
 if mpirank == 0
 
   #Write <stats>
@@ -386,16 +391,21 @@ if mpirank == 0
      writedlm(io, ["z" "rho" "theta" "theta_v" "theta_liq" "q_tot" "q_liq" "q_vap"])
   close(io) 
 end
+=#
 end
+=#
 
-
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, FastMethod, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH,LWP_fileout)
+function run(mpicomm, ArrayType, dim, topl,
+             N, timeend, FT, FastMethod,
+             C_smag, LHF, SHF, C_drag,
+             brickrange, grid_resolution, domain_size, zmax, zsponge)
+#             problem_name, diagnostics_fileout, OUTPATH,LWP_fileout)
+    
   # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
-                                          polynomialorder = N,
-                                         )
+                                          polynomialorder = N)
   # Problem constants
   # Radiation model
   κ             = FT(85)
@@ -416,26 +426,24 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, FastMethod, C_smag, 
                      SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
-                     (Gravity(), 
-                      RayleighSponge{FT}(zmax, zsponge, 1),
-                      Subsidence(), 
+                     (Gravity(),
+                      RayleighSponge{FT}(zmax, zsponge,1),
+                      Subsidence(),
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)), 
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
   # The linear model has the fast time scales
   fast_model = AtmosAcousticLinearModel(model)
-    
   # The nonlinear model has the slow time scales
   slow_model = RemainderModel(model, (fast_model,))
-    
-  # Balancelaw description
+
   dg = DGModel(model,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
-
+  
   fast_dg = DGModel(fast_model,
                     grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
                     auxstate=dg.auxstate)
@@ -446,12 +454,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, FastMethod, C_smag, 
 
   # determine the slow time step
   elementsize = minimum(step.(brickrange))
-  slow_dt = 0.2 #elementsize / soundspeed_air(FT(T_0)) / polynomialorder ^ 2
+  slow_dt = 0.05 #elementsize / soundspeed_air(FT(T_0)) / polynomialorder ^ 2
   nsteps = ceil(Int, timeend / slow_dt)
   slow_dt = timeend / nsteps
 
   # arbitrary and not needed for stabilty, just for testing
   fast_dt = slow_dt / 3
+    
   Q = init_ode_state(dg, FT(0); device=CPU())
   #lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -467,17 +476,17 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, FastMethod, C_smag, 
     if s
       starttime[] = now()
     else
-      #= energy = norm(Q) =#
-      @info @sprintf("""Update
-                     simtime = %.16e
-                     runtime = %s
-                     """, ODESolvers.gettime(lsrk),
-                     Dates.format(convert(Dates.DateTime,
-                                          Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"))
+    #= energy = norm(Q) =#
+    runtime = Dates.format(convert(DateTime, now() - starttime[]), dateformat"HH:MM:SS")
+    @info @sprintf """Update
+                      simtime = %.16e
+                      runtime = %s
+                      """ gettime(ode_solver) runtime
+        
     end
+    nothing
   end
-  
+  #=
   # Setup VTK output callbacks
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
@@ -489,21 +498,36 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, FastMethod, C_smag, 
              dg.auxstate, flattenednames(vars_aux(model,FT)))
         
     step[1] += 1
+
     nothing
   end
-  
+=#
+ #=
   #Get statistics during run:
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     current_time_str = string(gettime(ode_solver))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
+    =#
 
-  solve!(Q, ode_solver; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
+    vtkdir = "vtk_dycoms_multirate" * "_$(FastMethod)"
+    mkpath(vtkdir)
+    vtkstep = 0
+    # output initial step
+    # setup the output callback
+    outputtime = timeend
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(floor(outputtime / slow_dt)) do
+        vtkstep += 1
+        Qe = init_ode_state(dg, gettime(ode_solver))
+        nothing
+    end
+    
+  solve!(Q, ode_solver; timeend=timeend, callbacks=(cbinfo,cbvtk))
 
   #Get statistics at the end of the run:
-  current_time_str = string(ODESolvers.gettime(lsrk))
+#=  current_time_str = string(gettime(ode_solver))
   gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
-
+=#
     
   # Print some end of the simulation information
  #= engf = norm(Q)
@@ -511,14 +535,14 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, FastMethod, C_smag, 
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
-  @info @sprintf """Finished
+  @info @sprintf """Finished 
   norm(Q)                 = %.16e
   norm(Q) / norm(Q₀)      = %.16e
   norm(Q) - norm(Q₀)      = %.16e
   norm(Q - Qe)            = %.16e
   norm(Q - Qe) / norm(Qe) = %.16e
   """ engf engf/eng0 engf-eng0 errf errf / engfe
-  engf/eng0
+engf/eng0
 =#
 end
 
@@ -535,8 +559,7 @@ let
   @static if haspkg("CUDAnative")
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
- # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for ArrayType in ArrayTypes
+
     # Problem type
     FT = Float32
     # DG polynomial order 
@@ -555,28 +578,27 @@ let
     grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
     dim = length(grid_resolution)
-        
-     brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
-                   grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
-                   grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
-    
-    zmax = brickrange[dim][end]
-    zsponge = FT(1200.0) #FT(0.75 * zmax)
-    
-    topl = StackedBrickTopology(mpicomm, brickrange,
-                                periodicity = (true, true, false),
-                                boundary=((0,0),(0,0),(1,2)))
 
-    problem_name = "dycoms_IOstrings"
+    brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+                  grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
+                  grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
+  zmax = brickrange[dim][end]
+  zsponge = FT(1200.0) #FT(0.75 * zmax)
+  
+  topl = StackedBrickTopology(mpicomm, brickrange,
+                              periodicity = (true, true, false),
+                              boundary=((0,0),(0,0),(1,2)))
+
+#    problem_name = "dycoms_IOstrings"
     dt = 0.01
-    timeend = 14400
+    timeend = FT(14400)
 
     #Create unique output path directory:
-    OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
+ #=   OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution) =#
 
 
     #open diagnostics file and write header:
-    mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
+#=    mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
     if mpirank == 0
 
       # Write diagnostics file:
@@ -592,13 +614,13 @@ let
         write(io, "LWP \n")
       close(io)
     end
-
+=#
     FastMethod = SSPRK33ShuOsher
-    @info (ArrayType, dt, FT, dim)
+#    @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 N, timeend, FT, FastMethod, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH, LWP_fileout)
-
-  end
+                 N, timeend, FT, FastMethod,
+                 C_smag, LHF, SHF, C_drag,
+                 brickrange, grid_resolution, domain_size, zmax, zsponge)
+      #problem_name, diagnostics_fileout, OUTPATH, LWP_fileout)
 end
-
 #nothing
