@@ -287,7 +287,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmapM]
   
-  MH = kron(1, ntuple(j->ω, dim)...)
+  MH = kron(1, ntuple(j->ω, dim)...) 
 
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)
   sMJ .= sM .* sJ
@@ -312,7 +312,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
         ) do J, ξ1x3, ξ2x3, ξ3x3
       hypot(J*ξ1x3 ,J*ξ2x3, J*ξ3x3)
     end
-    MHJH .= JH .* MH
+    MHJH .= MH .* JH
   else
     error("dim $dim not implemented")
   end

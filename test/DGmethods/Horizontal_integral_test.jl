@@ -49,9 +49,11 @@ warpfun = (ξ1, ξ2, ξ3) -> begin
   x3 = ξ3 + ξ1 / 4 + ξ2^2 / 2 + sin(ξ1 * ξ2 * ξ3)
   return (x1, x2, x3)
 end
-N=10
-brickrange = (range(FT(0); length=2, stop=1),
-              range(FT(0); length=2, stop=1),
+for N in 3:6
+for Ne in 1:5
+println(N," ",Ne)
+brickrange = (range(FT(0); length=Ne+1, stop=1),
+              range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=2, stop=1))
 topl = StackedBrickTopology(mpicomm, brickrange,
                             periodicity = (false, false, false))
@@ -74,7 +76,7 @@ N = polynomialorder(grid)
   for k in 1:Nqk
   for j in 1:Nq
     for i in 1:Nq
-      ijk = i + Nq * ((j-1))
+      ijk = i + Nq * ((j-1)+ Nq * (k-1))
       S[k] += localvgeo[ijk,grid.x1id,e] * localvgeo[ijk,grid.MHid,e]
       S1[k] += localvgeo[ijk,grid.MHid,e]
     end
@@ -82,7 +84,8 @@ N = polynomialorder(grid)
   end
   end
   for k in 1:Nqk
-  println(S[k]/S1[k])
-
+  println(0.5-S[k]/S1[k])
+  end
+  end
   end
 end
