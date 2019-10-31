@@ -19,7 +19,12 @@ end
 struct Gravity <: Source
 end
 function atmos_source!(::Gravity, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu -= state.ρ * aux.orientation.∇Φ
+  if assume_pde_level_hydrostatic_balance(m.ref_state)
+    # assumes that the *reference state* is in hydrostatic balance
+    source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
+  else
+    source.ρu -= state.ρ * aux.orientation.∇Φ
+  end
 end
 
 struct Subsidence <: Source

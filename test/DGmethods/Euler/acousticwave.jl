@@ -76,7 +76,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                                           meshwarp = cubedshellwarp)
 
   model = AtmosModel(SphericalOrientation(),
-                     HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
+                     HydrostaticState(IsothermalProfile(setup.T_ref), FT(0), true),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
