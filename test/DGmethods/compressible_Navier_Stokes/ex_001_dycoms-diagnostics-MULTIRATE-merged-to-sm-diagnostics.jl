@@ -454,7 +454,7 @@ function run(mpicomm, ArrayType, dim, topl,
 
   # determine the slow time step
   elementsize = minimum(step.(brickrange))
-  slow_dt = 0.05 #elementsize / soundspeed_air(FT(T_0)) / polynomialorder ^ 2
+  slow_dt = 0.01 #elementsize / soundspeed_air(FT(T_0)) / polynomialorder ^ 2
   nsteps = ceil(Int, timeend / slow_dt)
   slow_dt = timeend / nsteps
 
@@ -570,7 +570,7 @@ let
     SHF    = FT(-15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 50, 50, 25
+    Δx, Δy, Δz = 50, 50, 20
     xmin, xmax = 0, 1500
     ymin, ymax = 0, 1500
     zmin, zmax = 0, 1500
@@ -590,7 +590,7 @@ let
                               boundary=((0,0),(0,0),(1,2)))
 
 #    problem_name = "dycoms_IOstrings"
-    dt = 0.01
+    dt = 0.005
     timeend = FT(14400)
 
     #Create unique output path directory:
