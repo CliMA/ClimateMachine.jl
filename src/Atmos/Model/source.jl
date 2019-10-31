@@ -62,6 +62,8 @@ struct RayleighSponge{FT} <: Source
   "Sponge type"
   type_sponge::FT
   type_sponge = 33 #Default value
+
+  #RayleighSponge{FT}(zmax, zsponge, csponge) = RayleighSponge{FT}(zmax, zsponge, csponge, tsponge)
     
 end
 RayleighSponge(zmax, zsponge, csponge) = RayleighSponge(zmax, zsponge, csponge, tsponge)
