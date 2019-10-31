@@ -57,30 +57,26 @@ struct RayleighSponge{FT} <: Source
   zmax::FT
   "Vertical extent at with sponge starts [m]"
   zsponge::FT
-  "Sponge Strength 0 ⩽ c_sponge ⩽ 1"
+  "Sponge Strength 0 ⩽ c_sponge ⩽ 1"    
   c_sponge::FT
-  "Sponge type"
-  type_sponge::FT
-  type_sponge = 33 #Default value
-
-  #RayleighSponge{FT}(zmax, zsponge, csponge) = RayleighSponge{FT}(zmax, zsponge, csponge, tsponge)
-    
+  "u and v reference (background) velocities"
+  u_ref::FT
+  v_ref::FT
+  
 end
-RayleighSponge(zmax, zsponge, csponge) = RayleighSponge(zmax, zsponge, csponge, tsponge)
-#RayleighSponge{FT}(zmax, zsponge, csponge) = RayleighSponge{FT}(zmax, zsponge, csponge, tsponge)
 
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   FT = eltype(state)
   z = aux.orientation.Φ / grav
-    coeff = FT(0)
-
-    @info "TYPE OF SPONGE: " s.type_sponge
-    if s.type_sponge == 1
-        if z >= s.zsponge
-            coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-            coeff = min(coeff_top, 1.0)
-        end
-    end
-    #source.ρu -= coeff * state.ρu
-    source.ρu -= state.ρu .* SVector{3,FT}(0.0, 0.0, coeff)
+  coeff = FT(0)
+    
+  if z >= s.zsponge
+      coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+      coeff = min(coeff_top, 1.0)
+  end
+  #source.ρu -= state.ρu .* SVector{3,FT}(0.0, 0.0, coeff)
+  u_background = SVector(s.u_ref, s.v_ref, 0.0)
+  u = state.ρu / state.ρ
+  source.ρu -= state.ρ * (u - s.u_ref) * coeff
+    
 end
