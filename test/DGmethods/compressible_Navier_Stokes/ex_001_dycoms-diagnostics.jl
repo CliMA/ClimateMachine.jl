@@ -63,7 +63,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
   #These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.0e-3) #FT(7.75e-3)
+  qref::FT      = FT(7.75e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc        = gas_constant_air(q_pt_sfc)
@@ -110,8 +110,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
   #Density, Temperature
-  #TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
-  TS    = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, q_pt, p)
+  TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
+  #TS    = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, q_pt, p)
   ρ     = air_density(TS)
   T     = air_temperature(TS)
 
@@ -139,14 +139,15 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   state.moisture.ρq_tot = ρ * q_tot
 
   #writing initialized thermodynamic quantities
-  q_vap=q_tot-q_liq-q_ice
-  p   = air_pressure(T,ρ,q_pt)
-  θ   = dry_pottemp(T,p,q_pt)
-  θ_v = virtual_pottemp(T,p,q_pt)
-  if ( abs(x) <= 1e-8 && abs(y) <= 1e-8)
-    io = open("./output/ICs.dat", "a")
-      writedlm(io, [z state.ρ θ θ_v θ_liq q_tot q_liq q_vap])
-    close(io)
+  q_vap = q_tot - q_liq - q_ice
+  p     = air_pressure(T,ρ,q_pt)
+  θ     = dry_pottemp(T,p,q_pt)
+  θ_v   = virtual_pottemp(T,p,q_pt)
+  ex    = exner(p,q_pt)
+  if ( abs(x) <= 1e-4 && abs(y) <= 1e-4)
+      io = open("./output/ICs.dat", "a")
+      writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ])
+      close(io)
   end
     
 end
@@ -377,11 +378,12 @@ if mpirank == 0
   write(io, LWP_string)
   close(io)
 
-  #Write ICs file
+  #Write ICs file                                                                                                                            
   ICs_fileout = string("./output/ICs.dat")
-  io = open(ICs_fileout, "w")
-     writedlm(io, ["z" "rho" "theta" "theta_v" "theta_liq" "q_tot" "q_liq" "q_vap"])
-  close(io) 
+    io = open(ICs_fileout, "a")
+    writedlm(io, ["z" "theta" "theta_v" "theta_l" "q_tot" "q_liq" "q_vap" "T" "Exner" "p" "rho"])
+  close(io)
+  
 end
 end
 
@@ -434,7 +436,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -451,7 +453,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -464,7 +466,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -540,7 +542,7 @@ let
 
     problem_name = "dycoms_IOstrings"
     dt = 0.005
-    timeend = 14400
+    timeend = dt*1e-3 #14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
