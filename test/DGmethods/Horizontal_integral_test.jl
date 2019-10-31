@@ -30,7 +30,7 @@ using CLIMA.IOstrings
 else
   const ArrayTypes = (Array,)
 end
-FT=Float32
+FT=Float64
 MPI.Initialized() || MPI.Init()
   mpicomm = MPI.COMM_WORLD
 ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
