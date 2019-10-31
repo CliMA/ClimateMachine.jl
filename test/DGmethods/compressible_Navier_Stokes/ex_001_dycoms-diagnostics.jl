@@ -110,8 +110,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
   #Density, Temperature
-  TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
-  #TS    = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, q_pt, p)
+  #TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
+  TS    = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, q_pt, p)
   ρ     = air_density(TS)
   T     = air_temperature(TS)
 
@@ -144,8 +144,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   θ     = dry_pottemp(T,p,q_pt)
   θ_v   = virtual_pottemp(T,p,q_pt)
   ex    = exner(p,q_pt)
-  if ( abs(x) <= 1e-4 && abs(y) <= 1e-4)
-      io = open("./output/ICs.dat", "a")
+    if ( abs(x) <= 1e-4 && abs(y) <= 1e-4)
+      io = open("./output/ICs-dycoms-NONequil.dat", "a")
       writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ])
       close(io)
   end
@@ -378,12 +378,6 @@ if mpirank == 0
   write(io, LWP_string)
   close(io)
 
-  #Write ICs file                                                                                                                            
-  ICs_fileout = string("./output/ICs.dat")
-    io = open(ICs_fileout, "a")
-    writedlm(io, ["z" "theta" "theta_v" "theta_l" "q_tot" "q_liq" "q_vap" "T" "Exner" "p" "rho"])
-  close(io)
-  
 end
 end
 
@@ -564,6 +558,13 @@ let
         io = open(LWP_fileout, "w")
         write(io, "LWP \n")
       close(io)
+
+      #Write ICs file
+      io = open("./output/ICs-dycoms-NONequil.dat", "w")
+        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho")
+        write(io, header_str)
+      close(io)
+        
     end
       
     @info (ArrayType, dt, FT, dim)
