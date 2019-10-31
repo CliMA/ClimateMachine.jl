@@ -63,7 +63,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
   #These constants are those used by Stevens et al. (2005)
-  qref::FT      = 7.75e-3
+  qref::FT      = FT(9.0e-3) #FT(7.75e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc        = gas_constant_air(q_pt_sfc)
@@ -143,7 +143,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   p   = air_pressure(T,ρ,q_pt)
   θ   = dry_pottemp(T,p,q_pt)
   θ_v = virtual_pottemp(T,p,q_pt)
-  if x == 0 && y == 0
+  if ( abs(x) <= 1e-8 && abs(y) <= 1e-8)
     io = open("./output/ICs.dat", "a")
       writedlm(io, [z state.ρ θ θ_v θ_liq q_tot q_liq q_vap])
     close(io)
@@ -518,7 +518,7 @@ let
     SHF    = FT(-15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 50, 50, 25
+    Δx, Δy, Δz = 50, 50, 20
     xmin, xmax = 0, 1500
     ymin, ymax = 0, 1500
     zmin, zmax = 0, 1500
@@ -539,7 +539,7 @@ let
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.01
+    dt = 0.005
     timeend = 14400
 
     #Create unique output path directory:
