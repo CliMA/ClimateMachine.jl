@@ -299,6 +299,10 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
       x2ξ2 = J * ξ1x1
       hypot(x1ξ1, x2ξ2)
     end
+    map!(JH, J, ξ1x1, ξ1x2) do J, ξ2x1, ξ2x2
+      hypot(J * ξ2x2, J * ξ2x1)
+    end
+    MHJH .= MH .* JH
 
   elseif dim == 3
     map!(JcV, J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
