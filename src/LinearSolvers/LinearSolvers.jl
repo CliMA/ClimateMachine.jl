@@ -8,9 +8,9 @@ using GPUifyLoops
 include("LinearSolvers_kernels.jl")
 
 # just for testing LinearSolvers
-LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
-LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
-LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)
+LinearAlgebra.norm(A::AbstractArray, p::Real, weighted::Bool) = norm(A, p)
+LinearAlgebra.norm(A::AbstractArray, weighted::Bool) = norm(A, 2, weighted)
+LinearAlgebra.dot(A::AbstractArray, B::AbstractArray, weighted) = dot(A, B)
 
 export linearsolve!, settolerance!
 export AbstractLinearSolver, AbstractIterativeLinearSolver

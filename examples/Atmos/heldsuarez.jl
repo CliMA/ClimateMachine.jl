@@ -106,7 +106,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   Q = init_ode_state(dg, FT(0))
 
-  linearsolver = GeneralizedMinimalResidual(30, Q, sqrt(eps(FT)))
+  linearsolver = VerticalGeneralizedMinimalResidual(grid, 30, Q, sqrt(eps(FT)))
   ode_solver = ARK548L2SA2KennedyCarpenter(dg, lindg,
                                            linearsolver, Q; dt = dt,
                                            split_nonlinear_linear=false)
