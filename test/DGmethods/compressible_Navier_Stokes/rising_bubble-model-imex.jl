@@ -131,7 +131,7 @@ function run(mpicomm, ArrayType, LinearType,
                   CentralGradPenalty(); auxstate=dg.auxstate)
 
   if split_nonlinear_linear
-    nonlinmodel = RemainderModel(model, (linmodel,))
+    nonlinmodel = RemainderModel(model, linmodel)
     dg_nonlinear = DGModel(nonlinmodel,
                            grid, Rusanov(), CentralNumericalFluxDiffusive(),
                            CentralGradPenalty(); auxstate=dg.auxstate)
