@@ -44,9 +44,9 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   sgeo = grid.sgeo
   ω    = grid.ω
   D    = grid.D
-  ι⁻   = grid.vmapM
-  ι⁺   = grid.vmapP
-  ιᴮ   = grid.elemtobndy
+  M⁻   = grid.vmapM
+  M⁺   = grid.vmapP
+  Mᴮ   = grid.elemtobndy
 
   communicate = !(isstacked(grid.topology) &&
                   typeof(dg.direction) <: VerticalDirection)
@@ -76,7 +76,7 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
 
     @launch(device, threads=Nfp, blocks=nE,
             face_diffusive_terms!(bl, Val(Nd), Val(N), dg.gradnumflux,
-            Y.data, σ.data, α.data, vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, E))
+            Y.data, σ.data, α.data, vgeo, sgeo, t, M⁻, M⁺, Mᴮ, E))
 
     communicate && MPIStateArrays.start_ghost_exchange!(σ)
   end
@@ -100,7 +100,7 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   @launch(device, threads=Nfp, blocks=nE,
           face_tendency!(bl, Val(Nd), Val(N), dg.numfluxnondiff, dg.numfluxdiff,
                    dYdt.data, Y.data, σ.data, α.data, vgeo, sgeo, t,
-                   ι⁻, ι⁺, ιᴮ, E))
+                   M⁻, M⁺, Mᴮ, E))
 
   # Just to be safe, we wait on the sends we started.
   if communicate

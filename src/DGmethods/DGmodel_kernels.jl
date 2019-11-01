@@ -432,7 +432,7 @@ end
             numfluxnondiff::NumericalFluxNonDiffusive,
             numfluxdiff::NumericalFluxDiffusive,
             rhs, Y, σ, α,
-            vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ,
+            vgeo, sgeo, t, M⁻, M⁺, Mᴮ,
             E)
 
 Computational kernel: Evaluate the surface integrals on right-hand side of a
@@ -443,7 +443,7 @@ See [`odefun!`](@ref) for usage.
 function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                   numfluxnondiff::NumericalFluxNonDiffusive,
                   numfluxdiff::NumericalFluxDiffusive,
-                  rhs, Y, σ, α, vgeo, sgeo, t, ι⁻, ι⁺, ιᴮ, E) where {Nd, N, direction}
+                  rhs, Y, σ, α, vgeo, sgeo, t, M⁻, M⁺, Mᴮ, E) where {Nd, N, direction}
   FT = eltype(Y)
 
   nY = num_state(bl,FT)
@@ -499,7 +499,7 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
       @loop for n in (1:Nfp; threadIdx().x)
         n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
         sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = ι⁻[n, f, e], ι⁺[n, f, e]
+        id⁻, id⁺ = M⁻[n, f, e], M⁺[n, f, e]
 
         e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1,  ((id⁺ - 1) % Np) + 1
@@ -530,7 +530,7 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
           l_α⁺₂[s] = l_α⁺₁[s] = α[vid⁺, s, e⁺]
         end
 
-        bctype = ιᴮ[f, e]
+        bctype = Mᴮ[f, e]
         fill!(l_F, -zero(eltype(l_F)))
 
         if bctype == 0
@@ -694,7 +694,7 @@ end
 
 function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                         gradnumpenalty::GradNumericalPenalty,
-                        Y, σ, α, vgeo, sgeo, t, ι⁻, ι⁺,ιᴮ,
+                        Y, σ, α, vgeo, sgeo, t, M⁻, M⁺,Mᴮ,
                         E) where {Nd, N, direction}
   FT = eltype(Y)
 
@@ -744,7 +744,7 @@ function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
       @loop for n in (1:Nfp; threadIdx().x)
         n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
         sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = ι⁻[n, f, e], ι⁺[n, f, e]
+        id⁻, id⁺ = M⁻[n, f, e], M⁺[n, f, e]
 
         e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1,  ((id⁺ - 1) % Np) + 1
@@ -781,7 +781,7 @@ function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                        Vars{vars_aux(bl,FT)}(l_α⁺),
                        t)
 
-        bctype = ιᴮ[f, e]
+        bctype = Mᴮ[f, e]
         fill!(l_σ, -zero(eltype(l_σ)))
 
         if bctype == 0
