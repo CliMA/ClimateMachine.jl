@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters
-export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC
+export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
 
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
@@ -60,7 +60,7 @@ end
 function atmos_boundary_state!(::Rusanov, bc::NoFluxBC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t, _...)
-  DF = eltype(stateM)
+  FT = eltype(stateM)
   stateP.ρ = stateM.ρ
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
 end
@@ -69,11 +69,11 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, _...)
-  DF = eltype(stateM)
+  FT = eltype(stateM)
   stateP.ρ = stateM.ρ
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
-  diffP.ρτ = SVector(DF(0), DF(0), DF(0), DF(0), DF(0), DF(0))
-  diffP.moisture.ρd_h_tot = SVector(DF(0), DF(0), DF(0))
+  diffP.ρτ = SVector(FT(0), FT(0), FT(0), FT(0), FT(0), FT(0))
+  diffP.ρd_h_tot =  SVector(FT(0), FT(0), FT(0))
 end
 
 """
@@ -103,10 +103,10 @@ end
   DYCOMS_BC <: BoundaryCondition
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
 """
-struct DYCOMS_BC{DT} <: BoundaryCondition
-  C_drag::DT
-  LHF::DT
-  SHF::DT
+struct DYCOMS_BC{FT} <: BoundaryCondition
+  C_drag::FT
+  LHF::FT
+  SHF::FT
 end
 function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
@@ -114,7 +114,7 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
-  DT = eltype(stateP)
+  FT = eltype(stateP)
   # Get values from minus-side state
   ρM = stateM.ρ 
   UM, VM, WM = stateM.ρu
@@ -145,7 +145,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
-  DT = eltype(stateP)
+  FT = eltype(stateP)
   # Get values from minus-side state
   ρM = stateM.ρ 
   UM, VM, WM = stateM.ρu
@@ -195,7 +195,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # ----------------------------------------------------------
     # Extract components of diffusive momentum flux (minus-side)
     # ----------------------------------------------------------
-    ρτ11, ρτ22, ρτ33, ρτ12, ρτ13, ρτ23 = diffM.ρτ
+    ρτM = diffM.ρτ
 
     # ----------------------------------------------------------
     # Boundary momentum fluxes
@@ -208,21 +208,72 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)  
     stateP.ρu = SVector(0,0,0)
-    diffP.ρτ = SVector(0,0,0,0, ρτ13P, ρτ23P)
+    diffP.ρτ = SHermitianCompact{3,FT,6}(SVector(FT(0),ρτM[2,1],ρτ13P, FT(0), ρτ23P,FT(0)))
 
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
-    diffP.moisture.ρd_q_tot  = SVector(diffM.moisture.ρd_q_tot[1],
-                                       diffM.moisture.ρd_q_tot[2],
+    diffP.moisture.ρd_q_tot  = SVector(FT(0),
+                                       FT(0),
                                        bc.LHF/(LH_v0))
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
-    diffP.moisture.ρd_h_tot  = SVector(diffM.moisture.ρd_h_tot[1],
-                                       diffM.moisture.ρd_h_tot[2],
-                                       bc.LHF + bc.SHF)
+    diffP.ρd_h_tot  = SVector(FT(0),
+                              FT(0),
+                              bc.LHF + bc.SHF)
   end
 end
 
+"""
+  RayleighBenardBC <: BoundaryCondition
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct RayleighBenardBC{FT} <: BoundaryCondition
+  "Prescribed bottom wall temperature [K]"
+  T_bot::FT
+  "Prescribed top wall temperature [K]"
+  T_top::FT
+end
+# Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
+function atmos_boundary_state!(::Rusanov, bc::RayleighBenardBC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t,_...)
+  # Dry Rayleigh Benard Convection
+  @inbounds begin
+    FT = eltype(stateP)
+    ρP = stateM.ρ
+    stateP.ρ = ρP
+    stateP.ρu = SVector{3,FT}(0,0,0)
+    if bctype == 1 
+      E_intP = ρP * cv_d * (bc.T_bot - T_0)
+    else
+      E_intP = ρP * cv_d * (bc.T_top - T_0) 
+    end
+    stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
+    nothing
+  end
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBenardBC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  # Dry Rayleigh Benard Convection
+  @inbounds begin
+    FT = eltype(stateM)
+    ρP = stateM.ρ
+    stateP.ρ = ρP
+    stateP.ρu = SVector{3,FT}(0,0,0)
+    if bctype == 1 
+      E_intP = ρP * cv_d * (bc.T_bot - T_0)
+    else
+      E_intP = ρP * cv_d * (bc.T_top - T_0) 
+    end
+    stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
+    diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))
+    nothing
+  end
+end

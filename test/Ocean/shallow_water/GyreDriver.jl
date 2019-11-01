@@ -15,7 +15,7 @@ end
 ###################
 # PARAM SELECTION #
 ###################
-DFloat = Float64
+FT = Float64
 
 const τₒ = 2e-4 # value includes τₒ, g, and ρ
 const fₒ = 1e-4
@@ -43,13 +43,13 @@ end
 
 outname = "vtk_new_dt_" * gyre * "_" * advec
 
-function setup_model(DFloat, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
-  problem = GyreInABox{DFloat}(τₒ, fₒ, β, Lˣ, Lʸ, H)
+function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
+  problem = GyreInABox{FT}(τₒ, fₒ, β, Lˣ, Lʸ, H)
 
   if stommel
-    turbulence = LinearDrag{DFloat}(λ)
+    turbulence = LinearDrag{FT}(λ)
   else
-    turbulence = ConstantViscosity{DFloat}(ν)
+    turbulence = ConstantViscosity{FT}(ν)
   end
 
   if linear
@@ -88,9 +88,9 @@ end
 # Timestepping function #
 #########################
 
-function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
+function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
@@ -101,9 +101,8 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  param = init_ode_param(dg)
-  Q  = init_ode_state(dg, param, DFloat(0))
-  Qe = init_ode_state(dg, param, DFloat(timeend))
+  Q  = init_ode_state(dg, FT(0))
+  Qe = init_ode_state(dg, FT(timeend))
 
   lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
 
@@ -113,12 +112,12 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
     outprefix = @sprintf("ic_mpirank%04d_ic", MPI.Comm_rank(mpicomm))
     statenames = flattenednames(vars_state(model, eltype(Q)))
     auxnames = flattenednames(vars_aux(model, eltype(Q)))
-    writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
+    writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
 
     outprefix = @sprintf("exact_mpirank%04d", MPI.Comm_rank(mpicomm))
     statenames = flattenednames(vars_state(model, eltype(Qe)))
     auxnames = flattenednames(vars_aux(model, eltype(Qe)))
-    writevtk(outprefix, Qe, dg, statenames, param.aux, auxnames)
+    writevtk(outprefix, Qe, dg, statenames, dg.auxstate, auxnames)
 
     step = [0]
     vtkpath = outname
@@ -129,14 +128,14 @@ function run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
       @debug "doing VTK output" outprefix
       statenames = flattenednames(vars_state(model, eltype(Q)))
       auxnames = flattenednames(vars_aux(model, eltype(Q)))
-      writevtk(outprefix, Q, dg, statenames, param.aux, auxnames)
+      writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
       step[1] += 1
       nothing
     end
     cb = (cb..., cbvtk)
   end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=cb)
+  solve!(Q, lsrk; timeend=timeend, callbacks=cb)
 
   error = euclidean_distance(Q, Qe) / norm(Qe)
   @info @sprintf("""Finished
@@ -171,7 +170,7 @@ let
     ArrayType = Array
   end
 
-  model = setup_model(DFloat, stommel, linear, τₒ, fₒ, β, λ, ν, Lˣ, Lʸ, H)
+  model = setup_model(FT, stommel, linear, τₒ, fₒ, β, λ, ν, Lˣ, Lʸ, H)
 
   if test == 1
     cellsrange = 10:10
@@ -185,10 +184,10 @@ let
     orderrange = 6:10
   end
 
-  errors = zeros(DFloat, length(cellsrange), length(orderrange))
+  errors = zeros(FT, length(cellsrange), length(orderrange))
   for (i, Ne) in enumerate(cellsrange)
-    brickrange = (range(DFloat(0); length=Ne+1, stop=Lˣ),
-                  range(DFloat(0); length=Ne+1, stop=Lʸ))
+    brickrange = (range(FT(0); length=Ne+1, stop=Lˣ),
+                  range(FT(0); length=Ne+1, stop=Lʸ))
     topl = BrickTopology(mpicomm, brickrange,
                          periodicity = (false, false))
 
@@ -196,7 +195,7 @@ let
       @info "running Ne $Ne and N $N with"
       dt = (Lˣ / c) / Ne / N^2
       @info @sprintf("\n dt = %f", dt)
-      errors[i, j] = run(mpicomm, topl, ArrayType, N, dt, DFloat, model, test)
+      errors[i, j] = run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
     end
   end
 

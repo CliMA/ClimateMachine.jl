@@ -8,7 +8,15 @@ abstract type AbstractODESolver end
 
 Returns the current simulation time of the ODE solver `solver`
 """
-gettime(solver::AbstractODESolver) = solver.t[1]
+gettime(solver::AbstractODESolver) = solver.t
+
+"""
+    getdt(solver::AbstractODESolver)
+
+Returns the current simulation time step of the ODE solver `solver`
+"""
+getdt(solver::AbstractODESolver) = solver.dt
+
 function dostep! end
 
 """
@@ -18,6 +26,15 @@ Change the time step size to `dt` for the ODE solver `solver`.
 """
 updatedt!(solver::AbstractODESolver, dt) =
   error("Variable time stepping not implemented for $(typeof(solver))")
+
+"""
+    updatetime!(solver::AbstractODESolver, time)
+
+Change the current time to `time` for the ODE solver `solver`.
+"""
+updatetime!(solver::AbstractODESolver, time) =
+  error("Variable time stepping not implemented for $(typeof(solver))")
+
 
 # {{{ run!
 """
@@ -30,7 +47,7 @@ updated inplace. The final time `timeend` or `numberofsteps` must be specified.
 A series of optional callback functions can be specified using the tuple
 `callbacks`; see [`GenericCallbacks`](@ref).
 """
-function solve!(Q, solver::AbstractODESolver, param=nothing; timeend::Real=Inf,
+function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
                 adjustfinalstep=true, numberofsteps::Integer=0, callbacks=())
 
   @assert isfinite(timeend) || numberofsteps > 0
@@ -50,7 +67,7 @@ function solve!(Q, solver::AbstractODESolver, param=nothing; timeend::Real=Inf,
   while time < timeend
     step += 1
 
-    time = dostep!(Q, solver, param, timeend, adjustfinalstep)
+    time = dostep!(Q, solver, p, timeend, adjustfinalstep)
 
     # FIXME: Determine better way to handle postcallback behavior
     # Current behavior:

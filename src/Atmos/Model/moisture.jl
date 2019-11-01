@@ -3,21 +3,21 @@ export DryModel, EquilMoist
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
 
-vars_state(::MoistureModel, T) = @vars()
-vars_gradient(::MoistureModel, T) = @vars()
-vars_diffusive(::MoistureModel, T) = @vars()
-vars_aux(::MoistureModel, T) = @vars()
+vars_state(::MoistureModel, FT) = @vars()
+vars_gradient(::MoistureModel, FT) = @vars()
+vars_diffusive(::MoistureModel, FT) = @vars()
+vars_aux(::MoistureModel, FT) = @vars()
 
 function atmos_nodal_update_aux!(::MoistureModel, m::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
 end
-function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ν, inv_Pr_turb)
+function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ρD_t)
 end
 function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
-function flux_nondiffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux_nondiffusive!(::MoistureModel, flux::Grad, state::Vars, aux::Vars, t::Real)
 end
-function gradvariables!(::MoistureModel, ::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
+function gradvariables!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
 @inline function internal_energy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
@@ -27,6 +27,16 @@ end
 @inline pressure(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars) = air_pressure(thermo_state(moist, orientation, state, aux))
 @inline soundspeed(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars) = soundspeed_air(thermo_state(moist, orientation, state, aux))
 
+@inline function total_specific_enthalpy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
+  phase = thermo_state(moist, orientation, state, aux)
+  R_m = gas_constant_air(phase)
+  T = air_temperature(phase)
+  e_tot = state.ρe * (1/state.ρ)
+  e_tot + R_m*T
+end
+
+
+
 """
     DryModel
 
@@ -35,7 +45,7 @@ Assumes the moisture components is in the dry limit.
 struct DryModel <: MoistureModel
 end
 
-vars_aux(::DryModel,T) = @vars(θ_v::T)
+vars_aux(::DryModel,FT) = @vars(θ_v::FT)
 @inline function atmos_nodal_update_aux!(moist::DryModel, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
@@ -53,10 +63,10 @@ Assumes the moisture components are computed via thermodynamic equilibrium.
 """
 struct EquilMoist <: MoistureModel
 end
-vars_state(::EquilMoist,T) = @vars(ρq_tot::T)
-vars_gradient(::EquilMoist,T) = @vars(q_tot::T, h_tot::T)
-vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρd_h_tot::SVector{3,T})
-vars_aux(::EquilMoist,T) = @vars(temperature::T, θ_v::T, q_liq::T)
+vars_state(::EquilMoist,FT) = @vars(ρq_tot::FT)
+vars_gradient(::EquilMoist,FT) = @vars(q_tot::FT, h_tot::FT)
+vars_diffusive(::EquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_h_tot::SVector{3,FT})
+vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
@@ -73,31 +83,19 @@ function thermo_state(moist::EquilMoist, orientation::Orientation, state::Vars, 
   PhaseEquil(e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
 end
 
-function gradvariables!(moist::EquilMoist, atmos::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
+function gradvariables!(moist::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
-  phase = thermo_state(moist, atmos.orientation, state, aux)
-  R_m = gas_constant_air(phase)
-  T = aux.moisture.temperature
-  e_tot = state.ρe * ρinv
-  transform.moisture.h_tot = e_tot + R_m*T
 end
 
-function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρν::Union{Real,AbstractMatrix}, inv_Pr_turb::Real)
-  # turbulent Prandtl number
-  diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
-  # Diffusivity Dₜ = ρν/Prandtl_turb
-  ρD_T = diag_ρν * inv_Pr_turb
+function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)
   # diffusive flux of q_tot
-  diffusive.moisture.ρd_q_tot = (-ρD_T) .* ∇transform.moisture.q_tot
-  # diffusive flux of total energy
-  diffusive.moisture.ρd_h_tot = (-ρD_T) .* ∇transform.moisture.h_tot
+  diffusive.moisture.ρd_q_tot = (-ρD_t) .* ∇transform.moisture.q_tot
 end
 
 function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   u = state.ρu / state.ρ
   flux.ρ += diffusive.moisture.ρd_q_tot
   flux.ρu += diffusive.moisture.ρd_q_tot .* u'
-  flux.ρe += diffusive.moisture.ρd_h_tot
   flux.moisture.ρq_tot += diffusive.moisture.ρd_q_tot
 end
