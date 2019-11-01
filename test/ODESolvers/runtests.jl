@@ -4,6 +4,7 @@ using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod
+const ARK = CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.MultirateRungeKuttaMethod
 using CLIMA.MultirateInfinitesimalStepMethod
 using CLIMA.LinearSolvers
@@ -144,20 +145,23 @@ end
       q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
       for (method, expected_order) in imex_methods
         for split_nonlinear_linear in (false, true)
-          for (n, dt) in enumerate(dts)
-            Q = ArrayType{ComplexF64}(q0)
-            rhs! = split_nonlinear_linear ? rhs_nonlinear! : rhs_full!
-            solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
-                            Q; dt = dt, t0 = 0.0,
-                            split_nonlinear_linear = split_nonlinear_linear)
-            solve!(Q, solver; timeend = finaltime)
-            Q = Array(Q)
-            errors[n] = maximum(@. abs(Q - exactsolution(q0, finaltime)))
-          end
+          for variant in (ARK.LowStorageVariant(), ARK.NaiveVariant())
+            for (n, dt) in enumerate(dts)
+              Q = ArrayType{ComplexF64}(q0)
+              rhs! = split_nonlinear_linear ? rhs_nonlinear! : rhs_full!
+              solver = method(rhs!, rhs_linear!, DivideLinearSolver(),
+                              Q; dt = dt, t0 = 0.0,
+                              split_nonlinear_linear = split_nonlinear_linear,
+                              variant = variant)
+              solve!(Q, solver; timeend = finaltime)
+              Q = Array(Q)
+              errors[n] = maximum(@. abs(Q - exactsolution(q0, finaltime)))
+            end
 
-          rates = log2.(errors[1:end-1] ./ errors[2:end])
-          @test errors[1] < 2.0
-          @test isapprox(rates[end], expected_order; atol = 0.1)
+            rates = log2.(errors[1:end-1] ./ errors[2:end])
+            @test errors[1] < 2.0
+            @test isapprox(rates[end], expected_order; atol = 0.1)
+          end
         end
       end
     end
