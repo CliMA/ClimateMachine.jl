@@ -131,7 +131,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
                      initialcondition!)
 
   linear_model = AtmosAcousticLinearModel(model)
-  nonlinear_model = RemainderModel(model, (linear_model,))
+  nonlinear_model = RemainderModel(model, linear_model)
 
   dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
 

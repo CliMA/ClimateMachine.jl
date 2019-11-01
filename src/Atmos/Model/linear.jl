@@ -63,6 +63,6 @@ function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, sta
 end
 function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)
   ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-  source.ρu = state.ρ * ∇Φ
+  source.ρu = -state.ρ * ∇Φ
   nothing
 end
