@@ -105,7 +105,7 @@ end
     qt_0::FT   = 7.5 * 1e-3  # kg/kg
     z_0::FT    = 0           # m
 
-    R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
+    R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
 
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
     # It is done this way to be consistent with Arabas paper.
@@ -149,7 +149,7 @@ const X_max = 1500. # m
   qt_0::FT   = 7.5 * 1e-3  # kg/kg
   z_0::FT    = 0           # m
 
-  R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
+  R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
 
   @inbounds begin
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
