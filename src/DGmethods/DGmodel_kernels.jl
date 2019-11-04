@@ -26,7 +26,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 """
-    volume_tendency!(bl::BalanceLaw, Val(N), rhs, Y, σ, A, vgeo, t, D, E)
+    volume_tendency!(bl::BalanceLaw, Val(N), rhs, Y, W, A, vgeo, t, D, E)
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
 `DGBalanceLaw` semi-discretization.
@@ -34,11 +34,11 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 See [`odefun!`](@ref) for usage.
 """
 function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
-                    rhs, Y, σ, A, vgeo, t, ω, D, E, increment) where {Nd, N, direction}
+                    rhs, Y, W, A, vgeo, t, ω, D, E, increment) where {Nd, N, direction}
   FT = eltype(Y)
 
   nY = num_state(bl,FT)
-  nσ = num_diffusive(bl,FT)
+  nW = num_diffusive(bl,FT)
   nA = num_aux(bl,FT)
 
   Nq = N + 1
@@ -52,7 +52,7 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
 
   source! !== nothing && (l_S = MArray{Tuple{nY}, FT}(undef))
   l_Y = MArray{Tuple{nY}, FT}(undef)
-  l_σ = MArray{Tuple{nσ}, FT}(undef)
+  l_W = MArray{Tuple{nW}, FT}(undef)
   l_A = MArray{Tuple{nA}, FT}(undef)
   l_F = MArray{Tuple{3, nY}, FT}(undef)
   l_M = @scratch FT (Nq, Nq, Nqk) 3
@@ -108,8 +108,8 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
             l_Y[s] = Y[ijk, s, e]
           end
 
-          @unroll for s = 1:nσ
-            l_σ[s] = σ[ijk, s, e]
+          @unroll for s = 1:nW
+            l_W[s] = W[ijk, s, e]
           end
 
           @unroll for s = 1:nA
@@ -125,7 +125,7 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
           flux_diffusive!(bl,
                           Grad{vars_state(bl,FT)}(l_F),
                           Vars{vars_state(bl,FT)}(l_Y),
-                          Vars{vars_diffusive(bl,FT)}(l_σ),
+                          Vars{vars_diffusive(bl,FT)}(l_W),
                           Vars{vars_aux(bl,FT)}(l_A),
                           t)
 
@@ -431,7 +431,7 @@ end
     face_tendency!(bl::BalanceLaw, Val(N),
             numfluxnondiff::NumericalFluxNonDiffusive,
             numfluxdiff::NumericalFluxDiffusive,
-            rhs, Y, σ, A,
+            rhs, Y, W, A,
             vgeo, sgeo, t, M⁻, M⁺, Mᴮ,
             E)
 
@@ -443,11 +443,11 @@ See [`odefun!`](@ref) for usage.
 function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
                   numfluxnondiff::NumericalFluxNonDiffusive,
                   numfluxdiff::NumericalFluxDiffusive,
-                  rhs, Y, σ, A, vgeo, sgeo, t, M⁻, M⁺, Mᴮ, E) where {Nd, N, direction}
+                  rhs, Y, W, A, vgeo, sgeo, t, M⁻, M⁺, Mᴮ, E) where {Nd, N, direction}
   FT = eltype(Y)
 
   nY = num_state(bl,FT)
-  nσ = num_diffusive(bl,FT)
+  nW = num_diffusive(bl,FT)
   nA = num_aux(bl,FT)
 
   if Nd == 1
@@ -475,7 +475,7 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
   Nqk = Nd == 2 ? 1 : Nq
 
   l_Y⁻ = MArray{Tuple{nY}, FT}(undef)
-  l_σ⁻ = MArray{Tuple{nσ}, FT}(undef)
+  l_W⁻ = MArray{Tuple{nW}, FT}(undef)
   l_A⁻ = MArray{Tuple{nA}, FT}(undef)
 
   # Need two copies since numerical_flux_nondiffusive! can modify Y⁺
@@ -486,10 +486,10 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
   l_A⁺₁ = MArray{Tuple{nA}, FT}(undef)
   l_A⁺₂ = MArray{Tuple{nA}, FT}(undef)
 
-  l_σ⁺ = MArray{Tuple{nσ}, FT}(undef)
+  l_W⁺ = MArray{Tuple{nW}, FT}(undef)
 
   l_Y_bot1 = MArray{Tuple{nY}, FT}(undef)
-  l_σ_bot1 = MArray{Tuple{nσ}, FT}(undef)
+  l_W_bot1 = MArray{Tuple{nW}, FT}(undef)
   l_A_bot1 = MArray{Tuple{nA}, FT}(undef)
 
   l_F = MArray{Tuple{nY}, FT}(undef)
@@ -509,8 +509,8 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
           l_Y⁻[s] = Y[vid⁻, s, e⁻]
         end
 
-        @unroll for s = 1:nσ
-          l_σ⁻[s] = σ[vid⁻, s, e⁻]
+        @unroll for s = 1:nW
+          l_W⁻[s] = W[vid⁻, s, e⁻]
         end
 
         @unroll for s = 1:nA
@@ -522,8 +522,8 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
           l_Y⁺₂[s] = l_Y⁺₁[s] = Y[vid⁺, s, e⁺]
         end
 
-        @unroll for s = 1:nσ
-          l_σ⁺[s] = σ[vid⁺, s, e⁺]
+        @unroll for s = 1:nW
+          l_W⁺[s] = W[vid⁺, s, e⁺]
         end
 
         @unroll for s = 1:nA
@@ -538,15 +538,15 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
                                        n⁻, l_Y⁻, l_A⁻, l_Y⁺₁, l_A⁺₁, t)
 
           numerical_flux_diffusive!(numfluxdiff, bl, l_F,
-                                    n⁻, l_Y⁻, l_σ⁻, l_A⁻, l_Y⁺₂, l_σ⁺, l_A⁺₂, t)
+                                    n⁻, l_Y⁻, l_W⁻, l_A⁻, l_Y⁺₂, l_W⁺, l_A⁺₂, t)
         else
           if (Nd == 2 && f == 3) || (Nd == 3 && f == 5)
             # Loop up the first element along all horizontal elements
             @unroll for s = 1:nY
               l_Y_bot1[s] = Y[n + Nqk^2, s, e]
             end
-            @unroll for s = 1:nσ
-              l_σ_bot1[s] = σ[n + Nqk^2, s, e]
+            @unroll for s = 1:nW
+              l_W_bot1[s] = W[n + Nqk^2, s, e]
             end
             @unroll for s = 1:nA
               l_A_bot1[s] = A[n + Nqk^2,s, e]
@@ -556,10 +556,10 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
                                                 n⁻, l_Y⁻, l_A⁻, l_Y⁺₁, l_A⁺₁, bctype, t,
                                                 l_Y_bot1, l_A_bot1)
           numerical_boundary_flux_diffusive!(numfluxdiff, bl, l_F, n⁻,
-                                             l_Y⁻, l_σ⁻, l_A⁻,
-                                             l_Y⁺₂, l_σ⁺, l_A⁺₂,
+                                             l_Y⁻, l_W⁻, l_A⁻,
+                                             l_Y⁺₂, l_W⁺, l_A⁺₂,
                                              bctype, t,
-                                             l_Y_bot1, l_σ_bot1, l_A_bot1)
+                                             l_Y_bot1, l_W_bot1, l_A_bot1)
         end
 
         #Update RHS
@@ -576,12 +576,12 @@ function face_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
 end
 
 function volume_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
-                                 ::direction, Y, σ, A, vgeo, t, D, E) where {Nd, N, direction}
+                                 ::direction, Y, W, A, vgeo, t, D, E) where {Nd, N, direction}
   FT = eltype(Y)
 
   nY = num_state(bl,FT)
   nG = num_gradient(bl,FT)
-  nσ = num_diffusive(bl,FT)
+  nW = num_diffusive(bl,FT)
   nA = num_aux(bl,FT)
 
   Nq = N + 1
@@ -594,7 +594,7 @@ function volume_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
   l_Y = @scratch FT (nY, Nq, Nq, Nqk) 3
   l_A = @scratch FT (nA, Nq, Nq, Nqk) 3
   l_G = MArray{Tuple{nG}, FT}(undef)
-  l_σ = MArray{Tuple{nσ}, FT}(undef)
+  l_W = MArray{Tuple{nW}, FT}(undef)
   l_∇G = MArray{Tuple{3, nG}, FT}(undef)
 
   @inbounds @loop for k in (1; threadIdx().z)
@@ -673,14 +673,14 @@ function volume_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
             end
           end
 
-          fill!(l_σ, -zero(eltype(l_σ)))
+          fill!(l_W, -zero(eltype(l_W)))
           diffusive!(bl,
-                     Vars{vars_diffusive(bl,FT)}(l_σ), Grad{vars_gradient(bl,FT)}(l_∇G),
+                     Vars{vars_diffusive(bl,FT)}(l_W), Grad{vars_gradient(bl,FT)}(l_∇G),
                      Vars{vars_state(bl,FT)}(l_Y[:, i, j, k]), Vars{vars_aux(bl,FT)}(l_A[:, i, j, k]),
                      t)
 
-          @unroll for s = 1:nσ
-            σ[ijk, s, e] = l_σ[s]
+          @unroll for s = 1:nW
+            W[ijk, s, e] = l_W[s]
           end
         end
       end
@@ -691,13 +691,13 @@ end
 
 function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                         ::direction, gradnumpenalty::GradNumericalPenalty,
-                        Y, σ, A, vgeo, sgeo, t, M⁻, M⁺,Mᴮ,
+                        Y, W, A, vgeo, sgeo, t, M⁻, M⁺,Mᴮ,
                         E) where {Nd, N, direction}
   FT = eltype(Y)
 
   nY = num_state(bl,FT)
   nG = num_gradient(bl,FT)
-  nσ = num_diffusive(bl,FT)
+  nW = num_diffusive(bl,FT)
   nA = num_aux(bl,FT)
 
   if Nd == 1
@@ -731,7 +731,7 @@ function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
   l_A⁺ = MArray{Tuple{nA}, FT}(undef)
   l_G⁺ = MArray{Tuple{nG}, FT}(undef)
 
-  l_σ = MArray{Tuple{nσ}, FT}(undef)
+  l_W = MArray{Tuple{nW}, FT}(undef)
 
   l_Y_bot1 = MArray{Tuple{nY}, FT}(undef)
   l_A_bot1 = MArray{Tuple{nA}, FT}(undef)
@@ -779,10 +779,10 @@ function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
                        t)
 
         bctype = Mᴮ[f, e]
-        fill!(l_σ, -zero(eltype(l_σ)))
+        fill!(l_W, -zero(eltype(l_W)))
 
         if bctype == 0
-          diffusive_penalty!(gradnumpenalty, bl, l_σ, n⁻, l_G⁻, l_Y⁻,
+          diffusive_penalty!(gradnumpenalty, bl, l_W, n⁻, l_G⁻, l_Y⁻,
                              l_A⁻, l_G⁺, l_Y⁺, l_A⁺, t)
         else
           if (Nd == 2 && f == 3) || (Nd == 3 && f == 5)
@@ -794,13 +794,13 @@ function face_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
               l_A_bot1[s] = A[n + Nqk^2,s, e]
             end
           end
-          diffusive_boundary_penalty!(gradnumpenalty, bl, l_σ, n⁻, l_G⁻,
+          diffusive_boundary_penalty!(gradnumpenalty, bl, l_W, n⁻, l_G⁻,
                                       l_Y⁻, l_A⁻, l_G⁺, l_Y⁺, l_A⁺, bctype,
                                       t, l_Y_bot1, l_A_bot1)
         end
 
-        @unroll for s = 1:nσ
-          σ[vid⁻, s, e⁻] += vMI * sM * l_σ[s]
+        @unroll for s = 1:nW
+          W[vid⁻, s, e⁻] += vMI * sM * l_W[s]
         end
       end
       # Need to wait after even faces to avoid race conditions
@@ -890,7 +890,7 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, f!, Y,
   FT = eltype(Y)
 
   nY = num_state(bl,FT)
-  nσ = num_diffusive(bl,FT)
+  nW = num_diffusive(bl,FT)
   nA = num_aux(bl,FT)
 
   Nq = N + 1

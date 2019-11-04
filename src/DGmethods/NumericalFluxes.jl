@@ -15,7 +15,7 @@ import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
 
 Any `P <: GradNumericalPenalty` should define methods for:
 
-   diffusive_penalty!(gnf::P, bl::BalanceLaw, σ, n⁻, Y⁻, G⁻, A⁻, Y⁺,
+   diffusive_penalty!(gnf::P, bl::BalanceLaw, W, n⁻, Y⁻, G⁻, A⁻, Y⁺,
                       G⁺, A⁺, t)
    diffusive_boundary_penalty!(gnf::P, bl::BalanceLaw, l_∇G, n⁻, l_G⁻, l_Y⁻,
                                l_A⁻, l_G⁺, l_Y⁺, l_A⁺, bctype, t)
@@ -33,18 +33,18 @@ function diffusive_boundary_penalty! end
 struct CentralGradPenalty <: GradNumericalPenalty end
 
 function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
-                            σ, n⁻, G⁻, Y⁻, A⁻, G⁺, Y⁺, A⁺, t)
+                            W, n⁻, G⁻, Y⁻, A⁻, G⁺, Y⁺, A⁺, t)
   FT = eltype(Y⁻)
 
   @inbounds begin
     Nd = 3
     ngradstate = num_gradient(bl,FT)
-    ∇G = similar(σ, Size(Nd, ngradstate))
+    ∇G = similar(W, Size(Nd, ngradstate))
     for j = 1:ngradstate, i = 1:Nd
       ∇G[i, j] = n⁻[i] * (G⁺[j] - G⁻[j]) / 2
     end
     diffusive!(bl,
-               Vars{vars_diffusive(bl,FT)}(σ),
+               Vars{vars_diffusive(bl,FT)}(W),
                Grad{vars_gradient(bl,FT)}(∇G),
                Vars{vars_state(bl,FT)}(Y⁻),
                Vars{vars_aux(bl,FT)}(A⁻),
@@ -53,7 +53,7 @@ function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
 end
 
 function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
-                                     σ, n⁻, G⁻, Y⁻, A⁻, G⁺, Y⁺, A⁺,
+                                     W, n⁻, G⁻, Y⁻, A⁻, G⁺, Y⁺, A⁺,
                                      bctype, t, Y1, A1)
   FT = eltype(G⁺)
 
@@ -73,7 +73,7 @@ function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
                  Vars{vars_aux(bl,FT)}(A⁺),
                  t)
 
-  diffusive_penalty!(nf, bl, σ, n⁻, G⁻, Y⁻, A⁻, G⁺, Y⁺, A⁺, t)
+  diffusive_penalty!(nf, bl, W, n⁻, G⁻, Y⁻, A⁻, G⁺, Y⁺, A⁺, t)
 end
 
 
@@ -225,21 +225,21 @@ end
 
 Any `N <: NumericalFluxDiffusive` should define the a method for
 
-    numerical_flux_diffusive!(nf::N, bl::BalanceLaw, F, n⁻, Y⁻, σ⁻, A⁻, Y⁺,
-                              σ⁺, A⁺, t)
+    numerical_flux_diffusive!(nf::N, bl::BalanceLaw, F, n⁻, Y⁻, W⁻, A⁻, Y⁺,
+                              W⁺, A⁺, t)
 
 where
 - `F` is the numerical flux array
 - `n⁻` is the unit normal
 - `Y⁻`/`Y⁺` are the minus/positive state arrays
-- `σ⁻`/`σ⁺` are the minus/positive diffusive state arrays
+- `W⁻`/`W⁺` are the minus/positive diffusive state arrays
 - `A⁻`/`A⁺` are the minus/positive auxiliary state arrays
 - `t` is the time
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_diffusive!(nf::N, bl::BalanceLaw, F, n⁻, Y⁻, σ⁻,
-                                       A⁻, Y⁺, σ⁺, A⁺, bctype, t)
+    numerical_boundary_flux_diffusive!(nf::N, bl::BalanceLaw, F, n⁻, Y⁻, W⁻,
+                                       A⁻, Y⁺, W⁺, A⁺, bctype, t)
 
 """
 abstract type NumericalFluxDiffusive end
@@ -249,24 +249,24 @@ function numerical_flux_diffusive! end
 function numerical_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                             bl::BalanceLaw,
                                             F::MArray{Tuple{nstate}},
-                                            n⁻, Y⁻, σ⁻, A⁻, Y⁺, σ⁺, A⁺,
-                                            bctype, t, Y1, σ1,
+                                            n⁻, Y⁻, W⁻, A⁻, Y⁺, W⁺, A⁺,
+                                            bctype, t, Y1, W1,
                                             A1) where {nstate}
   FT = eltype(F)
 
   boundary_state!(nf, bl, Vars{vars_state(bl,FT)}(Y⁺),
-                  Vars{vars_diffusive(bl,FT)}(σ⁺),
+                  Vars{vars_diffusive(bl,FT)}(W⁺),
                   Vars{vars_aux(bl,FT)}(A⁺),
                   n⁻,
                   Vars{vars_state(bl,FT)}(Y⁻),
-                  Vars{vars_diffusive(bl,FT)}(σ⁻),
+                  Vars{vars_diffusive(bl,FT)}(W⁻),
                   Vars{vars_aux(bl,FT)}(A⁻),
                   bctype, t,
                   Vars{vars_state(bl,FT)}(Y1),
-                  Vars{vars_diffusive(bl,FT)}(σ1),
+                  Vars{vars_diffusive(bl,FT)}(W1),
                   Vars{vars_aux(bl,FT)}(A1))
 
-  numerical_flux_diffusive!(nf, bl, F, n⁻, Y⁻, σ⁻, A⁻, Y⁺, σ⁺, A⁺, t)
+  numerical_flux_diffusive!(nf, bl, F, n⁻, Y⁻, W⁻, A⁻, Y⁺, W⁺, A⁺, t)
 end
 
 """
@@ -285,7 +285,7 @@ struct CentralNumericalFluxDiffusive <: NumericalFluxDiffusive end
 
 function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                    bl::BalanceLaw, F::MArray, n⁻,
-                                   Y⁻, σ⁻, A⁻, Y⁺, σ⁺, A⁺, t)
+                                   Y⁻, W⁻, A⁻, Y⁺, W⁺, A⁺, t)
   FT = eltype(F)
   nstate = num_state(bl,FT)
 
@@ -295,7 +295,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   flux_diffusive!(bl,
                   Grad{vars_state(bl,FT)}(F⁻),
                   Vars{vars_state(bl,FT)}(Y⁻),
-                  Vars{vars_diffusive(bl,FT)}(σ⁻),
+                  Vars{vars_diffusive(bl,FT)}(W⁻),
                   Vars{vars_aux(bl,FT)}(A⁻),
                   t)
 
@@ -305,7 +305,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   flux_diffusive!(bl,
                   Grad{vars_state(bl,FT)}(F⁺),
                   Vars{vars_state(bl,FT)}(Y⁺),
-                  Vars{vars_diffusive(bl,FT)}(σ⁺),
+                  Vars{vars_diffusive(bl,FT)}(W⁺),
                   Vars{vars_aux(bl,FT)}(A⁺),
                   t)
 

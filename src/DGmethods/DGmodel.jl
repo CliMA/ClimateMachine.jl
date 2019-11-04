@@ -36,9 +36,9 @@ function (dg::DGModel)(dYdt, Y, ::Nothing, t; increment=false)
   Nfp  = Nq * Nqk
   Np   = dofs_per_element(grid)
 
-  σ  = dg.diffstate
+  W  = dg.diffstate
   A  = dg.auxstate
-  nσ = num_diffusive(bl, FT)
+  nW = num_diffusive(bl, FT)
 
   vgeo = grid.vgeo
   sgeo = grid.sgeo
@@ -64,11 +64,11 @@ function (dg::DGModel)(dYdt, Y, ::Nothing, t; increment=false)
     MPIStateArrays.start_ghost_exchange!(A)
   end
 
-  if nσ > 0
+  if nW > 0
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nE,
             volume_diffusive_terms!(bl, Val(Nd), Val(N),
             dg.direction,
-            Y.data, σ.data, A.data, vgeo, t, D, E))
+            Y.data, W.data, A.data, vgeo, t, D, E))
 
     if communicate
       MPIStateArrays.finish_ghost_recv!(Y)
@@ -78,10 +78,10 @@ function (dg::DGModel)(dYdt, Y, ::Nothing, t; increment=false)
     @launch(device, threads=Nfp, blocks=nE,
             face_diffusive_terms!(bl, Val(Nd), Val(N),
             dg.direction, dg.gradnumflux,
-            Y.data, σ.data, A.data, vgeo, sgeo, t,
+            Y.data, W.data, A.data, vgeo, sgeo, t,
             M⁻, M⁺, Mᴮ, E))
 
-    communicate && MPIStateArrays.start_ghost_exchange!(σ)
+    communicate && MPIStateArrays.start_ghost_exchange!(W)
   end
 
   ###################
@@ -90,11 +90,11 @@ function (dg::DGModel)(dYdt, Y, ::Nothing, t; increment=false)
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nE,
           volume_tendency!(bl, Val(Nd), Val(N),
           dg.direction,
-          dYdt.data, Y.data, σ.data, A.data, vgeo, t, ω, D, E, increment))
+          dYdt.data, Y.data, W.data, A.data, vgeo, t, ω, D, E, increment))
 
   if communicate
-    if nσ > 0
-      MPIStateArrays.finish_ghost_recv!(σ)
+    if nW > 0
+      MPIStateArrays.finish_ghost_recv!(W)
     else
       MPIStateArrays.finish_ghost_recv!(Y)
       MPIStateArrays.finish_ghost_recv!(A)
@@ -104,12 +104,12 @@ function (dg::DGModel)(dYdt, Y, ::Nothing, t; increment=false)
   @launch(device, threads=Nfp, blocks=nE,
           face_tendency!(bl, Val(Nd), Val(N),
                          dg.direction, dg.numfluxnondiff, dg.numfluxdiff,
-                         dYdt.data, Y.data, σ.data, A.data, vgeo, sgeo, t,
+                         dYdt.data, Y.data, W.data, A.data, vgeo, sgeo, t,
                          M⁻, M⁺, Mᴮ, E))
 
   # Just to be safe, we wait on the sends we started.
   if communicate
-    MPIStateArrays.finish_ghost_send!(σ)
+    MPIStateArrays.finish_ghost_send!(W)
     MPIStateArrays.finish_ghost_send!(Y)
   end
 end
