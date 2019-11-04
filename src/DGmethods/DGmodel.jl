@@ -21,7 +21,7 @@ function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
           diffstate, direction)
 end
 
-function (dg::DGModel)(dYdt, Y, param, t; increment=false)
+function (dg::DGModel)(dYdt, Y, ::Nothing, t; increment=false)
   bl = dg.balancelaw
   FT = eltype(Y)
   device = typeof(Y.data) <: Array ? CPU() : CUDA()
@@ -36,8 +36,8 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   Nfp  = Nq * Nqk
   Np   = dofs_per_element(grid)
 
-  σ  = param.diff
-  α  = param.aux
+  σ  = dg.diffstate
+  α  = dg.auxstate
   nσ = num_diffusive(bl, FT)
 
   vgeo = grid.vgeo
@@ -67,6 +67,7 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   if nσ > 0
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nE,
             volume_diffusive_terms!(bl, Val(Nd), Val(N),
+            dg.direction,
             Y.data, σ.data, α.data, vgeo, t, D, E))
 
     if communicate
@@ -75,8 +76,10 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
     end
 
     @launch(device, threads=Nfp, blocks=nE,
-            face_diffusive_terms!(bl, Val(Nd), Val(N), dg.gradnumflux,
-            Y.data, σ.data, α.data, vgeo, sgeo, t, M⁻, M⁺, Mᴮ, E))
+            face_diffusive_terms!(bl, Val(Nd), Val(N),
+            dg.direction, dg.gradnumflux,
+            Y.data, σ.data, α.data, vgeo, sgeo, t,
+            M⁻, M⁺, Mᴮ, E))
 
     communicate && MPIStateArrays.start_ghost_exchange!(σ)
   end
@@ -86,6 +89,7 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nE,
           volume_tendency!(bl, Val(Nd), Val(N),
+          dg.direction,
           dYdt.data, Y.data, σ.data, α.data, vgeo, t, ω, D, E, increment))
 
   if communicate
@@ -98,9 +102,10 @@ function (dg::DGModel)(dYdt, Y, param, t; increment=false)
   end
 
   @launch(device, threads=Nfp, blocks=nE,
-          face_tendency!(bl, Val(Nd), Val(N), dg.numfluxnondiff, dg.numfluxdiff,
-                   dYdt.data, Y.data, σ.data, α.data, vgeo, sgeo, t,
-                   M⁻, M⁺, Mᴮ, E))
+          face_tendency!(bl, Val(Nd), Val(N),
+                         dg.direction, dg.numfluxnondiff, dg.numfluxdiff,
+                         dYdt.data, Y.data, σ.data, α.data, vgeo, sgeo, t,
+                         M⁻, M⁺, Mᴮ, E))
 
   # Just to be safe, we wait on the sends we started.
   if communicate
@@ -112,7 +117,7 @@ end
 """
 Initialize the ODE state array.
 """
-function init_ode_state(dg::DGModel args...; device==arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
   array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
   @assert device == CPU() || device == array_device
 
