@@ -1015,7 +1015,7 @@ function knl_definite_slab_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val
                                        ) where {dim, N, nvertelem,
                                                 nout}
 
-                                              nout}
+                                              
   
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)					      
