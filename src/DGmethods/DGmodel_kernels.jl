@@ -260,24 +260,24 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
                     ω, D, elems, increment) where {Nd, polyorder}
   N = polyorder
   FT = eltype(Y)
-  nstate = num_state(bl,FT)
-  nviscstate = num_diffusive(bl,FT)
-  nauxstate = num_aux(bl,FT)
+  nY = num_state(bl,FT)
+  nW = num_diffusive(bl,FT)
+  nA = num_aux(bl,FT)
 
   Nq = N + 1
 
   Nqk = Nd == 2 ? 1 : Nq
 
-  s_F = @shmem FT (3, Nq, Nq, Nqk, nstate)
+  s_F = @shmem FT (3, Nq, Nq, Nqk, nY)
   s_ω = @shmem FT (Nq, )
   s_half_D = @shmem FT (Nq, Nq)
-  l_rhs = @scratch FT (nstate, Nq, Nq, Nqk) 3
+  l_rhs = @scratch FT (nY, Nq, Nq, Nqk) 3
 
-  source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
-  l_Q = MArray{Tuple{nstate}, FT}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
-  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
-  l_F = MArray{Tuple{3, nstate}, FT}(undef)
+  source! !== nothing && (l_S = MArray{Tuple{nY}, FT}(undef))
+  l_Y = MArray{Tuple{nY}, FT}(undef)
+  l_W = MArray{Tuple{nW}, FT}(undef)
+  l_A = MArray{Tuple{nA}, FT}(undef)
+  l_F = MArray{Tuple{3, nY}, FT}(undef)
   l_M = @scratch FT (Nq, Nq, Nqk) 3
 
   l_ζx1 = @scratch FT (Nq, Nq, Nqk) 3
@@ -307,32 +307,32 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
           l_ζx2[i, j, k] = vgeo[ijk, _ζx2, e]
           l_ζx3[i, j, k] = vgeo[ijk, _ζx3, e]
 
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nY
             l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(FT)
           end
 
-          @unroll for s = 1:nstate
-            l_Q[s] = Y[ijk, s, e]
+          @unroll for s = 1:nY
+            l_Y[s] = Y[ijk, s, e]
           end
 
-          @unroll for s = 1:nviscstate
-            l_Qvisc[s] = Qvisc[ijk, s, e]
+          @unroll for s = 1:nW
+            l_W[s] = Qvisc[ijk, s, e]
           end
 
-          @unroll for s = 1:nauxstate
-            l_aux[s] = auxstate[ijk, s, e]
+          @unroll for s = 1:nA
+            l_A[s] = auxstate[ijk, s, e]
           end
 
           fill!(l_F, -zero(eltype(l_F)))
           flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                             Vars{vars_state(bl,FT)}(l_Q),
-                             Vars{vars_aux(bl,FT)}(l_aux), t)
+                             Vars{vars_state(bl,FT)}(l_Y),
+                             Vars{vars_aux(bl,FT)}(l_A), t)
           flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                          Vars{vars_state(bl,FT)}(l_Q),
-                          Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                          Vars{vars_aux(bl,FT)}(l_aux), t)
+                          Vars{vars_state(bl,FT)}(l_Y),
+                          Vars{vars_diffusive(bl,FT)}(l_W),
+                          Vars{vars_aux(bl,FT)}(l_A), t)
 
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nY
             s_F[1,i,j,k,s] = l_F[1,s]
             s_F[2,i,j,k,s] = l_F[2,s]
             s_F[3,i,j,k,s] = l_F[3,s]
@@ -340,10 +340,10 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
 
           # if source! !== nothing
           fill!(l_S, -zero(eltype(l_S)))
-          source!(bl, Vars{vars_state(bl,FT)}(l_S), Vars{vars_state(bl,FT)}(l_Q),
-                  Vars{vars_aux(bl,FT)}(l_aux), t)
+          source!(bl, Vars{vars_state(bl,FT)}(l_S), Vars{vars_state(bl,FT)}(l_Y),
+                  Vars{vars_aux(bl,FT)}(l_A), t)
 
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nY
             l_rhs[s, i, j, k] += l_S[s]
           end
           # end
@@ -357,7 +357,7 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           @unroll for n = 1:Nq
-            @unroll for s = 1:nstate
+            @unroll for s = 1:nY
               if Nd == 2
                 Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
                 l_rhs[s, i, j, k] += l_ζx1[i, j, k] * Dnj * s_F[1, i, n, k, s]
@@ -380,7 +380,7 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nY
             F1, F2, F3 = s_F[1,i,j,k,s], s_F[2,i,j,k,s], s_F[3,i,j,k,s]
             s_F[3,i,j,k,s] = l_M[i, j, k] * (l_ζx1[i, j, k] * F1 +
                                              l_ζx2[i, j, k] * F2 +
@@ -397,7 +397,7 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
           MI = vgeo[ijk, _MI, e]
-          @unroll for s = 1:nstate
+          @unroll for s = 1:nY
             @unroll for n = 1:Nq
               if Nd == 2
                 Dnj = s_half_D[n, j]
