@@ -20,6 +20,7 @@ const _ξ1x3, _ξ2x3, _ξ3x3 = Grids._ξ1x3, Grids._ξ2x3, Grids._ξ3x3
 const _M, _MI = Grids._M, Grids._MI
 const _x1, _x2, _x3 = Grids._x1, Grids._x2, Grids._x3
 const _JcV = Grids._JcV
+const _MH = Grids._MH
 
 const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
 const _sM, _vMI = Grids._sM, Grids._vMI
@@ -1008,6 +1009,69 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
   end
 end
 
+function knl_definite_slab_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nvertelem},
+                                        Q, auxstate, vgeo, Imat,
+                                        elems, ::Val{nout}
+                                       ) where {dim, N, nvertelem,
+                                                nout}
+
+                                              nout}
+  
+  mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
+  nranks = MPI.Comm_size(MPI.COMM_WORLD)					      
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nauxstate = num_aux(bl,FT)
+
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  l_MH = zeros(Nqk,nvertelem)
+
+  l_int = @scratch FT (nout, Nqk, nvertelem) 2
+  
+  @inbounds @loop for ev in 1:nvertelem
+     @loop for k in (1:Nqk; threadIdx().z) 
+        @loop for s in 1:nout
+	  l_int[s,k,ev] = 0
+        end
+     end
+  end
+
+  @inbounds @loop for eh in (elems; blockIdx().x)
+    for ev in 1:nvertelem
+      e = ev + (eh - 1) * nvertelem
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for i in (1:Nq; threadIdx().x)
+          @loop for j in (1:Nq; threadIdx().y)
+            ijk = i + Nq *((j-1) + Nqk * (k-1))
+	    @unroll for s in 1:nout
+	      l_int[s,k,ev] += Q[ijk,s,e] * vgeo[ijk,_MH,e]
+            end
+	    l_MH[k,ev] += vgeo[ijk,_MH,e]
+	  end
+        end
+      end
+    end
+  end
+  l_inttot = zeros(nout,Nqk, nvertelem)
+  l_MHtot = zeors(Nqk, nvertelem)
+ for ev in 1:nvertelem
+   @loop for k in (1:Nqk; threadIdx().z)
+     l_MHtot[k,ev] = MPI.Reduce(l_int[s,k,ev],+, 0, MPI.COMM_WORLD)
+     @unroll for s in 1:nout
+       l_int[s,k,ev] = l_int[s,k,ev] / (Nq * Nq * elems)
+       l_inttot[s,k,ev] = MPI.Reduce(l_int[s,k,ev],+,0,MPI.COMM_WORLD)
+       if mpirank == 0
+         l_inttot[s,k,ev] = l_inttot[s,k,ev] /(l_MHtot[k,ev] * nranks)
+       end
+     end
+   end
+ end
+
+
+
+end
 """
     knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
                                             ::Val{nauxstate}, ::Val{nvertelem},

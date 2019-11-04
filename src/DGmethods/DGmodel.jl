@@ -160,6 +160,36 @@ function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array
   return state
 end
 
+function_definite_slab_integral!(dg::DGModel, m::BalanceLaw,
+			         Q:MPIStateArray, auxstate::MPIStateArray,
+				 t::Real)
+
+device = typeof(Q.data) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  FT = eltype(Q)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+  # do integrals
+  nintegrals = num_integrals(m, FT)
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+  @launch(device, threads=(Nq * Nq, Nqk, 1), blocks=nhorzelem,
+          knl_definite_slab_integral!(m, Val(dim), Val(polyorder),
+                                         Val(nvertelem), Q.data, auxstate.data,
+                                         vgeo, grid.Imat, 1:nhorzelem,
+                                         Val(nintegrals)))
+end
+
 function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                     Q::MPIStateArray, auxstate::MPIStateArray,
                                     t::Real)
