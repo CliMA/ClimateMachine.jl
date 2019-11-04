@@ -98,7 +98,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
   #Density, Temperature
-  TS    = LiquidIcePotTempSHumNonEquil(θ_liq, q_pt, p)
+  TS    = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq, q_pt, p)
   ρ     = air_density(TS)
   T     = air_temperature(TS)
   #Assign State Variables
