@@ -256,10 +256,10 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{N}, ::direction,
 end
 
 function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
-                    ::VerticalDirection, rhs, Q, Qvisc, auxstate, vgeo, t,
+                    ::VerticalDirection, rhs, Y, Qvisc, auxstate, vgeo, t,
                     ω, D, elems, increment) where {Nd, polyorder}
   N = polyorder
-  FT = eltype(Q)
+  FT = eltype(Y)
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
@@ -312,7 +312,7 @@ function volume_tendency!(bl::BalanceLaw, ::Val{Nd}, ::Val{polyorder},
           end
 
           @unroll for s = 1:nstate
-            l_Q[s] = Q[ijk, s, e]
+            l_Q[s] = Y[ijk, s, e]
           end
 
           @unroll for s = 1:nviscstate

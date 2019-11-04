@@ -193,7 +193,7 @@ struct CentralNumericalFluxNonDiffusive <: NumericalFluxNonDiffusive end
 
 function numerical_flux_nondiffusive!(::CentralNumericalFluxNonDiffusive,
                                       bl::BalanceLaw, F::MArray, n⁻,
-                                      Q⁻, A⁻, Q⁺, A⁺, t)
+                                      Y⁻, A⁻, Y⁺, A⁺, t)
   FT = eltype(F)
   nstate = num_state(bl,FT)
 
@@ -201,7 +201,7 @@ function numerical_flux_nondiffusive!(::CentralNumericalFluxNonDiffusive,
   fill!(F⁻, -zero(eltype(F⁻)))
   flux_nondiffusive!(bl,
                      Grad{vars_state(bl,FT)}(F⁻),
-                     Vars{vars_state(bl,FT)}(Q⁻),
+                     Vars{vars_state(bl,FT)}(Y⁻),
                      Vars{vars_aux(bl,FT)}(A⁻),
                      t)
 
@@ -209,7 +209,7 @@ function numerical_flux_nondiffusive!(::CentralNumericalFluxNonDiffusive,
   fill!(F⁺, -zero(eltype(F⁺)))
   flux_nondiffusive!(bl,
                      Grad{vars_state(bl,FT)}(F⁺),
-                     Vars{vars_state(bl,FT)}(Q⁺),
+                     Vars{vars_state(bl,FT)}(Y⁺),
                      Vars{vars_aux(bl,FT)}(A⁺),
                      t)
 
