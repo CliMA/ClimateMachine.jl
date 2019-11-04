@@ -86,7 +86,7 @@ PhaseNonEquil
 TemperatureSHumEquil
 LiquidIcePotTempSHumEquil
 LiquidIcePotTempSHumNonEquil
-LiquidIcePotTempSHumNonEquil_density
+LiquidIcePotTempSHumNonEquil_given_pressure
 ```
 
 ```@docs
