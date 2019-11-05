@@ -784,13 +784,6 @@ by solving the equation
 See also [`saturation_adjustment`](@ref).
 """
 function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::FT) where {FT<:Real}
-  # TODO/FIXME: The initial guesses are computed via iteration,
-  # which is potentially expensive. Other options should
-  # be investigated. Also, the tolerance/iterations are large
-  # when iterated. Perhaps this can be reduced with better guesses.
-
-  # TODO/FIXME: The iteration process seems brittle, and needs to
-  # be reviewed/improved
   T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot)) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
@@ -906,16 +899,9 @@ and, optionally,
 function air_temperature_from_liquid_ice_pottemp(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
 
+  cv = cv_m(q)
   R_m = gas_constant_air(q)
-  # Solve for temperature from liquid_ice_pottemp assuming no condensate:
-  T_dry = θ_liq_ice * (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_m/cv_d)
-
-  # Now, add correction from condensate, assuming the relevant temperature is T_dry:
-  T_linearized = T_dry + latent_heat_liq_ice(q)/cv_d
-
-  T_non_linear = air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice, ρ, q)
-  return T_non_linear
-  # return T_linearized # Fails tests at the moment
+  return θ_liq_ice * (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_m/cv) + latent_heat_liq_ice(q)/cv
 end
 
 """
