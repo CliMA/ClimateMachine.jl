@@ -232,7 +232,7 @@ Computes flux `S(Y)` in:
 ∂t
 ```
 """
-function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   atmos_source!(m.source, m, source, state, aux, t)
 end
 
