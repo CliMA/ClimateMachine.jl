@@ -1210,12 +1210,10 @@ end
 
 function knl_set_banded_matrix!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
                                 ::Val{nvertelem}, ::Val{p}, ::Val{q},
-                                ::Val{eshift}, A, dQ, kin, sin,
-                                evin, helems, vpelems) where {dim, N, nvertelem,
-                                                             p, q,
-                                                             eshift}
-  FT = eltype(A)
-
+                                ::Val{eshift}, A::AbstractArray{FT, AN}, dQ,
+                                kin, sin, evin, helems, vpelems
+                               ) where {dim, N, nvertelem, p, q, eshift,
+                                        FT, AN}
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
   nstate = num_state(bl,FT)
@@ -1245,7 +1243,13 @@ function knl_set_banded_matrix!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
                 bb = ii - jj
                 # make sure we're in the bandwidth
                 if -q ≤ bb ≤ p
-                  A[i, j, bb + q+1, jj, eh] = dQ[ijk, s, e]
+                  if AN === 5
+                    A[i, j, bb + q+1, jj, eh] = dQ[ijk, s, e]
+                  elseif AN === 2
+                    if (i, j, eh) == (1, 1, 1)
+                      A[bb + q+1, jj] = dQ[ijk, s, e]
+                    end
+                  end
                 end
               end
             end
@@ -1259,9 +1263,10 @@ end
 
 function knl_banded_matrix_vector_product!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
                                            ::Val{nvertelem}, ::Val{p}, ::Val{q},
-                                           dQ, A, Q, helems, velems
-                                          ) where {dim, N, nvertelem, p, q}
-  FT = eltype(A)
+                                           dQ, A::AbstractArray{FT, AN}, Q,
+                                           helems, velems
+                                          ) where {dim, N, nvertelem, p, q, FT,
+                                                   AN}
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
@@ -1290,7 +1295,11 @@ function knl_banded_matrix_vector_product!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
                     jj = ss + (kk - 1) * nstate + (evv - 1) * nstate * Nq
                     bb = ii - jj
                     if -q ≤ bb ≤ p
-                      Ax += A[i, j, bb + q + 1, jj, eh] * Q[ijk, ss, ee]
+                      if AN === 5
+                        Ax += A[i, j, bb + q + 1, jj, eh] * Q[ijk, ss, ee]
+                      elseif AN === 2
+                        Ax += A[bb + q + 1, jj] * Q[ijk, ss, ee]
+                      end
                     end
                   end
                 end

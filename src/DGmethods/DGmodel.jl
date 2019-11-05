@@ -257,7 +257,7 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
 end
 
 function banded_matrix(dg::DGModel, Q = MPIStateArray(dg),
-                       dQ = MPIStateArray(dg))
+                       dQ = MPIStateArray(dg); single_column=false)
   bl = dg.balancelaw
   grid = dg.grid
   topology = grid.topology
@@ -289,8 +289,12 @@ function banded_matrix(dg::DGModel, Q = MPIStateArray(dg),
   # band index -q:p
   # vertical DOF index
   # horizontal element index
-  A = similar(Q.data, Nq, Nqj, p + q + 1, Nq * nstate * nvertelem,
-              nhorzelem)
+  A = if single_column
+    similar(Q.data, p + q + 1, Nq * nstate * nvertelem)
+  else
+    similar(Q.data, Nq, Nqj, p + q + 1, Nq * nstate * nvertelem,
+            nhorzelem)
+  end
   fill!(A, zero(FT))
 
   # loop through all DOFs in a column and compute the matrix column
@@ -299,8 +303,9 @@ function banded_matrix(dg::DGModel, Q = MPIStateArray(dg),
       for k = 1:Nq
         # Set a single 1 per column and rest 0
         @launch(device, threads=(Nq, Nqj, Nq), blocks=(nvertelem, nhorzelem),
-                knl_set_banded_data!(bl, Val(dim), Val(N), Val(nvertelem), Q.data,
-                                     k, s, ev, 1:nhorzelem, 1:nvertelem))
+                knl_set_banded_data!(bl, Val(dim), Val(N), Val(nvertelem),
+                                     Q.data, k, s, ev, 1:nhorzelem,
+                                     1:nvertelem))
 
         # Get the matrix column
         dg(dQ, Q, nothing, 0; increment=false)
@@ -309,8 +314,8 @@ function banded_matrix(dg::DGModel, Q = MPIStateArray(dg),
         @launch(device, threads=(Nq, Nqj, Nq),
                 blocks=(2 * eband + 1, nhorzelem),
                 knl_set_banded_matrix!(bl, Val(dim), Val(N), Val(nvertelem),
-                                       Val(p), Val(q), Val(2eband), A,
-                                       dQ.data, k, s, ev, 1:nhorzelem,
+                                       Val(p), Val(q), Val(2eband),
+                                       A, dQ.data, k, s, ev, 1:nhorzelem,
                                        -eband:eband))
       end
     end
