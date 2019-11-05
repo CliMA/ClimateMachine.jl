@@ -1176,3 +1176,132 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
   end
   nothing
 end
+
+function knl_set_banded_data!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                              ::Val{nvertelem}, Q, kin, sin, evin, helems,
+                              velems) where {dim, N, nvertelem}
+  FT = eltype(Q)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+  nstate = num_state(bl,FT)
+
+  @loop for eh in (helems; blockIdx().y)
+    @loop for ev in (velems; blockIdx().x)
+      e = ev + (eh - 1) * nvertelem
+      @loop for k in (1:Nq; threadIdx().z)
+        @loop for j in (1:Nqj; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            ijk = i + Nqj * (j-1) + Nq * Nqj * (k-1)
+            @unroll for s = 1:nstate
+              if k == kin && s == sin && evin == ev
+                Q[ijk, s, e] = 1
+              else
+                Q[ijk, s, e] = 0
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
+
+function knl_set_banded_matrix!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                                ::Val{nvertelem}, ::Val{p}, ::Val{q},
+                                ::Val{eshift}, A, dQ, kin, sin,
+                                evin, helems, vpelems) where {dim, N, nvertelem,
+                                                             p, q,
+                                                             eshift}
+  FT = eltype(A)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+  nstate = num_state(bl,FT)
+
+  # sin, kin, evin are the state, vertical fod, and vert element we are
+  # handling
+
+  # column index of matrix
+  jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq
+
+  # one thread is launch for dof that might contribute to column jj's band
+  @loop for eh in (helems; blockIdx().y)
+    @loop for ep in (vpelems; blockIdx().x - eshift)
+      # ep is the shift we need to add to evin to get the element we need to
+      # consider
+      ev = ep + evin
+      if 1 ≤ ev ≤ nvertelem
+        e = ev + (eh - 1) * nvertelem
+        @loop for k in (1:Nq; threadIdx().z)
+          @loop for j in (1:Nqj; threadIdx().y)
+            @loop for i in (1:Nq; threadIdx().x)
+              ijk = i + Nqj * (j-1) + Nq * Nqj * (k-1)
+              @unroll for s = 1:nstate
+                # row index of matrix
+                ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq
+                # row band index
+                bb = ii - jj
+                # make sure we're in the bandwidth
+                if -q ≤ bb ≤ p
+                  A[i, j, bb + q+1, jj, eh] = dQ[ijk, s, e]
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
+
+function knl_banded_matrix_vector_product!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                                           ::Val{nvertelem}, ::Val{p}, ::Val{q},
+                                           dQ, A, Q, helems, velems
+                                          ) where {dim, N, nvertelem, p, q}
+  FT = eltype(A)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+  nstate = num_state(bl,FT)
+
+  elo = div(q, Nq * nstate-1)
+  eup = div(p, Nq * nstate-1)
+
+  # matrix row loops
+  @loop for eh in (helems; blockIdx().y)
+    @loop for ev in (velems; blockIdx().x)
+      e = ev + nvertelem * (eh - 1)
+      @loop for k in (1:Nq; threadIdx().z)
+        @loop for j in (1:Nqj; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            @unroll for s = 1:nstate
+              Ax = -zero(FT)
+              ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq
+
+              # banded matrix column loops
+              @unroll for evv = max(1, ev-elo):min(nvertelem, ev+eup)
+                ee = evv + nvertelem * (eh - 1)
+                @unroll for kk = 1:Nq
+                  ijk = i + Nqj * (j-1) + Nq * Nqj * (kk-1)
+                  @unroll for ss = 1:nstate
+                    jj = ss + (kk - 1) * nstate + (evv - 1) * nstate * Nq
+                    bb = ii - jj
+                    if -q ≤ bb ≤ p
+                      Ax += A[i, j, bb + q + 1, jj, eh] * Q[ijk, ss, ee]
+                    end
+                  end
+                end
+              end
+              ijk = i + Nqj * (j-1) + Nq * Nqj * (k-1)
+              dQ[ijk, s, e] = Ax
+            end
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
