@@ -3,6 +3,7 @@ include("../testhelpers.jl")
 
 @testset "DGmethods" begin
   tests = [
+    (1,"bandedsystem.jl")
     (1,"integral_test.jl")
     (1,"integral_test_sphere.jl")
     (1, "Euler/isentropicvortex.jl")
