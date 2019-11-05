@@ -121,7 +121,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
-function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+function init_ode_state(dg::DGModel, args...;
+                        device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
+                        commtag=888)
   array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
   @assert device == CPU() || device == array_device
 
@@ -243,4 +245,108 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   @launch(device, threads=(Np,), blocks=nrealelem,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
                           Q.data, auxstate.data, t, topology.realelems))
+end
+
+function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
+  bl = dg.balancelaw
+  grid = dg.grid
+
+  state = create_state(bl, grid, commtag)
+
+  return state
+end
+
+function banded_matrix(dg::DGModel, Q = MPIStateArray(dg),
+                       dQ = MPIStateArray(dg))
+  bl = dg.balancelaw
+  grid = dg.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+  @assert typeof(dg.direction) <: VerticalDirection
+
+  FT = eltype(Q.data)
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
+
+  nstate = num_state(bl, FT)
+  N = polynomialorder(grid)
+  Nq = N + 1
+
+  # p is lower bandwidth
+  # q is upper bandwidth
+  eband = num_diffusive(bl, FT) == 0 ? 1 : 2
+  p = q = nstate * Nq * eband - 1
+
+  nrealelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nrealelem, nvertelem)
+
+  dim = dimensionality(grid)
+
+  Nqj = dim == 2 ? 1 : Nq
+
+  # first horizontal DOF index
+  # second horizontal DOF index
+  # band index -q:p
+  # vertical DOF index
+  # horizontal element index
+  A = similar(Q.data, Nq, Nqj, p + q + 1, Nq * nstate * nvertelem,
+              nhorzelem)
+  fill!(A, zero(FT))
+
+  # loop through all DOFs in a column and compute the matrix column
+  for ev = 1:nvertelem
+    for s = 1:nstate
+      for k = 1:Nq
+        # Set a single 1 per column and rest 0
+        @launch(device, threads=(Nq, Nqj, Nq), blocks=(nvertelem, nhorzelem),
+                knl_set_banded_data!(bl, Val(dim), Val(N), Val(nvertelem), Q.data,
+                                     k, s, ev, 1:nhorzelem, 1:nvertelem))
+
+        # Get the matrix column
+        dg(dQ, Q, nothing, 0; increment=false)
+
+        # Store the banded matrix
+        @launch(device, threads=(Nq, Nqj, Nq),
+                blocks=(2 * eband + 1, nhorzelem),
+                knl_set_banded_matrix!(bl, Val(dim), Val(N), Val(nvertelem),
+                                       Val(p), Val(q), Val(2eband), A,
+                                       dQ.data, k, s, ev, 1:nhorzelem,
+                                       -eband:eband))
+      end
+    end
+  end
+  A
+end
+
+function banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
+                                       Q::MPIStateArray)
+  bl = dg.balancelaw
+  grid = dg.grid
+  topology = grid.topology
+  @assert isstacked(topology)
+  @assert typeof(dg.direction) <: VerticalDirection
+
+  FT = eltype(Q.data)
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
+
+  eband = num_diffusive(bl, FT) == 0 ? 1 : 2
+  nstate = num_state(bl, FT)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  p = q = nstate * Nq * eband - 1
+
+  nrealelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nrealelem, nvertelem)
+
+  dim = dimensionality(grid)
+
+  Nqj = dim == 2 ? 1 : Nq
+
+  @launch(device, threads=(Nq, Nqj, Nq),
+          blocks=(nvertelem, nhorzelem),
+          knl_banded_matrix_vector_product!(bl, Val(dim), Val(N),
+                                            Val(nvertelem), Val(p), Val(q),
+                                            dQ.data, A, Q.data, 1:nhorzelem,
+                                            1:nvertelem))
 end
