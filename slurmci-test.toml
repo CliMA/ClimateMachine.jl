@@ -13,6 +13,7 @@ cpu_gpu = [
   { file = "examples/DGmethods_old/ex_004_nonnegative.jl", n = 3, args = [] },
   { file = "examples/Microphysics/ex_1_saturation_adjustment.jl", n = 3, args = [] },
   { file = "examples/Microphysics/ex_2_Kessler.jl", n = 3, args = [] },
+  { file = "test/DGmethods/bandedsystem.jl", n = 3, args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex.jl", n = 3, args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex-imex.jl", n = 3, args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex-multirate.jl", n = 3, args = [] },
