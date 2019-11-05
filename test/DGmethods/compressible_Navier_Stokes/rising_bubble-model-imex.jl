@@ -234,14 +234,9 @@ let
                             topl, dim, Ne, polynomialorder,
                             timeend, FT, dt, split_nonlinear_linear,
                             linear_num_flux)
-            if (split_nonlinear_linear &&
-                LinearType == AtmosAcousticGravityLinearModel &&
-                linear_num_flux == Rusanov() &&
-                FT == Float64)
-              @test engf_eng0 ≈ FT(0.9999997985194431)
-            else
-              @test engf_eng0 ≈ FT(0.9999997771981113)
-            end
+
+            # FIXME: This test should be improved
+            isapprox(engf_eng0, FT(0.9999997771981113), atol=1e-7)
           end
         end
       end
