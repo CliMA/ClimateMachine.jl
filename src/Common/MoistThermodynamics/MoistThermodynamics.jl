@@ -23,7 +23,7 @@ export total_energy, internal_energy, internal_energy_sat
 export cp_m, cv_m, gas_constant_air, gas_constants
 
 # Latent heats
-export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion
+export latent_heat_vapor, latent_heat_sublim, latent_heat_fusion, latent_heat_liq_ice
 
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
@@ -36,6 +36,7 @@ export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, P
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_liquid_ice_pottemp, air_temperature_from_liquid_ice_pottemp_given_pressure
+export air_temperature_from_liquid_ice_pottemp_non_linear
 export dry_pottemp, dry_pottemp_given_pressure, virtual_pottemp, exner, exner_given_pressure
 export liquid_ice_pottemp, liquid_ice_pottemp_given_pressure, liquid_ice_pottemp_sat, relative_humidity
 
