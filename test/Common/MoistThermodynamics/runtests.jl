@@ -154,6 +154,13 @@ end
   T = air_temperature_from_liquid_ice_pottemp_given_pressure.(θ_liq_ice, p, q_pt_dry)
   @test all(liquid_ice_pottemp_given_pressure.(T, p, q_pt_dry) .≈ θ_liq_ice)
 
+  # Accurate but expensive `LiquidIcePotTempSHumNonEquil` constructor (Non-linear temperature from θ_liq_ice)
+  T_non_linear = air_temperature_from_liquid_ice_pottemp_non_linear.(θ_liq_ice, ρ, q_pt_moist)
+  e_int_ = internal_energy.(T_non_linear, q_pt_moist)
+  ts = PhaseNonEquil.(e_int_, q_pt_moist, ρ)
+  @test all(T_non_linear .≈ air_temperature.(ts))
+  @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
+
   # PhaseDry
   ts = PhaseDry.(e_int, ρ)
   @test all(internal_energy.(ts) .≈ e_int)
@@ -210,7 +217,12 @@ end
 
   # LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT, q_pt::PhasePartition{FT}, ρ::FT): Moist case
   ts = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, q_pt_moist, ρ)
-  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
+
+  q = PhasePartition.(ts)
+  err_bounds = 0.0004*(latent_heat_liq_ice.(q)./cv_m.(q)).^2
+  θ_liq_ice_diff = abs.(θ_liq_ice - liquid_ice_pottemp.(ts))
+  @test θ_liq_ice_diff[1] ≈ 0 # Dry case
+  @test all(θ_liq_ice_diff[2:end] .< err_bounds[2:end])
   @test all(air_density.(ts) .≈ ρ)
   @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist,:tot))
   @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist,:liq))

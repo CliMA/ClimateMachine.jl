@@ -163,7 +163,7 @@ Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
  - `ρ` - density
 """
 function LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT, q_pt::PhasePartition{FT}, ρ::FT) where {FT<:Real}
-    T = air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice, ρ, q_pt)
+    T = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, q_pt)
     e_int = internal_energy(T, q_pt)
     PhaseNonEquil(e_int, q_pt, ρ)
 end
