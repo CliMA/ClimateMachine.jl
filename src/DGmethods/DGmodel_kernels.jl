@@ -1186,7 +1186,7 @@ function knl_set_banded_data!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
   Nqj = dim == 2 ? 1 : Nq
   nstate = num_state(bl,FT)
 
-  @loop for eh in (helems; blockIdx().y)
+  @inbounds @loop for eh in (helems; blockIdx().y)
     @loop for ev in (velems; blockIdx().x)
       e = ev + (eh - 1) * nvertelem
       @loop for k in (1:Nq; threadIdx().z)
@@ -1225,7 +1225,7 @@ function knl_set_banded_matrix!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
   jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq
 
   # one thread is launch for dof that might contribute to column jj's band
-  @loop for eh in (helems; blockIdx().y)
+  @inbounds @loop for eh in (helems; blockIdx().y)
     @loop for ep in (vpelems; blockIdx().x - eshift)
       # ep is the shift we need to add to evin to get the element we need to
       # consider
