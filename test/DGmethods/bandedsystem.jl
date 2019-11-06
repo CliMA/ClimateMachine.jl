@@ -51,7 +51,7 @@ let
 
   @testset "$(@__FILE__) DGModel matrix" begin
     for AT in ArrayTypes
-      for FT in (Float64,Float32)
+      for FT in (Float64,)
         for dim = (2, 3)
           for single_column in (false, true)
             # Setup the topology
@@ -122,7 +122,7 @@ let
             dg_linear(dQ1, Q, nothing, 0; increment=false)
 
             banded_matrix_vector_product!(dg_linear, A_banded, dQ2, Q)
-            @test euclidean_distance(dQ1, dQ2) / norm(dQ1) < 3000 * eps(FT)
+            @test dQ1.realdata ≈ dQ2.realdata
           end
         end
       end
@@ -131,7 +131,7 @@ let
 
   @testset "$(@__FILE__) linear operator matrix" begin
     for AT in ArrayTypes
-      for FT in (Float64,Float32)
+      for FT in (Float64,)
         for dim = (2, 3)
           for single_column in (false, true)
             # Setup the topology
@@ -208,7 +208,7 @@ let
             Q.data .= rand(size(Q.data))
             op!(dQ1, Q)
             banded_matrix_vector_product!(dg_linear, A_banded, dQ2, Q)
-            @test euclidean_distance(dQ1, dQ2) / norm(dQ1) < 3000 * eps(FT)
+            @test dQ1.realdata ≈ dQ2.realdata
           end
         end
       end
