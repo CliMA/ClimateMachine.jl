@@ -21,7 +21,7 @@ using CLIMA.RootSolvers
                                                  qi_b,
                                                  alpha0_0
                                                  )
-  @test buoyancy_flux ≈ 0.001780860263422389
+  @test buoyancy_flux ≈ 0.0017808608107074118
 end
 
 @testset "SurfaceFluxes.Byun1990" begin
