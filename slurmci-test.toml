@@ -35,6 +35,7 @@ cpu_gpu = [
   { file = "test/DGmethods_old/sphere/advection_sphere_ssp33.jl", n = 2, args = [] },
   { file = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl", n = 2, args = [] },
   { file = "test/LinearSolvers/poisson.jl", n = 2, args = [] },
+  { file = "test/LinearSolvers/columnwiselu.jl", n = 1, args = []},
   { file = "examples/DGmethods/ex_001_dycoms.jl", n = 4, args = [] },
   { file = "test/Ocean/shallow_water/GyreDriver.jl", n = 1, args = [] },
 ]
