@@ -12,7 +12,7 @@ LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)
 
-export linearsolve!, settolerance!
+export linearsolve!, settolerance!, prefactorize
 export AbstractLinearSolver, AbstractIterativeLinearSolver
 
 """
@@ -47,7 +47,15 @@ initialize!(Q, Qrhs, solver::AbstractIterativeLinearSolver) =
   throw(MethodError(initialize!, (Q, Qrhs, solver))) 
 
 """
-    linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver)
+  prefactorize(linop!, linearsolver, args...)
+
+Prefactorize the in-place linear operator `linop!` for use with `linearsolver`. 
+"""
+prefactorize(linop!, linearsolver::AbstractIterativeLinearSolver, args...) =
+  linop!
+
+"""
+    linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs)
 
 Solves a linear problem defined by the `linearoperator!` function and the state
 `Qrhs`, i.e,
@@ -58,7 +66,7 @@ Solves a linear problem defined by the `linearoperator!` function and the state
 
 using the `solver` and the initial guess `Q`. After the call `Q` contains the solution.
 """
-function linearsolve!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver)
+function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs)
   converged = false
   iters = 0
 
