@@ -256,8 +256,17 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
   return state
 end
 
-function banded_matrix(dg::DGModel, Q = MPIStateArray(dg),
-                       dQ = MPIStateArray(dg); single_column=false)
+function banded_matrix(dg::DGModel, Q::MPIStateArray = MPIStateArray(dg),
+                       dQ::MPIStateArray = MPIStateArray(dg);
+                       single_column = false)
+  banded_matrix((dQ, Q) -> dg(dQ, Q, nothing, 0; increment=false),
+                dg, Q, dQ; single_column=single_column)
+end
+
+function banded_matrix(f!::Function, dg::DGModel,
+                       Q::MPIStateArray = MPIStateArray(dg),
+                       dQ::MPIStateArray = MPIStateArray(dg);
+                       single_column = false)
   bl = dg.balancelaw
   grid = dg.grid
   topology = grid.topology
@@ -308,7 +317,7 @@ function banded_matrix(dg::DGModel, Q = MPIStateArray(dg),
                                      1:nvertelem))
 
         # Get the matrix column
-        dg(dQ, Q, nothing, 0; increment=false)
+        f!(dQ, Q)
 
         # Store the banded matrix
         @launch(device, threads=(Nq, Nqj, Nq),
