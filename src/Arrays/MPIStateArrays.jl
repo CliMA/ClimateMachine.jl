@@ -160,13 +160,19 @@ function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
 end
 
 # FIXME: should general cases be handled?
-function Base.similar(Q::MPIStateArray, ::Type{FTN}; commtag=Q.commtag
+function Base.similar(Q::MPIStateArray, ::Type{FTN}, nstate::Integer; commtag=Q.commtag
                      ) where {FTN}
-  MPIStateArray{FTN}(Q.mpicomm, Q.data, size(Q.data)..., Q.realelems,
-                     Q.ghostelems, Q.vmaprecv, Q.vmapsend, Q.nabrtorank,
+  MPIStateArray{FTN}(Q.mpicomm, Q.data, size(Q.data, 1), nstate, size(Q.data, 3),
+                     Q.realelems, Q.ghostelems, Q.vmaprecv, Q.vmapsend, Q.nabrtorank,
                      Q.nabrtovmaprecv, Q.nabrtovmapsend, Q.weights, commtag)
 end
-
+function Base.similar(Q::MPIStateArray, ::Type{FTN}; commtag=Q.commtag
+                     ) where {FTN}
+  similar(Q, FTN, size(Q.data, 2), commtag = commtag)
+end
+function Base.similar(Q::MPIStateArray{FT}, nstate::Integer; commtag=Q.commtag) where {FT}
+  similar(Q, FT, nstate, commtag = commtag)
+end
 function Base.similar(Q::MPIStateArray{FT}; commtag=Q.commtag) where {FT}
   similar(Q, FT, commtag = commtag)
 end

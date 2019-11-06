@@ -51,4 +51,22 @@ end
 
   copyto!(Qp, Q)
   @test Array(Qp) == Array(Q)
+ 
+  Qp = similar(Q, Float64)
+  
+  @test Qp isa MPIStateArray{Float64}
+  @test eltype(Qp) == Float64
+  @test size(Qp) == size(Q)
+  
+  Qp = similar(Q, Float64, 2)
+  
+  @test Qp isa MPIStateArray{Float64}
+  @test eltype(Qp) == Float64
+  @test size(Qp) == (4, 2, 8)
+  
+  Qp = similar(Q, 2)
+  
+  @test typeof(Qp) == typeof(Q)
+  @test eltype(Qp) == eltype(Q)
+  @test size(Qp) == (4, 2, 8)
 end
