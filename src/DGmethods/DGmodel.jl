@@ -256,6 +256,33 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
   return state
 end
 
+"""
+    banded_matrix(dg::DGModel, [Q::MPIStateArray, dQ::MPIStateArray];
+                  single_column=false)
+
+Forms the banded matrices for each the column operator defined by the `DGModel`
+dg.  If `single_column=false` then a banded matrix is stored for each column and
+if `single_column=true` only the banded matrix associated with the first column
+of the first element is stored. The bandwidth of the DG column banded matrix is
+`p = q = (polynomialorder + 1) * nstate * nvertelem - 1` with `p` and `q` being
+the upper and lower bandwidths.
+
+The banded matrices are stored in the LAPACK band storage format
+<https://www.netlib.org/lapack/lug/node124.html>.
+
+The banded matrices are returned as an arrays where the array type matches that
+of `Q`. If `single_column=false` then the returned array has 5 dimensions, which
+are:
+- first horizontal column index
+- second horizontal column index
+- band index (-q:p)
+- vertical DOF index with state `s`, vertical DOF index `k`, and vertical
+  element `ev` mapping to `s + nstate * (k - 1) + nstate * nvertelem * (ev - 1)`
+- horizontal element index
+
+If the 'single_column=true` then the returned array has 2 dimensions which are
+the band index and the vertical DOF index.
+"""
 function banded_matrix(dg::DGModel, Q::MPIStateArray = MPIStateArray(dg),
                        dQ::MPIStateArray = MPIStateArray(dg);
                        single_column = false)
@@ -263,6 +290,36 @@ function banded_matrix(dg::DGModel, Q::MPIStateArray = MPIStateArray(dg),
                 dg, Q, dQ; single_column=single_column)
 end
 
+"""
+    banded_matrix(f!::Function, dg::DGModel,
+                  Q::MPIStateArray = MPIStateArray(dg),
+                  dQ::MPIStateArray = MPIStateArray(dg);
+                  single_column = false)
+
+Forms the banded matrices for each the column operator defined by the linear
+operator `f!` which is assumed to have the same banded structure as the
+`DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
+column and if `single_column=true` only the banded matrix associated with the
+first column of the first element is stored. The bandwidth of the DG column
+banded matrix is `p = q = (polynomialorder + 1) * nstate * nvertelem - 1` with
+`p` and `q` being the upper and lower bandwidths.
+
+The banded matrices are stored in the LAPACK band storage format
+<https://www.netlib.org/lapack/lug/node124.html>.
+
+The banded matrices are returned as an arrays where the array type matches that
+of `Q`. If `single_column=false` then the returned array has 5 dimensions, which
+are:
+- first horizontal column index
+- second horizontal column index
+- band index (-q:p)
+- vertical DOF index with state `s`, vertical DOF index `k`, and vertical
+  element `ev` mapping to `s + nstate * (k - 1) + nstate * nvertelem * (ev - 1)`
+- horizontal element index
+
+If the 'single_column=true` then the returned array has 2 dimensions which are
+the band index and the vertical DOF index.
+"""
 function banded_matrix(f!::Function, dg::DGModel,
                        Q::MPIStateArray = MPIStateArray(dg),
                        dQ::MPIStateArray = MPIStateArray(dg);
@@ -332,6 +389,15 @@ function banded_matrix(f!::Function, dg::DGModel,
   A
 end
 
+"""
+    banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
+                                  Q::MPIStateArray)
+
+Compute a matrix vector product `dQ = A * Q` where `A` is assumed to be a matrix
+created using the `banded_matrix` function.
+
+This function is primarily for testing purposes.
+"""
 function banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
                                        Q::MPIStateArray)
   bl = dg.balancelaw
