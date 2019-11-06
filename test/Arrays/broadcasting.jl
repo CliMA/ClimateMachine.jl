@@ -22,7 +22,7 @@ end
     A = rand(Float32, localsize)
     B = rand(Float32, localsize)
 
-    QA = MPIStateArray{Tuple{localsize[1:2]...}, Float32, ArrayType}(mpicomm, localsize[3])
+    QA = MPIStateArray{Float32}(mpicomm, ArrayType, localsize...)
     QB = similar(QA)
 
     QA .= A
@@ -56,9 +56,9 @@ end
     realelems = 1:7
     ghostelems = 8:12
     
-    QA = MPIStateArray{Tuple{1, 1, 1}, Int, ArrayType}(mpicomm, numelems,
-                                                   realelems = realelems,
-                                                   ghostelems = ghostelems)
+    QA = MPIStateArray{Int}(mpicomm, ArrayType, 1, 1, numelems,
+                            realelems = realelems,
+                            ghostelems = ghostelems)
     QB  = similar(QA)
 
     fill!(QA, 1)

@@ -5,7 +5,7 @@ using CLIMA.Mesh.Grids
 using CLIMA.MPIStateArrays
 
 function main()
-  T = Float64
+  FT = Float64
   Nhorz = 3
   Nstack = 5
   N = 4
@@ -17,10 +17,10 @@ function main()
   crank = MPI.Comm_rank(comm)
   csize = MPI.Comm_size(comm)
 
-  Rrange = T.(accumulate(+,1:Nstack+1))
+  Rrange = FT.(accumulate(+,1:Nstack+1))
   topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange;
                                         boundary=(1,2))
-  grid = DiscontinuousSpectralElementGrid(topology; FloatType=T,
+  grid = DiscontinuousSpectralElementGrid(topology; FloatType=FT,
                                           DeviceArray=DA, polynomialorder=N,
                                           meshwarp=Topologies.cubedshellwarp)
 
@@ -49,15 +49,15 @@ function main()
   @test x3[grid.vmapM] ≈ x3[grid.vmapP]
 
   Np = (N+1)^3
-  x1x2x3 = MPIStateArray{Tuple{Np, 3}, T, DA}(topology.mpicomm,
-                                           length(topology.elems),
-                                           realelems=topology.realelems,
-                                           ghostelems=topology.ghostelems,
-                                           vmaprecv=grid.vmaprecv,
-                                           vmapsend=grid.vmapsend,
-                                           nabrtorank=topology.nabrtorank,
-                                           nabrtovmaprecv=grid.nabrtovmaprecv,
-                                           nabrtovmapsend=grid.nabrtovmapsend)
+  x1x2x3 = MPIStateArray{FT}(topology.mpicomm, DA, Np, 3,
+                             length(topology.elems),
+                             realelems=topology.realelems,
+                             ghostelems=topology.ghostelems,
+                             vmaprecv=grid.vmaprecv,
+                             vmapsend=grid.vmapsend,
+                             nabrtorank=topology.nabrtorank,
+                             nabrtovmaprecv=grid.nabrtovmaprecv,
+                             nabrtovmapsend=grid.nabrtovmapsend)
   x1x2x3.data[:,:,topology.realelems] .=
         @view grid.vgeo[:, [Grids._x1, Grids._x2, Grids._x3], topology.realelems]
   MPIStateArrays.start_ghost_exchange!(x1x2x3)
