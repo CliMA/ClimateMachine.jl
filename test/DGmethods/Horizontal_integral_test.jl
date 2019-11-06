@@ -45,12 +45,12 @@ ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
 for ArrayType in ArrayTypes
 warpfun = (ξ1, ξ2, ξ3) -> begin
   x1 = ξ1 + (ξ1 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
-  x2 = ξ2 + exp(sin(2π * (ξ1 * ξ2 + ξ3)))/20
-  x3 = ξ3 + ξ1 / 4 + ξ2^2 / 2 + sin(ξ1 * ξ2 * ξ3)
+  x2 = ξ2  + (ξ2 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
+  x3 = ξ3 + ξ1 / 4 + ξ2^2 / 2 + sin(ξ1 * ξ2 * ξ3) + exp(sin(2π * (ξ1 * ξ2 + ξ3)))/20
   return (x1, x2, x3)
 end
-for N in 3:6
-for Ne in 1:5
+for N in 4:4
+for Ne in 1:20
 println(N," ",Ne)
 brickrange = (range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=Ne+1, stop=1),
@@ -73,19 +73,26 @@ N = polynomialorder(grid)
   S = zeros(Nqk)
   S1 = zeros(Nqk)
   for e in 1:nrealelem
-  for k in 1:Nqk
-  for j in 1:Nq
-    for i in 1:Nq
-      ijk = i + Nq * ((j-1)+ Nq * (k-1))
-      S[k] += localvgeo[ijk,grid.x1id,e] * localvgeo[ijk,grid.MHid,e]
-      S1[k] += localvgeo[ijk,grid.MHid,e]
+    for k in 1:Nqk
+      for j in 1:Nq
+        for i in 1:Nq
+          ijk = i + Nq * ((j-1)+ Nq * (k-1))
+          S[k] += localvgeo[ijk,grid.x1id,e] * localvgeo[ijk,grid.MHid,e]
+          S1[k] += localvgeo[ijk,grid.MHid,e]
+        end
+      end
     end
   end
-  end
-  end
+  Stot = zeros(Nqk)
+  S1tot = zeros(Nqk)
+  Err = 0
   for k in 1:Nqk
-  println(0.5-S[k]/S1[k])
+  Stot[k] = MPI.Reduce(S[k], +, 0, MPI.COMM_WORLD)
+  S1tot[k] = MPI.Reduce(S1[k], +, 0, MPI.COMM_WORLD)
+  Err += (0.5 - Stot[k] / S1tot[k])^2
   end
+  Err = sqrt(Err / Nqk)
+  @info Err
   end
   end
 end
