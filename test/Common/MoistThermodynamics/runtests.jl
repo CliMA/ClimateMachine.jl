@@ -217,12 +217,7 @@ end
 
   # LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT, q_pt::PhasePartition{FT}, ρ::FT): Moist case
   ts = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, q_pt_moist, ρ)
-
-  q = PhasePartition.(ts)
-  err_bounds = 0.0004*(latent_heat_liq_ice.(q)./cv_m.(q)).^2
-  θ_liq_ice_diff = abs.(θ_liq_ice - liquid_ice_pottemp.(ts))
-  @test θ_liq_ice_diff[1] ≈ 0 # Dry case
-  @test all(θ_liq_ice_diff[2:end] .< err_bounds[2:end])
+  @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
   @test all(air_density.(ts) .≈ ρ)
   @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist,:tot))
   @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist,:liq))
