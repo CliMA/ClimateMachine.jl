@@ -85,7 +85,7 @@ function diffusive!(::PoissonModel, diffusive::Vars,
   diffusive.∇ϕ = ∇transform.ϕ
 end
 
-source!(::PoissonModel, source::Vars, state::Vars, aux::Vars, t::Real) = nothing
+source!(::PoissonModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 
 # note, that the code assumes solutions with zero mean
 sol1d(x) = sin(2pi * x) ^ 4 - 3 / 8
@@ -115,7 +115,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
                                           DeviceArray = ArrayType)
   dg = DGModel(PoissonModel{dim}(),
                grid,
-               CentralNumericalFluxNonDiffusive(),
+               nothing,
                PenaltyNumFluxDiffusive(),
                CentralGradPenalty())
 

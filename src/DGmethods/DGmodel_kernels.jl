@@ -110,6 +110,10 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
             l_Q[s, i, j, k] = Q[ijk, s, e]
           end
 
+          @unroll for s = 1:nviscstate
+            l_Qvisc[s] = Qvisc[ijk, s, e]
+          end
+
           @unroll for s = 1:nauxstate
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
@@ -129,8 +133,8 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           fill!(l_S, -zero(eltype(l_S)))
           source!(bl, Vars{vars_outstate(bl,FT)}(l_S),
                   Vars{vars_instate(bl,FT)}(l_Q[:, i, j, k]),
-                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
-                  Vars{vars_diffusive(bl,FT)}(l_Qvisc), t)
+                  Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:noutstate
             l_rhs[s, i, j, k] += l_S[s]
@@ -324,6 +328,10 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_Q[s, i, j, k] = Q[ijk, s, e]
           end
 
+          @unroll for s = 1:nviscstate
+            l_Qvisc[s] = Qvisc[ijk, s, e]
+          end
+
           @unroll for s = 1:nauxstate
             l_aux[s, i, j, k] = auxstate[ijk, s, e]
           end
@@ -343,6 +351,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           fill!(l_S, -zero(eltype(l_S)))
           source!(bl, Vars{vars_outstate(bl,FT)}(l_S),
                   Vars{vars_instate(bl,FT)}(l_Q[:, i, j, k]),
+                  Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                   Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:noutstate
@@ -458,7 +467,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 See [`odefun!`](@ref) for usage.
 """
 function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
-                  numfluxnondiff::NumericalFluxNonDiffusive,
+                  numfluxnondiff::Union{Nothing, NumericalFluxNonDiffusive},
                   numfluxdiff::NumericalFluxDiffusive,
                   rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                   elemtobndy, elems) where {dim, polyorder, direction}
@@ -553,8 +562,10 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
         bctype = elemtobndy[f, e]
         fill!(l_F, -zero(eltype(l_F)))
         if bctype == 0
-          numerical_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM, l_QM,
-                                       l_auxM, l_QPnondiff, l_auxPnondiff, t)
+          if numfluxnondiff !== nothing
+            numerical_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM, l_QM,
+                                         l_auxM, l_QPnondiff, l_auxPnondiff, t)
+          end
           numerical_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM, l_QviscM,
                                     l_auxM, l_QPdiff, l_QviscP, l_auxPdiff, t)
         else
@@ -570,10 +581,13 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM,
-                                                l_QM, l_auxM, l_QPnondiff,
-                                                l_auxPnondiff, bctype, t,
-                                                l_Q_bot1, l_aux_bot1)
+
+          if numfluxnondiff !== nothing
+            numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM,
+                                                  l_QM, l_auxM, l_QPnondiff,
+                                                  l_auxPnondiff, bctype, t,
+                                                  l_Q_bot1, l_aux_bot1)
+          end
           numerical_boundary_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM,
                                              l_QviscM, l_auxM, l_QPdiff,
                                              l_QviscP, l_auxPdiff, bctype, t,
