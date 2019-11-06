@@ -257,8 +257,8 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
 end
 
 """
-    banded_matrix(dg::DGModel, [Q::MPIStateArray, dQ::MPIStateArray];
-                  single_column=false)
+    banded_matrix(dg::DGModel, [Q::MPIStateArray, dQ::MPIStateArray,
+                  single_column=false])
 
 Forms the banded matrices for each the column operator defined by the `DGModel`
 dg.  If `single_column=false` then a banded matrix is stored for each column and
@@ -284,17 +284,17 @@ If the 'single_column=true` then the returned array has 2 dimensions which are
 the band index and the vertical DOF index.
 """
 function banded_matrix(dg::DGModel, Q::MPIStateArray = MPIStateArray(dg),
-                       dQ::MPIStateArray = MPIStateArray(dg);
+                       dQ::MPIStateArray = MPIStateArray(dg),
                        single_column = false)
   banded_matrix((dQ, Q) -> dg(dQ, Q, nothing, 0; increment=false),
-                dg, Q, dQ; single_column=single_column)
+                dg, Q, dQ, single_column)
 end
 
 """
     banded_matrix(f!::Function, dg::DGModel,
                   Q::MPIStateArray = MPIStateArray(dg),
-                  dQ::MPIStateArray = MPIStateArray(dg);
-                  single_column = false)
+                  dQ::MPIStateArray = MPIStateArray(dg),
+                  single_column = false, args...)
 
 Forms the banded matrices for each the column operator defined by the linear
 operator `f!` which is assumed to have the same banded structure as the
@@ -319,11 +319,13 @@ are:
 
 If the 'single_column=true` then the returned array has 2 dimensions which are
 the band index and the vertical DOF index.
+
+Here `args` are passed to `f!`.
 """
 function banded_matrix(f!::Function, dg::DGModel,
                        Q::MPIStateArray = MPIStateArray(dg),
-                       dQ::MPIStateArray = MPIStateArray(dg);
-                       single_column = false)
+                       dQ::MPIStateArray = MPIStateArray(dg),
+                       single_column = false, args...)
   bl = dg.balancelaw
   grid = dg.grid
   topology = grid.topology
@@ -374,7 +376,7 @@ function banded_matrix(f!::Function, dg::DGModel,
                                      1:nvertelem))
 
         # Get the matrix column
-        f!(dQ, Q)
+        f!(dQ, Q, args...)
 
         # Store the banded matrix
         @launch(device, threads=(Nq, Nqj, Nq),

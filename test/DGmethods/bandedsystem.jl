@@ -113,7 +113,10 @@ let
                                 direction=VerticalDirection(),
                                 auxstate=dg.auxstate)
 
-            A_banded = banded_matrix(dg_linear; single_column=single_column)
+            A_banded = banded_matrix(dg_linear,
+                                     MPIStateArray(dg),
+                                     MPIStateArray(dg),
+                                     single_columnn)
 
             Q = MPIStateArray(dg_linear)
             dQ1 = MPIStateArray(dg_linear)
@@ -199,8 +202,10 @@ let
               @. LQ = Q + α * LQ
             end
 
-            A_banded = banded_matrix(op!, dg_linear;
-                                     single_column=single_column)
+            A_banded = banded_matrix(op!, dg_linear,
+                                     MPIStateArray(dg),
+                                     MPIStateArray(dg),
+                                     single_column)
 
             Q = MPIStateArray(dg_linear)
             dQ1 = MPIStateArray(dg_linear)
