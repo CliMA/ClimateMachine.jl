@@ -34,7 +34,7 @@ using StaticArrays, LinearAlgebra, Random
     linearsolver = method(b, tol)
     
     x = @MVector rand(T, n)
-    iters = linearsolve!(mulbyA!, x, b, linearsolver)
+    iters = linearsolve!(mulbyA!, linearsolver, x, b)
 
     @test iters == expected_iters[m][T]
     @test norm(A * x - b) / norm(b) <= tol
@@ -42,7 +42,7 @@ using StaticArrays, LinearAlgebra, Random
     # test for convergence in 0 iterations by
     # initializing with the exact solution
     x = A \ b
-    iters = linearsolve!(mulbyA!, x, b, linearsolver)
+    iters = linearsolve!(mulbyA!, linearsolver, x, b)
     @test iters == 0
     @test norm(A * x - b) / norm(b) <= tol
    
@@ -50,7 +50,7 @@ using StaticArrays, LinearAlgebra, Random
     settolerance!(linearsolver, newtol)
     
     x = @MVector rand(T, n)
-    linearsolve!(mulbyA!, x, b, linearsolver)
+    linearsolve!(mulbyA!, linearsolver, x, b)
 
     @test norm(A * x - b) / norm(b) <= newtol
     @test norm(A * x - b) / norm(b) >= tol
