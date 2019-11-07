@@ -2,7 +2,6 @@ using MPI
 using Test
 using LinearAlgebra
 using Random
-Random.seed!(1234)
 using GPUifyLoops, StaticArrays
 
 using CLIMA
@@ -44,9 +43,11 @@ let
   m = n = Nq * Nfields * Ne_vert
   p = q = Nq * Nfields * EB - 1
 
+  Random.seed!(1234)
   AB = rand(FT, Nq, Nq, p + q + 1, n, Ne_horz)
   AB[:, :, q + 1, :, :] .+= 10 # Make A's diagonally dominate
 
+  Random.seed!(5678)
   b = rand(FT, Nq, Nq, Nq, Nfields, Ne_vert, Ne_horz)
   x = similar(b)
 
@@ -58,7 +59,7 @@ let
   blocks = Ne_horz
   d_F = ArrayType(AB)
   @launch(device, threads=threads, blocks=blocks,
-          band_lu_knl!(d_F, Val(Nq), Val(Nfields), Val(Ne_vert), Val(Ne_horz),
+          band_lu_knl!(d_F, Val(Nq), Val(Nq), Val(Nfields), Val(Ne_vert), Val(Ne_horz),
                        Val(EB)))
 
   F = Array(d_F)
@@ -78,10 +79,10 @@ let
   d_x = ArrayType(b)
 
   @launch(device, threads=threads, blocks=blocks,
-          band_forward_knl!(d_x, d_F, Val(Nq), Val(Nfields), Val(Ne_vert),
+          band_forward_knl!(reshape(d_x,(Nq*Nq*Nq, Nfields, Ne_vert * Ne_horz)), d_F, Val(Nq), Val(Nq), Val(Nfields), Val(Ne_vert),
                             Val(Ne_horz), Val(EB)))
   @launch(device, threads=threads, blocks=blocks,
-          band_back_knl!(d_x, d_F, Val(Nq), Val(Nfields), Val(Ne_vert),
+          band_back_knl!(reshape(d_x,(Nq*Nq*Nq, Nfields, Ne_vert * Ne_horz)), d_F, Val(Nq), Val(Nq), Val(Nfields), Val(Ne_vert),
                          Val(Ne_horz), Val(EB)))
 
   @test x ≈ Array(d_x)
