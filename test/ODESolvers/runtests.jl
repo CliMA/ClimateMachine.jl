@@ -26,6 +26,7 @@ const explicit_methods = [(LSRK54CarpenterKennedy, 4)
                          ]
 
 const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
+                      (ARK437L2SA1KennedyCarpenter, 4),
                       (ARK548L2SA2KennedyCarpenter, 5)
                      ]
 
