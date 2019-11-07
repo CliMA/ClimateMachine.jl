@@ -5,7 +5,7 @@ Compute the "remainder" contribution of the `main` model, after subtracting `sub
 """
 struct RemainderModel{M,S} <: BalanceLaw
   main::M
-  subs::S
+  sub::S
 end
 
 vars_state(rem::RemainderModel, FT) = vars_state(rem.main,FT)
@@ -31,7 +31,7 @@ diffusive!(rem::RemainderModel, diffusive::Vars, ∇transform::Grad, state::Vars
 
 function wavespeed(rem::RemainderModel, nM, state::Vars, aux::Vars, t::Real)
   ref = aux.ref_state
-  return wavespeed(rem.main, nM, state, aux, t) - sum(sub -> wavespeed(sub, nM, state, aux, t), rem.subs)
+  return wavespeed(rem.main, nM, state, aux, t) - wavespeed(rem.sub, nM, state, aux, t)
 end
 
 boundary_state!(nf, rem::RemainderModel, x...) = boundary_state!(nf, rem.main, x...)
@@ -47,11 +47,47 @@ function flux_nondiffusive!(rem::RemainderModel, flux::Grad, state::Vars, aux::V
   flux_s = similar(flux)
   m_s = getfield(flux_s, :array)
 
-  for sub in rem.subs
-    fill!(m_s, 0)
-    flux_nondiffusive!(sub, flux_s, state, aux, t)
-    m .-= m_s
-  end
+  fill!(m_s, 0)
+  flux_nondiffusive!(rem.sub, flux_s, state, aux, t)
+  m .-= m_s
+  nothing
+end
+
+function flux_nondiffusive!(rem::RemainderModel{M,S}, flux::Grad, state::Vars, aux::Vars, t::Real) where {M,S<:AtmosAcousticLinearModel}
+  FT = eltype(state)
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  ref = aux.ref_state
+  u = ρu / ρ
+  e_pot = gravitational_potential(rem.main.orientation, aux)
+  p = pressure(rem.main.moisture, rem.main.orientation, state, aux)
+  # TODO: use MoistThermodynamics.linearized_air_pressure 
+  # need to avoid dividing then multiplying by ρ
+  pL = ρ * FT(R_d) * FT(T_0) + FT(R_d) / FT(cv_d) * (ρe - ρ * e_pot)
+
+  flux.ρ = -zero(FT)
+  flux.ρu = ρu .* u' + (p - pL) * I
+  flux.ρe = ((ρe + p) / ρ - (ref.ρe + ref.p) / ref.ρ + e_pot) * ρu
+  nothing
+end
+
+function flux_nondiffusive!(rem::RemainderModel{M,S}, flux::Grad, state::Vars, aux::Vars, t::Real) where {M,S<:AtmosAcousticGravityLinearModel}
+  FT = eltype(state)
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  ref = aux.ref_state
+  u = ρu / ρ
+  e_pot = gravitational_potential(rem.main.orientation, aux)
+  p = pressure(rem.main.moisture, rem.main.orientation, state, aux)
+  # TODO: use MoistThermodynamics.linearized_air_pressure 
+  # need to avoid dividing then multiplying by ρ
+  pL = ρ * FT(R_d) * FT(T_0) + FT(R_d) / FT(cv_d) * (ρe - ρ * e_pot)
+
+  flux.ρ = -zero(FT)
+  flux.ρu = ρu .* u' + (p - pL) * I
+  flux.ρe = ((ρe + p) / ρ - (ref.ρe + ref.p) / ref.ρ) * ρu
   nothing
 end
 
@@ -62,10 +98,19 @@ function source!(rem::RemainderModel, source::Vars, state::Vars, aux::Vars, t::R
   source_s = similar(source)
   m_s = getfield(source_s, :array)
 
-  for sub in rem.subs
-    fill!(m_s, 0)
-    source!(sub, source_s, state, aux, t)
-    m .-= m_s
-  end
+  fill!(m_s, 0)
+  source!(rem.sub, source_s, state, aux, t)
+  m .-= m_s
   nothing
+end
+
+function source!(rem::RemainderModel{M,S}, source::Vars, state::Vars, aux::Vars, t::Real) where {M,S<:AtmosAcousticLinearModel}
+  source!(rem.main, source, state, aux, t)
+end
+
+function source!(rem::RemainderModel{M,S}, source::Vars, state::Vars, aux::Vars, t::Real) where {M,S<:AtmosAcousticGravityLinearModel}
+  ∇Φ = ∇gravitational_potential(rem.main.orientation, aux)
+  source!(rem.main, source, state, aux, t)
+  # TODO: avoid subtractive cancellation here
+  source.ρu += state.ρ * ∇Φ
 end
