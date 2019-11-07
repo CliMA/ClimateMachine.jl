@@ -1,6 +1,7 @@
 using CLIMA: haspkg
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
+using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state, VerticalDirection
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive
@@ -47,10 +48,9 @@ function main()
   global_logger(ConsoleLogger(logger_stream, loglevel))
 
   polynomialorder = 5
-  numelem_horz = 4
+  numelem_horz = 10
 
-  numelem_vert = 4
-  #numelem_vert = 30 # Resolution required for stable long time result
+  numelem_vert = 5
 
   timeend = 60
   #timeend = 33 * 60 * 60 # Full simulation
@@ -86,7 +86,6 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      Gravity(), 
                      NoFluxBC(),
                      setup)
-
   linearmodel = AtmosAcousticLinearModel(model)
 
   dg = DGModel(model, grid, Rusanov(),
@@ -100,15 +99,23 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(setup.T_ref))
-  dt = 10 * element_size / acoustic_speed / polynomialorder ^ 2
+  dt_factor = 40
+  dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
   # Adjust the time step so we exactly hit 1 hour for VTK output
   dt = 60 * 60 / ceil(60 * 60 / dt)
 
   Q = init_ode_state(dg, FT(0))
 
   linearsolver = GeneralizedMinimalResidual(30, Q, sqrt(eps(FT)))
-  odesolver = ARK548L2SA2KennedyCarpenter(dg, lineardg, linearsolver, Q;
-                                          dt = dt, t0 = 0, split_nonlinear_linear=false)
+  odesolver = ARK2GiraldoKellyConstantinescu(dg, lineardg, linearsolver, Q;
+                                             dt = dt, t0 = 0, split_nonlinear_linear=false)
+
+  filterorder = 18
+  filter = ExponentialFilter(grid, 0, filterorder)
+  cbfilter = EveryXSimulationSteps(1) do
+    Filters.apply!(Q, 1:size(Q, 2), grid, filter; horizontal=false, vertical=true)
+    nothing
+  end
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -136,13 +143,13 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                         """ gettime(odesolver) runtime energy
     end
   end
-  callbacks = (cbinfo,)
+  callbacks = (cbinfo, cbfilter)
 
   if output_vtk
     # create vtk dir
     vtkdir = "vtk_acousticwave" *
       "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
-      "_$(ArrayType)_$(FT)"
+      "_dt$(dt_factor)x_$(ArrayType)_$(FT)"
     mkpath(vtkdir)
 
     vtkstep = 0
