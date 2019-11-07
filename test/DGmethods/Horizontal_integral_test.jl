@@ -106,4 +106,66 @@ for ArrayType in ArrayTypes
       @info Err
     end
   end
+  warpfun1 = (ξ1, ξ2, ξ3) -> begin
+    x1 = sin(2 * π * ξ3)/16 + ξ1 #+ (ξ1 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
+    x2 = ξ2  + (ξ2 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
+    x3 = ξ3 # + ξ1 / 4 + ξ2^2 / 2 + sin(ξ1 * ξ2 * ξ3) + exp(sin(2π * (ξ1 * ξ2 + ξ3)))/20
+    return (x1, x2, x3)
+  end
+
+  for N in 4:4
+    for Ne in 1:1
+      println(N," ",Ne)
+      brickrange1 = (range(FT(0); length=Ne+1, stop=1),
+              range(FT(0); length=Ne+1, stop=1),
+              range(FT(0); length=2, stop=1))
+      topl1 = StackedBrickTopology(mpicomm, brickrange1,
+                            periodicity = (false, false, false))
+
+      grid1 = DiscontinuousSpectralElementGrid(topl1,
+                                        FloatType = FT,
+                                        DeviceArray = ArrayType,
+                                        polynomialorder = N,
+                                        meshwarp = warpfun1,
+                                       )
+
+      N = polynomialorder(grid1)
+      vgeo1 = grid1.vgeo
+      Nq = N + 1
+      Nqk = dimensionality(grid1) == 2 ? 1 : Nq
+      nrealelem = length(topl1.realelems)
+      host_array = Array ∈ typeof(vgeo1).parameters
+      localvgeo = host_array ? vgeo1 : Array(vgeo1)
+      S = zeros(Nqk)
+      S1 = zeros(Nqk)
+      K = zeros(Nqk)
+      for e in 1:nrealelem
+        for k in 1:Nqk
+          for j in 1:Nq
+            for i in 1:Nq
+              ijk = i + Nq * ((j-1)+ Nq * (k-1))
+              S[k] += localvgeo[ijk,grid1.x1id,e] * localvgeo[ijk,grid1.MHid,e]
+              S1[k] += localvgeo[ijk,grid1.MHid,e]
+	      K[k] = localvgeo[ijk,grid1.x3id,e]
+             end
+          end
+        end
+      end
+
+      Stot = zeros(Nqk)
+      S1tot = zeros(Nqk)
+      Err = 0
+
+      for k in 1:Nqk
+        Stot[k] = MPI.Reduce(S[k], +, 0, MPI.COMM_WORLD)
+        S1tot[k] = MPI.Reduce(S1[k], +, 0, MPI.COMM_WORLD)
+        Err += (0.5 + sin(2 * π * K[k]) / 16 - Stot[k] / S1tot[k])^2
+	end
+
+      Err = sqrt(Err / Nqk)
+      @info Err
+    end
+  end
 end
+
+
