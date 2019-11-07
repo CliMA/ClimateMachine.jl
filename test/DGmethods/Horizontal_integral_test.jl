@@ -21,6 +21,8 @@ using DelimitedFiles
 using GPUifyLoops
 using Random
 using CLIMA.IOstrings
+using Test
+
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -55,8 +57,8 @@ for ArrayType in ArrayTypes
   end
 
   for N in 4:4
-    for Ne in 1:20
-      println(N," ",Ne)
+    Ne = 1
+      
       brickrange = (range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=2, stop=1))
@@ -103,9 +105,11 @@ for ArrayType in ArrayTypes
       end
   
       Err = sqrt(Err / Nqk)
-      @info Err
-    end
+      
+      @test 2e-15 > Err
+    
   end
+
   warpfun1 = (ξ1, ξ2, ξ3) -> begin
     x1 = sin(2 * π * ξ3)/16 + ξ1 #+ (ξ1 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
     x2 = ξ2  + (ξ2 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
@@ -114,8 +118,7 @@ for ArrayType in ArrayTypes
   end
 
   for N in 4:4
-    for Ne in 1:1
-      println(N," ",Ne)
+    Ne = 1
       brickrange1 = (range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=2, stop=1))
@@ -163,8 +166,8 @@ for ArrayType in ArrayTypes
 	end
 
       Err = sqrt(Err / Nqk)
-      @info Err
-    end
+      @test 2e-15 > Err
+    
   end
 end
 
