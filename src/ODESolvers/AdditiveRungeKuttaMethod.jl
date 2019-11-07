@@ -124,7 +124,11 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
     end
 
     α = dt * RKA_implicit[2, 2]
-    implicitoperator! = prefactorize(EulerOperator(rhs_linear!, -α), linearsolver, Q, nothing, t0)
+    # Here we are passing NaN for the time since prefactorization assumes the
+    # operator is time independent.  If that is not the case the NaN will
+    # surface.
+    implicitoperator! = prefactorize(EulerOperator(rhs_linear!, -α),
+                                     linearsolver, Q, nothing, T(NaN))
 
     new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, implicitoperator!, linearsolver,
