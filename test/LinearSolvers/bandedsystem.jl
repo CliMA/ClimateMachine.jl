@@ -14,8 +14,8 @@ using CLIMA.Atmos: AtmosModel, AtmosAcousticLinearModel,
 using CLIMA.VariableTemplates: flattenednames
 
 using CLIMA.PlanetParameters: T_0
-using CLIMA.DGmethods: VerticalDirection, DGModel, Vars, vars_state, num_state,
-                       banded_matrix, banded_matrix_vector_product!
+using CLIMA.DGmethods: VerticalDirection, DGModel, Vars, vars_state, num_state
+using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxDiffusive,
                                        CentralGradPenalty
 using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
@@ -115,8 +115,8 @@ let
 
             A_banded = banded_matrix(dg_linear,
                                      MPIStateArray(dg),
-                                     MPIStateArray(dg),
-                                     single_columnn)
+                                     MPIStateArray(dg);
+                                     single_column=single_column)
 
             Q = MPIStateArray(dg_linear)
             dQ1 = MPIStateArray(dg_linear)
@@ -204,8 +204,8 @@ let
 
             A_banded = banded_matrix(op!, dg_linear,
                                      MPIStateArray(dg),
-                                     MPIStateArray(dg),
-                                     single_column)
+                                     MPIStateArray(dg);
+                                     single_column=single_column)
 
             Q = MPIStateArray(dg_linear)
             dQ1 = MPIStateArray(dg_linear)
