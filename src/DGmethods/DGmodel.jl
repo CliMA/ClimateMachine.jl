@@ -244,3 +244,70 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
                           Q.data, auxstate.data, t, topology.realelems))
 end
+
+function nodal_update_aux!(f!, dg_a::DGModel, dg_b::DGModel,
+                           m_a::BalanceLaw, m_b::BalanceLaw,
+                           Q_b::MPIStateArray,
+                           auxstate_a::MPIStateArray, auxstate_b::MPIStateArray, t::Real)
+  device = typeof(Q_b.data) <: Array ? CPU() : CUDA()
+
+  grid = dg_a.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  nrealelem = length(topology.realelems)
+
+  polyorder = polynomialorder(grid)
+
+  Np = dofs_per_element(grid)
+
+  ### update aux variables
+  @launch(device, threads=(Np,), blocks=nrealelem,
+          knl_nodal_update_aux!(m_a, m_b,
+                                Val(dim), Val(polyorder), f!,
+                                Q_b.data,
+                                auxstate_a.data, auxstate_b.data,
+                                t, topology.realelems))
+end
+
+"""
+    grad_auxiliary_state!(disc, i, (ix1, ix2, ix3)
+Computes the gradient of a the field `i` of the constant auxiliary state of
+`disc` and stores the `x1, x2, x3` compoment in fields `ix1, ix2, ix3` of constant
+auxiliary state.
+!!! note
+    This only computes the element gradient not a DG gradient. If your constant
+    auxiliary state is discontinuous this may or may not be what you want!
+"""
+function grad_auxiliary_state!(dg::DGModel, id, (idx1, idx2, idx3))
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+
+  auxstate = dg.auxstate
+
+  nauxstate = size(auxstate, 2)
+
+  @assert nauxstate >= max(id, idx1, idx2, idx3)
+  @assert 0 < min(id, idx1, idx2, idx3)
+  @assert allunique((idx1, idx2, idx3))
+
+  lgl_weights_vec = grid.ω
+  Dmat = grid.D
+  vgeo = grid.vgeo
+
+  device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
+
+  nelem = length(topology.elems)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  @launch(device, threads=(Nq, Nq, Nqk), blocks=nelem,
+          elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.data, vgeo,
+                           lgl_weights_vec, Dmat, topology.elems,
+                           id, idx1, idx2, idx3))
+end

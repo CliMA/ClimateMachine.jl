@@ -2,7 +2,8 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       RemainderModel
+       RemainderModel,
+       SchurLHSModel, SchurRHSModel, SchurUpdateModel, schur_aux_init!
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -20,7 +21,8 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         update_aux!, integrate_aux!, LocalGeometry, lengthscale,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!
+                        reverse_indefinite_stack_integral!,
+                        vars_instate, vars_outstate
 using ..DGmethods.NumericalFluxes
 
 """
@@ -214,6 +216,7 @@ include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
 include("remainder.jl")
+include("schur.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)

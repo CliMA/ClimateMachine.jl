@@ -923,7 +923,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         else
           if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
-            @unroll for s = 1:noutstate
+            @unroll for s = 1:ninstate
               l_Q_bot1[s] = Q[n + Nqk^2, s, e]
             end
             @unroll for s = 1:nauxstate
@@ -1049,6 +1049,55 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
+      end
+    end
+  end
+end
+
+"""
+    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate,
+                          t, elems) where {dim, N}
+
+Update the auxiliary state array
+"""
+function knl_nodal_update_aux!(bl_a::BalanceLaw, bl_b::BalanceLaw,
+                               ::Val{dim}, ::Val{N}, f!, Q_b,
+                               auxstate_a, auxstate_b, t, elems) where {dim, N}
+  FT = eltype(Q_b)
+  nauxstate_a = num_aux(bl_a,FT)
+  ninstate_b = num_instate(bl_b,FT)
+  nauxstate_b = num_aux(bl_b,FT)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  l_Q_b = MArray{Tuple{ninstate_b}, FT}(undef)
+  l_aux_a = MArray{Tuple{nauxstate_a}, FT}(undef)
+  l_aux_b = MArray{Tuple{nauxstate_b}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:ninstate_b
+        l_Q_b[s] = Q_b[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate_a
+        l_aux_a[s] = auxstate_a[n, s, e]
+      end
+      
+      @unroll for s = 1:nauxstate_b
+        l_aux_b[s] = auxstate_b[n, s, e]
+      end
+
+      f!(bl_a, bl_b,
+         Vars{vars_instate(bl_b,FT)}(l_Q_b),
+         Vars{vars_aux(bl_a,FT)}(l_aux_a), Vars{vars_aux(bl_b,FT)}(l_aux_b), t)
+
+      @unroll for s = 1:nauxstate_a
+        auxstate_a[n, s, e] = l_aux_a[s]
       end
     end
   end
@@ -1202,4 +1251,141 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
     end
   end
   nothing
+end
+
+"""
+    elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo, D, elems, s,
+                     sx, sy, sz) where {dim, N, nstate}
+Computational kernel: Compute the element gradient of state `s` of `Q` and store
+it in `sx`, `sy`, and `sz` of `Q`.
+!!! warning
+    This does not compute a DG gradient, but only over the element. If ``Q_s``
+    is discontinuous you may want to consider another approach.
+"""
+function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
+                          ω, D, elems, s, sx, sy, sz) where {dim, N, nstate}
+
+  DFloat = eltype(vgeo)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  s_f = @shmem DFloat (3, Nq, Nq, Nqk)
+  s_half_D = @shmem DFloat (Nq, Nq)
+
+  l_f  = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_fd = @scratch DFloat (3, Nq, Nq, Nqk) 3
+
+  l_J = @scratch DFloat (Nq, Nq, Nqk) 3
+  l_ξ1d = @scratch DFloat (3, Nq, Nq, Nqk) 3
+  l_ξ2d = @scratch DFloat (3, Nq, Nq, Nqk) 3
+  l_ξ3d = @scratch DFloat (3, Nq, Nq, Nqk) 3
+
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_half_D[i, j] = D[i, j] / 2
+      end
+    end
+  end
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          M = dim == 2 ? ω[i] * ω[j] : ω[i] * ω[j] * ω[k]
+          l_J[i, j, k] = vgeo[ijk, _M, e] / M
+          l_ξ1d[1, i, j, k] = vgeo[ijk, _ξ1x1, e]
+          l_ξ1d[2, i, j, k] = vgeo[ijk, _ξ1x2, e]
+          l_ξ1d[3, i, j, k] = vgeo[ijk, _ξ1x3, e]
+          l_ξ2d[1, i, j, k] = vgeo[ijk, _ξ2x1, e]
+          l_ξ2d[2, i, j, k] = vgeo[ijk, _ξ2x2, e]
+          l_ξ2d[3, i, j, k] = vgeo[ijk, _ξ2x3, e]
+          l_ξ3d[1, i, j, k] = vgeo[ijk, _ξ3x1, e]
+          l_ξ3d[2, i, j, k] = vgeo[ijk, _ξ3x2, e]
+          l_ξ3d[3, i, j, k] = vgeo[ijk, _ξ3x3, e]
+          l_f[i, j, k] = s_f[1, i, j, k] = Q[ijk, s, e]
+        end
+      end
+    end
+    @synchronize
+
+    # reference gradient: outside metrics
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          fξ1 = DFloat(0)
+          fξ2 = DFloat(0)
+          fξ3 = DFloat(0)
+          @unroll for n = 1:Nq
+            Din = s_half_D[i, n]
+            Djn = s_half_D[j, n]
+            Nqk > 1 && (Dkn = s_half_D[k, n])
+
+            # ξ1-grid lines
+            fξ1 += Din * s_f[1, n, j, k]
+
+            # ξ2-grid lines
+            fξ2 += Djn * s_f[1, i, n, k]
+
+            # ξ3-grid lines
+            Nqk > 1 && (fξ3 += Dkn * s_f[1, i, j, n])
+          end
+          @unroll for d = 1:3
+            l_fd[d, i, j, k] = l_ξ1d[d, i, j, k] * fξ1 +
+                               l_ξ2d[d, i, j, k] * fξ2 +
+                               l_ξ3d[d, i, j, k] * fξ3
+          end
+        end
+      end
+    end
+    @synchronize
+
+    # Build "inside metrics" flux
+    for d = 1:3
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            s_f[1,i,j,k] = l_J[i, j, k] * l_ξ1d[d, i, j, k] * l_f[i, j, k]
+            s_f[2,i,j,k] = l_J[i, j, k] * l_ξ2d[d, i, j, k] * l_f[i, j, k]
+            s_f[3,i,j,k] = l_J[i, j, k] * l_ξ3d[d, i, j, k] * l_f[i, j, k]
+          end
+        end
+      end
+      @synchronize
+      @loop for k in (1:Nqk; threadIdx().z)
+        @loop for j in (1:Nq; threadIdx().y)
+          @loop for i in (1:Nq; threadIdx().x)
+            fd = DFloat(0)
+            JI = 1 / l_J[i, j, k]
+            @unroll for n = 1:Nq
+              Din = s_half_D[i, n]
+              Djn = s_half_D[j, n]
+              Nqk > 1 && (Dkn = s_half_D[k, n])
+
+              l_fd[d, i, j, k] += JI * Din * s_f[1, n, j, k]
+              l_fd[d, i, j, k] += JI * Djn * s_f[2, i, n, k]
+              Nqk > 1 && (l_fd[d, i, j, k] += JI * Dkn * s_f[3, i, j, n])
+            end
+          end
+        end
+      end
+      @synchronize
+    end
+
+    # Physical gradient
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          Q[ijk, sx, e] = l_fd[1, i, j, k]
+          Q[ijk, sy, e] = l_fd[2, i, j, k]
+          Q[ijk, sz, e] = l_fd[3, i, j, k]
+        end
+      end
+    end
+    @synchronize
+  end
 end
