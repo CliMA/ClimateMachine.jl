@@ -117,8 +117,12 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
     Qhat = similar(Q)
     Qtt = similar(Q)
 
-    # this assumes all elements of the diagonal are identical
-    # true for currently implemented models
+    # The code throughout assumes SDIRK implicit tableau so we assert that
+    # here.
+    for is = 2:nstages
+      @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
+    end
+
     α = dt * RKA_implicit[2, 2]
     implicitoperator! = prefactorize(EulerOperator(rhs_linear!, -α), linearsolver, Q, nothing, t0)
 
