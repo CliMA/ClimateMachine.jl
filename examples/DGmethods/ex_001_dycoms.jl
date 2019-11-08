@@ -135,9 +135,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           )
-  u_ref =  7.0
-  v_ref = -5.5
-  w_ref = 0.0  
+  u_ref = FT(7.0)
+  v_ref = FT(-5.5)
+  w_ref = FT(0.0)
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
                      SmagorinskyLilly{FT}(C_smag),
