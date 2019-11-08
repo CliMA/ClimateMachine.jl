@@ -58,81 +58,96 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
-  DT         = eltype(state)
-  xvert::DT  = z
+  FT         = eltype(state)
+  xvert::FT  = z
   
-  epsdv::DT     = molmass_ratio
-  q_tot_sfc::DT = 8.1e-3
-  Rm_sfc::DT    = gas_constant_air(PhasePartition(q_tot_sfc))
-  ρ_sfc::DT     = 1.22
-  P_sfc::DT     = 1.0178e5
-  T_BL::DT      = 285.0
-  T_sfc::DT     = P_sfc/(ρ_sfc * Rm_sfc);
+  epsdv::FT     = molmass_ratio
+  q_tot_sfc::FT = 8.1e-3
+  Rm_sfc::FT    = gas_constant_air(PhasePartition(q_tot_sfc))
+  ρ_sfc::FT     = 1.22
+  P_sfc::FT     = 1.0178e5
+  T_BL::FT      = 285.0
+  T_sfc::FT     = P_sfc/(ρ_sfc * Rm_sfc);
   
-  q_liq::DT      = 0
-  q_ice::DT      = 0
-  zb::DT         = 600   
-  zi::DT         = 840 
+  q_liq::FT      = 0
+  q_ice::FT      = 0
+  zb::FT         = 600   
+  zi::FT         = 840
+  ziplus::FT     = 875
   dz_cloud       = zi - zb
-  q_liq_peak::DT = 4.5e-4
+  q_liq_peak::FT = 4.5e-4
   
   if xvert > zb && xvert <= zi        
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
   if ( xvert <= zi)
-    θ_liq  = DT(289)
-    q_tot  = DT(8.1e-3)
+    θ_liq  = FT(289)
+    q_tot  = FT(8.1e-3)
   else
-    θ_liq = DT(297.5) + (xvert - zi)^(DT(1/3))
-    q_tot = DT(1.5e-3)
+    θ_liq = FT(297.5) + (xvert - zi)^(FT(1/3))
+    q_tot = FT(1.5e-3)
   end
 
-  q_pt = PhasePartition(q_tot, q_liq, DT(0))
+  q_pt = PhasePartition(q_tot, q_liq, FT(0))
   Rm    = gas_constant_air(q_pt)
   cpm   = cp_m(q_pt)
   #Pressure
   H = Rm_sfc * T_BL / grav;
   P = P_sfc * exp(-xvert/H);
   #Exner
-  exner_dry = exner(P, PhasePartition(DT(0)))
+  exner_dry = exner(P, PhasePartition(FT(0)))
   #Temperature 
   T             = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
   #Density
   ρ             = P/(Rm*T);
   #Potential Temperature
   θv     = virtual_pottemp(T, P, q_pt)
+    
   # energy definitions
-  u, v, w     = DT(7), DT(-5.5), DT(0)
-  U           = ρ * u
-  V           = ρ * v
-  W           = ρ * w
-  e_kin       = DT(1//2) * (u^2 + v^2 + w^2)
+  u1, u2 = FT(6), FT(7)
+  v1, v2 = FT(-4.25), FT(-5.5)
+  w = FT(0)
+  if (xvert <= zi)
+      u, v = u1, v1
+  elseif (xvert >= ziplus)
+      u, v = u2, v2
+  else
+      m = (ziplus - zi)/(u2 - u1)
+      u = (xvert - zi)/m + u1
+      
+      m = (ziplus - zi)/(v2 - v1)
+      v = (xvert - zi)/m + v1
+  end    
+  e_kin       = FT(1//2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
   state.ρ     = ρ
-  state.ρu    = SVector(U, V, W) 
+  state.ρu    = SVector(ρ*u, ρ*v, ρ*w) 
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
 end   
 
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DT,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
-                                         )
+                                          )
+  u_ref =  7.0
+  v_ref = -5.5
+  w_ref = 0.0  
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     SmagorinskyLilly{DT}(C_smag),
+                     SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
-                     StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
+                     StevensRadiation{FT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
                      (Gravity(), 
-                      RayleighSponge{DT}(zmax, zsponge, 1), 
+                      RayleighSponge{FT}(zmax, zsponge, 1, u_ref, v_ref, w_ref), 
                       Subsidence(), 
-                      GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
-                     DYCOMS_BC{DT}(C_drag, LHF, SHF),
+                      GeostrophicForcing{FT}(7.62e-5, 7, -5.5)), 
+                     DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
   dg = DGModel(model,
@@ -141,7 +156,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DT(0))
+  Q = init_ode_state(dg, FT(0))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -173,8 +188,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
-             dg.auxstate, flattenednames(vars_aux(model,DT)))
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)), 
+             dg.auxstate, flattenednames(vars_aux(model,FT)))
         
     step[1] += 1
     nothing
@@ -184,7 +199,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, DT(timeend))
+  Qe = init_ode_state(dg, FT(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -213,31 +228,31 @@ let
   end
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     # Problem type
-    DT = Float64
+    FT = Float64
     # DG polynomial order 
     N = 4
     # SGS Filter constants
-    C_smag = DT(0.15)
-    LHF    = DT(115)
-    SHF    = DT(15)
-    C_drag = DT(0.0011)
+    C_smag = FT(0.15)
+    LHF    = FT(115)
+    SHF    = FT(15)
+    C_drag = FT(0.0011)
     # User defined domain parameters
-    brickrange = (grid1d(0, 2000, elemsize=DT(50)*N),
-                  grid1d(0, 2000, elemsize=DT(50)*N),
-                  grid1d(0, 1500, elemsize=DT(20)*N))
+    brickrange = (grid1d(0, 2000, elemsize=FT(50)*N),
+                  grid1d(0, 2000, elemsize=FT(50)*N),
+                  grid1d(0, 1500, elemsize=FT(20)*N))
     zmax = brickrange[3][end]
-    zsponge = DT(0.75 * zmax)
+    zsponge = FT(1200)
     
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.02
+    dt = 0.01
     timeend = 100dt
     dim = 3
-    @info (ArrayType, DT, dim)
+    @info (ArrayType, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl, 
-                 N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(0.9999737848359238)
+                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+    @test result ≈ FT(1.000033004957446) #FT(0.9999737848359238)
   end
 end
 

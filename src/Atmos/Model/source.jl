@@ -59,9 +59,10 @@ struct RayleighSponge{FT} <: Source
   zsponge::FT
   "Sponge Strength 0 ⩽ c_sponge ⩽ 1"
   c_sponge::FT
-  "Reference relaxation velocity"
+  #"Reference relaxation velocity"
   u_ref::FT
   v_ref::FT
+  w_ref::FT
 end
 
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
@@ -72,8 +73,8 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
     coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
     coeff = min(coeff_top, 1.0)
   end
-  
-  #u             = source.ρu/source.ρ
-  #u_relax_state = SVector(s.u_ref, s.v_ref, 0.0)
-  source.ρu    -= state.ρu*coeff
-end
+
+  u = state.ρu / state.ρ
+  u_relax_state = SVector(s.u_ref, s.v_ref, s.w_ref)
+  source.ρu -= state.ρ * coeff * (u - u_relax_state)    
+ end

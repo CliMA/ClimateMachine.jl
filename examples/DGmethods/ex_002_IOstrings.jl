@@ -133,7 +133,10 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   f_coriolis    = FT(7.62e-5)
   u_geostrophic = FT(7)
   v_geostrophic = FT(-5.5)
-  
+  u_ref = FT(0)
+  v_ref = FT(0)
+  w_ref = FT(0)
+    
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
@@ -141,7 +144,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(), 
-                      RayleighSponge{FT}(zmax, zsponge, 1), 
+                      RayleighSponge{FT}(zmax, zsponge, 1, u_ref, v_ref, w_ref), 
                       Subsidence(), 
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)), 
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
