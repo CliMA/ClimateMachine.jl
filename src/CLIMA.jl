@@ -1,5 +1,6 @@
 module CLIMA
 
+include("misc.jl")
 include("Utilities/ParametersType/ParametersType.jl")
 include("Common/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
@@ -19,6 +20,7 @@ include("DGmethods_old/DGBalanceLawDiscretizations.jl")
 include("LinearSolvers/LinearSolvers.jl")
 include("LinearSolvers/GeneralizedConjugateResidualSolver.jl")
 include("LinearSolvers/GeneralizedMinimalResidualSolver.jl")
+include("LinearSolvers/ColumnwiseLUSolver.jl")
 include("ODESolvers/ODESolvers.jl")
 include("ODESolvers/LowStorageRungeKuttaMethod.jl")
 include("ODESolvers/StrongStabilityPreservingRungeKuttaMethod.jl")
@@ -29,6 +31,5 @@ include("ODESolvers/GenericCallbacks.jl")
 include("Atmos/Model/AtmosModel.jl")
 include("InputOutput/VTK/VTK.jl")
 include("InputOutput/IOstrings/IOstrings.jl")
-include("misc.jl")
 
 end

@@ -4,6 +4,7 @@
 
 cpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", n = 3, args = [] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion-1dimex.jl", n = 3, args = [] },
 ]
 
 cpu_gpu = [
@@ -13,6 +14,7 @@ cpu_gpu = [
   { file = "examples/DGmethods_old/ex_004_nonnegative.jl", n = 3, args = [] },
   { file = "examples/Microphysics/ex_1_saturation_adjustment.jl", n = 3, args = [] },
   { file = "examples/Microphysics/ex_2_Kessler.jl", n = 3, args = [] },
+  { file = "test/DGmethods/bandedsystem.jl", n = 3, args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex.jl", n = 3, args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl", n = 3, args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl", n = 3, args = [] },
@@ -31,11 +33,13 @@ cpu_gpu = [
   { file = "test/DGmethods_old/sphere/advection_sphere_ssp33.jl", n = 2, args = [] },
   { file = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl", n = 2, args = [] },
   { file = "test/LinearSolvers/poisson.jl", n = 2, args = [] },
+  { file = "test/LinearSolvers/columnwiselu.jl", n = 1, args = []),
   { file = "examples/DGmethods/ex_001_dycoms.jl", n = 4, args = [] },
   { file = "test/Ocean/shallow_water/GyreDriver.jl", n = 1, args = [] },
 ]
 
 gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", n = 3, args = ["true"] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion-1dimex.jl", n = 3, args = ["true"] },
 ]
 

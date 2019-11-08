@@ -26,6 +26,7 @@ const explicit_methods = [(LSRK54CarpenterKennedy, 4)
                          ]
 
 const imex_methods = [(ARK2GiraldoKellyConstantinescu, 2),
+                      (ARK437L2SA1KennedyCarpenter, 4),
                       (ARK548L2SA2KennedyCarpenter, 5)
                      ]
 
@@ -130,9 +131,12 @@ end
 
   @testset "IMEX methods" begin
     struct DivideLinearSolver <: AbstractLinearSolver end
-    function LinearSolvers.linearsolve!(linearoperator!, Qtt, Qhat, ::DivideLinearSolver)
+    function LinearSolvers.prefactorize(linearoperator!, ::DivideLinearSolver, args...)
+      linearoperator!
+    end
+    function LinearSolvers.linearsolve!(linearoperator!, ::DivideLinearSolver, Qtt, Qhat, args...)
       @. Qhat = 1 / Qhat
-      linearoperator!(Qtt, Qhat)
+      linearoperator!(Qtt, Qhat, args...)
       @. Qtt = 1 / Qtt
     end
 
