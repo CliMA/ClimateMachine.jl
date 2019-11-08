@@ -1,5 +1,6 @@
 cpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                  (3, "examples/DGmethods_old/ex_002_solid_body_rotation.jl"),
+                 (3, "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion-1dimex.jl"),
                  (1, "test/Ocean/shallow_water/GyreDriver.jl")
                 ))
 
@@ -38,6 +39,7 @@ cpu_gpu_tests = Set(((3, "examples/DGmethods_old/ex_001_periodic_advection.jl"),
                     ))
 
 gpu_tests = Set(((3, "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl true"),
+                 (3, "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion-imex.jl true"),
                  (3, "test/DGmethods/compressible_Navier_Stokes/rayleigh-benard_model.jl")
                  (3, "examples/Atmos/heldsuarez.jl"),
                 ))

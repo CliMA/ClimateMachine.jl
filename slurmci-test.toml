@@ -4,6 +4,7 @@
 
 cpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", n = 3, args = [] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion-1dimex.jl", n = 3, args = [] },
 ]
 
 cpu_gpu = [
@@ -39,5 +40,6 @@ cpu_gpu = [
 
 gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", n = 3, args = ["true"] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion-1dimex.jl", n = 3, args = ["true"] },
 ]
 
