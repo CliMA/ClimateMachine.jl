@@ -169,6 +169,78 @@ for ArrayType in ArrayTypes
       @test 2e-15 > Err
     
   end
+  N = 4
+  base_Nhorz = 4
+  base_Nvert = 2
+  Rinner = 1 // 2  
+  Router = 1
+  for l in 1:3
+      Nhorz = 2^(l-1) * base_Nhorz
+      Nvert = 2^(l-1) * base_Nvert
+      Rrange = grid1d(FT(Rinner), FT(Router); nelem=Nvert)
+      topl2 = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
+      grid2 = DiscontinuousSpectralElementGrid(topl2,
+                                          FloatType = FT,
+                                          DeviceArray = ArrayType,
+                                          polynomialorder = N,
+                                          meshwarp = Topologies.cubedshellwarp,
+                                         )
+      N = polynomialorder(grid2)
+      vgeo2 = grid2.vgeo
+      Nq = N + 1
+      Nqk = dimensionality(grid2) == 2 ? 1 : Nq
+      nrealelem = length(topl2.realelems)
+      host_array = Array ∈ typeof(vgeo2).parameters
+      localvgeo = host_array ? vgeo2 : Array(vgeo2)
+      topology = grid2.topology
+      nvertelem = topology.stacksize
+      nhorzelem = div(nrealelem, nvertelem)
+      Surfout = 0
+      Surfin = 0
+      SV = 0
+      maxim = 0
+      minim = 0
+      for e in 1:nrealelem
+      #for ev in 1:nvertelem
+      ##for eh in 1:nhorzelem
+        #eout = nvertelem + (eh - 1) * nvertelem
+        #ein = 1 + (eh - 1) * nvertelem
+	#e = ev + (eh - 1) * nvertelem
+	for i in 1:Nq
+	  for j in 1:Nq
+	    for k in 1:Nqk
+	    #=if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
+                    n = 1/4 
+                elseif (i == 1 || i == Nq || j==1 || j==Nq)
+                    n = 1/2 
+                else
+                    n = 1  
+                end=#
+		n = 1
+	    ijk = i + Nq * ((j-1) + Nqk * (k-1))
+	    x, y, z = localvgeo[ijk,grid2.x1id,e], localvgeo[ijk,grid2.x2id,e], localvgeo[ijk,grid2.x3id,e]
+	    r = hypot(x,y,z)
+	    #maxim = max(r,maxim)
+	    #minim = min(r,minim)
+	    if abs(r -1 )< 1e-16
+	    #if (k == Nqk && ev == nvertelem) || (abs(r-1)<= 5e-16)  
+	      Surfout += n * localvgeo[ijk,grid2.MHid,e]
+	    end
+	    if abs(r - 0.5) <= 1e-16
+	     #if (k == 1 && ev == 1 && abs(r - 0.5) <= 1e-17 ) 
+	      Surfin += n * localvgeo[ijk,grid2.MHid,e]
+	    end
+
+	  end
+	end
+      end
+      end
+      #end
+      Surfouttot = MPI.Reduce(Surfout, +, 0, MPI.COMM_WORLD)
+      Surfintot = MPI.Reduce(Surfin, +, 0, MPI.COMM_WORLD)
+      @info Surfout
+      @info Surfin
+    end
 end
 
 
