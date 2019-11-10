@@ -29,7 +29,7 @@ jobs:
   - bash: |
       set -o xtrace
       sudo apt-get update
-      sudo apt-get install cmake gfortran mpich libmpich-dev
+      sudo apt-get install mpich libmpich-dev
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
@@ -75,9 +75,10 @@ jobs:
     displayName: 'Download and extract Julia'
   - bash: |
       set -o xtrace
+      echo "127.0.0.1  $HOSTNAME" | sudo tee -a /private/etc/hosts  # fix https://stackoverflow.com/a/31222970/392585
       brew update
       brew upgrade
-      brew install mpich cmake
+      brew install mpich
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
@@ -137,7 +138,7 @@ jobs:
   - bash: |
       set -o xtrace
       sudo apt-get update
-      sudo apt-get install cmake gfortran mpich libmpich-dev
+      sudo apt-get install mpich libmpich-dev
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
