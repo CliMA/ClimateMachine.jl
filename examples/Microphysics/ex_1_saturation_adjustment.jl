@@ -105,7 +105,7 @@ end
     qt_0::FT   = 7.5 * 1e-3  # kg/kg
     z_0::FT    = 0           # m
 
-    R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
+    R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
 
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
     # It is done this way to be consistent with Arabas paper.
@@ -149,7 +149,7 @@ const X_max = 1500. # m
   qt_0::FT   = 7.5 * 1e-3  # kg/kg
   z_0::FT    = 0           # m
 
-  R_m, cp_m, cv_m, γ = moist_gas_constants(PhasePartition(qt_0))
+  R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
 
   @inbounds begin
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
@@ -158,7 +158,7 @@ const X_max = 1500. # m
     p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
                 R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
                )^(cp_d / R_d)
-    T::FT = θ_0 * exner(p, PhasePartition(qt_0))
+    T::FT = θ_0 * exner_given_pressure(p, PhasePartition(qt_0))
     ρ::FT = p / R_m / T
 
     # TODO should this be more "grid aware"?
