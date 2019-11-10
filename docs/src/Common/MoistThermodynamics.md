@@ -83,8 +83,10 @@ ThermodynamicState
 PhaseDry
 PhaseEquil
 PhaseNonEquil
+TemperatureSHumEquil
 LiquidIcePotTempSHumEquil
-LiquidIcePotTempSHumEquil_no_ρ
+LiquidIcePotTempSHumNonEquil
+LiquidIcePotTempSHumNonEquil_given_pressure
 ```
 
 ```@docs
