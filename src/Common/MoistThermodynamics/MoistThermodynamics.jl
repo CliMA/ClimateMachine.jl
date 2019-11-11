@@ -756,7 +756,7 @@ function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
     return T_1
   else
     # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
-    T_2 = air_temperature(e_int, PhasePartition(q_tot, FT(0), q_tot-q_v_sat)) # Assume all ice
+    T_2 = air_temperature(e_int, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_1, T_2, SecantMethod(), FT(1e-3), 10)
@@ -791,7 +791,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::F
   if unsaturated
     return T_1
   else
-    T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot, FT(0), q_tot-q_v_sat)) # Assume all ice
+    T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
       T -> liquid_ice_pottemp_sat(T, ρ, q_tot) - θ_liq_ice,
       T_1, T_2, SecantMethod(), FT(1e-5), 40)
