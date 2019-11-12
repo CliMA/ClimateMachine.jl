@@ -190,7 +190,7 @@ let
   expected_result[2, 1, Float32, EveryDirection] = 1.2228445149958134e-02
   expected_result[2, 2, Float32, EveryDirection] = 8.8042858988046646e-04
   expected_result[2, 3, Float32, EveryDirection] = 4.8848683945834637e-05
-  expected_result[2, 4, Float32, EveryDirection] = 2.1847356492799008e-06
+  expected_result[2, 4, Float32, EveryDirection] = 2.1792175175505690e-06
   expected_result[3, 1, Float32, EveryDirection] = 9.5424978062510490e-03
   expected_result[3, 2, Float32, EveryDirection] = 5.9770536608994007e-04
   expected_result[3, 3, Float32, EveryDirection] = 4.0205955883720890e-05
@@ -207,11 +207,11 @@ let
   expected_result[2, 1, Float32, HorizontalDirection] = 4.6773292124271393e-02
   expected_result[2, 2, Float32, HorizontalDirection] = 4.0663531981408596e-03
   expected_result[2, 3, Float32, HorizontalDirection] = 5.3235678933560848e-05
-  expected_result[2, 4, Float32, HorizontalDirection] = 3.5185137221560581e-06
+  expected_result[2, 4, Float32, HorizontalDirection] = 3.5282637327327393e-06
   expected_result[3, 1, Float32, HorizontalDirection] = 1.7293667420744896e-02
   expected_result[3, 2, Float32, HorizontalDirection] = 1.2450854992493987e-03
   expected_result[3, 3, Float32, HorizontalDirection] = 7.0057700213510543e-05
-  expected_result[3, 4, Float32, HorizontalDirection] = 5.5491593229817227e-05
+  expected_result[3, 4, Float32, HorizontalDirection] = 5.4914667998673394e-05
 
   expected_result[2, 1, Float64, VerticalDirection] = 4.6773313437233136e-02
   expected_result[2, 2, Float64, VerticalDirection] = 4.0665907382118321e-03
@@ -224,11 +224,11 @@ let
   expected_result[2, 1, Float32, VerticalDirection] = 4.6773284673690796e-02
   expected_result[2, 2, Float32, VerticalDirection] = 4.0663606487214565e-03
   expected_result[2, 3, Float32, VerticalDirection] = 5.3235460654832423e-05
-  expected_result[2, 4, Float32, VerticalDirection] = 3.8958251025178470e-06
+  expected_result[2, 4, Float32, VerticalDirection] = 3.9053838918334804e-06
   expected_result[3, 1, Float32, VerticalDirection] = 6.6147454082965851e-02
   expected_result[3, 2, Float32, VerticalDirection] = 5.7507432065904140e-03
-  expected_result[3, 3, Float32, VerticalDirection] = 8.3523096691351384e-05
-  expected_result[3, 4, Float32, VerticalDirection] = 2.3923123080749065e-04
+  expected_result[3, 3, Float32, VerticalDirection] = 8.3614431787282228e-05
+  expected_result[3, 4, Float32, VerticalDirection] = 2.4086561461444944e-04
 
   numlevels = integration_testing ? 4 : 1
 
