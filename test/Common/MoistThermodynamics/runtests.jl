@@ -90,14 +90,17 @@ using LinearAlgebra
   # variables E_int, p, q_tot, compute the temperature and partitioning of the phases
   q_tot = FT(0); ρ = FT(1)
   @test saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
+  @test saturation_adjustment_NewtonsMethod(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
 
   q_tot = FT(0.21); ρ = FT(0.1)
   @test saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot) ≈ 200.0
+  @test saturation_adjustment_NewtonsMethod(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot) ≈ 200.0
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
 
   q_tot = FT(0.78); ρ = FT(1)
   @test saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
+  @test saturation_adjustment_NewtonsMethod(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
 
