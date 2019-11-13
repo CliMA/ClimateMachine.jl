@@ -115,7 +115,7 @@ function LiquidIcePotTempSHumEquil(θ_liq_ice::FT, q_tot::FT, ρ::FT) where {FT<
 end
 
 """
-    LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, q_tot, ρ)
+    LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, q_tot, p)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 
@@ -125,8 +125,7 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 """
 function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT, q_tot::FT, p::FT) where {FT<:Real}
     q = PhasePartition(q_tot)
-    Π_dry = exner_given_pressure(p)
-    T = Π_dry*θ_liq_ice + latent_heat_liq_ice(q)/cp_m(q)
+    T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, q)
     e_int = internal_energy(T, q)
     ρ = air_density(T, p, q)
     return PhaseEquil(e_int, q.tot, ρ, T)
