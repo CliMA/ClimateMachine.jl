@@ -4,6 +4,7 @@ using CLIMA.RootSolvers
 
 @testset "RootSolvers correctness" begin
   f(x) = x^2 - 100^2
+  f′(x) = 2x
   for T in [Float32, Float64]
     x_root, converged = find_zero(f, T(0.0), T(1000.0), SecantMethod())
     @test converged
@@ -15,17 +16,22 @@ using CLIMA.RootSolvers
     @test x_root isa T
     @test x_root ≈ 100
 
-    x_root, converged = find_zero(f, T(1.0), NewtonsMethod())
+    x_root, converged = find_zero(f, T(1.0), NewtonsMethodAD())
     @test converged
     @test x_root isa T
     @test x_root ≈ 100
-  end  
+
+    x_root, converged = find_zero(f, f′, T(1.0), NewtonsMethod())
+    @test converged
+    @test x_root isa T
+    @test x_root ≈ 100
+  end
 end
 
 @static if haspkg("CuArrays")
   using CuArrays
   CuArrays.allowscalar(false)
-  
+
   @testset "CUDA RootSolvers" begin
     X0 = cu(rand(5,5))
     X1 = cu(rand(5,5)) .+ 1000
