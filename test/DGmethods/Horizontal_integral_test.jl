@@ -52,7 +52,7 @@ for ArrayType in ArrayTypes
   warpfun = (ξ1, ξ2, ξ3) -> begin
     x1 = ξ1 + (ξ1 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
     x2 = ξ2  + (ξ2 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
-    x3 = ξ3 + ξ1 / 4 + ξ2^2 / 2 + sin(ξ1 * ξ2 * ξ3) + exp(sin(2π * (ξ1 * ξ2 + ξ3)))/20
+    x3 = ξ3 + ξ1 / 4 + sin(2 * π * ξ1) / 16 
     return (x1, x2, x3)
   end
 
@@ -106,19 +106,19 @@ for ArrayType in ArrayTypes
   
       Err = sqrt(Err / Nqk)
       
-      @test 2e-15 > Err
+      @test Err< 2e-15
     
   end
 
   warpfun1 = (ξ1, ξ2, ξ3) -> begin
     x1 = sin(2 * π * ξ3)/16 + ξ1 #+ (ξ1 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
     x2 = ξ2  + (ξ2 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
-    x3 = ξ3 # + ξ1 / 4 + ξ2^2 / 2 + sin(ξ1 * ξ2 * ξ3) + exp(sin(2π * (ξ1 * ξ2 + ξ3)))/20
+    x3 = ξ3 + sin(2π * (ξ1))/20
     return (x1, x2, x3)
   end
 
   for N in 4:4
-    Ne = 1
+    Ne = 1 
       brickrange1 = (range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=Ne+1, stop=1),
               range(FT(0); length=2, stop=1))
@@ -169,11 +169,15 @@ for ArrayType in ArrayTypes
       @test 2e-15 > Err
     
   end
+
   N = 4
   base_Nhorz = 4
   base_Nvert = 2
   Rinner = 1 // 2  
   Router = 1
+  expected_result = [-4.5894269717905445e-8 -1.1473566985387151e-8;
+		     -2.0621904184281448e-10  -5.155431637149377e-11;
+	             -8.72191208145523e-13 -2.1715962361668062e-13] 
   for l in 1:3
       Nhorz = 2^(l-1) * base_Nhorz
       Nvert = 2^(l-1) * base_Nvert
@@ -197,49 +201,30 @@ for ArrayType in ArrayTypes
       nhorzelem = div(nrealelem, nvertelem)
       Surfout = 0
       Surfin = 0
-      SV = 0
-      maxim = 0
-      minim = 0
-      for e in 1:nrealelem
-      #for ev in 1:nvertelem
-      ##for eh in 1:nhorzelem
-        #eout = nvertelem + (eh - 1) * nvertelem
-        #ein = 1 + (eh - 1) * nvertelem
-	#e = ev + (eh - 1) * nvertelem
-	for i in 1:Nq
-	  for j in 1:Nq
-	    for k in 1:Nqk
-	    #=if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
-                    n = 1/4 
-                elseif (i == 1 || i == Nq || j==1 || j==Nq)
-                    n = 1/2 
-                else
-                    n = 1  
-                end=#
-		n = 1
-	    ijk = i + Nq * ((j-1) + Nqk * (k-1))
-	    x, y, z = localvgeo[ijk,grid2.x1id,e], localvgeo[ijk,grid2.x2id,e], localvgeo[ijk,grid2.x3id,e]
-	    r = hypot(x,y,z)
-	    #maxim = max(r,maxim)
-	    #minim = min(r,minim)
-	    if abs(r -1 )< 1e-16
-	    #if (k == Nqk && ev == nvertelem) || (abs(r-1)<= 5e-16)  
-	      Surfout += n * localvgeo[ijk,grid2.MHid,e]
-	    end
-	    if abs(r - 0.5) <= 1e-16
-	     #if (k == 1 && ev == 1 && abs(r - 0.5) <= 1e-17 ) 
-	      Surfin += n * localvgeo[ijk,grid2.MHid,e]
-	    end
 
-	  end
-	end
+      for ev in 1:nvertelem
+        for eh in 1:nhorzelem
+	  e = ev + (eh - 1) * nvertelem
+	  for i in 1:Nq
+	    for j in 1:Nq
+	      for k in 1:Nqk
+	        ijk = i + Nq * ((j-1) + Nqk * (k-1))
+	        if (k == Nqk && ev == nvertelem)
+	          Surfout += localvgeo[ijk,grid2.MHid,e]
+	        end
+	        if (k == 1 && ev == 1 )
+	          Surfin += localvgeo[ijk,grid2.MHid,e]
+	        end
+	      end
+	    end
+          end
+        end
       end
-      end
-      #end
+
       Surfouttot = MPI.Reduce(Surfout, +, 0, MPI.COMM_WORLD)
       Surfintot = MPI.Reduce(Surfin, +, 0, MPI.COMM_WORLD)
-      @info Surfout
-      @info Surfin
+      @test (4 * π * Router^2 - Surfouttot) ≈ expected_result[l,1]
+      @test (4 * π * Rinner^2 - Surfintot) ≈ expected_result[l,2]
     end
 end
 

@@ -261,7 +261,6 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, MHJH, x1, x2, x3,
    JcV) = ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
   J = similar(x1)
-  JH = similar(x1)
   (n1, n2, n3, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
   sJ = similar(sMJ)
 
@@ -299,10 +298,10 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
       x2ξ2 = J * ξ1x1
       hypot(x1ξ1, x2ξ2)
     end
-    map!(JH, J, ξ1x1, ξ1x2) do J, ξ2x1, ξ2x2
-      hypot(J * ξ2x2, J * ξ2x1)
+    map!(MHJH, J, ξ2x1, ξ2x2) do J, ξ2x1, ξ2x2
+      hypot(J * ξ2x1, J * ξ2x2)
     end
-    MHJH .= MH .* JH
+    MHJH .= MH .* MHJH
 
   elseif dim == 3
     map!(JcV, J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
@@ -312,11 +311,11 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
       x3ξ3 = J * (ξ1x1 * ξ2x2 - ξ2x1 * ξ1x2)
       hypot(x1ξ3, x2ξ3, x3ξ3)
     end
-    map!(JH, J, ξ1x3, ξ2x3, ξ3x3
-        ) do J, ξ1x3, ξ2x3, ξ3x3
-      hypot(J*ξ1x3 ,J*ξ2x3, J*ξ3x3)
+    map!(MHJH, J, ξ3x1, ξ3x2, ξ3x3
+        ) do J, ξ3x1, ξ3x2, ξ3x3
+      hypot(J*ξ3x1 ,J*ξ3x2, J*ξ3x3)
     end
-    MHJH .= MH .* JH
+    MHJH .= MH .* MHJH
   else
     error("dim $dim not implemented")
   end
