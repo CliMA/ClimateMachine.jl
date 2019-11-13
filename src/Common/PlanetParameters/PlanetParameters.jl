@@ -25,7 +25,7 @@ using ..ParametersType
 
 # Properties of water
 @exportparameter ρ_cloud_liq       1e3           "Density of liquid water (kg/m^3)"
-@exportparameter ρ_cloud_ice       9167          "Density of ice water (kg/m^3)"
+@exportparameter ρ_cloud_ice       916.7         "Density of ice water (kg/m^3)"
 @exportparameter molmass_water     18.01528e-3   "Molecular weight (kg/mol)"
 @exportparameter molmass_ratio     molmass_dryair/
                                    molmass_water "Molar mass ratio dry air/water"
@@ -39,6 +39,7 @@ using ..ParametersType
 @exportparameter cv_i              cp_i          "Isochoric specific heat ice (J/kg/K)"
 @exportparameter T_freeze          273.15        "Freezing point temperature (K)"
 @exportparameter T_min             150.0         "Minimum temperature guess in saturation adjustment (K)"
+@exportparameter T_max             1000.0        "Maximum temperature guess in saturation adjustment (K)"
 @exportparameter T_icenuc          233.00        "Homogeneous nucleation temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"

@@ -66,15 +66,15 @@ function create_state(bl::BalanceLaw, grid, commtag)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  state = MPIStateArray{Tuple{Np, num_state(bl,FT)}, FT,
-                        DA}(topology.mpicomm, length(topology.elems),
+  state = MPIStateArray{FT}(topology.mpicomm, DA, Np, num_state(bl,FT),
+                            length(topology.elems),
                             realelems=topology.realelems,
                             ghostelems=topology.ghostelems,
                             vmaprecv=grid.vmaprecv, vmapsend=grid.vmapsend,
                             nabrtorank=topology.nabrtorank,
                             nabrtovmaprecv=grid.nabrtovmaprecv,
-                            nabrtovmapsend=grid.nabrtovmapsend, weights=weights,
-                            commtag=commtag)
+                            nabrtovmapsend=grid.nabrtovmapsend,
+                            weights=weights, commtag=commtag)
   return state
 end
 
@@ -89,18 +89,16 @@ function create_auxstate(bl, grid, commtag=222)
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  auxstate = MPIStateArray{Tuple{Np, num_aux(bl,FT)}, FT, DA}(
-    topology.mpicomm,
-    length(topology.elems),
-    realelems=topology.realelems,
-    ghostelems=topology.ghostelems,
-    vmaprecv=grid.vmaprecv,
-    vmapsend=grid.vmapsend,
-    nabrtorank=topology.nabrtorank,
-    nabrtovmaprecv=grid.nabrtovmaprecv,
-    nabrtovmapsend=grid.nabrtovmapsend,
-    weights=weights,
-    commtag=commtag)
+  auxstate = MPIStateArray{FT}(topology.mpicomm, DA, Np, num_aux(bl,FT),
+                               length(topology.elems),
+                               realelems=topology.realelems,
+                               ghostelems=topology.ghostelems,
+                               vmaprecv=grid.vmaprecv,
+                               vmapsend=grid.vmapsend,
+                               nabrtorank=topology.nabrtorank,
+                               nabrtovmaprecv=grid.nabrtovmaprecv,
+                               nabrtovmapsend=grid.nabrtovmapsend,
+                               weights=weights, commtag=commtag)
 
   dim = dimensionality(grid)
   polyorder = polynomialorder(grid)
@@ -127,18 +125,16 @@ function create_diffstate(bl, grid, commtag=111)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
   # TODO: Clean up this MPIStateArray interface...
-  diffstate = MPIStateArray{Tuple{Np, num_diffusive(bl,FT)},FT, DA}(
-    topology.mpicomm,
-    length(topology.elems),
-    realelems=topology.realelems,
-    ghostelems=topology.ghostelems,
-    vmaprecv=grid.vmaprecv,
-    vmapsend=grid.vmapsend,
-    nabrtorank=topology.nabrtorank,
-    nabrtovmaprecv=grid.nabrtovmaprecv,
-    nabrtovmapsend=grid.nabrtovmapsend,
-    weights=weights,
-    commtag=commtag)
+  diffstate = MPIStateArray{FT}(topology.mpicomm, DA, Np, num_diffusive(bl,FT),
+                                length(topology.elems),
+                                realelems=topology.realelems,
+                                ghostelems=topology.ghostelems,
+                                vmaprecv=grid.vmaprecv,
+                                vmapsend=grid.vmapsend,
+                                nabrtorank=topology.nabrtorank,
+                                nabrtovmaprecv=grid.nabrtovmaprecv,
+                                nabrtovmapsend=grid.nabrtovmapsend,
+                                weights=weights, commtag=commtag)
 
   return diffstate
 end

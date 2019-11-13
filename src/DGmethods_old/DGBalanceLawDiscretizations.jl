@@ -365,32 +365,26 @@ function DGBalanceLaw(;grid::DiscontinuousSpectralElementGrid,
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
   # TODO: Clean up this MPIStateArray interface...
-  Qvisc = MPIStateArray{Tuple{Np, number_viscous_states},
-                     FT, DA
-                    }(topology.mpicomm,
-                      length(topology.elems),
-                      realelems=topology.realelems,
-                      ghostelems=topology.ghostelems,
-                      vmaprecv=grid.vmaprecv,
-                      vmapsend=grid.vmapsend,
-                      nabrtorank=topology.nabrtorank,
-                      nabrtovmaprecv=grid.nabrtovmaprecv,
-                      nabrtovmapsend=grid.nabrtovmapsend,
-                      weights=weights,
-                      commtag=111)
-
-  auxstate = MPIStateArray{Tuple{Np, auxiliary_state_length}, FT, DA
-                          }(topology.mpicomm,
+  Qvisc = MPIStateArray{FT}(topology.mpicomm, DA, Np, number_viscous_states,
                             length(topology.elems),
                             realelems=topology.realelems,
                             ghostelems=topology.ghostelems,
-                            vmaprecv=grid.vmaprecv,
-                            vmapsend=grid.vmapsend,
+                            vmaprecv=grid.vmaprecv, vmapsend=grid.vmapsend,
                             nabrtorank=topology.nabrtorank,
                             nabrtovmaprecv=grid.nabrtovmaprecv,
                             nabrtovmapsend=grid.nabrtovmapsend,
-                            weights=weights,
-                            commtag=222)
+                            weights=weights, commtag=111)
+
+  auxstate = MPIStateArray{FT}(topology.mpicomm, DA, Np, auxiliary_state_length,
+                               length(topology.elems),
+                               realelems=topology.realelems,
+                               ghostelems=topology.ghostelems,
+                               vmaprecv=grid.vmaprecv,
+                               vmapsend=grid.vmapsend,
+                               nabrtorank=topology.nabrtorank,
+                               nabrtovmaprecv=grid.nabrtovmaprecv,
+                               nabrtovmapsend=grid.nabrtovmapsend,
+                               weights=weights, commtag=222)
 
   if auxiliary_state_initialization! !== nothing
     @assert auxiliary_state_length > 0
@@ -439,17 +433,13 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate,
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-  MPIStateArray{Tuple{Np, nstate}, FT, DA}(topology.mpicomm,
-                                               length(topology.elems),
-                                               realelems=topology.realelems,
-                                               ghostelems=topology.ghostelems,
-                                               vmaprecv=grid.vmaprecv,
-                                               vmapsend=grid.vmapsend,
-                                               nabrtorank=topology.nabrtorank,
-                                               nabrtovmaprecv=grid.nabrtovmaprecv,
-                                               nabrtovmapsend=grid.nabrtovmapsend,
-                                               weights=weights,
-                                               commtag=commtag)
+  MPIStateArray{FT}(topology.mpicomm, DA, Np, nstate, length(topology.elems),
+                    realelems=topology.realelems,
+                    ghostelems=topology.ghostelems, vmaprecv=grid.vmaprecv,
+                    vmapsend=grid.vmapsend, nabrtorank=topology.nabrtorank,
+                    nabrtovmaprecv=grid.nabrtovmaprecv,
+                    nabrtovmapsend=grid.nabrtovmapsend, weights=weights,
+                    commtag=commtag)
 end
 
 """
@@ -501,16 +491,14 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw,
   # FIXME: initialize directly on the device
   device = CPU()
   h_vgeo = Array(vgeo)
-  h_Q = similar(Q, Array)
-  h_auxstate = similar(auxstate, Array)
-  
-  h_auxstate .= auxstate
+  h_Q = Array(Q.data)
+  h_auxstate = Array(auxstate.data)
 
   @launch(device, threads=(Np,), blocks=nrealelem,
           initstate!(Val(dim), Val(N), Val(nvar), Val(nauxstate),
-                     ic!, h_Q.data, h_auxstate.data, h_vgeo, topology.realelems))
+                     ic!, h_Q, h_auxstate, h_vgeo, topology.realelems))
 
-  Q .= h_Q
+  copyto!(Q.data, h_Q)
 
   MPIStateArrays.start_ghost_exchange!(Q)
   MPIStateArrays.finish_ghost_exchange!(Q)
