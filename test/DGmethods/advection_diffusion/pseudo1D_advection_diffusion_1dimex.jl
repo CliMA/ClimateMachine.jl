@@ -219,7 +219,8 @@ let
   expected_result[2, 1, Float32] = 7.2741046547889709e-02
   expected_result[2, 2, Float32] = 6.8110809661448002e-03
   expected_result[2, 3, Float32] = 1.4426559209823608e-04
-  expected_result[2, 4, Float32] = 2.7985299766442040e-06
+  # This is near roundoff so we will not check it
+  # expected_result[2, 4, Float32] = 2.7985299766442040e-06
   expected_result[3, 1, Float32] = 1.0446154326200485e-01
   expected_result[3, 2, Float32] = 1.0267823934555054e-02
   expected_result[3, 3, Float32] = 2.0618981216102839e-04
@@ -262,7 +263,10 @@ let
             result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
                             timeend, FT, dt, n, α, β, μ, δ, vtkdir,
                             outputtime, linearsolvertype)
-            @test result[l] ≈ FT(expected_result[dim, l, FT])
+            # test the errors significantly larger than floating point epsilon
+            if !(dim == 2 && l == 4 && FT == Float32)
+              @test result[l] ≈ FT(expected_result[dim, l, FT])
+            end
           end
           @info begin
             msg = ""
