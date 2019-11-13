@@ -16,7 +16,7 @@ x_root, converged = find_zero(x -> x^2 - 100^2, 0.0, 1000.0, SecantMethod())
 """
 module RootSolvers
 
-export find_zero, SecantMethod, RegulaFalsiMethod, NewtonsMethod
+export find_zero, SecantMethod, RegulaFalsiMethod, NewtonsMethodAD, NewtonsMethod
 
 import ForwardDiff
 
@@ -25,13 +25,14 @@ Base.broadcastable(method::RootSolvingMethod) = Ref(method)
 
 struct SecantMethod <: RootSolvingMethod end
 struct RegulaFalsiMethod <: RootSolvingMethod end
+struct NewtonsMethodAD <: RootSolvingMethod end
 struct NewtonsMethod <: RootSolvingMethod end
 
 # TODO: CuArrays.jl has trouble with isapprox on 1.1
 # we use simple checks for now, will switch to relative checks later.
 
 """
-    x, converged = find_zero(f, x0[, x1], method,
+    x, converged = find_zero(f[, f′], x0[, x1], method,
                              xatol=1e-3,
                              maxiters=10_000)
 
@@ -41,8 +42,11 @@ that `f(x) ≈ 0`, and a Boolean value `converged` indicating convergence.
 `method` can be one of:
 - `SecantMethod()`: [Secant method](https://en.wikipedia.org/wiki/Secant_method)
 - `RegulaFalsiMethod()`: [Regula Falsi method](https://en.wikipedia.org/wiki/False_position_method#The_regula_falsi_(false_position)_method).
+- `NewtonsMethodAD()`: [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method) using Automatic Differentiation
+  - The `x1` argument is omitted for Newton's method.
 - `NewtonsMethod()`: [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
   - The `x1` argument is omitted for Newton's method.
+  - The `f′` derivative of root
 
 The keyword arguments:
 - `xatol` is the absolute tolerance of the input.
@@ -114,11 +118,25 @@ function value_deriv(f, x::T) where {T}
     ForwardDiff.value(tag, y), ForwardDiff.partials(tag, y, 1)
 end
 
-function find_zero(f::F, x0::T, ::NewtonsMethod,
+function find_zero(f::F, x0::T, ::NewtonsMethodAD,
                    xatol=1e-3,
                    maxiters=10_000) where {F, T<:AbstractFloat}
   for i in 1:maxiters
     y,y′ = value_deriv(f, x0)
+    x1 = x0 - y/y′
+    if abs(x0-x1) <= xatol
+      return x1, true
+    end
+    x0 = x1
+  end
+  return x0, false
+end
+
+function find_zero(f::F, f′::F′, x0::T, ::NewtonsMethod,
+                   xatol=1e-3,
+                   maxiters=10_000) where {F, F′, T<:AbstractFloat}
+  for i in 1:maxiters
+    y,y′ = f(x0), f′(x0)
     x1 = x0 - y/y′
     if abs(x0-x1) <= xatol
       return x1, true
