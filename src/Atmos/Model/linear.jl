@@ -40,7 +40,8 @@ function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Var
   # need to avoid dividing then multiplying by ρ
   pL = state.ρ * FT(R_d) * FT(T_0) + FT(R_d) / FT(cv_d) * (state.ρe - state.ρ * e_pot)
   flux.ρu += pL*I
-  flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
+  #flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
+  flux.ρe = ((ref.ρe + ref.p)/ref.ρ)*state.ρu
   nothing
 end
 function source!(lm::AtmosAcousticLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)

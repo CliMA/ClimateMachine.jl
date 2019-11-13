@@ -9,6 +9,7 @@ using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.LowStorageRungeKuttaMethod: LSRK54CarpenterKennedy
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.GeneralizedMinimalResidualSolver
+using CLIMA.ColumnwiseLUSolver: SingleColumnLU, ManyColumnLU
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
@@ -32,7 +33,7 @@ else
   const ArrayType = Array
 end
 
-const output_vtk = true
+const output_vtk = false
 
 function main()
   MPI.Initialized() || MPI.Init()
@@ -99,14 +100,17 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(setup.T_ref))
-  dt_factor = 40
+  dt_factor = 120
   dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
   # Adjust the time step so we exactly hit 1 hour for VTK output
   dt = 60 * 60 / ceil(60 * 60 / dt)
+  nsteps = ceil(Int, timeend / dt)
 
   Q = init_ode_state(dg, FT(0))
 
-  linearsolver = GeneralizedMinimalResidual(30, Q, sqrt(eps(FT)))
+  #linearsolver = GeneralizedMinimalResidual(30, Q, sqrt(eps(FT)))
+  linearsolver = ManyColumnLU()
+
   odesolver = ARK2GiraldoKellyConstantinescu(dg, lineardg, linearsolver, Q;
                                              dt = dt, t0 = 0, split_nonlinear_linear=false)
 
@@ -130,7 +134,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -165,7 +169,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
     callbacks = (callbacks..., cbvtk)
   end
 
-  solve!(Q, odesolver; timeend=timeend, callbacks=callbacks)
+  solve!(Q, odesolver; numberofsteps=nsteps, adjustfinalstep=false, callbacks=callbacks)
 
   # final statistics
   engf = norm(Q)
