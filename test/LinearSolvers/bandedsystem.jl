@@ -14,7 +14,8 @@ using CLIMA.Atmos: AtmosModel, AtmosAcousticLinearModel,
 using CLIMA.VariableTemplates: flattenednames
 
 using CLIMA.PlanetParameters: T_0
-using CLIMA.DGmethods: VerticalDirection, DGModel, Vars, vars_state, num_state
+using CLIMA.DGmethods: VerticalDirection, DGModel, Vars, vars_state,
+                       num_state, init_ode_state
 using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxDiffusive,
                                        CentralGradPenalty
@@ -31,6 +32,16 @@ else
 end
 
 using Test
+
+function init_state!(state, aux, coords, t)
+  FT = eltype(coords)
+  state.ρ = sin(coords[2] + sqrt(FT(3)))
+  state.ρu = SVector{3, FT}(sin(coords[1]),
+                            cos(coords[2] + sqrt(FT(2))),
+                            sin(coords[3] + sqrt(FT(5))))
+  state.ρe = sin(coords[1] + sqrt(FT(3))) * cos(coords[2] + sqrt(FT(3)))
+end
+
 let
   # boiler plate MPI stuff
   MPI.Initialized() || MPI.Init()
@@ -51,7 +62,7 @@ let
 
   @testset "$(@__FILE__) DGModel matrix" begin
     for AT in ArrayTypes
-      for FT in (Float64,)
+      for FT in (Float64, Float32)
         for dim = (2, 3)
           for single_column in (false, true)
             # Setup the topology
@@ -96,7 +107,7 @@ let
             NoRadiation(),
             nothing,
             NoFluxBC(),
-            nothing)
+            init_state!)
             linear_model = AtmosAcousticLinearModel(model)
 
             # the nonlinear model is needed so we can grab the auxstate below
@@ -118,12 +129,14 @@ let
                                      MPIStateArray(dg);
                                      single_column=single_column)
 
-            Q = MPIStateArray(dg_linear)
+            Q = init_ode_state(dg, FT(0))
             dQ1 = MPIStateArray(dg_linear)
             dQ2 = MPIStateArray(dg_linear)
-            Q.data .= rand(size(Q.data))
-            dg_linear(dQ1, Q, nothing, 0; increment=false)
 
+            dg_linear(dQ1, Q, nothing, 0; increment=false)
+            Q.data .= dQ1.data
+
+            dg_linear(dQ1, Q, nothing, 0; increment=false)
             banded_matrix_vector_product!(dg_linear, A_banded, dQ2, Q)
             @test dQ1.realdata ≈ dQ2.realdata
           end
@@ -134,7 +147,7 @@ let
 
   @testset "$(@__FILE__) linear operator matrix" begin
     for AT in ArrayTypes
-      for FT in (Float64,)
+      for FT in (Float64, Float32)
         for dim = (2, 3)
           for single_column in (false, true)
             # Setup the topology
@@ -179,7 +192,7 @@ let
             NoRadiation(),
             nothing,
             NoFluxBC(),
-            nothing)
+            init_state!)
             linear_model = AtmosAcousticLinearModel(model)
 
             # the nonlinear model is needed so we can grab the auxstate below
@@ -207,10 +220,13 @@ let
                                      MPIStateArray(dg);
                                      single_column=single_column)
 
-            Q = MPIStateArray(dg_linear)
+            Q = init_ode_state(dg, FT(0))
             dQ1 = MPIStateArray(dg_linear)
             dQ2 = MPIStateArray(dg_linear)
-            Q.data .= rand(size(Q.data))
+
+            op!(dQ1, Q)
+            Q.data .= dQ1.data
+
             op!(dQ1, Q)
             banded_matrix_vector_product!(dg_linear, A_banded, dQ2, Q)
             @test dQ1.realdata ≈ dQ2.realdata
