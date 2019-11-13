@@ -46,7 +46,7 @@ that `f(x) ≈ 0`, and a Boolean value `converged` indicating convergence.
   - The `x1` argument is omitted for Newton's method.
 - `NewtonsMethod()`: [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
   - The `x1` argument is omitted for Newton's method.
-  - The `f′` derivative of root
+  - `f′`: derivative of function `f` whose zero is sought
 
 The keyword arguments:
 - `xatol` is the absolute tolerance of the input.
