@@ -104,14 +104,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
                CentralGradPenalty(),
                direction=EveryDirection())
 
-  hdg = DGModel(model,
-                grid,
-                Rusanov(),
-                CentralNumericalFluxDiffusive(),
-                CentralGradPenalty(),
-                auxstate=dg.auxstate,
-                direction=HorizontalDirection())
-
   vdg = DGModel(model,
                 grid,
                 Rusanov(),
