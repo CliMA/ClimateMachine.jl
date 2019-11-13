@@ -32,7 +32,8 @@ export saturation_excess
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
-export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, PhasePartition_equil
+export liquid_fraction_equil, liquid_fraction_nonequil, PhasePartition_equil
+export saturation_adjustment, saturation_adjustment_NewtonsMethod # should remove from export
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_liquid_ice_pottemp, air_temperature_from_liquid_ice_pottemp_given_pressure
@@ -736,6 +737,52 @@ PhasePartition_equil(ts::PhaseNonEquil) = PhasePartition_equil(air_temperature(t
 PhasePartition(ts::PhaseDry{FT}) where {FT<:Real} = PhasePartition(FT(0), FT(0), FT(0))
 PhasePartition(ts::PhaseEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
+
+function roots_∂e_int_∂T(T::FT, e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
+  cvm = cv_m(PhasePartition(q_tot))
+  q_vap_sat = q_vap_saturation(T, ρ)
+  λ = liquid_fraction_equil(T)
+  L = λ*FT(LH_v0) + (1-λ)*FT(LH_s0)
+  ∂q_vap_sat_∂T = q_vap_sat*L/(FT(R_v)*T^2)
+  # T0 = FT(T_min)
+  T0 = FT(T_0)
+  return cvm + ( FT(e_int_v0) + (1-λ)*FT(e_int_i0) + (T - T0) )*∂q_vap_sat_∂T
+end
+
+"""
+    saturation_adjustment_NewtonsMethod(e_int, ρ, q_tot)
+
+Compute the temperature that is consistent with
+
+ - `e_int` internal energy
+ - `ρ` (moist-)air density
+ - `q_tot` total specific humidity
+
+using Newtons method with analytic gradients.
+
+See also [`saturation_adjustment`](@ref).
+"""
+function saturation_adjustment_NewtonsMethod(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
+  T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
+  q_v_sat = q_vap_saturation(T_1, ρ)
+  unsaturated = q_tot <= q_v_sat
+  if unsaturated
+    return T_1
+  else
+    # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
+    T_2 = air_temperature(e_int, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
+    T, converged = find_zero(
+      T -> internal_energy_sat(T, ρ, q_tot) - e_int,
+      T_ -> roots_∂e_int_∂T(T_, e_int, ρ, q_tot),
+      T_1,
+      NewtonsMethod(), FT(1e-3), 10)
+      # NewtonsMethodAD(), FT(1e-3), 3)
+      if !converged
+        error("saturation_adjustment_NewtonsMethod did not converge")
+      end
+    return T
+  end
+end
 
 """
     saturation_adjustment(e_int, ρ, q_tot)
