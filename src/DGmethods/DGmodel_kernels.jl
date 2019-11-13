@@ -726,7 +726,7 @@ function volume_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
 
   Nq = N + 1
 
-  Nqk = dim == 2 ? 1 : Nq
+  Nqk = Nd == 2 ? 1 : Nq
 
   s_G = @shmem FT (Nq, Nq, Nqk, nG)
   s_D = @shmem FT (Nq, Nq)
@@ -737,9 +737,9 @@ function volume_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
   l_W = MArray{Tuple{nW}, FT}(undef)
   l_∇G = MArray{Tuple{3, nG}, FT}(undef)
 
-  _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
-  _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
-  _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
+  _ζx1 = Nd == 2 ? _ξ2x1 : _ξ3x1
+  _ζx2 = Nd == 2 ? _ξ2x2 : _ξ3x2
+  _ζx3 = Nd == 2 ? _ξ2x3 : _ξ3x3
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -786,9 +786,9 @@ function volume_diffusive_terms!(bl::BalanceLaw, ::Val{Nd}, ::Val{N},
           @unroll for s = 1:nG
             Gζ = zero(FT)
             @unroll for n = 1:Nq
-              if dim == 2
+              if Nd == 2
                 Gζ += s_D[j, n] * s_G[i, n, k, s]
-              elseif dim == 3
+              elseif Nd == 3
                 Gζ += s_D[k, n] * s_G[i, j, n, s]
               end
             end
