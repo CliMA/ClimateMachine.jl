@@ -16,8 +16,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
@@ -29,7 +29,7 @@ jobs:
   - bash: |
       set -o xtrace
       sudo apt-get update
-      sudo apt-get install cmake gfortran mpich libmpich-dev
+      sudo apt-get install mpich libmpich-dev
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
@@ -43,14 +43,15 @@ jobs:
                                                                  using Coverage;
                                                                  Codecov.submit_local(Codecov.process_folder();
                                                                    service = "azure_pipelines",
-                                                                   commit       = @show(ENV["BUILD_SOURCEVERSION"]),
-                                                                   pull_request = @show(get(ENV, "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER", "false")),
-                                                                   job          = @show(ENV["BUILD_DEFINITIONNAME"]),
-                                                                   slug         = @show(ENV["BUILD_REPOSITORY_NAME"]),
-                                                                   build        = @show(ENV["BUILD_BUILDID"]))'
+                                                                   commit       = ENV["BUILD_SOURCEVERSION"],
+                                                                   pull_request = get(ENV, "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER", "false"),
+                                                                   job          = ENV["BUILD_DEFINITIONNAME"],
+                                                                   slug         = ENV["BUILD_REPOSITORY_NAME"],
+                                                                   build        = ENV["BUILD_BUILDID"])'
     env:
       CODECOV_TOKEN: "d5ad49b6-c247-44f7-a529-5f749a8b0c2a"
-    displayName: 'Submit code coverage' 
+    displayName: 'Submit code coverage'
+    continueOnError: true
 
 - job: macOS
 
@@ -61,8 +62,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
@@ -74,9 +75,10 @@ jobs:
     displayName: 'Download and extract Julia'
   - bash: |
       set -o xtrace
+      echo "127.0.0.1  $HOSTNAME" | sudo tee -a /private/etc/hosts  # fix https://stackoverflow.com/a/31222970/392585
       brew update
       brew upgrade
-      brew install mpich cmake
+      brew install mpich
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
@@ -95,8 +97,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - powershell: |
@@ -123,8 +125,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
@@ -136,7 +138,7 @@ jobs:
   - bash: |
       set -o xtrace
       sudo apt-get update
-      sudo apt-get install cmake gfortran mpich libmpich-dev
+      sudo apt-get install mpich libmpich-dev
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace

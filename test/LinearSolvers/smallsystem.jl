@@ -39,6 +39,13 @@ using StaticArrays, LinearAlgebra, Random
     @test iters == expected_iters[m][T]
     @test norm(A * x - b) / norm(b) <= tol
    
+    # test for convergence in 0 iterations by
+    # initializing with the exact solution
+    x = A \ b
+    iters = linearsolve!(mulbyA!, x, b, linearsolver)
+    @test iters == 0
+    @test norm(A * x - b) / norm(b) <= tol
+   
     newtol = 1000tol
     settolerance!(linearsolver, newtol)
     

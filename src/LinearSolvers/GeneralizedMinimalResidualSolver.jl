@@ -66,12 +66,20 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResi
     krylov_basis[1] .*= -1
     krylov_basis[1] .+= Qrhs
 
+    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
     residual_norm = norm(krylov_basis[1], weighted)
+
+    converged = false
+    if residual_norm < threshold
+      converged = true
+      return converged, threshold
+    end
+
     fill!(g0, 0)
     g0[1] = residual_norm
     krylov_basis[1] ./= residual_norm
 
-    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
+    converged, threshold
 end
 
 function LS.doiteration!(linearoperator!, Q, Qrhs,

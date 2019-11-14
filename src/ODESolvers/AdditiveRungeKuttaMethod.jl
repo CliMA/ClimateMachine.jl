@@ -1,6 +1,7 @@
 module AdditiveRungeKuttaMethod
 export AdditiveRungeKutta
-export ARK2GiraldoKellyConstantinescu, ARK548L2SA2KennedyCarpenter
+export ARK2GiraldoKellyConstantinescu
+export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 
 using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
@@ -38,11 +39,11 @@ The available concrete implementations are:
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
 """
-struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
   "rhs function"
   rhs!
   "rhs linear operator"
@@ -65,11 +66,13 @@ struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractOD
   RKB::SArray{Tuple{Nstages}, RT, 1, Nstages}
   "RK coefficient vector C (time scaling)"
   RKC::SArray{Tuple{Nstages}, RT, 1, Nstages}
+  split_nonlinear_linear::Bool
 
   function AdditiveRungeKutta(rhs!,
                               rhs_linear!,
                               linearsolver::AbstractLinearSolver,
                               RKA_explicit, RKA_implicit, RKB, RKC,
+                              split_nonlinear_linear,
                               Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
@@ -77,8 +80,6 @@ struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractOD
     T = eltype(Q)
     LT = typeof(linearsolver)
     RT = real(T)
-    dt = [RT(dt)]
-    t0 = [RT(t0)]
     
     nstages = length(RKB)
 
@@ -88,10 +89,11 @@ struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.AbstractOD
     Qhat = similar(Q)
     Qtt = similar(Q)
 
-    new{T, RT, AT, LT, nstages, nstages ^ 2}(dt, t0,
+    new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, linearsolver,
                                              Qstages, Rstages, Qhat, Qtt,
-                                             RKA_explicit, RKA_implicit, RKB, RKC)
+                                             RKA_explicit, RKA_implicit, RKB, RKC,
+                                             split_nonlinear_linear)
   end
 end
 
@@ -99,14 +101,100 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                             spacedisc_linear::AbstractSpaceMethod,
                             linearsolver::AbstractLinearSolver,
                             RKA_explicit, RKA_implicit, RKB, RKC,
+                            split_nonlinear_linear,
                             Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   rhs_linear! = (x...; increment) -> SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
   AdditiveRungeKutta(rhs!, rhs_linear!, linearsolver,
                      RKA_explicit, RKA_implicit, RKB, RKC,
+                     split_nonlinear_linear,
                      Q; dt=dt, t0=t0)
 end
 
+ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = (ark.dt = dt)
+ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
+
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
+                      adjustfinalstep::Bool)
+  time, dt = ark.t, ark.dt
+  if adjustfinalstep && time + dt > timeend
+    dt = timeend - time
+  end
+  @assert dt > 0
+
+  ODEs.dostep!(Q, ark, p, time, dt)
+
+  if dt == ark.dt
+    ark.t += dt
+  else
+    ark.t = timeend
+  end
+
+end
+
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
+                      slow_δ = nothing, slow_rv_dQ = nothing,
+                      slow_scaling = nothing)
+  linearsolver = ark.linearsolver
+  RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
+  RKB, RKC = ark.RKB, ark.RKC
+  rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
+  Qstages, Rstages = ark.Qstages, ark.Rstages
+  Qhat, Qtt = ark.Qhat, ark.Qtt
+  split_nonlinear_linear = ark.split_nonlinear_linear
+
+  rv_Q = realview(Q)
+  rv_Qstages = realview.(Qstages)
+  rv_Rstages = realview.(Rstages)
+  rv_Qhat = realview(Qhat)
+  rv_Qtt = realview(Qtt)
+
+  nstages = length(RKB)
+
+  threads = 256
+  blocks = div(length(rv_Q) + threads - 1, threads)
+
+  # calculate the rhs at first stage to initialize the stage loop
+  rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
+
+  # note that it is important that this loop does not modify Q!
+  for istage = 2:nstages
+    stagetime = time + RKC[istage] * dt
+
+    # this kernel also initializes Qtt for the linear solver
+    @launch(device(Q), threads = threads, blocks = blocks,
+            stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
+                          RKA_explicit, RKA_implicit, dt, Val(istage),
+                          Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
+
+    #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
+    α = dt * RKA_implicit[istage, istage]
+    linearoperator! = function(LQ, Q)
+      rhs_linear!(LQ, Q, p, stagetime; increment = false)
+      @. LQ = Q - α * LQ
+    end
+    linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
+
+    #update Qstages
+    Qstages[istage] .+= Qtt
+
+    rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
+  end
+
+  if split_nonlinear_linear
+    for istage = 1:nstages
+      stagetime = time + RKC[istage] * dt
+      rhs_linear!(Rstages[istage], Qstages[istage], p, stagetime, increment = true)
+    end
+  end
+
+  # compose the final solution
+  @launch(device(Q), threads = threads, blocks = blocks,
+          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages), slow_δ,
+                           slow_rv_dQ, slow_scaling))
+
+
+end
 
 """
     ARK2GiraldoKellyConstantinescu(f, l, linsol, Q; dt, t0 = 0)
@@ -142,10 +230,10 @@ Giraldo, Kelly and Constantinescu (2013).
       publisher={SIAM}
     }
 """
-function ARK2GiraldoKellyConstantinescu(F,
-                                        L,
+function ARK2GiraldoKellyConstantinescu(F, L,
                                         linearsolver::AbstractLinearSolver,
-                                        Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+                                        Q::AT; dt=nothing, t0=0,
+                                        split_nonlinear_linear=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -168,6 +256,7 @@ function ARK2GiraldoKellyConstantinescu(F,
 
   AdditiveRungeKutta(F, L, linearsolver,
                      RKA_explicit, RKA_implicit, RKB, RKC,
+                     split_nonlinear_linear,
                      Q; dt=dt, t0=t0)
 end
 
@@ -205,10 +294,10 @@ Kennedy and Carpenter (2013).
       publisher={Elsevier}
     }
 """
-function ARK548L2SA2KennedyCarpenter(F,
-                                     L,
+function ARK548L2SA2KennedyCarpenter(F, L,
                                      linearsolver::AbstractLinearSolver,
-                                     Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
+                                     Q::AT; dt=nothing, t0=0,
+                                     split_nonlinear_linear=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -297,7 +386,7 @@ function ARK548L2SA2KennedyCarpenter(F,
 
   RKB[1] = RKB[2]
   RKB[8] = gamma
-  
+
   RKA_explicit[2, 1] = RKC[2]
   RKA_explicit[nstages, 1] = RKA_explicit[nstages, 2]
 
@@ -312,73 +401,143 @@ function ARK548L2SA2KennedyCarpenter(F,
 
   ark = AdditiveRungeKutta(F, L, linearsolver,
                            RKA_explicit, RKA_implicit, RKB, RKC,
+                           split_nonlinear_linear,
                            Q; dt=dt, t0=t0)
 end
 
-ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = ark.dt[1] = dt
+"""
+    ARK437L2SA1KennedyCarpenter(f, l, linsol, Q; dt, t0 = 0)
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, param, timeend,
-                      adjustfinalstep)
+This function returns an [`AdditiveRungeKutta`](@ref) 
+time stepping object for implicit-explicit time stepping of the
+decomposed differential equation given by the chosen linear operator `l`,
+the full right-hand-side function `f` and the state `Q`, i.e.,
 
-  time, dt = ark.t[1], ark.dt[1]
-  if adjustfinalstep && time + dt > timeend
-    dt = timeend - time
-    @assert dt > 0
+```math
+  \\dot{Q} = [l(Q, t)] + [f(Q, t) - l(Q, t)]
+```
+
+with the required time step size `dt` and optional initial time `t0`. The
+linear operator `l` is integrated implicitly whereas the remaining part
+`f - l` is integrated explicitly. This time stepping object is intended
+to be passed to the `solve!` command.
+
+The resulting linear systems are solved using the provided `linsol` function.
+
+This uses the fourth-order-accurate 7-stage additive Runge--Kutta scheme of
+Kennedy and Carpenter (2013).
+
+### References
+
+    @article{kennedy2019higher,
+      title={Higher-order additive Runge--Kutta schemes for ordinary differential equations},
+      author={Kennedy, Christopher A and Carpenter, Mark H},
+      journal={Applied Numerical Mathematics},
+      volume={136},
+      pages={183--205},
+      year={2019},
+      publisher={Elsevier}
+    }
+"""
+function ARK437L2SA1KennedyCarpenter(F, L,
+                                     linearsolver::AbstractLinearSolver,
+                                     Q::AT; dt=nothing, t0=0,
+                                     split_nonlinear_linear=false) where {AT<:AbstractArray}
+
+  @assert dt != nothing
+
+  T = eltype(Q)
+  RT = real(T)
+
+  nstages = 7
+  gamma = RT(1235 // 10000)
+
+  # declared as Arrays for mutability, later these will be converted to static arrays
+  RKA_explicit = zeros(RT, nstages, nstages)
+  RKA_implicit = zeros(RT, nstages, nstages)
+  RKB = zeros(RT, nstages)
+  RKC = zeros(RT, nstages)
+
+  # the main diagonal
+  for is = 2:nstages
+    RKA_implicit[is, is] = gamma
   end
 
-  linearsolver = ark.linearsolver
-  RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
-  RKB, RKC = ark.RKB, ark.RKC
-  rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
-  Qstages, Rstages = ark.Qstages, ark.Rstages
-  Qhat, Qtt = ark.Qhat, ark.Qtt
+  RKA_implicit[3, 2] = RT(624185399699 // 4186980696204)
+  RKA_implicit[4, 2] = RT(1258591069120 // 10082082980243)
+  RKA_implicit[4, 3] = RT(-322722984531 // 8455138723562)
+  RKA_implicit[5, 2] = RT(-436103496990 // 5971407786587)
+  RKA_implicit[5, 3] = RT(-2689175662187 // 11046760208243)
+  RKA_implicit[5, 4] = RT(4431412449334 // 12995360898505)
+  RKA_implicit[6, 2] = RT(-2207373168298 // 14430576638973)
+  RKA_implicit[6, 3] = RT(242511121179 // 3358618340039)
+  RKA_implicit[6, 4] = RT(3145666661981 // 7780404714551)
+  RKA_implicit[6, 5] = RT(5882073923981 // 14490790706663)
+  RKA_implicit[7, 2] = 0
+  RKA_implicit[7, 3] = RT(9164257142617 // 17756377923965)
+  RKA_implicit[7, 4] = RT(-10812980402763 // 74029279521829)
+  RKA_implicit[7, 5] = RT(1335994250573 // 5691609445217)
+  RKA_implicit[7, 6] = RT(2273837961795 // 8368240463276)
 
-  rv_Q = realview(Q)
-  rv_Qstages = realview.(Qstages)
-  rv_Rstages = realview.(Rstages)
-  rv_Qhat = realview(Qhat)
-  rv_Qtt = realview(Qtt)
+  RKA_explicit[3, 1] = RT(247 // 4000)
+  RKA_explicit[3, 2] = RT(2694949928731 // 7487940209513)
+  RKA_explicit[4, 1] = RT(464650059369 // 8764239774964)
+  RKA_explicit[4, 2] = RT(878889893998 // 2444806327765)
+  RKA_explicit[4, 3] = RT(-952945855348 // 12294611323341)
+  RKA_explicit[5, 1] = RT(476636172619 // 8159180917465)
+  RKA_explicit[5, 2] = RT(-1271469283451 // 7793814740893)
+  RKA_explicit[5, 3] = RT(-859560642026 // 4356155882851)
+  RKA_explicit[5, 4] = RT(1723805262919 // 4571918432560)
+  RKA_explicit[6, 1] = RT(6338158500785 // 11769362343261)
+  RKA_explicit[6, 2] = RT(-4970555480458 // 10924838743837)
+  RKA_explicit[6, 3] = RT(3326578051521 // 2647936831840)
+  RKA_explicit[6, 4] = RT(-880713585975 // 1841400956686)
+  RKA_explicit[6, 5] = RT(-1428733748635 // 8843423958496)
+  RKA_explicit[7, 2] = RT(760814592956 // 3276306540349)
+  RKA_explicit[7, 3] = RT(-47223648122716 // 6934462133451)
+  RKA_explicit[7, 4] = RT(71187472546993 // 9669769126921)
+  RKA_explicit[7, 5] = RT(-13330509492149 // 9695768672337)
+  RKA_explicit[7, 6] = RT(11565764226357 // 8513123442827)
 
-  nstages = length(RKB)
+  RKB[2] = 0
+  RKB[3] = RT(9164257142617 // 17756377923965)
+  RKB[4] = RT(-10812980402763 // 74029279521829)
+  RKB[5] = RT(1335994250573 // 5691609445217)
+  RKB[6] = RT(2273837961795 // 8368240463276)
+  RKB[7] = RT(247 // 2000)
 
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
+  RKC[2] = RT(247 // 2000)
+  RKC[3] = RT(4276536705230 // 10142255878289)
+  RKC[4] = RT(67 // 200)
+  RKC[5] = RT(3 // 40)
+  RKC[6] = RT(7 // 10)
 
-  # calculate the rhs at first stage to initialize the stage loop
-  rhs!(Rstages[1], Qstages[1], param, time + RKC[1] * dt, increment = false)
-
-  # note that it is important that this loop does not modify Q!
-  for istage = 2:nstages
-    stagetime = time + RKC[istage] * dt
-    # this kernel also initializes Qtt for the linear solver
-    @launch(device(Q), threads = threads, blocks = blocks,
-            stage_update!(rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
-                          RKA_explicit, RKA_implicit, dt, Val(istage)))
-
-    #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-    α = dt * RKA_implicit[istage, istage]
-    linearoperator! = function(LQ, Q)
-      rhs_linear!(LQ, Q, param, stagetime; increment = false)
-      @. LQ = Q - α * LQ
-    end
-    linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
-    
-    #update Qstages
-    Qstages[istage] .+= Qtt
-    
-    rhs!(Rstages[istage], Qstages[istage], param, stagetime, increment = false)
+  for is = 2:nstages
+    RKA_implicit[is, 1] = RKA_implicit[is, 2]
   end
 
-  # compose the final solution
-  @launch(device(Q), threads = threads, blocks = blocks,
-          solution_update!(rv_Q, rv_Rstages, RKB, dt, Val(nstages)))
-
-  if dt == ark.dt[1]
-    ark.t[1] += dt
-  else
-    ark.t[1] = timeend
+  for is = 1:nstages-1
+    RKA_implicit[nstages, is] = RKB[is]
   end
 
+  RKB[1] = RKB[2]
+
+  RKA_explicit[2, 1] = RKC[2]
+  RKA_explicit[nstages, 1] = RKA_explicit[nstages, 2]
+
+  RKC[1] = 0
+  RKC[nstages] = 1
+
+  # conversion to static arrays
+  RKA_explicit = SMatrix{nstages, nstages}(RKA_explicit)
+  RKA_implicit = SMatrix{nstages, nstages}(RKA_implicit)
+  RKB = SVector{nstages}(RKB)
+  RKC = SVector{nstages}(RKC)
+
+  ark = AdditiveRungeKutta(F, L, linearsolver,
+                           RKA_explicit, RKA_implicit, RKB, RKC,
+                           split_nonlinear_linear,
+                           Q; dt=dt, t0=t0)
 end
 
 end

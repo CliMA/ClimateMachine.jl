@@ -1,6 +1,6 @@
 module BrickMesh
 
-export brickmesh, centroidtocode, connectmesh, partition, mappings
+export brickmesh, centroidtocode, connectmesh, partition, mappings, commmapping
 
 using MPI
 
@@ -166,7 +166,7 @@ We can build a 3 by 2 element two-dimensional mesh that is periodic in the
 \$x_2\$-direction with
 ```jldoctest brickmesh
 julia> (elemtovert, elemtocoord, elemtobndy, faceconnections) =
-        brickmesh((2:5,4:6), (false,true); boundary=[1 3; 2 4]);
+        brickmesh((2:5,4:6), (false,true); boundary=((1,2), (3,4)));
 ```
 This returns the mesh structure for
 
@@ -260,7 +260,11 @@ we see that face `4` of element `5` is associated with vertices `[2 3]` (the
 vertices for face `1` of element `2`).
 """
 function brickmesh(x, periodic; part=1, numparts=1,
-                   boundary=ones(Int,2,length(x)))
+                   boundary=ntuple(j->(1,1), length(x)))
+  if boundary isa Matrix
+    boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
+  end
+  
   @assert length(x) == length(periodic)
   @assert length(x) >= 1
   @assert 1 <= part <= numparts
@@ -299,10 +303,10 @@ function brickmesh(x, periodic; part=1, numparts=1,
 
     for i=1:d
       if !periodic[i] && ec[i]==1
-        elemtobndy[2(i-1)+1,e] = boundary[1,i]
+        elemtobndy[2(i-1)+1,e] = boundary[i][1]
       end
       if !periodic[i] && ec[i]==nelemdim[i]
-        elemtobndy[2(i-1)+2,e] = boundary[2,i]
+        elemtobndy[2(i-1)+2,e] = boundary[i][2]
       end
     end
 
@@ -731,7 +735,11 @@ returns a connected mesh.  This returns a `NamedTuple` of:
  - `elems` the range of element indices
  - `realelems` the range of real (aka nonghost) element indices
  - `ghostelems` the range of ghost element indices
- - `sendelems` an array of send element indices sorted so that
+ - `ghostfaces` ghost element to face is received;
+   `ghostfaces[f,ge] == true` if face `f` of ghost element `ge` is received.
+ - `sendelems` an array of send element indices
+ - `sendfaces` send element to face is sent;
+   `sendfaces[f,se] == true` if face `f` of send element `se` is sent.
  - `elemtocoord` element to vertex coordinates; `elemtocoord[d,i,e]` is the
     `d`th coordinate of corner `i` of element `e`
  - `elemtoelem` element to neighboring element; `elemtoelem[f,e]` is the
@@ -855,6 +863,22 @@ function connectmesh(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
       sr, se = r, e
     end
   end
+
+  # Mark which faces need to be sent
+  sendfaces = BitArray(undef, nface, length(sendelems))
+  sendfaces .= false
+  sr, se, n = -1, 0, 0
+  for i = 1:last(size(B))
+    r, e, f = B[NR,i], B[ME,i], B[MF,i]
+    if r != crank
+      if !(sr == r && se == e)
+        n += 1
+        sr, se = r, e
+      end
+      sendfaces[f, n] = true
+    end
+  end
+
   sendstarts = cumsum(counts)
   nabrtosendrank = Int[r for r = 0:csize-1
                        if sendstarts[r+2]-sendstarts[r+1] > 0]
@@ -879,10 +903,26 @@ function connectmesh(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
         counts[r+2] += 1
         sr, se = r, e
       end
-      B[NR,i] = crank
       B[NE,i] = nelem + nghost
     end
   end
+
+  # Mark which faces will be received
+  ghostfaces = BitArray(undef, nface, nghost)
+  ghostfaces .= false
+  sr, se, ge = -1, 0, 0
+  for i = 1:last(size(B))
+    r, e, f = B[NR,i], B[NE,i], B[NF,i]
+    if r != crank
+      if !(sr == r && se == e)
+        ge += 1
+        sr, se = r, e
+      end
+      B[NR,i] = crank
+      ghostfaces[f, ge] = true
+    end
+  end
+
   recvstarts = cumsum(counts)
   nabrtorecvrank = Int[r for r = 0:csize-1
                        if recvstarts[r+2]-recvstarts[r+1] > 0]
@@ -947,7 +987,9 @@ function connectmesh(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
   (elems=1:(nelem+nghost),       # range of          element indices
    realelems=1:nelem,            # range of real     element indices
    ghostelems=nelem.+(1:nghost), # range of ghost    element indices
+   ghostfaces=ghostfaces,
    sendelems=sendelems,          # array of send     element indices
+   sendfaces=sendfaces,
    elemtocoord=newelemtocoord,   # element to vertex coordinates
    elemtoelem=elemtoelem,        # element to neighboring element
    elemtoface=elemtoface,        # element to neighboring element face
@@ -1001,6 +1043,70 @@ function mappings(N, elemtoelem, elemtoface, elemtoordr)
   end
 
   (vmapM, vmapP)
+end
+
+"""
+   commmapping(N, commelems, commfaces, nabrtocomm)
+
+This function takes in a polynomial order `N` and parts of a mesh (as returned
+from `connectmesh` such as `sendelems`, `sendfaces`, and `nabrtosend`) and
+returns index mappings for the element surface flux parallel communcation.
+The returned `Tuple` contains:
+
+ - `vmapC` an array of linear indices into the volume degrees of freedom to be
+   communicated.
+
+ - `nabrtovmapC` a range in `vmapC` to communicate with each neighbor.
+"""
+function commmapping(N, commelems, commfaces, nabrtocomm)
+  nface, nelem = size(commfaces)
+
+  @assert nelem == length(commelems)
+
+  d = div(nface, 2)
+  Nq = N+1
+  Np = (N+1)^d
+
+  vmapC = similar(commelems, nelem*Np)
+  nabrtovmapC = similar(nabrtocomm)
+
+  i = 1
+  e = 1
+  for neighbor in 1:length(nabrtocomm)
+    rbegin = i
+    for ne in nabrtocomm[neighbor]
+      ce = commelems[ne]
+
+      # Whole element sending
+      # for n = 1:Np
+      #   vmapC[i] = (ce-1)*Np + n
+      #   i += 1
+      # end
+
+      CI = CartesianIndices(ntuple(_->1:Nq, d))
+      for (ci, li) in zip(CI, LinearIndices(CI))
+        addpoint = false
+        for j = 1:d
+          addpoint |= (commfaces[2*(j-1)+1, e] && ci[j] == 1 ) ||
+                      (commfaces[2*(j-1)+2, e] && ci[j] == Nq)
+        end
+
+        if addpoint
+          vmapC[i] = (ce-1)*Np + li
+          i += 1
+        end
+      end
+
+      e += 1
+    end
+    rend = i-1
+
+    nabrtovmapC[neighbor] = rbegin:rend
+  end
+
+  resize!(vmapC, i-1)
+
+  (vmapC, nabrtovmapC)
 end
 
 end # module

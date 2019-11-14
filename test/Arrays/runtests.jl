@@ -1,15 +1,10 @@
-using Test, MPI
+using Test
 include("../testhelpers.jl")
 
-
-MPI.Initialized() || MPI.Init()
-
-include("basics.jl")
-include("broadcasting.jl")
-
 @testset "MPIStateArrays reductions" begin
-
-  tests = [(1, "reductions.jl"),
+  tests = [(1, "basics.jl")
+           (1, "broadcasting.jl")
+           (1, "reductions.jl")
            (3, "reductions.jl")
           ]
 
