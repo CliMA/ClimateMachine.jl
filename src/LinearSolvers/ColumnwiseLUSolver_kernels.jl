@@ -5,7 +5,7 @@ end
 using StaticArrays
 
 """
-    band_lu_knl!(A, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
+    band_lu_knl!(A, Val(Nq), Val(Nqi), Val(Nqj), Val(nstate), Val(nvertelem),
                  Val(nhorzelem), Val(eband))
 
 This performs Band Gaussian Elimination (Algorithm 4.3.1 of Golub and Van
