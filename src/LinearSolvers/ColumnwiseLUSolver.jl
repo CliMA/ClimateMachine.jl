@@ -280,7 +280,7 @@ function banded_matrix(f!, dg::DGModel,
         @launch(device, threads=(Nq, Nqj, Nq),
                 blocks=(2 * eband + 1, nhorzelem),
                 knl_set_banded_matrix!(bl, Val(dim), Val(N), Val(nvertelem),
-                                       Val(p), Val(q), Val(2eband),
+                                       Val(p), Val(q), Val(eband+1),
                                        A, dQ.data, k, s, ev, 1:nhorzelem,
                                        -eband:eband))
       end
