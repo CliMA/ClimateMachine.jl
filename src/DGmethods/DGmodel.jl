@@ -3,22 +3,24 @@ struct EveryDirection <: Direction end
 struct HorizontalDirection <: Direction end
 struct VerticalDirection <: Direction end
 
-struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D}
+struct DGModel{BL,G,NFND,NFD,GNF,DGQ,DGA,DGG,D}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
   numfluxdiff::NFD
   gradnumflux::GNF
-  auxstate::AS
-  diffstate::DS
+  state::DGQ
+  auxstate::DGA
+  diffstate::DGG
   direction::D
 end
 function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
+                 state=create_state(balancelaw, grid, 888),
                  auxstate=create_auxstate(balancelaw, grid),
                  diffstate=create_diffstate(balancelaw, grid),
                  direction=EveryDirection())
-  DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
-          diffstate, direction)
+  DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, state,
+          auxstate, diffstate, direction)
 end
 
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
@@ -128,7 +130,7 @@ function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array
   bl = dg.balancelaw
   grid = dg.grid
 
-  state = create_state(bl, grid, commtag)
+  state = dg.state # create_state(bl, grid, commtag)
 
   topology = grid.topology
   Np = dofs_per_element(grid)
@@ -152,7 +154,7 @@ function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array
       initstate!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
           topology.realelems, args...))
     state .= h_state
-  end  
+  end
 
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
