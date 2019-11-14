@@ -739,14 +739,14 @@ PhasePartition(ts::PhaseEquil) = PhasePartition_equil(air_temperature(ts), air_d
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
 function roots_∂e_int_∂T(T::FT, e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
-  cvm = cv_m(PhasePartition(q_tot))
+  cvm = cv_m(PhasePartition_equil(T, ρ, q_tot))
   q_vap_sat = q_vap_saturation(T, ρ)
   λ = liquid_fraction_equil(T)
   L = λ*FT(LH_v0) + (1-λ)*FT(LH_s0)
   ∂q_vap_sat_∂T = q_vap_sat*L/(FT(R_v)*T^2)
-  # T0 = FT(T_min)
   T0 = FT(T_0)
-  return cvm + ( FT(e_int_v0) + (1-λ)*FT(e_int_i0) + (T - T0) )*∂q_vap_sat_∂T
+  dcvm_dq_vap = FT(cv_v) - λ*FT(cv_l) - (1-λ)*FT(cv_i)
+  return cvm + ( FT(e_int_v0) + (1-λ)*FT(e_int_i0) + (T - T0)*dcvm_dq_vap)*∂q_vap_sat_∂T
 end
 
 """
@@ -769,14 +769,11 @@ function saturation_adjustment_NewtonsMethod(e_int::FT, ρ::FT, q_tot::FT) where
   if unsaturated
     return T_1
   else
-    # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
-    T_2 = air_temperature(e_int, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
     T, converged = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_ -> roots_∂e_int_∂T(T_, e_int, ρ, q_tot),
       T_1,
       NewtonsMethod(), FT(1e-3), 10)
-      # NewtonsMethodAD(), FT(1e-3), 3)
       if !converged
         error("saturation_adjustment_NewtonsMethod did not converge")
       end
