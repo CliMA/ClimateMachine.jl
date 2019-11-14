@@ -16,7 +16,22 @@ include("ColumnwiseLUSolver_kernels.jl")
 
 abstract type AbstractColumnLUSolver <: AbstractLinearSolver  end
 
+"""
+  ManyColumnLU()
+
+  This solver is used for systems that are block diagonal where each block is
+  associated with a column of the mesh.  The systems are solved using a
+  non-pivoted LU factorization.
+"""
 struct ManyColumnLU <: AbstractColumnLUSolver  end
+
+"""
+  SingleColumnLU()
+
+  This solver is used for systems that are block diagonal where each block is
+  associated with a column of the mesh.  Moreover, each block is assumed to be
+  the same.  The systems are solved using a non-pivoted LU factorization.
+"""
 struct SingleColumnLU <: AbstractColumnLUSolver  end
 
 struct ColumnwiseLU{F, AT}
