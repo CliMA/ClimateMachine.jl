@@ -7,13 +7,6 @@ using Logging
 using LinearAlgebra
 using Random
 using StaticArrays
-using CLIMA.Atmos: AtmosModel, AtmosAcousticLinearModel,
-                   DryModel, NoRadiation, NoFluxBC,
-                   ConstantViscosityWithDivergence, IsothermalProfile,
-                   HydrostaticState, NoOrientation
-using CLIMA.VariableTemplates: flattenednames
-
-using CLIMA.PlanetParameters: T_0
 using CLIMA.DGmethods: VerticalDirection, DGModel, Vars, vars_state,
                        num_state, init_ode_state
 using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
@@ -33,13 +26,24 @@ end
 
 using Test
 
-function init_state!(state, aux, coords, t)
-  FT = eltype(coords)
-  state.ρ = sin(coords[2] + sqrt(FT(3)))
-  state.ρu = SVector{3, FT}(sin(coords[1]),
-                            cos(coords[2] + sqrt(FT(2))),
-                            sin(coords[3] + sqrt(FT(5))))
-  state.ρe = sin(coords[1] + sqrt(FT(3))) * cos(coords[2] + sqrt(FT(3)))
+include("../DGmethods/advection_diffusion/advection_diffusion_model.jl")
+
+struct Pseudo1D{n, α, β, μ, δ} <: AdvectionDiffusionProblem end
+
+function init_velocity_diffusion!(::Pseudo1D{n, α, β}, aux::Vars,
+                                  geom::LocalGeometry) where {n, α, β}
+  # Direction of flow is n with magnitude α
+  aux.u = α * n
+
+  # diffusion of strength β in the n direction
+  aux.D = β * n * n'
+end
+
+function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
+                            t) where {n, α, β, μ, δ}
+  ξn = dot(n, x)
+  # ξT = SVector(x) - ξn * n
+  state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
 
 let
@@ -99,16 +103,14 @@ let
                                                     DeviceArray = AT,
                                                     polynomialorder = N,
                                                     meshwarp = warpfun)
-            model = AtmosModel(NoOrientation(),
-                               HydrostaticState(IsothermalProfile(FT(T_0)),
-                                                FT(0)),
-            ConstantViscosityWithDivergence(0.0),
-            DryModel(),
-            NoRadiation(),
-            nothing,
-            NoFluxBC(),
-            init_state!)
-            linear_model = AtmosAcousticLinearModel(model)
+            d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
+            n = SVector{3, FT}(d ./ norm(d))
+
+            α = FT(1)
+            β = FT(1 // 100)
+            μ = FT(-1 // 2)
+            δ = FT(1 // 10)
+            model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
 
             # the nonlinear model is needed so we can grab the auxstate below
             dg = DGModel(model,
@@ -116,120 +118,52 @@ let
                          Rusanov(),
                          CentralNumericalFluxDiffusive(),
                          CentralGradPenalty())
-            dg_linear = DGModel(linear_model,
-                                grid,
-                                Rusanov(),
-                                CentralNumericalFluxDiffusive(),
-                                CentralGradPenalty();
-                                direction=VerticalDirection(),
-                                auxstate=dg.auxstate)
 
-            A_banded = banded_matrix(dg_linear,
+            vdg = DGModel(model,
+                          grid,
+                          Rusanov(),
+                          CentralNumericalFluxDiffusive(),
+                          CentralGradPenalty();
+                          direction=VerticalDirection(),
+                          auxstate=dg.auxstate)
+
+            A_banded = banded_matrix(vdg,
                                      MPIStateArray(dg),
                                      MPIStateArray(dg);
                                      single_column=single_column)
 
             Q = init_ode_state(dg, FT(0))
-            dQ1 = MPIStateArray(dg_linear)
-            dQ2 = MPIStateArray(dg_linear)
+            dQ1 = MPIStateArray(dg)
+            dQ2 = MPIStateArray(dg)
 
-            dg_linear(dQ1, Q, nothing, 0; increment=false)
+            vdg(dQ1, Q, nothing, 0; increment=false)
             Q.data .= dQ1.data
 
-            dg_linear(dQ1, Q, nothing, 0; increment=false)
-            banded_matrix_vector_product!(dg_linear, A_banded, dQ2, Q)
-            @test dQ1.realdata ≈ dQ2.realdata
-          end
-        end
-      end
-    end
-  end
-
-  @testset "$(@__FILE__) linear operator matrix" begin
-    for AT in ArrayTypes
-      for FT in (Float64, Float32)
-        for dim = (2, 3)
-          for single_column in (false, true)
-            # Setup the topology
-            if dim == 2
-              brickrange = (range(FT(0); length=Neh+1, stop=1),
-                            range(FT(1); length=Nev+1, stop=2))
-            elseif dim == 3
-              brickrange = (range(FT(0); length=Neh+1, stop=1),
-                            range(FT(0); length=Neh+1, stop=1),
-              range(FT(1); length=Nev+1, stop=2))
-            end
-            topl = StackedBrickTopology(mpicomm, brickrange)
-
-            # Warp mesh
-            function warpfun(ξ1, ξ2, ξ3)
-              # single column currently requires no geometry warping
-
-              # Even if the warping is in only the horizontal, the way we
-              # compute metrics causes problems for the single column approach
-              # (possibly need to not use curl-invariant computation)
-              if !single_column
-                ξ1 = ξ1 + sin(2π * ξ1 * ξ2) / 10
-                ξ2 = ξ2 + sin(2π * ξ1) / 5
-                if dim == 3
-                  ξ3 = ξ3 + sin(8π * ξ1 * ξ2) / 10
-                end
-              end
-              (ξ1, ξ2, ξ3)
-            end
-
-            # create the actual grid
-            grid = DiscontinuousSpectralElementGrid(topl,
-                                                    FloatType = FT,
-                                                    DeviceArray = AT,
-                                                    polynomialorder = N,
-                                                    meshwarp = warpfun)
-            model = AtmosModel(NoOrientation(),
-                               HydrostaticState(IsothermalProfile(FT(T_0)),
-                                                FT(0)),
-            ConstantViscosityWithDivergence(0.0),
-            DryModel(),
-            NoRadiation(),
-            nothing,
-            NoFluxBC(),
-            init_state!)
-            linear_model = AtmosAcousticLinearModel(model)
-
-            # the nonlinear model is needed so we can grab the auxstate below
-            dg = DGModel(model,
-                         grid,
-                         Rusanov(),
-                         CentralNumericalFluxDiffusive(),
-                         CentralGradPenalty())
-            dg_linear = DGModel(linear_model,
-                                grid,
-                                Rusanov(),
-                                CentralNumericalFluxDiffusive(),
-                                CentralGradPenalty();
-                                direction=VerticalDirection(),
-                                auxstate=dg.auxstate)
+            vdg(dQ1, Q, nothing, 0; increment=false)
+            banded_matrix_vector_product!(vdg, A_banded, dQ2, Q)
+            @test all(isapprox.(Array(dQ1.realdata), Array(dQ2.realdata), atol=100*eps(FT)))
 
             α = FT(1 // 10)
             function op!(LQ, Q)
-              dg_linear(LQ, Q, nothing, 0; increment=false)
+              vdg(LQ, Q, nothing, 0; increment=false)
               @. LQ = Q + α * LQ
             end
 
-            A_banded = banded_matrix(op!, dg_linear,
+            A_banded = banded_matrix(op!, vdg,
                                      MPIStateArray(dg),
                                      MPIStateArray(dg);
                                      single_column=single_column)
 
             Q = init_ode_state(dg, FT(0))
-            dQ1 = MPIStateArray(dg_linear)
-            dQ2 = MPIStateArray(dg_linear)
+            dQ1 = MPIStateArray(vdg)
+            dQ2 = MPIStateArray(vdg)
 
             op!(dQ1, Q)
             Q.data .= dQ1.data
 
             op!(dQ1, Q)
-            banded_matrix_vector_product!(dg_linear, A_banded, dQ2, Q)
-            @test dQ1.realdata ≈ dQ2.realdata
+            banded_matrix_vector_product!(vdg, A_banded, dQ2, Q)
+            @test all(isapprox.(Array(dQ1.realdata), Array(dQ2.realdata), atol=100*eps(FT)))
           end
         end
       end
