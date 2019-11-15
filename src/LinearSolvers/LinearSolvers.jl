@@ -16,12 +16,15 @@ export linearsolve!, settolerance!, prefactorize
 export AbstractLinearSolver, AbstractIterativeLinearSolver
 
 """
-This is an abstract type representing a generic linear solver.
+    AbstractLinearSolver
 
+This is an abstract type representing a generic linear solver.
 """
 abstract type AbstractLinearSolver end
 
 """
+    AbstractIterativeLinearSolver
+
 This is an abstract type representing a generic iterative
 linear solver.
 
@@ -50,7 +53,7 @@ initialize!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver,
   throw(MethodError(initialize!, (linearoperator!, Q, Qrhs, solver, args...)))
 
 """
-  prefactorize(linop!, linearsolver, args...)
+    prefactorize(linop!, linearsolver, args...)
 
 Prefactorize the in-place linear operator `linop!` for use with `linearsolver`. 
 """
@@ -64,7 +67,7 @@ Solves a linear problem defined by the `linearoperator!` function and the state
 `Qrhs`, i.e,
 
 ```math
-  L(Q) = Q_{rhs}
+L(Q) = Q_{rhs}
 ```
 
 using the `solver` and the initial guess `Q`. After the call `Q` contains the
