@@ -36,7 +36,7 @@ cpu_gpu = [
   { file = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl", slurmargs = ["--ntasks=2"], args = [] },
   { file = "test/LinearSolvers/poisson.jl", slurmargs = ["--ntasks=2"], args = [] },
   { file = "test/LinearSolvers/columnwiselu.jl", slurmargs = ["--ntasks=1"], args = []},
-  { file = "test/LinearSolvers/bandedsystem.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/LinearSolvers/bandedsystem.jl", slurmargs = ["--ntasks=3", "--time=02:00:00"], args = [] },
   { file = "examples/DGmethods/ex_001_dycoms.jl", slurmargs = ["--ntasks=4"], args = [] },
   { file = "test/Ocean/shallow_water/GyreDriver.jl", slurmargs = ["--ntasks=1"], args = [] },
 ]
