@@ -17,20 +17,20 @@ include("ColumnwiseLUSolver_kernels.jl")
 abstract type AbstractColumnLUSolver <: AbstractLinearSolver  end
 
 """
-  ManyColumnLU()
+    ManyColumnLU()
 
-  This solver is used for systems that are block diagonal where each block is
-  associated with a column of the mesh.  The systems are solved using a
-  non-pivoted LU factorization.
+This solver is used for systems that are block diagonal where each block is
+associated with a column of the mesh.  The systems are solved using a
+non-pivoted LU factorization.
 """
 struct ManyColumnLU <: AbstractColumnLUSolver  end
 
 """
-  SingleColumnLU()
+    SingleColumnLU()
 
-  This solver is used for systems that are block diagonal where each block is
-  associated with a column of the mesh.  Moreover, each block is assumed to be
-  the same.  The systems are solved using a non-pivoted LU factorization.
+This solver is used for systems that are block diagonal where each block is
+associated with a column of the mesh.  Moreover, each block is assumed to be
+the same.  The systems are solved using a non-pivoted LU factorization.
 """
 struct SingleColumnLU <: AbstractColumnLUSolver  end
 
@@ -61,6 +61,10 @@ function LS.linearsolve!(clu::ColumnwiseLU{F}, ::AbstractColumnLUSolver,
   band_back!(Q, A, dg)
 end
 
+"""
+    band_lu!(A, dg::DGModel)
+
+"""
 function band_lu!(A, dg::DGModel)
   bl = dg.balancelaw
   grid = dg.grid
@@ -178,7 +182,7 @@ are:
   element `ev` mapping to `s + nstate * (k - 1) + nstate * nvertelem * (ev - 1)`
 - horizontal element index
 
-If the 'single_column=true` then the returned array has 2 dimensions which are
+If the `single_column=true` then the returned array has 2 dimensions which are
 the band index and the vertical DOF index.
 """
 function banded_matrix(dg::DGModel, Q::MPIStateArray = MPIStateArray(dg),
@@ -215,7 +219,7 @@ are:
   element `ev` mapping to `s + nstate * (k - 1) + nstate * nvertelem * (ev - 1)`
 - horizontal element index
 
-If the 'single_column=true` then the returned array has 2 dimensions which are
+If the `single_column=true` then the returned array has 2 dimensions which are
 the band index and the vertical DOF index.
 
 Here `args` are passed to `f!`.

@@ -17,8 +17,8 @@ Each `n` by `n` band matrix is assumed to have upper bandwidth `q` and lower
 bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
 eband - 1`.
 
-Each band matrix is stored in the LAPACK band storage
-<https://www.netlib.org/lapack/lug/node124.html>.  For example the band matrix
+Each band matrix is stored in the [LAPACK band storage](https://www.netlib.org/lapack/lug/node124.html).
+For example the band matrix
 
     B = [b₁₁ b₁₂ 0   0   0
          b₂₁ b₂₂ b₂₃ 0   0
@@ -34,6 +34,7 @@ is stored as
          b₃₁ b₄₂ b₅₃ 0   0]
 
 ### Reference
+
     @book{GolubVanLoan,
       title = {Matrix Computations},
       author = {Gene H. Golub and Charles F. Van Loan},
@@ -101,6 +102,7 @@ bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
 eband - 1`.
 
 ### Reference
+
     @book{GolubVanLoan,
       title = {Matrix Computations},
       author = {Gene H. Golub and Charles F. Van Loan},
@@ -192,6 +194,7 @@ bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
 eband - 1`.
 
 ### Reference
+
     @book{GolubVanLoan,
       title = {Matrix Computations},
       author = {Gene H. Golub and Charles F. Van Loan},
