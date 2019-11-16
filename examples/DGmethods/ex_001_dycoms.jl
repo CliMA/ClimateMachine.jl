@@ -19,7 +19,7 @@ using CLIMA.VTK
 
 using CLIMA.Atmos: vars_state, vars_aux
 
-using Random 
+using Random
 const seed = MersenneTwister(0)
 
 @static if haspkg("CuArrays")
@@ -27,7 +27,7 @@ const seed = MersenneTwister(0)
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,) 
+  const ArrayTypes = (CuArray,)
 else
   const ArrayTypes = (Array,)
 end
@@ -39,11 +39,28 @@ end
 
 """
   Initial Condition for DYCOMS_RF01 LES
+@article{doi:10.1175/MWR2930.1,
+author = {Stevens, Bjorn and Moeng, Chin-Hoh and Ackerman,
+          Andrew S. and Bretherton, Christopher S. and Chlond,
+          Andreas and de Roode, Stephan and Edwards, James and Golaz,
+          Jean-Christophe and Jiang, Hongli and Khairoutdinov,
+          Marat and Kirkpatrick, Michael P. and Lewellen, David C. and Lock, Adrian and
+          Maeller, Frank and Stevens, David E. and Whelan, Eoin and Zhu, Ping},
+title = {Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus},
+journal = {Monthly Weather Review},
+volume = {133},
+number = {6},
+pages = {1443-1462},
+year = {2005},
+doi = {10.1175/MWR2930.1},
+URL = {https://doi.org/10.1175/MWR2930.1},
+eprint = {https://doi.org/10.1175/MWR2930.1}
+}
 """
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   DT         = eltype(state)
   xvert::DT  = z
-  
+
   epsdv::DT     = molmass_ratio
   q_tot_sfc::DT = 8.1e-3
   Rm_sfc::DT    = gas_constant_air(PhasePartition(q_tot_sfc))
@@ -51,15 +68,15 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   P_sfc::DT     = 1.0178e5
   T_BL::DT      = 285.0
   T_sfc::DT     = P_sfc/(ρ_sfc * Rm_sfc);
-  
+
   q_liq::DT      = 0
   q_ice::DT      = 0
-  zb::DT         = 600   
-  zi::DT         = 840 
+  zb::DT         = 600
+  zi::DT         = 840
   dz_cloud       = zi - zb
   q_liq_peak::DT = 4.5e-4
-  
-  if xvert > zb && xvert <= zi        
+
+  if xvert > zb && xvert <= zi
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
   if ( xvert <= zi)
@@ -77,8 +94,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   H = Rm_sfc * T_BL / grav;
   P = P_sfc * exp(-xvert/H);
   #Exner
-  exner_dry = exner(P, PhasePartition(DT(0)))
-  #Temperature 
+  exner_dry = exner_given_pressure(P, PhasePartition(DT(0)))
+  #Temperature
   T             = exner_dry*θ_liq + LH_v0*q_liq/(cpm*exner_dry);
   #Density
   ρ             = P/(Rm*T);
@@ -93,10 +110,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
   state.ρ     = ρ
-  state.ρu    = SVector(U, V, W) 
+  state.ρu    = SVector(U, V, W)
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
-end   
+end
 
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
@@ -111,10 +128,10 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      SmagorinskyLilly{DT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
-                     (Gravity(), 
-                      RayleighSponge{DT}(zmax, zsponge, 1), 
-                      Subsidence(), 
-                      GeostrophicForcing{DT}(7.62e-5, 7, -5.5)), 
+                     (Gravity(),
+                      RayleighSponge{DT}(zmax, zsponge, 1),
+                      Subsidence(),
+                      GeostrophicForcing{DT}(7.62e-5, 7, -5.5)),
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
 
@@ -156,9 +173,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     outprefix = @sprintf("./vtk-dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)), 
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,DT)),
              dg.auxstate, flattenednames(vars_aux(model,DT)))
-        
+
     step[1] += 1
     nothing
   end
@@ -197,7 +214,7 @@ let
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     # Problem type
     DT = Float64
-    # DG polynomial order 
+    # DG polynomial order
     N = 4
     # SGS Filter constants
     C_smag = DT(0.15)
@@ -210,7 +227,7 @@ let
                   grid1d(0, 1500, elemsize=DT(20)*N))
     zmax = brickrange[3][end]
     zsponge = DT(0.75 * zmax)
-    
+
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
@@ -218,9 +235,9 @@ let
     timeend = 100dt
     dim = 3
     @info (ArrayType, DT, dim)
-    result = run(mpicomm, ArrayType, dim, topl, 
+    result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(0.9999712407365311)
+    @test result ≈ DT(0.9999737848359238)
   end
 end
 

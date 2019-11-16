@@ -1,6 +1,5 @@
-using Test, MPI
-
-using LinearAlgebra
+using MPI
+using Test
 using StaticArrays
 using Logging, Printf
 
@@ -8,13 +7,22 @@ using CLIMA
 using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
 using CLIMA.GeneralizedMinimalResidualSolver
-
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
+using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.SpaceMethods
+using CLIMA.VariableTemplates
+using CLIMA.DGmethods
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                        vars_diffusive, flux_nondiffusive!, flux_diffusive!,
+                        source!, boundary_state!,
+                        gradvariables!,
+                        diffusive!, init_aux!, init_state!,
+                        LocalGeometry
 
+import CLIMA.DGmethods.NumericalFluxes: NumericalFluxDiffusive,
+                                        numerical_flux_diffusive!
+                                                              
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -30,78 +38,92 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-function physical_flux!(F, state, visc_state, _...)
-  @inbounds F[:, 1] = visc_state[:]
+struct PoissonModel{dim} <: BalanceLaw end
+
+vars_aux(::PoissonModel,T) = @vars(rhs_ϕ::T)
+vars_state(::PoissonModel, T) = @vars(ϕ::T)
+vars_gradient(::PoissonModel, T) = @vars(ϕ::T)
+vars_diffusive(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
+
+boundary_state!(nf, bl::PoissonModel, _...) = nothing
+
+function flux_nondiffusive!(::PoissonModel, flux::Grad, state::Vars,
+                            auxstate::Vars, t::Real)
+  nothing
 end
 
-@inline function numerical_flux!(fs, nM, stateM, viscM, auxM, stateP, viscP, auxP, t)
-  DFloat = eltype(stateM)
-  tau = DFloat(1.0)
-
-  @inbounds fs[1] = ( nM[1] * (viscM[1] + viscP[1])
-                    + nM[2] * (viscM[2] + viscP[2])
-                    + nM[3] * (viscM[3] + viscP[3]) ) / 2 
- 
-
-  @inbounds fs[1] -= tau * (stateM[1] - stateP[1])
+function flux_diffusive!(::PoissonModel, flux::Grad, state::Vars,
+                         diffusive::Vars, auxstate::Vars, t::Real)
+  flux.ϕ = diffusive.∇ϕ
 end
 
-@inline gradient_transform!(G, Q, _...) = (G .= Q)
-
-@inline viscous_transform!(V, gradG, _...) = (V[:] .= gradG[:, 1])
-
-@inline function viscous_penalty!(VF, nM, GM, QM, aM, GP, QP, aP, t)
-  @inbounds begin
-    n_dq = similar(VF, Size(3, 1))
-    for i = 1:3
-      n_dq[i, 1] = nM[i] * (GP[1] - GM[1]) / 2
-    end
-    viscous_transform!(VF, n_dq)
+struct PenaltyNumFluxDiffusive <: NumericalFluxDiffusive end
+function numerical_flux_diffusive!(::PenaltyNumFluxDiffusive,
+                                   bl::PoissonModel, F::MArray, nM,
+                                   QM, QVM, auxM,
+                                   QP, QVP, auxP,
+                                   t)
+  numerical_flux_diffusive!(CentralNumericalFluxDiffusive(),
+                            bl, F, nM,
+                            QM, QVM, auxM,
+                            QP, QVP, auxP,
+                            t)
+  FT = eltype(F)
+  nstate = length(F)
+  tau = FT(1.0)
+  for s = 1:nstate
+    @inbounds F[s] -= tau * (QM[1] - QP[1])
   end
 end
 
-@inline function initialcondition!(Q, xs...)
-  @inbounds Q[1] = 0
+function gradvariables!(::PoissonModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
+  transformstate.ϕ = state.ϕ
 end
+
+function diffusive!(::PoissonModel, diffusive::Vars,
+                    ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
+  diffusive.∇ϕ = ∇transform.ϕ
+end
+
+source!(::PoissonModel, source::Vars, state::Vars, aux::Vars, t::Real) = nothing
 
 # note, that the code assumes solutions with zero mean
 sol1d(x) = sin(2pi * x) ^ 4 - 3 / 8
 dxx_sol1d(x) = -16pi ^ 2 * sin(2pi * x) ^ 2 * (sin(2pi * x) ^ 2 - 3cos(2pi * x) ^ 2)
 
-@inline function rhs!(dim, Q, xs...)
-  @inbounds Q[1] = -sum(dxx_sol1d(xs[d]) *
-                        prod(sol1d(xs[mod(d + dd - 1, dim) + 1]) for dd = 1:dim-1) for d = 1:dim)
+function init_aux!(::PoissonModel{dim}, aux::Vars, g::LocalGeometry) where dim
+  aux.rhs_ϕ = 0
+  @inbounds for d = 1:dim
+    x1 = g.coord[d]
+    x2 = g.coord[1 + mod(d, dim)]
+    x3 = g.coord[1 + mod(d + 1, dim)]
+    x23 = SVector(x2, x3)
+    aux.rhs_ϕ -= dxx_sol1d(x1) * prod(sol1d, view(x23, 1:dim-1))
+  end
 end
 
-@inline function exactsolution!(dim, Q, xs...)
-  @inbounds Q[1] = prod(sol1d.(xs[1:dim]))
+function init_state!(::PoissonModel{dim}, state::Vars, aux::Vars, coords, t) where dim
+  state.ϕ = prod(sol1d, view(coords, 1:dim))
 end
 
-function run(mpicomm, ArrayType, DFloat, dim, polynomialorder, brickrange, periodicity, linmethod)
+function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodicity, linmethod)
 
   topology = BrickTopology(mpicomm, brickrange, periodicity=periodicity)
   grid = DiscontinuousSpectralElementGrid(topology,
                                           polynomialorder = polynomialorder,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType)
+  dg = DGModel(PoissonModel{dim}(),
+               grid,
+               CentralNumericalFluxNonDiffusive(),
+               PenaltyNumFluxDiffusive(),
+               CentralGradPenalty())
 
-  spacedisc = DGBalanceLaw(grid = grid,
-                           length_state_vector = 1,
-                           flux! = physical_flux!,
-                           numerical_flux! = numerical_flux!,
-                           number_gradient_states = 1,
-                           number_viscous_states = 3,
-                           gradient_transform! = gradient_transform!,
-                           viscous_transform! = viscous_transform!,
-                           viscous_penalty! = viscous_penalty!)
+  Q = init_ode_state(dg, FT(0))
+  Qrhs = dg.auxstate
+  Qexact = init_ode_state(dg, FT(0))
 
-
-  Q = MPIStateArray(spacedisc, initialcondition!)
-  Qrhs = MPIStateArray(spacedisc, (args...) -> rhs!(dim, args...))
-  Qexact = MPIStateArray(spacedisc, (args...) -> exactsolution!(dim, args...))
-
-  linearoperator!(y, x) = SpaceMethods.odefun!(spacedisc, y, x, nothing, 0;
-                                               increment = false)
+  linearoperator!(y, x) = dg(y, x, nothing, 0; increment = false)
 
   linearsolver = linmethod(Q)
 
@@ -157,20 +179,20 @@ let
 
   lvls = integration_testing ? size(expected_result)[end] : 1
 
-  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), DFloat in (Float64,)
-    result = Array{Tuple{DFloat, Int}}(undef, lvls)
+  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), FT in (Float64,)
+    result = Array{Tuple{FT, Int}}(undef, lvls)
     for dim = 2:3
 
       for l = 1:lvls
         Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
-        brickrange = ntuple(d -> range(DFloat(0), length = Ne[d], stop = 1), dim)
+        brickrange = ntuple(d -> range(FT(0), length = Ne[d], stop = 1), dim)
         periodicity = ntuple(d -> true, dim)
         
-        @info (ArrayType, DFloat, m, dim)
-        result[l] = run(mpicomm, ArrayType, DFloat, dim,
+        @info (ArrayType, FT, m, dim)
+        result[l] = run(mpicomm, ArrayType, FT, dim,
                         polynomialorder, brickrange, periodicity, linmethod)
 
-        @test isapprox(result[l][1], DFloat(expected_result[m, dim-1, l]), rtol = sqrt(tol))
+        @test isapprox(result[l][1], FT(expected_result[m, dim-1, l]), rtol = sqrt(tol))
       end
 
       if integration_testing

@@ -34,10 +34,10 @@ include("mms_model.jl")
 
 # initial condition
 
-function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
+function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = warpfun,
@@ -48,7 +48,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
 
-  Q = init_ode_state(dg, DFloat(0))
+  Q = init_ode_state(dg, FT(0))
 
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
@@ -81,7 +81,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
 
   # Print some end of the simulation information
   engf = norm(Q)
-  Qe = init_ode_state(dg, DFloat(timeend))
+  Qe = init_ode_state(dg, FT(timeend))
 
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -112,19 +112,19 @@ let
   polynomialorder = 4
   base_num_elem = 4
 
-  expected_result = [1.5606226382564500e-01 5.3302790086802504e-03 2.2574728860707139e-04;
-                     2.5803100360042141e-02 1.1794776908545315e-03 6.1785354745749247e-05]
+  expected_result = [1.5606126271800713e-01 5.3315235468489059e-03 2.2572701271271977e-04;
+                     2.5754410198969766e-02 1.1781217145186925e-03 6.1752962472852435e-05]
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
-      result = zeros(DFloat, lvls)
+    for FT in (Float64,) #Float32)
+      result = zeros(FT, lvls)
       for dim = 2:3
         for l = 1:lvls
           if dim == 2
             Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-            brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                          range(DFloat(0); length=Ne[2]+1, stop=1))
+            brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                          range(FT(0); length=Ne[2]+1, stop=1))
             topl = BrickTopology(mpicomm, brickrange,
                                  periodicity = (false, false))
             dt = 1e-2 / Ne[1]
@@ -134,9 +134,9 @@ let
 
           elseif dim == 3
             Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-            brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                          range(DFloat(0); length=Ne[2]+1, stop=1),
-            range(DFloat(0); length=Ne[2]+1, stop=1))
+            brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                          range(FT(0); length=Ne[2]+1, stop=1),
+            range(FT(0); length=Ne[2]+1, stop=1))
             topl = BrickTopology(mpicomm, brickrange,
                                  periodicity = (false, false, false))
             dt = 5e-3 / Ne[1]
@@ -150,10 +150,10 @@ let
           nsteps = ceil(Int64, timeend / dt)
           dt = timeend / nsteps
 
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, FT, dim)
           result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
-                          polynomialorder, timeend, DFloat, dt)
-          @test result[l] ≈ DFloat(expected_result[dim-1, l])
+                          polynomialorder, timeend, FT, dt)
+          @test result[l] ≈ FT(expected_result[dim-1, l])
         end
         if integration_testing
           @info begin

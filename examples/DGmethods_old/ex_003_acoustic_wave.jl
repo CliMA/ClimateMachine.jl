@@ -195,7 +195,7 @@ end
 # to enforce the boundary condition.
 function nofluxbc!(QP, _, _, nM, QM, _, auxM, _...)
   @inbounds begin
-    DFloat = eltype(QM)
+    FT = eltype(QM)
     ## get the minus values
     dρM, ρuM, ρvM, ρwM, dρeM = QM[_dρ], QM[_ρu], QM[_ρv], QM[_ρw], QM[_dρe]
 
@@ -225,7 +225,7 @@ end
 
 # First it is useful to have a conversion function going between Cartesian and
 # spherical coordinates (defined here in terms of radians)
-function cartesian_to_spherical(DFloat, x, y, z)
+function cartesian_to_spherical(FT, x, y, z)
     r = hypot(x, y, z)
     λ = atan(y, x)
     φ = asin(z / r)
@@ -237,24 +237,24 @@ end
 # `T0` is the isothermal state defined in Tomita and Satoh (2004) to be `300 K`.
 function auxiliary_state_initialization!(T0, aux, x, y, z)
   @inbounds begin
-    DFloat = eltype(aux)
-    p0 = DFloat(MSLP)
+    FT = eltype(aux)
+    p0 = FT(MSLP)
 
     ## Convert to Spherical coordinates
-    (r, _, _) = cartesian_to_spherical(DFloat, x, y, z)
+    (r, _, _) = cartesian_to_spherical(FT, x, y, z)
 
     ## Calculate the geopotential ϕ
-    h = r - DFloat(planet_radius) # height above the planet surface
-    ϕ = DFloat(grav) * h
+    h = r - FT(planet_radius) # height above the planet surface
+    ϕ = FT(grav) * h
 
     ## Pressure assuming hydrostatic balance
-    P_ref = p0 * exp(-ϕ / (gas_constant_air(DFloat) * T0))
+    P_ref = p0 * exp(-ϕ / (gas_constant_air(FT) * T0))
 
     ## Density from the ideal gas law
-    ρ_ref = air_density(DFloat(T0), P_ref)
+    ρ_ref = air_density(FT(T0), P_ref)
 
     ## Calculate the reference total potential energy
-    e_int = internal_energy(DFloat(T0))
+    e_int = internal_energy(FT(T0))
     ρe_ref = e_int * ρ_ref + ρ_ref * ϕ
 
     ## Fill the auxiliary state array
@@ -274,11 +274,11 @@ end
 # Tomita and Satoh (2004) to be `10` km.
 function initialcondition!(domain_height, Q, x, y, z, aux, _...)
   @inbounds begin
-    DFloat = eltype(Q)
-    p0 = DFloat(MSLP)
+    FT = eltype(Q)
+    p0 = FT(MSLP)
 
-    (r, λ, φ) = cartesian_to_spherical(DFloat, x, y, z)
-    h = r - DFloat(planet_radius)
+    (r, λ, φ) = cartesian_to_spherical(FT, x, y, z)
+    h = r - FT(planet_radius)
 
     ## Get the reference pressure from the previously defined reference state
     ρ_ref, ρe_ref, ϕ = aux[_a_ρ_ref], aux[_a_ρe_ref], aux[_a_ϕ]
@@ -288,7 +288,7 @@ function initialcondition!(domain_height, Q, x, y, z, aux, _...)
 
     ## Define the initial pressure Perturbation
     α, nv, γ = 3, 1, 100
-    β = min(DFloat(1), α * acos(cos(φ) * cos(λ)))
+    β = min(FT(1), α * acos(cos(φ) * cos(λ)))
     f = (1 + cos(π * β)) / 2
     g = sin(nv * π * h / domain_height)
     dP = γ * f * g
@@ -348,10 +348,10 @@ end
 
 # ### Initialize the DG Method
 function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
-                 ArrayType, domain_height, T0, DFloat)
+                 ArrayType, domain_height, T0, FT)
 
   ## Create the element grid in the vertical direction
-  Rrange = range(DFloat(planet_radius), length = Ne_vertical + 1,
+  Rrange = range(FT(planet_radius), length = Ne_vertical + 1,
                  stop = planet_radius + domain_height)
 
   ## Set up the mesh topology for the sphere
@@ -362,7 +362,7 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
   ## lay on the sphere (and not just stacked cubes)
   grid = DiscontinuousSpectralElementGrid(topology;
                                           polynomialorder = polynomialorder,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           meshwarp = Topologies.cubedshellwarp)
 
@@ -424,11 +424,11 @@ let
   T0 = 300
 
   ## Floating point type to use in the calculation
-  DFloat = Float64
+  FT = Float64
 
   spatialdiscretization = setupDG(mpicomm, Ne_vertical, Ne_horizontal,
                                   polynomialorder, DeviceArrayType,
-                                  domain_height, T0, DFloat)
+                                  domain_height, T0, FT)
 
   Q = MPIStateArray(spatialdiscretization,
                     (x...) -> initialcondition!(domain_height, x...))
@@ -436,7 +436,7 @@ let
   ## Since we are using explicit time stepping the acoustic wave speed will
   ## dominate our CFL restriction along with the vertical element size
   element_size = (domain_height / Ne_vertical)
-  acoustic_speed = soundspeed_air(DFloat(T0))
+  acoustic_speed = soundspeed_air(FT(T0))
   dt = element_size / acoustic_speed / polynomialorder^2
 
   ## Adjust the time step so we exactly hit 1 hour for VTK output

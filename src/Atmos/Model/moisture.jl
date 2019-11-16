@@ -3,12 +3,10 @@ export DryModel, EquilMoist
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
 
-export DryModel, EquilMoist
-
-vars_state(::MoistureModel, T) = @vars()
-vars_gradient(::MoistureModel, T) = @vars()
-vars_diffusive(::MoistureModel, T) = @vars()
-vars_aux(::MoistureModel, T) = @vars()
+vars_state(::MoistureModel, FT) = @vars()
+vars_gradient(::MoistureModel, FT) = @vars()
+vars_diffusive(::MoistureModel, FT) = @vars()
+vars_aux(::MoistureModel, FT) = @vars()
 
 function atmos_nodal_update_aux!(::MoistureModel, m::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
@@ -47,7 +45,7 @@ Assumes the moisture components is in the dry limit.
 struct DryModel <: MoistureModel
 end
 
-vars_aux(::DryModel,T) = @vars(θ_v::T)
+vars_aux(::DryModel,FT) = @vars(θ_v::FT)
 @inline function atmos_nodal_update_aux!(moist::DryModel, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
@@ -65,10 +63,10 @@ Assumes the moisture components are computed via thermodynamic equilibrium.
 """
 struct EquilMoist <: MoistureModel
 end
-vars_state(::EquilMoist,T) = @vars(ρq_tot::T)
-vars_gradient(::EquilMoist,T) = @vars(q_tot::T, h_tot::T)
-vars_diffusive(::EquilMoist,T) = @vars(ρd_q_tot::SVector{3,T}, ρd_h_tot::SVector{3,T})
-vars_aux(::EquilMoist,T) = @vars(temperature::T, θ_v::T, q_liq::T)
+vars_state(::EquilMoist,FT) = @vars(ρq_tot::FT)
+vars_gradient(::EquilMoist,FT) = @vars(q_tot::FT, h_tot::FT)
+vars_diffusive(::EquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_h_tot::SVector{3,FT})
+vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)

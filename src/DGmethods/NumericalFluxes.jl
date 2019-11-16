@@ -4,6 +4,7 @@ export Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive,
        CentralNumericalFluxNonDiffusive
 
 using StaticArrays
+using GPUifyLoops: @unroll
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
                     vars_aux, vars_gradient, boundary_state!, wavespeed,
                     flux_nondiffusive!, flux_diffusive!, diffusive!, num_state,
@@ -33,18 +34,20 @@ struct CentralGradPenalty <: GradNumericalPenalty end
 
 function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
                             VF, nM, diffM, QM, aM, diffP, QP, aP, t)
-  DFloat = eltype(QM)
+  FT = eltype(QM)
 
   @inbounds begin
     ndim = 3
-    ngradstate = num_gradient(bl,DFloat)
+    ngradstate = num_gradient(bl,FT)
     n_Δdiff = similar(VF, Size(ndim, ngradstate))
-    for j = 1:ngradstate, i = 1:ndim
-      n_Δdiff[i, j] = nM[i] * (diffP[j] - diffM[j]) / 2
+    @unroll for j = 1:ngradstate
+      @unroll for i = 1:ndim
+        n_Δdiff[i, j] = nM[i] * (diffP[j] - diffM[j]) / 2
+      end
     end
-    diffusive!(bl, Vars{vars_diffusive(bl,DFloat)}(VF),
-               Grad{vars_gradient(bl,DFloat)}(n_Δdiff),
-               Vars{vars_state(bl,DFloat)}(QM), Vars{vars_aux(bl,DFloat)}(aM),
+    diffusive!(bl, Vars{vars_diffusive(bl,FT)}(VF),
+               Grad{vars_gradient(bl,FT)}(n_Δdiff),
+               Vars{vars_state(bl,FT)}(QM), Vars{vars_aux(bl,FT)}(aM),
                t)
   end
 end
@@ -52,17 +55,17 @@ end
 function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
                                      VF, nM, diffM, QM, aM, diffP, QP, aP,
                                      bctype, t, Q1, aux1)
-  DFloat = eltype(diffP)
-  boundary_state!(nf, bl, Vars{vars_state(bl,DFloat)}(QP),
-                  Vars{vars_aux(bl,DFloat)}(aP), nM,
-                  Vars{vars_state(bl,DFloat)}(QM),
-                  Vars{vars_aux(bl,DFloat)}(aM), bctype, t,
-                  Vars{vars_state(bl,DFloat)}(Q1),
-                  Vars{vars_aux(bl,DFloat)}(aux1))
+  FT = eltype(diffP)
+  boundary_state!(nf, bl, Vars{vars_state(bl,FT)}(QP),
+                  Vars{vars_aux(bl,FT)}(aP), nM,
+                  Vars{vars_state(bl,FT)}(QM),
+                  Vars{vars_aux(bl,FT)}(aM), bctype, t,
+                  Vars{vars_state(bl,FT)}(Q1),
+                  Vars{vars_aux(bl,FT)}(aux1))
 
-  gradvariables!(bl, Vars{vars_gradient(bl,DFloat)}(diffP),
-                 Vars{vars_state(bl,DFloat)}(QP),
-                 Vars{vars_aux(bl,DFloat)}(aP), t)
+  gradvariables!(bl, Vars{vars_gradient(bl,FT)}(diffP),
+                 Vars{vars_state(bl,FT)}(QP),
+                 Vars{vars_aux(bl,FT)}(aP), t)
 
   diffusive_penalty!(nf, bl, VF, nM, diffM, QM, aM, diffP, QP, aP, t)
 end
@@ -97,13 +100,13 @@ function numerical_boundary_flux_nondiffusive!(nf::NumericalFluxNonDiffusive,
                                                F::MArray{Tuple{nstate}}, nM, QM,
                                                auxM, QP, auxP, bctype, t,
                                                Q1, aux1) where {nstate}
-  DFloat = eltype(F)
-  boundary_state!(nf, bl, Vars{vars_state(bl,DFloat)}(QP),
-                  Vars{vars_aux(bl,DFloat)}(auxP), nM,
-                  Vars{vars_state(bl,DFloat)}(QM),
-                  Vars{vars_aux(bl,DFloat)}(auxM), bctype, t,
-                  Vars{vars_state(bl,DFloat)}(Q1),
-                  Vars{vars_aux(bl,DFloat)}(aux1))
+  FT = eltype(F)
+  boundary_state!(nf, bl, Vars{vars_state(bl,FT)}(QP),
+                  Vars{vars_aux(bl,FT)}(auxP), nM,
+                  Vars{vars_state(bl,FT)}(QM),
+                  Vars{vars_aux(bl,FT)}(auxM), bctype, t,
+                  Vars{vars_state(bl,FT)}(Q1),
+                  Vars{vars_aux(bl,FT)}(aux1))
   numerical_flux_nondiffusive!(nf, bl, F, nM, QM, auxM, QP, auxP, t)
 end
 
@@ -125,30 +128,30 @@ struct Rusanov <: NumericalFluxNonDiffusive end
 
 function numerical_flux_nondiffusive!(::Rusanov, bl::BalanceLaw, F::MArray, nM,
                                       QM, auxM, QP, auxP, t)
-  DFloat = eltype(F)
-  nstate = num_state(bl,DFloat)
+  FT = eltype(F)
+  nstate = num_state(bl,FT)
 
-  λM = wavespeed(bl, nM, Vars{vars_state(bl,DFloat)}(QM),
-                 Vars{vars_aux(bl,DFloat)}(auxM), t)
+  λM = wavespeed(bl, nM, Vars{vars_state(bl,FT)}(QM),
+                 Vars{vars_aux(bl,FT)}(auxM), t)
   FM = similar(F, Size(3, nstate))
   fill!(FM, -zero(eltype(FM)))
-  flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(FM),
-                     Vars{vars_state(bl,DFloat)}(QM),
-                     Vars{vars_aux(bl,DFloat)}(auxM), t)
+  flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(FM),
+                     Vars{vars_state(bl,FT)}(QM),
+                     Vars{vars_aux(bl,FT)}(auxM), t)
 
-  λP = wavespeed(bl, nM, Vars{vars_state(bl,DFloat)}(QP),
-                 Vars{vars_aux(bl,DFloat)}(auxP), t)
+  λP = wavespeed(bl, nM, Vars{vars_state(bl,FT)}(QP),
+                 Vars{vars_aux(bl,FT)}(auxP), t)
   FP = similar(F, Size(3, nstate))
   fill!(FP, -zero(eltype(FP)))
-  flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(FP),
-                     Vars{vars_state(bl,DFloat)}(QP),
-                     Vars{vars_aux(bl,DFloat)}(auxP), t)
+  flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(FP),
+                     Vars{vars_state(bl,FT)}(QP),
+                     Vars{vars_aux(bl,FT)}(auxP), t)
 
   λ  =  max(λM, λP)
 
-  @inbounds for s = 1:nstate
-    F[s] += (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-             nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM[s] - QP[s])) / 2
+  @unroll for s = 1:nstate
+    @inbounds F[s] += (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
+                       nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM[s] - QP[s])) / 2
   end
 end
 
@@ -168,24 +171,24 @@ struct CentralNumericalFluxNonDiffusive <: NumericalFluxNonDiffusive end
 function numerical_flux_nondiffusive!(::CentralNumericalFluxNonDiffusive,
                                       bl::BalanceLaw, F::MArray, nM,
                                       QM, auxM, QP, auxP, t)
-  DFloat = eltype(F)
-  nstate = num_state(bl,DFloat)
+  FT = eltype(F)
+  nstate = num_state(bl,FT)
 
   FM = similar(F, Size(3, nstate))
   fill!(FM, -zero(eltype(FM)))
-  flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(FM),
-                     Vars{vars_state(bl,DFloat)}(QM),
-                     Vars{vars_aux(bl,DFloat)}(auxM), t)
+  flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(FM),
+                     Vars{vars_state(bl,FT)}(QM),
+                     Vars{vars_aux(bl,FT)}(auxM), t)
 
   FP = similar(F, Size(3, nstate))
   fill!(FP, -zero(eltype(FP)))
-  flux_nondiffusive!(bl, Grad{vars_state(bl,DFloat)}(FP),
-                     Vars{vars_state(bl,DFloat)}(QP),
-                     Vars{vars_aux(bl,DFloat)}(auxP), t)
+  flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(FP),
+                     Vars{vars_state(bl,FT)}(QP),
+                     Vars{vars_aux(bl,FT)}(auxP), t)
 
-  @inbounds for s = 1:nstate
-    F[s] += (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-             nM[3] * (FM[3, s] + FP[3, s])) / 2
+  @unroll for s = 1:nstate
+    @inbounds F[s] += (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
+                       nM[3] * (FM[3, s] + FP[3, s])) / 2
   end
 end
 
@@ -221,16 +224,16 @@ function numerical_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                             QM, QVM, auxM, QP, QVP, auxP,
                                             bctype, t, Q1, QV1,
                                             aux1) where {nstate}
-  DFloat = eltype(F)
-  boundary_state!(nf, bl, Vars{vars_state(bl,DFloat)}(QP),
-                  Vars{vars_diffusive(bl,DFloat)}(QVP),
-                  Vars{vars_aux(bl,DFloat)}(auxP), nM,
-                  Vars{vars_state(bl,DFloat)}(QM),
-                  Vars{vars_diffusive(bl,DFloat)}(QVM),
-                  Vars{vars_aux(bl,DFloat)}(auxM), bctype, t,
-                  Vars{vars_state(bl,DFloat)}(Q1),
-                  Vars{vars_diffusive(bl,DFloat)}(QV1),
-                  Vars{vars_aux(bl,DFloat)}(aux1))
+  FT = eltype(F)
+  boundary_state!(nf, bl, Vars{vars_state(bl,FT)}(QP),
+                  Vars{vars_diffusive(bl,FT)}(QVP),
+                  Vars{vars_aux(bl,FT)}(auxP), nM,
+                  Vars{vars_state(bl,FT)}(QM),
+                  Vars{vars_diffusive(bl,FT)}(QVM),
+                  Vars{vars_aux(bl,FT)}(auxM), bctype, t,
+                  Vars{vars_state(bl,FT)}(Q1),
+                  Vars{vars_diffusive(bl,FT)}(QV1),
+                  Vars{vars_aux(bl,FT)}(aux1))
   numerical_flux_diffusive!(nf, bl, F, nM, QM, QVM, auxM, QP, QVP, auxP, t)
 end
 
@@ -253,26 +256,26 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                    QM, QVM, auxM,
                                    QP, QVP, auxP,
                                    t)
-  DFloat = eltype(F)
-  nstate = num_state(bl,DFloat)
+  FT = eltype(F)
+  nstate = num_state(bl,FT)
 
   FM = similar(F, Size(3, nstate))
   fill!(FM, -zero(eltype(FM)))
-  flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(FM),
-                  Vars{vars_state(bl,DFloat)}(QM),
-                  Vars{vars_diffusive(bl,DFloat)}(QVM),
-                  Vars{vars_aux(bl,DFloat)}(auxM), t)
+  flux_diffusive!(bl, Grad{vars_state(bl,FT)}(FM),
+                  Vars{vars_state(bl,FT)}(QM),
+                  Vars{vars_diffusive(bl,FT)}(QVM),
+                  Vars{vars_aux(bl,FT)}(auxM), t)
 
   FP = similar(F, Size(3, nstate))
   fill!(FP, -zero(eltype(FP)))
-  flux_diffusive!(bl, Grad{vars_state(bl,DFloat)}(FP),
-                  Vars{vars_state(bl,DFloat)}(QP),
-                  Vars{vars_diffusive(bl,DFloat)}(QVP),
-                  Vars{vars_aux(bl,DFloat)}(auxP), t)
+  flux_diffusive!(bl, Grad{vars_state(bl,FT)}(FP),
+                  Vars{vars_state(bl,FT)}(QP),
+                  Vars{vars_diffusive(bl,FT)}(QVP),
+                  Vars{vars_aux(bl,FT)}(auxP), t)
 
-  @inbounds for s = 1:nstate
-    F[s] += (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-             nM[3] * (FM[3, s] + FP[3, s])) / 2
+  @unroll for s = 1:nstate
+    @inbounds F[s] += (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
+                       nM[3] * (FM[3, s] + FP[3, s])) / 2
   end
 end
 

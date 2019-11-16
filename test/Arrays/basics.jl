@@ -17,7 +17,7 @@ else
 end
 
 @testset "MPIStateArray basics" begin
-  Q = MPIStateArray{Tuple{4, 6}, Float32, ArrayType}(mpicomm, 8)
+  Q = MPIStateArray{Float32}(mpicomm, ArrayType, 4, 6, 8)
 
   @test eltype(Q) == Float32
   @test size(Q) == (4, 6, 8)
