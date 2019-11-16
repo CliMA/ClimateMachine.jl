@@ -121,7 +121,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
-function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+function init_ode_state(dg::DGModel, args...;
+                        device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
+                        commtag=888)
   array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
   @assert device == CPU() || device == array_device
 
@@ -243,4 +245,13 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   @launch(device, threads=(Np,), blocks=nrealelem,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
                           Q.data, auxstate.data, t, topology.realelems))
+end
+
+function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
+  bl = dg.balancelaw
+  grid = dg.grid
+
+  state = create_state(bl, grid, commtag)
+
+  return state
 end
