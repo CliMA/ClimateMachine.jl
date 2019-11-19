@@ -55,9 +55,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   communicate = !(isstacked(topology) &&
                   typeof(dg.direction) <: VerticalDirection)
 
-  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q), typeof(t)})
-    update_aux!(dg, bl, Q, t)
-  end
+  update_aux!(dg, bl, Q, t)
 
   ########################
   # Gradient Computation #
@@ -191,6 +189,10 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                          Val(nvertelem), Q.data, auxstate.data,
                                          vgeo, grid.Imat, 1:nhorzelem,
                                          Val(nintegrals)))
+end
+
+# fallback
+function update_aux!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
 end
 
 function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
