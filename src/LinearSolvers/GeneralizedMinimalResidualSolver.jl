@@ -7,7 +7,6 @@ const LS = LinearSolvers
 using ..MPIStateArrays: device, realview
 
 using LinearAlgebra
-using LazyArrays
 using StaticArrays
 using GPUifyLoops
 

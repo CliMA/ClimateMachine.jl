@@ -1,7 +1,6 @@
 module MPIStateArrays
 using LinearAlgebra
 using DoubleFloats
-using LazyArrays
 using StaticArrays
 using GPUifyLoops
 import ..haspkg
@@ -392,17 +391,12 @@ function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
-  # work around https://github.com/JuliaArrays/LazyArrays.jl/issues/66
-  ArealQ = A.realdata
-  BrealQ = B.realdata
-  E = @~ (ArealQ .- BrealQ).^2
-
-  if ~isempty(A.weights)
-    w = @view A.weights[:, :, A.realelems]
-    E = @~ E .* w
+  if isempty(A.weights)
+    locnorm = mapreduce((a,b) -> abs2(a-b), +, A.realdata, B.realdata, init=zero(eltype(A)))  
+  else
+    W = @view A.weights[:, :, A.realelems]
+    locnorm = mapreduce((a,b,w) -> w*abs2(a-b), +, A.realdata, B.realdata, W, init=zero(eltype(A)))  
   end
-
-  locnorm = mapreduce(identity, +, E, init=zero(eltype(A)))
   sqrt(MPI.Allreduce([locnorm], MPI.SUM, A.mpicomm)[1])
 end
 
@@ -422,12 +416,9 @@ function weightedsum(A::MPIStateArray, states=1:size(A, 2))
   states = SVector{length(states)}(states)
 
   C = @view A.data[:, states, A.realelems]
-  w = @view A.weights[:, :, A.realelems]
+  W = @view A.weights[:, :, A.realelems]
   init = zero(DoubleFloat{FT})
-
-  E = @~ DoubleFloat{FT}.(C) .* DoubleFloat{FT}.(w)
-
-  locwsum = mapreduce(identity, +, E, init=init)
+  locwsum = mapreduce((c,w) -> DoubleFloat{FT}(c) * DoubleFloat{FT}(w), +, C, W, init=init)
 
   # Need to use anomous function version of sum else MPI.jl using MPI_SUM
   FT(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
@@ -503,23 +494,24 @@ end
 function weighted_norm_impl(Q, W, ::Val{p}, dims=nothing) where p
   FT = eltype(Q)
   if isfinite(p)
-    E = @~ @. W * abs(Q) ^ p
+    f = (q,w) -> w * abs(q)^p
     op, init = +, zero(FT)
   else
-    E = @~ @. W * abs(Q)
+    f = (q,w) -> w * abs(q)
     op, init = max, typemin(FT)
   end
-  dims==nothing ? reduce(op, E, init=init) :
-                  reduce(op, E, init=init, dims=dims)
+  dims==nothing ? mapreduce(f, op, Q, W, init=init) :
+                  mapreduce(f, op, Q, W, init=init, dims=dims)
 end
 
 function dot_impl(Q1, Q2)
   FT = eltype(Q1)
-  E = @~ @. Q1 * Q2
-  mapreduce(identity, +, E, init=zero(FT))
+  mapreduce(*, +, Q1, Q2, init=zero(FT))
 end
-
-weighted_dot_impl(Q1, Q2, W) = dot_impl(@~ @. W * Q1, Q2)
+function weighted_dot_impl(Q1, Q2, W)
+  FT = eltype(Q1)
+  mapreduce(*, +, Q1, Q2, W, init=zero(FT))
+end
 
 using Requires
 
