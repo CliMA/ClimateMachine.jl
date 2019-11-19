@@ -121,7 +121,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
-function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+function init_ode_state(dg::DGModel, args...;
+                        device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
+                        commtag=888)
   array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
   @assert device == CPU() || device == array_device
 
@@ -310,4 +312,13 @@ function grad_auxiliary_state!(dg::DGModel, id, (idx1, idx2, idx3))
           elem_grad_field!(Val(dim), Val(N), Val(nauxstate), auxstate.data, vgeo,
                            lgl_weights_vec, Dmat, topology.elems,
                            id, idx1, idx2, idx3))
+end
+
+function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
+  bl = dg.balancelaw
+  grid = dg.grid
+
+  state = create_state(bl, grid, commtag)
+
+  return state
 end

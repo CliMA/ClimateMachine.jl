@@ -42,6 +42,32 @@ using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
 
+
+
+"""
+    op! = EulerOperator(f!, ϵ)
+
+Construct a linear operator which performs an explicit Euler step ``Q + α f(Q)``,
+where `f!` and `op!` both operate inplace, with extra arguments passed through, i.e.
+```
+op!(LQ, Q, args...)
+```
+is equivalent to
+```
+f!(dQ, Q, args...)
+LQ .= Q .+ ϵ .* dQ
+```
+"""
+mutable struct EulerOperator{F,FT}
+  f!::F
+  ϵ::FT
+end
+
+function (op::EulerOperator)(LQ, Q, args...)
+  op.f!(LQ, Q, args..., increment=false)
+  @. LQ = Q + op.ϵ * LQ
+end
+
 """
     AdditiveRungeKutta(f, l, linearsolver, RKAe, RKAi, RKB, RKC, Q;
                        split_nonlinear_linear, variant, dt, t0 = 0)
@@ -89,6 +115,8 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} 
   rhs!
   "rhs linear operator"
   rhs_linear!
+  "implicit operator, pre-factorized"
+  implicitoperator!
   "linear solver"
   linearsolver::LT
   "Storage for solution during the AdditiveRungeKutta update"
@@ -131,6 +159,19 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} 
     Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
     Rstages = ntuple(i -> similar(Q), Nstages)
     Qhat = similar(Q)
+
+    # The code throughout assumes SDIRK implicit tableau so we assert that
+    # here.
+    for is = 2:Nstages
+      @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
+    end
+    
+    α = dt * RKA_implicit[2, 2]
+    # Here we are passing NaN for the time since prefactorization assumes the
+    # operator is time independent.  If that is not the case the NaN will
+    # surface.
+    implicitoperator! = prefactorize(EulerOperator(rhs_linear!, -α),
+                                     linearsolver, Q, nothing, T(NaN))
    
     V = typeof(variant)
     variant_storage = additional_storage(variant, Q, Nstages)
@@ -143,7 +184,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} 
     ST = typeof(storage)
 
     new{T, RT, AT, LT, V, S, ST, Nstages, Nstages ^ 2}(RT(dt), RT(t0),
-                                                       rhs!, rhs_linear!, linearsolver,
+                                                       rhs!, rhs_linear!, implicitoperator!, linearsolver,
                                                        Qstages, Rstages, Qhat,
                                                        RKA_explicit, RKA_implicit, RKB, RKC,
                                                        split_nonlinear_linear,
@@ -165,19 +206,21 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                      Q; dt=dt, t0=t0)
 end
 
-ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = (ark.dt = dt)
+function ODEs.updatedt!(ark::AdditiveRungeKutta, dt)
+  ark.dt = dt
+  # this will only work for iterative solves
+  # direct solvers will throw an error as they expect a factorized object
+  α = dt * ark.RKA_implicit[2, 2]
+  ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
+end
 ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
 #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-function ark_linearsolve!(::NoSchur, linearsolver, rhs_linear!, Qinit, Qhat, p, t, α, storage)
-  linearoperator! = function(LQ, Q)
-    rhs_linear!(LQ, Q, p, t; increment = false)
-    @. LQ = Q - α * LQ
-  end
-  linearsolve!(linearoperator!, Qinit, Qhat, linearsolver)
+function ark_linearsolve!(::NoSchur, linearsolver, implicitoperator!, Qinit, Qhat, p, t, α, storage)
+  linearsolve!(implicitoperator!, linearsolver, Qinit, Qhat, p, t)
 end
 
-function ark_linearsolve!(schur::SchurComplement, linearsolver, rhs_linear!, Qinit, Qhat, p, t, α, storage)
+function ark_linearsolve!(schur::SchurComplement, linearsolver, _, Qinit, Qhat, p, t, α, storage)
   schurR = storage.schurR
   schurP = storage.schurP
   
@@ -191,7 +234,7 @@ function ark_linearsolve!(schur::SchurComplement, linearsolver, rhs_linear!, Qin
   linearoperator! = function(LQ, Q)
     schur.lhs!(LQ, Q, p, α; increment = false)
   end
-  linearsolve!(linearoperator!, schurP, schurR, linearsolver)
+  linearsolve!(linearoperator!, linearsolver, schurP, schurR)
   #FIXME
   @views schur.update!.auxstate[:, 6:10, :] .= Qhat[:, 1:5, :]
   schur.update!(Qinit, schurP, p, α; increment = false)
@@ -225,7 +268,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
                       p, time::Real, dt::Real,
                       slow_δ = nothing, slow_rv_dQ = nothing,
                       slow_scaling = nothing)
-  linearsolver = ark.linearsolver
+  implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
   RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
   RKB, RKC = ark.RKB, ark.RKC
   rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
@@ -249,6 +292,11 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
   rhs_linear!(Lstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
+  if dt != ark.dt
+    α = dt * RKA_implicit[2, 2]
+    implicitoperator! = EulerOperator(rhs_linear!, -α)
+  end
+
   # note that it is important that this loop does not modify Q!
   for istage = 2:Nstages
     stagetime = time + RKC[istage] * dt
@@ -262,7 +310,8 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
-    ark_linearsolve!(ark.schur, linearsolver, rhs_linear!, Qstages[istage], Qhat, p, stagetime, α, ark.storage)
+    ark_linearsolve!(ark.schur, linearsolver, implicitoperator!,
+                     Qstages[istage], Qhat, p, stagetime, α, ark.storage)
     
     rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
     rhs_linear!(Lstages[istage], Qstages[istage], p, stagetime, increment = false)
@@ -279,7 +328,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
                       p, time::Real, dt::Real,
                       slow_δ = nothing, slow_rv_dQ = nothing,
                       slow_scaling = nothing)
-  linearsolver = ark.linearsolver
+  implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
   RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
   RKB, RKC = ark.RKB, ark.RKC
   rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
@@ -302,6 +351,11 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
+  if dt != ark.dt
+    α = dt * RKA_implicit[2, 2]
+    implicitoperator! = EulerOperator(rhs_linear!, -α)
+  end
+
   # note that it is important that this loop does not modify Q!
   for istage = 2:Nstages
     stagetime = time + RKC[istage] * dt
@@ -313,7 +367,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
                           Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
 
     α = dt * RKA_implicit[istage, istage]
-    ark_linearsolve!(ark.schur, linearsolver, rhs_linear!, Qtt, Qhat, p, stagetime, α, ark.storage)
+    ark_linearsolve!(ark.schur, linearsolver, implicitoperator!, Qtt, Qhat, p, stagetime, α, ark.storage)
 
     #update Qstages
     Qstages[istage] .+= Qtt

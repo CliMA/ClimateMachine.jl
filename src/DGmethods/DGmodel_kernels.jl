@@ -82,7 +82,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
     end
   end
 
-  @inbounds @loop for e in (elems; blockIdx().x)
+  @inbounds @views @loop for e in (elems; blockIdx().x)
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -310,7 +310,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
     end
   end
 
-  @inbounds @loop for e in (elems; blockIdx().x)
+  @inbounds @views @loop for e in (elems; blockIdx().x)
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -642,7 +642,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
     end
   end
 
-  @inbounds @loop for e in (elems; blockIdx().x)
+  @inbounds @views @loop for e in (elems; blockIdx().x)
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -763,7 +763,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
     end
   end
 
-  @inbounds @loop for e in (elems; blockIdx().x)
+  @inbounds @views @loop for e in (elems; blockIdx().x)
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)

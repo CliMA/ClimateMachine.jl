@@ -127,7 +127,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
 
   linearsolver = linmethod(Q)
 
-  iters = linearsolve!(linearoperator!, Q, Qrhs, linearsolver)
+  iters = linearsolve!(linearoperator!, linearsolver, Q, Qrhs)
 
   error = euclidean_distance(Q, Qexact)
 
