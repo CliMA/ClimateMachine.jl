@@ -184,18 +184,20 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρD_t)
 end
 
-function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
-                     auxstate::MPIStateArray, t::Real)
+function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
   FT = eltype(Q)
+  auxstate = dg.auxstate
+
   if num_integrals(m, FT) > 0
     indefinite_stack_integral!(dg, m, Q, auxstate, t)
     reverse_indefinite_stack_integral!(dg, m, auxstate, t)
   end
 
-  nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, auxstate, t)
+  nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t)
 end
 
-function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
+function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
+                                 diff::Vars, t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
   atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
   atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
