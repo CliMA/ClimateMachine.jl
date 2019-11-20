@@ -25,7 +25,8 @@ end
 struct Subsidence <: Source
 end
 function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu -= state.ρ * m.radiation.D_subsidence
+  n = aux.orientation.∇Φ ./ norm(aux.orientation.∇Φ)
+  source.ρu -= m.radiation.D_subsidence * dot(state.ρu, n) * n
 end
 
 struct Coriolis <: Source
