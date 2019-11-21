@@ -120,7 +120,7 @@ jobs:
 
 - job: Documentation
 
-  timeoutInMinutes: 60
+  timeoutInMinutes: 180
 
   pool:
     vmImage: 'ubuntu-16.04'
