@@ -18,6 +18,7 @@ else
 end
 
 mpisize = MPI.Comm_size(mpicomm)
+mpirank = MPI.Comm_rank(mpicomm)
 
 @testset "MPIStateArray reductions" begin
 
@@ -46,4 +47,16 @@ mpisize = MPI.Comm_size(mpicomm)
 
   @test isapprox(euclidean_distance(QA, QB), norm(globalA .- globalB))
   @test isapprox(dot(QA, QB), dot(globalA, globalB))
-end
+
+  C = fill(Float32(mpirank+1), localsize)
+  globalC = vcat([fill(i, localsize) for i in 1:mpisize]...)
+  QC = similar(QA)
+  QC .= C
+
+  @test sum(QC) == sum(globalC)
+  @test Array(sum(QC;dims=(1,3))) == sum(globalC;dims=(1,3))
+  @test maximum(QC) == maximum(globalC)
+  @test Array(maximum(QC;dims=(1,3))) == maximum(globalC;dims=(1,3))
+  @test minimum(QC) == minimum(globalC)
+  @test Array(minimum(QC;dims=(1,3))) == minimum(globalC;dims=(1,3))
+  end
