@@ -2,7 +2,7 @@ using CLIMA: haspkg
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Filters
-using CLIMA.DGmethods: DGModel, init_ode_state
+using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
@@ -17,8 +17,12 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, Coriolis,
-                   HydrostaticState, IsothermalProfile
+                   HydrostaticState, IsothermalProfile, AtmosAcousticGravityLinearModel
 using CLIMA.VariableTemplates: flattenednames
+using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.LinearSolvers
+using CLIMA.ColumnwiseLUSolver: SingleColumnLU, banded_matrix, banded_matrix_vector_product!
+using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 @static if haspkg("CuArrays")
@@ -30,6 +34,11 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 else
   const ArrayType = Array
 end
+
+# testing
+using TimerOutputs
+
+const to = TimerOutput()
 
 const output_vtk = true
 
@@ -82,8 +91,14 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      NoFluxBC(),
                      setup)
 
+
+  linmodel = AtmosAcousticGravityLinearModel(model) # Need to load module ??
+
   dg = DGModel(model, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty())
+               CentralNumericalFluxDiffusive(), CentralGradPenalty(), direction=EveryDirection())
+
+  vdg = DGModel(linmodel, grid, Rusanov(),
+               CentralNumericalFluxDiffusive(), CentralGradPenalty(),direction=VerticalDirection())
 
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
@@ -92,7 +107,12 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   dt = lucas_magic_factor * element_size / acoustic_speed / polynomialorder ^ 2
 
   Q = init_ode_state(dg, FT(0))
-  lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
+  #lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
+  
+  linearsolvertype = SingleColumnLU 
+  IMEXSolver = ARK2GiraldoKellyConstantinescu
+
+  solver = IMEXSolver(dg, vdg, linearsolvertype(),Q; dt=dt, t0=0,split_nonlinear_linear=false)
 
   filterorder = 14
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -125,14 +145,14 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                         simtime = %.16e
                         runtime = %s
                         norm(Q) = %.16e
-                        """ gettime(lsrk) runtime energy
+                        """ gettime(solver) runtime energy
     end
   end
   callbacks = (cbinfo, cbfilter)
 
   if output_vtk
     # create vtk dir
-    vtkdir = "vtk_heldsuarez" *
+    vtkdir = "/central/scratch/bischtob/vtk_heldsuarez" *
       "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
       "_filter$(filterorder)_$(ArrayType)_$(FT)"
     mkpath(vtkdir)
@@ -144,13 +164,13 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
     # setup the output callback
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
       vtkstep += 1
-      Qe = init_ode_state(dg, gettime(lsrk))
+      Qe = init_ode_state(dg, gettime(solver))
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
     end
     callbacks = (callbacks..., cbvtk)
   end
 
-  solve!(Q, lsrk; timeend=timeend, callbacks=callbacks)
+  @timeit to "solve"  solve!(Q, solver; timeend=timeend, callbacks=callbacks)
 
   # final statistics
   engf = norm(Q)
