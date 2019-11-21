@@ -124,6 +124,7 @@ version = "0.9.3"
 [[CuArrays]]
 deps = ["AbstractFFTs", "Adapt", "CEnum", "CUDAapi", "CUDAdrv", "CUDAnative", "DataStructures", "GPUArrays", "Libdl", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Requires", "SparseArrays", "TimerOutputs"]
 git-tree-sha1 = "1b51391481b461db1dc37418dcfb6b1fbd06e951"
+pinned = true
 repo-rev = "master"
 repo-url = "https://github.com/JuliaGPU/CuArrays.jl.git"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
