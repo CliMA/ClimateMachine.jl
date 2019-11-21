@@ -760,7 +760,6 @@ function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
     sol = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_1, T_2, SecantMethod(), FT(1e-3), 10)
-      T = sol.root
       if !sol.converged
         error("saturation_adjustment did not converge")
       end
@@ -796,11 +795,10 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::F
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, ρ, q_tot) - θ_liq_ice,
       T_1, T_2, SecantMethod(), FT(1e-5), 40)
-      T = sol.root
       if !sol.converged
         error("saturation_adjustment_q_tot_θ_liq_ice did not converge")
       end
-    return T
+    return sol.root
   end
 end
 
@@ -918,13 +916,13 @@ for temperature `T`
 """
 function air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
-  T, converged = find_zero(
+  sol = find_zero(
     T -> T - air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, air_pressure(T, ρ, q), q),
     FT(T_min), FT(T_max), SecantMethod(), FT(1e-3), 10)
-  if !converged
+  if !sol.converged
     error("air_temperature_from_liquid_ice_pottemp_non_linear did not converge")
   end
-  return T
+  return sol.root
 end
 
 """

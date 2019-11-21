@@ -41,22 +41,22 @@ if VERBOSE_RESULTS
     RootResults
 
 Root solver results
- - `root`           the solution
- - `converged`      a `Bool` indicating convergence
- - `err`            the error of the root (`f(x_sol)`)
- - `iter_performed` number of iterations performed
- - `err_history`    history of the error of the root (`f(x_sol)`) per iteration
- - `root_history`   history of the root (`x`) per iteration
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
 struct RootResults{FT}
+  "solution, ``x^*`` of ``f(x^*) = 0``"
   root::FT
+  "indicates convergence"
   converged::Bool
+  "the error (residual) of the roots equation (``f(x^*) = err``)"
   err::FT
+  "number of iterations performed"
   iter_performed::Int
+  "history of the error of the root (``f(x^*)``) per iteration"
   root_history::Vector{FT}
+  "history of the root (`x`) per iteration"
   err_history::Vector{FT}
 end
 
@@ -66,14 +66,14 @@ else
     RootResults
 
 Root solver results
- - `root`           the solution
- - `converged`      a `Bool` indicating convergence
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
 struct RootResults{FT}
+  "solution, ``x^*`` of ``f(x^*) = 0``"
   root::FT
+  "indicates convergence"
   converged::Bool
 end
 
