@@ -17,7 +17,7 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, Coriolis,
-                   HydrostaticState, IsothermalProfile, AtmosAcousticGravityLinearModel
+                   HydrostaticState, IsothermalProfile, AtmosAcousticGravityLinearModel, AtmosAcousticLinearModel
 using CLIMA.VariableTemplates: flattenednames
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.LinearSolvers
@@ -92,7 +92,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      setup)
 
 
-  linmodel = AtmosAcousticGravityLinearModel(model) # Need to load module ??
+  linmodel = AtmosAcousticLinearModel(model) # Need to load module ??
 
   dg = DGModel(model, grid, Rusanov(),
                CentralNumericalFluxDiffusive(), CentralGradPenalty(), direction=EveryDirection())
@@ -103,16 +103,17 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(315))
-  lucas_magic_factor = 14
+  lucas_magic_factor = 1
   dt = lucas_magic_factor * element_size / acoustic_speed / polynomialorder ^ 2
 
   Q = init_ode_state(dg, FT(0))
-  #lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
   
   linearsolvertype = SingleColumnLU 
-  IMEXSolver = ARK2GiraldoKellyConstantinescu
+  IMEXSolver = ARK548L2SA2KennedyCarpenter
 
-  solver = IMEXSolver(dg, vdg, linearsolvertype(),Q; dt=dt, t0=0,split_nonlinear_linear=false)
+  solver = IMEXSolver(dg, vdg, linearsolvertype(), Q; 
+                      dt=dt, t0=0,
+                      split_nonlinear_linear=false)
 
   filterorder = 14
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -152,7 +153,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   if output_vtk
     # create vtk dir
-    vtkdir = "/central/scratch/bischtob/vtk_heldsuarez" *
+    vtkdir = "/central/scratch/asridhar/vtk_heldsuarez" *
       "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
       "_filter$(filterorder)_$(ArrayType)_$(FT)"
     mkpath(vtkdir)
@@ -170,8 +171,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
     callbacks = (callbacks..., cbvtk)
   end
 
-  @timeit to "solve"  solve!(Q, solver; timeend=timeend, callbacks=callbacks)
-
+  numberofsteps = convert(Int64, cld(timeend, dt))
+  dt = timeend / numberofsteps
+  @timeit to "solve" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=callbacks,
+         adjustfinalstep=false)
   # final statistics
   engf = norm(Q)
   @info @sprintf """Finished
