@@ -32,32 +32,32 @@ function volumerhs!(::Val{dim}, ::Val{N},
                     rhs, Q, Qvisc, auxstate, vgeo, t,
                     ω, D, elems, increment) where {dim, N, nstate, nviscstate,
                                      nauxstate}
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  s_F = @shmem DFloat (3, Nq, Nq, Nqk, nstate)
-  s_ω = @shmem DFloat (Nq, )
-  s_half_D = @shmem DFloat (Nq, Nq)
-  l_rhs = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
+  s_F = @shmem FT (3, Nq, Nq, Nqk, nstate)
+  s_ω = @shmem FT (Nq, )
+  s_half_D = @shmem FT (Nq, Nq)
+  l_rhs = @scratch FT (nstate, Nq, Nq, Nqk) 3
 
-  source! !== nothing && (l_S = MArray{Tuple{nstate}, DFloat}(undef))
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_F = MArray{Tuple{3, nstate}, DFloat}(undef)
-  l_M = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ1x1 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ1x2 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ1x3 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ2x1 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ2x2 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ2x3 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ3x1 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ3x2 = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ3x3 = @scratch DFloat (Nq, Nq, Nqk) 3
+  source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+  l_F = MArray{Tuple{3, nstate}, FT}(undef)
+  l_M = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ1x1 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ1x2 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ1x3 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ2x1 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ2x2 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ2x3 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ3x1 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ3x2 = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ3x3 = @scratch FT (Nq, Nq, Nqk) 3
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -85,7 +85,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
           l_ξ3x3[i, j, k] = vgeo[ijk, _ξ3x3, e]
 
           @unroll for s = 1:nstate
-            l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(DFloat)
+            l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(FT)
           end
 
           @unroll for s = 1:nstate
@@ -231,7 +231,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
                   elemtobndy, elems) where {dim, N, nstate, nviscstate,
                                             nauxstate}
 
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   if dim == 1
     Np = (N+1)
@@ -247,15 +247,15 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
     nface = 6
   end
 
-  l_QM = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QviscM = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_QM = MArray{Tuple{nstate}, FT}(undef)
+  l_QviscM = MArray{Tuple{nviscstate}, FT}(undef)
+  l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
 
-  l_QP = MArray{Tuple{nstate}, DFloat}(undef)
-  l_QviscP = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_QP = MArray{Tuple{nstate}, FT}(undef)
+  l_QviscP = MArray{Tuple{nviscstate}, FT}(undef)
+  l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
 
-  l_F = MArray{Tuple{nstate}, DFloat}(undef)
+  l_F = MArray{Tuple{nstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     for f = 1:nface
@@ -322,21 +322,21 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
                           gradient_transform!, Q, Qvisc, auxstate, vgeo, t, D,
                           elems) where {dim, N, ngradstate,
                                         nviscstate, nstate, nauxstate}
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
 
-  s_G = @shmem DFloat (Nq, Nq, Nqk, ngradstate)
-  s_D = @shmem DFloat (Nq, Nq)
+  s_G = @shmem FT (Nq, Nq, Nqk, ngradstate)
+  s_D = @shmem FT (Nq, Nq)
 
-  l_Q = @scratch DFloat (nstate, Nq, Nq, Nqk) 3
-  l_aux = @scratch DFloat (nauxstate, Nq, Nq, Nqk) 3
-  l_G = MArray{Tuple{ngradstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_gradG = MArray{Tuple{3, ngradstate}, DFloat}(undef)
+  l_Q = @scratch FT (nstate, Nq, Nq, Nqk) 3
+  l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
+  l_G = MArray{Tuple{ngradstate}, FT}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_gradG = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -378,7 +378,7 @@ function volumeviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
           ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
 
           @unroll for s = 1:ngradstate
-            Gξ1 = Gξ2 = Gξ3 = zero(DFloat)
+            Gξ1 = Gξ2 = Gξ3 = zero(FT)
             @unroll for n = 1:Nq
               Din = s_D[i, n]
               Djn = s_D[j, n]
@@ -413,7 +413,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
                         Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, N, ngradstate,
                                                   nviscstate, nstate, nauxstate}
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   if dim == 1
     Np = (N+1)
@@ -429,15 +429,15 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
     nface = 6
   end
 
-  l_QM = MArray{Tuple{nstate}, DFloat}(undef)
-  l_auxM = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_GM = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_QM = MArray{Tuple{nstate}, FT}(undef)
+  l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
+  l_GM = MArray{Tuple{ngradstate}, FT}(undef)
 
-  l_QP = MArray{Tuple{nstate}, DFloat}(undef)
-  l_auxP = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_GP = MArray{Tuple{ngradstate}, DFloat}(undef)
+  l_QP = MArray{Tuple{nstate}, FT}(undef)
+  l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
+  l_GP = MArray{Tuple{ngradstate}, FT}(undef)
 
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     for f = 1:nface
@@ -503,14 +503,14 @@ See [`DGBalanceLaw`](@ref) for usage.
 function initstate!(::Val{dim}, ::Val{N}, ::Val{nvar}, ::Val{nauxstate},
                     ic!, Q, auxstate, vgeo, elems) where {dim, N, nvar, nauxstate}
 
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
   Np = Nq * Nq * Nqk
 
-  l_Qdof = MArray{Tuple{nvar}, DFloat}(undef)
-  l_auxdof = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_Qdof = MArray{Tuple{nvar}, FT}(undef)
+  l_auxdof = MArray{Tuple{nauxstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for i in (1:Np; threadIdx().x)
@@ -538,13 +538,13 @@ See [`DGBalanceLaw`](@ref) for usage.
 function initauxstate!(::Val{dim}, ::Val{N}, ::Val{nauxstate}, auxstatefun!,
                        auxstate, vgeo, elems) where {dim, N, nauxstate}
 
-  DFloat = eltype(auxstate)
+  FT = eltype(auxstate)
 
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
   Np = Nq * Nq * Nqk
 
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
@@ -578,22 +578,22 @@ it in `sx`, `sy`, and `sz` of `Q`.
 function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
                           ω, D, elems, s, sx, sy, sz) where {dim, N, nstate}
 
-  DFloat = eltype(vgeo)
+  FT = eltype(vgeo)
 
   Nq = N + 1
 
   Nqk = dim == 2 ? 1 : Nq
 
-  s_f = @shmem DFloat (3, Nq, Nq, Nqk)
-  s_half_D = @shmem DFloat (Nq, Nq)
+  s_f = @shmem FT (3, Nq, Nq, Nqk)
+  s_half_D = @shmem FT (Nq, Nq)
 
-  l_f  = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_fd = @scratch DFloat (3, Nq, Nq, Nqk) 3
+  l_f  = @scratch FT (Nq, Nq, Nqk) 3
+  l_fd = @scratch FT (3, Nq, Nq, Nqk) 3
 
-  l_J = @scratch DFloat (Nq, Nq, Nqk) 3
-  l_ξ1d = @scratch DFloat (3, Nq, Nq, Nqk) 3
-  l_ξ2d = @scratch DFloat (3, Nq, Nq, Nqk) 3
-  l_ξ3d = @scratch DFloat (3, Nq, Nq, Nqk) 3
+  l_J = @scratch FT (Nq, Nq, Nqk) 3
+  l_ξ1d = @scratch FT (3, Nq, Nq, Nqk) 3
+  l_ξ2d = @scratch FT (3, Nq, Nq, Nqk) 3
+  l_ξ3d = @scratch FT (3, Nq, Nq, Nqk) 3
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
@@ -629,9 +629,9 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
-          fξ1 = DFloat(0)
-          fξ2 = DFloat(0)
-          fξ3 = DFloat(0)
+          fξ1 = FT(0)
+          fξ2 = FT(0)
+          fξ3 = FT(0)
           @unroll for n = 1:Nq
             Din = s_half_D[i, n]
             Djn = s_half_D[j, n]
@@ -671,7 +671,7 @@ function elem_grad_field!(::Val{dim}, ::Val{N}, ::Val{nstate}, Q, vgeo,
       @loop for k in (1:Nqk; threadIdx().z)
         @loop for j in (1:Nq; threadIdx().y)
           @loop for i in (1:Nq; threadIdx().x)
-            fd = DFloat(0)
+            fd = FT(0)
             JI = 1 / l_J[i, j, k]
             @unroll for n = 1:Nq
               Din = s_half_D[i, n]
@@ -717,7 +717,7 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
                             ::Val{nviscstate}, ::Val{nauxstate}, dof_fun!, R, Q,
                             QV, auxstate, elems) where {dim, N, nRstate, nstate,
                                                         nviscstate, nauxstate}
-  DFloat = eltype(R)
+  FT = eltype(R)
 
   Nq = N + 1
 
@@ -725,10 +725,10 @@ function knl_dof_iteration!(::Val{dim}, ::Val{N}, ::Val{nRstate}, ::Val{nstate},
 
   Np = Nq * Nq * Nqk
 
-  l_R = MArray{Tuple{nRstate}, DFloat}(undef)
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_Qvisc = MArray{Tuple{nviscstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
+  l_R = MArray{Tuple{nRstate}, FT}(undef)
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
@@ -775,21 +775,21 @@ function knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
                                         elems, ::Val{outstate}
                                        ) where {dim, N, nstate, nauxstate,
                                                 outstate, nvertelem}
-  DFloat = eltype(Q)
+  FT = eltype(Q)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
 
   nout = length(outstate)
 
-  l_Q = MArray{Tuple{nstate}, DFloat}(undef)
-  l_aux = MArray{Tuple{nauxstate}, DFloat}(undef)
-  l_knl = MArray{Tuple{nout, Nq}, DFloat}(undef)
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+  l_knl = MArray{Tuple{nout, Nq}, FT}(undef)
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
-  l_int = @scratch DFloat (nout, Nq, Nq, Nqj) 2
+  l_int = @scratch FT (nout, Nq, Nq, Nqj) 2
 
-  s_I = @shmem DFloat (Nq, Nq)
+  s_I = @shmem FT (Nq, Nq)
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for i in (1:Nq; threadIdx().x)
@@ -869,7 +869,7 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
                                                 ::Val{instate}
                                                ) where {dim, N, outstate,
                                                         instate, nvertelem}
-  DFloat = eltype(P)
+  FT = eltype(P)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
@@ -878,8 +878,8 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
 
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
-  l_T = MArray{Tuple{nout}, DFloat}(undef)
-  l_V = MArray{Tuple{nout}, DFloat}(undef)
+  l_T = MArray{Tuple{nout}, FT}(undef)
+  l_V = MArray{Tuple{nout}, FT}(undef)
 
   @inbounds @loop for eh in (elems; blockIdx().x)
     # Initialize the constant state at zero

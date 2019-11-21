@@ -15,6 +15,7 @@ makedocs(
   sitename = "CLIMA",
   doctest = false,
   strict = false,
+  linkcheck = false,
   format = Documenter.HTML(
     prettyurls = get(ENV, "CI", nothing) == "true",
     # prettyurls = !("local" in ARGS),
@@ -24,9 +25,11 @@ makedocs(
   modules = [Documenter, CLIMA],
   pages = Any[
     "Home" => "index.md",
+    "Common" => Any[
+      "MoistThermodynamics" => "Common/MoistThermodynamics.md",
+    ],
     "Utilites" => Any[
       "RootSolvers" => "Utilities/RootSolvers.md",
-      "MoistThermodynamics" => "Utilities/MoistThermodynamics.md",
     ],
     "Atmos" => Any[
       "Atmos/SurfaceFluxes.md",
@@ -56,6 +59,6 @@ cd(joinpath(@__DIR__, "build", "examples", "DGmethods_old", "generated")) do
 end
 
 deploydocs(
-           repo = "github.com/climate-machine/CLIMA.git",
-           target = "build",
-          )
+  repo = "github.com/climate-machine/CLIMA.git",
+  target = "build",
+)

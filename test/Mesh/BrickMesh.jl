@@ -190,7 +190,7 @@ end
   let
     (etv, etc, etb, fc) = brickmesh((-1:1,-1:1,-1:1),
                                     (false,false,false),
-                                    boundary=[11 13 15; 12 14 16])
+                                    boundary=((11,12),(13,14),(15,16)))
 
     @test etb == [11  0 11  0 11  0 11  0
                    0 12  0 12  0 12  0 12
@@ -203,7 +203,7 @@ end
   let
     x = (1:1000,)
     p = (false,)
-    b = [1; 2]
+    b = ((1,2),)
 
     (etv, etc, etb, fc) = brickmesh(x, p, boundary=b)
 
@@ -228,7 +228,7 @@ end
   let
     x = (-1:2:10,-1:1:1,-4:1:1)
     p = (true,false,true)
-    b = [1 3 5; 2 4 6];
+    b = ((1,2),(3,4),(5,6))
 
     (etv, etc, etb, fc) = brickmesh(x, p, boundary=b)
 
@@ -467,4 +467,84 @@ end
   @test etc == netc
   @test etb == netb
   @test fc == nfc
+end
+
+@testset "Comm Mappings" begin
+  let
+    N = 1
+    d = 2
+    nface = 2d
+
+    commelems = [1,2,5]
+    commfaces = BitArray(undef, nface, length(commelems))
+    commfaces .= false
+    nabrtocomm = [1:2, 3:3]
+
+    vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+    @test vmapC == Int[]
+    @test nabrtovmapC == UnitRange{Int64}[1:0, 1:0]
+  end
+
+  let
+    N = 1
+    d = 2
+    nface = 2d
+
+    commelems = [1, 2, 5]
+    commfaces = BitArray([false false false;
+                          false true  false;
+                          false true  false;
+                          false false true ])
+    nabrtocomm = [1:2, 3:3]
+
+    vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+    @test vmapC == [5, 6, 8, 19, 20]
+    @test nabrtovmapC == UnitRange{Int64}[1:3, 4:5]
+  end
+
+  let
+    N = 2
+    d = 2
+    nface = 2d
+
+    commelems = [2, 4, 5]
+    commfaces = BitArray([true  true  false;
+                          false false false;
+                          false true  true;
+                          false false true ])
+    nabrtocomm = [1:1, 2:3]
+
+    vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+    @test vmapC == [10, 13, 16, 28, 29, 30, 31, 34, 37, 38, 39, 43, 44, 45]
+    @test nabrtovmapC == UnitRange{Int64}[1:3, 4:14]
+  end
+
+  let
+    N = 2
+    d = 3
+    nface = 2d
+
+    commelems = [3, 4, 7, 9]
+    commfaces = BitArray([true  true true  false;
+                          false true false false;
+                          false true false false;
+                          false true false false;
+                          false true true  true ;
+                          false true false true ])
+    nabrtocomm = [1:1, 2:4]
+
+    vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+    @test vmapC == [55, 58, 61, 64, 67, 70, 73, 76, 79, 82, 83, 84, 85, 86,
+                    87, 88, 89, 90, 91, 92, 93, 94, 96, 97, 98, 99, 100, 101,
+                    102, 103, 104, 105, 106, 107, 108, 163, 164, 165, 166,
+                    167, 168, 169, 170, 171, 172, 175, 178, 181, 184, 187,
+                    217, 218, 219, 220, 221, 222, 223, 224, 225, 235, 236,
+                    237, 238, 239, 240, 241, 242, 243]
+    @test nabrtovmapC == UnitRange{Int64}[1:9, 10:68]
+  end
+
 end
