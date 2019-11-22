@@ -4,6 +4,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
+using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
 using CLIMA.DGmethods: nodal_update_aux!, grad_auxiliary_state!
 using CLIMA.DGmethods.NumericalFluxes
@@ -44,25 +45,33 @@ end
 # -------------- Problem constants ------------------- # 
 const dim = 2
 const polynomialorder = 4
+const filterorder = 30
 const domain_start = (0, 0, 0)
 const domain_end = (1000, dim == 2 ? 100 : 1000, 1000)
 const Ne = (10, dim == 2 ? 1 : 10, 10)
 const Δxyz = @. (domain_end - domain_start) / Ne / polynomialorder
-const dt_factor = 40
+const dt_factor = 20
 const dt = dt_factor * min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
-#const ark_scheme = ARK2GiraldoKellyConstantinescu
-const ark_scheme = ARK548L2SA2KennedyCarpenter
+const ark_scheme = ARK2GiraldoKellyConstantinescu
+#const ark_scheme = ARK548L2SA2KennedyCarpenter
 #const ark_scheme = ARK437L2SA1KennedyCarpenter
 const split_nonlinear_linear = true
+#const variant = LowStorageVariant()
 const variant = NaiveVariant()
-const schur = false
-const tolerance = sqrt(eps(Float64))
+const schur = true
+#const tolerance = sqrt(eps(Float64))
+#const tolerance = 1e-3 # ok for full-linear
+#const tolerance = 1e-4 # ok for nonlinear-linear with rusanov
+const tolerance = 1e-6 # tbd
 const smooth_bubble = false
-const diffusion = true
+const diffusion = false
 const dry = true
 const timeend = 500
 const output_vtk = true
 const outputtime = 25
+const linflux = Rusanov
+#const linflux = CentralNumericalFluxNonDiffusive
+
 # ------------- Initial condition function ----------- # 
 """
 @article{doi:10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2,
@@ -175,6 +184,7 @@ function run(mpicomm, ArrayType,
   # -------------- Define model ---------------------------------- # 
   model = AtmosModel(FlatOrientation(),
                      RisingBubbleReferenceState(),
+                     #HydrostaticState(IsothermalProfile(DF(T_0)),DF(0)),
                      sgs,
                      moisture, 
                      NoRadiation(),
@@ -194,8 +204,7 @@ function run(mpicomm, ArrayType,
 
   fast_dg = DGModel(fast_model,
                     grid,
-                    Rusanov(),
-                    #CentralNumericalFluxNonDiffusive(),
+                    linflux(),
                     CentralNumericalFluxDiffusive(),
                     CentralGradPenalty();
                     auxstate=dg.auxstate)
@@ -250,10 +259,10 @@ function run(mpicomm, ArrayType,
                       schur_update_dg.auxstate, dg.auxstate, 0)
 
 
-    linearsolver = GeneralizedMinimalResidual(10, similar(Q, 1), tolerance)
+    linearsolver = GeneralizedMinimalResidual(30, similar(Q, 1), tolerance)
     schur_complement = SchurComplement(schur_lhs_dg, schur_rhs_dg, schur_update_dg) 
   else
-    linearsolver = GeneralizedMinimalResidual(10, Q, tolerance)
+    linearsolver = GeneralizedMinimalResidual(30, Q, tolerance)
   end
 
   ode_solver = ark_scheme(split_nonlinear_linear ? slow_dg : dg,
@@ -262,19 +271,48 @@ function run(mpicomm, ArrayType,
                           variant=variant,
                           schur = schur ? schur_complement : NoSchur())
 
+  callbacks = ()
+  if output_vtk
+    # create vtk dir
+    vtkdir = "vtk-stability-rtb-dim$dim-poly$polynomialorder-dt=$(dt_factor)x" *
+             "-ark=$ark_scheme-split_nonlinear_linear=$split_nonlinear_linear-linflux=$linflux-schur=$schur" *
+             "-smooth=$smooth_bubble-dry=$dry-diffusion=$diffusion-filter=$filterorder-variant=$variant"
+    mkpath(vtkdir)
+    
+    file = MPI.Comm_rank(mpicomm) == 0 ? "$vtkdir/log.txt" : "/dev/null"
+    io = open(file, "w+")
+    logger = SimpleLogger(io)
+    global_logger(logger)
+    
+    vtkstep = 0
+    # output initial step
+    Qdiff = Q .- Qinit
+    do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
+
+    # setup the output callback
+    cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
+      vtkstep += 1
+      Qdiff = Q .- Qinit
+      do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
+    end
+    callbacks = (callbacks..., cbvtk)
+  end
+
   eng0 = norm(Q)
   @info @sprintf """Starting
   dt        = %.16e
   split_nll = %s
+  linflux   = %s
   smooth    = %s
   schur     = %s
   scheme    = %s
   tolerance = %.16e
   dry       = %s
   diffusion = %s
+  filter    = %d
   ArrayType = %s
   FloatType = %s
-  norm(Q₀)  = %.16e""" dt "$split_nonlinear_linear" "$smooth_bubble" "$schur" "$ark_scheme" tolerance "$dry" "$diffusion" ArrayType DF eng0
+  norm(Q₀)  = %.16e""" dt "$split_nonlinear_linear" "$linflux" "$smooth_bubble" "$schur" "$ark_scheme" tolerance "$dry" "$diffusion" filterorder ArrayType DF eng0
 
   # Set up the information callback (output field dump is via vtk callback: see cbinfo)
   starttime = Ref(now())
@@ -291,28 +329,20 @@ function run(mpicomm, ArrayType,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
                      energy)
+      output_vtk && flush(io)
     end
   end
-  callbacks = (cbinfo,)
-  if output_vtk
-    # create vtk dir
-    vtkdir = "vtk-rtb-dim$dim-poly$polynomialorder-dt$(dt_factor)x" *
-             "-$ark_scheme-split_nonlinear_linear=$split_nonlinear_linear-schur=$schur" *
-             "-smooth=$smooth_bubble-dry=$dry-diffusion=$diffusion-$variant"
-    mkpath(vtkdir)
-    
-    vtkstep = 0
-    # output initial step
-    Qdiff = Q .- Qinit
-    do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
-
-    # setup the output callback
-    cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
-      vtkstep += 1
-      Qdiff = Q .- Qinit
-      do_output(mpicomm, vtkdir, vtkstep, dg, Qdiff, model)
-    end
-    callbacks = (callbacks..., cbvtk)
+  
+  if filterorder > 0 
+	#filter = ExponentialFilter(grid, 0, filterorder, 8)
+	filter = CutoffFilter(grid)
+	cbfilter = EveryXSimulationSteps(1) do
+	  Filters.apply!(Q, 1:size(Q, 2), grid, filter; horizontal=true, vertical=true)
+	  nothing
+	end
+  	callbacks = (callbacks..., cbinfo, cbfilter)
+  else
+  	callbacks = (callbacks..., cbinfo)
   end
 
   solve!(Q, ode_solver; timeend=DF(timeend), callbacks=callbacks)
@@ -329,6 +359,7 @@ function run(mpicomm, ArrayType,
   norm(Q - Qe) / norm(Qe) = %.16e
   """ engf engf/eng0 engf-eng0 errf errf / engfe
 engf/eng0
+  output_vtk && close(io)
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname = "rtb")
