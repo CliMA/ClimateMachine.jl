@@ -11,7 +11,7 @@ vars_aux(::MoistureModel, FT) = @vars()
 function atmos_nodal_update_aux!(::MoistureModel, m::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
 end
-function flux_moisture!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux_moisture!(::MoistureModel, flux::Grad, state::Vars, aux::Vars, t::Real)
 end
 function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ρD_t)
 end
