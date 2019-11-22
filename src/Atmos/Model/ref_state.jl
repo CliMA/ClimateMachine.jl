@@ -34,6 +34,11 @@ A hydrostatic state specified by a temperature profile and relative humidity.
 struct HydrostaticState{P,F} <: ReferenceState
   temperatureprofile::P
   relativehumidity::F
+  """
+  assume that the hydrostatic balance holds at the pde level, i.e.
+  gravity and pressure force contributions from the reference state
+  cancel out exactly
+  """
   assume_pde_level_balance::Bool
 end
 HydrostaticState(p::P, f::F) where {P, F} = HydrostaticState{P, F}(p, f, false)
