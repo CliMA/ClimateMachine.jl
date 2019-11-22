@@ -216,11 +216,11 @@ end
 ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
 #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-function ark_linearsolve!(::NoSchur, linearsolver, implicitoperator!, Qinit, Qhat, p, t, α, storage)
+function ark_linearsolve!(::NoSchur, linearsolver, rhs_linear!, implicitoperator!, Qinit, Qhat, p, t, α, storage)
   linearsolve!(implicitoperator!, linearsolver, Qinit, Qhat, p, t)
 end
 
-function ark_linearsolve!(schur::SchurComplement, linearsolver, _, Qinit, Qhat, p, t, α, storage)
+function ark_linearsolve!(schur::SchurComplement, linearsolver, rhs_linear!, _, Qinit, Qhat, p, t, α, storage)
   schurR = storage.schurR
   schurP = storage.schurP
   
@@ -310,7 +310,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
-    ark_linearsolve!(ark.schur, linearsolver, implicitoperator!,
+    ark_linearsolve!(ark.schur, linearsolver, rhs_linear!, implicitoperator!,
                      Qstages[istage], Qhat, p, stagetime, α, ark.storage)
     
     rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
