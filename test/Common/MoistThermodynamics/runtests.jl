@@ -73,15 +73,15 @@ using LinearAlgebra
   # phase partitioning in equilibrium
   q_liq = FT(0.1);
   T = FT(T_icenuc-10); ρ = FT(1.0); q_tot = FT(0.21)
-  @test liquid_fraction_equil(T) === FT(0)
-  @test liquid_fraction_equil(T, PhasePartition(q_tot,q_liq,q_liq)) === FT(0.5)
+  @test liquid_fraction(T) === FT(0)
+  @test liquid_fraction(T, PhasePartition(q_tot,q_liq,q_liq)) === FT(0.5)
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.liq ≈ FT(0)
   @test 0 < q.ice <= q_tot
 
   T = FT(T_freeze+10); ρ = FT(0.1); q_tot = FT(0.60)
-  @test liquid_fraction_equil(T) === FT(1)
-  @test liquid_fraction_equil(T, PhasePartition(q_tot,q_liq,q_liq/2)) === FT(2/3)
+  @test liquid_fraction(T) === FT(1)
+  @test liquid_fraction(T, PhasePartition(q_tot,q_liq,q_liq/2)) === FT(2/3)
   q = PhasePartition_equil(T, ρ, q_tot)
   @test 0 < q.liq <= q_tot
   @test q.ice ≈ 0
@@ -269,8 +269,7 @@ end
     @test latent_heat_fusion(ts) isa typeof(e_int)
     @test q_vap_saturation(ts) isa typeof(e_int)
     @test saturation_excess(ts) isa typeof(e_int)
-    @test liquid_fraction_equil(ts) isa typeof(e_int)
-    @test liquid_fraction_nonequil(ts) isa typeof(e_int)
+    @test liquid_fraction(ts) isa typeof(e_int)
     @test PhasePartition(ts) isa PhasePartition{typeof(e_int)}
     @test liquid_ice_pottemp(ts) isa typeof(e_int)
     @test dry_pottemp(ts) isa typeof(e_int)
@@ -319,8 +318,7 @@ end
       @test latent_heat_fusion(ts_eq)                     ≈ latent_heat_fusion(ts_dry)
       @test q_vap_saturation(ts_eq)                       ≈ q_vap_saturation(ts_dry)
       @test saturation_excess(ts_eq)                      ≈ saturation_excess(ts_dry)
-      @test liquid_fraction_equil(ts_eq)                  ≈ liquid_fraction_equil(ts_dry)
-      @test liquid_fraction_nonequil(ts_eq)               ≈ liquid_fraction_nonequil(ts_dry)
+      @test liquid_fraction(ts_eq)                  ≈ liquid_fraction(ts_dry)
       @test liquid_ice_pottemp(ts_eq)                     ≈ liquid_ice_pottemp(ts_dry)
       @test dry_pottemp(ts_eq)                            ≈ dry_pottemp(ts_dry)
       @test virtual_pottemp(ts_eq)                        ≈ virtual_pottemp(ts_dry)
