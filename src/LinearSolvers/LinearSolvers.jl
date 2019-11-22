@@ -60,6 +60,9 @@ Prefactorize the in-place linear operator `linop!` for use with `linearsolver`.
 prefactorize(linop!, linearsolver::AbstractIterativeLinearSolver, args...) =
   linop!
 
+count = 0
+total_iters = 0
+
 """
     linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...)
 
@@ -90,11 +93,18 @@ function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q,
     if !isfinite(residual_norm)
       error("norm of residual is not finite after $iters iterations of `doiteration!`")
     end
+
+    if iters > 3000
+      error("stuck in interative solver")
+    end
     
     achieved_tolerance = residual_norm / threshold * solver.tolerance[1]
   end
  
-  @info "Iters = $iters"
+  global count += 1
+  global total_iters += iters
+  avg_iters = total_iters / count
+  @info "Iters = $iters, $avg_iters"
   iters
 end
 
