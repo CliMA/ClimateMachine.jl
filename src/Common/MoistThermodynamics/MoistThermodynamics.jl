@@ -14,7 +14,7 @@ using ..PlanetParameters
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
-export linearized_air_pressure
+export linearized_air_pressure, total_specific_humidity
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -137,6 +137,15 @@ state (ideal gas law), given a thermodynamic state `ts`.
 specific_volume(ts::ThermodynamicState) = 1/air_density(ts)
 
 """
+    total_specific_humidity(ts::ThermodynamicState)
+
+Total specific humidity, given a thermodynamic state `ts`.
+"""
+total_specific_humidity(ts::ThermodynamicState) = ts.q_tot
+total_specific_humidity(ts::PhaseDry{FT}) where FT = FT(0)
+total_specific_humidity(ts::PhaseNonEquil) = ts.q.tot
+
+"""
     cp_m([q::PhasePartition])
 
 The isobaric specific heat capacity of moist
@@ -188,9 +197,6 @@ The function returns a tuple of
  - `cp_m` [`cp_m`](@ref)
  - `cv_m` [`cv_m`](@ref)
  - `γ_m = cp_m/cv_m`
-
-Without the specific humidity arguments, the results
-are that of dry air.
 """
 function gas_constants(q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
     R_gas  = gas_constant_air(q)
@@ -296,7 +302,7 @@ thermodynamic equilibrium at saturation,
 given a thermodynamic state `ts`.
 """
 internal_energy_sat(ts::ThermodynamicState) =
-  internal_energy_sat(air_temperature(ts), air_density(ts), ts.q_tot)
+  internal_energy_sat(air_temperature(ts), air_density(ts), total_specific_humidity(ts))
 
 
 """
@@ -329,9 +335,6 @@ The speed of sound in unstratified air, where
  - `T` temperature
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
-
-Without the specific humidity arguments, the results
-are that of dry air.
 """
 function soundspeed_air(T::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
   γ   = cp_m(q) / cv_m(q)
@@ -607,8 +610,8 @@ The fraction of condensate that is liquid where
 If `q.liq` or `q.ice` are nonzero, the liquid fraction is computed from
 them.
 
-Otherwise, the fraction of liquid is a function that is 1 above `T_freeze` and goes to
-zero below `T_freeze`.
+Otherwise, phase equilibrium is assumed so that the fraction of liquid
+is a function that is 1 above `T_freeze` and goes to zero below `T_freeze`.
 """
 function liquid_fraction(T::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
   q_c = q.liq + q.ice     # condensate specific humidity
@@ -639,14 +642,13 @@ Partition the phases in equilibrium, returning a [`PhasePartition`](@ref) object
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
 
-The residual `q.tot - q.liq - q.ice` is the vapor specific humidity, where `q`
-is the resulting `PhasePartition`.
+The residual `q.tot - q.liq - q.ice` is the vapor specific humidity.
 """
 function PhasePartition_equil(T::FT, ρ::FT, q_tot::FT) where {FT<:Real}
-    _liquid_frac = liquid_fraction(T)   # fraction of condensate that is liquid
-    q_c   = saturation_excess(T, ρ, PhasePartition(q_tot))   # condensate specific humidity
-    q_liq = _liquid_frac * q_c  # liquid specific humidity
-    q_ice = (1 - _liquid_frac) * q_c # ice specific humidity
+    _liquid_frac = liquid_fraction(T)                      # fraction of condensate that is liquid
+    q_c   = saturation_excess(T, ρ, PhasePartition(q_tot)) # condensate specific humidity
+    q_liq = _liquid_frac * q_c                             # liquid specific humidity
+    q_ice = (1 - _liquid_frac) * q_c                       # ice specific humidity
 
     return PhasePartition(q_tot, q_liq, q_ice)
 end
@@ -659,7 +661,7 @@ PhasePartition(ts::PhaseNonEquil) = ts.q
 """
     saturation_adjustment(e_int, ρ, q_tot)
 
-Compute the temperature that is consistent with
+Compute the temperature `T` that is consistent with
 
  - `e_int` internal energy
  - `ρ` (moist-)air density
@@ -689,13 +691,13 @@ end
 """
     saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ)
 
-Compute the temperature that is consistent with
+Compute the temperature `T` that is consistent with
 
  - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `ρ` (moist-)air density
 
-by solving the equation
+by the root of
 
 ``
   θ_{liq_ice} - liquid_ice_pottemp_sat(T, ρ, q_tot) = 0
@@ -724,7 +726,7 @@ end
 """
     latent_heat_liq_ice(q::PhasePartition{FT})
 
-Latent heat for liquid and ice phases
+Effective latent heat of condensate (weighted sum of liquid and ice)
 """
 latent_heat_liq_ice(q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
   FT(LH_v0)*q.liq + FT(LH_s0)*q.ice
@@ -804,11 +806,7 @@ dry_pottemp(ts::ThermodynamicState) =
 """
     air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, q::PhasePartition)
 
-Air temperature
-``
-  T = θ_{liq-ice}*(ρ*R_m*θ_{liq-ice}/MSLP)^{R_m/c_{vm}} + latent_heat_liq_ice(q)/c_{vm}
-``
-given
+The temperature given
  - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
 and, optionally,
@@ -827,7 +825,7 @@ end
 
 Solves the non-linear equation
 ``
-  T = θ_{liq_ice}*(ρ R_m T/MSLP)^(R_m/cp_m) + (LH_{v0} q_{liq} + LH_{s0} q_{ice}) / cp_m
+  T = θ_{liq_ice}*(exner(T,ρ,q) + (LH_{v0} q_{liq} + LH_{s0} q_{ice}) / cp_m
 ``
 for temperature `T`
 """
@@ -845,7 +843,7 @@ end
 """
     air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p[, q::PhasePartition])
 
-The air temperature, where
+The air temperature where
 
  - `θ_liq_ice` liquid-ice potential temperature
  - `p` pressure
@@ -856,8 +854,6 @@ function air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice::FT,
                                                  p::FT,
                                                  q::PhasePartition{FT}=q_pt_0(FT)
                                                  ) where {FT<:Real}
-  # liquid-ice potential temperature, approximating latent heats
-  # of phase transitions as constants
   return θ_liq_ice*exner_given_pressure(p, q) + latent_heat_liq_ice(q) / cp_m(q)
 end
 
@@ -958,6 +954,14 @@ exner(ts::ThermodynamicState) = exner(air_temperature(ts), air_density(ts), Phas
 
 The relative humidity, given a thermodynamic state `ts`.
 """
-relative_humidity(ts::ThermodynamicState) = air_pressure(ts)/saturation_vapor_pressure(ts, Liquid())
+function relative_humidity(ts::ThermodynamicState)
+  q = PhasePartition(ts)
+  q_vap = q.tot - q.liq - q.ice
+  p_vap = q_vap * air_density(ts) * gas_constant_air(ts) * air_temperature(ts)
+  liq_frac = liquid_fraction(ts)
+  p_vap_sat =  liq_frac  * saturation_vapor_pressure(ts, Liquid()) +
+            (1-liq_frac) * saturation_vapor_pressure(ts, Ice())
+  return p_vap/p_vap_sat
+end
 
 end #module MoistThermodynamics.jl
