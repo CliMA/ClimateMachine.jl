@@ -109,7 +109,7 @@ Liquid
 liquid_fraction
 liquid_ice_pottemp
 liquid_ice_pottemp_sat
-moist_gas_constants
+gas_constants
 saturation_adjustment
 saturation_excess
 q_vap_saturation
