@@ -123,16 +123,14 @@ air_density(T::FT, p::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
 """
     air_density(ts::ThermodynamicState)
 
-The (moist-)air density from the equation of state
-(ideal gas law), given a thermodynamic state `ts`.
+The (moist-)air density, given a thermodynamic state `ts`.
 """
 air_density(ts::ThermodynamicState) = ts.ρ
 
 """
     specific_volume(ts::ThermodynamicState)
 
-The (moist-)air specific volume from the equation of
-state (ideal gas law), given a thermodynamic state `ts`.
+The (moist-)air specific, given a thermodynamic state `ts`.
 """
 specific_volume(ts::ThermodynamicState) = 1/air_density(ts)
 
@@ -326,7 +324,8 @@ total_energy(e_kin::FT, e_pot::FT, T::FT, q::PhasePartition{FT}=q_pt_0(FT)) wher
 The total energy per unit mass
 given a thermodynamic state `ts`.
 """
-total_energy(e_kin::FT, e_pot::FT, ts::ThermodynamicState{FT}) where {FT<:Real} = internal_energy(ts) + FT(e_kin) + FT(e_pot)
+total_energy(e_kin::FT, e_pot::FT, ts::ThermodynamicState{FT}) where {FT<:Real} =
+  internal_energy(ts) + FT(e_kin) + FT(e_pot)
 
 """
     soundspeed_air(T[, q::PhasePartition])
@@ -481,14 +480,17 @@ relation to obtain the saturation vapor pressure `p_v_sat` as a function of
 the triple point pressure `press_triple`.
 
 """
-saturation_vapor_pressure(T::FT, ::Liquid) where {FT<:Real} = saturation_vapor_pressure(T, FT(LH_v0), FT(cp_v) - FT(cp_l))
+saturation_vapor_pressure(T::FT, ::Liquid) where {FT<:Real} =
+  saturation_vapor_pressure(T, FT(LH_v0), FT(cp_v) - FT(cp_l))
 function saturation_vapor_pressure(ts::ThermodynamicState{FT}, ::Liquid) where {FT<:Real}
 
     return saturation_vapor_pressure(air_temperature(ts), FT(LH_v0), FT(cp_v) - FT(cp_l))
 
 end
-saturation_vapor_pressure(T::FT, ::Ice) where {FT<:Real} = saturation_vapor_pressure(T, FT(LH_s0), FT(cp_v) - FT(cp_i))
-saturation_vapor_pressure(ts::ThermodynamicState{FT}, ::Ice) where {FT<:Real} = saturation_vapor_pressure(air_temperature(ts), FT(LH_s0), FT(cp_v) - FT(cp_i))
+saturation_vapor_pressure(T::FT, ::Ice) where {FT<:Real} =
+  saturation_vapor_pressure(T, FT(LH_s0), FT(cp_v) - FT(cp_i))
+saturation_vapor_pressure(ts::ThermodynamicState{FT}, ::Ice) where {FT<:Real} =
+  saturation_vapor_pressure(air_temperature(ts), FT(LH_s0), FT(cp_v) - FT(cp_i))
 
 function saturation_vapor_pressure(T::FT, LH_0::FT, Δcp::FT) where {FT<:Real}
 
@@ -536,7 +538,7 @@ the saturation specific humidity is that over a mixture of liquid and ice, with 
 fraction of liquid given by temperature dependent `liquid_fraction(T)` and the
 fraction of ice by the complement `1 - liquid_fraction(T)`.
 """
-function q_vap_saturation(T::FT, ρ::FT, q::PhasePartition{FT}=PhasePartition{FT}(FT(0),FT(0),FT(0))) where {FT<:Real}
+function q_vap_saturation(T::FT, ρ::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
 
     # get phase partitioning
     _liquid_frac = liquid_fraction(T, q)
@@ -652,10 +654,12 @@ function PhasePartition_equil(T::FT, ρ::FT, q_tot::FT) where {FT<:Real}
 
     return PhasePartition(q_tot, q_liq, q_ice)
 end
-PhasePartition_equil(ts::PhaseNonEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
+PhasePartition_equil(ts::PhaseNonEquil) =
+  PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 
-PhasePartition(ts::PhaseDry{FT}) where {FT<:Real} = PhasePartition(FT(0), FT(0), FT(0))
-PhasePartition(ts::PhaseEquil) = PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
+PhasePartition(ts::PhaseDry{FT}) where {FT<:Real} = q_pt_0(FT)
+PhasePartition(ts::PhaseEquil) =
+  PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
 """
@@ -666,6 +670,10 @@ Compute the temperature `T` that is consistent with
  - `e_int` internal energy
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
+
+by finding the root of
+
+``e_int - internal_energy_sat(T,ρ,q_tot) = 0``
 
 See also [`saturation_adjustment_q_tot_θ_liq_ice`](@ref).
 """
@@ -697,7 +705,7 @@ Compute the temperature `T` that is consistent with
  - `q_tot` total specific humidity
  - `ρ` (moist-)air density
 
-by the root of
+by finding the root of
 
 ``
   θ_{liq_ice} - liquid_ice_pottemp_sat(T, ρ, q_tot) = 0
