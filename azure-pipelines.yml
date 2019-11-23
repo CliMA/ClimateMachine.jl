@@ -16,8 +16,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
@@ -29,7 +29,7 @@ jobs:
   - bash: |
       set -o xtrace
       sudo apt-get update
-      sudo apt-get install cmake gfortran mpich libmpich-dev
+      sudo apt-get install mpich libmpich-dev
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
@@ -43,14 +43,15 @@ jobs:
                                                                  using Coverage;
                                                                  Codecov.submit_local(Codecov.process_folder();
                                                                    service = "azure_pipelines",
-                                                                   commit       = @show(ENV["BUILD_SOURCEVERSION"]),
-                                                                   pull_request = @show(get(ENV, "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER", "false")),
-                                                                   job          = @show(ENV["BUILD_DEFINITIONNAME"]),
-                                                                   slug         = @show(ENV["BUILD_REPOSITORY_NAME"]),
-                                                                   build        = @show(ENV["BUILD_BUILDID"]))'
+                                                                   commit       = ENV["BUILD_SOURCEVERSION"],
+                                                                   pull_request = get(ENV, "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER", "false"),
+                                                                   job          = ENV["BUILD_DEFINITIONNAME"],
+                                                                   slug         = ENV["BUILD_REPOSITORY_NAME"],
+                                                                   build        = ENV["BUILD_BUILDID"])'
     env:
       CODECOV_TOKEN: "d5ad49b6-c247-44f7-a529-5f749a8b0c2a"
-    displayName: 'Submit code coverage' 
+    displayName: 'Submit code coverage'
+    continueOnError: true
 
 - job: macOS
 
@@ -61,8 +62,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - bash: |
@@ -74,9 +75,10 @@ jobs:
     displayName: 'Download and extract Julia'
   - bash: |
       set -o xtrace
+      echo "127.0.0.1  $HOSTNAME" | sudo tee -a /private/etc/hosts  # fix https://stackoverflow.com/a/31222970/392585
       brew update
       brew upgrade
-      brew install mpich cmake
+      brew install mpich
     displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
@@ -95,8 +97,8 @@ jobs:
 
   strategy:
     matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
+      Julia 1.2:
+        JULIA_VERSION: '1.2'
 
   steps:
   - powershell: |
@@ -116,43 +118,45 @@ jobs:
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.test()'
     displayName: 'Run the tests'
 
-- job: Documentation
-
-  pool:
-    vmImage: 'ubuntu-16.04'
-
-  strategy:
-    matrix:
-      Julia 1.1:
-        JULIA_VERSION: '1.1'
-
-  steps:
-  - bash: |
-      set -o xtrace
-      wget -nv https://julialang-s3.julialang.org/bin/linux/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz
-      mkdir julia-$(JULIA_VERSION)
-      tar zxf julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz -C julia-$(JULIA_VERSION) --strip-components 1
-    displayName: 'Download and extract Julia'
-  - bash: |
-      set -o xtrace
-      sudo apt-get update
-      sudo apt-get install cmake gfortran mpich libmpich-dev
-    displayName: 'Install dependencies'
-  - bash: |
-      set -o xtrace
-      export TRAVIS_REPO_SLUG="$BUILD_REPOSITORY_NAME"
-      export TRAVIS_PULL_REQUEST="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-false}"
-      if [[ $BUILD_SOURCEBRANCH == refs/tags/* ]]; then
-        export TRAVIS_TAG="${BUILD_SOURCEBRANCH:10}"
-      fi
-      if [[ $BUILD_SOURCEBRANCH == refs/heads/* ]]; then
-        export TRAVIS_BRANCH="${BUILD_SOURCEBRANCH:11}"
-      fi
-      ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
-      ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ -e 'using Pkg; Pkg.instantiate();
-                                                                        Pkg.develop(PackageSpec(path=pwd()));
-                                                                        Pkg.build()'
-      ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ docs/make.jl
-    env:
-      DOCUMENTER_KEY: $(documenter_key)
-    displayName: 'Build and deploy docs'
+#- job: Documentation
+#
+#  timeoutInMinutes: 60
+#
+#  pool:
+#    vmImage: 'ubuntu-16.04'
+#
+#  strategy:
+#    matrix:
+#      Julia 1.2:
+#        JULIA_VERSION: '1.2'
+#
+#  steps:
+#  - bash: |
+#      set -o xtrace
+#      wget -nv https://julialang-s3.julialang.org/bin/linux/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz
+#      mkdir julia-$(JULIA_VERSION)
+#      tar zxf julia-$(JULIA_VERSION)-latest-linux-x86_64.tar.gz -C julia-$(JULIA_VERSION) --strip-components 1
+#    displayName: 'Download and extract Julia'
+#  - bash: |
+#      set -o xtrace
+#      sudo apt-get update
+#      sudo apt-get install mpich libmpich-dev
+#    displayName: 'Install dependencies'
+#  - bash: |
+#      set -o xtrace
+#      export TRAVIS_REPO_SLUG="$BUILD_REPOSITORY_NAME"
+#      export TRAVIS_PULL_REQUEST="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-false}"
+#      if [[ $BUILD_SOURCEBRANCH == refs/tags/* ]]; then
+#        export TRAVIS_TAG="${BUILD_SOURCEBRANCH:10}"
+#      fi
+#      if [[ $BUILD_SOURCEBRANCH == refs/heads/* ]]; then
+#        export TRAVIS_BRANCH="${BUILD_SOURCEBRANCH:11}"
+#      fi
+#      ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
+#      ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ -e 'using Pkg; Pkg.instantiate();
+#                                                                        Pkg.develop(PackageSpec(path=pwd()));
+#                                                                        Pkg.build()'
+#      ./julia-$(JULIA_VERSION)/bin/julia --project=docs/ docs/make.jl
+#    env:
+#      DOCUMENTER_KEY: $(documenter_key)
+#    displayName: 'Build and deploy docs'

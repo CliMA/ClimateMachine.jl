@@ -55,27 +55,37 @@ end
 
 const weighted = false
 
-function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedMinimalResidual)
+function LS.initialize!(linearoperator!, Q, Qrhs,
+                        solver::GeneralizedMinimalResidual, args...)
     g0 = solver.g0
     krylov_basis = solver.krylov_basis
 
     @assert size(Q) == size(krylov_basis[1])
 
     # store the initial residual in krylov_basis[1]
-    linearoperator!(krylov_basis[1], Q)
+    linearoperator!(krylov_basis[1], Q, args...)
     krylov_basis[1] .*= -1
     krylov_basis[1] .+= Qrhs
 
+    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
     residual_norm = norm(krylov_basis[1], weighted)
+
+    converged = false
+    if residual_norm < threshold
+      converged = true
+      return converged, threshold
+    end
+
     fill!(g0, 0)
     g0[1] = residual_norm
     krylov_basis[1] ./= residual_norm
 
-    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
+    converged, threshold
 end
 
 function LS.doiteration!(linearoperator!, Q, Qrhs,
-                         solver::GeneralizedMinimalResidual{M}, threshold) where M
+                         solver::GeneralizedMinimalResidual{M}, threshold,
+                         args...) where M
  
   krylov_basis = solver.krylov_basis
   H = solver.H
@@ -89,7 +99,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
   for outer j = 1:M
 
     # Arnoldi using the Modified Gram Schmidt orthonormalization
-    linearoperator!(krylov_basis[j + 1], krylov_basis[j])
+    linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
     for i = 1:j
       H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted)
       @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
@@ -130,7 +140,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
           LS.linearcombination!(rv_Q, y, rv_krylov_basis, true))
 
   # if not converged restart
-  converged || LS.initialize!(linearoperator!, Q, Qrhs, solver)
+  converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
   
   (converged, j, residual_norm)
 end

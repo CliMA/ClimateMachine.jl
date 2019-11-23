@@ -150,7 +150,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
   nstate = size(Q, 2)
 
   filtermatrix = filter.filter
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
   nelem = length(topology.elems)
   Nq = N + 1
@@ -160,7 +160,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           knl_apply_filter!(Val(dim), Val(N), Val(nstate), Val(horizontal), Val(vertical),
-                            Q.Q, Val(states), filtermatrix, topology.realelems))
+                            Q.data, Val(states), filtermatrix, topology.realelems))
 end
 
 """
@@ -174,7 +174,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
                 ::TMARFilter)
   topology = grid.topology
 
-  device = typeof(Q.Q) <: Array ? CPU() : CUDA()
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
   dim = dimensionality(grid)
   N = polynomialorder(grid)
@@ -185,7 +185,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
   nreduce = 2^ceil(Int, log2(Nq*Nqk))
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nrealelem,
-          knl_apply_TMAR_filter!(Val(nreduce), Val(dim), Val(N), Q.Q,
+          knl_apply_TMAR_filter!(Val(nreduce), Val(dim), Val(N), Q.data,
                                  Val(states), grid.vgeo, topology.realelems))
 end
 
