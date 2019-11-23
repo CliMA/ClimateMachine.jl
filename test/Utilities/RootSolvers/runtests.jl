@@ -4,47 +4,50 @@ using CLIMA.RootSolvers
 
 @testset "RootSolvers - compact solution correctness" begin
   f(x) = x^2 - 100^2
-  for T in [Float32, Float64]
-    sol = find_zero(f, T(0.0), T(1000.0), SecantMethod(), CompactSolution())
+  for FT in [Float32, Float64]
+    sol = find_zero(f, FT(0.0), FT(1000.0), SecantMethod(), CompactSolution())
     @test sol.converged
-    @test sol.root isa T
+    @test sol.root isa FT
     @test sol.root ≈ 100
 
-    sol = find_zero(f, T(0.0), T(1000.0), RegulaFalsiMethod(), CompactSolution())
+    sol = find_zero(f, FT(0.0), FT(1000.0), RegulaFalsiMethod(), CompactSolution())
     @test sol.converged
-    @test sol.root isa T
+    @test sol.root isa FT
     @test sol.root ≈ 100
 
-    sol = find_zero(f, T(1.0), NewtonsMethod(), CompactSolution())
+    sol = find_zero(f, FT(1.0), NewtonsMethod(), CompactSolution())
     @test sol.converged
-    @test sol.root isa T
+    @test sol.root isa FT
     @test sol.root ≈ 100
   end
 end
 
 @testset "RootSolvers - verbose solution correctness" begin
   f(x) = x^2 - 100^2
-  for T in [Float32, Float64]
-    sol = find_zero(f, T(0.0), T(1000.0), SecantMethod(), VerboseSolution())
+  for FT in [Float32, Float64]
+    sol = find_zero(f, FT(0.0), FT(1000.0), SecantMethod(), VerboseSolution())
     @test sol.converged
-    @test sol.root isa T
+    @test sol.root isa FT
     @test sol.root ≈ 100
     @test sol.err < 1e-3
     @test sol.iter_performed < 20
+    @test sol.iter_performed+1 == length(sol.root_history) == length(sol.err_history)
 
-    sol = find_zero(f, T(0.0), T(1000.0), RegulaFalsiMethod(), VerboseSolution())
+    sol = find_zero(f, FT(0.0), FT(1000.0), RegulaFalsiMethod(), VerboseSolution())
     @test sol.converged
-    @test sol.root isa T
+    @test sol.root isa FT
     @test sol.root ≈ 100
     @test sol.err < 1e-3
     @test sol.iter_performed < 20
+    @test sol.iter_performed+1 == length(sol.root_history) == length(sol.err_history)
 
-    sol = find_zero(f, T(1.0), NewtonsMethod(), VerboseSolution())
+    sol = find_zero(f, FT(1.0), NewtonsMethod(), VerboseSolution())
     @test sol.converged
-    @test sol.root isa T
+    @test sol.root isa FT
     @test sol.root ≈ 100
     @test sol.err < 1e-3
     @test sol.iter_performed < 20
+    @test sol.iter_performed+1 == length(sol.root_history) == length(sol.err_history)
   end
 end
 
@@ -53,9 +56,9 @@ end
   CuArrays.allowscalar(false)
 
   @testset "RootSolvers CUDA - compact solution " begin
-    for T in [Float32, Float64]
-      X0 = cu(rand(T, 5,5))
-      X1 = cu(rand(T, 5,5)) .+ 1000
+    for FT in [Float32, Float64]
+      X0 = cu(rand(FT, 5,5))
+      X1 = cu(rand(FT, 5,5)) .+ 1000
       f(x) = x^2 - 100^2
 
       sol = RootSolvers.find_zero.(f, X0, X1, SecantMethod(), CompactSolution())
@@ -68,9 +71,9 @@ end
   end
 
   @testset "RootSolvers CUDA - verbose solution " begin
-    for T in [Float32, Float64]
-      X0 = cu(rand(T, 5,5))
-      X1 = cu(rand(T, 5,5)) .+ 1000
+    for FT in [Float32, Float64]
+      X0 = cu(rand(FT, 5,5))
+      X1 = cu(rand(FT, 5,5)) .+ 1000
       f(x) = x^2 - 100^2
 
       sol = RootSolvers.find_zero.(f, X0, X1, SecantMethod(), VerboseSolution())
