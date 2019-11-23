@@ -23,7 +23,7 @@ There are several types of functions:
     * `internal_energy`
     * `air_temperature`
 6. Functions to compute temperatures and partitioning of water into phases in thermodynamic equilibrium (when Gibbs' phase rule implies that the entire thermodynamic state of moist air, including the liquid and ice specific humidities, can be calculated from the 3 thermodynamic state variables, such as energy, pressure, and total specific humidity)
-    * `liquid_fraction_equil` (fraction of condensate that is liquid)
+    * `liquid_fraction` (fraction of condensate that is liquid)
     * `saturation_adjustment` (compute temperature from energy, density, and total specific humidity)
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
@@ -106,8 +106,7 @@ latent_heat_fusion
 latent_heat_sublim
 latent_heat_vapor
 Liquid
-liquid_fraction_equil
-liquid_fraction_nonequil
+liquid_fraction
 liquid_ice_pottemp
 liquid_ice_pottemp_sat
 gas_constants

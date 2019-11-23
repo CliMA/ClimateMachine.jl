@@ -125,13 +125,14 @@ Where
   flux.ρu += p*I
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
+  flux_moisture!(m.moisture, flux, state, aux, t)
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
-
+  
   # diffusive
   ρτ = diffusive.ρτ
   ρd_h_tot = diffusive.ρd_h_tot
