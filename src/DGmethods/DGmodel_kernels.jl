@@ -1060,11 +1060,15 @@ end
 
 Update the auxiliary state array
 """
-function knl_nodal_update_aux!(bl_a::BalanceLaw, bl_b::BalanceLaw,
-                               ::Val{dim}, ::Val{N}, f!, Q_b,
-                               auxstate_a, auxstate_b, t, elems) where {dim, N}
-  FT = eltype(Q_b)
+function knl_nodal_update!(::Val{dim}, ::Val{N}, elems, f!,
+                           bl_a::BalanceLaw, Q_a, auxstate_a,
+                           bl_b::BalanceLaw, Q_b, auxstate_b,
+                           t) where {dim, N}
+  FT = eltype(Q_a)
+  
+  ninstate_a = num_instate(bl_a,FT)
   nauxstate_a = num_aux(bl_a,FT)
+
   ninstate_b = num_instate(bl_b,FT)
   nauxstate_b = num_aux(bl_b,FT)
 
@@ -1074,12 +1078,18 @@ function knl_nodal_update_aux!(bl_a::BalanceLaw, bl_b::BalanceLaw,
 
   Np = Nq * Nq * Nqk
 
-  l_Q_b = MArray{Tuple{ninstate_b}, FT}(undef)
+  l_Q_a = MArray{Tuple{ninstate_a}, FT}(undef)
   l_aux_a = MArray{Tuple{nauxstate_a}, FT}(undef)
+  
+  l_Q_b = MArray{Tuple{ninstate_b}, FT}(undef)
   l_aux_b = MArray{Tuple{nauxstate_b}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:ninstate_a
+        l_Q_a[s] = Q_a[n, s, e]
+      end
+
       @unroll for s = 1:ninstate_b
         l_Q_b[s] = Q_b[n, s, e]
       end
@@ -1092,9 +1102,13 @@ function knl_nodal_update_aux!(bl_a::BalanceLaw, bl_b::BalanceLaw,
         l_aux_b[s] = auxstate_b[n, s, e]
       end
 
-      f!(bl_a, bl_b,
-         Vars{vars_instate(bl_b,FT)}(l_Q_b),
-         Vars{vars_aux(bl_a,FT)}(l_aux_a), Vars{vars_aux(bl_b,FT)}(l_aux_b), t)
+      f!(bl_a, Vars{vars_instate(bl_a,FT)}(l_Q_a), Vars{vars_aux(bl_a,FT)}(l_aux_a),
+         bl_b, Vars{vars_instate(bl_b,FT)}(l_Q_b), Vars{vars_aux(bl_b,FT)}(l_aux_b),
+         t)
+      
+      @unroll for s = 1:ninstate_a
+        Q_a[n, s, e] = l_Q_a[s]
+      end
 
       @unroll for s = 1:nauxstate_a
         auxstate_a[n, s, e] = l_aux_a[s]

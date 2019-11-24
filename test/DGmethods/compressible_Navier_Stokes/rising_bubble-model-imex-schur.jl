@@ -6,7 +6,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
-using CLIMA.DGmethods: nodal_update_aux!, grad_auxiliary_state!
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.AdditiveRungeKuttaMethod
@@ -67,10 +66,10 @@ const smooth_bubble = false
 const diffusion = false
 const dry = true
 const timeend = 500
-const output_vtk = true
+const output_vtk = false
 const outputtime = 25
-const linflux = Rusanov
-#const linflux = CentralNumericalFluxNonDiffusive
+#const linflux = Rusanov
+const linflux = CentralNumericalFluxNonDiffusive
 
 # ------------- Initial condition function ----------- # 
 """
@@ -230,14 +229,12 @@ function run(mpicomm, ArrayType,
                            CentralNumericalFluxDiffusive(),
                            CentralGradPenalty())
     
-    nodal_update_aux!(schur_aux_init!,
-                      schur_lhs_dg, dg,
-                      schur_lhs_model, model,
-                      Q,
-                      schur_lhs_dg.auxstate, dg.auxstate, 0)
-
-
-    grad_auxiliary_state!(schur_lhs_dg, 1, (2, 3, 4))
+    #nodal_update!(schur_aux_init!, dg.grid,
+    #              schur_lhs_model, schur_lhs,
+    #              schur_lhs_dg.auxstate,
+    #              model, Q, dg.auxstate,
+    #              0)
+    #grad_auxiliary_state!(schur_lhs_dg, 1, (2, 3, 4))
     
     schur_rhs_dg = DGModel(schur_rhs_model,
                            grid,
@@ -252,12 +249,11 @@ function run(mpicomm, ArrayType,
                               CentralNumericalFluxDiffusive(),
                               CentralGradPenalty())
     
-    nodal_update_aux!(schur_aux_init!,
-                      schur_update_dg, dg,
-                      schur_update_model, model,
-                      Q,
-                      schur_update_dg.auxstate, dg.auxstate, 0)
-
+    #nodal_update_aux!(schur_aux_init!,
+    #                  schur_update_dg, dg,
+    #                  schur_update_model, model,
+    #                  Q,
+    #                  schur_update_dg.auxstate, dg.auxstate, 0)
 
     linearsolver = GeneralizedMinimalResidual(30, similar(Q, 1), tolerance)
     schur_complement = SchurComplement(schur_lhs_dg, schur_rhs_dg, schur_update_dg) 

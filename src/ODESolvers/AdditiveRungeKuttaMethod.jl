@@ -31,8 +31,22 @@ function additional_storage(::SchurComplement, Q, Nstages)
   (schurP = P, schurR = R)
 end
 
+
 using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
+
+using CLIMA.DGmethods: nodal_update!, grad_auxiliary_state!
+using CLIMA.Atmos: schur_aux_init!, schur_copy_state!, schur_pressure_init!
+schur_init!(::NoSchur, rhs!, Q, storage) = nothing
+function schur_init!(schur::SchurComplement, rhs!, Q, storage)
+    nodal_update!(schur_aux_init!, rhs!.grid,
+                  schur.lhs!.balancelaw, storage.schurP, schur.lhs!.auxstate,
+                  rhs!.balancelaw, Q, rhs!.auxstate, 0)
+    grad_auxiliary_state!(schur.lhs!, 1, (2, 3, 4))
+    nodal_update!(schur_aux_init!, rhs!.grid,
+                  schur.update!.balancelaw, storage.schurP, schur.update!.auxstate,
+                  rhs!.balancelaw, Q, rhs!.auxstate, 0)
+end
 
 using StaticArrays
 
@@ -179,9 +193,9 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} 
 
     S = typeof(schur)
     schur_storage = additional_storage(schur, Q, Nstages)
-
     storage = merge(variant_storage, schur_storage)
     ST = typeof(storage)
+    schur_init!(schur, rhs_linear!, Q, storage)
 
     new{T, RT, AT, LT, V, S, ST, Nstages, Nstages ^ 2}(RT(dt), RT(t0),
                                                        rhs!, rhs_linear!, implicitoperator!, linearsolver,
@@ -223,20 +237,19 @@ end
 function ark_linearsolve!(schur::SchurComplement, linearsolver, rhs_linear!, _, Qinit, Qhat, p, t, α, storage)
   schurR = storage.schurR
   schurP = storage.schurP
-  
-  # FIXME
-  aux = rhs_linear!.auxstate
-  γ = 1 / (1 - kappa_d)
-  @views schurP[:, 1, :] .= (@. (γ - 1) * (Qinit[:, 5, :] - Qinit[:, 1, :] * (aux[:, 4, :] - R_d * T_0 / (γ - 1))))
 
+  nodal_update!(schur_pressure_init!, rhs_linear!.grid,
+                schur.lhs!.balancelaw, storage.schurP, schur.lhs!.auxstate,
+                rhs_linear!.balancelaw, Qinit, rhs_linear!.auxstate, 0)
+  @show extrema(schurP)
   schur.rhs!(schurR, Qhat, p, α; increment = false)
-  #@show norm(schurR)
   linearoperator! = function(LQ, Q)
     schur.lhs!(LQ, Q, p, α; increment = false)
   end
   linearsolve!(linearoperator!, linearsolver, schurP, schurR)
-  #FIXME
-  @views schur.update!.auxstate[:, 6:10, :] .= Qhat[:, 1:5, :]
+  nodal_update!(schur_copy_state!, rhs_linear!.grid,
+                schur.update!.balancelaw, storage.schurP, schur.update!.auxstate,
+                rhs_linear!.balancelaw, Qhat, rhs_linear!.auxstate, 0)
   schur.update!(Qinit, schurP, p, α; increment = false)
 end
 
@@ -423,7 +436,7 @@ function ARK2GiraldoKellyConstantinescu(F, L,
   T = eltype(Q)
   RT = real(T)
   
-  a32 = RT((3 + 2sqrt(2)) / 6)
+  a32 = RT(1 // 2)
   RKA_explicit = [RT(0)           RT(0)   RT(0);
                   RT(2 - sqrt(2)) RT(0)   RT(0);
                   RT(1 - a32)     RT(a32) RT(0)]

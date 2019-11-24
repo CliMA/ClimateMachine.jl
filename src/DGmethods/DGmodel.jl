@@ -247,31 +247,26 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
                           Q.data, auxstate.data, t, topology.realelems))
 end
 
-function nodal_update_aux!(f!, dg_a::DGModel, dg_b::DGModel,
-                           m_a::BalanceLaw, m_b::BalanceLaw,
-                           Q_b::MPIStateArray,
-                           auxstate_a::MPIStateArray, auxstate_b::MPIStateArray, t::Real)
-  device = typeof(Q_b.data) <: Array ? CPU() : CUDA()
+function nodal_update!(f!, grid,
+                       m_a::BalanceLaw, Q_a::MPIStateArray, auxstate_a::MPIStateArray,
+                       m_b::BalanceLaw, Q_b::MPIStateArray, auxstate_b::MPIStateArray,
+                       t::Real)
+  device_a = typeof(Q_a.data) <: Array ? CPU() : CUDA()
+  device_b = typeof(Q_b.data) <: Array ? CPU() : CUDA()
+  @assert device_a == device_b
 
-  grid = dg_a.grid
   topology = grid.topology
-
   dim = dimensionality(grid)
-  N = polynomialorder(grid)
-  Nq = N + 1
   nrealelem = length(topology.realelems)
-
   polyorder = polynomialorder(grid)
-
   Np = dofs_per_element(grid)
 
   ### update aux variables
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          knl_nodal_update_aux!(m_a, m_b,
-                                Val(dim), Val(polyorder), f!,
-                                Q_b.data,
-                                auxstate_a.data, auxstate_b.data,
-                                t, topology.realelems))
+  @launch(device_a, threads=(Np,), blocks=nrealelem,
+          knl_nodal_update!(Val(dim), Val(polyorder), topology.realelems, f!,
+                                m_a, Q_a.data, auxstate_a.data,
+                                m_b, Q_b.data, auxstate_b.data,
+                                t))
 end
 
 """

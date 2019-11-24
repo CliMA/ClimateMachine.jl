@@ -205,10 +205,23 @@ end
 init_aux!(::SchurUpdateModel, aux::Vars, g::LocalGeometry) = nothing
 init_state!(::SchurUpdateModel, state::Vars, aux::Vars, coords, t) = nothing
 
-function schur_aux_init!(::Union{SchurLHSModel, SchurUpdateModel}, atmos::AtmosModel,
-                         atmos_state::Vars,
-                         schur_aux::Vars, atmos_aux::Vars, t::Real)
-  Φ = gravitational_potential(atmos.orientation, atmos_aux)
+function schur_aux_init!(::Union{SchurLHSModel, SchurUpdateModel}, schur_state::Vars, schur_aux::Vars,
+                         lin, atmos_state::Vars, atmos_aux::Vars, t::Real)
+  Φ = gravitational_potential(lin.atmos.orientation, atmos_aux)
   schur_aux.h0 = (atmos_aux.ref_state.ρe + atmos_aux.ref_state.p) / atmos_aux.ref_state.ρ - Φ
   schur_aux.Φ = Φ
+end
+
+function schur_pressure_init!(::SchurLHSModel, schur_state::Vars, schur_aux::Vars,
+                              lin, atmos_state::Vars, atmos_aux::Vars, t::Real)
+  γ = 1 / (1 - kappa_d)
+  Φ = gravitational_potential(lin.atmos.orientation, atmos_aux)
+  schur_state.p = (γ - 1) * (atmos_state.ρe - atmos_state.ρ * (Φ - R_d * T_0 / (γ - 1)))
+end
+
+function schur_copy_state!(::SchurUpdateModel, schur_state::Vars, schur_aux::Vars,
+                           lin, atmos_state::Vars, atmos_aux::Vars, t::Real)
+  schur_aux.ρ = atmos_state.ρ
+  schur_aux.ρu = atmos_state.ρu
+  schur_aux.ρe = atmos_state.ρe
 end
