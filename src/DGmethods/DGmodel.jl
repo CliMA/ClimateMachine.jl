@@ -55,10 +55,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   communicate = !(isstacked(topology) &&
                   typeof(dg.direction) <: VerticalDirection)
 
-  if hasmethod(update_aux!, Tuple{typeof(dg), typeof(bl), typeof(Q),
-                                  typeof(auxstate), typeof(t)})
-    update_aux!(dg, bl, Q, auxstate, t)
-  end
+  update_aux!(dg, bl, Q, t)
 
   ########################
   # Gradient Computation #
@@ -121,7 +118,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
-function init_ode_state(dg::DGModel, args...; device=arraytype(dg.grid) <: Array ? CPU() : CUDA(), commtag=888)
+function init_ode_state(dg::DGModel, args...;
+                        device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
+                        commtag=888)
   array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
   @assert device == CPU() || device == array_device
 
@@ -192,6 +191,10 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                          Val(nintegrals)))
 end
 
+# fallback
+function update_aux!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
+end
+
 function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
                                             auxstate::MPIStateArray, t::Real)
 
@@ -224,7 +227,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 end
 
 function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
-                           auxstate::MPIStateArray, t::Real)
+                           t::Real)
   device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
@@ -242,5 +245,15 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   ### update aux variables
   @launch(device, threads=(Np,), blocks=nrealelem,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
-                          Q.data, auxstate.data, t, topology.realelems))
+                          Q.data, dg.auxstate.data, dg.diffstate.data, t,
+                          topology.realelems))
+end
+
+function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
+  bl = dg.balancelaw
+  grid = dg.grid
+
+  state = create_state(bl, grid, commtag)
+
+  return state
 end

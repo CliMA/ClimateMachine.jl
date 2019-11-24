@@ -14,8 +14,8 @@ vars_diffusive(rem::RemainderModel, FT) = vars_diffusive(rem.main,FT)
 vars_aux(rem::RemainderModel, FT) = vars_aux(rem.main,FT)
 vars_integrals(rem::RemainderModel,FT) = vars_integrals(rem.main,FT)
 
-update_aux!(dg::DGModel, rem::RemainderModel, Q::MPIStateArray, auxstate::MPIStateArray, t::Real) =
-  update_aux!(dg, rem.main, Q, auxstate, t)
+update_aux!(dg::DGModel, rem::RemainderModel, Q::MPIStateArray, t::Real) =
+  update_aux!(dg, rem.main, Q, t)
 
 integrate_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
   integrate_aux!(rem.main, integ, state, aux)

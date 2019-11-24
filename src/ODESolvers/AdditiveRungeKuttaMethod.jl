@@ -14,6 +14,32 @@ using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
 
+
+
+"""
+    op! = EulerOperator(f!, ϵ)
+
+Construct a linear operator which performs an explicit Euler step ``Q + α f(Q)``,
+where `f!` and `op!` both operate inplace, with extra arguments passed through, i.e.
+```
+op!(LQ, Q, args...)
+```
+is equivalent to
+```
+f!(dQ, Q, args...)
+LQ .= Q .+ ϵ .* dQ
+```
+"""
+mutable struct EulerOperator{F,FT}
+  f!::F
+  ϵ::FT
+end
+
+function (op::EulerOperator)(LQ, Q, args...)
+  op.f!(LQ, Q, args..., increment=false)
+  @. LQ = Q + op.ϵ * LQ
+end
+
 """
     AdditiveRungeKutta(f, l, linsol, RKAe, RKAi, RKB, RKC, Q; dt, t0 = 0)
 
@@ -48,6 +74,8 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
   rhs!
   "rhs linear operator"
   rhs_linear!
+  "implicit operator, pre-factorized"
+  implicitoperator!
   "linear solver"
   linearsolver::LT
   "Storage for solution during the AdditiveRungeKutta update"
@@ -89,8 +117,21 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
     Qhat = similar(Q)
     Qtt = similar(Q)
 
+    # The code throughout assumes SDIRK implicit tableau so we assert that
+    # here.
+    for is = 2:nstages
+      @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
+    end
+
+    α = dt * RKA_implicit[2, 2]
+    # Here we are passing NaN for the time since prefactorization assumes the
+    # operator is time independent.  If that is not the case the NaN will
+    # surface.
+    implicitoperator! = prefactorize(EulerOperator(rhs_linear!, -α),
+                                     linearsolver, Q, nothing, T(NaN))
+
     new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
-                                             rhs!, rhs_linear!, linearsolver,
+                                             rhs!, rhs_linear!, implicitoperator!, linearsolver,
                                              Qstages, Rstages, Qhat, Qtt,
                                              RKA_explicit, RKA_implicit, RKB, RKC,
                                              split_nonlinear_linear)
@@ -111,7 +152,13 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                      Q; dt=dt, t0=t0)
 end
 
-ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = (ark.dt = dt)
+function ODEs.updatedt!(ark::AdditiveRungeKutta, dt)
+  ark.dt = dt
+  # this will only work for iterative solves
+  # direct solvers will throw an error as they expect a factorized object
+  α = dt * ark.RKA_implicit[2, 2]
+  ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
+end
 ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
@@ -135,7 +182,7 @@ end
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
                       slow_δ = nothing, slow_rv_dQ = nothing,
                       slow_scaling = nothing)
-  linearsolver = ark.linearsolver
+  implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
   RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
   RKB, RKC = ark.RKB, ark.RKC
   rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
@@ -157,6 +204,11 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
+  if dt != ark.dt
+    α = dt * RKA_implicit[2, 2]
+    implicitoperator! = EulerOperator(rhs_linear!, -α)
+  end
+
   # note that it is important that this loop does not modify Q!
   for istage = 2:nstages
     stagetime = time + RKC[istage] * dt
@@ -168,12 +220,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
                           Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-    α = dt * RKA_implicit[istage, istage]
-    linearoperator! = function(LQ, Q)
-      rhs_linear!(LQ, Q, p, stagetime; increment = false)
-      @. LQ = Q - α * LQ
-    end
-    linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
+    linearsolve!(implicitoperator!, linearsolver, Qtt, Qhat, p, stagetime)
 
     #update Qstages
     Qstages[istage] .+= Qtt
