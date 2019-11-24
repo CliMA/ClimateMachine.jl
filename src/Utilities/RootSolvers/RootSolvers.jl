@@ -18,7 +18,7 @@ converged = sol.converged
 """
 module RootSolvers
 
-export find_zero, SecantMethod, RegulaFalsiMethod, NewtonsMethod
+export find_zero, SecantMethod, RegulaFalsiMethod, NewtonsMethodAD, NewtonsMethod
 export CompactSolution, VerboseSolution
 
 import ForwardDiff
@@ -28,6 +28,7 @@ Base.broadcastable(method::RootSolvingMethod) = Ref(method)
 
 struct SecantMethod <: RootSolvingMethod end
 struct RegulaFalsiMethod <: RootSolvingMethod end
+struct NewtonsMethodAD <: RootSolvingMethod end
 struct NewtonsMethod <: RootSolvingMethod end
 
 abstract type SolutionType end
@@ -89,7 +90,7 @@ push_history!(history::Nothing, x::FT, ::CompactSolution) where {FT<:AbstractFlo
 # we use simple checks for now, will switch to relative checks later.
 
 """
-    sol = find_zero(f, x0[, x1], method, solutiontype,
+    sol = find_zero(f[, f′], x0[, x1], method, solutiontype,
                     xatol=1e-3,
                     maxiters=10_000)
 
@@ -99,8 +100,11 @@ that `f(x) ≈ 0`, and a Boolean value `converged` indicating convergence.
 `method` can be one of:
 - `SecantMethod()`: [Secant method](https://en.wikipedia.org/wiki/Secant_method)
 - `RegulaFalsiMethod()`: [Regula Falsi method](https://en.wikipedia.org/wiki/False_position_method#The_regula_falsi_(false_position)_method).
+- `NewtonsMethodAD()`: [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method) using Automatic Differentiation
+  - The `x1` argument is omitted for Newton's method.
 - `NewtonsMethod()`: [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method)
   - The `x1` argument is omitted for Newton's method.
+  - `f′`: derivative of function `f` whose zero is sought
 
 The keyword arguments:
 - `xatol` is the absolute tolerance of the input.
@@ -180,7 +184,7 @@ function value_deriv(f, x::FT) where {FT}
     ForwardDiff.value(tag, y), ForwardDiff.partials(tag, y, 1)
 end
 
-function find_zero(f::F, x0::FT, ::NewtonsMethod, soltype::SolutionType,
+function find_zero(f::F, x0::FT, ::NewtonsMethodAD, soltype::SolutionType,
                    xatol=FT(1e-3),
                    maxiters=10_000) where {F, FT<:AbstractFloat}
   local y
@@ -193,6 +197,29 @@ function find_zero(f::F, x0::FT, ::NewtonsMethod, soltype::SolutionType,
   end
   for i in 1:maxiters
     y,y′ = value_deriv(f, x0)
+    x1 = x0 - y/y′
+    push_history!(x_history, x1, soltype)
+    push_history!(y_history, y,  soltype)
+    if abs(x0-x1) <= xatol
+      return SolutionResults(soltype, x1, true, y, i, x_history, y_history)
+    end
+    x0 = x1
+  end
+  return SolutionResults(soltype, x0, false, y, maxiters, x_history, y_history)
+end
+
+function find_zero(f::F, f′::F′, x0::FT, ::NewtonsMethod, soltype::SolutionType,
+                   xatol=1e-3,
+                   maxiters=10_000) where {F, F′, FT<:AbstractFloat}
+  x_history = init_history(soltype, FT)
+  y_history = init_history(soltype, FT)
+  if soltype isa VerboseSolution
+    y,y′ = f(x0), f′(x0)
+    push_history!(x_history, x0, soltype)
+    push_history!(y_history, y , soltype)
+  end
+  for i in 1:maxiters
+    y,y′ = f(x0), f′(x0)
     x1 = x0 - y/y′
     push_history!(x_history, x1, soltype)
     push_history!(y_history, y,  soltype)
