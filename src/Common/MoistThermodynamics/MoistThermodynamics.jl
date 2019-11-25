@@ -34,7 +34,10 @@ export saturation_excess
 # determined diagnostically from total water specific humidity)
 
 export liquid_fraction, PhasePartition_equil
-export saturation_adjustment, saturation_adjustment_NewtonsMethod # should remove from export
+
+export saturation_adjustment # should remove from export
+export saturation_adjustment_q_tot_θ_liq_ice_given_pressure # should remove from export
+export saturation_adjustment_NewtonsMethod # should remove from export
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export dry_pottemp, dry_pottemp_given_pressure, virtual_pottemp, exner, exner_given_pressure
@@ -775,6 +778,42 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::F
       T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
       if !sol.converged
         error("saturation_adjustment_q_tot_θ_liq_ice did not converge")
+      end
+    return sol.root
+  end
+end
+
+"""
+    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, q_tot, p)
+
+Compute the temperature `T` that is consistent with
+
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `q_tot` total specific humidity
+ - `p` pressure
+
+by finding the root of
+
+``
+  θ_{liq_ice} - liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) = 0
+``
+
+See also [`saturation_adjustment`](@ref).
+"""
+function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, q_tot::FT, p::FT) where {FT<:Real}
+  T_1 = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, PhasePartition(q_tot)) # Assume all vapor
+  ρ = air_density(T_1, p, PhasePartition(q_tot))
+  q_v_sat = q_vap_saturation(T_1, ρ)
+  unsaturated = q_tot <= q_v_sat
+  if unsaturated && T_1 > FT(T_min)
+    return T_1
+  else
+    T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
+    sol = find_zero(
+      T -> liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) - θ_liq_ice,
+      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
+      if !sol.converged
+        error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
       end
     return sol.root
   end
