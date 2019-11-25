@@ -36,10 +36,9 @@ struct IntegralTestSphereModel{T} <: BalanceLaw
   Router::T
 end
 
-function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray,
-                     auxstate::MPIStateArray, t::Real)
-  indefinite_stack_integral!(dg, m, Q, auxstate, t)
-  reverse_indefinite_stack_integral!(dg, m, auxstate, t)
+function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray, t::Real)
+  indefinite_stack_integral!(dg, m, Q, dg.auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, dg.auxstate, t)
 end
 
 vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
