@@ -1,7 +1,7 @@
 """
     Diagnostics variable template
 
-Container for diagnostic variables of interest. Useful also for 
+Container for diagnostic variables of interest. Useful also for
 post-processing.
 
 """
@@ -27,7 +27,7 @@ function vars_diagnostic(FT)
     h_t::FT
     qt_sgs::FT
     ht_sgs::FT
-      
+
     vert_eddy_mass_flx::FT
     vert_eddy_u_flx::FT
     vert_eddy_v_flx::FT
@@ -38,14 +38,14 @@ function vars_diagnostic(FT)
     vert_eddy_thd_flx::FT
     vert_eddy_thv_flx::FT
     vert_eddy_thl_flx::FT
-      
+
     # variances
     uvariance::FT
     vvariance::FT
     wvariance::FT
     # skewness
     wskew::FT
-    
+
     # turbulent kinetic energy
     TKE::FT
   end

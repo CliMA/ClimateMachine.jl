@@ -97,7 +97,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   end
   q_c = q_liq + q_ice
   Rm  = Rd*(FT(1) + (ϵdv - FT(1))*q_tot - ϵdv*q_c)
-             
+
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
@@ -117,7 +117,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     # Calculate PhasePartition object for vertical domain extent
     q_pt  = PhasePartition(q_tot, q_liq, q_ice)
     Rm    = gas_constant_air(q_pt)
-    
+
     # Pressure
     H     = Rm_sfc * T_sfc / grav;
     p     = P_sfc * exp(-xvert/H);
@@ -129,9 +129,9 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     #T     = air_temperature(TS)
     T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, q_pt)
     ρ = air_density(T, p, q_pt)
-    
+
     q_pt = PhasePartition_equil(T, ρ, q_tot)
-    
+
   # Assign State Variables
   u1, u2 = FT(6), FT(7)
   v1, v2 = FT(-4.25), FT(-5.5)
@@ -154,7 +154,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   state.ρu    = SVector(ρ*u, ρ*v, ρ*w)
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
-    
+
 end
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, xmax, ymax, zmax, zsponge, out_dir)
@@ -181,7 +181,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   u_relaxation  = SVector(u_geostrophic, v_geostrophic, w_ref)
   #Sponge:
   c_sponge = 1
-    
+
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
@@ -224,7 +224,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     end
   end
 
-  
+
   # Setup VTK output callbacks
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
@@ -238,7 +238,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     step[1] += 1
     nothing
   end
-  
+
   # Get statistics during run
   diagnostics_time_str = string(now())
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
@@ -313,12 +313,12 @@ let
     grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
     dim = length(grid_resolution)
-      
+
     brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
                   grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
                   grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
     zmax = brickrange[dim][end]
-      
+
     zsponge = FT(1000.0)
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),

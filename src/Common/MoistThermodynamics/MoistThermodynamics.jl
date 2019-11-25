@@ -32,9 +32,8 @@ export saturation_excess
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
-
 export liquid_fraction, PhasePartition_equil
-export saturation_adjustment, saturation_adjustment_NewtonsMethod # should remove from export
+export saturation_adjustment, saturation_adjustment_q_tot_θ_liq_ice_given_pressure
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export dry_pottemp, dry_pottemp_given_pressure, virtual_pottemp, exner, exner_given_pressure
@@ -664,53 +663,6 @@ PhasePartition(ts::PhaseEquil) =
   PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
-function ∂e_int_∂T(T::FT, e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
-  cvm = cv_m(PhasePartition_equil(T, ρ, q_tot))
-  q_vap_sat = q_vap_saturation(T, ρ)
-  λ = liquid_fraction(T)
-  L = λ*FT(LH_v0) + (1-λ)*FT(LH_s0)
-  ∂q_vap_sat_∂T = q_vap_sat*L/(FT(R_v)*T^2)
-  T0 = FT(T_0)
-  dcvm_dq_vap = FT(cv_v) - λ*FT(cv_l) - (1-λ)*FT(cv_i)
-  return cvm + ( FT(e_int_v0) + (1-λ)*FT(e_int_i0) + (T - T0)*dcvm_dq_vap)*∂q_vap_sat_∂T
-end
-
-"""
-    saturation_adjustment_NewtonsMethod(e_int, ρ, q_tot)
-
-Compute the temperature that is consistent with
-
- - `e_int` internal energy
- - `ρ` (moist-)air density
- - `q_tot` total specific humidity
-
-by finding the root of
-
-``e_int - internal_energy_sat(T,ρ,q_tot) = 0``
-
-using Newtons method with analytic gradients.
-
-See also [`saturation_adjustment`](@ref).
-"""
-function saturation_adjustment_NewtonsMethod(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
-  T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
-  q_v_sat = q_vap_saturation(T_1, ρ)
-  unsaturated = q_tot <= q_v_sat
-  if unsaturated && T_1 > FT(T_min)
-    return T_1
-  else
-    sol = find_zero(
-      T -> internal_energy_sat(T, ρ, q_tot) - e_int,
-      T_ -> ∂e_int_∂T(T_, e_int, ρ, q_tot),
-      T_1,
-      NewtonsMethod(), CompactSolution(), FT(1e-3), 10)
-      if !sol.converged
-        error("saturation_adjustment_NewtonsMethod did not converge")
-      end
-    return sol.root
-  end
-end
-
 """
     saturation_adjustment(e_int, ρ, q_tot)
 
@@ -775,6 +727,42 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::F
       T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
       if !sol.converged
         error("saturation_adjustment_q_tot_θ_liq_ice did not converge")
+      end
+    return sol.root
+  end
+end
+
+"""
+    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, q_tot, p)
+
+Compute the temperature `T` that is consistent with
+
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `q_tot` total specific humidity
+ - `p` pressure
+
+by finding the root of
+
+``
+  θ_{liq_ice} - liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) = 0
+``
+
+See also [`saturation_adjustment`](@ref).
+"""
+function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, q_tot::FT, p::FT) where {FT<:Real}
+  T_1 = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, PhasePartition(q_tot)) # Assume all vapor
+  ρ = air_density(T_1, p, PhasePartition(q_tot))
+  q_v_sat = q_vap_saturation(T_1, ρ)
+  unsaturated = q_tot <= q_v_sat
+  if unsaturated && T_1 > FT(T_min)
+    return T_1
+  else
+    T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
+    sol = find_zero(
+      T -> liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) - θ_liq_ice,
+      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
+      if !sol.converged
+        error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
       end
     return sol.root
   end
