@@ -126,10 +126,11 @@ function compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, i
 
     if (abs(flux) > 0)
       ustar_1 = compute_ustar(ustar_0)
-      ustar, converged = RootSolvers.find_zero(
+      sol = RootSolvers.find_zero(
         u -> u_ave - u*compute_u_ave_over_ustar(u),
-        ustar_0, ustar_1, SecantMethod(),
+        ustar_0, ustar_1, SecantMethod(), CompactSolution(),
         tol_abs, iter_max)
+      ustar = sol.root
     end
 
   end
@@ -262,10 +263,11 @@ function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_a
     end
     compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
     ustar_1 = compute_ustar(ustar_0)
-    ustar, converged = RootSolvers.find_zero(
+    sol = RootSolvers.find_zero(
       u -> u_ave - u*compute_u_ave_over_ustar(u),
-      ustar_0, ustar_1, SecantMethod(),
+      ustar_0, ustar_1, SecantMethod(), CompactSolution(),
       tol_abs, iter_max)
+    ustar = sol.root
   end
   return ustar
 end

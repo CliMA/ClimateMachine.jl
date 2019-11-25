@@ -9,7 +9,7 @@ vars_aux(lm::AtmosLinearModel, FT) = vars_aux(lm.atmos,FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
 
 
-update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, auxstate::MPIStateArray, t::Real) = nothing
+update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, t::Real) = nothing
 integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
 flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
@@ -63,6 +63,6 @@ function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, sta
 end
 function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)
   ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-  source.ρu = state.ρ * ∇Φ
+  source.ρu -= state.ρ * ∇Φ
   nothing
 end

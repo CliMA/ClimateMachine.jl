@@ -62,7 +62,8 @@ end
 
 const weighted = false
 
-function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateResidual)
+function LS.initialize!(linearoperator!, Q, Qrhs,
+                        solver::GeneralizedConjugateResidual, args...)
     residual = solver.residual
     p = solver.p
     L_p = solver.L_p
@@ -70,7 +71,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateRe
     @assert size(Q) == size(residual)
 
     threshold = solver.tolerance[1] * norm(Qrhs, weighted)
-    linearoperator!(residual, Q)
+    linearoperator!(residual, Q, args...)
     residual .-= Qrhs
     
     converged = false
@@ -81,13 +82,14 @@ function LS.initialize!(linearoperator!, Q, Qrhs, solver::GeneralizedConjugateRe
     end
     
     p[1] .= residual
-    linearoperator!(L_p[1], p[1])
+    linearoperator!(L_p[1], p[1], args...)
 
     converged, threshold
 end
 
 function LS.doiteration!(linearoperator!, Q, Qrhs,
-                         solver::GeneralizedConjugateResidual{K}, threshold) where K
+                         solver::GeneralizedConjugateResidual{K}, threshold,
+                         args...) where K
  
   residual = solver.residual
   p = solver.p
@@ -110,7 +112,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
       return (true, k, residual_norm)
     end
 
-    linearoperator!(L_residual, residual)
+    linearoperator!(L_residual, residual, args...)
   
     for l = 1:k
       alpha[l] = -dot(L_residual, L_p[l], weighted) / normsq[l]
