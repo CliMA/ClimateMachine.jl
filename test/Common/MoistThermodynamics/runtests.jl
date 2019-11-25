@@ -209,12 +209,9 @@ end
 
   # LiquidIcePotTempSHumEquil_given_pressure: Moist case
   ts = LiquidIcePotTempSHumEquil_given_pressure.(θ_liq_ice, q_tot_moist, p)
-  @show max(abs.(liquid_ice_pottemp.(ts) - θ_liq_ice)...) # 84.5
-  # @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice) # Fails
-  # @test all(air_pressure.(ts) .≈ p) # Fails
+  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
+  @test all(abs.(air_pressure.(ts) - p)./p.*100 .< 1)
   @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist, :tot))
-  # @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist, :liq)) # Fails
-  # @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt_moist, :ice)) # Fails
 
   # LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::FT, q_pt::PhasePartition{FT}, p::FT): Moist case
   ts = LiquidIcePotTempSHumNonEquil_given_pressure.(θ_liq_ice, q_pt_moist, p)
