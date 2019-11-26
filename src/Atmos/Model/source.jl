@@ -22,10 +22,19 @@ function atmos_source!(::Gravity, m::AtmosModel, source::Vars, state::Vars, aux:
   source.ρu -= state.ρ * aux.orientation.∇Φ
 end
 
+struct Subsidence <: Source
+end
+function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+    n = aux.orientation.∇Φ ./ norm(aux.orientation.∇Φ)
+    source.ρu -= m.radiation.D_subsidence * dot(state.ρu, n) * n
+
+#    source.ρqt
+end
+
 struct Coriolis <: Source
 end
 function atmos_source!(::Coriolis, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  # note: this assumes a SphericalOrientation
+  # note: this assumes a SphericalOrientation 
   source.ρu -= SVector(0, 0, 2*Omega) × state.ρu
 end
 
@@ -53,14 +62,37 @@ struct RayleighSponge{FT} <: Source
   zsponge::FT
   "Sponge Strength 0 ⩽ c_sponge ⩽ 1"
   c_sponge::FT
+  "Relaxtion velocity components"
+  u_relaxation::SVector{3,FT}  
 end
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   FT = eltype(state)
   z = aux.orientation.Φ / grav
   coeff = FT(0)
   if z >= s.zsponge
-    coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-    coeff = min(coeff_top, 1.0)
+      coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+      coeff = min(coeff_top, FT(1))
   end
-  source.ρu -= state.ρu * coeff
+
+#  z_d = FT(500)
+#  c_sponge = FT(0.002)
+#    if z >= s.zmax - z_d
+#	  coeff_top = c_sponge * sin(FT(pi/2) * (FT(1) - (s.zmax - z) / z_d))^FT(2);
+#      coeff = coeff_top
+#	  #coeff = min(coeff_top, FT(1))
+#  end
+
+    u = state.ρu / state.ρ
+    source.ρu -= state.ρ * coeff * (u - s.u_relaxation)
+
+    ##
+    #=
+    D = FT(3.75e-6)
+    u_ref = s.u_relaxation[1]
+    v_ref = s.u_relaxation[2]    
+    w_ref = -D*z
+    u_relaxation = SVector{3,FT}(u_ref, v_ref, w_ref)
+    source.ρu -= state.ρ * coeff * (u - u_relaxation)
+    =#
+    ##
 end
