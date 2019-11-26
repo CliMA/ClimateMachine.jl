@@ -72,7 +72,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
-  Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc)
+  Rm_sfc::FT    = gas_constant_air(q_pt_sfc) # 461.5
   T_sfc::FT     = 290.4
   P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
@@ -331,5 +331,11 @@ let
                  out_dir)
 
   end
+  @show LH_v0
+  @show R_d
+  @show MSLP
+  @show LH_v0
 end
 
+include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))
+nothing

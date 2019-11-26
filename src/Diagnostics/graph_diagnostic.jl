@@ -26,14 +26,14 @@ function start(args::Vector{String})
     # Grab most recently modified file:
     data_files = collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir(out_dir)))
     data_files = map(x-> (mtime(joinpath(out_dir,x)),x), data_files)
-    @show data_files
+    # @show data_files
     data_file = last(first(sort(data_files,by=first, rev=true)))
     @show data_file
 
     data = load(joinpath(out_dir, data_file))
 
-#    time = 0.0
-     time = 0.05
+    time = 0.0
+     # time = 0.05
 
     @show keys(data)
     println("data for $(length(data)) time steps in file")
@@ -71,6 +71,9 @@ function start(args::Vector{String})
 
     for (k,i) in var_groups(FT)
       all_plots = plot(each_plot[i]..., layout = (1,length(i)), titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=time_str)
+      if k==:q_liq
+        @show max(first(all_vars[i])...)
+      end
       plot!(size=(900,800))
       savefig(all_plots, joinpath(out_dir,"plots",string(k)*".png"))
     end
