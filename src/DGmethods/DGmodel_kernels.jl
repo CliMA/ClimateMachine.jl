@@ -7,6 +7,7 @@ using .NumericalFluxes: GradNumericalPenalty, diffusive_boundary_penalty!,
                         numerical_boundary_flux_diffusive!
 
 using ..Mesh.Geometry
+using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
 
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin

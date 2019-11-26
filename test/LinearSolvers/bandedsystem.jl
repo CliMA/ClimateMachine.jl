@@ -2,13 +2,13 @@ using CLIMA
 using MPI
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Grids: VerticalDirection
 using CLIMA.VTK: writemesh
 using Logging
 using LinearAlgebra
 using Random
 using StaticArrays
-using CLIMA.DGmethods: VerticalDirection, DGModel, Vars, vars_state,
-                       num_state, init_ode_state
+using CLIMA.DGmethods: DGModel, Vars, vars_state, num_state, init_ode_state
 using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxDiffusive,
                                        CentralGradPenalty
