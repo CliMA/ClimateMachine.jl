@@ -85,6 +85,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   ziplus::FT     = 875
   dz_cloud       = zi - zb
   q_liq_peak::FT = 0.00045     # cloud mixing ratio at z_i
+  θ_liq::FT       = 289
   if xvert > zb && xvert <= zi
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
@@ -123,12 +124,11 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     p     = P_sfc * exp(-xvert/H);
     # Density, Temperature
     # TODO: temporary fix
-    # TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
-    #TS    = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq, q_pt, p)
-    #ρ     = air_density(TS)
-    #T     = air_temperature(TS)
-    T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, q_pt)
-    ρ = air_density(T, p, q_pt)
+    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, q_tot, p)
+    ρ     = air_density(TS)
+    T     = air_temperature(TS)
+    #T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, q_pt)
+    #ρ = air_density(T, p, q_pt)
 
     q_pt = PhasePartition_equil(T, ρ, q_tot)
 
