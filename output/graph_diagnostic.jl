@@ -20,16 +20,16 @@ function start(args::Vector{String})
     varnames_diag = fieldnames(vars_diag)
     out_vars = string.(varnames_diag)
 
-    data_files = collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir("output")))
-    data_files = map(x-> (mtime(joinpath("output",x)),x), data_files)
+    data_files = collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir("./")))
+    data_files = map(x-> (mtime(joinpath("./",x)),x), data_files)
     data_file = last(first(sort(data_files,by=first, rev=true)))
     @show data_files
     @show data_file
 
-    data = load(joinpath("output", data_file))
+    data = load(joinpath("./", data_file))
 
-    time = 0.0
-#     time = 0.05
+#    time = 0.0
+     time = 0.05
 
     @show keys(data)
     println("data for $(length(data)) time steps in file")
@@ -65,11 +65,11 @@ function start(args::Vector{String})
     f=font(11,"courier")
     time_str = string("t = ", ceil(time), " s")
 
-    mkpath(joinpath("output","plots"))
+    mkpath(joinpath("./","plots"))
     for (k,i) in var_groups(FT)
       all_plots = plot(each_plot[i]..., layout = (1,length(i)), titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=time_str)
       plot!(size=(900,800))
-      savefig(all_plots, joinpath("output","plots",string(k)*".png"))
+      savefig(all_plots, joinpath("./","plots",string(k)*".png"))
     end
 
   return varnames_diag

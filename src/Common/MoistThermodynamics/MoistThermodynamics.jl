@@ -760,8 +760,9 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, q
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) - θ_liq_ice,
-      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
+      T_1, T_2, SecantMethod(), VerboseSolution() #=CompactSolution()=#, FT(1e-5), 100)
       if !sol.converged
+          @show sol
         error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
       end
     return sol.root
