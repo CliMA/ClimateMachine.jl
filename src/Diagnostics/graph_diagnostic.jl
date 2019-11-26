@@ -3,7 +3,7 @@ using DataFrames, FileIO
 
 using CLIMA.VariableTemplates
 
-include(joinpath("..","src","Diagnostics","diagnostic_vars.jl"))
+include("diagnostic_vars.jl")
 
 function usage()
     println("""
@@ -15,18 +15,22 @@ function start(args::Vector{String})
     #data = load(args[1])
 
     # USER INPUTS:
+    out_dir = joinpath(@__DIR__,"..","..","output")
+    mkpath(out_dir)
+    mkpath(joinpath(out_dir,"plots"))
     FT = Float64
     vars_diag = vars_diagnostic(FT)
     varnames_diag = fieldnames(vars_diag)
     out_vars = string.(varnames_diag)
 
-    data_files = collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir("ck-TestDycoms")))
-    data_files = map(x-> (mtime(joinpath("ck-TestDycoms",x)),x), data_files)
-    data_file = last(first(sort(data_files,by=first, rev=true)))
+    # Grab most recently modified file:
+    data_files = collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir(out_dir)))
+    data_files = map(x-> (mtime(joinpath(out_dir,x)),x), data_files)
     @show data_files
+    data_file = last(first(sort(data_files,by=first, rev=true)))
     @show data_file
 
-    data = load(joinpath("ck-TestDycoms", data_file))
+    data = load(joinpath(out_dir, data_file))
 
 #    time = 0.0
      time = 0.05
@@ -65,11 +69,10 @@ function start(args::Vector{String})
     f=font(11,"courier")
     time_str = string("t = ", ceil(time), " s")
 
-    mkpath(joinpath("ck-TestDycoms","plots"))
     for (k,i) in var_groups(FT)
       all_plots = plot(each_plot[i]..., layout = (1,length(i)), titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=time_str)
       plot!(size=(900,800))
-      savefig(all_plots, joinpath("ck-TestDycoms","plots",string(k)*".png"))
+      savefig(all_plots, joinpath(out_dir,"plots",string(k)*".png"))
     end
 
   return varnames_diag
