@@ -840,7 +840,7 @@ function liquid_ice_pottemp_given_pressure(T::FT, p::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
     # liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
-    return dry_pottemp_given_pressure(T, p, q) * (1 - latent_heat_liq_ice(q)/(cp_m(q)*T))
+    return dry_pottemp_given_pressure(T, p, q) * (1 - latent_heat_liq_ice(q)/(FT(cp_d)*T))
 end
 
 
