@@ -3,42 +3,7 @@ using DataFrames, FileIO
 
 using CLIMA.VariableTemplates
 
-function vars_diagnostic(FT)
-  @vars begin
-    z::FT
-    u::FT                  # 1
-    v::FT                  # 2
-    w::FT                  # 3
-    q_tot::FT              # 4
-    q_liq::FT              # 5
-    e_tot::FT              # 6
-    thd::FT                # 7
-    thl::FT                # 8
-    thv::FT                # 9
-    e_int::FT              # 10
-    h_m::FT                # 11
-    h_t::FT                # 12
-    qt_sgs::FT             # 13
-    ht_sgs::FT             # 14
-    vert_eddy_mass_flx::FT # 15
-    vert_eddy_u_flx::FT    # 16
-    vert_eddy_v_flx::FT    # 17
-    vert_eddy_qt_flx::FT   # 18       #<w'q_tot'>
-    vert_qt_flx::FT        # 19            #<w q_tot>
-    vert_eddy_ql_flx::FT   # 20
-    vert_eddy_qv_flx::FT   # 21
-    vert_eddy_thd_flx::FT  # 22
-    vert_eddy_thv_flx::FT  # 23
-    vert_eddy_thl_flx::FT  # 24
-    uvariance::FT          # 25
-    vvariance::FT          # 26
-    wvariance::FT          # 27
-    wskew::FT              # 28
-    TKE::FT                # 29
-  end
-end
-num_diagnostic(FT) = varsize(vars_diagnostic(FT))
-diagnostic_vars(array) = Vars{vars_diagnostic(eltype(array))}(array)
+include(joinpath("..","src","Diagnostics","diagnostic_vars.jl"))
 
 function usage()
     println("""
@@ -50,23 +15,21 @@ function start(args::Vector{String})
     #data = load(args[1])
 
     # USER INPUTS:
-    fn = fieldnames(vars_diagnostic(Float64))
-    @show fn
-    # out_vars = string.(fn[2:end])
-    out_vars = string.(fn)
-    @show out_vars
+    FT = Float64
+    vars_diag = vars_diagnostic(FT)
+    varnames_diag = fieldnames(vars_diag)
+    out_vars = string.(varnames_diag)
 
-    data_file = first(collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir("output"))))
-    data = load(joinpath("output",data_file))
+    data_files = collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir("output")))
+    data_files = map(x-> (mtime(joinpath("output",x)),x), data_files)
+    data_file = last(first(sort(data_files,by=first, rev=true)))
+    @show data_files
+    @show data_file
+
+    data = load(joinpath("output", data_file))
 
     time = 0.0
 #     time = 0.05
-
-    zvertical = 1600
-#     Lv0 = 2.5008e6 #See PlanetParameters.jl
-#     #
-#     # END USER INPUTS:
-#     #
 
     @show keys(data)
     println("data for $(length(data)) time steps in file")
@@ -94,7 +57,7 @@ function start(args::Vector{String})
                             linewidth=2,
                             # xaxis=(out_vars[i], (-0, 10), 0:1:10),
                             xaxis=(out_vars[i]),
-                            yaxis=("Altitude[m]", (0, zvertical)),
+                            yaxis=("Altitude[m]", (0, max(Z...))),
                             label=(out_vars[i]),
                             ))
     end
@@ -102,18 +65,14 @@ function start(args::Vector{String})
     f=font(11,"courier")
     time_str = string("t = ", ceil(time), " s")
 
-    var_groups = (
-                  2:4, # velocity
-                  5:6, # q_tot, q_liq
-                  # 7:9, # thd, thl, thv
-                  )
-    for i in var_groups
+    mkpath(joinpath("output","plots"))
+    for (k,i) in var_groups(FT)
       all_plots = plot(each_plot[i]..., layout = (1,length(i)), titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=time_str)
       plot!(size=(900,800))
-      savefig(all_plots, joinpath("output",join(out_vars[i])*".png"))
+      savefig(all_plots, joinpath("output","plots",string(k)*".png"))
     end
 
-  return fn
+  return varnames_diag
 
 end
 
