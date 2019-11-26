@@ -69,13 +69,13 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   cpd::FT        = cp_d
 
   # These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.0e-3)
+  qref::FT      = FT(9.5e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc)
   T_sfc::FT     = 292.5
   P_sfc::FT     = MSLP
-  ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
+  ρ_sfc::FT     = 1.22 #P_sfc / Rm_sfc / T_sfc
   # Specify moisture profiles
   q_liq::FT      = 0
   q_ice::FT      = 0
@@ -86,14 +86,14 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   dz_cloud       = zi - zb
   q_liq_peak::FT = 0.00045     # cloud mixing ratio at z_i
   θ_liq::FT       = 289
-  if xvert > zb && xvert <= zi
-    q_liq = (xvert - zb)*q_liq_peak/dz_cloud
-  end
+#  if xvert > zb && xvert <= zi
+#    q_liq = (xvert - zb)*q_liq_peak/dz_cloud
+#  end
   if xvert <= zi
-    θ_liq = FT(289)
+    θ_liq = FT(289.0)
     q_tot = qref
   else
-    θ_liq = FT(297.5) + (xvert - zi)^(FT(1/3))
+    θ_liq = FT(297.0) + (xvert - zi)^(FT(1/3))
     q_tot = FT(1.5e-3)
   end
   q_c = q_liq + q_ice

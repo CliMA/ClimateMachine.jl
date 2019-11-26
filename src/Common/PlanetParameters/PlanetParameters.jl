@@ -17,9 +17,9 @@ using ..ParametersType
 
 # Properties of dry air
 @exportparameter molmass_dryair    28.97e-3      "Molecular weight dry air (kg/mol)"
-@exportparameter R_d               287.1         "Gas constant dry air (J/kg/K)"
+@exportparameter R_d               287.15         "Gas constant dry air (J/kg/K)"
 @exportparameter kappa_d           2//7          "Adiabatic exponent dry air"
-@exportparameter cp_d              1004.0        "Isobaric specific heat dry air"
+@exportparameter cp_d              1005.0        "Isobaric specific heat dry air"
 @exportparameter cv_d              cp_d - R_d    "Isochoric specific heat dry air"
 
 # Properties of water
@@ -42,7 +42,7 @@ using ..ParametersType
 @exportparameter T_icenuc          233.00        "Homogeneous nucleation temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"
-@exportparameter LH_v0             2.4700e6      "Latent heat vaporization at T_0 (J/kg)"
+@exportparameter LH_v0             2.4500e6      "Latent heat vaporization at T_0 (J/kg)"
 @exportparameter LH_s0             2.8344e6      "Latent heat sublimation at T_0 (J/kg)"
 @exportparameter LH_f0             LH_s0 - LH_v0  "Latent heat of fusion at T_0 (J/kg)"
 @exportparameter e_int_v0          LH_v0 - R_v*T_0 "Specific internal energy of
@@ -63,6 +63,6 @@ using ..ParametersType
 @exportparameter year_anom         365.26*day    "Length of anomalistic year (s)"
 @exportparameter orbit_semimaj     1*astro_unit  "Length of semimajor orbital axis (m)"
 @exportparameter TSI               1362          "Total solar irradiance (W/m^2)"
-@exportparameter MSLP              1.0178e5     "Mean sea level pressure (Pa)"
+@exportparameter MSLP              1.0e5     "Mean sea level pressure (Pa)"
 
 end
