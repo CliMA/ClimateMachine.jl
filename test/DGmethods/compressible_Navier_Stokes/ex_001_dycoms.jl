@@ -69,7 +69,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   cpd::FT       = cp_d
 
   # These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.0e-3)
+  qref::FT      = FT(8.5e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc::FT    = gas_constant_air(q_pt_sfc) # 461.5
@@ -334,7 +334,7 @@ let
   @show LH_v0
   @show R_d
   @show MSLP
-  @show LH_v0
+  @show cp_d
 end
 
 include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))
