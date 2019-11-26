@@ -66,16 +66,16 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   Rv::FT        = R_v
   Rm::FT        = Rd
   ϵdv::FT       = Rv/Rd
-  cpd::FT        = cp_d
+  cpd::FT       = cp_d
 
   # These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.5e-3)
+  qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc)
-  T_sfc::FT     = 292.5
+  T_sfc::FT     = 290.4
   P_sfc::FT     = MSLP
-  ρ_sfc::FT     = 1.22 #P_sfc / Rm_sfc / T_sfc
+  ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
   # Specify moisture profiles
   q_liq::FT      = 0
   q_ice::FT      = 0
