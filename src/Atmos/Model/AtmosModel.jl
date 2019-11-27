@@ -68,6 +68,7 @@ function vars_diffusive(m::AtmosModel, FT)
   @vars begin
     ρτ::SHermitianCompact{3,FT,6}
     ρd_h_tot::SVector{3,FT}
+    ρν::FT
     turbulence::vars_diffusive(m.turbulence,FT)
     moisture::vars_diffusive(m.moisture,FT)
   end
@@ -111,21 +112,13 @@ Where
 """
 @inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                     aux::Vars, t::Real)
-
-  FT = eltype(state)
-    
   ρinv = 1/state.ρ
-  u = ρinv * state.ρu
+  ρu = state.ρu
+  u = ρinv * ρu
 
-  #Subsidence:
-  D = FT(3.75e-6)
-  z = aux.orientation.Φ / grav
-  u += SVector(0, 0, -D*z)
-  ρu = state.ρ*u
-    
   # advective terms
-  flux.ρ   = state.ρ * u #ρu
-  flux.ρu  = state.ρ * u .* u' #ρu .* u'
+  flux.ρ   = ρu
+  flux.ρu  = ρu .* u'
   flux.ρe  = u * state.ρe
 
   # pressure terms
@@ -133,23 +126,13 @@ Where
   flux.ρu += p*I
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
-  flux_moisture!(m.moisture, flux, state, aux, t)
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
+  ρinv = 1/state.ρ
+  u = ρinv * state.ρu
 
-  FT = eltype(state)
-    
-  #ρinv = 1/state.ρ
-  u = state.ρu/state.ρ
-
-#= #Subsidence:
-  D = FT(3.75e-6)
-  z = aux.orientation.Φ / grav
-  u += SVector(0, 0, -D*z)
-=#
-    
   # diffusive
   ρτ = diffusive.ρτ
   ρd_h_tot = diffusive.ρd_h_tot
@@ -185,8 +168,9 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   S = symmetrize(∇u)
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, ∇transform, aux, t)
+  diffusive.ρν = ρν
   # momentum flux tensor
-  diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
+  diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, diffusive.ρν, S)
 
   ∇h_tot = ∇transform.h_tot
   # turbulent Prandtl number
@@ -218,7 +202,7 @@ function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
                                  diff::Vars, t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
   atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
-  atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
+  atmos_nodal_update_aux!(m.turbulence, m, state, aux, diff, t)
 end
 
 function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)

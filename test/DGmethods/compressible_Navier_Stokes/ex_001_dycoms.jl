@@ -299,8 +299,8 @@ let
     Δx, Δy, Δz = 50, 50, 20
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
-    xmin, xmax = 0, 1250
-    ymin, ymax = 0, 1250
+    xmin, xmax = 0, 1500
+    ymin, ymax = 0, 1500
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
