@@ -87,11 +87,14 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosure
   C_smag::FT
 end
 
-vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T, SGS::T, Ri::T)
+vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T,ρν::T,BR::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
+vars_diffusive(::SmagorinskyLilly,T) = @vars(BR::T)
 
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
+  aux.turbulence.ρν = 0
+  aux.turbulence.BR = 0
 end
 
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
@@ -133,19 +136,10 @@ year = {1962}
 }
 """
 function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
-  FT = eltype(normS)
-    
   ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
   N² = ∂θ∂Φ / aux.moisture.θ_v
-  Richardson =  grav * N² / (normS^2 + eps(normS))
-    
-    #Prandtl = FT(1//3)
-    #if Richardson < Prandtl
-    #    return sqrt(FT(1) - Richardson/Prandtl)
-    #else
-    #    return FT(0)
-    #end
-    sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
+  Richardson = N² / (normS^2 + eps(normS))
+  sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
 end
 
 function strain_rate_magnitude(S::SHermitianCompact{3,FT,6}) where {FT}
@@ -159,12 +153,17 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   FT = eltype(state)
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
+  diffusive.turbulence.BR = f_b²
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
   return state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
-#   return state.ρ * normS * 1 * FT(m.C_smag * aux.turbulence.Δ)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
   (-2*ρν) * S
+end
+
+function atmos_nodal_update_aux!(::SmagorinskyLilly, ::AtmosModel, state::Vars, aux::Vars, diff::Vars, t::Real)
+aux.turbulence.ρν = diff.ρν
+aux.turbulence.BR = diff.turbulence.BR
 end
 
 """
@@ -199,7 +198,7 @@ struct Vreman{FT} <: TurbulenceClosure
   "Smagorinsky Coefficient [dimensionless]"
   C_smag::FT
 end
-vars_aux(::Vreman,FT) = @vars(Δ::FT, SGS::T, Ri::T)
+vars_aux(::Vreman,FT) = @vars(Δ::FT)
 vars_gradient(::Vreman,FT) = @vars(θ_v::FT)
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
@@ -263,7 +262,7 @@ url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
 struct AnisoMinDiss{FT} <: TurbulenceClosure
   C_poincare::FT
 end
-vars_aux(::AnisoMinDiss,T) = @vars(Δ::T, SGS::T, Ri::T)
+vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
 vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::T)
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)

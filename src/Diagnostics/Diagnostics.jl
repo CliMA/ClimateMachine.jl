@@ -254,7 +254,12 @@ function compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh,
     ds.vert_eddy_thd_flx += MH * (w̅ - w̃) * (th.θ_dry - ha.θ_dry)
     ds.vert_eddy_thv_flx += MH * (w̅ - w̃) * (th.θ_v - ha.θ_v)
     ds.vert_eddy_thl_flx += MH * (w̅ - w̃) * (th.θ_liq_ice - ha.θ_liq_ice)
-    
+    #SGS
+    ds.SGS = MH * diffusive_flx.ρν
+    #Richardson 
+    ds.Ri = MH * diffusive_flx.turbulence.BR
+
+
     # variances
     ds.uvariance += MH * (u̅ - ũ)^2
     ds.vvariance += MH * (v̅ - ṽ)^2
