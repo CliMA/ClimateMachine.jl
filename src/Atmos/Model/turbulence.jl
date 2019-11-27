@@ -133,10 +133,19 @@ year = {1962}
 }
 """
 function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
+  FT = eltype(normS)
+    
   ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
   N² = ∂θ∂Φ / aux.moisture.θ_v
-  Richardson = N² / (normS^2 + eps(normS))
-  sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
+  Richardson =  grav * N² / (normS^2 + eps(normS))
+    
+    #Prandtl = FT(1//3)
+    #if Richardson < Prandtl
+    #    return sqrt(FT(1) - Richardson/Prandtl)
+    #else
+    #    return FT(0)
+    #end
+    sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
 end
 
 function strain_rate_magnitude(S::SHermitianCompact{3,FT,6}) where {FT}
@@ -150,8 +159,9 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   FT = eltype(state)
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
-    # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
+  # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
   return state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
+#   return state.ρ * normS * 1 * FT(m.C_smag * aux.turbulence.Δ)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
   (-2*ρν) * S

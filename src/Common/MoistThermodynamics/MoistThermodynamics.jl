@@ -912,9 +912,11 @@ and, optionally,
 function air_temperature_from_liquid_ice_pottemp(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
 
-  cv = cv_m(q)
+  cv = cv_m(q)   
   R_m = gas_constant_air(q)
   return θ_liq_ice * (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_m/cv) + latent_heat_liq_ice(q)/cv
+  #return θ_liq_ice * (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_d/cv_d) + latent_heat_liq_ice(q)/cv_d
+    
 end
 
 """

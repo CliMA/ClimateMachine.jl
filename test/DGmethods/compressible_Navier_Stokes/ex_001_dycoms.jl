@@ -69,7 +69,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   cpd::FT       = cp_d
 
   # These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(8.5e-3)
+  qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc::FT    = gas_constant_air(q_pt_sfc) # 461.5
@@ -84,11 +84,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   zi::FT         = 840         # initial cloud top
   ziplus::FT     = 875
   dz_cloud       = zi - zb
-  q_liq_peak::FT = 0.00045     # cloud mixing ratio at z_i
-  θ_liq::FT       = 289
-#  if xvert > zb && xvert <= zi
-#    q_liq = (xvert - zb)*q_liq_peak/dz_cloud
-#  end
+  θ_liq::FT      = 289
   if xvert <= zi
     θ_liq = FT(289.0)
     q_tot = qref
@@ -97,7 +93,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_tot = FT(1.5e-3)
   end
   q_c = q_liq + q_ice
-  Rm  = Rd*(FT(1) + (ϵdv - FT(1))*q_tot - ϵdv*q_c)
+  #Rm  = Rd*(FT(1) + (ϵdv - FT(1))*q_tot - ϵdv*q_c)
 
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
@@ -124,13 +120,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     p     = P_sfc * exp(-xvert/H);
     # Density, Temperature
     # TODO: temporary fix
-    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, q_tot, p)
+    TS    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, q_tot, p)
     ρ     = air_density(TS)
     T     = air_temperature(TS)
-    #T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, q_pt)
-    #ρ = air_density(T, p, q_pt)
-
-    q_pt = PhasePartition_equil(T, ρ, q_tot)
+    q_pt  = PhasePartition_equil(T, ρ, q_tot)
 
   # Assign State Variables
   u1, u2 = FT(6), FT(7)
@@ -209,7 +202,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -227,7 +220,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
   # Setup VTK output callbacks
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
                        MPI.Comm_rank(mpicomm), step[1])
     outprefix = joinpath(out_dir, fprefix)
@@ -241,7 +234,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
   # Get statistics during run
   diagnostics_time_str = string(now())
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     sim_time_str = string(ODESolvers.gettime(lsrk))
     gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                        xmax, ymax, out_dir)
@@ -298,16 +291,16 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.23)
+    C_smag = FT(0.12)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 40, 40, 20
+    Δx, Δy, Δz = 50, 50, 20
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
-    xmin, xmax = 0, 500
-    ymin, ymax = 0, 500
+    xmin, xmax = 0, 1250
+    ymin, ymax = 0, 1250
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
@@ -323,8 +316,8 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.005
-    timeend = 10dt #14400
+    dt = 0.01
+    timeend = 14400
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, xmax, ymax, zmax, zsponge,
@@ -337,5 +330,5 @@ let
   @show cp_d
 end
 
-include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))
+#include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))
 nothing

@@ -65,26 +65,37 @@ struct RayleighSponge{FT} <: Source
   "Relaxtion velocity components"
   u_relaxation::SVector{3,FT}  
 end
+
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  FT = eltype(state)
-  z = aux.orientation.Φ / grav
-  coeff = FT(0)
-  if z >= s.zsponge
-      coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-      coeff = min(coeff_top, FT(1))
-  end
-
-#  z_d = FT(500)
-#  c_sponge = FT(0.002)
-#    if z >= s.zmax - z_d
-#	  coeff_top = c_sponge * sin(FT(pi/2) * (FT(1) - (s.zmax - z) / z_d))^FT(2);
-#      coeff = coeff_top
-#	  #coeff = min(coeff_top, FT(1))
-#  end
-
+    FT = eltype(state)
+    z = aux.orientation.Φ / grav
+    coeff = FT(0)
+    τsponge = FT(6)
+    if z >= s.zsponge
+        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+        #=
+        if z < 1.2*s.zsponge
+        η = FT(0)
+        elseif z >= 1.2*s.zsponge && z < 1.5*s.zsponge
+        η = (z/s.zsponge - 1.2)/FT(0.3)
+        elseif z >= 1.5*s.zsponge
+        η = FT(1)
+        end      
+        coeff_top = FT(0.5)*(FT(1) - cospi(η))/τsponge
+        =#
+        coeff = min(coeff_top, FT(1))
+    end
+    
+    #  z_d = FT(500)
+    #  c_sponge = FT(0.002)
+    #    if z >= s.zmax - z_d
+    #	  coeff_top = c_sponge * sin(FT(pi/2) * (FT(1) - (s.zmax - z) / z_d))^FT(2);
+    #      coeff = coeff_top
+    #	  #coeff = min(coeff_top, FT(1))
+    
     u = state.ρu / state.ρ
     source.ρu -= state.ρ * coeff * (u - s.u_relaxation)
-
+    
     ##
     #=
     D = FT(3.75e-6)
