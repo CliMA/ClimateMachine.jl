@@ -1,6 +1,5 @@
 using Plots; pyplot()
-#using DataFrames, FileIO
-using DataFrames 
+using DataFrames, FileIO
 
 using CLIMA.VariableTemplates
 
@@ -34,7 +33,7 @@ function start(args::Vector{String})
     data = load(joinpath(out_dir, data_file))
 
     time = 0.0
-     # time = 0.05
+    time = 7667.958
 
     @show keys(data)
     println("data for $(length(data)) time steps in file")
@@ -75,7 +74,7 @@ function start(args::Vector{String})
       if k==:q_liq
         @show max(first(all_vars[i])...)
       end
-      plot!(size=(900,800))
+      plot!(size=(1200,800))
       savefig(all_plots, joinpath(out_dir,"plots",string(k)*".png"))
     end
 
