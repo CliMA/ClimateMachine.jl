@@ -119,10 +119,10 @@ Where
   ρu = state.ρu
   u = ρinv * ρu
 
-    ###
-#    u += SVector(0, 0, -D*z)
-#    ρu = state.ρ*u
-    ###
+  ###
+  u += SVector(0, 0, -D*z)
+  ρu = state.ρ*u
+  ###
     
   # advective terms
   flux.ρ   = ρu
@@ -138,24 +138,6 @@ Where
   #advective term of the qt equation:
   flux_moisture!(m.moisture, flux, state, aux, t)
 
-end
-
-@inline function or_flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars,
-                                    aux::Vars, t::Real)
-  ρinv = 1/state.ρ
-  ρu = state.ρu
-  u = ρinv * ρu
-
-  # advective terms
-  flux.ρ   = ρu
-  flux.ρu  = ρu .* u'
-  flux.ρe  = u * state.ρe
-
-  # pressure terms
-  p = pressure(m.moisture, m.orientation, state, aux)
-  flux.ρu += p*I
-  flux.ρe += u*p
-  flux_radiation!(m.radiation, flux, state, aux, t)
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,

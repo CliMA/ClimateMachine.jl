@@ -98,8 +98,9 @@ function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t
   u = state.ρu / ρ
   z = aux.orientation.Φ / grav 
   D_sub = eltype(state)(3.75e-6)
-  flux.moisture.ρq_tot +=  u * state.moisture.ρq_tot
-  #flux.moisture.ρq_tot -= D_sub * z * state.moisture.ρq_tot
+  w_subsidence = -D_sub * z
+  flux.moisture.ρq_tot += u            * state.moisture.ρq_tot
+  flux.moisture.ρq_tot += w_subsidence * state.moisture.ρq_tot
 end
 
 function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)
