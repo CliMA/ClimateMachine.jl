@@ -178,7 +178,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     SmagorinskyLilly{FT}(C_smag),
+                     Vreman{FT}(C_smag), #SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
@@ -219,8 +219,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
 
   # Setup VTK output callbacks
+  out_interval = 5000
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
                        MPI.Comm_rank(mpicomm), step[1])
     outprefix = joinpath(out_dir, fprefix)
@@ -234,7 +235,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
   # Get statistics during run
   diagnostics_time_str = string(now())
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     sim_time_str = string(ODESolvers.gettime(lsrk))
     gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                        xmax, ymax, out_dir)
@@ -291,7 +292,7 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.12)
+    C_smag = FT(0.21)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)

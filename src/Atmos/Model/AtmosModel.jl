@@ -112,12 +112,25 @@ Where
 """
 @inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                     aux::Vars, t::Real)
+  #Subsidence:
+  FT = eltype(state)
+  D  = FT(3.75e-6)
+  z  = aux.orientation.Φ / grav
+    
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
 
+  ###
+  u += SVector(0, 0, -D*z)
+  ρu = state.ρ*u
+  ###
+    
   # advective terms
-  flux.ρ   = ρu
+  #flux.ρ   = ρu
+  #flux.ρu  = ρu .* u'
+    
+  flux.ρ   = state.ρ*u
   flux.ρu  = ρu .* u'
   flux.ρe  = u * state.ρe
 
@@ -126,13 +139,26 @@ Where
   flux.ρu += p*I
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
+  
+  #advective term of the qt equation:
+  flux_moisture!(m.moisture, flux, state, aux, t)
+    
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
+  #Subsidence:
+  FT = eltype(state)
+  D  = FT(3.75e-6)
+  z  = aux.orientation.Φ / grav
+    
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
 
+  ###
+  u += SVector(0, 0, -D*z)
+  ###
+    
   # diffusive
   ρτ = diffusive.ρτ
   ρd_h_tot = diffusive.ρd_h_tot

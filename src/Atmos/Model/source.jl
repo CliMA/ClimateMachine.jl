@@ -25,10 +25,16 @@ end
 struct Subsidence <: Source
 end
 function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-    n = aux.orientation.∇Φ ./ norm(aux.orientation.∇Φ)
-    source.ρu -= m.radiation.D_subsidence * dot(state.ρu, n) * n
+    ### SUBDISEDENCE SHOULD BE ADDED HERE
+    return
 
-#    source.ρqt
+
+    
+#    n = aux.orientation.∇Φ ./ norm(aux.orientation.∇Φ)
+#    source.ρu -= m.radiation.D_subsidence * dot(state.ρu, n) * n
+#
+    ##    source.ρqt
+    
 end
 
 struct Coriolis <: Source
@@ -50,7 +56,8 @@ function atmos_source!(s::GeostrophicForcing, m::AtmosModel, source::Vars, state
   fkvector   = SVector(0, 0, s.f_coriolis) 
   source.ρu += state.ρ * fkvector × (u - u_geo)
     =#
-    source.ρu += 0
+    return
+#    source.ρu += 0
 end
 
 """
@@ -76,27 +83,11 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
     coeff = FT(0)
     τsponge = FT(6)
     if z >= s.zsponge
-        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-        #=
-        if z < 1.2*s.zsponge
-        η = FT(0)
-        elseif z >= 1.2*s.zsponge && z < 1.5*s.zsponge
-        η = (z/s.zsponge - 1.2)/FT(0.3)
-        elseif z >= 1.5*s.zsponge
-        η = FT(1)
-        end      
-        coeff_top = FT(0.5)*(FT(1) - cospi(η))/τsponge
-        =#
-        coeff = min(coeff_top, FT(1))
+#        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
+      coeff = min(coeff_top, FT(1))
     end
-    
-    #  z_d = FT(500)
-    #  c_sponge = FT(0.002)
-    #    if z >= s.zmax - z_d
-    #	  coeff_top = c_sponge * sin(FT(pi/2) * (FT(1) - (s.zmax - z) / z_d))^FT(2);
-    #      coeff = coeff_top
-    #	  #coeff = min(coeff_top, FT(1))
-    
+        
     u = state.ρu / state.ρ
     source.ρu -= state.ρ * coeff * (u - s.u_relaxation)
     
