@@ -44,9 +44,27 @@ struct GeostrophicForcing{FT} <: Source
   v_geostrophic::FT
 end
 function atmos_source!(s::GeostrophicForcing, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  u = state.ρu / state.ρ
+#=  u = state.ρu / state.ρ
   u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
   source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
+=#
+  u          = state.ρu/state.ρ
+  u_geo      = SVector(s.u_geostrophic, s.v_geostrophic, 0)
+  fkvector   = SVector(0, 0, s.f_coriolis) 
+  source.ρu -= state.ρ * fkvector × (u - u_geo)
+
+#=
+  u  = state.ρu[1] / state.ρ
+  v  = state.ρu[2] / state.ρ  
+  ug = s.u_geostrophic
+  vg = s.v_geostrophic
+
+ u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
+ source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
+
+#  source.ρu[1] += state.ρ * s.f_coriolis * (v - vg)
+#  source.ρu[2] += state.ρ * s.f_coriolis * (ug - u)
+=#
 end
 
 """
