@@ -291,7 +291,7 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.12)
+    C_smag = FT(0.21)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
