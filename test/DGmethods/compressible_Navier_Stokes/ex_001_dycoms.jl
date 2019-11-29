@@ -69,7 +69,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   cpd::FT       = cp_d
 
   # These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.0e-3)
+  qref::FT      = FT(8.1e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc::FT    = gas_constant_air(q_pt_sfc) # 461.5
@@ -291,7 +291,7 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.21)
+    C_smag = FT(0.12)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
