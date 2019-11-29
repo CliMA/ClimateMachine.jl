@@ -33,7 +33,7 @@ function start(args::Vector{String})
     data = load(joinpath(out_dir, data_file))
 
     time = 0.0
-#    time = 7667.958
+    time = 500.1768
 
     @show keys(data)
     println("data for $(length(data)) time steps in file")

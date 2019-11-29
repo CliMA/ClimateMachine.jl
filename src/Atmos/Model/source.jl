@@ -44,18 +44,27 @@ struct GeostrophicForcing{FT} <: Source
   v_geostrophic::FT
 end
 function atmos_source!(s::GeostrophicForcing, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-#  u = state.ρu / state.ρ
-#  u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
-#  source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
+#=  u = state.ρu / state.ρ
+  u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
+  source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
+=#
+  u          = state.ρu/state.ρ
+  u_geo      = SVector(s.u_geostrophic, s.v_geostrophic, 0)
+  fkvector   = SVector(0, 0, s.f_coriolis) 
+  source.ρu -= state.ρ * fkvector × (u - u_geo)
 
+#=
   u  = state.ρu[1] / state.ρ
   v  = state.ρu[2] / state.ρ  
   ug = s.u_geostrophic
   vg = s.v_geostrophic
 
-  source.ρu[1] += state.ρ * s.f_coriolis * (v - vg)
-  source.ρu[2] += state.ρ * s.f_coriolis * (ug - u)
+ u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
+ source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
 
+#  source.ρu[1] += state.ρ * s.f_coriolis * (v - vg)
+#  source.ρu[2] += state.ρ * s.f_coriolis * (ug - u)
+=#
 end
 
 """
@@ -81,9 +90,17 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
     coeff = FT(0)
     τsponge = FT(6)
     if z >= s.zsponge
-        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
-        #coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-
+        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+        #=
+        if z < 1.2*s.zsponge
+        η = FT(0)
+        elseif z >= 1.2*s.zsponge && z < 1.5*s.zsponge
+        η = (z/s.zsponge - 1.2)/FT(0.3)
+        elseif z >= 1.5*s.zsponge
+        η = FT(1)
+        end      
+        coeff_top = FT(0.5)*(FT(1) - cospi(η))/τsponge
+        =#
         coeff = min(coeff_top, FT(1))
     end
     
