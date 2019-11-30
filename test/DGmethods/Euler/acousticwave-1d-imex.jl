@@ -1,3 +1,4 @@
+using TimerOutputs
 using CLIMA: haspkg
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
@@ -9,9 +10,10 @@ using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.AdditiveRungeKuttaMethod: ARK2PresentationVersion
 using CLIMA.GeneralizedMinimalResidualSolver
-using CLIMA.ColumnwiseLUSolver: ManyColumnLU
+using CLIMA.ColumnwiseLUSolver: ManyColumnLU, SingleColumnLU
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
+using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.PlanetParameters: planet_radius, day
 using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
 using CLIMA.Atmos: AtmosModel, SphericalOrientation,
@@ -35,6 +37,8 @@ end
 
 const output_vtk = false
 
+
+to = TimerOutput()
 function main()
   MPI.Initialized() || MPI.Init()
   mpicomm = MPI.COMM_WORLD
@@ -50,25 +54,34 @@ function main()
 
   polynomialorder = 5
   numelem_horz = 10
-  numelem_vert = 5
-
-  timeend = 60 * 60
+  vertelems = (5,10,15,20)
+  explicit = (0,)
+  hour = 60
+  day = 24hour
+  month = 30day
+  year = 365day
+  timeend = 60 * 60 * 24 * 30
   #timeend = 33 * 60 * 60 # Full simulation
-  outputtime = 60 * 60
+  outputtime = 60 * 60 * 24
 
   expected_result = Dict()
   expected_result[Float32] = 9.5064378310656000e+13
   expected_result[Float64] = 9.5073452847081828e+13
-
-  for FT in (Float32, Float64)
-    result = run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
-                 timeend, outputtime, ArrayType, FT)
-    @test result ≈ expected_result[FT]
+  FloatType = (Float32,)
+  
+  for FT in FloatType
+    for exp_flag in explicit
+      for numelem_vert in vertelems
+        result = run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
+                     timeend, outputtime, ArrayType, FT, exp_flag)
+        #@test result ≈ expected_result[FT]
+      end
+    end
   end
 end
 
 function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
-             timeend, outputtime, ArrayType, FT)
+             timeend, outputtime, ArrayType, FT, exp_flag)
 
   setup = AcousticWaveSetup{FT}()
 
@@ -102,19 +115,23 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(setup.T_ref))
-  dt_factor = 445
+  dt_factor = 300
   dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
   # Adjust the time step so we exactly hit 1 hour for VTK output
-  dt = 60 * 60 / ceil(60 * 60 / dt)
+  dt_imp = 60 * 60 / ceil(60 * 60 / dt)
+  dt_exp = 60 * 60 / ceil(60 * 60 / dt) / dt_factor
   nsteps = ceil(Int, timeend / dt)
 
   Q = init_ode_state(dg, FT(0))
 
   linearsolver = ManyColumnLU()
-
-  odesolver = ARK2GiraldoKellyConstantinescu(dg, lineardg, linearsolver, Q;
-                                             dt = dt, t0 = 0, split_nonlinear_linear=false,
-                                             version=ARK2PresentationVersion())
+  if exp_flag == 0 
+    odesolver = ARK2GiraldoKellyConstantinescu(dg, lineardg, linearsolver, Q;
+                                               dt = dt_imp, t0 = 0, split_nonlinear_linear=false,
+                                               version=ARK2PresentationVersion())
+  else
+    odesolver= LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
+  end
 
   filterorder = 18
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -132,7 +149,8 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                     numelem_vert    = %d
                     dt              = %.16e
                     norm(Q₀)        = %.16e
-                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert dt eng0
+                    Method          = %s
+                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert dt eng0 "$exp_flag"
 
   # Set up the information callback
   starttime = Ref(now())
@@ -149,7 +167,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                         """ gettime(odesolver) runtime energy
     end
   end
-  callbacks = (cbinfo, cbfilter)
+  callbacks = (cbfilter,)
 
   if output_vtk
     # create vtk dir
@@ -168,10 +186,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
       Qe = init_ode_state(dg, gettime(odesolver))
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
     end
-    callbacks = (callbacks..., cbvtk)
+    callbacks = (callbacks...,)
   end
 
-  solve!(Q, odesolver; numberofsteps=nsteps, adjustfinalstep=false, callbacks=callbacks)
+  @timeit to "AcousticWave(Sphere) $numelem_horz $numelem_vert $(numelem_horz/numelem_vert) isexplicit=$exp_flag" solve!(Q, odesolver; numberofsteps=nsteps, adjustfinalstep=false, callbacks=callbacks)
 
   # final statistics
   engf = norm(Q)

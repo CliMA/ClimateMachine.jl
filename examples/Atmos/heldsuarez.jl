@@ -10,6 +10,7 @@ using CLIMA.LowStorageRungeKuttaMethod: LSRK144NiegemannDiehlBusch
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
+using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d, day
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
 using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
@@ -20,8 +21,10 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
                    HydrostaticState, IsothermalProfile, AtmosAcousticGravityLinearModel, AtmosAcousticLinearModel
 using CLIMA.VariableTemplates: flattenednames
 using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.AdditiveRungeKuttaMethod: ARK2PresentationVersion
 using CLIMA.LinearSolvers
 using CLIMA.ColumnwiseLUSolver: SingleColumnLU, banded_matrix, banded_matrix_vector_product!
+using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -83,7 +86,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                                           meshwarp = cubedshellwarp)
 
   model = AtmosModel(SphericalOrientation(),
-                     HydrostaticState(IsothermalProfile(setup.T_initial), FT(0)),
+                     HydrostaticState(IsothermalProfile(setup.T_initial), FT(0),true),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
@@ -91,11 +94,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      NoFluxBC(),
                      setup)
 
-
-  linmodel = AtmosAcousticLinearModel(model) # Need to load module ??
+  linmodel = AtmosAcousticGravityLinearModel(model) 
 
   dg = DGModel(model, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty(), direction=EveryDirection())
+               CentralNumericalFluxDiffusive(), CentralGradPenalty())
 
   vdg = DGModel(linmodel, grid, Rusanov(),
                CentralNumericalFluxDiffusive(), CentralGradPenalty(),direction=VerticalDirection())
@@ -108,12 +110,21 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   Q = init_ode_state(dg, FT(0))
   
-  linearsolvertype = SingleColumnLU 
-  IMEXSolver = ARK548L2SA2KennedyCarpenter
+  linearsolvertype = ManyColumnLU
+  IMEXSolver = ARK437L2SA1KennedyCarpenter
 
   solver = IMEXSolver(dg, vdg, linearsolvertype(), Q; 
                       dt=dt, t0=0,
                       split_nonlinear_linear=false)
+  #=
+  solver = IMEXSolver(dg, vdg, linearsolvertype(), Q; 
+                      dt=dt, t0=0,
+                      split_nonlinear_linear=false, 
+                      version = ARK2PresentationVersion())
+  =#
+  #=
+  solver = LSRK144NiegemannDiehlBusch(dg, Q; dt=dt, t0=0)
+  =#
 
   filterorder = 14
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -149,6 +160,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                         """ gettime(solver) runtime energy
     end
   end
+
   callbacks = (cbinfo, cbfilter)
 
   if output_vtk
@@ -173,8 +185,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   numberofsteps = convert(Int64, cld(timeend, dt))
   dt = timeend / numberofsteps
-  @timeit to "solve" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=callbacks,
-         adjustfinalstep=false)
+  @timeit to "solve" solve!(Q, solver; 
+                            numberofsteps=numberofsteps, 
+                            callbacks=callbacks,
+                            adjustfinalstep=false)
   # final statistics
   engf = norm(Q)
   @info @sprintf """Finished
@@ -186,7 +200,7 @@ end
 
 Base.@kwdef struct HeldSuarezSetup{FT}
   p_ground::FT = MSLP
-  T_initial::FT = 255
+  T_initial::FT = 300
   domain_height::FT = 30e3
 end
 

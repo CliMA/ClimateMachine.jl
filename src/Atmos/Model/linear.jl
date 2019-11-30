@@ -1,13 +1,11 @@
 abstract type AtmosLinearModel <: BalanceLaw
 end
 
-
 vars_state(lm::AtmosLinearModel, FT) = vars_state(lm.atmos,FT)
 vars_gradient(lm::AtmosLinearModel, FT) = @vars()
 vars_diffusive(lm::AtmosLinearModel, FT) = @vars()
 vars_aux(lm::AtmosLinearModel, FT) = vars_aux(lm.atmos,FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
-
 
 update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, t::Real) = nothing
 integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
