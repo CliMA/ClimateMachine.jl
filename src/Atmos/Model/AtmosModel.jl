@@ -123,7 +123,6 @@ Where
 
   ###
   u += SVector(0, 0, -D*z)
-  ρu = state.ρ*u
   ###
     
   # advective terms
@@ -131,7 +130,7 @@ Where
   #flux.ρu  = ρu .* u'
     
   flux.ρ   = state.ρ*u
-  flux.ρu  = ρu .* u'
+  flux.ρu  = state.ρ*u .* u'
   flux.ρe  = u * state.ρe
 
   # pressure terms
@@ -156,7 +155,7 @@ end
   u = ρinv * state.ρu
 
   ###
-  u += SVector(0, 0, -D*z)
+#  u += SVector(0, 0, -D*z)
   ###
     
   # diffusive

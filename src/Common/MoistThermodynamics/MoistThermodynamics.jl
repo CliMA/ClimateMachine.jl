@@ -840,8 +840,7 @@ function liquid_ice_pottemp_given_pressure(T::FT, p::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
     # liquid-ice potential temperature, approximating latent heats
     # of phase transitions as constants
-    # return dry_pottemp_given_pressure(T, p, q) * (1 - latent_heat_liq_ice(q)/(cp_m(q)*T))
-    return dry_pottemp_given_pressure(T, p, q) * (1 - latent_heat_liq_ice(q)/(FT(cp_d)*T))
+    return dry_pottemp_given_pressure(T, p, q) * (1 - latent_heat_liq_ice(q)/(cp_m(q)*T))
 end
 
 
@@ -912,11 +911,9 @@ and, optionally,
 function air_temperature_from_liquid_ice_pottemp(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
 
-  cv = cv_m(q)   
+  cv = cv_m(q)
   R_m = gas_constant_air(q)
   return θ_liq_ice * (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_m/cv) + latent_heat_liq_ice(q)/cv
-  #return θ_liq_ice * (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_d/cv_d) + latent_heat_liq_ice(q)/cv_d
-    
 end
 
 """

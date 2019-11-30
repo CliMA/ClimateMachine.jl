@@ -2,6 +2,7 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.Diagnostics
@@ -69,10 +70,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   cpd::FT       = cp_d
 
   # These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(8.1e-3)
+  qref::FT      = FT(8.3e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
-  Rm_sfc::FT    = gas_constant_air(q_pt_sfc) # 461.5
+  Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc) # 461.5
   T_sfc::FT     = 290.4
   P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
@@ -241,6 +242,24 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                        xmax, ymax, out_dir)
   end
 
+  # Filter (Exponential via Callback)
+  filterorder = 14
+  filter_interval_exonential = 10
+  cbexpfilter = GenericCallbacks.EveryXSimulationSteps(filter_interval_exonential) do
+    # Applies exponential filter to all prognostic variables
+    Filters.apply!(Q, 1:size(Q, 2), grid,ExponentialFilter(grid, 0, filterorder))
+    nothing
+  end
+
+  # Filter (TMAR via Callback)
+  filter_interval_TMAR = 10
+  cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(filter_interval_TMAR) do
+    # Applies positivity cutoff to ρq_tot only
+    Filters.apply!(Q, 6, disc.grid, TMARFilter())
+    nothing
+  end
+
+    
   #solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
@@ -292,7 +311,7 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.21)
+    C_smag = FT(0.18)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
@@ -300,8 +319,8 @@ let
     Δx, Δy, Δz = 50, 50, 20
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
-    xmin, xmax = 0, 1500
-    ymin, ymax = 0, 1500
+    xmin, xmax = 0, 1000
+    ymin, ymax = 0, 1000
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
