@@ -65,6 +65,8 @@ function var_groups(FT)
   D[:VertEddyPottemp] = findall(map(x-> x==:vert_eddy_thd_flx || x==:vert_eddy_thv_flx || x==:vert_eddy_thl_flx, varnames_diag))
   D[:SGS] = findall(map(x-> x==:SGS, varnames_diag))
   D[:Ricorrection]  = findall(map(x-> x==:Ri, varnames_diag))
+  D[:qt_sgs] = findall(map(x-> x==:qt_sgs, varnames_diag))
+  D[:ht_sgs] = findall(map(x-> x==:ht_sgs, varnames_diag))
   return D
 end
 
