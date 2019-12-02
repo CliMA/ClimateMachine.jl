@@ -2,7 +2,8 @@ using Test, Pkg
 
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
-for submodule in ["Utilities/VariableTemplates",
+for submodule in ["Utilities/TicToc",
+                  "Utilities/VariableTemplates",
                   "Utilities/ParametersType",
                   "Utilities/RootSolvers",
                   "Common/PlanetParameters",

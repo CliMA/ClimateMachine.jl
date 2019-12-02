@@ -12,6 +12,7 @@ using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
+using CLIMA.TicToc
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -179,7 +180,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
+  @tic solve
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  @toc solve
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -199,6 +202,8 @@ end
 
 using Test
 let
+  tictoc()
+  @tic dycoms
   MPI.Initialized() || MPI.Init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -238,6 +243,7 @@ let
                  N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
     @test result ≈ DT(0.9999734954176608)
   end
+  @toc dycoms
 end
 
 #nothing

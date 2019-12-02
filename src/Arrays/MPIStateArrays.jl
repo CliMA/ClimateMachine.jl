@@ -1,4 +1,5 @@
 module MPIStateArrays
+using ..TicToc
 using LinearAlgebra
 using DoubleFloats
 using LazyArrays
@@ -262,8 +263,10 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
   # wait on (prior) MPI sends
   finish_ghost_send!(Q)
 
+  @tic mpi_sendcopy
   # pack data in send buffer
   fillsendbuf!(Q.host_send_buffer, Q.device_send_buffer, Q.data, Q.vmapsend)
+  @toc mpi_sendcopy
 
   # post MPI sends
   nnabr = length(Q.nabrtorank)
@@ -292,11 +295,15 @@ end
 Complete the receive of data and fill the data array on the device
 """
 function finish_ghost_recv!(Q::MPIStateArray)
+  @tic mpi_recvwait
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
+  @toc mpi_recvwait
 
+  @tic mpi_recvcopy
   # copy data to state vectors
   transferrecvbuf!(Q.device_recv_buffer, Q.host_recv_buffer, Q.data, Q.vmaprecv)
+  @toc mpi_recvcopy
 end
 
 """
@@ -304,7 +311,11 @@ end
 
 Waits on the send of data to be complete
 """
-finish_ghost_send!(Q::MPIStateArray) = MPI.Waitall!(Q.sendreq)
+function finish_ghost_send!(Q::MPIStateArray)
+  @tic mpi_sendwait
+  MPI.Waitall!(Q.sendreq)
+  @toc mpi_sendwait
+end
 
 # {{{ MPI Buffer handling
 function _fillsendbuf!(sendbuf, buf, vmapsend)
@@ -373,7 +384,9 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; di
   if locnorm isa AbstractArray
     locnorm = convert(Array, locnorm)
   end
+  @tic mpi_norm
   r = MPI.Allreduce(locnorm, mpiop, Q.mpicomm)
+  @toc mpi_norm
   isfinite(p) ? r .^ (1 // p) : r
 end
 LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool; dims=nothing) = norm(Q, 2, weighted; dims=dims)
@@ -388,7 +401,10 @@ function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=
     locnorm = dot_impl(Q1.realdata, Q2.realdata)
   end
 
-  MPI.Allreduce([locnorm], MPI.SUM, Q1.mpicomm)[1]
+  @tic mpi_dot
+  r = MPI.Allreduce([locnorm], MPI.SUM, Q1.mpicomm)[1]
+  @toc mpi_dot
+  return r
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
@@ -403,7 +419,10 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
   end
 
   locnorm = mapreduce(identity, +, E, init=zero(eltype(A)))
-  sqrt(MPI.Allreduce([locnorm], MPI.SUM, A.mpicomm)[1])
+  @tic mpi_euclidean_distance
+  r = sqrt(MPI.Allreduce([locnorm], MPI.SUM, A.mpicomm)[1])
+  @toc mpi_euclidean_distance
+  return r
 end
 
 """
@@ -429,8 +448,11 @@ function weightedsum(A::MPIStateArray, states=1:size(A, 2))
 
   locwsum = mapreduce(identity, +, E, init=init)
 
+  @tic mpi_weightedsum
   # Need to use anomous function version of sum else MPI.jl using MPI_SUM
-  FT(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
+  r = FT(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
+  @toc mpi_weightedsum
+  return r
 end
 
 # fast CPU local norm & dot implementations
@@ -553,6 +575,8 @@ realview(Q::MPIStateArray) = Q.realdata
   transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
   transform_cuarray(x) = x
 end
+
+@init tictoc()
 
 include("MPIStateArrays_kernels.jl")
 
