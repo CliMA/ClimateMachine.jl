@@ -335,7 +335,7 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.0035
+    dt = 0.005
     timeend = 14400
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
