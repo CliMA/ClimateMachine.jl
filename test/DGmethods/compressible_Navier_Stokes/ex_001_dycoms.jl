@@ -243,14 +243,14 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 
   # Filter (Exponential via Callback)
-  filterorder = 14
+#=  filterorder = 18
   filter_interval_exonential = 1
   cbexpfilter = GenericCallbacks.EveryXSimulationSteps(filter_interval_exonential) do
     # Applies exponential filter to all prognostic variables
     Filters.apply!(Q, 1:size(Q, 2), grid,ExponentialFilter(grid, 0, filterorder))
     nothing
   end
-
+=#
   # Filter (TMAR via Callback)
   filter_interval_TMAR = 1
   cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(filter_interval_TMAR) do
@@ -258,7 +258,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     Filters.apply!(Q, 6, disc.grid, TMARFilter())
     nothing
   end
-
     
   #solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
@@ -311,12 +310,12 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.21)
+    C_smag = FT(0.20)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 50, 50, 20
+    Δx, Δy, Δz = 40, 40, 10
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
     xmin, xmax = 0, 1000
@@ -336,7 +335,7 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.01
+    dt = 0.0035
     timeend = 14400
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
