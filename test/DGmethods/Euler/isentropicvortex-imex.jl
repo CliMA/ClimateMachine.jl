@@ -3,7 +3,8 @@ using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
-                                       CentralNumericalFluxDiffusive
+                                       CentralNumericalFluxDiffusive,
+                                       CentralNumericalFluxNonDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
@@ -15,6 +16,7 @@ using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
                                  soundspeed_air
 using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
+                   AtmosSchurComplement,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
                    DryModel, NoRadiation, PeriodicBC,
@@ -57,52 +59,61 @@ function main()
 
   expected_error = Dict()
   
-  expected_error[Float64, false, 1] = 2.3225467541870387e+01
-  expected_error[Float64, false, 2] = 5.2663709730295070e+00
-  expected_error[Float64, false, 3] = 1.2183770894070467e-01
-  expected_error[Float64, false, 4] = 2.8660813871243937e-03
-  
-  expected_error[Float64, true, 1] = 2.3225467618783981e+01
-  expected_error[Float64, true, 2] = 5.2663710765946341e+00
-  expected_error[Float64, true, 3] = 1.2183771242881866e-01
-  expected_error[Float64, true, 4] = 2.8660023410820249e-03
+  # FT, split_nonlinear_linear, schur, level
+  expected_error[Float64, false, false, 1] = 2.3225467541870387e+01
+  expected_error[Float64, false, false, 2] = 5.2663709730295070e+00
+  expected_error[Float64, false, false, 3] = 1.2183770894070467e-01
+  expected_error[Float64, false, false, 4] = 2.8660813871243937e-03
+
+  expected_error[Float64, true, false, 1] = 2.4388130726813046e+01
+  expected_error[Float64, true, false, 2] = 3.2167537075875154e+00
+  expected_error[Float64, true, false, 3] = 1.0527006054931363e-01
+  expected_error[Float64, true, false, 4] = 2.8055233016801894e-03
+
+  expected_error[Float64, true, true, 1] = 2.4388130959434413e+01
+  expected_error[Float64, true, true, 2] = 3.2167539004130470e+00
+  expected_error[Float64, true, true, 3] = 1.0527012477280305e-01
+  expected_error[Float64, true, true, 4] = 2.8059989929250283e-03
 
   @testset "$(@__FILE__)" begin
     for ArrayType in ArrayTypes, FT in (Float64,), dims in 2
       for split_nonlinear_linear in (false, true)
-        let
-          split = split_nonlinear_linear ? "(Nonlinear, Linear)" :
-                                           "(Full, Linear)"
-          @info @sprintf """Configuration
-                            ArrayType = %s
-                            FT    = %s
-                            dims      = %d
-                            splitting = %s
-                            """ "$ArrayType" "$FT" dims split
+        for schur in (split_nonlinear_linear ? (false, true) : false)
+          let
+            split = split_nonlinear_linear ? "(Nonlinear, Linear)" :
+                                             "(Full, Linear)"
+            @info @sprintf """Configuration
+                              ArrayType = %s
+                              FT        = %s
+                              dims      = %d
+                              splitting = %s
+                              schur     = %s
+                              """ "$ArrayType" "$FT" dims split schur
+          end
+
+          setup = IsentropicVortexSetup{FT}()
+          errors = Vector{FT}(undef, numlevels)
+
+          for level in 1:numlevels
+            numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
+            errors[level] =
+              run(mpicomm, polynomialorder, numelems, setup,
+                  split_nonlinear_linear, schur, ArrayType, FT, dims, level)
+
+            @test errors[level] ≈ expected_error[FT, split_nonlinear_linear, schur, level]
+          end
+
+          rates = @. log2(first(errors[1:numlevels-1]) / first(errors[2:numlevels]))
+          numlevels > 1 && @info "Convergence rates\n" *
+            join(["rate for levels $l → $(l + 1) = $(rates[l])" for l in 1:numlevels-1], "\n")
         end
-
-        setup = IsentropicVortexSetup{FT}()
-        errors = Vector{FT}(undef, numlevels)
-
-        for level in 1:numlevels
-          numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
-          errors[level] =
-            run(mpicomm, polynomialorder, numelems, setup, split_nonlinear_linear,
-                ArrayType, FT, dims, level)
-
-          @test errors[level] ≈ expected_error[FT, split_nonlinear_linear, level]
-        end
-
-        rates = @. log2(first(errors[1:numlevels-1]) / first(errors[2:numlevels]))
-        numlevels > 1 && @info "Convergence rates\n" *
-          join(["rate for levels $l → $(l + 1) = $(rates[l])" for l in 1:numlevels-1], "\n")
       end
     end
   end
 end
 
 function run(mpicomm, polynomialorder, numelems, setup,
-             split_nonlinear_linear, ArrayType, FT, dims, level)
+             split_nonlinear_linear, schur, ArrayType, FT, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
   end
@@ -133,15 +144,25 @@ function run(mpicomm, polynomialorder, numelems, setup,
   linear_model = AtmosAcousticLinearModel(model)
   nonlinear_model = RemainderModel(model, (linear_model,))
 
-  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
+  dg = DGModel(model,
+               grid,
+               Rusanov(),
+               CentralNumericalFluxDiffusive(),
+               CentralGradPenalty())
 
   dg_linear = DGModel(linear_model,
-                      grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                      grid,
+                      split_nonlinear_linear ? CentralNumericalFluxNonDiffusive() : Rusanov(),
+                      CentralNumericalFluxDiffusive(),
+                      CentralGradPenalty();
                       auxstate=dg.auxstate)
 
   if split_nonlinear_linear
     dg_nonlinear = DGModel(nonlinear_model,
-                           grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                           grid,
+                           Rusanov(),
+                           CentralNumericalFluxDiffusive(),
+                           CentralGradPenalty();
                            auxstate=dg.auxstate)
   end
 
@@ -154,13 +175,21 @@ function run(mpicomm, polynomialorder, numelems, setup,
   dt = timeend / nsteps
 
   Q = init_ode_state(dg, FT(0))
+
+  if schur
+    schur_complement = AtmosSchurComplement(dg_linear, Q)
+    linearsolver = GeneralizedMinimalResidual(10, schur_complement.P, 1e-10)
+  else
+    schur_complement = NoSchur()
+    linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
+  end
   
-  linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
   ode_solver = ARK2GiraldoKellyConstantinescu(split_nonlinear_linear ? dg_nonlinear : dg,
                                               dg_linear,
                                               linearsolver,
                                               Q; dt = dt, t0 = 0,
-                                              split_nonlinear_linear = split_nonlinear_linear)
+                                              split_nonlinear_linear = split_nonlinear_linear,
+                                              schur_complement = schur_complement)
 
   eng0 = norm(Q)
   dims == 2 && (numelems = (numelems..., 0))

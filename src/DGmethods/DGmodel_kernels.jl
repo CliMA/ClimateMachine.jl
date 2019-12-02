@@ -1062,23 +1062,17 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
   end
 end
 
-"""
-    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate,
-                          t, elems) where {dim, N}
-
-Update the auxiliary state array
-"""
-function knl_nodal_update!(::Val{dim}, ::Val{N}, elems, f!,
-                           bl_a::BalanceLaw, Q_a, auxstate_a,
-                           bl_b::BalanceLaw, Q_b, auxstate_b,
-                           t) where {dim, N}
-  FT = eltype(Q_a)
+function knl_nodal_transfer_state!(::Val{dim}, ::Val{N}, elems, f!,
+                                   dst_bl::BalanceLaw, dst_Q, dst_auxstate,
+                                   src_bl::BalanceLaw, src_Q, src_auxstate,
+                                   t) where {dim, N}
+  FT = eltype(dst_Q)
   
-  ninstate_a = num_instate(bl_a,FT)
-  nauxstate_a = num_aux(bl_a,FT)
+  ninstate_dst = num_instate(dst_bl,FT)
+  nauxstate_dst = num_aux(dst_bl,FT)
 
-  ninstate_b = num_instate(bl_b,FT)
-  nauxstate_b = num_aux(bl_b,FT)
+  ninstate_src = num_instate(src_bl,FT)
+  nauxstate_src = num_aux(src_bl,FT)
 
   Nq = N + 1
 
@@ -1086,40 +1080,40 @@ function knl_nodal_update!(::Val{dim}, ::Val{N}, elems, f!,
 
   Np = Nq * Nq * Nqk
 
-  l_Q_a = MArray{Tuple{ninstate_a}, FT}(undef)
-  l_aux_a = MArray{Tuple{nauxstate_a}, FT}(undef)
+  l_dst_Q = MArray{Tuple{ninstate_dst}, FT}(undef)
+  l_dst_aux = MArray{Tuple{nauxstate_dst}, FT}(undef)
   
-  l_Q_b = MArray{Tuple{ninstate_b}, FT}(undef)
-  l_aux_b = MArray{Tuple{nauxstate_b}, FT}(undef)
+  l_src_Q = MArray{Tuple{ninstate_src}, FT}(undef)
+  l_src_aux = MArray{Tuple{nauxstate_src}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      @unroll for s = 1:ninstate_a
-        l_Q_a[s] = Q_a[n, s, e]
+      @unroll for s = 1:ninstate_dst
+        l_dst_Q[s] = dst_Q[n, s, e]
       end
 
-      @unroll for s = 1:ninstate_b
-        l_Q_b[s] = Q_b[n, s, e]
+      @unroll for s = 1:ninstate_src
+        l_src_Q[s] = src_Q[n, s, e]
       end
 
-      @unroll for s = 1:nauxstate_a
-        l_aux_a[s] = auxstate_a[n, s, e]
+      @unroll for s = 1:nauxstate_dst
+        l_dst_aux[s] = dst_auxstate[n, s, e]
       end
       
-      @unroll for s = 1:nauxstate_b
-        l_aux_b[s] = auxstate_b[n, s, e]
+      @unroll for s = 1:nauxstate_src
+        l_src_aux[s] = src_auxstate[n, s, e]
       end
 
-      f!(bl_a, Vars{vars_instate(bl_a,FT)}(l_Q_a), Vars{vars_aux(bl_a,FT)}(l_aux_a),
-         bl_b, Vars{vars_instate(bl_b,FT)}(l_Q_b), Vars{vars_aux(bl_b,FT)}(l_aux_b),
+      f!(dst_bl, Vars{vars_instate(dst_bl,FT)}(l_dst_Q), Vars{vars_aux(dst_bl,FT)}(l_dst_aux),
+         src_bl, Vars{vars_instate(src_bl,FT)}(l_src_Q), Vars{vars_aux(src_bl,FT)}(l_src_aux),
          t)
       
-      @unroll for s = 1:ninstate_a
-        Q_a[n, s, e] = l_Q_a[s]
+      @unroll for s = 1:ninstate_dst
+        dst_Q[n, s, e] = l_dst_Q[s]
       end
 
-      @unroll for s = 1:nauxstate_a
-        auxstate_a[n, s, e] = l_aux_a[s]
+      @unroll for s = 1:nauxstate_dst
+        dst_auxstate[n, s, e] = l_dst_aux[s]
       end
     end
   end

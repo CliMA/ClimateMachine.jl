@@ -2,8 +2,7 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       RemainderModel,
-       SchurLHSModel, SchurRHSModel, SchurUpdateModel, schur_aux_init!
+       RemainderModel, AtmosSchurComplement
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates

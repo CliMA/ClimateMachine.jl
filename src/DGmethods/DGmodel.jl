@@ -249,13 +249,19 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
                           topology.realelems))
 end
 
-function nodal_update!(f!, grid,
-                       m_a::BalanceLaw, Q_a::MPIStateArray, auxstate_a::MPIStateArray,
-                       m_b::BalanceLaw, Q_b::MPIStateArray, auxstate_b::MPIStateArray,
+"""
+    nodal_transfer_state!(f!, grid, dst_m, dst_Q, dst_auxstate,
+                          src_m, src_Q, src_auxstate, t)
+
+Use the function `f` to transfer the state (and/or the auxiliary state) between two different balance laws
+"""
+function nodal_transfer_state!(f!, grid,
+                       dst_m::BalanceLaw, dst_Q::MPIStateArray, dst_auxstate::MPIStateArray,
+                       src_m::BalanceLaw, src_Q::MPIStateArray, src_auxstate::MPIStateArray,
                        t::Real)
-  device_a = typeof(Q_a.data) <: Array ? CPU() : CUDA()
-  device_b = typeof(Q_b.data) <: Array ? CPU() : CUDA()
-  @assert device_a == device_b
+  dst_device = typeof(dst_Q.data) <: Array ? CPU() : CUDA()
+  src_device = typeof(src_Q.data) <: Array ? CPU() : CUDA()
+  @assert dst_device == src_device
 
   topology = grid.topology
   dim = dimensionality(grid)
@@ -264,11 +270,11 @@ function nodal_update!(f!, grid,
   Np = dofs_per_element(grid)
 
   ### update aux variables
-  @launch(device_a, threads=(Np,), blocks=nrealelem,
-          knl_nodal_update!(Val(dim), Val(polyorder), topology.realelems, f!,
-                                m_a, Q_a.data, auxstate_a.data,
-                                m_b, Q_b.data, auxstate_b.data,
-                                t))
+  @launch(dst_device, threads=(Np,), blocks=nrealelem,
+          knl_nodal_transfer_state!(Val(dim), Val(polyorder), topology.realelems, f!,
+                                    dst_m, dst_Q.data, dst_auxstate.data,
+                                    src_m, src_Q.data, src_auxstate.data,
+                                    t))
 end
 
 """

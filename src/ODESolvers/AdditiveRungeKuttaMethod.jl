@@ -2,10 +2,9 @@ module AdditiveRungeKuttaMethod
 export AdditiveRungeKutta
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
-export NoSchur, SchurComplement
+export NoSchur
 
 using LinearAlgebra
-using CLIMA.PlanetParameters: kappa_d, R_d, T_0
 
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and Constantinescu (2013) directly.
 # Seems to cut the number of solver iterations by half but requires Nstages - 1 additional storage.
@@ -17,36 +16,11 @@ additional_storage(::NaiveVariant, Q, Nstages) = (Lstages = ntuple(i -> similar(
 struct LowStorageVariant end
 additional_storage(::LowStorageVariant, Q, Nstages) = (Qtt = similar(Q),)
 
-struct NoSchur end
-additional_storage(::NoSchur, Q, Nstages) = ()
-
-struct SchurComplement
-  lhs!
-  rhs!
-  update!
-end
-function additional_storage(::SchurComplement, Q, Nstages)
-  P = similar(Q, 1)
-  R = similar(Q, 1)
-  (schurP = P, schurR = R)
-end
-
+abstract type SchurComplement end
+struct NoSchur <: SchurComplement end
 
 using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
-
-using CLIMA.DGmethods: nodal_update!, grad_auxiliary_state!
-using CLIMA.Atmos: schur_aux_init!, schur_copy_state!, schur_pressure_init!
-schur_init!(::NoSchur, rhs!, Q, storage) = nothing
-function schur_init!(schur::SchurComplement, rhs!, Q, storage)
-    nodal_update!(schur_aux_init!, rhs!.grid,
-                  schur.lhs!.balancelaw, storage.schurP, schur.lhs!.auxstate,
-                  rhs!.balancelaw, Q, rhs!.auxstate, 0)
-    grad_auxiliary_state!(schur.lhs!, 1, (2, 3, 4))
-    nodal_update!(schur_aux_init!, rhs!.grid,
-                  schur.update!.balancelaw, storage.schurP, schur.update!.auxstate,
-                  rhs!.balancelaw, Q, rhs!.auxstate, 0)
-end
 
 using StaticArrays
 
@@ -55,8 +29,6 @@ ODEs = ODESolvers
 using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
-
-
 
 """
     op! = EulerOperator(f!, ϵ)
@@ -120,7 +92,7 @@ The available concrete implementations are:
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
   - [`ARK437L2SA1KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, S, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
   "time step"
   dt::RT
   "time"
@@ -150,16 +122,16 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} 
   split_nonlinear_linear::Bool
   "Variant of the ARK scheme"
   variant::V
-  "Schur"
-  schur::S
   "Storage dependent on the variant of the ARK scheme"
-  storage::ST
+  variant_storage::VS
+  "Schur complement"
+  schur_complement::S
 
   function AdditiveRungeKutta(rhs!,
                               rhs_linear!,
                               linearsolver::AbstractLinearSolver,
                               RKA_explicit, RKA_implicit, RKB, RKC,
-                              split_nonlinear_linear, variant, schur,
+                              split_nonlinear_linear, variant, schur_complement,
                               Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
 
     @assert dt != nothing
@@ -173,6 +145,10 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} 
     Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
     Rstages = ntuple(i -> similar(Q), Nstages)
     Qhat = similar(Q)
+    
+    V = typeof(variant)
+    variant_storage = additional_storage(variant, Q, Nstages)
+    VS = typeof(variant_storage)
 
     # The code throughout assumes SDIRK implicit tableau so we assert that
     # here.
@@ -186,23 +162,16 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, S, ST, Nstages, Nstages_sq} 
     # surface.
     implicitoperator! = prefactorize(EulerOperator(rhs_linear!, -α),
                                      linearsolver, Q, nothing, T(NaN))
-   
-    V = typeof(variant)
-    variant_storage = additional_storage(variant, Q, Nstages)
-    VS = typeof(variant_storage)
 
-    S = typeof(schur)
-    schur_storage = additional_storage(schur, Q, Nstages)
-    storage = merge(variant_storage, schur_storage)
-    ST = typeof(storage)
-    schur_init!(schur, rhs_linear!, Q, storage)
+    S = typeof(schur_complement)
 
-    new{T, RT, AT, LT, V, S, ST, Nstages, Nstages ^ 2}(RT(dt), RT(t0),
+    new{T, RT, AT, LT, V, VS, S, Nstages, Nstages ^ 2}(RT(dt), RT(t0),
                                                        rhs!, rhs_linear!, implicitoperator!, linearsolver,
                                                        Qstages, Rstages, Qhat,
                                                        RKA_explicit, RKA_implicit, RKB, RKC,
                                                        split_nonlinear_linear,
-                                                       variant, schur, storage)
+                                                       variant, variant_storage,
+                                                       schur_complement)
   end
 end
 
@@ -210,13 +179,13 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                             spacedisc_linear::AbstractSpaceMethod,
                             linearsolver::AbstractLinearSolver,
                             RKA_explicit, RKA_implicit, RKB, RKC,
-                            split_nonlinear_linear, variant, schur,
+                            split_nonlinear_linear, variant, schur_complement,
                             Q::AT; dt=nothing, t0=0) where {AT<:AbstractArray}
   rhs! = (x...; increment) -> SpaceMethods.odefun!(spacedisc, x..., increment = increment)
   rhs_linear! = (x...; increment) -> SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
   AdditiveRungeKutta(rhs!, rhs_linear!, linearsolver,
                      RKA_explicit, RKA_implicit, RKB, RKC,
-                     split_nonlinear_linear, variant, schur,
+                     split_nonlinear_linear, variant, schur_complement,
                      Q; dt=dt, t0=t0)
 end
 
@@ -230,27 +199,8 @@ end
 ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
 #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-function ark_linearsolve!(::NoSchur, linearsolver, rhs_linear!, implicitoperator!, Qinit, Qhat, p, t, α, storage)
+function ark_linearsolve!(::NoSchur, linearsolver, rhs_linear!, implicitoperator!, Qinit, Qhat, p, t, α)
   linearsolve!(implicitoperator!, linearsolver, Qinit, Qhat, p, t)
-end
-
-function ark_linearsolve!(schur::SchurComplement, linearsolver, rhs_linear!, _, Qinit, Qhat, p, t, α, storage)
-  schurR = storage.schurR
-  schurP = storage.schurP
-
-  nodal_update!(schur_pressure_init!, rhs_linear!.grid,
-                schur.lhs!.balancelaw, storage.schurP, schur.lhs!.auxstate,
-                rhs_linear!.balancelaw, Qinit, rhs_linear!.auxstate, 0)
-  @show extrema(schurP)
-  schur.rhs!(schurR, Qhat, p, α; increment = false)
-  linearoperator! = function(LQ, Q)
-    schur.lhs!(LQ, Q, p, α; increment = false)
-  end
-  linearsolve!(linearoperator!, linearsolver, schurP, schurR)
-  nodal_update!(schur_copy_state!, rhs_linear!.grid,
-                schur.update!.balancelaw, storage.schurP, schur.update!.auxstate,
-                rhs_linear!.balancelaw, Qhat, rhs_linear!.auxstate, 0)
-  schur.update!(Qinit, schurP, p, α; increment = false)
 end
 
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
@@ -288,7 +238,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
   Qstages, Rstages = ark.Qstages, ark.Rstages
   Qhat = ark.Qhat
   split_nonlinear_linear = ark.split_nonlinear_linear
-  Lstages = ark.storage.Lstages
+  Lstages = ark.variant_storage.Lstages
 
   rv_Q = realview(Q)
   rv_Qstages = realview.(Qstages)
@@ -323,8 +273,8 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
-    ark_linearsolve!(ark.schur, linearsolver, rhs_linear!, implicitoperator!,
-                     Qstages[istage], Qhat, p, stagetime, α, ark.storage)
+    ark_linearsolve!(ark.schur_complement, linearsolver, rhs_linear!,
+                     implicitoperator!, Qstages[istage], Qhat, p, stagetime, α)
     
     rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
     rhs_linear!(Lstages[istage], Qstages[istage], p, stagetime, increment = false)
@@ -348,7 +298,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
   Qstages, Rstages = ark.Qstages, ark.Rstages
   Qhat = ark.Qhat
   split_nonlinear_linear = ark.split_nonlinear_linear
-  Qtt = ark.storage.Qtt
+  Qtt = ark.variant_storage.Qtt
 
   rv_Q = realview(Q)
   rv_Qstages = realview.(Qstages)
@@ -380,7 +330,8 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
                           Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
 
     α = dt * RKA_implicit[istage, istage]
-    ark_linearsolve!(ark.schur, linearsolver, implicitoperator!, Qtt, Qhat, p, stagetime, α, ark.storage)
+    ark_linearsolve!(ark.schur_complement, linearsolver, rhs_linear!,
+                     implicitoperator!, Qtt, Qhat, p, stagetime, α)
 
     #update Qstages
     Qstages[istage] .+= Qtt
@@ -429,14 +380,14 @@ function ARK2GiraldoKellyConstantinescu(F, L,
                                         Q::AT; dt=nothing, t0=0,
                                         split_nonlinear_linear=false,
                                         variant=LowStorageVariant(),
-                                        schur=NoSchur()) where {AT<:AbstractArray}
+                                        schur_complement=NoSchur()) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
   
-  a32 = RT(1 // 2)
+  a32 = RT((3 + 2sqrt(2)) / 6)
   RKA_explicit = [RT(0)           RT(0)   RT(0);
                   RT(2 - sqrt(2)) RT(0)   RT(0);
                   RT(1 - a32)     RT(a32) RT(0)]
@@ -454,7 +405,7 @@ function ARK2GiraldoKellyConstantinescu(F, L,
                      RKA_explicit, RKA_implicit, RKB, RKC,
                      split_nonlinear_linear,
                      variant,
-                     schur,
+                     schur_complement,
                      Q; dt=dt, t0=t0)
 end
 
@@ -486,7 +437,7 @@ function ARK548L2SA2KennedyCarpenter(F, L,
                                      Q::AT; dt=nothing, t0=0,
                                      split_nonlinear_linear=false,
                                      variant=LowStorageVariant(),
-                                     schur=NoSchur()) where {AT<:AbstractArray}
+                                     schur_complement=NoSchur()) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -592,7 +543,7 @@ function ARK548L2SA2KennedyCarpenter(F, L,
                            RKA_explicit, RKA_implicit, RKB, RKC,
                            split_nonlinear_linear,
                            variant,
-                           schur,
+                           schur_complement,
                            Q; dt=dt, t0=t0)
 end
 
@@ -623,7 +574,7 @@ function ARK437L2SA1KennedyCarpenter(F, L,
                                      Q::AT; dt=nothing, t0=0,
                                      split_nonlinear_linear=false,
                                      variant=LowStorageVariant(),
-                                     schur=NoSchur()) where {AT<:AbstractArray}
+                                     schur_complement=NoSchur()) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
@@ -719,7 +670,7 @@ function ARK437L2SA1KennedyCarpenter(F, L,
                            RKA_explicit, RKA_implicit, RKB, RKC,
                            split_nonlinear_linear,
                            variant,
-                           schur,
+                           schur_complement,
                            Q; dt=dt, t0=t0)
 end
 
