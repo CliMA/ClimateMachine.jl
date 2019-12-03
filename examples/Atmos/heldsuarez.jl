@@ -63,14 +63,16 @@ function main()
   numelem_vert = 5
   timeend = 1day
   outputtime = 30day
+  dt_factor = 160
   for FT in (Float32,)
     run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
-        timeend, outputtime, ArrayType, FT)
+        timeend, outputtime, ArrayType, FT, dt_factor)
+    to 
   end
 end
 
 function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
-             timeend, outputtime, ArrayType, FT)
+             timeend, outputtime, ArrayType, FT,dt_factor)
 
   setup = HeldSuarezSetup{FT}()
 
@@ -103,7 +105,6 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(315))
-  dt_factor = 180
   dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
 
   Q = init_ode_state(dg, FT(0))
@@ -185,7 +186,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
       Qe = init_ode_state(dg, gettime(solver))
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
     end
-    callbacks = (callbacks..., cbvtk)
+    callbacks = (callbacks..., )
   end
 
   numberofsteps = convert(Int64, cld(timeend, dt))
