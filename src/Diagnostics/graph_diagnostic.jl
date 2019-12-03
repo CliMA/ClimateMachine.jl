@@ -34,12 +34,18 @@ function start(args::Vector{String})
 
     time = 0.0
     time = 500.1768
-
+    diff = 1000
     @show keys(data)
     println("data for $(length(data)) time steps in file")
     #time_data = first(keys(data))
-
-    time_data = string(time)
+    for key in keys(data)
+        t1 = parse(Float64, key)
+        if (abs(t1-time)<diff)
+          t2 = t1
+          diff = abs(t2-time)
+        end
+    end
+    time_data = string(t2)
     Nqk = size(data[time_data], 1)
     nvertelem = size(data[time_data], 2)
     all_vars = ntuple(i->zeros(Nqk * nvertelem), length(out_vars))

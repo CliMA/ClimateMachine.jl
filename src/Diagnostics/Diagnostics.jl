@@ -258,7 +258,7 @@ function compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh,
     ds.SGS = MH * diffusive_flx.ρν
     #Richardson 
     ds.Ri = MH * diffusive_flx.turbulence.BR
-
+    ds.N = MH * diffusive_flx.turbulence.Freq
 
     # variances
     ds.uvariance += MH * (u̅ - ũ)^2
