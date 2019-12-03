@@ -61,9 +61,9 @@ function main()
   polynomialorder = 5
   numelem_horz = 16
   numelem_vert = 5
-  timeend = 1day
+  timeend = 10day
   outputtime = 30day
-  dt_factor = 160
+  dt_factor = 150
   for FT in (Float32,)
     run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
         timeend, outputtime, ArrayType, FT, dt_factor)
@@ -105,23 +105,22 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(315))
-  dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
+  dt = element_size / acoustic_speed / polynomialorder ^ 2
 
   Q = init_ode_state(dg, FT(0))
   
   linearsolvertype = ManyColumnLU
 
-  #=
-  solver = ARK437L2SA1KennedyCarpenter(dg, vdg, linearsolvertype(), Q; 
-                                       dt=dt, t0=0,
+  solver1 = ARK437L2SA1KennedyCarpenter(dg, vdg, linearsolvertype(), Q; 
+                                       dt=dt*dt_factor, t0=0,
                                        split_nonlinear_linear=false)
-  =# 
-  solver = ARK2GiraldoKellyConstantinescu(dg, vdg, linearsolvertype(), Q; 
-                                          dt=dt, t0=0,
+  solver2 = ARK2GiraldoKellyConstantinescu(dg, vdg, linearsolvertype(), Q; 
+                                          dt=dt_factor, t0=0,
                                           split_nonlinear_linear=false, 
                                           version = ARK2PresentationVersion())
+  solver3 = LSRK144NiegemannDiehlBusch(dg, Q; dt=dt*dt_factor, t0=0)
 
-  #solver = LSRK144NiegemannDiehlBusch(dg, Q; dt=dt, t0=0)
+  solver = solver2;
 
   filterorder = 14
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -149,7 +148,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                     resolution_horz = %.2e km
                     min_vert     = %.2e km 
                     max_vert     = %.2e km 
-                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert filterorder dt eng0 resolution_horz smallest_cell largest_cell
+                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert filterorder solver.dt eng0 resolution_horz smallest_cell largest_cell
 
   # Set up the information callback
   starttime = Ref(now())
@@ -186,7 +185,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
       Qe = init_ode_state(dg, gettime(solver))
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
     end
-    callbacks = (callbacks..., )
+    callbacks = (callbacks..., cbvtk)
   end
 
   numberofsteps = convert(Int64, cld(timeend, dt))
