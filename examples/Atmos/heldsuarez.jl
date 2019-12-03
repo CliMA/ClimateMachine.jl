@@ -1,5 +1,5 @@
 using CLIMA: haspkg
-using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
+using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d, SingleExponentialStretching
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
@@ -59,13 +59,11 @@ function main()
   global_logger(ConsoleLogger(logger_stream, loglevel))
 
   polynomialorder = 5
-  numelem_horz = 6
-  numelem_vert = 8
-  timeend = 60 # 400day
-  outputtime = 2day
-  
-  for FT in (Float64,)
-
+  numelem_horz = 16
+  numelem_vert = 5
+  timeend = 1day
+  outputtime = 30day
+  for FT in (Float32,)
     run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
         timeend, outputtime, ArrayType, FT)
   end
@@ -76,7 +74,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   setup = HeldSuarezSetup{FT}()
 
-  vert_range = grid1d(FT(planet_radius), FT(planet_radius + setup.domain_height), nelem = numelem_vert)
+  vert_range = grid1d(FT(planet_radius), FT(planet_radius + setup.domain_height), SingleExponentialStretching(2), nelem = numelem_vert)
   topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 
   grid = DiscontinuousSpectralElementGrid(topology,
@@ -100,31 +98,29 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                CentralNumericalFluxDiffusive(), CentralGradPenalty())
 
   vdg = DGModel(linmodel, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty(),direction=VerticalDirection())
+               CentralNumericalFluxDiffusive(), CentralGradPenalty(),auxstate=dg.auxstate,direction=VerticalDirection())
 
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(315))
-  lucas_magic_factor = 1
-  dt = lucas_magic_factor * element_size / acoustic_speed / polynomialorder ^ 2
+  dt_factor = 180
+  dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
 
   Q = init_ode_state(dg, FT(0))
   
   linearsolvertype = ManyColumnLU
-  IMEXSolver = ARK437L2SA1KennedyCarpenter
 
-  solver = IMEXSolver(dg, vdg, linearsolvertype(), Q; 
-                      dt=dt, t0=0,
-                      split_nonlinear_linear=false)
   #=
-  solver = IMEXSolver(dg, vdg, linearsolvertype(), Q; 
-                      dt=dt, t0=0,
-                      split_nonlinear_linear=false, 
-                      version = ARK2PresentationVersion())
-  =#
-  #=
-  solver = LSRK144NiegemannDiehlBusch(dg, Q; dt=dt, t0=0)
-  =#
+  solver = ARK437L2SA1KennedyCarpenter(dg, vdg, linearsolvertype(), Q; 
+                                       dt=dt, t0=0,
+                                       split_nonlinear_linear=false)
+  =# 
+  solver = ARK2GiraldoKellyConstantinescu(dg, vdg, linearsolvertype(), Q; 
+                                          dt=dt, t0=0,
+                                          split_nonlinear_linear=false, 
+                                          version = ARK2PresentationVersion())
+
+  #solver = LSRK144NiegemannDiehlBusch(dg, Q; dt=dt, t0=0)
 
   filterorder = 14
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -134,6 +130,12 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   end
 
   eng0 = norm(Q)
+  
+  resolution_vert = setup.domain_height / (numelem_vert * polynomialorder) / 1000
+  resolution_horz = (2pi * planet_radius)  / (numelem_horz * 4 * polynomialorder) / 1000
+  largest_cell = maximum(diff(vert_range)) / polynomialorder / 1000 
+  smallest_cell = minimum(diff(vert_range)) / polynomialorder / 1000 
+
   @info @sprintf """Starting
                     ArrayType       = %s
                     FT              = %s
@@ -141,9 +143,12 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                     numelem_horz    = %d
                     numelem_vert    = %d
                     filterorder     = %d
-                    dt              = %.16e
+                    dt              = %.5e
                     norm(Q₀)        = %.16e
-                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert filterorder dt eng0
+                    resolution_horz = %.2e km
+                    min_vert     = %.2e km 
+                    max_vert     = %.2e km 
+                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert filterorder dt eng0 resolution_horz smallest_cell largest_cell
 
   # Set up the information callback
   starttime = Ref(now())
