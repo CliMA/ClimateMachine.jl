@@ -355,7 +355,7 @@ let
   # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
   for ArrayType in ArrayTypes
       #aspectratios = (1,3.5,7,)
-      exp_step = (0,1)
+      exp_step = 0
       linearmodels      = (AtmosAcousticGravityLinearModel,)
       IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,) #, ARK548L2SA2KennedyCarpenter)
       for SolverMethod in IMEXSolverMethods
@@ -396,7 +396,7 @@ let
                                               boundary=((0,0),(0,0),(1,2)))
                   #dt = 0.0075
                   safety_fac = FT(0.7)
-                  dt_exp = 0.0075 #min(Δv/soundspeed_air(FT(330))/N * safety_fac, safety_fac * Δh/soundspeed_air(FT(330))/N) 
+                  dt_exp = min(Δv/soundspeed_air(FT(330))/N * safety_fac, safety_fac * Δh/soundspeed_air(FT(330))/N) 
                   dt_imex = Δh/soundspeed_air(FT(330))/N * safety_fac
                   timeend = 14400
                   
