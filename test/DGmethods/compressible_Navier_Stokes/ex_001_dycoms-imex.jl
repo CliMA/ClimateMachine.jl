@@ -170,7 +170,6 @@ function run(mpicomm,
              zsponge,
              dt_exp, 
              dt_imex,
-             aspectratio, 
              explicit, 
              LinearModel,
              SolverMethod,
@@ -369,7 +368,8 @@ let
                   C_drag = FT(0.0011)
                   
                   # User defined domain parameters
-                  Δh, Δv = 40, 15                      
+                  Δh, Δv = 40, 15
+                  aspectratio = Δh/Δv
                   xmin, xmax = 0, 1000
                   ymin, ymax = 0, 1000
                   zmin, zmax = 0, 1500
@@ -417,7 +417,6 @@ let
                                zsponge,
                                dt_exp, 
                                dt_imex,
-                               aspectratio, 
                                explicit, 
                                LinearModel,
                                SolverMethod,
