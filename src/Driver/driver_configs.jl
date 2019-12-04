@@ -130,6 +130,19 @@ struct DriverConfiguration{FT}
     end
 end
 
+function print_model_info(model)
+    msg = "AtmosModel composition\n"
+    for key in fieldnames(typeof(model))
+        msg =
+            msg * @sprintf(
+                "    %s = %s\n",
+                string(key),
+                string((getproperty(model, key)))
+            )
+    end
+    @info msg
+end
+
 function AtmosLESConfiguration(
     name::String,
     N::Int,
@@ -157,24 +170,7 @@ function AtmosLESConfiguration(
     gradnumflux = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    @info @sprintf(
-        """Establishing Atmos LES configuration for %s
-        precision        = %s
-        polynomial order = %d
-        domain           = %.2fx%.2fx%.2f
-        resolution       = %dx%dx%d
-        MPI ranks        = %d""",
-        name,
-        FT,
-        N,
-        xmax,
-        ymax,
-        zmax,
-        Δx,
-        Δy,
-        Δz,
-        MPI.Comm_size(mpicomm)
-    )
+    print_model_info(model)
 
     brickrange = (
         grid1d(xmin, xmax, elemsize = Δx * N),
@@ -194,6 +190,30 @@ function AtmosLESConfiguration(
         DeviceArray = array_type,
         polynomialorder = N,
         meshwarp = meshwarp,
+    )
+
+    @info @sprintf(
+        """
+Establishing Atmos LES configuration for %s
+    precision        = %s
+    polynomial order = %d
+    domain           = %.2f m x%.2f m x%.2f m
+    resolution       = %dx%dx%d
+    MPI ranks        = %d
+    min(Δ_horz)      = %.2f m
+    min(Δ_vert)      = %.2f m""",
+        name,
+        FT,
+        N,
+        xmax,
+        ymax,
+        zmax,
+        Δx,
+        Δy,
+        Δz,
+        MPI.Comm_size(mpicomm),
+        min_node_distance(grid, HorizontalDirection()),
+        min_node_distance(grid, VerticalDirection())
     )
 
     return DriverConfiguration(
@@ -232,22 +252,8 @@ function AtmosGCMConfiguration(
     numfluxdiff = CentralNumericalFluxDiffusive(),
     gradnumflux = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
-    @info @sprintf(
-        """Establishing Atmos GCM configuration for %s
-        precision        = %s
-        polynomial order = %d
-        #horiz elems     = %d
-        #vert_elems      = %d
-        domain height    = %.2e
-        MPI ranks        = %d""",
-        name,
-        FT,
-        N,
-        nelem_horz,
-        nelem_vert,
-        domain_height,
-        MPI.Comm_size(mpicomm)
-    )
+
+    print_model_info(model)
 
     vert_range = grid1d(
         FT(planet_radius),
@@ -263,6 +269,28 @@ function AtmosGCMConfiguration(
         DeviceArray = array_type,
         polynomialorder = N,
         meshwarp = meshwarp,
+    )
+
+    @info @sprintf(
+        """
+Establishing Atmos GCM configuration for %s
+    precision        = %s
+    polynomial order = %d
+    #horiz elems     = %d
+    #vert elems      = %d
+    domain height    = %.2e m
+    MPI ranks        = %d
+    min(Δ_horz)      = %.2f m
+    min(Δ_vert)      = %.2f m""",
+        name,
+        FT,
+        N,
+        nelem_horz,
+        nelem_vert,
+        domain_height,
+        MPI.Comm_size(mpicomm),
+        min_node_distance(grid, HorizontalDirection()),
+        min_node_distance(grid, VerticalDirection())
     )
 
     return DriverConfiguration(

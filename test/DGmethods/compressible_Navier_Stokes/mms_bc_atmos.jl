@@ -306,7 +306,7 @@ let
                     nsteps = ceil(Int64, timeend / dt)
                     dt = timeend / nsteps
 
-                    @info (ArrayType, FT, dim)
+                    @info (ArrayType, FT, dim, nsteps, dt)
                     result[l] = run(
                         mpicomm,
                         ArrayType,

@@ -1074,7 +1074,6 @@ end
             t,
         )
 
-
         @unroll for s in 1:nviscstate
             Qvisc[vid⁻, s, e⁻] += vMI * sM * (l_Qvisc[s] - l_Q⁻visc[s])
         end
