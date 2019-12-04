@@ -373,13 +373,13 @@ let
       #aspectratios = (1,3.5,7,)
       exp_step = 0
       linearmodels      = (AtmosAcousticGravityLinearModel,)
-      IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,) #, ARK548L2SA2KennedyCarpenter)
+      IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,) #(ARK2GiraldoKellyConstantinescu,) 
       for SolverMethod in IMEXSolverMethods
           for LinearModel in linearmodels 
               for explicit in exp_step
 
                   # Problem type
-                  FT = Float32
+                  FT = Float64
                   
                   # DG polynomial order
                   N = 4
@@ -393,8 +393,8 @@ let
                   # User defined domain parameters
                   Δh, Δv = 35, 5
                   aspectratio = Δh/Δv
-                  xmin, xmax = 0, 1000
-                  ymin, ymax = 0, 1000
+                  xmin, xmax = 0, 2000
+                  ymin, ymax = 0, 2000
                   zmin, zmax = 0, 1500
                   
                   grid_resolution = [Δh, Δh, Δv]
@@ -413,16 +413,15 @@ let
 
                   safety_fac = FT(0.5)
 
-                  mnd  = min_node_distance(grid, EveryDirection())
-                  hmnd = min_node_distance(grid, HorizontalDirection())
-                  vmnd = min_node_distance(grid, VerticalDirection())
-                  @show "MIN NODE DISTANCE " mnd, hmnd, vmnd
-
-                  dt_exp  =  mnd/soundspeed_air(FT(330)) * safety_fac
-                  dt_imex = hmnd/soundspeed_air(FT(330)) * safety_fac
-
-                  #dt_exp  = min(Δv/soundspeed_air(FT(330))/N, Δh/soundspeed_air(FT(330))/N) * safety_fac
-                  #dt_imex = Δh/soundspeed_air(FT(330))/N * safety_fac
+                  #mnd  = min_node_distance(grid, EveryDirection())
+                  #hmnd = min_node_distance(grid, HorizontalDirection())
+                  #vmnd = min_node_distance(grid, VerticalDirection())
+                  #@show "MIN NODE DISTANCE " mnd, hmnd, vmnd
+                  #dt_exp  =  mnd/soundspeed_air(FT(330)) * safety_fac
+                  #dt_imex = hmnd/soundspeed_air(FT(330)) * safety_fac
+                  
+                  dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
+                  dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
                   timeend = 14400
                   
                   @info @sprintf """Starting
@@ -458,7 +457,7 @@ let
           end
       end
   end
-    
+
 #  @show LH_v0
 #  @show R_d
 #  @show MSLP

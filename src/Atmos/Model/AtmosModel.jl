@@ -129,9 +129,9 @@ Where
   # advective terms
   #flux.ρ   = ρu
   #flux.ρu  = ρu .* u' 
-  flux.ρ   = state.ρ*u
-  flux.ρu  = state.ρ*u .*u'
-  flux.ρe  = u*state.ρe
+  flux.ρ   = state.ρ * (u + usub)
+  flux.ρu  = state.ρ * (u + usub) .*(u + usub)'
+  flux.ρe  = (u + usub) * state.ρe
 
   # pressure terms
   p = pressure(m.moisture, m.orientation, state, aux)
