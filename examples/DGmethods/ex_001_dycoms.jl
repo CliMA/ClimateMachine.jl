@@ -12,6 +12,7 @@ using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
+using CLIMA.TicToc
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -130,7 +131,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
                      StevensRadiation{DT}(85, 1, 840, 1.22, 3.75e-6, 70, 22),
                      (Gravity(),
                       RayleighSponge{DT}(zmax, zsponge, 1),
-                      Subsidence(),
                       GeostrophicForcing{DT}(7.62e-5, 7, -5.5)),
                      DYCOMS_BC{DT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
@@ -180,7 +180,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
+  @tic solve
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  @toc solve
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -200,6 +202,8 @@ end
 
 using Test
 let
+  tictoc()
+  @tic dycoms
   MPI.Initialized() || MPI.Init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -237,8 +241,9 @@ let
     @info (ArrayType, DT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ DT(0.9999737848359238)
+    @test result ≈ DT(0.9999734954176608)
   end
+  @toc dycoms
 end
 
 #nothing

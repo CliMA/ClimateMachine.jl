@@ -46,26 +46,22 @@ DGBalanceLawDiscretizations.dof_iteration!
 ```@docs
 CLIMA.MPIStateArrays.MPIStateArray(::DGBalanceLawDiscretizations.DGBalanceLaw)
 CLIMA.MPIStateArrays.MPIStateArray(::DGBalanceLawDiscretizations.DGBalanceLaw, ::Function)
-CLIMA.SpaceMethods.odefun!(::DGBalanceLawDiscretizations.DGBalanceLaw, dQ, Q, t)
+CLIMA.SpaceMethods.odefun!
 ```
 
 ### Kernels
 ```@docs
 DGBalanceLawDiscretizations.volumerhs!
 DGBalanceLawDiscretizations.facerhs!
-DGBalanceLawDiscretizations.volumeviscterms!
-DGBalanceLawDiscretizations.faceviscterms!
-DGBalanceLawDiscretizations.initauxstate!
 DGBalanceLawDiscretizations.initauxstate!
 DGBalanceLawDiscretizations.elem_grad_field!
 DGBalanceLawDiscretizations.knl_dof_iteration!
 DGBalanceLawDiscretizations.knl_indefinite_stack_integral!
-DGBalanceLawDiscretizations.knl_reverse_indefinite_stack_integral!
 ```
 
-## `DGBalanceLawDiscretizations.NumericalFluxes_old`
+## Numerical Fluxes
 
 ```@docs
-DGBalanceLawDiscretizations.NumericalFluxes_old.rusanov!
-DGBalanceLawDiscretizations.NumericalFluxes_old.rusanov_boundary_flux!
+DGBalanceLawDiscretizations.NumericalFluxes.rusanov!
+DGBalanceLawDiscretizations.NumericalFluxes.rusanov_boundary_flux!
 ```
