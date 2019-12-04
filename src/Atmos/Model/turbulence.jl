@@ -142,7 +142,7 @@ function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
   ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
   N²   = ∂θ∂Φ / aux.moisture.θ_v
   Richardson = N² / (normS^2 + eps(normS))
-  #sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
+  sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
 
     #=  if z > FT(870)
     f_b = FT(0.1)

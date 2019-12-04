@@ -99,8 +99,8 @@ function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t
   z = aux.orientation.Φ / grav 
   D = eltype(state)(3.75e-6)
   #flux.moisture.ρq_tot += u * state.moisture.ρq_tot
-    #u += SVector(0, 0, -D*z)
-    usub = SVector(0, 0, -D*z)
+  #u += SVector(0, 0, -D*z)
+  usub = SVector(0, 0, -D*z)
   flux.moisture.ρq_tot += (u + usub) * state.moisture.ρq_tot
 end
 
