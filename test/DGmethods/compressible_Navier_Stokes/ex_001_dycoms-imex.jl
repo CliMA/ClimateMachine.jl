@@ -283,32 +283,49 @@ function run(mpicomm,
     nothing
   end
 
+       
     if explicit == 1
         numberofsteps = convert(Int64, cld(timeend, dt_exp))
         dt_exp = timeend / numberofsteps
         @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
         solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
         #@timeit to "solve! EX DYCOMS- $LinearModel $SolverMethod $aspectratio $dt_exp $timeend" solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
-        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
+
+
+        # Get statistics during run
+        diagnostics_time_str = string(now())
+        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
+            sim_time_str = string(ODESolvers.gettime(solver))
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
+                               xmax, ymax, out_dir)
+        end
+          
+        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter, cbvtk, cbinfo, cbdiagnostics))
+
+        
     else
         numberofsteps = convert(Int64, cld(timeend, dt_imex))
         dt_imex = timeend / numberofsteps
         @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
+
+                
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
                               dt = dt_imex, t0 = 0,
                               split_nonlinear_linear=false)
         #@timeit to "solve! IMEX DYCOMS - $LinearModel $SolverMethod $aspectratio $dt_imex $timeend" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter,),adjustfinalstep=false)
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter,),adjustfinalstep=false)
+
+        # Get statistics during run
+        diagnostics_time_str = string(now())
+        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
+            sim_time_str = string(ODESolvers.gettime(solver))
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
+                               xmax, ymax, out_dir)
+        end
+
+        
+        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbvtk, cbinfo, cbdiagnostics), adjustfinalstep=false)
     end
-    
-#=    # Get statistics during run
-    diagnostics_time_str = string(now())
-    cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
-        sim_time_str = string(ODESolvers.gettime(lsrk))
-        gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                           xmax, ymax, out_dir)
-    end
-  =#      
+ 
 ###  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   # Get statistics at the end of the run
