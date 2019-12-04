@@ -1,3 +1,5 @@
+using ..TicToc
+
 """
     writepvtu(pvtuprefix, vtkprefixes, fieldnames)
 
@@ -5,6 +7,7 @@ Write a pvtu file with the prefix 'pvtuprefix' for the collection of vtk files
 given by 'vtkprefixes' using names  of fields 'fieldnames'
 """
 function writepvtu(pvtuprefix, vtkprefixes, fieldnames)
+  @tic writepvtu
   open(pvtuprefix*".pvtu", "w") do pvtufile
     write(pvtufile,
           """
@@ -42,4 +45,6 @@ function writepvtu(pvtuprefix, vtkprefixes, fieldnames)
         </VTKFile>
         """)
   end
+  @toc writepvtu
+  return nothing
 end
