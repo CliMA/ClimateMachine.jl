@@ -61,7 +61,7 @@ function main()
   polynomialorder = 5
   numelem_horz = 16
   numelem_vert = 5
-  timeend = 10day
+  timeend = 8.64e4
   outputtime = 30day
   dt_factor = 150
   for FT in (Float32,)
@@ -111,16 +111,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   
   linearsolvertype = ManyColumnLU
 
-  solver1 = ARK437L2SA1KennedyCarpenter(dg, vdg, linearsolvertype(), Q; 
-                                       dt=dt*dt_factor, t0=0,
-                                       split_nonlinear_linear=false)
-  solver2 = ARK2GiraldoKellyConstantinescu(dg, vdg, linearsolvertype(), Q; 
-                                          dt=dt_factor, t0=0,
+  solver = ARK2GiraldoKellyConstantinescu(dg, vdg, linearsolvertype(), Q; 
+                                          dt=dt*dt_factor, t0=0,
                                           split_nonlinear_linear=false, 
                                           version = ARK2PresentationVersion())
-  solver3 = LSRK144NiegemannDiehlBusch(dg, Q; dt=dt*dt_factor, t0=0)
-
-  solver = solver2;
 
   filterorder = 14
   filter = ExponentialFilter(grid, 0, filterorder)
@@ -166,7 +160,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
     end
   end
 
-  callbacks = (cbinfo, cbfilter)
+  callbacks = (cbfilter, cbinfo)
 
   if output_vtk
     # create vtk dir
