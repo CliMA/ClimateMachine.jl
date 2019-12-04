@@ -5,7 +5,7 @@ using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.Diagnostics
+#=using CLIMA.Diagnostics=#
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
@@ -246,7 +246,7 @@ function run(mpicomm,
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(2, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(30, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -263,7 +263,7 @@ function run(mpicomm,
 
 
   # Setup VTK output callbacks
-  out_interval = 2
+  out_interval = 5000
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -306,10 +306,10 @@ function run(mpicomm,
 ###  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   # Get statistics at the end of the run
-  sim_time_str = string(ODESolvers.gettime(lsrk))
+#=  sim_time_str = string(ODESolvers.gettime(lsrk))
   gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                      xmax, ymax, out_dir)
-
+=#
   # Print some end of the simulation information
  #= engf = norm(Q)
   Qe = init_ode_state(dg, FT(timeend))
@@ -346,33 +346,31 @@ let
       device!(MPI.Comm_rank(mpicomm) % length(devices()))
   end
 
-    # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-  aspectratios = (1,3.5,7,)
-  exp_step = (0,1)
-  linearmodels      = (AtmosAcousticGravityLinearModel,)
-  IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,) #, ARK548L2SA2KennedyCarpenter)
-  for SolverMethod in IMEXSolverMethods
-      for ArrayType in ArrayTypes
+  # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+  for ArrayType in ArrayTypes
+      #aspectratios = (1,3.5,7,)
+      exp_step = (0,1)
+      linearmodels      = (AtmosAcousticGravityLinearModel,)
+      IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,) #, ARK548L2SA2KennedyCarpenter)
+      for SolverMethod in IMEXSolverMethods
           for LinearModel in linearmodels 
               for aspectratio in aspectratios
                   for explicit in exp_step
+
                       # Problem type
                       FT = Float64
+
                       # DG polynomial order
                       N = 4
+
                       # SGS Filter constants
                       C_smag = FT(0.23)
                       LHF    = FT(115)
                       SHF    = FT(15)
                       C_drag = FT(0.0011)
+
                       # User defined domain parameters
-                      #Δx, Δy, Δz = 40, 40, 15
-                      
-                      Δh, Δv = 40, 15
-                      aspectratio = Δh/Δv
-                      
-                      #xmin, xmax = 0, 3200
-                      #ymin, ymax = 0, 3200
+                      Δh, Δv = 40, 15                      
                       xmin, xmax = 0, 1000
                       ymin, ymax = 0, 1000
                       zmin, zmax = 0, 1500
@@ -431,10 +429,10 @@ let
           end
       end
   end
-  @show LH_v0
-  @show R_d
-  @show MSLP
-  @show cp_d
+#  @show LH_v0
+#  @show R_d
+#  @show MSLP
+#  @show cp_d
 end
 
 ###include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))
