@@ -316,7 +316,7 @@ let
     SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 40, 40, 15
+    Δx, Δy, Δz = 40, 40, 20
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
     xmin, xmax = 0, 1000
@@ -336,8 +336,8 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.0075e-8
-    timeend = 2dt
+    dt = 0.01
+    timeend = 14400
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, xmax, ymax, zmax, zsponge,
