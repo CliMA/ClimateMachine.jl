@@ -250,24 +250,25 @@ function run(mpicomm,
   @info @sprintf """Starting
   norm(Q₀) = %.16e""" eng0
  =#
-  # Set up the information callback
+    # Set up the information callback
+    # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(5, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
-      #= energy = norm(Q) =#
+      energy = norm(Q)
       @info @sprintf("""Update
                      simtime = %.16e
                      runtime = %s
-                     """, ODESolvers.gettime(lsrk),
+                     norm(Q) = %.16e""", ODESolvers.gettime(solver),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"))
+                                  Dates.dateformat"HH:MM:SS"),
+                     energy)
     end
   end
-
-
+  
   # Setup VTK output callbacks
   out_interval = 5000
   step = [0]
