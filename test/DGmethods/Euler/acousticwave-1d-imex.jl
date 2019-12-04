@@ -7,7 +7,6 @@ using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.AdditiveRungeKuttaMethod
-using CLIMA.AdditiveRungeKuttaMethod: ARK2PresentationVersion
 using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.VTK: writevtk, writepvtu
@@ -114,7 +113,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   odesolver = ARK2GiraldoKellyConstantinescu(dg, lineardg, linearsolver, Q;
                                              dt = dt, t0 = 0, split_nonlinear_linear=false,
-                                             version=ARK2PresentationVersion())
+                                             paperversion=false)
 
   filterorder = 18
   filter = ExponentialFilter(grid, 0, filterorder)
