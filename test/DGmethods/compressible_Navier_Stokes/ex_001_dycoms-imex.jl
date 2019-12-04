@@ -393,8 +393,8 @@ let
                   # User defined domain parameters
                   Δh, Δv = 35, 5
                   aspectratio = Δh/Δv
-                  xmin, xmax = 0, 2000
-                  ymin, ymax = 0, 2000
+                  xmin, xmax = 0, 3000
+                  ymin, ymax = 0, 3000
                   zmin, zmax = 0, 1500
                   
                   grid_resolution = [Δh, Δh, Δv]
