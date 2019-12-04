@@ -143,8 +143,8 @@ function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
   N²   = ∂θ∂Φ / aux.moisture.θ_v
   Richardson = N² / (normS^2 + eps(normS))
   #sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
-  if z > FT(840)
-      f_b = FT(0)
+  if z > FT(870)
+      f_b = FT(0.1)
   else
       f_b = FT(1)
   end
@@ -167,7 +167,7 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   diffusive.turbulence.BR = f_b²
   ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
   N² = ∂θ∂Φ / aux.moisture.θ_v
-  diffusive.turbulence.Freq = N²
+  diffusive.turbulence.Freq = ∂θ∂Φ/grav #N²
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
   state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
 end
@@ -287,7 +287,7 @@ url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
 struct AnisoMinDiss{FT} <: TurbulenceClosure
   C_poincare::FT
 end
-vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
+vars_aux(::AnisoMinDiss,T) = @vars(Δ::T,ρν::T,BR::T,Freq::T)
 vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::T)
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)

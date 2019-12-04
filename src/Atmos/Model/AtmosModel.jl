@@ -120,16 +120,18 @@ Where
   ρinv = 1/state.ρ
   ρu = state.ρu
   u = ρinv * ρu
+    
   ###
-  #u += SVector(0, 0, -D*z)
+    #u += SVector(0, 0, -D*z)
+  usub = SVector(0, 0, -D*z)
   ###
     
   # advective terms
-  flux.ρ   = ρu
-  flux.ρu  = ρu .* u' 
-  #flux.ρ   = state.ρ*u
-  #flux.ρu  = state.ρ*u .* u'
-  flux.ρe  = u * state.ρe
+  #flux.ρ   = ρu
+  #flux.ρu  = ρu .* u' 
+  flux.ρ   = state.ρ*(u + usub)
+  flux.ρu  = state.ρ*(u + usub) .* (u + usub)'
+  flux.ρe  = u*state.ρe
 
   # pressure terms
   p = pressure(m.moisture, m.orientation, state, aux)
@@ -153,7 +155,8 @@ end
   u = ρinv * state.ρu
 
   ###
-#  u += SVector(0, 0, -D*z)
+    #  u += SVector(0, 0, -D*z)
+    usub = SVector(0, 0, -D*z)
   ###
     
   # diffusive

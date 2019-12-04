@@ -179,7 +179,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     SmagorinskyLilly{FT}(C_smag),
+                     SmagorinskyLilly{}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
@@ -203,7 +203,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(2, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -220,7 +220,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
 
   # Setup VTK output callbacks
-  out_interval = 5000
+  out_interval = 2
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -252,12 +252,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 =#
   # Filter (TMAR via Callback)
-  filter_interval_TMAR = 1
+#=  filter_interval_TMAR = 1
   cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(filter_interval_TMAR) do
     # Applies positivity cutoff to ρq_tot only
     Filters.apply!(Q, 6, disc.grid, TMARFilter())
     nothing
   end
+    =#
     
   #solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
@@ -315,7 +316,7 @@ let
     SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 40, 40, 10
+    Δx, Δy, Δz = 40, 40, 15
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
     xmin, xmax = 0, 1000
@@ -335,8 +336,8 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.005
-    timeend = 14400
+    dt = 0.0075e-8
+    timeend = 2dt
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, xmax, ymax, zmax, zsponge,

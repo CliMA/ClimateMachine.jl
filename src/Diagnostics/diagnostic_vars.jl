@@ -69,6 +69,7 @@ function var_groups(FT)
   D[:buoyancyFreq] = findall(map(x-> x==:N, varnames_diag))
   D[:qt_sgs] = findall(map(x-> x==:qt_sgs, varnames_diag))
   D[:ht_sgs] = findall(map(x-> x==:ht_sgs, varnames_diag))
+  D[:N] = findall(map(x-> x==:N, varnames_diag))
   return D
 end
 
