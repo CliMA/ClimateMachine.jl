@@ -375,7 +375,7 @@ let
                   C_drag = FT(0.0011)
                   
                   # User defined domain parameters
-                  Δh, Δv = 40, 15
+                  Δh, Δv = 40, 20
                   aspectratio = Δh/Δv
                   xmin, xmax = 0, 1000
                   ymin, ymax = 0, 1000
@@ -395,9 +395,9 @@ let
                                               periodicity = (true, true, false),
                                               boundary=((0,0),(0,0),(1,2)))
                   #dt = 0.0075
-                  safety_fac = FT(0.7)
+                  safety_fac = FT(0.5)
                   dt_exp = min(Δv/soundspeed_air(FT(330))/N * safety_fac, safety_fac * Δh/soundspeed_air(FT(330))/N) 
-                  dt_imex = Δh/soundspeed_air(FT(330))/N * safety_fac
+                  dt_imex = Δv/soundspeed_air(FT(330))/N * safety_fac
                   timeend = 14400
                   
                   @info @sprintf """Starting
