@@ -203,7 +203,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(30, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -222,7 +222,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Setup VTK output callbacks
   out_interval = 5000
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
+#=  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
                        MPI.Comm_rank(mpicomm), step[1])
     outprefix = joinpath(out_dir, fprefix)
@@ -233,7 +233,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     step[1] += 1
     nothing
   end
-
+    =#
+    
   # Get statistics during run
   diagnostics_time_str = string(now())
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
@@ -261,7 +262,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     =#
     
   #solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,  cbdiagnostics))
 
   # Get statistics at the end of the run
   sim_time_str = string(ODESolvers.gettime(lsrk))
@@ -311,19 +312,19 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.20)
+    C_smag = FT(0.23)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δx, Δy, Δz = 40, 40, 20
+    Δh, Δv = 35, 5
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
     xmin, xmax = 0, 1000
     ymin, ymax = 0, 1000
     zmin, zmax = 0, 1500
 
-    grid_resolution = [Δx, Δy, Δz]
+    grid_resolution = [Δh, Δh, Δv]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
     dim = length(grid_resolution)
 
@@ -336,7 +337,9 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
-    dt = 0.01
+    #dt = 0.001
+    safety_fac = FT(0.5)
+    dt = min(Δv/soundspeed_air(FT(330))/N, Δh/soundspeed_air(FT(330))/N) * safety_fac
     timeend = 14400
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,

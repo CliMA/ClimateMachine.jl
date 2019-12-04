@@ -270,9 +270,9 @@ function run(mpicomm,
   end
   
   # Setup VTK output callbacks
-  out_interval = 5000
+ out_interval = 5000
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
+#=  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
                        MPI.Comm_rank(mpicomm), step[1])
     outprefix = joinpath(out_dir, fprefix)
@@ -283,7 +283,7 @@ function run(mpicomm,
     step[1] += 1
     nothing
   end
-
+=#
        
     if explicit == 1
         numberofsteps = convert(Int64, cld(timeend, dt_exp))
@@ -301,8 +301,7 @@ function run(mpicomm,
                                xmax, ymax, out_dir)
         end
           
-        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter, cbvtk, cbinfo, cbdiagnostics))
-
+        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter, cbinfo, cbdiagnostics))
         
     else
         numberofsteps = convert(Int64, cld(timeend, dt_imex))
@@ -322,9 +321,8 @@ function run(mpicomm,
             gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                                xmax, ymax, out_dir)
         end
-
         
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbvtk, cbinfo, cbdiagnostics), adjustfinalstep=false)
+        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbinfo, cbdiagnostics), adjustfinalstep=false)
     end
  
 ###  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
@@ -381,7 +379,7 @@ let
               for explicit in exp_step
 
                   # Problem type
-                  FT = Float64
+                  FT = Float32
                   
                   # DG polynomial order
                   N = 4
@@ -393,7 +391,7 @@ let
                   C_drag = FT(0.0011)
                   
                   # User defined domain parameters
-                  Δh, Δv = 40, 20
+                  Δh, Δv = 35, 5
                   aspectratio = Δh/Δv
                   xmin, xmax = 0, 1000
                   ymin, ymax = 0, 1000
@@ -412,10 +410,19 @@ let
                   topl = StackedBrickTopology(mpicomm, brickrange,
                                               periodicity = (true, true, false),
                                               boundary=((0,0),(0,0),(1,2)))
-                  #dt = 0.0075
+
                   safety_fac = FT(0.5)
-                  dt_exp = min(Δv/soundspeed_air(FT(330))/N * safety_fac, safety_fac * Δh/soundspeed_air(FT(330))/N) 
-                  dt_imex = Δv/soundspeed_air(FT(330))/N * safety_fac
+
+                  mnd  = min_node_distance(grid, EveryDirection())
+                  hmnd = min_node_distance(grid, HorizontalDirection())
+                  vmnd = min_node_distance(grid, VerticalDirection())
+                  @show "MIN NODE DISTANCE " mnd, hmnd, vmnd
+
+                  dt_exp  =  mnd/soundspeed_air(FT(330)) * safety_fac
+                  dt_imex = hmnd/soundspeed_air(FT(330)) * safety_fac
+
+                  #dt_exp  = min(Δv/soundspeed_air(FT(330))/N, Δh/soundspeed_air(FT(330))/N) * safety_fac
+                  #dt_imex = Δh/soundspeed_air(FT(330))/N * safety_fac
                   timeend = 14400
                   
                   @info @sprintf """Starting
