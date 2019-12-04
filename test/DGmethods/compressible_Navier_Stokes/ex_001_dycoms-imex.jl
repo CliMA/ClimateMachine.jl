@@ -5,7 +5,7 @@ using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
-#=using CLIMA.Diagnostics=#
+using CLIMA.Diagnostics
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
