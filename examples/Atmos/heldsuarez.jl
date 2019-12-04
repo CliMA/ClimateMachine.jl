@@ -43,7 +43,7 @@ using TimerOutputs
 
 const to = TimerOutput()
 
-const output_vtk = true
+const output_vtk = false
 
 function main()
   MPI.Initialized() || MPI.Init()
@@ -57,27 +57,46 @@ function main()
 
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-
+  
   polynomialorder = 5
   numelem_horz = 16
   numelem_vert = 5
-  timeend = 8.64e4
+  timeend = 1000
   outputtime = 30day
   dt_factor = 150
   for FT in (Float32,)
-    run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
-        timeend, outputtime, ArrayType, FT, dt_factor)
-    to 
+    run(mpicomm, 
+        polynomialorder, 
+        numelem_horz, 
+        numelem_vert,
+        timeend, 
+        outputtime, 
+        ArrayType, 
+        FT, 
+        dt_factor)
   end
 end
 
-function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
-             timeend, outputtime, ArrayType, FT,dt_factor)
+function run(mpicomm, 
+             polynomialorder, 
+             numelem_horz, 
+             numelem_vert,
+             timeend, 
+             outputtime,
+             ArrayType, 
+             FT,
+             dt_factor)
 
   setup = HeldSuarezSetup{FT}()
 
-  vert_range = grid1d(FT(planet_radius), FT(planet_radius + setup.domain_height), SingleExponentialStretching(2), nelem = numelem_vert)
-  topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
+  vert_range = grid1d(FT(planet_radius), 
+                      FT(planet_radius + setup.domain_height), 
+                      SingleExponentialStretching(2), 
+                      nelem = numelem_vert)
+
+  topology = StackedCubedSphereTopology(mpicomm, 
+                                        numelem_horz, 
+                                        vert_range)
 
   grid = DiscontinuousSpectralElementGrid(topology,
                                           FloatType = FT,
@@ -96,23 +115,29 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   linmodel = AtmosAcousticGravityLinearModel(model) 
 
-  dg = DGModel(model, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty())
+  dg = DGModel(model, 
+               grid, 
+               Rusanov(),
+               CentralNumericalFluxDiffusive(), 
+               CentralGradPenalty())
 
-  vdg = DGModel(linmodel, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty(),auxstate=dg.auxstate,direction=VerticalDirection())
+  vdg = DGModel(linmodel, 
+                grid, 
+                Rusanov(),
+                CentralNumericalFluxDiffusive(), 
+                CentralGradPenalty(), 
+                auxstate=dg.auxstate, 
+                direction=VerticalDirection())
 
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
   acoustic_speed = soundspeed_air(FT(315))
-  dt = element_size / acoustic_speed / polynomialorder ^ 2
+  dt = element_size / acoustic_speed / polynomialorder ^ 2 * dt_factor
 
   Q = init_ode_state(dg, FT(0))
   
-  linearsolvertype = ManyColumnLU
-
-  solver = ARK2GiraldoKellyConstantinescu(dg, vdg, linearsolvertype(), Q; 
-                                          dt=dt*dt_factor, t0=0,
+  solver = ARK2GiraldoKellyConstantinescu(dg, vdg, ManyColumnLU(), Q; 
+                                          dt=dt, t0=0,
                                           split_nonlinear_linear=false, 
                                           version = ARK2PresentationVersion())
 
@@ -138,11 +163,12 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                     numelem_vert    = %d
                     filterorder     = %d
                     dt              = %.5e
+                    end-time        = %.3e days
                     norm(Q₀)        = %.16e
                     resolution_horz = %.2e km
                     min_vert     = %.2e km 
                     max_vert     = %.2e km 
-                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert filterorder solver.dt eng0 resolution_horz smallest_cell largest_cell
+                    """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert filterorder solver.dt timeend/day eng0 resolution_horz smallest_cell largest_cell
 
   # Set up the information callback
   starttime = Ref(now())
@@ -153,14 +179,14 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
       energy = norm(Q)
       runtime = Dates.format(convert(DateTime, now() - starttime[]), dateformat"HH:MM:SS")
       @info @sprintf """Update
-                        simtime = %.16e
+                        simtime = %.3e days
                         runtime = %s
                         norm(Q) = %.16e
-                        """ gettime(solver) runtime energy
+                        """ gettime(solver)/day runtime energy
     end
   end
 
-  callbacks = (cbfilter, cbinfo)
+  callbacks = (cbfilter, )#cbinfo)
 
   if output_vtk
     # create vtk dir
@@ -191,10 +217,11 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   # final statistics
   engf = norm(Q)
   @info @sprintf """Finished
+  simtime                 = %.3e days
   norm(Q)                 = %.16e
   norm(Q) / norm(Q₀)      = %.16e
   norm(Q) - norm(Q₀)      = %.16e
-  """ engf engf/eng0 engf-eng0
+  """  gettime(solver)/day engf engf/eng0 engf-eng0
 end
 
 Base.@kwdef struct HeldSuarezSetup{FT}
