@@ -199,9 +199,15 @@ function run(mpicomm,
   #Sponge:
   c_sponge = 1
 
+  T_min = FT(289)
+  T_s = FT(290.4)
+  Γ_lapse = FT(grav/cp_d)
+  Temp = LinearTemperatureProfile(T_min,T_s,Γ_lapse)
+  RelHum = FT(0)
+    
   # Model definition
   model = AtmosModel(FlatOrientation(),
-                     NoReferenceState(),
+                     HydrostaticState(Temp,RelHum),
                      SmagorinskyLilly{}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
@@ -210,6 +216,7 @@ function run(mpicomm,
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
+  
   # Balancelaw description
   dg = DGModel(model,
                grid,
