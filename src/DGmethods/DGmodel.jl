@@ -118,6 +118,48 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
+function restart_ode_state(dg::DGModel, Data, GData;
+			device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
+                        commtag=888)
+  array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+  @assert device == CPU() || device == array_device
+
+  bl = dg.balancelaw
+  grid = dg.grid
+
+  state = create_state(bl, grid, commtag)
+
+  topology = grid.topology
+  Np = dofs_per_element(grid)
+
+  auxstate = dg.auxstate
+  dim = dimensionality(grid)
+  polyorder = polynomialorder(grid)
+  vgeo = grid.vgeo
+  nrealelem = length(topology.realelems)
+
+  if device == array_device
+    @launch(device, threads=(Np,), blocks=nrealelem,
+            restart_state!(bl, Val(dim), Val(polyorder), state.data, auxstate.data, vgeo,
+                     topology.realelems, Data, GData))
+  else
+    h_vgeo = Array(vgeo)
+    h_state = similar(state, Array)
+    h_auxstate = similar(auxstate, Array)
+    h_auxstate .= auxstate
+    @launch(device, threads=(Np,), blocks=nrealelem,
+      restart_state!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
+          topology.realelems, Data, Gdata))
+    state .= h_state
+  end
+
+  MPIStateArrays.start_ghost_exchange!(state)
+  MPIStateArrays.finish_ghost_exchange!(state)
+
+  return state
+
+end
+
 function init_ode_state(dg::DGModel, args...;
                         device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
                         commtag=888)
