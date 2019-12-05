@@ -10,7 +10,7 @@ using ..VariableTemplates
 using DocStringExtensions
 using GPUifyLoops
 
-export BalanceLaw, DGModel, init_ode_state
+export BalanceLaw, DGModel, init_ode_state, restart_ode_state
 
 include("balancelaw.jl")
 include("DGmodel.jl")

@@ -922,6 +922,35 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   nothing
 end
 
+function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstate, vgeo, elems, Data, GData) where {dim, polyorder}
+  N = polyorder
+  FT = eltype(auxstate)
+  nauxstate = num_aux(bl,FT)
+  nstate = num_state(bl,FT)
+
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+  Np = Nq * Nq * Nqk
+
+  l_state = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+      @unroll for s = 1:nstate
+        l_state[s] = Data[n,s,e]
+      end
+      @unroll for s = 1:nstate
+        state[n, s, e] = l_state[s]
+      end
+    end
+  end
+end
+
 function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstate, vgeo, elems, args...) where {dim, polyorder}
   N = polyorder
   FT = eltype(auxstate)
