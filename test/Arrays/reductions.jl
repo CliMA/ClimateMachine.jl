@@ -4,18 +4,9 @@ using LinearAlgebra
 using CLIMA
 using CLIMA.MPIStateArrays
 
-MPI.Initialized() || MPI.Init()
-
+const ArrayType = CLIMA.array_type()
+CLIMA.init()
 const mpicomm = MPI.COMM_WORLD
-
-@static if haspkg("CuArrays")
-  using CuArrays
-  # make sure that broadcasting is not being done by scalar indexing into CuArrays
-  CuArrays.allowscalar(false)
-  ArrayType = CuArray
-else
-  ArrayType = Array
-end
 
 mpisize = MPI.Comm_size(mpicomm)
 mpirank = MPI.Comm_rank(mpicomm)

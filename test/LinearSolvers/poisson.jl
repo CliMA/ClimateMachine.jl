@@ -23,15 +23,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
 import CLIMA.DGmethods.NumericalFluxes: NumericalFluxDiffusive,
                                         numerical_flux_diffusive!
                                                               
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -111,8 +103,9 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
   topology = BrickTopology(mpicomm, brickrange, periodicity=periodicity)
   grid = DiscontinuousSpectralElementGrid(topology,
                                           polynomialorder = polynomialorder,
-                                          FloatType = FT,
-                                          DeviceArray = ArrayType)
+                                          DeviceArray = ArrayType,
+                                          FloatType = FT)
+  
   dg = DGModel(PoissonModel{dim}(),
                grid,
                CentralNumericalFluxNonDiffusive(),
@@ -139,7 +132,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
 end
 
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -147,9 +140,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
   base_num_elem = 4
@@ -179,7 +169,7 @@ let
 
   lvls = integration_testing ? size(expected_result)[end] : 1
 
-  for ArrayType in ArrayTypes, (m, linmethod) in enumerate(linmethods), FT in (Float64,)
+  for (m, linmethod) in enumerate(linmethods), FT in (Float64,)
     result = Array{Tuple{FT, Int}}(undef, lvls)
     for dim = 2:3
 

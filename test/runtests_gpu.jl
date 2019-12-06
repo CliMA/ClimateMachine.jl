@@ -1,6 +1,8 @@
-using Test, Pkg
+using Test, Pkg, CuArrays
 
 ENV["JULIA_LOG_LEVEL"] = "WARN"
+
+@test CuArrays.functional()
 
 for submodule in [#"Utilities/ParametersType",
                   #"Utilities/RootSolvers",
@@ -10,7 +12,7 @@ for submodule in [#"Utilities/ParametersType",
                   #"Atmos/Parameterizations/TurbulenceConvection",
                   #"Mesh",
                   #"DGmethods",
-                  #"ODESolvers",
+                  "ODESolvers",
                   "Arrays"
                   ]
 

@@ -66,9 +66,8 @@ end
   end
 end
 
-@static if haspkg("CuArrays")
-  using CuArrays
-  CuArrays.allowscalar(false)
+if CLIMA.array_type() != Array
+  CLIMA.gpu_allowscalar(false)
 
   @testset "RootSolvers CUDA - compact solution " begin
     for FT in [Float32, Float64]

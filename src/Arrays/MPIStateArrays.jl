@@ -5,19 +5,20 @@ using DoubleFloats
 using LazyArrays
 using StaticArrays
 using GPUifyLoops
-import ..haspkg
-
+using Requires
 using MPI
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
+
 # This is so we can do things like
 #   similar(Array{Float64}, Int, 3, 4)
 Base.similar(::Type{Array}, ::Type{FT}, dims...) where {FT} = similar(Array{FT}, dims...)
-@static if haspkg("CuArrays")
-  using CuArrays
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
   Base.similar(::Type{CuArray}, ::Type{FT}, dims...) where {FT} = similar(CuArray{FT}, dims...)
 end
+
 
 export MPIStateArray, euclidean_distance, weightedsum
 
@@ -110,7 +111,7 @@ end
 Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
 
 """
-   MPIStateArray{FT}(mpicomm, Np, nstate, numelem; realelems=1:numelem,
+   MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem; realelems=1:numelem,
                      ghostelems=numelem:numelem-1,
                      vmaprecv=1:0,
                      vmapsend=1:0,
@@ -121,7 +122,7 @@ Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
                      commtag=888)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
-elements, using array type `DA` with element type `eltype`. The arrays that are
+elements, using array type `DA` with element type `FT`. The arrays that are
 held in this created `MPIStateArray` will be of size `(Np, nstate, numelem)`.
 
 The range `realelems` is the number of elements that this mpirank owns, whereas
@@ -523,12 +524,18 @@ end
 
 function weighted_norm_impl(Q, W, ::Val{p}, dims=:) where p
   FT = eltype(Q)
-  if isfinite(p)
-    E = @~ @. W * abs(Q) ^ p
-    op, init = +, zero(FT)
-  else
+  if !isfinite(p)
     E = @~ @. W * abs(Q)
     op, init = max, typemin(FT)
+  else
+    if p == 1
+      E = @~ @. W * abs(Q)
+    elseif p == 2
+      E = @~ @. W * abs2(Q)
+    else
+      E = @~ @. W * abs(Q)^p
+    end
+    op, init = +, zero(FT)
   end
   reduce(op, E, init=init, dims=dims)
 end
@@ -562,8 +569,6 @@ function Base.mapreduce(::typeof(identity), ::typeof(max), Q::MPIStateArray; kw.
 end
 
 
-using Requires
-
 # `realview` and `device` are helpers that enable
 # testing ODESolvers and LinearSolvers without using MPIStateArrays
 # They could be potentially useful elsewhere and exported but probably need
@@ -577,7 +582,6 @@ realview(Q::MPIStateArray) = Q.realdata
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
   using .CuArrays
-  using .CuArrays.CUDAnative
 
   device(::CuArray) = CUDA()
   realview(Q::CuArray) = Q
@@ -587,7 +591,6 @@ realview(Q::MPIStateArray) = Q.realdata
   function transform_broadcasted(bc::Broadcasted, ::CuArray)
     transform_cuarray(bc)
   end
-
   function transform_cuarray(bc::Broadcasted)
     Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
   end

@@ -4,19 +4,16 @@ using CLIMA.MPIStateArrays
 using CLIMA.Mesh.BrickMesh
 using Pkg
 
-if haskey(Pkg.installed(), "CuArrays")
-  using CuArrays
-  ArrayType = CuArray
-else
-  ArrayType = Array
-end
+const ArrayType = CLIMA.array_type()
+CLIMA.init()
+const comm = MPI.COMM_WORLD
+
 
 function main()
 
-  MPI.Init()
-  comm = MPI.COMM_WORLD
   crank = MPI.Comm_rank(comm)
   csize = MPI.Comm_size(comm)
+
 
   @assert csize == 3
 
