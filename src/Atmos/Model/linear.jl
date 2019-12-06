@@ -1,6 +1,33 @@
-abstract type AtmosLinearModel <: BalanceLaw
+"""
+    linearized_air_pressure(ρ, ρe_tot, ρe_pot, ρq_tot=0, ρq_liq=0, ρq_ice=0)
+
+The air pressure, linearized around a dry rest state, from the equation of state
+(ideal gas law) where:
+
+ - `ρ` (moist-)air density
+ - `ρe_tot` total energy density
+ - `ρe_pot` potential energy density
+and, optionally,
+ - `ρq_tot` total water density
+ - `ρq_liq` liquid water density
+ - `ρq_ice` ice density
+"""
+function linearized_air_pressure(ρ::FT, ρe_tot::FT, ρe_pot::FT,
+                                 ρq_tot::FT=FT(0), ρq_liq::FT=FT(0), ρq_ice::FT=FT(0)) where {FT<:Real}
+  ρ*FT(R_d)*FT(T_0) + FT(R_d)/FT(cv_d)*(ρe_tot - ρe_pot - (ρq_tot - ρq_liq)*FT(e_int_v0) + ρq_ice*(FT(e_int_i0) + FT(e_int_v0)))
 end
 
+@inline function linearized_pressure(::DryModel, orientation::Orientation, state::Vars, aux::Vars)
+  ρe_pot = state.ρ * gravitational_potential(orientation, aux)
+  linearized_air_pressure(state.ρ, state.ρe, ρe_pot)
+end
+@inline function linearized_pressure(::EquilMoist, orientation::Orientation, state::Vars, aux::Vars)
+  ρe_pot = state.ρ * gravitational_potential(orientation, aux)
+  linearized_air_pressure(state.ρ, state.ρe, ρe_pot, state.moisture.ρq_tot)
+end
+
+abstract type AtmosLinearModel <: BalanceLaw
+end
 
 vars_state(lm::AtmosLinearModel, FT) = vars_state(lm.atmos,FT)
 vars_gradient(lm::AtmosLinearModel, FT) = @vars()

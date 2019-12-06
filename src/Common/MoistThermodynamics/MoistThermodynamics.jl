@@ -14,7 +14,7 @@ using ..PlanetParameters
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
-export linearized_air_pressure, linearized_air_pressure_given_densities, total_specific_humidity
+export total_specific_humidity
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -93,30 +93,6 @@ The air pressure from the equation of state
 air_pressure(ts::ThermodynamicState) =
   air_pressure(air_temperature(ts), air_density(ts), PhasePartition(ts))
 
-"""
-    linearized_air_pressure(ρ, e_tot, e_pot[, q::PhasePartition])
-
-The air pressure, linearized around a dry rest state, from the equation of state
-(ideal gas law) where:
-
- - `ρ` (moist-)air density
- - `e_tot` total energy per unit mass
- - `e_pot` potential energy per unit mass
-and, optionally,
- - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
-"""
-linearized_air_pressure(ρ::FT, e_tot::FT, e_pot::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
-  linearized_air_pressure_given_densities(ρ, ρ*e_tot, ρ*e_pot, ρ*q.tot, ρ*q.liq, ρ*q.ice)
-
-linearized_air_pressure(e_kin::FT, e_pot::FT, ts::ThermodynamicState{FT}) where {FT<:Real} =
-  linearized_air_pressure(air_density(ts), total_energy(e_kin, e_pot, ts), e_pot, PhasePartition(ts))
-
-function linearized_air_pressure_given_densities(ρ::FT, ρe_tot::FT, ρe_pot::FT,
-                                                 ρq_tot::FT=FT(0),
-                                                 ρq_liq::FT=FT(0),
-                                                 ρq_ice::FT=FT(0)) where {FT<:Real}
-  ρ*FT(R_d)*FT(T_0) + FT(R_d)/FT(cv_d)*(ρe_tot - ρe_pot - (ρq_tot - ρq_liq)*FT(e_int_v0) + ρq_ice*(FT(e_int_i0) + FT(e_int_v0)))
-end
 
 """
     air_density(T, p[, q::PhasePartition])
