@@ -13,10 +13,10 @@ using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
 # This is so we can do things like
 #   similar(Array{Float64}, Int, 3, 4)
-Base.similar(::Type{Array}, ::Type{FT}, dims...) where {FT} = similar(Array{FT}, dims...)
+Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:Array, FT} = similar(Array{FT}, dims...)
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
   using .CuArrays
-  Base.similar(::Type{CuArray}, ::Type{FT}, dims...) where {FT} = similar(CuArray{FT}, dims...)
+  Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:CuArray, FT} = similar(CuArray{FT}, dims...)
 end
 
 
@@ -162,13 +162,20 @@ function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
 end
 
 # FIXME: should general cases be handled?
-function Base.similar(Q::MPIStateArray, ::Type{FTN}; commtag=Q.commtag
-                     ) where {FTN}
-  MPIStateArray{FTN}(Q.mpicomm, Q.data, size(Q.data)..., Q.realelems,
+function Base.similar(Q::MPIStateArray, ::Type{A}, ::Type{FT}; commtag=Q.commtag
+                     ) where {A<:AbstractArray, FT<:Number}
+  MPIStateArray{FT}(Q.mpicomm, A, size(Q.data)..., Q.realelems,
                      Q.ghostelems, Q.vmaprecv, Q.vmapsend, Q.nabrtorank,
                      Q.nabrtovmaprecv, Q.nabrtovmapsend, Q.weights, commtag)
 end
-
+function Base.similar(Q::MPIStateArray{FT}, ::Type{A}; commtag=Q.commtag
+                     ) where {A<:AbstractArray, FT<:Number}
+  similar(Q, A, FT, commtag = commtag)
+end
+function Base.similar(Q::MPIStateArray, ::Type{FT}; commtag=Q.commtag
+                     ) where {FT<:Number}
+  similar(Q, typeof(Q.data), FT, commtag = commtag)
+end
 function Base.similar(Q::MPIStateArray{FT}; commtag=Q.commtag) where {FT}
   similar(Q, FT, commtag = commtag)
 end

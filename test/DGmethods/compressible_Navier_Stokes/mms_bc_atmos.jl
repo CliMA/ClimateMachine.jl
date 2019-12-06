@@ -16,6 +16,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
+using Test
 
 const ArrayType = CLIMA.array_type()
 
@@ -127,6 +128,8 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                CentralGradPenalty())
 
   Q = init_ode_state(dg, FT(0))
+  Qcpu = init_ode_state(dg, FT(0); forcecpu=true)
+  @test euclidean_distance(Q, Qcpu) < sqrt(eps(FT))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -172,7 +175,6 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
   errf
 end
 
-using Test
 let
   CLIMA.init()
   mpicomm = MPI.COMM_WORLD
