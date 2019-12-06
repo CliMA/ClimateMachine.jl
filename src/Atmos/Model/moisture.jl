@@ -57,6 +57,10 @@ vars_aux(::DryModel,FT) = @vars(θ_v::FT)
 end
 
 thermo_state(moist::DryModel, orientation::Orientation, state::Vars, aux::Vars) = PhaseDry(internal_energy(moist, orientation, state, aux), state.ρ)
+@inline function linearized_pressure(::DryModel, orientation::Orientation, state::Vars, aux::Vars)
+  ρe_pot = state.ρ * gravitational_potential(orientation, aux)
+  linearized_air_pressure_given_densities(state.ρ, state.ρe, ρe_pot)
+end
 
 """
     EquilMoist
@@ -83,6 +87,10 @@ end
 function thermo_state(moist::EquilMoist, orientation::Orientation, state::Vars, aux::Vars)
   e_int = internal_energy(moist, orientation, state, aux)
   PhaseEquil(e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
+end
+@inline function linearized_pressure(::EquilMoist, orientation::Orientation, state::Vars, aux::Vars)
+  ρe_pot = state.ρ * gravitational_potential(orientation, aux)
+  linearized_air_pressure_given_densities(state.ρ, state.ρe, ρe_pot, state.moisture.ρq_tot)
 end
 
 function gradvariables!(moist::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
