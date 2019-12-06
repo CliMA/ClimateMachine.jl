@@ -342,7 +342,7 @@ let
   # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
   for ArrayType in ArrayTypes
       #aspectratios = (1,3.5,7,)
-      exp_step = 0
+      exp_step = 1
       linearmodels      = (AtmosAcousticGravityLinearModel,)
       IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,) #(ARK2GiraldoKellyConstantinescu,) 
       for SolverMethod in IMEXSolverMethods
