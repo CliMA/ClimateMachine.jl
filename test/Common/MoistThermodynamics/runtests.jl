@@ -257,7 +257,6 @@ end
   ts_θ_liq_ice_neq = LiquidIcePotTempSHumNonEquil(θ_liq_ice, q_pt, ρ)
   ts_θ_liq_ice_neq_p = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, q_pt, p)
   for ts in (ts_eq, ts_dry, ts_T, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_p, ts_θ_liq_ice_neq, ts_θ_liq_ice_neq_p)
-    @test linearized_air_pressure(e_kin, e_pot, ts) isa typeof(e_int)
     @test soundspeed_air(ts) isa typeof(e_int)
     @test gas_constant_air(ts) isa typeof(e_int)
     @test relative_humidity(ts) isa typeof(e_int)
@@ -306,8 +305,6 @@ end
       ts_dry = PhaseDry(e_int, ρ)
       ts_eq  = PhaseEquil(e_int, typeof(ρ)(0), ρ)
 
-      @test linearized_air_pressure(FT(0), e_pot, ts_dry) ≈ air_pressure(ts_dry)
-      @test linearized_air_pressure(e_kin, e_pot, ts_eq)  ≈ linearized_air_pressure(e_kin, e_pot, ts_dry)
       @test gas_constant_air(ts_eq)                       ≈ gas_constant_air(ts_dry)
       @test relative_humidity(ts_eq)                      ≈ relative_humidity(ts_dry)
       @test air_pressure(ts_eq)                           ≈ air_pressure(ts_dry)
