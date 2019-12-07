@@ -354,8 +354,8 @@ let
           #                      FT(planet_radius + setup.domain_height),
           #                                      nelem = numelem_vert)
           
-          numelem_vert = 10
-          numelem_horz = 16
+          numelem_vert = 20
+          numelem_horz = 40
           vert_range = grid1d(FT(planet_radius), 
                               FT(planet_radius + ztop),
                               nelem = numelem_vert)
