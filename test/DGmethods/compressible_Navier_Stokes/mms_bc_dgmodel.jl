@@ -13,15 +13,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -34,7 +26,7 @@ include("mms_model.jl")
 
 # initial condition
 
-function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
+function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -97,7 +89,7 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -105,9 +97,6 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
   base_num_elem = 4
@@ -116,7 +105,6 @@ let
                      2.5754410198969766e-02 1.1781217145186925e-03 6.1752962472852435e-05]
   lvls = integration_testing ? size(expected_result, 2) : 1
 
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for FT in (Float64,) #Float32)
       result = zeros(FT, lvls)
       for dim = 2:3
@@ -151,7 +139,7 @@ let
           dt = timeend / nsteps
 
           @info (ArrayType, FT, dim)
-          result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
+          result[l] = run(mpicomm, dim, topl, warpfun,
                           polynomialorder, timeend, FT, dt)
           @test result[l] ≈ FT(expected_result[dim-1, l])
         end
@@ -167,7 +155,6 @@ let
         end
       end
     end
-  end
 end
 
 nothing

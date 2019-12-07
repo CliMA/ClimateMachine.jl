@@ -6,6 +6,7 @@ export ThermodynamicState,
        PhaseNonEquil,
        TemperatureSHumEquil,
        LiquidIcePotTempSHumEquil,
+       LiquidIcePotTempSHumEquil_given_pressure,
        LiquidIcePotTempSHumNonEquil,
        LiquidIcePotTempSHumNonEquil_given_pressure
 
@@ -111,6 +112,23 @@ function LiquidIcePotTempSHumEquil(θ_liq_ice::FT, q_tot::FT, ρ::FT) where {FT<
     q_pt = PhasePartition_equil(T, ρ, q_tot)
     e_int = internal_energy(T, q_pt)
     return PhaseEquil(e_int, q_tot, ρ, T)
+end
+
+"""
+    LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, q_tot, p)
+
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
+
+ - `θ_liq_ice` - liquid-ice potential temperature
+ - `q_tot` - total specific humidity
+ - `p` - pressure
+"""
+function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT, q_tot::FT, p::FT) where {FT<:Real}
+    T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, q_tot, p)
+    ρ = air_density(T, p, PhasePartition(q_tot))
+    q = PhasePartition_equil(T, ρ, q_tot)
+    e_int = internal_energy(T, q)
+    return PhaseEquil(e_int, q.tot, ρ, T)
 end
 
 """

@@ -1,6 +1,7 @@
 module CLIMA
 
 include("misc.jl")
+include("Utilities/TicToc/TicToc.jl")
 include("Utilities/ParametersType/ParametersType.jl")
 include("Common/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
@@ -11,8 +12,8 @@ include("Atmos/Parameterizations/CloudPhysics/Microphysics.jl")
 include("Atmos/Parameterizations/SurfaceFluxes/SurfaceFluxes.jl")
 include("Atmos/Parameterizations/TurbulenceConvection/TurbulenceConvection.jl")
 include("Atmos/Parameterizations/SubgridScaleTurbulence/SubgridScaleParameters.jl")
-include("Mesh/Mesh.jl")
 include("Arrays/MPIStateArrays.jl")
+include("Mesh/Mesh.jl")
 include("DGmethods/SpaceMethods.jl")
 include("DGmethods/DGmethods.jl")
 include("Ocean/Model/ShallowWaterModel.jl")

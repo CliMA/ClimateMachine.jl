@@ -12,15 +12,7 @@ using LinearAlgebra
 using Logging
 using GPUifyLoops
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, integrate_aux!,
@@ -104,8 +96,7 @@ function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
 end
 
 let
-  MPI.Initialized() || MPI.Init()
-
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -113,9 +104,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
 
@@ -133,28 +121,26 @@ let
 
   lvls = integration_testing ? length(expected_result) : 1
 
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for FT in (Float64,) #Float32)
-      err = zeros(FT, lvls)
-      for l = 1:lvls
-        @info (ArrayType, FT, "sphere", l)
-        Nhorz = 2^(l-1) * base_Nhorz
-        Nvert = 2^(l-1) * base_Nvert
-        Rrange = grid1d(FT(Rinner), FT(Router); nelem=Nvert)
-        topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, FT,
-                     FT(Rinner), FT(Router))
-        @test expected_result[l] ≈ err[l]
-      end
-      if integration_testing
-        @info begin
-          msg = ""
-          for l = 1:lvls-1
-            rate = log2(err[l]) - log2(err[l+1])
-            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-          end
-          msg
+  for FT in (Float64,) #Float32)
+    err = zeros(FT, lvls)
+    for l = 1:lvls
+      @info (ArrayType, FT, "sphere", l)
+      Nhorz = 2^(l-1) * base_Nhorz
+      Nvert = 2^(l-1) * base_Nvert
+      Rrange = grid1d(FT(Rinner), FT(Router); nelem=Nvert)
+      topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
+      err[l] = run(mpicomm, topl, ArrayType, polynomialorder, FT,
+                    FT(Rinner), FT(Router))
+      @test expected_result[l] ≈ err[l]
+    end
+    if integration_testing
+      @info begin
+        msg = ""
+        for l = 1:lvls-1
+          rate = log2(err[l]) - log2(err[l+1])
+          msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
         end
+        msg
       end
     end
   end

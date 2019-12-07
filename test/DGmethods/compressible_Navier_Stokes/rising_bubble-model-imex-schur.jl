@@ -26,15 +26,7 @@ using Random
 using CLIMA.Atmos: vars_state, ReferenceState
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -153,9 +145,7 @@ function atmos_init_aux!(m::RisingBubbleReferenceState, atmos::AtmosModel, aux::
   aux.ref_state.T = T
 end
 
-function run(mpicomm, ArrayType, 
-             topl, dim, Ne, polynomialorder, 
-             timeend, FT, dt)
+function run(mpicomm, topl, dim, Ne, polynomialorder, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -355,7 +345,7 @@ end
 # --------------- Test block / Loggers ------------------ # 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -363,15 +353,8 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-      brickrange = ntuple(d -> range(FT(domain_start[d]); length=Ne[d]+1, stop=domain_end[d]), 3)
-      periodicity = (false, dim == 2 ? true : false, false)
-      topl = StackedBrickTopology(mpicomm, brickrange, periodicity = periodicity)
-      engf_eng0 = run(mpicomm, ArrayType, 
-                      topl, dim, Ne, polynomialorder, 
-                      timeend, FT, dt)
-    end
+  brickrange = ntuple(d -> range(FT(domain_start[d]); length=Ne[d]+1, stop=domain_end[d]), 3)
+  periodicity = (false, dim == 2 ? true : false, false)
+  topl = StackedBrickTopology(mpicomm, brickrange, periodicity = periodicity)
+  engf_eng0 = run(mpicomm, topl, dim, Ne, polynomialorder, timeend, FT, dt)
 end

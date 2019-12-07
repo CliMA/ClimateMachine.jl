@@ -3,18 +3,9 @@ using Test, MPI
 using CLIMA
 using CLIMA.MPIStateArrays
 
-MPI.Initialized() || MPI.Init()
-
+const ArrayType = CLIMA.array_type()
+CLIMA.init()
 const mpicomm = MPI.COMM_WORLD
-
-@static if haspkg("CuArrays")
-  using CuArrays
-  # make sure that broadcasting is not being done by scalar indexing into CuArrays
-  CuArrays.allowscalar(false)
-  ArrayType = CuArray
-else
-  ArrayType = Array
-end
 
 @testset "MPIStateArray basics" begin
   Q = MPIStateArray{Float32}(mpicomm, ArrayType, 4, 6, 8)
@@ -25,7 +16,7 @@ end
   fillval = 0.5f0
   fill!(Q, fillval)
 
-  haspkg("CuArrays") && CuArrays.allowscalar(true)
+  CLIMA.gpu_allowscalar(true)
   @test Q[1] ==  fillval
   @test Q[2, 3, 4] == fillval
   @test Q[end] == fillval
@@ -34,8 +25,8 @@ end
   
   Q[2, 3, 4] = 2fillval
   @test Q[2, 3, 4] != fillval
-  haspkg("CuArrays") && CuArrays.allowscalar(false)
-
+  CLIMA.gpu_allowscalar(false)
+  
   Qp = copy(Q)
   
   @test typeof(Qp) == typeof(Q)
@@ -51,22 +42,4 @@ end
 
   copyto!(Qp, Q)
   @test Array(Qp) == Array(Q)
- 
-  Qp = similar(Q, Float64)
-  
-  @test Qp isa MPIStateArray{Float64}
-  @test eltype(Qp) == Float64
-  @test size(Qp) == size(Q)
-  
-  Qp = similar(Q, Float64, 2)
-  
-  @test Qp isa MPIStateArray{Float64}
-  @test eltype(Qp) == Float64
-  @test size(Qp) == (4, 2, 8)
-  
-  Qp = similar(Q, 2)
-  
-  @test typeof(Qp) == typeof(Q)
-  @test eltype(Qp) == eltype(Q)
-  @test size(Qp) == (4, 2, 8)
 end

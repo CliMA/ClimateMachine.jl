@@ -6,6 +6,9 @@ export NoSchur
 
 using LinearAlgebra
 
+abstract type SchurComplement end
+struct NoSchur <: SchurComplement end
+
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and Constantinescu (2013) directly.
 # Seems to cut the number of solver iterations by half but requires Nstages - 1 additional storage.
 struct NaiveVariant end
@@ -15,9 +18,6 @@ additional_storage(::NaiveVariant, Q, Nstages) = (Lstages = ntuple(i -> similar(
 # Uses only one additional vector of storage regardless of the number of stages.
 struct LowStorageVariant end
 additional_storage(::LowStorageVariant, Q, Nstages) = (Qtt = similar(Q),)
-
-abstract type SchurComplement end
-struct NoSchur <: SchurComplement end
 
 using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
@@ -254,7 +254,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
   rhs_linear!(Lstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-
+  
   if dt != ark.dt
     α = dt * RKA_implicit[2, 2]
     implicitoperator! = EulerOperator(rhs_linear!, -α)

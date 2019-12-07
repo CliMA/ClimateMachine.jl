@@ -15,7 +15,8 @@ end
 ###################
 # PARAM SELECTION #
 ###################
-FT = Float64
+const FT = Float64
+const ArrayType = CLIMA.array_type()
 
 const τₒ = 2e-4 # value includes τₒ, g, and ρ
 const fₒ = 1e-4
@@ -151,7 +152,7 @@ end
 ################
 
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -160,15 +161,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-
-  @static if haspkg("CuArrays")
-    ArrayType = CuArray
-  else
-    ArrayType = Array
-  end
 
   model = setup_model(FT, stommel, linear, τₒ, fₒ, β, λ, ν, Lˣ, Lʸ, H)
 

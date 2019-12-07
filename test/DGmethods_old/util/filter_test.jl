@@ -9,15 +9,7 @@ using Printf
 using LinearAlgebra
 using Logging
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayTypes = (CLIMA.array_type(),)
 
 using Test
 function run(mpicomm, dim, ArrayType, Ne, FT)
@@ -96,8 +88,7 @@ function run(mpicomm, dim, ArrayType, Ne, FT)
 end
 
 let
-  MPI.Initialized() || MPI.Init()
-
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -105,10 +96,7 @@ let
              ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-
+  
   numelem = (1, 1, 1)
   lvls = 1
 

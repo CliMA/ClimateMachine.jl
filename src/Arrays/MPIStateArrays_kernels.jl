@@ -1,3 +1,8 @@
+using Requires
+@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
+  using .CUDAnative
+end
+
 function knl_fillsendbuf!(::Val{Np}, ::Val{nvar}, sendbuf, buf,
                           vmapsend, nvmapsend) where {Np, nvar}
 

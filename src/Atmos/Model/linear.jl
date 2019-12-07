@@ -32,7 +32,14 @@ init_state!(lm::AtmosLinearModel, state::Vars, aux::Vars, coords, t) = nothing
 
 struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
   atmos::M
+  function AtmosAcousticLinearModel(atmos::M) where {M}
+    if atmos.ref_state === NoReferenceState()
+      error("AtmosAcousticLinearModel needs a model with a reference state")
+    end
+    new{M}(atmos)
+  end
 end
+
 function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
   FT = eltype(state)
   ref = aux.ref_state
@@ -52,6 +59,12 @@ end
 
 struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
   atmos::M
+  function AtmosAcousticGravityLinearModel(atmos::M) where {M}
+    if atmos.ref_state === NoReferenceState()
+      error("AtmosAcousticGravityLinearModel needs a model with a reference state")
+    end
+    new{M}(atmos)
+  end
 end
 function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
   FT = eltype(state)

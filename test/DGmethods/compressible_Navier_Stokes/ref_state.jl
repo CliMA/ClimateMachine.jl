@@ -17,15 +17,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -41,7 +33,7 @@ init_state!(state, aux, coords, t) = nothing
 # initial condition
 using CLIMA.Atmos: vars_aux
 
-function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
+function run1(mpicomm, dim, topl, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -74,7 +66,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
   return FT(0)
 end
 
-function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
+function run2(mpicomm, dim, topl, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -109,7 +101,7 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -117,9 +109,6 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
   base_num_elem = 4
@@ -127,7 +116,6 @@ let
   expected_result = [0.0 0.0 0.0; 0.0 0.0 0.0]
   lvls = integration_testing ? size(expected_result, 2) : 1
 
-@testset "$(@__FILE__)" for ArrayType in ArrayTypes
 for FT in (Float64,) #Float32)
   result = zeros(FT, lvls)
   x_max = FT(25*10^3)
@@ -148,9 +136,9 @@ for FT in (Float64,) #Float32)
     dt = timeend / nsteps
 
     @info (ArrayType, FT, dim)
-    result[l] = run1(mpicomm, ArrayType, dim, topl,
+    result[l] = run1(mpicomm, dim, topl,
                     polynomialorder, timeend, FT, dt)
-    result[l] = run2(mpicomm, ArrayType, dim, topl,
+    result[l] = run2(mpicomm, dim, topl,
                     polynomialorder, timeend, FT, dt)
   end
   if integration_testing
@@ -163,7 +151,6 @@ for FT in (Float64,) #Float32)
       msg
     end
   end
-end
 end
 end
 

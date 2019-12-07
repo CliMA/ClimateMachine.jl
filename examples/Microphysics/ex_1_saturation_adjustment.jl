@@ -35,15 +35,7 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const DeviceArrayType = CuArray
-else
-  const DeviceArrayType = Array
-end
+const ArrayType = CLIMA.array_type()
 
 const _nstate = 5
 const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot = 1:_nstate
@@ -296,9 +288,7 @@ end
 
 function run(dim, Ne, N, timeend, FT)
 
-  ArrayType = DeviceArrayType
-
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
 
   mpicomm = MPI.COMM_WORLD
 

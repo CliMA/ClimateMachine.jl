@@ -21,15 +21,7 @@ using TimerOutputs
 
 const to = TimerOutput()
 
-if haspkg("CuArrays")
-    using CUDAdrv
-    using CUDAnative
-    using CuArrays
-    CuArrays.allowscalar(false)
-    const ArrayType = CuArray
-else
-    const ArrayType = Array
-end
+const ArrayTypes = (CLIMA.array_type(),)
 
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
 # For the dry example shown here, we load the moist thermodynamics module 
@@ -619,7 +611,7 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -628,9 +620,6 @@ let
       ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
   # User defined number of elements
   # User defined timestep estimate
   # User defined simulation end time

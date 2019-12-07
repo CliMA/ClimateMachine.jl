@@ -12,6 +12,7 @@ using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
+using CLIMA.TicToc
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -22,15 +23,7 @@ using CLIMA.Atmos: vars_state, vars_aux
 using Random
 const seed = MersenneTwister(0)
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -179,7 +172,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, DT, dt, C_smag, LHF, SHF
     nothing
   end
 
+  @tic solve
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  @toc solve
 
   # Print some end of the simulation information
   engf = norm(Q)
@@ -199,7 +194,9 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  tictoc()
+  @tic dycoms
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -207,10 +204,7 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+  @testset begin
     # Problem type
     DT = Float64
     # DG polynomial order
@@ -238,6 +232,7 @@ let
                  N, timeend, DT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
     @test result ≈ DT(0.9999734954176608)
   end
+  @toc dycoms
 end
 
 #nothing

@@ -2,6 +2,7 @@ using ..Mesh.Grids
 using ..MPIStateArrays
 using ..DGmethods
 using ..DGBalanceLawDiscretizations
+using ..TicToc
 
 """
     writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw [, fieldnames])
@@ -16,10 +17,13 @@ number of states in `Q`, i.e., `k = size(Q,2)`.
 """
 function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames=nothing)
+  @tic writevtk_Q
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q) = host_array ? (vgeo, Q.data) : (Array(vgeo), Array(Q))
   writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames)
+  @toc writevtk_Q
+  return nothing
 end
 
 """
@@ -42,12 +46,15 @@ size(auxstate,2)`.
 """
 function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames, auxstate, auxfieldnames)
+  @tic writevtk_Q_aux
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
   (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.data, auxstate.data) :
                                       (Array(vgeo), Array(Q), Array(auxstate))
   writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames, h_aux,
                   auxfieldnames)
+  @toc writevtk_Q_aux
+  return nothing
 end
 
 

@@ -88,16 +88,14 @@ using LinearAlgebra
 
   # saturation adjustment in equilibrium (i.e., given the thermodynamic
   # variables E_int, p, q_tot, compute the temperature and partitioning of the phases
+  tol_T = 1e-2
   q_tot = FT(0); ρ = FT(1)
   @test saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
+  @test abs(saturation_adjustment_NewtonsMethod(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) - 300.0) < tol_T
 
   q_tot = FT(0.21); ρ = FT(0.1)
   @test saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot) ≈ 200.0
-  q = PhasePartition_equil(T, ρ, q_tot)
-  @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
-
-  q_tot = FT(0.78); ρ = FT(1)
-  @test saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
+  @test abs(saturation_adjustment_NewtonsMethod(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot) - 200.0) < tol_T
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
 
@@ -207,6 +205,12 @@ end
   @test all(air_density.(ts) .≈ ρ)
   @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot_moist)
 
+  # LiquidIcePotTempSHumEquil_given_pressure: Moist case
+  ts = LiquidIcePotTempSHumEquil_given_pressure.(θ_liq_ice, q_tot_moist, p)
+  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
+  @test all(abs.(air_pressure.(ts) - p)./p.*100 .< 1)
+  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist, :tot))
+
   # LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::FT, q_pt::PhasePartition{FT}, p::FT): Moist case
   ts = LiquidIcePotTempSHumNonEquil_given_pressure.(θ_liq_ice, q_pt_moist, p)
   @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
@@ -249,9 +253,10 @@ end
   ts_T = TemperatureSHumEquil(air_temperature(ts_dry), q_pt.tot, air_pressure(ts_dry))
   ts_neq = PhaseNonEquil(e_int, PhasePartition(q_tot, q_liq, q_ice), ρ)
   ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, q_tot, ρ)
-  ts_θ_liq_ice_neq = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, q_pt, p)
-  ts_θ_liq_ice_neq_ρ = LiquidIcePotTempSHumNonEquil(θ_liq_ice, q_pt, ρ)
-  for ts in (ts_eq, ts_dry, ts_T, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_neq, ts_θ_liq_ice_neq_ρ)
+  ts_θ_liq_ice_eq_p = LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, q_tot, p)
+  ts_θ_liq_ice_neq = LiquidIcePotTempSHumNonEquil(θ_liq_ice, q_pt, ρ)
+  ts_θ_liq_ice_neq_p = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, q_pt, p)
+  for ts in (ts_eq, ts_dry, ts_T, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_p, ts_θ_liq_ice_neq, ts_θ_liq_ice_neq_p)
     @test linearized_air_pressure(e_kin, e_pot, ts) isa typeof(e_int)
     @test soundspeed_air(ts) isa typeof(e_int)
     @test gas_constant_air(ts) isa typeof(e_int)

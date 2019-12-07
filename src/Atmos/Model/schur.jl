@@ -1,4 +1,4 @@
-using CLIMA.DGmethods: nodal_transfer_state!, grad_auxiliary_state!
+using CLIMA.DGmethods: nodal_transfer_state!, grad_auxiliary_state!, init_ode_state
 using CLIMA.LinearSolvers: linearsolve!
 import CLIMA.AdditiveRungeKuttaMethod: SchurComplement, ark_linearsolve!
 
@@ -38,10 +38,9 @@ function AtmosSchurComplement(lineardg::DGModel, Q)
                       nothing,
                       CentralNumericalFluxDiffusive(),
                       CentralGradPenalty())
-  P = similar(Q, 1)
-  R = similar(Q, 1)
+  P = init_ode_state(lhs_dg, 0)
+  R = similar(P)
   AT = typeof(P)
-  @show AT
 
   # initalize the auxiliary state
   nodal_transfer_state!(schur_auxstate_init!, grid,

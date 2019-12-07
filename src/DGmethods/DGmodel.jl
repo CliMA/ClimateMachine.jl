@@ -119,10 +119,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 end
 
 function init_ode_state(dg::DGModel, args...;
-                        device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
+                        forcecpu=false,
                         commtag=888)
-  array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
-  @assert device == CPU() || device == array_device
+  device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
 
   bl = dg.balancelaw
   grid = dg.grid
@@ -138,7 +137,7 @@ function init_ode_state(dg::DGModel, args...;
   vgeo = grid.vgeo
   nrealelem = length(topology.realelems)
 
-  if device == array_device
+  if !forcecpu
     @launch(device, threads=(Np,), blocks=nrealelem,
             initstate!(bl, Val(dim), Val(polyorder), state.data, auxstate.data, vgeo,
                      topology.realelems, args...))
@@ -147,7 +146,7 @@ function init_ode_state(dg::DGModel, args...;
     h_state = similar(state, Array)
     h_auxstate = similar(auxstate, Array)
     h_auxstate .= auxstate
-    @launch(device, threads=(Np,), blocks=nrealelem,
+    @launch(CPU(), threads=(Np,), blocks=nrealelem,
       initstate!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
           topology.realelems, args...))
     state .= h_state
