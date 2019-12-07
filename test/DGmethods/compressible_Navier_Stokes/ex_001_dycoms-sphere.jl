@@ -11,6 +11,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.AdditiveRungeKuttaMethod: ARK2PresentationVersion
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
@@ -28,6 +29,7 @@ using Dates
 using CLIMA.ColumnwiseLUSolver: SingleColumnLU, ManyColumnLU, banded_matrix,
                                 banded_matrix_vector_product!
 using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
+using CLIMA.LinearSolvers
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -64,15 +66,18 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
+function Initialise_DYCOMS!(state::Vars, aux::Vars, coords, t)
   FT            = eltype(state)
-  xvert::FT     = z
   Rd::FT        = R_d
   Rv::FT        = R_v
   Rm::FT        = Rd
   ϵdv::FT       = Rv/Rd
   cpd::FT       = cp_d
 
+  r = norm(coords, 2)
+  h = r - FT(planet_radius)
+  xvert = h
+    
   # These constants are those used by Stevens et al. (2005)
   qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
@@ -99,22 +104,6 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   end
   q_c = q_liq + q_ice
   #Rm  = Rd*(FT(1) + (ϵdv - FT(1))*q_tot - ϵdv*q_c)
-
-  # --------------------------------------------------
-  # perturb initial state to break the symmetry and
-  # trigger turbulent convection
-  # --------------------------------------------------
-  #randnum1   = rand(seed, FT) / 100
-  #randnum2   = rand(seed, FT) / 1000
-  #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
-  #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
-  #if xvert <= 25.0
-  #  θ_liq += randnum1 * θ_liq
-  #  q_tot += randnum2 * q_tot
-  #end
-  # --------------------------------------------------
-  # END perturb initial state
-  # --------------------------------------------------
 
     # Calculate PhasePartition object for vertical domain extent
     q_pt  = PhasePartition(q_tot, q_liq, q_ice)
@@ -166,21 +155,19 @@ function run(mpicomm,
              LHF,
              SHF,
              C_drag,
-             xmax, ymax, zmax,
+             ztop,
              zsponge,
              dt_exp, 
              dt_imex,
              explicit, 
-             LinearModel,
-             SolverMethod,
              out_dir)
     
-  # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
-                                         )
+                                          meshwarp = Topologies.cubedshellwarp)
+    
   # Problem constants
   # Radiation model
   κ             = FT(85)
@@ -206,13 +193,13 @@ function run(mpicomm,
   RelHum = FT(0)
     
   # Model definition
-  model = AtmosModel(FlatOrientation(),
+  model = AtmosModel(SphericalOrientation(), #FlatOrientation(),
                      HydrostaticState(Temp,RelHum),
                      SmagorinskyLilly{}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
-                      RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation),
+                      RayleighSponge{FT}(ztop, zsponge, c_sponge, u_relaxation),
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
@@ -224,8 +211,9 @@ function run(mpicomm,
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty(),
                direction=EveryDirection())
-
-  linmodel = LinearModel(model)
+    
+  linmodel = AtmosAcousticGravityLinearModel(model) 
+  #linmodel = LinearModel(model)
   
   vdg = DGModel(linmodel,
                 grid,
@@ -238,15 +226,10 @@ function run(mpicomm,
     
   #Q = init_ode_state(dg, FT(0); device=CPU())
   Q = init_ode_state(dg, FT(0))
-
-  cbfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
-      Filters.apply!(Q, 6, dg.grid, TMARFilter())
-      nothing
-  end
     
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(5, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -263,7 +246,7 @@ function run(mpicomm,
   end
   
   # Setup VTK output callbacks
- out_interval = 5000
+ out_interval = 10
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -284,28 +267,28 @@ function run(mpicomm,
         gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                            xmax, ymax, out_dir)
     end
-       
-    if explicit == 1
-        numberofsteps = convert(Int64, cld(timeend, dt_exp))
-        dt_exp = timeend / numberofsteps
-        @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
-        solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
-        #@timeit to "solve! EX DYCOMS- $LinearModel $SolverMethod $aspectratio $dt_exp $timeend" solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
-          
-        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter, cbinfo, cbdiagnostics))
-        
-    else
-        numberofsteps = convert(Int64, cld(timeend, dt_imex))
-        dt_imex = timeend / numberofsteps
-        @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
-                
-        solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
-                              dt = dt_imex, t0 = 0,
-                              split_nonlinear_linear=false)
-        #@timeit to "solve! IMEX DYCOMS - $LinearModel $SolverMethod $aspectratio $dt_imex $timeend" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter,),adjustfinalstep=false)
+      
+    solver = ARK2GiraldoKellyConstantinescu(dg, vdg, ManyColumnLU(), Q; 
+                                            dt=dt_imex, t0=0,
+                                            split_nonlinear_linear=false, 
+                                            version = ARK2PresentationVersion())
 
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
+    exp_filter_interval = 1
+    filterorder = 14   
+    filter = ExponentialFilter(grid, 0, filterorder)
+    cbfilter = GenericCallbacks.EveryXSimulationSteps(exp_filter_interval) do
+        Filters.apply!(Q, 1:size(Q, 2), grid, filter)
+        nothing
     end
+    
+    tmar_filter_interval = 2
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(tmar_filter_interval) do (init=false)
+        Filters.apply!(Q, 6, dg.grid, TMARFilter())
+        nothing
+    end
+
+    numberofsteps = convert(Int64, cld(timeend, dt_imex))
+    solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbtmarfilter, cbvtk, cbinfo), adjustfinalstep=false)
 
 end
 
@@ -332,97 +315,98 @@ let
   for ArrayType in ArrayTypes
       #aspectratios = (1,3.5,7,)
       exp_step = 0
-      linearmodels      = (AtmosAcousticGravityLinearModel,)
-      IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,) #(ARK2GiraldoKellyConstantinescu,) 
-      for SolverMethod in IMEXSolverMethods
-          for LinearModel in linearmodels 
-              for explicit in exp_step
-
-                  # Problem type
-                  FT = Float64
-                  
-                  # DG polynomial order
-                  N = 4
-                  
-                  # SGS Filter constants
-                  C_smag = FT(0.15)
-                  LHF    = FT(115)
-                  SHF    = FT(15)
-                  C_drag = FT(0.0011)
-                  
-                  # User defined domain parameters
-                  Δh = FT(35)
-                  aspectratio = FT(7)
-                  Δv = Δh/aspectratio
-                  #aspectratio = Δh/Δv
-                  
-                  xmin, xmax = 0, 2000
-                  ymin, ymax = 0, 2000
-                  zmin, zmax = 0, 1500
-                  
-                  grid_resolution = [Δh, Δh, Δv]
-                  domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
-                  dim = length(grid_resolution)
-                  
-                  brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
-                                grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
-                                grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
-                  zmax = brickrange[dim][end]
-                  
-                  zsponge = FT(1000.0)
-                  topl = StackedBrickTopology(mpicomm, brickrange,
-                                              periodicity = (true, true, false),
-                                              boundary=((0,0),(0,0),(1,2)))
-
-                  #hmnd = min_node_distance(grid, HorizontalDirection())
-                  #vmnd = min_node_distance(grid, VerticalDirection())
-                  #@show "MIN NODE DISTANCE " mnd, hmnd, vmnd
-                  #dt_exp  =  mnd/soundspeed_air(FT(330)) * safety_fac
-                  #dt_imex = hmnd/soundspeed_air(FT(330)) * safety_fac
-                  
-                  safety_fac = FT(0.5)
-                  dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
-                  timeend = 14400
-                  
-                  @info @sprintf """Starting
-                          ArrayType                 = %s
-                          ODE_Solver                = %s
-                          LinearModel               = %s
-                          dt_exp                    = %.5e
-                          dt_imp                    = %.5e
-                          dt_ratio                  = %.3e
-                          Δhoriz/Δvert              = %.5e
-                          """ ArrayType SolverMethod LinearModel dt_exp dt_imex dt_imex/dt_exp aspectratio
-                  
-                  result = run(mpicomm,
-                               ArrayType,
-                               dim,
-                               topl,
-                               N,
-                               timeend,
-                               FT,
-                               C_smag,
-                               LHF, SHF,
-                               C_drag,
-                               xmax, ymax, zmax,
-                               zsponge,
-                               dt_exp, 
-                               dt_imex,
-                               explicit, 
-                               LinearModel,
-                               SolverMethod,
-                               out_dir)
-                  
-              end
-          end
+      #linearmodels      = (AtmosAcousticGravityLinearModel,)
+      #IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,) #(ARK2GiraldoKellyConstantinescu,) 
+      #for SolverMethod in IMEXSolverMethods
+       #   for LinearModel in linearmodels 
+      for explicit in exp_step
+          
+          # Problem type
+          FT = Float64
+          
+          # DG polynomial order
+          N = 4
+          
+          # SGS Filter constants
+          C_smag = FT(0.15)
+          LHF    = FT(115)
+          SHF    = FT(15)
+          C_drag = FT(0.0011)
+          
+          # User defined domain parameters
+          #=Δh = FT(35)
+          aspectratio = FT(7)
+          Δv = Δh/aspectratio=#
+          #aspectratio = Δh/Δv
+          Δv = FT(5)
+          aspectratio = FT(50)
+          Δh = Δv * aspectratio
+          
+          ztop = 1500
+          
+          grid_resolution = [Δh, Δh, Δv]
+          dim = length(grid_resolution)
+          
+          zsponge = FT(planet_radius + 1000.0)
+          
+          #                  SingleExponentialStretching(2), 
+          #                  vert_range = grid1d(FT(planet_radius), 
+          #                      FT(planet_radius + setup.domain_height),
+          #                                      nelem = numelem_vert)
+          
+          numelem_vert = 10
+          numelem_horz = 16
+          vert_range = grid1d(FT(planet_radius), 
+                              FT(planet_radius + ztop),
+                              nelem = numelem_vert)
+          
+          topl = StackedCubedSphereTopology(mpicomm, 
+                                            numelem_horz, 
+                                            vert_range)
+          
+          #=topl = StackedBrickTopology(mpicomm, brickrange,
+          periodicity = (true, true, false),
+          boundary=((0,0),(0,0),(1,2)))
+          =#
+          
+          dt_factor = FT(50)
+          safety_fac = FT(0.5)
+          dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
+          ##dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
+          dt_imex = Δv/soundspeed_air(FT(289))/N * dt_factor
+          timeend = 14400
+          
+          @info @sprintf """Starting
+                              ArrayType                 = %s
+                              dt_exp                    = %.5e
+                              dt_imex                   = %.5e
+                              dt_ratio                  = %.3e
+                              Δhoriz/Δvert              = %.5e
+                              """ ArrayType dt_exp dt_imex dt_imex/dt_exp aspectratio
+          
+          result = run(mpicomm,
+                       ArrayType,
+                       dim,
+                       topl,
+                       N,
+                       timeend,
+                       FT,
+                       C_smag,
+                       LHF, SHF,
+                       C_drag,
+                       ztop,
+                       zsponge,
+                       dt_exp, 
+                       dt_imex,
+                       explicit,
+                       out_dir)
       end
   end
-
-#  @show LH_v0
-#  @show R_d
-#  @show MSLP
-#  @show cp_d
+    
+    #  @show LH_v0
+    #  @show R_d
+    #  @show MSLP
+    #  @show cp_d
 end
 
 ###include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))

@@ -243,6 +243,17 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
 
 end
 
+struct ARK2PaperVersion
+  a32::Float64
+  ARK2PaperVersion() = new((3 + 2sqrt(2)) / 6)
+end
+
+# from AFOSR 2013 presentation apparently
+struct ARK2PresentationVersion
+  a32::Rational{Int}
+  ARK2PresentationVersion() = new(1 // 2)
+end
+
 """
     ARK2GiraldoKellyConstantinescu(f, l, linsol, Q; dt, t0 = 0)
 
@@ -280,14 +291,15 @@ Giraldo, Kelly and Constantinescu (2013).
 function ARK2GiraldoKellyConstantinescu(F, L,
                                         linearsolver::AbstractLinearSolver,
                                         Q::AT; dt=nothing, t0=0,
-                                        split_nonlinear_linear=false) where {AT<:AbstractArray}
+                                        split_nonlinear_linear=false,
+                                        version=ARK2PaperVersion()) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
   
-  a32 = RT((3 + 2sqrt(2)) / 6)
+  a32 = RT(version.a32)
   RKA_explicit = [RT(0)           RT(0)   RT(0);
                   RT(2 - sqrt(2)) RT(0)   RT(0);
                   RT(1 - a32)     RT(a32) RT(0)]
