@@ -35,10 +35,6 @@ export saturation_excess
 
 export liquid_fraction, PhasePartition_equil
 
-export saturation_adjustment # should remove from export
-export saturation_adjustment_q_tot_θ_liq_ice_given_pressure # should remove from export
-export saturation_adjustment_NewtonsMethod # should remove from export
-
 # Auxiliary functions, e.g., for diagnostic purposes
 export dry_pottemp, dry_pottemp_given_pressure, virtual_pottemp, exner, exner_given_pressure
 export liquid_ice_pottemp, liquid_ice_pottemp_given_pressure, liquid_ice_pottemp_sat, relative_humidity
@@ -135,7 +131,7 @@ air_density(ts::ThermodynamicState) = ts.ρ
 """
     specific_volume(ts::ThermodynamicState)
 
-The (moist-)air specific, given a thermodynamic state `ts`.
+The (moist-)air specific volume, given a thermodynamic state `ts`.
 """
 specific_volume(ts::ThermodynamicState) = 1/air_density(ts)
 
@@ -822,7 +818,8 @@ end
 """
     latent_heat_liq_ice(q::PhasePartition{FT})
 
-Effective latent heat of condensate (weighted sum of liquid and ice)
+Effective latent heat of condensate (weighted sum of liquid and ice),
+with specific latent heat evaluated at reference temperature `T_0`.
 """
 latent_heat_liq_ice(q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
   FT(LH_v0)*q.liq + FT(LH_s0)*q.ice
@@ -919,11 +916,17 @@ end
 """
     air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice, ρ, q::PhasePartition)
 
-Solves the non-linear equation
+Computes temperature `T` given
+
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `ρ` (moist-)air density
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
+
+by finding the root of
 ``
-  T = θ_{liq_ice}*(exner(T,ρ,q) + (LH_{v0} q_{liq} + LH_{s0} q_{ice}) / cp_m
+  T - air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, air_pressure(T, ρ, q), q) = 0
 ``
-for temperature `T`
 """
 function air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
