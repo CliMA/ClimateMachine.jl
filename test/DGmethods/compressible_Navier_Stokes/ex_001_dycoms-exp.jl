@@ -7,6 +7,8 @@ using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.Diagnostics
 using CLIMA.MPIStateArrays
+using CLIMA.MultirateRungeKuttaMethod
+using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
@@ -168,8 +170,8 @@ function run(mpicomm,
              C_drag,
              xmax, ymax, zmax,
              zsponge,
-             dt_exp, 
-             dt_imex,
+             dt_fast, 
+             dt_slow,
              explicit, 
              LinearModel,
              SolverMethod,
@@ -216,7 +218,8 @@ function run(mpicomm,
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
-  
+  fast_model = LinearModel(model)
+  slow_model = RemainderModel(model,(fast_model,))
   # Balancelaw description
   dg = DGModel(model,
                grid,
@@ -225,20 +228,27 @@ function run(mpicomm,
                CentralGradPenalty(),
                direction=EveryDirection())
 
-  linmodel = LinearModel(model)
-  
-  vdg = DGModel(linmodel,
+  fast_dg = DGModel(fast_model,
+                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                    auxstate=dg.auxstate)
+  slow_dg = DGModel(slow_model,
+                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                    auxstate=dg.auxstate)
+   
+  #=vdg = DGModel(linmodel,
                 grid,
                 Rusanov(),
                 CentralNumericalFluxDiffusive(),
                 CentralGradPenalty(),
                 auxstate=dg.auxstate,
-                direction=VerticalDirection())
+                direction=VerticalDirection())=#
 
-    
+   
   #Q = init_ode_state(dg, FT(0); device=CPU())
   Q = init_ode_state(dg, FT(0))
-
+  slow_ode_solver = LSRK54CarpenterKennedy(slow_dg, Q; dt = dt_slow, t0 = 0)
+  fast_ode_solver = SSPRK33ShuOsher(fast_dg, Q; dt = dt_fast, t0 = 0)
+  ode_solver = MultirateRungeKutta((slow_ode_solver, fast_ode_solver))
   cbfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
       Filters.apply!(Q, 6, dg.grid, TMARFilter())
       nothing
@@ -287,26 +297,26 @@ function run(mpicomm,
         
        
     if explicit == 1
-        numberofsteps = convert(Int64, cld(timeend, dt_exp))
-        dt_exp = timeend / numberofsteps
-        @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
-        solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
+        #numberofsteps = convert(Int64, cld(timeend, dt_exp))
+        #dt_exp = timeend / numberofsteps
+        #@info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
+        #solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
         #@timeit to "solve! EX DYCOMS- $LinearModel $SolverMethod $aspectratio $dt_exp $timeend" solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
           
-        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter, cbinfo, cbdiagnostics))
+        solve!(Q, ode_solver; timeend=timeend, callbacks=(cbfilter, cbinfo, cbdiagnostics))
         
     else
-        numberofsteps = convert(Int64, cld(timeend, dt_imex))
-        dt_imex = timeend / numberofsteps
-        @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
+        #numberofsteps = convert(Int64, cld(timeend, dt_imex))
+        #dt_imex = timeend / numberofsteps
+        #@info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
 
                 
-        solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
-                              dt = dt_imex, t0 = 0,
-                              split_nonlinear_linear=false)
+        #solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
+         #                     dt = dt_imex, t0 = 0,
+          #                    split_nonlinear_linear=false)
         #@timeit to "solve! IMEX DYCOMS - $LinearModel $SolverMethod $aspectratio $dt_imex $timeend" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter,),adjustfinalstep=false)
 
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
+        #solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
     end
  
 end
@@ -381,21 +391,22 @@ let
                   #@show "MIN NODE DISTANCE " mnd, hmnd, vmnd
                   #dt_exp  =  mnd/soundspeed_air(FT(330)) * safety_fac
                   #dt_imex = hmnd/soundspeed_air(FT(330)) * safety_fac
-                  
+
+
                   safety_fac = FT(0.5)
-                  dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
-                  timeend = 14400
+                  dt_fast  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
+                  dt_slow = dt_fast#Δh/soundspeed_air(FT(289))/N * safety_fac
+                  timeend = 10
                   
                   @info @sprintf """Starting
                           ArrayType                 = %s
                           ODE_Solver                = %s
                           LinearModel               = %s
-                          dt_exp                    = %.5e
-                          dt_imp                    = %.5e
+                          dt_fast                    = %.5e
+                          dt_slow                    = %.5e
                           dt_ratio                  = %.3e
                           Δhoriz/Δvert              = %.5e
-                          """ ArrayType SolverMethod LinearModel dt_exp dt_imex dt_imex/dt_exp aspectratio
+                          """ ArrayType SolverMethod LinearModel dt_fast dt_slow dt_slow/dt_fast aspectratio
                   
                   result = run(mpicomm,
                                ArrayType,
@@ -409,8 +420,8 @@ let
                                C_drag,
                                xmax, ymax, zmax,
                                zsponge,
-                               dt_exp, 
-                               dt_imex,
+                               dt_fast, 
+                               dt_slow,
                                explicit, 
                                LinearModel,
                                SolverMethod,
