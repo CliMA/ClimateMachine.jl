@@ -3,9 +3,10 @@ module ColumnwiseLUSolver
 export ManyColumnLU, SingleColumnLU
 
 using ..Mesh.Grids
+using ..Mesh.Grids: VerticalDirection
 using ..Mesh.Topologies
 using ..DGmethods
-using ..DGmethods: BalanceLaw, DGModel, VerticalDirection, num_state, num_diffusive
+using ..DGmethods: BalanceLaw, DGModel, num_state, num_diffusive
 using ..LinearSolvers
 const LS = LinearSolvers
 using ..MPIStateArrays

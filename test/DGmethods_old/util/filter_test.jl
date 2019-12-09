@@ -2,6 +2,7 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 using CLIMA.Mesh.Filters
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays
@@ -49,41 +50,38 @@ function run(mpicomm, dim, ArrayType, Ne, FT)
   filtered_horizontal(x, y, z) = (dim == 2) ? l2(x) * l3(y) + l3(x) :
                                               l2(x) * l3(y) + l3(x) + l2(y)
 
-  for horizontal = false:true
-    for vertical = false:true
-
-      if horizontal && vertical
-        filtered = filtered_both
-      elseif horizontal
-        filtered = filtered_horizontal
-      elseif vertical
-        filtered = filtered_vertical
-      else
-        filtered = (x...) -> zero(x[1])
-      end
-
-      Q = MPIStateArray(spacedisc) do Q, x, y, z, _...
-        @inbounds begin
-          Q[1] = low(x, y, z) + high(x, y, z)
-          Q[2] = low(x, y, z) + high(x, y, z)
-          Q[3] = low(x, y, z) + high(x, y, z)
-          Q[4] = low(x, y, z) + high(x, y, z)
-        end
-      end
-      P = MPIStateArray(spacedisc) do P, x, y, z, _...
-        @inbounds begin
-          P[1] = low(x, y, z) + high(x, y, z) - filtered(x, y, z)
-          P[2] = low(x, y, z) + high(x, y, z)
-          P[3] = low(x, y, z) + high(x, y, z) - filtered(x, y, z)
-          P[4] = low(x, y, z) + high(x, y, z)
-        end
-      end
-
-      Filters.apply!(Q, (1,3), spacedisc.grid, filter;
-                     horizontal=horizontal, vertical=vertical)
-
-      @test Array(Q.data) ≈ Array(P.data)
+  for (horizontal, vertical) = ((true, true), (true, false), (false, true))
+    if horizontal && vertical
+      filtered = filtered_both
+      direction = EveryDirection()
+    elseif horizontal
+      filtered = filtered_horizontal
+      direction = HorizontalDirection()
+    elseif vertical
+      filtered = filtered_vertical
+      direction = VerticalDirection()
     end
+
+    Q = MPIStateArray(spacedisc) do Q, x, y, z, _...
+      @inbounds begin
+        Q[1] = low(x, y, z) + high(x, y, z)
+        Q[2] = low(x, y, z) + high(x, y, z)
+        Q[3] = low(x, y, z) + high(x, y, z)
+        Q[4] = low(x, y, z) + high(x, y, z)
+      end
+    end
+    P = MPIStateArray(spacedisc) do P, x, y, z, _...
+      @inbounds begin
+        P[1] = low(x, y, z) + high(x, y, z) - filtered(x, y, z)
+        P[2] = low(x, y, z) + high(x, y, z)
+        P[3] = low(x, y, z) + high(x, y, z) - filtered(x, y, z)
+        P[4] = low(x, y, z) + high(x, y, z)
+      end
+    end
+
+    Filters.apply!(Q, (1,3), spacedisc.grid, filter, direction)
+
+    @test Array(Q.data) ≈ Array(P.data)
   end
 end
 

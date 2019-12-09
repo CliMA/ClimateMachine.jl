@@ -1,8 +1,3 @@
-abstract type Direction end
-struct EveryDirection <: Direction end
-struct HorizontalDirection <: Direction end
-struct VerticalDirection <: Direction end
-
 struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D}
   balancelaw::BL
   grid::G

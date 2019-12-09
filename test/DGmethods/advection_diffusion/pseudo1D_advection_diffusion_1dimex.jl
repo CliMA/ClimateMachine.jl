@@ -18,7 +18,7 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
+using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
 const ArrayType = CLIMA.array_type()
 

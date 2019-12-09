@@ -3,11 +3,18 @@ using ..Topologies
 import ..Metrics, ..Elements
 import ..BrickMesh
 
+using MPI
 using LinearAlgebra
+using GPUifyLoops
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorder
-export referencepoints
+export referencepoints, min_node_distance
+
+abstract type Direction end
+struct EveryDirection <: Direction end
+struct HorizontalDirection <: Direction end
+struct VerticalDirection <: Direction end
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
                          DeviceArray} end
@@ -29,6 +36,15 @@ Returns the points on the reference element.
 """
 referencepoints(::AbstractGrid) = error("needs to be implemented")
 
+"""
+    min_node_distance(::AbstractGrid, direction::Direction=EveryDirection() )
+
+Returns an approximation of the minimum node distance in physical space.
+"""
+function min_node_distance(::AbstractGrid, direction::Direction=EveryDirection())
+  error("needs to be implemented")
+end
+
 # {{{
 const _nvgeo = 15
 const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI,
@@ -47,6 +63,7 @@ const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM,
                 vMIid = _vMI)
 # }}}
 
+include("Grids_kernels.jl")
 
 """
     DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
@@ -168,6 +185,37 @@ function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}
                         ) where {T, dim, N}
   ξ, _ = Elements.lglpoints(T, N)
   ξ
+end
+
+"""
+    min_node_distance(::DiscontinuousSpectralElementGrid,
+                      direction::Direction=EveryDirection()))
+
+Returns an approximation of the minimum node distance in physical space along
+the reference coordinate directions.  The direction controls which reference
+directions are considered.
+"""
+function min_node_distance(grid::DiscontinuousSpectralElementGrid{T, dim, N},
+                           direction::Direction=EveryDirection()
+                          ) where {T, dim, N}
+  topology = grid.topology
+  nrealelem = length(topology.realelems)
+
+  if nrealelem > 0
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    device = grid.vgeo isa Array ? CPU() : CUDA()
+    min_neighbor_distance = similar(grid.vgeo, Nq^dim, nrealelem)
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+          knl_min_neighbor_distance!(Val(N), Val(dim), direction,
+                                     min_neighbor_distance, grid.vgeo,
+                                     topology.realelems))
+    locmin = minimum(min_neighbor_distance)
+  else
+    locmin = typemax(T)
+  end
+
+  MPI.Allreduce(locmin, min, topology.mpicomm)
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
