@@ -122,10 +122,16 @@ uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
 version = "1.3.0"
 
 [[Coverage]]
-deps = ["HTTP", "JSON", "LibGit2", "MbedTLS"]
-git-tree-sha1 = "0ae7665c507d592b643dd204c835e84dcd8d565c"
+deps = ["CoverageTools", "HTTP", "JSON", "LibGit2", "MbedTLS"]
+git-tree-sha1 = "540c90d34374c82bbb12c4e06df1ef246a81ace2"
 uuid = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
-version = "0.9.3"
+version = "1.0.0"
+
+[[CoverageTools]]
+deps = ["LibGit2"]
+git-tree-sha1 = "542c90fb36c426891cd7a82924337530453df38f"
+uuid = "c36e975a-824b-4404-a568-ef97ca766997"
+version = "1.0.0"
 
 [[CuArrays]]
 deps = ["AbstractFFTs", "Adapt", "CEnum", "CUDAapi", "CUDAdrv", "CUDAnative", "DataStructures", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Requires", "SparseArrays", "TimerOutputs"]
@@ -502,9 +508,9 @@ version = "1.1.0"
 
 [[OrdinaryDiffEq]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DiffEqDiffTools", "ExponentialUtilities", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MacroTools", "MuladdMacro", "Parameters", "RecursiveArrayTools", "Reexport", "SparseArrays", "SparseDiffTools", "StaticArrays"]
-git-tree-sha1 = "139739cf7fa40b887656cc610d2e36e72612d0cd"
+git-tree-sha1 = "f00ab5763da99ed58b029da74a50488e8e823ce2"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.26.2"
+version = "5.26.3"
 
 [[PDMats]]
 deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
@@ -545,10 +551,10 @@ deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[QuadGK]]
-deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "1af46bf083b9630a5b27d4fd94f496c5fca642a8"
+deps = ["DataStructures", "LinearAlgebra", "Polynomials"]
+git-tree-sha1 = "8ed19b72f601a1c9717d36c0a39d6541e3642c59"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.1.1"
+version = "2.2.0"
 
 [[Quadmath]]
 deps = ["Printf", "Random", "Requires"]
@@ -613,9 +619,9 @@ version = "0.6.0"
 
 [[Roots]]
 deps = ["Printf"]
-git-tree-sha1 = "9cc4b586c71f9aea25312b94be8c195f119b0ec3"
+git-tree-sha1 = "dcc013908465ca1019b34b4bf547b6a187d195f9"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "0.8.3"
+version = "0.8.4"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
