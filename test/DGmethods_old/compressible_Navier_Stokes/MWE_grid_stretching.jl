@@ -427,7 +427,7 @@ function preodefun!(disc, Q, t)
       xvert = aux[_a_y]
       e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
       q_tot = QT / ρ
-      TS = PhaseEquil(e_int, q_tot, ρ)
+      TS = PhaseEquil(e_int, ρ, q_tot)
       T = air_temperature(TS)
       P = air_pressure(TS) # Test with dry atmosphere
       q_liq = PhasePartition(TS).liq
