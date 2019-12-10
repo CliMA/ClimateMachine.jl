@@ -934,18 +934,40 @@ function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, aux
 
   l_state = MArray{Tuple{nstate}, FT}(undef)
   l_aux = MArray{Tuple{nauxstate}, FT}(undef)
-
-  @inbounds @loop for e in (elems; blockIdx().x)
-    @loop for n in (1:Np; threadIdx().x)
-      coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
-      @unroll for s = 1:nauxstate
-        l_aux[s] = auxstate[n, s, e]
+  if interpolate == 0
+    @inbounds @loop for e in (elems; blockIdx().x)
+      @loop for n in (1:Np; threadIdx().x)
+        coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
+        @unroll for s = 1:nauxstate
+          l_aux[s] = auxstate[n, s, e]
+        end
+        @unroll for s = 1:nstate
+          l_state[s] = Data[n,s,e]
+        end
+        @unroll for s = 1:nstate
+          state[n, s, e] = l_state[s]
+        end
       end
-      @unroll for s = 1:nstate
-        l_state[s] = Data[n,s,e]
-      end
-      @unroll for s = 1:nstate
-        state[n, s, e] = l_state[s]
+    end
+  else
+    es = 1
+    NeG = size(GData,3)
+    @inbounds @loop for e in (elems; blockidx().x)
+      @loop for n in (1:Np; threadidx().x)
+        @unroll for eg in 1:NeG
+          If (vgeo[n,_x1,e] >=GData[1,_x1,eg] && vgeo[n,_x1,e] <=GData[125,_x1,eg] ) && (vgeo[n,_x2,e] >=GData[1,_x2,eg] && vgeo[n,_x2,e] <=GData[125,_x2,eg] ) && (vgeo[n,_x3,e] >=GData[1,_x3,eg] && vgeo[n,_x3,e] <=GData[125,_x3,eg] )
+            es = eg
+          end
+        end
+        X = interpolationmatrix(GData[:,_x1,es],(vgeo[n,_x1,e],))
+        Y = interpolationmatrix(GData[:,_x2,es],(vgeo[n,_x2,e],))
+        Z = interpolationmatrix(GData[:,_x3,es],(vgeo[n,_x3,e],))
+        @unroll for s in 1:nstate
+          l_state[s] = dot(X .* Y .*Z,Data[:,s,es]
+        end
+        @unroll for s in 1:nstate
+          state[n,s,e] = l_state[s]
+        end
       end
     end
   end

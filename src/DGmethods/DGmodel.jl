@@ -118,7 +118,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 end
 
-function restart_ode_state(dg::DGModel, Data, GData;
+function restart_ode_state(dg::DGModel, Data, GData; interpolate = 0,
 			device=arraytype(dg.grid) <: Array ? CPU() : CUDA(),
                         commtag=888)
   array_device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
@@ -141,7 +141,7 @@ function restart_ode_state(dg::DGModel, Data, GData;
   if device == array_device
     @launch(device, threads=(Np,), blocks=nrealelem,
             restart_state!(bl, Val(dim), Val(polyorder), state.data, auxstate.data, vgeo,
-                     topology.realelems, Data, GData))
+                     topology.realelems, Data, GData, interpolate))
   else
     h_vgeo = Array(vgeo)
     h_state = similar(state, Array)
@@ -149,7 +149,7 @@ function restart_ode_state(dg::DGModel, Data, GData;
     h_auxstate .= auxstate
     @launch(device, threads=(Np,), blocks=nrealelem,
       restart_state!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
-          topology.realelems, Data, Gdata))
+          topology.realelems, Data, Gdata, interpolate))
     state .= h_state
   end
 
