@@ -248,7 +248,7 @@ function run(mpicomm,
   Q = init_ode_state(dg, FT(0))
   slow_ode_solver = LSRK54CarpenterKennedy(slow_dg, Q; dt = dt_slow, t0 = 0)
   fast_ode_solver = SSPRK33ShuOsher(fast_dg, Q; dt = dt_fast, t0 = 0)
-  ode_solver = MultirateRungeKutta((slow_ode_solver, fast_ode_solver))
+  solver = MultirateRungeKutta((slow_ode_solver, fast_ode_solver))
   cbfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
       Filters.apply!(Q, 6, dg.grid, TMARFilter())
       nothing
@@ -303,7 +303,7 @@ function run(mpicomm,
         #solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
         #@timeit to "solve! EX DYCOMS- $LinearModel $SolverMethod $aspectratio $dt_exp $timeend" solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
           
-        solve!(Q, ode_solver; timeend=timeend, callbacks=(cbfilter, cbinfo, cbdiagnostics))
+        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter, cbinfo, cbdiagnostics))
         
     else
         #numberofsteps = convert(Int64, cld(timeend, dt_imex))
@@ -351,7 +351,7 @@ let
               for explicit in exp_step
 
                   # Problem type
-                  FT = Float64
+                  FT = Float32
                   
                   # DG polynomial order
                   N = 4
@@ -395,8 +395,8 @@ let
 
                   safety_fac = FT(0.5)
                   dt_fast  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  dt_slow = dt_fast#Δh/soundspeed_air(FT(289))/N * safety_fac
-                  timeend = 10
+                  dt_slow = dt_fast * 20#Δh/soundspeed_air(FT(289))/N * safety_fac
+                  timeend = FT(100)
                   
                   @info @sprintf """Starting
                           ArrayType                 = %s
