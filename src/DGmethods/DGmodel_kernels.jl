@@ -5,7 +5,7 @@ using .NumericalFluxes: GradNumericalPenalty, diffusive_boundary_penalty!,
                         numerical_boundary_flux_nondiffusive!,
                         numerical_flux_diffusive!,
                         numerical_boundary_flux_diffusive!
-
+using LinearAlgebra
 using ..Mesh.Geometry
 import ..Mesh.Elements
 using Requires
@@ -955,14 +955,13 @@ function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, aux
     @inbounds @loop for e in (elems; blockidx().x)
       @loop for n in (1:Np; threadidx().x)
         @unroll for eg in 1:NeG
-	  if (vgeo[n,_x1,e] == GData[1,_x1,eg])
           if (vgeo[n,_x1,e] >=GData[1,_x1,eg] && vgeo[n,_x1,e] <=GData[125,_x1,eg] ) && (vgeo[n,_x2,e] >=GData[1,_x2,eg] && vgeo[n,_x2,e] <=GData[125,_x2,eg] ) && (vgeo[n,_x3,e] >=GData[1,_x3,eg] && vgeo[n,_x3,e] <=GData[125,_x3,eg])
             es = eg
           end
         end
-        X = interpolationmatrix(GData[:,_x1,es],(vgeo[n,_x1,e],))
-        Y = interpolationmatrix(GData[:,_x2,es],(vgeo[n,_x2,e],))
-        Z = interpolationmatrix(GData[:,_x3,es],(vgeo[n,_x3,e],))
+        X = Elements.interpolationmatrix(GData[:,_x1,es],[vgeo[n,_x1,e]])
+        Y = Elements.interpolationmatrix(GData[:,_x2,es],[vgeo[n,_x2,e]])
+        Z = Elements.interpolationmatrix(GData[:,_x3,es],[vgeo[n,_x3,e]])
         @unroll for s in 1:nstate
           l_state[s] = dot(X .* Y .*Z,Data[:,s,es])
         end
