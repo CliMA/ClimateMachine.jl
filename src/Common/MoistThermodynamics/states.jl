@@ -76,7 +76,7 @@ struct PhaseEquil{FT} <: ThermodynamicState{FT}
   T::FT
 end
 PhaseEquil(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real} =
-  PhaseEquil(e_int, ρ, q_tot, saturation_adjustment(e_int, ρ, q_tot))
+  PhaseEquil(e_int, ρ, q_tot, saturation_adjustment_NewtonsMethod(e_int, ρ, q_tot))
 
 """
     PhaseDry{FT} <: ThermodynamicState

@@ -558,7 +558,7 @@ Compute the saturation specific humidity, given
  - `p_v_sat` saturation vapor pressure
 """
 q_vap_saturation_from_pressure(T::FT, ρ::FT, p_v_sat::FT) where {FT<:Real} =
-  min(1, p_v_sat / (ρ * FT(R_v) * T))
+  p_v_sat / (ρ * FT(R_v) * T)
 
 """
     saturation_excess(T, ρ, q::PhasePartition)
@@ -685,7 +685,7 @@ function saturation_adjustment_NewtonsMethod(e_int::FT, ρ::FT, q_tot::FT) where
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_ -> ∂e_int_∂T(T_, e_int, ρ, q_tot),
       T_1,
-      NewtonsMethod(), CompactSolution(), FT(1e-3), 10)
+      NewtonsMethod(), CompactSolution(), FT(1e-3), 1)
       if !sol.converged
         error("saturation_adjustment_NewtonsMethod did not converge")
       end
