@@ -950,10 +950,11 @@ function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, aux
       end
     end
   else
-    es = 1
+    
     NeG = size(GData,3)
     @inbounds @loop for e in (elems; blockidx().x)
       @loop for n in (1:Np; threadidx().x)
+        es = 1 
         @unroll for eg in 1:NeG
           if (vgeo[n,_x1,e] >=GData[1,_x1,eg] && vgeo[n,_x1,e] <=GData[125,_x1,eg] ) && (vgeo[n,_x2,e] >=GData[1,_x2,eg] && vgeo[n,_x2,e] <=GData[125,_x2,eg] ) && (vgeo[n,_x3,e] >=GData[1,_x3,eg] && vgeo[n,_x3,e] <=GData[125,_x3,eg])
             es = eg
