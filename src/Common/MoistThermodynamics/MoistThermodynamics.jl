@@ -728,7 +728,7 @@ function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ)
+    saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, ρ, q_tot)
 
 Compute the temperature `T` that is consistent with
 
@@ -744,7 +744,7 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::FT) where {FT<:Real}
+function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, ρ::FT, q_tot::FT) where {FT<:Real}
   T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot)) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
@@ -763,7 +763,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::F
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, q_tot, p)
+    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, p, q_tot)
 
 Compute the temperature `T` that is consistent with
 
@@ -779,7 +779,7 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, q_tot::FT, p::FT) where {FT<:Real}
+function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p::FT, q_tot::FT) where {FT<:Real}
   T_1 = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, PhasePartition(q_tot)) # Assume all vapor
   ρ = air_density(T_1, p, PhasePartition(q_tot))
   q_v_sat = q_vap_saturation(T_1, ρ)

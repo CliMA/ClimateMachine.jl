@@ -73,7 +73,7 @@ vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
-  TS = PhaseEquil(e_int, state.moisture.ρq_tot/state.ρ, state.ρ)
+  TS = PhaseEquil(e_int, state.ρ, state.moisture.ρq_tot/state.ρ)
   aux.moisture.temperature = air_temperature(TS)
   aux.moisture.θ_v = virtual_pottemp(TS)
   aux.moisture.q_liq = PhasePartition(TS).liq
@@ -82,7 +82,7 @@ end
 
 function thermo_state(moist::EquilMoist, orientation::Orientation, state::Vars, aux::Vars)
   e_int = internal_energy(moist, orientation, state, aux)
-  PhaseEquil(e_int, state.moisture.ρq_tot/state.ρ, state.ρ, aux.moisture.temperature)
+  PhaseEquil(e_int, state.ρ, state.moisture.ρq_tot/state.ρ, aux.moisture.temperature)
 end
 
 function gradvariables!(moist::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
@@ -97,7 +97,7 @@ end
 
 function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t::Real)
   u = state.ρu / state.ρ
-  flux.moisture.ρq_tot += state.moisture.ρq_tot * u 
+  flux.moisture.ρq_tot += state.moisture.ρq_tot * u
 end
 
 function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)

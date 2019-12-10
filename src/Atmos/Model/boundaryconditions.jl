@@ -111,29 +111,29 @@ end
 function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t, state1::Vars, aux1::Vars)
-  # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
+  # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface.
   # at the boundaries the ⁻, minus side states are the interior values
-  # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
+  # state1 is 𝐘 at the first interior nodes relative to the bottom wall
   FT = eltype(stateP)
   # Get values from minus-side state
-  ρM = stateM.ρ 
+  ρM = stateM.ρ
   UM, VM, WM = stateM.ρu
   EM = stateM.ρe
   QTM = stateM.moisture.ρq_tot
   uM, vM, wM  = UM/ρM, VM/ρM, WM/ρM
   q_totM = QTM/ρM
   UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-  
+
   # Assign reflection wall boundaries (top wall)
-  stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
+  stateP.ρu = SVector(UM - 2 * nM[1] * UnM,
                       VM - 2 * nM[2] * UnM,
                       WM - 2 * nM[3] * UnM)
 
-  # Assign scalar values at the boundaries 
+  # Assign scalar values at the boundaries
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
-  
-  if bctype == 1 # bctype identifies bottom wall 
+
+  if bctype == 1 # bctype identifies bottom wall
     stateP.ρu = SVector(0,0,0)
   end
 end
@@ -142,12 +142,12 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, state1::Vars, diff1::Vars,
                                aux1::Vars)
-  # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface. 
+  # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface.
   # at the boundaries the ⁻, minus side states are the interior values
-  # state1 is 𝐘 at the first interior nodes relative to the bottom wall 
+  # state1 is 𝐘 at the first interior nodes relative to the bottom wall
   FT = eltype(stateP)
   # Get values from minus-side state
-  ρM = stateM.ρ 
+  ρM = stateM.ρ
   UM, VM, WM = stateM.ρu
   EM = stateM.ρe
   QTM = stateM.moisture.ρq_tot
@@ -156,18 +156,18 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
   UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
 
   # Assign reflection wall boundaries (top wall)
-  stateP.ρu = SVector(UM - 2 * nM[1] * UnM, 
+  stateP.ρu = SVector(UM - 2 * nM[1] * UnM,
                       VM - 2 * nM[2] * UnM,
                       WM - 2 * nM[3] * UnM)
 
-  # Assign scalar values at the boundaries 
+  # Assign scalar values at the boundaries
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
   # Assign diffusive fluxes at boundaries
   diffP = diffM
   xvert = auxM.coord[3]
 
-  if bctype == 1 # bctype identifies bottom wall 
+  if bctype == 1 # bctype identifies bottom wall
     # ------------------------------------------------------------------------
     # (<var>_FN) First node values (First interior node from bottom wall)
     # ------------------------------------------------------------------------
@@ -179,17 +179,17 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     windspeed_FN     = sqrt(u_FN^2 + v_FN^2 + w_FN^2)
     q_tot_FN         = state1.moisture.ρq_tot / ρ_FN
     e_int_FN         = E_FN/ρ_FN - windspeed_FN^2/2 - grav*z_FN
-    TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
+    TS_FN            = PhaseEquil(e_int_FN, ρ_FN, q_tot_FN)
     T_FN             = air_temperature(TS_FN)
     q_vap_FN         = q_tot_FN - PhasePartition(TS_FN).liq
     # --------------------------
-    # Bottom boundary quantities 
+    # Bottom boundary quantities
     # --------------------------
-    zM          = auxM.coord[3] 
+    zM          = auxM.coord[3]
     q_totM      = QTM/ρM
     windspeed   = sqrt(uM^2 + vM^2 + wM^2)
     e_intM      = EM/ρM - windspeed^2/2 - grav*zM
-    TSM         = PhaseEquil(e_intM, q_totM, ρM) 
+    TSM         = PhaseEquil(e_intM, ρM, q_totM)
     q_vapM      = q_totM - PhasePartition(TSM).liq
     TM          = air_temperature(TSM)
     # ----------------------------------------------------------
@@ -203,10 +203,10 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
     # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
     C_drag = bc.C_drag
-    ρτ13P  = -ρM * C_drag * windspeed_FN * u_FN 
-    ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN 
+    ρτ13P  = -ρM * C_drag * windspeed_FN * u_FN
+    ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN
     # Assign diffusive momentum and moisture fluxes
-    # (i.e. ρ𝛕 terms)  
+    # (i.e. ρ𝛕 terms)
     stateP.ρu = SVector(0,0,0)
     diffP.ρτ = SHermitianCompact{3,FT,6}(SVector(FT(0),ρτM[2,1],ρτ13P, FT(0), ρτ23P,FT(0)))
 
@@ -219,7 +219,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
-    # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
+    # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms)
     diffP.ρd_h_tot  = SVector(FT(0),
                               FT(0),
                               bc.LHF + bc.SHF)
@@ -248,10 +248,10 @@ function atmos_boundary_state!(::Rusanov, bc::RayleighBenardBC, m::AtmosModel,
     ρP = stateM.ρ
     stateP.ρ = ρP
     stateP.ρu = SVector{3,FT}(0,0,0)
-    if bctype == 1 
+    if bctype == 1
       E_intP = ρP * cv_d * (bc.T_bot - T_0)
     else
-      E_intP = ρP * cv_d * (bc.T_top - T_0) 
+      E_intP = ρP * cv_d * (bc.T_top - T_0)
     end
     stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
     nothing
@@ -267,10 +267,10 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBena
     ρP = stateM.ρ
     stateP.ρ = ρP
     stateP.ρu = SVector{3,FT}(0,0,0)
-    if bctype == 1 
+    if bctype == 1
       E_intP = ρP * cv_d * (bc.T_bot - T_0)
     else
-      E_intP = ρP * cv_d * (bc.T_top - T_0) 
+      E_intP = ρP * cv_d * (bc.T_top - T_0)
     end
     stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
     diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))

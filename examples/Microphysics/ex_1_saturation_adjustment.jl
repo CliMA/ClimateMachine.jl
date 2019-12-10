@@ -249,7 +249,7 @@ function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
         p = aux[_c_p]
 
         e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
-        ts = PhaseEquil(e_int, q_tot, ρ)  # saturation adjustment happens here
+        ts = PhaseEquil(e_int, ρ, q_tot)  # saturation adjustment happens here
         pp = PhasePartition(ts)
         R[v_T] = ts.T
         R[v_p] = p
