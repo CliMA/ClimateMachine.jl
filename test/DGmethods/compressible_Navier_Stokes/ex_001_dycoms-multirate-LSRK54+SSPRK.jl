@@ -246,6 +246,9 @@ function run(mpicomm,
    
   #Q = init_ode_state(dg, FT(0); device=CPU())
   Q = init_ode_state(dg, FT(0))
+  #linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
+  #slow_ode_solver = LSRK144NiegemannDiehlBusch(slow_dg, Q; dt = dt_slow, t0 = 0)
+  #fast_ode_solver = ARK2GiraldoKellyConstantinescu(fast_dg, fast_dg, linearsolver, Q; dt = dt_fast, t0 = 0)
   slow_ode_solver = LSRK54CarpenterKennedy(slow_dg, Q; dt = dt_slow, t0 = 0)
   fast_ode_solver = SSPRK33ShuOsher(fast_dg, Q; dt = dt_fast, t0 = 0)
   solver = MultirateRungeKutta((slow_ode_solver, fast_ode_solver))
@@ -395,8 +398,8 @@ let
 
                   safety_fac = FT(0.5)
                   dt_fast  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  dt_slow = dt_fast * 20#Δh/soundspeed_air(FT(289))/N * safety_fac
-                  timeend = FT(14400)
+                  dt_slow = dt_fast * 10#Δh/soundspeed_air(FT(289))/N * safety_fac
+                  timeend = FT(3000)
                   
                   @info @sprintf """Starting
                           ArrayType                 = %s
