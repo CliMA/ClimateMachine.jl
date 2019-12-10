@@ -7,7 +7,7 @@ using .NumericalFluxes: GradNumericalPenalty, diffusive_boundary_penalty!,
                         numerical_boundary_flux_diffusive!
 
 using ..Mesh.Geometry
-
+import ..Mesh.Elements
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
   using .CUDAnative
@@ -922,7 +922,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   nothing
 end
 
-function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstate, vgeo, elems, Data, GData) where {dim, polyorder}
+function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstate, vgeo, elems, Data, GData, interpolate) where {dim, polyorder}
   N = polyorder
   FT = eltype(auxstate)
   nauxstate = num_aux(bl,FT)
@@ -955,7 +955,8 @@ function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, aux
     @inbounds @loop for e in (elems; blockidx().x)
       @loop for n in (1:Np; threadidx().x)
         @unroll for eg in 1:NeG
-          If (vgeo[n,_x1,e] >=GData[1,_x1,eg] && vgeo[n,_x1,e] <=GData[125,_x1,eg] ) && (vgeo[n,_x2,e] >=GData[1,_x2,eg] && vgeo[n,_x2,e] <=GData[125,_x2,eg] ) && (vgeo[n,_x3,e] >=GData[1,_x3,eg] && vgeo[n,_x3,e] <=GData[125,_x3,eg] )
+	  if (vgeo[n,_x1,e] == GData[1,_x1,eg])
+          if (vgeo[n,_x1,e] >=GData[1,_x1,eg] && vgeo[n,_x1,e] <=GData[125,_x1,eg] ) && (vgeo[n,_x2,e] >=GData[1,_x2,eg] && vgeo[n,_x2,e] <=GData[125,_x2,eg] ) && (vgeo[n,_x3,e] >=GData[1,_x3,eg] && vgeo[n,_x3,e] <=GData[125,_x3,eg])
             es = eg
           end
         end
@@ -963,7 +964,7 @@ function restart_state!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, aux
         Y = interpolationmatrix(GData[:,_x2,es],(vgeo[n,_x2,e],))
         Z = interpolationmatrix(GData[:,_x3,es],(vgeo[n,_x3,e],))
         @unroll for s in 1:nstate
-          l_state[s] = dot(X .* Y .*Z,Data[:,s,es]
+          l_state[s] = dot(X .* Y .*Z,Data[:,s,es])
         end
         @unroll for s in 1:nstate
           state[n,s,e] = l_state[s]
