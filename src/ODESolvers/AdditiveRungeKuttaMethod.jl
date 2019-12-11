@@ -341,6 +341,17 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
                            slow_δ, slow_rv_dQ, slow_scaling))
 end
 
+struct ARK2PaperVersion
+  a32::Float64
+  ARK2PaperVersion() = new((3 + 2sqrt(2)) / 6)
+end
+
+# from AFOSR 2013 presentation apparently
+struct ARK2PresentationVersion
+  a32::Rational{Int}
+  ARK2PresentationVersion() = new(1 // 2)
+end
+
 """
     ARK2GiraldoKellyConstantinescu(f, l, linearsolver, Q; dt, t0,
                                    split_nonlinear_linear, variant)
@@ -368,14 +379,18 @@ function ARK2GiraldoKellyConstantinescu(F, L,
                                         linearsolver::AbstractLinearSolver,
                                         Q::AT; dt=nothing, t0=0,
                                         split_nonlinear_linear=false,
+<<<<<<< HEAD
                                         variant=LowStorageVariant()) where {AT<:AbstractArray}
+=======
+                                        version=ARK2PaperVersion()) where {AT<:AbstractArray}
+>>>>>>> ef184ab44a641b0207ca68b1c583c1bd0a373163
 
   @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
   
-  a32 = RT((3 + 2sqrt(2)) / 6)
+  a32 = RT(version.a32)
   RKA_explicit = [RT(0)           RT(0)   RT(0);
                   RT(2 - sqrt(2)) RT(0)   RT(0);
                   RT(1 - a32)     RT(a32) RT(0)]

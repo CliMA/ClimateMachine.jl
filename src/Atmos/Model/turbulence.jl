@@ -87,11 +87,14 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosure
   C_smag::FT
 end
 
-vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
+vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T,ρν::T,BR::T,Freq::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
+vars_diffusive(::SmagorinskyLilly,T) = @vars(BR::T,Freq::T)
 
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
+  aux.turbulence.ρν = 0
+  aux.turbulence.BR = 0
 end
 
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
@@ -133,10 +136,21 @@ year = {1962}
 }
 """
 function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
+  FT = eltype(normS)
+  z  = aux.orientation.Φ / grav
+    
   ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
-  N² = ∂θ∂Φ / aux.moisture.θ_v
+  N²   = ∂θ∂Φ / aux.moisture.θ_v
   Richardson = N² / (normS^2 + eps(normS))
   sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
+
+    #=  if z > FT(870)
+    f_b = FT(0.1)
+    else
+    f_b = FT(1)
+    end
+    return f_b=#
+    
 end
 
 function strain_rate_magnitude(S::SHermitianCompact{3,FT,6}) where {FT}
@@ -150,11 +164,21 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   FT = eltype(state)
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
+  diffusive.turbulence.BR = f_b²
+  ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
+  N² = ∂θ∂Φ / aux.moisture.θ_v
+  diffusive.turbulence.Freq = ∂θ∂Φ/grav #N²
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
-  return state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
+  state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
   (-2*ρν) * S
+end
+
+function atmos_nodal_update_aux!(::SmagorinskyLilly, ::AtmosModel, state::Vars, aux::Vars, diff::Vars, t::Real)
+aux.turbulence.ρν = diff.ρν
+aux.turbulence.BR = diff.turbulence.BR
+aux.turbulence.Freq = diff.turbulence.Freq
 end
 
 """
@@ -189,10 +213,14 @@ struct Vreman{FT} <: TurbulenceClosure
   "Smagorinsky Coefficient [dimensionless]"
   C_smag::FT
 end
-vars_aux(::Vreman,FT) = @vars(Δ::FT)
+vars_aux(::Vreman,FT) = @vars(Δ::FT,ρν::FT,BR::FT)
 vars_gradient(::Vreman,FT) = @vars(θ_v::FT)
+vars_diffusive(::Vreman,FT) = @vars(BR::FT)
+
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
+  aux.turbulence.ρν = 0
+  aux.turbulence.BR = 0
 end
 function gradvariables!(m::Vreman, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
@@ -203,6 +231,7 @@ function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, �
   αijαij = sum(∇u .^ 2)
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
+  diffusive.turbulence.BR = f_b²
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   Bβinvariants = compute_principal_invariants(βij)
   @inbounds Bβ = Bβinvariants.second
@@ -210,6 +239,11 @@ function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, �
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S
+end
+
+function atmos_nodal_update_aux!(::Vreman, ::AtmosModel, state::Vars, aux::Vars, diff::Vars, t::Real)
+aux.turbulence.ρν = diff.ρν
+aux.turbulence.BR = diff.turbulence.BR
 end
 
 """
@@ -253,10 +287,12 @@ url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
 struct AnisoMinDiss{FT} <: TurbulenceClosure
   C_poincare::FT
 end
-vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
+vars_aux(::AnisoMinDiss,T) = @vars(Δ::T,ρν::T,BR::T,Freq::T)
 vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::T)
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
+  aux.turbulence.ρν = 0
+  aux.turbulence.BR = 0
 end
 function gradvariables!(m::AnisoMinDiss, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
@@ -267,9 +303,17 @@ function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Va
   αijαij = dot(∇u,∇u)
   coeff = (aux.turbulence.Δ * m.C_poincare)^2
   βij = -(∇u' * ∇u)
+    diffusive.turbulence.BR = FT(1) #There is no BR term in AMD, but we need this line here
+                                    #because the diagnostics function expects a value for
+                                    #diffusive.turbulence.BR
   ν_e = max(0,coeff * (dot(βij, S) / (αijαij + eps(FT))))
   return state.ρ * ν_e
 end
 function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)
   (-2*ρν) * S
+end
+
+function atmos_nodal_update_aux!(::AnisoMinDiss, ::AtmosModel, state::Vars, aux::Vars, diff::Vars, t::Real)
+  aux.turbulence.ρν = diff.ρν
+  aux.turbulence.BR = diff.turbulence.BR
 end

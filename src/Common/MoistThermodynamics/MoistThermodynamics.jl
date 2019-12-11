@@ -324,7 +324,6 @@ function soundspeed_air(T::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real
   R_m = gas_constant_air(q)
   return sqrt(γ*R_m*T)
 end
-
 """
     soundspeed_air(ts::ThermodynamicState)
 
