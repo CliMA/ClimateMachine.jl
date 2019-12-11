@@ -1,8 +1,11 @@
 module VariableTemplates
 
-export varsize, Vars, Grad, @vars
+export varsize, Vars, Grad, @vars, units, value,
+       unit_scale, UV
+import Base: @pure
 
-using StaticArrays
+using StaticArrays, Unitful
+import Unitful: AbstractQuantity
 
 """
     varsize(S)
@@ -55,6 +58,22 @@ struct SetVarError <: Exception
   sym::Symbol
 end
 
+UV{N<:AbstractFloat} = Union{Quantity{N,D,U}, N} where {D,U}
+
+# """
+#   @unitful {macro calls} function definition
+# Annotate that a function
+# """
+# macro unitful(foo)
+#   while foo.head === :macrocall
+#     foo = foo.args[2]
+#   end
+#   @assert foo.head === :function
+#   sig, _ = foo.args
+#   @assert sig.head === :where
+#   def, qut = sig.args
+#   qut_sym, qut_type = qut.args
+# end
 
 """
     Vars{S,A,offset}(array::A)
@@ -71,6 +90,38 @@ Base.eltype(v::Vars) = eltype(parent(v))
 Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
 Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(parent(v)))
 
+"""
+    units(FT::Type{T} where {T<:Number}, u::Unitful.Units)
+
+```jldoctest
+julia> units(Float64, u"m*s^-2")
+Quantity{Float64,𝐋*𝐓^-2,Unitful.FreeUnits{(m, s^-2),𝐋*𝐓^-2,nothing}}
+```
+
+Returns the type variable for the choice of numeric backing type `FT` and preferred units `u`.
+"""
+units(FT::Type{T} where {T<:Number}, u::Unitful.Units) = Quantity{FT, dimension(u), typeof(u)}
+
+"""
+    unit_scale(::Type{NamedTuple{S, T}} where {S, T<:Tuple}, factor)
+
+Scale the output of a @vars call by the provided units.
+"""
+@generated function unit_scale(::Type{NamedTuple{S, T}}, factor) where {S, T<:Tuple}
+  p(Q,u) = typeof(Q(1.0)*u)
+  :(return $(NamedTuple{S, Tuple{p.(T.parameters, factor())...}}))
+end
+
+"""
+Remove unit annotations, return float in SI units.
+"""
+value(x::Number) = x
+value(x::AbstractQuantity) = upreferred(x).val
+
+# Senstive to typing, modify return expression to apply unitful information.
+upack(x, ::Type{T} where {T<:Number}) = x
+upack(x, Q::Type{T} where {T<:Quantity}) = :($Q($x))
+
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
     Base.@_inline_meta
@@ -78,17 +129,19 @@ Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
-      retexpr = :($T(array[$(offset+1)]))
+    if T <: Number
+      retexpr = :($T($(upack(:(array[$(offset+1)]), T))))
       offset += 1
     elseif T <: SHermitianCompact
+      ST = eltype(T)
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
-      retexpr = :($T($LT($([:(array[$(offset + i)]) for i = 1:N]...))))
+      retexpr = :($T($LT($([upack(:(array[$(offset + i)]), ST) for i = 1:N]...))))
       offset += N
     elseif T <: StaticArray
+      ST = eltype(T)
       N = length(T)
-      retexpr = :($T($([:(array[$(offset + i)]) for i = 1:N]...)))
+      retexpr = :($T($([upack(:(array[$(offset + i)]), ST) for i = 1:N]...)))
       offset += N
     else
       retexpr = :(Vars{$T,A,$offset}(array))
@@ -102,30 +155,37 @@ Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(
   expr
 end
 
-@generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val) where {S,A,offset}
+# Modify expression, sensitive to typing to remove unitful information for homogenous storage.
+uunpack(x, ::Type{T} where {T<:Number}) = x
+uunpack(x, ::Type{T} where {T<:Quantity}) = :($x.val)
+
+@generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val::RT) where {S,A,offset,RT}
   expr = quote
     Base.@_inline_meta
     array = parent(v)
   end
+
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
-      retexpr = :(array[$(offset+1)] = val)
+    ST = eltype(T)
+    if T <: Number
+      retexpr = :(array[$(offset+1)] = $(uunpack(:val, eltype(RT))))
       offset += 1
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= [$([uunpack(:($T(val).lowertriangle[$i]), T) for i in 1:N]...)])
       offset += N
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:])
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= [$([uunpack(:(val[$i]), eltype(RT)) for i = 1:N]...)])
       offset += N
     else
       offset += varsize(T)
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
+      eltype(RT) != $ST && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($ST) and $($(eltype(RT)))")
       return @inbounds $retexpr
     end))
   end
@@ -156,12 +216,13 @@ Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
-      retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]) for i = 1:M]...)))
+    ST = eltype(T)
+    if T <: Number
+      retexpr = :(SVector{$M,$T}($([upack(:(array[$i,$(offset+1)]), ST) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([:(array[$i,$(offset + j)]) for i = 1:M, j = 1:N]...)))
+      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([upack(:(array[$i,$(offset + j)]), ST) for i = 1:M, j = 1:N]...)))
       offset += N
     else
       retexpr = :(Grad{$T,A,$offset}(array))
@@ -175,7 +236,7 @@ Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(
   expr
 end
 
-@generated function Base.setproperty!(v::Grad{S,A,offset}, sym::Symbol, val) where {S,A,offset}
+@generated function Base.setproperty!(v::Grad{S,A,offset}, sym::Symbol, val::RT) where {S,A,offset,RT}
   M = size(A,1)
   expr = quote
     Base.@_inline_meta
@@ -183,12 +244,13 @@ end
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
-      retexpr = :(array[:, $(offset+1)] .= val)
+    ST = eltype(T)
+    if T <: Number
+      retexpr = :(array[:, $(offset+1)] .= [$([uunpack(:(val[$i]), eltype(RT)) for i in 1:M]...)])
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val)
+      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= [$([uunpack(:(val[$i,$j]), eltype(RT)) for i in 1:M, j in 1:N]...)])
       offset += N
     else
       offset += varsize(T)

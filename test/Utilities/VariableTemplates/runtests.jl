@@ -1,6 +1,8 @@
 using Test, StaticArrays
 using CLIMA.VariableTemplates
 
+# Tests prior to providing unitful information
+
 struct TestModel{A,B,C}
   a::A
   b::B

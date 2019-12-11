@@ -37,6 +37,11 @@ function vars_gradient end
 function vars_diffusive end
 vars_integrals(::BalanceLaw, FT) = @vars()
 
+# additional stubs for default units
+function spatial_unit end
+function mass_unit end
+function time_unit end
+
 num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
 num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate
 num_gradient(m::BalanceLaw, FT) = varsize(vars_gradient(m,FT))  # number_gradient_states
@@ -49,7 +54,7 @@ function flux_nondiffusive! end
 function flux_diffusive! end
 function gradvariables! end
 function diffusive! end
-function source! end 
+function source! end
 function wavespeed end
 function boundary_state! end
 function init_aux! end

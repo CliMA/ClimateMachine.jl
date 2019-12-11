@@ -44,6 +44,7 @@ end
 function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
                             t) where {n, α, β, μ, δ}
   ξn = dot(n, x)
+  ξn = value(ξn)
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
@@ -249,9 +250,9 @@ let
             @info "time step" dt
 
             timeend = 1
-            outputtime = 1
+            outputtime = dt
 
-            dt = outputtime / ceil(Int64, outputtime / dt)
+            # dt = outputtime / ceil(Int64, outputtime / dt)
 
             @info (ArrayType, FT, dim, direction)
             vtkdir = output ? "vtk_advection" *
@@ -277,4 +278,3 @@ let
 end
 
 nothing
-
