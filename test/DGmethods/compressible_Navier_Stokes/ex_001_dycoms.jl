@@ -121,7 +121,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     p     = P_sfc * exp(-xvert/H);
     # Density, Temperature
     # TODO: temporary fix
-    TS    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, q_tot, p)
+    TS    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot)
     ρ     = air_density(TS)
     T     = air_temperature(TS)
     q_pt  = PhasePartition_equil(T, ρ, q_tot)
