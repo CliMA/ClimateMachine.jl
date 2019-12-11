@@ -26,33 +26,33 @@ See also [`PhasePartition_equil`](@ref)
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhasePartition{FT<:Real}
+struct PhasePartition{FT<:AbstractFloat}
   "total specific humidity"
-  tot::FT
+  tot::UV{FT}
   "liquid water specific humidity (default: `0`)"
-  liq::FT
+  liq::UV{FT}
   "ice specific humidity (default: `0`)"
-  ice::FT
+  ice::UV{FT}
 end
 
-PhasePartition(q_tot::FT,q_liq::FT) where {FT<:Real} =
-  PhasePartition(q_tot, q_liq, zero(FT))
-PhasePartition(q_tot::FT) where {FT<:Real} =
-  PhasePartition(q_tot, zero(FT), zero(FT))
+PhasePartition(q_tot::UV{FT}, q_liq::UV{FT}) where {FT<:AbstractFloat} =
+  PhasePartition(q_tot, q_liq, zero(typeof(q_tot)))
+PhasePartition(q_tot::UV{FT}) where {FT<:AbstractFloat} =
+  PhasePartition(q_tot, zero(typeof(q_tot)), zero(typeof(q_tot)))
 
 
 """
-    ThermodynamicState{FT}
+    ThermodynamicState{T}
 
 A thermodynamic state, which can be initialized for
 various thermodynamic formulations (via its sub-types).
 All `ThermodynamicState`'s have access to functions to
 compute all other thermodynamic properties.
 """
-abstract type ThermodynamicState{FT} end
+abstract type ThermodynamicState{T} end
 
 """
-    PhaseEquil{FT} <: ThermodynamicState
+    PhaseEquil{T} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
 may be needed).
@@ -65,15 +65,15 @@ may be needed).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseEquil{FT} <: ThermodynamicState{FT}
+struct PhaseEquil{T} <: ThermodynamicState{T}
   "internal energy"
-  e_int::FT
+  e_int::T
   "density of air (potentially moist)"
-  ρ::FT
+  ρ::T
   "total specific humidity"
-  q_tot::FT
+  q_tot::T
   "temperature: computed via [`saturation_adjustment`](@ref)"
-  T::FT
+  T::T
 end
 function PhaseEquil(e_int::FT,
                     ρ::FT,
@@ -85,7 +85,7 @@ function PhaseEquil(e_int::FT,
 end
 
 """
-    PhaseDry{FT} <: ThermodynamicState
+    PhaseDry{T} <: ThermodynamicState
 
 A dry thermodynamic state (`q_tot = 0`).
 
@@ -97,11 +97,11 @@ A dry thermodynamic state (`q_tot = 0`).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseDry{FT} <: ThermodynamicState{FT}
+struct PhaseDry{T} <: ThermodynamicState{T}
   "internal energy"
-  e_int::FT
+  e_int::T
   "density of dry air"
-  ρ::FT
+  ρ::T
 end
 
 """
@@ -167,7 +167,7 @@ function TemperatureSHumEquil(T::FT, p::FT, q_tot::FT) where {FT<:Real}
 end
 
 """
-   	 PhaseNonEquil{FT} <: ThermodynamicState
+   	 PhaseNonEquil{T} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic non-equilibrium (therefore, temperature can
 be computed directly).
@@ -181,13 +181,13 @@ be computed directly).
 $(DocStringExtensions.FIELDS)
 
 """
-struct PhaseNonEquil{FT} <: ThermodynamicState{FT}
+struct PhaseNonEquil{T} <: ThermodynamicState{T}
   "internal energy"
-  e_int::FT
+  e_int::T
   "density of air (potentially moist)"
-  ρ::FT
+  ρ::T
   "phase partition"
-  q::PhasePartition{FT}
+  q::PhasePartition{T}
 end
 
 """

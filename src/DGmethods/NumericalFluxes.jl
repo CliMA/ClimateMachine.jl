@@ -6,9 +6,10 @@ export Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive,
 using StaticArrays
 using GPUifyLoops: @unroll
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
-                    vars_aux, vars_gradient, boundary_state!, wavespeed,
-                    flux_nondiffusive!, flux_diffusive!, diffusive!, num_state,
-                    num_gradient, gradvariables!
+                    vars_aux, vars_gradient, spatial_unit, mass_unit,
+                    unit_scale, time_unit, value, boundary_state!,
+                    wavespeed, flux_nondiffusive!, flux_diffusive!,
+                    diffusive!, num_state, num_gradient, gradvariables!
 
 """
     GradNumericalPenalty
@@ -35,6 +36,7 @@ struct CentralGradPenalty <: GradNumericalPenalty end
 function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
                             VF, nM, diffM, QM, aM, diffP, QP, aP, t)
   FT = eltype(QM)
+  deriv_types = unit_scale(vars_gradient(bl,FT), inv(spatial_unit(bl)))
 
   @inbounds begin
     ndim = 3
@@ -46,7 +48,7 @@ function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
       end
     end
     diffusive!(bl, Vars{vars_diffusive(bl,FT)}(VF),
-               Grad{vars_gradient(bl,FT)}(n_Δdiff),
+               Grad{deriv_types}(n_Δdiff),
                Vars{vars_state(bl,FT)}(QM), Vars{vars_aux(bl,FT)}(aM),
                t)
   end
@@ -130,13 +132,14 @@ update_penalty!(::Rusanov, ::BalanceLaw, _...) = nothing
 function numerical_flux_nondiffusive!(nf::Rusanov, bl::BalanceLaw, F::MArray,
                                       nM, QM, auxM, QP, auxP, t)
   FT = eltype(F)
+  flux_types = unit_scale(vars_state(bl,FT), spatial_unit(bl) / time_unit(bl))
   nstate = num_state(bl,FT)
 
   λM = wavespeed(bl, nM, Vars{vars_state(bl,FT)}(QM),
                  Vars{vars_aux(bl,FT)}(auxM), t)
   FM = similar(F, Size(3, nstate))
   fill!(FM, -zero(eltype(FM)))
-  flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(FM),
+  flux_nondiffusive!(bl, Grad{flux_types}(FM),
                      Vars{vars_state(bl,FT)}(QM),
                      Vars{vars_aux(bl,FT)}(auxM), t)
 
@@ -144,7 +147,7 @@ function numerical_flux_nondiffusive!(nf::Rusanov, bl::BalanceLaw, F::MArray,
                  Vars{vars_aux(bl,FT)}(auxP), t)
   FP = similar(F, Size(3, nstate))
   fill!(FP, -zero(eltype(FP)))
-  flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(FP),
+  flux_nondiffusive!(bl, Grad{flux_types}(FP),
                      Vars{vars_state(bl,FT)}(QP),
                      Vars{vars_aux(bl,FT)}(auxP), t)
 
@@ -269,18 +272,19 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                    QP, QVP, auxP,
                                    t)
   FT = eltype(F)
+  flux_types = unit_scale(vars_state(bl,FT), spatial_unit(bl) / time_unit(bl))
   nstate = num_state(bl,FT)
 
   FM = similar(F, Size(3, nstate))
   fill!(FM, -zero(eltype(FM)))
-  flux_diffusive!(bl, Grad{vars_state(bl,FT)}(FM),
+  flux_diffusive!(bl, Grad{flux_types}(FM),
                   Vars{vars_state(bl,FT)}(QM),
                   Vars{vars_diffusive(bl,FT)}(QVM),
                   Vars{vars_aux(bl,FT)}(auxM), t)
 
   FP = similar(F, Size(3, nstate))
   fill!(FP, -zero(eltype(FP)))
-  flux_diffusive!(bl, Grad{vars_state(bl,FT)}(FP),
+  flux_diffusive!(bl, Grad{flux_types}(FP),
                   Vars{vars_state(bl,FT)}(QP),
                   Vars{vars_diffusive(bl,FT)}(QVP),
                   Vars{vars_aux(bl,FT)}(auxP), t)
