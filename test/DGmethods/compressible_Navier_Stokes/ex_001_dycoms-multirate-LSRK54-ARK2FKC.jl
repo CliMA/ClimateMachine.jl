@@ -398,8 +398,8 @@ let
 
                   safety_fac = FT(0.5)
                   dt_fast  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  dt_slow = dt_fast * 10#Δh/soundspeed_air(FT(289))/N * safety_fac
-                  timeend = FT(3000)
+                  dt_slow = dt_fast * 15 #Δh/soundspeed_air(FT(289))/N * safety_fac
+                  timeend = FT(14400)
                   
                   @info @sprintf """Starting
                           ArrayType                 = %s
