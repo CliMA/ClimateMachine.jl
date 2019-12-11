@@ -119,6 +119,38 @@ Get the numeric backing type for a quantity or numeric scalar type.
 get_T(::Type{T}) where {T<:Number} = T
 get_T(::Type{T}) where {T<:AbstractQuantity} = Unitful.get_T(T)
 
+"""
+    units(FT::Type{T} where {T<:Number}, u::Unitful.Units)
+
+```jldoctest
+julia> units(Float64, u"m*s^-2")
+Quantity{Float64,𝐋*𝐓^-2,Unitful.FreeUnits{(m, s^-2),𝐋*𝐓^-2,nothing}}
+```
+
+Returns the type variable for the choice of numeric backing type `FT` and preferred units `u`.
+"""
+units(FT::Type{T} where {T<:Number}, u::Unitful.Units) = Quantity{FT, dimension(u), typeof(u)}
+
+"""
+    unit_scale(::Type{NamedTuple{S, T}} where {S, T<:Tuple}, factor)
+
+Scale the output of a @vars call by the provided units.
+"""
+@generated function unit_scale(::Type{NamedTuple{S, T}}, factor) where {S, T<:Tuple}
+  p(Q,u) = typeof(Q(1.0)*u)
+  :(return $(NamedTuple{S, Tuple{p.(T.parameters, factor())...}}))
+end
+
+"""
+Remove unit annotations, return float in SI units.
+"""
+value(x::Number) = x
+value(x::AbstractQuantity) = upreferred(x).val
+
+# Senstive to typing, modify return expression to apply unitful information.
+upack(x, ::Type{T} where {T<:Number}) = x
+upack(x, Q::Type{T} where {T<:Quantity}) = :($Q($x))
+
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
     Base.@_inline_meta
@@ -131,12 +163,14 @@ get_T(::Type{T}) where {T<:AbstractQuantity} = Unitful.get_T(T)
       retexpr = :($T(array[$(offset+1)]))
       offset += 1
     elseif T <: SHermitianCompact
+      ST = eltype(T)
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
       U = unit(ST)
       retexpr = :($T($LT($([:(array[$(offset + i)]*$U) for i = 1:N]...))))
       offset += N
     elseif T <: StaticArray
+      ST = eltype(T)
       N = length(T)
       U = unit(ST)
       retexpr = :($T($([:(array[$(offset + i)]*$U) for i = 1:N]...)))

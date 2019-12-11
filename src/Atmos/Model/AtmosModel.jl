@@ -4,7 +4,7 @@ export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
        RemainderModel
 
-using LinearAlgebra, StaticArrays
+using LinearAlgebra, StaticArrays, Unitful
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
@@ -48,9 +48,9 @@ end
 
 function vars_state(m::AtmosModel, FT)
   @vars begin
-    ρ::FT
-    ρu::SVector{3,FT}
-    ρe::FT
+    ρ::units(FT, u"kg*m^-3")
+    ρu::SVector{3, units(FT, u"kg/m^2/s")}
+    ρe::units(FT, u"kg*(m/s)^2 / m^3") # Energy per volume -> 'energy density'
     turbulence::vars_state(m.turbulence, FT)
     moisture::vars_state(m.moisture, FT)
     radiation::vars_state(m.radiation, FT)
@@ -58,16 +58,16 @@ function vars_state(m::AtmosModel, FT)
 end
 function vars_gradient(m::AtmosModel, FT)
   @vars begin
-    u::SVector{3,FT}
-    h_tot::FT
+    u::SVector{3, units(FT, u"m/s")}
+    h_tot::units(FT, u"kg*(m/s)^2")
     turbulence::vars_gradient(m.turbulence,FT)
     moisture::vars_gradient(m.moisture,FT)
   end
 end
 function vars_diffusive(m::AtmosModel, FT)
   @vars begin
-    ρτ::SHermitianCompact{3,FT,6}
-    ρd_h_tot::SVector{3,FT}
+    ρτ::SHermitianCompact{3, units(FT, u"(kg/m^2/s)*(m/s)"),6} # NOTE: Guess that should m/s times below
+    ρd_h_tot::SVector{3, units(FT, u"kg/m^2/s")} # NOTE: Guess that this is a mass flux?
     turbulence::vars_diffusive(m.turbulence,FT)
     moisture::vars_diffusive(m.moisture,FT)
   end
@@ -147,7 +147,7 @@ end
                                  diffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
-  
+
   # diffusive
   ρτ = diffusive.ρτ
   ρd_h_tot = diffusive.ρd_h_tot
