@@ -20,15 +20,7 @@ using CLIMA.VTK
 using Random
 using CLIMA.Atmos: vars_state, vars_aux
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -80,7 +72,7 @@ function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.moisture.ρq_tot = FT(0)
 end
 # --------------- Driver definition ------------------ # 
-function run(mpicomm, ArrayType, 
+function run(mpicomm, 
              topl, dim, Ne, polynomialorder, 
              timeend, FT, dt, model)
   # -------------- Define grid ----------------------------------- # 
@@ -155,7 +147,7 @@ end
 # --------------- Test block / Loggers ------------------ # 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -163,11 +155,8 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    FT = Float32
+
+  for FT in (Float32,)
     SGSmodels = (AnisoMinDiss{FT}(1), Vreman{FT}(C_smag), SmagorinskyLilly{FT}(C_smag))
     Expected = (FT(9.9859344959259033e-01),FT(1.0038942098617554e+00),FT(1.0027571916580200e+00))
     for ii=1:length(SGSmodels)
@@ -183,7 +172,7 @@ let
                     range(FT(ymin); length=Ne[2]+1, stop=ymax),
                     range(FT(zmin); length=Ne[3]+1, stop=zmax))
       topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
-      engf_eng0 = run(mpicomm, ArrayType, 
+      engf_eng0 = run(mpicomm, 
                       topl, dim, Ne, polynomialorder, 
                       timeend, FT, dt, model)
       @test engf_eng0 ≈ Expected[ii]

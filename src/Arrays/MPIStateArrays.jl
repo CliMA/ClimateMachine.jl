@@ -5,19 +5,20 @@ using DoubleFloats
 using LazyArrays
 using StaticArrays
 using GPUifyLoops
-import ..haspkg
-
+using Requires
 using MPI
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
+
 # This is so we can do things like
 #   similar(Array{Float64}, Int, 3, 4)
-Base.similar(::Type{Array}, ::Type{FT}, dims...) where {FT} = similar(Array{FT}, dims...)
-@static if haspkg("CuArrays")
-  using CuArrays
-  Base.similar(::Type{CuArray}, ::Type{FT}, dims...) where {FT} = similar(CuArray{FT}, dims...)
+Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:Array, FT} = similar(Array{FT}, dims...)
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:CuArray, FT} = similar(CuArray{FT}, dims...)
 end
+
 
 export MPIStateArray, euclidean_distance, weightedsum
 
@@ -110,7 +111,7 @@ end
 Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
 
 """
-   MPIStateArray{FT}(mpicomm, Np, nstate, numelem; realelems=1:numelem,
+   MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem; realelems=1:numelem,
                      ghostelems=numelem:numelem-1,
                      vmaprecv=1:0,
                      vmapsend=1:0,
@@ -121,7 +122,7 @@ Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
                      commtag=888)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
-elements, using array type `DA` with element type `eltype`. The arrays that are
+elements, using array type `DA` with element type `FT`. The arrays that are
 held in this created `MPIStateArray` will be of size `(Np, nstate, numelem)`.
 
 The range `realelems` is the number of elements that this mpirank owns, whereas
@@ -161,13 +162,20 @@ function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
 end
 
 # FIXME: should general cases be handled?
-function Base.similar(Q::MPIStateArray, ::Type{FTN}; commtag=Q.commtag
-                     ) where {FTN}
-  MPIStateArray{FTN}(Q.mpicomm, Q.data, size(Q.data)..., Q.realelems,
+function Base.similar(Q::MPIStateArray, ::Type{A}, ::Type{FT}; commtag=Q.commtag
+                     ) where {A<:AbstractArray, FT<:Number}
+  MPIStateArray{FT}(Q.mpicomm, A, size(Q.data)..., Q.realelems,
                      Q.ghostelems, Q.vmaprecv, Q.vmapsend, Q.nabrtorank,
                      Q.nabrtovmaprecv, Q.nabrtovmapsend, Q.weights, commtag)
 end
-
+function Base.similar(Q::MPIStateArray{FT}, ::Type{A}; commtag=Q.commtag
+                     ) where {A<:AbstractArray, FT<:Number}
+  similar(Q, A, FT, commtag = commtag)
+end
+function Base.similar(Q::MPIStateArray, ::Type{FT}; commtag=Q.commtag
+                     ) where {FT<:Number}
+  similar(Q, typeof(Q.data), FT, commtag = commtag)
+end
 function Base.similar(Q::MPIStateArray{FT}; commtag=Q.commtag) where {FT}
   similar(Q, FT, commtag = commtag)
 end
@@ -372,7 +380,7 @@ end
 # }}}
 
 # Integral based metrics
-function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; dims=nothing)
+function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; dims=:)
   if weighted && ~isempty(Q.weights)
     W = @view Q.weights[:, :, Q.realelems]
     locnorm = weighted_norm_impl(Q.realdata, W, Val(p), dims)
@@ -389,7 +397,7 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; di
   @toc mpi_norm
   isfinite(p) ? r .^ (1 // p) : r
 end
-LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool; dims=nothing) = norm(Q, 2, weighted; dims=dims)
+LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool; dims=:) = norm(Q, 2, weighted; dims=dims)
 
 function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=true)
   @assert length(Q1.realdata) == length(Q2.realdata)
@@ -457,7 +465,7 @@ end
 
 # fast CPU local norm & dot implementations
 function norm_impl(Q::SubArray{FT, N, A}, ::Val{p},
-                   dims::Nothing) where {FT, N, A<:Array, p}
+                   dims::Colon) where {FT, N, A<:Array, p}
   accum = isfinite(p) ? -zero(FT) : typemin(FT)
   @inbounds @simd for i in eachindex(Q)
     if isfinite(p)
@@ -470,7 +478,7 @@ function norm_impl(Q::SubArray{FT, N, A}, ::Val{p},
   accum
 end
 
-function weighted_norm_impl(Q::SubArray{FT, N, A}, W, ::Val{p}, dims::Nothing) where {FT, N, A<:Array, p}
+function weighted_norm_impl(Q::SubArray{FT, N, A}, W, ::Val{p}, dims::Colon) where {FT, N, A<:Array, p}
   nq, ns, ne = size(Q)
   accum = isfinite(p) ? -zero(FT) : typemin(FT)
   @inbounds for k = 1:ne, j = 1:ns
@@ -507,7 +515,7 @@ function weighted_dot_impl(Q1::SubArray{FT, N, A}, Q2::SubArray{FT, N, A}, W) wh
 end
 
 # GPU/generic local norm & dot implementations
-function norm_impl(Q, ::Val{p}, dims=nothing) where p
+function norm_impl(Q, ::Val{p}, dims=:) where p
   FT = eltype(Q)
   if !isfinite(p)
     f, op = abs, max
@@ -518,21 +526,25 @@ function norm_impl(Q, ::Val{p}, dims=nothing) where p
   else
     f, op = x -> abs(x)^p, +
   end
-  dims==nothing ? mapreduce(f, op, Q) :
-                  mapreduce(f, op, Q, dims=dims)
+  mapreduce(f, op, Q, dims=dims)
 end
 
-function weighted_norm_impl(Q, W, ::Val{p}, dims=nothing) where p
+function weighted_norm_impl(Q, W, ::Val{p}, dims=:) where p
   FT = eltype(Q)
-  if isfinite(p)
-    E = @~ @. W * abs(Q) ^ p
-    op, init = +, zero(FT)
-  else
+  if !isfinite(p)
     E = @~ @. W * abs(Q)
     op, init = max, typemin(FT)
+  else
+    if p == 1
+      E = @~ @. W * abs(Q)
+    elseif p == 2
+      E = @~ @. W * abs2(Q)
+    else
+      E = @~ @. W * abs(Q)^p
+    end
+    op, init = +, zero(FT)
   end
-  dims==nothing ? reduce(op, E, init=init) :
-                  reduce(op, E, init=init, dims=dims)
+  reduce(op, E, init=init, dims=dims)
 end
 
 function dot_impl(Q1, Q2)
@@ -543,7 +555,26 @@ end
 
 weighted_dot_impl(Q1, Q2, W) = dot_impl(@~ @. W * Q1, Q2)
 
-using Requires
+function Base.mapreduce(f, op, Q::MPIStateArray; kw...)
+  locreduce = mapreduce(f, op, realview(Q); kw...)
+  MPI.Allreduce(locreduce, op, Q.mpicomm)
+end
+
+# Arrays and CuArrays have different reduction machinery
+# until we can figure this out, add special cases to make common functions work
+function Base.mapreduce(::typeof(identity), ::Union{typeof(+), typeof(Base.add_sum)}, Q::MPIStateArray; kw...)
+  locreduce = sum(realview(Q); kw...)
+  MPI.Allreduce(locreduce, +, Q.mpicomm)
+end
+function Base.mapreduce(::typeof(identity), ::typeof(min), Q::MPIStateArray; kw...)
+  locreduce = minimum(realview(Q); kw...)
+  MPI.Allreduce(locreduce, min, Q.mpicomm)
+end
+function Base.mapreduce(::typeof(identity), ::typeof(max), Q::MPIStateArray; kw...)
+  locreduce = maximum(realview(Q); kw...)
+  MPI.Allreduce(locreduce, max, Q.mpicomm)
+end
+
 
 # `realview` and `device` are helpers that enable
 # testing ODESolvers and LinearSolvers without using MPIStateArrays
@@ -558,7 +589,6 @@ realview(Q::MPIStateArray) = Q.realdata
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
   using .CuArrays
-  using .CuArrays.CUDAnative
 
   device(::CuArray) = CUDA()
   realview(Q::CuArray) = Q
@@ -568,7 +598,6 @@ realview(Q::MPIStateArray) = Q.realdata
   function transform_broadcasted(bc::Broadcasted, ::CuArray)
     transform_cuarray(bc)
   end
-
   function transform_cuarray(bc::Broadcasted)
     Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
   end

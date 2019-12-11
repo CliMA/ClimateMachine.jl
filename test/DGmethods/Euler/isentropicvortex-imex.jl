@@ -1,4 +1,4 @@
-using CLIMA: haspkg
+using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
@@ -23,15 +23,8 @@ using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -41,7 +34,7 @@ end
 const output_vtk = false
 
 function main()
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -68,7 +61,7 @@ function main()
   expected_error[Float64, true, 4] = 2.8660023410820249e-03
 
   @testset "$(@__FILE__)" begin
-    for ArrayType in ArrayTypes, FT in (Float64,), dims in 2
+    for FT in (Float64,), dims in 2
       for split_nonlinear_linear in (false, true)
         let
           split = split_nonlinear_linear ? "(Nonlinear, Linear)" :
@@ -78,7 +71,7 @@ function main()
                             FT    = %s
                             dims      = %d
                             splitting = %s
-                            """ "$ArrayType" "$FT" dims split
+                            """ ArrayType "$FT" dims split
         end
 
         setup = IsentropicVortexSetup{FT}()
@@ -88,7 +81,7 @@ function main()
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
             run(mpicomm, polynomialorder, numelems, setup, split_nonlinear_linear,
-                ArrayType, FT, dims, level)
+                FT, dims, level)
 
           @test errors[level] ≈ expected_error[FT, split_nonlinear_linear, level]
         end
@@ -102,7 +95,7 @@ function main()
 end
 
 function run(mpicomm, polynomialorder, numelems, setup,
-             split_nonlinear_linear, ArrayType, FT, dims, level)
+             split_nonlinear_linear, FT, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
   end
@@ -269,7 +262,7 @@ function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
 
   x .-= u∞ * t
   # make the function periodic
-  x .-= floor.((x + L) / 2L) * 2L
+  x .-= floor.((x .+ L) / 2L) * 2L
 
   @inbounds begin
     r = sqrt(x[1] ^ 2 + x[2] ^ 2)

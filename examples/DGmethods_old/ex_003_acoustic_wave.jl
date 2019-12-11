@@ -54,21 +54,8 @@ using CLIMA.PlanetParameters: planet_radius, grav, MSLP
 using CLIMA.MoistThermodynamics: air_temperature, air_pressure, internal_energy,
                                  soundspeed_air, air_density, gas_constant_air
 
-# Start up MPI if this has not already been done
-MPI.Initialized() || MPI.Init()
-#md nothing # hide
-
-# If `CuArrays` is in the current environment we will use CUDA, otherwise we
-# drop back to the CPU
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const DeviceArrayType = CuArray
-else
-  const DeviceArrayType = Array
-end
+# Start up MPI and determine array type
+const DeviceArrayType = CLIMA.array_type()
 #md nothing # hide
 
 # Specify whether to enforce hydrostatic balance at PDE level or not
@@ -405,6 +392,7 @@ end
 # sphere and back. Increasing the numeber of horizontal elements to `~30` is
 # required for stable long time simulation.
 let
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 

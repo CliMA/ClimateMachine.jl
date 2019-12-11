@@ -14,7 +14,7 @@ using ..PlanetParameters
 
 # Atmospheric equation of state
 export air_pressure, air_temperature, air_density, specific_volume, soundspeed_air
-export linearized_air_pressure, total_specific_humidity
+export total_specific_humidity
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -34,10 +34,6 @@ export saturation_excess
 # determined diagnostically from total water specific humidity)
 
 export liquid_fraction, PhasePartition_equil
-
-export saturation_adjustment # should remove from export
-export saturation_adjustment_q_tot_θ_liq_ice_given_pressure # should remove from export
-export saturation_adjustment_NewtonsMethod # should remove from export
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export dry_pottemp, dry_pottemp_given_pressure, virtual_pottemp, exner, exner_given_pressure
@@ -93,23 +89,6 @@ The air pressure from the equation of state
 air_pressure(ts::ThermodynamicState) =
   air_pressure(air_temperature(ts), air_density(ts), PhasePartition(ts))
 
-"""
-    linearized_air_pressure(ρ, e_tot, e_pot[, q::PhasePartition])
-
-The air pressure, linearized around a dry rest state, from the equation of state
-(ideal gas law) where:
-
- - `ρ` (moist-)air density
- - `e_tot` total energy per unit mass
- - `e_pot` potential energy per unit mass
-and, optionally,
- - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
-"""
-linearized_air_pressure(ρ::FT, e_tot::FT, e_pot::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
-  ρ*FT(R_d)*FT(T_0) + FT(R_d)/FT(cv_d)*(ρ*e_tot - ρ*e_pot - (ρ*q.tot - ρ*q.liq)*FT(e_int_v0) + ρ*q.ice*(FT(e_int_i0) + FT(e_int_v0)))
-
-linearized_air_pressure(e_kin::FT, e_pot::FT, ts::ThermodynamicState{FT}) where {FT<:Real} =
-  linearized_air_pressure(air_density(ts), total_energy(e_kin, e_pot, ts), e_pot, PhasePartition(ts))
 
 """
     air_density(T, p[, q::PhasePartition])
@@ -135,7 +114,7 @@ air_density(ts::ThermodynamicState) = ts.ρ
 """
     specific_volume(ts::ThermodynamicState)
 
-The (moist-)air specific, given a thermodynamic state `ts`.
+The (moist-)air specific volume, given a thermodynamic state `ts`.
 """
 specific_volume(ts::ThermodynamicState) = 1/air_density(ts)
 
@@ -749,7 +728,7 @@ function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ)
+    saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, ρ, q_tot)
 
 Compute the temperature `T` that is consistent with
 
@@ -765,7 +744,7 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::FT) where {FT<:Real}
+function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, ρ::FT, q_tot::FT) where {FT<:Real}
   T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot)) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
@@ -784,7 +763,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, q_tot::FT, ρ::F
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, q_tot, p)
+    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, p, q_tot)
 
 Compute the temperature `T` that is consistent with
 
@@ -800,7 +779,7 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, q_tot::FT, p::FT) where {FT<:Real}
+function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p::FT, q_tot::FT) where {FT<:Real}
   T_1 = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, PhasePartition(q_tot)) # Assume all vapor
   ρ = air_density(T_1, p, PhasePartition(q_tot))
   q_v_sat = q_vap_saturation(T_1, ρ)
@@ -822,7 +801,8 @@ end
 """
     latent_heat_liq_ice(q::PhasePartition{FT})
 
-Effective latent heat of condensate (weighted sum of liquid and ice)
+Effective latent heat of condensate (weighted sum of liquid and ice),
+with specific latent heat evaluated at reference temperature `T_0`.
 """
 latent_heat_liq_ice(q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
   FT(LH_v0)*q.liq + FT(LH_s0)*q.ice
@@ -919,11 +899,17 @@ end
 """
     air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice, ρ, q::PhasePartition)
 
-Solves the non-linear equation
+Computes temperature `T` given
+
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `ρ` (moist-)air density
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
+
+by finding the root of
 ``
-  T = θ_{liq_ice}*(exner(T,ρ,q) + (LH_{v0} q_{liq} + LH_{s0} q_{ice}) / cp_m
+  T - air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, air_pressure(T, ρ, q), q) = 0
 ``
-for temperature `T`
 """
 function air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}

@@ -99,3 +99,24 @@ function writevtk_helper(prefix, vgeo::Array, Q::Array, grid,
   end
   writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
 end
+
+"""
+    writegrid(prefix, grid::DiscontinuousSpectralElementGrid)
+
+Write a vtk file for the grid.  The filename will start with `prefix` which
+may also contain a directory path.
+"""
+function writevtk(prefix, grid::DiscontinuousSpectralElementGrid)
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq  = N+1
+
+  vgeo = grid.vgeo isa Array ? grid.vgeo : Array(grid.vgeo)
+
+  nelem = size(vgeo)[end]
+  Xid = (grid.x1id, grid.x2id, grid.x3id)
+  X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
+                        ntuple(j->Nq, dim)...,
+                        nelem), dim)
+  writemesh(prefix, X...; realelems=grid.topology.realelems)
+end

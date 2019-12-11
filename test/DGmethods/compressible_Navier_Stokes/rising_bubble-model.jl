@@ -22,15 +22,7 @@ using CLIMA.VTK
 using Random
 using CLIMA.Atmos: vars_state, vars_aux
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -96,7 +88,7 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.moisture.ρq_tot = FT(0)
 end
 # --------------- Driver definition ------------------ # 
-function run(mpicomm, ArrayType, 
+function run(mpicomm, 
              topl, dim, Ne, polynomialorder, 
              timeend, FT, dt)
   # -------------- Define grid ----------------------------------- # 
@@ -178,7 +170,7 @@ end
 # --------------- Test block / Loggers ------------------ # 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -186,21 +178,15 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    FloatType = (Float32, Float64)
-    for FT in FloatType
-      brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
-                    range(FT(ymin); length=Ne[2]+1, stop=ymax),
-                    range(FT(zmin); length=Ne[3]+1, stop=zmax))
-      topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
-      engf_eng0 = run(mpicomm, ArrayType, 
-                      topl, dim, Ne, polynomialorder, 
-                      timeend, FT, dt)
-      @test engf_eng0 ≈ FT(9.9999993807738441e-01)
-    end
+  for FT in (Float32, Float64)
+    brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
+                  range(FT(ymin); length=Ne[2]+1, stop=ymax),
+                  range(FT(zmin); length=Ne[3]+1, stop=zmax))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
+    engf_eng0 = run(mpicomm,
+                    topl, dim, Ne, polynomialorder, 
+                    timeend, FT, dt)
+    @test engf_eng0 ≈ FT(9.9999993807738441e-01)
   end
 end
 

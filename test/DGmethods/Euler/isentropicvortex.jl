@@ -1,4 +1,4 @@
-using CLIMA: haspkg
+using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state
@@ -18,15 +18,8 @@ using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -36,7 +29,7 @@ end
 const output_vtk = false
 
 function main()
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -96,14 +89,14 @@ function main()
   expected_error[Float32, 3, Central, 4] = 1.2930640019476414e-02
 
   @testset "$(@__FILE__)" begin
-    for ArrayType in ArrayTypes, FT in (Float64, Float32), dims in (2, 3)
+    for FT in (Float64, Float32), dims in (2, 3)
       for NumericalFlux in (Rusanov, Central)
         @info @sprintf """Configuration
                           ArrayType     = %s
                           FT        = %s
                           NumericalFlux = %s
                           dims          = %d
-                          """ "$ArrayType" "$FT" "$NumericalFlux" dims
+                          """ ArrayType "$FT" "$NumericalFlux" dims
 
         setup = IsentropicVortexSetup{FT}()
         errors = Vector{FT}(undef, numlevels)
@@ -112,11 +105,11 @@ function main()
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
             run(mpicomm, polynomialorder, numelems,
-                NumericalFlux, setup, ArrayType, FT, dims, level)
+                NumericalFlux, setup, FT, dims, level)
 
           rtol = sqrt(eps(FT))
           # increase rtol for comparing with GPU results using Float32
-          if FT === Float32 && !(ArrayType === Array)
+          if FT === Float32 && ArrayType !== Array
             rtol *= 10 # why does this factor have to be so big :(
           end
           @test isapprox(errors[level],
@@ -132,7 +125,7 @@ function main()
 end
 
 function run(mpicomm, polynomialorder, numelems,
-             NumericalFlux, setup, ArrayType, FT, dims, level)
+             NumericalFlux, setup, FT, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
   end
@@ -262,7 +255,7 @@ function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
 
   x .-= u∞ * t
   # make the function periodic
-  x .-= floor.((x + L) / 2L) * 2L
+  x .-= floor.((x .+ L) / 2L) * 2L
 
   @inbounds begin
     r = sqrt(x[1] ^ 2 + x[2] ^ 2)

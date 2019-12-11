@@ -18,17 +18,9 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
+using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   if length(ARGS) > 0
@@ -184,7 +176,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
 end
 
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -192,9 +184,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
   base_num_elem = 4
@@ -220,7 +209,7 @@ let
 
   numlevels = integration_testing ? 4 : 1
 
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+  @testset "$(@__FILE__)" begin
     for FT in (Float64, Float32)
       result = zeros(FT, numlevels)
       for dim = 2:3

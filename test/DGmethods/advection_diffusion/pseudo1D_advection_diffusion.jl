@@ -13,17 +13,9 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
+using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   if length(ARGS) > 0
@@ -83,7 +75,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, direction, dt,
+function run(mpicomm, dim, topl, N, timeend, FT, direction, dt,
              n, α, β, μ, δ, vtkdir, outputtime)
 
   grid = DiscontinuousSpectralElementGrid(topl,
@@ -163,7 +155,7 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -171,9 +163,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
   base_num_elem = 4
@@ -232,7 +221,6 @@ let
 
   numlevels = integration_testing ? 4 : 1
 
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     for FT in (Float64, Float32)
       result = zeros(FT, numlevels)
       for dim = 2:3
@@ -270,7 +258,7 @@ let
                               "_poly$(polynomialorder)" *
                               "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
                               "_level$(l)" : nothing
-            result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
+            result[l] = run(mpicomm, dim, topl, polynomialorder,
                             timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
                             outputtime)
             @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
@@ -286,7 +274,6 @@ let
         end
       end
     end
-  end
 end
 
 nothing

@@ -2,6 +2,7 @@ module Filters
 
 using LinearAlgebra, GaussQuadrature, GPUifyLoops
 using ..Grids
+using ..Grids: Direction, EveryDirection, HorizontalDirection, VerticalDirection
 
 export AbstractSpectralFilter, AbstractFilter
 export ExponentialFilter, CutoffFilter, TMARFilter
@@ -129,19 +130,18 @@ end
 
 """
     apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
-           filter::AbstractSpectralFilter; horizontal = true,
-           vertical = true)
+           filter::AbstractSpectralFilter,
+           direction::Direction = EveryDirection())
 
 Applies `filter` to the `states` of `Q`.
 
-The arguments `horizontal` and `vertical` are used to control if the filter
-is applied in the horizontal and vertical reference directions, respectively.
-Note, it is assumed that the trailing dimension is the vertical dimension and
-the rest are horizontal.
+The `direction` argument controls if the filter is applied in the horizontal
+and/or vertical directions. It is assumed that the trailing dimension on the
+reference element is the vertical dimension and the rest are horizontal.
 """
 function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
-                filter::AbstractSpectralFilter;
-                horizontal = true, vertical = true)
+                filter::AbstractSpectralFilter,
+                direction::Direction = EveryDirection())
   topology = grid.topology
 
   dim = dimensionality(grid)
@@ -159,7 +159,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
   nrealelem = length(topology.realelems)
 
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          knl_apply_filter!(Val(dim), Val(N), Val(nstate), Val(horizontal), Val(vertical),
+          knl_apply_filter!(Val(dim), Val(N), Val(nstate), Val(direction),
                             Q.data, Val(states), filtermatrix, topology.realelems))
 end
 

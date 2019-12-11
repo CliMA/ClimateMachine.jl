@@ -1,4 +1,4 @@
-using CLIMA: haspkg
+using CLIMA
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Filters
@@ -22,20 +22,12 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation,
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayType = CuArray
-else
-  const ArrayType = Array
-end
+const ArrayType = CLIMA.array_type()
 
 const output_vtk = false
 
 function main()
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -52,14 +44,14 @@ function main()
   numelem_vert = 5
 
   timeend = 60 * 60
-  #timeend = 33 * 60 * 60 # Full simulation
+  # timeend = 33 * 60 * 60 # Full simulation
   outputtime = 60 * 60
 
   expected_result = Dict()
   expected_result[Float32] = 9.5064378310656000e+13
   expected_result[Float64] = 9.5073452847081828e+13
 
-  for FT in (Float32, Float64)
+  for FT in (Float32, )
     result = run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                  timeend, outputtime, ArrayType, FT)
     @test result ≈ expected_result[FT]
@@ -118,7 +110,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   filterorder = 18
   filter = ExponentialFilter(grid, 0, filterorder)
   cbfilter = EveryXSimulationSteps(1) do
-    Filters.apply!(Q, 1:size(Q, 2), grid, filter; horizontal=false, vertical=true)
+    Filters.apply!(Q, 1:size(Q, 2), grid, filter, VerticalDirection())
     nothing
   end
 

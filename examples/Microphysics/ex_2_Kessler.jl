@@ -35,15 +35,7 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const DeviceArrayType = CuArray
-else
-  const DeviceArrayType = Array
-end
+const ArrayType = CLIMA.array_type()
 
 const _nstate = 7
 const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_rai = 1:_nstate
@@ -382,16 +374,8 @@ end
 
 function run(dim, Ne, N, timeend, FT)
 
-  ArrayType = DeviceArrayType
-
-  MPI.Initialized() || MPI.Init()
-
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
-
-  @static if haspkg("CUDAnative")
-    rank = MPI.Comm_rank(mpicomm)
-    device!(rank % length(devices()))
-  end
 
   brickrange = ntuple(j->range(FT(0); length=Ne[j]+1, stop=Z_max), 2)
 

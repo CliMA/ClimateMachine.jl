@@ -16,16 +16,9 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
+using Test
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
+const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -99,7 +92,7 @@ end
 
 # initial condition
 
-function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
+function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -135,6 +128,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                CentralGradPenalty())
 
   Q = init_ode_state(dg, FT(0))
+  Qcpu = init_ode_state(dg, FT(0); forcecpu=true)
+  @test euclidean_distance(Q, Qcpu) < sqrt(eps(FT))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -180,9 +175,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
   errf
 end
 
-using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -190,10 +184,7 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-
+  
   polynomialorder = 4
   base_num_elem = 4
 
@@ -201,7 +192,6 @@ let
                      2.5754410198970158e-02 1.1781217145186288e-03 6.1752962472904071e-05]
 lvls = integration_testing ? size(expected_result, 2) : 1
 
-@testset "$(@__FILE__)" for ArrayType in ArrayTypes
 for FT in (Float64,) #Float32)
   result = zeros(FT, lvls)
   for dim = 2:3
@@ -236,7 +226,7 @@ for FT in (Float64,) #Float32)
       dt = timeend / nsteps
 
       @info (ArrayType, FT, dim)
-      result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
+      result[l] = run(mpicomm, dim, topl, warpfun,
                       polynomialorder, timeend, FT, dt)
       @test result[l] ≈ FT(expected_result[dim-1, l])
     end
@@ -251,7 +241,6 @@ for FT in (Float64,) #Float32)
       end
     end
   end
-end
 end
 end
 
