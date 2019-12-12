@@ -9,7 +9,6 @@ module MoistThermodynamics
 
 using DocStringExtensions
 
-using ..VariableTemplates
 using ..RootSolvers
 using ..PlanetParameters
 
@@ -213,7 +212,6 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
 function air_temperature(e_int::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
-  @show typeof.((q.tot, q.liq, q.ice, cv_m(q)))
   T_0 +
     (e_int - (q.tot - q.liq) * FT(e_int_v0) + q.ice * (FT(e_int_v0) + FT(e_int_i0))) /
     cv_m(q)
@@ -263,7 +261,6 @@ The internal energy per unit mass, given
   ρe_pot = ρ * e_pot
   ρe_int = ρe - ρe_kin - ρe_pot
   e_int = ρinv*ρe_int
-  println(typeof(e_int))
   return e_int
 end
 
