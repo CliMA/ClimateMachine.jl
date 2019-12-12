@@ -104,8 +104,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   linearsolver = ManyColumnLU()
 
   odesolver = ARK2GiraldoKellyConstantinescu(dg, lineardg, linearsolver, Q;
-                                             dt = dt, t0 = 0, split_nonlinear_linear=false,
-                                             paperversion=false)
+                                             dt = dt, t0 = 0, split_nonlinear_linear=false)
 
   filterorder = 18
   filter = ExponentialFilter(grid, 0, filterorder)

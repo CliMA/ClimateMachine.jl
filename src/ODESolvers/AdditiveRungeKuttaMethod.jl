@@ -350,7 +350,7 @@ see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
 This time stepping object is intended to be passed to the `solve!` command.
 
 `paperversion=true` uses the coefficients from the paper, `paperversion=false`
-uses the coefficients from the AFOSR 2013 presentation.
+uses coefficients that make the scheme (much) more stable but less accurate
 
 This uses the second-order-accurate 3-stage additive Runge--Kutta scheme of
 Giraldo, Kelly and Constantinescu (2013).
@@ -372,13 +372,13 @@ function ARK2GiraldoKellyConstantinescu(F, L,
                                         Q::AT; dt=nothing, t0=0,
                                         split_nonlinear_linear=false,
                                         variant=LowStorageVariant(),
-                                        paperversion=true) where {AT<:AbstractArray}
+                                        paperversion=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
- 
+
   a32 = RT(paperversion ? (3 + 2sqrt(2)) / 6 : 1 // 2)
   RKA_explicit = [RT(0)           RT(0)   RT(0);
                   RT(2 - sqrt(2)) RT(0)   RT(0);
