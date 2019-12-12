@@ -343,11 +343,14 @@ end
 
 """
     ARK2GiraldoKellyConstantinescu(f, l, linearsolver, Q; dt, t0,
-                                   split_nonlinear_linear, variant)
+                                   split_nonlinear_linear, variant, paperversion)
 
 This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
 see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
 This time stepping object is intended to be passed to the `solve!` command.
+
+`paperversion=true` uses the coefficients from the paper, `paperversion=false`
+uses coefficients that make the scheme (much) more stable but less accurate
 
 This uses the second-order-accurate 3-stage additive Runge--Kutta scheme of
 Giraldo, Kelly and Constantinescu (2013).
@@ -368,14 +371,15 @@ function ARK2GiraldoKellyConstantinescu(F, L,
                                         linearsolver::AbstractLinearSolver,
                                         Q::AT; dt=nothing, t0=0,
                                         split_nonlinear_linear=false,
-                                        variant=LowStorageVariant()) where {AT<:AbstractArray}
+                                        variant=LowStorageVariant(),
+                                        paperversion=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
-  
-  a32 = RT((3 + 2sqrt(2)) / 6)
+
+  a32 = RT(paperversion ? (3 + 2sqrt(2)) / 6 : 1 // 2)
   RKA_explicit = [RT(0)           RT(0)   RT(0);
                   RT(2 - sqrt(2)) RT(0)   RT(0);
                   RT(1 - a32)     RT(a32) RT(0)]

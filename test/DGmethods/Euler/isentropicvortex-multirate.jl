@@ -151,7 +151,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
     linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
     # splitting the fast part into full and linear but the fast part
     # is already linear so full_dg == linear_dg == fast_dg
-    fast_ode_solver = FastMethod(fast_dg, fast_dg, linearsolver, Q; dt = fast_dt)
+    fast_ode_solver = FastMethod(fast_dg, fast_dg, linearsolver, Q; dt = fast_dt, paperversion = true)
   else
     fast_ode_solver = FastMethod(fast_dg, Q; dt = fast_dt)
   end
