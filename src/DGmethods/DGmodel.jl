@@ -1,4 +1,4 @@
-struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D}
+struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D,MD}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
@@ -7,13 +7,14 @@ struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D}
   auxstate::AS
   diffstate::DS
   direction::D
+  modeldata::MD
 end
 function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
                  auxstate=create_auxstate(balancelaw, grid),
                  diffstate=create_diffstate(balancelaw, grid),
-                 direction=EveryDirection())
+                 direction=EveryDirection(), modeldata=nothing)
   DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
-          diffstate, direction)
+          diffstate, direction, modeldata)
 end
 
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
@@ -145,7 +146,7 @@ function init_ode_state(dg::DGModel, args...;
       initstate!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
           topology.realelems, args...))
     state .= h_state
-  end  
+  end
 
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
@@ -241,6 +242,35 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
           knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
                           Q.data, dg.auxstate.data, dg.diffstate.data, t,
                           topology.realelems))
+end
+
+function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
+                                auxstate::MPIStateArray, fldin, fldout)
+
+  device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
+
+  grid = dg.grid
+  topology = grid.topology
+
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  DFloat = eltype(auxstate)
+
+  vgeo = grid.vgeo
+  polyorder = polynomialorder(dg.grid)
+
+  # do integrals
+  nelem = length(topology.elems)
+  nvertelem = topology.stacksize
+  nhorzelem = div(nelem, nvertelem)
+
+  @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
+          knl_copy_stack_field_down!(Val(dim), Val(polyorder), Val(nvertelem),
+                                     auxstate.data, 1:nhorzelem, Val(fldin),
+                                     Val(fldout)))
 end
 
 function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)

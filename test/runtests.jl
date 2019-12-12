@@ -14,6 +14,7 @@ for submodule in ["Utilities/TicToc",
                   "Mesh",
                   "DGmethods",
                   "ODESolvers",
+                  "Ocean",
                   "Arrays",
                   "LinearSolvers",
                  ]
