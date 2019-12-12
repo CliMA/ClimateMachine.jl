@@ -7,7 +7,7 @@ end
 
 function vars_aux(m::Orientation, T)
   @vars begin
-    Φ::units(T, u"(m/s)^2") # gravitational potential
+    Φ::T # gravitational potential
     ∇Φ::SVector{3,T}
   end
 end
