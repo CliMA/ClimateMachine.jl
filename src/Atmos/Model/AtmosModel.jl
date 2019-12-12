@@ -122,13 +122,7 @@ Where
 
   # pressure terms
   p = pressure(m.moisture, m.orientation, state, aux)
-
-  if assume_pde_level_hydrostatic_balance(m.ref_state)
-    # assumes that the *reference state* is in hydrostatic balance
-    flux.ρu += (p-aux.ref_state.p)*I
-  else
-    flux.ρu += p*I
-  end
+  flux.ρu += p*I
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
   flux_moisture!(m.moisture, flux, state, aux, t)

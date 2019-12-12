@@ -51,7 +51,7 @@ function main()
   expected_result[Float32] = 9.5064378310656000e+13
   expected_result[Float64] = 9.5073452847081828e+13
 
-  for FT in (Float32, )
+  for FT in (Float64,)
     result = run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                  timeend, outputtime, ArrayType, FT)
     @test result ≈ expected_result[FT]
@@ -73,11 +73,11 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                                           meshwarp = cubedshellwarp)
 
   model = AtmosModel(SphericalOrientation(),
-                     HydrostaticState(IsothermalProfile(setup.T_ref), FT(0), true),
+                     HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
-                     Gravity(), 
+                     Gravity(),
                      NoFluxBC(),
                      setup)
   linearmodel = AtmosAcousticGravityLinearModel(model)
@@ -182,7 +182,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
   nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(state, aux, coords, t) 
+function (setup::AcousticWaveSetup)(state, aux, coords, t)
   # callable to set initial conditions
   FT = eltype(state)
 

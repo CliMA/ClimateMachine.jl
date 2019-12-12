@@ -15,7 +15,6 @@ vars_gradient(m::ReferenceState , FT) = @vars()
 vars_diffusive(m::ReferenceState, FT) = @vars()
 vars_aux(m::ReferenceState, FT) = @vars()
 atmos_init_aux!(::ReferenceState, ::AtmosModel, aux::Vars, geom::LocalGeometry) = nothing
-assume_pde_level_hydrostatic_balance(m::ReferenceState) = false
 
 """
     NoReferenceState <: ReferenceState
@@ -34,18 +33,9 @@ A hydrostatic state specified by a temperature profile and relative humidity.
 struct HydrostaticState{P,F} <: ReferenceState
   temperatureprofile::P
   relativehumidity::F
-  """
-  assume that the hydrostatic balance holds at the pde level, i.e.
-  gravity and pressure force contributions from the reference state
-  cancel out exactly
-  """
-  assume_pde_level_balance::Bool
 end
-HydrostaticState(p::P, f::F) where {P, F} = HydrostaticState{P, F}(p, f, false)
 
 vars_aux(m::HydrostaticState, FT) = @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
-assume_pde_level_hydrostatic_balance(m::HydrostaticState) = m.assume_pde_level_balance
-
 
 function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars, geom::LocalGeometry) where {P,F}
   T,p = m.temperatureprofile(atmos.orientation, aux)
