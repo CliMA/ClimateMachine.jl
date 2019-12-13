@@ -83,6 +83,7 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
       end
 
       if filterinξ2 || filterinξ3
+        @synchronize
         @loop for k in (1:Nqk; threadIdx().z)
           @loop for j in (1:Nq; threadIdx().y)
             @loop for i in (1:Nq; threadIdx().x)
@@ -111,12 +112,13 @@ function knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate},
       end
 
       if filterinξ3
+        @synchronize
         @loop for k in (1:Nqk; threadIdx().z)
           @loop for j in (1:Nq; threadIdx().y)
             @loop for i in (1:Nq; threadIdx().x)
               @unroll for fs = 1:nfilterstates
                 s_Q[i, j, k, fs] = l_Qfiltered[fs, i, j, k]
-                (l_Qfiltered[fs, i, j, k] = zero(FT))
+                l_Qfiltered[fs, i, j, k] = zero(FT)
               end
             end
           end
