@@ -92,6 +92,16 @@ function vars_integrals(m::AtmosModel,FT)
   end
 end
 
+include("orientation.jl")
+include("ref_state.jl")
+include("turbulence.jl")
+include("moisture.jl")
+include("radiation.jl")
+include("source.jl")
+include("boundaryconditions.jl")
+include("linear.jl")
+include("remainder.jl")
+
 """
     flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
                        t::Real)
@@ -122,7 +132,12 @@ Where
 
   # pressure terms
   p = pressure(m.moisture, m.orientation, state, aux)
-  flux.ρu += p*I
+
+  if m.ref_state isa HydrostaticState
+    flux.ρu += (p-aux.ref_state.p)*I
+  else
+    flux.ρu += p*I
+  end
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
   flux_moisture!(m.moisture, flux, state, aux, t)
@@ -207,16 +222,6 @@ end
 function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
   integrate_aux!(m.radiation, integ, state, aux)
 end
-
-include("orientation.jl")
-include("ref_state.jl")
-include("turbulence.jl")
-include("moisture.jl")
-include("radiation.jl")
-include("source.jl")
-include("boundaryconditions.jl")
-include("linear.jl")
-include("remainder.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
