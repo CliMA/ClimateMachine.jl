@@ -140,9 +140,9 @@ function run_test3(mpicomm, dim, Ne, N, FT)
   base_Nvert = 2
   Rinner = 1 // 2
   Router = 1
-  expected_result = [-4.5894269717905445e-8 -1.1473566985387151e-8;
-		     -2.0621904184281448e-10  -5.155431637149377e-11;
-	             -8.72191208145523e-13 -2.1715962361668062e-13]
+  expected_result = [-4.5894269717905445e-8  -1.1473566985387151e-8 ;
+		                 -2.0621904184281448e-10 -5.155431637149377e-11 ;
+	                   -8.72191208145523e-13   -2.1715962361668062e-13]
   for l in 1:3
     Nhorz = 2^(l-1) * base_Nhorz
     Nvert = 2^(l-1) * base_Nvert
@@ -172,25 +172,25 @@ function run_test3(mpicomm, dim, Ne, N, FT)
     for ev in 1:nvertelem
       for eh in 1:nhorzelem
         e = ev + (eh - 1) * nvertelem
-	for i in 1:Nq
-	  for j in 1:Nq
-	    for k in 1:Nqk
-	      ijk = i + Nq * ((j-1) + Nqk * (k-1))
-	      if (k == Nqk && ev == nvertelem)
-	        Surfout += localvgeo[ijk,grid.MHid,e]
-	      end
-	      if (k == 1 && ev == 1)
-	        Surfin += localvgeo[ijk,grid.MHid,e]
-	      end
-	    end
-	  end
+        for i in 1:Nq
+          for j in 1:Nq
+            for k in 1:Nqk
+              ijk = i + Nq * ((j-1) + Nqk * (k-1))
+              if (k == Nqk && ev == nvertelem)
+                Surfout += localvgeo[ijk,grid.MHid,e]
+              end
+              if (k == 1 && ev == 1)
+                Surfin += localvgeo[ijk,grid.MHid,e]
+              end
+            end
+          end
         end
       end
     end
     Surfouttot = MPI.Reduce(Surfout, +, 0, MPI.COMM_WORLD)
     Surfintot = MPI.Reduce(Surfin, +, 0, MPI.COMM_WORLD)
-    @test (4 * π * Router^2 - Surfouttot) ≈ expected_result[l,1]
-    @test (4 * π * Rinner^2 - Surfintot) ≈ expected_result[l,2]
+    @test (4 * π * Router^2 - Surfouttot) ≈ expected_result[l,1] rtol=1e-3 atol=eps(FT) * 4 * π * Router^2
+    @test (4 * π * Rinner^2 - Surfintot)  ≈ expected_result[l,2] rtol=1e-3 atol=eps(FT) * 4 * π * Rinner^2
   end
 end
 
