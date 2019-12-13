@@ -1,4 +1,4 @@
-struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D,MD}
+struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,MD}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
@@ -6,15 +6,14 @@ struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D,MD}
   gradnumflux::GNF
   auxstate::AS
   diffstate::DS
-  direction::D
   modeldata::MD
 end
 function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
                  auxstate=create_auxstate(balancelaw, grid),
                  diffstate=create_diffstate(balancelaw, grid),
-                 direction=EveryDirection(), modeldata=nothing)
+                 modeldata=nothing)
   DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
-          diffstate, direction, modeldata)
+          diffstate, modeldata)
 end
 
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
@@ -48,8 +47,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   Np = dofs_per_element(grid)
 
-  communicate = !(isstacked(topology) &&
-                  typeof(dg.direction) <: VerticalDirection)
+  communicate = !(isstacked(topology) && direction(bl) === VerticalDirection())
 
   update_aux!(dg, bl, Q, t)
 
@@ -64,7 +62,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(bl, Val(dim), Val(polyorder), dg.direction, Q.data,
+            volumeviscterms!(bl, Val(dim), Val(polyorder), direction(bl), Q.data,
                              Qvisc.data, auxstate.data, vgeo, t, Dmat,
                              topology.realelems))
 
@@ -74,7 +72,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     end
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(dim), Val(polyorder), dg.direction,
+            faceviscterms!(bl, Val(dim), Val(polyorder), direction(bl),
                            dg.gradnumflux, Q.data, Qvisc.data, auxstate.data,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
@@ -86,7 +84,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   # RHS Computation #
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(dim), Val(polyorder), dg.direction, dQdt.data,
+          volumerhs!(bl, Val(dim), Val(polyorder), direction(bl), dQdt.data,
                      Q.data, Qvisc.data, auxstate.data, vgeo, t,
                      lgl_weights_vec, Dmat, topology.realelems, increment))
 
@@ -100,7 +98,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder), dg.direction,
+          facerhs!(bl, Val(dim), Val(polyorder), direction(bl),
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
                    dQdt.data, Q.data, Qvisc.data,

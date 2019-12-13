@@ -3,7 +3,7 @@ using CLIMA.VariableTemplates
 import CLIMA.DGmethods: BalanceLaw,
                         vars_aux, vars_state, vars_gradient, vars_diffusive,
                         flux_nondiffusive!, flux_diffusive!, source!,
-                        gradvariables!, diffusive!,
+                        gradvariables!, diffusive!, direction,
                         init_aux!, init_state!,
                         boundary_state!, wavespeed, LocalGeometry
 using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
@@ -11,12 +11,15 @@ using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        GradNumericalPenalty
 
 abstract type AdvectionDiffusionProblem end
-struct AdvectionDiffusion{dim, P} <: BalanceLaw
+struct AdvectionDiffusion{dim, P, D} <: BalanceLaw
   problem::P
-  function AdvectionDiffusion{dim}(problem::P) where {dim, P <: AdvectionDiffusionProblem}
-    new{dim, P}(problem)
+  direction::D
+  function AdvectionDiffusion{dim}(problem::P, direction::D) where {dim, P <: AdvectionDiffusionProblem, D <: Direction}
+    new{dim, P, D}(problem, direction)
   end
 end
+
+direction(ad::AdvectionDiffusion) = ad.direction
 
 # Stored in the aux state are:
 #   `coord` coordinate points (needed for BCs)

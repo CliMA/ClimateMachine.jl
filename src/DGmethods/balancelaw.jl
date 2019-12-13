@@ -1,3 +1,5 @@
+using ..Mesh.Grids: EveryDirection
+
 """
     BalanceLaw
 
@@ -26,7 +28,7 @@ Subtypes `L` should define the following methods:
 - `boundary_state!(::NumericalFluxDiffusive, ::L, stateP::State, diffP::State, auxP::State, normalM, stateM::State, diffM::State, auxM::State, bctype, t)`
 - `init_aux!(::L, aux::State, coords, args...)`
 - `init_state!(::L, state::State, aux::State, coords, args...)`
-
+- `direction(::L)`
 """
 abstract type BalanceLaw end # PDE part
 
@@ -54,6 +56,8 @@ function wavespeed end
 function boundary_state! end
 function init_aux! end
 function init_state! end
+
+direction(::BalanceLaw) = EveryDirection()
 
 function create_state(bl::BalanceLaw, grid, commtag)
   topology = grid.topology

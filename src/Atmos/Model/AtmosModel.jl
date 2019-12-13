@@ -20,8 +20,9 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         update_aux!, integrate_aux!, LocalGeometry, lengthscale,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!
+                        reverse_indefinite_stack_integral!, direction
 using ..DGmethods.NumericalFluxes
+using CLIMA.Mesh.Grids
 
 """
     AtmosModel <: BalanceLaw

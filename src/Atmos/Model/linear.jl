@@ -52,15 +52,16 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive, lm::AtmosLinearModel
 end
 init_aux!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) = nothing
 init_state!(lm::AtmosLinearModel, state::Vars, aux::Vars, coords, t) = nothing
+direction(lm::AtmosLinearModel) = lm.direction
 
-
-struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
+struct AtmosAcousticLinearModel{M,D} <: AtmosLinearModel
   atmos::M
-  function AtmosAcousticLinearModel(atmos::M) where {M}
+  direction::D
+  function AtmosAcousticLinearModel(atmos::M, direction::D=EveryDirection()) where {M,D<:Direction}
     if atmos.ref_state === NoReferenceState()
       error("AtmosAcousticLinearModel needs a model with a reference state")
     end
-    new{M}(atmos)
+    new{M,D}(atmos,direction)
   end
 end
 
@@ -79,13 +80,14 @@ function source!(lm::AtmosAcousticLinearModel, source::Vars, state::Vars, aux::V
   nothing
 end
 
-struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
+struct AtmosAcousticGravityLinearModel{M,D} <: AtmosLinearModel
   atmos::M
-  function AtmosAcousticGravityLinearModel(atmos::M) where {M}
+  direction::D
+  function AtmosAcousticGravityLinearModel(atmos::M,direction::D=EveryDirection()) where {M,D<:Direction}
     if atmos.ref_state === NoReferenceState()
       error("AtmosAcousticGravityLinearModel needs a model with a reference state")
     end
-    new{M}(atmos)
+    new{M,D}(atmos,direction)
   end
 end
 function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)

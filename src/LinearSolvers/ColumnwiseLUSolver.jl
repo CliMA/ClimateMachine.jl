@@ -6,7 +6,7 @@ using ..Mesh.Grids
 using ..Mesh.Grids: VerticalDirection
 using ..Mesh.Topologies
 using ..DGmethods
-using ..DGmethods: BalanceLaw, DGModel, num_state, num_diffusive
+using ..DGmethods: BalanceLaw, DGModel, num_state, num_diffusive, direction
 using ..LinearSolvers
 const LS = LinearSolvers
 using ..MPIStateArrays
@@ -71,7 +71,7 @@ function band_lu!(A, dg::DGModel)
   grid = dg.grid
   topology = grid.topology
   @assert isstacked(topology)
-  @assert typeof(dg.direction) <: VerticalDirection
+  @assert direction(dg.balancelaw) === VerticalDirection()
 
   FT = eltype(A)
   device = typeof(A) <: Array ? CPU() : CUDA()
@@ -111,7 +111,7 @@ function band_forward!(Q, A, dg::DGModel)
   grid = dg.grid
   topology = grid.topology
   @assert isstacked(topology)
-  @assert typeof(dg.direction) <: VerticalDirection
+  @assert direction(dg.balancelaw) === VerticalDirection()
 
   FT = eltype(A)
   device = typeof(Q.data) <: Array ? CPU() : CUDA()
@@ -137,7 +137,7 @@ function band_back!(Q, A, dg::DGModel)
   grid = dg.grid
   topology = grid.topology
   @assert isstacked(topology)
-  @assert typeof(dg.direction) <: VerticalDirection
+  @assert direction(dg.balancelaw) === VerticalDirection()
 
   FT = eltype(A)
   device = typeof(Q.data) <: Array ? CPU() : CUDA()
@@ -233,7 +233,7 @@ function banded_matrix(f!, dg::DGModel,
   grid = dg.grid
   topology = grid.topology
   @assert isstacked(topology)
-  @assert typeof(dg.direction) <: VerticalDirection
+  @assert direction(dg.balancelaw) === VerticalDirection()
 
   FT = eltype(Q.data)
   device = typeof(Q.data) <: Array ? CPU() : CUDA()
@@ -310,7 +310,7 @@ function banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
   grid = dg.grid
   topology = grid.topology
   @assert isstacked(topology)
-  @assert typeof(dg.direction) <: VerticalDirection
+  @assert direction(dg.balancelaw) === VerticalDirection()
 
   FT = eltype(Q.data)
   device = typeof(Q.data) <: Array ? CPU() : CUDA()

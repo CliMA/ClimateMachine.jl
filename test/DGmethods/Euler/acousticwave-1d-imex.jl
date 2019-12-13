@@ -80,14 +80,13 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      Gravity(),
                      NoFluxBC(),
                      setup)
-  linearmodel = AtmosAcousticGravityLinearModel(model)
+  linearmodel = AtmosAcousticGravityLinearModel(model,VerticalDirection())
 
   dg = DGModel(model, grid, Rusanov(),
                CentralNumericalFluxDiffusive(), CentralGradPenalty())
 
   lineardg = DGModel(linearmodel, grid, Rusanov(),
                      CentralNumericalFluxDiffusive(), CentralGradPenalty();
-                     direction=VerticalDirection(),
                      auxstate=dg.auxstate)
 
   # determine the time step

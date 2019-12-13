@@ -83,13 +83,12 @@ function run(mpicomm, dim, topl, N, timeend, FT, direction, dt,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}(), direction())
   dg = DGModel(model,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(),
-               direction=direction())
+               CentralGradPenalty())
 
   Q = init_ode_state(dg, FT(0))
 

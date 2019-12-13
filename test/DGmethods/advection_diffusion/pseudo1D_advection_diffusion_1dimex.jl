@@ -18,7 +18,7 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
+using CLIMA.Mesh.Grids
 
 const ArrayType = CLIMA.array_type()
 
@@ -88,22 +88,20 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}(), EveryDirection())
   dg = DGModel(model,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(),
-               direction=EveryDirection())
+               CentralGradPenalty())
 
-  vdg = DGModel(model,
+  vmodel = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}(), VerticalDirection())
+  vdg = DGModel(vmodel,
                 grid,
                 Rusanov(),
                 CentralNumericalFluxDiffusive(),
                 CentralGradPenalty(),
-                auxstate=dg.auxstate,
-                direction=VerticalDirection())
-
+                auxstate=dg.auxstate)
 
   Q = init_ode_state(dg, FT(0))
 
