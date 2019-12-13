@@ -822,7 +822,48 @@ function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
     error("invalid case for cubedshellwarp: $a, $b, $c")
   end
 
-  x1, x2, x3
+  return x1, x2, x3
+end
+
+"""
+    cubedshellunwarp(x1, x2, x3)
+
+The inverse of [`cubedshellwarp`](@ref).
+"""
+function cubedshellunwarp(x1,x2,x3)
+
+  function g(R, X, Y)
+    ξ = atan(X) * 4 / pi
+    η = atan(Y) * 4 / pi
+    R, R*ξ, R*η
+  end 
+
+  R = hypot(x1,x2,x3)
+  fdim = argmax(abs.((x1, x2, x3)))
+
+  if fdim == 1 && x1 < 0
+    # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+    a,b,c = g(-R, x2/x1, x3/x1)
+  elseif fdim == 2 && x2 < 0
+    # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+    b,a,c = g(-R, x1/x2, x3/x2)
+  elseif fdim == 1 && x1 > 0
+    # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+    a,b,c = g(R, x2/x1, x3/x1)
+  elseif fdim == 2 && x2 > 0
+    # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+    b,a,c = g(R, x1/x2, x3/x2)
+  elseif fdim == 3 && x3 > 0
+    # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+    c,b,a = g(R, x2/x3, x1/x3)
+  elseif fdim == 3 && x3 < 0
+    # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+    c,b,a = g(-R, x2/x3, x1/x3)
+  else
+    error("invalid case for cubedshellunwarp: $a, $b, $c")
+  end
+
+  return a,b,c
 end
 
 """
