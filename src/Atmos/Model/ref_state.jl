@@ -116,7 +116,7 @@ function (profile::LinearTemperatureProfile)(orientation::Orientation, aux::Vars
   z = altitude(orientation, aux)
   T = max(profile.T_surface - profile.Γ*z, profile.T_min)
 
-  p = (T/profile.T_surface)^(grav/(R_d*profile.Γ))
+  p = MSLP * (T/profile.T_surface)^(grav/(R_d*profile.Γ))
   if T == profile.T_min
     z_top = (profile.T_surface - profile.T_min) / profile.Γ
     H_min = R_d * profile.T_min / grav
