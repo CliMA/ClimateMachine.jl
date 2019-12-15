@@ -29,20 +29,41 @@ using CLIMA.ColumnwiseLUSolver: SingleColumnLU, ManyColumnLU, banded_matrix,
                                 banded_matrix_vector_product!
 using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+using CUDAdrv
+using CUDAnative
+using CuArrays
+CuArrays.allowscalar(false)
+const ArrayTypes = (CuArray,)
 
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
+
+
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  locmax = maximum(view(h_A, :, states, A.realelems)) 
+  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+function global_max_scalar(A, mpicomm)
+  MPI.Allreduce(A, MPI.MAX, mpicomm)[1]
+end
+
+
+function extract_state(dg, localQ, ijk, e)
+    bl = dg.balancelaw
+    FT = eltype(localQ)
+    nstate = num_state(bl, FT)
+    l_Q = MArray{Tuple{nstate},FT}(undef)
+    for s in 1:nstate
+        l_Q[s] = localQ[ijk,s,e]
+    end
+    return Vars{vars_state(bl, FT)}(l_Q)
+end
+
 
 """
   Initial Condition for DYCOMS_RF01 LES
@@ -179,8 +200,10 @@ function run(mpicomm,
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
-                                          polynomialorder = N,
-                                         )
+                                          polynomialorder = N
+                                          )
+                                          
+                                         
   # Problem constants
   # Radiation model
   κ             = FT(85)
@@ -191,7 +214,7 @@ function run(mpicomm,
   F_0           = FT(70)
   F_1           = FT(22)
   # Geostrophic forcing
-  f_coriolis    = FT(7.62e-5)
+  f_coriolis    = FT(1.03e-4) #FT(7.62e-5)
   u_geostrophic = FT(7.0)
   v_geostrophic = FT(-5.5)
   w_ref         = FT(0)
@@ -234,9 +257,7 @@ function run(mpicomm,
                 CentralGradPenalty(),
                 auxstate=dg.auxstate,
                 direction=VerticalDirection())
-
     
-  #Q = init_ode_state(dg, FT(0); device=CPU())
   Q = init_ode_state(dg, FT(0))
 
   cbfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
@@ -250,7 +271,22 @@ function run(mpicomm,
     if s
       starttime[] = now()
     else
-      energy = norm(Q)
+
+        #
+        # COURANT
+        #
+        maxρu = global_max(Q, 2)
+        maxρv = global_max(Q, 3)
+        maxρw = global_max(Q, 4)
+        
+        #sound_speed = dg.auxstate.moisture.soundspeed_air
+        #maxsound = global_max_scalar(sound_speed, mpicomm)
+        #@info @sprintf(""" max(ρ) = %.16e""", maxsound)
+        # 
+        # End courant 
+        #
+
+        energy = norm(Q)
       @info @sprintf("""Update
                      simtime = %.16e
                      runtime = %s
@@ -263,7 +299,7 @@ function run(mpicomm,
   end
   
   # Setup VTK output callbacks
- out_interval = 5000
+ out_interval = 10000
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -304,7 +340,7 @@ function run(mpicomm,
                               split_nonlinear_linear=false)
         #@timeit to "solve! IMEX DYCOMS - $LinearModel $SolverMethod $aspectratio $dt_imex $timeend" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter,),adjustfinalstep=false)
 
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
+        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbdiagnostics, cbinfo, cbvtk), adjustfinalstep=false)
     end
 
 end
@@ -323,17 +359,14 @@ let
 
   out_dir = get(ENV, "OUT_DIR", "output")
   mkpath(out_dir)
-
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-
+    
   # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
   for ArrayType in ArrayTypes
       #aspectratios = (1,3.5,7,)
       exp_step = 0
       linearmodels      = (AtmosAcousticGravityLinearModel,)
       IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,) #(ARK2GiraldoKellyConstantinescu,) 
+      #IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,)
       for SolverMethod in IMEXSolverMethods
           for LinearModel in linearmodels 
               for explicit in exp_step
@@ -351,13 +384,13 @@ let
                   C_drag = FT(0.0011)
                   
                   # User defined domain parameters
-                  Δh = FT(35)
+                  Δh = FT(40)
                   aspectratio = FT(7)
-                  Δv = Δh/aspectratio
-                  #aspectratio = Δh/Δv
+                  Δv = FT(20) #Δh/aspectratio
+                  aspectratio = Δh/Δv
                   
-                  xmin, xmax = 0, 2000
-                  ymin, ymax = 0, 2000
+                  xmin, xmax = 0, 1000
+                  ymin, ymax = 0, 1000
                   zmin, zmax = 0, 1500
                   
                   grid_resolution = [Δh, Δh, Δv]

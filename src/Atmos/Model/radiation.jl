@@ -58,13 +58,10 @@ function flux_radiation!(m::StevensRadiation, flux::Grad, state::Vars,
   cloud_base_warming = m.F_1 * exp(-aux.∫dz.radiation.∂κLWP)
   free_troposphere_cooling = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * ((cbrt(Δz_i))^4 / 4 + m.z_i * cbrt(Δz_i))
   F_rad = cloud_base_warming + cloud_top_cooling + free_troposphere_cooling
-#=  flux.ρe -= SVector(FT(0), 
+  flux.ρe -= SVector(FT(0), 
                      FT(0), 
                      F_rad)
-=#
-  flux.ρe += SVector(FT(0), 
-                     FT(0), 
-                     F_rad)
+
 end
 function preodefun!(m::StevensRadiation, aux::Vars, state::Vars, t::Real)
 end

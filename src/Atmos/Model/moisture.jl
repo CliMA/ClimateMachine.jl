@@ -104,16 +104,10 @@ function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t
   flux.moisture.ρq_tot += (u + usub) * state.moisture.ρq_tot
 end
 
-<<<<<<< HEAD
-function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t::Real)
-  u = state.ρu / state.ρ
-  flux.moisture.ρq_tot += state.moisture.ρq_tot * u
-=======
 function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)
     # diffusive flux of q_tot
     #SM TRY TO CHANGE THIS SIGN 
   diffusive.moisture.ρd_q_tot = (-ρD_t) .* ∇transform.moisture.q_tot
->>>>>>> ef184ab44a641b0207ca68b1c583c1bd0a373163
 end
 
 function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
