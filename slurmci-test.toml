@@ -17,6 +17,7 @@ cpu_gpu = [
   { file = "test/DGmethods/Euler/isentropicvortex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex-imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex-multirate.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/DGmethods/Euler/acousticwave-1d-imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/rising_bubble-model.jl", slurmargs = ["--ntasks=3"], args = [] },
@@ -47,5 +48,5 @@ gpu = [
   # this test times out; re-enable after fixing
   #{ file = "test/DGmethods/compressible_Navier_Stokes/rayleigh-benard_model.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/Atmos/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Ocean/Hydrostatic_Boussinesq/test_divergence_free.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
-

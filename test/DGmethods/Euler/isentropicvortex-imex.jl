@@ -153,7 +153,8 @@ function run(mpicomm, polynomialorder, numelems, setup,
                                               dg_linear,
                                               linearsolver,
                                               Q; dt = dt, t0 = 0,
-                                              split_nonlinear_linear = split_nonlinear_linear)
+                                              split_nonlinear_linear = split_nonlinear_linear,
+                                              paperversion = true)
 
   eng0 = norm(Q)
   dims == 2 && (numelems = (numelems..., 0))

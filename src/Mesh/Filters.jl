@@ -2,7 +2,7 @@ module Filters
 
 using LinearAlgebra, GaussQuadrature, GPUifyLoops
 using ..Grids
-using ..Grids: Direction, EveryDirection
+using ..Grids: Direction, EveryDirection, HorizontalDirection, VerticalDirection
 
 export AbstractSpectralFilter, AbstractFilter
 export ExponentialFilter, CutoffFilter, TMARFilter

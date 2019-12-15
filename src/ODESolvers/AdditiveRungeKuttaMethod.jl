@@ -341,24 +341,16 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
                            slow_δ, slow_rv_dQ, slow_scaling))
 end
 
-struct ARK2PaperVersion
-  a32::Float64
-  ARK2PaperVersion() = new((3 + 2sqrt(2)) / 6)
-end
-
-# from AFOSR 2013 presentation apparently
-struct ARK2PresentationVersion
-  a32::Rational{Int}
-  ARK2PresentationVersion() = new(1 // 2)
-end
-
 """
     ARK2GiraldoKellyConstantinescu(f, l, linearsolver, Q; dt, t0,
-                                   split_nonlinear_linear, variant)
+                                   split_nonlinear_linear, variant, paperversion)
 
 This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
 see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
 This time stepping object is intended to be passed to the `solve!` command.
+
+`paperversion=true` uses the coefficients from the paper, `paperversion=false`
+uses coefficients that make the scheme (much) more stable but less accurate
 
 This uses the second-order-accurate 3-stage additive Runge--Kutta scheme of
 Giraldo, Kelly and Constantinescu (2013).
@@ -379,18 +371,15 @@ function ARK2GiraldoKellyConstantinescu(F, L,
                                         linearsolver::AbstractLinearSolver,
                                         Q::AT; dt=nothing, t0=0,
                                         split_nonlinear_linear=false,
-<<<<<<< HEAD
-                                        variant=LowStorageVariant()) where {AT<:AbstractArray}
-=======
-                                        version=ARK2PaperVersion()) where {AT<:AbstractArray}
->>>>>>> ef184ab44a641b0207ca68b1c583c1bd0a373163
+                                        variant=LowStorageVariant(),
+                                        paperversion=false) where {AT<:AbstractArray}
 
   @assert dt != nothing
 
   T = eltype(Q)
   RT = real(T)
-  
-  a32 = RT(version.a32)
+
+  a32 = RT(paperversion ? (3 + 2sqrt(2)) / 6 : 1 // 2)
   RKA_explicit = [RT(0)           RT(0)   RT(0);
                   RT(2 - sqrt(2)) RT(0)   RT(0);
                   RT(1 - a32)     RT(a32) RT(0)]
