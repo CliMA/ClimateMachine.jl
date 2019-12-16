@@ -121,3 +121,8 @@ vusn = Vars{ust_scaled_nop}(zeros(MVector{varsize(ust), Float64}))
 @test ust_scaled_nop === ust
 vusm = Vars{unit_scale(ust, u"m")}(zeros(MVector{varsize(ust), Float64}))
 @test typeof(vusm.ρ) === typeof(vu.ρ * u"m")
+
+@test flattenednames(ust) == ["ρ","ρu[1]","ρu[2]","ρu[3]","ρe",
+                            "b.ρqt",
+                            "c.ρk[1]","c.ρk[2]","c.ρk[3]","c.ρk[4]","c.ρk[5]",
+                            "S[1,1]", "S[2,1]", "S[3,1]", "S[2,2]", "S[3,2]", "S[3,3]"]

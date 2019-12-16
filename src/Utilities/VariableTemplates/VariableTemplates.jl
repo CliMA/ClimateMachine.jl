@@ -174,7 +174,7 @@ uunpack(x, ::Type{T} where {T<:Quantity}) = :($x.val)
       offset += N
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= [$([uunpack(:(val[$i]), eltype(RT)) for i = 1:N]...)])
+      retexpr = :(array[$(offset + 1):$(offset + N)] = [$([uunpack(:(val[$i]), eltype(RT)) for i = 1:N]...)])
       offset += N
     else
       offset += varsize(T)
