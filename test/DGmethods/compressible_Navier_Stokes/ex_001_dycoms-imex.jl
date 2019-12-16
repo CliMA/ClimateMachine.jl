@@ -260,10 +260,18 @@ function run(mpicomm,
     
   Q = init_ode_state(dg, FT(0))
 
-  cbfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
+  cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
       Filters.apply!(Q, 6, dg.grid, TMARFilter())
       nothing
   end
+#=
+  filterorder = 4
+  filter = ExponentialFilter(grid, 0, filterorder)
+  cbfilter = GenericCallbacks.EveryXSimulationSteps(50) do
+      Filters.apply!(Q, 1:size(Q, 2), grid, filter)
+      nothing
+  end
+    =#
     
   # Set up the information callback
   starttime = Ref(now())
@@ -275,9 +283,9 @@ function run(mpicomm,
         #
         # COURANT
         #
-        maxρu = global_max(Q, 2)
-        maxρv = global_max(Q, 3)
-        maxρw = global_max(Q, 4)
+#        maxρu = global_max(Q, 2)
+#        maxρv = global_max(Q, 3)
+#        maxρw = global_max(Q, 4)
         
         #sound_speed = dg.auxstate.moisture.soundspeed_air
         #maxsound = global_max_scalar(sound_speed, mpicomm)
@@ -286,15 +294,17 @@ function run(mpicomm,
         # End courant 
         #
 
-        energy = norm(Q)
+#=        energy = norm(Q)=#
       @info @sprintf("""Update
                      simtime = %.16e
-                     runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(solver),
+                     runtime = %s""",
+                     #=norm(Q) = %.16e""",=#
+                     ODESolvers.gettime(solver),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"),
-                     energy)
+                                  Dates.dateformat"HH:MM:SS"))
+#=                     energy)=#
+
     end
   end
   
@@ -328,7 +338,7 @@ function run(mpicomm,
         solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
         #@timeit to "solve! EX DYCOMS- $LinearModel $SolverMethod $aspectratio $dt_exp $timeend" solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
           
-        solve!(Q, solver; timeend=timeend, callbacks=(cbfilter, cbinfo, cbdiagnostics))
+        solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
         
     else
         numberofsteps = convert(Int64, cld(timeend, dt_imex))
@@ -340,7 +350,7 @@ function run(mpicomm,
                               split_nonlinear_linear=false)
         #@timeit to "solve! IMEX DYCOMS - $LinearModel $SolverMethod $aspectratio $dt_imex $timeend" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter,),adjustfinalstep=false)
 
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter, cbdiagnostics, cbinfo, cbvtk), adjustfinalstep=false)
+        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
     end
 
 end
@@ -413,7 +423,7 @@ let
                   #dt_exp  =  mnd/soundspeed_air(FT(330)) * safety_fac
                   #dt_imex = hmnd/soundspeed_air(FT(330)) * safety_fac
                   
-                  safety_fac = FT(0.5)
+                  safety_fac = FT(0.75)
                   dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
                   dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
                   timeend = 14400
