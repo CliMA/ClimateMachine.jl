@@ -208,6 +208,11 @@ boundary_state!(::CentralGradPenalty, bl::AtmosModel, _...) = nothing
 
 # -------------------- Radiation Model -------------------------- # 
 abstract type RadiationModel end
+
+vars_state(::RadiationModel, FT) = @vars()
+vars_aux(::RadiationModel, FT) = @vars()
+vars_integrals(::RadiationModel, FT) = @vars()
+
 function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars, aux::Vars, t::Real) end
 function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
 function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) end
@@ -218,7 +223,7 @@ function flux_radiation!(::RadiationModel, flux::Grad, state::Vars, aux::Vars, t
 Stevens et. al (2005) version of the δ-four stream model used to represent radiative transfer. 
 Analytical description as a function of the liquid water path and inversion height zᵢ
 """
-struct DYCOMSRadiation{FT} 
+struct DYCOMSRadiation{FT}  <: RadiationModel
   "κ [m^2/s] "
   κ::FT
   "α_z Troposphere cooling parameter [m^(-4/3)]"
