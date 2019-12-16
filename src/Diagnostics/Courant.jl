@@ -83,17 +83,17 @@ function gather_Courant(mpicomm, dg, Q,
                           if ss <= thermoQ[ijk,1,e]
                           ss = abs(thermoQ[ijk,1,e])
                           end
-                          if abs(sau) <= abs(localQ[ijk,2,e])
-                          sau = abs(localQ[ijk,2,e])
+                          if abs(sau) <= abs(localQ[ijk,2,e]) / localQ[ijk,1,e]
+                          sau = abs(localQ[ijk,2,e]) / localQ[ijk,1,e]
                           end
-                          if abs(sav) <= abs(localQ[ijk,2,e])
-                          sav = abs(localQ[ijk,2,e])
+                          if abs(sav) <= abs(localQ[ijk,2,e]) / localQ[ijk,1,e]
+                          sav = abs(localQ[ijk,2,e]) / localQ[ijk,1,e]
                           end
-                          if abs(saw) <= abs(localQ[ijk,4,e])
-                          saw = abs(localQ[ijk,4,e])
+                          if abs(saw) <= abs(localQ[ijk,4,e]) / localQ[ijk,1,e]
+                          saw = abs(localQ[ijk,4,e]) / localQ[ijk,1,e]
                           end
-                          if abs(sdiff) <= abs(localdiff[ijk,3,e])
-                          sdiff = abs(localdiff[ijk,3,e])
+                          if abs(sdiff) <= abs(localdiff[ijk,3,e]) / localQ[ijk,1,e]
+                          sdiff = abs(localdiff[ijk,3,e]) / localQ[ijk,1,e]
                           end
                         end
                     end
