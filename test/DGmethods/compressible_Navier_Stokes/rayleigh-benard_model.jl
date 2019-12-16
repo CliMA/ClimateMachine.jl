@@ -18,7 +18,21 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 using Random
-using CLIMA.Atmos: vars_state, vars_aux
+
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+                                   CentralNumericalFluxDiffusive,
+                                   CentralNumericalFluxNonDiffusive
+import CLIMA.DGmethods.NumericalFluxes: update_penalty!, numerical_flux_diffusive!,
+                                    NumericalFluxNonDiffusive
+import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                    vars_diffusive, vars_integrals, flux_nondiffusive!,
+                    flux_diffusive!, source!, wavespeed,
+                    boundary_state!, update_aux!,
+                    gradvariables!, init_aux!, init_state!,
+                    LocalGeometry, indefinite_stack_integral!,
+                    reverse_indefinite_stack_integral!, integrate_aux!,
+                    DGModel, nodal_update_aux!, diffusive!,
+                    copy_stack_field_down!, create_state
 
 const ArrayType = CLIMA.array_type()
 
@@ -47,6 +61,86 @@ const T_bot     = 299
 const T_lapse   = -0.01
 const T_top     = T_bot + T_lapse*zmax
 const C_smag    = 0.18
+
+# ------------- Boundary condition ------------------- #
+abstract type BoundaryCondition
+end
+
+function atmos_boundary_state!(::Rusanov, f::Function, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  f(stateP, auxP, nM, stateM, auxM, bctype, t)
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, f::Function,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  f(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
+end
+function atmos_boundary_state!(nf::Rusanov, bctup::Tuple, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  atmos_boundary_state!(nf, bctup[bctype], m, stateP, auxP, nM, stateM, auxM,
+                        bctype, t)
+end
+function atmos_boundary_state!(nf::CentralNumericalFluxDiffusive,
+                               bctup::Tuple, m::AtmosModel, stateP::Vars,
+                               diffP::Vars, auxP::Vars, nM, stateM::Vars,
+                               diffM::Vars, auxM::Vars, bctype, t, _...)
+  atmos_boundary_state!(nf, bctup[bctype], m, stateP, diffP, auxP, nM, stateM,
+                        diffM, auxM, bctype, t)
+end
+
+"""
+  RayleighBenardBC
+
+# Fields
+"""
+struct RayleighBenardBC{FT}
+  "Prescribed bottom wall temperature [K]"
+  T_bot::FT
+  "Prescribed top wall temperature [K]"
+  T_top::FT
+end
+# Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
+function atmos_boundary_state!(::Rusanov, bc::RayleighBenardBC, m::AtmosModel,
+                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
+                               auxM::Vars, bctype, t,_...)
+  # Dry Rayleigh Benard Convection
+  @inbounds begin
+    FT = eltype(stateP)
+    ρP = stateM.ρ
+    stateP.ρ = ρP
+    stateP.ρu = SVector{3,FT}(0,0,0)
+    if bctype == 1
+      E_intP = ρP * cv_d * (bc.T_bot - T_0)
+    else
+      E_intP = ρP * cv_d * (bc.T_top - T_0)
+    end
+    stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
+    nothing
+  end
+end
+function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBenardBC,
+                               m::AtmosModel, stateP::Vars, diffP::Vars,
+                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
+                               auxM::Vars, bctype, t, _...)
+  # Dry Rayleigh Benard Convection
+  @inbounds begin
+    FT = eltype(stateM)
+    ρP = stateM.ρ
+    stateP.ρ = ρP
+    stateP.ρu = SVector{3,FT}(0,0,0)
+    if bctype == 1
+      E_intP = ρP * cv_d * (bc.T_bot - T_0)
+    else
+      E_intP = ρP * cv_d * (bc.T_top - T_0)
+    end
+    stateP.ρe = (E_intP + ρP * auxP.coord[3] * grav)
+    diffP.ρd_h_tot = SVector(diffP.ρd_h_tot[1], diffP.ρd_h_tot[2], FT(0))
+    nothing
+  end
+end
 # ------------- Initial condition function ----------- # 
 function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
@@ -71,6 +165,13 @@ function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρe      = ρe_tot
   state.moisture.ρq_tot = FT(0)
 end
+
+boundary_state!(nf, m::AtmosModel, x...) =
+  atmos_boundary_state!(nf, m.boundarycondition, m, x...)
+
+# FIXME: This is probably not right....
+boundary_state!(::CentralGradPenalty, bl::AtmosModel, _...) = nothing
+
 # --------------- Driver definition ------------------ # 
 function run(mpicomm, 
              topl, dim, Ne, polynomialorder, 
