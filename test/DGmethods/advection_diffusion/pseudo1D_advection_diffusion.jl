@@ -44,7 +44,6 @@ end
 function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
                             t) where {n, α, β, μ, δ}
   ξn = dot(n, x)
-  ξn = value(ξn)
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
@@ -236,23 +235,22 @@ let
           elseif direction <: VerticalDirection
             n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
           end
-          α = FT(1)
-          β = FT(1 // 100)
-          μ = FT(-1 // 2)
-          δ = FT(1 // 10)
+          α = units(FT, u"m/s")(1)
+          β = units(FT, u"m^2/s")(1 // 100)
+          μ = units(FT, u"m")(-1 // 2)
+          δ = units(FT, u"s")(1 // 10)
           for l = 1:numlevels
             Ne = 2^(l-1) * base_num_elem
             brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
             periodicity = ntuple(j->false, dim)
             topl = StackedBrickTopology(mpicomm, brickrange;
                                         periodicity = periodicity)
-            dt = (α/4) / (Ne * polynomialorder^2)
+            dt = (value(α)/4) / (Ne * polynomialorder^2)
             @info "time step" dt
 
             timeend = 1
-            outputtime = dt
-
-            # dt = outputtime / ceil(Int64, outputtime / dt)
+            outputtime = 1
+            dt = outputtime / ceil(Int64, outputtime / dt)
 
             @info (ArrayType, FT, dim, direction)
             vtkdir = output ? "vtk_advection" *

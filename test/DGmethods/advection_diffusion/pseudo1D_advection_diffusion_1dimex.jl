@@ -49,7 +49,6 @@ end
 function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
                             t) where {n, α, β, μ, δ}
   ξn = dot(n, x)
-  ξn = value(ξn)
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
@@ -218,10 +217,10 @@ let
           d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
           n = SVector{3, FT}(d ./ norm(d))
 
-          α = FT(1)
-          β = FT(1 // 100)
-          μ = FT(-1 // 2)
-          δ = FT(1 // 10)
+          α = units(FT, u"m/s")(1)
+          β = units(FT, u"m^2/s")(1 // 100)
+          μ = units(FT, u"m")(-1 // 2)
+          δ = units(FT, u"s")(1 // 10)
           for l = 1:numlevels
             Ne = 2^(l-1) * base_num_elem
             brickrange = (ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim-1)...,
@@ -232,7 +231,7 @@ let
                                         periodicity = periodicity,
                                         boundary = (ntuple(j->(1,1), dim-1)...,
                                                     (3,3)))
-            dt = (α/4) / (Ne * polynomialorder^2)
+            dt = (value(α)/4) / (Ne * polynomialorder^2)
 
             outputtime = 0.01
             timeend = 0.5

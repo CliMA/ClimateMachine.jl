@@ -2,7 +2,6 @@ module VariableTemplates
 
 export varsize, Vars, Grad, @vars, units, value,
        unit_scale, UV
-import Base: @pure
 
 using StaticArrays, Unitful
 import Unitful: AbstractQuantity
@@ -60,21 +59,6 @@ end
 
 UV{N<:AbstractFloat} = Union{Quantity{N,D,U}, N} where {D,U}
 
-# """
-#   @unitful {macro calls} function definition
-# Annotate that a function
-# """
-# macro unitful(foo)
-#   while foo.head === :macrocall
-#     foo = foo.args[2]
-#   end
-#   @assert foo.head === :function
-#   sig, _ = foo.args
-#   @assert sig.head === :where
-#   def, qut = sig.args
-#   qut_sym, qut_type = qut.args
-# end
-
 """
     Vars{S,A,offset}(array::A)
 
@@ -108,7 +92,19 @@ units(FT::Type{T} where {T<:Number}, u::Unitful.Units) = Quantity{FT, dimension(
 Scale the output of a @vars call by the provided units.
 """
 @generated function unit_scale(::Type{NamedTuple{S, T}}, factor) where {S, T<:Tuple}
-  p(Q,u) = typeof(Q(1.0)*u)
+  p(Q,u) = begin
+    if Q <: NamedTuple
+      return unit_scale(Q, u)
+    elseif Q <: SArray
+      N = Q.parameters[2]
+      return SArray{Q.parameters[1], typeof(N(1.0)*u), Q.parameters[3], Q.parameters[4]}
+    elseif Q <: SHermitianCompact
+      N = Q.parameters[2]
+      return SHermitianCompact{Q.parameters[1], typeof(N(1.0)*u), Q.parameters[3]}
+    else
+      return typeof(Q(1.0)*u)
+    end
+  end
   :(return $(NamedTuple{S, Tuple{p.(T.parameters, factor())...}}))
 end
 
@@ -174,7 +170,7 @@ uunpack(x, ::Type{T} where {T<:Quantity}) = :($x.val)
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= [$([uunpack(:($T(val).lowertriangle[$i]), T) for i in 1:N]...)])
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= [$([uunpack(:($T(val).lowertriangle[$i]), eltype(RT)) for i in 1:N]...)])
       offset += N
     elseif T <: StaticArray
       N = length(T)
@@ -250,7 +246,7 @@ end
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= [$([uunpack(:(val[$i,$j]), eltype(RT)) for i in 1:M, j in 1:N]...)])
+      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= reshape([$([(uunpack(:(val[$i,$j]), eltype(RT))) for i in 1:M, j in 1:N]...)],$M,$N))
       offset += N
     else
       offset += varsize(T)
