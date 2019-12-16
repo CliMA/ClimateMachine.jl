@@ -1,4 +1,4 @@
-using Test, StaticArrays
+using Test, StaticArrays, Unitful
 using CLIMA.VariableTemplates
 
 # Tests prior to providing unitful information
@@ -85,3 +85,39 @@ sg = similar(g)
                             "b.ρqt",
                             "c.ρk[1]","c.ρk[2]","c.ρk[3]","c.ρk[4]","c.ρk[5]",
                             "S[1,1]", "S[2,1]", "S[3,1]", "S[2,2]", "S[3,2]", "S[3,3]"]
+
+# With unit assignment
+
+function unitful_state(m::TestModel, T)
+  @vars begin
+    ρ::units(T, u"kg/m^3")
+    ρu::SVector{3,units(T, u"kg/m^2/s")}
+    ρe::units(T, upreferred(u"J/m^3"))
+    a::unitful_state(m.a,T)
+    b::unitful_state(m.b,T)
+    c::unitful_state(m.c,T)
+    S::SHermitianCompact{3,units(T, u"m^2/s"),6}
+  end
+end
+
+unitful_state(m::SubModelA, T) = @vars()
+unitful_state(m::SubModelB, T) = @vars(ρqt::units(T, u"kg/m^3"))
+unitful_state(m::SubModelC{N}, T) where {N} = @vars(ρk::SVector{N,units(T, u"kg/m^3")})
+
+ust = unitful_state(model, Float64)
+@test varsize(ust) === varsize(st)
+
+vu = Vars{ust}(zeros(MVector{varsize(ust), Float64}))
+gu = Grad{ust}(zeros(MVector{varsize(ust), Float64}))
+
+vu.ρ = 1.0
+@test vu.ρ == 1.0u"kg/m^3"
+vu.ρ = 2.0u"kg/m^3"
+@test vu.ρ == 2.0u"kg/m^3"
+#TODO: More tests here
+
+ust_scaled_nop = unit_scale(ust, NoUnits)
+vusn = Vars{ust_scaled_nop}(zeros(MVector{varsize(ust), Float64}))
+@test ust_scaled_nop === ust
+vusm = Vars{unit_scale(ust, u"m")}(zeros(MVector{varsize(ust), Float64}))
+@test typeof(vusm.ρ) === typeof(vu.ρ * u"m")

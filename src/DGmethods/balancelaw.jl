@@ -38,9 +38,9 @@ function vars_diffusive end
 vars_integrals(::BalanceLaw, FT) = @vars()
 
 # additional stubs for default units
-function spatial_unit end
-function mass_unit end
-function time_unit end
+space_unit(::BalanceLaw) = NoUnits
+mass_unit(::BalanceLaw) = NoUnits
+time_unit(::BalanceLaw) = NoUnits
 
 num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
 num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate

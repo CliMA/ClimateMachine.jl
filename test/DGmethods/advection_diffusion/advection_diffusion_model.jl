@@ -3,7 +3,7 @@ using Unitful
 using CLIMA.VariableTemplates
 import CLIMA.DGmethods: BalanceLaw,
                         vars_aux, vars_state, vars_gradient, vars_diffusive,
-                        spatial_unit, mass_unit, time_unit,
+                        space_unit, mass_unit, time_unit,
                         flux_nondiffusive!, flux_diffusive!, source!,
                         gradvariables!, diffusive!,
                         init_aux!, init_state!,
@@ -21,7 +21,7 @@ struct AdvectionDiffusion{dim, P} <: BalanceLaw
 end
 
 # provide default units
-spatial_unit(::AdvectionDiffusion) = u"m"
+space_unit(::AdvectionDiffusion) = u"m"
 time_unit(::AdvectionDiffusion) = u"s"
 
 # Stored in the aux state are:
@@ -141,6 +141,9 @@ end
 
 function init_state!(m::AdvectionDiffusion, state::Vars, aux::Vars,
                      coords, t::Real)
+  FT = typeof(t)
+  coords = units(FT, space_unit(m)).(coords)
+  t = units(FT, time_unit(m))(t)
   initial_condition!(m.problem, state, aux, coords, t)
 end
 

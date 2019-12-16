@@ -6,7 +6,7 @@ export Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive,
 using StaticArrays
 using GPUifyLoops: @unroll
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
-                    vars_aux, vars_gradient, spatial_unit, mass_unit,
+                    vars_aux, vars_gradient, space_unit, mass_unit,
                     unit_scale, time_unit, value, boundary_state!,
                     wavespeed, flux_nondiffusive!, flux_diffusive!,
                     diffusive!, num_state, num_gradient, gradvariables!
@@ -36,7 +36,7 @@ struct CentralGradPenalty <: GradNumericalPenalty end
 function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
                             VF, nM, diffM, QM, aM, diffP, QP, aP, t)
   FT = eltype(QM)
-  deriv_types = unit_scale(vars_gradient(bl,FT), inv(spatial_unit(bl)))
+  deriv_types = unit_scale(vars_gradient(bl,FT), inv(space_unit(bl)))
 
   @inbounds begin
     ndim = 3
@@ -132,7 +132,7 @@ update_penalty!(::Rusanov, ::BalanceLaw, _...) = nothing
 function numerical_flux_nondiffusive!(nf::Rusanov, bl::BalanceLaw, F::MArray,
                                       nM, QM, auxM, QP, auxP, t)
   FT = eltype(F)
-  flux_types = unit_scale(vars_state(bl,FT), spatial_unit(bl) / time_unit(bl))
+  flux_types = unit_scale(vars_state(bl,FT), space_unit(bl) / time_unit(bl))
   nstate = num_state(bl,FT)
 
   λM = wavespeed(bl, nM, Vars{vars_state(bl,FT)}(QM),
@@ -166,7 +166,7 @@ function numerical_flux_nondiffusive!(nf::Rusanov, bl::BalanceLaw, F::MArray,
     @inbounds F[s] += (nM[1] * (FM[1, s] + FP[1, s]) +
                        nM[2] * (FM[2, s] + FP[2, s]) +
                        nM[3] * (FM[3, s] + FP[3, s]) +
-                       ΔQ[s]) / 2
+                       ΔQ[s] / (space_unit(bl) / time_unit(bl))) / 2
   end
 end
 
@@ -272,7 +272,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                    QP, QVP, auxP,
                                    t)
   FT = eltype(F)
-  flux_types = unit_scale(vars_state(bl,FT), spatial_unit(bl) / time_unit(bl))
+  flux_types = unit_scale(vars_state(bl,FT), space_unit(bl) / time_unit(bl))
   nstate = num_state(bl,FT)
 
   FM = similar(F, Size(3, nstate))
