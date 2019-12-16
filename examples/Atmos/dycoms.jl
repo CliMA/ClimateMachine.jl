@@ -33,9 +33,6 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                     DGModel, nodal_update_aux!, diffusive!,
                     copy_stack_field_down!, create_state
 
-using Random
-const seed = MersenneTwister(0)
-
 const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
@@ -73,9 +70,6 @@ function atmos_boundary_state!(nf::CentralNumericalFluxDiffusive,
                         diffM, auxM, bctype, t)
 end
 
-abstract type BoundaryCondition
-end
-
 """
   DYCOMS_BC
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
@@ -110,9 +104,6 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
 
-  if bctype == 1 # bctype identifies bottom wall
-    stateP.ρu = SVector(0,0,0)
-  end
 end
 function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
@@ -173,7 +164,6 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # Extract components of diffusive momentum flux (minus-side)
     # ----------------------------------------------------------
     ρτM = diffM.ρτ
-
     # ----------------------------------------------------------
     # Boundary momentum fluxes
     # ----------------------------------------------------------
@@ -184,9 +174,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)
-    stateP.ρu = SVector(0,0,0)
     diffP.ρτ = SHermitianCompact{3,FT,6}(SVector(FT(0),ρτM[2,1],ρτ13P, FT(0), ρτ23P,FT(0)))
-
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
@@ -207,8 +195,6 @@ boundary_state!(nf, m::AtmosModel, x...) =
 boundary_state!(::CentralGradPenalty, bl::AtmosModel, _...) = nothing
 
 # -------------------- Radiation Model -------------------------- # 
-abstract type RadiationModel end
-
 vars_state(::RadiationModel, FT) = @vars()
 vars_aux(::RadiationModel, FT) = @vars()
 vars_integrals(::RadiationModel, FT) = @vars()
@@ -436,31 +422,33 @@ let
   global_logger(ConsoleLogger(logger_stream, loglevel))
   @testset begin
     # Problem type
-    FT = Float64
-    # DG polynomial order
-    N = 4
-    # SGS Filter constants
-    C_smag = FT(0.15)
-    LHF    = FT(115)
-    SHF    = FT(15)
-    C_drag = FT(0.0011)
-    # User defined domain parameters
-    brickrange = (grid1d(0, 2000, elemsize=FT(50)*N),
-                  grid1d(0, 2000, elemsize=FT(50)*N),
-                  grid1d(0, 1500, elemsize=FT(20)*N))
-    zmax = brickrange[3][end]
-    zsponge = FT(0.75 * zmax)
+    FloatType = (Float32, Float64)
+    for FT in FloatType
+      # DG polynomial order
+      N = 4
+      # SGS Filter constants
+      C_smag = FT(0.15)
+      LHF    = FT(115)
+      SHF    = FT(15)
+      C_drag = FT(0.0011)
+      # User defined domain parameters
+      brickrange = (grid1d(0, 2000, elemsize=FT(50)*N),
+                    grid1d(0, 2000, elemsize=FT(50)*N),
+                    grid1d(0, 1500, elemsize=FT(20)*N))
+      zmax = brickrange[3][end]
+      zsponge = FT(0.75 * zmax)
 
-    topl = StackedBrickTopology(mpicomm, brickrange,
-                                periodicity = (true, true, false),
-                                boundary=((0,0),(0,0),(1,2)))
-    dt = 0.02
-    timeend = 100dt
-    dim = 3
-    @info (ArrayType, FT, dim)
-    result = run(mpicomm, ArrayType, dim, topl,
-                 N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
-    @test result ≈ FT(0.9999734954176608)
+      topl = StackedBrickTopology(mpicomm, brickrange,
+                                  periodicity = (true, true, false),
+                                  boundary=((0,0),(0,0),(1,2)))
+      dt = 0.01
+      timeend = 100
+      dim = 3
+      @info (ArrayType, FT, dim)
+      result = run(mpicomm, ArrayType, dim, topl,
+                   N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge)
+      @test result ≈ FT(1.0002404228252337) atol=1e-4
+    end
   end
   @toc dycoms
 end

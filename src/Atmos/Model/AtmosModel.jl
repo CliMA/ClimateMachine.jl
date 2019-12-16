@@ -21,6 +21,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!
+
 using ..DGmethods.NumericalFluxes
 
 """

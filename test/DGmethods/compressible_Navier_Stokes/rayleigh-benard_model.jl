@@ -63,9 +63,6 @@ const T_top     = T_bot + T_lapse*zmax
 const C_smag    = 0.18
 
 # ------------- Boundary condition ------------------- #
-abstract type BoundaryCondition
-end
-
 function atmos_boundary_state!(::Rusanov, f::Function, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t, _...)
@@ -92,11 +89,11 @@ function atmos_boundary_state!(nf::CentralNumericalFluxDiffusive,
 end
 
 """
-  RayleighBenardBC
+  RayleighBenardBC <: BoundaryCondition
 
 # Fields
 """
-struct RayleighBenardBC{FT}
+struct RayleighBenardBC{FT} <: BoundaryCondition
   "Prescribed bottom wall temperature [K]"
   T_bot::FT
   "Prescribed top wall temperature [K]"

@@ -38,11 +38,11 @@ cpu_gpu = [
   { file = "test/LinearSolvers/poisson.jl", slurmargs = ["--ntasks=2"], args = [] },
   { file = "test/LinearSolvers/columnwiselu.jl", slurmargs = ["--ntasks=1"], args = []},
   { file = "test/LinearSolvers/bandedsystem.jl", slurmargs = ["--ntasks=3", "--time=02:00:00"], args = [] },
-  { file = "examples/DGmethods/ex_001_dycoms.jl", slurmargs = ["--ntasks=4"], args = [] },
   { file = "test/Ocean/shallow_water/GyreDriver.jl", slurmargs = ["--ntasks=1"], args = [] },
 ]
 
 gpu = [
+  { file = "examples/DGmethods/ex_001_dycoms.jl", slurmargs = ["--ntasks=4"], args = [] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["true"] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3", "--gres=gpu:3"], args = ["true"] },
   # this test times out; re-enable after fixing
