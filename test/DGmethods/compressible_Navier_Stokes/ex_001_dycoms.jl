@@ -25,15 +25,11 @@ using Logging
 using Printf
 using Dates
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
+using CUDAdrv
+using CUDAnative
+using CuArrays
+CuArrays.allowscalar(false)
+const ArrayTypes = (CuArray,)
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -127,10 +123,12 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_pt  = PhasePartition_equil(T, ρ, q_tot)
 
   # Assign State Variables
-  u1, u2 = FT(6), FT(7)
-  v1, v2 = FT(-4.25), FT(-5.5)
+  ugeo = FT(7)
+  vgeo = FT(-5.5)
+  #u1, u2 = FT(6), FT(7)
+  #v1, v2 = FT(-4.25), FT(-5.5)
   w = FT(0)
-  if (xvert <= zi)
+  #=if (xvert <= zi)
       u, v = u1, v1
   elseif (xvert >= ziplus)
       u, v = u2, v2
@@ -141,6 +139,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
       m = (ziplus - zi)/(v2 - v1)
       v = (xvert - zi)/m + v1
   end
+    =#
+  u, v, w = ugeo, vgeo, w
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -168,7 +168,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   F_0           = FT(70)
   F_1           = FT(22)
   # Geostrophic forcing
-  f_coriolis    = FT(7.62e-5)
+  f_coriolis    = FT(1.03e-4) #FT(7.62e-5)
   u_geostrophic = FT(7.0)
   v_geostrophic = FT(-5.5)
   w_ref         = FT(0)
@@ -248,21 +248,20 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   filter_interval_exonential = 1
   cbexpfilter = GenericCallbacks.EveryXSimulationSteps(filter_interval_exonential) do
     # Applies exponential filter to all prognostic variables
-    Filters.apply!(Q, 1:size(Q, 2), grid,ExponentialFilter(grid, 0, filterorder))
+    Filters.apply!(Q, 1:size(Q, 2), grid,ExponentialFilter(dg.grid, 0, filterorder))
     nothing
   end
 =#
   # Filter (TMAR via Callback)
-#=  filter_interval_TMAR = 1
+  filter_interval_TMAR = 1
   cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(filter_interval_TMAR) do
     # Applies positivity cutoff to ρq_tot only
-    Filters.apply!(Q, 6, disc.grid, TMARFilter())
+    Filters.apply!(Q, 6, dg.grid, TMARFilter())
     nothing
   end
-    =#
-    
+      
   #solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,  cbdiagnostics))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbtmarfilter, cbdiagnostics))
 
   # Get statistics at the end of the run
   sim_time_str = string(ODESolvers.gettime(lsrk))
@@ -301,10 +300,8 @@ let
   out_dir = get(ENV, "OUT_DIR", "output")
   mkpath(out_dir)
 
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
-
+  device!(MPI.Comm_rank(mpicomm) % length(devices()))
+  
  # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
   for ArrayType in ArrayTypes
     # Problem type
@@ -317,7 +314,7 @@ let
     SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
-    Δh, Δv = 35, 5
+    Δh, Δv = 40, 20
     #xmin, xmax = 0, 3200
     #ymin, ymax = 0, 3200
     xmin, xmax = 0, 1000
@@ -339,7 +336,7 @@ let
                                 boundary=((0,0),(0,0),(1,2)))
     #dt = 0.001
     safety_fac = FT(0.5)
-    dt = min(Δv/soundspeed_air(FT(330))/N, Δh/soundspeed_air(FT(330))/N) * safety_fac
+    dt = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
     timeend = 14400
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
