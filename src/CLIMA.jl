@@ -32,5 +32,6 @@ include("ODESolvers/MultirateRungeKuttaMethod.jl")
 include("ODESolvers/GenericCallbacks.jl")
 include("Atmos/Model/AtmosModel.jl")
 include("Diagnostics/Diagnostics.jl")
+include("Diagnostics/Courant.jl")
 include("InputOutput/VTK/VTK.jl")
 end

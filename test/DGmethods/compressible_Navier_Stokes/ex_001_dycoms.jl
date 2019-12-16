@@ -2,6 +2,7 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
@@ -15,6 +16,7 @@ using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VTK
+using CLIMA.Courant
 
 using CLIMA.Atmos: vars_state, vars_aux
 
@@ -241,8 +243,12 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     sim_time_str = string(ODESolvers.gettime(lsrk))
     gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                        xmax, ymax, out_dir)
+    Dx = min_node_distance(grid, HorizontalDirection())
+    Dz = min_node_distance(grid, VerticalDirection())
+    
+    gather_Courant(mpicomm, dg, Q,
+                       xmax, ymax, out_dir,Dx,Dx,Dz,dt)
   end
-
   # Filter (Exponential via Callback)
 #=  filterorder = 18
   filter_interval_exonential = 1
