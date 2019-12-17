@@ -133,12 +133,12 @@ upack(x, Q::Type{T} where {T<:Quantity}) = :($Q($x))
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
       U = unit(ST)
-      retexpr = :($T($LT($([:(array[$(offset + i)] * $U) for i = 1:N]...))))
+      retexpr = :($T($LT($([:(array[$(offset + i)]*$U) for i = 1:N]...))))
       offset += N
     elseif T <: StaticArray
       N = length(T)
       U = unit(ST)
-      retexpr = :($T($([:(array[$(offset + i)] * $U) for i = 1:N]...)))
+      retexpr = :($T($([:(array[$(offset + i)]*$U) for i = 1:N]...)))
       offset += N
     else
       retexpr = :(Vars{$T,A,$offset}(array))
@@ -174,12 +174,12 @@ uunpack(x, ::Type{T} where {T<:Quantity}) = :($x.val)
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
       U = inv(unit(R))
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle * $U)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle*$U)
       offset += N
     elseif T <: StaticArray
       N = length(T)
       U = inv(unit(R))
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:] * $U)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:]*$U)
       offset += N
     else
       offset += varsize(T)
@@ -215,17 +215,17 @@ Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(
     Base.@_inline_meta
     array = parent(v)
   end
-  
+
   for k in fieldnames(S)
     T = fieldtype(S,k)
     ST = eltype(T)
     if T <: Number
-      U = inv(unit(T))
+      U = unit(T)
       retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]*$U) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      U = inv(unit(ST))
+      U = unit(ST)
       retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([:(array[$i,$(offset + j)]*$U) for i = 1:M, j = 1:N]...)))
       offset += N
     else
@@ -251,12 +251,12 @@ end
     ST = eltype(T)
     if T <: Number
       U = inv(unit(T))
-      retexpr = :(array[:, $(offset+1)] .= val * $U)
+      retexpr = :(array[:, $(offset+1)] .= val*$U)
       offset += 1
     elseif T <: StaticArray
       U = inv(unit(ST))
       N = length(T)
-      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val * $U)
+      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val*$U)
       offset += N
     else
       offset += varsize(T)
