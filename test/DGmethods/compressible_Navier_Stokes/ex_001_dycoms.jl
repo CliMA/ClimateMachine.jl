@@ -176,7 +176,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   w_ref         = FT(0)
   u_relaxation  = SVector(u_geostrophic, v_geostrophic, w_ref)
   #Sponge:
-  c_sponge = 1
+  c_sponge = FT(0.55)
 
   # Model definition
   model = AtmosModel(FlatOrientation(),

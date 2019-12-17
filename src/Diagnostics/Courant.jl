@@ -17,13 +17,6 @@ using ..VariableTemplates
 
 export gather_Courant
 
-
-
-
-
-
-
-
 function gather_Courant(mpicomm, dg, Q,
                             xmax, ymax, out_dir,Dx,Dy,Dz,dt)
     mpirank = MPI.Comm_rank(mpicomm)
