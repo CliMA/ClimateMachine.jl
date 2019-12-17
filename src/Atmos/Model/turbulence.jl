@@ -2,6 +2,8 @@
 using DocStringExtensions
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
+using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 
 abstract type TurbulenceClosure end
@@ -91,8 +93,8 @@ vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T,ρν::T,BR::T,Freq::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(BR::T,Freq::T)
 
-function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
-  aux.turbulence.Δ = lengthscale(geom)
+function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry,Dx,Dz)
+  aux.turbulence.Δ = (Dx*Dx*Dz)^(1/3)#lengthscale(geom)
   aux.turbulence.ρν = 0
   aux.turbulence.BR = 0
 end
