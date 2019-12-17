@@ -163,14 +163,12 @@ upack(x, Q::Type{T} where {T<:Quantity}) = :($Q($x))
       retexpr = :($T(array[$(offset+1)]))
       offset += 1
     elseif T <: SHermitianCompact
-      ST = eltype(T)
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
       U = unit(ST)
       retexpr = :($T($LT($([:(array[$(offset + i)]*$U) for i = 1:N]...))))
       offset += N
     elseif T <: StaticArray
-      ST = eltype(T)
       N = length(T)
       U = unit(ST)
       retexpr = :($T($([:(array[$(offset + i)]*$U) for i = 1:N]...)))
