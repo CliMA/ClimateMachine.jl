@@ -20,27 +20,6 @@ struct AdvectionDiffusion{dim, P} <: BalanceLaw
   end
 end
 
-# provide default units
-space_unit(::AdvectionDiffusion) = u"m"
-time_unit(::AdvectionDiffusion) = u"s"
-
-# Stored in the aux state are:
-#   `coord` coordinate points (needed for BCs)
-#   `u` advection velocity
-#   `D` Diffusion tensor
-vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, units(FT, u"m")},
-                                           u::SVector{3, units(FT, u"m*s^-1")},
-                                           D::SMatrix{3, 3, units(FT, u"m^2/s"), 9})
-#
-# Density is only state
-vars_state(::AdvectionDiffusion, FT) = @vars(ρ::units(FT, u"kg*m^-3"))
-
-# Take the gradient of density
-vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::units(FT, u"kg*m^-3"))
-
-# The DG auxiliary variable: D ∇ρ
-vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3, units(FT, u"kg*m^-2*s^-1")})
-
 """
     flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
                        aux::Vars, t::Real)
@@ -141,7 +120,7 @@ end
 
 function init_state!(m::AdvectionDiffusion, state::Vars, aux::Vars,
                      coords, t::Real)
-  FT = typeof(t)
+  FT = get_T(eltype(coords))
   coords = units(FT, space_unit(m)).(coords)
   t = units(FT, time_unit(m))(t)
   initial_condition!(m.problem, state, aux, coords, t)
