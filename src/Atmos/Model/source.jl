@@ -84,32 +84,29 @@ struct RayleighSponge{FT} <: Source
   zsponge::FT
   "Sponge Strength 0 ⩽ c_sponge ⩽ 1"
   c_sponge::FT
-  "Relaxtion velocity components"
+  #c_sponge::SVector{3,FT}  
+  "Relaxtion velocity componens"
   u_relaxation::SVector{3,FT}  
 end
 
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
     FT = eltype(state)
     z = aux.orientation.Φ / grav
-    coeff = FT(0)
-    τsponge = FT(6)
+    beta = FT(0)
     if z >= s.zsponge
-        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-#        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
-      coeff = min(coeff_top, FT(1))
-    end
+        #coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+        #coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
+        #beta = coeff_top
+        
+        coeff_top = s.c_sponge * (1 - cos(pi*(z - s.zsponge)/(s.zmax - s.zsponge)));
+        beta = min(coeff_top, FT(1))
+     end
         
     u = state.ρu / state.ρ
-    source.ρu -= state.ρ * coeff * (u - s.u_relaxation)
+    source.ρu -= state.ρ * beta * (u - s.u_relaxation)
+    #udamping = state.ρ * beta * (u[1] - s.u_relaxation[1])
+    #vdamping = state.ρ * beta * (u[2] - s.u_relaxation[2])
+    #wdamping = state.ρ * beta * (u[3] - s.u_relaxation[3])*intensity_multiplier
+    #source.ρu -= SVector(udamping, vdamping, wdamping)
     
-    ##
-    #=
-    D = FT(3.75e-6)
-    u_ref = s.u_relaxation[1]
-    v_ref = s.u_relaxation[2]    
-    w_ref = -D*z
-    u_relaxation = SVector{3,FT}(u_ref, v_ref, w_ref)
-    source.ρu -= state.ρ * coeff * (u - u_relaxation)
-    =#
-    ##
 end
