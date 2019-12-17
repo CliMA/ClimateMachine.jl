@@ -125,19 +125,20 @@ upack(x, Q::Type{T} where {T<:Quantity}) = :($Q($x))
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
+    ST = eltype(T)
     if T <: Number
-      retexpr = :($T($(upack(:(array[$(offset+1)]), T))))
+      retexpr = :($T(array[$(offset+1)]))
       offset += 1
     elseif T <: SHermitianCompact
-      ST = eltype(T)
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
-      retexpr = :($T($LT($([upack(:(array[$(offset + i)]), ST) for i = 1:N]...))))
+      U = unit(ST)
+      retexpr = :($T($LT($([:(array[$(offset + i)] * $U) for i = 1:N]...))))
       offset += N
     elseif T <: StaticArray
-      ST = eltype(T)
       N = length(T)
-      retexpr = :($T($([upack(:(array[$(offset + i)]), ST) for i = 1:N]...)))
+      U = unit(ST)
+      retexpr = :($T($([:(array[$(offset + i)] * $U) for i = 1:N]...)))
       offset += N
     else
       retexpr = :(Vars{$T,A,$offset}(array))
@@ -161,20 +162,24 @@ uunpack(x, ::Type{T} where {T<:Quantity}) = :($x.val)
     array = parent(v)
   end
 
+  R = eltype(RT)
   for k in fieldnames(S)
     T = fieldtype(S,k)
     ST = eltype(T)
     if T <: Number
-      retexpr = :(array[$(offset+1)] = $(uunpack(:val, eltype(RT))))
+      U = inv(unit(R))
+      retexpr = :(array[$(offset+1)] = val * $U)
       offset += 1
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= [$([uunpack(:($T(val).lowertriangle[$i]), eltype(RT)) for i in 1:N]...)])
+      U = inv(unit(R))
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle * $U)
       offset += N
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[$(offset + 1):$(offset + N)] = [$([uunpack(:(val[$i]), eltype(RT)) for i = 1:N]...)])
+      U = inv(unit(R))
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:] * $U)
       offset += N
     else
       offset += varsize(T)
@@ -210,15 +215,18 @@ Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(
     Base.@_inline_meta
     array = parent(v)
   end
+  
   for k in fieldnames(S)
     T = fieldtype(S,k)
     ST = eltype(T)
     if T <: Number
-      retexpr = :(SVector{$M,$T}($([upack(:(array[$i,$(offset+1)]), ST) for i = 1:M]...)))
+      U = inv(unit(T))
+      retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]*$U) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([upack(:(array[$i,$(offset + j)]), ST) for i = 1:M, j = 1:N]...)))
+      U = inv(unit(ST))
+      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([:(array[$i,$(offset + j)]*$U) for i = 1:M, j = 1:N]...)))
       offset += N
     else
       retexpr = :(Grad{$T,A,$offset}(array))
@@ -242,11 +250,13 @@ end
     T = fieldtype(S,k)
     ST = eltype(T)
     if T <: Number
-      retexpr = :(array[:, $(offset+1)] .= [$([uunpack(:(val[$i]), eltype(RT)) for i in 1:M]...)])
+      U = inv(unit(T))
+      retexpr = :(array[:, $(offset+1)] .= val * $U)
       offset += 1
     elseif T <: StaticArray
+      U = inv(unit(ST))
       N = length(T)
-      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= reshape([$([(uunpack(:(val[$i,$j]), eltype(RT))) for i in 1:M, j in 1:N]...)],$M,$N))
+      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val * $U)
       offset += N
     else
       offset += varsize(T)
