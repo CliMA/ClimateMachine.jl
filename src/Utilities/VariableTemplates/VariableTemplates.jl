@@ -1,7 +1,7 @@
 module VariableTemplates
 
 export varsize, Vars, Grad, @vars, units, value,
-       unit_scale, UV
+       unit_scale, get_T, UV
 
 using StaticArrays, Unitful
 import Unitful: AbstractQuantity
@@ -97,12 +97,12 @@ Scale the output of a @vars call by the provided units.
       return unit_scale(Q, u)
     elseif Q <: SArray
       N = Q.parameters[2]
-      return SArray{Q.parameters[1], typeof(N(1.0)*u), Q.parameters[3], Q.parameters[4]}
+      return SArray{Q.parameters[1], typeof(oneunit(N)*u), Q.parameters[3], Q.parameters[4]}
     elseif Q <: SHermitianCompact
       N = Q.parameters[2]
-      return SHermitianCompact{Q.parameters[1], typeof(N(1.0)*u), Q.parameters[3]}
+      return SHermitianCompact{Q.parameters[1], typeof(oneunit(N)*u), Q.parameters[3]}
     else
-      return typeof(Q(1.0)*u)
+      return typeof(oneunit(Q)*u)
     end
   end
   :(return $(NamedTuple{S, Tuple{p.(T.parameters, factor())...}}))
@@ -111,12 +111,13 @@ end
 """
 Remove unit annotations, return float in SI units.
 """
-value(x::Number) = x
-value(x::AbstractQuantity) = upreferred(x).val
+value(x::Number) = ustrip(upreferred(x))
 
-# Senstive to typing, modify return expression to apply unitful information.
-upack(x, ::Type{T} where {T<:Number}) = x
-upack(x, Q::Type{T} where {T<:Quantity}) = :($Q($x))
+"""
+Get the numeric backing type for a quantity or numeric scalar type.
+"""
+get_T(::Type{T}) where {T<:Number} = T
+get_T(::Type{T}) where {T<:AbstractQuantity} = Unitful.get_T(T)
 
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
@@ -151,10 +152,6 @@ upack(x, Q::Type{T} where {T<:Quantity}) = :($Q($x))
   push!(expr.args, :(throw(GetVarError(sym))))
   expr
 end
-
-# Modify expression, sensitive to typing to remove unitful information for homogenous storage.
-uunpack(x, ::Type{T} where {T<:Number}) = x
-uunpack(x, ::Type{T} where {T<:Quantity}) = :($x.val)
 
 @generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val::RT) where {S,A,offset,RT}
   expr = quote
