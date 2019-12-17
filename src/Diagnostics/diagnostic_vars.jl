@@ -43,6 +43,7 @@ function vars_diagnostic(FT)
     SGS::FT
     Ri::FT
     N::FT
+    rad::FT
   end
 end
 
@@ -70,6 +71,7 @@ function var_groups(FT)
   D[:qt_sgs] = findall(map(x-> x==:qt_sgs, varnames_diag))
   D[:ht_sgs] = findall(map(x-> x==:ht_sgs, varnames_diag))
   D[:N] = findall(map(x-> x==:N, varnames_diag))
+  D[:rad] = findall(map(x-> x==:rad, varnames_diag))
   return D
 end
 

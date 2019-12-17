@@ -208,7 +208,7 @@ function compute_horzsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x,
 end
 
 function compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
-                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
+                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums, rad, localaux)
     #rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
     th = thermo_vars(thermoQ[ijk,e])
     ha = horzavg_vars(horzavgs[k,ev])
@@ -270,6 +270,14 @@ function compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh,
 
     # turbulent kinetic energy
     ds.TKE   += MH * 0.5 * (ds.uvariance + ds.vvariance + ds.wvariance)
+
+    #Radiation
+    z = zvals[k,ev]
+    Δz_i = max(z - rad.z_i, -zero(FT))
+    cloud_top_cooling = rad.F_0 * exp(-localaux[ijk,2,e])
+    cloud_base_warming = rad.F_1 * exp(-localaux[ijk,1,e])
+    free_troposphere_cooling = rad.ρ_i * FT(cp_d) * rad.D_subsidence * rad.α_z * ((cbrt(Δz_i))^4 / 4 + rad.z_i * cbrt(Δz_i))
+    ds.rad += MH * (cloud_top_cooling + cloud_base_warming + free_troposphere_cooling) 
 end
 
 # TODO: make this a single reduction
@@ -304,6 +312,7 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     # extract grid information
     bl = dg.balancelaw
     grid = dg.grid
+    rad = bl.radiation
     topology = grid.topology
     N = polynomialorder(grid)
     Nq = N + 1
@@ -312,7 +321,6 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
-
     # get the state, auxiliary and geo variables onto the host if needed
     if Array ∈ typeof(Q).parameters
         localQ    = Q.realdata
@@ -397,7 +405,7 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
     dsum_visitor(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
         compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
-                                Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
+                                Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums, rad, localaux)
 
     # another grid traversal
     visitQ(FT, Function[dsum_visitor])
