@@ -256,57 +256,7 @@ Courdx = dt*MPI.Allreduce(sdiff,MPI.MAX,mpicomm)/Dx^2
 Courdy = dt*MPI.Allreduce(sdiff,MPI.MAX,mpicomm)/Dy^2
 Courdz = dt*MPI.Allreduce(sdiff,MPI.MAX,mpicomm)/Dz^2
 @info "Courant numbers in the following order: Sound in x, in y and in z then advection in x, in y and in z then diffusion in x, in y and in z"
-@info Courssx,Courssy,Courssz, Couru, Courv, Courw, Courdx,Courdy,Courdz
-  #=  # divisor for horizontal averages
-    l_repdvsr = zeros(FT, Nqk * nvertelem) 
-
-    # compute the horizontal sums and the liquid water path
-    l_LWP = zeros(FT, 1)
-    horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    horzsum_visitor(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
-        compute_horzsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
-                          Nq, xmax, ymax, Nqk, nvertelem, localaux,
-                          l_LWP, thermoQ, horzsums, l_repdvsr)
-
-    # run both in one grid traversal
-    visitQ(FT, Function[thermo_visitor, horzsum_visitor])
-    
-    # compute the full number of points on a slab
-    repdvsr = zeros(FT, Nqk * nvertelem)
-    repdvsr = MPI.Reduce(l_repdvsr, +, 0, mpicomm)
-    
-    # compute the horizontal and LWP averages
-    horzavgs = horz_average_all(FT, mpicomm, num_horzavg(FT), (Nqk, nvertelem),
-                                horzsums, repdvsr)
-    LWP = zero(FT)
-    LWP = MPI.Reduce(l_LWP[1], +, 0, mpicomm)
-    if mpirank == 0
-        LWP /= repdvsr
-    end =#
-#=
-    # compute the diagnostics with the previous computed variables
-    dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    dsum_visitor(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
-        compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
-                                Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
-=#
-    # another grid traversal
-    #visitQ(FT, Function[dsum_visitor])
-
-    # compute the averages
-    #=davgs = horz_average_all(FT, mpicomm, num_diagnostic(FT), (Nqk, nvertelem),
-                             dsums, repdvsr)
-
-    if mpirank == 0
-        jldopen(joinpath(out_dir,
-                "diagnostics-$(diagnostics_time_str).jld2"), "a+") do file
-            file[sim_time_str] = davgs
-        end
-        jldopen(joinpath(out_dir,
-                "liquid_water_path-$(diagnostics_time_str).jld2"), "a+") do file
-            file[sim_time_str] = LWP
-        end
-    end=#
+@info "" Courssx,Courssy,Courssz, Couru, Courv, Courw, Courdx,Courdy,Courdz
 
     return nothing
 end # function gather_diagnostics
