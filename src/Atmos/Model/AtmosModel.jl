@@ -66,6 +66,7 @@ function vars_gradient(m::AtmosModel, FT)
 end
 function vars_diffusive(m::AtmosModel, FT)
   @vars begin
+    ρν::FT
     ρτ::SHermitianCompact{3,FT,6}
     ρd_h_tot::SVector{3,FT}
     turbulence::vars_diffusive(m.turbulence,FT)
@@ -183,6 +184,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   S = symmetrize(∇u)
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, ∇transform, aux, t)
+  diffusive.ρν = ρν
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
