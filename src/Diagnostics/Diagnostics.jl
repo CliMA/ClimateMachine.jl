@@ -207,7 +207,7 @@ function compute_horzsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x,
     end
 end
 
-function compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
+function compute_diagnosticsums!(FT, state, aux, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
                                  Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums, rad, localaux)
     #rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
     th = thermo_vars(thermoQ[ijk,e])
@@ -272,12 +272,7 @@ function compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh,
     ds.TKE   += MH * 0.5 * (ds.uvariance + ds.vvariance + ds.wvariance)
 
     #Radiation
-    z = zvals[k,ev]
-    Δz_i = max(z - rad.z_i, -zero(FT))
-    cloud_top_cooling = rad.F_0 * exp(-localaux[ijk,2,e])
-    cloud_base_warming = rad.F_1 * exp(-localaux[ijk,1,e])
-    free_troposphere_cooling = rad.ρ_i * FT(cp_d) * rad.D_subsidence * rad.α_z * ((cbrt(Δz_i))^4 / 4 + rad.z_i * cbrt(Δz_i))
-    ds.rad += MH * (cloud_top_cooling + cloud_base_warming + free_troposphere_cooling) 
+    ds.rad += MH * aux.radiation.Rad_flux 
 end
 
 # TODO: make this a single reduction
@@ -356,9 +351,10 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                             y = localvgeo[ijk,grid.x2id,e]
                             z = localvgeo[ijk,grid.x3id,e]
                             MH = localvgeo[ijk,grid.MHid,e]
+                            aux = extract_aux(dg,localaux,ijk,e)
                             #state = cat![qstate, diffusive_flx]
                             for f in funs
-                                f(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH)
+                                f(FT, state, aux, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH)
                             end
                         end
                     end
@@ -370,7 +366,7 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     # record the vertical coordinates and compute thermo variables
     zvals = zeros(Nqk, nvertelem)
     thermoQ = [zeros(FT, num_thermo(FT)) for _ in 1:npoints, _ in 1:nrealelem]
-    thermo_visitor(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
+    thermo_visitor(FT, state, aux, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
         compute_thermo!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z,
                         zvals, thermoQ)
 
@@ -380,7 +376,7 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     # compute the horizontal sums and the liquid water path
     l_LWP = zeros(FT, 1)
     horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    horzsum_visitor(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
+    horzsum_visitor(FT, state, aux, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
         compute_horzsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
                           Nq, xmax, ymax, Nqk, nvertelem, localaux,
                           l_LWP, thermoQ, horzsums, l_repdvsr)
@@ -403,8 +399,8 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
 
     # compute the diagnostics with the previous computed variables
     dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    dsum_visitor(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
-        compute_diagnosticsums!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
+    dsum_visitor(FT, state, aux, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH) =
+        compute_diagnosticsums!(FT, state, aux, diffusive_flx, i, j, k, ijk, ev, eh, e, x, y, z, MH,
                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums, rad, localaux)
 
     # another grid traversal

@@ -6,7 +6,6 @@ abstract type RadiationModel end
 vars_state(::RadiationModel, FT) = @vars()
 vars_aux(::RadiationModel, FT) = @vars()
 vars_integrals(::RadiationModel, FT) = @vars()
-
 function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
 end
@@ -44,6 +43,7 @@ struct StevensRadiation{FT} <: RadiationModel
   F_1::FT
 end
 vars_integrals(m::StevensRadiation, FT) = @vars(∂κLWP::FT)
+vars_aux(m::StevensRadiation, FT) = @vars(Rad_flux::FT)
 function integrate_aux!(m::StevensRadiation, integrand::Vars, state::Vars, aux::Vars)
   FT = eltype(state)
   integrand.radiation.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
@@ -62,6 +62,17 @@ function flux_radiation!(m::StevensRadiation, flux::Grad, state::Vars,
                      FT(0), 
                      F_rad)
 
+end
+function atmos_nodal_update_aux!(m::StevensRadiation, ::AtmosModel, state::Vars,
+                                 aux::Vars, t::Real)
+  FT = Float32
+  z = aux.orientation.Φ/grav
+  Δz_i = max(z - m.z_i, 0)
+  # Constants
+  cloud_top_cooling  = m.F_0 * exp(-aux.∫dnz.radiation.∂κLWP)
+  cloud_base_warming = m.F_1 * exp(-aux.∫dz.radiation.∂κLWP)
+  free_troposphere_cooling = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * ((cbrt(Δz_i))^4 / 4 + m.z_i * cbrt(Δz_i))
+aux.radiation.Rad_flux = cloud_base_warming + cloud_top_cooling + free_troposphere_cooling
 end
 function preodefun!(m::StevensRadiation, aux::Vars, state::Vars, t::Real)
 end
