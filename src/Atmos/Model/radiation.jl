@@ -65,8 +65,9 @@ function flux_radiation!(m::StevensRadiation, flux::Grad, state::Vars,
 end
 function atmos_nodal_update_aux!(m::StevensRadiation, ::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
-  FT = Float32
-  z = aux.orientation.Φ/grav
+  #FT = Float32
+  FT = eltype(state)
+  z  = aux.orientation.Φ/grav
   Δz_i = max(z - m.z_i, 0)
   # Constants
   cloud_top_cooling  = m.F_0 * exp(-aux.∫dnz.radiation.∂κLWP)

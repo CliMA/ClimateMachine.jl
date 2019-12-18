@@ -27,8 +27,6 @@ end
 function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
     ### SUBDISEDENCE SHOULD BE ADDED HERE
     return
-
-
     
 #    n = aux.orientation.∇Φ ./ norm(aux.orientation.∇Φ)
 #    source.ρu -= m.radiation.D_subsidence * dot(state.ρu, n) * n
@@ -100,7 +98,7 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
         
         #coeff_top = s.c_sponge * (1 - cos(pi*(z - s.zsponge)/(s.zmax - s.zsponge)));
         #beta = min(coeff_top, FT(1))
-     end
+    end
         
     u = state.ρu / state.ρ
     source.ρu -= state.ρ * beta * (u - s.u_relaxation)
