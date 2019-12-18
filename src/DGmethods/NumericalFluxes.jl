@@ -125,9 +125,10 @@ Requires a `flux_nondiffusive!` and `wavespeed` method for the balance law.
 """
 struct Rusanov <: NumericalFluxNonDiffusive end
 
+update_penalty!(::Rusanov, ::BalanceLaw, _...) = nothing
 
-function numerical_flux_nondiffusive!(::Rusanov, bl::BalanceLaw, F::MArray, nM,
-                                      QM, auxM, QP, auxP, t)
+function numerical_flux_nondiffusive!(nf::Rusanov, bl::BalanceLaw, F::MArray,
+                                      nM, QM, auxM, QP, auxP, t)
   FT = eltype(F)
   nstate = num_state(bl,FT)
 
@@ -148,10 +149,21 @@ function numerical_flux_nondiffusive!(::Rusanov, bl::BalanceLaw, F::MArray, nM,
                      Vars{vars_aux(bl,FT)}(auxP), t)
 
   λ  =  max(λM, λP)
+  ΔQ = λ * (QM - QP)
+
+  update_penalty!(nf, bl, nM, λ,
+                  Vars{vars_state(bl, FT)}(ΔQ),
+                  Vars{vars_state(bl, FT)}(QM),
+                  Vars{vars_state(bl, FT)}(QP),
+                  Vars{vars_aux(bl,FT)}(auxM),
+                  Vars{vars_aux(bl,FT)}(auxP),
+                  t)
 
   @unroll for s = 1:nstate
-    @inbounds F[s] += (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-                       nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM[s] - QP[s])) / 2
+    @inbounds F[s] += (nM[1] * (FM[1, s] + FP[1, s]) +
+                       nM[2] * (FM[2, s] + FP[2, s]) +
+                       nM[3] * (FM[3, s] + FP[3, s]) +
+                       ΔQ[s]) / 2
   end
 end
 

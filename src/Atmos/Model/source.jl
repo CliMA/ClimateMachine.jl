@@ -19,7 +19,11 @@ end
 struct Gravity <: Source
 end
 function atmos_source!(::Gravity, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu -= state.ρ * aux.orientation.∇Φ
+  if m.ref_state isa HydrostaticState
+    source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
+  else
+    source.ρu -= state.ρ * aux.orientation.∇Φ
+  end
 end
 
 struct Coriolis <: Source

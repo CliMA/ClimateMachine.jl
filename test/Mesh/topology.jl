@@ -1,5 +1,6 @@
 using Test
 using CLIMA.Mesh.Topologies
+using Combinatorics, MPI
 
 @testset "cubedshellwarp tests" begin
   import CLIMA.Mesh.Topologies: cubedshellwarp
@@ -23,11 +24,35 @@ using CLIMA.Mesh.Topologies
   end
 
   @testset "check continuity" begin
-    # TODO: we should be systematic here
-    @test all(cubedshellwarp( 3.0,-2.999999999, 1.3) .≈ cubedshellwarp( 2.999999999,-3.0, 1.3))
-    @test all(cubedshellwarp( 3.0, 2.999999999, 1.3) .≈ cubedshellwarp( 2.999999999, 3.0, 1.3))
-    @test all(cubedshellwarp(-3.0,-2.999999999, 1.3) .≈ cubedshellwarp(-2.999999999,-3.0, 1.3))
-    @test all(cubedshellwarp(-3.0, 2.999999999, 1.3) .≈ cubedshellwarp(-2.999999999, 3.0, 1.3))
+    for (u,v) in zip(permutations([3.0, 2.999999999, 1.3]), permutations([2.999999999, 3.0, 1.3]))
+      @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+    end
+    for (u,v) in zip(permutations([3.0, -2.999999999, 1.3]), permutations([2.999999999, -3.0, 1.3]))
+      @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+    end
+    for (u,v) in zip(permutations([-3.0, 2.999999999, 1.3]), permutations([-2.999999999, 3.0, 1.3]))
+      @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+    end
+    for (u,v) in zip(permutations([-3.0, -2.999999999, 1.3]), permutations([-2.999999999, -3.0, 1.3]))
+      @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+    end
+  end
+end
+
+@testset "cubedshellunwarp" begin
+  import CLIMA.Mesh.Topologies: cubedshellwarp, cubedshellunwarp
+  
+  for u in permutations([3.0, 2.999999999, 1.3])
+    @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
+  end
+  for u in permutations([3.0, -2.999999999, 1.3])
+    @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
+  end
+  for u in permutations([-3.0, 2.999999999, 1.3])
+    @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
+  end
+  for u in permutations([-3.0, -2.999999999, 1.3])
+    @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
   end
 end
 

@@ -444,8 +444,8 @@ end
 
 """
     facerhs!(bl::BalanceLaw, Val(polyorder),
-            numfluxnondiff::NumericalFluxNonDiffusive, 
-            numfluxdiff::NumericalFluxDiffusive, 
+            numfluxnondiff::NumericalFluxNonDiffusive,
+            numfluxdiff::NumericalFluxDiffusive,
             rhs, Q, Qvisc, auxstate,
             vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
             elems)
@@ -504,11 +504,11 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
   l_QviscP = MArray{Tuple{nviscstate}, FT}(undef)
 
-  
+
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
   l_Qvisc_bot1 = MArray{Tuple{nviscstate}, FT}(undef)
   l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
-  
+
   l_F = MArray{Tuple{nstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
@@ -555,7 +555,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           numerical_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM, l_QviscM,
                                     l_auxM, l_QPdiff, l_QviscP, l_auxPdiff, t)
         else
-          if (dim == 2 && f == 3) || (dim == 3 && f == 5) 
+          if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
             @unroll for s = 1:nstate
               l_Q_bot1[s] = Q[n + Nqk^2, s, e]
@@ -594,7 +594,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                           ::direction, Q, Qvisc, auxstate, vgeo, t, D,
                           elems) where {dim, polyorder, direction}
   N = polyorder
-  
+
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
@@ -962,7 +962,7 @@ Computational kernel: Initialize the auxiliary state
 See [`DGBalanceLaw`](@ref) for usage.
 """
 function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems) where {dim, polyorder}
-  N = polyorder  
+  N = polyorder
   FT = eltype(auxstate)
   nauxstate = num_aux(bl,FT)
 
@@ -1052,7 +1052,7 @@ See [`DGBalanceLaw`](@ref) for usage.
 function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nvertelem},
                                         Q, auxstate, vgeo, Imat,
                                         elems, ::Val{nout}
-                                       ) where {dim, N, nvertelem, 
+                                       ) where {dim, N, nvertelem,
                                                 nout}
   FT = eltype(Q)
   nstate = num_state(bl,FT)
@@ -1178,6 +1178,40 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
             @unroll for s = 1:nout
               auxstate[ijk, nout+s, e] = l_T[s] - l_V[s]
             end
+          end
+        end
+      end
+    end
+  end
+  nothing
+end
+
+# TODO: Generalize to more than one field?
+function knl_copy_stack_field_down!(::Val{dim}, ::Val{N}, ::Val{nvertelem},
+                                    auxstate, elems, ::Val{fldin},
+                                    ::Val{fldout}) where {dim, N, nvertelem,
+                                                          fldin, fldout}
+  DFloat = eltype(auxstate)
+
+  Nq = N + 1
+  Nqj = dim == 2 ? 1 : Nq
+
+  # note that k is the second not 4th index (since this is scratch memory and k
+  # needs to be persistent across threads)
+  @inbounds @loop for eh in (elems; blockIdx().x)
+    # Initialize the constant state at zero
+    @loop for j in (1:Nqj; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        ijk = i + Nq * ((j-1) + Nqj * (Nq-1))
+        et = nvertelem + (eh - 1) * nvertelem
+        val = auxstate[ijk, fldin, et]
+
+        # Loop up the stack of elements
+        for ev = 1:nvertelem
+          e = ev + (eh - 1) * nvertelem
+          @unroll for k in 1:Nq
+            ijk = i + Nq * ((j-1) + Nqj * (k-1))
+            auxstate[ijk, fldout, e] = val
           end
         end
       end

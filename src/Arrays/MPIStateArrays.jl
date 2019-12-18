@@ -19,6 +19,8 @@ Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:Array, FT} = similar(Arra
   Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:CuArray, FT} = similar(CuArray{FT}, dims...)
 end
 
+cpuify(x::AbstractArray) = convert(Array, x)
+cpuify(x::Real) = x
 
 export MPIStateArray, euclidean_distance, weightedsum
 
@@ -393,7 +395,7 @@ function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; di
     locnorm = convert(Array, locnorm)
   end
   @tic mpi_norm
-  r = MPI.Allreduce(locnorm, mpiop, Q.mpicomm)
+  r = MPI.Allreduce(cpuify(locnorm), mpiop, Q.mpicomm)
   @toc mpi_norm
   isfinite(p) ? r .^ (1 // p) : r
 end
@@ -410,7 +412,7 @@ function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=
   end
 
   @tic mpi_dot
-  r = MPI.Allreduce([locnorm], MPI.SUM, Q1.mpicomm)[1]
+  r = MPI.Allreduce(locnorm, MPI.SUM, Q1.mpicomm)
   @toc mpi_dot
   return r
 end
@@ -428,7 +430,7 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
 
   locnorm = mapreduce(identity, +, E, init=zero(eltype(A)))
   @tic mpi_euclidean_distance
-  r = sqrt(MPI.Allreduce([locnorm], MPI.SUM, A.mpicomm)[1])
+  r = sqrt(MPI.Allreduce(locnorm, MPI.SUM, A.mpicomm))
   @toc mpi_euclidean_distance
   return r
 end
@@ -458,7 +460,7 @@ function weightedsum(A::MPIStateArray, states=1:size(A, 2))
 
   @tic mpi_weightedsum
   # Need to use anomous function version of sum else MPI.jl using MPI_SUM
-  r = FT(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
+  r = FT(MPI.Allreduce(locwsum, (x,y)->x+y, A.mpicomm))
   @toc mpi_weightedsum
   return r
 end
@@ -557,22 +559,22 @@ weighted_dot_impl(Q1, Q2, W) = dot_impl(@~ @. W * Q1, Q2)
 
 function Base.mapreduce(f, op, Q::MPIStateArray; kw...)
   locreduce = mapreduce(f, op, realview(Q); kw...)
-  MPI.Allreduce(locreduce, op, Q.mpicomm)
+  MPI.Allreduce(cpuify(locreduce), op, Q.mpicomm)
 end
 
 # Arrays and CuArrays have different reduction machinery
 # until we can figure this out, add special cases to make common functions work
 function Base.mapreduce(::typeof(identity), ::Union{typeof(+), typeof(Base.add_sum)}, Q::MPIStateArray; kw...)
   locreduce = sum(realview(Q); kw...)
-  MPI.Allreduce(locreduce, +, Q.mpicomm)
+  MPI.Allreduce(cpuify(locreduce), +, Q.mpicomm)
 end
 function Base.mapreduce(::typeof(identity), ::typeof(min), Q::MPIStateArray; kw...)
   locreduce = minimum(realview(Q); kw...)
-  MPI.Allreduce(locreduce, min, Q.mpicomm)
+  MPI.Allreduce(cpuify(locreduce), min, Q.mpicomm)
 end
 function Base.mapreduce(::typeof(identity), ::typeof(max), Q::MPIStateArray; kw...)
   locreduce = maximum(realview(Q); kw...)
-  MPI.Allreduce(locreduce, max, Q.mpicomm)
+  MPI.Allreduce(cpuify(locreduce), max, Q.mpicomm)
 end
 
 
