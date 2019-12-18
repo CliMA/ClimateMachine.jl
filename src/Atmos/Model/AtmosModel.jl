@@ -132,8 +132,8 @@ Where
   u = ρinv * ρu
     
   ###
-    #u += SVector(0, 0, -D*z)
-  usub = SVector(0, 0, -D*z)
+  usub = SVector(0, 0, 0)
+  #usub = SVector(0, 0, -D*z)
   ###
     
   # advective terms

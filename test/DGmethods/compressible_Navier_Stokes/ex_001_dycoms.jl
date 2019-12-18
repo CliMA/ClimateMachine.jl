@@ -22,6 +22,7 @@ using CLIMA.Atmos: vars_state, vars_aux
 
 using LinearAlgebra
 using Random
+using Distributions
 using StaticArrays
 using Logging
 using Printf
@@ -37,6 +38,7 @@ if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
+const seed = MersenneTwister(0)
 
 """
   Initial Condition for DYCOMS_RF01 LES
@@ -92,20 +94,30 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_tot = FT(1.5e-3)
   end
   q_c = q_liq + q_ice
-  #Rm  = Rd*(FT(1) + (ϵdv - FT(1))*q_tot - ϵdv*q_c)
-
+    
+  ugeo = FT(7)
+  vgeo = FT(-5.5)
+  u, v, w = ugeo, vgeo, FT(0)
+    
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
   # --------------------------------------------------
-  #randnum1   = rand(seed, FT) / 100
-  #randnum2   = rand(seed, FT) / 1000
-  #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
-  #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
-  #if xvert <= 25.0
-  #  θ_liq += randnum1 * θ_liq
-  #  q_tot += randnum2 * q_tot
-  #end
+#  randnum1   = rand(seed, FT) / 100
+#  randnum2   = rand(seed, FT) / 1000
+#  randnum3   = rand(seed, FT) / 100
+#  randnum4   = rand(seed, FT) / 100
+    
+  randnum1   = rand(Uniform(-0.02,0.02))
+  randnum2   = rand(Uniform(-0.000015,0.000015))
+  randnum3   = rand(Uniform(-0.1,0.1))
+  randnum4   = rand(Uniform(-0.1,0.1))
+  if xvert <= 400.0
+    θ_liq += randnum1 * θ_liq
+    q_tot += randnum2 * q_tot
+    u     += randnum3 * u
+    v     += randnum4 * v
+  end
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
@@ -125,11 +137,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_pt  = PhasePartition_equil(T, ρ, q_tot)
 
   # Assign State Variables
-  ugeo = FT(7)
-  vgeo = FT(-5.5)
   #u1, u2 = FT(6), FT(7)
   #v1, v2 = FT(-4.25), FT(-5.5)
-  w = FT(0)
   #=if (xvert <= zi)
       u, v = u1, v1
   elseif (xvert >= ziplus)
@@ -142,7 +151,6 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
       v = (xvert - zi)/m + v1
   end
     =#
-  u, v, w = ugeo, vgeo, w
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -176,7 +184,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   w_ref         = FT(0)
   u_relaxation  = SVector(u_geostrophic, v_geostrophic, w_ref)
   #Sponge:
-  c_sponge = FT(0.55)
+  c_sponge = FT(1)
 
   # Model definition
   model = AtmosModel(FlatOrientation(),
@@ -195,15 +203,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
-  #Q = init_ode_state(dg, FT(0); device=CPU())
-  Q = init_ode_state(dg, FT(0))
+
+  Q = init_ode_state(dg, FT(0); forcecpu=true)
+  #Q = init_ode_state(dg, FT(0))
+    
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-  # Calculating initial condition norm
- #= eng0 = norm(Q)
-  @info @sprintf """Starting
-  norm(Q₀) = %.16e""" eng0
- =#
-  # Set up the information callback
+
+    # Set up the information callback
   starttime = Ref(now())
   cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
@@ -222,7 +228,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
 
   # Setup VTK output callbacks
-  out_interval = 5000
+  out_interval = 50000
   step = [0]
 #=  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -274,21 +280,6 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                      xmax, ymax, out_dir)
 
-  # Print some end of the simulation information
- #= engf = norm(Q)
-  Qe = init_ode_state(dg, FT(timeend))
-
-  engfe = norm(Qe)
-  errf = euclidean_distance(Q, Qe)
-  @info @sprintf """Finished
-  norm(Q)                 = %.16e
-  norm(Q) / norm(Q₀)      = %.16e
-  norm(Q) - norm(Q₀)      = %.16e
-  norm(Q - Qe)            = %.16e
-  norm(Q - Qe) / norm(Qe) = %.16e
-  """ engf engf/eng0 engf-eng0 errf errf / engfe
-  engf/eng0
-=#
 end
 
 using Test
@@ -315,7 +306,7 @@ let
     # DG polynomial order
     N = 4
     # SGS Filter constants
-    C_smag = FT(0.23)
+    C_smag = FT(0.18)
     LHF    = FT(115)
     SHF    = FT(15)
     C_drag = FT(0.0011)
@@ -325,7 +316,7 @@ let
     #ymin, ymax = 0, 3200
     xmin, xmax = 0, 1000
     ymin, ymax = 0, 1000
-    zmin, zmax = 0, 1500
+    zmin, zmax = 0, 2500
 
     grid_resolution = [Δh, Δh, Δv]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
