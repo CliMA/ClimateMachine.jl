@@ -242,8 +242,8 @@ end
 function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
                                  diff::Vars, t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
-  atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
-  atmos_nodal_update_aux!(m.turbulence, m, state, aux, diff, t)
+  atmos_nodal_update_aux!(m.radiation, m, state, aux, diff, t)
+  atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
 end
 
 function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
@@ -251,11 +251,11 @@ function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
 end
 
 # TODO: figure out a nice way to handle this
-function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
+function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry,Dx,Dz)
   aux.coord = geom.coord
   atmos_init_aux!(m.orientation, m, aux, geom)
   atmos_init_aux!(m.ref_state, m, aux, geom)
-  atmos_init_aux!(m.turbulence, m, aux, geom)
+  atmos_init_aux!(m.turbulence, m, aux, geom,Dx,Dz)
 end
 
 """
