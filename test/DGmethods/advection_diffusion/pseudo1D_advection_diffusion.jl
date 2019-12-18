@@ -18,12 +18,8 @@ using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
-  if length(ARGS) > 0
-    const integration_testing = parse(Bool, ARGS[1])
-  else
-    const integration_testing =
-      parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  end
+  const integration_testing =
+    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
 const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
@@ -221,7 +217,7 @@ let
 
 
     for FT in (Float64, Float32)
-      numlevels = integration_testing ? (FT == Float64 ? 4 : 3) : 1
+      numlevels = integration_testing || CLIMA.IntegrationTesting ? (FT == Float64 ? 4 : 3) : 1
       result = zeros(FT, numlevels)
       for dim = 2:3
         for direction in (EveryDirection, HorizontalDirection,

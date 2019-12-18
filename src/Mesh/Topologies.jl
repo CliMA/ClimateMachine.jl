@@ -4,7 +4,8 @@ import MPI
 using DocStringExtensions
 
 export AbstractTopology, BrickTopology, StackedBrickTopology,
-    CubedShellTopology, StackedCubedSphereTopology, isstacked
+    CubedShellTopology, StackedCubedSphereTopology, isstacked,
+    cubedshellwarp, cubedshellunwarp
 
 export grid1d, SingleExponentialStretching, InteriorStretching
 
