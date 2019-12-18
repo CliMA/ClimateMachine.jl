@@ -20,7 +20,10 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         update_aux!, integrate_aux!, LocalGeometry, lengthscale,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!
+                        reverse_indefinite_stack_integral
+# FIXME: Integrate into above
+import CLIMA.DGmethods: space_unit, time_unit, mass_unit, temp_unit
+using CLIMA.DGmethods: energy_unit, flux_unit, gravp_unit, shc_unit, acc_unit
 using ..DGmethods.NumericalFluxes
 
 """
@@ -45,6 +48,11 @@ struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   boundarycondition::BC
   init_state::IS
 end
+
+space_unit(::AtmosModel) = u"m"
+time_unit(::AtmosModel) = u"s"
+mass_unit(::AtmosModel) = u"kg"
+temp_unit(::AtmosModel) = u"K"
 
 function vars_state(m::AtmosModel, FT)
   @vars begin
@@ -78,7 +86,7 @@ function vars_aux(m::AtmosModel, FT)
   @vars begin
     ∫dz::vars_integrals(m, FT)
     ∫dnz::vars_integrals(m, FT)
-    coord::SVector{3,FT}
+    coord::SVector{3, units(FT, u"m")}
     orientation::vars_aux(m.orientation, FT)
     ref_state::vars_aux(m.ref_state,FT)
     turbulence::vars_aux(m.turbulence,FT)

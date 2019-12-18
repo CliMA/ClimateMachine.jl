@@ -41,6 +41,12 @@ vars_integrals(::BalanceLaw, FT) = @vars()
 space_unit(::BalanceLaw) = NoUnits
 mass_unit(::BalanceLaw) = NoUnits
 time_unit(::BalanceLaw) = NoUnits
+temp_unit(::BalanceLaw) = NoUnits
+flux_unit(m::BalanceLaw) = inv(space_unit(m)^2 * time_unit(m))
+acc_unit(m::BalanceLaw) = space_unit(m) / time_unit(m)^2
+energy_unit(m::BalanceLaw) = mass_unit(m) * (space_unit(m) / time_unit(m))^2
+shc_unit(m::BalanceLaw) = energy_unit(m) / mass_unit(m) / temp_unit(m)
+gravp_unit(m::BalanceLaw) = energy_unit(m) / mass_unit(m)
 
 num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
 num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate

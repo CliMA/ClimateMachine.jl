@@ -215,7 +215,7 @@ end
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
-      eltype(RT) != $ST && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($ST) and $($(eltype(RT)))")
+      unit(eltype(RT)) != unit($ST) && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($(unit(ST))) and $($(unit(eltype(RT))))")
       return @inbounds $retexpr
     end))
   end
@@ -292,6 +292,7 @@ end
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
+      unit(eltype(RT)) != unit($ST) && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($(unit(ST))) and $($(unit(eltype(RT))))")
       return @inbounds $retexpr
     end))
   end

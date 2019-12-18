@@ -1,5 +1,6 @@
 # TODO: add Coriolis vectors
 import ..PlanetParameters: grav, planet_radius
+using ..DGmethods: space_unit, gravp_unit, acc_unit
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 
 abstract type Orientation
@@ -7,8 +8,8 @@ end
 
 function vars_aux(m::Orientation, T)
   @vars begin
-    Φ::units(T, u"(m/s)^2") # gravitational potential
-    ∇Φ::SVector{3,T}
+    Φ::units(T, upreferred(u"J/kg")) # gravitational potential
+    ∇Φ::SVector{3, units(T, upreferred(u"J/kg/m"))}
   end
 end
 
@@ -55,7 +56,9 @@ Gravity acts in the third coordinate, and the gravitational potential is relativ
 struct FlatOrientation <: Orientation
   # for Coriolis we could add latitude?
 end
-function atmos_init_aux!(::FlatOrientation, ::AtmosModel, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::FlatOrientation, m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.orientation.Φ = grav * aux.coord[3]
-  aux.orientation.∇Φ = SVector{3,eltype(aux)}(0,0,grav)
+  U = gravp_unit(m) / space_unit(m)
+  v = (0, 0, grav / acc_unit(m)).*U
+  aux.orientation.∇Φ = SVector{3, units(eltype(aux), U)}(v)
 end
