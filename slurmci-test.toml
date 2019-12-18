@@ -42,7 +42,7 @@ cpu_gpu = [
 ]
 
 gpu = [
-  { file = "examples/DGmethods/ex_001_dycoms.jl", slurmargs = ["--ntasks=4"], args = [] },
+  { file = "examples/Atmos/dycoms.jl", slurmargs = ["--ntasks=4"], args = [] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["true"] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3", "--gres=gpu:3"], args = ["true"] },
   # this test times out; re-enable after fixing
