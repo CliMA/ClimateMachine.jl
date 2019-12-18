@@ -242,7 +242,7 @@ end
 function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
                                  diff::Vars, t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
-  atmos_nodal_update_aux!(m.radiation, m, state, aux, diff, t)
+  atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
   atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
 end
 
