@@ -78,7 +78,7 @@ end
 function PhaseEquil(e_int::FT,
                     ρ::FT,
                     q_tot::FT,
-                    tol::FT=FT(1e-2),
+                    tol::FT=FT(1e-1),
                     maxiter::Int=3,
                     sat_adjust::F=saturation_adjustment) where {FT<:Real,F}
     return PhaseEquil{FT}(e_int, ρ, q_tot, sat_adjust(e_int, ρ, q_tot, tol, maxiter))
@@ -118,8 +118,8 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 function LiquidIcePotTempSHumEquil(θ_liq_ice::FT,
                                    ρ::FT,
                                    q_tot::FT,
-                                   tol::FT=FT(1e-2),
-                                   maxiter::Int=5
+                                   tol::FT=FT(1e-1),
+                                   maxiter::Int=30
                                    ) where {FT<:Real}
     T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, ρ, q_tot, tol, maxiter)
     q_pt = PhasePartition_equil(T, ρ, q_tot)
@@ -141,8 +141,8 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT,
                                                   p::FT,
                                                   q_tot::FT,
-                                                  tol::FT=FT(1e-2),
-                                                  maxiter::Int=10) where {FT<:Real}
+                                                  tol::FT=FT(1e-1),
+                                                  maxiter::Int=30) where {FT<:Real}
     T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, p, q_tot, tol, maxiter)
     ρ = air_density(T, p, PhasePartition(q_tot))
     q = PhasePartition_equil(T, ρ, q_tot)
@@ -205,8 +205,8 @@ and, optionally
 function LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT,
                                       ρ::FT,
                                       q_pt::PhasePartition{FT},
-                                      tol::FT=FT(1e-2),
-                                      maxiter::Int=10
+                                      tol::FT=FT(1e-1),
+                                      maxiter::Int=5
                                       ) where {FT<:Real}
     T = air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice, ρ, tol, maxiter, q_pt)
     e_int = internal_energy(T, q_pt)
@@ -265,9 +265,13 @@ Note that the output vectors are of size ``n*n_RH``, and they
 should span the input arguments to all of the constructors.
 """
 function tested_convergence_range(FT, n)
-  n_RH = 30
-  z_range  = range(FT(0), stop=FT(25*10^3), length=n)
-  RH       = range(FT(0), stop=FT(1.2), length=n_RH)
+  n_RS1 = 10
+  n_RS2 = 20
+  n_RS = n_RS1+n_RS2
+  z_range  = range(FT(0), stop=FT(2.5e4), length=n)
+  relative_sat1 = range(FT(0), stop=FT(1), length=n_RS1)
+  relative_sat2 = range(FT(1), stop=FT(1.02), length=n_RS2)
+  relative_sat = [relative_sat1...,relative_sat2...]
   T_min = FT(150)
   T_surface = FT(350)
 
@@ -276,14 +280,14 @@ function tested_convergence_range(FT, n)
           getindex.(args, 2),
           getindex.(args, 3)
 
-  p  = collect(Iterators.flatten([p  for RH_ in 1:n_RH]))
-  ρ  = collect(Iterators.flatten([ρ  for RH_ in 1:n_RH]))
-  T  = collect(Iterators.flatten([T  for RH_ in 1:n_RH]))
-  RH = collect(Iterators.flatten([RH for RH_ in 1:n]))
+  p  = collect(Iterators.flatten([p  for RS in 1:n_RS]))
+  ρ  = collect(Iterators.flatten([ρ  for RS in 1:n_RS]))
+  T  = collect(Iterators.flatten([T  for RS in 1:n_RS]))
+  relative_sat = collect(Iterators.flatten([relative_sat for RS in 1:n]))
 
   # Additional variables
   q_sat = q_vap_saturation.(T, ρ)
-  q_tot = min.(RH .*q_sat, FT(1))
+  q_tot = min.(relative_sat .*q_sat, FT(1))
   q_pt = PhasePartition_equil.(T, ρ, q_tot)
   e_int = internal_energy.(T, q_pt)
   θ_liq_ice = liquid_ice_pottemp.(T, ρ, q_pt)

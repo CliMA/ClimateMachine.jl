@@ -826,7 +826,6 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p
     T_2 = bound_upper_temperature(T_1, T_2)
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) - θ_liq_ice,
-      # T -> liquid_ice_pottemp_sat_given_pressure(T, p, q_tot, tol, maxiter) - θ_liq_ice,
       T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
     if !sol.converged
       error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
@@ -1026,27 +1025,6 @@ The saturated liquid ice potential temperature where
 """
 liquid_ice_pottemp_sat(T::FT, ρ::FT, q_tot::FT) where {FT<:Real} =
     liquid_ice_pottemp(T, ρ, PhasePartition_equil(T, ρ, q_tot))
-
-"""
-    liquid_ice_pottemp_sat_given_pressure(T, p, q_tot)
-
-The saturated liquid ice potential temperature where
-
- - `T` temperature
- - `p` pressure
- - `q_tot` total specific humidity
- - `tol` tolerance for non-linear equation solve
- - `maxiter` maximum iterations for non-linear equation solve
-"""
-function liquid_ice_pottemp_sat_given_pressure(T::FT, p::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
-  sol = find_zero(ρ_ -> ρ_ - air_density(T, p, PhasePartition_equil(T, ρ_, q_tot)),
-    FT(0.1), FT(1.2), SecantMethod(), CompactSolution(), tol, maxiter)
-  ρ = sol.root
-  if !sol.converged
-    error("liquid_ice_pottemp_sat_given_pressure did not converge")
-  end
-  return liquid_ice_pottemp(T, ρ, PhasePartition_equil(T, ρ, q_tot))
-end
 
 """
     liquid_ice_pottemp_sat(ts::ThermodynamicState)
