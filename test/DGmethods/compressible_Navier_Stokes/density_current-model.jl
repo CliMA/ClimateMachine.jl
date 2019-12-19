@@ -95,7 +95,7 @@ function Initialise_Density_Current!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρ      = ρ
   state.ρu     = SVector(U, V, W)
   state.ρe     = E
-  state.moisture.ρq_tot = 0.0u""
+  state.moisture.ρq_tot = 0.0u"kg/m^3"
 end
 # --------------- Driver definition ------------------ #
 function run(mpicomm,

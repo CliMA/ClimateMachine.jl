@@ -213,8 +213,8 @@ The air temperature, where
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
-function air_temperature(e_int::EQ{FT}, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
-  T_0 +
+function air_temperature(e_int::PEQ{FT}, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
+  FT(T_0) +
     (e_int - (q.tot - q.liq) * FT(e_int_v0) + q.ice * (FT(e_int_v0) + FT(e_int_i0))) /
     cv_m(q)
 end
@@ -480,10 +480,10 @@ saturation_vapor_pressure(T::TQ{FT}, ::Ice) where {FT<:Real} =
 saturation_vapor_pressure(ts::ThermodynamicState{UV{FT}}, ::Ice) where {FT<:AbstractFloat} =
   saturation_vapor_pressure(air_temperature(ts), FT(LH_s0), FT(cp_v) - FT(cp_i))
 
-function saturation_vapor_pressure(T::TQ{FT}, LH_0::EQ{FT}, Δcp::SHCQ{FT}) where {FT<:Real}
+function saturation_vapor_pressure(T::TQ{FT}, LH_0::PEQ{FT}, Δcp::SHCQ{FT}) where {FT<:Real}
 
     return FT(press_triple) * (T/FT(T_triple))^(Δcp/FT(R_v)) *
-        exp( (FT(LH_0) - Δcp*FT(T_0))/FT(R_v) * (1 / FT(T_triple) - 1 / T) )
+        exp( (LH_0 - Δcp*FT(T_0))/FT(R_v) * (1 / FT(T_triple) - 1 / T) )
 
 end
 
@@ -538,7 +538,7 @@ function q_vap_saturation(T::TQ{FT}, ρ::DQ{FT}, q::PhasePartition{FT}=q_pt_0(FT
     Δcp     = _liquid_frac * (FT(cp_v) - FT(cp_l)) + _ice_frac * (FT(cp_v) - FT(cp_i))
 
     # saturation vapor pressure over possible mixture of liquid and ice
-    p_v_sat = saturation_vapor_pressure(T, FT(LH_0), Δcp)
+    p_v_sat = saturation_vapor_pressure(T, LH_0, Δcp)
 
     return q_vap_saturation_from_pressure(T, ρ, p_v_sat)
 
@@ -650,7 +650,7 @@ PhasePartition(ts::PhaseEquil) =
   PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
-function ∂e_int_∂T(T::TQ{FT}, e_int::EQ{FT}, ρ::DQ{FT}, q_tot::FT) where {FT<:Real}
+function ∂e_int_∂T(T::TQ{FT}, e_int::PEQ{FT}, ρ::DQ{FT}, q_tot::FT) where {FT<:Real}
   cvm = cv_m(PhasePartition_equil(T, ρ, q_tot))
   q_vap_sat = q_vap_saturation(T, ρ)
   λ = liquid_fraction(T)
@@ -680,7 +680,7 @@ using Newtons method with analytic gradients.
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_NewtonsMethod(e_int::EQ{FT}, ρ::DQ{FT}, q_tot::FT, tol::FT, maxiter::Int) where {FT<:AbstractFloat}
+function saturation_adjustment_NewtonsMethod(e_int::PEQ{FT}, ρ::DQ{FT}, q_tot::FT, tol::FT, maxiter::Int) where {FT<:AbstractFloat}
   T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
@@ -741,7 +741,7 @@ by finding the root of
 
 See also [`saturation_adjustment_q_tot_θ_liq_ice`](@ref).
 """
-function saturation_adjustment(e_int::EQ{FT}, ρ::DQ{FT}, q_tot::FT, tol::FT, maxiter::Int) where {FT<:AbstractFloat}
+function saturation_adjustment(e_int::PEQ{FT}, ρ::DQ{FT}, q_tot::FT, tol::FT, maxiter::Int) where {FT<:AbstractFloat}
   T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat

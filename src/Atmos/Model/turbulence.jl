@@ -6,6 +6,10 @@ export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 
 abstract type TurbulenceClosure end
 
+space_unit(m::TurbulenceClosure) = u"m"
+time_unit(m::TurbulenceClosure) = u"s"
+temp_unit(m::TurbulenceClosuer) = u"K"
+
 vars_state(::TurbulenceClosure, FT) = @vars()
 vars_gradient(::TurbulenceClosure, FT) = @vars()
 vars_diffusive(::TurbulenceClosure, FT) = @vars()
@@ -21,10 +25,10 @@ function gradvariables!(::TurbulenceClosure, transform::Vars, state::Vars, aux::
 end
 
 """
-  PrincipalInvariants{FT} 
+  PrincipalInvariants{FT}
 
-Calculates principal invariants of a tensor. Returns struct with fields first,second,third 
-referring to each of the invariants. 
+Calculates principal invariants of a tensor. Returns struct with fields first,second,third
+referring to each of the invariants.
 """
 struct PrincipalInvariants{FT}
   first::FT
@@ -51,7 +55,7 @@ struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
   "Dynamic Viscosity [kg/m/s]"
   ρν::FT
 end
-function dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, 
+function dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S,
   state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   return m.ρν
 end
@@ -63,7 +67,7 @@ end
 """
     SmagorinskyLilly <: TurbulenceClosure
 
-  § 1.3.2 in CliMA documentation 
+  § 1.3.2 in CliMA documentation
 
   article{doi:10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2,
   author = {Smagorinksy, J.},
@@ -103,21 +107,21 @@ end
   return buoyancy_factor, scaling coefficient for Standard Smagorinsky Model
   in stratified flows
 
-Compute the buoyancy adjustment coefficient for stratified flows 
-given the strain rate tensor inner product |S| ≡ SijSij ≡ normSij, 
-local virtual potential temperature θᵥ and the vertical potential 
-temperature gradient dθvdz. 
+Compute the buoyancy adjustment coefficient for stratified flows
+given the strain rate tensor inner product |S| ≡ SijSij ≡ normSij,
+local virtual potential temperature θᵥ and the vertical potential
+temperature gradient dθvdz.
 
-Brunt-Vaisala frequency N² defined as in equation (1b) in 
-  Durran, D.R. and J.B. Klemp, 1982: 
-  On the Effects of Moisture on the Brunt-Väisälä Frequency. 
-  J. Atmos. Sci., 39, 2152–2158, 
-  https://doi.org/10.1175/1520-0469(1982)039<2152:OTEOMO>2.0.CO;2 
+Brunt-Vaisala frequency N² defined as in equation (1b) in
+  Durran, D.R. and J.B. Klemp, 1982:
+  On the Effects of Moisture on the Brunt-Väisälä Frequency.
+  J. Atmos. Sci., 39, 2152–2158,
+  https://doi.org/10.1175/1520-0469(1982)039<2152:OTEOMO>2.0.CO;2
 
 Ri = N² / (2*normSij)
 Ri = gravity / θᵥ * ∂θᵥ∂z / 2 |S_{ij}|
 
-§1.3.2 in CliMA documentation. 
+§1.3.2 in CliMA documentation.
 
 article{doi:10.1111/j.2153-3490.1962.tb00128.x,
 author = {LILLY, D. K.},
@@ -159,15 +163,15 @@ end
 
 """
   Vreman{FT} <: TurbulenceClosure
-  
-  §1.3.2 in CLIMA documentation 
+
+  §1.3.2 in CLIMA documentation
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Smagorinsky coefficient
-is specified and used to compute the equivalent Vreman coefficient. 
+is specified and used to compute the equivalent Vreman coefficient.
 
 1) ν_e = √(Bᵦ/(αᵢⱼαᵢⱼ)) where αᵢⱼ = ∂uⱼ∂uᵢ with uᵢ the resolved scale velocity component.
 2) βij = Δ²αₘᵢαₘⱼ
 3) Bᵦ = β₁₁β₂₂ + β₂₂β₃₃ + β₁₁β₃₃ - β₁₂² - β₁₃² - β₂₃²
-βᵢⱼ is symmetric, positive-definite. 
+βᵢⱼ is symmetric, positive-definite.
 If Δᵢ = Δ, then β = Δ²αᵀα
 
 @article{Vreman2004,
@@ -206,7 +210,7 @@ function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, �
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   Bβinvariants = compute_principal_invariants(βij)
   @inbounds Bβ = Bβinvariants.second
-  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(FT))))) 
+  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(FT)))))
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S
@@ -214,11 +218,11 @@ end
 
 """
   AnisoMinDiss{FT} <: TurbulenceClosure
-  
-  §1.3.2 in CLIMA documentation 
+
+  §1.3.2 in CLIMA documentation
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Poincare coefficient
-is specified and used to compute the equivalent AnisoMinDiss coefficient (computed as the solution to the 
-eigenvalue problem for the Laplacian operator). 
+is specified and used to compute the equivalent AnisoMinDiss coefficient (computed as the solution to the
+eigenvalue problem for the Laplacian operator).
 
 @article{doi:10.1063/1.4928700,
 author = {Rozema,Wybe  and Bae,Hyun J.  and Moin,Parviz  and Verstappen,Roel },
@@ -233,7 +237,7 @@ URL = {https://aip.scitation.org/doi/abs/10.1063/1.4928700},
 eprint = {https://aip.scitation.org/doi/pdf/10.1063/1.4928700}
 }
 -------------------------------------------------------------------------------------
-# TODO: Future versions will include modifications of Abkar(2016), Verstappen(2018) 
+# TODO: Future versions will include modifications of Abkar(2016), Verstappen(2018)
 @article{PhysRevFluids.1.041701,
 title = {Minimum-dissipation scalar transport model for large-eddy simulation of turbulent flows},
 author = {Abkar, Mahdi and Bae, Hyun J. and Moin, Parviz},
@@ -254,7 +258,7 @@ struct AnisoMinDiss{FT} <: TurbulenceClosure
   C_poincare::FT
 end
 vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
-vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::T)
+vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::units(T, u"K"))
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
@@ -267,7 +271,7 @@ function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Va
   αijαij = dot(∇u,∇u)
   coeff = (aux.turbulence.Δ * m.C_poincare)^2
   βij = -(∇u' * ∇u)
-  ν_e = max(0,coeff * (dot(βij, S) / (αijαij + eps(FT))))
+  ν_e = max(0,coeff * (dot(βij, S) / (αijαij + eps(FT) / time_unit(m)^2)))
   return state.ρ * ν_e
 end
 function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)

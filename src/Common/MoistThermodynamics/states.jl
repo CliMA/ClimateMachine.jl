@@ -23,6 +23,7 @@ T_dim = dimension(u"K")
 P_dim = dimension(u"Pa")
 EV_dim = dimension(u"J/m^3")
 MF_dim = dimension(u"kg/m^2/s")
+PE_dim = dimension(u"J/kg")
 SHC_dim = dimension(u"J/kg/K")
 
 EQ{FT} = Unitful.AbstractQuantity{FT, E_dim, U} where U
@@ -30,7 +31,8 @@ DQ{FT} = Unitful.AbstractQuantity{FT, D_dim, U} where U
 TQ{FT} = Unitful.AbstractQuantity{FT, T_dim, U} where U
 PQ{FT} = Unitful.AbstractQuantity{FT, P_dim, U} where U
 EVQ{FT} = Unitful.AbstractQuantity{FT, EV_dim, U} where U
-MFQ{FT} = Unitful.AbstractQuantity{FT, MF_dim , U} where U
+MFQ{FT} = Unitful.AbstractQuantity{FT, MF_dim, U} where U
+PEQ{FT} = Unitful.AbstractQuantity{FT, PE_dim, U} where U
 SHCQ{FT} = Unitful.AbstractQuantity{FT, SHC_dim, U} where U
 
 """
@@ -90,7 +92,7 @@ $(DocStringExtensions.FIELDS)
 """
 struct PhaseEquil{T} <: ThermodynamicState{T}
   "internal energy"
-  e_int::EQ{FT}
+  e_int::PEQ{FT}
   "density of air (potentially moist)"
   ρ::DQ{FT}
   "total specific humidity"
@@ -98,13 +100,13 @@ struct PhaseEquil{T} <: ThermodynamicState{T}
   "temperature: computed via [`saturation_adjustment`](@ref)"
   T::TQ{FT}
 end
-PhaseEquil(e_int::EQ{FT},
+PhaseEquil(e_int::PEQ{FT},
            ρ::DQ{FT},
-           q_tot::TQ{FT},
+           q_tot::FT,
            tol::FT=FT(1e-1),
            maxiter::Int=3,
            sat_adjust::F=saturation_adjustment
-          ) where {FT<:AbstractFloat,F} =
+           ) where {FT<:AbstractFloat,F} =
   return PhaseEquil{FT}(e_int, ρ, q_tot, sat_adjust(e_int, ρ, q_tot, tol, maxiter))
 
 """
@@ -122,7 +124,7 @@ $(DocStringExtensions.FIELDS)
 """
 struct PhaseDry{T} <: ThermodynamicState{T}
   "internal energy"
-  e_int::EQ{FT}
+  e_int::PEQ{FT}
   "density of dry air"
   ρ::DQ{FT}
 end
@@ -203,7 +205,7 @@ $(DocStringExtensions.FIELDS)
 """
 struct PhaseNonEquil{T} <: ThermodynamicState{T}
   "internal energy"
-  e_int::EQ{FT}
+  e_int::PEQ{FT}
   "density of air (potentially moist)"
   ρ::DQ{FT}
   "phase partition"

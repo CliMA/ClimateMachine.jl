@@ -67,7 +67,7 @@ end
 function vars_gradient(m::AtmosModel, FT)
   @vars begin
     u::SVector{3, units(FT, u"m/s")}
-    h_tot::units(FT, u"J")
+    h_tot::units(FT, u"J/kg")
     turbulence::vars_gradient(m.turbulence,FT)
     moisture::vars_gradient(m.moisture,FT)
   end
