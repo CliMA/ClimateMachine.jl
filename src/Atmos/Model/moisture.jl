@@ -65,9 +65,9 @@ Assumes the moisture components are computed via thermodynamic equilibrium.
 """
 struct EquilMoist <: MoistureModel
 end
-vars_state(::EquilMoist,FT) = @vars(ρq_tot::FT)
-vars_gradient(::EquilMoist,FT) = @vars(q_tot::FT, h_tot::FT)
-vars_diffusive(::EquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_h_tot::SVector{3,FT})
+vars_state(::EquilMoist,FT) = @vars(ρq_tot::units(FT, u"kg/m^3"))
+vars_gradient(::EquilMoist,FT) = @vars(q_tot::FT, h_tot::units(FT, u"m^2/s^2"))
+vars_diffusive(::EquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_h_tot::SVector{3,units(FT, u"J/m^3")})
 vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,

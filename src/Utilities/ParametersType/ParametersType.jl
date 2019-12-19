@@ -96,7 +96,6 @@ macro exportparameter(sym, val, desc)
   esym = esc(sym)
   qsym = esc(Expr(:quote, sym))
   ev = getval(@eval(__module__, $val))
-  @show ev, typeof(ev)
 
   exportcmd = :(export $sym)
 

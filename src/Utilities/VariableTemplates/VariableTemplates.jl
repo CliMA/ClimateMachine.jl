@@ -84,7 +84,7 @@ Quantity{Float64,𝐋*𝐓^-2,Unitful.FreeUnits{(m, s^-2),𝐋*𝐓^-2,nothing}}
 
 Returns the type variable for the choice of numeric backing type `FT` and preferred units `u`.
 """
-units(FT::Type{T} where {T<:Number}, u::Unitful.Units) = Quantity{FT, dimension(u), typeof(u)}
+units(FT::Type{T} where {T<:Number}, u::Unitful.Units) = Quantity{FT, dimension(u), typeof(upreferred(u))}
 
 """
     unit_scale(::Type{NamedTuple{S, T}} where {S, T<:Tuple}, factor)

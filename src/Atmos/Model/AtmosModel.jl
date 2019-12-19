@@ -4,13 +4,13 @@ export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
        RemainderModel
 
-using LinearAlgebra, StaticArrays, Unitful
+using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
-using GPUifyLoops
+using GPUifyLoops, Unitful
 using ..MPIStateArrays: MPIStateArray
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
@@ -58,7 +58,7 @@ function vars_state(m::AtmosModel, FT)
   @vars begin
     ρ::units(FT, u"kg*m^-3")
     ρu::SVector{3, units(FT, u"kg/m^2/s")}
-    ρe::units(FT, u"kg*(m/s)^2 / m^3") # Energy per volume -> 'energy density'
+    ρe::units(FT, u"J/m^3")
     turbulence::vars_state(m.turbulence, FT)
     moisture::vars_state(m.moisture, FT)
     radiation::vars_state(m.radiation, FT)
@@ -67,15 +67,15 @@ end
 function vars_gradient(m::AtmosModel, FT)
   @vars begin
     u::SVector{3, units(FT, u"m/s")}
-    h_tot::units(FT, u"kg*(m/s)^2")
+    h_tot::units(FT, u"J")
     turbulence::vars_gradient(m.turbulence,FT)
     moisture::vars_gradient(m.moisture,FT)
   end
 end
 function vars_diffusive(m::AtmosModel, FT)
   @vars begin
-    ρτ::SHermitianCompact{3, units(FT, u"(kg/m^2/s)*(m/s)"),6} # NOTE: Guess that should m/s times below
-    ρd_h_tot::SVector{3, units(FT, u"kg/m^2/s")} # NOTE: Guess that this is a mass flux?
+    ρτ::SHermitianCompact{3, units(FT, u"kg/m/s^2"), 6}
+    ρd_h_tot::SVector{3, units(FT, u"J/m^3")}
     turbulence::vars_diffusive(m.turbulence,FT)
     moisture::vars_diffusive(m.moisture,FT)
   end
