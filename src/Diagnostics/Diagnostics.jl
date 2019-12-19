@@ -272,7 +272,7 @@ function compute_diagnosticsums!(FT, state, aux, diffusive_flx, i, j, k, ijk, ev
     ds.TKE   += MH * 0.5 * (ds.uvariance + ds.vvariance + ds.wvariance)
 
     #Radiation
-    ds.rad += MH * aux.radiation.Rad_flux 
+    #ds.rad += MH * aux.radiation.Rad_flux 
 end
 
 # TODO: make this a single reduction

@@ -16,11 +16,13 @@ using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VTK
+using CLIMA.Courant
 
 using CLIMA.Atmos: vars_state, vars_aux
 
 using LinearAlgebra
 using Random
+using Distributions
 using StaticArrays
 using Logging
 using Printf
@@ -40,6 +42,7 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
+const seed = MersenneTwister(0)
 
 function global_max(A::MPIStateArray, states=1:size(A, 2))
   host_array = Array ∈ typeof(A).parameters
@@ -121,18 +124,24 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   q_c = q_liq + q_ice
   #Rm  = Rd*(FT(1) + (ϵdv - FT(1))*q_tot - ϵdv*q_c)
 
+    ugeo = FT(7)
+    vgeo = FT(-5.5)
+    u, v, w = ugeo, vgeo, FT(0)
+    
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
-  # --------------------------------------------------
-  #randnum1   = rand(seed, FT) / 100
-  #randnum2   = rand(seed, FT) / 1000
-  #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
-  #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
-  #if xvert <= 25.0
-  #  θ_liq += randnum1 * θ_liq
-  #  q_tot += randnum2 * q_tot
-  #end
+    # --------------------------------------------------
+    randnum1   = rand(Uniform(-0.02,0.02))
+    randnum2   = rand(Uniform(-0.000015,0.000015))
+    randnum3   = rand(Uniform(-0.1,0.1))
+    randnum4   = rand(Uniform(-0.1,0.1))
+    if xvert <= 400.0
+        θ_liq += randnum1 * θ_liq
+        q_tot += randnum2 * q_tot
+        u     += randnum3 * u
+        v     += randnum4 * v
+    end
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
@@ -152,7 +161,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_pt  = PhasePartition_equil(T, ρ, q_tot)
 
   # Assign State Variables
-  u1, u2 = FT(6), FT(7)
+#=  u1, u2 = FT(6), FT(7)
   v1, v2 = FT(-4.25), FT(-5.5)
   w = FT(0)
   if (xvert <= zi)
@@ -165,7 +174,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
 
       m = (ziplus - zi)/(v2 - v1)
       v = (xvert - zi)/m + v1
-  end
+  end=#
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -258,7 +267,7 @@ function run(mpicomm,
                 auxstate=dg.auxstate,
                 direction=VerticalDirection())
     
-  Q = init_ode_state(dg, FT(0))
+  Q = init_ode_state(dg, FT(0); forcecpu=true)
 
   cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
       Filters.apply!(Q, 6, dg.grid, TMARFilter())
@@ -388,7 +397,7 @@ let
                   N = 4
                   
                   # SGS Filter constants
-                  C_smag = FT(0.15)
+                  C_smag = FT(0.18)
                   LHF    = FT(115)
                   SHF    = FT(15)
                   C_drag = FT(0.0011)
@@ -399,9 +408,9 @@ let
                   Δv = FT(20) #Δh/aspectratio
                   aspectratio = Δh/Δv
                   
-                  xmin, xmax = 0, 1000
-                  ymin, ymax = 0, 1000
-                  zmin, zmax = 0, 1500
+                  xmin, xmax = 0, 3000
+                  ymin, ymax = 0, 3000
+                  zmin, zmax = 0, 2500
                   
                   grid_resolution = [Δh, Δh, Δv]
                   domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
@@ -412,7 +421,7 @@ let
                                 grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
                   zmax = brickrange[dim][end]
                   
-                  zsponge = FT(1000.0)
+                  zsponge = FT(1500.0)
                   topl = StackedBrickTopology(mpicomm, brickrange,
                                               periodicity = (true, true, false),
                                               boundary=((0,0),(0,0),(1,2)))

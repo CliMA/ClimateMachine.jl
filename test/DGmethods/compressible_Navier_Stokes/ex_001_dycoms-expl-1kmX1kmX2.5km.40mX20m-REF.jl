@@ -228,7 +228,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
 
 
   # Setup VTK output callbacks
-  out_interval = 50000
+  out_interval = 25000
   step = [0]
 #=  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -312,10 +312,10 @@ let
     C_drag = FT(0.0011)
     # User defined domain parameters
     Δh, Δv = 40, 20
-    #xmin, xmax = 0, 3200
-    #ymin, ymax = 0, 3200
     xmin, xmax = 0, 1000
     ymin, ymax = 0, 1000
+    #xmin, xmax = 0, 2500
+    #ymin, ymax = 0, 2500
     zmin, zmax = 0, 2500
 
     grid_resolution = [Δh, Δh, Δv]
@@ -341,11 +341,11 @@ let
                  out_dir)
 
   end
+
   @show LH_v0
   @show R_d
   @show MSLP
   @show cp_d
 end
 
-#include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))
 nothing

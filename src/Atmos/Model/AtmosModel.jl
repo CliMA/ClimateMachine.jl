@@ -163,17 +163,9 @@ end
                                  diffusive::Vars, aux::Vars, t::Real)
   #Subsidence:
   FT = eltype(state)
-  D  = FT(3.75e-6)
-  z  = aux.orientation.Φ / grav
-    
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
-
-  ###
-    #  u += SVector(0, 0, -D*z)
-    usub = SVector(0, 0, -D*z)
-  ###
-    
+  
   # diffusive
   ρτ = diffusive.ρτ
   ρd_h_tot = diffusive.ρd_h_tot

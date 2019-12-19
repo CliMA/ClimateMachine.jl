@@ -145,13 +145,6 @@ function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
   N²   = ∂θ∂Φ / aux.moisture.θ_v
   Richardson = N² / (normS^2 + eps(normS))
   sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
-
-    #=  if z > FT(870)
-    f_b = FT(0.1)
-    else
-    f_b = FT(1)
-    end
-    return f_b=#
     
 end
 
@@ -169,7 +162,7 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   diffusive.turbulence.BR = f_b²
   ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
   N² = ∂θ∂Φ / aux.moisture.θ_v
-  diffusive.turbulence.Freq = f_b² #∂θ∂Φ/grav #N²
+  diffusive.turbulence.Freq = ∂θ∂Φ/grav #N²
     
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
   state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2

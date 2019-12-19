@@ -92,8 +92,8 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
     z = aux.orientation.Φ / grav
     beta = FT(0)
     if z >= s.zsponge
-        #coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
+        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+        #coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
         beta = coeff_top
         
         #coeff_top = s.c_sponge * (1 - cos(pi*(z - s.zsponge)/(s.zmax - s.zsponge)));
