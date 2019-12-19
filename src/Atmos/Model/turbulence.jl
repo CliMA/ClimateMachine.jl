@@ -2,13 +2,15 @@
 using DocStringExtensions
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
+import CLIMA.DGmethods: space_unit, time_unit, mass_unit, temp_unit
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 
 abstract type TurbulenceClosure end
 
 space_unit(m::TurbulenceClosure) = u"m"
 time_unit(m::TurbulenceClosure) = u"s"
-temp_unit(m::TurbulenceClosuer) = u"K"
+mass_unit(m::TurbulenceClosure) = u"kg"
+temp_unit(m::TurbulenceClosure) = u"K"
 
 vars_state(::TurbulenceClosure, FT) = @vars()
 vars_gradient(::TurbulenceClosure, FT) = @vars()
@@ -92,7 +94,7 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosure
 end
 
 vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T)
-vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
+vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::units(T, u"K"))
 
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
@@ -193,8 +195,8 @@ struct Vreman{FT} <: TurbulenceClosure
   "Smagorinsky Coefficient [dimensionless]"
   C_smag::FT
 end
-vars_aux(::Vreman,FT) = @vars(Δ::FT)
-vars_gradient(::Vreman,FT) = @vars(θ_v::FT)
+vars_aux(::Vreman,FT) = @vars(Δ::units(FT, u"m"))
+vars_gradient(::Vreman,FT) = @vars(θ_v::units(FT, u"K"))
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
@@ -257,7 +259,7 @@ url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
 struct AnisoMinDiss{FT} <: TurbulenceClosure
   C_poincare::FT
 end
-vars_aux(::AnisoMinDiss,T) = @vars(Δ::T)
+vars_aux(::AnisoMinDiss,T) = @vars(Δ::units(T, u"m"))
 vars_gradient(::AnisoMinDiss,T) = @vars(θ_v::units(T, u"K"))
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
@@ -271,7 +273,7 @@ function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Va
   αijαij = dot(∇u,∇u)
   coeff = (aux.turbulence.Δ * m.C_poincare)^2
   βij = -(∇u' * ∇u)
-  ν_e = max(0,coeff * (dot(βij, S) / (αijαij + eps(FT) / time_unit(m)^2)))
+  ν_e = max(0 * space_unit(m)^2/time_unit(m), coeff * (dot(βij, S) / (αijαij + eps(FT) / time_unit(m)^2)))
   return state.ρ * ν_e
 end
 function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)

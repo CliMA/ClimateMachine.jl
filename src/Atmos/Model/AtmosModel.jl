@@ -75,7 +75,7 @@ end
 function vars_diffusive(m::AtmosModel, FT)
   @vars begin
     ρτ::SHermitianCompact{3, units(FT, u"kg/m/s^2"), 6}
-    ρd_h_tot::SVector{3, units(FT, u"J/m^3")}
+    ρd_h_tot::SVector{3, units(FT, u"J/m^2/s")}
     turbulence::vars_diffusive(m.turbulence,FT)
     moisture::vars_diffusive(m.moisture,FT)
   end
@@ -196,7 +196,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   ∇h_tot = ∇transform.h_tot
   # turbulent Prandtl number
-  diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
+  diag_ρν = ρν isa Number ? ρν : diag(ρν) # either a scalar or matrix
   # Diffusivity ρD_t = ρν/Prandtl_turb
   ρD_t = diag_ρν * inv_Pr_turb
   # diffusive flux of total energy

@@ -67,17 +67,17 @@ PhasePartition(q_tot::UV{FT}) where {FT<:AbstractFloat} =
 
 
 """
-    ThermodynamicState{T}
+    ThermodynamicState{FT}
 
 A thermodynamic state, which can be initialized for
 various thermodynamic formulations (via its sub-types).
 All `ThermodynamicState`'s have access to functions to
 compute all other thermodynamic properties.
 """
-abstract type ThermodynamicState{T} end
+abstract type ThermodynamicState{FT} end
 
 """
-    PhaseEquil{T} <: ThermodynamicState
+    PhaseEquil{FT} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
 may be needed).
@@ -90,13 +90,13 @@ may be needed).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseEquil{T} <: ThermodynamicState{T}
+struct PhaseEquil{FT} <: ThermodynamicState{FT}
   "internal energy"
   e_int::PEQ{FT}
   "density of air (potentially moist)"
   ρ::DQ{FT}
   "total specific humidity"
-  q_tot::T
+  q_tot::FT
   "temperature: computed via [`saturation_adjustment`](@ref)"
   T::TQ{FT}
 end
@@ -110,7 +110,7 @@ PhaseEquil(e_int::PEQ{FT},
   return PhaseEquil{FT}(e_int, ρ, q_tot, sat_adjust(e_int, ρ, q_tot, tol, maxiter))
 
 """
-    PhaseDry{T} <: ThermodynamicState
+    PhaseDry{FT} <: ThermodynamicState
 
 A dry thermodynamic state (`q_tot = 0`).
 
@@ -122,7 +122,7 @@ A dry thermodynamic state (`q_tot = 0`).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseDry{T} <: ThermodynamicState{T}
+struct PhaseDry{FT} <: ThermodynamicState{FT}
   "internal energy"
   e_int::PEQ{FT}
   "density of dry air"
@@ -189,7 +189,7 @@ function TemperatureSHumEquil(T::TQ{FT}, p::PQ{FT}, q_tot::FT) where {FT<:Real}
 end
 
 """
-   	 PhaseNonEquil{T} <: ThermodynamicState
+   	 PhaseNonEquil{FT} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic non-equilibrium (therefore, temperature can
 be computed directly).
@@ -203,13 +203,13 @@ be computed directly).
 $(DocStringExtensions.FIELDS)
 
 """
-struct PhaseNonEquil{T} <: ThermodynamicState{T}
+struct PhaseNonEquil{FT} <: ThermodynamicState{FT}
   "internal energy"
   e_int::PEQ{FT}
   "density of air (potentially moist)"
   ρ::DQ{FT}
   "phase partition"
-  q::PhasePartition{T}
+  q::PhasePartition{FT}
 end
 
 """

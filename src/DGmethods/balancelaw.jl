@@ -44,7 +44,9 @@ time_unit(::BalanceLaw) = NoUnits
 temp_unit(::BalanceLaw) = NoUnits
 flux_unit(m::BalanceLaw) = inv(space_unit(m)^2 * time_unit(m))
 acc_unit(m::BalanceLaw) = space_unit(m) / time_unit(m)^2
-energy_unit(m::BalanceLaw) = mass_unit(m) * (space_unit(m) / time_unit(m))^2
+force_unit(m::BalanceLaw) = mass_unit(m) * acc_unit(m)
+pressure_unit(m::BalanceLaw) = force_unit(m) / space_unit(m)^2
+energy_unit(m::BalanceLaw) = force_unit(m) * space_unit(m)
 shc_unit(m::BalanceLaw) = energy_unit(m) / mass_unit(m) / temp_unit(m)
 gravp_unit(m::BalanceLaw) = energy_unit(m) / mass_unit(m)
 
