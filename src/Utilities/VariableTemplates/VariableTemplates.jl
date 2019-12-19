@@ -170,9 +170,10 @@ end
       offset += 1
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
+      TU = SHermitianCompact{T.parameters[1], R, T.parameters[3]}
       N = length(LT)
       U = inv(unit(R))
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle*$U)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $TU(val).lowertriangle*$U)
       offset += N
     elseif T <: StaticArray
       N = length(T)

@@ -114,13 +114,17 @@ vu.ρ = 1.0
 @test vu.ρ == 1.0u"kg/m^3"
 vu.ρ = 2.0u"kg/m^3"
 @test vu.ρ == 2.0u"kg/m^3"
-#TODO: More tests here
 
 ust_scaled_nop = unit_scale(ust, NoUnits)
 vusn = Vars{ust_scaled_nop}(zeros(MVector{varsize(ust), Float64}))
 @test ust_scaled_nop === ust
 vusm = Vars{unit_scale(ust, u"m")}(zeros(MVector{varsize(ust), Float64}))
 @test typeof(vusm.ρ) === typeof(vu.ρ * u"m")
+vu.S = @SVector[0.0 for i in 1:6]
+@test typeof(vu.S) === SHermitianCompact{3, units(Float64, u"m^2/s"),6}
+vusn.S = @SVector[0.0u"m^2/s" for i in 1:6]
+@test typeof(vusn.S) === SHermitianCompact{3, units(Float64, u"m^2/s"),6}
+@test vu.S === vusn.S
 
 @test flattenednames(ust) == ["ρ","ρu[1]","ρu[2]","ρu[3]","ρe",
                             "b.ρqt",

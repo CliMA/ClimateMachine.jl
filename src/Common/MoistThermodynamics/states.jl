@@ -51,18 +51,18 @@ See also [`PhasePartition_equil`](@ref)
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhasePartition{FT<:AbstractFloat}
+struct PhasePartition{FT<:Real}
   "total specific humidity"
-  tot::UV{FT}
+  tot::FT
   "liquid water specific humidity (default: `0`)"
-  liq::UV{FT}
+  liq::FT
   "ice specific humidity (default: `0`)"
-  ice::UV{FT}
+  ice::FT
 end
 
-PhasePartition(q_tot::UV{FT}, q_liq::UV{FT}) where {FT<:AbstractFloat} =
+PhasePartition(q_tot::FT, q_liq::FT) where {FT<:Real} =
   PhasePartition(q_tot, q_liq, zero(typeof(q_tot)))
-PhasePartition(q_tot::UV{FT}) where {FT<:AbstractFloat} =
+PhasePartition(q_tot::FT) where {FT<:Real} =
   PhasePartition(q_tot, zero(typeof(q_tot)), zero(typeof(q_tot)))
 
 

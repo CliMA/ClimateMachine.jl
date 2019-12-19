@@ -8,8 +8,8 @@ end
 
 function vars_aux(m::Orientation, T)
   @vars begin
-    Φ::units(T, upreferred(u"J/kg")) # gravitational potential
-    ∇Φ::SVector{3, units(T, upreferred(u"J/kg/m"))}
+    Φ::units(T, u"J/kg") # gravitational potential
+    ∇Φ::SVector{3, units(T, u"J/kg/m")}
   end
 end
 
