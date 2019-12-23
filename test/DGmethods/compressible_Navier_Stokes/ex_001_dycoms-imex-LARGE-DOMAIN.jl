@@ -304,24 +304,32 @@ function run(mpicomm,
         numberofsteps = convert(Int64, cld(timeend, dt_exp))
         dt = timeend / numberofsteps #dt_exp
         @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
+
+        # Get Courant numbers and dt
+        out_interval_courant = 2500
+        diagnostics_time_str = string(now())
+        cbcourant = GenericCallbacks.EveryXSimulationSteps(out_interval_courant) do (init=false)
+            
+            #Calcualte Courant numbers:
+            Dx = min_node_distance(grid, HorizontalDirection())
+            Dz = min_node_distance(grid, VerticalDirection())
+            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
+            
+        end
+        #End get Courant numbers and dt
+        
         solver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-        #
+        
         # Get statistics during run
-        #
         out_interval_diags = 10000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
             gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
-        
-            #Calcualte Courant numbers:
-            Dx = min_node_distance(grid, HorizontalDirection())
-            Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt)
         end
         #End get statistcs
         
-        solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
+        solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbcourant, cbdiagnostics))
         
     else
         #
@@ -331,11 +339,10 @@ function run(mpicomm,
         dt = timeend / numberofsteps #dt_imex
         @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
 
-
         # Get Courant numbers and dt
-        out_interval_diags = 10000
+        out_interval_courant = 2500
         diagnostics_time_str = string(now())
-        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
+        cbcourant = GenericCallbacks.EveryXSimulationSteps(out_interval_courant) do (init=false)
         
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
@@ -348,8 +355,6 @@ function run(mpicomm,
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
                               dt = dt, t0 = 0,
                               split_nonlinear_linear=false)
-
-
         
         # Get statistics during run
         out_interval_diags = 10000
@@ -360,7 +365,7 @@ function run(mpicomm,
         end
         #End get statistcs
 
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
+        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbcourant, cbinfo), adjustfinalstep=false)
     end
 
 end
@@ -409,8 +414,8 @@ let
                   Δv = FT(10) #Δh/aspectratio
                   aspectratio = Δh/Δv
                   
-                  xmin, xmax = 0, 15000
-                  ymin, ymax = 0, 15000
+                  xmin, xmax = 0, 3000
+                  ymin, ymax = 0, 3000
                   zmin, zmax = 0, 2500
                   
                   grid_resolution = [Δh, Δh, Δv]
