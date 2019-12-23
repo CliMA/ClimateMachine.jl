@@ -270,16 +270,14 @@ function run(mpicomm,
     
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(5, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
 
         @info @sprintf("""Update
-                         dt      = %.5f
                          simtime = %.16e
                          runtime = %s""",
-                       dt,
                        ODESolvers.gettime(solver),
                        Dates.format(convert(Dates.DateTime,
                                             Dates.now()-starttime[]),
@@ -304,69 +302,54 @@ function run(mpicomm,
     end
     if explicit == 1
         numberofsteps = convert(Int64, cld(timeend, dt_exp))
-        dt = timeend / numberofsteps #dt_exp
+        dt_exp = timeend / numberofsteps #dt_exp
         @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
-
-        # Get Courant numbers and dt
-        out_interval_courant = 2500
-        diagnostics_time_str = string(now())
-        cbcourant = GenericCallbacks.EveryXSimulationSteps(out_interval_courant) do (init=false)
-            
-            #Calcualte Courant numbers:
-            Dx = min_node_distance(grid, HorizontalDirection())
-            Dz = min_node_distance(grid, VerticalDirection())
-            (dt_exp, dt_imp) = gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
-            
-        end
-        #End get Courant numbers and dt
         
-        solver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+        solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
         
         # Get statistics during run
-        out_interval_diags = 10000
+        out_interval_diags = 5000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+
+            #Calcualte Courant numbers:
+            Dx = min_node_distance(grid, HorizontalDirection())
+            Dz = min_node_distance(grid, VerticalDirection())
+            (dt_explicit, dt_implicit) = gather_Courant(mpicomm, dg, Q,xmax, ymax, Dx, Dx, Dz, dt_exp)
         end
         #End get statistcs
         
-        solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbcourant, cbdiagnostics))
+        solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
         
     else
         #
         # 1D IMEX
         #
         numberofsteps = convert(Int64, cld(timeend, dt_imex))
-        dt = timeend / numberofsteps #dt_imex
+        dt_imex = timeend / numberofsteps #dt_imex
         @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
-
-        # Get Courant numbers and dt
-        out_interval_courant = 1000
-        diagnostics_time_str = string(now())
-        cbcourant = GenericCallbacks.EveryXSimulationSteps(out_interval_courant) do (init=false)
         
-            #Calcualte Courant numbers:
-            Dx = min_node_distance(grid, HorizontalDirection())
-            Dz = min_node_distance(grid, VerticalDirection())
-            (dt_exp, dt_imp) = gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
-        end
-
-        #End get Courant numbers and dt
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
                               dt = dt_imex, t0 = 0,
                               split_nonlinear_linear=false)
         
         # Get statistics during run
-        out_interval_diags = 10000
+        out_interval_diags = 2000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+
+            
+            Dx = min_node_distance(grid, HorizontalDirection())
+            Dz = min_node_distance(grid, VerticalDirection())
+            (dt_explicit, dt_implicit) = gather_Courant(mpicomm, dg, Q,xmax, ymax, Dx, Dx, Dz, dt_imex)
         end
         #End get statistcs
 
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbcourant, cbinfo), adjustfinalstep=false)
+        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
     end
 
 end
@@ -415,8 +398,8 @@ let
                   Δv = FT(20) #Δh/aspectratio
                   aspectratio = Δh/Δv
                   
-                  xmin, xmax = 0, 3000
-                  ymin, ymax = 0, 3000
+                  xmin, xmax = 0, 1500
+                  ymin, ymax = 0, 1500
                   zmin, zmax = 0, 2500
                   
                   grid_resolution = [Δh, Δh, Δv]
@@ -433,10 +416,12 @@ let
                                               periodicity = (true, true, false),
                                               boundary=((0,0),(0,0),(1,2)))
 
-                  
+                  Courant    = FT(0.3)
                   safety_fac = FT(1.0)
-                  dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
+                  dt_exp     = Courant * min(Δh, Δv) / soundspeed_air(FT(340)) * safety_fac
+                  dt_imex    = Courant * max(Δh, Δv) / soundspeed_air(FT(340)) * safety_fac
+                  #dt_exp  = min(Δv/soundspeed_air(FT(340))/N, Δh/soundspeed_air(FT(340))/N) * safety_fac
+                  #dt_imex = Δh/soundspeed_air(FT(340))/N * safety_fac
                   timeend = 14400
                   
                   @info @sprintf """Starting
