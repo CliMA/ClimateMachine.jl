@@ -287,7 +287,7 @@ function run(mpicomm,
   end
     
     # Setup VTK output callbacks
-    out_interval = 10000
+    out_interval = 500
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
         fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -312,17 +312,16 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
         
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt)
+            gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)
         end
         #End get statistcs
         
         solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
-        
     else
         #
         # 1D IMEX
@@ -336,16 +335,16 @@ function run(mpicomm,
                               split_nonlinear_linear=false)
         
         # Get statistics during run
-        out_interval_diags = 10000
+        out_interval_diags = 500
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
         
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
+            gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)
         end
         #End get statistcs
         
@@ -417,7 +416,7 @@ let
                                               boundary=((0,0),(0,0),(1,2)))
 
                   
-                  safety_fac = FT(1.0)
+                  safety_fac = FT(0.5)
                   dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
                   dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
                   timeend = 14400

@@ -18,8 +18,7 @@ using ..VariableTemplates
 
 export gather_Courant, gather_dt_given_Courant
 
-function gather_Courant(mpicomm, dg, Q,
-                        xmax, ymax, Dx, Dy, Dz, dt)
+function gather_Courant(mpicomm, dg, Q, Dx, Dy, Dz, dt)
     
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
