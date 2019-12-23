@@ -334,8 +334,6 @@ function run(mpicomm,
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
                               dt = dt, t0 = 0,
                               split_nonlinear_linear=false)
-
-
         
         # Get statistics during run
         out_interval_diags = 10000

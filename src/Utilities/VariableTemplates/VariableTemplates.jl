@@ -66,14 +66,15 @@ struct Vars{S,A,offset}
 end
 Vars{S}(array) where {S} = Vars{S,typeof(array),0}(array)
 
-Base.eltype(v::Vars) = eltype(getfield(v,:array))
+Base.parent(v::Vars) = getfield(v,:array)
+Base.eltype(v::Vars) = eltype(parent(v))
 Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
-Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(getfield(v,:array)))
+Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(parent(v)))
 
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
     Base.@_inline_meta
-    array = getfield(v, :array)
+    array = parent(v)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
@@ -104,7 +105,7 @@ end
 @generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val) where {S,A,offset}
   expr = quote
     Base.@_inline_meta
-    array = getfield(v, :array)
+    array = parent(v)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
@@ -142,15 +143,16 @@ struct Grad{S,A,offset}
 end
 Grad{S}(array) where {S} = Grad{S,typeof(array),0}(array)
 
-Base.eltype(g::Grad) = eltype(getfield(g,:array))
+Base.parent(g::Grad) = getfield(g,:array)
+Base.eltype(g::Grad) = eltype(parent(g))
 Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
-Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(getfield(g,:array)))
+Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(parent(g)))
 
 @generated function Base.getproperty(v::Grad{S,A,offset}, sym::Symbol) where {S,A,offset}
   M = size(A,1)
   expr = quote
     Base.@_inline_meta
-    array = getfield(v, :array)
+    array = parent(v)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
@@ -177,7 +179,7 @@ end
   M = size(A,1)
   expr = quote
     Base.@_inline_meta
-    array = getfield(v, :array)
+    array = parent(v)
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)

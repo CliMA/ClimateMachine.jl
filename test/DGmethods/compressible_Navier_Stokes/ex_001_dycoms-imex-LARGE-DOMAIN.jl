@@ -340,7 +340,7 @@ function run(mpicomm,
         @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
 
         # Get Courant numbers and dt
-        out_interval_courant = 2500
+        out_interval_courant = 1000
         diagnostics_time_str = string(now())
         cbcourant = GenericCallbacks.EveryXSimulationSteps(out_interval_courant) do (init=false)
         
@@ -411,7 +411,7 @@ let
                   # User defined domain parameters
                   Δh = FT(40)
                   aspectratio = FT(7)
-                  Δv = FT(10) #Δh/aspectratio
+                  Δv = FT(20) #Δh/aspectratio
                   aspectratio = Δh/Δv
                   
                   xmin, xmax = 0, 3000

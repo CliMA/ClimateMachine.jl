@@ -5,6 +5,8 @@ MT = MoistThermodynamics
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
+float_types = [Float32, Float64]
+
 @testset "moist thermodynamics - correctness" begin
   FT = Float64
   # ideal gas law
@@ -89,14 +91,14 @@ using LinearAlgebra
 
   # saturation adjustment in equilibrium (i.e., given the thermodynamic
   # variables E_int, p, q_tot, compute the temperature and partitioning of the phases
-  tol_T = 1e-2
+  tol_T = 1e-1
   q_tot = FT(0); ρ = FT(1)
-  @test MT.saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) ≈ 300.0
-  @test abs(MT.saturation_adjustment_NewtonsMethod(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot) - 300.0) < tol_T
+  @test MT.saturation_adjustment_SecantMethod(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) ≈ 300.0
+  @test abs(MT.saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) - 300.0) < tol_T
 
   q_tot = FT(0.21); ρ = FT(0.1)
-  @test MT.saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot) ≈ 200.0
-  @test abs(MT.saturation_adjustment_NewtonsMethod(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot) - 200.0) < tol_T
+  @test MT.saturation_adjustment_SecantMethod(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) ≈ 200.0
+  @test abs(MT.saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) - 200.0) < tol_T
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
 
@@ -124,215 +126,260 @@ using LinearAlgebra
 end
 
 
+@testset "moist thermodynamics - default behavior accuracy" begin
+  # Input arguments should be accurate within machine precision
+  # Temperature is approximated via saturation adjustment, and should be within a physical tolerance
+
+  for FT in float_types
+    rtol = FT(1e-2)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+
+    # PhaseEquil
+    ts_exact = PhaseEquil.(e_int, ρ, q_tot, FT(1e-4), 100)
+    ts = PhaseEquil.(e_int, ρ, q_tot)
+    # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(PhasePartition.(ts_exact),:tot))
+    @test all(internal_energy.(ts) .≈ internal_energy.(ts_exact))
+    @test all(air_density.(ts) .≈ air_density.(ts_exact))
+    # Approximate (temperature must be computed via saturation adjustment):
+    @test all(isapprox.(air_pressure.(ts), air_pressure.(ts_exact), rtol=rtol))
+    @test all(isapprox.(air_temperature.(ts), air_temperature.(ts_exact), rtol=rtol))
+
+    # PhaseEquil
+    ts_exact = PhaseEquil.(e_int, ρ, q_tot, FT(1e-4), 100, MT.saturation_adjustment_SecantMethod)
+    ts = PhaseEquil.(e_int, ρ, q_tot, FT(1e-1), 30, MT.saturation_adjustment_SecantMethod) # Needs to be in sync with default
+    # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(PhasePartition.(ts_exact),:tot))
+    @test all(internal_energy.(ts) .≈ internal_energy.(ts_exact))
+    @test all(air_density.(ts) .≈ air_density.(ts_exact))
+    # Approximate (temperature must be computed via saturation adjustment):
+    @test all(isapprox.(air_pressure.(ts), air_pressure.(ts_exact), rtol=rtol))
+    @test all(isapprox.(air_temperature.(ts), air_temperature.(ts_exact), rtol=rtol))
+
+    # LiquidIcePotTempSHumEquil
+    ts_exact = LiquidIcePotTempSHumEquil.(θ_liq_ice, ρ, q_tot, FT(1e-3), 40)
+    ts = LiquidIcePotTempSHumEquil.(θ_liq_ice, ρ, q_tot)
+    # Should be machine accurate:
+    @test all(air_density.(ts) .≈ air_density.(ts_exact))
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(PhasePartition.(ts_exact),:tot))
+    # Approximate (temperature must be computed via saturation adjustment):
+    @test all(isapprox.(internal_energy.(ts), internal_energy.(ts_exact), rtol=rtol))
+    @test all(isapprox.(liquid_ice_pottemp.(ts), liquid_ice_pottemp.(ts_exact), rtol=rtol))
+    @test all(isapprox.(air_temperature.(ts), air_temperature.(ts_exact), rtol=rtol))
+
+    # LiquidIcePotTempSHumEquil_given_pressure
+    ts_exact = LiquidIcePotTempSHumEquil_given_pressure.(θ_liq_ice, p, q_tot, FT(1e-3), 40)
+    ts = LiquidIcePotTempSHumEquil_given_pressure.(θ_liq_ice, p, q_tot)
+    # Should be machine accurate:
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(PhasePartition.(ts_exact),:tot))
+    # Approximate (temperature must be computed via saturation adjustment):
+    @test all(isapprox.(air_density.(ts), air_density.(ts_exact), rtol=rtol))
+    @test all(isapprox.(internal_energy.(ts), internal_energy.(ts_exact), rtol=rtol))
+    @test all(isapprox.(liquid_ice_pottemp.(ts), liquid_ice_pottemp.(ts_exact), rtol=rtol))
+    @test all(isapprox.(air_temperature.(ts), air_temperature.(ts_exact), rtol=rtol))
+
+    # LiquidIcePotTempSHumNonEquil
+    ts_exact = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, ρ, q_pt, FT(1e-3), 40)
+    ts = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, ρ, q_pt)
+    # Should be machine accurate:
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(PhasePartition.(ts_exact),:tot))
+    @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(PhasePartition.(ts_exact),:liq))
+    @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(PhasePartition.(ts_exact),:ice))
+    @test all(air_density.(ts) .≈ air_density.(ts_exact))
+    # Approximate (temperature must be computed via non-linear solve):
+    @test all(isapprox.(internal_energy.(ts), internal_energy.(ts_exact), rtol=rtol))
+    @test all(isapprox.(liquid_ice_pottemp.(ts), liquid_ice_pottemp.(ts_exact), rtol=rtol))
+    @test all(isapprox.(air_temperature.(ts), air_temperature.(ts_exact), rtol=rtol))
+
+  end
+
+end
+
 @testset "moist thermodynamics - constructor consistency" begin
+
   # Make sure `ThermodynamicState` arguments are returned unchanged
 
-  # FIXME/TODO: Increasing `n` to 40 results in broken tests
-  # due to failure in saturation adjustment. This needs
-  # to be improved/made more robust.
-  n = 35
-  FT = Float64
-  θ_liq_ice = collect(range(250,400,length=n))
-  T = collect(range(250,400,length=n))
-  ρ = collect(range(0.5,2.0,length=n))
-  q_tot_dry = zeros(n)
-  q_tot_moist = collect(range(0.0,0.2,length=n))
-  q_liq = collect(range(0.0,0.1,length=n))
-  q_ice = collect(range(0.0,0.05,length=n))
+  for FT in float_types
+    rtol = FT(1e-2)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
 
-  e_int = collect(range(10_000.0,200_000.0,length=n))
-  p = collect(range(10_000.0,200_000.0,length=n))
-  q_pt_dry = PhasePartition.(q_tot_dry, q_liq .* 0, q_ice .* 0)
-  q_pt_moist = PhasePartition.(q_tot_moist, q_liq, q_ice)
+    # PhaseDry
+    ts = PhaseDry.(e_int, ρ)
+    @test all(internal_energy.(ts) .≈ e_int)
+    @test all(air_density.(ts) .≈ ρ)
 
-  # air_temperature_from_liquid_ice_pottemp_given_pressure-liquid_ice_pottemp inverse
-  θ_liq_ice = liquid_ice_pottemp_given_pressure.(T, p, q_pt_dry)
-  @test all(air_temperature_from_liquid_ice_pottemp_given_pressure.(θ_liq_ice, p, q_pt_dry) .≈ T)
+    # PhaseEquil
+    ts = PhaseEquil.(e_int, ρ, q_tot, FT(1e-1), 30, Ref(MT.saturation_adjustment_SecantMethod))
+    @test all(internal_energy.(ts) .≈ e_int)
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot)
+    @test all(air_density.(ts) .≈ ρ)
 
-  # liquid_ice_pottemp-air_temperature_from_liquid_ice_pottemp_given_pressure inverse
-  T = air_temperature_from_liquid_ice_pottemp_given_pressure.(θ_liq_ice, p, q_pt_dry)
-  @test all(liquid_ice_pottemp_given_pressure.(T, p, q_pt_dry) .≈ θ_liq_ice)
+    ts = PhaseEquil.(e_int, ρ, q_tot)
+    @test all(internal_energy.(ts) .≈ e_int)
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot)
+    @test all(air_density.(ts) .≈ ρ)
 
-  # Accurate but expensive `LiquidIcePotTempSHumNonEquil` constructor (Non-linear temperature from θ_liq_ice)
-  T_non_linear = air_temperature_from_liquid_ice_pottemp_non_linear.(θ_liq_ice, ρ, q_pt_moist)
-  e_int_ = internal_energy.(T_non_linear, q_pt_moist)
-  ts = PhaseNonEquil.(e_int_, ρ, q_pt_moist)
-  @test all(T_non_linear .≈ air_temperature.(ts))
-  @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
+    # PhaseNonEquil
+    ts = PhaseNonEquil.(e_int, ρ, q_pt)
+    @test all(internal_energy.(ts) .≈ e_int)
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt, :tot))
+    @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt, :liq))
+    @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt, :ice))
+    @test all(air_density.(ts) .≈ ρ)
 
-  # PhaseDry
-  ts = PhaseDry.(e_int, ρ)
-  @test all(internal_energy.(ts) .≈ e_int)
-  @test all(air_density.(ts) .≈ ρ)
+    # air_temperature_from_liquid_ice_pottemp_given_pressure-liquid_ice_pottemp inverse
+    θ_liq_ice_ = liquid_ice_pottemp_given_pressure.(T, p, q_pt)
+    @test all(air_temperature_from_liquid_ice_pottemp_given_pressure.(θ_liq_ice_, p, q_pt) .≈ T)
 
-  # PhaseEquil: Dry case
-  ts = PhaseEquil.(e_int, ρ, q_tot_dry)
-  @test all(internal_energy.(ts) .≈ e_int)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot_dry)
-  @test all(air_density.(ts) .≈ ρ)
+    # liquid_ice_pottemp-air_temperature_from_liquid_ice_pottemp_given_pressure inverse
+    T = air_temperature_from_liquid_ice_pottemp_given_pressure.(θ_liq_ice, p, q_pt)
+    @test all(liquid_ice_pottemp_given_pressure.(T, p, q_pt) .≈ θ_liq_ice)
 
-  # PhaseEquil: Moist case
-  ts = PhaseEquil.(e_int, ρ, q_tot_moist)
-  @test all(internal_energy.(ts) .≈ e_int)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot_moist)
-  @test all(air_density.(ts) .≈ ρ)
+    # Accurate but expensive `LiquidIcePotTempSHumNonEquil` constructor (Non-linear temperature from θ_liq_ice)
+    T_non_linear = air_temperature_from_liquid_ice_pottemp_non_linear.(θ_liq_ice, ρ, FT(1e-3), 10, q_pt)
+    e_int_ = internal_energy.(T_non_linear, q_pt)
+    ts = PhaseNonEquil.(e_int_, ρ, q_pt)
+    @test all(T_non_linear .≈ air_temperature.(ts))
+    @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
 
-  # PhaseNonEquil: Dry case
-  ts = PhaseNonEquil.(e_int, ρ, q_pt_dry)
-  @test all(internal_energy.(ts) .≈ e_int)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_dry, :tot))
-  @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_dry, :liq))
-  @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt_dry, :ice))
-  @test all(air_density.(ts) .≈ ρ)
+    # LiquidIcePotTempSHumEquil
+    ts = LiquidIcePotTempSHumEquil.(θ_liq_ice, ρ, q_tot, FT(1e-3), 40)
+    @test all(isapprox.(liquid_ice_pottemp.(ts), θ_liq_ice, atol=1e-1))
+    @test all(isapprox.(air_density.(ts), ρ, rtol=rtol))
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot)
 
-  # PhaseNonEquil: Moist case
-  ts = PhaseNonEquil.(e_int, ρ, q_pt_moist)
-  @test all(internal_energy.(ts) .≈ e_int)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist, :tot))
-  @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist, :liq))
-  @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt_moist, :ice))
-  @test all(air_density.(ts) .≈ ρ)
+    # The LiquidIcePotTempSHumEquil_given_pressure constructor
+    # passes the consistency test within sufficient physical precision,
+    # however, it fails to satisfy the consistency test within machine
+    # precision for the input pressure.
 
-  # LiquidIcePotTempSHumEquil: Dry case
-  ts = LiquidIcePotTempSHumEquil.(θ_liq_ice, ρ, q_tot_dry)
-  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
-  @test all(air_density.(ts) .≈ ρ)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot_dry)
+    # LiquidIcePotTempSHumEquil_given_pressure
+    ts = LiquidIcePotTempSHumEquil_given_pressure.(θ_liq_ice, p, q_tot, FT(1e-3), 40)
+    @test all(isapprox.(liquid_ice_pottemp.(ts), θ_liq_ice, atol=1e-1))
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt, :tot))
+    @test all(isapprox.(air_pressure.(ts), p, atol=FT(MSLP)*2e-2))
 
-  # LiquidIcePotTempSHumEquil: Moist case
-  ts = LiquidIcePotTempSHumEquil.(θ_liq_ice, ρ, q_tot_moist)
-  @test all(abs.(liquid_ice_pottemp.(ts) - θ_liq_ice) .< FT(1e-8))
-  @test maximum(abs.(liquid_ice_pottemp.(ts) - θ_liq_ice)) ./ eps(FT) < sqrt(1/(eps(FT)))
-  @test all(air_density.(ts) .≈ ρ)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ q_tot_moist)
+    # LiquidIcePotTempSHumNonEquil_given_pressure
+    ts = LiquidIcePotTempSHumNonEquil_given_pressure.(θ_liq_ice, p, q_pt)
+    @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
+    @test all(air_pressure.(ts) .≈ p)
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt,:tot))
+    @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt,:liq))
+    @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt,:ice))
 
-  # LiquidIcePotTempSHumEquil_given_pressure: Moist case
-  ts = LiquidIcePotTempSHumEquil_given_pressure.(θ_liq_ice, p, q_tot_moist)
-  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
-  @test all(abs.(air_pressure.(ts) - p)./p.*100 .< 1)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist, :tot))
-
-  # LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::FT, p::FT, q_pt::PhasePartition{FT}): Moist case
-  ts = LiquidIcePotTempSHumNonEquil_given_pressure.(θ_liq_ice, p, q_pt_moist)
-  @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
-  @test all(air_pressure.(ts) .≈ p)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist,:tot))
-  @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist,:liq))
-  @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt_moist,:ice))
-
-  # LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT, ρ::FT, q_pt::PhasePartition{FT}): Moist case
-  ts = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, ρ, q_pt_moist)
-  @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
-  @test all(air_density.(ts) .≈ ρ)
-  @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt_moist,:tot))
-  @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt_moist,:liq))
-  @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt_moist,:ice))
+    # LiquidIcePotTempSHumNonEquil
+    ts = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, ρ, q_pt, FT(1e-3))
+    @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
+    @test all(air_density.(ts) .≈ ρ)
+    @test all(getproperty.(PhasePartition.(ts),:tot) .≈ getproperty.(q_pt,:tot))
+    @test all(getproperty.(PhasePartition.(ts),:liq) .≈ getproperty.(q_pt,:liq))
+    @test all(getproperty.(PhasePartition.(ts),:ice) .≈ getproperty.(q_pt,:ice))
+  end
 
 end
 
 
 @testset "moist thermodynamics - type-stability" begin
 
+  # NOTE: `Float32` saturation adjustment tends to have more difficulty
+  # with converging to the same tolerances as `Float64`, so they're relaxed here.
   FT = Float32
-  ρ = FT(1.0)
-  p = FT(1000.0*100)
+  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
 
-  ρu = FT[1,2,3]
-  ρe = FT(1000)
-  e_kin = FT(5.0)
+  ρu = FT[1.0, 2.0, 3.0]
   e_pot = FT(100.0)
-  e_int = FT(2.0)
-  @test internal_energy(ρ, ρe, ρu, e_pot) isa typeof(e_int)
+  @test typeof.(internal_energy.(ρ, ρ.*e_int, Ref(ρu), Ref(e_pot))) == typeof.(e_int)
 
-  q_tot = FT(0.01)
-  q_ice = FT(0.001)
-  q_liq = FT(0.001)
-  q_pt = PhasePartition(q_tot, q_liq, q_ice)
-  θ_liq_ice = FT(300.0)
-  ts_eq = PhaseEquil(e_int, ρ, q_tot)
-  ts_dry = PhaseDry(e_int, ρ)
-  ts_T = TemperatureSHumEquil(air_temperature(ts_dry), air_pressure(ts_dry), q_pt.tot)
-  ts_neq = PhaseNonEquil(e_int, ρ, PhasePartition(q_tot, q_liq, q_ice))
-  ts_θ_liq_ice_eq = LiquidIcePotTempSHumEquil(θ_liq_ice, ρ, q_tot)
-  ts_θ_liq_ice_eq_p = LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, p, q_tot)
-  ts_θ_liq_ice_neq = LiquidIcePotTempSHumNonEquil(θ_liq_ice, ρ, q_pt)
-  ts_θ_liq_ice_neq_p = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, p, q_pt)
-  for ts in (ts_eq, ts_dry, ts_T, ts_neq, ts_θ_liq_ice_eq, ts_θ_liq_ice_eq_p, ts_θ_liq_ice_neq, ts_θ_liq_ice_neq_p)
-    @test soundspeed_air(ts) isa typeof(e_int)
-    @test gas_constant_air(ts) isa typeof(e_int)
-    @test relative_humidity(ts) isa typeof(e_int)
-    @test air_pressure(ts) isa typeof(e_int)
-    @test air_density(ts) isa typeof(e_int)
-    @test total_specific_humidity(ts) isa typeof(e_int)
-    @test cp_m(ts) isa typeof(e_int)
-    @test cv_m(ts) isa typeof(e_int)
-    @test eltype(gas_constants(ts)) == typeof(e_int)
-    @test air_temperature(ts) isa typeof(e_int)
-    @test internal_energy_sat(ts) isa typeof(e_int)
-    @test internal_energy(ts) isa typeof(e_int)
-    @test latent_heat_vapor(ts) isa typeof(e_int)
-    @test latent_heat_sublim(ts) isa typeof(e_int)
-    @test latent_heat_fusion(ts) isa typeof(e_int)
-    @test q_vap_saturation(ts) isa typeof(e_int)
-    @test saturation_excess(ts) isa typeof(e_int)
-    @test liquid_fraction(ts) isa typeof(e_int)
-    @test PhasePartition(ts) isa PhasePartition{typeof(e_int)}
-    @test liquid_ice_pottemp(ts) isa typeof(e_int)
-    @test dry_pottemp(ts) isa typeof(e_int)
-    @test exner(ts) isa typeof(e_int)
-    @test liquid_ice_pottemp_sat(ts) isa typeof(e_int)
-    @test specific_volume(ts) isa typeof(e_int)
-    @test virtual_pottemp(ts) isa typeof(e_int)
+  ts_dry             = PhaseDry.(e_int, ρ)
+  ts_eq              = PhaseEquil.(e_int, ρ, q_tot, FT(1e-1), 15)
+  ts_T               = TemperatureSHumEquil.(air_temperature.(ts_dry), air_pressure.(ts_dry), q_tot)
+  ts_neq             = PhaseNonEquil.(e_int, ρ, q_pt)
+  ts_θ_liq_ice_eq    = LiquidIcePotTempSHumEquil.(θ_liq_ice, ρ, q_tot, FT(1e-3), 40)
+  ts_θ_liq_ice_eq_p  = LiquidIcePotTempSHumEquil_given_pressure.(θ_liq_ice, p, q_tot, FT(1e-3), 40)
+  ts_θ_liq_ice_neq   = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, ρ, q_pt)
+  ts_θ_liq_ice_neq_p = LiquidIcePotTempSHumNonEquil_given_pressure.(θ_liq_ice, p, q_pt)
+
+  for ts in (
+    ts_eq,
+    ts_dry,
+    ts_T,
+    ts_neq,
+    ts_θ_liq_ice_eq,
+    ts_θ_liq_ice_eq_p,
+    ts_θ_liq_ice_neq,
+    ts_θ_liq_ice_neq_p
+    )
+    @test typeof.(soundspeed_air.(ts))          == typeof.(e_int)
+    @test typeof.(gas_constant_air.(ts))        == typeof.(e_int)
+    @test typeof.(relative_humidity.(ts))       == typeof.(e_int)
+    @test typeof.(air_pressure.(ts))            == typeof.(e_int)
+    @test typeof.(air_density.(ts))             == typeof.(e_int)
+    @test typeof.(total_specific_humidity.(ts)) == typeof.(e_int)
+    @test typeof.(cp_m.(ts))                    == typeof.(e_int)
+    @test typeof.(cv_m.(ts))                    == typeof.(e_int)
+    @test typeof.(air_temperature.(ts))         == typeof.(e_int)
+    @test typeof.(internal_energy_sat.(ts))     == typeof.(e_int)
+    @test typeof.(internal_energy.(ts))         == typeof.(e_int)
+    @test typeof.(latent_heat_vapor.(ts))       == typeof.(e_int)
+    @test typeof.(latent_heat_sublim.(ts))      == typeof.(e_int)
+    @test typeof.(latent_heat_fusion.(ts))      == typeof.(e_int)
+    @test typeof.(q_vap_saturation.(ts))        == typeof.(e_int)
+    @test typeof.(saturation_excess.(ts))       == typeof.(e_int)
+    @test typeof.(liquid_fraction.(ts))         == typeof.(e_int)
+    @test typeof.(liquid_ice_pottemp.(ts))      == typeof.(e_int)
+    @test typeof.(dry_pottemp.(ts))             == typeof.(e_int)
+    @test typeof.(exner.(ts))                   == typeof.(e_int)
+    @test typeof.(liquid_ice_pottemp_sat.(ts))  == typeof.(e_int)
+    @test typeof.(specific_volume.(ts))         == typeof.(e_int)
+    @test typeof.(virtual_pottemp.(ts))         == typeof.(e_int)
+    @test eltype.(gas_constants.(ts))           == typeof.(e_int)
+    @test typeof.(getproperty.(PhasePartition.(ts),:tot)) == typeof.(e_int)
   end
-end
 
-@testset "moist thermodynamics - dry limit" begin
+# end
 
-  e_int_range = -6.5e4:10000:4.5e4
-  ρ_range = 0.1:0.5:2.0
+# @testset "moist thermodynamics - dry limit" begin
 
-  FT = eltype(ρ_range)
-  e_kin = FT(10)
-  e_pot = FT(100.0)
+  FT = Float64
+  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+
   # PhasePartition test is noisy, so do this only once:
-  ts_dry = PhaseDry(first(e_int_range), first(ρ_range))
-  ts_eq  = PhaseEquil(first(e_int_range), first(ρ_range), typeof(first(ρ_range))(0))
-  @test PhasePartition(ts_eq).tot                  ≈ PhasePartition(ts_dry).tot
-  @test PhasePartition(ts_eq).liq                  ≈ PhasePartition(ts_dry).liq
-  @test PhasePartition(ts_eq).ice                  ≈ PhasePartition(ts_dry).ice
+  ts_dry = PhaseDry(first(e_int), first(ρ))
+  ts_eq  = PhaseEquil(first(e_int), first(ρ), typeof(first(ρ))(0))
+  @test PhasePartition(ts_eq).tot ≈ PhasePartition(ts_dry).tot
+  @test PhasePartition(ts_eq).liq ≈ PhasePartition(ts_dry).liq
+  @test PhasePartition(ts_eq).ice ≈ PhasePartition(ts_dry).ice
 
-  for e_int in e_int_range
-    for ρ in ρ_range
-      ts_dry = PhaseDry(e_int, ρ)
-      ts_eq  = PhaseEquil(e_int, ρ, typeof(ρ)(0))
+  ts_dry = PhaseDry.(e_int, ρ)
+  ts_eq  = PhaseEquil.(e_int, ρ, q_tot.*0)
 
-      @test gas_constant_air(ts_eq)                       ≈ gas_constant_air(ts_dry)
-      @test relative_humidity(ts_eq)                      ≈ relative_humidity(ts_dry)
-      @test air_pressure(ts_eq)                           ≈ air_pressure(ts_dry)
-      @test air_density(ts_eq)                            ≈ air_density(ts_dry)
-      @test specific_volume(ts_eq)                        ≈ specific_volume(ts_dry)
-      @test total_specific_humidity(ts_eq)                ≈ total_specific_humidity(ts_dry)
-      @test cp_m(ts_eq)                                   ≈ cp_m(ts_dry)
-      @test cv_m(ts_eq)                                   ≈ cv_m(ts_dry)
-      @test air_temperature(ts_eq)                        ≈ air_temperature(ts_dry)
-      @test internal_energy(ts_eq)                        ≈ internal_energy(ts_dry)
-      @test internal_energy_sat(ts_eq)                    ≈ internal_energy_sat(ts_dry)
-      @test soundspeed_air(ts_eq)                         ≈ soundspeed_air(ts_dry)
-      @test latent_heat_vapor(ts_eq)                      ≈ latent_heat_vapor(ts_dry)
-      @test latent_heat_sublim(ts_eq)                     ≈ latent_heat_sublim(ts_dry)
-      @test latent_heat_fusion(ts_eq)                     ≈ latent_heat_fusion(ts_dry)
-      @test q_vap_saturation(ts_eq)                       ≈ q_vap_saturation(ts_dry)
-      @test saturation_excess(ts_eq)                      ≈ saturation_excess(ts_dry)
-      @test liquid_fraction(ts_eq)                        ≈ liquid_fraction(ts_dry)
-      @test liquid_ice_pottemp(ts_eq)                     ≈ liquid_ice_pottemp(ts_dry)
-      @test dry_pottemp(ts_eq)                            ≈ dry_pottemp(ts_dry)
-      @test virtual_pottemp(ts_eq)                        ≈ virtual_pottemp(ts_dry)
-      @test liquid_ice_pottemp_sat(ts_eq)                 ≈ liquid_ice_pottemp_sat(ts_dry)
-      @test exner(ts_eq)                                  ≈ exner(ts_dry)
-      @test saturation_vapor_pressure(ts_eq, Ice())       ≈ saturation_vapor_pressure(ts_dry, Ice())
-      @test saturation_vapor_pressure(ts_eq, Liquid())    ≈ saturation_vapor_pressure(ts_dry, Liquid())
-      @test all(gas_constants(ts_eq)                     .≈ gas_constants(ts_dry))
-    end
-  end
+  @test all(gas_constant_air.(ts_eq)                       .≈ gas_constant_air.(ts_dry))
+  @test all(relative_humidity.(ts_eq)                      .≈ relative_humidity.(ts_dry))
+  @test all(air_pressure.(ts_eq)                           .≈ air_pressure.(ts_dry))
+  @test all(air_density.(ts_eq)                            .≈ air_density.(ts_dry))
+  @test all(specific_volume.(ts_eq)                        .≈ specific_volume.(ts_dry))
+  @test all(total_specific_humidity.(ts_eq)                .≈ total_specific_humidity.(ts_dry))
+  @test all(cp_m.(ts_eq)                                   .≈ cp_m.(ts_dry))
+  @test all(cv_m.(ts_eq)                                   .≈ cv_m.(ts_dry))
+  @test all(air_temperature.(ts_eq)                        .≈ air_temperature.(ts_dry))
+  @test all(internal_energy.(ts_eq)                        .≈ internal_energy.(ts_dry))
+  @test all(internal_energy_sat.(ts_eq)                    .≈ internal_energy_sat.(ts_dry))
+  @test all(soundspeed_air.(ts_eq)                         .≈ soundspeed_air.(ts_dry))
+  @test all(latent_heat_vapor.(ts_eq)                      .≈ latent_heat_vapor.(ts_dry))
+  @test all(latent_heat_sublim.(ts_eq)                     .≈ latent_heat_sublim.(ts_dry))
+  @test all(latent_heat_fusion.(ts_eq)                     .≈ latent_heat_fusion.(ts_dry))
+  @test all(q_vap_saturation.(ts_eq)                       .≈ q_vap_saturation.(ts_dry))
+  @test all(saturation_excess.(ts_eq)                      .≈ saturation_excess.(ts_dry))
+  @test all(liquid_fraction.(ts_eq)                        .≈ liquid_fraction.(ts_dry))
+  @test all(liquid_ice_pottemp.(ts_eq)                     .≈ liquid_ice_pottemp.(ts_dry))
+  @test all(dry_pottemp.(ts_eq)                            .≈ dry_pottemp.(ts_dry))
+  @test all(virtual_pottemp.(ts_eq)                        .≈ virtual_pottemp.(ts_dry))
+  @test all(liquid_ice_pottemp_sat.(ts_eq)                 .≈ liquid_ice_pottemp_sat.(ts_dry))
+  @test all(exner.(ts_eq)                                  .≈ exner.(ts_dry))
+
+  @test all(saturation_vapor_pressure.(ts_eq, Ref(Ice()))      .≈ saturation_vapor_pressure.(ts_dry, Ref(Ice())))
+  @test all(saturation_vapor_pressure.(ts_eq, Ref(Liquid()))   .≈ saturation_vapor_pressure.(ts_dry, Ref(Liquid())))
+  @test all(first.(gas_constants.(ts_eq))  ≈ first.(gas_constants.(ts_dry)))
+  @test all(last.(gas_constants.(ts_eq))  ≈ last.(gas_constants.(ts_dry)))
 
 end
