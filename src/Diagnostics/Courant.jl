@@ -5,6 +5,7 @@ using FileIO
 using JLD2
 using MPI
 using StaticArrays
+using Printf
 
 using ..Atmos
 using ..DGmethods: num_state, vars_state, num_aux, vars_aux, vars_diffusive, num_diffusive
@@ -92,27 +93,43 @@ function gather_Courant(mpicomm, dg, Q,
                     end
                 end
              end
-     end
-Courssx = dt*MPI.Allreduce(ss,MPI.MAX,mpicomm)/Dx
-Courssy = dt*MPI.Allreduce(ss,MPI.MAX,mpicomm)/Dy
-Courssz = dt*MPI.Allreduce(ss,MPI.MAX,mpicomm)/Dz
-Couru = dt*MPI.Allreduce(sau,MPI.MAX,mpicomm)/Dx
-Courv = dt*MPI.Allreduce(sav,MPI.MAX,mpicomm)/Dy
-Courw = dt*MPI.Allreduce(saw,MPI.MAX,mpicomm)/Dz
-Courdx = dt*MPI.Allreduce(sdiff,MPI.MAX,mpicomm)/Dx^2
-Courdy = dt*MPI.Allreduce(sdiff,MPI.MAX,mpicomm)/Dy^2
-Courdz = dt*MPI.Allreduce(sdiff,MPI.MAX,mpicomm)/Dz^2
+    end
+    max_sound_speed = MPI.Allreduce(ss,MPI.MAX,mpicomm)
+    Courssx = dt*max_sound_speed/Dx
+    Courssy = dt*max_sound_speed/Dy
+    Courssz = dt*max_sound_speed/Dz
+    Couru = dt*MPI.Allreduce(sau,MPI.MAX,mpicomm)/Dx
+    Courv = dt*MPI.Allreduce(sav,MPI.MAX,mpicomm)/Dy
+    Courw = dt*MPI.Allreduce(saw,MPI.MAX,mpicomm)/Dz
+    max_sdiff = MPI.Allreduce(sdiff,MPI.MAX,mpicomm)
+    Courdx = dt*max_sdiff/Dx^2
+    Courdy = dt*max_sdiff/Dy^2
+    Courdz = dt*max_sdiff/Dz^2
+    
+    cfl_h  = max(Courssx, Courssy)
+    cfl_v  = Courssz
+    cflu_h = max(Couru, Courv)
+    cflu_v = Courw
+    
+    cfldiff_h = max(Courdx, Courdy)
+    cfldiff_v = Courdz
 
-@info thermoQ[50,1,50]
-@info "courant sound + advection x =",Courssx+Couru
-@info "courant sound + advection y =",Courssy+Courv
-@info "courant sound + advection z =",Courssz+Courw
-@info "courant diffusive x =",Courdx
-@info "courant diffusive y =",Courdy
-@info "courant diffusive z =",Courdz
-
-
+    dt_exp = cfl_h * min(Dx, Dy, Dz) / max_sound_speed
+    dt_imp = cfl_v * max(Dx, Dy, Dz) / max_sound_speed
+    
+    @info @sprintf """Courant numbers:
+           dt_exp           = %.5e
+           dt_imp           = %.5e
+           CFL_h            = %.5f
+           CFL_v            = %.5f
+           CFLadv_h         = %.5f
+           CFLadv_v         = %.5f
+           CFLdiff_h        = %.5f
+           CFLdiff_v        = %.5f
+""" dt_exp dt_imp cfl_h cfl_v cflu_h cflu_v cfldiff_h cfldiff_v
+ 
     return nothing
+   
 end # function gather_Courant
 
 end # module Courant

@@ -2,6 +2,7 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
@@ -96,7 +97,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   Rm::FT        = Rd
   ϵdv::FT       = Rv/Rd
   cpd::FT       = cp_d
-
+    
   # These constants are those used by Stevens et al. (2005)
   qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
@@ -159,30 +160,15 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     ρ     = air_density(TS)
     T     = air_temperature(TS)
     q_pt  = PhasePartition_equil(T, ρ, q_tot)
-
-  # Assign State Variables
-#=  u1, u2 = FT(6), FT(7)
-  v1, v2 = FT(-4.25), FT(-5.5)
-  w = FT(0)
-  if (xvert <= zi)
-      u, v = u1, v1
-  elseif (xvert >= ziplus)
-      u, v = u2, v2
-  else
-      m = (ziplus - zi)/(u2 - u1)
-      u = (xvert - zi)/m + u1
-
-      m = (ziplus - zi)/(v2 - v1)
-      v = (xvert - zi)/m + v1
-  end=#
-  e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
-  e_pot       = grav * xvert
-  E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
-  state.ρ     = ρ
-  state.ρu    = SVector(ρ*u, ρ*v, ρ*w)
-  state.ρe    = E
-  state.moisture.ρq_tot = ρ * q_tot
-
+    
+    e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
+    e_pot       = grav * xvert
+    E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
+    state.ρ     = ρ
+    state.ρu    = SVector(ρ*u, ρ*v, ρ*w)
+    state.ρe    = E
+    state.moisture.ρq_tot = ρ * q_tot
+    
 end
 
 function run(mpicomm,
@@ -289,76 +275,79 @@ function run(mpicomm,
       starttime[] = now()
     else
 
-        #
-        # COURANT
-        #
-#        maxρu = global_max(Q, 2)
-#        maxρv = global_max(Q, 3)
-#        maxρw = global_max(Q, 4)
+        @info @sprintf("""Update
+                         simtime = %.16e
+                         runtime = %s""",
+                       ODESolvers.gettime(solver),
+                       Dates.format(convert(Dates.DateTime,
+                                            Dates.now()-starttime[]),
+                                    Dates.dateformat"HH:MM:SS"))
         
-        #sound_speed = dg.auxstate.moisture.soundspeed_air
-        #maxsound = global_max_scalar(sound_speed, mpicomm)
-        #@info @sprintf(""" max(ρ) = %.16e""", maxsound)
-        # 
-        # End courant 
-        #
-
-#=        energy = norm(Q)=#
-      @info @sprintf("""Update
-                     simtime = %.16e
-                     runtime = %s""",
-                     #=norm(Q) = %.16e""",=#
-                     ODESolvers.gettime(solver),
-                     Dates.format(convert(Dates.DateTime,
-                                          Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"))
-#=                     energy)=#
-
     end
   end
-  
-  # Setup VTK output callbacks
- out_interval = 10000
-  step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
-    fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
-                       MPI.Comm_rank(mpicomm), step[1])
-    outprefix = joinpath(out_dir, fprefix)
-    @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)),
-             dg.auxstate, flattenednames(vars_aux(model,FT)))
-
-    step[1] += 1
-    nothing
-  end
-
-    # Get statistics during run
-    diagnostics_time_str = string(now())
-    cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
-        sim_time_str = string(ODESolvers.gettime(solver))
-        gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                           xmax, ymax, out_dir)
+    
+    # Setup VTK output callbacks
+    out_interval = 10000
+    step = [0]
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
+        fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
+                           MPI.Comm_rank(mpicomm), step[1])
+        outprefix = joinpath(out_dir, fprefix)
+        @debug "doing VTK output" outprefix
+        writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)),
+                 dg.auxstate, flattenednames(vars_aux(model,FT)))
+        
+        step[1] += 1
+        nothing
     end
-       
     if explicit == 1
         numberofsteps = convert(Int64, cld(timeend, dt_exp))
-        dt_exp = timeend / numberofsteps
+        dt = timeend / numberofsteps #dt_exp
         @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
-        solver = LSRK54CarpenterKennedy(dg, Q; dt = dt_exp, t0 = 0)
+        solver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
         #@timeit to "solve! EX DYCOMS- $LinearModel $SolverMethod $aspectratio $dt_exp $timeend" solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
-          
+
+        # Get statistics during run
+        out_interval_diags = 1000
+        diagnostics_time_str = string(now())
+        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
+            sim_time_str = string(ODESolvers.gettime(solver))
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+        
+            #Calcualte Courant numbers:
+            Dx = min_node_distance(grid, HorizontalDirection())
+            Dz = min_node_distance(grid, VerticalDirection())
+            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt)
+        end
+        #End get statistcs
+        
         solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
         
     else
         numberofsteps = convert(Int64, cld(timeend, dt_imex))
-        dt_imex = timeend / numberofsteps
+        dt = timeend / numberofsteps #dt_imex
         @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
-                
+        
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
-                              dt = dt_imex, t0 = 0,
+                              dt = dt, t0 = 0,
                               split_nonlinear_linear=false)
-        #@timeit to "solve! IMEX DYCOMS - $LinearModel $SolverMethod $aspectratio $dt_imex $timeend" solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbfilter,),adjustfinalstep=false)
 
+
+        
+        # Get statistics during run
+        out_interval_diags = 1000
+        diagnostics_time_str = string(now())
+        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
+            sim_time_str = string(ODESolvers.gettime(solver))
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+        
+            #Calcualte Courant numbers:
+            Dx = min_node_distance(grid, HorizontalDirection())
+            Dz = min_node_distance(grid, VerticalDirection())
+            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
+        end
+        #End get statistcs
+        
         solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
     end
 
@@ -408,8 +397,8 @@ let
                   Δv = FT(20) #Δh/aspectratio
                   aspectratio = Δh/Δv
                   
-                  xmin, xmax = 0, 3000
-                  ymin, ymax = 0, 3000
+                  xmin, xmax = 0, 1000
+                  ymin, ymax = 0, 1000
                   zmin, zmax = 0, 2500
                   
                   grid_resolution = [Δh, Δh, Δv]
@@ -426,13 +415,8 @@ let
                                               periodicity = (true, true, false),
                                               boundary=((0,0),(0,0),(1,2)))
 
-                  #hmnd = min_node_distance(grid, HorizontalDirection())
-                  #vmnd = min_node_distance(grid, VerticalDirection())
-                  #@show "MIN NODE DISTANCE " mnd, hmnd, vmnd
-                  #dt_exp  =  mnd/soundspeed_air(FT(330)) * safety_fac
-                  #dt_imex = hmnd/soundspeed_air(FT(330)) * safety_fac
                   
-                  safety_fac = FT(0.75)
+                  safety_fac = FT(0.9)
                   dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
                   dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
                   timeend = 14400
@@ -470,12 +454,6 @@ let
           end
       end
   end
-
-#  @show LH_v0
-#  @show R_d
-#  @show MSLP
-#  @show cp_d
 end
 
-###include(joinpath("..","..","..","src","Diagnostics","graph_diagnostic.jl"))
 nothing
