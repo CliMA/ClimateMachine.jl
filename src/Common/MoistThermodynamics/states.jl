@@ -17,23 +17,24 @@ mass_unit   = u"kg"
 temp_unit   = u"K"
 energy_unit = upreferred(u"J")
 
-E_dim = dimension(u"J")
-D_dim = dimension(u"kg/m^3")
-T_dim = dimension(u"K")
-P_dim = dimension(u"Pa")
-EV_dim = dimension(u"J/m^3")
-MF_dim = dimension(u"kg/m^2/s")
-PE_dim = dimension(u"J/kg")
-SHC_dim = dimension(u"J/kg/K")
+T(x) = (dimension(x), typeof(upreferred(x)))
+E_dim, E_units    = T(u"J")
+D_dim, D_units    = T(u"kg/m^3")
+T_dim, T_units    = T(u"K")
+P_dim, P_units    = T(u"Pa")
+EV_dim, EV_units  = T(u"J/m^3")
+MF_dim, MF_units  = T(u"kg/m^2/s")
+PE_dim, PE_units    = T(u"J/kg")
+SHC_dim, SHC_units  = T(u"J/kg/K")
 
-EQ{FT} = Unitful.AbstractQuantity{FT, E_dim, U} where U
-DQ{FT} = Unitful.AbstractQuantity{FT, D_dim, U} where U
-TQ{FT} = Unitful.AbstractQuantity{FT, T_dim, U} where U
-PQ{FT} = Unitful.AbstractQuantity{FT, P_dim, U} where U
-EVQ{FT} = Unitful.AbstractQuantity{FT, EV_dim, U} where U
-MFQ{FT} = Unitful.AbstractQuantity{FT, MF_dim, U} where U
-PEQ{FT} = Unitful.AbstractQuantity{FT, PE_dim, U} where U
-SHCQ{FT} = Unitful.AbstractQuantity{FT, SHC_dim, U} where U
+EQ{FT} = Quantity{FT, E_dim, E_units}
+DQ{FT} = Quantity{FT, D_dim, D_units}
+TQ{FT} = Quantity{FT, T_dim, T_units}
+PQ{FT} = Quantity{FT, P_dim, P_units}
+EVQ{FT} = Quantity{FT, EV_dim, EV_units}
+MFQ{FT} = Quantity{FT, MF_dim, MF_units}
+PEQ{FT} = Quantity{FT, PE_dim, PE_units}
+SHCQ{FT} = Quantity{FT, SHC_dim, SHC_units}
 
 """
     PhasePartition

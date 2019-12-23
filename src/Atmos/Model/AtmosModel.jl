@@ -20,7 +20,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         update_aux!, integrate_aux!, LocalGeometry, lengthscale,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral
+                        reverse_indefinite_stack_integral!
 # FIXME: Integrate into above
 import CLIMA.DGmethods: space_unit, time_unit, mass_unit, temp_unit
 using CLIMA.DGmethods: energy_unit, flux_unit, gravp_unit, shc_unit, force_unit, pressure_unit, acc_unit
