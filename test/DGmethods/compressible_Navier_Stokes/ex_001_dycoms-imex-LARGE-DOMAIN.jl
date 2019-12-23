@@ -270,7 +270,7 @@ function run(mpicomm,
     
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(5, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(30, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -398,8 +398,8 @@ let
                   Δv = FT(20) #Δh/aspectratio
                   aspectratio = Δh/Δv
                   
-                  xmin, xmax = 0, 1500
-                  ymin, ymax = 0, 1500
+                  xmin, xmax = 0, 1000
+                  ymin, ymax = 0, 1000
                   zmin, zmax = 0, 2500
                   
                   grid_resolution = [Δh, Δh, Δv]
