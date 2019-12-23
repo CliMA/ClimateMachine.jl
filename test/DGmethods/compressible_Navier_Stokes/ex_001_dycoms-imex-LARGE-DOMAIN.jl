@@ -276,8 +276,10 @@ function run(mpicomm,
     else
 
         @info @sprintf("""Update
+                         dt      = %.5f
                          simtime = %.16e
                          runtime = %s""",
+                       dt,
                        ODESolvers.gettime(solver),
                        Dates.format(convert(Dates.DateTime,
                                             Dates.now()-starttime[]),
@@ -313,7 +315,7 @@ function run(mpicomm,
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
+            (dt_exp, dt_imp) = gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
             
         end
         #End get Courant numbers and dt
@@ -347,13 +349,12 @@ function run(mpicomm,
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
-            
+            (dt_exp, dt_imp) = gather_Courant(mpicomm, dg, Q,xmax, ymax, out_dir,Dx,Dx,Dz,dt_imex)
         end
+
         #End get Courant numbers and dt
-        
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
-                              dt = dt, t0 = 0,
+                              dt = dt_imex, t0 = 0,
                               split_nonlinear_linear=false)
         
         # Get statistics during run
