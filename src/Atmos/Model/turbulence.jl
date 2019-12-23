@@ -44,6 +44,7 @@ function compute_principal_invariants(X::StaticArray{Tuple{3,3}})
   return PrincipalInvariants{eltype(X)}(first,second,third)
 end
 
+DVQ{FT} = Quantity{FT, dimension(u"kg/m/s"), typeof(u"kg/m/s")}
 """
     ConstantViscosityWithDivergence <: TurbulenceClosure
 
@@ -55,7 +56,7 @@ $(DocStringExtensions.FIELDS)
 """
 struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
   "Dynamic Viscosity [kg/m/s]"
-  ρν::FT
+  ρν::DVQ{FT}
 end
 function dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S,
   state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)

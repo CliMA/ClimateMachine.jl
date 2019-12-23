@@ -1,4 +1,5 @@
 using MPI
+using Unitful
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -56,7 +57,8 @@ function soundspeed(m::MMSDryModel, orientation::Orientation, state::Vars, aux::
   sqrt(ρinv * γ * p)
 end
 
-function mms2_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
+function mms2_init_state!(state::Vars, aux::Vars, coord, t)
+  x1,x2,x3 = coord ./ u"m"
   state.ρ = ρ_g(t, x1, x2, x3, Val(2))
   state.ρu = SVector(U_g(t, x1, x2, x3, Val(2)),
                      V_g(t, x1, x2, x3, Val(2)),
@@ -65,7 +67,7 @@ function mms2_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
 end
 
 function mms2_source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  x1,x2,x3 = aux.coord
+  x1,x2,x3 = aux.coord ./ u"m"
   source.ρ  = Sρ_g(t, x1, x2, x3, Val(2))
   source.ρu = SVector(SU_g(t, x1, x2, x3, Val(2)),
                       SV_g(t, x1, x2, x3, Val(2)),
@@ -73,7 +75,8 @@ function mms2_source!(source::Vars, state::Vars, aux::Vars, t::Real)
   source.ρe = SE_g(t, x1, x2, x3, Val(2))
 end
 
-function mms3_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
+function mms3_init_state!(state::Vars, aux::Vars, coord, t)
+  x1,x2,x3 = coord ./ u"m"
   state.ρ = ρ_g(t, x1, x2, x3, Val(3))
   state.ρu = SVector(U_g(t, x1, x2, x3, Val(3)),
                      V_g(t, x1, x2, x3, Val(3)),
@@ -82,7 +85,7 @@ function mms3_init_state!(state::Vars, aux::Vars, (x1,x2,x3), t)
 end
 
 function mms3_source!(source::Vars, state::Vars, aux::Vars, t::Real)
-  x1,x2,x3 = aux.coord
+  x1,x2,x3 = aux.coord ./ u"m"
   source.ρ  = Sρ_g(t, x1, x2, x3, Val(3))
   source.ρu = SVector(SU_g(t, x1, x2, x3, Val(3)),
                       SV_g(t, x1, x2, x3, Val(3)),
@@ -104,7 +107,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
   if dim == 2
     model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
-                       ConstantViscosityWithDivergence(FT(μ_exact)),
+                       ConstantViscosityWithDivergence(units(FT, u"kg/m/s")(μ_exact)),
                        MMSDryModel(),
                        NoRadiation(),
                        mms2_source!,
@@ -113,7 +116,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
   else
     model = AtmosModel(NoOrientation(),
                        NoReferenceState(),
-                       ConstantViscosityWithDivergence(FT(μ_exact)),
+                       ConstantViscosityWithDivergence(units(FT, u"kg/m/s")(μ_exact)),
                        MMSDryModel(),
                        NoRadiation(),
                        mms3_source!,
@@ -184,7 +187,7 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  
+
   polynomialorder = 4
   base_num_elem = 4
 

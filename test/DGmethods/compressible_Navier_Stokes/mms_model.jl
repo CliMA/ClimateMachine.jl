@@ -1,6 +1,8 @@
+using Unitful
 using CLIMA.VariableTemplates
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
+                        space_unit, time_unit,
                         vars_diffusive, flux_nondiffusive!, flux_diffusive!,
                         source!, wavespeed, boundary_state!,
                         gradvariables!,
@@ -11,10 +13,18 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
 struct MMSModel{dim} <: BalanceLaw
 end
 
-vars_aux(::MMSModel,T) = @vars(x1::T, x2::T, x3::T)
-vars_state(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
-vars_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
-vars_diffusive(::MMSModel, T) = @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
+sp(T) = units(T, u"m")
+ve(T) = units(T, u"m/s")
+mf(T) = units(T, u"kg/m^2/s")
+ed(T) = units(T, u"J/m^3")
+
+space_unit(m::MMSModel) = u"m"
+time_unit(m::MMSModel) = u"s"
+
+vars_aux(::MMSModel,T) = @vars(x1::sp(T), x2::sp(T), x3::sp(T))
+vars_state(::MMSModel, T) = @vars(ρ::units(T, u"kg/m^3"), ρu::mf(T), ρv::mf(T), ρw::mf(T), ρe::ed(T))
+vars_gradient(::MMSModel, T) = @vars(u::ve(T), v::ve(T), w::ve(T))
+vars_diffusive(::MMSModel, T) = @vars(τ11::ed(T), τ22::ed(T), τ33::ed(T), τ12::ed(T), τ13::ed(T), τ23::ed(T))
 
 function flux_nondiffusive!(::MMSModel, flux::Grad, state::Vars,
                             auxstate::Vars, t::Real)
@@ -55,10 +65,10 @@ function gradvariables!(::MMSModel, transformstate::Vars, state::Vars, auxstate:
   transformstate.w = ρinv * state.ρw
 end
 
-function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
+function diffusive!(m::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
   T = eltype(diffusive)
-  μ = T(μ_exact)
-  
+  μ = units(T, u"kg/m/s")(μ_exact)
+
   dudx, dudy, dudz = ∇transform.u
   dvdx, dvdy, dvdz = ∇transform.v
   dwdx, dwdy, dwdz = ∇transform.w
@@ -80,12 +90,13 @@ function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars
   diffusive.τ23 = 2μ * ϵ23
 end
 
-function source!(::MMSModel{dim}, source::Vars, state::Vars, aux::Vars, t::Real) where {dim}
-  source.ρ  = Sρ_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
-  source.ρu = SU_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
-  source.ρv = SV_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
-  source.ρw = SW_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
-  source.ρe = SE_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
+function source!(m::MMSModel{dim}, source::Vars, state::Vars, aux::Vars, t::Real) where {dim}
+  x1,x2,x3 = (aux.x1, aux.x2, aux.x3) ./ space_unit(m)
+  source.ρ  = Sρ_g(t, x1, x2, x3, Val(dim))
+  source.ρu = SU_g(t, x1, x2, x3, Val(dim))
+  source.ρv = SV_g(t, x1, x2, x3, Val(dim))
+  source.ρw = SW_g(t, x1, x2, x3, Val(dim))
+  source.ρe = SE_g(t, x1, x2, x3, Val(dim))
 end
 
 function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
@@ -118,7 +129,8 @@ function init_aux!(::MMSModel, aux::Vars, g::LocalGeometry)
   aux.x3 = x3
 end
 
-function init_state!(bl::MMSModel{dim}, state::Vars, aux::Vars, (x1,x2,x3), t) where {dim}
+function init_state!(bl::MMSModel{dim}, state::Vars, aux::Vars, coord, t) where {dim}
+  x1,x2,x3 = coord ./ space_unit(bl)
   state.ρ = ρ_g(t, x1, x2, x3, Val(dim))
   state.ρu = U_g(t, x1, x2, x3, Val(dim))
   state.ρv = V_g(t, x1, x2, x3, Val(dim))
