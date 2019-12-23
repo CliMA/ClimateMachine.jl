@@ -305,10 +305,10 @@ function run(mpicomm,
         dt = timeend / numberofsteps #dt_exp
         @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
         solver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-        #@timeit to "solve! EX DYCOMS- $LinearModel $SolverMethod $aspectratio $dt_exp $timeend" solve!(Q, solver; timeend=timeend, callbacks=(cbfilter,))
-
+        #
         # Get statistics during run
-        out_interval_diags = 1000
+        #
+        out_interval_diags = 10000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
@@ -324,6 +324,9 @@ function run(mpicomm,
         solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
         
     else
+        #
+        # 1D IMEX
+        #
         numberofsteps = convert(Int64, cld(timeend, dt_imex))
         dt = timeend / numberofsteps #dt_imex
         @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
@@ -335,7 +338,7 @@ function run(mpicomm,
 
         
         # Get statistics during run
-        out_interval_diags = 1000
+        out_interval_diags = 10000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
@@ -416,7 +419,7 @@ let
                                               boundary=((0,0),(0,0),(1,2)))
 
                   
-                  safety_fac = FT(0.9)
+                  safety_fac = FT(1.0)
                   dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
                   dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
                   timeend = 14400
