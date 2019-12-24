@@ -1,4 +1,5 @@
 using MPI
+using Unitful
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -41,11 +42,11 @@ function run1(mpicomm, dim, topl, N, timeend, FT, dt)
                                           polynomialorder = N
                                          )
 
-  T_s = 320.0
+  T_s = 320.0u"K"
   RH = 0.01
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(IsothermalProfile(T_s), RH),
-                     ConstantViscosityWithDivergence(FT(1)),
+                     ConstantViscosityWithDivergence(FT(1)*u"kg/m/s"),
                      EquilMoist(),
                      NoRadiation(),
                      nothing,

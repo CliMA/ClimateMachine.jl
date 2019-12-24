@@ -1,5 +1,6 @@
 ### Reference state
-using DocStringExtensions
+using DocStringExtensions, Unitful
+import CLIMA.DGmethods: space_unit, time_unit #FIXME
 export NoReferenceState, HydrostaticState, IsothermalProfile, LinearTemperatureProfile
 
 """
@@ -15,6 +16,9 @@ vars_gradient(m::ReferenceState , FT) = @vars()
 vars_diffusive(m::ReferenceState, FT) = @vars()
 vars_aux(m::ReferenceState, FT) = @vars()
 atmos_init_aux!(::ReferenceState, ::AtmosModel, aux::Vars, geom::LocalGeometry) = nothing
+
+space_unit(::ReferenceState) = NoUnits
+time_unit(::ReferenceState) = NoUnits
 
 """
     NoReferenceState <: ReferenceState
@@ -35,7 +39,13 @@ struct HydrostaticState{P,F} <: ReferenceState
   relativehumidity::F
 end
 
-vars_aux(m::HydrostaticState, FT) = @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
+vars_aux(m::HydrostaticState, FT) = begin
+  ρ::units(FT, u"kg/m^3")
+  p::units(FT, u"Pa")
+  T::units(FT, u"K")
+  ρe::units(FT, u"J/m^3")
+  ρq_tot::units(FT, u"J/m^2/s")
+end
 
 
 function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars, geom::LocalGeometry) where {P,F}
@@ -70,7 +80,7 @@ where `T` is the temperature (in K), and `p` is the pressure (in hPa).
 abstract type TemperatureProfile
 end
 
-
+TQ{FT} = Quantity{FT,dimension(u"K"),typeof(u"K")}
 """
     IsothermalProfile{F} <: TemperatureProfile
 
@@ -82,11 +92,12 @@ $(DocStringExtensions.FIELDS)
 """
 struct IsothermalProfile{F} <: TemperatureProfile
   "temperature (K)"
-  T::F
+  T::TQ{F} # FIXME
 end
 
 function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
-  p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T))
+  @show (unit∘eltype).((R_d, profile.T))
+  p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T) * u"m")
   return (profile.T, p)
 end
 
