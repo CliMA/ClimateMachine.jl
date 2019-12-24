@@ -302,7 +302,7 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 
 """
-total_energy(e_kin::EQ{FT}, e_pot::PEQ{FT}, T::TQ{FT}, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
+total_energy(e_kin::PEQ{FT}, e_pot::PEQ{FT}, T::TQ{FT}, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
   e_kin + e_pot + internal_energy(T, q)
 
 """
@@ -311,7 +311,7 @@ total_energy(e_kin::EQ{FT}, e_pot::PEQ{FT}, T::TQ{FT}, q::PhasePartition{FT}=q_p
 The total energy per unit mass
 given a thermodynamic state `ts`.
 """
-total_energy(e_kin::EQ{FT}, e_pot::PEQ{FT}, ts::ThermodynamicState{FT}) where {FT<:Real} =
+total_energy(e_kin::PEQ{FT}, e_pot::PEQ{FT}, ts::ThermodynamicState{FT}) where {FT<:Real} =
   internal_energy(ts) + FT(e_kin) + FT(e_pot)
 
 """

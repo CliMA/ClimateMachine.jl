@@ -1,6 +1,6 @@
 ### Reference state
 using DocStringExtensions, Unitful
-import CLIMA.DGmethods: space_unit, time_unit #FIXME
+import CLIMA.DGmethods: space_unit, time_unit, mass_unit #FIXME
 export NoReferenceState, HydrostaticState, IsothermalProfile, LinearTemperatureProfile
 
 """
@@ -39,12 +39,12 @@ struct HydrostaticState{P,F} <: ReferenceState
   relativehumidity::F
 end
 
-vars_aux(m::HydrostaticState, FT) = begin
+vars_aux(m::HydrostaticState, FT) = @vars begin
   ρ::units(FT, u"kg/m^3")
   p::units(FT, u"Pa")
   T::units(FT, u"K")
   ρe::units(FT, u"J/m^3")
-  ρq_tot::units(FT, u"J/m^2/s")
+  ρq_tot::units(FT, u"kg/m^3")
 end
 
 
@@ -56,10 +56,10 @@ function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars,
   q_vap_sat = q_vap_saturation(T, ρ)
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
-  q_pt = PhasePartition(ρq_tot)
+  q_pt = PhasePartition(ρq_tot / (mass_unit(atmos) / space_unit(atmos)^3))
   aux.ref_state.ρe = ρ * internal_energy(T, q_pt)
 
-  e_kin = F(0)
+  e_kin = F(0) * (space_unit(atmos)^2 / time_unit(atmos)^2)
   e_pot = gravitational_potential(atmos.orientation, aux)
   aux.ref_state.ρe = ρ*total_energy(e_kin, e_pot, T, q_pt)
 end
@@ -96,11 +96,11 @@ struct IsothermalProfile{F} <: TemperatureProfile
 end
 
 function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
-  @show (unit∘eltype).((R_d, profile.T))
-  p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T) * u"m")
+  p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T))
   return (profile.T, p)
 end
 
+LRQ{FT} = Quantity{FT, dimension(u"K/m"), typeof(u"K/m")}
 """
     LinearTemperatureProfile{F} <: TemperatureProfile
 
@@ -116,11 +116,11 @@ $(DocStringExtensions.FIELDS)
 """
 struct LinearTemperatureProfile{FT} <: TemperatureProfile
   "minimum temperature (K)"
-  T_min::FT
+  T_min::TQ{FT}
   "surface temperature (K)"
-  T_surface::FT
+  T_surface::TQ{FT}
   "lapse rate (K/m)"
-  Γ::FT
+  Γ::LRQ{FT}
 end
 
 function (profile::LinearTemperatureProfile)(orientation::Orientation, aux::Vars)
