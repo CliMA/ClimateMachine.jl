@@ -1,5 +1,6 @@
 # Load Packages
 using MPI
+using Unitful
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -28,12 +29,12 @@ if !@isdefined integration_testing
 end
 
 # -------------- Problem constants ------------------- #
-const xmin      = 0
-const ymin      = 0
-const zmin      = 0
-const xmax      = 1000
-const ymax      = 400
-const zmax      = 1000
+const xmin      = 0u"m"
+const ymin      = 0u"m"
+const zmin      = 0u"m"
+const xmax      = 1000u"m"
+const ymax      = 400u"m"
+const zmax      = 1000u"m"
 const Ne        = (30,5,30)
 const polynomialorder = 4
 const dim       = 3
@@ -43,26 +44,26 @@ const Δz        = (zmax-zmin)/(Ne[3]*polynomialorder+1)
 const Δ         = cbrt(Δx * Δy * Δz)
 const dt        = 0.005
 const timeend   = 100
-const T_bot     = 299
-const T_lapse   = -0.01
+const T_bot     = 299u"K"
+const T_lapse   = -0.01u"K"
 const T_top     = T_bot + T_lapse*zmax
 const C_smag    = 0.18
 # ------------- Initial condition function ----------- #
-function initialise_rayleigh_benard!(state::Vars, aux::Vars, coord, t)
-  x1,x2,x3 = coord ./ u"m"
+function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
+  mass_flux = units(FT, u"kg/m^2/s")
   R_gas         = FT(R_d)
   c_p           = FT(cp_d)
   c_v           = FT(cv_d)
   γ             = FT(c_p / c_v)
   p0            = FT(MSLP)
-  δT            = sinpi(6*x3/(zmax-zmin)) * cospi(6*x3/(zmax-zmin))
-  δw            = sinpi(6*x3/(zmax-zmin)) * cospi(6*x3/(zmax-zmin))
+  δT            = sinpi(6*x3/(zmax-zmin)) * cospi(6*x3/(zmax-zmin)) * u"K"
+  δw            = sinpi(6*x3/(zmax-zmin)) * cospi(6*x3/(zmax-zmin)) * u"m/s"
   ΔT            = T_lapse * x3 + δT
   T             = T_bot + ΔT
-  P             = p0*(T/T_bot)^(grav/R_gas/T_lapse)
+  P             = p0*(T/T_bot)^(grav/R_gas/T_lapse * u"m")
   ρ             = P / (R_gas * T)
-  ρu, ρv, ρw    = FT(0) , FT(0) , ρ * δw
+  ρu, ρv, ρw    = mass_flux(0), mass_flux(0) , ρ * δw
   E_int         = ρ * c_v * (T-T_0)
   E_pot         = ρ * grav * x3
   E_kin         = ρ * FT(1/2) * δw^2
@@ -70,7 +71,7 @@ function initialise_rayleigh_benard!(state::Vars, aux::Vars, coord, t)
   state.ρ       = ρ
   state.ρu      = SVector(ρu, ρv, ρw)
   state.ρe      = ρe_tot
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = 0.0u"kg/m^3"
 end
 # --------------- Driver definition ------------------ #
 function run(mpicomm,
