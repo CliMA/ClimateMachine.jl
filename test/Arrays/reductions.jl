@@ -30,6 +30,20 @@ mpirank = MPI.Comm_rank(mpicomm)
   @test norm(QA, 1; dims=(1,3))   ≈ mapslices(S -> norm(S, 1), globalA, dims=(1,3))
   @test norm(QA, Inf; dims=(1,3)) ≈ mapslices(S -> norm(S, Inf), globalA, dims=(1,3))
 
+  QAW = MPIStateArray{Float32}(mpicomm, ArrayType, localsize..., weights=ones(4,1,8))
+  QAW .= A
+
+  @test norm(QAW, 1)   ≈ norm(globalA, 1)
+  @test norm(QAW)      ≈ norm(globalA)
+  @test norm(QAW, Inf) ≈ norm(globalA, Inf)
+
+  if ArrayType == Array
+    # TODO: make this work with CuArrays
+    @test norm(QAW; dims=(1,3))      ≈ mapslices(norm, globalA; dims=(1,3))
+    @test norm(QAW, 1; dims=(1,3))   ≈ mapslices(S -> norm(S, 1), globalA, dims=(1,3))
+    @test norm(QAW, Inf; dims=(1,3)) ≈ mapslices(S -> norm(S, Inf), globalA, dims=(1,3))
+  end
+
   B = Array{Float32}(reshape(reverse(1:prod(localsize)), localsize))
   globalB = vcat([B for _ in 1:mpisize]...)
 

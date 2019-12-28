@@ -488,7 +488,7 @@ function weighted_norm_impl(Q::SubArray{FT, N, A}, W, ::Val{p}, dims::Colon) whe
       if isfinite(p)
         accum += W[i, 1, k] * abs(Q[i, j, k]) ^ p
       else
-        waQ_ijk = W[i, j, k] * abs(Q[i, j, k])
+        waQ_ijk = W[i, 1, k] * abs(Q[i, j, k])
         accum = ifelse(waQ_ijk > accum, waQ_ijk, accum)
       end
     end
@@ -546,7 +546,14 @@ function weighted_norm_impl(Q, W, ::Val{p}, dims=:) where p
     end
     op, init = +, zero(FT)
   end
-  reduce(op, E, init=init, dims=dims)
+  # TODO: make this work better
+  #  - E is a Broadcasted object, which doesn't support dims reduction
+  #  - LazyArray(E) is a BroadcastArray, which doesn't work with CuArrays
+  if dims === (:)
+    reduce(op, E, init=init)
+  else
+    reduce(op, LazyArray(E), init=init, dims=dims)
+  end
 end
 
 function dot_impl(Q1, Q2)
