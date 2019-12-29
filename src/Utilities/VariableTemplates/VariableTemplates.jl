@@ -1,7 +1,7 @@
 module VariableTemplates
 
 export varsize, Vars, Grad, @vars, units, value,
-       unit_scale, get_T, UV
+       unit_scale, get_T, V
 
 using StaticArrays, Unitful
 import Unitful: AbstractQuantity
@@ -57,7 +57,7 @@ struct SetVarError <: Exception
   sym::Symbol
 end
 
-UV{N<:AbstractFloat} = Union{Quantity{N,D,U}, N} where {D,U}
+V{N<:AbstractFloat} = Union{Quantity{N,D,U}, N} where {D,U}
 
 """
     Vars{S,A,offset}(array::A)

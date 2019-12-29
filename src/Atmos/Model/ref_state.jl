@@ -49,10 +49,11 @@ end
 
 
 function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars, geom::LocalGeometry) where {P,F}
+  FT = eltype(aux)
   T,p = m.temperatureprofile(atmos.orientation, aux)
   aux.ref_state.T = T
   aux.ref_state.p = p
-  aux.ref_state.ρ = ρ = p/(R_d*T)
+  aux.ref_state.ρ = ρ = p/(FT(R_d)*T)
   q_vap_sat = q_vap_saturation(T, ρ)
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
@@ -96,7 +97,8 @@ struct IsothermalProfile{F} <: TemperatureProfile
 end
 
 function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
-  p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T))
+  FT = eltype(aux)
+  p = FT(MSLP) * exp(-gravitational_potential(orientation, aux)/(FT(R_d)*profile.T))
   return (profile.T, p)
 end
 

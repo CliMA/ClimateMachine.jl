@@ -1,5 +1,6 @@
 # Load Packages
 using MPI
+using Unitful
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -57,32 +58,32 @@ eprint = {https://doi.org/10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2},
 """
 function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
-  R_gas         = R_d
-  c_p           = cp_d
-  c_v           = cv_d
-  γ             = c_p / c_v
-  p0            = MSLP
-  xc            = 500.0u"m"
-  zc            = 260.0u"m"
-  r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
-  rc            = 250.0u"m"
-  θ_ref         = 303.0u"K"
-  Δθ            = 0.0u"K"
+  R_gas ::V{FT} = R_d
+  c_p   ::V{FT} = cp_d
+  c_v   ::V{FT} = cv_d
+  γ     ::V{FT} = c_p / c_v
+  p0    ::V{FT} = MSLP
+  xc    ::V{FT} = FT(500) * u"m"
+  zc    ::V{FT} = FT(260) * u"m"
+  r     ::V{FT} = sqrt((x1 - xc)^2 + (x3 - zc)^2)
+  rc    ::V{FT} = FT(250) * u"m"
+  θ_ref ::V{FT} = FT(303) * u"K"
+  Δθ    ::V{FT} = FT(0) * u"K"
 
   if r <= rc
     Δθ          = FT(1//2) * u"K"
   end
   #Perturbed state:
-  θ            = θ_ref + Δθ # potential temperature
-  π_exner      = FT(1) - grav / (c_p * θ) * x3 # exner pressure
-  ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-  P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T            = P / (ρ * R_gas) # temperature
-  ρu           = SVector(FT(0),FT(0),FT(0)) .* u"kg/m^2/s"
+  θ      ::V{FT} = θ_ref + Δθ # potential temperature
+  π_exner::V{FT} = FT(1) - grav / (c_p * θ) * x3 # exner pressure
+  ρ      ::V{FT} = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
+  P      ::V{FT} = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
+  T      ::V{FT} = P / (ρ * R_gas) # temperature
+  ρu             = SVector(FT(0),FT(0),FT(0)) .* u"kg/m^2/s"
   # energy definitions
-  e_kin        = FT(0) * u"m^2/s^2"
-  e_pot        = grav * x3
-  ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
+  e_kin ::V{FT} = FT(0) * u"m^2/s^2"
+  e_pot ::V{FT} = grav * x3
+  ρe_tot::V{FT} = ρ * total_energy(e_kin, e_pot, T)
   state.ρ      = ρ
   state.ρu     = ρu
   state.ρe     = ρe_tot
