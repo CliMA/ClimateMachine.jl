@@ -4,7 +4,7 @@ export varsize, Vars, Grad, @vars, units, value,
        unit_scale, get_T, V
 
 using StaticArrays, Unitful
-import Unitful: AbstractQuantity
+using Unitful: AbstractQuantity, numtype
 
 """
     varsize(S)
@@ -57,6 +57,10 @@ struct SetVarError <: Exception
   sym::Symbol
 end
 
+"""
+Used in structures to allow either standard numberic or unitful types interchangeably. Need <=1.3.0
+to permit typing of structure components with function calls such as `space_unit` etc.
+"""
 V{N<:AbstractFloat} = Union{Quantity{N,D,U}, N} where {D,U}
 
 """

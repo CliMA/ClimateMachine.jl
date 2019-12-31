@@ -33,15 +33,16 @@ Calculates principal invariants of a tensor. Returns struct with fields first,se
 referring to each of the invariants.
 """
 struct PrincipalInvariants{FT}
-  first::FT
-  second::FT
-  third::FT
+  first::V{FT}
+  second::V{FT}
+  third::V{FT}
 end
 function compute_principal_invariants(X::StaticArray{Tuple{3,3}})
+  FT = get_T(eltype(X))
   first = tr(X)
-  second = 1/2 *((tr(X))^2 - tr(X .^ 2))
+  second = FT(1/2) *((tr(X))^2 - tr(X .^ 2))
   third = det(X)
-  return PrincipalInvariants{eltype(X)}(first,second,third)
+  return PrincipalInvariants{FT}(first,second,third)
 end
 
 DVQ{FT} = Quantity{FT, dimension(u"kg/m/s"), typeof(u"kg/m/s")}
@@ -142,7 +143,8 @@ year = {1962}
 function squared_buoyancy_correction(normS, ∇transform::Grad, aux::Vars)
   ∂θ∂Φ = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ)
   N² = ∂θ∂Φ / aux.moisture.θ_v
-  Richardson = N² / (normS^2 + eps(normS))
+  normS² = normS^2
+  Richardson = N² / (normS² + eps(normS²))
   sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
 end
 
@@ -198,6 +200,8 @@ struct Vreman{FT} <: TurbulenceClosure
 end
 vars_aux(::Vreman,FT) = @vars(Δ::units(FT, u"m"))
 vars_gradient(::Vreman,FT) = @vars(θ_v::units(FT, u"K"))
+space_unit(::Vreman) = u"m"
+time_unit(::Vreman) = u"s"
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
 end
@@ -213,7 +217,8 @@ function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, �
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   Bβinvariants = compute_principal_invariants(βij)
   @inbounds Bβ = Bβinvariants.second
-  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(FT)))))
+  return state.ρ * max(0 * space_unit(m)^2 / time_unit(m),
+                       m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(αijαij)))))
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
   (-2*ρν) * S

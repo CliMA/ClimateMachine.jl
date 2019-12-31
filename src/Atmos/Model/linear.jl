@@ -1,3 +1,22 @@
+T(x) = (dimension(x), typeof(upreferred(x)))
+E_dim, E_units    = T(u"J")
+D_dim, D_units    = T(u"kg/m^3")
+T_dim, T_units    = T(u"K")
+P_dim, P_units    = T(u"Pa")
+EV_dim, EV_units  = T(u"J/m^3")
+MF_dim, MF_units  = T(u"kg/m^2/s")
+PE_dim, PE_units    = T(u"J/kg")
+SHC_dim, SHC_units  = T(u"J/kg/K")
+
+EQ{FT} = Quantity{FT, E_dim, E_units}
+DQ{FT} = Quantity{FT, D_dim, D_units}
+TQ{FT} = Quantity{FT, T_dim, T_units}
+PQ{FT} = Quantity{FT, P_dim, P_units}
+EVQ{FT} = Quantity{FT, EV_dim, EV_units}
+MFQ{FT} = Quantity{FT, MF_dim, MF_units}
+PEQ{FT} = Quantity{FT, PE_dim, PE_units}
+SHCQ{FT} = Quantity{FT, SHC_dim, SHC_units}
+
 """
     linearized_air_pressure(ρ, ρe_tot, ρe_pot, ρq_tot=0, ρq_liq=0, ρq_ice=0)
 
@@ -12,8 +31,9 @@ and, optionally,
  - `ρq_liq` liquid water density
  - `ρq_ice` ice density
 """
-function linearized_air_pressure(ρ::FT, ρe_tot::FT, ρe_pot::FT,
-                                 ρq_tot::FT=FT(0), ρq_liq::FT=FT(0), ρq_ice::FT=FT(0)) where {FT<:Real}
+function linearized_air_pressure(ρ::DQ{FT}, ρe_tot::EVQ{FT}, ρe_pot::EVQ{FT},
+                                 ρq_tot::DQ{FT}=FT(0)*u"kg/m^3", ρq_liq::DQ{FT}=FT(0)*u"kg/m^3",
+                                 ρq_ice::DQ{FT}=FT(0)*u"kg/m^3") where {FT<:Real}
   ρ*FT(R_d)*FT(T_0) + FT(R_d)/FT(cv_d)*(ρe_tot - ρe_pot - (ρq_tot - ρq_liq)*FT(e_int_v0) + ρq_ice*(FT(e_int_i0) + FT(e_int_v0)))
 end
 
@@ -35,6 +55,8 @@ vars_diffusive(lm::AtmosLinearModel, FT) = @vars()
 vars_aux(lm::AtmosLinearModel, FT) = vars_aux(lm.atmos,FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
 
+space_unit(::AtmosLinearModel) = u"m"
+time_unit(::AtmosLinearModel) = u"s"
 
 update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, t::Real) = nothing
 integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
@@ -101,6 +123,6 @@ function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, sta
 end
 function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)
   ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-  source.ρu -= state.ρ * ∇Φ
+  source.ρu -= state.ρ * ∇Φ * time_unit(lm)
   nothing
 end
