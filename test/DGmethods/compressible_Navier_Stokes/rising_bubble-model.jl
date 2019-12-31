@@ -1,5 +1,6 @@
-# Load Packages 
+# Load Packages
 using MPI
+using Unitful
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -29,7 +30,7 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-# -------------- Problem constants ------------------- # 
+# -------------- Problem constants ------------------- #
 const (xmin,xmax)      = (0,1000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,1000)
@@ -38,7 +39,7 @@ const polynomialorder = 4
 const dim       = 3
 const dt        = 0.01
 const timeend   = 10dt
-# ------------- Initial condition function ----------- # 
+# ------------- Initial condition function ----------- #
 """
 @article{doi:10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2,
 author = {Robert, A},
@@ -55,58 +56,58 @@ eprint = {https://doi.org/10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2},
 """
 function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
-  R_gas::FT     = R_d
-  c_p::FT       = cp_d
-  c_v::FT       = cv_d
-  γ::FT         = c_p / c_v
-  p0::FT        = MSLP
-  
-  xc::FT        = 500
-  zc::FT        = 260
+  R_gas         = FT(R_d)
+  c_p           = FT(cp_d)
+  c_v           = FT(cv_d)
+  γ             = c_p / c_v
+  p0            = FT(MSLP)
+
+  xc            = FT(500)*u"m"
+  zc            = FT(260)*u"m"
   r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
-  rc::FT        = 250
-  θ_ref::FT     = 303
-  Δθ::FT        = 0
-  
-  if r <= rc 
-    Δθ          = FT(1//2) 
+  rc            = FT(250)*u"m"
+  θ_ref         = FT(303)*u"K"
+  Δθ            = FT(0)*u"K"
+
+  if r <= rc
+    Δθ          = FT(1//2)*u"K"
   end
   #Perturbed state:
   θ            = θ_ref + Δθ # potential temperature
-  π_exner      = FT(1) - grav / (c_p * θ) * x3 # exner pressure
+  π_exner      = FT(1) - FT(grav) / (c_p * θ) * x3 # exner pressure
   ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
   P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
   T            = P / (ρ * R_gas) # temperature
-  ρu           = SVector(FT(0),FT(0),FT(0))
+  ρu           = SVector(FT(0),FT(0),FT(0)) .* u"kg/m^2/s"
   # energy definitions
-  e_kin        = FT(0)
-  e_pot        = grav * x3
+  e_kin        = FT(0) * u"m^2/s^2"
+  e_pot        = FT(grav) * x3
   ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
   state.ρ      = ρ
   state.ρu     = ρu
   state.ρe     = ρe_tot
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = FT(0) * u"kg/m^3"
 end
-# --------------- Driver definition ------------------ # 
-function run(mpicomm, 
-             topl, dim, Ne, polynomialorder, 
+# --------------- Driver definition ------------------ #
+function run(mpicomm,
+             topl, dim, Ne, polynomialorder,
              timeend, FT, dt)
-  # -------------- Define grid ----------------------------------- # 
+  # -------------- Define grid ----------------------------------- #
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder
                                            )
-  # -------------- Define model ---------------------------------- # 
+  # -------------- Define model ---------------------------------- #
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
                      Vreman{FT}(C_smag),
-                     EquilMoist(), 
+                     EquilMoist(),
                      NoRadiation(),
                      Gravity(),
                      NoFluxBC(),
                      Initialise_Rising_Bubble!)
-  # -------------- Define dgbalancelaw --------------------------- # 
+  # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -167,7 +168,7 @@ function run(mpicomm,
   """ engf engf/eng0 engf-eng0 errf errf / engfe
 engf/eng0
 end
-# --------------- Test block / Loggers ------------------ # 
+# --------------- Test block / Loggers ------------------ #
 using Test
 let
   CLIMA.init()
@@ -184,7 +185,7 @@ let
                   range(FT(zmin); length=Ne[3]+1, stop=zmax))
     topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
     engf_eng0 = run(mpicomm,
-                    topl, dim, Ne, polynomialorder, 
+                    topl, dim, Ne, polynomialorder,
                     timeend, FT, dt)
     @test engf_eng0 ≈ FT(9.9999993807738441e-01)
   end
