@@ -92,7 +92,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   ϵdv::FT       = Rv/Rd
   cpd::FT       = cp_d
   # These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.0e-3)
+  qref::FT      = 9.0e-3
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc::FT    = gas_constant_air(q_pt_sfc)
@@ -128,10 +128,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     randnum3   = rand(Uniform(-0.1,0.1))
     randnum4   = rand(Uniform(-0.1,0.1))
     if xvert <= 400.0
-        θ_liq += randnum1 * θ_liq
-        q_tot += randnum2 * q_tot
-        u     += randnum3 * u
-        v     += randnum4 * v
+        θ_liq += FT(randnum1 * θ_liq)
+        q_tot += FT(randnum2 * q_tot)
+        u     += FT(randnum3 * u)
+        v     += FT(randnum4 * v)
     end
     # --------------------------------------------------
     # END perturb initial state
@@ -139,7 +139,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
 
     
   # Calculate PhasePartition object for vertical domain extent
-  q_pt  = PhasePartition(q_tot, q_liq, q_ice)
+  q_pt  = PhasePartition(FT(q_tot), FT(q_liq), FT(q_ice))
   Rm    = gas_constant_air(q_pt)
 
   # Pressure
@@ -236,7 +236,7 @@ function run(mpicomm, ArrayType, dim, topl,
       @info @sprintf("""Update
                      simtime = %.16e
                      runtime = %s""",
-                     ODESolvers.gettime(lsrk),
+                     ODESolvers.gettime(solver),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"))
