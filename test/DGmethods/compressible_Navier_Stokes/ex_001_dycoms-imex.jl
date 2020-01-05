@@ -102,7 +102,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
-  Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc) # 461.5
+  Rm_sfc::FT    = gas_constant_air(q_pt_sfc) # 461.5
   T_sfc::FT     = 290.4
   P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
@@ -138,10 +138,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     randnum3   = rand(Uniform(-0.1,0.1))
     randnum4   = rand(Uniform(-0.1,0.1))
     if xvert <= 400.0
-        θ_liq += randnum1 * θ_liq
-        q_tot += randnum2 * q_tot
-        u     += randnum3 * u
-        v     += randnum4 * v
+        θ_liq += FT(randnum1 * θ_liq)
+        q_tot += FT(randnum2 * q_tot)
+        u     += FT(randnum3 * u)
+        v     += FT(randnum4 * v)
     end
   # --------------------------------------------------
   # END perturb initial state
@@ -335,16 +335,16 @@ function run(mpicomm,
                               split_nonlinear_linear=false)
         
         # Get statistics during run
-        out_interval_diags = 500
+        out_interval_diags = 5000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
             gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
         
-            #Calcualte Courant numbers:
+            #=Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)
+            gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)=#
         end
         #End get statistcs
         
@@ -418,7 +418,8 @@ let
                   
                   safety_fac = FT(0.5)
                   dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
+                  #dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
+                  dt_imex = 0.01
                   timeend = 14400
                   
                   @info @sprintf """Starting

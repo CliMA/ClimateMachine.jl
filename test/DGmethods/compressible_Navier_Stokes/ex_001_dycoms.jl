@@ -246,7 +246,7 @@ function run(mpicomm, ArrayType, dim, topl,
     #
     # VTK
     #
-    out_interval = 500
+    out_interval = 10000
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
 	fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -260,27 +260,29 @@ function run(mpicomm, ArrayType, dim, topl,
         nothing
     end
     
-    #                                                                                                                                                                                                           
-    # Get statistics during run                                                                                                                                                                                 
-    #                                                                                                                                                                                                           
-    out_interval_diags = 10000
+    #
+    # Get statistics during run
+    #
+#=    out_interval_diags = 10000
     diagnostics_time_str = string(now())
     cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
         sim_time_str = string(ODESolvers.gettime(solver))
         gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
         
         #Calcualte Courant numbers:                                                                                                                                                                             
-        Dx = min_node_distance(grid, HorizontalDirection())
-        Dz = min_node_distance(grid, VerticalDirection())
-        gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)
+        #Dx = min_node_distance(grid, HorizontalDirection())
+        #Dz = min_node_distance(grid, VerticalDirection())
+        #gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)
     end
     #End get statistcs  
-    
+  =#  
 
   @tic solve
-  solve!(Q, solver; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
+  solve!(Q, solver; timeend=timeend, callbacks=(cbinfo))
   @toc solve
-  
+
+    @info @sprintf(""" END of SIMULATION """)
+    
 end
 
 #using Test
@@ -302,7 +304,7 @@ let
 
 #  @testset begin
     # Problem type
-    FT = Float32
+    FT = Float64
     # DG polynomial order
     N = 4
     # SGS Filter constants
@@ -330,7 +332,7 @@ let
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.01
-    timeend =  dt
+    timeend =  14400
     @info (ArrayType, dt, FT, dim)
     result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, FT, dt, C_smag, LHF, SHF, C_drag,
