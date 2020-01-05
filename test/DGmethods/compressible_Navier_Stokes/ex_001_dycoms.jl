@@ -16,17 +16,51 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.TicToc
 using CLIMA.VTK
-using LinearAlgebra
+using CLIMA.Courant
+
+using CLIMA.Atmos: vars_state, vars_aux
+using Random
+using Distributions
 using StaticArrays
 using Logging
 using Printf
 using Dates
+using CLIMA.ColumnwiseLUSolver: SingleColumnLU, ManyColumnLU, banded_matrix, banded_matrix_vector_product!
+using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
 
 const ArrayType = CLIMA.array_type()
+
+using CUDAdrv
+using CUDAnative
+using CuArrays
+CuArrays.allowscalar(false)
+const ArrayTypes = (CuArray,)
 
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
+end
+
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  locmax = maximum(view(h_A, :, states, A.realelems))
+  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+function global_max_scalar(A, mpicomm)
+  MPI.Allreduce(A, MPI.MAX, mpicomm)[1]
+end
+
+function extract_state(dg, localQ, ijk, e)
+    bl = dg.balancelaw
+    FT = eltype(localQ)
+    nstate = num_state(bl, FT)
+    l_Q = MArray{Tuple{nstate},FT}(undef)
+    for s in 1:nstate
+        l_Q[s] = localQ[ijk,s,e]
+    end
+    return Vars{vars_state(bl, FT)}(l_Q)
 end
 
 """
@@ -53,13 +87,17 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
   Rd::FT        = R_d
+  Rv::FT        = R_v
+  Rm::FT        = Rd
+  ϵdv::FT       = Rv/Rd
+  cpd::FT       = cp_d
   # These constants are those used by Stevens et al. (2005)
   qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
-  Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc)
-  T_sfc::FT     = 292.5
-  P_sfc::FT     = 101780 #MSLP
+  Rm_sfc::FT    = gas_constant_air(q_pt_sfc)
+  T_sfc::FT     = 290.4
+  P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
   # Specify moisture profiles
   q_liq::FT      = 0
@@ -67,11 +105,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   zb::FT         = 600         # initial cloud bottom
   zi::FT         = 840         # initial cloud top
   ziplus::FT     = 875
-  dz_cloud       = zi - zb
-  q_liq_peak::FT = 0.00045     # cloud mixing ratio at z_i
-  if xvert > zb && xvert <= zi
-    q_liq = (xvert - zb)*q_liq_peak/dz_cloud
-  end
+  dz_cloud::FT   = zi - zb
+  θ_liq::FT      = 289  
   if xvert <= zi
     θ_liq = FT(289)
     q_tot = qref
@@ -80,6 +115,29 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_tot = FT(1.5e-3)
   end
 
+  ugeo = FT(7)
+  vgeo = FT(-5.5)
+  u, v, w = ugeo, vgeo, FT(0)
+
+    # --------------------------------------------------
+    # perturb initial state to break the symmetry and
+    # trigger turbulent convection
+    # --------------------------------------------------
+    randnum1   = rand(Uniform(-0.02,0.02))
+    randnum2   = rand(Uniform(-0.000015,0.000015))
+    randnum3   = rand(Uniform(-0.1,0.1))
+    randnum4   = rand(Uniform(-0.1,0.1))
+    if xvert <= 400.0
+        θ_liq += randnum1 * θ_liq
+        q_tot += randnum2 * q_tot
+        u     += randnum3 * u
+        v     += randnum4 * v
+    end
+    # --------------------------------------------------
+    # END perturb initial state
+    # -------------------------------------------------- 
+
+    
   # Calculate PhasePartition object for vertical domain extent
   q_pt  = PhasePartition(q_tot, q_liq, q_ice)
   Rm    = gas_constant_air(q_pt)
@@ -88,24 +146,11 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
   # Density, Temperature
-  T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, q_pt)
-  ρ = air_density(T, p, q_pt)
+  ts    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot)
+  T     = air_temperature(ts)
+  ρ     = air_density(ts)
+  q_pt  = PhasePartition_equil(T, ρ, q_tot)  
 
-  # Assign State Variables
-  u1, u2 = FT(6), FT(7)
-  v1, v2 = FT(-4.25), FT(-5.5)
-  w = FT(0)
-  if (xvert <= zi)
-    u, v = u1, v1
-  elseif (xvert >= ziplus)
-    u, v = u2, v2
-  else
-    m = (ziplus - zi)/(u2 - u1)
-    u = (xvert - zi)/m + u1
-
-    m = (ziplus - zi)/(v2 - v1)
-    v = (xvert - zi)/m + v1
-  end
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -134,10 +179,13 @@ function run(mpicomm, ArrayType, dim, topl,
   F_0           = FT(70)
   F_1           = FT(22)
   # Geostrophic forcing
-  f_coriolis    = FT(7.62e-5)
+  f_coriolis    = FT(1.03e-4) #FT(7.62e-5)
   u_geostrophic = FT(7.0)
   v_geostrophic = FT(-5.5)
-
+  w_ref         = FT(0)
+  u_relaxation  = SVector(u_geostrophic, v_geostrophic, w_ref) 
+  c_sponge      = FT(1)
+    
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
@@ -145,8 +193,8 @@ function run(mpicomm, ArrayType, dim, topl,
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
-                      RayleighSponge{FT}(zmax, zsponge, 1),
-                      GeostrophicForcing{FT}(7.62e-5, 7, -5.5)),
+                      RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation),
+                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
   # Balancelaw description
@@ -155,77 +203,84 @@ function run(mpicomm, ArrayType, dim, topl,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
-  Q = init_ode_state(dg, FT(0))
-  lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+        
+  Q = init_ode_state(dg, FT(0); forcecpu=true)
+
+  cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+      Filters.apply!(Q, 6, dg.grid, TMARFilter())
+    nothing
+  end
+  #=  
+  filterorder = 4
+  filter = ExponentialFilter(grid, 0, filterorder)
+  cbfilter = GenericCallbacks.EveryXSimulationSteps(50) do
+      Filters.apply!(Q, 1:size(Q, 2), grid, filter)
+      nothing
+  end
+  =#
+    
+  solver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+    
   # Calculating initial condition norm
-  eng0 = norm(Q)
+#=  eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e""" eng0
-
+=#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(30, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
-      energy = norm(Q)
+      #energy = norm(Q)
       @info @sprintf("""Update
                      simtime = %.16e
-                     runtime = %s
-                     norm(Q) = %.16e""",
+                     runtime = %s""",
                      ODESolvers.gettime(lsrk),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"),
-                     energy)
+                                  Dates.dateformat"HH:MM:SS"))
     end
   end
 
-  # Setup VTK output callbacks
-  step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
-    fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
-                       MPI.Comm_rank(mpicomm), step[1])
-    outprefix = joinpath(out_dir, fprefix)
-    @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model, FT)),
-             dg.auxstate, flattenednames(vars_aux(model, FT)))
+    #
+    # VTK
+    #
+    out_interval = 500
+    step = [0]
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
+	fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
+                           MPI.Comm_rank(mpicomm), step[1])
+        outprefix = joinpath(out_dir, fprefix)
+        @debug "doing VTK output" outprefix
+        writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)),
+                 dg.auxstate, flattenednames(vars_aux(model,FT)))
 
-    step[1] += 1
-    nothing
-  end
-
-  # Get statistics during run
-  diagnostics_time_str = replace(string(now()), ":" => ".")
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(50) do (init=false)
-    sim_time_str = string(ODESolvers.gettime(lsrk))
-    gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                       out_dir)
-  end
+        step[1] += 1
+        nothing
+    end
+    
+    #                                                                                                                                                                                                           
+    # Get statistics during run                                                                                                                                                                                 
+    #                                                                                                                                                                                                           
+    out_interval_diags = 10000
+    diagnostics_time_str = string(now())
+    cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
+        sim_time_str = string(ODESolvers.gettime(solver))
+        gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+        
+        #Calcualte Courant numbers:                                                                                                                                                                             
+        Dx = min_node_distance(grid, HorizontalDirection())
+        Dz = min_node_distance(grid, VerticalDirection())
+        gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)
+    end
+    #End get statistcs  
+    
 
   @tic solve
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
+  solve!(Q, solver; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
   @toc solve
-
-  # Get statistics at the end of the run
-  sim_time_str = string(ODESolvers.gettime(lsrk))
-  gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                     out_dir)
-
-  # Print some end of the simulation information
-  engf = norm(Q)
-  Qe = init_ode_state(dg, FT(timeend))
-
-  engfe = norm(Qe)
-  errf = euclidean_distance(Q, Qe)
-  @info @sprintf """Finished
-  norm(Q)                 = %.16e
-  norm(Q) / norm(Q₀)      = %.16e
-  norm(Q) - norm(Q₀)      = %.16e
-  norm(Q - Qe)            = %.16e
-  norm(Q - Qe) / norm(Qe) = %.16e
-  """ engf engf/eng0 engf-eng0 errf errf / engfe
-  engf/eng0
+  
 end
 
 #using Test
@@ -257,9 +312,9 @@ let
     C_drag = FT(0.0011)
     # User defined domain parameters
     Δx, Δy, Δz = 40, 40, 20
-    xmin, xmax = 0, 1000
-    ymin, ymax = 0, 1000
-    zmin, zmax = 0, 2500
+    xmin, xmax = FT(0), FT(1000)
+    ymin, ymax = FT(0), FT(1000)
+    zmin, zmax = FT(0), FT(2500)
 
     grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
@@ -268,7 +323,7 @@ let
     brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
                   grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
                   grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
-    zmax = brickrange[dim][end]
+    
     zsponge = FT(1200.0)
 
     topl = StackedBrickTopology(mpicomm, brickrange,
