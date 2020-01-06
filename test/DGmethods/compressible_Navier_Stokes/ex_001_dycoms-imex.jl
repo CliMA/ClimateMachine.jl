@@ -102,7 +102,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
-  Rm_sfc::FT    = gas_constant_air(q_pt_sfc) # 461.5
+  Rm_sfc::FT    = gas_constant_air(q_pt_sfc)
   T_sfc::FT     = 290.4
   P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
@@ -123,12 +123,11 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     q_tot = FT(1.5e-3)
   end
   q_c = q_liq + q_ice
-  #Rm  = Rd*(FT(1) + (ϵdv - FT(1))*q_tot - ϵdv*q_c)
 
-    ugeo = FT(7)
-    vgeo = FT(-5.5)
-    u, v, w = ugeo, vgeo, FT(0)
-    
+  ugeo = FT(7)
+  vgeo = FT(-5.5)
+  u, v, w = ugeo, vgeo, FT(0)
+  
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
@@ -138,10 +137,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     randnum3   = rand(Uniform(-0.1,0.1))
     randnum4   = rand(Uniform(-0.1,0.1))
     if xvert <= 400.0
-        θ_liq += FT(randnum1 * θ_liq)
-        q_tot += FT(randnum2 * q_tot)
-        u     += FT(randnum3 * u)
-        v     += FT(randnum4 * v)
+        θ_liq += randnum1 * θ_liq
+        q_tot += randnum2 * q_tot
+        u     += randnum3 * u
+        v     += randnum4 * v
     end
   # --------------------------------------------------
   # END perturb initial state
@@ -184,8 +183,6 @@ function run(mpicomm,
              C_drag,
              xmax, ymax, zmax,
              zsponge,
-             dt_exp, 
-             dt_imex,
              explicit, 
              LinearModel,
              SolverMethod,
@@ -276,8 +273,10 @@ function run(mpicomm,
     else
 
         @info @sprintf("""Update
+                         dt      = %.5e
                          simtime = %.16e
                          runtime = %s""",
+                       dt, 
                        ODESolvers.gettime(solver),
                        Dates.format(convert(Dates.DateTime,
                                             Dates.now()-starttime[]),
@@ -287,7 +286,7 @@ function run(mpicomm,
   end
     
     # Setup VTK output callbacks
-    out_interval = 500
+    out_interval = 10000
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
         fprefix = @sprintf("dycoms_%dD_mpirank%04d_step%04d", dim,
@@ -301,9 +300,11 @@ function run(mpicomm,
         nothing
     end
     if explicit == 1
-        numberofsteps = convert(Int64, cld(timeend, dt_exp))
+        Courant_number = 0.2
+        dt             = Courant_number * min_node_distance(dg.grid, VerticalDirection())/soundspeed_air(FT(340))
+        numberofsteps = convert(Int64, cld(timeend, dt))
         dt = timeend / numberofsteps #dt_exp
-        @info "EXP timestepper" dt_exp numberofsteps dt_exp*numberofsteps timeend
+        @info "EXP timestepper" dt numberofsteps dt*numberofsteps timeend Courant_number
         solver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
         #
         # Get statistics during run
@@ -312,39 +313,52 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
         
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)
+            
+            dt_inout = Ref(dt)                       
+            gather_Courant(mpicomm, dg, Q, xmax, ymax, Courant_number, out_dir,Dx,Dx,Dz,dt_inout)
+                        
         end
         #End get statistcs
         
         solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
+        
     else
         #
         # 1D IMEX
         #
-        numberofsteps = convert(Int64, cld(timeend, dt_imex))
+        Courant_number = 0.4
+        #dt             = Courant_number * min_node_distance(dg.grid, HorizontalDirection())/soundspeed_air(FT(340))
+        dt = 0.01
+        numberofsteps = convert(Int64, cld(timeend, dt))
         dt = timeend / numberofsteps #dt_imex
-        @info "1DIMEX timestepper" dt_imex numberofsteps dt_imex*numberofsteps timeend
+        @info "1DIMEX timestepper" dt numberofsteps dt*numberofsteps timeend Courant_number
         
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
                               dt = dt, t0 = 0,
                               split_nonlinear_linear=false)
+
+
         
         # Get statistics during run
-        out_interval_diags = 5000
+        out_interval_diags = 10000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
         
-            #=Calcualte Courant numbers:
+            #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            gather_Courant(mpicomm, dg, Q, Dx, Dx, Dz, dt)=#
+            dt_inout = Ref(dt)
+            #@info " Ref(dt): " dt_inout
+            gather_Courant(mpicomm, dg, Q,xmax, ymax, Courant_number, out_dir, Dx, Dx, Dz, dt_inout)
+            #dt = dt_inout[]
+            #@info " dt::::: " dt, Ref(dt)
         end
         #End get statistcs
         
@@ -373,8 +387,8 @@ let
       #aspectratios = (1,3.5,7,)
       exp_step = 0
       linearmodels      = (AtmosAcousticGravityLinearModel,)
-      IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,) #(ARK2GiraldoKellyConstantinescu,) 
-      #IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,)
+      #IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,)
+      IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,)
       for SolverMethod in IMEXSolverMethods
           for LinearModel in linearmodels 
               for explicit in exp_step
@@ -392,10 +406,11 @@ let
                   C_drag = FT(0.0011)
                   
                   # User defined domain parameters
-                  Δh = FT(40)
-                  aspectratio = FT(7)
-                  Δv = FT(20) #Δh/aspectratio
-                  aspectratio = Δh/Δv
+                  #Δh = FT(40)
+                  aspectratio = FT(2)
+                  Δv = FT(20)
+                  Δh = Δv * aspectratio
+                  #aspectratio = Δh/Δv
                   
                   xmin, xmax = 0, 1000
                   ymin, ymax = 0, 1000
@@ -414,23 +429,15 @@ let
                   topl = StackedBrickTopology(mpicomm, brickrange,
                                               periodicity = (true, true, false),
                                               boundary=((0,0),(0,0),(1,2)))
-
                   
-                  safety_fac = FT(0.5)
-                  dt_exp  = min(Δv/soundspeed_air(FT(289))/N, Δh/soundspeed_air(FT(289))/N) * safety_fac
-                  #dt_imex = Δh/soundspeed_air(FT(289))/N * safety_fac
-                  dt_imex = 0.01
                   timeend = 14400
                   
                   @info @sprintf """Starting
                           ArrayType                 = %s
                           ODE_Solver                = %s
                           LinearModel               = %s
-                          dt_exp                    = %.5e
-                          dt_imp                    = %.5e
-                          dt_ratio                  = %.3e
                           Δhoriz/Δvert              = %.5e
-                          """ ArrayType SolverMethod LinearModel dt_exp dt_imex dt_imex/dt_exp aspectratio
+                          """ ArrayType SolverMethod LinearModel aspectratio
                   
                   result = run(mpicomm,
                                ArrayType,
@@ -444,8 +451,6 @@ let
                                C_drag,
                                xmax, ymax, zmax,
                                zsponge,
-                               dt_exp, 
-                               dt_imex,
                                explicit, 
                                LinearModel,
                                SolverMethod,

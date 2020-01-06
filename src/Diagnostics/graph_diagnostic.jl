@@ -1,9 +1,7 @@
-"""
-    graph_diagnostic.jl
-
-"""
-
+using Plots; pyplot()
 using DataFrames, FileIO
+
+using CLIMA.VariableTemplates
 
 include("diagnostic_vars.jl")
 
@@ -14,45 +12,84 @@ Usage:
 end
 
 function start(args::Vector{String})
-    data = load(args[1])
-    println("data for $(length(data)) time steps in file")
-    key1 = first(keys(data))
-    Nqk = size(data[key1], 1)
-    nvertelem = size(data[key1], 2)
+    #data = load(args[1])
 
-    Z = zeros(Nqk * nvertelem)
-    for ev in 1:nvertelem
-        for k in 1:Nqk
-            dv = diagnostic_vars(data[key1][k,ev])
-            Z[k+(ev-1)*Nqk] = dv.z
+    # USER INPUTS:
+    out_dir = joinpath(@__DIR__,"..","..","output")
+    mkpath(out_dir)
+    mkpath(joinpath(out_dir,"plots"))
+    FT = Float64
+    vars_diag = vars_diagnostic(FT)
+    varnames_diag = fieldnames(vars_diag)
+    out_vars = string.(varnames_diag)
+
+    # Grab most recently modified file:
+    data_files = collect(filter(x->occursin(".jld2",x) && occursin("diagnostics",x), readdir(out_dir)))
+    data_files = map(x-> (mtime(joinpath(out_dir,x)),x), data_files)
+    # @show data_files
+    data_file = last(first(sort(data_files,by=first, rev=true)))
+    @show data_file
+
+    data = load(joinpath(out_dir, data_file))
+
+    time = 0.0
+    time = 500.1768
+    diff = 1000
+    @show keys(data)
+    println("data for $(length(data)) time steps in file")
+    #time_data = first(keys(data))
+    for key in keys(data)
+        t1 = parse(Float64, key)
+        if (abs(t1-time)<diff)
+          t2 = t1
+          diff = abs(t2-time)
         end
     end
+    time_data = string(t2)
+    Nqk = size(data[time_data], 1)
+    nvertelem = size(data[time_data], 2)
+    all_vars = ntuple(i->zeros(Nqk * nvertelem), length(out_vars))
 
-    V = zeros(Nqk * nvertelem)
-    for key in keys(data)
-        for ev in 1:nvertelem
-            for k in 1:Nqk
-                dv = diagnostic_vars(data[key][k,ev])
-                V[k+(ev-1)*Nqk] += getproperty(dv, Symbol(args[2]))
+    t = time_data
+    for ev in 1:nvertelem
+        for k in 1:Nqk
+            dv = diagnostic_vars(data[t][k,ev])
+            for i in 1:length(out_vars)
+              all_vars[i][k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[i]))
             end
         end
     end
+    Z = all_vars[1]
 
-    df = DataFrame(x = V, y = Z)
+    each_plot = []
+    for i in 1:length(out_vars)
+      push!(each_plot, plot(all_vars[i], Z,
+                            linewidth=2,
+                            # xaxis=(out_vars[i], (-0, 10), 0:1:10),
+                            xaxis=(out_vars[i]),
+                            yaxis=("Altitude[m]", (0, max(Z...))),
+                            label=(out_vars[i]),
+                            ))
+    end
 
-    # use graphing framework of choice to plot data in `df`
+    f=font(11,"courier")
+    time_str = string("t = ", ceil(time), " s")
 
-    # VegaLite:
-    #p = df |>
-    #@vlplot(:line,
-    #        x={:x, title=args[2]},
-    #        y={:y, title="Z"},
-    #        title=args[2])
-    #save("graph-$(args[2])_z.png", p)
+    for (k,i) in var_groups(FT)
+      all_plots = plot(each_plot[i]..., layout = (1,length(i)), titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=time_str)
+      if k==:q_liq
+        @show max(first(all_vars[i])...)
+      end
+      plot!(size=(1200,800))
+      savefig(all_plots, joinpath(out_dir,"plots",string(k)*".png"))
+    end
+
+  return varnames_diag
+
 end
 
-if length(ARGS) != 3 || !endswith(ARGS[1], ".jld2")
-    usage()
-end
-start(ARGS)
-
+#if length(ARGS) != 3 || !endswith(ARGS[1], ".jld2")
+#    usage()
+#end
+results = start(ARGS)
+nothing
