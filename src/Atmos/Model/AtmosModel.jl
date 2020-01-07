@@ -250,8 +250,8 @@ boundary_state!(nf, m::AtmosModel, x...) =
 # FIXME: This is probably not right....
 boundary_state!(::CentralGradPenalty, bl::AtmosModel, _...) = nothing
 
-function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
-  m.init_state(state, aux, coords, t)
+function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
+  m.init_state(state, aux, coords, t, args...)
 end
 
 end # module
