@@ -7,6 +7,8 @@ using ..Mesh.Topologies
 using StaticArrays
 using ..SpaceMethods
 using ..VariableTemplates
+using ..UnitAnnotations
+import ..UnitAnnotations: space_unit, time_unit
 using DocStringExtensions
 using GPUifyLoops
 

@@ -1,10 +1,10 @@
 module VariableTemplates
 
-export varsize, Vars, Grad, @vars, units, value,
-       unit_scale, get_T, UV
+export varsize, Vars, Grad, @vars
 
+using CLIMA.UnitAnnotations
 using StaticArrays, Unitful
-import Unitful: AbstractQuantity
+using Unitful: AbstractQuantity
 
 """
     varsize(S)
@@ -57,8 +57,6 @@ struct SetVarError <: Exception
   sym::Symbol
 end
 
-UV{N<:AbstractFloat} = Union{Quantity{N,D,U}, N} where {D,U}
-
 """
     Vars{S,A,offset}(array::A)
 
@@ -73,51 +71,6 @@ Base.parent(v::Vars) = getfield(v,:array)
 Base.eltype(v::Vars) = eltype(parent(v))
 Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
 Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(parent(v)))
-
-"""
-    units(FT::Type{T} where {T<:Number}, u::Unitful.Units)
-
-```jldoctest
-julia> units(Float64, u"m*s^-2")
-Quantity{Float64,𝐋*𝐓^-2,Unitful.FreeUnits{(m, s^-2),𝐋*𝐓^-2,nothing}}
-```
-
-Returns the type variable for the choice of numeric backing type `FT` and preferred units `u`.
-"""
-units(FT::Type{T} where {T<:Number}, u::Unitful.Units) = Quantity{FT, dimension(u), typeof(u)}
-
-"""
-    unit_scale(::Type{NamedTuple{S, T}} where {S, T<:Tuple}, factor)
-
-Scale the output of a @vars call by the provided units.
-"""
-@generated function unit_scale(::Type{NamedTuple{S, T}}, factor) where {S, T<:Tuple}
-  p(Q,u) = begin
-    if Q <: NamedTuple
-      return unit_scale(Q, u)
-    elseif Q <: SArray
-      N = Q.parameters[2]
-      return SArray{Q.parameters[1], typeof(oneunit(N)*u), Q.parameters[3], Q.parameters[4]}
-    elseif Q <: SHermitianCompact
-      N = Q.parameters[2]
-      return SHermitianCompact{Q.parameters[1], typeof(oneunit(N)*u), Q.parameters[3]}
-    else
-      return typeof(oneunit(Q)*u)
-    end
-  end
-  :(return $(NamedTuple{S, Tuple{p.(T.parameters, factor())...}}))
-end
-
-"""
-Remove unit annotations, return float in SI units.
-"""
-value(x::Number) = ustrip(upreferred(x))
-
-"""
-Get the numeric backing type for a quantity or numeric scalar type.
-"""
-get_T(::Type{T}) where {T<:Number} = T
-get_T(::Type{T}) where {T<:AbstractQuantity} = Unitful.get_T(T)
 
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
@@ -169,9 +122,10 @@ end
       offset += 1
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
+      TU = SHermitianCompact{T.parameters[1], R, T.parameters[3]}
       N = length(LT)
       U = inv(unit(R))
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle*$U)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $TU(val).lowertriangle*$U)
       offset += N
     elseif T <: StaticArray
       N = length(T)
@@ -183,7 +137,7 @@ end
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
-      eltype(RT) != $ST && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($ST) and $($(eltype(RT)))")
+      unit(eltype(RT)) != unit($ST) && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($(unit(ST))) and $($(unit(eltype(RT))))")
       return @inbounds $retexpr
     end))
   end
@@ -260,6 +214,7 @@ end
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
+      unit(eltype(RT)) != unit($ST) && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($(unit(ST))) and $($(unit(eltype(RT))))")
       return @inbounds $retexpr
     end))
   end

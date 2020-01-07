@@ -37,11 +37,6 @@ function vars_gradient end
 function vars_diffusive end
 vars_integrals(::BalanceLaw, FT) = @vars()
 
-# additional stubs for default units
-space_unit(::BalanceLaw) = NoUnits
-mass_unit(::BalanceLaw) = NoUnits
-time_unit(::BalanceLaw) = NoUnits
-
 num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
 num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate
 num_gradient(m::BalanceLaw, FT) = varsize(vars_gradient(m,FT))  # number_gradient_states
