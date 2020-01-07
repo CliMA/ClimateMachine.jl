@@ -4,6 +4,7 @@ ENV["JULIA_LOG_LEVEL"] = "WARN"
 
 for submodule in ["Utilities/TicToc",
                   "Utilities/VariableTemplates",
+                  "Utilities/FreeParameters",
                   "Utilities/ParametersType",
                   "Utilities/RootSolvers",
                   "Common/PlanetParameters",

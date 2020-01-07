@@ -3,6 +3,7 @@ module CLIMA
 include("misc.jl")
 include("Utilities/TicToc/TicToc.jl")
 include("Utilities/ParametersType/ParametersType.jl")
+include("Utilities/FreeParameters/FreeParameters.jl")
 include("Common/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
 include("Utilities/VariableTemplates/VariableTemplates.jl")
