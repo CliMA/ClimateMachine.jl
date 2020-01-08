@@ -13,7 +13,7 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
-                   DryModel, NoRadiation, PeriodicBC,
+                   DryModel, NoRadiation, NoSubsidence, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: flattenednames
 
@@ -52,7 +52,7 @@ function main()
   expected_error[Float64, 2, Rusanov, 2] = 2.0813000228865612e+00
   expected_error[Float64, 2, Rusanov, 3] = 6.3752572004789149e-02
   expected_error[Float64, 2, Rusanov, 4] = 2.0984975076420455e-03
-  
+
   expected_error[Float64, 2, Central, 1] = 2.0840574601661153e+01
   expected_error[Float64, 2, Central, 2] = 2.9255455365299827e+00
   expected_error[Float64, 2, Central, 3] = 3.6935849488949657e-01
@@ -62,7 +62,7 @@ function main()
   expected_error[Float64, 3, Rusanov, 2] = 6.5816485664822677e-01
   expected_error[Float64, 3, Rusanov, 3] = 2.0160333422867591e-02
   expected_error[Float64, 3, Rusanov, 4] = 6.6360317881818034e-04
-  
+
   expected_error[Float64, 3, Central, 1] = 6.5903683487905749e+00
   expected_error[Float64, 3, Central, 2] = 9.2513872939749997e-01
   expected_error[Float64, 3, Central, 3] = 1.1680141169828175e-01
@@ -72,7 +72,7 @@ function main()
   expected_error[Float32, 2, Rusanov, 2] = 2.0812149047851563e+00
   expected_error[Float32, 2, Rusanov, 3] = 6.7652329802513123e-02
   expected_error[Float32, 2, Rusanov, 4] = 3.6849677562713623e-02
-  
+
   expected_error[Float32, 2, Central, 1] = 2.0840496063232422e+01
   expected_error[Float32, 2, Central, 2] = 2.9250388145446777e+00
   expected_error[Float32, 2, Central, 3] = 3.7026408314704895e-01
@@ -82,7 +82,7 @@ function main()
   expected_error[Float32, 3, Rusanov, 2] = 6.5811443328857422e-01
   expected_error[Float32, 3, Rusanov, 3] = 2.1280560642480850e-02
   expected_error[Float32, 3, Rusanov, 4] = 9.8376255482435226e-03
-  
+
   expected_error[Float32, 3, Central, 1] = 6.5902600288391113e+00
   expected_error[Float32, 3, Central, 2] = 9.2505264282226563e-01
   expected_error[Float32, 3, Central, 3] = 1.1701638251543045e-01
@@ -147,6 +147,7 @@ function run(mpicomm, polynomialorder, numelems,
                      ConstantViscosityWithDivergence(0.0),
                      DryModel(),
                      NoRadiation(),
+                     NoSubsidence{FT}(),
                      nothing,
                      PeriodicBC(),
                      initialcondition!)
@@ -195,7 +196,7 @@ function run(mpicomm, polynomialorder, numelems,
     vtkdir = "vtk_isentropicvortex" *
       "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)"
     mkpath(vtkdir)
-    
+
     vtkstep = 0
     # output initial step
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)

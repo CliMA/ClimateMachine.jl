@@ -60,7 +60,7 @@ struct RayleighSponge{FT} <: Source
 end
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   FT = eltype(state)
-  z = aux.orientation.Φ / grav
+  z = altitude(m.orientation, aux)
   coeff = FT(0)
   if z >= s.zsponge
     coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
