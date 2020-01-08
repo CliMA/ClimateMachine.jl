@@ -132,7 +132,7 @@ Where
   # advective terms
   usub = subsidence_velocity(m.subsidence, z)
   ẑ = vertical_unit_vector(m.orientation, aux)
-  u_tot = u .- usub .* ẑ
+  u_tot = u .- usub * ẑ
   flux.ρ   = ρ * u_tot
   flux.ρu  = ρ * u_tot .* u_tot'
   flux.ρe  = u_tot * state.ρe
@@ -147,7 +147,7 @@ Where
   end
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
-  flux_moisture!(m.moisture, flux, state, aux, t)
+  flux_moisture!(m.moisture, m, flux, state, aux, t)
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
