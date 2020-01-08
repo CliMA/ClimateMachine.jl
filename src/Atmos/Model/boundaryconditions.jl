@@ -133,9 +133,9 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
 
-#  if bctype == 1 # bctype identifies bottom wall
-#    stateP.ρu = SVector(0,0,0)
-#  end
+  if bctype == 1 # bctype identifies bottom wall
+    stateP.ρu = SVector(0,0,0)
+  end
 end
 function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
@@ -207,7 +207,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     ρτ23P  = -ρM * C_drag * windspeed_FN * v_FN
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)
-    #stateP.ρu = SVector(0,0,0)
+    stateP.ρu = SVector(0,0,0)
     diffP.ρτ = SHermitianCompact{3,FT,6}(SVector(FT(0),ρτM[2,1],ρτ13P, FT(0), ρτ23P,FT(0)))
 
     # ----------------------------------------------------------

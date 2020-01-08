@@ -19,31 +19,16 @@ end
 struct Gravity <: Source
 end
 function atmos_source!(::Gravity, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu -= state.ρ * aux.orientation.∇Φ
-end
-
-struct Subsidence <: Source
-end
-function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-    ### SUBDISEDENCE SHOULD BE ADDED HERE
-    return
-    
-#    n = aux.orientation.∇Φ ./ norm(aux.orientation.∇Φ)
-#    source.ρu -= m.radiation.D_subsidence * dot(state.ρu, n) * n
-#
-    ##    source.ρqt
-    
+  if m.ref_state isa HydrostaticState
+    source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
+  else
+    source.ρu -= state.ρ * aux.orientation.∇Φ
+  end
 end
 
 struct Coriolis <: Source
 end
 function atmos_source!(::Coriolis, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-   
- ##
-#  ucoriolis =  2*Omega * state.ρu[2]
-#  vcoriolis = -2*Omega * state.ρu[1]
-#  source.ρu += SVector(ucoriolis, vcoriolis, 0)
-  ##
   # note: this assumes a SphericalOrientation
   #source.ρu -= SVector(0, 0, 2*Omega) × state.ρu
   source.ρu -= cross(SVector(0, 0, 2*Omega), state.ρu)
@@ -102,9 +87,4 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
         
     u = state.ρu / state.ρ
     source.ρu -= state.ρ * beta * (u - s.u_relaxation)
-    #udamping = state.ρ * beta * (u[1] - s.u_relaxation[1])
-    #vdamping = state.ρ * beta * (u[2] - s.u_relaxation[2])
-    #wdamping = state.ρ * beta * (u[3] - s.u_relaxation[3])*intensity_multiplier
-    #source.ρu -= SVector(udamping, vdamping, wdamping)
-    
 end

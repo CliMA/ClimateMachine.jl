@@ -153,10 +153,10 @@ Where
   end
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
-  
+
   #advective term of the qt equation:
   flux_moisture!(m.moisture, flux, state, aux, t)
-    
+
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
@@ -201,9 +201,8 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   S = symmetrize(∇u)
   # kinematic viscosity tensor
   ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, ∇transform, aux, t)
-  diffusive.ρν = ρν
   # momentum flux tensor
-  diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, diffusive.ρν, S)
+  diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
   ∇h_tot = ∇transform.h_tot
   # turbulent Prandtl number
@@ -243,11 +242,11 @@ function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
 end
 
 # TODO: figure out a nice way to handle this
-function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry,Dx,Dz)
+function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry, Dx, Dz)
   aux.coord = geom.coord
   atmos_init_aux!(m.orientation, m, aux, geom)
   atmos_init_aux!(m.ref_state, m, aux, geom)
-  atmos_init_aux!(m.turbulence, m, aux, geom,Dx,Dz)
+  atmos_init_aux!(m.turbulence, m, aux, geom, Dx, Dz)
 end
 
 """
