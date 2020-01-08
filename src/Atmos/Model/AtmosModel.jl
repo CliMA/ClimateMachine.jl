@@ -139,7 +139,7 @@ Where
     flux.ρu += p*I
   end
   flux.ρe += u*p
-  flux_radiation!(m.radiation, flux, state, aux, t)
+  flux_radiation!(m.radiation, m, flux, state, aux, t)
   flux_moisture!(m.moisture, flux, state, aux, t)
 end
 

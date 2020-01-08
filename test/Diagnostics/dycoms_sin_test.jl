@@ -156,7 +156,7 @@ let
                      NoReferenceState(),
                      SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
-                     StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                     DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
                       RayleighSponge{FT}(zmax, zsponge, 1),
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
