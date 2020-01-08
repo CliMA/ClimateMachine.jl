@@ -28,8 +28,6 @@ Subtypes `L` should define the following methods:
 - `init_state!(::L, state::State, aux::State, coords, args...)`
 
 """
-#using CLIMA.Mesh.Grids
-#using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 abstract type BalanceLaw end # PDE part
 
 # function stubs
@@ -109,7 +107,7 @@ function create_auxstate(bl, grid, commtag=222)
   device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
   @launch(device, threads=(Np,), blocks=nrealelem,
-          initauxstate!(bl, Val(dim), Val(polyorder), auxstate.data, vgeo, topology.realelems,Dx,Dz))
+          initauxstate!(bl, Val(dim), Val(polyorder), auxstate.data, vgeo, topology.realelems, Dx, Dz))
   MPIStateArrays.start_ghost_exchange!(auxstate)
   MPIStateArrays.finish_ghost_exchange!(auxstate)
 

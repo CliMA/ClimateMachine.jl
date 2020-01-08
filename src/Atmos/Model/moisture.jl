@@ -11,6 +11,8 @@ vars_aux(::MoistureModel, FT) = @vars()
 function atmos_nodal_update_aux!(::MoistureModel, m::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
 end
+function flux_moisture!(::MoistureModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+end
 function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ρD_t)
 end
 function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -93,6 +95,11 @@ function gradvariables!(moist::EquilMoist, transform::Vars, state::Vars, aux::Va
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
 end
 
+function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)
+  # diffusive flux of q_tot
+  diffusive.moisture.ρd_q_tot = (-ρD_t) .* ∇transform.moisture.q_tot
+end
+
 function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t::Real)
   ρ = state.ρ
   u = state.ρu / ρ
@@ -104,16 +111,9 @@ function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t
   flux.moisture.ρq_tot += (u + usub) * state.moisture.ρq_tot
 end
 
-function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)
-    # diffusive flux of q_tot
-    #SM TRY TO CHANGE THIS SIGN 
-  diffusive.moisture.ρd_q_tot = (-ρD_t) .* ∇transform.moisture.q_tot
-end
-
 function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   u = state.ρu / state.ρ
   flux.ρ += diffusive.moisture.ρd_q_tot
   flux.ρu += diffusive.moisture.ρd_q_tot .* u'
   flux.moisture.ρq_tot += diffusive.moisture.ρd_q_tot
 end
-

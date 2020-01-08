@@ -6,6 +6,7 @@ abstract type RadiationModel end
 vars_state(::RadiationModel, FT) = @vars()
 vars_aux(::RadiationModel, FT) = @vars()
 vars_integrals(::RadiationModel, FT) = @vars()
+
 function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
 end
@@ -75,7 +76,6 @@ end
   free_troposphere_cooling = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * ((cbrt(Δz_i))^4 / 4 + m.z_i * cbrt(Δz_i))
   aux.radiation.Rad_flux = cloud_base_warming + cloud_top_cooling + free_troposphere_cooling
 end
-
+=#
 function preodefun!(m::StevensRadiation, aux::Vars, state::Vars, t::Real)
 end
-=#

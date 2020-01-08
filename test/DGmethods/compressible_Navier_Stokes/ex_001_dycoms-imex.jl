@@ -344,7 +344,7 @@ function run(mpicomm,
 
 
         
-        # Get statistics during run
+#=        # Get statistics during run
         out_interval_diags = 10000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
@@ -361,8 +361,9 @@ function run(mpicomm,
             #@info " dt::::: " dt, Ref(dt)
         end
         #End get statistcs
-        
-        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
+  =#      
+        solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbinfo), adjustfinalstep=false)
+        #solve!(Q, solver; numberofsteps=numberofsteps, callbacks=(cbtmarfilter, cbdiagnostics, cbinfo), adjustfinalstep=false)
     end
 
 end
