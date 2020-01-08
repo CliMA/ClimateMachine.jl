@@ -237,6 +237,8 @@ end
 
     # Accurate but expensive `LiquidIcePotTempSHumNonEquil` constructor (Non-linear temperature from θ_liq_ice)
     T_non_linear = air_temperature_from_liquid_ice_pottemp_non_linear.(θ_liq_ice, ρ, FT(1e-3), 10, q_pt)
+    T_expansion = air_temperature_from_liquid_ice_pottemp.(θ_liq_ice, ρ, q_pt)
+    @test all(isapprox.(T_non_linear, T_expansion, rtol=rtol))
     e_int_ = internal_energy.(T_non_linear, q_pt)
     ts = PhaseNonEquil.(e_int_, ρ, q_pt)
     @test all(T_non_linear .≈ air_temperature.(ts))
