@@ -28,20 +28,22 @@ mpicomm = MPI.COMM_WORLD
 #  
 
 # set up domain
-topl = StackedBrickTopology(mpicomm, (0:1,0:10); periodicity = (true,false),boundary=((0,0),(1,2)))
+topl = StackedBrickTopology(mpicomm, (0:1,0:-1:-10); periodicity = (true,false),boundary=((0,0),(1,2)))
 grid = DiscontinuousSpectralElementGrid(topl, FloatType = Float64, DeviceArray = Array, polynomialorder = 5)
+
+m = SoilModel(1.0,1.0,1.0,20.0,10.0)
 
 # Set up DG scheme
 dg = DGModel( # 
-  SoilModel(20.0,10.0), # "PDE part"
+  m, # "PDE part"
   grid,
   CentralNumericalFluxNonDiffusive(), # penalty terms for discretizations
   CentralNumericalFluxDiffusive(),
   CentralGradPenalty())
 
 
-Δz = 1/5^2
-CFL_bound = (Δz^2 / (2λ/(ρ*c)))
+Δ = min_node_distance(grid)
+CFL_bound = (Δ^2 / (2m.λ/(m.ρ*m.c)))
 dt = CFL_bound/2 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
 
 # state variable
