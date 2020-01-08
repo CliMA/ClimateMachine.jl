@@ -162,7 +162,7 @@ linear_drag!(::ConstantViscosity, _...) = nothing
 end
 
 function shallow_init_aux! end
-function init_aux!(m::SWModel, aux::Vars, geom::LocalGeometry)
+function init_aux!(m::SWModel, aux::Vars, geom::LocalGeometry, Dx, Dz)
   shallow_init_aux!(m.problem, aux, geom)
 end
 

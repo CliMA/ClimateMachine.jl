@@ -46,7 +46,7 @@ boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
 init_state!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel,_...) = 1
 
-function init_aux!(m::IntegralTestSphereModel, aux::Vars, g::LocalGeometry)
+function init_aux!(m::IntegralTestSphereModel, aux::Vars, g::LocalGeometry, Dx, Dz)
 
   x,y,z = g.coord
   aux.r = hypot(x, y, z)

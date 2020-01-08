@@ -50,7 +50,7 @@ end
 function boundary_state!(nf::CentralNumericalFluxDiffusive, lm::AtmosLinearModel, x...)
   nothing
 end
-init_aux!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) = nothing
+init_aux!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry, Dx, Dz) = nothing
 init_state!(lm::AtmosLinearModel, state::Vars, aux::Vars, coords, t) = nothing
 
 

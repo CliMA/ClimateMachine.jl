@@ -83,7 +83,7 @@ source!(::PoissonModel, source::Vars, state::Vars, aux::Vars, t::Real) = nothing
 sol1d(x) = sin(2pi * x) ^ 4 - 3 / 8
 dxx_sol1d(x) = -16pi ^ 2 * sin(2pi * x) ^ 2 * (sin(2pi * x) ^ 2 - 3cos(2pi * x) ^ 2)
 
-function init_aux!(::PoissonModel{dim}, aux::Vars, g::LocalGeometry) where dim
+function init_aux!(::PoissonModel{dim}, aux::Vars, g::LocalGeometry, Dx, Dy) where dim
   aux.rhs_ϕ = 0
   @inbounds for d = 1:dim
     x1 = g.coord[d]

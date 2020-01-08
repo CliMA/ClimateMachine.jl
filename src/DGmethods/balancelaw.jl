@@ -86,6 +86,9 @@ function create_auxstate(bl, grid, commtag=222)
   FT = eltype(h_vgeo)
   DA = arraytype(grid)
 
+  Dx = min_node_distance(grid,HorizontalDirection())
+  Dz = min_node_distance(grid,VerticalDirection())
+
   weights = view(h_vgeo, :, grid.Mid, :)
   weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
@@ -106,7 +109,7 @@ function create_auxstate(bl, grid, commtag=222)
   device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
   @launch(device, threads=(Np,), blocks=nrealelem,
-          initauxstate!(bl, Val(dim), Val(polyorder), auxstate.data, vgeo, topology.realelems))
+          initauxstate!(bl, Val(dim), Val(polyorder), auxstate.data, vgeo, topology.realelems, Dx, Dz))
   MPIStateArrays.start_ghost_exchange!(auxstate)
   MPIStateArrays.finish_ghost_exchange!(auxstate)
 

@@ -111,7 +111,7 @@ function boundary_state!(::CentralNumericalFluxDiffusive, bl::MMSModel,
   init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
-function init_aux!(::MMSModel, aux::Vars, g::LocalGeometry)
+function init_aux!(::MMSModel, aux::Vars, g::LocalGeometry, Dx, Dz)
   x1,x2,x3 = g.coord
   aux.x1 = x1
   aux.x2 = x2

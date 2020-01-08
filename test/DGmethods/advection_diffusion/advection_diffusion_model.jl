@@ -124,11 +124,11 @@ function wavespeed(m::AdvectionDiffusion, nM, state::Vars, aux::Vars, t::Real)
 end
 
 """
-    init_aux!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
+    init_aux!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry, Dx, Dz)
 
 initialize the auxiliary state
 """
-function init_aux!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
+function init_aux!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry, Dx, Dz)
   aux.coord = geom.coord
   init_velocity_diffusion!(m.problem, aux, geom)
 end

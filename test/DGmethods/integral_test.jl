@@ -42,7 +42,7 @@ init_state!(::IntegralTestModel, _...) = nothing
 wavespeed(::IntegralTestModel,_...) = 1
 
 function init_aux!(::IntegralTestModel{dim}, aux::Vars,
-                   g::LocalGeometry) where {dim}
+                   g::LocalGeometry, Dx, Dz) where {dim}
   x,y,z = aux.coord = g.coord
   if dim == 2
     aux.a = x*y + z*y

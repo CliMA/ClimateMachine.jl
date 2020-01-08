@@ -224,11 +224,11 @@ function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
 end
 
 # TODO: figure out a nice way to handle this
-function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
+function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry, Dx, Dz)
   aux.coord = geom.coord
   atmos_init_aux!(m.orientation, m, aux, geom)
   atmos_init_aux!(m.ref_state, m, aux, geom)
-  atmos_init_aux!(m.turbulence, m, aux, geom)
+  atmos_init_aux!(m.turbulence, m, aux, geom, Dx, Dz)
 end
 
 """

@@ -302,7 +302,7 @@ function update_aux!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
 end
 
 function ocean_init_aux! end
-function init_aux!(m::HBModel, A::Vars, geom::LocalGeometry)
+function init_aux!(m::HBModel, A::Vars, geom::LocalGeometry, Dx, Dz)
   return ocean_init_aux!(m, m.problem, A, geom)
 end
 

@@ -36,7 +36,7 @@ end
 
 boundary_state!(nf, rem::RemainderModel, x...) = boundary_state!(nf, rem.main, x...)
 
-init_aux!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) = nothing
+init_aux!(rem::RemainderModel, aux::Vars, geom::LocalGeometry, Dx, Dz) = nothing
 init_state!(rem::RemainderModel, state::Vars, aux::Vars, coords, t) = nothing
 
 
