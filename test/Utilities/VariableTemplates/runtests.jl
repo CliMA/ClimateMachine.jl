@@ -1,4 +1,5 @@
 using Test, StaticArrays, Unitful
+using CLIMA.UnitAnnotations
 using CLIMA.VariableTemplates
 
 # Tests prior to providing unitful information
@@ -114,7 +115,6 @@ vu.ρ = 1.0
 @test vu.ρ == 1.0u"kg/m^3"
 vu.ρ = 2.0u"kg/m^3"
 @test vu.ρ == 2.0u"kg/m^3"
-#TODO: More tests here
 
 ust_scaled_nop = unit_scale(ust, NoUnits)
 vusn = Vars{ust_scaled_nop}(zeros(MVector{varsize(ust), Float64}))

@@ -41,18 +41,18 @@ time_unit(::AdvectionDiffusion) = u"s"
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, U(FT, u"m")},
-                                           u::SVector{3, U(FT, u"m*s^-1")},
-                                           D::SMatrix{3, 3, U(FT, u"m^2/s"), 9})
+vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, units(FT,:space)},
+                                           u::SVector{3, units(FT,:velocity)},
+                                           D::SMatrix{3, 3, units(FT,u"m^2/s"), 9})
 #
 # Density is only state
-vars_state(::AdvectionDiffusion, FT) = @vars(ρ::U(FT, u"kg*m^-3"))
+vars_state(::AdvectionDiffusion, FT) = @vars(ρ::units(FT,:density))
 
 # Take the gradient of density
-vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::U(FT, u"kg*m^-3"))
+vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::units(FT,:density))
 
 # The DG auxiliary variable: D ∇ρ
-vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3, U(FT, u"kg*m^-2*s^-1")})
+vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3,units(FT,:massflux)})
 
 struct Pseudo1D{n, α, β, μ, δ} <: AdvectionDiffusionProblem end
 
@@ -259,10 +259,10 @@ let
           elseif direction <: VerticalDirection
             n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
           end
-          α = U(FT, u"m/s")(1)
-          β = U(FT, u"m^2/s")(1 // 100)
-          μ = U(FT, u"m")(-1 // 2)
-          δ = U(FT, u"s")(1 // 10)
+          α = units(FT, u"m/s")(1)
+          β = units(FT, u"m^2/s")(1 // 100)
+          μ = units(FT, u"m")(-1 // 2)
+          δ = units(FT, u"s")(1 // 10)
           for l = 1:numlevels
             Ne = 2^(l-1) * base_num_elem
             brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)

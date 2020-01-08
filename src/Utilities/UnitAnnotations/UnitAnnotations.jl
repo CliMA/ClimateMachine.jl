@@ -1,6 +1,6 @@
 module UnitAnnotations
 
-export U, V, get_T, value, unit_scale,
+export U, units, V, get_T, value, unit_scale,
        space_unit, mass_unit, time_unit, temp_unit
 
 using StaticArrays, Unitful; using CLIMA.UnitAnnotations #FIXME
@@ -14,17 +14,17 @@ Quantity or other scalar type with numeric backing type FT.
 V{FT} = Union{FT, Quantity{FT, D, U}} where {D,U}
 
 """
-    U(FT::Type{T} where {T<:Number}, u::Symbol)
+    units(FT::Type{T} where {T<:Number}, u::Symbol)
 
 ```jldoctest
-julia> U(Float64, :vel)
-Union{Float64, Unitful.Quantity{Float64,𝐋*𝐓^-1,Unitful.FreeUnits{(m, s^-1),𝐋*𝐓^-1,nothing}}}
+julia> units(Float64, :velocity)
+Unitful.Quantity{Float64,𝐋*𝐓^-1,Unitful.FreeUnits{(m, s^-1),𝐋*𝐓^-1,nothing}}
 ```
 Returns the type variable for the choice of numerical backing type `FT` and unit alias `u`.
 """
-function U(FT, u::Symbol)
-  units = upreferred(unit_glossary[u])
-  Union{FT, Quantity{FT, dimension(units), typeof(units)}}
+function units(FT, u::Symbol)
+  units = get_unit_alias(Val(u))
+  Quantity{FT, dimension(units), typeof(units)}
 end
 
 """
@@ -37,7 +37,9 @@ Quantity{Float64,𝐋*𝐓^-2,Unitful.FreeUnits{(m, s^-2),𝐋*𝐓^-2,nothing}}
 
 Returns the type variable for the choice of numeric backing type `FT` and preferred units `u`.
 """
-U(FT, u::Unitful.Units) = Quantity{FT, dimension(u), typeof(upreferred(u))}
+units(FT, u::Unitful.Units) = Quantity{FT, dimension(u), typeof(upreferred(u))}
+
+U(::Type{FT}, u) where {FT<:Real} = Union{FT, units(FT, u)}
 
 """
     unit_scale(::Type{NamedTuple{S, T}} where {S, T<:Tuple}, factor)

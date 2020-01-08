@@ -156,6 +156,7 @@ function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
                           ) where {FT}
 
   if weights == nothing
+    @show DA
     weights = similar(DA, FT, ntuple(j->0, 3))
   end
   MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems, ghostelems,

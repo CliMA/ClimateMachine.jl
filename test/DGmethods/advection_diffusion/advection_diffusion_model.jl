@@ -120,9 +120,7 @@ end
 
 function init_state!(m::AdvectionDiffusion, state::Vars, aux::Vars,
                      coords, t::Real)
-  FT = get_T(eltype(coords))
-  coords = U(FT, space_unit(m)).(coords)
-  t = U(FT, time_unit(m))(t)
+  t *= time_unit(m)
   initial_condition!(m.problem, state, aux, coords, t)
 end
 

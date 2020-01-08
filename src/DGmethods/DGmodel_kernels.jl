@@ -944,7 +944,9 @@ function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstat
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
+      coords = SVector(((vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
+                       .* space_unit(bl))...
+                      )
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
