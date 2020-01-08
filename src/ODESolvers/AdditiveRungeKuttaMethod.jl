@@ -1,6 +1,8 @@
 module AdditiveRungeKuttaMethod
 export AdditiveRungeKutta
+export ARK1AscherRuuthSpiteri
 export ARK2GiraldoKellyConstantinescu
+export ARK3KennedyCarpenter
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and Constantinescu (2013) directly.
@@ -77,13 +79,13 @@ and the optional initial time `t0`. The resulting linear systems are solved
 using the provided `linearsolver` solver. This time stepping object is intended
 to be passed to the `solve!` command.
 
-The constructor builds an additive Runge--Kutta scheme 
+The constructor builds an additive Runge--Kutta scheme
 based on the provided `RKAe`, `RKAi`, `RKB` and `RKC` coefficient arrays.
 Additionally `variant` specifies which of the analytically equivalent but numerically
 different formulations of the scheme is used.
 
 The available concrete implementations are:
-
+  - [`ARK1AscherRuuthSpiteri`](@ref)
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
   - [`ARK437L2SA1KennedyCarpenter`](@ref)
@@ -133,13 +135,13 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: 
     T = eltype(Q)
     LT = typeof(linearsolver)
     RT = real(T)
-    
+
     Nstages = length(RKB)
 
     Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
     Rstages = ntuple(i -> similar(Q), Nstages)
     Qhat = similar(Q)
-    
+
     V = typeof(variant)
     variant_storage = additional_storage(variant, Q, Nstages)
     VS = typeof(variant_storage)
@@ -239,7 +241,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-  
+
   if dt != ark.dt
     α = dt * RKA_implicit[2, 2]
     implicitoperator! = EulerOperator(rhs_linear!, -α)
@@ -265,7 +267,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
       @. LQ = Q - α * LQ
     end
     linearsolve!(implicitoperator!, linearsolver, Qstages[istage], Qhat, p, stagetime)
-    
+
     rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
     rhs_linear!(Lstages[istage], Qstages[istage], p, stagetime, increment = false)
   end
@@ -342,6 +344,64 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
 end
 
 """
+    ARK1AscherRuuthSpiteri(f, l, linearsolver, Q; dt, t0,
+                                   split_nonlinear_linear, variant)
+
+This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
+see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
+This time stepping object is intended to be passed to the `solve!` command.
+
+This uses the first-order-accurate 2-stage additive Runge--Kutta scheme given in
+Ascher, Ruuth, Spiteri (1997). It is the Forward-Backward Euler method modified such that b=b̃.
+
+### References
+  @article{ascher:1997,
+  author   = {Ascher, U.M. and Ruuth, S.J. and Spiteri, R.J.},
+  title    = {Implicit-explicit {Runge-Kutta} methods for time-dependent
+  partial differential equations},
+  journal  = {Applied Numerical Mathematics},
+  volume   = {25},
+  pages    = {151--167},
+  year     = {1997}
+  }
+"""
+function ARK1AscherRuuthSpiteri(F, L,
+                                linearsolver::AbstractLinearSolver,
+                                Q::AT; dt=nothing, t0=0,
+                                split_nonlinear_linear=false,
+                                variant=LowStorageVariant()) where {AT<:AbstractArray}
+
+  @assert dt != nothing
+
+  T = eltype(Q)
+  RT = real(T)
+  Nstages = 2
+
+  RKA_explicit = zeros(RT, Nstages, Nstages)
+  RKA_implicit = zeros(RT, Nstages, Nstages)
+  RKB = zeros(RT, Nstages)
+  RKC = zeros(RT, Nstages)
+
+  # RKA_explicit = [RT(0)     RT(0);
+  #                 RT(1)     RT(0)]
+  # RKA_implicit = [RT(0)     RT(0);
+  #                 RT(0)     RT(1)]
+  # RKB = [RT(0), RT(1)]
+  # RKC = [RT(0), RT(1)]
+
+  RKA_explicit[2,1]=RT(1.0)
+  RKA_implicit[2,2]=RT(1.0)
+  RKB[2]=RT(1.0)
+  RKC[2]=RT(1.0)
+
+  ark = AdditiveRungeKutta(F, L, linearsolver,
+                     RKA_explicit, RKA_implicit, RKB, RKC,
+                     split_nonlinear_linear,
+                     variant,
+                     Q; dt=dt, t0=t0)
+end
+
+"""
     ARK2GiraldoKellyConstantinescu(f, l, linearsolver, Q; dt, t0,
                                    split_nonlinear_linear, variant, paperversion)
 
@@ -390,10 +450,83 @@ function ARK2GiraldoKellyConstantinescu(F, L,
 
   RKB = [RT(1 / (2sqrt(2))), RT(1 / (2sqrt(2))), RT(1 - 1 / sqrt(2))]
   RKC = [RT(0), RT(2 - sqrt(2)), RT(1)]
-  
+
   Nstages = length(RKB)
 
-  AdditiveRungeKutta(F, L, linearsolver,
+  ark = AdditiveRungeKutta(F, L, linearsolver,
+                     RKA_explicit, RKA_implicit, RKB, RKC,
+                     split_nonlinear_linear,
+                     variant,
+                     Q; dt=dt, t0=t0)
+end
+
+"""
+    ARK3KennedyCarpenter(f, l, linearsolver, Q; dt, t0,
+                         split_nonlinear_linear, variant, paperversion)
+
+This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
+see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
+This time stepping object is intended to be passed to the `solve!` command.
+
+`paperversion=true` uses the coefficients from the paper, `paperversion=false`
+uses coefficients that make the scheme (much) more stable but less accurate
+
+This uses the third-order-accurate 4-stage additive Runge--Kutta scheme of
+Kennedy and Carpenter (2003).
+
+### References
+  @article{kennedy:2003,
+  title       = {{Additive Runge-Kutta schemes for convection-diffusion-reaction equations}},
+  author      = {Kennedy, C. and Carpenter, M.},
+  journal     = {Applied Numerical Mathematics},
+  volume      = {44},
+  number      = {3},
+  pages       = {139-181},
+  year        = {2003},
+  publisher   = {Elsevier}
+  }
+"""
+function ARK3KennedyCarpenter(F, L,
+                              linearsolver::AbstractLinearSolver,
+                              Q::AT; dt=nothing, t0=0,
+                              split_nonlinear_linear=false,
+                              variant=LowStorageVariant()) where {AT<:AbstractArray}
+
+  @assert dt != nothing
+
+  T = eltype(Q)
+  RT = real(T)
+
+  Nstages = 4
+
+  RKA_explicit = zeros(RT, Nstages, Nstages)
+  RKA_implicit = zeros(RT, Nstages, Nstages)
+  RKB = zeros(RT, Nstages)
+  RKC = zeros(RT, Nstages)
+
+  RKA_explicit[2,1]=1767732205903//2027836641118
+  RKA_explicit[3,1]=5535828885825//10492691773637
+  RKA_explicit[3,2]=788022342437//10882634858940
+  RKA_explicit[4,1]=6485989280629//16251701735622
+  RKA_explicit[4,2]=-4246266847089//9704473918619
+  RKA_explicit[4,3]=10755448449292//10357097424841
+
+  RKA_implicit[2,1]=1767732205903//4055673282236
+  RKA_implicit[2,2]=1767732205903//4055673282236
+  RKA_implicit[3,1]=2746238789719//10658868560708
+  RKA_implicit[3,2]=-640167445237//6845629431997
+  RKA_implicit[3,3]=RKA_implicit[2,2]
+  RKA_implicit[4,1]=1471266399579//7840856788654
+  RKA_implicit[4,2]=-4482444167858//7529755066697
+  RKA_implicit[4,3]=11266239266428//11593286722821
+  RKA_implicit[4,4]=RKA_implicit[2,2]
+  RKB[1:Nstages]= RKA_implicit[Nstages,1:Nstages]
+
+  for i=1:Nstages
+    RKC[i] = sum(RKA_explicit[i,:])
+  end
+
+  ark = AdditiveRungeKutta(F, L, linearsolver,
                      RKA_explicit, RKA_implicit, RKB, RKC,
                      split_nonlinear_linear,
                      variant,
@@ -491,7 +624,7 @@ function ARK548L2SA2KennedyCarpenter(F, L,
   RKA_explicit[8, 5] = RT(4151782504231 // 36106512998704)
   RKA_explicit[8, 6] = RT(572599549169 // 6265429158920)
   RKA_explicit[8, 7] = RT(-457874356192 // 11306498036315)
-  
+
   RKB[2] = 0
   RKB[3] = RT(3517720773327 // 20256071687669)
   RKB[4] = RT(4569610470461 // 17934693873752)
@@ -505,11 +638,11 @@ function ARK548L2SA2KennedyCarpenter(F, L,
   RKC[5] = RT(6365430648612 // 17842476412687)
   RKC[6] = RT(18 // 25)
   RKC[7] = RT(191 // 200)
-  
+
   for is = 2:Nstages
     RKA_implicit[is, 1] = RKA_implicit[is, 2]
   end
- 
+
   for is = 1:Nstages-1
     RKA_implicit[Nstages, is] = RKB[is]
   end
@@ -626,7 +759,8 @@ function ARK437L2SA1KennedyCarpenter(F, L,
   RKB[6] = RT(2273837961795 // 8368240463276)
   RKB[7] = RT(247 // 2000)
 
-  RKC[2] = RT(247 // 2000)
+  #RKC[2] = RT(247 // 2000)
+  RKC[2] = RT(247 // 1000) #FXG 1/6/20 should be 1/1000 otherwise cannot get c_explicit=c_implicit
   RKC[3] = RT(4276536705230 // 10142255878289)
   RKC[4] = RT(67 // 200)
   RKC[5] = RT(3 // 40)
