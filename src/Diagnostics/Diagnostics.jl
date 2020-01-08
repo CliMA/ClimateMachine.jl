@@ -93,7 +93,7 @@ function compute_thermo!(FT, state, diffusive_flx, i, j, k, ijk, ev, eh, e,
 
     e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * z
 
-    ts = PhaseEquil(convert(FT, e_int), state.ρ, q̅_to, FT(1e-2), 3)
+    ts = PhaseEquil(convert(FT, e_int), state.ρ, q̅_tot)
     Phpart = PhasePartition(ts)
 
     th = thermo_vars(thermoQ[ijk,e])
