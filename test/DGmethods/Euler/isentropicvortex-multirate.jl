@@ -20,7 +20,7 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoRadiation, PeriodicBC,
+                   DryModel, NoRadiation, NoSubsidence, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
@@ -56,7 +56,7 @@ function main()
   expected_error[Float64, SSPRK33ShuOsher, 2] = 5.2782503174265516e+00
   expected_error[Float64, SSPRK33ShuOsher, 3] = 1.2281763287878383e-01
   expected_error[Float64, SSPRK33ShuOsher, 4] = 2.3761870907666096e-03
-  
+
   expected_error[Float64, ARK2GiraldoKellyConstantinescu, 1] = 2.3245216640111998e+01
   expected_error[Float64, ARK2GiraldoKellyConstantinescu, 2] = 5.2626584944153949e+00
   expected_error[Float64, ARK2GiraldoKellyConstantinescu, 3] = 1.2324230746483673e-01
@@ -116,6 +116,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
+                     NoSubsidence{FT}(),
                      nothing,
                      PeriodicBC(),
                      initialcondition!)
@@ -190,7 +191,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
       "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)" *
       "_$(FastMethod)_level$(level)"
     mkpath(vtkdir)
-    
+
     vtkstep = 0
     # output initial step
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)

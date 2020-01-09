@@ -11,7 +11,7 @@ vars_aux(::MoistureModel, FT) = @vars()
 function atmos_nodal_update_aux!(::MoistureModel, m::AtmosModel, state::Vars,
                                  aux::Vars, t::Real)
 end
-function flux_moisture!(::MoistureModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+function flux_moisture!(::MoistureModel, ::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
 end
 function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ρD_t)
 end
@@ -95,9 +95,14 @@ function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, stat
   diffusive.moisture.ρd_q_tot = (-ρD_t) .* ∇transform.moisture.q_tot
 end
 
-function flux_moisture!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, t::Real)
-  u = state.ρu / state.ρ
-  flux.moisture.ρq_tot += state.moisture.ρq_tot * u
+function flux_moisture!(moist::EquilMoist, atmos::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+  ρ = state.ρ
+  u = state.ρu / ρ
+  z = altitude(atmos.orientation, aux)
+  usub = subsidence_velocity(atmos.subsidence, z)
+  ẑ = vertical_unit_vector(atmos.orientation, aux)
+  u_tot = u .- usub * ẑ
+  flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
 end
 
 function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)

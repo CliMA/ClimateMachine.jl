@@ -34,12 +34,13 @@ A `BalanceLaw` for atmosphere modeling.
                boundarycondition, init_state)
 
 """
-struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{O,RS,T,M,R,SU,S,BC,IS} <: BalanceLaw
   orientation::O
   ref_state::RS
   turbulence::T
   moisture::M
   radiation::R
+  subsidence::SU
   source::S
   # TODO: Probably want to have different bc for state and diffusion...
   boundarycondition::BC
@@ -96,6 +97,7 @@ include("orientation.jl")
 include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
+include("subsidence.jl")
 include("radiation.jl")
 include("source.jl")
 include("boundaryconditions.jl")
@@ -121,14 +123,19 @@ Where
 """
 @inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                     aux::Vars, t::Real)
-  ρinv = 1/state.ρ
+  ρ = state.ρ
+  ρinv = 1/ρ
   ρu = state.ρu
   u = ρinv * ρu
+  z  = altitude(m.orientation, aux)
 
   # advective terms
-  flux.ρ   = ρu
-  flux.ρu  = ρu .* u'
-  flux.ρe  = u * state.ρe
+  usub = subsidence_velocity(m.subsidence, z)
+  ẑ = vertical_unit_vector(m.orientation, aux)
+  u_tot = u .- usub * ẑ
+  flux.ρ   = ρ * u_tot
+  flux.ρu  = ρ * u_tot .* u_tot'
+  flux.ρe  = u_tot * state.ρe
 
   # pressure terms
   p = pressure(m.moisture, m.orientation, state, aux)
@@ -140,14 +147,14 @@ Where
   end
   flux.ρe += u*p
   flux_radiation!(m.radiation, m, flux, state, aux, t)
-  flux_moisture!(m.moisture, flux, state, aux, t)
+  flux_moisture!(m.moisture, m, flux, state, aux, t)
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
-  
+
   # diffusive
   ρτ = diffusive.ρτ
   ρd_h_tot = diffusive.ρd_h_tot

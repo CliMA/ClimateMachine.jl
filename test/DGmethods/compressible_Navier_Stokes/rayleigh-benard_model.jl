@@ -1,4 +1,4 @@
-# Load Packages 
+# Load Packages
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
@@ -27,7 +27,7 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-# -------------- Problem constants ------------------- # 
+# -------------- Problem constants ------------------- #
 const xmin      = 0
 const ymin      = 0
 const zmin      = 0
@@ -40,14 +40,14 @@ const dim       = 3
 const Δx        = (xmax-xmin)/(Ne[1]*polynomialorder+1)
 const Δy        = (ymax-ymin)/(Ne[2]*polynomialorder+1)
 const Δz        = (zmax-zmin)/(Ne[3]*polynomialorder+1)
-const Δ         = cbrt(Δx * Δy * Δz) 
+const Δ         = cbrt(Δx * Δy * Δz)
 const dt        = 0.005
 const timeend   = 100
 const T_bot     = 299
 const T_lapse   = -0.01
 const T_top     = T_bot + T_lapse*zmax
 const C_smag    = 0.18
-# ------------- Initial condition function ----------- # 
+# ------------- Initial condition function ----------- #
 function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
   R_gas::FT     = R_d
@@ -58,32 +58,32 @@ function initialise_rayleigh_benard!(state::Vars, aux::Vars, (x1,x2,x3), t)
   δT            = sinpi(6*x3/(zmax-zmin)) * cospi(6*x3/(zmax-zmin))
   δw            = sinpi(6*x3/(zmax-zmin)) * cospi(6*x3/(zmax-zmin))
   ΔT            = T_lapse * x3 + δT
-  T             = T_bot + ΔT 
+  T             = T_bot + ΔT
   P             = p0*(T/T_bot)^(grav/R_gas/T_lapse)
   ρ             = P / (R_gas * T)
   ρu, ρv, ρw    = FT(0) , FT(0) , ρ * δw
   E_int         = ρ * c_v * (T-T_0)
   E_pot         = ρ * grav * x3
-  E_kin         = ρ * FT(1/2) * δw^2 
+  E_kin         = ρ * FT(1/2) * δw^2
   ρe_tot        = E_int + E_pot + E_kin
   state.ρ       = ρ
   state.ρu      = SVector(ρu, ρv, ρw)
   state.ρe      = ρe_tot
   state.moisture.ρq_tot = FT(0)
 end
-# --------------- Driver definition ------------------ # 
-function run(mpicomm, 
-             topl, dim, Ne, polynomialorder, 
+# --------------- Driver definition ------------------ #
+function run(mpicomm,
+             topl, dim, Ne, polynomialorder,
              timeend, FT, dt, model)
-  # -------------- Define grid ----------------------------------- # 
+  # -------------- Define grid ----------------------------------- #
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder
                                            )
-  # -------------- Define model ---------------------------------- # 
+  # -------------- Define model ---------------------------------- #
   model = model
-  # -------------- Define dgbalancelaw --------------------------- # 
+  # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -144,7 +144,7 @@ function run(mpicomm,
   """ engf engf/eng0 engf-eng0 errf errf / engfe
 engf/eng0
 end
-# --------------- Test block / Loggers ------------------ # 
+# --------------- Test block / Loggers ------------------ #
 using Test
 let
   CLIMA.init()
@@ -163,17 +163,18 @@ let
       model = AtmosModel(FlatOrientation(),
                          NoReferenceState(),
                          SGSmodels[ii],
-                         EquilMoist(), 
+                         EquilMoist(),
                          NoRadiation(),
-                         Gravity(), 
-                         RayleighBenardBC{FT}(T_bot,T_top), 
+                         NoSubsidence{FT}(),
+                         Gravity(),
+                         RayleighBenardBC{FT}(T_bot,T_top),
                          initialise_rayleigh_benard!)
       brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
                     range(FT(ymin); length=Ne[2]+1, stop=ymax),
                     range(FT(zmin); length=Ne[3]+1, stop=zmax))
       topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (true, true, false), boundary=((0,0),(0,0),(1,2)))
-      engf_eng0 = run(mpicomm, 
-                      topl, dim, Ne, polynomialorder, 
+      engf_eng0 = run(mpicomm,
+                      topl, dim, Ne, polynomialorder,
                       timeend, FT, dt, model)
       @test engf_eng0 ≈ Expected[ii]
     end

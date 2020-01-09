@@ -157,6 +157,7 @@ let
                      SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
                      DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                     NoSubsidence{FT}(),
                      (Gravity(),
                       RayleighSponge{FT}(zmax, zsponge, 1),
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),

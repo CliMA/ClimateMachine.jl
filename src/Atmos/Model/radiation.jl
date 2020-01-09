@@ -14,7 +14,7 @@ function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real)
 end
 function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars)
 end
-function flux_radiation!(::RadiationModel, m::AtmosModel, flux::Grad, state::Vars,
+function flux_radiation!(::RadiationModel, atmos::AtmosModel, flux::Grad, state::Vars,
                          aux::Vars, t::Real)
 end
 
@@ -26,6 +26,8 @@ end
 
 Stevens et. al (2005) approximation of longwave radiative fluxes in DYCOMS.
 Analytical description as a function of the liquid water path and inversion height zᵢ
+
+* Stevens, B. et. al. (2005) "Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus". Mon. Wea. Rev., 133, 1443–1462, https://doi.org/10.1175/MWR2930.1
 
 # Fields
 
@@ -63,12 +65,8 @@ function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, stat
   upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
   free_troposphere_flux = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * cbrt(Δz_i) * (Δz_i/4 + m.z_i)
   F_rad = upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
-  # TODO: replace flux.ρe with the following two lines once #609 lands
-  # ẑ = vertical_unit_vector(m.orientation, aux)
-  # flux.ρe += F_rad * vertical_unit_vector
-  flux.ρe -= SVector(FT(0),
-                     FT(0),
-                     F_rad)
+  ẑ = vertical_unit_vector(atmos.orientation, aux)
+  flux.ρe += F_rad * ẑ
 end
 function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real)
 end
