@@ -12,12 +12,14 @@ const unit_glossary = Dict(
   :energypv    => u"J/m^3",
   :density     => u"kg/m^3",
   :dinvisc     => u"kg/m/s",
+  :kinvisc     => u"m^2/s",
   :massflux    => u"kg/m^2/s",
   :pressure    => u"Pa",
   :lincond     => u"K/m"
 )
 
-@generated get_unit_alias(::Val{sym}) where {sym} = upreferred(unit_glossary[sym]) 
+@inline unit_alias(s::Symbol) = _unit_alias(Val(s))
+@generated _unit_alias(::Val{sym}) where {sym} = upreferred(unit_glossary[sym])
 
 space_unit(x...)       = NoUnits
 time_unit(x...)        = NoUnits

@@ -1,7 +1,8 @@
 module UnitAnnotations
 
 export U, units, V, get_T, value, unit_scale,
-       space_unit, mass_unit, time_unit, temp_unit
+       space_unit, mass_unit, time_unit, temperature_unit,
+       unit_alias
 
 using StaticArrays, Unitful; using CLIMA.UnitAnnotations #FIXME
 import Unitful: AbstractQuantity
@@ -23,7 +24,7 @@ Unitful.Quantity{Float64,𝐋*𝐓^-1,Unitful.FreeUnits{(m, s^-1),𝐋*𝐓^-1,n
 Returns the type variable for the choice of numerical backing type `FT` and unit alias `u`.
 """
 function units(FT, u::Symbol)
-  units = get_unit_alias(Val(u))
+  units = _unit_alias(Val(u))
   Quantity{FT, dimension(units), typeof(units)}
 end
 

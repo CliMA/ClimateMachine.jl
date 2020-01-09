@@ -34,8 +34,8 @@ const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
 include("advection_diffusion_model.jl")
 
 # provide default units
-space_unit(::AdvectionDiffusion) = u"m"
-time_unit(::AdvectionDiffusion) = u"s"
+space_unit(::AdvectionDiffusion) = unit_alias(:space)
+time_unit(::AdvectionDiffusion)  = unit_alias(:time) 
 
 # Stored in the aux state are:
 #   `coord` coordinate points (needed for BCs)
@@ -43,7 +43,7 @@ time_unit(::AdvectionDiffusion) = u"s"
 #   `D` Diffusion tensor
 vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, units(FT,:space)},
                                            u::SVector{3, units(FT,:velocity)},
-                                           D::SMatrix{3, 3, units(FT,u"m^2/s"), 9})
+                                           D::SMatrix{3, 3, units(FT,:kinvisc), 9})
 #
 # Density is only state
 vars_state(::AdvectionDiffusion, FT) = @vars(ρ::units(FT,:density))
@@ -259,10 +259,10 @@ let
           elseif direction <: VerticalDirection
             n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
           end
-          α = units(FT, u"m/s")(1)
-          β = units(FT, u"m^2/s")(1 // 100)
-          μ = units(FT, u"m")(-1 // 2)
-          δ = units(FT, u"s")(1 // 10)
+          α = units(FT, :velocity)(1)
+          β = units(FT, :kinvisc)(1 // 100)
+          μ = units(FT, :space)(-1 // 2)
+          δ = units(FT, :time)(1 // 10)
           for l = 1:numlevels
             Ne = 2^(l-1) * base_num_elem
             brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
