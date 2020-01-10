@@ -30,8 +30,7 @@ struct Coriolis <: Source
 end
 function atmos_source!(::Coriolis, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   # note: this assumes a SphericalOrientation
-  #source.ρu -= SVector(0, 0, 2*Omega) × state.ρu
-  source.ρu -= cross(SVector(0, 0, 2*Omega), state.ρu)
+  source.ρu -= SVector(0, 0, 2*Omega) × state.ρu
 end
 
 struct GeostrophicForcing{FT} <: Source

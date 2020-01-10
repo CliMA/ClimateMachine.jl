@@ -93,7 +93,7 @@ vars_aux(::SmagorinskyLilly,T) = @vars(Δ::T,ρν::T,BR::T,Freq::T)
 vars_gradient(::SmagorinskyLilly,T) = @vars(θ_v::T)
 vars_diffusive(::SmagorinskyLilly,T) = @vars(BR::T,Freq::T)
 
-function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry,Dx,Dz)
+function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
   aux.turbulence.ρν = 0
   aux.turbulence.BR = 0

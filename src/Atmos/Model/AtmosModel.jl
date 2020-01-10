@@ -153,16 +153,11 @@ Where
   end
   flux.ρe += u*p
   flux_radiation!(m.radiation, flux, state, aux, t)
-
-  #advective term of the qt equation:
   flux_moisture!(m.moisture, flux, state, aux, t)
-
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
-  #Subsidence:
-  FT = eltype(state)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
   
@@ -242,11 +237,11 @@ function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
 end
 
 # TODO: figure out a nice way to handle this
-function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry, Dx, Dz)
+function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.coord = geom.coord
   atmos_init_aux!(m.orientation, m, aux, geom)
   atmos_init_aux!(m.ref_state, m, aux, geom)
-  atmos_init_aux!(m.turbulence, m, aux, geom, Dx, Dz)
+  atmos_init_aux!(m.turbulence, m, aux, geom)
 end
 
 """

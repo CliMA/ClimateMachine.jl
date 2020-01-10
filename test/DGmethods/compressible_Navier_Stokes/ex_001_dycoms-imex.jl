@@ -48,7 +48,7 @@ const seed = MersenneTwister(0)
 function global_max(A::MPIStateArray, states=1:size(A, 2))
   host_array = Array ∈ typeof(A).parameters
   h_A = host_array ? A : Array(A)
-  locmax = maximum(view(h_A, :, states, A.realelems)) 
+  locmax = maximum(view(h_A, :, states, A.realelems))
   MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
 end
 
@@ -97,7 +97,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   Rm::FT        = Rd
   ϵdv::FT       = Rv/Rd
   cpd::FT       = cp_d
-    
+
   # These constants are those used by Stevens et al. (2005)
   qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
@@ -127,7 +127,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   ugeo = FT(7)
   vgeo = FT(-5.5)
   u, v, w = ugeo, vgeo, FT(0)
-  
+
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
@@ -159,7 +159,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     ρ     = air_density(TS)
     T     = air_temperature(TS)
     q_pt  = PhasePartition_equil(T, ρ, q_tot)
-    
+
     e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
     e_pot       = grav * xvert
     E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -167,7 +167,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     state.ρu    = SVector(ρ*u, ρ*v, ρ*w)
     state.ρe    = E
     state.moisture.ρq_tot = ρ * q_tot
-    
+
 end
 
 function run(mpicomm,
@@ -183,19 +183,19 @@ function run(mpicomm,
              C_drag,
              xmax, ymax, zmax,
              zsponge,
-             explicit, 
+             explicit,
              LinearModel,
              SolverMethod,
              out_dir)
-    
+
   # Grid setup (topl contains brickrange information)
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N
                                           )
-                                          
-                                         
+
+
   # Problem constants
   # Radiation model
   κ             = FT(85)
@@ -219,7 +219,7 @@ function run(mpicomm,
   Γ_lapse = FT(grav/cp_d)
   Temp = LinearTemperatureProfile(T_min,T_s,Γ_lapse)
   RelHum = FT(0)
-    
+
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(Temp,RelHum),
@@ -231,7 +231,7 @@ function run(mpicomm,
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
-  
+
   # Balancelaw description
   dg = DGModel(model,
                grid,
@@ -241,7 +241,7 @@ function run(mpicomm,
                direction=EveryDirection())
 
   linmodel = LinearModel(model)
-  
+
   vdg = DGModel(linmodel,
                 grid,
                 Rusanov(),
@@ -249,7 +249,7 @@ function run(mpicomm,
                 CentralGradPenalty(),
                 auxstate=dg.auxstate,
                 direction=VerticalDirection())
-    
+
   Q = init_ode_state(dg, FT(0); forcecpu=true)
 
   cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
@@ -264,7 +264,7 @@ function run(mpicomm,
       nothing
   end
     =#
-    
+
   # Set up the information callback
   starttime = Ref(now())
   cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
@@ -276,15 +276,15 @@ function run(mpicomm,
                          dt      = %.5e
                          simtime = %.16e
                          runtime = %s""",
-                       dt, 
+                       dt,
                        ODESolvers.gettime(solver),
                        Dates.format(convert(Dates.DateTime,
                                             Dates.now()-starttime[]),
                                     Dates.dateformat"HH:MM:SS"))
-        
+
     end
   end
-    
+
     # Setup VTK output callbacks
     out_interval = 10000
     step = [0]
@@ -295,7 +295,7 @@ function run(mpicomm,
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)),
                  dg.auxstate, flattenednames(vars_aux(model,FT)))
-        
+
         step[1] += 1
         nothing
     end
@@ -314,43 +314,43 @@ function run(mpicomm,
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
             gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
-        
+
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
-            
-            dt_inout = Ref(dt)                       
+
+            dt_inout = Ref(dt)
             gather_Courant(mpicomm, dg, Q, xmax, ymax, Courant_number, out_dir,Dx,Dx,Dz,dt_inout)
-                        
+
         end
         #End get statistcs
-        
+
         solve!(Q, solver; timeend=timeend, callbacks=(cbtmarfilter, cbinfo, cbdiagnostics))
-        
+
     else
         #
         # 1D IMEX
         #
         Courant_number = 0.4
-        #dt             = Courant_number * min_node_distance(dg.grid, HorizontalDirection())/soundspeed_air(FT(340))
-        dt = 0.01
+        dt             = Courant_number * min_node_distance(dg.grid, HorizontalDirection())/soundspeed_air(FT(290))
+        # dt = 0.01
         numberofsteps = convert(Int64, cld(timeend, dt))
         dt = timeend / numberofsteps #dt_imex
         @info "1DIMEX timestepper" dt numberofsteps dt*numberofsteps timeend Courant_number
-        
+
         solver = SolverMethod(dg, vdg, SingleColumnLU(), Q;
                               dt = dt, t0 = 0,
                               split_nonlinear_linear=false)
 
 
-        
+
         # Get statistics during run
         out_interval_diags = 10000
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
             gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
-        
+
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
             Dz = min_node_distance(grid, VerticalDirection())
@@ -381,7 +381,7 @@ let
 
   out_dir = get(ENV, "OUT_DIR", "output")
   mkpath(out_dir)
-    
+
   # @testset "$(@__FILE__)" for ArrayType in ArrayTypes
   for ArrayType in ArrayTypes
       #aspectratios = (1,3.5,7,)
@@ -390,55 +390,55 @@ let
       #IMEXSolverMethods = (ARK548L2SA2KennedyCarpenter,)
       IMEXSolverMethods = (ARK2GiraldoKellyConstantinescu,)
       for SolverMethod in IMEXSolverMethods
-          for LinearModel in linearmodels 
+          for LinearModel in linearmodels
               for explicit in exp_step
 
                   # Problem type
                   FT = Float64
-                  
+
                   # DG polynomial order
                   N = 4
-                  
+
                   # SGS Filter constants
                   C_smag = FT(0.18)
                   LHF    = FT(115)
                   SHF    = FT(15)
                   C_drag = FT(0.0011)
-                  
+
                   # User defined domain parameters
                   #Δh = FT(40)
                   aspectratio = FT(2)
                   Δv = FT(20)
                   Δh = Δv * aspectratio
                   #aspectratio = Δh/Δv
-                  
+
                   xmin, xmax = 0, 1000
                   ymin, ymax = 0, 1000
                   zmin, zmax = 0, 2500
-                  
+
                   grid_resolution = [Δh, Δh, Δv]
                   domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
                   dim = length(grid_resolution)
-                  
+
                   brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
                                 grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
                                 grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
                   zmax = brickrange[dim][end]
-                  
+
                   zsponge = FT(1500.0)
                   topl = StackedBrickTopology(mpicomm, brickrange,
                                               periodicity = (true, true, false),
                                               boundary=((0,0),(0,0),(1,2)))
-                  
+
                   timeend = 14400
-                  
+
                   @info @sprintf """Starting
                           ArrayType                 = %s
                           ODE_Solver                = %s
                           LinearModel               = %s
                           Δhoriz/Δvert              = %.5e
                           """ ArrayType SolverMethod LinearModel aspectratio
-                  
+
                   result = run(mpicomm,
                                ArrayType,
                                dim,
@@ -451,11 +451,11 @@ let
                                C_drag,
                                xmax, ymax, zmax,
                                zsponge,
-                               explicit, 
+                               explicit,
                                LinearModel,
                                SolverMethod,
                                out_dir)
-                  
+
               end
           end
       end

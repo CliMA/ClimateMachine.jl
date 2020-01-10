@@ -68,7 +68,7 @@ end
 vars_state(::EquilMoist,FT) = @vars(ρq_tot::FT)
 vars_gradient(::EquilMoist,FT) = @vars(q_tot::FT, h_tot::FT)
 vars_diffusive(::EquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_h_tot::SVector{3,FT})
-vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT, θ_l::FT, h_m::FT, h_tot::FT)
+vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
@@ -77,11 +77,6 @@ vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT, θ_l::FT
   aux.moisture.temperature = air_temperature(TS)
   aux.moisture.θ_v = virtual_pottemp(TS)
   aux.moisture.q_liq = PhasePartition(TS).liq
-
-  aux.moisture.θ_l = liquid_ice_pottemp(TS)
-  aux.moisture.h_m = e_int + gas_constant_air(TS) * air_temperature(TS)
-  aux.moisture.h_tot = state.ρe / state.ρ + gas_constant_air(TS) * air_temperature(TS)
-    
   nothing
 end
 

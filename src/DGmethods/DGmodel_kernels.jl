@@ -961,7 +961,7 @@ Computational kernel: Initialize the auxiliary state
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems, Dx, Dz) where {dim, polyorder}
+function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems) where {dim, polyorder}
   N = polyorder
   FT = eltype(auxstate)
   nauxstate = num_aux(bl,FT)
@@ -978,7 +978,7 @@ function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, v
         l_aux[s] = auxstate[n, s, e]
       end
 
-      init_aux!(bl, Vars{vars_aux(bl,FT)}(l_aux), LocalGeometry(Val(polyorder),vgeo,n,e), Dx, Dz)
+      init_aux!(bl, Vars{vars_aux(bl,FT)}(l_aux), LocalGeometry(Val(polyorder),vgeo,n,e))
 
       @unroll for s = 1:nauxstate
         auxstate[n, s, e] = l_aux[s]
