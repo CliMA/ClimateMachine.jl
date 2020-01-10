@@ -128,7 +128,6 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
           # if source! !== nothing
           fill!(l_S, -zero(eltype(l_S)))
-          # source!(bl, Vars{unitscale(vars_state(bl,FT),inv(time_unit(bl)))}(l_S),
           source!(bl, Vars{vars_state(bl,FT)}(l_S),
                   Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                   Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
@@ -599,7 +598,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   N = polyorder
 
   FT = eltype(Q)
-  deriv_types = unit_scale(vars_gradient(bl,FT), inv(space_unit(bl)))
+  grad_types = unit_scale(vars_gradient(bl,FT), inv(space_unit(bl)))
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
   nviscstate = num_diffusive(bl,FT)
@@ -695,7 +694,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
           diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                     Grad{deriv_types}(l_gradG),
+                     Grad{grad_types}(l_gradG),
                      Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
@@ -714,7 +713,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   N = polyorder
 
   FT = eltype(Q)
-  deriv_types = unit_scale(vars_gradient(bl,FT), inv(space_unit(bl)))
+  grad_types = unit_scale(vars_gradient(bl,FT), inv(space_unit(bl)))
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
   nviscstate = num_diffusive(bl,FT)
@@ -797,7 +796,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
           diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                     Grad{deriv_types}(l_gradG),
+                     Grad{grad_types}(l_gradG),
                      Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                      Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
@@ -944,9 +943,8 @@ function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstat
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      coords = SVector(((vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
-                       .* space_unit(bl))...
-                      )
+      coords = SVector(vgeo[n, _x1, e]*space_unit(bl), vgeo[n, _x2, e]*space_unit(bl), vgeo[n, _x3, e]*space_unit(bl))
+
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end
