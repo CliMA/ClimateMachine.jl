@@ -12,7 +12,7 @@ include("aliases.jl")
 """
 Quantity or other scalar type with numeric backing type FT.
 """
-V{FT} = Union{FT, Quantity{FT, D, U}} where {D,U}
+const V{FT} = Union{FT, Quantity{FT, D, U}} where {D,U}
 
 """
     units(FT::Type{T} where {T<:Number}, u::Symbol)
