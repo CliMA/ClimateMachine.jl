@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters
-export NoRadiation, StevensRadiation
+export NoRadiation, DYCOMSRadiation
 
 abstract type RadiationModel end
 
@@ -14,7 +14,7 @@ function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real)
 end
 function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars)
 end
-function flux_radiation!(::RadiationModel, flux::Grad, state::Vars,
+function flux_radiation!(::RadiationModel, atmos::AtmosModel, flux::Grad, state::Vars,
                          aux::Vars, t::Real)
 end
 
@@ -22,45 +22,51 @@ struct NoRadiation <: RadiationModel
 end
 
 """
-  StevensRadiation <: RadiationModel
+  DYCOMSRadiation <: RadiationModel
 
-Stevens et. al (2005) version of the δ-four stream model used to represent radiative transfer. 
+Stevens et. al (2005) approximation of longwave radiative fluxes in DYCOMS.
 Analytical description as a function of the liquid water path and inversion height zᵢ
+
+* Stevens, B. et. al. (2005) "Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus". Mon. Wea. Rev., 133, 1443–1462, https://doi.org/10.1175/MWR2930.1
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
 """
-struct StevensRadiation{FT} <: RadiationModel
-  "κ [m^2/s] "
+struct DYCOMSRadiation{FT} <: RadiationModel
+  "mass absorption coefficient `[m^2/kg]`"
   κ::FT
-  "α_z Troposphere cooling parameter [m^(-4/3)]"
+  "Troposphere cooling parameter `[m^(-4/3)]`"
   α_z::FT
-  "z_i Inversion height [m]"
+  "Inversion height `[m]`"
   z_i::FT
-  "ρ_i Density"
+  "Density"
   ρ_i::FT
-  "D_subsidence Large scale divergence [s^(-1)]"
+  "Large scale divergence `[s^(-1)]`"
   D_subsidence::FT
-  "F₀ Radiative flux parameter [W/m^2]"
+  "Radiative flux parameter `[W/m^2]`"
   F_0::FT
-  "F₁ Radiative flux parameter [W/m^2]"
+  "Radiative flux parameter `[W/m^2]`"
   F_1::FT
 end
-vars_integrals(m::StevensRadiation, FT) = @vars(∂κLWP::FT)
-function integrate_aux!(m::StevensRadiation, integrand::Vars, state::Vars, aux::Vars)
+vars_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
+vars_aux(m::DYCOMSRadiation, FT) = @vars(Rad_flux::FT)
+function integrate_aux!(m::DYCOMSRadiation, integrand::Vars, state::Vars, aux::Vars)
   FT = eltype(state)
-  integrand.radiation.∂κLWP = state.ρ * m.κ * aux.moisture.q_liq
+  integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
 end
-function flux_radiation!(m::StevensRadiation, flux::Grad, state::Vars,
+function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, state::Vars,
                          aux::Vars, t::Real)
   FT = eltype(flux)
-  z = aux.orientation.Φ/grav
+  z = altitude(atmos.orientation, aux)
   Δz_i = max(z - m.z_i, -zero(FT))
   # Constants
-  cloud_top_cooling = m.F_0 * exp(-aux.∫dnz.radiation.∂κLWP)
-  cloud_base_warming = m.F_1 * exp(-aux.∫dz.radiation.∂κLWP)
-  free_troposphere_cooling = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * ((cbrt(Δz_i))^4 / 4 + m.z_i * cbrt(Δz_i))
-  F_rad = cloud_base_warming + cloud_base_warming + free_troposphere_cooling
-  flux.ρe += SVector(FT(0), 
-                     FT(0), 
-                     F_rad)
+  upward_flux_from_cloud  = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
+  upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
+  free_troposphere_flux = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * cbrt(Δz_i) * (Δz_i/4 + m.z_i)
+  F_rad = upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
+  ẑ = vertical_unit_vector(atmos.orientation, aux)
+  flux.ρe += F_rad * ẑ
 end
-function preodefun!(m::StevensRadiation, aux::Vars, state::Vars, t::Real)
+function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real)
 end
