@@ -41,9 +41,9 @@ const (zmin,zmax)      = (0,1000)
 const Ne        = (10,1,10)
 const polynomialorder = 4
 const dim       = 3
-const dt        = 3.0 #0.5=ARK437; 2.0=ARK2; 4.0=ARK548;
+const dt        = 2.0 #0.5=ARK437; 2.0=ARK2; 4.0=ARK548;
 const timeend   = 1dt
-const ti_method = 4 #1=ARK1; 2=ARK2 with a32=0.5; 3=ARK2 with a32=0.90; 4=ARK3; 5=ARK437; 6=ARK548
+const ti_method = 2 #1=ARK1; 2=ARK2 with a32=0.5; 3=ARK2 with a32=0.90; 4=ARK3; 5=ARK437; 6=ARK548
 
 # ------------- Initial condition function ----------- #
 """
@@ -233,6 +233,7 @@ function run(mpicomm, LinearType,
     Dz = min_node_distance(grid, VerticalDirection())
     dt_inout = Ref(dt)
     #@info " Ref(dt): " dt_inout
+    Courant_number=0.4
     gather_Courant(mpicomm, dg, Q, xmax, ymax, Courant_number, out_dir, Dx, Dx, Dz, dt_inout)
     #dt = dt_inout[]
     #@info " dt::::: " dt, Ref(dt)
@@ -242,7 +243,7 @@ function run(mpicomm, LinearType,
   #solve!(Q, ode_solver; timeend=timeend, callbacks=(cbinfo,cbvtk,cbdiagnostics))
   solve!(Q, ode_solver; timeend=timeend, callbacks=(cbinfo,cbvtk))
   # End of the simulation information
-  
+
   engf = norm(Q)
   Qe = init_ode_state(dg, FT(timeend))
   engfe = norm(Qe)
