@@ -34,7 +34,7 @@ function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray, 
 end
 
 vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
-vars_aux(m::IntegralTestSphereModel,T) = @vars(int::vars_integrals(m,T), rev_int::vars_integrals(m,T), r::T, θ::T, ϕ::T)
+vars_aux(m::IntegralTestSphereModel,T) = @vars(int::vars_integrals(m,T), rev_int::vars_integrals(m,T), r::T, a::T)
 
 vars_state(::IntegralTestSphereModel, T) = @vars()
 vars_diffusive(::IntegralTestSphereModel, T) = @vars()
@@ -50,21 +50,17 @@ function init_aux!(m::IntegralTestSphereModel, aux::Vars, g::LocalGeometry)
 
   x,y,z = g.coord
   aux.r = hypot(x, y, z)
-  aux.θ = atan(y , x)
-  aux.ϕ = asin(z / aux.r)
-
+  θ = atan(y, x)
+  ϕ = asin(z / aux.r)
   # Exact integral
-  a = 1 + sin(aux.θ)^2 + sin(aux.ϕ)^2
-  aux.int.v = exp(-a * aux.r^2) - exp(-a * m.Rinner^2)
-  aux.rev_int.v = exp(-a * m.Router^2) - exp(-a * aux.r^2)
+  aux.a = 1 + cos(ϕ)^2 * sin(θ)^2 + sin(ϕ)^2
+  aux.int.v = exp(-aux.a * aux.r^2) - exp(-aux.a * m.Rinner^2)
+  aux.rev_int.v = exp(-aux.a * m.Router^2) - exp(-aux.a * aux.r^2)
 end
 
 @inline function integrate_aux!(m::IntegralTestSphereModel, integrand::Vars, state::Vars, aux::Vars)
-  a = 1 + sin(aux.θ)^2 + sin(aux.ϕ)^2
-  integrand.v = -2aux.r * a * exp(-a * aux.r^2)
+  integrand.v = -2aux.r * aux.a * exp(-aux.a * aux.r^2)
 end
-
-
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -89,9 +85,7 @@ function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
   dQdt = similar(Q)
 
   exact_aux = copy(dg.auxstate)
-
   dg(dQdt, Q, nothing, 0.0)
-  
   euclidean_distance(exact_aux, dg.auxstate)
 end
 
@@ -114,14 +108,13 @@ let
 
   polynomialorder = 4
 
-  expected_result = [6.228615762850257e-7
-                     9.671308320438864e-9
-                     1.5102832678375277e-10
-                     2.359860999112363e-12]
-
+  expected_result = [4.662884229467401e-7,
+                     7.218989778540723e-9,
+                     1.1258613174916711e-10,
+                     1.7587739986848968e-12]
   lvls = integration_testing ? length(expected_result) : 1
 
-  for FT in (Float64,) #Float32)
+  for FT in (Float64,) # Float32)
     err = zeros(FT, lvls)
     for l = 1:lvls
       @info (ArrayType, FT, "sphere", l)
@@ -131,7 +124,7 @@ let
       topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
       err[l] = run(mpicomm, topl, ArrayType, polynomialorder, FT,
                     FT(Rinner), FT(Router))
-      @test expected_result[l] ≈ err[l]
+      @test expected_result[l] ≈ err[l] rtol=1e-3 atol=eps(FT)
     end
     if integration_testing
       @info begin

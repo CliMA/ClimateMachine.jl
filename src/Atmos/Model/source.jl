@@ -72,18 +72,29 @@ struct RayleighSponge{FT} <: Source
 end
 
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-    FT = eltype(state)
-    z = aux.orientation.Φ / grav
-    beta = FT(0)
-    if z >= s.zsponge
-        coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-        #coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
-        beta = coeff_top
-        
-        #coeff_top = s.c_sponge * (1 - cos(pi*(z - s.zsponge)/(s.zmax - s.zsponge)));
-        #beta = min(coeff_top, FT(1))
-    end
-        
-    u = state.ρu / state.ρ
-    source.ρu -= state.ρ * beta * (u - s.u_relaxation)
+  FT = eltype(state)
+  z = altitude(m.orientation, aux)
+  beta = FT(0)
+  if z >= s.zsponge
+      coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+      #coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(2)
+      beta = coeff_top
+      
+      #coeff_top = s.c_sponge * (1 - cos(pi*(z - s.zsponge)/(s.zmax - s.zsponge)));
+      #beta = min(coeff_top, FT(1))
+  end
+      
+  u = state.ρu / state.ρ
+  source.ρu -= state.ρ * beta * (u - s.u_relaxation)
+
+  # TODO: The following code is in master, and needs to be replaced with the above code:
+  # FT = eltype(state)
+  # z = altitude(m.orientation, aux)
+  # coeff = FT(0)
+  # if z >= s.zsponge
+  #   coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+  #   coeff = min(coeff_top, 1.0)
+  # end
+  # source.ρu -= state.ρu * coeff
+
 end

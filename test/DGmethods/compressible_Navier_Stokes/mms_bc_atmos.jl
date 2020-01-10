@@ -107,6 +107,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                        ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
                        NoRadiation(),
+                       NoSubsidence{FT}(),
                        mms2_source!,
                        InitStateBC(),
                        mms2_init_state!)
@@ -116,6 +117,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                        ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
                        NoRadiation(),
+                       NoSubsidence{FT}(),
                        mms3_source!,
                        InitStateBC(),
                        mms3_init_state!)

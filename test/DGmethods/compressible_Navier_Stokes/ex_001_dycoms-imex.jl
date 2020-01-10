@@ -225,7 +225,8 @@ function run(mpicomm,
                      HydrostaticState(Temp,RelHum),
                      SmagorinskyLilly{}(C_smag),
                      EquilMoist(),
-                     StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                     DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                     ConstantSubsidence(D_subsidence),
                      (Gravity(),
                       RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation),
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
@@ -301,7 +302,7 @@ function run(mpicomm,
     end
     if explicit == 1
         Courant_number = 0.2
-        dt             = Courant_number * min_node_distance(dg.grid, VerticalDirection())/soundspeed_air(FT(340))
+        dt             = Courant_number * min_node_distance(dg.grid, VerticalDirection())/FT(340)
         numberofsteps = convert(Int64, cld(timeend, dt))
         dt = timeend / numberofsteps #dt_exp
         @info "EXP timestepper" dt numberofsteps dt*numberofsteps timeend Courant_number
@@ -332,7 +333,7 @@ function run(mpicomm,
         # 1D IMEX
         #
         Courant_number = 0.4
-        dt             = Courant_number * min_node_distance(dg.grid, HorizontalDirection())/soundspeed_air(FT(290))
+        dt             = Courant_number * min_node_distance(dg.grid, HorizontalDirection())/FT(340)
         # dt = 0.01
         numberofsteps = convert(Int64, cld(timeend, dt))
         dt = timeend / numberofsteps #dt_imex
