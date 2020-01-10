@@ -276,6 +276,46 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   end
 end
 
+"""
+    cfl(wavespeed_dt, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+        direction=EveryDirection())
+
+Returns an approximation of the CFL number `(c * Δt)/Δx` where `c` is the wave
+speed of interest.
+
+The function `wavespeed_dt` should compute `c * Δt` given the `state`, `aux`
+and `diffusive` variables.  The `direction` controls which reference
+directions are considered when computing the minimum node distance `Δx`.
+"""
+function cfl(wavespeed_dt, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+             direction=EveryDirection())
+  grid = dg.grid
+  topology = grid.topology
+  nrealelem = length(topology.realelems)
+
+  if nrealelem > 0
+    N = polynomialorder(dg.grid)
+    dim = dimensionality(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    device = grid.vgeo isa Array ? CPU() : CUDA()
+    local_cfl = similar(grid.vgeo, Nq^dim, nrealelem)
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+            Grids.knl_min_neighbor_distance!(Val(N), Val(dim), direction,
+                                             local_cfl, grid.vgeo,
+                                             topology.realelems))
+    @launch(device, threads=(Nq*Nq*Nqk,), blocks=nrealelem,
+            knl_local_cfl!(m, Val(dim), Val(N), local_cfl, wavespeed_dt,
+                           Q.data, dg.auxstate.data, dg.diffstate.data,
+                           topology.realelems))
+    locmax = maximum(local_cfl)
+  else
+    locmax = typemin(eltype(Q))
+  end
+
+  MPI.Allreduce(locmax, max, topology.mpicomm)
+end
+
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
                                 auxstate::MPIStateArray, fldin, fldout)
 

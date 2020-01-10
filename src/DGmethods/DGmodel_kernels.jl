@@ -1080,6 +1080,47 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
   end
 end
 
+function knl_local_cfl!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, local_cfl,
+                        wavespeed_dt, Q, auxstate, diffstate,
+                        elems) where {dim, N}
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+  l_diff = MArray{Tuple{nviscstate}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+
+      @unroll for s = 1:nviscstate
+        l_diff[s] = diffstate[n, s, e]
+      end
+
+      c_dt = wavespeed_dt(bl, Vars{vars_state(bl,FT)}(l_Q),
+                          Vars{vars_aux(bl,FT)}(l_aux),
+                          Vars{vars_diffusive(bl,FT)}(l_diff))
+
+      local_cfl[n, e] = c_dt / local_cfl[n, e]
+    end
+  end
+end
+
 """
     knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
                                             ::Val{nauxstate}, ::Val{nvertelem},
