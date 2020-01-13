@@ -119,11 +119,11 @@ let
 
         Δt = FT(1//2)
 
-        function wavespeed_dt(m::AtmosModel, state::Vars, aux::Vars,
-                              diffusive::Vars)
+        function localcfl(m::AtmosModel, state::Vars, aux::Vars,
+                              diffusive::Vars, Δx)
           u = state.ρu/state.ρ
           return Δt * (norm(u) + soundspeed(m.moisture, m.orientation, state,
-                                            aux))
+                                            aux)) / Δx
         end
 
         Q = init_ode_state(dg, FT(0))
@@ -138,9 +138,9 @@ let
         c_h = Δt*(translation_speed + soundspeed_air(T∞))/Δx_h
         c_v = Δt*(translation_speed + soundspeed_air(T∞))/Δx_v
 
-        @test  c   ≈ cfl(wavespeed_dt, dg, model, Q, EveryDirection())
-        @test  c_h ≈ cfl(wavespeed_dt, dg, model, Q, HorizontalDirection())
-        @test  c_v ≈ cfl(wavespeed_dt, dg, model, Q, VerticalDirection())
+        @test  c   ≈ cfl(localcfl, dg, model, Q, EveryDirection())
+        @test  c_h ≈ cfl(localcfl, dg, model, Q, HorizontalDirection())
+        @test  c_v ≈ cfl(localcfl, dg, model, Q, VerticalDirection())
       end
     end
   end

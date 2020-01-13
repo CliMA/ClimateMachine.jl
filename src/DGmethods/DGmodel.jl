@@ -277,17 +277,24 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
 end
 
 """
-    cfl(wavespeed_dt, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+    cfl(localcfl::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
         direction=EveryDirection())
 
-Returns an approximation of the CFL number `(c * Δt)/Δx` where `c` is the wave
-speed of interest.
-
-The function `wavespeed_dt` should compute `c * Δt` given the `state`, `aux`
-and `diffusive` variables.  The `direction` controls which reference
+Returns the maximum of the evaluation of the function `localcfl` pointwise
+throughout the domain.  The function `localcfl` is given an approximation of
+the local node distance `Δx`.  The `direction` controls which reference
 directions are considered when computing the minimum node distance `Δx`.
+
+An example `localcfl` function is
+
+    function localcfl(m::AtmosModel, state::Vars, aux::Vars, diffusive::Vars,
+                      Δx)
+      return Δt * cmax / Δx
+    end
+
+where `Δt` is the time step size and `cmax` is the maximum speed of the model.
 """
-function cfl(wavespeed_dt::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+function cfl(localcfl::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
              direction=EveryDirection())
   grid = dg.grid
   topology = grid.topology
@@ -299,21 +306,21 @@ function cfl(wavespeed_dt::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArra
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
     device = grid.vgeo isa Array ? CPU() : CUDA()
-    local_cfl = similar(grid.vgeo, Nq^dim, nrealelem)
+    pointwisecfl = similar(grid.vgeo, Nq^dim, nrealelem)
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             Grids.knl_min_neighbor_distance!(Val(N), Val(dim), direction,
-                                             local_cfl, grid.vgeo,
+                                             pointwisecfl, grid.vgeo,
                                              topology.realelems))
     @launch(device, threads=(Nq*Nq*Nqk,), blocks=nrealelem,
-            knl_local_cfl!(m, Val(dim), Val(N), local_cfl, wavespeed_dt,
+            knl_local_cfl!(m, Val(dim), Val(N), pointwisecfl, localcfl,
                            Q.data, dg.auxstate.data, dg.diffstate.data,
                            topology.realelems))
-    locmax = maximum(local_cfl)
+    loccflmax = maximum(pointwisecfl)
   else
-    locmax = typemin(eltype(Q))
+    loccflmax = typemin(eltype(Q))
   end
 
-  MPI.Allreduce(locmax, max, topology.mpicomm)
+  MPI.Allreduce(loccflmax, max, topology.mpicomm)
 end
 
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
