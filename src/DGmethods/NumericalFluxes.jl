@@ -8,7 +8,9 @@ using GPUifyLoops: @unroll
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
                     vars_aux, vars_gradient, boundary_state!, wavespeed,
                     flux_nondiffusive!, flux_diffusive!, diffusive!, num_state,
-                    num_gradient, gradvariables!
+                    num_gradient, gradvariables!,
+                    num_gradient_laplacian, vars_gradient_laplacian,
+                    vars_hyperdiffusive, hyperdiffusive!
 
 """
     GradNumericalPenalty
@@ -23,39 +25,31 @@ Any `P <: GradNumericalPenalty` should define methods for:
 """
 abstract type GradNumericalPenalty end
 
-function diffusive_penalty! end
-function diffusive_boundary_penalty! end
-
 """
     CentralGradPenalty <: GradNumericalPenalty
 
 """
 struct CentralGradPenalty <: GradNumericalPenalty end
 
-function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
-                            VF, nM, diffM, QM, aM, diffP, QP, aP, t)
-  FT = eltype(QM)
+function gradient_penalty!(::CentralGradPenalty, bl::BalanceLaw,
+                           grad_penalty, nM, GM, GP)
+  FT = eltype(GM)
 
   @inbounds begin
     ndim = 3
     ngradstate = num_gradient(bl,FT)
-    n_Δdiff = similar(VF, Size(ndim, ngradstate))
     @unroll for j = 1:ngradstate
       @unroll for i = 1:ndim
-        n_Δdiff[i, j] = nM[i] * (diffP[j] - diffM[j]) / 2
+        grad_penalty[i, j] = nM[i] * (GP[j] - GM[j]) / 2
       end
     end
-    diffusive!(bl, Vars{vars_diffusive(bl,FT)}(VF),
-               Grad{vars_gradient(bl,FT)}(n_Δdiff),
-               Vars{vars_state(bl,FT)}(QM), Vars{vars_aux(bl,FT)}(aM),
-               t)
   end
 end
 
-function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
-                                     VF, nM, diffM, QM, aM, diffP, QP, aP,
-                                     bctype, t, Q1, aux1)
-  FT = eltype(diffP)
+function gradient_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
+                                    grad_penalty, nM, GM, QM, aM, GP, QP, aP,
+                                    bctype, t, Q1, aux1)
+  FT = eltype(GP)
   boundary_state!(nf, bl, Vars{vars_state(bl,FT)}(QP),
                   Vars{vars_aux(bl,FT)}(aP), nM,
                   Vars{vars_state(bl,FT)}(QM),
@@ -63,13 +57,12 @@ function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
                   Vars{vars_state(bl,FT)}(Q1),
                   Vars{vars_aux(bl,FT)}(aux1))
 
-  gradvariables!(bl, Vars{vars_gradient(bl,FT)}(diffP),
+  gradvariables!(bl, Vars{vars_gradient(bl,FT)}(GP),
                  Vars{vars_state(bl,FT)}(QP),
                  Vars{vars_aux(bl,FT)}(aP), t)
 
-  diffusive_penalty!(nf, bl, VF, nM, diffM, QM, aM, diffP, QP, aP, t)
+  gradient_penalty!(nf, bl, grad_penalty, nM, GM, GP)
 end
-
 
 """
     NumericalFluxNonDiffusive
@@ -262,11 +255,10 @@ Requires a `flux_diffusive!` for the balance law.
 """
 struct CentralNumericalFluxDiffusive <: NumericalFluxDiffusive end
 
-
 function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                    bl::BalanceLaw, F::MArray, nM,
-                                   QM, QVM, auxM,
-                                   QP, QVP, auxP,
+                                   QM, QVM, QHVM, auxM,
+                                   QP, QVP, QHVP, auxP,
                                    t)
   FT = eltype(F)
   nstate = num_state(bl,FT)
@@ -276,6 +268,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   flux_diffusive!(bl, Grad{vars_state(bl,FT)}(FM),
                   Vars{vars_state(bl,FT)}(QM),
                   Vars{vars_diffusive(bl,FT)}(QVM),
+                  Vars{vars_hyperdiffusive(bl,FT)}(QHVM),
                   Vars{vars_aux(bl,FT)}(auxM), t)
 
   FP = similar(F, Size(3, nstate))
@@ -283,6 +276,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   flux_diffusive!(bl, Grad{vars_state(bl,FT)}(FP),
                   Vars{vars_state(bl,FT)}(QP),
                   Vars{vars_diffusive(bl,FT)}(QVP),
+                  Vars{vars_hyperdiffusive(bl,FT)}(QHVP),
                   Vars{vars_aux(bl,FT)}(auxP), t)
 
   @unroll for s = 1:nstate
@@ -291,5 +285,73 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   end
 end
 
+abstract type DivNumericalPenalty end
+struct CentralDivPenalty <: DivNumericalPenalty end
+
+function divergence_penalty!(::CentralDivPenalty, bl::BalanceLaw,
+                             div_penalty, nM, gradM, gradP)
+  FT = eltype(gradM)
+  @inbounds begin
+    ndim = 3
+    ngradlapstate = num_gradient_laplacian(bl,FT)
+    @unroll for j = 1:ngradlapstate
+      div_penalty[j] = zero(FT)
+      @unroll for i = 1:ndim
+        div_penalty[j] += nM[i] * (gradP[j, i] - gradM[j, i]) / 2
+      end
+    end
+  end
+end
+
+function divergence_boundary_penalty!(nf::CentralDivPenalty, bl::BalanceLaw,
+                                      div_penalty, nM, gradM, gradP, bctype)
+  FT = eltype(gradM)
+  boundary_state!(nf, bl,
+                  Grad{vars_gradient_laplacian(bl,FT)}(gradP),
+                  nM,
+                  Grad{vars_gradient_laplacian(bl,FT)}(gradM),
+                  bctype)
+  divergence_penalty!(nf, bl, div_penalty, nM, gradM, gradP)
+end
+
+abstract type GradNumericalFlux end
+struct CentralHyperDiffusiveFlux <: GradNumericalFlux end
+
+function numerical_flux_hyperdiffusive!(::CentralHyperDiffusiveFlux, bl::BalanceLaw,
+                                        HVF, nM, lapM, QM, aM, lapP, QP, aP, t)
+  FT = eltype(lapM)
+  @inbounds begin
+    ndim = 3
+    ngradlapstate = num_gradient_laplacian(bl,FT)
+    n_Δdiff = similar(HVF, Size(ndim, ngradlapstate))
+    @unroll for j = 1:ngradlapstate
+      @unroll for i = 1:ndim
+        n_Δdiff[i, j] = nM[i] * (lapM[j] + lapP[j]) / 2
+      end
+    end
+    hyperdiffusive!(bl, Vars{vars_hyperdiffusive(bl,FT)}(HVF),
+                    Grad{vars_gradient_laplacian(bl,FT)}(n_Δdiff),
+                    Vars{vars_state(bl,FT)}(QM),
+                    Vars{vars_aux(bl,FT)}(aM),
+                    t)
+  end
+end
+
+function numerical_boundary_flux_hyperdiffusive!(nf::CentralHyperDiffusiveFlux, bl::BalanceLaw,
+                                                 HVF, nM, lapM, QM, aM, lapP, QP, aP,
+                                                 bctype, t)
+  FT = eltype(lapM)
+  boundary_state!(nf, bl,
+                  Vars{vars_state(bl,FT)}(QP),
+                  Vars{vars_aux(bl,FT)}(aP),
+                  Vars{vars_gradient_laplacian(bl,FT)}(lapP),
+                  nM,
+                  Vars{vars_state(bl,FT)}(QM),
+                  Vars{vars_aux(bl,FT)}(aM),
+                  Vars{vars_gradient_laplacian(bl,FT)}(lapM),
+                  bctype, t)
+  numerical_flux_hyperdiffusive!(nf, bl, HVF,
+                                 nM, lapM, QM, aM, lapP, QP, aP, t)
+end
 
 end

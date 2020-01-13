@@ -34,13 +34,17 @@ abstract type BalanceLaw end # PDE part
 function vars_state end
 function vars_aux end
 function vars_gradient end
+vars_gradient_laplacian(::BalanceLaw, FT) = @vars()
 function vars_diffusive end
+vars_hyperdiffusive(::BalanceLaw, FT) = @vars()
 vars_integrals(::BalanceLaw, FT) = @vars()
 
 num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
 num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate
 num_gradient(m::BalanceLaw, FT) = varsize(vars_gradient(m,FT))  # number_gradient_states
+num_gradient_laplacian(m::BalanceLaw, FT) = varsize(vars_gradient_laplacian(m,FT))
 num_diffusive(m::BalanceLaw, FT) = varsize(vars_diffusive(m,FT)) # number_viscous_states
+num_hyperdiffusive(m::BalanceLaw, FT) = varsize(vars_hyperdiffusive(m,FT))
 num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m,FT))
 
 function update_aux! end
@@ -49,6 +53,7 @@ function flux_nondiffusive! end
 function flux_diffusive! end
 function gradvariables! end
 function diffusive! end
+function hyperdiffusive! end
 function source! end 
 function wavespeed end
 function boundary_state! end
@@ -137,4 +142,41 @@ function create_diffstate(bl, grid, commtag=111)
                                 weights=weights, commtag=commtag)
 
   return diffstate
+end
+
+function create_hyperdiffstate(bl, grid, commtag=333)
+  topology = grid.topology
+  Np = dofs_per_element(grid)
+
+  h_vgeo = Array(grid.vgeo)
+  FT = eltype(h_vgeo)
+  DA = arraytype(grid)
+
+  weights = view(h_vgeo, :, grid.Mid, :)
+  weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
+
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+  # TODO: Clean up this MPIStateArray interface...
+  Qhypervisc_grad = MPIStateArray{FT}(topology.mpicomm, DA, Np, 3ngradlapstate,
+                                      length(topology.elems),
+                                      realelems=topology.realelems,
+                                      ghostelems=topology.ghostelems,
+                                      vmaprecv=grid.vmaprecv,
+                                      vmapsend=grid.vmapsend,
+                                      nabrtorank=topology.nabrtorank,
+                                      nabrtovmaprecv=grid.nabrtovmaprecv,
+                                      nabrtovmapsend=grid.nabrtovmapsend,
+                                      weights=weights, commtag=commtag)
+
+  Qhypervisc_div = MPIStateArray{FT}(topology.mpicomm, DA, Np, ngradlapstate,
+                                     length(topology.elems),
+                                     realelems=topology.realelems,
+                                     ghostelems=topology.ghostelems,
+                                     vmaprecv=grid.vmaprecv,
+                                     vmapsend=grid.vmapsend,
+                                     nabrtorank=topology.nabrtorank,
+                                     nabrtovmaprecv=grid.nabrtovmaprecv,
+                                     nabrtovmapsend=grid.nabrtovmapsend,
+                                     weights=weights, commtag=commtag + 111)
+  return Qhypervisc_grad, Qhypervisc_div
 end

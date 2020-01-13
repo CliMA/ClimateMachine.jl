@@ -1,10 +1,17 @@
-using .NumericalFluxes: GradNumericalPenalty, diffusive_boundary_penalty!,
-                        diffusive_penalty!,
-                        NumericalFluxNonDiffusive, NumericalFluxDiffusive,
+using .NumericalFluxes: GradNumericalPenalty,
+                        NumericalFluxNonDiffusive,
+                        NumericalFluxDiffusive,
                         numerical_flux_nondiffusive!,
                         numerical_boundary_flux_nondiffusive!,
                         numerical_flux_diffusive!,
-                        numerical_boundary_flux_diffusive!
+                        numerical_boundary_flux_diffusive!,
+                        gradient_boundary_penalty!,
+                        gradient_penalty!,
+                        divergence_penalty!,
+                        divergence_boundary_penalty!,
+                        divergence_penalty!,
+                        numerical_boundary_flux_hyperdiffusive!,
+                        numerical_flux_hyperdiffusive!
 
 using ..Mesh.Geometry
 using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
@@ -36,13 +43,16 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 See [`odefun!`](@ref) for usage.
 """
 function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
-                    rhs, Q, Qvisc, auxstate, vgeo, t,
+                    rhs, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, t,
                     ω, D, elems, increment) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
+  
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+  nhyperviscstate = num_hyperdiffusive(bl,FT)
 
   Nq = N + 1
 
@@ -56,6 +66,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
   source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
   l_Q = @scratch FT (nstate, Nq, Nq, Nqk) 3
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_Qhypervisc = MArray{Tuple{3ngradlapstate}, FT}(undef)
   l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
   l_F = MArray{Tuple{3, nstate}, FT}(undef)
   l_M = @scratch FT (Nq, Nq, Nqk) 3
@@ -189,11 +200,16 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           @unroll for s = 1:nviscstate
             l_Qvisc[s] = Qvisc[ijk, s, e]
           end
+          
+          @unroll for s = 1:3ngradlapstate
+            l_Qhypervisc[s] = Qhypervisc_grad[ijk, s, e]
+          end
 
           fill!(l_F, -zero(eltype(l_F)))
           flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
                           Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                           Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                          Vars{vars_hyperdiffusive(bl,FT)}(l_Qhypervisc),
                           Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nstate
@@ -384,6 +400,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           @unroll for s = 1:nviscstate
             l_Qvisc[s] = Qvisc[ijk, s, e]
           end
+          
 
           fill!(l_F, -zero(eltype(l_F)))
           flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
@@ -458,13 +475,14 @@ See [`odefun!`](@ref) for usage.
 function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                   numfluxnondiff::NumericalFluxNonDiffusive,
                   numfluxdiff::NumericalFluxDiffusive,
-                  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                  rhs, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                   elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
 
   if dim == 1
     Np = (N+1)
@@ -492,6 +510,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
   l_QM = MArray{Tuple{nstate}, FT}(undef)
   l_QviscM = MArray{Tuple{nviscstate}, FT}(undef)
+  l_QhyperviscM = MArray{Tuple{3ngradlapstate}, FT}(undef)
   l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
 
   # Need two copies since numerical_flux_nondiffusive! can modify QP
@@ -503,6 +522,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
   l_auxPdiff = MArray{Tuple{nauxstate}, FT}(undef)
 
   l_QviscP = MArray{Tuple{nviscstate}, FT}(undef)
+  l_QhyperviscP = MArray{Tuple{3ngradlapstate}, FT}(undef)
 
 
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
@@ -529,6 +549,10 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
         @unroll for s = 1:nviscstate
           l_QviscM[s] = Qvisc[vidM, s, eM]
         end
+        
+        @unroll for s = 1:3ngradlapstate
+          l_QhyperviscM[s] = Qhypervisc_grad[vidM, s, eM]
+        end
 
         @unroll for s = 1:nauxstate
           l_auxM[s] = auxstate[vidM, s, eM]
@@ -542,6 +566,10 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
         @unroll for s = 1:nviscstate
           l_QviscP[s] = Qvisc[vidP, s, eP]
         end
+        
+        @unroll for s = 1:3ngradlapstate
+          l_QhyperviscP[s] = Qhypervisc_grad[vidP, s, eP]
+        end
 
         @unroll for s = 1:nauxstate
           l_auxPdiff[s] = l_auxPnondiff[s] = auxstate[vidP, s, eP]
@@ -552,29 +580,29 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
         if bctype == 0
           numerical_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM, l_QM,
                                        l_auxM, l_QPnondiff, l_auxPnondiff, t)
-          numerical_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM, l_QviscM,
-                                    l_auxM, l_QPdiff, l_QviscP, l_auxPdiff, t)
+          numerical_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM, l_QviscM, l_QhyperviscM,
+                                    l_auxM, l_QPdiff, l_QviscP, l_QhyperviscP, l_auxPdiff, t)
         else
-          if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-            # Loop up the first element along all horizontal elements
-            @unroll for s = 1:nstate
-              l_Q_bot1[s] = Q[n + Nqk^2, s, e]
-            end
-            @unroll for s = 1:nviscstate
-              l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e]
-            end
-            @unroll for s = 1:nauxstate
-              l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
-            end
-          end
-          numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM,
-                                                l_QM, l_auxM, l_QPnondiff,
-                                                l_auxPnondiff, bctype, t,
-                                                l_Q_bot1, l_aux_bot1)
-          numerical_boundary_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM,
-                                             l_QviscM, l_auxM, l_QPdiff,
-                                             l_QviscP, l_auxPdiff, bctype, t,
-                                             l_Q_bot1, l_Qvisc_bot1, l_aux_bot1)
+        #  if (dim == 2 && f == 3) || (dim == 3 && f == 5)
+        #    # Loop up the first element along all horizontal elements
+        #    @unroll for s = 1:nstate
+        #      l_Q_bot1[s] = Q[n + Nqk^2, s, e]
+        #    end
+        #    @unroll for s = 1:nviscstate
+        #      l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e]
+        #    end
+        #    @unroll for s = 1:nauxstate
+        #      l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
+        #    end
+        #  end
+        #  numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM,
+        #                                        l_QM, l_auxM, l_QPnondiff,
+        #                                        l_auxPnondiff, bctype, t,
+        #                                        l_Q_bot1, l_aux_bot1)
+        #  numerical_boundary_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM,
+        #                                     l_QviscM, l_auxM, l_QPdiff,
+        #                                     l_QviscP, l_auxPdiff, bctype, t,
+        #                                     l_Q_bot1, l_Qvisc_bot1, l_aux_bot1)
         end
 
         #Update RHS
@@ -591,13 +619,14 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                          ::direction, Q, Qvisc, auxstate, vgeo, t, D,
+                          ::direction, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, t, D,
                           elems) where {dim, polyorder, direction}
   N = polyorder
 
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
 
@@ -689,12 +718,20 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             end
           end
 
-          fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
-          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc), Grad{vars_gradient(bl,FT)}(l_gradG),
-                     Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+          @unroll for s = 1:ngradlapstate
+            Qhypervisc_grad[ijk, 3(s - 1) + 1, e] = l_gradG[1, s]
+            Qhypervisc_grad[ijk, 3(s - 1) + 2, e] = l_gradG[2, s]
+            Qhypervisc_grad[ijk, 3(s - 1) + 3, e] = l_gradG[3, s]
+          end
 
-          @unroll for s = 1:nviscstate
-            Qvisc[ijk, s, e] = l_Qvisc[s]
+          if nviscstate > 0
+            fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
+            diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc), Grad{vars_gradient(bl,FT)}(l_gradG),
+                       Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+
+            @unroll for s = 1:nviscstate
+              Qvisc[ijk, s, e] = l_Qvisc[s]
+            end
           end
         end
       end
@@ -806,13 +843,15 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                        ::direction, gradnumpenalty::GradNumericalPenalty, Q,
-                        Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                        ::direction,
+                        gradnumpenalty::GradNumericalPenalty,
+                        Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
 
@@ -850,6 +889,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   l_GP = MArray{Tuple{ngradstate}, FT}(undef)
 
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_gradG = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
   l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
@@ -895,8 +935,14 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
-          diffusive_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM, l_QM,
-                             l_auxM, l_GP, l_QP, l_auxP, t)
+          gradient_penalty!(gradnumpenalty, bl, l_gradG,
+                            nM, l_GM, l_GP)
+          if nviscstate > 0
+            diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                       Grad{vars_gradient(bl,FT)}(l_gradG),
+                       Vars{vars_state(bl,FT)}(QM), Vars{vars_aux(bl,FT)}(aM),
+                       t)
+          end
         else
           if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
@@ -907,11 +953,23 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          diffusive_boundary_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM,
-                                      l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype,
-                                      t, l_Q_bot1, l_aux_bot1)
+          gradient_boundary_penalty!(gradnumpenalty, bl, l_gradG, nM, l_GM,
+                                     l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype,
+                                     t, l_Q_bot1, l_aux_bot1)
+          if nviscstate > 0
+            diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                       Grad{vars_gradient(bl,FT)}(l_gradG),
+                       Vars{vars_state(bl,FT)}(QM), Vars{vars_aux(bl,FT)}(aM),
+                       t)
+          end
         end
 
+        @unroll for s = 1:ngradlapstate
+          Qhypervisc_grad[vidM, 3(s - 1) + 1, eM] += vMI * sM * l_gradG[1, s]
+          Qhypervisc_grad[vidM, 3(s - 1) + 2, eM] += vMI * sM * l_gradG[2, s]
+          Qhypervisc_grad[vidM, 3(s - 1) + 3, eM] += vMI * sM * l_gradG[3, s]
+        end
+        
         @unroll for s = 1:nviscstate
           Qvisc[vidM, s, eM] += vMI * sM * l_Qvisc[s]
         end
@@ -1215,6 +1273,422 @@ function knl_copy_stack_field_down!(::Val{dim}, ::Val{N}, ::Val{nvertelem},
           end
         end
       end
+    end
+  end
+  nothing
+end
+
+function volumedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+                                        ::direction, Qhypervisc_grad, Qhypervisc_div, vgeo, D,
+                                        elems) where {dim, polyorder, direction}
+  N = polyorder
+  FT = eltype(Qhypervisc_grad)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  s_grad = @shmem FT (Nq, Nq, Nqk, ngradlapstate, 3)
+  s_D = @shmem FT (Nq, Nq)
+
+  l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
+
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_D[i, j] = D[i, j]
+      end
+    end
+  end
+
+  @inbounds @views @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          @unroll for s = 1:ngradlapstate
+            s_grad[i, j, k, s, 1] = Qhypervisc_grad[ijk, 3(s - 1) + 1, e]
+            s_grad[i, j, k, s, 2] = Qhypervisc_grad[ijk, 3(s - 1) + 2, e]
+            s_grad[i, j, k, s, 3] = Qhypervisc_grad[ijk, 3(s - 1) + 3, e]
+          end
+        end
+      end
+    end
+    @synchronize
+
+    # Compute divergence of the gradient of each state
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          ξ1x1, ξ1x2, ξ1x3 = vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
+          if dim == 3 || (dim == 2 && direction == EveryDirection)
+            ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
+          end
+          if dim == 3 && direction == EveryDirection
+            ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
+          end
+
+          @unroll for s = 1:ngradlapstate
+            g1ξ1 = g1ξ2 = g1ξ3 = zero(FT)
+            g2ξ1 = g2ξ2 = g2ξ3 = zero(FT)
+            g3ξ1 = g3ξ2 = g3ξ3 = zero(FT)
+            @unroll for n = 1:Nq
+              Din = s_D[i, n] 
+              g1ξ1 += Din * s_grad[n, j, k, s, 1]
+              g2ξ1 += Din * s_grad[n, j, k, s, 2]
+              g3ξ1 += Din * s_grad[n, j, k, s, 3]
+              if dim == 3 || (dim == 2 && direction == EveryDirection)
+                Djn = s_D[j, n] 
+                g1ξ2 += Djn * s_grad[i, n, k, s, 1]
+                g2ξ2 += Djn * s_grad[i, n, k, s, 2]
+                g3ξ2 += Djn * s_grad[i, n, k, s, 3]
+              end
+              if dim == 3 && direction == EveryDirection
+                Dkn = s_D[k, n] 
+                g1ξ3 += Dkn * s_grad[i, j, n, s, 1]
+                g2ξ3 += Dkn * s_grad[i, j, n, s, 2]
+                g3ξ3 += Dkn * s_grad[i, j, n, s, 3]
+              end
+            end
+            l_div[s] = ξ1x1 * g1ξ1 + ξ1x2 * g2ξ1 + ξ1x3 * g3ξ1
+
+            if dim == 3 || (dim == 2 && direction == EveryDirection)
+              l_div[s] += ξ2x1 * g1ξ2 + ξ2x2 * g2ξ2 + ξ2x3 * g3ξ2
+            end
+
+            if dim == 3 && direction == EveryDirection
+              l_div[s] += ξ3x1 * g1ξ3 + ξ3x2 * g2ξ3 + ξ3x3 * g3ξ3
+            end
+          end
+
+          @unroll for s = 1:ngradlapstate
+            Qhypervisc_div[ijk, s, e] = l_div[s]
+          end
+        end
+      end
+    end
+    @synchronize
+  end
+end
+
+function facedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+                                      ::direction,
+                                      divgradnumpenalty,
+                                      Qhypervisc_grad, Qhypervisc_div, vgeo, sgeo, vmapM, vmapP,
+                                      elemtobndy, elems) where {dim, polyorder, direction}
+  N = polyorder
+  FT = eltype(Qhypervisc_grad)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+
+  if dim == 1
+    Np = (N+1)
+    Nfp = 1
+    nface = 2
+  elseif dim == 2
+    Np = (N+1) * (N+1)
+    Nfp = (N+1)
+    nface = 4
+  elseif dim == 3
+    Np = (N+1) * (N+1) * (N+1)
+    Nfp = (N+1) * (N+1)
+    nface = 6
+  end
+
+  faces = 1:nface
+  if direction == VerticalDirection
+    faces = nface-1:nface
+  elseif direction == HorizontalDirection
+    faces = 1:nface-2
+  end
+
+  Nqk = dim == 2 ? 1 : N+1
+
+  l_gradM = MArray{Tuple{ngradlapstate, 3}, FT}(undef)
+  l_gradP = MArray{Tuple{ngradlapstate, 3}, FT}(undef)
+  l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    for f in faces
+      @loop for n in (1:Nfp; threadIdx().x)
+        nM = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
+        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
+        idM, idP = vmapM[n, f, e], vmapP[n, f, e]
+
+        eM, eP = e, ((idP - 1) ÷ Np) + 1
+        vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
+
+        # Load minus side data
+        @unroll for s = 1:ngradlapstate
+          l_gradM[s, 1] = Qhypervisc_grad[vidM, 3(s - 1) + 1, eM]
+          l_gradM[s, 2] = Qhypervisc_grad[vidM, 3(s - 1) + 2, eM]
+          l_gradM[s, 3] = Qhypervisc_grad[vidM, 3(s - 1) + 3, eM]
+        end
+
+        # Load plus side data
+        @unroll for s = 1:ngradlapstate
+          l_gradP[s, 1] = Qhypervisc_grad[vidP, 3(s - 1) + 1, eP]
+          l_gradP[s, 2] = Qhypervisc_grad[vidP, 3(s - 1) + 2, eP]
+          l_gradP[s, 3] = Qhypervisc_grad[vidP, 3(s - 1) + 3, eP]
+        end
+
+        bctype = elemtobndy[f, e]
+        if bctype == 0
+          divergence_penalty!(divgradnumpenalty, bl, l_div,
+                              nM, l_gradM, l_gradP)
+        else
+          divergence_boundary_penalty!(divgradnumpenalty, bl, l_div,
+                                       nM, l_gradM, l_gradP, bctype)
+        end
+
+        @unroll for s = 1:ngradlapstate
+          Qhypervisc_div[vidM, s, eM] += vMI * sM * l_div[s]
+        end
+      end
+      # Need to wait after even faces to avoid race conditions
+      f % 2 == 0 && @synchronize
+    end
+  end
+  nothing
+end
+
+function volumehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+                                      ::direction,
+                                      Qhypervisc_grad, Qhypervisc_div,
+                                      Q, auxstate,
+                                      vgeo, D, elems, t) where {dim, polyorder, direction}
+  N = polyorder
+
+  FT = eltype(Qhypervisc_grad)
+  nstate = num_state(bl,FT)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+  nhyperviscstate = num_hyperdiffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
+  ngradtransformstate = nstate
+
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  s_lap = @shmem FT (Nq, Nq, Nqk, ngradlapstate)
+  s_D = @shmem FT (Nq, Nq)
+  l_Q = @scratch FT (ngradtransformstate, Nq, Nq, Nqk) 3
+  l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
+
+  l_grad_lap = MArray{Tuple{3, ngradlapstate}, FT}(undef)
+  l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
+
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_D[i, j] = D[i, j]
+      end
+    end
+  end
+
+  @inbounds @views @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          
+          @unroll for s = 1:ngradtransformstate
+            l_Q[s, i, j, k] = Q[ijk, s, e]
+          end
+
+          @unroll for s = 1:nauxstate
+            l_aux[s, i, j, k] = auxstate[ijk, s, e]
+          end
+
+          @unroll for s = 1:ngradlapstate
+            s_lap[i, j, k, s] = Qhypervisc_div[ijk, s, e]
+          end
+        end
+      end
+    end
+    @synchronize
+
+    # Compute gradient of each state
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+
+          @unroll for s = 1:ngradlapstate
+            lap_ξ1x1 = lap_ξ2x1 = lap_ξ3x1 = zero(FT)
+            lap_ξ1x2 = lap_ξ2x2 = lap_ξ3x2 = zero(FT)
+            lap_ξ1x3 = lap_ξ2x3 = lap_ξ3x3 = zero(FT)
+            @unroll for n = 1:Nq
+              njk = n + Nq * ((j-1) + Nq * (k-1))
+              M = vgeo[njk, _M, e]
+              ξ1x1 = vgeo[njk, _ξ1x1, e]
+              ξ1x2 = vgeo[njk, _ξ1x2, e]
+              ξ1x3 = vgeo[njk, _ξ1x3, e]
+              Dni = s_D[n, i]
+              lap_njk = s_lap[n, j, k, s] 
+              lap_ξ1x1 += ξ1x1 * M * Dni * lap_njk
+              lap_ξ1x2 += ξ1x2 * M * Dni * lap_njk
+              lap_ξ1x3 += ξ1x3 * M * Dni * lap_njk
+              if dim == 3 || (dim == 2 && direction == EveryDirection)
+                ink = i + Nq * ((n-1) + Nq * (k-1))
+                M = vgeo[ink, _M, e]
+                ξ2x1 = vgeo[ink, _ξ2x1, e]
+                ξ2x2 = vgeo[ink, _ξ2x2, e]
+                ξ2x3 = vgeo[ink, _ξ2x3, e]
+                Dnj = s_D[n, j]
+                lap_ink = s_lap[i, n, k, s] 
+                lap_ξ2x1 += ξ2x1 * M * Dnj * lap_ink
+                lap_ξ2x2 += ξ2x2 * M * Dnj * lap_ink
+                lap_ξ2x3 += ξ2x3 * M * Dnj * lap_ink
+              end
+              if dim == 3 && direction == EveryDirection
+                ijn = i + Nq * ((j-1) + Nq * (n-1))
+                M = vgeo[ijn, _M, e]
+                ξ3x1 = vgeo[ijn, _ξ3x1, e]
+                ξ3x2 = vgeo[ijn, _ξ3x2, e]
+                ξ3x3 = vgeo[ijn, _ξ3x3, e]
+                Dnk = s_D[n, k]
+                lap_ijn = s_lap[i, j, n, s] 
+                lap_ξ3x1 += ξ3x1 * M * Dnk * lap_ijn
+                lap_ξ3x2 += ξ3x2 * M * Dnk * lap_ijn
+                lap_ξ3x3 += ξ3x3 * M * Dnk * lap_ijn
+              end
+            end
+            
+            MI = vgeo[ijk, _MI, e]
+            l_grad_lap[1, s] = -MI * lap_ξ1x1
+            l_grad_lap[2, s] = -MI * lap_ξ1x2
+            l_grad_lap[3, s] = -MI * lap_ξ1x3
+
+            if dim == 3 || (dim == 2 && direction == EveryDirection)
+              l_grad_lap[1, s] -= MI * lap_ξ2x1
+              l_grad_lap[2, s] -= MI * lap_ξ2x2
+              l_grad_lap[3, s] -= MI * lap_ξ2x3
+            end
+
+            if dim == 3 && direction == EveryDirection
+              l_grad_lap[1, s] -= MI * lap_ξ3x1
+              l_grad_lap[2, s] -= MI * lap_ξ3x2
+              l_grad_lap[3, s] -= MI * lap_ξ3x3
+            end
+          end
+
+          fill!(l_Qhypervisc, -zero(eltype(l_Qhypervisc)))
+          hyperdiffusive!(bl,
+                          Vars{vars_hyperdiffusive(bl,FT)}(l_Qhypervisc),
+                          Grad{vars_gradient_laplacian(bl,FT)}(l_grad_lap),
+                          Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                          t)
+          @unroll for s = 1:nhyperviscstate
+            Qhypervisc_grad[ijk, s, e] = l_Qhypervisc[s]
+          end
+        end
+      end
+    end
+    @synchronize
+  end
+end
+
+function facehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+                                    ::direction,
+                                    hyperviscnumflux,
+                                    Qhypervisc_grad, Qhypervisc_div,
+                                    Q, auxstate,
+                                    vgeo, sgeo, vmapM, vmapP,
+                                    elemtobndy, elems, t) where {dim, polyorder, direction}
+  N = polyorder
+  FT = eltype(Qhypervisc_grad)
+  nstate = num_state(bl,FT)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+  nhyperviscstate = num_hyperdiffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
+  ngradtransformstate = nstate
+
+  if dim == 1
+    Np = (N+1)
+    Nfp = 1
+    nface = 2
+  elseif dim == 2
+    Np = (N+1) * (N+1)
+    Nfp = (N+1)
+    nface = 4
+  elseif dim == 3
+    Np = (N+1) * (N+1) * (N+1)
+    Nfp = (N+1) * (N+1)
+    nface = 6
+  end
+
+  faces = 1:nface
+  if direction == VerticalDirection
+    faces = nface-1:nface
+  elseif direction == HorizontalDirection
+    faces = 1:nface-2
+  end
+
+  Nqk = dim == 2 ? 1 : N+1
+
+  l_lapM = MArray{Tuple{ngradlapstate}, FT}(undef)
+  l_lapP = MArray{Tuple{ngradlapstate}, FT}(undef)
+  l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
+  
+  l_QM = MArray{Tuple{ngradtransformstate}, FT}(undef)
+  l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
+
+  l_QP = MArray{Tuple{ngradtransformstate}, FT}(undef)
+  l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    for f in faces
+      @loop for n in (1:Nfp; threadIdx().x)
+        nM = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
+        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
+        idM, idP = vmapM[n, f, e], vmapP[n, f, e]
+
+        eM, eP = e, ((idP - 1) ÷ Np) + 1
+        vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
+
+        # Load minus side data
+        @unroll for s = 1:ngradtransformstate
+          l_QM[s] = Q[vidM, s, eM]
+        end
+        
+        @unroll for s = 1:nauxstate
+          l_auxM[s] = auxstate[vidM, s, eM]
+        end
+
+        @unroll for s = 1:ngradlapstate
+          l_lapM[s] = Qhypervisc_div[vidM, s, eM]
+        end
+
+        # Load plus side data
+        @unroll for s = 1:ngradtransformstate
+          l_QP[s] = Q[vidP, s, eP]
+        end
+        
+        @unroll for s = 1:nauxstate
+          l_auxP[s] = auxstate[vidP, s, eP]
+        end
+
+        @unroll for s = 1:ngradlapstate
+          l_lapP[s] = Qhypervisc_div[vidP, s, eP]
+        end
+
+        bctype = elemtobndy[f, e]
+        if bctype == 0
+          numerical_flux_hyperdiffusive!(hyperviscnumflux, bl, l_Qhypervisc,
+                                         nM, l_lapM, l_QM, l_auxM, l_lapP, l_QP, l_auxP, t)
+        else
+          numerical_boundary_flux_hyperdiffusive!(hyperviscnumflux, bl, l_Qhypervisc,
+                                                  nM, l_lapM, l_QM, l_auxM, l_lapP, l_QP, l_auxP, bctype, t)
+        end
+        
+        @unroll for s = 1:nhyperviscstate
+          Qhypervisc_grad[vidM, s, eM] += vMI * sM * l_Qhypervisc[s]
+        end
+      end
+      # Need to wait after even faces to avoid race conditions
+      f % 2 == 0 && @synchronize
     end
   end
   nothing

@@ -1,4 +1,8 @@
-struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D,MD}
+using .NumericalFluxes: CentralHyperDiffusiveFlux, CentralDivPenalty
+using LinearAlgebra
+using ..Mesh.Grids
+
+struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,HDS,D,MD}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
@@ -6,15 +10,18 @@ struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D,MD}
   gradnumflux::GNF
   auxstate::AS
   diffstate::DS
+  hyperdiffstate::HDS
   direction::D
   modeldata::MD
 end
 function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
                  auxstate=create_auxstate(balancelaw, grid),
                  diffstate=create_diffstate(balancelaw, grid),
+                 hyperdiffstate=create_hyperdiffstate(balancelaw, grid),
                  direction=EveryDirection(), modeldata=nothing)
-  DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
-          diffstate, direction, modeldata)
+  DGModel(balancelaw, grid,
+          numfluxnondiff, numfluxdiff, gradnumflux,
+          auxstate, diffstate, hyperdiffstate, direction, modeldata)
 end
 
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
@@ -32,10 +39,12 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   nrealelem = length(topology.realelems)
 
   Qvisc = dg.diffstate
+  Qhypervisc_grad, Qhypervisc_div = dg.hyperdiffstate
   auxstate = dg.auxstate
 
   FT = eltype(Q)
   nviscstate = num_diffusive(bl, FT)
+  nhyperviscstate = num_hyperdiffusive(bl, FT)
 
   lgl_weights_vec = grid.ω
   Dmat = grid.D
@@ -61,11 +70,11 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     MPIStateArrays.start_ghost_exchange!(auxstate)
   end
 
-  if nviscstate > 0
+  if nviscstate > 0 || nhyperviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             volumeviscterms!(bl, Val(dim), Val(polyorder), dg.direction, Q.data,
-                             Qvisc.data, auxstate.data, vgeo, t, Dmat,
+                             Qvisc.data, Qhypervisc_grad.data, auxstate.data, vgeo, t, Dmat,
                              topology.realelems))
 
     if communicate
@@ -75,11 +84,60 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
             faceviscterms!(bl, Val(dim), Val(polyorder), dg.direction,
-                           dg.gradnumflux, Q.data, Qvisc.data, auxstate.data,
+                           dg.gradnumflux,
+                           Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
 
-    communicate && MPIStateArrays.start_ghost_exchange!(Qvisc)
+    if communicate
+      nviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qvisc)
+      nhyperviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
+    end
+  end
+
+  if nhyperviscstate > 0
+    #########################
+    # Laplacian Computation #
+    #########################
+   
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+            volumedivgrad!(bl, Val(dim), Val(polyorder), dg.direction,
+                                           Qhypervisc_grad.data, Qhypervisc_div.data, vgeo, Dmat,
+                                           topology.realelems))
+    
+    communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
+
+    @launch(device, threads=Nfp, blocks=nrealelem,
+            facedivgrad!(bl, Val(dim), Val(polyorder), dg.direction,
+                                         CentralDivPenalty(),
+                                         Qhypervisc_grad.data, Qhypervisc_div.data,
+                                         vgeo, sgeo, vmapM, vmapP, elemtobndy,
+                                         topology.realelems))
+    
+    communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_div)
+    
+    ####################################
+    # Hyperdiffusive terms computation #
+    ####################################
+   
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+            volumehyperviscterms!(bl, Val(dim), Val(polyorder), dg.direction,
+                                    Qhypervisc_grad.data, Qhypervisc_div.data,
+                                    Q.data, auxstate.data,
+                                    vgeo, Dmat,
+                                    topology.realelems, t))
+    
+    communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_div)
+
+    @launch(device, threads=Nfp, blocks=nrealelem,
+            facehyperviscterms!(bl, Val(dim), Val(polyorder), dg.direction,
+                                      CentralHyperDiffusiveFlux(),
+                                      Qhypervisc_grad.data, Qhypervisc_div.data,
+                                      Q.data, auxstate.data,
+                                      vgeo, sgeo, vmapM, vmapP, elemtobndy,
+                                      topology.realelems, t))
+    
+    communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
   end
 
   ###################
@@ -87,12 +145,13 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
           volumerhs!(bl, Val(dim), Val(polyorder), dg.direction, dQdt.data,
-                     Q.data, Qvisc.data, auxstate.data, vgeo, t,
+                     Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data, vgeo, t,
                      lgl_weights_vec, Dmat, topology.realelems, increment))
 
   if communicate
-    if nviscstate > 0
-      MPIStateArrays.finish_ghost_recv!(Qvisc)
+    if nviscstate > 0 || nhyperviscstate > 0
+      nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
+      nhyperviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
     else
       MPIStateArrays.finish_ghost_recv!(Q)
       MPIStateArrays.finish_ghost_recv!(auxstate)
@@ -103,7 +162,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
           facerhs!(bl, Val(dim), Val(polyorder), dg.direction,
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
-                   dQdt.data, Q.data, Qvisc.data,
+                   dQdt.data, Q.data, Qvisc.data, Qhypervisc_grad.data,
                    auxstate.data, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                    topology.realelems))
 
@@ -111,6 +170,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   if communicate
     MPIStateArrays.finish_ghost_send!(Qvisc)
     MPIStateArrays.finish_ghost_send!(Q)
+    MPIStateArrays.finish_ghost_send!(Qhypervisc_div)
+    MPIStateArrays.finish_ghost_send!(Qhypervisc_grad)
   end
 end
 
