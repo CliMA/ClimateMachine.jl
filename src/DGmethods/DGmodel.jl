@@ -287,7 +287,7 @@ The function `wavespeed_dt` should compute `c * Δt` given the `state`, `aux`
 and `diffusive` variables.  The `direction` controls which reference
 directions are considered when computing the minimum node distance `Δx`.
 """
-function cfl(wavespeed_dt, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
+function cfl(wavespeed_dt::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
              direction=EveryDirection())
   grid = dg.grid
   topology = grid.topology
