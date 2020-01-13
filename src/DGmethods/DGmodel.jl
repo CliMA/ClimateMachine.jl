@@ -294,7 +294,7 @@ function cfl(wavespeed_dt, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   nrealelem = length(topology.realelems)
 
   if nrealelem > 0
-    N = polynomialorder(dg.grid)
+    N = polynomialorder(grid)
     dim = dimensionality(grid)
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
