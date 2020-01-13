@@ -121,6 +121,11 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   nabrtosend::Array{UnitRange{Int64}, 1}
 
   """
+  original order in partitioning
+  """
+  origsendorder::Array{Int64,1}
+
+  """
   boolean for whether or not this topology has a boundary
   """
   hasboundary::Bool
@@ -311,7 +316,8 @@ function BrickTopology(mpicomm, elemrange;
   topology = BrickMesh.brickmesh(elemrange, periodicity, part=mpirank+1,
                               numparts=mpisize, boundary=boundary)
   topology = BrickMesh.partition(mpicomm, topology...)
-  topology = BrickMesh.connectmesh(mpicomm, topology...)
+  origsendorder = topology[5]
+  topology = BrickMesh.connectmesh(mpicomm, topology[1:4]...)
 
   dim = length(elemrange)
   T = eltype(topology.elemtocoord)
@@ -321,7 +327,7 @@ function BrickTopology(mpicomm, elemrange;
               topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
               topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
               topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend,
-              !minimum(periodicity)))
+              origsendorder, !minimum(periodicity)))
 end
 
 """ A wrapper for the StackedBrickTopology """
@@ -584,7 +590,7 @@ function StackedBrickTopology(mpicomm, elemrange;
     BoxElementTopology{dim, T}(
       mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems, sendfaces,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend, !minimum(periodicity)),
+      nabrtorank, nabrtorecv, nabrtosend, basetopo.origsendorder, !minimum(periodicity)),
     stacksize)
 end
 
@@ -639,8 +645,8 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
 
   topology = cubedshellmesh(Neside, part=mpirank+1, numparts=mpisize)
 
-  topology = BrickMesh.partition(mpicomm, topology...)
-
+  topology = BrickMesh.partition(mpicomm, topology...)#topology(1), topology(2), topology(3), topology(4) ) #topology...)
+  origsendorder = topology[5]
   dim, nvert = 3, 4
   elemtovert = topology[1]
   nelem = size(elemtovert, 2)
@@ -663,7 +669,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
       topology.ghostelems, topology.ghostfaces, topology.sendelems,
       topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
       topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
-      topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend, false))
+      topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend, origsendorder, false))
 end
 
 """
@@ -764,7 +770,7 @@ function cubedshellmesh(Ne; part=1, numparts=1)
   # no faceconnections for a shell
   faceconnections = Array{Array{Int, 1}}(undef, 0)
 
-  (elemtovert, elemtocoord, elemtobndy, faceconnections)
+  (elemtovert, elemtocoord, elemtobndy, faceconnections, collect(elemlocal))
 end
 
 
@@ -1045,7 +1051,7 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
     BoxElementTopology{3, T}(
       mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems,
       sendfaces, elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend, true),
+      nabrtorank, nabrtorecv, nabrtosend, basetopo.origsendorder, true),
     stacksize)
 end
 
