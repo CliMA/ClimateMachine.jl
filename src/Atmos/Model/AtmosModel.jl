@@ -189,7 +189,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   # strain rate tensor
   S = symmetrize(∇u)
   # kinematic viscosity tensor
-  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, ∇transform, aux, t)
+  ρν = dynamic_viscosity_tensor(m.turbulence, m, S, state, diffusive, ∇transform, aux, t)
   # momentum flux tensor
   diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
 
