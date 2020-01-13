@@ -255,7 +255,7 @@ end
     comm = MPI.COMM_SELF
 
     mesh = connectmesh(comm, partition(comm, brickmesh((0:10,),
-                                                       (true,))...)...)
+                                                       (true,))...)[1:4]...)
 
     nelem = 10
 
@@ -293,7 +293,7 @@ end
   let
     comm = MPI.COMM_SELF
     mesh = connectmesh(comm, partition(comm, brickmesh((0:4,5:9),
-                                                       (false,true))...)...)
+                                                       (false,true))...)[1:4]...)
 
     nelem = 16
 
@@ -344,7 +344,7 @@ end
   let
     comm = MPI.COMM_SELF
     x = (0:4,)
-    mesh = connectmesh(comm, partition(comm, brickmesh(x, (true,))...)...)
+    mesh = connectmesh(comm, partition(comm, brickmesh(x, (true,))...)[1:4]...)
 
     N = 3
     d = length(x)
@@ -363,7 +363,7 @@ end
     comm = MPI.COMM_SELF
     x = (-1:1, 0:1)
     p = (false, true)
-    mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)...)
+    mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)[1:4]...)
 
     N = 2
     d = length(x)
@@ -399,7 +399,7 @@ end
     comm = MPI.COMM_SELF
     x = (0:1, 0:1, -1:1)
     p = (false, true, false)
-    mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)...)
+    mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)[1:4]...)
 
     N = 2
     d = length(x)
@@ -462,7 +462,7 @@ end
 
 @testset "Partition" begin
   (etv, etc, etb, fc) = brickmesh((-1:2:1,-1:2:1,-2:1:2), (true,true,true))
-  (netv, netc, netb, nfc) = partition(MPI.COMM_SELF, etv, etc, etb, fc)
+  (netv, netc, netb, nfc) = partition(MPI.COMM_SELF, etv, etc, etb, fc)[1:4]
   @test etv == netv
   @test etc == netc
   @test etb == netb

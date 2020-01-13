@@ -504,7 +504,7 @@ This function takes in a mesh (as returned for example by `brickmesh`) and
 returns a Hilbert curve based partitioned mesh.
 """
 function partition(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
-                   faceconnections)
+                   faceconnections, globord=[])
   (d, nvert, nelem) = size(elemtocoord)
 
   csize = MPI.Comm_size(comm)
@@ -531,10 +531,15 @@ function partition(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
   elemtobndy = elemtobndy[:,sendorder]
   elemtofaceconnect = elemtofaceconnect[:,:,sendorder]
 
+  if !isempty(globord)
+    globord = globord[sendorder]
+  end 
+
   newelemtovert = []
   newelemtocoord = []
   newelemtobndy = []
   newelemtofaceconnect = []
+  newglobord = []
   for r = 0:csize-1
     sendrange = sendstarts[r+1]:sendstarts[r+2]-1
     rcounts = MPI.Allgather(Cint(length(sendrange)), comm)
@@ -551,11 +556,19 @@ function partition(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
     netfc = MPI.Gatherv(view(elemtofaceconnect, :, :, sendrange),
                         rcounts.*Cint(nfacevert*nface), r, comm)
 
+    if !isempty(globord)
+      netglobord = MPI.Gatherv(view(globord, sendrange), rcounts,
+                       r, comm)
+    end
+
     if r == crank
       newelemtovert = netv
       newelemtocoord = netc
       newelemtobndy = netb
       newelemtofaceconnect = netfc
+      if !isempty(globord)
+        newglobord = netglobord 
+      end
     end
   end
 
@@ -571,6 +584,7 @@ function partition(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
              collect(1:newnelem)']
   A = sortslices(A, dims=2)
   newsortorder = view(A,d+1,:)
+
   newelemtovert = newelemtovert[:,newsortorder]
   newelemtocoord = newelemtocoord[:,:,newsortorder]
   newelemtobndy = newelemtobndy[:,newsortorder]
@@ -583,7 +597,11 @@ function partition(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
     end
   end
 
-  (newelemtovert, newelemtocoord, newelemtobndy, newfaceconnections)
+  if !isempty(globord)
+    newglobord = newglobord[newsortorder]
+  end
+
+  (newelemtovert, newelemtocoord, newelemtobndy, newfaceconnections, newglobord)#sendorder)
 end
 
 """
