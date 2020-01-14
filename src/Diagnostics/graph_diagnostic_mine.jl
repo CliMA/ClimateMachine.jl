@@ -55,27 +55,27 @@ end
 
 function start(args::Vector{String})
     #data = load(args[1])
-
+    
     #
     # USER INPUTS:
     #
-    user_specified_timestart = -7000
-    user_specified_timeend   = -6456.050254491391 # set it to -1 if you want the plotter to detect and show the last time step data only
-    time_average = "ny"
+    user_specified_timestart =  -6000
+    user_specified_timeend   = -14400.0 # set it to -1 if you want the plotter to detect and show the last time step data only
+    time_average = "y"
     isimex = "y"
 
     #
     # List the directories containing the JLD2 files to post-process:
     #
-    gcloud_VM = ["julia-sm", "julia-sm1", "julia-sm2", "julia-002", "clima-test-01", "clima-test-01-5m","yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO","dycoms-imex-expl-working"]
+    #gcloud_VM = ["julia-sm", "julia-sm1", "julia-sm2", "julia-002", "clima-test-01", "clima-test-01-5m","yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO","dycoms-imex-expl-working"]
     #gcloud_VM = ["julia-sm-5m"]
     # gcloud_VM = ["julia-sm"]
     # gcloud_VM = ["clima-test-01"]
     #gcloud_VM = ["dycoms-imex-expl-working"]  #EDDY
-    #gcloud_VM = ["yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO"] #EDDY
+    gcloud_VM = ["yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO"] #EDDY
+    #gcloud_VM = ["yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO-NO-RAD"] #EDDY
     
     for gcloud in gcloud_VM
-        if isimex == "yes" || isimex == "y"
 
         if gcloud == "julia-sm"
             SGS = "Smago"
@@ -126,14 +126,43 @@ function start(args::Vector{String})
             radiation = "-rad"
             geostrophic = "-geostr"
             data = load(string(clima_path, "/output/GCLOUD/", gcloud, "/diagnostics-2019-12-14T23:14:01.398.jld2"))
-
+            
         elseif gcloud == "yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO"
+
+            SGS = "Smago"
+            if isimex == "y" || isimex == "yes"
+                ode_str = "imex"
+                radiation = "+rad"
+                geostrophic = "+geostr"
+                
+                #data = load(string(clima_path, "/output/EDDY/", gcloud, "/IMPL/diagnostics-2020-01-05T17:33:27.731.jld2"))
+                #data = load(string(clima_path, "/output/EDDY/", gcloud, "/IMPL/diagnostics-2020-01-06T11:50:23.086.jld2"))
+
+                #CORRECT RESULTS WITHOUT subtructing the REF.STATE from pressure in AtmosModel
+                #data = load(string(clima_path, "/output/EDDY/", gcloud, "/IMPL/diagnostics-2020-01-06T16:30:16.244.jld2"))
+
+                #WRONG RESULTS WHEN subtructing the REF.STATE from pressure in AtmosModel
+                #data = load(string(clima_path, "/output/EDDY/", gcloud, "/IMPL/diagnostics-2020-01-07T10:52:58.368.jld2"))
+
+                #UPDATED against MASTER (EXCEPT for still old MOISTTHERMO):
+                #data = load(string(clima_path, "/output/EDDY/", gcloud, "/IMPL/diagnostics-2020-01-08T17:44:54.724.jld2"))
+                 data = load(string(clima_path, "/output/EDDY/", gcloud, "/IMPL/diagnostics-2020-01-09T16:23:54.726.jld2"))
+                
+            else
+                ode_str = "expl"
+                radiation = "+rad"
+                geostrophic = "+geostr"
+                data = load(string(clima_path, "/output/EDDY/", gcloud, "/EXPL/diagnostics-2020-01-03T17:53:47.913.jld2"))
+            end
+                            
+        elseif gcloud == "yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO-NO-RAD"
             SGS = "Smago"
             ode_str = "expl"
-            radiation = "-rad"
+            radiation = "_NO_RAD"
             geostrophic = "+geostr"
-            #data = load(string(clima_path, "/output/EDDY/", gcloud, "/diagnostics-2019-12-15T18:08:20.27.jld2")) #IMEX (wrong results in this branch)
-            data = load(string(clima_path, "/output/EDDY/", gcloud, "/EXPL/diagnostics-2019-12-16T09:29:31.815.jld2")) #EXPL
+            data = load(string(clima_path, "/output/EDDY/yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO/EXPL-NORADIATION/diagnostics-2019-12-18T11:14:37.914.jld2")) #10 m
+
+        #    data = load(string(clima_path, "/output/EDDY/yt-DYCOMS-MULTI-RATE-NEW-MOIST-THERMO/EXPL-NORADIATION/diagnostics-2019-12-18T13:01:43.32.jld2")) #20 m
             
         elseif gcloud == "dycoms-imex-expl-working"
             SGS = "Smago"
@@ -143,13 +172,9 @@ function start(args::Vector{String})
             data = load(string(clima_path, "/output/EDDY/", gcloud, "/diagnostics-2019-12-15T21:21:51.544.jld2"))
             
         end
-            
-        integrator_method = string("1D IMEX ")
-    else
-        data = load(string(clima_path, "/output/GCLOUD/julia-sm/diagnostics-2019-12-14T16:48:05.227.jld2"))
-        integrator_method = string("EXPL")
-    end
+    
     info_str = string(SGS, ".", ode_str, ".", radiation, ".", geostrophic)
+  #  @show "QQQQQ " info_str
         
     out_vars = ["ht_sgs",
                 "qt_sgs",
@@ -169,9 +194,11 @@ function start(args::Vector{String})
                 "vvariance",
                 "vert_eddy_thv_flx",
                 "u",
-                "v"]
+                "v",
+                "Ri",
+                "vert_eddy_thl_flx"]
     
-    zvertical = 1500   
+    zvertical = 1200
     #
     # END USER INPUTS:
     #
@@ -239,6 +266,8 @@ function start(args::Vector{String})
     V17 = zeros(Nqk * nvertelem)
     V18 = zeros(Nqk * nvertelem)
     V19 = zeros(Nqk * nvertelem)
+    V20 = zeros(Nqk * nvertelem)
+    V21 = zeros(Nqk * nvertelem)
 
     if time_average == "yes" || time_average == "y"
         time_average_str = "Tave"
@@ -269,6 +298,8 @@ function start(args::Vector{String})
                         V17[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[17]))
                         V18[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[18]))
                         V19[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[19]))
+                        V20[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[20]))
+                        V21[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[21]))
                     end               
                 end
                 ntimes += 1
@@ -301,6 +332,8 @@ function start(args::Vector{String})
                 V17[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[17]))
                 V18[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[18]))
                 V19[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[19]))
+                V20[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[20]))
+                V21[k+(ev-1)*Nqk] += getproperty(dv, Symbol(out_vars[21]))
             end
         end
     end
@@ -457,6 +490,13 @@ function start(args::Vector{String})
                )
     hline!( [600, 840], width=[1,1], linestyle=[:dash, :dash], color=[:black],  label="")
 
+    vert_eddy_thl_flx = plot(V21/ntimes, Z,
+              linewidth=3,
+              xaxis=("<w'θ_l'>"), #, (-0.15, 0.15), -0.15:0.05:0.15),
+              yaxis=("Altitude[m]", (0, zvertical)),
+              label=("<w'θ_l'>"),
+               )
+    hline!( [600, 840], width=[1,1], linestyle=[:dash, :dash], color=[:black],  label="")
 
     pu = plot(V18/ntimes, Z,
               linewidth=3,
@@ -481,26 +521,37 @@ function start(args::Vector{String})
               label=("w (m/s)"),
                )
     hline!( [600, 840], width=[1,1], linestyle=[:dash, :dash], color=[:black],  label="")
-
-    p11 = plot(V14/ntimes, Z,
+#=
+    pdtdz = plot(V14/ntimes, Z,
               linewidth=3,
               xaxis=("dθv/dz"), #, (-0.15, 0.15), -0.15:0.05:0.15),
               yaxis=("Altitude[m]", (0, zvertical)),
-              label=("dθv/dz"),
+               label=("dθv/dz"),
+
+     pRi = plot(V20/ntimes, Z,
+              linewidth=3,
+              xaxis=("Ri"), #, (-0.15, 0.15), -0.15:0.05:0.15),
+              yaxis=("Altitude[m]", (0, zvertical)),
+              label=("Ri"),
                )
    hline!( [600, 840], width=[1,1], linestyle=[:dash, :dash], color=[:black],  label="")
-
+=#
     
     f=font(14,"courier")
-    #plot(pqt, pql, pth, ptke, pww, pwww, layout = (2,3), titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=timestr)
-    all_plots = plot(pu,  pv,  pw, pthl,
-         pqt, pql, pwqt, pB,
-         puu, pww, pwww, ptke, layout = (3,4), titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=timestr)
+    all_plots = plot(pu,  pv,  vert_eddy_thl_flx, pthl,
+                     pqt, pql, pwqt, pB,
+                     puu, pww, pwww, ptke,
+                     layout = (3,4), titlefont=f, tickfont=f, legendfont=f, guidefont=f) #, title=timestr)
 
-    plot!(size=(2200,1000))
+    plot!(size=(2200,1200))
     outfile_name = string(info_str,".", ode_str,".", time_average_str, ".t", ceil(timeend),"s.png")
     savefig(all_plots, joinpath(string(out_plot_dir,"/plots/"), outfile_name))
 
+   #= one_plot = plot(vert_eddy_thl_flx, titlefont=f, tickfont=f, legendfont=f, guidefont=f, title=timestr)
+    outfile_name = string("eddy_THETAL_flx.", info_str,".", ode_str,".", time_average_str, ".t", ceil(timeend),"s.png")
+    plot!(size=(2200,1000))
+    savefig(one_plot, joinpath(string(out_plot_dir,"/plots/"), outfile_name))
+=#
 end
 end
 
