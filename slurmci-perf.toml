@@ -6,6 +6,7 @@ cpu = []
 
 cpu_gpu = [
     { file = "examples/DGmethods/ex_001_dycoms.jl", n = 4, args = []},
+    { file = "examples/DGmethods/ex_001_dycoms-imex.jl", n = 4, args = []},
 ]
 
 gpu = []
