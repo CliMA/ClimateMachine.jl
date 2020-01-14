@@ -45,7 +45,7 @@ struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
 end
 
 #FIXME
-StackGMRES(Q) = StackGMRES(60, 4^2, Q, 1e-8)
+StackGMRES(Q) = StackGMRES(10, 4^2, Q, 1e-8)
 
 const weighted = false
 
