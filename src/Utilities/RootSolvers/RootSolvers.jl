@@ -1,5 +1,5 @@
 """
-# RootSolvers
+    RootSolvers
 
 Module containing functions for solving roots of non-linear
 equations. See [`find_zero`](@ref).

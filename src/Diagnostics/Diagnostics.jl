@@ -4,9 +4,6 @@
 Accumulate mean fields and covariance statistics on the computational grid.
 
 """
-
-# TODO: reduce MPI communication; record local averages only?
-
 module Diagnostics
 
 using Dates

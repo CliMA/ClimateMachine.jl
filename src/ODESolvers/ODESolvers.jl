@@ -1,3 +1,8 @@
+"""
+    ODESolvers
+
+Ordinary differential equation solvers
+"""
 module ODESolvers
 
 export solve!, updatedt!

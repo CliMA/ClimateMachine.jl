@@ -28,8 +28,8 @@ based on the provided `RKA`, `RKB` and `RKC` coefficient arrays.
 
 The available concrete implementations are:
 
-  - [`SSPRK33ShuOsher`](@ref)  
-  - [`SSPRK34SpiteriRuuth`](@ref)  
+  - [`SSPRK33ShuOsher`](@ref)
+  - [`SSPRK34SpiteriRuuth`](@ref)
 """
 mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
   "time step"
@@ -38,9 +38,9 @@ mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.A
   t::RT
   "rhs function"
   rhs!
-  "Storage for RHS during the StrongStabilityPreservingRungeKutta update"
+  "Storage for RHS during the `StrongStabilityPreservingRungeKutta` update"
   Rstage::AT
-  "Storage for the stage state during the StrongStabilityPreservingRungeKutta update"
+  "Storage for the stage state during the `StrongStabilityPreservingRungeKutta` update"
   Qstage::AT
   "RK coefficient vector A (rhs scaling)"
   RKA::Array{RT,2}
@@ -100,7 +100,7 @@ Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
 forward in time from the current time `time` to final time `time + dt`.
 
 If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
-added as an additionall ODE right-hand side source. If the optional parameter
+added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
