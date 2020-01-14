@@ -17,34 +17,39 @@ abstract type AbstractColumnGMRESSolver{M} <: LS.AbstractIterativeLinearSolver e
 
 """
 
-    StackGMRES(M, nhorzelem)
+    StackGMRES(M, nhorzelem, Q::AT, tolerance) where AT
 
 This solver performs the matrix-free generalised minimal residual method for
 nodal columns residing in the same stack of elements. The stack-global
 convergence criterion requires convergence in all nodal columns.
 """
-struct StackGMRES{M, N, MP1, MMP1, T, AT} <: AbstractColumnGMRESSolver{M}
+struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
   krylov_basis::NTuple{MP1, AT}
   "Hessenberg matrix"
   H::NTuple{N, MArray{Tuple{MP1, M}, T, 2, MMP1}}
   "rhs of the least squares problem"
   g0::NTuple{N, MArray{Tuple{MP1, 1}, T, 2, MP1}}
+  "Number of iterations until stop condition reached"
+  stop_iter::MArray{Tuple{N}, I, 1, N}
   tolerance::MArray{Tuple{1}, T, 1, 1}
 
   function StackGMRES(M, nhorzelem, Q::AT, tolerance) where AT
-    @show AT
     krylov_basis = ntuple(i -> similar(Q), M + 1)
     H  = ntuple(x -> (@MArray zeros(M + 1, M)), nhorzelem)
     g0 = ntuple(x -> (@MArray zeros(M + 1)), nhorzelem)
+    stop_iter = @MArray fill(-1, nhorzelem)
 
-    new{M, nhorzelem, M + 1, M * (M + 1), eltype(Q), AT}(krylov_basis, H, g0, (tolerance,))
+    new{M, nhorzelem, M + 1, M * (M + 1), eltype(Q), Int64, AT}(
+        krylov_basis, H, g0, stop_iter, (tolerance,))
   end
 end
 
 #FIXME
-StackGMRES(Q) = StackGMRES(60, 4^2, Q, 1e-3)
+StackGMRES(Q) = StackGMRES(60, 4^2, Q, 1e-8)
 
 const weighted = false
+
+arenan(v::AbstractArray) = mapreduce(isnan, |, v)
 
 function LS.initialize!(linearoperator!, Q, Qrhs,
                         solver::StackGMRES{M, nhorzelem}, args...) where {M, nhorzelem}
@@ -63,9 +68,13 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     for es in 1:nhorzelem
       stack = (es-1) * ss + 1 : es * ss
       g0 = solver.g0[es]
-      residual_norm = norm(krylov_basis[1][stack], weighted)
+      @views residual_norm = norm(krylov_basis[1][stack], weighted)
 
       converged &= residual_norm < threshold
+      if residual_norm < threshold
+        solver.stop_iter[es] = 0
+        continue
+      end
 
       fill!(g0, 0)
       g0[1] = residual_norm
@@ -82,19 +91,18 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzel
   # Size of element stack
   ss = length(Q) ÷ nhorzelem
   krylov_basis = solver.krylov_basis
+  stop_iter = solver.stop_iter
 
   converged = false
   residual_norm = 0.0 # We want to find the maximum residual_norm
   Gs = ntuple(x->LinearAlgebra.Rotation{eltype(Q)}([]), nhorzelem)
-
-  stop_iter = [0 for i in 1:nhorzelem]
 
   for j = 1:M
     # Global evaluation step
     linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
 
     for es = 1:nhorzelem
-      stop_iter[es] == 0 || continue
+      stop_iter[es] == -1 || continue
 
       stack = (es-1) * ss + 1 : es * ss
       H = solver.H[es]
@@ -104,10 +112,10 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzel
       for i = 1:j
         @views H[i, j] = dot(krylov_basis[j+1][stack],
                       krylov_basis[i][stack], weighted)
-        @. krylov_basis[j + 1][stack] -= H[i, j] * krylov_basis[i][stack]
+        @. @views krylov_basis[j + 1][stack] -= H[i, j] * krylov_basis[i][stack]
       end
       H[j + 1, j] = norm(krylov_basis[j + 1][stack], weighted)
-      krylov_basis[j + 1] ./= H[j + 1, j]
+      krylov_basis[j + 1][stack] ./= H[j + 1, j]
 
       # apply the previous Given rotations to the new column of H
       H[1:j, j:j] .= Ω * H[1:j, j:j]
@@ -139,7 +147,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzel
     stack = (es-1) * ss + 1 : es * ss
     H = solver.H[es]
     g0 = solver.g0[es]
-    j = stop_iter[es]
+    j = stop_iter[es] == -1 ? M : stop_iter[es]
 
     # solve the triangular system
     y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
