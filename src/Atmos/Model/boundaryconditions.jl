@@ -51,9 +51,11 @@ atmos_boundary_state!(_, ::PeriodicBC, _...) = nothing
     NoFluxBC <: BoundaryCondition
 
 Set the momentum at the boundary to be zero.
-"""
+
 # TODO: This should be fixed later once BCs are figured out (likely want
 # different things here?)
+
+"""
 struct NoFluxBC <: BoundaryCondition
 end
 
@@ -81,9 +83,10 @@ end
 
 Set the value at the boundary to match the `init_state!` function. This is
 mainly useful for cases where the problem has an explicit solution.
-"""
+
 # TODO: This should be fixed later once BCs are figured out (likely want
 # different things here?)
+"""
 struct InitStateBC <: BoundaryCondition
 end
 function atmos_boundary_state!(::Rusanov, bc::InitStateBC, m::AtmosModel,

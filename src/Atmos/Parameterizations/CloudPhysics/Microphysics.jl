@@ -8,7 +8,6 @@ Microphysics parameterization based on the ideas of Kessler_1995:
   - rain evaporation
   - rain terminal velocity
 """
-
 module Microphysics
 
 using CLIMA.MoistThermodynamics

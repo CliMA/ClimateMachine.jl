@@ -1,10 +1,3 @@
-"""
-    Diagnostics variable template
-
-Container for diagnostic variables of interest. Useful also for 
-post-processing.
-
-"""
 
 using CLIMA.VariableTemplates
 
