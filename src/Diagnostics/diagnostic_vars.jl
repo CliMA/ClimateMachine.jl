@@ -53,6 +53,23 @@ function vars_diagnostic(FT)
   end
 end
 
+function var_groups(FT)
+  vars_diag = vars_diagnostic(FT)
+  varnames_diag = fieldnames(vars_diag)
+  D = Dict()
+  D[:velocity] = findall(map(x-> x==:u || x==:v || x==:w, varnames_diag))
+  D[:shum] = findall(map(x-> x==:q_tot || x==:q_liq || x==:q_ice, varnames_diag))
+  D[:q_liq] = findall(map(x-> x==:q_liq, varnames_diag))
+  D[:energy] = findall(map(x-> x==:e_tot || x==:e_int, varnames_diag))
+  D[:pottemp] = findall(map(x-> x==:thd || x==:thl || x==:thv, varnames_diag))
+  D[:UVariance] = findall(map(x-> x==:uvariance || x==:vvariance || x==:wvariance, varnames_diag))
+  D[:VertEddyQ] = findall(map(x-> x==:vert_eddy_qt_flx || x==:vert_eddy_ql_flx || x==:vert_eddy_qv_flx, varnames_diag))
+  D[:VertEddyPottemp] = findall(map(x-> x==:vert_eddy_thd_flx || x==:vert_eddy_thv_flx || x==:vert_eddy_thl_flx, varnames_diag))
+  D[:qt_sgs] = findall(map(x-> x==:qt_sgs, varnames_diag))
+  D[:ht_sgs] = findall(map(x-> x==:ht_sgs, varnames_diag))
+  return D
+end
+
 num_diagnostic(FT) = varsize(vars_diagnostic(FT))
 diagnostic_vars(array) = Vars{vars_diagnostic(eltype(array))}(array)
 
