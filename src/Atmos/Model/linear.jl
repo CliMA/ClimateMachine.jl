@@ -36,7 +36,9 @@ vars_aux(lm::AtmosLinearModel, FT) = vars_aux(lm.atmos,FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
 
 
-update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, t::Real) = nothing
+function update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, t::Real)
+  return false
+end
 integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
 flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)

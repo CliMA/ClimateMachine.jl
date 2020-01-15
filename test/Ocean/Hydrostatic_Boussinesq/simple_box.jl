@@ -23,7 +23,8 @@ import CLIMA.HydrostaticBoussinesq: ocean_init_aux!, ocean_init_state!,
                                     OceanSurfaceStressNoForcing,
                                     OceanSurfaceNoStressForcing,
                                     OceanSurfaceStressForcing
-import CLIMA.DGmethods: update_aux!, vars_state, vars_aux
+import CLIMA.DGmethods: update_aux!, update_aux_diffusive!,
+                        vars_state, vars_aux
 using GPUifyLoops
 
 const ArrayType = CLIMA.array_type()
@@ -88,9 +89,9 @@ end
 # PARAM SELECTION #
 ###################
 FT = Float64
-vtkpath = "vtk_two_year_gyre_realistic"
+vtkpath = "vtk_testing_update_aux"
 
-const timeend = 24 * 30 * 86400   # s
+const timeend = 3 * 30 * 86400   # s
 const tout    = 6 * 24 * 60 * 60 # s
 
 const N  = 4
@@ -145,7 +146,7 @@ let
   CFL_acoustic = minΔx / cʰ
   CFL_diffusive = minΔz / (1000 * κᶻ)
   CFL_viscous = minΔz / νᶻ
-  dt = 1//4 * minimum([CFL_acoustic, CFL_diffusive, CFL_viscous])
+  dt = 1//2 * minimum([CFL_acoustic, CFL_diffusive, CFL_viscous])
   nout = ceil(Int64, tout / dt)
   dt = tout / nout
 
@@ -155,7 +156,7 @@ let
                     Viscous CFL   = %.1f
                     Timestep      = %.1f""",
                  CFL_acoustic, CFL_diffusive, CFL_viscous, dt)
-                 
+
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
@@ -175,6 +176,7 @@ let
 
   Q = init_ode_state(dg, FT(0); forcecpu=true)
   update_aux!(dg, model, Q, FT(0))
+  update_aux_diffusive!(dg, model, Q, FT(0))
 
   if isdir(vtkpath)
     rm(vtkpath, recursive=true)
