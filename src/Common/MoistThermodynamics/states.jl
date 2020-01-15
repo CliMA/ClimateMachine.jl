@@ -212,10 +212,8 @@ and, optionally
 function LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT,
                                       ρ::FT,
                                       q_pt::PhasePartition{FT},
-                                      # tol::FT=FT(1e-1), # TODO: swap to convert to master
-                                      tol::FT=FT(1e-3),
-                                      # maxiter::Int=5 # TODO: swap to convert to master
-                                      maxiter::Int=10
+                                      tol::FT=FT(1e-1),
+                                      maxiter::Int=5
                                       ) where {FT<:Real}
     T = air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice, ρ, tol, maxiter, q_pt)
     e_int = internal_energy(T, q_pt)

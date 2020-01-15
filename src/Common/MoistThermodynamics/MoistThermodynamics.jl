@@ -1104,17 +1104,7 @@ end
 
 The relative humidity, given a thermodynamic state `ts`.
 """
-function relative_humidity(ts::ThermodynamicState)
-  q = PhasePartition(ts)
-  q_vap = q.tot - q.liq - q.ice
-  p_vap = q_vap * air_density(ts) * gas_constant_air(ts) * air_temperature(ts)
-  liq_frac = liquid_fraction(ts)
-  p_vap_sat =  liq_frac  * saturation_vapor_pressure(ts, Liquid()) +
-            (1-liq_frac) * saturation_vapor_pressure(ts, Ice())
-  return p_vap/p_vap_sat
-end
-
-# relative_humidity(ts::ThermodynamicState{FT}) where {FT<:Real} =                                    # TODO: swap to convert to master
-#   relative_humidity(air_temperature(ts), air_pressure(ts), internal_energy(ts), PhasePartition(ts)) # TODO: swap to convert to master
+relative_humidity(ts::ThermodynamicState{FT}) where {FT<:Real} =
+  relative_humidity(air_temperature(ts), air_pressure(ts), internal_energy(ts), PhasePartition(ts))
 
 end #module MoistThermodynamics.jl
