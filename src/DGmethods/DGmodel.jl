@@ -51,14 +51,17 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   communicate = !(isstacked(topology) &&
                   typeof(dg.direction) <: VerticalDirection)
 
-  update_aux!(dg, bl, Q, t)
+  aux_comm = update_aux!(dg, bl, Q, t)
+  @assert typeof(aux_comm) == Bool
 
   ########################
   # Gradient Computation #
   ########################
   if communicate
     MPIStateArrays.start_ghost_exchange!(Q)
-    MPIStateArrays.start_ghost_exchange!(auxstate)
+    if aux_comm
+      MPIStateArrays.start_ghost_exchange!(auxstate)
+    end
   end
 
   if nviscstate > 0
@@ -70,7 +73,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
     if communicate
       MPIStateArrays.finish_ghost_recv!(Q)
-      MPIStateArrays.finish_ghost_recv!(auxstate)
+      if aux_comm
+        MPIStateArrays.finish_ghost_recv!(auxstate)
+      end
     end
 
     @launch(device, threads=Nfp, blocks=nrealelem,
@@ -79,8 +84,18 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
                            topology.realelems))
 
-    communicate && MPIStateArrays.start_ghost_exchange!(Qvisc)
+    if communicate
+      MPIStateArrays.start_ghost_exchange!(Qvisc)
+    end
+
+    aux_comm = update_aux_diffusive!(dg, bl, Q, t)
+    @assert typeof(aux_comm) == Bool
+
+    if aux_comm
+      MPIStateArrays.start_ghost_exchange!(auxstate)
+    end
   end
+
 
   ###################
   # RHS Computation #
@@ -93,9 +108,14 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   if communicate
     if nviscstate > 0
       MPIStateArrays.finish_ghost_recv!(Qvisc)
+      if aux_comm
+        MPIStateArrays.finish_ghost_recv!(auxstate)
+      end
     else
       MPIStateArrays.finish_ghost_recv!(Q)
-      MPIStateArrays.finish_ghost_recv!(auxstate)
+      if aux_comm
+        MPIStateArrays.finish_ghost_recv!(auxstate)
+      end
     end
   end
 
@@ -188,6 +208,11 @@ end
 
 # fallback
 function update_aux!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
+  return false
+end
+
+function update_aux_diffusive!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
+  return false
 end
 
 function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
@@ -222,7 +247,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 end
 
 function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
-                           t::Real)
+                           t::Real; diffusive=false)
   device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
   grid = dg.grid
@@ -238,10 +263,17 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   Np = dofs_per_element(grid)
 
   ### update aux variables
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
-                          Q.data, dg.auxstate.data, dg.diffstate.data, t,
-                          topology.realelems))
+  if diffusive
+    @launch(device, threads=(Np,), blocks=nrealelem,
+            knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
+                            Q.data, dg.auxstate.data, dg.diffstate.data, t,
+                            topology.realelems))
+  else
+    @launch(device, threads=(Np,), blocks=nrealelem,
+            knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
+                            Q.data, dg.auxstate.data, t,
+                            topology.realelems))
+  end
 end
 
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,

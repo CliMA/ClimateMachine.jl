@@ -994,6 +994,49 @@ end
 Update the auxiliary state array
 """
 function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
+                               auxstate, t, elems) where {dim, N}
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nauxstate = num_aux(bl,FT)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+
+      f!(bl,
+         Vars{vars_state(bl,FT)}(l_Q),
+         Vars{vars_aux(bl,FT)}(l_aux),
+         t)
+
+      @unroll for s = 1:nauxstate
+        auxstate[n, s, e] = l_aux[s]
+      end
+    end
+  end
+end
+
+"""
+    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate, diffstate,
+                          t, elems) where {dim, N}
+
+Update the auxiliary state array
+"""
+function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
                                auxstate, diffstate, t, elems) where {dim, N}
   FT = eltype(Q)
   nstate = num_state(bl,FT)

@@ -31,6 +31,8 @@ end
 function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray, t::Real)
   indefinite_stack_integral!(dg, m, Q, dg.auxstate, t)
   reverse_indefinite_stack_integral!(dg, m, dg.auxstate, t)
+
+  return true
 end
 
 vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
@@ -91,7 +93,6 @@ function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
   exact_aux = copy(dg.auxstate)
 
   dg(dQdt, Q, nothing, 0.0)
-  
   euclidean_distance(exact_aux, dg.auxstate)
 end
 
@@ -147,4 +148,3 @@ let
 end
 
 nothing
-
