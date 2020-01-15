@@ -324,7 +324,6 @@ function soundspeed_air(T::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real
   R_m = gas_constant_air(q)
   return sqrt(γ*R_m*T)
 end
-
 """
     soundspeed_air(ts::ThermodynamicState)
 
@@ -446,7 +445,7 @@ temperature `T`.
     saturation_vapor_pressure(T, LH_0, Δcp)
 
 Compute the saturation vapor pressure over a plane surface by integration
-of the Clausius-Clapeyron relation.
+of the Clausius-Clepeyron relation.
 
 The Clausius-Clapeyron relation
 
@@ -558,7 +557,7 @@ Compute the saturation specific humidity, given
  - `p_v_sat` saturation vapor pressure
 """
 q_vap_saturation_from_pressure(T::FT, ρ::FT, p_v_sat::FT) where {FT<:Real} =
-  p_v_sat / (ρ * FT(R_v) * T)
+  min(1, p_v_sat / (ρ * FT(R_v) * T))
 
 """
     saturation_excess(T, ρ, q::PhasePartition)
@@ -658,15 +657,13 @@ function ∂e_int_∂T(T::FT, e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
 end
 
 """
-    saturation_adjustment(e_int, ρ, q_tot)
+    saturation_adjustment_NewtonsMethod(e_int, ρ, q_tot)
 
 Compute the temperature that is consistent with
 
  - `e_int` internal energy
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
- - `tol` tolerance for non-linear equation solve
- - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
 
@@ -676,7 +673,7 @@ using Newtons method with analytic gradients.
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
+function saturation_adjustment_NewtonsMethod(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
   T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
@@ -687,49 +684,22 @@ function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::I
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_ -> ∂e_int_∂T(T_, e_int, ρ, q_tot),
       T_1,
-      NewtonsMethod(), CompactSolution(), tol, maxiter)
-    if !sol.converged
-      error("saturation_adjustment did not converge")
-    end
+      NewtonsMethod(), CompactSolution(), FT(1e-3), 10)
+      if !sol.converged
+        error("saturation_adjustment_NewtonsMethod did not converge")
+      end
     return sol.root
   end
 end
 
 """
-    ΔT_min(::Type{FT})
-
-Minimum interval for saturation adjustment using Secant method
-"""
-@inline ΔT_min(::Type{FT}) where FT = FT(3)
-
-"""
-    ΔT_max(::Type{FT})
-
-Maximum interval for saturation adjustment using Secant method
-"""
-@inline ΔT_max(::Type{FT}) where FT = FT(10)
-
-"""
-    bound_upper_temperature(T_1::FT, T_2::FT) where {FT<:Real}
-
-Bounds the upper temperature, `T_2`, for
-saturation adjustment using Secant method
-"""
-@inline function bound_upper_temperature(T_1::FT, T_2::FT) where {FT<:Real}
-  T_2 = max(T_1+ΔT_min(FT), T_2)
-  return min(T_1+ΔT_max(FT), T_2)
-end
-
-"""
-    saturation_adjustment_SecantMethod(e_int, ρ, q_tot)
+    saturation_adjustment(e_int, ρ, q_tot)
 
 Compute the temperature `T` that is consistent with
 
  - `e_int` internal energy
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
- - `tol` tolerance for non-linear equation solve
- - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
 
@@ -737,22 +707,21 @@ by finding the root of
 
 See also [`saturation_adjustment_q_tot_θ_liq_ice`](@ref).
 """
-function saturation_adjustment_SecantMethod(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
+function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
   T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
-  if unsaturated && T_1 > FT(T_min)
+  if unsaturated
     return T_1
   else
     # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
     T_2 = air_temperature(e_int, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
-    T_2 = bound_upper_temperature(T_1, T_2)
     sol = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
-      T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
-    if !sol.converged
-      error("saturation_adjustment_SecantMethod did not converge")
-    end
+      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-3), 10)
+      if !sol.converged
+        error("saturation_adjustment did not converge")
+      end
     return sol.root
   end
 end
@@ -765,8 +734,6 @@ Compute the temperature `T` that is consistent with
  - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `ρ` (moist-)air density
- - `tol` tolerance for non-linear equation solve
- - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
 
@@ -776,21 +743,20 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
-  T_1 = max(FT(T_min), air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot))) # Assume all vapor
+function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, ρ::FT, q_tot::FT) where {FT<:Real}
+  T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot)) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
-  if unsaturated && T_1 > FT(T_min)
+  if unsaturated
     return T_1
   else
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
-    T_2 = bound_upper_temperature(T_1, T_2)
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, ρ, q_tot) - θ_liq_ice,
-      T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
-    if !sol.converged
-      error("saturation_adjustment_q_tot_θ_liq_ice did not converge")
-    end
+      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
+      if !sol.converged
+        error("saturation_adjustment_q_tot_θ_liq_ice did not converge")
+      end
     return sol.root
   end
 end
@@ -803,8 +769,6 @@ Compute the temperature `T` that is consistent with
  - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `p` pressure
- - `tol` tolerance for non-linear equation solve
- - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
 
@@ -814,7 +778,7 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
+function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p::FT, q_tot::FT) where {FT<:Real}
   T_1 = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, PhasePartition(q_tot)) # Assume all vapor
   ρ = air_density(T_1, p, PhasePartition(q_tot))
   q_v_sat = q_vap_saturation(T_1, ρ)
@@ -823,13 +787,12 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p
     return T_1
   else
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
-    T_2 = bound_upper_temperature(T_1, T_2)
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) - θ_liq_ice,
-      T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
-    if !sol.converged
-      error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
-    end
+      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
+      if !sol.converged
+        error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
+      end
     return sol.root
   end
 end
@@ -927,14 +890,9 @@ and, optionally,
 function air_temperature_from_liquid_ice_pottemp(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
 
-  cvm = cv_m(q)
-  cpm = cp_m(q)
+  cv = cv_m(q)
   R_m = gas_constant_air(q)
-  κ = 1 - cvm/cpm
-  T_u = (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_m/cvm)*θ_liq_ice
-  T_1 = latent_heat_liq_ice(q)/cvm
-  T_2 = -κ/(2*T_u)*(latent_heat_liq_ice(q)/cvm)^2
-  return T_u + T_1 + T_2
+  return θ_liq_ice * (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_m/cv) + latent_heat_liq_ice(q)/cv
 end
 
 """
@@ -944,8 +902,6 @@ Computes temperature `T` given
 
  - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
- - `tol` tolerance for non-linear equation solve
- - `maxiter` maximum iterations for non-linear equation solve
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
 
@@ -954,11 +910,11 @@ by finding the root of
   T - air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, air_pressure(T, ρ, q), q) = 0
 ``
 """
-function air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice::FT, ρ::FT, tol::FT, maxiter::Int,
+function air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice::FT, ρ::FT,
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
   sol = find_zero(
     T -> T - air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, air_pressure(T, ρ, q), q),
-    FT(T_min), FT(T_max), SecantMethod(), CompactSolution(), tol, maxiter)
+    FT(T_min), FT(T_max), SecantMethod(), CompactSolution(), FT(1e-3), 10)
   if !sol.converged
     error("air_temperature_from_liquid_ice_pottemp_non_linear did not converge")
   end
@@ -1075,31 +1031,18 @@ The Exner function, given a thermodynamic state `ts`.
 exner(ts::ThermodynamicState) = exner(air_temperature(ts), air_density(ts), PhasePartition(ts))
 
 """
-    relative_humidity(T, p, e_int, q::PhasePartition)
-
-The relative humidity, given
- - `T` temperature
- - `p` pressure
- - `e_int` internal energy per unit mass
-and, optionally,
- - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
- """
-function relative_humidity(T::FT, p::FT, e_int::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
-  q_vap = q.tot - q.liq - q.ice
-  p_vap = q_vap * air_density(T,p,q) * FT(R_v) * air_temperature(e_int, q)
-  liq_frac = liquid_fraction(T,q)
-  p_vap_sat =  liq_frac  * saturation_vapor_pressure(T, Liquid()) +
-            (1-liq_frac) * saturation_vapor_pressure(T, Ice())
-  return p_vap/p_vap_sat
-end
-
-
-"""
     relative_humidity(ts::ThermodynamicState)
 
 The relative humidity, given a thermodynamic state `ts`.
 """
-relative_humidity(ts::ThermodynamicState{FT}) where {FT<:Real} =
-  relative_humidity(air_temperature(ts), air_pressure(ts), internal_energy(ts), PhasePartition(ts))
+function relative_humidity(ts::ThermodynamicState)
+  q = PhasePartition(ts)
+  q_vap = q.tot - q.liq - q.ice
+  p_vap = q_vap * air_density(ts) * gas_constant_air(ts) * air_temperature(ts)
+  liq_frac = liquid_fraction(ts)
+  p_vap_sat =  liq_frac  * saturation_vapor_pressure(ts, Liquid()) +
+            (1-liq_frac) * saturation_vapor_pressure(ts, Ice())
+  return p_vap/p_vap_sat
+end
 
 end #module MoistThermodynamics.jl
