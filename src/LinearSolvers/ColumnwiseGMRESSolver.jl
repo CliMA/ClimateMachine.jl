@@ -11,8 +11,6 @@ using LinearAlgebra
 using StaticArrays
 using GPUifyLoops
 
-include("ColumnwiseGMRESSolver_kernels.jl")
-
 abstract type AbstractColumnGMRESSolver{M} <: LS.AbstractIterativeLinearSolver end
 
 """
