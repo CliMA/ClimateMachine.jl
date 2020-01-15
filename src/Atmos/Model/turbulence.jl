@@ -92,6 +92,7 @@ struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
   ρν::FT
 end
 
+vars_gradient(::ConstantViscosityWithDivergence,FT) = @vars()
 vars_diffusive(::ConstantViscosityWithDivergence, FT) =
   @vars(S::SHermitianCompact{3,FT,6})
 
