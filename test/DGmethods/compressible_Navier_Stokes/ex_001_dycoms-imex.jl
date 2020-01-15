@@ -314,7 +314,7 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
 
             #=
             #Calcualte Courant numbers:
@@ -352,7 +352,7 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, xmax, ymax, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
             #=
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
@@ -414,8 +414,8 @@ let
 
                   # User defined domain parameters
                   #Δh = FT(40)
-                  aspectratio = FT(7)
-                  Δv = FT(5)
+                  aspectratio = FT(2)
+                  Δv = FT(20)
                   Δh = Δv * aspectratio
                   #aspectratio = Δh/Δv
 

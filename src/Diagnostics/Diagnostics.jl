@@ -87,7 +87,8 @@ function compute_thermo!(FT, state, k, ijk, ev, e, z, zvals, thermoQ)
 
     e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
 
-    ts = PhaseEquil(convert(FT, e_int), state.ρ, q_tot, FT(1e-2), 3)
+    #ts = PhaseEquil(convert(FT, e_int), state.ρ, q_tot, FT(1e-2), 3)
+    ts = PhaseEquil(convert(FT, e_int), state.ρ, q_tot)
     Phpart = PhasePartition(ts)
 
     th = thermo_vars(thermoQ[ijk,e])
