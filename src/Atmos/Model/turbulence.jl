@@ -243,7 +243,7 @@ end
 
 function turbulence_tensors(m::Vreman, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   FT = eltype(state)
-  α = diffusive.∇u
+  α = diffusive.turbulence.∇u
   S = symmetrize(α)
 
   normS = strain_rate_magnitude(S)
