@@ -2,7 +2,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive,
                                        CentralNumericalFluxNonDiffusive
 using CLIMA.ODESolvers: solve!, gettime
@@ -154,7 +154,7 @@ function run(mpicomm, polynomialorder, numelems,
                      initialcondition!)
 
   dg = DGModel(model, grid, NumericalFlux(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty())
+               CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
 
   timeend = FT(2 * setup.domain_halflength / 10 / setup.translation_speed)
 

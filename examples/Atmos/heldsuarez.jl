@@ -3,7 +3,7 @@ using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.LowStorageRungeKuttaMethod: LSRK144NiegemannDiehlBusch
@@ -77,7 +77,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      setup)
 
   dg = DGModel(model, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty())
+               CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
 
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)

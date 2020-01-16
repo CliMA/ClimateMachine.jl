@@ -52,7 +52,7 @@ struct DriverConfiguration{FT}
     # DGModel details
     numfluxnondiff::NumericalFluxNonDiffusive
     numfluxdiff::NumericalFluxDiffusive
-    gradnumflux::GradNumericalPenalty
+    gradnumflux::NumericalFluxGradient
 
     function DriverConfiguration(name::String, N::Int, FT, array_type,
                                  solver_type::AbstractSolverType,
@@ -61,7 +61,7 @@ struct DriverConfiguration{FT}
                                  grid::DiscontinuousSpectralElementGrid,
                                  numfluxnondiff::NumericalFluxNonDiffusive,
                                  numfluxdiff::NumericalFluxDiffusive,
-                                 gradnumflux::GradNumericalPenalty)
+                                 gradnumflux::NumericalFluxGradient)
         new{FT}(name, N, array_type, solver_type, bl, mpicomm, grid, numfluxnondiff, numfluxdiff, gradnumflux)
     end
 end
@@ -102,7 +102,7 @@ function LES_Configuration(name::String,
                            meshwarp       = (x...)->identity(x),
                            numfluxnondiff = Rusanov(),
                            numfluxdiff    = CentralNumericalFluxDiffusive(),
-                           gradnumflux    = CentralGradPenalty()
+                           gradnumflux    = CentralNumericalFluxGradient()
                           ) where {FT<:AbstractFloat}
     model = AtmosModel(orientation, ref_state, turbulence, moisture,
                        precipitation, radiation, subsidence, sources, bc, init_LES!)
@@ -152,7 +152,7 @@ function GCM_Configuration(name::String,
                            meshwarp::Function = cubedshellwarp,
                            numfluxnondiff     = Rusanov(),
                            numfluxdiff        = CentralNumericalFluxDiffusive(),
-                           gradnumflux        = CentralGradPenalty()
+                           gradnumflux        = CentralNumericalFluxGradient()
                           ) where {FT<:AbstractFloat}
     model = AtmosModel(orientation, ref_state, turbulence, moisture,
                        precipitation, radiation, subsidence, sources, bc, init_GCM!)

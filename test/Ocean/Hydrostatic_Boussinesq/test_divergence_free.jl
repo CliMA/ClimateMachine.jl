@@ -144,7 +144,7 @@ let
                     grid,
                     Rusanov(),
                     CentralNumericalFluxDiffusive(),
-                    CentralGradPenalty())
+                    CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0); forcecpu=true)
   update_aux!(dg, model, Q, FT(0))

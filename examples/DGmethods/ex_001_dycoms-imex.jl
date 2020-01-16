@@ -230,7 +230,7 @@ function run(mpicomm,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(),
+               CentralNumericalFluxGradient(),
                direction=EveryDirection())
 
   linmodel = LinearModel(model)
@@ -239,7 +239,7 @@ function run(mpicomm,
                 grid,
                 Rusanov(),
                 CentralNumericalFluxDiffusive(),
-                CentralGradPenalty(),
+                CentralNumericalFluxGradient(),
                 auxstate=dg.auxstate,
                 direction=VerticalDirection())
 

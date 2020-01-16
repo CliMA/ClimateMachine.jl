@@ -21,7 +21,7 @@ Subtypes `L` should define the following methods:
 - `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`
 - `source!(::L, source::State, state::State, auxstate::State, t::Real)`
 - `wavespeed(::L, nM, state::State, aux::State, t::Real)`
-- `boundary_state!(::GradNumericalPenalty, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
+- `boundary_state!(::NumericalFluxGradient, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
 - `boundary_state!(::NumericalFluxNonDiffusive, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
 - `boundary_state!(::NumericalFluxDiffusive, ::L, stateP::State, diffP::State, auxP::State, normalM, stateM::State, diffM::State, auxM::State, bctype, t)`
 - `init_aux!(::L, aux::State, coords, args...)`
