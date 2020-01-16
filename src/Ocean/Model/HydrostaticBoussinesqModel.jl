@@ -1,6 +1,7 @@
 module HydrostaticBoussinesq
 
-export HydrostaticBoussinesqModel, HydrostaticBoussinesqProblem, OceanDGModel
+export HydrostaticBoussinesqModel, HydrostaticBoussinesqProblem, OceanDGModel,
+       LinearHBModel
 
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal
@@ -53,6 +54,13 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   νᶻ::T
   κʰ::T
   κᶻ::T
+end
+
+struct LinearHBModel{M} <: BalanceLaw
+  ocean::M
+  function LinearHBModel(ocean::M) where {M}
+    new{M}(ocean)
+  end
 end
 
 HBModel   = HydrostaticBoussinesqModel
@@ -282,6 +290,7 @@ end
                                  Q⁻::Vars, A⁻::Vars, bctype, t, _...)
   return ocean_boundary_state!(m, bctype, nf, Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
 end
+
 @inline function boundary_state!(nf, m::HBModel,
                                  Q⁺::Vars, D⁺::Vars, A⁺::Vars,
                                  n⁻,
@@ -434,6 +443,58 @@ end
 
   σ = @SVector [-0, -0, λʳ * (θʳ - θ)]
   D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ + 2 * σ)
+
+  return nothing
+end
+
+# Linear model for 1D IMEX
+vars_state(lm::LinearHBModel, FT) = vars_state(lm.ocean,FT)
+vars_gradient(lm::LinearHBModel, FT) = vars_gradient(lm.ocean,FT)
+vars_diffusive(lm::LinearHBModel, FT) = vars_diffusive(lm.ocean,FT)
+vars_aux(lm::LinearHBModel, FT) = vars_aux(lm.ocean,FT)
+vars_integrals(lm::LinearHBModel, FT) = @vars()
+
+@inline integrate_aux!(::LinearHBModel, _...) = nothing
+@inline flux_nondiffusive!(::LinearHBModel, _...) = nothing
+@inline source!(::LinearHBModel, _...) = nothing
+
+function wavespeed(lm::LinearHBModel, n⁻, _...)
+  C = abs(SVector(lm.ocean.c₁, lm.ocean.c₂, lm.ocean.c₃)' * n⁻)
+  return C
+end
+
+@inline function boundary_state!(nf, lm::LinearHBModel, Q⁺::Vars, A⁺::Vars,
+                                 n⁻, Q⁻::Vars, A⁻::Vars, bctype, t, _...)
+  return ocean_boundary_state!(lm.ocean, bctype, nf, Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
+end
+
+@inline function boundary_state!(nf, lm::LinearHBModel, Q⁺::Vars, D⁺::Vars, A⁺::Vars,
+                                 n⁻, Q⁻::Vars, D⁻::Vars, A⁻::Vars, bctype, t, _...)
+  return ocean_boundary_state!(lm.ocean, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
+end
+
+init_aux!(lm::LinearHBModel, A::Vars, geom::LocalGeometry) = nothing
+init_state!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
+
+@inline function flux_diffusive!(lm::LinearHBModel, F::Grad, Q::Vars, D::Vars,
+                                 A::Vars, t::Real)
+  F.u -= Diagonal(A.ν) * D.∇u
+  F.θ -= Diagonal(A.κ) * D.∇θ
+
+  return nothing
+end
+
+@inline function gradvariables!(m::LinearHBModel, G::Vars, Q::Vars, A, t)
+  G.u = Q.u
+  G.θ = Q.θ
+
+  return nothing
+end
+
+@inline function diffusive!(lm::LinearHBModel, D::Vars, G::Grad, Q::Vars,
+                            A::Vars, t)
+  D.∇u = G.u
+  D.∇θ = G.θ
 
   return nothing
 end
