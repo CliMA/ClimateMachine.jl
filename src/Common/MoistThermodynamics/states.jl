@@ -78,9 +78,11 @@ end
 function PhaseEquil(e_int::FT,
                     ρ::FT,
                     q_tot::FT,
-                    tol::FT=FT(1e-1),
-                    maxiter::Int=3,
-                    sat_adjust::F=saturation_adjustment) where {FT<:Real,F}
+                    # tol::FT=FT(1e-1), # on master
+                    tol::FT=FT(1e-3),
+                    # maxiter::Int=3, # on master
+                    maxiter::Int=10,
+                    sat_adjust::F=saturation_adjustment_SecantMethod) where {FT<:Real,F}
     return PhaseEquil{FT}(e_int, ρ, q_tot, sat_adjust(e_int, ρ, q_tot, tol, maxiter))
 end
 
@@ -141,8 +143,10 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT,
                                                   p::FT,
                                                   q_tot::FT,
-                                                  tol::FT=FT(1e-1),
-                                                  maxiter::Int=30) where {FT<:Real}
+                                                  # tol::FT=FT(1e-1), # on master
+                                                  tol::FT=FT(1e-5),
+                                                  # maxiter::Int=30) where {FT<:Real} # on master
+                                                  maxiter::Int=40) where {FT<:Real}
     T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, p, q_tot, tol, maxiter)
     ρ = air_density(T, p, PhasePartition(q_tot))
     q = PhasePartition_equil(T, ρ, q_tot)

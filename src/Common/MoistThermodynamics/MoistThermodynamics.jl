@@ -658,7 +658,7 @@ function ∂e_int_∂T(T::FT, e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
 end
 
 """
-    saturation_adjustment_NewtonsMethod(e_int, ρ, q_tot)
+    saturation_adjustment(e_int, ρ, q_tot)
 
 Compute the temperature that is consistent with
 
@@ -676,7 +676,7 @@ using Newtons method with analytic gradients.
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_NewtonsMethod(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
+function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
   T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
@@ -687,9 +687,9 @@ function saturation_adjustment_NewtonsMethod(e_int::FT, ρ::FT, q_tot::FT, tol::
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_ -> ∂e_int_∂T(T_, e_int, ρ, q_tot),
       T_1,
-      NewtonsMethod(), CompactSolution(), FT(1e-3), 10)
+      NewtonsMethod(), CompactSolution(), tol, maxiter)
     if !sol.converged
-      error("saturation_adjustment_NewtonsMethod did not converge")
+      error("saturation_adjustment did not converge")
     end
     return sol.root
   end
@@ -721,7 +721,7 @@ saturation adjustment using Secant method
 end
 
 """
-    saturation_adjustment(e_int, ρ, q_tot)
+    saturation_adjustment_SecantMethod(e_int, ρ, q_tot)
 
 Compute the temperature `T` that is consistent with
 
@@ -737,7 +737,7 @@ by finding the root of
 
 See also [`saturation_adjustment_q_tot_θ_liq_ice`](@ref).
 """
-function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
+function saturation_adjustment_SecantMethod(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
   T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
@@ -752,7 +752,7 @@ function saturation_adjustment(e_int::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::I
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-3), 10)
     if !sol.converged
-      error("saturation_adjustment did not converge")
+      error("saturation_adjustment_SecantMethod did not converge")
     end
     return sol.root
   end
@@ -937,8 +937,7 @@ function air_temperature_from_liquid_ice_pottemp(θ_liq_ice::FT, ρ::FT,
   T_u = (ρ*R_m*θ_liq_ice/FT(MSLP))^(R_m/cvm)*θ_liq_ice
   T_1 = latent_heat_liq_ice(q)/cvm
   T_2 = -κ/(2*T_u)*(latent_heat_liq_ice(q)/cvm)^2
-  # return T_u + T_1 + T_2 # on master
-  return T_u + T_1
+  return T_u + T_1 + T_2
 end
 
 """
@@ -962,7 +961,7 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice::FT, ρ::
   q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
   sol = find_zero(
     T -> T - air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, air_pressure(T, ρ, q), q),
-    FT(T_min), FT(T_max), SecantMethod(), CompactSolution(), FT(1e-3), 10)
+    FT(T_min), FT(T_max), SecantMethod(), CompactSolution(), tol, maxiter)
   if !sol.converged
     error("air_temperature_from_liquid_ice_pottemp_non_linear did not converge")
   end
