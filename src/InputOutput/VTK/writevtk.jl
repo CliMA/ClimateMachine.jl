@@ -1,11 +1,10 @@
 using ..Mesh.Grids
 using ..MPIStateArrays
 using ..DGmethods
-using ..DGBalanceLawDiscretizations
 using ..TicToc
 
 """
-    writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw [, fieldnames])
+    writevtk(prefix, Q::MPIStateArray, disc::DGModel [, fieldnames])
 
 Write a vtk file for all the fields in the state array `Q` using geometry and
 connectivity information from `disc.grid`. The filename will start with `prefix`
@@ -15,7 +14,7 @@ if not specified the fields names will be `"Q1"` through `"Qk"` where `k` is the
 number of states in `Q`, i.e., `k = size(Q,2)`.
 
 """
-function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
+function writevtk(prefix, Q::MPIStateArray, dg::DGModel,
                   fieldnames=nothing)
   @tic writevtk_Q
   vgeo = dg.grid.vgeo
@@ -27,7 +26,7 @@ function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
 end
 
 """
-    writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw, fieldnames,
+    writevtk(prefix, Q::MPIStateArray, disc::DGModel, fieldnames,
              auxstate::MPIStateArray, auxfieldnames)
 
 Write a vtk file for all the fields in the state array `Q` and auxiliary state
@@ -44,7 +43,7 @@ If `auxfieldnames === nothing` then the fields names will be `"aux1"` through
 size(auxstate,2)`.
 
 """
-function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
+function writevtk(prefix, Q::MPIStateArray, dg::DGModel,
                   fieldnames, auxstate, auxfieldnames)
   @tic writevtk_Q_aux
   vgeo = dg.grid.vgeo

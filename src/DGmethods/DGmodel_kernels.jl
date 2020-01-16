@@ -31,7 +31,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
                vgeo, t, D, elems)
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
-`DGBalanceLaw` semi-discretization.
+`DGModel` semi-discretization.
 
 See [`odefun!`](@ref) for usage.
 """
@@ -959,7 +959,7 @@ end
 
 Computational kernel: Initialize the auxiliary state
 
-See [`DGBalanceLaw`](@ref) for usage.
+See [`DGModel`](@ref) for usage.
 """
 function initauxstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, auxstate, vgeo, elems) where {dim, polyorder}
   N = polyorder
@@ -1090,7 +1090,7 @@ end
 
 Computational kernel: compute indefinite integral along the vertical stack
 
-See [`DGBalanceLaw`](@ref) for usage.
+See [`DGModel`](@ref) for usage.
 """
 function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nvertelem},
                                         Q, auxstate, vgeo, Imat,
