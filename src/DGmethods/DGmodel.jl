@@ -277,25 +277,27 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
 end
 
 """
-    cfl(localcfl::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
-        direction=EveryDirection())
+    courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+            Q::MPIStateArray, direction=EveryDirection())
 
-Returns the maximum of the evaluation of the function `localcfl` pointwise
-throughout the domain.  The function `localcfl` is given an approximation of
-the local node distance `Δx`.  The `direction` controls which reference
-directions are considered when computing the minimum node distance `Δx`.
+Returns the maximum of the evaluation of the function `local_courant`
+pointwise throughout the domain.  The function `local_courant` is given an
+approximation of the local node distance `Δx`.  The `direction` controls which
+reference directions are considered when computing the minimum node distance
+`Δx`.
 
-An example `localcfl` function is
+An example `local_courant` function is
 
-    function localcfl(m::AtmosModel, state::Vars, aux::Vars, diffusive::Vars,
-                      Δx)
+    function local_courant(m::AtmosModel, state::Vars, aux::Vars,
+                           diffusive::Vars, Δx)
       return Δt * cmax / Δx
     end
 
-where `Δt` is the time step size and `cmax` is the maximum speed of the model.
+where `Δt` is the time step size and `cmax` is the maximum flow speed in the
+model.
 """
-function cfl(localcfl::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
-             direction=EveryDirection())
+function courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+                 Q::MPIStateArray, direction=EveryDirection())
   grid = dg.grid
   topology = grid.topology
   nrealelem = length(topology.realelems)
@@ -306,21 +308,21 @@ function cfl(localcfl::Function, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
     device = grid.vgeo isa Array ? CPU() : CUDA()
-    pointwisecfl = similar(grid.vgeo, Nq^dim, nrealelem)
+    pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             Grids.knl_min_neighbor_distance!(Val(N), Val(dim), direction,
-                                             pointwisecfl, grid.vgeo,
+                                             pointwise_courant, grid.vgeo,
                                              topology.realelems))
     @launch(device, threads=(Nq*Nq*Nqk,), blocks=nrealelem,
-            knl_local_cfl!(m, Val(dim), Val(N), pointwisecfl, localcfl,
-                           Q.data, dg.auxstate.data, dg.diffstate.data,
-                           topology.realelems))
-    loccflmax = maximum(pointwisecfl)
+            knl_local_courant!(m, Val(dim), Val(N), pointwise_courant,
+                               local_courant, Q.data, dg.auxstate.data,
+                               dg.diffstate.data, topology.realelems))
+    rank_courant_max = maximum(pointwise_courant)
   else
-    loccflmax = typemin(eltype(Q))
+    rank_courant_max = typemin(eltype(Q))
   end
 
-  MPI.Allreduce(loccflmax, max, topology.mpicomm)
+  MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,

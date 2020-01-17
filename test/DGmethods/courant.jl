@@ -8,7 +8,7 @@ using CLIMA.VTK
 using Logging
 using Printf
 using LinearAlgebra
-using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, cfl
+using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive
 
@@ -119,8 +119,8 @@ let
 
         Δt = FT(1//2)
 
-        function localcfl(m::AtmosModel, state::Vars, aux::Vars,
-                              diffusive::Vars, Δx)
+        function local_courant(m::AtmosModel, state::Vars, aux::Vars,
+                               diffusive::Vars, Δx)
           u = state.ρu/state.ρ
           return Δt * (norm(u) + soundspeed(m.moisture, m.orientation, state,
                                             aux)) / Δx
@@ -138,9 +138,9 @@ let
         c_h = Δt*(translation_speed + soundspeed_air(T∞))/Δx_h
         c_v = Δt*(translation_speed + soundspeed_air(T∞))/Δx_v
 
-        @test  c   ≈ cfl(localcfl, dg, model, Q, EveryDirection())
-        @test  c_h ≈ cfl(localcfl, dg, model, Q, HorizontalDirection())
-        @test  c_v ≈ cfl(localcfl, dg, model, Q, VerticalDirection())
+        @test c   ≈ courant(local_courant, dg, model, Q, EveryDirection())
+        @test c_h ≈ courant(local_courant, dg, model, Q, HorizontalDirection())
+        @test c_v ≈ courant(local_courant, dg, model, Q, VerticalDirection())
       end
     end
   end

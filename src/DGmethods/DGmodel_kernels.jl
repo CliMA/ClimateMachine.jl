@@ -1080,9 +1080,9 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
   end
 end
 
-function knl_local_cfl!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, pointwisecfl,
-                        localcfl, Q, auxstate, diffstate,
-                        elems) where {dim, N}
+function knl_local_courant!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                            pointwise_courant, local_courant, Q, auxstate,
+                            diffstate, elems) where {dim, N}
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
@@ -1112,12 +1112,12 @@ function knl_local_cfl!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, pointwisecfl,
         l_diff[s] = diffstate[n, s, e]
       end
 
-      Δx = pointwisecfl[n, e]
-      c = localcfl(bl, Vars{vars_state(bl,FT)}(l_Q),
-                       Vars{vars_aux(bl,FT)}(l_aux),
-                       Vars{vars_diffusive(bl,FT)}(l_diff), Δx)
+      Δx = pointwise_courant[n, e]
+      c = local_courant(bl, Vars{vars_state(bl,FT)}(l_Q),
+                        Vars{vars_aux(bl,FT)}(l_aux),
+                        Vars{vars_diffusive(bl,FT)}(l_diff), Δx)
 
-      pointwisecfl[n, e] = c
+      pointwise_courant[n, e] = c
     end
   end
 end
