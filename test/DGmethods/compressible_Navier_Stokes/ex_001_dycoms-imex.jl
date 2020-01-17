@@ -201,7 +201,7 @@ function run(mpicomm,
   κ             = FT(85)
   α_z           = FT(1)
   z_i           = FT(840)
-  D_subsidence  = FT(3.75e-6)
+  D_subsidence  = FT(0) # 0 for stable testing, 3.75e-6 in practice
   ρ_i           = FT(1.13)
   F_0           = FT(70)
   F_1           = FT(22)
@@ -407,7 +407,7 @@ let
                   N = 4
 
                   # SGS Filter constants
-                  C_smag = FT(0.18)
+                  C_smag = FT(0.21) # for stable testing, 0.18 in practice
                   LHF    = FT(115)
                   SHF    = FT(15)
                   C_drag = FT(0.0011)

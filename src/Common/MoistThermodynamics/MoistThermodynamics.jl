@@ -750,7 +750,7 @@ function saturation_adjustment_SecantMethod(e_int::FT, ρ::FT, q_tot::FT, tol::F
     # T_2 = bound_upper_temperature(T_1, T_2) # on master
     sol = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
-      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-3), 10)
+      T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
     if !sol.converged
       error("saturation_adjustment_SecantMethod did not converge")
     end
@@ -790,7 +790,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, ρ::FT, q_tot::F
     # T_2 = bound_upper_temperature(T_1, T_2) # on master
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, ρ, q_tot) - θ_liq_ice,
-      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
+      T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
     if !sol.converged
       error("saturation_adjustment_q_tot_θ_liq_ice did not converge")
     end
@@ -829,7 +829,7 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p
     # T_2 = bound_upper_temperature(T_1, T_2) # on master
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) - θ_liq_ice,
-      T_1, T_2, SecantMethod(), CompactSolution(), FT(1e-5), 40)
+      T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
     if !sol.converged
       error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
     end
