@@ -149,7 +149,7 @@ end
 
 # We want not have jump penalties on η (since not a flux variable)
 function update_penalty!(::Rusanov, ::HBModel, n⁻, λ, ΔQ::Vars,
-                         Q⁻, Q⁺, A⁻, A⁺, t)
+                         Q⁻, A⁻, Q⁺, A⁺, t)
   ΔQ.η = -0
 
   #=

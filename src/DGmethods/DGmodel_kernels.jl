@@ -536,7 +536,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
         # Load plus side data
         @unroll for s = 1:nstate
-          l_QPdiff[s] = l_QPnondiff[s] = l_QPdiff[s] = Q[vidP, s, eP]
+          l_QPdiff[s] = l_QPnondiff[s] = Q[vidP, s, eP]
         end
 
         @unroll for s = 1:nviscstate
@@ -550,10 +550,16 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
         bctype = elemtobndy[f, e]
         fill!(l_F, -zero(eltype(l_F)))
         if bctype == 0
-          numerical_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM, l_QM,
-                                       l_auxM, l_QPnondiff, l_auxPnondiff, t)
-          numerical_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM, l_QviscM,
-                                    l_auxM, l_QPdiff, l_QviscP, l_auxPdiff, t)
+          numerical_flux_nondiffusive!(numfluxnondiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), SVector(nM),
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPnondiff), Vars{vars_aux(bl,FT)}(l_auxPnondiff),
+            t)
+          numerical_flux_diffusive!(numfluxdiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), nM,
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_diffusive(bl,FT)}(l_QviscM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPdiff), Vars{vars_diffusive(bl,FT)}(l_QviscP), Vars{vars_aux(bl,FT)}(l_auxPdiff),
+            t)
         else
           if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
@@ -567,14 +573,18 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM,
-                                                l_QM, l_auxM, l_QPnondiff,
-                                                l_auxPnondiff, bctype, t,
-                                                l_Q_bot1, l_aux_bot1)
-          numerical_boundary_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM,
-                                             l_QviscM, l_auxM, l_QPdiff,
-                                             l_QviscP, l_auxPdiff, bctype, t,
-                                             l_Q_bot1, l_Qvisc_bot1, l_aux_bot1)
+          numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), SVector(nM),
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPnondiff), Vars{vars_aux(bl,FT)}(l_auxPnondiff),
+            bctype, t,
+            Vars{vars_state(bl,FT)}(l_Q_bot1), Vars{vars_aux(bl,FT)}(l_aux_bot1))
+          numerical_boundary_flux_diffusive!(numfluxdiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), nM,
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_diffusive(bl,FT)}(l_QviscM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPdiff), Vars{vars_diffusive(bl,FT)}(l_QviscP), Vars{vars_aux(bl,FT)}(l_auxPdiff),
+            bctype, t,
+            Vars{vars_state(bl,FT)}(l_Q_bot1), Vars{vars_diffusive(bl,FT)}(l_Qvisc_bot1), Vars{vars_aux(bl,FT)}(l_aux_bot1))
         end
 
         #Update RHS
@@ -895,8 +905,11 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
-          diffusive_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM, l_QM,
-                             l_auxM, l_GP, l_QP, l_auxP, t)
+          diffusive_penalty!(gradnumpenalty, bl,
+            Vars{vars_diffusive(bl,FT)}(l_Qvisc), SVector(nM),
+            Vars{vars_gradient(bl,FT)}(l_GM), Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_gradient(bl,FT)}(l_GP), Vars{vars_state(bl,FT)}(l_QP), Vars{vars_aux(bl,FT)}(l_auxP),
+            t)
         else
           if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
@@ -907,9 +920,11 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          diffusive_boundary_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM,
-                                      l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype,
-                                      t, l_Q_bot1, l_aux_bot1)
+          diffusive_boundary_penalty!(gradnumpenalty, bl,
+            Vars{vars_diffusive(bl,FT)}(l_Qvisc), SVector(nM),
+            Vars{vars_gradient(bl,FT)}(l_GM), Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_gradient(bl,FT)}(l_GP), Vars{vars_state(bl,FT)}(l_QP), Vars{vars_aux(bl,FT)}(l_auxP),
+            bctype, t, Vars{vars_state(bl,FT)}(l_Q_bot1), Vars{vars_aux(bl,FT)}(l_aux_bot1))
         end
 
         @unroll for s = 1:nviscstate
