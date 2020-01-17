@@ -324,6 +324,7 @@ function soundspeed_air(T::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real
   R_m = gas_constant_air(q)
   return sqrt(γ*R_m*T)
 end
+
 """
     soundspeed_air(ts::ThermodynamicState)
 
@@ -557,8 +558,7 @@ Compute the saturation specific humidity, given
  - `p_v_sat` saturation vapor pressure
 """
 q_vap_saturation_from_pressure(T::FT, ρ::FT, p_v_sat::FT) where {FT<:Real} =
-  min(1, p_v_sat / (ρ * FT(R_v) * T))
-  # p_v_sat / (ρ * FT(R_v) * T) # on master
+  p_v_sat / (ρ * FT(R_v) * T)
 
 """
     saturation_excess(T, ρ, q::PhasePartition)
@@ -741,13 +741,12 @@ function saturation_adjustment_SecantMethod(e_int::FT, ρ::FT, q_tot::FT, tol::F
   T_1 = max(FT(T_min), air_temperature(e_int, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
-  if unsaturated
-  # if unsaturated && T_1 > FT(T_min) # on master
+  if unsaturated && T_1 > FT(T_min)
     return T_1
   else
     # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
     T_2 = air_temperature(e_int, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
-    # T_2 = bound_upper_temperature(T_1, T_2) # on master
+    T_2 = bound_upper_temperature(T_1, T_2)
     sol = find_zero(
       T -> internal_energy_sat(T, ρ, q_tot) - e_int,
       T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
@@ -778,16 +777,14 @@ by finding the root of
 See also [`saturation_adjustment`](@ref).
 """
 function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::FT, ρ::FT, q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
-  T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot)) # Assume all vapor
-  # T_1 = max(FT(T_min), air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot))) # Assume all vapor # on master
+  T_1 = max(FT(T_min), air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
-  if unsaturated
-  # if unsaturated && T_1 > FT(T_min) # on master
+  if unsaturated && T_1 > FT(T_min)
     return T_1
   else
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
-    # T_2 = bound_upper_temperature(T_1, T_2) # on master
+    T_2 = bound_upper_temperature(T_1, T_2)
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, ρ, q_tot) - θ_liq_ice,
       T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
@@ -826,7 +823,7 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p
     return T_1
   else
     T_2 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, PhasePartition(q_tot, FT(0), q_tot)) # Assume all ice
-    # T_2 = bound_upper_temperature(T_1, T_2) # on master
+    T_2 = bound_upper_temperature(T_1, T_2)
     sol = find_zero(
       T -> liquid_ice_pottemp_sat(T, air_density(T, p, PhasePartition(q_tot)), q_tot) - θ_liq_ice,
       T_1, T_2, SecantMethod(), CompactSolution(), tol, maxiter)
