@@ -219,9 +219,9 @@ let
   expected_result[3, 3, Float32, VerticalDirection] = 8.3614431787282228e-05
   expected_result[3, 4, Float32, VerticalDirection] = 2.4086561461444944e-04
 
-  numlevels = integration_testing ? 4 : 1
 
     for FT in (Float64, Float32)
+      numlevels = integration_testing ? (FT == Float64 ? 4 : 3) : 1
       result = zeros(FT, numlevels)
       for dim = 2:3
         for direction in (EveryDirection, HorizontalDirection,
