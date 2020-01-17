@@ -79,7 +79,7 @@ function PhaseEquil(e_int::FT,
                     ρ::FT,
                     q_tot::FT,
                     tol::FT=FT(1e-1),
-                    maxiter::Int=3,
+                    maxiter::Int=5,
                     sat_adjust::F=saturation_adjustment) where {FT<:Real,F}
     return PhaseEquil{FT}(e_int, ρ, q_tot, sat_adjust(e_int, ρ, q_tot, tol, maxiter))
 end
