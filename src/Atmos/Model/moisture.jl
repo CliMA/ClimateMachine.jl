@@ -82,7 +82,8 @@ end
 
 function thermo_state(moist::EquilMoist, orientation::Orientation, state::Vars, aux::Vars)
   e_int = internal_energy(moist, orientation, state, aux)
-  PhaseEquil(e_int, state.ρ, state.moisture.ρq_tot/state.ρ, aux.moisture.temperature)
+  FT = eltype(state)
+  return PhaseEquil{FT}(e_int, state.ρ, state.moisture.ρq_tot/state.ρ, aux.moisture.temperature)
 end
 
 function gradvariables!(moist::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)
