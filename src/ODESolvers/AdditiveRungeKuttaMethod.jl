@@ -180,10 +180,12 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                      Q; dt=dt, t0=t0)
 end
 
+# this will only work for iterative solves
+# direct solvers use prefactorization
+ODEs.isadjustable(ark::AdditiveRungeKutta) = ark.implicitoperator! isa EulerOperator
 function ODEs.updatedt!(ark::AdditiveRungeKutta, dt)
+  @assert ODEs.isadjustable(ark)
   ark.dt = dt
-  # this will only work for iterative solves
-  # direct solvers will throw an error as they expect a factorized object
   α = dt * ark.RKA_implicit[2, 2]
   ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
 end
