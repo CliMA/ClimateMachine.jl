@@ -21,7 +21,7 @@
     - Byun, Daewon W. "On the analytical solutions of flux-profile
       relationships for the atmospheric surface layer." Journal of
       Applied Meteorology 29.7 (1990): 652-657.
-      http://dx.doi.org/10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2
+      https://doi.org/10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2
 
   - Ref. Wyngaard1975:
     - Wyngaard, John C. "Modeling the planetary boundary layer-Extension
