@@ -51,21 +51,17 @@ end
 
 struct PenaltyNumFluxDiffusive <: NumericalFluxDiffusive end
 function numerical_flux_diffusive!(::PenaltyNumFluxDiffusive,
-                                   bl::PoissonModel, F::MArray, nM,
-                                   QM, QVM, auxM,
-                                   QP, QVP, auxP,
-                                   t)
+    bl::PoissonModel, fluxᵀn::Vars{S}, n::SVector,
+    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
+    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A}, t) where {S,D,A}
+
   numerical_flux_diffusive!(CentralNumericalFluxDiffusive(),
-                            bl, F, nM,
-                            QM, QVM, auxM,
-                            QP, QVP, auxP,
-                            t)
-  FT = eltype(F)
-  nstate = length(F)
-  tau = FT(1.0)
-  for s = 1:nstate
-    @inbounds F[s] -= tau * (QM[1] - QP[1])
-  end
+    bl, fluxᵀn, n, state⁻, diff⁻, aux⁻, state⁺, diff⁺, aux⁺, t)
+
+  Fᵀn = parent(fluxᵀn)
+  FT = eltype(Fᵀn)
+  tau = FT(1)
+  Fᵀn .-= tau*(parent(state⁻) - parent(state⁺))
 end
 
 function gradvariables!(::PoissonModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)

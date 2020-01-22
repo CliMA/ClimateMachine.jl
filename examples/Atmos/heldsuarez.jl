@@ -13,7 +13,7 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d, day
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
 using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
-                   DryModel, NoRadiation, NoFluxBC,
+                   DryModel, NoRadiation, NoSubsidence, NoFluxBC,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, Coriolis,
@@ -70,6 +70,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
+                     NoSubsidence{FT}(),
                      (Gravity(), Coriolis(), held_suarez_forcing!), 
                      NoFluxBC(),
                      setup)

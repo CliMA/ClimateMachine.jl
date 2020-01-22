@@ -1,7 +1,4 @@
-"""
-    graph_diagnostic.jl
-
-"""
+# graph_diagnostic.jl
 
 using DataFrames, FileIO
 

@@ -44,7 +44,7 @@ cpu_gpu = [
 
 gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["true"] },
-  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3", "--gres=gpu:3"], args = ["true"] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
   # this test times out; re-enable after fixing
   #{ file = "test/DGmethods/compressible_Navier_Stokes/rayleigh-benard_model.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/Atmos/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },

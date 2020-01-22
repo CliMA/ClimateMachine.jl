@@ -1,4 +1,4 @@
-# Load Packages 
+# Load Packages
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
@@ -31,7 +31,7 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-# -------------- Problem constants ------------------- # 
+# -------------- Problem constants ------------------- #
 const (xmin,xmax)      = (0,1000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,1000)
@@ -40,7 +40,7 @@ const polynomialorder = 4
 const dim       = 3
 const dt        = 0.1
 const timeend   = 10dt
-# ------------- Initial condition function ----------- # 
+# ------------- Initial condition function ----------- #
 """
 @article{doi:10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2,
 author = {Robert, A},
@@ -62,16 +62,16 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   c_v::FT       = cv_d
   γ::FT         = c_p / c_v
   p0::FT        = MSLP
-  
+
   xc::FT        = 500
   zc::FT        = 260
   r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
   rc::FT        = 250
   θ_ref::FT     = 303
   Δθ::FT        = 0
-  
-  if r <= rc 
-    Δθ          = FT(1//2) 
+
+  if r <= rc
+    Δθ          = FT(1//2)
   end
   #Perturbed state:
   θ            = θ_ref + Δθ # potential temperature
@@ -89,26 +89,27 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρe     = ρe_tot
   state.moisture.ρq_tot = FT(0)
 end
-# --------------- Driver definition ------------------ # 
+# --------------- Driver definition ------------------ #
 function run(mpicomm, LinearType,
-             topl, dim, Ne, polynomialorder, 
+             topl, dim, Ne, polynomialorder,
              timeend, FT, dt)
-  # -------------- Define grid ----------------------------------- # 
+  # -------------- Define grid ----------------------------------- #
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder
                                            )
-  # -------------- Define model ---------------------------------- # 
+  # -------------- Define model ---------------------------------- #
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)),
                      Vreman{FT}(C_smag),
-                     EquilMoist(), 
+                     EquilMoist(),
                      NoRadiation(),
+                     NoSubsidence{FT}(),
                      Gravity(),
                      NoFluxBC(),
                      Initialise_Rising_Bubble!)
-  # -------------- Define dgbalancelaw --------------------------- # 
+  # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -178,7 +179,7 @@ function run(mpicomm, LinearType,
   """ engf engf/eng0 engf-eng0 errf errf / engfe
 engf/eng0
 end
-# --------------- Test block / Loggers ------------------ # 
+# --------------- Test block / Loggers ------------------ #
 using Test
 let
   CLIMA.init()
@@ -196,7 +197,7 @@ let
     topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
     for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
       engf_eng0 = run(mpicomm, LinearType,
-                      topl, dim, Ne, polynomialorder, 
+                      topl, dim, Ne, polynomialorder,
                       timeend, FT, dt)
       @test engf_eng0 ≈ FT(0.9999997771981113)
     end

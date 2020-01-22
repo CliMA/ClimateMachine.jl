@@ -14,7 +14,7 @@ using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
 using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
 using CLIMA.Atmos: AtmosModel, SphericalOrientation,
-                   DryModel, NoRadiation, NoFluxBC,
+                   DryModel, NoRadiation, NoSubsidence, NoFluxBC,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, HydrostaticState, IsothermalProfile,
@@ -77,6 +77,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
                      NoRadiation(),
+                     NoSubsidence{FT}(),
                      Gravity(),
                      NoFluxBC(),
                      setup)
@@ -208,7 +209,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname = "acousticw
                       vtkdir, testname, MPI.Comm_rank(mpicomm), vtkstep)
 
   statenames = flattenednames(vars_state(model, eltype(Q)))
-  auxnames = flattenednames(vars_aux(model, eltype(Q))) 
+  auxnames = flattenednames(vars_aux(model, eltype(Q)))
   writevtk(filename, Q, dg, statenames, dg.auxstate, auxnames)
 
   ## Generate the pvtu file for these vtk files

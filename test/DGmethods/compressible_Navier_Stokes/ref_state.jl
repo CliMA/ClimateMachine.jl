@@ -48,6 +48,7 @@ function run1(mpicomm, dim, topl, N, timeend, FT, dt)
                      ConstantViscosityWithDivergence(FT(1)),
                      EquilMoist(),
                      NoRadiation(),
+                     NoSubsidence{FT}(),
                      nothing,
                      NoFluxBC(),
                      init_state!)
@@ -81,6 +82,7 @@ function run2(mpicomm, dim, topl, N, timeend, FT, dt)
                      ConstantViscosityWithDivergence(FT(1)),
                      EquilMoist(),
                      NoRadiation(),
+                     NoSubsidence{FT}(),
                      nothing,
                      NoFluxBC(),
                      init_state!)

@@ -1,4 +1,4 @@
-# `SurfaceFluxes`
+# Surface Fluxes
 
 ```@meta
 CurrentModule = CLIMA.SurfaceFluxes
@@ -98,7 +98,7 @@ Nishizawa2018.compute_exchange_coefficients
 
 - Byun, Daewon W. "On the analytical solutions of flux-profile relationships for the
   atmospheric surface layer." Journal of Applied Meteorology 29.7 (1990): 652-657.
-  doi: [10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2](http://dx.doi.org/10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2)
+  doi: [10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2](https://doi.org/10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2)
 
 - Wyngaard, John C. "Modeling the planetary boundary layer-Extension to the stable case."
   Boundary-Layer Meteorology 9.4 (1975): 441-460.

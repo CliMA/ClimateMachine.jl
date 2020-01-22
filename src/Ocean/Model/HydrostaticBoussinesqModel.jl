@@ -21,7 +21,7 @@ import ..DGmethods.NumericalFluxes: update_penalty!, numerical_flux_diffusive!,
 import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                     vars_diffusive, vars_integrals, flux_nondiffusive!,
                     flux_diffusive!, source!, wavespeed,
-                    boundary_state!, update_aux!,
+                    boundary_state!, update_aux!, update_aux_diffusive!,
                     gradvariables!, init_aux!, init_state!,
                     LocalGeometry, indefinite_stack_integral!,
                     reverse_indefinite_stack_integral!, integrate_aux!,
@@ -55,29 +55,22 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   κᶻ::T
 end
 
-struct HBVerticalSupplementModel <: BalanceLaw end
-
 HBModel   = HydrostaticBoussinesqModel
 HBProblem = HydrostaticBoussinesqProblem
-VSModel   = HBVerticalSupplementModel
 
 function OceanDGModel(bl::HBModel, grid, numfluxnondiff, numfluxdiff,
                       gradnumflux; kwargs...)
-  vert_dg     = DGModel(VSModel(), grid, numfluxnondiff, numfluxdiff,
-                        gradnumflux)
-  vert_dQ     = init_ode_state(vert_dg, 948)
   vert_filter = CutoffFilter(grid, polynomialorder(grid)-1)
   exp_filter  = ExponentialFilter(grid, 1, 8)
 
-  modeldata = (vert_dg = vert_dg, vert_dQ = vert_dQ, vert_filter = vert_filter,
-               exp_filter=exp_filter)
+  modeldata = (vert_filter = vert_filter, exp_filter=exp_filter)
 
-  return DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux; kwargs...,
-                 modeldata=modeldata)
+  return DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux;
+                 kwargs..., modeldata=modeldata)
 end
 
 # If this order is changed check the filter usage!
-function vars_state(m::Union{HBModel, VSModel}, T)
+function vars_state(m::HBModel, T)
   @vars begin
     u::SVector{2, T}
     η::T # real a 2-D variable TODO: should be 2D
@@ -98,13 +91,6 @@ function vars_aux(m::HBModel, T)
     τ::T            # wind stress  # TODO: Should be 2D
     # κ::SMatrix{3, 3, T, 9} # diffusivity tensor (for convective adjustment)
     κᶻ::T
-
-    # diagnostics (should be ported elsewhere eventually)
-    div2D::T
-    θu::T
-    θv::T
-    θw::T
-    ∂θ∂z::T
   end
 end
 
@@ -117,8 +103,8 @@ end
 
 function vars_diffusive(m::HBModel, T)
   @vars begin
-    ν∇u::SMatrix{3, 2, T, 6}
-    κ∇θ::SVector{3, T}
+    ∇u::SMatrix{3, 2, T, 6}
+    ∇θ::SVector{3, T}
   end
 end
 
@@ -163,9 +149,10 @@ end
 
 # We want not have jump penalties on η (since not a flux variable)
 function update_penalty!(::Rusanov, ::HBModel, n⁻, λ, ΔQ::Vars,
-                         Q⁻, Q⁺, A⁻, A⁺, t)
+                         Q⁻, A⁻, Q⁺, A⁺, t)
   ΔQ.η = -0
 
+  #=
   θ⁻ = Q⁻.θ
   u⁻ = Q⁻.u
   w⁻ = A⁻.w
@@ -184,16 +171,20 @@ function update_penalty!(::Rusanov, ::HBModel, n⁻, λ, ΔQ::Vars,
   # average velocity
   n̂_v = (n̂_v⁻ + n̂_v⁺) / 2
 
-  # ΔQ.θ = ((n̂_v > 0) ? 1 : -1) * (n̂_v⁻ * θ⁻ - n̂_v⁺ * θ⁺)
+  ΔQ.θ = ((n̂_v > 0) ? 1 : -1) * (n̂_v⁻ * θ⁻ - n̂_v⁺ * θ⁺)
   # ΔQ.θ = abs(n̂_v⁻) * θ⁻ - abs(n̂_v⁺) * θ⁺
+  =#
 
   return nothing
 end
 
 @inline function flux_diffusive!(m::HBModel, F::Grad, Q::Vars, D::Vars,
                                  A::Vars, t::Real)
-  F.u -= D.ν∇u
-  F.θ -= D.κ∇θ
+  ν = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
+  F.u -= ν * D.∇u
+
+  κ = Diagonal(@SVector [m.κʰ, m.κʰ, A.κᶻ])
+  F.θ -= κ * D.∇θ
 
   return nothing
 end
@@ -207,11 +198,8 @@ end
 
 @inline function diffusive!(m::HBModel, D::Vars, G::Grad, Q::Vars,
                             A::Vars, t)
-  ν = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
-  D.ν∇u = ν * G.u
-
-  κ = Diagonal(@SVector [m.κʰ, m.κʰ, A.κᶻ])
-  D.κ∇θ = κ * G.θ
+  D.∇u = G.u
+  D.∇θ = G.θ
 
   return nothing
 end
@@ -241,13 +229,7 @@ end
 end
 
 function update_aux!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
-  A  = dg.auxstate
-  D  = dg.diffstate
   MD = dg.modeldata
-
-  # Compute DG gradient of u -> A.w
-  vert_dg = MD.vert_dg
-  vert_dQ = MD.vert_dQ
 
   # required to ensure that after integration velocity field is divergence free
   vert_filter = MD.vert_filter
@@ -258,18 +240,26 @@ function update_aux!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
   # Q[4] = θ
   apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
 
-  # calculate ∇ʰ⋅u
-  vert_dg(vert_dQ, Q, nothing, t; increment = false)
+  return true
+end
 
-  # Copy from vert_dQ.θ which is realy ∇h•u into A.w (which will be
-  # integrated)
-  function f!(::HBModel, vert_dQ, A, D, t)
-    A.w  = vert_dQ.θ
-    A.div2D = vert_dQ.θ
+function update_aux_diffusive!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
+  A  = dg.auxstate
+
+  # store ∇ʰu as integrand for w
+  # update vertical diffusivity for convective adjustment
+  function f!(::HBModel, Q, A, D, t)
+    @inbounds begin
+      A.w = -(D.∇u[1,1] + D.∇u[2,2])
+
+      # κʰ = m.κʰ
+      # A.κ = @SMatrix [κʰ -0 -0; -0 κʰ -0; -0 -0 κᶻ]
+      D.∇θ[3] < 0 ? A.κᶻ = 1000 * m.κᶻ : A.κᶻ = m.κᶻ
+    end
 
     return nothing
   end
-  nodal_update_aux!(f!, dg, m, vert_dQ, t)
+  nodal_update_aux!(f!, dg, m, Q, t; diffusive=true)
 
   # compute integrals for w and pkin
   indefinite_stack_integral!(dg, m, Q, A, t) # bottom -> top
@@ -280,25 +270,7 @@ function update_aux!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
   # A[1] = w, A[5] = wz0
   copy_stack_field_down!(dg, m, A, 1, 5)
 
-  # store some diagnostic variables
-  # and update diffusivity tensor for convective adjustment
-  function g!(m::HBModel, Q, A, D, t)
-    @inbounds begin
-      A.θu = Q.θ * Q.u[1]
-      A.θv = Q.θ * Q.u[2]
-      A.θw = Q.θ * A.w
-
-      A.∂θ∂z = D.κ∇θ[3] / m.κᶻ
-      # κʰ = m.κʰ
-      D.κ∇θ[3] < 0 ? A.κᶻ = 1000 * m.κᶻ : A.κᶻ = m.κᶻ
-      # A.κ = @SMatrix [κʰ -0 -0; -0 κʰ -0; -0 -0 κᶻ]
-    end
-
-    return nothing
-  end
-  nodal_update_aux!(g!, dg, m, Q, t)
-
-  return nothing
+  return true
 end
 
 function ocean_init_aux! end
@@ -333,9 +305,9 @@ end
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip,
                                        ::CentralNumericalFluxDiffusive, Q⁺,
                                        D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.ν∇u = -D⁻.ν∇u
+  D⁺.∇u = -D⁻.∇u
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = -D⁻.∇θ
 
   return nothing
 end
@@ -353,7 +325,7 @@ end
                                        D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   Q⁺.u = -Q⁻.u
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = -D⁻.∇θ
 
   return nothing
 end
@@ -371,9 +343,9 @@ end
                                        ::CentralNumericalFluxDiffusive, Q⁺,
                                        D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   A⁺.w = -A⁻.w
-  D⁺.ν∇u = -D⁻.ν∇u
+  D⁺.∇u = -D⁻.∇u
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = -D⁻.∇θ
 
   return nothing
 end
@@ -395,7 +367,7 @@ end
   Q⁺.u = -Q⁻.u
   A⁺.w = -A⁻.w
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = -D⁻.∇θ
 
   return nothing
 end
@@ -414,9 +386,9 @@ end
                                        ::OceanSurfaceNoStressNoForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.ν∇u = -D⁻.ν∇u
+  D⁺.∇u = -D⁻.∇u
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = -D⁻.∇θ
 
   return nothing
 end
@@ -426,11 +398,11 @@ end
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   τ = A⁻.τ
-  D⁺.ν∇u = -D⁻.ν∇u + 2 * @SMatrix [ -0 -0;
-                                    -0 -0;
-                                    τ / 1000 -0]
+  D⁺.∇u = -D⁻.∇u + 2 * @SMatrix [ -0 -0;
+                                  -0 -0;
+                                  τ / 1000 -0]
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = -D⁻.∇θ
 
   return nothing
 end
@@ -439,12 +411,12 @@ end
                                        ::OceanSurfaceNoStressForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.ν∇u = -D⁻.ν∇u
+  D⁺.∇u = -D⁻.∇u
 
   θ  = Q⁻.θ
   θʳ = A⁻.θʳ
   λʳ = m.problem.λʳ
-  D⁺.κ∇θ = -D⁻.κ∇θ + 2 * @SVector [-0, -0, λʳ * (θʳ - θ)]
+  D⁺.∇θ = -D⁻.∇θ + 2 * @SVector [-0, -0, λʳ * (θʳ - θ)]
 
   return nothing
 end
@@ -454,60 +426,14 @@ end
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   τ = A⁻.τ
-  D⁺.ν∇u = -D⁻.ν∇u + 2 * @SMatrix [ -0 -0;
-                                    -0 -0;
-                                    τ / 1000 -0]
+  D⁺.∇u = -D⁻.∇u + 2 * @SMatrix [ -0 -0;
+                                  -0 -0;
+                                  τ / 1000 -0]
 
   θ  = Q⁻.θ
   θʳ = A⁻.θʳ
   λʳ = m.problem.λʳ
-  D⁺.κ∇θ = -D⁻.κ∇θ + 2 * @SVector [-0, -0, λʳ * (θʳ - θ)]
-
-  return nothing
-end
-
-# VSModel is used to compute the horizontal divergence of u
-vars_aux(::VSModel, T)  = @vars()
-vars_gradient(::VSModel, T)  = @vars()
-vars_diffusive(::VSModel, T)  = @vars()
-vars_integrals(::VSModel, T)  = @vars()
-init_aux!(::VSModel, _...) = nothing
-
-@inline flux_diffusive!(::VSModel, _...) = nothing
-@inline source!(::VSModel, _...) = nothing
-
-function init_state!(m::VSModel, Q::Vars, A::Vars, coords, t)
-  # return ocean_init_state!(m.problem, Q, A, coords, t)
-  Q.θ = 0
-end
-
-# This allows the balance law framework to compute the horizontal gradient of u
-# (which will be stored back in the field θ)
-@inline function flux_nondiffusive!(m::VSModel, F::Grad, Q::Vars,
-                                    A::Vars, t::Real)
-  @inbounds begin
-    u = Q.u # Horizontal components of velocity
-    v = @SVector [u[1], u[2], -0]
-
-    # ∇ • (v)
-    # Just using θ to store w = ∇h • u
-    F.θ += v
-  end
-
-  return nothing
-end
-
-
-# This is zero because when taking the horizontal gradient we're piggy-backing
-# on θ and want to ensure we do not use it's jump
-@inline wavespeed(m::VSModel, n⁻, _...) = -zero(eltype(n⁻))
-
-boundary_state!(::CentralNumericalFluxDiffusive, m::VSModel, _...) = nothing
-
-@inline function boundary_state!(::Union{Rusanov,
-                                 CentralNumericalFluxNonDiffusive}, ::VSModel,
-                                 Q⁺, A⁺, n⁻, Q⁻, A⁻, t, _...)
-  Q⁺.u = -Q⁻.u
+  D⁺.∇θ = -D⁻.∇θ + 2 * @SVector [-0, -0, λʳ * (θʳ - θ)]
 
   return nothing
 end

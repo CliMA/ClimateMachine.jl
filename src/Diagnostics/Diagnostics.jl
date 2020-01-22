@@ -4,9 +4,6 @@
 Accumulate mean fields and covariance statistics on the computational grid.
 
 """
-
-# TODO: reduce MPI communication; record local averages only?
-
 module Diagnostics
 
 using Dates
@@ -16,6 +13,7 @@ using MPI
 using StaticArrays
 
 using ..Atmos
+using ..Atmos: thermo_state
 using ..DGmethods: num_state, vars_state, num_aux, vars_aux, vars_diffusive, num_diffusive
 using ..Mesh.Topologies
 using ..Mesh.Grids
@@ -79,25 +77,17 @@ end
 num_thermo(FT) = varsize(vars_thermo(FT))
 thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
 
-function compute_thermo!(FT, state, k, ijk, ev, e, z, zvals, thermoQ)
-    zvals[k,ev] = z
-
-    u = state.ρu[1] / state.ρ
-    v = state.ρu[2] / state.ρ
-    w = state.ρu[3] / state.ρ
+function compute_thermo!(FT, bl, state, k, ijk, ev, e, z, zvals, thermoQ, aux)
     e_tot = state.ρe / state.ρ
-    q_tot = state.moisture.ρq_tot / state.ρ
-
-    e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
-
-    ts = PhaseEquil(convert(FT, e_int), state.ρ, q_tot, FT(1e-2), 3)
+    ts = thermo_state(bl.moisture, bl.orientation, state, aux)
+    e_int = internal_energy(ts)
     Phpart = PhasePartition(ts)
 
     th = thermo_vars(thermoQ[ijk,e])
     th.q_liq     = Phpart.liq
     th.q_ice     = Phpart.ice
-    th.q_vap     = q_tot-Phpart.liq-Phpart.ice
-    th.T         = ts.T
+    th.q_vap     = Phpart.tot-Phpart.liq-Phpart.ice
+    th.T         = air_temperature(ts)
     th.θ_liq_ice = liquid_ice_pottemp(ts)
     th.θ_dry     = dry_pottemp(ts)
     th.θ_v       = virtual_pottemp(ts)
@@ -259,7 +249,11 @@ end
 Compute various diagnostic variables and write them to JLD2 files in `out_dir`,
 indexed by `current_time_string`.
 """
-function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
+function gather_diagnostics(mpicomm,
+                            dg,
+                            Q,
+                            diagnostics_time_str,
+                            sim_time_str,
                             out_dir)
     # make sure this time step is not already recorded
     try
@@ -319,9 +313,10 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     # compute thermo variables and horizontal sums in a single pass
     @visitQ nhorzelem nvertelem Nqk Nq begin
         state = extract_state(dg, localQ, ijk, e)
+        aux   = extract_aux(dg, localaux, ijk, e)
 
         z = localvgeo[ijk,grid.x3id,e]
-        compute_thermo!(FT, state, k, ijk, ev, e, z, zvals, thermoQ)
+        compute_thermo!(FT, bl, state, k, ijk, ev, e, z, zvals, thermoQ, aux)
 
         diffusive_flx = extract_diffusion(dg, localdiff, ijk, e)
         MH = localvgeo[ijk,grid.MHid,e]

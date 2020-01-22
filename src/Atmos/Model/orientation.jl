@@ -5,6 +5,7 @@ export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 abstract type Orientation
 end
 
+
 function vars_aux(m::Orientation, T)
   @vars begin
     Φ::T # gravitational potential
@@ -15,6 +16,7 @@ end
 gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
 ∇gravitational_potential(::Orientation, aux::Vars) = aux.orientation.∇Φ
 altitude(orientation::Orientation, aux::Vars) = gravitational_potential(orientation, aux) / grav
+vertical_unit_vector(orientation::Orientation, aux::Vars) = ∇gravitational_potential(orientation, aux) / grav
 
 
 """
