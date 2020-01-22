@@ -6,14 +6,17 @@ import CLIMA.DGmethods: BalanceLaw,
                         gradvariables!, diffusive!,
                         init_aux!, init_state!,
                         boundary_state!, wavespeed, LocalGeometry
-using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
+import CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        NumericalFluxDiffusive,
-                                       GradNumericalPenalty
+                                       GradNumericalPenalty,
+                                       numerical_boundary_flux_diffusive!
 
 """
     SoilModel
 
 Computes diffusive flux `F` in:
+
+∂y / ∂t = ∇ ⋅ Flux + Source
 
 ```math
 ∂(ρcT)   ∂      ∂T
@@ -47,15 +50,17 @@ function gradvariables!(m::SoilModel, transform::Vars, state::Vars, aux::Vars, t
   transform.T = state.ρcT / (m.ρ * m.c)
 end
 function diffusive!(m::SoilModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
-  diffusive.∂T∂z = ∇transform.T[2]
+  diffusive.∂T∂z = ∇transform.T[3]
 end
 function flux_nondiffusive!(m::SoilModel, flux::Grad, state::Vars, aux::Vars, t::Real)
 end
 function flux_diffusive!(m::SoilModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  flux.ρcT += SVector(0, m.λ * diffusive.∂T∂z, 0)
+  flux.ρcT += SVector(0, 0, m.λ * diffusive.∂T∂z)
 end
 
-source!(m::SoilModel, _...) = nothing
+function source!(m::SoilModel, state::Vars, _...)
+  # state.ρcT += d(ρcT)/dt
+end
 
 #=
 function wavespeed(m::SoilModel, nM, state::Vars, aux::Vars, t::Real)
@@ -64,14 +69,65 @@ end
 =#
 
 function init_aux!(m::SoilModel, aux::Vars, geom::LocalGeometry)
-  aux.z = geom.coord[2]
+  aux.z = geom.coord[3]
 end
 
 function init_state!(m::SoilModel, state::Vars, aux::Vars, coords, t::Real)
-  state.ρcT = 10.0
+  state.ρcT = 10.0 + sin(aux.z)
 end
 
 # Neumann boundary conditions
+
+function numerical_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+    bl::SoilModel, fluxᵀn::Vars{S}, n::SVector,
+    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
+    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A},
+    bctype, t,
+    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A}
+
+  if bctype == 1 # top
+    fluxᵀn.ρcT = 0 #state⁻.ρcT/(60*60*24)*sinpi(2t/(60*60*24))
+  else # bottom
+    fluxᵀn.ρcT = 0
+  end
+end
+
+# set up domain
+topl = StackedBrickTopology(mpicomm, (0:1,0:1,0:-1:-10); periodicity = (true,true,false),boundary=((0,0),(0,0),(1,2)))
+grid = DiscontinuousSpectralElementGrid(topl, FloatType = Float64, DeviceArray = Array, polynomialorder = 5)
+
+m = SoilModel(1.0,1.0,1.0,20.0,10.0)
+
+# Set up DG scheme
+dg = DGModel( #
+  m, # "PDE part"
+  grid,
+  CentralNumericalFluxNonDiffusive(), # penalty terms for discretizations
+  CentralNumericalFluxDiffusive(),
+  CentralGradPenalty())
+
+
+Δ = min_node_distance(grid)
+CFL_bound = (Δ^2 / (2m.λ/(m.ρ*m.c)))
+dt = CFL_bound*0.001 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
+
+# state variable
+Q = init_ode_state(dg, Float64(0))
+
+# initialize ODE solver
+lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+
+function plotstate(grid, Q)
+    # TODO:
+    # this currently uses some internals: provide a better way to do this
+    Xg = reshape(grid.vgeo[(1:6^2:6^3),CLIMA.Mesh.Grids.vgeoid.x3id,:],:)
+    Yg = reshape(Q.data[(1:6^2:6^3),1,:],:)
+    plot(Xg, Yg, xlabel="depth", ylabel="ρcT", ylimit=(0,40))
+end
+
+#plotstate(grid, Q)
+
+#=
 function boundary_state!(nf, m::SoilModel, stateP::Vars, auxP::Vars,
                          nM, stateM::Vars, auxM::Vars, bctype, t, _...)
   nothing
@@ -87,3 +143,4 @@ function boundary_state!(nf, m::SoilModel, stateP::Vars, diffP::Vars,
     diffP.∂T∂z = -diffM.∂T∂z
   end
 end
+=#
