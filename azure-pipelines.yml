@@ -1,3 +1,6 @@
+variables:
+  System.Debug: True
+
 trigger:
   batch: true
   branches:
