@@ -79,7 +79,6 @@ jobs:
     displayName: 'Download and extract Julia'
   - bash: |
       set -o xtrace
-      echo "127.0.0.1  $HOSTNAME" | sudo tee -a /private/etc/hosts  # fix https://stackoverflow.com/a/31222970/392585
       brew update
       brew upgrade
       brew install mpich
@@ -89,6 +88,8 @@ jobs:
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
+    env:
+      MPICH_INTERFACE_HOSTNAME: localhost
     displayName: 'Run the tests'
 
 
