@@ -158,6 +158,7 @@ let
                      NoReferenceState(),
                      SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
+                     NoPrecipitation(),
                      DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      NoSubsidence{FT}(),
                      (Gravity(),

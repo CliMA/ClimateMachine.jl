@@ -34,11 +34,12 @@ A `BalanceLaw` for atmosphere modeling.
                boundarycondition, init_state)
 
 """
-struct AtmosModel{O,RS,T,M,R,SU,S,BC,IS} <: BalanceLaw
+struct AtmosModel{O,RS,T,M,P,R,SU,S,BC,IS} <: BalanceLaw
   orientation::O
   ref_state::RS
   turbulence::T
   moisture::M
+  precipitation::P
   radiation::R
   subsidence::SU
   source::S
@@ -97,6 +98,7 @@ include("orientation.jl")
 include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
+include("precipitation.jl")
 include("subsidence.jl")
 include("radiation.jl")
 include("source.jl")
