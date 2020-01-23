@@ -305,7 +305,7 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir, ODESolvers.gettime(solver))
 
             #=
             #Calcualte Courant numbers:
@@ -343,7 +343,7 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir, ODESolvers.gettime(solver))
             #=
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())
