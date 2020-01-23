@@ -39,6 +39,7 @@ struct AtmosModel{O,RS,T,M,R,SU,S,BC,IS} <: BalanceLaw
   ref_state::RS
   turbulence::T
   moisture::M
+  precipitation::P
   radiation::R
   subsidence::SU
   source::S
@@ -63,6 +64,7 @@ function vars_gradient(m::AtmosModel, FT)
     h_tot::FT
     turbulence::vars_gradient(m.turbulence,FT)
     moisture::vars_gradient(m.moisture,FT)
+    precipitation::vars_state(m.precipitation,FT)
   end
 end
 function vars_diffusive(m::AtmosModel, FT)
@@ -71,6 +73,7 @@ function vars_diffusive(m::AtmosModel, FT)
     ρd_h_tot::SVector{3,FT}
     turbulence::vars_diffusive(m.turbulence,FT)
     moisture::vars_diffusive(m.moisture,FT)
+    precipitation::vars_gradient(m.precipitation,FT)
   end
 end
 
@@ -84,6 +87,7 @@ function vars_aux(m::AtmosModel, FT)
     ref_state::vars_aux(m.ref_state,FT)
     turbulence::vars_aux(m.turbulence,FT)
     moisture::vars_aux(m.moisture,FT)
+    precipitation::vars_diffusive(m.precipitation,FT)
     radiation::vars_aux(m.radiation,FT)
   end
 end
@@ -97,6 +101,7 @@ include("orientation.jl")
 include("ref_state.jl")
 include("turbulence.jl")
 include("moisture.jl")
+include("precipitation.jl")
 include("subsidence.jl")
 include("radiation.jl")
 include("source.jl")
@@ -146,6 +151,7 @@ Where
     flux.ρu += p*I
   end
   flux.ρe += u*p
+  flux_precipitation!(m.precipitation, m, flux, state, aux, t)
   flux_radiation!(m.radiation, m, flux, state, aux, t)
   flux_moisture!(m.moisture, m, flux, state, aux, t)
 end
@@ -159,9 +165,9 @@ end
   ρτ = diffusive.ρτ
   ρd_h_tot = diffusive.ρd_h_tot
   flux.ρu += ρτ
-  flux.ρe += ρτ*u
   flux.ρe += ρd_h_tot
   flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
+  flux_diffusive!(m.precipitation, flux, state, diffusive, aux, t)
 end
 
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
@@ -175,7 +181,7 @@ function gradvariables!(atmos::AtmosModel, transform::Vars, state::Vars, aux::Va
   transform.u = ρinv * state.ρu
   transform.h_tot = total_specific_enthalpy(atmos.moisture, atmos.orientation, state, aux)
 
-  gradvariables!(atmos.moisture, transform, state, aux, t)
+  gradvariables!(atmos.moisture, atmos, transform, state, aux, t)
   gradvariables!(atmos.turbulence, transform, state, aux, t)
 end
 
@@ -203,6 +209,7 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   # diffusivity of moisture components
   diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρD_t)
+  diffusive!(m.precipitation, diffusive, ∇transform, state, aux, t, ρD_t)
   # diffusion terms required for SGS turbulence computations
   diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρD_t)
 end
@@ -224,6 +231,7 @@ end
 function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
                                  t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
+  atmos_nodal_update_aux!(m.precipitation, m, state, aux, t)
   atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
   atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
 end
@@ -231,6 +239,8 @@ end
 function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
   integrate_aux!(m.radiation, integ, state, aux)
 end
+
+include("sponges.jl")
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)

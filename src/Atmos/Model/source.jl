@@ -72,3 +72,10 @@ function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state
     source.ρu -= β_sponge * (state.ρu .- state.ρ*s.u_relaxation)
   end
 end
+
+struct PrecipitationSource <: Source end
+function atmos_source!(s::PrecipitationSource, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+  source.precipitation.ρq_rain += aux.precipitation.src_q_rai_tot
+  source.moisture.ρq_tot -= aux.precipitation.src_q_rai_tot
+  source.moisture.ρq_liq -= aux.precipitation.src_q_rai_tot
+end

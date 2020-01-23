@@ -275,3 +275,11 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBena
     nothing
   end
 end
+
+function boundarycondition_moisture!(moist::NonEquilMoist, stateP::Vars, diffP::Vars, auxP::Vars,
+    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
+  stateP.moisture.ρq_tot = stateM.moisture.ρq_tot
+  stateP.moisture.ρq_liq = stateM.moisture.ρq_liq
+  stateP.moisture.ρq_ice = stateM.moisture.ρq_ice
+  return nothing
+end
