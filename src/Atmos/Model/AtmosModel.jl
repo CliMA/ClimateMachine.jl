@@ -20,8 +20,11 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         update_aux!, integrate_aux!, LocalGeometry, lengthscale,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!
-using ..DGmethods.NumericalFluxes
+                        reverse_indefinite_stack_integral!, num_state
+import ..DGmethods.NumericalFluxes: boundary_state!, Rusanov,
+                                    CentralGradPenalty,
+                                    CentralNumericalFluxDiffusive,
+                                    numerical_boundary_flux_diffusive!
 
 """
     AtmosModel <: BalanceLaw
@@ -169,12 +172,17 @@ end
 
 @inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
-
   ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
-
   D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
   d_h_tot = -D_t .* diffusive.∇h_tot
+  flux_diffusive!(atmos, flux, state, diffusive, aux, t, ν, τ, d_h_tot, D_t)
+end
 
+
+
+@inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
+                                 diffusive::Vars, aux::Vars, t::Real, ν, τ,
+                                 d_h_tot, D_t)
   flux.ρu += τ * state.ρ
   flux.ρe += τ * state.ρu
   flux.ρe += d_h_tot * state.ρ
@@ -243,6 +251,44 @@ boundary_state!(::CentralGradPenalty, bl::AtmosModel, _...) = nothing
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
   m.init_state(state, aux, coords, t, args...)
+end
+
+
+function numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+    atmos::AtmosModel, fluxᵀn::Vars{S}, n::SVector,
+    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
+    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A},
+    bctype, t,
+    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A}
+
+  FT = eltype(fluxᵀn)
+  nstate = num_state(atmos,FT)
+  Fᵀn = parent(fluxᵀn)
+
+  F⁻ = similar(Fᵀn, Size(3, nstate))
+  fill!(F⁻, -zero(FT))
+  flux_diffusive!(atmos, Grad{S}(F⁻), state⁻, diff⁻, aux⁻, t)
+
+  F⁺ = similar(Fᵀn, Size(3, nstate))
+  fill!(F⁺, -zero(FT))
+  atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
+                                 Grad{S}(F⁺), state⁺, diff⁺, aux⁺, n,
+                                 Grad{S}(F⁻), state⁻, diff⁻, aux⁻,
+                                 bctype, t,
+                                 state1⁻, diff1⁻, aux1⁻)
+
+  Fᵀn .+= (F⁻ + F⁺)' * (n/2)
+end
+
+function atmos_boundary_flux_diffusive!(nf, bc, atmos,
+                                        F⁺, state⁺, diff⁺, aux⁺, n,
+                                        F⁻, state⁻, diff⁻, aux⁻,
+                                        bctype, t,
+                                        state1⁻, diff1⁻, aux1⁻)
+
+  atmos_boundary_state!(nf, bc, atmos, state⁺, diff⁺, aux⁺, n, state⁻, diff⁻, aux⁻,
+                        bctype, t, state1⁻, diff1⁻, aux1⁻)
+  flux_diffusive!(atmos, F⁺, state⁺, diff⁺, aux⁺, t)
 end
 
 end # module
