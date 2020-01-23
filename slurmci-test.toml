@@ -43,10 +43,13 @@ cpu_gpu = [
 ]
 
 gpu = [
-  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["true"] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
   # this test times out; re-enable after fixing
   #{ file = "test/DGmethods/compressible_Navier_Stokes/rayleigh-benard_model.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/Atmos/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Ocean/Hydrostatic_Boussinesq/test_divergence_free.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "experiments/GCM/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
+  # currently freezing
+  #{ file = "experiments/LES/dycoms.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]

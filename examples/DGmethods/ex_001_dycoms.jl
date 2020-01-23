@@ -24,11 +24,6 @@ using Dates
 
 const ArrayType = CLIMA.array_type()
 
-if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
-
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,

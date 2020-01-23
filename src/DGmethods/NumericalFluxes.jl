@@ -1,6 +1,7 @@
 module NumericalFluxes
 
-export Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive,
+export NumericalFluxNonDiffusive, NumericalFluxDiffusive, GradNumericalPenalty,
+       Rusanov, CentralGradPenalty, CentralNumericalFluxDiffusive,
        CentralNumericalFluxNonDiffusive
 
 using StaticArrays, LinearAlgebra
