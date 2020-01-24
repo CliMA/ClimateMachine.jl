@@ -148,13 +148,20 @@ function dynamic_viscosity_tensor(m::SmagorinskyLilly, S, state::Vars, diffusive
   # Notation: normS ≡ norm2S = √(2S:S)
   # ρν = (Cₛ * Δ * f_b)² * √(2S:S)
   FT = eltype(state)
+  k̂ = aux.orientation.∇Φ / norm(aux.orientation.∇Φ)
   @inbounds normS = strain_rate_magnitude(S)
   f_b² = squared_buoyancy_correction(normS, ∇transform, aux)
   # Return Buoyancy-adjusted Smagorinsky Coefficient (ρ scaled)
-  return state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
+  ρν = state.ρ * normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
+  μ  = SVector{3,FT}(ρν, ρν, ρν)
+  μ_horz = cross(k̂,cross(μ,k̂))
+  μ_vert = dot(k̂, μ) * k̂
+  return (SDiagonal(μ_horz), SDiagonal(μ_vert))
 end
 function scaled_momentum_flux_tensor(m::SmagorinskyLilly, ρν, S)
-  (-2*ρν) * S
+  ρν_horz = ρν[1]
+  ρν_vert = ρν[2]
+  (-2*ρν_horz) * S + (-2*ρν_vert) * S
 end
 
 """

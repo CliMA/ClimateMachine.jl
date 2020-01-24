@@ -195,9 +195,10 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
 
   ∇h_tot = ∇transform.h_tot
   # turbulent Prandtl number
-  diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
+  diag_ρν_horz = ρν isa Real ? ρν : diag(ρν[1]) # either a scalar or matrix
+  diag_ρν_vert = ρν isa Real ? ρν : diag(ρν[2]) # either a scalar or matrix
   # Diffusivity ρD_t = ρν/Prandtl_turb
-  ρD_t = diag_ρν * inv_Pr_turb
+  ρD_t = (diag_ρν_horz + diag_ρν_vert) * inv_Pr_turb
   # diffusive flux of total energy
   diffusive.ρd_h_tot = -ρD_t .* ∇transform.h_tot
 
