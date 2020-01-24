@@ -41,6 +41,12 @@ function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
+function ∇initial_condition!(::Pseudo1D{n, α, β, μ, δ}, ∇state, aux, x,
+                             t) where {n, α, β, μ, δ}
+  ξn = dot(n, x)
+  ∇state.ρ = -(2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *
+               exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ))
+end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
   ## name of the file that this MPI rank will write
@@ -52,7 +58,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 
   writevtk(filename, Q, dg, statenames, Qe, exactnames)
 
-  ## Generate the pvtu file for these vtk files
+  ## generate the pvtu file for these vtk files
   if MPI.Comm_rank(mpicomm) == 0
     ## name of the pvtu file
     pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
@@ -164,49 +170,59 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64, EveryDirection]      = 1.2228434091601991e-02
-  expected_result[2, 2, Float64, EveryDirection]      = 8.8037798002274254e-04
-  expected_result[2, 3, Float64, EveryDirection]      = 4.8828676920527763e-05
-  expected_result[2, 4, Float64, EveryDirection]      = 2.0105646643532331e-06
-  expected_result[2, 1, Float64, HorizontalDirection] = 4.6773313437232920e-02
-  expected_result[2, 2, Float64, HorizontalDirection] = 4.0665907382119674e-03
-  expected_result[2, 3, Float64, HorizontalDirection] = 5.3141853450548891e-05
-  expected_result[2, 4, Float64, HorizontalDirection] = 3.9767488071905575e-07
-  expected_result[2, 1, Float64, VerticalDirection]   = 4.6773313437232927e-02
-  expected_result[2, 2, Float64, VerticalDirection]   = 4.0665907382119301e-03
-  expected_result[2, 3, Float64, VerticalDirection]   = 5.3141853450495820e-05
-  expected_result[2, 4, Float64, VerticalDirection]   = 3.9767488072123432e-07
-  expected_result[3, 1, Float64, EveryDirection]      = 9.5425450102548867e-03
-  expected_result[3, 2, Float64, EveryDirection]      = 5.9769045240770321e-04
-  expected_result[3, 3, Float64, EveryDirection]      = 4.0081798525397340e-05
-  expected_result[3, 4, Float64, EveryDirection]      = 2.9803558844289167e-06
-  expected_result[3, 1, Float64, HorizontalDirection] = 1.7293617338929097e-02
-  expected_result[3, 2, Float64, HorizontalDirection] = 1.2450424793628023e-03
-  expected_result[3, 3, Float64, HorizontalDirection] = 6.9054177133589663e-05
-  expected_result[3, 4, Float64, HorizontalDirection] = 2.8433678164008570e-06
-  expected_result[3, 1, Float64, VerticalDirection]   = 6.6147454220062213e-02
-  expected_result[3, 2, Float64, VerticalDirection]   = 5.7510277746002083e-03
-  expected_result[3, 3, Float64, VerticalDirection]   = 7.5153929879266960e-05
-  expected_result[3, 4, Float64, VerticalDirection]   = 5.6239720972446923e-07
-  expected_result[2, 1, Float32, EveryDirection]      = 1.2228389270603657e-02
-  expected_result[2, 2, Float32, EveryDirection]      = 8.8042084826156497e-04
-  expected_result[2, 3, Float32, EveryDirection]      = 4.8724228690844029e-05
-  expected_result[2, 1, Float32, HorizontalDirection] = 4.6773448586463928e-02
-  expected_result[2, 2, Float32, HorizontalDirection] = 4.0663536638021469e-03
-  expected_result[2, 3, Float32, HorizontalDirection] = 5.3092040616320446e-05
-  expected_result[2, 1, Float32, VerticalDirection]   = 4.6773411333560944e-02
-  expected_result[2, 2, Float32, VerticalDirection]   = 4.0663466788828373e-03
-  expected_result[2, 3, Float32, VerticalDirection]   = 5.3190316975815222e-05
-  expected_result[3, 1, Float32, EveryDirection]      = 9.5425164327025414e-03
-  expected_result[3, 2, Float32, EveryDirection]      = 5.9771625092253089e-04
-  expected_result[3, 3, Float32, EveryDirection]      = 4.0245147829409689e-05
-  expected_result[3, 1, Float32, HorizontalDirection] = 1.7293551936745644e-02
-  expected_result[3, 2, Float32, HorizontalDirection] = 1.2451227521523833e-03
-  expected_result[3, 3, Float32, HorizontalDirection] = 6.9875582994427532e-05
-  expected_result[3, 1, Float32, VerticalDirection]   = 6.6147565841674805e-02
-  expected_result[3, 2, Float32, VerticalDirection]   = 5.7506649754941463e-03
-  expected_result[3, 3, Float32, VerticalDirection]   = 8.6558677139692008e-05
+  expected_result[2, 1, Float64, EveryDirection]      = 1.3278358805552103e-02
+  expected_result[2, 2, Float64, EveryDirection]      = 1.5275567222209200e-03
+  expected_result[2, 3, Float64, EveryDirection]      = 2.1158688830873719e-04
+  expected_result[2, 4, Float64, EveryDirection]      = 5.4682730423646384e-06
 
+  expected_result[2, 1, Float64, HorizontalDirection] = 4.7452978385924841e-02
+  expected_result[2, 2, Float64, HorizontalDirection] = 4.2395734359794088e-03
+  expected_result[2, 3, Float64, HorizontalDirection] = 7.5299237338321249e-05
+  expected_result[2, 4, Float64, HorizontalDirection] = 4.5091115956660895e-07
+
+  expected_result[2, 1, Float64, VerticalDirection]   = 4.7452978385924841e-02
+  expected_result[2, 2, Float64, VerticalDirection]   = 4.2395734359794192e-03
+  expected_result[2, 3, Float64, VerticalDirection]   = 7.5299237338312901e-05
+  expected_result[2, 4, Float64, VerticalDirection]   = 4.5091115956933386e-07
+
+  expected_result[3, 1, Float64, EveryDirection]      = 9.9996908954108274e-03
+  expected_result[3, 2, Float64, EveryDirection]      = 7.8174266228124144e-04
+  expected_result[3, 3, Float64, EveryDirection]      = 6.4581399695447892e-05
+  expected_result[3, 4, Float64, EveryDirection]      = 3.8210741637228301e-06
+
+  expected_result[3, 1, Float64, HorizontalDirection] = 1.8778435108867900e-02
+  expected_result[3, 2, Float64, HorizontalDirection] = 2.1602914338589609e-03
+  expected_result[3, 3, Float64, HorizontalDirection] = 2.9922904706653158e-04
+  expected_result[3, 4, Float64, HorizontalDirection] = 7.7333058993042428e-06
+
+  expected_result[3, 1, Float64, VerticalDirection]   = 6.7108645608372028e-02
+  expected_result[3, 2, Float64, VerticalDirection]   = 5.9956622518388255e-03
+  expected_result[3, 3, Float64, VerticalDirection]   = 1.0648920268019518e-04
+  expected_result[3, 4, Float64, VerticalDirection]   = 6.3768467727359403e-07
+
+  expected_result[2, 1, Float32, EveryDirection]      = 1.3278233818709850e-02
+  expected_result[2, 2, Float32, EveryDirection]      = 1.5276039484888315e-03
+  expected_result[2, 3, Float32, EveryDirection]      = 2.1158660820219666e-04
+
+  expected_result[2, 1, Float32, HorizontalDirection] = 4.7453053295612335e-02
+  expected_result[2, 2, Float32, HorizontalDirection] = 4.2393575422465801e-03
+  expected_result[2, 3, Float32, HorizontalDirection] = 7.5274780101608485e-05
+
+  expected_result[2, 1, Float32, VerticalDirection]   = 4.7453027218580246e-02
+  expected_result[2, 2, Float32, VerticalDirection]   = 4.2393403127789497e-03
+  expected_result[2, 3, Float32, VerticalDirection]   = 7.5348107202444226e-05
+
+  expected_result[3, 1, Float32, EveryDirection]      = 9.9996607750654221e-03
+  expected_result[3, 2, Float32, EveryDirection]      = 7.8179326374083757e-04
+  expected_result[3, 3, Float32, EveryDirection]      = 6.4723266405053437e-05
+
+  expected_result[3, 1, Float32, HorizontalDirection] = 1.8778320401906967e-02
+  expected_result[3, 2, Float32, HorizontalDirection] = 2.1604031790047884e-03
+  expected_result[3, 3, Float32, HorizontalDirection] = 2.9950391035526991e-04
+
+  expected_result[3, 1, Float32, VerticalDirection]   = 6.7108325660228729e-02
+  expected_result[3, 2, Float32, VerticalDirection]   = 5.9953825548291206e-03
+  expected_result[3, 3, Float32, VerticalDirection]   = 1.1483333946671337e-04
 
   @testset "$(@__FILE__)" begin
     for FT in (Float64, Float32)
@@ -232,8 +248,10 @@ let
             Ne = 2^(l-1) * base_num_elem
             brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
             periodicity = ntuple(j->false, dim)
+            bc = ntuple(j->(1,2), dim)
             topl = StackedBrickTopology(mpicomm, brickrange;
-                                        periodicity = periodicity)
+                                        periodicity = periodicity,
+                                        boundary = bc)
             dt = (α/4) / (Ne * polynomialorder^2)
             @info "time step" dt
 
