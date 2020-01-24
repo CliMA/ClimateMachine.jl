@@ -28,12 +28,13 @@ using LinearAlgebra
 function Advective_CFL(m::AtmosModel, state::Vars, aux::Vars,
                                diffusive::Vars, Δx, Δt, direction=VerticalDirection())
   if direction isa VerticalDirection
-    w = state.ρu[3]/state.ρ
-          return Δt * (abs(w) + soundspeed(m.moisture, m.orientation, state,
+    k̂ = aux.orientation.∇Φ / norm(aux.orientation.∇Φ)
+    u = dot(state.ρu/state.ρ, k̂) * k̂
+          return Δt * (norm(u) + soundspeed(m.moisture, m.orientation, state,
                                             aux)) / Δx
   elseif direction isa HorizontalDirection
-    u = max(state.ρu[1]/state.ρ,state.ρu[2]/state.ρ)
-          return Δt * (abs(u) + soundspeed(m.moisture, m.orientation, state,
+    u = cross(k̂, cross(state.ρu/state.ρ,k̂)      
+    return Δt * (norm(u) + soundspeed(m.moisture, m.orientation, state,
                                             aux)) / Δx
   end
 end

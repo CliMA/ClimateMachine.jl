@@ -206,6 +206,7 @@ function gradvariables!(m::Vreman, transform::Vars, state::Vars, aux::Vars, t::R
 end
 function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   FT = eltype(state)
+  k̂ = aux.orientation.∇Φ / norm(aux.orientation.∇Φ)
   ∇u = ∇transform.u
   αijαij = sum(∇u .^ 2)
   @inbounds normS = strain_rate_magnitude(S)
@@ -276,6 +277,7 @@ function gradvariables!(m::AnisoMinDiss, transform::Vars, state::Vars, aux::Vars
 end
 function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   FT = eltype(state)
+  k̂ = aux.orientation.∇Φ / norm(aux.orientation.∇Φ)
   ∇u = ∇transform.u
   αijαij = dot(∇u,∇u)
   coeff = (aux.turbulence.Δ * m.C_poincare)^2
