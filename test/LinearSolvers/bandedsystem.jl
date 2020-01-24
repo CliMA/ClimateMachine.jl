@@ -151,6 +151,7 @@ let
 
           op!(dQ1, Q)
           Q.data .= dQ1.data
+          @show norm(Q)
 
           op!(dQ1, Q)
           banded_matrix_vector_product!(vdg, A_banded, dQ2, Q)
