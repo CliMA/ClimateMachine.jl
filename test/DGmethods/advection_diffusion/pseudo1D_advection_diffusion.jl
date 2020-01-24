@@ -43,6 +43,12 @@ function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
+function ∇initial_condition!(::Pseudo1D{n, α, β, μ, δ}, ∇state, aux, x,
+                             t) where {n, α, β, μ, δ}
+  ξn = dot(n, x)
+  ∇state.ρ = -(2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *
+               exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ))
+end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
   ## name of the file that this MPI rank will write
@@ -54,7 +60,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 
   writevtk(filename, Q, dg, statenames, Qe, exactnames)
 
-  ## Generate the pvtu file for these vtk files
+  ## generate the pvtu file for these vtk files
   if MPI.Comm_rank(mpicomm) == 0
     ## name of the pvtu file
     pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
@@ -164,57 +170,59 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64, EveryDirection] = 1.2228434091602128e-02
-  expected_result[2, 2, Float64, EveryDirection] = 8.8037798002260420e-04
-  expected_result[2, 3, Float64, EveryDirection] = 4.8828676920661276e-05
-  expected_result[2, 4, Float64, EveryDirection] = 2.0105646643725454e-06
-  expected_result[3, 1, Float64, EveryDirection] = 9.5425450102548364e-03
-  expected_result[3, 2, Float64, EveryDirection] = 5.9769045240778518e-04
-  expected_result[3, 3, Float64, EveryDirection] = 4.0081798525590592e-05
-  expected_result[3, 4, Float64, EveryDirection] = 2.9803558844543670e-06
-  expected_result[2, 1, Float32, EveryDirection] = 1.2228445149958134e-02
-  expected_result[2, 2, Float32, EveryDirection] = 8.8042858988046646e-04
-  expected_result[2, 3, Float32, EveryDirection] = 4.8848683945834637e-05
-  expected_result[2, 4, Float32, EveryDirection] = 2.1792175175505690e-06
-  expected_result[3, 1, Float32, EveryDirection] = 9.5424978062510490e-03
-  expected_result[3, 2, Float32, EveryDirection] = 5.9770536608994007e-04
-  expected_result[3, 3, Float32, EveryDirection] = 4.0205955883720890e-05
-  expected_result[3, 4, Float32, EveryDirection] = 5.1591650844784454e-06
+  expected_result[2, 1, Float64, EveryDirection]      = 1.3278358805552103e-02
+  expected_result[2, 2, Float64, EveryDirection]      = 1.5275567222209200e-03
+  expected_result[2, 3, Float64, EveryDirection]      = 2.1158688830873719e-04
+  expected_result[2, 4, Float64, EveryDirection]      = 5.4682730423646384e-06
 
-  expected_result[2, 1, Float64, HorizontalDirection] = 4.6773313437233156e-02
-  expected_result[2, 2, Float64, HorizontalDirection] = 4.0665907382118234e-03
-  expected_result[2, 3, Float64, HorizontalDirection] = 5.3141853450218684e-05
-  expected_result[2, 4, Float64, HorizontalDirection] = 3.9767488072903428e-07
-  expected_result[3, 1, Float64, HorizontalDirection] = 1.7293617338929253e-02
-  expected_result[3, 2, Float64, HorizontalDirection] = 1.2450424793625284e-03
-  expected_result[3, 3, Float64, HorizontalDirection] = 6.9054177134198605e-05
-  expected_result[3, 4, Float64, HorizontalDirection] = 2.8433678163945639e-06
-  expected_result[2, 1, Float32, HorizontalDirection] = 4.6773292124271393e-02
-  expected_result[2, 2, Float32, HorizontalDirection] = 4.0663531981408596e-03
-  expected_result[2, 3, Float32, HorizontalDirection] = 5.3235678933560848e-05
-  expected_result[2, 4, Float32, HorizontalDirection] = 3.5282637327327393e-06
-  expected_result[3, 1, Float32, HorizontalDirection] = 1.7293667420744896e-02
-  expected_result[3, 2, Float32, HorizontalDirection] = 1.2450854992493987e-03
-  expected_result[3, 3, Float32, HorizontalDirection] = 7.0057700213510543e-05
-  expected_result[3, 4, Float32, HorizontalDirection] = 5.4914667998673394e-05
+  expected_result[2, 1, Float64, HorizontalDirection] = 4.7452978385924841e-02
+  expected_result[2, 2, Float64, HorizontalDirection] = 4.2395734359794088e-03
+  expected_result[2, 3, Float64, HorizontalDirection] = 7.5299237338321249e-05
+  expected_result[2, 4, Float64, HorizontalDirection] = 4.5091115956660895e-07
 
-  expected_result[2, 1, Float64, VerticalDirection] = 4.6773313437233136e-02
-  expected_result[2, 2, Float64, VerticalDirection] = 4.0665907382118321e-03
-  expected_result[2, 3, Float64, VerticalDirection] = 5.3141853450244739e-05
-  expected_result[2, 4, Float64, VerticalDirection] = 3.9767488073407439e-07
-  expected_result[3, 1, Float64, VerticalDirection] = 6.6147454220062032e-02
-  expected_result[3, 2, Float64, VerticalDirection] = 5.7510277746000895e-03
-  expected_result[3, 3, Float64, VerticalDirection] = 7.5153929878994988e-05
-  expected_result[3, 4, Float64, VerticalDirection] = 5.6239720970531199e-07
-  expected_result[2, 1, Float32, VerticalDirection] = 4.6773284673690796e-02
-  expected_result[2, 2, Float32, VerticalDirection] = 4.0663606487214565e-03
-  expected_result[2, 3, Float32, VerticalDirection] = 5.3235460654832423e-05
-  expected_result[2, 4, Float32, VerticalDirection] = 3.9053838918334804e-06
-  expected_result[3, 1, Float32, VerticalDirection] = 6.6147454082965851e-02
-  expected_result[3, 2, Float32, VerticalDirection] = 5.7507432065904140e-03
-  expected_result[3, 3, Float32, VerticalDirection] = 8.3614431787282228e-05
-  expected_result[3, 4, Float32, VerticalDirection] = 2.4086561461444944e-04
+  expected_result[2, 1, Float64, VerticalDirection]   = 4.7452978385924841e-02
+  expected_result[2, 2, Float64, VerticalDirection]   = 4.2395734359794192e-03
+  expected_result[2, 3, Float64, VerticalDirection]   = 7.5299237338312901e-05
+  expected_result[2, 4, Float64, VerticalDirection]   = 4.5091115956933386e-07
 
+  expected_result[3, 1, Float64, EveryDirection]      = 9.9996908954108274e-03
+  expected_result[3, 2, Float64, EveryDirection]      = 7.8174266228124144e-04
+  expected_result[3, 3, Float64, EveryDirection]      = 6.4581399695447892e-05
+  expected_result[3, 4, Float64, EveryDirection]      = 3.8210741637228301e-06
+
+  expected_result[3, 1, Float64, HorizontalDirection] = 1.8778435108867900e-02
+  expected_result[3, 2, Float64, HorizontalDirection] = 2.1602914338589609e-03
+  expected_result[3, 3, Float64, HorizontalDirection] = 2.9922904706653158e-04
+  expected_result[3, 4, Float64, HorizontalDirection] = 7.7333058993042428e-06
+
+  expected_result[3, 1, Float64, VerticalDirection]   = 6.7108645608372028e-02
+  expected_result[3, 2, Float64, VerticalDirection]   = 5.9956622518388255e-03
+  expected_result[3, 3, Float64, VerticalDirection]   = 1.0648920268019518e-04
+  expected_result[3, 4, Float64, VerticalDirection]   = 6.3768467727359403e-07
+
+  expected_result[2, 1, Float32, EveryDirection]      = 1.3278233818709850e-02
+  expected_result[2, 2, Float32, EveryDirection]      = 1.5276039484888315e-03
+  expected_result[2, 3, Float32, EveryDirection]      = 2.1158660820219666e-04
+
+  expected_result[2, 1, Float32, HorizontalDirection] = 4.7453053295612335e-02
+  expected_result[2, 2, Float32, HorizontalDirection] = 4.2393575422465801e-03
+  expected_result[2, 3, Float32, HorizontalDirection] = 7.5274780101608485e-05
+
+  expected_result[2, 1, Float32, VerticalDirection]   = 4.7453027218580246e-02
+  expected_result[2, 2, Float32, VerticalDirection]   = 4.2393403127789497e-03
+  expected_result[2, 3, Float32, VerticalDirection]   = 7.5348107202444226e-05
+
+  expected_result[3, 1, Float32, EveryDirection]      = 9.9996607750654221e-03
+  expected_result[3, 2, Float32, EveryDirection]      = 7.8179326374083757e-04
+  expected_result[3, 3, Float32, EveryDirection]      = 6.4723266405053437e-05
+
+  expected_result[3, 1, Float32, HorizontalDirection] = 1.8778320401906967e-02
+  expected_result[3, 2, Float32, HorizontalDirection] = 2.1604031790047884e-03
+  expected_result[3, 3, Float32, HorizontalDirection] = 2.9950391035526991e-04
+
+  expected_result[3, 1, Float32, VerticalDirection]   = 6.7108325660228729e-02
+  expected_result[3, 2, Float32, VerticalDirection]   = 5.9953825548291206e-03
+  expected_result[3, 3, Float32, VerticalDirection]   = 1.1483333946671337e-04
 
     for FT in (Float64, Float32)
       numlevels = integration_testing || CLIMA.IntegrationTesting ? (FT == Float64 ? 4 : 3) : 1
@@ -239,8 +247,10 @@ let
             Ne = 2^(l-1) * base_num_elem
             brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
             periodicity = ntuple(j->false, dim)
+            bc = ntuple(j->(1,2), dim)
             topl = StackedBrickTopology(mpicomm, brickrange;
-                                        periodicity = periodicity)
+                                        periodicity = periodicity,
+                                        boundary = bc)
             dt = (α/4) / (Ne * polynomialorder^2)
             @info "time step" dt
 
