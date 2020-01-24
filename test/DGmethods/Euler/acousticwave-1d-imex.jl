@@ -14,7 +14,7 @@ using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
 using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
 using CLIMA.Atmos: AtmosModel, SphericalOrientation,
-                   DryModel, NoRadiation, NoSubsidence, NoFluxBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, NoFluxBC,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, HydrostaticState, IsothermalProfile,
@@ -76,6 +76,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      Gravity(),

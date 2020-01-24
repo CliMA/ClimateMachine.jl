@@ -20,7 +20,7 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
@@ -115,6 +115,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
                      IsentropicVortexReferenceState{FT}(setup),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,

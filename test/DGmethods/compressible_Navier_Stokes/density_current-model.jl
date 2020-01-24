@@ -110,6 +110,7 @@ function run(mpicomm,
                      NoReferenceState(),
                      AnisoMinDiss{FT}(1),
                      EquilMoist(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      Gravity(), NoFluxBC(), Initialise_Density_Current!)

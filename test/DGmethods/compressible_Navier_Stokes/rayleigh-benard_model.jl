@@ -164,6 +164,7 @@ let
                          NoReferenceState(),
                          SGSmodels[ii],
                          EquilMoist(),
+                         NoPrecipitation(),
                          NoRadiation(),
                          NoSubsidence{FT}(),
                          Gravity(),

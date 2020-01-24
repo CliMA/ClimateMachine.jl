@@ -13,7 +13,7 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
-                   DryModel, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: flattenednames
 
@@ -146,6 +146,7 @@ function run(mpicomm, polynomialorder, numelems,
                      NoReferenceState(),
                      ConstantViscosityWithDivergence(0.0),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,
