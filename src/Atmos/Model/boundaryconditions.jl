@@ -208,7 +208,7 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     # ----------------------------------------------------------
     # Extract components of diffusive momentum flux (minus-side)
     # ----------------------------------------------------------
-    ν⁻, τ⁻ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
+    _, τ⁻ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
 
     # ----------------------------------------------------------
     # Boundary momentum fluxes
@@ -220,26 +220,23 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     τ23⁺  = - C_drag * windspeed_FN * v_FN
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)
-    τ⁺ = SHermitianCompact{3,FT,6}(SVector(FT(0),τ⁻[2,1],τ13⁺, FT(0), τ23⁺,FT(0)))
-    ν⁺ = ν⁻
+    τ⁺ = SHermitianCompact{3, FT, 6}(SVector(FT(0), τ⁻[2,1], τ13⁺, FT(0), τ23⁺,
+                                             FT(0)))
 
     # ----------------------------------------------------------
     # Boundary moisture fluxes
     # ----------------------------------------------------------
     # really ∇q_tot is being used to store d_q_tot
-    diff⁺.moisture.∇q_tot  = SVector(FT(0),
-                                     FT(0),
-                                     bc.LHF/(LH_v0))
-    D_t⁺ = -1 # so that in flux_diffusive! of moisture.jl we get right value
+    d_q_tot⁺  = SVector(FT(0), FT(0), bc.LHF/(LH_v0))
+
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
     # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms)
-    d_h_tot⁺ = SVector(FT(0),
-                       FT(0),
-                       bc.LHF + bc.SHF)
+    d_h_tot⁺ = SVector(FT(0), FT(0), bc.LHF + bc.SHF)
 
-    flux_diffusive!(atmos, F⁺, state⁺, diff⁺, aux⁺, t, ν⁺, τ⁺, d_h_tot⁺, D_t⁺)
+    flux_diffusive!(atmos, F⁺, state⁺, τ⁺, d_h_tot⁺)
+    flux_diffusive!(atmos.moisture, F⁺, state⁺, d_q_tot⁺)
   end
 end
 

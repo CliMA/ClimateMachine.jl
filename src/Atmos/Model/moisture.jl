@@ -109,6 +109,10 @@ end
 
 function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real, D_t)
   d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+  flux_diffusive!(moist, flux, state, d_q_tot)
+end
+#TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
+function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, d_q_tot)
   flux.ρ += d_q_tot * state.ρ
   flux.ρu += d_q_tot .* state.ρu'
   flux.moisture.ρq_tot += d_q_tot * state.ρ

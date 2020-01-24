@@ -175,18 +175,16 @@ end
   ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
   D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
   d_h_tot = -D_t .* diffusive.∇h_tot
-  flux_diffusive!(atmos, flux, state, diffusive, aux, t, ν, τ, d_h_tot, D_t)
+  flux_diffusive!(atmos, flux, state, τ, d_h_tot)
+  flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
 end
 
-
-
+#TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
 @inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
-                                 diffusive::Vars, aux::Vars, t::Real, ν, τ,
-                                 d_h_tot, D_t)
+                                 τ, d_h_tot)
   flux.ρu += τ * state.ρ
   flux.ρe += τ * state.ρu
   flux.ρe += d_h_tot * state.ρ
-  flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
 end
 
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
@@ -194,7 +192,6 @@ end
   u = ρinv * state.ρu
   return abs(dot(nM, u)) + soundspeed(m.moisture, m.orientation, state, aux)
 end
-
 
 
 function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
