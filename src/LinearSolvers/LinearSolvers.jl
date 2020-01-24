@@ -77,14 +77,15 @@ using the `solver` and the initial guess `Q`. After the call `Q` contains the
 solution.  The arguments `args` is passed to `linearoperator!` when it is
 called.
 """
-function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...)
+function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...;
+                      max_iters=length(Q))
   converged = false
   iters = 0
 
   converged, threshold = initialize!(linearoperator!, Q, Qrhs, solver, args...)
   converged && return iters
 
-  while !converged
+  while !converged && iters < max_iters
     converged, inner_iters, residual_norm =
       doiteration!(linearoperator!, Q, Qrhs, solver, threshold, args...)
 

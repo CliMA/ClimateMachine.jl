@@ -71,7 +71,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     residual_norm = norm(krylov_basis[1], weighted)
 
     converged = false
-    # Should only be true for threshold zero
+    # FIXME: Should only be true for threshold zero
     if threshold <=10eps(eltype(Q))
       converged = true
       return converged, threshold
@@ -142,7 +142,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
 
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
-  # @show residual_norm, j, threshold 
+  # @show residual_norm, j, threshold
 
   (converged, j, residual_norm)
 end

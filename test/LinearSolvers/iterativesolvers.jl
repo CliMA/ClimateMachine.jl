@@ -35,7 +35,7 @@ using StaticArrays, LinearAlgebra, Random
 
     x = @MVector rand(T, n)
     x0 = copy(x)
-    iters = linearsolve!(mulbyA!, linearsolver, x, b)
+    iters = linearsolve!(mulbyA!, linearsolver, x, b; max_iters=Inf)
 
     @test iters == expected_iters[m][T]
     @test norm(A * x - b) / norm(A * x0 - b) <= tol
@@ -43,7 +43,7 @@ using StaticArrays, LinearAlgebra, Random
     # test for convergence in 0 iterations by
     # initializing with the exact solution
     x = A \ b
-    iters = linearsolve!(mulbyA!, linearsolver, x, b)
+    iters = linearsolve!(mulbyA!, linearsolver, x, b; max_iters=Inf)
     @test iters == 0
     @test norm(A * x - b) <= 100eps(T)
 
@@ -52,7 +52,7 @@ using StaticArrays, LinearAlgebra, Random
 
     x = @MVector rand(T, n)
     x0 = copy(x)
-    linearsolve!(mulbyA!, linearsolver, x, b)
+    linearsolve!(mulbyA!, linearsolver, x, b; max_iters=Inf)
 
     @test norm(A * x - b) / norm(A * x0 - b) <= newtol
     @test norm(A * x - b) / norm(A * x0 - b) >= tol
@@ -69,38 +69,37 @@ end
             )
 
   expected_iters = (
-                    Dict(Float32 => 3, Float64 => 30),
-                    Dict(Float32 => 3, Float64 => 24)
+                    Dict(Float32 => (3,3), Float64 => (9, 8)),
+                    Dict(Float32 => (3,3), Float64 => (9, 8))
                    )
 
   for (m, method) in enumerate(methods), T in [Float32, Float64]
-    Random.seed!(44)
+    for (i, α) in enumerate(T[1e-2, 5e-3])
+      Random.seed!(44)
+      A = rand(T, 200, 1000)
+      A = α * A' * A + I
+      b = rand(T, n)
 
-    A = rand(T, 200, 1000)
-    A = A' * A + I
-    b = rand(T, n)
+      mulbyA!(y, x) = (y .= A * x)
 
-    mulbyA!(y, x) = (y .= A * x)
+      tol = sqrt(eps(T))
+      linearsolver = method(b, tol)
 
-    tol = eps(T)^(3//5)
-    linearsolver = method(b, tol)
+      x = rand(T, n)
+      x0 = copy(x)
+      iters = linearsolve!(mulbyA!, linearsolver, x, b; max_iters=Inf)
 
-    x = rand(T, n)
-    x0 = copy(x)
-    iters = linearsolve!(mulbyA!, linearsolver, x, b)
+      @test iters == expected_iters[m][T][i]
+      @test norm(A * x - b) / norm(A * x0 - b) <= tol
 
-    @test iters == expected_iters[m][T]
-    @test norm(A * x - b) / norm(A * x0 - b) <= tol
+      newtol = 1000tol
+      settolerance!(linearsolver, newtol)
 
-    newtol = 1000tol
-    settolerance!(linearsolver, newtol)
+      x = rand(T, n)
+      x0 = copy(x)
+      linearsolve!(mulbyA!, linearsolver, x, b; max_iters=Inf)
 
-    x = rand(T, n)
-    x0 = copy(x)
-    linearsolve!(mulbyA!, linearsolver, x, b)
-
-    @test norm(A * x - b) / norm(A * x0 - b) <= newtol
-    @test norm(A * x - b) / norm(A * x0 - b) >= tol
-
+      @test norm(A * x - b) / norm(A * x0 - b) <= newtol
+    end
   end
 end
