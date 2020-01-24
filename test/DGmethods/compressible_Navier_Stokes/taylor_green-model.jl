@@ -35,7 +35,7 @@ const (xmin,xmax)     = (0,L*π)
 const (ymin,ymax)     = (0,L*π)
 const (zmin,zmax)     = (0,L*π)
 const Ne              = (10,10,10)
-const polynomialorder = 4
+const polynomialorder = 3
 const dim             = 3
 const dt              = 0.01
 
@@ -43,7 +43,8 @@ Base.@kwdef struct TaylorGreenVortexSetup{FT}
   M₀::FT    = 0.1
   ρ_ref::FT = 1.20
   p_ref::FT = MSLP
-  T₀::FT    = p_ref / (R_d * ρ_ref)
+  γ::FT     = 1.4
+  T₀::FT    = p_ref / ((γ - 1) * cv_d * ρ_ref)
   c::FT     = soundspeed_air(T₀)
   V₀::FT    = M₀ * c
 end
