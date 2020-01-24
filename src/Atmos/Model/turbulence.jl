@@ -213,10 +213,16 @@ function dynamic_viscosity_tensor(m::Vreman, S, state::Vars, diffusive::Vars, �
   βij = f_b² * (aux.turbulence.Δ)^2 * (∇u' * ∇u)
   Bβinvariants = compute_principal_invariants(βij)
   @inbounds Bβ = Bβinvariants.second
-  return state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(FT))))) 
+  ρν = state.ρ * max(0,m.C_smag^2 * 2.5 * sqrt(abs(Bβ/(αijαij+eps(FT))))) 
+  μ  = SVector{3,FT}(ρν, ρν, ρν)
+  μ_horz = cross(k̂,cross(μ,k̂))
+  μ_vert = dot(k̂, μ) * k̂
+  return (SDiagonal(μ_horz), SDiagonal(μ_vert))
 end
 function scaled_momentum_flux_tensor(m::Vreman, ρν, S)
-  (-2*ρν) * S
+  ρν_horz = ρν[1]
+  ρν_vert = ρν[2]
+  (-2*ρν_horz) * S + (-2*ρν_vert) * S
 end
 
 """
@@ -275,8 +281,14 @@ function dynamic_viscosity_tensor(m::AnisoMinDiss, S, state::Vars, diffusive::Va
   coeff = (aux.turbulence.Δ * m.C_poincare)^2
   βij = -(∇u' * ∇u)
   ν_e = max(0,coeff * (dot(βij, S) / (αijαij + eps(FT))))
-  return state.ρ * ν_e
+  ρν = state.ρ * ν_e
+  μ  = SVector{3,FT}(ρν, ρν, ρν)
+  μ_horz = cross(k̂,cross(μ,k̂))
+  μ_vert = dot(k̂, μ) * k̂
+  return (SDiagonal(μ_horz), SDiagonal(μ_vert))
 end
 function scaled_momentum_flux_tensor(m::AnisoMinDiss, ρν, S)
-  (-2*ρν) * S
+  ρν_horz = ρν[1]
+  ρν_vert = ρν[2]
+  (-2*ρν_horz) * S + (-2*ρν_vert) * S
 end
