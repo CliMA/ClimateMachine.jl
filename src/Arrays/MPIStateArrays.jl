@@ -19,6 +19,9 @@ Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:Array, FT} = similar(Arra
   Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:CuArray, FT} = similar(CuArray{FT}, dims...)
 end
 
+include("CMBuffers.jl")
+using .CMBuffers
+
 cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
 
@@ -29,7 +32,7 @@ export MPIStateArray, euclidean_distance, weightedsum
                   DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
 """
 struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
-                     DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
+                    Buf<:CMBuffer} <: AbstractArray{FT, 3}
   mpicomm::MPI.Comm
   data::DATN
   realdata::DAV
@@ -43,15 +46,12 @@ struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
   sendreq::Array{MPI.Request, 1}
   recvreq::Array{MPI.Request, 1}
 
-  host_send_buffer::Array{FT, 2}
-  host_recv_buffer::Array{FT, 2}
+  send_buffer::Buf
+  recv_buffer::Buf
 
   nabrtorank::Array{Int64, 1}
   nabrtovmaprecv::Array{UnitRange{Int64}, 1}
   nabrtovmapsend::Array{UnitRange{Int64}, 1}
-
-  device_send_buffer::DAT2
-  device_recv_buffer::DAT2
 
   weights::DATN
 
@@ -59,18 +59,21 @@ struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
 
   function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems,
                              ghostelems, vmaprecv, vmapsend, nabrtorank,
-                             nabrtovmaprecv, nabrtovmapsend, weights, commtag
+                             nabrtovmaprecv, nabrtovmapsend, weights, commtag;
+                             mpi_knows_cuda=false
                             ) where {FT}
     data = similar(DA, FT, Np, nstate, numelem)
 
-    device_recv_buffer = similar(data, FT, nstate, length(vmaprecv))
-    device_send_buffer = similar(data, FT, nstate, length(vmapsend))
+    if data isa Array || mpi_knows_cuda
+      kind = SingleCMBuffer
+    else
+      kind = DoubleCMBuffer
+    end
+    recv_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmaprecv))
+    send_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmapsend))
 
     realdata = view(data, ntuple(i -> Colon(), ndims(data) - 1)..., realelems)
     DAV = typeof(realdata)
-
-    host_send_buffer = zeros(FT, nstate, length(vmapsend))
-    host_recv_buffer = zeros(FT, nstate, length(vmaprecv))
 
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
@@ -81,6 +84,7 @@ struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
     # anything).
     #
     # Better way than checking the type names?
+    # XXX: Use Adapt.jl vmaprecv = adapt(DA, vmaprecv)
     if typeof(vmaprecv).name != typeof(data).name
       vmaprecv = copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)),
                          vmaprecv)
@@ -94,19 +98,17 @@ struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
     end
 
     DAI1 = typeof(vmaprecv)
-    DAT2 = typeof(device_recv_buffer)
-    new{FT, typeof(data), DAI1, DAV, DAT2}(mpicomm, data, realdata,
-                                           realelems, ghostelems,
-                                           vmaprecv, vmapsend,
-                                           sendreq, recvreq,
-                                           host_send_buffer,
-                                           host_recv_buffer,
-                                           nabrtorank,
-                                           nabrtovmaprecv,
-                                           nabrtovmapsend,
-                                           device_send_buffer,
-                                           device_recv_buffer,
-                                           weights, commtag)
+    Buf  = typeof(send_buffer)
+    new{FT, typeof(data), DAI1, DAV, Buf}(mpicomm, data, realdata,
+                                          realelems, ghostelems,
+                                          vmaprecv, vmapsend,
+                                          sendreq, recvreq,
+                                          send_buffer,
+                                          recv_buffer,
+                                          nabrtorank,
+                                          nabrtovmaprecv,
+                                          nabrtovmapsend,
+                                          weights, commtag)
   end
 end
 
@@ -152,7 +154,8 @@ function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
                            nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
                            nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
                            weights=nothing,
-                           commtag=888
+                           commtag=888,
+                           mpi_knows_cuda=false
                           ) where {FT}
 
   if weights == nothing
@@ -160,7 +163,8 @@ function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
   end
   MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems, ghostelems,
                     vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
-                    nabrtovmapsend, weights, commtag)
+                    nabrtovmapsend, weights, commtag,
+                    mpi_knows_cuda=mpi_knows_cuda)
 end
 
 # FIXME: should general cases be handled?
@@ -247,11 +251,13 @@ posts the `MPI.Irecv!` for `Q`
 """
 function post_Irecvs!(Q::MPIStateArray)
   nnabr = length(Q.nabrtorank)
+  transfer = get_transfer(Q.recv_buffer)
+
   for n = 1:nnabr
     # If this fails we haven't waited on previous recv!
     @assert Q.recvreq[n].buffer == nothing
 
-    Q.recvreq[n] = MPI.Irecv!((@view Q.host_recv_buffer[:, Q.nabrtovmaprecv[n]]),
+    Q.recvreq[n] = MPI.Irecv!((@view transfer[:, Q.nabrtovmaprecv[n]]),
                               Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
@@ -275,13 +281,16 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
 
   @tic mpi_sendcopy
   # pack data in send buffer
-  fillsendbuf!(Q.host_send_buffer, Q.device_send_buffer, Q.data, Q.vmapsend)
+  stage = get_stage(Q.send_buffer)
+  fillsendbuf!(stage, Q.data, Q.vmapsend)
+  prepare_transfer!(Q.send_buffer)
   @toc mpi_sendcopy
 
   # post MPI sends
   nnabr = length(Q.nabrtorank)
+  transfer = get_transfer(Q.send_buffer)
   for n = 1:nnabr
-    Q.sendreq[n] = MPI.Isend((@view Q.host_send_buffer[:, Q.nabrtovmapsend[n]]),
+    Q.sendreq[n] = MPI.Isend((@view transfer[:, Q.nabrtovmapsend[n]]),
                            Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
@@ -312,7 +321,9 @@ function finish_ghost_recv!(Q::MPIStateArray)
 
   @tic mpi_recvcopy
   # copy data to state vectors
-  transferrecvbuf!(Q.device_recv_buffer, Q.host_recv_buffer, Q.data, Q.vmaprecv)
+  prepare_stage!(Q.recv_buffer)
+  stage = get_stage(Q.recv_buffer)
+  transferrecvbuf!(Q.data, stage, Q.vmaprecv)
   @toc mpi_recvcopy
 end
 
@@ -328,7 +339,7 @@ function finish_ghost_send!(Q::MPIStateArray)
 end
 
 # {{{ MPI Buffer handling
-function _fillsendbuf!(sendbuf, buf, vmapsend)
+function fillsendbuf!(sendbuf, buf, vmapsend)
   if length(vmapsend) > 0
     Np = size(buf, 1)
     nvar = size(buf, 2)
@@ -341,20 +352,7 @@ function _fillsendbuf!(sendbuf, buf, vmapsend)
   end
 end
 
-function fillsendbuf!(host_sendbuf::Array, device_sendbuf::Array, buf::Array,
-                      vmapsend::Array)
-  _fillsendbuf!(host_sendbuf, buf, vmapsend)
-end
-
-function fillsendbuf!(host_sendbuf, device_sendbuf, buf, vmapsend)
-  _fillsendbuf!(device_sendbuf, buf, vmapsend,)
-
-  if length(vmapsend) > 0
-    copyto!(host_sendbuf, device_sendbuf)
-  end
-end
-
-function _transferrecvbuf!(buf, recvbuf, vmaprecv)
+function transferrecvbuf!(buf, recvbuf, vmaprecv)
   if length(vmaprecv) > 0
     Np = size(buf, 1)
     nvar = size(buf, 2)
@@ -367,18 +365,6 @@ function _transferrecvbuf!(buf, recvbuf, vmaprecv)
   end
 end
 
-function transferrecvbuf!(device_recvbuf::Array, host_recvbuf::Array,
-                          buf::Array, vmaprecv::Array)
-  _transferrecvbuf!(buf, host_recvbuf, vmaprecv)
-end
-
-function transferrecvbuf!(device_recvbuf, host_recvbuf, buf, vmaprecv)
-  if length(vmaprecv) > 0
-    copyto!(device_recvbuf, host_recvbuf)
-  end
-
-  _transferrecvbuf!(buf, device_recvbuf, vmaprecv)
-end
 # }}}
 
 # Integral based metrics
