@@ -67,6 +67,8 @@ function vars_gradient(m::AtmosModel, FT)
 end
 function vars_diffusive(m::AtmosModel, FT)
   @vars begin
+    sdiff_h::FT
+    sdiff_v::FT
     ρτ::SHermitianCompact{3,FT,6}
     ρd_h_tot::SVector{3,FT}
     turbulence::vars_diffusive(m.turbulence,FT)
@@ -197,6 +199,9 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   # turbulent Prandtl number
   diag_ρν_horz = ρν isa Real ? ρν : diag(ρν[1]) # either a scalar or matrix
   diag_ρν_vert = ρν isa Real ? ρν : diag(ρν[2]) # either a scalar or matrix
+  #Diffusive cfl coefficients
+  sdiff_h = ρν isa Real ? norm(-2 * ρν * S) : norm(-2*ρν[1]*S)
+  sdiff_v = ρν isa Real ? norm(-2 * ρν * S) : norm(-2*ρν[2]*S)
   # Diffusivity ρD_t = ρν/Prandtl_turb
   ρD_t = (diag_ρν_horz + diag_ρν_vert) * inv_Pr_turb
   # diffusive flux of total energy

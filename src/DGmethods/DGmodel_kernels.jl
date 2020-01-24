@@ -1097,7 +1097,7 @@ end
 
 function knl_local_courant!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
                             pointwise_courant, local_courant, Q, auxstate,
-                            diffstate, elems) where {dim, N}
+                            diffstate, elems, direction, Δt) where {dim, N}
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
@@ -1130,7 +1130,7 @@ function knl_local_courant!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
       Δx = pointwise_courant[n, e]
       c = local_courant(bl, Vars{vars_state(bl,FT)}(l_Q),
                         Vars{vars_aux(bl,FT)}(l_aux),
-                        Vars{vars_diffusive(bl,FT)}(l_diff), Δx)
+                        Vars{vars_diffusive(bl,FT)}(l_diff), Δx, Δt, direction)
 
       pointwise_courant[n, e] = c
     end

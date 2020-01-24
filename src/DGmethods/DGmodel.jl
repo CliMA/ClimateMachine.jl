@@ -275,24 +275,8 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
                             topology.realelems))
   end
 end
-"""
-    courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
-            Q::MPIStateArray, direction=EveryDirection())
-Returns the maximum of the evaluation of the function `local_courant`
-pointwise throughout the domain.  The function `local_courant` is given an
-approximation of the local node distance `Δx`.  The `direction` controls which
-reference directions are considered when computing the minimum node distance
-`Δx`.
-An example `local_courant` function is
-    function local_courant(m::AtmosModel, state::Vars, aux::Vars,
-                           diffusive::Vars, Δx)
-      return Δt * cmax / Δx
-    end
-where `Δt` is the time step size and `cmax` is the maximum flow speed in the
-model.
-"""
 function courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
-                 Q::MPIStateArray, direction=EveryDirection())
+                 Q::MPIStateArray, Δt, direction=EveryDirection())
   grid = dg.grid
   topology = grid.topology
   nrealelem = length(topology.realelems)
@@ -311,7 +295,7 @@ function courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
     @launch(device, threads=(Nq*Nq*Nqk,), blocks=nrealelem,
             knl_local_courant!(m, Val(dim), Val(N), pointwise_courant,
                                local_courant, Q.data, dg.auxstate.data,
-                               dg.diffstate.data, topology.realelems))
+                               dg.diffstate.data, topology.realelems, direction, Δt))
     rank_courant_max = maximum(pointwise_courant)
   else
     rank_courant_max = typemin(eltype(Q))

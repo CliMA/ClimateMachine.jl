@@ -33,5 +33,6 @@ include("Atmos/Model/AtmosModel.jl")
 include("Diagnostics/Diagnostics.jl")
 include("InputOutput/VTK/VTK.jl")
 include("Driver/Driver.jl")
+include("Courant/Courant_presets.jl")
 
 end
