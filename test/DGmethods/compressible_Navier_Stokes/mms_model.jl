@@ -16,8 +16,8 @@ vars_state(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
 vars_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
 vars_diffusive(::MMSModel, T) = @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
 
-function flux_nondiffusive!(::MMSModel, flux::Grad, state::Vars,
-                            auxstate::Vars, t::Real)
+function flux_nondiffusive!(::MMSModel, state::Vars,
+                            auxstate::Vars, t::Real, flux::Grad)
   # preflux
   T = eltype(flux)
   γ = T(γ_exact)
@@ -33,8 +33,8 @@ function flux_nondiffusive!(::MMSModel, flux::Grad, state::Vars,
   flux.ρe = SVector(u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
 end
 
-function flux_diffusive!(::MMSModel, flux::Grad, state::Vars,
-                         diffusive::Vars, auxstate::Vars, t::Real)
+function flux_diffusive!(::MMSModel, state::Vars,
+                         auxstate::Vars, t::Real, flux::Grad, diffusive::Vars)
   ρinv = 1 / state.ρ
   u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
 
@@ -48,17 +48,17 @@ function flux_diffusive!(::MMSModel, flux::Grad, state::Vars,
                      u * diffusive.τ13 + v * diffusive.τ23 + w * diffusive.τ33)
 end
 
-function gradvariables!(::MMSModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
+function gradvariables!(::MMSModel, state::Vars, auxstate::Vars, t::Real, transformstate::Vars)
   ρinv = 1 / state.ρ
   transformstate.u = ρinv * state.ρu
   transformstate.v = ρinv * state.ρv
   transformstate.w = ρinv * state.ρw
 end
 
-function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
+function diffusive!(::MMSModel, state::Vars, auxstate::Vars, t::Real, diffusive::Vars, ∇transform::Grad)
   T = eltype(diffusive)
   μ = T(μ_exact)
-  
+
   dudx, dudy, dudz = ∇transform.u
   dvdx, dvdy, dvdz = ∇transform.v
   dwdx, dwdy, dwdz = ∇transform.w
@@ -80,7 +80,7 @@ function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars
   diffusive.τ23 = 2μ * ϵ23
 end
 
-function source!(::MMSModel{dim}, source::Vars, state::Vars, aux::Vars, t::Real) where {dim}
+function source!(::MMSModel{dim}, state::Vars, aux::Vars, t::Real, source::Vars) where {dim}
   source.ρ  = Sρ_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
   source.ρu = SU_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
   source.ρv = SV_g(t, aux.x1, aux.x2, aux.x3, Val(dim))

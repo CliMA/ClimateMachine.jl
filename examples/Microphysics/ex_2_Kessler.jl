@@ -131,7 +131,7 @@ end
 
 
 # time tendencies
-@inline function source!(S, Q, aux, t)
+@inline function source!(Q, aux, t, S)
   FT = eltype(Q)
   u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot = preflux(Q)
   @inbounds begin

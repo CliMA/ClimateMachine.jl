@@ -66,8 +66,8 @@ function vars_diffusive(m::SWModel, T)
   end
 end
 
-@inline function flux_nondiffusive!(m::SWModel, F::Grad, q::Vars,
-                                    α::Vars, t::Real)
+@inline function flux_nondiffusive!(m::SWModel, q::Vars,
+                                    α::Vars, t::Real, F::Grad)
   U = q.U
   η = q.η
   H = m.problem.H
@@ -92,21 +92,21 @@ advective_flux!(::SWModel, ::Nothing, _...) = nothing
   return nothing
 end
 
-function gradvariables!(m::SWModel, f::Vars, q::Vars, α::Vars, t::Real)
-  gradvariables!(m.turbulence, f, q, α, t)
+function gradvariables!(m::SWModel, q::Vars, α::Vars, t::Real, f::Vars)
+  gradvariables!(m.turbulence, q, α, t, f)
 end
 
 gradvariables!(::LinearDrag, _...) = nothing
 
-@inline function gradvariables!(T::ConstantViscosity, f::Vars, q::Vars,
-                                α::Vars, t::Real)
+@inline function gradvariables!(T::ConstantViscosity, q::Vars,
+                                α::Vars, t::Real, f::Vars)
   f.U = q.U
 
   return nothing
 end
 
-function diffusive!(m::SWModel, σ::Vars, δ::Grad, q::Vars, α::Vars, t::Real)
-  diffusive!(m.turbulence, σ, δ, q, α, t)
+function diffusive!(m::SWModel, q::Vars, α::Vars, t::Real, σ::Vars, δ::Grad)
+  diffusive!(m.turbulence, q, α, t, σ, δ)
 end
 
 diffusive!(::LinearDrag, _...) = nothing
@@ -121,15 +121,15 @@ diffusive!(::LinearDrag, _...) = nothing
   return nothing
 end
 
-function flux_diffusive!(m::SWModel, G::Grad, q::Vars, σ::Vars,
-                         α::Vars, t::Real)
+function flux_diffusive!(m::SWModel, q::Vars,
+                         α::Vars, t::Real, G::Grad, σ::Vars)
   flux_diffusive!(m.turbulence, G, q, σ, α, t)
 end
 
 flux_diffusive!(::LinearDrag, _...) = nothing
 
-@inline function flux_diffusive!(::ConstantViscosity, G::Grad, q::Vars,
-                                 σ::Vars, α::Vars, t::Real)
+@inline function flux_diffusive!(::ConstantViscosity, q::Vars,
+                                 α::Vars, t::Real, G::Grad, σ::Vars)
   G.U -= σ.ν∇U
 
   return nothing
@@ -137,8 +137,8 @@ end
 
 @inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
 
-@inline function source!(m::SWModel{P}, S::Vars, q::Vars, α::Vars,
-                         t::Real) where P
+@inline function source!(m::SWModel{P}, q::Vars, α::Vars,
+                         t::Real, S::Vars) where P
   τ = α.τ
   f = α.f
   U = q.U

@@ -3,14 +3,14 @@ export Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
 
 # kept for compatibility
 # can be removed if no functions are using this
-function atmos_source!(f::Function, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  f(source, state, aux, t)
+function atmos_source!(f::Function, atmos::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
+  f(state, aux, t, source)
 end
-function atmos_source!(::Nothing, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(::Nothing, atmos::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
 end
 # sources are applied additively
-function atmos_source!(stuple::Tuple, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  map(s -> atmos_source!(s, atmos, source, state, aux, t), stuple)
+function atmos_source!(stuple::Tuple, atmos::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
+  map(s -> atmos_source!(s, atmos, state, aux, t, source), stuple)
 end
 
 abstract type Source
@@ -18,7 +18,7 @@ end
 
 struct Gravity <: Source
 end
-function atmos_source!(::Gravity, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(::Gravity, atmos::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
   if atmos.ref_state isa HydrostaticState
     source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
   else
@@ -28,7 +28,7 @@ end
 
 struct Coriolis <: Source
 end
-function atmos_source!(::Coriolis, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(::Coriolis, atmos::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
   # note: this assumes a SphericalOrientation
   source.ρu -= SVector(0, 0, 2*Omega) × state.ρu
 end
@@ -38,7 +38,7 @@ struct GeostrophicForcing{FT} <: Source
   u_geostrophic::FT
   v_geostrophic::FT
 end
-function atmos_source!(s::GeostrophicForcing, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(s::GeostrophicForcing, atmos::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
   u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
   ẑ = vertical_unit_vector(atmos.orientation, aux)
   fkvector = s.f_coriolis * ẑ
@@ -64,7 +64,7 @@ struct RayleighSponge{FT} <: Source
   "Sponge exponent"
   γ::FT
 end
-function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(s::RayleighSponge, atmos::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
   z = altitude(atmos.orientation, aux)
   if z >= s.z_sponge
     r = (z - s.z_sponge)/(s.z_max-s.z_sponge)

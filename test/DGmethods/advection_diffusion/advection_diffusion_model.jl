@@ -36,8 +36,8 @@ vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
 vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3,FT})
 
 """
-    flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
-                       aux::Vars, t::Real)
+    flux_nondiffusive!(m::AdvectionDiffusion, state::Vars,
+                       aux::Vars, t::Real, flux::Grad)
 
 Computes non-diffusive flux `F` in:
 
@@ -52,16 +52,16 @@ Where
  - `ρ` is the advected quantity
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
-function flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
-                            aux::Vars, t::Real)
+function flux_nondiffusive!(m::AdvectionDiffusion, state::Vars,
+                            aux::Vars, t::Real, flux::Grad)
   ρ = state.ρ
   u = aux.u
   flux.ρ += u * ρ
 end
 
 """
-    flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
-                     auxDG::Vars, aux::Vars, t::Real)
+    flux_diffusive!(m::AdvectionDiffusion, state::Vars,
+                     aux::Vars, t::Real, flux::Grad, auxDG::Vars)
 
 Computes diffusive flux `F` in:
 
@@ -76,31 +76,31 @@ Where
  - `ρ` is the advected quantity
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
-function flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
-                         auxDG::Vars, aux::Vars, t::Real)
+function flux_diffusive!(m::AdvectionDiffusion, state::Vars,
+                         aux::Vars, t::Real, flux::Grad, auxDG::Vars)
   σ = auxDG.σ
   flux.ρ += -σ
 end
 
 """
-    gradvariables!(m::AdvectionDiffusion, transform::Vars, state::Vars,
-                   aux::Vars, t::Real)
+    gradvariables!(m::AdvectionDiffusion, state::Vars,
+                   aux::Vars, t::Real, transform::Vars)
 
 Set the variable to take the gradient of (`ρ` in this case)
 """
-function gradvariables!(m::AdvectionDiffusion, transform::Vars, state::Vars,
-                        aux::Vars, t::Real)
+function gradvariables!(m::AdvectionDiffusion, state::Vars,
+                        aux::Vars, t::Real, transform::Vars)
   transform.ρ = state.ρ
 end
 
 """
-    diffusive!(m::AdvectionDiffusion, transform::Vars, state::Vars, aux::Vars,
-               t::Real)
+    diffusive!(m::AdvectionDiffusion, state::Vars, aux::Vars, t::Real,
+               auxDG::Vars, gradvars::Grad)
 
 Set the variable to take the gradient of (`ρ` in this case)
 """
-function diffusive!(m::AdvectionDiffusion, auxDG::Vars, gradvars::Grad,
-                    state::Vars, aux::Vars, t::Real)
+function diffusive!(m::AdvectionDiffusion, state::Vars, aux::Vars, t::Real,
+                    auxDG::Vars, gradvars::Grad)
   ∇ρ = gradvars.ρ
   D = aux.D
   auxDG.σ = D * ∇ρ

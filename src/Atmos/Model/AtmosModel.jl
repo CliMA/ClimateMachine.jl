@@ -105,8 +105,8 @@ include("linear.jl")
 include("remainder.jl")
 
 """
-    flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
-                       t::Real)
+    flux_nondiffusive!(m::AtmosModel, state::Vars,
+                       aux::Vars, t::Real, flux::Grad)
 
 Computes flux non-diffusive flux portion of `F` in:
 
@@ -121,8 +121,8 @@ Where
  - `F_{press}`    Pressure flux              ; see [`flux_pressure!`]@ref()
  - `F_{diff}`     Fluxes that state gradients; see [`flux_diffusive!`]@ref()
 """
-@inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars,
-                                    aux::Vars, t::Real)
+@inline function flux_nondiffusive!(m::AtmosModel, state::Vars,
+                                    aux::Vars, t::Real, flux::Grad)
   ρ = state.ρ
   ρinv = 1/ρ
   ρu = state.ρu
@@ -150,8 +150,8 @@ Where
   flux_moisture!(m.moisture, m, flux, state, aux, t)
 end
 
-@inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
-                                 diffusive::Vars, aux::Vars, t::Real)
+@inline function flux_diffusive!(m::AtmosModel, state::Vars,
+                                 aux::Vars, t::Real, flux::Grad, diffusive::Vars)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
 
@@ -161,7 +161,7 @@ end
   flux.ρu += ρτ
   flux.ρe += ρτ*u
   flux.ρe += ρd_h_tot
-  flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
+  flux_diffusive!(m.moisture, state, aux, t, flux, diffusive)
 end
 
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
@@ -170,13 +170,13 @@ end
   return abs(dot(nM, u)) + soundspeed(m.moisture, m.orientation, state, aux)
 end
 
-function gradvariables!(atmos::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
+function gradvariables!(atmos::AtmosModel, state::Vars, aux::Vars, t::Real, transform::Vars)
   ρinv = 1/state.ρ
   transform.u = ρinv * state.ρu
   transform.h_tot = total_specific_enthalpy(atmos.moisture, atmos.orientation, state, aux)
 
-  gradvariables!(atmos.moisture, transform, state, aux, t)
-  gradvariables!(atmos.turbulence, transform, state, aux, t)
+  gradvariables!(atmos.moisture, state, aux, t, transform)
+  gradvariables!(atmos.turbulence, state, aux, t, transform)
 end
 
 
@@ -184,7 +184,7 @@ function symmetrize(X::StaticArray{Tuple{3,3}})
   SHermitianCompact(SVector(X[1,1], (X[2,1] + X[1,2])/2, (X[3,1] + X[1,3])/2, X[2,2], (X[3,2] + X[2,3])/2, X[3,3]))
 end
 
-function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
+function diffusive!(m::AtmosModel, state::Vars, aux::Vars, t::Real, diffusive::Vars, ∇transform::Grad)
   ∇u = ∇transform.u
   # strain rate tensor
   S = symmetrize(∇u)
@@ -202,9 +202,9 @@ function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::V
   diffusive.ρd_h_tot = -ρD_t .* ∇transform.h_tot
 
   # diffusivity of moisture components
-  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρD_t)
+  diffusive!(m.moisture, state, aux, t, diffusive, ∇transform, ρD_t)
   # diffusion terms required for SGS turbulence computations
-  diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρD_t)
+  diffusive!(m.turbulence, state, aux, t, diffusive, ∇transform, ρD_t)
 end
 
 function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
@@ -221,7 +221,9 @@ function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
   return true
 end
 
-function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
+function atmos_nodal_update_aux!(m::AtmosModel,
+                                 state::Vars,
+                                 aux::Vars,
                                  t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
   atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
@@ -241,7 +243,7 @@ function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
 end
 
 """
-    source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+    source!(m::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
 Computes flux `S(Y)` in:
 ```
 ∂Y
@@ -249,8 +251,8 @@ Computes flux `S(Y)` in:
 ∂t
 ```
 """
-function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  atmos_source!(m.source, m, source, state, aux, t)
+function source!(m::AtmosModel, state::Vars, aux::Vars, t::Real, source::Vars)
+  atmos_source!(m.source, m, state, aux, t, source)
 end
 
 boundary_state!(nf, m::AtmosModel, x...) =

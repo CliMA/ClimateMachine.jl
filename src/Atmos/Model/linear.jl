@@ -40,7 +40,7 @@ function update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, t::Rea
   return false
 end
 integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
-flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
+flux_diffusive!(lm::AtmosLinearModel, state::Vars, aux::Vars, t::Real, flux::Grad, diffusive::Vars) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
   ref = aux.ref_state
   return soundspeed_air(ref.T)
@@ -66,7 +66,7 @@ struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
   end
 end
 
-function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+function flux_nondiffusive!(lm::AtmosAcousticLinearModel, state::Vars, aux::Vars, t::Real, flux::Grad)
   FT = eltype(state)
   ref = aux.ref_state
   e_pot = gravitational_potential(lm.atmos.orientation, aux)
@@ -77,7 +77,7 @@ function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Var
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
   nothing
 end
-function source!(lm::AtmosAcousticLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(lm::AtmosAcousticLinearModel, state::Vars, aux::Vars, t::Real, source::Vars)
   nothing
 end
 
@@ -90,7 +90,7 @@ struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
     new{M}(atmos)
   end
 end
-function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, state::Vars, aux::Vars, t::Real, flux::Grad)
   FT = eltype(state)
   ref = aux.ref_state
   e_pot = gravitational_potential(lm.atmos.orientation, aux)
@@ -101,7 +101,7 @@ function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, sta
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ)*state.ρu
   nothing
 end
-function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(lm::AtmosAcousticGravityLinearModel, state::Vars, aux::Vars, t::Real, source::Vars)
   ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
   source.ρu -= state.ρ * ∇Φ
   nothing

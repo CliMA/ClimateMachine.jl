@@ -115,9 +115,10 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                             Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                             Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+          flux_nondiffusive!(bl, Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                                 Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                                 t,
+                                 Grad{vars_state(bl,FT)}(l_F))
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -127,9 +128,11 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
           # if source! !== nothing
           fill!(l_S, -zero(eltype(l_S)))
-          source!(bl, Vars{vars_state(bl,FT)}(l_S),
+          source!(bl,
                   Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                  t,
+                  Vars{vars_state(bl,FT)}(l_S))
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
@@ -191,10 +194,12 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+          flux_diffusive!(bl,
                           Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                          Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                          t,
+                          Grad{vars_state(bl,FT)}(l_F),
+                          Vars{vars_diffusive(bl,FT)}(l_Qvisc))
 
           @unroll for s = 1:nstate
             F1, F2, F3 = s_F[1,i,j,k,s], s_F[2,i,j,k,s], s_F[3,i,j,k,s]
@@ -327,9 +332,10 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                             Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                             Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+          flux_nondiffusive!(bl, Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                                 Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                                 t,
+                                 Grad{vars_state(bl,FT)}(l_F))
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -339,9 +345,11 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
           # if source! !== nothing
           fill!(l_S, -zero(eltype(l_S)))
-          source!(bl, Vars{vars_state(bl,FT)}(l_S),
+          source!(bl,
                   Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                  t,
+                  Vars{vars_state(bl,FT)}(l_S))
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
@@ -386,10 +394,12 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+          flux_diffusive!(bl,
                           Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                          Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                          t,
+                          Grad{vars_state(bl,FT)}(l_F),
+                          Vars{vars_diffusive(bl,FT)}(l_Qvisc))
 
           @unroll for s = 1:nstate
             F1, F2, F3 = s_F[1,i,j,k,s], s_F[2,i,j,k,s], s_F[3,i,j,k,s]
@@ -648,8 +658,11 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_G, -zero(eltype(l_G)))
-          gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_G), Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                     Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+          gradvariables!(bl,
+                         Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                         Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                         t,
+                         Vars{vars_gradient(bl,FT)}(l_G))
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -700,8 +713,12 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
-          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc), Grad{vars_gradient(bl,FT)}(l_gradG),
-                     Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+          diffusive!(bl,
+                     Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                     Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                     t,
+                     Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                     Grad{vars_gradient(bl,FT)}(l_gradG))
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -765,9 +782,11 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_G, -zero(eltype(l_G)))
-          gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_G),
+          gradvariables!(bl,
                          Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                         Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                         Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                         t,
+                         Vars{vars_gradient(bl,FT)}(l_G))
           @unroll for s = 1:ngradstate
             s_G[i, j, k, s] = l_G[s]
           end
@@ -800,10 +819,12 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
-          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                     Grad{vars_gradient(bl,FT)}(l_gradG),
+          diffusive!(bl,
                      Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                     Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                     Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                     t,
+                     Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                     Grad{vars_gradient(bl,FT)}(l_gradG))
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -884,9 +905,11 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         end
 
         fill!(l_GM, -zero(eltype(l_GM)))
-        gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_GM),
+        gradvariables!(bl,
                        Vars{vars_state(bl,FT)}(l_QM),
-                       Vars{vars_aux(bl,FT)}(l_auxM), t)
+                       Vars{vars_aux(bl,FT)}(l_auxM),
+                       t,
+                       Vars{vars_gradient(bl,FT)}(l_GM))
 
         # Load plus side data
         @unroll for s = 1:ngradtransformstate
@@ -898,9 +921,11 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         end
 
         fill!(l_GP, -zero(eltype(l_GP)))
-        gradvariables!(bl, Vars{vars_gradient(bl,FT)}(l_GP),
+        gradvariables!(bl,
                        Vars{vars_state(bl,FT)}(l_QP),
-                       Vars{vars_aux(bl,FT)}(l_auxP), t)
+                       Vars{vars_aux(bl,FT)}(l_auxP),
+                       t,
+                       Vars{vars_gradient(bl,FT)}(l_GP))
 
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))

@@ -42,7 +42,7 @@ function diffusive_penalty!(::CentralGradPenalty, bl::BalanceLaw,
     t) where {D,T,S,A}
 
   G = n .* (parent(transform⁺) .- parent(transform⁻))' ./ 2
-  diffusive!(bl, diff_penalty, Grad{T}(G), state⁻, aux⁻, t)
+  diffusive!(bl, state⁻, aux⁻, t, diff_penalty, Grad{T}(G))
 end
 
 function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
@@ -54,7 +54,7 @@ function diffusive_boundary_penalty!(nf::CentralGradPenalty, bl::BalanceLaw,
   boundary_state!(nf, bl, state⁺, aux⁺, n, state⁻, aux⁻,
     bctype, t, state1⁻, aux1⁻)
 
-  gradvariables!(bl, transform⁺, state⁺, aux⁺, t)
+  gradvariables!(bl, state⁺, aux⁺, t, transform⁺)
 
   diffusive_penalty!(nf, bl, diff_penalty, n,
     transform⁻, state⁻, aux⁻,
@@ -157,11 +157,11 @@ function numerical_flux_nondiffusive!(::CentralNumericalFluxNonDiffusive,
 
   F⁻ = similar(Fᵀn, Size(3, nstate))
   fill!(F⁻, -zero(FT))
-  flux_nondiffusive!(bl, Grad{S}(F⁻), state⁻, aux⁻, t)
+  flux_nondiffusive!(bl, state⁻, aux⁻, t, Grad{S}(F⁻))
 
   F⁺ = similar(Fᵀn, Size(3, nstate))
   fill!(F⁺, -zero(FT))
-  flux_nondiffusive!(bl, Grad{S}(F⁺), state⁺, aux⁺, t)
+  flux_nondiffusive!(bl, state⁺, aux⁺, t, Grad{S}(F⁺))
 
   Fᵀn .+= (F⁻ + F⁺)' * (n/2)
 end
@@ -232,11 +232,11 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
 
   F⁻ = similar(Fᵀn, Size(3, nstate))
   fill!(F⁻, -zero(FT))
-  flux_diffusive!(bl, Grad{S}(F⁻), state⁻, diff⁻, aux⁻, t)
+  flux_diffusive!(bl, state⁻, aux⁻, t, Grad{S}(F⁻), diff⁻)
 
   F⁺ = similar(Fᵀn, Size(3, nstate))
   fill!(F⁺, -zero(FT))
-  flux_diffusive!(bl, Grad{S}(F⁺), state⁺, diff⁺, aux⁺, t)
+  flux_diffusive!(bl, state⁺, aux⁺, t, Grad{S}(F⁺), diff⁺)
 
   Fᵀn .+= (F⁻ + F⁺)' * (n/2)
 end

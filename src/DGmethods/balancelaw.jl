@@ -15,11 +15,13 @@ Subtypes `L` should define the following methods:
 - `vars_state_for_transform(::L)`: a tuple of symbols containing the state variables which are passed to the `transform!` function.
 - `vars_gradient(::L)`: a tuple of symbols containing the transformed variables of which gradients are computed
 - `vars_diffusive(::L)`: a tuple of symbols containing the diffusive variables
-- `flux_nondiffusive!(::L, flux::Grad, state::State, auxstate::State, t::Real)`
-- `flux_diffusive!(::L, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)`
-- `gradvariables!(::L, transformstate::State, state::State, auxstate::State, t::Real)`
-- `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`
-- `source!(::L, source::State, state::State, auxstate::State, t::Real)`
+
+- `flux_nondiffusive!(::L, state::State, auxstate::State, t::Real, flux::Grad)`
+- `flux_diffusive!(   ::L, state::State, auxstate::State, t::Real, flux::Grad, diffstate::State)`
+- `gradvariables!(    ::L, state::State, auxstate::State, t::Real, transformstate::State)`
+- `diffusive!(        ::L, state::State, auxstate::State, t::Real, diffstate::State, ∇transformstate::Grad)`
+- `source!(           ::L, state::State, auxstate::State, t::Real, source::State)`
+
 - `wavespeed(::L, nM, state::State, aux::State, t::Real)`
 - `boundary_state!(::GradNumericalPenalty, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
 - `boundary_state!(::NumericalFluxNonDiffusive, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`

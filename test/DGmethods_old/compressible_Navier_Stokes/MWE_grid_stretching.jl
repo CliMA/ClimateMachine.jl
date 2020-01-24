@@ -405,7 +405,7 @@ end
 end
 # -------------------------------------------------------------------------
 
-@inline function source!(S,Q,aux,t)
+@inline function source!(Q,aux,t,S)
   # Initialise the final block source term
   S .= 0
 

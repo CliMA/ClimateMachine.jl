@@ -22,7 +22,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
 
 import CLIMA.DGmethods.NumericalFluxes: NumericalFluxDiffusive,
                                         numerical_flux_diffusive!
-                                                              
+
 const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
@@ -39,13 +39,13 @@ vars_diffusive(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
 
 boundary_state!(nf, bl::PoissonModel, _...) = nothing
 
-function flux_nondiffusive!(::PoissonModel, flux::Grad, state::Vars,
-                            auxstate::Vars, t::Real)
+function flux_nondiffusive!(::PoissonModel, state::Vars,
+                            auxstate::Vars, t::Real, flux::Grad)
   nothing
 end
 
-function flux_diffusive!(::PoissonModel, flux::Grad, state::Vars,
-                         diffusive::Vars, auxstate::Vars, t::Real)
+function flux_diffusive!(::PoissonModel, state::Vars,
+                         auxstate::Vars, t::Real, flux::Grad, diffusive::Vars)
   flux.ϕ = diffusive.∇ϕ
 end
 
@@ -64,16 +64,16 @@ function numerical_flux_diffusive!(::PenaltyNumFluxDiffusive,
   Fᵀn .-= tau*(parent(state⁻) - parent(state⁺))
 end
 
-function gradvariables!(::PoissonModel, transformstate::Vars, state::Vars, auxstate::Vars, t::Real)
+function gradvariables!(::PoissonModel, state::Vars, auxstate::Vars, t::Real, transformstate::Vars)
   transformstate.ϕ = state.ϕ
 end
 
-function diffusive!(::PoissonModel, diffusive::Vars,
-                    ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
+function diffusive!(::PoissonModel, state::Vars, auxstate::Vars, t::Real,
+                    diffusive::Vars, ∇transform::Grad)
   diffusive.∇ϕ = ∇transform.ϕ
 end
 
-source!(::PoissonModel, source::Vars, state::Vars, aux::Vars, t::Real) = nothing
+source!(::PoissonModel, state::Vars, aux::Vars, t::Real, source::Vars) = nothing
 
 # note, that the code assumes solutions with zero mean
 sol1d(x) = sin(2pi * x) ^ 4 - 3 / 8
@@ -101,7 +101,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
                                           polynomialorder = polynomialorder,
                                           DeviceArray = ArrayType,
                                           FloatType = FT)
-  
+
   dg = DGModel(PoissonModel{dim}(),
                grid,
                CentralNumericalFluxNonDiffusive(),
@@ -154,7 +154,7 @@ let
   expected_result[1, 2, 1] = 1.4957957657736219e-02
   expected_result[1, 2, 2] = 4.7282369781541172e-04
   expected_result[1, 2, 3] = 1.4697449643351771e-05
-  
+
   # GeneralizedMinimalResidual
   expected_result[2, 1, 1] = 5.0540243587512981e-02
   expected_result[2, 1, 2] = 1.4802275409186211e-03
@@ -173,7 +173,7 @@ let
         Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
         brickrange = ntuple(d -> range(FT(0), length = Ne[d], stop = 1), dim)
         periodicity = ntuple(d -> true, dim)
-        
+
         @info (ArrayType, FT, m, dim)
         result[l] = run(mpicomm, ArrayType, FT, dim,
                         polynomialorder, brickrange, periodicity, linmethod)

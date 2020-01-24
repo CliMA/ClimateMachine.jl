@@ -115,8 +115,8 @@ function vars_integrals(m::HBModel, T)
   end
 end
 
-@inline function flux_nondiffusive!(m::HBModel, F::Grad, Q::Vars,
-                                    A::Vars, t::Real)
+@inline function flux_nondiffusive!(m::HBModel, Q::Vars,
+                                    A::Vars, t::Real, F::Grad)
   @inbounds begin
     u = Q.u # Horizontal components of velocity
     η = Q.η
@@ -189,15 +189,15 @@ end
   return nothing
 end
 
-@inline function gradvariables!(m::HBModel, G::Vars, Q::Vars, A, t)
+@inline function gradvariables!(m::HBModel, Q::Vars, A, t, G::Vars)
   G.u = Q.u
   G.θ = Q.θ
 
   return nothing
 end
 
-@inline function diffusive!(m::HBModel, D::Vars, G::Grad, Q::Vars,
-                            A::Vars, t)
+@inline function diffusive!(m::HBModel, Q::Vars,
+                            A::Vars, t, D::Vars, G::Grad)
   D.∇u = G.u
   D.∇θ = G.θ
 
