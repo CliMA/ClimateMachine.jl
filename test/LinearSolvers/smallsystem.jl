@@ -17,8 +17,8 @@ using StaticArrays, LinearAlgebra, Random
             )
 
   expected_iters = (Dict(Float32 => 7, Float64 => 11),
-                    Dict(Float32 => 9, Float64 => 21),
-                    Dict(Float32 => 6, Float64 => 10)
+                    Dict(Float32 => 5, Float64 => 17),
+                    Dict(Float32 => 4, Float64 => 10)
                    )
 
   for (m, method) in enumerate(methods), T in [Float32, Float64]
@@ -32,28 +32,30 @@ using StaticArrays, LinearAlgebra, Random
 
     tol = sqrt(eps(T))
     linearsolver = method(b, tol)
-    
+
     x = @MVector rand(T, n)
+    x0 = copy(x)
     iters = linearsolve!(mulbyA!, linearsolver, x, b)
 
     @test iters == expected_iters[m][T]
-    @test norm(A * x - b) / norm(b) <= tol
-   
+    @test norm(A * x - b) / norm(A * x0 - b) <= tol
+
     # test for convergence in 0 iterations by
     # initializing with the exact solution
     x = A \ b
     iters = linearsolve!(mulbyA!, linearsolver, x, b)
     @test iters == 0
-    @test norm(A * x - b) / norm(b) <= tol
-   
+    @test norm(A * x - b) <= 100eps(T)
+
     newtol = 1000tol
     settolerance!(linearsolver, newtol)
-    
+
     x = @MVector rand(T, n)
+    x0 = copy(x)
     linearsolve!(mulbyA!, linearsolver, x, b)
 
-    @test norm(A * x - b) / norm(b) <= newtol
-    @test norm(A * x - b) / norm(b) >= tol
+    @test norm(A * x - b) / norm(A * x0 - b) <= newtol
+    @test norm(A * x - b) / norm(A * x0 - b) >= tol
 
   end
 end

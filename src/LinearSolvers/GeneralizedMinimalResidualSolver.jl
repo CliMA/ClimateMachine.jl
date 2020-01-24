@@ -18,7 +18,7 @@ This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `M` is the number of steps after which the algorithm
 is restarted (if it has not converged), `Q` is a reference state used only
 to allocate the solver internal state, and `tolerance` specifies the convergence
-criterion based on the relative residual norm. The amount of memory 
+criterion based on the relative residual norm. The amount of memory
 required for the solver state is roughly `(M + 1) * size(Q)`.
 This object is intended to be passed to the [`linearsolve!`](@ref) command.
 
@@ -67,11 +67,12 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     krylov_basis[1] .*= -1
     krylov_basis[1] .+= Qrhs
 
-    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
+    threshold = solver.tolerance[1] * norm(krylov_basis[1], weighted)
     residual_norm = norm(krylov_basis[1], weighted)
 
     converged = false
-    if residual_norm < threshold
+    # Should only be true for threshold zero
+    if threshold <=10eps(eltype(Q))
       converged = true
       return converged, threshold
     end
@@ -86,14 +87,14 @@ end
 function LS.doiteration!(linearoperator!, Q, Qrhs,
                          solver::GeneralizedMinimalResidual{M}, threshold,
                          args...) where M
- 
+
   krylov_basis = solver.krylov_basis
   H = solver.H
   g0 = solver.g0
 
   converged = false
   residual_norm = typemax(eltype(Q))
-  
+
   Ω = LinearAlgebra.Rotation{eltype(Q)}([])
   j = 1
   for outer j = 1:M
@@ -106,7 +107,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
     end
     H[j + 1, j] = norm(krylov_basis[j + 1], weighted)
     krylov_basis[j + 1] ./= H[j + 1, j]
-   
+
     # apply the previous Givens rotations to the new column of H
     @views H[1:j, j:j] .= Ω * H[1:j, j:j]
 
@@ -141,7 +142,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
 
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
-  
+
   (converged, j, residual_norm)
 end
 
