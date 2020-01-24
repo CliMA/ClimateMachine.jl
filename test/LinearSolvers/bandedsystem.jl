@@ -16,8 +16,6 @@ using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
 
 using Test
 
-const ArrayType = CLIMA.array_type()
-
 include("../DGmethods/advection_diffusion/advection_diffusion_model.jl")
 
 struct Pseudo1D{n, α, β, μ, δ} <: AdvectionDiffusionProblem end
@@ -41,6 +39,8 @@ end
 let
   # boiler plate MPI stuff
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :

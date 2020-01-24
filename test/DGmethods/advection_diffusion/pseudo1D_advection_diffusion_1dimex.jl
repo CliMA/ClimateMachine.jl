@@ -20,8 +20,6 @@ using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
-const ArrayType = CLIMA.array_type()
-
 if !@isdefined integration_testing
   if length(ARGS) > 0
     const integration_testing = parse(Bool, ARGS[1])
@@ -177,6 +175,8 @@ end
 
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :

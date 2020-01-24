@@ -24,8 +24,6 @@ using CLIMA.VTK
 using Random
 using CLIMA.Atmos: vars_state, vars_aux
 
-const ArrayType = CLIMA.array_type()
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -90,7 +88,7 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.moisture.ρq_tot = FT(0)
 end
 # --------------- Driver definition ------------------ #
-function run(mpicomm, LinearType,
+function run(mpicomm, ArrayType, LinearType,
              topl, dim, Ne, polynomialorder,
              timeend, FT, dt)
   # -------------- Define grid ----------------------------------- #
@@ -184,6 +182,8 @@ end
 using Test
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -197,7 +197,7 @@ let
                   range(FT(zmin); length=Ne[3]+1, stop=zmax))
     topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
     for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
-      engf_eng0 = run(mpicomm, LinearType,
+      engf_eng0 = run(mpicomm, ArrayType, LinearType,
                       topl, dim, Ne, polynomialorder,
                       timeend, FT, dt)
       @test engf_eng0 ≈ FT(0.9999997771981113)

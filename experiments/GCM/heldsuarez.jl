@@ -12,8 +12,6 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const ArrayType = CLIMA.array_type()
-
 const p_ground = Float64(MSLP)
 const T_initial = Float64(255)
 const domain_height = Float64(30e3)

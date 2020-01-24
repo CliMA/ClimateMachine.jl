@@ -35,8 +35,6 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
-const ArrayType = CLIMA.array_type()
-
 const _nstate = 7
 const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_rai = 1:_nstate
 const stateid = (ρ_id = _ρ, ρu_id = _ρu, ρw_id = _ρw, ρe_tot_id = _ρe_tot,
@@ -375,6 +373,8 @@ end
 function run(dim, Ne, N, timeend, FT)
 
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
 
   brickrange = ntuple(j->range(FT(0); length=Ne[j]+1, stop=Z_max), 2)

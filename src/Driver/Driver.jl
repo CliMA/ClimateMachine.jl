@@ -18,25 +18,31 @@ using ..MoistThermodynamics
 using ..MPIStateArrays
 using ..TicToc
 
-const cuarray_pkgid = Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
+Base.@kwdef mutable struct CLIMA_Settings
+    disable_gpu::Bool = false
+    mpi_knows_cuda::Bool = false
+    show_updates::Bool = true
+    update_interval::Int = 60
+    enable_diagnostics::Bool = false
+    diagnostics_interval::Int = 10000
+    enable_vtk::Bool = false
+    vtk_interval::Int = 10000
+    output_dir::String = "output"
+    integration_testing::Bool = false
+    array_type
+end
+
+const Settings = CLIMA_Settings(array_type = Array)
+
+array_type() = Settings.array_type
 
 include("Configurations.jl")
 
-"""
-    CLIMA.array_type()
+const cuarray_pkgid = Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 
-Returns the default array type to be used with CLIMA, either a `CuArray` if
-a GPU is available, or an `Array` otherwise.
-
-Use of GPUs can be explicitly disabled by setting the environment variable
-`CLIMA_GPU=false`.
-"""
-function array_type()
+@init begin
     if get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
         CuArrays = Base.require(cuarray_pkgid)
-        return CuArrays.CuArray
-    else
-        return Array
     end
 end
 
@@ -51,7 +57,7 @@ end
         # allocate GPUs among MPI ranks
         local_comm = MPI.Comm_split_type(comm, MPI.MPI_COMM_TYPE_SHARED,  MPI.Comm_rank(comm))
         # we intentionally oversubscribe GPUs for testing: may want to disable this for production
-        device!(MPI.Comm_rank(local_comm) % length(devices()))
+        CUDAnative.device!(MPI.Comm_rank(local_comm) % length(devices()))
         CuArrays.allowscalar(false)
         return nothing
     end
@@ -65,26 +71,18 @@ function gpu_allowscalar(val)
 end
 
 """
-    decl_global_const(nm, val)
-
-Define `nm` as a global const with value `val`.
-"""
-function decl_global_const(nm, val)
-    g = Symbol(nm)
-    expr = quote
-        const $g = $val
-    end
-    eval(Expr(:toplevel, expr))
-    return nothing
-end
-
-"""
     parse_commandline()
 """
 function parse_commandline()
     s = ArgParseSettings()
 
     @add_arg_table s begin
+        "--disable-gpu"
+            help = "do not use the GPU"
+            action = :store_true
+        "--mpi-knows-cuda"
+            help = "MPI is CUDA-enabled"
+            action = :store_true
         "--no-show-updates"
             help = "do not show simulation updates"
             action = :store_true
@@ -94,7 +92,7 @@ function parse_commandline()
             default = 60
         "--enable-diagnostics"
             help = "output diagnostic variables to <output-dir>"
-            action = :store_false
+            action = :store_true
         "--diagnostics-interval"
             help = "interval in simulation steps for gathering diagnostics"
             arg_type = Int
@@ -123,52 +121,57 @@ function parse_commandline()
 end
 
 """
-    CLIMA.init(array_type)
+    CLIMA.init(; disable_gpu=false)
 
 Initialize MPI, allocate GPUs among MPI ranks if using GPUs, parse command
 line arguments for CLIMA, and return a Dict of any additional command line
 arguments.
 """
-function init(arraytype=array_type())
+function init(; disable_gpu=false)
     # initialize MPI
     if !MPI.Initialized()
         MPI.Init()
     end
 
-    # set up to use GPUs
-    _init_array(arraytype)
-
     # set up timing mechanism
     tictoc()
 
-    # parse command line arguments we understand
+    # parse command line arguments
     parsed_args = parse_commandline()
-    decl_global_const("ShowUpdates", parsed_args["no-show-updates"])
-    decl_global_const("UpdateInterval", parsed_args["update-interval"])
-    decl_global_const("EnableDiagnostics", parsed_args["enable-diagnostics"])
-    enablediagnostics = parsed_args["enable-diagnostics"]
-    decl_global_const("DiagnosticsInterval", parsed_args["diagnostics-interval"])
-    decl_global_const("EnableVTK", parsed_args["enable-vtk"])
-    enablevtk = parsed_args["enable-vtk"]
-    decl_global_const("VTKInterval", parsed_args["vtk-interval"])
-    decl_global_const("OutputDir", parsed_args["output-dir"])
-    outputdir = parsed_args["output-dir"]
-    decl_global_const("IntegrationTesting", parsed_args["integration-testing"])
+    Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
+    Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
+    Settings.show_updates = !parsed_args["no-show-updates"]
+    Settings.update_interval = parsed_args["update-interval"]
+    Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
+    Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
+    Settings.enable_vtk = parsed_args["enable-vtk"]
+    Settings.vtk_interval = parsed_args["vtk-interval"]
+    Settings.output_dir = parsed_args["output-dir"]
+    Settings.integration_testing = parsed_args["integration-testing"]
 
-    if enablediagnostics || enablevtk
-        mkpath(outputdir)
+    # set up the array type appropriately depending on whether we're using GPUs
+    if !Settings.disable_gpu && get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
+        atyp = CuArrays.CuArray
+    else
+        atyp = Array
+    end
+    _init_array(atyp)
+    Settings.array_type = atyp
+
+    if Settings.enable_diagnostics || Settings.enable_vtk
+        mkpath(Settings.output_dir)
     end
     ll = uppercase(parsed_args["log-level"])
     loglevel = ll == "DEBUG" ? Logging.Debug :
         ll == "WARN"  ? Logging.Warn  :
         ll == "ERROR" ? Logging.Error : Logging.Info
-    delete!(parsed_args, "log-level")
 
     # TODO: write a better MPI logging back-end and also integrate Dlog for large scale
     # set up logging
     logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
+    # FIXME
     return parsed_args
 end
 
@@ -264,10 +267,10 @@ function invoke!(solver_config::SolverConfiguration;
 
     # set up callbacks
     callbacks = ()
-    if ShowUpdates
+    if Settings.show_updates
         # set up the information callback
         starttime = Ref(now())
-        cbinfo = GenericCallbacks.EveryXWallTimeSeconds(UpdateInterval, mpicomm) do (init=false)
+        cbinfo = GenericCallbacks.EveryXWallTimeSeconds(Settings.update_interval, mpicomm) do (init=false)
             if init
                 starttime[] = now()
             else
@@ -287,24 +290,24 @@ function invoke!(solver_config::SolverConfiguration;
         end
         callbacks = (callbacks..., cbinfo)
     end
-    if EnableDiagnostics
+    if Settings.enable_diagnostics
         # set up diagnostics callback
         diagnostics_time_str = replace(string(now()), ":" => ".")
-        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(DiagnosticsInterval) do (init=false)
+        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(Settings.diagnostics_interval) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
             gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                               OutputDir, ODESolvers.gettime(lsrk))
+                               Settings.output_dir, ODESolvers.gettime(solver))
             nothing
         end
         callbacks = (callbacks..., cbdiagnostics)
     end
-    if EnableVTK
+    if Settings.enable_vtk
         # set up VTK output callback
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(VTKInterval) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(Settings.vtk_interval) do (init=false)
             vprefix = @sprintf("%s_%dD_mpirank%04d_step%04d", solver_config.name, dim,
                                MPI.Comm_rank(mpicomm), step[1])
-            outprefix = joinpath(OutputDir, vprefix)
+            outprefix = joinpath(Settings.output_dir, vprefix)
             statenames = flattenednames(vars_state(bl, FT))
             auxnames = flattenednames(vars_aux(bl, FT))
             writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
@@ -312,7 +315,7 @@ function invoke!(solver_config::SolverConfiguration;
             if MPI.Comm_rank(mpicomm) == 0
                 # name of the pvtu file
                 pprefix = @sprintf("%s_step%04d", solver_config.name, step[1])
-                pvtuprefix = joinpath(OutputDir, pprefix)
+                pvtuprefix = joinpath(Settings.output_dir, pprefix)
                 # name of each of the ranks vtk files
                 prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
                     @sprintf("%s_mpirank%04d_step%04d", solver_config.name, i-1, step[1])

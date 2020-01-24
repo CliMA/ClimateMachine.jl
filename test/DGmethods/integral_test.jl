@@ -12,8 +12,6 @@ using LinearAlgebra
 using Logging
 using GPUifyLoops
 
-const ArrayType = CLIMA.array_type()
-
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, integrate_aux!,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
@@ -70,7 +68,7 @@ end
 
 
 using Test
-function run(mpicomm, dim, Ne, N, FT)
+function run(mpicomm, dim, Ne, N, FT, ArrayType)
 
   brickrange = ntuple(j->range(FT(0); length=Ne[j]+1, stop=3), dim)
   topl = StackedBrickTopology(mpicomm, brickrange,
@@ -99,6 +97,8 @@ end
 
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -118,7 +118,7 @@ let
         for l = 1:lvls
           @info (ArrayType, FT, dim)
           run(mpicomm, dim, ntuple(j->2^(l-1) * numelem[j], dim),
-              polynomialorder, FT)
+              polynomialorder, FT, ArrayType)
         end
       end
     end
