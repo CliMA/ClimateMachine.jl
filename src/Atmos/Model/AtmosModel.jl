@@ -24,7 +24,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
 import ..DGmethods.NumericalFluxes: boundary_state!, Rusanov,
                                     CentralGradPenalty,
                                     CentralNumericalFluxDiffusive,
-                                    numerical_boundary_flux_diffusive!
+                                    boundary_flux_diffusive!
 
 """
     AtmosModel <: BalanceLaw
@@ -253,42 +253,15 @@ function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
   m.init_state(state, aux, coords, t, args...)
 end
 
-
-function numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
-    atmos::AtmosModel, fluxᵀn::Vars{S}, n::SVector,
-    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
-    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A},
-    bctype, t,
-    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A}
-
-  FT = eltype(fluxᵀn)
-  nstate = num_state(atmos,FT)
-  Fᵀn = parent(fluxᵀn)
-
-  F⁻ = similar(Fᵀn, Size(3, nstate))
-  fill!(F⁻, -zero(FT))
-  flux_diffusive!(atmos, Grad{S}(F⁻), state⁻, diff⁻, aux⁻, t)
-
-  F⁺ = similar(Fᵀn, Size(3, nstate))
-  fill!(F⁺, -zero(FT))
+boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, atmos::AtmosModel,
+                         F⁺, state⁺, diff⁺, aux⁺, n⁻,
+                         F⁻, state⁻, diff⁻, aux⁻,
+                         bctype, t,
+                         state1⁻, diff1⁻, aux1⁻) =
   atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
-                                 Grad{S}(F⁺), state⁺, diff⁺, aux⁺, n,
-                                 Grad{S}(F⁻), state⁻, diff⁻, aux⁻,
+                                 F⁺, state⁺, diff⁺, aux⁺, n⁻,
+                                 F⁻, state⁻, diff⁻, aux⁻,
                                  bctype, t,
                                  state1⁻, diff1⁻, aux1⁻)
-
-  Fᵀn .+= (F⁻ + F⁺)' * (n/2)
-end
-
-function atmos_boundary_flux_diffusive!(nf, bc, atmos,
-                                        F⁺, state⁺, diff⁺, aux⁺, n,
-                                        F⁻, state⁻, diff⁻, aux⁻,
-                                        bctype, t,
-                                        state1⁻, diff1⁻, aux1⁻)
-
-  atmos_boundary_state!(nf, bc, atmos, state⁺, diff⁺, aux⁺, n, state⁻, diff⁻, aux⁻,
-                        bctype, t, state1⁻, diff1⁻, aux1⁻)
-  flux_diffusive!(atmos, F⁺, state⁺, diff⁺, aux⁺, t)
-end
 
 end # module

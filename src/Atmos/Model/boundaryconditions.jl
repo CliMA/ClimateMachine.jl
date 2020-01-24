@@ -1,6 +1,18 @@
 using CLIMA.PlanetParameters
 export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
 
+function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, bc,
+                                        atmos::AtmosModel, F⁺, state⁺, diff⁺,
+                                        aux⁺, n⁻, F⁻, state⁻, diff⁻, aux⁻,
+                                        bctype, t, state1⁻, diff1⁻, aux1⁻)
+  FT = eltype(F⁺)
+  atmos_boundary_state!(nf, bc, atmos, state⁺, diff⁺, aux⁺, n⁻,
+                        state⁻, diff⁻, aux⁻, bctype, t,
+                        state1⁻, diff1⁻, aux1⁻)
+  fill!(parent(F⁺), -zero(FT))
+  flux_diffusive!(atmos, F⁺, state⁺, diff⁺, aux⁺, t)
+end
+
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
 # need to figure out how subcomponents will interact.
@@ -136,7 +148,7 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
 end
-function atmos_boundary_flux_diffusive!(::CentralNumericalFluxDiffusive,
+function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                         bc::DYCOMS_BC, atmos::AtmosModel,
                                         F⁺, state⁺, diff⁺, aux⁺, n⁻,
                                         F⁻, state⁻, diff⁻, aux⁻,

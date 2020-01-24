@@ -192,19 +192,18 @@ abstract type NumericalFluxDiffusive end
 
 function numerical_flux_diffusive! end
 
-function numerical_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
-    bl::BalanceLaw, fluxᵀn::Vars{S}, n::SVector,
-    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
-    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A},
-    bctype, t,
-    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A}
-
-  boundary_state!(nf, bl, state⁺, diff⁺, aux⁺,
-    n, state⁻, diff⁻, aux⁻, bctype, t,
-    state1⁻, diff1⁻, aux1⁻)
-
-  numerical_flux_diffusive!(nf, bl, fluxᵀn, n,
-    state⁻, diff⁻, aux⁻, state⁺, diff⁺, aux⁺, t)
+function numerical_boundary_flux_diffusive! end
+function boundary_flux_diffusive!(nf::NumericalFluxDiffusive, bl,
+                                  F⁺, state⁺, diff⁺, aux⁺, n⁻,
+                                  F⁻, state⁻, diff⁻, aux⁻,
+                                  bctype, t,
+                                  state1⁻, diff1⁻, aux1⁻)
+  FT = eltype(F⁺)
+  boundary_state!(nf, bl, state⁺, diff⁺, aux⁺, n⁻,
+                  state⁻, diff⁻, aux⁻, bctype, t,
+                  state1⁻, diff1⁻, aux1⁻)
+  fill!(parent(F⁺), -zero(FT))
+  flux_diffusive!(bl, F⁺, state⁺, diff⁺, aux⁺, t)
 end
 
 """
@@ -220,9 +219,8 @@ Requires a `flux_diffusive!` for the balance law.
 """
 struct CentralNumericalFluxDiffusive <: NumericalFluxDiffusive end
 
-
 function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
-  bl::BalanceLaw, fluxᵀn::Vars{S}, n::SVector,
+  bl::BalanceLaw, fluxᵀn::Vars{S}, n⁻::SVector,
   state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
   state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A}, t) where {S,D,A}
 
@@ -238,8 +236,33 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   fill!(F⁺, -zero(FT))
   flux_diffusive!(bl, Grad{S}(F⁺), state⁺, diff⁺, aux⁺, t)
 
-  Fᵀn .+= (F⁻ + F⁺)' * (n/2)
+  Fᵀn .+= (F⁻ + F⁺)' * (n⁻/2)
 end
 
+function numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+    bl::BalanceLaw, fluxᵀn::Vars{S}, n⁻::SVector,
+    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
+    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A},
+    bctype, t,
+    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A}
+
+  FT = eltype(fluxᵀn)
+  nstate = num_state(bl,FT)
+  Fᵀn = parent(fluxᵀn)
+
+  F⁻ = similar(Fᵀn, Size(3, nstate))
+  fill!(F⁻, -zero(FT))
+  flux_diffusive!(bl, Grad{S}(F⁻), state⁻, diff⁻, aux⁻, t)
+
+  F⁺ = similar(Fᵀn, Size(3, nstate))
+  fill!(F⁺, -zero(FT))
+  boundary_flux_diffusive!(nf, bl,
+                           Grad{S}(F⁺), state⁺, diff⁺, aux⁺, n⁻,
+                           Grad{S}(F⁻), state⁻, diff⁻, aux⁻,
+                           bctype, t,
+                           state1⁻, diff1⁻, aux1⁻)
+
+  Fᵀn .+= (F⁻ + F⁺)' * (n⁻/2)
+end
 
 end
