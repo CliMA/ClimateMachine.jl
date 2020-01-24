@@ -59,3 +59,48 @@ using StaticArrays, LinearAlgebra, Random
 
   end
 end
+
+@testset "LinearSolvers large full system" begin
+  n = 1000
+
+  methods = (
+             (b, tol) -> GeneralizedMinimalResidual(15, b, tol),
+             (b, tol) -> GeneralizedMinimalResidual(20, b, tol)
+            )
+
+  expected_iters = (
+                    Dict(Float32 => 3, Float64 => 30),
+                    Dict(Float32 => 3, Float64 => 24)
+                   )
+
+  for (m, method) in enumerate(methods), T in [Float32, Float64]
+    Random.seed!(44)
+
+    A = rand(T, 200, 1000)
+    A = A' * A + I
+    b = rand(T, n)
+
+    mulbyA!(y, x) = (y .= A * x)
+
+    tol = eps(T)^(3//5)
+    linearsolver = method(b, tol)
+
+    x = rand(T, n)
+    x0 = copy(x)
+    iters = linearsolve!(mulbyA!, linearsolver, x, b)
+
+    @test iters == expected_iters[m][T]
+    @test norm(A * x - b) / norm(A * x0 - b) <= tol
+
+    newtol = 1000tol
+    settolerance!(linearsolver, newtol)
+
+    x = rand(T, n)
+    x0 = copy(x)
+    linearsolve!(mulbyA!, linearsolver, x, b)
+
+    @test norm(A * x - b) / norm(A * x0 - b) <= newtol
+    @test norm(A * x - b) / norm(A * x0 - b) >= tol
+
+  end
+end

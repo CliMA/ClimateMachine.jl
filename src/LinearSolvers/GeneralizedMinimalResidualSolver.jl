@@ -142,6 +142,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
 
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
+  # @show residual_norm, j, threshold 
 
   (converged, j, residual_norm)
 end
