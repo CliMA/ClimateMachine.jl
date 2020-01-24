@@ -18,7 +18,7 @@ Computes diffusive flux `F` in:
 
 ∂y / ∂t = ∇ ⋅ Flux + Source
 
-```math
+```
 ∂(ρcT)   ∂      ∂T
 ------ = --(λ * --)
   ∂t     ∂z     ∂z
@@ -28,6 +28,15 @@ where
  - `ρ` is the density of the soil (kg/m³)
  - `c` is the soil heat capacity (J/(kg K))
  - `λ` is the thermal conductivity (W/(m K))
+
+To write this in the form
+```
+∂Y
+-- + ∇⋅F(Y,t) = 0
+∂t
+```
+we write `Y = ρcT` and `F(Y, t) = -λ ∇T`.
+
 """
 struct SoilModel <: BalanceLaw
   ρ::Float64
@@ -44,18 +53,18 @@ end
 vars_aux(::SoilModel, FT) = @vars(z::FT, ρ::FT, c::FT, λ::FT) # stored dg.auxstate
 vars_state(::SoilModel, FT) = @vars(ρcT::FT) # stored in Q
 vars_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_diffusive(::SoilModel, FT) = @vars(∂T∂z::FT) # stored in dg.diffstate
+vars_diffusive(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
 
 function gradvariables!(m::SoilModel, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.T = state.ρcT / (m.ρ * m.c)
 end
 function diffusive!(m::SoilModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
-  diffusive.∂T∂z = ∇transform.T[3]
+  diffusive.∇T = ∇transform.T
 end
 function flux_nondiffusive!(m::SoilModel, flux::Grad, state::Vars, aux::Vars, t::Real)
 end
 function flux_diffusive!(m::SoilModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  flux.ρcT += SVector(0, 0, m.λ * diffusive.∂T∂z)
+  flux.ρcT -= m.λ * diffusive.∇T
 end
 
 function source!(m::SoilModel, state::Vars, _...)
@@ -73,7 +82,7 @@ function init_aux!(m::SoilModel, aux::Vars, geom::LocalGeometry)
 end
 
 function init_state!(m::SoilModel, state::Vars, aux::Vars, coords, t::Real)
-  state.ρcT = 10.0 + sin(aux.z)
+  state.ρcT = 10.0 #+ sin(aux.z)
 end
 
 # Neumann boundary conditions
@@ -86,12 +95,13 @@ function numerical_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
     state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A}
 
   if bctype == 1 # top
-    fluxᵀn.ρcT = 0 #state⁻.ρcT/(60*60*24)*sinpi(2t/(60*60*24))
+    fluxᵀn.ρcT = 2 #state⁻.ρcT/(60*60*24)*sinpi(2t/(60*60*24))
   else # bottom
     fluxᵀn.ρcT = 0
   end
 end
 
+#=
 # set up domain
 topl = StackedBrickTopology(mpicomm, (0:1,0:1,0:-1:-10); periodicity = (true,true,false),boundary=((0,0),(0,0),(1,2)))
 grid = DiscontinuousSpectralElementGrid(topl, FloatType = Float64, DeviceArray = Array, polynomialorder = 5)
@@ -126,21 +136,22 @@ function plotstate(grid, Q)
 end
 
 #plotstate(grid, Q)
+=#
 
-#=
 function boundary_state!(nf, m::SoilModel, stateP::Vars, auxP::Vars,
                          nM, stateM::Vars, auxM::Vars, bctype, t, _...)
   nothing
 end
-
+#=
 function boundary_state!(nf, m::SoilModel, stateP::Vars, diffP::Vars,
                          auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars,
                          bctype, t, _...)
   if bctype == 1
     # top
-    diffP.∂T∂z = -diffM.∂T∂z + 1.0
+    #stateP.ρcT = 15
+    diffP.∇T = SVector(0,0,1.0)
   elseif bctype == 2
-    diffP.∂T∂z = -diffM.∂T∂z
+    #diffP.∂T∂z = -diffM.∂T∂z
   end
 end
 =#
