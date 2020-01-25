@@ -167,7 +167,7 @@ function diffusive!(atmos::AtmosModel, diffusive::Vars, ∇transform::Grad, stat
   diffusive.∇h_tot = ∇transform.h_tot
 
   # diffusion terms required for SGS turbulence computations
-  diffusive!(atmos.turbulence, diffusive, ∇transform, state, aux, t)
+  diffusive!(atmos.turbulence, atmos.orientation, diffusive, ∇transform, state, aux, t)
   # diffusivity of moisture components
   diffusive!(atmos.moisture, diffusive, ∇transform, state, aux, t)
 end
