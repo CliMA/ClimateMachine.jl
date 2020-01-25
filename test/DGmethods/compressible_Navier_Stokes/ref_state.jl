@@ -58,7 +58,7 @@ function run1(mpicomm, dim, topl, N, timeend, FT, dt)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
 
@@ -93,7 +93,7 @@ function run2(mpicomm, dim, topl, N, timeend, FT, dt)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
 

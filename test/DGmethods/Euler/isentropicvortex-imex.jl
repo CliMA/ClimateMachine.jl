@@ -2,7 +2,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.AdditiveRungeKuttaMethod
@@ -128,15 +128,17 @@ function run(mpicomm, polynomialorder, numelems, setup,
   linear_model = AtmosAcousticLinearModel(model)
   nonlinear_model = RemainderModel(model, (linear_model,))
 
-  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
+  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient())
 
   dg_linear = DGModel(linear_model,
-                      grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
-                      auxstate=dg.auxstate)
+                      grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                      CentralNumericalFluxGradient(); auxstate=dg.auxstate)
 
   if split_nonlinear_linear
     dg_nonlinear = DGModel(nonlinear_model,
-                           grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                           grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                           CentralNumericalFluxGradient();
                            auxstate=dg.auxstate)
   end
 

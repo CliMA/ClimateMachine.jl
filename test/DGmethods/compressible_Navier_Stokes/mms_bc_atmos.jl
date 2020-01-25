@@ -129,7 +129,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   Qcpu = init_ode_state(dg, FT(0); forcecpu=true)

@@ -2,7 +2,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.MultirateRungeKuttaMethod
@@ -126,12 +126,15 @@ function run(mpicomm, polynomialorder, numelems, setup,
   # The nonlinear model has the slow time scales
   slow_model = RemainderModel(model, (fast_model,))
 
-  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
+  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient())
   fast_dg = DGModel(fast_model,
-                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                    grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                    CentralNumericalFluxGradient();
                     auxstate=dg.auxstate)
   slow_dg = DGModel(slow_model,
-                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                    grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                    CentralNumericalFluxGradient();
                     auxstate=dg.auxstate)
 
   timeend = FT(2 * setup.domain_halflength / setup.translation_speed)

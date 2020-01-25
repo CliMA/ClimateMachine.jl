@@ -153,7 +153,7 @@ function run(mpicomm, ArrayType, dim, topl,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
   Q = init_ode_state(dg, FT(0))
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
   # Calculating initial condition norm

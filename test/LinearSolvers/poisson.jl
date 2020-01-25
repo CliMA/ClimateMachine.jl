@@ -110,7 +110,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
                grid,
                CentralNumericalFluxNonDiffusive(),
                PenaltyNumFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   Qrhs = dg.auxstate
