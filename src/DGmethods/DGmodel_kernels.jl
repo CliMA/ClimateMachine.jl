@@ -66,7 +66,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
   source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
   l_Q = @scratch FT (nstate, Nq, Nq, Nqk) 3
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
-  l_Qhypervisc = MArray{Tuple{3ngradlapstate}, FT}(undef)
+  l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
   l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
   l_F = MArray{Tuple{3, nstate}, FT}(undef)
   l_M = @scratch FT (Nq, Nq, Nqk) 3
@@ -201,7 +201,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
             l_Qvisc[s] = Qvisc[ijk, s, e]
           end
           
-          @unroll for s = 1:3ngradlapstate
+          @unroll for s = 1:nhyperviscstate
             l_Qhypervisc[s] = Qhypervisc_grad[ijk, s, e]
           end
 
@@ -278,14 +278,17 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
   nothing
 end
 
-function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                    ::VerticalDirection, rhs, Q, Qvisc, auxstate, vgeo, t,
+function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::VerticalDirection,
+                    rhs, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, t,
                     ω, D, elems, increment) where {dim, polyorder}
   N = polyorder
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
+  
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+  nhyperviscstate = num_hyperdiffusive(bl,FT)
 
   Nq = N + 1
 
@@ -299,6 +302,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
   l_Q = @scratch FT (nstate, Nq, Nq, Nqk) 3
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
   l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
   l_F = MArray{Tuple{3, nstate}, FT}(undef)
   l_M = @scratch FT (Nq, Nq, Nqk) 3
@@ -401,11 +405,15 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_Qvisc[s] = Qvisc[ijk, s, e]
           end
           
+          @unroll for s = 1:nhyperviscstate
+            l_Qhypervisc[s] = Qhypervisc_grad[ijk, s, e]
+          end
 
           fill!(l_F, -zero(eltype(l_F)))
           flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
                           Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                           Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                          Vars{vars_hyperdiffusive(bl,FT)}(l_Qhypervisc),
                           Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nstate
@@ -481,6 +489,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
+  nhyperviscstate = num_hyperdiffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
   ngradlapstate = num_gradient_laplacian(bl,FT)
 
@@ -510,7 +519,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
   l_QM = MArray{Tuple{nstate}, FT}(undef)
   l_QviscM = MArray{Tuple{nviscstate}, FT}(undef)
-  l_QhyperviscM = MArray{Tuple{3ngradlapstate}, FT}(undef)
+  l_QhyperviscM = MArray{Tuple{nhyperviscstate}, FT}(undef)
   l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
 
   # Need two copies since numerical_flux_nondiffusive! can modify QP
@@ -522,7 +531,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
   l_auxPdiff = MArray{Tuple{nauxstate}, FT}(undef)
 
   l_QviscP = MArray{Tuple{nviscstate}, FT}(undef)
-  l_QhyperviscP = MArray{Tuple{3ngradlapstate}, FT}(undef)
+  l_QhyperviscP = MArray{Tuple{nhyperviscstate}, FT}(undef)
 
 
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
@@ -550,7 +559,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           l_QviscM[s] = Qvisc[vidM, s, eM]
         end
         
-        @unroll for s = 1:3ngradlapstate
+        @unroll for s = 1:nhyperviscstate
           l_QhyperviscM[s] = Qhypervisc_grad[vidM, s, eM]
         end
 
@@ -567,7 +576,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           l_QviscP[s] = Qvisc[vidP, s, eP]
         end
         
-        @unroll for s = 1:3ngradlapstate
+        @unroll for s = 1:nhyperviscstate
           l_QhyperviscP[s] = Qhypervisc_grad[vidP, s, eP]
         end
 
@@ -763,13 +772,14 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                          ::VerticalDirection, Q, Qvisc, auxstate, vgeo, t, D,
+                          ::VerticalDirection, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, t, D,
                           elems) where {dim, polyorder}
   N = polyorder
 
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
 
@@ -848,11 +858,19 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             l_gradG[3, s] = ζx3 * Gζ
           end
 
-          fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
-          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                     Grad{vars_gradient(bl,FT)}(l_gradG),
-                     Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                     Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+          @unroll for s = 1:ngradlapstate
+            Qhypervisc_grad[ijk, 3(s - 1) + 1, e] = l_gradG[1, s]
+            Qhypervisc_grad[ijk, 3(s - 1) + 2, e] = l_gradG[2, s]
+            Qhypervisc_grad[ijk, 3(s - 1) + 3, e] = l_gradG[3, s]
+          end
+
+          if nviscstate > 0
+            fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
+            diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                       Grad{vars_gradient(bl,FT)}(l_gradG),
+                       Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                       Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+          end
 
           @unroll for s = 1:nviscstate
             Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -965,7 +983,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           if nviscstate > 0
             diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                        Grad{vars_gradient(bl,FT)}(l_gradG),
-                       Vars{vars_state(bl,FT)}(QM), Vars{vars_aux(bl,FT)}(auxM),
+                       Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
                        t)
           end
         else
@@ -986,7 +1004,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           if nviscstate > 0
             diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                        Grad{vars_gradient(bl,FT)}(l_gradG),
-                       Vars{vars_state(bl,FT)}(QM), Vars{vars_aux(bl,FT)}(auxM),
+                       Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
                        t)
           end
         end
