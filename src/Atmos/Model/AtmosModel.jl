@@ -217,10 +217,12 @@ function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
   end
 
   nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t)
+
+  return true
 end
 
 function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
-                                 diff::Vars, t::Real)
+                                 t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
   atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
   atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)

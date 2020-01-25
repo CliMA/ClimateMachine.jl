@@ -14,24 +14,15 @@ SpaceMethods.AbstractSpaceMethod
 SpaceMethods.AbstractDGMethod
 ```
 
-### Functions
-```@docs
-SpaceMethods.odefun!
-```
-
 ## `DGBalanceLawDiscretizations`
 
 ```@docs
 DGBalanceLawDiscretizations
 ```
 
-### Types
+### Types/Constructors
 ```@docs
 DGBalanceLawDiscretizations.DGBalanceLaw
-```
-### Constructor
-```@docs
-DGBalanceLawDiscretizations.DGBalanceLaw(;)
 ```
 
 ### Functions

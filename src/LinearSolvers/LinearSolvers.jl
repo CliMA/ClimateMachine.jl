@@ -30,8 +30,8 @@ linear solver.
 
 The available concrete implementations are:
 
-  - [GeneralizedConjugateResidual](@ref)
-  - [GeneralizedMinimalResidual](@ref)
+  - [`GeneralizedConjugateResidual`](@ref)
+  - [`GeneralizedMinimalResidual`](@ref)
 """
 abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 

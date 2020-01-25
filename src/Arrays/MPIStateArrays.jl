@@ -132,9 +132,9 @@ the range `ghostelems` is the elements that are owned by other mpiranks.
 Elements are stored as 'realelems` followed by `ghostelems`.
 
   * `vmaprecv` is an ordered array of elements to be received from neighboring
-     mpiranks.  This is a vmap index into the MPIStateArray A[:,*,:].
+     mpiranks.  This is a vmap index into the MPIStateArray `A[:,*,:]`.
   * `vmapsend` is an ordered array of elements to be sent to neighboring
-     mpiranks.  This is a vmap index into the MPIStateArray A[:,*,:].
+     mpiranks.  This is a vmap index into the MPIStateArray `A[:,*,:]`.
   * `nabrtorank` is the list of neighboring mpiranks
   * `nabrtovmaprecv` is an `Array` of `UnitRange` that give the ghost data to be
     received from neighboring mpiranks (indexes into `vmaprecv`)
@@ -291,8 +291,8 @@ end
 
 Complete the exchange of data and fill the data array on the device. Note this
 completes both the send and the receive communication. For more fine level
-control see [finish_ghost_recv!](@ref) and
-[finish_ghost_send!](@ref)
+control see [`finish_ghost_recv!`](@ref) and
+[`finish_ghost_send!`](@ref)
 """
 function finish_ghost_exchange!(Q::MPIStateArray)
   finish_ghost_recv!(Q::MPIStateArray)

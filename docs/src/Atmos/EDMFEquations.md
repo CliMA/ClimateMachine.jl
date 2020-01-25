@@ -1,7 +1,7 @@
 ```math
-\newcommand{\paramT}[1]{     \textcolor{blue}{  \text{#1}}}
-\newcommand{\hyperparamT}[1]{\textcolor{orange}{\text{#1}}}
-\newcommand{\simparamT}[1]{  \textcolor{purple}{\text{#1}}}
+\newcommand{\paramT}[1]{       \text{#1}}
+\newcommand{\hyperparamT}[1]{\text{#1}}
+\newcommand{\simparamT}[1]{  \text{#1}}
 
 \newcommand{\exp}[1]{\mathrm{exp}\left(#1\right)}
 \newcommand{\atan}[1]{\mathrm{atan}\left(#1\right)}
@@ -9,9 +9,9 @@
 \newcommand{\erf}[1]{\mathrm{erf}\left(#1\right)}
 \newcommand{\erfinv}[1]{\mathrm{erfinv}\left(#1\right)}
 
-\newcommand{\param}[1]{     \textcolor{blue}{  #1}}
-\newcommand{\hyperparam}[1]{\textcolor{orange}{#1}}
-\newcommand{\simparam}[1]{  \textcolor{purple}{#1}}
+\newcommand{\param}[1]{     #1}
+\newcommand{\hyperparam}[1]{#1}
+\newcommand{\simparam}[1]{  #1}
 
 \newcommand{\CROSS}{\times}
 \newcommand{\GRAD}{\nabla}

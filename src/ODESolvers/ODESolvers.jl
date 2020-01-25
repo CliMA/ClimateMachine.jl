@@ -1,3 +1,8 @@
+"""
+    ODESolvers
+
+Ordinary differential equation solvers
+"""
 module ODESolvers
 
 export solve!, updatedt!
@@ -35,6 +40,7 @@ Change the current time to `time` for the ODE solver `solver`.
 updatetime!(solver::AbstractODESolver, time) =
   error("Variable time stepping not implemented for $(typeof(solver))")
 
+isadjustable(solver::AbstractODESolver) = true
 
 # {{{ run!
 """
@@ -51,7 +57,9 @@ function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
                 adjustfinalstep=true, numberofsteps::Integer=0, callbacks=())
 
   @assert isfinite(timeend) || numberofsteps > 0
-
+  if adjustfinalstep && !isadjustable(solver)
+    error("$solver does not support time step adjustments. Can only be used with `adjustfinalstep=false`.")
+  end
   t0 = gettime(solver)
 
   # Loop through an initialize callbacks (if they need it)

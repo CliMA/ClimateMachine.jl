@@ -24,13 +24,13 @@ const to = TimerOutput()
 const ArrayTypes = (CLIMA.array_type(),)
 
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
-# For the dry example shown here, we load the moist thermodynamics module 
+# For the dry example shown here, we load the moist thermodynamics module
 # and consider the dry equation set to be the same as the moist equations but
-# with total specific humidity = 0. 
+# with total specific humidity = 0.
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0, Omega
 
-# State labels 
+# State labels
 const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
@@ -66,24 +66,24 @@ const seed = MersenneTwister(0)
 function global_max(A::MPIStateArray, states=1:size(A, 2))
   host_array = Array ∈ typeof(A).parameters
   h_A = host_array ? A : Array(A)
-  locmax = maximum(view(h_A, :, states, A.realelems)) 
+  locmax = maximum(view(h_A, :, states, A.realelems))
   MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
 end
 
 function global_mean(A::MPIStateArray, states=1:size(A,2))
   host_array = Array ∈ typeof(A).parameters
-  h_A = host_array ? A : Array(A) 
-  (Np, nstate, nelem) = size(A) 
+  h_A = host_array ? A : Array(A)
+  (Np, nstate, nelem) = size(A)
   numpts = (nelem * Np) + 1
-  localsum = sum(view(h_A, :, states, A.realelems)) 
-  MPI.Allreduce([localsum], MPI.SUM, A.mpicomm)[1] / numpts 
+  localsum = sum(view(h_A, :, states, A.realelems))
+  MPI.Allreduce([localsum], MPI.SUM, A.mpicomm)[1] / numpts
 end
 
 # User Input
 const numdims = 2
 const Npoly = 4
 
-# Define grid size 
+# Define grid size
 Δx    = 250
 Δy    = 250
 Δz    = 250
@@ -95,7 +95,7 @@ const Npoly = 4
 #
 (Nex, Ney, Nez) = (5, 5, 5)
 
-# Physical domain extents 
+# Physical domain extents
 const (xmin, xmax) = (0, 10000)
 const (ymin, ymax) = (0,  6400)
 const (zmin, zmax) = (0,  6400)
@@ -127,7 +127,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
              (Nex*Ney*Nez)*(Npoly+1)^(numdims-1)*2^numdims*(CLIMA.Mesh.Grids._nsgeo)
 
 
-# Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
+# Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
@@ -135,14 +135,14 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
-# Preflux calculation: This function computes parameters required for the 
+# Preflux calculation: This function computes parameters required for the
 # DG RHS (but not explicitly solved for as a prognostic variable)
 # In the case of the rising_thermal_bubble example: the saturation
 # adjusted temperature and pressure are such examples. Since we define
 # the equation and its arguments here the user is afforded a lot of freedom
-# around its behaviour. 
-# The preflux function interacts with the following  
-# Modules: NumericalFluxes.jl 
+# around its behaviour.
+# The preflux function interacts with the following
+# Modules: NumericalFluxes.jl
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
 @inline function preflux(Q, VF, aux, _...)
@@ -165,7 +165,7 @@ end
 
 # -------------------------------------------------------------------------
 # ### read sounding
-#md # 
+#md #
 #md # The sounding file contains the following quantities along a 1D column.
 #md # It needs to have the following structure:
 #md #
@@ -204,7 +204,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         P = aux[_a_P]
         xvert = aux[_a_y]
-        
+
         # Inviscid contributions
         F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , W
         F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
@@ -217,7 +217,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
 
-        
+
         SijSij = VF[_SijSij]
 
         #Dynamic eddy viscosity from Smagorinsky:
@@ -239,7 +239,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
         F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
-        
+
         # Viscous contributions to mass flux terms
         F[1, _QT] -=  0.0 #vqx * D_e
         F[2, _QT] -=  0.0 #vqy * D_e
@@ -248,10 +248,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 end
 
 # -------------------------------------------------------------------------
-#md # Here we define a function to extract the velocity components from the 
-#md # prognostic equations (i.e. the momentum and density variables). This 
-#md # function is not required in general, but provides useful functionality 
-#md # in some cases. 
+#md # Here we define a function to extract the velocity components from the
+#md # prognostic equations (i.e. the momentum and density variables). This
+#md # function is not required in general, but provides useful functionality
+#md # in some cases.
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 const _ngradstates = 6
@@ -268,8 +268,8 @@ gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q
 end
 
 # -------------------------------------------------------------------------
-#md ### Viscous fluxes. 
-#md # The viscous flux function compute_stresses computes the components of 
+#md ### Viscous fluxes.
+#md # The viscous flux function compute_stresses computes the components of
 #md # the velocity gradient tensor, and the corresponding strain rates to
 #md # populate the viscous flux array VF. SijSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
@@ -297,7 +297,7 @@ end
     # --------------------------------------------
     # SMAGORINSKY COEFFICIENT COMPONENTS
     # --------------------------------------------
-    # FIXME: Grab functions from module SubgridScaleTurbulence 
+    # FIXME: Grab functions from module SubgridScaleTurbulence
     SijSij = S11^2 + S22^2 + S33^2 + 2S12^2 + 2S13^2 + 2S23^2
 
     #--------------------------------------------
@@ -323,8 +323,8 @@ end
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
 #md # coordinates. This may also be used to store variables for which gradients
-#md # are needed, but are not available through teh prognostic variable 
-#md # calculations. (An example of this will follow - in the Smagorinsky model, 
+#md # are needed, but are not available through teh prognostic variable
+#md # calculations. (An example of this will follow - in the Smagorinsky model,
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
 @inline function auxiliary_state_initialization!(aux, x, y, z)
@@ -340,12 +340,12 @@ end
 
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
     @inbounds begin
-        
+
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         xvert = y
-        
+
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
-        
+
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
@@ -353,19 +353,19 @@ end
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
         #QP[_ρ] = ρM   #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
-        #QP[_E] = EM   #this is:  dE/dn = 0  i.e. E+ = E-        
-        #VFP   .= VFM 
+        #QP[_E] = EM   #this is:  dE/dn = 0  i.e. E+ = E-
+        #VFP   .= VFM
         #VFP   .= 0.0    #This means that stress tau at the boundary is zero (notice
         #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
         Pr = 0.7
         ν = 75
         VFP[_Ty] = -grav*Pr/(ν*cv_d*cp_d)
         VFP[_Tz] = -grav*Pr/(ν*cv_d*cp_d)
-  
+
         #=if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
-            SST    = 292.5            
+            SST    = 292.5
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
@@ -374,7 +374,7 @@ end
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
-        =#     
+        =#
         nothing
     end
 end
@@ -383,14 +383,14 @@ end
  Neumann boundary conditions on
  all states, and on T for viscous problems:
 
- dQ/dn = 0  
+ dQ/dn = 0
  dT/dn = -g/cv_d
 
 """
-@inline function stresses_boundary_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t) 
+@inline function stresses_boundary_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t)
     VF .= 0
 
-    
+
     stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
 
@@ -406,7 +406,7 @@ end
 # -------------------------------------------------------------------------
 
 @inline function source!(S,Q,aux,t)
-  # Initialise the final block source term 
+  # Initialise the final block source term
   S .= 0
 
   # Typically these sources are imported from modules
@@ -447,8 +447,6 @@ end
     This function specifies the initial conditions
     for the dycoms driver.
 """
-# NEW FUNCTION
-# initial condition
 function dc!(dim, Q, t, x, y, z, _...)
     FT                = eltype(Q)
     R_gas::FT         = R_d
@@ -456,10 +454,10 @@ function dc!(dim, Q, t, x, y, z, _...)
     c_v::FT           = cv_d
     p0::FT            = MSLP
     gravity::FT       = grav
-    # initialise with dry domain 
+    # initialise with dry domain
     q_tot::FT         = 0
     q_liq::FT         = 0
-    q_ice::FT         = 0 
+    q_ice::FT         = 0
     # perturbation parameters for rising bubble
     rx                    = 4000
     ry                    = 2000
@@ -496,24 +494,24 @@ function run(mpicomm, dim, Ne, N, timeend, FT, dt)
     #-----------------------------------------------------------------
     x_range = grid1d(xmin, xmax; nelem=Ne[1])
     y_range = grid1d(ymin, ymax; nelem=Ne[2])
-    
+
     #-----------------------------------------------------------------
     # Build grid stretching along whichever direction
     # (ONLY Z for now. We need to decide what function we want to use for x and y)
     #-----------------------------------------------------------------
     y_range = grid1d(ymin, ymax, SingleExponentialStretching(2.5), nelem=Ne[2])
-    
+
     #-----------------------------------------------------------------
-    # END grid stretching 
+    # END grid stretching
     #-----------------------------------------------------------------
-    
+
     brickrange = (x_range, y_range)
     #-----------------------------------------------------------------
     #Build grid:
     #-----------------------------------------------------------------
-    
 
-   
+
+
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
   @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
@@ -531,7 +529,7 @@ function run(mpicomm, dim, Ne, N, timeend, FT, dt)
                                                         length_state_vector = _nstate,
                                                         flux! = cns_flux!,
                                                         numerical_flux! = numflux!,
-                                                        numerical_boundary_flux! = numbcflux!, 
+                                                        numerical_boundary_flux! = numbcflux!,
                                                         number_gradient_states = _ngradstates,
                                                         states_for_gradient_transform =
                                                         _states_for_gradient_transform,
@@ -547,7 +545,7 @@ function run(mpicomm, dim, Ne, N, timeend, FT, dt)
                                                         preodefun! = preodefun!)
 
   # This is a actual state/function that lives on the grid
-  @timeit to "IC init" begin      
+  @timeit to "IC init" begin
     initialcondition(Q, x...) = dc!(Val(dim), Q, FT(0), x...)
     Q = MPIStateArray(spacedisc, initialcondition)
   end
@@ -567,9 +565,9 @@ function run(mpicomm, dim, Ne, N, timeend, FT, dt)
       else
         #energy = norm(Q)
         #globmean = global_mean(Q, _ρ)
-        @info @sprintf("""Update
+        @info @sprintf("Update
                        simtime = %.16e
-                       runtime = %s""",
+                       runtime = %s",
                        ODESolvers.gettime(lsrk),
                        Dates.format(convert(Dates.DateTime,
                                             Dates.now()-starttime[]),
@@ -597,15 +595,15 @@ function run(mpicomm, dim, Ne, N, timeend, FT, dt)
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames, postprocessarray, postnames)
-      
+
       step[1] += 1
       nothing
     end
   end
 
-  @info @sprintf """ ---- COMPLETE: Grid built successfully ----"""
+  @info @sprintf " ---- COMPLETE: Grid built successfully ----"
 
-  # Initialise the integration computation. Kernels calculate this at every timestep?? 
+  # Initialise the integration computation. Kernels calculate this at every timestep??
   @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 end
 
@@ -623,7 +621,7 @@ let
   # User defined number of elements
   # User defined timestep estimate
   # User defined simulation end time
-  # User defined polynomial order 
+  # User defined polynomial order
   numelem = (Nex, Ney)
   dt = 0.025
   timeend = dt
@@ -632,24 +630,24 @@ let
   dim = numdims
 
   if MPI.Comm_rank(mpicomm) == 0
-    @info @sprintf """ ------------------------------------------------------"""
-    @info @sprintf """   ______ _      _____ __  ________                    """     
-    @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |                 """  
-    @info @sprintf """  | |    | |      | | |   .   | |  | |                 """ 
-    @info @sprintf """  | |    | |      | | | |   | | |__| |                 """
-    @info @sprintf """  | |____| |____ _| |_| |   | | |  | |                 """
-    @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|                 """
-    @info @sprintf """                                                       """
-    @info @sprintf """ ------------------------------------------------------"""
-    @info @sprintf """ MWE_grid_stretching                                   """
-    @info @sprintf """   Resolution:                                         """ 
-    @info @sprintf """     (Δx, Δy) = (%.2e, %.2e)                           """ Δx Δy
-    @info @sprintf """     (Nex, Ney) = (%d, %d)                             """ Nex Ney
-    @info @sprintf """     DoF = %d                                          """ DoF
-    @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(FT))/1000^3
-    @info @sprintf """     Time step dt: %.2e                                """ dt
-    @info @sprintf """     End time  t : %.2e                                """ timeend
-    @info @sprintf """ ------------------------------------------------------"""
+    @info @sprintf " ------------------------------------------------------"
+    @info @sprintf "   ______ _      _____ __  ________                    "
+    @info @sprintf "  |  ____| |    |_   _|  ...  |  __  |                 "
+    @info @sprintf "  | |    | |      | | |   .   | |  | |                 "
+    @info @sprintf "  | |    | |      | | | |   | | |__| |                 "
+    @info @sprintf "  | |____| |____ _| |_| |   | | |  | |                 "
+    @info @sprintf "  | _____|______|_____|_|   |_|_|  |_|                 "
+    @info @sprintf "                                                       "
+    @info @sprintf " ------------------------------------------------------"
+    @info @sprintf " MWE_grid_stretching                                   "
+    @info @sprintf "   Resolution:                                         "
+    @info @sprintf "     (Δx, Δy) = (%.2e, %.2e)                           " Δx Δy
+    @info @sprintf "     (Nex, Ney) = (%d, %d)                             " Nex Ney
+    @info @sprintf "     DoF = %d                                          " DoF
+    @info @sprintf "     Minimum necessary memory to run this test: %g GBs " (DoFstorage * sizeof(FT))/1000^3
+    @info @sprintf "     Time step dt: %.2e                                " dt
+    @info @sprintf "     End time  t : %.2e                                " timeend
+    @info @sprintf " ------------------------------------------------------"
   end
 
   engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
