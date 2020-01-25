@@ -41,17 +41,16 @@ end
 
 function initial_condition!(problem::ConstantHyperDiffusion{dim, dir}, state, aux, x, t) where {dim, dir}
   @inbounds begin 
+    k = SVector(1, 2, 3)
+    kD = k * k' .* problem.D
     if dir === EveryDirection()
-      tD = sum(problem.D[SOneTo(dim), SOneTo(dim)])
-      c = dim
+      c = sum(abs2, k[SOneTo(dim)]) * sum(kD[SOneTo(dim), SOneTo(dim)])
     elseif dir === HorizontalDirection()
-      tD = sum(problem.D[SOneTo(dim - 1), SOneTo(dim - 1)])
-      c = dim - 1
+      c = sum(abs2, k[SOneTo(dim - 1)]) * sum(kD[SOneTo(dim - 1), SOneTo(dim - 1)])
     elseif dir === VerticalDirection()
-      tD = problem.D[dim, dim]
-      c = 1
+      c = k[dim] ^ 2 * kD[dim, dim]
     end
-    state.ρ = sin(sum(x[SOneTo(dim)]))  * exp(-c * tD * t)
+    state.ρ = sin(dot(k[SOneTo(dim)], x[SOneTo(dim)])) * exp(-c * t)
   end
 end
 
@@ -181,25 +180,25 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64, EveryDirection] = 1.2811603422252390e-03
-  expected_result[2, 2, Float64, EveryDirection] = 6.2595782972243863e-05
-  expected_result[2, 3, Float64, EveryDirection] = 1.7123779415917798e-06
-  expected_result[2, 1, Float64, HorizontalDirection] = 8.4650675812621937e-04
-  expected_result[2, 2, Float64, HorizontalDirection] = 4.4626814794977747e-05
-  expected_result[2, 3, Float64, HorizontalDirection] = 1.2193396280948004e-06
-  expected_result[2, 1, Float64, VerticalDirection] = 7.8773419106930231e-04
-  expected_result[2, 2, Float64, VerticalDirection] = 4.4504128011922683e-05
-  expected_result[2, 3, Float64, VerticalDirection] = 1.2198274613245607e-06
+  expected_result[2, 1, Float64, EveryDirection] = 7.6772960298563120e-03
+  expected_result[2, 2, Float64, EveryDirection] = 2.3268371815073617e-03
+  expected_result[2, 3, Float64, EveryDirection] = 4.2641957936779901e-05
+  expected_result[2, 1, Float64, HorizontalDirection] = 8.4650675812606650e-04
+  expected_result[2, 2, Float64, HorizontalDirection] = 4.4626814795055979e-05
+  expected_result[2, 3, Float64, HorizontalDirection] = 1.2193396277823764e-06
+  expected_result[2, 1, Float64, VerticalDirection] = 6.1690465335730834e-03
+  expected_result[2, 2, Float64, VerticalDirection] = 2.3407593209031621e-03
+  expected_result[2, 3, Float64, VerticalDirection] = 4.3775160749787010e-05
 
-  expected_result[3, 1, Float64, EveryDirection] = 4.6856494647676715e-03
-  expected_result[3, 2, Float64, EveryDirection] = 1.8817234231940995e-04
-  expected_result[3, 3, Float64, EveryDirection] = 5.1466916036801814e-06
-  expected_result[3, 1, Float64, HorizontalDirection] = 3.2113927381582875e-03
-  expected_result[3, 2, Float64, HorizontalDirection] = 1.5690435947374426e-04
-  expected_result[3, 3, Float64, HorizontalDirection] = 4.2922949674095959e-06
-  expected_result[3, 1, Float64, VerticalDirection] = 2.1979218115440783e-03
-  expected_result[3, 2, Float64, VerticalDirection] = 1.1190507836283780e-04
-  expected_result[3, 3, Float64, VerticalDirection] = 3.0558199635985687e-06
+  expected_result[3, 1, Float64, EveryDirection] = 1.7363355506160003e-01
+  expected_result[3, 2, Float64, EveryDirection] = 7.3049474767548042e-02
+  expected_result[3, 3, Float64, EveryDirection] = 5.8530711333407105e-04
+  expected_result[3, 1, Float64, HorizontalDirection] = 1.9244127301149615e-02
+  expected_result[3, 2, Float64, HorizontalDirection] = 5.8325158696244947e-03
+  expected_result[3, 3, Float64, HorizontalDirection] = 1.0688753745025491e-04
+  expected_result[3, 1, Float64, VerticalDirection] = 1.4412891107361228e-01
+  expected_result[3, 2, Float64, VerticalDirection] = 6.3744013545812925e-02
+  expected_result[3, 3, Float64, VerticalDirection] = 9.0891011404938341e-04
 
   numlevels = 3
   for FT in (Float64,)
