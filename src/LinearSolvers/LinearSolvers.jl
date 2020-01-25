@@ -102,7 +102,7 @@ function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q,
   converged || @warn "Solver did not attain convergence after $iters iterations"
   cvg[] = converged
 
-  iters
+  iters, converged
 end
 
 end

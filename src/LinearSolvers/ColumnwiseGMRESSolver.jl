@@ -42,6 +42,9 @@ struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
   end
 end
 
+# TODO: N currently in type parameters -> should fix
+function sethorzelem!(solver::StackGMRES, N) end
+
 const weighted = false
 
 function LS.initialize!(linearoperator!, Q, Qrhs,
@@ -55,12 +58,10 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     linearoperator!(krylov_basis[1], Q, args...)
     krylov_basis[1] .*= -1
     krylov_basis[1] .+= Qrhs
-    @show norm(krylov_basis[1])
 
     threshold = solver.tolerance[1] * norm(krylov_basis[1], weighted) # Keep a global threshold for now
     FT = eltype(Q)
     threshold = threshold == FT(0) ? eps(FT) : threshold
-    @show threshold
 
     converged = true
     for es in 1:nhorzelem
@@ -144,7 +145,6 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzel
     H = solver.H[es]
     g0 = solver.g0[es]
     j = stop_iter[es] == -1 ? M : stop_iter[es]
-    @show j
 
     # solve the triangular system
     y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])

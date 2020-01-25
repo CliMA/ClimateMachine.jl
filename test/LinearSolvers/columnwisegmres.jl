@@ -141,93 +141,39 @@ let
                       direction=VerticalDirection(),
                       auxstate=dg.auxstate)
 
-        # α = FT(1 // 10)
-        # function op!(LQ, Q)
-        #   vdg(LQ, Q, nothing, 0; increment=false)
-        #   @. LQ = Q + α * LQ
-        # end
 
-        s = 1000
-        local S
-        while true
-          println("Generating the matrix")
-          S = sprandn(FT, s, s, 0.5)
-          @show cond(Array(S))
-          det(S) == 0 || break
+        for α in FT[5e-3, 1e-3, 1e-4, 1e-5]
+          function op!(LQ, Q)
+            vdg(LQ, Q, nothing, 0; increment=false)
+            @. LQ = Q + α * LQ
+          end
+
+          # Just using init_ode_state to get vectors of the right size
+          Q1 = init_ode_state(dg, FT(0))
+          Q2 = init_ode_state(dg, FT(0))
+          Qrhs = MPIStateArray(vdg)
+
+          # Generate the solver objects
+          solver_general = GeneralizedMinimalResidual(15, Q1, √eps(FT))
+          solver_stack = StackGMRES(15, Neh, Q1, √eps(FT))
+
+          # Initialise Q1, Q2
+          l = length(Q1.data)
+          reshape(Q1.data, l) .= rand(FT, l)
+          op!(Qrhs, Q1)
+
+          Q2.data .= Q1.data
+          fill!(Q1, FT(0))
+          fill!(Q2, FT(0))
+
+          # Test that linearsolve! inverts op!
+          iters_g, converged_g = linearsolve!(op!, solver_general, Q1, Qrhs; max_iters=Inf)
+          iters_s, converged_s = linearsolve!(op!, solver_stack, Q2, Qrhs; max_iters=Inf)
+
+          @test converged_g
+          @test converged_s
+          @test iters_s <= iters_g
         end
-
-        function op!(LQ, Q)
-          v = reshape(Q, length(Q))
-          reshape(LQ, length(LQ)) .= S * v
-        end
-
-        b = randn(s) / s
-        x = zeros(s)
-        Qrhs = MPIStateArray(b)
-        Q1 = MPIStateArray(zeros(s) / s)
-        solver = GeneralizedMinimalResidual(s, Q1, 1e-8)
-
-        println("Starting linear solve")
-
-        _, history = gmres!(x,S,b; maxiter=1000*s, restart=s, log=true, tol=1e-8)
-        @show history
-        linearsolve!(op!, solver, Q1, Qrhs)
-        Q2 = S \ b
-        @test all(isapprox.(Array(Q1.realdata), Q2, atol=100*eps(FT)))
-
-        # Q1 = init_ode_state(dg, FT(0))
-        # Q2 = init_ode_state(dg, FT(0))
-        # dQ1 = MPIStateArray(vdg)
-        #
-        # solver = StackGMRES{10, Neh}(Q1)
-        # solver = GeneralizedMinimalResidual(50, Q1, 1e-8)
-        # N = length(Q1.data)
-        # reshape(Q1.data, N) .= randn(FT, N) / N
-        # Q2.data .= Q1.data
-        #
-        # # Test that linearsolve! inverts op!
-        # op!(dQ1, Q1)
-        # Q1.data .= dQ1.data
-        # op!(dQ1, Q1)
-        #
-        # @show norm(dQ1.data)
-        # fill!(Q1, FT(0))
-        # linearsolve!(op!, solver, Q1, dQ1)
-        # @test all(isapprox.(Array(Q1.data), Array(Q2.data), atol=100*eps(FT)))
-
-        # Test for linearity
-        # First test A(τv+ωu) - ωA(u) ≈ τA(v)
-        # τ, ω = randn(FT, 2)
-        # dQ2 = MPIStateArray(vdg)
-        # op!(dQ2, Q1)
-        # rhs = τ * dQ2
-        #
-        # dQ3 = MPIStateArray(vdg)
-        # arg = init_ode_state(dg, FT(0))
-        # @. arg.data = τ * Q1.data + ω * Q2.data
-        # op!(dQ3, arg)
-        # dQ4 = MPIStateArray(vdg)
-        # op!(dQ4, Q2)
-        # @. dQ4.data *= ω
-        # @. dQ3.data -= dQ4
-        # @test all(isapprox.(Array(dQ3.data), Array(rhs.data), rtol=100*eps(FT)))
-        #
-        # # Now test that v ≈ A\(lhs) * inv(τ)
-        # Q3 = init_ode_state(dg, FT(0))
-        # linearsolve!(op!, solver, Q3, dQ3)
-        # @. Q3.data /= τ
-        # @test all(isapprox.(Array(Q3.data), Array(Q1.data), rtol=100*eps(FT)))
-
-        # let Aw = A(v - u)
-        # Test v - u ≈ w
-        # reshape(Q2.data, N) .= randn(FT, N) / N
-        # dQ2 = MPIStateArray(vdg)
-        # Q3 = Q1 - Q2
-        # op!(dQ2, Q3)
-        # Q4 = MPIStateArray(vdg)
-        # linearsolve!(op!, solver, Q4, dQ2)
-        # @show norm(Array(Q4.data) - Array(Q3.data), Inf)
-        # @test all(isapprox.(Array(Q4.data), Array(Q3.data), rtol=1000*eps(FT)))
       end
     end
   end
