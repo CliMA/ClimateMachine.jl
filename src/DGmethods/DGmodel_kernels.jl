@@ -1367,8 +1367,8 @@ function knl_copy_stack_field_down!(::Val{dim}, ::Val{N}, ::Val{nvertelem},
 end
 
 function volumedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                                        ::direction, Qhypervisc_grad, Qhypervisc_div, vgeo, D,
-                                        elems) where {dim, polyorder, direction}
+                        ::direction, Qhypervisc_grad, Qhypervisc_div, vgeo, D,
+                        elems) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Qhypervisc_grad)
   ngradlapstate = num_gradient_laplacian(bl,FT)
@@ -1405,7 +1405,6 @@ function volumedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
     end
     @synchronize
 
-    # Compute divergence of the gradient of each state
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -1461,11 +1460,93 @@ function volumedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   end
 end
 
+function volumedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+                        ::VerticalDirection, Qhypervisc_grad, Qhypervisc_div, vgeo, D,
+                        elems) where {dim, polyorder}
+  N = polyorder
+  FT = eltype(Qhypervisc_grad)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  s_grad = @shmem FT (Nq, Nq, Nqk, ngradlapstate, 3)
+  s_D = @shmem FT (Nq, Nq)
+
+  l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
+
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_D[i, j] = D[i, j]
+      end
+    end
+  end
+
+  @inbounds @views @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          @unroll for s = 1:ngradlapstate
+            s_grad[i, j, k, s, 1] = Qhypervisc_grad[ijk, 3(s - 1) + 1, e]
+            s_grad[i, j, k, s, 2] = Qhypervisc_grad[ijk, 3(s - 1) + 2, e]
+            s_grad[i, j, k, s, 3] = Qhypervisc_grad[ijk, 3(s - 1) + 3, e]
+          end
+        end
+      end
+    end
+    @synchronize
+
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          if dim == 2
+            ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
+          else
+            ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
+          end
+
+          @unroll for s = 1:ngradlapstate
+            g1ξv = g2ξv = g3ξv = zero(FT)
+            @unroll for n = 1:Nq
+              if dim == 2
+                Djn = s_D[j, n] 
+                g1ξv += Djn * s_grad[i, n, k, s, 1]
+                g2ξv += Djn * s_grad[i, n, k, s, 2]
+                g3ξv += Djn * s_grad[i, n, k, s, 3]
+              else
+                Dkn = s_D[k, n] 
+                g1ξv += Dkn * s_grad[i, j, n, s, 1]
+                g2ξv += Dkn * s_grad[i, j, n, s, 2]
+                g3ξv += Dkn * s_grad[i, j, n, s, 3]
+              end
+            end
+
+            if dim == 2
+              l_div[s] = ξ2x1 * g1ξv + ξ2x2 * g2ξv + ξ2x3 * g3ξv
+            else
+              l_div[s] = ξ3x1 * g1ξv + ξ3x2 * g2ξv + ξ3x3 * g3ξv
+            end
+          end
+
+          @unroll for s = 1:ngradlapstate
+            Qhypervisc_div[ijk, s, e] = l_div[s]
+          end
+        end
+      end
+    end
+    @synchronize
+  end
+end
+
 function facedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                                      ::direction,
-                                      divgradnumpenalty,
-                                      Qhypervisc_grad, Qhypervisc_div, vgeo, sgeo, vmapM, vmapP,
-                                      elemtobndy, elems) where {dim, polyorder, direction}
+                      ::direction,
+                      divgradnumpenalty,
+                      Qhypervisc_grad, Qhypervisc_div, vgeo, sgeo, vmapM, vmapP,
+                      elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Qhypervisc_grad)
   ngradlapstate = num_gradient_laplacian(bl,FT)
@@ -1542,10 +1623,10 @@ function facedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function volumehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                                      ::direction,
-                                      Qhypervisc_grad, Qhypervisc_div,
-                                      Q, auxstate,
-                                      vgeo, D, elems, t) where {dim, polyorder, direction}
+                               ::direction,
+                               Qhypervisc_grad, Qhypervisc_div,
+                               Q, auxstate,
+                               vgeo, D, elems, t) where {dim, polyorder, direction}
   N = polyorder
 
   FT = eltype(Qhypervisc_grad)
@@ -1596,7 +1677,6 @@ function volumehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
     end
     @synchronize
 
-    # Compute gradient of each state
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -1678,13 +1758,123 @@ function volumehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   end
 end
 
+function volumehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
+                               ::VerticalDirection,
+                               Qhypervisc_grad, Qhypervisc_div,
+                               Q, auxstate,
+                               vgeo, D, elems, t) where {dim, polyorder}
+  N = polyorder
+
+  FT = eltype(Qhypervisc_grad)
+  nstate = num_state(bl,FT)
+  ngradlapstate = num_gradient_laplacian(bl,FT)
+  nhyperviscstate = num_hyperdiffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
+  ngradtransformstate = nstate
+
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  s_lap = @shmem FT (Nq, Nq, Nqk, ngradlapstate)
+  s_D = @shmem FT (Nq, Nq)
+  l_Q = @scratch FT (ngradtransformstate, Nq, Nq, Nqk) 3
+  l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
+
+  l_grad_lap = MArray{Tuple{3, ngradlapstate}, FT}(undef)
+  l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
+
+  @inbounds @loop for k in (1; threadIdx().z)
+    @loop for j in (1:Nq; threadIdx().y)
+      @loop for i in (1:Nq; threadIdx().x)
+        s_D[i, j] = D[i, j]
+      end
+    end
+  end
+
+  @inbounds @views @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          
+          @unroll for s = 1:ngradtransformstate
+            l_Q[s, i, j, k] = Q[ijk, s, e]
+          end
+
+          @unroll for s = 1:nauxstate
+            l_aux[s, i, j, k] = auxstate[ijk, s, e]
+          end
+
+          @unroll for s = 1:ngradlapstate
+            s_lap[i, j, k, s] = Qhypervisc_div[ijk, s, e]
+          end
+        end
+      end
+    end
+    @synchronize
+
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          ijk = i + Nq * ((j-1) + Nq * (k-1))
+          @unroll for s = 1:ngradlapstate
+            lap_ξvx1 = lap_ξvx2 = lap_ξvx3 = zero(FT)
+            @unroll for n = 1:Nq
+              if dim == 2
+                ink = i + Nq * ((n-1) + Nq * (k-1))
+                M = vgeo[ink, _M, e]
+                ξ2x1 = vgeo[ink, _ξ2x1, e]
+                ξ2x2 = vgeo[ink, _ξ2x2, e]
+                ξ2x3 = vgeo[ink, _ξ2x3, e]
+                Dnj = s_D[n, j]
+                lap_ink = s_lap[i, n, k, s] 
+                lap_ξvx1 += ξ2x1 * M * Dnj * lap_ink
+                lap_ξvx2 += ξ2x2 * M * Dnj * lap_ink
+                lap_ξvx3 += ξ2x3 * M * Dnj * lap_ink
+              else
+                ijn = i + Nq * ((j-1) + Nq * (n-1))
+                M = vgeo[ijn, _M, e]
+                ξ3x1 = vgeo[ijn, _ξ3x1, e]
+                ξ3x2 = vgeo[ijn, _ξ3x2, e]
+                ξ3x3 = vgeo[ijn, _ξ3x3, e]
+                Dnk = s_D[n, k]
+                lap_ijn = s_lap[i, j, n, s] 
+                lap_ξvx1 += ξ3x1 * M * Dnk * lap_ijn
+                lap_ξvx2 += ξ3x2 * M * Dnk * lap_ijn
+                lap_ξvx3 += ξ3x3 * M * Dnk * lap_ijn
+              end
+            end
+            
+            MI = vgeo[ijk, _MI, e]
+            l_grad_lap[1, s] = -MI * lap_ξvx1
+            l_grad_lap[2, s] = -MI * lap_ξvx2
+            l_grad_lap[3, s] = -MI * lap_ξvx3
+          end
+
+          fill!(l_Qhypervisc, -zero(eltype(l_Qhypervisc)))
+          hyperdiffusive!(bl,
+                          Vars{vars_hyperdiffusive(bl,FT)}(l_Qhypervisc),
+                          Grad{vars_gradient_laplacian(bl,FT)}(l_grad_lap),
+                          Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]),
+                          t)
+          @unroll for s = 1:nhyperviscstate
+            Qhypervisc_grad[ijk, s, e] = l_Qhypervisc[s]
+          end
+        end
+      end
+    end
+    @synchronize
+  end
+end
+
 function facehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                                    ::direction,
-                                    hyperviscnumflux,
-                                    Qhypervisc_grad, Qhypervisc_div,
-                                    Q, auxstate,
-                                    vgeo, sgeo, vmapM, vmapP,
-                                    elemtobndy, elems, t) where {dim, polyorder, direction}
+                             ::direction,
+                             hyperviscnumflux,
+                             Qhypervisc_grad, Qhypervisc_div,
+                             Q, auxstate,
+                             vgeo, sgeo, vmapM, vmapP,
+                             elemtobndy, elems, t) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Qhypervisc_grad)
   nstate = num_state(bl,FT)
