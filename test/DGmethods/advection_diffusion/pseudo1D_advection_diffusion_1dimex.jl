@@ -50,6 +50,12 @@ function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
+function ∇initial_condition!(::Pseudo1D{n, α, β, μ, δ}, ∇state, aux, x,
+                             t) where {n, α, β, μ, δ}
+  ξn = dot(n, x)
+  ∇state.ρ = -(2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *
+               exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ))
+end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
   ## name of the file that this MPI rank will write
@@ -189,23 +195,23 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64] = 7.2741067278166746e-02
-  expected_result[2, 2, Float64] = 6.8111330473941490e-03
-  expected_result[2, 3, Float64] = 1.4428968208587861e-04
-  expected_result[2, 4, Float64] = 2.4253713555277215e-06
-  expected_result[3, 1, Float64] = 1.0446155345232400e-01
-  expected_result[3, 2, Float64] = 1.0267824273059278e-02
-  expected_result[3, 3, Float64] = 2.0613600120241151e-04
-  expected_result[3, 4, Float64] = 3.3441210801005078e-06
-  expected_result[2, 1, Float32] = 7.2741046547889709e-02
-  expected_result[2, 2, Float32] = 6.8110809661448002e-03
-  expected_result[2, 3, Float32] = 1.4426559209823608e-04
+  expected_result[2, 1, Float64] = 7.2790497557340378e-02
+  expected_result[2, 2, Float64] = 6.8151192190138493e-03
+  expected_result[2, 3, Float64] = 1.4438314928016903e-04
+  expected_result[2, 4, Float64] = 2.4262398748749695e-06
+  expected_result[3, 1, Float64] = 1.0457534315791378e-01
+  expected_result[3, 2, Float64] = 1.0277729132312344e-02
+  expected_result[3, 3, Float64] = 2.0629892011539178e-04
+  expected_result[3, 4, Float64] = 3.3465301311718302e-06
+  expected_result[2, 1, Float32] = 7.2790578007698059e-02
+  expected_result[2, 2, Float32] = 6.8150628358125687e-03
+  expected_result[2, 3, Float32] = 1.4438912330660969e-04
   # This is near roundoff so we will not check it
-  # expected_result[2, 4, Float32] = 2.7985299766442040e-06
-  expected_result[3, 1, Float32] = 1.0446154326200485e-01
-  expected_result[3, 2, Float32] = 1.0267823934555054e-02
-  expected_result[3, 3, Float32] = 2.0618981216102839e-04
-  expected_result[3, 4, Float32] = 1.9863322449964471e-05
+  # expected_result[2, 4, Float32] = 2.6511793294048402e-06
+  expected_result[3, 1, Float32] = 1.0457534343004227e-01
+  expected_result[3, 2, Float32] = 1.0277766734361649e-02
+  expected_result[3, 3, Float32] = 2.0644595497287810e-04
+  expected_result[3, 4, Float32] = 2.0199024220346473e-05
 
   numlevels = integration_testing ? 4 : 1
 
@@ -229,8 +235,8 @@ let
             periodicity = ntuple(j->false, dim)
             topl = StackedBrickTopology(mpicomm, brickrange;
                                         periodicity = periodicity,
-                                        boundary = (ntuple(j->(1,1), dim-1)...,
-                                                    (3,3)))
+                                        boundary = (ntuple(j->(1,2), dim-1)...,
+                                                    (3,4)))
             dt = (α/4) / (Ne * polynomialorder^2)
 
             outputtime = 0.01
