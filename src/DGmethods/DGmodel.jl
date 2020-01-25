@@ -1,6 +1,4 @@
 using .NumericalFluxes: CentralHyperDiffusiveFlux, CentralDivPenalty
-using LinearAlgebra
-using ..Mesh.Grids
 
 struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,HDS,D,MD}
   balancelaw::BL

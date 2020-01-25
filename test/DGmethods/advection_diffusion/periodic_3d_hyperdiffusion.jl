@@ -96,9 +96,6 @@ function run(mpicomm, dim, topl, N, timeend, FT, direction,
   @info "time step" dt
   dt = outputtime / ceil(Int64, outputtime / dt)
 
-  timeend = FT(1)
-  #timeend = dt
-
   model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D))
   dg = DGModel(model,
                grid,
@@ -183,51 +180,68 @@ let
   polynomialorder = 4
   base_num_elem = 4
 
+  expected_result = Dict()
+  expected_result[2, 1, Float64, EveryDirection] = 1.2811603422252390e-03
+  expected_result[2, 2, Float64, EveryDirection] = 6.2595782972243863e-05
+  expected_result[2, 3, Float64, EveryDirection] = 1.7123779415917798e-06
+  expected_result[2, 1, Float64, HorizontalDirection] = 8.4650675812621937e-04
+  expected_result[2, 2, Float64, HorizontalDirection] = 4.4626814794977747e-05
+  expected_result[2, 3, Float64, HorizontalDirection] = 1.2193396280948004e-06
+  expected_result[2, 1, Float64, VerticalDirection] = 7.8773419106930231e-04
+  expected_result[2, 2, Float64, VerticalDirection] = 4.4504128011922683e-05
+  expected_result[2, 3, Float64, VerticalDirection] = 1.2198274613245607e-06
+
+  expected_result[3, 1, Float64, EveryDirection] = 4.6856494647676715e-03
+  expected_result[3, 2, Float64, EveryDirection] = 1.8817234231940995e-04
+  expected_result[3, 3, Float64, EveryDirection] = 5.1466916036801814e-06
+  expected_result[3, 1, Float64, HorizontalDirection] = 3.2113927381582875e-03
+  expected_result[3, 2, Float64, HorizontalDirection] = 1.5690435947374426e-04
+  expected_result[3, 3, Float64, HorizontalDirection] = 4.2922949674095959e-06
+  expected_result[3, 1, Float64, VerticalDirection] = 2.1979218115440783e-03
+  expected_result[3, 2, Float64, VerticalDirection] = 1.1190507836283780e-04
+  expected_result[3, 3, Float64, VerticalDirection] = 3.0558199635985687e-06
+
   numlevels = 3
-    for FT in (Float64,)
-      D = 1 // 100 * SMatrix{3, 3, FT}(9 / 54, 3 / 54, 5  / 54,
-                                       3 / 54, 7 / 54, 4  / 54,
-                                       5 / 54, 4 / 54, 10 / 54)
-      
-      #D = 1 // 100 * SMatrix{3, 3, FT}(9 / 54, 3 / 54, 0,
-      #                                 3 / 54, 7 / 54, 0,
-      #                                      0,      0, 0)
+  for FT in (Float64,)
+    D = 1 // 100 * SMatrix{3, 3, FT}(9 // 50, 3 // 50, 5  // 50,
+                                     3 // 50, 7 // 50, 4  // 50,
+                                     5 // 50, 4 // 50, 10 // 50)
 
-      @show eigvals(D)
-      @show sum(D)
-      result = zeros(FT, numlevels)
-      for dim in (2, 3)
-        for direction in (EveryDirection, HorizontalDirection)#, VerticalDirection)
-          for l = 1:numlevels
-            Ne = 2^(l-1) * base_num_elem
-            xrange = range(FT(0); length=Ne+1, stop=FT(2pi))
-            brickrange = ntuple(j->xrange, dim)
-            periodicity = ntuple(j->true, dim)
-            topl = StackedBrickTopology(mpicomm, brickrange;
-                                        periodicity = periodicity)
-            timeend = 1
-            outputtime = 1
+    result = zeros(FT, numlevels)
+    for dim in (2, 3)
+      for direction in (EveryDirection, HorizontalDirection, VerticalDirection)
+        for l = 1:numlevels
+          Ne = 2^(l-1) * base_num_elem
+          xrange = range(FT(0); length=Ne+1, stop=FT(2pi))
+          brickrange = ntuple(j->xrange, dim)
+          periodicity = ntuple(j->true, dim)
+          topl = StackedBrickTopology(mpicomm, brickrange;
+                                      periodicity = periodicity)
+          timeend = 1
+          outputtime = 1
 
-            @info (ArrayType, FT, dim, direction)
-            vtkdir = output ? "vtk_hyperdiffusion" *
-                              "_poly$(polynomialorder)" *
-                              "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
-                              "_level$(l)" : nothing
-            result[l] = run(mpicomm, dim, topl, polynomialorder,
-                            timeend, FT, direction, D, vtkdir,
-                            outputtime)
+          @info (ArrayType, FT, dim, direction)
+          vtkdir = output ? "vtk_hyperdiffusion" *
+                            "_poly$(polynomialorder)" *
+                            "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
+                            "_level$(l)" : nothing
+          result[l] = run(mpicomm, dim, topl, polynomialorder,
+                          timeend, FT, direction, D, vtkdir,
+                          outputtime)
+
+          @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
+        end
+        @info begin
+          msg = ""
+          for l = 1:numlevels-1
+            rate = log2(result[l]) - log2(result[l+1])
+            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
           end
-          @info begin
-            msg = ""
-            for l = 1:numlevels-1
-              rate = log2(result[l]) - log2(result[l+1])
-              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-            end
-            msg
-          end
+          msg
         end
       end
     end
+  end
 end
 
 nothing

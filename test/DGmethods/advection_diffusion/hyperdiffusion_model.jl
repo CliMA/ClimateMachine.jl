@@ -97,3 +97,5 @@ function init_state!(m::HyperDiffusion, state::Vars, aux::Vars,
                      coords, t::Real)
   initial_condition!(m.problem, state, aux, coords, t)
 end
+
+boundary_state!(nf, ::HyperDiffusion, _...) = nothing
