@@ -77,7 +77,7 @@ Where
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
 function flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
-                         auxDG::Vars, aux::Vars, t::Real)
+                         auxDG::Vars, auxHDG::Vars, aux::Vars, t::Real)
   σ = auxDG.σ
   flux.ρ += -σ
 end

@@ -178,7 +178,7 @@ function update_penalty!(::Rusanov, ::HBModel, n⁻, λ, ΔQ::Vars,
   return nothing
 end
 
-@inline function flux_diffusive!(m::HBModel, F::Grad, Q::Vars, D::Vars,
+@inline function flux_diffusive!(m::HBModel, F::Grad, Q::Vars, D::Vars, ::Vars,
                                  A::Vars, t::Real)
   ν = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
   F.u -= ν * D.∇u

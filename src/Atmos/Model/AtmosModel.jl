@@ -151,7 +151,7 @@ Where
 end
 
 @inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
-                                 diffusive::Vars, aux::Vars, t::Real)
+                                 diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
 

@@ -45,7 +45,7 @@ function flux_nondiffusive!(::PoissonModel, flux::Grad, state::Vars,
 end
 
 function flux_diffusive!(::PoissonModel, flux::Grad, state::Vars,
-                         diffusive::Vars, auxstate::Vars, t::Real)
+                         diffusive::Vars, hyperdiffusive::Vars, auxstate::Vars, t::Real)
   flux.ϕ = diffusive.∇ϕ
 end
 

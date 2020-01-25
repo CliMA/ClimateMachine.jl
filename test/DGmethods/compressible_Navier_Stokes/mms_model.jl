@@ -34,7 +34,7 @@ function flux_nondiffusive!(::MMSModel, flux::Grad, state::Vars,
 end
 
 function flux_diffusive!(::MMSModel, flux::Grad, state::Vars,
-                         diffusive::Vars, auxstate::Vars, t::Real)
+                         diffusive::Vars, hyperdiffusive::Vars, auxstate::Vars, t::Real)
   ρinv = 1 / state.ρ
   u, v, w = ρinv * state.ρu, ρinv * state.ρv, ρinv * state.ρw
 
