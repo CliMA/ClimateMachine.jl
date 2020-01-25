@@ -147,7 +147,7 @@ function boundary_state!(nf, m::AdvectionDiffusion, stateP::Vars, auxP::Vars,
                          nM, stateM::Vars, auxM::Vars, bctype, t, _...)
   if bctype == 1 # Dirichlet
     boundary_state_Dirichlet!(nf, m, stateP, auxP, nM, stateM, auxM, t)
-  elseif bctype == 2 # Neumann
+  elseif bctype ∈ (2, 4) # Neumann
     stateP.ρ = stateM.ρ
   elseif bctype == 3 # zero Dirichlet
     stateP.ρ = 0
@@ -165,7 +165,7 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
   if bctype ∈ (1,3) # Dirchlet
     # Just use the minus side values since Dirchlet
     diff⁺.σ = diff⁻.σ
-  elseif bctype == 2 # Neumann
+  elseif bctype == 2 # Neumann with data
     FT = eltype(diff⁺)
     ngrad = num_gradient(m, FT)
     ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
@@ -174,6 +174,14 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
     # convert to auxDG variables
     diffusive!(m, diff⁺, ∇state, aux⁻)
     # compute the diffusive flux using the boundary state
+  elseif bctype == 3 # zero Neumann
+    FT = eltype(diff⁺)
+    ngrad = num_gradient(m, FT)
+    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    # Get analytic gradient
+    ∇state.ρ = SVector{3, FT}(0, 0, 0)
+    # convert to auxDG variables
+    diffusive!(m, diff⁺, ∇state, aux⁻)
   end
   nothing
 end
