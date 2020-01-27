@@ -225,6 +225,7 @@ function run(mpicomm,
                      HydrostaticState(Temp,RelHum),
                      SmagorinskyLilly{}(C_smag),
                      EquilMoist(5),
+                     NoPrecipitation(),
                      DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      ConstantSubsidence{FT}(D_subsidence),
                      (Gravity(),
@@ -238,7 +239,7 @@ function run(mpicomm,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(),
+               CentralNumericalFluxGradient(),
                direction=EveryDirection())
 
   linmodel = LinearModel(model)
@@ -247,7 +248,7 @@ function run(mpicomm,
                 grid,
                 Rusanov(),
                 CentralNumericalFluxDiffusive(),
-                CentralGradPenalty(),
+                CentralNumericalFluxGradient(),
                 auxstate=dg.auxstate,
                 direction=VerticalDirection())
 
