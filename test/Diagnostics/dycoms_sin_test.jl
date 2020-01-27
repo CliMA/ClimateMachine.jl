@@ -158,6 +158,7 @@ let
                      NoReferenceState(),
                      SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
+                     NoPrecipitation(),
                      DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      NoSubsidence{FT}(),
                      (Gravity(),
@@ -170,7 +171,7 @@ let
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
   Q = init_ode_state(dg, FT(0))
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
@@ -179,7 +180,7 @@ let
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(50) do (init=false)
     sim_time_str = string(ODESolvers.gettime(lsrk))
     gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                       out_dir)
+                       out_dir, ODESolvers.gettime(lsrk))
   end
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbdiagnostics,))
@@ -187,7 +188,7 @@ let
   # Get statistics at the end of the run
   sim_time_str = string(ODESolvers.gettime(lsrk))
   gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                     out_dir)
+                     out_dir, ODESolvers.gettime(lsrk))
 
   # Check results
   mpirank = MPI.Comm_rank(mpicomm)

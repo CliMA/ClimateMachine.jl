@@ -11,7 +11,7 @@ using StaticArrays
 using CLIMA.DGmethods: DGModel, Vars, vars_state, num_state, init_ode_state
 using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxDiffusive,
-                                       CentralGradPenalty
+                                       CentralNumericalFluxGradient
 using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
 
 using Test
@@ -108,13 +108,13 @@ let
                         grid,
                         Rusanov(),
                         CentralNumericalFluxDiffusive(),
-                        CentralGradPenalty())
+                        CentralNumericalFluxGradient())
 
           vdg = DGModel(model,
                         grid,
                         Rusanov(),
                         CentralNumericalFluxDiffusive(),
-                        CentralGradPenalty();
+                        CentralNumericalFluxGradient();
                         direction=VerticalDirection(),
                         auxstate=dg.auxstate)
 

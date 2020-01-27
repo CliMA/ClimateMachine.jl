@@ -47,6 +47,7 @@ function run1(mpicomm, dim, topl, N, timeend, FT, dt)
                      HydrostaticState(IsothermalProfile(T_s), RH),
                      ConstantViscosityWithDivergence(FT(1)),
                      EquilMoist(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,
@@ -57,7 +58,7 @@ function run1(mpicomm, dim, topl, N, timeend, FT, dt)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
 
@@ -81,6 +82,7 @@ function run2(mpicomm, dim, topl, N, timeend, FT, dt)
                      HydrostaticState(LinearTemperatureProfile(T_min, T_s, Γ), RH),
                      ConstantViscosityWithDivergence(FT(1)),
                      EquilMoist(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,
@@ -91,7 +93,7 @@ function run2(mpicomm, dim, topl, N, timeend, FT, dt)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
 

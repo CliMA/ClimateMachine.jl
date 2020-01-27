@@ -18,12 +18,8 @@ using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
-  if length(ARGS) > 0
-    const integration_testing = parse(Bool, ARGS[1])
-  else
-    const integration_testing =
-      parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  end
+  const integration_testing =
+    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
 const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
@@ -88,7 +84,7 @@ function run(mpicomm, dim, topl, N, timeend, FT, direction, dt,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(),
+               CentralNumericalFluxGradient(),
                direction=direction())
 
   Q = init_ode_state(dg, FT(0))
@@ -219,9 +215,9 @@ let
   expected_result[3, 3, Float32, VerticalDirection] = 8.3614431787282228e-05
   expected_result[3, 4, Float32, VerticalDirection] = 2.4086561461444944e-04
 
-  numlevels = integration_testing ? 4 : 1
 
     for FT in (Float64, Float32)
+      numlevels = integration_testing || CLIMA.IntegrationTesting ? (FT == Float64 ? 4 : 3) : 1
       result = zeros(FT, numlevels)
       for dim = 2:3
         for direction in (EveryDirection, HorizontalDirection,

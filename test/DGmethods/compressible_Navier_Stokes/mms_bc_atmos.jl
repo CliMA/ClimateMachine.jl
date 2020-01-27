@@ -106,6 +106,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
+                       NoPrecipitation(),
                        NoRadiation(),
                        NoSubsidence{FT}(),
                        mms2_source!,
@@ -116,6 +117,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
+                       NoPrecipitation(),
                        NoRadiation(),
                        NoSubsidence{FT}(),
                        mms3_source!,
@@ -127,7 +129,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   Qcpu = init_ode_state(dg, FT(0); forcecpu=true)
@@ -186,7 +188,7 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  
+
   polynomialorder = 4
   base_num_elem = 4
 

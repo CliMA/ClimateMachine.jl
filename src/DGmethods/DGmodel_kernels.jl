@@ -1,5 +1,5 @@
-using .NumericalFluxes: GradNumericalPenalty, diffusive_boundary_penalty!,
-                        diffusive_penalty!,
+using .NumericalFluxes: NumericalFluxGradient, numerical_boundary_flux_gradient!,
+                        numerical_flux_gradient!,
                         NumericalFluxNonDiffusive, NumericalFluxDiffusive,
                         numerical_flux_nondiffusive!,
                         numerical_boundary_flux_nondiffusive!,
@@ -536,7 +536,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
         # Load plus side data
         @unroll for s = 1:nstate
-          l_QPdiff[s] = l_QPnondiff[s] = l_QPdiff[s] = Q[vidP, s, eP]
+          l_QPdiff[s] = l_QPnondiff[s] = Q[vidP, s, eP]
         end
 
         @unroll for s = 1:nviscstate
@@ -550,10 +550,16 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
         bctype = elemtobndy[f, e]
         fill!(l_F, -zero(eltype(l_F)))
         if bctype == 0
-          numerical_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM, l_QM,
-                                       l_auxM, l_QPnondiff, l_auxPnondiff, t)
-          numerical_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM, l_QviscM,
-                                    l_auxM, l_QPdiff, l_QviscP, l_auxPdiff, t)
+          numerical_flux_nondiffusive!(numfluxnondiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), SVector(nM),
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPnondiff), Vars{vars_aux(bl,FT)}(l_auxPnondiff),
+            t)
+          numerical_flux_diffusive!(numfluxdiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), nM,
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_diffusive(bl,FT)}(l_QviscM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPdiff), Vars{vars_diffusive(bl,FT)}(l_QviscP), Vars{vars_aux(bl,FT)}(l_auxPdiff),
+            t)
         else
           if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
@@ -567,14 +573,18 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl, l_F, nM,
-                                                l_QM, l_auxM, l_QPnondiff,
-                                                l_auxPnondiff, bctype, t,
-                                                l_Q_bot1, l_aux_bot1)
-          numerical_boundary_flux_diffusive!(numfluxdiff, bl, l_F, nM, l_QM,
-                                             l_QviscM, l_auxM, l_QPdiff,
-                                             l_QviscP, l_auxPdiff, bctype, t,
-                                             l_Q_bot1, l_Qvisc_bot1, l_aux_bot1)
+          numerical_boundary_flux_nondiffusive!(numfluxnondiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), SVector(nM),
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPnondiff), Vars{vars_aux(bl,FT)}(l_auxPnondiff),
+            bctype, t,
+            Vars{vars_state(bl,FT)}(l_Q_bot1), Vars{vars_aux(bl,FT)}(l_aux_bot1))
+          numerical_boundary_flux_diffusive!(numfluxdiff, bl,
+            Vars{vars_state(bl,FT)}(l_F), nM,
+            Vars{vars_state(bl,FT)}(l_QM), Vars{vars_diffusive(bl,FT)}(l_QviscM), Vars{vars_aux(bl,FT)}(l_auxM),
+            Vars{vars_state(bl,FT)}(l_QPdiff), Vars{vars_diffusive(bl,FT)}(l_QviscP), Vars{vars_aux(bl,FT)}(l_auxPdiff),
+            bctype, t,
+            Vars{vars_state(bl,FT)}(l_Q_bot1), Vars{vars_diffusive(bl,FT)}(l_Qvisc_bot1), Vars{vars_aux(bl,FT)}(l_aux_bot1))
         end
 
         #Update RHS
@@ -806,7 +816,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                        ::direction, gradnumpenalty::GradNumericalPenalty, Q,
+                        ::direction, gradnumflux::NumericalFluxGradient, Q,
                         Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
@@ -844,12 +854,15 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   l_QM = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
   l_GM = MArray{Tuple{ngradstate}, FT}(undef)
+  l_nGM = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   l_QP = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
   l_GP = MArray{Tuple{ngradstate}, FT}(undef)
 
+  # FIXME Qvisc is sort of a terrible name...
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_QMvisc = MArray{Tuple{nviscstate}, FT}(undef)
 
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
   l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
@@ -895,8 +908,15 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
-          diffusive_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM, l_QM,
-                             l_auxM, l_GP, l_QP, l_auxP, t)
+          numerical_flux_gradient!(gradnumflux, bl,
+                                   Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                                   SVector(nM),
+                                   Vars{vars_gradient(bl,FT)}(l_GM),
+                                   Vars{vars_state(bl,FT)}(l_QM),
+                                   Vars{vars_aux(bl,FT)}(l_auxM),
+                                   Vars{vars_gradient(bl,FT)}(l_GP),
+                                   Vars{vars_state(bl,FT)}(l_QP),
+                                   Vars{vars_aux(bl,FT)}(l_auxP), t)
         else
           if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
@@ -907,13 +927,33 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          diffusive_boundary_penalty!(gradnumpenalty, bl, l_Qvisc, nM, l_GM,
-                                      l_QM, l_auxM, l_GP, l_QP, l_auxP, bctype,
-                                      t, l_Q_bot1, l_aux_bot1)
+          numerical_boundary_flux_gradient!(gradnumflux, bl,
+                                            Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                                            SVector(nM),
+                                            Vars{vars_gradient(bl,FT)}(l_GM),
+                                            Vars{vars_state(bl,FT)}(l_QM),
+                                            Vars{vars_aux(bl,FT)}(l_auxM),
+                                            Vars{vars_gradient(bl,FT)}(l_GP),
+                                            Vars{vars_state(bl,FT)}(l_QP),
+                                            Vars{vars_aux(bl,FT)}(l_auxP),
+                                            bctype, t,
+                                            Vars{vars_state(bl,FT)}(l_Q_bot1),
+                                            Vars{vars_aux(bl,FT)}(l_aux_bot1))
         end
 
+        @unroll for j = 1:ngradstate
+          @unroll for i = 1:3
+            l_nGM[i, j] = nM[i] * l_GM[j]
+          end
+        end
+        diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_QMvisc),
+                   Grad{vars_gradient(bl,FT)}(l_nGM),
+                   Vars{vars_state(bl,FT)}(l_QM),
+                   Vars{vars_aux(bl,FT)}(l_auxM), t)
+
+
         @unroll for s = 1:nviscstate
-          Qvisc[vidM, s, eM] += vMI * sM * l_Qvisc[s]
+          Qvisc[vidM, s, eM] += vMI * sM * (l_Qvisc[s] - l_QMvisc[s])
         end
       end
       # Need to wait after even faces to avoid race conditions
@@ -989,6 +1029,49 @@ end
 
 """
     knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate,
+                          t, elems) where {dim, N}
+
+Update the auxiliary state array
+"""
+function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
+                               auxstate, t, elems) where {dim, N}
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nauxstate = num_aux(bl,FT)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+
+      f!(bl,
+         Vars{vars_state(bl,FT)}(l_Q),
+         Vars{vars_aux(bl,FT)}(l_aux),
+         t)
+
+      @unroll for s = 1:nauxstate
+        auxstate[n, s, e] = l_aux[s]
+      end
+    end
+  end
+end
+
+"""
+    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate, diffstate,
                           t, elems) where {dim, N}
 
 Update the auxiliary state array

@@ -56,6 +56,8 @@ end
 function update_aux!(dg::DGModel, m::IntegralTestModel, Q::MPIStateArray, t::Real)
   indefinite_stack_integral!(dg, m, Q, dg.auxstate, t)
   reverse_indefinite_stack_integral!(dg, m, dg.auxstate, t)
+
+  return true
 end
 
 @inline function integrate_aux!(m::IntegralTestModel, integrand::Vars,
@@ -83,7 +85,7 @@ function run(mpicomm, dim, Ne, N, FT)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   dQdt = similar(Q)

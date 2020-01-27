@@ -88,7 +88,7 @@ function run(mpicomm,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
 
@@ -164,6 +164,7 @@ let
                          NoReferenceState(),
                          SGSmodels[ii],
                          EquilMoist(),
+                         NoPrecipitation(),
                          NoRadiation(),
                          NoSubsidence{FT}(),
                          Gravity(),

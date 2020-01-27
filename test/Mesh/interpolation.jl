@@ -51,9 +51,9 @@ function run_brick_interpolation_test()
     xmax, ymax, zmax = 2000, 400, 2000
     xres = [FT(200), FT(200), FT(200)] # resolution of interpolation grid
 
-    xgrd = range(xmin, xmax, step=xres[1]) 
-    ygrd = range(ymin, ymax, step=xres[2]) 
-    zgrd = range(zmin, zmax, step=xres[3]) 
+    xgrd = range(xmin, xmax, step=xres[1])
+    ygrd = range(ymin, ymax, step=xres[2])
+    zgrd = range(zmin, zmax, step=xres[3])
 
  #   Ne        = (20,2,20)
     Ne        = (4,2,4)
@@ -78,6 +78,7 @@ function run_brick_interpolation_test()
                      NoReferenceState(),
 					 ConstantViscosityWithDivergence(FT(0)),
                      EquilMoist(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      (Gravity()),
@@ -88,14 +89,14 @@ function run_brick_interpolation_test()
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
     Q = init_ode_state(dg, FT(0))
     #------------------------------
     x1 = @view grid.vgeo[:,_x,:]
     x2 = @view grid.vgeo[:,_y,:]
     x3 = @view grid.vgeo[:,_z,:]
- 
+
     st_idx = _ρ # state vector
     elno = 10
 
@@ -114,7 +115,7 @@ function run_brick_interpolation_test()
     #------testing
     Nel = length( grid.topology.realelems )
 
-    error = zeros(FT, Nel) 
+    error = zeros(FT, Nel)
 
     for elno in 1:Nel
       fex = similar(intrp_brck.V[elno])
@@ -132,9 +133,9 @@ end #function run_brick_interpolation_test
 #-----taken from Test example
 function Initialize_Brick_Interpolation_Test!(state::Vars, aux::Vars, (x,y,z), t)
     FT         = eltype(state)
-	
-    # Dummy variables for initial condition function 
-    state.ρ     = FT(0) 
+
+    # Dummy variables for initial condition function
+    state.ρ     = FT(0)
     state.ρu    = SVector{3,FT}(0,0,0)
     state.ρe    = FT(0)
     state.moisture.ρq_tot = FT(0)
@@ -164,7 +165,7 @@ function run_cubed_sphere_interpolation_test()
     logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
-    domain_height = FT(30e3) 
+    domain_height = FT(30e3)
 
     polynomialorder = 12#1#4 #5
     numelem_horz = 3#4 #6
@@ -177,7 +178,7 @@ function run_cubed_sphere_interpolation_test()
     vert_range = grid1d(FT(planet_radius), FT(planet_radius + domain_height), nelem = numelem_vert)
 
  #   vert_range = grid1d(FT(1.0), FT(2.0), nelem = numelem_vert)
-  
+
     lat_res  = 5 * π / 180.0 # 5 degree resolution
     long_res = 5 * π / 180.0 # 5 degree resolution
     r_res    = (vert_range[end] - vert_range[1])/FT(numelem_vert) #1000.00    # 1000 m vertical resolution
@@ -197,14 +198,15 @@ function run_cubed_sphere_interpolation_test()
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(FT(0)),
                        DryModel(),
+                       NoPrecipitation(),
                        NoRadiation(),
                        NoSubsidence{FT}(),
-                       nothing, 
+                       nothing,
                        NoFluxBC(),
                        setup)
 
     dg = DGModel(model, grid, Rusanov(),
-                 CentralNumericalFluxDiffusive(), CentralGradPenalty())
+                 CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
 
     Q = init_ode_state(dg, FT(0))
     #------------------------------
@@ -231,7 +233,7 @@ function run_cubed_sphere_interpolation_test()
 
     Nel = length( grid.topology.realelems )
 
-    error = zeros(FT, Nel) 
+    error = zeros(FT, Nel)
 
     for elno in 1:Nel
         if ( length(intrp_cs.V[elno]) > 0 )
@@ -243,7 +245,7 @@ function run_cubed_sphere_interpolation_test()
             x1_grd = intrp_cs.radc[elno] .* sin.(intrp_cs.latc[elno]) .* cos.(intrp_cs.longc[elno]) # inclination -> latitude; azimuthal -> longitude.
             x2_grd = intrp_cs.radc[elno] .* sin.(intrp_cs.latc[elno]) .* sin.(intrp_cs.longc[elno]) # inclination -> latitude; azimuthal -> longitude.
             x3_grd = intrp_cs.radc[elno] .* cos.(intrp_cs.latc[elno])
-        
+
             fex = fcn( x1_grd ./ xmax , x2_grd ./ ymax , x3_grd ./ zmax )
             error[elno] = maximum(abs.(intrp_cs.V[elno][:]-fex[:]))
         end
@@ -254,9 +256,9 @@ function run_cubed_sphere_interpolation_test()
 
 #----------------------------------------------------------------------------
     return l_infinity_domain < 1.0e-12
-end 
+end
 #----------------------------------------------------------------------------
-function (setup::TestSphereSetup)(state, aux, coords, t) 
+function (setup::TestSphereSetup)(state, aux, coords, t)
   # callable to set initial conditions
   FT = eltype(state)
 
