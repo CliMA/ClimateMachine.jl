@@ -61,6 +61,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   aux_comm = update_aux!(dg, bl, Q, t)
   @assert typeof(aux_comm) == Bool
 
+  hypervisc_indexmap = create_hypervisc_indexmap(bl)
+
   ########################
   # Gradient Computation #
   ########################
@@ -76,7 +78,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             volumeviscterms!(bl, Val(dim), Val(polyorder), dg.direction, Q.data,
                              Qvisc.data, Qhypervisc_grad.data, auxstate.data, vgeo, t, Dmat,
-                             topology.realelems))
+                             hypervisc_indexmap, topology.realelems))
 
     if communicate
       MPIStateArrays.finish_ghost_recv!(Q)
@@ -90,7 +92,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                            dg.gradnumflux,
                            Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data,
                            vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
-                           topology.realelems))
+                           hypervisc_indexmap, topology.realelems))
 
     if communicate
       nviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qvisc)
@@ -373,4 +375,18 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
   state = create_state(bl, grid, commtag)
 
   return state
+end
+
+function create_hypervisc_indexmap(bl::BalanceLaw)
+  # helper function
+  _getvars(v, ::Type) = v
+  function _getvars(v::Vars, ::Type{T}) where {T<:NamedTuple}
+    fields = getproperty.(Ref(v), fieldnames(T))
+    collect(Iterators.Flatten(_getvars.(fields, fieldtypes(T))))
+  end
+
+  gradvars = vars_gradient(bl, Int)
+  gradlapvars = vars_gradient_laplacian(bl, Int)
+  indices = Vars{gradvars}(1:varsize(gradvars))
+  SVector{varsize(gradlapvars)}(_getvars(indices, gradlapvars))
 end

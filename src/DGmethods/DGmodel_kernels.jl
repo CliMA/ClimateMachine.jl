@@ -651,7 +651,7 @@ end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                           ::direction, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, t, D,
-                          elems) where {dim, polyorder, direction}
+                          hypervisc_indexmap, elems) where {dim, polyorder, direction}
   N = polyorder
 
   FT = eltype(Q)
@@ -750,9 +750,9 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           @unroll for s = 1:ngradlapstate
-            Qhypervisc_grad[ijk, 3(s - 1) + 1, e] = l_gradG[1, s]
-            Qhypervisc_grad[ijk, 3(s - 1) + 2, e] = l_gradG[2, s]
-            Qhypervisc_grad[ijk, 3(s - 1) + 3, e] = l_gradG[3, s]
+            Qhypervisc_grad[ijk, 3(s - 1) + 1, e] = l_gradG[1, hypervisc_indexmap[s]]
+            Qhypervisc_grad[ijk, 3(s - 1) + 2, e] = l_gradG[2, hypervisc_indexmap[s]]
+            Qhypervisc_grad[ijk, 3(s - 1) + 3, e] = l_gradG[3, hypervisc_indexmap[s]]
           end
 
           if nviscstate > 0
@@ -773,7 +773,7 @@ end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                           ::VerticalDirection, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, t, D,
-                          elems) where {dim, polyorder}
+                          hypervisc_indexmap, elems) where {dim, polyorder}
   N = polyorder
 
   FT = eltype(Q)
@@ -859,9 +859,9 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           @unroll for s = 1:ngradlapstate
-            Qhypervisc_grad[ijk, 3(s - 1) + 1, e] = l_gradG[1, s]
-            Qhypervisc_grad[ijk, 3(s - 1) + 2, e] = l_gradG[2, s]
-            Qhypervisc_grad[ijk, 3(s - 1) + 3, e] = l_gradG[3, s]
+            Qhypervisc_grad[ijk, 3(s - 1) + 1, e] = l_gradG[1, hypervisc_indexmap[s]]
+            Qhypervisc_grad[ijk, 3(s - 1) + 2, e] = l_gradG[2, hypervisc_indexmap[s]]
+            Qhypervisc_grad[ijk, 3(s - 1) + 3, e] = l_gradG[3, hypervisc_indexmap[s]]
           end
 
           if nviscstate > 0
@@ -886,7 +886,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                         ::direction,
                         gradnumpenalty::GradNumericalPenalty,
                         Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, sgeo, t, vmapM, vmapP,
-                        elemtobndy, elems) where {dim, polyorder, direction}
+                        elemtobndy, hypervisc_indexmap, elems) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Q)
   nstate = num_state(bl,FT)
@@ -1010,9 +1010,9 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         end
 
         @unroll for s = 1:ngradlapstate
-          Qhypervisc_grad[vidM, 3(s - 1) + 1, eM] += vMI * sM * l_gradG[1, s]
-          Qhypervisc_grad[vidM, 3(s - 1) + 2, eM] += vMI * sM * l_gradG[2, s]
-          Qhypervisc_grad[vidM, 3(s - 1) + 3, eM] += vMI * sM * l_gradG[3, s]
+          Qhypervisc_grad[vidM, 3(s - 1) + 1, eM] += vMI * sM * l_gradG[1, hypervisc_indexmap[s]]
+          Qhypervisc_grad[vidM, 3(s - 1) + 2, eM] += vMI * sM * l_gradG[2, hypervisc_indexmap[s]]
+          Qhypervisc_grad[vidM, 3(s - 1) + 3, eM] += vMI * sM * l_gradG[3, hypervisc_indexmap[s]]
         end
         
         @unroll for s = 1:nviscstate
