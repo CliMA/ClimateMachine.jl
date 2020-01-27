@@ -2,7 +2,9 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 using CLIMA.DGmethods
+using CLIMA.DGmethods: courant
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
@@ -17,7 +19,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 using Test
-
+using CLIMA.Courant
 const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
@@ -159,8 +161,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
-
+@info courant(Diffusive_CFL, dg, model, Q, dt, HorizontalDirection())
   # Print some end of the simulation information
   engf = norm(Q)
   Qe = init_ode_state(dg, FT(timeend))
