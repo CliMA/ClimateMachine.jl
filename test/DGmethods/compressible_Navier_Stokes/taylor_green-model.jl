@@ -39,7 +39,7 @@ const (zmin,zmax)     = (0,L*π)
 const Ne              = (10,10,10)
 const polynomialorder = 4
 const dim             = 3
-const dt              = 0.005
+const dt              = 0.01
 
 Base.@kwdef struct TaylorGreenVortexSetup{FT}
   M₀::FT    = 0.1
@@ -88,8 +88,8 @@ function run(mpicomm, setup,
   # -------------- Define model ---------------------------------- #
   model = AtmosModel(NoOrientation(),
                      NoReferenceState(),
-                     #Vreman{FT}(C_smag),
-                     ConstantViscosityWithDivergence{FT}(1.0e-7),
+                     Vreman{FT}(C_smag),
+                     #ConstantViscosityWithDivergence{FT}(1.0e-7),
                      DryModel(),
                      NoPrecipitation(),
                      NoRadiation(),
@@ -122,14 +122,16 @@ function run(mpicomm, setup,
       starttime[] = now()
     else
       energy = norm(Q)
+      e = @views sum((Q[:, 2, :] .^ 2 + Q[:, 3, :] .^ 2 + Q[:, 4, :] .^ 2)  ./ (2 * Q[:, 1, :]))
       @info @sprintf("""Update
-                     simtime = %.16e
-                     runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
+                     simtime        = %.16e
+                     runtime        = %s
+                     norm(Q)        = %.16e
+                     kinetic energy = %.16e""", ODESolvers.gettime(lsrk),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
-                     energy)
+                     energy, e)
     end
   end
 
@@ -149,8 +151,6 @@ function run(mpicomm, setup,
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk))
   # End of the simulation information
-  engf = norm(Q)
-  Qe = init_ode_state(dg, FT(timeend))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished
