@@ -136,7 +136,9 @@ function run(mpicomm, setup,
 
   # setup the output callback
   outputtime = timeend
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(floor(outputtime / dt)) do
+  stepsize = 10
+  # stepsize = floor(outputtime / dt)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(stepsize) do
     vtkstep += 1
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
   end
