@@ -216,6 +216,7 @@ function run(mpicomm,
                      HydrostaticState(Temp,RelHum),
                      SmagorinskyLilly{}(C_smag),
                      EquilMoist(5),
+                     NoPrecipitation(),
                      DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      ConstantSubsidence{FT}(D_subsidence),
                      (Gravity(),
@@ -229,7 +230,7 @@ function run(mpicomm,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(),
+               CentralNumericalFluxGradient(),
                direction=EveryDirection())
 
   linmodel = LinearModel(model)
@@ -238,7 +239,7 @@ function run(mpicomm,
                 grid,
                 Rusanov(),
                 CentralNumericalFluxDiffusive(),
-                CentralGradPenalty(),
+                CentralNumericalFluxGradient(),
                 auxstate=dg.auxstate,
                 direction=VerticalDirection())
 
@@ -305,7 +306,7 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir, ODESolvers.gettime(solver))
 
             #=
             #Calcualte Courant numbers:
@@ -343,7 +344,7 @@ function run(mpicomm,
         diagnostics_time_str = string(now())
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(out_interval_diags) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir)
+            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str, out_dir, ODESolvers.gettime(solver))
             #=
             #Calcualte Courant numbers:
             Dx = min_node_distance(grid, HorizontalDirection())

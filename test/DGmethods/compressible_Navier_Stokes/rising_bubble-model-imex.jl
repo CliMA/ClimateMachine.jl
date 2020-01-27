@@ -104,6 +104,7 @@ function run(mpicomm, LinearType,
                      HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)),
                      Vreman{FT}(C_smag),
                      EquilMoist(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      Gravity(),
@@ -114,14 +115,14 @@ function run(mpicomm, LinearType,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   linmodel = LinearType(model)
   lindg = DGModel(linmodel,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(); auxstate=dg.auxstate)
+               CentralNumericalFluxGradient(); auxstate=dg.auxstate)
 
   Q = init_ode_state(dg, FT(0))
 

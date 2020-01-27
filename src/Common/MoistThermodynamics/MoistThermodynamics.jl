@@ -40,6 +40,7 @@ export dry_pottemp, dry_pottemp_given_pressure, virtual_pottemp, exner, exner_gi
 export liquid_ice_pottemp, liquid_ice_pottemp_given_pressure, liquid_ice_pottemp_sat, relative_humidity
 export air_temperature_from_liquid_ice_pottemp, air_temperature_from_liquid_ice_pottemp_given_pressure
 export air_temperature_from_liquid_ice_pottemp_non_linear
+export vapor_specific_humidity
 
 include("states.jl")
 
@@ -65,6 +66,13 @@ gas_constant_air(ts::ThermodynamicState) =
   gas_constant_air(PhasePartition(ts))
 gas_constant_air(ts::PhaseDry{FT}) where {FT<:Real} = FT(R_d)
 
+"""
+    vapor_specific_humidity(q::PhasePartition{FT})
+
+The vapor specific humidity, given a `PhasePartition` `q`.
+"""
+vapor_specific_humidity(q::PhasePartition) = q.tot - q.liq - q.ice
+vapor_specific_humidity(ts::ThermodynamicState) = vapor_specific_humidity(PhasePartition(ts))
 
 """
     air_pressure(T, ρ[, q::PhasePartition])

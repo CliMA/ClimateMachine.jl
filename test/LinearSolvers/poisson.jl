@@ -16,7 +16,7 @@ using CLIMA.DGmethods
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, flux_nondiffusive!, flux_diffusive!,
                         source!, boundary_state!,
-                        gradvariables!,
+                        numerical_boundary_flux_diffusive!, gradvariables!,
                         diffusive!, init_aux!, init_state!,
                         LocalGeometry
 
@@ -50,6 +50,10 @@ function flux_diffusive!(::PoissonModel, flux::Grad, state::Vars,
 end
 
 struct PenaltyNumFluxDiffusive <: NumericalFluxDiffusive end
+
+# There is no boundary since we are periodic
+numerical_boundary_flux_diffusive!(nf::PenaltyNumFluxDiffusive, _...) = nothing
+
 function numerical_flux_diffusive!(::PenaltyNumFluxDiffusive,
     bl::PoissonModel, fluxᵀn::Vars{S}, n::SVector,
     state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
@@ -106,7 +110,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
                grid,
                CentralNumericalFluxNonDiffusive(),
                PenaltyNumFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   Qrhs = dg.auxstate

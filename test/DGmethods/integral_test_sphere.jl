@@ -81,7 +81,7 @@ function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   dQdt = similar(Q)

@@ -93,14 +93,14 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty(),
+               CentralNumericalFluxGradient(),
                direction=EveryDirection())
 
   vdg = DGModel(model,
                 grid,
                 Rusanov(),
                 CentralNumericalFluxDiffusive(),
-                CentralGradPenalty(),
+                CentralNumericalFluxGradient(),
                 auxstate=dg.auxstate,
                 direction=VerticalDirection())
 
