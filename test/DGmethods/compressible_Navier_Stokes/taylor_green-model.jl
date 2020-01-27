@@ -1,11 +1,13 @@
 # Load Packages
 using MPI
 using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Topologies: StackedBrickTopology
+using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Geometry
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
+using CLIMA.DGmethods: DGModel, init_ode_state
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
+                                       CentralNumericalFluxDiffusive,
+                                       CentralNumericalFluxGradient
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.SubgridScaleParameters
@@ -35,9 +37,9 @@ const (xmin,xmax)     = (0,L*π)
 const (ymin,ymax)     = (0,L*π)
 const (zmin,zmax)     = (0,L*π)
 const Ne              = (10,10,10)
-const polynomialorder = 3
+const polynomialorder = 4
 const dim             = 3
-const dt              = 0.01
+const dt              = 0.005
 
 Base.@kwdef struct TaylorGreenVortexSetup{FT}
   M₀::FT    = 0.1
@@ -86,8 +88,10 @@ function run(mpicomm, setup,
   # -------------- Define model ---------------------------------- #
   model = AtmosModel(NoOrientation(),
                      NoReferenceState(),
-                     ConstantViscosityWithDivergence{FT}(0.0),
+                     #Vreman{FT}(C_smag),
+                     ConstantViscosityWithDivergence{FT}(1.0e-7),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,
@@ -99,7 +103,7 @@ function run(mpicomm, setup,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
 
