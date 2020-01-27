@@ -15,7 +15,7 @@ function atmos_nodal_update_aux!(::TurbulenceClosure, ::AtmosModel, state::Vars,
 end
 function gradvariables!(::TurbulenceClosure, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
-function diffusive!(::TurbulenceClosure, diffusive, ∇transform, state, aux, t)
+function diffusive!(::TurbulenceClosure, ::Orientation, diffusive, ∇transform, state, aux, t)
 end
 
 """
@@ -96,7 +96,7 @@ vars_gradient(::ConstantViscosityWithDivergence,FT) = @vars()
 vars_diffusive(::ConstantViscosityWithDivergence, FT) =
   @vars(S::SHermitianCompact{3,FT,6})
 
-function diffusive!(::ConstantViscosityWithDivergence,
+function diffusive!(::ConstantViscosityWithDivergence, ::Orientation,
     diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
 
   diffusive.turbulence.S = symmetrize(∇transform.u)
@@ -171,11 +171,13 @@ end
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
-function diffusive!(::SmagorinskyLilly,
+
+function diffusive!(::SmagorinskyLilly, orientation::Orientation,
     diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
 
   diffusive.turbulence.S = symmetrize(∇transform.u)
-  diffusive.turbulence.N² = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ) / aux.moisture.θ_v
+  ∇Φ = ∇gravitational_potential(orientation, aux)
+  diffusive.turbulence.N² = dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
 end
 
 function turbulence_tensors(m::SmagorinskyLilly, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -236,9 +238,11 @@ end
 function gradvariables!(m::Vreman, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
-function diffusive!(::Vreman, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
+function diffusive!(::Vreman, orientation::Orientation,
+                    diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   diffusive.turbulence.∇u = ∇transform.u
-  diffusive.turbulence.N² = dot(∇transform.turbulence.θ_v, aux.orientation.∇Φ) / aux.moisture.θ_v
+  ∇Φ = ∇gravitational_potential(orientation, aux)
+  diffusive.turbulence.N² = dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
 end
 
 function turbulence_tensors(m::Vreman, state::Vars, diffusive::Vars, aux::Vars, t::Real)
@@ -310,7 +314,8 @@ function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeo
 end
 function gradvariables!(m::AnisoMinDiss, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
-function diffusive!(::AnisoMinDiss, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
+function diffusive!(::AnisoMinDiss, ::Orientation,
+                    diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   diffusive.turbulence.∇u = ∇transform.u
 end
 
