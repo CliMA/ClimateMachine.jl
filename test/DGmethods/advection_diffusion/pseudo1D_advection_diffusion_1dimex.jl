@@ -17,6 +17,7 @@ using CLIMA.AdditiveRungeKuttaMethod
 using LinearAlgebra
 using Printf
 using Dates
+using BenchmarkTools #FIXME
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
@@ -113,8 +114,10 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
 
   Q = init_ode_state(dg, FT(0))
 
+
   Neh = length(topl.realelems) ÷ topl.stacksize
-  ode_solver = ARK548L2SA2KennedyCarpenter(dg, vdg, linearsolvertype(Q; nhorzelem=Neh), Q;
+  @time solver = linearsolvertype(Q; nhorzelem=Neh)
+  ode_solver = ARK548L2SA2KennedyCarpenter(dg, vdg, solver, Q;
                                            dt = dt, t0 = 0,
                                            split_nonlinear_linear=false)
 

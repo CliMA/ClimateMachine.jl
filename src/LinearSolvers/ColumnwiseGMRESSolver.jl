@@ -32,12 +32,12 @@ struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
   tolerances::MArray{Tuple{2}, T, 1, 2}
 
   function StackGMRES{M,N,MP1,MMP1}(Q::AT, rtol, atol) where {M,N,MP1,MMP1,AT<:AbstractArray}
-    krylov_basis = ntuple(i -> similar(Q), M + 1)
-    H  = ntuple(x -> (@MArray zeros(M + 1, M)), nhorzelem)
-    g0 = ntuple(x -> (@MArray zeros(M + 1)), nhorzelem)
-    stop_iter = @MArray fill(-1, nhorzelem)
+    krylov_basis = ntuple(i -> similar(Q), MP1)
+    H  = ntuple(x -> (@MArray zeros(MP1, M)), N)
+    g0 = ntuple(x -> (@MArray zeros(MP1)), N)
+    stop_iter = @MArray fill(-1, N)
 
-    new{M, nhorzelem, M + 1, M * (M + 1), eltype(Q), Int64, AT}(
+    new{M, N, M + 1, M * (M + 1), eltype(Q), Int64, AT}(
         krylov_basis, H, g0, stop_iter, (rtol, atol))
   end
 end
