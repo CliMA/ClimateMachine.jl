@@ -19,9 +19,10 @@ end
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
 # need to figure out how subcomponents will interact.
-function atmos_boundary_state!(::Rusanov, f::Function, m::AtmosModel,
-                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
-                               auxM::Vars, bctype, t, _...)
+function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+                               f::Function, m::AtmosModel, stateP::Vars,
+                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               t, _...)
   f(stateP, auxP, nM, stateM, auxM, bctype, t)
 end
 
@@ -33,9 +34,10 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, f::Function,
 end
 
 # lookup boundary condition by face
-function atmos_boundary_state!(nf::Rusanov, bctup::Tuple, m::AtmosModel,
-                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
-                               auxM::Vars, bctype, t, _...)
+function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
+                               bctup::Tuple, m::AtmosModel, stateP::Vars,
+                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               t, _...)
   atmos_boundary_state!(nf, bctup[bctype], m, stateP, auxP, nM, stateM, auxM,
                         bctype, t)
 end
@@ -74,9 +76,10 @@ Set the momentum at the boundary to be zero.
 struct NoFluxBC <: BoundaryCondition
 end
 
-function atmos_boundary_state!(::Rusanov, bc::NoFluxBC, m::AtmosModel,
-                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
-                               auxM::Vars, bctype, t, _...)
+function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+                               bc::NoFluxBC, m::AtmosModel, stateP::Vars,
+                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               t, _...)
   FT = eltype(stateM)
   stateP.ρ = stateM.ρ
   stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
@@ -104,9 +107,10 @@ mainly useful for cases where the problem has an explicit solution.
 """
 struct InitStateBC <: BoundaryCondition
 end
-function atmos_boundary_state!(::Rusanov, bc::InitStateBC, m::AtmosModel,
-                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
-                               auxM::Vars, bctype, t, _...)
+function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+                               bc::InitStateBC, m::AtmosModel, stateP::Vars,
+                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               t, _...)
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::InitStateBC,
@@ -126,9 +130,10 @@ struct DYCOMS_BC{FT} <: BoundaryCondition
   LHF::FT
   SHF::FT
 end
-function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
-                               stateP::Vars, auxP::Vars, nM, stateM::Vars,
-                               auxM::Vars, bctype, t, state1::Vars, aux1::Vars)
+function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+                               bc::DYCOMS_BC, m::AtmosModel, stateP::Vars,
+                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               t, state1::Vars, aux1::Vars)
   # stateM is the 𝐘⁻ state while stateP is the 𝐘⁺ state at an interface.
   # at the boundaries the ⁻, minus side states are the interior values
   # state1 is 𝐘 at the first interior nodes relative to the bottom wall
@@ -257,7 +262,8 @@ struct RayleighBenardBC{FT} <: BoundaryCondition
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundary_state!(::Rusanov, bc::RayleighBenardBC, m::AtmosModel,
+function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+                               bc::RayleighBenardBC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t,_...)
   # Dry Rayleigh Benard Convection
