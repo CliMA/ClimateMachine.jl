@@ -101,8 +101,8 @@ let
   polynomialorder = 4
   base_num_elem = 4
 
-  expected_result = [1.5606126271800713e-01 5.3315235468489059e-03 2.2572701271271977e-04;
-                     2.5754410198969766e-02 1.1781217145186925e-03 6.1752962472852435e-05]
+  expected_result = [1.5606168354833677e-01 5.3315302122591991e-03 2.2572667801637464e-04;
+                     2.5754447602174043e-02 1.1781237053129381e-03 6.1753004835330110e-05]
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   @testset "mms_bc_dgmodel" begin
