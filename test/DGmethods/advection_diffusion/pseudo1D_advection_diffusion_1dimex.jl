@@ -195,23 +195,23 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64] = 7.2790497557340378e-02
-  expected_result[2, 2, Float64] = 6.8151192190138493e-03
-  expected_result[2, 3, Float64] = 1.4438314928016903e-04
-  expected_result[2, 4, Float64] = 2.4262398748749695e-06
-  expected_result[3, 1, Float64] = 1.0457534315791378e-01
-  expected_result[3, 2, Float64] = 1.0277729132312344e-02
-  expected_result[3, 3, Float64] = 2.0629892011539178e-04
-  expected_result[3, 4, Float64] = 3.3465301311718302e-06
-  expected_result[2, 1, Float32] = 7.2790578007698059e-02
-  expected_result[2, 2, Float32] = 6.8150628358125687e-03
-  expected_result[2, 3, Float32] = 1.4438912330660969e-04
+  expected_result[2, 1, Float64] = 7.2801198255507391e-02
+  expected_result[2, 2, Float64] = 6.8160295851506783e-03
+  expected_result[2, 3, Float64] = 1.4439137164205592e-04
+  expected_result[2, 4, Float64] = 2.4260727323386998e-06
+  expected_result[3, 1, Float64] = 1.0462203776357534e-01
+  expected_result[3, 2, Float64] = 1.0280535683502070e-02
+  expected_result[3, 3, Float64] = 2.0631857053908848e-04
+  expected_result[3, 4, Float64] = 3.3460492914169325e-06
+  expected_result[2, 1, Float32] = 7.2801239788532257e-02
+  expected_result[2, 2, Float32] = 6.8159680813550949e-03
+  expected_result[2, 3, Float32] = 1.4439738879445940e-04
   # This is near roundoff so we will not check it
-  # expected_result[2, 4, Float32] = 2.6511793294048402e-06
-  expected_result[3, 1, Float32] = 1.0457534343004227e-01
-  expected_result[3, 2, Float32] = 1.0277766734361649e-02
-  expected_result[3, 3, Float32] = 2.0644595497287810e-04
-  expected_result[3, 4, Float32] = 2.0199024220346473e-05
+  # expected_result[2, 4, Float32] = 2.6432753656990826e-06
+  expected_result[3, 1, Float32] = 1.0462204366922379e-01
+  expected_result[3, 2, Float32] = 1.0280583053827286e-02
+  expected_result[3, 3, Float32] = 2.0646647317335010e-04
+  expected_result[3, 4, Float32] = 2.0226731066941284e-05
 
   numlevels = integration_testing ? 4 : 1
 

@@ -226,19 +226,12 @@ end
 ###
 ### Dirchlet Boundary Condition
 ###
-function boundary_state_Dirichlet!(::NumericalFluxNonDiffusive,
+function boundary_state_Dirichlet!(::Union{NumericalFluxNonDiffusive,
+                                           NumericalFluxGradient},
                                    m::AdvectionDiffusion,
                                    stateP, auxP, nM, stateM, auxM, t)
   # Set the plus side to the exact boundary data
   init_state!(m, stateP, auxP, auxP.coord, t)
-end
-function boundary_state_Dirichlet!(::NumericalFluxGradient,
-                                   m::AdvectionDiffusion,
-                                   stateP, auxP, nM, stateM, auxM, t)
-  # Set the plus side sot that after average the numerical flux is the boundary
-  # data
-  init_state!(m, stateP, auxP, auxP.coord, t)
-  stateP.ρ = 2stateP.ρ - stateM.ρ
 end
 
 # Do nothing in this case since the plus-side is the minus side
