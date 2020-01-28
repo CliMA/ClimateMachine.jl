@@ -29,21 +29,20 @@ struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
   g0::NTuple{N, MArray{Tuple{MP1, 1}, T, 2, MP1}}
   "Number of iterations until stop condition reached"
   stop_iter::MArray{Tuple{N}, I, 1, N}
-  tolerance::MArray{Tuple{1}, T, 1, 1}
+  tolerances::MArray{Tuple{2}, T, 1, 2}
 
-  function StackGMRES(M, nhorzelem, Q::AT, tolerance=1e-8) where {AT}
+  function StackGMRES(Q::AT; rtol=√eps(eltype(AT)), atol=√eps(eltype(AT)),
+                      M=min(20, length(Q)), nhorzelem::Int64=1
+                     ) where {AT<:AbstractArray}
     krylov_basis = ntuple(i -> similar(Q), M + 1)
     H  = ntuple(x -> (@MArray zeros(M + 1, M)), nhorzelem)
     g0 = ntuple(x -> (@MArray zeros(M + 1)), nhorzelem)
     stop_iter = @MArray fill(-1, nhorzelem)
 
     new{M, nhorzelem, M + 1, M * (M + 1), eltype(Q), Int64, AT}(
-        krylov_basis, H, g0, stop_iter, (tolerance,))
+        krylov_basis, H, g0, stop_iter, (rtol, atol))
   end
 end
-
-# TODO: N currently in type parameters -> should fix
-function sethorzelem!(solver::StackGMRES, N) end
 
 const weighted = false
 
@@ -51,6 +50,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
                         solver::StackGMRES{M, nhorzelem}, args...) where {M, nhorzelem}
     ss = length(Q) ÷ nhorzelem
     krylov_basis = solver.krylov_basis
+    FT = eltype(Q)
 
     @assert size(Q) == size(krylov_basis[1])
 
@@ -59,18 +59,19 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     krylov_basis[1] .*= -1
     krylov_basis[1] .+= Qrhs
 
-    threshold = solver.tolerance[1] * norm(krylov_basis[1], weighted) # Keep a global threshold for now
-    FT = eltype(Q)
-    threshold = threshold == FT(0) ? eps(FT) : threshold
-
+    rtol, atol = solver.tolerances
     converged = true
+
+    threshold = rtol * norm(krylov_basis[1], weighted)
+
     for es in 1:nhorzelem
       stack = (es-1) * ss + 1 : es * ss
+
       g0 = solver.g0[es]
       @views residual_norm = norm(krylov_basis[1][stack], weighted)
 
       converged &= residual_norm < threshold
-      if residual_norm < threshold
+      if threshold < atol
         solver.stop_iter[es] = 0
         continue
       end
@@ -80,7 +81,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
       krylov_basis[1][stack] ./= residual_norm
     end
 
-    converged, threshold
+    converged, max(threshold, atol)
 end
 
 function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzelem},
@@ -89,12 +90,12 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzel
   krylov_basis = solver.krylov_basis
   stop_iter = solver.stop_iter
 
-  local residual_norm
+  local max_residual_norm
   converged = false
   Gs = ntuple(x->LinearAlgebra.Rotation{eltype(Q)}([]), nhorzelem)
 
   for j = 1:M
-    residual_norm = 0.0
+    max_residual_norm = 0.0
     # Global evaluation step
     linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
 
@@ -131,10 +132,10 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzel
 
       # Mask iteration if converged
       res_local < threshold && (stop_iter[es] = j)
-      residual_norm = max(residual_norm, res_local)
+      max_residual_norm = max(max_residual_norm, res_local)
     end
 
-    if residual_norm < threshold
+    if max_residual_norm < threshold
       converged = true
       break
     end
@@ -164,7 +165,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs, solver::StackGMRES{M, nhorzel
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
   fill!(stop_iter, -1)
 
-  (converged, inner, residual_norm)
+  (converged, inner, max_residual_norm)
 end
 
 end # module

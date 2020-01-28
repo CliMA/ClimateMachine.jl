@@ -36,8 +36,8 @@ the same.  The systems are solved using a non-pivoted LU factorization.
 struct SingleColumnLU <: AbstractColumnLUSolver  end
 
 # Stubs to comply with constructor standard for iterative solvers
-ManyColumnLU(Q::AT) where AT = ManyColumnLU()
-SingleColumnLU(Q::AT) where AT = SingleColumnLU()
+ManyColumnLU(Q::AT; args...) where AT = ManyColumnLU()
+SingleColumnLU(Q::AT; args...) where AT = SingleColumnLU()
 
 struct ColumnwiseLU{F, AT}
   f::F #NOTE: f annotates details of banding

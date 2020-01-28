@@ -154,8 +154,10 @@ let
           Qrhs = MPIStateArray(vdg)
 
           # Generate the solver objects
-          solver_general = GeneralizedMinimalResidual(15, Q1, √eps(FT))
-          solver_stack = StackGMRES(15, Neh, Q1, √eps(FT))
+          solver_general = GeneralizedMinimalResidual(Q1; rtol=√eps(FT),
+                                                      atol=100eps(FT), M=15)
+          solver_stack = StackGMRES(Q1; M=15, nhorzelem=Neh,
+                                    rtol=√eps(FT), atol=100eps(FT))
 
           # Initialise Q1, Q2
           l = length(Q1.data)

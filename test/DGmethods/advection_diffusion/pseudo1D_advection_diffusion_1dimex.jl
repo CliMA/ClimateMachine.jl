@@ -113,7 +113,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
 
   Q = init_ode_state(dg, FT(0))
 
-  ode_solver = ARK548L2SA2KennedyCarpenter(dg, vdg, linearsolvertype(Q), Q;
+  Neh = length(topl.realelems) ÷ topl.stacksize
+  ode_solver = ARK548L2SA2KennedyCarpenter(dg, vdg, linearsolvertype(Q; nhorzelem=Neh), Q;
                                            dt = dt, t0 = 0,
                                            split_nonlinear_linear=false)
 
@@ -222,7 +223,7 @@ let
       result = zeros(FT, numlevels)
       for dim = 2:3
         for fluxBC in (true, false)
-          for linearsolvertype in (SingleColumnLU, ManyColumnLU, StackGMRES)
+          for linearsolvertype in (StackGMRES, SingleColumnLU, ManyColumnLU)
             d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
             n = SVector{3, FT}(d ./ norm(d))
 
