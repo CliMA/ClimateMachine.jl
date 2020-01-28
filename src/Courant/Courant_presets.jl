@@ -29,10 +29,10 @@ function Advective_CFL(m::AtmosModel, state::Vars, aux::Vars,
                                diffusive::Vars, Δx, Δt, direction=VerticalDirection())
   k̂ = aux.orientation.∇Φ / norm(aux.orientation.∇Φ)
   if direction isa VerticalDirection
-    u = dot(state.ρu, k̂) * k̂
+    u = dot(state.ρu/state.ρ, k̂) * k̂
           return Δt * (norm(u) + soundspeed(m.moisture, m.orientation, state,aux)) / Δx
   elseif direction isa HorizontalDirection
-    u = cross(k̂, cross(state.ρu,k̂))      
+    u = cross(k̂, cross(state.ρu/state.ρ,k̂))      
     return Δt * (norm(u) + soundspeed(m.moisture, m.orientation, state,
                                             aux)) / Δx
   end

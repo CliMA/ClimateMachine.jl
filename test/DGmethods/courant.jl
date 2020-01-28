@@ -11,16 +11,17 @@ using LinearAlgebra
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
                                        CentralNumericalFluxDiffusive
-
+using CLIMA.Courant
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
-                   NoOrientation,
+                   FlatOrientation,
                    NoReferenceState, ReferenceState,
                    DryModel, NoRadiation, NoSubsidence, PeriodicBC,
                    Gravity, HydrostaticState, IsothermalProfile,
                    ConstantViscosityWithDivergence, vars_state, soundspeed
-
+using CLIMA.ODESolvers
+using CLIMA.LowStorageRungeKuttaMethod
 const ArrayType = CLIMA.array_type()
 
 using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
@@ -37,7 +38,7 @@ function initialcondition!(state, aux, coords, t)
   translation_speed::FT = 150
   translation_angle::FT = pi / 4
   α = translation_angle
-  u∞ = SVector(translation_speed * cos(α), translation_speed * sin(α), 0)
+  u∞ = SVector(translation_speed * coords[1], translation_speed * coords[1], 0)
 
   u = u∞
   T = T∞
@@ -101,12 +102,12 @@ let
         grid = DiscontinuousSpectralElementGrid(topl,
                                                 FloatType = FT,
                                                 DeviceArray = ArrayType,
-                                                polynomialorder = N,
-                                                meshwarp = warpfun)
+                                                polynomialorder = N)
+                                                #meshwarp = warpfun)
 
-        model = AtmosModel(NoOrientation(),
+        model = AtmosModel(FlatOrientation(),
                            NoReferenceState(),
-                           ConstantViscosityWithDivergence(FT(0)),
+                           ConstantViscosityWithDivergence(FT(1)),
                            DryModel(),
                            NoRadiation(),
                            NoSubsidence{FT}(),
@@ -117,7 +118,7 @@ let
         dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
                      CentralGradPenalty())
 
-        Δt = FT(1//2)
+        Δt = FT(1e-11)#FT(1//2)
 
         function local_courant(m::AtmosModel, state::Vars, aux::Vars,
                                diffusive::Vars, Δx)
@@ -127,20 +128,25 @@ let
         end
 
         Q = init_ode_state(dg, FT(0))
-
-        Δx = min_node_distance(grid, EveryDirection())
+        solver = LSRK54CarpenterKennedy(dg, Q; dt = Δt, t0 = 0)
+        solve!(Q, solver; timeend=Δt)
+	Δx = min_node_distance(grid, EveryDirection())
         Δx_v = min_node_distance(grid, VerticalDirection())
         Δx_h = min_node_distance(grid, HorizontalDirection())
 
         T∞ = FT(300)
-        translation_speed = FT(150)
+        translation_speed = FT(212.13203435596427)
+	diff_speed = 424.26406871192853
         c = Δt*(translation_speed + soundspeed_air(T∞))/Δx
         c_h = Δt*(translation_speed + soundspeed_air(T∞))/Δx_h
-        c_v = Δt*(translation_speed + soundspeed_air(T∞))/Δx_v
-
-        @test c   ≈ courant(local_courant, dg, model, Q, EveryDirection())
-        @test c_h ≈ courant(local_courant, dg, model, Q, HorizontalDirection())
-        @test c_v ≈ courant(local_courant, dg, model, Q, VerticalDirection())
+        c_v = Δt*(soundspeed_air(T∞))/Δx_v
+	d_h = Δt*diff_speed/Δx_h^2
+	d_v = Δt*diff_speed/Δx_v^2
+        @info courant(Advective_CFL, dg, model, Q, Δt, HorizontalDirection())
+        @info courant(Diffusive_CFL, dg, model, Q, Δt, HorizontalDirection())
+	@info courant(Advective_CFL, dg, model, Q, Δt, VerticalDirection())
+	@info courant(Diffusive_CFL, dg, model, Q, Δt, VerticalDirection())
+        @info c_h,c_v,d_h,d_v
       end
     end
   end
