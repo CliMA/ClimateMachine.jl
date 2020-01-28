@@ -140,9 +140,11 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
   UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
 
   # Assign reflection wall boundaries (top wall)
+  #=
   stateP.ρu = SVector(UM - 2 * nM[1] * UnM,
                       VM - 2 * nM[2] * UnM,
                       WM - 2 * nM[3] * UnM)
+  =#
 
   # Assign scalar values at the boundaries
   stateP.ρ = ρM
@@ -169,9 +171,11 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   Un⁻ = n⁻[1] * U⁻ + n⁻[2] * V⁻ + n⁻[3] * W⁻
 
   # Assign reflection wall boundaries (top wall)
+  #=
   state⁺.ρu = SVector(U⁻ - 2 * n⁻[1] * Un⁻,
                       V⁻ - 2 * n⁻[2] * Un⁻,
                       W⁻ - 2 * n⁻[3] * Un⁻)
+  =#
 
   # Assign scalar values at the boundaries
   state⁺.ρ = ρ⁻
@@ -220,7 +224,8 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     τ23⁺  = - C_drag * windspeed_FN * v_FN
     # Assign diffusive momentum and moisture fluxes
     # (i.e. ρ𝛕 terms)
-    diffP.ρτ = SHermitianCompact{3,FT,6}(SVector(FT(0),ρτM[2,1],ρτ13P, FT(0), ρτ23P,FT(0)))
+    τ⁺ = SHermitianCompact{3, FT, 6}(SVector(FT(0), τ⁻[2,1], τ13⁺, FT(0), τ23⁺,
+                                             FT(0)))
 
     # ----------------------------------------------------------
     # Boundary moisture fluxes
