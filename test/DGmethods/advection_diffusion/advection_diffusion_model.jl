@@ -14,11 +14,16 @@ import CLIMA.DGmethods.NumericalFluxes: numerical_boundary_flux_diffusive!,
                                         boundary_flux_diffusive!
 
 abstract type AdvectionDiffusionProblem end
-struct AdvectionDiffusion{dim, P} <: BalanceLaw
+struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
   problem::P
   function AdvectionDiffusion{dim}(problem::P
                                   ) where {dim, P <: AdvectionDiffusionProblem}
-    new{dim, P}(problem)
+    new{dim, P, false}(problem)
+  end
+  function AdvectionDiffusion{dim, fluxBC}(problem::P
+                                  ) where {dim, P <: AdvectionDiffusionProblem,
+                                           fluxBC}
+    new{dim, P, fluxBC}(problem)
   end
 end
 
@@ -173,7 +178,6 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
     ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
     # Get analytic gradient
     ∇initial_condition!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
-    # convert to auxDG variables
     diffusive!(m, diff⁺, ∇state, aux⁻)
     # compute the diffusive flux using the boundary state
   elseif bctype == 4 # zero Neumann
@@ -184,6 +188,37 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
     ∇state.ρ = SVector{3, FT}(0, 0, 0)
     # convert to auxDG variables
     diffusive!(m, diff⁺, ∇state, aux⁻)
+  end
+  nothing
+end
+
+function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+                                  m::AdvectionDiffusion{dim, P, true},
+                                  F,
+                                  state⁺, diff⁺, aux⁺, n⁻,
+                                  state⁻, diff⁻, aux⁻,
+                                  bctype, t,
+                                  _...) where {dim, P}
+
+  # Default initialize flux to minus side
+  if bctype ∈ (1,3) # Dirchlet
+    # Just use the minus side values since Dirchlet
+    flux_diffusive!(m, F, state⁻, diff⁻, aux⁻, t)
+  elseif bctype == 2 # Neumann data
+    FT = eltype(diff⁺)
+    ngrad = num_gradient(m, FT)
+    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    # Get analytic gradient
+    ∇initial_condition!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+    # get the diffusion coefficient
+    D = aux⁻.D
+    # exact the exact data
+    ∇ρ = ∇state.ρ
+    # set the flux
+    F.ρ = - D * ∇ρ
+  elseif bctype == 4 # Zero Neumann
+    FT = eltype(diff⁺)
+    F.ρ = SVector{3, FT}(0, 0, 0)
   end
   nothing
 end

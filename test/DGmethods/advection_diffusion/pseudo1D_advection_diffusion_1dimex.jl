@@ -85,14 +85,14 @@ end
 
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
-             n, α, β, μ, δ, vtkdir, outputtime, linearsolvertype)
+             n, α, β, μ, δ, vtkdir, outputtime, linearsolvertype, fluxBC)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+  model = AdvectionDiffusion{dim, fluxBC}(Pseudo1D{n, α, β, μ, δ}())
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -219,49 +219,51 @@ let
     for FT in (Float64, Float32)
       result = zeros(FT, numlevels)
       for dim = 2:3
-        for linearsolvertype in (SingleColumnLU, ManyColumnLU)
-          d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
-          n = SVector{3, FT}(d ./ norm(d))
+        for fluxBC in (true, false)
+          for linearsolvertype in (SingleColumnLU, ManyColumnLU)
+            d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
+            n = SVector{3, FT}(d ./ norm(d))
 
-          α = FT(1)
-          β = FT(1 // 100)
-          μ = FT(-1 // 2)
-          δ = FT(1 // 10)
-          for l = 1:numlevels
-            Ne = 2^(l-1) * base_num_elem
-            brickrange = (ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim-1)...,
-                          range(FT(-5); length=5Ne+1, stop=5))
+            α = FT(1)
+            β = FT(1 // 100)
+            μ = FT(-1 // 2)
+            δ = FT(1 // 10)
+            for l = 1:numlevels
+              Ne = 2^(l-1) * base_num_elem
+              brickrange = (ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim-1)...,
+                            range(FT(-5); length=5Ne+1, stop=5))
 
-            periodicity = ntuple(j->false, dim)
-            topl = StackedBrickTopology(mpicomm, brickrange;
-                                        periodicity = periodicity,
-                                        boundary = (ntuple(j->(1,2), dim-1)...,
-                                                    (3,4)))
-            dt = (α/4) / (Ne * polynomialorder^2)
+              periodicity = ntuple(j->false, dim)
+              topl = StackedBrickTopology(mpicomm, brickrange;
+                                          periodicity = periodicity,
+                                          boundary = (ntuple(j->(1,2), dim-1)...,
+                                                      (3,4)))
+              dt = (α/4) / (Ne * polynomialorder^2)
 
-            outputtime = 0.01
-            timeend = 0.5
+              outputtime = 0.01
+              timeend = 0.5
 
-            @info (ArrayType, FT, dim, linearsolvertype, l)
-            vtkdir = output ? "vtk_advection" *
-                              "_poly$(polynomialorder)" *
-                              "_dim$(dim)_$(ArrayType)_$(FT)" *
-                              "_$(linearsolvertype)_level$(l)" : nothing
-            result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
-                            timeend, FT, dt, n, α, β, μ, δ, vtkdir,
-                            outputtime, linearsolvertype)
-            # test the errors significantly larger than floating point epsilon
-            if !(dim == 2 && l == 4 && FT == Float32)
-              @test result[l] ≈ FT(expected_result[dim, l, FT])
+              @info (ArrayType, FT, dim, linearsolvertype, l, fluxBC)
+              vtkdir = output ? "vtk_advection" *
+              "_poly$(polynomialorder)" *
+              "_dim$(dim)_$(ArrayType)_$(FT)" *
+              "_$(linearsolvertype)_level$(l)" : nothing
+              result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
+                              timeend, FT, dt, n, α, β, μ, δ, vtkdir,
+                              outputtime, linearsolvertype, fluxBC)
+              # test the errors significantly larger than floating point epsilon
+              if !(dim == 2 && l == 4 && FT == Float32)
+                @test result[l] ≈ FT(expected_result[dim, l, FT])
+              end
             end
-          end
-          @info begin
-            msg = ""
-            for l = 1:numlevels-1
-              rate = log2(result[l]) - log2(result[l+1])
-              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+            @info begin
+              msg = ""
+              for l = 1:numlevels-1
+                rate = log2(result[l]) - log2(result[l+1])
+                msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+              end
+              msg
             end
-            msg
           end
         end
       end

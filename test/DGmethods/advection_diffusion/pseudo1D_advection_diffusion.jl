@@ -76,14 +76,14 @@ end
 
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, direction, dt,
-             n, α, β, μ, δ, vtkdir, outputtime)
+             n, α, β, μ, δ, vtkdir, outputtime, fluxBC)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+  model = AdvectionDiffusion{dim, fluxBC}(Pseudo1D{n, α, β, μ, δ}())
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -231,52 +231,54 @@ let
       for dim = 2:3
         for direction in (EveryDirection, HorizontalDirection,
                           VerticalDirection)
-          if direction <: EveryDirection
-            n = dim == 2 ? SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0) :
-                           SVector{3, FT}(1/sqrt(3), 1/sqrt(3), 1/sqrt(3))
-          elseif direction <: HorizontalDirection
-            n = dim == 2 ? SVector{3, FT}(1, 0, 0) :
-                           SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0)
-          elseif direction <: VerticalDirection
-            n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
-          end
-          α = FT(1)
-          β = FT(1 // 100)
-          μ = FT(-1 // 2)
-          δ = FT(1 // 10)
-          for l = 1:numlevels
-            Ne = 2^(l-1) * base_num_elem
-            brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
-            periodicity = ntuple(j->false, dim)
-            bc = ntuple(j->(1,2), dim)
-            topl = StackedBrickTopology(mpicomm, brickrange;
-                                        periodicity = periodicity,
-                                        boundary = bc)
-            dt = (α/4) / (Ne * polynomialorder^2)
-            @info "time step" dt
-
-            timeend = 1
-            outputtime = 1
-
-            dt = outputtime / ceil(Int64, outputtime / dt)
-
-            @info (ArrayType, FT, dim, direction)
-            vtkdir = output ? "vtk_advection" *
-                              "_poly$(polynomialorder)" *
-                              "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
-                              "_level$(l)" : nothing
-            result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
-                            timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
-                            outputtime)
-            @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
-          end
-          @info begin
-            msg = ""
-            for l = 1:numlevels-1
-              rate = log2(result[l]) - log2(result[l+1])
-              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+          for fluxBC in (true, false)
+            if direction <: EveryDirection
+              n = dim == 2 ? SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0) :
+              SVector{3, FT}(1/sqrt(3), 1/sqrt(3), 1/sqrt(3))
+            elseif direction <: HorizontalDirection
+              n = dim == 2 ? SVector{3, FT}(1, 0, 0) :
+              SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0)
+            elseif direction <: VerticalDirection
+              n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
             end
-            msg
+            α = FT(1)
+            β = FT(1 // 100)
+            μ = FT(-1 // 2)
+            δ = FT(1 // 10)
+            for l = 1:numlevels
+              Ne = 2^(l-1) * base_num_elem
+              brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
+              periodicity = ntuple(j->false, dim)
+              bc = ntuple(j->(1,2), dim)
+              topl = StackedBrickTopology(mpicomm, brickrange;
+                                          periodicity = periodicity,
+                                          boundary = bc)
+              dt = (α/4) / (Ne * polynomialorder^2)
+              @info "time step" dt
+
+              timeend = 1
+              outputtime = 1
+
+              dt = outputtime / ceil(Int64, outputtime / dt)
+
+              @info (ArrayType, FT, dim, direction, fluxBC)
+              vtkdir = output ? "vtk_advection" *
+                                "_poly$(polynomialorder)" *
+                                "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
+                                "_level$(l)" : nothing
+              result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
+                              timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
+                              outputtime, fluxBC)
+              @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
+            end
+            @info begin
+              msg = ""
+              for l = 1:numlevels-1
+                rate = log2(result[l]) - log2(result[l+1])
+                msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+              end
+              msg
+            end
           end
         end
       end
