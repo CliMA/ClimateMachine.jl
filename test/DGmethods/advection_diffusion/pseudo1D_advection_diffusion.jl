@@ -76,14 +76,14 @@ end
 
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, direction, dt,
-             n, α, β, μ, δ, vtkdir, outputtime)
+             n, α, β, μ, δ, vtkdir, outputtime, fluxBC)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+  model = AdvectionDiffusion{dim, fluxBC}(Pseudo1D{n, α, β, μ, δ}())
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -224,18 +224,19 @@ let
   expected_result[3, 2, Float32, VerticalDirection]   = 5.9953825548291206e-03
   expected_result[3, 3, Float32, VerticalDirection]   = 1.1483333946671337e-04
 
-    for FT in (Float64, Float32)
-      numlevels = integration_testing || CLIMA.Settings.integration_testing ? (FT == Float64 ? 4 : 3) : 1
-      result = zeros(FT, numlevels)
-      for dim = 2:3
-        for direction in (EveryDirection, HorizontalDirection,
-                          VerticalDirection)
+  for FT in (Float64, Float32)
+    numlevels = integration_testing || CLIMA.Settings.integration_testing ? (FT == Float64 ? 4 : 3) : 1
+    result = zeros(FT, numlevels)
+    for dim = 2:3
+      for direction in (EveryDirection, HorizontalDirection,
+                        VerticalDirection)
+        for fluxBC in (true, false)
           if direction <: EveryDirection
             n = dim == 2 ? SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0) :
-                           SVector{3, FT}(1/sqrt(3), 1/sqrt(3), 1/sqrt(3))
+            SVector{3, FT}(1/sqrt(3), 1/sqrt(3), 1/sqrt(3))
           elseif direction <: HorizontalDirection
             n = dim == 2 ? SVector{3, FT}(1, 0, 0) :
-                           SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0)
+            SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0)
           elseif direction <: VerticalDirection
             n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
           end
@@ -259,14 +260,14 @@ let
 
             dt = outputtime / ceil(Int64, outputtime / dt)
 
-            @info (ArrayType, FT, dim, direction)
+            @info (ArrayType, FT, dim, direction, fluxBC)
             vtkdir = output ? "vtk_advection" *
                               "_poly$(polynomialorder)" *
                               "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
                               "_level$(l)" : nothing
             result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
                             timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
-                            outputtime)
+                            outputtime, fluxBC)
             @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
           end
           @info begin
@@ -280,6 +281,7 @@ let
         end
       end
     end
+  end
 end
 
 nothing
