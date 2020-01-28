@@ -105,6 +105,7 @@ let
                      2.5754410198969766e-02 1.1781217145186925e-03 6.1752962472852435e-05]
   lvls = integration_testing ? size(expected_result, 2) : 1
 
+  @testset "mms_bc_dgmodel" begin
     for FT in (Float64,) #Float32)
       result = zeros(FT, lvls)
       for dim = 2:3
@@ -155,6 +156,7 @@ let
         end
       end
     end
+  end
 end
 
 nothing

@@ -194,59 +194,58 @@ let
 
   expected_result = [1.5606126271800694e-01 5.3315235468477966e-03 2.2572701271274964e-04;
                      2.5754410198970158e-02 1.1781217145186288e-03 6.1752962472904071e-05]
-lvls = integration_testing ? size(expected_result, 2) : 1
+  lvls = integration_testing ? size(expected_result, 2) : 1
 
-for FT in (Float64,) #Float32)
-  result = zeros(FT, lvls)
-  for dim = 2:3
-    for l = 1:lvls
-      if dim == 2
-        Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-        brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
-                      range(FT(0); length=Ne[2]+1, stop=1))
-        topl = BrickTopology(mpicomm, brickrange,
-                             periodicity = (false, false))
-        dt = 1e-2 / Ne[1]
-        warpfun = (x1, x2, _) -> begin
-          (x1 + sin(x1*x2), x2 + sin(2*x1*x2), 0)
-        end
+  @testset "mms_bc_atmos" begin
+    for FT in (Float64,) #Float32)
+      result = zeros(FT, lvls)
+      for dim = 2:3
+        for l = 1:lvls
+          if dim == 2
+            Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
+            brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                          range(FT(0); length=Ne[2]+1, stop=1))
+            topl = BrickTopology(mpicomm, brickrange,
+                                 periodicity = (false, false))
+            dt = 1e-2 / Ne[1]
+            warpfun = (x1, x2, _) -> begin
+              (x1 + sin(x1*x2), x2 + sin(2*x1*x2), 0)
+            end
 
-      elseif dim == 3
-        Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-        brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
-                      range(FT(0); length=Ne[2]+1, stop=1),
-        range(FT(0); length=Ne[2]+1, stop=1))
-        topl = BrickTopology(mpicomm, brickrange,
-                             periodicity = (false, false, false))
-        dt = 5e-3 / Ne[1]
-        warpfun = (x1, x2, x3) -> begin
-          (x1 + (x1-1/2)*cos(2*π*x2*x3)/4,
-           x2 + exp(sin(2π*(x1*x2+x3)))/20,
-          x3 + x1/4 + x2^2/2 + sin(x1*x2*x3))
-        end
-      end
-      timeend = 1
-      nsteps = ceil(Int64, timeend / dt)
-      dt = timeend / nsteps
+          elseif dim == 3
+            Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
+            brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                          range(FT(0); length=Ne[2]+1, stop=1),
+            range(FT(0); length=Ne[2]+1, stop=1))
+            topl = BrickTopology(mpicomm, brickrange,
+                                 periodicity = (false, false, false))
+            dt = 5e-3 / Ne[1]
+            warpfun = (x1, x2, x3) -> begin
+              (x1 + (x1-1/2)*cos(2*π*x2*x3)/4,
+               x2 + exp(sin(2π*(x1*x2+x3)))/20,
+              x3 + x1/4 + x2^2/2 + sin(x1*x2*x3))
+            end
+          end
+          timeend = 1
+          nsteps = ceil(Int64, timeend / dt)
+          dt = timeend / nsteps
 
-      @info (ArrayType, FT, dim)
-      result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
-                      polynomialorder, timeend, FT, dt)
-      @test result[l] ≈ FT(expected_result[dim-1, l])
-    end
-    if integration_testing
-      @info begin
-        msg = ""
-        for l = 1:lvls-1
-          rate = log2(result[l]) - log2(result[l+1])
-          msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+          @info (ArrayType, FT, dim)
+          result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
+                          polynomialorder, timeend, FT, dt)
+          @test result[l] ≈ FT(expected_result[dim-1, l])
         end
-        msg
+        if integration_testing
+          @info begin
+            msg = ""
+            for l = 1:lvls-1
+              rate = log2(result[l]) - log2(result[l+1])
+              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+            end
+            msg
+          end
+        end
       end
     end
   end
 end
-end
-
-
-#nothing
