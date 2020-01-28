@@ -31,9 +31,7 @@ struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
   stop_iter::MArray{Tuple{N}, I, 1, N}
   tolerances::MArray{Tuple{2}, T, 1, 2}
 
-  function StackGMRES(Q::AT; rtol=√eps(eltype(AT)), atol=√eps(eltype(AT)),
-                      M=min(20, length(Q)), nhorzelem::Int64=1
-                     ) where {AT<:AbstractArray}
+  function StackGMRES{M,N,MP1,MMP1}(Q::AT, rtol, atol) where {M,N,MP1,MMP1,AT<:AbstractArray}
     krylov_basis = ntuple(i -> similar(Q), M + 1)
     H  = ntuple(x -> (@MArray zeros(M + 1, M)), nhorzelem)
     g0 = ntuple(x -> (@MArray zeros(M + 1)), nhorzelem)
@@ -42,6 +40,11 @@ struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
     new{M, nhorzelem, M + 1, M * (M + 1), eltype(Q), Int64, AT}(
         krylov_basis, H, g0, stop_iter, (rtol, atol))
   end
+end
+
+@inline function StackGMRES(Q::AT; rtol=√eps(eltype(AT)), atol=eps(eltype(AT)),
+                            M=min(20, length(Q)), nhorzelem::Int64=1) where {AT<:AbstractArray}
+  StackGMRES{M, nhorzelem, M+1, M*(M+1)}(Q, rtol, atol)
 end
 
 const weighted = false

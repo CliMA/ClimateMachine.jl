@@ -169,11 +169,12 @@ let
           fill!(Q2, FT(0))
 
           # Test that linearsolve! inverts op!
-          iters_g, converged_g = linearsolve!(op!, solver_general, Q1, Qrhs; max_iters=Inf)
-          iters_s, converged_s = linearsolve!(op!, solver_stack, Q2, Qrhs; max_iters=Inf)
+          converged_g, converged_s = Ref{Bool}(), Ref{Bool}()
+          iters_g = linearsolve!(op!, solver_general, Q1, Qrhs; max_iters=Inf, cvg=converged_g)
+          iters_s = linearsolve!(op!, solver_stack, Q2, Qrhs; max_iters=Inf, cvg=converged_s)
 
-          @test converged_g
-          @test converged_s
+          @test converged_g[]
+          @test converged_s[]
           @test iters_s <= iters_g
         end
       end

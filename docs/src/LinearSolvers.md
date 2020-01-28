@@ -22,5 +22,5 @@ GeneralizedMinimalResidualSolver.GeneralizedMinimalResidual
 LinearSolvers.AbstractLinearSolver
 LinearSolvers.AbstractIterativeLinearSolver
 LinearSolvers.linearsolve!
-LinearSolvers.settolerance!
+LinearSolvers.setrtolerance!
 ```

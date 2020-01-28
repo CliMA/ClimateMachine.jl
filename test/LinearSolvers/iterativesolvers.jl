@@ -11,9 +11,9 @@ using StaticArrays, LinearAlgebra, Random
 @testset "LinearSolvers small full system" begin
   n = 10
 
-  methods = ((b, tol) -> GeneralizedConjugateResidual(2, b, rtol=tol),
-             (b, tol) -> GeneralizedMinimalResidual(b, M=3, rtol=tol),
-             (b, tol) -> GeneralizedMinimalResidual(b, M=n, rtol=tol)
+  methods = ((b, tol) -> GeneralizedConjugateResidual(2, b; rtol=tol),
+             (b, tol) -> GeneralizedMinimalResidual(b; M=3, rtol=tol),
+             (b, tol) -> GeneralizedMinimalResidual(b; M=n, rtol=tol)
             )
 
   expected_iters = (Dict(Float32 => 7, Float64 => 11),
@@ -48,7 +48,7 @@ using StaticArrays, LinearAlgebra, Random
     @test norm(A * x - b) <= 100eps(T)
 
     newtol = 1000tol
-    settolerance!(linearsolver, newtol)
+    setrtolerance!(linearsolver, newtol)
 
     x = @MVector rand(T, n)
     x0 = copy(x)
@@ -93,7 +93,7 @@ end
       @test norm(A * x - b) / norm(A * x0 - b) <= tol
 
       newtol = 1000tol
-      settolerance!(linearsolver, newtol)
+      setrtolerance!(linearsolver, newtol)
 
       x = rand(T, n)
       x0 = copy(x)
