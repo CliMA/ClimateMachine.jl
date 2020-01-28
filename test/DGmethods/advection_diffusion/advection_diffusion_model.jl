@@ -10,12 +10,14 @@ import CLIMA.DGmethods: BalanceLaw,
 using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        NumericalFluxDiffusive,
                                        NumericalFluxGradient
-import CLIMA.DGmethods.NumericalFluxes: numerical_boundary_flux_diffusive!, boundary_flux_diffusive!
+import CLIMA.DGmethods.NumericalFluxes: numerical_boundary_flux_diffusive!,
+                                        boundary_flux_diffusive!
 
 abstract type AdvectionDiffusionProblem end
 struct AdvectionDiffusion{dim, P} <: BalanceLaw
   problem::P
-  function AdvectionDiffusion{dim}(problem::P) where {dim, P <: AdvectionDiffusionProblem}
+  function AdvectionDiffusion{dim}(problem::P
+                                  ) where {dim, P <: AdvectionDiffusionProblem}
     new{dim, P}(problem)
   end
 end
