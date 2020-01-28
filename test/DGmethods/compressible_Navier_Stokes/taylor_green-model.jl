@@ -4,6 +4,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: StackedBrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Geometry
+using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive,
@@ -89,7 +90,6 @@ function run(mpicomm, setup,
   model = AtmosModel(NoOrientation(),
                      NoReferenceState(),
                      Vreman{FT}(C_smag),
-                     #ConstantViscosityWithDivergence{FT}(1.0e-7),
                      DryModel(),
                      NoPrecipitation(),
                      NoRadiation(),
@@ -109,6 +109,14 @@ function run(mpicomm, setup,
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
+  # Filter needed for stabilization
+  filterorder = 18
+  filter = ExponentialFilter(grid, 0, filterorder)
+  cbfilter = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
+    Filters.apply!(Q, 1:size(Q, 2), grid, filter)
+    nothing
+  end
+
   eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e
@@ -122,7 +130,11 @@ function run(mpicomm, setup,
       starttime[] = now()
     else
       energy = norm(Q)
-      e = @views sum((Q[:, 2, :] .^ 2 + Q[:, 3, :] .^ 2 + Q[:, 4, :] .^ 2)  ./ (2 * Q[:, 1, :]))
+      ρu₁ = Array(Q[:, 2, :])
+      ρu₂ = Array(Q[:, 3, :])
+      ρu₃ = Array(Q[:, 4, :])
+      ρᵣ  = Array(Q[:, 1, :])
+      ke  = @views sum((ρu₁ .^ 2 + ρu₂ .^ 2 + ρu₃ .^ 2) ./ (2 * ρᵣ))
       @info @sprintf("""Update
                      simtime        = %.16e
                      runtime        = %s
@@ -131,7 +143,7 @@ function run(mpicomm, setup,
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
-                     energy, e)
+                     energy, ke)
     end
   end
 
