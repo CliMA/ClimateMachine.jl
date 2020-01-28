@@ -136,17 +136,33 @@ let
 
         T∞ = FT(300)
         translation_speed = FT(212.13203435596427)
-	diff_speed = 424.26406871192853
+	diff_speed = 367.4234614174767
         c = Δt*(translation_speed + soundspeed_air(T∞))/Δx
         c_h = Δt*(translation_speed + soundspeed_air(T∞))/Δx_h
         c_v = Δt*(soundspeed_air(T∞))/Δx_v
 	d_h = Δt*diff_speed/Δx_h^2
 	d_v = Δt*diff_speed/Δx_v^2
-        @info courant(Advective_CFL, dg, model, Q, Δt, HorizontalDirection())
-        @info courant(Diffusive_CFL, dg, model, Q, Δt, HorizontalDirection())
-	@info courant(Advective_CFL, dg, model, Q, Δt, VerticalDirection())
-	@info courant(Diffusive_CFL, dg, model, Q, Δt, VerticalDirection())
-        @info c_h,c_v,d_h,d_v
+	if (FT==Float64 && dim == 2)
+          @test abs(courant(Advective_CFL, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-15
+          @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-13
+	  @test abs(courant(Advective_CFL, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
+	  @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-14
+	elseif (FT==Float64 && dim == 3)
+	  @test abs(courant(Advective_CFL, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
+          @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-13
+          @test abs(courant(Advective_CFL, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
+          @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-14
+	elseif (dim == 2)
+	  @test abs(courant(Advective_CFL, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
+          @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-10
+          @test abs(courant(Advective_CFL, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
+          @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-10
+	else
+	  @test abs(courant(Advective_CFL, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
+          @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-7
+          @test abs(courant(Advective_CFL, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
+          @test abs(courant(Diffusive_CFL, dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8
+	end
       end
     end
   end
