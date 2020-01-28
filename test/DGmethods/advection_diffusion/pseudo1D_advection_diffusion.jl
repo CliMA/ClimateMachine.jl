@@ -170,59 +170,48 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64, EveryDirection]      = 1.3278358805552103e-02
-  expected_result[2, 2, Float64, EveryDirection]      = 1.5275567222209200e-03
-  expected_result[2, 3, Float64, EveryDirection]      = 2.1158688830873719e-04
-  expected_result[2, 4, Float64, EveryDirection]      = 5.4682730423646384e-06
-
-  expected_result[2, 1, Float64, HorizontalDirection] = 4.7452978385924841e-02
-  expected_result[2, 2, Float64, HorizontalDirection] = 4.2395734359794088e-03
-  expected_result[2, 3, Float64, HorizontalDirection] = 7.5299237338321249e-05
-  expected_result[2, 4, Float64, HorizontalDirection] = 4.5091115956660895e-07
-
-  expected_result[2, 1, Float64, VerticalDirection]   = 4.7452978385924841e-02
-  expected_result[2, 2, Float64, VerticalDirection]   = 4.2395734359794192e-03
-  expected_result[2, 3, Float64, VerticalDirection]   = 7.5299237338312901e-05
-  expected_result[2, 4, Float64, VerticalDirection]   = 4.5091115956933386e-07
-
-  expected_result[3, 1, Float64, EveryDirection]      = 9.9996908954108274e-03
-  expected_result[3, 2, Float64, EveryDirection]      = 7.8174266228124144e-04
-  expected_result[3, 3, Float64, EveryDirection]      = 6.4581399695447892e-05
-  expected_result[3, 4, Float64, EveryDirection]      = 3.8210741637228301e-06
-
-  expected_result[3, 1, Float64, HorizontalDirection] = 1.8778435108867900e-02
-  expected_result[3, 2, Float64, HorizontalDirection] = 2.1602914338589609e-03
-  expected_result[3, 3, Float64, HorizontalDirection] = 2.9922904706653158e-04
-  expected_result[3, 4, Float64, HorizontalDirection] = 7.7333058993042428e-06
-
-  expected_result[3, 1, Float64, VerticalDirection]   = 6.7108645608372028e-02
-  expected_result[3, 2, Float64, VerticalDirection]   = 5.9956622518388255e-03
-  expected_result[3, 3, Float64, VerticalDirection]   = 1.0648920268019518e-04
-  expected_result[3, 4, Float64, VerticalDirection]   = 6.3768467727359403e-07
-
-  expected_result[2, 1, Float32, EveryDirection]      = 1.3278233818709850e-02
-  expected_result[2, 2, Float32, EveryDirection]      = 1.5276039484888315e-03
-  expected_result[2, 3, Float32, EveryDirection]      = 2.1158660820219666e-04
-
-  expected_result[2, 1, Float32, HorizontalDirection] = 4.7453053295612335e-02
-  expected_result[2, 2, Float32, HorizontalDirection] = 4.2393575422465801e-03
-  expected_result[2, 3, Float32, HorizontalDirection] = 7.5274780101608485e-05
-
-  expected_result[2, 1, Float32, VerticalDirection]   = 4.7453027218580246e-02
-  expected_result[2, 2, Float32, VerticalDirection]   = 4.2393403127789497e-03
-  expected_result[2, 3, Float32, VerticalDirection]   = 7.5348107202444226e-05
-
-  expected_result[3, 1, Float32, EveryDirection]      = 9.9996607750654221e-03
-  expected_result[3, 2, Float32, EveryDirection]      = 7.8179326374083757e-04
-  expected_result[3, 3, Float32, EveryDirection]      = 6.4723266405053437e-05
-
-  expected_result[3, 1, Float32, HorizontalDirection] = 1.8778320401906967e-02
-  expected_result[3, 2, Float32, HorizontalDirection] = 2.1604031790047884e-03
-  expected_result[3, 3, Float32, HorizontalDirection] = 2.9950391035526991e-04
-
-  expected_result[3, 1, Float32, VerticalDirection]   = 6.7108325660228729e-02
-  expected_result[3, 2, Float32, VerticalDirection]   = 5.9953825548291206e-03
-  expected_result[3, 3, Float32, VerticalDirection]   = 1.1483333946671337e-04
+  expected_result[2, 1, Float64, EveryDirection]      = 1.2357162985295326e-02
+  expected_result[2, 2, Float64, EveryDirection]      = 8.8403537443388974e-04
+  expected_result[2, 3, Float64, EveryDirection]      = 4.9490976821250842e-05
+  expected_result[2, 4, Float64, EveryDirection]      = 2.0311063939957157e-06
+  expected_result[2, 1, Float64, HorizontalDirection] = 4.6783743619257120e-02
+  expected_result[2, 2, Float64, HorizontalDirection] = 4.0665567827235134e-03
+  expected_result[2, 3, Float64, HorizontalDirection] = 5.3144336694498106e-05
+  expected_result[2, 4, Float64, HorizontalDirection] = 3.9780001102022647e-07
+  expected_result[2, 1, Float64, VerticalDirection]   = 4.6783743619257120e-02
+  expected_result[2, 2, Float64, VerticalDirection]   = 4.0665567827234102e-03
+  expected_result[2, 3, Float64, VerticalDirection]   = 5.3144336694469002e-05
+  expected_result[2, 4, Float64, VerticalDirection]   = 3.9780001102679913e-07
+  expected_result[3, 1, Float64, EveryDirection]      = 9.6252415559793265e-03
+  expected_result[3, 2, Float64, EveryDirection]      = 6.0160564826756122e-04
+  expected_result[3, 3, Float64, EveryDirection]      = 4.0359079531195022e-05
+  expected_result[3, 4, Float64, EveryDirection]      = 2.9987655364452885e-06
+  expected_result[3, 1, Float64, HorizontalDirection] = 1.7475667486259477e-02
+  expected_result[3, 2, Float64, HorizontalDirection] = 1.2502148161420126e-03
+  expected_result[3, 3, Float64, HorizontalDirection] = 6.9990810635609785e-05
+  expected_result[3, 4, Float64, HorizontalDirection] = 2.8724182090259972e-06
+  expected_result[3, 1, Float64, VerticalDirection]   = 6.6162204724938736e-02
+  expected_result[3, 2, Float64, VerticalDirection]   = 5.7509797542876833e-03
+  expected_result[3, 3, Float64, VerticalDirection]   = 7.5157441716412944e-05
+  expected_result[3, 4, Float64, VerticalDirection]   = 5.6257417070312578e-07
+  expected_result[2, 1, Float32, EveryDirection]      = 1.2357043102383614e-02
+  expected_result[2, 2, Float32, EveryDirection]      = 8.8409741874784231e-04
+  expected_result[2, 3, Float32, EveryDirection]      = 4.9384900194127113e-05
+  expected_result[2, 1, Float32, HorizontalDirection] = 4.6783901751041412e-02
+  expected_result[2, 2, Float32, HorizontalDirection] = 4.0663350373506546e-03
+  expected_result[2, 3, Float32, HorizontalDirection] = 5.3100597142474726e-05
+  expected_result[2, 1, Float32, VerticalDirection]   = 4.6783857047557831e-02
+  expected_result[2, 2, Float32, VerticalDirection]   = 4.0663424879312515e-03
+  expected_result[2, 3, Float32, VerticalDirection]   = 5.3196803492028266e-05
+  expected_result[3, 1, Float32, EveryDirection]      = 9.6252141520380974e-03
+  expected_result[3, 2, Float32, EveryDirection]      = 6.0162233421579003e-04
+  expected_result[3, 3, Float32, EveryDirection]      = 4.0522103518014774e-05
+  expected_result[3, 1, Float32, HorizontalDirection] = 1.7475549131631851e-02
+  expected_result[3, 2, Float32, HorizontalDirection] = 1.2503013713285327e-03
+  expected_result[3, 3, Float32, HorizontalDirection] = 7.0818001404404640e-05
+  expected_result[3, 1, Float32, VerticalDirection]   = 6.6162362694740295e-02
+  expected_result[3, 2, Float32, VerticalDirection]   = 5.7506239973008633e-03
+  expected_result[3, 3, Float32, VerticalDirection]   = 8.6561900388915092e-05
 
   @testset "$(@__FILE__)" begin
     for FT in (Float64, Float32)
