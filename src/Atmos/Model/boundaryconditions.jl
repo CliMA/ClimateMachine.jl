@@ -76,13 +76,17 @@ Set the momentum at the boundary to be zero.
 struct NoFluxBC <: BoundaryCondition
 end
 
-function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
                                bc::NoFluxBC, m::AtmosModel, stateP::Vars,
                                auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
                                t, _...)
   FT = eltype(stateM)
   stateP.ρ = stateM.ρ
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+  if typeof(nf) == Rusanov
+    stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+  else
+    stateP.ρu -=  dot(stateM.ρu, nM) * SVector(nM)
+  end
 end
 
 function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
@@ -91,7 +95,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
                                auxM::Vars, bctype, t, _...)
   FT = eltype(stateM)
   stateP.ρ = stateM.ρ
-  stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+  stateP.ρu -= dot(stateM.ρu, nM) * SVector(nM)
   
   fill!(getfield(diffP, :array), FT(0))
 end
@@ -130,7 +134,7 @@ struct DYCOMS_BC{FT} <: BoundaryCondition
   LHF::FT
   SHF::FT
 end
-function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
                                bc::DYCOMS_BC, m::AtmosModel, stateP::Vars,
                                auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
                                t, state1::Vars, aux1::Vars)
@@ -145,12 +149,13 @@ function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
   QTM = stateM.moisture.ρq_tot
   uM, vM, wM  = UM/ρM, VM/ρM, WM/ρM
   q_totM = QTM/ρM
-  UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
 
   # Assign reflection wall boundaries (top wall)
-  stateP.ρu = SVector(UM - 2 * nM[1] * UnM,
-                      VM - 2 * nM[2] * UnM,
-                      WM - 2 * nM[3] * UnM)
+  if typeof(nf) == Rusanov
+    stateP.ρu -= 2dot(stateM.ρu, nM) * SVector(nM)
+  else
+    stateP.ρu -= dot(stateM.ρu, nM) * SVector(nM)
+  end
 
   # Assign scalar values at the boundaries
   stateP.ρ = ρM
@@ -262,16 +267,19 @@ struct RayleighBenardBC{FT} <: BoundaryCondition
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
                                bc::RayleighBenardBC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t,_...)
   # Dry Rayleigh Benard Convection
   @inbounds begin
     FT = eltype(stateP)
-    ρP = stateM.ρ
-    stateP.ρ = ρP
-    stateP.ρu = SVector{3,FT}(0,0,0)
+    stateP.ρ = ρP = stateM.ρ
+    if typeof(nf) == Rusanov
+      stateP.ρu = -stateM.ρu
+    else
+      stateP.ρu = SVector{3,FT}(0,0,0)
+    end
     if bctype == 1
       E_intP = ρP * cv_d * (bc.T_bot - T_0)
     else
