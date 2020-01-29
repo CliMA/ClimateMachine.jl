@@ -48,7 +48,7 @@ using StaticArrays, LinearAlgebra, Random
     @test norm(A * x - b) <= 100eps(T)
 
     newtol = 1000tol
-    setrtolerance!(linearsolver, newtol)
+    settolerance!(linearsolver, newtol)
 
     x = @MVector rand(T, n)
     x0 = copy(x)
@@ -64,8 +64,8 @@ end
   n = 1000
 
   methods = (
-             (b, tol) -> GeneralizedMinimalResidual(b, M=15, rtol=tol),
-             (b, tol) -> GeneralizedMinimalResidual(b, M=20, rtol=tol)
+             (b, tol) -> GeneralizedMinimalResidual(b; M=15, rtol=tol),
+             (b, tol) -> GeneralizedMinimalResidual(b; M=20, rtol=tol)
             )
 
   expected_iters = (
@@ -93,7 +93,7 @@ end
       @test norm(A * x - b) / norm(A * x0 - b) <= tol
 
       newtol = 1000tol
-      setrtolerance!(linearsolver, newtol)
+      settolerance!(linearsolver, newtol)
 
       x = rand(T, n)
       x0 = copy(x)

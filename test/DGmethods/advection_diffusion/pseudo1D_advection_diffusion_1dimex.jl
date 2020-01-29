@@ -9,7 +9,6 @@ using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 import CLIMA.MPIStateArrays: realview
 using CLIMA.LinearSolvers
-using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.ColumnwiseGMRESSolver
 using CLIMA.ColumnwiseLUSolver: SingleColumnLU, ManyColumnLU, banded_matrix,
                                 banded_matrix_vector_product!

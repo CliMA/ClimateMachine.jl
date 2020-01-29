@@ -15,7 +15,7 @@ LinearAlgebra.norm(A::AbstractVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::AbstractVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::AbstractVector, B::AbstractVector, weighted) = dot(A, B)
 
-export linearsolve!, setrtolerance!, prefactorize
+export linearsolve!, settolerance!, prefactorize
 export AbstractLinearSolver, AbstractIterativeLinearSolver
 
 """

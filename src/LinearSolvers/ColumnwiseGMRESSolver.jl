@@ -15,36 +15,39 @@ abstract type AbstractColumnGMRESSolver{M} <: LS.AbstractIterativeLinearSolver e
 
 """
 
-    StackGMRES(M, nhorzelem, Q::AT, tolerance) where AT
+    StackGMRES(Q::AT; M, rtol, atol, nhorzelem) where AT
 
 This solver performs the matrix-free generalised minimal residual method for
 nodal columns residing in the same stack of elements. The stack-global
 convergence criterion requires convergence in all nodal columns.
 """
-struct StackGMRES{M, N, MP1, MMP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
+mutable struct StackGMRES{M, N, MP1, T, I, AT} <: AbstractColumnGMRESSolver{M}
   krylov_basis::NTuple{MP1, AT}
   "Hessenberg matrix"
-  H::NTuple{N, MArray{Tuple{MP1, M}, T, 2, MMP1}}
+  H::Vector{Matrix{T}}
   "rhs of the least squares problem"
-  g0::NTuple{N, MArray{Tuple{MP1, 1}, T, 2, MP1}}
+  g0::Vector{Vector{T}}
   "Number of iterations until stop condition reached"
-  stop_iter::MArray{Tuple{N}, I, 1, N}
-  tolerances::MArray{Tuple{2}, T, 1, 2}
+  stop_iter::Vector{I}
+  "Abolute tolerance"
+  atol::T
+  "Relative tolerance"
+  rtol::T
 
-  function StackGMRES{M,N,MP1,MMP1}(Q::AT, rtol, atol) where {M,N,MP1,MMP1,AT<:AbstractArray}
-    krylov_basis = ntuple(i -> similar(Q), MP1)
-    H  = ntuple(x -> (@MArray zeros(MP1, M)), N)
-    g0 = ntuple(x -> (@MArray zeros(MP1)), N)
-    stop_iter = @MArray fill(-1, N)
+  function StackGMRES{M,N}(Q::AT, rtol, atol) where {M,N,AT<:AbstractArray}
+    krylov_basis = ntuple(i -> similar(Q), M+1)
+    H  = [zeros(M+1, M) for i in 1:N]
+    g0 = [zeros(M+1) for i in 1:N]
+    stop_iter = fill(-1, N)
 
-    new{M, N, M + 1, M * (M + 1), eltype(Q), Int64, AT}(
-        krylov_basis, H, g0, stop_iter, (rtol, atol))
+    new{M, N, M+1, eltype(Q), Int64, AT}(
+        krylov_basis, H, g0, stop_iter, rtol, atol)
   end
 end
 
 @inline function StackGMRES(Q::AT; rtol=√eps(eltype(AT)), atol=eps(eltype(AT)),
                             M=min(20, length(Q)), nhorzelem::Int64=1) where {AT<:AbstractArray}
-  StackGMRES{M, nhorzelem, M+1, M*(M+1)}(Q, rtol, atol)
+  StackGMRES{M, nhorzelem}(Q, rtol, atol)
 end
 
 const weighted = false
@@ -53,6 +56,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
                         solver::StackGMRES{M, nhorzelem}, args...) where {M, nhorzelem}
     ss = length(Q) ÷ nhorzelem
     krylov_basis = solver.krylov_basis
+    rtol, atol = solver.rtol, solver.atol
     FT = eltype(Q)
 
     @assert size(Q) == size(krylov_basis[1])
@@ -62,7 +66,6 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     krylov_basis[1] .*= -1
     krylov_basis[1] .+= Qrhs
 
-    rtol, atol = solver.tolerances
     converged = true
 
     threshold = rtol * norm(krylov_basis[1], weighted)
