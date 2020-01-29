@@ -27,6 +27,7 @@ Base.@kwdef mutable struct CLIMA_Settings
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
+    log_level::String = "INFO"
     output_dir::String = "output"
     integration_testing::Bool = false
     array_type
@@ -74,7 +75,8 @@ end
     parse_commandline()
 """
 function parse_commandline()
-    s = ArgParseSettings()
+    exc_handler = isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
+    s = ArgParseSettings(exc_handler=exc_handler)
 
     @add_arg_table s begin
         "--disable-gpu"
@@ -137,17 +139,22 @@ function init(; disable_gpu=false)
     tictoc()
 
     # parse command line arguments
-    parsed_args = parse_commandline()
-    Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
-    Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
-    Settings.show_updates = !parsed_args["no-show-updates"]
-    Settings.update_interval = parsed_args["update-interval"]
-    Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
-    Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
-    Settings.enable_vtk = parsed_args["enable-vtk"]
-    Settings.vtk_interval = parsed_args["vtk-interval"]
-    Settings.output_dir = parsed_args["output-dir"]
-    Settings.integration_testing = parsed_args["integration-testing"]
+    try
+        parsed_args = parse_commandline()
+        Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
+        Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
+        Settings.show_updates = !parsed_args["no-show-updates"]
+        Settings.update_interval = parsed_args["update-interval"]
+        Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
+        Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
+        Settings.enable_vtk = parsed_args["enable-vtk"]
+        Settings.vtk_interval = parsed_args["vtk-interval"]
+        Settings.output_dir = parsed_args["output-dir"]
+        Settings.integration_testing = parsed_args["integration-testing"]
+        Settings.log_level = uppercase(parsed_args["log-level"])
+    catch
+        Settings.disable_gpu = disable_gpu
+    end
 
     # set up the array type appropriately depending on whether we're using GPUs
     if !Settings.disable_gpu && get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
@@ -158,21 +165,20 @@ function init(; disable_gpu=false)
     _init_array(atyp)
     Settings.array_type = atyp
 
+    # create the output directory if needed
     if Settings.enable_diagnostics || Settings.enable_vtk
         mkpath(Settings.output_dir)
     end
-    ll = uppercase(parsed_args["log-level"])
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-        ll == "WARN"  ? Logging.Warn  :
-        ll == "ERROR" ? Logging.Error : Logging.Info
 
-    # TODO: write a better MPI logging back-end and also integrate Dlog for large scale
     # set up logging
+    loglevel = Settings.log_level == "DEBUG" ? Logging.Debug :
+        Settings.log_level == "WARN"  ? Logging.Warn  :
+        Settings.log_level == "ERROR" ? Logging.Error : Logging.Info
+    # TODO: write a better MPI logging back-end and also integrate Dlog for large scale
     logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
-    # FIXME
-    return parsed_args
+    return nothing
 end
 
 """
