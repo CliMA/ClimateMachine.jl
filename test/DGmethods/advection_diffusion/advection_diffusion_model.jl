@@ -150,10 +150,13 @@ function init_state!(m::AdvectionDiffusion, state::Vars, aux::Vars,
   initial_condition!(m.problem, state, aux, coords, t)
 end
 
+Neumann_data!(problem, ∇state, aux, x, t) = nothing
+Dirichlet_data!(problem, state, aux, x, t) = nothing
+
 function boundary_state!(nf, m::AdvectionDiffusion, stateP::Vars, auxP::Vars,
                          nM, stateM::Vars, auxM::Vars, bctype, t, _...)
   if bctype == 1 # Dirichlet
-    boundary_state_Dirichlet!(nf, m, stateP, auxP, nM, stateM, auxM, t)
+    Dirichlet_data!(m.problem, stateP, auxP, auxP.coord, t)
   elseif bctype ∈ (2, 4) # Neumann
     stateP.ρ = stateM.ρ
   elseif bctype == 3 # zero Dirichlet
@@ -177,7 +180,7 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
     ngrad = num_gradient(m, FT)
     ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
     # Get analytic gradient
-    ∇initial_condition!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+    Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
     diffusive!(m, diff⁺, ∇state, aux⁻)
     # compute the diffusive flux using the boundary state
   elseif bctype == 4 # zero Neumann
@@ -209,7 +212,7 @@ function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     ngrad = num_gradient(m, FT)
     ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
     # Get analytic gradient
-    ∇initial_condition!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+    Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
     # get the diffusion coefficient
     D = aux⁻.D
     # exact the exact data
@@ -222,18 +225,3 @@ function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   end
   nothing
 end
-
-###
-### Dirchlet Boundary Condition
-###
-function boundary_state_Dirichlet!(::Union{NumericalFluxNonDiffusive,
-                                           NumericalFluxGradient},
-                                   m::AdvectionDiffusion,
-                                   stateP, auxP, nM, stateM, auxM, t)
-  # Set the plus side to the exact boundary data
-  init_state!(m, stateP, auxP, auxP.coord, t)
-end
-
-# Do nothing in this case since the plus-side is the minus side
-boundary_state_Dirichlet!(::NumericalFluxDiffusive, ::AdvectionDiffusion,
-                          _...) = nothing
