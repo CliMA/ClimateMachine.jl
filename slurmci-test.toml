@@ -5,6 +5,7 @@
 cpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 cpu_gpu = [
@@ -45,6 +46,7 @@ cpu_gpu = [
 gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   # this test times out; re-enable after fixing
   #{ file = "test/DGmethods/compressible_Navier_Stokes/rayleigh-benard_model.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/Atmos/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
