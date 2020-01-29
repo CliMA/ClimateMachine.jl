@@ -10,8 +10,7 @@ import CLIMA.DGmethods: BalanceLaw,
 using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        NumericalFluxDiffusive,
                                        NumericalFluxGradient
-import CLIMA.DGmethods.NumericalFluxes: numerical_boundary_flux_diffusive!,
-                                        boundary_flux_diffusive!
+import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 abstract type AdvectionDiffusionProblem end
 struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
