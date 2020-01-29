@@ -49,15 +49,19 @@ $(DocStringExtensions.FIELDS)
 """
 struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
   "Dynamic Viscosity [kg/m/s]"
-  ρν::FT
+  ρν::SVector{3,FT}
 end
 function dynamic_viscosity_tensor(m::ConstantViscosityWithDivergence, S, 
   state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
-  return m.ρν
+  k̂ = aux.orientation.∇Φ / norm(aux.orientation.∇Φ)
+  μ  = m.ρν
+  μ_horz = cross(k̂,cross(μ,k̂))
+  μ_vert = dot(k̂, μ) * k̂
+  return (SDiagonal(μ_horz), SDiagonal(μ_vert))
 end
 function scaled_momentum_flux_tensor(m::ConstantViscosityWithDivergence, ρν, S)
   @inbounds trS = tr(S)
-  return (-2*ρν) * S + (2*ρν/3)*trS * I
+  return (-2*ρν[1]) * S + (2*ρν[1]/3)*trS * I+ (-2*ρν[2]) * S + (2*ρν[2]/3)*trS * I
 end
 
 """
