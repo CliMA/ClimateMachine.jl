@@ -16,7 +16,6 @@ end
 # PARAM SELECTION #
 ###################
 const FT = Float64
-const ArrayType = CLIMA.array_type()
 
 const τₒ = 2e-4 # value includes τₒ, g, and ρ
 const fₒ = 1e-4
@@ -153,6 +152,7 @@ end
 
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))

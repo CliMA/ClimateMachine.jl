@@ -9,10 +9,10 @@ using CLIMA.LinearSolvers
 using CLIMA.ColumnwiseLUSolver: band_lu_knl!, band_forward_knl!,
                                 band_back_knl!
 
-const ArrayType = CLIMA.array_type()
-const device = ArrayType == Array ? CPU() : CUDA()
 
 CLIMA.init()
+const ArrayType = CLIMA.array_type()
+const device = ArrayType == Array ? CPU() : CUDA()
 
 function band_to_full(B, p, q)
   _, n = size(B)

@@ -15,8 +15,6 @@ using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
-const ArrayType = CLIMA.array_type()
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -71,7 +69,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(mpicomm, dim, topl, N, timeend, FT, direction, dt,
+function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, direction, dt,
              n, α, β, μ, δ, vtkdir, outputtime)
 
   grid = DiscontinuousSpectralElementGrid(topl,
@@ -152,6 +150,8 @@ end
 using Test
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -217,7 +217,7 @@ let
 
 
     for FT in (Float64, Float32)
-      numlevels = integration_testing || CLIMA.IntegrationTesting ? (FT == Float64 ? 4 : 3) : 1
+      numlevels = integration_testing || CLIMA.Settings.integration_testing ? (FT == Float64 ? 4 : 3) : 1
       result = zeros(FT, numlevels)
       for dim = 2:3
         for direction in (EveryDirection, HorizontalDirection,
@@ -254,7 +254,7 @@ let
                               "_poly$(polynomialorder)" *
                               "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
                               "_level$(l)" : nothing
-            result[l] = run(mpicomm, dim, topl, polynomialorder,
+            result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
                             timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
                             outputtime)
             @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
