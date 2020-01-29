@@ -293,7 +293,7 @@ function invoke!(solver_config::SolverConfiguration;
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(DiagnosticsInterval) do (init=false)
             sim_time_str = string(ODESolvers.gettime(solver))
             gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                               OutputDir, ODESolvers.gettime(lsrk))
+                               OutputDir, ODESolvers.gettime(solver))
             nothing
         end
         callbacks = (callbacks..., cbdiagnostics)
