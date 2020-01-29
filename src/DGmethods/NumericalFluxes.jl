@@ -227,12 +227,23 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   Fᵀn .+= (F⁻ + F⁺)' * (n⁻/2)
 end
 
-function numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     bl::BalanceLaw, fluxᵀn::Vars{S}, n⁻::SVector,
     state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
     state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A},
     bctype, t,
-    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A}
+    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A} =
+  normal_boundary_flux_diffusive!(nf, bl, fluxᵀn, n⁻, state⁻, diff⁻, aux⁻,
+                                  state⁺, diff⁺, aux⁺,
+                                  bctype, t,
+                                  state1⁻, diff1⁻, aux1⁻)
+
+function normal_boundary_flux_diffusive!(nf,
+                                         bl::BalanceLaw, fluxᵀn::Vars{S}, n⁻,
+                                         state⁻, diff⁻, aux⁻,
+                                         state⁺, diff⁺, aux⁺,
+                                         bctype, t,
+                                         state1⁻, diff1⁻, aux1⁻) where {S}
 
   FT = eltype(fluxᵀn)
   nstate = num_state(bl,FT)
