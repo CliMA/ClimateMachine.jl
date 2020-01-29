@@ -13,9 +13,9 @@ function atmos_nodal_update_aux!(::MoistureModel, m::AtmosModel, state::Vars,
 end
 function flux_moisture!(::MoistureModel, ::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
 end
-function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t, ρD_t)
+function diffusive!(::MoistureModel, diffusive, ∇transform, state, aux, t)
 end
-function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux_diffusive!(::MoistureModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real, D_t)
 end
 function flux_nondiffusive!(::MoistureModel, flux::Grad, state::Vars, aux::Vars, t::Real)
 end
@@ -68,7 +68,7 @@ Base.@kwdef struct EquilMoist <: MoistureModel
 end
 vars_state(::EquilMoist,FT) = @vars(ρq_tot::FT)
 vars_gradient(::EquilMoist,FT) = @vars(q_tot::FT, h_tot::FT)
-vars_diffusive(::EquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_h_tot::SVector{3,FT})
+vars_diffusive(::EquilMoist,FT) = @vars(∇q_tot::SVector{3,FT})
 vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
@@ -92,9 +92,9 @@ function gradvariables!(moist::EquilMoist, transform::Vars, state::Vars, aux::Va
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
 end
 
-function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)
+function diffusive!(moist::EquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   # diffusive flux of q_tot
-  diffusive.moisture.ρd_q_tot = (-ρD_t) .* ∇transform.moisture.q_tot
+  diffusive.moisture.∇q_tot = ∇transform.moisture.q_tot
 end
 
 function flux_moisture!(moist::EquilMoist, atmos::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
@@ -107,9 +107,13 @@ function flux_moisture!(moist::EquilMoist, atmos::AtmosModel, flux::Grad, state:
   flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
 end
 
-function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  u = state.ρu / state.ρ
-  flux.ρ += diffusive.moisture.ρd_q_tot
-  flux.ρu += diffusive.moisture.ρd_q_tot .* u'
-  flux.moisture.ρq_tot += diffusive.moisture.ρd_q_tot
+function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real, D_t)
+  d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+  flux_diffusive!(moist, flux, state, d_q_tot)
+end
+#TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
+function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, d_q_tot)
+  flux.ρ += d_q_tot * state.ρ
+  flux.ρu += d_q_tot .* state.ρu'
+  flux.moisture.ρq_tot += d_q_tot * state.ρ
 end

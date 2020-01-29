@@ -110,6 +110,7 @@ function run(mpicomm,
                      NoReferenceState(),
                      AnisoMinDiss{FT}(1),
                      EquilMoist(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      Gravity(), NoFluxBC(), Initialise_Density_Current!)
@@ -118,7 +119,7 @@ function run(mpicomm,
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
 

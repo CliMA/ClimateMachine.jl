@@ -1,5 +1,5 @@
-using .NumericalFluxes: GradNumericalPenalty, diffusive_boundary_penalty!,
-                        diffusive_penalty!,
+using .NumericalFluxes: NumericalFluxGradient, numerical_boundary_flux_gradient!,
+                        numerical_flux_gradient!,
                         NumericalFluxNonDiffusive, NumericalFluxDiffusive,
                         numerical_flux_nondiffusive!,
                         numerical_boundary_flux_nondiffusive!,
@@ -816,7 +816,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                        ::direction, gradnumpenalty::GradNumericalPenalty, Q,
+                        ::direction, gradnumflux::NumericalFluxGradient, Q,
                         Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
@@ -854,12 +854,15 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   l_QM = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
   l_GM = MArray{Tuple{ngradstate}, FT}(undef)
+  l_nGM = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   l_QP = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
   l_GP = MArray{Tuple{ngradstate}, FT}(undef)
 
+  # FIXME Qvisc is sort of a terrible name...
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+  l_QMvisc = MArray{Tuple{nviscstate}, FT}(undef)
 
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
   l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
@@ -905,11 +908,15 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
-          diffusive_penalty!(gradnumpenalty, bl,
-            Vars{vars_diffusive(bl,FT)}(l_Qvisc), SVector(nM),
-            Vars{vars_gradient(bl,FT)}(l_GM), Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
-            Vars{vars_gradient(bl,FT)}(l_GP), Vars{vars_state(bl,FT)}(l_QP), Vars{vars_aux(bl,FT)}(l_auxP),
-            t)
+          numerical_flux_gradient!(gradnumflux, bl,
+                                   Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                                   SVector(nM),
+                                   Vars{vars_gradient(bl,FT)}(l_GM),
+                                   Vars{vars_state(bl,FT)}(l_QM),
+                                   Vars{vars_aux(bl,FT)}(l_auxM),
+                                   Vars{vars_gradient(bl,FT)}(l_GP),
+                                   Vars{vars_state(bl,FT)}(l_QP),
+                                   Vars{vars_aux(bl,FT)}(l_auxP), t)
         else
           if (dim == 2 && f == 3) || (dim == 3 && f == 5)
             # Loop up the first element along all horizontal elements
@@ -920,15 +927,33 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          diffusive_boundary_penalty!(gradnumpenalty, bl,
-            Vars{vars_diffusive(bl,FT)}(l_Qvisc), SVector(nM),
-            Vars{vars_gradient(bl,FT)}(l_GM), Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
-            Vars{vars_gradient(bl,FT)}(l_GP), Vars{vars_state(bl,FT)}(l_QP), Vars{vars_aux(bl,FT)}(l_auxP),
-            bctype, t, Vars{vars_state(bl,FT)}(l_Q_bot1), Vars{vars_aux(bl,FT)}(l_aux_bot1))
+          numerical_boundary_flux_gradient!(gradnumflux, bl,
+                                            Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                                            SVector(nM),
+                                            Vars{vars_gradient(bl,FT)}(l_GM),
+                                            Vars{vars_state(bl,FT)}(l_QM),
+                                            Vars{vars_aux(bl,FT)}(l_auxM),
+                                            Vars{vars_gradient(bl,FT)}(l_GP),
+                                            Vars{vars_state(bl,FT)}(l_QP),
+                                            Vars{vars_aux(bl,FT)}(l_auxP),
+                                            bctype, t,
+                                            Vars{vars_state(bl,FT)}(l_Q_bot1),
+                                            Vars{vars_aux(bl,FT)}(l_aux_bot1))
         end
 
+        @unroll for j = 1:ngradstate
+          @unroll for i = 1:3
+            l_nGM[i, j] = nM[i] * l_GM[j]
+          end
+        end
+        diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_QMvisc),
+                   Grad{vars_gradient(bl,FT)}(l_nGM),
+                   Vars{vars_state(bl,FT)}(l_QM),
+                   Vars{vars_aux(bl,FT)}(l_auxM), t)
+
+
         @unroll for s = 1:nviscstate
-          Qvisc[vidM, s, eM] += vMI * sM * l_Qvisc[s]
+          Qvisc[vidM, s, eM] += vMI * sM * (l_Qvisc[s] - l_QMvisc[s])
         end
       end
       # Need to wait after even faces to avoid race conditions

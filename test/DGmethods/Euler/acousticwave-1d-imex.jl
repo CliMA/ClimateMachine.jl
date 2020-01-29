@@ -3,7 +3,7 @@ using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state, VerticalDirection
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.AdditiveRungeKuttaMethod
@@ -14,7 +14,7 @@ using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
 using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
 using CLIMA.Atmos: AtmosModel, SphericalOrientation,
-                   DryModel, NoRadiation, NoSubsidence, NoFluxBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, NoFluxBC,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, HydrostaticState, IsothermalProfile,
@@ -76,6 +76,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      Gravity(),
@@ -84,10 +85,11 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
   linearmodel = AtmosAcousticGravityLinearModel(model)
 
   dg = DGModel(model, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty())
+               CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
 
   lineardg = DGModel(linearmodel, grid, Rusanov(),
-                     CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                     CentralNumericalFluxDiffusive(),
+                     CentralNumericalFluxGradient();
                      direction=VerticalDirection(),
                      auxstate=dg.auxstate)
 

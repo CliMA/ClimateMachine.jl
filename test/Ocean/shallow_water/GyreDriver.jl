@@ -100,7 +100,7 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q  = init_ode_state(dg, FT(0))
   Qe = init_ode_state(dg, FT(timeend))
