@@ -79,6 +79,8 @@ num_thermo(FT) = varsize(vars_thermo(FT))
 thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
 
 function compute_thermo!(FT, bl, state, k, ijk, ev, e, z, zvals, thermoQ, aux)
+    zvals[k,ev] = z
+
     e_tot = state.ρe / state.ρ
     ts = thermo_state(bl.moisture, bl.orientation, state, aux)
     e_int = internal_energy(ts)
