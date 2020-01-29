@@ -9,7 +9,7 @@ using Logging
 using Printf
 using LinearAlgebra
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.Courant
 using CLIMA.PlanetParameters: kappa_d
@@ -20,6 +20,7 @@ using CLIMA.Atmos: AtmosModel,
                    DryModel, NoRadiation, NoSubsidence, PeriodicBC,
                    Gravity, HydrostaticState, IsothermalProfile,
                    ConstantViscosityWithDivergence, vars_state, soundspeed
+using CLIMA.Atmos
 using CLIMA.ODESolvers
 using CLIMA.LowStorageRungeKuttaMethod
 const ArrayType = CLIMA.array_type()
@@ -109,6 +110,7 @@ let
                            NoReferenceState(),
                            ConstantViscosityWithDivergence(SVector{3,FT}(2,2,1)),
                            DryModel(),
+			   NoPrecipitation(),
                            NoRadiation(),
                            NoSubsidence{FT}(),
                            Gravity(),
@@ -116,7 +118,7 @@ let
                            initialcondition!)
 
         dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
-                     CentralGradPenalty())
+                     CentralNumericalFluxGradient())
 
         Δt = FT(1e-11)#FT(1//2)
 

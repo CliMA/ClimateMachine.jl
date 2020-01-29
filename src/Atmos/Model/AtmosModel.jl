@@ -174,7 +174,7 @@ end
 
 @inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
-  ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
+  ν, τ, sdiff = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
   D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
   d_h_tot = -D_t .* diffusive.∇h_tot
   flux_diffusive!(atmos, flux, state, τ, d_h_tot)
