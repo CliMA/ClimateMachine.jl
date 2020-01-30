@@ -4,6 +4,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: StackedBrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.Mesh.Geometry
+using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive,
@@ -39,7 +40,7 @@ const (zmin,zmax)     = (0,L*π)
 const Ne              = (10,10,10)
 const polynomialorder = 4
 const dim             = 3
-const dt              = 0.005
+const dt              = 0.01
 
 Base.@kwdef struct TaylorGreenVortexSetup{FT}
   M₀::FT    = 0.1
@@ -88,8 +89,7 @@ function run(mpicomm, setup,
   # -------------- Define model ---------------------------------- #
   model = AtmosModel(NoOrientation(),
                      NoReferenceState(),
-                     #Vreman{FT}(C_smag),
-                     ConstantViscosityWithDivergence{FT}(1.0e-7),
+                     ConstantViscosityWithDivergence{FT}(0.0),
                      DryModel(),
                      NoPrecipitation(),
                      NoRadiation(),
@@ -109,6 +109,14 @@ function run(mpicomm, setup,
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
+  # Filter needed for stabilization
+  filterorder = 32
+  filter = ExponentialFilter(grid, 0, filterorder)
+  cbfilter = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
+    Filters.apply!(Q, 1:size(Q, 2), grid, filter)
+    nothing
+  end
+
   eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e
@@ -122,14 +130,20 @@ function run(mpicomm, setup,
       starttime[] = now()
     else
       energy = norm(Q)
+      ρu₁ = Array(Q[:, 2, :])
+      ρu₂ = Array(Q[:, 3, :])
+      ρu₃ = Array(Q[:, 4, :])
+      ρᵣ  = Array(Q[:, 1, :])
+      ke  = @views sum((ρu₁ .^ 2 + ρu₂ .^ 2 + ρu₃ .^ 2) ./ (2 * ρᵣ))
       @info @sprintf("""Update
-                     simtime = %.16e
-                     runtime = %s
-                     norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
+                     simtime        = %.16e
+                     runtime        = %s
+                     norm(Q)        = %.16e
+                     kinetic energy = %.16e""", ODESolvers.gettime(lsrk),
                      Dates.format(convert(Dates.DateTime,
                                           Dates.now()-starttime[]),
                                   Dates.dateformat"HH:MM:SS"),
-                     energy)
+                     energy, ke)
     end
   end
 
@@ -147,7 +161,7 @@ function run(mpicomm, setup,
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
   end
 
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk,cbfilter))
   # End of the simulation information
   engf = norm(Q)
   Qe = init_ode_state(dg, FT(timeend))
