@@ -3,8 +3,8 @@ using Test, MPI
 using CLIMA
 using CLIMA.MPIStateArrays
 
-const ArrayType = CLIMA.array_type()
 CLIMA.init()
+const ArrayType = CLIMA.array_type()
 const mpicomm = MPI.COMM_WORLD
 
 @testset "MPIStateArray basics" begin

@@ -8,9 +8,6 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const ArrayType = CLIMA.array_type()
-
-
 function init_test!(state, aux, (x,y,z), t)
     FT = eltype(state)
 

@@ -17,8 +17,6 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
-const ArrayType = CLIMA.array_type()
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -33,7 +31,7 @@ init_state!(state, aux, coords, t) = nothing
 # initial condition
 using CLIMA.Atmos: vars_aux
 
-function run1(mpicomm, dim, topl, N, timeend, FT, dt)
+function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -68,7 +66,7 @@ function run1(mpicomm, dim, topl, N, timeend, FT, dt)
   return FT(0)
 end
 
-function run2(mpicomm, dim, topl, N, timeend, FT, dt)
+function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -106,6 +104,8 @@ end
 using Test
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -140,9 +140,9 @@ for FT in (Float64,) #Float32)
     dt = timeend / nsteps
 
     @info (ArrayType, FT, dim)
-    result[l] = run1(mpicomm, dim, topl,
+    result[l] = run1(mpicomm, ArrayType, dim, topl,
                     polynomialorder, timeend, FT, dt)
-    result[l] = run2(mpicomm, dim, topl,
+    result[l] = run2(mpicomm, ArrayType, dim, topl,
                     polynomialorder, timeend, FT, dt)
   end
   if integration_testing

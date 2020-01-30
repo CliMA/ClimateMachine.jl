@@ -22,8 +22,6 @@ using Logging
 using Printf
 using Dates
 
-const ArrayType = CLIMA.array_type()
-
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,
@@ -232,6 +230,8 @@ let
   tictoc()
   @tic dycoms
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))

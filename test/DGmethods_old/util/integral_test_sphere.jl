@@ -13,8 +13,6 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-const ArrayTypes = (CLIMA.array_type(),)
-
 const _nauxstate = 5
 const _a_r, _a_θ, _a_ϕ, _a_f, _a_fdown = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z, Rinner, Router)
@@ -74,6 +72,8 @@ end
 
 let
   CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
