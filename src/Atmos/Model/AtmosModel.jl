@@ -107,6 +107,7 @@ include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
 include("remainder.jl")
+include("vorticity.jl")
 
 """
     flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
