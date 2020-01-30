@@ -19,9 +19,7 @@ using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 
-const ArrayType = CLIMA.array_type()
-
-function run_test1(mpicomm, dim, Ne, N, FT)
+function run_test1(mpicomm, dim, Ne, N, FT, ArrayType)
   warpfun = (ξ1, ξ2, ξ3) -> begin
     x1 = ξ1 + (ξ1 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
     x2 = ξ2  + (ξ2 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
@@ -77,7 +75,7 @@ function run_test1(mpicomm, dim, Ne, N, FT)
   @test Err < 2e-15
 end
 
-function run_test2(mpicomm, dim, Ne, N, FT)
+function run_test2(mpicomm, dim, Ne, N, FT, ArrayType)
   warpfun = (ξ1, ξ2, ξ3) -> begin
     x1 = sin(2 * π * ξ3)/16 + ξ1
     x2 = ξ2  + (ξ2 - 1/2) * cos(2 * π * ξ2 * ξ3) / 4
@@ -135,7 +133,7 @@ function run_test2(mpicomm, dim, Ne, N, FT)
   @test 2e-15 > Err
 end
 
-function run_test3(mpicomm, dim, Ne, N, FT)
+function run_test3(mpicomm, dim, Ne, N, FT, ArrayType)
   base_Nhorz = 4
   base_Nvert = 2
   Rinner = 1 // 2
@@ -195,7 +193,7 @@ function run_test3(mpicomm, dim, Ne, N, FT)
 end
 
 # Test for 2D integral
-function run_test4(mpicomm, dim, Ne, N, FT)
+function run_test4(mpicomm, dim, Ne, N, FT, ArrayType)
   brickrange = ntuple(j->range(FT(0); length=Ne+1, stop=1), 2)
   topl = StackedBrickTopology(mpicomm, brickrange,
                               periodicity=ntuple(j->true, 2))
@@ -231,7 +229,7 @@ function run_test4(mpicomm, dim, Ne, N, FT)
   @test Err <= 1e-15
 end
 
-function run_test5(mpicomm, dim, Ne, N, FT)
+function run_test5(mpicomm, dim, Ne, N, FT, ArrayType)
   warpfun = (ξ1, ξ2, ξ3) -> begin
     x1 = cos(π * ξ2)/16 + abs(ξ1)
     x2 = ξ2
@@ -280,8 +278,9 @@ end
 
 let
   CLIMA.init()
-  mpicomm = MPI.COMM_WORLD
+  ArrayType = CLIMA.array_type()
 
+  mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
   ll == "WARN"  ? Logging.Warn  :
@@ -297,11 +296,11 @@ let
   @info (ArrayType, FT, dim)
 
   @testset "horizontal_integral" begin
-    run_test1(mpicomm, dim, Ne, polynomialorder, FT)
-    run_test2(mpicomm, dim, Ne, polynomialorder, FT)
-    run_test3(mpicomm, dim, Ne, polynomialorder, FT)
-    run_test4(mpicomm, dim, Ne, polynomialorder, FT)
-    run_test5(mpicomm, dim, Ne, polynomialorder, FT)
+    run_test1(mpicomm, dim, Ne, polynomialorder, FT, ArrayType)
+    run_test2(mpicomm, dim, Ne, polynomialorder, FT, ArrayType)
+    run_test3(mpicomm, dim, Ne, polynomialorder, FT, ArrayType)
+    run_test4(mpicomm, dim, Ne, polynomialorder, FT, ArrayType)
+    run_test5(mpicomm, dim, Ne, polynomialorder, FT, ArrayType)
   end
 end
 

@@ -32,8 +32,6 @@ using CLIMA.ColumnwiseLUSolver: SingleColumnLU, ManyColumnLU, banded_matrix,
                                 banded_matrix_vector_product!
 using CLIMA.DGmethods: EveryDirection, HorizontalDirection, VerticalDirection
 
-const ArrayType = CLIMA.array_type()
-
 const seed = MersenneTwister(0)
 
 function global_max(A::MPIStateArray, states=1:size(A, 2))
@@ -367,6 +365,8 @@ end
 
 function main()
     CLIMA.init()
+    ArrayType = CLIMA.array_type()
+
     mpicomm = MPI.COMM_WORLD
 
     ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))

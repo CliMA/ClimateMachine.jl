@@ -7,8 +7,6 @@ using Printf
 using LinearAlgebra
 using Logging
 
-const ArrayTypes = (CLIMA.array_type(),)
-
 @inline function auxiliary_state_initialization!(aux, x, y, z, dim)
   @inbounds begin
     if dim == 2
@@ -55,6 +53,8 @@ end
 
 let
   CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :

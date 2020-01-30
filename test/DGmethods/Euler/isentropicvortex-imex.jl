@@ -24,8 +24,6 @@ import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
-const ArrayType = CLIMA.array_type()
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -35,6 +33,8 @@ const output_vtk = false
 
 function main()
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -80,7 +80,7 @@ function main()
         for level in 1:numlevels
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
-            run(mpicomm, polynomialorder, numelems, setup, split_nonlinear_linear,
+            run(mpicomm, ArrayType, polynomialorder, numelems, setup, split_nonlinear_linear,
                 FT, dims, level)
 
           @test errors[level] ≈ expected_error[FT, split_nonlinear_linear, level]
@@ -94,7 +94,7 @@ function main()
   end
 end
 
-function run(mpicomm, polynomialorder, numelems, setup,
+function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
              split_nonlinear_linear, FT, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
