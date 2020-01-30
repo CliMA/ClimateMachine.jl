@@ -601,7 +601,7 @@ function facerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                          ::direction, Q, Qvisc, auxstate, vgeo, t, D,
+                          ::direction, Q, Qvisc, auxstate, vgeo, t, ω, D,
                           elems) where {dim, polyorder, direction}
   N = polyorder
 
@@ -618,7 +618,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   ngradtransformstate = nstate
 
   s_G = @shmem FT (Nq, Nq, Nqk, ngradstate)
-  s_D = @shmem FT (Nq, Nq)
+  s_DT = @shmem FT (Nq, Nq)
 
   l_Q = @scratch FT (ngradtransformstate, Nq, Nq, Nqk) 3
   l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
@@ -629,7 +629,11 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
       @loop for i in (1:Nq; threadIdx().x)
-        s_D[i, j] = D[i, j]
+        # We multiply by ω[j] / ω[i] in order to use the weak derivative but use
+        # metric terms as though we were using the strong derivative (so called
+        # "outside" metric terms), this is to avoid subtraction in the
+        # faceviscterms! function of F* - F⁻
+        s_DT[i, j] = D[j, i] * ω[j] / ω[i]
       end
     end
   end
@@ -674,12 +678,12 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           @unroll for s = 1:ngradstate
             Gξ1 = Gξ2 = Gξ3 = zero(FT)
             @unroll for n = 1:Nq
-              Gξ1 += s_D[i, n] * s_G[n, j, k, s]
+              Gξ1 -= s_DT[i, n] * s_G[n, j, k, s]
               if dim == 3 || (dim == 2 && direction == EveryDirection)
-                Gξ2 += s_D[j, n] * s_G[i, n, k, s]
+                Gξ2 -= s_DT[j, n] * s_G[i, n, k, s]
               end
               if dim == 3 && direction == EveryDirection
-                Gξ3 += s_D[k, n] * s_G[i, j, n, s]
+                Gξ3 -= s_DT[k, n] * s_G[i, j, n, s]
               end
             end
             l_gradG[1, s] = ξ1x1 * Gξ1
@@ -714,8 +718,8 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                          ::VerticalDirection, Q, Qvisc, auxstate, vgeo, t, D,
-                          elems) where {dim, polyorder}
+                          ::VerticalDirection, Q, Qvisc, auxstate, vgeo, t, ω,
+                          D, elems) where {dim, polyorder}
   N = polyorder
 
   FT = eltype(Q)
@@ -731,7 +735,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   ngradtransformstate = nstate
 
   s_G = @shmem FT (Nq, Nq, Nqk, ngradstate)
-  s_D = @shmem FT (Nq, Nq)
+  s_DT = @shmem FT (Nq, Nq)
 
   l_Q = @scratch FT (ngradtransformstate, Nq, Nq, Nqk) 3
   l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
@@ -746,7 +750,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
       @loop for i in (1:Nq; threadIdx().x)
-        s_D[i, j] = D[i, j]
+        s_DT[i, j] = D[j, i] * ω[j] / ω[i]
       end
     end
   end
@@ -789,9 +793,9 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             Gζ = zero(FT)
             @unroll for n = 1:Nq
               if dim == 2
-                Gζ += s_D[j, n] * s_G[i, n, k, s]
+                Gζ -= s_DT[j, n] * s_G[i, n, k, s]
               elseif dim == 3
-                Gζ += s_D[k, n] * s_G[i, j, n, s]
+                Gζ -= s_DT[k, n] * s_G[i, j, n, s]
               end
             end
             l_gradG[1, s] = ζx1 * Gζ
@@ -854,7 +858,6 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   l_QM = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
   l_GM = MArray{Tuple{ngradstate}, FT}(undef)
-  l_nGM = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   l_QP = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
@@ -862,7 +865,6 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
   # FIXME Qvisc is sort of a terrible name...
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
-  l_QMvisc = MArray{Tuple{nviscstate}, FT}(undef)
 
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
   l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
@@ -941,19 +943,8 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                                             Vars{vars_aux(bl,FT)}(l_aux_bot1))
         end
 
-        @unroll for j = 1:ngradstate
-          @unroll for i = 1:3
-            l_nGM[i, j] = nM[i] * l_GM[j]
-          end
-        end
-        diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_QMvisc),
-                   Grad{vars_gradient(bl,FT)}(l_nGM),
-                   Vars{vars_state(bl,FT)}(l_QM),
-                   Vars{vars_aux(bl,FT)}(l_auxM), t)
-
-
         @unroll for s = 1:nviscstate
-          Qvisc[vidM, s, eM] += vMI * sM * (l_Qvisc[s] - l_QMvisc[s])
+          Qvisc[vidM, s, eM] += vMI * sM * l_Qvisc[s]
         end
       end
       # Need to wait after even faces to avoid race conditions

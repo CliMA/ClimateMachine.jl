@@ -68,8 +68,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             volumeviscterms!(bl, Val(dim), Val(polyorder), dg.direction, Q.data,
-                             Qvisc.data, auxstate.data, vgeo, t, Dmat,
-                             topology.realelems))
+                             Qvisc.data, auxstate.data, vgeo, t, lgl_weights_vec,
+                             Dmat, topology.realelems))
 
     if communicate
       MPIStateArrays.finish_ghost_recv!(Q)
