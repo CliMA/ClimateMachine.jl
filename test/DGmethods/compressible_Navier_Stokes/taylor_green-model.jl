@@ -8,7 +8,8 @@ using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive,
-                                       CentralNumericalFluxGradient
+                                       CentralNumericalFluxGradient,
+                                       CentralNumericalFluxNonDiffusive
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.SubgridScaleParameters
@@ -109,6 +110,18 @@ function run(mpicomm, setup,
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
+
+  # Create vorticity model for diagnostics
+  vorticity_model = VorticityModel(model)
+  vorticity_dg    = DGModel(vorticity_model,
+                            grid,
+                            CentralNumericalFluxNonDiffusive(),
+                            CentralNumericalFluxDiffusive(),
+                            CentralNumericalFluxGradient();
+                            auxstate = Q)
+
+  ω = init_ode_state(vorticity_dg, FT(0))
+
   eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e
@@ -143,6 +156,8 @@ function run(mpicomm, setup,
   mkpath(vtkdir)
   vtkstep = 0
   do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
+  vorticity_dg(ω, ω, nothing, 0)
+  do_output(mpicomm, vtkdir, vtkstep, vorticity_dg, ω, vorticity_model)
 
   # setup the output callback
   outputtime = timeend
@@ -151,6 +166,8 @@ function run(mpicomm, setup,
   cbvtk = GenericCallbacks.EveryXSimulationSteps(stepsize) do
     vtkstep += 1
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
+    vorticity_dg(ω, ω, nothing, 0)
+    do_output(mpicomm, vtkdir, vtkstep, vorticity_dg, ω, vorticity_model)
   end
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk))

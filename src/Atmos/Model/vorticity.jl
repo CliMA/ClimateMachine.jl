@@ -45,6 +45,11 @@ end
 vars_gradient(m::VorticityModel, FT) = @vars()
 vars_diffusive(m::VorticityModel, FT) = @vars()
 vars_aux(m::VorticityModel, FT) = vars_state(m.atmos, FT)
+init_aux!(m::VorticityModel, aux::Vars, geom::LocalGeometry) = nothing
+
+function init_state!(m::VorticityModel, state::Vars, aux::Vars, coords, t, args...)
+  state.ω = SVector(NaN, NaN, NaN)
+end
 
 """
     flux_nondiffusive!(m::VorticityModel, flux::Grad, state::Vars, aux::Vars,
