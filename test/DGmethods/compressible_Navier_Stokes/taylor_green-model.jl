@@ -109,14 +109,6 @@ function run(mpicomm, setup,
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
-  # Filter needed for stabilization
-  filterorder = 18
-  filter = ExponentialFilter(grid, 0, filterorder)
-  cbfilter = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do
-    Filters.apply!(Q, 1:size(Q, 2), grid, filter)
-    nothing
-  end
-
   eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e
