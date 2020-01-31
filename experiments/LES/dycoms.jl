@@ -63,16 +63,16 @@ function init_dycoms!(state, aux, (x,y,z), t)
     u, v, w = ugeo, vgeo, FT(0)
 
     # Perturb initial state to break symmetry and trigger turbulent convection
-    #r1 = FT(rand(Uniform(-0.002, 0.002)))
-    #r2 = FT(rand(Uniform(-0.00001, 0.00001)))
-    #r3 = FT(rand(Uniform(-0.001, 0.001)))
-    #r4 = FT(rand(Uniform(-0.001, 0.001)))
-    #if z <= 400.0
-     #   θ_liq += r1 * θ_liq
-      #  q_tot += r2 * q_tot
-       # u     += r3 * u
-       # v     += r4 * v
-    #end
+    r1 = FT(rand(Uniform(-0.002, 0.002)))
+    r2 = FT(rand(Uniform(-0.00001, 0.00001)))
+    r3 = FT(rand(Uniform(-0.001, 0.001)))
+    r4 = FT(rand(Uniform(-0.001, 0.001)))
+    if z <= 400.0
+        θ_liq += r1 * θ_liq
+        q_tot += r2 * q_tot
+        u     += r3 * u
+        v     += r4 * v
+    end
 
     # Pressure
     H     = Rm_sfc * T_sfc / grav
