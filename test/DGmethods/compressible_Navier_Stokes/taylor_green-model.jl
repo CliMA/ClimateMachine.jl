@@ -154,6 +154,7 @@ function run(mpicomm, setup,
 
   vtkdir = "vtk_tgv"
   mkpath(vtkdir)
+  mkpath("vtk_tgv_omega")
   vtkstep = 0
   do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
   vorticity_dg(ω, ω, nothing, 0)
