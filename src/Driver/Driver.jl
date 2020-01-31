@@ -210,6 +210,7 @@ function setup_solver(t0::FT, timeend::FT,
                       init_args...;
                       forcecpu=false,
                       ode_solver_type=nothing,
+                      ode_dt=nothing,
                       Courant_number=0.4,
                       T=FT(290)
                      ) where {FT<:AbstractFloat}
@@ -230,7 +231,11 @@ function setup_solver(t0::FT, timeend::FT,
 
     if isa(solver_type, ExplicitSolverType)
 
-        dt = Courant_number * min_node_distance(dg.grid, VerticalDirection()) / soundspeed_air(T)
+        if ode_dt !== nothing
+            dt = ode_dt
+        else
+            dt = Courant_number * min_node_distance(dg.grid, VerticalDirection()) / soundspeed_air(T)
+        end
         numberofsteps = convert(Int64, cld(timeend, dt))
         dt = timeend / numberofsteps
 
@@ -238,7 +243,11 @@ function setup_solver(t0::FT, timeend::FT,
 
     else # solver_type === IMEXSolverType
 
-        dt = Courant_number * min_node_distance(dg.grid, HorizontalDirection()) / soundspeed_air(T)
+        if ode_dt !== nothing
+            dt = ode_dt
+        else
+            dt = Courant_number * min_node_distance(dg.grid, HorizontalDirection()) / soundspeed_air(T)
+        end
         numberofsteps = convert(Int64, cld(timeend, dt))
         dt = timeend / numberofsteps
 
