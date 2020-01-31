@@ -20,13 +20,13 @@ using ..PlanetParameters
 abstract type AbstractSolverType end
 struct ExplicitSolverType <: AbstractSolverType
     solver_method::Function
-    ExplicitSolverType(solver_method=LSRK54CarpenterKennedy) = new(solver_method)
+    ExplicitSolverType(;solver_method=LSRK54CarpenterKennedy) = new(solver_method)
 end
 struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     solver_method::Function
-    function IMEXSolverType(linear_model=AtmosAcousticGravityLinearModel,
+    function IMEXSolverType(;linear_model=AtmosAcousticGravityLinearModel,
                             linear_solver=SingleColumnLU,
                             solver_method=ARK2GiraldoKellyConstantinescu)
         new(linear_model, linear_solver, solver_method)

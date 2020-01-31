@@ -137,7 +137,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
 
     config = CLIMA.LES_Configuration("DYCOMS", N, resolution, xmax, ymax, zmax,
                                      init_dycoms!,
-                                     solver_type=CLIMA.ExplicitSolverType(LSRK144NiegemannDiehlBusch),
+                                     solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
                                      ref_state=ref_state,
                                      C_smag=C_smag,
                                      moisture=EquilMoist(5),
