@@ -23,7 +23,7 @@ Base.@kwdef mutable struct CLIMA_Settings
     mpi_knows_cuda::Bool = false
     show_updates::Bool = true
     update_interval::Int = 60
-    enable_diagnostics::Bool = false
+    enable_diagnostics::Bool = true
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
@@ -92,8 +92,8 @@ function parse_commandline()
             help = "interval in seconds for showing simulation updates"
             arg_type = Int
             default = 60
-        "--enable-diagnostics"
-            help = "output diagnostic variables to <output-dir>"
+        "--disable-diagnostics"
+            help = "disable the collection of diagnostics to <output-dir>"
             action = :store_true
         "--diagnostics-interval"
             help = "interval in simulation steps for gathering diagnostics"
@@ -145,7 +145,7 @@ function init(; disable_gpu=false)
         Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
         Settings.show_updates = !parsed_args["no-show-updates"]
         Settings.update_interval = parsed_args["update-interval"]
-        Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
+        Settings.enable_diagnostics = !parsed_args["disable-diagnostics"]
         Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
@@ -194,6 +194,7 @@ struct SolverConfiguration{FT}
     t0::FT
     timeend::FT
     dt::FT
+    forcecpu::Bool
     solver
 end
 
@@ -214,6 +215,7 @@ function setup_solver(t0::FT, timeend::FT,
     # create DG model, initialize ODE state
     dg = DGModel(driver_config.bl, driver_config.grid, driver_config.numfluxnondiff,
                  driver_config.numfluxdiff, driver_config.gradnumflux)
+    @info @sprintf("Initializing %s", driver_config.name)
     Q = init_ode_state(dg, FT(0), forcecpu=forcecpu)
 
     # if solver has been specified, use it
@@ -248,10 +250,8 @@ function setup_solver(t0::FT, timeend::FT,
 
     @toc setup_solver
 
-    @info "setup_solver" dt numberofsteps timeend
-
     return SolverConfiguration(driver_config.name, driver_config.mpicomm, dg, Q,
-                               t0, timeend, dt, solver)
+                               t0, timeend, dt, forcecpu, solver)
 end
 
 """
@@ -269,6 +269,7 @@ function invoke!(solver_config::SolverConfiguration;
     bl = dg.balancelaw
     Q = solver_config.Q
     timeend = solver_config.timeend
+    forcecpu = solver_config.forcecpu
     solver = solver_config.solver
 
     # set up callbacks
@@ -362,7 +363,7 @@ function invoke!(solver_config::SolverConfiguration;
                    engf-eng0)
 
     if check_euclidean_distance
-        Qe = init_ode_state(dg, timeend)
+        Qe = init_ode_state(dg, timeend, forcecpu=forcecpu)
         engfe = norm(Qe)
         errf = euclidean_distance(solver_config.Q, Qe)
         @info @sprintf("""Euclidean distance

@@ -182,10 +182,6 @@ function main()
     result = CLIMA.invoke!(solver_config;
                           user_callbacks=(cbtmarfilter,),
                           check_euclidean_distance=true)
-
-    @testset begin
-        @test result ≈ FT(0.9999734954176608)
-    end
 end
 
 main()
