@@ -165,7 +165,7 @@ function numerical_flux_nondiffusive!(::CentralNumericalFluxNonDiffusive,
   fill!(F⁺, -zero(FT))
   flux_nondiffusive!(bl, Grad{S}(F⁺), state⁺, aux⁺, t)
 
-  Fᵀn .+= (F⁻ + F⁺)' * (n/2)
+  Fᵀn .+= (F⁺ - F⁻)' * (n/2)
 end
 
 """
@@ -238,7 +238,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   fill!(F⁺, -zero(FT))
   flux_diffusive!(bl, Grad{S}(F⁺), state⁺, diff⁺, aux⁺, t)
 
-  Fᵀn .+= (F⁻ + F⁺)' * (n⁻/2)
+  Fᵀn .+= (F⁺ - F⁻)' * (n⁻/2)
 end
 
 function numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
