@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters
-export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
+export BoundaryCondition, PeriodicBC, NoFluxBC, InitStateBC
 
 function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                         bc,
@@ -49,7 +49,6 @@ function atmos_boundary_state!(nf::NumericalFluxDiffusive,
   atmos_boundary_state!(nf, bctup[bctype], m, stateP, diffP, auxP, nM, stateM,
                         diffM, auxM, bctype, t)
 end
-
 
 abstract type BoundaryCondition
 end
@@ -124,7 +123,8 @@ function atmos_boundary_state!(::NumericalFluxDiffusive, bc::InitStateBC,
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
 
-
+#=
+# XXX: ensure the changes below are reflected in the BCs that have been moved to the drivers.
 """
   DYCOMS_BC <: BoundaryCondition
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
@@ -279,3 +279,4 @@ function atmos_boundary_state!(::NumericalFluxDiffusive, bc::RayleighBenardBC,
     nothing
   end
 end
+=#
