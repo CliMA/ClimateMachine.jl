@@ -31,8 +31,6 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
-const ArrayTypes = (CLIMA.array_type(),)
-
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
@@ -223,6 +221,8 @@ end
 using Test
 let
   CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :

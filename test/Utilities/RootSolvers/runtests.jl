@@ -2,6 +2,8 @@ using Test
 using CLIMA
 using CLIMA.RootSolvers
 
+CLIMA.init()
+
 @testset "RootSolvers - compact solution correctness" begin
   f(x) = x^2 - 100^2
   f′(x) = 2x

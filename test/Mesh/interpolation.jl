@@ -30,9 +30,6 @@ using Random
 using Statistics
 const seed = MersenneTwister(0)
 
-const ArrayType = CLIMA.array_type()
-
-
 #------------------------------------------------
 if !@isdefined integration_testing
     const integration_testing =
@@ -151,6 +148,7 @@ end
 #----------------------------------------------------------------------------
 function run_cubed_sphere_interpolation_test()
     CLIMA.init()
+    ArrayType = CLIMA.array_type()
 
     FT = Float64
     mpicomm = MPI.COMM_WORLD

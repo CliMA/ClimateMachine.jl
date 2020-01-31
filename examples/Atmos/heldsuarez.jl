@@ -23,10 +23,10 @@ using CLIMA.VariableTemplates: flattenednames
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 const output_vtk = true
-const ArrayType = CLIMA.array_type()
 
 function main()
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))

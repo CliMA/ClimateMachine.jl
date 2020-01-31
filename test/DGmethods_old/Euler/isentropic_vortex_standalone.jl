@@ -31,8 +31,6 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
-const ArrayTypes = (CLIMA.array_type(),)
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -202,6 +200,8 @@ end
 using Test
 let
   CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
