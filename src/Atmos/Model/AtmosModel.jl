@@ -21,10 +21,11 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!, num_state
-import ..DGmethods.NumericalFluxes: boundary_state!, Rusanov,
-                                    CentralNumericalFluxGradient,
-                                    CentralNumericalFluxDiffusive,
-                                    boundary_flux_diffusive!
+import ..DGmethods.NumericalFluxes: boundary_state!,
+                                    boundary_flux_diffusive!,
+                                    NumericalFluxNonDiffusive,
+                                    NumericalFluxGradient,
+                                    NumericalFluxDiffusive
 
 """
     AtmosModel <: BalanceLaw
@@ -249,7 +250,7 @@ function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
   m.init_state(state, aux, coords, t, args...)
 end
 
-boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                          atmos::AtmosModel,
                          F,
                          state⁺, diff⁺, aux⁺, n⁻,

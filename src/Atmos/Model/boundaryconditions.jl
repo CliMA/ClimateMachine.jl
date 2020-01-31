@@ -1,7 +1,7 @@
 using CLIMA.PlanetParameters
 export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
 
-function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                         bc,
                                         atmos::AtmosModel,
                                         F,
@@ -19,14 +19,14 @@ end
 #TODO: figure out a better interface for this.
 # at the moment we can just pass a function, but we should do something better
 # need to figure out how subcomponents will interact.
-function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
                                f::Function, m::AtmosModel, stateP::Vars,
                                auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
                                t, _...)
   f(stateP, auxP, nM, stateM, auxM, bctype, t)
 end
 
-function atmos_boundary_state!(::CentralNumericalFluxDiffusive, f::Function,
+function atmos_boundary_state!(::NumericalFluxDiffusive, f::Function,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, _...)
@@ -34,7 +34,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, f::Function,
 end
 
 # lookup boundary condition by face
-function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
                                bctup::Tuple, m::AtmosModel, stateP::Vars,
                                auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
                                t, _...)
@@ -42,7 +42,7 @@ function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
                         bctype, t)
 end
 
-function atmos_boundary_state!(nf::CentralNumericalFluxDiffusive,
+function atmos_boundary_state!(nf::NumericalFluxDiffusive,
                                bctup::Tuple, m::AtmosModel, stateP::Vars,
                                diffP::Vars, auxP::Vars, nM, stateM::Vars,
                                diffM::Vars, auxM::Vars, bctype, t, _...)
@@ -76,20 +76,20 @@ Set the momentum at the boundary to be zero.
 struct NoFluxBC <: BoundaryCondition
 end
 
-function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
                                bc::NoFluxBC, m::AtmosModel, stateP::Vars,
                                auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
                                t, _...)
   FT = eltype(stateM)
   stateP.ρ = stateM.ρ
-  if typeof(nf) == Rusanov
+  if typeof(nf) <: NumericalFluxNonDiffusive
     stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
   else
     stateP.ρu -=  dot(stateM.ρu, nM) * SVector(nM)
   end
 end
 
-function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::NoFluxBC,
+function atmos_boundary_state!(::NumericalFluxDiffusive, bc::NoFluxBC,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, _...)
@@ -111,13 +111,13 @@ mainly useful for cases where the problem has an explicit solution.
 """
 struct InitStateBC <: BoundaryCondition
 end
-function atmos_boundary_state!(::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
                                bc::InitStateBC, m::AtmosModel, stateP::Vars,
                                auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
                                t, _...)
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
-function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::InitStateBC,
+function atmos_boundary_state!(::NumericalFluxDiffusive, bc::InitStateBC,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, _...)
@@ -134,7 +134,7 @@ struct DYCOMS_BC{FT} <: BoundaryCondition
   LHF::FT
   SHF::FT
 end
-function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
                                bc::DYCOMS_BC, m::AtmosModel, stateP::Vars,
                                auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
                                t, state1::Vars, aux1::Vars)
@@ -151,7 +151,7 @@ function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
   q_totM = QTM/ρM
 
   # Assign reflection wall boundaries (top wall)
-  if typeof(nf) == Rusanov
+  if typeof(nf) <: NumericalFluxNonDiffusive
     stateP.ρu -= 2dot(stateM.ρu, nM) * SVector(nM)
   else
     stateP.ρu -= dot(stateM.ρu, nM) * SVector(nM)
@@ -161,7 +161,7 @@ function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
   stateP.ρ = ρM
   stateP.moisture.ρq_tot = QTM
 end
-function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                         bc::DYCOMS_BC, atmos::AtmosModel,
                                         F,
                                         state⁺, diff⁺, aux⁺, n⁻,
@@ -267,7 +267,7 @@ struct RayleighBenardBC{FT} <: BoundaryCondition
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
+function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
                                bc::RayleighBenardBC, m::AtmosModel,
                                stateP::Vars, auxP::Vars, nM, stateM::Vars,
                                auxM::Vars, bctype, t,_...)
@@ -275,7 +275,7 @@ function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
   @inbounds begin
     FT = eltype(stateP)
     stateP.ρ = ρP = stateM.ρ
-    if typeof(nf) == Rusanov
+    if typeof(nf) <: NumericalFluxNonDiffusive
       stateP.ρu = -stateM.ρu
     else
       stateP.ρu = SVector{3,FT}(0,0,0)
@@ -289,7 +289,7 @@ function atmos_boundary_state!(nf::Union{Rusanov, CentralNumericalFluxGradient},
     nothing
   end
 end
-function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::RayleighBenardBC,
+function atmos_boundary_state!(::NumericalFluxDiffusive, bc::RayleighBenardBC,
                                m::AtmosModel, stateP::Vars, diffP::Vars,
                                auxP::Vars, nM, stateM::Vars, diffM::Vars,
                                auxM::Vars, bctype, t, _...)

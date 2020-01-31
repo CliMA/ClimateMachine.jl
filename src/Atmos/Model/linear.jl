@@ -46,10 +46,10 @@ function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
   return soundspeed_air(ref.T)
 end
 
-function boundary_state!(nf::Rusanov, lm::AtmosLinearModel, x...)
+function boundary_state!(nf::NumericalFluxNonDiffusive, lm::AtmosLinearModel, x...)
   atmos_boundary_state!(nf, NoFluxBC(), lm.atmos, x...)
 end
-function boundary_state!(nf::CentralNumericalFluxDiffusive, lm::AtmosLinearModel, x...)
+function boundary_state!(nf::NumericalFluxDiffusive, lm::AtmosLinearModel, x...)
   nothing
 end
 init_aux!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) = nothing
