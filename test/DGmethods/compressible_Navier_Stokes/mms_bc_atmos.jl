@@ -4,7 +4,6 @@ using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 using CLIMA.DGmethods
-using CLIMA.DGmethods: courant
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
@@ -161,7 +160,6 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
   # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-@info courant(Diffusive_CFL, dg, model, Q, dt, HorizontalDirection())
   # Print some end of the simulation information
   engf = norm(Q)
   Qe = init_ode_state(dg, FT(timeend))

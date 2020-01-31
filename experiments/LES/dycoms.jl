@@ -140,7 +140,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
                                      solver_type=CLIMA.ExplicitSolverType(LSRK144NiegemannDiehlBusch),
                                      ref_state=ref_state,
                                      C_smag=C_smag,
-                                     moisture=EquilMoist(),
+                                     moisture=EquilMoist(5),
                                      radiation=radiation,
                                      subsidence=ConstantSubsidence{FT}(D_subsidence),
                                      sources=(Gravity(),
