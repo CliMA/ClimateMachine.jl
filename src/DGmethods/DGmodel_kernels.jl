@@ -1574,8 +1574,8 @@ function facedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
   Nqk = dim == 2 ? 1 : N+1
 
-  l_gradM = MArray{Tuple{ngradlapstate, 3}, FT}(undef)
-  l_gradP = MArray{Tuple{ngradlapstate, 3}, FT}(undef)
+  l_gradM = MArray{Tuple{3, ngradlapstate}, FT}(undef)
+  l_gradP = MArray{Tuple{3, ngradlapstate}, FT}(undef)
   l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
 
   @inbounds @loop for e in (elems; blockIdx().x)
@@ -1590,25 +1590,32 @@ function facedivgrad!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
         # Load minus side data
         @unroll for s = 1:ngradlapstate
-          l_gradM[s, 1] = Qhypervisc_grad[vidM, 3(s - 1) + 1, eM]
-          l_gradM[s, 2] = Qhypervisc_grad[vidM, 3(s - 1) + 2, eM]
-          l_gradM[s, 3] = Qhypervisc_grad[vidM, 3(s - 1) + 3, eM]
+          l_gradM[1, s] = Qhypervisc_grad[vidM, 3(s - 1) + 1, eM]
+          l_gradM[2, s] = Qhypervisc_grad[vidM, 3(s - 1) + 2, eM]
+          l_gradM[3, s] = Qhypervisc_grad[vidM, 3(s - 1) + 3, eM]
         end
 
         # Load plus side data
         @unroll for s = 1:ngradlapstate
-          l_gradP[s, 1] = Qhypervisc_grad[vidP, 3(s - 1) + 1, eP]
-          l_gradP[s, 2] = Qhypervisc_grad[vidP, 3(s - 1) + 2, eP]
-          l_gradP[s, 3] = Qhypervisc_grad[vidP, 3(s - 1) + 3, eP]
+          l_gradP[1, s] = Qhypervisc_grad[vidP, 3(s - 1) + 1, eP]
+          l_gradP[2, s] = Qhypervisc_grad[vidP, 3(s - 1) + 2, eP]
+          l_gradP[3, s] = Qhypervisc_grad[vidP, 3(s - 1) + 3, eP]
         end
 
         bctype = elemtobndy[f, e]
         if bctype == 0
-          divergence_penalty!(divgradnumpenalty, bl, l_div,
-                              nM, l_gradM, l_gradP)
+          divergence_penalty!(divgradnumpenalty, bl,
+                              Vars{vars_gradient_laplacian(bl, FT)}(l_div),
+                              nM,
+                              Grad{vars_gradient_laplacian(bl, FT)}(l_gradM),
+                              Grad{vars_gradient_laplacian(bl, FT)}(l_gradP))
         else
-          divergence_boundary_penalty!(divgradnumpenalty, bl, l_div,
-                                       nM, l_gradM, l_gradP, bctype)
+          divergence_boundary_penalty!(divgradnumpenalty, bl,
+                                       Vars{vars_gradient_laplacian(bl, FT)}(l_div),
+                                       nM,
+                                       Grad{vars_gradient_laplacian(bl, FT)}(l_gradM),
+                                       Grad{vars_gradient_laplacian(bl, FT)}(l_gradP),
+                                       bctype)
         end
 
         @unroll for s = 1:ngradlapstate
@@ -1954,11 +1961,27 @@ function facehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
         bctype = elemtobndy[f, e]
         if bctype == 0
-          numerical_flux_hyperdiffusive!(hyperviscnumflux, bl, l_Qhypervisc,
-                                         nM, l_lapM, l_QM, l_auxM, l_lapP, l_QP, l_auxP, t)
+          numerical_flux_hyperdiffusive!(hyperviscnumflux, bl,
+                                         Vars{vars_hyperdiffusive(bl, FT)}(l_Qhypervisc),
+                                         nM,
+                                         Vars{vars_gradient_laplacian(bl, FT)}(l_lapM),
+                                         Vars{vars_state(bl, FT)}(l_QM),
+                                         Vars{vars_aux(bl, FT)}(l_auxM),
+                                         Vars{vars_gradient_laplacian(bl, FT)}(l_lapP),
+                                         Vars{vars_state(bl, FT)}(l_QP),
+                                         Vars{vars_aux(bl, FT)}(l_auxP),
+                                         t)
         else
-          numerical_boundary_flux_hyperdiffusive!(hyperviscnumflux, bl, l_Qhypervisc,
-                                                  nM, l_lapM, l_QM, l_auxM, l_lapP, l_QP, l_auxP, bctype, t)
+          numerical_boundary_flux_hyperdiffusive!(hyperviscnumflux, bl,
+                                                  Vars{vars_hyperdiffusive(bl, FT)}(l_Qhypervisc),
+                                                  nM,
+                                                  Vars{vars_gradient_laplacian(bl, FT)}(l_lapM),
+                                                  Vars{vars_state(bl, FT)}(l_QM),
+                                                  Vars{vars_aux(bl, FT)}(l_auxM),
+                                                  Vars{vars_gradient_laplacian(bl, FT)}(l_lapP),
+                                                  Vars{vars_state(bl, FT)}(l_QP),
+                                                  Vars{vars_aux(bl, FT)}(l_auxP),
+                                                  bctype, t)
         end
         
         @unroll for s = 1:nhyperviscstate
