@@ -157,7 +157,7 @@ function run(mpicomm, setup,
   vtkstep = 0
   do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
   vorticity_dg(ω, ω, nothing, 0)
-  do_output(mpicomm, vtkdir, vtkstep, vorticity_dg, ω, vorticity_model)
+  do_output(mpicomm, "vtk_tgv_omega", vtkstep, vorticity_dg, ω, vorticity_model)
 
   # setup the output callback
   outputtime = timeend
@@ -167,7 +167,7 @@ function run(mpicomm, setup,
     vtkstep += 1
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
     vorticity_dg(ω, ω, nothing, 0)
-    do_output(mpicomm, vtkdir, vtkstep, vorticity_dg, ω, vorticity_model)
+    do_output(mpicomm, "vtk_tgv_omega", vtkstep, vorticity_dg, ω, vorticity_model)
   end
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo,cbvtk))
