@@ -3,7 +3,7 @@ include("../testhelpers.jl")
 
 @testset "Diagnostics" begin
   tests = [
-    (2,"dycoms_sin_test.jl")
+    (2,"sin_test.jl")
    ]
 
   runmpi(tests, @__FILE__)
