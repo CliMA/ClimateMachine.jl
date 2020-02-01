@@ -52,7 +52,7 @@ struct DriverConfiguration{FT}
     # DGModel details
     numfluxnondiff::NumericalFluxNonDiffusive
     numfluxdiff::NumericalFluxDiffusive
-    gradnumflux::GradNumericalPenalty
+    gradnumflux::NumericalFluxGradient
 
     function DriverConfiguration(name::String, N::Int, FT, array_type,
                                  solver_type::AbstractSolverType,
@@ -61,7 +61,7 @@ struct DriverConfiguration{FT}
                                  grid::DiscontinuousSpectralElementGrid,
                                  numfluxnondiff::NumericalFluxNonDiffusive,
                                  numfluxdiff::NumericalFluxDiffusive,
-                                 gradnumflux::GradNumericalPenalty)
+                                 gradnumflux::NumericalFluxGradient)
         new{FT}(name, N, array_type, solver_type, bl, mpicomm, grid, numfluxnondiff, numfluxdiff, gradnumflux)
     end
 end
@@ -88,6 +88,7 @@ function LES_Configuration(name::String,
                            C_smag         = FT(0.21),
                            turbulence     = SmagorinskyLilly{FT}(C_smag),
                            moisture       = EquilMoist(),
+                           precipitation  = NoPrecipitation(),
                            radiation      = NoRadiation(),
                            subsidence     = NoSubsidence{FT}(),
                            f_coriolis     = FT(7.62e-5),
@@ -101,10 +102,10 @@ function LES_Configuration(name::String,
                            meshwarp       = (x...)->identity(x),
                            numfluxnondiff = Rusanov(),
                            numfluxdiff    = CentralNumericalFluxDiffusive(),
-                           gradnumflux    = CentralGradPenalty()
+                           gradnumflux    = CentralNumericalFluxGradient()
                           ) where {FT<:AbstractFloat}
     model = AtmosModel(orientation, ref_state, turbulence, moisture,
-                       radiation, subsidence, sources, bc, init_LES!)
+                       precipitation, radiation, subsidence, sources, bc, init_LES!)
 
     brickrange = (grid1d(xmin, xmax, elemsize=Δx*N),
                   grid1d(ymin, ymax, elemsize=Δy*N),
@@ -142,6 +143,7 @@ function GCM_Configuration(name::String,
                            C_smag             = FT(0.21),
                            turbulence         = SmagorinskyLilly{FT}(C_smag),
                            moisture           = EquilMoist(),
+                           precipitation      = NoPrecipitation(),
                            radiation          = NoRadiation(),
                            subsidence         = NoSubsidence{FT}(),
                            sources            = (Gravity(), Coriolis()),
@@ -150,10 +152,10 @@ function GCM_Configuration(name::String,
                            meshwarp::Function = cubedshellwarp,
                            numfluxnondiff     = Rusanov(),
                            numfluxdiff        = CentralNumericalFluxDiffusive(),
-                           gradnumflux        = CentralGradPenalty()
+                           gradnumflux        = CentralNumericalFluxGradient()
                           ) where {FT<:AbstractFloat}
     model = AtmosModel(orientation, ref_state, turbulence, moisture,
-                       radiation, subsidence, sources, bc, init_GCM!)
+                       precipitation, radiation, subsidence, sources, bc, init_GCM!)
 
     vert_range = grid1d(FT(planet_radius), FT(planet_radius+domain_height), nelem=nelem_vert)
 

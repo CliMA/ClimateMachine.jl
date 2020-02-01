@@ -16,15 +16,13 @@ using CLIMA.DGmethods
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, flux_nondiffusive!, flux_diffusive!,
                         source!, boundary_state!,
-                        gradvariables!,
+                        numerical_boundary_flux_diffusive!, gradvariables!,
                         diffusive!, init_aux!, init_state!,
                         LocalGeometry
 
 import CLIMA.DGmethods.NumericalFluxes: NumericalFluxDiffusive,
                                         numerical_flux_diffusive!
                                                               
-const ArrayType = CLIMA.array_type()
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -50,6 +48,10 @@ function flux_diffusive!(::PoissonModel, flux::Grad, state::Vars,
 end
 
 struct PenaltyNumFluxDiffusive <: NumericalFluxDiffusive end
+
+# There is no boundary since we are periodic
+numerical_boundary_flux_diffusive!(nf::PenaltyNumFluxDiffusive, _...) = nothing
+
 function numerical_flux_diffusive!(::PenaltyNumFluxDiffusive,
     bl::PoissonModel, fluxᵀn::Vars{S}, n::SVector,
     state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
@@ -106,7 +108,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
                grid,
                CentralNumericalFluxNonDiffusive(),
                PenaltyNumFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   Qrhs = dg.auxstate
@@ -129,6 +131,8 @@ end
 
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :

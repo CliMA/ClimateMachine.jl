@@ -21,8 +21,6 @@ using TimerOutputs
 
 const to = TimerOutput()
 
-const ArrayTypes = (CLIMA.array_type(),)
-
 # Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
 # For the dry example shown here, we load the moist thermodynamics module
 # and consider the dry equation set to be the same as the moist equations but
@@ -60,8 +58,6 @@ end
 
 # Random number seed
 const seed = MersenneTwister(0)
-
-
 
 function global_max(A::MPIStateArray, states=1:size(A, 2))
   host_array = Array ∈ typeof(A).parameters
@@ -486,7 +482,7 @@ function dc!(dim, Q, t, x, y, z, _...)
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
 end
 
-function run(mpicomm, dim, Ne, N, timeend, FT, dt)
+function run(mpicomm, ArrayType, dim, Ne, N, timeend, FT, dt)
 
     ##
       #-----------------------------------------------------------------
@@ -610,6 +606,8 @@ end
 using Test
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -650,7 +648,7 @@ let
     @info @sprintf " ------------------------------------------------------"
   end
 
-  engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
+  engf_eng0 = run(mpicomm, ArrayType, dim, numelem[1:dim], polynomialorder, timeend,
                   FT, dt)
 
   show(to)

@@ -18,8 +18,6 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using Test
 
-const ArrayType = CLIMA.array_type()
-
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -92,7 +90,7 @@ end
 
 # initial condition
 
-function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
+function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -106,6 +104,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
+                       NoPrecipitation(),
                        NoRadiation(),
                        NoSubsidence{FT}(),
                        mms2_source!,
@@ -116,6 +115,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                        NoReferenceState(),
                        ConstantViscosityWithDivergence(FT(μ_exact)),
                        MMSDryModel(),
+                       NoPrecipitation(),
                        NoRadiation(),
                        NoSubsidence{FT}(),
                        mms3_source!,
@@ -127,7 +127,7 @@ function run(mpicomm, dim, topl, warpfun, N, timeend, FT, dt)
                grid,
                Rusanov(),
                CentralNumericalFluxDiffusive(),
-               CentralGradPenalty())
+               CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
   Qcpu = init_ode_state(dg, FT(0); forcecpu=true)
@@ -179,6 +179,8 @@ end
 
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -186,7 +188,7 @@ let
     ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  
+
   polynomialorder = 4
   base_num_elem = 4
 
@@ -228,7 +230,7 @@ for FT in (Float64,) #Float32)
       dt = timeend / nsteps
 
       @info (ArrayType, FT, dim)
-      result[l] = run(mpicomm, dim, topl, warpfun,
+      result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
                       polynomialorder, timeend, FT, dt)
       @test result[l] ≈ FT(expected_result[dim-1, l])
     end

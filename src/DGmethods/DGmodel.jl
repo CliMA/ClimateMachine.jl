@@ -61,7 +61,11 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   aux_comm = update_aux!(dg, bl, Q, t)
   @assert typeof(aux_comm) == Bool
 
-  hypervisc_indexmap = create_hypervisc_indexmap(bl)
+  if nhyperviscstate > 0
+    hypervisc_indexmap = create_hypervisc_indexmap(bl)
+  else
+    hypervisc_indexmap = nothing
+  end
 
   ########################
   # Gradient Computation #

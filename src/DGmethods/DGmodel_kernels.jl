@@ -1,12 +1,10 @@
-using .NumericalFluxes: GradNumericalPenalty,
-                        NumericalFluxNonDiffusive,
-                        NumericalFluxDiffusive,
+using .NumericalFluxes: NumericalFluxGradient, numerical_boundary_flux_gradient!,
+                        numerical_flux_gradient!,
+                        NumericalFluxNonDiffusive, NumericalFluxDiffusive,
                         numerical_flux_nondiffusive!,
                         numerical_boundary_flux_nondiffusive!,
                         numerical_flux_diffusive!,
                         numerical_boundary_flux_diffusive!,
-                        gradient_boundary_penalty!,
-                        gradient_penalty!,
                         divergence_penalty!,
                         divergence_boundary_penalty!,
                         divergence_penalty!,
@@ -883,9 +881,8 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 end
 
 function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
-                        ::direction,
-                        gradnumpenalty::GradNumericalPenalty,
-                        Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                        ::direction, gradnumflux::NumericalFluxGradient, Q,
+                        Qvisc, Qhypervisc_grad, auxstate, vgeo, sgeo, t, vmapM, vmapP,
                         elemtobndy, hypervisc_indexmap, elems) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Q)
@@ -923,13 +920,16 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   l_QM = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxM = MArray{Tuple{nauxstate}, FT}(undef)
   l_GM = MArray{Tuple{ngradstate}, FT}(undef)
+  l_nGM = MArray{Tuple{3, ngradstate}, FT}(undef)
 
   l_QP = MArray{Tuple{ngradtransformstate}, FT}(undef)
   l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
   l_GP = MArray{Tuple{ngradstate}, FT}(undef)
 
+  # FIXME Qvisc is sort of a terrible name...
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
   l_gradG = MArray{Tuple{3, ngradstate}, FT}(undef)
+  l_QMvisc = MArray{Tuple{nviscstate}, FT}(undef)
 
   l_Q_bot1 = MArray{Tuple{nstate}, FT}(undef)
   l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
@@ -975,11 +975,15 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         bctype = elemtobndy[f, e]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
-          gradient_penalty!(gradnumpenalty, bl,
-            Grad{vars_gradient(bl, FT)}(l_gradG), SVector(nM),
-            Vars{vars_gradient(bl,FT)}(l_GM), Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
-            Vars{vars_gradient(bl,FT)}(l_GP), Vars{vars_state(bl,FT)}(l_QP), Vars{vars_aux(bl,FT)}(l_auxP),
-            t)
+          numerical_flux_gradient!(gradnumflux, bl,
+                                   l_gradG,
+                                   SVector(nM),
+                                   Vars{vars_gradient(bl,FT)}(l_GM),
+                                   Vars{vars_state(bl,FT)}(l_QM),
+                                   Vars{vars_aux(bl,FT)}(l_auxM),
+                                   Vars{vars_gradient(bl,FT)}(l_GP),
+                                   Vars{vars_state(bl,FT)}(l_QP),
+                                   Vars{vars_aux(bl,FT)}(l_auxP), t)
           if nviscstate > 0
             diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                        Grad{vars_gradient(bl,FT)}(l_gradG),
@@ -996,11 +1000,18 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
               l_aux_bot1[s] = auxstate[n + Nqk^2,s, e]
             end
           end
-          gradient_boundary_penalty!(gradnumpenalty, bl,
-            Grad{vars_gradient(bl, FT)}(l_gradG), SVector(nM),
-            Vars{vars_gradient(bl,FT)}(l_GM), Vars{vars_state(bl,FT)}(l_QM), Vars{vars_aux(bl,FT)}(l_auxM),
-            Vars{vars_gradient(bl,FT)}(l_GP), Vars{vars_state(bl,FT)}(l_QP), Vars{vars_aux(bl,FT)}(l_auxP),
-            bctype, t, Vars{vars_state(bl,FT)}(l_Q_bot1), Vars{vars_aux(bl,FT)}(l_aux_bot1))
+          numerical_boundary_flux_gradient!(gradnumflux, bl,
+                                            l_gradG,
+                                            SVector(nM),
+                                            Vars{vars_gradient(bl,FT)}(l_GM),
+                                            Vars{vars_state(bl,FT)}(l_QM),
+                                            Vars{vars_aux(bl,FT)}(l_auxM),
+                                            Vars{vars_gradient(bl,FT)}(l_GP),
+                                            Vars{vars_state(bl,FT)}(l_QP),
+                                            Vars{vars_aux(bl,FT)}(l_auxP),
+                                            bctype, t,
+                                            Vars{vars_state(bl,FT)}(l_Q_bot1),
+                                            Vars{vars_aux(bl,FT)}(l_aux_bot1))
           if nviscstate > 0
             diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                        Grad{vars_gradient(bl,FT)}(l_gradG),
@@ -1009,14 +1020,27 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
         end
 
-        @unroll for s = 1:ngradlapstate
-          Qhypervisc_grad[vidM, 3(s - 1) + 1, eM] += vMI * sM * l_gradG[1, hypervisc_indexmap[s]]
-          Qhypervisc_grad[vidM, 3(s - 1) + 2, eM] += vMI * sM * l_gradG[2, hypervisc_indexmap[s]]
-          Qhypervisc_grad[vidM, 3(s - 1) + 3, eM] += vMI * sM * l_gradG[3, hypervisc_indexmap[s]]
+        @unroll for j = 1:ngradstate
+          @unroll for i = 1:3
+            l_nGM[i, j] = nM[i] * l_GM[j]
+          end
         end
         
+        @unroll for s = 1:ngradlapstate
+          j = hypervisc_indexmap[s]
+          Qhypervisc_grad[vidM, 3(s - 1) + 1, eM] += vMI * sM * (l_gradG[1, j] - l_nGM[1, j])
+          Qhypervisc_grad[vidM, 3(s - 1) + 2, eM] += vMI * sM * (l_gradG[2, j] - l_nGM[2, j])
+          Qhypervisc_grad[vidM, 3(s - 1) + 3, eM] += vMI * sM * (l_gradG[3, j] - l_nGM[3, j])
+        end
+
+        diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_QMvisc),
+                   Grad{vars_gradient(bl,FT)}(l_nGM),
+                   Vars{vars_state(bl,FT)}(l_QM),
+                   Vars{vars_aux(bl,FT)}(l_auxM), t)
+
+
         @unroll for s = 1:nviscstate
-          Qvisc[vidM, s, eM] += vMI * sM * l_Qvisc[s]
+          Qvisc[vidM, s, eM] += vMI * sM * (l_Qvisc[s] - l_QMvisc[s])
         end
       end
       # Need to wait after even faces to avoid race conditions

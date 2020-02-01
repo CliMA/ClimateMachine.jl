@@ -12,8 +12,6 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const ArrayType = CLIMA.array_type()
-
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,
@@ -184,10 +182,6 @@ function main()
     result = CLIMA.invoke!(solver_config;
                           user_callbacks=(cbtmarfilter,),
                           check_euclidean_distance=true)
-
-    @testset begin
-        @test result ≈ FT(0.9999734954176608)
-    end
 end
 
 main()

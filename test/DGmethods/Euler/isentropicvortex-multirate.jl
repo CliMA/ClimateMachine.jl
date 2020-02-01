@@ -2,7 +2,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.MultirateRungeKuttaMethod
@@ -20,14 +20,12 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-
-const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -38,8 +36,9 @@ const output_vtk = false
 
 function main()
   CLIMA.init()
-  mpicomm = MPI.COMM_WORLD
+  ArrayType = CLIMA.array_type()
 
+  mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = Dict("DEBUG" => Logging.Debug,
                   "WARN"  => Logging.Warn,
@@ -78,7 +77,7 @@ function main()
         for level in 1:numlevels
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
-            run(mpicomm, polynomialorder, numelems, setup,
+            run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                 FT, FastMethod, dims, level)
 
           @test errors[level] ≈ expected_error[FT, FastMethod, level]
@@ -92,7 +91,7 @@ function main()
   end
 end
 
-function run(mpicomm, polynomialorder, numelems, setup,
+function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
              FT, FastMethod, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
@@ -115,6 +114,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
                      IsentropicVortexReferenceState{FT}(setup),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,
@@ -125,12 +125,15 @@ function run(mpicomm, polynomialorder, numelems, setup,
   # The nonlinear model has the slow time scales
   slow_model = RemainderModel(model, (fast_model,))
 
-  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
+  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient())
   fast_dg = DGModel(fast_model,
-                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                    grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                    CentralNumericalFluxGradient();
                     auxstate=dg.auxstate)
   slow_dg = DGModel(slow_model,
-                    grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                    grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                    CentralNumericalFluxGradient();
                     auxstate=dg.auxstate)
 
   timeend = FT(2 * setup.domain_halflength / setup.translation_speed)

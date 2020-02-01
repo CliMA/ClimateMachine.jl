@@ -188,7 +188,7 @@ end
   return nothing
 end
 
-shallow_boundary_state!(::CentralGradPenalty, m::SWModel,
+shallow_boundary_state!(::CentralNumericalFluxGradient, m::SWModel,
                         ::LinearDrag, _...) = nothing
 
 shallow_boundary_state!(::CentralNumericalFluxDiffusive, m::SWModel,
@@ -208,7 +208,7 @@ end
   return nothing
 end
 
-@inline function shallow_boundary_state!(::CentralGradPenalty, m::SWModel,
+@inline function shallow_boundary_state!(::CentralNumericalFluxGradient, m::SWModel,
                                          ::ConstantViscosity, q⁺, α⁺, n⁻, q⁻, α⁻, t)
   q⁺.U = -q⁻.U
 

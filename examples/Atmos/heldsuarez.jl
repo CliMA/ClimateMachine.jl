@@ -3,7 +3,7 @@ using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.LowStorageRungeKuttaMethod: LSRK144NiegemannDiehlBusch
@@ -13,7 +13,7 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d, day
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
 using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
-                   DryModel, NoRadiation, NoSubsidence, NoFluxBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, NoFluxBC,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, Coriolis,
@@ -23,10 +23,10 @@ using CLIMA.VariableTemplates: flattenednames
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 const output_vtk = true
-const ArrayType = CLIMA.array_type()
 
 function main()
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -43,7 +43,7 @@ function main()
   numelem_vert = 8
   timeend = 60 # 400day
   outputtime = 2day
-  
+
   for FT in (Float64,)
 
     run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
@@ -69,14 +69,15 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                      HydrostaticState(IsothermalProfile(setup.T_initial), FT(0)),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
-                     (Gravity(), Coriolis(), held_suarez_forcing!), 
+                     (Gravity(), Coriolis(), held_suarez_forcing!),
                      NoFluxBC(),
                      setup)
 
   dg = DGModel(model, grid, Rusanov(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty())
+               CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
 
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
@@ -160,7 +161,7 @@ Base.@kwdef struct HeldSuarezSetup{FT}
   domain_height::FT = 30e3
 end
 
-function (setup::HeldSuarezSetup)(state, aux, coords, t) 
+function (setup::HeldSuarezSetup)(state, aux, coords, t)
   # callable to set initial conditions
   FT = eltype(state)
 
@@ -223,7 +224,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname = "heldsuare
                       vtkdir, testname, MPI.Comm_rank(mpicomm), vtkstep)
 
   statenames = flattenednames(vars_state(model, eltype(Q)))
-  auxnames = flattenednames(vars_aux(model, eltype(Q))) 
+  auxnames = flattenednames(vars_aux(model, eltype(Q)))
   writevtk(filename, Q, dg, statenames, dg.auxstate, auxnames)
 
   ## Generate the pvtu file for these vtk files

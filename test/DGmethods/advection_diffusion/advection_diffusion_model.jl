@@ -8,7 +8,7 @@ import CLIMA.DGmethods: BalanceLaw,
                         boundary_state!, wavespeed, LocalGeometry
 using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        NumericalFluxDiffusive,
-                                       GradNumericalPenalty
+                                       NumericalFluxGradient
 
 abstract type AdvectionDiffusionProblem end
 struct AdvectionDiffusion{dim, P} <: BalanceLaw
@@ -171,7 +171,7 @@ function boundary_state_Dirichlet!(::NumericalFluxNonDiffusive,
   # Set the plus side to the exact boundary data
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
-function boundary_state_Dirichlet!(::GradNumericalPenalty,
+function boundary_state_Dirichlet!(::NumericalFluxGradient,
                                    m::AdvectionDiffusion,
                                    stateP, auxP, nM, stateM, auxM, t)
   # Set the plus side sot that after average the numerical flux is the boundary
