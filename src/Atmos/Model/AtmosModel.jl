@@ -56,6 +56,7 @@ function vars_state(m::AtmosModel, FT)
     ρ::FT
     ρu::SVector{3,FT}
     ρe::FT
+    precipitation::vars_state(m.precipitation,FT)
     turbulence::vars_state(m.turbulence, FT)
     moisture::vars_state(m.moisture, FT)
     radiation::vars_state(m.radiation, FT)
@@ -67,7 +68,7 @@ function vars_gradient(m::AtmosModel, FT)
     h_tot::FT
     turbulence::vars_gradient(m.turbulence,FT)
     moisture::vars_gradient(m.moisture,FT)
-    precipitation::vars_state(m.precipitation,FT)
+    precipitation::vars_gradient(m.precipitation,FT)
   end
 end
 function vars_diffusive(m::AtmosModel, FT)
@@ -75,7 +76,7 @@ function vars_diffusive(m::AtmosModel, FT)
     ∇h_tot::SVector{3,FT}
     turbulence::vars_diffusive(m.turbulence,FT)
     moisture::vars_diffusive(m.moisture,FT)
-    precipitation::vars_gradient(m.precipitation,FT)
+    precipitation::vars_diffusive(m.precipitation,FT)
   end
 end
 
@@ -89,7 +90,7 @@ function vars_aux(m::AtmosModel, FT)
     ref_state::vars_aux(m.ref_state,FT)
     turbulence::vars_aux(m.turbulence,FT)
     moisture::vars_aux(m.moisture,FT)
-    precipitation::vars_diffusive(m.precipitation,FT)
+    precipitation::vars_aux(m.precipitation,FT)
     radiation::vars_aux(m.radiation,FT)
   end
 end

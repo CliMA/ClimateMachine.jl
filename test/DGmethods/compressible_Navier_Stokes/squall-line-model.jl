@@ -19,18 +19,8 @@ using DelimitedFiles
 using Logging, Printf, Dates
 using CLIMA.VTK
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
 
 using CLIMA.Atmos
-using CLIMA.Atmos: internal_energy, get_phase_partition, thermo_state
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
 
 # function pressure(m::MMSDryModel, state::Vars, aux::Vars)
@@ -55,7 +45,7 @@ const (ymin, ymax) = (0,  5000)
 const (zmin, zmax) = (0, 24000)
 
 function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
-  spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = args
+  spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = spline_int()
   FT         = eltype(state)
 
   x = x1
@@ -150,136 +140,56 @@ function spline_int()
   return spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit
 end
 
-source!(m, source, state, aux, t) = nothing
 
 using CLIMA.Atmos: vars_state, vars_aux
 
-function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
-  grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = FT,
-                                          DeviceArray = ArrayType,
-                                          polynomialorder = N
-                                         )
+function config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
 
-  model = AtmosModel(FlatOrientation(),
-                     ConstantViscosityWithDivergence(FT(1/100)),
-                     NonEquilMoist(),
-                     Rain(),
-                     NoRadiation(),
-                     source!,
-                     NoFluxBC(),
-                     init_state!)
+rayleigh_sponge = RayleighSponge{FT}(zmax, 12000, 1, SVector{3,FT}(0,0,0), 2)
+    config = CLIMA.LES_Configuration("squall_line", N, resolution, xmax, ymax, zmax,
+                                     init_state!,
+				     xmin = xmin,
+                                     solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy),
+                                     ref_state=NoReferenceState(),
+                                     moisture=NonEquilMoist(),
+				     precipitation=Rain(),
+                                     sources=(rayleigh_sponge),
+                                     bc=NoFluxBC())
 
-  dg = DGModel(model,
-               grid,
-               Rusanov(),
-               DefaultGradNumericalFlux())
+    return config
+end
+function main()
+    CLIMA.init()
 
-  param = init_ode_param(dg)
+    FT = Float64
 
-  Q = init_ode_state(dg, param, FT(0), spline_int())
+    # DG polynomial order
+    N = 4
 
-  mkpath("vtk")
-  mkpath(joinpath("vtk","squal_line"))
-  outprefix = "vtk/squal_line/state_init_$(dim)D_mpirank$(MPI.Comm_rank(mpicomm))_step$(FT(0))"
-  writevtk(outprefix, Q, dg, flattenednames(vars_state(model, FT)))
+    # Domain resolution and size
+    Δx = FT(250)
+    Δy = FT(1000)
+    Δz = FT(200)
+    resolution = (Δx, Δy, Δz)
 
-  outprefix = "vtk/squal_line/aux_init_$(dim)D_mpirank$(MPI.Comm_rank(mpicomm))_step$(FT(0))"
-  writevtk(outprefix, param[1], dg, flattenednames(vars_aux(model, FT)))
+    t0 = FT(0)
+    timeend = FT(9000)
+    driver_config = config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.2)
 
-
-  lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-
-  eng0 = norm(Q)
-  @info @sprintf """Starting norm(Q₀) = %.16e""" eng0
-
-  # Set up the information callback
-  starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXSimulationSteps(1) do (s=false)
-    if s
-      starttime[] = now()
-    else
-      outprefix = "vtk/squal_line/state_$(dim)D_mpirank$(MPI.Comm_rank(mpicomm))_step$(FT(ODESolvers.gettime(lsrk)))"
-      writevtk(outprefix, Q, dg, flattenednames(vars_state(model, FT)))
-
-      energy = norm(Q)
-      @info @sprintf("""Update, simtime = %.16e, runtime = %s,  norm(Q) = %.16e""", ODESolvers.gettime(lsrk),
-                     Dates.format(convert(Dates.DateTime,
-                                          Dates.now()-starttime[]),
-                                  Dates.dateformat"HH:MM:SS"),
-                     energy)
-      nothing
-
-
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
+        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        nothing
     end
-  end
 
-  solve!(Q, lsrk, param; timeend=timeend, callbacks=(cbinfo, ))
-
-  outprefix = "vtk/squal_line/state_init_$(dim)D_mpirank$(MPI.Comm_rank(mpicomm))_step$(FT(0))"
-  writevtk(outprefix, Q, dg, flattenednames(vars_state(model, FT)))
-
-  # Print some end of the simulation information
-  engf = norm(Q)
-  Qe = init_ode_state(dg, param, FT(timeend), spline_int())
-
-  engfe = norm(Qe)
-  errf = euclidean_distance(Q, Qe)
-  return [engf,engf/eng0,engf-eng0,errf,errf/engfe]
+    result = CLIMA.invoke!(solver_config;
+                          user_callbacks=(cbtmarfilter,),
+                          check_euclidean_distance=true)
 end
 
-using Test
-let
-  MPI.Initialized() || MPI.Init()
-  mpicomm = MPI.COMM_WORLD
-  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-  loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-  global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-      device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
+main()
 
-  polynomialorder = 4
-  base_num_elem = 4
-
-  expected_result = [1.5606226382564500e-01 5.3302790086802504e-03 2.2574728860707139e-04;
-                     2.5803100360042141e-02 1.1794776908545315e-03 6.1785354745749247e-05]
-
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-  n_runs = 2
-    for FT in (Float64,) #Float32)
-      results = []
-      for nth_run in 1:n_runs
-        dim = 3
-        l = 2
-        Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-        brickrange = (range(FT(xmin); length=Ne[1]+1, stop=FT(xmax)),
-                      range(FT(ymin); length=Ne[2]+1, stop=FT(ymax)),
-                      range(FT(zmin); length=Ne[2]+1, stop=FT(zmax)))
-        topl = BrickTopology(mpicomm, brickrange,
-                             periodicity = (false, false, false))
-        dt = 5e-3 / Ne[1]
-        timeend = dt*2
-        nsteps = ceil(Int64, timeend / dt)
-        dt = timeend / nsteps
-
-        result_n = run(mpicomm, ArrayType, dim, topl, polynomialorder, timeend, FT, dt)
-        push!(results, result_n)
-      end
-      results_diff = abs.(first(diff(results, dims=1)))
-      println("------------------------------------------------------------ results")
-      @show results
-      println("------------------------------------------------------------ results diff")
-      @show results_diff
-      println("------------------------------------------------------------")
-      @test all([x<eps(FT) for x in results_diff])
-    end
-  end
-end
 
 
 #nothing
