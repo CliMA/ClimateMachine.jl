@@ -18,7 +18,7 @@ using Dierckx
 using DelimitedFiles
 using Logging, Printf, Dates
 using CLIMA.VTK
-
+using CLIMA.Mesh.Filters
 
 using CLIMA.Atmos
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!

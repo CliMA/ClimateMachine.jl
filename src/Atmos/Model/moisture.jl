@@ -144,10 +144,10 @@ vars_aux(::NonEquilMoist      ,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT,
   return nothing
 end
 
-function thermo_state(moist::NonEquilMoist, atmos::AtmosModel, state::Vars, aux::Vars)
+function thermo_state(moist::NonEquilMoist, orientation::Orientation, state::Vars, aux::Vars)
   FT = eltype(state)
   ρinv = 1/state.ρ
-  e_int = internal_energy(moist, atmos.orientation, state, aux)
+  e_int = internal_energy(moist, orientation, state, aux)
   q_pt = PhasePartition{FT}(state.moisture.ρq_tot*ρinv, state.moisture.ρq_liq*ρinv, state.moisture.ρq_ice*ρinv)
   return PhaseNonEquil{FT}(e_int, state.ρ, q_pt)
 end
@@ -155,7 +155,7 @@ end
 function gradvariables!(moist::NonEquilMoist, atmos::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
-  phase = thermo_state(m, atmos.orientation, state, aux)
+  phase = thermo_state(moist, atmos.orientation, state, aux)
   R_m = gas_constant_air(phase)
   T = air_temperature(phase)
   e_tot = state.ρe * ρinv

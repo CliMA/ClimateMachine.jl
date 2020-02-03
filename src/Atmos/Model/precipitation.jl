@@ -49,24 +49,22 @@ function atmos_nodal_update_aux!(rain::Rain, atmos::AtmosModel,
 
   ρ = state.ρ
   ρinv = 1/state.ρ
-  p = aux.pressure
   # TODO - ensure positive definite
-  q_tot = max(FT(0), state.ρq_tot*ρinv)
-  q_rai = max(FT(0), state.ρq_rain*ρinv)
+  q_tot = max(FT(0), state.moisture.ρq_tot*ρinv)
+  q_rai = max(FT(0), state.precipitation.ρq_rain*ρinv)
 
   # current state
-  ts    = thermo_state(rain, state, aux)
+  ts    = thermo_state(atmos.moisture, atmos.orientation, state, aux)
   # q     = PhasePartition(q_tot, q_liq, q_ice)
   q     = PhasePartition(ts)
   # T     = air_temperature(e_int, q)
   T     = air_temperature(ts)
   # equilibrium state at current T
-  # q_eq = PhasePartition_equil(T, ρ, q_tot)
-  q_eq = PhasePartition_equil(ts)
+  q_eq = q#PhasePartition_equi/(ts)
 
   # tendency from cloud water condensation/evaporation
   # src_q_liq = conv_q_vap_to_q_liq(q_eq, q)# TODO - temporary handling ice
-
+  p = air_pressure(ts)
   # tendencies from rain
   src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
   src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(q.liq)
