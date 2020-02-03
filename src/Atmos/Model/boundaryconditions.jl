@@ -2,15 +2,16 @@ using CLIMA.PlanetParameters
 export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
 
 function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, bc,
-                                        atmos::AtmosModel, F⁺, state⁺, diff⁺,
-                                        aux⁺, n⁻, F⁻, state⁻, diff⁻, aux⁻,
+                                        atmos::AtmosModel,
+                                        F⁺, state⁺, diff⁺, hyperdiff⁺, aux⁺,
+                                        n⁻, F⁻, state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                         bctype, t, state1⁻, diff1⁻, aux1⁻)
   FT = eltype(F⁺)
   atmos_boundary_state!(nf, bc, atmos, state⁺, diff⁺, aux⁺, n⁻,
                         state⁻, diff⁻, aux⁻, bctype, t,
                         state1⁻, diff1⁻, aux1⁻)
   fill!(parent(F⁺), -zero(FT))
-  flux_diffusive!(atmos, F⁺, state⁺, diff⁺, aux⁺, t)
+  flux_diffusive!(atmos, F⁺, state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
 end
 
 #TODO: figure out a better interface for this.
@@ -150,8 +151,8 @@ function atmos_boundary_state!(::Rusanov, bc::DYCOMS_BC, m::AtmosModel,
 end
 function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                         bc::DYCOMS_BC, atmos::AtmosModel,
-                                        F⁺, state⁺, diff⁺, aux⁺, n⁻,
-                                        F⁻, state⁻, diff⁻, aux⁻,
+                                        F⁺, state⁺, diff⁺, hyperdiff⁺, aux⁺,
+                                        n⁻, F⁻, state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                         bctype, t,
                                         state1⁻, diff1⁻, aux1⁻)
   FT = eltype(state⁺)
@@ -179,7 +180,7 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   # Assign diffusive fluxes at boundaries
   diff⁺ = diff⁻
   if bctype != 1
-    flux_diffusive!(atmos, F⁺, state⁺, diff⁺, aux⁺, t)
+    flux_diffusive!(atmos, F⁺, state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
   else
     # ------------------------------------------------------------------------
     # (<var>_FN) First node values (First interior node from bottom wall)

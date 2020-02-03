@@ -253,13 +253,13 @@ function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
 end
 
 boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, atmos::AtmosModel,
-                         F⁺, state⁺, diff⁺, aux⁺, n⁻,
-                         F⁻, state⁻, diff⁻, aux⁻,
+                         F⁺, state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                         F⁻, state⁻, diff⁻, hyperdiff⁻, aux⁻,
                          bctype, t,
                          state1⁻, diff1⁻, aux1⁻) =
   atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
-                                 F⁺, state⁺, diff⁺, aux⁺, n⁻,
-                                 F⁻, state⁻, diff⁻, aux⁻,
+                                 F⁺, state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                 F⁻, state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                  bctype, t,
                                  state1⁻, diff1⁻, aux1⁻)
 
