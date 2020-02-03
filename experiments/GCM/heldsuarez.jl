@@ -107,7 +107,7 @@ function main()
     timeend = FT(60) # 400day
 
     driver_config = config_heldsuarez(FT, N, resolution)
-    ode_solver_type = CLIMA.ExplicitSolverType(LSRK144NiegemannDiehlBusch)
+    ode_solver_type = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
                                        ode_solver_type=ode_solver_type)
 
