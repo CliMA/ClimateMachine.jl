@@ -647,11 +647,11 @@ function PhasePartition_equil(T::FT, ρ::FT, q_tot::FT) where {FT<:Real}
     return PhasePartition(q_tot, q_liq, q_ice)
 end
 PhasePartition_equil(ts::PhaseNonEquil) =
-  PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
+  PhasePartition_equil(air_temperature(ts), air_density(ts), total_specific_humidity(ts))
 
 PhasePartition(ts::PhaseDry{FT}) where {FT<:Real} = q_pt_0(FT)
 PhasePartition(ts::PhaseEquil) =
-  PhasePartition_equil(air_temperature(ts), air_density(ts), ts.q_tot)
+  PhasePartition_equil(air_temperature(ts), air_density(ts), total_specific_humidity(ts))
 PhasePartition(ts::PhaseNonEquil) = ts.q
 
 function ∂e_int_∂T(T::FT, e_int::FT, ρ::FT, q_tot::FT) where {FT<:Real}
