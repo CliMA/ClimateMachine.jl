@@ -85,7 +85,7 @@ end
 ###################
 FT = Float64
 
-const timeend = 86400   # s
+const timeend = 0.5 * 86400   # s
 const tout    = 60 * 60 # s
 
 const N  = 4
