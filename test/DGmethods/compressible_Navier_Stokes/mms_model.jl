@@ -103,7 +103,7 @@ function boundary_state!(::Rusanov, bl::MMSModel, stateP::Vars, auxP::Vars, nM,
 end
 
 # FIXME: This is probably not right....
-boundary_state!(::CentralGradPenalty, bl::MMSModel, _...) = nothing
+boundary_state!(::CentralNumericalFluxGradient, bl::MMSModel, _...) = nothing
 
 function boundary_state!(::CentralNumericalFluxDiffusive, bl::MMSModel,
                          stateP::Vars, diffP::Vars, auxP::Vars, nM,

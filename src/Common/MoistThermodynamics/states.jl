@@ -82,7 +82,11 @@ function PhaseEquil(e_int::FT,
                     tol::FT=FT(1e-1),
                     sat_adjust::F=saturation_adjustment
                     ) where {FT<:Real,F}
-    return PhaseEquil{FT}(e_int, ρ, q_tot, sat_adjust(e_int, ρ, q_tot, tol, maxiter))
+    # TODO: Remove these safety nets, or at least add warnings
+    # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
+    q_tot_safe = max(q_tot, FT(0))
+    q_tot_safe = min(q_tot_safe, FT(1))
+    return PhaseEquil{FT}(e_int, ρ, q_tot_safe, sat_adjust(e_int, ρ, q_tot_safe, tol, maxiter))
 end
 
 """

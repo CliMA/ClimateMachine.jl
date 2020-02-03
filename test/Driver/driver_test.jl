@@ -8,9 +8,6 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const ArrayType = CLIMA.array_type()
-
-
 function init_test!(state, aux, (x,y,z), t)
     FT = eltype(state)
 
@@ -63,13 +60,13 @@ function main()
     N = 4
 
     # Domain resolution and size
-    Δh = FT(35)
-    Δv = FT(5)
+    Δh = FT(40)
+    Δv = FT(40)
     resolution = (Δh, Δh, Δv)
 
-    xmax = 100
-    ymax = 100
-    zmax = 250
+    xmax = 320
+    ymax = 320
+    zmax = 400
 
     t0 = FT(0)
     timeend = FT(10)

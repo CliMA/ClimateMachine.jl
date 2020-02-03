@@ -9,8 +9,6 @@ using Printf
 using LinearAlgebra
 using Logging
 
-const ArrayTypes = (CLIMA.array_type(),)
-
 function initialcondition!(Q, x, y, z, _)
   @inbounds Q[1] = abs(x) - 0.1
 end
@@ -47,8 +45,9 @@ end
 
 let
   CLIMA.init()
-  mpicomm = MPI.COMM_WORLD
+  ArrayTypes = (CLIMA.array_type(),)
 
+  mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
              ll == "WARN"  ? Logging.Warn  :

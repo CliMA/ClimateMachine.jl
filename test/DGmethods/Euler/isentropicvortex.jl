@@ -2,7 +2,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive,
                                        CentralNumericalFluxNonDiffusive
 using CLIMA.ODESolvers: solve!, gettime
@@ -13,13 +13,11 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
-                   DryModel, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-
-const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -30,8 +28,9 @@ const output_vtk = false
 
 function main()
   CLIMA.init()
-  mpicomm = MPI.COMM_WORLD
+  ArrayType = CLIMA.array_type()
 
+  mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = Dict("DEBUG" => Logging.Debug,
                   "WARN"  => Logging.Warn,
@@ -104,7 +103,7 @@ function main()
         for level in 1:numlevels
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
-            run(mpicomm, polynomialorder, numelems,
+            run(mpicomm, ArrayType, polynomialorder, numelems,
                 NumericalFlux, setup, FT, dims, level)
 
           rtol = sqrt(eps(FT))
@@ -124,7 +123,7 @@ function main()
   end
 end
 
-function run(mpicomm, polynomialorder, numelems,
+function run(mpicomm, ArrayType, polynomialorder, numelems,
              NumericalFlux, setup, FT, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
@@ -146,6 +145,7 @@ function run(mpicomm, polynomialorder, numelems,
                      NoReferenceState(),
                      ConstantViscosityWithDivergence(0.0),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,
@@ -153,7 +153,7 @@ function run(mpicomm, polynomialorder, numelems,
                      initialcondition!)
 
   dg = DGModel(model, grid, NumericalFlux(),
-               CentralNumericalFluxDiffusive(), CentralGradPenalty())
+               CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
 
   timeend = FT(2 * setup.domain_halflength / 10 / setup.translation_speed)
 
