@@ -55,7 +55,7 @@ end
 HSBox = HomogeneousSimpleBox
 
 # aux is Filled afer the state
-function ocean_init_aux!(::HBModel, P::HSBox, A, geom)
+function ocean_init_aux!(m::HBModel, P::HSBox, A, geom)
   FT = eltype(A)
   @inbounds y = geom.coord[2]
 
@@ -66,6 +66,9 @@ function ocean_init_aux!(::HBModel, P::HSBox, A, geom)
 
   A.τ  = -τₒ * cos(y * π / Lʸ)
   A.f  =  fₒ + β * y
+
+  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
+  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
 end
 
 function ocean_init_state!(p::HSBox, state, aux, coords, t)
@@ -82,7 +85,7 @@ end
 ###################
 FT = Float64
 
-const timeend = 86400   # s
+const timeend = 0.5 * 86400   # s
 const tout    = 60 * 60 # s
 
 const N  = 4
@@ -144,7 +147,7 @@ let
                     grid,
                     Rusanov(),
                     CentralNumericalFluxDiffusive(),
-                    CentralGradPenalty())
+                    CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0); forcecpu=true)
   update_aux!(dg, model, Q, FT(0))

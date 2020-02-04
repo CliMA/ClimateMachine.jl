@@ -10,8 +10,6 @@ using Printf
 using LinearAlgebra
 using Logging
 
-const ArrayTypes = (CLIMA.array_type(),)
-
 using Test
 function run(mpicomm, dim, ArrayType, Ne, FT)
   N = 3
@@ -87,6 +85,8 @@ end
 
 let
   CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :

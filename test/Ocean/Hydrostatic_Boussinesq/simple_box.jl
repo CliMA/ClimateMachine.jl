@@ -68,12 +68,8 @@ function ocean_init_aux!(m::HBModel, P::SimpleBox, A, geom)
   A.f  =  fₒ + β * y
   A.θʳ =  θᴱ * (1 - y / Lʸ)
 
-  κʰ = m.κʰ
-  κᶻ = m.κᶻ
-
-  # A.κ = @SMatrix [ κʰ -0 -0; -0 κʰ -0; -0 -0 κᶻ]
-  A.κᶻ = κᶻ
-
+  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
+  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
 end
 
 function ocean_init_state!(P::SimpleBox, Q, A, coords, t)
@@ -172,7 +168,7 @@ let
                     grid,
                     Rusanov(),
                     CentralNumericalFluxDiffusive(),
-                    CentralGradPenalty())
+                    CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0); forcecpu=true)
   update_aux!(dg, model, Q, FT(0))
