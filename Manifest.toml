@@ -58,15 +58,15 @@ version = "2.1.0"
 
 [[CUDAdrv]]
 deps = ["CEnum", "CUDAapi", "Printf"]
-git-tree-sha1 = "5660775f2a3214420add960e1ff2baf46d5297cd"
+git-tree-sha1 = "0f39fddace3324707469ace7fbcbc7b28d5cf921"
 uuid = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
-version = "5.1.0"
+version = "4.0.4"
 
 [[CUDAnative]]
 deps = ["Adapt", "CEnum", "CUDAapi", "CUDAdrv", "DataStructures", "InteractiveUtils", "LLVM", "Libdl", "Printf", "TimerOutputs"]
-git-tree-sha1 = "e0c2805c9a7d338823c0d8f574242e284410fa61"
+git-tree-sha1 = "a67b38619d1fa131027bac1c4a81f0012254d1fd"
 uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
-version = "2.9.1"
+version = "2.6.0"
 
 [[Cassette]]
 git-tree-sha1 = "f6a148cadd38ba328bd2c03442037ef801a6aa05"
@@ -111,9 +111,9 @@ version = "1.1.0"
 
 [[CuArrays]]
 deps = ["AbstractFFTs", "Adapt", "CEnum", "CUDAapi", "CUDAdrv", "CUDAnative", "DataStructures", "GPUArrays", "Libdl", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Requires", "SparseArrays", "TimerOutputs"]
-git-tree-sha1 = "4e536542c5c898b1bf43011b6187f3c97ebcc91e"
+git-tree-sha1 = "e99db1397ce85975203a9d736ab37534730996ca"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
-version = "1.7.0"
+version = "1.5.0"
 
 [[DataAPI]]
 git-tree-sha1 = "674b67f344687a88310213ddfa8a2b3c76cc4252"
@@ -295,9 +295,9 @@ version = "0.10.1"
 
 [[MacroTools]]
 deps = ["DataStructures", "Markdown", "Random"]
-git-tree-sha1 = "e2fc7a55bb2224e203bbd8b59f72b91323233458"
+git-tree-sha1 = "07ee65e03e28ca88bc9a338a3726ae0c3efaa94b"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-version = "0.5.3"
+version = "0.5.4"
 
 [[Markdown]]
 deps = ["Base64"]
@@ -399,10 +399,10 @@ uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 version = "0.7.0"
 
 [[Requires]]
-deps = ["UUIDs"]
-git-tree-sha1 = "d37400976e98018ee840e0ca4f9d20baa231dc6b"
+deps = ["Test"]
+git-tree-sha1 = "f6fbf4ba64d295e146e49e021207993b6b48c7d1"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
-version = "1.0.1"
+version = "0.5.2"
 
 [[Rmath]]
 deps = ["BinaryProvider", "Libdl", "Random", "Statistics"]
