@@ -317,7 +317,7 @@ function invoke!(solver_config::SolverConfiguration;
         # set up VTK output callback
         step = [0]
         cbvtk = GenericCallbacks.EveryXSimulationSteps(Settings.vtk_interval) do (init=false)
-            vprefix = @sprintf("%s_%dD_mpirank%04d_step%04d", solver_config.name, dim,
+            vprefix = @sprintf("%s_mpirank%04d_step%04d", solver_config.name,
                                MPI.Comm_rank(mpicomm), step[1])
             outprefix = joinpath(Settings.output_dir, vprefix)
             statenames = Atmos.flattenednames(Atmos.vars_state(bl, FT))
