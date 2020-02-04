@@ -9,11 +9,11 @@ using Logging
 using Printf
 using LinearAlgebra
 
-const ArrayType = CLIMA.array_type()
-
 let
   # boiler plate MPI stuff
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :

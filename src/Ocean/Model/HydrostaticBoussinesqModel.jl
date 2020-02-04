@@ -11,7 +11,7 @@ using ..PlanetParameters: grav
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
 using ..Mesh.Grids: polynomialorder, VerticalDirection
 
-using ..DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using ..DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                    CentralNumericalFluxDiffusive,
                                    CentralNumericalFluxNonDiffusive
 
@@ -291,7 +291,8 @@ end
 end
 
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip,
-                                       ::Union{Rusanov, CentralGradPenalty},
+                                       ::Union{Rusanov,
+                                               CentralNumericalFluxGradient},
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   return nothing
 end
@@ -308,7 +309,8 @@ end
 end
 
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineNoSlip,
-                                       ::Union{Rusanov, CentralGradPenalty},
+                                       ::Union{Rusanov,
+                                               CentralNumericalFluxGradient},
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   Q⁺.u = -Q⁻.u
 
@@ -326,7 +328,8 @@ end
 end
 
 @inline function ocean_boundary_state!(m::HBModel, ::OceanFloorFreeSlip,
-                                       ::Union{Rusanov, CentralGradPenalty},
+                                       ::Union{Rusanov,
+                                               CentralNumericalFluxGradient},
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   A⁺.w = -A⁻.w
 
@@ -346,7 +349,8 @@ end
 end
 
 @inline function ocean_boundary_state!(m::HBModel, ::OceanFloorNoSlip,
-                                       ::Union{Rusanov, CentralGradPenalty},
+                                       ::Union{Rusanov,
+                                               CentralNumericalFluxGradient},
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   Q⁺.u = -Q⁻.u
   A⁺.w = -A⁻.w
@@ -372,7 +376,8 @@ end
                                        OceanSurfaceStressNoForcing,
                                        OceanSurfaceNoStressForcing,
                                        OceanSurfaceStressForcing},
-                                       ::Union{Rusanov, CentralGradPenalty},
+                                       ::Union{Rusanov,
+                                               CentralNumericalFluxGradient},
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   return nothing
 end

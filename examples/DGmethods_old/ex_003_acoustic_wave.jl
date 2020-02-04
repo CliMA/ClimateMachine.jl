@@ -54,10 +54,6 @@ using CLIMA.PlanetParameters: planet_radius, grav, MSLP
 using CLIMA.MoistThermodynamics: air_temperature, air_pressure, internal_energy,
                                  soundspeed_air, air_density, gas_constant_air
 
-# Start up MPI and determine array type
-const DeviceArrayType = CLIMA.array_type()
-#md nothing # hide
-
 # Specify whether to enforce hydrostatic balance at PDE level or not
 const PDE_level_hydrostatic_balance = true
 
@@ -393,6 +389,8 @@ end
 # required for stable long time simulation.
 let
   CLIMA.init()
+  DeviceArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
   mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 
