@@ -18,6 +18,7 @@ for submodule in ["Utilities/TicToc",
                   "Ocean",
                   "Arrays",
                   "LinearSolvers",
+                  "Driver",
                  ]
 
   println("Starting tests for $submodule")

@@ -100,7 +100,7 @@ float_types = [Float32, Float64]
   @test MT.saturation_adjustment_SecantMethod(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) ≈ 200.0
   @test abs(MT.saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) - 200.0) < tol_T
   q = PhasePartition_equil(T, ρ, q_tot)
-  @test q.tot - q.liq - q.ice ≈ q_vap_saturation(T, ρ)
+  @test q.tot - q.liq - q.ice ≈ vapor_specific_humidity(q) ≈ q_vap_saturation(T, ρ)
 
   ρ = FT(1)
   ρu = FT[1,2,3]
@@ -313,6 +313,7 @@ end
     )
     @test typeof.(soundspeed_air.(ts))          == typeof.(e_int)
     @test typeof.(gas_constant_air.(ts))        == typeof.(e_int)
+    @test typeof.(vapor_specific_humidity.(ts)) == typeof.(e_int)
     @test typeof.(relative_humidity.(ts))       == typeof.(e_int)
     @test typeof.(air_pressure.(ts))            == typeof.(e_int)
     @test typeof.(air_density.(ts))             == typeof.(e_int)

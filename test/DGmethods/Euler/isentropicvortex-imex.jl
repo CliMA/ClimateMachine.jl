@@ -2,7 +2,7 @@ using CLIMA
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
-using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralGradPenalty,
+using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.AdditiveRungeKuttaMethod
@@ -17,14 +17,12 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-
-const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -35,6 +33,8 @@ const output_vtk = false
 
 function main()
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
+
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -80,7 +80,7 @@ function main()
         for level in 1:numlevels
           numelems = ntuple(dim -> dim == 3 ? 1 : 2 ^ (level - 1) * 5, dims)
           errors[level] =
-            run(mpicomm, polynomialorder, numelems, setup, split_nonlinear_linear,
+            run(mpicomm, ArrayType, polynomialorder, numelems, setup, split_nonlinear_linear,
                 FT, dims, level)
 
           @test errors[level] ≈ expected_error[FT, split_nonlinear_linear, level]
@@ -94,7 +94,7 @@ function main()
   end
 end
 
-function run(mpicomm, polynomialorder, numelems, setup,
+function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
              split_nonlinear_linear, FT, dims, level)
   brickrange = ntuple(dims) do dim
     range(-setup.domain_halflength; length=numelems[dim] + 1, stop=setup.domain_halflength)
@@ -118,6 +118,7 @@ function run(mpicomm, polynomialorder, numelems, setup,
                      IsentropicVortexReferenceState{FT}(setup),
                      ConstantViscosityWithDivergence(FT(0)),
                      DryModel(),
+                     NoPrecipitation(),
                      NoRadiation(),
                      NoSubsidence{FT}(),
                      nothing,
@@ -127,15 +128,17 @@ function run(mpicomm, polynomialorder, numelems, setup,
   linear_model = AtmosAcousticLinearModel(model)
   nonlinear_model = RemainderModel(model, (linear_model,))
 
-  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty())
+  dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient())
 
   dg_linear = DGModel(linear_model,
-                      grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
-                      auxstate=dg.auxstate)
+                      grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                      CentralNumericalFluxGradient(); auxstate=dg.auxstate)
 
   if split_nonlinear_linear
     dg_nonlinear = DGModel(nonlinear_model,
-                           grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralGradPenalty();
+                           grid, Rusanov(), CentralNumericalFluxDiffusive(),
+                           CentralNumericalFluxGradient();
                            auxstate=dg.auxstate)
   end
 

@@ -1,6 +1,5 @@
 module CLIMA
 
-include("misc.jl")
 include("Utilities/TicToc/TicToc.jl")
 include("Utilities/ParametersType/ParametersType.jl")
 include("Common/PlanetParameters/PlanetParameters.jl")
@@ -33,5 +32,6 @@ include("ODESolvers/GenericCallbacks.jl")
 include("Atmos/Model/AtmosModel.jl")
 include("Diagnostics/Diagnostics.jl")
 include("InputOutput/VTK/VTK.jl")
+include("Driver/Driver.jl")
 
 end
