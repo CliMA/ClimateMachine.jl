@@ -15,7 +15,7 @@ ODEs = ODESolvers
 """
     TimeScaledRHS(a, b, rhs!)
 
-When evaluate at time `t`, evaluates `rhs!` at time `a + bt`.
+When evaluated at time `t`, evaluates `rhs!` at time `a + bt`.
 """
 mutable struct TimeScaledRHS{RT}
   a::RT
@@ -23,7 +23,7 @@ mutable struct TimeScaledRHS{RT}
   rhs!
 end
 
-function (o::TimeScaledRHS)(dQ, Q, params, tau; increment)  
+function (o::TimeScaledRHS)(dQ, Q, params, tau; increment)
   o.rhs!(dQ, Q, params, o.a + o.b*tau; increment=increment)
 end
 
@@ -78,14 +78,14 @@ mutable struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nst
   tsfastrhs!::TimeScaledRHS{RT}
   "fast rhs method"
   fastsolver::FS
-  "number of substeps per stage"
-  nsubsteps::Int
-  α::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq} 
+#  "number of substeps per stage"
+#  nsubsteps::Int
+  α::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
   β::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
   γ::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
-  d::SArray{NTuple{1, Nstages}, RT, 1, Nstages} 
-  c::SArray{NTuple{1, Nstages}, RT, 1, Nstages} 
-  c̃::SArray{NTuple{1, Nstages}, RT, 1, Nstages} 
+  d::SArray{NTuple{1, Nstages}, RT, 1, Nstages}
+  c::SArray{NTuple{1, Nstages}, RT, 1, Nstages}
+  c̃::SArray{NTuple{1, Nstages}, RT, 1, Nstages}
   function MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsubsteps,
                                       α, β, γ,
                                       Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
@@ -106,15 +106,16 @@ mutable struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nst
 
     c = similar(d)
     for i = eachindex(c)
+
       c[i] = d[i]
       if i > 1
         c[i] += sum(j-> (α[i,j] + γ[i,j])*c[j], 1:i-1)
       end
     end
     c̃ = α*c
-    
+
     new{T, RT, AT, typeof(fastsolver), Nstages, Nstages-1, Nstages-2, Nstages ^ 2}(RT(dt), RT(t0), yn, ΔYnj, fYnj, offset,
-                                         slowrhs!, tsfastrhs!, fastsolver, nsubsteps,
+                                         slowrhs!, tsfastrhs!, fastsolver,
                                          α, β, γ, d, c, c̃)
   end
 end
@@ -167,23 +168,18 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     threads = 256
     blocks = div(length(realview(Q)) + threads - 1, threads)
     @launch(device(Q), threads=threads, blocks=blocks,
-            update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]), 
+            update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]),
             α[i,:], β[i,:], γ[i,:], d[i], dt))
 
     fastrhs!.a = time + c̃[i]*dt
     fastrhs!.b = (c[i] - c̃[i]) / d[i]
 
     τ = zero(FT)
-    dτ = d[i] * dt / mis.nsubsteps
-    ODEs.updatetime!(fastsolver, τ)
-    ODEs.updatedt!(fastsolver, dτ)
+    dτ = d[i] * dt
     # TODO: we want to be able to write
     #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
     # especially if we want to use StormerVerlet, but need some way to pass in `offset`
-    for k = 1:mis.nsubsteps
-      ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset))  #(1c)
-      τ += dτ
-    end
+    ODEs.dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset), nothing)  #(1c)
   end
 end
 
@@ -274,7 +270,7 @@ end
 function TVDMISA(slowrhs!, fastrhs!, fastmethod, nsubsteps,  Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
   FT = eltype(Q)
   RT = real(FT)
-  
+
   α = [0 0                    0                  0;
        0 0                    0                  0;
        0 0.1946360605647457   0                  0;
