@@ -132,7 +132,7 @@ struct NonEquilMoist <: MoistureModel end
 vars_state(::NonEquilMoist    ,FT) = @vars(ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 vars_gradient(::NonEquilMoist ,FT) = @vars(q_tot::FT,q_liq::FT, q_ice::FT, h_tot::FT)
 vars_diffusive(::NonEquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_q_liq::SVector{3,FT}, ρd_q_ice::SVector{3,FT})
-vars_aux(::NonEquilMoist      ,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT)
+vars_aux(::NonEquilMoist      ,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT, p::FT)
 
 @inline function atmos_nodal_update_aux!(moist::NonEquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
@@ -141,6 +141,7 @@ vars_aux(::NonEquilMoist      ,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT,
   aux.moisture.θ_v = virtual_pottemp(TS)
   aux.moisture.q_liq = PhasePartition(TS).liq
   aux.moisture.q_ice = PhasePartition(TS).ice
+  aux.moisture.p = air_pressure(TS)
   return nothing
 end
 

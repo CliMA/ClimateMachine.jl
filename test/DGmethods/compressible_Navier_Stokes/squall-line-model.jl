@@ -63,12 +63,12 @@ function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
       dataq = 0.0
   end
 
-  θ_c =     3.0
+  θ_c =     5.0
   rx  = 10000.0
   ry  =  1500.0
   rz  =  1500.0
-  xc  = 0.5*(xmax + xmin)
-  yc  = 0.5*(ymax + ymin)
+  xc  = 0.0#0.5*(xmax + xmin)
+  yc  = 2500.0*(ymax + ymin)
   zc  = 2000.0
 
   cylinder_flg = 0.0
@@ -77,12 +77,12 @@ function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
   if r <= 1.0
       Δθ = θ_c * (cospi(0.5*r))^2
   end
+  
   θ_liq = datat + Δθ
   q_tot = dataq
   p     = datap
-  T     = air_temperature_from_liquid_ice_pottemp(θ_liq, p, PhasePartition(q_tot))
+  T     = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, PhasePartition(q_tot)) 
   ρ     = air_density(T, p)
-
   # energy definitions
   u, v, w     = datau, datav, zero(FT) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
   ρu          = ρ * u
@@ -92,7 +92,6 @@ function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
   e_pot       = grav * xvert
   ρe_tot      = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
   ρq_tot      = ρ * q_tot
-
   state.ρ = ρ
   state.ρu = SVector(ρu, ρv, ρw)
   state.ρe = ρe_tot
@@ -146,15 +145,15 @@ using CLIMA.Atmos: vars_state, vars_aux
 
 function config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
 
-rayleigh_sponge = RayleighSponge{FT}(zmax, 12000, 1, SVector{3,FT}(0,0,0), 2)
+rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,2)
     config = CLIMA.LES_Configuration("squall_line", N, resolution, xmax, ymax, zmax,
                                      init_state!,
 				     xmin = xmin,
                                      solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy),
                                      ref_state=NoReferenceState(),
-                                     moisture=NonEquilMoist(),
-				     precipitation=Rain(),
-                                     sources=(rayleigh_sponge),
+                                     precipitation=Rain(),
+				     moisture=NonEquilMoist(),
+                                     sources=(Gravity(),rayleigh_sponge,PrecipitationSource()),
                                      bc=NoFluxBC())
 
     return config
@@ -174,15 +173,14 @@ function main()
     resolution = (Δx, Δy, Δz)
 
     t0 = FT(0)
-    timeend = FT(9000)
+    timeend = FT(2000)
     driver_config = config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.2)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.4)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
-
     result = CLIMA.invoke!(solver_config;
                           user_callbacks=(cbtmarfilter,),
                           check_euclidean_distance=true)

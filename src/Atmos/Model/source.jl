@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters: Omega
-export Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
+export Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, PrecipitationSource
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -63,14 +63,41 @@ struct RayleighSponge{FT} <: Source
   u_relaxation::SVector{3,FT}
   "Sponge exponent"
   γ::FT
+  "sponge type"
+  typ::FT
 end
 function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  z = altitude(atmos.orientation, aux)
+ z = altitude(atmos.orientation, aux)
+ if s.typ == 1 
+    if z >= s.z_sponge
+      r = (z - s.z_sponge)/(s.z_max-s.z_sponge)
+      β_sponge = s.α_max * sinpi(r/2)^s.γ
+      source.ρu -= β_sponge * (state.ρu .- state.ρ*s.u_relaxation)
+    end
+ elseif s.typ == 2
+  x = aux.coord[1]
+  ctop = 0
+  ct = 0.5
+  cx = 0 
   if z >= s.z_sponge
-    r = (z - s.z_sponge)/(s.z_max-s.z_sponge)
-    β_sponge = s.α_max * sinpi(r/2)^s.γ
-    source.ρu -= β_sponge * (state.ρu .- state.ρ*s.u_relaxation)
-  end
+     zid = (z - s.z_sponge)/(s.z_max - s.z_sponge) # normalized coordinate
+     if zid >= 0.0 && zid <= 0.5
+       abstaud = s.α_max*(1.0 - cos(zid*pi))
+
+     else
+       abstaud = s.α_max*( 1.0 + cos((zid - 0.5)*pi) )
+
+     end
+     ctop = ct*abstaud
+   end
+   if (x >=25000 || x<=-25000)
+     r = (abs(x) - 25000)/(5000)
+     cx = s.α_max * sinpi(r/2)^4
+   end
+   β_sponge  = 1.0 - (1.0 - ctop)*(1 - cx) 
+   β_sponge  = min(β_sponge, 1.0)
+   source.ρu -= β_sponge * (state.ρu .- state.ρ*s.u_relaxation)
+ end
 end
 
 struct PrecipitationSource <: Source end
