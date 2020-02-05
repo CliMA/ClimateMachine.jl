@@ -210,7 +210,7 @@ end
 
 @inline function shallow_boundary_state!(::CentralNumericalFluxGradient, m::SWModel,
                                          ::ConstantViscosity, q⁺, α⁺, n⁻, q⁻, α⁻, t)
-  q⁺.U = -q⁻.U
+  q⁺.U = 0
 
   return nothing
 end

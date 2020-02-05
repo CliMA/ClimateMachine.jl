@@ -318,10 +318,18 @@ end
 end
 
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineNoSlip,
-                                       ::Union{Rusanov,
-                                               CentralNumericalFluxGradient},
+                                       ::Rusanov,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   Q⁺.u = -Q⁻.u
+
+  return nothing
+end
+
+@inline function ocean_boundary_state!(::HBModel, ::CoastlineNoSlip,
+                                       ::CentralNumericalFluxGradient,
+                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
+  FT = eltype(Q⁺)
+  Q⁺.u = SVector(-zero(FT), -zero(FT))
 
   return nothing
 end
@@ -337,13 +345,22 @@ end
 end
 
 @inline function ocean_boundary_state!(m::HBModel, ::OceanFloorFreeSlip,
-                                       ::Union{Rusanov,
-                                               CentralNumericalFluxGradient},
+                                       ::Rusanov,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   A⁺.w = -A⁻.w
 
   return nothing
 end
+
+@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorFreeSlip,
+                                       ::CentralNumericalFluxGradient,
+                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
+  FT = eltype(Q⁺)
+  A⁺.w = -zero(FT)
+
+  return nothing
+end
+
 
 
 @inline function ocean_boundary_state!(m::HBModel, ::OceanFloorFreeSlip,
@@ -358,11 +375,19 @@ end
 end
 
 @inline function ocean_boundary_state!(m::HBModel, ::OceanFloorNoSlip,
-                                       ::Union{Rusanov,
-                                               CentralNumericalFluxGradient},
+                                       ::Rusanov,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   Q⁺.u = -Q⁻.u
   A⁺.w = -A⁻.w
+
+  return nothing
+end
+@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorNoSlip,
+                                       ::CentralNumericalFluxGradient,
+                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
+  FT = eltype(Q⁺)
+  Q⁺.u = SVector(-zero(FT), -zero(FT))
+  A⁺.w = -zero(FT)
 
   return nothing
 end
