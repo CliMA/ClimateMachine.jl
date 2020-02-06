@@ -58,8 +58,9 @@ function numerical_boundary_flux_gradient!(nf::CentralNumericalFluxGradient,
   boundary_state!(nf, bl, state⁺, aux⁺, n, state⁻, aux⁻, bctype, t, state1⁻,
                   aux1⁻)
   gradvariables!(bl, transform⁺, state⁺, aux⁺, t)
-  G = n .* parent(transform⁺)'
-  diffusive!(bl, fluxᵀn, Grad{T}(G), state⁻, aux⁻, t)
+  numerical_flux_gradient!(nf, bl, fluxᵀn, n,
+    transform⁻, state⁻, aux⁻,
+    transform⁺, state⁺, aux⁺, t)
 end
 
 

@@ -82,11 +82,7 @@ function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFlu
                                t, _...)
   FT = eltype(stateM)
   stateP.ρ = stateM.ρ
-  if typeof(nf) <: NumericalFluxNonDiffusive
-    stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
-  else
-    stateP.ρu -=  dot(stateM.ρu, nM) * SVector(nM)
-  end
+  stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
 end
 
 function atmos_boundary_state!(::NumericalFluxDiffusive, bc::NoFluxBC,
@@ -96,7 +92,7 @@ function atmos_boundary_state!(::NumericalFluxDiffusive, bc::NoFluxBC,
   FT = eltype(stateM)
   stateP.ρ = stateM.ρ
   stateP.ρu -= dot(stateM.ρu, nM) * SVector(nM)
-  
+
   fill!(getfield(diffP, :array), FT(0))
 end
 
@@ -151,11 +147,7 @@ function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFlu
   q_totM = QTM/ρM
 
   # Assign reflection wall boundaries (top wall)
-  if typeof(nf) <: NumericalFluxNonDiffusive
-    stateP.ρu -= 2dot(stateM.ρu, nM) * SVector(nM)
-  else
-    stateP.ρu -= dot(stateM.ρu, nM) * SVector(nM)
-  end
+  stateP.ρu -= 2dot(stateM.ρu, nM) * SVector(nM)
 
   # Assign scalar values at the boundaries
   stateP.ρ = ρM
@@ -275,11 +267,7 @@ function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFlu
   @inbounds begin
     FT = eltype(stateP)
     stateP.ρ = ρP = stateM.ρ
-    if typeof(nf) <: NumericalFluxNonDiffusive
-      stateP.ρu = -stateM.ρu
-    else
-      stateP.ρu = SVector{3,FT}(0,0,0)
-    end
+    stateP.ρu = -stateM.ρu
     if bctype == 1
       E_intP = ρP * cv_d * (bc.T_bot - T_0)
     else
