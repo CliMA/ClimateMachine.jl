@@ -21,22 +21,20 @@ import CLIMA.DGmethods.NumericalFluxes: boundary_state!, Rusanov,
                                     CentralNumericalFluxDiffusive,
                                     boundary_flux_diffusive!
 
-
-
 # ------------------- Description ---------------------------------------- #
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
 # 2) Boundaries - `Sides` : Periodic (Default `bctuple` used to identify bot,top walls)
 #                 `Top`   : Prescribed temperature, no-slip
-#                 `Bottom`: Prescribed temperature, no-slip
-# 3) Domain - 250m[horizontal] x 250m[horizontal] x 500m[vertical]
+#                 `Bottom`: Prescribed temperature, no-slip 
+# 3) Domain - 250m[horizontal] x 250m[horizontal] x 500m[vertical] 
 # 4) Timeend - 1000s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
 # 6) Random seed in initial condition (Requires `forcecpu=true` argument)
-# 7) Overrides defaults for
+# 7) Overrides defaults for 
 #               `C_smag`
 #               `Courant_number`
 #               `forcecpu`
-#               `ref_state`
+#               `ref_state`        
 #               `solver_type`
 #               `bc`
 #               `sources`
@@ -81,7 +79,7 @@ function atmos_boundary_state!(::Rusanov, bc::FixedTempNoSlip, m::AtmosModel,
 end
 
 function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
-                                        bc::FixedTempNoSlip,
+                                        bc::FixedTempNoSlip, 
                                         atmos::AtmosModel,
                                         F⁺, Y⁺, Σ⁺, A⁺, n⁻,
                                         F⁻, Y⁻, Σ⁻, A⁻,
@@ -96,13 +94,13 @@ boundary_state!(nf, m::AtmosModel, x...) =
 boundary_state!(::CentralNumericalFluxGradient, bl::AtmosModel, _...) = nothing
 
 boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, atmos::AtmosModel,
-                         F⁺, Y⁺, Σ⁺, A⁺,
+                         F⁺, Y⁺, Σ⁺, A⁺, 
                          n⁻,
                          F⁻, Y⁻, Σ⁻, A⁻,
                          bctype, t,
                          Y₁⁻, Σ₁⁻, A₁⁻) =
 atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
-                                 F⁺, Y⁺, Σ⁺, A⁺,
+                                 F⁺, Y⁺, Σ⁺, A⁺, 
                                  n⁻,
                                  F⁻, Y⁻, Σ⁻, A⁻,
                                  bctype, t,
@@ -141,21 +139,18 @@ function init_problem!(state, aux, (x,y,z), t)
 end
 
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
-
     T_min   = FT(289)
     T_s     = FT(299)
     Γ_lapse = FT(grav/cp_d)
     T       = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)
-
     #Boundary conditions
     bc    = FixedTempNoSlip{FT}(T_bot, T_top)
 
     # Turbulence
     C_smag = FT(0.23)
-
-    config = CLIMA.LES_Configuration("DryRayleighBenardConvection",
+    config = CLIMA.LES_Configuration("DryRayleighBenardConvection", 
                                      N, resolution, xmax, ymax, zmax,
                                      init_problem!,
                                      solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
@@ -168,34 +163,36 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function main()
+    
     CLIMA.init()
     FT = Float64
     # DG polynomial order
     N = 4
     # Domain resolution and size
     Δh = FT(10)
-    # Time integrator setup
+    # Time integrator setup 
     t0 = FT(0)
     CFLmax = FT(0.90)
     timeend = FT(3500)
-
+    
     @testset "DryRayleighBenardTest" begin
-      for Δh in Δh
+      for Δh in Δh 
         Δv = Δh
         resolution = (Δh, Δh, Δv)
+
         driver_config = config_problem(FT, N, resolution, xmax, ymax, zmax)
         solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=CFLmax)
-
+        
         # User defined callbacks (TMAR positivity preserving filter)
         cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
             Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
             nothing
         end
-
+        
         result = CLIMA.invoke!(solver_config;
                               user_callbacks=(cbtmarfilter,),
                               check_euclidean_distance=true)
-        # result == engf/eng0
+        # result == engf/eng0 : Default @info output from src/Driver.jl
         @test isapprox(result,FT(1); atol=1.5e-2)
       end
     end
