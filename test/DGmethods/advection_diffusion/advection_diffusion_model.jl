@@ -5,16 +5,24 @@ import CLIMA.DGmethods: BalanceLaw,
                         flux_nondiffusive!, flux_diffusive!, source!,
                         gradvariables!, diffusive!,
                         init_aux!, init_state!,
-                        boundary_state!, wavespeed, LocalGeometry
+                        boundary_state!, wavespeed, LocalGeometry,
+                        num_state, num_gradient
 using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        NumericalFluxDiffusive,
                                        NumericalFluxGradient
+import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 abstract type AdvectionDiffusionProblem end
-struct AdvectionDiffusion{dim, P} <: BalanceLaw
+struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
   problem::P
-  function AdvectionDiffusion{dim}(problem::P) where {dim, P <: AdvectionDiffusionProblem}
-    new{dim, P}(problem)
+  function AdvectionDiffusion{dim}(problem::P
+                                  ) where {dim, P <: AdvectionDiffusionProblem}
+    new{dim, P, false}(problem)
+  end
+  function AdvectionDiffusion{dim, fluxBC}(problem::P
+                                  ) where {dim, P <: AdvectionDiffusionProblem,
+                                           fluxBC}
+    new{dim, P, fluxBC}(problem)
   end
 end
 
@@ -60,8 +68,7 @@ function flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
 end
 
 """
-    flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
-                     auxDG::Vars, aux::Vars, t::Real)
+flux_diffusive!(m::AdvectionDiffusion, flux::Grad, auxDG::Vars)
 
 Computes diffusive flux `F` in:
 
@@ -76,11 +83,12 @@ Where
  - `ρ` is the advected quantity
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
-function flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
-                         auxDG::Vars, aux::Vars, t::Real)
+function flux_diffusive!(m::AdvectionDiffusion, flux::Grad, auxDG::Vars)
   σ = auxDG.σ
   flux.ρ += -σ
 end
+flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars, auxDG::Vars,
+                aux::Vars, t::Real) = flux_diffusive!(m, flux, auxDG)
 
 """
     gradvariables!(m::AdvectionDiffusion, transform::Vars, state::Vars,
@@ -94,17 +102,20 @@ function gradvariables!(m::AdvectionDiffusion, transform::Vars, state::Vars,
 end
 
 """
-    diffusive!(m::AdvectionDiffusion, transform::Vars, state::Vars, aux::Vars,
-               t::Real)
+    diffusive!(m::AdvectionDiffusion, transform::Vars, gradvars::Vars,
+               aux::Vars)
 
 Set the variable to take the gradient of (`ρ` in this case)
 """
 function diffusive!(m::AdvectionDiffusion, auxDG::Vars, gradvars::Grad,
-                    state::Vars, aux::Vars, t::Real)
+                    aux::Vars)
   ∇ρ = gradvars.ρ
   D = aux.D
   auxDG.σ = D * ∇ρ
 end
+diffusive!(m::AdvectionDiffusion, auxDG::Vars, gradvars::Grad,
+           state::Vars, aux::Vars, t::Real) = diffusive!(m, auxDG, gradvars,
+                                                         aux)
 
 """
     source!(m::AdvectionDiffusion, _...)
@@ -138,48 +149,78 @@ function init_state!(m::AdvectionDiffusion, state::Vars, aux::Vars,
   initial_condition!(m.problem, state, aux, coords, t)
 end
 
+Neumann_data!(problem, ∇state, aux, x, t) = nothing
+Dirichlet_data!(problem, state, aux, x, t) = nothing
+
 function boundary_state!(nf, m::AdvectionDiffusion, stateP::Vars, auxP::Vars,
                          nM, stateM::Vars, auxM::Vars, bctype, t, _...)
-  if bctype == 1
-    boundary_state_Dirichlet!(nf, m, stateP, auxP, nM, stateM, auxM, t)
-  elseif bctype == 2
-    # TODO: boundary_state_Neumann(nf, m, stateP, auxP, nM, stateM, auxM, t)
+  if bctype == 1 # Dirichlet
+    Dirichlet_data!(m.problem, stateP, auxP, auxP.coord, t)
+  elseif bctype ∈ (2, 4) # Neumann
+    stateP.ρ = stateM.ρ
   elseif bctype == 3 # zero Dirichlet
     stateP.ρ = 0
   end
 end
 
-function boundary_state!(nf, m::AdvectionDiffusion, stateP::Vars, diffP::Vars,
-                         auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars,
-                         bctype, t, _...)
-  if bctype == 1
-    boundary_state_Dirichlet!(nf, m, stateP, diffP, auxP, nM, stateM, diffM,
-                              auxM, t)
-  elseif bctype == 2
-    # boundary_state_Neumann(nf, m, stateP, auxP, nM, stateM, auxM, t)
-  elseif bctype == 3 # zero Dirichlet
-    stateP.ρ = - stateM.ρ
+function boundary_state!(nf::CentralNumericalFluxDiffusive,
+    m::AdvectionDiffusion, 
+    state⁺::Vars, diff⁺::Vars, aux⁺::Vars,
+    n⁻::SVector,
+    state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
+    bctype, t,
+    _...)
+
+  if bctype ∈ (1,3) # Dirchlet
+    # Just use the minus side values since Dirchlet
+    diff⁺.σ = diff⁻.σ
+  elseif bctype == 2 # Neumann with data
+    FT = eltype(diff⁺)
+    ngrad = num_gradient(m, FT)
+    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    # Get analytic gradient
+    Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+    diffusive!(m, diff⁺, ∇state, aux⁻)
+    # compute the diffusive flux using the boundary state
+  elseif bctype == 4 # zero Neumann
+    FT = eltype(diff⁺)
+    ngrad = num_gradient(m, FT)
+    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    # Get analytic gradient
+    ∇state.ρ = SVector{3, FT}(0, 0, 0)
+    # convert to auxDG variables
+    diffusive!(m, diff⁺, ∇state, aux⁻)
   end
+  nothing
 end
 
-###
-### Dirchlet Boundary Condition
-###
-function boundary_state_Dirichlet!(::NumericalFluxNonDiffusive,
-                                   m::AdvectionDiffusion,
-                                   stateP, auxP, nM, stateM, auxM, t)
-  # Set the plus side to the exact boundary data
-  init_state!(m, stateP, auxP, auxP.coord, t)
-end
-function boundary_state_Dirichlet!(::NumericalFluxGradient,
-                                   m::AdvectionDiffusion,
-                                   stateP, auxP, nM, stateM, auxM, t)
-  # Set the plus side sot that after average the numerical flux is the boundary
-  # data
-  init_state!(m, stateP, auxP, auxP.coord, t)
-  stateP.ρ = 2stateP.ρ - stateM.ρ
-end
+function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+                                  m::AdvectionDiffusion{dim, P, true},
+                                  F,
+                                  state⁺, diff⁺, aux⁺, n⁻,
+                                  state⁻, diff⁻, aux⁻,
+                                  bctype, t,
+                                  _...) where {dim, P}
 
-# Do nothing in this case since the plus-side is the minus side
-boundary_state_Dirichlet!(::NumericalFluxDiffusive, ::AdvectionDiffusion,
-                          _...) = nothing
+  # Default initialize flux to minus side
+  if bctype ∈ (1,3) # Dirchlet
+    # Just use the minus side values since Dirchlet
+    flux_diffusive!(m, F, state⁻, diff⁻, aux⁻, t)
+  elseif bctype == 2 # Neumann data
+    FT = eltype(diff⁺)
+    ngrad = num_gradient(m, FT)
+    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    # Get analytic gradient
+    Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+    # get the diffusion coefficient
+    D = aux⁻.D
+    # exact the exact data
+    ∇ρ = ∇state.ρ
+    # set the flux
+    F.ρ = - D * ∇ρ
+  elseif bctype == 4 # Zero Neumann
+    FT = eltype(diff⁺)
+    F.ρ = SVector{3, FT}(0, 0, 0)
+  end
+  nothing
+end

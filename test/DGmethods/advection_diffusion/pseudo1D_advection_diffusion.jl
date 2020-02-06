@@ -41,6 +41,13 @@ function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
+Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
+function Neumann_data!(::Pseudo1D{n, α, β, μ, δ}, ∇state, aux, x,
+                             t) where {n, α, β, μ, δ}
+  ξn = dot(n, x)
+  ∇state.ρ = -(2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *
+               exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ))
+end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
   ## name of the file that this MPI rank will write
@@ -52,7 +59,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 
   writevtk(filename, Q, dg, statenames, Qe, exactnames)
 
-  ## Generate the pvtu file for these vtk files
+  ## generate the pvtu file for these vtk files
   if MPI.Comm_rank(mpicomm) == 0
     ## name of the pvtu file
     pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
@@ -70,14 +77,14 @@ end
 
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, direction, dt,
-             n, α, β, μ, δ, vtkdir, outputtime)
+             n, α, β, μ, δ, vtkdir, outputtime, fluxBC)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+  model = AdvectionDiffusion{dim, fluxBC}(Pseudo1D{n, α, β, μ, δ}())
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -164,49 +171,48 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64, EveryDirection]      = 1.2228434091601991e-02
-  expected_result[2, 2, Float64, EveryDirection]      = 8.8037798002274254e-04
-  expected_result[2, 3, Float64, EveryDirection]      = 4.8828676920527763e-05
-  expected_result[2, 4, Float64, EveryDirection]      = 2.0105646643532331e-06
-  expected_result[2, 1, Float64, HorizontalDirection] = 4.6773313437232920e-02
-  expected_result[2, 2, Float64, HorizontalDirection] = 4.0665907382119674e-03
-  expected_result[2, 3, Float64, HorizontalDirection] = 5.3141853450548891e-05
-  expected_result[2, 4, Float64, HorizontalDirection] = 3.9767488071905575e-07
-  expected_result[2, 1, Float64, VerticalDirection]   = 4.6773313437232927e-02
-  expected_result[2, 2, Float64, VerticalDirection]   = 4.0665907382119301e-03
-  expected_result[2, 3, Float64, VerticalDirection]   = 5.3141853450495820e-05
-  expected_result[2, 4, Float64, VerticalDirection]   = 3.9767488072123432e-07
-  expected_result[3, 1, Float64, EveryDirection]      = 9.5425450102548867e-03
-  expected_result[3, 2, Float64, EveryDirection]      = 5.9769045240770321e-04
-  expected_result[3, 3, Float64, EveryDirection]      = 4.0081798525397340e-05
-  expected_result[3, 4, Float64, EveryDirection]      = 2.9803558844289167e-06
-  expected_result[3, 1, Float64, HorizontalDirection] = 1.7293617338929097e-02
-  expected_result[3, 2, Float64, HorizontalDirection] = 1.2450424793628023e-03
-  expected_result[3, 3, Float64, HorizontalDirection] = 6.9054177133589663e-05
-  expected_result[3, 4, Float64, HorizontalDirection] = 2.8433678164008570e-06
-  expected_result[3, 1, Float64, VerticalDirection]   = 6.6147454220062213e-02
-  expected_result[3, 2, Float64, VerticalDirection]   = 5.7510277746002083e-03
-  expected_result[3, 3, Float64, VerticalDirection]   = 7.5153929879266960e-05
-  expected_result[3, 4, Float64, VerticalDirection]   = 5.6239720972446923e-07
-  expected_result[2, 1, Float32, EveryDirection]      = 1.2228389270603657e-02
-  expected_result[2, 2, Float32, EveryDirection]      = 8.8042084826156497e-04
-  expected_result[2, 3, Float32, EveryDirection]      = 4.8724228690844029e-05
-  expected_result[2, 1, Float32, HorizontalDirection] = 4.6773448586463928e-02
-  expected_result[2, 2, Float32, HorizontalDirection] = 4.0663536638021469e-03
-  expected_result[2, 3, Float32, HorizontalDirection] = 5.3092040616320446e-05
-  expected_result[2, 1, Float32, VerticalDirection]   = 4.6773411333560944e-02
-  expected_result[2, 2, Float32, VerticalDirection]   = 4.0663466788828373e-03
-  expected_result[2, 3, Float32, VerticalDirection]   = 5.3190316975815222e-05
-  expected_result[3, 1, Float32, EveryDirection]      = 9.5425164327025414e-03
-  expected_result[3, 2, Float32, EveryDirection]      = 5.9771625092253089e-04
-  expected_result[3, 3, Float32, EveryDirection]      = 4.0245147829409689e-05
-  expected_result[3, 1, Float32, HorizontalDirection] = 1.7293551936745644e-02
-  expected_result[3, 2, Float32, HorizontalDirection] = 1.2451227521523833e-03
-  expected_result[3, 3, Float32, HorizontalDirection] = 6.9875582994427532e-05
-  expected_result[3, 1, Float32, VerticalDirection]   = 6.6147565841674805e-02
-  expected_result[3, 2, Float32, VerticalDirection]   = 5.7506649754941463e-03
-  expected_result[3, 3, Float32, VerticalDirection]   = 8.6558677139692008e-05
-
+  expected_result[2, 1, Float64, EveryDirection]      = 1.2357162985295326e-02
+  expected_result[2, 2, Float64, EveryDirection]      = 8.8403537443388974e-04
+  expected_result[2, 3, Float64, EveryDirection]      = 4.9490976821250842e-05
+  expected_result[2, 4, Float64, EveryDirection]      = 2.0311063939957157e-06
+  expected_result[2, 1, Float64, HorizontalDirection] = 4.6783743619257120e-02
+  expected_result[2, 2, Float64, HorizontalDirection] = 4.0665567827235134e-03
+  expected_result[2, 3, Float64, HorizontalDirection] = 5.3144336694498106e-05
+  expected_result[2, 4, Float64, HorizontalDirection] = 3.9780001102022647e-07
+  expected_result[2, 1, Float64, VerticalDirection]   = 4.6783743619257120e-02
+  expected_result[2, 2, Float64, VerticalDirection]   = 4.0665567827234102e-03
+  expected_result[2, 3, Float64, VerticalDirection]   = 5.3144336694469002e-05
+  expected_result[2, 4, Float64, VerticalDirection]   = 3.9780001102679913e-07
+  expected_result[3, 1, Float64, EveryDirection]      = 9.6252415559793265e-03
+  expected_result[3, 2, Float64, EveryDirection]      = 6.0160564826756122e-04
+  expected_result[3, 3, Float64, EveryDirection]      = 4.0359079531195022e-05
+  expected_result[3, 4, Float64, EveryDirection]      = 2.9987655364452885e-06
+  expected_result[3, 1, Float64, HorizontalDirection] = 1.7475667486259477e-02
+  expected_result[3, 2, Float64, HorizontalDirection] = 1.2502148161420126e-03
+  expected_result[3, 3, Float64, HorizontalDirection] = 6.9990810635609785e-05
+  expected_result[3, 4, Float64, HorizontalDirection] = 2.8724182090259972e-06
+  expected_result[3, 1, Float64, VerticalDirection]   = 6.6162204724938736e-02
+  expected_result[3, 2, Float64, VerticalDirection]   = 5.7509797542876833e-03
+  expected_result[3, 3, Float64, VerticalDirection]   = 7.5157441716412944e-05
+  expected_result[3, 4, Float64, VerticalDirection]   = 5.6257417070312578e-07
+  expected_result[2, 1, Float32, EveryDirection]      = 1.2357043102383614e-02
+  expected_result[2, 2, Float32, EveryDirection]      = 8.8409741874784231e-04
+  expected_result[2, 3, Float32, EveryDirection]      = 4.9384900194127113e-05
+  expected_result[2, 1, Float32, HorizontalDirection] = 4.6783901751041412e-02
+  expected_result[2, 2, Float32, HorizontalDirection] = 4.0663350373506546e-03
+  expected_result[2, 3, Float32, HorizontalDirection] = 5.3100597142474726e-05
+  expected_result[2, 1, Float32, VerticalDirection]   = 4.6783857047557831e-02
+  expected_result[2, 2, Float32, VerticalDirection]   = 4.0663424879312515e-03
+  expected_result[2, 3, Float32, VerticalDirection]   = 5.3196803492028266e-05
+  expected_result[3, 1, Float32, EveryDirection]      = 9.6252141520380974e-03
+  expected_result[3, 2, Float32, EveryDirection]      = 6.0162233421579003e-04
+  expected_result[3, 3, Float32, EveryDirection]      = 4.0522103518014774e-05
+  expected_result[3, 1, Float32, HorizontalDirection] = 1.7475549131631851e-02
+  expected_result[3, 2, Float32, HorizontalDirection] = 1.2503013713285327e-03
+  expected_result[3, 3, Float32, HorizontalDirection] = 7.0818001404404640e-05
+  expected_result[3, 1, Float32, VerticalDirection]   = 6.6162362694740295e-02
+  expected_result[3, 2, Float32, VerticalDirection]   = 5.7506239973008633e-03
+  expected_result[3, 3, Float32, VerticalDirection]   = 8.6561900388915092e-05
 
   @testset "$(@__FILE__)" begin
     for FT in (Float64, Float32)
@@ -215,50 +221,54 @@ let
       for dim = 2:3
         for direction in (EveryDirection, HorizontalDirection,
                           VerticalDirection)
-          if direction <: EveryDirection
-            n = dim == 2 ? SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0) :
-                           SVector{3, FT}(1/sqrt(3), 1/sqrt(3), 1/sqrt(3))
-          elseif direction <: HorizontalDirection
-            n = dim == 2 ? SVector{3, FT}(1, 0, 0) :
-                           SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0)
-          elseif direction <: VerticalDirection
-            n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
-          end
-          α = FT(1)
-          β = FT(1 // 100)
-          μ = FT(-1 // 2)
-          δ = FT(1 // 10)
-          for l = 1:numlevels
-            Ne = 2^(l-1) * base_num_elem
-            brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
-            periodicity = ntuple(j->false, dim)
-            topl = StackedBrickTopology(mpicomm, brickrange;
-                                        periodicity = periodicity)
-            dt = (α/4) / (Ne * polynomialorder^2)
-            @info "time step" dt
-
-            timeend = 1
-            outputtime = 1
-
-            dt = outputtime / ceil(Int64, outputtime / dt)
-
-            @info (ArrayType, FT, dim, direction)
-            vtkdir = output ? "vtk_advection" *
-                              "_poly$(polynomialorder)" *
-                              "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
-                              "_level$(l)" : nothing
-            result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
-                            timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
-                            outputtime)
-            @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
-          end
-          @info begin
-            msg = ""
-            for l = 1:numlevels-1
-              rate = log2(result[l]) - log2(result[l+1])
-              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+          for fluxBC in (true, false)
+            if direction <: EveryDirection
+              n = dim == 2 ? SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0) :
+              SVector{3, FT}(1/sqrt(3), 1/sqrt(3), 1/sqrt(3))
+            elseif direction <: HorizontalDirection
+              n = dim == 2 ? SVector{3, FT}(1, 0, 0) :
+              SVector{3, FT}(1/sqrt(2), 1/sqrt(2), 0)
+            elseif direction <: VerticalDirection
+              n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
             end
-            msg
+            α = FT(1)
+            β = FT(1 // 100)
+            μ = FT(-1 // 2)
+            δ = FT(1 // 10)
+            for l = 1:numlevels
+              Ne = 2^(l-1) * base_num_elem
+              brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
+              periodicity = ntuple(j->false, dim)
+              bc = ntuple(j->(1,2), dim)
+              topl = StackedBrickTopology(mpicomm, brickrange;
+                                          periodicity = periodicity,
+                                          boundary = bc)
+              dt = (α/4) / (Ne * polynomialorder^2)
+              @info "time step" dt
+
+              timeend = 1
+              outputtime = 1
+
+              dt = outputtime / ceil(Int64, outputtime / dt)
+
+              @info (ArrayType, FT, dim, direction, fluxBC)
+              vtkdir = output ? "vtk_advection" *
+                                "_poly$(polynomialorder)" *
+                                "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
+                                "_level$(l)" : nothing
+              result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
+                              timeend, FT, direction, dt, n, α, β, μ, δ, vtkdir,
+                              outputtime, fluxBC)
+              @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
+            end
+            @info begin
+              msg = ""
+              for l = 1:numlevels-1
+                rate = log2(result[l]) - log2(result[l+1])
+                msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+              end
+              msg
+            end
           end
         end
       end
@@ -267,4 +277,3 @@ let
 end
 
 nothing
-

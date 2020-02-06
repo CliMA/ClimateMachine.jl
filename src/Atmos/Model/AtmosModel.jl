@@ -21,10 +21,11 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!, num_state
-import ..DGmethods.NumericalFluxes: boundary_state!, Rusanov,
-                                    CentralNumericalFluxGradient,
-                                    CentralNumericalFluxDiffusive,
-                                    boundary_flux_diffusive!
+import ..DGmethods.NumericalFluxes: boundary_state!,
+                                    boundary_flux_diffusive!,
+                                    NumericalFluxNonDiffusive,
+                                    NumericalFluxGradient,
+                                    NumericalFluxDiffusive
 
 """
     AtmosModel <: BalanceLaw
@@ -245,21 +246,21 @@ end
 boundary_state!(nf, m::AtmosModel, x...) =
   atmos_boundary_state!(nf, m.boundarycondition, m, x...)
 
-# FIXME: This is probably not right....
-boundary_state!(::CentralNumericalFluxGradient, bl::AtmosModel, _...) = nothing
-
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
   m.init_state(state, aux, coords, t, args...)
 end
 
-boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, atmos::AtmosModel,
-                         F⁺, state⁺, diff⁺, aux⁺, n⁻,
-                         F⁻, state⁻, diff⁻, aux⁻,
+boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                         atmos::AtmosModel,
+                         F,
+                         state⁺, diff⁺, aux⁺, n⁻,
+                         state⁻, diff⁻, aux⁻,
                          bctype, t,
                          state1⁻, diff1⁻, aux1⁻) =
   atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
-                                 F⁺, state⁺, diff⁺, aux⁺, n⁻,
-                                 F⁻, state⁻, diff⁻, aux⁻,
+                                 F,
+                                 state⁺, diff⁺, aux⁺, n⁻,
+                                 state⁻, diff⁻, aux⁻,
                                  bctype, t,
                                  state1⁻, diff1⁻, aux1⁻)
 
