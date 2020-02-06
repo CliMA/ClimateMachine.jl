@@ -18,7 +18,9 @@ struct HyperDiffusion{dim, P} <: BalanceLaw
   end
 end
 
-vars_aux(::HyperDiffusion, FT) = @vars(k::SVector{3, FT})
+include("mms_solution_generated.jl")
+
+vars_aux(::HyperDiffusion, FT) = @vars(k::SVector{3, FT}, coords::SVector{3, FT})
 #
 # Density is only state
 vars_state(::HyperDiffusion, FT) = @vars(ρ::FT)
@@ -34,8 +36,6 @@ vars_hyperdiffusive(::HyperDiffusion, FT) = @vars(σ::SVector{3,FT})
 
 function flux_nondiffusive!(m::HyperDiffusion, flux::Grad, state::Vars,
                             aux::Vars, t::Real)
-  u = aux.k
-  flux.ρ += u * state.ρ
 end
 
 """
@@ -56,10 +56,10 @@ Where
 function flux_diffusive!(m::HyperDiffusion, flux::Grad, state::Vars,
                          auxDG::Vars, auxHDG::Vars, aux::Vars, t::Real)
   σ = auxHDG.σ
-  ω = auxDG.ω
+  #ω = auxDG.ω
  
-  k = aux.k
-  Pk = I - k * k'
+  #k = aux.k
+  #Pk = I - k * k'
   flux.ρ += σ
 end
 
@@ -76,13 +76,13 @@ end
 
 function diffusive!(m::HyperDiffusion, auxDG::Vars, gradvars::Grad,
                     state::Vars, aux::Vars, t::Real)
-  ∇ρ = gradvars.ρ
-  auxDG.ω = ∇ρ / 10
+  #∇ρ = gradvars.ρ
+  #auxDG.ω = ∇ρ / 10
 end
 function hyperdiffusive!(m::HyperDiffusion, auxHDG::Vars, gradvars::Grad,
                          state::Vars, aux::Vars, t::Real)
   ∇Δρ = gradvars.ρ
-  auxHDG.σ = ∇Δρ / 100
+  auxHDG.σ = ν_exact * ∇Δρ
 end
 
 """
@@ -90,7 +90,10 @@ end
 
 There is no source in the advection-diffusion model
 """
-source!(m::HyperDiffusion, _...) = nothing
+function source!(m::HyperDiffusion, source::Vars, state::Vars, aux::Vars, t::Real) 
+  φ, θ, r = aux.coords
+  source.ρ = Sρ_g(t, φ, θ, r)
+end
 
 """
     init_aux!(m::HyperDiffusion, aux::Vars, geom::LocalGeometry)
@@ -98,7 +101,13 @@ source!(m::HyperDiffusion, _...) = nothing
 initialize the auxiliary state
 """
 function init_aux!(m::HyperDiffusion, aux::Vars, geom::LocalGeometry)
-  aux.k = geom.coord / norm(geom.coord)
+  coord = geom.coord
+  x, y, z = coord
+  r = norm(coord)
+  θ = atan(sqrt(x ^ 2 + y ^ 2), z)
+  φ = atan(y, x)
+  aux.k = coord / r
+  aux.coords = SVector(φ, θ, r)
 end
 
 function init_state!(m::HyperDiffusion, state::Vars, aux::Vars,

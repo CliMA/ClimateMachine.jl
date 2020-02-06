@@ -33,17 +33,9 @@ include("advection_hyperdiffusion_model.jl")
 struct ConstantHyperDiffusion <: HyperDiffusionProblem
 end
 
-function init_hyperdiffusion_tensor!(problem::ConstantHyperDiffusion, aux::Vars,
-                                     geom::LocalGeometry)
-  aux.D = problem.D
-end
-
 function initial_condition!(problem::ConstantHyperDiffusion, state, aux, x, t)
-  r = norm(x) - t
-  @inbounds begin 
-    dr = r - 15
-    state.ρ = abs(dr) < 1 ? cos(pi / 2 * dr) ^ 4 : 0
-  end
+  φ, θ, r = aux.coords
+  state.ρ = ρ_g(t, φ, θ, r)
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
@@ -93,7 +85,8 @@ function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime)
                grid,
                CentralNumericalFluxNonDiffusive(),
                CentralNumericalFluxDiffusive(),
-               CentralNumericalFluxGradient())
+               CentralNumericalFluxGradient();
+               direction = HorizontalDirection())
 
   Q = init_ode_state(dg, FT(0))
 
@@ -179,7 +172,7 @@ let
         Ne = 2^(l-1) * base_num_elem
 
         vert_range = grid1d(10, 30, nelem = Ne)
-        topl = StackedCubedSphereTopology(mpicomm, 6, vert_range)
+        topl = StackedCubedSphereTopology(mpicomm, Ne, vert_range)
 
         timeend = 1
         outputtime = 100
