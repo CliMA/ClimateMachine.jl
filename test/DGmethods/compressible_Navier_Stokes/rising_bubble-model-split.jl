@@ -134,7 +134,7 @@ function run(mpicomm, ArrayType, LinearType,
   Q = init_ode_state(dg, FT(0))
 
   fast_dt = dt/20
-  mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerlet(dg, fast_dt, [1,5], 2:4, Q), 0, Q; dt = dt, t0 = 0)
+  mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerlet(fast_dg, fast_dt, [1,5], 2:4, Q), 0, Q; dt = dt, t0 = 0)
 
 
   eng0 = norm(Q)
