@@ -1,3 +1,5 @@
+export RemainderModel
+
 """
     RemainderModel(main::BalanceLaw, subcomponents::Tuple)
 

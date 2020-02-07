@@ -11,13 +11,9 @@ using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: R_d, grav, MSLP, planet_radius, cp_d, cv_d, day
-using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, internal_energy, air_temperature
-using CLIMA.Atmos: AtmosModel, SphericalOrientation, NoReferenceState,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, NoFluxBC,
-                   ConstantViscosityWithDivergence,
-                   vars_state, vars_aux,
-                   Gravity, Coriolis,
-                   HydrostaticState, IsothermalProfile
+using CLIMA.MoistThermodynamics
+using CLIMA.Atmos
+using CLIMA.Atmos: vars_state, vars_aux
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test

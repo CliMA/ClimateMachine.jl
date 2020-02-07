@@ -12,13 +12,9 @@ using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
-using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
-using CLIMA.Atmos: AtmosModel, SphericalOrientation,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, NoFluxBC,
-                   ConstantViscosityWithDivergence,
-                   vars_state, vars_aux,
-                   Gravity, HydrostaticState, IsothermalProfile,
-                   AtmosAcousticGravityLinearModel
+using CLIMA.MoistThermodynamics
+using CLIMA.Atmos: vars_state, vars_aux
+using CLIMA.Atmos
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test

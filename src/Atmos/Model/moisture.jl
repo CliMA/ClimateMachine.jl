@@ -1,4 +1,5 @@
-export DryModel, EquilMoist
+import ..MoistThermodynamics: internal_energy
+export DryModel, EquilMoist, thermo_state
 
 #### Moisture component in atmosphere model
 abstract type MoistureModel end

@@ -1,16 +1,13 @@
 module Atmos
 
-export AtmosModel,
-       AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       RemainderModel
+export AtmosModel
 
 using LinearAlgebra, StaticArrays
+using GPUifyLoops
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
-import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
-using GPUifyLoops
 using ..MPIStateArrays: MPIStateArray
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,

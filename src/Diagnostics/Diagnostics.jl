@@ -13,7 +13,6 @@ using MPI
 using StaticArrays
 
 using ..Atmos
-using ..Atmos: thermo_state, turbulence_tensors
 using ..SubgridScaleParameters: inv_Pr_turb
 using ..DGmethods: num_state, vars_state, num_aux, vars_aux, vars_diffusive, num_diffusive
 using ..Mesh.Topologies

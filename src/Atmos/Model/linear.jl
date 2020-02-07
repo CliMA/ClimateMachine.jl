@@ -1,3 +1,6 @@
+export AtmosAcousticGravityLinearModel,
+       AtmosAcousticLinearModel
+
 """
     linearized_air_pressure(ρ, ρe_tot, ρe_pot, ρq_tot=0, ρq_liq=0, ρq_ice=0)
 

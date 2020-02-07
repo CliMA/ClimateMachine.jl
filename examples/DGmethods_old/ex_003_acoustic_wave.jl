@@ -51,8 +51,7 @@ using CLIMA.GenericCallbacks
 # Though not required, here we are explicit about which values we read out the
 # `PlanetParameters` and `MoistThermodynamics`
 using CLIMA.PlanetParameters: planet_radius, grav, MSLP
-using CLIMA.MoistThermodynamics: air_temperature, air_pressure, internal_energy,
-                                 soundspeed_air, air_density, gas_constant_air
+using CLIMA.MoistThermodynamics
 
 # Specify whether to enforce hydrostatic balance at PDE level or not
 const PDE_level_hydrostatic_balance = true
