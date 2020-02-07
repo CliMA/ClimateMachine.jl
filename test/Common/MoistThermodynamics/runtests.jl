@@ -1,11 +1,28 @@
 using Test
 using CLIMA.MoistThermodynamics
+using Random
 MT = MoistThermodynamics
 
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
 float_types = [Float32, Float64]
+
+@testset "moist thermodynamics - isentropic processes" begin
+  for FT in [Float64]
+  # for FT in float_types
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+    Φ = FT(1)
+    Random.seed!(15);
+    perturbation = FT(0.1)*rand(length(T))
+
+    # TODO: Use reasonable values for ambient temperature/pressure
+    T∞, p∞ = T .* perturbation, p .* perturbation
+    @test air_temperature.(p, θ_liq_ice, Ref(DryAdiabaticProcess())) ≈ (p ./ FT(MSLP)) .^ (FT(R_d) / FT(cp_d)) .* θ_liq_ice
+    @test air_pressure_given_θ.(θ_liq_ice, Φ, Ref(DryAdiabaticProcess())) ≈ FT(MSLP) .* (1 .- Φ ./ (θ_liq_ice .* FT(cp_d))) .^ (FT(cp_d) / FT(R_d))
+    @test air_pressure.(T, T∞, p∞, Ref(DryAdiabaticProcess())) ≈ p∞ .* (T ./ T∞) .^ (FT(1) / FT(kappa_d))
+  end
+end
 
 @testset "moist thermodynamics - correctness" begin
   FT = Float64
@@ -339,9 +356,9 @@ end
     @test typeof.(getproperty.(PhasePartition.(ts),:tot)) == typeof.(e_int)
   end
 
-# end
+end
 
-# @testset "moist thermodynamics - dry limit" begin
+@testset "moist thermodynamics - dry limit" begin
 
   FT = Float64
   e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
