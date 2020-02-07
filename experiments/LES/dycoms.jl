@@ -27,6 +27,104 @@ function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) e
 function flux_radiation!(::RadiationModel, flux::Grad, state::Vars, aux::Vars, t::Real) end
 
 """
+  DYCOMS_BC <: BoundaryCondition
+  Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
+"""
+struct DYCOMS_BC{FT} <: BoundaryCondition
+  C_drag::FT
+  LHF::FT
+  SHF::FT
+end
+
+"""
+    atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                          bc::DYCOMS_BC, args...)
+
+For the non-diffussive and gradient terms we just use the `NoFluxBC`
+"""
+atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                      bc::DYCOMS_BC, args...) = atmos_boundary_state!(nf, NoFluxBC(), args...)
+
+"""
+    atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                                   bc::DYCOMS_BC, atmos::AtmosModel,
+                                   F,
+                                   state⁺, diff⁺, aux⁺, n⁻,
+                                   state⁻, diff⁻, aux⁻,
+                                   bctype, t,
+                                   state1⁻, diff1⁻, aux1⁻)
+
+When `bctype == 1` the `NoFluxBC` otherwise the specialized DYCOMS BC is used
+"""
+function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                                        bc::DYCOMS_BC, atmos::AtmosModel,
+                                        F,
+                                        state⁺, diff⁺, aux⁺, n⁻,
+                                        state⁻, diff⁻, aux⁻,
+                                        bctype, t,
+                                        state1⁻, diff1⁻, aux1⁻)
+  if bctype != 1
+    atmos_boundary_flux_diffusive!(nf, NoFluxBC(), atmos, F,
+                                   state⁺, diff⁺, aux⁺, n⁻,
+                                   state⁻, diff⁻, aux⁻,
+                                   bctype, t,
+                                   state1⁻, diff1⁻, aux1⁻)
+  else
+    # Start with the noflux BC and then build custom flux from there
+    atmos_boundary_state!(nf, NoFluxBC(), atmos,
+                          state⁺, diff⁺, aux⁺, n⁻,
+                          state⁻, diff⁻, aux⁻,
+                          bctype, t)
+
+    # ------------------------------------------------------------------------
+    # (<var>_FN) First node values (First interior node from bottom wall)
+    # ------------------------------------------------------------------------
+    u_FN = state1⁻.ρu / state1⁻.ρ
+    windspeed_FN = norm(u_FN)
+
+    # ----------------------------------------------------------
+    # Extract components of diffusive momentum flux (minus-side)
+    # ----------------------------------------------------------
+    _, τ⁻ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
+
+    # ----------------------------------------------------------
+    # Boundary momentum fluxes
+    # ----------------------------------------------------------
+    # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
+    # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is
+    # replaced by the appropriate flux terms
+    C_drag = bc.C_drag
+    @inbounds begin
+      τ13⁺ = - C_drag * windspeed_FN * u_FN[1]
+      τ23⁺ = - C_drag * windspeed_FN * u_FN[2]
+      τ21⁺ = τ⁻[2,1]
+    end
+
+    # Assign diffusive momentum and moisture fluxes
+    # (i.e. ρ𝛕 terms)
+    FT = eltype(state⁺)
+    τ⁺ = SHermitianCompact{3, FT, 6}(SVector(0   ,
+                                             τ21⁺, τ13⁺,
+                                             0   , τ23⁺, 0))
+
+    # ----------------------------------------------------------
+    # Boundary moisture fluxes
+    # ----------------------------------------------------------
+    # really ∇q_tot is being used to store d_q_tot
+    d_q_tot⁺  = SVector(0, 0, bc.LHF/(LH_v0))
+
+    # ----------------------------------------------------------
+    # Boundary energy fluxes
+    # ----------------------------------------------------------
+    # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms)
+    d_h_tot⁺ = SVector(0, 0, bc.LHF + bc.SHF)
+
+    # Set the flux using the now defined plus-side data
+    flux_diffusive!(atmos, F, state⁺, τ⁺, d_h_tot⁺)
+    flux_diffusive!(atmos.moisture, F, state⁺, d_q_tot⁺)
+  end
+end
+"""
   DYCOMSRadiation <: RadiationModel
 
 Stevens et. al (2005) approximation of longwave radiative fluxes in DYCOMS.
