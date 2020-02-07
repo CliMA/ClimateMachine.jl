@@ -16,10 +16,10 @@ using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
 import CLIMA.Atmos: boundary_state!
-import CLIMA.DGmethods.NumericalFluxes: boundary_state!, Rusanov,
-                                    CentralNumericalFluxGradient,
-                                    CentralNumericalFluxDiffusive,
-                                    boundary_flux_diffusive!
+import CLIMA.DGmethods.NumericalFluxes: Rusanov,
+                                        CentralNumericalFluxGradient,
+                                        CentralNumericalFluxDiffusive,
+                                        boundary_flux_diffusive!
 
 # ------------------- Description ---------------------------------------- #
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
@@ -60,9 +60,12 @@ struct FixedTempNoSlip{FT} <: BoundaryCondition
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundary_state!(::Rusanov, bc::FixedTempNoSlip, m::AtmosModel,
-                               Y⁺::Vars, A⁺::Vars, n⁻, Y⁻::Vars,
-                               auxM::Vars, bctype, t,_...)
+function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient}, 
+                               bc::FixedTempNoSlip, 
+                               m::AtmosModel,
+                               Y⁺::Vars, A⁺::Vars, 
+                               n⁻, 
+                               Y⁻::Vars, A⁻::Vars, bctype, t,_...)
   # Dry Rayleigh Benard Convection
   FT = eltype(Y⁺)
   @inbounds begin
@@ -73,12 +76,12 @@ function atmos_boundary_state!(::Rusanov, bc::FixedTempNoSlip, m::AtmosModel,
       E_int⁺ = Y⁺.ρ * cv_d * (bc.T_top - T_0)
     end
     E_bc = (E_int⁺ + Y⁺.ρ * A⁺.coord[3] * grav)
-    Y⁺.ρe = -Y⁻.ρe + 2 * E_bc
+    Y⁺.ρe = E_bc
     nothing
   end
 end
 
-function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                         bc::FixedTempNoSlip, 
                                         atmos::AtmosModel,
                                         F⁺, Y⁺, Σ⁺, A⁺, n⁻,
