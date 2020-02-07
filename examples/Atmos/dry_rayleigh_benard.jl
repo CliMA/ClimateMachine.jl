@@ -15,10 +15,11 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-import CLIMA.Atmos: boundary_state!
-import CLIMA.DGmethods.NumericalFluxes: Rusanov,
-                                        CentralNumericalFluxGradient,
-                                        CentralNumericalFluxDiffusive,
+import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!
+import CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
+                                        NumericalFluxGradient,
+                                        NumericalFluxDiffusive,
+                                        boundary_state!,
                                         boundary_flux_diffusive!
 
 # ------------------- Description ---------------------------------------- #
@@ -39,17 +40,9 @@ import CLIMA.DGmethods.NumericalFluxes: Rusanov,
 #               `bc`
 #               `sources`
 # 8) Default settings can be found in src/Driver/Configurations.jl
-# ------------------- Begin Boundary Conditions -------------------------- #
+
 """
   FixedTempNoSlip <: BoundaryCondition
-
-Fixed temperature prescription at top and bottom walls
-No slip velocity boundary conditions.
-Y ≡ state
-Σ ≡ diff
-A ≡ aux
-⁺ and ⁻ refer to exterior / interior faces
-
 # Fields
 $(DocStringExtensions.FIELDS)
 """
@@ -60,12 +53,12 @@ struct FixedTempNoSlip{FT} <: BoundaryCondition
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient}, 
-                               bc::FixedTempNoSlip, 
-                               m::AtmosModel,
+function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                               bc::FixedTempNoSlip, m::AtmosModel,
                                Y⁺::Vars, A⁺::Vars, 
                                n⁻, 
-                               Y⁻::Vars, A⁻::Vars, bctype, t,_...)
+                               Y⁻::Vars, A⁻::Vars, 
+                               bctype, t,_...)
   # Dry Rayleigh Benard Convection
   FT = eltype(Y⁺)
   @inbounds begin
@@ -77,38 +70,15 @@ function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxG
     end
     E_bc = (E_int⁺ + Y⁺.ρ * A⁺.coord[3] * grav)
     Y⁺.ρe = E_bc
-    nothing
   end
 end
-
-function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
-                                        bc::FixedTempNoSlip, 
-                                        atmos::AtmosModel,
-                                        F⁺, Y⁺, Σ⁺, A⁺, n⁻,
-                                        F⁻, Y⁻, Σ⁻, A⁻,
-                                        bctype, t,
-                                        Y₁⁻, Σ₁⁻, A₁⁻)
-  nothing
+function atmos_boundary_flux_diffusive!(::NumericalFluxDiffusive, bc::FixedTempNoSlip,
+                                        m::AtmosModel, 
+                                        Y⁺::Vars, Σ⁺::Vars, A⁺::Vars, 
+                                        n⁻, 
+                                        Y⁻::Vars, Σ⁻::Vars, A⁻::Vars, 
+                                        bctype, t, _...)
 end
-
-boundary_state!(nf, m::AtmosModel, x...) =
-  atmos_boundary_state!(nf, m.boundarycondition, m, x...)
-
-boundary_state!(::CentralNumericalFluxGradient, bl::AtmosModel, _...) = nothing
-
-boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, atmos::AtmosModel,
-                         F⁺, Y⁺, Σ⁺, A⁺, 
-                         n⁻,
-                         F⁻, Y⁻, Σ⁻, A⁻,
-                         bctype, t,
-                         Y₁⁻, Σ₁⁻, A₁⁻) =
-atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
-                                 F⁺, Y⁺, Σ⁺, A⁺, 
-                                 n⁻,
-                                 F⁻, Y⁻, Σ⁻, A⁻,
-                                 bctype, t,
-                                 Y₁⁻, Σ₁⁻, A₁⁻)
-# ------------------- End Boundary Conditions -------------------------- #
 
 const randomseed         = MersenneTwister(1)
 const (xmin, ymin, zmin) = (0,0,0)
@@ -142,22 +112,15 @@ function init_problem!(state, aux, (x,y,z), t)
 end
 
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
-    T_min   = FT(289)
-    T_s     = FT(299)
-    Γ_lapse = FT(grav/cp_d)
-    T       = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
-    rel_hum = FT(0)
-    ref_state = HydrostaticState(T, rel_hum)
     #Boundary conditions
     bc    = FixedTempNoSlip{FT}(T_bot, T_top)
 
     # Turbulence
     C_smag = FT(0.23)
-    config = CLIMA.LES_Configuration("DryRayleighBenardConvection", 
+    config = CLIMA.LES_Configuration("DryRayleighBenardConvection",
                                      N, resolution, xmax, ymax, zmax,
                                      init_problem!,
                                      solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
-                                     ref_state=ref_state,
                                      C_smag=C_smag,
                                      moisture=EquilMoist(),
                                      sources=Gravity(),
@@ -166,36 +129,32 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function main()
-    
     CLIMA.init()
     FT = Float64
     # DG polynomial order
     N = 4
     # Domain resolution and size
     Δh = FT(10)
-    # Time integrator setup 
+    # Time integrator setup
     t0 = FT(0)
     CFLmax = FT(0.90)
     timeend = FT(3500)
-    
+
     @testset "DryRayleighBenardTest" begin
-      for Δh in Δh 
+      for Δh in Δh
         Δv = Δh
         resolution = (Δh, Δh, Δv)
-
         driver_config = config_problem(FT, N, resolution, xmax, ymax, zmax)
         solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=CFLmax)
-        
         # User defined callbacks (TMAR positivity preserving filter)
         cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
             Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
             nothing
         end
-        
         result = CLIMA.invoke!(solver_config;
                               user_callbacks=(cbtmarfilter,),
                               check_euclidean_distance=true)
-        # result == engf/eng0 : Default @info output from src/Driver.jl
+        # result == engf/eng0
         @test isapprox(result,FT(1); atol=1.5e-2)
       end
     end
