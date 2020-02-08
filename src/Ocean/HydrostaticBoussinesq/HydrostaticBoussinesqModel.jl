@@ -1,7 +1,7 @@
 module HydrostaticBoussinesq
 
 export HydrostaticBoussinesqModel, HydrostaticBoussinesqProblem, OceanDGModel,
-       LinearHBModel
+       LinearHBModel, calculate_dt
 
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal
@@ -10,7 +10,7 @@ using ..MPIStateArrays
 using ..DGmethods: init_ode_state
 using ..PlanetParameters: grav
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
-using ..Mesh.Grids: polynomialorder, VerticalDirection
+using ..Mesh.Grids: polynomialorder, VerticalDirection, HorizontalDirection, min_node_distance
 
 using ..DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                    CentralNumericalFluxDiffusive,
@@ -27,7 +27,7 @@ import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                     LocalGeometry, indefinite_stack_integral!,
                     reverse_indefinite_stack_integral!, integrate_aux!,
                     DGModel, nodal_update_aux!, diffusive!,
-                    copy_stack_field_down!, create_state
+                    copy_stack_field_down!, create_state, calculate_dt
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -42,25 +42,61 @@ struct OceanSurfaceStressNoForcing   <: OceanBoundaryCondition end
 struct OceanSurfaceNoStressForcing   <: OceanBoundaryCondition end
 struct OceanSurfaceStressForcing     <: OceanBoundaryCondition end
 
-abstract type HydrostaticBoussinesqProblem end
+abstract type AbstractHydrostaticBoussinesqProblem end
+struct HydrostaticBoussinesqProblem <: AbstractHydrostaticBoussinesqProblem end
 
 struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   problem::P
-  c₁::T
-  c₂::T
-  c₃::T
+  cʰ::T
+  cᶻ::T
   αᵀ::T
   νʰ::T
   νᶻ::T
   κʰ::T
   κᶻ::T
+  function HydrostaticBoussinesqModel{FT}(problem;
+                                      cʰ = FT(0),     # m/s
+                                      cᶻ = FT(0),     # m/s
+                                      αᵀ = FT(2e-4),  # (m/s)^2 / K
+                                      νʰ = FT(5e3),   # m^2 / s
+                                      νᶻ = FT(5e-3),  # m^2 / s
+                                      κʰ = FT(1e3),   # m^2 / s
+                                      κᶻ = FT(1e-4),  # m^2 / s
+                                      ) where {FT <: AbstractFloat}
+    return new{typeof(problem),FT}(problem, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+  end
+end
+
+function calculate_dt(grid, model::HydrostaticBoussinesqModel, Courant_number)
+    minΔx = min_node_distance(grid, HorizontalDirection())
+    minΔz = min_node_distance(grid, VerticalDirection())
+
+    CFL_gravity = minΔx / model.cʰ
+    CFL_diffusive = minΔz^2 / (1000 * model.κᶻ)
+    CFL_viscous = minΔz^2 / model.νᶻ
+
+    dt = 1//2 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
+
+    return dt
 end
 
 struct LinearHBModel{M} <: BalanceLaw
   ocean::M
   function LinearHBModel(ocean::M) where {M}
-    new{M}(ocean)
+    return new{M}(ocean)
   end
+end
+
+function calculate_dt(grid, model::LinearHBModel, Courant_number)
+    minΔx = min_node_distance(grid, HorizontalDirection())
+
+    CFL_gravity = minΔx / model.ocean.cʰ
+    CFL_diffusive = minΔx^2 / model.ocean.κʰ
+    CFL_viscous = minΔx^2 / model.ocean.νʰ
+
+    dt = 1//10 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
+
+    return dt
 end
 
 HBModel   = HydrostaticBoussinesqModel
@@ -153,7 +189,7 @@ end
   return nothing
 end
 
-@inline wavespeed(m::HBModel, n⁻, _...) = abs(SVector(m.c₁, m.c₂, m.c₃)' * n⁻)
+@inline wavespeed(m::HBModel, n⁻, _...) = abs(SVector(m.cʰ, m.cʰ, m.cᶻ)' * n⁻)
 
 # We want not have jump penalties on η (since not a flux variable)
 function update_penalty!(::Rusanov, ::HBModel, n⁻, λ, ΔQ::Vars,
@@ -288,7 +324,7 @@ end
 
 @inline function boundary_state!(nf, m::HBModel, Q⁺::Vars, A⁺::Vars, n⁻,
                                  Q⁻::Vars, A⁻::Vars, bctype, t, _...)
-  return ocean_boundary_state!(m, bctype, nf, Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
+  return ocean_boundary_state!(m, m.problem, bctype, nf, Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
 end
 
 @inline function boundary_state!(nf, m::HBModel,
@@ -296,7 +332,7 @@ end
                                  n⁻,
                                  Q⁻::Vars, D⁻::Vars, A⁻::Vars,
                                  bctype, t, _...)
-  return ocean_boundary_state!(m, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
+  return ocean_boundary_state!(m, m.problem, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
 end
 
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip,
@@ -460,7 +496,7 @@ end
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   τ = @SMatrix [ -0 -0; -0 -0; A⁺.τ / 1000 -0]
-  D⁺.∇u = DDiagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u + 2 * τ)
+  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u + 2 * τ)
 
   θ  = Q⁻.θ
   θʳ = A⁺.θʳ
@@ -484,18 +520,18 @@ vars_integrals(lm::LinearHBModel, FT) = @vars()
 @inline source!(::LinearHBModel, _...) = nothing
 
 function wavespeed(lm::LinearHBModel, n⁻, _...)
-  C = abs(SVector(lm.ocean.c₁, lm.ocean.c₂, lm.ocean.c₃)' * n⁻)
+  C = abs(SVector(lm.ocean.cʰ, lm.ocean.cʰ, lm.ocean.cᶻ)' * n⁻)
   return C
 end
 
 @inline function boundary_state!(nf, lm::LinearHBModel, Q⁺::Vars, A⁺::Vars,
                                  n⁻, Q⁻::Vars, A⁻::Vars, bctype, t, _...)
-  return ocean_boundary_state!(lm.ocean, bctype, nf, Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
+  return ocean_boundary_state!(lm.ocean, lm.ocean.problem, bctype, nf, Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
 end
 
 @inline function boundary_state!(nf, lm::LinearHBModel, Q⁺::Vars, D⁺::Vars, A⁺::Vars,
                                  n⁻, Q⁻::Vars, D⁻::Vars, A⁻::Vars, bctype, t, _...)
-  return ocean_boundary_state!(lm.ocean, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
+  return ocean_boundary_state!(lm.ocean, lm.ocean.problem, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
 end
 
 init_aux!(lm::LinearHBModel, A::Vars, geom::LocalGeometry) = nothing

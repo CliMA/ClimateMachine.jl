@@ -14,6 +14,7 @@ import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
 using GPUifyLoops
 using ..MPIStateArrays: MPIStateArray
+using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, vars_integrals, flux_nondiffusive!,
@@ -22,7 +23,8 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         update_aux!, integrate_aux!, LocalGeometry, lengthscale,
                         resolutionmetric, DGModel, num_integrals,
                         nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!, num_state
+                        reverse_indefinite_stack_integral!, num_state,
+                        calculate_dt
 import ..DGmethods.NumericalFluxes: boundary_state!,
                                     boundary_flux_diffusive!,
                                     NumericalFluxNonDiffusive,
@@ -52,6 +54,11 @@ struct AtmosModel{FT,O,RS,T,M,P,R,SU,S,BC,IS} <: BalanceLaw
   # TODO: Probably want to have different bc for state and diffusion...
   boundarycondition::BC
   init_state::IS
+end
+
+function calculate_dt(grid, model::AtmosModel, Courant_number)
+    T = 290.0
+    return Courant_number * min_node_distance(grid, VerticalDirection()) / soundspeed_air(T)
 end
 
 abstract type AtmosConfiguration end

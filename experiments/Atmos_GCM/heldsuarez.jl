@@ -17,6 +17,8 @@ const T_initial = Float64(255)
 const domain_height = Float64(30e3)
 
 function init_heldsuarez!(state, aux, coords, t)
+    global p_ground, T_initial
+
     FT = eltype(state)
 
     r = norm(coords, 2)
@@ -33,19 +35,24 @@ function init_heldsuarez!(state, aux, coords, t)
 end
 
 function config_heldsuarez(FT, N, resolution)
-    config = CLIMA.GCM_Configuration("HeldSuarez", N, resolution, domain_height, init_heldsuarez!;
-                                     model      = AtmosModel{FT}(AtmosGCMConfiguration;
-                                                                 ref_state  = HydrostaticState(IsothermalProfile(T_initial), FT(0)),
-                                                                 turbulence = ConstantViscosityWithDivergence(FT(0)),
-                                                                 moisture   = DryModel(),
-                                                                 source     = (Gravity(), Coriolis(), held_suarez_forcing!),
-                                                                 init_state = init_heldsuarez!)
-                                     )
+    global T_initial, domain_height
+
+    model = AtmosModel{FT}(AtmosGCMConfiguration;
+                           ref_state  = HydrostaticState(IsothermalProfile(T_initial), FT(0)),
+                           turbulence = ConstantViscosityWithDivergence(FT(0)),
+                           moisture   = DryModel(),
+                           source     = (Gravity(), Coriolis(), held_suarez_forcing!),
+                           init_state = init_heldsuarez!)
+    
+    config = CLIMA.Atmos_GCM_Configuration("HeldSuarez", N, resolution, domain_height, init_heldsuarez!;
+                                           model = model)
 
     return config
 end
 
 function held_suarez_forcing!(source, state, aux, t::Real)
+    global T_initial
+
     FT = eltype(state)
 
     ρ     = state.ρ
