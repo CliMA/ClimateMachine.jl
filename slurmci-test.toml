@@ -21,8 +21,6 @@ cpu_gpu = [
   { file = "test/DGmethods/Euler/acousticwave-1d-imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "test/DGmethods/compressible_Navier_Stokes/rising_bubble-model.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "test/DGmethods/compressible_Navier_Stokes/rising_bubble-model-imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/density_current-model.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods_old/Euler/RTB_IMEX.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods_old/Euler/isentropic_vortex_standalone.jl", slurmargs = ["--ntasks=3"], args = [] },
