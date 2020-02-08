@@ -43,10 +43,10 @@ used for staging data and for MPI transfers. When running on:
 - `pin`:  register the `transfer` buffer with CUDA
 """
 struct CMBuffer{T, Arr, Buff}
-    stage :: Arr     # Same type as Q.data, used for staging
-    transfer :: Buff # Union{Nothing,Buff}
+    stage::Arr     # Same type as Q.data, used for staging
+    transfer::Buff # Union{Nothing,Buff}
 
-    function CMBuffer{T}(::Type{Arr}, kind, dims...; pin=true) where {T, Arr}
+    function CMBuffer{T}(::Type{Arr}, kind, dims...; pin = true) where {T, Arr}
         if kind == SingleCMBuffer
             transfer = nothing
         elseif kind == DoubleCMBuffer
@@ -90,7 +90,7 @@ function prepare_transfer!(buf::CMBuffer)
     if buf.transfer === nothing
         # nothing to do here
     else
-        copybuffer!(buf.transfer, buf.stage, async=false)
+        copybuffer!(buf.transfer, buf.stage, async = false)
     end
 end
 
@@ -98,7 +98,9 @@ function prepare_stage!(buf::CMBuffer)
     if buf.transfer === nothing
         # nothing to do here
     else
-        copybuffer!(buf.stage, buf.transfer, async=false)
+        # This is `async=true`, since we will launch
+        # a kernel on the same stream afterwards.
+        copybuffer!(buf.stage, buf.transfer, async = true)
     end
 end
 
@@ -117,7 +119,7 @@ Copy a buffer from device to host or vice-versa. Internally this uses
 """
 function copybuffer! end
 
-function copybuffer!(A::AbstractArray, B::AbstractArray; async=true)
+function copybuffer!(A::AbstractArray, B::AbstractArray; async = true)
     copy!(A, B)
 end
 
@@ -134,7 +136,12 @@ end
         end
         GC.@preserve arr begin
             # XXX: is HOSTREGISTER_DEVICEMAP useful?
-            Mem.register(Mem.HostBuffer, pointer(arr), sizeof(arr), Mem.HOSTREGISTER_DEVICEMAP)
+            Mem.register(
+                Mem.HostBuffer,
+                pointer(arr),
+                sizeof(arr),
+                Mem.HOSTREGISTER_DEVICEMAP,
+            )
         end
     end
 
@@ -143,21 +150,12 @@ end
             return
         end
         GC.@preserve arr begin
-            Mem.unregister(Mem.HostBuffer(pointer(arr), sizeof(arr), CuCurrentContext(), true))
-        end
-    end
-
-    # CUDAdrv.jl throws on CUDA_ERROR_NOT_READY
-    function queryStream(stream)
-        err = CUDAapi.@runtime_ccall((:cuStreamQuery, CUDAdrv.libcuda), CUDAdrv.CUresult,
-                                     (CUDAdrv.CUstream,), stream)
-
-        if err === CUDAdrv.CUDA_ERROR_NOT_READY
-            return false
-        elseif err === CUDAdrv.CUDA_SUCCESS
-            return true
-        else
-            CUDAdrv.throw_api_error(err)
+            Mem.unregister(Mem.HostBuffer(
+                pointer(arr),
+                sizeof(arr),
+                CuCurrentContext(),
+                true,
+            ))
         end
     end
 
@@ -176,7 +174,7 @@ end
     function friendlysynchronize(stream)
         status = false
         while !status
-            status = queryStream(stream)
+            status = CUDAdrv.query(stream)
             MPI.Iprobe(MPI.MPI_ANY_SOURCE, MPI.MPI_ANY_TAG, MPI.COMM_WORLD)
         end
         return
@@ -184,13 +182,12 @@ end
 
     function async_copy!(A, B, N, stream)
         GC.@preserve A B begin
-            #copyto!(A, B)
             ptrA = pointer(A)
             ptrB = pointer(B)
-            unsafe_copyto!(ptrA, ptrB, N, async=true, stream=stream)
+            unsafe_copyto!(ptrA, ptrB, N, async = true, stream = stream)
         end
     end
-    function copybuffer!(A::Array, B::CuArray; async=true)
+    function _copybuffer!(A, B, async = true)
         @assert sizeof(A) == sizeof(B)
         stream = CuDefaultStream()
         async_copy!(A, B, length(A), stream)
@@ -198,14 +195,8 @@ end
             friendlysynchronize(stream)
         end
     end
-    function copybuffer!(A::CuArray, B::Array; async=true)
-        @assert sizeof(A) == sizeof(B)
-        stream = CuDefaultStream()
-        async_copy!(A, B, length(A), stream)
-        if !async
-            friendlysynchronize(stream)
-        end
-    end
+    copybuffer!(A::Array, B::CuArray; async = true) = _copybuffer!(A, B, async)
+    copybuffer!(A::CuArray, B::Array; async = true) = _copybuffer!(A, B, async)
 end
 
 end # module
