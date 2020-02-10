@@ -43,6 +43,7 @@ export air_temperature_from_liquid_ice_pottemp_non_linear
 export vapor_specific_humidity
 
 include("states.jl")
+include("isentropic.jl")
 
 @inline q_pt_0(::Type{FT}) where FT = PhasePartition{FT}(FT(0), FT(0), FT(0))
 

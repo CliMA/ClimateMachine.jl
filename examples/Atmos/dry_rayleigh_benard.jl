@@ -38,9 +38,17 @@ import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 #               `sources`
 # 8) Default settings can be found in src/Driver/Configurations.jl
 
+# ------------------- Begin Boundary Conditions -------------------------- #
 """
-  FixedTempNoSlip{FT} <: BoundaryCondition
-Dirichlet boundary conditions on velocity and temperature
+  FixedTempNoSlip <: BoundaryCondition
+
+Fixed temperature prescription at top and bottom walls
+No slip velocity boundary conditions.
+Y ≡ state
+Σ ≡ diff
+A ≡ aux
+⁺ and ⁻ refer to exterior / interior faces
+
 # Fields
 $(DocStringExtensions.FIELDS)
 """

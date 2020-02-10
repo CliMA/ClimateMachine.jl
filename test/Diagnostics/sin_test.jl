@@ -1,5 +1,4 @@
 using Dates
-using Distributions
 using FileIO
 using MPI
 using Random

@@ -122,4 +122,3 @@ function atmos_boundary_state!(::NumericalFluxDiffusive, bc::InitStateBC,
                                auxM::Vars, bctype, t, _...)
   init_state!(m, stateP, auxP, auxP.coord, t)
 end
-

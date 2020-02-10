@@ -289,9 +289,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MPI]]
 deps = ["Distributed", "Libdl", "Random", "Requires", "Serialization", "Sockets"]
-git-tree-sha1 = "958dff41198353e1aa1092efa911c07cbd894193"
+git-tree-sha1 = "5bdd5a48390dfa8dd8e9e484a59f7d5c243a3462"
 uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
-version = "0.10.1"
+version = "0.11.0"
 
 [[MacroTools]]
 deps = ["DataStructures", "Markdown", "Random"]
