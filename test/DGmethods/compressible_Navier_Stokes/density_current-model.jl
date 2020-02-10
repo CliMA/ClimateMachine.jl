@@ -1,6 +1,6 @@
 
 # Load Packages
-using MPI
+using MPI, Unitful #FIXME
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -12,6 +12,8 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos
+using CLIMA.UnitAnnotations
+import CLIMA.UnitAnnotations: unit_annotations
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
@@ -38,6 +40,10 @@ const polynomialorder   = 4
 const dt                = 0.01
 const timeend           = 10dt
 
+unit_annotations(::AtmosModel) = true
+unit_annotations(::Atmos.AnisoMinDiss) = true
+unit_annotations(::MoistThermodynamics.MT) = true
+
 # ------------- Initial condition function ----------- #
 """
 @article{doi:10.1002/fld.1650170103,
@@ -54,35 +60,37 @@ year = {1993}
 }
 """
 function Initialise_Density_Current!(state::Vars, aux::Vars, (x1,x2,x3), t)
+  # FIXME: restore type assertions
   FT                = eltype(state)
-  R_gas::FT         = R_d
-  c_p::FT           = cp_d
-  c_v::FT           = cv_d
-  p0::FT            = MSLP
+  R_gas             = FT(R_d)
+  c_p               = FT(cp_d)
+  c_v               = FT(cv_d)
+  p0                = FT(MSLP)
   # initialise with dry domain
-  q_tot::FT         = 0
-  q_liq::FT         = 0
-  q_ice::FT         = 0
+  q_tot             = upreferred(0.0u"J")
+  q_liq             = upreferred(0.0u"J")
+  q_ice             = upreferred(0.0u"J")
   # perturbation parameters for rising bubble
-  rx                = 4000
-  rz                = 2000
-  xc                = 0
-  zc                = 3000
+  rx                = 4000u"m"
+  rz                = 2000u"m"
+  xc                = 0u"m"
+  zc                = 3000u"m"
   r                 = sqrt((x1 - xc)^2/rx^2 + (x3 - zc)^2/rz^2)
-  θ_ref::FT         = 300
-  θ_c::FT           = -15
-  Δθ::FT            = 0
+  θ_ref             = 300u"K"
+  θ_c               = -15u"K"
+  Δθ                = 0u"K"
   if r <= 1
     Δθ = θ_c * (1 + cospi(r))/2
   end
-  qvar              = PhasePartition(q_tot)
+  qvar              = PhasePartition(q_tot / upreferred(u"J"))
   θ                 = θ_ref + Δθ # potential temperature
+
   π_exner           = FT(1) - grav / (c_p * θ) * x3 # exner pressure
   ρ                 = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
 
   P                 = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
   T                 = P / (ρ * R_gas) # temperature
-  U, V, W           = FT(0) , FT(0) , FT(0)  # momentum components
+  U, V, W           = (FT(0) , FT(0) , FT(0)) .* u"kg/m^2/s"  # momentum components
   # energy definitions
   e_kin             = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
   e_pot             = grav * x3
@@ -91,7 +99,7 @@ function Initialise_Density_Current!(state::Vars, aux::Vars, (x1,x2,x3), t)
   state.ρ      = ρ
   state.ρu     = SVector(U, V, W)
   state.ρe     = E
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = 0.0u"kg/m^3"
 end
 # --------------- Driver definition ------------------ #
 function run(mpicomm, ArrayType,

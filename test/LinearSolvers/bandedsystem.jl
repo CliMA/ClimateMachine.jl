@@ -17,6 +17,24 @@ using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
 using Test
 
 include("../DGmethods/advection_diffusion/advection_diffusion_model.jl")
+# Don't define default units -> use NoUnits
+
+# Stored in the aux state are:
+#   `coord` coordinate points (needed for BCs)
+#   `u` advection velocity
+#   `D` Diffusion tensor
+vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, FT},
+                                           u::SVector{3, FT},
+                                           D::SMatrix{3, 3, FT, 9})
+#
+# Density is only state
+vars_state(::AdvectionDiffusion, FT) = @vars(ρ::FT)
+
+# Take the gradient of density
+vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
+
+# The DG auxiliary variable: D ∇ρ
+vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3, FT})
 
 struct Pseudo1D{n, α, β, μ, δ} <: AdvectionDiffusionProblem end
 

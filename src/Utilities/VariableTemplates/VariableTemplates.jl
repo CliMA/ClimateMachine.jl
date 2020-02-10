@@ -1,8 +1,12 @@
 module VariableTemplates
 
-export varsize, Vars, Grad, @vars
+export varsize, Vars, Grad, @vars, @uvars
 
-using StaticArrays
+using CLIMA.UnitAnnotations
+using CLIMA.UnitAnnotations: split_U
+using StaticArrays, Unitful
+using MacroTools: prettify # FIXME
+using Unitful: AbstractQuantity
 
 """
     varsize(S)
@@ -12,6 +16,7 @@ The number of elements specified by the template type `S`.
 varsize(::Type{T}) where {T<:Real} = 1
 varsize(::Type{Tuple{}}) = 0
 varsize(::Type{NamedTuple{(),Tuple{}}}) = 0
+varsize(::Type{Union{T, Quantity{T, D, U}}}) where {T<:Real,D,U} = 1
 varsize(::Type{SVector{N,T}}) where {N,T<:Real} = N
 
 include("var_names.jl")
@@ -48,13 +53,29 @@ macro vars(args...)
   :(NamedTuple{$(tuple(syms...)), Tuple{$(esc.(typs)...)}})
 end
 
+"""
+    @uvars bl args...
+
+Calls `@vars` on `args`, but only after unit annotations have been verified to be supported by `bl`, the balance law. 
+"""
+macro uvars(bl, args...)
+  unitless, unitful = split_U(args)
+
+  quote
+    if unit_annotations($bl)
+      @vars($(unitful...))
+    else
+      @vars($(unitless... )) 
+    end
+  end |> esc
+end
+
 struct GetVarError <: Exception
   sym::Symbol
 end
 struct SetVarError <: Exception
   sym::Symbol
 end
-
 
 """
     Vars{S,A,offset}(array::A)
@@ -70,6 +91,7 @@ Base.parent(v::Vars) = getfield(v,:array)
 Base.eltype(v::Vars) = eltype(parent(v))
 Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
 Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(parent(v)))
+@generated UnitAnnotations.unit_annotations(v::Vars{S}) where {S} = _contains_units(S)
 
 @generated function Base.getproperty(v::Vars{S,A,offset}, sym::Symbol) where {S,A,offset}
   expr = quote
@@ -78,17 +100,20 @@ Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(
   end
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
+    ST = eltype(T)
+    if T <: Number
       retexpr = :($T(array[$(offset+1)]))
       offset += 1
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
-      retexpr = :($T($LT($([:(array[$(offset + i)]) for i = 1:N]...))))
+      U = unit(ST)
+      retexpr = :($T($LT($([:(array[$(offset + i)]*$U) for i = 1:N]...))))
       offset += N
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :($T($([:(array[$(offset + i)]) for i = 1:N]...)))
+      U = unit(ST)
+      retexpr = :($T($([:(array[$(offset + i)]*$U) for i = 1:N]...)))
       offset += N
     else
       retexpr = :(Vars{$T,A,$offset}(array))
@@ -102,30 +127,38 @@ Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(
   expr
 end
 
-@generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val) where {S,A,offset}
+@generated function Base.setproperty!(v::Vars{S,A,offset}, sym::Symbol, val::RT) where {S,A,offset,RT}
   expr = quote
     Base.@_inline_meta
     array = parent(v)
   end
+
+  R = eltype(RT)
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
-      retexpr = :(array[$(offset+1)] = val)
+    ST = eltype(T)
+    if T <: Number
+      U = inv(unit(R))
+      retexpr = :(array[$(offset+1)] = val * $U)
       offset += 1
     elseif T <: SHermitianCompact
       LT = StaticArrays.lowertriangletype(T)
+      TU = SHermitianCompact{T.parameters[1], R, T.parameters[3]}
       N = length(LT)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= $T(val).lowertriangle)
+      U = inv(unit(R))
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $TU(val).lowertriangle*$U)
       offset += N
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:])
+      U = inv(unit(R))
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:]*$U)
       offset += N
     else
       offset += varsize(T)
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
+      unit(eltype(RT)) != unit($ST) && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($(unit(ST))) and $($(unit(eltype(RT))))")
       return @inbounds $retexpr
     end))
   end
@@ -147,6 +180,7 @@ Base.parent(g::Grad) = getfield(g,:array)
 Base.eltype(g::Grad) = eltype(parent(g))
 Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
 Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(parent(g)))
+@generated UnitAnnotations.unit_annotations(v::Grad{S}) where {S} = _contains_units(S)
 
 @generated function Base.getproperty(v::Grad{S,A,offset}, sym::Symbol) where {S,A,offset}
   M = size(A,1)
@@ -154,14 +188,18 @@ Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(
     Base.@_inline_meta
     array = parent(v)
   end
+
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
-      retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]) for i = 1:M]...)))
+    ST = eltype(T)
+    if T <: Number
+      U = unit(T)
+      retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]*$U) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
       N = length(T)
-      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([:(array[$i,$(offset + j)]) for i = 1:M, j = 1:N]...)))
+      U = unit(ST)
+      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([:(array[$i,$(offset + j)]*$U) for i = 1:M, j = 1:N]...)))
       offset += N
     else
       retexpr = :(Grad{$T,A,$offset}(array))
@@ -175,31 +213,49 @@ Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(
   expr
 end
 
-@generated function Base.setproperty!(v::Grad{S,A,offset}, sym::Symbol, val) where {S,A,offset}
+@generated function Base.setproperty!(v::Grad{S,A,offset}, sym::Symbol, val::RT) where {S,A,offset,RT}
   M = size(A,1)
   expr = quote
     Base.@_inline_meta
     array = parent(v)
   end
+  R = eltype(RT)
   for k in fieldnames(S)
     T = fieldtype(S,k)
-    if T <: Real
-      retexpr = :(array[:, $(offset+1)] .= val)
+    ST = eltype(T)
+    if T <: Number
+      U = inv(unit(R))
+      retexpr = :(array[:, $(offset+1)] .= val*$U)
       offset += 1
     elseif T <: StaticArray
+      U = inv(unit(R))
       N = length(T)
-      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val)
+      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val*$U)
       offset += N
     else
       offset += varsize(T)
       continue
     end
     push!(expr.args, :(if sym == $(QuoteNode(k))
+      unit(eltype(RT)) != unit($ST) && eltype(RT) <: AbstractQuantity && error("Incompatible units for assignment: $($(unit(ST))) and $($(unit(eltype(RT))))")
       return @inbounds $retexpr
     end))
   end
   push!(expr.args, :(throw(SetVarError(sym))))
   expr
+end
+
+# Figure out if this vars or grad type supports units
+function _contains_units(S)
+  for k in fieldnames(S)
+    T = fieldtype(S,k)
+    if T <: NamedTuple
+      _contains_units(T) && return true
+    elseif eltype(T) <: AbstractQuantity
+      return true
+    end
+  end
+  false
 end
 
 end # module

@@ -46,6 +46,8 @@ using ..RootSolvers
 using ..MoistThermodynamics
 using ..PlanetParameters
 
+struct SF end
+
 # export compute_buoyancy_flux
 
 """
@@ -59,7 +61,7 @@ ice specific humidity `qi_b` and specific `alpha0_0`.
 function compute_buoyancy_flux(shf, lhf, T_b, qt_b, ql_b, qi_b, alpha0_0)
   cp_ = cp_m(PhasePartition(qt_b, ql_b, qi_b))
   lv = latent_heat_vapor(T_b)
-  temp1 = (molmass_ratio-1)
+  temp1 = (Float64(molmass_ratio,SF())-1)
   temp2 = (shf + temp1 * cp_ * T_b * lhf /lv)
   return (grav * alpha0_0 / cp_ / T_b * temp2)
 end
@@ -69,6 +71,7 @@ module Byun1990
 using ...RootSolvers
 using ...MoistThermodynamics
 using ...PlanetParameters
+import ..SurfaceFluxes: SF
 
 """ Computes ψ_m for stable case. See Eq. 12 Ref. Byun1990 """
 ψ_m_stable(ζ, ζ_0, β_m) = -β_m * (ζ - ζ_0)
@@ -96,7 +99,7 @@ end
 
 Computes the Monin-Obukhov length (Eq. 3 Ref. Byun1990)
 """
-compute_MO_len(u, flux) = - u^3 / (flux * k_Karman)
+compute_MO_len(u, flux) = - u^3 / (flux * Float64(k_Karman,SF()))
 
 """
     compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, iter_max)
@@ -107,7 +110,7 @@ Computes roots of friction velocity equation (Eq. 10 in Ref. Byun1990)
 """
 function compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, iter_max)
 
-  ustar_0 = u_ave * k_Karman / log(z_1 / z_0)
+  ustar_0 = u_ave * Float64(k_Karman,SF()) / log(z_1 / z_0)
   ustar = ustar_0
   let u_ave=u_ave, flux=flux, z_0=z_0, z_1=z_1, β_m=β_m, γ_m=γ_m
 
@@ -120,7 +123,7 @@ function compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, i
       return stable ? ψ_m_stable(ζ, ζ_0, β_m) : ψ_m_unstable(ζ, ζ_0, γ_m)
     end
     function compute_u_ave_over_ustar(u)
-      return (log(z_1 / z_0) - compute_ψ_m(u)) / k_Karman # Eq. 10 in Ref. Byun1990
+      return (log(z_1 / z_0) - compute_ψ_m(u)) / Float64(k_Karman,SF()) # Eq. 10 in Ref. Byun1990
     end
     compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
 
@@ -173,8 +176,8 @@ function compute_exchange_coefficients(Ri, z_b, z_0, γ_m, γ_h, β_m, β_h, Pr_
     ψ_m = ψ_m_unstable(ζ, ζ_0, γ_m)
     ψ_h = ψ_h_unstable(ζ, ζ_0, γ_h)
   end
-  cu = k_Karman/(logz-ψ_m)                  # Eq. 10 in Ref. Byun1990, solved for u^*
-  cth = k_Karman/(logz-ψ_h)/Pr_0            # Eq. 11 in Ref. Byun1990, solved for h^*
+  cu = Float64(k_Karman,SF())/(logz-ψ_m)                  # Eq. 10 in Ref. Byun1990, solved for u^*
+  cth = Float64(k_Karman,SF())/(logz-ψ_h)/Pr_0            # Eq. 11 in Ref. Byun1990, solved for h^*
   C_D = cu^2                                                 # Eq. 36 in Byun1990
   C_H = cu*cth                                               # Eq. 37 in Byun1990
   return C_D, C_H, L_mo
@@ -186,6 +189,7 @@ module Nishizawa2018
 using ...RootSolvers
 using ...MoistThermodynamics
 using ...PlanetParameters
+import ..SurfaceFluxes: SF
 
 """ Computes R_z0 expression, defined after Eq. 15 Ref. Nishizawa2018 """
 compute_R_z0(z_0, Δz) = 1 - z_0/Δz
@@ -232,7 +236,7 @@ end
 
 Computes Monin-Obukhov length. Eq. 3 Ref. Nishizawa2018
 """
-compute_MO_len(u, θ, flux) = - u^3* θ / (k_Karman * grav * flux)
+compute_MO_len(u, θ, flux) = - u^3* θ / (Float64(k_Karman,SF()) * Float64(grav,SF()) * flux)
 
 """
     compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
@@ -246,7 +250,7 @@ non-linear equation:
 where `L` is a non-linear function of `ustar` (see `compute_MO_len`).
 """
 function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
-  ustar_0 = u_ave * k_Karman / log(Δz / z_0)
+  ustar_0 = u_ave * Float64(k_Karman,SF()) / log(Δz / z_0)
   ustar = ustar_0
   let u_ave=u_ave, θ=θ, flux=flux, Δz=Δz, z_0=z_0, a=a, Ψ_m_tol=Ψ_m_tol, tol_abs=tol_abs, iter_max=iter_max
     # Note the lowercase psi (ψ) and uppercase psi (Ψ):
@@ -259,7 +263,7 @@ function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_a
       temp2 = - Ψ_m_closure(Δz/L, L)
       temp3 = z_0/Δz * Ψ_m_closure(z_0/L, L)
       temp4 = R_z0 * (ψ_m_closure(z_0/L, L) - 1)
-      return (temp1+temp2+temp3+temp4) / k_Karman
+      return (temp1+temp2+temp3+temp4) / Float64(k_Karman,SF())
     end
     compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
     ustar_1 = compute_ustar(ustar_0)
@@ -287,8 +291,8 @@ function compute_exchange_coefficients(z, F_m, F_h, a, u_star, θ, flux, Pr)
   ψ_m = compute_ψ_m(z/L_mo, L_mo, a)
   ψ_h = compute_ψ_h(z/L_mo, L_mo, a, Pr)
 
-  K_m = -F_m*k_Karman*z/(u_star * ψ_m) # Eq. 19 in Ref. Nishizawa2018
-  K_h = -F_h*k_Karman*z/(Pr * θ * ψ_h) # Eq. 20 in Ref. Nishizawa2018
+  K_m = -F_m*Float64(k_Karman,SF())*z/(u_star * ψ_m) # Eq. 19 in Ref. Nishizawa2018
+  K_h = -F_h*Float64(k_Karman,SF())*z/(Pr * θ * ψ_h) # Eq. 20 in Ref. Nishizawa2018
 
   return K_m, K_h, L_mo
 end

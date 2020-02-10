@@ -1,6 +1,7 @@
 module CLIMA
 
 include("Utilities/TicToc/TicToc.jl")
+include("Utilities/UnitAnnotations/UnitAnnotations.jl")
 include("Utilities/ParametersType/ParametersType.jl")
 include("Common/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")

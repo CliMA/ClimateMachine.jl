@@ -48,4 +48,3 @@ end
 
 num_diagnostic(FT) = varsize(vars_diagnostic(FT))
 diagnostic_vars(array) = Vars{vars_diagnostic(eltype(array))}(array)
-

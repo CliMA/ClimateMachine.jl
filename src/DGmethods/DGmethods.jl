@@ -1,12 +1,13 @@
 module DGmethods
 
-using MPI
+using MPI, Unitful
 using ..MPIStateArrays
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using StaticArrays
 using ..SpaceMethods
 using ..VariableTemplates
+using ..UnitAnnotations
 using DocStringExtensions
 using GPUifyLoops
 

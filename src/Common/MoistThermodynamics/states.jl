@@ -35,10 +35,10 @@ struct PhasePartition{FT<:Real}
   ice::FT
 end
 
-PhasePartition(q_tot::FT,q_liq::FT) where {FT<:Real} =
-  PhasePartition(q_tot, q_liq, zero(FT))
+PhasePartition(q_tot::FT, q_liq::FT) where {FT<:Real} =
+  PhasePartition(q_tot, q_liq, zero(typeof(q_tot)))
 PhasePartition(q_tot::FT) where {FT<:Real} =
-  PhasePartition(q_tot, zero(FT), zero(FT))
+  PhasePartition(q_tot, zero(typeof(q_tot)), zero(typeof(q_tot)))
 
 
 """
@@ -65,28 +65,29 @@ may be needed).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseEquil{FT} <: ThermodynamicState{FT}
+@uaware struct PhaseEquil{FT} <: ThermodynamicState{FT}
   "internal energy"
-  e_int::FT
+  e_int::U(FT,:gravpot)
   "density of air (potentially moist)"
-  ρ::FT
+  ρ::U(FT,:density)
   "total specific humidity"
   q_tot::FT
   "temperature: computed via [`saturation_adjustment`](@ref)"
-  T::FT
+  T::U(FT,:temperature)
 end
-function PhaseEquil(e_int::FT,
-                    ρ::FT,
+
+function PhaseEquil(e_int::U(FT,:gravpot),
+                    ρ::U(FT,:density),
                     q_tot::FT,
                     maxiter::Int=3,
                     tol::FT=FT(1e-1),
                     sat_adjust::F=saturation_adjustment
                     ) where {FT<:Real,F}
-    # TODO: Remove these safety nets, or at least add warnings
-    # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
-    q_tot_safe = max(q_tot, FT(0))
-    q_tot_safe = min(q_tot_safe, FT(1))
-    return PhaseEquil{FT}(e_int, ρ, q_tot_safe, sat_adjust(e_int, ρ, q_tot_safe, tol, maxiter))
+  # TODO: Remove these safety nets, or at least add warnings
+  # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
+  q_tot_safe = max(q_tot, FT(0))
+  q_tot_safe = min(q_tot_safe, FT(1))
+  return PhaseEquil{FT}(e_int, ρ, q_tot_safe, sat_adjust(e_int, ρ, q_tot_safe, tol, maxiter))
 end
 
 """
@@ -102,11 +103,11 @@ A dry thermodynamic state (`q_tot = 0`).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseDry{FT} <: ThermodynamicState{FT}
+@uaware struct PhaseDry{FT} <: ThermodynamicState{FT}
   "internal energy"
-  e_int::FT
+  e_int::U(FT,:energy)
   "density of dry air"
-  ρ::FT
+  ρ::U(FT,:density)
 end
 
 """
@@ -120,8 +121,8 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
  - `tol` tolerance for saturation adjustment
  - `maxiter` maximum iterations for saturation adjustment
 """
-function LiquidIcePotTempSHumEquil(θ_liq_ice::FT,
-                                   ρ::FT,
+function LiquidIcePotTempSHumEquil(θ_liq_ice::U(FT,:temperature),
+                                   ρ::U(FT,:density),
                                    q_tot::FT,
                                    maxiter::Int=30,
                                    tol::FT=FT(1e-1)
@@ -143,8 +144,8 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
  - `tol` tolerance for saturation adjustment
  - `maxiter` maximum iterations for saturation adjustment
 """
-function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT,
-                                                  p::FT,
+function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::U(FT,:temperature),
+                                                  p::U(FT,:pressure),
                                                   q_tot::FT,
                                                   maxiter::Int=30,
                                                   tol::FT=FT(1e-1)
@@ -165,7 +166,7 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
  - `p` pressure
  - `q_tot` total specific humidity
 """
-function TemperatureSHumEquil(T::FT, p::FT, q_tot::FT) where {FT<:Real}
+function TemperatureSHumEquil(T::U(FT,:temperature), p::U(FT,:pressure), q_tot::FT) where {FT<:Real}
     ρ = air_density(T, p, PhasePartition(q_tot))
     q = PhasePartition_equil(T, ρ, q_tot)
     e_int = internal_energy(T, q)
@@ -187,11 +188,11 @@ be computed directly).
 $(DocStringExtensions.FIELDS)
 
 """
-struct PhaseNonEquil{FT} <: ThermodynamicState{FT}
+@uaware struct PhaseNonEquil{FT} <: ThermodynamicState{FT}
   "internal energy"
-  e_int::FT
+  e_int::U(FT,:energy)
   "density of air (potentially moist)"
-  ρ::FT
+  ρ::U(FT,:density)
   "phase partition"
   q::PhasePartition{FT}
 end
@@ -208,8 +209,8 @@ and, optionally
  - `tol` tolerance for non-linear equation solve
  - `maxiter` maximum iterations for non-linear equation solve
 """
-function LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT,
-                                      ρ::FT,
+function LiquidIcePotTempSHumNonEquil(θ_liq_ice::U(FT,:temperature),
+                                      ρ::U(FT,:density),
                                       q_pt::PhasePartition{FT},
                                       maxiter::Int=5,
                                       tol::FT=FT(1e-1)
@@ -228,7 +229,7 @@ Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
  - `p` pressure
  - `q_pt` phase partition
 """
-function LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::FT, p::FT, q_pt::PhasePartition{FT}) where {FT<:Real}
+function LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::U(FT,:temperature), p::U(FT,:pressure), q_pt::PhasePartition{FT}) where {FT<:Real}
     T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, q_pt)
     ρ = air_density(T, p, q_pt)
     e_int = internal_energy(T, q_pt)
@@ -242,16 +243,17 @@ end
 
 Fixed lapse rate hydrostatic reference state
 """
-function fixed_lapse_rate_ref_state(z::FT,
-                                    T_surface::FT,
-                                    T_min::FT) where {FT<:AbstractFloat}
-  Γ = FT(grav)/FT(cp_d)
+function fixed_lapse_rate_ref_state(z::U(FT,:space),
+                                    T_surface::U(FT,:temperature),
+                                    T_min::U(FT,:temperature)) where {FT<:AbstractFloat}
+  bl = MT()
+  Γ = FT(grav,bl)/FT(cp_d,bl)
   z_tropopause = (T_surface - T_min) / Γ
-  H_min = FT(R_d) * T_min / FT(grav)
+  H_min = FT(R_d,bl) * T_min / FT(grav,bl)
   T = max(T_surface - Γ*z, T_min)
-  p = FT(MSLP)*(T / T_surface)^(FT(grav)/(FT(R_d)*Γ))
-  T == T_min && (p = p * exp(-(z-z_tropopause)/FT(H_min)))
-  ρ = p / (FT(R_d) * T)
+  p = FT(MSLP,bl)*(T / T_surface)^(FT(grav,bl)/(FT(R_d,bl)*Γ))
+  T == T_min && (p = p * exp(-(z-z_tropopause)/H_min))
+  ρ = p / (FT(R_d,bl) * T)
   return T,p,ρ
 end
 

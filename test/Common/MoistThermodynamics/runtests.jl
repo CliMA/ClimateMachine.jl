@@ -1,6 +1,9 @@
 using Test
 using CLIMA.MoistThermodynamics
 using NCDatasets
+import CLIMA.UnitAnnotations: unit_annotations
+import CLIMA.ParametersType: TestCaseUnitRemove, unit_remove
+using Unitful: Quantity, ustrip
 using Random
 MT = MoistThermodynamics
 using CLIMA.PlanetParameters
@@ -8,8 +11,12 @@ using LinearAlgebra
 
 float_types = [Float32, Float64]
 
-
 include("testdata.jl")
+
+Base.Float32(q::Quantity) = Float32(ustrip(q))
+Base.Float64(q::Quantity) = Float64(ustrip(q))
+unit_remove(::TestCaseUnitRemove) = true 
+unit_annotations(::MT.MT) = false
 
 @testset "moist thermodynamics - isentropic processes" begin
   for FT in [Float64]
@@ -57,17 +64,17 @@ end
   @test cv_m(FT) == FT(cv_d)
 
   # speed of sound
-  @test soundspeed_air(T_0 + 20, PhasePartition(FT(0))) == sqrt(cp_d/cv_d * R_d * (T_0 + 20))
-  @test soundspeed_air(T_0 + 100, PhasePartition(FT(1))) == sqrt(cp_v/cv_v * R_v * (T_0 + 100))
+  @test soundspeed_air(FT(T_0) + 20, PhasePartition(FT(0))) == FT(sqrt(cp_d/cv_d * R_d * (FT(T_0) + 20)))
+  @test soundspeed_air(FT(T_0) + 100, PhasePartition(FT(1))) == FT(sqrt(cp_v/cv_v * R_v * (FT(T_0) + 100)))
 
   # specific latent heats
-  @test latent_heat_vapor(FT(T_0))  ≈ LH_v0
-  @test latent_heat_fusion(FT(T_0)) ≈ LH_f0
-  @test latent_heat_sublim(FT(T_0)) ≈ LH_s0
+  @test latent_heat_vapor(FT(T_0))  ≈ FT(LH_v0)
+  @test latent_heat_fusion(FT(T_0)) ≈ FT(LH_f0)
+  @test latent_heat_sublim(FT(T_0)) ≈ FT(LH_s0)
 
   # saturation vapor pressure and specific humidity
   p=FT(1.e5); q_tot=FT(0.23); ρ=FT(1.);
-  ρ_v_triple = press_triple / R_v / T_triple;
+  ρ_v_triple = FT(press_triple / R_v / T_triple);
   @test saturation_vapor_pressure(FT(T_triple), Liquid()) ≈ press_triple
   @test saturation_vapor_pressure(FT(T_triple), Ice()) ≈ press_triple
 
@@ -84,14 +91,14 @@ end
 
   # energy functions and inverse (temperature)
   T=FT(300); e_kin=FT(11); e_pot=FT(13);
-  @test air_temperature(FT(cv_d*(T-T_0))) === FT(T)
-  @test air_temperature(FT(cv_d*(T-T_0)), PhasePartition(FT(0))) === FT(T)
+  @test air_temperature(FT(cv_d*FT(T-T_0))) === FT(T)
+  @test air_temperature(FT(cv_d*FT(T-T_0)), PhasePartition(FT(0))) === FT(T)
 
-  @test air_temperature(cv_m(PhasePartition(FT(0)))*(T-T_0), PhasePartition(FT(0))) === FT(T)
-  @test air_temperature(cv_m(PhasePartition(FT(q_tot)))*(T-T_0) + q_tot*e_int_v0, PhasePartition(q_tot)) ≈ FT(T)
+  @test air_temperature(cv_m(PhasePartition(FT(0)))*FT(T-T_0), PhasePartition(FT(0))) === FT(T)
+  @test air_temperature(cv_m(PhasePartition(FT(q_tot)))*FT(T-T_0) + q_tot*e_int_v0, PhasePartition(q_tot)) ≈ FT(T)
 
   @test total_energy(FT(e_kin),FT(e_pot), FT(T_0)) === FT(e_kin) + FT(e_pot)
-  @test total_energy(FT(e_kin),FT(e_pot), FT(T)) ≈ FT(e_kin) + FT(e_pot) + cv_d*(T-T_0)
+  @test total_energy(FT(e_kin),FT(e_pot), FT(T)) ≈ FT(e_kin) + FT(e_pot) + FT(cv_d*(T-T_0))
   @test total_energy(FT(0),FT(0), FT(T_0), PhasePartition(q_tot)) ≈ q_tot*e_int_v0
 
   # phase partitioning in equilibrium

@@ -40,6 +40,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                     ω, D, elems, increment) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Q)
+  flux_types = vars_state(bl,FT) * (space_unit(bl) / time_unit(bl))
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
@@ -115,7 +116,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+          flux_nondiffusive!(bl, Grad{flux_types}(l_F),
                              Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                              Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
@@ -191,7 +192,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+          flux_diffusive!(bl, Grad{flux_types}(l_F),
                           Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                           Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                           Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
@@ -267,6 +268,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                     ω, D, elems, increment) where {dim, polyorder}
   N = polyorder
   FT = eltype(Q)
+  flux_types = vars_state(bl,FT) * (space_unit(bl) / time_unit(bl))
   nstate = num_state(bl,FT)
   nviscstate = num_diffusive(bl,FT)
   nauxstate = num_aux(bl,FT)
@@ -327,7 +329,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+          flux_nondiffusive!(bl, Grad{flux_types}(l_F),
                              Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                              Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
@@ -386,7 +388,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_F, -zero(eltype(l_F)))
-          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+          flux_diffusive!(bl, Grad{flux_types}(l_F),
                           Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                           Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                           Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
@@ -606,6 +608,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   N = polyorder
 
   FT = eltype(Q)
+  grad_types = vars_gradient(bl,FT) / space_unit(bl)
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
   nviscstate = num_diffusive(bl,FT)
@@ -700,7 +703,8 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
-          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc), Grad{vars_gradient(bl,FT)}(l_gradG),
+          diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                     Grad{grad_types}(l_gradG),
                      Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]), Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
           @unroll for s = 1:nviscstate
@@ -719,6 +723,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
   N = polyorder
 
   FT = eltype(Q)
+  grad_types = vars_gradient(bl,FT) / space_unit(bl)
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
   nviscstate = num_diffusive(bl,FT)
@@ -801,7 +806,7 @@ function volumeviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
           fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
           diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                     Grad{vars_gradient(bl,FT)}(l_gradG),
+                     Grad{grad_types}(l_gradG),
                      Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
                      Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
 
@@ -821,6 +826,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
                         elemtobndy, elems) where {dim, polyorder, direction}
   N = polyorder
   FT = eltype(Q)
+  grad_types = vars_gradient(bl, FT) / space_unit(bl)
   nstate = num_state(bl,FT)
   ngradstate = num_gradient(bl,FT)
   nviscstate = num_diffusive(bl,FT)
@@ -947,7 +953,7 @@ function faceviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           end
         end
         diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_QMvisc),
-                   Grad{vars_gradient(bl,FT)}(l_nGM),
+                   Grad{grad_types}(l_nGM),
                    Vars{vars_state(bl,FT)}(l_QM),
                    Vars{vars_aux(bl,FT)}(l_auxM), t)
 
@@ -978,7 +984,8 @@ function initstate!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, state, auxstat
 
   @inbounds @loop for e in (elems; blockIdx().x)
     @loop for n in (1:Np; threadIdx().x)
-      coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
+      coords = SVector(vgeo[n, _x1, e]*space_unit(bl), vgeo[n, _x2, e]*space_unit(bl), vgeo[n, _x3, e]*space_unit(bl))
+
       @unroll for s = 1:nauxstate
         l_aux[s] = auxstate[n, s, e]
       end

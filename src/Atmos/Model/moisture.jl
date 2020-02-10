@@ -47,7 +47,7 @@ Assumes the moisture components is in the dry limit.
 struct DryModel <: MoistureModel
 end
 
-vars_aux(::DryModel,FT) = @vars(θ_v::FT)
+vars_aux(m::DryModel,FT) = @uvars(m, θ_v::U(FT,:temperature))
 @inline function atmos_nodal_update_aux!(moist::DryModel, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
@@ -66,10 +66,10 @@ Assumes the moisture components are computed via thermodynamic equilibrium.
 Base.@kwdef struct EquilMoist <: MoistureModel
   maxiter::Int = 3
 end
-vars_state(::EquilMoist,FT) = @vars(ρq_tot::FT)
-vars_gradient(::EquilMoist,FT) = @vars(q_tot::FT, h_tot::FT)
-vars_diffusive(::EquilMoist,FT) = @vars(∇q_tot::SVector{3,FT})
-vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
+vars_state(m::EquilMoist,FT) = @uvars(m, ρq_tot::U(FT,:density))
+vars_gradient(m::EquilMoist,FT) = @uvars(m, q_tot::FT, h_tot::U(FT,:gravpot))
+vars_diffusive(m::EquilMoist,FT) = @uvars(m, ∇q_tot::SVector{3, U(FT,u"m^-1")})
+vars_aux(m::EquilMoist,FT) = @uvars(m, temperature::U(FT,:temperature), θ_v::U(FT,:temperature), q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)

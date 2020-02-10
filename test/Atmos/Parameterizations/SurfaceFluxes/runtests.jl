@@ -4,7 +4,14 @@ using CLIMA.SurfaceFluxes
 using CLIMA.SurfaceFluxes.Nishizawa2018
 using CLIMA.SurfaceFluxes.Byun1990
 using CLIMA.MoistThermodynamics
+import CLIMA.UnitAnnotations: unit_annotations
+import CLIMA.ParametersType: TestCaseUnitRemove, unit_remove
 using CLIMA.RootSolvers
+using Unitful
+
+unit_remove(::TestCaseUnitRemove) = true
+unit_annotations(::SurfaceFluxes.SF) = false
+unit_annotations(::MoistThermodynamics.MT) = false
 
 # FIXME: Use realistic values / test for correctness
 # These tests have been run to ensure they do not fail,

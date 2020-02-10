@@ -8,6 +8,7 @@ using CLIMA.MPIStateArrays
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
+import CLIMA.UnitAnnotations: unit_annotations
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -21,6 +22,7 @@ end
 include("mms_solution_generated.jl")
 include("mms_model.jl")
 
+unit_annotations(::MMSModel) = true
 
 # initial condition
 
@@ -160,4 +162,3 @@ let
 end
 
 nothing
-

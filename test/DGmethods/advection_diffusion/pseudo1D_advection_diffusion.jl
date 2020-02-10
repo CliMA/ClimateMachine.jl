@@ -1,6 +1,9 @@
 using MPI
 using CLIMA
 using Logging
+using Unitful
+using CLIMA.UnitAnnotations
+import CLIMA.UnitAnnotations: unit_annotations
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
@@ -24,6 +27,29 @@ const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
 
 include("advection_diffusion_model.jl")
 
+unit_annotations(::AdvectionDiffusion) = true
+
+# Stored in the aux state are:
+#   `coord` coordinate points (needed for BCs)
+#   `u` advection velocity
+#   `D` Diffusion tensor
+vars_aux(::AdvectionDiffusion, FT) = @vars begin
+  coord::SVector{3, units(FT,:space)}
+  u::SVector{3, units(FT,:velocity)}
+  D::SMatrix{3, 3, units(FT,:kinvisc), 9}
+end
+
+#
+# Density is only state
+vars_state(::AdvectionDiffusion, FT) = @vars(ρ::units(FT,:density))
+
+# Take the gradient of density
+vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::units(FT,:density))
+
+# The DG auxiliary variable: D ∇ρ
+vars_diffusive(::AdvectionDiffusion, FT) =
+  @vars(σ::SVector{3,units(FT,:massflux)})
+
 struct Pseudo1D{n, α, β, μ, δ} <: AdvectionDiffusionProblem end
 
 function init_velocity_diffusion!(::Pseudo1D{n, α, β}, aux::Vars,
@@ -39,13 +65,15 @@ function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
                             t) where {n, α, β, μ, δ}
   ξn = dot(n, x)
   # ξT = SVector(x) - ξn * n
+  t = ustrip(t) * unit_alias(:time)
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
 Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
 function Neumann_data!(::Pseudo1D{n, α, β, μ, δ}, ∇state, aux, x,
                              t) where {n, α, β, μ, δ}
   ξn = dot(n, x)
-  ∇state.ρ = -(2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *
+  t = ustrip(t) * unit_alias(:time)
+  ∇state.ρ = -(2n * unit_alias(:space) * (ξn - μ - α * t) / (4 * β * (δ + t)) *
                exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ))
 end
 
@@ -231,10 +259,10 @@ let
             elseif direction <: VerticalDirection
               n = dim == 2 ? SVector{3, FT}(0, 1, 0) : SVector{3, FT}(0, 0, 1)
             end
-            α = FT(1)
-            β = FT(1 // 100)
-            μ = FT(-1 // 2)
-            δ = FT(1 // 10)
+            α = units(FT, :velocity)(1)
+            β = units(FT, :kinvisc)(1 // 100)
+            μ = units(FT, :space)(-1 // 2)
+            δ = units(FT, :time)(1 // 10)
             for l = 1:numlevels
               Ne = 2^(l-1) * base_num_elem
               brickrange = ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim)
@@ -243,7 +271,7 @@ let
               topl = StackedBrickTopology(mpicomm, brickrange;
                                           periodicity = periodicity,
                                           boundary = bc)
-              dt = (α/4) / (Ne * polynomialorder^2)
+              dt = (value(α)/4) / (Ne * polynomialorder^2)
               @info "time step" dt
 
               timeend = 1

@@ -12,6 +12,7 @@ using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
+using CLIMA.UnitAnnotations
 using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
 using CLIMA.Atmos: AtmosModel, SphericalOrientation,
                    DryModel, NoPrecipitation, NoRadiation, NoSubsidence, NoFluxBC,
@@ -63,7 +64,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   setup = AcousticWaveSetup{FT}()
 
-  vert_range = grid1d(FT(planet_radius), FT(planet_radius + setup.domain_height), nelem = numelem_vert)
+  vert_range = grid1d(FT(planet_radius), FT(planet_radius) + setup.domain_height, nelem = numelem_vert)
   topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 
   grid = DiscontinuousSpectralElementGrid(topology,
@@ -174,10 +175,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 end
 
 Base.@kwdef struct AcousticWaveSetup{FT}
-  domain_height::FT = 10e3
-  T_ref::FT = 300
-  α::FT = 3
-  γ::FT = 100
+  domain_height = FT(10e3)
+  T_ref = FT(300)
+  α = FT(3)
+  γ = FT(100)
   nv::Int = 1
 end
 

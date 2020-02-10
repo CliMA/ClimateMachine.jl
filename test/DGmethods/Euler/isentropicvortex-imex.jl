@@ -275,9 +275,9 @@ function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
   end
   u = u∞ .+ SVector(δu_x, δu_y, 0)
 
-  T = T∞ * (1 - kappa_d * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
+  T = T∞ * (1 - FT(kappa_d, state) * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
   # adiabatic/isentropic relation
-  p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
+  p = p∞ * (T / T∞) ^ (FT(1) / FT(kappa_d, state))
   ρ = air_density(T, p)
 
   state.ρ = ρ

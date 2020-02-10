@@ -1,5 +1,9 @@
 ### Reference state
 using DocStringExtensions
+using Unitful
+
+using CLIMA.UnitAnnotations
+
 export NoReferenceState, HydrostaticState, IsothermalProfile, LinearTemperatureProfile
 
 """
@@ -35,21 +39,28 @@ struct HydrostaticState{P,F} <: ReferenceState
   relativehumidity::F
 end
 
-vars_aux(m::HydrostaticState, FT) = @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
+vars_aux(m::HydrostaticState, FT) = @uvars m begin
+  ρ::U(FT,:density)
+  p::U(FT,:pressure)
+  T::U(FT,:temperature)
+  ρe::U(FT,:energypv)
+  ρq_tot::U(FT,:density)
+end
 
 
 function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars, geom::LocalGeometry) where {P,F}
+  FT = eltype(aux)
   T,p = m.temperatureprofile(atmos.orientation, aux)
   aux.ref_state.T = T
   aux.ref_state.p = p
-  aux.ref_state.ρ = ρ = p/(R_d*T)
+  aux.ref_state.ρ = ρ = p/(FT(R_d)*T)
   q_vap_sat = q_vap_saturation(T, ρ)
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
-  q_pt = PhasePartition(ρq_tot)
+  q_pt = PhasePartition(ρq_tot / get_unit(atmos, :density))
   aux.ref_state.ρe = ρ * internal_energy(T, q_pt)
 
-  e_kin = F(0)
+  e_kin = F(0) * get_unit(atmos,:gravpot)
   e_pot = gravitational_potential(atmos.orientation, aux)
   aux.ref_state.ρe = ρ*total_energy(e_kin, e_pot, T, q_pt)
 end
@@ -70,7 +81,6 @@ where `T` is the temperature (in K), and `p` is the pressure (in hPa).
 abstract type TemperatureProfile
 end
 
-
 """
     IsothermalProfile{F} <: TemperatureProfile
 
@@ -80,13 +90,18 @@ A uniform temperature profile.
 
 $(DocStringExtensions.FIELDS)
 """
-struct IsothermalProfile{F} <: TemperatureProfile
+@uaware struct IsothermalProfile{F} <: TemperatureProfile
   "temperature (K)"
-  T::F
+  T::U(F,:temperature)
+end
+
+function IsothermalProfile(T::U(F,:temperature)) where {F<:Real}
+  IsothermalProfile{F}(T)
 end
 
 function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
-  p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T))
+  FT = eltype(aux)
+  p = FT(MSLP) * exp(-gravitational_potential(orientation, aux)/(FT(R_d)*profile.T))
   return (profile.T, p)
 end
 
@@ -103,13 +118,13 @@ T(z) = \\max(T_{\\text{surface}} − Γ z, T_{\\text{min}})
 
 $(DocStringExtensions.FIELDS)
 """
-struct LinearTemperatureProfile{FT} <: TemperatureProfile
+@uaware struct LinearTemperatureProfile{F} <: TemperatureProfile
   "minimum temperature (K)"
-  T_min::FT
+  T_min::U(F,:temperature)
   "surface temperature (K)"
-  T_surface::FT
+  T_surface::U(F,:temperature)
   "lapse rate (K/m)"
-  Γ::FT
+  Γ::U(F,:lincond)
 end
 
 function (profile::LinearTemperatureProfile)(orientation::Orientation, aux::Vars)

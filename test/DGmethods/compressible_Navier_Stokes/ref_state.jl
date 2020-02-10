@@ -1,4 +1,5 @@
 using MPI
+using Unitful
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
@@ -9,6 +10,8 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos
+using CLIMA.UnitAnnotations
+import CLIMA.UnitAnnotations: unit_annotations 
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
@@ -31,7 +34,11 @@ init_state!(state, aux, coords, t) = nothing
 # initial condition
 using CLIMA.Atmos: vars_aux
 
+unit_annotations(::AtmosModel) = true
+unit_annotations(::MoistThermodynamics.MT) = true
+
 function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
+
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -39,7 +46,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
                                           polynomialorder = N
                                          )
 
-  T_s = 320.0
+  T_s = 320.0u"K"
   RH = 0.01
   model = AtmosModel{FT}(AtmosLESConfiguration;
                          ref_state=HydrostaticState(IsothermalProfile(T_s), RH),
@@ -67,7 +74,7 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
                                           polynomialorder = N
                                          )
 
-  T_min, T_s, Γ = FT(290), FT(320), FT(6.5*10^-3)
+  T_min, T_s, Γ = FT(290) * u"K", FT(320) * u"K", FT(6.5*10^-3) * u"K/m"
   RH = 0.01
   model = AtmosModel{FT}(AtmosLESConfiguration;
                          ref_state=HydrostaticState(LinearTemperatureProfile(T_min, T_s, Γ), RH),

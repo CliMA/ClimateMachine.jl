@@ -264,7 +264,7 @@ function brickmesh(x, periodic; part=1, numparts=1,
   if boundary isa Matrix
     boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
   end
-  
+
   @assert length(x) == length(periodic)
   @assert length(x) >= 1
   @assert 1 <= part <= numparts

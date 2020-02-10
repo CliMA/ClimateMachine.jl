@@ -1,4 +1,5 @@
 using StaticArrays
+using Unitful
 using CLIMA.VariableTemplates
 import CLIMA.DGmethods: BalanceLaw,
                         vars_aux, vars_state, vars_gradient, vars_diffusive,
@@ -11,6 +12,7 @@ using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        NumericalFluxDiffusive,
                                        NumericalFluxGradient
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
+import CLIMA.UnitAnnotations: unit_annotations
 
 abstract type AdvectionDiffusionProblem end
 struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
@@ -26,22 +28,7 @@ struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
   end
 end
 
-# Stored in the aux state are:
-#   `coord` coordinate points (needed for BCs)
-#   `u` advection velocity
-#   `D` Diffusion tensor
-vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, FT},
-                                           u::SVector{3, FT},
-                                           D::SMatrix{3, 3, FT, 9})
-#
-# Density is only state
-vars_state(::AdvectionDiffusion, FT) = @vars(ρ::FT)
-
-# Take the gradient of density
-vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
-
-# The DG auxiliary variable: D ∇ρ
-vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3,FT})
+unit_annotations(m::AdvectionDiffusion) = true
 
 """
     flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
@@ -146,6 +133,7 @@ end
 
 function init_state!(m::AdvectionDiffusion, state::Vars, aux::Vars,
                      coords, t::Real)
+  t *= time_unit(m)
   initial_condition!(m.problem, state, aux, coords, t)
 end
 
@@ -177,7 +165,7 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
   elseif bctype == 2 # Neumann with data
     FT = eltype(diff⁺)
     ngrad = num_gradient(m, FT)
-    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    ∇state = Grad{vars_gradient(m, FT) / space_unit(m)}(similar(parent(diff⁺), Size(3, ngrad)))
     # Get analytic gradient
     Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
     diffusive!(m, diff⁺, ∇state, aux⁻)
@@ -185,9 +173,9 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
   elseif bctype == 4 # zero Neumann
     FT = eltype(diff⁺)
     ngrad = num_gradient(m, FT)
-    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    ∇state = Grad{vars_gradient(m, FT) / space_unit(m)}(similar(parent(diff⁺), Size(3, ngrad)))
     # Get analytic gradient
-    ∇state.ρ = SVector{3, FT}(0, 0, 0)
+    ∇state.ρ = SVector{3, FT}(0, 0, 0) .* get_unit(m, :density) ./ space_unit(m)
     # convert to auxDG variables
     diffusive!(m, diff⁺, ∇state, aux⁻)
   end
@@ -209,7 +197,7 @@ function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   elseif bctype == 2 # Neumann data
     FT = eltype(diff⁺)
     ngrad = num_gradient(m, FT)
-    ∇state = Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+    ∇state = Grad{vars_gradient(m, FT) / space_unit(m)}(similar(parent(diff⁺), Size(3, ngrad)))
     # Get analytic gradient
     Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
     # get the diffusion coefficient
@@ -220,7 +208,7 @@ function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     F.ρ = - D * ∇ρ
   elseif bctype == 4 # Zero Neumann
     FT = eltype(diff⁺)
-    F.ρ = SVector{3, FT}(0, 0, 0)
+    F.ρ = SVector{3, FT}(0, 0, 0) .* get_unit(m, :massflux)
   end
   nothing
 end

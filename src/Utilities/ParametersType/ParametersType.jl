@@ -1,6 +1,15 @@
 module ParametersType
+using Unitful
+import Unitful: AbstractQuantity, Units
 
-export @parameter, @exportparameter, ParametersType
+import ..UnitAnnotations: unit_annotations
+
+export @parameter, @exportparameter, ParametersType, TestCaseUnitRemove
+
+abstract type AbstractTestCaseUnitRemove end
+struct TestCaseUnitRemove <: AbstractTestCaseUnitRemove end
+
+unit_remove(::AbstractTestCaseUnitRemove) = false
 
 """
     Parameter{sym} <: Base.AbstractIrrational
@@ -17,19 +26,42 @@ struct Parameter{sym} <: Base.AbstractIrrational end
 
 Base.show(io::IO, x::Parameter{S}) where {S} = print(io, "$(string(x))")
 
+Base.:(==)(x::Parameter, y::AbstractQuantity) = (getval(x) == y)
 Base.:(==)(x::Parameter, y::AbstractFloat) = (getval(x) == y)
 Base.:(==)(x::Parameter, y::Irrational) = (getval(x) == y)
 Base.:(==)(x::Parameter, y::Rational) = (getval(x) == y)
+Base.:(==)(x::AbstractQuantity, y::Parameter) = (x == getval(y))
 Base.:(==)(x::AbstractFloat, y::Parameter) = (x == getval(y))
 Base.:(==)(x::Irrational, y::Parameter) = (x == getval(y))
 Base.:(==)(x::Rational, y::Parameter) = (x == getval(y))
 Base.:(==)(x::Parameter, y::Parameter) = (getval(x) == getval(y))
 Base.:<(x::Parameter, y::Parameter) = (getval(x) < getval(y))
 Base.:<=(x::Parameter, y::Parameter) = (getval(x) <= getval(y))
+Base.:*(x::Parameter, y::Parameter) = getval(x) * getval(y)
+Base.:*(x::Parameter, y::AbstractQuantity) = getval(x) * y
+Base.:*(x::AbstractQuantity, y::Parameter) = x * getval(y)
+Base.:*(x::Parameter, y::Units) = getval(x) * y
+Base.:*(x::Units, y::Parameter) = x * getval(x)
+Base.:/(x::Parameter, y::Parameter) = getval(x) / getval(y)
+Base.:/(x::Parameter, y::AbstractQuantity) = getval(x) / y
+Base.:/(x::AbstractQuantity, y::Parameter) = x / getval(y)
+Base.:/(x::Parameter, y::Units) = getval(x) / y
+Base.:/(x::Units, y::Parameter) = x / getval(y)
+Base.:+(x::Parameter, y::Parameter) = getval(x) + getval(y)
+Base.:+(x::Parameter, y::AbstractQuantity) = getval(x) + y
+Base.:+(x::AbstractQuantity, y::Parameter) = x + getval(y)
+Base.:+(x::Parameter, y::Units) = getval(x) + y
+Base.:+(x::Units, y::Parameter) = x + getval(x)
+Base.:-(x::Parameter, y::Parameter) = getval(x) - getval(y)
+Base.:-(x::Parameter, y::AbstractQuantity) = getval(x) - y
+Base.:-(x::AbstractQuantity, y::Parameter) = x - getval(y)
+Base.:-(x::Parameter, y::Units) = getval(x) - y
+Base.:-(x::Units, y::Parameter) = x - getval(y)
 Base.hash(x::Parameter, h::UInt) = 3*objectid(x) - h
 Base.widen(::Type{T}) where {T<:Parameter} = T
 Base.round(x::Parameter, r::RoundingMode) = round(float(x), r)
 getval() = nothing
+getval(x::Number) = x
 
 """
     @parameter sym val desc doexport=false
@@ -42,15 +74,15 @@ Define a new `Parameter` value, `sym`, with value `val` and description string
 macro parameter(sym, val, desc, doexport=false)
   esym = esc(sym)
   qsym = esc(Expr(:quote, sym))
-  ev = @eval(__module__, $val)
+  ev = getval(@eval(__module__, $val))
 
   exportcmd = doexport ? :(export $sym) : ()
 
   quote
     $exportcmd
     const $esym = Parameter{$qsym}()
-    Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
-    Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
+    Base.Float64(::Parameter{$qsym}) = $(Float64(ustrip(ev)) * upreferred(unit(ev)))
+    Base.Float32(::Parameter{$qsym}) = $(Float32(ustrip(ev)) * upreferred(unit(ev)))
     Base.string(::Parameter{$qsym}) = $(string(ev))
     ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
     """
@@ -72,17 +104,23 @@ end
 macro exportparameter(sym, val, desc)
   esym = esc(sym)
   qsym = esc(Expr(:quote, sym))
-  ev = @eval(__module__, $val)
+  ev = getval(@eval(__module__, $val))
 
   exportcmd = :(export $sym)
+  ur = TestCaseUnitRemove()
 
   quote
     $exportcmd
     const $esym = Parameter{$qsym}()
-    Base.Float64(::Parameter{$qsym}) = $(Float64(ev))
-    Base.Float32(::Parameter{$qsym}) = $(Float32(ev))
+    # FIXME: shouldn't really allow constructors to return other types
+    Base.Float64(::Parameter{$qsym}) = unit_remove($ur) ? $(Float64(ustrip(ev))) : $(Float64(ustrip(ev)) * upreferred(unit(ev)))
+    Base.Float64(p::Parameter{$qsym}, bl) = (v = Float64(p); unit_annotations(bl) ? v : ustrip(v))
+    Base.Float64(p::Parameter{$qsym}, b::Bool) = (v = Float64(p); b ? v : ustrip(v))
+    Base.Float32(::Parameter{$qsym}) = unit_remove($ur) ? $(Float32(ustrip(ev))) : $(Float32(ustrip(ev)) * upreferred(unit(ev)))
+    Base.Float32(p::Parameter{$qsym}, bl) = (v = Float32(p); unit_annotations(bl) ? v : ustrip(v))
+    Base.Float32(p::Parameter{$qsym}, b::Bool) = (v = Float32(p); b ? v : ustrip(v))
     Base.string(::Parameter{$qsym}) = $(string(ev))
-    ParametersType.getval(::Parameter{$qsym}) = $(esc(ev))
+    ParametersType.getval(::Parameter{$qsym}) = $(esc(upreferred(getval(ev))))
     """
         $($qsym)
 

@@ -20,9 +20,9 @@ struct Gravity <: Source
 end
 function atmos_source!(::Gravity, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   if atmos.ref_state isa HydrostaticState
-    source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
+    source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ * time_unit(atmos)
   else
-    source.ρu -= state.ρ * aux.orientation.∇Φ
+    source.ρu -= state.ρ * aux.orientation.∇Φ * time_unit(atmos)
   end
 end
 

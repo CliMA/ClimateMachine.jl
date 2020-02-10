@@ -10,9 +10,10 @@ using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
+using ..UnitAnnotations
 import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
-using GPUifyLoops
+using GPUifyLoops, Unitful
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
 
@@ -134,26 +135,26 @@ end
 
 
 function vars_state(m::AtmosModel, FT)
-  @vars begin
-    ρ::FT
-    ρu::SVector{3,FT}
-    ρe::FT
+  @uvars m begin
+    ρ::U(FT,:density)
+    ρu::SVector{3, U(FT,:massflux)}
+    ρe::U(FT,:energypv)
     turbulence::vars_state(m.turbulence, FT)
     moisture::vars_state(m.moisture, FT)
     radiation::vars_state(m.radiation, FT)
   end
 end
 function vars_gradient(m::AtmosModel, FT)
-  @vars begin
-    u::SVector{3,FT}
-    h_tot::FT
+  @uvars m begin
+    u::SVector{3, U(FT,:velocity)}
+    h_tot::U(FT,:gravpot)
     turbulence::vars_gradient(m.turbulence,FT)
     moisture::vars_gradient(m.moisture,FT)
   end
 end
 function vars_diffusive(m::AtmosModel, FT)
-  @vars begin
-    ∇h_tot::SVector{3,FT}
+  @uvars m begin
+    ∇h_tot::SVector{3, U(FT,:accel)}
     turbulence::vars_diffusive(m.turbulence,FT)
     moisture::vars_diffusive(m.moisture,FT)
   end
@@ -161,10 +162,10 @@ end
 
 
 function vars_aux(m::AtmosModel, FT)
-  @vars begin
+  @uvars m begin
     ∫dz::vars_integrals(m, FT)
     ∫dnz::vars_integrals(m, FT)
-    coord::SVector{3,FT}
+    coord::SVector{3, U(FT,:space)}
     orientation::vars_aux(m.orientation, FT)
     ref_state::vars_aux(m.ref_state,FT)
     turbulence::vars_aux(m.turbulence,FT)
@@ -173,7 +174,7 @@ function vars_aux(m::AtmosModel, FT)
   end
 end
 function vars_integrals(m::AtmosModel,FT)
-  @vars begin
+  @uvars m begin
     radiation::vars_integrals(m.radiation,FT)
   end
 end
@@ -257,7 +258,7 @@ end
 @inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, aux::Vars, t::Real)
   ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
-  D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+  D_t = (ν isa Number ? ν : diag(ν)) * inv_Pr_turb
   d_h_tot = -D_t .* diffusive.∇h_tot
   flux_diffusive!(atmos, flux, state, τ, d_h_tot)
   flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
