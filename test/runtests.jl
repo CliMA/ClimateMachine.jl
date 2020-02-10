@@ -1,5 +1,6 @@
 using Test, Pkg
 
+ENV["DATADEPS_ALWAYS_ACCEPT"] = true
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
 for submodule in ["Utilities/TicToc",
