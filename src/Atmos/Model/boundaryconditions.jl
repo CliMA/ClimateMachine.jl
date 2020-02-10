@@ -20,34 +20,34 @@ end
 # at the moment we can just pass a function, but we should do something better
 # need to figure out how subcomponents will interact.
 function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               f::Function, m::AtmosModel, stateP::Vars,
-                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               f::Function, m::AtmosModel, state⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
                                t, _...)
-  f(stateP, auxP, nM, stateM, auxM, bctype, t)
+  f(state⁺, aux⁺, n⁻, state⁻, aux⁻, bctype, t)
 end
 
 function atmos_boundary_state!(::NumericalFluxDiffusive, f::Function,
-                               m::AtmosModel, stateP::Vars, diffP::Vars,
-                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
-                               auxM::Vars, bctype, t, _...)
-  f(stateP, diffP, auxP, nM, stateM, diffM, auxM, bctype, t)
+                               m::AtmosModel, state⁺::Vars, diff⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, diff⁻::Vars,
+                               aux⁻::Vars, bctype, t, _...)
+  f(state⁺, diff⁺, aux⁺, n⁻, state⁻, diff⁻, aux⁻, bctype, t)
 end
 
 # lookup boundary condition by face
 function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               bctup::Tuple, m::AtmosModel, stateP::Vars,
-                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               bctup::Tuple, m::AtmosModel, state⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
                                t, _...)
-  atmos_boundary_state!(nf, bctup[bctype], m, stateP, auxP, nM, stateM, auxM,
+  atmos_boundary_state!(nf, bctup[bctype], m, state⁺, aux⁺, n⁻, state⁻, aux⁻,
                         bctype, t)
 end
 
 function atmos_boundary_state!(nf::NumericalFluxDiffusive,
-                               bctup::Tuple, m::AtmosModel, stateP::Vars,
-                               diffP::Vars, auxP::Vars, nM, stateM::Vars,
-                               diffM::Vars, auxM::Vars, bctype, t, _...)
-  atmos_boundary_state!(nf, bctup[bctype], m, stateP, diffP, auxP, nM, stateM,
-                        diffM, auxM, bctype, t)
+                               bctup::Tuple, m::AtmosModel, state⁺::Vars,
+                               diff⁺::Vars, aux⁺::Vars, n⁻, state⁻::Vars,
+                               diff⁻::Vars, aux⁻::Vars, bctype, t, _...)
+  atmos_boundary_state!(nf, bctup[bctype], m, state⁺, diff⁺, aux⁺, n⁻, state⁻,
+                        diff⁻, aux⁻, bctype, t)
 end
 
 abstract type BoundaryCondition
@@ -76,27 +76,27 @@ struct NoFluxBC <: BoundaryCondition
 end
 
 function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               bc::NoFluxBC, m::AtmosModel, stateP::Vars,
-                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               bc::NoFluxBC, m::AtmosModel, state⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
                                t, _...)
-  FT = eltype(stateM)
-  stateP.ρ = stateM.ρ
+  FT = eltype(state⁻)
+  state⁺.ρ = state⁻.ρ
   if typeof(nf) <: NumericalFluxNonDiffusive
-    stateP.ρu -= 2 * dot(stateM.ρu, nM) * SVector(nM)
+    state⁺.ρu -= 2 * dot(state⁻.ρu, n⁻) * SVector(n⁻)
   else
-    stateP.ρu -=  dot(stateM.ρu, nM) * SVector(nM)
+    state⁺.ρu -=  dot(state⁻.ρu, n⁻) * SVector(n⁻)
   end
 end
 
 function atmos_boundary_state!(::NumericalFluxDiffusive, bc::NoFluxBC,
-                               m::AtmosModel, stateP::Vars, diffP::Vars,
-                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
-                               auxM::Vars, bctype, t, _...)
-  FT = eltype(stateM)
-  stateP.ρ = stateM.ρ
-  stateP.ρu -= dot(stateM.ρu, nM) * SVector(nM)
+                               m::AtmosModel, state⁺::Vars, diff⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, diff⁻::Vars,
+                               aux⁻::Vars, bctype, t, _...)
+  FT = eltype(state⁻)
+  state⁺.ρ = state⁻.ρ
+  state⁺.ρu -= dot(state⁻.ρu, n⁻) * SVector(n⁻)
   
-  fill!(getfield(diffP, :array), FT(0))
+  fill!(getfield(diff⁺, :array), FT(0))
 end
 
 """
@@ -111,14 +111,14 @@ mainly useful for cases where the problem has an explicit solution.
 struct InitStateBC <: BoundaryCondition
 end
 function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               bc::InitStateBC, m::AtmosModel, stateP::Vars,
-                               auxP::Vars, nM, stateM::Vars, auxM::Vars, bctype,
+                               bc::InitStateBC, m::AtmosModel, state⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
                                t, _...)
-  init_state!(m, stateP, auxP, auxP.coord, t)
+  init_state!(m, state⁺, aux⁺, aux⁺.coord, t)
 end
 function atmos_boundary_state!(::NumericalFluxDiffusive, bc::InitStateBC,
-                               m::AtmosModel, stateP::Vars, diffP::Vars,
-                               auxP::Vars, nM, stateM::Vars, diffM::Vars,
-                               auxM::Vars, bctype, t, _...)
-  init_state!(m, stateP, auxP, auxP.coord, t)
+                               m::AtmosModel, state⁺::Vars, diff⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, diff⁻::Vars,
+                               aux⁻::Vars, bctype, t, _...)
+  init_state!(m, state⁺, aux⁺, aux⁺.coord, t)
 end
