@@ -162,7 +162,7 @@ function main()
     # Time integrator setup
     t0 = FT(0)
     CFLmax = FT(0.90)
-    timeend = FT(3500)
+    timeend = FT(2500)
 
     @testset "DryRayleighBenardTest" begin
       for Δh in Δh
