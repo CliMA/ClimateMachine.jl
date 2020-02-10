@@ -138,10 +138,7 @@ function init_problem!(state, aux, (x,y,z), t)
 end
 
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
-<<<<<<< HEAD
-=======
-
->>>>>>> 2c948778ec79ab4ff554f857fbbc28c113a4bf24
+    
     #Boundary conditions
     bc    = FixedTempNoSlip{FT}(T_bot, T_top)
 
