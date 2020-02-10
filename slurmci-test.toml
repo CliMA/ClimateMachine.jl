@@ -50,5 +50,6 @@ gpu = [
   { file = "experiments/LES/risingbubble.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/Atmos/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/GCM/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "experiments/LES/risingbubble.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/LES/dycoms.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]

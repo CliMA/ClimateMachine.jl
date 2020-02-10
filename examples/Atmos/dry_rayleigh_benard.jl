@@ -59,12 +59,13 @@ struct FixedTempNoSlip{FT} <: BoundaryCondition
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                         bc::FixedTempNoSlip, m::AtmosModel,
-                         Y⁺::Vars, A⁺::Vars, 
-                         n⁻, 
-                         Y⁻::Vars, A⁻::Vars, 
-                         bctype, t,_...)
+function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                               bc::FixedTempNoSlip,
+                               m::AtmosModel,
+                               Y⁺::Vars, A⁺::Vars,
+                               n⁻,
+                               Y⁻::Vars, A⁻::Vars,
+                               bctype, t,_...)
   # Dry Rayleigh Benard Convection
   FT = eltype(Y⁺)
   @inbounds begin
@@ -78,12 +79,12 @@ function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFlu
     Y⁺.ρe = E_bc
   end
 end
-function atmos_boundary_flux_diffusive!(::CentralNumericalFluxDiffusive, 
+function atmos_boundary_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                         bc::FixedTempNoSlip,
-                                        m::AtmosModel,  F,
-                                        Y⁺::Vars, Σ⁺::Vars, A⁺::Vars, 
-                                        n⁻, 
-                                        Y⁻::Vars, Σ⁻::Vars, A⁻::Vars, 
+                                        m::AtmosModel, F,
+                                        Y⁺::Vars, Σ⁺::Vars, A⁺::Vars,
+                                        n⁻,
+                                        Y⁻::Vars, Σ⁻::Vars, A⁻::Vars,
                                         bctype, t, _...)
   Σ⁺.∇h_tot = -Σ⁻.∇h_tot
 end
@@ -103,6 +104,7 @@ boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                  state⁻, diff⁻, aux⁻,
                                  bctype, t,
                                  state1⁻, diff1⁻, aux1⁻)
+# ------------------- End Boundary Conditions -------------------------- #
 
 const randomseed         = MersenneTwister(1)
 const (xmin, ymin, zmin) = (0,0,0)
@@ -136,6 +138,10 @@ function init_problem!(state, aux, (x,y,z), t)
 end
 
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2c948778ec79ab4ff554f857fbbc28c113a4bf24
     #Boundary conditions
     bc    = FixedTempNoSlip{FT}(T_bot, T_top)
 

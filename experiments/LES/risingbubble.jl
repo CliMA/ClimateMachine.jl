@@ -52,7 +52,7 @@ function init_risingbubble!(state, aux, (x,y,z), t)
   P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
   T            = P / (ρ * R_gas) # temperature
   ρu           = SVector(FT(0),FT(0),FT(0))
-
+  
   #State (prognostic) variable assignment
   e_kin        = FT(0)
   e_pot        = grav * z
@@ -63,6 +63,7 @@ function init_risingbubble!(state, aux, (x,y,z), t)
   state.moisture.ρq_tot = FT(0)
 end
 
+<<<<<<< HEAD
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     
   # Boundary conditions
@@ -84,8 +85,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function main()
+    
     CLIMA.init()
-
     # Working precision
     FT = Float64
     # DG polynomial order
