@@ -15,12 +15,9 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!
-import CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
-                                        NumericalFluxGradient,
-                                        NumericalFluxDiffusive,
-                                        boundary_state!,
-                                        boundary_flux_diffusive!
+import CLIMA.DGmethods: boundary_state!
+import CLIMA.Atmos: atmos_boundary_state!
+import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 # ------------------- Description ---------------------------------------- #
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
@@ -42,7 +39,8 @@ import CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
 # 8) Default settings can be found in src/Driver/Configurations.jl
 
 """
-  FixedTempNoSlip <: BoundaryCondition
+  FixedTempNoSlip{FT} <: BoundaryCondition
+Dirichlet boundary conditions on velocity and temperature
 # Fields
 $(DocStringExtensions.FIELDS)
 """
@@ -54,11 +52,11 @@ struct FixedTempNoSlip{FT} <: BoundaryCondition
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
 function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               bc::FixedTempNoSlip, m::AtmosModel,
-                               Y⁺::Vars, A⁺::Vars, 
-                               n⁻, 
-                               Y⁻::Vars, A⁻::Vars, 
-                               bctype, t,_...)
+                         bc::FixedTempNoSlip, m::AtmosModel,
+                         Y⁺::Vars, A⁺::Vars, 
+                         n⁻, 
+                         Y⁻::Vars, A⁻::Vars, 
+                         bctype, t,_...)
   # Dry Rayleigh Benard Convection
   FT = eltype(Y⁺)
   @inbounds begin
@@ -72,13 +70,31 @@ function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFlu
     Y⁺.ρe = E_bc
   end
 end
-function atmos_boundary_flux_diffusive!(::NumericalFluxDiffusive, bc::FixedTempNoSlip,
-                                        m::AtmosModel, 
+function atmos_boundary_flux_diffusive!(::CentralNumericalFluxDiffusive, 
+                                        bc::FixedTempNoSlip,
+                                        m::AtmosModel,  F,
                                         Y⁺::Vars, Σ⁺::Vars, A⁺::Vars, 
                                         n⁻, 
                                         Y⁻::Vars, Σ⁻::Vars, A⁻::Vars, 
                                         bctype, t, _...)
+  Σ⁺.∇h_tot = -Σ⁻.∇h_tot
 end
+
+boundary_state!(nf, m::AtmosModel, x...) =
+  atmos_boundary_state!(nf, m.boundarycondition, m, x...)
+boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                         atmos::AtmosModel,
+                         F,
+                         state⁺, diff⁺, aux⁺, n⁻,
+                         state⁻, diff⁻, aux⁻,
+                         bctype, t,
+                         state1⁻, diff1⁻, aux1⁻) =
+  atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
+                                 F,
+                                 state⁺, diff⁺, aux⁺, n⁻,
+                                 state⁻, diff⁻, aux⁻,
+                                 bctype, t,
+                                 state1⁻, diff1⁻, aux1⁻)
 
 const randomseed         = MersenneTwister(1)
 const (xmin, ymin, zmin) = (0,0,0)

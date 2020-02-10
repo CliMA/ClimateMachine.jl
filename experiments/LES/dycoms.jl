@@ -2,6 +2,8 @@ using Distributions
 using Random
 using StaticArrays
 using Test
+using DocStringExtensions
+using LinearAlgebra
 
 using CLIMA
 using CLIMA.Atmos
@@ -16,6 +18,10 @@ using CLIMA.VariableTemplates
 import CLIMA.DGmethods: vars_state, vars_aux, vars_integrals,
                         integrate_aux!
 
+import CLIMA.DGmethods: boundary_state!
+import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!, NoFluxBC
+import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
+
 # -------------------- Radiation Model -------------------------- # 
 vars_state(::RadiationModel, FT) = @vars()
 vars_aux(::RadiationModel, FT) = @vars()
@@ -26,13 +32,20 @@ function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
 function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) end
 function flux_radiation!(::RadiationModel, flux::Grad, state::Vars, aux::Vars, t::Real) end
 
+
+# ---------------------------- Begin Boundary Conditions ----------------- #
 """
   DYCOMS_BC <: BoundaryCondition
   Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
+#Fields
+$(DocStringExtensions.FIELDS)
 """
 struct DYCOMS_BC{FT} <: BoundaryCondition
+  "Drag coefficient"
   C_drag::FT
+  "Latent Heat Flux"
   LHF::FT
+  "Sensible Heat Flux"
   SHF::FT
 end
 
@@ -43,7 +56,8 @@ end
 For the non-diffussive and gradient terms we just use the `NoFluxBC`
 """
 atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                      bc::DYCOMS_BC, args...) = atmos_boundary_state!(nf, NoFluxBC(), args...)
+                      bc::DYCOMS_BC, 
+                      args...) = atmos_boundary_state!(nf, NoFluxBC(), args...)
 
 """
     atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
@@ -56,10 +70,11 @@ atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient
 
 When `bctype == 1` the `NoFluxBC` otherwise the specialized DYCOMS BC is used
 """
-function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
-                                        bc::DYCOMS_BC, atmos::AtmosModel,
-                                        F,
-                                        state⁺, diff⁺, aux⁺, n⁻,
+function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+                                        bc::DYCOMS_BC, 
+                                        atmos::AtmosModel, F,
+                                        state⁺, diff⁺, aux⁺, 
+                                        n⁻,
                                         state⁻, diff⁻, aux⁻,
                                         bctype, t,
                                         state1⁻, diff1⁻, aux1⁻)
@@ -124,6 +139,27 @@ function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
     flux_diffusive!(atmos.moisture, F, state⁺, d_q_tot⁺)
   end
 end
+boundary_state!(nf, m::AtmosModel, x...) =
+  atmos_boundary_state!(nf, m.boundarycondition, m, x...)
+boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                         atmos::AtmosModel,
+                         F,
+                         state⁺, diff⁺, aux⁺, n⁻,
+                         state⁻, diff⁻, aux⁻,
+                         bctype, t,
+                         state1⁻, diff1⁻, aux1⁻) =
+  atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
+                                 F,
+                                 state⁺, diff⁺, aux⁺, n⁻,
+                                 state⁻, diff⁻, aux⁻,
+                                 bctype, t,
+                                 state1⁻, diff1⁻, aux1⁻)
+
+
+# ------------------------ End Boundary Condition --------------------- # 
+
+
+# ------------------------ Begin Radiation Model ---------------------- #
 """
   DYCOMSRadiation <: RadiationModel
 
@@ -169,7 +205,7 @@ function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, stat
 end
 function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real)
 end
-
+# -------------------------- End Radiation Model ------------------------ # 
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,
