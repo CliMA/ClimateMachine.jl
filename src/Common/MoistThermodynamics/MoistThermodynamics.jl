@@ -800,7 +800,8 @@ by finding the root of
 See also [`saturation_adjustment`](@ref).
 """
 function saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice::U(FT,:temperature), ρ::U(FT,:density), q_tot::FT, tol::FT, maxiter::Int) where {FT<:Real}
-  T_1 = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot)) # Assume all vapor
+  u = ρ isa Quantity
+  T_1 = max(FT(T_min,u), air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, PhasePartition(q_tot))) # Assume all vapor
   q_v_sat = q_vap_saturation(T_1, ρ)
   unsaturated = q_tot <= q_v_sat
   if unsaturated && T_1 > FT(T_min, MT())

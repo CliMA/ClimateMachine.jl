@@ -53,7 +53,7 @@ function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars,
   T,p = m.temperatureprofile(atmos.orientation, aux)
   aux.ref_state.T = T
   aux.ref_state.p = p
-  aux.ref_state.ρ = ρ = p/(FT(R_d)*T)
+  aux.ref_state.ρ = ρ = p/(FT(R_d,m)*T)
   q_vap_sat = q_vap_saturation(T, ρ)
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
@@ -101,12 +101,12 @@ end
 
 function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
   FT = eltype(aux)
-  p = FT(MSLP) * exp(-gravitational_potential(orientation, aux)/(FT(R_d)*profile.T))
+  p = FT(MSLP, aux) * exp(-gravitational_potential(orientation, aux)/(FT(R_d, aux)*profile.T))
   return (profile.T, p)
 end
 
 """
-    LinearTemperatureProfile{F} <: TemperatureProfile
+    LinearTemperatureProfile{FT} <: TemperatureProfile
 
 A temperature profile which decays linearly with height `z`, until it reaches a minimum specified temperature.
 
@@ -118,13 +118,13 @@ T(z) = \\max(T_{\\text{surface}} − Γ z, T_{\\text{min}})
 
 $(DocStringExtensions.FIELDS)
 """
-@uaware struct LinearTemperatureProfile{F} <: TemperatureProfile
+@uaware struct LinearTemperatureProfile{FT} <: TemperatureProfile
   "minimum temperature (K)"
-  T_min::U(F,:temperature)
+  T_min::U(FT,:temperature)
   "surface temperature (K)"
-  T_surface::U(F,:temperature)
+  T_surface::U(FT,:temperature)
   "lapse rate (K/m)"
-  Γ::U(F,:lincond)
+  Γ::U(FT,:lincond)
 end
 
 function (profile::LinearTemperatureProfile)(orientation::Orientation, aux::Vars)

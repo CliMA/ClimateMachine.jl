@@ -40,9 +40,16 @@ const polynomialorder   = 4
 const dt                = 0.01
 const timeend           = 10dt
 
-unit_annotations(::AtmosModel) = true
-unit_annotations(::Atmos.AnisoMinDiss) = true
 unit_annotations(::MoistThermodynamics.MT) = true
+
+unit_annotations(::AtmosModel) = true
+unit_annotations(::Atmos.FlatOrientation) = true
+unit_annotations(::Atmos.NoReferenceState) = true
+unit_annotations(::Atmos.AnisoMinDiss) = true
+unit_annotations(::Atmos.EquilMoist) = true
+unit_annotations(::Atmos.NoRadiation) = true
+unit_annotations(::Atmos.NoPrecipitation) = true
+unit_annotations(::Atmos.NoSubsidence) = true
 
 # ------------- Initial condition function ----------- #
 """

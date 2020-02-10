@@ -31,9 +31,6 @@ include("mms_solution_generated.jl")
 using CLIMA.Atmos
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, total_specific_enthalpy
 
-unit_annotations(::AtmosModel) = true
-unit_annotations(::MoistThermodynamics.MT) = true
-
 """
     MMSDryModel
 
@@ -41,6 +38,18 @@ Assumes the moisture components is in the dry limit.
 """
 struct MMSDryModel <: MoistureModel
 end
+
+unit_annotations(::MoistThermodynamics.MT) = true
+
+unit_annotations(::AtmosModel) = true
+unit_annotations(::Atmos.NoOrientation) = true
+unit_annotations(::Atmos.NoReferenceState) = true
+unit_annotations(::Atmos.ConstantViscosityWithDivergence) = true
+unit_annotations(::Atmos.NoPrecipitation) = true
+unit_annotations(::Atmos.NoRadiation) = true
+unit_annotations(::Atmos.NoSubsidence) = true
+
+unit_annotations(::MMSDryModel) = true
 
 function total_specific_enthalpy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
   zero(eltype(state))

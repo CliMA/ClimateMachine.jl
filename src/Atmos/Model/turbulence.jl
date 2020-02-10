@@ -162,7 +162,7 @@ end
 
 vars_aux(m::SmagorinskyLilly,FT) = @uvars(m, Δ::U(FT,:space))
 vars_gradient(m::SmagorinskyLilly,FT) = @uvars(m, θ_v::U(FT,:temperature))
-vars_diffusive(m::SmagorinskyLilly,FT) = @uvars(m, S::SHermitianCompact{3,U(FT,:frequency),6}, N²::U(u"s^-2"))
+vars_diffusive(m::SmagorinskyLilly,FT) = @uvars(m, S::SHermitianCompact{3,U(FT,:frequency),6}, N²::U(FT, u"s^-2"))
 
 
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)

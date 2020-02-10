@@ -65,8 +65,8 @@ struct FlatOrientation <: Orientation
 end
 function atmos_init_aux!(::FlatOrientation, m::AtmosModel, aux::Vars, geom::LocalGeometry)
   FT = eltype(aux)
-  aux.orientation.Φ = grav * aux.coord[3]
+  aux.orientation.Φ = FT(grav,m) * aux.coord[3]
   u_grad_pot = get_unit(m,:accel)
-  v = (0*u_grad_pot, 0*u_grad_pot, FT(grav,m))
-  aux.orientation.∇Φ = SVector{3, U(FT, u_grad_pot)}(v)
+  v = (FT(0)*u_grad_pot, FT(0)*u_grad_pot, FT(grav,m))
+  aux.orientation.∇Φ = SVector{3, eltype(v)}(v)
 end

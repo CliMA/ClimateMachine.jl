@@ -199,7 +199,7 @@ function run_cubed_sphere_interpolation_test()
     _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id, CLIMA.Mesh.Grids.vgeoid.x2id, CLIMA.Mesh.Grids.vgeoid.x3id
     _ρ, _ρu, _ρv, _ρw = 1, 2, 3, 4
     #-------------------------
-    vert_range = grid1d(FT(planet_radius), FT(planet_radius + domain_height), nelem = numelem_vert)
+    vert_range = grid1d(FT(planet_radius, false), FT(planet_radius, false) + FT(domain_height), nelem = numelem_vert)
 
     lat_res  = FT( 1.0 * π / 180.0) # 1 degree resolution
     long_res = FT( 1.0 * π / 180.0) # 1 degree resolution

@@ -34,8 +34,16 @@ init_state!(state, aux, coords, t) = nothing
 # initial condition
 using CLIMA.Atmos: vars_aux
 
-unit_annotations(::AtmosModel) = true
 unit_annotations(::MoistThermodynamics.MT) = true
+
+unit_annotations(::AtmosModel) = true
+unit_annotations(::Atmos.FlatOrientation) = true
+unit_annotations(::Atmos.HydrostaticState) = true
+unit_annotations(::Atmos.ConstantViscosityWithDivergence) = true
+unit_annotations(::Atmos.EquilMoist) = true
+unit_annotations(::Atmos.NoPrecipitation) = true
+unit_annotations(::Atmos.NoRadiation) = true
+unit_annotations(::Atmos.NoSubsidence) = true
 
 function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 

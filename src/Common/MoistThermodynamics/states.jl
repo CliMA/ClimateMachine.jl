@@ -252,7 +252,7 @@ function fixed_lapse_rate_ref_state(z::U(FT,:space),
   H_min = FT(R_d,bl) * T_min / FT(grav,bl)
   T = max(T_surface - Γ*z, T_min)
   p = FT(MSLP,bl)*(T / T_surface)^(FT(grav,bl)/(FT(R_d,bl)*Γ))
-  T == T_min && (p = p * exp(-(z-z_tropopause)/H_min))
+  T == T_min && (p = p * exp(-(z-z_tropopause)/FT(H_min)))
   ρ = p / (FT(R_d,bl) * T)
   return T,p,ρ
 end
