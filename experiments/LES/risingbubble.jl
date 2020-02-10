@@ -13,12 +13,10 @@ using CLIMA.VariableTemplates
 
 # ------------------------ Description ------------------------- # 
 # 1) Dry Rising Bubble (Closed-box configuration)
-# 2) Boundaries - `Top`   : Prescribed temperature, no-slip
-#                 `Bottom`: Prescribed temperature, no-slip 
-# 3) Domain - 1000m[horizontal] x 1000m[horizontal] x 1000m[vertical] 
+# 2) Boundaries - `All Walls` : NoFluxBC (Impermeable Walls)
+# 3) Domain - 2500m[horizontal] x 2500m[horizontal] x 2500m[vertical] 
 # 4) Timeend - 1000s
-# 5) Mesh Aspect Ratio (Effective resolution) 5:1
-# 6) Random seed in initial condition (Requires `forcecpu=true` argument)
+# 5) Mesh Aspect Ratio (Effective resolution) 1:1
 # 7) Overrides defaults for 
 #               `forcecpu`
 #               `solver_type`
@@ -27,7 +25,7 @@ using CLIMA.VariableTemplates
 # 8) Default settings can be found in src/Driver/Configurations.jl
 # ------------------------ Description ------------------------- # 
 
-function init_surfacebubble!(state, aux, (x,y,z), t)
+function init_risingbubble!(state, aux, (x,y,z), t)
   FT            = eltype(state)
   R_gas::FT     = R_d
   c_p::FT       = cp_d
@@ -54,7 +52,8 @@ function init_surfacebubble!(state, aux, (x,y,z), t)
   P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
   T            = P / (ρ * R_gas) # temperature
   ρu           = SVector(FT(0),FT(0),FT(0))
-  # energy definitions
+
+  #State (prognostic) variable assignment
   e_kin        = FT(0)
   e_pot        = grav * z
   ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
@@ -64,17 +63,18 @@ function init_surfacebubble!(state, aux, (x,y,z), t)
   state.moisture.ρq_tot = FT(0)
 end
 
-function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
+function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     
   # Boundary conditions
   bc = NoFluxBC()
-
-  # Choose IMEX Solver as the default
+  
+  # Choose explicit solver
   ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
-
+  
+  # Problem configuration
   config = CLIMA.LES_Configuration("DryRisingBubble", 
                                    N, resolution, xmax, ymax, zmax,
-                                   init_surfacebubble!,
+                                   init_risingbubble!,
                                    solver_type=ode_solver,
                                    C_smag = FT(0.23),
                                    moisture=EquilMoist(),
@@ -85,6 +85,8 @@ end
 
 function main()
     CLIMA.init()
+
+    # Working precision
     FT = Float64
     # DG polynomial order
     N = 4
@@ -92,21 +94,26 @@ function main()
     Δh = FT(50)
     Δv = FT(50)
     resolution = (Δh, Δh, Δv)
+    # Domain extents
     xmax = 2500
     ymax = 2500
     zmax = 2500
+    # Simulation time
     t0 = FT(0)
     timeend = FT(1000)
+    # Courant number 
     CFL = FT(0.8)
     
-    driver_config = config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
+    driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=CFL)
 
+    # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
-
+    
+    # Invoke solver (calls solve! function for time-integrator)
     result = CLIMA.invoke!(solver_config;
                           user_callbacks=(cbtmarfilter,),
                           check_euclidean_distance=true)
