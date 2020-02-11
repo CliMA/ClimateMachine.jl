@@ -98,16 +98,11 @@ function run(mpicomm, ArrayType, LinearType,
                                           polynomialorder = polynomialorder
                                            )
   # -------------- Define model ---------------------------------- #
-  model = AtmosModel(FlatOrientation(),
-                     HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)),
-                     Vreman{FT}(C_smag),
-                     EquilMoist(),
-                     NoPrecipitation(),
-                     NoRadiation(),
-                     NoSubsidence{FT}(),
-                     Gravity(),
-                     NoFluxBC(),
-                     Initialise_Rising_Bubble!)
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                         ref_state=HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)),
+                        turbulence=Vreman{FT}(C_smag),
+                            source=Gravity(),
+                        init_state=Initialise_Rising_Bubble!)
   # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,

@@ -33,14 +33,14 @@ function init_heldsuarez!(state, aux, coords, t)
 end
 
 function config_heldsuarez(FT, N, resolution)
-    config = CLIMA.GCM_Configuration("HeldSuarez", N, resolution, domain_height, init_heldsuarez!,
-                                     ref_state=HydrostaticState(IsothermalProfile(T_initial),
-                                                                FT(0)),
-                                     turbulence=ConstantViscosityWithDivergence(FT(0)),
-                                     moisture=DryModel(),
-                                     sources=(Gravity(),
-                                              Coriolis(),
-                                              held_suarez_forcing!))
+    config = CLIMA.GCM_Configuration("HeldSuarez", N, resolution, domain_height, init_heldsuarez!;
+                                     model      = AtmosModel{FT}(AtmosGCMConfiguration;
+                                                                 ref_state  = HydrostaticState(IsothermalProfile(T_initial), FT(0)),
+                                                                 turbulence = ConstantViscosityWithDivergence(FT(0)),
+                                                                 moisture   = DryModel(),
+                                                                 source     = (Gravity(), Coriolis(), held_suarez_forcing!),
+                                                                 init_state = init_heldsuarez!)
+                                     )
 
     return config
 end

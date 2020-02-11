@@ -104,14 +104,13 @@ function run(mpicomm, ArrayType,
                                           polynomialorder = polynomialorder
                                            )
   # -------------- Define model ---------------------------------- #
-  model = AtmosModel(FlatOrientation(),
-                     NoReferenceState(),
-                     AnisoMinDiss{FT}(1),
-                     EquilMoist(),
-                     NoPrecipitation(),
-                     NoRadiation(),
-                     NoSubsidence{FT}(),
-                     Gravity(), NoFluxBC(), Initialise_Density_Current!)
+  source = Gravity()
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                         ref_state=NoReferenceState(),
+                        turbulence=AnisoMinDiss{FT}(1),
+                            source=source,
+                 boundarycondition=NoFluxBC(),
+                        init_state=Initialise_Density_Current!)
   # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,

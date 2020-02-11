@@ -134,19 +134,25 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     LHF    = FT(115)
     SHF    = FT(15)
     bc = DYCOMS_BC{FT}(C_drag, LHF, SHF)
+    ics = init_dycoms!
+    source = (Gravity(),
+              rayleigh_sponge,
+              geostrophic_forcing)
+
+    model = AtmosModel{FT}(AtmosLESConfiguration;
+                           ref_state=ref_state,
+                          turbulence=SmagorinskyLilly{FT}(C_smag),
+                            moisture=EquilMoist(5),
+                           radiation=radiation,
+                          subsidence=ConstantSubsidence{FT}(D_subsidence),
+                              source=source,
+                   boundarycondition=bc,
+                          init_state=ics)
 
     config = CLIMA.LES_Configuration("DYCOMS", N, resolution, xmax, ymax, zmax,
                                      init_dycoms!,
                                      solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
-                                     ref_state=ref_state,
-                                     C_smag=C_smag,
-                                     moisture=EquilMoist(5),
-                                     radiation=radiation,
-                                     subsidence=ConstantSubsidence{FT}(D_subsidence),
-                                     sources=(Gravity(),
-                                              rayleigh_sponge,
-                                              geostrophic_forcing),
-                                     bc=bc)
+                                     model=model)
 
     return config
 end

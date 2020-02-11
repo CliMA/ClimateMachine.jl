@@ -70,17 +70,12 @@ function run_brick_interpolation_test()
                                             FloatType = FT,
                                             DeviceArray = ArrayType,
                                             polynomialorder = polynomialorder)
-
-    model = AtmosModel(FlatOrientation(),
-                     NoReferenceState(),
-					 ConstantViscosityWithDivergence(FT(0)),
-                     EquilMoist(),
-                     NoPrecipitation(),
-                     NoRadiation(),
-                     NoSubsidence{FT}(),
-                     (Gravity()),
-					 NoFluxBC(),
-                     Initialize_Brick_Interpolation_Test!)
+    source = (Gravity(),)
+    model = AtmosModel{FT}(AtmosLESConfiguration;
+                           ref_state=NoReferenceState(),
+                          turbulence=ConstantViscosityWithDivergence(FT(0)),
+                              source=source,
+                          init_state=Initialize_Brick_Interpolation_Test!)
 
     dg = DGModel(model,
                grid,
@@ -192,16 +187,13 @@ function run_cubed_sphere_interpolation_test()
                                             polynomialorder = polynomialorder,
                                             meshwarp = CLIMA.Mesh.Topologies.cubedshellwarp)
 
-    model = AtmosModel(SphericalOrientation(),
-                       NoReferenceState(),
-                       ConstantViscosityWithDivergence(FT(0)),
-                       DryModel(),
-                       NoPrecipitation(),
-                       NoRadiation(),
-                       NoSubsidence{FT}(),
-                       nothing,
-                       NoFluxBC(),
-                       setup)
+    model = AtmosModel{FT}(AtmosLESConfiguration;
+                           orientation=SphericalOrientation(),
+                             ref_state=NoReferenceState(),
+                            turbulence=ConstantViscosityWithDivergence(FT(0)),
+                              moisture=DryModel(),
+                                source=nothing,
+                            init_state=setup)
 
     dg = DGModel(model, grid, Rusanov(),
                  CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
