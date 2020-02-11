@@ -1,12 +1,15 @@
 using Test
 using CLIMA.MoistThermodynamics
+using NCDatasets
 using Random
 MT = MoistThermodynamics
-
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
 float_types = [Float32, Float64]
+
+
+include("testdata.jl")
 
 @testset "moist thermodynamics - isentropic processes" begin
   for FT in [Float64]
@@ -23,6 +26,7 @@ float_types = [Float32, Float64]
     @test air_pressure.(T, T∞, p∞, Ref(DryAdiabaticProcess())) ≈ p∞ .* (T ./ T∞) .^ (FT(1) / FT(kappa_d))
   end
 end
+
 
 @testset "moist thermodynamics - correctness" begin
   FT = Float64
@@ -140,6 +144,17 @@ end
   # Exner function. FIXME: add correctness tests
   p=FT(1.e5); q_tot=FT(0.23)
   @test exner_given_pressure(p, PhasePartition(q_tot)) isa typeof(p)
+
+  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+  ts = PhaseEquil.(e_int, ρ, q_tot)
+
+  data_folder = data_folder_moist_thermo()
+  ds_PhaseEquil = Dataset(joinpath(data_folder, "test_data_PhaseEquil.nc"), "r")
+  e_int = Array{FT}(ds_PhaseEquil["e_int"][:])
+  ρ     = Array{FT}(ds_PhaseEquil["ρ"][:])
+  q_tot = Array{FT}(ds_PhaseEquil["q_tot"][:])
+
+  # ts = PhaseEquil.(e_int, ρ, q_tot) # Fails
 end
 
 
