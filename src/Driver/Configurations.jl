@@ -27,7 +27,7 @@ struct IMEXSolverType <: AbstractSolverType
     linear_solver::Type
     solver_method::Function
     function IMEXSolverType(;linear_model=AtmosAcousticGravityLinearModel,
-                            linear_solver=SingleColumnLU,
+                            linear_solver=ManyColumnLU,
                             solver_method=ARK2GiraldoKellyConstantinescu)
         new(linear_model, linear_solver, solver_method)
     end
@@ -75,7 +75,7 @@ function LES_Configuration(name::String,
                            ymin           = 0,
                            zmin           = 0,
                            array_type     = CLIMA.array_type(),
-                           solver_type    = DefaultSolverType(),
+                           solver_type    = IMEXSolverType(linear_solver=SingleColumnLU),
                            orientation    = FlatOrientation(),
                            T_min          = FT(200),
                            T_surface      = FT(280),
