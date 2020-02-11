@@ -160,7 +160,7 @@ function numerical_flux_nondiffusive!(::CentralNumericalFluxNonDiffusive,
   fill!(F⁺, -zero(FT))
   flux_nondiffusive!(bl, Grad{S}(F⁺), state⁺, aux⁺, t)
 
-  Fᵀn .+= (F⁻ + F⁺)' * (n/2)
+  Fᵀn .-= (F⁻ - F⁺)' * (n/2)
 end
 
 """
@@ -233,7 +233,7 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   fill!(F⁺, -zero(FT))
   flux_diffusive!(bl, Grad{S}(F⁺), state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
 
-  Fᵀn .+= (F⁻ + F⁺)' * (n⁻/2)
+  Fᵀn .-= (F⁻ - F⁺)' * (n⁻/2)
 end
 
 abstract type DivNumericalPenalty end
@@ -260,7 +260,8 @@ function numerical_flux_hyperdiffusive!(::CentralHyperDiffusiveFlux, bl::Balance
                                         lap⁻::Vars{GL}, state⁻::Vars{S}, aux⁻::Vars{A},
                                         lap⁺::Vars{GL}, state⁺::Vars{S}, aux⁺::Vars{A},
                                         t) where {HD, GL, S, A}
-  G = n .* (parent(lap⁻) .+ parent(lap⁺))' ./ 2
+  #G = n .* (parent(lap⁻) .+ parent(lap⁺))' ./ 2
+  G = -n .* (parent(lap⁻) .- parent(lap⁺))' ./ 2
   hyperdiffusive!(bl, hyperdiff, Grad{GL}(G), state⁻, aux⁻, t)
 end
 
@@ -297,7 +298,7 @@ function numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                            bctype, t,
                            state1⁻, diff1⁻, aux1⁻)
 
-  Fᵀn .+= (F⁻ + F⁺)' * (n⁻/2)
+  Fᵀn .-= (F⁻ - F⁺)' * (n⁻/2)
 end
 
 end

@@ -23,8 +23,8 @@ end
 const _ξ1x1, _ξ2x1, _ξ3x1 = Grids._ξ1x1, Grids._ξ2x1, Grids._ξ3x1
 const _ξ1x2, _ξ2x2, _ξ3x2 = Grids._ξ1x2, Grids._ξ2x2, Grids._ξ3x2
 const _ξ1x3, _ξ2x3, _ξ3x3 = Grids._ξ1x3, Grids._ξ2x3, Grids._ξ3x3
-const _M, _MI = Grids._M, Grids._MI
 const _x1, _x2, _x3 = Grids._x1, Grids._x2, Grids._x3
+const _M, _MI = Grids._M, Grids._MI
 const _JcV = Grids._JcV
 
 const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
@@ -154,31 +154,34 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
         @loop for i in (1:Nq; threadIdx().x)
           @unroll for n = 1:Nq
             @unroll for s = 1:nstate
-              Dni = s_half_D[n, i] * s_ω[n] / s_ω[i]
+              #Dni = s_half_D[n, i] * s_ω[n] / s_ω[i]
+              Din = s_half_D[i, n]
               if dim == 3 || (dim == 2 && direction == EveryDirection)
-                Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
+                #Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
+                Djn = s_half_D[j, n]
               end
               if dim == 3 && direction == EveryDirection
-                Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k]
+                #Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k]
+                Dkn = s_half_D[k, n]
               end
 
               # ξ1-grid lines
-              l_rhs[s, i, j, k] += l_ξ1x1[i, j, k] * Dni * s_F[1, n, j, k, s]
-              l_rhs[s, i, j, k] += l_ξ1x2[i, j, k] * Dni * s_F[2, n, j, k, s]
-              l_rhs[s, i, j, k] += l_ξ1x3[i, j, k] * Dni * s_F[3, n, j, k, s]
+              l_rhs[s, i, j, k] -= l_ξ1x1[i, j, k] * Din * s_F[1, n, j, k, s]
+              l_rhs[s, i, j, k] -= l_ξ1x2[i, j, k] * Din * s_F[2, n, j, k, s]
+              l_rhs[s, i, j, k] -= l_ξ1x3[i, j, k] * Din * s_F[3, n, j, k, s]
 
               # ξ2-grid lines
               if dim == 3 || (dim == 2 && direction == EveryDirection)
-                l_rhs[s, i, j, k] += l_ξ2x1[i, j, k] * Dnj * s_F[1, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ξ2x2[i, j, k] * Dnj * s_F[2, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ξ2x3[i, j, k] * Dnj * s_F[3, i, n, k, s]
+                l_rhs[s, i, j, k] -= l_ξ2x1[i, j, k] * Djn * s_F[1, i, n, k, s]
+                l_rhs[s, i, j, k] -= l_ξ2x2[i, j, k] * Djn * s_F[2, i, n, k, s]
+                l_rhs[s, i, j, k] -= l_ξ2x3[i, j, k] * Djn * s_F[3, i, n, k, s]
               end
 
               # ξ3-grid lines
               if dim == 3 && direction == EveryDirection
-                l_rhs[s, i, j, k] += l_ξ3x1[i, j, k] * Dnk * s_F[1, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ξ3x2[i, j, k] * Dnk * s_F[2, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ξ3x3[i, j, k] * Dnk * s_F[3, i, j, n, s]
+                l_rhs[s, i, j, k] -= l_ξ3x1[i, j, k] * Dkn * s_F[1, i, j, n, s]
+                l_rhs[s, i, j, k] -= l_ξ3x2[i, j, k] * Dkn * s_F[2, i, j, n, s]
+                l_rhs[s, i, j, k] -= l_ξ3x3[i, j, k] * Dkn * s_F[3, i, j, n, s]
               end
             end
           end
@@ -190,6 +193,10 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
     # Add in the diffusive flux (multiply by 2 since derivative is halfed)
     # This allows symmetric treament of the 2nd order derivative terms
     # as well as build "inside metrics" flux
+   
+    max1 = FT(0)
+    max2 = FT(0)
+    max3 = FT(0)
     @loop for k in (1:Nqk; threadIdx().z)
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
@@ -225,16 +232,32 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                                                l_ξ2x2[i, j, k] * F2 +
                                                l_ξ2x3[i, j, k] * F3)
             end
+            
+            #x1 = vgeo[ijk, _x1, e]
+            #x2 = vgeo[ijk, _x2, e]
+            #x3 = vgeo[ijk, _x3, e]
+            #F1 = x3 - x2
+            #F2 = x1 - x3
+            #F3 = x2 - x1
+
             if dim == 3 && direction == EveryDirection
               s_F[3,i,j,k,s] = l_M[i, j, k] * (l_ξ3x1[i, j, k] * F1 +
                                                l_ξ3x2[i, j, k] * F2 +
                                                l_ξ3x3[i, j, k] * F3)
             end
+            #max1 = max(abs(s_F[1,i,j,k,s]), max1)
+            #max2 = max(abs(s_F[2,i,j,k,s]), max2)
+            #max3 = max(abs(s_F[3,i,j,k,s]), max3)
           end
         end
       end
     end
     @synchronize
+
+    #if (max3 > 1e-6)
+    #	@show max1, max2, max3
+    #	error("hi")
+    #end
 
     # Weak "inside metrics" derivative
     @loop for k in (1:Nqk; threadIdx().z)
@@ -244,17 +267,24 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           MI = vgeo[ijk, _MI, e]
           @unroll for s = 1:nstate
             @unroll for n = 1:Nq
+              Din = s_half_D[i, n] * s_ω[i] / s_ω[n]
+              if dim == 3 || (dim == 2 && direction == EveryDirection)
+                Djn = s_half_D[j, n] * s_ω[j] / s_ω[n]
+              end
+              if dim == 3 && direction == EveryDirection
+                Dkn = s_half_D[k, n] * s_ω[k] / s_ω[n]
+              end
               # ξ1-grid lines
-              l_rhs[s, i, j, k] += MI * s_half_D[n, i] * s_F[1, n, j, k, s]
+              l_rhs[s, i, j, k] -= MI * Din * s_F[1, n, j, k, s]
 
               # ξ2-grid lines
               if dim == 3 || (dim == 2 && direction == EveryDirection)
-                l_rhs[s, i, j, k] += MI * s_half_D[n, j] * s_F[2, i, n, k, s]
+                l_rhs[s, i, j, k] -= MI * Djn * s_F[2, i, n, k, s]
               end
 
               # ξ3-grid lines
               if dim == 3 && direction == EveryDirection
-                l_rhs[s, i, j, k] += MI * s_half_D[n, k] * s_F[3, i, j, n, s]
+                l_rhs[s, i, j, k] -= MI * Dkn * s_F[3, i, j, n, s]
               end
             end
           end
@@ -1713,62 +1743,95 @@ function volumehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
 
+          ξ1x1, ξ1x2, ξ1x3 = vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
+          if dim == 3 || (dim == 2 && direction == EveryDirection)
+            ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
+          end
+          if dim == 3 && direction == EveryDirection
+            ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
+          end
+
           @unroll for s = 1:ngradlapstate
-            lap_ξ1x1 = lap_ξ2x1 = lap_ξ3x1 = zero(FT)
-            lap_ξ1x2 = lap_ξ2x2 = lap_ξ3x2 = zero(FT)
-            lap_ξ1x3 = lap_ξ2x3 = lap_ξ3x3 = zero(FT)
+            #lap_ξ1x1 = lap_ξ2x1 = lap_ξ3x1 = zero(FT)
+            #lap_ξ1x2 = lap_ξ2x2 = lap_ξ3x2 = zero(FT)
+            #lap_ξ1x3 = lap_ξ2x3 = lap_ξ3x3 = zero(FT)
+            lap_ξ1 = lap_ξ2 = lap_ξ3 = zero(FT)
             @unroll for n = 1:Nq
               njk = n + Nq * ((j-1) + Nq * (k-1))
-              M = vgeo[njk, _M, e]
-              ξ1x1 = vgeo[njk, _ξ1x1, e]
-              ξ1x2 = vgeo[njk, _ξ1x2, e]
-              ξ1x3 = vgeo[njk, _ξ1x3, e]
-              Dni = s_D[n, i]
               lap_njk = s_lap[n, j, k, s] 
-              lap_ξ1x1 += ξ1x1 * M * Dni * lap_njk
-              lap_ξ1x2 += ξ1x2 * M * Dni * lap_njk
-              lap_ξ1x3 += ξ1x3 * M * Dni * lap_njk
+              #M = vgeo[njk, _M, e]
+              #ξ1x1 = vgeo[njk, _ξ1x1, e]
+              #ξ1x2 = vgeo[njk, _ξ1x2, e]
+              #ξ1x3 = vgeo[njk, _ξ1x3, e]
+              #Dni = s_D[n, i]
+              #lap_ξ1x1 += ξ1x1 * M * Dni * lap_njk
+              #lap_ξ1x2 += ξ1x2 * M * Dni * lap_njk
+              #lap_ξ1x3 += ξ1x3 * M * Dni * lap_njk
+              
+              Din = s_D[i, n]
+              lap_ξ1 += Din * lap_njk
               if dim == 3 || (dim == 2 && direction == EveryDirection)
                 ink = i + Nq * ((n-1) + Nq * (k-1))
-                M = vgeo[ink, _M, e]
-                ξ2x1 = vgeo[ink, _ξ2x1, e]
-                ξ2x2 = vgeo[ink, _ξ2x2, e]
-                ξ2x3 = vgeo[ink, _ξ2x3, e]
-                Dnj = s_D[n, j]
                 lap_ink = s_lap[i, n, k, s] 
-                lap_ξ2x1 += ξ2x1 * M * Dnj * lap_ink
-                lap_ξ2x2 += ξ2x2 * M * Dnj * lap_ink
-                lap_ξ2x3 += ξ2x3 * M * Dnj * lap_ink
+                #M = vgeo[ink, _M, e]
+                #ξ2x1 = vgeo[ink, _ξ2x1, e]
+                #ξ2x2 = vgeo[ink, _ξ2x2, e]
+                #ξ2x3 = vgeo[ink, _ξ2x3, e]
+                #Dnj = s_D[n, j]
+                #lap_ξ2x1 += ξ2x1 * M * Dnj * lap_ink
+                #lap_ξ2x2 += ξ2x2 * M * Dnj * lap_ink
+                #lap_ξ2x3 += ξ2x3 * M * Dnj * lap_ink
+                Djn = s_D[j, n]
+                lap_ξ2 += Djn * lap_ink
               end
               if dim == 3 && direction == EveryDirection
                 ijn = i + Nq * ((j-1) + Nq * (n-1))
-                M = vgeo[ijn, _M, e]
-                ξ3x1 = vgeo[ijn, _ξ3x1, e]
-                ξ3x2 = vgeo[ijn, _ξ3x2, e]
-                ξ3x3 = vgeo[ijn, _ξ3x3, e]
-                Dnk = s_D[n, k]
                 lap_ijn = s_lap[i, j, n, s] 
-                lap_ξ3x1 += ξ3x1 * M * Dnk * lap_ijn
-                lap_ξ3x2 += ξ3x2 * M * Dnk * lap_ijn
-                lap_ξ3x3 += ξ3x3 * M * Dnk * lap_ijn
+                #M = vgeo[ijn, _M, e]
+                #ξ3x1 = vgeo[ijn, _ξ3x1, e]
+                #ξ3x2 = vgeo[ijn, _ξ3x2, e]
+                #ξ3x3 = vgeo[ijn, _ξ3x3, e]
+                #Dnk = s_D[n, k]
+                #lap_ξ3x1 += ξ3x1 * M * Dnk * lap_ijn
+                #lap_ξ3x2 += ξ3x2 * M * Dnk * lap_ijn
+                #lap_ξ3x3 += ξ3x3 * M * Dnk * lap_ijn
+                Dkn = s_D[k, n]
+                lap_ξ3 += Dnk * lap_ijn
               end
             end
             
-            MI = vgeo[ijk, _MI, e]
-            l_grad_lap[1, s] = -MI * lap_ξ1x1
-            l_grad_lap[2, s] = -MI * lap_ξ1x2
-            l_grad_lap[3, s] = -MI * lap_ξ1x3
+            #MI = vgeo[ijk, _MI, e]
+            #l_grad_lap[1, s] = 0
+            #l_grad_lap[2, s] = 0
+            #l_grad_lap[3, s] = 0
+
+            
+            #l_grad_lap[1, s] = -MI * lap_ξ1x1
+            #l_grad_lap[2, s] = -MI * lap_ξ1x2
+            #l_grad_lap[3, s] = -MI * lap_ξ1x3
+            
+            l_grad_lap[1, s] = ξ1x1 * lap_ξ1
+            l_grad_lap[2, s] = ξ1x2 * lap_ξ1
+            l_grad_lap[3, s] = ξ1x3 * lap_ξ1
 
             if dim == 3 || (dim == 2 && direction == EveryDirection)
-              l_grad_lap[1, s] -= MI * lap_ξ2x1
-              l_grad_lap[2, s] -= MI * lap_ξ2x2
-              l_grad_lap[3, s] -= MI * lap_ξ2x3
+              #l_grad_lap[1, s] -= MI * lap_ξ2x1
+              #l_grad_lap[2, s] -= MI * lap_ξ2x2
+              #l_grad_lap[3, s] -= MI * lap_ξ2x3
+
+              l_grad_lap[1, s] += ξ2x1 * lap_ξ2
+              l_grad_lap[2, s] += ξ2x2 * lap_ξ2
+              l_grad_lap[3, s] += ξ2x3 * lap_ξ2
             end
 
             if dim == 3 && direction == EveryDirection
-              l_grad_lap[1, s] -= MI * lap_ξ3x1
-              l_grad_lap[2, s] -= MI * lap_ξ3x2
-              l_grad_lap[3, s] -= MI * lap_ξ3x3
+              #l_grad_lap[1, s] -= MI * lap_ξ3x1
+              #l_grad_lap[2, s] -= MI * lap_ξ3x2
+              #l_grad_lap[3, s] -= MI * lap_ξ3x3
+              
+              l_grad_lap[1, s] += ξ3x1 * lap_ξ3
+              l_grad_lap[2, s] += ξ3x2 * lap_ξ3
+              l_grad_lap[3, s] += ξ3x3 * lap_ξ3
             end
           end
 
@@ -1984,6 +2047,7 @@ function facehyperviscterms!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
         end
 
         bctype = elemtobndy[f, e]
+        fill!(l_Qhypervisc, -zero(eltype(l_Qhypervisc)))
         if bctype == 0
           numerical_flux_hyperdiffusive!(hyperviscnumflux, bl,
                                          Vars{vars_hyperdiffusive(bl, FT)}(l_Qhypervisc),

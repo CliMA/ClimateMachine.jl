@@ -56,10 +56,11 @@ Where
 function flux_diffusive!(m::HyperDiffusion, flux::Grad, state::Vars,
                          auxDG::Vars, auxHDG::Vars, aux::Vars, t::Real)
   σ = auxHDG.σ
-  #ω = auxDG.ω
+  ω = auxDG.ω
  
   #k = aux.k
   #Pk = I - k * k'
+  #flux.ρ -= Pk * ω 
   flux.ρ += σ
 end
 
@@ -76,8 +77,8 @@ end
 
 function diffusive!(m::HyperDiffusion, auxDG::Vars, gradvars::Grad,
                     state::Vars, aux::Vars, t::Real)
-  #∇ρ = gradvars.ρ
-  #auxDG.ω = ∇ρ / 10
+  ∇ρ = gradvars.ρ
+  auxDG.ω = ν_exact * ∇ρ
 end
 function hyperdiffusive!(m::HyperDiffusion, auxHDG::Vars, gradvars::Grad,
                          state::Vars, aux::Vars, t::Real)

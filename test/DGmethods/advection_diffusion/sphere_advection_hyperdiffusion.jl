@@ -15,7 +15,6 @@ using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection, min_node_distance
 
-const ArrayType = CLIMA.array_type()
 
 if !@isdefined integration_testing
   if length(ARGS) > 0
@@ -65,7 +64,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime)
+function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime, ArrayType)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -75,10 +74,10 @@ function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime)
                                          )
 
   dx = min_node_distance(grid)
-  #dt = dx ^ 4 / 25
-  dt = dx
+  dt = dx ^ 2 / 10
   @info "time step" dt
-  dt = outputtime / ceil(Int64, outputtime / dt)
+  timeend = 1
+  @info "nsteps" ceil(Int, timeend / dt)
 
   model = HyperDiffusion{dim}(ConstantHyperDiffusion())
   dg = DGModel(model,
@@ -86,7 +85,7 @@ function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime)
                CentralNumericalFluxNonDiffusive(),
                CentralNumericalFluxDiffusive(),
                CentralNumericalFluxGradient();
-               direction = HorizontalDirection())
+               direction = EveryDirection())
 
   Q = init_ode_state(dg, FT(0))
 
@@ -112,6 +111,8 @@ function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime)
                                   Dates.dateformat"HH:MM:SS"),
                      energy)
     end
+    flush(stdin)
+    flush(stderr)
   end
   callbacks = (cbinfo,)
   if ~isnothing(vtkdir)
@@ -153,6 +154,7 @@ end
 using Test
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -169,12 +171,12 @@ let
     result = zeros(FT, numlevels)
     for dim in (3)
       for l = 1:numlevels
-        Ne = 2^(l-1) * base_num_elem
+        Ne = 2^(l-1)
 
-        vert_range = grid1d(10, 30, nelem = Ne)
+        vert_range = grid1d(a_exact, a_exact + b_exact, nelem = Ne)
         topl = StackedCubedSphereTopology(mpicomm, Ne, vert_range)
 
-        timeend = 1
+        timeend = 100
         outputtime = 100
 
         @info (ArrayType, FT, dim)
@@ -184,7 +186,7 @@ let
                           "_level$(l)" : nothing
         result[l] = run(mpicomm, dim, topl, polynomialorder,
                         timeend, FT, vtkdir,
-                        outputtime)
+                        outputtime, ArrayType)
       end
       @info begin
         msg = ""
