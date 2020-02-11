@@ -100,27 +100,23 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel(NoOrientation(),
-                       NoReferenceState(),
-                       ConstantViscosityWithDivergence(FT(μ_exact)),
-                       MMSDryModel(),
-                       NoPrecipitation(),
-                       NoRadiation(),
-                       NoSubsidence{FT}(),
-                       mms2_source!,
-                       InitStateBC(),
-                       mms2_init_state!)
+    model = AtmosModel{FT}(AtmosLESConfiguration;
+                           orientation=NoOrientation(),
+                              ref_state=NoReferenceState(),
+                             turbulence=ConstantViscosityWithDivergence(FT(μ_exact)),
+                               moisture=MMSDryModel(),
+                                 source=mms2_source!,
+                      boundarycondition=InitStateBC(),
+                             init_state=mms2_init_state!)
   else
-    model = AtmosModel(NoOrientation(),
-                       NoReferenceState(),
-                       ConstantViscosityWithDivergence(FT(μ_exact)),
-                       MMSDryModel(),
-                       NoPrecipitation(),
-                       NoRadiation(),
-                       NoSubsidence{FT}(),
-                       mms3_source!,
-                       InitStateBC(),
-                       mms3_init_state!)
+    model = AtmosModel{FT}(AtmosLESConfiguration;
+                            orientation=NoOrientation(),
+                              ref_state=NoReferenceState(),
+                             turbulence=ConstantViscosityWithDivergence(FT(μ_exact)),
+                               moisture=MMSDryModel(),
+                                 source=mms3_source!,
+                      boundarycondition=InitStateBC(),
+                             init_state=mms3_init_state!)
   end
 
   dg = DGModel(model,

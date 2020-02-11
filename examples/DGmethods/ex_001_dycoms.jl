@@ -132,20 +132,19 @@ function run(mpicomm, ArrayType, dim, topl,
   v_geostrophic = FT(-5.5)
   w_ref         = FT(0)
   u_relaxation  = SVector(u_geostrophic, v_geostrophic, w_ref)
+  source = (Gravity(),
+            RayleighSponge{FT}(zmax, zsponge, 1, u_relaxation, 2),
+            GeostrophicForcing{FT}(7.62e-5, 7, -5.5))
 
   # Model definition
-  model = AtmosModel(FlatOrientation(),
-                     NoReferenceState(),
-                     SmagorinskyLilly{FT}(C_smag),
-                     EquilMoist(),
-                     NoPrecipitation(),
-                     DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
-                     NoSubsidence{FT}(),
-                     (Gravity(),
-                      RayleighSponge{FT}(zmax, zsponge, 1, u_relaxation, 2),
-                      GeostrophicForcing{FT}(7.62e-5, 7, -5.5)),
-                     DYCOMS_BC{FT}(C_drag, LHF, SHF),
-                     Initialise_DYCOMS!)
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                           ref_state=NoReferenceState(),
+                          turbulence=SmagorinskyLilly{FT}(C_smag),
+                            moisture=EquilMoist(5),
+                           radiation=DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                              source=source,
+                   boundarycondition=DYCOMS_BC{FT}(C_drag, LHF, SHF),
+                          init_state=Initialise_DYCOMS!)
   # Balancelaw description
   dg = DGModel(model,
                grid,

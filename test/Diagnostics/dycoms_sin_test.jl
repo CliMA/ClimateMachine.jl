@@ -152,20 +152,18 @@ let
   v_geostrophic = FT(-5.5)
   w_ref         = FT(0)
   u_relaxation  = SVector(u_geostrophic, v_geostrophic, w_ref)
+  source = (Gravity(),
+            RayleighSponge{FT}(zmax, zsponge, 1, u_relaxation, 2),
+            GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic))
 
   # Model definition
-  model = AtmosModel(FlatOrientation(),
-                     NoReferenceState(),
-                     SmagorinskyLilly{FT}(C_smag),
-                     EquilMoist(),
-                     NoPrecipitation(),
-                     DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
-                     NoSubsidence{FT}(),
-                     (Gravity(),
-                      RayleighSponge{FT}(zmax, zsponge, 1, u_relaxation, 2),
-                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
-                     DYCOMS_BC{FT}(C_drag, LHF, SHF),
-                     Initialise_DYCOMS!)
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                         ref_state=NoReferenceState(),
+                        turbulence=SmagorinskyLilly{FT}(C_smag),
+                         radiation=DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                            source=source,
+                 boundarycondition=DYCOMS_BC{FT}(C_drag, LHF, SHF),
+                        init_state=Initialise_DYCOMS!)
   # Balancelaw description
   dg = DGModel(model,
                grid,

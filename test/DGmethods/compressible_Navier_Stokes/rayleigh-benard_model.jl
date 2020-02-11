@@ -160,16 +160,12 @@ let
     SGSmodels = (AnisoMinDiss{FT}(1), Vreman{FT}(C_smag), SmagorinskyLilly{FT}(C_smag))
     Expected = (FT(9.9859344959259033e-01),FT(1.0038942098617554e+00),FT(1.0027571916580200e+00))
     for ii=1:length(SGSmodels)
-      model = AtmosModel(FlatOrientation(),
-                         NoReferenceState(),
-                         SGSmodels[ii],
-                         EquilMoist(),
-                         NoPrecipitation(),
-                         NoRadiation(),
-                         NoSubsidence{FT}(),
-                         Gravity(),
-                         RayleighBenardBC{FT}(T_bot,T_top),
-                         initialise_rayleigh_benard!)
+      model = AtmosModel{FT}(AtmosLESConfiguration;
+                             ref_state=NoReferenceState(),
+                            turbulence=SGSmodels[ii],
+                                source=Gravity(),
+                     boundarycondition=RayleighBenardBC{FT}(T_bot,T_top),
+                            init_state=initialise_rayleigh_benard!)
       brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
                     range(FT(ymin); length=Ne[2]+1, stop=ymax),
                     range(FT(zmin); length=Ne[3]+1, stop=zmax))

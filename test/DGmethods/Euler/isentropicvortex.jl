@@ -14,7 +14,8 @@ using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
                    DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
-                   ConstantViscosityWithDivergence, vars_state
+                   ConstantViscosityWithDivergence, vars_state,
+                   AtmosLESConfiguration
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -141,16 +142,14 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
   initialcondition! = function(args...)
     isentropicvortex_initialcondition!(setup, args...)
   end
-  model = AtmosModel(NoOrientation(),
-                     NoReferenceState(),
-                     ConstantViscosityWithDivergence(0.0),
-                     DryModel(),
-                     NoPrecipitation(),
-                     NoRadiation(),
-                     NoSubsidence{FT}(),
-                     nothing,
-                     PeriodicBC(),
-                     initialcondition!)
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                         orientation=NoOrientation(),
+                           ref_state=NoReferenceState(),
+                          turbulence=ConstantViscosityWithDivergence(0.0),
+                            moisture=DryModel(),
+                              source=nothing,
+                   boundarycondition=PeriodicBC(),
+                          init_state=initialcondition!)
 
   dg = DGModel(model, grid, NumericalFlux(),
                CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())

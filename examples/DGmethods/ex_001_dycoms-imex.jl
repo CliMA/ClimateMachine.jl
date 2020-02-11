@@ -208,20 +208,20 @@ function run(mpicomm,
   Γ_lapse = FT(grav/cp_d)
   Temp = LinearTemperatureProfile(T_min,T_s,Γ_lapse)
   RelHum = FT(0)
+  source = (Gravity(),
+            RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2),
+            GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic))
 
   # Model definition
-  model = AtmosModel(FlatOrientation(),
-                     HydrostaticState(Temp,RelHum),
-                     SmagorinskyLilly{}(C_smag),
-                     EquilMoist(5),
-                     NoPrecipitation(),
-                     DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
-                     ConstantSubsidence{FT}(D_subsidence),
-                     (Gravity(),
-                      RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2),
-                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
-                     DYCOMS_BC{FT}(C_drag, LHF, SHF),
-                     Initialise_DYCOMS!)
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                            ref_state=HydrostaticState(Temp,RelHum),
+                           turbulence=SmagorinskyLilly{}(C_smag),
+                             moisture=EquilMoist(5),
+                            radiation=DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
+                           subsidence=ConstantSubsidence{FT}(D_subsidence),
+                               source=source,
+                    boundarycondition=DYCOMS_BC{FT}(C_drag, LHF, SHF),
+                           init_state=Initialise_DYCOMS!)
 
   # Balancelaw description
   dg = DGModel(model,
