@@ -248,7 +248,7 @@ function setup_solver(t0::FT, timeend::FT,
                       driver_config.numfluxdiff, driver_config.gradnumflux,
                       auxstate=dg.auxstate, direction=VerticalDirection())
 
-        solver = solver_type.solver_method(dg, vdg, SingleColumnLU(), Q; dt=dt, t0=t0)
+        solver = solver_type.solver_method(dg, vdg, solver_type.linear_solver(), Q; dt=dt, t0=t0)
     end
 
     @toc setup_solver
