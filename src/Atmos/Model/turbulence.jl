@@ -74,7 +74,7 @@ Compute
 |S| = \\sqrt{2\\sum_{i,j} S_{ij}^2}
 ```
 """
-function strain_rate_magnitude(S::SHermitianCompact{3,U(FT,:frequency),6}) where {FT}
+function strain_rate_magnitude(S::SHermitianCompact{3,T,6} where T<:U(FT,:frequency)) where {FT}
   return sqrt(2*norm2(S))
 end
 

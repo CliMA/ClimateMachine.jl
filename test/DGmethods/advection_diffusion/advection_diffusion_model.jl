@@ -1,6 +1,7 @@
 using StaticArrays
 using Unitful
 using CLIMA.VariableTemplates
+using CLIMA.UnitAnnotations
 import CLIMA.DGmethods: BalanceLaw,
                         vars_aux, vars_state, vars_gradient, vars_diffusive,
                         flux_nondiffusive!, flux_diffusive!, source!,
@@ -12,7 +13,6 @@ using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
                                        NumericalFluxDiffusive,
                                        NumericalFluxGradient
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
-import CLIMA.UnitAnnotations: unit_annotations
 
 abstract type AdvectionDiffusionProblem end
 struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
@@ -27,8 +27,6 @@ struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
     new{dim, P, fluxBC}(problem)
   end
 end
-
-unit_annotations(m::AdvectionDiffusion) = true
 
 """
     flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
