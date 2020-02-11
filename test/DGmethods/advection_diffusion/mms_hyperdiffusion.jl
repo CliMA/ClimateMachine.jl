@@ -14,11 +14,12 @@ b = 1
 @printf output "const b_exact = %s\n" b
 
 ρ = cos(t) * sin(φ) ^ 2 * sin(θ) ^ 4 * sin(pi * (r - a) / b) + 3
+u = sin(t) * cos(φ) ^ 2 * sin(θ) ^ 3 * sin(pi * (r - a) / b) ^ 3
+v = sin(t) * sin(φ) ^ 2 * sin(θ) ^ 2 * sin(pi * (r - a) / b) ^ 2
 
-Δρ = (diff(sin(θ) * diff(ρ, θ), θ) + diff(ρ, φ, φ) / sin(θ)) / (r ^ 2 * sin(θ))
-Δ²ρ = (diff(sin(θ) * diff(Δρ, θ), θ) + diff(Δρ, φ, φ) / sin(θ)) / (r ^ 2 * sin(θ))
+∇ρ = (diff(sin(θ) * v * ρ, θ) + diff(u * ρ, φ)) / (r * sin(θ))
 
-dρdt = simplify(diff(ρ, t) + ν * Δ²ρ)
+dρdt = simplify(diff(ρ, t) + ∇ρ)
 
 @printf output "ρ_g(t, φ, θ, r) = %s\n" ρ
 @printf output "Sρ_g(t, φ, θ, r) = %s\n" dρdt
