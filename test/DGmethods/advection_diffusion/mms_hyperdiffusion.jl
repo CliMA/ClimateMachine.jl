@@ -22,6 +22,8 @@ v = sin(t) * sin(φ) ^ 2 * sin(θ) ^ 2 * sin(pi * (r - a) / b) ^ 2
 dρdt = simplify(diff(ρ, t) + ∇ρ)
 
 @printf output "ρ_g(t, φ, θ, r) = %s\n" ρ
+@printf output "Sρ_u(t, φ, θ, r) = %s\n" u
+@printf output "Sρ_v(t, φ, θ, r) = %s\n" v
 @printf output "Sρ_g(t, φ, θ, r) = %s\n" dρdt
 
 close(output)
