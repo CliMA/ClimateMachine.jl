@@ -128,13 +128,14 @@ $(DocStringExtensions.FIELDS)
 end
 
 function (profile::LinearTemperatureProfile)(orientation::Orientation, aux::Vars)
+  FT = eltype(aux)
   z = altitude(orientation, aux)
   T = max(profile.T_surface - profile.Γ*z, profile.T_min)
 
-  p = MSLP * (T/profile.T_surface)^(grav/(R_d*profile.Γ))
+  p = FT(MSLP, aux) * (T/profile.T_surface)^(FT(grav, aux)/(FT(R_d, aux)*profile.Γ))
   if T == profile.T_min
     z_top = (profile.T_surface - profile.T_min) / profile.Γ
-    H_min = R_d * profile.T_min / grav
+    H_min = FT(R_d, aux) * profile.T_min / FT(grav, aux)
     p *= exp(-(z-z_top)/H_min)
   end
   return (T, p)

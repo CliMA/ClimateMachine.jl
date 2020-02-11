@@ -37,6 +37,7 @@ using CLIMA.Atmos: vars_aux
 unit_annotations(::MoistThermodynamics.MT) = true
 
 unit_annotations(::AtmosModel) = true
+unit_annotations(::Type{T} where T<:AtmosModel) = true
 unit_annotations(::Atmos.FlatOrientation) = true
 unit_annotations(::Atmos.HydrostaticState) = true
 unit_annotations(::Atmos.ConstantViscosityWithDivergence) = true

@@ -18,7 +18,7 @@ function init_test!(state, aux, (x,y,z), t)
     q_pt_sfc   = PhasePartition(qref)
     Rm_sfc     = FT(gas_constant_air(q_pt_sfc))
     T_sfc      = FT(290.4)
-    P_sfc      = FT(MSLP)
+    P_sfc      = FT(MSLP, false)
 
     # Specify moisture profiles
     q_liq      = FT(0)
@@ -32,7 +32,7 @@ function init_test!(state, aux, (x,y,z), t)
     u, v, w = ugeo, vgeo, FT(0)
 
     # Pressure
-    H     = Rm_sfc * T_sfc / grav
+    H     = Rm_sfc * T_sfc / FT(grav, false)
     p     = P_sfc * exp(-z / H)
 
     # Density, Temperature
@@ -40,7 +40,7 @@ function init_test!(state, aux, (x,y,z), t)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
-    e_pot = grav * z
+    e_pot = FT(grav, false) * z
     E     = ρ * total_energy(e_kin, e_pot, ts)
 
     state.ρ               = ρ

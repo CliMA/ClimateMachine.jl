@@ -42,6 +42,7 @@ end
 unit_annotations(::MoistThermodynamics.MT) = true
 
 unit_annotations(::AtmosModel) = true
+unit_annotations(::Type{T} where T<:AtmosModel) = true
 unit_annotations(::Atmos.NoOrientation) = true
 unit_annotations(::Atmos.NoReferenceState) = true
 unit_annotations(::Atmos.ConstantViscosityWithDivergence) = true

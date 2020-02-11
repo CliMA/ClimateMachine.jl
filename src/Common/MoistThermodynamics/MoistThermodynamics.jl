@@ -327,7 +327,7 @@ The total energy per unit mass
 given a thermodynamic state `ts`.
 """
 total_energy(e_kin::U(FT,:gravpot), e_pot::U(FT,:gravpot), ts::ThermodynamicState{FT}) where {FT<:Real} =
-  internal_energy(ts) + FT(e_kin, MT()) + FT(e_pot, MT())
+  internal_energy(ts) + FT(e_kin) + FT(e_pot)
 
 """
     soundspeed_air(T[, q::PhasePartition])

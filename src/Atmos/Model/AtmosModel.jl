@@ -70,7 +70,7 @@ function AtmosModel{FT}(::Type{AtmosLESConfiguration};
                          orientation::O=FlatOrientation(),
                          ref_state::RS=HydrostaticState(LinearTemperatureProfile(FT(200),
                                                                                  FT(280),
-                                                                                 FT(grav) / FT(cp_d)),
+                                                                                 FT(grav, AtmosModel) / FT(cp_d, AtmosModel)),
                                                                                  FT(0)),
                          turbulence::T=SmagorinskyLilly{FT}(0.21),
                          moisture::M=EquilMoist(),
@@ -106,7 +106,7 @@ function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
                                                    LinearTemperatureProfile(
                                                     FT(200),
                                                     FT(280),
-                                                    FT(grav) / FT(cp_d)),
+                                                    FT(grav, AtmosModel) / FT(cp_d, AtmosModel)),
                                                   FT(0)),
                          turbulence::T         = SmagorinskyLilly{FT}(0.21),
                          moisture::M           = EquilMoist(),
