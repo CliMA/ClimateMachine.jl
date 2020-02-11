@@ -2,15 +2,210 @@ using Distributions
 using Random
 using StaticArrays
 using Test
+using DocStringExtensions
+using LinearAlgebra
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.GenericCallbacks
 using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
+
+import CLIMA.DGmethods: vars_state, vars_aux, vars_integrals,
+                        integrate_aux!
+
+import CLIMA.DGmethods: boundary_state!
+import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!, NoFluxBC
+import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
+
+# -------------------- Radiation Model -------------------------- # 
+vars_state(::RadiationModel, FT) = @vars()
+vars_aux(::RadiationModel, FT) = @vars()
+vars_integrals(::RadiationModel, FT) = @vars()
+
+function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars, aux::Vars, t::Real) end
+function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
+function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) end
+function flux_radiation!(::RadiationModel, flux::Grad, state::Vars, aux::Vars, t::Real) end
+
+
+# ---------------------------- Begin Boundary Conditions ----------------- #
+"""
+  DYCOMS_BC <: BoundaryCondition
+  Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
+#Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct DYCOMS_BC{FT} <: BoundaryCondition
+  "Drag coefficient"
+  C_drag::FT
+  "Latent Heat Flux"
+  LHF::FT
+  "Sensible Heat Flux"
+  SHF::FT
+end
+
+"""
+    atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                          bc::DYCOMS_BC, args...)
+
+For the non-diffussive and gradient terms we just use the `NoFluxBC`
+"""
+atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                      bc::DYCOMS_BC, 
+                      args...) = atmos_boundary_state!(nf, NoFluxBC(), args...)
+
+"""
+    atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                                   bc::DYCOMS_BC, atmos::AtmosModel,
+                                   F,
+                                   state⁺, diff⁺, aux⁺, n⁻,
+                                   state⁻, diff⁻, aux⁻,
+                                   bctype, t,
+                                   state1⁻, diff1⁻, aux1⁻)
+
+When `bctype == 1` the `NoFluxBC` otherwise the specialized DYCOMS BC is used
+"""
+function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
+                                        bc::DYCOMS_BC, 
+                                        atmos::AtmosModel, F,
+                                        state⁺, diff⁺, aux⁺, 
+                                        n⁻,
+                                        state⁻, diff⁻, aux⁻,
+                                        bctype, t,
+                                        state1⁻, diff1⁻, aux1⁻)
+  if bctype != 1
+    atmos_boundary_flux_diffusive!(nf, NoFluxBC(), atmos, F,
+                                   state⁺, diff⁺, aux⁺, n⁻,
+                                   state⁻, diff⁻, aux⁻,
+                                   bctype, t,
+                                   state1⁻, diff1⁻, aux1⁻)
+  else
+    # Start with the noflux BC and then build custom flux from there
+    atmos_boundary_state!(nf, NoFluxBC(), atmos,
+                          state⁺, diff⁺, aux⁺, n⁻,
+                          state⁻, diff⁻, aux⁻,
+                          bctype, t)
+
+    # ------------------------------------------------------------------------
+    # (<var>_FN) First node values (First interior node from bottom wall)
+    # ------------------------------------------------------------------------
+    u_FN = state1⁻.ρu / state1⁻.ρ
+    windspeed_FN = norm(u_FN)
+
+    # ----------------------------------------------------------
+    # Extract components of diffusive momentum flux (minus-side)
+    # ----------------------------------------------------------
+    _, τ⁻ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
+
+    # ----------------------------------------------------------
+    # Boundary momentum fluxes
+    # ----------------------------------------------------------
+    # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
+    # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is
+    # replaced by the appropriate flux terms
+    C_drag = bc.C_drag
+    @inbounds begin
+      τ13⁺ = - C_drag * windspeed_FN * u_FN[1]
+      τ23⁺ = - C_drag * windspeed_FN * u_FN[2]
+      τ21⁺ = τ⁻[2,1]
+    end
+
+    # Assign diffusive momentum and moisture fluxes
+    # (i.e. ρ𝛕 terms)
+    FT = eltype(state⁺)
+    τ⁺ = SHermitianCompact{3, FT, 6}(SVector(0   ,
+                                             τ21⁺, τ13⁺,
+                                             0   , τ23⁺, 0))
+
+    # ----------------------------------------------------------
+    # Boundary moisture fluxes
+    # ----------------------------------------------------------
+    # really ∇q_tot is being used to store d_q_tot
+    d_q_tot⁺  = SVector(0, 0, bc.LHF/(LH_v0))
+
+    # ----------------------------------------------------------
+    # Boundary energy fluxes
+    # ----------------------------------------------------------
+    # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms)
+    d_h_tot⁺ = SVector(0, 0, bc.LHF + bc.SHF)
+
+    # Set the flux using the now defined plus-side data
+    flux_diffusive!(atmos, F, state⁺, τ⁺, d_h_tot⁺)
+    flux_diffusive!(atmos.moisture, F, state⁺, d_q_tot⁺)
+  end
+end
+boundary_state!(nf, m::AtmosModel, x...) =
+  atmos_boundary_state!(nf, m.boundarycondition, m, x...)
+boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                         atmos::AtmosModel,
+                         F,
+                         state⁺, diff⁺, aux⁺, n⁻,
+                         state⁻, diff⁻, aux⁻,
+                         bctype, t,
+                         state1⁻, diff1⁻, aux1⁻) =
+  atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
+                                 F,
+                                 state⁺, diff⁺, aux⁺, n⁻,
+                                 state⁻, diff⁻, aux⁻,
+                                 bctype, t,
+                                 state1⁻, diff1⁻, aux1⁻)
+
+
+# ------------------------ End Boundary Condition --------------------- # 
+
+
+# ------------------------ Begin Radiation Model ---------------------- #
+"""
+  DYCOMSRadiation <: RadiationModel
+
+Stevens et. al (2005) approximation of longwave radiative fluxes in DYCOMS.
+Analytical description as a function of the liquid water path and inversion height zᵢ
+
+* Stevens, B. et. al. (2005) "Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus". Mon. Wea. Rev., 133, 1443–1462, https://doi.org/10.1175/MWR2930.1
+"""
+struct DYCOMSRadiation{FT} <: RadiationModel
+  "mass absorption coefficient `[m^2/kg]`"
+  κ::FT
+  "Troposphere cooling parameter `[m^(-4/3)]`"
+  α_z::FT
+  "Inversion height `[m]`"
+  z_i::FT
+  "Density"
+  ρ_i::FT
+  "Large scale divergence `[s^(-1)]`"
+  D_subsidence::FT
+  "Radiative flux parameter `[W/m^2]`"
+  F_0::FT
+  "Radiative flux parameter `[W/m^2]`"
+  F_1::FT
+end
+vars_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
+vars_aux(m::DYCOMSRadiation, FT) = @vars(Rad_flux::FT)
+function integrate_aux!(m::DYCOMSRadiation, integrand::Vars, state::Vars, aux::Vars)
+  FT = eltype(state)
+  integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
+end
+function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, state::Vars,
+                         aux::Vars, t::Real)
+  FT = eltype(flux)
+  z = altitude(atmos.orientation, aux)
+  Δz_i = max(z - m.z_i, -zero(FT))
+  # Constants
+  upward_flux_from_cloud  = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
+  upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
+  free_troposphere_flux = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * cbrt(Δz_i) * (Δz_i/4 + m.z_i)
+  F_rad = upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
+  ẑ = vertical_unit_vector(atmos.orientation, aux)
+  flux.ρe += F_rad * ẑ
+end
+function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real)
+end
+# -------------------------- End Radiation Model ------------------------ # 
 
 """
   Initial Condition for DYCOMS_RF01 LES
@@ -184,7 +379,7 @@ function main()
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
-
+      
     result = CLIMA.invoke!(solver_config;
                           user_callbacks=(cbtmarfilter,),
                           check_euclidean_distance=true)
