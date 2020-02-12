@@ -45,7 +45,7 @@ Sets the relative or absolute tolerance of the iterative linear solver
 `solver` to `tolerance`.
 """
 settolerance!(solver::AbstractIterativeLinearSolver, tolerance, relative=true) =
-  (relative ? (solver.rtol = rtol) : (solver.atol = atol))
+  (relative ? (solver.rtol = tolerance) : (solver.atol = tolerance))
 
 doiteration!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver,
              tolerance, args...) =

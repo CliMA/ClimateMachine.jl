@@ -11,9 +11,9 @@ using StaticArrays, LinearAlgebra, Random
 @testset "LinearSolvers small full system" begin
   n = 10
 
-  methods = ((b, tol) -> GeneralizedConjugateResidual(2, b, tol),
-             (b, tol) -> GeneralizedMinimalResidual(3, b, tol),
-             (b, tol) -> GeneralizedMinimalResidual(n, b, tol)
+  methods = ((b, tol) -> GeneralizedConjugateResidual(2, b, rtol=tol),
+             (b, tol) -> GeneralizedMinimalResidual(b, M=3, rtol=tol),
+             (b, tol) -> GeneralizedMinimalResidual(b, M=n, rtol=tol)
             )
 
   expected_iters = (Dict(Float32 => 7, Float64 => 11),
@@ -64,8 +64,8 @@ end
   n = 1000
 
   methods = (
-             (b, tol) -> GeneralizedMinimalResidual(15, b, tol),
-             (b, tol) -> GeneralizedMinimalResidual(20, b, tol)
+             (b, tol) -> GeneralizedMinimalResidual(b, M=15, rtol=tol),
+             (b, tol) -> GeneralizedMinimalResidual(b, M=20, rtol=tol)
             )
 
   expected_iters = (

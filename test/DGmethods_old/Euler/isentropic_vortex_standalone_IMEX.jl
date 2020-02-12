@@ -265,7 +265,7 @@ function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
   Q = MPIStateArray(nonlin_spacedisc, initialcondition)
   dQ = similar(Q)
 
-  linearsolver = GeneralizedConjugateResidual(3, Q, 1e-10)
+  linearsolver = GeneralizedConjugateResidual(3, Q, rtol=1e-10)
   ark = ARK548L2SA2KennedyCarpenter(nonlin_spacedisc, lin_spacedisc,
                                     linearsolver, Q; dt = dt, t0 = 0)
 

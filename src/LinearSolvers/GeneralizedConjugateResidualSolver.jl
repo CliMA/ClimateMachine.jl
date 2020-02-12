@@ -12,7 +12,7 @@ using StaticArrays
 using GPUifyLoops
 
 """
-    GeneralizedConjugateResidual(K, Q, tolerance)
+    GeneralizedConjugateResidual(K, Q; rtol, atol)
 
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `K` is the number of steps after which the algorithm
@@ -70,8 +70,9 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     L_p = solver.L_p
 
     @assert size(Q) == size(residual)
+    rtol, atol = solver.rtol, solver.atol
 
-    threshold = solver.rtol * norm(Qrhs, weighted)
+    threshold = rtol * norm(Qrhs, weighted)
     linearoperator!(residual, Q, args...)
     residual .-= Qrhs
 
