@@ -26,7 +26,7 @@ function init_sin_test!(state, aux, (x,y,z), t)
     q_pt_sfc   = PhasePartition(qref)
     Rm_sfc     = FT(gas_constant_air(q_pt_sfc))
     T_sfc      = FT(292.5)
-    P_sfc      = FT(MSLP)
+    P_sfc      = FT(MSLP, false)
 
     # Specify moisture profiles
     q_liq      = FT(0)
@@ -55,7 +55,7 @@ function init_sin_test!(state, aux, (x,y,z), t)
     v = FT(5 + 2 * sin(2 * π * ((x/1500) + (y/1500))))
 
     # Pressure
-    H     = Rm_sfc * T_sfc / grav
+    H     = Rm_sfc * T_sfc / FT(grav, false)
     p     = P_sfc * exp(-z / H)
 
     # Density, Temperature
@@ -63,7 +63,7 @@ function init_sin_test!(state, aux, (x,y,z), t)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
-    e_pot = grav * z
+    e_pot = FT(grav,false) * z
     E     = ρ * total_energy(e_kin, e_pot, ts)
 
     state.ρ               = ρ
