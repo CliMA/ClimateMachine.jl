@@ -3,12 +3,16 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
+using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 using CLIMA.Mesh.Geometry
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.MultirateInfinitesimalStepMethod
-using CLIMA.StormerVerletMethod
+using CLIMA.StormerVerletMethod: StormerVerletHEVI
+using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.LinearSolvers
+using CLIMA.ColumnwiseLUSolver
 using CLIMA.SubgridScaleParameters
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
@@ -33,6 +37,8 @@ const (xmin,xmax)      = (0,20000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,10000)
 const Ne        = (160,2,80)
+const a         = 10000
+const hm        = 1000
 const polynomialorder = 1
 const dim       = 3
 const dt        = 1.0
@@ -60,7 +66,7 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   p0::FT        = MSLP
 
   xc::FT        = 10000
-  zc::FT        = 2000
+  zc::FT        = 3000
   r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
   rc::FT        = 2000
   θ_ref::FT     = 300
@@ -90,11 +96,15 @@ function run(mpicomm, ArrayType, LinearType,
              topl, dim, Ne, polynomialorder,
              timeend, FT, dt)
   # -------------- Define grid ----------------------------------- #
+  function agnesiWarp(x,y,z)
+    h=(hm*a^2)/((x-0.5*(xmin+xmax))^2+a^2)
+    return x,y,zmax*(z+h)/(zmax+h)
+  end
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
-                                          polynomialorder = polynomialorder
-                                           )
+                                          polynomialorder = polynomialorder,
+                                          meshwarp = agnesiWarp)
   # -------------- Define model ---------------------------------- #
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)), #NoReferenceState()
@@ -113,21 +123,28 @@ function run(mpicomm, ArrayType, LinearType,
                CentralNumericalFluxDiffusive(),
                CentralNumericalFluxGradient())
 
-
-  fast_model_momentum = AtmosAcousticLinearModelMomentum(model)
-  fast_dg_momentum = DGModel(fast_model_momentum,
-               grid,
-               Rusanov(),
-               CentralNumericalFluxDiffusive(),
-               CentralNumericalFluxGradient(); auxstate=dg.auxstate)
-  fast_model_thermo = AtmosAcousticLinearModelThermo(model)
-  fast_dg_thermo = DGModel(fast_model_thermo,
-               grid,
-               Rusanov(),
-               CentralNumericalFluxDiffusive(),
-               CentralNumericalFluxGradient(); auxstate=dg.auxstate)
-
   fast_model = AtmosAcousticLinearModel(model) #Wegkürzen und Tupel übergeben?
+  #=
+  fast_dg = DGModel(fast_model,
+               grid,
+               Rusanov(),
+               CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient(); auxstate=dg.auxstate)
+  =#
+  fast_dg_h = DGModel(fast_model,
+               grid,
+               Rusanov(),
+               CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient();
+               direction=HorizontalDirection(), auxstate=dg.auxstate)
+
+  fast_dg_v = DGModel(fast_model,
+               grid,
+               Rusanov(),
+               CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient();
+               direction=VerticalDirection(), auxstate=dg.auxstate)
+
   slow_model = RemainderModel(model, (fast_model,))
   slow_dg = DGModel(slow_model,
                grid,
@@ -137,9 +154,12 @@ function run(mpicomm, ArrayType, LinearType,
 
   Q = init_ode_state(dg, FT(0))
 
-  ns=15
-  mis = MIS2(slow_dg, (fast_dg_momentum, fast_dg_thermo), (dgt,Q) -> StormerVerlet(dgt, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
+  ns = 15
 
+  #mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerletHEVI(fast_dg_h, fast_dg_v, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
+
+  linearsolver = ManyColumnLU()
+  mis = MIS2(slow_dg, (fast_dg_h, fast_dg_v), (dgt,Q) -> AdditiveRungeKutta(:ARK548L2SA2KennedyCarpenter, dgt, linearsolver, Q), ns, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -166,9 +186,9 @@ function run(mpicomm, ArrayType, LinearType,
   end
 
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(1)  do (init=false)
     mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITNEW%04d_step%04d", dim,
+      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITRKAMOUNTAIN%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), dg.auxstate, flattenednames(vars_aux(model,FT)))

@@ -33,9 +33,9 @@ const (xmin,xmax)      = (0,20000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,10000)
 const Ne        = (160,2,80)
-const polynomialorder = 2
+const polynomialorder = 1
 const dim       = 3
-const dt        = 0.5
+const dt        = 1.0
 const timeend   = 1000.0
 # ------------- Initial condition function ----------- #
 """
@@ -132,8 +132,8 @@ function run(mpicomm, ArrayType, LinearType,
 
   Q = init_ode_state(dg, FT(0))
 
-  fast_dt = dt/15
-  mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerlet(fast_dg, fast_dt, [1,5], 2:4, Q), 0, Q; dt = dt, t0 = 0)
+  ns = 15
+  mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
 
 
   eng0 = norm(Q)
@@ -163,7 +163,7 @@ function run(mpicomm, ArrayType, LinearType,
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
     mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankADVSPLIT%04d_step%04d", dim,
+      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLIT%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), dg.auxstate, flattenednames(vars_aux(model,FT)))
