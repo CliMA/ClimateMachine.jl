@@ -151,7 +151,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
 
   # check if FastMethod is ARK, is there a better way ?
   if isdefined(AdditiveRungeKuttaMethod, Symbol(FastMethod))
-    linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
+    linearsolver = GeneralizedMinimalResidual(Q; M=10, rtol=1e-10)
     # splitting the fast part into full and linear but the fast part
     # is already linear so full_dg == linear_dg == fast_dg
     fast_ode_solver = FastMethod(fast_dg, fast_dg, linearsolver, Q; dt = fast_dt, paperversion = true)

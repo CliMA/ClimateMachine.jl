@@ -11,6 +11,9 @@ include("LinearSolvers_kernels.jl")
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)
+LinearAlgebra.norm(A::AbstractVector, p::Real, weighted::Bool) = norm(A, p)
+LinearAlgebra.norm(A::AbstractVector, weighted::Bool) = norm(A, 2, weighted)
+LinearAlgebra.dot(A::AbstractVector, B::AbstractVector, weighted) = dot(A, B)
 
 export linearsolve!, settolerance!, prefactorize
 export AbstractLinearSolver, AbstractIterativeLinearSolver
@@ -36,12 +39,13 @@ The available concrete implementations are:
 abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 
 """
-    settolerance!(solver::AbstractIterativeLinearSolver, tolerance)
+    settolerance!(solver::AbstractIterativeLinearSolver, tolerance, relative)
 
-Sets the tolerance of the iterative linear solver `solver` to `tolerance`.
+Sets the relative or absolute tolerance of the iterative linear solver
+`solver` to `tolerance`.
 """
-settolerance!(solver::AbstractIterativeLinearSolver, tolerance) =
-  (solver.tolerance[1] = tolerance)
+settolerance!(solver::AbstractIterativeLinearSolver, tolerance, relative=true) =
+  (relative ? (solver.rtol = tolerance) : (solver.atol = tolerance))
 
 doiteration!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver,
              tolerance, args...) =
@@ -55,7 +59,7 @@ initialize!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver,
 """
     prefactorize(linop!, linearsolver, args...)
 
-Prefactorize the in-place linear operator `linop!` for use with `linearsolver`. 
+Prefactorize the in-place linear operator `linop!` for use with `linearsolver`.
 """
 prefactorize(linop!, linearsolver::AbstractIterativeLinearSolver, args...) =
   linop!
@@ -74,15 +78,16 @@ using the `solver` and the initial guess `Q`. After the call `Q` contains the
 solution.  The arguments `args` is passed to `linearoperator!` when it is
 called.
 """
-function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...)
+function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...;
+                      max_iters=length(Q), cvg=Ref{Bool}())
   converged = false
   iters = 0
 
   converged, threshold = initialize!(linearoperator!, Q, Qrhs, solver, args...)
   converged && return iters
 
-  while !converged
-    converged, inner_iters, residual_norm = 
+  while !converged && iters < max_iters
+    converged, inner_iters, residual_norm =
       doiteration!(linearoperator!, Q, Qrhs, solver, threshold, args...)
 
     iters += inner_iters
@@ -90,10 +95,13 @@ function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q,
     if !isfinite(residual_norm)
       error("norm of residual is not finite after $iters iterations of `doiteration!`")
     end
-    
-    achieved_tolerance = residual_norm / threshold * solver.tolerance[1]
+
+    achieved_tolerance = residual_norm / threshold * solver.rtol
   end
-  
+
+  converged || @warn "Solver did not attain convergence after $iters iterations"
+  cvg[] = converged
+
   iters
 end
 

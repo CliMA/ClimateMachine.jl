@@ -145,8 +145,8 @@ let
   base_num_elem = 4
   tol = 1e-9
 
-  linmethods = (b -> GeneralizedConjugateResidual(3, b, tol),
-                b -> GeneralizedMinimalResidual(7, b, tol)
+  linmethods = (b -> GeneralizedConjugateResidual(3, b, rtol=tol),
+                b -> GeneralizedMinimalResidual(b, M=7, rtol=tol)
                )
 
   expected_result = Array{Float64}(undef, 2, 2, 3) # method, dim-1, lvl

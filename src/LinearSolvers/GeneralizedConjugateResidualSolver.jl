@@ -12,7 +12,7 @@ using StaticArrays
 using GPUifyLoops
 
 """
-    GeneralizedConjugateResidual(K, Q, tolerance)
+    GeneralizedConjugateResidual(K, Q; rtol, atol)
 
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `K` is the number of steps after which the algorithm
@@ -37,16 +37,17 @@ This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983
       publisher={SIAM}
     }
 """
-struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolver
+mutable struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolver
   residual::AT
   L_residual::AT
   p::NTuple{K, AT}
   L_p::NTuple{K, AT}
   alpha::MArray{Tuple{K}, T, 1, K}
   normsq::MArray{Tuple{K}, T, 1, K}
-  tolerance::MArray{Tuple{1}, T, 1, 1}
+  rtol::T
+  atol::T
 
-  function GeneralizedConjugateResidual(K, Q::AT, tolerance) where AT
+  function GeneralizedConjugateResidual(K, Q::AT; rtol=√eps(eltype(AT)), atol=eps(eltype(AT))) where AT
     T = eltype(Q)
 
     residual = similar(Q)
@@ -56,7 +57,7 @@ struct GeneralizedConjugateResidual{K, T, AT} <: LS.AbstractIterativeLinearSolve
     alpha = @MArray zeros(K)
     normsq = @MArray zeros(K)
 
-    new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, (tolerance,))
+    new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, rtol, atol)
   end
 end
 
@@ -69,20 +70,23 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     L_p = solver.L_p
 
     @assert size(Q) == size(residual)
+    rtol, atol = solver.rtol, solver.atol
 
-    threshold = solver.tolerance[1] * norm(Qrhs, weighted)
+    threshold = rtol * norm(Qrhs, weighted)
     linearoperator!(residual, Q, args...)
     residual .-= Qrhs
-    
+
     converged = false
     residual_norm = norm(residual, weighted)
     if residual_norm < threshold
       converged = true
       return converged, threshold
     end
-    
+
     p[1] .= residual
     linearoperator!(L_p[1], p[1], args...)
+
+    threshold = max(atol, threshold)
 
     converged, threshold
 end
@@ -90,14 +94,14 @@ end
 function LS.doiteration!(linearoperator!, Q, Qrhs,
                          solver::GeneralizedConjugateResidual{K}, threshold,
                          args...) where K
- 
+
   residual = solver.residual
   p = solver.p
   L_residual = solver.L_residual
   L_p = solver.L_p
   normsq = solver.normsq
   alpha = solver.alpha
-  
+
   residual_norm = typemax(eltype(Q))
   for k = 1:K
     normsq[k] = norm(L_p[k], weighted) ^ 2
@@ -113,7 +117,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
     end
 
     linearoperator!(L_residual, residual, args...)
-  
+
     for l = 1:k
       alpha[l] = -dot(L_residual, L_p[l], weighted) / normsq[l]
     end
@@ -125,7 +129,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
       rv_nextp = realview(p[1])
       rv_L_nextp = realview(L_p[1])
     end
-    
+
     rv_residual = realview(residual)
     rv_p = realview.(p)
     rv_L_p = realview.(L_p)
@@ -138,12 +142,12 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
     @launch(device(Q), threads = threads, blocks = blocks,
             LS.linearcombination!(rv_nextp, (one(T), alpha[1:k]...),
                                   (rv_residual, rv_p[1:k]...), false))
-    
+
     @launch(device(Q), threads = threads, blocks = blocks,
             LS.linearcombination!(rv_L_nextp, (one(T), alpha[1:k]...),
                                   (rv_L_residual, rv_L_p[1:k]...), false))
   end
-  
+
   (false, K, residual_norm)
 end
 

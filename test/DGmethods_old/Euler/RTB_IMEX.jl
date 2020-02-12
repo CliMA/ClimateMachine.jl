@@ -313,7 +313,7 @@ function run(mpicomm, ArrayType, dim, brickrange, periodicity, N, timeend, FT, d
   # NOTE: In order to get the same results on the CPU and GPU we force ourselves
   # to take the same number of iterations by setting at really high tolerance
   # specifying the number of restarts
-  linearsolver = GeneralizedConjugateResidual(3, Q, 1e-8)
+  linearsolver = GeneralizedConjugateResidual(3, Q, rtol=1e-8)
 
   timestepper = ARK548L2SA2KennedyCarpenter(spacedisc, lin_spacedisc,
                                             linearsolver, Q; dt = dt, t0 = 0)

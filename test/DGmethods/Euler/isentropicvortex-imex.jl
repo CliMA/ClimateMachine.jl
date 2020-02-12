@@ -151,7 +151,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
 
   Q = init_ode_state(dg, FT(0))
 
-  linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
+  linearsolver = GeneralizedMinimalResidual(Q; M=10, rtol=1e-10)
   ode_solver = ARK2GiraldoKellyConstantinescu(split_nonlinear_linear ? dg_nonlinear : dg,
                                               dg_linear,
                                               linearsolver,
