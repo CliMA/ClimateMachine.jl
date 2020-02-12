@@ -74,7 +74,7 @@ function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime, ArrayType)
                                          )
 
   dx = min_node_distance(grid)
-  dt = dx ^ 2 / 10
+  dt = dx / 10
   @info "time step" dt
   timeend = 1
   @info "nsteps" ceil(Int, timeend / dt)
@@ -85,7 +85,7 @@ function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime, ArrayType)
                CentralNumericalFluxNonDiffusive(),
                CentralNumericalFluxDiffusive(),
                CentralNumericalFluxGradient();
-               direction = EveryDirection())
+               direction =HorizontalDirection())
 
   Q = init_ode_state(dg, FT(0))
 

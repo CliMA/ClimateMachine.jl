@@ -26,16 +26,21 @@ vars_aux(::HyperDiffusion, FT) = @vars(k::SVector{3, FT}, coords::SVector{3, FT}
 vars_state(::HyperDiffusion, FT) = @vars(ρ::FT)
 
 # Take the gradient of density
-vars_gradient(::HyperDiffusion, FT) = @vars(ρ::FT)
+vars_gradient(::HyperDiffusion, FT) = @vars()
 # Take the gradient of laplacian of density
-vars_gradient_laplacian(::HyperDiffusion, FT) = @vars(ρ::FT)
+vars_gradient_laplacian(::HyperDiffusion, FT) = @vars()
 
-vars_diffusive(::HyperDiffusion, FT) = @vars(ω::SVector{3,FT})
+vars_diffusive(::HyperDiffusion, FT) = @vars()
 # The DG auxiliary variable: D ∇ Δρ
-vars_hyperdiffusive(::HyperDiffusion, FT) = @vars(σ::SVector{3,FT})
+vars_hyperdiffusive(::HyperDiffusion, FT) = @vars()
 
 function flux_nondiffusive!(m::HyperDiffusion, flux::Grad, state::Vars,
                             aux::Vars, t::Real)
+  φ, θ, r = aux.coords
+  u = sin(θ) * cos(φ) * Sρ_w(t, φ, θ, r) + cos(θ) * cos(φ) * Sρ_v(t, φ, θ, r) - sin(φ) * Sρ_u(t, φ, θ, r)
+  v = sin(θ) * sin(φ) * Sρ_w(t, φ, θ, r) + cos(θ) * sin(φ) * Sρ_v(t, φ, θ, r) + cos(φ) * Sρ_u(t, φ, θ, r)
+  w = cos(θ) * Sρ_w(t, φ, θ, r) - sin(θ) * Sρ_v(t, φ, θ, r)
+  flux.ρ = SVector(u * state.ρ, v * state.ρ, w * state.ρ)
 end
 
 """
@@ -55,13 +60,13 @@ Where
 """
 function flux_diffusive!(m::HyperDiffusion, flux::Grad, state::Vars,
                          auxDG::Vars, auxHDG::Vars, aux::Vars, t::Real)
-  σ = auxHDG.σ
-  ω = auxDG.ω
+  #σ = auxHDG.σ
+  #ω = auxDG.ω
  
   #k = aux.k
   #Pk = I - k * k'
   #flux.ρ -= Pk * ω 
-  flux.ρ += σ
+  #flux.ρ += σ
 end
 
 """
@@ -72,18 +77,18 @@ Set the variable to take the gradient of (`ρ` in this case)
 """
 function gradvariables!(m::HyperDiffusion, transform::Vars, state::Vars,
                         aux::Vars, t::Real)
-  transform.ρ = state.ρ
+  #transform.ρ = state.ρ
 end
 
 function diffusive!(m::HyperDiffusion, auxDG::Vars, gradvars::Grad,
                     state::Vars, aux::Vars, t::Real)
-  ∇ρ = gradvars.ρ
-  auxDG.ω = ν_exact * ∇ρ
+  #∇ρ = gradvars.ρ
+  #auxDG.ω = ν_exact * ∇ρ
 end
 function hyperdiffusive!(m::HyperDiffusion, auxHDG::Vars, gradvars::Grad,
                          state::Vars, aux::Vars, t::Real)
-  ∇Δρ = gradvars.ρ
-  auxHDG.σ = ν_exact * ∇Δρ
+  #∇Δρ = gradvars.ρ
+  #auxHDG.σ = ν_exact * ∇Δρ
 end
 
 """
