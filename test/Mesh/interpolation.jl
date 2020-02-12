@@ -58,9 +58,9 @@ function (setup::TestSphereSetup)(state, aux, coords, t)
     FT = eltype(state)
 
     r = norm(coords, 2)
-    h = r - FT(planet_radius)
+    h = r - FT(planet_radius, false)
 
-    scale_height = R_d * setup.T_initial / grav
+    scale_height = FT(R_d, false) * setup.T_initial / FT(grav, false)
     p = setup.p_ground * exp(-h / scale_height)
 
     state.ρ = air_density(setup.T_initial, p)
@@ -206,7 +206,7 @@ function run_cubed_sphere_interpolation_test()
     nel_vert_grd  = 20 #100 #50 #10#50
     r_res    = FT((vert_range[end] - vert_range[1])/FT(nel_vert_grd)) #1000.00    # 1000 m vertical resolution
     #----------------------------------------------------------
-    setup = TestSphereSetup(FT(MSLP),FT(255),FT(30e3))
+    setup = TestSphereSetup(FT(MSLP, false),FT(255),FT(30e3))
 
     topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 
@@ -234,9 +234,9 @@ function run_cubed_sphere_interpolation_test()
     x2 = @view grid.vgeo[:,_y,:]
     x3 = @view grid.vgeo[:,_z,:]
 
-    xmax = FT(planet_radius)
-    ymax = FT(planet_radius)
-    zmax = FT(planet_radius)
+    xmax = FT(planet_radius, false)
+    ymax = FT(planet_radius, false)
+    zmax = FT(planet_radius, false)
 
     fcn(x,y,z) = sin.(x) .* cos.(y) .* cos.(z) # sample function
 
