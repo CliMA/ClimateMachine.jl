@@ -7,7 +7,7 @@ using GPUifyLoops
 include("MultirateInfinitesimalStepMethod_kernels.jl")
 
 
-export TimeScaledRHS, MIS2, MIS3C, MIS4, MIS4a, TVDMISA, TVDMISB
+export TimeScaledRHS, MIS2, MIS3C, MISRK3, MIS4, MIS4a, TVDMISA, TVDMISB
 
 ODEs = ODESolvers
 
@@ -235,6 +235,28 @@ function MIS3C(slowrhs!, fastrhs!, fastmethod, nsteps,  Q::AT; dt=0, t0=0) where
        0  0.142798786398  0               0;
        0 -0.0428918957402 0.0202720980282 0]
 
+  MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsteps,  α, β, γ, Q; dt=dt, t0=t0)
+end
+
+function MISRK3(slowrhs!, fastrhs!, fastmethod, nsteps,  Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+  #=
+  α = [0 0 0 0;
+       0 0 0 0;
+       0 0 0 0;
+       0 0 0 0]
+  =#
+  α = zeros(4,4)
+  β = [ 0                     0                0              0;
+        0.3333333333333333    0                0              0;
+        0                     0.5              0              0;
+        0                     0                1              0]
+  #=
+  γ = [0  0  0  0;
+       0  0  0  0;
+       0  0  0  0;
+       0  0  0  0]
+  =#
+  γ = zeros(4,4)
   MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsteps,  α, β, γ, Q; dt=dt, t0=t0)
 end
 
