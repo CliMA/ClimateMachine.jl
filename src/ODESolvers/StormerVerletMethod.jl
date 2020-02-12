@@ -1,12 +1,44 @@
 module StormerVerletMethod
-export StormerVerlet, StormerVerletMoTh, StromerVerletHEVI
+export StormerVerlet, StromerVerletHEVI
 
 using ..ODESolvers
 const ODEs = ODESolvers
 using ..SpaceMethods
 using ..MPIStateArrays: device, realview
 using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
+using CLIMA.MultirateInfinitesimalStepMethod: TimeScaledRHS
 
+
+abstract type AbstractStormerVerlet <: ODEs.AbstractODESolver end
+
+ODEs.updatedt!(sv::AbstractStormerVerlet, dt) = sv.dt[1] = dt
+#=
+"""
+    ODESolvers.dostep!(Q, sv::StormerVerlet, p, timeend::Real,
+                       adjustfinalstep::Bool)
+Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
+from the current time, to the time `timeend`. If `adjustfinalstep == true` then
+`dt` is adjusted so that the step does not take the solution beyond the
+`timeend`.
+"""
+function ODEs.dostep!(Q, sv::AbstractStormerVerlet, p, timeend::Real,
+                      adjustfinalstep::Bool, slow_δ, slow_rv_dQ, slow_rka)
+  time, dt = sv.t[1], sv.dt[1]
+  if adjustfinalstep && time + dt > timeend
+    dt = timeend - time
+  end
+  @assert dt > 0
+
+  ODEs.dostep!(Q, sv, p, time, dt, slow_δ, slow_rv_dQ, slow_rka)
+
+  if dt == sv.dt[1]
+    sv.t[1] += dt
+  else
+    sv.t[1] = timeend
+  end
+
+end
+=#
 
 """
     LowStorageRungeKutta2N(f, RKA, RKB, RKC, Q; dt, t0 = 0)
@@ -23,60 +55,28 @@ The available concrete implementations are:
   - [`LSRK54CarpenterKennedy`](@ref)
   - [`LSRK144NiegemannDiehlBusch`](@ref)
 """
-struct StormerVerlet{T, RT, AT} <: ODEs.AbstractODESolver
+struct StormerVerlet{N, T, RT, AT} <: AbstractStormerVerlet
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
   "rhs function"
   rhs!
-
-  max_inner_dt::RT
 
   mask_a
   mask_b
 
   dQ::AT
-  function StormerVerlet(rhs!, max_inner_dt, mask_a, mask_b, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
+  function StormerVerlet(rhs!::TimeScaledRHS{N,RT} where {RT}, mask_a, mask_b, Q::AT; dt=0, t0=0) where {N,AT<:AbstractArray}
 
     T = eltype(Q)
     RT = real(T)
-    dt = [dt]
-    t0 = [t0]
 
     dQ = similar(Q)
     fill!(dQ, 0)
 
-    new{T, RT, AT}(dt, t0, rhs!, max_inner_dt, mask_a, mask_b, dQ)
+    new{N, T, RT, AT}(dt, t0, rhs!, mask_a, mask_b, dQ)
   end
-end
-
-ODEs.updatedt!(sv::StormerVerlet, dt) = sv.dt[1] = dt
-
-"""
-    ODESolvers.dostep!(Q, sv::StormerVerlet, p, timeend::Real,
-                       adjustfinalstep::Bool)
-Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
-from the current time, to the time `timeend`. If `adjustfinalstep == true` then
-`dt` is adjusted so that the step does not take the solution beyond the
-`timeend`.
-"""
-function ODEs.dostep!(Q, sv::StormerVerlet, p, timeend::Real,
-                      adjustfinalstep::Bool, slow_δ, slow_rv_dQ, slow_rka)
-  time, dt = sv.t[1], sv.dt[1]
-  if adjustfinalstep && time + dt > timeend
-    dt = timeend - time
-  end
-  @assert dt > 0
-
-  ODEs.dostep!(Q, sv, p, time, dt, slow_δ, slow_rv_dQ, slow_rka)
-
-  if dt == sv.dt[1]
-    sv.t[1] += dt
-  else
-    sv.t[1] = timeend
-  end
-
 end
 
 """
@@ -89,8 +89,8 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
-function ODEs.dostep!(Q, sv::StormerVerlet, p, time::Real,
-                      dt::Real, slow_δ, slow_rv_dQ, slow_rka)
+function ODEs.dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
+                      dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs!, dQ = sv.rhs!, sv.dQ
 
@@ -101,108 +101,47 @@ function ODEs.dostep!(Q, sv::StormerVerlet, p, time::Real,
   slow_rv_dQa = @view(slow_rv_dQ[:,sv.mask_a,:])
   slow_rv_dQb = @view(slow_rv_dQ[:,sv.mask_b,:])
 
-  nsteps = cld(dt, sv.max_inner_dt)
-  inner_dt = dt / nsteps
+
 
   # do a half step
   rhs!(dQ, Q, p, time, increment = false)
+
   if slow_δ === nothing
-    Qa .+= dQa .* inner_dt/2
+    Qa .+= dQa .* dt/2
   else
-    Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* inner_dt/2
+    Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
   end
-  time += inner_dt/2
+  time += dt/2
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, increment = false)
     if slow_δ === nothing
-      Qb .+= dQb .* inner_dt
+      Qb .+= dQb .* dt
     else
-      Qb .+= (dQb .+ slow_rv_dQb .* slow_δ) .* inner_dt
+      Qb .+= (dQb .+ slow_rv_dQb .* slow_δ) .* dt
     end
-    time += inner_dt
+    time += dt
 
     rhs!(dQ, Q, p, time, increment = false)
     if i < nsteps
       if slow_δ === nothing
-        Qa .+= dQa .* inner_dt
+        Qa .+= dQa .* dt
       else
-        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* inner_dt
+        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt
       end
-      time += inner_dt
+      time += dt
     else
       if slow_δ === nothing
-        Qa .+= dQa .* inner_dt/2
+        Qa .+= dQa .* dt/2
       else
-        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* inner_dt/2
+        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
       end
-      time += inner_dt/2
+      time += dt/2
     end
   end
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
   end
-  println(sqrt(sum(Q.^2)))
-end
-
-
-
-
-struct StormerVerletMoTh{T, RT, AT} <: ODEs.AbstractODESolver
-  "time step"
-  dt::Array{RT,1}
-  "time"
-  t::Array{RT,1}
-  "rhs function"
-  rhs_momentum!
-  rhs_thermo!
-
-  max_inner_dt::RT
-
-  mask_a
-  mask_b
-
-  dQ::AT
-  function StormerVerletMoTh(rhs_momentum!, rhs_thermo!, max_inner_dt, mask_a, mask_b, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
-
-    T = eltype(Q)
-    RT = real(T)
-    dt = [dt]
-    t0 = [t0]
-
-    dQ = similar(Q)
-    fill!(dQ, 0)
-
-    new{T, RT, AT}(dt, t0, rhs_momentum!, rhs_thermo!, max_inner_dt, mask_a, mask_b, dQ)
-  end
-end
-
-ODEs.updatedt!(sv::StormerVerletMoTh, dt) = sv.dt[1] = dt
-
-"""
-    ODESolvers.dostep!(Q, sv::StormerVerlet, p, timeend::Real,
-                       adjustfinalstep::Bool)
-Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
-from the current time, to the time `timeend`. If `adjustfinalstep == true` then
-`dt` is adjusted so that the step does not take the solution beyond the
-`timeend`.
-"""
-function ODEs.dostep!(Q, sv::StormerVerletMoTh, p, timeend::Real,
-                      adjustfinalstep::Bool, slow_δ, slow_rv_dQ, slow_rka)
-  time, dt = sv.t[1], sv.dt[1]
-  if adjustfinalstep && time + dt > timeend
-    dt = timeend - time
-  end
-  @assert dt > 0
-
-  ODEs.dostep!(Q, sv, p, time, dt, slow_δ, slow_rv_dQ, slow_rka)
-
-  if dt == sv.dt[1]
-    sv.t[1] += dt
-  else
-    sv.t[1] = timeend
-  end
-
 end
 
 """
@@ -215,10 +154,10 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
-function ODEs.dostep!(Q, sv::StormerVerletMoTh, p, time::Real,
-                      dt::Real, slow_δ, slow_rv_dQ, slow_rka)
+function ODEs.dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
+                      dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
-  rhs_momentum!, rhs_thermo!, dQ = sv.rhs_momentum!, sv.rhs_thermo!, sv.dQ
+  rhs!, dQ = sv.rhs!, sv.dQ
 
   Qa = @view(Q.realdata[:,sv.mask_a,:])
   Qb = @view(Q.realdata[:,sv.mask_b,:])
@@ -227,42 +166,40 @@ function ODEs.dostep!(Q, sv::StormerVerletMoTh, p, time::Real,
   slow_rv_dQa = @view(slow_rv_dQ[:,sv.mask_a,:])
   slow_rv_dQb = @view(slow_rv_dQ[:,sv.mask_b,:])
 
-  nsteps = cld(dt, sv.max_inner_dt)
-  inner_dt = dt / nsteps
 
   # do a half step
-  rhs_thermo!(dQ, Q, p, time, increment = false)
+  rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
   if slow_δ === nothing
-    @. Qa += dQa * inner_dt/2
+    @. Qa += dQa * dt/2
   else
-    @. Qa += (dQa + slow_rv_dQa * slow_δ) * inner_dt/2
+    @. Qa += (dQa + slow_rv_dQa * slow_δ) * dt/2
   end
-  time += inner_dt/2
+  time += dt/2
 
   for i = 1:nsteps
-    rhs_momentum!(dQ, Q, p, time, increment = false)
+    rhs!(dQ, Q, p, time, 1, increment = false) #Momentum
     if slow_δ === nothing
-      @. Qb += dQb * inner_dt
+      @. Qb += dQb * dt
     else
-      @. Qb += (dQb + slow_rv_dQb * slow_δ) * inner_dt
+      @. Qb += (dQb + slow_rv_dQb * slow_δ) * dt
     end
-    time += inner_dt
+    time += dt
 
-    rhs_thermo!(dQ, Q, p, time, increment = false)
+    rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
     if i < nsteps
       if slow_δ === nothing
-        @. Qa += dQa * inner_dt
+        @. Qa += dQa * dt
       else
-        @. Qa += (dQa + slow_rv_dQa * slow_δ) * inner_dt
+        @. Qa += (dQa + slow_rv_dQa * slow_δ) * dt
       end
-      time += inner_dt
+      time += dt
     else
       if slow_δ === nothing
-        @. Qa += dQa * inner_dt/2
+        @. Qa += dQa * dt/2
       else
-        @. Qa += (dQa + slow_rv_dQa * slow_δ) * inner_dt/2
+        @. Qa += (dQa + slow_rv_dQa * slow_δ) * dt/2
       end
-      time += inner_dt/2
+      time += dt/2
     end
   end
   if slow_rka !== nothing
@@ -271,71 +208,33 @@ function ODEs.dostep!(Q, sv::StormerVerletMoTh, p, time::Real,
 end
 
 
-struct StormerVerletHEVI{T, RT, AT} <: ODEs.AbstractODESolver
+struct StormerVerletHEVI{T, RT, AT} <: AbstractStormerVerlet
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
   "rhs function"
   rhs_h!
   rhs_v!
 
   A_v
 
-  max_inner_dt::RT
-
   mask_a
   mask_b
 
   dQ::AT
-  dQ_h::AT
-  dQ_v::AT
-  function StormerVerletHEVI(rhs_h!, rhs_v!, max_inner_dt, mask_a, mask_b, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
+  function StormerVerletHEVI(rhs_h!, rhs_v!, mask_a, mask_b, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
 
     T = eltype(Q)
     RT = real(T)
-    dt = [dt]
-    t0 = [t0]
 
     A_v = banded_matrix(rhs_v!, similar(Q), similar(Q))
 
     dQ = similar(Q)
-    dQ_h = similar(Q)
-    dQ_v = similar(Q)
     fill!(dQ, 0)
-    fill!(dQ_h, 0)
-    fill!(dQ_v, 0)
 
-    new{T, RT, AT}(dt, t0, rhs_h!, rhs_v!, A_v, max_inner_dt, mask_a, mask_b, dQ, dQ_h, dQ_v)
+    new{T, RT, AT}(dt, t0, rhs_h!, rhs_v!, A_v, mask_a, mask_b, dQ)
   end
-end
-
-ODEs.updatedt!(sv::StormerVerletHEVI, dt) = sv.dt[1] = dt
-
-"""
-    ODESolvers.dostep!(Q, sv::StormerVerlet, p, timeend::Real,
-                       adjustfinalstep::Bool)
-Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
-from the current time, to the time `timeend`. If `adjustfinalstep == true` then
-`dt` is adjusted so that the step does not take the solution beyond the
-`timeend`.
-"""
-function ODEs.dostep!(Q, sv::StormerVerletHEVI, p, timeend::Real,
-                      adjustfinalstep::Bool, slow_δ, slow_rv_dQ, slow_rka)
-  time, dt = sv.t[1], sv.dt[1]
-  if adjustfinalstep && time + dt > timeend
-    dt = timeend - time
-  end
-  @assert dt > 0
-
-  ODEs.dostep!(Q, sv, p, time, dt, slow_δ, slow_rv_dQ, slow_rka)
-
-  if dt == sv.dt[1]
-    sv.t[1] += dt
-  else
-    sv.t[1] = timeend
-  end
-
 end
 
 """
@@ -349,12 +248,9 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_rv_dQ *= slow_scaling` is performed.
 """
 function ODEs.dostep!(Q, sv::StormerVerletHEVI, p, time::Real,
-                      dt::Real, slow_δ, slow_rv_dQ, slow_rka)
+                      dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs_h!, rhs_v!, dQ, A_v = sv.rhs_h!, sv.rhs_v!, sv.dQ, sv.A_v
-  dQ_h=sv.dQ_h
-  dQ_v=sv.dQ_v
-  #rhs!, dQ = sv.rhs!, sv.dQ
 
   Qa = @view(Q.realdata[:,sv.mask_a,:])
   Qb = @view(Q.realdata[:,sv.mask_b,:])
@@ -363,53 +259,47 @@ function ODEs.dostep!(Q, sv::StormerVerletHEVI, p, time::Real,
   slow_rv_dQa = @view(slow_rv_dQ[:,sv.mask_a,:])
   slow_rv_dQb = @view(slow_rv_dQ[:,sv.mask_b,:])
 
-  nsteps = cld(dt, sv.max_inner_dt)
-  inner_dt = dt / nsteps
 
   # do a half step
-  rhs_h!(dQ, Q, p, time, increment = false)
-  banded_matrix_vector_product!(rhs_v!, A_v, dQ_v,Q)
-  dQ+=dQ_v
+  banded_matrix_vector_product!(rhs_v!, A_v, dQ,Q)
+  rhs_h!(dQ, Q, p, time, increment = true)
   if slow_δ === nothing
-    Qa .+= dQa .* inner_dt/2
+    Qa .+= dQa .* dt/2
   else
-    Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* inner_dt/2
+    Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
   end
-  time += inner_dt/2
+  time += dt/2
 
   for i = 1:nsteps
-    rhs_h!(dQ, Q, p, time, increment = false)
-    banded_matrix_vector_product!(rhs_v!, A_v, dQ_v,Q)
-    dQ+=dQ_v
+    banded_matrix_vector_product!(rhs_v!, A_v, dQ,Q)
+    rhs_h!(dQ, Q, p, time, increment = true)
     if slow_δ === nothing
-      Qb .+= dQb .* inner_dt
+      Qb .+= dQb .* dt
     else
-      Qb .+= (dQb .+ slow_rv_dQb .* slow_δ) .* inner_dt
+      Qb .+= (dQb .+ slow_rv_dQb .* slow_δ) .* dt
     end
-    time += inner_dt
+    time += dt
 
-    rhs_h!(dQ, Q, p, time, increment = false)
-    banded_matrix_vector_product!(rhs_v!, A_v, dQ_v,Q)
-    dQ+=dQ_v
+    banded_matrix_vector_product!(rhs_v!, A_v, dQ,Q)
+    rhs_h!(dQ, Q, p, time, increment = true)
     if i < nsteps
       if slow_δ === nothing
-        Qa .+= dQa .* inner_dt
+        Qa .+= dQa .* dt
       else
-        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* inner_dt
+        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt
       end
-      time += inner_dt
+      time += dt
     else
       if slow_δ === nothing
-        Qa .+= dQa .* inner_dt/2
+        Qa .+= dQa .* dt/2
       else
-        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* inner_dt/2
+        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
       end
-      time += inner_dt/2
+      time += dt/2
     end
   end
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
   end
-  println(sqrt(sum(Q.^2)))
 end
 end
