@@ -71,7 +71,6 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   rc::FT        = 2000
   θ_ref::FT     = 300
   Δθ::FT        = 0
-
   if r <= rc
     Δθ = 2*cospi(0.5*r/rc)^2
   end
@@ -105,6 +104,7 @@ function run(mpicomm, ArrayType, LinearType,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder,
                                           meshwarp = agnesiWarp)
+
   # -------------- Define model ---------------------------------- #
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)), #NoReferenceState()
@@ -154,12 +154,12 @@ function run(mpicomm, ArrayType, LinearType,
 
   Q = init_ode_state(dg, FT(0))
 
-  ns = 15
+  ns = 12
 
   #mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerletHEVI(fast_dg_h, fast_dg_v, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
 
   linearsolver = ManyColumnLU()
-  mis = MIS2(slow_dg, (fast_dg_h, fast_dg_v), (dgt,Q) -> AdditiveRungeKutta(:ARK548L2SA2KennedyCarpenter, dgt, linearsolver, Q), ns, Q; dt = dt, t0 = 0)
+  mis = MISRK3(slow_dg, (fast_dg_h, fast_dg_v), (dgt,Q) -> AdditiveRungeKutta(:ARK548L2SA2KennedyCarpenter, dgt, linearsolver, Q, dt=dt/ns), ns, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
@@ -186,7 +186,7 @@ function run(mpicomm, ArrayType, LinearType,
   end
 
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(1)  do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
     mkpath("./vtk-rtb/")
       outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITRKAMOUNTAIN%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
