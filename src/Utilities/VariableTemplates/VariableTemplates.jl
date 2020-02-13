@@ -108,12 +108,12 @@ Base.similar(v::Vars{S,A,offset}) where {S,A,offset} = Vars{S,A,offset}(similar(
       LT = StaticArrays.lowertriangletype(T)
       N = length(LT)
       U = unit(ST)
-      retexpr = :($T($LT($([:(array[$(offset + i)]*$U) for i = 1:N]...))))
+      retexpr = :($T($LT($([:(array[$(offset + i)].*$U) for i = 1:N]...))))
       offset += N
     elseif T <: StaticArray
       N = length(T)
       U = unit(ST)
-      retexpr = :($T($([:(array[$(offset + i)]*$U) for i = 1:N]...)))
+      retexpr = :($T($([:(array[$(offset + i)].*$U) for i = 1:N]...)))
       offset += N
     else
       retexpr = :(Vars{$T,A,$offset}(array))
@@ -146,12 +146,12 @@ end
       TU = SHermitianCompact{T.parameters[1], R, T.parameters[3]}
       N = length(LT)
       U = inv(unit(R))
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= $TU(val).lowertriangle*$U)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= $TU(val).lowertriangle.*$U)
       offset += N
     elseif T <: StaticArray
       N = length(T)
       U = inv(unit(R))
-      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:]*$U)
+      retexpr = :(array[$(offset + 1):$(offset + N)] .= val[:].*$U)
       offset += N
     else
       offset += varsize(T)
@@ -195,12 +195,12 @@ Base.similar(g::Grad{S,A,offset}) where {S,A,offset} = Grad{S,A,offset}(similar(
     ST = eltype(T)
     if T <: Number
       U = unit(T)
-      retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)]*$U) for i = 1:M]...)))
+      retexpr = :(SVector{$M,$T}($([:(array[$i,$(offset+1)].*$U) for i = 1:M]...)))
       offset += 1
     elseif T <: StaticArray
       N = length(T)
       U = unit(ST)
-      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([:(array[$i,$(offset + j)]*$U) for i = 1:M, j = 1:N]...)))
+      retexpr = :(SMatrix{$M,$N,$(eltype(T))}($([:(array[$i,$(offset + j)].*$U) for i = 1:M, j = 1:N]...)))
       offset += N
     else
       retexpr = :(Grad{$T,A,$offset}(array))
@@ -226,12 +226,12 @@ end
     ST = eltype(T)
     if T <: Number
       U = inv(unit(R))
-      retexpr = :(array[:, $(offset+1)] .= val*$U)
+      retexpr = :(array[:, $(offset+1)] .= val.*$U)
       offset += 1
     elseif T <: StaticArray
       U = inv(unit(R))
       N = length(T)
-      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val*$U)
+      retexpr = :(array[:, $(offset + 1):$(offset + N)] .= val.*$U)
       offset += N
     else
       offset += varsize(T)

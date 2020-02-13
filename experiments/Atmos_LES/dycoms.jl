@@ -126,7 +126,7 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     # Boundary moisture fluxes
     # ----------------------------------------------------------
     # really ∇q_tot is being used to store d_q_tot
-    d_q_tot⁺  = SVector(0, 0, bc.LHF/(LH_v0))
+    d_q_tot⁺  = SVector(0, 0, bc.LHF/FT(LH_v0,false))
 
     # ----------------------------------------------------------
     # Boundary energy fluxes
@@ -181,7 +181,7 @@ function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, stat
   # Constants
   upward_flux_from_cloud  = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
   upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
-  free_troposphere_flux = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * cbrt(Δz_i) * (Δz_i/4 + m.z_i)
+  free_troposphere_flux = m.ρ_i * FT(cp_d,false) * m.D_subsidence * m.α_z * cbrt(Δz_i) * (Δz_i/4 + m.z_i)
   F_rad = upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
   ẑ = vertical_unit_vector(atmos.orientation, aux)
   flux.ρe += F_rad * ẑ
@@ -220,7 +220,7 @@ function init_dycoms!(state, aux, (x,y,z), t)
     q_pt_sfc   = PhasePartition(qref)
     Rm_sfc     = FT(gas_constant_air(q_pt_sfc))
     T_sfc      = FT(290.4)
-    P_sfc      = FT(MSLP)
+    P_sfc      = FT(MSLP,false)
 
     # Specify moisture profiles
     q_liq      = FT(0)
@@ -253,7 +253,7 @@ function init_dycoms!(state, aux, (x,y,z), t)
     end
 
     # Pressure
-    H     = Rm_sfc * T_sfc / grav
+    H     = Rm_sfc * T_sfc / FT(grav,false)
     p     = P_sfc * exp(-z / H)
 
     # Density, Temperature
@@ -261,7 +261,7 @@ function init_dycoms!(state, aux, (x,y,z), t)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
-    e_pot = grav * z
+    e_pot = FT(grav,false) * z
     E     = ρ * total_energy(e_kin, e_pot, ts)
 
     state.ρ               = ρ
@@ -276,7 +276,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Reference state
     T_min   = FT(289)
     T_s     = FT(290.4)
-    Γ_lapse = FT(grav/cp_d)
+    Γ_lapse = FT(grav,false)/FT(cp_d,false)
     T       = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)

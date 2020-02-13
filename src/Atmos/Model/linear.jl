@@ -13,12 +13,11 @@ and, optionally,
  - `ρq_liq` liquid water density
  - `ρq_ice` ice density
 """
-#FIXME
 function linearized_air_pressure(ρ::U(FT,:density), ρe_tot::U(FT,:energypv), ρe_pot::U(FT,:energypv),
                                  ρq_tot::U(FT,:density)=FT(0)*get_unit(ρ isa Quantity, :density),
                                  ρq_liq::U(FT,:density)=FT(0)*get_unit(ρ isa Quantity, :density),
                                  ρq_ice::U(FT,:density)=FT(0)*get_unit(ρ isa Quantity, :density)) where {FT<:Real}
-  u = ρ isa Quantity #FIXME
+  u = ρ isa Quantity #FIXME: Use a more elegant way to determine if units necessary
   ρ*FT(R_d,u)*FT(T_0,u) +
     FT(R_d,u)/FT(cv_d,u) *
     (ρe_tot - ρe_pot - (ρq_tot - ρq_liq)*FT(e_int_v0,u) + ρq_ice*(FT(e_int_i0,u) + FT(e_int_v0,u)))

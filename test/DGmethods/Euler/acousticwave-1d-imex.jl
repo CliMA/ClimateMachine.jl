@@ -64,7 +64,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   setup = AcousticWaveSetup{FT}()
 
-  vert_range = grid1d(FT(planet_radius), FT(planet_radius) + setup.domain_height, nelem = numelem_vert)
+  vert_range = grid1d(FT(planet_radius, false), FT(planet_radius, false) + setup.domain_height, nelem = numelem_vert)
   topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 
   grid = DiscontinuousSpectralElementGrid(topology,
@@ -175,10 +175,10 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 end
 
 Base.@kwdef struct AcousticWaveSetup{FT}
-  domain_height = FT(10e3)
-  T_ref = FT(300)
-  α = FT(3)
-  γ = FT(100)
+  domain_height::FT = 10e3
+  T_ref::FT = 300
+  α::FT = 3
+  γ::FT = 100
   nv::Int = 1
 end
 
@@ -189,7 +189,7 @@ function (setup::AcousticWaveSetup)(state, aux, coords, t)
   r = norm(coords, 2)
   @inbounds λ = atan(coords[2], coords[1])
   @inbounds φ = asin(coords[3] / r)
-  h = r - FT(planet_radius)
+  h = r - FT(planet_radius, false)
 
   β = min(FT(1), setup.α * acos(cos(φ) * cos(λ)))
   f = (1 + cos(FT(π) * β)) / 2

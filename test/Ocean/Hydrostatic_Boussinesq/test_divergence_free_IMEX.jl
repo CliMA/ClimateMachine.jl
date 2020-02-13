@@ -195,7 +195,7 @@ xrange = range(FT(0);  length=Nˣ+1, stop=Lˣ)
 yrange = range(FT(0);  length=Nʸ+1, stop=Lʸ)
 zrange = range(FT(-H); length=Nᶻ+1, stop=0)
 
-const cʰ = sqrt(grav * H)
+const cʰ = sqrt(FT(grav,false) * H)
 const cᶻ = 0
 
 const τₒ = 1e-1  # (m/s)^2

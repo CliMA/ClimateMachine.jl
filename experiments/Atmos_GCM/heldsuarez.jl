@@ -12,7 +12,7 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const p_ground = Float64(MSLP)
+const p_ground = Float64(MSLP,false)
 const T_initial = Float64(255)
 const domain_height = Float64(30e3)
 
@@ -22,9 +22,9 @@ function init_heldsuarez!(state, aux, coords, t)
     FT = eltype(state)
 
     r = norm(coords, 2)
-    h = r - FT(planet_radius)
+    h = r - FT(planet_radius,false)
 
-    scale_height = R_d * T_initial / grav
+    scale_height = FT(R_d,false) * T_initial / FT(grav,false)
     p            = p_ground * exp(-h / scale_height)
 
     state.ρ  = air_density(T_initial, p)
@@ -66,9 +66,9 @@ function held_suarez_forcing!(source, state, aux, t::Real)
     T     = air_temperature(e_int)
 
     # Held-Suarez constants
-    k_a       = FT(1 / (40 * day))
-    k_f       = FT(1 / day)
-    k_s       = FT(1 / (4 * day)) # TODO: day is actually seconds per day; should it be named better?
+    k_a       = FT(1 / (40 * FT(day,false)))
+    k_f       = FT(1 / FT(day,false))
+    k_s       = FT(1 / (4 * FT(day,false))) # TODO: day is actually seconds per day; should it be named better?
     ΔT_y      = FT(60)
     Δθ_z      = FT(10)
     T_equator = FT(315)
@@ -78,14 +78,14 @@ function held_suarez_forcing!(source, state, aux, t::Real)
     r            = norm(coord, 2)
     @inbounds λ  = atan(coord[2], coord[1])
     @inbounds φ  = asin(coord[3] / r)
-    h            = r - FT(planet_radius)
-    scale_height = R_d * T_initial / grav
+    h            = r - FT(planet_radius,false)
+    scale_height = FT(R_d,false) * T_initial / FT(grav,false)
     σ            = exp(-h / scale_height)
 
     # TODO: use
     #  p = air_pressure(T, ρ)
     #  σ = p/p0
-    exner_p       = σ ^ (R_d / cp_d)
+    exner_p       = σ ^ (FT(R_d,false) / FT(cp_d,false))
     Δσ            = (σ - σ_b) / (1 - σ_b)
     height_factor = max(0, Δσ)
     T_equil       = (T_equator - ΔT_y * sin(φ) ^ 2 - Δθ_z * log(σ) * cos(φ) ^ 2 ) * exner_p
@@ -94,7 +94,7 @@ function held_suarez_forcing!(source, state, aux, t::Real)
     k_v           = k_f * height_factor
 
     source.ρu += -k_v * ρu
-    source.ρe += -k_T * ρ * cv_d * (T - T_equil)
+    source.ρe += -k_T * ρ * FT(cv_d,false) * (T - T_equil)
 end
 
 function main()

@@ -161,6 +161,7 @@ end
 
 @inline function flux_nondiffusive!(m::HBModel, F::Grad, Q::Vars,
                                     A::Vars, t::Real)
+  FT = eltype(Q)
   @inbounds begin
     u = Q.u # Horizontal components of velocity
     η = Q.η
@@ -176,10 +177,10 @@ end
     F.θ += v * θ
 
     # ∇h • (g η)
-    F.u += grav * η * Ih
+    F.u += FT(grav,m) * η * Ih
 
     # ∇h • (- ∫(αᵀ θ))
-    F.u += grav * pkin * Ih
+    F.u += FT(grav,m) * pkin * Ih
 
     # ∇h • (v ⊗ u)
     # F.u += v * u'

@@ -28,11 +28,11 @@ using CLIMA.VariableTemplates
 
 function init_risingbubble!(state, aux, (x,y,z), t)
   FT            = eltype(state)
-  R_gas::FT     = R_d
-  c_p::FT       = cp_d
-  c_v::FT       = cv_d
+  R_gas::FT     = FT(R_d,false)
+  c_p::FT       = FT(cp_d,false)
+  c_v::FT       = FT(cv_d,false)
   γ::FT         = c_p / c_v
-  p0::FT        = MSLP
+  p0::FT        = FT(MSLP,false)
 
   xc::FT        = 1250
   yc::FT        = 1250
@@ -48,7 +48,7 @@ function init_risingbubble!(state, aux, (x,y,z), t)
 
   #Perturbed state:
   θ            = θ_ref + Δθ # potential temperature
-  π_exner      = FT(1) - grav / (c_p * θ) * z # exner pressure
+  π_exner      = FT(1) - FT(grav,false) / (c_p * θ) * z # exner pressure
   ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
   P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
   T            = P / (ρ * R_gas) # temperature
@@ -56,7 +56,7 @@ function init_risingbubble!(state, aux, (x,y,z), t)
 
   #State (prognostic) variable assignment
   e_kin        = FT(0)
-  e_pot        = grav * z
+  e_pot        = FT(grav,false) * z
   ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
   state.ρ      = ρ
   state.ρu     = ρu

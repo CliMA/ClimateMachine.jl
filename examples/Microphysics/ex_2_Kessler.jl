@@ -119,9 +119,9 @@ end
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
     # It is done this way to be consistent with Arabas paper.
     # It's not neccesarily the best way to initialize with our model variables.
-    p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-               )^(cp_d / R_d)
+    p = p_1000 * ((p_0 / p_1000)^(FT(R_d,false) / FT(cp_d,false)) -
+                FT(R_d,false) / FT(cp_d,false) * FT(grav,false) / θ_0 / R_m * (z - z_0)
+               )^(FT(cp_d,false) / FT(R_d,false))
 
     aux[_c_p] = p  # for prescribed pressure gradient (kinematic setup)
   end
@@ -141,7 +141,7 @@ end
     S .= 0
 
     # current state
-    e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
+    e_int = e_tot - 1//2 * (u^2 + w^2) - FT(grav,false) * z
     q     = PhasePartition(q_tot, q_liq, FT(0))
     T     = air_temperature(e_int, q)
     # equilibrium state at current T
@@ -164,7 +164,7 @@ end
       S[_ρq_rai]  = ρ * src_q_rai_tot
       S[_ρq_tot] -= ρ * src_q_rai_tot
       S[_ρe_tot] -= ρ * src_q_rai_tot *
-                    (FT(e_int_v0) - (FT(cv_v) - FT(cv_d)) * (T - FT(T_0)))
+                    (FT(e_int_v0,false) - (FT(cv_v,false) - FT(cv_d,false)) * (T - FT(T_0,false)))
     end
   end
 end
@@ -216,9 +216,9 @@ function single_eddy!(Q, t, x, z, _...)
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
     # It is done this way to be consistent with Arabas paper.
     # It's not neccesarily the best way to initialize with our model variables.
-    p = p_1000 * ((p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-               )^(cp_d / R_d)
+    p = p_1000 * ((p_0 / p_1000)^(FT(R_d,false) / FT(cp_d,false)) -
+                FT(R_d,false) / FT(cp_d,false) * FT(grav,false) / θ_0 / R_m * (z - z_0)
+               )^(FT(cp_d,false) / FT(R_d,false))
     T::FT = θ_0 * exner_given_pressure(p, PhasePartition(qt_0))
     ρ::FT = p / R_m / T
 
@@ -234,7 +234,7 @@ function single_eddy!(Q, t, x, z, _...)
     ρq_rai::FT = 0
 
     e_int = internal_energy(T, PhasePartition(qt_0))
-    ρe_tot = ρ * (grav * z + (1//2)*(u^2 + w^2) + e_int)
+    ρe_tot = ρ * (FT(grav,false) * z + (1//2)*(u^2 + w^2) + e_int)
 
     Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_rai] =
       ρ, ρu, ρw, ρe_tot, ρq_tot, ρq_liq, ρq_rai
@@ -325,7 +325,7 @@ function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
         z = aux[_c_z]
         p = aux[_c_p]
 
-        e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
+        e_int = e_tot - 1//2 * (u^2 + w^2) - FT(grav,false) * z
         q = PhasePartition(q_tot, q_liq, FT(0))
 
         R[v_T] = air_temperature(e_int, q)
@@ -339,7 +339,7 @@ function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
         R[v_e_tot] = e_tot
         R[v_e_int] = e_int
         R[v_e_kin] = 1//2 * (u^2 + w^2)
-        R[v_e_pot] = grav * z
+        R[v_e_pot] = FT(grav,false) * z
 
         if(q_rai > FT(0)) # TODO - ensure positive definite elswhere
           R[v_term_vel] = terminal_velocity(q_rai, ρ)

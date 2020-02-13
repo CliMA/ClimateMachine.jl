@@ -38,23 +38,6 @@ include("advection_diffusion_model.jl")
 
 unit_annotations(::AdvectionDiffusion) = true
 
-# Stored in the aux state are:
-#   `coord` coordinate points (needed for BCs)
-#   `u` advection velocity
-#   `D` Diffusion tensor
-vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, units(FT,:space)},
-                                             u::SVector{3, units(FT,:velocity)},
-                                             D::SMatrix{3, 3, units(FT,:kinvisc), 9})
-#
-# Density is only state
-vars_state(::AdvectionDiffusion, FT) = @vars(ρ::units(FT,:density))
-
-# Take the gradient of density
-vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::units(FT,:density))
-
-# The DG auxiliary variable: D ∇ρ
-vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3, units(FT,:massflux)})
-
 struct Pseudo1D{n, α, β, μ, δ} <: AdvectionDiffusionProblem end
 
 function init_velocity_diffusion!(::Pseudo1D{n, α, β}, aux::Vars,
@@ -70,14 +53,14 @@ function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
                             t) where {n, α, β, μ, δ}
   ξn = dot(n, x)
   # ξT = SVector(x) - ξn * n
-  t = ustrip(t) * unit_alias(:time) #FIXME
+  t = ustrip(t) * unit_alias(:time)
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
 Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
 function Neumann_data!(::Pseudo1D{n, α, β, μ, δ}, ∇state, aux, x,
                        t) where {n, α, β, μ, δ}
   ξn = dot(n, x)
-  t = ustrip(t) * unit_alias(:time) #FIXME
+  t = ustrip(t) * unit_alias(:time)
   ∇state.ρ = -(2n * unit_alias(:space) * (ξn - μ - α * t) / (4 * β * (δ + t)) *
                exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ))
 end

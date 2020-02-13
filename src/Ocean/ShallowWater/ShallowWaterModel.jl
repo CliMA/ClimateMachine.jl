@@ -68,12 +68,13 @@ end
 
 @inline function flux_nondiffusive!(m::SWModel, F::Grad, q::Vars,
                                     α::Vars, t::Real)
+  FT = eltype(q)
   U = q.U
   η = q.η
   H = m.problem.H
 
   F.η += U
-  F.U += grav * H * η * I
+  F.U += FT(grav, m) * H * η * I
 
   advective_flux!(m, m.advection, F, q, α, t)
 

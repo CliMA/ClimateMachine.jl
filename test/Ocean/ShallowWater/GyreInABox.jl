@@ -91,7 +91,7 @@ function gyre_init_state!(p::GyreInABox, T::LinearDrag, state,
   ϵ  = γ / (Lˣ * β)
 
   uˢ(ϵ) = (τₒ * D(ϵ)) / (H * γ * π)
-  hˢ(ϵ) = (fₒ * Lˣ * uˢ(ϵ)) / grav
+  hˢ(ϵ) = (fₒ * Lˣ * uˢ(ϵ)) / eltype(aux)(grav,false)
 
   u = uˢ(ϵ) * 𝒰(coords[1]/Lˣ, coords[2]/Lʸ, ϵ)
   v = uˢ(ϵ) * 𝒱(coords[1]/Lˣ, coords[2]/Lʸ, ϵ)
@@ -125,7 +125,7 @@ function gyre_init_state!(p::GyreInABox, V::ConstantViscosity, state, aux,
   ν  = V.ν
 
   δᵐ = (ν / β)^(1/3)
-  C  = τₒ / (grav*H) * (fₒ/β)
+  C  = τₒ / (T(grav, false)*H) * (fₒ/β)
 
   state.η = η_munk(coords[1], coords[2], Lˣ, Lʸ, δᵐ, C)
   state.U = @SVector zeros(T, 3)

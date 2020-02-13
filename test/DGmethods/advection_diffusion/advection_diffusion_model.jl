@@ -28,6 +28,27 @@ struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
   end
 end
 
+# Stored in the aux state are:
+#   `coord` coordinate points (needed for BCs)
+#   `u` advection velocity
+#   `D` Diffusion tensor
+vars_aux(m::AdvectionDiffusion, FT) = @uvars m begin
+  coord::SVector{3, U(FT,:space)}
+  u::SVector{3, U(FT,:velocity)}
+  D::SMatrix{3, 3, U(FT,:kinvisc), 9}
+end
+
+#
+# Density is only state
+vars_state(m::AdvectionDiffusion, FT) = @uvars(m, ρ::U(FT,:density))
+
+# Take the gradient of density
+vars_gradient(m::AdvectionDiffusion, FT) = @uvars(m, ρ::U(FT,:density))
+
+# The DG auxiliary variable: D ∇ρ
+vars_diffusive(m::AdvectionDiffusion, FT) =
+  @uvars(m, σ::SVector{3,U(FT,:massflux)})
+
 """
     flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
                        aux::Vars, t::Real)

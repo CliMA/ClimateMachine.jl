@@ -144,7 +144,7 @@ function Atmos_GCM_Configuration(
                    nelem_horz, nelem_vert, domain_height,
                    MPI.Comm_size(mpicomm))
 
-    vert_range = grid1d(FT(planet_radius), FT(planet_radius+domain_height), nelem=nelem_vert)
+    vert_range = grid1d(FT(planet_radius,false), FT(FT(planet_radius,false)+domain_height), nelem=nelem_vert)
 
     topology = StackedCubedSphereTopology(mpicomm, nelem_horz, vert_range)
 

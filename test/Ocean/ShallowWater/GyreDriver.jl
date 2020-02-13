@@ -27,7 +27,7 @@ const Lˣ = 1e6
 const Lʸ = 1e6
 const timeend = 100 * 24 * 60 * 60
 const H = 1000
-const c = sqrt(grav * H)
+const c = sqrt(FT(grav, false) * H)
 
 if stommel
   gyre = "stommel"

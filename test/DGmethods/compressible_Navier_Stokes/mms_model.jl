@@ -79,7 +79,7 @@ end
 
 function diffusive!(m::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
   T = eltype(diffusive)
-  μ = units(T, u"kg/m/s")(μ_exact)
+  μ = T(μ_exact) * unit_alias(:dynvisc)
 
   dudx, dudy, dudz = ∇transform.u
   dvdx, dvdy, dvdz = ∇transform.v

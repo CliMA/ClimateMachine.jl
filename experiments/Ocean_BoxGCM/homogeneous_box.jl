@@ -13,7 +13,7 @@ import CLIMA.DGmethods: vars_state
 function config_simple_box(FT, N, resolution, dimensions)
   prob = HomogeneousBox{FT}(dimensions...)
 
-  cʰ = sqrt(grav * prob.H) # m/s
+  cʰ = sqrt(FT(grav, false) * prob.H) # m/s
   model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
 
   config = CLIMA.Ocean_BoxGCM_Configuration("homogeneous_box",

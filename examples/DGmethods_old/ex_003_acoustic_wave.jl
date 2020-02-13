@@ -221,14 +221,14 @@ end
 function auxiliary_state_initialization!(T0, aux, x, y, z)
   @inbounds begin
     FT = eltype(aux)
-    p0 = FT(MSLP)
+    p0 = FT(MSLP, false)
 
     ## Convert to Spherical coordinates
     (r, _, _) = cartesian_to_spherical(FT, x, y, z)
 
     ## Calculate the geopotential ϕ
-    h = r - FT(planet_radius) # height above the planet surface
-    ϕ = FT(grav) * h
+    h = r - FT(planet_radius, false) # height above the planet surface
+    ϕ = FT(grav, false) * h
 
     ## Pressure assuming hydrostatic balance
     P_ref = p0 * exp(-ϕ / (gas_constant_air(FT) * T0))
@@ -258,10 +258,10 @@ end
 function initialcondition!(domain_height, Q, x, y, z, aux, _...)
   @inbounds begin
     FT = eltype(Q)
-    p0 = FT(MSLP)
+    p0 = FT(MSLP, false)
 
     (r, λ, φ) = cartesian_to_spherical(FT, x, y, z)
-    h = r - FT(planet_radius)
+    h = r - FT(planet_radius, false)
 
     ## Get the reference pressure from the previously defined reference state
     ρ_ref, ρe_ref, ϕ = aux[_a_ρ_ref], aux[_a_ρe_ref], aux[_a_ϕ]
@@ -334,8 +334,8 @@ function setupDG(mpicomm, Ne_vertical, Ne_horizontal, polynomialorder,
                  ArrayType, domain_height, T0, FT)
 
   ## Create the element grid in the vertical direction
-  Rrange = range(FT(planet_radius), length = Ne_vertical + 1,
-                 stop = planet_radius + domain_height)
+  Rrange = range(FT(planet_radius, false), length = Ne_vertical + 1,
+                 stop = FT(planet_radius, false) + domain_height)
 
   ## Set up the mesh topology for the sphere
   topology = StackedCubedSphereTopology(mpicomm, Ne_horizontal, Rrange)

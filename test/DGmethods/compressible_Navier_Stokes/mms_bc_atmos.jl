@@ -116,12 +116,13 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                                           polynomialorder = N,
                                           meshwarp = warpfun,
                                          )
+  μ = FT(μ_exact) * unit_alias(:dynvisc)
 
   if dim == 2
     model = AtmosModel{FT}(AtmosLESConfiguration;
                            orientation=NoOrientation(),
                               ref_state=NoReferenceState(),
-                             turbulence=ConstantViscosityWithDivergence(FT(μ_exact)),
+                             turbulence=ConstantViscosityWithDivergence(μ),
                                moisture=MMSDryModel(),
                                  source=mms2_source!,
                       boundarycondition=InitStateBC(),
@@ -130,7 +131,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
     model = AtmosModel{FT}(AtmosLESConfiguration;
                             orientation=NoOrientation(),
                               ref_state=NoReferenceState(),
-                             turbulence=ConstantViscosityWithDivergence(FT(μ_exact)),
+                             turbulence=ConstantViscosityWithDivergence(μ),
                                moisture=MMSDryModel(),
                                  source=mms3_source!,
                       boundarycondition=InitStateBC(),

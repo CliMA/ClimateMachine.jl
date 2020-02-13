@@ -71,11 +71,11 @@ function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxG
   @inbounds begin
     Y⁺.ρu = -Y⁻.ρu
     if bctype == 1
-      E_int⁺ = Y⁺.ρ * cv_d * (bc.T_bot - T_0)
+      E_int⁺ = Y⁺.ρ * FT(cv_d,false) * (bc.T_bot - FT(T_0,false))
     else
-      E_int⁺ = Y⁺.ρ * cv_d * (bc.T_top - T_0)
+      E_int⁺ = Y⁺.ρ * FT(cv_d,false) * (bc.T_top - FT(T_0,false))
     end
-    E_bc = (E_int⁺ + Y⁺.ρ * A⁺.coord[3] * grav)
+    E_bc = (E_int⁺ + Y⁺.ρ * A⁺.coord[3] * FT(grav,false))
     Y⁺.ρe = E_bc
   end
 end
@@ -110,25 +110,25 @@ const randomseed         = MersenneTwister(1)
 const (xmin, ymin, zmin) = (0,0,0)
 const (xmax, ymax, zmax) = (250,250,500)
 const T_bot              = 299
-const T_lapse            = grav/cp_d
+const T_lapse            = Float64(grav,false)/Float64(cp_d,false)
 const T_top              = T_bot - T_lapse*zmax
 
 function init_problem!(state, aux, (x,y,z), t)
   FT            = eltype(state)
-  R_gas::FT     = R_d
-  c_p::FT       = cp_d
-  c_v::FT       = cv_d
+  R_gas::FT     = FT(R_d,false)
+  c_p::FT       = FT(cp_d,false)
+  c_v::FT       = FT(cv_d,false)
   γ::FT         = c_p / c_v
-  p0::FT        = MSLP
+  p0::FT        = FT(MSLP,false)
   δT            = sinpi(6*z/(zmax-zmin)) * cospi(6*z/(zmax-zmin)) + rand(randomseed)
   δw            = sinpi(6*z/(zmax-zmin)) * cospi(6*z/(zmax-zmin)) + rand(randomseed)
-  ΔT            = grav/cp_d * z + δT
+  ΔT            = FT(grav,false)/FT(cp_d,false) * z + δT
   T             = T_bot - ΔT
-  P             = p0*(T/T_bot)^(grav/R_gas/T_lapse)
+  P             = p0*(T/T_bot)^(FT(grav,false)/R_gas/T_lapse)
   ρ             = P / (R_gas * T)
   ρu, ρv, ρw    = FT(0) , FT(0) , ρ * δw
-  E_int         = ρ * c_v * (T-T_0)
-  E_pot         = ρ * grav * z
+  E_int         = ρ * c_v * (T-FT(T_0,false))
+  E_pot         = ρ * FT(grav,false) * z
   E_kin         = ρ * FT(1/2) * δw^2
   ρe_tot        = E_int + E_pot + E_kin
   state.ρ       = ρ
