@@ -19,7 +19,8 @@ v = sin(t) * sin(φ) ^ 2 * sin(θ) ^ 2 * sin(pi * (r - a) / b) ^ 2
 w = sin(t) * cos(φ) ^ 3 * sin(θ) ^ 1 * sin(pi * (r - a) / b) ^ 1
 
 
-∇ρ = (diff(sin(θ) * v * ρ, θ) + diff(u * ρ, φ)) / (r * sin(θ))
+#∇ρ = (diff(sin(θ) * v * ρ, θ) + diff(u * ρ, φ)) / (r * sin(θ))
+∇ρ = diff(r ^ 2 * w * ρ, r) / r ^ 2
 
 dρdt = simplify(diff(ρ, t) + ∇ρ)
 

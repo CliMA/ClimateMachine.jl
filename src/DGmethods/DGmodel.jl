@@ -77,8 +77,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     end
   end
 
-  direction = HorizontalDirection()
+  #direction = HorizontalDirection()
   #direction = EveryDirection()
+  direction = VerticalDirection()
 
   if nviscstate > 0 || nhyperviscstate > 0
 

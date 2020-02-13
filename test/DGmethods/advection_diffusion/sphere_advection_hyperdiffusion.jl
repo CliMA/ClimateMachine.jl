@@ -85,7 +85,7 @@ function run(mpicomm, dim, topl, N, timeend, FT, vtkdir, outputtime, ArrayType)
                CentralNumericalFluxNonDiffusive(),
                CentralNumericalFluxDiffusive(),
                CentralNumericalFluxGradient();
-               direction =HorizontalDirection())
+               direction = VerticalDirection())
 
   Q = init_ode_state(dg, FT(0))
 

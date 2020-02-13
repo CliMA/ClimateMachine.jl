@@ -166,23 +166,23 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
               end
 
               # ξ1-grid lines
-              l_rhs[s, i, j, k] -= l_ξ1x1[i, j, k] * Din * s_F[1, n, j, k, s]
-              l_rhs[s, i, j, k] -= l_ξ1x2[i, j, k] * Din * s_F[2, n, j, k, s]
-              l_rhs[s, i, j, k] -= l_ξ1x3[i, j, k] * Din * s_F[3, n, j, k, s]
+              #l_rhs[s, i, j, k] -= l_ξ1x1[i, j, k] * Din * s_F[1, n, j, k, s]
+              #l_rhs[s, i, j, k] -= l_ξ1x2[i, j, k] * Din * s_F[2, n, j, k, s]
+              #l_rhs[s, i, j, k] -= l_ξ1x3[i, j, k] * Din * s_F[3, n, j, k, s]
 
-              ## ξ2-grid lines
-              if dim == 3 || (dim == 2 && direction == EveryDirection)
-                l_rhs[s, i, j, k] -= l_ξ2x1[i, j, k] * Djn * s_F[1, i, n, k, s]
-                l_rhs[s, i, j, k] -= l_ξ2x2[i, j, k] * Djn * s_F[2, i, n, k, s]
-                l_rhs[s, i, j, k] -= l_ξ2x3[i, j, k] * Djn * s_F[3, i, n, k, s]
-              end
+              ### ξ2-grid lines
+              #if dim == 3 || (dim == 2 && direction == EveryDirection)
+              #  l_rhs[s, i, j, k] -= l_ξ2x1[i, j, k] * Djn * s_F[1, i, n, k, s]
+              #  l_rhs[s, i, j, k] -= l_ξ2x2[i, j, k] * Djn * s_F[2, i, n, k, s]
+              #  l_rhs[s, i, j, k] -= l_ξ2x3[i, j, k] * Djn * s_F[3, i, n, k, s]
+              #end
 
-              ## ξ3-grid lines
-              if dim == 3 && direction == EveryDirection
-                l_rhs[s, i, j, k] -= l_ξ3x1[i, j, k] * Dkn * s_F[1, i, j, n, s]
-                l_rhs[s, i, j, k] -= l_ξ3x2[i, j, k] * Dkn * s_F[2, i, j, n, s]
-                l_rhs[s, i, j, k] -= l_ξ3x3[i, j, k] * Dkn * s_F[3, i, j, n, s]
-              end
+              ### ξ3-grid lines
+              #if dim == 3 && direction == EveryDirection
+              #  l_rhs[s, i, j, k] -= l_ξ3x1[i, j, k] * Dkn * s_F[1, i, j, n, s]
+              #  l_rhs[s, i, j, k] -= l_ξ3x2[i, j, k] * Dkn * s_F[2, i, j, n, s]
+              #  l_rhs[s, i, j, k] -= l_ξ3x3[i, j, k] * Dkn * s_F[3, i, j, n, s]
+              #end
             end
           end
         end
@@ -274,18 +274,18 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
               if dim == 3 && direction == EveryDirection
                 Dkn =  2 * s_half_D[k, n] * s_ω[k] / s_ω[n]
               end
-              ## ξ1-grid lines
-              #l_rhs[s, i, j, k] -= MI * Din * s_F[1, n, j, k, s]
+              # ξ1-grid lines
+              l_rhs[s, i, j, k] -= MI * Din * s_F[1, n, j, k, s]
 
-              ### ξ2-grid lines
-              #if dim == 3 || (dim == 2 && direction == EveryDirection)
-              #  l_rhs[s, i, j, k] -= MI * Djn * s_F[2, i, n, k, s]
-              #end
+              ## ξ2-grid lines
+              if dim == 3 || (dim == 2 && direction == EveryDirection)
+                l_rhs[s, i, j, k] -= MI * Djn * s_F[2, i, n, k, s]
+              end
 
-              ### ξ3-grid lines
-              #if dim == 3 && direction == EveryDirection
-              #  l_rhs[s, i, j, k] -= MI * Dkn * s_F[3, i, j, n, s]
-              #end
+              ## ξ3-grid lines
+              if dim == 3 && direction == EveryDirection
+                l_rhs[s, i, j, k] -= MI * Dkn * s_F[3, i, j, n, s]
+              end
             end
           end
         end
@@ -405,17 +405,17 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::VerticalDire
         @loop for i in (1:Nq; threadIdx().x)
           @unroll for n = 1:Nq
             @unroll for s = 1:nstate
-              if dim == 2
-                Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
-                l_rhs[s, i, j, k] += l_ζx1[i, j, k] * Dnj * s_F[1, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ζx2[i, j, k] * Dnj * s_F[2, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ζx3[i, j, k] * Dnj * s_F[3, i, n, k, s]
-              else
-                Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k]
-                l_rhs[s, i, j, k] += l_ζx1[i, j, k] * Dnk * s_F[1, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ζx2[i, j, k] * Dnk * s_F[2, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ζx3[i, j, k] * Dnk * s_F[3, i, j, n, s]
-              end
+              #if dim == 2
+              #  Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
+              #  l_rhs[s, i, j, k] += l_ζx1[i, j, k] * Dnj * s_F[1, i, n, k, s]
+              #  l_rhs[s, i, j, k] += l_ζx2[i, j, k] * Dnj * s_F[2, i, n, k, s]
+              #  l_rhs[s, i, j, k] += l_ζx3[i, j, k] * Dnj * s_F[3, i, n, k, s]
+              #else
+              #  Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k]
+              #  l_rhs[s, i, j, k] += l_ζx1[i, j, k] * Dnk * s_F[1, i, j, n, s]
+              #  l_rhs[s, i, j, k] += l_ζx2[i, j, k] * Dnk * s_F[2, i, j, n, s]
+              #  l_rhs[s, i, j, k] += l_ζx3[i, j, k] * Dnk * s_F[3, i, j, n, s]
+              #end
             end
           end
         end
@@ -469,10 +469,10 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::VerticalDire
           @unroll for s = 1:nstate
             @unroll for n = 1:Nq
               if dim == 2
-                Dnj = s_half_D[n, j]
+                Dnj = 2 * s_half_D[n, j]
                 l_rhs[s, i, j, k] += MI * Dnj * s_F[3, i, n, k, s]
               else
-                Dnk = s_half_D[n, k]
+                Dnk = 2 * s_half_D[n, k]
                 l_rhs[s, i, j, k] += MI * Dnk * s_F[3, i, j, n, s]
               end
             end

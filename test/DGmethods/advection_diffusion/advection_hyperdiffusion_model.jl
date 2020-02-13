@@ -121,4 +121,13 @@ function init_state!(m::HyperDiffusion, state::Vars, aux::Vars,
   initial_condition!(m.problem, state, aux, coords, t)
 end
 
-boundary_state!(nf, ::HyperDiffusion, _...) = nothing
+function boundary_state!(nf, m::HyperDiffusion, stateP::Vars, auxP::Vars,
+                         nM, stateM::Vars, auxM::Vars, bctype, t, _...)
+  stateP.ρ = 0
+end
+
+function boundary_state!(nf, m::HyperDiffusion, stateP::Vars, diffP::Vars,
+                         auxP::Vars, nM, stateM::Vars, diffM::Vars, auxM::Vars,
+                         bctype, t, _...)
+  nothing
+end
