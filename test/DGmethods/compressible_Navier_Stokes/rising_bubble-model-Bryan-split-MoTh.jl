@@ -29,28 +29,27 @@ if !@isdefined integration_testing
 end
 
 # -------------- Problem constants ------------------- #
-const (xmin,xmax)      = (0,1000)
+const (xmin,xmax)      = (0,20000)
 const (ymin,ymax)      = (0,400)
-const (zmin,zmax)      = (0,1000)
-const Ne        = (10,2,10)
-const polynomialorder = 4
+const (zmin,zmax)      = (0,10000)
+const Ne        = (160,2,80)
+const polynomialorder = 1
 const dim       = 3
-const dt        = 0.1
-const timeend   = 10dt
+const dt        = 1.0
+const timeend   = 1000.0
 # ------------- Initial condition function ----------- #
 """
-@article{doi:10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2,
-author = {Robert, A},
-title = {Bubble Convection Experiments with a Semi-implicit Formulation of the Euler Equations},
-journal = {Journal of the Atmospheric Sciences},
-volume = {50},
-number = {13},
-pages = {1865-1873},
-year = {1993},
-doi = {10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2},
-URL = {https://doi.org/10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2},
-eprint = {https://doi.org/10.1175/1520-0469(1993)050<1865:BCEWAS>2.0.CO;2},
-}
+@article{doi:10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2,
+author = {Bryan, George H. and Fritsch, J. Michael},
+title = {A Benchmark Simulation for Moist Nonhydrostatic Numerical Models},
+journal = {Monthly Weather Review},
+volume = {130},
+number = {12},
+pages = {2917-2928},
+year = {2002},
+doi = {10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2},
+URL = { https://doi.org/10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2 },
+eprint = { https://doi.org/10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2 }
 """
 function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
@@ -60,15 +59,15 @@ function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
   γ::FT         = c_p / c_v
   p0::FT        = MSLP
 
-  xc::FT        = 500
-  zc::FT        = 260
+  xc::FT        = 10000
+  zc::FT        = 2000
   r             = sqrt((x1 - xc)^2 + (x3 - zc)^2)
-  rc::FT        = 250
-  θ_ref::FT     = 303
+  rc::FT        = 2000
+  θ_ref::FT     = 300
   Δθ::FT        = 0
 
   if r <= rc
-    Δθ          = FT(1//2)
+    Δθ = 2*cospi(0.5*r/rc)^2
   end
   #Perturbed state:
   θ            = θ_ref + Δθ # potential temperature
@@ -98,8 +97,8 @@ function run(mpicomm, ArrayType, LinearType,
                                            )
   # -------------- Define model ---------------------------------- #
   model = AtmosModel(FlatOrientation(),
-                     HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)),
-                     Vreman{FT}(C_smag),
+                     HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)), #NoReferenceState()
+                     Vreman{FT}(C_smag), #SmagorinskyLilly{FT}(0.23) -> Allgemein verwendbar
                      EquilMoist(),
                      NoPrecipitation(),
                      NoRadiation(),
@@ -115,8 +114,20 @@ function run(mpicomm, ArrayType, LinearType,
                CentralNumericalFluxGradient())
 
 
+  fast_model_momentum = AtmosAcousticLinearModelMomentum(model)
+  fast_dg_momentum = DGModel(fast_model_momentum,
+               grid,
+               Rusanov(),
+               CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient(); auxstate=dg.auxstate)
+  fast_model_thermo = AtmosAcousticLinearModelThermo(model)
+  fast_dg_thermo = DGModel(fast_model_thermo,
+               grid,
+               Rusanov(),
+               CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxGradient(); auxstate=dg.auxstate)
 
-  fast_model = LinearType(model)
+  fast_model = AtmosAcousticLinearModel(model) #Wegkürzen und Tupel übergeben?
   slow_model = RemainderModel(model, (fast_model,))
   slow_dg = DGModel(slow_model,
                grid,
@@ -124,17 +135,10 @@ function run(mpicomm, ArrayType, LinearType,
                CentralNumericalFluxDiffusive(),
                CentralNumericalFluxGradient() ; auxstate=dg.auxstate)
 
-
-  fast_dg = DGModel(fast_model,
-               grid,
-               Rusanov(),
-               CentralNumericalFluxDiffusive(),
-               CentralNumericalFluxGradient(); auxstate=dg.auxstate)
-
   Q = init_ode_state(dg, FT(0))
 
-  ns = 20
-  mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
+  ns=15
+  mis = MIS2(slow_dg, (fast_dg_momentum, fast_dg_thermo), (dgt,Q) -> StormerVerlet(dgt, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
 
 
   eng0 = norm(Q)
@@ -162,12 +166,12 @@ function run(mpicomm, ArrayType, LinearType,
   end
 
   step = [0]
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(3000)  do (init=false)
+  cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
     mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITNEW%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
-      writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), param[1], flattenednames(vars_aux(model,FT)))
+      writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), dg.auxstate, flattenednames(vars_aux(model,FT)))
       step[1] += 1
       nothing
   end
@@ -205,8 +209,9 @@ let
                   range(FT(ymin); length=Ne[2]+1, stop=ymax),
                   range(FT(zmin); length=Ne[3]+1, stop=zmax))
     topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
-    for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
-      @show LinearType
+    #for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
+    #  @show LinearType
+    LinearType=AtmosAcousticLinearModel
       engf_eng0 = run(mpicomm, ArrayType, LinearType,
                       topl, dim, Ne, polynomialorder,
                       timeend, FT, dt)

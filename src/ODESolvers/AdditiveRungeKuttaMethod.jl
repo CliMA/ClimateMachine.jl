@@ -19,10 +19,11 @@ include("AdditiveRungeKuttaMethod_kernels.jl")
 using StaticArrays
 
 using ..ODESolvers
-ODEs = ODESolvers
+const ODEs = ODESolvers
 using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
+using CLIMA.MultirateInfinitesimalStepMethod: TimeScaledRHS
 
 
 
@@ -77,7 +78,7 @@ and the optional initial time `t0`. The resulting linear systems are solved
 using the provided `linearsolver` solver. This time stepping object is intended
 to be passed to the `solve!` command.
 
-The constructor builds an additive Runge--Kutta scheme 
+The constructor builds an additive Runge--Kutta scheme
 based on the provided `RKAe`, `RKAi`, `RKB` and `RKC` coefficient arrays.
 Additionally `variant` specifies which of the analytically equivalent but numerically
 different formulations of the scheme is used.
@@ -133,13 +134,13 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: 
     T = eltype(Q)
     LT = typeof(linearsolver)
     RT = real(T)
-    
+
     Nstages = length(RKB)
 
     Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
     Rstages = ntuple(i -> similar(Q), Nstages)
     Qhat = similar(Q)
-    
+
     V = typeof(variant)
     variant_storage = additional_storage(variant, Q, Nstages)
     VS = typeof(variant_storage)
@@ -165,6 +166,23 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: 
                                                     variant, variant_storage)
   end
 end
+
+function AdditiveRungeKutta(fun::Symbol, rhs!::TimeScaledRHS{2,RT} where RT,
+                            linearsolver::AbstractLinearSolver, Q::AT;
+                            dt=0, t0=0, split_nonlinear_linear=true, #!!!
+                            variant=NaiveVariant()) where {AT<:AbstractArray}
+  #=
+  rhs_h! = (dQ, Q, params, tau; increment) -> rhs!(dQ, Q, params, tau, 1; increment=increment)
+  rhs_v! = (dQ, Q, params, tau; increment) -> rhs!(dQ, Q, params, tau, 2; increment=increment)
+  getfield(AdditiveRungeKuttaMethod,fun)(rhs_h!, rhs_v!, linearsolver, Q;
+                                         dt=dt, t0=t0, split_nonlinear_linear=split_nonlinear_linear,
+                                         variant=variant)
+  =#
+  getfield(AdditiveRungeKuttaMethod,fun)(rhs!.rhs![1], rhs!.rhs![2], linearsolver, Q;
+                                         dt=dt, t0=t0, split_nonlinear_linear=split_nonlinear_linear,
+                                         variant=variant)
+end
+
 
 function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                             spacedisc_linear::AbstractSpaceMethod,
@@ -215,6 +233,15 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
   ODEs.dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_rv_dQ, slow_scaling)
 end
 
+#Wrapper for MIS
+function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real, nsteps::Int,
+                      slow_δ = nothing, slow_rv_dQ = nothing,
+                      slow_scaling = nothing)
+  for i in 1:nsteps
+    ODEs.dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_rv_dQ, slow_scaling)
+  end
+end
+
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
                       p, time::Real, dt::Real,
                       slow_δ = nothing, slow_rv_dQ = nothing,
@@ -227,7 +254,6 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
   Qhat = ark.Qhat
   split_nonlinear_linear = ark.split_nonlinear_linear
   Lstages = ark.variant_storage.Lstages
-
   rv_Q = realview(Q)
   rv_Qstages = realview.(Qstages)
   rv_Lstages = realview.(Lstages)
@@ -241,7 +267,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-  
+
   if dt != ark.dt
     α = dt * RKA_implicit[2, 2]
     implicitoperator! = EulerOperator(rhs_linear!, -α)
@@ -267,7 +293,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
       @. LQ = Q - α * LQ
     end
     linearsolve!(implicitoperator!, linearsolver, Qstages[istage], Qhat, p, stagetime)
-    
+
     rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
     rhs_linear!(Lstages[istage], Qstages[istage], p, stagetime, increment = false)
   end
@@ -343,6 +369,36 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
                            slow_δ, slow_rv_dQ, slow_scaling))
 end
 
+function ARKIMEX(F, L,
+                 linearsolver::AbstractLinearSolver,
+                 Q::AT; dt=nothing, t0=0,
+                 split_nonlinear_linear=false,
+                 variant=LowStorageVariant(),
+                 paperversion=false) where {AT<:AbstractArray}
+
+  @assert dt != nothing
+
+  T = eltype(Q)
+  RT = real(T)
+
+  RKA_explicit = [RT(0) RT(0);
+                  RT(1) RT(0)]
+
+  RKA_implicit = [RT(0) RT(0);
+                  RT(0) RT(1)]
+
+  RKB = [RT(0), RT(1)]
+  RKC = [RT(0), RT(1)]
+
+  Nstages = length(RKB)
+
+  AdditiveRungeKutta(F, L, linearsolver,
+                     RKA_explicit, RKA_implicit, RKB, RKC,
+                     split_nonlinear_linear,
+                     variant,
+                     Q; dt=dt, t0=t0)
+end
+
 """
     ARK2GiraldoKellyConstantinescu(f, l, linearsolver, Q; dt, t0,
                                    split_nonlinear_linear, variant, paperversion)
@@ -392,7 +448,7 @@ function ARK2GiraldoKellyConstantinescu(F, L,
 
   RKB = [RT(1 / (2sqrt(2))), RT(1 / (2sqrt(2))), RT(1 - 1 / sqrt(2))]
   RKC = [RT(0), RT(2 - sqrt(2)), RT(1)]
-  
+
   Nstages = length(RKB)
 
   AdditiveRungeKutta(F, L, linearsolver,
@@ -493,7 +549,7 @@ function ARK548L2SA2KennedyCarpenter(F, L,
   RKA_explicit[8, 5] = RT(4151782504231 // 36106512998704)
   RKA_explicit[8, 6] = RT(572599549169 // 6265429158920)
   RKA_explicit[8, 7] = RT(-457874356192 // 11306498036315)
-  
+
   RKB[2] = 0
   RKB[3] = RT(3517720773327 // 20256071687669)
   RKB[4] = RT(4569610470461 // 17934693873752)
@@ -507,11 +563,11 @@ function ARK548L2SA2KennedyCarpenter(F, L,
   RKC[5] = RT(6365430648612 // 17842476412687)
   RKC[6] = RT(18 // 25)
   RKC[7] = RT(191 // 200)
-  
+
   for is = 2:Nstages
     RKA_implicit[is, 1] = RKA_implicit[is, 2]
   end
- 
+
   for is = 1:Nstages-1
     RKA_implicit[Nstages, is] = RKB[is]
   end

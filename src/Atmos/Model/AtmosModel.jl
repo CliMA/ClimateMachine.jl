@@ -2,6 +2,8 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
+       AtmosAcousticLinearModelMomentum, AtmosAcousticLinearModelThermo,
+       AtmosAcousticGravityLinearModelMomentum, AtmosAcousticGravityLinearModelThermo,
        RemainderModel
 
 using LinearAlgebra, StaticArrays
