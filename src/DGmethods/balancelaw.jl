@@ -55,6 +55,8 @@ function boundary_state! end
 function init_aux! end
 function init_state! end
 
+function calculate_dt end
+
 function create_state(bl::BalanceLaw, grid, commtag)
   topology = grid.topology
   # FIXME: Remove after updating CUDA

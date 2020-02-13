@@ -18,6 +18,7 @@ using CLIMA.PlanetParameters: grav
 using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU, SingleColumnLU
+using CLIMA.HydrostaticBoussinesq: AbstractHydrostaticBoussinesqProblem
 import CLIMA.HydrostaticBoussinesq: ocean_init_aux!, ocean_init_state!,
                                     ocean_boundary_state!,
                                     CoastlineFreeSlip, CoastlineNoSlip,
@@ -34,17 +35,7 @@ const ArrayType = CLIMA.array_type()
 HBModel   = HydrostaticBoussinesqModel
 HBProblem = HydrostaticBoussinesqProblem
 
-@inline function ocean_boundary_state!(m::HBModel, bctype, x...)
-  if bctype == 1
-    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-  elseif bctype == 2
-    ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
-  elseif bctype == 3
-    ocean_boundary_state!(m, OceanSurfaceStressNoForcing(), x...)
-  end
-end
-
-struct SimpleBox{T} <: HBProblem
+struct SimpleBox{T} <: AbstractHydrostaticBoussinesqProblem
   Lˣ::T
   Lʸ::T
   H::T
@@ -53,6 +44,16 @@ struct SimpleBox{T} <: HBProblem
   β::T
   λʳ::T
   θᴱ::T
+end
+
+@inline function ocean_boundary_state!(m::HBModel, p::SimpleBox, bctype, x...)
+  if bctype == 1
+    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+  elseif bctype == 2
+    ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
+  elseif bctype == 3
+    ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
+  end
 end
 
 # A is Filled afer the state
@@ -70,12 +71,8 @@ function ocean_init_aux!(m::HBModel, P::SimpleBox, A, geom)
   A.f  =  fₒ + β * y
   A.θʳ =  θᴱ * (1 - y / Lʸ)
 
-  κʰ = m.κʰ
-  κᶻ = m.κᶻ
-
-  # A.κ = @SMatrix [ κʰ -0 -0; -0 κʰ -0; -0 -0 κᶻ]
-  A.κᶻ = κᶻ
-
+  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
+  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
 end
 
 function ocean_init_state!(P::SimpleBox, Q, A, coords, t)
@@ -123,7 +120,7 @@ function main()
 
   prob = SimpleBox{FT}(Lˣ, Lʸ, H, τₒ, fₒ, β, λʳ, θᴱ)
 
-  model = HBModel{typeof(prob),FT}(prob, cʰ, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+  model = HBModel{FT}(prob, cʰ = cʰ)
 
   linearmodel = LinearHBModel(model)
 
@@ -226,7 +223,7 @@ const tout    = 6 * 24 * 60 * 60 # s
 const N  = 4
 const Nˣ = 20
 const Nʸ = 20
-const Nᶻ = 400
+const Nᶻ = 20
 const Lˣ = 4e6  # m
 const Lʸ = 4e6  # m
 const H  = 400  # m

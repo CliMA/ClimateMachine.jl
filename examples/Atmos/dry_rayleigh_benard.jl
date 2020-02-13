@@ -151,12 +151,12 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
                                source=(Gravity(),),
                     boundarycondition=bc,
                            init_state=init_problem!)
-
-    config = CLIMA.LES_Configuration("DryRayleighBenardConvection",
-                                     N, resolution, xmax, ymax, zmax,
-                                     init_problem!,
-                                     solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
-                                     model=model)
+    ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
+    config = CLIMA.Atmos_LES_Configuration("DryRayleighBenardConvection",
+                                           N, resolution, xmax, ymax, zmax,
+                                           init_problem!,
+                                           solver_type=ode_solver,
+                                           model=model)
     return config
 end
 
@@ -177,7 +177,8 @@ function main()
         Δv = Δh
         resolution = (Δh, Δh, Δv)
         driver_config = config_problem(FT, N, resolution, xmax, ymax, zmax)
-        solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=CFLmax)
+        solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
+                                           forcecpu=true, Courant_number=CFLmax)
         # User defined callbacks (TMAR positivity preserving filter)
         cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
             Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())

@@ -71,8 +71,8 @@ function main()
     t0 = FT(0)
     timeend = FT(10)
 
-    driver_config = CLIMA.LES_Configuration("Driver test", N, resolution,
-                                            xmax, ymax, zmax, init_test!)
+    driver_config = CLIMA.Atmos_LES_Configuration("Driver test", N, resolution,
+                                                  xmax, ymax, zmax, init_test!)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config)
 
     result = CLIMA.invoke!(solver_config)

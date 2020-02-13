@@ -8,7 +8,6 @@ using Printf
 using Requires
 
 using ..AdditiveRungeKuttaMethod
-using ..Atmos
 using ..VTK
 using ..ColumnwiseLUSolver
 using ..Diagnostics
@@ -17,6 +16,7 @@ using ..LowStorageRungeKuttaMethod
 using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
 using ..MoistThermodynamics
 using ..MPIStateArrays
+using ..DGmethods: update_aux!, update_aux_diffusive!
 using ..TicToc
 
 Base.@kwdef mutable struct CLIMA_Settings
@@ -211,16 +211,28 @@ function setup_solver(t0::FT, timeend::FT,
                       forcecpu=false,
                       ode_solver_type=nothing,
                       ode_dt=nothing,
-                      Courant_number=0.4,
-                      T=FT(290)
+                      modeldata=nothing,
+                      Courant_number=0.4
                      ) where {FT<:AbstractFloat}
     @tic setup_solver
 
+    bl = driver_config.bl
+    grid = driver_config.grid
+    numfluxnondiff = driver_config.numfluxnondiff
+    numfluxdiff = driver_config.numfluxdiff
+    gradnumflux = driver_config.gradnumflux
+
     # create DG model, initialize ODE state
-    dg = DGModel(driver_config.bl, driver_config.grid, driver_config.numfluxnondiff,
-                 driver_config.numfluxdiff, driver_config.gradnumflux)
+    dg = DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux,
+                 modeldata=modeldata)
     @info @sprintf("Initializing %s", driver_config.name)
     Q = init_ode_state(dg, FT(0), init_args...; forcecpu=forcecpu)
+
+    # TODO: using `update_aux!()` to apply filters to the state variables and
+    # `update_aux_diffusive!()` to calculate the vertical component of velocity
+    # using the integral kernels -- these should have their own interface
+    update_aux!(dg, bl, Q, FT(0))
+    update_aux_diffusive!(dg, bl, Q, FT(0))
 
     # if solver has been specified, use it
     if ode_solver_type !== nothing
@@ -229,35 +241,33 @@ function setup_solver(t0::FT, timeend::FT,
         solver_type = driver_config.solver_type
     end
 
+    # create the linear model for IMEX solvers
+    linmodel = nothing
     if isa(solver_type, ExplicitSolverType)
-
-        if ode_dt !== nothing
-            dt = ode_dt
-        else
-            dt = Courant_number * min_node_distance(dg.grid, VerticalDirection()) / soundspeed_air(T)
-        end
-        numberofsteps = convert(Int64, cld(timeend, dt))
-        dt = timeend / numberofsteps
-
-        solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
-
+        dtmodel = bl
     else # solver_type === IMEXSolverType
+        linmodel = solver_type.linear_model(bl)
+        dtmodel = linmodel
+    end
 
-        if ode_dt !== nothing
-            dt = ode_dt
-        else
-            dt = Courant_number * min_node_distance(dg.grid, HorizontalDirection()) / soundspeed_air(T)
-        end
-        numberofsteps = convert(Int64, cld(timeend, dt))
-        dt = timeend / numberofsteps
+    # initial Δt specified or computed
+    if ode_dt !== nothing
+        dt = ode_dt
+    else
+        dt = calculate_dt(grid, dtmodel, Courant_number)
+    end
+    numberofsteps = convert(Int64, cld(timeend, dt))
+    dt = timeend / numberofsteps
 
-        linmodel = solver_type.linear_model(driver_config.bl)
-
-        vdg = DGModel(linmodel, driver_config.grid, driver_config.numfluxnondiff,
-                      driver_config.numfluxdiff, driver_config.gradnumflux,
+    # create the solver
+    if isa(solver_type, ExplicitSolverType)
+        solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
+    else # solver_type === IMEXSolverType
+        vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
                       auxstate=dg.auxstate, direction=VerticalDirection())
 
-        solver = solver_type.solver_method(dg, vdg, solver_type.linear_solver(), Q; dt=dt, t0=t0)
+        solver = solver_type.solver_method(dg, vdg, solver_type.linear_solver(), Q;
+                                           dt=dt, t0=t0)
     end
 
     @toc setup_solver
@@ -329,8 +339,8 @@ function invoke!(solver_config::SolverConfiguration;
             vprefix = @sprintf("%s_mpirank%04d_step%04d", solver_config.name,
                                MPI.Comm_rank(mpicomm), step[1])
             outprefix = joinpath(Settings.output_dir, vprefix)
-            statenames = Atmos.flattenednames(Atmos.vars_state(bl, FT))
-            auxnames = Atmos.flattenednames(Atmos.vars_aux(bl, FT))
+            statenames = flattenednames(vars_state(bl, FT))
+            auxnames = flattenednames(vars_aux(bl, FT))
             writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
             # Generate the pvtu file for these vtk files
             if MPI.Comm_rank(mpicomm) == 0
@@ -389,4 +399,3 @@ function invoke!(solver_config::SolverConfiguration;
 
     return engf / eng0
 end
-

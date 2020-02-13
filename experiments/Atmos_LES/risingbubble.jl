@@ -79,10 +79,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                          init_state=init_risingbubble!)
 
   # Problem configuration
-  config = CLIMA.LES_Configuration("DryRisingBubble",
-                                   N, resolution, xmax, ymax, zmax,
-                                   init_risingbubble!,
-                                   solver_type=ode_solver,
+  config = CLIMA.Atmos_LES_Configuration("DryRisingBubble",
+                                         N, resolution, xmax, ymax, zmax,
+                                         init_risingbubble!,
+                                         solver_type=ode_solver,
                                          model=model)
   return config
 end
