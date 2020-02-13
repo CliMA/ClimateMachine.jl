@@ -26,11 +26,8 @@ include("ODESolvers/ODESolvers.jl")
 include("ODESolvers/LowStorageRungeKuttaMethod.jl")
 include("ODESolvers/StrongStabilityPreservingRungeKuttaMethod.jl")
 include("ODESolvers/MultirateInfinitesimalStepMethod.jl")
-<<<<<<< HEAD
 include("ODESolvers/ETDStepMethod.jl")
-=======
 include("ODESolvers/AdditiveRungeKuttaMethod.jl")
->>>>>>> f337a717eabf5f13faa065451132ba56b611575a
 include("ODESolvers/MultirateRungeKuttaMethod.jl")
 include("ODESolvers/StormerVerletMethod.jl")
 include("ODESolvers/StormerVerletETDMethod.jl")
