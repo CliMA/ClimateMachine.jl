@@ -23,9 +23,7 @@ mutable struct TimeScaledRHS{N,RT}
   function TimeScaledRHS(a,b,rhs!)
     RT = typeof(a)
     if isa(rhs!, Tuple)
-      N=2
-    elseif isa(rhs!,NTuple{n,T} where T)
-      N=n
+      N=length(rhs!)
     else
       N=1
     end
@@ -189,7 +187,7 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     fastrhs!.a = time + c̃[i]*dt
     fastrhs!.b = (c[i] - c̃[i]) / d[i]
 
-    τ = zero(FT)
+    τ = zero(FT) #time struct mit Wert für tau und für a und b, direkt in SV aufrufen und im Wrapper von ARK
     nstepsLoc=ceil(Int,nsteps*d[i]);
     dτ = d[i] * dt / nstepsLoc
     # TODO: we want to be able to write
