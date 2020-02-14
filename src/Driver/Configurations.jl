@@ -69,26 +69,36 @@ struct DriverConfiguration{FT}
 end
 
 function Atmos_LES_Configuration(
-    name::String,
-    N::Int,
-    (Δx, Δy, Δz)::NTuple{3,FT},
-    xmax::Int, ymax::Int, zmax::Int,
-    init_LES!;
-    xmin           = 0,
-    ymin           = 0,
-    zmin           = 0,
-    array_type     = CLIMA.array_type(),
-    solver_type    = IMEXSolverType(linear_solver=SingleColumnLU),
-    model          = AtmosModel{FT}(AtmosLESConfiguration;
-                                    init_state=init_LES!),
-    mpicomm        = MPI.COMM_WORLD,
-    boundary       = ((0,0), (0,0), (1,2)),
-    periodicity    = (true, true, false),
-    meshwarp       = (x...)->identity(x),
-    numfluxnondiff = Rusanov(),
-    numfluxdiff    = CentralNumericalFluxDiffusive(),
-    gradnumflux    = CentralNumericalFluxGradient()
+        name::String,
+        N::Int,
+        (Δx, Δy, Δz)::NTuple{3,FT},
+        xmax::Int, ymax::Int, zmax::Int,
+        init_LES!;
+        xmin           = 0,
+        ymin           = 0,
+        zmin           = 0,
+        array_type     = CLIMA.array_type(),
+        solver_type    = IMEXSolverType(linear_solver=SingleColumnLU),
+        model          = AtmosModel{FT}(AtmosLESConfiguration;
+                                        init_state=init_LES!),
+        mpicomm        = MPI.COMM_WORLD,
+        boundary       = ((0,0), (0,0), (1,2)),
+        periodicity    = (true, true, false),
+        meshwarp       = (x...)->identity(x),
+        numfluxnondiff = Rusanov(),
+        numfluxdiff    = CentralNumericalFluxDiffusive(),
+        gradnumflux    = CentralNumericalFluxGradient()
     ) where {FT<:AbstractFloat}
+
+    @info @sprintf("""Establishing Atmos LES configuration for %s
+                   polynomial order = %d
+                   grid             = %dx%dx%d
+                   resolution       = %dx%dx%d
+                   MPI ranks        = %d""",
+                   name, N,
+                   xmax, ymax, zmax,
+                   Δx, Δy, Δz,
+                   MPI.Comm_size(mpicomm))
 
     brickrange = (grid1d(xmin, xmax, elemsize=Δx*N),
                   grid1d(ymin, ymax, elemsize=Δy*N),
@@ -109,21 +119,30 @@ function Atmos_LES_Configuration(
 end
 
 function Atmos_GCM_Configuration(
-    name::String,
-    N::Int,
-    (nelem_horz, nelem_vert)::NTuple{2,Int},
-    domain_height::FT,
-    init_GCM!;
-    array_type         = CLIMA.array_type(),
-    solver_type        = DefaultSolverType(),
-    model              = AtmosModel{FT}(AtmosGCMConfiguration;
-                                         init_state=init_GCM!),
-    mpicomm            = MPI.COMM_WORLD,
-    meshwarp::Function = cubedshellwarp,
-    numfluxnondiff     = Rusanov(),
-    numfluxdiff        = CentralNumericalFluxDiffusive(),
-    gradnumflux        = CentralNumericalFluxGradient()
+        name::String,
+        N::Int,
+        (nelem_horz, nelem_vert)::NTuple{2,Int},
+        domain_height::FT,
+        init_GCM!;
+        array_type         = CLIMA.array_type(),
+        solver_type        = DefaultSolverType(),
+        model              = AtmosModel{FT}(AtmosGCMConfiguration;
+                                             init_state=init_GCM!),
+        mpicomm            = MPI.COMM_WORLD,
+        meshwarp::Function = cubedshellwarp,
+        numfluxnondiff     = Rusanov(),
+        numfluxdiff        = CentralNumericalFluxDiffusive(),
+        gradnumflux        = CentralNumericalFluxGradient()
     ) where {FT<:AbstractFloat}
+    @info @sprintf("""Establishing Atmos GCM configuration for %s
+                   polynomial order = %d
+                   #horiz elems     = %d
+                   #vert_elems      = %d
+                   domain height    = %.2e
+                   MPI ranks        = %d""",
+                   name, N,
+                   nelem_horz, nelem_vert, domain_height,
+                   MPI.Comm_size(mpicomm))
 
     vert_range = grid1d(FT(planet_radius), FT(planet_radius+domain_height), nelem=nelem_vert)
 
