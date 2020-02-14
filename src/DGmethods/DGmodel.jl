@@ -276,6 +276,50 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   end
 end
 
+"""
+    courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+            Q::MPIStateArray, direction=EveryDirection())
+Returns the maximum of the evaluation of the function `local_courant`
+pointwise throughout the domain.  The function `local_courant` is given an
+approximation of the local node distance `Δx`.  The `direction` controls which
+reference directions are considered when computing the minimum node distance
+`Δx`.
+An example `local_courant` function is
+    function local_courant(m::AtmosModel, state::Vars, aux::Vars,
+                           diffusive::Vars, Δx)
+      return Δt * cmax / Δx
+    end
+where `Δt` is the time step size and `cmax` is the maximum flow speed in the
+model.
+"""
+function courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+                 Q::MPIStateArray, Δt, direction=EveryDirection())
+    grid = dg.grid
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    if nrealelem > 0
+        N = polynomialorder(grid)
+        dim = dimensionality(grid)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+        device = grid.vgeo isa Array ? CPU() : CUDA()
+        pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
+        @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+        Grids.knl_min_neighbor_distance!(Val(N), Val(dim), direction,
+                                         pointwise_courant, grid.vgeo, topology.realelems))
+        @launch(device, threads=(Nq*Nq*Nqk,), blocks=nrealelem,
+                knl_local_courant!(m, Val(dim), Val(N), pointwise_courant,
+                local_courant, Q.data, dg.auxstate.data,
+                dg.diffstate.data, topology.realelems, direction, Δt))
+        rank_courant_max = maximum(pointwise_courant)
+    else
+        rank_courant_max = typemin(eltype(Q))
+    end
+
+    MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
+end
+
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
                                 auxstate::MPIStateArray, fldin, fldout)
 
@@ -313,3 +357,6 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
 
   return state
 end
+
+
+

@@ -3,7 +3,7 @@ using DocStringExtensions
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
-export turbulence_tensors
+export turbulence_tensors, symmetrize
 
 abstract type TurbulenceClosure end
 
@@ -95,18 +95,18 @@ end
 
 vars_gradient(::ConstantViscosityWithDivergence,FT) = @vars()
 vars_diffusive(::ConstantViscosityWithDivergence, FT) =
-  @vars(S::SHermitianCompact{3,FT,6})
+  @vars(∇u::SMatrix{3,3,FT,9}) #@vars(S::SHermitianCompact{3,FT,6})
 
 function diffusive!(::ConstantViscosityWithDivergence, ::Orientation,
     diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
-
-  diffusive.turbulence.S = symmetrize(∇transform.u)
+    diffusive.turbulence.∇u = ∇transform.u
+  #diffusive.turbulence.S = symmetrize(∇transform.u)
 end
 
 function turbulence_tensors(m::ConstantViscosityWithDivergence,
     state::Vars, diffusive::Vars, aux::Vars, t::Real)
-
-  S = diffusive.turbulence.S
+  FT = eltype(state)
+  S = symmetrize(diffusive.turbulence.∇u) # S = diffusive.turbulence.S
   ν = m.ρν / state.ρ
   τ = (-2*ν) * S + (2*ν/3)*tr(S) * I
   return ν, τ
@@ -162,7 +162,7 @@ end
 
 vars_aux(::SmagorinskyLilly,FT) = @vars(Δ::FT)
 vars_gradient(::SmagorinskyLilly,FT) = @vars(θ_v::FT)
-vars_diffusive(::SmagorinskyLilly,FT) = @vars(S::SHermitianCompact{3,FT,6}, N²::FT)
+vars_diffusive(::SmagorinskyLilly,FT) = @vars(∇u::SMatrix{3,3,FT,9}, N²::FT) #@vars(S::SHermitianCompact{3,FT,6}, N²::FT)
 
 
 function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
@@ -176,7 +176,7 @@ end
 function diffusive!(::SmagorinskyLilly, orientation::Orientation,
     diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
 
-  diffusive.turbulence.S = symmetrize(∇transform.u)
+  diffusive.turbulence.∇u = ∇transform.u #diffusive.turbulence.S = symmetrize(∇transform.u)
   ∇Φ = ∇gravitational_potential(orientation, aux)
   diffusive.turbulence.N² = dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
 end
@@ -184,7 +184,7 @@ end
 function turbulence_tensors(m::SmagorinskyLilly, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 
   FT = eltype(state)
-  S = diffusive.turbulence.S
+  S = symmetrize(diffusive.turbulence.∇u) #diffusive.turbulence.S
   normS = strain_rate_magnitude(S)
 
   # squared buoyancy correction
@@ -308,7 +308,7 @@ struct AnisoMinDiss{FT} <: TurbulenceClosure
 end
 vars_aux(::AnisoMinDiss,FT) = @vars(Δ::FT)
 vars_gradient(::AnisoMinDiss,FT) = @vars()
-vars_diffusive(::AnisoMinDiss,FT) = @vars(∇u::SMatrix{3,3,FT,9})
+vars_diffusive(::AnisoMinDiss,FT) = @vars(∇u::SMatrix{3,3,FT,9}, S::SHermitianCompact{3,FT,6})
 
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)
