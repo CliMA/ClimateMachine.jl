@@ -19,7 +19,7 @@ import CLIMA.DGmethods: vars_state, vars_aux, vars_integrals,
                         integrate_aux!
 
 import CLIMA.DGmethods: boundary_state!
-import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!, NoFluxBC
+import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 # -------------------- Radiation Model -------------------------- # 
@@ -139,23 +139,6 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     flux_diffusive!(atmos.moisture, F, state⁺, d_q_tot⁺)
   end
 end
-boundary_state!(nf, m::AtmosModel, x...) =
-  atmos_boundary_state!(nf, m.boundarycondition, m, x...)
-boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
-                         atmos::AtmosModel,
-                         F,
-                         state⁺, diff⁺, aux⁺, n⁻,
-                         state⁻, diff⁻, aux⁻,
-                         bctype, t,
-                         state1⁻, diff1⁻, aux1⁻) =
-  atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
-                                 F,
-                                 state⁺, diff⁺, aux⁺, n⁻,
-                                 state⁻, diff⁻, aux⁻,
-                                 bctype, t,
-                                 state1⁻, diff1⁻, aux1⁻)
-
-
 # ------------------------ End Boundary Condition --------------------- # 
 
 

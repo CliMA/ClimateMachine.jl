@@ -49,6 +49,7 @@ gpu = [
   { file = "examples/Atmos/dry_rayleigh_benard.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/Atmos_GCM/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/Atmos_LES/risingbubble.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "experiments/Atmos_LES/surfacebubble.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/Atmos_LES/dycoms.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/Ocean_BoxGCM/homogeneous_box.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]

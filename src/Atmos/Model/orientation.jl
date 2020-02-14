@@ -1,6 +1,7 @@
 # TODO: add Coriolis vectors
 import ..PlanetParameters: grav, planet_radius
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
+export vertical_unit_vector
 
 abstract type Orientation
 end
