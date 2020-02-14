@@ -8,7 +8,7 @@ abstract type AbstractSubsidence{FT<:AbstractFloat} end
 
 struct NoSubsidence{FT} <: AbstractSubsidence{FT} end
 
-struct ConstantSubsidence{FT} <: AbstractSubsidence{FT}
+@uaware struct ConstantSubsidence{FT} <: AbstractSubsidence{FT}
   D::U(FT,:frequency)
 end
 
