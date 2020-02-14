@@ -3,7 +3,7 @@ module SimpleBox
 export SimpleBoxProblem, HomogeneousBox, OceanGyre
 
 using StaticArrays
-using CLIMA.HydrostaticBoussinesq: HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem
+using CLIMA.HydrostaticBoussinesq
 
 import CLIMA.HydrostaticBoussinesq: ocean_init_aux!, ocean_init_state!,
                                     ocean_boundary_state!,
