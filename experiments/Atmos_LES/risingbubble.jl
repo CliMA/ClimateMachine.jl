@@ -12,8 +12,9 @@ using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
 # ------------------------ Description ------------------------- #
-# 1) Dry Rising Bubble (Closed-box configuration)
+# 1) Dry Rising Bubble (circular potential temperature perturbation)
 # 2) Boundaries - `All Walls` : NoFluxBC (Impermeable Walls)
+#                               Laterally periodic
 # 3) Domain - 2500m[horizontal] x 2500m[horizontal] x 2500m[vertical]
 # 4) Timeend - 1000s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
@@ -22,7 +23,7 @@ using CLIMA.VariableTemplates
 #               `solver_type`
 #               `sources`
 #               `C_smag`
-# 8) Default settings can be found in src/Driver/Configurations.jl
+# 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
 
 function init_risingbubble!(state, aux, (x,y,z), t)
@@ -75,7 +76,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   C_smag = FT(0.23)
   model = AtmosModel{FT}(AtmosLESConfiguration;
                          turbulence=SmagorinskyLilly{FT}(C_smag),
-                             source=(Gravity(),),
+                         source=(Gravity(),),
                          init_state=init_risingbubble!)
 
   # Problem configuration

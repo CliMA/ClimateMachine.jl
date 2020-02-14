@@ -53,9 +53,9 @@ A ≡ aux
 $(DocStringExtensions.FIELDS)
 """
 struct FixedTempNoSlip{FT} <: BoundaryCondition
-  "Prescribed bottom wall temperature [K]"
+  "Prescribed bottom wall temperature `[K]`"
   T_bot::FT
-  "Prescribed top wall temperature [K]"
+  "Prescribed top wall temperature `[K]`"
   T_top::FT
 end
 # Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
