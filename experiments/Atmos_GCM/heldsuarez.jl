@@ -12,9 +12,9 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const p_ground = Float64(MSLP)
-const T_initial = Float64(255)
-const domain_height = Float64(30e3)
+const p_ground = MSLP
+const T_initial = 255
+const domain_height = 30e3
 
 function init_heldsuarez!(state, aux, coords, t)
     global p_ground, T_initial
@@ -24,12 +24,12 @@ function init_heldsuarez!(state, aux, coords, t)
     r = norm(coords, 2)
     h = r - FT(planet_radius)
 
-    scale_height = R_d * T_initial / grav
-    p            = p_ground * exp(-h / scale_height)
+    scale_height = R_d * FT(T_initial) / grav
+    p            = FT(p_ground) * exp(-h / scale_height)
 
-    state.ρ  = air_density(T_initial, p)
+    state.ρ  = air_density(FT(T_initial), p)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (internal_energy(T_initial) + aux.orientation.Φ)
+    state.ρe = state.ρ * (internal_energy(FT(T_initial)) + aux.orientation.Φ)
 
     return nothing
 end
@@ -37,14 +37,17 @@ end
 function config_heldsuarez(FT, N, resolution)
     global T_initial, domain_height
 
+    ref_state = HydrostaticState(IsothermalProfile(FT(T_initial)), FT(0))
     model = AtmosModel{FT}(AtmosGCMConfiguration;
-                           ref_state  = HydrostaticState(IsothermalProfile(T_initial), FT(0)),
+                           ref_state  = ref_state,
                            turbulence = ConstantViscosityWithDivergence(FT(0)),
                            moisture   = DryModel(),
                            source     = (Gravity(), Coriolis(), held_suarez_forcing!),
                            init_state = init_heldsuarez!)
     
-    config = CLIMA.Atmos_GCM_Configuration("HeldSuarez", N, resolution, domain_height, init_heldsuarez!;
+    config = CLIMA.Atmos_GCM_Configuration("HeldSuarez", N, resolution,
+                                           FT(domain_height),
+                                           init_heldsuarez!;
                                            model = model)
 
     return config
@@ -79,7 +82,7 @@ function held_suarez_forcing!(source, state, aux, t::Real)
     @inbounds λ  = atan(coord[2], coord[1])
     @inbounds φ  = asin(coord[3] / r)
     h            = r - FT(planet_radius)
-    scale_height = R_d * T_initial / grav
+    scale_height = R_d * FT(T_initial) / grav
     σ            = exp(-h / scale_height)
 
     # TODO: use
