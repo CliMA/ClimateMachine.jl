@@ -118,6 +118,7 @@ let
                              CentralNumericalFluxGradient())
 
                 Δt = FT(1e-11)#FT(1//2)
+                #Δt = FT(0.00001) #FT(1//10)
 
 #                function local_courant(m::AtmosModel, state::Vars, aux::Vars, diffusive::Vars, Δx)
 #                    u = state.ρu/state.ρ
