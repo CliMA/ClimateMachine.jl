@@ -57,9 +57,9 @@ function main()
   expected_error[Float64, false, 4] = 2.8660813871243937e-03
 
   expected_error[Float64, true, 1] = 2.3225467618783981e+01
-  expected_error[Float64, true, 2] = 5.2663710765946341e+00
-  expected_error[Float64, true, 3] = 1.2183771242881866e-01
-  expected_error[Float64, true, 4] = 2.8660023410820249e-03
+  expected_error[Float64, true, 2] = 5.2663709730207771e+00
+  expected_error[Float64, true, 3] = 1.2183770891083319e-01
+  expected_error[Float64, true, 4] = 2.8660813810759854e-03
 
   @testset "$(@__FILE__)" begin
     for FT in (Float64,), dims in 2

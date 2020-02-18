@@ -70,23 +70,23 @@ function main()
 
   expected_error[Float32, 2, Rusanov, 1] = 1.1990854263305664e+01
   expected_error[Float32, 2, Rusanov, 2] = 2.0812149047851563e+00
-  expected_error[Float32, 2, Rusanov, 3] = 6.7652329802513123e-02
-  expected_error[Float32, 2, Rusanov, 4] = 3.6849677562713623e-02
+  expected_error[Float32, 2, Rusanov, 3] = 6.6969044506549835e-02
+  expected_error[Float32, 2, Rusanov, 4] = 5.2888177335262299e-02
 
   expected_error[Float32, 2, Central, 1] = 2.0840496063232422e+01
   expected_error[Float32, 2, Central, 2] = 2.9250388145446777e+00
   expected_error[Float32, 2, Central, 3] = 3.7026408314704895e-01
-  expected_error[Float32, 2, Central, 4] = 6.7625500261783600e-02
+  expected_error[Float32, 2, Central, 4] = 1.1543836444616318e-01
 
   expected_error[Float32, 3, Rusanov, 1] = 3.7918324470520020e+00
   expected_error[Float32, 3, Rusanov, 2] = 6.5811443328857422e-01
-  expected_error[Float32, 3, Rusanov, 3] = 2.1280560642480850e-02
-  expected_error[Float32, 3, Rusanov, 4] = 9.8376255482435226e-03
+  expected_error[Float32, 3, Rusanov, 3] = 2.0889002829790115e-02
+  expected_error[Float32, 3, Rusanov, 4] = 1.1552370153367519e-02
 
   expected_error[Float32, 3, Central, 1] = 6.5902600288391113e+00
   expected_error[Float32, 3, Central, 2] = 9.2505264282226563e-01
   expected_error[Float32, 3, Central, 3] = 1.1701638251543045e-01
-  expected_error[Float32, 3, Central, 4] = 1.2930640019476414e-02
+  expected_error[Float32, 3, Central, 4] = 2.1023442968726158e-02
 
   @testset "$(@__FILE__)" begin
     for FT in (Float64, Float32), dims in (2, 3)
