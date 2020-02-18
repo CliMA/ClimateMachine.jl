@@ -1,5 +1,8 @@
 abstract type OceanBoundaryCondition end
 
+"""
+    Defining dummy structs to dispatch on for boundary conditions.
+"""
 struct CoastlineFreeSlip             <: OceanBoundaryCondition end
 struct CoastlineNoSlip               <: OceanBoundaryCondition end
 struct OceanFloorFreeSlip            <: OceanBoundaryCondition end
@@ -8,8 +11,27 @@ struct OceanSurfaceNoStressNoForcing <: OceanBoundaryCondition end
 struct OceanSurfaceStressNoForcing   <: OceanBoundaryCondition end
 struct OceanSurfaceNoStressForcing   <: OceanBoundaryCondition end
 struct OceanSurfaceStressForcing     <: OceanBoundaryCondition end
+
 """
-COAST LINE FREE SLIP
+    CoastlineFreeSlip
+
+applies boundary condition ∇u = 0 and ∇θ = 0
+"""
+
+"""
+    ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip, ::Union{Rusanov, CentralNumericalFluxGradient})
+
+apply free slip boundary conditions for velocity
+apply no penetration boundary for temperature
+nothing needed to do since these are neumann BCs and no gradients here
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
 """
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip,
                                        ::Union{Rusanov,
@@ -18,6 +40,23 @@ COAST LINE FREE SLIP
   return nothing
 end
 
+"""
+    ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip, ::CentralNumericalFluxDiffusive)
+
+apply free slip boundary conditions for velocity
+apply no penetration boundary for temperature
+sets ghost point to have no numerical flux on the boundary for ∇u and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
@@ -28,9 +67,26 @@ end
   return nothing
 end
 
+"""
+    CoastlineNoSlip
+
+applies boundary condition u = 0 and ∇θ = 0
+"""
 
 """
-COAST LINE NO SLIP
+    ocean_boundary_state!(::HBModel, ::CoastlineNoSlip, ::Rusanov)
+
+apply no slip boundary condition for velocity
+apply no penetration boundary for temperature
+set sets ghost point to have no numerical flux on the boundary for u
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
 """
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineNoSlip,
                                        ::Rusanov,
@@ -40,6 +96,21 @@ COAST LINE NO SLIP
   return nothing
 end
 
+"""
+    ocean_boundary_state!(::HBModel, ::CoastlineNoSlip, ::CentralNumericalFluxGradient)
+
+apply no slip boundary condition for velocity
+apply no penetration boundary for temperature
+set numerical flux to zero for u
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineNoSlip,
                                        ::CentralNumericalFluxGradient,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
@@ -49,6 +120,23 @@ end
   return nothing
 end
 
+"""
+    ocean_boundary_state!(::HBModel, ::CoastlineNoSlip, ::CentralNumericalFluxDiffusive)
+
+apply no slip boundary condition for velocity
+apply no penetration boundary for temperature
+sets ghost point to have no numerical flux on the boundary for u and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineNoSlip,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
@@ -60,9 +148,27 @@ end
 end
 
 """
-OCEAN FLOOR FREE SLIP
+    OceanFloorFreeSlip
+
+applies boundary condition ∇u = 0 and ∇θ = 0
 """
-@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorFreeSlip,
+
+"""
+    ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip, ::Rusanov)
+
+apply free slip boundary conditions for velocity
+apply no penetration boundary for temperature
+set ghost point to have no numerical flux on the boundary for w
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
+@inline function ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip,
                                        ::Rusanov,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   A⁺.w = -A⁻.w
@@ -70,7 +176,22 @@ OCEAN FLOOR FREE SLIP
   return nothing
 end
 
-@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorFreeSlip,
+"""
+    ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip, ::CentralNumericalFluxGradient)
+
+apply free slip boundary condition for velocity
+apply no penetration boundary for temperature
+set numerical flux to zero for w
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
+@inline function ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip,
                                        ::CentralNumericalFluxGradient,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   FT = eltype(Q⁺)
@@ -79,7 +200,24 @@ end
   return nothing
 end
 
-@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorFreeSlip,
+"""
+    ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip, ::CentralNumericalFluxDiffusive)
+
+apply free slip boundary conditions for velocity
+apply no penetration boundary for temperature
+sets ghost point to have no numerical flux on the boundary for ∇u and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
+@inline function ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   A⁺.w = -A⁻.w
@@ -91,9 +229,27 @@ end
 end
 
 """
-OCEAN FLOOR NO SLIP
+    OceanFloorNoSlip
+
+applies boundary condition u = 0 and ∇θ = 0
 """
-@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorNoSlip,
+
+"""
+    ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip, ::Rusanov)
+
+apply no slip boundary condition for velocity
+apply no penetration boundary for temperature
+set sets ghost point to have no numerical flux on the boundary for u and w
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
+@inline function ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip,
                                        ::Rusanov,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   Q⁺.u = -Q⁻.u
@@ -102,7 +258,22 @@ OCEAN FLOOR NO SLIP
   return nothing
 end
 
-@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorNoSlip,
+"""
+    ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip, ::CentralNumericalFluxGradient)
+
+apply no slip boundary condition for velocity
+apply no penetration boundary for temperature
+set numerical flux to zero for u and w
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
+@inline function ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip,
                                        ::CentralNumericalFluxGradient,
                                        Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
   FT = eltype(Q⁺)
@@ -112,8 +283,24 @@ end
   return nothing
 end
 
+"""
+    ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip, ::CentralNumericalFluxDiffusive)
 
-@inline function ocean_boundary_state!(m::HBModel, ::OceanFloorNoSlip,
+apply no slip boundary condition for velocity
+apply no penetration boundary for temperature
+sets ghost point to have no numerical flux on the boundary for u,w and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
+"""
+@inline function ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
 
@@ -126,10 +313,11 @@ end
 end
 
 """
-OCEAN SURFACE
-only neumann, no dirichlet
+    ocean_boundary_state!(::HBModel, ::Union{OceanSurface*}, ::Union{Rusanov, CentralNumericalFluxGradient})
+
+applying neumann boundary conditions, so don't need to do anything for these numerical fluxes
 """
-@inline function ocean_boundary_state!(m::HBModel, ::Union{
+@inline function ocean_boundary_state!(::HBModel, ::Union{
                                        OceanSurfaceNoStressNoForcing,
                                        OceanSurfaceStressNoForcing,
                                        OceanSurfaceNoStressForcing,
@@ -141,9 +329,23 @@ only neumann, no dirichlet
 end
 
 """
-OCEAN SURFACE NO STRESS NO FORCING
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceNoStressNoForcing, ::CentralNumericalFluxDiffusive)
+
+apply no flux boundary condition for velocity
+apply no flux boundary condition for temperature
+set ghost point to have no numerical flux on the boundary for ∇u and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(m::HBModel,
+@inline function ocean_boundary_state!(::HBModel,
                                        ::OceanSurfaceNoStressNoForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
@@ -155,9 +357,23 @@ OCEAN SURFACE NO STRESS NO FORCING
 end
 
 """
-OCEAN SURFACE STRESS NO FORCING
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceStressNoForcing, ::CentralNumericalFluxDiffusive)
+
+apply wind-stress boundary condition for velocity
+apply no flux boundary condition for temperature
+set ghost poin for numerical flux on the boundary for ∇u and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(m::HBModel,
+@inline function ocean_boundary_state!(::HBModel,
                                        ::OceanSurfaceStressNoForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
@@ -170,7 +386,21 @@ OCEAN SURFACE STRESS NO FORCING
 end
 
 """
-OCEAN SURFACE NO STRESS FORCING
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceNoStressForcing, ::CentralNumericalFluxDiffusive)
+
+apply no flux boundary condition for velocity
+apply forcing boundary condition for temperature
+set ghost point for numerical flux on the boundary for ∇u and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
 """
 @inline function ocean_boundary_state!(m::HBModel,
                                        ::OceanSurfaceNoStressForcing,
@@ -189,7 +419,21 @@ OCEAN SURFACE NO STRESS FORCING
 end
 
 """
-OCEAN SURFACE STRESS FORCING
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceStressForcing, ::CentralNumericalFluxDiffusive)
+
+apply wind-stress boundary condition for velocity
+apply forcing boundary condition for temperature
+set ghost point for numerical flux on the boundary for ∇u and ∇θ
+
+# Arguments
+- `Q⁺`: state vector at ghost point
+- `D⁺`: diffusive state vector at ghost point
+- `A⁺`: auxiliary state vector at ghost point
+- `n⁻`: normal vector, not used
+- `Q⁻`: state vector at interior
+- `D⁻`: diffusive state vector at interior point
+- `A⁻`: auxiliary state vector at interior point
+- `t`:  time, not used
 """
 @inline function ocean_boundary_state!(m::HBModel,
                                        ::OceanSurfaceStressForcing,
