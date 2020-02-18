@@ -369,7 +369,7 @@ end
 
 # Integral based metrics
 function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; dims=:)
-  if weighted && ~isempty(Q.weights)
+  if weighted && ~isempty(Q.weights) && isfinite(p)
     W = @view Q.weights[:, :, Q.realelems]
     locnorm = weighted_norm_impl(Q.realdata, W, Val(p), dims)
   else
@@ -467,16 +467,12 @@ function norm_impl(Q::SubArray{FT, N, A}, ::Val{p},
 end
 
 function weighted_norm_impl(Q::SubArray{FT, N, A}, W, ::Val{p}, dims::Colon) where {FT, N, A<:Array, p}
+  @assert isfinite(p)
   nq, ns, ne = size(Q)
-  accum = isfinite(p) ? -zero(FT) : typemin(FT)
+  accum = -zero(FT)
   @inbounds for k = 1:ne, j = 1:ns
     @simd for i = 1:nq
-      if isfinite(p)
-        accum += W[i, 1, k] * abs(Q[i, j, k]) ^ p
-      else
-        waQ_ijk = W[i, j, k] * abs(Q[i, j, k])
-        accum = ifelse(waQ_ijk > accum, waQ_ijk, accum)
-      end
+      accum += W[i, 1, k] * abs(Q[i, j, k]) ^ p
     end
   end
   accum
@@ -518,20 +514,16 @@ function norm_impl(Q, ::Val{p}, dims=:) where p
 end
 
 function weighted_norm_impl(Q, W, ::Val{p}, dims=:) where p
+  @assert isfinite(p)
   FT = eltype(Q)
-  if !isfinite(p)
+  if p == 1
     E = @~ @. W * abs(Q)
-    op, init = max, typemin(FT)
+  elseif p == 2
+    E = @~ @. W * abs2(Q)
   else
-    if p == 1
-      E = @~ @. W * abs(Q)
-    elseif p == 2
-      E = @~ @. W * abs2(Q)
-    else
-      E = @~ @. W * abs(Q)^p
-    end
-    op, init = +, zero(FT)
+    E = @~ @. W * abs(Q)^p
   end
+  op, init = +, zero(FT)
   reduce(op, E, init=init, dims=dims)
 end
 
