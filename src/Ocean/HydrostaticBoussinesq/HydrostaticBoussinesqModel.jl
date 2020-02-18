@@ -70,7 +70,7 @@ end
 HBModel = HydrostaticBoussinesqModel
 
 """
-calculate_dt(grid, model::HBModel)
+    calculate_dt(grid, model::HBModel)
 
 calculates the time step based on grid spacing and model parameters
 takes minimum of gravity wave, diffusive, and viscous CFL
@@ -89,7 +89,6 @@ function calculate_dt(grid, model::HBModel, Courant_number)
 
     return dt
 end
-
 
 """
 OceanDGModel()
@@ -110,12 +109,12 @@ end
 
 """
     vars_state(::HBModel)
-    prognostic variables evolved forward in time
 
-    u = (u,v) = (zonal velocity, meridional velocity)
-    η = sea surface height
-    θ = temperature
+prognostic variables evolved forward in time
 
+u = (u,v) = (zonal velocity, meridional velocity)
+η = sea surface height
+θ = temperature
 """
 # If this order is changed check the filter usage!
 function vars_state(m::HBModel, T)
@@ -128,33 +127,33 @@ end
 
 """
     init_state!(::HBModel)
-    sets the initial value for state variables
-    dispatches to ocean_init_state! which is defined in a problem file such as SimpleBoxProblem.jl
+
+sets the initial value for state variables
+dispatches to ocean_init_state! which is defined in a problem file such as SimpleBoxProblem.jl
 """
 function ocean_init_state! end
 function init_state!(m::HBModel, Q::Vars, A::Vars, coords, t)
   return ocean_init_state!(m.problem, Q, A, coords, t)
 end
 
-
 """
     vars_aux(::HBModel)
-    helper variables for computation
+helper variables for computation
 
-    first half is because there is no dedicated integral kernels
-    these variables are used to compute vertical integrals
-    w = vertical velocity
-    w_reverse = w but integrated in the opposite direction
-    wz0 = w at z = 0
-    pkin = bulk hydrostatic pressure contribution
-    pkin_reverse = pkin but integrated in the opposite direction
+first half is because there is no dedicated integral kernels
+these variables are used to compute vertical integrals
+w = vertical velocity
+w_reverse = w but integrated in the opposite direction
+wz0 = w at z = 0
+pkin = bulk hydrostatic pressure contribution
+pkin_reverse = pkin but integrated in the opposite direction
 
-    second half of these are fields that are used for computation
-    θʳ = relaxation value of the sea surface temperature
-    f = coriolis force
-    τ = wind stress
-    ν = vector of viscosities (zonal, meridional, vertical)
-    κ = vector of diffusivities (zonal, meridional, vertical)
+second half of these are fields that are used for computation
+θʳ = relaxation value of the sea surface temperature
+f = coriolis force
+τ = wind stress
+ν = vector of viscosities (zonal, meridional, vertical)
+κ = vector of diffusivities (zonal, meridional, vertical)
 """
 # If this order is changed check update_aux!
 function vars_aux(m::HBModel, T)
@@ -174,8 +173,9 @@ end
 
 """
     init_aux!(::HBModel)
-    sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
-    dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
+
+sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
+dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
 function ocean_init_aux! end
 function init_aux!(m::HBModel, A::Vars, geom::LocalGeometry)
@@ -184,8 +184,9 @@ end
 
 """
     vars_gradient(::HBModel)
-    variables that you want to take a gradient of
-    these are just copies in our model
+
+variables that you want to take a gradient of
+these are just copies in our model
 """
 function vars_gradient(m::HBModel, T)
   @vars begin
@@ -196,15 +197,16 @@ end
 
 """
     gradvariables!(::HBModel)
-    copy u and θ to var_gradient
-    this computation is done pointwise at each nodal point
+    
+copy u and θ to var_gradient
+this computation is done pointwise at each nodal point
 
-    arguments:
-    m -> model in this case HBModel
-    G -> array of gradient variables
-    Q -> array of state variables
-    A -> array of aux variables
-    t -> time, not used
+# arguments:
+- `m`: model in this case HBModel
+- `G`: array of gradient variables
+- `Q`: array of state variables
+- `A`: array of aux variables
+- `t`: time, not used
 """
 @inline function gradvariables!(m::HBModel, G::Vars, Q::Vars, A, t)
   G.u = Q.u
@@ -215,8 +217,9 @@ end
 
 """
     vars_diffusive(::HBModel)
-    the output of the gradient computations
-    once again just copies, we don't do any transforms or reductions
+
+the output of the gradient computations
+once again just copies, we don't do any transforms or reductions
 """
 function vars_diffusive(m::HBModel, T)
   @vars begin
@@ -227,16 +230,17 @@ end
 
 """
     diffusive!(::HBModel)
-    copy ∇u and ∇θ to var_diffusive
-    this computation is done pointwise at each nodal point
 
-    arguments:
-    m -> model in this case HBModel
-    D -> array of diffusive variables
-    G -> array of gradient variables
-    Q -> array of state variables
-    A -> array of aux variables
-    t -> time, not used
+copy ∇u and ∇θ to var_diffusive
+this computation is done pointwise at each nodal point
+
+# arguments:
+- `m`: model in this case HBModel
+- `D`: array of diffusive variables
+- `G`: array of gradient variables
+- `Q`: array of state variables
+- `A`: array of aux variables
+- `t`: time, not used
 """
 @inline function diffusive!(m::HBModel, D::Vars, G::Grad, Q::Vars,
                             A::Vars, t)
@@ -279,19 +283,20 @@ end
 
 """
     flux_nondiffusive!(::HBModel)
-    calculates the hyperbolic flux contribution to state variables
-    this computation is done pointwise at each nodal point
 
-    arguments:
-    m -> model in this case HBModel
-    F -> array of fluxes for each state variable
-    Q -> array of state variables
-    A -> array of aux variables
-    t -> time, not used
+calculates the hyperbolic flux contribution to state variables
+this computation is done pointwise at each nodal point
 
-    computations
-    ∂ᵗu = ∇∘(g*η + g∫αᵀθdz + v∘u)
-    ∂ᵗθ = ∇∘(vθ) where v = (u,v,w)
+# arguments:
+m -> model in this case HBModel
+F -> array of fluxes for each state variable
+Q -> array of state variables
+A -> array of aux variables
+t -> time, not used
+
+# computations
+∂ᵗu = ∇∘(g*η + g∫αᵀθdz + v∘u)
+∂ᵗθ = ∇∘(vθ) where v = (u,v,w)
 """
 @inline function flux_nondiffusive!(m::HBModel, F::Grad, Q::Vars,
                                     A::Vars, t::Real)
@@ -325,20 +330,21 @@ end
 
 """
     flux_diffusive!(::HBModel)
-    calculates the parabolic flux contribution to state variables
-    this computation is done pointwise at each nodal point
 
-    arguments:
-    m -> model in this case HBModel
-    F -> array of fluxes for each state variable
-    Q -> array of state variables
-    D -> array of diff variables
-    A -> array of aux variables
-    t -> time, not used
+calculates the parabolic flux contribution to state variables
+this computation is done pointwise at each nodal point
 
-    computations
-    ∂ᵗu = -∇∘(ν∇u)
-    ∂ᵗθ = -∇∘(κ∇θ)
+# arguments:
+- `m`: model in this case HBModel
+- `F`: array of fluxes for each state variable
+- `Q`: array of state variables
+- `D`: array of diff variables
+- `A`: array of aux variables
+- `t`: time, not used
+
+# computations
+∂ᵗu = -∇∘(ν∇u)
+∂ᵗθ = -∇∘(κ∇θ)
 """
 @inline function flux_diffusive!(m::HBModel, F::Grad, Q::Vars, D::Vars,
                                  A::Vars, t::Real)
@@ -382,7 +388,8 @@ end
 
 """
     wavespeed(::HBModel)
-    calculates the wavespeed for rusanov flux
+
+calculates the wavespeed for rusanov flux
 """
 @inline wavespeed(m::HBModel, n⁻, _...) = abs(SVector(m.cʰ, m.cʰ, m.cᶻ)' * n⁻)
 
@@ -461,8 +468,9 @@ end
 
 """
     boundary_state!(nf, ::HBModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-    applies boundary conditions for the hyperbolic fluxes
-    dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
 @inline function boundary_state!(nf, m::HBModel, Q⁺::Vars, A⁺::Vars, n⁻,
                                  Q⁻::Vars, A⁻::Vars, bctype, t, _...)
@@ -471,8 +479,9 @@ end
 
 """
     boundary_state!(nf, ::HBModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
-    applies boundary conditions for the parabolic fluxes
-    dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+
+applies boundary conditions for the parabolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
 @inline function boundary_state!(nf, m::HBModel,
                                  Q⁺::Vars, D⁺::Vars, A⁺::Vars,
