@@ -89,11 +89,11 @@ function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state
 
      end
      ctop = ct*abstaud
-   end
+   end#=
    if (x >=25000 || x<=-25000)
      r = (abs(x) - 25000)/(5000)
      cx = s.α_max * sinpi(r/2)^4
-   end
+   end=#
    β_sponge  = 1.0 - (1.0 - ctop)*(1 - cx) 
    β_sponge  = min(β_sponge, 1.0)
    source.ρu -= β_sponge * (state.ρu .- state.ρ*s.u_relaxation)

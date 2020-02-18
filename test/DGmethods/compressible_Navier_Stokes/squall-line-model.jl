@@ -149,6 +149,7 @@ rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,2
     config = CLIMA.LES_Configuration("squall_line", N, resolution, xmax, ymax, zmax,
                                      init_state!,
 				     xmin = xmin,
+				     turbulence = ConstantViscosityWithDivergence{FT}(200),
                                      solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy),
                                      ref_state=NoReferenceState(),
                                      precipitation=Rain(),
@@ -177,7 +178,7 @@ function main()
     driver_config = config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.4)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end

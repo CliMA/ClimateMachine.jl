@@ -73,8 +73,9 @@ vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
+  FT=eltype(state)
   e_int = internal_energy(moist, atmos.orientation, state, aux)
-  TS = PhaseEquil(e_int, state.ρ, state.moisture.ρq_tot/state.ρ, moist.maxiter)
+  TS = PhaseEquil(e_int, state.ρ, state.moisture.ρq_tot/state.ρ, FT(1))
   aux.moisture.temperature = air_temperature(TS)
   aux.moisture.θ_v = virtual_pottemp(TS)
   aux.moisture.q_liq = PhasePartition(TS).liq
@@ -161,6 +162,18 @@ function gradvariables!(moist::NonEquilMoist, atmos::AtmosModel, transform::Vars
   T = air_temperature(phase)
   e_tot = state.ρe * ρinv
   transform.moisture.h_tot = e_tot + R_m*T
+  transform.moisture.q_liq = state.moisture.ρq_liq * ρinv
+  transform.moisture.q_ice = state.moisture.ρq_ice * ρinv
+end
+
+function flux_moisture!(moist::NonEquilMoist, atmos::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
+  ρ = state.ρ
+  u = state.ρu / ρ
+  z = altitude(atmos.orientation, aux)
+  usub = subsidence_velocity(atmos.subsidence, z)
+  ẑ = vertical_unit_vector(atmos.orientation, aux)
+  u_tot = u .- usub * ẑ
+  flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
 end
 
 function diffusive!(moist::NonEquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)

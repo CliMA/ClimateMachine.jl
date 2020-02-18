@@ -56,9 +56,9 @@ function vars_state(m::AtmosModel, FT)
     ρ::FT
     ρu::SVector{3,FT}
     ρe::FT
+    moisture::vars_state(m.moisture, FT)
     precipitation::vars_state(m.precipitation,FT)
     turbulence::vars_state(m.turbulence, FT)
-    moisture::vars_state(m.moisture, FT)
     radiation::vars_state(m.radiation, FT)
   end
 end
