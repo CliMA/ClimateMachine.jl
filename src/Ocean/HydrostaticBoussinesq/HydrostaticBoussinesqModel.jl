@@ -91,7 +91,7 @@ function calculate_dt(grid, model::HBModel, Courant_number)
 end
 
 """
-OceanDGModel()
+    OceanDGModel()
 
 helper function to add required filtering
 not used in the Driver+Config setup
