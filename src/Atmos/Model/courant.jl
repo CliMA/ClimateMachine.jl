@@ -21,23 +21,26 @@ function advective_courant(m::BalanceLaw, state::Vars, aux::Vars,
                               diffusive::Vars, Δx, Δt, direction=VerticalDirection())
     k̂ = vertical_unit_vector(m.orientation, aux)
     if direction isa VerticalDirection
-        u =  abs(dot(state.ρu, k̂))/state.ρ
+        norm_u =  abs(dot(state.ρu, k̂))/state.ρ
     elseif direction isa HorizontalDirection
-        u = norm( (state.ρu .- dot(state.ρu, k̂)*k̂) / state.ρ )#     cross(k̂, cross(state.ρu/state.ρ,k̂))      
+        norm_u = norm( (state.ρu .- dot(state.ρu, k̂).*k̂) / state.ρ )
+    else
+        norm_u = norm(state.ρu/state.ρ)
     end
-    return Δt * u / Δx
+    return Δt * norm_u / Δx
 end
 
 function nondiffusive_courant(m::BalanceLaw, state::Vars, aux::Vars,
                               diffusive::Vars, Δx, Δt, direction=VerticalDirection())
     k̂ = vertical_unit_vector(m.orientation, aux)
     if direction isa VerticalDirection
-        u =  abs(dot(state.ρu, k̂))/state.ρ
-        return Δt * (u + soundspeed(m.moisture, m.orientation, state, aux)) / Δx
+        norm_u =  abs(dot(state.ρu, k̂))/state.ρ
     elseif direction isa HorizontalDirection
-        u = norm( (state.ρu .- dot(state.ρu, k̂)*k̂) / state.ρ )#     cross(k̂, cross(state.ρu/state.ρ,k̂))      
-        return Δt * (u + soundspeed(m.moisture, m.orientation, state, aux)) / Δx
-  end
+        norm_u = norm( (state.ρu .- dot(state.ρu, k̂)*k̂) / state.ρ )
+    else
+        norm_u = norm(state.ρu/state.ρ)
+    end
+    return Δt * (norm_u + soundspeed(m.moisture, m.orientation, state, aux)) / Δx
 end
 
 function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Vars, Δx, Δt, direction=VerticalDirection())
@@ -48,21 +51,18 @@ function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Var
         return Δt * ν / (Δx*Δx)
     else
         k̂ = vertical_unit_vector(m.orientation, aux)
-        ν_vert = ν[1]*k[1] + ν[2]*k[2] + ν[3]*k[3]
+        ν_vert = dot(ν, k)
 
         if direction isa VerticalDirection
             return Δt * ν_vert / (Δx*Δx)
         elseif direction isa HorizontalDirection
-            ν_horz = MVector{3,FT}(ν,ν,ν) 
-            ν_horz[1] -= k[1] * ν_vert 
-            ν_horz[2] -= k[2] * ν_vert
-            ν_horz[3] -= k[3] * ν_vert
-
+            ν_horz = ν - ν_vert .* k
             return Δt * norm(ν_horz) / (Δx*Δx)
+        else
+            return Δt * norm(ν) / (Δx*Δx)
         end
     end
 end
-
 
 end
 

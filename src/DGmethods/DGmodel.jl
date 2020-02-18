@@ -358,5 +358,3 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
   return state
 end
 
-
-

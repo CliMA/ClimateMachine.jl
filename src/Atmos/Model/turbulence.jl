@@ -3,7 +3,7 @@ using DocStringExtensions
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
-export turbulence_tensors, symmetrize
+export turbulence_tensors
 
 abstract type TurbulenceClosure end
 
@@ -99,13 +99,13 @@ vars_diffusive(::ConstantViscosityWithDivergence, FT) =
 
 function diffusive!(::ConstantViscosityWithDivergence, ::Orientation,
     diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
-    
-    diffusive.turbulence.S = symmetrize(∇transform.u)
+
+  diffusive.turbulence.S = symmetrize(∇transform.u)
 end
 
 function turbulence_tensors(m::ConstantViscosityWithDivergence,
     state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  FT = eltype(state)
+
   S = diffusive.turbulence.S
   ν = m.ρν / state.ρ
   τ = (-2*ν) * S + (2*ν/3)*tr(S) * I
@@ -308,7 +308,7 @@ struct AnisoMinDiss{FT} <: TurbulenceClosure
 end
 vars_aux(::AnisoMinDiss,FT) = @vars(Δ::FT)
 vars_gradient(::AnisoMinDiss,FT) = @vars()
-vars_diffusive(::AnisoMinDiss,FT) = @vars(∇u::SMatrix{3,3,FT,9}, S::SHermitianCompact{3,FT,6})
+vars_diffusive(::AnisoMinDiss,FT) = @vars(∇u::SMatrix{3,3,FT,9})
 
 function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
   aux.turbulence.Δ = lengthscale(geom)

@@ -60,12 +60,6 @@ let
     # boiler plate MPI stuff
     CLIMA.init()
     mpicomm = MPI.COMM_WORLD
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-    ll == "WARN"  ? Logging.Warn  :
-    ll == "ERROR" ? Logging.Error : Logging.Info
-    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-    global_logger(ConsoleLogger(logger_stream, loglevel))
 
     # Mesh generation parameters
     N = 4
@@ -120,11 +114,6 @@ let
                 Δt = FT(1e-11)#FT(1//2)
                 #Δt = FT(0.00001) #FT(1//10)
 
-#                function local_courant(m::AtmosModel, state::Vars, aux::Vars, diffusive::Vars, Δx)
-#                    u = state.ρu/state.ρ
-#                    return Δt * (norm(u) + soundspeed(m.moisture, m.orientation, state, aux)) / Δx
-#                end
-
                 Q = init_ode_state(dg, FT(0))
                 solver = LSRK54CarpenterKennedy(dg, Q; dt = Δt, t0 = 0)
                 solve!(Q, solver; timeend=Δt)
@@ -144,24 +133,24 @@ let
 
                 if (FT==Float64 && dim == 2)
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-15
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-13
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4 
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-17
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
                 elseif (FT==Float64 && dim == 3)
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-13
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4 
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-17
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
                 elseif (dim == 2)
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-9
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-17
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
                 else
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-7
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4
                     @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 2e-9
+                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 2e-8
                 end
             end
         end
