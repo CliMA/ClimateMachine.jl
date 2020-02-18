@@ -1,5 +1,7 @@
 using ..Atmos
 using ..Atmos: thermo_state, turbulence_tensors
+using ..Mesh.Topologies
+using ..Mesh.Grids
 using ..SubgridScaleParameters: inv_Pr_turb
 using ..PlanetParameters
 using ..MoistThermodynamics
@@ -10,13 +12,11 @@ Base.@kwdef mutable struct AtmosCollectedDiagnostics
 end
 const CollectedDiagnostics = AtmosCollectedDiagnostics()
 
-function init(
-    atmos::AtmosModel,
-    mpicomm::MPI.Comm,
-    dg::DGModel,
-    Q::MPIStateArray,
-    starttime::String,
-)
+include("diagnostic_vars.jl")
+
+function atmos_default_init(diagrp::DiagnosticsGroup, currtime)
+    dg = Settings.dg
+    Q = Settings.Q
     grid = dg.grid
     topology = grid.topology
     N = polynomialorder(grid)
@@ -259,16 +259,41 @@ function compute_diagnosticsums!(
 end
 
 """
-    collect(bl, currtime)
+    atmos_default_collect(bl, currtime)
 
 Perform a global grid traversal to compute various diagnostics.
+and write them to a JLD2 file, indexed by `currtime`, in the output directory specified to
+`init()`.
 """
-function collect(atmos::AtmosModel, currtime)
+function atmos_default_collect(diagrp::DiagnosticsGroup, currtime)
     mpicomm = Settings.mpicomm
     dg = Settings.dg
     Q = Settings.Q
-
     mpirank = MPI.Comm_rank(mpicomm)
+    current_time = string(currtime)
+
+    # make sure this time step is not already recorded
+    docollect = [false]
+    if mpirank == 0
+        try
+            jldopen(
+                joinpath(
+                    Settings.output_dir,
+                    "diagnostics-$(diagrp.name)-$(Settings.starttime).jld2",
+                ),
+                "r",
+            ) do file
+                diagnostics = file[current_time]
+                @warn "diagnostics for time step $(current_time) already collected"
+            end
+        catch e
+            docollect[1] = true
+        end
+    end
+    MPI.Bcast!(docollect, 0, mpicomm)
+    if !docollect[1]
+        return nothing
+    end
 
     # extract grid information
     bl = dg.balancelaw
@@ -385,18 +410,33 @@ function collect(atmos::AtmosModel, currtime)
         end
     end
 
+    # write diagnostics
+    if mpirank == 0
+        jldopen(
+            joinpath(
+                Settings.output_dir,
+                "$(diagrp.out_prefix)-$(diagrp.name)-$(Settings.starttime).jld2",
+            ),
+            "a+",
+        ) do file
+            file[current_time] = davgs
+        end
+    end
+
     # write LWP
     if mpirank == 0
-        current_time = string(currtime)
-        starttime = Settings.starttime
-        outdir = Settings.outdir
         jldopen(
-            joinpath(outdir, "liquid_water_path-$(starttime).jld2"),
+            joinpath(
+                Settings.output_dir,
+                "liquid_water_path-$(Settings.starttime).jld2",
+            ),
             "a+",
         ) do file
             file[current_time] = LWP
         end
     end
 
-    return davgs
+    return nothing
 end # function collect
+
+function atmos_default_fini(diagrp::DiagnosticsGroup, currtime) end

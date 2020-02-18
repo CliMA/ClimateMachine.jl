@@ -7,6 +7,7 @@ using Test
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
+using CLIMA.Diagnostics
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
@@ -153,17 +154,37 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     source.ρe -= k_T * ρ * cv_d * (T - T_equil)
 end
 
+function config_diagnostics(FT, driver_config)
+    interval = 100 # in time steps
+
+    info = driver_config.config_info
+    boundaries = [
+        FT(-90.0) FT(-180.0) FT(planet_radius)
+        FT(90.0) FT(180.0) FT(planet_radius + info.domain_height)
+    ]
+    resolution = (FT(10), FT(10), FT(1000))
+    interpol = CLIMA.setup_interpolation(driver_config, boundaries, resolution)
+
+    dgngrp = setup_dump_state_and_aux_diagnostics(
+        interval,
+        driver_config.name,
+        interpol = interpol,
+        project = true,
+    )
+    return CLIMA.setup_diagnostics([dgngrp])
+end
+
 function main()
     CLIMA.init()
 
     # Driver configuration parameters
-    FT = Float32           # floating type precision
-    poly_order = 5                 # discontinuous Galerkin polynomial order
-    n_horz = 15                # horizontal element number
-    n_vert = 8                 # vertical element number
-    days = 1                 # experiment day number
-    timestart = FT(0)             # start time (seconds)
-    timeend = FT(days * 24 * 60 * 60) # end time (seconds)
+    FT = Float32                        # floating type precision
+    poly_order = 5                      # discontinuous Galerkin polynomial order
+    n_horz = 15                         # horizontal element number
+    n_vert = 8                          # vertical element number
+    days = 1                            # experiment day number
+    timestart = FT(0)                   # start time (seconds)
+    timeend = FT(days * 24 * 60 * 60)   # end time (seconds)
 
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
@@ -185,6 +206,9 @@ function main()
         CFL_direction = HorizontalDirection(),
     )
 
+    # Set up diagnostics
+    dgn_config = config_diagnostics(FT, driver_config)
+
     # Set up user-defined callbacks
     # TODO: This callback needs to live somewhere else
     filterorder = 14
@@ -202,6 +226,7 @@ function main()
     # Run the model
     result = CLIMA.invoke!(
         solver_config;
+        diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )

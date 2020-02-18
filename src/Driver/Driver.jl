@@ -113,7 +113,7 @@ function parse_commandline()
         help = "enable the collection of diagnostics to <output-dir>"
         action = :store_true
         "--diagnostics-interval"
-        help = "interval in simulation steps for gathering diagnostics"
+        help = "override the interval for gathering diagnostics (in simulation steps)"
         arg_type = Int
         default = 10000
         "--enable-vtk"
@@ -213,13 +213,15 @@ end
 
 include("driver_configs.jl")
 include("solver_configs.jl")
+include("diagnostics_configs.jl")
 
 """
     CLIMA.invoke!(solver_config::SolverConfiguration;
-                  user_callbacks=(),
-                  check_euclidean_distance=false,
-                  adjustfinalstep=false
-                  user_info_callback=(init)->nothing)
+                  diagnostics_config       = nothing,
+                  user_callbacks           = (),
+                  check_euclidean_distance = false,
+                  adjustfinalstep          = false,
+                  user_info_callback       = (init)->nothing)
 
 Run the simulation defined by the `solver_config`.
 
@@ -244,6 +246,7 @@ during the actual ODE solve; see [`GenericCallbacks`](@ref) and
 """
 function invoke!(
     solver_config::SolverConfiguration;
+    diagnostics_config = nothing,
     user_callbacks = (),
     check_euclidean_distance = false,
     adjustfinalstep = false,
@@ -291,33 +294,41 @@ function invoke!(
         end
         callbacks = (callbacks..., cbinfo)
     end
-    if Settings.enable_diagnostics
-        # set up diagnostics to be collected via callback
-        cbdiagnostics =
-            GenericCallbacks.EveryXSimulationSteps(Settings.diagnostics_interval) do (
-                init = false
-            )
-                if init
-                    dia_starttime = replace(string(now()), ":" => ".")
-                    Diagnostics.init(
-                        mpicomm,
-                        dg,
-                        Q,
-                        dia_starttime,
-                        Settings.output_dir,
-                    )
-                end
+
+    dia_starttime = ""
+    if Settings.enable_diagnostics && diagnostics_config !== nothing
+        dia_starttime = replace(string(now()), ":" => ".")
+        Diagnostics.init(mpicomm, dg, Q, dia_starttime, Settings.output_dir)
+
+        # set up a callback for each diagnostics group
+        diacbs = ()
+        for diagrp in diagnostics_config.groups
+            if Settings.diagnostics_interval > 0
+                interval = Settings.diagnostics_interval
+            else
+                interval = diagrp.interval
+            end
+            fn = GenericCallbacks.EveryXSimulationSteps(
+                interval,
+            ) do (init = false)
                 currtime = ODESolvers.gettime(solver)
+                if init
+                    diagrp(currtime, init = true)
+                end
                 @info @sprintf(
-                    """Diagnostics
+                    """Diagnostics: %s
                     collecting at %s""",
+                    diagrp.name,
                     string(currtime)
                 )
-                Diagnostics.collect(currtime)
+                diagrp(currtime)
                 nothing
             end
-        callbacks = (callbacks..., cbdiagnostics)
+            diacbs = (diacbs..., fn)
+        end
+        callbacks = (callbacks..., diacbs...)
     end
+
     if Settings.enable_vtk
         # set up VTK output callback
         step = [0]
@@ -361,6 +372,7 @@ function invoke!(
             end
         callbacks = (callbacks..., cbvtk)
     end
+
     if Settings.monitor_courant_numbers
         # set up the callback for Courant number calculations
         cbcfl =
@@ -448,8 +460,15 @@ function invoke!(
     )
     @toc solve!
 
-    engf = norm(solver_config.Q)
+    # fini diagnostics groups
+    if Settings.enable_diagnostics
+        currtime = ODESolvers.gettime(solver)
+        for diagrp in diagnostics_config.groups
+            diagrp(currtime, fini = true)
+        end
+    end
 
+    engf = norm(solver_config.Q)
     @info @sprintf(
         """Finished
         norm(Q)            = %.16e

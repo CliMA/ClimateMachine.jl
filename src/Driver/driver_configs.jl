@@ -8,7 +8,6 @@
 #
 # User-customized configurations can use these as templates.
 
-
 using ..Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
@@ -61,9 +60,7 @@ end
 DefaultSolverType = IMEXSolverType
 
 abstract type ConfigSpecificInfo end
-struct AtmosLESSpecificInfo <: ConfigSpecificInfo
-    brickrange::Tuple
-end
+struct AtmosLESSpecificInfo <: ConfigSpecificInfo end
 struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     domain_height::FT
     nelem_vert::Int
@@ -212,7 +209,7 @@ function AtmosLESConfiguration(
         numfluxnondiff,
         numfluxdiff,
         gradnumflux,
-        AtmosLESSpecificInfo(brickrange),
+        AtmosLESSpecificInfo(),
     )
 end
 

@@ -8,6 +8,7 @@ using LinearAlgebra
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
+using CLIMA.Diagnostics
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
@@ -468,6 +469,12 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     return config
 end
 
+function config_diagnostics(driver_config)
+    interval = 10000 # in time steps
+    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    return CLIMA.setup_diagnostics([dgngrp])
+end
+
 function main()
     CLIMA.init()
 
@@ -490,7 +497,8 @@ function main()
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config =
-        CLIMA.setup_solver(t0, timeend, driver_config; init_on_cpu = true)
+        CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu = true)
+    dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
@@ -499,6 +507,7 @@ function main()
 
     result = CLIMA.invoke!(
         solver_config;
+        diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
