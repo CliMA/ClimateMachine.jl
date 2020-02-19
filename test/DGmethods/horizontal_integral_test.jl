@@ -11,7 +11,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.MPIStateArrays
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos

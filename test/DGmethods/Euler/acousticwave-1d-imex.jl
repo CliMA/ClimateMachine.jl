@@ -5,8 +5,7 @@ using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state, VerticalDirection
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
-using CLIMA.ODESolvers: solve!, gettime
-using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.ODESolvers
 using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.VTK: writevtk, writepvtu

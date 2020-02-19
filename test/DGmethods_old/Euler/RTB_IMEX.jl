@@ -5,7 +5,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
@@ -14,7 +13,6 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
-using CLIMA.AdditiveRungeKuttaMethod
 
 const γ_exact = 7 // 5 # FIXME: Remove this for some moist thermo approach
 

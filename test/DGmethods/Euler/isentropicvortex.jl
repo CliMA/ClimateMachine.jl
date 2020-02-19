@@ -5,8 +5,7 @@ using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive,
                                        CentralNumericalFluxNonDiffusive
-using CLIMA.ODESolvers: solve!, gettime
-using CLIMA.LowStorageRungeKuttaMethod: LSRK54CarpenterKennedy
+using CLIMA.ODESolvers
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance

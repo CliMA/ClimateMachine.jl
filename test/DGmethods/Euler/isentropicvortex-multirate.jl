@@ -4,11 +4,7 @@ using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
-using CLIMA.ODESolvers: solve!, gettime
-using CLIMA.MultirateRungeKuttaMethod
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.StrongStabilityPreservingRungeKuttaMethod
-using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.ODESolvers
 using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
@@ -142,7 +138,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
   nsteps = ceil(Int, timeend / slow_dt)
   slow_dt = timeend / nsteps
 
-  # arbitrary and not needed for stabilty, just for testing
+  # arbitrary and not needed for stability, just for testing
   fast_dt = slow_dt / 3
 
   Q = init_ode_state(dg, FT(0))
@@ -150,7 +146,8 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
   slow_ode_solver = LSRK144NiegemannDiehlBusch(slow_dg, Q; dt = slow_dt)
 
   # check if FastMethod is ARK, is there a better way ?
-  if isdefined(AdditiveRungeKuttaMethod, Symbol(FastMethod))
+  if FastMethod == ARK2GiraldoKellyConstantinescu
+
     linearsolver = GeneralizedMinimalResidual(Q; M=10, rtol=1e-10)
     # splitting the fast part into full and linear but the fast part
     # is already linear so full_dg == linear_dg == fast_dg

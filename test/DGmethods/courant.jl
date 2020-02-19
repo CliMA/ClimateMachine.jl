@@ -22,7 +22,6 @@ using CLIMA.Atmos: AtmosModel,
                    ConstantViscosityWithDivergence, vars_state, soundspeed
 using CLIMA.Atmos
 using CLIMA.ODESolvers
-using CLIMA.LowStorageRungeKuttaMethod
 const ArrayType = CLIMA.array_type()
 
 using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
