@@ -22,7 +22,9 @@ using CLIMA.Mesh.Filters
 
 using CLIMA.Atmos
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux!
-
+import CLIMA.DGmethods: boundary_state!
+import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive! 
+import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 # function pressure(m::MMSDryModel, state::Vars, aux::Vars)
 #   T = eltype(state)
 #   γ = T(7)/T(5)
@@ -43,7 +45,6 @@ import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, update_aux
 const (xmin, xmax) = (-30000,30000)
 const (ymin, ymax) = (0,  5000)
 const (zmin, zmax) = (0, 24000)
-
 function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
   spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = spline_int()
   FT         = eltype(state)
@@ -68,7 +69,7 @@ function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
   ry  =  1500.0
   rz  =  1500.0
   xc  = 0.0#0.5*(xmax + xmin)
-  yc  = 2500.0*(ymax + ymin)
+  yc  = 2500.0
   zc  = 2000.0
 
   cylinder_flg = 0.0
@@ -93,7 +94,7 @@ function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
   ρe_tot      = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
   ρq_tot      = ρ * q_tot
   state.ρ = ρ
-  state.ρu = SVector(ρu, ρv, ρw)
+  state.ρu = SVector(0, ρv, ρw)
   state.ρe = ρe_tot
   state.moisture.ρq_tot = ρq_tot
   state.moisture.ρq_liq = FT(0)
@@ -144,13 +145,12 @@ using CLIMA.Atmos: vars_state, vars_aux
 
 
 function config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
-
-rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,2)
+rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,1)
     config = CLIMA.LES_Configuration("squall_line", N, resolution, xmax, ymax, zmax,
                                      init_state!,
 				     xmin = xmin,
-				     turbulence = ConstantViscosityWithDivergence{FT}(200),
-                                     solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy),
+                                     turbulence = ConstantViscosityWithDivergence{FT}(75),
+				     solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy),
                                      ref_state=NoReferenceState(),
                                      precipitation=Rain(),
 				     moisture=NonEquilMoist(),
@@ -176,7 +176,7 @@ function main()
     t0 = FT(0)
     timeend = FT(2000)
     driver_config = config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.4)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.2)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())

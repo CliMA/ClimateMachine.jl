@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters
-export PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
+export BoundaryCondition, PeriodicBC, NoFluxBC, InitStateBC, DYCOMS_BC, RayleighBenardBC
 
 function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive, bc,
                                         atmos::AtmosModel, F⁺, state⁺, diff⁺,

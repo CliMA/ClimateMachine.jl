@@ -165,7 +165,6 @@ function gradvariables!(moist::NonEquilMoist, atmos::AtmosModel, transform::Vars
   transform.moisture.q_liq = state.moisture.ρq_liq * ρinv
   transform.moisture.q_ice = state.moisture.ρq_ice * ρinv
 end
-
 function flux_moisture!(moist::NonEquilMoist, atmos::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
   ρ = state.ρ
   u = state.ρu / ρ
@@ -175,18 +174,20 @@ function flux_moisture!(moist::NonEquilMoist, atmos::AtmosModel, flux::Grad, sta
   u_tot = u .- usub * ẑ
   flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
 end
-
-function diffusive!(moist::NonEquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, ρD_t)
-  diffusive.moisture.ρd_q_tot = (-ρD_t) .* ∇transform.moisture.q_tot
-  diffusive.moisture.ρd_q_liq = (-ρD_t) .* ∇transform.moisture.q_liq
-  diffusive.moisture.ρd_q_ice = (-ρD_t) .* ∇transform.moisture.q_ice
+function diffusive!(moist::NonEquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, )
+  diffusive.moisture.ρd_q_tot =  ∇transform.moisture.q_tot
+  diffusive.moisture.ρd_q_liq =  ∇transform.moisture.q_liq
+  diffusive.moisture.ρd_q_ice =  ∇transform.moisture.q_ice
 end
 
-function flux_diffusive!(moist::NonEquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function flux_diffusive!(moist::NonEquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real, D_t)
+  d_q_tot = (-D_t) .* diffusive.moisture.ρd_q_tot
+  d_q_liq = (-D_t) .* diffusive.moisture.ρd_q_liq
+  d_q_ice = (-D_t) .* diffusive.moisture.ρd_q_ice
   u = state.ρu / state.ρ
-  flux.ρ += diffusive.moisture.ρd_q_tot
-  flux.ρu += diffusive.moisture.ρd_q_tot .* u'
-  flux.moisture.ρq_tot += diffusive.moisture.ρd_q_tot
-  flux.moisture.ρq_liq += diffusive.moisture.ρd_q_liq
-  flux.moisture.ρq_ice += diffusive.moisture.ρd_q_ice
+  flux.ρ += d_q_tot * state.ρ
+  flux.ρu += d_q_tot .* u' * state.ρ
+  flux.moisture.ρq_tot += d_q_tot * state.ρ
+  flux.moisture.ρq_liq += d_q_liq * state.ρ
+  flux.moisture.ρq_ice += d_q_ice * state.ρ
 end
