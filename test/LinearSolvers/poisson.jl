@@ -22,7 +22,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
 
 import CLIMA.DGmethods.NumericalFluxes: NumericalFluxDiffusive,
                                         numerical_flux_diffusive!
-                                                              
+
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -75,7 +75,7 @@ function diffusive!(::PoissonModel, diffusive::Vars,
   diffusive.∇ϕ = ∇transform.ϕ
 end
 
-source!(::PoissonModel, source::Vars, state::Vars, aux::Vars, t::Real) = nothing
+source!(::PoissonModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 
 # note, that the code assumes solutions with zero mean
 sol1d(x) = sin(2pi * x) ^ 4 - 3 / 8
@@ -103,7 +103,7 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
                                           polynomialorder = polynomialorder,
                                           DeviceArray = ArrayType,
                                           FloatType = FT)
-  
+
   dg = DGModel(PoissonModel{dim}(),
                grid,
                CentralNumericalFluxNonDiffusive(),
@@ -158,7 +158,7 @@ let
   expected_result[1, 2, 1] = 1.4957957657736219e-02
   expected_result[1, 2, 2] = 4.7282369781541172e-04
   expected_result[1, 2, 3] = 1.4697449643351771e-05
-  
+
   # GeneralizedMinimalResidual
   expected_result[2, 1, 1] = 5.0540243587512981e-02
   expected_result[2, 1, 2] = 1.4802275409186211e-03
@@ -177,7 +177,7 @@ let
         Ne = ntuple(d -> 2 ^ (l - 1) * base_num_elem, dim)
         brickrange = ntuple(d -> range(FT(0), length = Ne[d], stop = 1), dim)
         periodicity = ntuple(d -> true, dim)
-        
+
         @info (ArrayType, FT, m, dim)
         result[l] = run(mpicomm, ArrayType, FT, dim,
                         polynomialorder, brickrange, periodicity, linmethod)

@@ -112,7 +112,7 @@ end
   end
 end
 
-@inline function source!(S, Q, aux, t)
+@inline function source!(S, Q, diffusive, aux, t)
   # Initialise the final block source term
   S .= -zero(eltype(Q))
 
@@ -238,11 +238,11 @@ end
   end
 end
 
-@inline function lin_source!(S, Q, aux, t)
+@inline function lin_source!(S, Q, diffusive, aux, t)
   S .= 0
-  lin_source_geopotential!(S, Q, aux, t)
+  lin_source_geopotential!(S, Q, diffusive, aux, t)
 end
-@inline function lin_source_geopotential!(S, Q, aux, t)
+@inline function lin_source_geopotential!(S, Q, diffusive, aux, t)
   @inbounds begin
     δρ = Q[_δρ]
     ∇ϕ = SVector(aux[_a_ϕ_x], aux[_a_ϕ_y], aux[_a_ϕ_z])

@@ -145,7 +145,7 @@ const _a_x, _a_y, _a_z = 1:_nauxstate
   end
 end
 
-@inline function source3D!(S, Q, aux, t)
+@inline function source3D!(S, Q, diffusive, aux, t)
   @inbounds begin
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     S[_ρ] = Sρ_g(t, x, y, z, Val(3))
@@ -156,7 +156,7 @@ end
   end
 end
 
-@inline function source2D!(S, Q, aux, t)
+@inline function source2D!(S, Q, diffusive, aux, t)
   @inbounds begin
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     S[_ρ] = Sρ_g(t, x, y, z, Val(2))
