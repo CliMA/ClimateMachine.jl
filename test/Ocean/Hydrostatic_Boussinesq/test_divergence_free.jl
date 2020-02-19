@@ -32,7 +32,6 @@ using GPUifyLoops
 const ArrayType = CLIMA.array_type()
 
 HBModel   = HydrostaticBoussinesqModel
-HBProblem = HydrostaticBoussinesqProblem
 
 struct HomogeneousSimpleBox{T} <: AbstractHydrostaticBoussinesqProblem
   Lˣ::T
