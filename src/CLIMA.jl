@@ -3,6 +3,8 @@ module CLIMA
 include("Utilities/TicToc/TicToc.jl")
 include("Utilities/ParametersType/ParametersType.jl")
 include("Common/PlanetParameters/PlanetParameters.jl")
+include("Common/PlanetParameters/UniversalConstants.jl")
+include("Common/PlanetParameters/PlanetaryConstants.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
 include("Utilities/VariableTemplates/VariableTemplates.jl")
 include("Common/MoistThermodynamics/MoistThermodynamics.jl")
