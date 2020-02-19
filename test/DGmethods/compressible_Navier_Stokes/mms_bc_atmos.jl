@@ -188,8 +188,8 @@ let
   polynomialorder = 4
   base_num_elem = 4
 
-  expected_result = [1.5834569096502649e-01 5.3705043093160857e-03 2.2780398026991879e-04;
-                     2.6050771352440709e-02 1.1953830539519587e-03 6.2139835471113376e-05]
+  expected_result = [1.6931876910307017e-01 5.4603193051929394e-03 2.3307776694542282e-04;
+                     3.3983777728925593e-02 1.7808380837573065e-03 9.176181458773599e-5]
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   @testset "mms_bc_atmos" begin
