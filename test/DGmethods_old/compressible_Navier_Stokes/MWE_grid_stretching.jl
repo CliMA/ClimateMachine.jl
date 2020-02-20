@@ -401,7 +401,7 @@ end
 end
 # -------------------------------------------------------------------------
 
-@inline function source!(S,Q,aux,t)
+@inline function source!(S,Q,diffusive,aux, t)
   # Initialise the final block source term
   S .= 0
 

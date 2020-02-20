@@ -13,7 +13,7 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state,
                    AtmosLESConfiguration
 using CLIMA.VariableTemplates: flattenednames

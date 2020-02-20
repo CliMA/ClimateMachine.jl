@@ -137,8 +137,8 @@ end
 
 @inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
 
-@inline function source!(m::SWModel{P}, S::Vars, q::Vars, α::Vars,
-                         t::Real) where P
+@inline function source!(m::SWModel{P}, S::Vars, q::Vars,
+                         diffusive::Vars, α::Vars, t::Real) where P
   τ = α.τ
   f = α.f
   U = q.U

@@ -55,16 +55,16 @@ function flux_nondiffusive!(rem::RemainderModel, flux::Grad, state::Vars, aux::V
   nothing
 end
 
-function source!(rem::RemainderModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(rem::RemainderModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   m = getfield(source, :array)
-  source!(rem.main, source, state, aux, t)
+  source!(rem.main, source, state, diffusive, aux, t)
 
   source_s = similar(source)
   m_s = getfield(source_s, :array)
 
   for sub in rem.subs
     fill!(m_s, 0)
-    source!(sub, source_s, state, aux, t)
+    source!(sub, source_s, state, diffusive, aux, t)
     m .-= m_s
   end
   nothing

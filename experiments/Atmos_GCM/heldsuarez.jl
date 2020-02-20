@@ -54,7 +54,7 @@ function config_heldsuarez(FT, N, resolution)
     return config
 end
 
-function held_suarez_forcing!(source, state, aux, t::Real)
+function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     global T_initial
 
     FT = eltype(state)

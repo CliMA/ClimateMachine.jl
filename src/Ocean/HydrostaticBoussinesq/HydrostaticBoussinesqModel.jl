@@ -370,8 +370,8 @@ end
     ∂ᵗu = -f×u
     ∂ᵗη = w|(z=0)
 """
-@inline function source!(m::HBModel{P}, source::Vars, Q::Vars, A::Vars,
-                         t::Real) where P
+@inline function source!(m::HBModel{P}, source::Vars, Q::Vars,
+                         diffusive::Vars, A::Vars, t::Real) where P
   @inbounds begin
     u,v = Q.u # Horizontal components of velocity
     f = A.f

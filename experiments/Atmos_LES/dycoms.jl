@@ -315,6 +315,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     ics = init_dycoms!
     source = (Gravity(),
               rayleigh_sponge,
+              Subsidence{FT}(D_subsidence),
               geostrophic_forcing)
 
     model = AtmosModel{FT}(AtmosLESConfiguration;
@@ -322,7 +323,6 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
                           turbulence=SmagorinskyLilly{FT}(C_smag),
                             moisture=EquilMoist(5),
                            radiation=radiation,
-                          subsidence=ConstantSubsidence{FT}(D_subsidence),
                               source=source,
                    boundarycondition=bc,
                           init_state=ics)
