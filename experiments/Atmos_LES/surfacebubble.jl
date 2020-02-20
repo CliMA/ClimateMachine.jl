@@ -82,7 +82,6 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   # Apply boundary condition per face (1 == bottom wall)
   if bctype != 1
     atmos_boundary_flux_diffusive!(nf, NoFluxBC(), m, F,
-                                   Y⁺, Σ⁺, HD⁺, A⁺,
                                    n⁻,
                                    Y⁻, Σ⁻, HD⁻, A⁻,
                                    bctype, t,
