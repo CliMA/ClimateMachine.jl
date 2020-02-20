@@ -26,8 +26,9 @@ end
 
 vars_integrals(::IntegralTestModel, T) = @vars(a::T,b::T)
 vars_aux(m::IntegralTestModel,T) = @vars(int::vars_integrals(m,T),
-                                         rev_int::vars_integrals(m,T),
-                                         coord::SVector{3,T}, a::T, b::T)
+                                         rev_int::vars_reverse_integrals(m,T),
+                                         coord::SVector{3,T}, a::T, b::T,
+                                         rev_a::T, rev_b::T)
 
 vars_state(::IntegralTestModel, T) = @vars()
 vars_diffusive(::IntegralTestModel, T) = @vars()
@@ -45,9 +46,19 @@ function init_aux!(::IntegralTestModel{dim}, aux::Vars,
   if dim == 2
     aux.a = x*y + z*y
     aux.b = 2*x*y + sin(x)*y^2/2 - (z-1)^2*y^3/3
+    y_top = 3
+    a_top = x*y_top + z*y_top
+    b_top = 2*x*y_top + sin(x)*y_top^2/2 - (z-1)^2*y_top^3/3
+    aux.rev_a = a_top - aux.a
+    aux.rev_b = b_top - aux.b
   else
     aux.a = x*z + z^2/2
     aux.b = 2*x*z + sin(x)*y*z - (1+(z-1)^3)*y^2/3
+    zz_top = 3
+    a_top = x*zz_top + zz_top^2/2
+    b_top = 2*x*zz_top + sin(x)*y*zz_top - (1+(zz_top-1)^3)*y^2/3
+    aux.rev_a = a_top - aux.a
+    aux.rev_b = b_top - aux.b
   end
 end
 
@@ -93,6 +104,8 @@ function run(mpicomm, dim, Ne, N, FT, ArrayType)
   # Wrapping in Array ensure both GPU and CPU code use same approx
   @test Array(dg.auxstate.data[:, 1, :]) ≈ Array(dg.auxstate.data[:, 8, :])
   @test Array(dg.auxstate.data[:, 2, :]) ≈ Array(dg.auxstate.data[:, 9, :])
+  @test Array(dg.auxstate.data[:, 3, :]) ≈ Array(dg.auxstate.data[:, 10, :])
+  @test Array(dg.auxstate.data[:, 4, :]) ≈ Array(dg.auxstate.data[:, 11, :])
 end
 
 let
