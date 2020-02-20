@@ -17,4 +17,3 @@ function linearcombination!(Q, cs, Xs, increment::Bool)
     end
   end
 end
-

@@ -39,17 +39,20 @@ This uses the restarted Generalized Minimal Residual method of Saad and Schultz 
 mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <: LS.AbstractIterativeLinearSolver
   krylov_basis::NTuple{MP1, AT}
   "Hessenberg matrix"
-  H::MArray{Tuple{MP1, M}, T, 2, MMP1}
+  H::Matrix{T}
   "rhs of the least squares problem"
-  g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
+  g0::Vector{T}
   rtol::T
   atol::T
 
   function GeneralizedMinimalResidual(Q::AT; M=min(20, eltype(Q)), rtol=√eps(eltype(AT)),
                                       atol=eps(eltype(AT))) where AT
     krylov_basis = ntuple(i -> similar(Q), M + 1)
-    H = @MArray zeros(M + 1, M)
-    g0 = @MArray zeros(M + 1)
+    FT = eltype(Q)
+    H = Matrix{FT}(undef, M+1, M)
+    fill!(H, FT(0))
+    g0 = Vector{FT}(undef, M+1)
+    fill!(g0, FT(0))
 
     new{M, M + 1, M * (M + 1), eltype(Q), AT}(krylov_basis, H, g0, rtol, atol)
   end
@@ -86,6 +89,8 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     converged, max(threshold, atol)
 end
 
+nonan(v) = ~any(isnan, v.data)
+
 function LS.doiteration!(linearoperator!, Q, Qrhs,
                          solver::GeneralizedMinimalResidual{M}, threshold,
                          args...) where M
@@ -103,11 +108,13 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
 
     # Arnoldi using the Modified Gram Schmidt orthonormalization
     linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
+
     for i = 1:j
       H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted)
       @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
     end
     H[j + 1, j] = norm(krylov_basis[j + 1], weighted)
+    @assert ~iszero(H[j+1, j])
     krylov_basis[j + 1] ./= H[j + 1, j]
 
     # apply the previous Givens rotations to the new column of H

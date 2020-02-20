@@ -3,6 +3,8 @@ export AdditiveRungeKutta
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 
+using LinearAlgebra # FIXME
+
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and Constantinescu (2013) directly.
 # Seems to cut the number of solver iterations by half but requires Nstages - 1 additional storage.
 struct NaiveVariant end
@@ -77,7 +79,7 @@ and the optional initial time `t0`. The resulting linear systems are solved
 using the provided `linearsolver` solver. This time stepping object is intended
 to be passed to the `solve!` command.
 
-The constructor builds an additive Runge--Kutta scheme 
+The constructor builds an additive Runge--Kutta scheme
 based on the provided `RKAe`, `RKAi`, `RKB` and `RKC` coefficient arrays.
 Additionally `variant` specifies which of the analytically equivalent but numerically
 different formulations of the scheme is used.
@@ -133,13 +135,13 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: 
     T = eltype(Q)
     LT = typeof(linearsolver)
     RT = real(T)
-    
+
     Nstages = length(RKB)
 
     Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
     Rstages = ntuple(i -> similar(Q), Nstages)
     Qhat = similar(Q)
-    
+
     V = typeof(variant)
     variant_storage = additional_storage(variant, Q, Nstages)
     VS = typeof(variant_storage)
@@ -241,7 +243,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-  
+
   if dt != ark.dt
     α = dt * RKA_implicit[2, 2]
     implicitoperator! = EulerOperator(rhs_linear!, -α)
@@ -267,7 +269,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
       @. LQ = Q - α * LQ
     end
     linearsolve!(implicitoperator!, linearsolver, Qstages[istage], Qhat, p, stagetime)
-    
+
     rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
     rhs_linear!(Lstages[istage], Qstages[istage], p, stagetime, increment = false)
   end
@@ -392,7 +394,7 @@ function ARK2GiraldoKellyConstantinescu(F, L,
 
   RKB = [RT(1 / (2sqrt(2))), RT(1 / (2sqrt(2))), RT(1 - 1 / sqrt(2))]
   RKC = [RT(0), RT(2 - sqrt(2)), RT(1)]
-  
+
   Nstages = length(RKB)
 
   AdditiveRungeKutta(F, L, linearsolver,
@@ -493,7 +495,7 @@ function ARK548L2SA2KennedyCarpenter(F, L,
   RKA_explicit[8, 5] = RT(4151782504231 // 36106512998704)
   RKA_explicit[8, 6] = RT(572599549169 // 6265429158920)
   RKA_explicit[8, 7] = RT(-457874356192 // 11306498036315)
-  
+
   RKB[2] = 0
   RKB[3] = RT(3517720773327 // 20256071687669)
   RKB[4] = RT(4569610470461 // 17934693873752)
@@ -507,11 +509,11 @@ function ARK548L2SA2KennedyCarpenter(F, L,
   RKC[5] = RT(6365430648612 // 17842476412687)
   RKC[6] = RT(18 // 25)
   RKC[7] = RT(191 // 200)
-  
+
   for is = 2:Nstages
     RKA_implicit[is, 1] = RKA_implicit[is, 2]
   end
- 
+
   for is = 1:Nstages-1
     RKA_implicit[Nstages, is] = RKB[is]
   end

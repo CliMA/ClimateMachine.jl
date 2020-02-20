@@ -330,7 +330,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   MJ .= M .* J
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmapM]
-  
+
   MH = kron(ones(FT, Nq), ntuple(j->ω, dim-1)...)
 
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)

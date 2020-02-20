@@ -7,14 +7,16 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
+import CLIMA.MPIStateArrays: realview
 using CLIMA.LinearSolvers
-using CLIMA.GeneralizedMinimalResidualSolver
+using CLIMA.ColumnwiseGMRESSolver
 using CLIMA.ColumnwiseLUSolver: SingleColumnLU, ManyColumnLU, banded_matrix,
                                 banded_matrix_vector_product!
 using CLIMA.AdditiveRungeKuttaMethod
 using LinearAlgebra
 using Printf
 using Dates
+using BenchmarkTools #FIXME
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
@@ -84,7 +86,6 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
   end
 end
 
-
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
              n, α, β, μ, δ, vtkdir, outputtime, linearsolvertype, fluxBC)
 
@@ -112,7 +113,10 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
 
   Q = init_ode_state(dg, FT(0))
 
-  ode_solver = ARK548L2SA2KennedyCarpenter(dg, vdg, linearsolvertype(), Q;
+
+  Neh = length(topl.realelems) ÷ topl.stacksize
+  @time solver = linearsolvertype(Q; nhorzelem=Neh)
+  ode_solver = ARK548L2SA2KennedyCarpenter(dg, vdg, solver, Q;
                                            dt = dt, t0 = 0,
                                            split_nonlinear_linear=false)
 
@@ -221,7 +225,7 @@ let
       result = zeros(FT, numlevels)
       for dim = 2:3
         for fluxBC in (true, false)
-          for linearsolvertype in (SingleColumnLU, ManyColumnLU)
+          for linearsolvertype in (StackGMRES, SingleColumnLU, ManyColumnLU)
             d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
             n = SVector{3, FT}(d ./ norm(d))
 
@@ -273,4 +277,3 @@ let
 end
 
 nothing
-

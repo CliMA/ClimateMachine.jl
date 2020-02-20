@@ -35,8 +35,12 @@ the same.  The systems are solved using a non-pivoted LU factorization.
 """
 struct SingleColumnLU <: AbstractColumnLUSolver  end
 
+# Stubs to comply with constructor standard for iterative solvers
+ManyColumnLU(Q::AT; args...) where AT = ManyColumnLU()
+SingleColumnLU(Q::AT; args...) where AT = SingleColumnLU()
+
 struct ColumnwiseLU{F, AT}
-  f::F
+  f::F #NOTE: f annotates details of banding
   A::AT
 end
 
@@ -47,6 +51,7 @@ function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
   A = banded_matrix(op, dg, similar(Q), similar(Q), args...;
                     single_column = typeof(solver) <: SingleColumnLU)
 
+  #NOTE: dg just there for grid information
   band_lu!(A, dg)
 
   ColumnwiseLU(dg, A)

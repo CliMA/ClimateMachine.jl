@@ -57,6 +57,21 @@ struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
 
   commtag::Int
 
+  function MPIStateArray{FT, DATN, DAI1, DAV, DAT2}(mpicomm, data, realdata,
+                                                    realelems, ghostelems,
+                                                    vmaprecv, vmapsend,
+                                                    sendreq, recvreq,
+                                                    host_send_buffer, host_recv_buffer,
+                                                    nabrtorank, nabrtovmaprecv, nabrtovmapsend,
+                                                    device_send_buffer, device_recv_buffer,
+                                                    weights, commtag
+                                                    ) where {FT, DATN, DAI1, DAV, DAT2}
+    new{FT, DATN, DAI1, DAV, DAT2}(mpicomm, data, realdata, realelems, ghostelems,
+                                   vmaprecv, vmapsend, sendreq, recvreq, host_send_buffer,
+                                   host_recv_buffer, nabrtorank, nabrtovmaprecv, nabrtovmapsend,
+                                   device_send_buffer, device_recv_buffer, weights, commtag)
+  end
+
   function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems,
                              ghostelems, vmaprecv, vmapsend, nabrtorank,
                              nabrtovmaprecv, nabrtovmapsend, weights, commtag;
