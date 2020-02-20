@@ -16,13 +16,15 @@ const p_ground = MSLP
 const T_initial = 255
 const domain_height = 30e3
 
-function init_heldsuarez!(state, aux, coords, t)
+function init_heldsuarez!(bl, state, aux, coords, t)
     global p_ground, T_initial
 
     FT = eltype(state)
 
+    # TODO: change to altitude function
     r = norm(coords, 2)
     h = r - FT(planet_radius)
+    # h = altitude(bl.orientation, aux)
 
     scale_height = R_d * FT(T_initial) / grav
     p            = FT(p_ground) * exp(-h / scale_height)
@@ -44,7 +46,6 @@ function config_heldsuarez(FT, N, resolution)
                            moisture   = DryModel(),
                            source     = (Gravity(), Coriolis(), held_suarez_forcing!),
                            init_state = init_heldsuarez!)
-    
     config = CLIMA.Atmos_GCM_Configuration("HeldSuarez", N, resolution,
                                            FT(domain_height),
                                            init_heldsuarez!;
