@@ -77,7 +77,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   bc = NoFluxBC()
 
   # Choose explicit solver
-  ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
+  ode_solver = CLIMA.MultirateSolverType(linear_model=AtmosAcousticGravityLinearModel,
+                                         slow_method=LSRK144NiegemannDiehlBusch,
+                                         fast_method=LSRK144NiegemannDiehlBusch,
+                                         timestep_ratio=10)
 
   # Set up the model
   C_smag = FT(0.23)
@@ -117,7 +120,7 @@ function main()
     t0 = FT(0)
     timeend = FT(1000)
     # Courant number
-    CFL = FT(0.8)
+    CFL = FT(20)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu=true, Courant_number=CFL)
@@ -130,8 +133,8 @@ function main()
 
     # Invoke solver (calls solve! function for time-integrator)
     result = CLIMA.invoke!(solver_config;
-                          user_callbacks=(cbtmarfilter,),
-                          check_euclidean_distance=true)
+                           user_callbacks=(cbtmarfilter,),
+                           check_euclidean_distance=true)
 
     @test isapprox(result,FT(1); atol=1.5e-3)
 end

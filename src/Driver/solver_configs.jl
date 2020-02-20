@@ -111,10 +111,23 @@ function setup_solver(t0::FT, timeend::FT,
     # create the solver
     if isa(ode_solver_type, ExplicitSolverType)
         solver = ode_solver_type.solver_method(dg, Q; dt=ode_dt, t0=t0)
-    else # ode_solver_type === IMEXSolverType
-        vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                      auxstate=dg.auxstate, direction=VerticalDirection())
-
+    elseif isa(ode_solver_type, MultirateSolverType)
+        fast_dg = DGModel(linmodel, grid,
+                          numfluxnondiff, numfluxdiff, gradnumflux,
+                          auxstate=dg.auxstate)
+        slow_model = RemainderModel(bl, (linmodel,))
+        slow_dg = DGModel(slow_model, grid,
+                          numfluxnondiff, numfluxdiff, gradnumflux,
+                          auxstate=dg.auxstate)
+        slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt=ode_dt)
+        fast_dt = ode_dt / ode_solver_type.timestep_ratio
+        fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt=fast_dt)
+        solver = ode_solver_type.solver_method((slow_solver, fast_solver))
+    else # solver_type === IMEXSolverType
+        vdg = DGModel(linmodel, grid,
+                      numfluxnondiff, numfluxdiff, gradnumflux,
+                      auxstate=dg.auxstate,
+                      direction=VerticalDirection())
         solver = ode_solver_type.solver_method(dg, vdg,
                                                ode_solver_type.linear_solver(), Q;
                                                dt=ode_dt, t0=t0)

@@ -14,10 +14,12 @@ const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 abstract type AbstractSolverType end
+
 struct ExplicitSolverType <: AbstractSolverType
     solver_method::Function
     ExplicitSolverType(;solver_method=LSRK54CarpenterKennedy) = new(solver_method)
 end
+
 struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
@@ -29,6 +31,22 @@ struct IMEXSolverType <: AbstractSolverType
         return new(linear_model, linear_solver, solver_method)
     end
 end
+
+struct MultirateSolverType <: AbstractSolverType
+    linear_model::Type
+    solver_method::Type
+    slow_method::Function
+    fast_method::Function
+    timestep_ratio::Int
+    function MultirateSolverType(;linear_model=AtmosAcousticGravityLinearModel,
+                                 solver_method=MultirateRungeKutta,
+                                 slow_method=LSRK54CarpenterKennedy,
+                                 fast_method=LSRK54CarpenterKennedy,
+                                 timestep_ratio=100)
+      return new(linear_model, solver_method, slow_method, fast_method, timestep_ratio)
+    end
+end
+
 DefaultSolverType = IMEXSolverType
 
 abstract type ConfigSpecificInfo end
