@@ -14,7 +14,7 @@ using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
 using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
 using CLIMA.Atmos: AtmosModel, SphericalOrientation,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, NoFluxBC,
+                   DryModel, NoPrecipitation, NoRadiation, NoFluxBC,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, HydrostaticState, IsothermalProfile,
@@ -181,7 +181,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
   nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(state, aux, coords, t)
+function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
   # callable to set initial conditions
   FT = eltype(state)
 

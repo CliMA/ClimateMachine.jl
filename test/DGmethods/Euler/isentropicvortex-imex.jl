@@ -17,7 +17,7 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state,
                    AtmosLESConfiguration
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
@@ -110,11 +110,6 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
-  initialcondition! = function(args...)
-    isentropicvortex_initialcondition!(setup, args...)
-  end
-
-
   model = AtmosModel{FT}(AtmosLESConfiguration;
                          orientation=NoOrientation(),
                            ref_state=IsentropicVortexReferenceState{FT}(setup),
@@ -122,7 +117,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                             moisture=DryModel(),
                               source=nothing,
                    boundarycondition=PeriodicBC(),
-                          init_state=initialcondition!)
+                          init_state=isentropicvortex_initialcondition!)
 
   linear_model = AtmosAcousticLinearModel(model)
   nonlinear_model = RemainderModel(model, (linear_model,))
@@ -249,7 +244,8 @@ function atmos_init_aux!(m::IsentropicVortexReferenceState, atmos::AtmosModel, a
   aux.ref_state.ρe = ρ∞ * internal_energy(T∞)
 end
 
-function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
+function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
+  setup = bl.ref_state.setup
   FT = eltype(state)
   x = MVector(coords)
 

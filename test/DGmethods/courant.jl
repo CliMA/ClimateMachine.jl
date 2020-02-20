@@ -17,7 +17,7 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    FlatOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoRadiation, NoSubsidence, PeriodicBC, NoPrecipitation,
+                   DryModel, NoRadiation, PeriodicBC, NoPrecipitation,
                    Gravity, HydrostaticState, IsothermalProfile,
                    ConstantViscosityWithDivergence, vars_state, soundspeed
 using CLIMA.Atmos
@@ -31,7 +31,7 @@ using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
 using CLIMA.VariableTemplates: Vars
 using StaticArrays
 
-function initialcondition!(state, aux, coords, t)
+function initialcondition!(bl, state, aux, coords, t)
     FT = eltype(state)
 
     p∞::FT = 10 ^ 5

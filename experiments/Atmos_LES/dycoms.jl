@@ -210,7 +210,7 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function init_dycoms!(state, aux, (x,y,z), t)
+function init_dycoms!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
     z = FT(z)
@@ -315,6 +315,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     ics = init_dycoms!
     source = (Gravity(),
               rayleigh_sponge,
+              Subsidence{FT}(D_subsidence),
               geostrophic_forcing)
 
     model = AtmosModel{FT}(AtmosLESConfiguration;
@@ -322,7 +323,6 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
                           turbulence=SmagorinskyLilly{FT}(C_smag),
                             moisture=EquilMoist(5),
                            radiation=radiation,
-                          subsidence=ConstantSubsidence{FT}(D_subsidence),
                               source=source,
                    boundarycondition=bc,
                           init_state=ics)

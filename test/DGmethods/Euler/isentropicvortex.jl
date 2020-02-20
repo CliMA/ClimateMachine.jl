@@ -13,7 +13,7 @@ using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state,
                    AtmosLESConfiguration
 using CLIMA.VariableTemplates: flattenednames
@@ -139,9 +139,6 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
-  initialcondition! = function(args...)
-    isentropicvortex_initialcondition!(setup, args...)
-  end
   model = AtmosModel{FT}(AtmosLESConfiguration;
                          orientation=NoOrientation(),
                            ref_state=NoReferenceState(),
@@ -149,7 +146,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
                             moisture=DryModel(),
                               source=nothing,
                    boundarycondition=PeriodicBC(),
-                          init_state=initialcondition!)
+                          init_state=isentropicvortex_initialcondition!)
 
   dg = DGModel(model, grid, NumericalFlux(),
                CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
@@ -162,7 +159,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
   nsteps = ceil(Int, timeend / dt)
   dt = timeend / nsteps
 
-  Q = init_ode_state(dg, FT(0))
+  Q = init_ode_state(dg, FT(0), setup)
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
@@ -204,7 +201,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
     outputtime = timeend
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
       vtkstep += 1
-      Qe = init_ode_state(dg, gettime(lsrk))
+      Qe = init_ode_state(dg, gettime(lsrk), setup)
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
     end
     callbacks = (callbacks..., cbvtk)
@@ -213,7 +210,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
   solve!(Q, lsrk; timeend=timeend, callbacks=callbacks)
 
   # final statistics
-  Qe = init_ode_state(dg, timeend)
+  Qe = init_ode_state(dg, timeend, setup)
   engf = norm(Q)
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -238,7 +235,8 @@ Base.@kwdef struct IsentropicVortexSetup{FT}
   domain_halflength::FT = 1 // 20
 end
 
-function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
+function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
+  setup = first(args)
   FT = eltype(state)
   x = MVector(coords)
 

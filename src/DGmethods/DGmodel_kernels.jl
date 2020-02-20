@@ -144,7 +144,9 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           fill!(l_S, -zero(eltype(l_S)))
           source!(bl, Vars{vars_state(bl,FT)}(l_S),
                   Vars{vars_state(bl,FT)}(l_Q),
-                  Vars{vars_aux(bl,FT)}(l_aux), t)
+                  Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                  Vars{vars_aux(bl,FT)}(l_aux),
+                  t)
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
@@ -290,11 +292,14 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           fill!(l_S, -zero(eltype(l_S)))
           source!(bl, Vars{vars_state(bl,FT)}(l_S),
                   Vars{vars_state(bl,FT)}(l_Q),
-                  Vars{vars_aux(bl,FT)}(l_aux), t)
+                  Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                  Vars{vars_aux(bl,FT)}(l_aux),
+                  t)
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
           end
+
         end
       end
     end

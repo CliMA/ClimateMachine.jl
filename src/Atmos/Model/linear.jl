@@ -82,7 +82,7 @@ function flux_nondiffusive!(lm::AtmosAcousticLinearModel, flux::Grad, state::Var
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
   nothing
 end
-function source!(lm::AtmosAcousticLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(lm::AtmosAcousticLinearModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   nothing
 end
 
@@ -106,7 +106,7 @@ function flux_nondiffusive!(lm::AtmosAcousticGravityLinearModel, flux::Grad, sta
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ)*state.ρu
   nothing
 end
-function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(lm::AtmosAcousticGravityLinearModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
   source.ρu -= state.ρ * ∇Φ
   nothing

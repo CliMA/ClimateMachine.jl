@@ -100,11 +100,7 @@ end
 function flux_moisture!(moist::EquilMoist, atmos::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
   ρ = state.ρ
   u = state.ρu / ρ
-  z = altitude(atmos.orientation, aux)
-  usub = subsidence_velocity(atmos.subsidence, z)
-  ẑ = vertical_unit_vector(atmos.orientation, aux)
-  u_tot = u .- usub * ẑ
-  flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
+  flux.moisture.ρq_tot += u * state.moisture.ρq_tot
 end
 
 function flux_diffusive!(moist::EquilMoist, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real, D_t)

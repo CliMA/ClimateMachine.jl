@@ -18,8 +18,8 @@ Subtypes `L` should define the following methods:
 - `flux_nondiffusive!(::L, flux::Grad, state::State, auxstate::State, t::Real)`
 - `flux_diffusive!(::L, flux::Grad, state::State, diffstate::State, auxstate::State, t::Real)`
 - `gradvariables!(::L, transformstate::State, state::State, auxstate::State, t::Real)`
-- `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`
-- `source!(::L, source::State, state::State, auxstate::State, t::Real)`
+- `diffusive!(::L, diffstate::State, ∇transform::Grad, auxstate::State, t::Real)`
+- `source!(::L, source::State, state::State, diffusive::Vars, auxstate::State, t::Real)`
 - `wavespeed(::L, nM, state::State, aux::State, t::Real)`
 - `boundary_state!(::NumericalFluxGradient, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
 - `boundary_state!(::NumericalFluxNonDiffusive, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
@@ -49,7 +49,7 @@ function flux_nondiffusive! end
 function flux_diffusive! end
 function gradvariables! end
 function diffusive! end
-function source! end 
+function source! end
 function wavespeed end
 function boundary_state! end
 function init_aux! end

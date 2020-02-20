@@ -20,7 +20,7 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
+                   DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state,
                    AtmosLESConfiguration
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
@@ -107,10 +107,6 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
-  initialcondition! = function(args...)
-    isentropicvortex_initialcondition!(setup, args...)
-  end
-
   model = AtmosModel{FT}(AtmosLESConfiguration;
                          orientation=NoOrientation(),
                            ref_state=IsentropicVortexReferenceState{FT}(setup),
@@ -118,7 +114,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                             moisture=DryModel(),
                               source=nothing,
                    boundarycondition=PeriodicBC(),
-                          init_state=initialcondition!)
+                          init_state=isentropicvortex_initialcondition!)
   # The linear model has the fast time scales
   fast_model = AtmosAcousticLinearModel(model)
   # The nonlinear model has the slow time scales
@@ -145,7 +141,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
   # arbitrary and not needed for stabilty, just for testing
   fast_dt = slow_dt / 3
 
-  Q = init_ode_state(dg, FT(0))
+  Q = init_ode_state(dg, FT(0), setup)
 
   slow_ode_solver = LSRK144NiegemannDiehlBusch(slow_dg, Q; dt = slow_dt)
 
@@ -202,7 +198,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
     outputtime = timeend
     cbvtk = EveryXSimulationSteps(floor(outputtime / slow_dt)) do
       vtkstep += 1
-      Qe = init_ode_state(dg, gettime(ode_solver))
+      Qe = init_ode_state(dg, gettime(ode_solver), setup)
       do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
     end
     callbacks = (callbacks..., cbvtk)
@@ -211,7 +207,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
   solve!(Q, ode_solver; timeend=timeend, callbacks=callbacks)
 
   # final statistics
-  Qe = init_ode_state(dg, timeend)
+  Qe = init_ode_state(dg, timeend, setup)
   engf = norm(Q)
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
@@ -252,7 +248,7 @@ function atmos_init_aux!(m::IsentropicVortexReferenceState, atmos::AtmosModel, a
   aux.ref_state.ρe = ρ∞ * internal_energy(T∞)
 end
 
-function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
+function isentropicvortex_initialcondition!(bl, state, aux, coords, t, setup)
   FT = eltype(state)
   x = MVector(coords)
 

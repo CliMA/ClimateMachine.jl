@@ -126,7 +126,7 @@ end
 #md nothing # hide
 
 # Define the geopotential source from the solution and auxiliary variables
-function geopotential!(S, Q, aux, t)
+function geopotential!(S, Q, diffusive, aux, t)
   @inbounds begin
     ρ_ref, ϕx, ϕy, ϕz = aux[_a_ρ_ref], aux[_a_ϕx], aux[_a_ϕy], aux[_a_ϕz]
     dρ = Q[_dρ]
