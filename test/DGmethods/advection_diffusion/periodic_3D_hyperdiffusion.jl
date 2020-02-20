@@ -15,17 +15,12 @@ using CLIMA.ODESolvers: solve!, gettime
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection, min_node_distance
 
+const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
 
 if !@isdefined integration_testing
-  if length(ARGS) > 0
-    const integration_testing = parse(Bool, ARGS[1])
-  else
-    const integration_testing =
-      parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-  end
+  const integration_testing =
+    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
-
-const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
 
 include("hyperdiffusion_model.jl")
 
@@ -169,12 +164,8 @@ let
   CLIMA.init()
   ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
-  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-  loglevel = ll == "DEBUG" ? Logging.Debug :
-  ll == "WARN"  ? Logging.Warn  :
-  ll == "ERROR" ? Logging.Error : Logging.Info
-  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-  global_logger(ConsoleLogger(logger_stream, loglevel))
+
+  numlevels = integration_testing || CLIMA.Settings.integration_testing ? 3 : 1
 
   polynomialorder = 4
   base_num_elem = 4
@@ -200,7 +191,7 @@ let
   expected_result[3, 2, Float64, VerticalDirection] = 6.3744013545812925e-02
   expected_result[3, 3, Float64, VerticalDirection] = 9.0891011404938341e-04
 
-  numlevels = 3
+  numlevels = integration_testing ? 3 : 1
   for FT in (Float64,)
     D = 1 // 100 * SMatrix{3, 3, FT}(9 // 50, 3 // 50, 5  // 50,
                                      3 // 50, 7 // 50, 4  // 50,
