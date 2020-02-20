@@ -31,6 +31,20 @@ struct IMEXSolverType <: AbstractSolverType
         return new(linear_model, linear_solver, solver_method)
     end
 end
+
+struct MRRKSolverType <: AbstractSolverType
+    solver_method::Type
+    fast_method::Function
+    slow_method::Function
+    linear_model::Type
+    function MRRKSolverType(;solver_method=MultirateRungeKutta,
+                             fast_method=LSRK54CarpenterKennedy,
+                             slow_method=LSRK54CarpenterKennedy,
+                             linear_model=AtmosAcousticGravityLinearModel)
+      return new(solver_method, fast_method, slow_method, linear_model)
+    end
+end
+
 DefaultSolverType = IMEXSolverType
 
 struct DriverConfiguration{FT}

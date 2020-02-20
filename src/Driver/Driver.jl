@@ -211,7 +211,6 @@ function setup_solver(t0::FT, timeend::FT,
                       driver_config::DriverConfiguration,
                       init_args...;
                       forcecpu=false,
-                      ode_solver_type=nothing,
                       ode_dt=nothing,
                       modeldata=nothing,
                       Courant_number=0.4
@@ -236,18 +235,13 @@ function setup_solver(t0::FT, timeend::FT,
     update_aux!(dg, bl, Q, FT(0))
     update_aux_diffusive!(dg, bl, Q, FT(0))
 
-    # if solver has been specified, use it
-    if ode_solver_type !== nothing
-        solver_type = ode_solver_type
-    else
-        solver_type = driver_config.solver_type
-    end
+    solver_type = driver_config.solver_type
 
     # create the linear model for IMEX solvers
     linmodel = nothing
     if isa(solver_type, ExplicitSolverType)
         dtmodel = bl
-    else # solver_type === IMEXSolverType
+    else # solver_type === IMEXSolverType OR MRRKSolverType
         linmodel = solver_type.linear_model(bl)
         dtmodel = linmodel
     end
@@ -264,6 +258,16 @@ function setup_solver(t0::FT, timeend::FT,
     # create the solver
     if isa(solver_type, ExplicitSolverType)
         solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
+    elseif isa(solver_type, MRRKSolverType)
+        fast_dg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
+                          auxstate=dg.auxstate)
+        slow_model = RemainderModel(bl, (linmodel,))
+        slow_dg = DGModel(slow_model, grid, numfluxnondiff, numfluxdiff, gradnumflux,
+                          auxstate=dg.auxstate)
+        slow_solver = solver_type.slow_method(slow_dg, Q; dt=dt)
+        fast_dt = dt / 10.0
+        fast_solver = solver_type.fast_method(fast_dg, Q; dt=fast_dt)
+        solver = solver_type.solver_method((slow_solver, fast_solver))
     else # solver_type === IMEXSolverType
         vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
                       auxstate=dg.auxstate, direction=VerticalDirection())
