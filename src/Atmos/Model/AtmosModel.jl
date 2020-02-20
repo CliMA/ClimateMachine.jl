@@ -17,14 +17,19 @@ using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
-                        vars_diffusive, vars_integrals, flux_nondiffusive!,
+                        vars_diffusive, flux_nondiffusive!,
                         flux_diffusive!, source!, wavespeed, boundary_state!,
                         gradvariables!, diffusive!, init_aux!, init_state!,
-                        update_aux!, integrate_aux!, LocalGeometry, lengthscale,
-                        resolutionmetric, DGModel, num_integrals,
-                        nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!, num_state,
-                        calculate_dt
+                        update_aux!, LocalGeometry, lengthscale,
+                        resolutionmetric, DGModel, calculate_dt,
+                        nodal_update_aux!, num_state,
+                        num_integrals,
+                        vars_integrals, vars_reverse_integrals,
+                        indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,
+                        integral_load_aux!, integral_set_aux!,
+                        reverse_integral_load_aux!,
+                        reverse_integral_set_aux!
 import ..DGmethods.NumericalFluxes: boundary_state!,
                                     boundary_flux_diffusive!,
                                     NumericalFluxNonDiffusive,
@@ -158,7 +163,7 @@ end
 function vars_aux(m::AtmosModel, FT)
   @vars begin
     ∫dz::vars_integrals(m, FT)
-    ∫dnz::vars_integrals(m, FT)
+    ∫dnz::vars_reverse_integrals(m, FT)
     coord::SVector{3,FT}
     orientation::vars_aux(m.orientation, FT)
     ref_state::vars_aux(m.ref_state,FT)
@@ -170,6 +175,11 @@ end
 function vars_integrals(m::AtmosModel,FT)
   @vars begin
     radiation::vars_integrals(m.radiation,FT)
+  end
+end
+function vars_reverse_integrals(m::AtmosModel,FT)
+  @vars begin
+    radiation::vars_reverse_integrals(m.radiation,FT)
   end
 end
 
@@ -274,7 +284,7 @@ function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
 
   if num_integrals(m, FT) > 0
     indefinite_stack_integral!(dg, m, Q, auxstate, t)
-    reverse_indefinite_stack_integral!(dg, m, auxstate, t)
+    reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
   end
 
   nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t)
@@ -289,8 +299,20 @@ function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
   atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
 end
 
-function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
-  integrate_aux!(m.radiation, integ, state, aux)
+function integral_load_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+  integral_load_aux!(m.radiation, integ, state, aux)
+end
+
+function integral_set_aux!(m::AtmosModel, aux::Vars, integ::Vars)
+  integral_set_aux!(m.radiation, aux, integ)
+end
+
+function reverse_integral_load_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+  reverse_integral_load_aux!(m.radiation, integ, state, aux)
+end
+
+function reverse_integral_set_aux!(m::AtmosModel, aux::Vars, integ::Vars)
+  reverse_integral_set_aux!(m.radiation, aux, integ)
 end
 
 # TODO: figure out a nice way to handle this

@@ -20,14 +20,18 @@ import ..DGmethods.NumericalFluxes: update_penalty!, numerical_flux_diffusive!,
                                     NumericalFluxNonDiffusive
 
 import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
-                    vars_diffusive, vars_integrals, flux_nondiffusive!,
+                    vars_diffusive, flux_nondiffusive!,
                     flux_diffusive!, source!, wavespeed,
                     boundary_state!, update_aux!, update_aux_diffusive!,
                     gradvariables!, init_aux!, init_state!,
-                    LocalGeometry, indefinite_stack_integral!,
-                    reverse_indefinite_stack_integral!, integrate_aux!,
-                    DGModel, nodal_update_aux!, diffusive!,
-                    copy_stack_field_down!, create_state, calculate_dt
+                    LocalGeometry, DGModel, nodal_update_aux!, diffusive!,
+                    copy_stack_field_down!, create_state, calculate_dt,
+                    vars_integrals, vars_reverse_integrals,
+                    indefinite_stack_integral!,
+                    reverse_indefinite_stack_integral!,
+                    integral_load_aux!, integral_set_aux!,
+                    reverse_integral_load_aux!,
+                    reverse_integral_set_aux!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -159,8 +163,6 @@ f = coriolis force
 function vars_aux(m::HBModel, T)
   @vars begin
     w::T
-    pkin_reverse::T # ∫(-αᵀ θ) # TODO: remove me after better integral interface
-    w_reverse::T               # TODO: remove me after better integral interface
     pkin::T         # ∫(-αᵀ θ)
     wz0::T          # w at z=0
     θʳ::T           # SST given    # TODO: Should be 2D
@@ -252,31 +254,93 @@ end
 
 """
     vars_integral(::HBModel)
-    location to store integrands
-    ∇hu = the horizontal divegence of u, e.g. dw/dz
-    αᵀθ = density perturbation
+
+location to store integrands for bottom up integrals
+∇hu = the horizontal divegence of u, e.g. dw/dz
 """
 function vars_integrals(m::HBModel, T)
   @vars begin
     ∇hu::T
+  end
+end
+
+"""
+    integral_load_aux!(::HBModel)
+
+copy w to var_integral
+this computation is done pointwise at each nodal point
+
+arguments:
+m -> model in this case HBModel
+I -> array of integrand variables
+Q -> array of state variables
+A -> array of aux variables
+"""
+@inline function integral_load_aux!(m::HBModel, I::Vars, Q::Vars, A::Vars)
+  I.∇hu = A.w # borrow the w value from A...
+
+  return nothing
+end
+
+"""
+    integral_set_aux!(::HBModel)
+
+copy integral results back out to aux
+this computation is done pointwise at each nodal point
+
+arguments:
+m -> model in this case HBModel
+A -> array of aux variables
+I -> array of integrand variables
+"""
+@inline function integral_set_aux!(m::HBModel, A::Vars, I::Vars)
+  A.w = I.∇hu
+
+  return nothing
+end
+
+"""
+    vars_reverse_integral(::HBModel)
+
+location to store integrands for top down integrals
+αᵀθ = density perturbation
+"""
+function vars_reverse_integrals(m::HBModel, T)
+  @vars begin
     αᵀθ::T
   end
 end
 
 """
-    integrate_aux!(::HBModel)
-    copy w and αᵀθ to var_gradient
-    this computation is done pointwise at each nodal point
+    reverse_integral_load_aux!(::HBModel)
 
-    arguments:
-    m -> model in this case HBModel
-    I -> array of integrand variables
-    Q -> array of state variables
-    A -> array of aux variables
+copy αᵀθ to var_reverse_integral
+this computation is done pointwise at each nodal point
+
+arguments:
+m -> model in this case HBModel
+I -> array of integrand variables
+A -> array of aux variables
 """
-@inline function integrate_aux!(m::HBModel, I::Vars, Q::Vars, A::Vars)
-  I.∇hu = A.w # borrow the w value from A...
-  I.αᵀθ = -m.αᵀ * Q.θ
+@inline function reverse_integral_load_aux!(m::HBModel, I::Vars, Q::Vars, A::Vars)
+  I.αᵀθ = A.pkin
+
+  return nothing
+end
+
+"""
+    reverse_integral_set_aux!(::HBModel)
+
+copy reverse integral results back out to aux
+this computation is done pointwise at each nodal point
+
+arguments:
+m -> model in this case HBModel
+A -> array of aux variables
+I -> array of integrand variables
+"""
+@inline function reverse_integral_set_aux!(m::HBModel, A::Vars, I::Vars)
+  A.pkin = I.αᵀθ
 
   return nothing
 end
@@ -443,9 +507,10 @@ function update_aux_diffusive!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Rea
 
   # store ∇ʰu as integrand for w
   # update vertical diffusivity for convective adjustment
-  function f!(::HBModel, Q, A, D, t)
+  function f!(m::HBModel, Q, A, D, t)
     @inbounds begin
       A.w = -(D.∇u[1,1] + D.∇u[2,2])
+      A.pkin = -m.αᵀ * Q.θ
 
       D.∇θ[3] < 0 ? A.κ = (m.κʰ, m.κʰ, 1000 * m.κᶻ) : A.κ = (m.κʰ, m.κʰ, m.κᶻ)
     end
@@ -456,12 +521,12 @@ function update_aux_diffusive!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Rea
 
   # compute integrals for w and pkin
   indefinite_stack_integral!(dg, m, Q, A, t) # bottom -> top
-  reverse_indefinite_stack_integral!(dg, m, A, t) # top -> bottom
+  reverse_indefinite_stack_integral!(dg, m, Q, A, t) # top -> bottom
 
   # project w(z=0) down the stack
   # Need to be consistent with vars_aux
-  # A[1] = w, A[5] = wz0
-  copy_stack_field_down!(dg, m, A, 1, 5)
+  # A[1] = w, A[3] = wz0
+  copy_stack_field_down!(dg, m, A, 1, 3)
 
   return true
 end

@@ -36,15 +36,20 @@ function vars_aux end
 function vars_gradient end
 function vars_diffusive end
 vars_integrals(::BalanceLaw, FT) = @vars()
+vars_reverse_integrals(::BalanceLaw, FT) = @vars()
 
 num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
 num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate
 num_gradient(m::BalanceLaw, FT) = varsize(vars_gradient(m,FT))  # number_gradient_states
 num_diffusive(m::BalanceLaw, FT) = varsize(vars_diffusive(m,FT)) # number_viscous_states
 num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m,FT))
+num_reverse_integrals(m::BalanceLaw, FT) = varsize(vars_reverse_integrals(m,FT))
 
 function update_aux! end
-function integrate_aux! end
+function integral_load_aux! end
+function integral_set_aux! end
+function reverse_integral_load_aux! end
+function reverse_integral_set_aux! end
 function flux_nondiffusive! end
 function flux_diffusive! end
 function gradvariables! end
