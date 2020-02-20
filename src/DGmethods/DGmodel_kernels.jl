@@ -1019,25 +1019,21 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
 end
 
 """
-    knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
-                                            ::Val{nauxstate}, ::Val{nvertelem},
-                                            int_knl!, Q, auxstate, vgeo, Imat,
-                                            elems, ::Val{outstate}
-                                           ) where {dim, N, nstate, nauxstate,
-                                                    outstate, nvertelem}
+    knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                                  ::Val{nvertelem}, Q, auxstate, vgeo,
+                                  Imat, elems) where {dim, N, nvertelem}
 
 Computational kernel: compute indefinite integral along the vertical stack
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nvertelem},
-                                        Q, auxstate, vgeo, Imat,
-                                        elems, ::Val{nout}
-                                       ) where {dim, N, nvertelem,
-                                                nout}
+function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                                        ::Val{nvertelem}, Q, auxstate, vgeo,
+                                        Imat, elems) where {dim, N, nvertelem}
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nauxstate = num_aux(bl,FT)
+  nout = num_integrals(bl, FT)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
@@ -1123,15 +1119,16 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::
   nothing
 end
 
-function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
-                                                ::Val{nvertelem}, auxstate, elems,
-                                                ::Val{nout}
-                                               ) where {dim, N, nvertelem,
-                                                        nout}
+function knl_reverse_indefinite_stack_integral!(bl::BalanceLaw,
+                                                ::Val{dim}, ::Val{N},
+                                                ::Val{nvertelem}, auxstate,
+                                                elems
+                                               ) where {dim, N, nvertelem}
   FT = eltype(auxstate)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
+  nout = num_integrals(bl, FT)
 
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)

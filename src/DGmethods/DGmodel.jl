@@ -180,7 +180,6 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   FT = eltype(Q)
 
   # do integrals
-  nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
@@ -188,8 +187,7 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
           knl_indefinite_stack_integral!(m, Val(dim), Val(N),
                                          Val(nvertelem), Q.data, auxstate.data,
-                                         grid.vgeo, grid.Imat, 1:nhorzelem,
-                                         Val(nintegrals)))
+                                         grid.vgeo, grid.Imat, 1:nhorzelem))
 end
 
 # fallback
@@ -217,16 +215,14 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   FT = eltype(auxstate)
 
   # do integrals
-  nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_reverse_indefinite_stack_integral!(Val(dim), Val(N),
+          knl_reverse_indefinite_stack_integral!(m, Val(dim), Val(N),
                                                  Val(nvertelem), auxstate.data,
-                                                 1:nhorzelem,
-                                                 Val(nintegrals)))
+                                                 1:nhorzelem))
 end
 
 function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
