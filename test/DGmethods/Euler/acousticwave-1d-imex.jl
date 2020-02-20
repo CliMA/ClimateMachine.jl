@@ -181,7 +181,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
   nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(state, aux, coords, t)
+function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
   # callable to set initial conditions
   FT = eltype(state)
 

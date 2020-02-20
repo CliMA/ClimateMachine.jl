@@ -34,26 +34,26 @@ const seed = MersenneTwister(0)
 
 const ArrayType = CLIMA.array_type()
 #-------------------------------------
-function Initialize_Brick_Interpolation_Test!(state::Vars, aux::Vars, (x,y,z), t)
+function Initialize_Brick_Interpolation_Test!(bl, state::Vars, aux::Vars, (x,y,z), t)
     FT         = eltype(state)
-    # Dummy variables for initial condition function 
-    state.ρ               = FT(0) 
+    # Dummy variables for initial condition function
+    state.ρ               = FT(0)
     state.ρu              = SVector{3,FT}(0,0,0)
     state.ρe              = FT(0)
     state.moisture.ρq_tot = FT(0)
 end
 #------------------------------------------------
 struct TestSphereSetup{DT}
-    p_ground::DT 
-    T_initial::DT 
+    p_ground::DT
+    T_initial::DT
     domain_height::DT
-  
+
     function TestSphereSetup(p_ground::DT, T_initial::DT, domain_height::DT) where DT <: AbstractFloat
         return new{DT}(p_ground, T_initial, domain_height)
     end
 end
 #----------------------------------------------------------------------------
-function (setup::TestSphereSetup)(state, aux, coords, t) 
+function (setup::TestSphereSetup)(bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
@@ -124,7 +124,7 @@ function run_brick_interpolation_test()
     end
 
     xbnd = Array{FT}(undef,2,3)
- 
+
     xbnd[1,1] = FT(xmin); xbnd[2,1] = FT(xmax)
     xbnd[1,2] = FT(ymin); xbnd[2,2] = FT(ymax)
     xbnd[1,3] = FT(zmin); xbnd[2,3] = FT(zmax)
@@ -138,8 +138,8 @@ function run_brick_interpolation_test()
     svi = write_interpolated_data(intrp_brck, iv, varnames, filename)      # write interpolation data to file
     #------------------------------
 
-    err_inf_dom = zeros(FT, nvars) 
-        
+    err_inf_dom = zeros(FT, nvars)
+
     x1g = intrp_brck.x1g
     x2g = intrp_brck.x2g
     x3g = intrp_brck.x3g
@@ -149,8 +149,8 @@ function run_brick_interpolation_test()
         x1 = Array{FT}(undef,nx1,nx2,nx3); x2 = similar(x1); x3 = similar(x1)
 
         for k in 1:nx3, j in 1:nx2, i in 1:nx1
-            x1[i,j,k] = x1g[i] 
-            x2[i,j,k] = x2g[j]  
+            x1[i,j,k] = x1g[i]
+            x2[i,j,k] = x2g[j]
             x3[i,j,k] = x3g[k]
         end
         fex = fcn( x1 ./ xmax , x2 ./ ymax , x3 ./ zmax )
@@ -193,7 +193,7 @@ function run_cubed_sphere_interpolation_test()
 
     polynomialorder = 5
     numelem_horz = 6
-    numelem_vert = 4 
+    numelem_vert = 4
 
     #-------------------------
     _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id, CLIMA.Mesh.Grids.vgeoid.x2id, CLIMA.Mesh.Grids.vgeoid.x3id
@@ -201,8 +201,8 @@ function run_cubed_sphere_interpolation_test()
     #-------------------------
     vert_range = grid1d(FT(planet_radius), FT(planet_radius + domain_height), nelem = numelem_vert)
 
-    lat_res  = FT( 1.0 * π / 180.0) # 1 degree resolution
-    long_res = FT( 1.0 * π / 180.0) # 1 degree resolution
+    lat_res  = FT(1) # 1 degree resolution
+    long_res = FT(1) # 1 degree resolution
     nel_vert_grd  = 20 #100 #50 #10#50
     r_res    = FT((vert_range[end] - vert_range[1])/FT(nel_vert_grd)) #1000.00    # 1000 m vertical resolution
     #----------------------------------------------------------
@@ -255,8 +255,8 @@ function run_cubed_sphere_interpolation_test()
     svi = write_interpolated_data(intrp_cs, iv, varnames, filename)  # write interpolated data to file
     #----------------------------------------------------------
     # Testing
-    err_inf_dom = zeros(FT, nvars) 
-        
+    err_inf_dom = zeros(FT, nvars)
+
     rad   = intrp_cs.rad_grd
     lat   = intrp_cs.lat_grd
     long  = intrp_cs.long_grd
@@ -266,9 +266,9 @@ function run_cubed_sphere_interpolation_test()
         x1g = Array{FT}(undef,nrad,nlat,nlong); x2g = similar(x1g); x3g = similar(x1g)
 
         for k in 1:nlong, j in 1:nlat, i in 1:nrad
-            x1g[i,j,k] = rad[i] * sin(lat[j]) * cos(long[k]) # inclination -> latitude; azimuthal -> longitude.
-            x2g[i,j,k] = rad[i] * sin(lat[j]) * sin(long[k]) # inclination -> latitude; azimuthal -> longitude.
-            x3g[i,j,k] = rad[i] * cos(lat[j])
+            x1g[i,j,k] = rad[i] * cosd(lat[j]) * cosd(long[k]) # inclination -> latitude; azimuthal -> longitude.
+            x2g[i,j,k] = rad[i] * cosd(lat[j]) * sind(long[k]) # inclination -> latitude; azimuthal -> longitude.
+            x3g[i,j,k] = rad[i] * sind(lat[j])
         end
         fex = fcn( x1g ./ xmax , x2g ./ ymax , x3g ./ zmax )
 
@@ -281,7 +281,7 @@ function run_cubed_sphere_interpolation_test()
 
     toler = 1.0E-7
     return maximum(err_inf_dom) < toler
-end 
+end
 #----------------------------------------------------------------------------
 
 @testset "Interpolation tests" begin

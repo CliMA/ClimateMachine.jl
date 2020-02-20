@@ -20,8 +20,10 @@ update_aux!(dg::DGModel, rem::RemainderModel, Q::MPIStateArray, t::Real) =
 integrate_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
   integrate_aux!(rem.main, integ, state, aux)
 
-flux_diffusive!(rem::RemainderModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) =
-  flux_diffusive!(rem.main, flux, state, diffusive, aux, t)
+function flux_diffusive!(rem::RemainderModel, flux::Grad, state::Vars,
+                         diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
+  flux_diffusive!(rem.main, flux, state, diffusive, hyperdiffusive, aux, t)
+end
 
 gradvariables!(rem::RemainderModel, transform::Vars, state::Vars, aux::Vars, t::Real) =
   gradvariables!(rem.main, transform, state, aux, t)

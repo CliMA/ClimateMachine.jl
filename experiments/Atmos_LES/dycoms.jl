@@ -73,15 +73,15 @@ When `bctype == 1` the `NoFluxBC` otherwise the specialized DYCOMS BC is used
 function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                         bc::DYCOMS_BC, 
                                         atmos::AtmosModel, F,
-                                        state⁺, diff⁺, aux⁺, 
+                                        state⁺, diff⁺, hyperdiff⁺, aux⁺,
                                         n⁻,
-                                        state⁻, diff⁻, aux⁻,
+                                        state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                         bctype, t,
                                         state1⁻, diff1⁻, aux1⁻)
   if bctype != 1
     atmos_boundary_flux_diffusive!(nf, NoFluxBC(), atmos, F,
-                                   state⁺, diff⁺, aux⁺, n⁻,
-                                   state⁻, diff⁻, aux⁻,
+                                   state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                   state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                    bctype, t,
                                    state1⁻, diff1⁻, aux1⁻)
   else
@@ -210,7 +210,7 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function init_dycoms!(state, aux, (x,y,z), t)
+function init_dycoms!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
     z = FT(z)

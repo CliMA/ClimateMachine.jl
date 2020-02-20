@@ -10,8 +10,9 @@ using CLIMA.VariableTemplates
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
                     vars_aux, vars_gradient, boundary_state!, wavespeed,
                     flux_nondiffusive!, flux_diffusive!, diffusive!, num_state,
-                    num_gradient, gradvariables!
-
+                    num_gradient, gradvariables!,
+                    num_gradient_laplacian, vars_gradient_laplacian,
+                    vars_hyperdiffusive, hyperdiffusive!
 
 """
     NumericalFluxGradient
@@ -26,9 +27,6 @@ Any `P <: NumericalFluxGradient` should define methods for:
 """
 abstract type NumericalFluxGradient end
 
-function numerical_flux_gradient! end
-function numerical_boundary_flux_gradient! end
-
 """
     CentralNumericalFluxGradient <: NumericalFluxGradient
 
@@ -36,32 +34,29 @@ function numerical_boundary_flux_gradient! end
 struct CentralNumericalFluxGradient <: NumericalFluxGradient end
 
 function numerical_flux_gradient!(::CentralNumericalFluxGradient, bl::BalanceLaw,
-                                  fluxᵀn::Vars{D}, n::SVector,
+                                  G::MMatrix, n::SVector,
                                   transform⁻::Vars{T}, state⁻::Vars{S},
                                   aux⁻::Vars{A}, transform⁺::Vars{T},
                                   state⁺::Vars{S}, aux⁺::Vars{A},
-                                  t) where {D,T,S,A}
+                                  t) where {T,S,A}
 
-  G = n .* (parent(transform⁺) .+ parent(transform⁻))' ./ 2
-  diffusive!(bl, fluxᵀn, Grad{T}(G), state⁻, aux⁻, t)
+  G .= n .* (parent(transform⁺) .+ parent(transform⁻))' ./ 2
 end
 
 function numerical_boundary_flux_gradient!(nf::CentralNumericalFluxGradient,
                                            bl::BalanceLaw,
-                                           fluxᵀn::Vars{D}, n::SVector,
+                                           G::MMatrix, n::SVector,
                                            transform⁻::Vars{T}, state⁻::Vars{S},
                                            aux⁻::Vars{A}, transform⁺::Vars{T},
                                            state⁺::Vars{S}, aux⁺::Vars{A},
                                            bctype, t, state1⁻::Vars{S},
                                            aux1⁻::Vars{A}) where {D,T,S,A}
+  boundary_state!(nf, bl, state⁺, aux⁺, n, state⁻, aux⁻,
+                  bctype, t, state1⁻, aux1⁻)
 
-  boundary_state!(nf, bl, state⁺, aux⁺, n, state⁻, aux⁻, bctype, t, state1⁻,
-                  aux1⁻)
   gradvariables!(bl, transform⁺, state⁺, aux⁺, t)
-  G = n .* parent(transform⁺)'
-  diffusive!(bl, fluxᵀn, Grad{T}(G), state⁻, aux⁻, t)
+  G .= n .* parent(transform⁺)'
 end
-
 
 """
     NumericalFluxNonDiffusive
@@ -209,8 +204,8 @@ struct CentralNumericalFluxDiffusive <: NumericalFluxDiffusive end
 
 function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
   bl::BalanceLaw, fluxᵀn::Vars{S}, n⁻::SVector,
-  state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
-  state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A}, t) where {S,D,A}
+  state⁻::Vars{S}, diff⁻::Vars{D}, hyperdiff⁻::Vars{HD}, aux⁻::Vars{A},
+  state⁺::Vars{S}, diff⁺::Vars{D}, hyperdiff⁺::Vars{HD}, aux⁺::Vars{A}, t) where {S,D,HD,A}
 
   FT = eltype(fluxᵀn)
   nstate = num_state(bl,FT)
@@ -218,33 +213,71 @@ function numerical_flux_diffusive!(::CentralNumericalFluxDiffusive,
 
   F⁻ = similar(Fᵀn, Size(3, nstate))
   fill!(F⁻, -zero(FT))
-  flux_diffusive!(bl, Grad{S}(F⁻), state⁻, diff⁻, aux⁻, t)
+  flux_diffusive!(bl, Grad{S}(F⁻), state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
 
   F⁺ = similar(Fᵀn, Size(3, nstate))
   fill!(F⁺, -zero(FT))
-  flux_diffusive!(bl, Grad{S}(F⁺), state⁺, diff⁺, aux⁺, t)
+  flux_diffusive!(bl, Grad{S}(F⁺), state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
 
   Fᵀn .+= (F⁻ + F⁺)' * (n⁻/2)
 end
 
+abstract type DivNumericalPenalty end
+struct CentralDivPenalty <: DivNumericalPenalty end
+
+function divergence_penalty!(::CentralDivPenalty, bl::BalanceLaw,
+                             div_penalty::Vars{GL}, n::SVector,
+                             grad⁻::Grad{GL}, grad⁺::Grad{GL}) where {GL}
+  parent(div_penalty) .= (parent(grad⁺) .- parent(grad⁻))' * (n/2)
+end
+
+function divergence_boundary_penalty!(nf::CentralDivPenalty, bl::BalanceLaw,
+                                      div_penalty::Vars{GL}, n::SVector,
+                                      grad⁻::Grad{GL}, grad⁺::Grad{GL}, bctype) where {GL}
+  boundary_state!(nf, bl, grad⁺, n, grad⁻, bctype)
+  divergence_penalty!(nf, bl, div_penalty, n, grad⁻, grad⁺)
+end
+
+abstract type GradNumericalFlux end
+struct CentralHyperDiffusiveFlux <: GradNumericalFlux end
+
+function numerical_flux_hyperdiffusive!(::CentralHyperDiffusiveFlux, bl::BalanceLaw,
+                                        hyperdiff::Vars{HD}, n::SVector,
+                                        lap⁻::Vars{GL}, state⁻::Vars{S}, aux⁻::Vars{A},
+                                        lap⁺::Vars{GL}, state⁺::Vars{S}, aux⁺::Vars{A},
+                                        t) where {HD, GL, S, A}
+  G = n .* (parent(lap⁻) .+ parent(lap⁺))' ./ 2
+  hyperdiffusive!(bl, hyperdiff, Grad{GL}(G), state⁻, aux⁻, t)
+end
+
+function numerical_boundary_flux_hyperdiffusive!(nf::CentralHyperDiffusiveFlux, bl::BalanceLaw,
+                                                 hyperdiff::Vars{HD}, n::SVector,
+                                                 lap⁻::Vars{GL}, state⁻::Vars{S}, aux⁻::Vars{A},
+                                                 lap⁺::Vars{GL}, state⁺::Vars{S}, aux⁺::Vars{A},
+                                                 bctype, t) where {HD, GL, S, A}
+  boundary_state!(nf, bl, state⁺, aux⁺, lap⁺, n, state⁻, aux⁻, lap⁻, bctype, t)
+  numerical_flux_hyperdiffusive!(nf, bl, hyperdiff, n,
+                                 lap⁻, state⁻, aux⁻, lap⁺, state⁺, aux⁺, t)
+end
+
 numerical_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     bl::BalanceLaw, fluxᵀn::Vars{S}, n⁻::SVector,
-    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
-    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A},
+    state⁻::Vars{S}, diff⁻::Vars{D}, hyperdiff⁻::Vars{HD}, aux⁻::Vars{A},
+    state⁺::Vars{S}, diff⁺::Vars{D}, hyperdiff⁺::Vars{HD}, aux⁺::Vars{A},
     bctype, t,
-    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,A} =
-  normal_boundary_flux_diffusive!(nf, bl, fluxᵀn, n⁻, state⁻, diff⁻, aux⁻,
-                                  state⁺, diff⁺, aux⁺,
+    state1⁻::Vars{S}, diff1⁻::Vars{D}, aux1⁻::Vars{A}) where {S,D,HD,A} =
+  normal_boundary_flux_diffusive!(nf, bl, fluxᵀn, n⁻,
+                                  state⁻, diff⁻, hyperdiff⁻, aux⁻,
+                                  state⁺, diff⁺, hyperdiff⁺, aux⁺,
                                   bctype, t,
                                   state1⁻, diff1⁻, aux1⁻)
 
 function normal_boundary_flux_diffusive!(nf,
                                          bl::BalanceLaw, fluxᵀn::Vars{S}, n⁻,
-                                         state⁻, diff⁻, aux⁻,
-                                         state⁺, diff⁺, aux⁺,
+                                         state⁻, diff⁻, hyperdiff⁻, aux⁻,
+                                         state⁺, diff⁺, hyperdiff⁺, aux⁺,
                                          bctype, t,
                                          state1⁻, diff1⁻, aux1⁻) where {S}
-
   FT = eltype(fluxᵀn)
   nstate = num_state(bl,FT)
   Fᵀn = parent(fluxᵀn)
@@ -253,9 +286,9 @@ function normal_boundary_flux_diffusive!(nf,
   fill!(F, -zero(FT))
   boundary_flux_diffusive!(nf, bl,
                            Grad{S}(F),
-                           state⁺, diff⁺, aux⁺,
+                           state⁺, diff⁺, hyperdiff⁺, aux⁺,
                            n⁻,
-                           state⁻, diff⁻, aux⁻,
+                           state⁻, diff⁻, hyperdiff⁻, aux⁻,
                            bctype, t,
                            state1⁻, diff1⁻, aux1⁻)
 
@@ -265,8 +298,8 @@ end
 # This is the function that my be overloaded for flux-based BCs
 function boundary_flux_diffusive!(nf::NumericalFluxDiffusive, bl,
                                   F,
-                                  state⁺, diff⁺, aux⁺, n⁻,
-                                  state⁻, diff⁻, aux⁻,
+                                  state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                  state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                   bctype, t,
                                   state1⁻, diff1⁻, aux1⁻)
   boundary_state!(nf, bl,
@@ -275,7 +308,7 @@ function boundary_flux_diffusive!(nf::NumericalFluxDiffusive, bl,
                   state⁻, diff⁻, aux⁻,
                   bctype, t,
                   state1⁻, diff1⁻, aux1⁻)
-  flux_diffusive!(bl, F, state⁺, diff⁺, aux⁺, t)
+  flux_diffusive!(bl, F, state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
 end
 
 end

@@ -13,8 +13,8 @@ using GPUifyLoops
 export BalanceLaw, DGModel, init_ode_state
 
 include("balancelaw.jl")
-include("DGmodel.jl")
 include("NumericalFluxes.jl")
+include("DGmodel.jl")
 include("DGmodel_kernels.jl")
 
 end

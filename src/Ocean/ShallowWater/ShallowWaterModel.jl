@@ -121,7 +121,7 @@ diffusive!(::LinearDrag, _...) = nothing
   return nothing
 end
 
-function flux_diffusive!(m::SWModel, G::Grad, q::Vars, σ::Vars,
+function flux_diffusive!(m::SWModel, G::Grad, q::Vars, σ::Vars, ::Vars,
                          α::Vars, t::Real)
   flux_diffusive!(m.turbulence, G, q, σ, α, t)
 end

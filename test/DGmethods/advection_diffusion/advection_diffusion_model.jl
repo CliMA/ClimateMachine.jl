@@ -88,7 +88,7 @@ function flux_diffusive!(m::AdvectionDiffusion, flux::Grad, auxDG::Vars)
   flux.ρ += -σ
 end
 flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars, auxDG::Vars,
-                aux::Vars, t::Real) = flux_diffusive!(m, flux, auxDG)
+                auxHDG::Vars, aux::Vars, t::Real) = flux_diffusive!(m, flux, auxDG)
 
 """
     gradvariables!(m::AdvectionDiffusion, transform::Vars, state::Vars,
@@ -197,15 +197,15 @@ end
 function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                   m::AdvectionDiffusion{dim, P, true},
                                   F,
-                                  state⁺, diff⁺, aux⁺, n⁻,
-                                  state⁻, diff⁻, aux⁻,
+                                  state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                  state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                   bctype, t,
                                   _...) where {dim, P}
 
   # Default initialize flux to minus side
   if bctype ∈ (1,3) # Dirchlet
     # Just use the minus side values since Dirchlet
-    flux_diffusive!(m, F, state⁻, diff⁻, aux⁻, t)
+    flux_diffusive!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
   elseif bctype == 2 # Neumann data
     FT = eltype(diff⁺)
     ngrad = num_gradient(m, FT)

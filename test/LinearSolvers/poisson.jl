@@ -43,7 +43,7 @@ function flux_nondiffusive!(::PoissonModel, flux::Grad, state::Vars,
 end
 
 function flux_diffusive!(::PoissonModel, flux::Grad, state::Vars,
-                         diffusive::Vars, auxstate::Vars, t::Real)
+                         diffusive::Vars, hyperdiffusive::Vars, auxstate::Vars, t::Real)
   flux.ϕ = diffusive.∇ϕ
 end
 
@@ -54,11 +54,11 @@ numerical_boundary_flux_diffusive!(nf::PenaltyNumFluxDiffusive, _...) = nothing
 
 function numerical_flux_diffusive!(::PenaltyNumFluxDiffusive,
     bl::PoissonModel, fluxᵀn::Vars{S}, n::SVector,
-    state⁻::Vars{S}, diff⁻::Vars{D}, aux⁻::Vars{A},
-    state⁺::Vars{S}, diff⁺::Vars{D}, aux⁺::Vars{A}, t) where {S,D,A}
+    state⁻::Vars{S}, diff⁻::Vars{D}, hyperdiff⁻::Vars{HD}, aux⁻::Vars{A},
+    state⁺::Vars{S}, diff⁺::Vars{D}, hyperdiff⁺::Vars{HD}, aux⁺::Vars{A}, t) where {S,HD,D,A}
 
   numerical_flux_diffusive!(CentralNumericalFluxDiffusive(),
-    bl, fluxᵀn, n, state⁻, diff⁻, aux⁻, state⁺, diff⁺, aux⁺, t)
+    bl, fluxᵀn, n, state⁻, diff⁻, hyperdiff⁻, aux⁻, state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
 
   Fᵀn = parent(fluxᵀn)
   FT = eltype(Fᵀn)

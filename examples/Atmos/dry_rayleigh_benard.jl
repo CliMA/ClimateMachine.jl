@@ -82,9 +82,9 @@ end
 function atmos_boundary_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                         bc::FixedTempNoSlip,
                                         m::AtmosModel, F,
-                                        Y⁺::Vars, Σ⁺::Vars, A⁺::Vars,
+                                        Y⁺::Vars, Σ⁺::Vars, ::Vars, A⁺::Vars,
                                         n⁻,
-                                        Y⁻::Vars, Σ⁻::Vars, A⁻::Vars,
+                                        Y⁻::Vars, Σ⁻::Vars, ::Vars, A⁻::Vars,
                                         bctype, t, _...)
   Σ⁺.∇h_tot = -Σ⁻.∇h_tot
 end
@@ -94,14 +94,14 @@ boundary_state!(nf, m::AtmosModel, x...) =
 boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                          atmos::AtmosModel,
                          F,
-                         state⁺, diff⁺, aux⁺, n⁻,
-                         state⁻, diff⁻, aux⁻,
+                         state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                         state⁻, diff⁻, hyperdiff⁻, aux⁻,
                          bctype, t,
                          state1⁻, diff1⁻, aux1⁻) =
   atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
                                  F,
-                                 state⁺, diff⁺, aux⁺, n⁻,
-                                 state⁻, diff⁻, aux⁻,
+                                 state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                 state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                  bctype, t,
                                  state1⁻, diff1⁻, aux1⁻)
 # ------------------- End Boundary Conditions -------------------------- #
@@ -113,7 +113,7 @@ const T_bot              = 299
 const T_lapse            = grav/cp_d
 const T_top              = T_bot - T_lapse*zmax
 
-function init_problem!(state, aux, (x,y,z), t)
+function init_problem!(bl, state, aux, (x,y,z), t)
   FT            = eltype(state)
   R_gas::FT     = R_d
   c_p::FT       = cp_d

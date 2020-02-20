@@ -48,8 +48,8 @@ Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
 function normal_boundary_flux_diffusive!(::CentralNumericalFluxDiffusive,
                                          ::AdvectionDiffusion{dim, HeatEqn{nd, κ, A}},
                                          fluxᵀn::Vars{S}, n⁻,
-                                         state⁻, diff⁻, aux⁻,
-                                         state⁺, diff⁺, aux⁺,
+                                         state⁻, diff⁻, hyperdiff⁻, aux⁻,
+                                         state⁺, diff⁺, hyperdiff⁺, aux⁺,
                                          bctype, t,
                                          _...) where {S, dim, nd, κ, A}
 

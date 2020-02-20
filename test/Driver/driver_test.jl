@@ -8,7 +8,7 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-function init_test!(state, aux, (x,y,z), t)
+function init_test!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
     z = FT(z)
