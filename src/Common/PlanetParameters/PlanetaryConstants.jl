@@ -6,13 +6,20 @@ Module containing physical constants and parameters characterizing the planet.
 module PlanetaryConstants
 
 using ..UniversalConstants
+using DocStringExtensions
 
 export PlanetConstants,
        AbstractPlanetConstants,
        EarthConstants
        # MarsConstants
 
-struct PlanetConstants{FT}
+"""
+    PlanetConstants{FT<:AbstractFloat}
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+Base.@kwdef struct PlanetConstants{FT<:AbstractFloat}
   "Von Karman constant (1)"
   k_Karman::FT
   "Molecular weight dry air (kg/mol)"
@@ -25,9 +32,13 @@ struct PlanetConstants{FT}
   cp_d::FT
   "Isochoric specific heat dry air"
   cv_d::FT
+  "Density of water (kg/m^3)"
+  ρ_liq::FT
   "Density of liquid water (kg/m^3)"
   ρ_cloud_liq::FT
-  "Density of ice water (kg/m^3)"
+  "Density of ice (kg/m^3)"
+  ρ_ice::FT
+  "Density of water ice (kg/m^3)"
   ρ_cloud_ice::FT
   "Molecular weight (kg/mol)"
   molmass_water::FT
@@ -93,6 +104,21 @@ struct PlanetConstants{FT}
   MSLP::FT
 end
 
+"""
+    append_nt(settings, e)
+
+Transform expression in the following way:
+
+  `var = val`   ->    `var = val; settings = merge(settings, (;var=val))`
+"""
+macro append_nt(settings, e)
+  varname = e.args[1]
+  s = esc(settings)
+  quote
+    $(esc(e))
+    $s = merge($s, (;$varname = $(esc(varname))))
+  end
+end
 
 abstract type AbstractPlanetConstants end
 
