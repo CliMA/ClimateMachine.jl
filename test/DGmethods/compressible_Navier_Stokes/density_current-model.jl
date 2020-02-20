@@ -53,7 +53,7 @@ eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1002/fld.1650170103},
 year = {1993}
 }
 """
-function Initialise_Density_Current!(state::Vars, aux::Vars, (x1,x2,x3), t)
+function Initialise_Density_Current!(bl, state::Vars, aux::Vars, (x1,x2,x3), t)
   FT                = eltype(state)
   R_gas::FT         = R_d
   c_p::FT           = cp_d

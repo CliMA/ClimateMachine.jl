@@ -328,7 +328,7 @@ boundary_state!(nf, m::AtmosModel, x...) =
   atmos_boundary_state!(nf, m.boundarycondition, m, x...)
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
-  m.init_state(state, aux, coords, t, args...)
+  m.init_state(m, state, aux, coords, t, args...)
 end
 
 boundary_flux_diffusive!(nf::NumericalFluxDiffusive,

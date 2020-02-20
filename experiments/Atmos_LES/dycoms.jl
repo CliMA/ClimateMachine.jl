@@ -210,7 +210,7 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function init_dycoms!(state, aux, (x,y,z), t)
+function init_dycoms!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
     z = FT(z)

@@ -34,7 +34,7 @@ const seed = MersenneTwister(0)
 
 const ArrayType = CLIMA.array_type()
 #-------------------------------------
-function Initialize_Brick_Interpolation_Test!(state::Vars, aux::Vars, (x,y,z), t)
+function Initialize_Brick_Interpolation_Test!(bl, state::Vars, aux::Vars, (x,y,z), t)
     FT         = eltype(state)
     # Dummy variables for initial condition function
     state.ρ               = FT(0)
@@ -53,7 +53,7 @@ struct TestSphereSetup{DT}
     end
 end
 #----------------------------------------------------------------------------
-function (setup::TestSphereSetup)(state, aux, coords, t)
+function (setup::TestSphereSetup)(bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
