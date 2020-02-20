@@ -109,15 +109,16 @@ function main()
     N = 5
 
     # Domain resolution
-    nelem_horz = 6
+    nelem_horz = 4
     nelem_vert = 8
     resolution = (nelem_horz, nelem_vert)
 
     t0 = FT(0)
-    timeend = FT(60) # 400day
+    timeend = 10day # 400day
 
     driver_config = config_heldsuarez(FT, N, resolution)
-    ode_solver_type = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
+    #ode_solver_type = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
+    ode_solver_type = CLIMA.IMEXSolverType()
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
                                        ode_solver_type=ode_solver_type)
 
