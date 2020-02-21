@@ -9,6 +9,7 @@ using ..VariableTemplates
 using DocStringExtensions
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
+using ..TicToc
 
 export BalanceLaw,
     DGModel, init_ode_state, restart_ode_state, restart_auxiliary_state
