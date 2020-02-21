@@ -7,6 +7,7 @@ Low-overhead time interval measurement via minimally invasive macros.
 module TicToc
 
 using Printf
+using MPI
 
 export @tic, @toc, tictoc
 
@@ -126,6 +127,7 @@ end
 `stdout`.
 """
 function print_timing_info()
+  if MPI.Comm_rank(MPI.COMM_WORLD) == 0
     println("TicToc timing information")
     @static if tictoc_track_memory
         println("name,ncalls,tottime(ns),allocbytes,gctime")
@@ -143,6 +145,7 @@ function print_timing_info()
         end
         println(s)
     end
+  end
 end
 
 """
