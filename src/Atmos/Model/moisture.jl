@@ -2,7 +2,7 @@ export DryModel, EquilMoist, NonEquilMoist
 
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
-
+using ..Microphysics
 vars_state(::MoistureModel, FT) = @vars()
 vars_gradient(::MoistureModel, FT) = @vars()
 vars_diffusive(::MoistureModel, FT) = @vars()
@@ -133,12 +133,14 @@ struct NonEquilMoist <: MoistureModel end
 vars_state(::NonEquilMoist    ,FT) = @vars(ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 vars_gradient(::NonEquilMoist ,FT) = @vars(q_tot::FT,q_liq::FT, q_ice::FT, h_tot::FT)
 vars_diffusive(::NonEquilMoist,FT) = @vars(ρd_q_tot::SVector{3,FT}, ρd_q_liq::SVector{3,FT}, ρd_q_ice::SVector{3,FT})
-vars_aux(::NonEquilMoist      ,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT, p::FT)
+vars_aux(::NonEquilMoist      ,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT, p::FT,src_qliq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::NonEquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
   TS = thermo_state(moist, atmos.orientation, state, aux)
   aux.moisture.temperature = air_temperature(TS)
+  q_p_sat = PhasePartition_equil(air_temperature(TS),state.ρ,state.moisture.ρq_tot)
+  aux.moisture.src_qliq = conv_q_vap_to_q_liq(q_p_sat,PhasePartition(TS)) 
   aux.moisture.θ_v = virtual_pottemp(TS)
   aux.moisture.q_liq = PhasePartition(TS).liq
   aux.moisture.q_ice = PhasePartition(TS).ice
@@ -168,11 +170,13 @@ end
 function flux_moisture!(moist::NonEquilMoist, atmos::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real)
   ρ = state.ρ
   u = state.ρu / ρ
-  z = altitude(atmos.orientation, aux)
-  usub = subsidence_velocity(atmos.subsidence, z)
-  ẑ = vertical_unit_vector(atmos.orientation, aux)
-  u_tot = u .- usub * ẑ
+  #z = altitude(atmos.orientation, aux)
+  #usub = subsidence_velocity(atmos.subsidence, z)
+  #ẑ = vertical_unit_vector(atmos.orientation, aux)
+  u_tot = u #.- usub * ẑ
   flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
+  flux.moisture.ρq_liq += u_tot * state.moisture.ρq_liq
+  flux.moisture.ρq_ice += u_tot * state.moisture.ρq_ice
 end
 function diffusive!(moist::NonEquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, )
   diffusive.moisture.ρd_q_tot =  ∇transform.moisture.q_tot

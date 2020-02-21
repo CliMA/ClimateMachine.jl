@@ -43,7 +43,7 @@ import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 # TODO: Get this from geometry
 const (xmin, xmax) = (-30000,30000)
-const (ymin, ymax) = (0,  5000)
+const (ymin, ymax) = (0,5000)
 const (zmin, zmax) = (0, 24000)
 function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
   spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = spline_int()
@@ -64,7 +64,7 @@ function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
       dataq = 0.0
   end
 
-  θ_c =     5.0
+  θ_c =     3.0
   rx  = 10000.0
   ry  =  1500.0
   rz  =  1500.0
@@ -94,12 +94,12 @@ function init_state!(state::Vars, aux::Vars, (x1,x2,x3), args...)
   ρe_tot      = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
   ρq_tot      = ρ * q_tot
   state.ρ = ρ
-  state.ρu = SVector(0, ρv, ρw)
+  state.ρu = SVector(ρu, ρv, ρw)
   state.ρe = ρe_tot
   state.moisture.ρq_tot = ρq_tot
   state.moisture.ρq_liq = FT(0)
   state.moisture.ρq_ice = FT(0)
-  state.precipitation.ρq_rain = FT(0)
+  #state.precipitation.ρq_rain = FT(0)
   nothing
 end
 
@@ -145,16 +145,15 @@ using CLIMA.Atmos: vars_state, vars_aux
 
 
 function config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
-rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,1)
+rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,2)
     config = CLIMA.LES_Configuration("squall_line", N, resolution, xmax, ymax, zmax,
                                      init_state!,
 				     xmin = xmin,
-                                     turbulence = ConstantViscosityWithDivergence{FT}(75),
 				     solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy),
                                      ref_state=NoReferenceState(),
-                                     precipitation=Rain(),
+                                     precipitation=NoPrecipitation(),
 				     moisture=NonEquilMoist(),
-                                     sources=(Gravity(),rayleigh_sponge,PrecipitationSource()),
+                                     sources=(Gravity(),rayleigh_sponge,CloudSource()),
                                      bc=NoFluxBC())
 
     return config
@@ -174,7 +173,7 @@ function main()
     resolution = (Δx, Δy, Δz)
 
     t0 = FT(0)
-    timeend = FT(2000)
+    timeend = FT(9000)
     driver_config = config_squall_line(FT, N, resolution, xmin, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.2)
 

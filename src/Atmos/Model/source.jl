@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters: Omega
-export Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, PrecipitationSource
+export Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, PrecipitationSource, CloudSource
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -105,4 +105,8 @@ function atmos_source!(s::PrecipitationSource, m::AtmosModel, source::Vars, stat
   source.precipitation.ρq_rain += aux.precipitation.src_q_rai_tot
   source.moisture.ρq_tot -= aux.precipitation.src_q_rai_tot
   source.moisture.ρq_liq -= aux.precipitation.src_q_rai_tot
+end
+struct CloudSource <: Source end
+function atmos_source!(s::CloudSource, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+  source.moisture.ρq_liq += aux.moisture.src_qliq
 end
