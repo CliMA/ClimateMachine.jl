@@ -25,27 +25,27 @@ Base.@kwdef struct PlanetConstants{FT<:AbstractFloat}
   "Molecular weight dry air (kg/mol)"
   molmass_dryair::FT
   "Gas constant dry air (J/kg/K)"
-  R_d::FT
+  R_d::FT = FT(gas_constant(FT)/molmass_dryair)
   "Adiabatic exponent dry air"
   kappa_d::FT
   "Isobaric specific heat dry air"
-  cp_d::FT
+  cp_d::FT = FT(R_d/kappa_d)
   "Isochoric specific heat dry air"
-  cv_d::FT
+  cv_d::FT = FT(cp_d - R_d)
   "Density of water (kg/m^3)"
   ρ_liq::FT
   "Density of liquid water (kg/m^3)"
-  ρ_cloud_liq::FT
+  ρ_cloud_liq::FT = FT(ρ_liq)
   "Density of ice (kg/m^3)"
   ρ_ice::FT
   "Density of water ice (kg/m^3)"
-  ρ_cloud_ice::FT
+  ρ_cloud_ice::FT = FT(ρ_ice)
   "Molecular weight (kg/mol)"
   molmass_water::FT
   "Molar mass ratio dry air/water"
-  molmass_ratio::FT
+  molmass_ratio::FT = FT(molmass_dryair/molmass_water)
   "Gas constant water vapor (J/kg/K)"
-  R_v::FT
+  R_v::FT = FT(gas_constant(FT)/molmass_water)
   "Isobaric specific heat vapor (J/kg/K)"
   cp_v::FT
   "Isobaric specific heat liquid (J/kg/K)"
@@ -53,11 +53,11 @@ Base.@kwdef struct PlanetConstants{FT<:AbstractFloat}
   "Isobaric specific heat ice (J/kg/K)"
   cp_i::FT
   "Isochoric specific heat vapor (J/kg/K)"
-  cv_v::FT
+  cv_v::FT = FT(cp_v - R_v)
   "Isochoric specific heat liquid (J/kg/K)"
-  cv_l::FT
+  cv_l::FT = FT(cp_l)
   "Isochoric specific heat ice (J/kg/K)"
-  cv_i::FT
+  cv_i::FT = FT(cp_i)
   "Freezing point temperature (K)"
   T_freeze::FT
   "Minimum temperature guess in saturation adjustment (K)"
@@ -69,17 +69,17 @@ Base.@kwdef struct PlanetConstants{FT<:AbstractFloat}
   "Triple point temperature (K)"
   T_triple::FT
   "Reference temperature (K)"
-  T_0::FT
+  T_0::FT = FT(T_triple)
   "Latent heat vaporization at T_0 (J/kg)"
   LH_v0::FT
   "Latent heat sublimation at T_0 (J/kg)"
   LH_s0::FT
   "Latent heat of fusion at T_0 (J/kg)"
-  LH_f0::FT
+  LH_f0::FT = FT(LH_s0 - LH_v0)
   "Specific internal energy of vapor at T_0 (J/kg)"
-  e_int_v0::FT
+  e_int_v0::FT = FT(LH_v0 - R_v*T_0)
   "Specific internal energy of ice at T_0 (J/kg)"
-  e_int_i0::FT
+  e_int_i0::FT = FT(LH_f0)
   "Triple point vapor pressure (Pa)"
   press_triple::FT
   "Reference density sea water (kg/m^3)"
@@ -95,29 +95,13 @@ Base.@kwdef struct PlanetConstants{FT<:AbstractFloat}
   "Gravitational acceleration (m/s^2)"
   grav::FT
   "Length of anomalistic year (s)"
-  year_anom::FT
+  year_anom::FT = FT(365.26*day)
   "Length of semimajor orbital axis (m)"
   orbit_semimaj::FT
   "Total solar irradiance (W/m^2)"
   TSI::FT
   "Mean sea level pressure (Pa)"
   MSLP::FT
-end
-
-"""
-    append_nt(settings, e)
-
-Transform expression in the following way:
-
-  `var = val`   ->    `var = val; settings = merge(settings, (;var=val))`
-"""
-macro append_nt(settings, e)
-  varname = e.args[1]
-  s = esc(settings)
-  quote
-    $(esc(e))
-    $s = merge($s, (;$varname = $(esc(varname))))
-  end
 end
 
 abstract type AbstractPlanetConstants end
