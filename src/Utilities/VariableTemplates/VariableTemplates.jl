@@ -1,8 +1,25 @@
 module VariableTemplates
 
-export varsize, Vars, Grad, @vars
+export varsize, Vars, Grad, @vars, varseltype
 
 using StaticArrays
+
+"""
+    varseltype(S)
+
+Determine the type specified by the template type `S`
+"""
+function varseltype(::Type{S}) where S<:NamedTuple
+  T = Union{}
+  for VT in fieldtypes(S)
+    if VT<:NamedTuple
+      T = Base.promote_typejoin(T, varseltype(VT))
+    else
+      T = Base.promote_typejoin(T, eltype(VT))
+    end
+  end
+  return T
+end
 
 """
     varsize(S)
