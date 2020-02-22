@@ -339,8 +339,11 @@ end
 
 function main()
     CLIMA.init()
+    mpicomm = MPI.COMM_WORLD
+    nranks = MPI.Comm_size(mpicomm)
 
     FT = Float64
+    strongscaling = get(ENV, "CLIMA_STRONG_SCALING", "false") == "true"
 
     # DG polynomial order
     N = 4
@@ -350,7 +353,7 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
 
-    xmax = 1000
+    xmax = strongscaling ? nranks * 1000 : 1000
     ymax = 1000
     zmax = 2500
 
@@ -370,9 +373,7 @@ function main()
                           check_euclidean_distance=false)
 
 
-    mpicomm = MPI.COMM_WORLD
-    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-      nranks = MPI.Comm_size(MPI.COMM_WORLD)
+    if MPI.Comm_rank(mpicomm) == 0
       fname = get(ENV, "CLIMA_TIMINGS_FILE", "timings.txt")
       timingfile = open(fname, "a")
       write(timingfile, "Ranks,$nranks\n")
