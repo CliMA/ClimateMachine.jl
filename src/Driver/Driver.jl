@@ -408,6 +408,7 @@ Starting %s
     )
 
     # run the simulation
+    callbacks=user_callbacks
     @tic solve!
     solve!(
         Q,
