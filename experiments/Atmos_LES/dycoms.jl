@@ -355,7 +355,7 @@ function main()
     zmax = 2500
 
     t0 = FT(0)
-    timeend = FT(1.0)
+    timeend = FT(1)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true)
@@ -367,7 +367,7 @@ function main()
       
     result = CLIMA.invoke!(solver_config;
                           user_callbacks=(cbtmarfilter,),
-                          check_euclidean_distance=true)
+                          check_euclidean_distance=false)
 
 
     mpicomm = MPI.COMM_WORLD
@@ -377,7 +377,6 @@ function main()
       timingfile = open(fname, "a")
       write(timingfile, "Ranks,$nranks\n")
       write(timingfile, TicToc.print_timing_info())
-      write(timingfile, ";")
     end
 end
 
