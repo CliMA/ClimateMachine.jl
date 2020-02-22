@@ -355,12 +355,12 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     L = large_dycoms ? 2000 : 1000
-    xmax = strongscaling ? nranks * L : L
+    xmax = !strongscaling ? nranks * L : L
     ymax = L
     zmax = 2500
 
     t0 = FT(0)
-    timeend = FT(strongscaling ? 1 // 4 : 1)
+    timeend = FT(!strongscaling ? 1 // 4 : 1)
     timeend = large_dycoms ? timeend / 4 : timeend
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
