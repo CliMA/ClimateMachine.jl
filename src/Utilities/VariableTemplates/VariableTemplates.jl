@@ -4,6 +4,33 @@ export varsize, Vars, Grad, @vars, varseltype
 
 using StaticArrays
 
+function varsindex(::Type{S}, insym::Symbol) where S <: NamedTuple
+  offset = 0
+  for varsym in fieldnames(S)
+    T = fieldtype(S, varsym)
+    if T <: Real
+      offset += 1
+      varrange = offset:offset
+    elseif T <: SHermitianCompact
+      LT = StaticArrays.lowertriangletype(T)
+      N = length(LT)
+      varrange = offset .+ (1:N)
+      offset += N
+    elseif T <: StaticArray
+      N = length(T)
+      varrange = offset .+ (1:N)
+      offset += N
+    else
+      varrange = offset .+ (1:varsize(T))
+      offset += varsize(T)
+    end
+    if insym == varsym
+      return varrange
+    end
+  end
+  error("symbol '$insym' not found")
+end
+
 """
     varseltype(S)
 
