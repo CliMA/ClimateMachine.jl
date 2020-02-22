@@ -130,27 +130,10 @@ let
                 d_h = Δt*diff_speed_h/Δx_h^2
                 d_v = Δt*diff_speed_v/Δx_v^2
 
-                if (FT==Float64 && dim == 2)
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-15
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4 
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
-                elseif (FT==Float64 && dim == 3)
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4 
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
-                elseif (dim == 2)
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
-                else
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 2e-8
-                end
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) ≈ c_h rtol=1e-4
+                @test courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) ≈ d_h rtol=1e-4
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection())   ≈ c_v rtol=1e-4
+                @test courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection())   ≈ d_v rtol=1e-4
             end
         end
     end
