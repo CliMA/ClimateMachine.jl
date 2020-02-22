@@ -77,6 +77,15 @@ function Base.getproperty(A::VarsArray, sym::Symbol)
   end
 end
 
+# Makes views be a VarsArray of a view
+function Base.view(A::VarsArray, inds...)
+  V = getvars(A)
+  dim = getdim(A)
+  array = A.array
+  av = view(array, inds[1:dim-1]..., Colon(), inds[dim:end]...)
+  VarsArray{V, dim}(av)
+end
+
 # TODO: How to inherit all these properties?
 function Base.size(A::VarsArray)
   dim = getdim(A)
@@ -114,7 +123,5 @@ end
 #    - Want A.a[1] = 1
 #    - Want A[1] .= 1
 #    - Want A[1].a = 1
-
-# TODO: Fix views
 
 end
