@@ -344,6 +344,7 @@ function main()
 
     FT = Float64
     strongscaling = get(ENV, "CLIMA_STRONG_SCALING", "false") == "true"
+    large_dycoms = get(ENV, "CLIMA_LARGE_DYCOMS", "false") == "true"
 
     # DG polynomial order
     N = 4
@@ -353,12 +354,14 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
 
-    xmax = strongscaling ? nranks * 1000 : 1000
-    ymax = 1000
+    L = large_dycoms ? 2000 : 1000
+    xmax = strongscaling ? nranks * L : L
+    ymax = L
     zmax = 2500
 
     t0 = FT(0)
-    timeend = FT(1)
+    timeend = FT(strongscaling ? 1 // 4 : 1)
+    timeend = large_dycoms ? timeend / 4 : timeend
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true)
