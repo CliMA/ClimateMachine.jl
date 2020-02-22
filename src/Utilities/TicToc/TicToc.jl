@@ -127,25 +127,24 @@ end
 `stdout`.
 """
 function print_timing_info()
-  if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-    println("TicToc timing information")
+  s = ""
+    s *= "TicToc timing information\n"
     @static if tictoc_track_memory
-        println("name,ncalls,tottime(ns),allocbytes,gctime")
+        s *= "name,ncalls,tottime(ns),allocbytes,gctime\n"
     else
-        println("name,ncalls,tottime(ns)")
+        s *= "name,ncalls,tottime(ns)\n"
     end
     for i = 1:length(timing_info_names)
         @static if tictoc_track_memory
-            s = @sprintf("%s,%d,%d,%d,%d", timing_info_names[i],
+            s *= @sprintf("%s,%d,%d,%d,%d\n", timing_info_names[i],
                          timing_infos[i].ncalls, timing_infos[i].time,
                          timing_infos[i].allocd, timing_infos[i].gctime)
         else
-            s = @sprintf("%s,%d,%d", timing_info_names[i],
+            s *= @sprintf("%s,%d,%d\n", timing_info_names[i],
                          timing_infos[i].ncalls, timing_infos[i].time)
         end
-        println(s)
     end
-  end
+    s
 end
 
 """
