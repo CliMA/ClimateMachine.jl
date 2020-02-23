@@ -109,7 +109,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
           end
 
           if source! !== nothing
-            source!(l_S, l_Q, l_aux, t)
+            source!(l_S, l_Q, l_Qvisc, l_aux, t)
 
             @unroll for s = 1:nstate
               l_rhs[s, i, j, k] += l_S[s]

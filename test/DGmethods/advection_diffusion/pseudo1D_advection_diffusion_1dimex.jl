@@ -50,6 +50,13 @@ function initial_condition!(::Pseudo1D{n, α, β, μ, δ}, state, aux, x,
   # ξT = SVector(x) - ξn * n
   state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
+Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
+function Neumann_data!(::Pseudo1D{n, α, β, μ, δ}, ∇state, aux, x,
+                       t) where {n, α, β, μ, δ}
+  ξn = dot(n, x)
+  ∇state.ρ = -(2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *
+               exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ))
+end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
   ## name of the file that this MPI rank will write
@@ -79,14 +86,14 @@ end
 
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt,
-             n, α, β, μ, δ, vtkdir, outputtime, linearsolvertype)
+             n, α, β, μ, δ, vtkdir, outputtime, linearsolvertype, fluxBC)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
-  model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+  model = AdvectionDiffusion{dim, fluxBC}(Pseudo1D{n, α, β, μ, δ}())
   dg = DGModel(model,
                grid,
                Rusanov(),
@@ -189,23 +196,23 @@ let
   base_num_elem = 4
 
   expected_result = Dict()
-  expected_result[2, 1, Float64] = 7.2741067278166746e-02
-  expected_result[2, 2, Float64] = 6.8111330473941490e-03
-  expected_result[2, 3, Float64] = 1.4428968208587861e-04
-  expected_result[2, 4, Float64] = 2.4253713555277215e-06
-  expected_result[3, 1, Float64] = 1.0446155345232400e-01
-  expected_result[3, 2, Float64] = 1.0267824273059278e-02
-  expected_result[3, 3, Float64] = 2.0613600120241151e-04
-  expected_result[3, 4, Float64] = 3.3441210801005078e-06
-  expected_result[2, 1, Float32] = 7.2741046547889709e-02
-  expected_result[2, 2, Float32] = 6.8110809661448002e-03
-  expected_result[2, 3, Float32] = 1.4426559209823608e-04
+  expected_result[2, 1, Float64] = 7.2801198255507391e-02
+  expected_result[2, 2, Float64] = 6.8160295851506783e-03
+  expected_result[2, 3, Float64] = 1.4439137164205592e-04
+  expected_result[2, 4, Float64] = 2.4260727323386998e-06
+  expected_result[3, 1, Float64] = 1.0462203776357534e-01
+  expected_result[3, 2, Float64] = 1.0280535683502070e-02
+  expected_result[3, 3, Float64] = 2.0631857053908848e-04
+  expected_result[3, 4, Float64] = 3.3460492914169325e-06
+  expected_result[2, 1, Float32] = 7.2801239788532257e-02
+  expected_result[2, 2, Float32] = 6.8159680813550949e-03
+  expected_result[2, 3, Float32] = 1.4439738879445940e-04
   # This is near roundoff so we will not check it
-  # expected_result[2, 4, Float32] = 2.7985299766442040e-06
-  expected_result[3, 1, Float32] = 1.0446154326200485e-01
-  expected_result[3, 2, Float32] = 1.0267823934555054e-02
-  expected_result[3, 3, Float32] = 2.0618981216102839e-04
-  expected_result[3, 4, Float32] = 1.9863322449964471e-05
+  # expected_result[2, 4, Float32] = 2.6432753656990826e-06
+  expected_result[3, 1, Float32] = 1.0462204366922379e-01
+  expected_result[3, 2, Float32] = 1.0280583053827286e-02
+  expected_result[3, 3, Float32] = 2.0646647317335010e-04
+  expected_result[3, 4, Float32] = 2.0226731066941284e-05
 
   numlevels = integration_testing ? 4 : 1
 
@@ -213,49 +220,51 @@ let
     for FT in (Float64, Float32)
       result = zeros(FT, numlevels)
       for dim = 2:3
-        for linearsolvertype in (SingleColumnLU, ManyColumnLU)
-          d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
-          n = SVector{3, FT}(d ./ norm(d))
+        for fluxBC in (true, false)
+          for linearsolvertype in (SingleColumnLU, ManyColumnLU)
+            d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
+            n = SVector{3, FT}(d ./ norm(d))
 
-          α = FT(1)
-          β = FT(1 // 100)
-          μ = FT(-1 // 2)
-          δ = FT(1 // 10)
-          for l = 1:numlevels
-            Ne = 2^(l-1) * base_num_elem
-            brickrange = (ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim-1)...,
-                          range(FT(-5); length=5Ne+1, stop=5))
+            α = FT(1)
+            β = FT(1 // 100)
+            μ = FT(-1 // 2)
+            δ = FT(1 // 10)
+            for l = 1:numlevels
+              Ne = 2^(l-1) * base_num_elem
+              brickrange = (ntuple(j->range(FT(-1); length=Ne+1, stop=1), dim-1)...,
+                            range(FT(-5); length=5Ne+1, stop=5))
 
-            periodicity = ntuple(j->false, dim)
-            topl = StackedBrickTopology(mpicomm, brickrange;
-                                        periodicity = periodicity,
-                                        boundary = (ntuple(j->(1,1), dim-1)...,
-                                                    (3,3)))
-            dt = (α/4) / (Ne * polynomialorder^2)
+              periodicity = ntuple(j->false, dim)
+              topl = StackedBrickTopology(mpicomm, brickrange;
+                                          periodicity = periodicity,
+                                          boundary = (ntuple(j->(1,2), dim-1)...,
+                                                      (3,4)))
+              dt = (α/4) / (Ne * polynomialorder^2)
 
-            outputtime = 0.01
-            timeend = 0.5
+              outputtime = 0.01
+              timeend = 0.5
 
-            @info (ArrayType, FT, dim, linearsolvertype, l)
-            vtkdir = output ? "vtk_advection" *
-                              "_poly$(polynomialorder)" *
-                              "_dim$(dim)_$(ArrayType)_$(FT)" *
-                              "_$(linearsolvertype)_level$(l)" : nothing
-            result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
-                            timeend, FT, dt, n, α, β, μ, δ, vtkdir,
-                            outputtime, linearsolvertype)
-            # test the errors significantly larger than floating point epsilon
-            if !(dim == 2 && l == 4 && FT == Float32)
-              @test result[l] ≈ FT(expected_result[dim, l, FT])
+              @info (ArrayType, FT, dim, linearsolvertype, l, fluxBC)
+              vtkdir = output ? "vtk_advection" *
+              "_poly$(polynomialorder)" *
+              "_dim$(dim)_$(ArrayType)_$(FT)" *
+              "_$(linearsolvertype)_level$(l)" : nothing
+              result[l] = run(mpicomm, ArrayType, dim, topl, polynomialorder,
+                              timeend, FT, dt, n, α, β, μ, δ, vtkdir,
+                              outputtime, linearsolvertype, fluxBC)
+              # test the errors significantly larger than floating point epsilon
+              if !(dim == 2 && l == 4 && FT == Float32)
+                @test result[l] ≈ FT(expected_result[dim, l, FT])
+              end
             end
-          end
-          @info begin
-            msg = ""
-            for l = 1:numlevels-1
-              rate = log2(result[l]) - log2(result[l+1])
-              msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+            @info begin
+              msg = ""
+              for l = 1:numlevels-1
+                rate = log2(result[l]) - log2(result[l+1])
+                msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+              end
+              msg
             end
-            msg
           end
         end
       end

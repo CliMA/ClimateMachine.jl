@@ -8,7 +8,7 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-function init_test!(state, aux, (x,y,z), t)
+function init_test!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
     z = FT(z)
@@ -71,8 +71,8 @@ function main()
     t0 = FT(0)
     timeend = FT(10)
 
-    driver_config = CLIMA.LES_Configuration("Driver test", N, resolution,
-                                            xmax, ymax, zmax, init_test!)
+    driver_config = CLIMA.Atmos_LES_Configuration("Driver test", N, resolution,
+                                                  xmax, ymax, zmax, init_test!)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config)
 
     result = CLIMA.invoke!(solver_config)

@@ -50,34 +50,20 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
 
   s_F = @shmem FT (3, Nq, Nq, Nqk, nstate)
   s_ω = @shmem FT (Nq, )
-  s_half_D = @shmem FT (Nq, Nq)
+  s_D = @shmem FT (Nq, Nq)
   l_rhs = @scratch FT (nstate, Nq, Nq, Nqk) 3
 
   source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
-  l_Q = @scratch FT (nstate, Nq, Nq, Nqk) 3
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
-  l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
   l_F = MArray{Tuple{3, nstate}, FT}(undef)
-  l_M = @scratch FT (Nq, Nq, Nqk) 3
-  l_ξ1x1 = @scratch FT (Nq, Nq, Nqk) 3
-  l_ξ1x2 = @scratch FT (Nq, Nq, Nqk) 3
-  l_ξ1x3 = @scratch FT (Nq, Nq, Nqk) 3
-  if dim == 3 || (dim == 2 && direction == EveryDirection)
-    l_ξ2x1 = @scratch FT (Nq, Nq, Nqk) 3
-    l_ξ2x2 = @scratch FT (Nq, Nq, Nqk) 3
-    l_ξ2x3 = @scratch FT (Nq, Nq, Nqk) 3
-  end
-  if dim == 3 && direction == EveryDirection
-    l_ξ3x1 = @scratch FT (Nq, Nq, Nqk) 3
-    l_ξ3x2 = @scratch FT (Nq, Nq, Nqk) 3
-    l_ξ3x3 = @scratch FT (Nq, Nq, Nqk) 3
-  end
 
   @inbounds @loop for k in (1; threadIdx().z)
     @loop for j in (1:Nq; threadIdx().y)
       s_ω[j] = ω[j]
       @loop for i in (1:Nq; threadIdx().x)
-        s_half_D[i, j] = D[i, j] / 2
+        s_D[i, j] = D[i, j]
       end
     end
   end
@@ -87,19 +73,19 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-          l_M[i, j, k] = vgeo[ijk, _M, e]
-          l_ξ1x1[i, j, k] = vgeo[ijk, _ξ1x1, e]
-          l_ξ1x2[i, j, k] = vgeo[ijk, _ξ1x2, e]
-          l_ξ1x3[i, j, k] = vgeo[ijk, _ξ1x3, e]
+          M = vgeo[ijk, _M, e]
+          ξ1x1 = vgeo[ijk, _ξ1x1, e]
+          ξ1x2 = vgeo[ijk, _ξ1x2, e]
+          ξ1x3 = vgeo[ijk, _ξ1x3, e]
           if dim == 3 || (dim == 2 && direction == EveryDirection)
-            l_ξ2x1[i, j, k] = vgeo[ijk, _ξ2x1, e]
-            l_ξ2x2[i, j, k] = vgeo[ijk, _ξ2x2, e]
-            l_ξ2x3[i, j, k] = vgeo[ijk, _ξ2x3, e]
+            ξ2x1 = vgeo[ijk, _ξ2x1, e]
+            ξ2x2 = vgeo[ijk, _ξ2x2, e]
+            ξ2x3 = vgeo[ijk, _ξ2x3, e]
           end
           if dim == 3 && direction == EveryDirection
-            l_ξ3x1[i, j, k] = vgeo[ijk, _ξ3x1, e]
-            l_ξ3x2[i, j, k] = vgeo[ijk, _ξ3x2, e]
-            l_ξ3x3[i, j, k] = vgeo[ijk, _ξ3x3, e]
+            ξ3x1 = vgeo[ijk, _ξ3x1, e]
+            ξ3x2 = vgeo[ijk, _ξ3x2, e]
+            ξ3x3 = vgeo[ijk, _ξ3x3, e]
           end
 
           @unroll for s = 1:nstate
@@ -107,17 +93,21 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           end
 
           @unroll for s = 1:nstate
-            l_Q[s, i, j, k] = Q[ijk, s, e]
+            l_Q[s] = Q[ijk, s, e]
           end
 
           @unroll for s = 1:nauxstate
-            l_aux[s, i, j, k] = auxstate[ijk, s, e]
+            l_aux[s] = auxstate[ijk, s, e]
+          end
+
+          @unroll for s = 1:nviscstate
+            l_Qvisc[s] = Qvisc[ijk, s, e]
           end
 
           fill!(l_F, -zero(eltype(l_F)))
           flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                             Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                             Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                             Vars{vars_state(bl,FT)}(l_Q),
+                             Vars{vars_aux(bl,FT)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -125,97 +115,41 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
             s_F[3,i,j,k,s] = l_F[3,s]
           end
 
-          # if source! !== nothing
-          fill!(l_S, -zero(eltype(l_S)))
-          source!(bl, Vars{vars_state(bl,FT)}(l_S),
-                  Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
-
-          @unroll for s = 1:nstate
-            l_rhs[s, i, j, k] += l_S[s]
-          end
-        end
-      end
-    end
-    @synchronize
-
-    # Weak "outside metrics" derivative
-    @loop for k in (1:Nqk; threadIdx().z)
-      @loop for j in (1:Nq; threadIdx().y)
-        @loop for i in (1:Nq; threadIdx().x)
-          @unroll for n = 1:Nq
-            @unroll for s = 1:nstate
-              Dni = s_half_D[n, i] * s_ω[n] / s_ω[i]
-              if dim == 3 || (dim == 2 && direction == EveryDirection)
-                Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
-              end
-              if dim == 3 && direction == EveryDirection
-                Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k]
-              end
-
-              # ξ1-grid lines
-              l_rhs[s, i, j, k] += l_ξ1x1[i, j, k] * Dni * s_F[1, n, j, k, s]
-              l_rhs[s, i, j, k] += l_ξ1x2[i, j, k] * Dni * s_F[2, n, j, k, s]
-              l_rhs[s, i, j, k] += l_ξ1x3[i, j, k] * Dni * s_F[3, n, j, k, s]
-
-              # ξ2-grid lines
-              if dim == 3 || (dim == 2 && direction == EveryDirection)
-                l_rhs[s, i, j, k] += l_ξ2x1[i, j, k] * Dnj * s_F[1, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ξ2x2[i, j, k] * Dnj * s_F[2, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ξ2x3[i, j, k] * Dnj * s_F[3, i, n, k, s]
-              end
-
-              # ξ3-grid lines
-              if dim == 3 && direction == EveryDirection
-                l_rhs[s, i, j, k] += l_ξ3x1[i, j, k] * Dnk * s_F[1, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ξ3x2[i, j, k] * Dnk * s_F[2, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ξ3x3[i, j, k] * Dnk * s_F[3, i, j, n, s]
-              end
-            end
-          end
-        end
-      end
-    end
-    @synchronize
-
-    # Add in the diffusive flux (multiply by 2 since derivative is halfed)
-    # This allows symmetric treament of the 2nd order derivative terms
-    # as well as build "inside metrics" flux
-    @loop for k in (1:Nqk; threadIdx().z)
-      @loop for j in (1:Nq; threadIdx().y)
-        @loop for i in (1:Nq; threadIdx().x)
-          ijk = i + Nq * ((j-1) + Nq * (k-1))
-
-          @unroll for s = 1:nviscstate
-            l_Qvisc[s] = Qvisc[ijk, s, e]
-          end
-
           fill!(l_F, -zero(eltype(l_F)))
           flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                          Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
+                          Vars{vars_state(bl,FT)}(l_Q),
                           Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                          Vars{vars_aux(bl,FT)}(l_aux), t)
 
+          @unroll for s = 1:nstate
+            s_F[1,i,j,k,s] += l_F[1,s]
+            s_F[2,i,j,k,s] += l_F[2,s]
+            s_F[3,i,j,k,s] += l_F[3,s]
+          end
+
+          # Build "inside metrics" flux
           @unroll for s = 1:nstate
             F1, F2, F3 = s_F[1,i,j,k,s], s_F[2,i,j,k,s], s_F[3,i,j,k,s]
 
-            F1 += 2l_F[1,s]
-            F2 += 2l_F[2,s]
-            F3 += 2l_F[3,s]
-
-            s_F[1,i,j,k,s] = l_M[i, j, k] * (l_ξ1x1[i, j, k] * F1 +
-                                              l_ξ1x2[i, j, k] * F2 +
-                                              l_ξ1x3[i, j, k] * F3)
+            s_F[1,i,j,k,s] = M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
             if dim == 3 || (dim == 2 && direction == EveryDirection)
-              s_F[2,i,j,k,s] = l_M[i, j, k] * (l_ξ2x1[i, j, k] * F1 +
-                                               l_ξ2x2[i, j, k] * F2 +
-                                               l_ξ2x3[i, j, k] * F3)
+              s_F[2,i,j,k,s] = M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
             end
             if dim == 3 && direction == EveryDirection
-              s_F[3,i,j,k,s] = l_M[i, j, k] * (l_ξ3x1[i, j, k] * F1 +
-                                               l_ξ3x2[i, j, k] * F2 +
-                                               l_ξ3x3[i, j, k] * F3)
+              s_F[3,i,j,k,s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
             end
+          end
+
+          # if source! !== nothing
+          fill!(l_S, -zero(eltype(l_S)))
+          source!(bl, Vars{vars_state(bl,FT)}(l_S),
+                  Vars{vars_state(bl,FT)}(l_Q),
+                  Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                  Vars{vars_aux(bl,FT)}(l_aux),
+                  t)
+
+          @unroll for s = 1:nstate
+            l_rhs[s, i, j, k] += l_S[s]
           end
         end
       end
@@ -231,16 +165,16 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
           @unroll for s = 1:nstate
             @unroll for n = 1:Nq
               # ξ1-grid lines
-              l_rhs[s, i, j, k] += MI * s_half_D[n, i] * s_F[1, n, j, k, s]
+              l_rhs[s, i, j, k] += MI * s_D[n, i] * s_F[1, n, j, k, s]
 
               # ξ2-grid lines
               if dim == 3 || (dim == 2 && direction == EveryDirection)
-                l_rhs[s, i, j, k] += MI * s_half_D[n, j] * s_F[2, i, n, k, s]
+                l_rhs[s, i, j, k] += MI * s_D[n, j] * s_F[2, i, n, k, s]
               end
 
               # ξ3-grid lines
               if dim == 3 && direction == EveryDirection
-                l_rhs[s, i, j, k] += MI * s_half_D[n, k] * s_F[3, i, j, n, s]
+                l_rhs[s, i, j, k] += MI * s_D[n, k] * s_F[3, i, j, n, s]
               end
             end
           end
@@ -277,19 +211,14 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
 
   s_F = @shmem FT (3, Nq, Nq, Nqk, nstate)
   s_ω = @shmem FT (Nq, )
-  s_half_D = @shmem FT (Nq, Nq)
+  s_D = @shmem FT (Nq, Nq)
   l_rhs = @scratch FT (nstate, Nq, Nq, Nqk) 3
 
   source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
-  l_Q = @scratch FT (nstate, Nq, Nq, Nqk) 3
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
   l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
-  l_aux = @scratch FT (nauxstate, Nq, Nq, Nqk) 3
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
   l_F = MArray{Tuple{3, nstate}, FT}(undef)
-  l_M = @scratch FT (Nq, Nq, Nqk) 3
-
-  l_ζx1 = @scratch FT (Nq, Nq, Nqk) 3
-  l_ζx2 = @scratch FT (Nq, Nq, Nqk) 3
-  l_ζx3 = @scratch FT (Nq, Nq, Nqk) 3
 
   _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
   _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
@@ -299,7 +228,7 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
     @loop for j in (1:Nq; threadIdx().y)
       s_ω[j] = ω[j]
       @loop for i in (1:Nq; threadIdx().x)
-        s_half_D[i, j] = D[i, j] / 2
+        s_D[i, j] = D[i, j]
       end
     end
   end
@@ -309,27 +238,31 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
       @loop for j in (1:Nq; threadIdx().y)
         @loop for i in (1:Nq; threadIdx().x)
           ijk = i + Nq * ((j-1) + Nq * (k-1))
-          l_M[i, j, k] = vgeo[ijk, _M, e]
-          l_ζx1[i, j, k] = vgeo[ijk, _ζx1, e]
-          l_ζx2[i, j, k] = vgeo[ijk, _ζx2, e]
-          l_ζx3[i, j, k] = vgeo[ijk, _ζx3, e]
+          M = vgeo[ijk, _M, e]
+          ζx1 = vgeo[ijk, _ζx1, e]
+          ζx2 = vgeo[ijk, _ζx2, e]
+          ζx3 = vgeo[ijk, _ζx3, e]
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] = increment ? rhs[ijk, s, e] : zero(FT)
           end
 
           @unroll for s = 1:nstate
-            l_Q[s, i, j, k] = Q[ijk, s, e]
+            l_Q[s] = Q[ijk, s, e]
           end
 
           @unroll for s = 1:nauxstate
-            l_aux[s, i, j, k] = auxstate[ijk, s, e]
+            l_aux[s] = auxstate[ijk, s, e]
+          end
+
+          @unroll for s = 1:nviscstate
+            l_Qvisc[s] = Qvisc[ijk, s, e]
           end
 
           fill!(l_F, -zero(eltype(l_F)))
           flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                             Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                             Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                             Vars{vars_state(bl,FT)}(l_Q),
+                             Vars{vars_aux(bl,FT)}(l_aux), t)
 
           @unroll for s = 1:nstate
             s_F[1,i,j,k,s] = l_F[1,s]
@@ -337,71 +270,36 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
             s_F[3,i,j,k,s] = l_F[3,s]
           end
 
+          fill!(l_F, -zero(eltype(l_F)))
+          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+                          Vars{vars_state(bl,FT)}(l_Q),
+                          Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                          Vars{vars_aux(bl,FT)}(l_aux), t)
+
+          @unroll for s = 1:nstate
+            s_F[1,i,j,k,s] += l_F[1,s]
+            s_F[2,i,j,k,s] += l_F[2,s]
+            s_F[3,i,j,k,s] += l_F[3,s]
+          end
+
+          # Build "inside metrics" flux
+          @unroll for s = 1:nstate
+            F1, F2, F3 = s_F[1,i,j,k,s], s_F[2,i,j,k,s], s_F[3,i,j,k,s]
+            s_F[3,i,j,k,s] = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+          end
+
           # if source! !== nothing
           fill!(l_S, -zero(eltype(l_S)))
           source!(bl, Vars{vars_state(bl,FT)}(l_S),
-                  Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                  Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
+                  Vars{vars_state(bl,FT)}(l_Q),
+                  Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                  Vars{vars_aux(bl,FT)}(l_aux),
+                  t)
 
           @unroll for s = 1:nstate
             l_rhs[s, i, j, k] += l_S[s]
           end
-        end
-      end
-    end
-    @synchronize
 
-    # Weak "outside metrics" derivative
-    @loop for k in (1:Nqk; threadIdx().z)
-      @loop for j in (1:Nq; threadIdx().y)
-        @loop for i in (1:Nq; threadIdx().x)
-          @unroll for n = 1:Nq
-            @unroll for s = 1:nstate
-              if dim == 2
-                Dnj = s_half_D[n, j] * s_ω[n] / s_ω[j]
-                l_rhs[s, i, j, k] += l_ζx1[i, j, k] * Dnj * s_F[1, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ζx2[i, j, k] * Dnj * s_F[2, i, n, k, s]
-                l_rhs[s, i, j, k] += l_ζx3[i, j, k] * Dnj * s_F[3, i, n, k, s]
-              else
-                Dnk = s_half_D[n, k] * s_ω[n] / s_ω[k]
-                l_rhs[s, i, j, k] += l_ζx1[i, j, k] * Dnk * s_F[1, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ζx2[i, j, k] * Dnk * s_F[2, i, j, n, s]
-                l_rhs[s, i, j, k] += l_ζx3[i, j, k] * Dnk * s_F[3, i, j, n, s]
-              end
-            end
-          end
-        end
-      end
-    end
-    @synchronize
-
-    # Build "inside metrics" flux
-    @loop for k in (1:Nqk; threadIdx().z)
-      @loop for j in (1:Nq; threadIdx().y)
-        @loop for i in (1:Nq; threadIdx().x)
-          ijk = i + Nq * ((j-1) + Nq * (k-1))
-
-          @unroll for s = 1:nviscstate
-            l_Qvisc[s] = Qvisc[ijk, s, e]
-          end
-
-          fill!(l_F, -zero(eltype(l_F)))
-          flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
-                          Vars{vars_state(bl,FT)}(l_Q[:, i, j, k]),
-                          Vars{vars_diffusive(bl,FT)}(l_Qvisc),
-                          Vars{vars_aux(bl,FT)}(l_aux[:, i, j, k]), t)
-
-          @unroll for s = 1:nstate
-            F1, F2, F3 = s_F[1,i,j,k,s], s_F[2,i,j,k,s], s_F[3,i,j,k,s]
-
-            F1 += 2l_F[1,s]
-            F2 += 2l_F[2,s]
-            F3 += 2l_F[3,s]
-
-            s_F[3,i,j,k,s] = l_M[i, j, k] * (l_ζx1[i, j, k] * F1 +
-                                             l_ζx2[i, j, k] * F2 +
-                                             l_ζx3[i, j, k] * F3)
-          end
         end
       end
     end
@@ -416,10 +314,10 @@ function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder},
           @unroll for s = 1:nstate
             @unroll for n = 1:Nq
               if dim == 2
-                Dnj = s_half_D[n, j]
+                Dnj = s_D[n, j]
                 l_rhs[s, i, j, k] += MI * Dnj * s_F[3, i, n, k, s]
               else
-                Dnk = s_half_D[n, k]
+                Dnk = s_D[n, k]
                 l_rhs[s, i, j, k] += MI * Dnk * s_F[3, i, j, n, s]
               end
             end
@@ -1302,3 +1200,46 @@ function knl_copy_stack_field_down!(::Val{dim}, ::Val{N}, ::Val{nvertelem},
   end
   nothing
 end
+
+function knl_local_courant!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                            pointwise_courant, local_courant, Q, auxstate,
+                            diffstate, elems, direction, Δt) where {dim, N}
+  FT = eltype(Q)
+  nstate = num_state(bl,FT)
+  nviscstate = num_diffusive(bl,FT)
+  nauxstate = num_aux(bl,FT)
+
+  Nq = N + 1
+
+  Nqk = dim == 2 ? 1 : Nq
+
+  Np = Nq * Nq * Nqk
+
+  l_Q = MArray{Tuple{nstate}, FT}(undef)
+  l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+  l_diff = MArray{Tuple{nviscstate}, FT}(undef)
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for n in (1:Np; threadIdx().x)
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[n, s, e]
+      end
+
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[n, s, e]
+      end
+
+      @unroll for s = 1:nviscstate
+        l_diff[s] = diffstate[n, s, e]
+      end
+
+      Δx = pointwise_courant[n, e]
+      c = local_courant(bl, Vars{vars_state(bl,FT)}(l_Q),
+                        Vars{vars_aux(bl,FT)}(l_aux),
+                        Vars{vars_diffusive(bl,FT)}(l_diff), Δx, Δt, direction)
+
+      pointwise_courant[n, e] = c
+    end
+  end
+end
+

@@ -15,6 +15,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 using CLIMA.PlanetParameters: grav
+using CLIMA.HydrostaticBoussinesq: AbstractHydrostaticBoussinesqProblem
 import CLIMA.HydrostaticBoussinesq: ocean_init_aux!, ocean_init_state!,
                                     ocean_boundary_state!,
                                     CoastlineFreeSlip, CoastlineNoSlip,
@@ -30,19 +31,8 @@ using GPUifyLoops
 const ArrayType = CLIMA.array_type()
 
 HBModel   = HydrostaticBoussinesqModel
-HBProblem = HydrostaticBoussinesqProblem
 
-@inline function ocean_boundary_state!(m::HBModel, bctype, x...)
-  if bctype == 1
-    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-  elseif bctype == 2
-    ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
-  elseif bctype == 3
-    ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
-  end
-end
-
-struct SimpleBox{T} <: HBProblem
+struct OceanGyre{T} <: AbstractHydrostaticBoussinesqProblem
   Lˣ::T
   Lʸ::T
   H::T
@@ -53,8 +43,18 @@ struct SimpleBox{T} <: HBProblem
   θᴱ::T
 end
 
+@inline function ocean_boundary_state!(m::HBModel, p::OceanGyre, bctype, x...)
+  if bctype == 1
+    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+  elseif bctype == 2
+    ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
+  elseif bctype == 3
+    ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
+  end
+end
+
 # A is Filled afer the state
-function ocean_init_aux!(m::HBModel, P::SimpleBox, A, geom)
+function ocean_init_aux!(m::HBModel, P::OceanGyre, A, geom)
   FT = eltype(A)
   @inbounds y = geom.coord[2]
 
@@ -68,15 +68,11 @@ function ocean_init_aux!(m::HBModel, P::SimpleBox, A, geom)
   A.f  =  fₒ + β * y
   A.θʳ =  θᴱ * (1 - y / Lʸ)
 
-  κʰ = m.κʰ
-  κᶻ = m.κᶻ
-
-  # A.κ = @SMatrix [ κʰ -0 -0; -0 κʰ -0; -0 -0 κᶻ]
-  A.κᶻ = κᶻ
-
+  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
+  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
 end
 
-function ocean_init_state!(P::SimpleBox, Q, A, coords, t)
+function ocean_init_state!(P::OceanGyre, Q, A, coords, t)
   @inbounds z = coords[3]
   @inbounds H = P.H
 
@@ -89,7 +85,7 @@ end
 # PARAM SELECTION #
 ###################
 FT = Float64
-vtkpath = "vtk_testing_update_aux"
+vtkpath = "vtk_ekman_spiral"
 
 const timeend = 3 * 30 * 86400   # s
 const tout    = 6 * 24 * 60 * 60 # s
@@ -105,11 +101,6 @@ const H  = 1000 # m
 xrange = range(FT(0);  length=Nˣ+1, stop=Lˣ)
 yrange = range(FT(0);  length=Nʸ+1, stop=Lʸ)
 zrange = range(FT(-H); length=Nᶻ+1, stop=0)
-
-# xrange = [Lˣ/2 * (1 - cos(x)) for x in range(FT(0); length=Nˣ+1, stop=π)]
-# yrange = [Lʸ/2 * (1 - cos(y)) for y in range(FT(0); length=Nʸ+1, stop=π)]
-# zrange = -H * [1, 0.95, 0.75, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0]
-# zrange = -H * [1, 0.9875, 0.975, 0.75, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.0375, 0.025, 0.0125, 0]
 
 const cʰ = sqrt(grav * H)
 const cᶻ = 0
@@ -142,20 +133,20 @@ let
                               boundary = ((1, 1), (1, 1), (2, 3)))
 
   minΔx = Lˣ / Nˣ / (N + 1)
-  minΔz = (H  / Nᶻ / (N + 1))^2
-  CFL_acoustic = minΔx / cʰ
-  CFL_diffusive = minΔz / (1000 * κᶻ)
-  CFL_viscous = minΔz / νᶻ
-  dt = 1//2 * minimum([CFL_acoustic, CFL_diffusive, CFL_viscous])
+  minΔz = H  / Nᶻ / (N + 1)
+  CFL_gravity = minΔx / cʰ
+  CFL_diffusive = minΔz^2 / (1000 * κᶻ)
+  CFL_viscous = minΔz^2 / νᶻ
+  dt = 1//2 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
   nout = ceil(Int64, tout / dt)
   dt = tout / nout
 
   @info @sprintf("""Update
-                    Acoustic CFL  = %.1f
+                    Gravity CFL   = %.1f
                     Diffusive CFL = %.1f
                     Viscous CFL   = %.1f
                     Timestep      = %.1f""",
-                 CFL_acoustic, CFL_diffusive, CFL_viscous, dt)
+                 CFL_gravity, CFL_diffusive, CFL_viscous, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
                                           FloatType = FT,
@@ -164,9 +155,9 @@ let
                                          )
 
 
-  prob = SimpleBox{FT}(Lˣ, Lʸ, H, τₒ, fₒ, β, λʳ, θᴱ)
+  prob = OceanGyre{FT}(Lˣ, Lʸ, H, τₒ, fₒ, β, λʳ, θᴱ)
 
-  model = HBModel{typeof(prob),FT}(prob, cʰ, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+  model = HBModel{FT}(prob, cʰ = cʰ)
 
   dg = OceanDGModel(model,
                     grid,

@@ -178,7 +178,7 @@ function main()
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=0.2)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        Filters.apply!(solver_config.Q, (6,7), solver_config.dg.grid, TMARFilter())
         nothing
     end
     result = CLIMA.invoke!(solver_config;

@@ -137,8 +137,8 @@ end
 
 @inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
 
-@inline function source!(m::SWModel{P}, S::Vars, q::Vars, α::Vars,
-                         t::Real) where P
+@inline function source!(m::SWModel{P}, S::Vars, q::Vars,
+                         diffusive::Vars, α::Vars, t::Real) where P
   τ = α.τ
   f = α.f
   U = q.U
@@ -210,7 +210,7 @@ end
 
 @inline function shallow_boundary_state!(::CentralNumericalFluxGradient, m::SWModel,
                                          ::ConstantViscosity, q⁺, α⁺, n⁻, q⁻, α⁻, t)
-  q⁺.U = -q⁻.U
+  q⁺.U = 0
 
   return nothing
 end

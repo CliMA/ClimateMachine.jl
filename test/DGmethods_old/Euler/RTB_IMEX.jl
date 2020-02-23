@@ -112,7 +112,7 @@ end
   end
 end
 
-@inline function source!(S, Q, aux, t)
+@inline function source!(S, Q, diffusive, aux, t)
   # Initialise the final block source term
   S .= -zero(eltype(Q))
 
@@ -238,11 +238,11 @@ end
   end
 end
 
-@inline function lin_source!(S, Q, aux, t)
+@inline function lin_source!(S, Q, diffusive, aux, t)
   S .= 0
-  lin_source_geopotential!(S, Q, aux, t)
+  lin_source_geopotential!(S, Q, diffusive, aux, t)
 end
-@inline function lin_source_geopotential!(S, Q, aux, t)
+@inline function lin_source_geopotential!(S, Q, diffusive, aux, t)
   @inbounds begin
     δρ = Q[_δρ]
     ∇ϕ = SVector(aux[_a_ϕ_x], aux[_a_ϕ_y], aux[_a_ϕ_z])
@@ -313,7 +313,7 @@ function run(mpicomm, ArrayType, dim, brickrange, periodicity, N, timeend, FT, d
   # NOTE: In order to get the same results on the CPU and GPU we force ourselves
   # to take the same number of iterations by setting at really high tolerance
   # specifying the number of restarts
-  linearsolver = GeneralizedConjugateResidual(3, Q, 1e-8)
+  linearsolver = GeneralizedConjugateResidual(3, Q, rtol=1e-8)
 
   timestepper = ARK548L2SA2KennedyCarpenter(spacedisc, lin_spacedisc,
                                             linearsolver, Q; dt = dt, t0 = 0)

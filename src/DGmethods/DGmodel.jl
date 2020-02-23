@@ -37,15 +37,6 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   FT = eltype(Q)
   nviscstate = num_diffusive(bl, FT)
 
-  lgl_weights_vec = grid.ω
-  Dmat = grid.D
-  vgeo = grid.vgeo
-  sgeo = grid.sgeo
-  vmapM = grid.vmapM
-  vmapP = grid.vmapP
-  elemtobndy = grid.elemtobndy
-  polyorder = polynomialorder(dg.grid)
-
   Np = dofs_per_element(grid)
 
   communicate = !(isstacked(topology) &&
@@ -67,8 +58,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   if nviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(bl, Val(dim), Val(polyorder), dg.direction, Q.data,
-                             Qvisc.data, auxstate.data, vgeo, t, Dmat,
+            volumeviscterms!(bl, Val(dim), Val(N), dg.direction, Q.data,
+                             Qvisc.data, auxstate.data, grid.vgeo, t, grid.D,
                              topology.realelems))
 
     if communicate
@@ -79,9 +70,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     end
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(dim), Val(polyorder), dg.direction,
+            faceviscterms!(bl, Val(dim), Val(N), dg.direction,
                            dg.gradnumflux, Q.data, Qvisc.data, auxstate.data,
-                           vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                           grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
                            topology.realelems))
 
     if communicate
@@ -101,9 +92,9 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   # RHS Computation #
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(dim), Val(polyorder), dg.direction, dQdt.data,
-                     Q.data, Qvisc.data, auxstate.data, vgeo, t,
-                     lgl_weights_vec, Dmat, topology.realelems, increment))
+          volumerhs!(bl, Val(dim), Val(N), dg.direction, dQdt.data,
+                     Q.data, Qvisc.data, auxstate.data, grid.vgeo, t,
+                     grid.ω, grid.D, topology.realelems, increment))
 
   if communicate
     if nviscstate > 0
@@ -120,11 +111,11 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   end
 
   @launch(device, threads=Nfp, blocks=nrealelem,
-          facerhs!(bl, Val(dim), Val(polyorder), dg.direction,
+          facerhs!(bl, Val(dim), Val(N), dg.direction,
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
                    dQdt.data, Q.data, Qvisc.data,
-                   auxstate.data, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                   auxstate.data, grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
                    topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
@@ -149,21 +140,19 @@ function init_ode_state(dg::DGModel, args...;
 
   auxstate = dg.auxstate
   dim = dimensionality(grid)
-  polyorder = polynomialorder(grid)
-  vgeo = grid.vgeo
+  N = polynomialorder(grid)
   nrealelem = length(topology.realelems)
 
   if !forcecpu
     @launch(device, threads=(Np,), blocks=nrealelem,
-            initstate!(bl, Val(dim), Val(polyorder), state.data, auxstate.data, vgeo,
+            initstate!(bl, Val(dim), Val(N), state.data, auxstate.data, grid.vgeo,
                      topology.realelems, args...))
   else
-    h_vgeo = Array(vgeo)
     h_state = similar(state, Array)
     h_auxstate = similar(auxstate, Array)
     h_auxstate .= auxstate
     @launch(CPU(), threads=(Np,), blocks=nrealelem,
-      initstate!(bl, Val(dim), Val(polyorder), h_state.data, h_auxstate.data, h_vgeo,
+      initstate!(bl, Val(dim), Val(N), h_state.data, h_auxstate.data, Array(grid.vgeo),
           topology.realelems, args...))
     state .= h_state
   end
@@ -190,9 +179,6 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 
   FT = eltype(Q)
 
-  vgeo = grid.vgeo
-  polyorder = polynomialorder(dg.grid)
-
   # do integrals
   nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
@@ -200,9 +186,9 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_indefinite_stack_integral!(m, Val(dim), Val(polyorder),
+          knl_indefinite_stack_integral!(m, Val(dim), Val(N),
                                          Val(nvertelem), Q.data, auxstate.data,
-                                         vgeo, grid.Imat, 1:nhorzelem,
+                                         grid.vgeo, grid.Imat, 1:nhorzelem,
                                          Val(nintegrals)))
 end
 
@@ -230,9 +216,6 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
 
   FT = eltype(auxstate)
 
-  vgeo = grid.vgeo
-  polyorder = polynomialorder(dg.grid)
-
   # do integrals
   nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
@@ -240,7 +223,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_reverse_indefinite_stack_integral!(Val(dim), Val(polyorder),
+          knl_reverse_indefinite_stack_integral!(Val(dim), Val(N),
                                                  Val(nvertelem), auxstate.data,
                                                  1:nhorzelem,
                                                  Val(nintegrals)))
@@ -258,22 +241,64 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   Nq = N + 1
   nrealelem = length(topology.realelems)
 
-  polyorder = polynomialorder(dg.grid)
-
   Np = dofs_per_element(grid)
 
   ### update aux variables
   if diffusive
     @launch(device, threads=(Np,), blocks=nrealelem,
-            knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
+            knl_nodal_update_aux!(m, Val(dim), Val(N), f!,
                             Q.data, dg.auxstate.data, dg.diffstate.data, t,
                             topology.realelems))
   else
     @launch(device, threads=(Np,), blocks=nrealelem,
-            knl_nodal_update_aux!(m, Val(dim), Val(polyorder), f!,
+            knl_nodal_update_aux!(m, Val(dim), Val(N), f!,
                             Q.data, dg.auxstate.data, t,
                             topology.realelems))
   end
+end
+
+"""
+    courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+            Q::MPIStateArray, direction=EveryDirection())
+Returns the maximum of the evaluation of the function `local_courant`
+pointwise throughout the domain.  The function `local_courant` is given an
+approximation of the local node distance `Δx`.  The `direction` controls which
+reference directions are considered when computing the minimum node distance
+`Δx`.
+An example `local_courant` function is
+    function local_courant(m::AtmosModel, state::Vars, aux::Vars,
+                           diffusive::Vars, Δx)
+      return Δt * cmax / Δx
+    end
+where `Δt` is the time step size and `cmax` is the maximum flow speed in the
+model.
+"""
+function courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+                 Q::MPIStateArray, Δt, direction=EveryDirection())
+    grid = dg.grid
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    if nrealelem > 0
+        N = polynomialorder(grid)
+        dim = dimensionality(grid)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+        device = grid.vgeo isa Array ? CPU() : CUDA()
+        pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
+        @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+        Grids.knl_min_neighbor_distance!(Val(N), Val(dim), direction,
+                                         pointwise_courant, grid.vgeo, topology.realelems))
+        @launch(device, threads=(Nq*Nq*Nqk,), blocks=nrealelem,
+                knl_local_courant!(m, Val(dim), Val(N), pointwise_courant,
+                local_courant, Q.data, dg.auxstate.data,
+                dg.diffstate.data, topology.realelems, direction, Δt))
+        rank_courant_max = maximum(pointwise_courant)
+    else
+        rank_courant_max = typemin(eltype(Q))
+    end
+
+    MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
 function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
@@ -289,18 +314,13 @@ function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  DFloat = eltype(auxstate)
-
-  vgeo = grid.vgeo
-  polyorder = polynomialorder(dg.grid)
-
   # do integrals
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_copy_stack_field_down!(Val(dim), Val(polyorder), Val(nvertelem),
+          knl_copy_stack_field_down!(Val(dim), Val(N), Val(nvertelem),
                                      auxstate.data, 1:nhorzelem, Val(fldin),
                                      Val(fldout)))
 end
@@ -313,3 +333,4 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
 
   return state
 end
+

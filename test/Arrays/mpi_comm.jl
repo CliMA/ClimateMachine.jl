@@ -1,5 +1,6 @@
 using Test
 using MPI
+using CLIMA
 using CLIMA.MPIStateArrays
 using CLIMA.Mesh.BrickMesh
 using Pkg
