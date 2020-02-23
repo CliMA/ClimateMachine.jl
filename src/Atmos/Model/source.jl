@@ -83,8 +83,7 @@ struct RayleighSponge{FT} <: Source
   "sponge type"
   typ::FT
 end
-<<<<<<< HEAD
-function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
  z = altitude(atmos.orientation, aux)
  if s.typ == 1 
     if z >= s.z_sponge
@@ -119,12 +118,12 @@ function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state
 end
 
 struct PrecipitationSource <: Source end
-function atmos_source!(s::PrecipitationSource, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(s::PrecipitationSource, m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   source.precipitation.ρq_rain += aux.precipitation.src_q_rai_tot
   source.moisture.ρq_tot -= aux.precipitation.src_q_rai_tot
   source.moisture.ρq_liq -= aux.precipitation.src_q_rai_tot
 end
 struct CloudSource <: Source end
-function atmos_source!(s::CloudSource, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(s::CloudSource, m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   source.moisture.ρq_liq += aux.moisture.src_qliq
 end

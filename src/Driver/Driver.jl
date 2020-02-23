@@ -8,10 +8,6 @@ using Printf
 using Requires
 
 using ..AdditiveRungeKuttaMethod
-<<<<<<< HEAD
-using ..Atmos
-=======
->>>>>>> 75849135d5d0f84daf4e2b0ab1b97ce61ea0ce7f
 using ..VTK
 using ..ColumnwiseLUSolver
 using ..Diagnostics
