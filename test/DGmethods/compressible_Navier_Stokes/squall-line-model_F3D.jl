@@ -43,7 +43,7 @@ import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 # TODO: Get this from geometry
 const (xmin, xmax) = (-30000,30000)
-const (ymin, ymax) = (0,5000)
+const (ymin, ymax) = (-15000,15000)
 const (zmin, zmax) = (0, 24000)
 function init_state!(bl, state::Vars, aux::Vars, (x1,x2,x3), args...)
   spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = args[2]
@@ -159,6 +159,7 @@ rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,2
     config = CLIMA.Atmos_LES_Configuration("squall_line", N, resolution, xmax, ymax, zmax,
                                      init_state!,
 				     xmin = xmin,
+				     ymin = ymin,
 				     solver_type=CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
                                      model = model)
 
@@ -174,7 +175,7 @@ function main()
 
     # Domain resolution and size
     Δx = FT(250)
-    Δy = FT(1000)
+    Δy = FT(250)
     Δz = FT(200)
     resolution = (Δx, Δy, Δz)
 
