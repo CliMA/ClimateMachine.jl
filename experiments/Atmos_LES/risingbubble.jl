@@ -72,7 +72,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   bc = NoFluxBC()
 
   # Choose explicit solver
-  ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
+  ode_solver = CLIMA.MRRKSolverType(solver_method=MultirateRungeKutta,
+                                    fast_method=LSRK54CarpenterKennedy,
+                                    slow_method=LSRK144NiegemannDiehlBusch,
+                                    linear_model=AtmosAcousticGravityLinearModel)
 
   # Set up the model
   C_smag = FT(0.23)
