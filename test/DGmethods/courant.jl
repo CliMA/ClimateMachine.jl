@@ -80,24 +80,12 @@ let
 
                 topl = StackedBrickTopology(mpicomm, brickrange)
 
-                function warpfun(ξ1, ξ2, ξ3)
-                    FT = eltype(ξ1)
 
-                    ξ1 ≥ FT(1//2) && (ξ1 = FT(1//2) + 2(ξ1 - FT(1//2)))
-                    if dim == 2
-                        ξ2 ≥ FT(3//2) && (ξ2 = FT(3//2) + 2(ξ2 - FT(3//2)))
-                    elseif dim == 3
-                        ξ2 ≥ FT(1//2) && (ξ2 = FT(1//2) + 2(ξ2 - FT(1//2)))
-                        ξ3 ≥ FT(3//2) && (ξ3 = FT(3//2) + 2(ξ3 - FT(3//2)))
-                    end
-                    return (ξ1, ξ2, ξ3)
-                end
 
                 grid = DiscontinuousSpectralElementGrid(topl,
                                                         FloatType = FT,
                                                         DeviceArray = ArrayType,
                                                         polynomialorder = N)
-                                                #meshwarp = warpfun)
 
                 model = AtmosModel{FT}(AtmosLESConfiguration;
                                        ref_state=NoReferenceState(),
@@ -111,11 +99,9 @@ let
                              CentralNumericalFluxGradient())
 
                 Δt = FT(1e-11)#FT(1//2)
-                #Δt = FT(0.00001) #FT(1//10)
 
                 Q = init_ode_state(dg, FT(0))
-                solver = LSRK54CarpenterKennedy(dg, Q; dt = Δt, t0 = 0)
-                solve!(Q, solver; timeend=Δt)
+
                 Δx = min_node_distance(grid, EveryDirection())
                 Δx_v = min_node_distance(grid, VerticalDirection())
                 Δx_h = min_node_distance(grid, HorizontalDirection())
@@ -130,9 +116,14 @@ let
                 d_h = Δt*diff_speed_h/Δx_h^2
                 d_v = Δt*diff_speed_v/Δx_v^2
 
-                @test courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) ≈ c_h rtol=1e-4
+                # tests for non diffusive courant number
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) ≈ c_h
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection())   ≈ c_v
+
+                solver = LSRK54CarpenterKennedy(dg, Q; dt = Δt, t0 = 0)
+                solve!(Q, solver; timeend=Δt)                
+
                 @test courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) ≈ d_h rtol=1e-4
-                @test courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection())   ≈ c_v rtol=1e-4
                 @test courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection())   ≈ d_v rtol=1e-4
             end
         end
