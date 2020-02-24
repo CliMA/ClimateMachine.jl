@@ -6,6 +6,7 @@ using DocStringExtensions
 using LinearAlgebra
 
 using CLIMA
+using FreeParameters
 using CLIMA.Atmos
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.GenericCallbacks
@@ -31,6 +32,41 @@ function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars, au
 function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
 function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) end
 function flux_radiation!(::RadiationModel, flux::Grad, state::Vars, aux::Vars, t::Real) end
+
+"""
+    Params
+
+Module for defining type-generic version of the model parameters.
+"""
+module Params end
+
+function get_model_from_file(model, model_file)
+
+  parametric_model = deepcopy(model)
+  @show parametric_model
+  generic_model = generic_type(Params, parametric_model)
+
+  if !isfile(model_file)
+    @export_struct(generic_model, model_file, EntireStruct(), SingleFile())
+  end
+
+  #####
+  ##### Free parameter annotation
+  #####
+
+  # can be moved to / included in an external file, e.g., include(joinpath("atmos","annotatoe_free_params.jl"))
+
+  @FreeParameter(generic_model.turbulence.C_smag)
+
+  #####
+  #####
+  #####
+
+  # import_struct(generic_model, model_file, EntireStruct(), SingleFile())
+  # @show Main.AtmosModel
+  model = parametric_type(Main, parametric_model, generic_model)
+  return model
+end
 
 
 # ---------------------------- Begin Boundary Conditions ----------------- #
@@ -326,6 +362,15 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
                               source=source,
                    boundarycondition=bc,
                           init_state=ics)
+
+    free_params_dir = joinpath(@__DIR__, "..", "..", "free_params")
+    mkpath(free_params_dir)
+    model_file = joinpath(free_params_dir, "dycoms.jl")
+
+    read_model_from_file = true # false -> use  the model defined in this file
+    # read_model_from_file = true  # true  -> read the model imported in model_file
+
+    read_model_from_file && (model = get_model_from_file(model, model_file))
 
     config = CLIMA.Atmos_LES_Configuration("DYCOMS", N, resolution, xmax, ymax, zmax,
                                            init_dycoms!,

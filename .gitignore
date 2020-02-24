@@ -16,3 +16,4 @@ src/**/Manifest.toml
 *.png
 !docs/src/assets/*.png
 *~
+free_params/
