@@ -72,7 +72,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     @launch(device, threads=Nfp, blocks=nrealelem,
             faceviscterms!(bl, Val(dim), Val(N), dg.direction,
                            dg.gradnumflux, Q.data, Qvisc.data, auxstate.data,
-                           grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
+                           grid.vgeo, grid.sgeo, t, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                            topology.realelems))
 
     if communicate
@@ -115,7 +115,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
                    dQdt.data, Q.data, Qvisc.data,
-                   auxstate.data, grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
+                   auxstate.data, grid.vgeo, grid.sgeo, t, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                    topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
