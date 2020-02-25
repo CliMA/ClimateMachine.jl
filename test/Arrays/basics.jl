@@ -3,21 +3,12 @@ using Test, MPI
 using CLIMA
 using CLIMA.MPIStateArrays
 
-MPI.Initialized() || MPI.Init()
-
+CLIMA.init()
+const ArrayType = CLIMA.array_type()
 const mpicomm = MPI.COMM_WORLD
 
-@static if haspkg("CuArrays")
-  using CuArrays
-  # make sure that broadcasting is not being done by scalar indexing into CuArrays
-  CuArrays.allowscalar(false)
-  ArrayType = CuArray
-else
-  ArrayType = Array
-end
-
 @testset "MPIStateArray basics" begin
-  Q = MPIStateArray{Tuple{4, 6}, Float32, ArrayType}(mpicomm, 8)
+  Q = MPIStateArray{Float32}(mpicomm, ArrayType, 4, 6, 8)
 
   @test eltype(Q) == Float32
   @test size(Q) == (4, 6, 8)
@@ -25,7 +16,7 @@ end
   fillval = 0.5f0
   fill!(Q, fillval)
 
-  haspkg("CuArrays") && CuArrays.allowscalar(true)
+  CLIMA.gpu_allowscalar(true)
   @test Q[1] ==  fillval
   @test Q[2, 3, 4] == fillval
   @test Q[end] == fillval
@@ -34,8 +25,8 @@ end
   
   Q[2, 3, 4] = 2fillval
   @test Q[2, 3, 4] != fillval
-  haspkg("CuArrays") && CuArrays.allowscalar(false)
-
+  CLIMA.gpu_allowscalar(false)
+  
   Qp = copy(Q)
   
   @test typeof(Qp) == typeof(Q)

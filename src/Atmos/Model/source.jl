@@ -1,15 +1,16 @@
-export Gravity, RayleighSponge, Subsidence, GeostrophicForcing
+using CLIMA.PlanetParameters: Omega
+export Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
 
 # kept for compatibility
 # can be removed if no functions are using this
-function atmos_source!(f::Function, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  f(source, state, aux, t)
+function atmos_source!(f::Function, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  f(atmos, source, state, diffusive, aux, t)
 end
-function atmos_source!(::Nothing, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function atmos_source!(::Nothing, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
 # sources are applied additively
-function atmos_source!(stuple::Tuple, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  map(s -> atmos_source!(s, m, source, state, aux, t), stuple)
+function atmos_source!(stuple::Tuple, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  map(s -> atmos_source!(s, atmos, source, state, diffusive, aux, t), stuple)
 end
 
 abstract type Source
@@ -17,48 +18,74 @@ end
 
 struct Gravity <: Source
 end
-function atmos_source!(::Gravity, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu -= state.ρ * aux.orientation.∇Φ
+function atmos_source!(::Gravity, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  if atmos.ref_state isa HydrostaticState
+    source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
+  else
+    source.ρu -= state.ρ * aux.orientation.∇Φ
+  end
 end
 
-struct Subsidence <: Source
+struct Coriolis <: Source
 end
-function atmos_source!(::Subsidence, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  source.ρu -= state.ρ * m.radiation.D_subsidence
+function atmos_source!(::Coriolis, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  # note: this assumes a SphericalOrientation
+  source.ρu -= SVector(0, 0, 2*Omega) × state.ρu
 end
 
-struct GeostrophicForcing{DT} <: Source
-  f_coriolis::DT
-  u_geostrophic::DT
-  v_geostrophic::DT
+struct Subsidence{FT} <: Source
+  D::FT
 end
-function atmos_source!(s::GeostrophicForcing, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  u = state.ρu / state.ρ
+
+function atmos_source!(subsidence::Subsidence, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  ρ = state.ρ
+  z = altitude(atmos.orientation, aux)
+  w_sub = subsidence_velocity(subsidence, z)
+  k̂ = vertical_unit_vector(atmos.orientation, aux)
+
+  source.ρe -= ρ*w_sub * dot(k̂, diffusive.∇h_tot)
+  source.moisture.ρq_tot -= ρ*w_sub * dot(k̂, diffusive.moisture.∇q_tot)
+end
+
+subsidence_velocity(subsidence::Subsidence{FT}, z::FT) where {FT} = -subsidence.D*z
+
+
+struct GeostrophicForcing{FT} <: Source
+  f_coriolis::FT
+  u_geostrophic::FT
+  v_geostrophic::FT
+end
+function atmos_source!(s::GeostrophicForcing, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
-  source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
+  ẑ = vertical_unit_vector(atmos.orientation, aux)
+  fkvector = s.f_coriolis * ẑ
+  source.ρu -= fkvector × (state.ρu .- state.ρ*u_geo)
 end
 
 """
-  RayleighSponge{DT} <: Source
+    RayleighSponge{FT} <: Source
+
 Rayleigh Damping (Linear Relaxation) for top wall momentum components
 Assumes laterally periodic boundary conditions for LES flows. Momentum components
 are relaxed to reference values (zero velocities) at the top boundary.
 """
-struct RayleighSponge{DT} <: Source
-  "Domain maximum height [m]"
-  zmax::DT
-  "Vertical extent at with sponge starts [m]"
-  zsponge::DT
-  "Sponge Strength 0 ⩽ c_sponge ⩽ 1"
-  c_sponge::DT
+struct RayleighSponge{FT} <: Source
+  "Maximum domain altitude (m)"
+  z_max::FT
+  "Altitude at with sponge starts (m)"
+  z_sponge::FT
+  "Sponge Strength 0 ⩽ α_max ⩽ 1"
+  α_max::FT
+  "Relaxation velocity components"
+  u_relaxation::SVector{3,FT}
+  "Sponge exponent"
+  γ::FT
 end
-function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  DT = eltype(state)
-  z = aux.orientation.Φ / grav
-  coeff = DT(0)
-  if z >= s.zsponge
-    coeff_top = s.c_sponge * (sinpi(DT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^DT(4)
-    coeff = min(coeff_top, 1.0)
+function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  z = altitude(atmos.orientation, aux)
+  if z >= s.z_sponge
+    r = (z - s.z_sponge)/(s.z_max-s.z_sponge)
+    β_sponge = s.α_max * sinpi(r/2)^s.γ
+    source.ρu -= β_sponge * (state.ρu .- state.ρ*s.u_relaxation)
   end
-  source.ρu -= state.ρu * coeff
 end

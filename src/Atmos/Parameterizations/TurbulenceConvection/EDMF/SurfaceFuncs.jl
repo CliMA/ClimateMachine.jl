@@ -36,7 +36,7 @@ function update_surface!(tmp::StateVec, q::StateVec, grid::Grid{FT}, params, cas
 
   params[:windspeed] = compute_windspeed(q, k_1, FT(0.0))
   params[:ρq_tot_flux] = params[:lhf]/(latent_heat_vapor(params[:Tsurface]))
-  params[:ρθ_liq_flux] = rho_tflux / exner(params[:Pg])
+  params[:ρθ_liq_flux] = rho_tflux / exner_given_pressure(params[:Pg])
   params[:bflux] = buoyancy_flux(params[:shf], params[:lhf], T_1, q_tot_1, α_0_surf)
 
   params[:obukhov_length] = compute_MO_len(params[:ustar], params[:bflux])

@@ -13,16 +13,6 @@ if !@isdefined integration_testing
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
 
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
-
 const _nauxstate = 5
 const _a_r, _a_θ, _a_ϕ, _a_f, _a_fdown = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z, Rinner, Router)
@@ -50,9 +40,9 @@ end
 end
 
 using Test
-function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
+function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = Topologies.cubedshellwarp,
@@ -81,7 +71,8 @@ function run(mpicomm, topl, ArrayType, N, DFloat, Rinner, Router)
 end
 
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
 
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -90,9 +81,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
 
@@ -111,16 +99,16 @@ let
   lvls = integration_testing ? length(expected_result) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
-      err = zeros(DFloat, lvls)
+    for FT in (Float64,) #Float32)
+      err = zeros(FT, lvls)
       for l = 1:lvls
-        @info (ArrayType, DFloat, "sphere", l)
+        @info (ArrayType, FT, "sphere", l)
         Nhorz = 2^(l-1) * base_Nhorz
         Nvert = 2^(l-1) * base_Nvert
-        Rrange = range(DFloat(Rinner); length=Nvert+1, stop=Router)
+        Rrange = range(FT(Rinner); length=Nvert+1, stop=Router)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, DFloat,
-                     DFloat(Rinner), DFloat(Router))
+        err[l] = run(mpicomm, topl, ArrayType, polynomialorder, FT,
+                     FT(Rinner), FT(Router))
         @test expected_result[l] ≈ err[l]
       end
       if integration_testing

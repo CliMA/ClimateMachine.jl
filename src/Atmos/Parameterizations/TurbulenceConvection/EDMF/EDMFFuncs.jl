@@ -400,7 +400,7 @@ function compute_tke_buoy!(grid::Grid{FT}, q, tmp, tmp_O2, cv) where FT
     grad_θ_liq = ∇_neg(q[:θ_liq, Cut(k), en], grid)
     grad_q_tot = ∇_neg(q[:q_tot, Cut(k), en], grid)
 
-    prefactor = R_d * exner(p_0)/p_0
+    prefactor = R_d * exner_given_pressure(p_0)/p_0
     ε_vi = R_v / R_d
 
     d_alpha_θ_liq_dry = prefactor * (1 + (ε_vi - 1) * q_tot_dry)

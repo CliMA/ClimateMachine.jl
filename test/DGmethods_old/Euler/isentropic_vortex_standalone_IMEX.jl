@@ -24,7 +24,6 @@ using CLIMA.SpaceMethods
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.AdditiveRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
@@ -33,16 +32,6 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using CLIMA.LinearSolvers
 using CLIMA.GeneralizedConjugateResidualSolver
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array,)
-end
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -123,8 +112,8 @@ end
 
 @inline function linearized_eulerflux!(F, Q, QV, aux, t)
   @inbounds begin
-    DFloat = eltype(Q)
-    γ::DFloat = γ_exact
+    FT = eltype(Q)
+    γ::FT = γ_exact
 
     δρ, δρe = Q[_δρ], Q[_δρe]
     δρu⃗ = SVector(Q[_δρu], Q[_δρv], Q[_δρw])
@@ -164,19 +153,19 @@ end
 # initial condition
 @inline function auxiliary_state_initialization!(aux, x, y, z)
   @inbounds begin
-    DFloat = eltype(aux)
-    γ::DFloat = γ_exact
+    FT = eltype(aux)
+    γ::FT = γ_exact
 
-    uinf::DFloat = _uinf
-    vinf::DFloat = _vinf
-    Tinf::DFloat = _Tinf
+    uinf::FT = _uinf
+    vinf::FT = _vinf
+    Tinf::FT = _Tinf
 
     ρ_ref = (Tinf)^(1/(γ-1))
     P_ref = ρ_ref^γ
 
     u_ref = uinf
     v_ref = vinf
-    w_ref = zero(DFloat)
+    w_ref = zero(FT)
 
     ρu_ref = ρ_ref * u_ref
     ρv_ref = ρ_ref * v_ref
@@ -198,13 +187,13 @@ function isentropicvortex!(Q, t, x, y, z, aux)
     ρ_ref, ρe_ref = aux[_a_ρ_ref], aux[_a_ρe_ref]
     ρu_ref, ρv_ref, ρw_ref = aux[_a_ρu_ref], aux[_a_ρv_ref], aux[_a_ρw_ref]
 
-    DFloat = eltype(Q)
+    FT = eltype(Q)
 
-    γ::DFloat    = γ_exact
-    uinf::DFloat = _uinf
-    vinf::DFloat = _vinf
-    Tinf::DFloat = _Tinf
-    λ::DFloat    = 5
+    γ::FT    = γ_exact
+    uinf::FT = _uinf
+    vinf::FT = _vinf
+    Tinf::FT = _Tinf
+    λ::FT    = 5
 
     xs = x - uinf*t
     ys = y - vinf*t
@@ -219,7 +208,7 @@ function isentropicvortex!(Q, t, x, y, z, aux)
 
     u = uinf - λ*(1//2)*exp(1-rsq)*yp/π
     v = vinf + λ*(1//2)*exp(1-rsq)*xp/π
-    w = zero(DFloat)
+    w = zero(FT)
 
     ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
     P = ρ^γ
@@ -238,11 +227,11 @@ function isentropicvortex!(Q, t, x, y, z, aux)
   end
 end
 
-function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
+function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
               ArrayType, dt) where {dim}
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                          )
@@ -271,11 +260,11 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
                                auxiliary_state_initialization!)
 
   # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = isentropicvortex!(Q, DFloat(0), x...)
+  initialcondition(Q, x...) = isentropicvortex!(Q, FT(0), x...)
   Q = MPIStateArray(nonlin_spacedisc, initialcondition)
   dQ = similar(Q)
 
-  linearsolver = GeneralizedConjugateResidual(3, Q, 1e-10)
+  linearsolver = GeneralizedConjugateResidual(3, Q, rtol=1e-10)
   ark = ARK548L2SA2KennedyCarpenter(nonlin_spacedisc, lin_spacedisc,
                                     linearsolver, Q; dt = dt, t0 = 0)
 
@@ -323,7 +312,7 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   # Print some end of the simulation information
   engf = norm(Q)
   Qe = MPIStateArray(nonlin_spacedisc,
-                     (Q, x...) -> isentropicvortex!(Q, DFloat(timeend), x...))
+                     (Q, x...) -> isentropicvortex!(Q, FT(timeend), x...))
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished
@@ -336,16 +325,18 @@ function main(mpicomm, DFloat, topl::AbstractTopology{dim}, N, timeend,
   errf
 end
 
-function run(mpicomm, ArrayType, dim, Ne, N, timeend, DFloat, dt)
-  brickrange = ntuple(j->range(DFloat(-halfperiod); length=Ne[j]+1,
+function run(mpicomm, ArrayType, dim, Ne, N, timeend, FT, dt)
+  brickrange = ntuple(j->range(FT(-halfperiod); length=Ne[j]+1,
                                stop=halfperiod), dim)
   topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
-  main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt)
+  main(mpicomm, FT, topl, N, timeend, ArrayType, dt)
 end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -353,9 +344,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   timeend = 1
   numelem = (5, 5, 1)
@@ -372,18 +360,18 @@ let
   lvls = integration_testing ? size(expected_error, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
+    for FT in (Float64,) #Float32)
       for dim = 2:3
-        err = zeros(DFloat, lvls)
+        err = zeros(FT, lvls)
         for l = 1:lvls
           Ne = ntuple(j->2^(l-1) * numelem[j], dim)
           dt = 3e-1 / Ne[1]
           nsteps = ceil(Int64, timeend / dt)
           dt = timeend / nsteps
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, FT, dim)
           err[l] = run(mpicomm, ArrayType, dim, Ne, polynomialorder, timeend,
-                       DFloat, dt)
-          @test err[l] ≈ DFloat(expected_error[dim-1, l])
+                       FT, dt)
+          @test err[l] ≈ FT(expected_error[dim-1, l])
         end
         @info begin
           msg = ""

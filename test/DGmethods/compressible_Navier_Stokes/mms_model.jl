@@ -58,7 +58,7 @@ end
 function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars, auxstate::Vars, t::Real)
   T = eltype(diffusive)
   μ = T(μ_exact)
-  
+
   dudx, dudy, dudz = ∇transform.u
   dvdx, dvdy, dvdz = ∇transform.v
   dwdx, dwdy, dwdz = ∇transform.w
@@ -80,7 +80,7 @@ function diffusive!(::MMSModel, diffusive::Vars, ∇transform::Grad, state::Vars
   diffusive.τ23 = 2μ * ϵ23
 end
 
-function source!(::MMSModel{dim}, source::Vars, state::Vars, aux::Vars, t::Real) where {dim}
+function source!(::MMSModel{dim}, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real) where {dim}
   source.ρ  = Sρ_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
   source.ρu = SU_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
   source.ρv = SV_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
@@ -103,7 +103,7 @@ function boundary_state!(::Rusanov, bl::MMSModel, stateP::Vars, auxP::Vars, nM,
 end
 
 # FIXME: This is probably not right....
-boundary_state!(::CentralGradPenalty, bl::MMSModel, _...) = nothing
+boundary_state!(::CentralNumericalFluxGradient, bl::MMSModel, _...) = nothing
 
 function boundary_state!(::CentralNumericalFluxDiffusive, bl::MMSModel,
                          stateP::Vars, diffP::Vars, auxP::Vars, nM,

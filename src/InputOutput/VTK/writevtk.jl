@@ -2,6 +2,7 @@ using ..Mesh.Grids
 using ..MPIStateArrays
 using ..DGmethods
 using ..DGBalanceLawDiscretizations
+using ..TicToc
 
 """
     writevtk(prefix, Q::MPIStateArray, disc::DGBalanceLaw [, fieldnames])
@@ -16,10 +17,13 @@ number of states in `Q`, i.e., `k = size(Q,2)`.
 """
 function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames=nothing)
+  @tic writevtk_Q
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q) = host_array ? (vgeo, Q.Q) : (Array(vgeo), Array(Q))
+  (h_vgeo, h_Q) = host_array ? (vgeo, Q.data) : (Array(vgeo), Array(Q))
   writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames)
+  @toc writevtk_Q
+  return nothing
 end
 
 """
@@ -42,12 +46,15 @@ size(auxstate,2)`.
 """
 function writevtk(prefix, Q::MPIStateArray, dg::Union{DGBalanceLaw,DGModel},
                   fieldnames, auxstate, auxfieldnames)
+  @tic writevtk_Q_aux
   vgeo = dg.grid.vgeo
   host_array = Array ∈ typeof(Q).parameters
-  (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.Q, auxstate.Q) :
+  (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.data, auxstate.data) :
                                       (Array(vgeo), Array(Q), Array(auxstate))
   writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames, h_aux,
                   auxfieldnames)
+  @toc writevtk_Q_aux
+  return nothing
 end
 
 
@@ -91,4 +98,25 @@ function writevtk_helper(prefix, vgeo::Array, Q::Array, grid,
     fields = (fields..., auxfields...)
   end
   writemesh(prefix, X...; fields=fields, realelems=grid.topology.realelems)
+end
+
+"""
+    writegrid(prefix, grid::DiscontinuousSpectralElementGrid)
+
+Write a vtk file for the grid.  The filename will start with `prefix` which
+may also contain a directory path.
+"""
+function writevtk(prefix, grid::DiscontinuousSpectralElementGrid)
+  dim = dimensionality(grid)
+  N = polynomialorder(grid)
+  Nq  = N+1
+
+  vgeo = grid.vgeo isa Array ? grid.vgeo : Array(grid.vgeo)
+
+  nelem = size(vgeo)[end]
+  Xid = (grid.x1id, grid.x2id, grid.x3id)
+  X = ntuple(j->reshape((@view vgeo[:, Xid[j], :]),
+                        ntuple(j->Nq, dim)...,
+                        nelem), dim)
+  writemesh(prefix, X...; realelems=grid.topology.realelems)
 end

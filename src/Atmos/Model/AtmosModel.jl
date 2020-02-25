@@ -1,6 +1,10 @@
 module Atmos
 
-export AtmosModel
+export AtmosModel,
+       AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
+       RemainderModel,
+       AtmosLESConfiguration,
+       AtmosGCMConfiguration
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
@@ -10,16 +14,27 @@ import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
 using GPUifyLoops
 using ..MPIStateArrays: MPIStateArray
+using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
-                        vars_diffusive, vars_integrals, flux_nondiffusive!,
+                        vars_diffusive, flux_nondiffusive!,
                         flux_diffusive!, source!, wavespeed, boundary_state!,
                         gradvariables!, diffusive!, init_aux!, init_state!,
-                        update_aux!, integrate_aux!, LocalGeometry, lengthscale,
-                        resolutionmetric, DGModel, num_integrals,
-                        nodal_update_aux!, indefinite_stack_integral!,
-                        reverse_indefinite_stack_integral!
-using ..DGmethods.NumericalFluxes
+                        update_aux!, LocalGeometry, lengthscale,
+                        resolutionmetric, DGModel, calculate_dt,
+                        nodal_update_aux!, num_state,
+                        num_integrals,
+                        vars_integrals, vars_reverse_integrals,
+                        indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,
+                        integral_load_aux!, integral_set_aux!,
+                        reverse_integral_load_aux!,
+                        reverse_integral_set_aux!
+import ..DGmethods.NumericalFluxes: boundary_state!,
+                                    boundary_flux_diffusive!,
+                                    NumericalFluxNonDiffusive,
+                                    NumericalFluxGradient,
+                                    NumericalFluxDiffusive
 
 """
     AtmosModel <: BalanceLaw
@@ -32,11 +47,12 @@ A `BalanceLaw` for atmosphere modeling.
                boundarycondition, init_state)
 
 """
-struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS} <: BalanceLaw
   orientation::O
   ref_state::RS
   turbulence::T
   moisture::M
+  precipitation::P
   radiation::R
   source::S
   # TODO: Probably want to have different bc for state and diffusion...
@@ -44,51 +60,139 @@ struct AtmosModel{O,RS,T,M,R,S,BC,IS} <: BalanceLaw
   init_state::IS
 end
 
-function vars_state(m::AtmosModel, T)
+function calculate_dt(grid, model::AtmosModel, Courant_number)
+    T = 290.0
+    return Courant_number * min_node_distance(grid, VerticalDirection()) / soundspeed_air(T)
+end
+
+abstract type AtmosConfiguration end
+struct AtmosLESConfiguration <: AtmosConfiguration end
+struct AtmosGCMConfiguration <: AtmosConfiguration end
+
+function AtmosModel{FT}(::Type{AtmosLESConfiguration};
+                         orientation::O=FlatOrientation(),
+                         ref_state::RS=HydrostaticState(LinearTemperatureProfile(FT(200),
+                                                                                 FT(280),
+                                                                                 FT(grav) / FT(cp_d)),
+                                                                                 FT(0)),
+                         turbulence::T=SmagorinskyLilly{FT}(0.21),
+                         moisture::M=EquilMoist(),
+                         precipitation::P=NoPrecipitation(),
+                         radiation::R=NoRadiation(),
+                         source::S=( Gravity(),
+                                     Coriolis(),
+                                     GeostrophicForcing{FT}(7.62e-5, 0, 0)),
+                         # TODO: Probably want to have different bc for state and diffusion...
+                         boundarycondition::BC=NoFluxBC(),
+                         init_state::IS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS}
+  @assert init_state ≠ nothing
+
+  atmos = (
+        orientation,
+        ref_state,
+        turbulence,
+        moisture,
+        precipitation,
+        radiation,
+        source,
+        boundarycondition,
+        init_state,
+       )
+
+  return AtmosModel{FT,typeof.(atmos)...}(atmos...)
+end
+function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
+                         orientation::O        = SphericalOrientation(),
+                         ref_state::RS         = HydrostaticState(
+                                                   LinearTemperatureProfile(
+                                                    FT(200),
+                                                    FT(280),
+                                                    FT(grav) / FT(cp_d)),
+                                                  FT(0)),
+                         turbulence::T         = SmagorinskyLilly{FT}(0.21),
+                         moisture::M           = EquilMoist(),
+                         precipitation::P      = NoPrecipitation(),
+                         radiation::R          = NoRadiation(),
+                         source::S             = (Gravity(), Coriolis()),
+                         boundarycondition::BC = NoFluxBC(),
+                         init_state::IS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,SU,S,BC,IS}
+  @assert init_state ≠ nothing
+  atmos = (
+        orientation,
+        ref_state,
+        turbulence,
+        moisture,
+        precipitation,
+        radiation,
+        source,
+        boundarycondition,
+        init_state,
+       )
+
+  return AtmosModel{FT,typeof.(atmos)...}(atmos...)
+end
+
+
+function vars_state(m::AtmosModel, FT)
   @vars begin
-    ρ::T
-    ρu::SVector{3,T}
-    ρe::T
-    turbulence::vars_state(m.turbulence,T)
-    moisture::vars_state(m.moisture,T)
-    radiation::vars_state(m.radiation,T)
+    ρ::FT
+    ρu::SVector{3,FT}
+    ρe::FT
+    turbulence::vars_state(m.turbulence, FT)
+    moisture::vars_state(m.moisture, FT)
+    radiation::vars_state(m.radiation, FT)
   end
 end
-function vars_gradient(m::AtmosModel, T)
+function vars_gradient(m::AtmosModel, FT)
   @vars begin
-    u::SVector{3,T}
-    h_tot::T
-    turbulence::vars_gradient(m.turbulence,T)
-    moisture::vars_gradient(m.moisture,T)
+    u::SVector{3,FT}
+    h_tot::FT
+    turbulence::vars_gradient(m.turbulence,FT)
+    moisture::vars_gradient(m.moisture,FT)
   end
 end
-function vars_diffusive(m::AtmosModel, T)
+function vars_diffusive(m::AtmosModel, FT)
   @vars begin
-    ρτ::SHermitianCompact{3,T,6}
-    ρd_h_tot::SVector{3,T}
-    turbulence::vars_diffusive(m.turbulence,T)
-    moisture::vars_diffusive(m.moisture,T)
+    ∇h_tot::SVector{3,FT}
+    turbulence::vars_diffusive(m.turbulence,FT)
+    moisture::vars_diffusive(m.moisture,FT)
   end
 end
 
 
-function vars_aux(m::AtmosModel, T)
+function vars_aux(m::AtmosModel, FT)
   @vars begin
-    ∫dz::vars_integrals(m, T)
-    ∫dnz::vars_integrals(m, T)
-    coord::SVector{3,T}
-    orientation::vars_aux(m.orientation, T)
-    ref_state::vars_aux(m.ref_state,T)
-    turbulence::vars_aux(m.turbulence,T)
-    moisture::vars_aux(m.moisture,T)
-    radiation::vars_aux(m.radiation,T)
+    ∫dz::vars_integrals(m, FT)
+    ∫dnz::vars_reverse_integrals(m, FT)
+    coord::SVector{3,FT}
+    orientation::vars_aux(m.orientation, FT)
+    ref_state::vars_aux(m.ref_state,FT)
+    turbulence::vars_aux(m.turbulence,FT)
+    moisture::vars_aux(m.moisture,FT)
+    radiation::vars_aux(m.radiation,FT)
   end
 end
-function vars_integrals(m::AtmosModel,T)
+function vars_integrals(m::AtmosModel,FT)
   @vars begin
-    radiation::vars_integrals(m.radiation,T)
+    radiation::vars_integrals(m.radiation,FT)
   end
 end
+function vars_reverse_integrals(m::AtmosModel,FT)
+  @vars begin
+    radiation::vars_reverse_integrals(m.radiation,FT)
+  end
+end
+
+include("orientation.jl")
+include("ref_state.jl")
+include("turbulence.jl")
+include("moisture.jl")
+include("precipitation.jl")
+include("radiation.jl")
+include("source.jl")
+include("boundaryconditions.jl")
+include("linear.jl")
+include("remainder.jl")
 
 """
     flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
@@ -109,40 +213,27 @@ Where
 """
 @inline function flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars,
                                     aux::Vars, t::Real)
-  ρinv = 1/state.ρ
+  ρ = state.ρ
+  ρinv = 1/ρ
   ρu = state.ρu
   u = ρinv * ρu
 
   # advective terms
-  flux.ρ   = ρu
-  flux.ρu  = ρu .* u'
+  flux.ρ   = ρ * u
+  flux.ρu  = ρ * u .* u'
   flux.ρe  = u * state.ρe
 
   # pressure terms
   p = pressure(m.moisture, m.orientation, state, aux)
-  flux.ρu += p*I
+
+  if m.ref_state isa HydrostaticState
+    flux.ρu += (p-aux.ref_state.p)*I
+  else
+    flux.ρu += p*I
+  end
   flux.ρe += u*p
-  flux_radiation!(m.radiation, flux, state, aux, t)
-end
-
-@inline function flux_diffusive!(m::AtmosModel, flux::Grad, state::Vars,
-                                 diffusive::Vars, aux::Vars, t::Real)
-  ρinv = 1/state.ρ
-  u = ρinv * state.ρu
-
-  # diffusive
-  ρτ = diffusive.ρτ
-  ρd_h_tot = diffusive.ρd_h_tot
-  flux.ρu += ρτ
-  flux.ρe += ρτ*u
-  flux.ρe += ρd_h_tot
-  flux_diffusive!(m.moisture, flux, state, diffusive, aux, t)
-end
-
-@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
-  ρinv = 1/state.ρ
-  u = ρinv * state.ρu
-  return abs(dot(nM, u)) + soundspeed(m.moisture, m.orientation, state, aux)
+  flux_radiation!(m.radiation, m, flux, state, aux, t)
+  flux_moisture!(m.moisture, m, flux, state, aux, t)
 end
 
 function gradvariables!(atmos::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
@@ -154,62 +245,75 @@ function gradvariables!(atmos::AtmosModel, transform::Vars, state::Vars, aux::Va
   gradvariables!(atmos.turbulence, transform, state, aux, t)
 end
 
+function diffusive!(atmos::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
+  diffusive.∇h_tot = ∇transform.h_tot
 
-function symmetrize(X::StaticArray{Tuple{3,3}})
-  SHermitianCompact(SVector(X[1,1], (X[2,1] + X[1,2])/2, (X[3,1] + X[1,3])/2, X[2,2], (X[3,2] + X[2,3])/2, X[3,3]))
-end
-
-function diffusive!(m::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
-  ∇u = ∇transform.u
-  # strain rate tensor
-  S = symmetrize(∇u)
-  # kinematic viscosity tensor
-  ρν = dynamic_viscosity_tensor(m.turbulence, S, state, diffusive, ∇transform, aux, t)
-  # momentum flux tensor
-  diffusive.ρτ = scaled_momentum_flux_tensor(m.turbulence, ρν, S)
-
-  ∇h_tot = ∇transform.h_tot
-  # turbulent Prandtl number
-  diag_ρν = ρν isa Real ? ρν : diag(ρν) # either a scalar or matrix
-  # Diffusivity ρD_t = ρν/Prandtl_turb
-  ρD_t = diag_ρν * inv_Pr_turb
-  # diffusive flux of total energy
-  diffusive.ρd_h_tot = -ρD_t .* ∇transform.h_tot
-
-  # diffusivity of moisture components
-  diffusive!(m.moisture, diffusive, ∇transform, state, aux, t, ρD_t)
   # diffusion terms required for SGS turbulence computations
-  diffusive!(m.turbulence, diffusive, ∇transform, state, aux, t, ρD_t)
+  diffusive!(atmos.turbulence, atmos.orientation, diffusive, ∇transform, state, aux, t)
+  # diffusivity of moisture components
+  diffusive!(atmos.moisture, diffusive, ∇transform, state, aux, t)
 end
 
-function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray,
-                     auxstate::MPIStateArray, t::Real)
-  DFloat = eltype(Q)
-  if num_integrals(m, DFloat) > 0
+@inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
+                                 diffusive::Vars, aux::Vars, t::Real)
+  ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
+  D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+  d_h_tot = -D_t .* diffusive.∇h_tot
+  flux_diffusive!(atmos, flux, state, τ, d_h_tot)
+  flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
+end
+
+#TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
+@inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
+                                 τ, d_h_tot)
+  flux.ρu += τ * state.ρ
+  flux.ρe += τ * state.ρu
+  flux.ρe += d_h_tot * state.ρ
+end
+
+@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
+  ρinv = 1/state.ρ
+  u = ρinv * state.ρu
+  return abs(dot(nM, u)) + soundspeed(m.moisture, m.orientation, state, aux)
+end
+
+
+function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
+  FT = eltype(Q)
+  auxstate = dg.auxstate
+
+  if num_integrals(m, FT) > 0
     indefinite_stack_integral!(dg, m, Q, auxstate, t)
-    reverse_indefinite_stack_integral!(dg, m, auxstate, t)
+    reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
   end
 
-  nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, auxstate, t)
+  nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t)
+
+  return true
 end
 
-function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
+function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars,
+                                 t::Real)
   atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
   atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
   atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
 end
 
-function integrate_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
-  integrate_aux!(m.radiation, integ, state, aux)
+function integral_load_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+  integral_load_aux!(m.radiation, integ, state, aux)
 end
 
-include("orientation.jl")
-include("ref_state.jl")
-include("turbulence.jl")
-include("moisture.jl")
-include("radiation.jl")
-include("source.jl")
-include("boundaryconditions.jl")
+function integral_set_aux!(m::AtmosModel, aux::Vars, integ::Vars)
+  integral_set_aux!(m.radiation, aux, integ)
+end
+
+function reverse_integral_load_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+  reverse_integral_load_aux!(m.radiation, integ, state, aux)
+end
+
+function reverse_integral_set_aux!(m::AtmosModel, aux::Vars, integ::Vars)
+  reverse_integral_set_aux!(m.radiation, aux, integ)
+end
 
 # TODO: figure out a nice way to handle this
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
@@ -220,7 +324,7 @@ function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
 end
 
 """
-    source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
+    source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 Computes flux `S(Y)` in:
 ```
 ∂Y
@@ -228,18 +332,29 @@ Computes flux `S(Y)` in:
 ∂t
 ```
 """
-function source!(m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
-  atmos_source!(m.source, m, source, state, aux, t)
+function source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  atmos_source!(m.source, m, source, state, diffusive, aux, t)
 end
 
 boundary_state!(nf, m::AtmosModel, x...) =
   atmos_boundary_state!(nf, m.boundarycondition, m, x...)
 
-# FIXME: This is probably not right....
-boundary_state!(::CentralGradPenalty, bl::AtmosModel, _...) = nothing
-
-function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t)
-  m.init_state(state, aux, coords, t)
+function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
+  m.init_state(m, state, aux, coords, t, args...)
 end
+
+boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                         atmos::AtmosModel,
+                         F,
+                         state⁺, diff⁺, aux⁺, n⁻,
+                         state⁻, diff⁻, aux⁻,
+                         bctype, t,
+                         state1⁻, diff1⁻, aux1⁻) =
+  atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
+                                 F,
+                                 state⁺, diff⁺, aux⁺, n⁻,
+                                 state⁻, diff⁻, aux⁻,
+                                 bctype, t,
+                                 state1⁻, diff1⁻, aux1⁻)
 
 end # module

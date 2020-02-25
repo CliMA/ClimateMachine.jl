@@ -1,22 +1,20 @@
 using Test
 using MPI
+using CLIMA
 using CLIMA.MPIStateArrays
 using CLIMA.Mesh.BrickMesh
 using Pkg
 
-if haskey(Pkg.installed(), "CuArrays")
-  using CuArrays
-  ArrayType = CuArray
-else
-  ArrayType = Array
-end
+CLIMA.init()
+const ArrayType = CLIMA.array_type()
+const comm = MPI.COMM_WORLD
+
 
 function main()
 
-  MPI.Init()
-  comm = MPI.COMM_WORLD
   crank = MPI.Comm_rank(comm)
   csize = MPI.Comm_size(comm)
+
 
   @assert csize == 3
 
@@ -88,24 +86,22 @@ function main()
 
   weights = Array{Int64}(undef, (0, 0, 0))
 
-  A = MPIStateArray{Tuple{9, 2}, Int64, ArrayType}(comm, numelem, realelems,
-                                                   ghostelems, ArrayType(vmaprecv),
-                                                   ArrayType(vmapsend),
-                                                   nabrtorank, nabrtovmaprecv,
-                                                   nabrtovmapsend,
-                                                   ArrayType(weights), 555)
+  A = MPIStateArray{Int64}(comm, ArrayType, 9, 2, numelem, realelems, ghostelems,
+                           ArrayType(vmaprecv), ArrayType(vmapsend), nabrtorank,
+                           nabrtovmaprecv, nabrtovmapsend, ArrayType(weights),
+                           555)
 
-  Q = Array(A.Q)
+  Q = Array(A.data)
   Q .= -1
   shift = 100
   Q[:, 1, realelems] .= reshape((crank * 1000)          .+ (1:9*numreal), 9, numreal)
   Q[:, 2, realelems] .= reshape((crank * 1000) .+ shift .+ (1:9*numreal), 9, numreal)
-  copyto!(A.Q, Q)
+  copyto!(A.data, Q)
 
   MPIStateArrays.start_ghost_exchange!(A)
   MPIStateArrays.finish_ghost_exchange!(A)
 
-  Q = Array(A.Q)
+  Q = Array(A.data)
   @test all(         expectedghostdata .== Q[:, 1, :][:][vmaprecv])
   @test all(shift .+ expectedghostdata .== Q[:, 2, :][:][vmaprecv])
 

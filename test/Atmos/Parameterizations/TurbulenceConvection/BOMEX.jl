@@ -1,6 +1,7 @@
 using Test
 
 using CLIMA.TurbulenceConvection
+using CLIMA.TurbulenceConvection.StateVecs
 
 const test_data_dir = joinpath(pwd(),"output","TestData")
 mkpath(test_data_dir)
@@ -35,6 +36,7 @@ tc = TurbulenceConvection
 
   D_q = compare(q, q_expected, grid, eps(Float32))
   D_tmp = compare(tmp, tmp_expected, grid, eps(Float32))
+  # plot_state(q, grid, test_data_dir, "q")
 
   @test all(D_q[:a])
   @test all(D_q[:w])

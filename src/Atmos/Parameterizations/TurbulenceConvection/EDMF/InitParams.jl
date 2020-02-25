@@ -52,13 +52,13 @@ function Params(::BOMEX)
   params[:qtg] = 0.02245                                              # Reference state vars
   params[:ρg] = air_density(params[:Tg], params[:Pg], PhasePartition(params[:qtg]))
   params[:αg] = 1/params[:ρg]
-  params[:Tsurface] = 299.1 * exner(params[:Pg])
+  params[:Tsurface] = 299.1 * exner_given_pressure(params[:Pg])
   params[:qsurface] = 22.45e-3
   params[:lhf] = 5.2e-5 * params[:ρg] * latent_heat_vapor(params[:Tsurface])
   params[:shf] = 8.0e-3 * cp_m(PhasePartition(params[:qsurface])) * params[:ρg]
   params[:ρ_tflux] =  params[:shf] /(cp_m(PhasePartition(params[:qsurface])))
   params[:ρq_tot_flux] = params[:lhf]/(latent_heat_vapor(params[:Tsurface]))
-  params[:ρθ_liq_flux] = params[:ρ_tflux] / exner(params[:Pg])
+  params[:ρθ_liq_flux] = params[:ρ_tflux] / exner_given_pressure(params[:Pg])
   params[:tke_surface_tol] = 0.01                                     # inversion height parameters
 
   params[:inversion_height] = [1.0 for i in 1:params[:N_subdomains]]  # inversion height

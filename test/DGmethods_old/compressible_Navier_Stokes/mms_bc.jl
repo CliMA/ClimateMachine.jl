@@ -5,23 +5,12 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray, )
-else
-  const ArrayTypes = (Array, )
-end
 
 const _nstate = 5
 const _ρ, _U, _V, _W, _E = 1:_nstate
@@ -135,12 +124,12 @@ end
 
 # initial condition
 function initialcondition!(dim, Q, t, x, y, z, _...)
-  DFloat = eltype(Q)
-  ρ::DFloat = ρ_g(t, x, y, z, dim)
-  U::DFloat = U_g(t, x, y, z, dim)
-  V::DFloat = V_g(t, x, y, z, dim)
-  W::DFloat = W_g(t, x, y, z, dim)
-  E::DFloat = E_g(t, x, y, z, dim)
+  FT = eltype(Q)
+  ρ::FT = ρ_g(t, x, y, z, dim)
+  U::FT = U_g(t, x, y, z, dim)
+  V::FT = V_g(t, x, y, z, dim)
+  W::FT = W_g(t, x, y, z, dim)
+  E::FT = E_g(t, x, y, z, dim)
 
   @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 end
@@ -155,7 +144,7 @@ const _a_x, _a_y, _a_z = 1:_nauxstate
   end
 end
 
-@inline function source3D!(S, Q, aux, t)
+@inline function source3D!(S, Q, diffusive, aux, t)
   @inbounds begin
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     S[_ρ] = Sρ_g(t, x, y, z, Val(3))
@@ -166,7 +155,7 @@ end
   end
 end
 
-@inline function source2D!(S, Q, aux, t)
+@inline function source2D!(S, Q, diffusive, aux, t)
   @inbounds begin
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
     S[_ρ] = Sρ_g(t, x, y, z, Val(2))
@@ -193,10 +182,10 @@ end
   nothing
 end
 
-function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, DFloat, dt)
+function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = warpfun,
@@ -300,7 +289,9 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -308,9 +299,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   polynomialorder = 4
   base_num_elem = 4
@@ -324,14 +312,14 @@ let
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
-      result = zeros(DFloat, lvls)
+    for FT in (Float64,) #Float32)
+      result = zeros(FT, lvls)
       for dim = 2:3
         for l = 1:lvls
           if dim == 2
             Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-            brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                          range(DFloat(0); length=Ne[2]+1, stop=1))
+            brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                          range(FT(0); length=Ne[2]+1, stop=1))
             topl = BrickTopology(mpicomm, brickrange,
                                  periodicity = (false, false))
             dt = 1e-2 / Ne[1]
@@ -341,9 +329,9 @@ let
 
           elseif dim == 3
             Ne = (2^(l-1) * base_num_elem, 2^(l-1) * base_num_elem)
-            brickrange = (range(DFloat(0); length=Ne[1]+1, stop=1),
-                          range(DFloat(0); length=Ne[2]+1, stop=1),
-            range(DFloat(0); length=Ne[2]+1, stop=1))
+            brickrange = (range(FT(0); length=Ne[1]+1, stop=1),
+                          range(FT(0); length=Ne[2]+1, stop=1),
+            range(FT(0); length=Ne[2]+1, stop=1))
             topl = BrickTopology(mpicomm, brickrange,
                                  periodicity = (false, false, false))
             dt = 5e-3 / Ne[1]
@@ -357,10 +345,10 @@ let
           nsteps = ceil(Int64, timeend / dt)
           dt = timeend / nsteps
 
-          @info (ArrayType, DFloat, dim)
+          @info (ArrayType, FT, dim)
           result[l] = run(mpicomm, ArrayType, dim, topl, warpfun,
-                          polynomialorder, timeend, DFloat, dt)
-          @test result[l] ≈ DFloat(expected_result[dim-1, l])
+                          polynomialorder, timeend, FT, dt)
+          @test result[l] ≈ FT(expected_result[dim-1, l])
         end
         if integration_testing
           @info begin

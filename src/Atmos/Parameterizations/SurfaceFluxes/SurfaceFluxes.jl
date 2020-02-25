@@ -21,7 +21,7 @@
     - Byun, Daewon W. "On the analytical solutions of flux-profile
       relationships for the atmospheric surface layer." Journal of
       Applied Meteorology 29.7 (1990): 652-657.
-      http://dx.doi.org/10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2
+      https://doi.org/10.1175/1520-0450(1990)029<0652:OTASOF>2.0.CO;2
 
   - Ref. Wyngaard1975:
     - Wyngaard, John C. "Modeling the planetary boundary layer-Extension
@@ -126,10 +126,11 @@ function compute_friction_velocity(u_ave, flux, z_0, z_1, β_m, γ_m, tol_abs, i
 
     if (abs(flux) > 0)
       ustar_1 = compute_ustar(ustar_0)
-      ustar, converged = RootSolvers.find_zero(
+      sol = RootSolvers.find_zero(
         u -> u_ave - u*compute_u_ave_over_ustar(u),
-        ustar_0, ustar_1, SecantMethod(),
+        ustar_0, ustar_1, SecantMethod(), CompactSolution(),
         tol_abs, iter_max)
+      ustar = sol.root
     end
 
   end
@@ -262,10 +263,11 @@ function compute_friction_velocity(u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_a
     end
     compute_ustar(u) = u_ave/compute_u_ave_over_ustar(u)
     ustar_1 = compute_ustar(ustar_0)
-    ustar, converged = RootSolvers.find_zero(
+    sol = RootSolvers.find_zero(
       u -> u_ave - u*compute_u_ave_over_ustar(u),
-      ustar_0, ustar_1, SecantMethod(),
+      ustar_0, ustar_1, SecantMethod(), CompactSolution(),
       tol_abs, iter_max)
+    ustar = sol.root
   end
   return ustar
 end

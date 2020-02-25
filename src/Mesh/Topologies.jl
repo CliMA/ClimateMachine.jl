@@ -4,7 +4,8 @@ import MPI
 using DocStringExtensions
 
 export AbstractTopology, BrickTopology, StackedBrickTopology,
-    CubedShellTopology, StackedCubedSphereTopology, isstacked
+    CubedShellTopology, StackedCubedSphereTopology, isstacked,
+    cubedshellwarp, cubedshellunwarp
 
 export grid1d, SingleExponentialStretching, InteriorStretching
 
@@ -119,6 +120,11 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
   Range in `sendelems` to send for each neighbor
   """
   nabrtosend::Array{UnitRange{Int64}, 1}
+
+  """
+  original order in partitioning
+  """
+  origsendorder::Array{Int64,1}
 
   """
   boolean for whether or not this topology has a boundary
@@ -311,7 +317,8 @@ function BrickTopology(mpicomm, elemrange;
   topology = BrickMesh.brickmesh(elemrange, periodicity, part=mpirank+1,
                               numparts=mpisize, boundary=boundary)
   topology = BrickMesh.partition(mpicomm, topology...)
-  topology = BrickMesh.connectmesh(mpicomm, topology...)
+  origsendorder = topology[5]
+  topology = BrickMesh.connectmesh(mpicomm, topology[1:4]...)
 
   dim = length(elemrange)
   T = eltype(topology.elemtocoord)
@@ -321,7 +328,7 @@ function BrickTopology(mpicomm, elemrange;
               topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
               topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
               topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend,
-              !minimum(periodicity)))
+              origsendorder, !minimum(periodicity)))
 end
 
 """ A wrapper for the StackedBrickTopology """
@@ -584,7 +591,7 @@ function StackedBrickTopology(mpicomm, elemrange;
     BoxElementTopology{dim, T}(
       mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems, sendfaces,
       elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend, !minimum(periodicity)),
+      nabrtorank, nabrtorecv, nabrtosend, basetopo.origsendorder, !minimum(periodicity)),
     stacksize)
 end
 
@@ -639,8 +646,8 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
 
   topology = cubedshellmesh(Neside, part=mpirank+1, numparts=mpisize)
 
-  topology = BrickMesh.partition(mpicomm, topology...)
-
+  topology = BrickMesh.partition(mpicomm, topology...)#topology(1), topology(2), topology(3), topology(4) ) #topology...)
+  origsendorder = topology[5]
   dim, nvert = 3, 4
   elemtovert = topology[1]
   nelem = size(elemtovert, 2)
@@ -663,7 +670,7 @@ function CubedShellTopology(mpicomm, Neside, T; connectivity=:face,
       topology.ghostelems, topology.ghostfaces, topology.sendelems,
       topology.sendfaces, topology.elemtocoord, topology.elemtoelem,
       topology.elemtoface, topology.elemtoordr, topology.elemtobndy,
-      topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend, false))
+      topology.nabrtorank, topology.nabrtorecv, topology.nabrtosend, origsendorder, false))
 end
 
 """
@@ -764,7 +771,7 @@ function cubedshellmesh(Ne; part=1, numparts=1)
   # no faceconnections for a shell
   faceconnections = Array{Array{Int, 1}}(undef, 0)
 
-  (elemtovert, elemtocoord, elemtobndy, faceconnections)
+  (elemtovert, elemtocoord, elemtobndy, faceconnections, collect(elemlocal))
 end
 
 
@@ -773,7 +780,7 @@ end
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-Ronchi, Iacono, Paolucci (1996) <https://dx.doi.org/10.1006/jcph.1996.0047>
+Ronchi, Iacono, Paolucci (1996) <https://doi.org/10.1006/jcph.1996.0047>
 
 ```
 @article{RonchiIaconoPaolucci1996,
@@ -822,7 +829,48 @@ function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
     error("invalid case for cubedshellwarp: $a, $b, $c")
   end
 
-  x1, x2, x3
+  return x1, x2, x3
+end
+
+"""
+    cubedshellunwarp(x1, x2, x3)
+
+The inverse of [`cubedshellwarp`](@ref).
+"""
+function cubedshellunwarp(x1,x2,x3)
+
+  function g(R, X, Y)
+    ξ = atan(X) * 4 / pi
+    η = atan(Y) * 4 / pi
+    R, R*ξ, R*η
+  end 
+
+  R = hypot(x1,x2,x3)
+  fdim = argmax(abs.((x1, x2, x3)))
+
+  if fdim == 1 && x1 < 0
+    # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+    a,b,c = g(-R, x2/x1, x3/x1)
+  elseif fdim == 2 && x2 < 0
+    # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+    b,a,c = g(-R, x1/x2, x3/x2)
+  elseif fdim == 1 && x1 > 0
+    # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+    a,b,c = g(R, x2/x1, x3/x1)
+  elseif fdim == 2 && x2 > 0
+    # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+    b,a,c = g(R, x1/x2, x3/x2)
+  elseif fdim == 3 && x3 > 0
+    # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+    c,b,a = g(R, x2/x3, x1/x3)
+  elseif fdim == 3 && x3 < 0
+    # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+    c,b,a = g(-R, x2/x3, x1/x3)
+  else
+    error("invalid case for cubedshellunwarp: $a, $b, $c")
+  end
+
+  return a,b,c
 end
 
 """
@@ -1004,7 +1052,7 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
     BoxElementTopology{3, T}(
       mpicomm, elems, realelems, ghostelems, ghostfaces, sendelems,
       sendfaces, elemtocoord, elemtoelem, elemtoface, elemtoordr, elemtobndy,
-      nabrtorank, nabrtorecv, nabrtosend, true),
+      nabrtorank, nabrtorecv, nabrtosend, basetopo.origsendorder, true),
     stacksize)
 end
 

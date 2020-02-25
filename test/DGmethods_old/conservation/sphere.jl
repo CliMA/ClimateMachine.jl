@@ -17,23 +17,12 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using Random
-
-@static if haspkg("CuArrays")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array, )
-end
 
 const _nstate = 2
 const _q, _p = 1:_nstate
@@ -89,12 +78,12 @@ end
   end
 end
 
-function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, DFloat, dt)
+function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
 
   topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = Topologies.cubedshellwarp
@@ -125,8 +114,8 @@ function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, DFloat, dt)
   norm(Q₀) = %.16e
   sum(Q₀) = %.16e""" eng0 sum0
 
-  max_mass_loss = DFloat(0)
-  max_mass_gain = DFloat(0)
+  max_mass_loss = FT(0)
+  max_mass_gain = FT(0)
   cbmass = GenericCallbacks.EveryXSimulationSteps(1) do
     cbsum = weightedsum(Q)
     max_mass_loss = max(max_mass_loss, sum0 - cbsum)
@@ -151,7 +140,9 @@ end
 
 using Test
 let
-  MPI.Initialized() || MPI.Init()
+  CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
+
   mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
@@ -159,9 +150,6 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   dt = 1e-4
   timeend = 100*dt
@@ -173,10 +161,10 @@ let
 
   dim = 3
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for DFloat in (Float64,) #Float32)
+    for FT in (Float64,) #Float32)
       Random.seed!(0)
-      @info (ArrayType, DFloat, dim)
-      delta_mass = run(mpicomm, ArrayType, polynomialorder, Nhorz, Rrange, timeend, DFloat, dt)
+      @info (ArrayType, FT, dim)
+      delta_mass = run(mpicomm, ArrayType, polynomialorder, Nhorz, Rrange, timeend, FT, dt)
       @test abs(delta_mass) < 1e-15
     end
   end

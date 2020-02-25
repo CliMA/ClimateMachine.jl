@@ -33,10 +33,10 @@ end
 
   # eq. 5d in Smolarkiewicz and Grabowski 1996
   # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
-  function terminal_velocity_empir(q_rai::DT, q_tot::DT, ρ::DT,
-                                      ρ_air_ground::DT) where {DT<:Real}
+  function terminal_velocity_empir(q_rai::FT, q_tot::FT, ρ::FT,
+                                      ρ_air_ground::FT) where {FT<:Real}
       rr  = q_rai / (1 - q_tot)
-      vel = DT(14.34) * ρ_air_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
+      vel = FT(14.34) * ρ_air_ground^FT(0.5) * ρ^-FT(0.3654) * rr^FT(0.1346)
       return vel
   end
 
@@ -78,10 +78,10 @@ end
 
   # eq. 5b in Smolarkiewicz and Grabowski 1996
   # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
-  function accretion_empir(q_rai::DT, q_liq::DT, q_tot::DT) where {DT<:Real}
-      rr  = q_rai / (DT(1) - q_tot)
-      rl  = q_liq / (DT(1) - q_tot)
-      return DT(2.2) * rl * rr^DT(7/8)
+  function accretion_empir(q_rai::FT, q_liq::FT, q_tot::FT) where {FT<:Real}
+      rr  = q_rai / (FT(1) - q_tot)
+      rl  = q_liq / (FT(1) - q_tot)
+      return FT(2.2) * rl * rr^FT(7/8)
   end
 
   # some example values
@@ -99,8 +99,8 @@ end
 
   # eq. 5c in Smolarkiewicz and Grabowski 1996
   # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
-  function rain_evap_empir(q_rai::DT, q::PhasePartition,
-                           T::DT, p::DT, ρ::DT) where {DT<:Real}
+  function rain_evap_empir(q_rai::FT, q::PhasePartition,
+                           T::FT, p::FT, ρ::FT) where {FT<:Real}
 
       q_sat  = q_vap_saturation(T, ρ, q)
       q_vap  = q.tot - q.liq
@@ -108,12 +108,12 @@ end
       rv_sat = q_sat / (1 - q.tot)
       S      = q_vap/q_sat - 1
 
-      ag, bg = DT(5.4 * 1e2), DT(2.55 * 1e5)
-      G = DT(1) / (ag + bg / p / rv_sat) / ρ
+      ag, bg = FT(5.4 * 1e2), FT(2.55 * 1e5)
+      G = FT(1) / (ag + bg / p / rv_sat) / ρ
 
-      av, bv = DT(1.6), DT(124.9)
-      F = av * (ρ/DT(1e3))^DT(0.525)  * rr^DT(0.525) +
-          bv * (ρ/DT(1e3))^DT(0.7296) * rr^DT(0.7296)
+      av, bv = FT(1.6), FT(124.9)
+      F = av * (ρ/FT(1e3))^FT(0.525)  * rr^FT(0.525) +
+          bv * (ρ/FT(1e3))^FT(0.7296) * rr^FT(0.7296)
 
       return 1 / (1 - q.tot) * S * F * G
   end

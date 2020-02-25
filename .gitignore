@@ -16,3 +16,4 @@ src/**/Manifest.toml
 *.swp
 *.png
 !docs/src/assets/*.png
+*~

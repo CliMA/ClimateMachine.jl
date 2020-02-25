@@ -1,5 +1,5 @@
 # CLIMA
-Climate Machine
+The Climate Machine is a new Earth system model that leverages recent advances in the computational and data sciences to learn directly from a wealth of Earth observations from space and the ground. The Climate Machine will harness more data than ever before, providing a new level of accuracy to predictions of droughts, heat waves, and rainfall extremes.
 
 | **Documentation**                             | **Build Status**                                                        |
 |:--------------------------------------------- |:------------------------------------------------------------------------|
@@ -8,8 +8,8 @@ Climate Machine
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://climate-machine.github.io/CLIMA/latest/
 
-[azure-img]: https://dev.azure.com/spjbyrne/CLIMA/_apis/build/status/CLIMA?branchName=master
-[azure-url]: https://dev.azure.com/spjbyrne/CLIMA/_build/latest?definitionId=1&branchName=master
+[azure-img]: https://dev.azure.com/climate-machine/CLIMA/_apis/build/status/climate-machine.CLIMA?branchName=master
+[azure-url]: https://dev.azure.com/climate-machine/CLIMA/_build/latest?definitionId=5&branchName=master
 
 [codecov-img]: https://codecov.io/gh/climate-machine/CLIMA/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/climate-machine/CLIMA
@@ -23,7 +23,7 @@ and an NVIDIA GPU.
 The [MPI.jl][0] package that is used assumes that you have a working MPI
 installation
 
-## Setup with CPUs
+## Setup
 
 ```bash
 julia --project=@. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
@@ -32,7 +32,10 @@ You can test that things were installed properly with
 ```bash
 julia --project=@. $CLIMA_HOME/test/runtests.jl
 ```
-where `$CLIMA_HOME` is the path to the base CLIMA directory
+where `$CLIMA_HOME` is the path to the base CLIMA directory.
+
+CLIMA will default to running on the GPU on a GPU-enabled system.
+To force a CPU run set the environment variable `CLIMA_GPU` to `false`.
 
 ## Problems building MPI.jl
 
@@ -41,17 +44,5 @@ environment variable `JULIA_MPI_PATH`. Additionally, if your MPI is not
 installed in a single place, e.g., MPI from macports in OSX, you may need to set
 `JULIA_MPI_INCLUDE_PATH` and `JULIA_MPI_LIBRARY_PATH`; for macports installs of
 MPI these would be subdirectories in `/opt/local/include` and `/opt/local/lib`.
-
-## Setup with GPUs
-
-```bash
-julia --project=$CLIMA_HOME/env/gpu -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
-```
-where `$CLIMA_HOME` is the path to the base CLIMA directory
-
-You can test that things were installed properly with
-```bash
-julia --project=$CLIMA_HOME/env/gpu $CLIMA_HOME/test/runtests.jl
-```
 
 [0]: https://github.com/JuliaParallel/MPI.jl

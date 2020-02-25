@@ -6,8 +6,10 @@ export ThermodynamicState,
        PhaseNonEquil,
        TemperatureSHumEquil,
        LiquidIcePotTempSHumEquil,
-       LiquidIcePotTempSHumEquil_no_ρ,
-       LiquidIcePotTempSHumNonEquil_no_ρ
+       LiquidIcePotTempSHumEquil_old,
+       LiquidIcePotTempSHumEquil_given_pressure,
+       LiquidIcePotTempSHumNonEquil,
+       LiquidIcePotTempSHumNonEquil_given_pressure
 
 """
     PhasePartition
@@ -25,60 +27,71 @@ See also [`PhasePartition_equil`](@ref)
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhasePartition{DT<:Real}
+struct PhasePartition{FT<:Real}
   "total specific humidity"
-  tot::DT
+  tot::FT
   "liquid water specific humidity (default: `0`)"
-  liq::DT
+  liq::FT
   "ice specific humidity (default: `0`)"
-  ice::DT
+  ice::FT
 end
 
-PhasePartition(q_tot::DT,q_liq::DT) where {DT<:Real} =
-  PhasePartition(q_tot, q_liq, zero(DT))
-PhasePartition(q_tot::DT) where {DT<:Real} =
-  PhasePartition(q_tot, zero(DT), zero(DT))
+PhasePartition(q_tot::FT,q_liq::FT) where {FT<:Real} =
+  PhasePartition(q_tot, q_liq, zero(FT))
+PhasePartition(q_tot::FT) where {FT<:Real} =
+  PhasePartition(q_tot, zero(FT), zero(FT))
 
 
 """
-    ThermodynamicState{DT}
+    ThermodynamicState{FT}
 
 A thermodynamic state, which can be initialized for
 various thermodynamic formulations (via its sub-types).
 All `ThermodynamicState`'s have access to functions to
 compute all other thermodynamic properties.
 """
-abstract type ThermodynamicState{DT} end
+abstract type ThermodynamicState{FT} end
 
 """
-    PhaseEquil{DT} <: ThermodynamicState
+    PhaseEquil{FT} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
 may be needed).
 
 # Constructors
 
-    PhaseEquil(e_int, q_tot, ρ)
+    PhaseEquil(e_int, ρ, q_tot)
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseEquil{DT} <: ThermodynamicState{DT}
+struct PhaseEquil{FT} <: ThermodynamicState{FT}
   "internal energy"
-  e_int::DT
-  "total specific humidity"
-  q_tot::DT
+  e_int::FT
   "density of air (potentially moist)"
-  ρ::DT
+  ρ::FT
+  "total specific humidity"
+  q_tot::FT
   "temperature: computed via [`saturation_adjustment`](@ref)"
-  T::DT
+  T::FT
 end
-PhaseEquil(e_int::DT, q_tot::DT, ρ::DT) where {DT<:Real} =
-  PhaseEquil(e_int, q_tot, ρ, saturation_adjustment(e_int, ρ, q_tot))
+function PhaseEquil(e_int::FT,
+                    ρ::FT,
+                    q_tot::FT,
+                    maxiter::Int=3,
+                    tol::FT=FT(1e-1),
+                    sat_adjust::F=saturation_adjustment
+                    ) where {FT<:Real,F}
+    # TODO: Remove these safety nets, or at least add warnings
+    # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
+    q_tot_safe = max(q_tot, FT(0))
+    q_tot_safe = min(q_tot_safe, FT(1))
+    return PhaseEquil{FT}(e_int, ρ, q_tot_safe, sat_adjust(e_int, ρ, q_tot_safe, tol, maxiter))
+end
 
 """
-    PhaseDry{DT} <: ThermodynamicState
+    PhaseDry{FT} <: ThermodynamicState
 
 A dry thermodynamic state (`q_tot = 0`).
 
@@ -90,11 +103,34 @@ A dry thermodynamic state (`q_tot = 0`).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseDry{DT} <: ThermodynamicState{DT}
+struct PhaseDry{FT} <: ThermodynamicState{FT}
   "internal energy"
-  e_int::DT
+  e_int::FT
   "density of dry air"
-  ρ::DT
+  ρ::FT
+end
+
+"""
+    LiquidIcePotTempSHumEquil(θ_liq_ice, ρ, q_tot)
+
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
+
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `ρ` (moist-)air density
+ - `q_tot` total specific humidity
+ - `tol` tolerance for saturation adjustment
+ - `maxiter` maximum iterations for saturation adjustment
+"""
+function LiquidIcePotTempSHumEquil(θ_liq_ice::FT,
+                                   ρ::FT,
+                                   q_tot::FT,
+                                   maxiter::Int=30,
+                                   tol::FT=FT(1e-1)
+                                   ) where {FT<:Real}
+    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, ρ, q_tot, tol, maxiter)
+    q_pt = PhasePartition_equil(T, ρ, q_tot)
+    e_int = internal_energy(T, q_pt)
+    return PhaseEquil{FT}(e_int, ρ, q_tot, T)
 end
 
 """
@@ -107,67 +143,55 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
  - `ρ` - density
  - `p` - pressure
 """
-function LiquidIcePotTempSHumEquil(θ_liq_ice::DT, q_tot::DT, ρ::DT, p::DT) where {DT<:Real}
-    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ, p)
+function LiquidIcePotTempSHumEquil_old(θ_liq_ice::FT, q_tot::FT, ρ::FT, p::FT) where {FT<:Real}
+    T = saturation_adjustment_q_tot_θ_liq_ice_old(θ_liq_ice, q_tot, ρ, p)
     q = PhasePartition_equil(T, ρ, q_tot)
     e_int = internal_energy(T, q)
-    PhaseEquil(e_int, q_tot, ρ, T)
+    PhaseEquil{FT}(e_int, ρ, q_tot, T)
 end
 
 """
-    LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_tot, p)
+    LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, p, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 
- - `θ_liq_ice` - liquid-ice potential temperature
- - `q_tot` - total specific humidity
- - `p` - pressure
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `p` pressure
+ - `q_tot` total specific humidity
+ - `tol` tolerance for saturation adjustment
+ - `maxiter` maximum iterations for saturation adjustment
 """
-function LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice::DT, q_tot::DT, p::DT) where {DT<:Real}
-    q_pt_dry = PhasePartition(q_tot)
-    T_dry = θ_liq_ice * exner(p, q_pt_dry)
-    ρ_dry = air_density(T_dry, p, q_pt_dry)
-    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, q_tot, ρ_dry, p)
-    ρ = air_density(T, p, q_pt_dry)
-    q_pt = PhasePartition_equil(T, ρ, q_tot)
-    e_int = internal_energy(T, q_pt)
-    PhaseEquil(e_int, q_tot, ρ, T)
-end
-
-"""
-    LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice, q_tot, p)
-
-Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
-
- - `θ_liq_ice` - liquid-ice potential temperature
- - `q_pt` - phase partition
- - `p` - pressure
-"""
-function LiquidIcePotTempSHumEquil_no_ρ(θ_liq_ice::DT, q_pt::PhasePartition{DT}, p::DT) where {DT<:Real}
-    T = θ_liq_ice * exner(p, q_pt)
-    ρ = air_density(T, p, q_pt)
-    e_int = internal_energy(T, q_pt)
-    PhaseEquil(e_int, q_pt.tot, ρ, T)
-end
-
-"""
-    TemperatureSHumEquil(T, q_tot, p)
-
-Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
-
- - `T` - temperature
- - `q_tot` - total specific humidity
- - `p` - pressure
-"""
-function TemperatureSHumEquil(T::DT, q_tot::DT, p::DT) where {DT<:Real}
+function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT,
+                                                  p::FT,
+                                                  q_tot::FT,
+                                                  maxiter::Int=30,
+                                                  tol::FT=FT(1e-1)
+                                                  ) where {FT<:Real}
+    T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, p, q_tot, tol, maxiter)
     ρ = air_density(T, p, PhasePartition(q_tot))
     q = PhasePartition_equil(T, ρ, q_tot)
     e_int = internal_energy(T, q)
-    PhaseEquil(e_int, q_tot, ρ, T)
+    return PhaseEquil{FT}(e_int, ρ, q.tot, T)
 end
 
 """
-   	 PhaseNonEquil{DT} <: ThermodynamicState
+    TemperatureSHumEquil(T, p, q_tot)
+
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
+
+ - `T` temperature
+ - `p` pressure
+ - `q_tot` total specific humidity
+"""
+function TemperatureSHumEquil(T::FT, p::FT, q_tot::FT) where {FT<:Real}
+    ρ = air_density(T, p, PhasePartition(q_tot))
+    q = PhasePartition_equil(T, ρ, q_tot)
+    e_int = internal_energy(T, q)
+    return PhaseEquil{FT}(e_int, ρ, q_tot, T)
+end
+
+"""
+   	 PhaseNonEquil{FT} <: ThermodynamicState
 
 A thermodynamic state assuming thermodynamic non-equilibrium (therefore, temperature can
 be computed directly).
@@ -181,27 +205,115 @@ be computed directly).
 $(DocStringExtensions.FIELDS)
 
 """
-struct PhaseNonEquil{DT} <: ThermodynamicState{DT}
+struct PhaseNonEquil{FT} <: ThermodynamicState{FT}
   "internal energy"
-  e_int::DT
-  "phase partition"
-  q::PhasePartition{DT}
+  e_int::FT
   "density of air (potentially moist)"
-  ρ::DT
+  ρ::FT
+  "phase partition"
+  q::PhasePartition{FT}
 end
 
 """
-    LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq_ice, q_tot, p)
+    LiquidIcePotTempSHumNonEquil(θ_liq_ice, ρ, q_pt)
 
 Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
 
- - `θ_liq_ice` - liquid-ice potential temperature
- - `q_pt` - phase partition
- - `p` - pressure
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `ρ` (moist-)air density
+ - `q_pt` phase partition
+and, optionally
+ - `tol` tolerance for non-linear equation solve
+ - `maxiter` maximum iterations for non-linear equation solve
 """
-function LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq_ice::DT, q_pt::PhasePartition{DT}, p::DT) where {DT<:Real}
-    T = θ_liq_ice * exner(p, q_pt)
+function LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT,
+                                      ρ::FT,
+                                      q_pt::PhasePartition{FT},
+                                      maxiter::Int=5,
+                                      tol::FT=FT(1e-1)
+                                      ) where {FT<:Real}
+    T = air_temperature_from_liquid_ice_pottemp_non_linear(θ_liq_ice, ρ, tol, maxiter, q_pt)
+    e_int = internal_energy(T, q_pt)
+    return PhaseNonEquil{FT}(e_int, ρ, q_pt)
+end
+
+"""
+    LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, p, q_pt)
+
+Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
+
+ - `θ_liq_ice` liquid-ice potential temperature
+ - `p` pressure
+ - `q_pt` phase partition
+"""
+function LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::FT, p::FT, q_pt::PhasePartition{FT}) where {FT<:Real}
+    T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, q_pt)
     ρ = air_density(T, p, q_pt)
     e_int = internal_energy(T, q_pt)
-    PhaseNonEquil(e_int, q_pt, ρ)
+    return PhaseNonEquil{FT}(e_int, ρ, q_pt)
+end
+
+"""
+    fixed_lapse_rate_ref_state(z::FT,
+                               T_surface::FT,
+                               T_min::FT) where {FT<:AbstractFloat}
+
+Fixed lapse rate hydrostatic reference state
+"""
+function fixed_lapse_rate_ref_state(z::FT,
+                                    T_surface::FT,
+                                    T_min::FT) where {FT<:AbstractFloat}
+  Γ = FT(grav)/FT(cp_d)
+  z_tropopause = (T_surface - T_min) / Γ
+  H_min = FT(R_d) * T_min / FT(grav)
+  T = max(T_surface - Γ*z, T_min)
+  p = FT(MSLP)*(T / T_surface)^(FT(grav)/(FT(R_d)*Γ))
+  T == T_min && (p = p * exp(-(z-z_tropopause)/FT(H_min)))
+  ρ = p / (FT(R_d) * T)
+  return T,p,ρ
+end
+
+"""
+    tested_convergence_range(FT, n)
+
+A range of input arguments to thermodynamic state constructors
+ - `e_int` internal energy
+ - `ρ` (moist-)air density
+ - `q_tot` total specific humidity
+ - `q_pt` phase partition
+ - `T` air temperature
+ - `θ_liq_ice` liquid-ice potential temperature
+that are tested for convergence in saturation adjustment.
+
+Note that the output vectors are of size ``n*n_RH``, and they
+should span the input arguments to all of the constructors.
+"""
+function tested_convergence_range(FT, n)
+  n_RS1 = 10
+  n_RS2 = 20
+  n_RS = n_RS1+n_RS2
+  z_range  = range(FT(0), stop=FT(2.5e4), length=n)
+  relative_sat1 = range(FT(0), stop=FT(1), length=n_RS1)
+  relative_sat2 = range(FT(1), stop=FT(1.02), length=n_RS2)
+  relative_sat = [relative_sat1...,relative_sat2...]
+  T_min = FT(150)
+  T_surface = FT(350)
+
+  args = fixed_lapse_rate_ref_state.(z_range, Ref(T_surface), Ref(T_min))
+  T,p,ρ = getindex.(args, 1),
+          getindex.(args, 2),
+          getindex.(args, 3)
+
+  p  = collect(Iterators.flatten([p  for RS in 1:n_RS]))
+  ρ  = collect(Iterators.flatten([ρ  for RS in 1:n_RS]))
+  T  = collect(Iterators.flatten([T  for RS in 1:n_RS]))
+  relative_sat = collect(Iterators.flatten([relative_sat for RS in 1:n]))
+
+  # Additional variables
+  q_sat = q_vap_saturation.(T, ρ)
+  q_tot = min.(relative_sat .*q_sat, FT(1))
+  q_pt = PhasePartition_equil.(T, ρ, q_tot)
+  e_int = internal_energy.(T, q_pt)
+  θ_liq_ice = liquid_ice_pottemp.(T, ρ, q_pt)
+  return e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice
 end

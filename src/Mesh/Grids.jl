@@ -3,11 +3,18 @@ using ..Topologies
 import ..Metrics, ..Elements
 import ..BrickMesh
 
+using MPI
 using LinearAlgebra
+using GPUifyLoops
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorder
-export referencepoints
+export referencepoints, min_node_distance
+
+abstract type Direction end
+struct EveryDirection <: Direction end
+struct HorizontalDirection <: Direction end
+struct VerticalDirection <: Direction end
 
 abstract type AbstractGrid{FloatType, dim, polynomialorder, numberofDOFs,
                          DeviceArray} end
@@ -29,24 +36,34 @@ Returns the points on the reference element.
 """
 referencepoints(::AbstractGrid) = error("needs to be implemented")
 
+"""
+    min_node_distance(::AbstractGrid, direction::Direction=EveryDirection() )
+
+Returns an approximation of the minimum node distance in physical space.
+"""
+function min_node_distance(::AbstractGrid, direction::Direction=EveryDirection())
+  error("needs to be implemented")
+end
+
 # {{{
-const _nvgeo = 15
-const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI,
+const _nvgeo = 16
+const _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, _M, _MI, _MH,
        _x1, _x2, _x3, _JcV = 1:_nvgeo
 const vgeoid = (ξ1x1id = _ξ1x1, ξ2x1id = _ξ2x1, ξ3x1id = _ξ3x1,
                 ξ1x2id = _ξ1x2, ξ2x2id = _ξ2x2, ξ3x2id = _ξ3x2,
                 ξ1x3id = _ξ1x3, ξ2x3id = _ξ2x3, ξ3x3id = _ξ3x3,
-                Mid  = _M , MIid = _MI,
+                Mid  = _M , MIid = _MI, MHid = _MH,
                 x1id  = _x1 , x2id  = _x2 , x3id  = _x3,
                 JcVid = _JcV)
 # JcV is the vertical line integral Jacobian
-
+# The MH terms are for integrating over a plane.
 const _nsgeo = 5
 const _n1, _n2, _n3, _sM, _vMI = 1:_nsgeo
 const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM,
                 vMIid = _vMI)
 # }}}
 
+include("Grids_kernels.jl")
 
 """
     DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
@@ -108,14 +125,11 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   Imat::DAT2
 
   function DiscontinuousSpectralElementGrid(topology::AbstractTopology{dim};
-                                            FloatType = nothing,
-                                            DeviceArray = nothing,
-                                            polynomialorder = nothing,
+                                            FloatType,
+                                            DeviceArray,
+                                            polynomialorder,
                                             meshwarp::Function =
                                             (x...)->identity(x)) where dim
-    @assert FloatType != nothing
-    @assert DeviceArray != nothing
-    @assert polynomialorder != nothing
 
     N = polynomialorder
     (ξ, ω) = Elements.lglpoints(FloatType, N)
@@ -171,6 +185,37 @@ function referencepoints(::DiscontinuousSpectralElementGrid{T, dim, N}
                         ) where {T, dim, N}
   ξ, _ = Elements.lglpoints(T, N)
   ξ
+end
+
+"""
+    min_node_distance(::DiscontinuousSpectralElementGrid,
+                      direction::Direction=EveryDirection()))
+
+Returns an approximation of the minimum node distance in physical space along
+the reference coordinate directions.  The direction controls which reference
+directions are considered.
+"""
+function min_node_distance(grid::DiscontinuousSpectralElementGrid{T, dim, N},
+                           direction::Direction=EveryDirection()
+                          ) where {T, dim, N}
+  topology = grid.topology
+  nrealelem = length(topology.realelems)
+
+  if nrealelem > 0
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    device = grid.vgeo isa Array ? CPU() : CUDA()
+    min_neighbor_distance = similar(grid.vgeo, Nq^dim, nrealelem)
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+          knl_min_neighbor_distance!(Val(N), Val(dim), direction,
+                                     min_neighbor_distance, grid.vgeo,
+                                     topology.realelems))
+    locmin = minimum(min_neighbor_distance)
+  else
+    locmin = typemax(T)
+  end
+
+  MPI.Allreduce(locmin, min, topology.mpicomm)
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
@@ -249,16 +294,16 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
                          vmapM) where {dim}
   # Compute metric terms
   Nq = size(D, 1)
-  DFloat = eltype(D)
+  FT = eltype(D)
 
   (nface, nelem) = size(topology.elemtoelem)
 
   # crd = creategrid(Val(dim), elemtocoord(topology), ξ)
 
-  vgeo = zeros(DFloat, Nq^dim, _nvgeo, nelem)
-  sgeo = zeros(DFloat, _nsgeo, Nq^(dim-1), nface, nelem)
+  vgeo = zeros(FT, Nq^dim, _nvgeo, nelem)
+  sgeo = zeros(FT, _nsgeo, Nq^(dim-1), nface, nelem)
 
-  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, x1, x2, x3,
+  (ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3, MJ, MJI, MHJH, x1, x2, x3,
    JcV) = ntuple(j->(@view vgeo[:, j, :]), _nvgeo)
   J = similar(x1)
   (n1, n2, n3, sMJ, vMJI) = ntuple(j->(@view sgeo[ j, :, :, :]), _nsgeo)
@@ -285,8 +330,10 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   MJ .= M .* J
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmapM]
+  
+  MH = kron(ones(FT, Nq), ntuple(j->ω, dim-1)...)
 
-  sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(DFloat)
+  sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)
   sMJ .= sM .* sJ
 
   # Compute |r'(ξ3)| for vertical line integrals
@@ -296,6 +343,11 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
       x2ξ2 = J * ξ1x1
       hypot(x1ξ1, x2ξ2)
     end
+    map!(MHJH, J, ξ2x1, ξ2x2) do J, ξ2x1, ξ2x2
+      hypot(J * ξ2x1, J * ξ2x2)
+    end
+    MHJH .= MH .* MHJH
+
   elseif dim == 3
     map!(JcV, J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
         ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
@@ -304,6 +356,11 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
       x3ξ3 = J * (ξ1x1 * ξ2x2 - ξ2x1 * ξ1x2)
       hypot(x1ξ3, x2ξ3, x3ξ3)
     end
+    map!(MHJH, J, ξ3x1, ξ3x2, ξ3x3
+        ) do J, ξ3x1, ξ3x2, ξ3x3
+      hypot(J*ξ3x1 ,J*ξ3x2, J*ξ3x3)
+    end
+    MHJH .= MH .* MHJH
   else
     error("dim $dim not implemented")
   end

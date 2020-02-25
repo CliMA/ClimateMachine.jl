@@ -1,37 +1,41 @@
 module MPIStateArrays
+using ..TicToc
 using LinearAlgebra
 using DoubleFloats
 using LazyArrays
 using StaticArrays
 using GPUifyLoops
-
+using Requires
 using MPI
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
+
+# This is so we can do things like
+#   similar(Array{Float64}, Int, 3, 4)
+Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:Array, FT} = similar(Array{FT}, dims...)
+@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
+  using .CuArrays
+  Base.similar(::Type{A}, ::Type{FT}, dims...) where {A<:CuArray, FT} = similar(CuArray{FT}, dims...)
+end
+
+include("CMBuffers.jl")
+using .CMBuffers
+
+cpuify(x::AbstractArray) = convert(Array, x)
+cpuify(x::Real) = x
+
 export MPIStateArray, euclidean_distance, weightedsum
 
 """
-    MPIStateArray{S <: Tuple, T, DeviceArray, N,
-                  DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}
-
-
-`N`-dimensional MPI-aware array with elements of type `T`. The dimension `N` is
-`length(S) + 1`. `S` is a tuple of the first `N-1` array dimensions.
-
-!!! todo
-
-    It should be reevaluated whether all this stuff in the type domain is
-    really necessary (some of it was optimistically added for functionality that
-    never panned out)
-
+    MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
+                  DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
 """
-struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
-                     DATN<:AbstractArray{T,N}, Nm1, DAI1, DAV,
-                     DAT2<:AbstractArray{T,2}} <: AbstractArray{T, N}
+struct MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
+                    Buf<:CMBuffer} <: AbstractArray{FT, 3}
   mpicomm::MPI.Comm
-  Q::DATN
-  realQ::DAV
+  data::DATN
+  realdata::DAV
 
   realelems::UnitRange{Int64}
   ghostelems::UnitRange{Int64}
@@ -42,81 +46,97 @@ struct MPIStateArray{S <: Tuple, T, DeviceArray, N,
   sendreq::Array{MPI.Request, 1}
   recvreq::Array{MPI.Request, 1}
 
-  host_sendQ::Array{T, 2}
-  host_recvQ::Array{T, 2}
+  send_buffer::Buf
+  recv_buffer::Buf
 
   nabrtorank::Array{Int64, 1}
   nabrtovmaprecv::Array{UnitRange{Int64}, 1}
   nabrtovmapsend::Array{UnitRange{Int64}, 1}
 
-  device_sendQ::DAT2
-  device_recvQ::DAT2
-
   weights::DATN
 
   commtag::Int
-  function MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
-                                   vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
-                                   nabrtovmapsend, weights, commtag
-                                  ) where {S, T, DA}
-    N = length(S.parameters)+1
-    Q = DA{T, N}(undef, S.parameters..., numelem)
 
-    device_recvQ = DA{T}(undef, S.parameters[2], length(vmaprecv))
-    device_sendQ = DA{T}(undef, S.parameters[2], length(vmapsend))
+  function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems,
+                             ghostelems, vmaprecv, vmapsend, nabrtorank,
+                             nabrtovmaprecv, nabrtovmapsend, weights, commtag;
+                             mpi_knows_cuda=false
+                            ) where {FT}
+    data = similar(DA, FT, Np, nstate, numelem)
 
-    realQ = view(Q, ntuple(i -> Colon(), ndims(Q) - 1)..., realelems)
-    DAV = typeof(realQ)
+    if data isa Array || mpi_knows_cuda
+      kind = SingleCMBuffer
+    else
+      kind = DoubleCMBuffer
+    end
+    recv_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmaprecv))
+    send_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmapsend))
 
-    host_sendQ = zeros(T, S.parameters[2], length(vmapsend))
-    host_recvQ = zeros(T, S.parameters[2], length(vmaprecv))
+    realdata = view(data, ntuple(i -> Colon(), ndims(data) - 1)..., realelems)
+    DAV = typeof(realdata)
 
     nnabr = length(nabrtorank)
     sendreq = fill(MPI.REQUEST_NULL, nnabr)
     recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
-    vmaprecv = typeof(vmaprecv) <: DA ? vmaprecv : DA(vmaprecv)
-    vmapsend = typeof(vmapsend) <: DA ? vmapsend : DA(vmapsend)
+    # If vmap is not on the device we need to copy it up (we also do not want to
+    # put it up everytime, so if it's already on the device then we do not do
+    # anything).
+    #
+    # Better way than checking the type names?
+    # XXX: Use Adapt.jl vmaprecv = adapt(DA, vmaprecv)
+    if typeof(vmaprecv).name != typeof(data).name
+      vmaprecv = copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)),
+                         vmaprecv)
+    end
+    if typeof(vmapsend).name != typeof(data).name
+      vmapsend = copyto!(similar(DA, eltype(vmapsend), size(vmapsend)),
+                         vmapsend)
+    end
+    if typeof(weights).name != typeof(data).name
+      weights = copyto!(similar(DA, eltype(weights), size(weights)), weights)
+    end
+
     DAI1 = typeof(vmaprecv)
-    DAT2 = typeof(device_recvQ)
-    new{S, T, DA, N, typeof(Q), N-1, DAI1, DAV, DAT2}(mpicomm, Q, realQ,
-                                                      realelems, ghostelems,
-                                                      vmaprecv, vmapsend,
-                                                      sendreq, recvreq,
-                                                      host_sendQ, host_recvQ,
-                                                      nabrtorank, nabrtovmaprecv,
-                                                      nabrtovmapsend,
-                                                      device_sendQ,
-                                                      device_recvQ, weights,
-                                                      commtag)
+    Buf  = typeof(send_buffer)
+    new{FT, typeof(data), DAI1, DAV, Buf}(mpicomm, data, realdata,
+                                          realelems, ghostelems,
+                                          vmaprecv, vmapsend,
+                                          sendreq, recvreq,
+                                          send_buffer,
+                                          recv_buffer,
+                                          nabrtorank,
+                                          nabrtovmaprecv,
+                                          nabrtovmapsend,
+                                          weights, commtag)
   end
 end
 
-Base.fill!(Q::MPIStateArray, x) = fill!(Q.Q, x)
+Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
 
 """
-   MPIStateArray{S, T, DA}(mpicomm, numelem; realelems=1:numelem,
-                           ghostelems=numelem:numelem-1,
-                           vmaprecv=1:0,
-                           vmapsend=1:0,
-                           nabrtorank=Array{Int64}(undef, 0),
-                           nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
-                           nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
-                           weights,
-                           commtag=888)
+   MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem; realelems=1:numelem,
+                     ghostelems=numelem:numelem-1,
+                     vmaprecv=1:0,
+                     vmapsend=1:0,
+                     nabrtorank=Array{Int64}(undef, 0),
+                     nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
+                     nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
+                     weights,
+                     commtag=888)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
-elements, using array type `DA` with element type `eltype`. The arrays that are
-held in this created `MPIStateArray` will be of size `(S..., numelem)`.
+elements, using array type `DA` with element type `FT`. The arrays that are
+held in this created `MPIStateArray` will be of size `(Np, nstate, numelem)`.
 
 The range `realelems` is the number of elements that this mpirank owns, whereas
 the range `ghostelems` is the elements that are owned by other mpiranks.
 Elements are stored as 'realelems` followed by `ghostelems`.
 
   * `vmaprecv` is an ordered array of elements to be received from neighboring
-     mpiranks.  This is a vmap index into the MPIStateArray A[:,*,:].
+     mpiranks.  This is a vmap index into the MPIStateArray `A[:,*,:]`.
   * `vmapsend` is an ordered array of elements to be sent to neighboring
-     mpiranks.  This is a vmap index into the MPIStateArray A[:,*,:].
+     mpiranks.  This is a vmap index into the MPIStateArray `A[:,*,:]`.
   * `nabrtorank` is the list of neighboring mpiranks
   * `nabrtovmaprecv` is an `Array` of `UnitRange` that give the ghost data to be
     received from neighboring mpiranks (indexes into `vmaprecv`)
@@ -125,61 +145,56 @@ Elements are stored as 'realelems` followed by `ghostelems`.
   * `weights` is an optional array which gives weight for each degree of freedom
     to be used when computing the 2-norm of the array
 """
-function MPIStateArray{S, T, DA}(mpicomm, numelem;
-                                 realelems=1:numelem,
-                                 ghostelems=numelem:numelem-1,
-                                 vmaprecv=1:0,
-                                 vmapsend=1:0,
-                                 nabrtorank=Array{Int64}(undef, 0),
-                                 nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
-                                 nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
-                                 weights=nothing,
-                                 commtag=888
-                                ) where {S<:Tuple, T, DA}
+function MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem;
+                           realelems=1:numelem,
+                           ghostelems=numelem:numelem-1,
+                           vmaprecv=1:0,
+                           vmapsend=1:0,
+                           nabrtorank=Array{Int64}(undef, 0),
+                           nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
+                           nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
+                           weights=nothing,
+                           commtag=888,
+                           mpi_knows_cuda=false
+                          ) where {FT}
 
-  N = length(S.parameters)+1
   if weights == nothing
-    weights = DA{T}(undef, ntuple(j->0, N))
-  elseif !(typeof(weights) <: DA)
-    weights = DA(weights)
+    weights = similar(DA, FT, ntuple(j->0, 3))
   end
-  MPIStateArray{S, T, DA}(mpicomm, numelem, realelems, ghostelems,
-                          vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
-                          nabrtovmapsend, weights, commtag)
+  MPIStateArray{FT}(mpicomm, DA, Np, nstate, numelem, realelems, ghostelems,
+                    vmaprecv, vmapsend, nabrtorank, nabrtovmaprecv,
+                    nabrtovmapsend, weights, commtag,
+                    mpi_knows_cuda=mpi_knows_cuda)
 end
 
 # FIXME: should general cases be handled?
-function Base.similar(Q::MPIStateArray{S, T, DA}, ::Type{TN}, ::Type{DAN}; commtag=Q.commtag
-                     ) where {S, T, DA, TN, DAN <: AbstractArray}
-  MPIStateArray{S, TN, DAN}(Q.mpicomm, size(Q.Q)[end], Q.realelems, Q.ghostelems,
-                            Q.vmaprecv, Q.vmapsend, Q.nabrtorank, Q.nabrtovmaprecv,
-                            Q.nabrtovmapsend, Q.weights, commtag)
+function Base.similar(Q::MPIStateArray, ::Type{A}, ::Type{FT}; commtag=Q.commtag
+                     ) where {A<:AbstractArray, FT<:Number}
+  MPIStateArray{FT}(Q.mpicomm, A, size(Q.data)..., Q.realelems,
+                     Q.ghostelems, Q.vmaprecv, Q.vmapsend, Q.nabrtorank,
+                     Q.nabrtovmaprecv, Q.nabrtovmapsend, Q.weights, commtag)
+end
+function Base.similar(Q::MPIStateArray{FT}, ::Type{A}; commtag=Q.commtag
+                     ) where {A<:AbstractArray, FT<:Number}
+  similar(Q, A, FT, commtag = commtag)
+end
+function Base.similar(Q::MPIStateArray, ::Type{FT}; commtag=Q.commtag
+                     ) where {FT<:Number}
+  similar(Q, typeof(Q.data), FT, commtag = commtag)
+end
+function Base.similar(Q::MPIStateArray{FT}; commtag=Q.commtag) where {FT}
+  similar(Q, FT, commtag = commtag)
 end
 
-function Base.similar(Q::MPIStateArray{S, T, DA}, ::Type{TN}; commtag=Q.commtag
-                     ) where {S, T, DA, TN}
-  similar(Q, TN, DA, commtag = commtag)
-end
+Base.size(Q::MPIStateArray, x...;kw...) = size(Q.realdata, x...;kw...)
 
-function Base.similar(Q::MPIStateArray{S, T}, ::Type{DAN}; commtag=Q.commtag
-                     ) where {S, T, DAN <: AbstractArray}
-  similar(Q, T, DAN, commtag = commtag)
-end
+Base.getindex(Q::MPIStateArray, x...;kw...) = getindex(Q.realdata, x...;kw...)
 
-function Base.similar(Q::MPIStateArray{S, T}; commtag=Q.commtag
-                     ) where {S, T}
-  similar(Q, T, commtag = commtag)
-end
+Base.setindex!(Q::MPIStateArray, x...;kw...) = setindex!(Q.realdata, x...;kw...)
 
-Base.size(Q::MPIStateArray, x...;kw...) = size(Q.realQ, x...;kw...)
+Base.eltype(Q::MPIStateArray, x...;kw...) = eltype(Q.data, x...;kw...)
 
-Base.getindex(Q::MPIStateArray, x...;kw...) = getindex(Q.realQ, x...;kw...)
-
-Base.setindex!(Q::MPIStateArray, x...;kw...) = setindex!(Q.realQ, x...;kw...)
-
-Base.eltype(Q::MPIStateArray, x...;kw...) = eltype(Q.Q, x...;kw...)
-
-Base.Array(Q::MPIStateArray) = Array(Q.Q)
+Base.Array(Q::MPIStateArray) = Array(Q.data)
 
 # broadcasting stuff
 
@@ -192,8 +207,9 @@ find_mpisa(a::MPIStateArray, rest) = a
 find_mpisa(::Any, rest) = find_mpisa(rest)
 
 Base.BroadcastStyle(::Type{<:MPIStateArray}) = ArrayStyle{MPIStateArray}()
-function Base.similar(bc::Broadcasted{ArrayStyle{MPIStateArray}}, ::Type{T}) where T
-  similar(find_mpisa(bc), T)
+function Base.similar(bc::Broadcasted{ArrayStyle{MPIStateArray}},
+                      ::Type{FT}) where FT
+  similar(find_mpisa(bc), FT)
 end
 
 # transform all arguments of `bc` from MPIStateArrays to Arrays
@@ -203,13 +219,13 @@ end
 function transform_array(bc::Broadcasted)
   Broadcasted(bc.f, transform_array.(bc.args), bc.axes)
 end
-transform_array(mpisa::MPIStateArray) = mpisa.realQ
+transform_array(mpisa::MPIStateArray) = mpisa.realdata
 transform_array(x) = x
 
-Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.Q)
+Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.data)
 
 function Base.copyto!(dest::MPIStateArray, src::MPIStateArray)
-  copyto!(dest.realQ, src.realQ)
+  copyto!(dest.realdata, src.realdata)
   dest
 end
 
@@ -217,13 +233,13 @@ end
   # check for the case a .= b, where b is an array
   if bc.f === identity && bc.args isa Tuple{AbstractArray}
     if bc.args isa Tuple{MPIStateArray}
-      realindices = CartesianIndices((axes(dest.Q)[1:end-1]..., dest.realelems))
-      copyto!(dest.Q, realindices, bc.args[1].Q, realindices)
+      realindices = CartesianIndices((axes(dest.data)[1:end-1]..., dest.realelems))
+      copyto!(dest.data, realindices, bc.args[1].data, realindices)
     else
-      copyto!(dest.Q, bc.args[1])
+      copyto!(dest.data, bc.args[1])
     end
   else
-    copyto!(dest.realQ, transform_broadcasted(bc, dest.Q))
+    copyto!(dest.realdata, transform_broadcasted(bc, dest.data))
   end
   dest
 end
@@ -235,11 +251,13 @@ posts the `MPI.Irecv!` for `Q`
 """
 function post_Irecvs!(Q::MPIStateArray)
   nnabr = length(Q.nabrtorank)
+  transfer = get_transfer(Q.recv_buffer)
+
   for n = 1:nnabr
     # If this fails we haven't waited on previous recv!
     @assert Q.recvreq[n].buffer == nothing
 
-    Q.recvreq[n] = MPI.Irecv!((@view Q.host_recvQ[:, Q.nabrtovmaprecv[n]]),
+    Q.recvreq[n] = MPI.Irecv!((@view transfer[:, Q.nabrtovmaprecv[n]]),
                               Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
@@ -261,13 +279,18 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
   # wait on (prior) MPI sends
   finish_ghost_send!(Q)
 
+  @tic mpi_sendcopy
   # pack data in send buffer
-  fillsendbuf!(Q.host_sendQ, Q.device_sendQ, Q.Q, Q.vmapsend)
+  stage = get_stage(Q.send_buffer)
+  fillsendbuf!(stage, Q.data, Q.vmapsend)
+  prepare_transfer!(Q.send_buffer)
+  @toc mpi_sendcopy
 
   # post MPI sends
   nnabr = length(Q.nabrtorank)
+  transfer = get_transfer(Q.send_buffer)
   for n = 1:nnabr
-    Q.sendreq[n] = MPI.Isend((@view Q.host_sendQ[:, Q.nabrtovmapsend[n]]),
+    Q.sendreq[n] = MPI.Isend((@view transfer[:, Q.nabrtovmapsend[n]]),
                            Q.nabrtorank[n], Q.commtag, Q.mpicomm)
   end
 end
@@ -277,8 +300,8 @@ end
 
 Complete the exchange of data and fill the data array on the device. Note this
 completes both the send and the receive communication. For more fine level
-control see [finish_ghost_recv!](@ref) and
-[finish_ghost_send!](@ref)
+control see [`finish_ghost_recv!`](@ref) and
+[`finish_ghost_send!`](@ref)
 """
 function finish_ghost_exchange!(Q::MPIStateArray)
   finish_ghost_recv!(Q::MPIStateArray)
@@ -291,11 +314,17 @@ end
 Complete the receive of data and fill the data array on the device
 """
 function finish_ghost_recv!(Q::MPIStateArray)
+  @tic mpi_recvwait
   # wait on MPI receives
   MPI.Waitall!(Q.recvreq)
+  @toc mpi_recvwait
 
+  @tic mpi_recvcopy
   # copy data to state vectors
-  transferrecvbuf!(Q.device_recvQ, Q.host_recvQ, Q.Q, Q.vmaprecv)
+  prepare_stage!(Q.recv_buffer)
+  stage = get_stage(Q.recv_buffer)
+  transferrecvbuf!(Q.data, stage, Q.vmaprecv)
+  @toc mpi_recvcopy
 end
 
 """
@@ -303,10 +332,14 @@ end
 
 Waits on the send of data to be complete
 """
-finish_ghost_send!(Q::MPIStateArray) = MPI.Waitall!(Q.sendreq)
+function finish_ghost_send!(Q::MPIStateArray)
+  @tic mpi_sendwait
+  MPI.Waitall!(Q.sendreq)
+  @toc mpi_sendwait
+end
 
 # {{{ MPI Buffer handling
-function _fillsendbuf!(sendbuf, buf, vmapsend)
+function fillsendbuf!(sendbuf, buf, vmapsend)
   if length(vmapsend) > 0
     Np = size(buf, 1)
     nvar = size(buf, 2)
@@ -319,20 +352,7 @@ function _fillsendbuf!(sendbuf, buf, vmapsend)
   end
 end
 
-function fillsendbuf!(host_sendbuf::Array, device_sendbuf::Array, buf::Array,
-                      vmapsend::Array)
-  _fillsendbuf!(host_sendbuf, buf, vmapsend)
-end
-
-function fillsendbuf!(host_sendbuf, device_sendbuf, buf, vmapsend)
-  _fillsendbuf!(device_sendbuf, buf, vmapsend,)
-
-  if length(vmapsend) > 0
-    copyto!(host_sendbuf, device_sendbuf)
-  end
-end
-
-function _transferrecvbuf!(buf, recvbuf, vmaprecv)
+function transferrecvbuf!(buf, recvbuf, vmaprecv)
   if length(vmaprecv) > 0
     Np = size(buf, 1)
     nvar = size(buf, 2)
@@ -345,55 +365,48 @@ function _transferrecvbuf!(buf, recvbuf, vmaprecv)
   end
 end
 
-function transferrecvbuf!(device_recvbuf::Array, host_recvbuf::Array,
-                          buf::Array, vmaprecv::Array)
-  _transferrecvbuf!(buf, host_recvbuf, vmaprecv)
-end
-
-function transferrecvbuf!(device_recvbuf, host_recvbuf, buf, vmaprecv)
-  if length(vmaprecv) > 0
-    copyto!(device_recvbuf, host_recvbuf)
-  end
-
-  _transferrecvbuf!(buf, device_recvbuf, vmaprecv)
-end
 # }}}
 
 # Integral based metrics
-function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; dims=nothing)
-  if weighted && ~isempty(Q.weights)
+function LinearAlgebra.norm(Q::MPIStateArray, p::Real=2, weighted::Bool=true; dims=:)
+  if weighted && ~isempty(Q.weights) && isfinite(p)
     W = @view Q.weights[:, :, Q.realelems]
-    locnorm = weighted_norm_impl(Q.realQ, W, Val(p), dims)
+    locnorm = weighted_norm_impl(Q.realdata, W, Val(p), dims)
   else
-    locnorm = norm_impl(Q.realQ, Val(p), dims)
+    locnorm = norm_impl(Q.realdata, Val(p), dims)
   end
 
   mpiop = isfinite(p) ? MPI.SUM : MPI.MAX
   if locnorm isa AbstractArray
     locnorm = convert(Array, locnorm)
   end
-  r = MPI.Allreduce(locnorm, mpiop, Q.mpicomm)
+  @tic mpi_norm
+  r = MPI.Allreduce(cpuify(locnorm), mpiop, Q.mpicomm)
+  @toc mpi_norm
   isfinite(p) ? r .^ (1 // p) : r
 end
-LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool; dims=nothing) = norm(Q, 2, weighted; dims=dims)
+LinearAlgebra.norm(Q::MPIStateArray, weighted::Bool; dims=:) = norm(Q, 2, weighted; dims=dims)
 
 function LinearAlgebra.dot(Q1::MPIStateArray, Q2::MPIStateArray, weighted::Bool=true)
-  @assert length(Q1.realQ) == length(Q2.realQ)
+  @assert length(Q1.realdata) == length(Q2.realdata)
 
   if weighted && ~isempty(Q1.weights)
     W = @view Q1.weights[:, :, Q1.realelems]
-    locnorm = weighted_dot_impl(Q1.realQ, Q2.realQ, W)
+    locnorm = weighted_dot_impl(Q1.realdata, Q2.realdata, W)
   else
-    locnorm = dot_impl(Q1.realQ, Q2.realQ)
+    locnorm = dot_impl(Q1.realdata, Q2.realdata)
   end
 
-  MPI.Allreduce([locnorm], MPI.SUM, Q1.mpicomm)[1]
+  @tic mpi_dot
+  r = MPI.Allreduce(locnorm, MPI.SUM, Q1.mpicomm)
+  @toc mpi_dot
+  return r
 end
 
 function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
   # work around https://github.com/JuliaArrays/LazyArrays.jl/issues/66
-  ArealQ = A.realQ
-  BrealQ = B.realQ
+  ArealQ = A.realdata
+  BrealQ = B.realdata
   E = @~ (ArealQ .- BrealQ).^2
 
   if ~isempty(A.weights)
@@ -402,7 +415,10 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
   end
 
   locnorm = mapreduce(identity, +, E, init=zero(eltype(A)))
-  sqrt(MPI.Allreduce([locnorm], MPI.SUM, A.mpicomm)[1])
+  @tic mpi_euclidean_distance
+  r = sqrt(MPI.Allreduce(locnorm, MPI.SUM, A.mpicomm))
+  @toc mpi_euclidean_distance
+  return r
 end
 
 """
@@ -417,24 +433,28 @@ quadrature weights from a grid, thus this becomes an integral approximation.
 function weightedsum(A::MPIStateArray, states=1:size(A, 2))
   isempty(A.weights) && error("`weightedsum` requires weights")
 
-  T = eltype(A)
+  FT = eltype(A)
   states = SVector{length(states)}(states)
 
-  C = @view A.Q[:, states, A.realelems]
+  C = @view A.data[:, states, A.realelems]
   w = @view A.weights[:, :, A.realelems]
-  init = zero(DoubleFloat{T})
+  init = zero(DoubleFloat{FT})
 
-  E = @~ DoubleFloat{T}.(C) .* DoubleFloat{T}.(w)
+  E = @~ DoubleFloat{FT}.(C) .* DoubleFloat{FT}.(w)
 
   locwsum = mapreduce(identity, +, E, init=init)
 
+  @tic mpi_weightedsum
   # Need to use anomous function version of sum else MPI.jl using MPI_SUM
-  T(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
+  r = FT(MPI.Allreduce(locwsum, (x,y)->x+y, A.mpicomm))
+  @toc mpi_weightedsum
+  return r
 end
 
 # fast CPU local norm & dot implementations
-function norm_impl(Q::SubArray{T, N, A}, ::Val{p}, dims::Nothing) where {T, N, A<:Array, p}
-  accum = isfinite(p) ? -zero(T) : typemin(T)
+function norm_impl(Q::SubArray{FT, N, A}, ::Val{p},
+                   dims::Colon) where {FT, N, A<:Array, p}
+  accum = isfinite(p) ? -zero(FT) : typemin(FT)
   @inbounds @simd for i in eachindex(Q)
     if isfinite(p)
       accum += abs(Q[i]) ^ p
@@ -446,24 +466,20 @@ function norm_impl(Q::SubArray{T, N, A}, ::Val{p}, dims::Nothing) where {T, N, A
   accum
 end
 
-function weighted_norm_impl(Q::SubArray{T, N, A}, W, ::Val{p}, dims::Nothing) where {T, N, A<:Array, p}
+function weighted_norm_impl(Q::SubArray{FT, N, A}, W, ::Val{p}, dims::Colon) where {FT, N, A<:Array, p}
+  @assert isfinite(p)
   nq, ns, ne = size(Q)
-  accum = isfinite(p) ? -zero(T) : typemin(T)
+  accum = -zero(FT)
   @inbounds for k = 1:ne, j = 1:ns
     @simd for i = 1:nq
-      if isfinite(p)
-        accum += W[i, 1, k] * abs(Q[i, j, k]) ^ p
-      else
-        waQ_ijk = W[i, j, k] * abs(Q[i, j, k])
-        accum = ifelse(waQ_ijk > accum, waQ_ijk, accum)
-      end
+      accum += W[i, 1, k] * abs(Q[i, j, k]) ^ p
     end
   end
   accum
 end
 
-function dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}) where {T, N, A<:Array}
-  accum = -zero(T)
+function dot_impl(Q1::SubArray{FT, N, A}, Q2::SubArray{FT, N, A}) where {FT, N, A<:Array}
+  accum = -zero(FT)
   @inbounds @simd for i in eachindex(Q1)
     accum += Q1[i] * Q2[i]
   end
@@ -471,9 +487,9 @@ function dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}) where {T, N, A<:
 end
 
 
-function weighted_dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}, W) where {T, N, A<:Array}
+function weighted_dot_impl(Q1::SubArray{FT, N, A}, Q2::SubArray{FT, N, A}, W) where {FT, N, A<:Array}
   nq, ns, ne = size(Q1)
-  accum = -zero(T)
+  accum = -zero(FT)
   @inbounds for k = 1:ne, j = 1:ns
     @simd for i = 1:nq
       accum += W[i, 1, k] * Q1[i, j, k] * Q2[i, j, k]
@@ -483,8 +499,8 @@ function weighted_dot_impl(Q1::SubArray{T, N, A}, Q2::SubArray{T, N, A}, W) wher
 end
 
 # GPU/generic local norm & dot implementations
-function norm_impl(Q, ::Val{p}, dims=nothing) where p
-  T = eltype(Q)
+function norm_impl(Q, ::Val{p}, dims=:) where p
+  FT = eltype(Q)
   if !isfinite(p)
     f, op = abs, max
   elseif p == 1
@@ -494,32 +510,51 @@ function norm_impl(Q, ::Val{p}, dims=nothing) where p
   else
     f, op = x -> abs(x)^p, +
   end
-  dims==nothing ? mapreduce(f, op, Q) :
-                  mapreduce(f, op, Q, dims=dims)
+  mapreduce(f, op, Q, dims=dims)
 end
 
-function weighted_norm_impl(Q, W, ::Val{p}, dims=nothing) where p
-  T = eltype(Q)
-  if isfinite(p)
-    E = @~ @. W * abs(Q) ^ p
-    op, init = +, zero(T)
-  else
+function weighted_norm_impl(Q, W, ::Val{p}, dims=:) where p
+  @assert isfinite(p)
+  FT = eltype(Q)
+  if p == 1
     E = @~ @. W * abs(Q)
-    op, init = max, typemin(T)
+  elseif p == 2
+    E = @~ @. W * abs2(Q)
+  else
+    E = @~ @. W * abs(Q)^p
   end
-  dims==nothing ? reduce(op, E, init=init) :
-                  reduce(op, E, init=init, dims=dims)
+  op, init = +, zero(FT)
+  reduce(op, E, init=init, dims=dims)
 end
 
 function dot_impl(Q1, Q2)
-  T = eltype(Q1)
+  FT = eltype(Q1)
   E = @~ @. Q1 * Q2
-  mapreduce(identity, +, E, init=zero(T))
+  mapreduce(identity, +, E, init=zero(FT))
 end
 
 weighted_dot_impl(Q1, Q2, W) = dot_impl(@~ @. W * Q1, Q2)
 
-using Requires
+function Base.mapreduce(f, op, Q::MPIStateArray; kw...)
+  locreduce = mapreduce(f, op, realview(Q); kw...)
+  MPI.Allreduce(cpuify(locreduce), op, Q.mpicomm)
+end
+
+# Arrays and CuArrays have different reduction machinery
+# until we can figure this out, add special cases to make common functions work
+function Base.mapreduce(::typeof(identity), ::Union{typeof(+), typeof(Base.add_sum)}, Q::MPIStateArray; kw...)
+  locreduce = sum(realview(Q); kw...)
+  MPI.Allreduce(cpuify(locreduce), +, Q.mpicomm)
+end
+function Base.mapreduce(::typeof(identity), ::typeof(min), Q::MPIStateArray; kw...)
+  locreduce = minimum(realview(Q); kw...)
+  MPI.Allreduce(cpuify(locreduce), min, Q.mpicomm)
+end
+function Base.mapreduce(::typeof(identity), ::typeof(max), Q::MPIStateArray; kw...)
+  locreduce = maximum(realview(Q); kw...)
+  MPI.Allreduce(cpuify(locreduce), max, Q.mpicomm)
+end
+
 
 # `realview` and `device` are helpers that enable
 # testing ODESolvers and LinearSolvers without using MPIStateArrays
@@ -527,14 +562,13 @@ using Requires
 # better names, for example `device` is also defined in CUDAdrv
 
 device(::Union{Array, SArray, MArray}) = CPU()
-device(Q::MPIStateArray) = device(Q.Q)
+device(Q::MPIStateArray) = device(Q.data)
 
 realview(Q::Union{Array, SArray, MArray}) = Q
-realview(Q::MPIStateArray) = Q.realQ
+realview(Q::MPIStateArray) = Q.realdata
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
   using .CuArrays
-  using .CuArrays.CUDAnative
 
   device(::CuArray) = CUDA()
   realview(Q::CuArray) = Q
@@ -544,13 +578,14 @@ realview(Q::MPIStateArray) = Q.realQ
   function transform_broadcasted(bc::Broadcasted, ::CuArray)
     transform_cuarray(bc)
   end
-
   function transform_cuarray(bc::Broadcasted)
     Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
   end
-  transform_cuarray(mpisa::MPIStateArray) = mpisa.realQ
+  transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
   transform_cuarray(x) = x
 end
+
+@init tictoc()
 
 include("MPIStateArrays_kernels.jl")
 

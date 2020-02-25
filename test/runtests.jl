@@ -1,8 +1,12 @@
 using Test, Pkg
 
+ENV["DATADEPS_ALWAYS_ACCEPT"] = true
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
-for submodule in ["Utilities/ParametersType",
+for submodule in [
+                  "Utilities/TicToc",
+                  "Utilities/VariableTemplates",
+                  "Utilities/ParametersType",
                   "Utilities/RootSolvers",
                   "Common/PlanetParameters",
                   "Common/MoistThermodynamics",
@@ -11,9 +15,12 @@ for submodule in ["Utilities/ParametersType",
                   "Atmos/Parameterizations/Microphysics",
                   "Mesh",
                   "DGmethods",
+                  "Diagnostics",
                   "ODESolvers",
+                  "Ocean",
                   "Arrays",
                   "LinearSolvers",
+                  "Driver",
                  ]
 
   println("Starting tests for $submodule")

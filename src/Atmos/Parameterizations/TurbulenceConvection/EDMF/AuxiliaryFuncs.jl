@@ -22,10 +22,10 @@ Returns a `ThermodynamicState` using grid-mean
 quantities at element `k`.
 """
 @inline function ActiveThermoState(q, tmp, k, i)
-  return LiquidIcePotTempSHumEquil(q[:θ_liq, k, i],
-                                   q[:q_tot, k, i],
-                                   tmp[:ρ_0, k],
-                                   tmp[:p_0, k])
+  return LiquidIcePotTempSHumEquil_old(q[:θ_liq, k, i],
+                                       q[:q_tot, k, i],
+                                       tmp[:ρ_0, k],
+                                       tmp[:p_0, k])
 end
 
 function update_dt!(grid, params, q, t)

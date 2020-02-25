@@ -1,14 +1,7 @@
-module StrongStabilityPreservingRungeKuttaMethod
 export StrongStabilityPreservingRungeKutta
 export SSPRK33ShuOsher, SSPRK34SpiteriRuuth
 
-using GPUifyLoops
 include("StrongStabilityPreservingRungeKuttaMethod_kernels.jl")
-
-using ..ODESolvers
-ODEs = ODESolvers
-using ..SpaceMethods
-using ..MPIStateArrays: device, realview
 
 """
     StrongStabilityPreservingRungeKutta(f, RKA, RKB, RKC, Q; dt, t0 = 0)
@@ -28,19 +21,19 @@ based on the provided `RKA`, `RKB` and `RKC` coefficient arrays.
 
 The available concrete implementations are:
 
-  - [`SSPRK33ShuOsher`](@ref)  
-  - [`SSPRK34SpiteriRuuth`](@ref)  
+  - [`SSPRK33ShuOsher`](@ref)
+  - [`SSPRK34SpiteriRuuth`](@ref)
 """
-struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractODESolver
+mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: AbstractODESolver
   "time step"
-  dt::Array{RT,1}
+  dt::RT
   "time"
-  t::Array{RT,1}
+  t::RT
   "rhs function"
   rhs!
-  "Storage for RHS during the StrongStabilityPreservingRungeKutta update"
+  "Storage for RHS during the `StrongStabilityPreservingRungeKutta` update"
   Rstage::AT
-  "Storage for the stage state during the StrongStabilityPreservingRungeKutta update"
+  "Storage for the stage state during the `StrongStabilityPreservingRungeKutta` update"
   Qstage::AT
   "RK coefficient vector A (rhs scaling)"
   RKA::Array{RT,2}
@@ -53,9 +46,7 @@ struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <: ODEs.AbstractO
                                                Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
     T = eltype(Q)
     RT = real(T)
-    dt = [dt]
-    t0 = [t0]
-    new{T, RT, AT, length(RKB)}(dt, t0, rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
+    new{T, RT, AT, length(RKB)}(RT(dt), RT(t0), rhs!, similar(Q), similar(Q), RKA, RKB, RKC)
   end
 end
 
@@ -65,7 +56,8 @@ function StrongStabilityPreservingRungeKutta(spacedisc::AbstractSpaceMethod, RKA
   StrongStabilityPreservingRungeKutta(rhs!, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-ODEs.updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = ssp.dt[1] = dt
+updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = (ssp.dt = dt)
+updatetime!(lsrk::StrongStabilityPreservingRungeKutta, time) = (lsrk.t = time)
 
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
@@ -76,20 +68,20 @@ forward in time from the current time, to the time `timeend`. If
 `adjustfinalstep == true` then `dt` is adjusted so that the step does not take
 the solution beyond the `timeend`.
 """
-function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
+function dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                       timeend::Real, adjustfinalstep::Bool)
-  time, dt = ssp.t[1], ssp.dt[1]
+  time, dt = ssp.t, ssp.dt
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
   end
   @assert dt > 0
 
-  ODEs.dostep!(Q, ssp, p, time, dt)
+  dostep!(Q, ssp, p, time, dt)
 
-  if dt == ssp.dt[1]
-    ssp.t[1] += dt
+  if dt == ssp.dt
+    ssp.t += dt
   else
-    ssp.t[1] = timeend
+    ssp.t = timeend
   end
 end
 
@@ -101,11 +93,11 @@ Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
 forward in time from the current time `time` to final time `time + dt`.
 
 If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
-added as an additionall ODE right-hand side source. If the optional parameter
+added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
-function ODEs.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
+function dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                       time::Real, dt::Real, slow_δ = nothing,
                       slow_rv_dQ = nothing, in_slow_scaling = nothing)
 
@@ -211,4 +203,3 @@ function SSPRK34SpiteriRuuth(F, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
   StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt=dt, t0=t0)
 end
 
-end

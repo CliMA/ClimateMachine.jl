@@ -35,25 +35,12 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.StrongStabilityPreservingRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.VTK
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-
-@static if haspkg("CUDAnative")
-  using CUDAdrv
-  using CUDAnative
-  using CuArrays
-  @assert VERSION >= v"1.2-pre.25"
-  CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,)
-else
-  const ArrayTypes = (Array, )
-end
 
 const uid, vid, wid = 1:3
 const radians = true
@@ -114,10 +101,10 @@ end
 #{{{ velocity initial condition
 @inline function velocity_init!(vel, x, y, z)
   @inbounds begin
-    DFloat = eltype(vel)
+    FT = eltype(vel)
     (r, λ, ϕ) = cartesian_to_spherical(x,y,z,radians)
-    # w = 2 * DFloat(π) * cos(ϕ) # Case 1 -> shear flow
-    w = 2 * DFloat(π) * cos(ϕ) * r # Case 2 -> solid body flow
+    # w = 2 * FT(π) * cos(ϕ) # Case 1 -> shear flow
+    w = 2 * FT(π) * cos(ϕ) * r # Case 2 -> solid body flow
     uλ, uϕ = w, 0
     vel[uid] = -uλ*sin(λ) - uϕ*cos(λ)*sin(ϕ)
     vel[vid] = +uλ*cos(λ) - uϕ*sin(λ)*sin(ϕ)
@@ -128,7 +115,7 @@ end
 
 # initial condition
 function advection_sphere!(Q, t, x, y, z, vel)
-  DFloat = eltype(Q)
+  FT = eltype(Q)
   rc=1.5
   (r, λ, ϕ) = cartesian_to_spherical(x,y,z,radians)
   ρ = exp(-((3λ)^2 + (3ϕ)^2))
@@ -137,9 +124,9 @@ function advection_sphere!(Q, t, x, y, z, vel)
 end
 
 #{{{ Main
-function main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt, ti_method)
+function main(mpicomm, FT, topl, N, timeend, ArrayType, dt, ti_method)
   grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = DFloat,
+                                          FloatType = FT,
                                           DeviceArray = ArrayType,
                                           polynomialorder = N,
                                           meshwarp = Topologies.cubedshellwarp)
@@ -235,11 +222,11 @@ end
 #}}} Main
 
 #{{{ Run Script
-function run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt, ti_method,
+function run(mpicomm, Nhorizontal, Nvertical, N, timeend, FT, dt, ti_method,
              ArrayType)
-  Rrange=range(DFloat(1); length=Nvertical+1, stop=2)
+  Rrange=range(FT(1); length=Nvertical+1, stop=2)
   topl = StackedCubedSphereTopology(mpicomm,Nhorizontal,Rrange; boundary=(1,1))
-  (error, Δmass) = main(mpicomm, DFloat, topl, N, timeend, ArrayType, dt,
+  (error, Δmass) = main(mpicomm, FT, topl, N, timeend, ArrayType, dt,
                         ti_method)
 end
 #}}} Run Script
@@ -247,18 +234,16 @@ end
 #{{{ Run Program
 using Test
 let
-  MPI.Initialized() || MPI.Init()
-  mpicomm=MPI.COMM_WORLD
+  CLIMA.init()
+  ArrayTypes = (CLIMA.array_type(),)
 
+  mpicomm = MPI.COMM_WORLD
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
   loglevel = ll == "DEBUG" ? Logging.Debug :
   ll == "WARN"  ? Logging.Warn  :
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  @static if haspkg("CUDAnative")
-    device!(MPI.Comm_rank(mpicomm) % length(devices()))
-  end
 
   # Perform Integration Testing for three different grid resolutions
   ti_method = "SSP34" #LSRK or SSP
@@ -278,9 +263,9 @@ let
 
   @testset "$(@__FILE__)" for ArrayType in ArrayTypes
     dt=1e-2*5 # stable dt for N=4 and Ne=5
-    for DFloat in (Float64,) # Float32)
-      err = zeros(DFloat, lvls)
-      mass= zeros(DFloat, lvls)
+    for FT in (Float64,) # Float32)
+      err = zeros(FT, lvls)
+      mass= zeros(FT, lvls)
       for l = 1:lvls
         Nhorizontal = 2^(l-1) * numelem[1]
         Nvertical   = 2^(l-1) * numelem[2]
@@ -294,11 +279,11 @@ let
         dt          = %.16e
         nsteps       = %d
         """ Nhorizontal Nvertical N dt nsteps
-        @info (ArrayType, DFloat)
+        @info (ArrayType, FT)
         (err[l], mass[l]) = run(mpicomm, Nhorizontal, Nvertical, N, timeend,
-                                DFloat, dt, ti_method, ArrayType)
-        @test err[l]  ≈ DFloat(expected_error[l])
-        #                @test mass[l] ≈ DFloat(expected_mass[l])
+                                FT, dt, ti_method, ArrayType)
+        @test err[l]  ≈ FT(expected_error[l])
+        #                @test mass[l] ≈ FT(expected_mass[l])
       end
       @info begin
         msg = ""
@@ -314,7 +299,7 @@ let
   #=
   # This snippet of code allows one to run just one instance/configuration.
   # Before running this, Comment the Integration Testing block above
-  DFloat = Float64
+  FT = Float64
   N=4
   ArrayType = Array
   dt=1e-2*5 # stable dt for N=4 and Ne=5
@@ -325,7 +310,7 @@ let
   dt=dt/Nhorizontal
   nsteps = ceil(Int64, timeend / dt)
   dt = timeend / nsteps
-  (error, Δmass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, DFloat, dt,
+  (error, Δmass) = run(mpicomm, Nhorizontal, Nvertical, N, timeend, FT, dt,
                        ti_method, ArrayType)
   =#
 
