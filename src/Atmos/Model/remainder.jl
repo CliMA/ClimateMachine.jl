@@ -13,12 +13,22 @@ vars_gradient(rem::RemainderModel, FT) = vars_gradient(rem.main,FT)
 vars_diffusive(rem::RemainderModel, FT) = vars_diffusive(rem.main,FT)
 vars_aux(rem::RemainderModel, FT) = vars_aux(rem.main,FT)
 vars_integrals(rem::RemainderModel,FT) = vars_integrals(rem.main,FT)
+vars_reverse_integrals(rem::RemainderModel,FT) = vars_integrals(rem.main,FT)
 
 update_aux!(dg::DGModel, rem::RemainderModel, Q::MPIStateArray, t::Real) =
   update_aux!(dg, rem.main, Q, t)
 
-integrate_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
-  integrate_aux!(rem.main, integ, state, aux)
+integral_load_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
+  integral_load_aux!(rem.main, integ, state, aux)
+
+integral_set_aux!(rem::RemainderModel, aux::Vars, integ::Vars) =
+  integral_set_aux!(rem.main, aux, integ)
+
+reverse_integral_load_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
+  reverse_integral_load_aux!(rem.main, integ, state, aux)
+
+reverse_integral_set_aux!(rem::RemainderModel, aux::Vars, integ::Vars) =
+  reverse_integral_set_aux!(rem.main, aux, integ)
 
 function flux_diffusive!(rem::RemainderModel, flux::Grad, state::Vars,
                          diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)

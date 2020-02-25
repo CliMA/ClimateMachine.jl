@@ -40,6 +40,7 @@ vars_gradient_laplacian(::BalanceLaw, FT) = @vars()
 function vars_diffusive end
 vars_hyperdiffusive(::BalanceLaw, FT) = @vars()
 vars_integrals(::BalanceLaw, FT) = @vars()
+vars_reverse_integrals(::BalanceLaw, FT) = @vars()
 
 num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m,FT))
 num_state(m::BalanceLaw, FT) = varsize(vars_state(m,FT)) # nstate
@@ -48,9 +49,13 @@ num_gradient_laplacian(m::BalanceLaw, FT) = varsize(vars_gradient_laplacian(m,FT
 num_diffusive(m::BalanceLaw, FT) = varsize(vars_diffusive(m,FT)) # number_viscous_states
 num_hyperdiffusive(m::BalanceLaw, FT) = varsize(vars_hyperdiffusive(m,FT))
 num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m,FT))
+num_reverse_integrals(m::BalanceLaw, FT) = varsize(vars_reverse_integrals(m,FT))
 
 function update_aux! end
-function integrate_aux! end
+function integral_load_aux! end
+function integral_set_aux! end
+function reverse_integral_load_aux! end
+function reverse_integral_set_aux! end
 function flux_nondiffusive! end
 function flux_diffusive! end
 function gradvariables! end
