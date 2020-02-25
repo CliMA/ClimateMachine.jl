@@ -7,17 +7,18 @@ using MPI
 using Printf
 using Requires
 
-using ..AdditiveRungeKuttaMethod
+using ..Atmos
 using ..VTK
 using ..ColumnwiseLUSolver
 using ..Diagnostics
 using ..GenericCallbacks
-using ..LowStorageRungeKuttaMethod
+using ..ODESolvers
 using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
 using ..MoistThermodynamics
 using ..MPIStateArrays
-using ..DGmethods: update_aux!, update_aux_diffusive!
+using ..DGmethods: vars_state, vars_aux, update_aux!, update_aux_diffusive!
 using ..TicToc
+using ..VariableTemplates
 
 Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
