@@ -326,7 +326,7 @@ function invoke!(solver_config::SolverConfiguration;
             end
             nothing
         end
-        callbacks = (callbacks..., cbinfo)
+        callbacks = (callbacks...,)
     end
     if Settings.enable_diagnostics
         # set up diagnostics to be collected via callback

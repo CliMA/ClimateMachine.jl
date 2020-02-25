@@ -1,6 +1,8 @@
 using Random
 using StaticArrays
 using Test
+using Dates
+using Printf
 
 using CLIMA
 using CLIMA.Atmos
@@ -112,7 +114,7 @@ function main()
     zmax = 2500
     # Simulation time
     t0 = FT(0)
-    timeend = FT(1000)
+    timeend = FT(200)
     # Courant number
     CFL = FT(0.8)
 
@@ -126,9 +128,12 @@ function main()
     end
 
     # Invoke solver (calls solve! function for time-integrator)
+    starttime = Base.time()
     result = CLIMA.invoke!(solver_config;
                            user_callbacks=(cbtmarfilter,),
                            check_euclidean_distance=true)
+    endtime = Base.time()
+    @info @sprintf("""FINISHED. Runtime = %s""", endtime - starttime)
 
     @test isapprox(result,FT(1); atol=1.5e-3)
 end
