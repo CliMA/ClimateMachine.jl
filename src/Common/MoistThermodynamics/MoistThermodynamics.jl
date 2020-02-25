@@ -140,6 +140,10 @@ state (ideal gas law) where
  - `p` pressure
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument the results are that of dry air.
+
+Old method (used in SCAMPY) for specific volume
+
+TODO: Remove this method / synchronize with `specific_volume(ts::ThermodynamicState)`
 """
 specific_volume(T::FT, p::FT, q::PhasePartition{FT}=PhasePartition{FT}(FT(0), FT(0), FT(0))) where {FT<:Real} =
   (gas_constant_air(q) * T) / p
@@ -258,10 +262,17 @@ The air temperature, given a thermodynamic state `ts`.
 air_temperature(ts::ThermodynamicState) = air_temperature(internal_energy(ts), PhasePartition(ts))
 air_temperature(ts::PhaseEquil) = ts.T
 
-function buoyancy_flux(shf::DT, lhf::DT, T_b::DT, q_tot::DT, α_0::DT) where {DT<:Real}
+"""
+    buoyancy_flux(shf::FT, lhf::FT, T_b::FT, q_tot::FT, α_0::FT) where {FT<:Real}
+
+Old method (used in SCAMPY) for buoyancy flux
+
+TODO: Remove this method.
+"""
+function buoyancy_flux(shf::FT, lhf::FT, T_b::FT, q_tot::FT, α_0::FT) where {FT<:Real}
   cp_ = cp_m(PhasePartition(q_tot))
   lv = latent_heat_vapor(T_b)
-  return (grav * α_0 / cp_ / T_b * (shf + ((R_v / R_d)-1) * cp_ * T_b * lhf /lv))
+  return (FT(grav) * α_0 / cp_ / T_b * (shf + ((FT(R_v) / FT(R_d))-1) * cp_ * T_b * lhf /lv))
 end
 
 """
@@ -870,13 +881,14 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice::FT, p
     end
     return sol.root
   end
-  return T_sol
 end
 
-####
-#### OLD
-####
+"""
+    air_temperature_from_liquid_ice_pottemp_old(θ_liq_ice::FT, p::FT, q::PhasePartition{FT}=q_pt_0(FT))
 
+Old method (used in SCAMPY) for air temperature from liquid ice potential temperature
+TODO: remove this method / synchronize with `air_temperature_from_liquid_ice_pottemp`
+"""
 air_temperature_from_liquid_ice_pottemp_old(θ_liq_ice::FT, p::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real} =
   θ_liq_ice*exner_given_pressure(p, q) + (FT(LH_v0)*q.liq + FT(LH_s0)*q.ice) / cp_m(q)
 
@@ -891,6 +903,10 @@ Compute the temperature that is consistent with
  - `p` pressure
 
 See also [`saturation_adjustment`](@ref).
+
+Old method (used in SCAMPY) for `saturation_adjustment_q_tot_θ_liq_ice`
+
+TODO: remove this method / synchronize with `saturation_adjustment_q_tot_θ_liq_ice`
 """
 function saturation_adjustment_q_tot_θ_liq_ice_old(θ_liq_ice::FT, q_tot::FT, ρ::FT, p::FT) where {FT<:Real}
   T_1 = air_temperature_from_liquid_ice_pottemp_old(θ_liq_ice, p) # Assume all vapor
@@ -912,11 +928,6 @@ function saturation_adjustment_q_tot_θ_liq_ice_old(θ_liq_ice::FT, q_tot::FT, �
   end
   return T_sol
 end
-
-####
-#### end OLD
-####
-
 
 """
     latent_heat_liq_ice(q::PhasePartition{FT})
