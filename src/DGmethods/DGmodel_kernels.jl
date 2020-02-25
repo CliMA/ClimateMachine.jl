@@ -1019,25 +1019,21 @@ function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
 end
 
 """
-    knl_indefinite_stack_integral!(::Val{dim}, ::Val{N}, ::Val{nstate},
-                                            ::Val{nauxstate}, ::Val{nvertelem},
-                                            int_knl!, Q, auxstate, vgeo, Imat,
-                                            elems, ::Val{outstate}
-                                           ) where {dim, N, nstate, nauxstate,
-                                                    outstate, nvertelem}
+    knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                                  ::Val{nvertelem}, Q, auxstate, vgeo,
+                                  Imat, elems) where {dim, N, nvertelem}
 
 Computational kernel: compute indefinite integral along the vertical stack
 
 See [`DGBalanceLaw`](@ref) for usage.
 """
-function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::Val{nvertelem},
-                                        Q, auxstate, vgeo, Imat,
-                                        elems, ::Val{nout}
-                                       ) where {dim, N, nvertelem,
-                                                nout}
+function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
+                                        ::Val{nvertelem}, Q, auxstate, vgeo,
+                                        Imat, elems) where {dim, N, nvertelem}
   FT = eltype(Q)
   nstate = num_state(bl,FT)
   nauxstate = num_aux(bl,FT)
+  nout = num_integrals(bl, FT)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
@@ -1090,7 +1086,7 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::
               l_aux[s] = auxstate[ijk, s, e]
             end
 
-            integrate_aux!(bl, Vars{vars_integrals(bl, FT)}(view(l_knl, :, k)),
+            integral_load_aux!(bl, Vars{vars_integrals(bl, FT)}(view(l_knl, :, k)),
               Vars{vars_state(bl, FT)}(l_Q), Vars{vars_aux(bl,FT)}(l_aux))
 
             # multiply in the curve jacobian
@@ -1110,9 +1106,14 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::
 
           # Store out to memory and reset the background value for next element
           @unroll for k in 1:Nq
+            @unroll for s = 1:nout
+              l_knl[s, k] = l_int[s, k, i, j]
+            end
             ijk = i + Nq * ((j-1) + Nqj * (k-1))
+            integral_set_aux!(bl,
+                               Vars{vars_aux(bl, FT)}(view(auxstate, ijk, :, e)),
+                               Vars{vars_integrals(bl, FT)}(view(l_knl, :, k)))
             @unroll for ind_out = 1:nout
-              auxstate[ijk, ind_out, e] = l_int[ind_out, k, i, j]
               l_int[ind_out, k, i, j] = l_int[ind_out, Nq, i, j]
             end
           end
@@ -1123,15 +1124,17 @@ function knl_indefinite_stack_integral!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, ::
   nothing
 end
 
-function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
-                                                ::Val{nvertelem}, auxstate, elems,
-                                                ::Val{nout}
-                                               ) where {dim, N, nvertelem,
-                                                        nout}
+function knl_reverse_indefinite_stack_integral!(bl::BalanceLaw,
+                                                ::Val{dim}, ::Val{N},
+                                                ::Val{nvertelem},
+                                                state, auxstate,
+                                                elems
+                                               ) where {dim, N, nvertelem}
   FT = eltype(auxstate)
 
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
+  nout = num_reverse_integrals(bl, FT)
 
   # note that k is the second not 4th index (since this is scratch memory and k
   # needs to be persistent across threads)
@@ -1144,21 +1147,24 @@ function knl_reverse_indefinite_stack_integral!(::Val{dim}, ::Val{N},
       @loop for i in (1:Nq; threadIdx().x)
         ijk = i + Nq * ((j-1) + Nqj * (Nq-1))
         et = nvertelem + (eh - 1) * nvertelem
-        @unroll for s = 1:nout
-          l_T[s] = auxstate[ijk, s, et]
-        end
+        reverse_integral_load_aux!(bl,
+                                   Vars{vars_reverse_integrals(bl, FT)}(l_T),
+                                   Vars{vars_state(bl, FT)}(view(state, ijk, :, et)),
+                                   Vars{vars_aux(bl, FT)}(view(auxstate, ijk, :, et)))
 
         # Loop up the stack of elements
         for ev = 1:nvertelem
           e = ev + (eh - 1) * nvertelem
           @unroll for k in 1:Nq
             ijk = i + Nq * ((j-1) + Nqj * (k-1))
-            @unroll for s = 1:nout
-              l_V[s] = auxstate[ijk, s, e]
-            end
-            @unroll for s = 1:nout
-              auxstate[ijk, nout+s, e] = l_T[s] - l_V[s]
-            end
+            reverse_integral_load_aux!(bl,
+                                       Vars{vars_reverse_integrals(bl, FT)}(l_V),
+                                       Vars{vars_state(bl, FT)}(view(state, ijk, :, et)),
+                                       Vars{vars_aux(bl, FT)}(view(auxstate, ijk, :, e)))
+            l_V .= l_T .- l_V
+            reverse_integral_set_aux!(bl,
+                                      Vars{vars_aux(bl, FT)}(view(auxstate, ijk, :, e)),
+                                      Vars{vars_reverse_integrals(bl, FT)}(l_V))
           end
         end
       end

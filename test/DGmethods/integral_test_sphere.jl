@@ -13,12 +13,16 @@ using Logging
 using GPUifyLoops
 
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
-                        vars_diffusive, vars_integrals, integrate_aux!,
+                        vars_diffusive, vars_integrals, integral_load_aux!,
                         flux_nondiffusive!, flux_diffusive!, source!, wavespeed,
                         update_aux!, indefinite_stack_integral!,
                         reverse_indefinite_stack_integral!,  boundary_state!,
                         gradvariables!, init_aux!, init_state!,
-                        init_ode_state, LocalGeometry
+                        init_ode_state, LocalGeometry,
+                        integral_set_aux!,
+                        vars_reverse_integrals,
+                        reverse_integral_load_aux!,
+                        reverse_integral_set_aux!
 
 
 struct IntegralTestSphereModel{T} <: BalanceLaw
@@ -28,12 +32,13 @@ end
 
 function update_aux!(dg::DGModel, m::IntegralTestSphereModel, Q::MPIStateArray, t::Real)
   indefinite_stack_integral!(dg, m, Q, dg.auxstate, t)
-  reverse_indefinite_stack_integral!(dg, m, dg.auxstate, t)
+  reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t)
 
   return true
 end
 
 vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
+vars_reverse_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
 vars_aux(m::IntegralTestSphereModel,T) = @vars(int::vars_integrals(m,T), rev_int::vars_integrals(m,T), r::T, a::T)
 
 vars_state(::IntegralTestSphereModel, T) = @vars()
@@ -58,8 +63,26 @@ function init_aux!(m::IntegralTestSphereModel, aux::Vars, g::LocalGeometry)
   aux.rev_int.v = exp(-aux.a * m.Router^2) - exp(-aux.a * aux.r^2)
 end
 
-@inline function integrate_aux!(m::IntegralTestSphereModel, integrand::Vars, state::Vars, aux::Vars)
+@inline function integral_load_aux!(m::IntegralTestSphereModel, integrand::Vars, state::Vars, aux::Vars)
   integrand.v = -2aux.r * aux.a * exp(-aux.a * aux.r^2)
+end
+
+@inline function integral_set_aux!(m::IntegralTestSphereModel, aux::Vars,
+                                    integral::Vars)
+  aux.int.v = integral.v
+end
+
+@inline function reverse_integral_load_aux!(m::IntegralTestSphereModel,
+                                            integral::Vars,
+                                            state::Vars,
+                                            aux::Vars)
+  integral.v = aux.int.v
+end
+
+@inline function reverse_integral_set_aux!(m::IntegralTestSphereModel,
+                                           aux::Vars,
+                                           integral::Vars)
+  aux.rev_int.v = integral.v
 end
 
 if !@isdefined integration_testing

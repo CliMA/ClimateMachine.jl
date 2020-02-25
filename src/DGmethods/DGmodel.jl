@@ -163,8 +163,18 @@ function init_ode_state(dg::DGModel, args...;
   return state
 end
 
+# fallback
+function update_aux!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
+  return false
+end
+
+function update_aux_diffusive!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
+  return false
+end
+
 function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
-                                    Q::MPIStateArray, auxstate::MPIStateArray,
+                                    Q::MPIStateArray,
+                                    auxstate::MPIStateArray,
                                     t::Real)
 
   device = typeof(Q.data) <: Array ? CPU() : CUDA()
@@ -180,28 +190,20 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   FT = eltype(Q)
 
   # do integrals
-  nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
           knl_indefinite_stack_integral!(m, Val(dim), Val(N),
-                                         Val(nvertelem), Q.data, auxstate.data,
-                                         grid.vgeo, grid.Imat, 1:nhorzelem,
-                                         Val(nintegrals)))
+                                         Val(nvertelem),
+                                         Q.data, auxstate.data,
+                                         grid.vgeo, grid.Imat, 1:nhorzelem))
 end
 
-# fallback
-function update_aux!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
-  return false
-end
-
-function update_aux_diffusive!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
-  return false
-end
-
-function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
+function reverse_indefinite_stack_integral!(dg::DGModel,
+                                            m::BalanceLaw,
+                                            Q::MPIStateArray,
                                             auxstate::MPIStateArray, t::Real)
 
   device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
@@ -217,16 +219,15 @@ function reverse_indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   FT = eltype(auxstate)
 
   # do integrals
-  nintegrals = num_integrals(m, FT)
   nelem = length(topology.elems)
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
   @launch(device, threads=(Nq, Nqk, 1), blocks=nhorzelem,
-          knl_reverse_indefinite_stack_integral!(Val(dim), Val(N),
-                                                 Val(nvertelem), auxstate.data,
-                                                 1:nhorzelem,
-                                                 Val(nintegrals)))
+          knl_reverse_indefinite_stack_integral!(m, Val(dim), Val(N),
+                                                 Val(nvertelem),
+                                                 Q.data, auxstate.data,
+                                                 1:nhorzelem))
 end
 
 function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
