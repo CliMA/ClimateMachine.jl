@@ -77,6 +77,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   ode_solver = CLIMA.MRRKSolverType(solver_method=MultirateRungeKutta,
                                     fast_method=LSRK54CarpenterKennedy,
                                     slow_method=LSRK144NiegemannDiehlBusch,
+                                    numsubsteps=10,
                                     linear_model=AtmosAcousticGravityLinearModel)
 
   # Set up the model

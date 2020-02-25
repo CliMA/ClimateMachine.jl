@@ -36,12 +36,14 @@ struct MRRKSolverType <: AbstractSolverType
     solver_method::Type
     fast_method::Function
     slow_method::Function
+    numsubsteps::Int
     linear_model::Type
     function MRRKSolverType(;solver_method=MultirateRungeKutta,
                              fast_method=LSRK54CarpenterKennedy,
                              slow_method=LSRK54CarpenterKennedy,
+                             numsubsteps=10,
                              linear_model=AtmosAcousticGravityLinearModel)
-      return new(solver_method, fast_method, slow_method, linear_model)
+      return new(solver_method, fast_method, slow_method, numsubsteps, linear_model)
     end
 end
 
