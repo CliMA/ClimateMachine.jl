@@ -5,7 +5,18 @@ Ordinary differential equation solvers
 """
 module ODESolvers
 
-export solve!, updatedt!
+using GPUifyLoops
+using StaticArrays
+using Requires
+@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
+  using .CUDAnative
+end
+
+using ..SpaceMethods
+using ..LinearSolvers
+using ..MPIStateArrays: device, realview
+
+export solve!, updatedt!, gettime
 
 abstract type AbstractODESolver end
 """
@@ -106,5 +117,11 @@ function solve!(Q, solver::AbstractODESolver, p=nothing; timeend::Real=Inf,
   gettime(solver)
 end
 # }}}
+
+include("LowStorageRungeKuttaMethod.jl")
+include("StrongStabilityPreservingRungeKuttaMethod.jl")
+include("AdditiveRungeKuttaMethod.jl")
+include("MultirateInfinitesimalStepMethod.jl")
+include("MultirateRungeKuttaMethod.jl")
 
 end # module
