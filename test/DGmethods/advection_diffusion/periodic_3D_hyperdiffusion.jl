@@ -6,12 +6,11 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using LinearAlgebra
 using Printf
 using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.ODESolvers: solve!, gettime
+using CLIMA.ODESolvers
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection, min_node_distance
 

@@ -88,7 +88,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
             faceviscterms!(bl, Val(dim), Val(N), dg.diffusion_direction,
                            dg.gradnumflux,
                            Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data,
-                           grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
+                           grid.vgeo, grid.sgeo, t, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                            hypervisc_indexmap, topology.realelems))
 
     if communicate
@@ -122,7 +122,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
             facedivgrad!(bl, Val(dim), Val(N), dg.diffusion_direction,
                          CentralDivPenalty(),
                          Qhypervisc_grad.data, Qhypervisc_div.data,
-                         grid.vgeo, grid.sgeo, grid.vmapM, grid.vmapP, grid.elemtobndy,
+                         grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                          topology.realelems))
     
     communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_div)
@@ -145,7 +145,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                                 CentralHyperDiffusiveFlux(),
                                 Qhypervisc_grad.data, Qhypervisc_div.data,
                                 Q.data, auxstate.data,
-                                grid.vgeo, grid.sgeo, grid.vmapM, grid.vmapP,
+                                grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺,
                                 grid.elemtobndy, topology.realelems, t))
     
     communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
@@ -182,7 +182,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
                    dQdt.data, Q.data, Qvisc.data, Qhypervisc_grad.data,
-                   auxstate.data, grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
+                   auxstate.data, grid.vgeo, grid.sgeo, t, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                    topology.realelems))
 
   # Just to be safe, we wait on the sends we started.

@@ -44,9 +44,9 @@ function main()
   x2 = @view grid.vgeo[:, Grids._x2, :]
   x3 = @view grid.vgeo[:, Grids._x3, :]
 
-  @test x1[grid.vmapM] ≈ x1[grid.vmapP]
-  @test x2[grid.vmapM] ≈ x2[grid.vmapP]
-  @test x3[grid.vmapM] ≈ x3[grid.vmapP]
+  @test x1[grid.vmap⁻] ≈ x1[grid.vmap⁺]
+  @test x2[grid.vmap⁻] ≈ x2[grid.vmap⁺]
+  @test x3[grid.vmap⁻] ≈ x3[grid.vmap⁺]
 
   Np = (N+1)^3
   x1x2x3 = MPIStateArray{FT}(topology.mpicomm, DA, Np, 3,
@@ -68,9 +68,9 @@ function main()
   x2 = @view x1x2x3.data[:, 2, :]
   x3 = @view x1x2x3.data[:, 3, :]
 
-  @test x1[grid.vmapM] ≈ x1[grid.vmapP]
-  @test x2[grid.vmapM] ≈ x2[grid.vmapP]
-  @test x3[grid.vmapM] ≈ x3[grid.vmapP]
+  @test x1[grid.vmap⁻] ≈ x1[grid.vmap⁺]
+  @test x2[grid.vmap⁻] ≈ x2[grid.vmap⁺]
+  @test x3[grid.vmap⁻] ≈ x3[grid.vmap⁺]
 
   nothing
 end

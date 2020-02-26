@@ -19,10 +19,10 @@ import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
 
 Any `P <: NumericalFluxGradient` should define methods for:
 
-   numerical_flux_gradient!(gnf::P, bl::BalanceLaw, diffF, nM, QM, QdiffM, QauxM, QP,
-                            QdiffP, QauxP, t)
-   numerical_boundary_flux_gradient!(gnf::P, bl::BalanceLaw, l_Qvisc, nM, l_GM, l_QM,
-                                     l_auxM, l_GP, l_QP, l_auxP, bctype, t)
+   numerical_flux_gradient!(gnf::P, bl::BalanceLaw, diffF, n⁻, Q⁻, Qdiff⁻, Qaux⁻, Q⁺,
+                            Qdiff⁺, Qaux⁺, t)
+   numerical_boundary_flux_gradient!(gnf::P, bl::BalanceLaw, l_Qvisc, n⁻, l_G⁻, l_Q⁻,
+                                     l_aux⁻, l_G⁺, l_Q⁺, l_aux⁺, bctype, t)
 
 """
 abstract type NumericalFluxGradient end
@@ -63,19 +63,19 @@ end
 
 Any `N <: NumericalFluxNonDiffusive` should define the a method for
 
-    numerical_flux_nondiffusive!(nf::N, bl::BalanceLaw, F, nM, QM, QauxM, QP,
-                                 QauxP, t)
+    numerical_flux_nondiffusive!(nf::N, bl::BalanceLaw, F, n⁻, Q⁻, Qaux⁻, Q⁺,
+                                 Qaux⁺, t)
 
 where
 - `F` is the numerical flux array
-- `nM` is the unit normal
-- `QM`/`QP` are the minus/positive state arrays
+- `n⁻` is the unit normal
+- `Q⁻`/`Q⁺` are the minus/positive state arrays
 - `t` is the time
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_nondiffusive!(nf::N, bl::BalanceLaw, F, nM, QM,
-                                          QauxM, QP, QauxP, bctype, t)
+    numerical_boundary_flux_nondiffusive!(nf::N, bl::BalanceLaw, F, n⁻, Q⁻,
+                                          Qaux⁻, Q⁺, Qaux⁺, bctype, t)
 
 """
 abstract type NumericalFluxNonDiffusive end
@@ -166,21 +166,21 @@ end
 
 Any `N <: NumericalFluxDiffusive` should define the a method for
 
-    numerical_flux_diffusive!(nf::N, bl::BalanceLaw, F, nM, QM, QdiffM, QauxM, QP,
-                              QdiffP, QauxP, t)
+    numerical_flux_diffusive!(nf::N, bl::BalanceLaw, F, n⁻, Q⁻, Qdiff⁻, Qaux⁻, Q⁺,
+                              Qdiff⁺, Qaux⁺, t)
 
 where
 - `F` is the numerical flux array
-- `nM` is the unit normal
-- `QM`/`QP` are the minus/positive state arrays
-- `QdiffM`/`QdiffP` are the minus/positive diffusive state arrays
-- `QdiffM`/`QdiffP` are the minus/positive auxiliary state arrays
+- `n⁻` is the unit normal
+- `Q⁻`/`Q⁺` are the minus/positive state arrays
+- `Qdiff⁻`/`Qdiff⁺` are the minus/positive diffusive state arrays
+- `Qdiff⁻`/`Qdiff⁺` are the minus/positive auxiliary state arrays
 - `t` is the time
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_diffusive!(nf::N, bl::BalanceLaw, F, nM, QM, QdiffM,
-                                       QauxM, QP, QdiffP, QauxP, bctype, t)
+    numerical_boundary_flux_diffusive!(nf::N, bl::BalanceLaw, F, n⁻, Q⁻, Qdiff⁻,
+                                       Qaux⁻, Q⁺, Qdiff⁺, Qaux⁺, bctype, t)
 
 """
 abstract type NumericalFluxDiffusive end
