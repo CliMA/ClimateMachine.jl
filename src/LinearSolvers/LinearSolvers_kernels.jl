@@ -3,18 +3,13 @@ using Requires
   using .CUDAnative
 end
 
-function linearcombination!(Q, cs, Xs, increment::Bool)
+@kernel function linearcombination!(Q, cs, Xs, increment::Bool)
+  i = @index(Global, Linear)
   if !increment
-    @inbounds @loop for i = (1:length(Q);
-                             (blockIdx().x - 1) * blockDim().x + threadIdx().x)
-      Q[i] = -zero(eltype(Q))
-    end
+    @inbounds Q[i] = -zero(eltype(Q))
   end
   @inbounds for j = 1:length(cs)
-    @loop for i = (1:length(Q);
-                             (blockIdx().x - 1) * blockDim().x + threadIdx().x)
-      Q[i] += cs[j] * Xs[j][i]
-    end
+    Q[i] += cs[j] * Xs[j][i]
   end
 end
 

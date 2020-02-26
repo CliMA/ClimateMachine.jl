@@ -1,8 +1,8 @@
 
-function update!(dQ, Q, Qstage, rka1, rka2, rkb, dt, slow_δ, slow_dQ,
-                 slow_scaling)
-  @inbounds @loop for i = (1:length(Q);
-                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+@kernel function update!(dQ, Q, Qstage, rka1, rka2, rkb, dt, slow_δ, slow_dQ,
+                         slow_scaling)
+  i = @index(Global, Linear)
+  @inbounds begin
     if slow_δ !== nothing
       dQ[i] += slow_δ * slow_dQ[i]
     end

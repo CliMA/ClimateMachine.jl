@@ -1,5 +1,6 @@
 module CLIMA
 
+include(joinpath("Utilities", "Kernels", "Kernels.jl"))
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))
 include(joinpath("Utilities", "ParametersType", "ParametersType.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))

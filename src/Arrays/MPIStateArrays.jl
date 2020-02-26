@@ -4,7 +4,8 @@ using LinearAlgebra
 using DoubleFloats
 using LazyArrays
 using StaticArrays
-using GPUifyLoops
+using KernelAbstractions
+using ..Kernels
 using Requires
 using MPI
 
@@ -344,11 +345,11 @@ function fillsendbuf!(sendbuf, buf, vmapsend)
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    threads = 256
-    blocks = div(length(vmapsend) + threads - 1, threads)
-    @launch(device(buf), threads=threads, blocks=blocks,
-            knl_fillsendbuf!(Val(Np), Val(nvar), sendbuf, buf, vmapsend,
-                             length(vmapsend)))
+    sync_device(device(buf))
+    event = knl_fillsendbuf!(device(buf), 256, length(vmapsend))(
+      Val(Np), Val(nvar), sendbuf, buf, vmapsend,
+      length(vmapsend))
+    wait(event)
   end
 end
 
@@ -357,11 +358,11 @@ function transferrecvbuf!(buf, recvbuf, vmaprecv)
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    threads = 256
-    blocks = div(length(vmaprecv) + threads - 1, threads)
-    @launch(device(buf), threads=threads, blocks=blocks,
-            knl_transferrecvbuf!(Val(Np), Val(nvar), buf, recvbuf,
-                                 vmaprecv, length(vmaprecv)))
+    sync_device(device(buf))
+    event = knl_transferrecvbuf!(device(buf), 256, length(vmaprecv))(
+      Val(Np), Val(nvar), buf, recvbuf,
+      vmaprecv, length(vmaprecv))
+    wait(event)
   end
 end
 

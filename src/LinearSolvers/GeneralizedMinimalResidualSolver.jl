@@ -9,7 +9,8 @@ using ..MPIStateArrays: device, realview
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-using GPUifyLoops
+using KernelAbstractions
+using ..Kernels
 
 """
     GeneralizedMinimalResidual(Q; M, rtol, atol)
@@ -137,10 +138,11 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
   ## compose the solution
   rv_Q = realview(Q)
   rv_krylov_basis = realview.(krylov_basis)
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
-  @launch(device(Q), threads = threads, blocks = blocks,
-          LS.linearcombination!(rv_Q, y, rv_krylov_basis, true))
+  groupsize = 256
+  sync_device(device(Q))
+  event = LS.linearcombination!(device(Q), groupsize)(
+    rv_Q, y, rv_krylov_basis, true; ndrange=length(rv_Q))
+  wait(event)
 
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)

@@ -5,7 +5,8 @@ Ordinary differential equation solvers
 """
 module ODESolvers
 
-using GPUifyLoops
+using KernelAbstractions
+using ..Kernels
 using StaticArrays
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin

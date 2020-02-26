@@ -9,7 +9,8 @@ using ..MPIStateArrays: device, realview
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-using GPUifyLoops
+using KernelAbstractions
+using ..Kernels
 
 """
     GeneralizedConjugateResidual(K, Q; rtol, atol)
@@ -135,17 +136,20 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
     rv_L_p = realview.(L_p)
     rv_L_residual = realview(L_residual)
 
-    threads = 256
-    blocks = div(length(rv_nextp) + threads - 1, threads)
-
+    groupsize = 256
     T = eltype(alpha)
-    @launch(device(Q), threads = threads, blocks = blocks,
-            LS.linearcombination!(rv_nextp, (one(T), alpha[1:k]...),
-                                  (rv_residual, rv_p[1:k]...), false))
 
-    @launch(device(Q), threads = threads, blocks = blocks,
-            LS.linearcombination!(rv_L_nextp, (one(T), alpha[1:k]...),
-                                  (rv_L_residual, rv_L_p[1:k]...), false))
+    sync_device(device(Q))
+    event = LS.linearcombination!(device(Q), groupsize)(
+      rv_nextp, (one(T), alpha[1:k]...),
+      (rv_residual, rv_p[1:k]...), false; ndrange=length(rv_nextp))
+    wait(event)
+
+    sync_device(device(Q))
+    event = LS.linearcombination!(device(Q), groupsize)(
+      rv_L_nextp, (one(T), alpha[1:k]...),
+      (rv_L_residual, rv_L_p[1:k]...), false; ndrange=length(rv_nextp))
+    wait(event)
   end
 
   (false, K, residual_norm)

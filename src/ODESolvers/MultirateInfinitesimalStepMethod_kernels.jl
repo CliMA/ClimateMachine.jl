@@ -1,7 +1,8 @@
+using KernelAbstractions.Extras: @unroll
 
-function update!(Q, offset, ::Val{i}, yn, ΔYnj, fYnj, αi, βi, γi, d_i, dt) where i
-  @inbounds @loop for e = (1:length(Q);
-                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+@kernel function update!(Q, offset, ::Val{i}, yn, ΔYnj, fYnj, αi, βi, γi, d_i, dt) where i
+  e = @index(Global, Linear)
+  @inbounds begin
     if i > 2
       ΔYnj[i-2][e] = Q[e] - yn[e] # is 0 for i == 2
     end
