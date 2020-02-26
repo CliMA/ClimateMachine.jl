@@ -55,15 +55,15 @@ function run(case)
     grid_mean!(tmp, q, :a, (:T, :q_liq, :buoy), grid)
     compute_cloud_base_top_cover!(params[:UpdVar], grid, q, tmp)
 
-    export_unsteady(t, i_Δt, i_export, params, q, tmp, grid, dir_tree)
+    # export_unsteady(t, i_Δt, i_export, params, q, tmp, grid, dir_tree)
   end
   extrap_0th_order!(q, (:θ_liq, :q_tot), grid, gm)
   extrap_0th_order!(tmp, :T, grid, gm)
 
-  export_plots(q, tmp, grid, dir_tree[:solution_raw]*"LastTimeStep", true, params, i_Δt)
-  export_plots(q, tmp, grid, dir_tree[:solution_processed]*"LastTimeStep", false, params, i_Δt)
+  # export_plots(q, tmp, grid, dir_tree[:solution_raw]*"LastTimeStep", true, params, i_Δt)
+  # export_plots(q, tmp, grid, dir_tree[:solution_processed]*"LastTimeStep", false, params, i_Δt)
 
-  export_data(q, tmp, grid, dir_tree, params)
+  # export_data(q, tmp, grid, dir_tree, params)
   return (grid, q, tmp)
 end
 
