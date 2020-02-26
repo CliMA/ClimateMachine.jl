@@ -1,8 +1,3 @@
----
-name: Code smission
-about: Add code or modify existing code in CliMa
----
-
 <!--
 Thanks for submitting code to CliMa, the Climate Machine.
 
@@ -23,7 +18,7 @@ A clear and concise description of the code with usage.
 
 <!--- Please leave the following section --->
 
-## For CliMA Developers
+## For review by CliMA Developers
 
 - [ ] There are no open PR's for this already
 - [ ] The code conforms to the [style guidelines](We should have this) and has consistent naming conventions
