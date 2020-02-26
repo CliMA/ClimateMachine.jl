@@ -5,7 +5,7 @@ labels: bug
 ---
 
 <!--
-Thanks for reporting a bug report to CliMa, the Climate Machine!
+Thanks for reporting a bug report to CLIMA, the Climate Machine!
 
 Please fill in the information below.
 
@@ -49,7 +49,7 @@ Add any other context about the problem here.
 
 <!--- Please leave the following section --->
 
-## For CliMA Developers
+## For CLIMA Developers
 
 - [ ] The bug can be reproduced
 - [ ] Labels have been added and developers assigned

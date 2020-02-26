@@ -1,5 +1,5 @@
 <!--
-Thanks for submitting code to CliMa, the Climate Machine.
+Thanks for submitting code to CLIMA, the Climate Machine.
 
 Before continuing, please be sure you have read the [How to contribute guide for code submission](We should have this) and have:
 
@@ -18,7 +18,7 @@ A clear and concise description of the code with usage.
 
 <!--- Please leave the following section --->
 
-## For review by CliMA Developers
+## For review by CLIMA Developers
 
 - [ ] There are no open PR's for this already
 - [ ] The code conforms to the [style guidelines](We should have this) and has consistent naming conventions

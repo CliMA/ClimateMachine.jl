@@ -1,10 +1,10 @@
 ---
 name: Feature Request
-about: Requesting a new feature to be in CliMa
+about: Requesting a new feature to be in CLIMA
 ---
 
 <!--
-Thanks for requesting a feature for CliMa, the Climate Machine
+Thanks for requesting a feature for CLIMA, the Climate Machine
 
 Please fill in the information below
 
@@ -19,12 +19,12 @@ A clear and concise description of what the desired feature is and how it would 
 
 ## Additional context
 
-Add any other reasons why this feature will help with the goals of CliMA.
+Add any other reasons why this feature will help with the goals of CLIMA.
 
 
 <!--- Please leave the following section --->
 
-## For CliMA Developers
+## For CLIMA Developers
 
 - [ ] This feature can be added (if it cannot be, explain why in a comment below -- lack of technical expertise, not relevant to the scope of this project, too ambitious)
 - [ ] There is a timeline for when this feature can be implemented

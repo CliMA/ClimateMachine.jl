@@ -1,10 +1,10 @@
 ---
 name: General Issue
-about: General Issue in CliMa
+about: General Issue in CLIMA
 ---
 
 <!--
-Thanks for addressing issues in CliMa, the Climate Machine
+Thanks for addressing issues in CLIMA, the Climate Machine
 
 Please fill in the information below
 
@@ -24,7 +24,7 @@ Add any other reasons why this should be addressed.
 
 <!--- Please leave the following section --->
 
-## For CliMA Developers
+## For CLIMA Developers
 
 - [ ] This feature can be added (if it cannot be, explain why in a comment below -- lack of technical expertise, not relevant to the scope of this project, too ambitious)
 - [ ] There is a timeline for when this feature can be implemented
