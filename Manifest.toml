@@ -266,11 +266,6 @@ git-tree-sha1 = "7d4a99e52a0d3e17238b966daf0f504c607693df"
 uuid = "c619ae07-58cd-5f6d-b883-8f17bd6a98f9"
 version = "1.1.0"
 
-[[DiskArrays]]
-git-tree-sha1 = "e35e043fcb8e731eea6236ac6ac81b2a0341947b"
-uuid = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
-version = "0.1.1"
-
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]
 git-tree-sha1 = "23717536c81b63e250f682b0e0933769eecd1411"
@@ -322,12 +317,6 @@ deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticAr
 git-tree-sha1 = "aa78e468afa6a0fde472c3dba0782d1ab60b203d"
 uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
 version = "2.2.1"
-
-[[Formatting]]
-deps = ["Printf"]
-git-tree-sha1 = "a0c901c29c0e7c763342751c0a94211d56c0de5c"
-uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
-version = "0.4.1"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
@@ -535,12 +524,6 @@ version = "0.6.4"
 git-tree-sha1 = "928b8ca9b2791081dc71a51c55347c27c618760f"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.3"
-
-[[NetCDF]]
-deps = ["BinDeps", "CondaBinDeps", "DiskArrays", "Formatting", "Libdl"]
-git-tree-sha1 = "6c4448ce7b78e9b7bbbe15c4b3562b7558e74b43"
-uuid = "30363a11-5582-574a-97bb-aa9a979735b9"
-version = "0.9.0"
 
 [[OpenBLAS_jll]]
 deps = ["Libdl", "Pkg"]

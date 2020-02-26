@@ -2,7 +2,6 @@
 
 # TODO: Migrate to using NetCDF IO
 using NCDatasets
-using NetCDF
 
 function export_initial_conditions(q, tmp, grid, directory, include_ghost)
   gm, en, ud, sd, al = allcombinations(q)
