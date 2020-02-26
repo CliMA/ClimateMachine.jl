@@ -69,8 +69,6 @@ function TurbConv(params, case::Case)
   (:q_tot_cloudy           , DomainSubSet(gm=true)),
   (:θ_cloudy               , DomainSubSet(gm=true)),
   (:CF                     , DomainSubSet(gm=true)),
-  (:dTdt                   , DomainSubSet(gm=true)),
-  (:dqtdt                  , DomainSubSet(gm=true)),
   (:mf_θ_liq               , DomainSubSet(gm=true)),
   (:mf_q_tot               , DomainSubSet(gm=true)),
   (:mf_tend_θ_liq          , DomainSubSet(gm=true)),
@@ -84,22 +82,15 @@ function TurbConv(params, case::Case)
   (:b     , DomainSubSet(gm=true)),
   (:c     , DomainSubSet(gm=true)),
   (:f     , DomainSubSet(gm=true)),
-  (:β     , DomainSubSet(gm=true)),
-  (:γ     , DomainSubSet(gm=true)),
-  (:xtemp , DomainSubSet(gm=true)),
   (:ρaK   , DomainSubSet(gm=true)),
   )
 
   q_2MO_vars = (
-  (:values     , DomainSubSet(gm=true)),
-  (:dissipation, DomainSubSet(gm=true)),
   (:entr_gain  , DomainSubSet(gm=true)),
-  (:detr_loss  , DomainSubSet(gm=true)),
   (:buoy       , DomainSubSet(gm=true)),
   (:press      , DomainSubSet(gm=true)),
   (:shear      , DomainSubSet(gm=true)),
   (:interdomain, DomainSubSet(gm=true)),
-  (:rain_src   , DomainSubSet(gm=true)),
   )
 
   q        = StateVec(unkowns, grid, dd)

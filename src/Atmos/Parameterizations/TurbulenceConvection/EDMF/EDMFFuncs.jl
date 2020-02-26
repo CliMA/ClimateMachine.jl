@@ -43,8 +43,8 @@ function compute_tendencies_en_O2!(grid::Grid{FT}, q_tendencies, tmp_O2, cv) whe
     q_tendencies[cv, k, en] = tmp_O2[cv][:press, k] +
                               tmp_O2[cv][:buoy, k] +
                               tmp_O2[cv][:shear, k] +
-                              tmp_O2[cv][:entr_gain, k] +
-                              tmp_O2[cv][:rain_src, k]
+                              tmp_O2[cv][:entr_gain, k]
+                              # tmp_O2[cv][:rain_src, k]
   end
   q_tendencies[cv, k_1, en] = FT(0)
 end
