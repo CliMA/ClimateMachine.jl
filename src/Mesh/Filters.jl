@@ -1,6 +1,6 @@
 module Filters
 
-using LinearAlgebra, GaussQuadrature, GPUifyLoops
+using LinearAlgebra, GaussQuadrature, KernelAbstractions
 using ..Grids
 using ..Grids: Direction, EveryDirection, HorizontalDirection, VerticalDirection
 
@@ -25,19 +25,19 @@ against coefficients `n=Nc:N` and evaluates the resulting polynomial at the
 points `r`.
 """
 function spectral_filter_matrix(r, Nc, σ)
-  N = length(r)-1
-  T = eltype(r)
+    N = length(r) - 1
+    T = eltype(r)
 
-  @assert N >= 0
-  @assert 0 <= Nc <= N
+    @assert N >= 0
+    @assert 0 <= Nc <= N
 
-  a, b = GaussQuadrature.legendre_coefs(T, N)
-  V = GaussQuadrature.orthonormal_poly(r, a, b)
+    a, b = GaussQuadrature.legendre_coefs(T, N)
+    V = GaussQuadrature.orthonormal_poly(r, a, b)
 
-  Σ = ones(T, N+1)
-  Σ[(Nc:N).+1] .= σ.(((Nc:N).-Nc)./(N-Nc))
+    Σ = ones(T, N + 1)
+    Σ[(Nc:N) .+ 1] .= σ.(((Nc:N) .- Nc) ./ (N - Nc))
 
-  V*Diagonal(Σ)/V
+    V * Diagonal(Σ) / V
 end
 
 """
@@ -52,23 +52,27 @@ polynomial order `Nc`, and `alpha` is a parameter controlling the smallest
 value of the filter function.
 """
 struct ExponentialFilter <: AbstractSpectralFilter
-  "filter matrix"
-  filter
+    "filter matrix"
+    filter
 
-  function ExponentialFilter(grid, Nc=0, s=32,
-                             α=-log(eps(eltype(grid))))
-    AT = arraytype(grid)
-    N = polynomialorder(grid)
-    ξ = referencepoints(grid)
+    function ExponentialFilter(
+        grid,
+        Nc = 0,
+        s = 32,
+        α = -log(eps(eltype(grid))),
+    )
+        AT = arraytype(grid)
+        N = polynomialorder(grid)
+        ξ = referencepoints(grid)
 
-    @assert iseven(s)
-    @assert 0 <= Nc <= N
+        @assert iseven(s)
+        @assert 0 <= Nc <= N
 
-    σ(η) = exp(-α*η^s)
-    filter = spectral_filter_matrix(ξ, Nc, σ)
+        σ(η) = exp(-α * η^s)
+        filter = spectral_filter_matrix(ξ, Nc, σ)
 
-    new(AT(filter))
-  end
+        new(AT(filter))
+    end
 end
 
 """
@@ -78,18 +82,18 @@ Returns the spectral filter that zeros out polynomial modes greater than or
 equal to `Nc`.
 """
 struct CutoffFilter <: AbstractSpectralFilter
-  "filter matrix"
-  filter
+    "filter matrix"
+    filter
 
-  function CutoffFilter(grid, Nc=polynomialorder(grid))
-    AT = arraytype(grid)
-    ξ = referencepoints(grid)
+    function CutoffFilter(grid, Nc = polynomialorder(grid))
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
 
-    σ(η) = 0
-    filter = spectral_filter_matrix(ξ, Nc, σ)
+        σ(η) = 0
+        filter = spectral_filter_matrix(ξ, Nc, σ)
 
-    new(AT(filter))
-  end
+        new(AT(filter))
+    end
 end
 
 """
@@ -125,8 +129,7 @@ Filters.apply!(Q, (3, 4), grid, TMARFilter())
 
 where `grid` is the associated `DiscontinuousSpectralElementGrid`.
 """
-struct TMARFilter <: AbstractFilter
-end
+struct TMARFilter <: AbstractFilter end
 
 """
     apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
@@ -139,28 +142,43 @@ The `direction` argument controls if the filter is applied in the horizontal
 and/or vertical directions. It is assumed that the trailing dimension on the
 reference element is the vertical dimension and the rest are horizontal.
 """
-function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
-                filter::AbstractSpectralFilter,
-                direction::Direction = EveryDirection())
-  topology = grid.topology
+function apply!(
+    Q,
+    states,
+    grid::DiscontinuousSpectralElementGrid,
+    filter::AbstractSpectralFilter,
+    direction::Direction = EveryDirection(),
+)
+    topology = grid.topology
 
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
 
-  nstate = size(Q, 2)
+    nstate = size(Q, 2)
 
-  filtermatrix = filter.filter
-  device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    filtermatrix = filter.filter
+    device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-  nelem = length(topology.elems)
-  Nq = N + 1
-  Nqk = dim == 2 ? 1 : Nq
+    nelem = length(topology.elems)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
 
-  nrealelem = length(topology.realelems)
+    nrealelem = length(topology.realelems)
 
-  @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          knl_apply_filter!(Val(dim), Val(N), Val(nstate), Val(direction),
-                            Q.data, Val(states), filtermatrix, topology.realelems))
+    event = Event(device)
+    event = knl_apply_filter!(device, (Nq, Nq, Nqk))(
+        Val(dim),
+        Val(N),
+        Val(nstate),
+        Val(direction),
+        Q.data,
+        Val(states),
+        filtermatrix,
+        topology.realelems;
+        ndrange = (nrealelem * Nq, Nq, Nqk),
+        dependencies = (event,),
+    )
+    wait(device, event)
 end
 
 """
@@ -170,23 +188,31 @@ Applies the truncation and mass aware rescaling to `states` of `Q`.  This
 rescaling keeps the states nonegative while keeping the element average
 the same.
 """
-function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
-                ::TMARFilter)
-  topology = grid.topology
+function apply!(Q, states, grid::DiscontinuousSpectralElementGrid, ::TMARFilter)
+    topology = grid.topology
 
-  device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-  dim = dimensionality(grid)
-  N = polynomialorder(grid)
-  Nq = N + 1
-  Nqk = dim == 2 ? 1 : Nq
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
 
-  nrealelem = length(topology.realelems)
-  nreduce = 2^ceil(Int, log2(Nq*Nqk))
+    nrealelem = length(topology.realelems)
+    nreduce = 2^ceil(Int, log2(Nq * Nqk))
 
-  @launch(device, threads=(Nq, Nqk, 1), blocks=nrealelem,
-          knl_apply_TMAR_filter!(Val(nreduce), Val(dim), Val(N), Q.data,
-                                 Val(states), grid.vgeo, topology.realelems))
+    event = Event(device)
+    event = knl_apply_TMAR_filter!(device, (Nq, Nqk), (nrealelem * Nq, Nqk))(
+        Val(nreduce),
+        Val(dim),
+        Val(N),
+        Q.data,
+        Val(states),
+        grid.vgeo,
+        topology.realelems;
+        dependencies = (event,),
+    )
+    wait(device, event)
 end
 
 end
