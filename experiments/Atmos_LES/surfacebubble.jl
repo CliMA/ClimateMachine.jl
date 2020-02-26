@@ -65,9 +65,9 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                         bc::SurfaceDrivenBubbleBC,
                                         m::AtmosModel,
                                         F,
-                                        Y⁺::Vars, Σ⁺::Vars, A⁺::Vars,
+                                        Y⁺::Vars, Σ⁺::Vars, HD⁺::Vars, A⁺::Vars,
                                         n⁻,
-                                        Y⁻::Vars, Σ⁻::Vars, A⁻::Vars,
+                                        Y⁻::Vars, Σ⁻::Vars, HD⁻::Vars, A⁻::Vars,
                                         bctype, t, Y₁⁻, Σ₁⁻, A₁⁻)
   # Working precision
   FT = eltype(Y⁻)
@@ -82,9 +82,9 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   # Apply boundary condition per face (1 == bottom wall)
   if bctype != 1
     atmos_boundary_flux_diffusive!(nf, NoFluxBC(), m, F,
-                                   Y⁺, Σ⁺, A⁺,
+                                   Y⁺, Σ⁺, HD⁺, A⁺,
                                    n⁻,
-                                   Y⁻, Σ⁻, A⁻,
+                                   Y⁻, Σ⁻, HD⁻, A⁻,
                                    bctype, t,
                                    Y₁⁻, Σ₁⁻, A₁⁻)
   else

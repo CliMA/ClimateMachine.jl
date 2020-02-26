@@ -255,7 +255,7 @@ function diffusive!(atmos::AtmosModel, diffusive::Vars, ∇transform::Grad, stat
 end
 
 @inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
-                                 diffusive::Vars, aux::Vars, t::Real)
+                                 diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
   ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
   D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
   d_h_tot = -D_t .* diffusive.∇h_tot
@@ -346,14 +346,14 @@ end
 boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                          atmos::AtmosModel,
                          F,
-                         state⁺, diff⁺, aux⁺, n⁻,
-                         state⁻, diff⁻, aux⁻,
+                         state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                         state⁻, diff⁻, hyperdiff⁻, aux⁻,
                          bctype, t,
                          state1⁻, diff1⁻, aux1⁻) =
   atmos_boundary_flux_diffusive!(nf, atmos.boundarycondition, atmos,
                                  F,
-                                 state⁺, diff⁺, aux⁺, n⁻,
-                                 state⁻, diff⁻, aux⁻,
+                                 state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                 state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                  bctype, t,
                                  state1⁻, diff1⁻, aux1⁻)
 
