@@ -8,7 +8,6 @@ using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
-using GPUifyLoops
 using CLIMA.Atmos: AtmosModel, soundspeed, vertical_unit_vector, turbulence_tensors
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state,
                         vars_diffusive

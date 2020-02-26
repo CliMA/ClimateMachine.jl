@@ -108,9 +108,7 @@ function dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
   rv_Q = realview(Q)
   rv_Rstage = realview(Rstage)
   rv_Qstage = realview(Qstage)
-
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
+  groupsize = 256
 
   rv_Qstage .= rv_Q
   for s = 1:length(RKB)
@@ -120,9 +118,10 @@ function dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
     if s == length(RKB)
       slow_scaling = in_slow_scaling
     end
-    @launch(device(Q), threads = threads, blocks = blocks,
-            update!(rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt,
-                    slow_δ, slow_rv_dQ, slow_scaling))
+    event = update!(device(Q), groupsize)(
+      rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt,
+      slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q))
+    wait(event)
   end
   rv_Q .= rv_Qstage
 end

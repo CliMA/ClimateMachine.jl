@@ -10,7 +10,7 @@ using ..LinearSolvers
 const LS = LinearSolvers
 using ..MPIStateArrays
 using LinearAlgebra
-using GPUifyLoops
+using KernelAbstractions
 
 include("ColumnwiseLUSolver_kernels.jl")
 
@@ -86,23 +86,24 @@ function band_lu!(A, dg::DGModel)
   nvertelem = topology.stacksize
   nhorzelem = div(nrealelem, nvertelem)
 
-  threads = (Nq, Nqj)
-  blocks = nhorzelem
+  groupsize = (Nq, Nqj)
+  ndrange = (groupsize..., nhorzelem)
 
   if ndims(A) == 2
     # single column case
     #
     # TODO Would it be faster to copy the matrix to the host and factorize it
     # there?
-    threads = (1, 1)
-    blocks = 1
+    groupsize = (1, 1)
+    ndrange = (groupsize..., 1)
     A = reshape(A, 1, 1, size(A)..., 1)
   end
 
-  @launch(device, threads=threads, blocks=blocks,
-          band_lu_knl!(A, Val(Nq), Val(threads[1]), Val(threads[2]),
-                       Val(nstate), Val(nvertelem), Val(blocks),
-                       Val(eband)))
+  event = band_lu_knl!(device, groupsize, ndrange)(
+    A, Val(Nq), Val(groupsize[1]), Val(groupsize[2]),
+    Val(nstate), Val(nvertelem), Val(ndrange[end]),
+    Val(eband))
+  wait(event)
 end
 
 function band_forward!(Q, A, dg::DGModel)
@@ -126,9 +127,10 @@ function band_forward!(Q, A, dg::DGModel)
   nvertelem = topology.stacksize
   nhorzelem = div(nrealelem, nvertelem)
 
-  @launch(device, threads=(Nq, Nqj), blocks=nhorzelem,
-          band_forward_knl!(Q.data, A, Val(Nq), Val(Nqj), Val(nstate),
-                            Val(nvertelem), Val(nhorzelem), Val(eband)))
+  event = band_forward_knl!(device, (Nq, Nqj), (Nq, Nqj, nhorzelem))(
+    Q.data, A, Val(Nq), Val(Nqj), Val(nstate),
+    Val(nvertelem), Val(nhorzelem), Val(eband))
+  wait(event)
 end
 
 function band_back!(Q, A, dg::DGModel)
@@ -152,9 +154,10 @@ function band_back!(Q, A, dg::DGModel)
   nvertelem = topology.stacksize
   nhorzelem = div(nrealelem, nvertelem)
 
-  @launch(device, threads=(Nq, Nqj), blocks=nhorzelem,
-          band_back_knl!(Q.data, A, Val(Nq), Val(Nqj), Val(nstate),
-                         Val(nvertelem), Val(nhorzelem), Val(eband)))
+  event = band_back_knl!(device, (Nq, Nqj), (Nq, Nqj, nhorzelem))(
+    Q.data, A, Val(Nq), Val(Nqj), Val(nstate),
+    Val(nvertelem), Val(nhorzelem), Val(eband))
+  wait(event)
 end
 
 
@@ -272,21 +275,24 @@ function banded_matrix(f!, dg::DGModel,
     for s = 1:nstate
       for k = 1:Nq
         # Set a single 1 per column and rest 0
-        @launch(device, threads=(Nq, Nqj, Nq), blocks=(nvertelem, nhorzelem),
-                knl_set_banded_data!(bl, Val(dim), Val(N), Val(nvertelem),
-                                     Q.data, k, s, ev, 1:nhorzelem,
-                                     1:nvertelem))
+        event = knl_set_banded_data!(device, (Nq, Nqj, Nq), (Nq, Nqj, Nq, nvertelem, nhorzelem))(
+          bl, Val(dim), Val(N), Val(nvertelem),
+          Q.data, k, s, ev, 1:nhorzelem,
+          1:nvertelem)
+        wait(event)
 
         # Get the matrix column
         f!(dQ, Q, args...)
 
         # Store the banded matrix
-        @launch(device, threads=(Nq, Nqj, Nq),
-                blocks=(2 * eband + 1, nhorzelem),
-                knl_set_banded_matrix!(bl, Val(dim), Val(N), Val(nvertelem),
-                                       Val(p), Val(q), Val(eband+1),
-                                       A, dQ.data, k, s, ev, 1:nhorzelem,
-                                       -eband:eband))
+        event = knl_set_banded_matrix!(device,
+                                       (Nq, Nqj, Nq),
+                                       (Nq, Nqj, Nq, 2 * eband + 1, nhorzelem))(
+          bl, Val(dim), Val(N), Val(nvertelem),
+          Val(p), Val(q), Val(eband+1),
+          A, dQ.data, k, s, ev, 1:nhorzelem,
+          -eband:eband)
+        wait(event)
       end
     end
   end
@@ -328,12 +334,14 @@ function banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
 
   Nqj = dim == 2 ? 1 : Nq
 
-  @launch(device, threads=(Nq, Nqj, Nq),
-          blocks=(nvertelem, nhorzelem),
-          knl_banded_matrix_vector_product!(bl, Val(dim), Val(N),
-                                            Val(nvertelem), Val(p), Val(q),
-                                            dQ.data, A, Q.data, 1:nhorzelem,
-                                            1:nvertelem))
+  event = knl_banded_matrix_vector_product!(device,
+                                            (Nq, Nqj, Nq),
+                                            (Nq, Nqj, Nq, nvertelem, nhorzelem))(
+    bl, Val(dim), Val(N),
+    Val(nvertelem), Val(p), Val(q),
+    dQ.data, A, Q.data, 1:nhorzelem,
+    1:nvertelem)
+  wait(event)
 end
 
 end

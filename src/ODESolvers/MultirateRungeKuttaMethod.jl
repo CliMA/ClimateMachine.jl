@@ -103,8 +103,7 @@ function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, time::Real,
 
   slow_rv_dQ = realview(slow.dQ)
 
-  threads = 256
-  blocks = div(length(realview(Q)) + threads - 1, threads)
+  groupsize = 256
 
   for slow_s = 1:length(slow.RKA)
     # Currnent slow state time
@@ -119,8 +118,10 @@ function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, time::Real,
         slow_scaling = in_slow_scaling
       end
       # update solution and scale RHS
-      @launch(device(Q), threads=threads, blocks=blocks,
-              update!(slow_rv_dQ, in_slow_rv_dQ, in_slow_δ, slow_scaling))
+      event = update!(device(Q), groupsize)(
+        slow_rv_dQ, in_slow_rv_dQ, in_slow_δ, slow_scaling;
+        ndrange=length(realview(Q)))
+      wait(event)
     end
 
     # Fractional time for slow stage

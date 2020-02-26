@@ -1,11 +1,12 @@
+using KernelAbstractions.Extras: @unroll
 
-function stage_update!(::NaiveVariant,
-                       Q, Qstages, Lstages, Rstages, Qhat,
-                       RKA_explicit, RKA_implicit, dt,
-                       ::Val{is}, ::Val{split_nonlinear_linear},
-                       slow_δ, slow_dQ) where {is, split_nonlinear_linear}
-  @inbounds @loop for i = (1:length(Q);
-                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+@kernel function stage_update!(::NaiveVariant,
+                               Q, Qstages, Lstages, Rstages, Qhat,
+                               RKA_explicit, RKA_implicit, dt,
+                               ::Val{is}, ::Val{split_nonlinear_linear},
+                               slow_δ, slow_dQ) where {is, split_nonlinear_linear}
+  i = @index(Global, Linear)
+  @inbounds begin
     Qhat_i = Q[i]
     Qstages_is_i = Q[i]
 
@@ -30,12 +31,12 @@ function stage_update!(::NaiveVariant,
   end
 end
 
-function stage_update!(::LowStorageVariant,
-                       Q, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implicit, dt,
-                       ::Val{is}, ::Val{split_nonlinear_linear}, slow_δ,
-                       slow_dQ) where {is, split_nonlinear_linear}
-  @inbounds @loop for i = (1:length(Q);
-                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+@kernel function stage_update!(::LowStorageVariant,
+                               Q, Qstages, Rstages, Qhat, Qtt, RKA_explicit, RKA_implicit, dt,
+                               ::Val{is}, ::Val{split_nonlinear_linear}, slow_δ,
+                               slow_dQ) where {is, split_nonlinear_linear}
+  i = @index(Global, Linear)
+  @inbounds begin
     Qhat_i = Q[i]
     Qstages_is_i = -zero(eltype(Q))
 
@@ -59,12 +60,12 @@ function stage_update!(::LowStorageVariant,
   end
 end
 
-function solution_update!(::NaiveVariant,
-                          Q, Lstages, Rstages, RKB, dt,
-                          ::Val{Nstages}, ::Val{split_nonlinear_linear},
-                          slow_δ, slow_dQ, slow_scaling) where {Nstages, split_nonlinear_linear}
-  @inbounds @loop for i = (1:length(Q);
-                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+@kernel function solution_update!(::NaiveVariant,
+                                  Q, Lstages, Rstages, RKB, dt,
+                                  ::Val{Nstages}, ::Val{split_nonlinear_linear},
+                                  slow_δ, slow_dQ, slow_scaling) where {Nstages, split_nonlinear_linear}
+  i = @index(Global, Linear)
+  @inbounds begin
     if slow_δ !== nothing
       Rstages[Nstages][i] += slow_δ * slow_dQ[i]
     end
@@ -81,11 +82,11 @@ function solution_update!(::NaiveVariant,
   end
 end
 
-function solution_update!(::LowStorageVariant,
-                          Q, Rstages, RKB, dt, ::Val{Nstages}, slow_δ,
-                          slow_dQ, slow_scaling) where Nstages
-  @inbounds @loop for i = (1:length(Q);
-                           (blockIdx().x - 1) * blockDim().x + threadIdx().x)
+@kernel function solution_update!(::LowStorageVariant,
+                                  Q, Rstages, RKB, dt, ::Val{Nstages}, slow_δ,
+                                  slow_dQ, slow_scaling) where Nstages
+  i = @index(Global, Linear)
+  @inbounds begin
     if slow_δ !== nothing
       Rstages[Nstages][i] += slow_δ * slow_dQ[i]
     end

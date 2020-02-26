@@ -11,7 +11,7 @@ using LinearAlgebra
 using StaticArrays
 #-------------------
 using CUDAnative
-using GPUifyLoops
+using KernelAbstractions: CPU, CUDA
 
 export InterpolationBrick, write_interpolated_data,
        InterpolationCubedSphere, interpolate_local!,

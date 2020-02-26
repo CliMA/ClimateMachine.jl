@@ -5,8 +5,8 @@ export NumericalFluxNonDiffusive, NumericalFluxDiffusive, NumericalFluxGradient,
        CentralNumericalFluxNonDiffusive
 
 using StaticArrays, LinearAlgebra
-using GPUifyLoops: @unroll
 using CLIMA.VariableTemplates
+using KernelAbstractions.Extras: @unroll
 import ..DGmethods: BalanceLaw, Grad, Vars, vars_state, vars_diffusive,
                     vars_aux, vars_gradient, boundary_state!, wavespeed,
                     flux_nondiffusive!, flux_diffusive!, diffusive!, num_state,

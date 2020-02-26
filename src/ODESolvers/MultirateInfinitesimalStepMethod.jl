@@ -153,11 +153,12 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p,
   for i = 2:nstages
     slowrhs!(fYnj[i-1], Q, p, time + c[i-1]*dt, increment=false)
 
-    threads = 256
-    blocks = div(length(realview(Q)) + threads - 1, threads)
-    @launch(device(Q), threads=threads, blocks=blocks,
-            update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]),
-            α[i,:], β[i,:], γ[i,:], d[i], dt))
+    groupsize = 256
+    event = update!(device(Q), groupsize)(
+      realview(Q), realview(offset), Val(i), realview(yn),
+      map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]),
+      α[i,:], β[i,:], γ[i,:], d[i], dt; ndrange=length(realview(Q)))
+    wait(event)
 
     fastrhs!.a = time + c̃[i]*dt
     fastrhs!.b = (c[i] - c̃[i]) / d[i]

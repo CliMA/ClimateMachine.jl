@@ -4,7 +4,7 @@ using ..MPIStateArrays
 
 using StaticArrays, LinearAlgebra
 
-using GPUifyLoops
+using KernelAbstractions
 include("LinearSolvers_kernels.jl")
 
 # just for testing LinearSolvers

@@ -119,8 +119,9 @@ function create_auxstate(bl, grid, commtag=222)
   vgeo = grid.vgeo
   device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
   nrealelem = length(topology.realelems)
-  @launch(device, threads=(Np,), blocks=nrealelem,
-          initauxstate!(bl, Val(dim), Val(polyorder), auxstate.data, vgeo, topology.realelems))
+  event = initauxstate!(device, (Np,), (Np * nrealelem,))(
+    bl, Val(dim), Val(polyorder), auxstate.data, vgeo, topology.realelems)
+  wait(event)
   MPIStateArrays.start_ghost_exchange!(auxstate)
   MPIStateArrays.finish_ghost_exchange!(auxstate)
 

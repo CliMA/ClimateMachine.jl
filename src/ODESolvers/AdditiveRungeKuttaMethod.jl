@@ -229,8 +229,7 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
   Nstages = length(RKB)
 
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
+  groupsize = 256
 
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
@@ -248,10 +247,11 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
     # this kernel also initializes Qstages[istage] with an initial guess
     # for the linear solver
-    @launch(device(Q), threads = threads, blocks = blocks,
-            stage_update!(variant, rv_Q, rv_Qstages, rv_Lstages, rv_Rstages, rv_Qhat,
-                          RKA_explicit, RKA_implicit, dt, Val(istage),
-                          Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
+    event = stage_update!(device(Q), groupsize)(
+      variant, rv_Q, rv_Qstages, rv_Lstages, rv_Rstages, rv_Qhat,
+      RKA_explicit, RKA_implicit, dt, Val(istage),
+      Val(split_nonlinear_linear), slow_δ, slow_rv_dQ; ndrange=length(rv_Q))
+    wait(event)
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     α = dt * RKA_implicit[istage, istage]
@@ -266,10 +266,11 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
   end
 
   # compose the final solution
-  @launch(device(Q), threads = threads, blocks = blocks,
-          solution_update!(variant, rv_Q, rv_Lstages, rv_Rstages, RKB, dt,
-                           Val(Nstages), Val(split_nonlinear_linear),
-                           slow_δ, slow_rv_dQ, slow_scaling))
+    event = solution_update!(device(Q), groupsize)(
+      variant, rv_Q, rv_Lstages, rv_Rstages, RKB, dt,
+      Val(Nstages), Val(split_nonlinear_linear),
+      slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q))
+    wait(event)
 end
 
 function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
@@ -293,8 +294,7 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
 
   Nstages = length(RKB)
 
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
+  groupsize = 256
 
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
@@ -309,10 +309,11 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
     stagetime = time + RKC[istage] * dt
 
     # this kernel also initializes Qtt for the linear solver
-    @launch(device(Q), threads = threads, blocks = blocks,
-            stage_update!(variant, rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
-                          RKA_explicit, RKA_implicit, dt, Val(istage),
-                          Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
+    event = stage_update!(device(Q), groupsize)(
+      variant, rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
+      RKA_explicit, RKA_implicit, dt, Val(istage),
+      Val(split_nonlinear_linear), slow_δ, slow_rv_dQ; ndrange=length(rv_Q))
+    wait(event)
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
     linearsolve!(implicitoperator!, linearsolver, Qtt, Qhat, p, stagetime)
@@ -331,9 +332,10 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
   end
 
   # compose the final solution
-  @launch(device(Q), threads = threads, blocks = blocks,
-          solution_update!(variant, rv_Q, rv_Rstages, RKB, dt, Val(Nstages),
-                           slow_δ, slow_rv_dQ, slow_scaling))
+  event = solution_update!(device(Q), groupsize)(
+    variant, rv_Q, rv_Rstages, RKB, dt, Val(Nstages),
+    slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q))
+  wait(event)
 end
 
 """

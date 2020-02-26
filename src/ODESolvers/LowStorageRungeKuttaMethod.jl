@@ -111,8 +111,7 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
   rv_Q = realview(Q)
   rv_dQ = realview(dQ)
 
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
+  groupsize = 256
 
   for s = 1:length(RKA)
     rhs!(dQ, Q, p, time + RKC[s] * dt, increment = true)
@@ -122,9 +121,10 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
       slow_scaling = in_slow_scaling
     end
     # update solution and scale RHS
-    @launch(device(Q), threads=threads, blocks=blocks,
-            update!(rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt,
-                    slow_δ, slow_rv_dQ, slow_scaling))
+    event = update!(device(Q), groupsize)(
+      rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt,
+      slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q))
+    wait(event)
   end
 end
 

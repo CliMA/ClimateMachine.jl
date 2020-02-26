@@ -2,7 +2,7 @@ using MPI
 using Test
 using LinearAlgebra
 using Random
-using GPUifyLoops, StaticArrays
+using KernelAbstractions, StaticArrays
 
 using CLIMA
 using CLIMA.LinearSolvers
@@ -48,13 +48,15 @@ let
   bp = reshape(PermutedDimsArray(b, perm), n, Nq, Nq, nhorzelem)
   xp = reshape(PermutedDimsArray(x, perm), n, Nq, Nq, nhorzelem)
 
-  threads = (Nq, Nq)
-  blocks = nhorzelem
   d_F = ArrayType(AB)
+
+  groupsize = (Nq, Nq)
+  ndrange = (Nq, Nq, nhorzelem)
   
-  @launch(device, threads=threads, blocks=blocks,
-          band_lu_knl!(d_F, Val(Nq), Val(Nq), Val(Nq), Val(nstate), Val(nvertelem),
-                       Val(nhorzelem), Val(eband)))
+  event = band_lu_knl!(device, groupsize, ndrange)(
+    d_F, Val(Nq), Val(Nq), Val(Nq), Val(nstate), Val(nvertelem),
+    Val(nhorzelem), Val(eband))
+  wait(event)
 
   F = Array(d_F)
 
@@ -75,12 +77,15 @@ let
 
   d_x = ArrayType(b)
 
-  @launch(device, threads=threads, blocks=blocks,
-          band_forward_knl!(d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
-                            Val(nvertelem), Val(nhorzelem), Val(eband)))
-  @launch(device, threads=threads, blocks=blocks,
-          band_back_knl!(d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
-                         Val(nvertelem), Val(nhorzelem), Val(eband)))
+  event = band_forward_knl!(device, groupsize, ndrange)(
+    d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
+    Val(nvertelem), Val(nhorzelem), Val(eband))
+  wait(event)
+
+  event = band_back_knl!(device, groupsize, ndrange)(
+    d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
+    Val(nvertelem), Val(nhorzelem), Val(eband))
+  wait(event)
 
   @test x ≈ Array(d_x)
 end
