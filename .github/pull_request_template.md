@@ -1,5 +1,5 @@
 ---
-name: Code smission
+name: Code submission
 about: Add code or modify existing code in CliMa
 ---
 
