@@ -77,7 +77,7 @@ let
                                   range(FT(0); length=Neh+1, stop=1),
                                   range(FT(1); length=Nev+1, stop=2))
                 end
-
+                μ = FT(2)
                 topl = StackedBrickTopology(mpicomm, brickrange)
 
 
@@ -89,7 +89,7 @@ let
 
                 model = AtmosModel{FT}(AtmosLESConfiguration;
                                        ref_state=NoReferenceState(),
-                                       turbulence=ConstantViscosityWithDivergence(FT(2)),
+                                       turbulence=ConstantViscosityWithDivergence(μ),
                                        moisture=DryModel(),
                                        source=Gravity(),
                                        boundarycondition=PeriodicBC(),
@@ -98,7 +98,7 @@ let
                 dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
                              CentralNumericalFluxGradient())
 
-                Δt = FT(1e-11)#FT(1//2)
+                Δt = FT(1//200)
 
                 Q = init_ode_state(dg, FT(0))
 
@@ -107,24 +107,21 @@ let
                 Δx_h = min_node_distance(grid, HorizontalDirection())
 
                 T∞ = FT(300)
-                translation_speed = FT(212.13203435596427)
-                diff_speed_h = 734.8469228349534
-                diff_speed_v = 0
-                c   = Δt*(translation_speed + soundspeed_air(T∞))/Δx
-                c_h = Δt*(translation_speed + soundspeed_air(T∞))/Δx_h
-                c_v = Δt*(soundspeed_air(T∞))/Δx_v
-                d_h = Δt*diff_speed_h/Δx_h^2
-                d_v = Δt*diff_speed_v/Δx_v^2
+                translation_speed = FT( norm( [150.0, 150.0, 0.0] ) )
+                diff_speed_h = FT(μ/ Q.data[1,1,1])
+                diff_speed_v = FT(μ/ Q.data[1,1,1] )
+                c_h = FT(Δt*(translation_speed + soundspeed_air(T∞))/Δx_h)
+                c_v = FT(Δt*(soundspeed_air(T∞))/Δx_v)
+                d_h = FT(Δt*diff_speed_h/Δx_h^2)
+                d_v = FT(Δt*diff_speed_v/Δx_v^2)
 
                 # tests for non diffusive courant number
-                @test courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) ≈ c_h
-                @test courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection())   ≈ c_v
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) ≈ c_h rtol=1e-4
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection())   ≈ c_v rtol=1e-4
 
-                solver = LSRK54CarpenterKennedy(dg, Q; dt = Δt, t0 = 0)
-                solve!(Q, solver; timeend=Δt)                
-
-                @test courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) ≈ d_h rtol=1e-4
-                @test courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection())   ≈ d_v rtol=1e-4
+                # tests for diffusive courant number
+                @test courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) ≈ d_h
+                @test courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection())   ≈ d_v
             end
         end
     end
