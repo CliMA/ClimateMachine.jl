@@ -20,10 +20,10 @@ Subtypes `L` should define the following methods:
 - `gradvariables!(::L, transformstate::State, state::State, auxstate::State, t::Real)`
 - `diffusive!(::L, diffstate::State, ∇transform::Grad, auxstate::State, t::Real)`
 - `source!(::L, source::State, state::State, diffusive::Vars, auxstate::State, t::Real)`
-- `wavespeed(::L, nM, state::State, aux::State, t::Real)`
-- `boundary_state!(::NumericalFluxGradient, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
-- `boundary_state!(::NumericalFluxNonDiffusive, ::L, stateP::State, auxP::State, normalM, stateM::State, auxM::State, bctype, t)`
-- `boundary_state!(::NumericalFluxDiffusive, ::L, stateP::State, diffP::State, auxP::State, normalM, stateM::State, diffM::State, auxM::State, bctype, t)`
+- `wavespeed(::L, n⁻, state::State, aux::State, t::Real)`
+- `boundary_state!(::NumericalFluxGradient, ::L, state⁺::State, aux⁺::State, normal⁻, state⁻::State, aux⁻::State, bctype, t)`
+- `boundary_state!(::NumericalFluxNonDiffusive, ::L, state⁺::State, aux⁺::State, normal⁻, state⁻::State, aux⁻::State, bctype, t)`
+- `boundary_state!(::NumericalFluxDiffusive, ::L, state⁺::State, diff⁺::State, aux⁺::State, normal⁻, state⁻::State, diff⁻::State, aux⁻::State, bctype, t)`
 - `init_aux!(::L, aux::State, coords, args...)`
 - `init_state!(::L, state::State, aux::State, coords, args...)`
 

@@ -98,10 +98,10 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
   elemtobndy::DAI2
 
   "volume DOF to element minus side map"
-  vmapM::DAI3
+  vmap⁻::DAI3
 
   "volume DOF to element plus side map"
-  vmapP::DAI3
+  vmap⁺::DAI3
 
   "list of DOFs that need to be received (in neighbors order)"
   vmaprecv::DAI1
@@ -136,7 +136,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
     Imat = indefinite_integral_interpolation_matrix(ξ, ω)
     D = Elements.spectralderivative(ξ)
 
-    (vmapM, vmapP) = mappings(N, topology.elemtoelem, topology.elemtoface,
+    (vmap⁻, vmap⁺) = mappings(N, topology.elemtoelem, topology.elemtoface,
                               topology.elemtoordr)
 
     (vmaprecv, nabrtovmaprecv) =
@@ -144,7 +144,7 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
     (vmapsend, nabrtovmapsend) =
       BrickMesh.commmapping(N, topology.sendelems, topology.sendfaces, topology.nabrtosend)
 
-    (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmapM)
+    (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
     Np = (N+1)^dim
     @assert Np == size(vgeo, 1)
 
@@ -152,8 +152,8 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      vgeo = DeviceArray(vgeo)
      sgeo = DeviceArray(sgeo)
      elemtobndy = DeviceArray(topology.elemtobndy)
-     vmapM = DeviceArray(vmapM)
-     vmapP = DeviceArray(vmapP)
+     vmap⁻ = DeviceArray(vmap⁻)
+     vmap⁺ = DeviceArray(vmap⁺)
      vmapsend = DeviceArray(vmapsend)
      vmaprecv = DeviceArray(vmaprecv)
      ω = DeviceArray(ω)
@@ -167,11 +167,11 @@ struct DiscontinuousSpectralElementGrid{T, dim, N, Np, DA,
      DAT4 = typeof(sgeo)
      DAI1 = typeof(vmapsend)
      DAI2 = typeof(elemtobndy)
-     DAI3 = typeof(vmapM)
+     DAI3 = typeof(vmap⁻)
      TOP = typeof(topology)
 
     new{FloatType, dim, N, Np, DeviceArray, DAT1, DAT2, DAT3, DAT4, DAI1, DAI2,
-        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmapM, vmapP, vmaprecv, vmapsend,
+        DAI3, TOP}(topology, vgeo, sgeo, elemtobndy, vmap⁻, vmap⁺, vmaprecv, vmapsend,
                    nabrtovmaprecv, nabrtovmapsend, ω, D, Imat)
   end
 end
@@ -241,12 +241,12 @@ This function takes in a polynomial order `N` and parts of a topology (as
 returned from `connectmesh`) and returns index mappings for the element surface
 flux computation.  The returned `Tuple` contains:
 
- - `vmapM` an array of linear indices into the volume degrees of freedom where
-   `vmapM[:,f,e]` are the degrees of freedom indices for face `f` of element
+ - `vmap⁻` an array of linear indices into the volume degrees of freedom where
+   `vmap⁻[:,f,e]` are the degrees of freedom indices for face `f` of element
     `e`.
 
- - `vmapP` an array of linear indices into the volume degrees of freedom where
-   `vmapP[:,f,e]` are the degrees of freedom indices for the face neighboring
+ - `vmap⁺` an array of linear indices into the volume degrees of freedom where
+   `vmap⁺[:,f,e]` are the degrees of freedom indices for the face neighboring
    face `f` of element `e`.
 """
 function mappings(N, elemtoelem, elemtoface, elemtoordr)
@@ -262,22 +262,22 @@ function mappings(N, elemtoelem, elemtoface, elemtoordr)
                 for f=1:nface)...)
   inds = LinearIndices(ntuple(j->N+1, d-1))
 
-  vmapM = similar(elemtoelem, Nfp, nface, nelem)
-  vmapP = similar(elemtoelem, Nfp, nface, nelem)
+  vmap⁻ = similar(elemtoelem, Nfp, nface, nelem)
+  vmap⁺ = similar(elemtoelem, Nfp, nface, nelem)
 
   for e1 = 1:nelem, f1 = 1:nface
     e2 = elemtoelem[f1,e1]
     f2 = elemtoface[f1,e1]
     o2 = elemtoordr[f1,e1]
 
-    vmapM[:,f1,e1] .= Np*(e1-1) .+ fmask[:,f1]
+    vmap⁻[:,f1,e1] .= Np*(e1-1) .+ fmask[:,f1]
 
     if o2 == 1
-      vmapP[:,f1,e1] .= Np*(e2-1) .+ fmask[:,f2]
+      vmap⁺[:,f1,e1] .= Np*(e2-1) .+ fmask[:,f2]
     elseif d == 3 && o2 == 3
       n = 1
       @inbounds for j = 1:N+1, i = N+1:-1:1
-        vmapP[n,f1,e1] = Np*(e2-1) + fmask[inds[i,j],f2]
+        vmap⁺[n,f1,e1] = Np*(e2-1) + fmask[inds[i,j],f2]
         n+=1
       end
     else
@@ -285,13 +285,13 @@ function mappings(N, elemtoelem, elemtoface, elemtoordr)
     end
   end
 
-  (vmapM, vmapP)
+  (vmap⁻, vmap⁺)
 end
 # }}}
 
 # {{{ compute geometry
 function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
-                         vmapM) where {dim}
+                         vmap⁻) where {dim}
   # Compute metric terms
   Nq = size(D, 1)
   FT = eltype(D)
@@ -329,7 +329,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   M = kron(1, ntuple(j->ω, dim)...)
   MJ .= M .* J
   MJI .= 1 ./ MJ
-  vMJI .= MJI[vmapM]
+  vMJI .= MJI[vmap⁻]
   
   MH = kron(ones(FT, Nq), ntuple(j->ω, dim-1)...)
 

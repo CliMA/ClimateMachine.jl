@@ -206,7 +206,7 @@ where
    `grid.elemtobndy`
 - `t` is the current simulation time
 Note: `QP` and `auxP` are filled with values based on degrees of freedom
-referenced in `grid.vmapP`; `QP` and `auxP` may be modified by the calling
+referenced in `grid.vmap⁺`; `QP` and `auxP` may be modified by the calling
 function.
 
 Warning: Modifications to `nM`, `QM`, or `auxM` may cause side effects and
@@ -565,8 +565,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   Dmat = grid.D
   vgeo = grid.vgeo
   sgeo = grid.sgeo
-  vmapM = grid.vmapM
-  vmapP = grid.vmapP
+  vmap⁻ = grid.vmap⁻
+  vmap⁺ = grid.vmap⁺
   elemtobndy = grid.elemtobndy
 
   ################################
@@ -596,7 +596,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
                            disc.viscous_penalty!,
                            disc.viscous_boundary_penalty!,
                            disc.gradient_transform!, Q.data, Qvisc.data, auxstate.data,
-                           vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                           vgeo, sgeo, t, vmap⁻, vmap⁺, elemtobndy,
                            topology.realelems))
 
     MPIStateArrays.start_ghost_exchange!(Qvisc)
@@ -623,7 +623,7 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
           facerhs!(Val(dim), Val(N), Val(nstate), Val(nviscstate),
                    Val(nauxstate), disc.numerical_flux!,
                    disc.numerical_boundary_flux!, dQ.data, Q.data, Qvisc.data,
-                   auxstate.data, vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+                   auxstate.data, vgeo, sgeo, t, vmap⁻, vmap⁺, elemtobndy,
                    topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
