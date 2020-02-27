@@ -6,9 +6,12 @@ for submodule in [
                   "StateVecs",
                   "TDMA",
                   "PDEs",
-                  "BOMEX",
+                  # "BOMEX",
                   ]
 
   println("Testing $submodule")
   include(joinpath(submodule*".jl"))
 end
+
+cmd = `julia --project $(joinpath(dirname(Base.active_project()), "test", "Atmos", "Parameterizations", "TurbulenceConvection", "BOMEX.jl"))`
+run(cmd)
