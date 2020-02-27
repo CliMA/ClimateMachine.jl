@@ -11,20 +11,19 @@ Please fill in the information below
 If you would like to contact us, we are also available on Slack
 -->
 
-# Feature Request
 
-## Description
+# Description
 
 A clear and concise description of what the desired feature is and how it would help, including any relevant screenshots / schematics.
 
-## Additional context
+# Additional context
 
 Add any other reasons why this feature will help with the goals of CLIMA.
 
 
 <!--- Please leave the following section --->
 
-## For CLIMA Developers
+# For CLIMA Developers
 
 - [ ] This feature can be added (if it cannot be, explain why in a comment below -- lack of technical expertise, not relevant to the scope of this project, too ambitious)
 - [ ] There is a timeline for when this feature can be implemented

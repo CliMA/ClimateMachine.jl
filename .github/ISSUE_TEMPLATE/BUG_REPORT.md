@@ -12,22 +12,16 @@ Please fill in the information below.
 If you would like to contact us, we are also available on Slack (What is the best contact method)?
 -->
 
-# Bug Report
 
-## Description
+# Description
 
 A clear and concise description of what the bug is.
 
-### Steps to Reproduce
+## Steps to Reproduce
 
-Steps to reproduce the behavior:
+Steps to reproduce the behavior
 
-1. Go to '...'
-2. Click on '...'
-3. Scroll down to '...'
-4. See error
-
-### Expected behavior
+## Expected behavior
 
 A clear and concise description of what you expected to happen.
 
@@ -49,7 +43,7 @@ Add any other context about the problem here.
 
 <!--- Please leave the following section --->
 
-## For CLIMA Developers
+# For CLIMA Developers
 
 - [ ] The bug can be reproduced
 - [ ] Labels have been added and developers assigned
