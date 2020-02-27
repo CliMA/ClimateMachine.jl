@@ -6,6 +6,12 @@ using the Eddy-Diffusivity-Mass-Flux (EDMF) model.
 """
 module TurbulenceConvection
 
+module haspkg
+using Pkg
+plots() = haskey(Pkg.installed(), "Plots")
+end
+
+
 include("Grids/FiniteDifferenceGrids.jl")
 include("StateVecs/StateVecs.jl")
 include("LinearSolvers/TriDiagSolvers.jl")

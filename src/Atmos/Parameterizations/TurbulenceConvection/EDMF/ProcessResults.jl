@@ -1,19 +1,10 @@
 #### ProcessResults
 
 # TODO: Migrate to using NetCDF IO
-using NCDatasets
-
-function export_initial_conditions(q, tmp, grid, directory, include_ghost)
-  gm, en, ud, sd, al = allcombinations(q)
-  @static if haspkg("Plots")
-    N = grid.n_elem
-    @inbounds for i in al
-      plot_state(q  , grid, directory, :q_tot     , i=i, include_ghost=include_ghost, i_Δt=N)
-      plot_state(q  , grid, directory, :θ_liq     , i=i, include_ghost=include_ghost, i_Δt=N)
-      plot_state(tmp, grid, directory, :T         , i=i, include_ghost=include_ghost, i_Δt=N)
-    end
-  end
+if haspkg.plots()
+using Plots
 end
+using NCDatasets
 
 function export_data(q, tmp, grid, dir_tree, params)
   if params[:export_data]
@@ -23,9 +14,8 @@ function export_data(q, tmp, grid, dir_tree, params)
 end
 
 function export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt)
-  gm, en, ud, sd, al = allcombinations(q)
-  @static if haspkg("Plots")
-
+  if haspkg.plots()
+    gm, en, ud, sd, al = allcombinations(q)
     dsf = joinpath(directory,"SingleFields")
     dcf = joinpath(directory,"CombinedFields")
     ds = joinpath(directory,"Sources")
@@ -48,6 +38,18 @@ function export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt)
     @inbounds for v in tv
       plot_state(tmp, grid, dcf, v, i_Δt=i_Δt)
     end
-
   end
 end
+
+function export_initial_conditions(q, tmp, grid, directory, include_ghost)
+  if haspkg.plots()
+    gm, en, ud, sd, al = allcombinations(q)
+    N = grid.n_elem
+    @inbounds for i in al
+      plot_state(q  , grid, directory, :q_tot     , i=i, include_ghost=include_ghost, i_Δt=N)
+      plot_state(q  , grid, directory, :θ_liq     , i=i, include_ghost=include_ghost, i_Δt=N)
+      plot_state(tmp, grid, directory, :T         , i=i, include_ghost=include_ghost, i_Δt=N)
+    end
+  end
+end
+

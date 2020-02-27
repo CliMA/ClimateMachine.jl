@@ -113,7 +113,7 @@ function init_state_vecs!(q::StateVec, tmp::StateVec, grid::Grid, params, dir_tr
   distribute!(tmp, grid, (:q_liq, :T))
   diagnose_environment!(q, grid, :a, (:q_tot, :θ_liq, :w))
 
-  # @static if haspkg("Plots")
+  # if haspkg.plots()
   #   plot_state(q, grid, dir_tree[:initial_conditions], :q_tot; i=gm)
   #   plot_state(q, grid, dir_tree[:initial_conditions], :θ_liq; i=gm)
   #   plot_state(tmp, grid, dir_tree[:initial_conditions], :T; i=gm)

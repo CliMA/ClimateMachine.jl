@@ -3,12 +3,10 @@ using Pkg, Test
 using CLIMA.TurbulenceConvection.FiniteDifferenceGrids
 using CLIMA.TurbulenceConvection.StateVecs
 using CLIMA.TurbulenceConvection.TriDiagSolvers
+using CLIMA.TurbulenceConvection.haspkg
 
-@static if haskey(Pkg.installed(), "Plots")
+if haspkg.plots()
   using Plots
-  export_plots = true
-else
-  export_plots = false
 end
 
 output_root = joinpath("output", "tests", "PDEs")

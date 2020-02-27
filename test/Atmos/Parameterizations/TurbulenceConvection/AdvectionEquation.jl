@@ -36,7 +36,7 @@ print_norms = false
           scheme_name = replace(string(scheme), "()"=>"")
           distribution_name = joinpath("LinearAdvection",string(distribution))
           directory = joinpath(adv_eq_dir, distribution_name, scheme_name)
-          export_plots && mkpath(directory)
+          haspkg.plots() && mkpath(directory)
           print_norms && print("\n", directory, ", ", n_elems_real, ", ", wave_speed, ", ")
 
           for k in over_elems_real(grid)
@@ -75,7 +75,7 @@ print_norms = false
 
           name = string(n_elems_real)
           markershape = wave_speed==-1 ? :dtriangle : :utriangle
-          if export_plots
+          if haspkg.plots()
             if wave_speed==-1
               y = [tmp[:ϕ_initial , k] for k in domain_range]; plot(y, x, label="initial",
                 markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)
@@ -152,10 +152,10 @@ end
           scheme_name = replace(string(scheme), "()"=>"")
           distribution_name = joinpath("BurgersEquation",string(distribution))
           directory = joinpath(adv_eq_dir, distribution_name, scheme_name)
-          export_plots && mkpath(directory)
+          haspkg.plots() && mkpath(directory)
           name = string(n_elems_real)
           markershape = velocity_sign==-1 ? :dtriangle : :utriangle
-          if export_plots
+          if haspkg.plots()
             if velocity_sign==-1
               y = [tmp[:w_initial , k] for k in domain_range]; plot(y, x, label="initial",
                 markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)

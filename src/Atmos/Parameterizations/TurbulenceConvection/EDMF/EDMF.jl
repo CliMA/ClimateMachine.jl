@@ -6,11 +6,7 @@ using the Eddy-Diffusivity-Mass-Flux (EDMF) model.
 """
 module EDMF
 
-using Pkg
-haspkg(pkgname::String) = haskey(Pkg.installed(), pkgname)
-@static if haspkg("Plots")
-  using Plots
-end
+using ..haspkg
 using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using ..FiniteDifferenceGrids

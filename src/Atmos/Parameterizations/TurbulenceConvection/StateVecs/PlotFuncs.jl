@@ -2,10 +2,10 @@
 
 # Provides a set of plot functions that operate on StateVec.
 
-using Requires
+using ..haspkg
 
-@init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
-  using .Plots
+if haspkg.plots()
+  using Plots
   export plot_state, plot_states
 end
 
@@ -35,7 +35,7 @@ function nice_string(name)
   return friendly_name
 end
 
-@init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
+if haspkg.plots()
 
 """
     plot_state(sv::StateVec,
@@ -160,4 +160,4 @@ function plot_states(sv::StateVec,
   savefig(joinpath(directory, filename))
 end
 
-end # @require
+end # haspkg.plots()
