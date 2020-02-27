@@ -18,8 +18,14 @@ function runmpi(tests, file)
   coverage_opt = coverage_opts[Base.JLOptions().code_coverage]
   testdir = dirname(file)
 
+  if !Sys.iswindows() && occursin( "OpenRTE", read(`mpiexec --version`, String))
+    oversubscribe = `--oversubscribe`
+  else
+    oversubscribe = ``
+  end
+
   for (n, f) in tests
-    cmd = `mpiexec --oversubscribe -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
+    cmd = `mpiexec $oversubscribe -n $n $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) --code-coverage=$coverage_opt $(joinpath(testdir, f))`
 
     @info "Running MPI test..." n f cmd
     # Running this way prevents:
