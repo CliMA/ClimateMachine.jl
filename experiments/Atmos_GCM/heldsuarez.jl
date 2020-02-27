@@ -12,12 +12,15 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const p_ground = MSLP
-const T_initial = 255
-const domain_height = 30e3
+
+struct HeldSuarezDataConfig{FT}
+  p_ground::FT
+  T_initial::FT
+  domain_height::FT
+end
 
 function init_heldsuarez!(bl, state, aux, coords, t)
-    global p_ground, T_initial
+    dc = bl.data_config
 
     FT = eltype(state)
 
@@ -26,28 +29,31 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     h = r - FT(planet_radius)
     # h = altitude(bl.orientation, aux)
 
-    scale_height = R_d * FT(T_initial) / grav
-    p            = FT(p_ground) * exp(-h / scale_height)
+    scale_height = R_d * dc.T_initial / grav
+    p            = dc.p_ground * exp(-h / scale_height)
 
-    state.ρ  = air_density(FT(T_initial), p)
+    state.ρ  = air_density(dc.T_initial, p)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (internal_energy(FT(T_initial)) + aux.orientation.Φ)
+    state.ρe = state.ρ * (internal_energy(dc.T_initial) + aux.orientation.Φ)
 
     return nothing
 end
 
 function config_heldsuarez(FT, N, resolution)
-    global T_initial, domain_height
+    p_ground::FT = MSLP
+    T_initial::FT = 255
+    domain_height::FT = 30e3
 
-    ref_state = HydrostaticState(IsothermalProfile(FT(T_initial)), FT(0))
+    ref_state = HydrostaticState(IsothermalProfile(T_initial), FT(0))
     model = AtmosModel{FT}(AtmosGCMConfiguration;
                            ref_state  = ref_state,
                            turbulence = ConstantViscosityWithDivergence(FT(0)),
                            moisture   = DryModel(),
                            source     = (Gravity(), Coriolis(), held_suarez_forcing!),
-                           init_state = init_heldsuarez!)
+                           init_state = init_heldsuarez!,
+                           data_config = HeldSuarezDataConfig(p_ground, T_initial, domain_height))
     config = CLIMA.Atmos_GCM_Configuration("HeldSuarez", N, resolution,
-                                           FT(domain_height),
+                                           domain_height,
                                            init_heldsuarez!;
                                            model = model)
 
@@ -55,7 +61,7 @@ function config_heldsuarez(FT, N, resolution)
 end
 
 function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
-    global T_initial
+    dc = bl.data_config
 
     FT = eltype(state)
 
@@ -83,7 +89,7 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     @inbounds λ  = atan(coord[2], coord[1])
     @inbounds φ  = asin(coord[3] / r)
     h            = r - FT(planet_radius)
-    scale_height = R_d * FT(T_initial) / grav
+    scale_height = R_d * FT(dc.T_initial) / grav
     σ            = exp(-h / scale_height)
 
     # TODO: use
