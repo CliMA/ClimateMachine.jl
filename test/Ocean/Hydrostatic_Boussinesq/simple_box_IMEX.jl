@@ -28,7 +28,6 @@ import CLIMA.HydrostaticBoussinesq: ocean_init_aux!, ocean_init_state!,
 import CLIMA.DGmethods: update_aux!, vars_state, vars_aux, VerticalDirection
 using GPUifyLoops
 
-const ArrayType = CLIMA.array_type()
 
 HBModel   = HydrostaticBoussinesqModel
 HBProblem = HydrostaticBoussinesqProblem
@@ -84,6 +83,7 @@ end
 
 function main()
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
