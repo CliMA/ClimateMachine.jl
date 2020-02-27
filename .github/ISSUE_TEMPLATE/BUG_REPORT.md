@@ -15,11 +15,15 @@ If you would like to contact us, we are also available on Slack (What is the bes
 
 # Description
 
-A clear and concise description of what the bug is.
+A clear and concise description of what the bug is
 
 ## Steps to Reproduce
 
-Steps to reproduce the behavior
+Steps to reproduce the behavior:
+
+1. Output of `git log -1`. In the case of bugs from code that has significantly diverged from master, a separate branch can be created and linked.
+2. Exact sequence of commands run (REPL, terminal, or script) to reproduce this issu issue. 
+3. Expected runtime for issue/bug to reveal itself (e.g. in the case of problems with physics / set-ups that require longer time to solution)
 
 ## Expected behavior
 
