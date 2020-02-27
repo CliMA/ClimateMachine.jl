@@ -30,20 +30,22 @@ using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
 using CLIMA.VariableTemplates: Vars
 using StaticArrays
 
+const p∞ = 10 ^ 5
+const T∞ = 300.0
+
 function initialcondition!(bl, state, aux, coords, t)
     FT = eltype(state)
 
-    p∞::FT = 10 ^ 5
-    T∞::FT = 300
+
     translation_speed::FT = 150
     translation_angle::FT = pi / 4
     α = translation_angle
     u∞ = SVector(translation_speed * coords[1], translation_speed * coords[1], 0)
 
     u = u∞
-    T = T∞
+    T = FT(T∞)
     # adiabatic/isentropic relation
-    p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
+    p = FT(p∞) * (T / FT(T∞)) ^ (FT(1) / kappa_d)
     ρ = air_density(T, p)
 
     state.ρ = ρ
@@ -106,14 +108,13 @@ let
                 Δx_v = min_node_distance(grid, VerticalDirection())
                 Δx_h = min_node_distance(grid, HorizontalDirection())
 
-                T∞ = FT(300)
                 translation_speed = FT( norm( [150.0, 150.0, 0.0] ) )
-                diff_speed_h = FT(μ/ Q.data[1,1,1])
-                diff_speed_v = FT(μ/ Q.data[1,1,1] )
-                c_h = FT(Δt*(translation_speed + soundspeed_air(T∞))/Δx_h)
-                c_v = FT(Δt*(soundspeed_air(T∞))/Δx_v)
-                d_h = FT(Δt*diff_speed_h/Δx_h^2)
-                d_v = FT(Δt*diff_speed_v/Δx_v^2)
+                diff_speed_h = FT(μ / air_density(FT(T∞), FT(p∞)))
+                diff_speed_v = FT(μ / air_density(FT(T∞), FT(p∞)))
+                c_h = Δt*(translation_speed + soundspeed_air(T∞))/Δx_h
+                c_v = Δt*(soundspeed_air(T∞))/Δx_v
+                d_h = Δt*diff_speed_h/Δx_h^2
+                d_v = Δt*diff_speed_v/Δx_v^2
 
                 # tests for non diffusive courant number
                 @test courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) ≈ c_h rtol=1e-4
