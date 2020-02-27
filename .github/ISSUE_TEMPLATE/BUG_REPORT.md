@@ -34,7 +34,7 @@ If applicable, add screenshots to help explain your problem. This can be particu
 <!--- Please complete the following information --->
 
  - Backtrace of Error Message
- - Hardware used (GPU, CPU, HPC used, Architecture)
+ - Include output of `julia> versioninfo()`
 
 ## Additional context
 
