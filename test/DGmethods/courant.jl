@@ -30,20 +30,22 @@ using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
 using CLIMA.VariableTemplates: Vars
 using StaticArrays
 
+const p∞ = 10 ^ 5
+const T∞ = 300.0
+
 function initialcondition!(bl, state, aux, coords, t)
     FT = eltype(state)
 
-    p∞::FT = 10 ^ 5
-    T∞::FT = 300
+
     translation_speed::FT = 150
     translation_angle::FT = pi / 4
     α = translation_angle
     u∞ = SVector(translation_speed * coords[1], translation_speed * coords[1], 0)
 
     u = u∞
-    T = T∞
+    T = FT(T∞)
     # adiabatic/isentropic relation
-    p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
+    p = FT(p∞) * (T / FT(T∞)) ^ (FT(1) / kappa_d)
     ρ = air_density(T, p)
 
     state.ρ = ρ
@@ -77,31 +79,19 @@ let
                                   range(FT(0); length=Neh+1, stop=1),
                                   range(FT(1); length=Nev+1, stop=2))
                 end
-
+                μ = FT(2)
                 topl = StackedBrickTopology(mpicomm, brickrange)
 
-                function warpfun(ξ1, ξ2, ξ3)
-                    FT = eltype(ξ1)
 
-                    ξ1 ≥ FT(1//2) && (ξ1 = FT(1//2) + 2(ξ1 - FT(1//2)))
-                    if dim == 2
-                        ξ2 ≥ FT(3//2) && (ξ2 = FT(3//2) + 2(ξ2 - FT(3//2)))
-                    elseif dim == 3
-                        ξ2 ≥ FT(1//2) && (ξ2 = FT(1//2) + 2(ξ2 - FT(1//2)))
-                        ξ3 ≥ FT(3//2) && (ξ3 = FT(3//2) + 2(ξ3 - FT(3//2)))
-                    end
-                    return (ξ1, ξ2, ξ3)
-                end
 
                 grid = DiscontinuousSpectralElementGrid(topl,
                                                         FloatType = FT,
                                                         DeviceArray = ArrayType,
                                                         polynomialorder = N)
-                                                #meshwarp = warpfun)
 
                 model = AtmosModel{FT}(AtmosLESConfiguration;
                                        ref_state=NoReferenceState(),
-                                       turbulence=ConstantViscosityWithDivergence(FT(2)),
+                                       turbulence=ConstantViscosityWithDivergence(μ),
                                        moisture=DryModel(),
                                        source=Gravity(),
                                        boundarycondition=PeriodicBC(),
@@ -110,47 +100,29 @@ let
                 dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
                              CentralNumericalFluxGradient())
 
-                Δt = FT(1e-11)#FT(1//2)
-                #Δt = FT(0.00001) #FT(1//10)
+                Δt = FT(1//200)
 
                 Q = init_ode_state(dg, FT(0))
-                solver = LSRK54CarpenterKennedy(dg, Q; dt = Δt, t0 = 0)
-                solve!(Q, solver; timeend=Δt)
+
                 Δx = min_node_distance(grid, EveryDirection())
                 Δx_v = min_node_distance(grid, VerticalDirection())
                 Δx_h = min_node_distance(grid, HorizontalDirection())
 
-                T∞ = FT(300)
-                translation_speed = FT(212.13203435596427)
-                diff_speed_h = 734.8469228349534
-                diff_speed_v = 0
-                c   = Δt*(translation_speed + soundspeed_air(T∞))/Δx
+                translation_speed = FT( norm( [150.0, 150.0, 0.0] ) )
+                diff_speed_h = FT(μ / air_density(FT(T∞), FT(p∞)))
+                diff_speed_v = FT(μ / air_density(FT(T∞), FT(p∞)))
                 c_h = Δt*(translation_speed + soundspeed_air(T∞))/Δx_h
                 c_v = Δt*(soundspeed_air(T∞))/Δx_v
                 d_h = Δt*diff_speed_h/Δx_h^2
                 d_v = Δt*diff_speed_v/Δx_v^2
 
-                if (FT==Float64 && dim == 2)
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-15
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4 
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
-                elseif (FT==Float64 && dim == 3)
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4 
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
-                elseif (dim == 2)
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-16
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 1e-8 
-                else
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) - c_h) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) - d_h) <= 1e-4
-                    @test abs(courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection()) - c_v) <= 1e-11
-                    @test abs(courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection()) - d_v) <= 2e-8
-                end
+                # tests for non diffusive courant number
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection()) ≈ c_h rtol=1e-4
+                @test courant(nondiffusive_courant, dg, model, Q, Δt, VerticalDirection())   ≈ c_v rtol=1e-4
+
+                # tests for diffusive courant number
+                @test courant(diffusive_courant,    dg, model, Q, Δt, HorizontalDirection()) ≈ d_h
+                @test courant(diffusive_courant,    dg, model, Q, Δt, VerticalDirection())   ≈ d_v
             end
         end
     end
