@@ -1,16 +1,14 @@
 ---
 name: Feature Request
 about: Requesting a new feature to be in CLIMA
+labels: enhancement
 ---
 
 <!--
 Thanks for requesting a feature for CLIMA, the Climate Machine
 
 Please fill in the information below
-
-If you would like to contact us, we are also available on Slack
 -->
-
 
 # Description
 
@@ -19,7 +17,6 @@ A clear and concise description of what the desired feature is and how it would 
 # Additional context
 
 Add any other reasons why this feature will help with the goals of CLIMA.
-
 
 <!--- Please leave the following section --->
 

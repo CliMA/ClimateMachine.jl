@@ -7,8 +7,6 @@ about: General Issue in CLIMA
 Thanks for addressing issues in CLIMA, the Climate Machine
 
 Please fill in the information below
-
-If you would like to contact us, we are also available on Slack
 -->
 
 # Description
@@ -18,7 +16,6 @@ A clear and concise description of what the issue is and how it could be address
 ## Additional context
 
 Add any other reasons why this should be addressed.
-
 
 <!--- Please leave the following section --->
 
