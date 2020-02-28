@@ -105,7 +105,7 @@ function run(mpicomm, ArrayType,
   # -------------- Define model ---------------------------------- #
   source = Gravity()
   model = AtmosModel{FT}(AtmosLESConfiguration;
-                         ref_state=NoReferenceState(),
+                         ref_state=HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0)),
                         turbulence=AnisoMinDiss{FT}(1),
                             source=source,
                  boundarycondition=NoFluxBC(),
