@@ -13,5 +13,8 @@ for submodule in [
   include(joinpath(submodule*".jl"))
 end
 
-cmd = `julia --project $(joinpath(dirname(Base.active_project()), "test", "Atmos", "Parameterizations", "TurbulenceConvection", "BOMEX.jl"))`
-run(cmd)
+@testset "Separate session BOMEX"
+  f = joinpath(dirname(Base.active_project()), "test", "Atmos", "Parameterizations", "TurbulenceConvection", "BOMEX.jl")
+  cmd = `$(Base.julia_cmd()) --project $f`
+  run(cmd)
+end
