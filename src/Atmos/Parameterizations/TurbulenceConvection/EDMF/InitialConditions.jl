@@ -1,7 +1,5 @@
 #### InitialConditions
 
-using DifferentialEquations
-
 """
     init_state_vecs!
 

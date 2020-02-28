@@ -1,4 +1,6 @@
-struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D,MD}
+using .NumericalFluxes: CentralHyperDiffusiveFlux, CentralDivPenalty
+
+struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,HDS,D,DD,MD}
   balancelaw::BL
   grid::G
   numfluxnondiff::NFND
@@ -6,15 +8,20 @@ struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,D,MD}
   gradnumflux::GNF
   auxstate::AS
   diffstate::DS
+  hyperdiffstate::HDS
   direction::D
+  diffusion_direction::DD
   modeldata::MD
 end
 function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
                  auxstate=create_auxstate(balancelaw, grid),
                  diffstate=create_diffstate(balancelaw, grid),
-                 direction=EveryDirection(), modeldata=nothing)
-  DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux, auxstate,
-          diffstate, direction, modeldata)
+                 hyperdiffstate=create_hyperdiffstate(balancelaw, grid),
+                 direction=EveryDirection(), diffusion_direction=direction,
+                 modeldata=nothing)
+  DGModel(balancelaw, grid,
+          numfluxnondiff, numfluxdiff, gradnumflux,
+          auxstate, diffstate, hyperdiffstate, direction, diffusion_direction, modeldata)
 end
 
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
@@ -32,10 +39,12 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   nrealelem = length(topology.realelems)
 
   Qvisc = dg.diffstate
+  Qhypervisc_grad, Qhypervisc_div = dg.hyperdiffstate
   auxstate = dg.auxstate
 
   FT = eltype(Q)
   nviscstate = num_diffusive(bl, FT)
+  nhyperviscstate = num_hyperdiffusive(bl, FT)
 
   Np = dofs_per_element(grid)
 
@@ -44,6 +53,12 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   aux_comm = update_aux!(dg, bl, Q, t)
   @assert typeof(aux_comm) == Bool
+
+  if nhyperviscstate > 0
+    hypervisc_indexmap = create_hypervisc_indexmap(bl)
+  else
+    hypervisc_indexmap = nothing
+  end
 
   ########################
   # Gradient Computation #
@@ -55,12 +70,12 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     end
   end
 
-  if nviscstate > 0
+  if nviscstate > 0 || nhyperviscstate > 0
 
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-            volumeviscterms!(bl, Val(dim), Val(N), dg.direction, Q.data,
-                             Qvisc.data, auxstate.data, grid.vgeo, t, grid.D,
-                             topology.realelems))
+            volumeviscterms!(bl, Val(dim), Val(N), dg.diffusion_direction, Q.data,
+                             Qvisc.data, Qhypervisc_grad.data, auxstate.data, grid.vgeo, t,
+                             grid.D, hypervisc_indexmap, topology.realelems))
 
     if communicate
       MPIStateArrays.finish_ghost_recv!(Q)
@@ -70,21 +85,70 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     end
 
     @launch(device, threads=Nfp, blocks=nrealelem,
-            faceviscterms!(bl, Val(dim), Val(N), dg.direction,
-                           dg.gradnumflux, Q.data, Qvisc.data, auxstate.data,
-                           grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
-                           topology.realelems))
+            faceviscterms!(bl, Val(dim), Val(N), dg.diffusion_direction,
+                           dg.gradnumflux,
+                           Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data,
+                           grid.vgeo, grid.sgeo, t, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
+                           hypervisc_indexmap, topology.realelems))
 
     if communicate
-      MPIStateArrays.start_ghost_exchange!(Qvisc)
+      nviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qvisc)
+      nhyperviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
     end
-
-    aux_comm = update_aux_diffusive!(dg, bl, Q, t)
-    @assert typeof(aux_comm) == Bool
+    
+    if nviscstate > 0
+      aux_comm = update_aux_diffusive!(dg, bl, Q, t)
+      @assert typeof(aux_comm) == Bool
+    end
 
     if aux_comm
       MPIStateArrays.start_ghost_exchange!(auxstate)
     end
+  end
+
+  if nhyperviscstate > 0
+    #########################
+    # Laplacian Computation #
+    #########################
+   
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+            volumedivgrad!(bl, Val(dim), Val(N), dg.diffusion_direction,
+                           Qhypervisc_grad.data, Qhypervisc_div.data, grid.vgeo,
+                           grid.D, topology.realelems))
+    
+    communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
+
+    @launch(device, threads=Nfp, blocks=nrealelem,
+            facedivgrad!(bl, Val(dim), Val(N), dg.diffusion_direction,
+                         CentralDivPenalty(),
+                         Qhypervisc_grad.data, Qhypervisc_div.data,
+                         grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
+                         topology.realelems))
+    
+    communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_div)
+    
+    ####################################
+    # Hyperdiffusive terms computation #
+    ####################################
+   
+    @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
+            volumehyperviscterms!(bl, Val(dim), Val(N), dg.diffusion_direction,
+                                    Qhypervisc_grad.data, Qhypervisc_div.data,
+                                    Q.data, auxstate.data,
+                                    grid.vgeo, grid.ω, grid.D,
+                                    topology.realelems, t))
+    
+    communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_div)
+
+    @launch(device, threads=Nfp, blocks=nrealelem,
+            facehyperviscterms!(bl, Val(dim), Val(N), dg.diffusion_direction,
+                                CentralHyperDiffusiveFlux(),
+                                Qhypervisc_grad.data, Qhypervisc_div.data,
+                                Q.data, auxstate.data,
+                                grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺,
+                                grid.elemtobndy, topology.realelems, t))
+    
+    communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
   end
 
 
@@ -92,16 +156,19 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   # RHS Computation #
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(dim), Val(N), dg.direction, dQdt.data,
-                     Q.data, Qvisc.data, auxstate.data, grid.vgeo, t,
+          volumerhs!(bl, Val(dim), Val(N), dg.diffusion_direction, dQdt.data,
+                     Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data, grid.vgeo, t,
                      grid.ω, grid.D, topology.realelems, increment))
 
   if communicate
-    if nviscstate > 0
-      MPIStateArrays.finish_ghost_recv!(Qvisc)
-      if aux_comm
-        MPIStateArrays.finish_ghost_recv!(auxstate)
+    if nviscstate > 0 || nhyperviscstate > 0
+      if nviscstate > 0
+        MPIStateArrays.finish_ghost_recv!(Qvisc)
+        if aux_comm
+          MPIStateArrays.finish_ghost_recv!(auxstate)
+        end
       end
+      nhyperviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
     else
       MPIStateArrays.finish_ghost_recv!(Q)
       if aux_comm
@@ -114,13 +181,15 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
           facerhs!(bl, Val(dim), Val(N), dg.direction,
                    dg.numfluxnondiff,
                    dg.numfluxdiff,
-                   dQdt.data, Q.data, Qvisc.data,
-                   auxstate.data, grid.vgeo, grid.sgeo, t, grid.vmapM, grid.vmapP, grid.elemtobndy,
+                   dQdt.data, Q.data, Qvisc.data, Qhypervisc_grad.data,
+                   auxstate.data, grid.vgeo, grid.sgeo, t, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                    topology.realelems))
 
   # Just to be safe, we wait on the sends we started.
   if communicate
+    MPIStateArrays.finish_ghost_send!(Qhypervisc_div)
     MPIStateArrays.finish_ghost_send!(Qvisc)
+    MPIStateArrays.finish_ghost_send!(Qhypervisc_grad)
     MPIStateArrays.finish_ghost_send!(Q)
   end
 end
@@ -335,3 +404,16 @@ function MPIStateArrays.MPIStateArray(dg::DGModel, commtag=888)
   return state
 end
 
+function create_hypervisc_indexmap(bl::BalanceLaw)
+  # helper function
+  _getvars(v, ::Type) = v
+  function _getvars(v::Vars, ::Type{T}) where {T<:NamedTuple}
+    fields = getproperty.(Ref(v), fieldnames(T))
+    collect(Iterators.Flatten(_getvars.(fields, fieldtypes(T))))
+  end
+
+  gradvars = vars_gradient(bl, Int)
+  gradlapvars = vars_gradient_laplacian(bl, Int)
+  indices = Vars{gradvars}(1:varsize(gradvars))
+  SVector{varsize(gradlapvars)}(_getvars(indices, gradlapvars))
+end

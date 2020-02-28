@@ -1,6 +1,6 @@
 #### RefState
 
-using DifferentialEquations
+using OrdinaryDiffEq
 
 """
     init_ref_state!(tmp::StateVec,

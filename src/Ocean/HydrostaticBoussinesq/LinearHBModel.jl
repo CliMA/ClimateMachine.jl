@@ -121,7 +121,7 @@ this computation is done pointwise at each nodal point
 ∂ᵗθ = -∇∘(κ∇θ)
 """
 @inline function flux_diffusive!(lm::LinearHBModel, F::Grad, Q::Vars, D::Vars,
-                                 A::Vars, t::Real)
+                                 HD::Vars, A::Vars, t::Real)
   F.u -= Diagonal(A.ν) * D.∇u
   F.θ -= Diagonal(A.κ) * D.∇θ
 

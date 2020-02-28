@@ -5,15 +5,15 @@ function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                         bc,
                                         atmos::AtmosModel,
                                         F,
-                                        state⁺, diff⁺, aux⁺, n⁻,
-                                        state⁻, diff⁻, aux⁻,
+                                        state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                        state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                         bctype, t, state1⁻, diff1⁻, aux1⁻)
   atmos_boundary_state!(nf, bc, atmos,
                         state⁺, diff⁺, aux⁺, n⁻,
                         state⁻, diff⁻, aux⁻,
                         bctype, t,
                         state1⁻, diff1⁻, aux1⁻)
-  flux_diffusive!(atmos, F, state⁺, diff⁺, aux⁺, t)
+  flux_diffusive!(atmos, F, state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
 end
 
 #TODO: figure out a better interface for this.
