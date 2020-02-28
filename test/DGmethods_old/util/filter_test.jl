@@ -2,7 +2,6 @@ using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
 using CLIMA.Mesh.Filters
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.MPIStateArrays

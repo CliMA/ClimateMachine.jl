@@ -12,7 +12,7 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection, min_node_distance
+using CLIMA.Mesh.Grids: min_node_distance
 
 const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
 

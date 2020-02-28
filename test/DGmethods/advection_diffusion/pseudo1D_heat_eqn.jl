@@ -12,7 +12,6 @@ using Printf
 using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 import CLIMA.DGmethods.NumericalFluxes: normal_boundary_flux_diffusive!
 
 if !@isdefined integration_testing

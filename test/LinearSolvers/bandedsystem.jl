@@ -2,7 +2,6 @@ using CLIMA
 using MPI
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Grids: VerticalDirection
 using CLIMA.VTK: writemesh
 using Logging
 using LinearAlgebra
