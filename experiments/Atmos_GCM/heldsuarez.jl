@@ -1,73 +1,107 @@
 using LinearAlgebra
 using StaticArrays
+using Random: rand
 using Test
 
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
+using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.Mesh.Filters
 using CLIMA.Mesh.Grids
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-const p_ground = MSLP
-const T_initial = 255
-const domain_height = 30e3
+# Import directional keywords (CLIMA.Mesh.Grids)
+import CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
+
+
+const pressure_ground = MSLP
+const T_init = 255.0 # unit: Kelvin 
+const domain_height = 30e3 # unit: meters
+
 
 function init_heldsuarez!(bl, state, aux, coords, t)
-    global p_ground, T_initial
+    FT            = eltype(state)
+    pressure_sfc  = FT(MSLP)
+    temp_init     = FT(255.0)
+    radius        = FT(planet_radius)
 
-    FT = eltype(state)
+    # Initialize the state variables of the model
+    height = norm(coords, 2) - radius #TODO: altitude(bl.orientation, aux)
+    scale_height = R_d * temp_init / grav
+    pressure = pressure_sfc * exp(-height / scale_height)
 
-    # TODO: change to altitude function
-    r = norm(coords, 2)
-    h = r - FT(planet_radius)
-    # h = altitude(bl.orientation, aux)
-
-    scale_height = R_d * FT(T_initial) / grav
-    p            = FT(p_ground) * exp(-h / scale_height)
-
-    state.ρ  = air_density(FT(T_initial), p)
+    rnd      = FT(1.0 + rand(Uniform(-1e-6, 1e-6)))
+    state.ρ  = rnd * air_density(temp_init, pressure)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (internal_energy(FT(T_initial)) + aux.orientation.Φ)
+    state.ρe = state.ρ * (internal_energy(temp_init) + aux.orientation.Φ)
 
-    return nothing
+    nothing
 end
 
-function config_heldsuarez(FT, N, resolution)
-    global T_initial, domain_height
 
-    ref_state = HydrostaticState(IsothermalProfile(FT(T_initial)), FT(0))
-    model = AtmosModel{FT}(AtmosGCMConfiguration;
-                           ref_state  = ref_state,
-                           turbulence = ConstantViscosityWithDivergence(FT(0)),
-                           moisture   = DryModel(),
-                           source     = (Gravity(), Coriolis(), held_suarez_forcing!),
-                           init_state = init_heldsuarez!)
-    config = CLIMA.Atmos_GCM_Configuration("HeldSuarez", N, resolution,
-                                           FT(domain_height),
-                                           init_heldsuarez!;
-                                           model = model)
+function config_heldsuarez(FT, poly_order, resolution)
+    name          = "HeldSuarez"
+    domain_height = FT(30e3)
+    turb_visc     = FT(0.0)
+    
+    # Reference state
+    Rh_ref            = FT(0.0)
+    Γ                 = FT(0.7 * grav / cp_d)
+    T_sfc             = FT(300.0)
+    T_min             = FT(200.0)
+    temp_profile_ref  = LinearTemperatureProfile(T_min, T_sfc, Γ)
+    ref_state         = HydrostaticState(temp_profile_ref, Rh_ref)
+
+    # Rayleigh sponge 
+    zsponge = FT(15e3) # begin of sponge
+    τ_relax = FT(60*60) # sponge relaxation time 
+    u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity
+    rayleigh_sponge = RayleighSponge{FT}(domain_height, zsponge, 1/τ_relax, u_relax, 2)
+
+    # Configure the model setup
+    model = AtmosModel{FT}(
+      AtmosGCMConfiguration;
+      
+      ref_state  = ref_state,
+      turbulence = ConstantViscosityWithDivergence(turb_visc),
+      moisture   = DryModel(),
+      source     = (Gravity(), Coriolis(), held_suarez_forcing!, rayleigh_sponge),
+      init_state = init_heldsuarez!
+    )
+
+    config = CLIMA.Atmos_GCM_Configuration(
+      name, 
+      poly_order, 
+      resolution,
+      domain_height,
+      init_heldsuarez!;
+      
+      model = model
+    )
 
     return config
 end
 
+
 function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
-    global T_initial
+    global T_init
 
     FT = eltype(state)
 
-    ρ     = state.ρ
-    ρu    = state.ρu
-    ρe    = state.ρe
-    coord = aux.coord
-    Φ     = aux.orientation.Φ
-    e     = ρe / ρ
-    u     = ρu / ρ
-    e_int = e - u' * u / 2 - Φ
-    T     = air_temperature(e_int)
+    τ_ramp = FT(2 * 86400)
+    ρ      = state.ρ
+    ρu     = state.ρu
+    ρe     = state.ρe
+    coord  = aux.coord
+    Φ      = aux.orientation.Φ
+    e      = ρe / ρ
+    u      = ρu / ρ
+    e_int  = e - u' * u / 2 - Φ
+    T      = air_temperature(e_int)
 
     # Held-Suarez constants
     k_a       = FT(1 / (40 * day))
@@ -83,7 +117,7 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     @inbounds λ  = atan(coord[2], coord[1])
     @inbounds φ  = asin(coord[3] / r)
     h            = r - FT(planet_radius)
-    scale_height = R_d * FT(T_initial) / grav
+    scale_height = R_d * FT(T_init) / grav
     σ            = exp(-h / scale_height)
 
     # TODO: use
@@ -97,43 +131,68 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     k_T           = k_a + (k_s - k_a) * height_factor * cos(φ) ^ 4
     k_v           = k_f * height_factor
 
-    source.ρu += -k_v * ρu
-    source.ρe += -k_T * ρ * cv_d * (T - T_equil)
+    # Ramp up the forcing over time
+    # rampup = FT((1 - exp(-2 * t / τ_ramp)) / (1 + exp(-2 * t / τ_ramp)))
+
+    # TODO: bottom drag should only be applied in tangential direction
+    source.ρu -= k_v * projection_tangential(bl.orientation, aux, ρu)
+    source.ρe -= k_T * ρ * cv_d * (T - T_equil)
 end
 
 function main()
     CLIMA.init()
 
-    FT = Float64
+    # Driver configuration parameters
+    FT            = Float32           # floating type precision
+    poly_order    = 5                 # discontinuous Galerkin polynomial order
+    n_horz        = 5                 # horizontal element number  
+    n_vert        = 5                 # vertical element number
+    days          = 3650              # experiment day number
+    timestart     = FT(0)             # start time (seconds)
+    timeend       = FT(days*24*60*60) # end time (seconds)
+    
+    # Set up driver configuration
+    driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
+    
+    # Set up ODE solver configuration
+    #ode_solver_type = CLIMA.ExplicitSolverType(
+    #  solver_method=LSRK144NiegemannDiehlBusch
+    #)
+    ode_solver_type = CLIMA.IMEXSolverType(
+      linear_solver = ManyColumnLU,
+      solver_method = ARK2GiraldoKellyConstantinescu
+    )
 
-    # DG polynomial order
-    N = 5
+    # Set up experiment
+    solver_config = CLIMA.setup_solver(
+      timestart, 
+      timeend, 
+      driver_config,
+      ode_solver_type=ode_solver_type,
+      Courant_number=0.05,
+      forcecpu=true
+    )
 
-    # Domain resolution
-    nelem_horz = 6
-    nelem_vert = 8
-    resolution = (nelem_horz, nelem_vert)
-
-    t0 = FT(0)
-    timeend = FT(60) # 400day
-
-    driver_config = config_heldsuarez(FT, N, resolution)
-    ode_solver_type = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
-                                       ode_solver_type=ode_solver_type)
-
-    # Set up the filter callback
+    # Set up user-defined callbacks
+    # TODO: This callback needs to live somewhere else 
     filterorder = 14
-    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
+    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)#, HorizontalDirection())
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(solver_config.Q, 1:size(solver_config.Q, 2),
-                       solver_config.dg.grid, filter)
+        Filters.apply!(
+          solver_config.Q, 
+          1:size(solver_config.Q, 2),
+          solver_config.dg.grid, 
+          filter
+        )
         nothing
     end
 
-    result = CLIMA.invoke!(solver_config;
-                           user_callbacks=(cbfilter,),
-                          check_euclidean_distance=true)
+    # Run the model
+    result = CLIMA.invoke!(
+      solver_config;
+      user_callbacks = (cbfilter,),
+      check_euclidean_distance = true
+    )
 end
 
 main()
