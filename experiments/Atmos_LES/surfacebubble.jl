@@ -154,7 +154,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
                          turbulence=SmagorinskyLilly{FT}(C_smag),
                          source=(Gravity(),),
                          boundarycondition=bc,
-                         moisture=EquilMoist(),
+                         moisture=EquilMoist{FT}(),
                          init_state=init_surfacebubble!)
   config = CLIMA.Atmos_LES_Configuration("SurfaceDrivenBubble",
                                    N, resolution, xmax, ymax, zmax,
