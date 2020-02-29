@@ -33,6 +33,7 @@ cpu_gpu = [
   { file = "test/LinearSolvers/poisson.jl", slurmargs = ["--ntasks=2"], args = [] },
   { file = "test/LinearSolvers/columnwiselu.jl", slurmargs = ["--ntasks=1"], args = []},
   { file = "test/LinearSolvers/bandedsystem.jl", slurmargs = ["--ntasks=3", "--time=02:00:00"], args = [] },
+  { file = "test/Mesh/interpolation.jl", slurmargs = ["--ntasks=3", "--time=02:00:00"], args = [] },
   { file = "test/Ocean/ShallowWater/GyreDriver.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "examples/DGmethods_old/ex_001_periodic_advection.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/DGmethods_old/ex_002_solid_body_rotation.jl", slurmargs = ["--ntasks=3"], args = [] },
