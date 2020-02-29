@@ -24,17 +24,19 @@ function init_heldsuarez!(bl, state, aux, coords, t)
 
     FT = eltype(state)
 
-    # TODO: change to altitude function
-    r = norm(coords, 2)
-    h = r - FT(planet_radius)
-    # h = altitude(bl.orientation, aux)
+    z = altitude(bl.orientation, aux)
+    e_pot = gravitational_potential(bl.orientation, aux)
 
-    scale_height = R_d * dc.T_initial / grav
-    p            = dc.p_ground * exp(-h / scale_height)
+    scale_height = FT(R_d) * dc.T_initial / FT(grav)
+    p            = dc.p_ground * exp(-z / scale_height)
 
-    state.ρ  = air_density(dc.T_initial, p)
+    ts = PhaseDry_given_pT(p, dc.T_initial)
+    e_int = internal_energy(ts)
+    ρ = air_density(ts)
+
+    state.ρ  = ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (internal_energy(dc.T_initial) + aux.orientation.Φ)
+    state.ρe = state.ρ * (e_int + e_pot)
 
     return nothing
 end
@@ -69,10 +71,7 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     ρu    = state.ρu
     ρe    = state.ρe
     coord = aux.coord
-    Φ     = aux.orientation.Φ
-    e     = ρe / ρ
-    u     = ρu / ρ
-    e_int = e - u' * u / 2 - Φ
+    e_int = internal_energy(bl.moisture, bl.orientation, state, aux)
     T     = air_temperature(e_int)
 
     # Held-Suarez constants
@@ -85,12 +84,11 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     T_min     = FT(200)
 
     σ_b          = FT(7 / 10)
-    r            = norm(coord, 2)
-    @inbounds λ  = atan(coord[2], coord[1])
-    @inbounds φ  = asin(coord[3] / r)
-    h            = r - FT(planet_radius)
-    scale_height = R_d * FT(dc.T_initial) / grav
-    σ            = exp(-h / scale_height)
+    λ            = longitude(bl.orientation, aux)
+    φ            = latitude(bl.orientation, aux)
+    z            = altitude(bl.orientation, aux)
+    scale_height = FT(R_d) * dc.T_initial / FT(grav)
+    σ            = exp(-z / scale_height)
 
     # TODO: use
     #  p = air_pressure(T, ρ)

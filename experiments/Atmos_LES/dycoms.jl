@@ -238,7 +238,7 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 function init_dycoms!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
-    z = FT(z)
+    z = altitude(bl.orientation, aux)
 
     # These constants are those used by Stevens et al. (2005)
     qref       = FT(9.0e-3)
@@ -286,7 +286,7 @@ function init_dycoms!(bl, state, aux, (x,y,z), t)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
-    e_pot = grav * z
+    e_pot = gravitational_potential(bl.orientation, aux)
     E     = ρ * total_energy(e_kin, e_pot, ts)
 
     state.ρ               = ρ
