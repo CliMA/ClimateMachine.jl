@@ -134,11 +134,17 @@ function init_problem!(bl, state, aux, (x,y,z), t)
   T             = dc.T_bot - ΔT
   P             = p0*(T/dc.T_bot)^(grav/R_gas/dc.T_lapse)
   ρ             = P / (R_gas * T)
+
+  q_tot = FT(0)
+  e_pot = gravitational_potential(bl.orientation, aux)
+  ts = TemperatureSHumEquil(T, P, q_tot)
+
   ρu, ρv, ρw    = FT(0) , FT(0) , ρ * δw
-  E_int         = ρ * c_v * (T-T_0)
-  E_pot         = ρ * grav * z
-  E_kin         = ρ * FT(1/2) * δw^2
-  ρe_tot        = E_int + E_pot + E_kin
+
+  e_int         = internal_energy(ts)
+  e_kin         = FT(1/2) * δw^2
+
+  ρe_tot        = ρ * (e_int + e_pot + e_kin)
   state.ρ       = ρ
   state.ρu      = SVector(ρu, ρv, ρw)
   state.ρe      = ρe_tot

@@ -10,7 +10,7 @@ using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
-using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
+using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, PhaseDry_given_pT
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
                    DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
                    ConstantViscosityWithDivergence, vars_state,
@@ -264,12 +264,14 @@ function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
   T = T∞ * (1 - kappa_d * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
   # adiabatic/isentropic relation
   p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
-  ρ = air_density(T, p)
+  ts = PhaseDry_given_pT(p, T)
+  ρ = air_density(ts)
 
+  e_pot = FT(0)
   state.ρ = ρ
   state.ρu = ρ * u
   e_kin = u' * u / 2
-  state.ρe = ρ * total_energy(e_kin, FT(0), T)
+  state.ρe = ρ * total_energy(e_kin, e_pot, ts)
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname = "isentropicvortex")

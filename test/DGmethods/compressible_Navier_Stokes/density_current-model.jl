@@ -79,18 +79,19 @@ function Initialise_Density_Current!(bl, state::Vars, aux::Vars, (x1,x2,x3), t)
   π_exner           = FT(1) - grav / (c_p * θ) * x3 # exner pressure
   ρ                 = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
 
-  P                 = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T                 = P / (ρ * R_gas) # temperature
+  ts                = LiquidIcePotTempSHumEquil(θ, ρ, q_tot)
+  q_pt              = PhasePartition(ts)
+
   U, V, W           = FT(0) , FT(0) , FT(0)  # momentum components
   # energy definitions
   e_kin             = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
-  e_pot             = grav * x3
-  e_int             = internal_energy(T, qvar)
+  e_pot             = gravitational_potential(bl.orientation, aux)
+  e_int             = internal_energy(ts)
   E                 = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
   state.ρ      = ρ
   state.ρu     = SVector(U, V, W)
   state.ρe     = E
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = ρ*q_pt.tot
 end
 # --------------- Driver definition ------------------ #
 function run(mpicomm, ArrayType,

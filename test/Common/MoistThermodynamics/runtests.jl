@@ -240,6 +240,10 @@ end
     @test all(internal_energy.(ts) .≈ e_int)
     @test all(air_density.(ts) .≈ ρ)
 
+    ts = PhaseDry_given_pT.(p, T)
+    @test all(internal_energy.(ts) .≈ internal_energy.(T))
+    @test all(air_density.(ts) .≈ ρ)
+
     # PhaseEquil
     ts = PhaseEquil.(e_int, ρ, q_tot, 30, FT(1e-1), Ref(MT.saturation_adjustment_SecantMethod))
     @test all(internal_energy.(ts) .≈ e_int)
@@ -325,6 +329,7 @@ end
   @test typeof.(internal_energy.(ρ, ρ.*e_int, Ref(ρu), Ref(e_pot))) == typeof.(e_int)
 
   ts_dry             = PhaseDry.(e_int, ρ)
+  ts_dry_pT          = PhaseDry_given_pT.(p, T)
   ts_eq              = PhaseEquil.(e_int, ρ, q_tot, 15, FT(1e-1))
   ts_T               = TemperatureSHumEquil.(air_temperature.(ts_dry), air_pressure.(ts_dry), q_tot)
   ts_neq             = PhaseNonEquil.(e_int, ρ, q_pt)
@@ -336,6 +341,7 @@ end
   for ts in (
     ts_eq,
     ts_dry,
+    ts_dry_pT,
     ts_T,
     ts_neq,
     ts_θ_liq_ice_eq,

@@ -2,6 +2,7 @@ export PhasePartition
 # Thermodynamic states
 export ThermodynamicState,
        PhaseDry,
+       PhaseDry_given_pT,
        PhaseEquil,
        PhaseNonEquil,
        TemperatureSHumEquil,
@@ -107,6 +108,20 @@ struct PhaseDry{FT} <: ThermodynamicState{FT}
   e_int::FT
   "density of dry air"
   ρ::FT
+end
+
+"""
+    PhaseDry_given_pT(p, T)
+
+Constructs a [`PhaseDry`](@ref) thermodynamic state from:
+
+ - `p` pressure
+ - `T` temperature
+"""
+function PhaseDry_given_pT(p::FT, T::FT) where {FT<:Real}
+  e_int = internal_energy(T)
+  ρ = air_density(T, p)
+  return PhaseDry{FT}(e_int, ρ)
 end
 
 """
