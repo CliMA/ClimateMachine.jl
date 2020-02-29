@@ -106,25 +106,33 @@ boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                  state1⁻, diff1⁻, aux1⁻)
 # ------------------- End Boundary Conditions -------------------------- #
 
-const randomseed         = MersenneTwister(1)
-const (xmin, ymin, zmin) = (0,0,0)
-const (xmax, ymax, zmax) = (250,250,500)
-const T_bot              = 299
-const T_lapse            = grav/cp_d
-const T_top              = T_bot - T_lapse*zmax
+const randomseed = MersenneTwister(1)
+
+struct DryRayleighBenardConvectionDataConfig{FT}
+  xmin::FT
+  ymin::FT
+  zmin::FT
+  xmax::FT
+  ymax::FT
+  zmax::FT
+  T_bot::FT
+  T_lapse::FT
+  T_top::FT
+end
 
 function init_problem!(bl, state, aux, (x,y,z), t)
+  dc = bl.data_config
   FT            = eltype(state)
   R_gas::FT     = R_d
   c_p::FT       = cp_d
   c_v::FT       = cv_d
   γ::FT         = c_p / c_v
   p0::FT        = MSLP
-  δT            = sinpi(6*z/(zmax-zmin)) * cospi(6*z/(zmax-zmin)) + rand(randomseed)
-  δw            = sinpi(6*z/(zmax-zmin)) * cospi(6*z/(zmax-zmin)) + rand(randomseed)
+  δT            = sinpi(6*z/(dc.zmax-dc.zmin)) * cospi(6*z/(dc.zmax-dc.zmin)) + rand(randomseed)
+  δw            = sinpi(6*z/(dc.zmax-dc.zmin)) * cospi(6*z/(dc.zmax-dc.zmin)) + rand(randomseed)
   ΔT            = grav/cp_d * z + δT
-  T             = T_bot - ΔT
-  P             = p0*(T/T_bot)^(grav/R_gas/T_lapse)
+  T             = dc.T_bot - ΔT
+  P             = p0*(T/dc.T_bot)^(grav/R_gas/dc.T_lapse)
   ρ             = P / (R_gas * T)
   ρu, ρv, ρw    = FT(0) , FT(0) , ρ * δw
   E_int         = ρ * c_v * (T-T_0)
@@ -140,17 +148,27 @@ end
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
 
     # Boundary conditions
+    T_bot = FT(299)
+    T_lapse = FT(grav/cp_d)
+    T_top = T_bot - T_lapse*zmax
+
     bc = FixedTempNoSlip{FT}(T_bot, T_top)
 
     # Turbulence
     C_smag = FT(0.23)
+    data_config = DryRayleighBenardConvectionDataConfig{FT}(0, 0, 0,
+                                                            xmax, ymax, zmax,
+                                                            T_bot,
+                                                            T_lapse,
+                                                            FT(T_bot - T_lapse*zmax))
 
     # Set up the model
     model = AtmosModel{FT}(AtmosLESConfiguration;
                            turbulence=SmagorinskyLilly{FT}(C_smag),
                                source=(Gravity(),),
                     boundarycondition=bc,
-                           init_state=init_problem!)
+                           init_state=init_problem!,
+                           data_config=data_config)
     ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
     config = CLIMA.Atmos_LES_Configuration("DryRayleighBenardConvection",
                                            N, resolution, xmax, ymax, zmax,
@@ -171,6 +189,7 @@ function main()
     t0 = FT(0)
     CFLmax = FT(0.90)
     timeend = FT(1000)
+    xmax, ymax, zmax = 250, 250, 500
 
     @testset "DryRayleighBenardTest" begin
       for Δh in Δh

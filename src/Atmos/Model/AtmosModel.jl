@@ -47,7 +47,7 @@ A `BalanceLaw` for atmosphere modeling.
                boundarycondition, init_state)
 
 """
-struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS,DC} <: BalanceLaw
   orientation::O
   ref_state::RS
   turbulence::T
@@ -58,6 +58,7 @@ struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS} <: BalanceLaw
   # TODO: Probably want to have different bc for state and diffusion...
   boundarycondition::BC
   init_state::IS
+  data_config::DC
 end
 
 function calculate_dt(grid, model::AtmosModel, Courant_number)
@@ -84,7 +85,8 @@ function AtmosModel{FT}(::Type{AtmosLESConfiguration};
                                      GeostrophicForcing{FT}(7.62e-5, 0, 0)),
                          # TODO: Probably want to have different bc for state and diffusion...
                          boundarycondition::BC=NoFluxBC(),
-                         init_state::IS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS}
+                         init_state::IS=nothing,
+                         data_config::DC=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC}
   @assert init_state ≠ nothing
 
   atmos = (
@@ -97,6 +99,7 @@ function AtmosModel{FT}(::Type{AtmosLESConfiguration};
         source,
         boundarycondition,
         init_state,
+        data_config,
        )
 
   return AtmosModel{FT,typeof.(atmos)...}(atmos...)
@@ -115,7 +118,8 @@ function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
                          radiation::R          = NoRadiation(),
                          source::S             = (Gravity(), Coriolis()),
                          boundarycondition::BC = NoFluxBC(),
-                         init_state::IS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,SU,S,BC,IS}
+                         init_state::IS=nothing,
+                         data_config::DC=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC}
   @assert init_state ≠ nothing
   atmos = (
         orientation,
@@ -127,6 +131,7 @@ function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
         source,
         boundarycondition,
         init_state,
+        data_config,
        )
 
   return AtmosModel{FT,typeof.(atmos)...}(atmos...)
