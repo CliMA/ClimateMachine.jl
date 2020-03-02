@@ -148,13 +148,13 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     
     communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_div)
 
-    event = facehyperviscterms!(device, workgroups_surface...)
-    event = facehypervisc!(bl, Val(dim), Val(N), dg.diffusion_direction,
-                           CentralHyperDiffusiveFlux(),
-                           Qhypervisc_grad.data, Qhypervisc_div.data,
-                           Q.data, auxstate.data,
-                           grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺,
-                           grid.elemtobndy, topology.realelems, t)
+    event = facehyperviscterms!(device, workgroups_surface...)(
+      bl, Val(dim), Val(N), dg.diffusion_direction,
+      CentralHyperDiffusiveFlux(),
+      Qhypervisc_grad.data, Qhypervisc_div.data,
+      Q.data, auxstate.data,
+      grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺,
+      grid.elemtobndy, topology.realelems, t)
     wait(event)
     
     communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
