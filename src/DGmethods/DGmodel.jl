@@ -148,7 +148,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     
     communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_div)
 
-    event = facehyperviscterms!(device, workgroups_face...)
+    event = facehyperviscterms!(device, workgroups_surface...)
     event = facehypervisc!(bl, Val(dim), Val(N), dg.diffusion_direction,
                            CentralHyperDiffusiveFlux(),
                            Qhypervisc_grad.data, Qhypervisc_div.data,
