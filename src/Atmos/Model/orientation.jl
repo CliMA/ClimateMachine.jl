@@ -1,7 +1,7 @@
 # TODO: add Coriolis vectors
 import ..PlanetParameters: grav, planet_radius
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
-export vertical_unit_vector, altitude, latitude, longitude, gravitational_potential
+export vertical_unit_vector, altitude, latitude, longitude, gravitational_potential, projection_normal, projection_tangential
 
 abstract type Orientation
 end
@@ -18,6 +18,15 @@ gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
 ∇gravitational_potential(::Orientation, aux::Vars) = aux.orientation.∇Φ
 altitude(orientation::Orientation, aux::Vars) = gravitational_potential(orientation, aux) / grav
 vertical_unit_vector(orientation::Orientation, aux::Vars) = ∇gravitational_potential(orientation, aux) / grav
+
+function projection_normal(orientation::Orientation, aux::Vars, u⃗::AbstractVector) 
+  n̂ = vertical_unit_vector(orientation, aux)
+  return n̂ * (n̂' * u⃗)
+end
+
+function projection_tangential(orientation::Orientation, aux::Vars, u⃗::AbstractVector) 
+  return u⃗ .- projection_normal(orientation, aux, u⃗)
+end
 
 
 """
