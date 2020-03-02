@@ -12,6 +12,11 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
+using CLIMA.Courant
+using Printf
+
+import CLIMA.DGmethods: courant
+import CLIMA.Grids: VerticalDirection, HorizontalDirection
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -73,12 +78,20 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   # Boundary conditions
   bc = NoFluxBC()
 
+  # ExplicitSolverType: LSRK144NiegemannDiehlBusch        (CFL(2.6)) (dt = 5.26316e-01)
+  # ExplicitSolverType: LSRK54CarpenterKennedy            (CFL(0.6))
+  #
+  # MRRKSolverType    : LSRK144NiegemannDiehlBusch (Slow)
+  #                     LSRK144NiegemannDiehlBusch (Fast)
+  #                     N = 10
+
   # Choose explicit solver
   ode_solver = CLIMA.MRRKSolverType(solver_method=MultirateRungeKutta,
-                                    fast_method=LSRK54CarpenterKennedy,
                                     slow_method=LSRK144NiegemannDiehlBusch,
-                                    numsubsteps=10,
+                                    fast_method=LSRK54CarpenterKennedy,
+                                    numsubsteps=100,
                                     linear_model=AtmosAcousticGravityLinearModel)
+  # ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy)
 
   # Set up the model
   C_smag = FT(0.23)
@@ -106,8 +119,8 @@ function main()
     # DG polynomial order
     N = 4
     # Domain resolution and size
-    Δh = FT(50)
-    Δv = FT(50)
+    Δh = FT(200)
+    Δv = FT(100)
     resolution = (Δh, Δh, Δv)
     # Domain extents
     xmax = 2500
@@ -117,15 +130,37 @@ function main()
     t0 = FT(0)
     timeend = FT(200)
     # Courant number
-    CFL = FT(0.8)
+    CFL = FT(8)
+    ode_dt = FT(10)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=CFL)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
+                                       forcecpu=true, ode_dt=ode_dt, Courant_number=CFL)
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
+    end
+
+    cbcourantnumbers = GenericCallbacks.EveryXSimulationSteps(5) do
+        dg =  solver_config.dg
+        m = dg.balancelaw
+        Q = solver_config.Q
+        Δt = solver_config.dt
+        cfl_v = courant(nondiffusive_courant, dg, m, Q, Δt, VerticalDirection())
+        cfl_h = courant(nondiffusive_courant, dg, m, Q, Δt, HorizontalDirection())
+        cfla_v = courant(advective_courant, dg, m, Q, Δt, VerticalDirection())
+        cfla_h = courant(advective_courant, dg, m, Q, Δt, HorizontalDirection())
+
+        @info @sprintf """
+        CFL Numbers:
+        Vertical Acoustic CFL    = %.2g
+        Horizontal Acoustic CFL  = %.2g
+        Vertical Advection CFL   = %.2g
+        Horizontal Advection CFL = %.2g
+        """ cfl_v cfl_h cfla_v cfla_h
+        return nothing
     end
 
     # Invoke solver (calls solve! function for time-integrator)

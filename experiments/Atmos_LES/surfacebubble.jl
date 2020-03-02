@@ -14,10 +14,13 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
+using CLIMA.Courant
+using Printf
 
-import CLIMA.DGmethods: boundary_state!
+import CLIMA.DGmethods: boundary_state!, courant
 import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
+import CLIMA.Grids: VerticalDirection, HorizontalDirection
 
 # -------------------- Surface Driven Bubble ----------------- #
 # Rising thermals driven by a prescribed surface heat flux.
@@ -192,8 +195,28 @@ function main()
       nothing
   end
 
+  cbcourantnumbers = GenericCallbacks.EveryXSimulationSteps(20) do
+      dg =  solver_config.dg
+      m = dg.balancelaw
+      Q = solver_config.Q
+      Δt = solver_config.dt
+      cfl_v = courant(nondiffusive_courant, dg, m, Q, Δt, VerticalDirection())
+      cfl_h = courant(nondiffusive_courant, dg, m, Q, Δt, HorizontalDirection())
+      cfla_v = courant(advective_courant, dg, m, Q, Δt, VerticalDirection())
+      cfla_h = courant(advective_courant, dg, m, Q, Δt, HorizontalDirection())
+
+      @info @sprintf """
+      CFL Numbers:
+      Vertical Acoustic CFL    = %.2g
+      Horizontal Acoustic CFL  = %.2g
+      Vertical Advection CFL   = %.2g
+      Horizontal Advection CFL = %.2g
+      """ cfl_v cfl_h cfla_v cfla_h
+      return nothing
+  end
+
   result = CLIMA.invoke!(solver_config;
-                        user_callbacks=(cbtmarfilter,),
+                        user_callbacks=(cbtmarfilter, cbcourantnumbers),
                         check_euclidean_distance=true)
 
   @test isapprox(result,FT(1); atol=1.5e-3)
