@@ -6,9 +6,9 @@ using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
 using CLIMA.Mesh.Elements
+using CLIMA.Writers
 using LinearAlgebra
 using StaticArrays
-using NCDatasets
 #-------------------
 using CUDAnative
 using GPUifyLoops
@@ -1132,24 +1132,11 @@ function write_interpolated_data(intrp_cs::InterpolationCubedSphere{FT}, iv::Abs
                 svi[radi[i], lati[i], longi[i], vari] = v_all[i,vari]
             end
         end
-        #-------writing data to NetCDF file
-        ds = Dataset(filename,"c") # creating a netCDF file
-
-        ds.dim["rad"]  = nrad    # defining dimensions
-        ds.dim["lat"]  = nlat
-        ds.dim["long"] = nlong
-
-        rad_grd  = defVar(ds, "rad",  Array(intrp_cs.rad_grd),  ("rad",))
-        lat_grd  = defVar(ds, "lat",  Array(intrp_cs.lat_grd),  ("lat",))
-        long_grd = defVar(ds, "long", Array(intrp_cs.long_grd), ("long",))
-
-        for vari in 1:nvars
-            sym = Symbol(varnames[vari])
-            @eval ($sym = defVar($ds,$(varnames[vari]), $(svi[:,:,:,vari]), ("rad", "lat","long")))
-        end
-
-        close(ds)
-        #--------------------------------------------------------------------------------------------------
+        write_data(filename, ("rad", "lat", "long"), (nrad, nlat, nlong),
+                   (Array(intrp_cs.rad_grd),
+                    Array(intrp_cs.lat_grd),
+                    Array(intrp_cs.long_grd)),
+                   varnames, svi)
     else
         svi = Array{FT}(undef,0,0,0,nvars)
 	end
@@ -1212,24 +1199,11 @@ function write_interpolated_data(intrp_brck::InterpolationBrick{FT}, iv::Abstrac
                 svi[x1i[i], x2i[i], x3i[i], vari] = v_all[i,vari]
             end
         end
-        #-------writing data to NetCDF file
-        ds = Dataset(filename,"c") # creating a netCDF file
-
-        ds.dim["x1"] = nx1    # defining dimensions
-        ds.dim["x2"] = nx2
-        ds.dim["x3"] = nx3
-
-        x1_grd = defVar(ds, "x1", intrp_brck.x1g, ("x1",))
-        x2_grd = defVar(ds, "x2", intrp_brck.x2g, ("x2",))
-        x3_grd = defVar(ds, "x3", intrp_brck.x3g, ("x3",))
-
-        for vari in 1:nvars
-            sym = Symbol(varnames[vari])
-            @eval ($sym = defVar($ds,$(varnames[vari]), $(svi[:,:,:,vari]), ("x1","x2","x3")))
-        end
-
-        close(ds)
-        #--------------------------------------------------------------------------------------------------
+        write_data(filename, ("x1", "x2", "x3"), (nx1, nx2, nx3),
+                   (Array(intrp_brck.x1g),
+                    Array(intrp_brck.x2g),
+                    Array(intrp_brck.x3g)),
+                   varnames, svi)
     else
         svi = Array{FT}(undef,0,0,0,0)
     end
