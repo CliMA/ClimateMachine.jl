@@ -203,6 +203,18 @@ struct SolverConfiguration{FT}
 end
 
 """
+    DGmethods.courant(local_cfl, solver_config::SolverConfiguration;
+                      Q=solver_config.Q, dt=solver_config.dt)
+
+Returns the maximum of the evaluation of the function `local_courant`
+pointwise throughout the domain with the model defined by `solver_config`. The
+keyword arguments `Q` and `dt` can be used to call the courant method with a
+different state `Q` or time step `dt` than are defined in `solver_config`.
+"""
+DGmethods.courant(f, sc::SolverConfiguration; Q=sc.Q, dt = sc.dt) =
+  DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt)
+
+"""
     CLIMA.setup_solver(t0, timeend, driver_config)
 
 Set up the DG model per the specified driver configuration and set up the ODE solver.

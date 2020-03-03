@@ -71,9 +71,20 @@ function main()
     t0 = FT(0)
     timeend = FT(10)
 
+    CFL = FT(0.4)
+
     driver_config = CLIMA.Atmos_LES_Configuration("Driver test", N, resolution,
                                                   xmax, ymax, zmax, init_test!)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
+                                       Courant_number = CFL)
+
+
+    # Test the courant wrapper
+    CFL_nondiff = CLIMA.DGmethods.courant(CLIMA.Courant.nondiffusive_courant,
+                                          solver_config)
+    # Since the dt is computed before the initial condition, these might be
+    # difference by a fairly large factor
+    @test isapprox(CFL_nondiff, CFL, rtol=0.03)
 
     result = CLIMA.invoke!(solver_config)
 end
