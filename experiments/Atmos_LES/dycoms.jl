@@ -42,21 +42,13 @@ function reverse_integral_load_aux!(::RadiationModel, integ::Vars, state::Vars, 
 function reverse_integral_set_aux!(::RadiationModel, aux::Vars, integ::Vars) end
 function flux_radiation!(::RadiationModel, flux::Grad, state::Vars, aux::Vars, t::Real) end
 
-"""
-    Params
-
-Module for defining type-generic version of the model parameters.
-"""
-module Params end
-
 function get_model_from_file(model, model_file)
+  sf = SingleFile(model_file)
+  filter_types = EntireStruct()
+  D = @struct_2_dict(model)
 
-  parametric_model = deepcopy(model)
-  @show parametric_model
-  generic_model = generic_type(Params, parametric_model)
-
-  if !isfile(model_file)
-    @export_struct(generic_model, model_file, EntireStruct(), SingleFile())
+  if !isfile(sf.filename)
+    export_dict(D, sf, filter_types)
   end
 
   #####
@@ -65,15 +57,15 @@ function get_model_from_file(model, model_file)
 
   # can be moved to / included in an external file, e.g., include(joinpath("atmos","annotatoe_free_params.jl"))
 
-  @FreeParameter(generic_model.turbulence.C_smag)
+  @free D["model.turbulence.C_smag"]
 
   #####
   #####
   #####
 
-  # import_struct(generic_model, model_file, EntireStruct(), SingleFile())
-  # @show Main.AtmosModel
-  model = parametric_type(Main, parametric_model, generic_model)
+  import_dict(D, sf, filter_types)
+
+  model = instantiate(model, D, filter_types)
   return model
 end
 
