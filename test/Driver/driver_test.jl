@@ -75,7 +75,14 @@ function main()
                                                   xmax, ymax, zmax, init_test!)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config)
 
+    cb_test = 0
     result = CLIMA.invoke!(solver_config)
+    # cb_test should be zero since user_info_callback not specified
+    @test cb_test == 0
+
+    result = CLIMA.invoke!(solver_config, user_info_callback=(init)->cb_test+=1)
+    # cb_test should be greater than one if the user_info_callback got called
+    @test cb_test > 0
 end
 
 main()

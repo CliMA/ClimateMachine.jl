@@ -287,7 +287,8 @@ Run the simulation.
 function invoke!(solver_config::SolverConfiguration;
                  user_callbacks=(),
                  check_euclidean_distance=false,
-                 adjustfinalstep=false
+                 adjustfinalstep=false,
+                 user_info_callback=(init)->nothing
                 )
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -320,7 +321,7 @@ function invoke!(solver_config::SolverConfiguration;
                                runtime,
                                energy)
             end
-            nothing
+            user_info_callback(init)
         end
         callbacks = (callbacks..., cbinfo)
     end
