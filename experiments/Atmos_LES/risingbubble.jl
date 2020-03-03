@@ -78,27 +78,19 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   # Boundary conditions
   bc = NoFluxBC()
 
-  # ExplicitSolverType: LSRK144NiegemannDiehlBusch        (CFL(2.6)) (dt = 5.26316e-01)
-  # ExplicitSolverType: LSRK54CarpenterKennedy            (CFL(0.6))
-  #
-  # MRRKSolverType    : LSRK54CarpenterKennedy (Slow)
-  #                     LSRK54CarpenterKennedy (Fast)
-  #                     N = 100                 (CFL Acoustic vertical: ~66)
-
   # Choose explicit solver
   ode_solver = CLIMA.MRRKSolverType(solver_method=MultirateRungeKutta,
-                                    slow_method=LSRK54CarpenterKennedy,
+                                    slow_method=LSRK144NiegemannDiehlBusch,
                                     fast_method=LSRK54CarpenterKennedy,
                                     numsubsteps=100,
                                     linear_model=AtmosAcousticGravityLinearModel)
-  # ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy)
+  # ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
 
   # Set up the model
-  C_smag = FT(0.23)
-  C_visc = FT(10.0)
+  vis = FT(75.0)
   ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
   model = AtmosModel{FT}(AtmosLESConfiguration;
-                         turbulence=SmagorinskyLilly{FT}(C_smag),
+                         turbulence=ConstantViscosityWithDivergence{FT}(vis),
                          source=(Gravity(),),
                          ref_state=ref_state,
                          init_state=init_risingbubble!)
@@ -131,12 +123,11 @@ function main()
     t0 = FT(0)
     timeend = FT(200)
     # Courant number
-    CFL = FT(8)
-    ode_dt = FT(14)
+    CFL = FT(30)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
-                                       forcecpu=true, ode_dt=ode_dt, Courant_number=CFL)
+                                       forcecpu=true, Courant_number=CFL)
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
@@ -154,13 +145,30 @@ function main()
         cfla_v = courant(advective_courant, dg, m, Q, Δt, VerticalDirection())
         cfla_h = courant(advective_courant, dg, m, Q, Δt, HorizontalDirection())
 
+        fΔt = solver_config.solver.fast_solver.dt
+        cflin_v = courant(nondiffusive_courant, dg, m, Q, fΔt, VerticalDirection())
+        cflin_h = courant(nondiffusive_courant, dg, m, Q, fΔt, HorizontalDirection())
+        cflain_v = courant(advective_courant, dg, m, Q, fΔt, VerticalDirection())
+        cflain_h = courant(advective_courant, dg, m, Q, fΔt, HorizontalDirection())
+
         @info @sprintf """
-        CFL Numbers:
+        ================================
+        Courant numbers:
+
+        Outer (slow) method:
         Vertical Acoustic CFL    = %.2g
         Horizontal Acoustic CFL  = %.2g
         Vertical Advection CFL   = %.2g
         Horizontal Advection CFL = %.2g
-        """ cfl_v cfl_h cfla_v cfla_h
+
+        Inner (fast) method:
+        Vertical Acoustic CFL    = %.2g
+        Horizontal Acoustic CFL  = %.2g
+        Vertical Advection CFL   = %.2g
+        Horizontal Advection CFL = %.2g
+        ================================
+        """  cfl_v cfl_h cfla_v cfla_h cflin_v cflin_h cflain_v cflain_h
+
         return nothing
     end
 

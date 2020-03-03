@@ -152,4 +152,3 @@ function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
     end
   end
 end
-
