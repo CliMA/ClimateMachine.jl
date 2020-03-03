@@ -344,7 +344,7 @@ function fillsendbuf!(sendbuf, buf, vmapsend)
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_fillsendbuf!(device(buf), (256,), (length(vmapsend),))(
+    event = knl_fillsendbuf!(device(buf), 256, length(vmapsend))(
       Val(Np), Val(nvar), sendbuf, buf, vmapsend,
       length(vmapsend))
     wait(event)
@@ -356,7 +356,7 @@ function transferrecvbuf!(buf, recvbuf, vmaprecv)
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_transferrecvbuf!(device(buf), (256,), length(vmaprecv))(
+    event = knl_transferrecvbuf!(device(buf), 256, length(vmaprecv))(
       Val(Np), Val(nvar), buf, recvbuf,
       vmaprecv, length(vmaprecv))
     wait(event)

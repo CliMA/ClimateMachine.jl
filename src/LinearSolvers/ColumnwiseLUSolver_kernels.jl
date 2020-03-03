@@ -58,7 +58,7 @@ is stored as
     p = q = nstate * Nq * eband - 1
   end
 
-  h = @index(Group)
+  h = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   @inbounds begin
@@ -129,7 +129,7 @@ eband - 1`.
     l_b = MArray{Tuple{p+1}, FT}(undef)
   end
 
-  h = @index(Group)
+  h = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   @inbounds begin
@@ -220,7 +220,7 @@ eband - 1`.
     l_b = MArray{Tuple{q+1}, FT}(undef)
   end
 
-  h = @index(Group)
+  h = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   @inbounds begin
@@ -285,7 +285,7 @@ end
     nstate = num_state(bl,FT)
   end
 
-  _, _, _, ev, eh = @index(Group, NTuple)
+  ev, eh = @index(Group, NTuple)
   i, j, k = @index(Local, NTuple)
 
   @inbounds begin
@@ -319,7 +319,7 @@ end
     jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq
   end
 
-  _, _, _, ep, eh = @index(Group, NTuple)
+  ep, eh = @index(Group, NTuple)
   ep = ep - eshift
   i, j, k = @index(Local, NTuple)
 
@@ -367,7 +367,7 @@ end
     eup = div(p, Nq * nstate-1)
   end
 
-  _, _, _, ev, eh = @index(Group, NTuple)
+  ev, eh = @index(Group, NTuple)
   i, j, k = @index(Local, NTuple)
 
   # matrix row loops

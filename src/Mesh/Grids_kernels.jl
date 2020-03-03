@@ -38,7 +38,7 @@ neighbors.
     end
   end
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   i, j, k = @index(Local, NTuple)
 
   md = typemax(FT)

@@ -45,7 +45,7 @@ horizontal and/or vertical reference directions.
   s_Q = @localmem FT (Nq, Nq, Nqk, nfilterstates)
   l_Qfiltered = @private FT (nfilterstates,)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   i, j, k = @index(Local, NTuple)
 
   @inbounds begin
@@ -133,7 +133,7 @@ end
   s_MJQ = @localmem FT (Nq * Nqj, nfilterstates)
   s_MJQclipped = @localmem FT (Nq * Nqj, nfilterstates)
   
-  e = @index(Group)
+  e = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   @inbounds begin

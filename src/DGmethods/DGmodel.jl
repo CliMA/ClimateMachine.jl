@@ -48,8 +48,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   Np = dofs_per_element(grid)
 
-  workgroups_volume = ((Nq, Nq, Nqk), (Nq, Nq, Nqk, nrealelem))
-  workgroups_surface = ((Nfp,), (Nfp * nrealelem,))
+  workgroups_volume = ((Nq, Nq, Nqk), (nrealelem * Nq, Nq, Nqk))
+  workgroups_surface = (Nfp, Nfp * nrealelem)
 
   communicate = !(isstacked(topology) &&
                   typeof(dg.direction) <: VerticalDirection)
@@ -224,7 +224,7 @@ function init_ode_state(dg::DGModel, args...;
   nrealelem = length(topology.realelems)
 
   if !init_on_cpu
-    event = initstate!(device, (Np,), (Np * nrealelem,))(
+    event = initstate!(device, Np, Np * nrealelem)(
       bl, Val(dim), Val(N), state.data, auxstate.data, grid.vgeo,
       topology.realelems, args...)
     wait(event)
@@ -232,7 +232,7 @@ function init_ode_state(dg::DGModel, args...;
     h_state = similar(state, Array)
     h_auxstate = similar(auxstate, Array)
     h_auxstate .= auxstate
-    event = initstate!(CPU(), (Np,), (Np * nrealelem,))(
+    event = initstate!(CPU(), Np, Np * nrealelem)(
       bl, Val(dim), Val(N), h_state.data, h_auxstate.data, Array(grid.vgeo),
       topology.realelems, args...)
     wait(event)
@@ -276,7 +276,7 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
-  event = knl_indefinite_stack_integral!(device, (Nq, Nqk), (Nq, Nqk, nhorzelem))(
+  event = knl_indefinite_stack_integral!(device, (Nq, Nqk), (nhorzelem * Nq, Nqk))(
     m, Val(dim), Val(N),
     Val(nvertelem),
     Q.data, auxstate.data,
@@ -315,7 +315,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel,
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
-  event = knl_reverse_indefinite_stack_integral!(device, (Nq, Nqk), (Nq, Nqk, nhorzelem))(
+  event = knl_reverse_indefinite_stack_integral!(device, (Nq, Nqk), (nhorzelem * Nq, Nqk))(
     m, Val(dim), Val(N),
     Val(nvertelem),
     Q.data, auxstate.data,
@@ -381,11 +381,11 @@ function courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
         Nqk = dim == 2 ? 1 : Nq
         device = grid.vgeo isa Array ? CPU() : CUDA()
         pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
-        event = Grids.knl_min_neighbor_distance!(device, (Nq, Nq, Nqk), (Nq, Nq, Nqk, nrealelem))(
+        event = Grids.knl_min_neighbor_distance!(device, (Nq, Nq, Nqk), (nrealelem * Nq, Nq, Nqk))(
           Val(N), Val(dim), direction,
           pointwise_courant, grid.vgeo, topology.realelems)
         wait(event)
-        event = knl_local_courant!(device, (Nq*Nq*Nqk,), (Nq*Nq*Nqk, nrealelem))(
+        event = knl_local_courant!(device, Nq * Nq * Nqk, nrealelem * Nq * Nq * Nqk)(
           m, Val(dim), Val(N), pointwise_courant,
           local_courant, Q.data, dg.auxstate.data,
           dg.diffstate.data, topology.realelems, direction, Δt)
@@ -416,7 +416,7 @@ function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
-  event = knl_copy_stack_field_down!(device, (Nq, Nqk), (Nq, Nqk, nhorzelem))(
+  event = knl_copy_stack_field_down!(device, (Nq, Nqk), (nhorzelem * Nq, Nqk))(
     Val(dim), Val(N), Val(nvertelem),
     auxstate.data, 1:nhorzelem, Val(fldin),
     Val(fldout))

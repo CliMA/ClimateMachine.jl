@@ -69,7 +69,7 @@ See [`odefun!`](@ref) for usage.
   s_D = @localmem FT (Nq, Nq)
   l_rhs = @private FT (nstate,)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   ijk = @index(Local, Linear)
   i, j, k = @index(Local, NTuple)
 
@@ -222,7 +222,7 @@ end
   s_D = @localmem FT (Nq, Nq)
   l_rhs = @private FT (nstate,)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   i, j, k = @index(Local, NTuple)
   ijk = @index(Local, Linear)
 
@@ -392,7 +392,7 @@ See [`odefun!`](@ref) for usage.
     l_F = MArray{Tuple{nstate}, FT}(undef)
   end
   
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
 
   @inbounds for f in faces
@@ -529,7 +529,7 @@ end
   l_Q = @private FT (ngradtransformstate,)
   l_aux = @private FT (nauxstate,)
   
-  e = @index(Group)
+  e = @index(Group, Linear)
   i, j, k = @index(Local, NTuple)
   ijk = @index(Local, Linear)
 
@@ -641,7 +641,7 @@ end
   l_Q = @private FT (ngradtransformstate,)
   l_aux = @private FT (nauxstate,)
   
-  e = @index(Group)
+  e = @index(Group, Linear)
   i, j, k = @index(Local, NTuple)
   ijk = @index(Local, Linear)
 
@@ -761,7 +761,7 @@ end
     l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
   end
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
 
   @inbounds for f in faces
@@ -888,7 +888,7 @@ end
   l_state = MArray{Tuple{nstate}, FT}(undef)
   l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
 
   @inbounds begin
@@ -925,7 +925,7 @@ See [`DGBalanceLaw`](@ref) for usage.
 
   l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
 
   @inbounds begin
@@ -963,7 +963,7 @@ Update the auxiliary state array
   l_Q = MArray{Tuple{nstate}, FT}(undef)
   l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
 
   @inbounds begin
@@ -1010,7 +1010,7 @@ Update the auxiliary state array
   l_aux = MArray{Tuple{nauxstate}, FT}(undef)
   l_diff = MArray{Tuple{nviscstate}, FT}(undef)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
 
   @inbounds begin
@@ -1065,7 +1065,7 @@ See [`DGBalanceLaw`](@ref) for usage.
   l_int = @private FT (nout, Nq)
   s_I = @localmem FT (Nq, Nq)
 
-  eh = @index(Group)
+  eh = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   @inbounds begin
@@ -1151,7 +1151,7 @@ end
     l_V = MArray{Tuple{nout}, FT}(undef)
   end
 
-  eh = @index(Group)
+  eh = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   @inbounds begin
@@ -1191,7 +1191,7 @@ end
   Nq = N + 1
   Nqj = dim == 2 ? 1 : Nq
   
-  eh = @index(Group)
+  eh = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   # note that k is the second not 4th index (since this is scratch memory and k
@@ -1231,7 +1231,7 @@ end
   s_grad = @localmem FT (Nq, Nq, Nqk, ngradlapstate, 3)
   s_D = @localmem FT (Nq, Nq)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   i, j, k = @index(Local, NTuple)
   ijk = @index(Local, Linear)
 
@@ -1311,7 +1311,7 @@ end
   s_grad = @localmem FT (Nq, Nq, Nqk, ngradlapstate, 3)
   s_D = @localmem FT (Nq, Nq)
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   ijk = @index(Local, Linear)
   i, j, k = @index(Local, NTuple)
   @inbounds begin
@@ -1398,7 +1398,7 @@ end
     l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
   end
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
 
   @inbounds for f in faces
@@ -1475,7 +1475,7 @@ end
   l_Q = @private FT (ngradtransformstate,)
   l_aux = @private FT (nauxstate,)
   
-  e = @index(Group)
+  e = @index(Group, Linear)
   ijk = @index(Local, Linear)
   i, j, k = @index(Local, NTuple)
 
@@ -1583,7 +1583,7 @@ end
   l_Q = @private FT (ngradtransformstate,)
   l_aux = @private FT (nauxstate,)
   
-  e = @index(Group)
+  e = @index(Group, Linear)
   ijk = @index(Local, Linear)
   i, j, k = @index(Local, NTuple)
 
@@ -1694,7 +1694,7 @@ end
     l_auxP = MArray{Tuple{nauxstate}, FT}(undef)
   end
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
   @inbounds for f in faces
     nM = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
@@ -1783,7 +1783,7 @@ end
     l_diff = MArray{Tuple{nviscstate}, FT}(undef)
   end
 
-  e = @index(Group)
+  e = @index(Group, Linear)
   n = @index(Local, Linear)
   @inbounds begin
     @unroll for s = 1:nstate
