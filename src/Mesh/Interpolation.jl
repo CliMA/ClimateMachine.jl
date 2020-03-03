@@ -14,7 +14,10 @@ using CUDAnative
 using GPUifyLoops
 
 export InterpolationBrick, write_interpolated_data,
-       InterpolationCubedSphere, interpolate_local!
+       InterpolationCubedSphere, interpolate_local!,
+       InterpolationTopology
+
+abstract type InterpolationTopology  end
 #--------------------------------------------------------
 """
     InterpolationBrick(grid::DiscontinuousSpectralElementGrid{FT}, xbnd::Array{FT,2}, xres) where FT <: AbstractFloat
@@ -36,14 +39,13 @@ struct InterpolationBrick{FT  <:AbstractFloat,
                         UI8AD <:AbstractArray{UInt8,2},
                         UI16V <: AbstractVector{UInt16},
                        UI16VD <:AbstractVector{UInt16},
-                         I32V <: AbstractVector{Int32}}
+                         I32V <: AbstractVector{Int32}} <: InterpolationTopology
     Nel::T         # # of elements
     Np::T
     Npl::T
     poly_order::T
 
     xbnd::FTA2     # domain bounds, [2(min/max),ndim]
-    xres::FTV      # resolutions in x1, x2, x3 directions for the uniform grid
 
     x1g::FTV # 1D interpolation grid in x1 direction
     x2g::FTV
@@ -73,7 +75,11 @@ struct InterpolationBrick{FT  <:AbstractFloat,
     x2i_all::UI16V
     x3i_all::UI16V
 #--------------------------------------------------------
-    function InterpolationBrick(grid::DiscontinuousSpectralElementGrid{FT}, xbnd::Array{FT,2}, xres) where FT <: AbstractFloat
+    function InterpolationBrick(grid::DiscontinuousSpectralElementGrid{FT}, 
+                                xbnd::Array{FT,2}, 
+                                 x1g::AbstractArray{FT,1}, 
+                                 x2g::AbstractArray{FT,1}, 
+                                 x3g::AbstractArray{FT,1}) where FT <: AbstractFloat
         mpicomm = grid.topology.mpicomm
         pid     = MPI.Comm_rank(mpicomm)
         npr     = MPI.Comm_size(mpicomm)
@@ -86,9 +92,9 @@ struct InterpolationBrick{FT  <:AbstractFloat,
         ndim = 3
         toler = 4 * eps(FT) # tolerance
 
-        x1g = collect(range(xbnd[1,1], xbnd[2,1], step=xres[1])); n1g = length(x1g)
-        x2g = collect(range(xbnd[1,2], xbnd[2,2], step=xres[2])); n2g = length(x2g)
-        x3g = collect(range(xbnd[1,3], xbnd[2,3], step=xres[3])); n3g = length(x3g)
+        n1g = length(x1g)
+        n2g = length(x2g)
+        n3g = length(x3g)
 
         Np = n1g*n2g*n3g
         marker = BitArray{3}(undef,n1g,n2g,n3g); fill!(marker,true)
@@ -233,7 +239,7 @@ struct InterpolationBrick{FT  <:AbstractFloat,
                    typeof(flg_d),
                    typeof(x1i_all),
                    typeof(x1i_d),
-                   typeof(Nel_all)}(Nel, Np, Npl, poly_order, xbnd, xres, x1g, x2g, x3g, ξ1_d, ξ2_d, ξ3_d,
+                   typeof(Nel_all)}(Nel, Np, Npl, poly_order, xbnd, x1g, x2g, x3g, ξ1_d, ξ2_d, ξ3_d,
                                    flg_d, fac_d, x1i_d, x2i_d, x3i_d, offset, m1_r, m1_w, wb, Nel_all, x1i_all, x2i_all, x3i_all)
 
     end
@@ -427,7 +433,9 @@ end
     InterpolationCubedSphere(grid::DiscontinuousSpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int, lat_res::FT, long_res::FT, rad_res::FT) where {FT <: AbstractFloat}
 
 This interpolation structure and the corresponding functions works for a cubed sphere topology. The data is interpolated along a lat/long/rad grid.
-
+-90⁰  ≤ lat  ≤ 90⁰
+-180⁰ ≤ long ≤ 180⁰
+Rᵢ ≤ r ≤ Rₒ
 # input for the inner constructor
  - `grid` DiscontinousSpectralElementGrid
  - `vert_range` vertex range along the radial coordinate
@@ -443,24 +451,20 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
                              UI8AD <: AbstractArray{UInt8,2},
                              UI16V <: AbstractVector{UInt16},
                             UI16VD <: AbstractVector{UInt16},
-                              I32V <: AbstractVector{Int32}}
+                              I32V <: AbstractVector{Int32}} <: InterpolationTopology
 
     Nel::T
     Np::T             # # of points on the interpolation grid
     Npl::T            # # of interpolation points on the local process
     poly_order::T
 
-    lat_min::FT;  long_min::FT;  rad_min::FT; # domain bounds, min
-    lat_max::FT;  long_max::FT;  rad_max::FT; # domain bounds, max
-    lat_res::FT;  long_res::FT;  rad_res::FT; # respective resolutions for the uniform grid
-
     n_rad::T; n_lat::T; n_long::T;             # of lat, long & rad grid locations
 
     rad_grd::FTV; lat_grd::FTV; long_grd::FTV; # rad, lat & long locations of interpolation grid
 
-    ξ1::FTVD #Device array containing ξ1 coordinates of interpolation points within each element
-    ξ2::FTVD #Device array containing ξ2 coordinates of interpolation points within each element
-    ξ3::FTVD #Device array containing ξ3 coordinates of interpolation points within each element
+    ξ1::FTVD # Device array containing ξ1 coordinates of interpolation points within each element
+    ξ2::FTVD # Device array containing ξ2 coordinates of interpolation points within each element
+    ξ3::FTVD # Device array containing ξ3 coordinates of interpolation points within each element
 
     flg::UI8AD # flags when ξ1/ξ2/ξ3 interpolation point matches with a GLL point
 
@@ -469,7 +473,6 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
     radi::UI16VD  # rad coordinates of interpolation points within each element
     lati::UI16VD  # lat coordinates of interpolation points within each element
     longi::UI16VD # long coordinates of interpolation points within each element
-
 
     offset::TVD  # offsets for each element for v
 
@@ -483,9 +486,9 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
     radi_all::UI16V
     lati_all::UI16V
     longi_all::UI16V
-
   #--------------------------------------------------------
-    function InterpolationCubedSphere(grid::DiscontinuousSpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int, lat_res::FT, long_res::FT, rad_res::FT) where {FT <: AbstractFloat}
+    function InterpolationCubedSphere(grid::DiscontinuousSpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int, 
+                                      lat_grd::AbstractArray{FT,1}, long_grd::AbstractArray{FT,1}, rad_grd::AbstractArray{FT}) where {FT <: AbstractFloat}
         mpicomm = MPI.COMM_WORLD
         pid     = MPI.Comm_rank(mpicomm)
         npr     = MPI.Comm_size(mpicomm)
@@ -498,10 +501,6 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
         toler2 = FT(eps(FT) * 4.0)                 # tolerance
         toler3 = FT(eps(FT) * vert_range[1] * 10.0) # tolerance for Newton-Raphson
 
-        lat_min,   lat_max = FT(-90.0), FT(90.0)            # inclination/zeinth angle range
-        long_min, long_max = FT(-180.0), FT(180.0) 		    # azimuthal angle range
-        rad_min,   rad_max = vert_range[1], vert_range[end] # radius range
-
         Nel = length(grid.topology.realelems) # # of local elements on the local process
 
         nvert_range = length(vert_range)
@@ -510,10 +509,6 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
 
         nblck = nhor * nhor * nvert
         Δh = 2 / nhor                               # horizontal grid spacing in unwarped grid
-
-        lat_grd  = range(lat_min,  lat_max,  step=lat_res)
-        long_grd = range(long_min, long_max, step=long_res)
-        rad_grd  = range(rad_min,  rad_max,  step=rad_res)
 
         n_lat, n_long, n_rad = Int(length(lat_grd)), Int(length(long_grd)), Int(length(rad_grd))
 
@@ -538,7 +533,6 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
 
 
         offset_d = zeros(Int,Nel+1)
-
         #--------------------------------
         for i in 1:n_rad
             #--------------------------------
@@ -699,6 +693,8 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
             m1_r = DA(m1_r); m1_w = DA(m1_w); wb = DA(wb);
 
             offset_d = DA(offset_d);
+
+            rad_grd = DA(rad_grd); lat_grd = DA(lat_grd); long_grd = DA(long_grd)
         end
 
         return new{FT,
@@ -709,7 +705,7 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
                    typeof(flg_d),
                    typeof(radi_all),
                    typeof(rad_d),
-                   typeof(Nel_all)}(Nel, Np, Npl, poly_order, lat_min, long_min, rad_min, lat_max, long_max, rad_max, lat_res, long_res, rad_res,
+                   typeof(Nel_all)}(Nel, Np, Npl, poly_order,
                     n_rad, n_lat, n_long, rad_grd, lat_grd, long_grd, ξ1_d, ξ2_d, ξ3_d, flg_d, fac_d, rad_d, lat_d, long_d, offset_d, m1_r, m1_w, wb,
                     Nel_all, radi_all, lati_all, longi_all)
     #-----------------------------------------------------------------------------------
@@ -831,25 +827,30 @@ This interpolation function works for cubed spherical shell geometry.
  - `sv` State Array consisting of various variables on the discontinuous Galerkin grid
  - `v`  Interpolated variables
 """
-function interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, sv::AbstractArray{FT}, v::AbstractArray{FT}) where {FT <: AbstractFloat}
+function interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, sv::AbstractArray{FT}, v::AbstractArray{FT}; project=false) where {FT <: AbstractFloat}
     #------------------------------------------------------------------------------------------
     offset = intrp_cs.offset; m1_r = intrp_cs.m1_r; wb = intrp_cs.wb;
     ξ1 = intrp_cs.ξ1; ξ2 = intrp_cs.ξ2; ξ3 = intrp_cs.ξ3
     flg = intrp_cs.flg; fac = intrp_cs.fac
+    lati = intrp_cs.lati; longi = intrp_cs.longi
+    lat_grd = intrp_cs.lat_grd; long_grd = intrp_cs.long_grd
     #------------------------------------------------------------------------------------------
-    qm1   = length(m1_r)
-    nvars = size(sv,2)
-    Nel   = length(offset) - 1
+    qm1    = length(m1_r)
+    nvars  = size(sv,2)
+    Nel    = length(offset) - 1
+    np_tot = size(v,1) 
 
     device = typeof(sv) <: Array ? CPU() : CUDA()
 
-    if device==CPU()
+    if device == CPU()
         #------------------------------------------------------------------------------------------
         Nel   = length(offset) - 1
 
         vout    = zeros(FT,nvars) #FT(0)
         vout_ii = zeros(FT,nvars) #FT(0)
         vout_ij = zeros(FT,nvars) #FT(0)
+
+        _ρu, _ρv, _ρw = 2, 3, 4
 
         for el in 1:Nel #-----for each element elno
             np  = offset[el+1] - offset[el]
@@ -910,10 +911,37 @@ function interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, sv::Abstract
                 end
             end
         end
+        if project
+            # projecting velocity onto unit vectors in rad, lat and long directions
+            # assumed u, v and w are located in columns 2, 3 and 4
+            for i in 1:np_tot
+                vrad =  v[i,_ρu] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) + 
+                        v[i,_ρv] * cosd(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
+                        v[i,_ρw] * sind(lat_grd[lati[i]])
+
+                vlat = -v[i,_ρu] * sind(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) 
+                       -v[i,_ρv] * sind(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
+                        v[i,_ρw] * cosd(lat_grd[lati[i]])
+
+                vlon = -v[i,_ρu] * cosd(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
+                        v[i,_ρv] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]])
+
+                v[i,_ρu] = vrad
+                v[i,_ρv] = vlat
+                v[i,_ρw] = vlon
+            end
+        end
         #------------------------------------------------------------------------------------------
     else
         #------------------------------------------------------------------------------------------
-        @cuda threads=(qm1,qm1) blocks=(Nel,nvars) shmem=qm1*(qm1+2)*sizeof(FT) interpolate_cubed_sphere_CUDA!(offset, m1_r, wb, ξ1, ξ2, ξ3, flg, fac, sv, v)
+        @cuda threads=(qm1,qm1) blocks=(Nel,nvars) shmem=qm1*(qm1+2)*sizeof(FT) interpolate_cubed_sphere_CUDA!(offset, m1_r, wb, ξ1, ξ2, ξ3, 
+                                                                                                               flg, fac, sv, v)
+
+        if project
+            n_threads = 256 
+            n_blocks = ( np_tot%n_threads > 0 ? div(np_tot,n_threads) + 1 : div(np_tot,n_threads)  )
+            @cuda threads=(n_threads,) blocks=(n_blocks,) project_cubed_sphere_CUDA!(lat_grd, long_grd, lati, longi, v)
+        end
         #------------------------------------------------------------------------------------------
     end
     return nothing
@@ -930,6 +958,7 @@ function interpolate_cubed_sphere_CUDA!(offset::AbstractArray{T,1}, m1_r::Abstra
 
     qm1 = length(m1_r)
     nvars = size(sv,2)
+    _ρu, _ρv, _ρw = 2, 3, 4
     #--------creating views for shared memory
     shm_FT = @cuDynamicSharedMem(FT, (qm1,qm1+2))
 
@@ -996,10 +1025,56 @@ function interpolate_cubed_sphere_CUDA!(offset::AbstractArray{T,1}, m1_r::Abstra
                 end
             end
             @inbounds v[off + i, st_no] = vout_jk[1,1] * fc
+
+
         end
         #-----------------------------------
     end
     #-----------------------------------
+    return nothing
+end
+#--------------------------------------------------------
+function project_cubed_sphere_CUDA!(lat_grd::AbstractArray{FT,1}, long_grd::AbstractArray{FT,1}, 
+                                       lati::AbstractVector{UInt16}, longi::AbstractVector{UInt16}, 
+                                          v::AbstractArray{FT}) where {FT <: AbstractFloat}
+
+    ti     = threadIdx().x # thread ids
+    bi     = blockIdx().x  # block ids 
+    bs     = blockDim().x  # block dim
+    idx    = ti + (bi-1)*bs
+    np_tot = size(v,1)
+
+    _ρu, _ρv, _ρw = 2, 3, 4
+
+    # projecting velocity onto unit vectors in rad, lat and long directions
+    # assumed u, v and w are located in columns 2, 3 and 4
+    if idx ≤ np_tot
+#        vrad =  v[idx,_ρu] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]]) + 
+#                v[idx,_ρv] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
+#                v[idx,_ρw] * CUDAnative.sind(lat_grd[lati[idx]])
+
+#        vlat = -v[idx,_ρu] * CUDAnative.sind(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]]) 
+#               -v[idx,_ρv] * CUDAnative.sind(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
+#                v[idx,_ρw] * CUDAnative.cosd(lat_grd[lati[idx]])
+
+#        vlon = -v[idx,_ρu] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
+#                v[idx,_ρv] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]])
+
+        vrad =  v[idx,_ρu] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.cos(long_grd[longi[idx]]*pi/180.0) + 
+                v[idx,_ρv] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.sin(long_grd[longi[idx]]*pi/180.0) +
+                v[idx,_ρw] * CUDAnative.sin(lat_grd[lati[idx]]*pi/180.0)
+
+        vlat = -v[idx,_ρu] * CUDAnative.sin(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.cos(long_grd[longi[idx]]*pi/180.0) 
+               -v[idx,_ρv] * CUDAnative.sin(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.sin(long_grd[longi[idx]]*pi/180.0) +
+                v[idx,_ρw] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0)
+
+        vlon = -v[idx,_ρu] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.sin(long_grd[longi[idx]]*pi/180.0) +
+                v[idx,_ρv] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.cos(long_grd[longi[idx]]*pi/180.0)
+
+        v[idx,_ρu] = vrad
+        v[idx,_ρv] = vlat
+        v[idx,_ρw] = vlon
+    end # TODO: cosd / sind having issues on GPU. Unable to isolate the issue at this point. Needs to be revisited.
     return nothing
 end
 #--------------------------------------------------------
@@ -1027,13 +1102,18 @@ function write_interpolated_data(intrp_cs::InterpolationCubedSphere{FT}, iv::Abs
     nrad    = length(intrp_cs.rad_grd)
     nlat    = length(intrp_cs.lat_grd)
     nlong   = length(intrp_cs.long_grd)
-    nvars   = size(iv,2)
+    # Gathering data onto process id 0
+    if device == CUDA()
+        v = deepcopy(Array(iv))
+    else
+        v = iv
+    end
+
+    nvars   = size(v,2)
 
     if length(varnames) ≠ nvars
         error("# of varnames $(length(varnames)) do not match with number of variables $nvars ")
     end
-    # Gathering data onto process id 0
-    v = deepcopy(Array(iv))
 
     pid==0 ? v_all = Array{FT}(undef,length(intrp_cs.radi_all),nvars) : v_all = Array{FT}(undef,0,nvars)
 
@@ -1059,9 +1139,9 @@ function write_interpolated_data(intrp_cs::InterpolationCubedSphere{FT}, iv::Abs
         ds.dim["lat"]  = nlat
         ds.dim["long"] = nlong
 
-        rad_grd  = defVar(ds, "rad",  intrp_cs.rad_grd,  ("rad",))
-        lat_grd  = defVar(ds, "lat",  intrp_cs.lat_grd,  ("lat",))
-        long_grd = defVar(ds, "long", intrp_cs.long_grd, ("long",))
+        rad_grd  = defVar(ds, "rad",  Array(intrp_cs.rad_grd),  ("rad",))
+        lat_grd  = defVar(ds, "lat",  Array(intrp_cs.lat_grd),  ("lat",))
+        long_grd = defVar(ds, "long", Array(intrp_cs.long_grd), ("long",))
 
         for vari in 1:nvars
             sym = Symbol(varnames[vari])

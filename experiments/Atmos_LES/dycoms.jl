@@ -10,14 +10,19 @@ using FreeParameters
 using CLIMA.Atmos
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.GenericCallbacks
-using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-import CLIMA.DGmethods: vars_state, vars_aux, vars_integrals,
-                        integrate_aux!
+import CLIMA.DGmethods: vars_state, vars_aux,
+                        vars_integrals, vars_reverse_integrals,
+                        indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,
+                        integral_load_aux!, integral_set_aux!,
+                        reverse_integral_load_aux!,
+                        reverse_integral_set_aux!
 
 import CLIMA.DGmethods: boundary_state!
 import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
@@ -27,10 +32,14 @@ import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 vars_state(::RadiationModel, FT) = @vars()
 vars_aux(::RadiationModel, FT) = @vars()
 vars_integrals(::RadiationModel, FT) = @vars()
+vars_reverse_integrals(::RadiationModel, FT) = @vars()
 
 function atmos_nodal_update_aux!(::RadiationModel, ::AtmosModel, state::Vars, aux::Vars, t::Real) end
 function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
-function integrate_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) end
+function integral_load_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) end
+function integral_set_aux!(::RadiationModel, aux::Vars, integ::Vars) end
+function reverse_integral_load_aux!(::RadiationModel, integ::Vars, state::Vars, aux::Vars) end
+function reverse_integral_set_aux!(::RadiationModel, aux::Vars, integ::Vars) end
 function flux_radiation!(::RadiationModel, flux::Grad, state::Vars, aux::Vars, t::Real) end
 
 """
@@ -109,15 +118,15 @@ When `bctype == 1` the `NoFluxBC` otherwise the specialized DYCOMS BC is used
 function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                         bc::DYCOMS_BC, 
                                         atmos::AtmosModel, F,
-                                        state⁺, diff⁺, aux⁺, 
+                                        state⁺, diff⁺, hyperdiff⁺, aux⁺,
                                         n⁻,
-                                        state⁻, diff⁻, aux⁻,
+                                        state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                         bctype, t,
                                         state1⁻, diff1⁻, aux1⁻)
   if bctype != 1
     atmos_boundary_flux_diffusive!(nf, NoFluxBC(), atmos, F,
-                                   state⁺, diff⁺, aux⁺, n⁻,
-                                   state⁻, diff⁻, aux⁻,
+                                   state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
+                                   state⁻, diff⁻, hyperdiff⁻, aux⁻,
                                    bctype, t,
                                    state1⁻, diff1⁻, aux1⁻)
   else
@@ -203,19 +212,35 @@ struct DYCOMSRadiation{FT} <: RadiationModel
   "Radiative flux parameter `[W/m^2]`"
   F_1::FT
 end
-vars_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
+
 vars_aux(m::DYCOMSRadiation, FT) = @vars(Rad_flux::FT)
-function integrate_aux!(m::DYCOMSRadiation, integrand::Vars, state::Vars, aux::Vars)
+
+vars_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
+function integral_load_aux!(m::DYCOMSRadiation, integrand::Vars, state::Vars, aux::Vars)
   FT = eltype(state)
   integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
 end
+function integral_set_aux!(m::DYCOMSRadiation, aux::Vars, integrand::Vars)
+  integrand = integrand.radiation.attenuation_coeff
+  aux.∫dz.radiation.attenuation_coeff = integrand
+end
+
+vars_reverse_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
+function reverse_integral_load_aux!(m::DYCOMSRadiation, integrand::Vars, state::Vars, aux::Vars)
+  FT = eltype(state)
+  integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
+end
+function reverse_integral_set_aux!(m::DYCOMSRadiation, aux::Vars, integrand::Vars)
+  aux.∫dnz.radiation.attenuation_coeff = integrand.radiation.attenuation_coeff
+end
+
 function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, state::Vars,
                          aux::Vars, t::Real)
   FT = eltype(flux)
   z = altitude(atmos.orientation, aux)
   Δz_i = max(z - m.z_i, -zero(FT))
   # Constants
-  upward_flux_from_cloud  = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
+  upward_flux_from_cloud  = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)  
   upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
   free_troposphere_flux = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * cbrt(Δz_i) * (Δz_i/4 + m.z_i)
   F_rad = upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
@@ -249,7 +274,7 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 function init_dycoms!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
-    z = FT(z)
+    z = altitude(bl.orientation, aux)
 
     # These constants are those used by Stevens et al. (2005)
     qref       = FT(9.0e-3)
@@ -278,14 +303,8 @@ function init_dycoms!(bl, state, aux, (x,y,z), t)
 
     # Perturb initial state to break symmetry and trigger turbulent convection
     r1 = FT(rand(Uniform(-0.002, 0.002)))
-    r2 = FT(rand(Uniform(-0.00001, 0.00001)))
-    r3 = FT(rand(Uniform(-0.001, 0.001)))
-    r4 = FT(rand(Uniform(-0.001, 0.001)))
-    if z <= 400.0
+    if z <= 200.0
         θ_liq += r1 * θ_liq
-        q_tot += r2 * q_tot
-        u     += r3 * u
-        v     += r4 * v
     end
 
     # Pressure
@@ -297,7 +316,7 @@ function init_dycoms!(bl, state, aux, (x,y,z), t)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
-    e_pot = grav * z
+    e_pot = gravitational_potential(bl.orientation, aux)
     E     = ρ * total_energy(e_kin, e_pot, ts)
 
     state.ρ               = ρ
@@ -357,7 +376,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(AtmosLESConfiguration;
                            ref_state=ref_state,
                           turbulence=SmagorinskyLilly{FT}(C_smag),
-                            moisture=EquilMoist(5),
+                            moisture=EquilMoist{FT}(;maxiter=5),
                            radiation=radiation,
                               source=source,
                    boundarycondition=bc,

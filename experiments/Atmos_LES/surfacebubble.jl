@@ -9,7 +9,7 @@ using CLIMA
 using CLIMA.Atmos
 using CLIMA.GenericCallbacks
 using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
@@ -65,9 +65,9 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                         bc::SurfaceDrivenBubbleBC,
                                         m::AtmosModel,
                                         F,
-                                        Y⁺::Vars, Σ⁺::Vars, A⁺::Vars,
+                                        Y⁺::Vars, Σ⁺::Vars, HD⁺::Vars, A⁺::Vars,
                                         n⁻,
-                                        Y⁻::Vars, Σ⁻::Vars, A⁻::Vars,
+                                        Y⁻::Vars, Σ⁻::Vars, HD⁻::Vars, A⁻::Vars,
                                         bctype, t, Y₁⁻, Σ₁⁻, A₁⁻)
   # Working precision
   FT = eltype(Y⁻)
@@ -82,9 +82,9 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   # Apply boundary condition per face (1 == bottom wall)
   if bctype != 1
     atmos_boundary_flux_diffusive!(nf, NoFluxBC(), m, F,
-                                   Y⁺, Σ⁺, A⁺,
+                                   Y⁺, Σ⁺, HD⁺, A⁺,
                                    n⁻,
-                                   Y⁻, Σ⁻, A⁻,
+                                   Y⁻, Σ⁻, HD⁻, A⁻,
                                    bctype, t,
                                    Y₁⁻, Σ₁⁻, A₁⁻)
   else
@@ -121,17 +121,20 @@ function init_surfacebubble!(bl, state, aux, (x,y,z), t)
   θ            = θ_ref + Δθ # potential temperature
   π_exner      = FT(1) - grav / (c_p * θ) * z # exner pressure
   ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-  P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T            = P / (ρ * R_gas) # temperature
+
+  q_tot        = FT(0)
+  ts           = LiquidIcePotTempSHumEquil(θ, ρ, q_tot)
+  q_pt         = PhasePartition(ts)
+
   ρu           = SVector(FT(0),FT(0),FT(0))
   # energy definitions
   e_kin        = FT(0)
-  e_pot        = grav * z
-  ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
+  e_pot        = gravitational_potential(bl.orientation, aux)
+  ρe_tot       = ρ * total_energy(e_kin, e_pot, ts)
   state.ρ      = ρ
   state.ρu     = ρu
   state.ρe     = ρe_tot
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = ρ*q_pt.tot
 end
 
 function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
@@ -154,7 +157,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
                          turbulence=SmagorinskyLilly{FT}(C_smag),
                          source=(Gravity(),),
                          boundarycondition=bc,
-                         moisture=EquilMoist(),
+                         moisture=EquilMoist{FT}(),
                          init_state=init_surfacebubble!)
   config = CLIMA.Atmos_LES_Configuration("SurfaceDrivenBubble",
                                    N, resolution, xmax, ymax, zmax,

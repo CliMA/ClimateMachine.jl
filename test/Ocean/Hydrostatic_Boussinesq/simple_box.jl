@@ -5,7 +5,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.VariableTemplates: flattenednames
@@ -28,7 +27,6 @@ import CLIMA.DGmethods: update_aux!, update_aux_diffusive!,
                         vars_state, vars_aux
 using GPUifyLoops
 
-const ArrayType = CLIMA.array_type()
 
 HBModel   = HydrostaticBoussinesqModel
 
@@ -118,6 +116,7 @@ const κᶻ = 1e-4  # m^2 / s
 const λʳ = 4 // 86400 # m / s
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))

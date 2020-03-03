@@ -39,12 +39,20 @@ vars_gradient(lm::AtmosLinearModel, FT) = @vars()
 vars_diffusive(lm::AtmosLinearModel, FT) = @vars()
 vars_aux(lm::AtmosLinearModel, FT) = vars_aux(lm.atmos,FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
+vars_reverse_integrals(lm::AtmosLinearModel, FT) = @vars()
 
 
 function update_aux!(dg::DGModel, lm::AtmosLinearModel, Q::MPIStateArray, t::Real)
   return false
 end
-integrate_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
+function flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars,
+                         diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
+  nothing
+end
+integral_load_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
+integral_set_aux!(lm::AtmosLinearModel, aux::Vars, integ::Vars) = nothing
+reverse_integral_load_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) = nothing
+reverse_integral_set_aux!(lm::AtmosLinearModel, aux::Vars, integ::Vars) = nothing
 flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
   ref = aux.ref_state

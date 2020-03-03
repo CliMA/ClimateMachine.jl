@@ -7,12 +7,12 @@ using MPI
 using Printf
 using Requires
 
-using ..AdditiveRungeKuttaMethod
+using ..Atmos
 using ..VTK
 using ..ColumnwiseLUSolver
 using ..Diagnostics
 using ..GenericCallbacks
-using ..LowStorageRungeKuttaMethod
+using ..ODESolvers
 using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
 using ..MoistThermodynamics
 using ..MPIStateArrays
@@ -80,7 +80,7 @@ function parse_commandline()
     exc_handler = isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
     s = ArgParseSettings(exc_handler=exc_handler)
 
-    @add_arg_table s begin
+    @add_arg_table! s begin
         "--disable-gpu"
             help = "do not use the GPU"
             action = :store_true

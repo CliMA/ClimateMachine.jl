@@ -1,7 +1,3 @@
-using Requires
-@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-  using .CUDAnative
-end
 
 function update!(dQ, Q, rka, rkb, dt, slow_δ, slow_dQ, slow_scaling)
   @inbounds @loop for i = (1:length(Q);
