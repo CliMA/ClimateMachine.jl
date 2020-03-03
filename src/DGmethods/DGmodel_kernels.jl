@@ -599,7 +599,7 @@ end
     if nviscstate > 0
       fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
       diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc), Grad{vars_gradient(bl,FT)}(l_gradG),
-                 Vars{vars_state(bl,FT)}(l_Q), Vars{vars_aux(bl,FT)}(l_aux), t)
+                 Vars{vars_state(bl,FT)}(l_Q[:]), Vars{vars_aux(bl,FT)}(l_aux[:]), t)
 
       @unroll for s = 1:nviscstate
         Qvisc[ijk, s, e] = l_Qvisc[s]
@@ -694,8 +694,8 @@ end
       fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
       diffusive!(bl, Vars{vars_diffusive(bl,FT)}(l_Qvisc),
                  Grad{vars_gradient(bl,FT)}(l_gradG),
-                 Vars{vars_state(bl,FT)}(l_Q),
-                 Vars{vars_aux(bl,FT)}(l_aux), t)
+                 Vars{vars_state(bl,FT)}(l_Q[:]),
+                 Vars{vars_aux(bl,FT)}(l_aux[:]), t)
     end
 
     @unroll for s = 1:nviscstate
