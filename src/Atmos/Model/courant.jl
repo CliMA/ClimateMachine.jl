@@ -11,7 +11,7 @@ function advective_courant(m::AtmosModel, state::Vars, aux::Vars,
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
     elseif direction isa HorizontalDirection
-        norm_u = norm( (state.ρu .- dot(state.ρu, k̂).*k̂) / state.ρ )
+        norm_u = norm( (state.ρu - dot(state.ρu, k̂)*k̂) / state.ρ )
     else
         norm_u = norm(state.ρu/state.ρ)
     end
@@ -24,7 +24,7 @@ function nondiffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
     elseif direction isa HorizontalDirection
-        norm_u = norm( (state.ρu .- dot(state.ρu, k̂)*k̂) / state.ρ )
+        norm_u = norm( (state.ρu - dot(state.ρu, k̂)*k̂) / state.ρ )
     else
         norm_u = norm(state.ρu/state.ρ)
     end
@@ -45,7 +45,7 @@ function diffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
         if direction isa VerticalDirection
             return Δt * ν_vert / (Δx*Δx)
         elseif direction isa HorizontalDirection
-            ν_horz = ν - ν_vert .* k
+            ν_horz = ν - ν_vert * k
             return Δt * norm(ν_horz) / (Δx*Δx)
         else
             return Δt * norm(ν) / (Δx*Δx)
