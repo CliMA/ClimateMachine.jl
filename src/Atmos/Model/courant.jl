@@ -23,7 +23,7 @@ function advective_courant(m::BalanceLaw, state::Vars, aux::Vars,
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
     elseif direction isa HorizontalDirection
-        norm_u = norm( (state.ρu .- dot(state.ρu, k̂).*k̂) / state.ρ )
+        norm_u = norm( (state.ρu - dot(state.ρu, k̂)*k̂) / state.ρ )
     else
         norm_u = norm(state.ρu/state.ρ)
     end
@@ -36,7 +36,7 @@ function nondiffusive_courant(m::BalanceLaw, state::Vars, aux::Vars,
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
     elseif direction isa HorizontalDirection
-        norm_u = norm( (state.ρu .- dot(state.ρu, k̂)*k̂) / state.ρ )
+        norm_u = norm( (state.ρu - dot(state.ρu, k̂)*k̂) / state.ρ )
     else
         norm_u = norm(state.ρu/state.ρ)
     end
@@ -47,7 +47,7 @@ function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Var
     ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, 0)
     FT = eltype(state)
 
-    if ν isa Real    
+    if ν isa Real
         return Δt * ν / (Δx*Δx)
     else
         k̂ = vertical_unit_vector(m.orientation, aux)
@@ -56,7 +56,7 @@ function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Var
         if direction isa VerticalDirection
             return Δt * ν_vert / (Δx*Δx)
         elseif direction isa HorizontalDirection
-            ν_horz = ν - ν_vert .* k
+            ν_horz = ν - ν_vert * k
             return Δt * norm(ν_horz) / (Δx*Δx)
         else
             return Δt * norm(ν) / (Δx*Δx)
@@ -65,4 +65,3 @@ function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Var
 end
 
 end
-
