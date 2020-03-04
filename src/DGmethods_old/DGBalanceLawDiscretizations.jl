@@ -67,6 +67,13 @@ using DocStringExtensions
 using ..Mesh.Topologies
 using GPUifyLoops
 
+sync_device(::CPU) = nothing
+using Requires
+@init @require CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde" begin
+  using .CUDAdrv
+  sync_device(::CUDA) = synchronize()
+end
+
 include("DGBalanceLawDiscretizations_kernels.jl")
 include("NumericalFluxes_old.jl")
 
@@ -629,6 +636,8 @@ function SpaceMethods.odefun!(disc::DGBalanceLaw, dQ::MPIStateArray,
   # Just to be safe, we wait on the sends we started.
   MPIStateArrays.finish_ghost_send!(Qvisc)
   MPIStateArrays.finish_ghost_send!(Q)
+
+  sync_device(device)
 end
 
 """
