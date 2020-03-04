@@ -299,15 +299,6 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   wait(event)
 end
 
-# fallback
-function update_aux!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
-  return false
-end
-
-function update_aux_diffusive!(dg::DGModel, bl::BalanceLaw, Q::MPIStateArray, t::Real)
-  return false
-end
-
 function reverse_indefinite_stack_integral!(dg::DGModel,
                                             m::BalanceLaw,
                                             Q::MPIStateArray,
