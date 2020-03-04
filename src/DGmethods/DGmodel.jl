@@ -156,7 +156,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   # RHS Computation #
   ###################
   @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
-          volumerhs!(bl, Val(dim), Val(N), dg.diffusion_direction, dQdt.data,
+          volumerhs!(bl, Val(dim), Val(N), dg.direction, dQdt.data,
                      Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data, grid.vgeo, t,
                      grid.ω, grid.D, topology.realelems, increment))
 

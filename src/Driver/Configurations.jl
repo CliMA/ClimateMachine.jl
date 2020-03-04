@@ -91,7 +91,7 @@ function Atmos_LES_Configuration(
     @info @sprintf("""Establishing Atmos LES configuration for %s
                    precision        = %s
                    polynomial order = %d
-                   grid             = %dx%dx%d
+                   domain           = %dx%dx%d
                    resolution       = %dx%dx%d
                    MPI ranks        = %d""",
                    name, FT, N,

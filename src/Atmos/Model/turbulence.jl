@@ -190,7 +190,8 @@ function turbulence_tensors(m::SmagorinskyLilly, state::Vars, diffusive::Vars, a
   # squared buoyancy correction
   Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
   f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
-  ν = normS * f_b² * FT(m.C_smag * aux.turbulence.Δ)^2
+  ν = normS * FT(m.C_smag * aux.turbulence.Δ)^2
+  ν = SDiagonal(ν,ν,ν * f_b²)
   τ = (-2*ν) * S
   return ν, τ
 end
