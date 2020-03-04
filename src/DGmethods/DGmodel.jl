@@ -24,9 +24,19 @@ function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
           auxstate, diffstate, hyperdiffstate, direction, diffusion_direction, modeldata)
 end
 
+sync_device(::CPU) = nothing
+using Requires
+@init @require CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde" begin
+  using .CUDAdrv
+  sync_device(::CUDA) = synchronize()
+end
+
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
+
   bl = dg.balancelaw
   device = typeof(Q.data) <: Array ? CPU() : CUDA()
+
+  sync_device(device)
 
   grid = dg.grid
   topology = grid.topology
@@ -55,6 +65,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                   typeof(dg.direction) <: VerticalDirection)
 
   aux_comm = update_aux!(dg, bl, Q, t)
+  sync_device(device)
   @assert typeof(aux_comm) == Bool
 
   if nhyperviscstate > 0
@@ -103,6 +114,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     
     if nviscstate > 0
       aux_comm = update_aux_diffusive!(dg, bl, Q, t)
+      sync_device(device)
       @assert typeof(aux_comm) == Bool
     end
 
