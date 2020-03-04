@@ -51,11 +51,21 @@ function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
   ColumnwiseLU(dg, A)
 end
 
+sync_device(::CPU) = nothing
+using Requires
+@init @require CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde" begin
+  using .CUDAdrv
+  sync_device(::CUDA) = synchronize()
+end
+
 function LS.linearsolve!(clu::ColumnwiseLU{F}, ::AbstractColumnLUSolver,
                          Q, Qrhs, args...) where {F <: DGModel}
+  device = typeof(Q.data) <: Array ? CPU() : CUDA()
+
   dg = clu.f
   A = clu.A
   Q .= Qrhs
+  sync_device(device)
 
   band_forward!(Q, A, dg)
   band_back!(Q, A, dg)
@@ -269,6 +279,7 @@ function banded_matrix(f!, dg::DGModel,
             nhorzelem)
   end
   fill!(A, zero(FT))
+  sync_device(device)
 
   # loop through all DOFs in a column and compute the matrix column
   for ev = 1:nvertelem
