@@ -947,7 +947,6 @@ end
 
 Update the auxiliary state array
 """ knl_nodal_update_aux!
-
 @kernel function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
                                        auxstate, t, elems) where {dim, N}
   FT = eltype(Q)
@@ -992,7 +991,6 @@ end
 
 Update the auxiliary state array
 """ knl_nodal_update_aux!
-
 @kernel function knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q,
                                        auxstate, diffstate, t, elems) where {dim, N}
   FT = eltype(Q)
