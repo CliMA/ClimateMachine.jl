@@ -187,7 +187,7 @@ end
             #copyto!(A, B)
             ptrA = pointer(A)
             ptrB = pointer(B)
-            unsafe_copyto!(ptrA, ptrB, N, async=true, stream=stream)
+            unsafe_copyto!(ptrA, ptrB, N)
         end
     end
     function copybuffer!(A::Array, B::CuArray; async=true)
