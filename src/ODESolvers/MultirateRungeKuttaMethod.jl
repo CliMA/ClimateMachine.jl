@@ -118,6 +118,7 @@ function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, time::Real,
         slow_scaling = in_slow_scaling
       end
       # update solution and scale RHS
+      sync_device(device(Q))
       event = update!(device(Q), groupsize)(
         slow_rv_dQ, in_slow_rv_dQ, in_slow_δ, slow_scaling;
         ndrange=length(realview(Q)))

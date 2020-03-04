@@ -24,13 +24,6 @@ function DGModel(balancelaw, grid, numfluxnondiff, numfluxdiff, gradnumflux;
           auxstate, diffstate, hyperdiffstate, direction, diffusion_direction, modeldata)
 end
 
-sync_device(::CPU) = nothing
-using Requires
-@init @require CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde" begin
-  using .CUDAdrv
-  sync_device(::CUDA) = synchronize()
-end
-
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   bl = dg.balancelaw
@@ -86,6 +79,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 
   if nviscstate > 0 || nhyperviscstate > 0
 
+    sync_device(device)
     event = volumeviscterms!(device, workgroups_volume...)(
       bl, Val(dim), Val(N), dg.diffusion_direction, Q.data,
       Qvisc.data, Qhypervisc_grad.data, auxstate.data, grid.vgeo, t,
@@ -99,6 +93,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
       end
     end
 
+    sync_device(device)
     event = faceviscterms!(device, workgroups_surface...)(
               bl, Val(dim), Val(N), dg.diffusion_direction,
               dg.gradnumflux,
@@ -128,6 +123,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     # Laplacian Computation #
     #########################
   
+    sync_device(device)
     event = volumedivgrad!(device, workgroups_volume...)(
       bl, Val(dim), Val(N), dg.diffusion_direction,
       Qhypervisc_grad.data, Qhypervisc_div.data, grid.vgeo,
@@ -136,6 +132,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     
     communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
 
+    sync_device(device)
     event = facedivgrad!(device, workgroups_surface...)(
       bl, Val(dim), Val(N), dg.diffusion_direction,
       CentralDivPenalty(),
@@ -150,6 +147,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     # Hyperdiffusive terms computation #
     ####################################
    
+    sync_device(device)
     event = volumehyperviscterms!(device, workgroups_volume...)(
       bl, Val(dim), Val(N), dg.diffusion_direction,
       Qhypervisc_grad.data, Qhypervisc_div.data,
@@ -160,6 +158,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     
     communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_div)
 
+    sync_device(device)
     event = facehyperviscterms!(device, workgroups_surface...)(
       bl, Val(dim), Val(N), dg.diffusion_direction,
       CentralHyperDiffusiveFlux(),
@@ -176,6 +175,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   ###################
   # RHS Computation #
   ###################
+  sync_device(device)
   event = volumerhs!(device, workgroups_volume...)(
     bl, Val(dim), Val(N), dg.diffusion_direction, dQdt.data,
     Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data, grid.vgeo, t,
@@ -199,6 +199,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     end
   end
 
+  sync_device(device)
   event = facerhs!(device, workgroups_surface...)(
     bl, Val(dim), Val(N), dg.direction,
     dg.numfluxnondiff,
@@ -236,6 +237,7 @@ function init_ode_state(dg::DGModel, args...;
   nrealelem = length(topology.realelems)
 
   if !init_on_cpu
+    sync_device(device)
     event = initstate!(device, Np, Np * nrealelem)(
       bl, Val(dim), Val(N), state.data, auxstate.data, grid.vgeo,
       topology.realelems, args...)
@@ -288,6 +290,7 @@ function indefinite_stack_integral!(dg::DGModel, m::BalanceLaw,
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
+  sync_device(device)
   event = knl_indefinite_stack_integral!(device, (Nq, Nqk), (nhorzelem * Nq, Nqk))(
     m, Val(dim), Val(N),
     Val(nvertelem),
@@ -318,6 +321,7 @@ function reverse_indefinite_stack_integral!(dg::DGModel,
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
+  sync_device(device)
   event = knl_reverse_indefinite_stack_integral!(device, (Nq, Nqk), (nhorzelem * Nq, Nqk))(
     m, Val(dim), Val(N),
     Val(nvertelem),
@@ -343,11 +347,13 @@ function nodal_update_aux!(f!, dg::DGModel, m::BalanceLaw, Q::MPIStateArray,
   nodal_update_aux! = knl_nodal_update_aux!(device, (Np,), (Np * nrealelem,))
   ### update aux variables
   if diffusive
+    sync_device(device)
     event = nodal_update_aux!(m, Val(dim), Val(N), f!,
                               Q.data, dg.auxstate.data, dg.diffstate.data, t,
                               topology.realelems)
     wait(event)
   else
+    sync_device(device)
     event = nodal_update_aux!(m, Val(dim), Val(N), f!,
                               Q.data, dg.auxstate.data, t,
                               topology.realelems)
@@ -384,10 +390,12 @@ function courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
         Nqk = dim == 2 ? 1 : Nq
         device = grid.vgeo isa Array ? CPU() : CUDA()
         pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
+        sync_device(device)
         event = Grids.knl_min_neighbor_distance!(device, (Nq, Nq, Nqk), (nrealelem * Nq, Nq, Nqk))(
           Val(N), Val(dim), direction,
           pointwise_courant, grid.vgeo, topology.realelems)
         wait(event)
+        sync_device(device)
         event = knl_local_courant!(device, Nq * Nq * Nqk, nrealelem * Nq * Nq * Nqk)(
           m, Val(dim), Val(N), pointwise_courant,
           local_courant, Q.data, dg.auxstate.data,
@@ -419,6 +427,7 @@ function copy_stack_field_down!(dg::DGModel, m::BalanceLaw,
   nvertelem = topology.stacksize
   nhorzelem = div(nelem, nvertelem)
 
+  sync_device(device)
   event = knl_copy_stack_field_down!(device, (Nq, Nqk), (nhorzelem * Nq, Nqk))(
     Val(dim), Val(N), Val(nvertelem),
     auxstate.data, 1:nhorzelem, Val(fldin),

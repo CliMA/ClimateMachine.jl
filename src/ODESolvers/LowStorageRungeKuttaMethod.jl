@@ -121,6 +121,7 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
       slow_scaling = in_slow_scaling
     end
     # update solution and scale RHS
+    sync_device(device(Q))
     event = update!(device(Q), groupsize)(
       rv_dQ, rv_Q, RKA[s%length(RKA)+1], RKB[s], dt,
       slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q))

@@ -1,4 +1,3 @@
-
 export AbstractAdditiveRungeKutta
 export LowStorageVariant, NaiveVariant
 export AdditiveRungeKutta
@@ -247,6 +246,7 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
 
     # this kernel also initializes Qstages[istage] with an initial guess
     # for the linear solver
+    sync_device(device(Q))
     event = stage_update!(device(Q), groupsize)(
       variant, rv_Q, rv_Qstages, rv_Lstages, rv_Rstages, rv_Qhat,
       RKA_explicit, RKA_implicit, dt, Val(istage),
@@ -266,6 +266,7 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
   end
 
   # compose the final solution
+  sync_device(device(Q))
     event = solution_update!(device(Q), groupsize)(
       variant, rv_Q, rv_Lstages, rv_Rstages, RKB, dt,
       Val(Nstages), Val(split_nonlinear_linear),
@@ -308,7 +309,9 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
   for istage = 2:Nstages
     stagetime = time + RKC[istage] * dt
 
+
     # this kernel also initializes Qtt for the linear solver
+    sync_device(device(Q))
     event = stage_update!(device(Q), groupsize)(
       variant, rv_Q, rv_Qstages, rv_Rstages, rv_Qhat, rv_Qtt,
       RKA_explicit, RKA_implicit, dt, Val(istage),
@@ -332,6 +335,7 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
   end
 
   # compose the final solution
+  sync_device(device(Q))
   event = solution_update!(device(Q), groupsize)(
     variant, rv_Q, rv_Rstages, RKB, dt, Val(Nstages),
     slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q))

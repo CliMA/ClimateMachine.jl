@@ -5,6 +5,7 @@ using DoubleFloats
 using LazyArrays
 using StaticArrays
 using KernelAbstractions
+using ..Kernels
 using Requires
 using MPI
 
@@ -344,6 +345,7 @@ function fillsendbuf!(sendbuf, buf, vmapsend)
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
+    sync_device(device(buf))
     event = knl_fillsendbuf!(device(buf), 256, length(vmapsend))(
       Val(Np), Val(nvar), sendbuf, buf, vmapsend,
       length(vmapsend))
@@ -356,6 +358,7 @@ function transferrecvbuf!(buf, recvbuf, vmaprecv)
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
+    sync_device(device(buf))
     event = knl_transferrecvbuf!(device(buf), 256, length(vmaprecv))(
       Val(Np), Val(nvar), buf, recvbuf,
       vmaprecv, length(vmaprecv))

@@ -10,6 +10,7 @@ using LinearAlgebra
 using LazyArrays
 using StaticArrays
 using KernelAbstractions
+using ..Kernels
 
 """
     GeneralizedMinimalResidual(Q; M, rtol, atol)
@@ -138,6 +139,7 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
   rv_Q = realview(Q)
   rv_krylov_basis = realview.(krylov_basis)
   groupsize = 256
+  sync_device(device(Q))
   event = LS.linearcombination!(device(Q), groupsize)(
     rv_Q, y, rv_krylov_basis, true; ndrange=length(rv_Q))
   wait(event)

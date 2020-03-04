@@ -5,6 +5,7 @@ using ..MPIStateArrays
 using StaticArrays, LinearAlgebra
 
 using KernelAbstractions
+using ..Kernels
 include("LinearSolvers_kernels.jl")
 
 # just for testing LinearSolvers

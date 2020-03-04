@@ -1,6 +1,7 @@
 module Filters
 
 using LinearAlgebra, GaussQuadrature, KernelAbstractions
+using ...Kernels
 using ..Grids
 using ..Grids: Direction, EveryDirection, HorizontalDirection, VerticalDirection
 
@@ -158,6 +159,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
 
   nrealelem = length(topology.realelems)
 
+  sync_device(device)
   event = knl_apply_filter!(device, (Nq, Nq, Nqk), (nrealelem * Nq, Nq, Nqk))(
     Val(dim), Val(N), Val(nstate), Val(direction),
     Q.data, Val(states), filtermatrix, topology.realelems)
@@ -185,6 +187,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
   nrealelem = length(topology.realelems)
   nreduce = 2^ceil(Int, log2(Nq*Nqk))
 
+  sync_device(device)
   event = knl_apply_TMAR_filter!(device, (Nq, Nqk), (nrealelem * Nq, Nqk))(
     Val(nreduce), Val(dim), Val(N), Q.data,
     Val(states), grid.vgeo, topology.realelems)

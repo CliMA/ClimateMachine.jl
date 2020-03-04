@@ -154,6 +154,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p,
     slowrhs!(fYnj[i-1], Q, p, time + c[i-1]*dt, increment=false)
 
     groupsize = 256
+    sync_device(device(Q))
     event = update!(device(Q), groupsize)(
       realview(Q), realview(offset), Val(i), realview(yn),
       map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]),
