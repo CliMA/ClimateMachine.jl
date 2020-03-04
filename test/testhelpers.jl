@@ -3,7 +3,7 @@ using MPI
 function runmpi(tests, file)
   MPI.Initialized() && !MPI.Finalized() &&
   error("runmpi does not work if MPI has been "*
-        "Initialized but not Finalizd")
+        "Initialized but not Finalized")
 
   # The code below was modified from the MPI.jl file runtests.jl
   #
