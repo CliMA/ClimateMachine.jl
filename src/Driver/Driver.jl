@@ -292,14 +292,38 @@ function setup_solver(t0::FT, timeend::FT,
 end
 
 """
-    CLIMA.invoke!(solver_config)
+    CLIMA.invoke!(solver_config::SolverConfiguration;
+                  user_callbacks=(),
+                  check_euclidean_distance=false,
+                  adjustfinalstep=false
+                  user_info_callback=(init)->nothing)
 
-Run the simulation.
+Run the simulation defined by the `solver_config`.
+
+Keyword Arguments:
+
+The `user_callbacks` are passed to the ODE solver as callback functions; see
+[`ODESolvers.solve!]@ref().
+
+If `check_euclidean_distance` is `true, then the Euclidean distance between the
+final solution and initial condition function evaluated with
+`solver_config.timeend` is reported.
+
+The value of 'adjustfinalstep` is passed to the ODE solver; see
+[`ODESolvers.solve!]@ref().
+
+The function `user_info_callback` is called after the default info callback
+(which is called every `Settings.update_interval` seconds of wallclock time).
+The single input argument `init` is `true` when the callback is called
+called for initialization before time stepping begins and `false` when called
+during the actual ODE solve; see [`GenericCallbacks`](@ref) and
+[`ODESolvers.solve!]@ref().
 """
 function invoke!(solver_config::SolverConfiguration;
                  user_callbacks=(),
                  check_euclidean_distance=false,
-                 adjustfinalstep=false
+                 adjustfinalstep=false,
+                 user_info_callback=(init)->nothing
                 )
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -332,7 +356,7 @@ function invoke!(solver_config::SolverConfiguration;
                                runtime,
                                energy)
             end
-            nothing
+            user_info_callback(init)
         end
         callbacks = (callbacks..., cbinfo)
     end

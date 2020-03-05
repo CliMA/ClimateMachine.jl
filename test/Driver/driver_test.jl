@@ -86,7 +86,14 @@ function main()
     # difference by a fairly large factor
     @test isapprox(CFL_nondiff, CFL, rtol=0.03)
 
+    cb_test = 0
     result = CLIMA.invoke!(solver_config)
+    # cb_test should be zero since user_info_callback not specified
+    @test cb_test == 0
+
+    result = CLIMA.invoke!(solver_config, user_info_callback=(init)->cb_test+=1)
+    # cb_test should be greater than one if the user_info_callback got called
+    @test cb_test > 0
 end
 
 main()
