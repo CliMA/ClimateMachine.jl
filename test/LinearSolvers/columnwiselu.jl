@@ -3,12 +3,12 @@ using Test
 using LinearAlgebra
 using Random
 using KernelAbstractions, StaticArrays
-using ..Kernels
 
 using CLIMA
 using CLIMA.LinearSolvers
 using CLIMA.ColumnwiseLUSolver: band_lu_knl!, band_forward_knl!,
                                 band_back_knl!
+using CLIMA.Kernels
 
 
 CLIMA.init()
@@ -54,7 +54,7 @@ let
   groupsize = (Nq, Nq)
   ndrange = (Nq, Nq, nhorzelem)
   
-  sync_device(device(Q))
+  sync_device(device)
   event = band_lu_knl!(device, groupsize, ndrange)(
     d_F, Val(Nq), Val(Nq), Val(Nq), Val(nstate), Val(nvertelem),
     Val(nhorzelem), Val(eband))
@@ -79,13 +79,13 @@ let
 
   d_x = ArrayType(b)
 
-  sync_device(device(Q))
+  sync_device(device)
   event = band_forward_knl!(device, groupsize, ndrange)(
     d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
     Val(nvertelem), Val(nhorzelem), Val(eband))
   wait(event)
 
-  sync_device(device(Q))
+  sync_device(device)
   event = band_back_knl!(device, groupsize, ndrange)(
     d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
     Val(nvertelem), Val(nhorzelem), Val(eband))

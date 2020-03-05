@@ -139,13 +139,13 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
     groupsize = 256
     T = eltype(alpha)
 
-    sync_device(device)
+    sync_device(device(Q))
     event = LS.linearcombination!(device(Q), groupsize)(
       rv_nextp, (one(T), alpha[1:k]...),
       (rv_residual, rv_p[1:k]...), false; ndrange=length(rv_nextp))
     wait(event)
 
-    sync_device(device)
+    sync_device(device(Q))
     event = LS.linearcombination!(device(Q), groupsize)(
       rv_L_nextp, (one(T), alpha[1:k]...),
       (rv_L_residual, rv_L_p[1:k]...), false; ndrange=length(rv_nextp))
