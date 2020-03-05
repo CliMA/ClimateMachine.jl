@@ -3,6 +3,7 @@ using ..Atmos: thermo_state, turbulence_tensors
 using ..SubgridScaleParameters: inv_Pr_turb
 using ..PlanetParameters
 using ..MoistThermodynamics
+using LinearAlgebra
 
 Base.@kwdef mutable struct AtmosCollectedDiagnostics
     zvals::Union{Nothing,Matrix} = nothing
