@@ -4,7 +4,6 @@ include("MultirateRungeKuttaMethod_kernels.jl")
 export MultirateRungeKutta
 
 LSRK2N = LowStorageRungeKutta2N
-SSPRK = StrongStabilityPreservingRungeKutta
 
 """
     MultirateRungeKutta(slow_solver, fast_solver; dt, t0 = 0)
@@ -59,7 +58,6 @@ mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
     new{SS, FS, RT}(slow_solver, fast_solver, RT(dt), RT(t0))
   end
 end
-MRRK = MultirateRungeKutta
 
 function MultirateRungeKutta(solvers::Tuple, Q=nothing;
                              dt=getdt(solvers[1]), t0=solvers[1].t
