@@ -78,7 +78,7 @@ function MultirateRungeKutta(solvers::Tuple, Q=nothing;
 end
 
 function dostep!(Q, mrrk::MultirateRungeKutta, param,
-                      timeend::AbstractFloat, adjustfinalstep::Bool)
+                 timeend::Real, adjustfinalstep::Bool)
   time, dt = mrrk.t, mrrk.dt
   @assert dt > 0
   if adjustfinalstep && time + dt > timeend
@@ -96,10 +96,10 @@ function dostep!(Q, mrrk::MultirateRungeKutta, param,
   return mrrk.t
 end
 
-function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
-                      time::AbstractFloat, dt::AbstractFloat,
-                      in_slow_δ = nothing, in_slow_rv_dQ = nothing,
-                      in_slow_scaling = nothing) where {SS <: LSRK2N}
+function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, time::Real,
+                 dt::AbstractFloat, in_slow_δ = nothing,
+                 in_slow_rv_dQ = nothing,
+                 in_slow_scaling = nothing) where {SS <: LSRK2N}
   slow = mrrk.slow_solver
   fast = mrrk.fast_solver
 
@@ -148,7 +148,7 @@ function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
       end
       fast_time = slow_stage_time + (substep - 1) * fast_dt
       dostep!(Q, fast, param, fast_time, fast_dt, slow_δ, slow_rv_dQ,
-                   slow_rka)
+              slow_rka)
     end
   end
 end
