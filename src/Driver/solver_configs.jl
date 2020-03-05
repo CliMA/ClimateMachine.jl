@@ -61,6 +61,8 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `modeldata=nothing`: passed through to `DGModel`.
 # - `Courant_number=0.4`: for the simulation.
 # - `diffdir=EveryDirection()`: restrict diffusivity direction.
+# - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
+# - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
 """
 function setup_solver(t0::FT, timeend::FT,
                       driver_config::DriverConfiguration,
@@ -71,6 +73,8 @@ function setup_solver(t0::FT, timeend::FT,
                       modeldata=nothing,
                       Courant_number=0.4,
                       diffdir=EveryDirection(),
+                      timeend_dt_adjust=true,
+                      CFL_direction=EveryDirection()
                      ) where {FT<:AbstractFloat}
     @tic setup_solver
 
@@ -99,10 +103,10 @@ function setup_solver(t0::FT, timeend::FT,
 
     # initial Δt specified or computed
     if ode_dt === nothing
-        ode_dt = calculate_dt(grid, dtmodel, Courant_number)
+        ode_dt = calculate_dt(dg, dtmodel, Q, Courant_number, CFL_direction)
     end
     numberofsteps = convert(Int, cld(timeend, ode_dt))
-    ode_dt = timeend / numberofsteps
+    timeend_dt_adjust && (ode_dt = timeend / numberofsteps)
 
     # create the solver
     if isa(ode_solver_type, ExplicitSolverType)

@@ -183,7 +183,8 @@ function main()
     driver_config,
     ode_solver_type=ode_solver_type,
     Courant_number=0.05,
-    init_on_cpu=true
+    init_on_cpu=true,
+    CFL_direction=HorizontalDirection()
   )
 
   # Set up user-defined callbacks

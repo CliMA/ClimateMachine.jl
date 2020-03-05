@@ -1,15 +1,12 @@
-advective_courant(m::AtmosLinearModel, a...; k...) =
-advective_courant(m.atmos, a...; k...)
+advective_courant(m::AtmosLinearModel, a...) = advective_courant(m.atmos, a...)
 
-nondiffusive_courant(m::AtmosLinearModel, a...; k...) =
-nondiffusive_courant(m.atmos, a...; k...)
+nondiffusive_courant(m::AtmosLinearModel, a...) = nondiffusive_courant(m.atmos,
+                                                                       a...)
 
-diffusive_courant(m::AtmosLinearModel, a...; k...) =
-diffusive_courant(m.atmos, a...; k...)
+diffusive_courant(m::AtmosLinearModel, a...) = diffusive_courant(m.atmos, a...)
 
 function advective_courant(m::AtmosModel, state::Vars, aux::Vars,
-                           diffusive::Vars, Δx, Δt,
-                           direction=VerticalDirection())
+                           diffusive::Vars, Δx, Δt, direction)
     k̂ = vertical_unit_vector(m.orientation, aux)
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
@@ -22,8 +19,7 @@ function advective_courant(m::AtmosModel, state::Vars, aux::Vars,
 end
 
 function nondiffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
-                              diffusive::Vars, Δx, Δt,
-                              direction=VerticalDirection())
+                              diffusive::Vars, Δx, Δt, direction)
     k̂ = vertical_unit_vector(m.orientation, aux)
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
@@ -36,8 +32,7 @@ function nondiffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
 end
 
 function diffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
-                           diffusive::Vars, Δx, Δt,
-                           direction=VerticalDirection())
+                           diffusive::Vars, Δx, Δt, direction)
     ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, 0)
     FT = eltype(state)
 

@@ -74,14 +74,16 @@ end
 HBModel = HydrostaticBoussinesqModel
 
 """
-    calculate_dt(grid, model::HBModel)
+    calculate_dt(dg, model::HBModel, _, Courant_number)
 
 calculates the time step based on grid spacing and model parameters
 takes minimum of gravity wave, diffusive, and viscous CFL
 factor of 1000 in the diffusive CFL is to handle the convective adjustment
 
 """
-function calculate_dt(grid, model::HBModel, Courant_number)
+function calculate_dt(dg, model::HBModel, _, Courant_number)
+    grid = dg.grid
+
     minΔx = min_node_distance(grid, HorizontalDirection())
     minΔz = min_node_distance(grid, VerticalDirection())
 

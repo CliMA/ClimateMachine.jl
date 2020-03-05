@@ -29,11 +29,6 @@ end
 abstract type AtmosLinearModel <: BalanceLaw
 end
 
-function calculate_dt(grid, model::AtmosLinearModel, Courant_number)
-    T = 290.0
-    return Courant_number * min_node_distance(grid, HorizontalDirection()) / soundspeed_air(T)
-end
-
 vars_state(lm::AtmosLinearModel, FT) = vars_state(lm.atmos,FT)
 vars_gradient(lm::AtmosLinearModel, FT) = @vars()
 vars_diffusive(lm::AtmosLinearModel, FT) = @vars()
