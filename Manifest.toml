@@ -276,8 +276,8 @@ version = "0.21.0"
 
 [[KernelAbstractions]]
 deps = ["Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "Cassette", "MacroTools", "Requires", "StaticArrays"]
-git-tree-sha1 = "ad38afd7f2638874b13ba9775ff2566c69a1f5be"
-repo-rev = "master"
+git-tree-sha1 = "65e0d3d7cb6b34b41e67cd4c697b767eee6d131b"
+repo-rev = "vc/host_sync"
 repo-url = "https://github.com/JuliaGPU/KernelAbstractions.jl"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 version = "0.1.0"
