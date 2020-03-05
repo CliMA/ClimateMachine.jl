@@ -1,24 +1,15 @@
-module Courant
+advective_courant(m::AtmosLinearModel, a...; k...) =
+advective_courant(m.atmos, a...; k...)
 
-export advective_courant, diffusive_courant, nondiffusive_courant
+nondiffusive_courant(m::AtmosLinearModel, a...; k...) =
+nondiffusive_courant(m.atmos, a...; k...)
 
-using LinearAlgebra, StaticArrays
-using ..VariableTemplates
-using ..MoistThermodynamics
-using ..PlanetParameters
-import ..MoistThermodynamics: internal_energy
-using ..SubgridScaleParameters
-using GPUifyLoops
-using CLIMA.Atmos: AtmosModel, soundspeed, vertical_unit_vector, turbulence_tensors
-import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state,
-                        vars_diffusive
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Grids: VerticalDirection, HorizontalDirection, EveryDirection
+diffusive_courant(m::AtmosLinearModel, a...; k...) =
+diffusive_courant(m.atmos, a...; k...)
 
-
-function advective_courant(m::BalanceLaw, state::Vars, aux::Vars,
-                              diffusive::Vars, Δx, Δt, direction=VerticalDirection())
+function advective_courant(m::AtmosModel, state::Vars, aux::Vars,
+                           diffusive::Vars, Δx, Δt,
+                           direction=VerticalDirection())
     k̂ = vertical_unit_vector(m.orientation, aux)
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
@@ -30,8 +21,9 @@ function advective_courant(m::BalanceLaw, state::Vars, aux::Vars,
     return Δt * norm_u / Δx
 end
 
-function nondiffusive_courant(m::BalanceLaw, state::Vars, aux::Vars,
-                              diffusive::Vars, Δx, Δt, direction=VerticalDirection())
+function nondiffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
+                              diffusive::Vars, Δx, Δt,
+                              direction=VerticalDirection())
     k̂ = vertical_unit_vector(m.orientation, aux)
     if direction isa VerticalDirection
         norm_u =  abs(dot(state.ρu, k̂))/state.ρ
@@ -43,7 +35,9 @@ function nondiffusive_courant(m::BalanceLaw, state::Vars, aux::Vars,
     return Δt * (norm_u + soundspeed(m.moisture, m.orientation, state, aux)) / Δx
 end
 
-function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Vars, Δx, Δt, direction=VerticalDirection())
+function diffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
+                           diffusive::Vars, Δx, Δt,
+                           direction=VerticalDirection())
     ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, 0)
     FT = eltype(state)
 
@@ -63,6 +57,3 @@ function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Var
         end
     end
 end
-
-end
-

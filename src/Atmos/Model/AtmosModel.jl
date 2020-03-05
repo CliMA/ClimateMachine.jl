@@ -34,6 +34,7 @@ import ..DGmethods.NumericalFluxes: boundary_state!,
                                     NumericalFluxNonDiffusive,
                                     NumericalFluxGradient,
                                     NumericalFluxDiffusive
+import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
 """
     AtmosModel <: BalanceLaw
@@ -193,6 +194,7 @@ include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
 include("remainder.jl")
+include("courant.jl")
 
 """
     flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
