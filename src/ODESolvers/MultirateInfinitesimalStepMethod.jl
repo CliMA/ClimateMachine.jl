@@ -44,9 +44,7 @@ end
 
 function (o::OffsetRHS{AT} where {AT})(dQ, Q, params, tau; increment)
   o.rhs!(dQ, Q, params, tau; increment=increment);
-  #n=sqrt(sum(o.offset.^2))
-  #println("fastslow: $n")
-  dQ += o.offset;
+  dQ .+= o.offset;
 end
 
 """
