@@ -1,8 +1,7 @@
 
 #include("ETDStepMethod_kernels.jl")
 
-
-export EB4, EB1
+export EB4, EB1, ETDRK3
 ODEs = ODESolvers
 
 """
@@ -49,7 +48,7 @@ mutable struct ETDStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, Nstages_sq}
   "slow rhs function"
   slowrhs!
   "RHS for fast solver"
-  tsfastrhs!::TimeScaledRHS{RT}
+  tsfastrhs!::TimeScaledRHS{N,RT} where N
   "fast rhs method"
   fastsolver::FS
 #  "number of substeps per stage"
@@ -194,6 +193,46 @@ function EB1(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: Abs
   ETDStep(slowrhs!, fastrhs!, fastmethod, nStages, nPhi, nPhiStages, β, βS, c, Q; dt=dt, t0=t0)
 end
 
+function ETDRK3(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+
+    nStages=4;
+    nPhi=1;
+
+    nPhiStages=[0,1,1,1];
+
+    β = [[[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
+         [[1.0/3.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
+         [[0.0,0.0,0.0]] [[1.0/2.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
+         [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[1.0,0.0,0.0]] [[0.0,0.0,0.0]]];
+
+    #βS=similar(β);
+
+    βS = [[[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
+          [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
+          [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
+          [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]]];
+
+    c = [0.0, 0.33333333333333333, 0.5, 1.0];
+       #c[i] is usually sum of first elements in i-th row)
+
+    for i=2:nStages
+      for j=1:i-1
+        kFac=1;
+          for k=1:nPhi
+            kFac=kFac*max(k-1,1);
+            βS[i,j][k]=β[i,j][k]/(kFac*c[i]);
+            β[i,j][k]=β[i,j][k]/c[i];
+          end
+      end
+    end
+
+    #=γ = [0  0               0              0;
+         0  0               0              0;
+         0  0.652465126004  0              0;
+         0 -0.0732769849457 0.144902430420 0]=# #not needed (yet?)
+
+    ETDStep(slowrhs!, fastrhs!, fastmethod, nStages, nPhi, nPhiStages, β, βS, c, Q; dt=dt, t0=t0)
+end
 
 function EB4(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
 
