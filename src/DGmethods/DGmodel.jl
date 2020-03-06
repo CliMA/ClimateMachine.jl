@@ -177,7 +177,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
   ###################
   sync_device(device)
   event = volumerhs!(device, workgroups_volume...)(
-    bl, Val(dim), Val(N), dg.diffusion_direction, dQdt.data,
+    bl, Val(dim), Val(N), dg.direction, dQdt.data,
     Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data, grid.vgeo, t,
     grid.ω, grid.D, topology.realelems, increment)
   wait(event)
