@@ -195,7 +195,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
 end
 
 function init_ode_state(dg::DGModel, args...;
-                        forcecpu=false,
+                        init_on_cpu=false,
                         commtag=888)
   device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
 
@@ -212,7 +212,7 @@ function init_ode_state(dg::DGModel, args...;
   N = polynomialorder(grid)
   nrealelem = length(topology.realelems)
 
-  if !forcecpu
+  if !init_on_cpu
     @launch(device, threads=(Np,), blocks=nrealelem,
             initstate!(bl, Val(dim), Val(N), state.data, auxstate.data, grid.vgeo,
                      topology.realelems, args...))

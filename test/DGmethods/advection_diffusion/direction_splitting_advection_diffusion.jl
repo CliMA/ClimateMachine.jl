@@ -84,7 +84,7 @@ function run(adv, diff, topo, mpicomm, ArrayType, FT, polynomialorder, Ne, level
      hdg=create_dg(m, grid, HorizontalDirection()))
   end
 
-  Q = init_ode_state(dgmodels.p.dg, FT(0), forcecpu=true)
+  Q = init_ode_state(dgmodels.p.dg, FT(0), init_on_cpu=true)
 
   # evaluate all combinations
   dQ = map(x->map(dg->(dQ=similar(Q); dg(dQ, Q, nothing, FT(0)); dQ), x), dgmodels)

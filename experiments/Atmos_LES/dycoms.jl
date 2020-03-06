@@ -375,7 +375,7 @@ function main()
     timeend = FT(100)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu=true)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())

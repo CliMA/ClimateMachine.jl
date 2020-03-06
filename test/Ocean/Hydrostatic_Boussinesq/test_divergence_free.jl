@@ -148,7 +148,7 @@ let
                     CentralNumericalFluxDiffusive(),
                     CentralNumericalFluxGradient())
 
-  Q = init_ode_state(dg, FT(0); forcecpu=true)
+  Q = init_ode_state(dg, FT(0); init_on_cpu=true)
   update_aux!(dg, model, Q, FT(0))
 
   starttime = Ref(now())
