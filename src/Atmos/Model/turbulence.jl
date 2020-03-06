@@ -171,6 +171,7 @@ end
 
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
+  @show(aux.Δ_local)
 end
 
 function diffusive!(::SmagorinskyLilly, orientation::Orientation,
