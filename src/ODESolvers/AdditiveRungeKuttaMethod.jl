@@ -24,7 +24,7 @@ using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
 using CLIMA.MultirateInfinitesimalStepMethod: TimeScaledRHS
-
+using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 
 
 """
@@ -268,7 +268,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
-  if dt != ark.dt
+  if dt != ark.dt && typeof(linearsolver)!=ManyColumnLU #!isapprox(dt,ark.dt)
     α = dt * RKA_implicit[2, 2]
     implicitoperator! = EulerOperator(rhs_linear!, -α)
   end
