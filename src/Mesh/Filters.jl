@@ -160,10 +160,10 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
   nrealelem = length(topology.realelems)
 
   event = Event(device)
-  event = knl_apply_filter!(device, (Nq, Nq, Nqk), (nrealelem * Nq, Nq, Nqk))(
+  event = knl_apply_filter!(device, (Nq, Nq, Nqk))(
     Val(dim), Val(N), Val(nstate), Val(direction),
-    Q.data, Val(states), filtermatrix, topology.realelems,
-    dependencies=(event,))
+    Q.data, Val(states), filtermatrix, topology.realelems;
+    ndrange=(nrealelem * Nq, Nq, Nqk), dependencies=(event,))
   wait(device, event)
 end
 
@@ -189,9 +189,10 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
   nreduce = 2^ceil(Int, log2(Nq*Nqk))
 
   event = Event(device)
-  event = knl_apply_TMAR_filter!(device, (Nq, Nqk), (nrealelem * Nq, Nqk))(
+  event = knl_apply_TMAR_filter!(device, (Nq, Nqk))(
     Val(nreduce), Val(dim), Val(N), Q.data,
-    Val(states), grid.vgeo, topology.realelems, dependencies=(event,))
+    Val(states), grid.vgeo, topology.realelems;
+    ndrange=(nrealelem * Nq, Nqk), dependencies=(event,))
   wait(device, event)
 end
 
