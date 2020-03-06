@@ -199,7 +199,7 @@ end
 
 """
     gradvariables!(::HBModel)
-    
+
 copy u and θ to var_gradient
 this computation is done pointwise at each nodal point
 

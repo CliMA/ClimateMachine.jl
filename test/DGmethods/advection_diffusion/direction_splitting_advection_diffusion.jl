@@ -80,7 +80,7 @@ function run(adv, diff, topo, mpicomm, ArrayType, FT, polynomialorder, Ne, level
 
   dgmodels = map(models) do m
     (dg=create_dg(m, grid, EveryDirection()),
-     vdg=create_dg(m, grid, VerticalDirection()), 
+     vdg=create_dg(m, grid, VerticalDirection()),
      hdg=create_dg(m, grid, HorizontalDirection()))
   end
 

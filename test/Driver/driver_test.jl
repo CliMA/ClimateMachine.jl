@@ -73,11 +73,10 @@ function main()
 
     CFL = FT(0.4)
 
-    driver_config = CLIMA.Atmos_LES_Configuration("Driver test", N, resolution,
-                                                  xmax, ymax, zmax, init_test!)
+    driver_config = CLIMA.AtmosLESConfiguration("Driver test", N, resolution,
+                                                xmax, ymax, zmax, init_test!)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
                                        Courant_number = CFL)
-
 
     # Test the courant wrapper
     CFL_nondiff = CLIMA.DGmethods.courant(CLIMA.Courant.nondiffusive_courant,

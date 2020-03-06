@@ -61,7 +61,7 @@ function flux_diffusive! end
 function gradvariables! end
 function diffusive! end
 function hyperdiffusive! end
-function source! end 
+function source! end
 function wavespeed end
 function boundary_state! end
 function init_aux! end

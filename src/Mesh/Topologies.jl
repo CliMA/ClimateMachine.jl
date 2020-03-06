@@ -303,7 +303,7 @@ function BrickTopology(mpicomm, elemrange;
                        boundary=ntuple(j->(1,1), length(elemrange)),
                        periodicity=ntuple(j->false, length(elemrange)),
                        connectivity=:face, ghostsize=1)
-  
+
   if boundary isa Matrix
     boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
   end
@@ -436,7 +436,7 @@ function StackedBrickTopology(mpicomm, elemrange;
   if boundary isa Matrix
     boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
   end
-  
+
   dim = length(elemrange)
 
   dim <= 1 && error("Stacked brick topology works for 2D and 3D")
@@ -843,7 +843,7 @@ function cubedshellunwarp(x1,x2,x3)
     ξ = atan(X) * 4 / pi
     η = atan(Y) * 4 / pi
     R, R*ξ, R*η
-  end 
+  end
 
   R = hypot(x1,x2,x3)
   fdim = argmax(abs.((x1, x2, x3)))
@@ -1057,7 +1057,7 @@ function StackedCubedSphereTopology(mpicomm, Nhorz, Rrange; boundary = (1, 1),
 end
 
 
-"""    
+"""
     grid1d(a, b[, stretch::AbstractGridStretching]; elemsize, nelem)
 
 Discretize the 1D interval [`a`,`b`] into elements.

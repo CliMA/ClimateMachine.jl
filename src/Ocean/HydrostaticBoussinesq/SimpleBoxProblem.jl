@@ -92,11 +92,11 @@ end
 initialize u,v with random values, η with 0, and θ with a constant (20)
 
 # Arguments
-- `p`: HomogeneousBox problem object, used to dispatch on 
+- `p`: HomogeneousBox problem object, used to dispatch on
 - `Q`: state vector
-- `A`: auxiliary state vector, not used 
+- `A`: auxiliary state vector, not used
 - `coords`: the coordidinates, not used
-- `t`: time to evaluate at, not used 
+- `t`: time to evaluate at, not used
 """
 function ocean_init_state!(p::HomogeneousBox, Q, A, coords, t)
   Q.u = @SVector [rand(),rand()]
@@ -201,7 +201,7 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
 - `coords`: the coordidinates
-- `t`: time to evaluate at, not used 
+- `t`: time to evaluate at, not used
 """
 function ocean_init_state!(p::OceanGyre, Q, A, coords, t)
   @inbounds z = coords[3]

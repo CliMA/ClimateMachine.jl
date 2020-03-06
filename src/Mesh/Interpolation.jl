@@ -75,10 +75,10 @@ struct InterpolationBrick{FT  <:AbstractFloat,
     x2i_all::UI16V
     x3i_all::UI16V
 #--------------------------------------------------------
-    function InterpolationBrick(grid::DiscontinuousSpectralElementGrid{FT}, 
-                                xbnd::Array{FT,2}, 
-                                 x1g::AbstractArray{FT,1}, 
-                                 x2g::AbstractArray{FT,1}, 
+    function InterpolationBrick(grid::DiscontinuousSpectralElementGrid{FT},
+                                xbnd::Array{FT,2},
+                                 x1g::AbstractArray{FT,1},
+                                 x2g::AbstractArray{FT,1},
                                  x3g::AbstractArray{FT,1}) where FT <: AbstractFloat
         mpicomm = grid.topology.mpicomm
         pid     = MPI.Comm_rank(mpicomm)
@@ -487,7 +487,7 @@ struct InterpolationCubedSphere{FT <: AbstractFloat,
     lati_all::UI16V
     longi_all::UI16V
   #--------------------------------------------------------
-    function InterpolationCubedSphere(grid::DiscontinuousSpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int, 
+    function InterpolationCubedSphere(grid::DiscontinuousSpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int,
                                       lat_grd::AbstractArray{FT,1}, long_grd::AbstractArray{FT,1}, rad_grd::AbstractArray{FT}) where {FT <: AbstractFloat}
         mpicomm = MPI.COMM_WORLD
         pid     = MPI.Comm_rank(mpicomm)
@@ -838,7 +838,7 @@ function interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, sv::Abstract
     qm1    = length(m1_r)
     nvars  = size(sv,2)
     Nel    = length(offset) - 1
-    np_tot = size(v,1) 
+    np_tot = size(v,1)
 
     device = typeof(sv) <: Array ? CPU() : CUDA()
 
@@ -915,11 +915,11 @@ function interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, sv::Abstract
             # projecting velocity onto unit vectors in rad, lat and long directions
             # assumed u, v and w are located in columns 2, 3 and 4
             for i in 1:np_tot
-                vrad =  v[i,_ρu] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) + 
+                vrad =  v[i,_ρu] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) +
                         v[i,_ρv] * cosd(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
                         v[i,_ρw] * sind(lat_grd[lati[i]])
 
-                vlat = -v[i,_ρu] * sind(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) 
+                vlat = -v[i,_ρu] * sind(lat_grd[lati[i]]) * cosd(long_grd[longi[i]])
                        -v[i,_ρv] * sind(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
                         v[i,_ρw] * cosd(lat_grd[lati[i]])
 
@@ -934,11 +934,11 @@ function interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, sv::Abstract
         #------------------------------------------------------------------------------------------
     else
         #------------------------------------------------------------------------------------------
-        @cuda threads=(qm1,qm1) blocks=(Nel,nvars) shmem=qm1*(qm1+2)*sizeof(FT) interpolate_cubed_sphere_CUDA!(offset, m1_r, wb, ξ1, ξ2, ξ3, 
+        @cuda threads=(qm1,qm1) blocks=(Nel,nvars) shmem=qm1*(qm1+2)*sizeof(FT) interpolate_cubed_sphere_CUDA!(offset, m1_r, wb, ξ1, ξ2, ξ3,
                                                                                                                flg, fac, sv, v)
 
         if project
-            n_threads = 256 
+            n_threads = 256
             n_blocks = ( np_tot%n_threads > 0 ? div(np_tot,n_threads) + 1 : div(np_tot,n_threads)  )
             @cuda threads=(n_threads,) blocks=(n_blocks,) project_cubed_sphere_CUDA!(lat_grd, long_grd, lati, longi, v)
         end
@@ -1034,12 +1034,12 @@ function interpolate_cubed_sphere_CUDA!(offset::AbstractArray{T,1}, m1_r::Abstra
     return nothing
 end
 #--------------------------------------------------------
-function project_cubed_sphere_CUDA!(lat_grd::AbstractArray{FT,1}, long_grd::AbstractArray{FT,1}, 
-                                       lati::AbstractVector{UInt16}, longi::AbstractVector{UInt16}, 
+function project_cubed_sphere_CUDA!(lat_grd::AbstractArray{FT,1}, long_grd::AbstractArray{FT,1},
+                                       lati::AbstractVector{UInt16}, longi::AbstractVector{UInt16},
                                           v::AbstractArray{FT}) where {FT <: AbstractFloat}
 
     ti     = threadIdx().x # thread ids
-    bi     = blockIdx().x  # block ids 
+    bi     = blockIdx().x  # block ids
     bs     = blockDim().x  # block dim
     idx    = ti + (bi-1)*bs
     np_tot = size(v,1)
@@ -1049,22 +1049,22 @@ function project_cubed_sphere_CUDA!(lat_grd::AbstractArray{FT,1}, long_grd::Abst
     # projecting velocity onto unit vectors in rad, lat and long directions
     # assumed u, v and w are located in columns 2, 3 and 4
     if idx ≤ np_tot
-#        vrad =  v[idx,_ρu] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]]) + 
+#        vrad =  v[idx,_ρu] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]]) +
 #                v[idx,_ρv] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
 #                v[idx,_ρw] * CUDAnative.sind(lat_grd[lati[idx]])
 
-#        vlat = -v[idx,_ρu] * CUDAnative.sind(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]]) 
+#        vlat = -v[idx,_ρu] * CUDAnative.sind(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]])
 #               -v[idx,_ρv] * CUDAnative.sind(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
 #                v[idx,_ρw] * CUDAnative.cosd(lat_grd[lati[idx]])
 
 #        vlon = -v[idx,_ρu] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
 #                v[idx,_ρv] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]])
 
-        vrad =  v[idx,_ρu] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.cos(long_grd[longi[idx]]*pi/180.0) + 
+        vrad =  v[idx,_ρu] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.cos(long_grd[longi[idx]]*pi/180.0) +
                 v[idx,_ρv] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.sin(long_grd[longi[idx]]*pi/180.0) +
                 v[idx,_ρw] * CUDAnative.sin(lat_grd[lati[idx]]*pi/180.0)
 
-        vlat = -v[idx,_ρu] * CUDAnative.sin(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.cos(long_grd[longi[idx]]*pi/180.0) 
+        vlat = -v[idx,_ρu] * CUDAnative.sin(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.cos(long_grd[longi[idx]]*pi/180.0)
                -v[idx,_ρv] * CUDAnative.sin(lat_grd[lati[idx]]*pi/180.0) * CUDAnative.sin(long_grd[longi[idx]]*pi/180.0) +
                 v[idx,_ρw] * CUDAnative.cos(lat_grd[lati[idx]]*pi/180.0)
 

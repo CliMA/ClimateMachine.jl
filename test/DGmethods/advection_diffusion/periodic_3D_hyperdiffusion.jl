@@ -33,7 +33,7 @@ function init_hyperdiffusion_tensor!(problem::ConstantHyperDiffusion, aux::Vars,
 end
 
 function initial_condition!(problem::ConstantHyperDiffusion{dim, dir}, state, aux, x, t) where {dim, dir}
-  @inbounds begin 
+  @inbounds begin
     k = SVector(1, 2, 3)
     kD = k * k' .* problem.D
     if dir === EveryDirection()

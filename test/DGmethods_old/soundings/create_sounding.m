@@ -12,7 +12,7 @@ sounding = zeros(nzmax, 6);
 
 gas_constant   = 8.3144598;
 molmass_dryair = 28.97e-3;
-%Coriolis_parameter = 
+%Coriolis_parameter =
 kappa_d = 2/7;
 R_d     = gas_constant/molmass_dryair
 cp_d    = R_d/kappa_d
@@ -86,9 +86,9 @@ end
 %v_geostrophic = 1/(f * rho) * dp/dx);
 
 
-% 
+%
 % %Read sounding and calculate P if missing:
-% 
+%
 sounding(:, 1) = dataz;
 sounding(:, 2) = thetal;
 sounding(:, 3) = dataq*1e+3;

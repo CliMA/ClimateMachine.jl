@@ -62,7 +62,7 @@ init_state!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
 
 """
     gradvariables!(::LinearHBModel)
-    
+
 copy u and θ to var_gradient
 this computation is done pointwise at each nodal point
 

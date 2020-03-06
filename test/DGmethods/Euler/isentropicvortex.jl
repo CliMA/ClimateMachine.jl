@@ -1,4 +1,5 @@
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state
@@ -13,8 +14,7 @@ using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, PhaseDry_given_pT
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
                    DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
-                   ConstantViscosityWithDivergence, vars_state,
-                   AtmosLESConfiguration
+                   ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: flattenednames
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -138,7 +138,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          orientation=NoOrientation(),
                            ref_state=NoReferenceState(),
                           turbulence=ConstantViscosityWithDivergence(0.0),

@@ -74,10 +74,10 @@ end
 
 function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
     ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy)
-    config = CLIMA.Atmos_LES_Configuration("Diagnostics SIN test", N,
-                                           resolution, xmax, ymax, zmax,
-                                           init_sin_test!,
-                                           solver_type=ode_solver)
+    config = CLIMA.AtmosLESConfiguration("Diagnostics SIN test", N,
+                                         resolution, xmax, ymax, zmax,
+                                         init_sin_test!,
+                                         solver_type=ode_solver)
 
     return config
 end

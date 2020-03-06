@@ -15,7 +15,7 @@ The local geometry at a nodal point.
     LocalGeometry(polynomial::Val, vgeo::AbstractArray{T}, n::Integer, e::Integer)
 
 Extracts a `LocalGeometry` object from the `vgeo` array at node `n` in element `e`.
-  
+
 # Fields
 
 $(DocStringExtensions.FIELDS)
@@ -34,7 +34,7 @@ function LocalGeometry(polynomial::Val, vgeo::AbstractArray{T}, n::Integer, e::I
   invJ = @SMatrix T[vgeo[n, _ξ1x1, e] vgeo[n, _ξ1x2, e] vgeo[n, _ξ1x3, e];
                     vgeo[n, _ξ2x1, e] vgeo[n, _ξ2x2, e] vgeo[n, _ξ2x3, e];
                     vgeo[n, _ξ3x1, e] vgeo[n, _ξ3x2, e] vgeo[n, _ξ3x3, e]]
-      
+
   LocalGeometry(polynomial, coord, invJ)
 end
 

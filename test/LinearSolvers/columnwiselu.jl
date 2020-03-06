@@ -51,7 +51,7 @@ let
   threads = (Nq, Nq)
   blocks = nhorzelem
   d_F = ArrayType(AB)
-  
+
   @launch(device, threads=threads, blocks=blocks,
           band_lu_knl!(d_F, Val(Nq), Val(Nq), Val(Nq), Val(nstate), Val(nvertelem),
                        Val(nhorzelem), Val(eband)))
