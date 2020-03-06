@@ -16,37 +16,6 @@ using ..Mesh.Grids
 using ..ODESolvers
 using ..PlanetParameters
 
-abstract type AbstractSolverType end
-struct ExplicitSolverType <: AbstractSolverType
-    solver_method::Function
-    ExplicitSolverType(;solver_method=LSRK54CarpenterKennedy) = new(solver_method)
-end
-struct IMEXSolverType <: AbstractSolverType
-    linear_model::Type
-    linear_solver::Type
-    solver_method::Function
-    function IMEXSolverType(;linear_model=AtmosAcousticGravityLinearModel,
-                            linear_solver=ManyColumnLU,
-                            solver_method=ARK2GiraldoKellyConstantinescu)
-        return new(linear_model, linear_solver, solver_method)
-    end
-end
-
-struct MRRKSolverType <: AbstractSolverType
-    solver_method::Type
-    fast_method::Function
-    slow_method::Function
-    numsubsteps::Int
-    linear_model::Type
-    function MRRKSolverType(;solver_method=MultirateRungeKutta,
-                             fast_method=LSRK54CarpenterKennedy,
-                             slow_method=LSRK54CarpenterKennedy,
-                             numsubsteps=10,
-                             linear_model=AtmosAcousticGravityLinearModel)
-      return new(solver_method, fast_method, slow_method, numsubsteps, linear_model)
-    end
-end
-
 DefaultSolverType = IMEXSolverType
 
 struct DriverConfiguration{FT}

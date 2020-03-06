@@ -39,6 +39,7 @@ const Settings = CLIMA_Settings(array_type = Array)
 
 array_type() = Settings.array_type
 
+include("SolverTypes.jl")
 include("Configurations.jl")
 
 const cuarray_pkgid = Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
@@ -256,25 +257,7 @@ function setup_solver(t0::FT, timeend::FT,
     dt = timeend / numberofsteps
 
     # create the solver
-    if isa(solver_type, ExplicitSolverType)
-        solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
-    elseif isa(solver_type, MRRKSolverType)
-        fast_dg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                          auxstate=dg.auxstate)
-        slow_model = RemainderModel(bl, (linmodel,))
-        slow_dg = DGModel(slow_model, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                          auxstate=dg.auxstate)
-        slow_solver = solver_type.slow_method(slow_dg, Q; dt=dt)
-        fast_dt = dt / solver_type.numsubsteps
-        fast_solver = solver_type.fast_method(fast_dg, Q; dt=fast_dt)
-        solver = solver_type.solver_method((slow_solver, fast_solver))
-    else # solver_type === IMEXSolverType
-        vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                      auxstate=dg.auxstate, direction=VerticalDirection())
-
-        solver = solver_type.solver_method(dg, vdg, solver_type.linear_solver(), Q;
-                                           dt=dt, t0=t0)
-    end
+    solver = setup_solver(solver_type, dg, Q, t0, dt; linmodel=linmodel)
 
     @toc setup_solver
 
