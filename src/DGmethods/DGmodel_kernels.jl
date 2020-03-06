@@ -13,6 +13,7 @@ using .NumericalFluxes: NumericalFluxGradient, numerical_boundary_flux_gradient!
 
 using ..Mesh.Geometry
 using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
+using LinearAlgebra
 
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
@@ -1955,7 +1956,7 @@ neighbors within an element.
 The `direction` in the reference element controls which nodes are considered
 neighbors. We store the local distances within the auxiliary state array
 """
-function knl_neighbor_distance!(::Val{N}, ::Val{dim}, 
+function knl_neighbor_distance!(bl::BalanceLaw, ::Val{N}, ::Val{dim}, 
                                     auxstate, 
                                     vgeo, elems, direction=EveryDirection(),
                                    ) where {N, dim}
@@ -1963,10 +1964,9 @@ function knl_neighbor_distance!(::Val{N}, ::Val{dim},
   FT = eltype(auxstate)
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
-
-  Δξ1 = similar(vgeo, Nq^dim, length(elems))
-  Δξ2 = similar(vgeo, Nq^dim, length(elems))
-  Δξ3 = similar(vgeo, Nq^dim, length(elems))
+  nauxstate = num_aux(bl,FT)
+  
+  Δξ = similar(vgeo, Nq^dim, 3, length(elems))
 
   if direction isa EveryDirection
     mininξ = (true, true, true)
@@ -1992,7 +1992,7 @@ function knl_neighbor_distance!(::Val{N}, ::Val{dim},
                 x̂ = SVector(vgeo[îjk, _x1, e],
                             vgeo[îjk, _x2, e],
                             vgeo[îjk, _x3, e])
-                Δξ1[ijk,e] = min(Δ, norm(x - x̂))
+                Δξ[ijk,1,e] = min(Δ, norm(x - x̂))
               end
             end
           end
@@ -2004,7 +2004,7 @@ function knl_neighbor_distance!(::Val{N}, ::Val{dim},
                 x̂ = SVector(vgeo[iĵk, _x1, e],
                             vgeo[iĵk, _x2, e],
                             vgeo[iĵk, _x3, e])
-                Δξ2[ijk,e] = min(Δ, norm(x - x̂))
+                Δξ[ijk,2,e] = min(Δ, norm(x - x̂))
               end
             end
           end
@@ -2016,16 +2016,14 @@ function knl_neighbor_distance!(::Val{N}, ::Val{dim},
                 x̂ = SVector(vgeo[ijk̂, _x1, e],
                             vgeo[ijk̂, _x2, e],
                             vgeo[ijk̂, _x3, e])
-                Δξ3[ijk,e] = min(Δ, norm(x - x̂))
+                Δξ[ijk,3,e] = min(Δ, norm(x - x̂))
               end
             end
           end
  
           #FIXME: This is a crude solution to the index retrieval problem. 
-          @unroll for s = nauxstate-2:nauxstate
-            auxstate[ijk, s, e] = Δξ1[ijk,e] # Store ξ1 local nodal distance in `aux`
-            auxstate[ijk, s, e] = Δξ2[ijk,e] # Store ξ2 local nodal distance in `aux`
-            auxstate[ijk, s, e] = Δξ3[ijk,e] # Store ξ3 local nodal distance in `aux`
+          @unroll for s = 3:-1:1
+            auxstate[ijk, nauxstate-(s-1), e] = Δξ[ijk, s, e] # Store ξ1 local nodal distance in `aux`
           end
         end
       end
