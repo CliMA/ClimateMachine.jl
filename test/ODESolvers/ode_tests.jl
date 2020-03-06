@@ -1,12 +1,6 @@
 using Test
 using CLIMA
 using CLIMA.ODESolvers
-using CLIMA.LowStorageRungeKuttaMethod
-using CLIMA.StrongStabilityPreservingRungeKuttaMethod
-using CLIMA.AdditiveRungeKuttaMethod
-const ARK = CLIMA.AdditiveRungeKuttaMethod
-using CLIMA.MultirateRungeKuttaMethod
-using CLIMA.MultirateInfinitesimalStepMethod
 using CLIMA.LinearSolvers
 using StaticArrays
 using LinearAlgebra
@@ -140,7 +134,7 @@ end
     q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
     for (method, expected_order) in imex_methods
       for split_nonlinear_linear in (false, true)
-        for variant in (ARK.LowStorageVariant(), ARK.NaiveVariant())
+        for variant in (LowStorageVariant(), NaiveVariant())
           for (n, dt) in enumerate(dts)
             Q = ArrayType{ComplexF64}(q0)
             rhs! = split_nonlinear_linear ? rhs_nonlinear! : rhs_full!

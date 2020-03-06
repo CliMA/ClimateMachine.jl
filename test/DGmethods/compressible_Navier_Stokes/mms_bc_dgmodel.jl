@@ -5,7 +5,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using LinearAlgebra
@@ -101,8 +100,8 @@ let
   polynomialorder = 4
   base_num_elem = 4
 
-  expected_result = [1.5606168354833677e-01 5.3315302122591991e-03 2.2572667801637464e-04;
-                     2.5754447602174043e-02 1.1781237053129381e-03 6.1753004835330110e-05]
+  expected_result = [1.6694721292986181e-01 5.4178750150416337e-03 2.3066867400713085e-04;
+                     3.3672443923201158e-02 1.7603832251132654e-03 9.1108401774885506e-05]
   lvls = integration_testing ? size(expected_result, 2) : 1
 
   @testset "mms_bc_dgmodel" begin

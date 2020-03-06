@@ -109,7 +109,7 @@ function volumerhs!(::Val{dim}, ::Val{N},
           end
 
           if source! !== nothing
-            source!(l_S, l_Q, l_aux, t)
+            source!(l_S, l_Q, l_Qvisc, l_aux, t)
 
             @unroll for s = 1:nstate
               l_rhs[s, i, j, k] += l_S[s]
@@ -217,7 +217,7 @@ end
     facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
              ::Val{nauxstate}, numerical_flux!,
              numerical_boundary_flux!, rhs, Q, Qvisc, auxstate,
-             vgeo, sgeo, t, vmapM, vmapP, elemtobndy,
+             vgeo, sgeo, t, vmap⁻, vmap⁺, elemtobndy,
              elems) where {dim, N, nstate, nviscstate, nauxstate}
 
 Computational kernel: Evaluate the surface integrals on right-hand side of a
@@ -227,7 +227,7 @@ See [`odefun!`](@ref) for usage.
 """
 function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
                   ::Val{nauxstate}, numerical_flux!, numerical_boundary_flux!,
-                  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                  rhs, Q, Qvisc, auxstate, vgeo, sgeo, t, vmap⁻, vmap⁺,
                   elemtobndy, elems) where {dim, N, nstate, nviscstate,
                                             nauxstate}
 
@@ -262,7 +262,7 @@ function facerhs!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{nviscstate},
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
         sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        idM, idP = vmapM[n, f, e], vmapP[n, f, e]
+        idM, idP = vmap⁻[n, f, e], vmap⁺[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
         vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1
@@ -410,7 +410,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
                         ::Val{ngradstate}, ::Val{nviscstate},
                         ::Val{nauxstate}, viscous_penalty!,
                         viscous_boundary_penalty!, gradient_transform!,
-                        Q, Qvisc, auxstate, vgeo, sgeo, t, vmapM, vmapP,
+                        Q, Qvisc, auxstate, vgeo, sgeo, t, vmap⁻, vmap⁺,
                         elemtobndy, elems) where {dim, N, ngradstate,
                                                   nviscstate, nstate, nauxstate}
   FT = eltype(Q)
@@ -444,7 +444,7 @@ function faceviscterms!(::Val{dim}, ::Val{N}, ::Val{nstate},
       @loop for n in (1:Nfp; threadIdx().x)
         nM = (sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
         sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        idM, idP = vmapM[n, f, e], vmapP[n, f, e]
+        idM, idP = vmap⁻[n, f, e], vmap⁺[n, f, e]
 
         eM, eP = e, ((idP - 1) ÷ Np) + 1
         vidM, vidP = ((idM - 1) % Np) + 1,  ((idP - 1) % Np) + 1

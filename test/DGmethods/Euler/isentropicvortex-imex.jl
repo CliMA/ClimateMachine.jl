@@ -4,8 +4,7 @@ using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
-using CLIMA.ODESolvers: solve!, gettime
-using CLIMA.AdditiveRungeKuttaMethod
+using CLIMA.ODESolvers
 using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
@@ -17,8 +16,9 @@ using CLIMA.Atmos: AtmosModel,
                    AtmosAcousticLinearModel, RemainderModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
-                   DryModel, NoPrecipitation, NoRadiation, NoSubsidence, PeriodicBC,
-                   ConstantViscosityWithDivergence, vars_state
+                   DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
+                   ConstantViscosityWithDivergence, vars_state,
+                   AtmosLESConfiguration
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
@@ -56,9 +56,9 @@ function main()
   expected_error[Float64, false, 4] = 2.8660813871243937e-03
 
   expected_error[Float64, true, 1] = 2.3225467618783981e+01
-  expected_error[Float64, true, 2] = 5.2663710765946341e+00
-  expected_error[Float64, true, 3] = 1.2183771242881866e-01
-  expected_error[Float64, true, 4] = 2.8660023410820249e-03
+  expected_error[Float64, true, 2] = 5.2663709730207771e+00
+  expected_error[Float64, true, 3] = 1.2183770891083319e-01
+  expected_error[Float64, true, 4] = 2.8660813810759854e-03
 
   @testset "$(@__FILE__)" begin
     for FT in (Float64,), dims in 2
@@ -109,21 +109,14 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
-  initialcondition! = function(args...)
-    isentropicvortex_initialcondition!(setup, args...)
-  end
-
-
-  model = AtmosModel(NoOrientation(),
-                     IsentropicVortexReferenceState{FT}(setup),
-                     ConstantViscosityWithDivergence(FT(0)),
-                     DryModel(),
-                     NoPrecipitation(),
-                     NoRadiation(),
-                     NoSubsidence{FT}(),
-                     nothing,
-                     PeriodicBC(),
-                     initialcondition!)
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                         orientation=NoOrientation(),
+                           ref_state=IsentropicVortexReferenceState{FT}(setup),
+                          turbulence=ConstantViscosityWithDivergence(FT(0)),
+                            moisture=DryModel(),
+                              source=nothing,
+                   boundarycondition=PeriodicBC(),
+                          init_state=isentropicvortex_initialcondition!)
 
   linear_model = AtmosAcousticLinearModel(model)
   nonlinear_model = RemainderModel(model, (linear_model,))
@@ -152,7 +145,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
 
   Q = init_ode_state(dg, FT(0))
 
-  linearsolver = GeneralizedMinimalResidual(10, Q, 1e-10)
+  linearsolver = GeneralizedMinimalResidual(Q; M=10, rtol=1e-10)
   ode_solver = ARK2GiraldoKellyConstantinescu(split_nonlinear_linear ? dg_nonlinear : dg,
                                               dg_linear,
                                               linearsolver,
@@ -250,7 +243,8 @@ function atmos_init_aux!(m::IsentropicVortexReferenceState, atmos::AtmosModel, a
   aux.ref_state.ρe = ρ∞ * internal_energy(T∞)
 end
 
-function isentropicvortex_initialcondition!(setup, state, aux, coords, t)
+function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
+  setup = bl.ref_state.setup
   FT = eltype(state)
   x = MVector(coords)
 

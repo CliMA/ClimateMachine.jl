@@ -5,7 +5,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.VariableTemplates: flattenednames
@@ -15,6 +14,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 using CLIMA.PlanetParameters: grav
+using CLIMA.HydrostaticBoussinesq: AbstractHydrostaticBoussinesqProblem
 import CLIMA.HydrostaticBoussinesq: ocean_init_aux!, ocean_init_state!,
                                     ocean_boundary_state!,
                                     CoastlineFreeSlip, CoastlineNoSlip,
@@ -28,22 +28,10 @@ using CLIMA.VariableTemplates
 using Test
 using GPUifyLoops
 
-const ArrayType = CLIMA.array_type()
 
 HBModel   = HydrostaticBoussinesqModel
-HBProblem = HydrostaticBoussinesqProblem
 
-@inline function ocean_boundary_state!(m::HBModel, bctype, x...)
-  if bctype == 1
-    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-  elseif bctype == 2
-    ocean_boundary_state!(m, OceanFloorFreeSlip(), x...)
-  elseif bctype == 3
-    ocean_boundary_state!(m, OceanSurfaceStressNoForcing(), x...)
-  end
-end
-
-struct HomogeneousSimpleBox{T} <: HydrostaticBoussinesqProblem
+struct HomogeneousSimpleBox{T} <: AbstractHydrostaticBoussinesqProblem
   Lˣ::T
   Lʸ::T
   H::T
@@ -53,6 +41,16 @@ struct HomogeneousSimpleBox{T} <: HydrostaticBoussinesqProblem
 end
 
 HSBox = HomogeneousSimpleBox
+
+@inline function ocean_boundary_state!(m::HBModel, p::HSBox, bctype, x...)
+  if bctype == 1
+    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+  elseif bctype == 2
+    ocean_boundary_state!(m, OceanFloorFreeSlip(), x...)
+  elseif bctype == 3
+    ocean_boundary_state!(m, OceanSurfaceStressNoForcing(), x...)
+  end
+end
 
 # aux is Filled afer the state
 function ocean_init_aux!(m::HBModel, P::HSBox, A, geom)
@@ -115,6 +113,7 @@ const κᶻ = 1e-10  # m^2 / s
 
 let
   CLIMA.init()
+  ArrayType = CLIMA.array_type()
   mpicomm = MPI.COMM_WORLD
 
   ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -141,7 +140,7 @@ let
 
   prob = HSBox{FT}(Lˣ, Lʸ, H, τₒ, fₒ, β)
 
-  model = HBModel{typeof(prob),FT}(prob, cʰ, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+  model = HBModel{FT}(prob, cʰ = cʰ)
 
   dg = OceanDGModel(model,
                     grid,

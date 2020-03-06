@@ -1,6 +1,7 @@
 ### Reference state
 using DocStringExtensions
-export NoReferenceState, HydrostaticState, IsothermalProfile, LinearTemperatureProfile
+export NoReferenceState, HydrostaticState, IsothermalProfile, LinearTemperatureProfile,
+       DryAdiabaticProfile
 
 """
     ReferenceState
@@ -88,6 +89,29 @@ end
 function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
   p = MSLP * exp(-gravitational_potential(orientation, aux)/(R_d*profile.T))
   return (profile.T, p)
+end
+
+"""
+    DryAdiabaticProfile{F} <: TemperatureProfile
+
+
+A temperature profile that has uniform potential temperature θ until it
+reaches the minimum specified temperature `T_min`
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct DryAdiabaticProfile{F} <: TemperatureProfile
+  "minimum temperature (K)"
+  T_min::F
+  "potential temperature (K)"
+  θ::F
+end
+
+function (profile::DryAdiabaticProfile)(orientation::Orientation, aux::Vars)
+  FT = eltype(aux)
+  LinearTemperatureProfile(profile.T_min, profile.θ, FT(grav / cp_d))(orientation, aux)
 end
 
 """

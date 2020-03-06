@@ -9,8 +9,6 @@ include("MultirateInfinitesimalStepMethod_kernels.jl")
 
 export TimeScaledRHS, MIS2, MIS3C, MISRK3, MIS4, MIS4a, TVDMISA, TVDMISB
 
-ODEs = ODESolvers
-
 """
     TimeScaledRHS(a, b, rhs!)
 
@@ -38,8 +36,6 @@ end
 function (o::TimeScaledRHS{2,RT} where {RT})(dQ, Q, params, tau, i; increment)
   o.rhs![i](dQ, Q, params, o.a + o.b*tau; increment=increment)
 end
-
-using GPUifyLoops
 
 """
 MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod,
@@ -71,7 +67,7 @@ the fast modes.
       year={2014}
     }
 """
-mutable struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct MultirateInfinitesimalStep{T, RT, AT, FS, Nstages, Nstagesm1, Nstagesm2, Nstages_sq} <: AbstractODESolver
   "time step"
   dt::RT
   "time"
@@ -135,7 +131,7 @@ end
 
 # TODO almost identical functions seem to be defined for every ode solver,
 # define a common one in ODEsolvers ?
-function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, param,
+function dostep!(Q, mis::MultirateInfinitesimalStep, param,
                       timeend::AbstractFloat, adjustfinalstep::Bool)
   time, dt = mis.t, mis.dt
   @assert dt > 0
@@ -144,7 +140,7 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, param,
     @assert dt > 0
   end
 
-  ODEs.dostep!(Q, mis, param, time, dt)
+  dostep!(Q, mis, param, time, dt)
 
   if dt == mis.dt
     mis.t += dt
@@ -154,7 +150,7 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, param,
   return mis.t
 end
 
-function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
+function dostep!(Q, mis::MultirateInfinitesimalStep, p,
                       time::AbstractFloat, dt::AbstractFloat)
   FT = eltype(dt)
   α = mis.α
@@ -195,6 +191,20 @@ function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p,
     # especially if we want to use StormerVerlet, but need some way to pass in `offset`
     #ODEs.dostep!(Q, fastsolver, p, τ, dτ, nstepsLoc, FT(1), realview(offset), nothing)  #(1c)
     ODEs.dostep!(Q, fastsolver, p, τ, dτ, nstepsLoc, FT(1), realview(offset), nothing)  #(1c)
+
+    #=
+    τ = zero(FT)
+    dτ = d[i] * dt / mis.nsubsteps
+    updatetime!(fastsolver, τ)
+    updatedt!(fastsolver, dτ)
+    # TODO: we want to be able to write
+    #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
+    # especially if we want to use StormerVerlet, but need some way to pass in `offset`
+    for k = 1:mis.nsubsteps
+      dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset))  #(1c)
+      τ += dτ
+    end
+    =#
   end
 end
 
@@ -346,6 +356,4 @@ function TVDMISB(slowrhs!, fastrhs!, fastmethod, nsteps,  Q::AT; dt=0, t0=0) whe
        0  0.45113560071334202 -0.25006656847591002  0]
 
   MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod, nsteps, α, β, γ, Q; dt=dt, t0=t0)
-end
-
 end

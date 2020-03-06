@@ -1,11 +1,32 @@
 using Test
 using CLIMA.MoistThermodynamics
+using NCDatasets
+using Random
 MT = MoistThermodynamics
-
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
 float_types = [Float32, Float64]
+
+
+include("testdata.jl")
+
+@testset "moist thermodynamics - isentropic processes" begin
+  for FT in [Float64]
+  # for FT in float_types
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+    Φ = FT(1)
+    Random.seed!(15);
+    perturbation = FT(0.1)*rand(length(T))
+
+    # TODO: Use reasonable values for ambient temperature/pressure
+    T∞, p∞ = T .* perturbation, p .* perturbation
+    @test air_temperature.(p, θ_liq_ice, Ref(DryAdiabaticProcess())) ≈ (p ./ FT(MSLP)) .^ (FT(R_d) / FT(cp_d)) .* θ_liq_ice
+    @test air_pressure_given_θ.(θ_liq_ice, Φ, Ref(DryAdiabaticProcess())) ≈ FT(MSLP) .* (1 .- Φ ./ (θ_liq_ice .* FT(cp_d))) .^ (FT(cp_d) / FT(R_d))
+    @test air_pressure.(T, T∞, p∞, Ref(DryAdiabaticProcess())) ≈ p∞ .* (T ./ T∞) .^ (FT(1) / FT(kappa_d))
+  end
+end
+
 
 @testset "moist thermodynamics - correctness" begin
   FT = Float64
@@ -123,6 +144,17 @@ float_types = [Float32, Float64]
   # Exner function. FIXME: add correctness tests
   p=FT(1.e5); q_tot=FT(0.23)
   @test exner_given_pressure(p, PhasePartition(q_tot)) isa typeof(p)
+
+  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+  ts = PhaseEquil.(e_int, ρ, q_tot)
+
+  data_folder = data_folder_moist_thermo()
+  ds_PhaseEquil = Dataset(joinpath(data_folder, "test_data_PhaseEquil.nc"), "r")
+  e_int = Array{FT}(ds_PhaseEquil["e_int"][:])
+  ρ     = Array{FT}(ds_PhaseEquil["ρ"][:])
+  q_tot = Array{FT}(ds_PhaseEquil["q_tot"][:])
+
+  # ts = PhaseEquil.(e_int, ρ, q_tot) # Fails
 end
 
 
@@ -206,6 +238,10 @@ end
     # PhaseDry
     ts = PhaseDry.(e_int, ρ)
     @test all(internal_energy.(ts) .≈ e_int)
+    @test all(air_density.(ts) .≈ ρ)
+
+    ts = PhaseDry_given_pT.(p, T)
+    @test all(internal_energy.(ts) .≈ internal_energy.(T))
     @test all(air_density.(ts) .≈ ρ)
 
     # PhaseEquil
@@ -293,6 +329,7 @@ end
   @test typeof.(internal_energy.(ρ, ρ.*e_int, Ref(ρu), Ref(e_pot))) == typeof.(e_int)
 
   ts_dry             = PhaseDry.(e_int, ρ)
+  ts_dry_pT          = PhaseDry_given_pT.(p, T)
   ts_eq              = PhaseEquil.(e_int, ρ, q_tot, 15, FT(1e-1))
   ts_T               = TemperatureSHumEquil.(air_temperature.(ts_dry), air_pressure.(ts_dry), q_tot)
   ts_neq             = PhaseNonEquil.(e_int, ρ, q_pt)
@@ -304,6 +341,7 @@ end
   for ts in (
     ts_eq,
     ts_dry,
+    ts_dry_pT,
     ts_T,
     ts_neq,
     ts_θ_liq_ice_eq,
@@ -339,9 +377,9 @@ end
     @test typeof.(getproperty.(PhasePartition.(ts),:tot)) == typeof.(e_int)
   end
 
-# end
+end
 
-# @testset "moist thermodynamics - dry limit" begin
+@testset "moist thermodynamics - dry limit" begin
 
   FT = Float64
   e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)

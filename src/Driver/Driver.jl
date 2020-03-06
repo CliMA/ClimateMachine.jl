@@ -7,17 +7,18 @@ using MPI
 using Printf
 using Requires
 
-using ..AdditiveRungeKuttaMethod
 using ..Atmos
 using ..VTK
 using ..ColumnwiseLUSolver
 using ..Diagnostics
 using ..GenericCallbacks
-using ..LowStorageRungeKuttaMethod
+using ..ODESolvers
 using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
 using ..MoistThermodynamics
 using ..MPIStateArrays
+using ..DGmethods: vars_state, vars_aux, update_aux!, update_aux_diffusive!
 using ..TicToc
+using ..VariableTemplates
 
 Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
@@ -79,7 +80,7 @@ function parse_commandline()
     exc_handler = isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
     s = ArgParseSettings(exc_handler=exc_handler)
 
-    @add_arg_table s begin
+    @add_arg_table! s begin
         "--disable-gpu"
             help = "do not use the GPU"
             action = :store_true
@@ -196,9 +197,22 @@ struct SolverConfiguration{FT}
     timeend::FT
     dt::FT
     forcecpu::Bool
+    numberofsteps::Int
     init_args
     solver
 end
+
+"""
+    DGmethods.courant(local_cfl, solver_config::SolverConfiguration;
+                      Q=solver_config.Q, dt=solver_config.dt)
+
+Returns the maximum of the evaluation of the function `local_courant`
+pointwise throughout the domain with the model defined by `solver_config`. The
+keyword arguments `Q` and `dt` can be used to call the courant method with a
+different state `Q` or time step `dt` than are defined in `solver_config`.
+"""
+DGmethods.courant(f, sc::SolverConfiguration; Q=sc.Q, dt = sc.dt) =
+  DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt)
 
 """
     CLIMA.setup_solver(t0, timeend, driver_config)
@@ -210,16 +224,29 @@ function setup_solver(t0::FT, timeend::FT,
                       init_args...;
                       forcecpu=false,
                       ode_solver_type=nothing,
-                      Courant_number=0.4,
-                      T=FT(290)
+                      ode_dt=nothing,
+                      modeldata=nothing,
+                      Courant_number=0.4
                      ) where {FT<:AbstractFloat}
     @tic setup_solver
 
+    bl = driver_config.bl
+    grid = driver_config.grid
+    numfluxnondiff = driver_config.numfluxnondiff
+    numfluxdiff = driver_config.numfluxdiff
+    gradnumflux = driver_config.gradnumflux
+
     # create DG model, initialize ODE state
-    dg = DGModel(driver_config.bl, driver_config.grid, driver_config.numfluxnondiff,
-                 driver_config.numfluxdiff, driver_config.gradnumflux)
+    dg = DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux,
+                 modeldata=modeldata)
     @info @sprintf("Initializing %s", driver_config.name)
     Q = init_ode_state(dg, FT(0), init_args...; forcecpu=forcecpu)
+
+    # TODO: using `update_aux!()` to apply filters to the state variables and
+    # `update_aux_diffusive!()` to calculate the vertical component of velocity
+    # using the integral kernels -- these should have their own interface
+    update_aux!(dg, bl, Q, FT(0))
+    update_aux_diffusive!(dg, bl, Q, FT(0))
 
     # if solver has been specified, use it
     if ode_solver_type !== nothing
@@ -228,44 +255,75 @@ function setup_solver(t0::FT, timeend::FT,
         solver_type = driver_config.solver_type
     end
 
+    # create the linear model for IMEX solvers
+    linmodel = nothing
     if isa(solver_type, ExplicitSolverType)
-
-        dt = Courant_number * min_node_distance(dg.grid, VerticalDirection()) / soundspeed_air(T)
-        numberofsteps = convert(Int64, cld(timeend, dt))
-        dt = timeend / numberofsteps
-
-        solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
-
+        dtmodel = bl
     else # solver_type === IMEXSolverType
+        linmodel = solver_type.linear_model(bl)
+        dtmodel = linmodel
+    end
 
-        dt = Courant_number * min_node_distance(dg.grid, HorizontalDirection()) / soundspeed_air(T)
-        numberofsteps = convert(Int64, cld(timeend, dt))
-        dt = timeend / numberofsteps
+    # initial Δt specified or computed
+    if ode_dt !== nothing
+        dt = ode_dt
+    else
+        dt = calculate_dt(grid, dtmodel, Courant_number)
+    end
+    numberofsteps = convert(Int, cld(timeend, dt))
+    dt = timeend / numberofsteps
 
-        linmodel = solver_type.linear_model(driver_config.bl)
-
-        vdg = DGModel(linmodel, driver_config.grid, driver_config.numfluxnondiff,
-                      driver_config.numfluxdiff, driver_config.gradnumflux,
+    # create the solver
+    if isa(solver_type, ExplicitSolverType)
+        solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
+    else # solver_type === IMEXSolverType
+        vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
                       auxstate=dg.auxstate, direction=VerticalDirection())
 
-        solver = solver_type.solver_method(dg, vdg, SingleColumnLU(), Q; dt=dt, t0=t0)
+        solver = solver_type.solver_method(dg, vdg, solver_type.linear_solver(), Q;
+                                           dt=dt, t0=t0)
     end
 
     @toc setup_solver
 
     return SolverConfiguration(driver_config.name, driver_config.mpicomm, dg, Q,
-                               t0, timeend, dt, forcecpu, init_args, solver)
+                               t0, timeend, dt, forcecpu, numberofsteps,
+                               init_args, solver)
 end
 
 """
-    CLIMA.invoke!(solver_config)
+    CLIMA.invoke!(solver_config::SolverConfiguration;
+                  user_callbacks=(),
+                  check_euclidean_distance=false,
+                  adjustfinalstep=false
+                  user_info_callback=(init)->nothing)
 
-Run the simulation.
+Run the simulation defined by the `solver_config`.
+
+Keyword Arguments:
+
+The `user_callbacks` are passed to the ODE solver as callback functions; see
+[`ODESolvers.solve!]@ref().
+
+If `check_euclidean_distance` is `true, then the Euclidean distance between the
+final solution and initial condition function evaluated with
+`solver_config.timeend` is reported.
+
+The value of 'adjustfinalstep` is passed to the ODE solver; see
+[`ODESolvers.solve!]@ref().
+
+The function `user_info_callback` is called after the default info callback
+(which is called every `Settings.update_interval` seconds of wallclock time).
+The single input argument `init` is `true` when the callback is called
+called for initialization before time stepping begins and `false` when called
+during the actual ODE solve; see [`GenericCallbacks`](@ref) and
+[`ODESolvers.solve!]@ref().
 """
 function invoke!(solver_config::SolverConfiguration;
                  user_callbacks=(),
                  check_euclidean_distance=false,
-                 adjustfinalstep=false
+                 adjustfinalstep=false,
+                 user_info_callback=(init)->nothing
                 )
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -281,13 +339,13 @@ function invoke!(solver_config::SolverConfiguration;
     callbacks = ()
     if Settings.show_updates
         # set up the information callback
-        starttime = Ref(now())
+        upd_starttime = Ref(now())
         cbinfo = GenericCallbacks.EveryXWallTimeSeconds(Settings.update_interval, mpicomm) do (init=false)
             if init
-                starttime[] = now()
+                upd_starttime[] = now()
             else
                 runtime = Dates.format(convert(Dates.DateTime,
-                                               Dates.now()-starttime[]),
+                                               Dates.now()-upd_starttime[]),
                                        Dates.dateformat"HH:MM:SS")
                 energy = norm(solver_config.Q)
                 @info @sprintf("""Update
@@ -298,17 +356,22 @@ function invoke!(solver_config::SolverConfiguration;
                                runtime,
                                energy)
             end
-            nothing
+            user_info_callback(init)
         end
         callbacks = (callbacks..., cbinfo)
     end
     if Settings.enable_diagnostics
-        # set up diagnostics callback
-        diagnostics_time_str = replace(string(now()), ":" => ".")
+        # set up diagnostics to be collected via callback
         cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(Settings.diagnostics_interval) do (init=false)
-            sim_time_str = string(ODESolvers.gettime(solver))
-            gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
-                               Settings.output_dir, ODESolvers.gettime(solver))
+            if init
+                dia_starttime = replace(string(now()), ":" => ".")
+                Diagnostics.init(mpicomm, dg, Q, dia_starttime, Settings.output_dir)
+            end
+            currtime = ODESolvers.gettime(solver)
+            @info @sprintf("""Diagnostics
+                           collecting at %s""",
+                           string(currtime))
+            Diagnostics.collect(currtime)
             nothing
         end
         callbacks = (callbacks..., cbdiagnostics)
@@ -320,8 +383,8 @@ function invoke!(solver_config::SolverConfiguration;
             vprefix = @sprintf("%s_mpirank%04d_step%04d", solver_config.name,
                                MPI.Comm_rank(mpicomm), step[1])
             outprefix = joinpath(Settings.output_dir, vprefix)
-            statenames = Atmos.flattenednames(Atmos.vars_state(bl, FT))
-            auxnames = Atmos.flattenednames(Atmos.vars_aux(bl, FT))
+            statenames = flattenednames(vars_state(bl, FT))
+            auxnames = flattenednames(vars_aux(bl, FT))
             writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
             # Generate the pvtu file for these vtk files
             if MPI.Comm_rank(mpicomm) == 0
@@ -344,12 +407,14 @@ function invoke!(solver_config::SolverConfiguration;
     # initial condition norm
     eng0 = norm(Q)
     @info @sprintf("""Starting %s
-                   dt                      = %.5e
-                   timeend                 = %.5e
-                   norm(Q)                 = %.16e""",
+                   dt              = %.5e
+                   timeend         = %.5e
+                   number of steps = %d
+                   norm(Q)         = %.16e""",
                    solver_config.name,
                    solver_config.dt,
                    solver_config.timeend,
+                   solver_config.numberofsteps,
                    eng0)
 
     # run the simulation
@@ -360,9 +425,9 @@ function invoke!(solver_config::SolverConfiguration;
     engf = norm(solver_config.Q)
 
     @info @sprintf("""Finished
-                   norm(Q)                 = %.16e
-                   norm(Q) / norm(Q₀)      = %.16e
-                   norm(Q) - norm(Q₀)      = %.16e""",
+                   norm(Q)            = %.16e
+                   norm(Q) / norm(Q₀) = %.16e
+                   norm(Q) - norm(Q₀) = %.16e""",
                    engf,
                    engf/eng0,
                    engf-eng0)
@@ -380,4 +445,3 @@ function invoke!(solver_config::SolverConfiguration;
 
     return engf / eng0
 end
-

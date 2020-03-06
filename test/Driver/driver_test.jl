@@ -8,7 +8,7 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-function init_test!(state, aux, (x,y,z), t)
+function init_test!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
     z = FT(z)
@@ -71,11 +71,29 @@ function main()
     t0 = FT(0)
     timeend = FT(10)
 
-    driver_config = CLIMA.LES_Configuration("Driver test", N, resolution,
-                                            xmax, ymax, zmax, init_test!)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config)
+    CFL = FT(0.4)
 
+    driver_config = CLIMA.Atmos_LES_Configuration("Driver test", N, resolution,
+                                                  xmax, ymax, zmax, init_test!)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
+                                       Courant_number = CFL)
+
+
+    # Test the courant wrapper
+    CFL_nondiff = CLIMA.DGmethods.courant(CLIMA.Courant.nondiffusive_courant,
+                                          solver_config)
+    # Since the dt is computed before the initial condition, these might be
+    # difference by a fairly large factor
+    @test isapprox(CFL_nondiff, CFL, rtol=0.03)
+
+    cb_test = 0
     result = CLIMA.invoke!(solver_config)
+    # cb_test should be zero since user_info_callback not specified
+    @test cb_test == 0
+
+    result = CLIMA.invoke!(solver_config, user_info_callback=(init)->cb_test+=1)
+    # cb_test should be greater than one if the user_info_callback got called
+    @test cb_test > 0
 end
 
 main()

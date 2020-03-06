@@ -7,26 +7,26 @@ CurrentModule = CLIMA
 ## `LowStorageRungeKutta`
 
 ```@docs
-LowStorageRungeKuttaMethod.LowStorageRungeKutta2N
-LowStorageRungeKuttaMethod.LSRK54CarpenterKennedy
-LowStorageRungeKuttaMethod.LSRK144NiegemannDiehlBusch
+ODESolvers.LowStorageRungeKutta2N
+ODESolvers.LSRK54CarpenterKennedy
+ODESolvers.LSRK144NiegemannDiehlBusch
 ```
 
 ## `StrongStabilityPreservingRungeKutta`
 
 ```@docs
-StrongStabilityPreservingRungeKuttaMethod.StrongStabilityPreservingRungeKutta
-StrongStabilityPreservingRungeKuttaMethod.SSPRK33ShuOsher
-StrongStabilityPreservingRungeKuttaMethod.SSPRK34SpiteriRuuth
+ODESolvers.StrongStabilityPreservingRungeKutta
+ODESolvers.SSPRK33ShuOsher
+ODESolvers.SSPRK34SpiteriRuuth
 ```
 
 ## `AdditiveRungeKutta`
 
 ```@docs
-AdditiveRungeKuttaMethod.AdditiveRungeKutta
-AdditiveRungeKuttaMethod.ARK2GiraldoKellyConstantinescu
-AdditiveRungeKuttaMethod.ARK548L2SA2KennedyCarpenter
-AdditiveRungeKuttaMethod.ARK437L2SA1KennedyCarpenter
+ODESolvers.AdditiveRungeKutta
+ODESolvers.ARK2GiraldoKellyConstantinescu
+ODESolvers.ARK548L2SA2KennedyCarpenter
+ODESolvers.ARK437L2SA1KennedyCarpenter
 ```
 
 ## `GenericCallbacks`
@@ -40,7 +40,6 @@ GenericCallbacks.EveryXSimulationSteps
 ## `ODESolvers`
 
 ```@docs
-ODESolvers
 ODESolvers.solve!
 ODESolvers.gettime
 ODESolvers.updatedt!

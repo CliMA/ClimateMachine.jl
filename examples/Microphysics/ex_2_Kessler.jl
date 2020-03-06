@@ -22,7 +22,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.VTK
@@ -129,7 +128,7 @@ end
 
 
 # time tendencies
-@inline function source!(S, Q, aux, t)
+@inline function source!(S, Q, diffusive, aux, t)
   FT = eltype(Q)
   u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot = preflux(Q)
   @inbounds begin

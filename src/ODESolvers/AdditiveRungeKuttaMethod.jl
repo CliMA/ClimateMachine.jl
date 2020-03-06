@@ -1,4 +1,6 @@
-module AdditiveRungeKuttaMethod
+
+export AbstractAdditiveRungeKutta
+export LowStorageVariant, NaiveVariant
 export AdditiveRungeKutta
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
@@ -26,6 +28,9 @@ using ..MPIStateArrays: device, realview
 using CLIMA.MultirateInfinitesimalStepMethod: TimeScaledRHS
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 
+abstract type AbstractAdditiveRungeKutta <: AbstractODESolver end
+
+include("AdditiveRungeKuttaMethod_kernels.jl")
 
 """
     op! = EulerOperator(f!, ϵ)
@@ -89,7 +94,7 @@ The available concrete implementations are:
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
   - [`ARK437L2SA1KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: ODEs.AbstractODESolver
+mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: AbstractAdditiveRungeKutta
   "time step"
   dt::RT
   "time"
@@ -200,16 +205,16 @@ end
 
 # this will only work for iterative solves
 # direct solvers use prefactorization
-ODEs.isadjustable(ark::AdditiveRungeKutta) = ark.implicitoperator! isa EulerOperator
-function ODEs.updatedt!(ark::AdditiveRungeKutta, dt)
-  @assert ODEs.isadjustable(ark)
+isadjustable(ark::AdditiveRungeKutta) = ark.implicitoperator! isa EulerOperator
+function updatedt!(ark::AdditiveRungeKutta, dt)
+  @assert isadjustable(ark)
   ark.dt = dt
   α = dt * ark.RKA_implicit[2, 2]
   ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
 end
-ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
+updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
+function dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
                       adjustfinalstep::Bool)
   time, dt = ark.t, ark.dt
   if adjustfinalstep && time + dt > timeend
@@ -217,7 +222,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
   end
   @assert dt > 0
 
-  ODEs.dostep!(Q, ark, p, time, dt)
+  dostep!(Q, ark, p, time, dt)
 
   if dt == ark.dt
     ark.t += dt
@@ -227,10 +232,10 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
 
 end
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
+function dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
                       slow_δ = nothing, slow_rv_dQ = nothing,
                       slow_scaling = nothing)
-  ODEs.dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_rv_dQ, slow_scaling)
+  dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_rv_dQ, slow_scaling)
 end
 
 #Wrapper for MIS
@@ -305,7 +310,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::NaiveVariant,
                            slow_δ, slow_rv_dQ, slow_scaling))
 end
 
-function ODEs.dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
+function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
                       p, time::Real, dt::Real,
                       slow_δ = nothing, slow_rv_dQ = nothing,
                       slow_scaling = nothing)
@@ -717,6 +722,4 @@ function ARK437L2SA1KennedyCarpenter(F, L,
                            split_nonlinear_linear,
                            variant,
                            Q; dt=dt, t0=t0)
-end
-
 end

@@ -1,6 +1,7 @@
 # TODO: add Coriolis vectors
 import ..PlanetParameters: grav, planet_radius
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
+export vertical_unit_vector, altitude, latitude, longitude, gravitational_potential
 
 abstract type Orientation
 end
@@ -47,6 +48,10 @@ function atmos_init_aux!(::SphericalOrientation, ::AtmosModel, aux::Vars, geom::
   aux.orientation.Φ = grav * (normcoord - planet_radius)
   aux.orientation.∇Φ = grav / normcoord .* aux.coord
 end
+# TODO: should we define these for non-spherical orientations?
+latitude(orientation::SphericalOrientation, aux::Vars) = @inbounds asin(aux.coord[3] / norm(aux.coord, 2))
+longitude(orientation::SphericalOrientation, aux::Vars) = @inbounds atan(aux.coord[2], aux.coord[1])
+
 
 """
     FlatOrientation <: Orientation

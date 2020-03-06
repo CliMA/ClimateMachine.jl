@@ -7,11 +7,10 @@ configurations can use these as templates.
 
 using MPI
 
-using ..AdditiveRungeKuttaMethod
 using ..Atmos
+using ..HydrostaticBoussinesq
 using ..DGmethods
 using ..DGmethods.NumericalFluxes
-using ..LowStorageRungeKuttaMethod
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..ODESolvers
@@ -27,9 +26,9 @@ struct IMEXSolverType <: AbstractSolverType
     linear_solver::Type
     solver_method::Function
     function IMEXSolverType(;linear_model=AtmosAcousticGravityLinearModel,
-                            linear_solver=SingleColumnLU,
+                            linear_solver=ManyColumnLU,
                             solver_method=ARK2GiraldoKellyConstantinescu)
-        new(linear_model, linear_solver, solver_method)
+        return new(linear_model, linear_solver, solver_method)
     end
 end
 DefaultSolverType = IMEXSolverType
@@ -62,50 +61,43 @@ struct DriverConfiguration{FT}
                                  numfluxnondiff::NumericalFluxNonDiffusive,
                                  numfluxdiff::NumericalFluxDiffusive,
                                  gradnumflux::NumericalFluxGradient)
-        new{FT}(name, N, array_type, solver_type, bl, mpicomm, grid, numfluxnondiff, numfluxdiff, gradnumflux)
+        return new{FT}(name, N, array_type, solver_type, bl, mpicomm, grid,
+                       numfluxnondiff, numfluxdiff, gradnumflux)
     end
 end
 
-function LES_Configuration(name::String,
-                           N::Int,
-                           (Δx, Δy, Δz)::NTuple{3,FT},
-                           xmax::Int, ymax::Int, zmax::Int,
-                           init_LES!;
-                           xmin           = 0,
-                           ymin           = 0,
-                           zmin           = 0,
-                           array_type     = CLIMA.array_type(),
-                           solver_type    = DefaultSolverType(),
-                           orientation    = FlatOrientation(),
-                           T_min          = FT(200),
-                           T_surface      = FT(280),
-                           Γ              = FT(grav) / FT(cp_d),
-                           rel_hum        = FT(0),
-                           ref_state      = HydrostaticState(LinearTemperatureProfile(T_min,
-                                                                                      T_surface,
-                                                                                      Γ),
-                                                             rel_hum),
-                           C_smag         = FT(0.21),
-                           turbulence     = SmagorinskyLilly{FT}(C_smag),
-                           moisture       = EquilMoist(),
-                           precipitation  = NoPrecipitation(),
-                           radiation      = NoRadiation(),
-                           subsidence     = NoSubsidence{FT}(),
-                           f_coriolis     = FT(7.62e-5),
-                           sources        = (Gravity(),
-                                             Coriolis(),
-                                             GeostrophicForcing{FT}(f_coriolis, 0, 0)),
-                           bc             = NoFluxBC(),
-                           mpicomm        = MPI.COMM_WORLD,
-                           boundary       = ((0,0), (0,0), (1,2)),
-                           periodicity    = (true, true, false),
-                           meshwarp       = (x...)->identity(x),
-                           numfluxnondiff = Rusanov(),
-                           numfluxdiff    = CentralNumericalFluxDiffusive(),
-                           gradnumflux    = CentralNumericalFluxGradient()
-                          ) where {FT<:AbstractFloat}
-    model = AtmosModel(orientation, ref_state, turbulence, moisture,
-                       precipitation, radiation, subsidence, sources, bc, init_LES!)
+function Atmos_LES_Configuration(
+        name::String,
+        N::Int,
+        (Δx, Δy, Δz)::NTuple{3,FT},
+        xmax::Int, ymax::Int, zmax::Int,
+        init_LES!;
+        xmin           = 0,
+        ymin           = 0,
+        zmin           = 0,
+        array_type     = CLIMA.array_type(),
+        solver_type    = IMEXSolverType(linear_solver=SingleColumnLU),
+        model          = AtmosModel{FT}(AtmosLESConfiguration;
+                                        init_state=init_LES!),
+        mpicomm        = MPI.COMM_WORLD,
+        boundary       = ((0,0), (0,0), (1,2)),
+        periodicity    = (true, true, false),
+        meshwarp       = (x...)->identity(x),
+        numfluxnondiff = Rusanov(),
+        numfluxdiff    = CentralNumericalFluxDiffusive(),
+        gradnumflux    = CentralNumericalFluxGradient()
+    ) where {FT<:AbstractFloat}
+
+    @info @sprintf("""Establishing Atmos LES configuration for %s
+                   precision        = %s
+                   polynomial order = %d
+                   grid             = %dx%dx%d
+                   resolution       = %dx%dx%d
+                   MPI ranks        = %d""",
+                   name, FT, N,
+                   xmax, ymax, zmax,
+                   Δx, Δy, Δz,
+                   MPI.Comm_size(mpicomm))
 
     brickrange = (grid1d(xmin, xmax, elemsize=Δx*N),
                   grid1d(ymin, ymax, elemsize=Δy*N),
@@ -120,42 +112,37 @@ function LES_Configuration(name::String,
                                             polynomialorder=N,
                                             meshwarp=meshwarp)
 
-    return DriverConfiguration(name, N, FT, array_type, solver_type, model, mpicomm, grid,
-                               numfluxnondiff, numfluxdiff, gradnumflux)
+    return DriverConfiguration(name, N, FT, array_type, solver_type, model,
+                               mpicomm, grid, numfluxnondiff, numfluxdiff,
+                               gradnumflux)
 end
 
-function GCM_Configuration(name::String,
-                           N::Int,
-                           (nelem_horz, nelem_vert)::NTuple{2,Int},
-                           domain_height::FT,
-                           init_GCM!;
-                           array_type         = CLIMA.array_type(),
-                           solver_type        = DefaultSolverType(),
-                           orientation        = SphericalOrientation(),
-                           T_min              = FT(200),
-                           T_surface          = FT(280),
-                           Γ                  = FT(grav) / FT(cp_d),
-                           rel_hum            = FT(0),
-                           ref_state          = HydrostaticState(LinearTemperatureProfile(T_min,
-                                                                                          T_surface,
-                                                                                          Γ),
-                                                                 rel_hum),
-                           C_smag             = FT(0.21),
-                           turbulence         = SmagorinskyLilly{FT}(C_smag),
-                           moisture           = EquilMoist(),
-                           precipitation      = NoPrecipitation(),
-                           radiation          = NoRadiation(),
-                           subsidence         = NoSubsidence{FT}(),
-                           sources            = (Gravity(), Coriolis()),
-                           bc                 = NoFluxBC(),
-                           mpicomm            = MPI.COMM_WORLD,
-                           meshwarp::Function = cubedshellwarp,
-                           numfluxnondiff     = Rusanov(),
-                           numfluxdiff        = CentralNumericalFluxDiffusive(),
-                           gradnumflux        = CentralNumericalFluxGradient()
-                          ) where {FT<:AbstractFloat}
-    model = AtmosModel(orientation, ref_state, turbulence, moisture,
-                       precipitation, radiation, subsidence, sources, bc, init_GCM!)
+function Atmos_GCM_Configuration(
+        name::String,
+        N::Int,
+        (nelem_horz, nelem_vert)::NTuple{2,Int},
+        domain_height::FT,
+        init_GCM!;
+        array_type         = CLIMA.array_type(),
+        solver_type        = DefaultSolverType(),
+        model              = AtmosModel{FT}(AtmosGCMConfiguration;
+                                             init_state=init_GCM!),
+        mpicomm            = MPI.COMM_WORLD,
+        meshwarp::Function = cubedshellwarp,
+        numfluxnondiff     = Rusanov(),
+        numfluxdiff        = CentralNumericalFluxDiffusive(),
+        gradnumflux        = CentralNumericalFluxGradient()
+    ) where {FT<:AbstractFloat}
+    @info @sprintf("""Establishing Atmos GCM configuration for %s
+                   precision        = %s
+                   polynomial order = %d
+                   #horiz elems     = %d
+                   #vert_elems      = %d
+                   domain height    = %.2e
+                   MPI ranks        = %d""",
+                   name, FT, N,
+                   nelem_horz, nelem_vert, domain_height,
+                   MPI.Comm_size(mpicomm))
 
     vert_range = grid1d(FT(planet_radius), FT(planet_radius+domain_height), nelem=nelem_vert)
 
@@ -167,7 +154,41 @@ function GCM_Configuration(name::String,
                                             polynomialorder=N,
                                             meshwarp=meshwarp)
 
-    return DriverConfiguration(name, N, FT, array_type, solver_type, model, mpicomm, grid,
-                               numfluxnondiff, numfluxdiff, gradnumflux)
+    return DriverConfiguration(name, N, FT, array_type, solver_type, model,
+                               mpicomm, grid, numfluxnondiff, numfluxdiff,
+                               gradnumflux)
 end
 
+function Ocean_BoxGCM_Configuration(
+    name::String,
+    N::Int,
+    (Nˣ, Nʸ, Nᶻ)::NTuple{3,Int},
+    model::HydrostaticBoussinesqModel;
+    FT             = Float64,
+    array_type     = CLIMA.array_type(),
+    solver_type    = ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
+    mpicomm        = MPI.COMM_WORLD,
+    numfluxnondiff = Rusanov(),
+    numfluxdiff    = CentralNumericalFluxDiffusive(),
+    gradnumflux    = CentralNumericalFluxGradient(),
+    periodicity    = (false, false, false),
+    boundary       = ((1, 1), (1, 1), (2, 3))
+    )
+
+    brickrange = (range(FT(0);  length=Nˣ+1, stop=model.problem.Lˣ),
+                  range(FT(0);  length=Nʸ+1, stop=model.problem.Lʸ),
+                  range(FT(-model.problem.H); length=Nᶻ+1, stop=0))
+
+    topology = StackedBrickTopology(mpicomm, brickrange;
+                                    periodicity = periodicity,
+                                    boundary = boundary)
+
+    grid = DiscontinuousSpectralElementGrid(topology,
+                                            FloatType = FT,
+                                            DeviceArray = array_type,
+                                            polynomialorder = N)
+
+    return DriverConfiguration(name, N, FT, array_type, solver_type, model,
+                               mpicomm, grid, numfluxnondiff, numfluxdiff,
+                               gradnumflux)
+end

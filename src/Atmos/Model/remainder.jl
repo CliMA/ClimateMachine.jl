@@ -13,15 +13,27 @@ vars_gradient(rem::RemainderModel, FT) = vars_gradient(rem.main,FT)
 vars_diffusive(rem::RemainderModel, FT) = vars_diffusive(rem.main,FT)
 vars_aux(rem::RemainderModel, FT) = vars_aux(rem.main,FT)
 vars_integrals(rem::RemainderModel,FT) = vars_integrals(rem.main,FT)
+vars_reverse_integrals(rem::RemainderModel,FT) = vars_integrals(rem.main,FT)
 
 update_aux!(dg::DGModel, rem::RemainderModel, Q::MPIStateArray, t::Real) =
   update_aux!(dg, rem.main, Q, t)
 
-integrate_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
-  integrate_aux!(rem.main, integ, state, aux)
+integral_load_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
+  integral_load_aux!(rem.main, integ, state, aux)
 
-flux_diffusive!(rem::RemainderModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) =
-  flux_diffusive!(rem.main, flux, state, diffusive, aux, t)
+integral_set_aux!(rem::RemainderModel, aux::Vars, integ::Vars) =
+  integral_set_aux!(rem.main, aux, integ)
+
+reverse_integral_load_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
+  reverse_integral_load_aux!(rem.main, integ, state, aux)
+
+reverse_integral_set_aux!(rem::RemainderModel, aux::Vars, integ::Vars) =
+  reverse_integral_set_aux!(rem.main, aux, integ)
+
+function flux_diffusive!(rem::RemainderModel, flux::Grad, state::Vars,
+                         diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
+  flux_diffusive!(rem.main, flux, state, diffusive, hyperdiffusive, aux, t)
+end
 
 gradvariables!(rem::RemainderModel, transform::Vars, state::Vars, aux::Vars, t::Real) =
   gradvariables!(rem.main, transform, state, aux, t)
@@ -55,16 +67,16 @@ function flux_nondiffusive!(rem::RemainderModel, flux::Grad, state::Vars, aux::V
   nothing
 end
 
-function source!(rem::RemainderModel, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(rem::RemainderModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   m = getfield(source, :array)
-  source!(rem.main, source, state, aux, t)
+  source!(rem.main, source, state, diffusive, aux, t)
 
   source_s = similar(source)
   m_s = getfield(source_s, :array)
 
   for sub in rem.subs
     fill!(m_s, 0)
-    source!(sub, source_s, state, aux, t)
+    source!(sub, source_s, state, diffusive, aux, t)
     m .-= m_s
   end
   nothing

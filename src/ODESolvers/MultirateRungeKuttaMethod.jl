@@ -1,16 +1,8 @@
-module MultirateRungeKuttaMethod
-using ..ODESolvers
-using ..AdditiveRungeKuttaMethod
-using ..LowStorageRungeKuttaMethod
-using ..StrongStabilityPreservingRungeKuttaMethod
-using ..MPIStateArrays: device, realview
 
-using GPUifyLoops
 include("MultirateRungeKuttaMethod_kernels.jl")
 
 export MultirateRungeKutta
 
-ODEs = ODESolvers
 LSRK2N = LowStorageRungeKutta2N
 SSPRK = StrongStabilityPreservingRungeKutta
 
@@ -32,8 +24,6 @@ solvers. This is based on
 
 Currently only the low storage RK methods can be used as slow solvers
 
-  - [`LowStorageRungeKuttaMethod`](@ref)
-
 ### References
 
     @article{SchlegelKnothArnoldWolke2012,
@@ -48,7 +38,7 @@ Currently only the low storage RK methods can be used as slow solvers
       publisher={Copernicus GmbH}
     }
 """
-mutable struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
+mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
   "slow solver"
   slow_solver::SS
   "fast solver"
@@ -61,7 +51,7 @@ mutable struct MultirateRungeKutta{SS, FS, RT} <: ODEs.AbstractODESolver
   function MultirateRungeKutta(slow_solver::LSRK2N,
                                fast_solver,
                                Q=nothing;
-                               dt=ODEs.getdt(slow_solver), t0=slow_solver.t
+                               dt=getdt(slow_solver), t0=slow_solver.t
                               ) where {AT<:AbstractArray}
     SS = typeof(slow_solver)
     FS = typeof(fast_solver)
@@ -72,7 +62,7 @@ end
 MRRK = MultirateRungeKutta
 
 function MultirateRungeKutta(solvers::Tuple, Q=nothing;
-                             dt=ODEs.getdt(solvers[1]), t0=solvers[1].t
+                             dt=getdt(solvers[1]), t0=solvers[1].t
                             ) where {AT<:AbstractArray}
   if length(solvers) < 2
     error("Must specify atleast two solvers")
@@ -87,7 +77,7 @@ function MultirateRungeKutta(solvers::Tuple, Q=nothing;
   MultirateRungeKutta(slow_solver, fast_solver, Q; dt = dt, t0=t0)
 end
 
-function ODEs.dostep!(Q, mrrk::MultirateRungeKutta, param,
+function dostep!(Q, mrrk::MultirateRungeKutta, param,
                       timeend::AbstractFloat, adjustfinalstep::Bool)
   time, dt = mrrk.t, mrrk.dt
   @assert dt > 0
@@ -96,7 +86,7 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta, param,
     @assert dt > 0
   end
 
-  ODEs.dostep!(Q, mrrk, param, time, dt)
+  dostep!(Q, mrrk, param, time, dt)
 
   if dt == mrrk.dt
     mrrk.t += dt
@@ -106,7 +96,7 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta, param,
   return mrrk.t
 end
 
-function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
+function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
                       time::AbstractFloat, dt::AbstractFloat,
                       in_slow_δ = nothing, in_slow_rv_dQ = nothing,
                       in_slow_scaling = nothing) where {SS <: LSRK2N}
@@ -148,7 +138,7 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
 
     # RKB for the slow with fractional time factor remove (since full
     # integration of fast will result in scaling by γ)
-    nsubsteps = ODEs.getdt(fast) > 0 ? ceil(Int, γ * dt / ODEs.getdt(fast)) : 1
+    nsubsteps = getdt(fast) > 0 ? ceil(Int, γ * dt / getdt(fast)) : 1
     fast_dt = γ * dt / nsubsteps
 
     for substep = 1:nsubsteps
@@ -157,10 +147,9 @@ function ODEs.dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
         slow_rka = slow.RKA[slow_s%length(slow.RKA) + 1]
       end
       fast_time = slow_stage_time + (substep - 1) * fast_dt
-      ODEs.dostep!(Q, fast, param, fast_time, fast_dt, slow_δ, slow_rv_dQ,
+      dostep!(Q, fast, param, fast_time, fast_dt, slow_δ, slow_rv_dQ,
                    slow_rka)
     end
   end
 end
 
-end

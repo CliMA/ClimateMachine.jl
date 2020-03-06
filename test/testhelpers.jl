@@ -3,7 +3,7 @@ using MPI
 function runmpi(tests, file)
   MPI.Initialized() && !MPI.Finalized() &&
   error("runmpi does not work if MPI has been "*
-        "Initialized but not Finalizd")
+        "Initialized but not Finalized")
 
   # The code below was modified from the MPI.jl file runtests.jl
   #
@@ -18,7 +18,7 @@ function runmpi(tests, file)
   coverage_opt = coverage_opts[Base.JLOptions().code_coverage]
   testdir = dirname(file)
 
-  if haskey(ENV, "SLURM_JOB_ID")
+  if !Sys.iswindows() && occursin( "OpenRTE", read(`mpiexec --version`, String))
     oversubscribe = `--oversubscribe`
   else
     oversubscribe = ``

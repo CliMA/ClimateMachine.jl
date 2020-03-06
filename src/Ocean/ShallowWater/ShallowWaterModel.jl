@@ -121,7 +121,7 @@ diffusive!(::LinearDrag, _...) = nothing
   return nothing
 end
 
-function flux_diffusive!(m::SWModel, G::Grad, q::Vars, σ::Vars,
+function flux_diffusive!(m::SWModel, G::Grad, q::Vars, σ::Vars, ::Vars,
                          α::Vars, t::Real)
   flux_diffusive!(m.turbulence, G, q, σ, α, t)
 end
@@ -137,8 +137,8 @@ end
 
 @inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
 
-@inline function source!(m::SWModel{P}, S::Vars, q::Vars, α::Vars,
-                         t::Real) where P
+@inline function source!(m::SWModel{P}, S::Vars, q::Vars,
+                         diffusive::Vars, α::Vars, t::Real) where P
   τ = α.τ
   f = α.f
   U = q.U

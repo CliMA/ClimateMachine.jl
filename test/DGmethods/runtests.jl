@@ -11,6 +11,7 @@ include("../testhelpers.jl")
     (1, "advection_diffusion/pseudo1D_advection_diffusion.jl")
     (1, "compressible_Navier_Stokes/ref_state.jl")
     (1, "horizontal_integral_test.jl")
+    (2, "courant.jl")
    ]
 
   runmpi(tests, @__FILE__)

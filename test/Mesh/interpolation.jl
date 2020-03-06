@@ -6,12 +6,13 @@ using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
 using CLIMA.Mesh.Interpolation
 using StaticArrays
+using GPUifyLoops
 
+using CLIMA.VariableTemplates
 #------------------------------------------------
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.Atmos
@@ -30,252 +31,313 @@ using Random
 using Statistics
 const seed = MersenneTwister(0)
 
-#------------------------------------------------
-if !@isdefined integration_testing
-    const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
-end
-#------------------------------------------------
-function run_brick_interpolation_test()
-  MPI.Initialized() || MPI.Init()
-
-#@testset "LocalGeometry" begin
-    FT = Float64
-    ArrayType = Array
-    mpicomm = MPI.COMM_WORLD
-
-    xmin, ymin, zmin = 0, 0, 0                   # defining domain extent
-    xmax, ymax, zmax = 2000, 400, 2000
-    xres = [FT(200), FT(200), FT(200)] # resolution of interpolation grid
-
-    xgrd = range(xmin, xmax, step=xres[1])
-    ygrd = range(ymin, ymax, step=xres[2])
-    zgrd = range(zmin, zmax, step=xres[3])
-
- #   Ne        = (20,2,20)
-    Ne        = (4,2,4)
-
-    polynomialorder = 8 #8 #4
-    #-------------------------
-    _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id, CLIMA.Mesh.Grids.vgeoid.x2id, CLIMA.Mesh.Grids.vgeoid.x3id
-    _ρ, _ρu, _ρv, _ρw = 1, 2, 3, 4
-    #-------------------------
-
-    brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
-                  range(FT(ymin); length=Ne[2]+1, stop=ymax),
-                  range(FT(zmin); length=Ne[3]+1, stop=zmax))
-    topl = StackedBrickTopology(MPI.COMM_SELF, brickrange, periodicity = (true, true, false))
-
-    grid = DiscontinuousSpectralElementGrid(topl,
-                                            FloatType = FT,
-                                            DeviceArray = ArrayType,
-                                            polynomialorder = polynomialorder)
-
-    model = AtmosModel(FlatOrientation(),
-                     NoReferenceState(),
-					 ConstantViscosityWithDivergence(FT(0)),
-                     EquilMoist(),
-                     NoPrecipitation(),
-                     NoRadiation(),
-                     NoSubsidence{FT}(),
-                     (Gravity()),
-					 NoFluxBC(),
-                     Initialize_Brick_Interpolation_Test!)
-
-    dg = DGModel(model,
-               grid,
-               Rusanov(),
-               CentralNumericalFluxDiffusive(),
-               CentralNumericalFluxGradient())
-
-    Q = init_ode_state(dg, FT(0))
-    #------------------------------
-    x1 = @view grid.vgeo[:,_x,:]
-    x2 = @view grid.vgeo[:,_y,:]
-    x3 = @view grid.vgeo[:,_z,:]
-
-    st_idx = _ρ # state vector
-    elno = 10
-
-    var = @view Q.data[:,st_idx,:]
-
-    #fcn(x,y,z) = x .* y .* z # sample function
-    fcn(x,y,z) = sin.(x) .* cos.(y) .* cos.(z) # sample function
-
-    var .= fcn( x1 ./ xmax, x2 ./ ymax, x3 ./ zmax )
-    #----calling interpolation function on state variable # st_idx--------------------------
-    #intrp_brck = InterpolationBrick(grid, xres, FT)
-    intrp_brck = InterpolationBrick(grid, xres)
-    interpolate_brick!(intrp_brck, Q.data, st_idx)
-
-
-    #------testing
-    Nel = length( grid.topology.realelems )
-
-    error = zeros(FT, Nel)
-
-    for elno in 1:Nel
-      fex = similar(intrp_brck.V[elno])
-      fex = fcn( intrp_brck.x[elno][1,:] ./ xmax , intrp_brck.x[elno][2,:] ./ ymax , intrp_brck.x[elno][3,:] ./ zmax )
-      error[elno] = maximum(abs.(intrp_brck.V[elno][:]-fex[:]))
-    end
-
-    l_infinity_local = maximum(error)
-    l_infinity_domain = MPI.Allreduce(l_infinity_local, MPI.MAX, mpicomm)
-
-    return l_infinity_domain < 1.0e-14
-    #----------------
-end #function run_brick_interpolation_test
-
-#-----taken from Test example
-function Initialize_Brick_Interpolation_Test!(state::Vars, aux::Vars, (x,y,z), t)
+const ArrayType = CLIMA.array_type()
+#-------------------------------------
+function Initialize_Brick_Interpolation_Test!(bl, state::Vars, aux::Vars, (x,y,z), t)
     FT         = eltype(state)
-
     # Dummy variables for initial condition function
-    state.ρ     = FT(0)
-    state.ρu    = SVector{3,FT}(0,0,0)
-    state.ρe    = FT(0)
+    state.ρ               = FT(0)
+    state.ρu              = SVector{3,FT}(0,0,0)
+    state.ρe              = FT(0)
     state.moisture.ρq_tot = FT(0)
 end
 #------------------------------------------------
-Base.@kwdef struct TestSphereSetup{FT}
-  p_ground::FT = MSLP
-  T_initial::FT = 255
-  domain_height::FT = 30e3
+struct TestSphereSetup{DT}
+    p_ground::DT
+    T_initial::DT
+    domain_height::DT
+
+    function TestSphereSetup(p_ground::DT, T_initial::DT, domain_height::DT) where DT <: AbstractFloat
+        return new{DT}(p_ground, T_initial, domain_height)
+    end
 end
+#----------------------------------------------------------------------------
+function (setup::TestSphereSetup)(bl, state, aux, coords, t)
+    # callable to set initial conditions
+    FT = eltype(state)
+
+    r = norm(coords, 2)
+    h = r - FT(planet_radius)
+
+    scale_height = R_d * setup.T_initial / grav
+    p = setup.p_ground * exp(-h / scale_height)
+
+    state.ρ = air_density(setup.T_initial, p)
+    state.ρu = SVector{3, FT}(0, 0, 0)
+    state.ρe = state.ρ * (internal_energy(setup.T_initial) + aux.orientation.Φ)
+    return nothing
+end
+#----------------------------------------------------------------------------
+function run_brick_interpolation_test()
+    CLIMA.init()
+    for FT in (Float32, Float64)
+        ArrayType = CLIMA.array_type()
+        DA = CLIMA.array_type()
+        mpicomm = MPI.COMM_WORLD
+        root = 0
+        pid = MPI.Comm_rank(mpicomm)
+        npr = MPI.Comm_size(mpicomm)
+
+        xmin, ymin, zmin = 0, 0, 0                   # defining domain extent
+        xmax, ymax, zmax = 2000, 400, 2000
+        xres = [FT(10), FT(10), FT(10)] # resolution of interpolation grid
+
+        Ne        = (20,4,20)
+
+        polynomialorder = 5 #8# 5 #8 #4
+        #-------------------------
+        _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id, CLIMA.Mesh.Grids.vgeoid.x2id, CLIMA.Mesh.Grids.vgeoid.x3id
+        #-------------------------
+
+        brickrange = (range(FT(xmin); length=Ne[1]+1, stop=xmax),
+                      range(FT(ymin); length=Ne[2]+1, stop=ymax),
+                      range(FT(zmin); length=Ne[3]+1, stop=zmax))
+        topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (true, true, false))
+        grid = DiscontinuousSpectralElementGrid(topl,
+                                                FloatType = FT,
+                                                DeviceArray = DA,
+                                                polynomialorder = polynomialorder)
+        model = AtmosModel{FT}(AtmosLESConfiguration;
+                               ref_state=NoReferenceState(),
+                               turbulence=ConstantViscosityWithDivergence(FT(0)),
+                               source=(Gravity(),),
+                               init_state=Initialize_Brick_Interpolation_Test!)
+
+        dg = DGModel(model,
+                     grid,
+                     Rusanov(),
+                     CentralNumericalFluxDiffusive(),
+                     CentralNumericalFluxGradient())
+
+        Q = init_ode_state(dg, FT(0))
+        #------------------------------
+        x1 = @view grid.vgeo[:,_x,:]
+        x2 = @view grid.vgeo[:,_y,:]
+        x3 = @view grid.vgeo[:,_z,:]
+
+        fcn(x,y,z) = sin.(x) .* cos.(y) .* cos.(z) # sample function
+        #----calling interpolation function on state variable # st_idx--------------------------
+        nvars = size(Q.data,2)
+
+        for vari in 1:nvars
+            Q.data[:,vari,:] = fcn( x1 ./ xmax, x2 ./ ymax, x3 ./ zmax )
+        end
+
+        xbnd = Array{FT}(undef,2,3)
+
+        xbnd[1,1] = FT(xmin); xbnd[2,1] = FT(xmax)
+        xbnd[1,2] = FT(ymin); xbnd[2,2] = FT(ymax)
+        xbnd[1,3] = FT(zmin); xbnd[2,3] = FT(zmax)
+        #----------------------------------------------------------
+        x1g = collect(range(xbnd[1,1], xbnd[2,1], step=xres[1]))
+        x2g = collect(range(xbnd[1,2], xbnd[2,2], step=xres[2]))
+        x3g = collect(range(xbnd[1,3], xbnd[2,3], step=xres[3]))
+
+        filename = "test.nc"
+        varnames = ("ρ", "ρu", "ρv", "ρw", "e", "other")
+
+        intrp_brck = InterpolationBrick(grid, xbnd, x1g, x2g, x3g)             # sets up the interpolation structure
+        iv = DA(Array{FT}(undef, intrp_brck.Npl, nvars))                       # allocating space for the interpolation variable
+        interpolate_local!(intrp_brck, Q.data, iv)                             # interpolation
+        svi = write_interpolated_data(intrp_brck, iv, varnames, filename)      # write interpolation data to file
+        #------------------------------
+
+        err_inf_dom = zeros(FT, nvars)
+
+        x1g = intrp_brck.x1g
+        x2g = intrp_brck.x2g
+        x3g = intrp_brck.x3g
+
+        if pid==0
+            nx1 = length(x1g); nx2 = length(x2g); nx3 = length(x3g)
+            x1 = Array{FT}(undef,nx1,nx2,nx3); x2 = similar(x1); x3 = similar(x1)
+
+            for k in 1:nx3, j in 1:nx2, i in 1:nx1
+                x1[i,j,k] = x1g[i]
+                x2[i,j,k] = x2g[j]
+                x3[i,j,k] = x3g[k]
+            end
+            fex = fcn( x1 ./ xmax , x2 ./ ymax , x3 ./ zmax )
+
+            for vari in 1:nvars
+                err_inf_dom[vari] = maximum( abs.(svi[:,:,:,vari] .- fex[:,:,:]) )
+            end
+        end
+
+        MPI.Bcast!(err_inf_dom, root, mpicomm)
+
+        if FT == Float64
+            toler = 1.0E-9
+        elseif FT == Float32
+            toler = 1.0E-6
+        end
+
+        if maximum(err_inf_dom) > toler
+            if pid==0
+                println("err_inf_domain = $(maximum(err_inf_dom)) is larger than prescribed tolerance of $toler")
+            end
+            MPI.Barrier(mpicomm)
+        end
+
+        @test maximum(err_inf_dom) < toler
+    end
+    return nothing
+    #----------------
+end #function run_brick_interpolation_test
+#----------------------------------------------------------------------------
+
 #----------------------------------------------------------------------------
 # Cubed sphere, lat/long interpolation test
 #----------------------------------------------------------------------------
 function run_cubed_sphere_interpolation_test()
     CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    for FT in (Float32, Float64) #Float32 #Float64
+        DA = CLIMA.array_type()
+        device  = CLIMA.array_type() <: Array ? CPU() : CUDA()
+        mpicomm = MPI.COMM_WORLD
+        root = 0
+        pid  = MPI.Comm_rank(mpicomm)
+        npr  = MPI.Comm_size(mpicomm)
 
-    FT = Float64
-    mpicomm = MPI.COMM_WORLD
-    root = 0
+        domain_height = FT(30e3)
 
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = Dict("DEBUG" => Logging.Debug,
-                    "WARN"  => Logging.Warn,
-                    "ERROR" => Logging.Error,
-                    "INFO"  => Logging.Info)[ll]
+        polynomialorder = 5
+        numelem_horz = 6
+        numelem_vert = 4
 
-    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-    global_logger(ConsoleLogger(logger_stream, loglevel))
+        #-------------------------
+        _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id, CLIMA.Mesh.Grids.vgeoid.x2id, CLIMA.Mesh.Grids.vgeoid.x3id
+        _ρ, _ρu, _ρv, _ρw = 1, 2, 3, 4
+        #-------------------------
+        vert_range = grid1d(FT(planet_radius), FT(planet_radius + domain_height), nelem = numelem_vert)
 
-    domain_height = FT(30e3)
+        lat_res  = FT(1) # 1 degree resolution
+        long_res = FT(1) # 1 degree resolution
+        nel_vert_grd  = 20 #100 #50 #10#50
+        rad_res    = FT((vert_range[end] - vert_range[1])/FT(nel_vert_grd)) #1000.00    # 1000 m vertical resolution
+        #----------------------------------------------------------
+        setup = TestSphereSetup(FT(MSLP),FT(255),FT(30e3))
 
-    polynomialorder = 12#1#4 #5
-    numelem_horz = 3#4 #6
-    numelem_vert = 4#1 #1 #1#6 #8
+        topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
+   
+        grid = DiscontinuousSpectralElementGrid(topology,
+                                                FloatType = FT,
+                                                DeviceArray = DA,
+                                                polynomialorder = polynomialorder,
+                                                meshwarp = CLIMA.Mesh.Topologies.cubedshellwarp)
 
-    #-------------------------
-    _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id, CLIMA.Mesh.Grids.vgeoid.x2id, CLIMA.Mesh.Grids.vgeoid.x3id
-    _ρ, _ρu, _ρv, _ρw = 1, 2, 3, 4
-    #-------------------------
-    vert_range = grid1d(FT(planet_radius), FT(planet_radius + domain_height), nelem = numelem_vert)
+        model = AtmosModel{FT}(AtmosLESConfiguration;
+                               orientation=SphericalOrientation(),
+                               ref_state=NoReferenceState(),
+                               turbulence=ConstantViscosityWithDivergence(FT(0)),
+                               moisture=DryModel(),
+                               source=nothing,
+                               init_state=setup)
 
- #   vert_range = grid1d(FT(1.0), FT(2.0), nelem = numelem_vert)
+        dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
+ 
+        Q = init_ode_state(dg, FT(0))
 
-    lat_res  = 5 * π / 180.0 # 5 degree resolution
-    long_res = 5 * π / 180.0 # 5 degree resolution
-    r_res    = (vert_range[end] - vert_range[1])/FT(numelem_vert) #1000.00    # 1000 m vertical resolution
+        device = typeof(Q.data) <: Array ? CPU() : CUDA()
+        #------------------------------
+        x1 = @view grid.vgeo[:,_x,:]
+        x2 = @view grid.vgeo[:,_y,:]
+        x3 = @view grid.vgeo[:,_z,:]
 
-    #----------------------------------------------------------
-    setup = TestSphereSetup{FT}()
+        xmax = FT(planet_radius)
+        ymax = FT(planet_radius)
+        zmax = FT(planet_radius)
 
-    topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
+        fcn(x,y,z) = sin.(x) .* cos.(y) .* cos.(z) # sample function
 
-    grid = DiscontinuousSpectralElementGrid(topology,
-                                            FloatType = FT,
-                                            DeviceArray = ArrayType,
-                                            polynomialorder = polynomialorder,
-                                            meshwarp = CLIMA.Mesh.Topologies.cubedshellwarp)
+        nvars = size(Q.data,2)
 
-    model = AtmosModel(SphericalOrientation(),
-                       NoReferenceState(),
-                       ConstantViscosityWithDivergence(FT(0)),
-                       DryModel(),
-                       NoPrecipitation(),
-                       NoRadiation(),
-                       NoSubsidence{FT}(),
-                       nothing,
-                       NoFluxBC(),
-                       setup)
-
-    dg = DGModel(model, grid, Rusanov(),
-                 CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
-
-    Q = init_ode_state(dg, FT(0))
-    #------------------------------
-    x1 = @view grid.vgeo[:,_x,:]
-    x2 = @view grid.vgeo[:,_y,:]
-    x3 = @view grid.vgeo[:,_z,:]
-
-    xmax = maximum( abs.(x1) )
-    ymax = maximum( abs.(x2) )
-    zmax = maximum( abs.(x3) )
-
-    st_idx = _ρ # state vector
-
-    var = @view Q.data[:,st_idx,:]
-
-#    fcn(x,y,z) = x .* y .* z # sample function
-    fcn(x,y,z) = sin.(x) .* cos.(y) .* cos.(z) # sample function
-
-    var .= fcn( x1 ./ xmax, x2 ./ ymax, x3 ./ zmax )
-  #------------------------------
-    @time intrp_cs = InterpolationCubedSphere(grid, collect(vert_range), numelem_horz, lat_res, long_res, r_res)
-    interpolate_cubed_sphere!(intrp_cs, Q.data, st_idx)
-    #----------------------------------------------------------
-
-    Nel = length( grid.topology.realelems )
-
-    error = zeros(FT, Nel)
-
-    for elno in 1:Nel
-        if ( length(intrp_cs.V[elno]) > 0 )
-            fex = similar(intrp_cs.V[elno])
-            x1g = similar(intrp_cs.V[elno])
-            x2g = similar(intrp_cs.V[elno])
-            x3g = similar(intrp_cs.V[elno])
-
-            x1_grd = intrp_cs.radc[elno] .* sin.(intrp_cs.latc[elno]) .* cos.(intrp_cs.longc[elno]) # inclination -> latitude; azimuthal -> longitude.
-            x2_grd = intrp_cs.radc[elno] .* sin.(intrp_cs.latc[elno]) .* sin.(intrp_cs.longc[elno]) # inclination -> latitude; azimuthal -> longitude.
-            x3_grd = intrp_cs.radc[elno] .* cos.(intrp_cs.latc[elno])
-
-            fex = fcn( x1_grd ./ xmax , x2_grd ./ ymax , x3_grd ./ zmax )
-            error[elno] = maximum(abs.(intrp_cs.V[elno][:]-fex[:]))
+        for i in 1:nvars
+            Q.data[:,i,:] .= fcn( x1 ./ xmax, x2 ./ ymax, x3 ./ zmax )
         end
+        #------------------------------
+        lat_min,   lat_max = FT(-90.0), FT(90.0)            # inclination/zeinth angle range
+        long_min, long_max = FT(-180.0), FT(180.0) 		    # azimuthal angle range
+        rad_min,   rad_max = vert_range[1], vert_range[end] # radius range
+
+
+        lat_grd  = collect(range(lat_min,  lat_max,  step=lat_res))
+        long_grd = collect(range(long_min, long_max, step=long_res))
+        rad_grd  = collect(range(rad_min,  rad_max,  step=rad_res))
+
+        filename = "test.nc"
+        varnames = ("ρ", "ρu", "ρv", "ρw", "e")
+        projectv = true
+
+        intrp_cs = InterpolationCubedSphere(grid, collect(vert_range), numelem_horz, lat_grd, long_grd, rad_grd) # sets up the interpolation structure
+        iv = DA(Array{FT}(undef, intrp_cs.Npl, nvars))                  # allocatind space for the interpolation variable
+        interpolate_local!(intrp_cs, Q.data, iv,project=projectv)           # interpolation
+        svi = write_interpolated_data(intrp_cs, iv, varnames, filename) # write interpolated data to file
+        #----------------------------------------------------------
+        # Testing
+        err_inf_dom = zeros(FT, nvars)
+
+        rad   = Array(intrp_cs.rad_grd)
+        lat   = Array(intrp_cs.lat_grd)
+        long  = Array(intrp_cs.long_grd)
+
+        if pid==0
+            nrad = length(rad); nlat = length(lat); nlong = length(long)
+            x1g = Array{FT}(undef,nrad,nlat,nlong); x2g = similar(x1g); x3g = similar(x1g)
+
+            fex = zeros(FT, nrad, nlat, nlong, nvars)
+
+            for vari in 1:nvars
+                for k in 1:nlong, j in 1:nlat, i in 1:nrad
+                    x1g_ijk = rad[i] * cosd(lat[j]) * cosd(long[k]) # inclination -> latitude; azimuthal -> longitude.
+                    x2g_ijk = rad[i] * cosd(lat[j]) * sind(long[k]) # inclination -> latitude; azimuthal -> longitude.
+                    x3g_ijk = rad[i] * sind(lat[j])
+             
+                    fex[i,j,k,vari] = fcn( x1g_ijk / xmax, x2g_ijk / ymax, x3g_ijk / zmax )
+                end
+            end
+
+            if projectv
+                for k in 1:nlong, j in 1:nlat, i in 1:nrad
+                    fex[i,j,k,_ρu] = fex[i,j,k,_ρ] * cosd(lat[j]) * cosd(long[k]) + 
+                                     fex[i,j,k,_ρ] * cosd(lat[j]) * sind(long[k]) + 
+                                     fex[i,j,k,_ρ] * sind(lat[j])
+
+                    fex[i,j,k,_ρv] = -fex[i,j,k,_ρ] * sind(lat[j]) * cosd(long[k])  
+                                     -fex[i,j,k,_ρ] * sind(lat[j]) * sind(long[k]) + 
+                                      fex[i,j,k,_ρ] * cosd(lat[j])
+
+                    fex[i,j,k,_ρw] = -fex[i,j,k,_ρ] * cosd(lat[j]) * sind(long[k]) + 
+                                      fex[i,j,k,_ρ] * cosd(lat[j]) * cosd(long[k])
+                end
+            end
+
+            for vari in 1:nvars
+                err_inf_dom[vari] = maximum( abs.(svi[:,:,:,vari] .- fex[:,:,:,vari]) )
+            end
+        end
+
+        MPI.Bcast!(err_inf_dom, root, mpicomm)
+
+        if FT == Float64
+            toler = 1.0E-7
+        elseif FT == Float32
+            toler = 1.0E-6
+        end
+
+        if maximum(err_inf_dom) > toler
+            if pid==0
+                println("err_inf_domain = $(maximum(err_inf_dom)) is larger than prescribed tolerance of $toler")
+            end
+            MPI.Barrier(mpicomm)
+        end
+        @test maximum(err_inf_dom) < toler
     end
-    #----------------------------------------------------------
-    l_infinity_local = maximum(error)
-    l_infinity_domain = MPI.Allreduce(l_infinity_local, MPI.MAX, mpicomm)
-
-#----------------------------------------------------------------------------
-    return l_infinity_domain < 1.0e-12
+    return nothing
 end
 #----------------------------------------------------------------------------
-function (setup::TestSphereSetup)(state, aux, coords, t)
-  # callable to set initial conditions
-  FT = eltype(state)
-
-  r = norm(coords, 2)
-  h = r - FT(planet_radius)
-
-  scale_height = R_d * setup.T_initial / grav
-  p = setup.p_ground * exp(-h / scale_height)
-
-  state.ρ = air_density(setup.T_initial, p)
-  state.ρu = SVector{3, FT}(0, 0, 0)
-  state.ρe = state.ρ * (internal_energy(setup.T_initial) + aux.orientation.Φ)
-  nothing
-end
-#----------------------------------------------------------------------------
-
 @testset "Interpolation tests" begin
-    @test run_brick_interpolation_test()
-    @test run_cubed_sphere_interpolation_test()
+    run_brick_interpolation_test()
+    run_cubed_sphere_interpolation_test()
 end
 #------------------------------------------------
-
