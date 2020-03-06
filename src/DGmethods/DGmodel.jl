@@ -218,7 +218,7 @@ function init_ode_state(dg::DGModel, args...;
                      topology.realelems, args...))
     @launch(device, threads=(Np,), blocks=nrealelem,
             knl_neighbor_distance!(Val(N), Val(dim), auxstate.data, 
-                                   grid.vgeo, topology.realelems)) 
+                                   grid.vgeo, topology.realelems, direction=EveryDirection())) 
   else
     h_state = similar(state, Array)
     h_auxstate = similar(auxstate, Array)
@@ -228,7 +228,7 @@ function init_ode_state(dg::DGModel, args...;
                        Array(grid.vgeo), topology.realelems, args...))
     @launch(CPU(), threads=(Np,), blocks=nrealelem,
             knl_neighbor_distance!(Val(N), Val(dim), h_auxstate.data, 
-                                   Array(grid.vgeo), topology.realelems)) 
+                                   Array(grid.vgeo), topology.realelems, direction=EveryDirection())) 
     state .= h_state
     auxstate .= h_auxstate.data
   end

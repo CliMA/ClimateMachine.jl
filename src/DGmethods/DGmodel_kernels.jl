@@ -1957,7 +1957,7 @@ neighbors. We store the local distances within the auxiliary state array
 """
 function knl_neighbor_distance!(::Val{N}, ::Val{dim}, 
                                     auxstate, 
-                                    vgeo, elems
+                                    vgeo, elems, direction=EveryDirection(),
                                    ) where {N, dim}
 
   FT = eltype(auxstate)
