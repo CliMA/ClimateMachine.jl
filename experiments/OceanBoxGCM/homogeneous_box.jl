@@ -42,7 +42,7 @@ function main(;imex::Bool = false)
   dimensions = (Lˣ, Lʸ, H)
 
   timestart = FT(0)    # s
-  timeend   = FT(3600) # s
+  timeend   = FT(6 * 3600) # s
 
   if imex
     solver_type = CLIMA.IMEXSolverType(linear_model=LinearHBModel)
@@ -58,8 +58,10 @@ function main(;imex::Bool = false)
   exp_filter  = ExponentialFilter(grid, 1, 8)
   modeldata = (vert_filter = vert_filter, exp_filter=exp_filter)
 
-  solver_config = CLIMA.setup_solver(timestart, timeend, driver_config, init_on_cpu=true,
-                                     ode_solver_type=solver_type, modeldata=modeldata)
+  solver_config = CLIMA.setup_solver(timestart, timeend, driver_config,
+                                     init_on_cpu=true,
+                                     ode_solver_type=solver_type,
+                                     modeldata=modeldata)
 
   result = CLIMA.invoke!(solver_config)
 

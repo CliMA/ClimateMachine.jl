@@ -16,12 +16,12 @@ function config_simple_box(FT, N, resolution, dimensions)
   model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
 
   config = CLIMA.OceanBoxGCMConfiguration("ocean_gyre",
-                                          N, resolution, model)
+                                            N, resolution, model)
 
   return config
 end
 
-function main(;imex::Bool = false)
+function main(;imex::Bool = false, Δt = 60)
   CLIMA.init()
 
   FT = Float64
@@ -30,9 +30,9 @@ function main(;imex::Bool = false)
   N = Int(4)
 
   # Domain resolution and size
-  Nˣ = Int(20)
-  Nʸ = Int(20)
-  Nᶻ = Int(20)
+  Nˣ = Int(4)
+  Nʸ = Int(4)
+  Nᶻ = Int(5)
   resolution = (Nˣ, Nʸ, Nᶻ)
 
   Lˣ = 4e6    # m
@@ -41,7 +41,7 @@ function main(;imex::Bool = false)
   dimensions = (Lˣ, Lʸ, H)
 
   timestart = FT(0)    # s
-  timeend   = FT(30 * 86400) # s
+  timeend   = FT(360) # s
 
   if imex
     solver_type = CLIMA.IMEXSolverType(linear_model=LinearHBModel)
@@ -59,10 +59,15 @@ function main(;imex::Bool = false)
   solver_config = CLIMA.setup_solver(timestart, timeend, driver_config,
                                      init_on_cpu=true,
                                      ode_solver_type=solver_type,
+                                     ode_dt = FT(Δt),
                                      modeldata=modeldata)
 
   result = CLIMA.invoke!(solver_config)
 
+  @test true
 end
 
-main(imex=false)
+@testset "$(@__FILE__)" begin
+  main(imex=false, Δt = 6)
+  main(imex=true)
+end
