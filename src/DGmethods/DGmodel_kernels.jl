@@ -1956,17 +1956,17 @@ The `direction` in the reference element controls which nodes are considered
 neighbors. We store the local distances within the auxiliary state array
 """
 function knl_neighbor_distance!(::Val{N}, ::Val{dim}, 
-                                    auxstate, auxstate_indices, 
+                                    auxstate, 
                                     vgeo, elems
                                    ) where {N, dim}
 
-  FT = eltype(neighbor_distance)
+  FT = eltype(auxstate)
   Nq = N + 1
   Nqk = dim == 2 ? 1 : Nq
 
-  Δξ1 = similar(vgeo, Nq^dim, nrealelem)
-  Δξ2 = similar(vgeo, Nq^dim, nrealelem)
-  Δξ3 = similar(vgeo, Nq^dim, nrealelem)
+  Δξ1 = similar(vgeo, Nq^dim, length(elems))
+  Δξ2 = similar(vgeo, Nq^dim, length(elems))
+  Δξ3 = similar(vgeo, Nq^dim, length(elems))
 
   if direction isa EveryDirection
     mininξ = (true, true, true)
