@@ -348,10 +348,11 @@ function invoke!(solver_config::SolverConfiguration;
                                        Dates.dateformat"HH:MM:SS")
                 energy = norm(solver_config.Q)
                 @info @sprintf("""Update
-                               simtime = %.16e
+                               simtime = %8.2f / %8.2f
                                runtime = %s
                                norm(Q) = %.16e""",
                                ODESolvers.gettime(solver),
+                               solver_config.timeend,
                                runtime,
                                energy)
             end
@@ -407,7 +408,7 @@ function invoke!(solver_config::SolverConfiguration;
     eng0 = norm(Q)
     @info @sprintf("""Starting %s
                    dt              = %.5e
-                   timeend         = %.5e
+                   timeend         = %8.2f
                    number of steps = %d
                    norm(Q)         = %.16e""",
                    solver_config.name,
