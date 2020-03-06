@@ -13,4 +13,6 @@ function nondiffusive_courant end
 
 function diffusive_courant end
 
+function viscous_courant end
+
 end

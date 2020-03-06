@@ -4,17 +4,20 @@ export HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem, OceanDG
        LinearHBModel, calculate_dt
 
 using StaticArrays
-using LinearAlgebra: I, dot, Diagonal
+using LinearAlgebra: I, dot, Diagonal, norm
 using ..VariableTemplates
 using ..MPIStateArrays
 using ..DGmethods: init_ode_state
 using ..PlanetParameters: grav
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
-using ..Mesh.Grids: polynomialorder, VerticalDirection, HorizontalDirection, min_node_distance
+using ..Mesh.Grids: polynomialorder, VerticalDirection, HorizontalDirection, EveryDirection, min_node_distance
+using ..DGmethods: courant
 
 using ..DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                    CentralNumericalFluxDiffusive,
                                    CentralNumericalFluxNonDiffusive
+
+import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant, viscous_courant
 
 import ..DGmethods.NumericalFluxes: update_penalty!, numerical_flux_diffusive!,
                                     NumericalFluxNonDiffusive
@@ -74,26 +77,95 @@ end
 HBModel = HydrostaticBoussinesqModel
 
 """
-    calculate_dt(dg, model::HBModel, _, Courant_number)
+    calculate_dt(dg, model::HBModel, Q, Courant_number, direction::EveryDirection)
 
 calculates the time step based on grid spacing and model parameters
-takes minimum of gravity wave, diffusive, and viscous CFL
-factor of 1000 in the diffusive CFL is to handle the convective adjustment
+takes minimum of advective, gravity wave, diffusive, and viscous CFL
 
 """
-function calculate_dt(dg, model::HBModel, _, Courant_number)
-    grid = dg.grid
+function calculate_dt(dg, model::HBModel, Q, Courant_number, ::EveryDirection)
+  Δt = one(eltype(Q))
 
-    minΔx = min_node_distance(grid, HorizontalDirection())
-    minΔz = min_node_distance(grid, VerticalDirection())
+  CFL_advective = courant(advective_courant, dg, model, Q, Δt, VerticalDirection())
+  CFL_gravity = courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection())
+  CFL_viscous = courant(viscous_courant, dg, model, Q, Δt, VerticalDirection())
+  CFL_diffusive = courant(diffusive_courant, dg, model, Q, Δt, VerticalDirection())
 
-    CFL_gravity = minΔx / model.cʰ
-    CFL_diffusive = minΔz^2 / (1000 * model.κᶻ)
-    CFL_viscous = minΔz^2 / model.νᶻ
+  CFL = maximum([CFL_advective, CFL_gravity, CFL_viscous, CFL_diffusive])
+  dt = Courant_number / CFL
 
-    dt = 1//2 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
+  return dt
+end
 
-    return dt
+"""
+    advective_courant(::HBModel)
+
+calculates the CFL condition due to advection
+
+"""
+function advective_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
+                           direction=VerticalDirection())
+  if direction isa VerticalDirection
+    ū = norm(A.w)
+  elseif direction isa HorizontalDirection
+    ū = norm(Q.u)
+  else
+    v = @SVector [Q.u[1], Q.u[2], A.w]
+    ū = norm(v)
+  end
+
+  return Δt * ū / Δx
+end
+
+"""
+    nondiffusive_courant(::HBModel)
+
+calculates the CFL condition due to gravity waves
+
+"""
+function nondiffusive_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
+                              direction=HorizontalDirection())
+  return Δt * m.cʰ / Δx
+end
+"""
+    viscous_courant(::HBModel)
+
+calculates the CFL condition due to viscosity
+
+"""
+function viscous_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
+                         direction=VerticalDirection())
+  if direction isa VerticalDirection
+    ν̄ = A.ν[3]
+  elseif direction isa HorizontalDirection
+    ν = @SVector [A.ν[1], A.ν[2]]
+    ν̄ = norm(ν)
+  else
+    ν̄ = norm(A.ν)
+  end
+
+  return Δt * ν̄ / Δx^2
+end
+
+"""
+    diffusive_courant(::HBModel)
+
+calculates the CFL condition due to temperature diffusivity
+factor of 1000 is for convective adjustment
+
+"""
+function diffusive_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
+                           direction=VerticalDirection())
+  if direction isa VerticalDirection
+    κ̄ = 1000 * A.κ[3]
+  elseif direction isa HorizontalDirection
+    κ = @SVector [A.κ[1], A.κ[2]]
+    κ̄ = norm(κ)
+  else
+    κ̄ = norm(A.κ)
+  end
+
+  return Δt * κ̄ / Δx^2
 end
 
 """
