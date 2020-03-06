@@ -209,10 +209,11 @@ function min_node_distance(grid::DiscontinuousSpectralElementGrid{T, dim, N},
     device = grid.vgeo isa Array ? CPU() : CUDA()
     min_neighbor_distance = similar(grid.vgeo, Nq^dim, nrealelem)
     sync_device(device)
-    event = knl_min_neighbor_distance!(device, (Nq, Nq, Nqk), (Nq, Nq, Nqk, nrealelem))(
+    event = knl_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
       Val(N), Val(dim), direction,
       min_neighbor_distance, grid.vgeo,
-      topology.realelems)
+      topology.realelems;
+      ndrange=(Nq, Nq, Nqk, nrealelem))
     wait(event)
     locmin = minimum(min_neighbor_distance)
   else

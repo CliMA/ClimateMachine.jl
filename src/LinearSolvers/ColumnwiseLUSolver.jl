@@ -104,10 +104,11 @@ function band_lu!(A, dg::DGModel)
   end
 
   sync_device(device)
-  event = band_lu_knl!(device, groupsize, ndrange)(
+  event = band_lu_knl!(device, groupsize)(
     A, Val(Nq), Val(groupsize[1]), Val(groupsize[2]),
     Val(nstate), Val(nvertelem), Val(ndrange[end]),
-    Val(eband))
+    Val(eband);
+    ndrange=ndrange)
   wait(event)
 end
 
@@ -133,9 +134,10 @@ function band_forward!(Q, A, dg::DGModel)
   nhorzelem = div(nrealelem, nvertelem)
 
   sync_device(device)
-  event = band_forward_knl!(device, (Nq, Nqj), (nhorzelem * Nq, Nqj))(
+  event = band_forward_knl!(device, (Nq, Nqj))(
     Q.data, A, Val(Nq), Val(Nqj), Val(nstate),
-    Val(nvertelem), Val(nhorzelem), Val(eband))
+    Val(nvertelem), Val(nhorzelem), Val(eband);
+    ndrange=(nhorzelem * Nq, Nqj))
   wait(event)
 end
 
@@ -161,9 +163,10 @@ function band_back!(Q, A, dg::DGModel)
   nhorzelem = div(nrealelem, nvertelem)
 
   sync_device(device)
-  event = band_back_knl!(device, (Nq, Nqj), (nhorzelem * Nq, Nqj))(
+  event = band_back_knl!(device, (Nq, Nqj))(
     Q.data, A, Val(Nq), Val(Nqj), Val(nstate),
-    Val(nvertelem), Val(nhorzelem), Val(eband))
+    Val(nvertelem), Val(nhorzelem), Val(eband);
+    ndrange= (nhorzelem * Nq, Nqj))
   wait(event)
 end
 
@@ -284,10 +287,11 @@ function banded_matrix(f!, dg::DGModel,
       for k = 1:Nq
         # Set a single 1 per column and rest 0
         sync_device(device)
-        event = knl_set_banded_data!(device, (Nq, Nqj, Nq), (nvertelem * Nq, nhorzelem * Nqj, Nq))(
+        event = knl_set_banded_data!(device, (Nq, Nqj, Nq))(
           bl, Val(dim), Val(N), Val(nvertelem),
           Q.data, k, s, ev, 1:nhorzelem,
-          1:nvertelem)
+          1:nvertelem;
+          ndrange=(nvertelem * Nq, nhorzelem * Nqj, Nq))
         wait(event)
 
         # Get the matrix column
@@ -295,13 +299,12 @@ function banded_matrix(f!, dg::DGModel,
 
         # Store the banded matrix
         sync_device(device)
-        event = knl_set_banded_matrix!(device,
-                                       (Nq, Nqj, Nq),
-                                       ((2eband + 1) * Nq, nhorzelem * Nqj, Nq))(
+        event = knl_set_banded_matrix!(device, (Nq, Nqj, Nq))(
           bl, Val(dim), Val(N), Val(nvertelem),
           Val(p), Val(q), Val(eband+1),
           A, dQ.data, k, s, ev, 1:nhorzelem,
-          -eband:eband)
+          -eband:eband;
+          ndrange=((2eband + 1) * Nq, nhorzelem * Nqj, Nq))
         wait(event)
       end
     end
@@ -345,13 +348,12 @@ function banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
   Nqj = dim == 2 ? 1 : Nq
 
   sync_device(device)
-  event = knl_banded_matrix_vector_product!(device,
-                                            (Nq, Nqj, Nq),
-                                            (nvertelem * Nq, nhorzelem * Nqj, Nq))(
+  event = knl_banded_matrix_vector_product!(device, (Nq, Nqj, Nq))(
     bl, Val(dim), Val(N),
     Val(nvertelem), Val(p), Val(q),
     dQ.data, A, Q.data, 1:nhorzelem,
-    1:nvertelem)
+    1:nvertelem;
+    ndrange=(nvertelem * Nq, nhorzelem * Nqj, Nq))
   wait(event)
 end
 
