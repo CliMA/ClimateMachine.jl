@@ -1,13 +1,4 @@
-module StormerVerletMethod
 export StormerVerlet, StromerVerletHEVI
-
-using ..ODESolvers
-const ODEs = ODESolvers
-using ..SpaceMethods
-using ..MPIStateArrays: device, realview
-using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
-using CLIMA.MultirateInfinitesimalStepMethod: TimeScaledRHS
-
 
 abstract type AbstractStormerVerlet <: ODEs.AbstractODESolver end
 
@@ -301,5 +292,4 @@ function ODEs.dostep!(Q, sv::StormerVerletHEVI, p, time::Real,
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
   end
-end
 end

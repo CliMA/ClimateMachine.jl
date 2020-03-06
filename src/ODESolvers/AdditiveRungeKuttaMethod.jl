@@ -15,18 +15,8 @@ additional_storage(::NaiveVariant, Q, Nstages) = (Lstages = ntuple(i -> similar(
 struct LowStorageVariant end
 additional_storage(::LowStorageVariant, Q, Nstages) = (Qtt = similar(Q),)
 
-using GPUifyLoops
 include("AdditiveRungeKuttaMethod_kernels.jl")
 
-using StaticArrays
-
-using ..ODESolvers
-const ODEs = ODESolvers
-using ..SpaceMethods
-using ..LinearSolvers
-using ..MPIStateArrays: device, realview
-using CLIMA.MultirateInfinitesimalStepMethod: TimeScaledRHS
-using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 
 abstract type AbstractAdditiveRungeKutta <: AbstractODESolver end
 
@@ -183,7 +173,7 @@ function AdditiveRungeKutta(fun::Symbol, rhs!::TimeScaledRHS{2,RT} where RT,
                                          dt=dt, t0=t0, split_nonlinear_linear=split_nonlinear_linear,
                                          variant=variant)
   =#
-  getfield(AdditiveRungeKuttaMethod,fun)(rhs!.rhs![1], rhs!.rhs![2], linearsolver, Q;
+  getfield(ODESolvers,fun)(rhs!.rhs![1], rhs!.rhs![2], linearsolver, Q;
                                          dt=dt, t0=t0, split_nonlinear_linear=split_nonlinear_linear,
                                          variant=variant)
 end

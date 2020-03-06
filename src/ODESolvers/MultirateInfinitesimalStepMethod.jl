@@ -1,9 +1,4 @@
-module MultirateInfinitesimalStepMethod
-using ..ODESolvers
-using ..MPIStateArrays: device, realview
-using StaticArrays
 
-using GPUifyLoops
 include("MultirateInfinitesimalStepMethod_kernels.jl")
 
 

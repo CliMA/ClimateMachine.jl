@@ -1,33 +1,9 @@
-module ETDStepMethod
-using ..ODESolvers
-using ..MPIStateArrays: device, realview
 
-using StaticArrays
-
-using GPUifyLoops
 #include("ETDStepMethod_kernels.jl")
 
 
 export EB4, EB1
-
 ODEs = ODESolvers
-
-"""
-    TimeScaledRHS(a, b, rhs!)
-
-When evaluated at time `t`, evaluates `rhs!` at time `a + bt`.
-"""
-mutable struct TimeScaledRHS{RT}
-  a::RT
-  b::RT
-  rhs!
-end
-
-function (o::TimeScaledRHS)(dQ, Q, params, tau; increment)
-  o.rhs!(dQ, Q, params, o.a + o.b*tau; increment=increment)
-end
-
-using GPUifyLoops
 
 """
 ETDStep(slowrhs!, fastrhs!, fastmethod,
@@ -259,6 +235,4 @@ function EB4(slowrhs!, fastrhs!, fastmethod, Q::AT; dt=0, t0=0) where {AT <: Abs
        0 -0.0732769849457 0.144902430420 0]=# #not needed (yet?)
 
   ETDStep(slowrhs!, fastrhs!, fastmethod, nStages, nPhi, nPhiStages, β, βS, c, Q; dt=dt, t0=t0)
-end
-
 end

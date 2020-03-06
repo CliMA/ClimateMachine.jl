@@ -1,14 +1,5 @@
-module StormerVerletETDMethod
 export StormerVerletETD
 
-using ..ODESolvers
-const ODEs = ODESolvers
-using ..SpaceMethods
-using ..MPIStateArrays: device, realview
-
-using LinearAlgebra
-
-using GPUifyLoops
 include("StormerVerletETD_kernel.jl")
 
 """
@@ -168,7 +159,7 @@ function ODEs.dostep!(Q, sv::StormerVerletETD, p, nsLoc::Int, time::Real,
 
   rhs!(dQ, Q, p, time, increment = false)
   Qa .+= (offset1a .+ dQa) .* dτ/2
-  
+
   if slow_rka !== nothing
     println("last case happened")
     slow_rv_dQ .*= slow_rka
@@ -176,7 +167,6 @@ function ODEs.dostep!(Q, sv::StormerVerletETD, p, nsLoc::Int, time::Real,
 
 end
 
-end
 
 
 
