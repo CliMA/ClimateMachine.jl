@@ -120,10 +120,10 @@ end
 
 include("LowStorageRungeKuttaMethod.jl")
 include("StrongStabilityPreservingRungeKuttaMethod.jl")
-include("AdditiveRungeKuttaMethod.jl")
 include("MultirateInfinitesimalStepMethod.jl")
-include("MultirateRungeKuttaMethod.jl")
 include("ETDStepMethod.jl")
+include("AdditiveRungeKuttaMethod.jl")
+include("MultirateRungeKuttaMethod.jl")
 include("StormerVerletMethod.jl")
 include("StormerVerletETDMethod.jl")
 
