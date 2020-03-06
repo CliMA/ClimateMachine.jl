@@ -175,6 +175,8 @@ function vars_aux(m::AtmosModel, FT)
     turbulence::vars_aux(m.turbulence,FT)
     moisture::vars_aux(m.moisture,FT)
     radiation::vars_aux(m.radiation,FT)
+    #FIXME: Pass balancelaw to the kernel so that the index can be retrieved by its `name` identifier
+    Δ_local::SVector{3,FT}
   end
 end
 function vars_integrals(m::AtmosModel,FT)

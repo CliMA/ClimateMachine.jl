@@ -1944,3 +1944,91 @@ function knl_local_courant!(bl::BalanceLaw, ::Val{dim}, ::Val{N},
     end
   end
 end
+
+"""
+    knl_neighbor_distance!(::Val{N}, ::Val{dim}, direction,
+                             vgeo, topology.realelems)
+
+Computational kernel: Computes the physical distance between node
+neighbors within an element.
+
+The `direction` in the reference element controls which nodes are considered
+neighbors. We store the local distances within the auxiliary state array
+"""
+function knl_neighbor_distance!(::Val{N}, ::Val{dim}, 
+                                    auxstate, auxstate_indices, 
+                                    vgeo, elems
+                                   ) where {N, dim}
+
+  FT = eltype(neighbor_distance)
+  Nq = N + 1
+  Nqk = dim == 2 ? 1 : Nq
+
+  Δξ1 = similar(vgeo, Nq^dim, nrealelem)
+  Δξ2 = similar(vgeo, Nq^dim, nrealelem)
+  Δξ3 = similar(vgeo, Nq^dim, nrealelem)
+
+  if direction isa EveryDirection
+    mininξ = (true, true, true)
+  elseif direction isa HorizontalDirection
+    mininξ = (true, dim == 2 ? false : true, false)
+  elseif direction isa VerticalDirection
+    mininξ = (false, dim == 2 ? true : false, dim == 2 ? false : true)
+  end
+
+  @inbounds @loop for e in (elems; blockIdx().x)
+    @loop for k in (1:Nqk; threadIdx().z)
+      @loop for j in (1:Nq; threadIdx().y)
+        @loop for i in (1:Nq; threadIdx().x)
+          Δ = typemax(FT)
+
+          ijk = i + Nq * (j - 1) + Nq * Nq * (k - 1)
+          x = SVector(vgeo[ijk, _x1, e], vgeo[ijk, _x2, e], vgeo[ijk, _x3, e])
+
+          if mininξ[1]
+            @unroll for î = (i-1, i+1)
+              if 1 ≤ î ≤ Nq
+                îjk = î + Nq * (j-1) + Nq * Nq * (k-1)
+                x̂ = SVector(vgeo[îjk, _x1, e],
+                            vgeo[îjk, _x2, e],
+                            vgeo[îjk, _x3, e])
+                Δξ1[ijk,e] = min(Δ, norm(x - x̂))
+              end
+            end
+          end
+
+          if mininξ[2]
+            @unroll for ĵ = (j-1, j+1)
+              if 1 ≤ ĵ ≤ Nq
+                iĵk = i + Nq * (ĵ-1) + Nq * Nq * (k-1)
+                x̂ = SVector(vgeo[iĵk, _x1, e],
+                            vgeo[iĵk, _x2, e],
+                            vgeo[iĵk, _x3, e])
+                Δξ2[ijk,e] = min(Δ, norm(x - x̂))
+              end
+            end
+          end
+
+          if mininξ[3]
+            @unroll for k̂ = (k-1, k+1)
+              if 1 ≤ k̂ ≤ Nqk
+                ijk̂ = i + Nq * (j-1) + Nq * Nq * (k̂-1)
+                x̂ = SVector(vgeo[ijk̂, _x1, e],
+                            vgeo[ijk̂, _x2, e],
+                            vgeo[ijk̂, _x3, e])
+                Δξ3[ijk,e] = min(Δ, norm(x - x̂))
+              end
+            end
+          end
+ 
+          #FIXME: This is a crude solution to the index retrieval problem. 
+          @unroll for s = nauxstate-2:nauxstate
+            auxstate[ijk, s, e] = Δξ1[ijk,e] # Store ξ1 local nodal distance in `aux`
+            auxstate[ijk, s, e] = Δξ2[ijk,e] # Store ξ2 local nodal distance in `aux`
+            auxstate[ijk, s, e] = Δξ3[ijk,e] # Store ξ3 local nodal distance in `aux`
+          end
+        end
+      end
+    end
+  end
+end
