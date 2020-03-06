@@ -139,10 +139,11 @@ function LS.doiteration!(linearoperator!, Q, Qrhs,
   rv_Q = realview(Q)
   rv_krylov_basis = realview.(krylov_basis)
   groupsize = 256
-  sync_device(device(Q))
+  event = Event(device(Q))
   event = LS.linearcombination!(device(Q), groupsize)(
-    rv_Q, y, rv_krylov_basis, true; ndrange=length(rv_Q))
-  wait(event)
+    rv_Q, y, rv_krylov_basis, true; ndrange=length(rv_Q),
+    dependencies=(event,))
+  wait(device(Q), event)
 
   # if not converged restart
   converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)

@@ -54,11 +54,11 @@ let
   groupsize = (Nq, Nq)
   ndrange = (Nq, Nq, nhorzelem)
   
-  sync_device(device)
+  event = Event(device)
   event = band_lu_knl!(device, groupsize, ndrange)(
     d_F, Val(Nq), Val(Nq), Val(Nq), Val(nstate), Val(nvertelem),
-    Val(nhorzelem), Val(eband))
-  wait(event)
+    Val(nhorzelem), Val(eband), dependencies=(event,))
+  wait(device, event)
 
   F = Array(d_F)
 
@@ -79,17 +79,17 @@ let
 
   d_x = ArrayType(b)
 
-  sync_device(device)
+  event = Event(device)
   event = band_forward_knl!(device, groupsize, ndrange)(
     d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
-    Val(nvertelem), Val(nhorzelem), Val(eband))
-  wait(event)
+    Val(nvertelem), Val(nhorzelem), Val(eband),
+    dependencies=(event,))
 
-  sync_device(device)
   event = band_back_knl!(device, groupsize, ndrange)(
     d_x, d_F, Val(Nq), Val(Nq), Val(nstate),
-    Val(nvertelem), Val(nhorzelem), Val(eband))
-  wait(event)
+    Val(nvertelem), Val(nhorzelem), Val(eband),
+    dependencies=(event,))
+  wait(device, event)
 
   @test x ≈ Array(d_x)
 end

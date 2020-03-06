@@ -118,11 +118,12 @@ function dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
     if s == length(RKB)
       slow_scaling = in_slow_scaling
     end
-    sync_device(device(Q))
+    event = Event(device(Q))
     event = update!(device(Q), groupsize)(
       rv_Rstage, rv_Q, rv_Qstage, RKA[s,1], RKA[s,2], RKB[s], dt,
-      slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q))
-    wait(event)
+      slow_δ, slow_rv_dQ, slow_scaling; ndrange=length(rv_Q),
+      dependencies=(event,))
+    wait(device(Q), event)
   end
   rv_Q .= rv_Qstage
 end
