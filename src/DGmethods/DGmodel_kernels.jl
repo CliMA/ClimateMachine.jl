@@ -12,7 +12,6 @@ using .NumericalFluxes: NumericalFluxGradient, numerical_boundary_flux_gradient!
                         numerical_flux_hyperdiffusive!
 
 using ..Mesh.Geometry
-using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
 
 using Requires
 @init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin

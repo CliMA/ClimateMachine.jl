@@ -8,7 +8,6 @@ using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using LinearAlgebra
 using Random
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
 include("advection_diffusion_model.jl")
 
