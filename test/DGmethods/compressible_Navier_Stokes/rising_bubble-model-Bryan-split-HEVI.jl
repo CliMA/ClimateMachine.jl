@@ -36,8 +36,7 @@ end
 const (xmin,xmax)      = (0,20000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,10000)
-#const Ne        = (160,2,80)
-const Ne        = (20,2,10)
+const Ne        = (160,2,80)
 const a         = 10000
 const hm        = 1000
 const polynomialorder = 1
