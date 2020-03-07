@@ -31,8 +31,8 @@ pointwise throughout the domain with the model defined by `solver_config`. The
 keyword arguments `Q` and `dt` can be used to call the courant method with a
 different state `Q` or time step `dt` than are defined in `solver_config`.
 """
-DGmethods.courant(f, sc::SolverConfiguration; Q=sc.Q, dt = sc.dt) =
-  DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt)
+DGmethods.courant(f, sc::SolverConfiguration; Q=sc.Q, dt = sc.dt, direction = EveryDirection()) =
+  DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, direction)
 
 """
     CLIMA.setup_solver(t0::FT,
