@@ -189,10 +189,9 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid,
   nreduce = 2^ceil(Int, log2(Nq*Nqk))
 
   sync_device(device)
-  event = knl_apply_TMAR_filter!(device, (Nq, Nqk))(
+  event = knl_apply_TMAR_filter!(device, (Nq, Nqk), (nrealelem * Nq, Nqk))(
     Val(nreduce), Val(dim), Val(N), Q.data,
-    Val(states), grid.vgeo, topology.realelems;
-    ndrange=(nrealelem * Nq, Nqk))
+    Val(states), grid.vgeo, topology.realelems)
   wait(event)
 end
 
