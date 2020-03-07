@@ -276,9 +276,9 @@ version = "0.21.0"
 
 [[KernelAbstractions]]
 deps = ["Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "Cassette", "MacroTools", "Requires", "StaticArrays"]
-git-tree-sha1 = "e0566c9d65c982006c477d7decdf41b542a42929"
-repo-rev = "mw/remove-contract-cpu"
-repo-url = "https://github.com/mwarusz/KernelAbstractions.jl"
+git-tree-sha1 = "fb90901b887f7a1b10ae282d25a6ba226e5ae5f3"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaGPU/KernelAbstractions.jl"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 version = "0.1.0"
 
