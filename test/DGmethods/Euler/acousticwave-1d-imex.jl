@@ -21,6 +21,10 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation,
                    altitude, latitude, longitude, gravitational_potential
 using CLIMA.VariableTemplates: flattenednames
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 const output_vtk = false
@@ -78,7 +82,8 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                           turbulence=ConstantViscosityWithDivergence(FT(0)),
                             moisture=DryModel(),
                               source=Gravity(),
-                          init_state=setup)
+                          init_state=setup,
+                           param_set=ParameterSet{FT}())
   linearmodel = AtmosAcousticGravityLinearModel(model)
 
   dg = DGModel(model, grid, Rusanov(),
@@ -195,7 +200,7 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
   Δp = setup.γ * f * g
   p = aux.ref_state.p + Δp
 
-  ts       = PhaseDry_given_pT(p, setup.T_ref)
+  ts       = PhaseDry_given_pT(bl.param_set, p, setup.T_ref)
   q_pt     = PhasePartition(ts)
   e_pot    = gravitational_potential(bl.orientation, aux)
   e_int    = internal_energy(ts)

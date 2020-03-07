@@ -22,6 +22,10 @@ using CLIMA.Atmos: AtmosModel,
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 if !@isdefined integration_testing
@@ -110,7 +114,8 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                             moisture=DryModel(),
                               source=nothing,
                    boundarycondition=PeriodicBC(),
-                          init_state=isentropicvortex_initialcondition!)
+                          init_state=isentropicvortex_initialcondition!,
+                           param_set=ParameterSet{FT}())
   # The linear model has the fast time scales
   fast_model = AtmosAcousticLinearModel(model)
   # The nonlinear model has the slow time scales

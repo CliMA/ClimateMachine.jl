@@ -27,6 +27,10 @@ using CLIMA.VTK
 
 using CLIMA.Atmos: vars_state, vars_aux
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 using Random
 using Statistics
 const seed = MersenneTwister(0)
@@ -101,7 +105,8 @@ function run_brick_interpolation_test()
                                ref_state=NoReferenceState(),
                                turbulence=ConstantViscosityWithDivergence(FT(0)),
                                source=(Gravity(),),
-                               init_state=Initialize_Brick_Interpolation_Test!)
+                               init_state=Initialize_Brick_Interpolation_Test!,
+                                param_set=ParameterSet{FT}())
 
         dg = DGModel(model,
                      grid,
@@ -232,7 +237,8 @@ function run_cubed_sphere_interpolation_test()
                                turbulence=ConstantViscosityWithDivergence(FT(0)),
                                moisture=DryModel(),
                                source=nothing,
-                               init_state=setup)
+                               init_state=setup,
+                               param_set=ParameterSet{FT}())
 
         dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
  

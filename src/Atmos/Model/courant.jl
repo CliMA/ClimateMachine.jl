@@ -40,14 +40,14 @@ function nondiffusive_courant(m::BalanceLaw, state::Vars, aux::Vars,
     else
         norm_u = norm(state.ρu/state.ρ)
     end
-    return Δt * (norm_u + soundspeed(m.moisture, m.orientation, state, aux)) / Δx
+    return Δt * (norm_u + soundspeed(m, m.moisture, state, aux)) / Δx
 end
 
 function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Vars, Δx, Δt, direction=VerticalDirection())
     ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, 0)
     FT = eltype(state)
 
-    if ν isa Real    
+    if ν isa Real
         return Δt * ν / (Δx*Δx)
     else
         k̂ = vertical_unit_vector(m.orientation, aux)

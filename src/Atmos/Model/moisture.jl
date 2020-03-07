@@ -22,19 +22,22 @@ end
 function gradvariables!(::MoistureModel, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 
+internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) = internal_energy(atmos.moisture, atmos.orientation, state, aux)
+
 @inline function internal_energy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
   MoistThermodynamics.internal_energy(state.ρ, state.ρe, state.ρu, gravitational_potential(orientation, aux))
 end
-@inline temperature(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars) = air_temperature(thermo_state(moist, orientation, state, aux))
-@inline pressure(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars) = air_pressure(thermo_state(moist, orientation, state, aux))
-@inline soundspeed(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars) = soundspeed_air(thermo_state(moist, orientation, state, aux))
 
-@inline function total_specific_enthalpy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
-  phase = thermo_state(moist, orientation, state, aux)
+temperature(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) = air_temperature(thermo_state(atmos, state, aux))
+pressure(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) = air_pressure(thermo_state(atmos, state, aux))
+soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) = soundspeed_air(thermo_state(atmos, state, aux))
+
+@inline function total_specific_enthalpy(atmos::AtmosModel, moist::MoistureModel, state::Vars, aux::Vars)
+  phase = thermo_state(atmos, state, aux)
   R_m = gas_constant_air(phase)
   T = air_temperature(phase)
   e_tot = state.ρe * (1/state.ρ)
-  e_tot + R_m*T
+  return e_tot + R_m*T
 end
 
 
@@ -50,13 +53,19 @@ end
 vars_aux(::DryModel,FT) = @vars(θ_v::FT)
 @inline function atmos_nodal_update_aux!(moist::DryModel, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
-  e_int = internal_energy(moist, atmos.orientation, state, aux)
-  TS = PhaseDry(e_int, state.ρ)
-  aux.moisture.θ_v = virtual_pottemp(TS)
+  ps = atmos.param_set
+  FT = eltype(state)
+  e_int = internal_energy(atmos, state, aux)
+  ts = PhaseDry{FT}(ps, e_int, state.ρ)
+  aux.moisture.θ_v = virtual_pottemp(ts)
   nothing
 end
 
-thermo_state(moist::DryModel, orientation::Orientation, state::Vars, aux::Vars) = PhaseDry(internal_energy(moist, orientation, state, aux), state.ρ)
+thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) = thermo_state(atmos, atmos.moisture, state, aux)
+
+function thermo_state(atmos::AtmosModel, moist::DryModel, state::Vars, aux::Vars)
+  return PhaseDry{eltype(state)}(atmos.param_set, internal_energy(atmos, state, aux), state.ρ)
+end
 
 """
     EquilMoist
@@ -78,18 +87,20 @@ vars_aux(::EquilMoist,FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(moist::EquilMoist, atmos::AtmosModel,
                                          state::Vars, aux::Vars, t::Real)
-  e_int = internal_energy(moist, atmos.orientation, state, aux)
-  TS = PhaseEquil(e_int, state.ρ, state.moisture.ρq_tot/state.ρ, moist.maxiter, moist.tolerance)
-  aux.moisture.temperature = air_temperature(TS)
-  aux.moisture.θ_v = virtual_pottemp(TS)
-  aux.moisture.q_liq = PhasePartition(TS).liq
+  ps = atmos.param_set
+  e_int = internal_energy(atmos, state, aux)
+  ts = PhaseEquil(ps, e_int, state.ρ, state.moisture.ρq_tot/state.ρ, moist.maxiter, moist.tolerance)
+  aux.moisture.temperature = air_temperature(ts)
+  aux.moisture.θ_v = virtual_pottemp(ts)
+  aux.moisture.q_liq = PhasePartition(ts).liq
   nothing
 end
 
-function thermo_state(moist::EquilMoist, orientation::Orientation, state::Vars, aux::Vars)
-  e_int = internal_energy(moist, orientation, state, aux)
+function thermo_state(atmos::AtmosModel, moist::EquilMoist, state::Vars, aux::Vars)
+  e_int = internal_energy(atmos, state, aux)
+  ps = atmos.param_set
   FT = eltype(state)
-  return PhaseEquil{FT}(e_int, state.ρ, state.moisture.ρq_tot/state.ρ, aux.moisture.temperature)
+  return PhaseEquil{FT}(ps, e_int, state.ρ, state.moisture.ρq_tot/state.ρ, aux.moisture.temperature)
 end
 
 function gradvariables!(moist::EquilMoist, transform::Vars, state::Vars, aux::Vars, t::Real)

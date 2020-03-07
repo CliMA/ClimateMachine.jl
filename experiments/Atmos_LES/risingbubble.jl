@@ -11,6 +11,10 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
 # 2) Boundaries - `All Walls` : NoFluxBC (Impermeable Walls)
@@ -51,7 +55,7 @@ function init_risingbubble!(bl, state, aux, (x,y,z), t)
   π_exner      = FT(1) - grav / (c_p * θ) * z # exner pressure
   ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
   q_tot        = FT(0)
-  ts           = LiquidIcePotTempSHumEquil(θ, ρ, q_tot)
+  ts           = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
   q_pt         = PhasePartition(ts)
 
   ρu           = SVector(FT(0),FT(0),FT(0))
@@ -81,7 +85,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                          turbulence=SmagorinskyLilly{FT}(C_smag),
                          source=(Gravity(),),
                          ref_state=ref_state,
-                         init_state=init_risingbubble!)
+                         init_state=init_risingbubble!,
+                         param_set=ParameterSet{FT}())
 
   # Problem configuration
   config = CLIMA.Atmos_LES_Configuration("DryRisingBubble",

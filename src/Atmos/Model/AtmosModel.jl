@@ -8,6 +8,7 @@ export AtmosModel,
 
 using LinearAlgebra, StaticArrays
 using ..VariableTemplates
+using ..Parameters
 using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
@@ -47,7 +48,8 @@ A `BalanceLaw` for atmosphere modeling.
                boundarycondition, init_state)
 
 """
-struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS,DC} <: BalanceLaw
+struct AtmosModel{FT,PS,O,RS,T,M,P,R,S,BC,IS,DC} <: BalanceLaw
+  param_set::PS
   orientation::O
   ref_state::RS
   turbulence::T
@@ -61,9 +63,9 @@ struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS,DC} <: BalanceLaw
   data_config::DC
 end
 
-function calculate_dt(grid, model::AtmosModel, Courant_number)
+function calculate_dt(grid, atmos::AtmosModel, Courant_number)
     T = 290.0
-    return Courant_number * min_node_distance(grid, VerticalDirection()) / soundspeed_air(T)
+    return Courant_number * min_node_distance(grid, VerticalDirection()) / soundspeed_air(atmos.param_set, T)
 end
 
 abstract type AtmosConfiguration end
@@ -86,10 +88,13 @@ function AtmosModel{FT}(::Type{AtmosLESConfiguration};
                          # TODO: Probably want to have different bc for state and diffusion...
                          boundarycondition::BC=NoFluxBC(),
                          init_state::IS=nothing,
-                         data_config::DC=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC}
+                         data_config::DC=nothing,
+                         param_set::PS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC,PS}
+  @assert param_set ≠ nothing
   @assert init_state ≠ nothing
 
   atmos = (
+        param_set,
         orientation,
         ref_state,
         turbulence,
@@ -119,9 +124,12 @@ function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
                          source::S             = (Gravity(), Coriolis()),
                          boundarycondition::BC = NoFluxBC(),
                          init_state::IS=nothing,
-                         data_config::DC=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC}
+                         data_config::DC=nothing,
+                         param_set::PS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC,PS}
+  @assert param_set ≠ nothing
   @assert init_state ≠ nothing
   atmos = (
+        param_set,
         orientation,
         ref_state,
         turbulence,
@@ -229,7 +237,7 @@ Where
   flux.ρe  = u * state.ρe
 
   # pressure terms
-  p = pressure(m.moisture, m.orientation, state, aux)
+  p = pressure(m, m.moisture, state, aux)
 
   if m.ref_state isa HydrostaticState
     flux.ρu += (p-aux.ref_state.p)*I
@@ -244,7 +252,8 @@ end
 function gradvariables!(atmos::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   transform.u = ρinv * state.ρu
-  transform.h_tot = total_specific_enthalpy(atmos.moisture, atmos.orientation, state, aux)
+  ps = atmos.param_set
+  transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
 
   gradvariables!(atmos.moisture, transform, state, aux, t)
   gradvariables!(atmos.turbulence, transform, state, aux, t)
@@ -279,7 +288,7 @@ end
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
-  return abs(dot(nM, u)) + soundspeed(m.moisture, m.orientation, state, aux)
+  return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
 end
 
 

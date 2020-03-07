@@ -22,6 +22,10 @@ using CLIMA.VTK
 using Random
 using CLIMA.Atmos: vars_state, vars_aux
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -79,7 +83,7 @@ function Initialise_Density_Current!(bl, state::Vars, aux::Vars, (x1,x2,x3), t)
   π_exner           = FT(1) - grav / (c_p * θ) * x3 # exner pressure
   ρ                 = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
 
-  ts                = LiquidIcePotTempSHumEquil(θ, ρ, q_tot)
+  ts                = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
   q_pt              = PhasePartition(ts)
 
   U, V, W           = FT(0) , FT(0) , FT(0)  # momentum components
@@ -110,7 +114,8 @@ function run(mpicomm, ArrayType,
                         turbulence=AnisoMinDiss{FT}(1),
                             source=source,
                  boundarycondition=NoFluxBC(),
-                        init_state=Initialise_Density_Current!)
+                        init_state=Initialise_Density_Current!,
+                         param_set=ParameterSet{FT}())
   # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,

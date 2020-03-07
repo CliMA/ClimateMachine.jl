@@ -22,6 +22,10 @@ using CLIMA.Atmos: AtmosModel,
 using CLIMA.Atmos
 using CLIMA.ODESolvers
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 using CLIMA.MoistThermodynamics: air_density, total_energy, internal_energy,
                                  soundspeed_air
 
@@ -94,7 +98,8 @@ let
                                        moisture=DryModel(),
                                        source=Gravity(),
                                        boundarycondition=PeriodicBC(),
-                                       init_state=initialcondition!)
+                                       init_state=initialcondition!,
+                                       param_set=ParameterSet{FT}())
 
                 dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(),
                              CentralNumericalFluxGradient())
