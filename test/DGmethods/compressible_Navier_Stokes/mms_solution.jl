@@ -71,16 +71,16 @@ for dim = 2:3
   dEdt = simplify(Fx_x[5] + Fy_y[5] + Fz_z[5] + diff(E, t))
 
 
-  @printf output "ρ_g(t, x, y, z, ::Val{%d}) = %s\n" dim ρ
-  @printf output "U_g(t, x, y, z, ::Val{%d}) = %s\n" dim U
-  @printf output "V_g(t, x, y, z, ::Val{%d}) = %s\n" dim V
-  @printf output "W_g(t, x, y, z, ::Val{%d}) = %s\n" dim W
-  @printf output "E_g(t, x, y, z, ::Val{%d}) = %s\n" dim E
-  @printf output "Sρ_g(t, x, y, z, ::Val{%d}) = %s\n" dim dρdt
-  @printf output "SU_g(t, x, y, z, ::Val{%d}) = %s\n" dim dUdt
-  @printf output "SV_g(t, x, y, z, ::Val{%d}) = %s\n" dim dVdt
-  @printf output "SW_g(t, x, y, z, ::Val{%d}) = %s\n" dim dWdt
-  @printf output "SE_g(t, x, y, z, ::Val{%d}) = %s\n" dim dEdt
+  @printf output "@noinline ρ_g(t, x, y, z, ::Val{%d}) = %s\n" dim ρ
+  @printf output "@noinline U_g(t, x, y, z, ::Val{%d}) = %s\n" dim U
+  @printf output "@noinline V_g(t, x, y, z, ::Val{%d}) = %s\n" dim V
+  @printf output "@noinline W_g(t, x, y, z, ::Val{%d}) = %s\n" dim W
+  @printf output "@noinline E_g(t, x, y, z, ::Val{%d}) = %s\n" dim E
+  @printf output "@noinline Sρ_g(t, x, y, z, ::Val{%d}) = %s\n" dim dρdt
+  @printf output "@noinline SU_g(t, x, y, z, ::Val{%d}) = %s\n" dim dUdt
+  @printf output "@noinline SV_g(t, x, y, z, ::Val{%d}) = %s\n" dim dVdt
+  @printf output "@noinline SW_g(t, x, y, z, ::Val{%d}) = %s\n" dim dWdt
+  @printf output "@noinline SE_g(t, x, y, z, ::Val{%d}) = %s\n" dim dEdt
 end
 
 close(output)
