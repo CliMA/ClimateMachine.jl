@@ -182,7 +182,7 @@ function main()
     driver_config,
     ode_solver_type=ode_solver_type,
     Courant_number=0.05,
-    forcecpu=true
+    init_on_cpu=true
   )
 
   # Set up user-defined callbacks

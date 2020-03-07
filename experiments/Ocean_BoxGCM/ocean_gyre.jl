@@ -56,7 +56,7 @@ function main(;imex::Bool = false)
   exp_filter  = ExponentialFilter(grid, 1, 8)
   modeldata = (vert_filter = vert_filter, exp_filter=exp_filter)
 
-  solver_config = CLIMA.setup_solver(timestart, timeend, driver_config, forcecpu=true,
+  solver_config = CLIMA.setup_solver(timestart, timeend, driver_config, init_on_cpu=true,
                                      ode_solver_type=solver_type,  modeldata=modeldata)
 
   result = CLIMA.invoke!(solver_config)

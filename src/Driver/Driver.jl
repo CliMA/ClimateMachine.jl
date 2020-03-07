@@ -196,7 +196,7 @@ struct SolverConfiguration{FT}
     t0::FT
     timeend::FT
     dt::FT
-    forcecpu::Bool
+    init_on_cpu::Bool
     numberofsteps::Int
     init_args
     solver
@@ -222,7 +222,7 @@ Set up the DG model per the specified driver configuration and set up the ODE so
 function setup_solver(t0::FT, timeend::FT,
                       driver_config::DriverConfiguration,
                       init_args...;
-                      forcecpu=false,
+                      init_on_cpu=false,
                       ode_solver_type=nothing,
                       ode_dt=nothing,
                       modeldata=nothing,
@@ -242,7 +242,7 @@ function setup_solver(t0::FT, timeend::FT,
                  modeldata=modeldata,
                  diffusion_direction=diffdir)
     @info @sprintf("Initializing %s", driver_config.name)
-    Q = init_ode_state(dg, FT(0), init_args...; forcecpu=forcecpu)
+    Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu=init_on_cpu)
 
     # TODO: using `update_aux!()` to apply filters to the state variables and
     # `update_aux_diffusive!()` to calculate the vertical component of velocity
@@ -289,7 +289,7 @@ function setup_solver(t0::FT, timeend::FT,
     @toc setup_solver
 
     return SolverConfiguration(driver_config.name, driver_config.mpicomm, dg, Q,
-                               t0, timeend, dt, forcecpu, numberofsteps,
+                               t0, timeend, dt, init_on_cpu, numberofsteps,
                                init_args, solver)
 end
 
@@ -333,7 +333,7 @@ function invoke!(solver_config::SolverConfiguration;
     Q = solver_config.Q
     FT = eltype(Q)
     timeend = solver_config.timeend
-    forcecpu = solver_config.forcecpu
+    init_on_cpu = solver_config.init_on_cpu
     init_args = solver_config.init_args
     solver = solver_config.solver
 
@@ -437,7 +437,7 @@ function invoke!(solver_config::SolverConfiguration;
                    engf-eng0)
 
     if check_euclidean_distance
-        Qe = init_ode_state(dg, timeend, init_args...; forcecpu=forcecpu)
+        Qe = init_ode_state(dg, timeend, init_args...; init_on_cpu=init_on_cpu)
         engfe = norm(Qe)
         errf = euclidean_distance(solver_config.Q, Qe)
         @info @sprintf("""Euclidean distance
