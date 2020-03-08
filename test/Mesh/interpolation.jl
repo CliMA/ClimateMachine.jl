@@ -63,7 +63,7 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
     z = altitude(bl.orientation, aux)
 
     scale_height = R_d * setup.T_initial / grav
-    p = setup.p_ground * exp(-h / scale_height)
+    p = setup.p_ground * exp(-z / scale_height)
     e_int = internal_energy(bl.param_set, setup.T_initial)
     e_pot = gravitational_potential(bl.orientation, aux)
 
