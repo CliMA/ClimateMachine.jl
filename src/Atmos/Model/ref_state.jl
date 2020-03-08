@@ -40,15 +40,18 @@ vars_aux(m::HydrostaticState, FT) = @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot
 
 
 function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars, geom::LocalGeometry) where {P,F}
+  ps = atmos.param_set
   T,p = m.temperatureprofile(atmos.orientation, aux)
   aux.ref_state.T = T
   aux.ref_state.p = p
-  aux.ref_state.ρ = ρ = p/(R_d*T)
-  ps = atmos.param_set
+  ρ = air_density(ps, T, p)
+  # TODO: verify profile
+  aux.ref_state.ρ = ρ
+  q_tot = state.ρq_tot/state.rh
   q_vap_sat = q_vap_saturation(ps, T, ρ)
-  aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
+  aux.ref_state.ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
-  q_pt = PhasePartition(ρq_tot)
+  q_pt = PhasePartition(q_tot)
   aux.ref_state.ρe = ρ * internal_energy(ps, T, q_pt)
 
   e_kin = F(0)

@@ -60,15 +60,16 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
-    r = norm(coords, 2)
-    h = r - FT(planet_radius)
+    z = altitude(bl.orientation, aux)
 
     scale_height = R_d * setup.T_initial / grav
     p = setup.p_ground * exp(-h / scale_height)
+    e_int = internal_energy(bl.param_set, setup.T_initial)
+    e_pot = gravitational_potential(bl.orientation, aux)
 
-    state.ρ = air_density(setup.T_initial, p)
+    state.ρ = air_density(bl.param_set, setup.T_initial, p)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (internal_energy(setup.T_initial) + aux.orientation.Φ)
+    state.ρe = state.ρ * (e_int + e_pot)
     return nothing
 end
 #----------------------------------------------------------------------------

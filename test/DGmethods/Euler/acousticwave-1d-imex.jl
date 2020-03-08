@@ -97,7 +97,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
-  acoustic_speed = soundspeed_air(FT(setup.T_ref))
+  acoustic_speed = soundspeed_air(model.param_set, FT(setup.T_ref))
   dt_factor = 445
   dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
   # Adjust the time step so we exactly hit 1 hour for VTK output

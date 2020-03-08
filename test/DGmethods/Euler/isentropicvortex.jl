@@ -231,7 +231,7 @@ end
 Base.@kwdef struct IsentropicVortexSetup{FT}
   p∞::FT = 10 ^ 5
   T∞::FT = 300
-  ρ∞::FT = air_density(FT(T∞), FT(p∞))
+  ρ∞::FT = air_density(ParameterSet{FT}(),FT(T∞), FT(p∞))
   translation_speed::FT = 150
   translation_angle::FT = pi / 4
   vortex_speed::FT = 50

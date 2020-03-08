@@ -48,5 +48,5 @@ The air temperature for an isentropic process, where
 air_temperature(param_set::AbstractParameterSet{FT}, ::DryAdiabaticProcess, p::FT, θ::FT) where {FT} =
   (p / FT(MSLP)) ^ (FT(R_d) / FT(cp_d)) * θ
 
-air_temperature(adp::DryAdiabaticProcess, p::FT, θ::FT) where {FT<:Real} =
-  air_temperature(MoistThermoDefaultParameterSet{FT}(), adp, p, θ)
+air_temperature(dap::DryAdiabaticProcess, p::FT, θ::FT) where {FT<:Real} =
+  air_temperature(MoistThermoDefaultParameterSet{FT}(), dap, p, θ)
