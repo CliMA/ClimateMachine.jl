@@ -205,7 +205,7 @@ function gas_constants(param_set::AbstractParameterSet, q::PhasePartition{FT}=q_
     γ = cp/cv
     return (R_gas, cp, cv, γ)
 end
-gas_constants(param_set::AbstractParameterSet, q::PhasePartition{FT}=q_pt_0(FT)) where {FT} =
+gas_constants(q::PhasePartition{FT}=q_pt_0(FT)) where {FT} =
   gas_constants(MoistThermoDefaultParameterSet{FT}(), q)
 
 """
