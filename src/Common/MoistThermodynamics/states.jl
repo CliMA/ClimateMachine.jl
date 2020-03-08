@@ -94,7 +94,13 @@ function PhaseEquil(param_set::AbstractParameterSet{FT},
     return PhaseEquil{FT}(param_set, e_int, ρ, q_tot_safe,
       sat_adjust(param_set, e_int, ρ, q_tot_safe, maxiter, tol))
 end
-PhaseEquil(args...) = PhaseEquil(MoistThermoDefaultParameterSet{eltype(first(args))}(), args...)
+PhaseEquil(e_int::FT,
+                    ρ::FT,
+                    q_tot::FT,
+                    maxiter::Int=3,
+                    tol::FT=FT(1e-1),
+                    sat_adjust::Function=saturation_adjustment) where {FT} =
+  PhaseEquil(MoistThermoDefaultParameterSet{FT}(), e_int, ρ, q_tot, maxiter, tol, sat_adjust)
 
 """
     PhaseDry{FT} <: ThermodynamicState
@@ -117,7 +123,7 @@ struct PhaseDry{FT} <: ThermodynamicState{FT}
   "density of dry air"
   ρ::FT
 end
-PhaseDry(args...) = PhaseDry(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+PhaseDry(e_int::FT, ρ::FT) where {FT} = PhaseDry(MoistThermoDefaultParameterSet{FT}(), e_int, ρ)
 
 """
     PhaseDry_given_pT(p, T)
@@ -132,7 +138,8 @@ function PhaseDry_given_pT(param_set::AbstractParameterSet{FT}, p::FT, T::FT) wh
   ρ = air_density(param_set, T, p)
   return PhaseDry{FT}(param_set, e_int, ρ)
 end
-PhaseDry_given_pT(args...) = PhaseDry_given_pT(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+PhaseDry_given_pT(p::FT, T::FT) where {FT} =
+  PhaseDry_given_pT(MoistThermoDefaultParameterSet{FT}(), p, T)
 
 
 """
@@ -158,7 +165,17 @@ function LiquidIcePotTempSHumEquil(param_set::AbstractParameterSet{FT},
     e_int = internal_energy(param_set, T, q_pt)
     return PhaseEquil{FT}(param_set, e_int, ρ, q_tot, T)
 end
-LiquidIcePotTempSHumEquil(args...) = LiquidIcePotTempSHumEquil(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+LiquidIcePotTempSHumEquil(θ_liq_ice::FT,
+                          ρ::FT,
+                          q_tot::FT,
+                          maxiter::Int=30,
+                          tol::FT=FT(1e-1)
+                          ) where {FT<:Real} =
+  LiquidIcePotTempSHumEquil(MoistThermoDefaultParameterSet{FT}(), θ_liq_ice,
+                                                                  ρ,
+                                                                  q_tot,
+                                                                  maxiter,
+                                                                  tol)
 
 """
     LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, p, q_tot)
@@ -184,7 +201,17 @@ function LiquidIcePotTempSHumEquil_given_pressure(param_set::AbstractParameterSe
     e_int = internal_energy(param_set, T, q)
     return PhaseEquil{FT}(param_set, e_int, ρ, q.tot, T)
 end
-LiquidIcePotTempSHumEquil_given_pressure(args...) = LiquidIcePotTempSHumEquil_given_pressure(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT,
+                                         p::FT,
+                                         q_tot::FT,
+                                         maxiter::Int=30,
+                                         tol::FT=FT(1e-1)
+                                         ) where {FT<:Real} =
+  LiquidIcePotTempSHumEquil_given_pressure(MoistThermoDefaultParameterSet{FT}(), θ_liq_ice,
+                                                                                 p,
+                                                                                 q_tot,
+                                                                                 maxiter,
+                                                                                 tol)
 
 """
     TemperatureSHumEquil(T, p, q_tot)
@@ -201,7 +228,8 @@ function TemperatureSHumEquil(param_set::AbstractParameterSet{FT}, T::FT, p::FT,
     e_int = internal_energy(param_set, T, q)
     return PhaseEquil{FT}(param_set, e_int, ρ, q_tot, T)
 end
-TemperatureSHumEquil(args...) = TemperatureSHumEquil(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+TemperatureSHumEquil(T::FT, p::FT, q_tot::FT) where {FT<:Real} =
+  TemperatureSHumEquil(MoistThermoDefaultParameterSet{FT}(), T, p, q_tot)
 
 """
    	 PhaseNonEquil{FT} <: ThermodynamicState
@@ -228,7 +256,8 @@ struct PhaseNonEquil{FT} <: ThermodynamicState{FT}
   "phase partition"
   q::PhasePartition{FT}
 end
-PhaseNonEquil(args...) = PhaseNonEquil(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+PhaseNonEquil(e_int::FT, ρ::FT, q::PhasePartition{FT}=q_pt_0(FT)) where {FT} =
+  PhaseNonEquil(MoistThermoDefaultParameterSet{FT}(), e_int, ρ, q)
 
 """
     LiquidIcePotTempSHumNonEquil(θ_liq_ice, ρ, q_pt)
@@ -253,7 +282,13 @@ function LiquidIcePotTempSHumNonEquil(param_set::AbstractParameterSet{FT},
     e_int = internal_energy(param_set, T, q_pt)
     return PhaseNonEquil{FT}(param_set, e_int, ρ, q_pt)
 end
-LiquidIcePotTempSHumNonEquil(args...) = LiquidIcePotTempSHumNonEquil(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT,
+                             ρ::FT,
+                             q_pt::PhasePartition{FT},
+                             maxiter::Int=5,
+                             tol::FT=FT(1e-1)
+                             ) where {FT<:Real} =
+  LiquidIcePotTempSHumNonEquil(MoistThermoDefaultParameterSet{FT}(), θ_liq_ice, ρ, q_pt, maxiter, tol)
 
 """
     LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, p, q_pt)
@@ -273,7 +308,10 @@ function LiquidIcePotTempSHumNonEquil_given_pressure(param_set::AbstractParamete
     e_int = internal_energy(param_set, T, q_pt)
     return PhaseNonEquil{FT}(param_set, e_int, ρ, q_pt)
 end
-LiquidIcePotTempSHumNonEquil_given_pressure(args...) = LiquidIcePotTempSHumNonEquil_given_pressure(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::FT,
+                                            p::FT,
+                                            q_pt::PhasePartition{FT}) where {FT<:Real} =
+  LiquidIcePotTempSHumNonEquil_given_pressure(MoistThermoDefaultParameterSet{FT}(), θ_liq_ice, p, q_pt)
 
 """
     fixed_lapse_rate_ref_state(z::FT,
@@ -295,7 +333,10 @@ function fixed_lapse_rate_ref_state(param_set::AbstractParameterSet{FT},
   ρ = p / (FT(R_d) * T)
   return T,p,ρ
 end
-fixed_lapse_rate_ref_state(args...) = fixed_lapse_rate_ref_state(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+fixed_lapse_rate_ref_state(z::FT,
+                           T_surface::FT,
+                           T_min::FT) where {FT<:AbstractFloat} =
+  fixed_lapse_rate_ref_state(MoistThermoDefaultParameterSet{FT}(), z, T_surface, T_min)
 
 """
     tested_convergence_range(FT, n)
@@ -312,7 +353,7 @@ that are tested for convergence in saturation adjustment.
 Note that the output vectors are of size ``n*n_RH``, and they
 should span the input arguments to all of the constructors.
 """
-function tested_convergence_range(param_set::AbstractParameterSet, n::Int, FT)
+function tested_convergence_range(param_set::AbstractParameterSet, n::Int, ::Type{FT}) where FT
   n_RS1 = 10
   n_RS2 = 20
   n_RS = n_RS1+n_RS2
@@ -341,5 +382,6 @@ function tested_convergence_range(param_set::AbstractParameterSet, n::Int, FT)
   θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
   return e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice
 end
-tested_convergence_range(args...) = tested_convergence_range(MoistThermoDefaultParameterSet{eltype(last(args))}(), args...)
+tested_convergence_range(n::Int, ::Type{FT}) where {FT} =
+  tested_convergence_range(MoistThermoDefaultParameterSet{FT}(), n, FT)
 
