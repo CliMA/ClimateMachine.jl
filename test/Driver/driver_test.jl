@@ -7,6 +7,7 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
+using CLIMA.Grids
 
 function init_test!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
@@ -70,11 +71,12 @@ function main()
 
     t0 = FT(0)
     timeend = FT(10)
-
     CFL = FT(0.4)
 
+    ode_solver = CLIMA.ExplicitSolverType()
     driver_config = CLIMA.AtmosLESConfiguration("Driver test", N, resolution,
-                                                xmax, ymax, zmax, init_test!)
+                                                xmax, ymax, zmax, init_test!,
+                                                solver_type=ode_solver)
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
                                        Courant_number = CFL)
 
@@ -83,6 +85,25 @@ function main()
     CFL_nondiff = CLIMA.DGmethods.courant(CLIMA.Courant.nondiffusive_courant,
                                           solver_config)
     @test CFL_nondiff < CFL
+    CFL_adv = CLIMA.DGmethods.courant(CLIMA.Courant.advective_courant,
+                                      solver_config)
+    CFL_adv_v = CLIMA.DGmethods.courant(CLIMA.Courant.advective_courant,
+                                        solver_config;
+                                        direction=VerticalDirection())
+    CFL_adv_h = CLIMA.DGmethods.courant(CLIMA.Courant.advective_courant,
+                                        solver_config;
+                                        direction=HorizontalDirection())
+
+    # compute known advective Courant number (based on initial conditions)
+    ugeo_abs = FT(7)
+    vgeo_abs = FT(5.5)
+    Δt = solver_config.dt
+    caₕ = ugeo_abs * (Δt / Δh) + vgeo_abs * (Δt / Δh)
+    # vertical velocity is 0
+    caᵥ = FT(0.0)
+    @test isapprox(CFL_adv_v, caᵥ)
+    @test isapprox(CFL_adv_h, caₕ, atol=0.0005)
+    @test isapprox(CFL_adv, caₕ, atol=0.0005)
 
     cb_test = 0
     result = CLIMA.invoke!(solver_config)
@@ -104,4 +125,3 @@ function main()
 end
 
 main()
-
