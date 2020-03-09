@@ -7,8 +7,6 @@ using CLIMA.Mesh.Geometry
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.MultirateInfinitesimalStepMethod
-using CLIMA.StormerVerletMethod
 using CLIMA.SubgridScaleParameters
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
@@ -51,7 +49,7 @@ doi = {10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2},
 URL = { https://doi.org/10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2 },
 eprint = { https://doi.org/10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2 }
 """
-function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
+function Initialise_Rising_Bubble!(bl, state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
   R_gas::FT     = R_d
   c_p::FT       = cp_d
@@ -96,6 +94,13 @@ function run(mpicomm, ArrayType, LinearType,
                                           polynomialorder = polynomialorder
                                            )
   # -------------- Define model ---------------------------------- #
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                         ref_state=HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0)),
+                        turbulence=AnisoMinDiss{FT}(1),
+                            source=Gravity(),
+                 boundarycondition=NoFluxBC(),
+                        init_state=Initialise_Rising_Bubble!)
+  #=
   model = AtmosModel(FlatOrientation(),
                      HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)), #NoReferenceState()
                      Vreman{FT}(C_smag), #SmagorinskyLilly{FT}(0.23) -> Allgemein verwendbar
@@ -106,6 +111,7 @@ function run(mpicomm, ArrayType, LinearType,
                      Gravity(),
                      NoFluxBC(),
                      Initialise_Rising_Bubble!)
+                     =#
   # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,
