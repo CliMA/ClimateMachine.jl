@@ -190,7 +190,7 @@ function main()
   CFL_max = FT(0.4)
 
   driver_config = config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
-  solver_config = CLIMA.setup_solver(t0, timeend, Courant_number=CFL_max, driver_config, forcecpu=true)
+  solver_config = CLIMA.setup_solver(t0, timeend, Courant_number=CFL_max, driver_config, init_on_cpu=true)
 
   cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
       Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())

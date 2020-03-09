@@ -23,7 +23,7 @@ include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 # 4) Timeend - 1000s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
 # 7) Overrides defaults for
-#               `forcecpu`
+#               `init_on_cpu`
 #               `solver_type`
 #               `sources`
 #               `C_smag`
@@ -119,7 +119,7 @@ function main()
     CFL = FT(0.8)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=CFL)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu=true, Courant_number=CFL)
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)

@@ -107,7 +107,7 @@ function main()
     timeend = dt
 
     driver_config = config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, ode_dt=dt, forcecpu=true)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, ode_dt=dt, init_on_cpu=true)
 
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg

@@ -134,7 +134,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                CentralNumericalFluxGradient())
 
   Q = init_ode_state(dg, FT(0))
-  Qcpu = init_ode_state(dg, FT(0); forcecpu=true)
+  Qcpu = init_ode_state(dg, FT(0); init_on_cpu=true)
   @test euclidean_distance(Q, Qcpu) < sqrt(eps(FT))
 
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)

@@ -31,11 +31,11 @@ import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 # 3) Domain - 250m[horizontal] x 250m[horizontal] x 500m[vertical]
 # 4) Timeend - 1000s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
-# 6) Random seed in initial condition (Requires `forcecpu=true` argument)
+# 6) Random seed in initial condition (Requires `init_on_cpu=true` argument)
 # 7) Overrides defaults for
 #               `C_smag`
 #               `Courant_number`
-#               `forcecpu`
+#               `init_on_cpu`
 #               `ref_state`
 #               `solver_type`
 #               `bc`
@@ -208,7 +208,7 @@ function main()
         resolution = (Δh, Δh, Δv)
         driver_config = config_problem(FT, N, resolution, xmax, ymax, zmax)
         solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
-                                           forcecpu=true, Courant_number=CFLmax)
+                                           init_on_cpu=true, Courant_number=CFLmax)
         # User defined callbacks (TMAR positivity preserving filter)
         cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
             Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
