@@ -224,7 +224,6 @@ Where
   ρinv = 1/ρ
   ρu = state.ρu
   u = ρinv * ρu
-
   # advective terms
   flux.ρ   = ρ * u
   flux.ρu  = ρ * u .* u'

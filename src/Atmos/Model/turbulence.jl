@@ -164,7 +164,6 @@ end
 vars_gradient(::SmagorinskyLilly,FT) = @vars(θ_v::FT)
 vars_diffusive(::SmagorinskyLilly,FT) = @vars(S::SHermitianCompact{3,FT,6}, N²::FT)
 
-
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
@@ -178,24 +177,18 @@ function diffusive!(::SmagorinskyLilly, orientation::Orientation,
 end
 
 function turbulence_tensors(atmos, m::SmagorinskyLilly, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-
   FT = eltype(state)
   Δ = aux.Δ_local
-  
   S = diffusive.turbulence.S
   normS = strain_rate_magnitude(S)
-
   k̂ = vertical_unit_vector(atmos.orientation,aux)
-
   # squared buoyancy correction
   Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-  f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1)) * k̂
-  ν = f_b² .* normS .* FT(m.C_smag)^2 .* Δ .^ 2 # ν is a 3 component vector
+  f_b² = SVector(1,1,sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))) .* k̂
+  ν = normS .* FT(m.C_smag)^2 .* Δ .^ 2 .* f_b² # ν is a 3 component vector
   ν = SDiagonal(ν)
   τ = (-2*ν) * S
-  
   return ν, τ
-
 end
 
 """
@@ -253,7 +246,7 @@ function turbulence_tensors(atmos, m::Vreman, state::Vars, diffusive::Vars, aux:
   
   normS = strain_rate_magnitude(S)
   Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-  f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1)) * k̂
+  f_b² = SVector(sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))) .* k̂
 
   β = (Δ*Δ')*(α'*α)
   Bβ = principal_invariants(β)[2]

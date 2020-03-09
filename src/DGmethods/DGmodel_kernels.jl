@@ -1957,9 +1957,9 @@ The `direction` in the reference element controls which nodes are considered
 neighbors. We store the local distances within the auxiliary state array
 """
 function knl_neighbor_distance!(bl::BalanceLaw, ::Val{N}, ::Val{dim}, 
-                                    auxstate, 
-                                    vgeo, elems, direction=EveryDirection(),
-                                   ) where {N, dim}
+                                auxstate, 
+                                vgeo, elems, direction=EveryDirection(),
+                               ) where {N, dim}
 
   FT = eltype(auxstate)
   Nq = N + 1
