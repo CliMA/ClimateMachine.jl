@@ -216,19 +216,29 @@ function init_ode_state(dg::DGModel, args...;
     @launch(device, threads=(Np,), blocks=nrealelem,
             initstate!(bl, Val(dim), Val(N), state.data, auxstate.data, grid.vgeo,
                      topology.realelems, args...))
+    @launch(device, threads=(Np,), blocks=nrealelem,
+            knl_neighbor_distance!(bl, Val(N), Val(dim), auxstate.data, 
+                                   grid.vgeo, topology.realelems, direction=EveryDirection())) 
   else
     h_state = similar(state, Array)
     h_auxstate = similar(auxstate, Array)
     h_auxstate .= auxstate
     @launch(CPU(), threads=(Np,), blocks=nrealelem,
-      initstate!(bl, Val(dim), Val(N), h_state.data, h_auxstate.data, Array(grid.vgeo),
-          topology.realelems, args...))
+            initstate!(bl, Val(dim), Val(N), h_state.data, h_auxstate.data, 
+                       Array(grid.vgeo), topology.realelems, args...))
+    @launch(CPU(), threads=(Np,), blocks=nrealelem,
+            knl_neighbor_distance!(bl,Val(N), Val(dim), h_auxstate.data, 
+                                   Array(grid.vgeo), topology.realelems, direction=EveryDirection())) 
     state .= h_state
+    auxstate .= h_auxstate.data
   end
 
   MPIStateArrays.start_ghost_exchange!(state)
   MPIStateArrays.finish_ghost_exchange!(state)
 
+  MPIStateArrays.start_ghost_exchange!(auxstate)
+  MPIStateArrays.finish_ghost_exchange!(auxstate)
+  
   return state
 end
 

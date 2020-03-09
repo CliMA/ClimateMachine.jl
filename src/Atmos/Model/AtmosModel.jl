@@ -175,6 +175,8 @@ function vars_aux(m::AtmosModel, FT)
     turbulence::vars_aux(m.turbulence,FT)
     moisture::vars_aux(m.moisture,FT)
     radiation::vars_aux(m.radiation,FT)
+    #FIXME: Pass balancelaw to the kernel so that the index can be retrieved by its `name` identifier
+    Δ_local::SVector{3,FT}
   end
 end
 function vars_integrals(m::AtmosModel,FT)
@@ -261,7 +263,7 @@ end
 
 @inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
                                  diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
-  ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
+  ν, τ = turbulence_tensors(atmos, atmos.turbulence, state, diffusive, aux, t)
   D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
   d_h_tot = -D_t .* diffusive.∇h_tot
   flux_diffusive!(atmos, flux, state, τ, d_h_tot)
