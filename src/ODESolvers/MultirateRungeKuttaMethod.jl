@@ -4,7 +4,6 @@ include("MultirateRungeKuttaMethod_kernels.jl")
 export MultirateRungeKutta
 
 LSRK2N = LowStorageRungeKutta2N
-SSPRK = StrongStabilityPreservingRungeKutta
 
 """
     MultirateRungeKutta(slow_solver, fast_solver; dt, t0 = 0)
@@ -59,7 +58,6 @@ mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
     new{SS, FS, RT}(slow_solver, fast_solver, RT(dt), RT(t0))
   end
 end
-MRRK = MultirateRungeKutta
 
 function MultirateRungeKutta(solvers::Tuple, Q=nothing;
                              dt=getdt(solvers[1]), t0=solvers[1].t
@@ -78,7 +76,7 @@ function MultirateRungeKutta(solvers::Tuple, Q=nothing;
 end
 
 function dostep!(Q, mrrk::MultirateRungeKutta, param,
-                      timeend::AbstractFloat, adjustfinalstep::Bool)
+                 timeend::Real, adjustfinalstep::Bool)
   time, dt = mrrk.t, mrrk.dt
   @assert dt > 0
   if adjustfinalstep && time + dt > timeend
@@ -96,10 +94,10 @@ function dostep!(Q, mrrk::MultirateRungeKutta, param,
   return mrrk.t
 end
 
-function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
-                      time::AbstractFloat, dt::AbstractFloat,
-                      in_slow_δ = nothing, in_slow_rv_dQ = nothing,
-                      in_slow_scaling = nothing) where {SS <: LSRK2N}
+function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param, time::Real,
+                 dt::AbstractFloat, in_slow_δ = nothing,
+                 in_slow_rv_dQ = nothing,
+                 in_slow_scaling = nothing) where {SS <: LSRK2N}
   slow = mrrk.slow_solver
   fast = mrrk.fast_solver
 
@@ -148,7 +146,7 @@ function dostep!(Q, mrrk::MultirateRungeKutta{SS}, param,
       end
       fast_time = slow_stage_time + (substep - 1) * fast_dt
       dostep!(Q, fast, param, fast_time, fast_dt, slow_δ, slow_rv_dQ,
-                   slow_rka)
+              slow_rka)
     end
   end
 end

@@ -2,6 +2,7 @@
 using DocStringExtensions
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
+using LinearAlgebra
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 export turbulence_tensors
 
@@ -20,7 +21,7 @@ function diffusive!(::TurbulenceClosure, ::Orientation, diffusive, ∇transform,
 end
 
 """
-    ν, τ = turbulence_tensors(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+    ν, τ = turbulence_tensors(atmos, ::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 
 Compute the kinematic viscosity tensor (`ν`) and SGS momentum flux tensor (`τ`).
 """
@@ -160,14 +161,9 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosure
   C_smag::FT
 end
 
-vars_aux(::SmagorinskyLilly,FT) = @vars(Δ::FT)
 vars_gradient(::SmagorinskyLilly,FT) = @vars(θ_v::FT)
 vars_diffusive(::SmagorinskyLilly,FT) = @vars(S::SHermitianCompact{3,FT,6}, N²::FT)
 
-
-function atmos_init_aux!(::SmagorinskyLilly, ::AtmosModel, aux::Vars, geom::LocalGeometry)
-  aux.turbulence.Δ = lengthscale(geom)
-end
 
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
@@ -182,22 +178,26 @@ function diffusive!(::SmagorinskyLilly, orientation::Orientation,
   diffusive.turbulence.N² = dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
 end
 
-function turbulence_tensors(m::SmagorinskyLilly, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function turbulence_tensors(atmos, m::SmagorinskyLilly, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 
   FT = eltype(state)
+  Δ = aux.Δ_local
+  
   S = diffusive.turbulence.S
   normS = strain_rate_magnitude(S)
 
+  k̂ = vertical_unit_vector(atmos.orientation,aux)
+
   # squared buoyancy correction
   Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-  f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
-  ν = normS * FT(m.C_smag * aux.turbulence.Δ)^2
-  ν = SDiagonal(ν,ν,ν * f_b²)
+  f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1)) * k̂
+  ν = f_b² * normS * FT(m.C_smag .* aux.turbulence.Δ)^2 # ν is a 3 component vector
+  ν = SDiagonal(ν)
   τ = (-2*ν) * S
+  
   return ν, τ
+
 end
-
-
 
 """
     Vreman{FT} <: TurbulenceClosure
@@ -231,13 +231,9 @@ struct Vreman{FT} <: TurbulenceClosure
   "Smagorinsky Coefficient [dimensionless]"
   C_smag::FT
 end
-vars_aux(::Vreman,FT) = @vars(Δ::FT)
 vars_gradient(::Vreman,FT) = @vars(θ_v::FT)
 vars_diffusive(::Vreman,FT) = @vars(∇u::SMatrix{3,3,FT,9}, N²::FT)
 
-function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
-  aux.turbulence.Δ = lengthscale(geom)
-end
 function gradvariables!(m::Vreman, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
 end
@@ -248,22 +244,28 @@ function diffusive!(::Vreman, orientation::Orientation,
   diffusive.turbulence.N² = dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
 end
 
-function turbulence_tensors(m::Vreman, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function turbulence_tensors(atmos, m::Vreman, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+
   FT = eltype(state)
   α = diffusive.turbulence.∇u
   S = symmetrize(α)
-
+  Δ = aux.Δ_local
+  k̂ = vertical_unit_vector(atmos.orientation,aux)
+  
   normS = strain_rate_magnitude(S)
   Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-  f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1))
+  f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1)) * k̂
 
-  β = f_b² * (aux.turbulence.Δ)^2 * (α' * α)
+  β = (Δ*Δ')*(α'*α)
   Bβ = principal_invariants(β)[2]
 
-  ν = max(0, m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ/(norm2(α)+eps(FT)))))
+  ν = max(0, m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ/(norm2(α)+eps(FT))))) .* f_b²
+  ν = SDiagonal(ν)
+  
   τ = (-2*ν) * S
 
   return ν, τ
+
 end
 
 
@@ -308,13 +310,9 @@ url = {https://link.aps.org/doi/10.1103/PhysRevFluids.1.041701}
 struct AnisoMinDiss{FT} <: TurbulenceClosure
   C_poincare::FT
 end
-vars_aux(::AnisoMinDiss,FT) = @vars(Δ::FT)
 vars_gradient(::AnisoMinDiss,FT) = @vars()
 vars_diffusive(::AnisoMinDiss,FT) = @vars(∇u::SMatrix{3,3,FT,9})
 
-function atmos_init_aux!(::AnisoMinDiss, ::AtmosModel, aux::Vars, geom::LocalGeometry)
-  aux.turbulence.Δ = lengthscale(geom)
-end
 function gradvariables!(m::AnisoMinDiss, transform::Vars, state::Vars, aux::Vars, t::Real)
 end
 function diffusive!(::AnisoMinDiss, ::Orientation,
@@ -322,7 +320,7 @@ function diffusive!(::AnisoMinDiss, ::Orientation,
   diffusive.turbulence.∇u = ∇transform.u
 end
 
-function turbulence_tensors(m::AnisoMinDiss, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+function turbulence_tensors(atmos, m::AnisoMinDiss, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   FT = eltype(state)
   α = diffusive.turbulence.∇u
   S = symmetrize(α)
