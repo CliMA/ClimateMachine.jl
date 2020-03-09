@@ -34,6 +34,11 @@ using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+# We will depend on MoistThermodynamics's default Parameters:
+include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+
 const _nstate = 5
 const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot = 1:_nstate
 const stateid = (ρid = _ρ, ρuid = _ρu, ρwid = _ρw,
@@ -246,7 +251,7 @@ function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
         p = aux[_c_p]
 
         e_int = e_tot - 1//2 * (u^2 + w^2) - grav * z
-        ts = PhaseEquil(e_int, ρ, q_tot)  # saturation adjustment happens here
+        ts = PhaseEquil(e_int, ρ, q_tot)  # saturation adjustment happens here, use default moist thermo parameters (Earth)
         pp = PhasePartition(ts)
         R[v_T] = ts.T
         R[v_p] = p

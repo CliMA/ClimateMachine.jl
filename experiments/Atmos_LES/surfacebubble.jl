@@ -15,6 +15,10 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 import CLIMA.DGmethods: boundary_state!
 import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
@@ -123,7 +127,7 @@ function init_surfacebubble!(bl, state, aux, (x,y,z), t)
   ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
 
   q_tot        = FT(0)
-  ts           = LiquidIcePotTempSHumEquil(θ, ρ, q_tot)
+  ts           = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
   q_pt         = PhasePartition(ts)
 
   ρu           = SVector(FT(0),FT(0),FT(0))
@@ -158,7 +162,8 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
                          source=(Gravity(),),
                          boundarycondition=bc,
                          moisture=EquilMoist{FT}(),
-                         init_state=init_surfacebubble!)
+                         init_state=init_surfacebubble!,
+                         param_set=ParameterSet{FT}())
   config = CLIMA.Atmos_LES_Configuration("SurfaceDrivenBubble",
                                    N, resolution, xmax, ymax, zmax,
                                    init_surfacebubble!,

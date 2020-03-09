@@ -1,11 +1,7 @@
 using Test, Pkg
 
 @testset "Utilities" begin
-    if isempty(ARGS) || "all" in ARGS
-        all_tests = true
-    else
-        all_tests = false
-    end
+    all_tests = isempty(ARGS) || "all" in ARGS ? true : false
     for submodule in [
                       "TicToc",
                       "VariableTemplates",

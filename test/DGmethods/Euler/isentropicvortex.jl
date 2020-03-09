@@ -17,6 +17,10 @@ using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
                    AtmosLESConfiguration
 using CLIMA.VariableTemplates: flattenednames
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 if !@isdefined integration_testing
@@ -145,7 +149,8 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
                             moisture=DryModel(),
                               source=nothing,
                    boundarycondition=PeriodicBC(),
-                          init_state=isentropicvortex_initialcondition!)
+                          init_state=isentropicvortex_initialcondition!,
+                           param_set=ParameterSet{FT}())
 
   dg = DGModel(model, grid, NumericalFlux(),
                CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
@@ -226,7 +231,7 @@ end
 Base.@kwdef struct IsentropicVortexSetup{FT}
   p∞::FT = 10 ^ 5
   T∞::FT = 300
-  ρ∞::FT = air_density(FT(T∞), FT(p∞))
+  ρ∞::FT = air_density(ParameterSet{FT}(),FT(T∞), FT(p∞))
   translation_speed::FT = 150
   translation_angle::FT = pi / 4
   vortex_speed::FT = 50
@@ -264,7 +269,7 @@ function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
   T = T∞ * (1 - kappa_d * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
   # adiabatic/isentropic relation
   p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
-  ts = PhaseDry_given_pT(p, T)
+  ts = PhaseDry_given_pT(bl.param_set, p, T)
   ρ = air_density(ts)
 
   e_pot = FT(0)

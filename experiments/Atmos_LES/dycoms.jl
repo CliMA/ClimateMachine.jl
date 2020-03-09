@@ -15,6 +15,10 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 import CLIMA.DGmethods: vars_state, vars_aux,
                         vars_integrals, vars_reverse_integrals,
                         indefinite_stack_integral!,
@@ -27,7 +31,7 @@ import CLIMA.DGmethods: boundary_state!
 import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
-# -------------------- Radiation Model -------------------------- # 
+# -------------------- Radiation Model -------------------------- #
 vars_state(::RadiationModel, FT) = @vars()
 vars_aux(::RadiationModel, FT) = @vars()
 vars_integrals(::RadiationModel, FT) = @vars()
@@ -65,7 +69,7 @@ end
 For the non-diffussive and gradient terms we just use the `NoFluxBC`
 """
 atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                      bc::DYCOMS_BC, 
+                      bc::DYCOMS_BC,
                       args...) = atmos_boundary_state!(nf, NoFluxBC(), args...)
 
 """
@@ -80,7 +84,7 @@ atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient
 When `bctype == 1` the `NoFluxBC` otherwise the specialized DYCOMS BC is used
 """
 function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
-                                        bc::DYCOMS_BC, 
+                                        bc::DYCOMS_BC,
                                         atmos::AtmosModel, F,
                                         state⁺, diff⁺, hyperdiff⁺, aux⁺,
                                         n⁻,
@@ -148,7 +152,7 @@ function atmos_boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
     flux_diffusive!(atmos.moisture, F, state⁺, d_q_tot⁺)
   end
 end
-# ------------------------ End Boundary Condition --------------------- # 
+# ------------------------ End Boundary Condition --------------------- #
 
 
 # ------------------------ Begin Radiation Model ---------------------- #
@@ -204,7 +208,7 @@ function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, stat
   z = altitude(atmos.orientation, aux)
   Δz_i = max(z - m.z_i, -zero(FT))
   # Constants
-  upward_flux_from_cloud  = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)  
+  upward_flux_from_cloud  = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
   upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
   free_troposphere_flux = m.ρ_i * FT(cp_d) * m.D_subsidence * m.α_z * cbrt(Δz_i) * (Δz_i/4 + m.z_i)
   F_rad = upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
@@ -213,7 +217,7 @@ function flux_radiation!(m::DYCOMSRadiation, atmos::AtmosModel, flux::Grad, stat
 end
 function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real)
 end
-# -------------------------- End Radiation Model ------------------------ # 
+# -------------------------- End Radiation Model ------------------------ #
 
 """
   Initial Condition for DYCOMS_RF01 LES
@@ -239,11 +243,12 @@ function init_dycoms!(bl, state, aux, (x,y,z), t)
     FT = eltype(state)
 
     z = altitude(bl.orientation, aux)
+    ps = bl.param_set
 
     # These constants are those used by Stevens et al. (2005)
     qref       = FT(9.0e-3)
     q_pt_sfc   = PhasePartition(qref)
-    Rm_sfc     = FT(gas_constant_air(q_pt_sfc))
+    Rm_sfc     = FT(gas_constant_air(ps, q_pt_sfc))
     T_sfc      = FT(290.4)
     P_sfc      = FT(MSLP)
 
@@ -276,7 +281,7 @@ function init_dycoms!(bl, state, aux, (x,y,z), t)
     p     = P_sfc * exp(-z / H)
 
     # Density, Temperature
-    ts    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot)
+    ts    = LiquidIcePotTempSHumEquil_given_pressure(ps, θ_liq, p, q_tot)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
@@ -344,7 +349,8 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
                            radiation=radiation,
                               source=source,
                    boundarycondition=bc,
-                          init_state=ics)
+                          init_state=ics,
+                           param_set=ParameterSet{FT}())
 
     config = CLIMA.Atmos_LES_Configuration("DYCOMS", N, resolution, xmax, ymax, zmax,
                                            init_dycoms!,
@@ -381,7 +387,7 @@ function main()
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
-      
+
     result = CLIMA.invoke!(solver_config;
                           user_callbacks=(cbtmarfilter,),
                           check_euclidean_distance=true)

@@ -17,6 +17,10 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using Test
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -25,7 +29,7 @@ end
 include("mms_solution_generated.jl")
 
 using CLIMA.Atmos
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, total_specific_enthalpy
+import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed, total_specific_enthalpy, thermo_state
 
 """
     MMSDryModel
@@ -35,21 +39,24 @@ Assumes the moisture components is in the dry limit.
 struct MMSDryModel <: MoistureModel
 end
 
-function total_specific_enthalpy(moist::MoistureModel, orientation::Orientation, state::Vars, aux::Vars)
+function total_specific_enthalpy(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
   zero(eltype(state))
 end
-function pressure(m::MMSDryModel, orientation::Orientation, state::Vars, aux::Vars)
+function thermo_state(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
+  return PhaseDry{eltype(state)}(bl.param_set, internal_energy(bl, state, aux), state.ρ)
+end
+function pressure(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
   ρinv = 1 / state.ρ
   return (γ-1)*(state.ρe - ρinv/2 * sum(abs2, state.ρu))
 end
 
-function soundspeed(m::MMSDryModel, orientation::Orientation, state::Vars, aux::Vars)
+function soundspeed(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
   T = eltype(state)
   γ = T(7)/T(5)
   ρinv = 1 / state.ρ
-  p = pressure(m, orientation, state, aux)
+  p = pressure(bl, bl.moisture, state, aux)
   sqrt(ρinv * γ * p)
 end
 
@@ -106,7 +113,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                                moisture=MMSDryModel(),
                                  source=mms2_source!,
                       boundarycondition=InitStateBC(),
-                             init_state=mms2_init_state!)
+                             init_state=mms2_init_state!,
+                              param_set=ParameterSet{FT}())
   else
     model = AtmosModel{FT}(AtmosLESConfiguration;
                             orientation=NoOrientation(),
@@ -115,7 +123,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                                moisture=MMSDryModel(),
                                  source=mms3_source!,
                       boundarycondition=InitStateBC(),
-                             init_state=mms3_init_state!)
+                             init_state=mms3_init_state!,
+                              param_set=ParameterSet{FT}())
   end
 
   dg = DGModel(model,
