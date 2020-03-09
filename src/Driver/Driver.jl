@@ -33,7 +33,7 @@ Base.@kwdef mutable struct CLIMA_Settings
     mpi_knows_cuda::Bool = false
     show_updates::Bool = true
     update_interval::Int = 60
-    enable_diagnostics::Bool = true
+    enable_diagnostics::Bool = false
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
@@ -100,8 +100,8 @@ function parse_commandline()
             help = "interval in seconds for showing simulation updates"
             arg_type = Int
             default = 60
-        "--disable-diagnostics"
-            help = "disable the collection of diagnostics to <output-dir>"
+        "--enable-diagnostics"
+            help = "enable the collection of diagnostics to <output-dir>"
             action = :store_true
         "--diagnostics-interval"
             help = "interval in simulation steps for gathering diagnostics"
@@ -154,7 +154,7 @@ function init(; disable_gpu=false)
         Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
         Settings.show_updates = !parsed_args["no-show-updates"]
         Settings.update_interval = parsed_args["update-interval"]
-        Settings.enable_diagnostics = !parsed_args["disable-diagnostics"]
+        Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
         Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
