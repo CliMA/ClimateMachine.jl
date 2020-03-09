@@ -26,6 +26,7 @@ pages = Any[
     "Atmos/TurbulenceConvection.md",
     "Atmos/EDMFEquations.md",
     "Microphysics" => "Atmos/Microphysics.md",
+    "TurbulenceClosures" => "Atmos/TurbulenceClosures.md",
   ],
   "ODESolvers" => "ODESolvers.md",
   "LinearSolvers" => "LinearSolvers.md",

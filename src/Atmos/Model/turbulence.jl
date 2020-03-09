@@ -167,7 +167,6 @@ vars_diffusive(::SmagorinskyLilly,FT) = @vars(S::SHermitianCompact{3,FT,6}, N²:
 
 function gradvariables!(m::SmagorinskyLilly, transform::Vars, state::Vars, aux::Vars, t::Real)
   transform.turbulence.θ_v = aux.moisture.θ_v
-  @show(aux.Δ_local)
 end
 
 function diffusive!(::SmagorinskyLilly, orientation::Orientation,
@@ -191,7 +190,7 @@ function turbulence_tensors(atmos, m::SmagorinskyLilly, state::Vars, diffusive::
   # squared buoyancy correction
   Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
   f_b² = sqrt(clamp(1 - Richardson*inv_Pr_turb, 0, 1)) * k̂
-  ν = f_b² * normS * FT(m.C_smag .* aux.turbulence.Δ)^2 # ν is a 3 component vector
+  ν = f_b² .* normS .* FT(m.C_smag) .* Δ .^ 2 # ν is a 3 component vector
   ν = SDiagonal(ν)
   τ = (-2*ν) * S
   
@@ -258,16 +257,13 @@ function turbulence_tensors(atmos, m::Vreman, state::Vars, diffusive::Vars, aux:
 
   β = (Δ*Δ')*(α'*α)
   Bβ = principal_invariants(β)[2]
-
-  ν = max(0, m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ/(norm2(α)+eps(FT))))) .* f_b²
+  ν = m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ/(norm2(α)+eps(FT)))) .* f_b²
   ν = SDiagonal(ν)
-  
   τ = (-2*ν) * S
 
   return ν, τ
 
 end
-
 
 """
     AnisoMinDiss{FT} <: TurbulenceClosure
@@ -325,7 +321,7 @@ function turbulence_tensors(atmos, m::AnisoMinDiss, state::Vars, diffusive::Vars
   α = diffusive.turbulence.∇u
   S = symmetrize(α)
 
-  coeff = (aux.turbulence.Δ * m.C_poincare)^2
+  coeff = (aux.Δ_local * m.C_poincare) .^ 2
   βij = -(α' * α)
   ν = max(0, coeff * (dot(βij, S) / (norm2(α) + eps(FT))))
   τ = (-2*ν) * S
