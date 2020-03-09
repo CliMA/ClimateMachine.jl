@@ -40,12 +40,12 @@ function diffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
         return Δt * ν / (Δx*Δx)
     else
         k̂ = vertical_unit_vector(m.orientation, aux)
-        ν_vert = dot(ν, k)
+        ν_vert = dot(ν, k̂)
 
         if direction isa VerticalDirection
             return Δt * ν_vert / (Δx*Δx)
         elseif direction isa HorizontalDirection
-            ν_horz = ν - ν_vert * k
+            ν_horz = ν - ν_vert * k̂
             return Δt * norm(ν_horz) / (Δx*Δx)
         else
             return Δt * norm(ν) / (Δx*Δx)
