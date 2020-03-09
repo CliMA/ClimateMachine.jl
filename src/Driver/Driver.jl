@@ -6,8 +6,7 @@ using Logging
 using MPI
 using Printf
 using Requires
-using ..Atmos: flattenednames, vars_aux, vars_state
-
+using ..Atmos: flattenednames
 using ..Atmos
 using ..VTK
 using ..ColumnwiseLUSolver
@@ -20,6 +19,7 @@ using ..MPIStateArrays
 using ..DGmethods: vars_state, vars_aux, update_aux!, update_aux_diffusive!
 using ..TicToc
 using ..VariableTemplates
+using ..Mesh.Interpolation
 
 Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
@@ -341,12 +341,20 @@ function invoke!(solver_config::SolverConfiguration;
             @info @sprintf("""Diagnostics
                            collecting at %s""",
                            string(currtime))
+            # project u,v,w
+            
+            # calculate, interpolate and collect diagnostics
             Diagnostics.collect(currtime)
+           
+            if currtime ==timeend 
+            # save time means
+            #
+            end
             nothing
         end
         callbacks = (callbacks..., cbdiagnostics)
     end
-    if Settings.enable_vtk
+    if Settings.enable_vtk #* defailt filetype should be netcdf; rename to DGstate_dump; need opt to save all/last timestep (presumably related to restart too)
         # set up VTK output callback
         step = [0]
         cbvtk = GenericCallbacks.EveryXSimulationSteps(Settings.vtk_interval) do (init=false)
@@ -372,7 +380,7 @@ function invoke!(solver_config::SolverConfiguration;
         end
         callbacks = (callbacks..., cbvtk)
     end
-
+"""
     step = [0]
     mkpath(Settings.output_dir)
     cbnc = GenericCallbacks.EveryXSimulationSteps(500) do (init=false) # - roughset
@@ -423,6 +431,7 @@ function invoke!(solver_config::SolverConfiguration;
        nothing
      end
     callbacks = (callbacks..., cbnc)
+"""
 
     callbacks = (callbacks..., user_callbacks...)
 

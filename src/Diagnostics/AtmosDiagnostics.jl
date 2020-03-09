@@ -34,6 +34,22 @@ function init(atmos::AtmosModel,
     @visitQ nhorzelem nvertelem Nqk Nq begin
         z = localvgeo[ijk,grid.x3id,e]
         CollectedDiagnostics.zvals[k,ev] = z
+    
+    # >> LN : 
+    # get the interpolated grid:
+    domain_height = FT(30e3) # already defined in heldsuarez! - import
+    lat_res  = FT( 10.0 * π / 180.0) # 10 degree resolution - roughset
+    long_res = FT( 10.0 * π / 180.0) # 10 degree resolution - roughset
+    nel_vert_grd  = 20 # define in hs
+    vert_range = grid1d(FT(planet_radius), FT(planet_radius + domain_height), nelem = numelem_vert)
+    rad_res    = FT((vert_range[end] - vert_range[1])/FT(nel_vert_grd))
+
+    # get dg grid resolution & get interpolated sphere
+    nelem_tot = length(topology.elems)
+    nhor = trunc(Int64, √( nelem_tot / nvertelem / 6)) # neq nhorzelem....clean up 
+    intrp_cs = InterpolationCubedSphere(dg.grid, vert_range, nhor, lat_res, long_res, rad_res)
+    # >> end LN : 
+
     end
 end
 
@@ -246,6 +262,31 @@ function collect(atmos::AtmosModel, currtime)
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
+
+    # >> LN :
+    # NB: need to combine Q and aux into 1 tuple and save in one file
+    combine_all_vars = append?(Q, aux, diff, fluxes)
+    if GCM_config: 
+      project_vectors = project?(combine_all_vars)# identify vectors (u in Q and u in fluxes) and project to point lat lon altitude
+      grad_vars       = gradient_on_sphere?(project_vectors) #zonal/meridional/altitude gradients of sel variables 
+      integrated_vars = integral_on_sphere?(project_vectors) #zonal/meridional/altitude integrals of sel variables
+      other_related_vars = rad_vars[3] - rad_vars[2] #e.g. this is vorticity (vert comp), curl may be a good thing to add to
+      #interpolate_local!(intrp_cs, Q.data, iv, project = true) # project should come as a separate function before interpolate_local after gradient!
+      #interpolate_local!(intrp_cs, dg.auxstate.data, iv_aux, project = false)
+    if LES_config:
+      grad_vars = gradient?(combine_all_vars) # gradient in x,y,z on DG grid
+    end
+    collect_all_diags = append(Q, aux, diff, flux, grad_vars, integrated_vars, other_related_vars)
+    nvars = size(collect_all_diags.data,2)
+    iv = DA(Array{FT}(undef, intrp_cs.Npl, nvars))
+    interpolate_local!(intrp_cs, collect_all_diags, iv)
+    spatial_averages_covariances # along 1st,2nd and/or 3rd dimension
+    time_cumulative_averages
+    svi = write_interpolated_data(intrp_cs, iv, varnames, filename)
+    #svi = write_interpolated_data(intrp_cs, iv, varnames, filename)
+    #svi_ = write_interpolated_data(intrp_cs, iv_aux, varnames_aux, filename_aux)
+    
+    # >> end LN 
 
     # get the state, auxiliary and geo variables onto the host if needed
     if Array ∈ typeof(Q).parameters

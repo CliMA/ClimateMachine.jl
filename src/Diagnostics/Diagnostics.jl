@@ -125,14 +125,19 @@ function collect(currtime)
     # make sure this time step is not already recorded
     docollect = [false]
     if mpirank == 0
-        try
-            jldopen(joinpath(Settings.outdir,
-                    "diagnostics-$(Settings.starttime).jld2"), "r") do file
-                diagnostics = file[current_time]
-                @warn "diagnostics for time step $(current_time) already collected"
-        end
-        catch e
+        if save_jld2
+          try
+              jldopen(joinpath(Settings.outdir,
+                      "diagnostics-$(Settings.starttime).jld2"), "r") do file
+                  diagnostics = file[current_time]
+                  @warn "diagnostics for time step $(current_time) already collected"
+          catch e
             docollect[1] = true
+          end
+        if save_nc
+          try
+            Dataset(filename, "r")
+        end
         end
     end
     MPI.Bcast!(docollect, 0, mpicomm)
