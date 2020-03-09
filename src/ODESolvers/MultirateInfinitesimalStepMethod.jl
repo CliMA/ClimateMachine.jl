@@ -164,7 +164,11 @@ end
 function ODEs.dostep!(Q, mis::MultirateInfinitesimalStep, p, time::Real, dt::Real, nsteps::Int,
                       slow_δ = nothing, slow_rv_dQ = nothing,
                       slow_scaling = nothing)
-  mis.slowrhs! = OffsetRHS(slow_rv_dQ, mis.slowrhs!)
+  if isa(mis.slowrhs!, OffsetRHS{AT} where {AT})
+    mis.slowrhs!.offset = slow_rv_dQ
+  else
+    mis.slowrhs! = OffsetRHS(slow_rv_dQ, mis.slowrhs!)
+  end
   for i in 1:nsteps
     ODEs.dostep!(Q, mis, p, time, dt)
   end
