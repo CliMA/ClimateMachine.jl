@@ -3,7 +3,7 @@ export AbstractAdditiveRungeKutta
 export LowStorageVariant, NaiveVariant
 export AdditiveRungeKutta
 export ARK2GiraldoKellyConstantinescu
-export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
+export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter, ARK1
 
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and Constantinescu (2013) directly.
 # Seems to cut the number of solver iterations by half but requires Nstages - 1 additional storage.
@@ -334,6 +334,45 @@ function dostep!(Q, ark::AdditiveRungeKutta, variant::LowStorageVariant,
   @launch(device(Q), threads = threads, blocks = blocks,
           solution_update!(variant, rv_Q, rv_Rstages, RKB, dt, Val(Nstages),
                            slow_δ, slow_rv_dQ, slow_scaling))
+end
+
+"""
+    ARK1(f, l, linearsolver, Q; dt, t0,
+         split_nonlinear_linear, variant)
+
+This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
+see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
+This time stepping object is intended to be passed to the `solve!` command.
+
+This uses the first-order-accurate 2-stage additive Runge--Kutta scheme.
+
+### References
+ TODO
+"""
+function ARK1(F, L, linearsolver::AbstractLinearSolver, Q::AT;
+              dt=nothing, t0=0,
+              split_nonlinear_linear=false,
+              variant=LowStorageVariant()) where {AT<:AbstractArray}
+
+    @assert dt != nothing
+    T = eltype(Q)
+    RT = real(T)
+
+    RKA_explicit = [RT(0.0)   RT(0.0);
+                    RT(1.0)   RT(0.0)]
+
+    RKA_implicit = [RT(0.0)   RT(0.0);
+                    RT(0.0)   RT(1.0)]
+
+    RKB = [RT(0.0), RT(1.0)]
+    RKC = [RT(0.0), RT(1.0)]
+
+    Nstages = length(RKB)
+    return AdditiveRungeKutta(F, L, linearsolver,
+                              RKA_explicit, RKA_implicit, RKB, RKC,
+                              split_nonlinear_linear,
+                              variant,
+                              Q; dt=dt, t0=t0)
 end
 
 """
