@@ -2,11 +2,10 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       RemainderModel,
-       AtmosLESConfiguration,
-       AtmosGCMConfiguration
+       RemainderModel
 
 using LinearAlgebra, StaticArrays
+using ..ConfigTypes
 using ..VariableTemplates
 using ..MoistThermodynamics
 using ..PlanetParameters
@@ -66,11 +65,7 @@ function calculate_dt(grid, model::AtmosModel, Courant_number)
     return Courant_number * min_node_distance(grid, VerticalDirection()) / soundspeed_air(T)
 end
 
-abstract type AtmosConfiguration end
-struct AtmosLESConfiguration <: AtmosConfiguration end
-struct AtmosGCMConfiguration <: AtmosConfiguration end
-
-function AtmosModel{FT}(::Type{AtmosLESConfiguration};
+function AtmosModel{FT}(::Type{AtmosLESConfigType};
                          orientation::O=FlatOrientation(),
                          ref_state::RS=HydrostaticState(LinearTemperatureProfile(FT(200),
                                                                                  FT(280),
@@ -104,7 +99,7 @@ function AtmosModel{FT}(::Type{AtmosLESConfiguration};
 
   return AtmosModel{FT,typeof.(atmos)...}(atmos...)
 end
-function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
+function AtmosModel{FT}(::Type{AtmosGCMConfigType};
                          orientation::O        = SphericalOrientation(),
                          ref_state::RS         = HydrostaticState(
                                                    LinearTemperatureProfile(

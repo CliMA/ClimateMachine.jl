@@ -1,5 +1,6 @@
 using MPI
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
@@ -40,7 +41,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
   T_s = 320.0
   RH = 0.01
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          ref_state=HydrostaticState(IsothermalProfile(T_s), RH),
                         init_state=init_state!)
 
@@ -68,7 +69,7 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
   T_min, T_s, Γ = FT(290), FT(320), FT(6.5*10^-3)
   RH = 0.01
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          ref_state=HydrostaticState(LinearTemperatureProfile(T_min, T_s, Γ), RH),
                          init_state=init_state!)
 

@@ -1,6 +1,7 @@
 using Test, MPI
 import GaussQuadrature
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
@@ -97,7 +98,7 @@ function run_brick_interpolation_test()
                                                 FloatType = FT,
                                                 DeviceArray = DA,
                                                 polynomialorder = polynomialorder)
-        model = AtmosModel{FT}(AtmosLESConfiguration;
+        model = AtmosModel{FT}(AtmosLESConfigType;
                                ref_state=NoReferenceState(),
                                turbulence=ConstantViscosityWithDivergence(FT(0)),
                                source=(Gravity(),),
@@ -219,14 +220,14 @@ function run_cubed_sphere_interpolation_test()
         setup = TestSphereSetup(FT(MSLP),FT(255),FT(30e3))
 
         topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
-   
+
         grid = DiscontinuousSpectralElementGrid(topology,
                                                 FloatType = FT,
                                                 DeviceArray = DA,
                                                 polynomialorder = polynomialorder,
                                                 meshwarp = CLIMA.Mesh.Topologies.cubedshellwarp)
 
-        model = AtmosModel{FT}(AtmosLESConfiguration;
+        model = AtmosModel{FT}(AtmosLESConfigType;
                                orientation=SphericalOrientation(),
                                ref_state=NoReferenceState(),
                                turbulence=ConstantViscosityWithDivergence(FT(0)),
@@ -235,7 +236,7 @@ function run_cubed_sphere_interpolation_test()
                                init_state=setup)
 
         dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
- 
+
         Q = init_ode_state(dg, FT(0))
 
         device = typeof(Q.data) <: Array ? CPU() : CUDA()
@@ -292,22 +293,22 @@ function run_cubed_sphere_interpolation_test()
                     x1g_ijk = rad[i] * cosd(lat[j]) * cosd(long[k]) # inclination -> latitude; azimuthal -> longitude.
                     x2g_ijk = rad[i] * cosd(lat[j]) * sind(long[k]) # inclination -> latitude; azimuthal -> longitude.
                     x3g_ijk = rad[i] * sind(lat[j])
-             
+
                     fex[i,j,k,vari] = fcn( x1g_ijk / xmax, x2g_ijk / ymax, x3g_ijk / zmax )
                 end
             end
 
             if projectv
                 for k in 1:nlong, j in 1:nlat, i in 1:nrad
-                    fex[i,j,k,_ρu] = fex[i,j,k,_ρ] * cosd(lat[j]) * cosd(long[k]) + 
-                                     fex[i,j,k,_ρ] * cosd(lat[j]) * sind(long[k]) + 
+                    fex[i,j,k,_ρu] = fex[i,j,k,_ρ] * cosd(lat[j]) * cosd(long[k]) +
+                                     fex[i,j,k,_ρ] * cosd(lat[j]) * sind(long[k]) +
                                      fex[i,j,k,_ρ] * sind(lat[j])
 
-                    fex[i,j,k,_ρv] = -fex[i,j,k,_ρ] * sind(lat[j]) * cosd(long[k])  
-                                     -fex[i,j,k,_ρ] * sind(lat[j]) * sind(long[k]) + 
+                    fex[i,j,k,_ρv] = -fex[i,j,k,_ρ] * sind(lat[j]) * cosd(long[k])
+                                     -fex[i,j,k,_ρ] * sind(lat[j]) * sind(long[k]) +
                                       fex[i,j,k,_ρ] * cosd(lat[j])
 
-                    fex[i,j,k,_ρw] = -fex[i,j,k,_ρ] * cosd(lat[j]) * sind(long[k]) + 
+                    fex[i,j,k,_ρw] = -fex[i,j,k,_ρ] * cosd(lat[j]) * sind(long[k]) +
                                       fex[i,j,k,_ρ] * cosd(lat[j]) * cosd(long[k])
                 end
             end

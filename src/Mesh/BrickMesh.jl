@@ -264,7 +264,7 @@ function brickmesh(x, periodic; part=1, numparts=1,
   if boundary isa Matrix
     boundary = tuple(mapslices(x -> tuple(x...), boundary, dims=1)...)
   end
-  
+
   @assert length(x) == length(periodic)
   @assert length(x) >= 1
   @assert 1 <= part <= numparts
@@ -533,7 +533,7 @@ function partition(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
 
   if !isempty(globord)
     globord = globord[sendorder]
-  end 
+  end
 
   newelemtovert = []
   newelemtocoord = []
@@ -567,7 +567,7 @@ function partition(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
       newelemtobndy = netb
       newelemtofaceconnect = netfc
       if !isempty(globord)
-        newglobord = netglobord 
+        newglobord = netglobord
       end
     end
   end

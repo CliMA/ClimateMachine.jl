@@ -379,7 +379,7 @@ let
   ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  
+
   polynomialorder = 4
   FT = Float64
 
@@ -391,12 +391,12 @@ let
     # Physical domain extents
     domain_start = (0, 0, 0)
     domain_end = (1000, 750, 1000)
-    
+
     # Stable explicit time step
     Δxyz = MVector(25, 25, 25)
     dt = min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
     dt *= dim == 2 ? 40 : 20
-  
+
     output_time = 0.5
     output_steps = ceil(output_time / dt)
 
@@ -404,7 +404,7 @@ let
     Ls = MVector(domain_end .- domain_start)
     ratios = @. (Ls / Δxyz - 1) / polynomialorder
     Ne = ceil.(Int64, ratios)
-    
+
     brickrange = ntuple(d -> range(domain_start[d], length = Ne[d] + 1, stop = domain_end[d]), dim)
     periodicity = ntuple(d -> false, dim)
 
@@ -431,7 +431,7 @@ let
     @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Ne...
     @info @sprintf """     dt         = %.2e                               """ dt
     @info @sprintf """ ----------------------------------------------------"""
-    
+
     engf_eng0 = run(mpicomm, ArrayType,
                     dim, brickrange, periodicity, polynomialorder,
                     timeend, FT, dt, output_steps)

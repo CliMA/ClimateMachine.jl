@@ -4,6 +4,7 @@ using Test
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.ConfigTypes
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
@@ -77,18 +78,18 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   # Set up the model
   C_smag = FT(0.23)
   ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          turbulence=SmagorinskyLilly{FT}(C_smag),
                          source=(Gravity(),),
                          ref_state=ref_state,
                          init_state=init_risingbubble!)
 
   # Problem configuration
-  config = CLIMA.Atmos_LES_Configuration("DryRisingBubble",
-                                         N, resolution, xmax, ymax, zmax,
-                                         init_risingbubble!,
-                                         solver_type=ode_solver,
-                                         model=model)
+  config = CLIMA.AtmosLESConfiguration("DryRisingBubble",
+                                       N, resolution, xmax, ymax, zmax,
+                                       init_risingbubble!,
+                                       solver_type=ode_solver,
+                                       model=model)
   return config
 end
 

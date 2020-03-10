@@ -6,6 +6,7 @@ using Test
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.ConfigTypes
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
@@ -80,7 +81,7 @@ function config_heldsuarez(FT, poly_order, resolution)
 
   # Set up the atmosphere model
   model = AtmosModel{FT}(
-    AtmosGCMConfiguration;
+    AtmosGCMConfigType;
                  
     ref_state   = ref_state,
                  
@@ -95,7 +96,7 @@ function config_heldsuarez(FT, poly_order, resolution)
                   )
   )
   
-  config = CLIMA.Atmos_GCM_Configuration(
+  config = CLIMA.AtmosGCMConfiguration(
     exp_name, 
     poly_order, 
     resolution,
@@ -165,10 +166,10 @@ function main()
   days          = 1                 # experiment day number
   timestart     = FT(0)             # start time (seconds)
   timeend       = FT(days*24*60*60) # end time (seconds)
-  
+
   # Set up driver configuration
   driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
-  
+
   # Set up ODE solver configuration
   ode_solver_type = CLIMA.IMEXSolverType(
     linear_solver = ManyColumnLU,
@@ -177,8 +178,8 @@ function main()
 
   # Set up experiment
   solver_config = CLIMA.setup_solver(
-    timestart, 
-    timeend, 
+    timestart,
+    timeend,
     driver_config,
     ode_solver_type=ode_solver_type,
     Courant_number=0.05,
@@ -186,14 +187,14 @@ function main()
   )
 
   # Set up user-defined callbacks
-  # TODO: This callback needs to live somewhere else 
+  # TODO: This callback needs to live somewhere else
   filterorder = 14
   filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
   cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
       Filters.apply!(
-        solver_config.Q, 
+        solver_config.Q,
         1:size(solver_config.Q, 2),
-        solver_config.dg.grid, 
+        solver_config.dg.grid,
         filter
       )
       nothing

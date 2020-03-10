@@ -1,4 +1,5 @@
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid, VerticalDirection
 using CLIMA.Mesh.Filters
@@ -17,7 +18,7 @@ using CLIMA.Atmos: AtmosModel, SphericalOrientation,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, HydrostaticState, IsothermalProfile,
-                   AtmosAcousticGravityLinearModel, AtmosLESConfiguration,
+                   AtmosAcousticGravityLinearModel,
                    altitude, latitude, longitude, gravitational_potential
 using CLIMA.VariableTemplates: flattenednames
 
@@ -72,7 +73,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                                           polynomialorder = polynomialorder,
                                           meshwarp = cubedshellwarp)
 
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          orientation=SphericalOrientation(),
                            ref_state=HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
                           turbulence=ConstantViscosityWithDivergence(FT(0)),

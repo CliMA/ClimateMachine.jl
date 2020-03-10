@@ -95,7 +95,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
       nviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qvisc)
       nhyperviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
     end
-    
+
     if nviscstate > 0
       aux_comm = update_aux_diffusive!(dg, bl, Q, t)
       @assert typeof(aux_comm) == Bool
@@ -110,12 +110,12 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
     #########################
     # Laplacian Computation #
     #########################
-   
+
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             volumedivgrad!(bl, Val(dim), Val(N), dg.diffusion_direction,
                            Qhypervisc_grad.data, Qhypervisc_div.data, grid.vgeo,
                            grid.D, topology.realelems))
-    
+
     communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
@@ -124,20 +124,20 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                          Qhypervisc_grad.data, Qhypervisc_div.data,
                          grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                          topology.realelems))
-    
+
     communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_div)
-    
+
     ####################################
     # Hyperdiffusive terms computation #
     ####################################
-   
+
     @launch(device, threads=(Nq, Nq, Nqk), blocks=nrealelem,
             volumehyperviscterms!(bl, Val(dim), Val(N), dg.diffusion_direction,
                                     Qhypervisc_grad.data, Qhypervisc_div.data,
                                     Q.data, auxstate.data,
                                     grid.vgeo, grid.ω, grid.D,
                                     topology.realelems, t))
-    
+
     communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_div)
 
     @launch(device, threads=Nfp, blocks=nrealelem,
@@ -147,7 +147,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                                 Q.data, auxstate.data,
                                 grid.vgeo, grid.sgeo, grid.vmap⁻, grid.vmap⁺,
                                 grid.elemtobndy, topology.realelems, t))
-    
+
     communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
   end
 

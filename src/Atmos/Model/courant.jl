@@ -47,7 +47,7 @@ function diffusive_courant(m::BalanceLaw, state::Vars, aux::Vars, diffusive::Var
     ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, 0)
     FT = eltype(state)
 
-    if ν isa Real    
+    if ν isa Real
         return Δt * ν / (Δx*Δx)
     else
         k̂ = vertical_unit_vector(m.orientation, aux)

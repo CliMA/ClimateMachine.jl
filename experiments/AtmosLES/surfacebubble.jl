@@ -7,6 +7,7 @@ using LinearAlgebra
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.ConfigTypes
 using CLIMA.GenericCallbacks
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.ODESolvers
@@ -153,17 +154,17 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
   imex_solver = CLIMA.DefaultSolverType()
   explicit_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
 
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          turbulence=SmagorinskyLilly{FT}(C_smag),
                          source=(Gravity(),),
                          boundarycondition=bc,
                          moisture=EquilMoist{FT}(),
                          init_state=init_surfacebubble!)
-  config = CLIMA.Atmos_LES_Configuration("SurfaceDrivenBubble",
-                                   N, resolution, xmax, ymax, zmax,
-                                   init_surfacebubble!,
-                                   solver_type=explicit_solver,
-                                   model=model)
+  config = CLIMA.AtmosLESConfiguration("SurfaceDrivenBubble",
+                                       N, resolution, xmax, ymax, zmax,
+                                       init_surfacebubble!,
+                                       solver_type=explicit_solver,
+                                       model=model)
   return config
 end
 

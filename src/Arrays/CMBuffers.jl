@@ -112,7 +112,7 @@ unregister(x) = nothing
     copybuffer!(A, B; async=true)
 
 Copy a buffer from device to host or vice-versa. Internally this uses
-`cudaMemcpyAsync` on the `CuDefaultStream`. The keyword argument 
+`cudaMemcpyAsync` on the `CuDefaultStream`. The keyword argument
 `async` determines whether it is asynchronous with regard to the host.
 """
 function copybuffer! end

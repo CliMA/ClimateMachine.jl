@@ -1,4 +1,5 @@
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
@@ -17,8 +18,7 @@ using CLIMA.Atmos: AtmosModel,
                    NoOrientation,
                    NoReferenceState, ReferenceState,
                    DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
-                   ConstantViscosityWithDivergence, vars_state,
-                   AtmosLESConfiguration
+                   ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
@@ -103,7 +103,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          orientation=NoOrientation(),
                            ref_state=IsentropicVortexReferenceState{FT}(setup),
                           turbulence=ConstantViscosityWithDivergence(FT(0)),

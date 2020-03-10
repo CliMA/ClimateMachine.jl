@@ -3,6 +3,7 @@ module CLIMA
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))
 include(joinpath("Utilities", "ParametersType", "ParametersType.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))
+include(joinpath("Common", "ConfigTypes", "ConfigTypes.jl"))
 include(joinpath("Common", "PlanetParameters", "UniversalConstants.jl"))
 include(joinpath("Common", "PlanetParameters", "PlanetaryConstants.jl"))
 include(joinpath("Common", "PlanetParameters", "PlanetParameters.jl"))

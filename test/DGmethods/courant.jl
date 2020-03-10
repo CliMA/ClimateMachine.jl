@@ -1,6 +1,7 @@
 using Test
 using MPI
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.VTK
@@ -88,7 +89,7 @@ let
                                                         DeviceArray = ArrayType,
                                                         polynomialorder = N)
 
-                model = AtmosModel{FT}(AtmosLESConfiguration;
+                model = AtmosModel{FT}(AtmosLESConfigType;
                                        ref_state=NoReferenceState(),
                                        turbulence=ConstantViscosityWithDivergence(μ),
                                        moisture=DryModel(),

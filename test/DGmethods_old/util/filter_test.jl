@@ -93,7 +93,7 @@ let
              ll == "ERROR" ? Logging.Error : Logging.Info
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
-  
+
   numelem = (1, 1, 1)
   lvls = 1
 

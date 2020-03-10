@@ -15,8 +15,8 @@ function config_simple_box(FT, N, resolution, dimensions)
   cʰ = sqrt(grav * prob.H) # m/s
   model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
 
-  config = CLIMA.Ocean_BoxGCM_Configuration("ocean_gyre",
-                                            N, resolution, model)
+  config = CLIMA.OceanBoxGCMConfiguration("ocean_gyre",
+                                          N, resolution, model)
 
   return config
 end
@@ -48,7 +48,7 @@ function main(;imex::Bool = false)
   else
     solver_type = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
   end
-    
+
   driver_config = config_simple_box(FT, N, resolution, dimensions)
 
   grid = driver_config.grid

@@ -95,7 +95,7 @@ function atmos_boundary_state!(::NumericalFluxDiffusive, bc::NoFluxBC,
   FT = eltype(state⁻)
   state⁺.ρ = state⁻.ρ
   state⁺.ρu -= dot(state⁻.ρu, n⁻) * SVector(n⁻)
-  
+
   fill!(getfield(diff⁺, :array), FT(0))
 end
 

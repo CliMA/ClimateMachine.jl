@@ -8,23 +8,32 @@ using Printf
 using Requires
 
 using ..Atmos
-using ..VTK
 using ..ColumnwiseLUSolver
+using ..ConfigTypes
 using ..Diagnostics
+using ..DGmethods
+using ..DGmethods: vars_state, vars_aux, update_aux!
+using ..DGmethods.NumericalFluxes
 using ..GenericCallbacks
-using ..ODESolvers
+using ..HydrostaticBoussinesq
+using ..Mesh.Grids
+using ..Mesh.Topologies
 using ..MoistThermodynamics
 using ..MPIStateArrays
-using ..DGmethods: vars_state, vars_aux, update_aux!, update_aux_diffusive!
+using ..ODESolvers
+using ..PlanetParameters
 using ..TicToc
 using ..VariableTemplates
+using ..VTK
 
+# Note that the initial values specified here are overwritten by the
+# command line argument defaults in `parse_commandline()`.
 Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
     mpi_knows_cuda::Bool = false
     show_updates::Bool = true
     update_interval::Int = 60
-    enable_diagnostics::Bool = true
+    enable_diagnostics::Bool = false
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
@@ -37,8 +46,6 @@ end
 const Settings = CLIMA_Settings(array_type = Array)
 
 array_type() = Settings.array_type
-
-include("Configurations.jl")
 
 const cuarray_pkgid = Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 
@@ -93,8 +100,8 @@ function parse_commandline()
             help = "interval in seconds for showing simulation updates"
             arg_type = Int
             default = 60
-        "--disable-diagnostics"
-            help = "disable the collection of diagnostics to <output-dir>"
+        "--enable-diagnostics"
+            help = "enable the collection of diagnostics to <output-dir>"
             action = :store_true
         "--diagnostics-interval"
             help = "interval in simulation steps for gathering diagnostics"
@@ -147,7 +154,7 @@ function init(; disable_gpu=false)
         Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
         Settings.show_updates = !parsed_args["no-show-updates"]
         Settings.update_interval = parsed_args["update-interval"]
-        Settings.enable_diagnostics = !parsed_args["disable-diagnostics"]
+        Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
         Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
@@ -183,115 +190,8 @@ function init(; disable_gpu=false)
     return nothing
 end
 
-"""
-    CLIMA.SolverConfiguration
-
-Parameters needed by `CLIMA.solve!()` to run a simulation.
-"""
-struct SolverConfiguration{FT}
-    name::String
-    mpicomm::MPI.Comm
-    dg::DGModel
-    Q::MPIStateArray
-    t0::FT
-    timeend::FT
-    dt::FT
-    init_on_cpu::Bool
-    numberofsteps::Int
-    init_args
-    solver
-end
-
-"""
-    DGmethods.courant(local_cfl, solver_config::SolverConfiguration;
-                      Q=solver_config.Q, dt=solver_config.dt)
-
-Returns the maximum of the evaluation of the function `local_courant`
-pointwise throughout the domain with the model defined by `solver_config`. The
-keyword arguments `Q` and `dt` can be used to call the courant method with a
-different state `Q` or time step `dt` than are defined in `solver_config`.
-"""
-DGmethods.courant(f, sc::SolverConfiguration; Q=sc.Q, dt = sc.dt) =
-  DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt)
-
-"""
-    CLIMA.setup_solver(t0, timeend, driver_config)
-
-Set up the DG model per the specified driver configuration and set up the ODE solver.
-"""
-function setup_solver(t0::FT, timeend::FT,
-                      driver_config::DriverConfiguration,
-                      init_args...;
-                      init_on_cpu=false,
-                      ode_solver_type=nothing,
-                      ode_dt=nothing,
-                      modeldata=nothing,
-                      Courant_number=0.4,
-                      diffdir=EveryDirection(),
-                     ) where {FT<:AbstractFloat}
-    @tic setup_solver
-
-    bl = driver_config.bl
-    grid = driver_config.grid
-    numfluxnondiff = driver_config.numfluxnondiff
-    numfluxdiff = driver_config.numfluxdiff
-    gradnumflux = driver_config.gradnumflux
-
-    # create DG model, initialize ODE state
-    dg = DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                 modeldata=modeldata,
-                 diffusion_direction=diffdir)
-    @info @sprintf("Initializing %s", driver_config.name)
-    Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu=init_on_cpu)
-
-    # TODO: using `update_aux!()` to apply filters to the state variables and
-    # `update_aux_diffusive!()` to calculate the vertical component of velocity
-    # using the integral kernels -- these should have their own interface
-    update_aux!(dg, bl, Q, FT(0))
-    update_aux_diffusive!(dg, bl, Q, FT(0))
-
-    # if solver has been specified, use it
-    if ode_solver_type !== nothing
-        solver_type = ode_solver_type
-    else
-        solver_type = driver_config.solver_type
-    end
-
-    # create the linear model for IMEX solvers
-    linmodel = nothing
-    if isa(solver_type, ExplicitSolverType)
-        dtmodel = bl
-    else # solver_type === IMEXSolverType
-        linmodel = solver_type.linear_model(bl)
-        dtmodel = linmodel
-    end
-
-    # initial Δt specified or computed
-    if ode_dt !== nothing
-        dt = ode_dt
-    else
-        dt = calculate_dt(grid, dtmodel, Courant_number)
-    end
-    numberofsteps = convert(Int, cld(timeend, dt))
-    dt = timeend / numberofsteps
-
-    # create the solver
-    if isa(solver_type, ExplicitSolverType)
-        solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
-    else # solver_type === IMEXSolverType
-        vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                      auxstate=dg.auxstate, direction=VerticalDirection())
-
-        solver = solver_type.solver_method(dg, vdg, solver_type.linear_solver(), Q;
-                                           dt=dt, t0=t0)
-    end
-
-    @toc setup_solver
-
-    return SolverConfiguration(driver_config.name, driver_config.mpicomm, dg, Q,
-                               t0, timeend, dt, init_on_cpu, numberofsteps,
-                               init_args, solver)
-end
+include("driver_configs.jl")
+include("solver_configs.jl")
 
 """
     CLIMA.invoke!(solver_config::SolverConfiguration;

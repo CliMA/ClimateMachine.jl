@@ -1,20 +1,13 @@
-"""
-    CLIMA driver configurations
+# CLIMA driver configurations
+#
+# Contains helper functions to establish simulation configurations to be
+# used with the CLIMA driver. Currently:
+# - AtmosLESConfiguration
+# - AtmosGCMConfiguration
+# - OceanBoxGCMConfiguration
+#
+# User-customized configurations can use these as templates.
 
-Use to run CLIMA using the CLIMA driver's `CLIMA.invoke()`. User-customized
-configurations can use these as templates.
-"""
-
-using MPI
-
-using ..Atmos
-using ..HydrostaticBoussinesq
-using ..DGmethods
-using ..DGmethods.NumericalFluxes
-using ..Mesh.Topologies
-using ..Mesh.Grids
-using ..ODESolvers
-using ..PlanetParameters
 
 abstract type AbstractSolverType end
 struct ExplicitSolverType <: AbstractSolverType
@@ -25,6 +18,7 @@ struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     solver_method::Function
+    # FIXME: this is Atmos-specific
     function IMEXSolverType(;linear_model=AtmosAcousticGravityLinearModel,
                             linear_solver=ManyColumnLU,
                             solver_method=ARK2GiraldoKellyConstantinescu)
@@ -33,7 +27,26 @@ struct IMEXSolverType <: AbstractSolverType
 end
 DefaultSolverType = IMEXSolverType
 
+abstract type ConfigSpecificInfo end
+struct AtmosLESSpecificInfo <: ConfigSpecificInfo
+    brickrange::Tuple
+end
+struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
+    domain_height::FT
+    nelem_vert::Int
+    nelem_horz::Int
+end
+struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo
+end
+
+"""
+    CLIMA.DriverConfiguration
+
+Collects all parameters necessary to set up a CLIMA simulation.
+"""
 struct DriverConfiguration{FT}
+    config_type::CLIMAConfigType
+
     name::String
     N::Int
     array_type
@@ -52,21 +65,27 @@ struct DriverConfiguration{FT}
     numfluxnondiff::NumericalFluxNonDiffusive
     numfluxdiff::NumericalFluxDiffusive
     gradnumflux::NumericalFluxGradient
+    #
+    # configuration-specific info
+    config_info::ConfigSpecificInfo
 
-    function DriverConfiguration(name::String, N::Int, FT, array_type,
+    function DriverConfiguration(config_type,
+                                 name::String, N::Int, FT, array_type,
                                  solver_type::AbstractSolverType,
                                  bl::BalanceLaw,
                                  mpicomm::MPI.Comm,
                                  grid::DiscontinuousSpectralElementGrid,
                                  numfluxnondiff::NumericalFluxNonDiffusive,
                                  numfluxdiff::NumericalFluxDiffusive,
-                                 gradnumflux::NumericalFluxGradient)
-        return new{FT}(name, N, array_type, solver_type, bl, mpicomm, grid,
-                       numfluxnondiff, numfluxdiff, gradnumflux)
+                                 gradnumflux::NumericalFluxGradient,
+                                 config_info::ConfigSpecificInfo)
+        return new{FT}(config_type, name, N, array_type, solver_type, bl,
+                       mpicomm, grid, numfluxnondiff, numfluxdiff, gradnumflux,
+                       config_info)
     end
 end
 
-function Atmos_LES_Configuration(
+function AtmosLESConfiguration(
         name::String,
         N::Int,
         (Δx, Δy, Δz)::NTuple{3,FT},
@@ -77,7 +96,7 @@ function Atmos_LES_Configuration(
         zmin           = 0,
         array_type     = CLIMA.array_type(),
         solver_type    = IMEXSolverType(linear_solver=SingleColumnLU),
-        model          = AtmosModel{FT}(AtmosLESConfiguration;
+        model          = AtmosModel{FT}(AtmosLESConfigType;
                                         init_state=init_LES!),
         mpicomm        = MPI.COMM_WORLD,
         boundary       = ((0,0), (0,0), (1,2)),
@@ -112,12 +131,13 @@ function Atmos_LES_Configuration(
                                             polynomialorder=N,
                                             meshwarp=meshwarp)
 
-    return DriverConfiguration(name, N, FT, array_type, solver_type, model,
-                               mpicomm, grid, numfluxnondiff, numfluxdiff,
-                               gradnumflux)
+    return DriverConfiguration(AtmosLESConfigType(), name, N, FT, array_type,
+                               solver_type, model, mpicomm, grid,
+                               numfluxnondiff, numfluxdiff, gradnumflux,
+                               AtmosLESSpecificInfo(brickrange))
 end
 
-function Atmos_GCM_Configuration(
+function AtmosGCMConfiguration(
         name::String,
         N::Int,
         (nelem_horz, nelem_vert)::NTuple{2,Int},
@@ -125,8 +145,8 @@ function Atmos_GCM_Configuration(
         init_GCM!;
         array_type         = CLIMA.array_type(),
         solver_type        = DefaultSolverType(),
-        model              = AtmosModel{FT}(AtmosGCMConfiguration;
-                                             init_state=init_GCM!),
+        model              = AtmosModel{FT}(AtmosGCMConfigType;
+                                            init_state=init_GCM!),
         mpicomm            = MPI.COMM_WORLD,
         meshwarp::Function = cubedshellwarp,
         numfluxnondiff     = Rusanov(),
@@ -154,12 +174,13 @@ function Atmos_GCM_Configuration(
                                             polynomialorder=N,
                                             meshwarp=meshwarp)
 
-    return DriverConfiguration(name, N, FT, array_type, solver_type, model,
-                               mpicomm, grid, numfluxnondiff, numfluxdiff,
-                               gradnumflux)
+    return DriverConfiguration(AtmosGCMConfigType(), name, N, FT, array_type,
+                               solver_type, model, mpicomm, grid,
+                               numfluxnondiff, numfluxdiff, gradnumflux,
+                               AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz))
 end
 
-function Ocean_BoxGCM_Configuration(
+function OceanBoxGCMConfiguration(
     name::String,
     N::Int,
     (Nˣ, Nʸ, Nᶻ)::NTuple{3,Int},
@@ -188,7 +209,8 @@ function Ocean_BoxGCM_Configuration(
                                             DeviceArray = array_type,
                                             polynomialorder = N)
 
-    return DriverConfiguration(name, N, FT, array_type, solver_type, model,
-                               mpicomm, grid, numfluxnondiff, numfluxdiff,
-                               gradnumflux)
+    return DriverConfiguration(OceanBoxGCMConfigType(), name, N, FT, array_type,
+                               solver_type, model, mpicomm, grid,
+                               numfluxnondiff, numfluxdiff, gradnumflux,
+                               OceanBoxGCMSpecificInfo())
 end

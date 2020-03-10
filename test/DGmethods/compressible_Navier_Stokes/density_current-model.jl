@@ -2,6 +2,7 @@
 # Load Packages
 using MPI
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
@@ -105,7 +106,7 @@ function run(mpicomm, ArrayType,
                                            )
   # -------------- Define model ---------------------------------- #
   source = Gravity()
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          ref_state=HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0)),
                         turbulence=AnisoMinDiss{FT}(1),
                             source=source,

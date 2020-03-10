@@ -7,6 +7,7 @@ using Printf
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.ConfigTypes
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
@@ -169,18 +170,18 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
                                                             FT(T_bot - T_lapse*zmax))
 
     # Set up the model
-    model = AtmosModel{FT}(AtmosLESConfiguration;
+    model = AtmosModel{FT}(AtmosLESConfigType;
                            turbulence=SmagorinskyLilly{FT}(C_smag),
                                source=(Gravity(),),
                     boundarycondition=bc,
                            init_state=init_problem!,
                            data_config=data_config)
     ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
-    config = CLIMA.Atmos_LES_Configuration("DryRayleighBenardConvection",
-                                           N, resolution, xmax, ymax, zmax,
-                                           init_problem!,
-                                           solver_type=ode_solver,
-                                           model=model)
+    config = CLIMA.AtmosLESConfiguration("DryRayleighBenardConvection",
+                                         N, resolution, xmax, ymax, zmax,
+                                         init_problem!,
+                                         solver_type=ode_solver,
+                                         model=model)
     return config
 end
 

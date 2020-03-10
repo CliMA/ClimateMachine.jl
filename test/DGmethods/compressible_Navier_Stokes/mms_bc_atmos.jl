@@ -1,5 +1,6 @@
 using MPI
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
@@ -99,7 +100,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                                          )
 
   if dim == 2
-    model = AtmosModel{FT}(AtmosLESConfiguration;
+    model = AtmosModel{FT}(AtmosLESConfigType;
                            orientation=NoOrientation(),
                               ref_state=NoReferenceState(),
                              turbulence=ConstantViscosityWithDivergence(FT(μ_exact)),
@@ -108,7 +109,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                       boundarycondition=InitStateBC(),
                              init_state=mms2_init_state!)
   else
-    model = AtmosModel{FT}(AtmosLESConfiguration;
+    model = AtmosModel{FT}(AtmosLESConfigType;
                             orientation=NoOrientation(),
                               ref_state=NoReferenceState(),
                              turbulence=ConstantViscosityWithDivergence(FT(μ_exact)),
