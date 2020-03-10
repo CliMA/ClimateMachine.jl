@@ -8,15 +8,16 @@ using CLIMA.Mesh.Filters
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 using CLIMA.Mesh.Grids: polynomialorder
+import CLIMA.DGmethods: vars_state
 
 function config_simple_box(FT, N, resolution, dimensions)
-  prob = OceanGyre{FT}(dimensions...)
+  prob = HomogeneousBox{FT}(dimensions...)
 
   cʰ = sqrt(grav * prob.H) # m/s
   model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
 
-  config = CLIMA.OceanBoxGCMConfiguration("ocean_gyre",
-                                          N, resolution, model)
+  config = CLIMA.OceanBoxGCMConfiguration("homogeneous_box",
+                                            N, resolution, model)
 
   return config
 end
@@ -30,18 +31,18 @@ function main(;imex::Bool = false)
   N = Int(4)
 
   # Domain resolution and size
-  Nˣ = Int(20)
-  Nʸ = Int(20)
-  Nᶻ = Int(20)
+  Nˣ = Int(4)
+  Nʸ = Int(4)
+  Nᶻ = Int(4)
   resolution = (Nˣ, Nʸ, Nᶻ)
 
-  Lˣ = 4e6    # m
-  Lʸ = 4e6    # m
-  H  = 1000   # m
+  Lˣ = 4e6   # m
+  Lʸ = 4e6   # m
+  H  = 400   # m
   dimensions = (Lˣ, Lʸ, H)
 
   timestart = FT(0)    # s
-  timeend   = FT(30 * 86400) # s
+  timeend   = FT(3600) # s
 
   if imex
     solver_type = CLIMA.IMEXSolverType(linear_model=LinearHBModel)
@@ -59,10 +60,18 @@ function main(;imex::Bool = false)
   solver_config = CLIMA.setup_solver(timestart, timeend, driver_config,
                                      init_on_cpu=true,
                                      ode_solver_type=solver_type,
+                                     ode_dt = 60,
                                      modeldata=modeldata)
 
   result = CLIMA.invoke!(solver_config)
 
+  maxQ = Vars{vars_state(driver_config.bl, FT)}(maximum(solver_config.Q, dims=(1,3)))
+  minQ = Vars{vars_state(driver_config.bl, FT)}(minimum(solver_config.Q, dims=(1,3)))
+
+  @test maxQ.θ ≈ minQ.θ
 end
 
-main(imex=false)
+@testset "$(@__FILE__)" begin
+  main(imex=false)
+  main(imex=true)
+end

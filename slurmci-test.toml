@@ -48,8 +48,6 @@ gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "test/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
-  { file = "test/Ocean/Hydrostatic_Boussinesq/test_divergence_free.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "test/Ocean/Hydrostatic_Boussinesq/test_divergence_free_IMEX.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/Atmos/dry_rayleigh_benard.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/AtmosGCM/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/AtmosLES/risingbubble.jl", slurmargs = ["--ntasks=3"], args = [] },
