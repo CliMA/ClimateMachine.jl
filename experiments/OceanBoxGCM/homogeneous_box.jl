@@ -47,8 +47,10 @@ function main(;imex::Bool = false)
   if imex
     solver_type = CLIMA.IMEXSolverType(linear_model=LinearHBModel)
     Nᶻ = Int(400)
+    Courant_number = 0.1
   else
     solver_type = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
+    Courant_number = 0.4
   end
 
   driver_config = config_simple_box(FT, N, resolution, dimensions)
@@ -61,7 +63,8 @@ function main(;imex::Bool = false)
   solver_config = CLIMA.setup_solver(timestart, timeend, driver_config,
                                      init_on_cpu=true,
                                      ode_solver_type=solver_type,
-                                     modeldata=modeldata)
+                                     modeldata=modeldata,
+                                     Courant_number=Courant_number)
 
   result = CLIMA.invoke!(solver_config)
 

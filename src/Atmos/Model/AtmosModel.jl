@@ -20,7 +20,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         flux_diffusive!, source!, wavespeed, boundary_state!,
                         gradvariables!, diffusive!, init_aux!, init_state!,
                         update_aux!, LocalGeometry, lengthscale,
-                        resolutionmetric, DGModel, calculate_dt,
+                        resolutionmetric, DGModel,
                         nodal_update_aux!, num_state,
                         num_integrals,
                         vars_integrals, vars_reverse_integrals,
@@ -34,6 +34,7 @@ import ..DGmethods.NumericalFluxes: boundary_state!,
                                     NumericalFluxNonDiffusive,
                                     NumericalFluxGradient,
                                     NumericalFluxDiffusive
+import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
 """
     AtmosModel <: BalanceLaw
@@ -58,11 +59,6 @@ struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS,DC} <: BalanceLaw
   boundarycondition::BC
   init_state::IS
   data_config::DC
-end
-
-function calculate_dt(grid, model::AtmosModel, Courant_number)
-    T = 290.0
-    return Courant_number * min_node_distance(grid, VerticalDirection()) / soundspeed_air(T)
 end
 
 function AtmosModel{FT}(::Type{AtmosLESConfigType};
@@ -193,6 +189,7 @@ include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
 include("remainder.jl")
+include("courant.jl")
 
 """
     flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,

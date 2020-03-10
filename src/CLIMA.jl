@@ -17,6 +17,7 @@ include(joinpath("Atmos", "Parameterizations", "TurbulenceConvection", "Turbulen
 include(joinpath("Atmos", "Parameterizations", "SubgridScaleTurbulence", "SubgridScaleParameters.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Mesh", "Mesh.jl"))
+include(joinpath("DGmethods", "Courant.jl"))
 include(joinpath("DGmethods", "SpaceMethods.jl"))
 include(joinpath("DGmethods", "DGmethods.jl"))
 include(joinpath("Ocean", "ShallowWater", "ShallowWaterModel.jl"))
@@ -33,6 +34,5 @@ include(joinpath("Atmos", "Model", "AtmosModel.jl"))
 include(joinpath("InputOutput", "VTK", "VTK.jl"))
 include(joinpath("Diagnostics", "Diagnostics.jl"))
 include(joinpath("Driver", "Driver.jl"))
-include(joinpath("Atmos", "Model", "courant.jl"))
 
 end

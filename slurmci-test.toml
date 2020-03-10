@@ -48,10 +48,10 @@ gpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "test/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
-  { file = "examples/Atmos/dry_rayleigh_benard.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "examples/Atmos/dry_rayleigh_benard.jl", slurmargs = ["--ntasks=3", "--time=01:30:00"], args = [] },
   { file = "experiments/AtmosGCM/heldsuarez.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/AtmosLES/risingbubble.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "experiments/AtmosLES/surfacebubble.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "experiments/AtmosLES/surfacebubble.jl", slurmargs = ["--ntasks=3", "--time=01:30:00"], args = [] },
   { file = "experiments/AtmosLES/dycoms.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/OceanBoxGCM/homogeneous_box.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]

@@ -37,6 +37,8 @@ Base.@kwdef mutable struct CLIMA_Settings
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
+    monitor_courant_numbers::Bool = false
+    monitor_courant_interval::Int = 10
     log_level::String = "INFO"
     output_dir::String = "output"
     integration_testing::Bool = false
@@ -114,6 +116,13 @@ function parse_commandline()
             help = "interval in simulation steps for VTK output"
             arg_type = Int
             default = 10000
+        "--monitor-courant-numbers"
+            help = "output acoustic, advective, and diffusive Courant numbers"
+            action = :store_true
+        "--monitor-courant-interval"
+            help = "interval in Courant number calculations"
+            arg_type = Int
+            default = 10
         "--log-level"
             help = "set the log level to one of debug/info/warn/error"
             arg_type = String
@@ -159,6 +168,8 @@ function init(; disable_gpu=false)
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
         Settings.output_dir = parsed_args["output-dir"]
+        Settings.monitor_courant_numbers = parsed_args["monitor-courant-numbers"]
+        Settings.monitor_courant_interval = parsed_args["monitor-courant-interval"]
         Settings.integration_testing = parsed_args["integration-testing"]
         Settings.log_level = uppercase(parsed_args["log-level"])
     catch
@@ -304,6 +315,43 @@ function invoke!(solver_config::SolverConfiguration;
             nothing
         end
         callbacks = (callbacks..., cbvtk)
+    end
+    if Settings.monitor_courant_numbers
+        # set up the callback for Courant number calculations
+        cbcfl = GenericCallbacks.EveryXSimulationSteps(Settings.monitor_courant_interval) do (init=false)
+            simtime = ODESolvers.gettime(solver)
+            Δt = solver_config.dt
+            c_v = DGmethods.courant(nondiffusive_courant, solver_config;
+                                    direction=VerticalDirection())
+            c_h = DGmethods.courant(nondiffusive_courant, solver_config;
+                                    direction=HorizontalDirection())
+            ca_v = DGmethods.courant(advective_courant, solver_config;
+                                     direction=VerticalDirection())
+            ca_h = DGmethods.courant(advective_courant, solver_config;
+                                     direction=HorizontalDirection())
+            cd_v = DGmethods.courant(diffusive_courant, solver_config;
+                                     direction=VerticalDirection())
+            cd_h = DGmethods.courant(diffusive_courant, solver_config;
+                                     direction=HorizontalDirection())
+            @info @sprintf """
+            ================================================
+            Courant numbers at simtime: %8.2f
+            Δt = %8.2f s
+
+            ------------------------------------------------
+            Acoustic (vertical) Courant number    = %.2g
+            Acoustic (horizontal) Courant number  = %.2g
+            ------------------------------------------------
+            Advection (vertical) Courant number   = %.2g
+            Advection (horizontal) Courant number = %.2g
+            ------------------------------------------------
+            Diffusion (vertical) Courant number   = %.2g
+            Diffusion (horizontal) Courant number = %.2g
+            ================================================
+            """  simtime Δt c_v c_h ca_v ca_h cd_v cd_h
+            return nothing
+        end
+        callbacks = (callbacks..., cbcfl)
     end
 
     callbacks = (callbacks..., user_callbacks...)

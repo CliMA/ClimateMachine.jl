@@ -9,8 +9,12 @@ end
 function atmos_source!(::Nothing, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 end
 # sources are applied additively
-function atmos_source!(stuple::Tuple, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  map(s -> atmos_source!(s, atmos, source, state, diffusive, aux, t), stuple)
+@generated function atmos_source!(stuple::Tuple, atmos::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  N = fieldcount(stuple)
+  return quote
+    Base.Cartesian.@nexprs $N i -> atmos_source!(stuple[i], atmos, source, state, diffusive, aux, t)
+    return nothing
+  end
 end
 
 abstract type Source

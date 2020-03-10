@@ -20,22 +20,28 @@ struct LinearHBModel{M} <: BalanceLaw
 end
 
 """
-    calculate_dt(grid, model::HBModel)
+    calculate_dt(dg, bl::LinearHBModel, Q, Courant_number,
+                 direction::EveryDirection)
 
 calculates the time step based on grid spacing and model parameters
 takes minimum of gravity wave, diffusive, and viscous CFL
 
 """
-function calculate_dt(grid, model::LinearHBModel, Courant_number)
-    minΔx = min_node_distance(grid, HorizontalDirection())
 
-    CFL_gravity = minΔx / model.ocean.cʰ
-    CFL_diffusive = minΔx^2 / model.ocean.κʰ
-    CFL_viscous = minΔx^2 / model.ocean.νʰ
+function calculate_dt(dg, model::LinearHBModel, Q, Courant_number,
+                      ::EveryDirection)
+  Δt = one(eltype(Q))
+  ocean = model.ocean
 
-    dt = 1//10 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
+  CFL_advective = courant(advective_courant, dg, ocean, Q, Δt, VerticalDirection())
+  CFL_gravity = courant(nondiffusive_courant, dg, ocean, Q, Δt, HorizontalDirection())
+  CFL_viscous = courant(viscous_courant, dg, ocean, Q, Δt, HorizontalDirection())
+  CFL_diffusive = courant(diffusive_courant, dg, ocean, Q, Δt, HorizontalDirection())
 
-    return dt
+  CFL = maximum([CFL_advective, CFL_gravity, CFL_viscous, CFL_diffusive])
+  dt = Courant_number / CFL
+
+  return dt
 end
 
 """
