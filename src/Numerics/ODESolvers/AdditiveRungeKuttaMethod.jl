@@ -1046,3 +1046,83 @@ function ARK437L2SA1KennedyCarpenter(
         t0 = t0,
     )
 end
+
+
+function  DBM453VoglEtAl(
+    F,
+    L,
+    backward_euler_solver,
+    Q::AT;
+    dt = nothing,
+    t0 = 0,
+    split_explicit_implicit = false,
+    variant = LowStorageVariant(),
+  )
+  @assert dt != nothing
+
+  T = eltype(Q)
+  RT = real(T)
+
+  Nstages = 5
+  gamma = RT(0.32591194130117247)
+
+  # declared as Arrays for mutability, later these will be converted to static arrays
+  RKA_explicit = zeros(RT, Nstages, Nstages)
+  RKA_implicit = zeros(RT, Nstages, Nstages)
+  RKB = zeros(RT, Nstages)
+  RKC = zeros(RT, Nstages)
+
+  # the main diagonal
+  for is = 2:Nstages
+    RKA_implicit[is, is] = gamma
+  end
+  
+  RKA_implicit[2, 1] = -0.22284985318525410
+  RKA_implicit[3, 1] = -0.46801347074080545
+  RKA_implicit[3, 2] =  0.86349284225716961
+  RKA_implicit[4, 1] = -0.46509906651927421
+  RKA_implicit[4, 2] =  0.81063103116959553
+  RKA_implicit[4, 3] =  0.61036726756832357
+  RKA_implicit[5, 1] =  0.87795339639076675
+  RKA_implicit[5, 2] = -0.72692641526151547
+  RKA_implicit[5, 3] =  0.75204137157372720
+  RKA_implicit[5, 4] = -0.22898029400415088
+
+  RKA_explicit[2, 1] =  0.10306208811591838
+  RKA_explicit[3, 1] = -0.94124866143519894
+  RKA_explicit[3, 2] =  1.66263997425273560
+  RKA_explicit[4, 1] = -1.36709752014377650
+  RKA_explicit[4, 2] =  1.38158529110168730
+  RKA_explicit[4, 3] =  1.26732340256190650
+  RKA_explicit[5, 1] = -0.81287582068772448
+  RKA_explicit[5, 2] =  0.81223739060505738
+  RKA_explicit[5, 3] =  0.90644429603699305
+  RKA_explicit[5, 4] =  0.094194134045674111
+
+  RKB[1] =  0.87795339639076672
+  RKB[2] = -0.72692641526151549
+  RKB[3] =  0.7520413715737272
+  RKB[4] = -0.22898029400415090
+  RKB[5] =  0.32591194130117247
+  
+  RKC[1] = 0
+  RKC[2] = 0.1030620881159184
+  RKC[3] = 0.72139131281753662
+  RKC[4] = 1.28181117351981733
+  RKC[5] = 1
+
+  ark = AdditiveRungeKutta(
+      F,
+      L,
+      backward_euler_solver,
+      RKA_explicit,
+      RKA_implicit,
+      RKB,
+      RKC,
+      split_explicit_implicit,
+      variant,
+      Q;
+      dt = dt,
+      t0 = t0,
+  )
+end
