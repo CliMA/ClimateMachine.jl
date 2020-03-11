@@ -10,6 +10,7 @@ using Requires
 using ..Atmos
 using ..ColumnwiseLUSolver
 using ..ConfigTypes
+using ..Courant
 using ..Diagnostics
 using ..DGmethods
 using ..DGmethods: vars_state, vars_aux, update_aux!
