@@ -29,8 +29,6 @@ include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 #               `C_smag`
 # 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
-
-
 function init_risingbubble!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
     R_gas::FT = R_d
@@ -76,8 +74,12 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     bc = NoFluxBC()
 
     # Choose explicit solver
-    ode_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+    ode_solver = CLIMA.MultirateSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 10,
+    )
 
     # Set up the model
     C_smag = FT(0.23)
@@ -126,9 +128,17 @@ function main()
     t0 = FT(0)
     timeend = FT(1000)
 
+    # Courant number
+    CFL = FT(20)
+
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config =
-        CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu = true)
+    solver_config = CLIMA.setup_solver(
+        t0,
+        timeend,
+        driver_config,
+        init_on_cpu = true,
+        Courant_number = CFL,
+    )
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
