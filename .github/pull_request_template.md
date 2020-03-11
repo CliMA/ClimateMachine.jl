@@ -18,5 +18,5 @@ A clear and concise description of the code with usage.
 
 - [ ] There are no open pull requests for this already
 - [ ] CLIMA developers with relevant expertise have been assigned to review this submission
-- [ ] The code conforms to the [style guidelines](https://climate-machine.github.io/CLIMA/latest/CodingConventions.html) and has consistent naming conventions
+- [ ] The code conforms to the [style guidelines](https://climate-machine.github.io/CLIMA/latest/CodingConventions.html) and has consistent naming conventions. `julia .dev/format.jl` has been run in a separate commit.
 - [ ] This code does what it is technically intended to do (all numerics make sense physically and/or computationally)
