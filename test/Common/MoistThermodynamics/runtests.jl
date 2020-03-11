@@ -6,15 +6,22 @@ MT = MoistThermodynamics
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
+using CLIMA.Parameters
+
 float_types = [Float32, Float64]
 
+using CLIMA
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+# We will depend on MoistThermodynamics's default Parameters:
+include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
 
 include("testdata.jl")
 
 @testset "moist thermodynamics - isentropic processes" begin
   for FT in [Float64]
   # for FT in float_types
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
     Φ = FT(1)
     Random.seed!(15);
     perturbation = FT(0.1)*rand(length(T))
@@ -114,12 +121,12 @@ end
   # variables E_int, p, q_tot, compute the temperature and partitioning of the phases
   tol_T = 1e-1
   q_tot = FT(0); ρ = FT(1)
-  @test MT.saturation_adjustment_SecantMethod(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) ≈ 300.0
-  @test abs(MT.saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) - 300.0) < tol_T
+  @test MT.saturation_adjustment_SecantMethod(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot, 10, 1e-2) ≈ 300.0
+  @test abs(MT.saturation_adjustment(internal_energy_sat(300.0, ρ, q_tot), ρ, q_tot, 10, 1e-2) - 300.0) < tol_T
 
   q_tot = FT(0.21); ρ = FT(0.1)
-  @test MT.saturation_adjustment_SecantMethod(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) ≈ 200.0
-  @test abs(MT.saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 1e-2, 10) - 200.0) < tol_T
+  @test MT.saturation_adjustment_SecantMethod(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 10, 1e-2) ≈ 200.0
+  @test abs(MT.saturation_adjustment(internal_energy_sat(200.0, ρ, q_tot), ρ, q_tot, 10, 1e-2) - 200.0) < tol_T
   q = PhasePartition_equil(T, ρ, q_tot)
   @test q.tot - q.liq - q.ice ≈ vapor_specific_humidity(q) ≈ q_vap_saturation(T, ρ)
 
@@ -138,23 +145,26 @@ end
   # dry potential temperatures. FIXME: add correctness tests
   T = FT(300); p=FT(1.e5); q_tot=FT(0.23)
   @test dry_pottemp_given_pressure(T, p, PhasePartition(q_tot)) isa typeof(p)
-  @test air_temperature_from_liquid_ice_pottemp_given_pressure(
-    dry_pottemp_given_pressure(T, p, PhasePartition(q_tot)), p, PhasePartition(q_tot)) ≈ T
+  @test air_temperature_from_liquid_ice_pottemp_given_pressure(dry_pottemp_given_pressure(T, p, PhasePartition(q_tot)), p, PhasePartition(q_tot)) ≈ T
 
   # Exner function. FIXME: add correctness tests
   p=FT(1.e5); q_tot=FT(0.23)
   @test exner_given_pressure(p, PhasePartition(q_tot)) isa typeof(p)
 
-  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+
   ts = PhaseEquil.(e_int, ρ, q_tot)
 
-  data_folder = data_folder_moist_thermo()
-  ds_PhaseEquil = Dataset(joinpath(data_folder, "test_data_PhaseEquil.nc"), "r")
-  e_int = Array{FT}(ds_PhaseEquil["e_int"][:])
-  ρ     = Array{FT}(ds_PhaseEquil["ρ"][:])
-  q_tot = Array{FT}(ds_PhaseEquil["q_tot"][:])
+  # TODO: The following is giving an error on windows (file not found)
+  if !Sys.iswindows()
+    data_folder = data_folder_moist_thermo()
+    ds_PhaseEquil = Dataset(joinpath(data_folder, "test_data_PhaseEquil.nc"), "r")
+    e_int = Array{FT}(ds_PhaseEquil["e_int"][:])
+    ρ     = Array{FT}(ds_PhaseEquil["ρ"][:])
+    q_tot = Array{FT}(ds_PhaseEquil["q_tot"][:])
 
-  # ts = PhaseEquil.(e_int, ρ, q_tot) # Fails
+    # ts = PhaseEquil.(e_int, ρ, q_tot) # Fails
+  end
 end
 
 
@@ -164,7 +174,7 @@ end
 
   for FT in float_types
     rtol = FT(1e-2)
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
 
     # PhaseEquil
     ts_exact = PhaseEquil.(e_int, ρ, q_tot, 100, FT(1e-4))
@@ -233,7 +243,7 @@ end
 
   for FT in float_types
     rtol = FT(1e-2)
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
 
     # PhaseDry
     ts = PhaseDry.(e_int, ρ)
@@ -272,7 +282,7 @@ end
     @test all(liquid_ice_pottemp_given_pressure.(T, p, q_pt) .≈ θ_liq_ice)
 
     # Accurate but expensive `LiquidIcePotTempSHumNonEquil` constructor (Non-linear temperature from θ_liq_ice)
-    T_non_linear = air_temperature_from_liquid_ice_pottemp_non_linear.(θ_liq_ice, ρ, FT(1e-3), 10, q_pt)
+    T_non_linear = air_temperature_from_liquid_ice_pottemp_non_linear.(θ_liq_ice, ρ, 10, FT(1e-3), q_pt)
     T_expansion = air_temperature_from_liquid_ice_pottemp.(θ_liq_ice, ρ, q_pt)
     @test all(isapprox.(T_non_linear, T_expansion, rtol=rtol))
     e_int_ = internal_energy.(T_non_linear, q_pt)
@@ -322,7 +332,7 @@ end
   # NOTE: `Float32` saturation adjustment tends to have more difficulty
   # with converging to the same tolerances as `Float64`, so they're relaxed here.
   FT = Float32
-  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
 
   ρu = FT[1.0, 2.0, 3.0]
   e_pot = FT(100.0)
@@ -339,9 +349,9 @@ end
   ts_θ_liq_ice_neq_p = LiquidIcePotTempSHumNonEquil_given_pressure.(θ_liq_ice, p, q_pt)
 
   for ts in (
-    ts_eq,
     ts_dry,
     ts_dry_pT,
+    ts_eq,
     ts_T,
     ts_neq,
     ts_θ_liq_ice_eq,
@@ -382,7 +392,7 @@ end
 @testset "moist thermodynamics - dry limit" begin
 
   FT = Float64
-  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(FT, 50)
+  e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
 
   # PhasePartition test is noisy, so do this only once:
   ts_dry = PhaseDry(first(e_int), first(ρ))

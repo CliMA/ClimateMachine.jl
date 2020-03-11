@@ -17,6 +17,10 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
@@ -43,7 +47,8 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
   RH = 0.01
   model = AtmosModel{FT}(AtmosLESConfigType;
                          ref_state=HydrostaticState(IsothermalProfile(T_s), RH),
-                        init_state=init_state!)
+                        init_state=init_state!,
+                         param_set=ParameterSet{FT}())
 
   dg = DGModel(model,
                grid,
@@ -71,7 +76,8 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
   RH = 0.01
   model = AtmosModel{FT}(AtmosLESConfigType;
                          ref_state=HydrostaticState(LinearTemperatureProfile(T_min, T_s, Γ), RH),
-                         init_state=init_state!)
+                         init_state=init_state!,
+                         param_set=ParameterSet{FT}())
 
   dg = DGModel(model,
                grid,

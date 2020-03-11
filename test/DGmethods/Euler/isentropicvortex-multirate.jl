@@ -22,6 +22,10 @@ using CLIMA.Atmos: AtmosModel,
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 if !@isdefined integration_testing
@@ -110,7 +114,8 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
                             moisture=DryModel(),
                               source=nothing,
                    boundarycondition=PeriodicBC(),
-                          init_state=isentropicvortex_initialcondition!)
+                          init_state=isentropicvortex_initialcondition!,
+                           param_set=ParameterSet{FT}())
   # The linear model has the fast time scales
   fast_model = AtmosAcousticLinearModel(model)
   # The nonlinear model has the slow time scales
@@ -130,7 +135,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems, setup,
   timeend = FT(2 * setup.domain_halflength / setup.translation_speed)
   # determine the slow time step
   elementsize = minimum(step.(brickrange))
-  slow_dt = 8 * elementsize / soundspeed_air(setup.T∞) / polynomialorder ^ 2
+  slow_dt = 8 * elementsize / soundspeed_air(setup.T∞, model.param_set) / polynomialorder ^ 2
   nsteps = ceil(Int, timeend / slow_dt)
   slow_dt = timeend / nsteps
 
@@ -221,7 +226,7 @@ end
 Base.@kwdef struct IsentropicVortexSetup{FT}
   p∞::FT = 10 ^ 5
   T∞::FT = 300
-  ρ∞::FT = air_density(FT(T∞), FT(p∞))
+  ρ∞::FT = air_density(FT(T∞), FT(p∞), ParameterSet{FT}())
   translation_speed::FT = 150
   translation_angle::FT = pi / 4
   vortex_speed::FT = 50
@@ -242,7 +247,7 @@ function atmos_init_aux!(m::IsentropicVortexReferenceState, atmos::AtmosModel, a
   aux.ref_state.ρ = ρ∞
   aux.ref_state.p = p∞
   aux.ref_state.T = T∞
-  aux.ref_state.ρe = ρ∞ * internal_energy(T∞)
+  aux.ref_state.ρe = ρ∞ * internal_energy(T∞, atmos.param_set)
 end
 
 function isentropicvortex_initialcondition!(bl, state, aux, coords, t, setup)
@@ -274,12 +279,12 @@ function isentropicvortex_initialcondition!(bl, state, aux, coords, t, setup)
   T = T∞ * (1 - kappa_d * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
   # adiabatic/isentropic relation
   p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
-  ρ = air_density(T, p)
+  ρ = air_density(T, p, bl.param_set)
 
   state.ρ = ρ
   state.ρu = ρ * u
   e_kin = u' * u / 2
-  state.ρe = ρ * total_energy(e_kin, FT(0), T)
+  state.ρe = ρ * total_energy(e_kin, FT(0), T, bl.param_set)
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model,

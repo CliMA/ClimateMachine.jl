@@ -16,6 +16,10 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 import CLIMA.DGmethods: boundary_state!
 import CLIMA.Atmos: atmos_boundary_state!
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
@@ -138,7 +142,7 @@ function init_problem!(bl, state, aux, (x,y,z), t)
 
   q_tot = FT(0)
   e_pot = gravitational_potential(bl.orientation, aux)
-  ts = TemperatureSHumEquil(T, P, q_tot)
+  ts = TemperatureSHumEquil(T, P, q_tot, bl.param_set)
 
   ρu, ρv, ρw    = FT(0) , FT(0) , ρ * δw
 
@@ -175,7 +179,8 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
                                source=(Gravity(),),
                     boundarycondition=bc,
                            init_state=init_problem!,
-                           data_config=data_config)
+                           data_config=data_config,
+                             param_set=ParameterSet{FT}())
     ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
     config = CLIMA.AtmosLESConfiguration("DryRayleighBenardConvection",
                                          N, resolution, xmax, ymax, zmax,
