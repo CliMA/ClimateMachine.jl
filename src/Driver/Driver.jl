@@ -50,7 +50,8 @@ const Settings = CLIMA_Settings(array_type = Array)
 
 array_type() = Settings.array_type
 
-const cuarray_pkgid = Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
+const cuarray_pkgid =
+    Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 
 @init begin
     if get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
@@ -67,7 +68,11 @@ end
     function _init_array(::Type{CuArray})
         comm = MPI.COMM_WORLD
         # allocate GPUs among MPI ranks
-        local_comm = MPI.Comm_split_type(comm, MPI.MPI_COMM_TYPE_SHARED,  MPI.Comm_rank(comm))
+        local_comm = MPI.Comm_split_type(
+            comm,
+            MPI.MPI_COMM_TYPE_SHARED,
+            MPI.Comm_rank(comm),
+        )
         # we intentionally oversubscribe GPUs for testing: may want to disable this for production
         CUDAnative.device!(MPI.Comm_rank(local_comm) % length(devices()))
         CuArrays.allowscalar(false)
@@ -86,55 +91,56 @@ end
     parse_commandline()
 """
 function parse_commandline()
-    exc_handler = isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
-    s = ArgParseSettings(exc_handler=exc_handler)
+    exc_handler =
+        isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
+    s = ArgParseSettings(exc_handler = exc_handler)
 
     @add_arg_table! s begin
         "--disable-gpu"
-            help = "do not use the GPU"
-            action = :store_true
+        help = "do not use the GPU"
+        action = :store_true
         "--mpi-knows-cuda"
-            help = "MPI is CUDA-enabled"
-            action = :store_true
+        help = "MPI is CUDA-enabled"
+        action = :store_true
         "--no-show-updates"
-            help = "do not show simulation updates"
-            action = :store_true
+        help = "do not show simulation updates"
+        action = :store_true
         "--update-interval"
-            help = "interval in seconds for showing simulation updates"
-            arg_type = Int
-            default = 60
+        help = "interval in seconds for showing simulation updates"
+        arg_type = Int
+        default = 60
         "--enable-diagnostics"
-            help = "enable the collection of diagnostics to <output-dir>"
-            action = :store_true
+        help = "enable the collection of diagnostics to <output-dir>"
+        action = :store_true
         "--diagnostics-interval"
-            help = "interval in simulation steps for gathering diagnostics"
-            arg_type = Int
-            default = 10000
+        help = "interval in simulation steps for gathering diagnostics"
+        arg_type = Int
+        default = 10000
         "--enable-vtk"
-            help = "output VTK to <output-dir> every <vtk-interval> simulation steps"
-            action = :store_true
+        help = "output VTK to <output-dir> every <vtk-interval> simulation steps"
+        action = :store_true
         "--vtk-interval"
-            help = "interval in simulation steps for VTK output"
-            arg_type = Int
-            default = 10000
+        help = "interval in simulation steps for VTK output"
+        arg_type = Int
+        default = 10000
         "--monitor-courant-numbers"
-            help = "output acoustic, advective, and diffusive Courant numbers"
-            action = :store_true
+        help = "output acoustic, advective, and diffusive Courant numbers"
+        action = :store_true
         "--monitor-courant-interval"
-            help = "interval in Courant number calculations"
-            arg_type = Int
-            default = 10
+        help = "interval in Courant number calculations"
+        arg_type = Int
+        default = 10
         "--log-level"
-            help = "set the log level to one of debug/info/warn/error"
-            arg_type = String
-            default = "info"
+        help = "set the log level to one of debug/info/warn/error"
+        arg_type = String
+        default = "info"
         "--output-dir"
-            help = "directory for output data"
-            arg_type = String
-            default = "output"
+        help = "directory for output data"
+        arg_type = String
+        default = "output"
         "--integration-testing"
-            help = "enable integration testing"
-            action = :store_true
+        help = "enable integration testing"
+        action = :store_true
     end
 
 
@@ -148,7 +154,7 @@ Initialize MPI, allocate GPUs among MPI ranks if using GPUs, parse command
 line arguments for CLIMA, and return a Dict of any additional command line
 arguments.
 """
-function init(; disable_gpu=false)
+function init(; disable_gpu = false)
     # initialize MPI
     if !MPI.Initialized()
         MPI.Init()
@@ -169,8 +175,10 @@ function init(; disable_gpu=false)
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
         Settings.output_dir = parsed_args["output-dir"]
-        Settings.monitor_courant_numbers = parsed_args["monitor-courant-numbers"]
-        Settings.monitor_courant_interval = parsed_args["monitor-courant-interval"]
+        Settings.monitor_courant_numbers =
+            parsed_args["monitor-courant-numbers"]
+        Settings.monitor_courant_interval =
+            parsed_args["monitor-courant-interval"]
         Settings.integration_testing = parsed_args["integration-testing"]
         Settings.log_level = uppercase(parsed_args["log-level"])
     catch
@@ -178,7 +186,8 @@ function init(; disable_gpu=false)
     end
 
     # set up the array type appropriately depending on whether we're using GPUs
-    if !Settings.disable_gpu && get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
+    if !Settings.disable_gpu &&
+       get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
         atyp = Array
@@ -193,7 +202,7 @@ function init(; disable_gpu=false)
 
     # set up logging
     loglevel = Settings.log_level == "DEBUG" ? Logging.Debug :
-        Settings.log_level == "WARN"  ? Logging.Warn  :
+        Settings.log_level == "WARN" ? Logging.Warn :
         Settings.log_level == "ERROR" ? Logging.Error : Logging.Info
     # TODO: write a better MPI logging back-end and also integrate Dlog for large scale
     logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
@@ -233,12 +242,13 @@ called for initialization before time stepping begins and `false` when called
 during the actual ODE solve; see [`GenericCallbacks`](@ref) and
 [`ODESolvers.solve!]@ref().
 """
-function invoke!(solver_config::SolverConfiguration;
-                 user_callbacks=(),
-                 check_euclidean_distance=false,
-                 adjustfinalstep=false,
-                 user_info_callback=(init)->nothing
-                )
+function invoke!(
+    solver_config::SolverConfiguration;
+    user_callbacks = (),
+    check_euclidean_distance = false,
+    adjustfinalstep = false,
+    user_info_callback = (init) -> nothing,
+)
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
     bl = dg.balancelaw
@@ -254,22 +264,28 @@ function invoke!(solver_config::SolverConfiguration;
     if Settings.show_updates
         # set up the information callback
         upd_starttime = Ref(now())
-        cbinfo = GenericCallbacks.EveryXWallTimeSeconds(Settings.update_interval, mpicomm) do (init=false)
+        cbinfo = GenericCallbacks.EveryXWallTimeSeconds(
+            Settings.update_interval,
+            mpicomm,
+        ) do (init = false)
             if init
                 upd_starttime[] = now()
             else
-                runtime = Dates.format(convert(Dates.DateTime,
-                                               Dates.now()-upd_starttime[]),
-                                       Dates.dateformat"HH:MM:SS")
+                runtime = Dates.format(
+                    convert(Dates.DateTime, Dates.now() - upd_starttime[]),
+                    Dates.dateformat"HH:MM:SS",
+                )
                 energy = norm(solver_config.Q)
-                @info @sprintf("""Update
-                               simtime = %8.2f / %8.2f
-                               runtime = %s
-                               norm(Q) = %.16e""",
-                               ODESolvers.gettime(solver),
-                               solver_config.timeend,
-                               runtime,
-                               energy)
+                @info @sprintf(
+                    """Update
+                    simtime = %8.2f / %8.2f
+                    runtime = %s
+                    norm(Q) = %.16e""",
+                    ODESolvers.gettime(solver),
+                    solver_config.timeend,
+                    runtime,
+                    energy
+                )
             end
             user_info_callback(init)
         end
@@ -277,81 +293,130 @@ function invoke!(solver_config::SolverConfiguration;
     end
     if Settings.enable_diagnostics
         # set up diagnostics to be collected via callback
-        cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(Settings.diagnostics_interval) do (init=false)
-            if init
-                dia_starttime = replace(string(now()), ":" => ".")
-                Diagnostics.init(mpicomm, dg, Q, dia_starttime, Settings.output_dir)
+        cbdiagnostics =
+            GenericCallbacks.EveryXSimulationSteps(Settings.diagnostics_interval) do (
+                init = false
+            )
+                if init
+                    dia_starttime = replace(string(now()), ":" => ".")
+                    Diagnostics.init(
+                        mpicomm,
+                        dg,
+                        Q,
+                        dia_starttime,
+                        Settings.output_dir,
+                    )
+                end
+                currtime = ODESolvers.gettime(solver)
+                @info @sprintf(
+                    """Diagnostics
+                    collecting at %s""",
+                    string(currtime)
+                )
+                Diagnostics.collect(currtime)
+                nothing
             end
-            currtime = ODESolvers.gettime(solver)
-            @info @sprintf("""Diagnostics
-                           collecting at %s""",
-                           string(currtime))
-            Diagnostics.collect(currtime)
-            nothing
-        end
         callbacks = (callbacks..., cbdiagnostics)
     end
     if Settings.enable_vtk
         # set up VTK output callback
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(Settings.vtk_interval) do (init=false)
-            vprefix = @sprintf("%s_mpirank%04d_step%04d", solver_config.name,
-                               MPI.Comm_rank(mpicomm), step[1])
-            outprefix = joinpath(Settings.output_dir, vprefix)
-            statenames = flattenednames(vars_state(bl, FT))
-            auxnames = flattenednames(vars_aux(bl, FT))
-            writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
-            # Generate the pvtu file for these vtk files
-            if MPI.Comm_rank(mpicomm) == 0
-                # name of the pvtu file
-                pprefix = @sprintf("%s_step%04d", solver_config.name, step[1])
-                pvtuprefix = joinpath(Settings.output_dir, pprefix)
-                # name of each of the ranks vtk files
-                prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
-                    @sprintf("%s_mpirank%04d_step%04d", solver_config.name, i-1, step[1])
+        cbvtk =
+            GenericCallbacks.EveryXSimulationSteps(Settings.vtk_interval) do (
+                init = false
+            )
+                vprefix = @sprintf(
+                    "%s_mpirank%04d_step%04d",
+                    solver_config.name,
+                    MPI.Comm_rank(mpicomm),
+                    step[1]
+                )
+                outprefix = joinpath(Settings.output_dir, vprefix)
+                statenames = flattenednames(vars_state(bl, FT))
+                auxnames = flattenednames(vars_aux(bl, FT))
+                writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
+                # Generate the pvtu file for these vtk files
+                if MPI.Comm_rank(mpicomm) == 0
+                    # name of the pvtu file
+                    pprefix =
+                        @sprintf("%s_step%04d", solver_config.name, step[1])
+                    pvtuprefix = joinpath(Settings.output_dir, pprefix)
+                    # name of each of the ranks vtk files
+                    prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+                        @sprintf(
+                            "%s_mpirank%04d_step%04d",
+                            solver_config.name,
+                            i - 1,
+                            step[1]
+                        )
+                    end
+                    writepvtu(
+                        pvtuprefix,
+                        prefixes,
+                        (statenames..., auxnames...),
+                    )
                 end
-                writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+                step[1] += 1
+                nothing
             end
-            step[1] += 1
-            nothing
-        end
         callbacks = (callbacks..., cbvtk)
     end
     if Settings.monitor_courant_numbers
         # set up the callback for Courant number calculations
-        cbcfl = GenericCallbacks.EveryXSimulationSteps(Settings.monitor_courant_interval) do (init=false)
-            simtime = ODESolvers.gettime(solver)
-            Δt = solver_config.dt
-            c_v = DGmethods.courant(nondiffusive_courant, solver_config;
-                                    direction=VerticalDirection())
-            c_h = DGmethods.courant(nondiffusive_courant, solver_config;
-                                    direction=HorizontalDirection())
-            ca_v = DGmethods.courant(advective_courant, solver_config;
-                                     direction=VerticalDirection())
-            ca_h = DGmethods.courant(advective_courant, solver_config;
-                                     direction=HorizontalDirection())
-            cd_v = DGmethods.courant(diffusive_courant, solver_config;
-                                     direction=VerticalDirection())
-            cd_h = DGmethods.courant(diffusive_courant, solver_config;
-                                     direction=HorizontalDirection())
-            @info @sprintf """
-            ================================================
-            Courant numbers at simtime: %8.2f
-            Δt = %8.2f s
+        cbcfl =
+            GenericCallbacks.EveryXSimulationSteps(Settings.monitor_courant_interval) do (
+                init = false
+            )
+                simtime = ODESolvers.gettime(solver)
+                Δt = solver_config.dt
+                c_v = DGmethods.courant(
+                    nondiffusive_courant,
+                    solver_config;
+                    direction = VerticalDirection(),
+                )
+                c_h = DGmethods.courant(
+                    nondiffusive_courant,
+                    solver_config;
+                    direction = HorizontalDirection(),
+                )
+                ca_v = DGmethods.courant(
+                    advective_courant,
+                    solver_config;
+                    direction = VerticalDirection(),
+                )
+                ca_h = DGmethods.courant(
+                    advective_courant,
+                    solver_config;
+                    direction = HorizontalDirection(),
+                )
+                cd_v = DGmethods.courant(
+                    diffusive_courant,
+                    solver_config;
+                    direction = VerticalDirection(),
+                )
+                cd_h = DGmethods.courant(
+                    diffusive_courant,
+                    solver_config;
+                    direction = HorizontalDirection(),
+                )
+                @info @sprintf """
+                ================================================
+                Courant numbers at simtime: %8.2f
+                Δt = %8.2f s
 
-            ------------------------------------------------
-            Acoustic (vertical) Courant number    = %.2g
-            Acoustic (horizontal) Courant number  = %.2g
-            ------------------------------------------------
-            Advection (vertical) Courant number   = %.2g
-            Advection (horizontal) Courant number = %.2g
-            ------------------------------------------------
-            Diffusion (vertical) Courant number   = %.2g
-            Diffusion (horizontal) Courant number = %.2g
-            ================================================
-            """  simtime Δt c_v c_h ca_v ca_h cd_v cd_h
-            return nothing
-        end
+                ------------------------------------------------
+                Acoustic (vertical) Courant number    = %.2g
+                Acoustic (horizontal) Courant number  = %.2g
+                ------------------------------------------------
+                Advection (vertical) Courant number   = %.2g
+                Advection (horizontal) Courant number = %.2g
+                ------------------------------------------------
+                Diffusion (vertical) Courant number   = %.2g
+                Diffusion (horizontal) Courant number = %.2g
+                ================================================
+                """ simtime Δt c_v c_h ca_v ca_h cd_v cd_h
+                return nothing
+            end
         callbacks = (callbacks..., cbcfl)
     end
 
@@ -359,41 +424,54 @@ function invoke!(solver_config::SolverConfiguration;
 
     # initial condition norm
     eng0 = norm(Q)
-    @info @sprintf("""Starting %s
-                   dt              = %.5e
-                   timeend         = %8.2f
-                   number of steps = %d
-                   norm(Q)         = %.16e""",
-                   solver_config.name,
-                   solver_config.dt,
-                   solver_config.timeend,
-                   solver_config.numberofsteps,
-                   eng0)
+    @info @sprintf(
+        """Starting %s
+        dt              = %.5e
+        timeend         = %8.2f
+        number of steps = %d
+        norm(Q)         = %.16e""",
+        solver_config.name,
+        solver_config.dt,
+        solver_config.timeend,
+        solver_config.numberofsteps,
+        eng0
+    )
 
     # run the simulation
     @tic solve!
-    solve!(Q, solver; timeend=timeend, callbacks=callbacks, adjustfinalstep=adjustfinalstep)
+    solve!(
+        Q,
+        solver;
+        timeend = timeend,
+        callbacks = callbacks,
+        adjustfinalstep = adjustfinalstep,
+    )
     @toc solve!
 
     engf = norm(solver_config.Q)
 
-    @info @sprintf("""Finished
-                   norm(Q)            = %.16e
-                   norm(Q) / norm(Q₀) = %.16e
-                   norm(Q) - norm(Q₀) = %.16e""",
-                   engf,
-                   engf/eng0,
-                   engf-eng0)
+    @info @sprintf(
+        """Finished
+        norm(Q)            = %.16e
+        norm(Q) / norm(Q₀) = %.16e
+        norm(Q) - norm(Q₀) = %.16e""",
+        engf,
+        engf / eng0,
+        engf - eng0
+    )
 
     if check_euclidean_distance
-        Qe = init_ode_state(dg, timeend, init_args...; init_on_cpu=init_on_cpu)
+        Qe =
+            init_ode_state(dg, timeend, init_args...; init_on_cpu = init_on_cpu)
         engfe = norm(Qe)
         errf = euclidean_distance(solver_config.Q, Qe)
-        @info @sprintf("""Euclidean distance
-                       norm(Q - Qe)            = %.16e
-                       norm(Q - Qe) / norm(Qe) = %.16e""",
-                       errf,
-                       errf/engfe)
+        @info @sprintf(
+            """Euclidean distance
+            norm(Q - Qe)            = %.16e
+            norm(Q - Qe) / norm(Qe) = %.16e""",
+            errf,
+            errf / engfe
+        )
     end
 
     return engf / eng0

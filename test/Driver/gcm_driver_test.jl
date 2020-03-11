@@ -35,12 +35,12 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts       = PhaseDry_given_pT(p, setup.T_ref)
-    q_pt     = PhasePartition(ts)
-    e_pot    = gravitational_potential(bl.orientation, aux)
-    e_int    = internal_energy(ts)
+    ts = PhaseDry_given_pT(p, setup.T_ref)
+    q_pt = PhasePartition(ts)
+    e_pot = gravitational_potential(bl.orientation, aux)
+    e_int = internal_energy(ts)
 
-    state.ρ  = air_density(ts)
+    state.ρ = air_density(ts)
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = state.ρ * (e_int + e_pot)
     return nothing
@@ -68,41 +68,55 @@ function main()
     orientation = SphericalOrientation()
     ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0))
     turbulence = ConstantViscosityWithDivergence(FT(0))
-    model = AtmosModel{FT}(AtmosGCMConfigType;
-                           orientation = orientation,
-                           ref_state   = ref_state,
-                           turbulence  = turbulence,
-                           moisture    = DryModel(),
-                           source      = Gravity(),
-                           init_state  = setup,
-                           param_set   = CLIMA.ParameterSet{FT}())
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType;
+        orientation = orientation,
+        ref_state = ref_state,
+        turbulence = turbulence,
+        moisture = DryModel(),
+        source = Gravity(),
+        init_state = setup,
+        param_set = CLIMA.ParameterSet{FT}(),
+    )
 
-    ode_solver = CLIMA.MultirateSolverType(linear_model   = AtmosAcousticGravityLinearModel,
-                                           slow_method    = LSRK144NiegemannDiehlBusch,
-                                           fast_method    = LSRK144NiegemannDiehlBusch,
-                                           timestep_ratio = 180)
-    driver_config = CLIMA.AtmosGCMConfiguration("GCM Driver test", N, resolution,
-                                                setup.domain_height,
-                                                setup;
-                                                solver_type = ode_solver,
-                                                model = model)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config,
-                                       ode_dt = dt)
+    ode_solver = CLIMA.MultirateSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 180,
+    )
+    driver_config = CLIMA.AtmosGCMConfiguration(
+        "GCM Driver test",
+        N,
+        resolution,
+        setup.domain_height,
+        setup;
+        solver_type = ode_solver,
+        model = model,
+    )
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, ode_dt = dt)
 
     # Set up the filter callback
     filterorder = 18
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = EveryXSimulationSteps(1) do
-        Filters.apply!(solver_config.Q, 1:size(solver_config.Q, 2),
-                       solver_config.dg.grid, filter, VerticalDirection())
+        Filters.apply!(
+            solver_config.Q,
+            1:size(solver_config.Q, 2),
+            solver_config.dg.grid,
+            filter,
+            VerticalDirection(),
+        )
         return nothing
     end
 
     cb_test = 0
-    result = CLIMA.invoke!(solver_config;
-                           user_callbacks=(cbfilter,),
-                           user_info_callback=(init)->cb_test+=1,
-                           check_euclidean_distance=true)
+    result = CLIMA.invoke!(
+        solver_config;
+        user_callbacks = (cbfilter,),
+        user_info_callback = (init) -> cb_test += 1,
+        check_euclidean_distance = true,
+    )
     @test cb_test > 0
 end
 
