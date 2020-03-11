@@ -16,6 +16,10 @@ using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 
 struct HeldSuarezDataConfig{FT}
   p_sfc::FT
@@ -25,23 +29,23 @@ end
 
 function init_heldsuarez!(bl, state, aux, coords, t)
   FT = eltype(state)
-  
+
   # Parameters need to set initial state
   T_init       = bl.data_config.T_init
   p_sfc        = bl.data_config.p_sfc
   scale_height = FT(R_d) * T_init / FT(grav)
-  
-  # Calculate the initial state variables 
+
+  # Calculate the initial state variables
   z            = altitude(bl.orientation, aux)
   p            = p_sfc * exp(-z / scale_height)
-  thermo_state = PhaseDry_given_pT(p, T_init)
+  thermo_state = PhaseDry_given_pT(p, T_init, bl.param_set)
   ρ            = air_density(thermo_state)
   e_int        = internal_energy(thermo_state)
   e_pot        = gravitational_potential(bl.orientation, aux)
 
-  # Set initial state with random perturbation 
+  # Set initial state with random perturbation
   rnd          = FT(1.0 + rand(Uniform(-1e-6, 1e-6)))
-  state.ρ      = rnd * air_density(T_init, p)
+  state.ρ      = rnd * ρ
   state.ρu     = SVector{3, FT}(0, 0, 0)
   state.ρe     = state.ρ * (e_int + e_pot)
 
@@ -50,7 +54,7 @@ end
 
 function config_heldsuarez(FT, poly_order, resolution)
   exp_name          = "HeldSuarez"
-  
+
   # Parameters
   p_sfc::FT         = MSLP
   T_init::FT        = 255
@@ -66,43 +70,43 @@ function config_heldsuarez(FT, poly_order, resolution)
   temp_profile_ref  = LinearTemperatureProfile(T_min, T_sfc, Γ)
   ref_state         = HydrostaticState(temp_profile_ref, Rh_ref)
 
-  # Rayleigh sponge to dampen flow at the top of the domain 
+  # Rayleigh sponge to dampen flow at the top of the domain
   z_sponge          = FT(15e3) # height at which sponge begins
-  α_relax           = FT(1/60/60) # sponge relaxation rate in (1/seconds) 
+  α_relax           = FT(1/60/60) # sponge relaxation rate in (1/seconds)
   u_relax           = SVector(FT(0), FT(0), FT(0)) # relaxation velocity
   exp_sponge        = 2 # sponge exponent for squared-sinusoid profile
   sponge            = RayleighSponge{FT}(
-                        domain_height, 
-                        z_sponge, 
-                        α_relax, 
-                        u_relax, 
+                        domain_height,
+                        z_sponge,
+                        α_relax,
+                        u_relax,
                         exp_sponge
                       )
 
   # Set up the atmosphere model
   model = AtmosModel{FT}(
     AtmosGCMConfigType;
-                 
+
     ref_state   = ref_state,
-                 
     turbulence  = ConstantViscosityWithDivergence(turb_visc),
     moisture    = DryModel(),
     source      = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
     init_state  = init_heldsuarez!,
     data_config = HeldSuarezDataConfig(
-                    p_sfc, 
-                    T_init, 
+                    p_sfc,
+                    T_init,
                     domain_height
-                  )
+                  ),
+      param_set = ParameterSet{FT}()
   )
-  
+
   config = CLIMA.AtmosGCMConfiguration(
-    exp_name, 
-    poly_order, 
+    exp_name,
+    poly_order,
     resolution,
     domain_height,
     init_heldsuarez!;
-    
+
     model = model
   )
 
@@ -111,7 +115,7 @@ end
 
 function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
   FT = eltype(state)
-  
+
   # Parameters
   T_init = bl.data_config.T_init
 
@@ -119,10 +123,10 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
   ρ      = state.ρ
   ρu     = state.ρu
   ρe     = state.ρe
-  
+
   coord  = aux.coord
   e_int  = internal_energy(bl.moisture, bl.orientation, state, aux)
-  T      = air_temperature(e_int)
+  T      = air_temperature(e_int, bl.param_set)
 
   # Held-Suarez parameters
   k_a          = FT(1 / (40 * day))
@@ -161,7 +165,7 @@ function main()
   # Driver configuration parameters
   FT            = Float32           # floating type precision
   poly_order    = 5                 # discontinuous Galerkin polynomial order
-  n_horz        = 15                # horizontal element number  
+  n_horz        = 15                # horizontal element number
   n_vert        = 8                 # vertical element number
   days          = 1                 # experiment day number
   timestart     = FT(0)             # start time (seconds)

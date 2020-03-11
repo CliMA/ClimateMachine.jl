@@ -9,6 +9,10 @@
 # User-customized configurations can use these as templates.
 
 
+using ..Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 abstract type AbstractSolverType end
 struct ExplicitSolverType <: AbstractSolverType
     solver_method::Function
@@ -97,7 +101,8 @@ function AtmosLESConfiguration(
         array_type     = CLIMA.array_type(),
         solver_type    = IMEXSolverType(linear_solver=SingleColumnLU),
         model          = AtmosModel{FT}(AtmosLESConfigType;
-                                        init_state=init_LES!),
+                                        init_state=init_LES!,
+                                        param_set=ParameterSet{FT}()),
         mpicomm        = MPI.COMM_WORLD,
         boundary       = ((0,0), (0,0), (1,2)),
         periodicity    = (true, true, false),
@@ -146,7 +151,8 @@ function AtmosGCMConfiguration(
         array_type         = CLIMA.array_type(),
         solver_type        = DefaultSolverType(),
         model              = AtmosModel{FT}(AtmosGCMConfigType;
-                                            init_state=init_GCM!),
+                                            init_state=init_GCM!,
+                                            param_set=ParameterSet{FT}()),
         mpicomm            = MPI.COMM_WORLD,
         meshwarp::Function = cubedshellwarp,
         numfluxnondiff     = Rusanov(),

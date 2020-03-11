@@ -59,7 +59,7 @@ function init_sin_test!(bl, state, aux, (x,y,z), t)
     p     = P_sfc * exp(-z / H)
 
     # Density, Temperature
-    ts    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot)
+    ts    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))

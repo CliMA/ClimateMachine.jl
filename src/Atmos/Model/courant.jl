@@ -28,7 +28,7 @@ function nondiffusive_courant(m::AtmosModel, state::Vars, aux::Vars,
     else
         norm_u = norm(state.ρu/state.ρ)
     end
-    return Δt * (norm_u + soundspeed(m.moisture, m.orientation, state, aux)) / Δx
+    return Δt * (norm_u + soundspeed(m, m.moisture, state, aux)) / Δx
 end
 
 function diffusive_courant(m::AtmosModel, state::Vars, aux::Vars,

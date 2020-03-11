@@ -58,7 +58,7 @@ thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
 
 function compute_thermo!(bl, state, aux, k, ijk, ev, e, thermoQ)
     e_tot = state.ρe / state.ρ
-    ts = thermo_state(bl.moisture, bl.orientation, state, aux)
+    ts = thermo_state(bl, state, aux)
     e_int = internal_energy(ts)
     Phpart = PhasePartition(ts)
 

@@ -28,6 +28,10 @@ using CLIMA.VTK
 
 using CLIMA.Atmos: vars_state, vars_aux
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+
 using Random
 using Statistics
 const seed = MersenneTwister(0)
@@ -57,15 +61,16 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
-    r = norm(coords, 2)
-    h = r - FT(planet_radius)
+    z = altitude(bl.orientation, aux)
 
     scale_height = R_d * setup.T_initial / grav
-    p = setup.p_ground * exp(-h / scale_height)
+    p = setup.p_ground * exp(-z / scale_height)
+    e_int = internal_energy(setup.T_initial, bl.param_set)
+    e_pot = gravitational_potential(bl.orientation, aux)
 
-    state.ρ = air_density(setup.T_initial, p)
+    state.ρ = air_density(setup.T_initial, p, bl.param_set)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (internal_energy(setup.T_initial) + aux.orientation.Φ)
+    state.ρe = state.ρ * (e_int + e_pot)
     return nothing
 end
 #----------------------------------------------------------------------------
@@ -102,7 +107,8 @@ function run_brick_interpolation_test()
                                ref_state=NoReferenceState(),
                                turbulence=ConstantViscosityWithDivergence(FT(0)),
                                source=(Gravity(),),
-                               init_state=Initialize_Brick_Interpolation_Test!)
+                               init_state=Initialize_Brick_Interpolation_Test!,
+                                param_set=ParameterSet{FT}())
 
         dg = DGModel(model,
                      grid,
@@ -233,7 +239,8 @@ function run_cubed_sphere_interpolation_test()
                                turbulence=ConstantViscosityWithDivergence(FT(0)),
                                moisture=DryModel(),
                                source=nothing,
-                               init_state=setup)
+                               init_state=setup,
+                               param_set=ParameterSet{FT}())
 
         dg = DGModel(model, grid, Rusanov(), CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
 

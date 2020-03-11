@@ -13,6 +13,7 @@ module Microphysics
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using ..MicrophysicsParameters
+using ..Parameters
 
 # rain fall speed
 export terminal_velocity_single_drop_coeff

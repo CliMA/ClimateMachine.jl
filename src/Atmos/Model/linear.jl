@@ -51,7 +51,7 @@ reverse_integral_set_aux!(lm::AtmosLinearModel, aux::Vars, integ::Vars) = nothin
 flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
   ref = aux.ref_state
-  return soundspeed_air(ref.T)
+  return soundspeed_air(ref.T, lm.atmos.param_set)
 end
 
 function boundary_state!(nf::NumericalFluxNonDiffusive, lm::AtmosLinearModel, x...)
