@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters
-export BoundaryCondition, PeriodicBC, NoFluxBC, InitStateBC
+export BoundaryCondition, PeriodicBC, NoFluxBC, InitStateBC, Squall_lineBC
 
 function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
                                         bc,
@@ -123,10 +123,41 @@ function atmos_boundary_state!(::NumericalFluxDiffusive, bc::InitStateBC,
   init_state!(m, state⁺, aux⁺, aux⁺.coord, t)
 end
 
-function boundarycondition_moisture!(moist::NonEquilMoist, stateP::Vars, diffP::Vars, auxP::Vars,
-    nM, stateM::Vars, diffM::Vars, auxM::Vars, bctype, t)
-  stateP.moisture.ρq_tot = stateM.moisture.ρq_tot
-  stateP.moisture.ρq_liq = stateM.moisture.ρq_liq
-  stateP.moisture.ρq_ice = stateM.moisture.ρq_ice
-  return nothing
+struct Squall_lineBC <: BoundaryCondition
+end
+function atmos_boundary_state!(::NumericalFluxDiffusive,
+                               bc::Squall_lineBC, m::AtmosModel, state⁺::Vars, diff⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, diff⁻::Vars, aux⁻::Vars, bctype,
+                               t, _...)
+  FT = eltype(state⁺)
+  if bctype == 1
+    state⁺.precipitation.ρq_rain = FT(0)
+    state⁺.ρ = state⁻.ρ
+    state⁺.moisture.ρq_tot = state⁻.moisture.ρq_tot
+    state⁺.moisture.ρq_liq = state⁻.moisture.ρq_liq
+  
+    state⁺.ρe = state⁻.ρe
+  end
+  state⁺.ρu -= dot(state⁻.ρu, n⁻) * SVector(n⁻)
+  
+  fill!(getfield(diff⁺, :array), FT(0))
+end
+
+function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                               bc::Squall_lineBC, m::AtmosModel, state⁺::Vars,
+                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
+                               t, _...)
+  FT = eltype(state⁺)
+  if bctype == 1
+    state⁺.precipitation.ρq_rain = FT(0)
+    state⁺.ρ = state⁻.ρ
+    state⁺.moisture.ρq_tot = state⁻.moisture.ρq_tot
+    state⁺.moisture.ρq_liq = state⁻.moisture.ρq_liq
+    state⁺.ρe = state⁻.ρe
+  end
+  if typeof(nf) <: NumericalFluxNonDiffusive
+    state⁺.ρu -= 2 * dot(state⁻.ρu, n⁻) * SVector(n⁻)
+  else
+    state⁺.ρu -=  dot(state⁻.ρu, n⁻) * SVector(n⁻)
+  end
 end

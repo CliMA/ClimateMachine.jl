@@ -106,8 +106,8 @@ function atmos_source!(s::RayleighSponge, atmos::AtmosModel, source::Vars, state
 
      end
      ctop = ct*abstaud
-   end#=
-   if (x >=25000 || x<=-25000)
+   end
+   #=if (x >=25000 || x<=-25000)
      r = (abs(x) - 25000)/(5000)
      cx = s.α_max * sinpi(r/2)^4
    end=#
@@ -119,11 +119,13 @@ end
 
 struct PrecipitationSource <: Source end
 function atmos_source!(s::PrecipitationSource, m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  source.precipitation.ρq_rain += aux.precipitation.src_q_rai_tot
-  source.moisture.ρq_tot -= aux.precipitation.src_q_rai_tot
-  source.moisture.ρq_liq -= aux.precipitation.src_q_rai_tot
+  source.precipitation.ρq_rain += state.ρ * aux.precipitation.src_q_rai_tot
+  source.moisture.ρq_tot -= state.ρ * aux.precipitation.src_q_rai_tot
+  source.moisture.ρq_liq -= state.ρ * (aux.precipitation.src_accr + aux.precipitation.src_acnv)
+  source.ρe -= state.ρ * aux.precipitation.src_q_rai_tot * (cv_l * (aux.moisture.temperature - T_0) - aux.orientation.Φ) 
+  source.ρ -= state.ρ * aux.precipitation.src_q_rai_tot
 end
 struct CloudSource <: Source end
 function atmos_source!(s::CloudSource, m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  source.moisture.ρq_liq += aux.moisture.src_qliq
+  source.moisture.ρq_liq += state.ρ * aux.moisture.src_qliq
 end

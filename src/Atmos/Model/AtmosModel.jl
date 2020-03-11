@@ -235,9 +235,9 @@ function gradvariables!(atmos::AtmosModel, transform::Vars, state::Vars, aux::Va
   ρinv = 1/state.ρ
   transform.u = ρinv * state.ρu
   transform.h_tot = total_specific_enthalpy(atmos.moisture, atmos.orientation, state, aux)
-
   gradvariables!(atmos.moisture, atmos, transform, state, aux, t)
   gradvariables!(atmos.turbulence, transform, state, aux, t)
+  gradvariables!(atmos.precipitation, transform, state, aux, t)
 end
 
 function diffusive!(atmos::AtmosModel, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
@@ -247,6 +247,7 @@ function diffusive!(atmos::AtmosModel, diffusive::Vars, ∇transform::Grad, stat
   diffusive!(atmos.turbulence, atmos.orientation, diffusive, ∇transform, state, aux, t)
   # diffusivity of moisture components
   diffusive!(atmos.moisture, diffusive, ∇transform, state, aux, t)
+  diffusive!(atmos.precipitation, diffusive, ∇transform, state, aux, t)
 end
 
 @inline function flux_diffusive!(atmos::AtmosModel, flux::Grad, state::Vars,
@@ -256,6 +257,7 @@ end
   d_h_tot = -D_t .* diffusive.∇h_tot
   flux_diffusive!(atmos, flux, state, τ, d_h_tot)
   flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
+  flux_diffusive!(atmos.precipitation, flux, state, diffusive, aux, t, D_t)
 end
 
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons

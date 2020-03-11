@@ -174,7 +174,7 @@ function flux_moisture!(moist::NonEquilMoist, atmos::AtmosModel, flux::Grad, sta
   flux.moisture.ρq_liq += u_tot * state.moisture.ρq_liq
   flux.moisture.ρq_ice += u_tot * state.moisture.ρq_ice
 end
-function diffusive!(moist::NonEquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real, )
+function diffusive!(moist::NonEquilMoist, diffusive::Vars, ∇transform::Grad, state::Vars, aux::Vars, t::Real)
   diffusive.moisture.ρd_q_tot =  ∇transform.moisture.q_tot
   diffusive.moisture.ρd_q_liq =  ∇transform.moisture.q_liq
   diffusive.moisture.ρd_q_ice =  ∇transform.moisture.q_ice

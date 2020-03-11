@@ -66,13 +66,13 @@ function init_state!(bl, state::Vars, aux::Vars, (x1,x2,x3), args...)
 
   θ_c =     3.0
   rx  = 10000.0
-  ry  =  5000.0
+  ry  =  2000.0
   rz  =  1500.0
   xc  = 0.0#0.5*(xmax + xmin)
-  yc  = 0.0
+  yc  = 2500.0
   zc  = 2000.0
 
-  cylinder_flg = 1.0
+  cylinder_flg = 0.0
   r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
   Δθ  = 0.0
   if r <= 1.0
@@ -99,7 +99,7 @@ function init_state!(bl, state::Vars, aux::Vars, (x1,x2,x3), args...)
   state.moisture.ρq_tot = ρq_tot
   state.moisture.ρq_liq = FT(0)
   state.moisture.ρq_ice = FT(0)
-  #state.precipitation.ρq_rain = FT(0)
+  state.precipitation.ρq_rain = FT(0)
   nothing
 end
 
@@ -148,11 +148,11 @@ function config_squall_line(FT, N, resolution, xmin, xmax, ymin, ymax, zmax)
 rayleigh_sponge = RayleighSponge{FT}(zmax, 16500, 0.5, SVector{3,FT}(0,0,0), 2,2)
     model = AtmosModel{FT}(AtmosLESConfiguration;
                            turbulence=ConstantViscosityWithDivergence{FT}(100),
-			       precipitation = NoPrecipitation(),
+			       precipitation = Rain(),
 			       ref_state = NoReferenceState(),
 			       moisture = NonEquilMoist(),
-                               source = (Gravity(),rayleigh_sponge,CloudSource()),
-                    boundarycondition = NoFluxBC(),
+                               source = (Gravity(),rayleigh_sponge,CloudSource(),PrecipitationSource()),
+                    boundarycondition = Squall_lineBC(),
                            init_state = init_state!)
 
 
@@ -185,7 +185,7 @@ function main()
     solver_config = CLIMA.setup_solver(t0, timeend, driver_config, (spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit), forcecpu=true, Courant_number=1.1)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-        Filters.apply!(solver_config.Q, (6,7), solver_config.dg.grid, TMARFilter())
+        Filters.apply!(solver_config.Q, (6,7,8,9), solver_config.dg.grid, TMARFilter())
         nothing
     end
     result = CLIMA.invoke!(solver_config;
