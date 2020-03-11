@@ -185,24 +185,6 @@ function run_brick_interpolation_test()
         end
         interpolate_local!(intrp_brck, Q.data, iv)                    # interpolation
         accumulate_interpolated_data!(intrp_brck, iv, fiv)      # write interpolation data to file
-        if pid == 0
-            write_data(
-                filename,
-                ("x1", "x2", "x3"),
-                (
-                    length(intrp_brck.x1g),
-                    length(intrp_brck.x2g),
-                    length(intrp_brck.x3g),
-                ),
-                (
-                    Array(intrp_brck.x1g),
-                    Array(intrp_brck.x2g),
-                    Array(intrp_brck.x3g),
-                ),
-                varnames,
-                Array(fiv),
-            )
-        end
         #------------------------------
         err_inf_dom = zeros(FT, nvars)
 
@@ -377,20 +359,6 @@ function run_cubed_sphere_interpolation_test()
         interpolate_local!(intrp_cs, Q.data, iv)                   # interpolation
         project_cubed_sphere!(intrp_cs, iv, (_ρu, _ρv, _ρw))         # project velocity onto unit vectors along rad, lat & long
         accumulate_interpolated_data!(intrp_cs, iv, fiv)           # accumulate interpolated data on to proc# 0
-        if pid == 0
-            write_data(
-                filename,
-                ("rad", "lat", "long"),
-                (intrp_cs.n_rad, intrp_cs.n_lat, intrp_cs.n_long),
-                (
-                    Array(intrp_cs.rad_grd),
-                    Array(intrp_cs.lat_grd),
-                    Array(intrp_cs.long_grd),
-                ),
-                varnames,
-                Array(fiv),
-            )
-        end
         #----------------------------------------------------------
         # Testing
         err_inf_dom = zeros(FT, nvars)
