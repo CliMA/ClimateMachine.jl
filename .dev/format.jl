@@ -8,8 +8,7 @@ using JuliaFormatter
 
 headbranch = get(ARGS, 1, "master")
 
-for filename in
-    readlines(`git diff --name-only --diff-filter=AM $headbranch...`)
+for filename in readlines(`find . -print`)
     endswith(filename, ".jl") || continue
 
     format(

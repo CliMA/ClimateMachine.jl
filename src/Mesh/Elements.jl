@@ -8,9 +8,9 @@ returns the points `r` and weights `w` associated with the `N+1`-point
 Gauss-Legendre-Lobatto quadrature rule of type `T`
 
 """
-function lglpoints(::Type{T}, N::Integer) where T <: AbstractFloat
-  @assert N ≥ 1
-  GaussQuadrature.legendre(T, N+1, GaussQuadrature.both)
+function lglpoints(::Type{T}, N::Integer) where {T <: AbstractFloat}
+    @assert N ≥ 1
+    GaussQuadrature.legendre(T, N + 1, GaussQuadrature.both)
 end
 
 """
@@ -19,9 +19,9 @@ end
 returns the points `r` and weights `w` associated with the `N+1`-point
 Gauss-Legendre quadrature rule of type `T`
 """
-function lgpoints(::Type{T}, N::Integer) where T <: AbstractFloat
-  @assert N ≥ 1
-  GaussQuadrature.legendre(T, N+1, GaussQuadrature.neither)
+function lgpoints(::Type{T}, N::Integer) where {T <: AbstractFloat}
+    @assert N ≥ 1
+    GaussQuadrature.legendre(T, N + 1, GaussQuadrature.neither)
 end
 
 """
@@ -34,19 +34,19 @@ Reference:
   SIAM Review 46 (2004), pp. 501-517.
   <https://doi.org/10.1137/S0036144502417715>
 """
-function baryweights(r::AbstractVector{T}) where T
-  Np = length(r)
-  wb = ones(T, Np)
+function baryweights(r::AbstractVector{T}) where {T}
+    Np = length(r)
+    wb = ones(T, Np)
 
-  for j = 1:Np
-    for i = 1:Np
-      if i != j
-        wb[j] = wb[j] * (r[j] - r[i])
-      end
+    for j in 1:Np
+        for i in 1:Np
+            if i != j
+                wb[j] = wb[j] * (r[j] - r[i])
+            end
+        end
+        wb[j] = T(1) / wb[j]
     end
-    wb[j] = T(1) / wb[j]
-  end
-  wb
+    wb
 end
 
 
@@ -62,26 +62,28 @@ Reference:
   SIAM Review 46 (2004), pp. 501-517.
   <https://doi.org/10.1137/S0036144502417715>
 """
-function spectralderivative(r::AbstractVector{T},
-                            wb=baryweights(r)::AbstractVector{T}) where T
-  Np = length(r)
-  @assert Np == length(wb)
-  D = zeros(T, Np, Np)
+function spectralderivative(
+    r::AbstractVector{T},
+    wb = baryweights(r)::AbstractVector{T},
+) where {T}
+    Np = length(r)
+    @assert Np == length(wb)
+    D = zeros(T, Np, Np)
 
-  for k = 1:Np
-    for j = 1:Np
-      if k == j
-        for l = 1:Np
-          if l != k
-            D[j, k] = D[j, k] + T(1) / (r[k] - r[l])
-          end
+    for k in 1:Np
+        for j in 1:Np
+            if k == j
+                for l in 1:Np
+                    if l != k
+                        D[j, k] = D[j, k] + T(1) / (r[k] - r[l])
+                    end
+                end
+            else
+                D[j, k] = (wb[k] / wb[j]) / (r[j] - r[k])
+            end
         end
-      else
-        D[j, k] = (wb[k] / wb[j]) / (r[j] - r[k])
-      end
     end
-  end
-  D
+    D
 end
 
 """
@@ -96,25 +98,28 @@ Reference:
   SIAM Review 46 (2004), pp. 501-517.
   <https://doi.org/10.1137/S0036144502417715>
 """
-function interpolationmatrix(rsrc::AbstractVector{T}, rdst::AbstractVector{T},
-                             wbsrc=baryweights(rsrc)::AbstractVector{T}) where T
-  Npdst = length(rdst)
-  Npsrc = length(rsrc)
-  @assert Npsrc == length(wbsrc)
-  I = zeros(T, Npdst, Npsrc)
-  for k = 1:Npdst
-    for j = 1:Npsrc
-      I[k, j] = wbsrc[j] / (rdst[k] - rsrc[j]);
-      if !isfinite(I[k,j])
-        I[k, :] .= T(0);
-        I[k, j] = T(1);
-        break
-      end
+function interpolationmatrix(
+    rsrc::AbstractVector{T},
+    rdst::AbstractVector{T},
+    wbsrc = baryweights(rsrc)::AbstractVector{T},
+) where {T}
+    Npdst = length(rdst)
+    Npsrc = length(rsrc)
+    @assert Npsrc == length(wbsrc)
+    I = zeros(T, Npdst, Npsrc)
+    for k in 1:Npdst
+        for j in 1:Npsrc
+            I[k, j] = wbsrc[j] / (rdst[k] - rsrc[j])
+            if !isfinite(I[k, j])
+                I[k, :] .= T(0)
+                I[k, j] = T(1)
+                break
+            end
+        end
+        d = sum(I[k, :])
+        I[k, :] = I[k, :] / d
     end
-    d = sum(I[k, :]);
-    I[k, :] = I[k, :] / d;
-  end
-  I
+    I
 end
 
 end # module

@@ -67,13 +67,17 @@ MPI.Initialized() || MPI.Init()
 # the user-defined function which given `x`, `y`, and `z` defines the auxiliary
 # state
 const num_aux_states = 3
-function velocity_initilization!(uvec::MVector{num_aux_states, FT},
-                                 x, y, z) where FT
-  @inbounds begin
-    r = hypot(x, y)
-    θ = atan(y, x)
-    uvec .= 2FT(π) * r .* (-sin(θ), cos(θ), 0)
-  end
+function velocity_initilization!(
+    uvec::MVector{num_aux_states, FT},
+    x,
+    y,
+    z,
+) where {FT}
+    @inbounds begin
+        r = hypot(x, y)
+        θ = atan(y, x)
+        uvec .= 2 * FT(π) * r .* (-sin(θ), cos(θ), 0)
+    end
 end
 #md nothing # hide
 # Note: We have caught the type of the elements in order the properly cast $\pi$
@@ -92,11 +96,11 @@ end
 #md # function as the fourth argument; the third and fifth arguments which are
 #md # not needed for this example is the viscous state and simulation time).
 function advectionflux!(F, state, _, uvec, _)
-  FT = eltype(state) # get the floating point type we are using
-  @inbounds begin
-    q = state[1]
-    F[:, 1] = uvec * q
-  end
+    FT = eltype(state) # get the floating point type we are using
+    @inbounds begin
+        q = state[1]
+        F[:, 1] = uvec * q
+    end
 end
 #md nothing # hide
 
@@ -112,15 +116,15 @@ end
 # two sides of the interface are collocated the auxiliary state on the two sides
 # should be the same.
 function upwindflux!(fs, nM, stateM, viscM, uvecM, stateP, viscP, uvecP, t)
-  FT = eltype(fs)
-  @inbounds begin
-    ## determine the advection speed and direction
-    un = dot(nM, uvecM)
-    qM = stateM[1]
-    qP = stateP[1]
-    ## Determine which state is "upwind" of the minus side
-    fs[1] = un ≥ 0 ? un * qM : un * qP
-  end
+    FT = eltype(fs)
+    @inbounds begin
+        ## determine the advection speed and direction
+        un = dot(nM, uvecM)
+        qM = stateM[1]
+        qP = stateP[1]
+        ## Determine which state is "upwind" of the minus side
+        fs[1] = un ≥ 0 ? un * qM : un * qP
+    end
 end
 
 #------------------------------------------------------------------------------
@@ -144,16 +148,26 @@ end
 # the boundary numerical flux is the same as the upwind flux except with $q^{+}$
 # set to zero; more complicated PDES and boundary conditions would require more
 # complex constructions.
-function upwindboundaryflux!(fs, nM, stateM, viscM, uvecM, stateP, viscP, uvecP,
-                             bctype, t)
-  FT = eltype(fs)
-  @inbounds begin
-    ## determine the advection speed and direction
-    un = dot(nM, uvecM)
-    qM = stateM[1]
-    ## Determine which state is "upwind" of the minus side
-    fs[1] = un ≥ 0 ? un * qM : 0
-  end
+function upwindboundaryflux!(
+    fs,
+    nM,
+    stateM,
+    viscM,
+    uvecM,
+    stateP,
+    viscP,
+    uvecP,
+    bctype,
+    t,
+)
+    FT = eltype(fs)
+    @inbounds begin
+        ## determine the advection speed and direction
+        un = dot(nM, uvecM)
+        qM = stateM[1]
+        ## Determine which state is "upwind" of the minus side
+        fs[1] = un ≥ 0 ? un * qM : 0
+    end
 end
 #md nothing # hide
 
@@ -176,7 +190,7 @@ end
 # auxiliary state, in this case the velocity field, will also be included since
 # the number of auxiliary variables is greater than zero.
 function initialcondition!(Q, x, y, z, _)
-  @inbounds Q[1] = exp(-(8 * hypot(x - 1//2, y, z))^2)
+    @inbounds Q[1] = exp(-(8 * hypot(x - 1 // 2, y, z))^2)
 end
 #md nothing # hide
 
@@ -188,16 +202,16 @@ end
 #
 # Note: `uvec` is included to match calling convention of `initialcondition!`
 function exactsolution!(Q, t, x, y, z, uvec)
-  @inbounds begin
-    FT = eltype(Q)
+    @inbounds begin
+        FT = eltype(Q)
 
-    r = hypot(x, y)
-    θ = atan(y, x) - 2FT(π) * t
+        r = hypot(x, y)
+        θ = atan(y, x) - 2 * FT(π) * t
 
-    x, y = r * cos(θ), r * sin(θ)
+        x, y = r * cos(θ), r * sin(θ)
 
-    initialcondition!(Q, x, y, z, uvec)
-  end
+        initialcondition!(Q, x, y, z, uvec)
+    end
 end
 #md nothing # hide
 
@@ -207,36 +221,48 @@ end
 # The initialization of the DG method is largely the same as the
 # [intialization](ex_001_periodic_advection.html#Initial-Condition-1) discussion
 # of [ex 001](ex_001_periodic_advection.html).
-function setupDG(mpicomm, dim, Ne, polynomialorder, FT=Float64,
-                 ArrayType=Array)
+function setupDG(
+    mpicomm,
+    dim,
+    Ne,
+    polynomialorder,
+    FT = Float64,
+    ArrayType = Array,
+)
 
-  @assert ArrayType === Array
+    @assert ArrayType === Array
 
-  brickrange = (range(FT(-1); length=Ne+1, stop=1),
-                range(FT(-1); length=Ne+1, stop=1),
-                range(FT(-1); length=Ne+1, stop=1))
+    brickrange = (
+        range(FT(-1); length = Ne + 1, stop = 1),
+        range(FT(-1); length = Ne + 1, stop = 1),
+        range(FT(-1); length = Ne + 1, stop = 1),
+    )
 
-  # By default the `BrickTopology` is not periodic, so unlike ex 001, we do not
-  # need to specify the periodicity
-  topology = BrickTopology(mpicomm, brickrange[1:dim])
+    # By default the `BrickTopology` is not periodic, so unlike ex 001, we do not
+    # need to specify the periodicity
+    topology = BrickTopology(mpicomm, brickrange[1:dim])
 
-  grid = DiscontinuousSpectralElementGrid(topology; polynomialorder =
-                                          polynomialorder, FloatType = FT,
-                                          DeviceArray = ArrayType,)
+    grid = DiscontinuousSpectralElementGrid(
+        topology;
+        polynomialorder = polynomialorder,
+        FloatType = FT,
+        DeviceArray = ArrayType,
+    )
 
-  # Note the additional keyword arguments: `numerical_boundary_flux!`
-  # which is used to pass the numerical flux function that implements the
-  # boundary condition, `auxiliary_state_length` which defines the number of
-  # auxiliary state fields at each degree of freedom, and
-  # `auxiliary_state_initialization!` which initializes the auxiliary state.
-  spatialdiscretization = DGBalanceLaw(grid = grid, length_state_vector = 1,
-                                       flux! = advectionflux!,
-                                       numerical_flux! = upwindflux!,
-                                       numerical_boundary_flux! =
-                                       upwindboundaryflux!,
-                                       auxiliary_state_length = num_aux_states,
-                                       auxiliary_state_initialization! =
-                                       velocity_initilization!)
+    # Note the additional keyword arguments: `numerical_boundary_flux!`
+    # which is used to pass the numerical flux function that implements the
+    # boundary condition, `auxiliary_state_length` which defines the number of
+    # auxiliary state fields at each degree of freedom, and
+    # `auxiliary_state_initialization!` which initializes the auxiliary state.
+    spatialdiscretization = DGBalanceLaw(
+        grid = grid,
+        length_state_vector = 1,
+        flux! = advectionflux!,
+        numerical_flux! = upwindflux!,
+        numerical_boundary_flux! = upwindboundaryflux!,
+        auxiliary_state_length = num_aux_states,
+        auxiliary_state_initialization! = velocity_initilization!,
+    )
 
 end
 #md nothing # hide
@@ -248,64 +274,72 @@ end
 # functions](ex_001_periodic_advection.html#Using-ODE-solver-callback-functions-1)
 # block from ex 001. Difference are highlighted.
 let
-  mpicomm = MPI.COMM_WORLD
-  mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
-  dim = 2
-  Ne = 20
-  polynomialorder = 4
-  spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
-  Q = MPIStateArray(spatialdiscretization, initialcondition!)
-  filename = @sprintf("initialcondition_mpirank%04d", MPI.Comm_rank(mpicomm))
-  writevtk(filename, Q, spatialdiscretization,
-                                       ("q",))
+    mpicomm = MPI.COMM_WORLD
+    mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
+    dim = 2
+    Ne = 20
+    polynomialorder = 4
+    spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
+    Q = MPIStateArray(spatialdiscretization, initialcondition!)
+    filename = @sprintf("initialcondition_mpirank%04d", MPI.Comm_rank(mpicomm))
+    writevtk(filename, Q, spatialdiscretization, ("q",))
 
-  h = 1 / Ne
-  # Since we are on the $[-1, 1]^d$ domain, the maximum velocity will by $2\pi$,
-  # thus this defines the CFL restriction
-  CFL = h / (2π)
-  dt = CFL / polynomialorder^2
-  lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
-  finaltime = 1.0
-  if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
-      && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
-    parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
-    finaltime = 2dt                                           #src
-  end                                                         #src
+    h = 1 / Ne
+    # Since we are on the $[-1, 1]^d$ domain, the maximum velocity will by $2\pi$,
+    # thus this defines the CFL restriction
+    CFL = h / (2π)
+    dt = CFL / polynomialorder^2
+    lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
+    finaltime = 1.0
+    if (
+        parse(Bool, lowercase(get(ENV, "TRAVIS", "false"))) &&
+        "Test" == get(ENV, "TRAVIS_BUILD_STAGE_NAME", "")
+    ) ||  #src
+       parse(Bool, lowercase(get(ENV, "APPVEYOR", "false")))       #src
+        finaltime = 2dt                                           #src
+    end                                                         #src
 
-  # For simplicity we only include the vtk callback
+    # For simplicity we only include the vtk callback
 
-  vtk_step = 0
-  mkpath("vtk")
-  cb_vtk = GenericCallbacks.EveryXSimulationSteps(20) do
-    vtk_step += 1
-    filename = @sprintf("vtk/solid_body_rotation_mpirank%04d_step%04d",
-                         MPI.Comm_rank(mpicomm), vtk_step)
-    writevtk(filename, Q, spatialdiscretization,
-                                         ("q",))
-    nothing
-  end
+    vtk_step = 0
+    mkpath("vtk")
+    cb_vtk = GenericCallbacks.EveryXSimulationSteps(20) do
+        vtk_step += 1
+        filename = @sprintf(
+            "vtk/solid_body_rotation_mpirank%04d_step%04d",
+            MPI.Comm_rank(mpicomm),
+            vtk_step
+        )
+        writevtk(filename, Q, spatialdiscretization, ("q",))
+        nothing
+    end
 
-  solve!(Q, lsrk; timeend = finaltime, callbacks = (cb_vtk, ))
+    solve!(Q, lsrk; timeend = finaltime, callbacks = (cb_vtk,))
 
-  filename = @sprintf("finalsolution_mpirank%04d", MPI.Comm_rank(mpicomm))
-  writevtk(filename, Q, spatialdiscretization,
-                                       ("q",))
+    filename = @sprintf("finalsolution_mpirank%04d", MPI.Comm_rank(mpicomm))
+    writevtk(filename, Q, spatialdiscretization, ("q",))
 
-  # As with the initial condition, we need to catch the auxiliary state `uvec`
-  # in this initialization call.
-  Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
-    exactsolution!(Qin, finaltime, x, y, z, uvec)
-  end
+    # As with the initial condition, we need to catch the auxiliary state `uvec`
+    # in this initialization call.
+    Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
+        exactsolution!(Qin, finaltime, x, y, z, uvec)
+    end
 
-  error = euclidean_distance(Q, Qe)
-  with_logger(mpi_logger) do
-    @info @sprintf("""Run with
-                   dim              = %d
-                   Ne               = %d
-                   polynomial order = %d
-                   error            = %e
-                   """, dim, Ne, polynomialorder, error)
-  end
+    error = euclidean_distance(Q, Qe)
+    with_logger(mpi_logger) do
+        @info @sprintf(
+            """Run with
+            dim              = %d
+            Ne               = %d
+            polynomial order = %d
+            error            = %e
+            """,
+            dim,
+            Ne,
+            polynomialorder,
+            error
+        )
+    end
 end
 #md nothing # hide
 
@@ -315,56 +349,62 @@ end
 # As with ex 001, since the analytic solution is known we can compute the rate
 # of convergence of the scheme
 let
-  mpicomm = MPI.COMM_WORLD
-  mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
+    mpicomm = MPI.COMM_WORLD
+    mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
 
-  dim = 2
-  polynomialorder = 4
-  finaltime = 1.0
+    dim = 2
+    polynomialorder = 4
+    finaltime = 1.0
 
-  with_logger(mpi_logger) do
-    @info @sprintf("""Running with
-                   dim              = %d
-                   polynomial order = %d
-                   """, dim, polynomialorder)
-  end
-
-  base_Ne = 5
-  lvl_error = zeros(4) # number of levels to compute is length(lvl_error)
-  for lvl = 1:length(lvl_error)
-    ## `Ne` for this mesh level
-    Ne = base_Ne * 2^(lvl-1)
-    spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
-
-    Q = MPIStateArray(spatialdiscretization, initialcondition!)
-    h = 1 / Ne
-    CFL = h / (2π)
-    dt = CFL / polynomialorder^2
-    if (parse(Bool, lowercase(get(ENV,"TRAVIS","false")))       #src
-        && "Test" == get(ENV,"TRAVIS_BUILD_STAGE_NAME","")) ||  #src
-      parse(Bool, lowercase(get(ENV,"APPVEYOR","false")))       #src
-      finaltime = 2dt                                           #src
-    end                                                         #src
-    lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
-
-    solve!(Q, lsrk; timeend = finaltime)
-
-    Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
-      exactsolution!(Qin, finaltime, x, y, z, uvec)
-    end
-
-    lvl_error[lvl] = euclidean_distance(Q, Qe)
-    msg =  @sprintf   "Level      = %d" lvl
-    msg *= @sprintf "\nNe               = %d" Ne
-    msg *= @sprintf "\nerror            = %.4e" lvl_error[lvl]
-    if lvl > 1
-      rate = log2(lvl_error[lvl-1]) - log2(lvl_error[lvl])
-      msg *= @sprintf "\nconvergence rate = %.4e" rate
-    end
     with_logger(mpi_logger) do
-      @info msg
+        @info @sprintf(
+            """Running with
+            dim              = %d
+            polynomial order = %d
+            """,
+            dim,
+            polynomialorder
+        )
     end
-  end
+
+    base_Ne = 5
+    lvl_error = zeros(4) # number of levels to compute is length(lvl_error)
+    for lvl in 1:length(lvl_error)
+        ## `Ne` for this mesh level
+        Ne = base_Ne * 2^(lvl - 1)
+        spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
+
+        Q = MPIStateArray(spatialdiscretization, initialcondition!)
+        h = 1 / Ne
+        CFL = h / (2π)
+        dt = CFL / polynomialorder^2
+        if (
+            parse(Bool, lowercase(get(ENV, "TRAVIS", "false"))) &&
+            "Test" == get(ENV, "TRAVIS_BUILD_STAGE_NAME", "")
+        ) ||  #src
+           parse(Bool, lowercase(get(ENV, "APPVEYOR", "false")))       #src
+            finaltime = 2dt                                           #src
+        end                                                         #src
+        lsrk = LSRK54CarpenterKennedy(spatialdiscretization, Q; dt = dt, t0 = 0)
+
+        solve!(Q, lsrk; timeend = finaltime)
+
+        Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
+            exactsolution!(Qin, finaltime, x, y, z, uvec)
+        end
+
+        lvl_error[lvl] = euclidean_distance(Q, Qe)
+        msg = @sprintf "Level      = %d" lvl
+        msg *= @sprintf "\nNe               = %d" Ne
+        msg *= @sprintf "\nerror            = %.4e" lvl_error[lvl]
+        if lvl > 1
+            rate = log2(lvl_error[lvl - 1]) - log2(lvl_error[lvl])
+            msg *= @sprintf "\nconvergence rate = %.4e" rate
+        end
+        with_logger(mpi_logger) do
+            @info msg
+        end
+    end
 end
 #md nothing # hide
 

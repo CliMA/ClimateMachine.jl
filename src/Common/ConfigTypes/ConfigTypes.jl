@@ -6,9 +6,7 @@ Module containing CLIMA configuration types.
 module ConfigTypes
 
 export CLIMAConfigType,
-       AtmosLESConfigType,
-       AtmosGCMConfigType,
-       OceanBoxGCMConfigType
+    AtmosLESConfigType, AtmosGCMConfigType, OceanBoxGCMConfigType
 
 abstract type CLIMAConfigType end
 struct AtmosLESConfigType <: CLIMAConfigType end

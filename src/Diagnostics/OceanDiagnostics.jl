@@ -1,10 +1,12 @@
 using ..HydrostaticBoussinesqModel
 
-function init(model::HydrostaticBoussinesqModel,
-              mpicomm::MPI.Comm,
-              dg::DGModel,
-              Q::MPIStateArray,
-              starttime::String)
+function init(
+    model::HydrostaticBoussinesqModel,
+    mpicomm::MPI.Comm,
+    dg::DGModel,
+    Q::MPIStateArray,
+    starttime::String,
+)
     @warn "No diagnostics implemented for HydrostaticBoussinesqModel"
 end
 

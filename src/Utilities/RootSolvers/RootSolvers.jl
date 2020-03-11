@@ -18,7 +18,8 @@ converged = sol.converged
 """
 module RootSolvers
 
-export find_zero, SecantMethod, RegulaFalsiMethod, NewtonsMethodAD, NewtonsMethod
+export find_zero,
+    SecantMethod, RegulaFalsiMethod, NewtonsMethodAD, NewtonsMethod
 export CompactSolution, VerboseSolution
 
 import ForwardDiff
@@ -44,20 +45,21 @@ struct VerboseSolution <: SolutionType end
 abstract type AbstractSolutionResults{AbstractFloat} end
 
 struct VerboseSolutionResults{FT} <: AbstractSolutionResults{FT}
-  "solution ``x^*`` of the root of the equation ``f(x^*) = 0``"
-  root::FT
-  "indicates convergence"
-  converged::Bool
-  "error of the root of the equation ``f(x^*) = 0``"
-  err::FT
-  "number of iterations performed"
-  iter_performed::Int
-  "solution per iteration"
-  root_history::Vector{FT}
-  "error of the root of the equation ``f(x^*) = 0`` per iteration"
-  err_history::Vector{FT}
+    "solution ``x^*`` of the root of the equation ``f(x^*) = 0``"
+    root::FT
+    "indicates convergence"
+    converged::Bool
+    "error of the root of the equation ``f(x^*) = 0``"
+    err::FT
+    "number of iterations performed"
+    iter_performed::Int
+    "solution per iteration"
+    root_history::Vector{FT}
+    "error of the root of the equation ``f(x^*) = 0`` per iteration"
+    err_history::Vector{FT}
 end
-SolutionResults(soltype::VerboseSolution, args...) = VerboseSolutionResults(args...)
+SolutionResults(soltype::VerboseSolution, args...) =
+    VerboseSolutionResults(args...)
 
 
 """
@@ -68,22 +70,30 @@ Used to return a [`CompactSolutionResults`](@ref)
 struct CompactSolution <: SolutionType end
 
 struct CompactSolutionResults{FT} <: AbstractSolutionResults{FT}
-  "solution ``x^*`` of the root of the equation ``f(x^*) = 0``"
-  root::FT
-  "indicates convergence"
-  converged::Bool
+    "solution ``x^*`` of the root of the equation ``f(x^*) = 0``"
+    root::FT
+    "indicates convergence"
+    converged::Bool
 end
-SolutionResults(soltype::CompactSolution, root, converged, args...) = CompactSolutionResults(root, converged)
+SolutionResults(soltype::CompactSolution, root, converged, args...) =
+    CompactSolutionResults(root, converged)
 
-init_history(::VerboseSolution, x::FT) where {FT<:AbstractFloat} = FT[x]
+init_history(::VerboseSolution, x::FT) where {FT <: AbstractFloat} = FT[x]
 init_history(::CompactSolution, x) = nothing
-init_history(::VerboseSolution, ::Type{FT}) where {FT<:AbstractFloat} = FT[]
-init_history(::CompactSolution, ::Type{FT}) where {FT<:AbstractFloat} = nothing
+init_history(::VerboseSolution, ::Type{FT}) where {FT <: AbstractFloat} = FT[]
+init_history(::CompactSolution, ::Type{FT}) where {FT <: AbstractFloat} =
+    nothing
 
-push_history!(history::Vector{FT}, x::FT, ::VerboseSolution) where {FT<:AbstractFloat} =
-  push!(history, x)
-push_history!(history::Nothing, x::FT, ::CompactSolution) where {FT<:AbstractFloat} =
-  nothing
+push_history!(
+    history::Vector{FT},
+    x::FT,
+    ::VerboseSolution,
+) where {FT <: AbstractFloat} = push!(history, x)
+push_history!(
+    history::Nothing,
+    x::FT,
+    ::CompactSolution,
+) where {FT <: AbstractFloat} = nothing
 
 
 # TODO: CuArrays.jl has trouble with isapprox on 1.1
@@ -112,64 +122,108 @@ The keyword arguments:
 """
 function find_zero end
 
-function find_zero(f::F, x0::FT, x1::FT, ::SecantMethod, soltype::SolutionType,
-                   xatol=FT(1e-3),
-                   maxiters=10_000) where {F, FT<:AbstractFloat}
-  y0 = f(x0)
-  y1 = f(x1)
-  x_history = init_history(soltype, x0)
-  y_history = init_history(soltype, y0)
-  for i in 1:maxiters
-    Δx = x1 - x0
-    Δy = y1 - y0
-    x0, y0 = x1, y1
-    push_history!(x_history, x0, soltype)
-    push_history!(y_history, y0, soltype)
-    x1 -= y1 * Δx / Δy
+function find_zero(
+    f::F,
+    x0::FT,
+    x1::FT,
+    ::SecantMethod,
+    soltype::SolutionType,
+    xatol = FT(1e-3),
+    maxiters = 10_000,
+) where {F, FT <: AbstractFloat}
+    y0 = f(x0)
     y1 = f(x1)
-    if abs(x0-x1) <= xatol
-      return SolutionResults(soltype, x1, true, y1, i, x_history, y_history)
+    x_history = init_history(soltype, x0)
+    y_history = init_history(soltype, y0)
+    for i in 1:maxiters
+        Δx = x1 - x0
+        Δy = y1 - y0
+        x0, y0 = x1, y1
+        push_history!(x_history, x0, soltype)
+        push_history!(y_history, y0, soltype)
+        x1 -= y1 * Δx / Δy
+        y1 = f(x1)
+        if abs(x0 - x1) <= xatol
+            return SolutionResults(
+                soltype,
+                x1,
+                true,
+                y1,
+                i,
+                x_history,
+                y_history,
+            )
+        end
     end
-  end
-  return SolutionResults(soltype, x1, false, y1, maxiters, x_history, y_history)
+    return SolutionResults(
+        soltype,
+        x1,
+        false,
+        y1,
+        maxiters,
+        x_history,
+        y_history,
+    )
 end
 
-function find_zero(f::F, x0::FT, x1::FT, ::RegulaFalsiMethod, soltype::SolutionType,
-                   xatol=FT(1e-3),
-                   maxiters=10_000) where {F, FT<:AbstractFloat}
-  y0 = f(x0)
-  y1 = f(x1)
-  @assert y0 * y1 < 0
-  x_history = init_history(soltype, x0)
-  y_history = init_history(soltype, y0)
-  lastside = 0
-  local x, y
-  for i in 1:maxiters
-    x = (x0 * y1 - x1 * y0)/ (y1 - y0)
-    y = f(x)
-    push_history!(x_history, x, soltype)
-    push_history!(y_history, y, soltype)
-    if y * y0 < 0
-      if abs(x-x1) <= xatol
-        return SolutionResults(soltype, x, true, y, i, x_history, y_history)
-      end
-      x1, y1 = x, y
-      if lastside == +1
-        y0 /= 2
-      end
-      lastside = +1
-    else
-      if abs(x0-x) <= xatol
-        return SolutionResults(soltype, x, true, y, i, x_history, y_history)
-      end
-      x0, y0 = x, y
-      if lastside == -1
-        y1 /= 2
-      end
-      lastside = -1
+function find_zero(
+    f::F,
+    x0::FT,
+    x1::FT,
+    ::RegulaFalsiMethod,
+    soltype::SolutionType,
+    xatol = FT(1e-3),
+    maxiters = 10_000,
+) where {F, FT <: AbstractFloat}
+    y0 = f(x0)
+    y1 = f(x1)
+    @assert y0 * y1 < 0
+    x_history = init_history(soltype, x0)
+    y_history = init_history(soltype, y0)
+    lastside = 0
+    local x, y
+    for i in 1:maxiters
+        x = (x0 * y1 - x1 * y0) / (y1 - y0)
+        y = f(x)
+        push_history!(x_history, x, soltype)
+        push_history!(y_history, y, soltype)
+        if y * y0 < 0
+            if abs(x - x1) <= xatol
+                return SolutionResults(
+                    soltype,
+                    x,
+                    true,
+                    y,
+                    i,
+                    x_history,
+                    y_history,
+                )
+            end
+            x1, y1 = x, y
+            if lastside == +1
+                y0 /= 2
+            end
+            lastside = +1
+        else
+            if abs(x0 - x) <= xatol
+                return SolutionResults(
+                    soltype,
+                    x,
+                    true,
+                    y,
+                    i,
+                    x_history,
+                    y_history,
+                )
+            end
+            x0, y0 = x, y
+            if lastside == -1
+                y1 /= 2
+            end
+            lastside = -1
+        end
     end
-  end
-  return SolutionResults(soltype, x, false, y, maxiters, x_history, y_history)
+    return SolutionResults(soltype, x, false, y, maxiters, x_history, y_history)
 end
 
 
@@ -180,55 +234,98 @@ Compute the value and derivative `f(x)` using ForwardDiff.jl.
 """
 function value_deriv(f, x::FT) where {FT}
     tag = typeof(ForwardDiff.Tag(f, FT))
-    y = f(ForwardDiff.Dual{tag}(x,one(x)))
+    y = f(ForwardDiff.Dual{tag}(x, one(x)))
     ForwardDiff.value(tag, y), ForwardDiff.partials(tag, y, 1)
 end
 
-function find_zero(f::F, x0::FT, ::NewtonsMethodAD, soltype::SolutionType,
-                   xatol=FT(1e-3),
-                   maxiters=10_000) where {F, FT<:AbstractFloat}
-  local y
-  x_history = init_history(soltype, FT)
-  y_history = init_history(soltype, FT)
-  if soltype isa VerboseSolution
-    y,y′ = value_deriv(f, x0)
-    push_history!(x_history, x0, soltype)
-    push_history!(y_history, y , soltype)
-  end
-  for i in 1:maxiters
-    y,y′ = value_deriv(f, x0)
-    x1 = x0 - y/y′
-    push_history!(x_history, x1, soltype)
-    push_history!(y_history, y,  soltype)
-    if abs(x0-x1) <= xatol
-      return SolutionResults(soltype, x1, true, y, i, x_history, y_history)
+function find_zero(
+    f::F,
+    x0::FT,
+    ::NewtonsMethodAD,
+    soltype::SolutionType,
+    xatol = FT(1e-3),
+    maxiters = 10_000,
+) where {F, FT <: AbstractFloat}
+    local y
+    x_history = init_history(soltype, FT)
+    y_history = init_history(soltype, FT)
+    if soltype isa VerboseSolution
+        y, y′ = value_deriv(f, x0)
+        push_history!(x_history, x0, soltype)
+        push_history!(y_history, y, soltype)
     end
-    x0 = x1
-  end
-  return SolutionResults(soltype, x0, false, y, maxiters, x_history, y_history)
+    for i in 1:maxiters
+        y, y′ = value_deriv(f, x0)
+        x1 = x0 - y / y′
+        push_history!(x_history, x1, soltype)
+        push_history!(y_history, y, soltype)
+        if abs(x0 - x1) <= xatol
+            return SolutionResults(
+                soltype,
+                x1,
+                true,
+                y,
+                i,
+                x_history,
+                y_history,
+            )
+        end
+        x0 = x1
+    end
+    return SolutionResults(
+        soltype,
+        x0,
+        false,
+        y,
+        maxiters,
+        x_history,
+        y_history,
+    )
 end
 
-function find_zero(f::F, f′::F′, x0::FT, ::NewtonsMethod, soltype::SolutionType,
-                   xatol=1e-3,
-                   maxiters=10_000) where {F, F′, FT<:AbstractFloat}
-  x_history = init_history(soltype, FT)
-  y_history = init_history(soltype, FT)
-  if soltype isa VerboseSolution
-    y,y′ = f(x0), f′(x0)
-    push_history!(x_history, x0, soltype)
-    push_history!(y_history, y , soltype)
-  end
-  for i in 1:maxiters
-    y,y′ = f(x0), f′(x0)
-    x1 = x0 - y/y′
-    push_history!(x_history, x1, soltype)
-    push_history!(y_history, y,  soltype)
-    if abs(x0-x1) <= xatol
-      return SolutionResults(soltype, x1, true, y, i, x_history, y_history)
+function find_zero(
+    f::F,
+    f′::F′,
+    x0::FT,
+    ::NewtonsMethod,
+    soltype::SolutionType,
+    xatol = 1e-3,
+    maxiters = 10_000,
+) where {F, F′, FT <: AbstractFloat}
+    x_history = init_history(soltype, FT)
+    y_history = init_history(soltype, FT)
+    if soltype isa VerboseSolution
+        y, y′ = f(x0), f′(x0)
+        push_history!(x_history, x0, soltype)
+        push_history!(y_history, y, soltype)
     end
-    x0 = x1
-  end
-  return SolutionResults(soltype, x0, false, y, maxiters, x_history, y_history)
+    for i in 1:maxiters
+        y, y′ = f(x0), f′(x0)
+        x1 = x0 - y / y′
+        push_history!(x_history, x1, soltype)
+        push_history!(y_history, y, soltype)
+        if abs(x0 - x1) <= xatol
+            return SolutionResults(
+                soltype,
+                x1,
+                true,
+                y,
+                i,
+                x_history,
+                y_history,
+            )
+        end
+        x0 = x1
+    end
+    return SolutionResults(
+        soltype,
+        x0,
+        false,
+        y,
+        maxiters,
+        x_history,
+        y_history,
+    )
 end
 
 end

@@ -31,8 +31,13 @@ pointwise throughout the domain with the model defined by `solver_config`. The
 keyword arguments `Q` and `dt` can be used to call the courant method with a
 different state `Q` or time step `dt` than are defined in `solver_config`.
 """
-DGmethods.courant(f, sc::SolverConfiguration; Q=sc.Q, dt = sc.dt, direction = EveryDirection()) =
-  DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, direction)
+DGmethods.courant(
+    f,
+    sc::SolverConfiguration;
+    Q = sc.Q,
+    dt = sc.dt,
+    direction = EveryDirection(),
+) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, direction)
 
 """
     CLIMA.setup_solver(t0::FT,
@@ -64,18 +69,20 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
 """
-function setup_solver(t0::FT, timeend::FT,
-                      driver_config::DriverConfiguration,
-                      init_args...;
-                      init_on_cpu=false,
-                      ode_solver_type=driver_config.solver_type,
-                      ode_dt=nothing,
-                      modeldata=nothing,
-                      Courant_number=0.4,
-                      diffdir=EveryDirection(),
-                      timeend_dt_adjust=true,
-                      CFL_direction=EveryDirection()
-                     ) where {FT<:AbstractFloat}
+function setup_solver(
+    t0::FT,
+    timeend::FT,
+    driver_config::DriverConfiguration,
+    init_args...;
+    init_on_cpu = false,
+    ode_solver_type = driver_config.solver_type,
+    ode_dt = nothing,
+    modeldata = nothing,
+    Courant_number = 0.4,
+    diffdir = EveryDirection(),
+    timeend_dt_adjust = true,
+    CFL_direction = EveryDirection(),
+) where {FT <: AbstractFloat}
     @tic setup_solver
 
     bl = driver_config.bl
@@ -85,11 +92,17 @@ function setup_solver(t0::FT, timeend::FT,
     gradnumflux = driver_config.gradnumflux
 
     # create DG model, initialize ODE state
-    dg = DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                 modeldata=modeldata,
-                 diffusion_direction=diffdir)
+    dg = DGModel(
+        bl,
+        grid,
+        numfluxnondiff,
+        numfluxdiff,
+        gradnumflux,
+        modeldata = modeldata,
+        diffusion_direction = diffdir,
+    )
     @info @sprintf("Initializing %s", driver_config.name)
-    Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu=init_on_cpu)
+    Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
     update_aux!(dg, bl, Q, FT(0))
 
     # create the linear model for IMEX solvers
@@ -110,19 +123,41 @@ function setup_solver(t0::FT, timeend::FT,
 
     # create the solver
     if isa(ode_solver_type, ExplicitSolverType)
-        solver = ode_solver_type.solver_method(dg, Q; dt=ode_dt, t0=t0)
+        solver = ode_solver_type.solver_method(dg, Q; dt = ode_dt, t0 = t0)
     else # ode_solver_type === IMEXSolverType
-        vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                      auxstate=dg.auxstate, direction=VerticalDirection())
+        vdg = DGModel(
+            linmodel,
+            grid,
+            numfluxnondiff,
+            numfluxdiff,
+            gradnumflux,
+            auxstate = dg.auxstate,
+            direction = VerticalDirection(),
+        )
 
-        solver = ode_solver_type.solver_method(dg, vdg,
-                                               ode_solver_type.linear_solver(), Q;
-                                               dt=ode_dt, t0=t0)
+        solver = ode_solver_type.solver_method(
+            dg,
+            vdg,
+            ode_solver_type.linear_solver(),
+            Q;
+            dt = ode_dt,
+            t0 = t0,
+        )
     end
 
     @toc setup_solver
 
-    return SolverConfiguration(driver_config.name, driver_config.mpicomm, dg, Q,
-                               t0, timeend, ode_dt, init_on_cpu, numberofsteps,
-                               init_args, solver)
+    return SolverConfiguration(
+        driver_config.name,
+        driver_config.mpicomm,
+        dg,
+        Q,
+        t0,
+        timeend,
+        ode_dt,
+        init_on_cpu,
+        numberofsteps,
+        init_args,
+        solver,
+    )
 end

@@ -20,8 +20,8 @@ function start(args::Vector{String})
     Z = zeros(Nqk * nvertelem)
     for ev in 1:nvertelem
         for k in 1:Nqk
-            dv = diagnostic_vars(data[key1][k,ev])
-            Z[k+(ev-1)*Nqk] = dv.z
+            dv = diagnostic_vars(data[key1][k, ev])
+            Z[k + (ev - 1) * Nqk] = dv.z
         end
     end
 
@@ -29,8 +29,8 @@ function start(args::Vector{String})
     for key in keys(data)
         for ev in 1:nvertelem
             for k in 1:Nqk
-                dv = diagnostic_vars(data[key][k,ev])
-                V[k+(ev-1)*Nqk] += getproperty(dv, Symbol(args[2]))
+                dv = diagnostic_vars(data[key][k, ev])
+                V[k + (ev - 1) * Nqk] += getproperty(dv, Symbol(args[2]))
             end
         end
     end
@@ -52,4 +52,3 @@ if length(ARGS) != 3 || !endswith(ARGS[1], ".jld2")
     usage()
 end
 start(ARGS)
-

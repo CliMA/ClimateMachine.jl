@@ -23,7 +23,7 @@ function write_data(filename, dimnames, dims, axes, varnames, varvals)
             defVar(ds, dimnames[n], axes[n], (dimnames[n],))
         end
         for v in 1:nv
-            defVar(ds, varnames[v], varvals[clns...,v], dimnames)
+            defVar(ds, varnames[v], varvals[clns..., v], dimnames)
         end
     end
     return nothing

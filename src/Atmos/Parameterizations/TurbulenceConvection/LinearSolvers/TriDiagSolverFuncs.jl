@@ -40,27 +40,27 @@ and given arguments:
 --------------------------------------------
 """
 function solve_tridiag!(x, B, a, b, c, n, xtemp, γ, β)
-  # Define coefficients:
-  β[1] = b[1]
-  γ[1] = c[1]/β[1]
-  for i in 2:n-1
-    β[i] = b[i]-a[i-1]*γ[i-1]
-    γ[i] = c[i]/β[i]
-  end
-  β[n] = b[n]-a[n-1]*γ[n-1]
+    # Define coefficients:
+    β[1] = b[1]
+    γ[1] = c[1] / β[1]
+    for i in 2:(n - 1)
+        β[i] = b[i] - a[i - 1] * γ[i - 1]
+        γ[i] = c[i] / β[i]
+    end
+    β[n] = b[n] - a[n - 1] * γ[n - 1]
 
-  # Forward substitution:
-  xtemp[1] = B[1]/β[1]
-  for i = 2:n
-    m = B[i] - a[i-1]*xtemp[i-1]
-    xtemp[i] = m/β[i]
-  end
+    # Forward substitution:
+    xtemp[1] = B[1] / β[1]
+    for i in 2:n
+        m = B[i] - a[i - 1] * xtemp[i - 1]
+        xtemp[i] = m / β[i]
+    end
 
-  # Backward substitution:
-  x[n] = xtemp[n]
-  for i in n-1:-1:1
-    x[i] = xtemp[i]-γ[i]*x[i+1]
-  end
+    # Backward substitution:
+    x[n] = xtemp[n]
+    for i in (n - 1):-1:1
+        x[i] = xtemp[i] - γ[i] * x[i + 1]
+    end
 end
 
 
@@ -107,18 +107,18 @@ and given arguments:
 --------------------------------------------
 """
 function solve_tridiag_stored!(x, B, a, β, γ, n, xtemp)
-  # Forward substitution:
-  xtemp[1] = B[1]/β[1]
-  for i = 2:n
-    m = B[i] - a[i-1]*xtemp[i-1]
-    xtemp[i] = m/β[i]
-  end
+    # Forward substitution:
+    xtemp[1] = B[1] / β[1]
+    for i in 2:n
+        m = B[i] - a[i - 1] * xtemp[i - 1]
+        xtemp[i] = m / β[i]
+    end
 
-  # Backward substitution:
-  x[n] = xtemp[n]
-  for i = n-1:-1:1
-    x[i] = xtemp[i]-γ[i]*x[i+1]
-  end
+    # Backward substitution:
+    x[n] = xtemp[n]
+    for i in (n - 1):-1:1
+        x[i] = xtemp[i] - γ[i] * x[i + 1]
+    end
 end
 
 """
@@ -137,11 +137,11 @@ coefficients can be passed as arguments to solve_tridiag_stored!.
 --------------------------------------------
 """
 function init_β_γ!(β, γ, a, b, c, n)
-  β[1] = b[1]
-  γ[1] = c[1]/β[1]
-  for i = 2:n-1
-    β[i] = b[i]-a[i-1]*γ[i-1]
-    γ[i] = c[i]/β[i]
-  end
-  β[n] = b[n]-a[n-1]*γ[n-1]
+    β[1] = b[1]
+    γ[1] = c[1] / β[1]
+    for i in 2:(n - 1)
+        β[i] = b[i] - a[i - 1] * γ[i - 1]
+        γ[i] = c[i] / β[i]
+    end
+    β[n] = b[n] - a[n - 1] * γ[n - 1]
 end

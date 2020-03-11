@@ -21,35 +21,53 @@ that the user specify the value to use for `QM - QP`; this is useful for
 correcting `Q` to include discontinuous reference states.
 
 """
-function rusanov!(F::MArray{Tuple{nstate}}, nM,
-                  QM, QVM, auxM,
-                  QP, QVP, auxP,
-                  t, flux!, wavespeed,
-                  computeQjump! = nothing
-                 ) where {nstate}
-  λM = wavespeed(nM, QM, auxM, t)
-  FM = similar(F, Size(3, nstate))
-  flux!(FM, QM, QVM, auxM, t)
+function rusanov!(
+    F::MArray{Tuple{nstate}},
+    nM,
+    QM,
+    QVM,
+    auxM,
+    QP,
+    QVP,
+    auxP,
+    t,
+    flux!,
+    wavespeed,
+    computeQjump! = nothing,
+) where {nstate}
+    λM = wavespeed(nM, QM, auxM, t)
+    FM = similar(F, Size(3, nstate))
+    flux!(FM, QM, QVM, auxM, t)
 
-  λP = wavespeed(nM, QP, auxP, t)
-  FP = similar(F, Size(3, nstate))
-  flux!(FP, QP, QVP, auxP, t)
+    λP = wavespeed(nM, QP, auxP, t)
+    FP = similar(F, Size(3, nstate))
+    flux!(FP, QP, QVP, auxP, t)
 
-  λ  =  max(λM, λP)
+    λ = max(λM, λP)
 
-  if computeQjump! === nothing
-    @inbounds for s = 1:nstate
-      F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-              nM[3] * (FM[3, s] + FP[3, s]) + λ * (QM[s] - QP[s])) / 2
+    if computeQjump! === nothing
+        @inbounds for s in 1:nstate
+            F[s] =
+                (
+                    nM[1] * (FM[1, s] + FP[1, s]) +
+                    nM[2] * (FM[2, s] + FP[2, s]) +
+                    nM[3] * (FM[3, s] + FP[3, s]) +
+                    λ * (QM[s] - QP[s])
+                ) / 2
+        end
+    else
+        ΔQ = copy(QM)
+        computeQjump!(ΔQ, QM, auxM, QP, auxP)
+        @inbounds for s in 1:nstate
+            F[s] =
+                (
+                    nM[1] * (FM[1, s] + FP[1, s]) +
+                    nM[2] * (FM[2, s] + FP[2, s]) +
+                    nM[3] * (FM[3, s] + FP[3, s]) +
+                    λ * ΔQ[s]
+                ) / 2
+        end
     end
-  else
-    ΔQ = copy(QM)
-    computeQjump!(ΔQ, QM, auxM, QP, auxP)
-    @inbounds for s = 1:nstate
-      F[s] = (nM[1] * (FM[1, s] + FP[1, s]) + nM[2] * (FM[2, s] + FP[2, s]) +
-              nM[3] * (FM[3, s] + FP[3, s]) + λ * ΔQ[s]) / 2
-    end
-  end
 end
 
 """
@@ -66,17 +84,37 @@ where `QP`, `QVP`, and `auxP` are the plus side state, viscous state, and
 auxiliary state to be filled from the given data; other arguments should not be
 modified.
 """
-function rusanov_boundary_flux!(F::MArray{Tuple{nstate}}, nM,
-                                QM, QVM, auxM,
-                                QP, QVP, auxP,
-                                bctype, t,
-                                flux!, bcstate!,
-                                wavespeed,
-                                computeQjump! = nothing
-                               ) where {nstate}
-  bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t)
-  rusanov!(F, nM, QM, QVM, auxM, QP, QVP, auxP, t, flux!, wavespeed,
-           computeQjump!)
+function rusanov_boundary_flux!(
+    F::MArray{Tuple{nstate}},
+    nM,
+    QM,
+    QVM,
+    auxM,
+    QP,
+    QVP,
+    auxP,
+    bctype,
+    t,
+    flux!,
+    bcstate!,
+    wavespeed,
+    computeQjump! = nothing,
+) where {nstate}
+    bcstate!(QP, QVP, auxP, nM, QM, QVM, auxM, bctype, t)
+    rusanov!(
+        F,
+        nM,
+        QM,
+        QVM,
+        auxM,
+        QP,
+        QVP,
+        auxP,
+        t,
+        flux!,
+        wavespeed,
+        computeQjump!,
+    )
 end
 
 end

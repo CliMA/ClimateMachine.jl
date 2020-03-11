@@ -16,16 +16,19 @@ include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 abstract type AbstractSolverType end
 struct ExplicitSolverType <: AbstractSolverType
     solver_method::Function
-    ExplicitSolverType(;solver_method=LSRK54CarpenterKennedy) = new(solver_method)
+    ExplicitSolverType(; solver_method = LSRK54CarpenterKennedy) =
+        new(solver_method)
 end
 struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     solver_method::Function
     # FIXME: this is Atmos-specific
-    function IMEXSolverType(;linear_model=AtmosAcousticGravityLinearModel,
-                            linear_solver=ManyColumnLU,
-                            solver_method=ARK2GiraldoKellyConstantinescu)
+    function IMEXSolverType(;
+        linear_model = AtmosAcousticGravityLinearModel,
+        linear_solver = ManyColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+    )
         return new(linear_model, linear_solver, solver_method)
     end
 end
@@ -40,8 +43,7 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     nelem_vert::Int
     nelem_horz::Int
 end
-struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo
-end
+struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 
 """
     CLIMA.DriverConfiguration
@@ -73,150 +75,241 @@ struct DriverConfiguration{FT}
     # configuration-specific info
     config_info::ConfigSpecificInfo
 
-    function DriverConfiguration(config_type,
-                                 name::String, N::Int, FT, array_type,
-                                 solver_type::AbstractSolverType,
-                                 bl::BalanceLaw,
-                                 mpicomm::MPI.Comm,
-                                 grid::DiscontinuousSpectralElementGrid,
-                                 numfluxnondiff::NumericalFluxNonDiffusive,
-                                 numfluxdiff::NumericalFluxDiffusive,
-                                 gradnumflux::NumericalFluxGradient,
-                                 config_info::ConfigSpecificInfo)
-        return new{FT}(config_type, name, N, array_type, solver_type, bl,
-                       mpicomm, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                       config_info)
+    function DriverConfiguration(
+        config_type,
+        name::String,
+        N::Int,
+        FT,
+        array_type,
+        solver_type::AbstractSolverType,
+        bl::BalanceLaw,
+        mpicomm::MPI.Comm,
+        grid::DiscontinuousSpectralElementGrid,
+        numfluxnondiff::NumericalFluxNonDiffusive,
+        numfluxdiff::NumericalFluxDiffusive,
+        gradnumflux::NumericalFluxGradient,
+        config_info::ConfigSpecificInfo,
+    )
+        return new{FT}(
+            config_type,
+            name,
+            N,
+            array_type,
+            solver_type,
+            bl,
+            mpicomm,
+            grid,
+            numfluxnondiff,
+            numfluxdiff,
+            gradnumflux,
+            config_info,
+        )
     end
 end
 
 function AtmosLESConfiguration(
-        name::String,
-        N::Int,
-        (Δx, Δy, Δz)::NTuple{3,FT},
-        xmax::Int, ymax::Int, zmax::Int,
-        init_LES!;
-        xmin           = 0,
-        ymin           = 0,
-        zmin           = 0,
-        array_type     = CLIMA.array_type(),
-        solver_type    = IMEXSolverType(linear_solver=SingleColumnLU),
-        model          = AtmosModel{FT}(AtmosLESConfigType;
-                                        init_state=init_LES!,
-                                        param_set=ParameterSet{FT}()),
-        mpicomm        = MPI.COMM_WORLD,
-        boundary       = ((0,0), (0,0), (1,2)),
-        periodicity    = (true, true, false),
-        meshwarp       = (x...)->identity(x),
-        numfluxnondiff = Rusanov(),
-        numfluxdiff    = CentralNumericalFluxDiffusive(),
-        gradnumflux    = CentralNumericalFluxGradient()
-    ) where {FT<:AbstractFloat}
+    name::String,
+    N::Int,
+    (Δx, Δy, Δz)::NTuple{3, FT},
+    xmax::Int,
+    ymax::Int,
+    zmax::Int,
+    init_LES!;
+    xmin = 0,
+    ymin = 0,
+    zmin = 0,
+    array_type = CLIMA.array_type(),
+    solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
+    model = AtmosModel{FT}(
+        AtmosLESConfigType;
+        init_state = init_LES!,
+        param_set = ParameterSet{FT}(),
+    ),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = ((0, 0), (0, 0), (1, 2)),
+    periodicity = (true, true, false),
+    meshwarp = (x...) -> identity(x),
+    numfluxnondiff = Rusanov(),
+    numfluxdiff = CentralNumericalFluxDiffusive(),
+    gradnumflux = CentralNumericalFluxGradient(),
+) where {FT <: AbstractFloat}
 
-    @info @sprintf("""Establishing Atmos LES configuration for %s
-                   precision        = %s
-                   polynomial order = %d
-                   grid             = %dx%dx%d
-                   resolution       = %dx%dx%d
-                   MPI ranks        = %d""",
-                   name, FT, N,
-                   xmax, ymax, zmax,
-                   Δx, Δy, Δz,
-                   MPI.Comm_size(mpicomm))
+    @info @sprintf(
+        """Establishing Atmos LES configuration for %s
+        precision        = %s
+        polynomial order = %d
+        grid             = %dx%dx%d
+        resolution       = %dx%dx%d
+        MPI ranks        = %d""",
+        name,
+        FT,
+        N,
+        xmax,
+        ymax,
+        zmax,
+        Δx,
+        Δy,
+        Δz,
+        MPI.Comm_size(mpicomm)
+    )
 
-    brickrange = (grid1d(xmin, xmax, elemsize=Δx*N),
-                  grid1d(ymin, ymax, elemsize=Δy*N),
-                  grid1d(zmin, zmax, elemsize=Δz*N))
-    topology = StackedBrickTopology(mpicomm, brickrange,
-                                    periodicity=periodicity,
-                                    boundary=boundary)
+    brickrange = (
+        grid1d(xmin, xmax, elemsize = Δx * N),
+        grid1d(ymin, ymax, elemsize = Δy * N),
+        grid1d(zmin, zmax, elemsize = Δz * N),
+    )
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+    )
 
-    grid = DiscontinuousSpectralElementGrid(topology,
-                                            FloatType=FT,
-                                            DeviceArray=array_type,
-                                            polynomialorder=N,
-                                            meshwarp=meshwarp)
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+        meshwarp = meshwarp,
+    )
 
-    return DriverConfiguration(AtmosLESConfigType(), name, N, FT, array_type,
-                               solver_type, model, mpicomm, grid,
-                               numfluxnondiff, numfluxdiff, gradnumflux,
-                               AtmosLESSpecificInfo(brickrange))
+    return DriverConfiguration(
+        AtmosLESConfigType(),
+        name,
+        N,
+        FT,
+        array_type,
+        solver_type,
+        model,
+        mpicomm,
+        grid,
+        numfluxnondiff,
+        numfluxdiff,
+        gradnumflux,
+        AtmosLESSpecificInfo(brickrange),
+    )
 end
 
 function AtmosGCMConfiguration(
-        name::String,
-        N::Int,
-        (nelem_horz, nelem_vert)::NTuple{2,Int},
-        domain_height::FT,
-        init_GCM!;
-        array_type         = CLIMA.array_type(),
-        solver_type        = DefaultSolverType(),
-        model              = AtmosModel{FT}(AtmosGCMConfigType;
-                                            init_state=init_GCM!,
-                                            param_set=ParameterSet{FT}()),
-        mpicomm            = MPI.COMM_WORLD,
-        meshwarp::Function = cubedshellwarp,
-        numfluxnondiff     = Rusanov(),
-        numfluxdiff        = CentralNumericalFluxDiffusive(),
-        gradnumflux        = CentralNumericalFluxGradient()
-    ) where {FT<:AbstractFloat}
-    @info @sprintf("""Establishing Atmos GCM configuration for %s
-                   precision        = %s
-                   polynomial order = %d
-                   #horiz elems     = %d
-                   #vert_elems      = %d
-                   domain height    = %.2e
-                   MPI ranks        = %d""",
-                   name, FT, N,
-                   nelem_horz, nelem_vert, domain_height,
-                   MPI.Comm_size(mpicomm))
+    name::String,
+    N::Int,
+    (nelem_horz, nelem_vert)::NTuple{2, Int},
+    domain_height::FT,
+    init_GCM!;
+    array_type = CLIMA.array_type(),
+    solver_type = DefaultSolverType(),
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType;
+        init_state = init_GCM!,
+        param_set = ParameterSet{FT}(),
+    ),
+    mpicomm = MPI.COMM_WORLD,
+    meshwarp::Function = cubedshellwarp,
+    numfluxnondiff = Rusanov(),
+    numfluxdiff = CentralNumericalFluxDiffusive(),
+    gradnumflux = CentralNumericalFluxGradient(),
+) where {FT <: AbstractFloat}
+    @info @sprintf(
+        """Establishing Atmos GCM configuration for %s
+        precision        = %s
+        polynomial order = %d
+        #horiz elems     = %d
+        #vert_elems      = %d
+        domain height    = %.2e
+        MPI ranks        = %d""",
+        name,
+        FT,
+        N,
+        nelem_horz,
+        nelem_vert,
+        domain_height,
+        MPI.Comm_size(mpicomm)
+    )
 
-    vert_range = grid1d(FT(planet_radius), FT(planet_radius+domain_height), nelem=nelem_vert)
+    vert_range = grid1d(
+        FT(planet_radius),
+        FT(planet_radius + domain_height),
+        nelem = nelem_vert,
+    )
 
     topology = StackedCubedSphereTopology(mpicomm, nelem_horz, vert_range)
 
-    grid = DiscontinuousSpectralElementGrid(topology,
-                                            FloatType=FT,
-                                            DeviceArray=array_type,
-                                            polynomialorder=N,
-                                            meshwarp=meshwarp)
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+        meshwarp = meshwarp,
+    )
 
-    return DriverConfiguration(AtmosGCMConfigType(), name, N, FT, array_type,
-                               solver_type, model, mpicomm, grid,
-                               numfluxnondiff, numfluxdiff, gradnumflux,
-                               AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz))
+    return DriverConfiguration(
+        AtmosGCMConfigType(),
+        name,
+        N,
+        FT,
+        array_type,
+        solver_type,
+        model,
+        mpicomm,
+        grid,
+        numfluxnondiff,
+        numfluxdiff,
+        gradnumflux,
+        AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
+    )
 end
 
 function OceanBoxGCMConfiguration(
     name::String,
     N::Int,
-    (Nˣ, Nʸ, Nᶻ)::NTuple{3,Int},
+    (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
     model::HydrostaticBoussinesqModel;
-    FT             = Float64,
-    array_type     = CLIMA.array_type(),
-    solver_type    = ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
-    mpicomm        = MPI.COMM_WORLD,
+    FT = Float64,
+    array_type = CLIMA.array_type(),
+    solver_type = ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    ),
+    mpicomm = MPI.COMM_WORLD,
     numfluxnondiff = Rusanov(),
-    numfluxdiff    = CentralNumericalFluxDiffusive(),
-    gradnumflux    = CentralNumericalFluxGradient(),
-    periodicity    = (false, false, false),
-    boundary       = ((1, 1), (1, 1), (2, 3))
+    numfluxdiff = CentralNumericalFluxDiffusive(),
+    gradnumflux = CentralNumericalFluxGradient(),
+    periodicity = (false, false, false),
+    boundary = ((1, 1), (1, 1), (2, 3)),
+)
+
+    brickrange = (
+        range(FT(0); length = Nˣ + 1, stop = model.problem.Lˣ),
+        range(FT(0); length = Nʸ + 1, stop = model.problem.Lʸ),
+        range(FT(-model.problem.H); length = Nᶻ + 1, stop = 0),
     )
 
-    brickrange = (range(FT(0);  length=Nˣ+1, stop=model.problem.Lˣ),
-                  range(FT(0);  length=Nʸ+1, stop=model.problem.Lʸ),
-                  range(FT(-model.problem.H); length=Nᶻ+1, stop=0))
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange;
+        periodicity = periodicity,
+        boundary = boundary,
+    )
 
-    topology = StackedBrickTopology(mpicomm, brickrange;
-                                    periodicity = periodicity,
-                                    boundary = boundary)
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+    )
 
-    grid = DiscontinuousSpectralElementGrid(topology,
-                                            FloatType = FT,
-                                            DeviceArray = array_type,
-                                            polynomialorder = N)
-
-    return DriverConfiguration(OceanBoxGCMConfigType(), name, N, FT, array_type,
-                               solver_type, model, mpicomm, grid,
-                               numfluxnondiff, numfluxdiff, gradnumflux,
-                               OceanBoxGCMSpecificInfo())
+    return DriverConfiguration(
+        OceanBoxGCMConfigType(),
+        name,
+        N,
+        FT,
+        array_type,
+        solver_type,
+        model,
+        mpicomm,
+        grid,
+        numfluxnondiff,
+        numfluxdiff,
+        gradnumflux,
+        OceanBoxGCMSpecificInfo(),
+    )
 end

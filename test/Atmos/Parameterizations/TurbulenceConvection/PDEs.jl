@@ -5,10 +5,10 @@ using CLIMA.TurbulenceConvection.StateVecs
 using CLIMA.TurbulenceConvection.TriDiagSolvers
 
 @static if haskey(Pkg.installed(), "Plots")
-  using Plots
-  export_plots = true
+    using Plots
+    export_plots = true
 else
-  export_plots = false
+    export_plots = false
 end
 
 output_root = joinpath("output", "tests", "PDEs")
