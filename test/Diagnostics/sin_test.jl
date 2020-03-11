@@ -16,24 +16,24 @@ using CLIMA.ODESolvers
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
-function init_sin_test!(bl, state, aux, (x,y,z), t)
+function init_sin_test!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = FT(z)
 
     # These constants are those used by Stevens et al. (2005)
-    qref       = FT(9.0e-3)
-    q_pt_sfc   = PhasePartition(qref)
-    Rm_sfc     = FT(gas_constant_air(q_pt_sfc))
-    T_sfc      = FT(292.5)
-    P_sfc      = FT(MSLP)
+    qref = FT(9.0e-3)
+    q_pt_sfc = PhasePartition(qref)
+    Rm_sfc = FT(gas_constant_air(q_pt_sfc))
+    T_sfc = FT(292.5)
+    P_sfc = FT(MSLP)
 
     # Specify moisture profiles
-    q_liq      = FT(0)
-    q_ice      = FT(0)
-    zb         = FT(600)         # initial cloud bottom
-    zi         = FT(840)         # initial cloud top
-    dz_cloud   = zi - zb
+    q_liq = FT(0)
+    q_ice = FT(0)
+    zb = FT(600)         # initial cloud bottom
+    zi = FT(840)         # initial cloud top
+    dz_cloud = zi - zb
     q_liq_peak = FT(0.00045)     # cloud mixing ratio at z_i
 
     if z > zb && z <= zi
@@ -41,43 +41,50 @@ function init_sin_test!(bl, state, aux, (x,y,z), t)
     end
 
     if z <= zi
-        θ_liq  = FT(289.0)
-        q_tot  = qref
+        θ_liq = FT(289.0)
+        q_tot = qref
     else
-        θ_liq  = FT(297.5) + (z - zi)^(FT(1/3))
-        q_tot  = FT(1.5e-3)
+        θ_liq = FT(297.5) + (z - zi)^(FT(1 / 3))
+        q_tot = FT(1.5e-3)
     end
 
     u1, u2 = FT(6), FT(7)
     v1, v2 = FT(-4.25), FT(-5.5)
-    w = FT(10 + 0.5 * sin(2 * π * ((x/1500) + (y/1500))))
-    u = (5 + 2 * sin(2 * π * ((x/1500) + (y/1500))))
-    v = FT(5 + 2 * sin(2 * π * ((x/1500) + (y/1500))))
+    w = FT(10 + 0.5 * sin(2 * π * ((x / 1500) + (y / 1500))))
+    u = (5 + 2 * sin(2 * π * ((x / 1500) + (y / 1500))))
+    v = FT(5 + 2 * sin(2 * π * ((x / 1500) + (y / 1500))))
 
     # Pressure
-    H     = Rm_sfc * T_sfc / grav
-    p     = P_sfc * exp(-z / H)
+    H = Rm_sfc * T_sfc / grav
+    p = P_sfc * exp(-z / H)
 
     # Density, Temperature
-    ts    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
-    ρ     = air_density(ts)
+    ts = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
+    ρ = air_density(ts)
 
-    e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
+    e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = grav * z
-    E     = ρ * total_energy(e_kin, e_pot, ts)
+    E = ρ * total_energy(e_kin, e_pot, ts)
 
-    state.ρ               = ρ
-    state.ρu              = SVector(ρ*u, ρ*v, ρ*w)
-    state.ρe              = E
+    state.ρ = ρ
+    state.ρu = SVector(ρ * u, ρ * v, ρ * w)
+    state.ρe = E
     state.moisture.ρq_tot = ρ * q_tot
 end
 
 function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy)
-    config = CLIMA.AtmosLESConfiguration("Diagnostics SIN test", N,
-                                         resolution, xmax, ymax, zmax,
-                                         init_sin_test!,
-                                         solver_type=ode_solver)
+    ode_solver =
+        CLIMA.ExplicitSolverType(solver_method = LSRK54CarpenterKennedy)
+    config = CLIMA.AtmosLESConfiguration(
+        "Diagnostics SIN test",
+        N,
+        resolution,
+        xmax,
+        ymax,
+        zmax,
+        init_sin_test!,
+        solver_type = ode_solver,
+    )
 
     return config
 end
@@ -107,7 +114,13 @@ function main()
     timeend = dt
 
     driver_config = config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, ode_dt=dt, init_on_cpu=true)
+    solver_config = CLIMA.setup_solver(
+        t0,
+        timeend,
+        driver_config,
+        ode_dt = dt,
+        init_on_cpu = true,
+    )
 
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -127,19 +140,19 @@ function main()
     mpirank = MPI.Comm_rank(mpicomm)
     if mpirank == 0
         d = load(joinpath(outdir, "diagnostics-$(starttime).jld2"))
-        Nqk  = size(d["0.0"], 1)
-        Nev  = size(d["0.0"], 2)
-        S    = zeros(Nqk * Nev)
-        S1   = zeros(Nqk * Nev)
-        err  = 0
+        Nqk = size(d["0.0"], 1)
+        Nev = size(d["0.0"], 2)
+        S = zeros(Nqk * Nev)
+        S1 = zeros(Nqk * Nev)
+        err = 0
         err1 = 0
         for ev in 1:Nev
             for k in 1:Nqk
-                dv = Diagnostics.diagnostic_vars(d["0.0"][k,ev])
-                S[k+(ev-1)*Nqk] = dv.vert_eddy_u_flx
-                S1[k+(ev-1)*Nqk] = dv.u
-                err += (S[k+(ev-1)*Nqk] - 0.5)^2
-                err1 += (S1[k+(ev-1)*Nqk] - 5)^2
+                dv = Diagnostics.diagnostic_vars(d["0.0"][k, ev])
+                S[k + (ev - 1) * Nqk] = dv.vert_eddy_u_flux
+                S1[k + (ev - 1) * Nqk] = dv.u
+                err += (S[k + (ev - 1) * Nqk] - 0.5)^2
+                err1 += (S1[k + (ev - 1) * Nqk] - 5)^2
             end
         end
         err = sqrt(err / (Nqk * Nev))
