@@ -4,12 +4,17 @@ using Test
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.ConfigTypes
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
+
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -19,7 +24,7 @@ using CLIMA.VariableTemplates
 # 4) Timeend - 1000s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
 # 7) Overrides defaults for
-#               `forcecpu`
+#               `init_on_cpu`
 #               `solver_type`
 #               `sources`
 #               `C_smag`
@@ -50,18 +55,20 @@ function init_risingbubble!(bl, state, aux, (x,y,z), t)
   θ            = θ_ref + Δθ # potential temperature
   π_exner      = FT(1) - grav / (c_p * θ) * z # exner pressure
   ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-  P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T            = P / (ρ * R_gas) # temperature
+  q_tot        = FT(0)
+  ts           = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
+  q_pt         = PhasePartition(ts)
+
   ρu           = SVector(FT(0),FT(0),FT(0))
 
   #State (prognostic) variable assignment
   e_kin        = FT(0)
-  e_pot        = grav * z
-  ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
+  e_pot        = gravitational_potential(bl.orientation, aux)
+  ρe_tot       = ρ * total_energy(e_kin, e_pot, ts)
   state.ρ      = ρ
   state.ρu     = ρu
   state.ρe     = ρe_tot
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = ρ*q_pt.tot
 end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
@@ -75,18 +82,19 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
   # Set up the model
   C_smag = FT(0.23)
   ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          turbulence=SmagorinskyLilly{FT}(C_smag),
                          source=(Gravity(),),
                          ref_state=ref_state,
-                         init_state=init_risingbubble!)
+                         init_state=init_risingbubble!,
+                         param_set=ParameterSet{FT}())
 
   # Problem configuration
-  config = CLIMA.Atmos_LES_Configuration("DryRisingBubble",
-                                         N, resolution, xmax, ymax, zmax,
-                                         init_risingbubble!,
-                                         solver_type=ode_solver,
-                                         model=model)
+  config = CLIMA.AtmosLESConfiguration("DryRisingBubble",
+                                       N, resolution, xmax, ymax, zmax,
+                                       init_risingbubble!,
+                                       solver_type=ode_solver,
+                                       model=model)
   return config
 end
 
@@ -112,7 +120,7 @@ function main()
     CFL = FT(0.8)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, forcecpu=true, Courant_number=CFL)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu=true, Courant_number=CFL)
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)

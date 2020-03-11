@@ -1,4 +1,5 @@
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state
@@ -10,12 +11,15 @@ using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
 using CLIMA.PlanetParameters: kappa_d
-using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air
+using CLIMA.MoistThermodynamics: air_density, total_energy, soundspeed_air, PhaseDry_given_pT
 using CLIMA.Atmos: AtmosModel, NoOrientation, NoReferenceState,
                    DryModel, NoPrecipitation, NoRadiation, PeriodicBC,
-                   ConstantViscosityWithDivergence, vars_state,
-                   AtmosLESConfiguration
+                   ConstantViscosityWithDivergence, vars_state
 using CLIMA.VariableTemplates: flattenednames
+
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
@@ -138,14 +142,15 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
                                           DeviceArray = ArrayType,
                                           polynomialorder = polynomialorder)
 
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          orientation=NoOrientation(),
                            ref_state=NoReferenceState(),
                           turbulence=ConstantViscosityWithDivergence(0.0),
                             moisture=DryModel(),
                               source=nothing,
                    boundarycondition=PeriodicBC(),
-                          init_state=isentropicvortex_initialcondition!)
+                          init_state=isentropicvortex_initialcondition!,
+                           param_set=ParameterSet{FT}())
 
   dg = DGModel(model, grid, NumericalFlux(),
                CentralNumericalFluxDiffusive(), CentralNumericalFluxGradient())
@@ -154,7 +159,7 @@ function run(mpicomm, ArrayType, polynomialorder, numelems,
 
   # determine the time step
   elementsize = minimum(step.(brickrange))
-  dt = elementsize / soundspeed_air(setup.T∞) / polynomialorder ^ 2
+  dt = elementsize / soundspeed_air(setup.T∞, model.param_set) / polynomialorder ^ 2
   nsteps = ceil(Int, timeend / dt)
   dt = timeend / nsteps
 
@@ -226,7 +231,7 @@ end
 Base.@kwdef struct IsentropicVortexSetup{FT}
   p∞::FT = 10 ^ 5
   T∞::FT = 300
-  ρ∞::FT = air_density(FT(T∞), FT(p∞))
+  ρ∞::FT = air_density(FT(T∞), FT(p∞), ParameterSet{FT}())
   translation_speed::FT = 150
   translation_angle::FT = pi / 4
   vortex_speed::FT = 50
@@ -264,12 +269,14 @@ function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
   T = T∞ * (1 - kappa_d * vortex_speed ^ 2 / 2 * ρ∞ / p∞ * exp(-(r / R) ^ 2))
   # adiabatic/isentropic relation
   p = p∞ * (T / T∞) ^ (FT(1) / kappa_d)
-  ρ = air_density(T, p)
+  ts = PhaseDry_given_pT(p, T, bl.param_set)
+  ρ = air_density(ts)
 
+  e_pot = FT(0)
   state.ρ = ρ
   state.ρu = ρ * u
   e_kin = u' * u / 2
-  state.ρe = ρ * total_energy(e_kin, FT(0), T)
+  state.ρe = ρ * total_energy(e_kin, e_pot, ts)
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname = "isentropicvortex")

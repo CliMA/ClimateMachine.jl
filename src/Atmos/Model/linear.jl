@@ -29,11 +29,6 @@ end
 abstract type AtmosLinearModel <: BalanceLaw
 end
 
-function calculate_dt(grid, model::AtmosLinearModel, Courant_number)
-    T = 290.0
-    return Courant_number * min_node_distance(grid, HorizontalDirection()) / soundspeed_air(T)
-end
-
 vars_state(lm::AtmosLinearModel, FT) = vars_state(lm.atmos,FT)
 vars_gradient(lm::AtmosLinearModel, FT) = @vars()
 vars_diffusive(lm::AtmosLinearModel, FT) = @vars()
@@ -56,7 +51,7 @@ reverse_integral_set_aux!(lm::AtmosLinearModel, aux::Vars, integ::Vars) = nothin
 flux_diffusive!(lm::AtmosLinearModel, flux::Grad, state::Vars, diffusive::Vars, aux::Vars, t::Real) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
   ref = aux.ref_state
-  return soundspeed_air(ref.T)
+  return soundspeed_air(ref.T, lm.atmos.param_set)
 end
 
 function boundary_state!(nf::NumericalFluxNonDiffusive, lm::AtmosLinearModel, x...)

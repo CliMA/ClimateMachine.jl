@@ -2,6 +2,7 @@
 # Load Packages
 using MPI
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
@@ -21,6 +22,10 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using Random
 using CLIMA.Atmos: vars_state, vars_aux
+
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -79,18 +84,19 @@ function Initialise_Density_Current!(bl, state::Vars, aux::Vars, (x1,x2,x3), t)
   π_exner           = FT(1) - grav / (c_p * θ) * x3 # exner pressure
   ρ                 = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
 
-  P                 = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T                 = P / (ρ * R_gas) # temperature
+  ts                = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
+  q_pt              = PhasePartition(ts)
+
   U, V, W           = FT(0) , FT(0) , FT(0)  # momentum components
   # energy definitions
   e_kin             = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
-  e_pot             = grav * x3
-  e_int             = internal_energy(T, qvar)
+  e_pot             = gravitational_potential(bl.orientation, aux)
+  e_int             = internal_energy(ts)
   E                 = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
   state.ρ      = ρ
   state.ρu     = SVector(U, V, W)
   state.ρe     = E
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = ρ*q_pt.tot
 end
 # --------------- Driver definition ------------------ #
 function run(mpicomm, ArrayType,
@@ -104,12 +110,13 @@ function run(mpicomm, ArrayType,
                                            )
   # -------------- Define model ---------------------------------- #
   source = Gravity()
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          ref_state=HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0)),
                         turbulence=AnisoMinDiss{FT}(1),
                             source=source,
                  boundarycondition=NoFluxBC(),
-                        init_state=Initialise_Density_Current!)
+                        init_state=Initialise_Density_Current!,
+                         param_set=ParameterSet{FT}())
   # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,

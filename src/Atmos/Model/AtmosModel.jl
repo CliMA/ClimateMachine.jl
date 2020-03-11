@@ -2,12 +2,12 @@ module Atmos
 
 export AtmosModel,
        AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
-       RemainderModel,
-       AtmosLESConfiguration,
-       AtmosGCMConfiguration
+       RemainderModel
 
 using LinearAlgebra, StaticArrays
+using ..ConfigTypes
 using ..VariableTemplates
+using ..Parameters
 using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
@@ -21,7 +21,7 @@ import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         flux_diffusive!, source!, wavespeed, boundary_state!,
                         gradvariables!, diffusive!, init_aux!, init_state!,
                         update_aux!, LocalGeometry, lengthscale,
-                        resolutionmetric, DGModel, calculate_dt,
+                        resolutionmetric, DGModel,
                         nodal_update_aux!, num_state,
                         num_integrals,
                         vars_integrals, vars_reverse_integrals,
@@ -35,6 +35,7 @@ import ..DGmethods.NumericalFluxes: boundary_state!,
                                     NumericalFluxNonDiffusive,
                                     NumericalFluxGradient,
                                     NumericalFluxDiffusive
+import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
 """
     AtmosModel <: BalanceLaw
@@ -47,7 +48,8 @@ A `BalanceLaw` for atmosphere modeling.
                boundarycondition, init_state)
 
 """
-struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS} <: BalanceLaw
+struct AtmosModel{FT,PS,O,RS,T,M,P,R,S,BC,IS,DC} <: BalanceLaw
+  param_set::PS
   orientation::O
   ref_state::RS
   turbulence::T
@@ -58,25 +60,17 @@ struct AtmosModel{FT,O,RS,T,M,P,R,S,BC,IS} <: BalanceLaw
   # TODO: Probably want to have different bc for state and diffusion...
   boundarycondition::BC
   init_state::IS
+  data_config::DC
 end
 
-function calculate_dt(grid, model::AtmosModel, Courant_number)
-    T = 290.0
-    return Courant_number * min_node_distance(grid, VerticalDirection()) / soundspeed_air(T)
-end
-
-abstract type AtmosConfiguration end
-struct AtmosLESConfiguration <: AtmosConfiguration end
-struct AtmosGCMConfiguration <: AtmosConfiguration end
-
-function AtmosModel{FT}(::Type{AtmosLESConfiguration};
+function AtmosModel{FT}(::Type{AtmosLESConfigType};
                          orientation::O=FlatOrientation(),
                          ref_state::RS=HydrostaticState(LinearTemperatureProfile(FT(200),
                                                                                  FT(280),
                                                                                  FT(grav) / FT(cp_d)),
                                                                                  FT(0)),
                          turbulence::T=SmagorinskyLilly{FT}(0.21),
-                         moisture::M=EquilMoist(),
+                         moisture::M=EquilMoist{FT}(),
                          precipitation::P=NoPrecipitation(),
                          radiation::R=NoRadiation(),
                          source::S=( Gravity(),
@@ -84,10 +78,14 @@ function AtmosModel{FT}(::Type{AtmosLESConfiguration};
                                      GeostrophicForcing{FT}(7.62e-5, 0, 0)),
                          # TODO: Probably want to have different bc for state and diffusion...
                          boundarycondition::BC=NoFluxBC(),
-                         init_state::IS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS}
+                         init_state::IS=nothing,
+                         data_config::DC=nothing,
+                         param_set::PS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC,PS}
+  @assert param_set ≠ nothing
   @assert init_state ≠ nothing
 
   atmos = (
+        param_set,
         orientation,
         ref_state,
         turbulence,
@@ -97,11 +95,12 @@ function AtmosModel{FT}(::Type{AtmosLESConfiguration};
         source,
         boundarycondition,
         init_state,
+        data_config,
        )
 
   return AtmosModel{FT,typeof.(atmos)...}(atmos...)
 end
-function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
+function AtmosModel{FT}(::Type{AtmosGCMConfigType};
                          orientation::O        = SphericalOrientation(),
                          ref_state::RS         = HydrostaticState(
                                                    LinearTemperatureProfile(
@@ -110,14 +109,18 @@ function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
                                                     FT(grav) / FT(cp_d)),
                                                   FT(0)),
                          turbulence::T         = SmagorinskyLilly{FT}(0.21),
-                         moisture::M           = EquilMoist(),
+                         moisture::M           = EquilMoist{FT}(),
                          precipitation::P      = NoPrecipitation(),
                          radiation::R          = NoRadiation(),
                          source::S             = (Gravity(), Coriolis()),
                          boundarycondition::BC = NoFluxBC(),
-                         init_state::IS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,SU,S,BC,IS}
+                         init_state::IS=nothing,
+                         data_config::DC=nothing,
+                         param_set::PS=nothing) where {FT<:AbstractFloat,O,RS,T,M,P,R,S,BC,IS,DC,PS}
+  @assert param_set ≠ nothing
   @assert init_state ≠ nothing
   atmos = (
+        param_set,
         orientation,
         ref_state,
         turbulence,
@@ -127,6 +130,7 @@ function AtmosModel{FT}(::Type{AtmosGCMConfiguration};
         source,
         boundarycondition,
         init_state,
+        data_config,
        )
 
   return AtmosModel{FT,typeof.(atmos)...}(atmos...)
@@ -193,6 +197,7 @@ include("source.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
 include("remainder.jl")
+include("courant.jl")
 
 """
     flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
@@ -224,7 +229,7 @@ Where
   flux.ρe  = u * state.ρe
 
   # pressure terms
-  p = pressure(m.moisture, m.orientation, state, aux)
+  p = pressure(m, m.moisture, state, aux)
 
   if m.ref_state isa HydrostaticState
     flux.ρu += (p-aux.ref_state.p)*I
@@ -239,7 +244,7 @@ end
 function gradvariables!(atmos::AtmosModel, transform::Vars, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   transform.u = ρinv * state.ρu
-  transform.h_tot = total_specific_enthalpy(atmos.moisture, atmos.orientation, state, aux)
+  transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
 
   gradvariables!(atmos.moisture, transform, state, aux, t)
   gradvariables!(atmos.turbulence, transform, state, aux, t)
@@ -274,7 +279,7 @@ end
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
   ρinv = 1/state.ρ
   u = ρinv * state.ρu
-  return abs(dot(nM, u)) + soundspeed(m.moisture, m.orientation, state, aux)
+  return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
 end
 
 

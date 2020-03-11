@@ -44,15 +44,15 @@ function atmos_init_aux!(m::HydrostaticState{P,F}, atmos::AtmosModel, aux::Vars,
   aux.ref_state.T = T
   aux.ref_state.p = p
   aux.ref_state.ρ = ρ = p/(R_d*T)
-  q_vap_sat = q_vap_saturation(T, ρ)
+  q_vap_sat = q_vap_saturation(T, ρ, atmos.param_set)
   aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
   q_pt = PhasePartition(ρq_tot)
-  aux.ref_state.ρe = ρ * internal_energy(T, q_pt)
+  aux.ref_state.ρe = ρ * internal_energy(T, q_pt, atmos.param_set)
 
   e_kin = F(0)
   e_pot = gravitational_potential(atmos.orientation, aux)
-  aux.ref_state.ρe = ρ*total_energy(e_kin, e_pot, T, q_pt)
+  aux.ref_state.ρe = ρ*total_energy(e_kin, e_pot, T, q_pt, atmos.param_set)
 end
 
 

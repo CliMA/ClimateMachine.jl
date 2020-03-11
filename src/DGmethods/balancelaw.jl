@@ -61,13 +61,25 @@ function flux_diffusive! end
 function gradvariables! end
 function diffusive! end
 function hyperdiffusive! end
-function source! end 
+function source! end
 function wavespeed end
 function boundary_state! end
 function init_aux! end
 function init_state! end
 
-function calculate_dt end
+using ..Courant
+"""
+    calculate_dt(dg, model, Q, Courant_number, direction)
+
+For a given model, compute a time step satisying the nondiffusive Courant number
+`Courant_number`
+"""
+function calculate_dt(dg, model, Q, Courant_number, direction)
+    Δt = one(eltype(Q))
+    CFL = courant(nondiffusive_courant, dg, model, Q, Δt, direction)
+    return Courant_number / CFL
+end
+
 
 function create_state(bl::BalanceLaw, grid, commtag)
   topology = grid.topology

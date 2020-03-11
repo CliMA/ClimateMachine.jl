@@ -164,7 +164,7 @@ function boundary_state!(nf, m::AdvectionDiffusion, stateP::Vars, auxP::Vars,
 end
 
 function boundary_state!(nf::CentralNumericalFluxDiffusive,
-    m::AdvectionDiffusion, 
+    m::AdvectionDiffusion,
     state⁺::Vars, diff⁺::Vars, aux⁺::Vars,
     n⁻::SVector,
     state⁻::Vars, diff⁻::Vars, aux⁻::Vars,

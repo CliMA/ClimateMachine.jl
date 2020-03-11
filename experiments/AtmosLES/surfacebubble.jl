@@ -7,6 +7,7 @@ using LinearAlgebra
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.ConfigTypes
 using CLIMA.GenericCallbacks
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.ODESolvers
@@ -14,6 +15,10 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
+
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 import CLIMA.DGmethods: boundary_state!
 import CLIMA.Atmos: atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
@@ -121,17 +126,20 @@ function init_surfacebubble!(bl, state, aux, (x,y,z), t)
   θ            = θ_ref + Δθ # potential temperature
   π_exner      = FT(1) - grav / (c_p * θ) * z # exner pressure
   ρ            = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-  P            = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-  T            = P / (ρ * R_gas) # temperature
+
+  q_tot        = FT(0)
+  ts           = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
+  q_pt         = PhasePartition(ts)
+
   ρu           = SVector(FT(0),FT(0),FT(0))
   # energy definitions
   e_kin        = FT(0)
-  e_pot        = grav * z
-  ρe_tot       = ρ * total_energy(e_kin, e_pot, T)
+  e_pot        = gravitational_potential(bl.orientation, aux)
+  ρe_tot       = ρ * total_energy(e_kin, e_pot, ts)
   state.ρ      = ρ
   state.ρu     = ρu
   state.ρe     = ρe_tot
-  state.moisture.ρq_tot = FT(0)
+  state.moisture.ρq_tot = ρ*q_pt.tot
 end
 
 function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
@@ -150,17 +158,18 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
   imex_solver = CLIMA.DefaultSolverType()
   explicit_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
 
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          turbulence=SmagorinskyLilly{FT}(C_smag),
                          source=(Gravity(),),
                          boundarycondition=bc,
-                         moisture=EquilMoist(),
-                         init_state=init_surfacebubble!)
-  config = CLIMA.Atmos_LES_Configuration("SurfaceDrivenBubble",
-                                   N, resolution, xmax, ymax, zmax,
-                                   init_surfacebubble!,
-                                   solver_type=explicit_solver,
-                                   model=model)
+                         moisture=EquilMoist{FT}(),
+                         init_state=init_surfacebubble!,
+                         param_set=ParameterSet{FT}())
+  config = CLIMA.AtmosLESConfiguration("SurfaceDrivenBubble",
+                                       N, resolution, xmax, ymax, zmax,
+                                       init_surfacebubble!,
+                                       solver_type=explicit_solver,
+                                       model=model)
   return config
 end
 
@@ -182,7 +191,7 @@ function main()
   CFL_max = FT(0.4)
 
   driver_config = config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
-  solver_config = CLIMA.setup_solver(t0, timeend, Courant_number=CFL_max, driver_config, forcecpu=true)
+  solver_config = CLIMA.setup_solver(t0, timeend, Courant_number=CFL_max, driver_config, init_on_cpu=true)
 
   cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
       Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())

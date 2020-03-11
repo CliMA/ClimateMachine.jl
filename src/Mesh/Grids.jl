@@ -10,6 +10,7 @@ using GPUifyLoops
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorder
 export referencepoints, min_node_distance
+export EveryDirection, HorizontalDirection, VerticalDirection
 
 abstract type Direction end
 struct EveryDirection <: Direction end
@@ -330,7 +331,7 @@ function computegeometry(topology::AbstractTopology{dim}, D, ξ, ω, meshwarp,
   MJ .= M .* J
   MJI .= 1 ./ MJ
   vMJI .= MJI[vmap⁻]
-  
+
   MH = kron(ones(FT, Nq), ntuple(j->ω, dim-1)...)
 
   sM = dim > 1 ? kron(1, ntuple(j->ω, dim-1)...) : one(FT)

@@ -59,7 +59,7 @@ function init_sin_test!(bl, state, aux, (x,y,z), t)
     p     = P_sfc * exp(-z / H)
 
     # Density, Temperature
-    ts    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot)
+    ts    = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
     ρ     = air_density(ts)
 
     e_kin = FT(1/2) * FT((u^2 + v^2 + w^2))
@@ -74,10 +74,10 @@ end
 
 function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
     ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK54CarpenterKennedy)
-    config = CLIMA.Atmos_LES_Configuration("Diagnostics SIN test", N,
-                                           resolution, xmax, ymax, zmax,
-                                           init_sin_test!,
-                                           solver_type=ode_solver)
+    config = CLIMA.AtmosLESConfiguration("Diagnostics SIN test", N,
+                                         resolution, xmax, ymax, zmax,
+                                         init_sin_test!,
+                                         solver_type=ode_solver)
 
     return config
 end
@@ -107,7 +107,7 @@ function main()
     timeend = dt
 
     driver_config = config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, ode_dt=dt, forcecpu=true)
+    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, ode_dt=dt, init_on_cpu=true)
 
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg

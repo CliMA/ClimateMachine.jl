@@ -47,6 +47,12 @@ using CLIMA.VTK
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+# We will depend on MoistThermodynamics's default Parameters:
+include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+
+
 # Though not required, here we are explicit about which values we read out the
 # `PlanetParameters` and `MoistThermodynamics`
 using CLIMA.PlanetParameters: planet_radius, grav, MSLP

@@ -112,7 +112,7 @@ end
 # TODO almost identical functions seem to be defined for every ode solver,
 # define a common one in ODEsolvers ?
 function dostep!(Q, mis::MultirateInfinitesimalStep, param,
-                      timeend::AbstractFloat, adjustfinalstep::Bool)
+                      timeend::Real, adjustfinalstep::Bool)
   time, dt = mis.t, mis.dt
   @assert dt > 0
   if adjustfinalstep && time + dt > timeend
@@ -131,7 +131,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, param,
 end
 
 function dostep!(Q, mis::MultirateInfinitesimalStep, p,
-                      time::AbstractFloat, dt::AbstractFloat)
+                      time::Real, dt::AbstractFloat)
   FT = eltype(dt)
   α = mis.α
   β = mis.β

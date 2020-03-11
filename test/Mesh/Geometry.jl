@@ -40,7 +40,7 @@ MPI.Initialized() || MPI.Init()
     for n in 1:size(grid.vgeo,1)
       g = LocalGeometry(Val(polynomialorder), grid.vgeo, n, e)
       @test lengthscale(g) ≈ Savg
-      @test Geometry.resolutionmetric(g) ≈ M    
+      @test Geometry.resolutionmetric(g) ≈ M
     end
   end
 end

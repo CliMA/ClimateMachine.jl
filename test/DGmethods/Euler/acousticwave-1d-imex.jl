@@ -1,8 +1,9 @@
 using CLIMA
+using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
-using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
+using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid, VerticalDirection
 using CLIMA.Mesh.Filters
-using CLIMA.DGmethods: DGModel, init_ode_state, VerticalDirection
+using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
                                        CentralNumericalFluxDiffusive
 using CLIMA.ODESolvers
@@ -11,14 +12,19 @@ using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.PlanetParameters: planet_radius, day
-using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy
+using CLIMA.MoistThermodynamics: air_density, soundspeed_air, internal_energy, PhaseDry_given_pT, PhasePartition
 using CLIMA.Atmos: AtmosModel, SphericalOrientation,
                    DryModel, NoPrecipitation, NoRadiation, NoFluxBC,
                    ConstantViscosityWithDivergence,
                    vars_state, vars_aux,
                    Gravity, HydrostaticState, IsothermalProfile,
-                   AtmosAcousticGravityLinearModel, AtmosLESConfiguration
+                   AtmosAcousticGravityLinearModel,
+                   altitude, latitude, longitude, gravitational_potential
 using CLIMA.VariableTemplates: flattenednames
+
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
@@ -71,13 +77,14 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
                                           polynomialorder = polynomialorder,
                                           meshwarp = cubedshellwarp)
 
-  model = AtmosModel{FT}(AtmosLESConfiguration;
+  model = AtmosModel{FT}(AtmosLESConfigType;
                          orientation=SphericalOrientation(),
                            ref_state=HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
                           turbulence=ConstantViscosityWithDivergence(FT(0)),
                             moisture=DryModel(),
                               source=Gravity(),
-                          init_state=setup)
+                          init_state=setup,
+                           param_set=ParameterSet{FT}())
   linearmodel = AtmosAcousticGravityLinearModel(model)
 
   dg = DGModel(model, grid, Rusanov(),
@@ -91,7 +98,7 @@ function run(mpicomm, polynomialorder, numelem_horz, numelem_vert,
 
   # determine the time step
   element_size = (setup.domain_height / numelem_vert)
-  acoustic_speed = soundspeed_air(FT(setup.T_ref))
+  acoustic_speed = soundspeed_air(FT(setup.T_ref), model.param_set)
   dt_factor = 445
   dt = dt_factor * element_size / acoustic_speed / polynomialorder ^ 2
   # Adjust the time step so we exactly hit 1 hour for VTK output
@@ -184,20 +191,24 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
   # callable to set initial conditions
   FT = eltype(state)
 
-  r = norm(coords, 2)
-  @inbounds λ = atan(coords[2], coords[1])
-  @inbounds φ = asin(coords[3] / r)
-  h = r - FT(planet_radius)
+  λ = longitude(bl.orientation, aux)
+  φ = latitude(bl.orientation, aux)
+  z = altitude(bl.orientation, aux)
 
   β = min(FT(1), setup.α * acos(cos(φ) * cos(λ)))
   f = (1 + cos(FT(π) * β)) / 2
-  g = sin(setup.nv * FT(π) * h / setup.domain_height)
+  g = sin(setup.nv * FT(π) * z / setup.domain_height)
   Δp = setup.γ * f * g
   p = aux.ref_state.p + Δp
 
-  state.ρ = air_density(setup.T_ref, p)
+  ts       = PhaseDry_given_pT(p, setup.T_ref, bl.param_set)
+  q_pt     = PhasePartition(ts)
+  e_pot    = gravitational_potential(bl.orientation, aux)
+  e_int    = internal_energy(ts)
+
+  state.ρ  = air_density(ts)
   state.ρu = SVector{3, FT}(0, 0, 0)
-  state.ρe = state.ρ * (internal_energy(setup.T_ref) + aux.orientation.Φ)
+  state.ρe = state.ρ * (e_int + e_pot)
   nothing
 end
 

@@ -8,27 +8,37 @@ using Printf
 using Requires
 
 using ..Atmos
-using ..VTK
 using ..ColumnwiseLUSolver
+using ..ConfigTypes
 using ..Diagnostics
+using ..DGmethods
+using ..DGmethods: vars_state, vars_aux, update_aux!
+using ..DGmethods.NumericalFluxes
 using ..GenericCallbacks
-using ..ODESolvers
-using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
+using ..HydrostaticBoussinesq
+using ..Mesh.Grids
+using ..Mesh.Topologies
 using ..MoistThermodynamics
 using ..MPIStateArrays
-using ..DGmethods: vars_state, vars_aux, update_aux!, update_aux_diffusive!
+using ..ODESolvers
+using ..PlanetParameters
 using ..TicToc
 using ..VariableTemplates
+using ..VTK
 
+# Note that the initial values specified here are overwritten by the
+# command line argument defaults in `parse_commandline()`.
 Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
     mpi_knows_cuda::Bool = false
     show_updates::Bool = true
     update_interval::Int = 60
-    enable_diagnostics::Bool = true
+    enable_diagnostics::Bool = false
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
+    monitor_courant_numbers::Bool = false
+    monitor_courant_interval::Int = 10
     log_level::String = "INFO"
     output_dir::String = "output"
     integration_testing::Bool = false
@@ -38,8 +48,6 @@ end
 const Settings = CLIMA_Settings(array_type = Array)
 
 array_type() = Settings.array_type
-
-include("Configurations.jl")
 
 const cuarray_pkgid = Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 
@@ -80,7 +88,7 @@ function parse_commandline()
     exc_handler = isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
     s = ArgParseSettings(exc_handler=exc_handler)
 
-    @add_arg_table s begin
+    @add_arg_table! s begin
         "--disable-gpu"
             help = "do not use the GPU"
             action = :store_true
@@ -94,8 +102,8 @@ function parse_commandline()
             help = "interval in seconds for showing simulation updates"
             arg_type = Int
             default = 60
-        "--disable-diagnostics"
-            help = "disable the collection of diagnostics to <output-dir>"
+        "--enable-diagnostics"
+            help = "enable the collection of diagnostics to <output-dir>"
             action = :store_true
         "--diagnostics-interval"
             help = "interval in simulation steps for gathering diagnostics"
@@ -108,6 +116,13 @@ function parse_commandline()
             help = "interval in simulation steps for VTK output"
             arg_type = Int
             default = 10000
+        "--monitor-courant-numbers"
+            help = "output acoustic, advective, and diffusive Courant numbers"
+            action = :store_true
+        "--monitor-courant-interval"
+            help = "interval in Courant number calculations"
+            arg_type = Int
+            default = 10
         "--log-level"
             help = "set the log level to one of debug/info/warn/error"
             arg_type = String
@@ -120,6 +135,7 @@ function parse_commandline()
             help = "enable integration testing"
             action = :store_true
     end
+
 
     return parse_args(s)
 end
@@ -147,11 +163,13 @@ function init(; disable_gpu=false)
         Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
         Settings.show_updates = !parsed_args["no-show-updates"]
         Settings.update_interval = parsed_args["update-interval"]
-        Settings.enable_diagnostics = !parsed_args["disable-diagnostics"]
+        Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
         Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
         Settings.output_dir = parsed_args["output-dir"]
+        Settings.monitor_courant_numbers = parsed_args["monitor-courant-numbers"]
+        Settings.monitor_courant_interval = parsed_args["monitor-courant-interval"]
         Settings.integration_testing = parsed_args["integration-testing"]
         Settings.log_level = uppercase(parsed_args["log-level"])
     catch
@@ -183,111 +201,42 @@ function init(; disable_gpu=false)
     return nothing
 end
 
-"""
-    CLIMA.SolverConfiguration
-
-Parameters needed by `CLIMA.solve!()` to run a simulation.
-"""
-struct SolverConfiguration{FT}
-    name::String
-    mpicomm::MPI.Comm
-    dg::DGModel
-    Q::MPIStateArray
-    t0::FT
-    timeend::FT
-    dt::FT
-    forcecpu::Bool
-    numberofsteps::Int
-    init_args
-    solver
-end
+include("driver_configs.jl")
+include("solver_configs.jl")
 
 """
-    CLIMA.setup_solver(t0, timeend, driver_config)
+    CLIMA.invoke!(solver_config::SolverConfiguration;
+                  user_callbacks=(),
+                  check_euclidean_distance=false,
+                  adjustfinalstep=false
+                  user_info_callback=(init)->nothing)
 
-Set up the DG model per the specified driver configuration and set up the ODE solver.
-"""
-function setup_solver(t0::FT, timeend::FT,
-                      driver_config::DriverConfiguration,
-                      init_args...;
-                      forcecpu=false,
-                      ode_solver_type=nothing,
-                      ode_dt=nothing,
-                      modeldata=nothing,
-                      Courant_number=0.4
-                     ) where {FT<:AbstractFloat}
-    @tic setup_solver
+Run the simulation defined by the `solver_config`.
 
-    bl = driver_config.bl
-    grid = driver_config.grid
-    numfluxnondiff = driver_config.numfluxnondiff
-    numfluxdiff = driver_config.numfluxdiff
-    gradnumflux = driver_config.gradnumflux
+Keyword Arguments:
 
-    # create DG model, initialize ODE state
-    dg = DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                 modeldata=modeldata)
-    @info @sprintf("Initializing %s", driver_config.name)
-    Q = init_ode_state(dg, FT(0), init_args...; forcecpu=forcecpu)
+The `user_callbacks` are passed to the ODE solver as callback functions; see
+[`ODESolvers.solve!]@ref().
 
-    # TODO: using `update_aux!()` to apply filters to the state variables and
-    # `update_aux_diffusive!()` to calculate the vertical component of velocity
-    # using the integral kernels -- these should have their own interface
-    update_aux!(dg, bl, Q, FT(0))
-    update_aux_diffusive!(dg, bl, Q, FT(0))
+If `check_euclidean_distance` is `true, then the Euclidean distance between the
+final solution and initial condition function evaluated with
+`solver_config.timeend` is reported.
 
-    # if solver has been specified, use it
-    if ode_solver_type !== nothing
-        solver_type = ode_solver_type
-    else
-        solver_type = driver_config.solver_type
-    end
+The value of 'adjustfinalstep` is passed to the ODE solver; see
+[`ODESolvers.solve!]@ref().
 
-    # create the linear model for IMEX solvers
-    linmodel = nothing
-    if isa(solver_type, ExplicitSolverType)
-        dtmodel = bl
-    else # solver_type === IMEXSolverType
-        linmodel = solver_type.linear_model(bl)
-        dtmodel = linmodel
-    end
-
-    # initial Δt specified or computed
-    if ode_dt !== nothing
-        dt = ode_dt
-    else
-        dt = calculate_dt(grid, dtmodel, Courant_number)
-    end
-    numberofsteps = convert(Int, cld(timeend, dt))
-    dt = timeend / numberofsteps
-
-    # create the solver
-    if isa(solver_type, ExplicitSolverType)
-        solver = solver_type.solver_method(dg, Q; dt=dt, t0=t0)
-    else # solver_type === IMEXSolverType
-        vdg = DGModel(linmodel, grid, numfluxnondiff, numfluxdiff, gradnumflux,
-                      auxstate=dg.auxstate, direction=VerticalDirection())
-
-        solver = solver_type.solver_method(dg, vdg, solver_type.linear_solver(), Q;
-                                           dt=dt, t0=t0)
-    end
-
-    @toc setup_solver
-
-    return SolverConfiguration(driver_config.name, driver_config.mpicomm, dg, Q,
-                               t0, timeend, dt, forcecpu, numberofsteps,
-                               init_args, solver)
-end
-
-"""
-    CLIMA.invoke!(solver_config)
-
-Run the simulation.
+The function `user_info_callback` is called after the default info callback
+(which is called every `Settings.update_interval` seconds of wallclock time).
+The single input argument `init` is `true` when the callback is called
+called for initialization before time stepping begins and `false` when called
+during the actual ODE solve; see [`GenericCallbacks`](@ref) and
+[`ODESolvers.solve!]@ref().
 """
 function invoke!(solver_config::SolverConfiguration;
                  user_callbacks=(),
                  check_euclidean_distance=false,
-                 adjustfinalstep=false
+                 adjustfinalstep=false,
+                 user_info_callback=(init)->nothing
                 )
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -295,7 +244,7 @@ function invoke!(solver_config::SolverConfiguration;
     Q = solver_config.Q
     FT = eltype(Q)
     timeend = solver_config.timeend
-    forcecpu = solver_config.forcecpu
+    init_on_cpu = solver_config.init_on_cpu
     init_args = solver_config.init_args
     solver = solver_config.solver
 
@@ -313,14 +262,15 @@ function invoke!(solver_config::SolverConfiguration;
                                        Dates.dateformat"HH:MM:SS")
                 energy = norm(solver_config.Q)
                 @info @sprintf("""Update
-                               simtime = %.16e
+                               simtime = %8.2f / %8.2f
                                runtime = %s
                                norm(Q) = %.16e""",
                                ODESolvers.gettime(solver),
+                               solver_config.timeend,
                                runtime,
                                energy)
             end
-            nothing
+            user_info_callback(init)
         end
         callbacks = (callbacks..., cbinfo)
     end
@@ -366,13 +316,51 @@ function invoke!(solver_config::SolverConfiguration;
         end
         callbacks = (callbacks..., cbvtk)
     end
+    if Settings.monitor_courant_numbers
+        # set up the callback for Courant number calculations
+        cbcfl = GenericCallbacks.EveryXSimulationSteps(Settings.monitor_courant_interval) do (init=false)
+            simtime = ODESolvers.gettime(solver)
+            Δt = solver_config.dt
+            c_v = DGmethods.courant(nondiffusive_courant, solver_config;
+                                    direction=VerticalDirection())
+            c_h = DGmethods.courant(nondiffusive_courant, solver_config;
+                                    direction=HorizontalDirection())
+            ca_v = DGmethods.courant(advective_courant, solver_config;
+                                     direction=VerticalDirection())
+            ca_h = DGmethods.courant(advective_courant, solver_config;
+                                     direction=HorizontalDirection())
+            cd_v = DGmethods.courant(diffusive_courant, solver_config;
+                                     direction=VerticalDirection())
+            cd_h = DGmethods.courant(diffusive_courant, solver_config;
+                                     direction=HorizontalDirection())
+            @info @sprintf """
+            ================================================
+            Courant numbers at simtime: %8.2f
+            Δt = %8.2f s
+
+            ------------------------------------------------
+            Acoustic (vertical) Courant number    = %.2g
+            Acoustic (horizontal) Courant number  = %.2g
+            ------------------------------------------------
+            Advection (vertical) Courant number   = %.2g
+            Advection (horizontal) Courant number = %.2g
+            ------------------------------------------------
+            Diffusion (vertical) Courant number   = %.2g
+            Diffusion (horizontal) Courant number = %.2g
+            ================================================
+            """  simtime Δt c_v c_h ca_v ca_h cd_v cd_h
+            return nothing
+        end
+        callbacks = (callbacks..., cbcfl)
+    end
+
     callbacks = (callbacks..., user_callbacks...)
 
     # initial condition norm
     eng0 = norm(Q)
     @info @sprintf("""Starting %s
                    dt              = %.5e
-                   timeend         = %.5e
+                   timeend         = %8.2f
                    number of steps = %d
                    norm(Q)         = %.16e""",
                    solver_config.name,
@@ -397,7 +385,7 @@ function invoke!(solver_config::SolverConfiguration;
                    engf-eng0)
 
     if check_euclidean_distance
-        Qe = init_ode_state(dg, timeend, init_args...; forcecpu=forcecpu)
+        Qe = init_ode_state(dg, timeend, init_args...; init_on_cpu=init_on_cpu)
         engfe = norm(Qe)
         errf = euclidean_distance(solver_config.Q, Qe)
         @info @sprintf("""Euclidean distance

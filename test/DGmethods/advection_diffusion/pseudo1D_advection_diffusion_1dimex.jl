@@ -17,7 +17,6 @@ using Printf
 using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
 if !@isdefined integration_testing
   if length(ARGS) > 0
