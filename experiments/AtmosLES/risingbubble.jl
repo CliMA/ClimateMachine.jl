@@ -89,7 +89,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         source = (Gravity(),),
         ref_state = ref_state,
         init_state = init_risingbubble!,
-        param_set = ParameterSet{FT}()
+        param_set = ParameterSet{FT}(),
     )
 
     # Problem configuration

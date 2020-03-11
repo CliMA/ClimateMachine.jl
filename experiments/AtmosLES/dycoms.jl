@@ -448,7 +448,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         source = source,
         boundarycondition = bc,
         init_state = ics,
-        param_set = ParameterSet{FT}()
+        param_set = ParameterSet{FT}(),
     )
 
     ode_solver =
@@ -489,12 +489,8 @@ function main()
     timeend = FT(500)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(
-        t0,
-        timeend,
-        driver_config;
-        init_on_cpu = true,
-    )
+    solver_config =
+        CLIMA.setup_solver(t0, timeend, driver_config; init_on_cpu = true)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
