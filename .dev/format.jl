@@ -8,7 +8,7 @@ using JuliaFormatter
 
 headbranch = get(ARGS, 1, "master")
 
-for filename in readlines(`find . -print`)
+for filename in readlines(`git ls-files`)
     endswith(filename, ".jl") || continue
 
     format(

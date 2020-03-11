@@ -198,8 +198,9 @@ function main(mpicomm, FT, topl, N, timeend, ArrayType, dt, ti_method)
     # Set up the information callback
     cbmass = GenericCallbacks.EveryXSimulationSteps(1000) do
         @info @sprintf """Update
-        Δmass   = %.16e""" abs(weightedsum(Q) - weightedsum(Qe)) /
-                                      weightedsum(Qe)
+        Δmass   = %.16e""" abs(
+            weightedsum(Q) - weightedsum(Qe),
+        ) / weightedsum(Qe)
     end
 
     step = [0]
