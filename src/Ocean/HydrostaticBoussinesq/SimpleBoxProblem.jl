@@ -130,9 +130,6 @@ function ocean_init_aux!(m::HBModel, p::HomogeneousBox, A, geom)
 
   A.τ  = -τₒ * cos(y * π / Lʸ)
   A.f  =  fₒ + β * y
-
-  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
-  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
 end
 
 ##########################
@@ -240,9 +237,6 @@ function ocean_init_aux!(m::HBModel, p::OceanGyre, A, geom)
   A.τ  = -τₒ * cos(y * π / Lʸ)
   A.f  =  fₒ + β * y
   A.θʳ =  θᴱ * (1 - y / Lʸ)
-
-  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
-  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
 end
 
 end

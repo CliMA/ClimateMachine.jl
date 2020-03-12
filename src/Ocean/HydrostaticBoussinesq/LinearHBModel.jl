@@ -20,31 +20,6 @@ struct LinearHBModel{M} <: BalanceLaw
 end
 
 """
-    calculate_dt(dg, bl::LinearHBModel, Q, Courant_number,
-                 direction::EveryDirection)
-
-calculates the time step based on grid spacing and model parameters
-takes minimum of gravity wave, diffusive, and viscous CFL
-
-"""
-
-function calculate_dt(dg, model::LinearHBModel, Q, Courant_number,
-                      ::EveryDirection)
-  Δt = one(eltype(Q))
-  ocean = model.ocean
-
-  CFL_advective = courant(advective_courant, dg, ocean, Q, Δt, VerticalDirection())
-  CFL_gravity = courant(nondiffusive_courant, dg, ocean, Q, Δt, HorizontalDirection())
-  CFL_viscous = courant(viscous_courant, dg, ocean, Q, Δt, HorizontalDirection())
-  CFL_diffusive = courant(diffusive_courant, dg, ocean, Q, Δt, HorizontalDirection())
-
-  CFL = maximum([CFL_advective, CFL_gravity, CFL_viscous, CFL_diffusive])
-  dt = Courant_number / CFL
-
-  return dt
-end
-
-"""
     Copy over state, aux, and diff variables from HBModel
 """
 vars_state(lm::LinearHBModel, FT) = vars_state(lm.ocean,FT)
@@ -89,7 +64,7 @@ end
 """
     diffusive!(::LinearHBModel)
 
-copy ∇u and ∇θ to var_diffusive
+copy ν∇u and κ∇θ to var_diffusive
 this computation is done pointwise at each nodal point
 
 # arguments:
@@ -102,8 +77,11 @@ this computation is done pointwise at each nodal point
 """
 @inline function diffusive!(lm::LinearHBModel, D::Vars, G::Grad, Q::Vars,
                             A::Vars, t)
-  D.∇u = G.u
-  D.∇θ = G.θ
+  ν = viscosity_tensor(lm.ocean)
+  D.ν∇u = ν * G.u
+
+  κ = diffusivity_tensor(lm.ocean, G.θ[3])
+  D.κ∇θ = κ * G.θ
 
   return nothing
 end
@@ -128,8 +106,8 @@ this computation is done pointwise at each nodal point
 """
 @inline function flux_diffusive!(lm::LinearHBModel, F::Grad, Q::Vars, D::Vars,
                                  HD::Vars, A::Vars, t::Real)
-  F.u -= Diagonal(A.ν) * D.∇u
-  F.θ -= Diagonal(A.κ) * D.∇θ
+  F.u -= D.ν∇u
+  F.θ -= D.κ∇θ
 
   return nothing
 end
