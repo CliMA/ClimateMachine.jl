@@ -7,7 +7,7 @@ module Parameters
 
 export AbstractParameterSet
 export EarthParameterSet
-abstract type AbstractParameterSet{FT<:AbstractFloat} end
+abstract type AbstractParameterSet{FT <: AbstractFloat} end
 
 struct EarthParameterSet{FT} <: AbstractParameterSet{FT} end
 

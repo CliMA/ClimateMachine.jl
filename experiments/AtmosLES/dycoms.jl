@@ -370,6 +370,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     p = P_sfc * exp(-z / H)
 
     # Density, Temperature
+
     ts = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
     ρ = air_density(ts)
 
@@ -399,7 +400,9 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     α_z = FT(1)
     z_i = FT(840)
     ρ_i = FT(1.13)
+
     D_subsidence = FT(3.75e-6)
+
     F_0 = FT(70)
     F_1 = FT(22)
     radiation = DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1)
@@ -428,6 +431,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     SHF = FT(15)
     bc = DYCOMS_BC{FT}(C_drag, LHF, SHF)
     ics = init_dycoms!
+
     source = (
         Gravity(),
         rayleigh_sponge,
@@ -439,13 +443,16 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(50)),
+        moisture = EquilMoist{FT}(; maxiter = 5),
         radiation = radiation,
         source = source,
         boundarycondition = bc,
         init_state = ics,
         param_set = ParameterSet{FT}(),
     )
+
+    ode_solver =
+        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
 
     config = CLIMA.AtmosLESConfiguration(
         "DYCOMS",
@@ -455,12 +462,9 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         ymax,
         zmax,
         init_dycoms!,
-        solver_type = CLIMA.ExplicitSolverType(
-            solver_method = LSRK144NiegemannDiehlBusch,
-        ),
+        solver_type = ode_solver,
         model = model,
     )
-
     return config
 end
 
@@ -485,13 +489,8 @@ function main()
     timeend = FT(500)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(
-        t0,
-        timeend,
-        driver_config;
-        Courant_number = 1.8,
-        init_on_cpu = true,
-    )
+    solver_config =
+        CLIMA.setup_solver(t0, timeend, driver_config; init_on_cpu = true)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
