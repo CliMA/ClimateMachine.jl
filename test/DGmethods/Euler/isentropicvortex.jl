@@ -22,7 +22,6 @@ using CLIMA.Atmos:
     DryModel,
     NoPrecipitation,
     NoRadiation,
-    PeriodicBC,
     ConstantViscosityWithDivergence,
     vars_state
 using CLIMA.VariableTemplates: flattenednames
@@ -200,7 +199,7 @@ function run(
         turbulence = ConstantViscosityWithDivergence(0.0),
         moisture = DryModel(),
         source = nothing,
-        boundarycondition = PeriodicBC(),
+        boundarycondition = (),
         init_state = isentropicvortex_initialcondition!,
         param_set = ParameterSet{FT}(),
     )

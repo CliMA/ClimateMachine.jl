@@ -20,10 +20,6 @@ using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
-import CLIMA.DGmethods: boundary_state!
-import CLIMA.Atmos: atmos_boundary_state!
-import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
-
 # ------------------- Description ---------------------------------------- #
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
 # 2) Boundaries - `Sides` : Periodic (Default `bctuple` used to identify bot,top walls)
@@ -42,116 +38,6 @@ import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 #               `bc`
 #               `sources`
 # 8) Default settings can be found in src/Driver/Configurations.jl
-
-# ------------------- Begin Boundary Conditions -------------------------- #
-"""
-  FixedTempNoSlip <: BoundaryCondition
-
-Fixed temperature prescription at top and bottom walls
-No slip velocity boundary conditions.
-Y ≡ state
-Σ ≡ diff
-A ≡ aux
-⁺ and ⁻ refer to exterior / interior faces
-
-# Fields
-$(DocStringExtensions.FIELDS)
-"""
-struct FixedTempNoSlip{FT} <: BoundaryCondition
-    "Prescribed bottom wall temperature `[K]`"
-    T_bot::FT
-    "Prescribed top wall temperature `[K]`"
-    T_top::FT
-end
-# Rayleigh-Benard problem with two fixed walls (prescribed temperatures)
-function atmos_boundary_state!(
-    ::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-    bc::FixedTempNoSlip,
-    m::AtmosModel,
-    Y⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Y⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    # Dry Rayleigh Benard Convection
-    FT = eltype(Y⁺)
-    @inbounds begin
-        Y⁺.ρu = -Y⁻.ρu
-        if bctype == 1
-            E_int⁺ = Y⁺.ρ * cv_d * (bc.T_bot - T_0)
-        else
-            E_int⁺ = Y⁺.ρ * cv_d * (bc.T_top - T_0)
-        end
-        E_bc = (E_int⁺ + Y⁺.ρ * A⁺.coord[3] * grav)
-        Y⁺.ρe = E_bc
-    end
-end
-function atmos_boundary_flux_diffusive!(
-    ::CentralNumericalFluxDiffusive,
-    bc::FixedTempNoSlip,
-    m::AtmosModel,
-    F,
-    Y⁺::Vars,
-    Σ⁺::Vars,
-    ::Vars,
-    A⁺::Vars,
-    n⁻,
-    Y⁻::Vars,
-    Σ⁻::Vars,
-    ::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    Σ⁺.∇h_tot = -Σ⁻.∇h_tot
-end
-
-boundary_state!(nf, m::AtmosModel, x...) =
-    atmos_boundary_state!(nf, m.boundarycondition, m, x...)
-boundary_flux_diffusive!(
-    nf::NumericalFluxDiffusive,
-    atmos::AtmosModel,
-    F,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    bctype,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-) = atmos_boundary_flux_diffusive!(
-    nf,
-    atmos.boundarycondition,
-    atmos,
-    F,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    bctype,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-)
-# ------------------- End Boundary Conditions -------------------------- #
 
 const randomseed = MersenneTwister(1)
 
@@ -209,8 +95,6 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
     T_lapse = FT(grav / cp_d)
     T_top = T_bot - T_lapse * zmax
 
-    bc = FixedTempNoSlip{FT}(T_bot, T_top)
-
     # Turbulence
     C_smag = FT(0.23)
     data_config = DryRayleighBenardConvectionDataConfig{FT}(
@@ -230,7 +114,16 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
-        boundarycondition = bc,
+        boundarycondition = (
+            AtmosBC(
+                momentum = Impenetrable(NoSlip()),
+                energy = PrescribedTemperature((state, aux, t) -> T_bot),
+            ),
+            AtmosBC(
+                momentum = Impenetrable(NoSlip()),
+                energy = PrescribedTemperature((state, aux, t) -> T_top),
+            ),
+        ),
         init_state = init_problem!,
         data_config = data_config,
         param_set = ParameterSet{FT}(),
