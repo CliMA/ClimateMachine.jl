@@ -24,7 +24,6 @@ using CLIMA.Atmos:
     DryModel,
     NoPrecipitation,
     NoRadiation,
-    NoFluxBC,
     ConstantViscosityWithDivergence,
     vars_state,
     vars_aux,

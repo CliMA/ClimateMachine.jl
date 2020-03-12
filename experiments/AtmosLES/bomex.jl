@@ -1,41 +1,41 @@
 #=
 # This experiment file establishes the initial conditions, boundary conditions,
-# source terms and simulation parameters (domain size + resolution) for the 
-# BOMEX LES case. The set of parameters presented in the `master` branch copy 
-# include those that have passed offline tests at the full simulation time of 
+# source terms and simulation parameters (domain size + resolution) for the
+# BOMEX LES case. The set of parameters presented in the `master` branch copy
+# include those that have passed offline tests at the full simulation time of
 # 6 hours. Suggested offline tests included plotting horizontal-domain averages
 # of key properties (see AtmosDiagnostics). The timestepper configuration is in
 # `src/Driver/solver_configs.jl` while the `AtmosModel` defaults can be found in
 # `src/Atmos/Model/AtmosModel.jl` and `src/Driver/driver_configs.jl`
-#       
+#
 # This setup works in both Float32 and Float64 precision. `FT`
 #
 # To simulate the full 6 hour experiment, change `timeend` to (3600*6) and type in
 #
 # julia --project experiments/AtmosLES/bomex.jl
-# 
+#
 # See `src/Driver/driver_configs.jl` for additional flags (e.g. VTK, diagnostics,
 # update-interval, output directory settings)
 #
-# Upcoming changes: 
+# Upcoming changes:
 # 1) Atomic sources
 # 2) Improved boundary conditions
-# 3) Collapsed experiment design 
+# 3) Collapsed experiment design
 # 4) Updates to generally keep this in sync with master
 
 @article{doi:10.1175/1520-0469(2003)60<1201:ALESIS>2.0.CO;2,
-author = {Siebesma, A. Pier and Bretherton, 
-          Christopher S. and Brown, 
-          Andrew and Chlond, 
-          Andreas and Cuxart, 
-          Joan and Duynkerke, 
-          Peter G. and Jiang, 
-          Hongli and Khairoutdinov, 
-          Marat and Lewellen, 
-          David and Moeng, 
-          Chin-Hoh and Sanchez, 
-          Enrique and Stevens, 
-          Bjorn and Stevens, 
+author = {Siebesma, A. Pier and Bretherton,
+          Christopher S. and Brown,
+          Andrew and Chlond,
+          Andreas and Cuxart,
+          Joan and Duynkerke,
+          Peter G. and Jiang,
+          Hongli and Khairoutdinov,
+          Marat and Lewellen,
+          David and Moeng,
+          Chin-Hoh and Sanchez,
+          Enrique and Stevens,
+          Bjorn and Stevens,
           David E.},
 title = {A Large Eddy Simulation Intercomparison Study of Shallow Cumulus Convection},
 journal = {Journal of the Atmospheric Sciences},
@@ -71,151 +71,7 @@ include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude
-import CLIMA.DGmethods: boundary_state!
-import CLIMA.Atmos:
-    atmos_boundary_state!,
-    atmos_boundary_flux_diffusive!,
-    flux_diffusive!,
-    thermo_state
-
-# ---------------------------- Begin Boundary Conditions ----------------- #
-"""
-  BOMEX_BC <: BoundaryCondition
-  Prescribes boundary conditions for Barbados Oceanographic and Meteorological Experiment (BOMEX)
-#Fields
-$(DocStringExtensions.FIELDS)
-"""
-struct BOMEX_BC{FT} <: BoundaryCondition
-    "Friction velocity"
-    u_star::FT
-    "Latent Heat Flux"
-    LHF::FT
-    "Sensible Heat Flux"
-    SHF::FT
-    "Surface Temperature"
-    T_sfc::FT
-end
-
-"""
-    atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                          bc::BOMEX_BC, args...)
-
-For the non-diffussive and gradient terms we just use the `NoFluxBC`
-"""
-atmos_boundary_state!(
-    nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-    bc::BOMEX_BC,
-    args...,
-) = atmos_boundary_state!(nf, NoFluxBC(), args...)
-
-"""
-    atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
-                                   bc::BOMEX_BC, atmos::AtmosModel,
-                                   F,
-                                   state⁺, diff⁺, aux⁺, n⁻,
-                                   state⁻, diff⁻, aux⁻,
-                                   bctype, t,
-                                   state₁⁻, diff₁⁻, aux₁⁻)
-When `bctype == 1` the `NoFluxBC` otherwise the specialized BOMEX BC is used
-"""
-#TODO This needs to be in sync with the new boundary condition interfaces
-function atmos_boundary_flux_diffusive!(
-    nf::CentralNumericalFluxDiffusive,
-    bc::BOMEX_BC,
-    atmos::AtmosModel,
-    F,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    bctype,
-    t,
-    state₁⁻,
-    diff₁⁻,
-    aux₁⁻,
-)
-
-    # Floatint point precision
-    FT = eltype(state⁺)
-
-    # Establish the thermodynamic state based on the prognostic variable state
-    TS = thermo_state(atmos, state⁻, aux⁻)
-
-    # Boundary condition for bottom wall
-    if bctype != 1
-        atmos_boundary_flux_diffusive!(
-            nf,
-            NoFluxBC(),
-            atmos,
-            F,
-            state⁺,
-            diff⁺,
-            hyperdiff⁺,
-            aux⁺,
-            n⁻,
-            state⁻,
-            diff⁻,
-            hyperdiff⁻,
-            aux⁻,
-            bctype,
-            t,
-            state₁⁻,
-            diff₁⁻,
-            aux₁⁻,
-        )
-    else
-        # Start with the noflux BC and then build custom flux from there
-        atmos_boundary_state!(
-            nf,
-            NoFluxBC(),
-            atmos,
-            state⁺,
-            diff⁺,
-            aux⁺,
-            n⁻,
-            state⁻,
-            diff⁻,
-            aux⁻,
-            bctype,
-            t,
-        )
-
-        # Interior state velocities [u₀]
-        # Windspeed at limit (z->0) is in u₀
-        u₁ = state₁⁻.ρu / state₁⁻.ρ
-        # [Impenetrable flow, normal component of velocity is zero, horizontal components may be non-zero]
-        windspeed₁ = norm(u₁)
-        # Turbulence tensors in the interior state
-        _, τ⁻ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
-        u_star = bc.u_star # Constant value for friction-velocity u_star == u_star
-        @inbounds begin
-            τ13⁺ = -u_star^2 * u₁[1] / norm(windspeed₁) # ⟨u′w′⟩ 
-            τ23⁺ = -u_star^2 * u₁[2] / norm(windspeed₁) # ⟨v′w′⟩
-            τ21⁺ = τ⁻[2, 1]
-        end
-        # Momentum boundary condition [This is topography specific #FIXME: Simon's interface will improve this]
-        τ⁺ = SHermitianCompact{3, FT, 6}(SVector(0, τ21⁺, τ13⁺, 0, τ23⁺, 0))
-        T_sfc = bc.T_sfc
-        LHF = bc.LHF
-        SHF = bc.SHF
-        # Moisture boundary condition ⟨w′qt′⟩
-
-        d_q_tot⁺ = SVector(0, 0, LHF / latent_heat_vapor(T_sfc))
-
-        # Heat flux boundary condition
-        d_h_tot⁺ = SVector(0, 0, LHF + SHF)
-
-        # Set the flux using the now defined plus-side data
-        flux_diffusive!(atmos, F, state⁺, τ⁺, d_h_tot⁺)
-        flux_diffusive!(atmos.moisture, F, state⁺, d_q_tot⁺)
-    end
-end
-# ------------------------ End Boundary Condition --------------------- # 
+import CLIMA.Atmos: flux_diffusive!, thermo_state
 
 """
   Bomex Geostrophic Forcing (Source)
@@ -342,7 +198,7 @@ function atmos_source!(
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
 
-    # Moisture tendencey (sink term) 
+    # Moisture tendencey (sink term)
     # Temperature tendency (Radiative cooling)
     # Large scale subsidence
     # Unpack struct
@@ -430,7 +286,7 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     zl3::FT = 2000
     zl4::FT = 3000
 
-    # Assign piecewise quantities to θ_liq and q_tot 
+    # Assign piecewise quantities to θ_liq and q_tot
     θ_liq::FT = 0
     q_tot::FT = 0
 
@@ -497,7 +353,7 @@ end
 
 function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
-    ics = init_bomex!     # Initial conditions 
+    ics = init_bomex!     # Initial conditions
 
     C_smag = FT(0.18)     # Smagorinsky coefficient
 
@@ -506,8 +362,6 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     T_sfc = FT(300.4)     # Surface temperature `[K]`
     LHF = FT(147.2)       # Latent heat flux `[W/m²]`
     SHF = FT(9.5)         # Sensible heat flux `[W/m²]`
-
-    bc = BOMEX_BC{FT}(u_star, LHF, SHF, T_sfc) # Boundary conditions
 
     ∂qt∂t_peak = FT(-1.2e-8)  # Moisture tendency (energy source)
     zl_moisture = FT(300)     # Low altitude limit for piecewise function (moisture source)
@@ -562,7 +416,20 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
         source = source,
-        boundarycondition = bc,
+        boundarycondition = (
+            AtmosBC(
+                momentum = Impenetrable(DragLaw(
+                    # normPu_int is the internal horizontal speed
+                    # P represents the projection onto the horizontal
+                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
+                )),
+                energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
+                moisture = PrescribedMoistureFlux(
+                    (state, aux, t) -> LHF / latent_heat_vapor(T_sfc),
+                ),
+            ),
+            AtmosBC(),
+        ),
         init_state = ics,
         param_set = ParameterSet{FT}(),
     )

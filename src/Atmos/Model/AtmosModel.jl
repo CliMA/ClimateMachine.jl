@@ -49,9 +49,11 @@ import CLIMA.DGmethods:
 import ..DGmethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_diffusive!,
+    normal_boundary_flux_diffusive!,
     NumericalFluxNonDiffusive,
     NumericalFluxGradient,
     NumericalFluxDiffusive
+
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
 """
@@ -93,7 +95,7 @@ function AtmosModel{FT}(
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
     # TODO: Probably want to have different bc for state and diffusion...
-    boundarycondition::BC = NoFluxBC(),
+    boundarycondition::BC = AtmosBC(),
     init_state::IS = nothing,
     data_config::DC = nothing,
     param_set::PS = nothing,
@@ -129,7 +131,7 @@ function AtmosModel{FT}(
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis()),
-    boundarycondition::BC = NoFluxBC(),
+    boundarycondition::BC = AtmosBC(),
     init_state::IS = nothing,
     data_config::DC = nothing,
     param_set::PS = nothing,
@@ -407,50 +409,8 @@ function source!(
     atmos_source!(m.source, m, source, state, diffusive, aux, t)
 end
 
-boundary_state!(nf, m::AtmosModel, x...) =
-    atmos_boundary_state!(nf, m.boundarycondition, m, x...)
-
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
     m.init_state(m, state, aux, coords, t, args...)
 end
-
-boundary_flux_diffusive!(
-    nf::NumericalFluxDiffusive,
-    atmos::AtmosModel,
-    F,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    bctype,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-) = atmos_boundary_flux_diffusive!(
-    nf,
-    atmos.boundarycondition,
-    atmos,
-    F,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    bctype,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-)
 
 end # module
