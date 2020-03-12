@@ -11,7 +11,6 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
-
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
@@ -30,7 +29,6 @@ include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 #               `C_smag`
 # 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
-
 function init_risingbubble!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
     R_gas::FT = R_d
@@ -72,7 +70,6 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
 end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-
     # Boundary conditions
     bc = NoFluxBC()
 
@@ -130,6 +127,7 @@ function main()
     # Simulation time
     t0 = FT(0)
     timeend = FT(1000)
+
     # Courant number
     CFL = FT(20)
 

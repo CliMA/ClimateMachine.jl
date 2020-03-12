@@ -78,7 +78,7 @@ function setup_solver(
     ode_solver_type = driver_config.solver_type,
     ode_dt = nothing,
     modeldata = nothing,
-    Courant_number = 0.4,
+    Courant_number = nothing,
     diffdir = EveryDirection(),
     timeend_dt_adjust = true,
     CFL_direction = EveryDirection(),
@@ -112,6 +112,17 @@ function setup_solver(
     else # ode_solver_type === IMEXSolverType
         linmodel = ode_solver_type.linear_model(bl)
         dtmodel = linmodel
+    end
+
+    # default Courant number
+    if Courant_number == nothing
+        if ode_solver_type.solver_method == LSRK144NiegemannDiehlBusch
+            Courant_number = FT(1.7)
+        elseif ode_solver_type.solver_method == LSRK54CarpenterKennedy
+            Courant_number = FT(0.3)
+        else
+            Courant_number = FT(0.5)
+        end
     end
 
     # initial Δt specified or computed
