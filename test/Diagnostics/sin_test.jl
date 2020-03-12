@@ -149,7 +149,7 @@ function main()
         for ev in 1:Nev
             for k in 1:Nqk
                 dv = Diagnostics.diagnostic_vars(d["0.0"][k, ev])
-                S[k + (ev - 1) * Nqk] = dv.vert_eddy_u_flx
+                S[k + (ev - 1) * Nqk] = dv.vert_eddy_u_flux
                 S1[k + (ev - 1) * Nqk] = dv.u
                 err += (S[k + (ev - 1) * Nqk] - 0.5)^2
                 err1 += (S1[k + (ev - 1) * Nqk] - 5)^2

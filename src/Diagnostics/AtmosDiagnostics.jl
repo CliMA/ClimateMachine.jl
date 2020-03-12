@@ -109,7 +109,7 @@ horzavg_vars(array) = Vars{vars_horzavg(eltype(array))}(array)
 function compute_horzsums!(
     atmos::AtmosModel,
     state,
-    diffusive_flx,
+    diffusive_flux,
     aux,
     k,
     ijk,
@@ -149,7 +149,7 @@ function compute_horzsums!(
     ν, _ = turbulence_tensors(
         atmos.turbulence,
         state,
-        diffusive_flx,
+        diffusive_flux,
         aux,
         currtime,
     )
@@ -157,11 +157,11 @@ function compute_horzsums!(
 
     # TODO: temporary fix
     if isa(atmos.moisture, EquilMoist)
-        d_q_tot = (-D_t) .* diffusive_flx.moisture.∇q_tot
+        d_q_tot = (-D_t) .* diffusive_flux.moisture.∇q_tot
         hs.qt_sgs += MH * state.ρ * d_q_tot[end]
     end
 
-    d_h_tot = -D_t .* diffusive_flx.∇h_tot
+    d_h_tot = -D_t .* diffusive_flux.∇h_tot
     hs.ht_sgs += MH * state.ρ * d_h_tot[end]
 
     repdvsr[Nqk * (ev - 1) + k] += MH
@@ -230,18 +230,18 @@ function compute_diagnosticsums!(
     ds.ht_sgs += MH * ha.ht_sgs
 
     # vertical fluxes
-    ds.vert_eddy_mass_flx += MH * (w - w̃) * (state.ρ - ha.ρ)
-    ds.vert_eddy_u_flx += MH * (w - w̃) * (u - ha.ρu / ha.ρ)
-    ds.vert_eddy_v_flx += MH * (w - w̃) * (v - ha.ρv / ha.ρ)
-    ds.vert_eddy_ql_flx += MH * (w - w̃) * (th.q_liq - ha.q_liq)
-    ds.vert_eddy_qv_flx += MH * (w - w̃) * (th.q_vap - ha.q_vap)
-    ds.vert_eddy_thd_flx += MH * (w - w̃) * (th.θ_dry - ha.θ_dry)
-    ds.vert_eddy_thv_flx += MH * (w - w̃) * (th.θ_v - ha.θ_v)
-    ds.vert_eddy_thl_flx += MH * (w - w̃) * (th.θ_liq_ice - ha.θ_liq_ice)
+    ds.vert_eddy_mass_flux += MH * (w - w̃) * (state.ρ - ha.ρ)
+    ds.vert_eddy_u_flux += MH * (w - w̃) * (u - ha.ρu / ha.ρ)
+    ds.vert_eddy_v_flux += MH * (w - w̃) * (v - ha.ρv / ha.ρ)
+    ds.vert_eddy_ql_flux += MH * (w - w̃) * (th.q_liq - ha.q_liq)
+    ds.vert_eddy_qv_flux += MH * (w - w̃) * (th.q_vap - ha.q_vap)
+    ds.vert_eddy_thd_flux += MH * (w - w̃) * (th.θ_dry - ha.θ_dry)
+    ds.vert_eddy_thv_flux += MH * (w - w̃) * (th.θ_v - ha.θ_v)
+    ds.vert_eddy_thl_flux += MH * (w - w̃) * (th.θ_liq_ice - ha.θ_liq_ice)
     # TODO: temporary fix
     if isa(atmos.moisture, EquilMoist)
-        ds.vert_eddy_qt_flx += MH * (w - w̃) * (q_tot - q̃_tot)
-        ds.vert_qt_flx += MH * w * q_tot
+        ds.vert_eddy_qt_flux += MH * (w - w̃) * (q_tot - q̃_tot)
+        ds.vert_qt_flux += MH * w * q_tot
     end
 
     # variances
@@ -317,12 +317,12 @@ function collect(atmos::AtmosModel, currtime)
 
         compute_thermo!(bl, state, aux, k, ijk, ev, e, thermoQ)
 
-        diffusive_flx = extract_diffusion(dg, localdiff, ijk, e)
+        diffusive_flux = extract_diffusion(dg, localdiff, ijk, e)
         MH = localvgeo[ijk, grid.MHid, e]
         compute_horzsums!(
             bl,
             state,
-            diffusive_flx,
+            diffusive_flux,
             aux,
             k,
             ijk,
