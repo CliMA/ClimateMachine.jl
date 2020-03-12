@@ -9,6 +9,6 @@ for submodule in [
                   # "BOMEX",
                   ]
 
-  println("Testing $submodule")
-  include(joinpath(submodule*".jl"))
+  include_test(submodule)
+
 end

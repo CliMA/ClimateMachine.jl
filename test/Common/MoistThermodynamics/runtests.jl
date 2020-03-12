@@ -18,11 +18,15 @@ include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
 
 include("testdata.jl")
 
+data_set_size = test_intensity(;low=2,normal=50),
+                test_intensity(;low=2,normal=10),
+                test_intensity(;low=2,normal=20)
+
 @testset "moist thermodynamics - isentropic processes" begin
     for FT in [Float64]
         # for FT in float_types
         e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+            MT.tested_convergence_range(data_set_size..., FT)
         Φ = FT(1)
         Random.seed!(15)
         perturbation = FT(0.1) * rand(length(T))
@@ -226,7 +230,7 @@ end
     q_tot = FT(0.23)
     @test exner_given_pressure(p, PhasePartition(q_tot)) isa typeof(p)
 
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(data_set_size..., FT)
 
     ts = PhaseEquil.(e_int, ρ, q_tot)
 
@@ -251,7 +255,7 @@ end
     for FT in float_types
         rtol = FT(1e-2)
         e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+            MT.tested_convergence_range(data_set_size..., FT)
 
         # PhaseEquil
         ts_exact = PhaseEquil.(e_int, ρ, q_tot, 100, FT(1e-4))
@@ -422,7 +426,7 @@ end
     for FT in float_types
         rtol = FT(1e-2)
         e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+            MT.tested_convergence_range(data_set_size..., FT)
 
         # PhaseDry
         ts = PhaseDry.(e_int, ρ)
@@ -565,7 +569,7 @@ end
     # NOTE: `Float32` saturation adjustment tends to have more difficulty
     # with converging to the same tolerances as `Float64`, so they're relaxed here.
     FT = Float32
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(data_set_size..., FT)
 
     ρu = FT[1.0, 2.0, 3.0]
     e_pot = FT(100.0)
@@ -640,7 +644,7 @@ end
 @testset "moist thermodynamics - dry limit" begin
 
     FT = Float64
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(data_set_size..., FT)
 
     # PhasePartition test is noisy, so do this only once:
     ts_dry = PhaseDry(first(e_int), first(ρ))

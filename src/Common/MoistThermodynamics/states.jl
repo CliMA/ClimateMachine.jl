@@ -393,12 +393,12 @@ Note that the output vectors are of size ``n*n_RH``, and they
 should span the input arguments to all of the constructors.
 """
 function tested_convergence_range(
-    n::Int,
+    n::IT,
+    n_RS1::IT,
+    n_RS2::IT,
     ::Type{FT},
     param_set::PS = MTPS{FT}(),
-) where {FT, PS}
-    n_RS1 = 10
-    n_RS2 = 20
+) where {FT, PS, IT<:Int}
     n_RS = n_RS1 + n_RS2
     z_range = range(FT(0), stop = FT(2.5e4), length = n)
     relative_sat1 = range(FT(0), stop = FT(1), length = n_RS1)

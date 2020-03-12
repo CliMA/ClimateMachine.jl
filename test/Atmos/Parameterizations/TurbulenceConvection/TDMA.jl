@@ -6,7 +6,7 @@ using CLIMA.TurbulenceConvection.TriDiagSolvers
 TDMA = TriDiagSolvers
 
 @testset "TriDiagSolvers" begin
-  N = 2:10
+  N = 2:test_intensity(;low=3,normal=10)
   for n in N
     dl = rand(n-1)
     du = rand(n-1)
