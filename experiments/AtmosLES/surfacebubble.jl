@@ -20,129 +20,16 @@ using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
-import CLIMA.DGmethods: boundary_state!
-import CLIMA.Atmos:
-    atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
-import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
-
 # -------------------- Surface Driven Bubble ----------------- #
 # Rising thermals driven by a prescribed surface heat flux.
 # 1) Boundary Conditions:
 #       Laterally periodic with no flow penetration through top
 #       and bottom wall boundaries.
-#       Momentum: No flow penetration [NoFluxBC()]
+#       Momentum: Impenetrable(FreeSlip())
 #       Energy:   Spatially varying non-zero heat flux up to time t₁
 # 2) Domain: 1250m × 1250m × 1000m
 # Configuration defaults are in `src/Driver/Configurations.jl`
 
-"""
-  SurfaceDrivenBubbleBC <: BoundaryCondition
-Y ≡ state vars
-Σ ≡ diffusive vars
-A ≡ auxiliary vars
-X⁺ and X⁻ refer to exterior, interior faces
-X₁ refers to the first interior node
-
-# Fields
-$(DocStringExtensions.FIELDS)
-"""
-struct SurfaceDrivenBubbleBC{FT} <: BoundaryCondition
-    "Prescribed MSEF Magnitude `[W/m^2]`"
-    F₀::FT
-    "Time Cutoff `[s]`"
-    t₁::FT
-    "Plume wavelength scaling"
-    x₀::FT
-end
-function atmos_boundary_state!(
-    nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-    bc::SurfaceDrivenBubbleBC,
-    m::AtmosModel,
-    Y⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Y⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    # Use default NoFluxBC()
-    atmos_boundary_state!(nf, NoFluxBC(), m, Y⁺, A⁺, n⁻, Y⁻, A⁻, bctype, t)
-end
-function atmos_boundary_flux_diffusive!(
-    nf::CentralNumericalFluxDiffusive,
-    bc::SurfaceDrivenBubbleBC,
-    m::AtmosModel,
-    F,
-    Y⁺::Vars,
-    Σ⁺::Vars,
-    HD⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Y⁻::Vars,
-    Σ⁻::Vars,
-    HD⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    Y₁⁻,
-    Σ₁⁻,
-    A₁⁻,
-)
-    # Working precision
-    FT = eltype(Y⁻)
-    # Assign vertical unit vector and coordinates
-    k̂ = vertical_unit_vector(m.orientation, A⁻)
-    x = A⁻.coord[1]
-    y = A⁻.coord[2]
-    # Unpack fields
-    t₁ = bc.t₁
-    x₀ = bc.x₀
-    F₀ = t < t₁ ? bc.F₀ : -zero(FT)
-    # Apply boundary condition per face (1 == bottom wall)
-    if bctype != 1
-        atmos_boundary_flux_diffusive!(
-            nf,
-            NoFluxBC(),
-            m,
-            F,
-            Y⁺,
-            Σ⁺,
-            HD⁺,
-            A⁺,
-            n⁻,
-            Y⁻,
-            Σ⁻,
-            HD⁻,
-            A⁻,
-            bctype,
-            t,
-            Y₁⁻,
-            Σ₁⁻,
-            A₁⁻,
-        )
-    else
-        atmos_boundary_state!(
-            nf,
-            NoFluxBC(),
-            m,
-            Y⁺,
-            Σ⁺,
-            A⁺,
-            n⁻,
-            Y⁻,
-            Σ⁻,
-            A⁻,
-            bctype,
-            t,
-        )
-        MSEF = F₀ * (cospi(2 * x / x₀))^2 * (cospi(2 * y / x₀))^2
-        ∇h_tot⁺ = MSEF * k̂
-        _, τ⁺ = turbulence_tensors(m.turbulence, Y⁺, Σ⁺, A⁺, t)
-        flux_diffusive!(m, F, Y⁺, τ⁺, ∇h_tot⁺)
-    end
-end
 
 """
   Surface Driven Thermal Bubble
@@ -189,7 +76,12 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
     t₁ = FT(500)
     # Plume wavelength scaling
     x₀ = xmax
-    bc = SurfaceDrivenBubbleBC{FT}(F₀, t₁, x₀)
+    function energyflux(state, aux, t)
+        x = aux.coord[1]
+        y = aux.coord[2]
+        MSEF = F₀ * (cospi(2 * x / x₀))^2 * (cospi(2 * y / x₀))^2
+        t < t₁ ? MSEF : zero(MSEF)
+    end
 
     C_smag = FT(0.23)
 
@@ -200,7 +92,10 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
-        boundarycondition = bc,
+        boundarycondition = (
+            AtmosBC(energy = PrescribedEnergyFlux(energyflux)),
+            AtmosBC(),
+        ),
         moisture = EquilMoist{FT}(),
         init_state = init_surfacebubble!,
         param_set = ParameterSet{FT}(),

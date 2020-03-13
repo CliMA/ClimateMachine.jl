@@ -17,7 +17,7 @@ include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
-# 2) Boundaries - `All Walls` : NoFluxBC (Impermeable Walls)
+# 2) Boundaries - `All Walls` : Impenetrable(FreeSlip())
 #                               Laterally periodic
 # 3) Domain - 2500m[horizontal] x 2500m[horizontal] x 2500m[vertical]
 # 4) Timeend - 1000s
@@ -70,8 +70,6 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
 end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-    # Boundary conditions
-    bc = NoFluxBC()
 
     # Choose explicit solver
     ode_solver = CLIMA.MultirateSolverType(
