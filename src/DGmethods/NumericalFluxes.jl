@@ -234,7 +234,7 @@ end
 function divergence_boundary_penalty!(nf::CentralDivPenalty, bl::BalanceLaw,
                                       div_penalty::Vars{GL}, n::SVector,
                                       grad⁻::Grad{GL}, grad⁺::Grad{GL}, bctype) where {GL}
-  boundary_state!(nf, bl, grad⁺, n, grad⁻, bctype)
+  #boundary_state!(nf, bl, grad⁺, n, grad⁻, bctype)
   divergence_penalty!(nf, bl, div_penalty, n, grad⁻, grad⁺)
 end
 
@@ -255,7 +255,7 @@ function numerical_boundary_flux_hyperdiffusive!(nf::CentralHyperDiffusiveFlux, 
                                                  lap⁻::Vars{GL}, state⁻::Vars{S}, aux⁻::Vars{A},
                                                  lap⁺::Vars{GL}, state⁺::Vars{S}, aux⁺::Vars{A},
                                                  bctype, t) where {HD, GL, S, A}
-  boundary_state!(nf, bl, state⁺, aux⁺, lap⁺, n, state⁻, aux⁻, lap⁻, bctype, t)
+  #boundary_state!(nf, bl, state⁺, aux⁺, lap⁺, n, state⁻, aux⁻, lap⁻, bctype, t)
   numerical_flux_hyperdiffusive!(nf, bl, hyperdiff, n,
                                  lap⁻, state⁻, aux⁻, lap⁺, state⁺, aux⁺, t)
 end
