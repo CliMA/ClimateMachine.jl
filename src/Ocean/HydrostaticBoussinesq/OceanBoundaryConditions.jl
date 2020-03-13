@@ -150,7 +150,7 @@ end
 """
     OceanFloorFreeSlip
 
-applies boundary condition νν∇u = 0 and κ∇θ = 0
+applies boundary condition ν∇u = 0 and κ∇θ = 0
 """
 
 """
@@ -205,7 +205,7 @@ end
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for νν∇u and κ∇θ
+sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -333,7 +333,7 @@ end
 
 apply no flux boundary condition for velocity
 apply no flux boundary condition for temperature
-set ghost point to have no numerical flux on the boundary for νν∇u and κ∇θ
+set ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -350,7 +350,6 @@ set ghost point to have no numerical flux on the boundary for νν∇u and κ∇
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   D⁺.ν∇u = -D⁻.ν∇u
-
   D⁺.κ∇θ = -D⁻.κ∇θ
 
   return nothing
@@ -373,11 +372,12 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
 - `A⁻`: auxiliary state vector at interior point
 - `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::HBModel,
+@inline function ocean_boundary_state!(m::HBModel,
                                        ::OceanSurfaceStressNoForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  τ = @SMatrix [ -0 -0; -0 -0; A⁺.τ / 1000 -0]
+  τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
+  τ = @SMatrix [ -0 -0; -0 -0; τᶻ -0]
   D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
   D⁺.κ∇θ = -D⁻.κ∇θ
@@ -408,11 +408,8 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   D⁺.ν∇u = -D⁻.ν∇u
 
-  θ  = Q⁻.θ
-  θʳ = A⁺.θʳ
-  λʳ = m.problem.λʳ
-
-  σ = @SVector [-0, -0, λʳ * (θʳ - θ)]
+  σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
+  σ = @SVector [-0, -0, σᶻ]
   D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
 
   return nothing
@@ -439,14 +436,12 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
                                        ::OceanSurfaceStressForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  τ = @SMatrix [ -0 -0; -0 -0; A⁺.τ / 1000 -0]
+  τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
+  τ = @SMatrix [ -0 -0; -0 -0; τᶻ -0]
   D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
-  θ  = Q⁻.θ
-  θʳ = A⁺.θʳ
-  λʳ = m.problem.λʳ
-
-  σ = @SVector [-0, -0, λʳ * (θʳ - θ)]
+  σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
+  σ = @SVector [-0, -0, σᶻ]
   D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
 
   return nothing

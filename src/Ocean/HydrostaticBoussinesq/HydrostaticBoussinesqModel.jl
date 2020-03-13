@@ -1,7 +1,8 @@
 module HydrostaticBoussinesq
 
 export HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem,
-       LinearHBModel, calculate_dt
+       LinearHBModel, calculate_dt,
+       SimpleBoxProblem, HomogeneousBox, OceanGyre
 
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal, norm
@@ -48,6 +49,17 @@ A `BalanceLaw` for ocean modeling.
 
 write out the equations here
 
+ρₒ = reference density of sea water
+cʰ = maximum horizontal wave speed
+cᶻ = maximum vertical wave speed
+αᵀ = thermal expansitivity coefficient
+νʰ = horizontal viscosity
+νᶻ = vertical viscosity
+κʰ = horizontal diffusivity
+κᶻ = vertical diffusivity
+fₒ = first coriolis parameter (constant term)
+β  = second coriolis parameter (linear term)
+
 # Usage
 
     HydrostaticBoussinesqModel(problem)
@@ -55,6 +67,7 @@ write out the equations here
 """
 struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   problem::P
+  ρₒ::T
   cʰ::T
   cᶻ::T
   αᵀ::T
@@ -62,7 +75,10 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   νᶻ::T
   κʰ::T
   κᶻ::T
+  fₒ::T
+  β::T
   function HydrostaticBoussinesqModel{FT}(problem;
+                                      ρₒ = FT(1000),  # kg / m^3
                                       cʰ = FT(0),     # m/s
                                       cᶻ = FT(0),     # m/s
                                       αᵀ = FT(2e-4),  # (m/s)^2 / K
@@ -70,8 +86,10 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
                                       νᶻ = FT(5e-3),  # m^2 / s
                                       κʰ = FT(1e3),   # m^2 / s
                                       κᶻ = FT(1e-4),  # m^2 / s
+                                      fₒ = FT(1e-4),  # Hz
+                                      β  = FT(1e-11), # Hz / m
                                       ) where {FT <: AbstractFloat}
-    return new{typeof(problem),FT}(problem, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+    return new{typeof(problem),FT}(problem, ρₒ, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ, fₒ, β)
   end
 end
 HBModel = HydrostaticBoussinesqModel
@@ -127,14 +145,10 @@ f = coriolis force
 # If this order is changed check update_aux!
 function vars_aux(m::HBModel, T)
   @vars begin
-    w::T
-    pkin::T         # ∫(-αᵀ θ)
-    wz0::T          # w at z=0
-    θʳ::T           # SST given    # TODO: Should be 2D
-    f::T            # coriolis
-    τ::T            # wind stress  # TODO: Should be 2D
-    ν::SVector{3, T}
-    κ::SVector{3, T}
+    w::T     # ∫(-∇⋅u)
+    pkin::T  # ∫(-αᵀθ)
+    wz0::T   # w at z=0
+    y::T     # y-coordinate of the box
   end
 end
 
@@ -366,15 +380,15 @@ t -> time, not used
     pkin = A.pkin
 
     v = @SVector [u[1], u[2], w]
-    Ih = @SMatrix [ 1 -0;
+    Iʰ = @SMatrix [ 1 -0;
                    -0  1;
                    -0 -0]
 
     # ∇h • (g η)
-    F.u += grav * η * Ih
+    F.u += grav * η * Iʰ
 
     # ∇h • (- ∫(αᵀ θ))
-    F.u += grav * pkin * Ih
+    F.u += grav * pkin * Iʰ
 
     # ∇h • (v ⊗ u)
     # F.u += v * u'
@@ -428,21 +442,32 @@ end
     ∂ᵗu = -f×u
     ∂ᵗη = w|(z=0)
 """
-@inline function source!(m::HBModel{P}, source::Vars, Q::Vars,
-                         diffusive::Vars, A::Vars, t::Real) where P
+@inline function source!(m::HBModel{P}, S::Vars, Q::Vars,
+                         D::Vars, A::Vars, t::Real) where P
   @inbounds begin
     u,v = Q.u # Horizontal components of velocity
-    f = A.f
     wz0 = A.wz0
 
     # f × u
-    source.u -= @SVector [-f * v, f * u]
+    f = coriolis_force(m, A.y)
+    S.u -= @SVector [-f * v, f * u]
 
-    source.η += wz0
+    S.η += wz0
   end
 
   return nothing
 end
+
+"""
+    coriolis_force(::HBModel)
+
+northern hemisphere coriolis
+
+# Arguments
+- `m`: model object to dispatch on and get coriolis parameters
+- `y`: y-coordinate in the box
+"""
+@inline coriolis_force(m::HBModel, y) = m.fₒ + m.β * y
 
 """
     wavespeed(::HBModel)
@@ -549,6 +574,7 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
   return ocean_boundary_state!(m, m.problem, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
 end
 
+include("SimpleBoxProblem.jl")
 include("OceanBoundaryConditions.jl")
 include("LinearHBModel.jl")
 include("Courant.jl")
