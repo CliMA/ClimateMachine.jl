@@ -111,9 +111,9 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
 
-    xmax = 1500
-    ymax = 1500
-    zmax = 1500
+    xmax = FT(1500)
+    ymax = FT(1500)
+    zmax = FT(1500)
 
     t0 = FT(0)
     dt = FT(0.01)
