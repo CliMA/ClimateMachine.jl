@@ -135,6 +135,7 @@ function run(
         ),
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
+        boundarycondition = NoFluxBC(),
         init_state = Initialise_Density_Current!,
         param_set = ParameterSet{FT}(),
     )

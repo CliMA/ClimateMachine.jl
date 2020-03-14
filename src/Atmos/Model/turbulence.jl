@@ -2,7 +2,8 @@
 using DocStringExtensions
 using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
-export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
+using SpecialFunctions
+export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss, StretchedVortex
 export turbulence_tensors
 
 abstract type TurbulenceClosure end
@@ -331,4 +332,50 @@ function turbulence_tensors(m::AnisoMinDiss, state::Vars, diffusive::Vars, aux::
   τ = (-2*ν) * S
 
   return ν, τ
+end
+
+"""
+  StretchedVortex{FT} <: TurbulenceClosure
+  
+  §1.3.2 in CLIMA documentation 
+TODO: add references to Misra and Pullin 
+
+"""
+struct StretchedVortex{FT} <: TurbulenceClosure
+end
+vars_aux(::StretchedVortex,T) = @vars(Δ::T)
+vars_gradient(::StretchedVortex,T) = @vars(θ_v::T)
+function atmos_init_aux!(::StretchedVortex, ::AtmosModel, aux::Vars, geom::LocalGeometry)
+  aux.turbulence.Δ = lengthscale(geom)
+end
+function dynamic_viscosity_tensor(m::StretchedVortex, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
+  FT = eltype(state)
+  # Find most extensional eigenvector of strainrate tensor
+  eᵛ = eigen(S).vectors[:,3] 
+  eye = diagm(0 => [1,1,1])
+  ā = dot(eᵛ * eᵛ', S) + eps(FT)
+  ν = FT(1e-4)
+  λ_v = sqrt(2*ν/(3*abs(ā)))
+  k_c = π / aux.turbulence.Δ
+  κ_c = λ_v * k_c 
+  # Require 6 digits of accuracy from gamma function with the third argument
+  # ∫{k_c, ∞} [F₂ / 1.90695 / Δ̂^(2/3) * exp(-2*k²*ν/(3 * eᵢeⱼSᵢⱼ))]dk
+  κ0prime = FT(0.5)
+  τij = (eye .- eᵛ * eᵛ') * FT(1/2) * κ0prime * gamma_approx(κ_c^2)
+end
+function scaled_momentum_flux_tensor(m::StretchedVortex, ρν, S)
+  (-2*ρν) * S
+end
+
+using SpecialFunctions
+# Number of terms in series approximation
+function gamma_approx(x)
+  nmax = 4
+  a = -1//3
+  sum = 0 
+  # Begin series solution loop 
+  for n = 0:nmax
+    sum += abs(((-1)^(n) * (Complex(a))^(x+(n))/(factorial(n)*(x + (n)))))
+  end
+  result = gamma(-1//3) - sum
 end
