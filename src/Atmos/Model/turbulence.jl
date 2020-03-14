@@ -351,27 +351,28 @@ end
 function dynamic_viscosity_tensor(m::StretchedVortex, S, state::Vars, diffusive::Vars, ∇transform::Grad, aux::Vars, t::Real)
   FT = eltype(state)
   # Find most extensional eigenvector of strainrate tensor
-  eᵛ = eigen(S).vectors[:,3] 
-  eye = diagm(0 => [1,1,1])
+  eᵛ = SVector(eigen(S).vectors[:,3])
+  eye = Diagonal(SVector{3,FT}(1,1,1))
+  @show(eye)
   ā = dot(eᵛ * eᵛ', S) + eps(FT)
-  ν = FT(1e-4)
+  ν = FT(0.01)
   λ_v = sqrt(2*ν/(3*abs(ā)))
   k_c = π / aux.turbulence.Δ
   κ_c = λ_v * k_c 
-  # Require 6 digits of accuracy from gamma function with the third argument
   # ∫{k_c, ∞} [F₂ / 1.90695 / Δ̂^(2/3) * exp(-2*k²*ν/(3 * eᵢeⱼSᵢⱼ))]dk
+  # Structure Function approximation for κ0prime
   κ0prime = FT(0.5)
   τij = (eye .- eᵛ * eᵛ') * FT(1/2) * κ0prime * gamma_approx(κ_c^2)
+  return τij
 end
 function scaled_momentum_flux_tensor(m::StretchedVortex, ρν, S)
-  (-2*ρν) * S
+  -ρν
 end
 
 using SpecialFunctions
-# Number of terms in series approximation
 function gamma_approx(x)
-  nmax = 4
-  a = -1//3
+  nmax = 5
+  a = -1/3
   sum = 0 
   # Begin series solution loop 
   for n = 0:nmax

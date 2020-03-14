@@ -34,17 +34,17 @@ if !@isdefined integration_testing
     )
 end
 
-# -------------- Problem constants ------------------- #
-const dim = 3
-const (xmin, xmax) = (0, 12800)
-const (ymin, ymax) = (0, 400)
-const (zmin, zmax) = (0, 6400)
-const Ne = (100, 2, 50)
-const polynomialorder = 4
-const dt = 0.01
-const timeend = 10dt
+# -------------- Problem constants ------------------- # 
+const dim               = 3
+const (xmin, xmax)      = (0,12800)
+const (ymin, ymax)      = (0,400)
+const (zmin, zmax)      = (0,6400)
+const Ne                = (50,2,25)
+const polynomialorder   = 4
+const dt                = 0.01
+const timeend           = 1000
 
-# ------------- Initial condition function ----------- #
+# ------------- Initial condition function ----------- # 
 """
 @article{doi:10.1002/fld.1650170103,
 author = {Straka, J. M. and Wilhelmson, Robert B. and Wicker, Louis J. and Anderson, John R. and Droegemeier, Kelvin K.},
