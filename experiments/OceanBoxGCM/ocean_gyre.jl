@@ -1,7 +1,6 @@
 using Test
 using CLIMA
 using CLIMA.HydrostaticBoussinesq
-using CLIMA.SimpleBox
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
