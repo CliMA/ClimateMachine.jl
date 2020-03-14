@@ -263,7 +263,13 @@ The values of ``a_{vent}`` and ``b_{vent}`` are chosen so that at ``q_{tot} = 15
 ```@example rain_evaporation
 using CLIMA.Microphysics
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMA
+using CLIMA.Parameters
+const clima_dir = dirname(pathof(CLIMA))
+# We will depend on MoistThermodynamics's default Parameters:
+include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+using CLIMA.Parameters.Planet
+
 using Plots
 
 # eq. 5c in Smolarkiewicz and Grabowski 1996

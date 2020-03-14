@@ -3,7 +3,6 @@ using CLIMA.MoistThermodynamics
 using NCDatasets
 using Random
 MT = MoistThermodynamics
-using CLIMA.PlanetParameters
 using LinearAlgebra
 
 using CLIMA.Parameters
@@ -11,18 +10,23 @@ using CLIMA.Parameters
 float_types = [Float32, Float64]
 
 using CLIMA
+using CLIMA.UniversalConstants
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 # We will depend on MoistThermodynamics's default Parameters:
 include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+using CLIMA.Parameters.Planet
 
 include("testdata.jl")
+
+dataset_size = (50, 10, 20)
 
 @testset "moist thermodynamics - isentropic processes" begin
     for FT in [Float64]
         # for FT in float_types
+        param_set = MT.MTPS{FT}()
         e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+            MT.tested_convergence_range(dataset_size..., FT)
         Φ = FT(1)
         Random.seed!(15)
         perturbation = FT(0.1) * rand(length(T))
@@ -30,12 +34,14 @@ include("testdata.jl")
         # TODO: Use reasonable values for ambient temperature/pressure
         T∞, p∞ = T .* perturbation, p .* perturbation
         @test air_temperature.(p, θ_liq_ice, Ref(DryAdiabaticProcess())) ≈
-              (p ./ FT(MSLP)) .^ (FT(R_d) / FT(cp_d)) .* θ_liq_ice
+              (p ./ MSLP(param_set)) .^ (R_d(param_set) / cp_d(param_set)) .*
+              θ_liq_ice
         @test air_pressure_given_θ.(θ_liq_ice, Φ, Ref(DryAdiabaticProcess())) ≈
-              FT(MSLP) .*
-              (1 .- Φ ./ (θ_liq_ice .* FT(cp_d))) .^ (FT(cp_d) / FT(R_d))
+              MSLP(param_set) .*
+              (1 .- Φ ./ (θ_liq_ice .* cp_d(param_set))) .^
+              (cp_d(param_set) / R_d(param_set))
         @test air_pressure.(T, T∞, p∞, Ref(DryAdiabaticProcess())) ≈
-              p∞ .* (T ./ T∞) .^ (FT(1) / FT(kappa_d))
+              p∞ .* (T ./ T∞) .^ (FT(1) / kappa_d(param_set))
     end
 end
 
@@ -43,93 +49,121 @@ end
 @testset "moist thermodynamics - correctness" begin
     FT = Float64
     # ideal gas law
-    @test air_pressure(FT(1), FT(1), PhasePartition(FT(1))) === FT(R_v)
+    param_set = MT.MTPS{FT}()
+    @test air_pressure(FT(1), FT(1), PhasePartition(FT(1))) === R_v(param_set)
     @test air_pressure(FT(1), FT(2), PhasePartition(FT(1), FT(0.5), FT(0))) ===
-          FT(R_v)
-    @test air_pressure(FT(1), FT(1)) === FT(R_d)
-    @test air_pressure(FT(1), FT(2)) === 2 * FT(R_d)
-    @test air_density(FT(1), FT(1)) === 1 / FT(R_d)
-    @test air_density(FT(1), FT(2)) === 2 / FT(R_d)
+          R_v(param_set)
+    @test air_pressure(FT(1), FT(1)) === R_d(param_set)
+    @test air_pressure(FT(1), FT(2)) === 2 * R_d(param_set)
+    @test air_density(FT(1), FT(1)) === 1 / R_d(param_set)
+    @test air_density(FT(1), FT(2)) === 2 / R_d(param_set)
 
     # gas constants and heat capacities
-    @test gas_constant_air(PhasePartition(FT(0))) === FT(R_d)
-    @test gas_constant_air(PhasePartition(FT(1))) === FT(R_v)
-    @test gas_constant_air(PhasePartition(FT(0.5), FT(0.5))) ≈ FT(R_d) / 2
-    @test gas_constant_air(FT) == FT(R_d)
+    @test gas_constant_air(PhasePartition(FT(0))) === R_d(param_set)
+    @test gas_constant_air(PhasePartition(FT(1))) === R_v(param_set)
+    @test gas_constant_air(PhasePartition(FT(0.5), FT(0.5))) ≈
+          R_d(param_set) / 2
+    @test gas_constant_air(FT) == R_d(param_set)
 
-    @test cp_m(PhasePartition(FT(0))) === FT(cp_d)
-    @test cp_m(PhasePartition(FT(1))) === FT(cp_v)
-    @test cp_m(PhasePartition(FT(1), FT(1))) === FT(cp_l)
-    @test cp_m(PhasePartition(FT(1), FT(0), FT(1))) === FT(cp_i)
-    @test cp_m(FT) == FT(cp_d)
+    @test cp_m(PhasePartition(FT(0))) === cp_d(param_set)
+    @test cp_m(PhasePartition(FT(1))) === cp_v(param_set)
+    @test cp_m(PhasePartition(FT(1), FT(1))) === cp_l(param_set)
+    @test cp_m(PhasePartition(FT(1), FT(0), FT(1))) === cp_i(param_set)
+    @test cp_m(FT) == cp_d(param_set)
 
-    @test cv_m(PhasePartition(FT(0))) === FT(cp_d - R_d)
-    @test cv_m(PhasePartition(FT(1))) === FT(cp_v - R_v)
-    @test cv_m(PhasePartition(FT(1), FT(1))) === FT(cv_l)
-    @test cv_m(PhasePartition(FT(1), FT(0), FT(1))) === FT(cv_i)
-    @test cv_m(FT) == FT(cv_d)
+    @test cv_m(PhasePartition(FT(0))) === cp_d(param_set) - R_d(param_set)
+    @test cv_m(PhasePartition(FT(1))) === cp_v(param_set) - R_v(param_set)
+    @test cv_m(PhasePartition(FT(1), FT(1))) === cv_l(param_set)
+    @test cv_m(PhasePartition(FT(1), FT(0), FT(1))) === cv_i(param_set)
+    @test cv_m(FT) == cv_d(param_set)
 
     # speed of sound
-    @test soundspeed_air(T_0 + 20, PhasePartition(FT(0))) ==
-          sqrt(cp_d / cv_d * R_d * (T_0 + 20))
-    @test soundspeed_air(T_0 + 100, PhasePartition(FT(1))) ==
-          sqrt(cp_v / cv_v * R_v * (T_0 + 100))
+    @test soundspeed_air(T_0(param_set) + 20, PhasePartition(FT(0))) == sqrt(
+        cp_d(param_set) / cv_d(param_set) *
+        R_d(param_set) *
+        (T_0(param_set) + 20),
+    )
+    @test soundspeed_air(T_0(param_set) + 100, PhasePartition(FT(1))) == sqrt(
+        cp_v(param_set) / cv_v(param_set) *
+        R_v(param_set) *
+        (T_0(param_set) + 100),
+    )
 
     # specific latent heats
-    @test latent_heat_vapor(FT(T_0)) ≈ LH_v0
-    @test latent_heat_fusion(FT(T_0)) ≈ LH_f0
-    @test latent_heat_sublim(FT(T_0)) ≈ LH_s0
+    @test latent_heat_vapor(T_0(param_set)) ≈ LH_v0(param_set)
+    @test latent_heat_fusion(T_0(param_set)) ≈ LH_f0(param_set)
+    @test latent_heat_sublim(T_0(param_set)) ≈ LH_s0(param_set)
 
     # saturation vapor pressure and specific humidity
     p = FT(1.e5)
     q_tot = FT(0.23)
     ρ = FT(1.0)
-    ρ_v_triple = press_triple / R_v / T_triple
-    @test saturation_vapor_pressure(FT(T_triple), Liquid()) ≈ press_triple
-    @test saturation_vapor_pressure(FT(T_triple), Ice()) ≈ press_triple
+    ρ_v_triple = press_triple(param_set) / R_v(param_set) / T_triple(param_set)
+    @test saturation_vapor_pressure(T_triple(param_set), Liquid()) ≈
+          press_triple(param_set)
+    @test saturation_vapor_pressure(T_triple(param_set), Ice()) ≈
+          press_triple(param_set)
 
-    @test q_vap_saturation(FT(T_triple), ρ, PhasePartition(FT(0))) ==
+    @test q_vap_saturation(T_triple(param_set), ρ, PhasePartition(FT(0))) ==
           ρ_v_triple / ρ
-    @test q_vap_saturation(FT(T_triple), ρ, PhasePartition(q_tot, q_tot)) ==
-          ρ_v_triple / ρ
+    @test q_vap_saturation(
+        T_triple(param_set),
+        ρ,
+        PhasePartition(q_tot, q_tot),
+    ) == ρ_v_triple / ρ
 
-    @test q_vap_saturation_generic(FT(T_triple), ρ; phase = Liquid()) ==
+    @test q_vap_saturation_generic(T_triple(param_set), ρ; phase = Liquid()) ==
           ρ_v_triple / ρ
-    @test q_vap_saturation_generic(FT(T_triple), ρ; phase = Ice()) ==
+    @test q_vap_saturation_generic(T_triple(param_set), ρ; phase = Ice()) ==
           ρ_v_triple / ρ
-    @test q_vap_saturation_generic.(FT(T_triple - 20), ρ; phase = Liquid()) >=
-          q_vap_saturation_generic.(FT(T_triple - 20), ρ; phase = Ice())
+    @test q_vap_saturation_generic.(
+        FT(T_triple(param_set) - 20),
+        ρ;
+        phase = Liquid(),
+    ) >=
+          q_vap_saturation_generic.(
+        FT(T_triple(param_set) - 20),
+        ρ;
+        phase = Ice(),
+    )
 
-    @test saturation_excess(FT(T_triple), ρ, PhasePartition(q_tot)) ==
+    @test saturation_excess(T_triple(param_set), ρ, PhasePartition(q_tot)) ==
           q_tot - ρ_v_triple / ρ
-    @test saturation_excess(FT(T_triple), ρ, PhasePartition(q_tot / 1000)) ==
-          0.0
+    @test saturation_excess(
+        T_triple(param_set),
+        ρ,
+        PhasePartition(q_tot / 1000),
+    ) == 0.0
 
     # energy functions and inverse (temperature)
     T = FT(300)
     e_kin = FT(11)
     e_pot = FT(13)
-    @test air_temperature(FT(cv_d * (T - T_0))) === FT(T)
-    @test air_temperature(FT(cv_d * (T - T_0)), PhasePartition(FT(0))) === FT(T)
+    @test air_temperature(cv_d(param_set) * (T - T_0(param_set))) === T
+    @test air_temperature(
+        cv_d(param_set) * (T - T_0(param_set)),
+        PhasePartition(FT(0)),
+    ) === T
 
     @test air_temperature(
-        cv_m(PhasePartition(FT(0))) * (T - T_0),
+        cv_m(PhasePartition(FT(0))) * (T - T_0(param_set)),
         PhasePartition(FT(0)),
     ) === FT(T)
     @test air_temperature(
-        cv_m(PhasePartition(FT(q_tot))) * (T - T_0) + q_tot * e_int_v0,
+        cv_m(PhasePartition(FT(q_tot))) * (T - T_0(param_set)) +
+        q_tot * e_int_v0(param_set),
         PhasePartition(q_tot),
     ) ≈ FT(T)
 
-    @test total_energy(FT(e_kin), FT(e_pot), FT(T_0)) === FT(e_kin) + FT(e_pot)
-    @test total_energy(FT(e_kin), FT(e_pot), FT(T)) ≈
-          FT(e_kin) + FT(e_pot) + cv_d * (T - T_0)
-    @test total_energy(FT(0), FT(0), FT(T_0), PhasePartition(q_tot)) ≈
-          q_tot * e_int_v0
+    @test total_energy(e_kin, e_pot, T_0(param_set)) === e_kin + e_pot
+    @test total_energy(e_kin, e_pot, T) ≈
+          e_kin + e_pot + cv_d(param_set) * (T - T_0(param_set))
+    @test total_energy(FT(0), FT(0), T_0(param_set), PhasePartition(q_tot)) ≈
+          q_tot * e_int_v0(param_set)
 
     # phase partitioning in equilibrium
     q_liq = FT(0.1)
-    T = FT(T_icenuc - 10)
+    T = FT(T_icenuc(param_set) - 10)
     ρ = FT(1.0)
     q_tot = FT(0.21)
     @test liquid_fraction(T) === FT(0)
@@ -138,7 +172,7 @@ end
     @test q.liq ≈ FT(0)
     @test 0 < q.ice <= q_tot
 
-    T = FT(T_freeze + 10)
+    T = FT(T_freeze(param_set) + 10)
     ρ = FT(0.1)
     q_tot = FT(0.60)
     @test liquid_fraction(T) === FT(1)
@@ -201,14 +235,14 @@ end
 
     # potential temperatures
     T = FT(300)
-    @test liquid_ice_pottemp_given_pressure(T, FT(MSLP)) === T
-    @test liquid_ice_pottemp_given_pressure(T, FT(MSLP) / 10) ≈
-          T * 10^(R_d / cp_d)
+    @test liquid_ice_pottemp_given_pressure(T, MSLP(param_set)) === T
+    @test liquid_ice_pottemp_given_pressure(T, MSLP(param_set) / 10) ≈
+          T * 10^(R_d(param_set) / cp_d(param_set))
     @test liquid_ice_pottemp_given_pressure(
         T,
-        FT(MSLP) / 10,
+        MSLP(param_set) / 10,
         PhasePartition(FT(1)),
-    ) ≈ T * 10^(R_v / cp_v)
+    ) ≈ T * 10^(R_v(param_set) / cp_v(param_set))
 
     # dry potential temperatures. FIXME: add correctness tests
     T = FT(300)
@@ -226,7 +260,8 @@ end
     q_tot = FT(0.23)
     @test exner_given_pressure(p, PhasePartition(q_tot)) isa typeof(p)
 
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+        MT.tested_convergence_range(dataset_size..., FT)
 
     ts = PhaseEquil.(e_int, ρ, q_tot)
 
@@ -251,7 +286,7 @@ end
     for FT in float_types
         rtol = FT(1e-2)
         e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+            MT.tested_convergence_range(dataset_size..., FT)
 
         # PhaseEquil
         ts_exact = PhaseEquil.(e_int, ρ, q_tot, 100, FT(1e-4))
@@ -421,8 +456,9 @@ end
 
     for FT in float_types
         rtol = FT(1e-2)
+        param_set = MT.MTPS{FT}()
         e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+            MT.tested_convergence_range(dataset_size..., FT)
 
         # PhaseDry
         ts = PhaseDry.(e_int, ρ)
@@ -526,7 +562,11 @@ end
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈ getproperty.(q_pt, :tot),
         )
-        @test all(isapprox.(air_pressure.(ts), p, atol = FT(MSLP) * 2e-2))
+        @test all(isapprox.(
+            air_pressure.(ts),
+            p,
+            atol = MSLP(param_set) * 2e-2,
+        ))
 
         # LiquidIcePotTempSHumNonEquil_given_pressure
         ts = LiquidIcePotTempSHumNonEquil_given_pressure.(θ_liq_ice, p, q_pt)
@@ -565,7 +605,8 @@ end
     # NOTE: `Float32` saturation adjustment tends to have more difficulty
     # with converging to the same tolerances as `Float64`, so they're relaxed here.
     FT = Float32
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+        MT.tested_convergence_range(dataset_size..., FT)
 
     ρu = FT[1.0, 2.0, 3.0]
     e_pot = FT(100.0)
@@ -640,7 +681,8 @@ end
 @testset "moist thermodynamics - dry limit" begin
 
     FT = Float64
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+        MT.tested_convergence_range(dataset_size..., FT)
 
     # PhasePartition test is noisy, so do this only once:
     ts_dry = PhaseDry(first(e_int), first(ρ))
