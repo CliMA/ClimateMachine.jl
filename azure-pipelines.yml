@@ -6,6 +6,9 @@ trigger:
     - staging
     - trying
 
+pr:
+- master
+
 jobs:
 - job: Linux
 
