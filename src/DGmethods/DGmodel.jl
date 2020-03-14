@@ -1,5 +1,7 @@
 using .NumericalFluxes: CentralHyperDiffusiveFlux, CentralDivPenalty
 
+using LinearAlgebra
+
 struct DGModel{BL,G,NFND,NFD,GNF,AS,DS,HDS,D,DD,MD}
   balancelaw::BL
   grid::G
@@ -77,6 +79,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                              Qvisc.data, Qhypervisc_grad.data, auxstate.data, grid.vgeo, t,
                              grid.D, hypervisc_indexmap, topology.realelems))
 
+
     if communicate
       MPIStateArrays.finish_ghost_recv!(Q)
       if aux_comm
@@ -90,6 +93,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment=false)
                            Q.data, Qvisc.data, Qhypervisc_grad.data, auxstate.data,
                            grid.vgeo, grid.sgeo, t, grid.vmap⁻, grid.vmap⁺, grid.elemtobndy,
                            hypervisc_indexmap, topology.realelems))
+    
+    @show norm(Qhypervisc_grad)
 
     if communicate
       nviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qvisc)
