@@ -30,7 +30,6 @@ using LinearAlgebra
 using StaticArrays
 using Printf
 
-using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
@@ -95,6 +94,7 @@ end
         aux[_c_x] = x
 
         FT = eltype(aux)
+        param_set = EarthParameterSet{FT}()
 
         # initial condition
         θ_0::FT = 289         # K
@@ -105,15 +105,17 @@ end
 
         R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
 
+        Rd = R_d(param_set)
+        cpd = cp_d(param_set)
         # Pressure profile assuming hydrostatic and constant θ and qt profiles.
         # It is done this way to be consistent with Arabas paper.
         # It's not neccesarily the best way to initialize with our model variables.
         p =
             p_1000 *
             (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-            )^(cp_d / R_d)
+                (p_0 / p_1000)^(Rd / cpd) -
+                Rd / cpd * grav(param_set) / θ_0 / R_m * (z - z_0)
+            )^(cpd / Rd)
 
         aux[_c_p] = p  # for prescribed pressure gradient (kinematic setup)
     end
@@ -153,15 +155,18 @@ const X_max = 1500.0 # m
     R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
 
     @inbounds begin
+        param_set = EarthParameterSet{FT}()
         # Pressure profile assuming hydrostatic and constant θ and qt profiles.
         # It is done this way to be consistent with Arabas paper.
         # It's not neccesarily the best way to initialize with our model variables.
+        Rd = R_d(param_set)
+        cpd = cp_d(param_set)
         p =
             p_1000 *
             (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-            )^(cp_d / R_d)
+                (p_0 / p_1000)^(Rd / cpd) -
+                Rd / cpd * grav(param_set) / θ_0 / R_m * (z - z_0)
+            )^(cpd / Rd)
         T::FT = θ_0 * exner_given_pressure(p, PhasePartition(qt_0))
         ρ::FT = p / R_m / T
 
@@ -176,7 +181,7 @@ const X_max = 1500.0 # m
         ρq_tot::FT = ρ * qt_0
 
         e_int = internal_energy(T, PhasePartition(qt_0))
-        ρe_tot = ρ * (grav * z + (1 // 2) * (u^2 + w^2) + e_int)
+        ρe_tot = ρ * (grav(param_set) * z + (1 // 2) * (u^2 + w^2) + e_int)
 
         Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot] =
             ρ, ρu, ρw, ρe_tot, ρq_tot
@@ -282,12 +287,14 @@ function main(
             spacedisc,
             Q,
         ) do R, Q, QV, aux
+            FT = eltype(Q)
+            param_set = EarthParameterSet{FT}()
             @inbounds begin
                 u, w, ρ, q_tot, e_tot = preflux(Q)
                 z = aux[_c_z]
                 p = aux[_c_p]
 
-                e_int = e_tot - 1 // 2 * (u^2 + w^2) - grav * z
+                e_int = e_tot - 1 // 2 * (u^2 + w^2) - grav(param_set) * z
                 ts = PhaseEquil(e_int, ρ, q_tot) # saturation adjustment happens here
                 pp = PhasePartition(ts)
                 R[v_T] = ts.T
@@ -300,7 +307,7 @@ function main(
                 R[v_e_tot] = e_tot
                 R[v_e_int] = e_int
                 R[v_e_kin] = 1 // 2 * (u^2 + w^2)
-                R[v_e_pot] = grav * z
+                R[v_e_pot] = grav(param_set) * z
 
             end
         end

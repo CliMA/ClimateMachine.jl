@@ -263,7 +263,7 @@ function run_cubed_sphere_interpolation_test()
         nel_vert_grd = 20 #100 #50 #10#50
         rad_res = FT((vert_range[end] - vert_range[1]) / FT(nel_vert_grd)) #1000.00    # 1000 m vertical resolution
         #----------------------------------------------------------
-        setup = TestSphereSetup(FT(MSLP), FT(255), FT(30e3))
+        setup = TestSphereSetup(MSLP(param_set), FT(255), FT(30e3))
 
         topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 

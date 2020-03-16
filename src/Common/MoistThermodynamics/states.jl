@@ -116,7 +116,7 @@ function PhaseEquil(
         maxiter,
         tol,
         saturation_adjustment,
-        MTPS{FT}(),
+        param_set,
     )
 end
 
