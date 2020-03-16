@@ -11,7 +11,7 @@ using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.PlanetParameters: planet_radius, day
+
 using CLIMA.MoistThermodynamics:
     air_density,
     soundspeed_air,
@@ -38,8 +38,10 @@ using CLIMA.Atmos:
 using CLIMA.VariableTemplates: flattenednames
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
@@ -100,10 +102,11 @@ function run(
 )
 
     setup = AcousticWaveSetup{FT}()
+    param_set = ParameterSet{FT}()
 
     vert_range = grid1d(
-        FT(planet_radius),
-        FT(planet_radius + setup.domain_height),
+        planet_radius(param_set),
+        planet_radius(param_set) + setup.domain_height,
         nelem = numelem_vert,
     )
     topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
@@ -124,7 +127,7 @@ function run(
         moisture = DryModel(),
         source = Gravity(),
         init_state = setup,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 

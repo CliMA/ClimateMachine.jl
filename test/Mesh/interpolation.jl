@@ -19,7 +19,6 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.TicToc
 using LinearAlgebra
 using StaticArrays
@@ -29,8 +28,10 @@ using CLIMA.VTK
 using CLIMA.Atmos: vars_state, vars_aux
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 
 using Random
 using Statistics
@@ -73,7 +74,7 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
 
     z = altitude(bl.orientation, aux)
 
-    scale_height = R_d * setup.T_initial / grav
+    scale_height = R_d(bl.param_set) * setup.T_initial / grav(bl.param_set)
     p = setup.p_ground * exp(-z / scale_height)
     e_int = internal_energy(setup.T_initial, bl.param_set)
     e_pot = gravitational_potential(bl.orientation, aux)
@@ -231,6 +232,7 @@ end #function run_brick_interpolation_test
 function run_cubed_sphere_interpolation_test()
     CLIMA.init()
     for FT in (Float32, Float64) #Float32 #Float64
+        param_set = ParameterSet{FT}()
         DA = CLIMA.array_type()
         device = CLIMA.array_type() <: Array ? CPU() : CUDA()
         mpicomm = MPI.COMM_WORLD
@@ -251,8 +253,8 @@ function run_cubed_sphere_interpolation_test()
         _ρ, _ρu, _ρv, _ρw = 1, 2, 3, 4
         #-------------------------
         vert_range = grid1d(
-            FT(planet_radius),
-            FT(planet_radius + domain_height),
+            planet_radius(param_set),
+            planet_radius(param_set) + domain_height,
             nelem = numelem_vert,
         )
 
@@ -300,9 +302,9 @@ function run_cubed_sphere_interpolation_test()
         x2 = @view grid.vgeo[:, _y, :]
         x3 = @view grid.vgeo[:, _z, :]
 
-        xmax = FT(planet_radius)
-        ymax = FT(planet_radius)
-        zmax = FT(planet_radius)
+        xmax = planet_radius(param_set)
+        ymax = planet_radius(param_set)
+        zmax = planet_radius(param_set)
 
         fcn(x, y, z) = sin.(x) .* cos.(y) .* cos.(z) # sample function
 

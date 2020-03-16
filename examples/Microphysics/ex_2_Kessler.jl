@@ -35,9 +35,11 @@ using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 # We will depend on MoistThermodynamics's default Parameters:
 include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+using CLIMA.Parameters.Planet
 
 const _nstate = 7
 const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_rai = 1:_nstate
