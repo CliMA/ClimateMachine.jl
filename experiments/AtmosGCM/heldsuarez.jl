@@ -37,18 +37,20 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     scale_height = FT(R_d) * T_init / FT(grav)
 
     # Calculate the initial state variables
-    z = altitude(bl.orientation, aux)
-    p = p_sfc * exp(-z / scale_height)
-    thermo_state = PhaseDry_given_pT(p, T_init, bl.param_set)
-    ρ = air_density(thermo_state)
-    e_int = internal_energy(thermo_state)
-    e_pot = gravitational_potential(bl.orientation, aux)
+    #z = altitude(bl.orientation, aux)
+    #p = p_sfc * exp(-z / scale_height)
+    #thermo_state = PhaseDry_given_pT(p, T_init, bl.param_set)
+    #ρ = air_density(thermo_state)
+    #e_int = internal_energy(thermo_state)
+    #e_pot = gravitational_potential(bl.orientation, aux)
+    ρ = aux.ref_state.ρ
+    ρe = aux.ref_state.ρe
 
     # Set initial state with random perturbation
     rnd = FT(1.0 + rand(Uniform(-1e-6, 1e-6)))
     state.ρ = rnd * ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (e_int + e_pot)
+    state.ρe = ρe
 
     nothing
 end
@@ -68,7 +70,9 @@ function config_heldsuarez(FT, poly_order, resolution)
     Γ = FT(0.7 * grav / cp_d) # lapse rate
     T_sfc = FT(300.0)
     T_min = FT(200.0)
-    temp_profile_ref = LinearTemperatureProfile(T_min, T_sfc, Γ)
+    #temp_profile_ref = LinearTemperatureProfile(T_min, T_sfc, Γ)
+    N = FT(1.5872536513179773E-002)
+    temp_profile_ref = StablyStratifiedProfile(T_sfc, N)
     ref_state = HydrostaticState(temp_profile_ref, Rh_ref)
 
     # Rayleigh sponge to dampen flow at the top of the domain
