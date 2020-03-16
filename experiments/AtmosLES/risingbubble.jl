@@ -119,9 +119,9 @@ function main()
     Δv = FT(50)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = 2500
-    ymax = 2500
-    zmax = 2500
+    xmax = FT(2500)
+    ymax = FT(2500)
+    zmax = FT(2500)
     # Simulation time
     t0 = FT(0)
     timeend = FT(1000)

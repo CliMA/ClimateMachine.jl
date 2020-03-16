@@ -97,9 +97,17 @@ function PhaseEquil(
     e_int::FT,
     ρ::FT,
     q_tot::FT,
-    maxiter::Int = 3,
-    tol::FT = FT(1e-1),
-    param_set::PS = MTPS{FT}(),
+    sat_adjust::Function,
+) where {FT <: Real, PS}
+    return PhaseEquil(e_int, ρ, q_tot, 3, FT(1e-1), sat_adjust, MTPS{FT}())
+end
+function PhaseEquil(
+    e_int::FT,
+    ρ::FT,
+    q_tot::FT,
+    maxiter::Int,
+    tol::FT,
+    param_set::PS,
 ) where {FT <: Real, PS}
     return PhaseEquil(
         e_int,
@@ -108,7 +116,7 @@ function PhaseEquil(
         maxiter,
         tol,
         saturation_adjustment,
-        param_set,
+        MTPS{FT}(),
     )
 end
 
@@ -190,7 +198,7 @@ LiquidIcePotTempSHumEquil(
     θ_liq_ice::FT,
     ρ::FT,
     q_tot::FT,
-    param_set::PS = MTPS{FT}(),
+    param_set::PS,
 ) where {FT <: Real, PS} =
     LiquidIcePotTempSHumEquil(θ_liq_ice, ρ, q_tot, 30, FT(1e-1), param_set)
 
@@ -231,7 +239,7 @@ LiquidIcePotTempSHumEquil_given_pressure(
     θ_liq_ice::FT,
     p::FT,
     q_tot::FT,
-    param_set::PS = MTPS{FT}(),
+    param_set::PS,
 ) where {FT <: Real, PS} = LiquidIcePotTempSHumEquil_given_pressure(
     θ_liq_ice,
     p,

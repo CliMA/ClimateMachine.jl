@@ -18,9 +18,11 @@ include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
 
 include("testdata.jl")
 
-data_set_size = test_intensity(;low=2,normal=50),
-                test_intensity(;low=2,normal=10),
-                test_intensity(;low=2,normal=20)
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
+
+data_set_size = clima_test_low_intensity ? 2 : 50,
+                clima_test_low_intensity ? 2 : 10,
+                clima_test_low_intensity ? 2 : 20
 
 @testset "moist thermodynamics - isentropic processes" begin
     for FT in [Float64]

@@ -134,13 +134,13 @@ function AtmosLESConfiguration(
     name::String,
     N::Int,
     (Δx, Δy, Δz)::NTuple{3, FT},
-    xmax::Int,
-    ymax::Int,
-    zmax::Int,
+    xmax::FT,
+    ymax::FT,
+    zmax::FT,
     init_LES!;
-    xmin = 0,
-    ymin = 0,
-    zmin = 0,
+    xmin = zero(FT),
+    ymin = zero(FT),
+    zmin = zero(FT),
     array_type = CLIMA.array_type(),
     solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
     model = AtmosModel{FT}(
@@ -161,7 +161,7 @@ function AtmosLESConfiguration(
         """Establishing Atmos LES configuration for %s
         precision        = %s
         polynomial order = %d
-        grid             = %dx%dx%d
+        domain           = %.2fx%.2fx%.2f
         resolution       = %dx%dx%d
         MPI ranks        = %d""",
         name,

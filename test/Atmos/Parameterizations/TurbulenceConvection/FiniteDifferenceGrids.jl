@@ -2,6 +2,8 @@ using Test, Printf, ForwardDiff
 
 using CLIMA.TurbulenceConvection.FiniteDifferenceGrids
 
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
+
 @testset "Grid interface" begin
   for FT in (Float32, Float64)
     for n_ghost in (1, 2)
@@ -75,7 +77,8 @@ end
   wϕ_(x) = w_(x)*ϕ_(x)
   K∇ϕ_(x) = K_(x)*∇ϕ_(x)
 
-  for n_elems_real in [2^k for k in 3:8]
+  R = clima_test_low_intensity ? 3 : 8
+  for n_elems_real in [2^k for k in R]
     grid = Grid(z_min, z_max, n_elems_real)
     z = grid.zc
 

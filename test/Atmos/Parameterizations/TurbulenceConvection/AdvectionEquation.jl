@@ -1,6 +1,7 @@
 adv_eq_dir  = joinpath(output_root,"AdvectionEquation")
 
 print_norms = false
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
 
 @testset "Linear advection, ∂_t ϕ + ∇•(cϕ) = 0 ∈ ∂Ω, ϕ(t=0) = Gaussian(σ, μ), ConservativeForm, explicit Euler" begin
   dd = DomainDecomp(gm=1)
@@ -10,7 +11,7 @@ print_norms = false
   Triangle(z) = μ-δz < z < μ+δz ? ( μ > z ? (z-(μ-δz))/δz : ((μ+δz)-z)/δz) : 0.0
   Square(z) = μ-δz < z < μ+δz ? 1 : 0.0
   Gaussian(z) = exp(-1/2*((z-μ)/σ)^2)
-  n_elems_real_used = test(intensity) ? (64, 128) : (6,)
+  n_elems_real_used = clima_test_low_intensity ? (6,) : (64, 128)
   for n_elems_real in n_elems_real_used
     grid = Grid(0.0, 1.0, n_elems_real)
     domain_range = over_elems_real(grid)
@@ -23,7 +24,7 @@ print_norms = false
     CFL = 0.1
     Δt = CFL*grid.Δz
     T = 0.25
-    maxiter = test_intensity(;low=2,normal=Int(T/Δt))
+    maxiter = clima_test_low_intensity ? 2 : Int(T/Δt)
     for scheme in (
                    UpwindAdvective(),
                    UpwindCollocated(),
@@ -64,8 +65,10 @@ print_norms = false
           L2_norm = sum(sol_error.^2)/length(sol_error)
 
           if !(scheme==CenteredUnstable())
-            test(intensity) && @test all(abs.(sol_error) .< 100*grid.Δz)
-            test(intensity) && @test all(L2_norm < 100*grid.Δz)
+            if !clima_test_low_intensity
+              @test all(abs.(sol_error) .< 100*grid.Δz)
+              @test all(L2_norm < 100*grid.Δz)
+            end
           end
           for k in over_elems(grid)
             tmp[:ϕ_error, k] = sol_error[k]
@@ -110,7 +113,7 @@ end
   Triangle(z, velocity_sign)   = μ-δz < z < μ+δz ? ( μ > z ? velocity_sign*(z-(μ-δz))/δz : velocity_sign*((μ+δz)-z)/δz  ) : 0.0
   Square(z, velocity_sign) = μ-δz < z < μ+δz ? velocity_sign : 0.0
   Gaussian(z, velocity_sign) = velocity_sign*exp(-1/2*((z-μ)/σ)^2)
-  n_elems_real_used = test(intensity) ? (64, 128) : (6,)
+  n_elems_real_used = clima_test_low_intensity ? (6,) : (64, 128)
   for n_elems_real in n_elems_real_used
     grid = Grid(0.0, 1.0, n_elems_real)
     domain_range = over_elems_real(grid)
@@ -123,7 +126,7 @@ end
     CFL = 0.1
     Δt = CFL*grid.Δz
     T = 0.25
-    maxiter = test_intensity(;low=2,normal=Int(T/Δt))
+    maxiter = clima_test_low_intensity ? 2 : Int(T/Δt)
     for scheme in (
                    UpwindAdvective(),
                    UpwindCollocated(),

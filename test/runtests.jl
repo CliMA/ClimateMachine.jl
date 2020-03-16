@@ -3,26 +3,7 @@ using Test, Pkg
 ENV["DATADEPS_ALWAYS_ACCEPT"] = true
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
-abstract type TestIntensity end
-struct NormalIntensity <: TestIntensity end
-struct LowIntensity <: TestIntensity end
-
-# ENV["intensity"] = "low"
-
-intensity = get(ENV, "intensity", "normal")=="low" ? LowIntensity() : NormalIntensity()
-
-test(::NormalIntensity) = true
-test(::LowIntensity) = false
-
-function test_intensity(;low::T=nothing,normal::T=nothing) where {T}
-  @assert low ≠ nothing
-  @assert normal ≠ nothing
-  if get(ENV, "intensity", "normal")=="low"
-    return low
-  else
-    return normal
-  end
-end
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
 
 function include_test(_module)
   println("Starting tests for $_module")

@@ -155,7 +155,7 @@ function main()
     t0 = FT(0)
     CFLmax = FT(0.90)
     timeend = FT(1000)
-    xmax, ymax, zmax = 250, 250, 500
+    xmax, ymax, zmax = FT(250), FT(250), FT(500)
 
     @testset "DryRayleighBenardTest" begin
         for Δh in Δh

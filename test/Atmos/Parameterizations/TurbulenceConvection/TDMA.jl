@@ -5,8 +5,11 @@ using LinearAlgebra
 using CLIMA.TurbulenceConvection.TriDiagSolvers
 TDMA = TriDiagSolvers
 
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
+
 @testset "TriDiagSolvers" begin
-  N = 2:test_intensity(;low=3,normal=10)
+  N_max = clima_test_low_intensity ? 3 : 10
+  N = 2:N_max
   for n in N
     dl = rand(n-1)
     du = rand(n-1)

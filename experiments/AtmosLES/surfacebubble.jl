@@ -124,9 +124,9 @@ function main()
     Δh = FT(50)
     Δv = FT(50)
     resolution = (Δh, Δh, Δv)
-    xmax = 2000
-    ymax = 2000
-    zmax = 2000
+    xmax = FT(2000)
+    ymax = FT(2000)
+    zmax = FT(2000)
     t0 = FT(0)
     timeend = FT(2000)
 
