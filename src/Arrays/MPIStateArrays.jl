@@ -319,32 +319,10 @@ end
 end
 
 """
-    post_Irecvs!(Q::MPIStateArray)
-
-posts the `MPI.Irecv!` for `Q`
-"""
-function post_Irecvs!(Q::MPIStateArray)
-    nnabr = length(Q.nabrtorank)
-    transfer = get_transfer(Q.recv_buffer)
-
-    for n in 1:nnabr
-        # If this fails we haven't waited on previous recv!
-        @assert Q.recvreq[n].buffer == nothing
-
-        Q.recvreq[n] = MPI.Irecv!(
-            (@view transfer[:, Q.nabrtovmaprecv[n]]),
-            Q.nabrtorank[n],
-            Q.commtag,
-            Q.mpicomm,
-        )
-    end
-end
-
-"""
     start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
 
 Start the MPI exchange of the data stored in `Q`. If `dorecvs` is `true` then
-`post_Irecvs!(Q)` is called, otherwise the caller is responsible for this.
+`MPI.Irecv!` is called, otherwise the caller is responsible for this.
 
 This function will fill the send buffer (on the device), copies the data from
 the device to the host, and then issues the send. Previous sends are waited on
@@ -352,7 +330,7 @@ to ensure that they are complete.
 """
 function start_ghost_exchange!(Q::MPIStateArray; dorecvs = true)
 
-    dorecvs && post_Irecvs!(Q)
+    dorecvs && __Irecv!(Q)
 
     # wait on (prior) MPI sends
     finish_ghost_send!(Q)
@@ -367,16 +345,7 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs = true)
     @toc mpi_sendcopy
 
     # post MPI sends
-    nnabr = length(Q.nabrtorank)
-    transfer = get_transfer(Q.send_buffer)
-    for n in 1:nnabr
-        Q.sendreq[n] = MPI.Isend(
-            (@view transfer[:, Q.nabrtovmapsend[n]]),
-            Q.nabrtorank[n],
-            Q.commtag,
-            Q.mpicomm,
-        )
-    end
+    __Isend!(Q)
 end
 
 """
@@ -422,6 +391,37 @@ function finish_ghost_send!(Q::MPIStateArray)
     @tic mpi_sendwait
     MPI.Waitall!(Q.sendreq)
     @toc mpi_sendwait
+end
+
+function __Irecv!(Q)
+    nnabr = length(Q.nabrtorank)
+    transfer = get_transfer(Q.recv_buffer)
+
+    for n in 1:nnabr
+        # If this fails we haven't waited on previous recv!
+        @assert Q.recvreq[n].buffer == nothing
+
+        Q.recvreq[n] = MPI.Irecv!(
+            (@view transfer[:, Q.nabrtovmaprecv[n]]),
+            Q.nabrtorank[n],
+            Q.commtag,
+            Q.mpicomm,
+        )
+    end
+end
+
+function __Isend!(Q)
+    nnabr = length(Q.nabrtorank)
+    transfer = get_transfer(Q.send_buffer)
+
+    for n in 1:nnabr
+        Q.sendreq[n] = MPI.Isend(
+            (@view transfer[:, Q.nabrtovmapsend[n]]),
+            Q.nabrtorank[n],
+            Q.commtag,
+            Q.mpicomm,
+        )
+    end
 end
 
 # {{{ MPI Buffer handling
