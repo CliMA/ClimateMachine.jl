@@ -4,7 +4,8 @@ export NoReferenceState,
     HydrostaticState,
     IsothermalProfile,
     LinearTemperatureProfile,
-    DryAdiabaticProfile
+    DryAdiabaticProfile,
+    StablyStratifiedProfile
 
 """
     ReferenceState
@@ -167,5 +168,33 @@ function (profile::LinearTemperatureProfile)(
         H_min = R_d * profile.T_min / grav
         p *= exp(-(z - z_top) / H_min)
     end
+    return (T, p)
+end
+
+"""
+    StablyStratifiedProfile{F} <: TemperatureProfile
+
+
+A temperature profile that has uniform positive Brunt–Väisälä frequency
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct StablyStratifiedProfile{F} <: TemperatureProfile
+    "surface temperature (K)"
+    T_surface::F
+    "Brunt–Väisälä frequency (1 / s)"
+    N::F
+end
+
+function (profile::StablyStratifiedProfile)(orientation::Orientation, aux::Vars)
+    FT = eltype(aux)
+    z = altitude(orientation, aux)
+    N = profile.N
+    T_surface = profile.T_surface
+    Π = FT(1 + grav^2 / (cp_d * T_surface * N^2) * (exp(-N^2 / grav * z) - 1))
+    p = MSLP * Π^FT(cp_d / R_d)
+    T = T_surface * Π
     return (T, p)
 end
