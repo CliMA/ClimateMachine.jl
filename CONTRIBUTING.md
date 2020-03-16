@@ -77,6 +77,41 @@ julia .dev/format.jl
 
 Formatting changes should be done as a separate commit, ideally the last commit of the pull request (you may want to leave it until all other changes have been approved).
 
+### Formatting utility
+
+A convenience utility is located at `.dev/climaformat.jl` that will format the julia files in the given path. For example, from the top-level CLIMA directory
+```
+julia .dev/climaformat.jl src/CLIMA.jl
+```
+will format `src/CLIMA.jl` and
+```
+julia .dev/climaformat.jl .
+```
+will format all of CLIMA's julia files.
+
+### Formatting githook
+
+A `pre-commit` script that can be placed in `$GIT_DIR/hooks/*` which will prevent commits of incorrectly formatted julia code.  It will also provide commands that can be run to format the code correctly.
+
+One may tell git about the script with (from the top-level directory of a clone of CLIMA)
+```
+ln -s ../../.dev/hooks/pre-commit .git/hooks
+```
+and then when `git commit` is run an error message will be given for julia files that are staged to be committed that are not formatted according to CLIMA's standard.  With this, when I try to commit changes to `src/Arrays/MPIStateArrays.jl` that are not formatted correctly I get the following error message.
+
+```
+❯ git commit                                                                                                           │
+Activating environment at `~/research/code/CLIMA/.dev/Project.toml`                                                    │
+┌ Error: File src/Arrays/MPIStateArrays.jl needs to be indented with:                                                  │
+│     julia /home/lucas/research/code/CLIMA/.dev/climaformat.jl /home/lucas/research/code/CLIMA/src/Arrays/MPIStateArra│
+ys.jl                                                                                                                  │
+│ and added to the git index via                                                                                       │
+│     git add /home/lucas/research/code/CLIMA/src/Arrays/MPIStateArrays.jl                                             │
+└ @ Main ~/research/code/CLIMA/.git/hooks/pre-commit:30
+```
+
+See `man 5 githooks` for more information about git hooks.
+
 ## Bors and CI
 
 All commits that end up in the CLIMA repository must pass Continuous Integration (CI).

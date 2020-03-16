@@ -9,6 +9,7 @@ using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
 using CLIMA.DGmethods.NumericalFluxes
+using CLIMA.Diagnostics
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
@@ -144,6 +145,12 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
     return config
 end
 
+function config_diagnostics(driver_config)
+    interval = 10000 # in time steps
+    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    return CLIMA.setup_diagnostics([dgngrp])
+end
+
 function main()
     CLIMA.init()
     FT = Float64
@@ -169,6 +176,7 @@ function main()
                 init_on_cpu = true,
                 Courant_number = CFLmax,
             )
+            dgn_config = config_diagnostics(driver_config)
             # User defined callbacks (TMAR positivity preserving filter)
             cbtmarfilter =
                 GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
@@ -182,6 +190,7 @@ function main()
                 end
             result = CLIMA.invoke!(
                 solver_config;
+                diagnostics_config = dgn_config,
                 user_callbacks = (cbtmarfilter,),
                 check_euclidean_distance = true,
             )
