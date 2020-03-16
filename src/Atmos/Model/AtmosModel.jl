@@ -179,13 +179,7 @@ function vars_gradient(m::AtmosModel, FT)
         u::SVector{3, FT}
         h_tot::FT
         turbulence::vars_gradient(m.turbulence, FT)
-        hyperdiffusion::vars_gradient(m.hyperdiffusion, FT)
         moisture::vars_gradient(m.moisture, FT)
-    end
-end
-function vars_gradient_laplacian(m::AtmosModel, FT)
-    @vars begin
-        hyperdiffusion::vars_gradient_laplacian(m.hyperdiffusion, FT)
     end
 end
 function vars_diffusive(m::AtmosModel, FT)
@@ -195,12 +189,8 @@ function vars_diffusive(m::AtmosModel, FT)
         moisture::vars_diffusive(m.moisture, FT)
     end
 end
-function vars_hyperdiffusive(m::AtmosModel, FT)
-    @vars begin
-        hyperdiffusion::vars_hyperdiffusive(m.hyperdiffusion, FT)
-    end
-end
-
+vars_gradient_laplacian(m::AtmosModel, FT) = vars_gradient_laplacian(m.hyperdiffusion, FT)
+vars_hyperdiffusive(m::AtmosModel, FT) = vars_hyperdiffusive(m.hyperdiffusion, FT)
 
 function vars_aux(m::AtmosModel, FT)
     @vars begin
@@ -299,7 +289,6 @@ function gradvariables!(
 
     gradvariables!(atmos.moisture, transform, state, aux, t)
     gradvariables!(atmos.turbulence, transform, state, aux, t)
-    gradvariables!(atmos.hyperdiffusion, atmos, transform, state, aux, t)
 end
 
 function diffusive!(
