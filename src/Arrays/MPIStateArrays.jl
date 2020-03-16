@@ -380,8 +380,21 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs = true)
     @tic mpi_sendcopy
     # pack data in send buffer
     stage = get_stage(Q.send_buffer)
-    fillsendbuf!(stage, Q.data, Q.vmapsend)
-    prepare_transfer!(Q.send_buffer)
+    progress = () -> __yield(Q.mpicomm)
+    event = Event(device(Q.data))
+    event = fillsendbuf!(
+        stage,
+        Q.data,
+        Q.vmapsend;
+        dependencies = event,
+        progress = progress,
+    )
+    event = prepare_transfer!(
+        Q.send_buffer;
+        dependencies = event,
+        progress = progress,
+    )
+    wait(CPU(), event, progress)
     @toc mpi_sendcopy
 
     # post MPI sends
@@ -423,9 +436,19 @@ function finish_ghost_recv!(Q::MPIStateArray)
 
     @tic mpi_recvcopy
     # copy data to state vectors
-    prepare_stage!(Q.recv_buffer)
+    event = Event(device(Q.data))
+    progress = () -> __yield(Q.mpicomm)
+    event =
+        prepare_stage!(Q.recv_buffer; dependencies = event, progress = progress)
     stage = get_stage(Q.recv_buffer)
-    transferrecvbuf!(Q.data, stage, Q.vmaprecv)
+    event = transferrecvbuf!(
+        Q.data,
+        stage,
+        Q.vmaprecv;
+        dependencies = event,
+        progress = progress,
+    )
+    wait(device(Q.data), event, progress)
     @toc mpi_recvcopy
 end
 
@@ -440,45 +463,68 @@ function finish_ghost_send!(Q::MPIStateArray)
     @toc mpi_sendwait
 end
 
-# {{{ MPI Buffer handling
-function fillsendbuf!(sendbuf, buf, vmapsend)
-    if length(vmapsend) > 0
-        Np = size(buf, 1)
-        nvar = size(buf, 2)
-
-        event = Event(device(buf))
-        event = knl_fillsendbuf!(device(buf), 256)(
-            Val(Np),
-            Val(nvar),
-            sendbuf,
-            buf,
-            vmapsend,
-            length(vmapsend);
-            ndrange = length(vmapsend),
-            dependencies = (event,),
-        )
-        wait(device(buf), event)
-    end
+function __yield(comm)
+    MPI.Iprobe(MPI.MPI_ANY_SOURCE, MPI.MPI_ANY_TAG, comm)
+    yield()
 end
 
-function transferrecvbuf!(buf, recvbuf, vmaprecv)
-    if length(vmaprecv) > 0
-        Np = size(buf, 1)
-        nvar = size(buf, 2)
-
-        event = Event(device(buf))
-        event = knl_transferrecvbuf!(device(buf), 256)(
-            Val(Np),
-            Val(nvar),
-            buf,
-            recvbuf,
-            vmaprecv,
-            length(vmaprecv);
-            ndrange = length(vmaprecv),
-            dependencies = (event,),
-        )
-        wait(device(buf), event)
+# {{{ MPI Buffer handling
+function fillsendbuf!(
+    sendbuf,
+    buf,
+    vmapsend;
+    dependencies = nothing,
+    progress = yield,
+)
+    if length(vmapsend) == 0
+        return MultiEvent(dependencies)
     end
+
+    Np = size(buf, 1)
+    nvar = size(buf, 2)
+
+    event = knl_fillsendbuf!(device(buf), 256)(
+        Val(Np),
+        Val(nvar),
+        sendbuf,
+        buf,
+        vmapsend,
+        length(vmapsend);
+        ndrange = length(vmapsend),
+        dependencies = dependencies,
+        progress = progress,
+    )
+
+    return event
+end
+
+function transferrecvbuf!(
+    buf,
+    recvbuf,
+    vmaprecv;
+    dependencies = nothing,
+    progress = yield,
+)
+    if length(vmaprecv) == 0
+        return MultiEvent(dependencies)
+    end
+
+    Np = size(buf, 1)
+    nvar = size(buf, 2)
+
+    event = knl_transferrecvbuf!(device(buf), 256)(
+        Val(Np),
+        Val(nvar),
+        buf,
+        recvbuf,
+        vmaprecv,
+        length(vmaprecv);
+        ndrange = length(vmaprecv),
+        dependencies = dependencies,
+        progress = progress,
+    )
+
+    return event
 end
 
 # }}}
