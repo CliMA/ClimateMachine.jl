@@ -1,7 +1,8 @@
 module HydrostaticBoussinesq
 
-export HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem, OceanDGModel,
-       LinearHBModel, calculate_dt
+export HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem,
+       LinearHBModel, calculate_dt,
+       SimpleBoxProblem, HomogeneousBox, OceanGyre
 
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal, norm
@@ -48,6 +49,17 @@ A `BalanceLaw` for ocean modeling.
 
 write out the equations here
 
+ρₒ = reference density of sea water
+cʰ = maximum horizontal wave speed
+cᶻ = maximum vertical wave speed
+αᵀ = thermal expansitivity coefficient
+νʰ = horizontal viscosity
+νᶻ = vertical viscosity
+κʰ = horizontal diffusivity
+κᶻ = vertical diffusivity
+fₒ = first coriolis parameter (constant term)
+β  = second coriolis parameter (linear term)
+
 # Usage
 
     HydrostaticBoussinesqModel(problem)
@@ -55,6 +67,7 @@ write out the equations here
 """
 struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   problem::P
+  ρₒ::T
   cʰ::T
   cᶻ::T
   αᵀ::T
@@ -62,7 +75,10 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
   νᶻ::T
   κʰ::T
   κᶻ::T
+  fₒ::T
+  β::T
   function HydrostaticBoussinesqModel{FT}(problem;
+                                      ρₒ = FT(1000),  # kg / m^3
                                       cʰ = FT(0),     # m/s
                                       cᶻ = FT(0),     # m/s
                                       αᵀ = FT(2e-4),  # (m/s)^2 / K
@@ -70,120 +86,13 @@ struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
                                       νᶻ = FT(5e-3),  # m^2 / s
                                       κʰ = FT(1e3),   # m^2 / s
                                       κᶻ = FT(1e-4),  # m^2 / s
+                                      fₒ = FT(1e-4),  # Hz
+                                      β  = FT(1e-11), # Hz / m
                                       ) where {FT <: AbstractFloat}
-    return new{typeof(problem),FT}(problem, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+    return new{typeof(problem),FT}(problem, ρₒ, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ, fₒ, β)
   end
 end
 HBModel = HydrostaticBoussinesqModel
-
-"""
-    calculate_dt(dg, model::HBModel, Q, Courant_number, direction::EveryDirection)
-
-calculates the time step based on grid spacing and model parameters
-takes minimum of advective, gravity wave, diffusive, and viscous CFL
-
-"""
-function calculate_dt(dg, model::HBModel, Q, Courant_number, ::EveryDirection)
-  Δt = one(eltype(Q))
-
-  CFL_advective = courant(advective_courant, dg, model, Q, Δt, VerticalDirection())
-  CFL_gravity = courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection())
-  CFL_viscous = courant(viscous_courant, dg, model, Q, Δt, VerticalDirection())
-  CFL_diffusive = courant(diffusive_courant, dg, model, Q, Δt, VerticalDirection())
-
-  CFL = maximum([CFL_advective, CFL_gravity, CFL_viscous, CFL_diffusive])
-  dt = Courant_number / CFL
-
-  return dt
-end
-
-"""
-    advective_courant(::HBModel)
-
-calculates the CFL condition due to advection
-
-"""
-function advective_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                           direction=VerticalDirection())
-  if direction isa VerticalDirection
-    ū = norm(A.w)
-  elseif direction isa HorizontalDirection
-    ū = norm(Q.u)
-  else
-    v = @SVector [Q.u[1], Q.u[2], A.w]
-    ū = norm(v)
-  end
-
-  return Δt * ū / Δx
-end
-
-"""
-    nondiffusive_courant(::HBModel)
-
-calculates the CFL condition due to gravity waves
-
-"""
-function nondiffusive_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                              direction=HorizontalDirection())
-  return Δt * m.cʰ / Δx
-end
-"""
-    viscous_courant(::HBModel)
-
-calculates the CFL condition due to viscosity
-
-"""
-function viscous_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                         direction=VerticalDirection())
-  if direction isa VerticalDirection
-    ν̄ = A.ν[3]
-  elseif direction isa HorizontalDirection
-    ν = @SVector [A.ν[1], A.ν[2]]
-    ν̄ = norm(ν)
-  else
-    ν̄ = norm(A.ν)
-  end
-
-  return Δt * ν̄ / Δx^2
-end
-
-"""
-    diffusive_courant(::HBModel)
-
-calculates the CFL condition due to temperature diffusivity
-factor of 1000 is for convective adjustment
-
-"""
-function diffusive_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                           direction=VerticalDirection())
-  if direction isa VerticalDirection
-    κ̄ = 1000 * A.κ[3]
-  elseif direction isa HorizontalDirection
-    κ = @SVector [A.κ[1], A.κ[2]]
-    κ̄ = norm(κ)
-  else
-    κ̄ = norm(A.κ)
-  end
-
-  return Δt * κ̄ / Δx^2
-end
-
-"""
-    OceanDGModel()
-
-helper function to add required filtering
-not used in the Driver+Config setup
-"""
-function OceanDGModel(bl::HBModel, grid, numfluxnondiff, numfluxdiff,
-                      gradnumflux; kwargs...)
-  vert_filter = CutoffFilter(grid, polynomialorder(grid)-1)
-  exp_filter  = ExponentialFilter(grid, 1, 8)
-
-  modeldata = (vert_filter = vert_filter, exp_filter=exp_filter)
-
-  return DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux;
-                 kwargs..., modeldata=modeldata)
-end
 
 """
     vars_state(::HBModel)
@@ -236,14 +145,10 @@ f = coriolis force
 # If this order is changed check update_aux!
 function vars_aux(m::HBModel, T)
   @vars begin
-    w::T
-    pkin::T         # ∫(-αᵀ θ)
-    wz0::T          # w at z=0
-    θʳ::T           # SST given    # TODO: Should be 2D
-    f::T            # coriolis
-    τ::T            # wind stress  # TODO: Should be 2D
-    ν::SVector{3, T}
-    κ::SVector{3, T}
+    w::T     # ∫(-∇⋅u)
+    pkin::T  # ∫(-αᵀθ)
+    wz0::T   # w at z=0
+    y::T     # y-coordinate of the box
   end
 end
 
@@ -295,12 +200,12 @@ end
     vars_diffusive(::HBModel)
 
 the output of the gradient computations
-once again just copies, we don't do any transforms or reductions
+multiplies ∇u by viscosity tensor and ∇θ by the diffusivity tensor
 """
 function vars_diffusive(m::HBModel, T)
   @vars begin
-    ∇u::SMatrix{3, 2, T, 6}
-    ∇θ::SVector{3, T}
+    ν∇u::SMatrix{3, 2, T, 6}
+    κ∇θ::SVector{3, T}
   end
 end
 
@@ -320,10 +225,39 @@ this computation is done pointwise at each nodal point
 """
 @inline function diffusive!(m::HBModel, D::Vars, G::Grad, Q::Vars,
                             A::Vars, t)
-  D.∇u = G.u
-  D.∇θ = G.θ
+  ν = viscosity_tensor(m)
+  D.ν∇u = ν * G.u
+
+  κ = diffusivity_tensor(m, G.θ[3])
+  D.κ∇θ = κ * G.θ
 
   return nothing
+end
+
+"""
+    viscosity_tensor(::HBModel)
+
+uniform viscosity with different values for horizontal and vertical directions
+
+# Arguments
+- `m`: model object to dispatch on and get viscosity parameters
+"""
+@inline viscosity_tensor(m::HBModel) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
+
+"""
+    diffusivity_tensor(::HBModel)
+
+uniform diffusivity in the horizontal direction
+applies convective adjustment in the vertical, bump by 1000 if ∂θ∂z < 0
+
+# Arguments
+- `m`: model object to dispatch on and get diffusivity parameters
+- `∂θ∂z`: value of the derivative of temperature in the z-direction
+"""
+@inline function diffusivity_tensor(m::HBModel, ∂θ∂z)
+  ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1000 * m.κᶻ]) : κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+
+  return Diagonal(κ)
 end
 
 """
@@ -446,15 +380,15 @@ t -> time, not used
     pkin = A.pkin
 
     v = @SVector [u[1], u[2], w]
-    Ih = @SMatrix [ 1 -0;
+    Iʰ = @SMatrix [ 1 -0;
                    -0  1;
                    -0 -0]
 
     # ∇h • (g η)
-    F.u += grav * η * Ih
+    F.u += grav * η * Iʰ
 
     # ∇h • (- ∫(αᵀ θ))
-    F.u += grav * pkin * Ih
+    F.u += grav * pkin * Iʰ
 
     # ∇h • (v ⊗ u)
     # F.u += v * u'
@@ -486,8 +420,8 @@ this computation is done pointwise at each nodal point
 """
 @inline function flux_diffusive!(m::HBModel, F::Grad, Q::Vars, D::Vars,
                                  HD::Vars, A::Vars, t::Real)
-  F.u -= Diagonal(A.ν) * D.∇u
-  F.θ -= Diagonal(A.κ) * D.∇θ
+  F.u -= D.ν∇u
+  F.θ -= D.κ∇θ
 
   return nothing
 end
@@ -508,21 +442,32 @@ end
     ∂ᵗu = -f×u
     ∂ᵗη = w|(z=0)
 """
-@inline function source!(m::HBModel{P}, source::Vars, Q::Vars,
-                         diffusive::Vars, A::Vars, t::Real) where P
+@inline function source!(m::HBModel{P}, S::Vars, Q::Vars,
+                         D::Vars, A::Vars, t::Real) where P
   @inbounds begin
     u,v = Q.u # Horizontal components of velocity
-    f = A.f
     wz0 = A.wz0
 
     # f × u
-    source.u -= @SVector [-f * v, f * u]
+    f = coriolis_force(m, A.y)
+    S.u -= @SVector [-f * v, f * u]
 
-    source.η += wz0
+    S.η += wz0
   end
 
   return nothing
 end
+
+"""
+    coriolis_force(::HBModel)
+
+northern hemisphere coriolis
+
+# Arguments
+- `m`: model object to dispatch on and get coriolis parameters
+- `y`: y-coordinate in the box
+"""
+@inline coriolis_force(m::HBModel, y) = m.fₒ + m.β * y
 
 """
     wavespeed(::HBModel)
@@ -580,13 +525,12 @@ function update_aux_diffusive!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Rea
   A  = dg.auxstate
 
   # store ∇ʰu as integrand for w
-  # update vertical diffusivity for convective adjustment
   function f!(m::HBModel, Q, A, D, t)
     @inbounds begin
-      A.w = -(D.∇u[1,1] + D.∇u[2,2])
+      ν = viscosity_tensor(m)
+      ∇u = ν \ D.ν∇u
+      A.w = -(∇u[1,1] + ∇u[2,2])
       A.pkin = -m.αᵀ * Q.θ
-
-      D.∇θ[3] < 0 ? A.κ = (m.κʰ, m.κʰ, 1000 * m.κᶻ) : A.κ = (m.κʰ, m.κʰ, m.κᶻ)
     end
 
     return nothing
@@ -630,7 +574,9 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
   return ocean_boundary_state!(m, m.problem, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
 end
 
+include("SimpleBoxProblem.jl")
 include("OceanBoundaryConditions.jl")
 include("LinearHBModel.jl")
+include("Courant.jl")
 
 end
