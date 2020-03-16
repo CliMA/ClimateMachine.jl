@@ -194,7 +194,8 @@ function init(; disable_gpu = false)
 
     # set up the array type appropriately depending on whether we're using GPUs
     if !Settings.disable_gpu &&
-       get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
+       get(ENV, "CLIMA_GPU", "") != "false" &&
+       CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
         atyp = Array

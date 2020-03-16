@@ -356,7 +356,8 @@ function DGBalanceLaw(;
 
     (
         Topologies.hasboundary(topology) &&
-        numerical_boundary_flux! === nothing && error(
+        numerical_boundary_flux! === nothing &&
+        error(
             "no `numerical_boundary_flux!` given when topology " *
             "has boundary",
         )
