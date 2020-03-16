@@ -156,14 +156,13 @@ function compute_horzsums!(
         hs.ρq_tot += MH * state.moisture.ρq_tot
     end
 
-    ν, _ = turbulence_tensors(
+    ν, D_t, _ = turbulence_tensors(
         atmos.turbulence,
         state,
         diffusive_flux,
         aux,
         currtime,
     )
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
 
     # TODO: temporary fix
     if isa(atmos.moisture, EquilMoist)

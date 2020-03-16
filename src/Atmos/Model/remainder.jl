@@ -45,14 +45,7 @@ function hyperdiffusive!(
     aux::Vars,
     t::Real,
 )
-    hyperdiffusive!(
-        rem.main.hyperdiffusion,
-        hyperdiffusive,
-        hypertransform,
-        state,
-        aux,
-        t,
-    )
+    hyperdiffusive!(rem.main, hyperdiffusive, hypertransform, state, aux, t)
 end
 function flux_diffusive!(
     rem::RemainderModel,
@@ -129,7 +122,6 @@ end
 
 init_aux!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) = nothing
 init_state!(rem::RemainderModel, state::Vars, aux::Vars, coords, t) = nothing
-
 
 function flux_nondiffusive!(
     rem::RemainderModel,

@@ -10,7 +10,6 @@ using ..Parameters
 using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
-using ..SubgridScaleParameters
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
 
@@ -352,8 +351,7 @@ end
     aux::Vars,
     t::Real,
 )
-    ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+    ν, D_t, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
     d_h_tot = -D_t .* diffusive.∇h_tot
     flux_diffusive!(atmos, flux, state, τ, d_h_tot)
     flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)

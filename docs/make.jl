@@ -20,6 +20,7 @@ pages = Any[
         "Atmos/SurfaceFluxes.md",
         "Atmos/EDMFEquations.md",
         "Microphysics" => "Atmos/Microphysics.md",
+        "Atmos/Model/turbulence.md",
     ],
     "ODESolvers" => "ODESolvers.md",
     "LinearSolvers" => "LinearSolvers.md",
