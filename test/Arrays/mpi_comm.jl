@@ -131,7 +131,6 @@ function main()
         nabrtovmaprecv,
         nabrtovmapsend,
         ArrayType(weights),
-        555,
     )
 
     Q = Array(A.data)

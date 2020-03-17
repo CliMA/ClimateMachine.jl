@@ -64,8 +64,6 @@ struct MPIStateArray{
 
     weights::DATN
 
-    commtag::Int
-
     function MPIStateArray{FT, V}(
         mpicomm,
         DA,
@@ -79,8 +77,7 @@ struct MPIStateArray{
         nabrtorank,
         nabrtovmaprecv,
         nabrtovmapsend,
-        weights,
-        commtag;
+        weights;
         mpi_knows_cuda = nothing,
     ) where {FT, V}
         data = similar(DA, FT, Np, nstate, numelem)
@@ -127,7 +124,10 @@ struct MPIStateArray{
         DAI1 = typeof(vmaprecv)
         Buf = typeof(send_buffer)
         new{FT, V, typeof(data), DAI1, DAV, Buf}(
-            mpicomm,
+            # Make sure that each MPIStateArray has its own MPI context.  This
+            # allows multiple MPIStateArrays to be communicating asynchronously
+            # at the same time without having to explicitly manage tags.
+            MPI.Comm_dup(mpicomm),
             data,
             realdata,
             realelems,
@@ -142,7 +142,6 @@ struct MPIStateArray{
             nabrtovmaprecv,
             nabrtovmapsend,
             weights,
-            commtag,
         )
     end
 end
@@ -166,8 +165,7 @@ end
                         nabrtorank=Array{Int64}(undef, 0),
                         nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
                         nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
-                        weights,
-                        commtag=888)
+                        weights)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
 elements, using array type `DA` with element type `FT`. `V` is an optional type
@@ -208,7 +206,6 @@ function MPIStateArray{FT, V}(
     nabrtovmaprecv = Array{UnitRange{Int64}}(undef, 0),
     nabrtovmapsend = Array{UnitRange{Int64}}(undef, 0),
     weights = nothing,
-    commtag = 888,
     mpi_knows_cuda = nothing,
 ) where {FT, V}
 
@@ -229,7 +226,6 @@ function MPIStateArray{FT, V}(
         nabrtovmaprecv,
         nabrtovmapsend,
         weights,
-        commtag,
         mpi_knows_cuda = mpi_knows_cuda,
     )
 end
@@ -238,8 +234,7 @@ end
 function Base.similar(
     Q::MPIStateArray{OLDFT, V},
     ::Type{A},
-    ::Type{FT};
-    commtag = Q.commtag,
+    ::Type{FT},
 ) where {A <: AbstractArray, FT <: Number, OLDFT, V}
     MPIStateArray{FT, V}(
         Q.mpicomm,
@@ -253,25 +248,19 @@ function Base.similar(
         Q.nabrtovmaprecv,
         Q.nabrtovmapsend,
         Q.weights,
-        commtag,
     )
 end
 function Base.similar(
     Q::MPIStateArray{FT},
-    ::Type{A};
-    commtag = Q.commtag,
+    ::Type{A},
 ) where {A <: AbstractArray, FT <: Number}
-    similar(Q, A, FT, commtag = commtag)
+    similar(Q, A, FT)
 end
-function Base.similar(
-    Q::MPIStateArray,
-    ::Type{FT};
-    commtag = Q.commtag,
-) where {FT <: Number}
-    similar(Q, typeof(Q.data), FT, commtag = commtag)
+function Base.similar(Q::MPIStateArray, ::Type{FT}) where {FT <: Number}
+    similar(Q, typeof(Q.data), FT)
 end
-function Base.similar(Q::MPIStateArray{FT}; commtag = Q.commtag) where {FT}
-    similar(Q, FT, commtag = commtag)
+function Base.similar(Q::MPIStateArray{FT}) where {FT}
+    similar(Q, FT)
 end
 
 Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)
@@ -443,7 +432,7 @@ function __Irecv!(Q)
         Q.recvreq[n] = MPI.Irecv!(
             (@view transfer[:, Q.nabrtovmaprecv[n]]),
             Q.nabrtorank[n],
-            Q.commtag,
+            666,
             Q.mpicomm,
         )
     end
@@ -457,7 +446,7 @@ function __Isend!(Q)
         Q.sendreq[n] = MPI.Isend(
             (@view transfer[:, Q.nabrtovmapsend[n]]),
             Q.nabrtorank[n],
-            Q.commtag,
+            666,
             Q.mpicomm,
         )
     end
