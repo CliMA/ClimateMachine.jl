@@ -392,7 +392,6 @@ function DGBalanceLaw(;
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = 111,
     )
 
     auxstate = MPIStateArray{FT}(
@@ -409,7 +408,6 @@ function DGBalanceLaw(;
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = 222,
     )
 
     if auxiliary_state_initialization! !== nothing
@@ -461,18 +459,13 @@ end
 
 
 """
-    MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate, commtag=888)
+    MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate)
 
 Given a discretization `disc` constructs an `MPIStateArrays` for holding a
 solution state. The optional 'nstate' arguments allows the user to specify a
-specific number of states. The optional `commtag` allows the user to set the tag
-to use for communication with this `MPIStateArray`.
+specific number of states.
 """
-function MPIStateArrays.MPIStateArray(
-    disc::DGBalanceLaw;
-    nstate = disc.nstate,
-    commtag = 888,
-)
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate = disc.nstate)
     grid = disc.grid
     topology = disc.grid.topology
     # FIXME: Remove after updating CUDA
@@ -498,16 +491,14 @@ function MPIStateArrays.MPIStateArray(
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = commtag,
     )
 end
 
 """
-    MPIStateArray(disc::DGBalanceLaw, initialization!::Function; commtag=888)
+    MPIStateArray(disc::DGBalanceLaw, initialization!::Function)
 
 Given a discretization `disc` constructs an `MPIStateArrays` for holding a
-solution state. The optional `commtag` allows the user to set the tag to use
-for communication with this `MPIStateArray`.
+solution state.
 
 After allocation the `MPIStateArray` is initialized using the function
 `initialization!` which will be called as:
@@ -533,12 +524,8 @@ the length of the `MArray` will be zero.
     Remove `host` and `device` data transfers.
 
 """
-function MPIStateArrays.MPIStateArray(
-    disc::DGBalanceLaw,
-    ic!::Function;
-    commtag = 888,
-)
-    Q = MPIStateArray(disc; commtag = commtag)
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw, ic!::Function)
+    Q = MPIStateArray(disc)
 
     nvar = disc.nstate
     grid = disc.grid
@@ -583,7 +570,7 @@ function MPIStateArrays.MPIStateArray(
 end
 
 """
-    MPIStateArray(initialization!::Function, disc::DGBalanceLaw; commtag=888)
+    MPIStateArray(initialization!::Function, disc::DGBalanceLaw)
 
 Wrapper function to allow for calls of the form
 
@@ -595,8 +582,7 @@ end
 
 See also [`MPIStateArray`](@ref)
 """
-MPIStateArrays.MPIStateArray(f::Function, d::DGBalanceLaw; commtag = 888) =
-    MPIStateArray(d, f; commtag = commtag)
+MPIStateArrays.MPIStateArray(f::Function, d::DGBalanceLaw) = MPIStateArray(d, f)
 
 
 """

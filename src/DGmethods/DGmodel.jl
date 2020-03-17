@@ -337,18 +337,13 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     end
 end
 
-function init_ode_state(
-    dg::DGModel,
-    args...;
-    init_on_cpu = false,
-    commtag = 888,
-)
+function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
 
     bl = dg.balancelaw
     grid = dg.grid
 
-    state = create_state(bl, grid, commtag)
+    state = create_state(bl, grid)
 
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -656,11 +651,11 @@ function copy_stack_field_down!(
     wait(device, event)
 end
 
-function MPIStateArrays.MPIStateArray(dg::DGModel, commtag = 888)
+function MPIStateArrays.MPIStateArray(dg::DGModel)
     bl = dg.balancelaw
     grid = dg.grid
 
-    state = create_state(bl, grid, commtag)
+    state = create_state(bl, grid)
 
     return state
 end

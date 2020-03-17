@@ -83,7 +83,7 @@ function calculate_dt(dg, model, Q, Courant_number, direction)
 end
 
 
-function create_state(bl::BalanceLaw, grid, commtag)
+function create_state(bl::BalanceLaw, grid)
     topology = grid.topology
     # FIXME: Remove after updating CUDA
     h_vgeo = Array(grid.vgeo)
@@ -108,12 +108,11 @@ function create_state(bl::BalanceLaw, grid, commtag)
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = commtag,
     )
     return state
 end
 
-function create_auxstate(bl, grid, commtag = 222)
+function create_auxstate(bl, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -138,7 +137,6 @@ function create_auxstate(bl, grid, commtag = 222)
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = commtag,
     )
 
     dim = dimensionality(grid)
@@ -163,7 +161,7 @@ function create_auxstate(bl, grid, commtag = 222)
     return auxstate
 end
 
-function create_diffstate(bl, grid, commtag = 111)
+function create_diffstate(bl, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -189,13 +187,12 @@ function create_diffstate(bl, grid, commtag = 111)
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = commtag,
     )
 
     return diffstate
 end
 
-function create_hyperdiffstate(bl, grid, commtag = 333)
+function create_hyperdiffstate(bl, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -222,7 +219,6 @@ function create_hyperdiffstate(bl, grid, commtag = 333)
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = commtag,
     )
 
     Qhypervisc_div = MPIStateArray{FT}(
@@ -239,7 +235,6 @@ function create_hyperdiffstate(bl, grid, commtag = 333)
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = commtag + 111,
     )
     return Qhypervisc_grad, Qhypervisc_div
 end
