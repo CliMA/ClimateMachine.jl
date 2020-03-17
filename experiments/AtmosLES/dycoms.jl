@@ -14,12 +14,13 @@ using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 
 import CLIMA.DGmethods:
     vars_state,
@@ -151,7 +152,7 @@ function flux_radiation!(
     upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
     free_troposphere_flux =
         m.ρ_i *
-        FT(cp_d) *
+        cp_d(atmos.param_set) *
         m.D_subsidence *
         m.α_z *
         cbrt(Δz_i) *
@@ -194,7 +195,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     q_pt_sfc = PhasePartition(qref)
     Rm_sfc = FT(gas_constant_air(q_pt_sfc))
     T_sfc = FT(290.4)
-    P_sfc = FT(MSLP)
+    P_sfc = MSLP(bl.param_set)
 
     # Specify moisture profiles
     q_liq = FT(0)
@@ -221,7 +222,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     end
 
     # Pressure
-    H = Rm_sfc * T_sfc / grav
+    H = Rm_sfc * T_sfc / grav(bl.param_set)
     p = P_sfc * exp(-z / H)
 
     # Density, Temperature
@@ -245,7 +246,8 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Reference state
     T_min = FT(289)
     T_s = FT(290.4)
-    Γ_lapse = FT(grav / cp_d)
+    param_set = ParameterSet{FT}()
+    Γ_lapse = grav(param_set) / cp_d(param_set)
     T = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)
@@ -313,7 +315,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
             AtmosBC(),
         ),
         init_state = ics,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     ode_solver =

@@ -65,7 +65,7 @@ function atmos_nodal_update_aux!(rain::Rain, atmos::AtmosModel,
   q_eq = PhasePartition_equil(ts)
 
   # tendency from cloud water condensation/evaporation
-  # src_q_liq = conv_q_vap_to_q_liq(q_eq, q)# TODO - temporary handling ice
+  # src_q_liq = conv_q_vap_to_q_liq(q_eq, q, param_set)# TODO - temporary handling ice
 
   # tendencies from rain
   src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)

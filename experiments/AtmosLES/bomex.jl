@@ -62,12 +62,13 @@ using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.GenericCallbacks
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 
 import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude
@@ -319,12 +320,12 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     # Convert total specific humidity to kg/kg
     q_tot /= 1000
     # Scale height based on surface parameters
-    H = Rm_sfc * T_sfc / grav
+    H = Rm_sfc * T_sfc / grav(bl.param_set)
     # Pressure based on scale height
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, P, q_tot)
+    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, P, q_tot, bl.param_set)
     T = air_temperature(TS)
     ρ = air_density(TS)
     q_pt = PhasePartition(TS)
@@ -336,8 +337,8 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
 
     # Compute energy contributions
     e_kin = FT(1 // 2) * (u^2 + v^2 + w^2)
-    e_pot = FT(grav) * z
-    ρe_tot = ρ * total_energy(e_kin, e_pot, T, q_pt)
+    e_pot = grav(bl.param_set) * z
+    ρe_tot = ρ * total_energy(e_kin, e_pot, T, q_pt, bl.param_set)
 
     # Assign initial conditions for prognostic state variables
     state.ρ = ρ

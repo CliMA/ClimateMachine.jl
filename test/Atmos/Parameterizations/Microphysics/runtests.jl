@@ -1,8 +1,15 @@
 using Test
 using CLIMA.Microphysics
-using CLIMA.MicrophysicsParameters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+
+using CLIMA
+using CLIMA.Parameters
+using CLIMA.UniversalConstants
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "Microphysics.jl"))
+using CLIMA.Parameters.Planet
+using CLIMA.Parameters.Microphysics
 
 @testset "RainDropFallSpeed" begin
   # two typical rain drop sizes
@@ -12,17 +19,19 @@ using CLIMA.PlanetParameters
   # example atmospheric conditions
   p_range = [1013., 900., 800., 700., 600., 500.] .* 100
   T_range = [  20.,  20.,  15.,  10.,   0., -10.] .+ 273.15
-  ρ_range = p_range ./ R_d ./ T_range
+  FT = eltype(T_range)
+  param_set = ParameterSet{FT}()
+  ρ_range = p_range ./ R_d(param_set) ./ T_range
 
   # previousely calculated terminal velocity values
   ref_term_vel_small = [4.44,  4.71,  4.96, 5.25, 5.57, 5.99]
   ref_term_vel_big   = [11.75, 12.47, 13.11, 13.90, 14.74, 15.85]
 
   for idx in range(Int(1), stop=Int(6))
-    vc = terminal_velocity_single_drop_coeff(ρ_range[idx])
+    vc = terminal_velocity_single_drop_coeff(ρ_range[idx], param_set)
 
-    term_vel_small = vc .* sqrt(r_small .* grav)
-    term_vel_big   = vc .* sqrt(r_big   .* grav)
+    term_vel_small = vc .* sqrt(r_small .* grav(param_set))
+    term_vel_big   = vc .* sqrt(r_big   .* grav(param_set))
 
     @test term_vel_small ≈ ref_term_vel_small[idx] atol = 0.01
     @test term_vel_big   ≈ ref_term_vel_big[idx]   atol = 0.01
@@ -43,9 +52,11 @@ end
   # some example values
   q_rain_range = range(1e-8, stop=5e-3, length=10)
   ρ_air, q_tot, ρ_air_ground = 1.2, 20 * 1e-3, 1.22
+  FT = typeof(ρ_air)
+  param_set = ParameterSet{FT}()
 
   for q_rai in q_rain_range
-    @test terminal_velocity(q_rai, ρ_air) ≈
+    @test terminal_velocity(q_rai, ρ_air, param_set) ≈
           terminal_velocity_empir(q_rai, q_tot, ρ_air, ρ_air_ground) atol =
             0.2 * terminal_velocity_empir(q_rai, q_tot, ρ_air, ρ_air_ground)
   end
@@ -55,23 +66,29 @@ end
 
   q_liq_sat = 5e-3
   frac = [0., 0.5, 1., 1.5]
+  FT = Float64
+  param_set = ParameterSet{FT}()
 
   for fr in frac
    q_liq = q_liq_sat * fr
    @test conv_q_vap_to_q_liq(PhasePartition(0., q_liq_sat, 0.),
-                             PhasePartition(0., q_liq, 0.)) ≈
-         (1 - fr) * q_liq_sat / τ_cond_evap
+                             PhasePartition(0., q_liq, 0.),
+                             param_set) ≈
+         (1 - fr) * q_liq_sat / τ_cond_evap(param_set)
   end
 end
 
 @testset "RainAutoconversion" begin
 
-  q_liq_small = 0.5 * q_liq_threshold
-  @test conv_q_liq_to_q_rai_acnv(q_liq_small) == 0.
+  FT = Float64
+  param_set = ParameterSet{FT}()
 
-  q_liq_big = 1.5 * q_liq_threshold
-  @test conv_q_liq_to_q_rai_acnv(q_liq_big) ==
-        0.5 * q_liq_threshold / τ_acnv
+  q_liq_small = 0.5 * q_liq_threshold(param_set)
+  @test conv_q_liq_to_q_rai_acnv(q_liq_small, param_set) == 0.
+
+  q_liq_big = 1.5 * q_liq_threshold(param_set)
+  @test conv_q_liq_to_q_rai_acnv(q_liq_big, param_set) ==
+        0.5 * q_liq_threshold(param_set) / τ_acnv(param_set)
 end
 
 @testset "RainAccretion" begin
@@ -87,9 +104,11 @@ end
   # some example values
   q_rain_range = range(1e-8, stop=5e-3, length=10)
   ρ_air, q_liq, q_tot = 1.2, 5e-4, 20e-3
+  FT = typeof(ρ_air)
+  param_set = ParameterSet{FT}()
 
   for q_rai in q_rain_range
-    @test conv_q_liq_to_q_rai_accr(q_liq, q_rai, ρ_air) ≈
+    @test conv_q_liq_to_q_rai_accr(q_liq, q_rai, ρ_air, param_set) ≈
           accretion_empir(q_rai, q_liq, q_tot) atol =
             0.1 * accretion_empir(q_rai, q_liq, q_tot)
   end
@@ -97,12 +116,14 @@ end
 
 @testset "RainEvaporation" begin
 
+  FT = Float64
+
   # eq. 5c in Smolarkiewicz and Grabowski 1996
   # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
   function rain_evap_empir(q_rai::FT, q::PhasePartition,
-                           T::FT, p::FT, ρ::FT) where {FT<:Real}
+                           T::FT, p::FT, ρ::FT, param_set::AbstractParameterSet{FT}) where {FT<:Real}
 
-      q_sat  = q_vap_saturation(T, ρ, q)
+      q_sat  = q_vap_saturation(T, ρ, q, param_set)
       q_vap  = q.tot - q.liq
       rr     = q_rai / (1 - q.tot)
       rv_sat = q_sat / (1 - q.tot)
@@ -120,8 +141,10 @@ end
 
   # example values
   T, p = 273.15 + 15, 90000.
-  ϵ = 1. / molmass_ratio
-  p_sat = saturation_vapor_pressure(T, Liquid())
+  FT = typeof(T)
+  param_set = ParameterSet{FT}()
+  ϵ = 1. / molmass_ratio(param_set)
+  p_sat = saturation_vapor_pressure(T, Liquid(), param_set)
   q_sat = ϵ * p_sat / (p + p_sat * (ϵ - 1.))
   q_rain_range = range(1e-8, stop=5e-3, length=10)
   q_tot = 15e-3
@@ -129,12 +152,12 @@ end
   q_ice = 0.
   q_liq = q_tot - q_vap - q_ice
   q = PhasePartition(q_tot, q_liq, q_ice)
-  R = gas_constant_air(q)
+  R = gas_constant_air(q, param_set)
   ρ = p / R / T
 
   for q_rai in q_rain_range
-    @test conv_q_rai_to_q_vap(q_rai, q, T, p, ρ) ≈
-          rain_evap_empir(q_rai, q, T, p, ρ) atol =
-            -0.5 * rain_evap_empir(q_rai, q, T, p, ρ)
+    @test conv_q_rai_to_q_vap(q_rai, q, T, p, ρ, param_set) ≈
+          rain_evap_empir(q_rai, q, T, p, ρ, param_set) atol =
+            -0.5 * rain_evap_empir(q_rai, q, T, p, ρ, param_set)
   end
 end

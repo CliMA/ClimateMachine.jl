@@ -14,12 +14,14 @@ using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.Mesh.Filters
 using CLIMA.Mesh.Grids
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+
 using CLIMA.VariableTemplates
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 
 
 struct HeldSuarezDataConfig{FT}
@@ -34,7 +36,7 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     # Parameters need to set initial state
     T_init = bl.data_config.T_init
     p_sfc = bl.data_config.p_sfc
-    scale_height = FT(R_d) * T_init / FT(grav)
+    scale_height = R_d(bl.param_set) * T_init / grav(bl.param_set)
 
     # Calculate the initial state variables
     z = altitude(bl.orientation, aux)
@@ -57,7 +59,8 @@ function config_heldsuarez(FT, poly_order, resolution)
     exp_name = "HeldSuarez"
 
     # Parameters
-    p_sfc::FT = MSLP
+    param_set = ParameterSet{FT}()
+    p_sfc::FT = MSLP(param_set)
     T_init::FT = 255
     T_ref::FT = 300
     Rh_ref::FT = 0
@@ -93,7 +96,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(p_sfc, T_init, domain_height),
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     config = CLIMA.AtmosGCMConfiguration(

@@ -13,12 +13,14 @@ using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
+using CLIMA
+using CLIMA.UniversalConstants
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 
 # ------------------- Description ---------------------------------------- #
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
@@ -56,18 +58,18 @@ end
 function init_problem!(bl, state, aux, (x, y, z), t)
     dc = bl.data_config
     FT = eltype(state)
-    R_gas::FT = R_d
-    c_p::FT = cp_d
-    c_v::FT = cv_d
+    R_gas::FT = R_d(bl.param_set)
+    c_p::FT = cp_d(bl.param_set)
+    c_v::FT = cv_d(bl.param_set)
     γ::FT = c_p / c_v
-    p0::FT = MSLP
+    p0::FT = MSLP(bl.param_set)
     δT =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
         cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
     δw =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
         cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
-    ΔT = grav / cp_d * z + δT
+    ΔT = grav(bl.param_set) / cp_d(bl.param_set) * z + δT
     T = dc.T_bot - ΔT
     P = p0 * (T / dc.T_bot)^(grav / R_gas / dc.T_lapse)
     ρ = P / (R_gas * T)
@@ -91,8 +93,9 @@ end
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
 
     # Boundary conditions
+    param_set = ParameterSet{FT}()
     T_bot = FT(299)
-    T_lapse = FT(grav / cp_d)
+    T_lapse = FT(grav(param_set) / cp_d(param_set))
     T_top = T_bot - T_lapse * zmax
 
     # Turbulence
@@ -126,7 +129,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         ),
         init_state = init_problem!,
         data_config = data_config,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
     ode_solver =
         CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)

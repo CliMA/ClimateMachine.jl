@@ -47,17 +47,16 @@ using CLIMA.VTK
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 
-using CLIMA.Parameters
+using CLIMA
 using CLIMA.UniversalConstants
+using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
 
 
 # Though not required, here we are explicit about which values we read out the
-# `PlanetParameters` and `MoistThermodynamics`
-using CLIMA.PlanetParameters: planet_radius, grav, MSLP
+# `MoistThermodynamics`
 using CLIMA.MoistThermodynamics:
     air_temperature,
     air_pressure,
@@ -234,23 +233,24 @@ end
 function auxiliary_state_initialization!(T0, aux, x, y, z)
     @inbounds begin
         FT = eltype(aux)
-        p0 = FT(MSLP)
+        param_set = ParameterSet{FT}()
+        p0 = MSLP(param_set)
 
         ## Convert to Spherical coordinates
         (r, _, _) = cartesian_to_spherical(FT, x, y, z)
 
         ## Calculate the geopotential ϕ
-        h = r - FT(planet_radius) # height above the planet surface
-        ϕ = FT(grav) * h
+        h = r - planet_radius(param_set) # height above the planet surface
+        ϕ = grav(param_set) * h
 
         ## Pressure assuming hydrostatic balance
-        P_ref = p0 * exp(-ϕ / (gas_constant_air(FT) * T0))
+        P_ref = p0 * exp(-ϕ / (gas_constant_air(FT, param_set) * T0))
 
         ## Density from the ideal gas law
-        ρ_ref = air_density(FT(T0), P_ref)
+        ρ_ref = air_density(FT(T0), P_ref, param_set)
 
         ## Calculate the reference total potential energy
-        e_int = internal_energy(FT(T0))
+        e_int = internal_energy(FT(T0), param_set)
         ρe_ref = e_int * ρ_ref + ρ_ref * ϕ
 
         ## Fill the auxiliary state array
@@ -271,16 +271,17 @@ end
 function initialcondition!(domain_height, Q, x, y, z, aux, _...)
     @inbounds begin
         FT = eltype(Q)
-        p0 = FT(MSLP)
+        param_set = ParameterSet{FT}()
+        p0 = MSLP(param_set)
 
         (r, λ, φ) = cartesian_to_spherical(FT, x, y, z)
-        h = r - FT(planet_radius)
+        h = r - planet_radius(param_set)
 
         ## Get the reference pressure from the previously defined reference state
         ρ_ref, ρe_ref, ϕ = aux[_a_ρ_ref], aux[_a_ρe_ref], aux[_a_ϕ]
         e_ref_int = ρe_ref / ρ_ref - ϕ
-        T_ref = air_temperature(e_ref_int)
-        P_ref = air_pressure(T_ref, ρ_ref)
+        T_ref = air_temperature(e_ref_int, param_set)
+        P_ref = air_pressure(T_ref, ρ_ref, param_set)
 
         ## Define the initial pressure Perturbation
         α, nv, γ = 3, 1, 100
@@ -291,11 +292,11 @@ function initialcondition!(domain_height, Q, x, y, z, aux, _...)
 
         ## Define the initial pressure and compute the density perturbation
         P = P_ref + dP
-        ρ = air_density(T_ref, P)
+        ρ = air_density(T_ref, P, param_set)
         dρ = ρ - ρ_ref
 
         ## Define the initial total energy perturbation
-        e_int = internal_energy(T_ref)
+        e_int = internal_energy(T_ref, param_set)
         ρe = e_int * ρ + ρ * ϕ
         dρe = ρe - ρe_ref
 
@@ -310,14 +311,16 @@ end
 # VTK output.
 function compute_δP!(δP, Q, _, aux)
     @inbounds begin
+        FT = eltype(Q)
+        param_set = ParameterSet{FT}()
         ## extract the states
         dρ, ρu, ρv, ρw, dρe = Q[_dρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_dρe]
         ρ_ref, ρe_ref, ϕ = aux[_a_ρ_ref], aux[_a_ρe_ref], aux[_a_ϕ]
 
         ## Compute the reference pressure
         e_ref_int = ρe_ref / ρ_ref - ϕ
-        T_ref = air_temperature(e_ref_int)
-        P_ref = air_pressure(T_ref, ρ_ref)
+        T_ref = air_temperature(e_ref_int, param_set)
+        P_ref = air_pressure(T_ref, ρ_ref, param_set)
 
         ## Compute the fulle states
         ρ = ρ_ref + dρ
@@ -331,8 +334,8 @@ function compute_δP!(δP, Q, _, aux)
         e_int = e - (u^2 + v^2 + w^2) / 2 - ϕ
 
         ## compute the pressure
-        T = air_temperature(e_int)
-        P = air_pressure(T, ρ)
+        T = air_temperature(e_int, param_set)
+        P = air_pressure(T, ρ, param_set)
 
         ## store the pressure perturbation
         δP[1] = P - P_ref
@@ -355,10 +358,11 @@ function setupDG(
 )
 
     ## Create the element grid in the vertical direction
+    param_set = ParameterSet{FT}()
     Rrange = range(
-        FT(planet_radius),
+        planet_radius(param_set),
         length = Ne_vertical + 1,
-        stop = planet_radius + domain_height,
+        stop = planet_radius(param_set) + domain_height,
     )
 
     ## Set up the mesh topology for the sphere

@@ -15,12 +15,6 @@ include(joinpath(
     "Atmos",
     "Parameterizations",
     "CloudPhysics",
-    "MicrophysicsParameters.jl",
-))
-include(joinpath(
-    "Atmos",
-    "Parameterizations",
-    "CloudPhysics",
     "Microphysics.jl",
 ))
 include(joinpath(

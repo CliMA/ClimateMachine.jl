@@ -64,3 +64,4 @@ CLIMA.Parameters.Planet.orbit_semimaj(ps::ParameterSet{FT}) where {FT} =
     FT(1 * astro_unit(FT))
 CLIMA.Parameters.Planet.TSI(ps::ParameterSet{FT}) where {FT} = FT(1362)
 CLIMA.Parameters.Planet.MSLP(ps::ParameterSet{FT}) where {FT} = FT(1.01325e5)
+

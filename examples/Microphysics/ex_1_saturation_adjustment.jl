@@ -33,11 +33,11 @@ using Printf
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
-using CLIMA.Parameters
+using CLIMA
 using CLIMA.UniversalConstants
+using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
 
 const _nstate = 5

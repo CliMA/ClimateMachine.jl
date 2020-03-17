@@ -264,10 +264,10 @@ The values of ``a_{vent}`` and ``b_{vent}`` are chosen so that at ``q_{tot} = 15
 using CLIMA.Microphysics
 using CLIMA.MoistThermodynamics
 using CLIMA
+using CLIMA.UniversalConstants
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
 
 using Plots
