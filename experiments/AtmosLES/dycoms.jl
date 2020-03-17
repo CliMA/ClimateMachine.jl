@@ -145,7 +145,7 @@ function flux_radiation!(
     t::Real,
 )
     FT = eltype(flux)
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos.orientation, aux, atmos.param_set)
     Δz_i = max(z - m.z_i, -zero(FT))
     # Constants
     upward_flux_from_cloud = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)

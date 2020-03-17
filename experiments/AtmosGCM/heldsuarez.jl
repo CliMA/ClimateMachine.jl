@@ -39,7 +39,7 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     scale_height = R_d(bl.param_set) * T_init / grav(bl.param_set)
 
     # Calculate the initial state variables
-    z = altitude(bl.orientation, aux)
+    z = altitude(bl.orientation, aux, bl.param_set)
     p = p_sfc * exp(-z / scale_height)
     thermo_state = PhaseDry_given_pT(p, T_init, bl.param_set)
     ρ = air_density(thermo_state)
@@ -137,7 +137,7 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     σ_b = FT(7 / 10)
     λ = longitude(bl.orientation, aux)
     φ = latitude(bl.orientation, aux)
-    z = altitude(bl.orientation, aux)
+    z = altitude(bl.orientation, aux, bl.param_set)
     scale_height = FT(R_d) * T_init / FT(grav)
     σ = exp(-z / scale_height)
 

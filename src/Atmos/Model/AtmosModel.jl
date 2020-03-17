@@ -8,7 +8,11 @@ using ..ConfigTypes
 using ..VariableTemplates
 using ..Parameters
 using ..MoistThermodynamics
-using ..PlanetParameters
+
+using ..Parameters
+using ..UniversalConstants
+using ..Parameters.Planet
+
 import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
 using ..MPIStateArrays: MPIStateArray
@@ -85,7 +89,7 @@ function AtmosModel{FT}(
     ::Type{AtmosLESConfigType};
     orientation::O = FlatOrientation(),
     ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(FT(200), FT(280), FT(grav) / FT(cp_d)),
+        LinearTemperatureProfile(FT(200), FT(280), grav(param_set) / cp_d(param_set)),
         FT(0),
     ),
     turbulence::T = SmagorinskyLilly{FT}(0.21),
@@ -122,7 +126,7 @@ function AtmosModel{FT}(
     ::Type{AtmosGCMConfigType};
     orientation::O = SphericalOrientation(),
     ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(FT(200), FT(280), FT(grav) / FT(cp_d)),
+        LinearTemperatureProfile(FT(200), FT(280), grav(param_set) / cp_d(param_set)),
         FT(0),
     ),
     turbulence::T = SmagorinskyLilly{FT}(0.21),

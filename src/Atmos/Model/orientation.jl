@@ -1,5 +1,8 @@
 # TODO: add Coriolis vectors
-import ..PlanetParameters: grav, planet_radius
+using ..Parameters
+using ..UniversalConstants
+using ..Parameters.Planet
+
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 export vertical_unit_vector, altitude, latitude, longitude, gravitational_potential, projection_normal, projection_tangential
 
@@ -16,8 +19,8 @@ end
 
 gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
 ∇gravitational_potential(::Orientation, aux::Vars) = aux.orientation.∇Φ
-altitude(orientation::Orientation, aux::Vars) = gravitational_potential(orientation, aux) / grav
-vertical_unit_vector(orientation::Orientation, aux::Vars) = ∇gravitational_potential(orientation, aux) / grav
+altitude(orientation::Orientation, aux::Vars, param_set::AbstractParameterSet) = gravitational_potential(orientation, aux) / grav(param_set)
+vertical_unit_vector(orientation::Orientation, aux::Vars, param_set::AbstractParameterSet) = ∇gravitational_potential(orientation, aux) / grav(param_set)
 
 function projection_normal(orientation::Orientation, aux::Vars, u⃗::AbstractVector)
   n̂ = vertical_unit_vector(orientation, aux)
@@ -52,10 +55,10 @@ to the surface of the planet.
 """
 struct SphericalOrientation <: Orientation
 end
-function atmos_init_aux!(::SphericalOrientation, ::AtmosModel, aux::Vars, geom::LocalGeometry)
+function atmos_init_aux!(::SphericalOrientation, atmos::AtmosModel, aux::Vars, geom::LocalGeometry)
   normcoord = norm(aux.coord)
-  aux.orientation.Φ = grav * (normcoord - planet_radius)
-  aux.orientation.∇Φ = grav / normcoord .* aux.coord
+  aux.orientation.Φ = grav(atmos.param_set) * (normcoord - planet_radius(atmos.param_set))
+  aux.orientation.∇Φ = grav(atmos.param_set) / normcoord .* aux.coord
 end
 # TODO: should we define these for non-spherical orientations?
 latitude(orientation::SphericalOrientation, aux::Vars) = @inbounds asin(aux.coord[3] / norm(aux.coord, 2))
@@ -71,7 +74,7 @@ Gravity acts in the third coordinate, and the gravitational potential is relativ
 struct FlatOrientation <: Orientation
   # for Coriolis we could add latitude?
 end
-function atmos_init_aux!(::FlatOrientation, ::AtmosModel, aux::Vars, geom::LocalGeometry)
-  aux.orientation.Φ = grav * aux.coord[3]
-  aux.orientation.∇Φ = SVector{3,eltype(aux)}(0,0,grav)
+function atmos_init_aux!(::FlatOrientation, atmos::AtmosModel, aux::Vars, geom::LocalGeometry)
+  aux.orientation.Φ = grav(atmos.param_set) * aux.coord[3]
+  aux.orientation.∇Φ = SVector{3,eltype(aux)}(0,0,grav(atmos.param_set))
 end

@@ -4,14 +4,21 @@ using CLIMA.HydrostaticBoussinesq
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
-using CLIMA.PlanetParameters
+
+using CLIMA.Parameters
+using CLIMA.UniversalConstants
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
+
 using CLIMA.VariableTemplates
 using CLIMA.Mesh.Grids: polynomialorder
 
 function config_simple_box(FT, N, resolution, dimensions)
   prob = OceanGyre{FT}(dimensions...)
+  param_set = ParameterSet{FT}()
 
-  cʰ = sqrt(grav * prob.H) # m/s
+  cʰ = sqrt(grav(param_set) * prob.H) # m/s
   model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
 
   config = CLIMA.OceanBoxGCMConfiguration("ocean_gyre",

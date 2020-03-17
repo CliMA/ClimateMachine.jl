@@ -1,9 +1,10 @@
-using CLIMA.PlanetParameters
+using ..Parameters
+using ..UniversalConstants
+using ..Parameters.Planet
 
 export BoundaryCondition, InitStateBC
 
 
-using CLIMA.PlanetParameters
 export InitStateBC, DYCOMS_BC, RayleighBenardBC
 
 export AtmosBC,

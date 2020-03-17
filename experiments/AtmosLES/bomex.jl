@@ -104,7 +104,7 @@ function atmos_source!(
     u_slope = s.u_slope
     v_geostrophic = s.v_geostrophic
 
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos.orientation, aux, atmos.param_set)
     # Note z dependence of eastward geostrophic velocity
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
     ẑ = vertical_unit_vector(atmos.orientation, aux)
@@ -151,7 +151,7 @@ function atmos_source!(
     u_slope = s.u_slope
     v_geostrophic = s.v_geostrophic
 
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos.orientation, aux, atmos.param_set)
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
     ẑ = vertical_unit_vector(atmos.orientation, aux)
     # Accumulate sources
@@ -196,7 +196,7 @@ function atmos_source!(
 )
     FT = eltype(state)
     ρ = state.ρ
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos.orientation, aux, atmos.param_set)
 
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
