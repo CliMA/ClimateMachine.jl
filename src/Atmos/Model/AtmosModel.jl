@@ -11,7 +11,6 @@ using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
 using ..SubgridScaleParameters
-using GPUifyLoops
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
 
