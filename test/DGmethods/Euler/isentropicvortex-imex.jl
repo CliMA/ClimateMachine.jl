@@ -28,6 +28,8 @@ using CLIMA.Atmos:
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
+
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
@@ -59,8 +61,14 @@ function main()
 
     logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
     global_logger(ConsoleLogger(logger_stream, loglevel))
-    polynomialorder = 4
-    numlevels = integration_testing ? 4 : 1
+
+    polynomialorder = clima_test_low_intensity ? 2 : 4
+    if clima_test_low_intensity
+        numlevels = 1
+    else
+        numlevels = integration_testing ? 4 : 1
+    end
+    numlevelsfactor = clima_test_low_intensity ? 2 : 5
 
     expected_error = Dict()
 
@@ -93,7 +101,7 @@ function main()
 
                 for level in 1:numlevels
                     numelems =
-                        ntuple(dim -> dim == 3 ? 1 : 2^(level - 1) * 5, dims)
+                        ntuple(dim -> dim == 3 ? 1 : 2^(level - 1) * numlevelsfactor, dims)
                     errors[level] = run(
                         mpicomm,
                         ArrayType,

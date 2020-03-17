@@ -12,6 +12,8 @@ using LinearAlgebra
 using Logging
 using GPUifyLoops
 
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
+
 import CLIMA.DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
                         vars_diffusive, flux_nondiffusive!, flux_diffusive!,
                         source!, wavespeed, LocalGeometry, boundary_state!,
@@ -140,10 +142,10 @@ let
   logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
   global_logger(ConsoleLogger(logger_stream, loglevel))
 
-  numelem = (5, 5, 5)
+  numelem = clima_test_low_intensity ? (2, 2, 2) : (5, 5, 5)
   lvls = 1
 
-  polynomialorder = 4
+  polynomialorder = clima_test_low_intensity ? 4 : 2
 
     for FT in (Float64,) #Float32)
       for dim = 2:3

@@ -1,6 +1,11 @@
 using MPI, Test
 
+clima_test_low_intensity = get(ENV, "intensity", "normal")=="low" ? true : false
+
 include("../testhelpers.jl")
+
+# TODO: add mesh tests to low intensity mode
+if !clima_test_low_intensity
 
 include("BrickMesh.jl")
 include("Elements.jl")
@@ -35,4 +40,6 @@ MPI.Initialized() && MPI.Finalize()
            (4, "mpi_sortcolumns.jl")]
 
   runmpi(tests, @__FILE__)
+end
+
 end
