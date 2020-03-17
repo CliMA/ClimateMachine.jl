@@ -73,12 +73,14 @@ end
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
-    ode_solver = CLIMA.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
-    )
+    #ode_solver = CLIMA.MultirateSolverType(
+    #    linear_model = AtmosAcousticGravityLinearModel,
+    #    slow_method = LSRK144NiegemannDiehlBusch,
+    #    fast_method = LSRK144NiegemannDiehlBusch,
+    #    timestep_ratio = 10,
+    #)
+    #ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch)
+    ode_solver = CLIMA.ExplicitSolverType(solver_method=LSRK432CarpenterKennedy)
 
     # Set up the model
     C_smag = FT(0.23)
@@ -131,10 +133,10 @@ function main()
     zmax = FT(2500)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(1000)
+    timeend = FT(10)
 
     # Courant number
-    CFL = FT(20)
+    CFL = FT(0.8)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.setup_solver(

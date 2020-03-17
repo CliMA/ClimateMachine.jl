@@ -1,6 +1,9 @@
 
 export LowStorageRungeKutta2N
 export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch, LSRKEulerMethod
+export LSRK432CarpenterKennedy
+
+using LinearAlgebra
 
 include("LowStorageRungeKuttaMethod_kernels.jl")
 
@@ -101,14 +104,14 @@ function dostep!(
     end
     @assert dt > 0
 
-    dostep!(Q, lsrk, p, time, dt)
+    newdt = dostep!(Q, lsrk, p, time, dt)
+    lsrk.t += dt
+    #@show dt, newdt
+    
+    #@show lsrk.t, lsrk.dt, newdt
 
-    if dt == lsrk.dt
-        lsrk.t += dt
-    else
-        lsrk.t = timeend
-    end
-
+    updatedt!(lsrk, newdt)
+    return lsrk.t
 end
 
 """
@@ -141,6 +144,7 @@ function dostep!(
 
     groupsize = 256
 
+    newdt = dt
     for s in 1:length(RKA)
         rhs!(dQ, Q, p, time + RKC[s] * dt, increment = true)
 
@@ -163,7 +167,16 @@ function dostep!(
             dependencies = (event,),
         )
         wait(device(Q), event)
+
+        if s == 3
+          ϵ = 10
+          κ = 0.9
+          δ = RKB[4] * norm(dQ, Inf, false) * dt
+          newdt = κ * dt * cbrt(ϵ / δ)
+        end
     end
+
+    return newdt
 end
 
 """
@@ -355,6 +368,42 @@ function LSRK144NiegemannDiehlBusch(
         RT(0.8604711817462826),
         RT(0.8627060376969976),
         RT(0.8734213127600976),
+    )
+
+    LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
+end
+
+function LSRK432CarpenterKennedy(
+    F,
+    Q::AT;
+    dt = 0,
+    t0 = 0,
+) where {AT <: AbstractArray}
+    T = eltype(Q)
+    RT = real(T)
+    c3 = RT((1 + cbrt(5 / 4)) / 3)
+    X = @evalpoly(c3, -3, 16, -24, 12)
+    Y = @evalpoly(c3, 1, -6, 6)
+
+    RKA = (
+        RT(0),
+        -@evalpoly(c3, -1, 18, -48, 36) / (9 * (2c3 - 1) ^ 3),
+        (9c3 - 9) * (2c3 - 1) ^ 3 / (3c3 - 2),
+        -1 / X,
+    )
+
+    RKB = (
+           (3c3 - 2) / (6c3 - 3),
+           3 * (2c3 - 1) ^ 2 / (6c3 - 4),
+           -(c3 - 1) / X,
+           c3 * @evalpoly(c3, 7, -18, 12) / ((6c3 - 6) * Y)
+    )
+
+    RKC = (
+        RT(0),
+        (3c3 - 2) / (6c3 - 3),
+        c3,
+        1
     )
 
     LowStorageRungeKutta2N(F, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
