@@ -13,6 +13,7 @@ struct EarthParameterSet{FT} <: AbstractParameterSet{FT} end
 
 include("Planet.jl")
 include("Atmos.jl")
+include("Microphysics.jl")
 # include("Ocean.jl")
 # include("Land.jl")
 # include("Ice.jl")

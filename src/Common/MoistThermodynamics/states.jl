@@ -116,7 +116,7 @@ function PhaseEquil(
         maxiter,
         tol,
         saturation_adjustment,
-        MTPS{FT}(),
+        param_set,
     )
 end
 
@@ -375,13 +375,15 @@ function fixed_lapse_rate_ref_state(
     T_min::FT,
     param_set::PS = MTPS{FT}(),
 ) where {FT <: AbstractFloat, PS}
-    Γ = FT(grav) / FT(cp_d)
+    Γ = grav(param_set) / cp_d(param_set)
     z_tropopause = (T_surface - T_min) / Γ
-    H_min = FT(R_d) * T_min / FT(grav)
+    H_min = R_d(param_set) * T_min / grav(param_set)
     T = max(T_surface - Γ * z, T_min)
-    p = FT(MSLP) * (T / T_surface)^(FT(grav) / (FT(R_d) * Γ))
-    T == T_min && (p = p * exp(-(z - z_tropopause) / FT(H_min)))
-    ρ = p / (FT(R_d) * T)
+    p =
+        MSLP(param_set) *
+        (T / T_surface)^(grav(param_set) / (R_d(param_set) * Γ))
+    T == T_min && (p = p * exp(-(z - z_tropopause) / H_min))
+    ρ = p / (R_d(param_set) * T)
     return T, p, ρ
 end
 
@@ -402,11 +404,11 @@ should span the input arguments to all of the constructors.
 """
 function tested_convergence_range(
     n::Int,
+    n_RS1::Int,
+    n_RS2::Int,
     ::Type{FT},
     param_set::PS = MTPS{FT}(),
 ) where {FT, PS}
-    n_RS1 = 10
-    n_RS2 = 20
     n_RS = n_RS1 + n_RS2
     z_range = range(FT(0), stop = FT(2.5e4), length = n)
     relative_sat1 = range(FT(0), stop = FT(1), length = n_RS1)

@@ -22,7 +22,7 @@ CLIMA.Parameters.Planet.molmass_water(ps::EarthParameterSet{FT}) where {FT} =
 CLIMA.Parameters.Planet.molmass_ratio(ps::EarthParameterSet{FT}) where {FT} =
     molmass_dryair(ps) / molmass_water(ps)
 CLIMA.Parameters.Planet.R_v(ps::EarthParameterSet{FT}) where {FT} =
-    gas_constant(ps) / molmass_water(ps)
+    gas_constant(FT) / molmass_water(ps)
 CLIMA.Parameters.Planet.cp_v(ps::EarthParameterSet{FT}) where {FT} = FT(1859)
 CLIMA.Parameters.Planet.cp_l(ps::EarthParameterSet{FT}) where {FT} = FT(4181)
 CLIMA.Parameters.Planet.cp_i(ps::EarthParameterSet{FT}) where {FT} = FT(2100)
