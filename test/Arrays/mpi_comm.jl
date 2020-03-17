@@ -1,5 +1,6 @@
 using Test
 using MPI
+using KernelAbstractions
 using CLIMA
 using CLIMA.MPIStateArrays
 using CLIMA.Mesh.BrickMesh
@@ -134,6 +135,23 @@ function main()
         555,
     )
 
+    B = MPIStateArray{Int64}(
+        comm,
+        ArrayType,
+        9,
+        2,
+        numelem,
+        realelems,
+        ghostelems,
+        ArrayType(vmaprecv),
+        ArrayType(vmapsend),
+        nabrtorank,
+        nabrtovmaprecv,
+        nabrtovmapsend,
+        ArrayType(weights),
+        666,
+    )
+
     Q = Array(A.data)
     Q .= -1
     shift = 100
@@ -142,14 +160,20 @@ function main()
     Q[:, 2, realelems] .=
         reshape((crank * 1000) .+ shift .+ (1:(9 * numreal)), 9, numreal)
     copyto!(A.data, Q)
+    copyto!(B.data, Q)
 
     MPIStateArrays.start_ghost_exchange!(A)
     MPIStateArrays.finish_ghost_exchange!(A)
 
+    device = typeof(B.data) <: Array ? CPU() : CUDA()
+    event = Event(device)
+    event = MPIStateArrays.ghost_exchange!(B; dependencies = nothing)
+    wait(device, event, yield)
+
     Q = Array(A.data)
     @test all(expectedghostdata .== Q[:, 1, :][:][vmaprecv])
     @test all(shift .+ expectedghostdata .== Q[:, 2, :][:][vmaprecv])
-
+    @test A.data == B.data
 end
 
 main()
