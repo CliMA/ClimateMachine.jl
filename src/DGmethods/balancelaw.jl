@@ -69,6 +69,12 @@ function boundary_state! end
 function init_aux! end
 function init_state! end
 
+### split explicit functions
+function initialize_fast_state! end
+function pass_tendency_from_slow_to_fast! end
+function cummulate_fast_solution! end
+function reconcile_from_fast_to_slow! end
+
 using ..Courant
 """
     calculate_dt(dg, model, Q, Courant_number, direction, t)
