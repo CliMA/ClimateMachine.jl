@@ -4,7 +4,7 @@ using ..MPIStateArrays
 
 using StaticArrays, LinearAlgebra
 
-using GPUifyLoops
+using KernelAbstractions
 include("LinearSolvers_kernels.jl")
 
 # just for testing LinearSolvers
@@ -44,17 +44,31 @@ abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
 Sets the relative or absolute tolerance of the iterative linear solver
 `solver` to `tolerance`.
 """
-settolerance!(solver::AbstractIterativeLinearSolver, tolerance, relative=true) =
-  (relative ? (solver.rtol = tolerance) : (solver.atol = tolerance))
+settolerance!(
+    solver::AbstractIterativeLinearSolver,
+    tolerance,
+    relative = true,
+) = (relative ? (solver.rtol = tolerance) : (solver.atol = tolerance))
 
-doiteration!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver,
-             tolerance, args...) =
-  throw(MethodError(doiteration!, (linearoperator!, Q, Qrhs, solver,
-                                   tolerance, args...)))
+doiteration!(
+    linearoperator!,
+    Q,
+    Qrhs,
+    solver::AbstractIterativeLinearSolver,
+    tolerance,
+    args...,
+) = throw(MethodError(
+    doiteration!,
+    (linearoperator!, Q, Qrhs, solver, tolerance, args...),
+))
 
-initialize!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver,
-            args...) =
-  throw(MethodError(initialize!, (linearoperator!, Q, Qrhs, solver, args...)))
+initialize!(
+    linearoperator!,
+    Q,
+    Qrhs,
+    solver::AbstractIterativeLinearSolver,
+    args...,
+) = throw(MethodError(initialize!, (linearoperator!, Q, Qrhs, solver, args...)))
 
 """
     prefactorize(linop!, linearsolver, args...)
@@ -62,7 +76,7 @@ initialize!(linearoperator!, Q, Qrhs, solver::AbstractIterativeLinearSolver,
 Prefactorize the in-place linear operator `linop!` for use with `linearsolver`.
 """
 prefactorize(linop!, linearsolver::AbstractIterativeLinearSolver, args...) =
-  linop!
+    linop!
 
 """
     linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...)
@@ -78,31 +92,39 @@ using the `solver` and the initial guess `Q`. After the call `Q` contains the
 solution.  The arguments `args` is passed to `linearoperator!` when it is
 called.
 """
-function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...;
-                      max_iters=length(Q), cvg=Ref{Bool}())
-  converged = false
-  iters = 0
+function linearsolve!(
+    linearoperator!,
+    solver::AbstractIterativeLinearSolver,
+    Q,
+    Qrhs,
+    args...;
+    max_iters = length(Q),
+    cvg = Ref{Bool}(),
+)
+    converged = false
+    iters = 0
 
-  converged, threshold = initialize!(linearoperator!, Q, Qrhs, solver, args...)
-  converged && return iters
+    converged, threshold =
+        initialize!(linearoperator!, Q, Qrhs, solver, args...)
+    converged && return iters
 
-  while !converged && iters < max_iters
-    converged, inner_iters, residual_norm =
-      doiteration!(linearoperator!, Q, Qrhs, solver, threshold, args...)
+    while !converged && iters < max_iters
+        converged, inner_iters, residual_norm =
+            doiteration!(linearoperator!, Q, Qrhs, solver, threshold, args...)
 
-    iters += inner_iters
+        iters += inner_iters
 
-    if !isfinite(residual_norm)
-      error("norm of residual is not finite after $iters iterations of `doiteration!`")
+        if !isfinite(residual_norm)
+            error("norm of residual is not finite after $iters iterations of `doiteration!`")
+        end
+
+        achieved_tolerance = residual_norm / threshold * solver.rtol
     end
 
-    achieved_tolerance = residual_norm / threshold * solver.rtol
-  end
+    converged || @warn "Solver did not attain convergence after $iters iterations"
+    cvg[] = converged
 
-  converged || @warn "Solver did not attain convergence after $iters iterations"
-  cvg[] = converged
-
-  iters
+    iters
 end
 
 end
