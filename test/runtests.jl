@@ -36,3 +36,7 @@ end
     end
 
 end
+
+if clima_test_low_intensity
+  include("slurm_only.jl")
+end
