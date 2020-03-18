@@ -5,4 +5,3 @@ status = [
 delete_merged_branches = true
 timeout_sec = 86400
 block_labels = [ "do-not-merge-yet" ]
-cut_body_after = "<!--"

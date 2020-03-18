@@ -109,7 +109,7 @@ air_pressure(
     q::PhasePartition{FT} = q_pt_0(FT),
     param_set::APS{FT} = MTPS{FT}(),
 ) where {FT <: Real} = gas_constant_air(q, param_set) * ρ * T
-air_pressure(T::FT, ρ::FT, param_set::APS{FT}) where {FT <: Real} =
+air_pressure(T::FT, ρ::FT, param_set::APS{FT} = MTPS{FT}()) where {FT <: Real} =
     air_pressure(T, ρ, q_pt_0(FT), param_set)
 
 """
@@ -248,7 +248,7 @@ function gas_constants(
     γ = cp / cv
     return (R_gas, cp, cv, γ)
 end
-gas_constants(param_set::APS{FT}) where {FT <: Real} =
+gas_constants(param_set::APS{FT} = MTPS{FT}()) where {FT <: Real} =
     gas_constants(q_pt_0(FT), param_set)
 
 """
@@ -286,7 +286,7 @@ function air_temperature(
         q.ice * (FT(e_int_v0) + FT(e_int_i0))
     ) / cv_m(q, param_set)
 end
-air_temperature(e_int::FT, param_set::APS{FT}) where {FT <: Real} =
+air_temperature(e_int::FT, param_set::APS{FT} = MTPS{FT}()) where {FT <: Real} =
     air_temperature(e_int, q_pt_0(FT), param_set)
 
 """
@@ -403,7 +403,7 @@ total_energy(
     e_kin::FT,
     e_pot::FT,
     T::FT,
-    param_set::APS{FT},
+    param_set::APS{FT} = MTPS{FT}(),
 ) where {FT <: Real} = total_energy(e_kin, e_pot, T, q_pt_0(FT), param_set)
 
 """
@@ -699,8 +699,11 @@ function q_vap_saturation(
     return q_vap_saturation_from_pressure(T, ρ, p_v_sat, param_set)
 
 end
-q_vap_saturation(T::FT, ρ::FT, param_set::APS{FT}) where {FT <: Real} =
-    q_vap_saturation(T, ρ, q_pt_0(FT), param_set)
+q_vap_saturation(
+    T::FT,
+    ρ::FT,
+    param_set::APS{FT} = MTPS{FT}(),
+) where {FT <: Real} = q_vap_saturation(T, ρ, q_pt_0(FT), param_set)
 
 """
     q_vap_saturation(ts::ThermodynamicState)
@@ -1135,7 +1138,7 @@ latent_heat_liq_ice(
     q::PhasePartition{FT} = q_pt_0(FT),
     param_set::APS{FT} = MTPS{FT}(),
 ) where {FT <: Real} = FT(LH_v0) * q.liq + FT(LH_s0) * q.ice
-latent_heat_liq_ice(param_set::APS{FT}) where {FT} =
+latent_heat_liq_ice(param_set::APS{FT} = MTPS{FT}()) where {FT} =
     latent_heat_liq_ice(q_pt_0(FT), param_set)
 
 
@@ -1332,7 +1335,7 @@ air_temperature_from_liquid_ice_pottemp_non_linear(
     ρ::FT,
     maxiter::Int,
     tol::FT,
-    param_set::APS{FT},
+    param_set::APS{FT} = MTPS{FT}(),
 ) where {FT <: Real} = air_temperature_from_liquid_ice_pottemp_non_linear(
     θ_liq_ice,
     ρ,
@@ -1364,7 +1367,7 @@ end
 air_temperature_from_liquid_ice_pottemp_given_pressure(
     θ_liq_ice::FT,
     p::FT,
-    param_set::APS{FT},
+    param_set::APS{FT} = MTPS{FT}(),
 ) where {FT <: Real} = air_temperature_from_liquid_ice_pottemp_given_pressure(
     θ_liq_ice,
     p,

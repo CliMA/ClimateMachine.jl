@@ -8,8 +8,7 @@ using StaticArrays
 using ..SpaceMethods
 using ..VariableTemplates
 using DocStringExtensions
-using KernelAbstractions
-using KernelAbstractions.Extras: @unroll
+using GPUifyLoops
 
 export BalanceLaw, DGModel, init_ode_state
 

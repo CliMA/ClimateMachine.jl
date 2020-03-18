@@ -8,6 +8,7 @@
 #
 # User-customized configurations can use these as templates.
 
+
 using ..Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
@@ -60,7 +61,9 @@ end
 DefaultSolverType = IMEXSolverType
 
 abstract type ConfigSpecificInfo end
-struct AtmosLESSpecificInfo <: ConfigSpecificInfo end
+struct AtmosLESSpecificInfo <: ConfigSpecificInfo
+    brickrange::Tuple
+end
 struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     domain_height::FT
     nelem_vert::Int
@@ -134,13 +137,13 @@ function AtmosLESConfiguration(
     name::String,
     N::Int,
     (Δx, Δy, Δz)::NTuple{3, FT},
-    xmax::FT,
-    ymax::FT,
-    zmax::FT,
+    xmax::Int,
+    ymax::Int,
+    zmax::Int,
     init_LES!;
-    xmin = zero(FT),
-    ymin = zero(FT),
-    zmin = zero(FT),
+    xmin = 0,
+    ymin = 0,
+    zmin = 0,
     array_type = CLIMA.array_type(),
     solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
     model = AtmosModel{FT}(
@@ -161,7 +164,7 @@ function AtmosLESConfiguration(
         """Establishing Atmos LES configuration for %s
         precision        = %s
         polynomial order = %d
-        domain           = %.2fx%.2fx%.2f
+        grid             = %dx%dx%d
         resolution       = %dx%dx%d
         MPI ranks        = %d""",
         name,
@@ -209,7 +212,7 @@ function AtmosLESConfiguration(
         numfluxnondiff,
         numfluxdiff,
         gradnumflux,
-        AtmosLESSpecificInfo(),
+        AtmosLESSpecificInfo(brickrange),
     )
 end
 

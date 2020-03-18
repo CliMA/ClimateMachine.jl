@@ -89,12 +89,6 @@ function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
     return config
 end
 
-function config_diagnostics(driver_config)
-    interval = 100
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.setup_diagnostics([dgngrp])
-end
-
 function main()
     CLIMA.init()
 
@@ -111,9 +105,9 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(1500)
-    ymax = FT(1500)
-    zmax = FT(1500)
+    xmax = 1500
+    ymax = 1500
+    zmax = 1500
 
     t0 = FT(0)
     dt = FT(0.01)
@@ -127,7 +121,6 @@ function main()
         ode_dt = dt,
         init_on_cpu = true,
     )
-    dgn_config = config_diagnostics(driver_config)
 
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -135,21 +128,18 @@ function main()
     solver = solver_config.solver
 
     outdir = mktempdir()
-    currtime = ODESolvers.gettime(solver)
     starttime = replace(string(now()), ":" => ".")
     Diagnostics.init(mpicomm, dg, Q, starttime, outdir)
-    dgn_config.groups[1](currtime, init = true)
-    dgn_config.groups[1](currtime)
+    Diagnostics.collect(ODESolvers.gettime(solver))
 
     CLIMA.invoke!(solver_config)
+
+    Diagnostics.collect(ODESolvers.gettime(solver_config.solver))
 
     # Check results
     mpirank = MPI.Comm_rank(mpicomm)
     if mpirank == 0
-        d = load(joinpath(
-            outdir,
-            "$(dgn_config.groups[1].out_prefix)-$(dgn_config.groups[1].name)-$(starttime).jld2",
-        ))
+        d = load(joinpath(outdir, "diagnostics-$(starttime).jld2"))
         Nqk = size(d["0.0"], 1)
         Nev = size(d["0.0"], 2)
         S = zeros(Nqk * Nev)

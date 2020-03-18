@@ -101,16 +101,12 @@ end
 
 function boundary_state!(
     nf::NumericalFluxNonDiffusive,
-    atmoslm::AtmosLinearModel,
-    args...,
+    lm::AtmosLinearModel,
+    x...,
 )
-    atmos_boundary_state!(nf, AtmosBC(), atmoslm, args...)
+    atmos_boundary_state!(nf, NoFluxBC(), lm.atmos, x...)
 end
-function boundary_state!(
-    nf::NumericalFluxDiffusive,
-    atmoslm::AtmosLinearModel,
-    args...,
-)
+function boundary_state!(nf::NumericalFluxDiffusive, lm::AtmosLinearModel, x...)
     nothing
 end
 init_aux!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) = nothing

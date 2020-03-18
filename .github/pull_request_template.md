@@ -1,13 +1,16 @@
+<!--
+Thanks for submitting code to CLIMA, the Climate Machine.
+
+Before continuing, please be sure you have:
+
+1. Written and run all necessary tests with CLIMA by including `tests/runtests.jl`
+2. Followed all necessary [style guidelines](https://climate-machine.github.io/CLIMA/latest/CodingConventions.html)
+3. Identified key contributors to review this submission
+-->
+
 # Description
 
 A clear and concise description of the code with usage.
-
-<!--- Please fill out the following section --->
-
-I have
-
-- [ ] Written and run all necessary tests with CLIMA by including `tests/runtests.jl`
-- [ ] Followed all necessary [style guidelines](https://climate-machine.github.io/CLIMA/latest/CodingConventions.html) and run `julia .dev/format.jl`
 
 <!--- Please leave the following section --->
 

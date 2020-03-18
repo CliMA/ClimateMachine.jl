@@ -22,6 +22,7 @@ using CLIMA.Atmos:
     ReferenceState,
     DryModel,
     NoRadiation,
+    PeriodicBC,
     NoPrecipitation,
     Gravity,
     HydrostaticState,
@@ -118,7 +119,7 @@ let
                     turbulence = ConstantViscosityWithDivergence(μ),
                     moisture = DryModel(),
                     source = Gravity(),
-                    boundarycondition = (),
+                    boundarycondition = PeriodicBC(),
                     init_state = initialcondition!,
                     param_set = ParameterSet{FT}(),
                 )

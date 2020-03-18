@@ -15,7 +15,7 @@ struct OceanSurfaceStressForcing     <: OceanBoundaryCondition end
 """
     CoastlineFreeSlip
 
-applies boundary condition ν∇u = 0 and κ∇θ = 0
+applies boundary condition ∇u = 0 and ∇θ = 0
 """
 
 """
@@ -45,7 +45,7 @@ end
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
+sets ghost point to have no numerical flux on the boundary for ∇u and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -60,9 +60,9 @@ sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇�
 @inline function ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.ν∇u = -D⁻.ν∇u
+  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
 
   return nothing
 end
@@ -70,7 +70,7 @@ end
 """
     CoastlineNoSlip
 
-applies boundary condition u = 0 and κ∇θ = 0
+applies boundary condition u = 0 and ∇θ = 0
 """
 
 """
@@ -125,7 +125,7 @@ end
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for u and κ∇θ
+sets ghost point to have no numerical flux on the boundary for u and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -142,7 +142,7 @@ sets ghost point to have no numerical flux on the boundary for u and κ∇θ
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   Q⁺.u = -Q⁻.u
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
 
   return nothing
 end
@@ -150,7 +150,7 @@ end
 """
     OceanFloorFreeSlip
 
-applies boundary condition ν∇u = 0 and κ∇θ = 0
+applies boundary condition ∇u = 0 and ∇θ = 0
 """
 
 """
@@ -205,7 +205,7 @@ end
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
+sets ghost point to have no numerical flux on the boundary for ∇u and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -221,9 +221,9 @@ sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇�
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
   A⁺.w = -A⁻.w
-  D⁺.ν∇u = -D⁻.ν∇u
+  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
 
   return nothing
 end
@@ -231,7 +231,7 @@ end
 """
     OceanFloorNoSlip
 
-applies boundary condition u = 0 and κ∇θ = 0
+applies boundary condition u = 0 and ∇θ = 0
 """
 
 """
@@ -288,7 +288,7 @@ end
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for u,w and κ∇θ
+sets ghost point to have no numerical flux on the boundary for u,w and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -307,7 +307,7 @@ sets ghost point to have no numerical flux on the boundary for u,w and κ∇θ
   Q⁺.u = -Q⁻.u
   A⁺.w = -A⁻.w
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
 
   return nothing
 end
@@ -333,7 +333,7 @@ end
 
 apply no flux boundary condition for velocity
 apply no flux boundary condition for temperature
-set ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
+set ghost point to have no numerical flux on the boundary for ∇u and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -349,8 +349,9 @@ set ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
                                        ::OceanSurfaceNoStressNoForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.ν∇u = -D⁻.ν∇u
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
+
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
 
   return nothing
 end
@@ -360,7 +361,7 @@ end
 
 apply wind-stress boundary condition for velocity
 apply no flux boundary condition for temperature
-set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
+set ghost poin for numerical flux on the boundary for ∇u and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -372,15 +373,14 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
 - `A⁻`: auxiliary state vector at interior point
 - `t`:  time, not used
 """
-@inline function ocean_boundary_state!(m::HBModel,
+@inline function ocean_boundary_state!(::HBModel,
                                        ::OceanSurfaceStressNoForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
-  τ = @SMatrix [ -0 -0; -0 -0; τᶻ -0]
-  D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
+  τ = @SMatrix [ -0 -0; -0 -0; A⁺.τ / 1000 -0]
+  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u + 2 * τ)
 
-  D⁺.κ∇θ = -D⁻.κ∇θ
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
 
   return nothing
 end
@@ -390,7 +390,7 @@ end
 
 apply no flux boundary condition for velocity
 apply forcing boundary condition for temperature
-set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
+set ghost point for numerical flux on the boundary for ∇u and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -406,11 +406,14 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
                                        ::OceanSurfaceNoStressForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.ν∇u = -D⁻.ν∇u
+  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
 
-  σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
-  σ = @SVector [-0, -0, σᶻ]
-  D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+  θ  = Q⁻.θ
+  θʳ = A⁺.θʳ
+  λʳ = m.problem.λʳ
+
+  σ = @SVector [-0, -0, λʳ * (θʳ - θ)]
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ + 2 * σ)
 
   return nothing
 end
@@ -420,7 +423,7 @@ end
 
 apply wind-stress boundary condition for velocity
 apply forcing boundary condition for temperature
-set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
+set ghost point for numerical flux on the boundary for ∇u and ∇θ
 
 # Arguments
 - `Q⁺`: state vector at ghost point
@@ -436,13 +439,15 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
                                        ::OceanSurfaceStressForcing,
                                        ::CentralNumericalFluxDiffusive,
                                        Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
-  τ = @SMatrix [ -0 -0; -0 -0; τᶻ -0]
-  D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
+  τ = @SMatrix [ -0 -0; -0 -0; A⁺.τ / 1000 -0]
+  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u + 2 * τ)
 
-  σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
-  σ = @SVector [-0, -0, σᶻ]
-  D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+  θ  = Q⁻.θ
+  θʳ = A⁺.θʳ
+  λʳ = m.problem.λʳ
+
+  σ = @SVector [-0, -0, λʳ * (θʳ - θ)]
+  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ + 2 * σ)
 
   return nothing
 end

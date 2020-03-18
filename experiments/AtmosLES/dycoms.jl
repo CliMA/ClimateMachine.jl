@@ -8,7 +8,6 @@ using LinearAlgebra
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
@@ -34,7 +33,9 @@ import CLIMA.DGmethods:
     reverse_integral_set_aux!
 
 import CLIMA.DGmethods: boundary_state!
-import CLIMA.Atmos: flux_diffusive!
+import CLIMA.Atmos:
+    atmos_boundary_state!, atmos_boundary_flux_diffusive!, flux_diffusive!
+import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 # -------------------- Radiation Model -------------------------- #
 vars_state(::RadiationModel, FT) = @vars()
@@ -72,6 +73,151 @@ function flux_radiation!(
     t::Real,
 ) end
 
+
+# ---------------------------- Begin Boundary Conditions ----------------- #
+"""
+  DYCOMS_BC <: BoundaryCondition
+  Prescribes boundary conditions for Dynamics of Marine Stratocumulus Case
+#Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct DYCOMS_BC{FT} <: BoundaryCondition
+    "Drag coefficient"
+    C_drag::FT
+    "Latent Heat Flux"
+    LHF::FT
+    "Sensible Heat Flux"
+    SHF::FT
+end
+
+"""
+    atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+                          bc::DYCOMS_BC, args...)
+
+For the non-diffussive and gradient terms we just use the `NoFluxBC`
+"""
+atmos_boundary_state!(
+    nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+    bc::DYCOMS_BC,
+    args...,
+) = atmos_boundary_state!(nf, NoFluxBC(), args...)
+
+"""
+    atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
+                                   bc::DYCOMS_BC, atmos::AtmosModel,
+                                   F,
+                                   state⁺, diff⁺, aux⁺, n⁻,
+                                   state⁻, diff⁻, aux⁻,
+                                   bctype, t,
+                                   state1⁻, diff1⁻, aux1⁻)
+
+When `bctype == 1` the `NoFluxBC` otherwise the specialized DYCOMS BC is used
+"""
+function atmos_boundary_flux_diffusive!(
+    nf::CentralNumericalFluxDiffusive,
+    bc::DYCOMS_BC,
+    atmos::AtmosModel,
+    F,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    n⁻,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    bctype,
+    t,
+    state1⁻,
+    diff1⁻,
+    aux1⁻,
+)
+    if bctype != 1
+        atmos_boundary_flux_diffusive!(
+            nf,
+            NoFluxBC(),
+            atmos,
+            F,
+            state⁺,
+            diff⁺,
+            hyperdiff⁺,
+            aux⁺,
+            n⁻,
+            state⁻,
+            diff⁻,
+            hyperdiff⁻,
+            aux⁻,
+            bctype,
+            t,
+            state1⁻,
+            diff1⁻,
+            aux1⁻,
+        )
+    else
+        # Start with the noflux BC and then build custom flux from there
+        atmos_boundary_state!(
+            nf,
+            NoFluxBC(),
+            atmos,
+            state⁺,
+            diff⁺,
+            aux⁺,
+            n⁻,
+            state⁻,
+            diff⁻,
+            aux⁻,
+            bctype,
+            t,
+        )
+
+        # ------------------------------------------------------------------------
+        # (<var>_FN) First node values (First interior node from bottom wall)
+        # ------------------------------------------------------------------------
+        u_FN = state1⁻.ρu / state1⁻.ρ
+        windspeed_FN = norm(u_FN)
+
+        # ----------------------------------------------------------
+        # Extract components of diffusive momentum flux (minus-side)
+        # ----------------------------------------------------------
+        _, τ⁻ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
+
+        # ----------------------------------------------------------
+        # Boundary momentum fluxes
+        # ----------------------------------------------------------
+        # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
+        # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is
+        # replaced by the appropriate flux terms
+        C_drag = bc.C_drag
+        @inbounds begin
+            τ13⁺ = -C_drag * windspeed_FN * u_FN[1]
+            τ23⁺ = -C_drag * windspeed_FN * u_FN[2]
+            τ21⁺ = τ⁻[2, 1]
+        end
+
+        # Assign diffusive momentum and moisture fluxes
+        # (i.e. ρ𝛕 terms)
+        FT = eltype(state⁺)
+        τ⁺ = SHermitianCompact{3, FT, 6}(SVector(0, τ21⁺, τ13⁺, 0, τ23⁺, 0))
+
+        # ----------------------------------------------------------
+        # Boundary moisture fluxes
+        # ----------------------------------------------------------
+        # really ∇q_tot is being used to store d_q_tot
+        d_q_tot⁺ = SVector(0, 0, bc.LHF / (LH_v0))
+
+        # ----------------------------------------------------------
+        # Boundary energy fluxes
+        # ----------------------------------------------------------
+        # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms)
+        d_h_tot⁺ = SVector(0, 0, bc.LHF + bc.SHF)
+
+        # Set the flux using the now defined plus-side data
+        flux_diffusive!(atmos, F, state⁺, τ⁺, d_h_tot⁺)
+        flux_diffusive!(atmos.moisture, F, state⁺, d_q_tot⁺)
+    end
+end
+# ------------------------ End Boundary Condition --------------------- #
 
 
 # ------------------------ Begin Radiation Model ---------------------- #
@@ -189,10 +335,9 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
 
     z = altitude(bl.orientation, aux)
 
-    # These constants are those used by Stevens et al. (2005)
-    qref = FT(9.0e-3)
+    qref = FT(8.5e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = FT(gas_constant_air(q_pt_sfc))
+    Rm_sfc = FT(gas_constant_air(q_pt_sfc, bl.param_set))
     T_sfc = FT(290.4)
     P_sfc = FT(MSLP)
 
@@ -284,6 +429,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     C_drag = FT(0.0011)
     LHF = FT(115)
     SHF = FT(15)
+    bc = DYCOMS_BC{FT}(C_drag, LHF, SHF)
     ics = init_dycoms!
 
     source = (
@@ -300,18 +446,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         moisture = EquilMoist{FT}(; maxiter = 5),
         radiation = radiation,
         source = source,
-        boundarycondition = (
-            AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    (state, aux, t, normPu) -> C_drag,
-                )),
-                energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
-                moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> LHF / LH_v0,
-                ),
-            ),
-            AtmosBC(),
-        ),
+        boundarycondition = bc,
         init_state = ics,
         param_set = ParameterSet{FT}(),
     )
@@ -333,12 +468,6 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     return config
 end
 
-function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.setup_diagnostics([dgngrp])
-end
-
 function main()
     CLIMA.init()
 
@@ -352,17 +481,16 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(1000)
-    ymax = FT(1000)
-    zmax = FT(2500)
+    xmax = 1000
+    ymax = 1000
+    zmax = 2500
 
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(500)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config =
-        CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu = true)
-    dgn_config = config_diagnostics(driver_config)
+        CLIMA.setup_solver(t0, timeend, driver_config; init_on_cpu = true)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
@@ -371,7 +499,6 @@ function main()
 
     result = CLIMA.invoke!(
         solver_config;
-        diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
