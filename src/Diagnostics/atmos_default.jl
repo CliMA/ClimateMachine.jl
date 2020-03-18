@@ -253,7 +253,7 @@ function compute_diagnosticsums!(
     ds.wskew += MH * (w - w̃)^3
 
     # turbulent kinetic energy
-    ds.TKE += MH * 0.5 * (ds.uvariance + ds.vvariance + ds.wvariance)
+    ds.TKE = 0.5 * (ds.uvariance + ds.vvariance + ds.wvariance)
 
     return nothing
 end
