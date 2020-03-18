@@ -157,6 +157,14 @@ function atmos_source!(
 end
 
 struct CloudSource <: Source end
-function atmos_source!(s::CloudSource, m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
-  source.moisture.ρq_liq += state.ρ * aux.moisture.src_qliq
+function atmos_source!(
+    s::CloudSource,
+    m::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    source.moisture.ρq_liq += state.ρ * aux.moisture.src_qliq
 end
