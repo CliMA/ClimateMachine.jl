@@ -156,6 +156,10 @@ function atmos_source!(
     end
 end
 
+"""
+Source term for cloud formation
+"""
+
 struct CloudSource <: Source end
 function atmos_source!(
     s::CloudSource,

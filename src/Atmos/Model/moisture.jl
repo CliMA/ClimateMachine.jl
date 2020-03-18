@@ -244,6 +244,11 @@ end
   NonEquilMoist
 
   Assumes that there isn't any thermodynamic equilibrium
+  
+  Adds addtional moisture variable for cloud water ρq_liq and cloud ice ρq_ice::FT that are transported in the same way as ρq_tot
+
+  The equilibrium phase partition is calculated and used as a reference to compute the source term for the cloud phase.
+
 """
 
 struct NonEquilMoist <: MoistureModel end
@@ -309,10 +314,6 @@ function gradvariables!(
     ρinv = 1 / state.ρ
     transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
     phase = thermo_state(moist, atmos.orientation, state, aux)
-    R_m = gas_constant_air(phase)
-    T = air_temperature(phase)
-    e_tot = state.ρe * ρinv
-    transform.moisture.h_tot = e_tot + R_m * T
     transform.moisture.q_liq = state.moisture.ρq_liq * ρinv
     transform.moisture.q_ice = state.moisture.ρq_ice * ρinv
 end
@@ -340,13 +341,9 @@ function flux_moisture!(
 )
     ρ = state.ρ
     u = state.ρu / ρ
-    #z = altitude(atmos.orientation, aux)
-    #usub = subsidence_velocity(atmos.subsidence, z)
-    #ẑ = vertical_unit_vector(atmos.orientation, aux)
-    u_tot = u #.- usub * ẑ
-    flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
-    flux.moisture.ρq_liq += u_tot * state.moisture.ρq_liq
-    flux.moisture.ρq_ice += u_tot * state.moisture.ρq_ice
+    flux.moisture.ρq_tot += u * state.moisture.ρq_tot
+    flux.moisture.ρq_liq += u * state.moisture.ρq_liq
+    flux.moisture.ρq_ice += u * state.moisture.ρq_ice
 end
 
 function flux_diffusive!(
