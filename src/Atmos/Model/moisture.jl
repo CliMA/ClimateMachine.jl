@@ -340,7 +340,6 @@ function flux_moisture!(
 )
     ρ = state.ρ
     u = state.ρu / ρ
-    #z = altitude(atmos.orientation, aux)
     #usub = subsidence_velocity(atmos.subsidence, z)
     #ẑ = vertical_unit_vector(atmos.orientation, aux)
     u_tot = u #.- usub * ẑ
