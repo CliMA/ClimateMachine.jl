@@ -82,34 +82,10 @@ end
 
 function dostep!(
     Q,
-    mrrk::MultirateRungeKutta,
-    param,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = mrrk.t, mrrk.dt
-    @assert dt > 0
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-        @assert dt > 0
-    end
-
-    dostep!(Q, mrrk, param, time, dt)
-
-    if dt == mrrk.dt
-        mrrk.t += dt
-    else
-        mrrk.t = timeend
-    end
-    return mrrk.t
-end
-
-function dostep!(
-    Q,
     mrrk::MultirateRungeKutta{SS},
     param,
-    time::Real,
-    dt::AbstractFloat,
+    time,
+    dt,
     in_slow_δ = nothing,
     in_slow_rv_dQ = nothing,
     in_slow_scaling = nothing,

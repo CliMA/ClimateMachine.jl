@@ -95,37 +95,6 @@ updatetime!(lsrk::StrongStabilityPreservingRungeKutta, time) = (lsrk.t = time)
 
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
-                       timeend::Real, adjustfinalstep::Bool)
-
-Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
-forward in time from the current time, to the time `timeend`. If
-`adjustfinalstep == true` then `dt` is adjusted so that the step does not take
-the solution beyond the `timeend`.
-"""
-function dostep!(
-    Q,
-    ssp::StrongStabilityPreservingRungeKutta,
-    p,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = ssp.t, ssp.dt
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-    end
-    @assert dt > 0
-
-    dostep!(Q, ssp, p, time, dt)
-
-    if dt == ssp.dt
-        ssp.t += dt
-    else
-        ssp.t = timeend
-    end
-end
-
-"""
-    ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                        time::Real, dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
 
 Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
@@ -140,8 +109,8 @@ function dostep!(
     Q,
     ssp::StrongStabilityPreservingRungeKutta,
     p,
-    time::Real,
-    dt::Real,
+    time,
+    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     in_slow_scaling = nothing,

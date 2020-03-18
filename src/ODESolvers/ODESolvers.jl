@@ -33,7 +33,35 @@ Returns the current simulation time step of the ODE solver `solver`
 """
 getdt(solver::AbstractODESolver) = solver.dt
 
-function dostep! end
+"""
+    ODESolvers.dostep!(Q, solver::AbstractODESolver, p,
+                       timeend::Real, adjustfinalstep::Bool)
+
+Use the solver to step `Q` forward in time from the current time, to the time
+`timeend`. If `adjustfinalstep == true` then `dt` is adjusted so that the step
+does not take the solution beyond the `timeend`.
+"""
+function dostep!(
+    Q,
+    solver::AbstractODESolver,
+    p,
+    timeend::Real;
+    adjustfinalstep::Bool,
+)
+    time, dt = solver.t, solver.dt
+    if adjustfinalstep && time + dt > timeend
+        dt = timeend - time
+    end
+    @assert dt > 0
+
+    dostep!(Q, solver, p, time, dt)
+
+    if dt == solver.dt
+        solver.t += dt
+    else
+        solver.t = timeend
+    end
+end
 
 """
     updatedt!(solver::AbstractODESolver, dt)
@@ -93,7 +121,7 @@ function solve!(
     while time < timeend
         step += 1
 
-        time = dostep!(Q, solver, p, timeend, adjustfinalstep)
+        time = dostep!(Q, solver, p, timeend; adjustfinalstep = adjustfinalstep)
 
         # FIXME: Determine better way to handle postcallback behavior
         # Current behavior:

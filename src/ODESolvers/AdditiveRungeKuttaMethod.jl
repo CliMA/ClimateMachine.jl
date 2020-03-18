@@ -236,31 +236,8 @@ function dostep!(
     Q,
     ark::AdditiveRungeKutta,
     p,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = ark.t, ark.dt
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-    end
-    @assert dt > 0
-
-    dostep!(Q, ark, p, time, dt)
-
-    if dt == ark.dt
-        ark.t += dt
-    else
-        ark.t = timeend
-    end
-
-end
-
-function dostep!(
-    Q,
-    ark::AdditiveRungeKutta,
-    p,
-    time::Real,
-    dt::Real,
+    time,
+    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,

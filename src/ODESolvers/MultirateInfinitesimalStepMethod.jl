@@ -150,40 +150,7 @@ mutable struct MultirateInfinitesimalStep{
     end
 end
 
-
-# TODO almost identical functions seem to be defined for every ode solver,
-# define a common one in ODEsolvers ?
-function dostep!(
-    Q,
-    mis::MultirateInfinitesimalStep,
-    param,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = mis.t, mis.dt
-    @assert dt > 0
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-        @assert dt > 0
-    end
-
-    dostep!(Q, mis, param, time, dt)
-
-    if dt == mis.dt
-        mis.t += dt
-    else
-        mis.t = timeend
-    end
-    return mis.t
-end
-
-function dostep!(
-    Q,
-    mis::MultirateInfinitesimalStep,
-    p,
-    time::Real,
-    dt::AbstractFloat,
-)
+function dostep!(Q, mis::MultirateInfinitesimalStep, p, time, dt)
     FT = eltype(dt)
     α = mis.α
     β = mis.β
