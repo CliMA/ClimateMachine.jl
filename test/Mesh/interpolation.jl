@@ -6,6 +6,7 @@ using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
 using CLIMA.Mesh.Interpolation
+using CLIMA.Writers
 using StaticArrays
 using GPUifyLoops
 
@@ -163,19 +164,30 @@ function run_brick_interpolation_test()
         xbnd[1, 3] = FT(zmin)
         xbnd[2, 3] = FT(zmax)
         #----------------------------------------------------------
-        x1g = collect(range(xbnd[1, 1], xbnd[2, 1], step = xres[1]))
-        x2g = collect(range(xbnd[1, 2], xbnd[2, 2], step = xres[2]))
-        x3g = collect(range(xbnd[1, 3], xbnd[2, 3], step = xres[3]))
+        x1g = collect(range(xbnd[1, 1], xbnd[2, 1], step = xres[1])); nx1 = length(x1g)
+        x2g = collect(range(xbnd[1, 2], xbnd[2, 2], step = xres[2])); nx2 = length(x2g)
+        x3g = collect(range(xbnd[1, 3], xbnd[2, 3], step = xres[3])); nx3 = length(x3g)
 
         filename = "test.nc"
         varnames = ("ρ", "ρu", "ρv", "ρw", "e", "other")
 
-        intrp_brck = InterpolationBrick(grid, xbnd, x1g, x2g, x3g)             # sets up the interpolation structure
-        iv = DA(Array{FT}(undef, intrp_brck.Npl, nvars))                       # allocating space for the interpolation variable
-        interpolate_local!(intrp_brck, Q.data, iv)                             # interpolation
-        svi = write_interpolated_data(intrp_brck, iv, varnames, filename)      # write interpolation data to file
+        intrp_brck = InterpolationBrick(grid, xbnd, x1g, x2g, x3g)        # sets up the interpolation structure
+        iv = DA(Array{FT}(undef, intrp_brck.Npl, nvars))                  # allocating space for the interpolation variable
+        if pid == 0
+            fiv = DA(Array{FT}(undef, nx1, nx2, nx3, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0 
+        else
+            fiv = DA(Array{FT}(undef, 0, 0, 0, 0)) 
+        end        
+        interpolate_local!(intrp_brck, Q.data, iv)                    # interpolation
+        accumulate_interpolated_data!(intrp_brck, iv, fiv)      # write interpolation data to file
+        write_data(filename, ("x1", "x2", "x3"), (length(intrp_brck.x1g), 
+                                                  length(intrp_brck.x2g), 
+                                                  length(intrp_brck.x3g)),
+           (Array(intrp_brck.x1g),
+            Array(intrp_brck.x2g),
+            Array(intrp_brck.x3g)),
+            varnames, Array(fiv))
         #------------------------------
-
         err_inf_dom = zeros(FT, nvars)
 
         x1g = intrp_brck.x1g
@@ -190,6 +202,8 @@ function run_brick_interpolation_test()
             x2 = similar(x1)
             x3 = similar(x1)
 
+            fiv_cpu = Array(fiv)
+
             for k in 1:nx3, j in 1:nx2, i in 1:nx1
                 x1[i, j, k] = x1g[i]
                 x2[i, j, k] = x2g[j]
@@ -199,7 +213,7 @@ function run_brick_interpolation_test()
 
             for vari in 1:nvars
                 err_inf_dom[vari] =
-                    maximum(abs.(svi[:, :, :, vari] .- fex[:, :, :]))
+                    maximum(abs.(fiv_cpu[:, :, :, vari] .- fex[:, :, :]))
             end
         end
 
@@ -217,7 +231,6 @@ function run_brick_interpolation_test()
             end
             MPI.Barrier(mpicomm)
         end
-
         @test maximum(err_inf_dom) < toler
     end
     return nothing
@@ -317,9 +330,11 @@ function run_cubed_sphere_interpolation_test()
         rad_min, rad_max = vert_range[1], vert_range[end] # radius range
 
 
-        lat_grd = collect(range(lat_min, lat_max, step = lat_res))
-        long_grd = collect(range(long_min, long_max, step = long_res))
-        rad_grd = collect(range(rad_min, rad_max, step = rad_res))
+        lat_grd = collect(range(lat_min, lat_max, step = lat_res)); n_lat = length(lat_grd);
+        long_grd = collect(range(long_min, long_max, step = long_res)); n_long = length(long_grd);
+        rad_grd = collect(range(rad_min, rad_max, step = rad_res)); n_rad = length(rad_grd);
+
+        _ρu, _ρv, _ρw = 2, 3, 4
 
         filename = "test.nc"
         varnames = ("ρ", "ρu", "ρv", "ρw", "e")
@@ -333,9 +348,21 @@ function run_cubed_sphere_interpolation_test()
             long_grd,
             rad_grd,
         ) # sets up the interpolation structure
-        iv = DA(Array{FT}(undef, intrp_cs.Npl, nvars))                  # allocatind space for the interpolation variable
-        interpolate_local!(intrp_cs, Q.data, iv, project = projectv)           # interpolation
-        svi = write_interpolated_data(intrp_cs, iv, varnames, filename) # write interpolated data to file
+        iv = DA(Array{FT}(undef, intrp_cs.Npl, nvars))             # allocating space for the interpolation variable
+        if pid == 0
+            fiv = DA(Array{FT}(undef, n_rad, n_lat, n_long, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0 
+        else
+            fiv = DA(Array{FT}(undef, 0, 0, 0, 0)) 
+        end
+
+        interpolate_local!(intrp_cs, Q.data, iv)                   # interpolation
+        project_cubed_sphere!(intrp_cs, iv, (_ρu,_ρv,_ρw))         # project velocity onto unit vectors along rad, lat & long
+        accumulate_interpolated_data!(intrp_cs, iv, fiv)           # accumulate interpolated data on to proc# 0
+        write_data(filename, ("rad", "lat", "long"), (intrp_cs.n_rad, intrp_cs.n_lat, intrp_cs.n_long),
+                   (Array(intrp_cs.rad_grd),
+                    Array(intrp_cs.lat_grd),
+                    Array(intrp_cs.long_grd)),
+                   varnames, Array(fiv))
         #----------------------------------------------------------
         # Testing
         err_inf_dom = zeros(FT, nvars)
@@ -343,7 +370,7 @@ function run_cubed_sphere_interpolation_test()
         rad = Array(intrp_cs.rad_grd)
         lat = Array(intrp_cs.lat_grd)
         long = Array(intrp_cs.long_grd)
-
+        fiv_cpu = Array(fiv)
         if pid == 0
             nrad = length(rad)
             nlat = length(lat)
@@ -374,8 +401,8 @@ function run_cubed_sphere_interpolation_test()
 
                     fex[i, j, k, _ρv] =
                         -fex[i, j, k, _ρ] * sind(lat[j]) * cosd(long[k])
-                    -fex[i, j, k, _ρ] * sind(lat[j]) * sind(long[k]) +
-                    fex[i, j, k, _ρ] * cosd(lat[j])
+                        -fex[i, j, k, _ρ] * sind(lat[j]) * sind(long[k]) +
+                         fex[i, j, k, _ρ] * cosd(lat[j])
 
                     fex[i, j, k, _ρw] =
                         -fex[i, j, k, _ρ] * cosd(lat[j]) * sind(long[k]) +
@@ -385,7 +412,7 @@ function run_cubed_sphere_interpolation_test()
 
             for vari in 1:nvars
                 err_inf_dom[vari] =
-                    maximum(abs.(svi[:, :, :, vari] .- fex[:, :, :, vari]))
+                    maximum(abs.(fiv_cpu[:, :, :, vari] .- fex[:, :, :, vari]))
             end
         end
 
