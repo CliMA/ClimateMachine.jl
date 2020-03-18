@@ -275,7 +275,7 @@ function gradvariables!(
     transform.u = ρinv * state.ρu
     transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
 
-    gradvariables!(atmos.moisture, transform, state, aux, t)
+    gradvariables!(atmos.moisture, atmos, transform, state, aux, t)
     gradvariables!(atmos.turbulence, transform, state, aux, t)
 end
 

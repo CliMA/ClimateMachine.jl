@@ -155,3 +155,8 @@ function atmos_source!(
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
 end
+
+struct CloudSource <: Source end
+function atmos_source!(s::CloudSource, m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+  source.moisture.ρq_liq += state.ρ * aux.moisture.src_qliq
+end
