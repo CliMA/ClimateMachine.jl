@@ -1,7 +1,10 @@
 module HydrostaticBoussinesq
 
-export HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem, OceanDGModel,
-       LinearHBModel, calculate_dt
+export HydrostaticBoussinesqModel,
+    AbstractHydrostaticBoussinesqProblem,
+    OceanDGModel,
+    LinearHBModel,
+    calculate_dt
 
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal, norm
@@ -10,31 +13,57 @@ using ..MPIStateArrays
 using ..DGmethods: init_ode_state
 using ..PlanetParameters: grav
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
-using ..Mesh.Grids: polynomialorder, VerticalDirection, HorizontalDirection, EveryDirection, min_node_distance
+using ..Mesh.Grids:
+    polynomialorder,
+    VerticalDirection,
+    HorizontalDirection,
+    EveryDirection,
+    min_node_distance
 using ..DGmethods: courant
 
-using ..DGmethods.NumericalFluxes: Rusanov, CentralNumericalFluxGradient,
-                                   CentralNumericalFluxDiffusive,
-                                   CentralNumericalFluxNonDiffusive
+using ..DGmethods.NumericalFluxes:
+    Rusanov,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxDiffusive,
+    CentralNumericalFluxNonDiffusive
 
-import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant, viscous_courant
+import ..Courant:
+    advective_courant, nondiffusive_courant, diffusive_courant, viscous_courant
 
-import ..DGmethods.NumericalFluxes: update_penalty!, numerical_flux_diffusive!,
-                                    NumericalFluxNonDiffusive
+import ..DGmethods.NumericalFluxes:
+    update_penalty!, numerical_flux_diffusive!, NumericalFluxNonDiffusive
 
-import ..DGmethods: BalanceLaw, vars_aux, vars_state, vars_gradient,
-                    vars_diffusive, flux_nondiffusive!,
-                    flux_diffusive!, source!, wavespeed,
-                    boundary_state!, update_aux!, update_aux_diffusive!,
-                    gradvariables!, init_aux!, init_state!,
-                    LocalGeometry, DGModel, nodal_update_aux!, diffusive!,
-                    copy_stack_field_down!, create_state, calculate_dt,
-                    vars_integrals, vars_reverse_integrals,
-                    indefinite_stack_integral!,
-                    reverse_indefinite_stack_integral!,
-                    integral_load_aux!, integral_set_aux!,
-                    reverse_integral_load_aux!,
-                    reverse_integral_set_aux!
+import ..DGmethods:
+    BalanceLaw,
+    vars_aux,
+    vars_state,
+    vars_gradient,
+    vars_diffusive,
+    flux_nondiffusive!,
+    flux_diffusive!,
+    source!,
+    wavespeed,
+    boundary_state!,
+    update_aux!,
+    update_aux_diffusive!,
+    gradvariables!,
+    init_aux!,
+    init_state!,
+    LocalGeometry,
+    DGModel,
+    nodal_update_aux!,
+    diffusive!,
+    copy_stack_field_down!,
+    create_state,
+    calculate_dt,
+    vars_integrals,
+    vars_reverse_integrals,
+    indefinite_stack_integral!,
+    reverse_indefinite_stack_integral!,
+    integral_load_aux!,
+    integral_set_aux!,
+    reverse_integral_load_aux!,
+    reverse_integral_set_aux!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -53,26 +82,27 @@ write out the equations here
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{P,T} <: BalanceLaw
-  problem::P
-  cʰ::T
-  cᶻ::T
-  αᵀ::T
-  νʰ::T
-  νᶻ::T
-  κʰ::T
-  κᶻ::T
-  function HydrostaticBoussinesqModel{FT}(problem;
-                                      cʰ = FT(0),     # m/s
-                                      cᶻ = FT(0),     # m/s
-                                      αᵀ = FT(2e-4),  # (m/s)^2 / K
-                                      νʰ = FT(5e3),   # m^2 / s
-                                      νᶻ = FT(5e-3),  # m^2 / s
-                                      κʰ = FT(1e3),   # m^2 / s
-                                      κᶻ = FT(1e-4),  # m^2 / s
-                                      ) where {FT <: AbstractFloat}
-    return new{typeof(problem),FT}(problem, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
-  end
+struct HydrostaticBoussinesqModel{P, T} <: BalanceLaw
+    problem::P
+    cʰ::T
+    cᶻ::T
+    αᵀ::T
+    νʰ::T
+    νᶻ::T
+    κʰ::T
+    κᶻ::T
+    function HydrostaticBoussinesqModel{FT}(
+        problem;
+        cʰ = FT(0),     # m/s
+        cᶻ = FT(0),     # m/s
+        αᵀ = FT(2e-4),  # (m/s)^2 / K
+        νʰ = FT(5e3),   # m^2 / s
+        νᶻ = FT(5e-3),  # m^2 / s
+        κʰ = FT(1e3),   # m^2 / s
+        κᶻ = FT(1e-4),  # m^2 / s
+    ) where {FT <: AbstractFloat}
+        return new{typeof(problem), FT}(problem, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+    end
 end
 HBModel = HydrostaticBoussinesqModel
 
@@ -84,17 +114,21 @@ takes minimum of advective, gravity wave, diffusive, and viscous CFL
 
 """
 function calculate_dt(dg, model::HBModel, Q, Courant_number, ::EveryDirection)
-  Δt = one(eltype(Q))
+    Δt = one(eltype(Q))
 
-  CFL_advective = courant(advective_courant, dg, model, Q, Δt, VerticalDirection())
-  CFL_gravity = courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection())
-  CFL_viscous = courant(viscous_courant, dg, model, Q, Δt, VerticalDirection())
-  CFL_diffusive = courant(diffusive_courant, dg, model, Q, Δt, VerticalDirection())
+    CFL_advective =
+        courant(advective_courant, dg, model, Q, Δt, VerticalDirection())
+    CFL_gravity =
+        courant(nondiffusive_courant, dg, model, Q, Δt, HorizontalDirection())
+    CFL_viscous =
+        courant(viscous_courant, dg, model, Q, Δt, VerticalDirection())
+    CFL_diffusive =
+        courant(diffusive_courant, dg, model, Q, Δt, VerticalDirection())
 
-  CFL = maximum([CFL_advective, CFL_gravity, CFL_viscous, CFL_diffusive])
-  dt = Courant_number / CFL
+    CFL = maximum([CFL_advective, CFL_gravity, CFL_viscous, CFL_diffusive])
+    dt = Courant_number / CFL
 
-  return dt
+    return dt
 end
 
 """
@@ -103,18 +137,25 @@ end
 calculates the CFL condition due to advection
 
 """
-function advective_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                           direction=VerticalDirection())
-  if direction isa VerticalDirection
-    ū = norm(A.w)
-  elseif direction isa HorizontalDirection
-    ū = norm(Q.u)
-  else
-    v = @SVector [Q.u[1], Q.u[2], A.w]
-    ū = norm(v)
-  end
+function advective_courant(
+    m::HBModel,
+    Q::Vars,
+    A::Vars,
+    D::Vars,
+    Δx,
+    Δt,
+    direction = VerticalDirection(),
+)
+    if direction isa VerticalDirection
+        ū = norm(A.w)
+    elseif direction isa HorizontalDirection
+        ū = norm(Q.u)
+    else
+        v = @SVector [Q.u[1], Q.u[2], A.w]
+        ū = norm(v)
+    end
 
-  return Δt * ū / Δx
+    return Δt * ū / Δx
 end
 
 """
@@ -123,9 +164,16 @@ end
 calculates the CFL condition due to gravity waves
 
 """
-function nondiffusive_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                              direction=HorizontalDirection())
-  return Δt * m.cʰ / Δx
+function nondiffusive_courant(
+    m::HBModel,
+    Q::Vars,
+    A::Vars,
+    D::Vars,
+    Δx,
+    Δt,
+    direction = HorizontalDirection(),
+)
+    return Δt * m.cʰ / Δx
 end
 """
     viscous_courant(::HBModel)
@@ -133,18 +181,25 @@ end
 calculates the CFL condition due to viscosity
 
 """
-function viscous_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                         direction=VerticalDirection())
-  if direction isa VerticalDirection
-    ν̄ = A.ν[3]
-  elseif direction isa HorizontalDirection
-    ν = @SVector [A.ν[1], A.ν[2]]
-    ν̄ = norm(ν)
-  else
-    ν̄ = norm(A.ν)
-  end
+function viscous_courant(
+    m::HBModel,
+    Q::Vars,
+    A::Vars,
+    D::Vars,
+    Δx,
+    Δt,
+    direction = VerticalDirection(),
+)
+    if direction isa VerticalDirection
+        ν̄ = A.ν[3]
+    elseif direction isa HorizontalDirection
+        ν = @SVector [A.ν[1], A.ν[2]]
+        ν̄ = norm(ν)
+    else
+        ν̄ = norm(A.ν)
+    end
 
-  return Δt * ν̄ / Δx^2
+    return Δt * ν̄ / Δx^2
 end
 
 """
@@ -154,18 +209,25 @@ calculates the CFL condition due to temperature diffusivity
 factor of 1000 is for convective adjustment
 
 """
-function diffusive_courant(m::HBModel, Q::Vars, A::Vars, D::Vars, Δx, Δt,
-                           direction=VerticalDirection())
-  if direction isa VerticalDirection
-    κ̄ = 1000 * A.κ[3]
-  elseif direction isa HorizontalDirection
-    κ = @SVector [A.κ[1], A.κ[2]]
-    κ̄ = norm(κ)
-  else
-    κ̄ = norm(A.κ)
-  end
+function diffusive_courant(
+    m::HBModel,
+    Q::Vars,
+    A::Vars,
+    D::Vars,
+    Δx,
+    Δt,
+    direction = VerticalDirection(),
+)
+    if direction isa VerticalDirection
+        κ̄ = 1000 * A.κ[3]
+    elseif direction isa HorizontalDirection
+        κ = @SVector [A.κ[1], A.κ[2]]
+        κ̄ = norm(κ)
+    else
+        κ̄ = norm(A.κ)
+    end
 
-  return Δt * κ̄ / Δx^2
+    return Δt * κ̄ / Δx^2
 end
 
 """
@@ -174,15 +236,28 @@ end
 helper function to add required filtering
 not used in the Driver+Config setup
 """
-function OceanDGModel(bl::HBModel, grid, numfluxnondiff, numfluxdiff,
-                      gradnumflux; kwargs...)
-  vert_filter = CutoffFilter(grid, polynomialorder(grid)-1)
-  exp_filter  = ExponentialFilter(grid, 1, 8)
+function OceanDGModel(
+    bl::HBModel,
+    grid,
+    numfluxnondiff,
+    numfluxdiff,
+    gradnumflux;
+    kwargs...,
+)
+    vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1)
+    exp_filter = ExponentialFilter(grid, 1, 8)
 
-  modeldata = (vert_filter = vert_filter, exp_filter=exp_filter)
+    modeldata = (vert_filter = vert_filter, exp_filter = exp_filter)
 
-  return DGModel(bl, grid, numfluxnondiff, numfluxdiff, gradnumflux;
-                 kwargs..., modeldata=modeldata)
+    return DGModel(
+        bl,
+        grid,
+        numfluxnondiff,
+        numfluxdiff,
+        gradnumflux;
+        kwargs...,
+        modeldata = modeldata,
+    )
 end
 
 """
@@ -196,11 +271,11 @@ u = (u,v) = (zonal velocity, meridional velocity)
 """
 # If this order is changed check the filter usage!
 function vars_state(m::HBModel, T)
-  @vars begin
-    u::SVector{2, T}
-    η::T # real a 2-D variable TODO: should be 2D
-    θ::T
-  end
+    @vars begin
+        u::SVector{2, T}
+        η::T # real a 2-D variable TODO: should be 2D
+        θ::T
+    end
 end
 
 """
@@ -211,7 +286,7 @@ dispatches to ocean_init_state! which is defined in a problem file such as Simpl
 """
 function ocean_init_state! end
 function init_state!(m::HBModel, Q::Vars, A::Vars, coords, t)
-  return ocean_init_state!(m.problem, Q, A, coords, t)
+    return ocean_init_state!(m.problem, Q, A, coords, t)
 end
 
 """
@@ -235,16 +310,16 @@ f = coriolis force
 """
 # If this order is changed check update_aux!
 function vars_aux(m::HBModel, T)
-  @vars begin
-    w::T
-    pkin::T         # ∫(-αᵀ θ)
-    wz0::T          # w at z=0
-    θʳ::T           # SST given    # TODO: Should be 2D
-    f::T            # coriolis
-    τ::T            # wind stress  # TODO: Should be 2D
-    ν::SVector{3, T}
-    κ::SVector{3, T}
-  end
+    @vars begin
+        w::T
+        pkin::T         # ∫(-αᵀ θ)
+        wz0::T          # w at z=0
+        θʳ::T           # SST given    # TODO: Should be 2D
+        f::T            # coriolis
+        τ::T            # wind stress  # TODO: Should be 2D
+        ν::SVector{3, T}
+        κ::SVector{3, T}
+    end
 end
 
 """
@@ -255,7 +330,7 @@ dispatches to ocean_init_aux! which is defined in a problem file such as SimpleB
 """
 function ocean_init_aux! end
 function init_aux!(m::HBModel, A::Vars, geom::LocalGeometry)
-  return ocean_init_aux!(m, m.problem, A, geom)
+    return ocean_init_aux!(m, m.problem, A, geom)
 end
 
 """
@@ -265,10 +340,10 @@ variables that you want to take a gradient of
 these are just copies in our model
 """
 function vars_gradient(m::HBModel, T)
-  @vars begin
-    u::SVector{2, T}
-    θ::T
-  end
+    @vars begin
+        u::SVector{2, T}
+        θ::T
+    end
 end
 
 """
@@ -285,10 +360,10 @@ this computation is done pointwise at each nodal point
 - `t`: time, not used
 """
 @inline function gradvariables!(m::HBModel, G::Vars, Q::Vars, A, t)
-  G.u = Q.u
-  G.θ = Q.θ
+    G.u = Q.u
+    G.θ = Q.θ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -298,10 +373,10 @@ the output of the gradient computations
 once again just copies, we don't do any transforms or reductions
 """
 function vars_diffusive(m::HBModel, T)
-  @vars begin
-    ∇u::SMatrix{3, 2, T, 6}
-    ∇θ::SVector{3, T}
-  end
+    @vars begin
+        ∇u::SMatrix{3, 2, T, 6}
+        ∇θ::SVector{3, T}
+    end
 end
 
 """
@@ -318,12 +393,11 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function diffusive!(m::HBModel, D::Vars, G::Grad, Q::Vars,
-                            A::Vars, t)
-  D.∇u = G.u
-  D.∇θ = G.θ
+@inline function diffusive!(m::HBModel, D::Vars, G::Grad, Q::Vars, A::Vars, t)
+    D.∇u = G.u
+    D.∇θ = G.θ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -333,9 +407,9 @@ location to store integrands for bottom up integrals
 ∇hu = the horizontal divegence of u, e.g. dw/dz
 """
 function vars_integrals(m::HBModel, T)
-  @vars begin
-    ∇hu::T
-  end
+    @vars begin
+        ∇hu::T
+    end
 end
 
 """
@@ -351,9 +425,9 @@ Q -> array of state variables
 A -> array of aux variables
 """
 @inline function integral_load_aux!(m::HBModel, I::Vars, Q::Vars, A::Vars)
-  I.∇hu = A.w # borrow the w value from A...
+    I.∇hu = A.w # borrow the w value from A...
 
-  return nothing
+    return nothing
 end
 
 """
@@ -368,9 +442,9 @@ A -> array of aux variables
 I -> array of integrand variables
 """
 @inline function integral_set_aux!(m::HBModel, A::Vars, I::Vars)
-  A.w = I.∇hu
+    A.w = I.∇hu
 
-  return nothing
+    return nothing
 end
 
 """
@@ -380,9 +454,9 @@ location to store integrands for top down integrals
 αᵀθ = density perturbation
 """
 function vars_reverse_integrals(m::HBModel, T)
-  @vars begin
-    αᵀθ::T
-  end
+    @vars begin
+        αᵀθ::T
+    end
 end
 
 """
@@ -396,10 +470,15 @@ m -> model in this case HBModel
 I -> array of integrand variables
 A -> array of aux variables
 """
-@inline function reverse_integral_load_aux!(m::HBModel, I::Vars, Q::Vars, A::Vars)
-  I.αᵀθ = A.pkin
+@inline function reverse_integral_load_aux!(
+    m::HBModel,
+    I::Vars,
+    Q::Vars,
+    A::Vars,
+)
+    I.αᵀθ = A.pkin
 
-  return nothing
+    return nothing
 end
 
 """
@@ -414,9 +493,9 @@ A -> array of aux variables
 I -> array of integrand variables
 """
 @inline function reverse_integral_set_aux!(m::HBModel, A::Vars, I::Vars)
-  A.pkin = I.αᵀθ
+    A.pkin = I.αᵀθ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -436,34 +515,41 @@ t -> time, not used
 ∂ᵗu = ∇∘(g*η + g∫αᵀθdz + v∘u)
 ∂ᵗθ = ∇∘(vθ) where v = (u,v,w)
 """
-@inline function flux_nondiffusive!(m::HBModel, F::Grad, Q::Vars,
-                                    A::Vars, t::Real)
-  @inbounds begin
-    u = Q.u # Horizontal components of velocity
-    η = Q.η
-    θ = Q.θ
-    w = A.w   # vertical velocity
-    pkin = A.pkin
+@inline function flux_nondiffusive!(
+    m::HBModel,
+    F::Grad,
+    Q::Vars,
+    A::Vars,
+    t::Real,
+)
+    @inbounds begin
+        u = Q.u # Horizontal components of velocity
+        η = Q.η
+        θ = Q.θ
+        w = A.w   # vertical velocity
+        pkin = A.pkin
 
-    v = @SVector [u[1], u[2], w]
-    Ih = @SMatrix [ 1 -0;
-                   -0  1;
-                   -0 -0]
+        v = @SVector [u[1], u[2], w]
+        Ih = @SMatrix [
+            1 -0
+            -0 1
+            -0 -0
+        ]
 
-    # ∇h • (g η)
-    F.u += grav * η * Ih
+        # ∇h • (g η)
+        F.u += grav * η * Ih
 
-    # ∇h • (- ∫(αᵀ θ))
-    F.u += grav * pkin * Ih
+        # ∇h • (- ∫(αᵀ θ))
+        F.u += grav * pkin * Ih
 
-    # ∇h • (v ⊗ u)
-    # F.u += v * u'
+        # ∇h • (v ⊗ u)
+        # F.u += v * u'
 
-    # ∇ • (u θ)
-    F.θ += v * θ
-  end
+        # ∇ • (u θ)
+        F.θ += v * θ
+    end
 
-  return nothing
+    return nothing
 end
 
 """
@@ -484,12 +570,19 @@ this computation is done pointwise at each nodal point
 ∂ᵗu = -∇∘(ν∇u)
 ∂ᵗθ = -∇∘(κ∇θ)
 """
-@inline function flux_diffusive!(m::HBModel, F::Grad, Q::Vars, D::Vars,
-                                 HD::Vars, A::Vars, t::Real)
-  F.u -= Diagonal(A.ν) * D.∇u
-  F.θ -= Diagonal(A.κ) * D.∇θ
+@inline function flux_diffusive!(
+    m::HBModel,
+    F::Grad,
+    Q::Vars,
+    D::Vars,
+    HD::Vars,
+    A::Vars,
+    t::Real,
+)
+    F.u -= Diagonal(A.ν) * D.∇u
+    F.θ -= Diagonal(A.κ) * D.∇θ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -508,20 +601,26 @@ end
     ∂ᵗu = -f×u
     ∂ᵗη = w|(z=0)
 """
-@inline function source!(m::HBModel{P}, source::Vars, Q::Vars,
-                         diffusive::Vars, A::Vars, t::Real) where P
-  @inbounds begin
-    u,v = Q.u # Horizontal components of velocity
-    f = A.f
-    wz0 = A.wz0
+@inline function source!(
+    m::HBModel{P},
+    source::Vars,
+    Q::Vars,
+    diffusive::Vars,
+    A::Vars,
+    t::Real,
+) where {P}
+    @inbounds begin
+        u, v = Q.u # Horizontal components of velocity
+        f = A.f
+        wz0 = A.wz0
 
-    # f × u
-    source.u -= @SVector [-f * v, f * u]
+        # f × u
+        source.u -= @SVector [-f * v, f * u]
 
-    source.η += wz0
-  end
+        source.η += wz0
+    end
 
-  return nothing
+    return nothing
 end
 
 """
@@ -536,11 +635,21 @@ calculates the wavespeed for rusanov flux
     set Δη = 0 when computing numerical fluxes
 """
 # We want not have jump penalties on η (since not a flux variable)
-function update_penalty!(::Rusanov, ::HBModel, n⁻, λ, ΔQ::Vars,
-                         Q⁻, A⁻, Q⁺, A⁺, t)
-  ΔQ.η = -0
+function update_penalty!(
+    ::Rusanov,
+    ::HBModel,
+    n⁻,
+    λ,
+    ΔQ::Vars,
+    Q⁻,
+    A⁻,
+    Q⁺,
+    A⁺,
+    t,
+)
+    ΔQ.η = -0
 
-  return nothing
+    return nothing
 end
 
 """
@@ -552,18 +661,18 @@ end
     doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
 """
 function update_aux!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
-  MD = dg.modeldata
+    MD = dg.modeldata
 
-  # required to ensure that after integration velocity field is divergence free
-  vert_filter = MD.vert_filter
-  # Q[1] = u[1] = u, Q[2] = u[2] = v
-  apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
+    # required to ensure that after integration velocity field is divergence free
+    vert_filter = MD.vert_filter
+    # Q[1] = u[1] = u, Q[2] = u[2] = v
+    apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
 
-  exp_filter = MD.exp_filter
-  # Q[4] = θ
-  apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+    exp_filter = MD.exp_filter
+    # Q[4] = θ
+    apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
 
-  return true
+    return true
 end
 
 """
@@ -576,33 +685,39 @@ end
     now for actual update aux stuff
     implements convective adjustment by bumping the vertical diffusivity up by a factor of 1000 if dθdz < 0
 """
-function update_aux_diffusive!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
-  A  = dg.auxstate
+function update_aux_diffusive!(
+    dg::DGModel,
+    m::HBModel,
+    Q::MPIStateArray,
+    t::Real,
+)
+    A = dg.auxstate
 
-  # store ∇ʰu as integrand for w
-  # update vertical diffusivity for convective adjustment
-  function f!(m::HBModel, Q, A, D, t)
-    @inbounds begin
-      A.w = -(D.∇u[1,1] + D.∇u[2,2])
-      A.pkin = -m.αᵀ * Q.θ
+    # store ∇ʰu as integrand for w
+    # update vertical diffusivity for convective adjustment
+    function f!(m::HBModel, Q, A, D, t)
+        @inbounds begin
+            A.w = -(D.∇u[1, 1] + D.∇u[2, 2])
+            A.pkin = -m.αᵀ * Q.θ
 
-      D.∇θ[3] < 0 ? A.κ = (m.κʰ, m.κʰ, 1000 * m.κᶻ) : A.κ = (m.κʰ, m.κʰ, m.κᶻ)
+            D.∇θ[3] < 0 ? A.κ = (m.κʰ, m.κʰ, 1000 * m.κᶻ) :
+            A.κ = (m.κʰ, m.κʰ, m.κᶻ)
+        end
+
+        return nothing
     end
+    nodal_update_aux!(f!, dg, m, Q, t; diffusive = true)
 
-    return nothing
-  end
-  nodal_update_aux!(f!, dg, m, Q, t; diffusive=true)
+    # compute integrals for w and pkin
+    indefinite_stack_integral!(dg, m, Q, A, t) # bottom -> top
+    reverse_indefinite_stack_integral!(dg, m, Q, A, t) # top -> bottom
 
-  # compute integrals for w and pkin
-  indefinite_stack_integral!(dg, m, Q, A, t) # bottom -> top
-  reverse_indefinite_stack_integral!(dg, m, Q, A, t) # top -> bottom
+    # project w(z=0) down the stack
+    # Need to be consistent with vars_aux
+    # A[1] = w, A[3] = wz0
+    copy_stack_field_down!(dg, m, A, 1, 3)
 
-  # project w(z=0) down the stack
-  # Need to be consistent with vars_aux
-  # A[1] = w, A[3] = wz0
-  copy_stack_field_down!(dg, m, A, 1, 3)
-
-  return true
+    return true
 end
 
 """
@@ -611,9 +726,30 @@ end
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
-@inline function boundary_state!(nf, m::HBModel, Q⁺::Vars, A⁺::Vars, n⁻,
-                                 Q⁻::Vars, A⁻::Vars, bctype, t, _...)
-  return ocean_boundary_state!(m, m.problem, bctype, nf, Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
+@inline function boundary_state!(
+    nf,
+    m::HBModel,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
+)
+    return ocean_boundary_state!(
+        m,
+        m.problem,
+        bctype,
+        nf,
+        Q⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        A⁻,
+        t,
+    )
 end
 
 """
@@ -622,12 +758,34 @@ end
 applies boundary conditions for the parabolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
-@inline function boundary_state!(nf, m::HBModel,
-                                 Q⁺::Vars, D⁺::Vars, A⁺::Vars,
-                                 n⁻,
-                                 Q⁻::Vars, D⁻::Vars, A⁻::Vars,
-                                 bctype, t, _...)
-  return ocean_boundary_state!(m, m.problem, bctype, nf, Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
+@inline function boundary_state!(
+    nf,
+    m::HBModel,
+    Q⁺::Vars,
+    D⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    D⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
+)
+    return ocean_boundary_state!(
+        m,
+        m.problem,
+        bctype,
+        nf,
+        Q⁺,
+        D⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        D⁻,
+        A⁻,
+        t,
+    )
 end
 
 include("OceanBoundaryConditions.jl")
