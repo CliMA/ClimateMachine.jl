@@ -340,7 +340,6 @@ function flux_moisture!(
 )
     ρ = state.ρ
     u = state.ρu / ρ
-    #ẑ = vertical_unit_vector(atmos.orientation, aux)
     u_tot = u #.- usub * ẑ
     flux.moisture.ρq_tot += u_tot * state.moisture.ρq_tot
     flux.moisture.ρq_liq += u_tot * state.moisture.ρq_liq
