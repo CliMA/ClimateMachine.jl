@@ -36,7 +36,7 @@ function rhs_nonlinear!(dQ, Q, ::Nothing, t; increment)
         @. dQ = $cos(t) * (a + c * Q^2)
     end
 end
-function rhs_fast!(dQ, Q, ::Nothing, t; increment)
+function rhs_fast!(dQ, Q, ::Any, t; increment)
     if increment
         @. dQ += α1 * $cos(t) * (a + b * Q + c * Q^2)
     else
@@ -57,14 +57,14 @@ function rhs_slow!(dQ, Q, ::Nothing, t; increment)
         @. dQ = α2 * $cos(t) * (a + b * Q + c * Q^2)
     end
 end
-function rhs1!(dQ, Q, ::Nothing, t; increment)
+function rhs1!(dQ, Q, ::Any, t; increment)
     if increment
         @. dQ += β1 * $cos(t) * (a + b * Q + c * Q^2)
     else
         @. dQ = β1 * $cos(t) * (a + b * Q + c * Q^2)
     end
 end
-function rhs2!(dQ, Q, ::Nothing, t; increment)
+function rhs2!(dQ, Q, ::Any, t; increment)
     if increment
         @. dQ += β2 * $cos(t) * (a + b * Q + c * Q^2)
     else
@@ -284,6 +284,41 @@ errors = similar(dts)
 
                     rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
                     @test isapprox(rates[end], expected_order; atol = 0.5)
+                end
+            end
+        end
+    end
+
+    @testset "MRI GARK methods with 3 rates" begin
+        for (rate3_method, rate3_order) in mrigark_erk_methods
+            for (rate2_method, rate2_order) in mrigark_erk_methods
+                for (rate1_method, _) in fast_mrigark_methods
+                    for nsubsteps in (1, 2)
+                        for (n, dt) in enumerate(dts)
+                            dt /= 4 # Need a smaller dt to get convergence rate
+                            Q .= Qinit
+                            solver1 =
+                                rate1_method(rhs1!, Q; dt = dt / nsubsteps^2)
+                            solver2 = rate2_method(
+                                rhs2!,
+                                solver1,
+                                Q;
+                                dt = dt / nsubsteps,
+                            )
+                            solver3 = rate3_method(
+                                rhs3!,
+                                solver2,
+                                Q;
+                                dt = dt,
+                                t0 = t0,
+                            )
+                            solve!(Q, solver3; timeend = finaltime)
+                            errors[n] = norm(Q - Qexact)
+                        end
+                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+                        expected_order = min(rate3_order, rate2_order)
+                        @test isapprox(rates[end], expected_order; atol = 0.5)
+                    end
                 end
             end
         end

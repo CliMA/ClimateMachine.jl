@@ -27,6 +27,16 @@ struct MRIParam{P, T, AT, N, M}
     end
 end
 
+# We overload get property to access the original param
+function Base.getproperty(mriparam::MRIParam, s::Symbol)
+    if s === :p
+        p = getfield(mriparam, :p)
+        return p isa MRIParam ? p.p : p
+    else
+        getfield(mriparam, s)
+    end
+end
+
 """
     MRIGARKExplicit(f!, fastsolver, Γs, γ̂s, Q, Δt, t0)
 
@@ -159,11 +169,27 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
     NΓ = length(Γs)
 
     ts = time
+    groupsize = 256
     for s in 1:Nstages
         # Stage dt
         dts = Δc[s] * dt
 
-        slowrhs!(Rs[s], Q, param, ts, increment = false)
+        p = param isa MRIParam ? param.p : param
+        slowrhs!(Rs[s], Q, p, ts, increment = false)
+        if param isa MRIParam
+            # fraction of the step slower stage increment we are on
+            τ = (ts - param.ts) / param.Δts
+            event = Event(device(Q))
+            event = mri_update_rate!(device(Q), groupsize)(
+                realview(Rs[s]),
+                τ,
+                param.γs,
+                param.Rs;
+                ndrange = length(realview(Rs[s])),
+                dependencies = (event,),
+            )
+            wait(device(Q), event)
+        end
 
         γs = ntuple(k -> ntuple(j -> Γs[k][s, j], s), NΓ)
         mriparam = MRIParam(param, γs, realview.(Rs[1:s]), ts, dts)
@@ -172,6 +198,26 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
 
         # update time
         ts += dts
+    end
+end
+
+@kernel function mri_update_rate!(dQ, τ, γs, Rs)
+    i = @index(Global, Linear)
+    @inbounds begin
+        NΓ = length(γs)
+        Ns = length(γs[1])
+        dqi = dQ[i]
+
+        for s in 1:Ns
+            ri = Rs[s][i]
+            sc = γs[NΓ][s]
+            for k in (NΓ - 1):-1:1
+                sc = sc * τ + γs[k][s]
+            end
+            dqi += sc * ri
+        end
+
+        dQ[i] = dqi
     end
 end
 

@@ -580,43 +580,57 @@ const ArrayType = CLIMA.array_type()
         }
     =#
     @testset "Explicit MRI GARK tests" begin
-        ω = 20
-        λf = -10
-        λs = -1
-        ξ = 1 // 10
-        α = 1
-        ηfs = ((1 - ξ) / α) * (λf - λs)
-        ηsf = -ξ * α * (λf - λs)
-        Ω = @SMatrix [
-            λf ηfs
-            ηsf λs
-        ]
+        #=
+        Test problem (8.2) from Sandu (2019) for MRI-GARK Schemes
+            @article{Sandu2019,
+                title={A class of multirate infinitesimal gark methods},
+                author={Sandu, Adrian},
+                journal={SIAM Journal on Numerical Analysis},
+                volume={57},
+                number={5},
+                pages={2300--2327},
+                year={2019},
+                publisher={SIAM},
+                doi={10.1137/18M1205492}
+            }
+        =#
+        @testset "2-rate problem" begin
+            ω = 20
+            λf = -10
+            λs = -1
+            ξ = 1 // 10
+            α = 1
+            ηfs = ((1 - ξ) / α) * (λf - λs)
+            ηsf = -ξ * α * (λf - λs)
+            Ω = @SMatrix [
+                λf ηfs
+                ηsf λs
+            ]
 
-        function rhs_fast!(dQ, Q, param, t; increment)
-            @inbounds begin
-                increment || (dQ .= 0)
-                yf = Q[1]
-                ys = Q[2]
-                gf = (-3 + yf^2 - cos(ω * t)) / 2yf
-                gs = (-2 + ys^2 - cos(t)) / 2ys
-                dQ[1] += Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+            function rhs_fast!(dQ, Q, param, t; increment)
+                @inbounds begin
+                    increment || (dQ .= 0)
+                    yf = Q[1]
+                    ys = Q[2]
+                    gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                    gs = (-2 + ys^2 - cos(t)) / 2ys
+                    dQ[1] += Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+                end
             end
-        end
 
-        function rhs_slow!(dQ, Q, param, t; increment)
-            @inbounds begin
-                increment || (dQ .= 0)
-                yf = Q[1]
-                ys = Q[2]
-                gf = (-3 + yf^2 - cos(ω * t)) / 2yf
-                gs = (-2 + ys^2 - cos(t)) / 2ys
-                dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+            function rhs_slow!(dQ, Q, param, t; increment)
+                @inbounds begin
+                    increment || (dQ .= 0)
+                    yf = Q[1]
+                    ys = Q[2]
+                    gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                    gs = (-2 + ys^2 - cos(t)) / 2ys
+                    dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+                end
             end
-        end
 
-        exactsolution(t) = [sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))]
+            exactsolution(t) = [sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))]
 
-        @testset "MRI-GARK methods" begin
             finaltime = 5π / 2
             dts = [2.0^(-k) for k in 2:7]
             error = similar(dts)
@@ -635,6 +649,102 @@ const ArrayType = CLIMA.array_type()
                     rate = log2.(error[1:(end - 1)] ./ error[2:end])
                     order = mri_expected_order
                     @test isapprox(rate[end], mri_expected_order; atol = 0.3)
+                end
+            end
+        end
+
+        # 3-rate modification of the above test problem
+        @testset "3-rate problem" begin
+            ω1, ω2, ω3 = 20, 5, 1
+            λ1, λ2, λ3 = -20, -5, -1
+            β1, β2, β3 = 2, 2, 2
+
+            ξ12 = λ2 / (λ1 + λ2)
+            ξ13 = λ3 / (λ1 + λ3)
+            ξ23 = λ3 / (λ2 + λ3)
+
+            α12, α13, α23 = 1, 1, 1
+
+            η12 = ((1 - ξ12) / α12) * (λ1 - λ2)
+            η13 = 0#((1 - ξ13) / α13) * (λ1 - λ3)
+            η23 = ((1 - ξ23) / α23) * (λ2 - λ3)
+
+            η21 = ξ12 * α12 * (λ2 - λ1)
+            η31 = 0#ξ13 * α13 * (λ3 - λ1)
+            η32 = ξ23 * α23 * (λ3 - λ2)
+
+            Ω = @SMatrix [
+                λ1 η12 η13
+                η21 λ2 η23
+                η31 η32 λ3
+            ]
+
+            function rhs1!(dQ, Q, param, t; increment)
+                @inbounds begin
+                    increment || (dQ .= 0)
+                    y1, y2, y3 = Q[1], Q[2], Q[3]
+                    g = @SVector [
+                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                        (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                    ]
+                    dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
+                end
+            end
+            function rhs2!(dQ, Q, param, t; increment)
+                @inbounds begin
+                    increment || (dQ .= 0)
+                    y1, y2, y3 = Q[1], Q[2], Q[3]
+                    g = @SVector [
+                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                        (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                    ]
+                    dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
+                end
+            end
+            function rhs3!(dQ, Q, param, t; increment)
+                @inbounds begin
+                    increment || (dQ .= 0)
+                    y1, y2, y3 = Q[1], Q[2], Q[3]
+                    g = @SVector [
+                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                        (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                    ]
+                    dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
+                end
+            end
+
+            exactsolution(t) = [
+                sqrt(β1 + cos(ω1 * t)),
+                sqrt(β2 + cos(ω2 * t)),
+                sqrt(β3 + cos(ω3 * t)),
+            ]
+
+            finaltime = 5π / 2
+            dts = [2.0^(-k) for k in 1:7]
+            error = similar(dts)
+            for (slow_method, slow_order) in mrigark_erk_methods
+                for (mid_method, mid_order) in mrigark_erk_methods
+                    for (fast_method, fast_order) in fast_mrigark_methods
+                        for (n, slow_dt) in enumerate(dts)
+                            Q = exactsolution(0)
+                            mid_dt = slow_dt / ω2
+                            fast_dt = slow_dt / ω1
+                            fastsolver = fast_method(rhs1!, Q; dt = fast_dt)
+                            midsolver =
+                                mid_method(rhs2!, fastsolver, Q, dt = mid_dt)
+                            slowsolver =
+                                slow_method(rhs3!, midsolver, Q, dt = slow_dt)
+                            solve!(Q, slowsolver; timeend = finaltime)
+                            error[n] = norm(Q - exactsolution(finaltime))
+                        end
+
+                        rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                        expected_order = min(slow_order, mid_order, fast_order)
+                        @test isapprox(rate[end], expected_order; atol = 0.3)
+                    end
                 end
             end
         end
