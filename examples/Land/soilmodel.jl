@@ -73,7 +73,6 @@ vars_state(::SoilModel, FT) = @vars(ρcT::FT) # stored in Q
 vars_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
 vars_diffusive(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
 
-
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
 
 # ---------------- 4a) Update states
@@ -114,7 +113,6 @@ end
 # Introduce sources of energy (e.g. Metabolic heat from microbes) 
 function source!(m::SoilModel, state::Vars, _...)
 end
-
 
 # ---------------- 4d) Initialization
 
