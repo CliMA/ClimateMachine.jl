@@ -11,6 +11,7 @@ cpu = [
 ]
 
 cpu_gpu = [
+  { file = "test/Arrays/varsindex.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex_imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex_multirate.jl", slurmargs = ["--ntasks=3"], args = [] },

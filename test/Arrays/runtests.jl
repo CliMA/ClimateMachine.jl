@@ -7,6 +7,7 @@ include("../testhelpers.jl")
         (1, "broadcasting.jl")
         (1, "reductions.jl")
         (3, "reductions.jl")
+        (1, "varsindex.jl")
     ]
 
     runmpi(tests, @__FILE__)
