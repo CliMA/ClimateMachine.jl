@@ -564,4 +564,79 @@ const ArrayType = CLIMA.array_type()
             end
         end
     end
+
+    #=
+    Test problem (8.2) from Sandu (2019) for MRI-GARK Schemes
+        @article{Sandu2019,
+            title={A class of multirate infinitesimal gark methods},
+            author={Sandu, Adrian},
+            journal={SIAM Journal on Numerical Analysis},
+            volume={57},
+            number={5},
+            pages={2300--2327},
+            year={2019},
+            publisher={SIAM},
+            doi={10.1137/18M1205492}
+        }
+    =#
+    @testset "Explicit MRI GARK tests" begin
+        ω = 20
+        λf = -10
+        λs = -1
+        ξ = 1 // 10
+        α = 1
+        ηfs = ((1 - ξ) / α) * (λf - λs)
+        ηsf = -ξ * α * (λf - λs)
+        Ω = @SMatrix [
+            λf ηfs
+            ηsf λs
+        ]
+
+        function rhs_fast!(dQ, Q, param, t; increment)
+            @inbounds begin
+                increment || (dQ .= 0)
+                yf = Q[1]
+                ys = Q[2]
+                gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                gs = (-2 + ys^2 - cos(t)) / 2ys
+                dQ[1] += Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+            end
+        end
+
+        function rhs_slow!(dQ, Q, param, t; increment)
+            @inbounds begin
+                increment || (dQ .= 0)
+                yf = Q[1]
+                ys = Q[2]
+                gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                gs = (-2 + ys^2 - cos(t)) / 2ys
+                dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+            end
+        end
+
+        exactsolution(t) = [sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))]
+
+        @testset "MRI-GARK methods" begin
+            finaltime = 5π / 2
+            dts = [2.0^(-k) for k in 2:7]
+            error = similar(dts)
+            for (mri_method, mri_expected_order) in mrigark_erk_methods
+                for (fast_method, fast_expected_order) in fast_mrigark_methods
+                    for (n, slow_dt) in enumerate(dts)
+                        Q = exactsolution(0)
+                        fast_dt = slow_dt / ω
+                        fastsolver = fast_method(rhs_fast!, Q; dt = fast_dt)
+                        solver =
+                            mri_method(rhs_slow!, fastsolver, Q, dt = slow_dt)
+                        solve!(Q, solver; timeend = finaltime)
+                        error[n] = norm(Q - exactsolution(finaltime))
+                    end
+
+                    rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                    order = mri_expected_order
+                    @test isapprox(rate[end], mri_expected_order; atol = 0.3)
+                end
+            end
+        end
+    end
 end

@@ -260,6 +260,34 @@ errors = similar(dts)
             end
         end
     end
+
+    @testset "MRI GARK methods with 2 rates" begin
+        for (slow_method, expected_order) in mrigark_erk_methods
+            for (fast_method, _) in fast_mrigark_methods
+                for nsubsteps in (1, 3)
+                    for (n, dt) in enumerate(dts)
+                        dt /= 4 # Need a smaller dt to get convergence rate
+                        Q .= Qinit
+                        fastsolver =
+                            fast_method(rhs_fast!, Q; dt = dt / nsubsteps)
+                        solver = slow_method(
+                            rhs_slow!,
+                            fastsolver,
+                            Q;
+                            dt = dt,
+                            t0 = t0,
+                        )
+                        solve!(Q, solver; timeend = finaltime)
+
+                        errors[n] = norm(Q - Qexact)
+                    end
+
+                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+                    @test isapprox(rates[end], expected_order; atol = 0.5)
+                end
+            end
+        end
+    end
 end
 
 @testset "Explicit methods composition of solve!" begin
