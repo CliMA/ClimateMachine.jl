@@ -18,8 +18,10 @@ include(joinpath(toplevel_directory, ".dev", "clima_formatter_options.jl"))
 
 needs_format = false
 
-for filename in readlines(`git diff --name-only --cached`)
-    endswith(filename, ".jl") || continue
+for diffoutput in split.(readlines(`git diff --name-status --cached`))
+    status = diffoutput[1]
+    filename = diffoutput[end]
+    (!startswith(status, "D") && endswith(filename, ".jl")) || continue
 
     a = read(`git show :$filename`, String)
     b = format_text(a; clima_formatter_options...)
