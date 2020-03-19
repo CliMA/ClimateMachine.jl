@@ -26,6 +26,12 @@ const imex_methods = (
 const mis_methods =
     ((MIS2, 2), (MIS3C, 2), (MIS4, 3), (MIS4a, 3), (TVDMISA, 2), (TVDMISB, 2))
 
+
+const mrigark_erk_methods = ((MRIGARKERK33aSandu, 3), (MRIGARKERK45aSandu, 4))
+
+const fast_mrigark_methods =
+    ((LSRK54CarpenterKennedy, 4), (LSRK144NiegemannDiehlBusch, 4))
+
 struct DivideLinearSolver <: AbstractLinearSolver end
 function LinearSolvers.prefactorize(
     linearoperator!,
