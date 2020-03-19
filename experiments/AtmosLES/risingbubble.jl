@@ -10,11 +10,14 @@ using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
+
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+using CLIMA.Parameters.Planet
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -32,11 +35,12 @@ include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 # ------------------------ Description ------------------------- #
 function init_risingbubble!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
-    R_gas::FT = R_d
-    c_p::FT = cp_d
-    c_v::FT = cv_d
+    R_gas::FT = R_d(bl.param_set)
+    c_p::FT = cp_d(bl.param_set)
+    c_v::FT = cv_d(bl.param_set)
     γ::FT = c_p / c_v
-    p0::FT = MSLP
+    p0::FT = MSLP(bl.param_set)
+    g::FT = grav(bl.param_set)
 
     xc::FT = 1250
     yc::FT = 1250
@@ -52,7 +56,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
 
     #Perturbed state:
     θ = θ_ref + Δθ # potential temperature
-    π_exner = FT(1) - grav / (c_p * θ) * z # exner pressure
+    π_exner = FT(1) - g / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     q_tot = FT(0)
     ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
