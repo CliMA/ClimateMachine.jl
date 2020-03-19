@@ -18,6 +18,7 @@ cpu_gpu = [
   { file = "test/DGmethods/Euler/isentropicvortex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex_imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/Euler/isentropicvortex_multirate.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/DGmethods/Euler/isentropicvortex_mrigark.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/Euler/acousticwave_1d_imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl", slurmargs = ["--ntasks=3"], args = [] },
