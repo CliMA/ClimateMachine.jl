@@ -95,3 +95,5 @@ sg = similar(g)
     "S[3,2]",
     "S[3,3]",
 ]
+
+include("varsindex.jl")
