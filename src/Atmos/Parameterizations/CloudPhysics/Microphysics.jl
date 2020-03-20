@@ -78,13 +78,13 @@ function conv_q_vap_to_q_liq(
     q_sat::PhasePartition{FT},
     q::PhasePartition{FT},
 ) where {FT <: Real}
-
+#=
     if q_sat.ice != FT(0)
         error("1-moment bulk microphysics is not defined for snow/ice")
         #This should be the q_ice tendency due to sublimation/resublimation.
         #src_q_ice = (q_sat.ice - q.ice) / τ_subl_resubl
     end
-
+=#
     return (q_sat.liq - q.liq) / τ_cond_evap
 end
 

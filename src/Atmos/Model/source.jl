@@ -1,5 +1,5 @@
 using CLIMA.PlanetParameters: Omega
-export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
+export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, CloudSource
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -154,4 +154,16 @@ function atmos_source!(
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
+end
+struct CloudSource <: Source end
+function atmos_source!(
+    s::CloudSource,
+    m::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    source.moisture.ρq_liq += state.ρ * aux.moisture.src_qliq
 end

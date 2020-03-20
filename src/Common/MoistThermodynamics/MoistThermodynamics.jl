@@ -181,9 +181,9 @@ cp_m(
     param_set::APS{FT} = MTPS{FT}(),
 ) where {FT <: Real} =
     FT(cp_d) +
-    (FT(cp_v) - FT(cp_d)) * q.tot +
-    (FT(cp_l) - FT(cp_v)) * q.liq +
-    (FT(cp_i) - FT(cp_v)) * q.ice
+    (FT(cp_v) - FT(cp_d)) * max(0,q.tot) +
+    (FT(cp_l) - FT(cp_v)) * max(0,q.liq) +
+    (FT(cp_i) - FT(cp_v)) * max(q.ice, 0)
 
 cp_m(::Type{FT}, param_set::APS{FT} = MTPS{FT}()) where {FT <: Real} =
     cp_m(q_pt_0(FT), param_set)

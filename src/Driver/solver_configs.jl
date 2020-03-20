@@ -104,7 +104,6 @@ function setup_solver(
     @info @sprintf("Initializing %s", driver_config.name)
     Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
     update_aux!(dg, bl, Q, FT(0))
-
     # create the linear model for IMEX solvers
     linmodel = nothing
     if isa(ode_solver_type, ExplicitSolverType)
@@ -129,9 +128,9 @@ function setup_solver(
     if ode_dt === nothing
         ode_dt = calculate_dt(dg, dtmodel, Q, Courant_number, CFL_direction)
     end
+    @info "hello"
     numberofsteps = convert(Int, cld(timeend, ode_dt))
     timeend_dt_adjust && (ode_dt = timeend / numberofsteps)
-
     # create the solver
     if isa(ode_solver_type, ExplicitSolverType)
         solver = ode_solver_type.solver_method(dg, Q; dt = ode_dt, t0 = t0)
@@ -176,7 +175,7 @@ function setup_solver(
             t0 = t0,
         )
     end
-
+    
     @toc setup_solver
 
     return SolverConfiguration(
