@@ -106,6 +106,11 @@ function main()
     @test nabrtorank == nabrtorank_expect
     @test nabrtorecv == nabrtorecv_expect
     @test nabrtosend == nabrtosend_expect
+
+    @test collect(realelems) ==
+          sort(union(topology.exteriorelems, topology.interiorelems))
+    @test unique(sort(sendelems)) == topology.exteriorelems
+    @test length(intersect(topology.exteriorelems, topology.interiorelems)) == 0
 end
 
 main()

@@ -123,6 +123,8 @@ end
         @test topology.ghostelems == nelem .+ (1:0)
 
         @test length(topology.sendelems) == 0
+        @test length(topology.exteriorelems) == 0
+        @test collect(topology.realelems) == topology.interiorelems
 
         @test topology.nabrtorank == Int[]
         @test topology.nabrtorecv == UnitRange{Int}[]
@@ -173,6 +175,8 @@ end
         @test topology.ghostelems == nelem .+ (1:0)
 
         @test length(topology.sendelems) == 0
+        @test length(topology.exteriorelems) == 0
+        @test collect(topology.realelems) == topology.interiorelems
 
         @test topology.nabrtorank == Int[]
         @test topology.nabrtorecv == UnitRange{Int}[]
@@ -247,6 +251,8 @@ end
         @test topology.ghostelems == nelem .+ (1:0)
 
         @test length(topology.sendelems) == 0
+        @test length(topology.exteriorelems) == 0
+        @test collect(topology.realelems) == topology.interiorelems
 
         @test topology.nabrtorank == Int[]
         @test topology.nabrtorecv == UnitRange{Int}[]
