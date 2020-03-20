@@ -4,15 +4,13 @@ using CLIMA.DGmethods:
     cummulate_fast_solution!,
     reconcile_from_fast_to_slow!
 
-include("MultirateRungeKuttaMethod_kernels.jl")
-
-export MultistateMultirateRungeKutta
+export MultistateRungeKutta
 
 ODEs = ODESolvers
 LSRK2N = LowStorageRungeKutta2N
 
 """
-    MultistateMultirateRungeKutta(slow_solver, fast_solver; dt, t0 = 0)
+    MultistateRungeKutta(slow_solver, fast_solver; dt, t0 = 0)
 
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
@@ -34,8 +32,7 @@ Currently only the low storage RK methods can be used as slow solvers
 
 ### References
 """
-mutable struct MultistateMultirateRungeKutta{SS, SA, FS, RT} <:
-               ODEs.AbstractODESolver
+mutable struct MultistateRungeKutta{SS, SA, FS, RT} <: ODEs.AbstractODESolver
     "slow solver"
     slow_solver::SS
     "sAlt solver"
@@ -47,7 +44,7 @@ mutable struct MultistateMultirateRungeKutta{SS, SA, FS, RT} <:
     "time"
     t::RT
 
-    function MultistateMultirateRungeKutta(
+    function MultistateRungeKutta(
         slow_solver::LSRK2N,
         sAlt_solver::LSRK2N,
         fast_solver,
@@ -68,11 +65,11 @@ mutable struct MultistateMultirateRungeKutta{SS, SA, FS, RT} <:
         )
     end
 end
-MSMRRK = MultistateMultirateRungeKutta
+MSRK = MultistateRungeKutta
 
 function ODEs.dostep!(
     Qvec,
-    msmrrk::MSMRRK,
+    msmrrk::MSRK,
     param,
     timeend::Real,
     adjustfinalstep::Bool,
@@ -96,7 +93,7 @@ end
 
 function ODEs.dostep!(
     Qvec,
-    msmrrk::MSMRRK{SS},
+    msmrrk::MSRK{SS},
     param,
     time::Real,
     slow_dt::AbstractFloat,
@@ -110,14 +107,13 @@ function ODEs.dostep!(
 
     dQ2fast = slow.dQ
     dQslow = sAlt.dQ
+    dQfast = fast.dQ
 
     slow_bl = slow.rhs!.balancelaw
     fast_bl = fast.rhs!.balancelaw
 
     # set state to match slow model
     # zero out the cummulative arrays
-    initialize_fast_state!(slow_bl, fast_bl, Qslow, Qfast, slow.rhs!, fast.rhs!)
-    total_fast_step = 0
 
     groupsize = 256
 
@@ -125,11 +121,20 @@ function ODEs.dostep!(
         # Currnent slow state time
         slow_stage_time = time + slow.RKC[slow_s] * slow_dt
 
+        initialize_fast_state!(
+            slow_bl,
+            fast_bl,
+            Qslow,
+            Qfast,
+            slow.rhs!,
+            fast.rhs!,
+        )
+
+        # Evaluate the slow mode
         # TODO: replace slow.rhs! call with use of dQ2fast
         sAlt.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
         slow.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
 
-        # Evaluate the slow mode
         # --> save tendency for the fast
         slow.rhs!(dQ2fast, Qslow, param, slow_stage_time, increment = false)
 
@@ -148,19 +153,6 @@ function ODEs.dostep!(
         )
         wait(device(Qslow), event)
 
-        ### for testing comment out everything below this
-        # Fractional time for slow stage
-        if slow_s == length(slow.RKA)
-            γ = 1 - slow.RKC[slow_s]
-        else
-            γ = slow.RKC[slow_s + 1] - slow.RKC[slow_s]
-        end
-
-        # Determine number of substeps we need
-        fast_dt = ODEs.getdt(fast)
-        nsubsteps = fast_dt > 0 ? ceil(Int, γ * slow_dt / ODEs.getdt(fast)) : 1
-        fast_dt = γ * slow_dt / nsubsteps
-
         # get slow tendency contribution to advance fast equation
         #  ---> work with dQ2fast as input
         pass_tendency_from_slow_to_fast!(
@@ -172,20 +164,33 @@ function ODEs.dostep!(
             dQ2fast,
         )
 
-        for substep in 1:nsubsteps
-            fast_time = slow_stage_time + (substep - 1) * fast_dt
-            ODEs.dostep!(Qfast, fast, param, fast_time, fast_dt)
-            #  ---> need to cumulate U at this time (and not at each RKB sub-time-step)
-            cummulate_fast_solution!(
-                fast_bl,
-                fast.rhs!,
-                Qfast,
-                fast_time,
-                fast_dt,
-                total_fast_step,
-            )
-            total_fast_step += 1
-        end
+        # --> calculate tendency for the fast
+        fast.rhs!(dQfast, Qfast, param, slow_stage_time, increment = true)
+
+        event = Event(device(Qfast))
+        event = update!(device(Qfast), groupsize)(
+            realview(dQfast),
+            realview(Qfast),
+            slow.RKA[slow_s % length(slow.RKA) + 1],
+            slow.RKB[slow_s],
+            slow_dt,
+            nothing,
+            nothing,
+            nothing;
+            ndrange = length(realview(Qfast)),
+            dependencies = (event,),
+        )
+        wait(device(Qfast), event)
+
+        #  ---> need to cumulate U at this time (and not at each RKB sub-time-step)
+        cummulate_fast_solution!(
+            fast_bl,
+            fast.rhs!,
+            Qfast,
+            slow_stage_time,
+            slow_dt,
+            0,
+        )
 
         ### later testing ignore this
         # reconcile slow equation using fast equation
@@ -197,7 +202,7 @@ function ODEs.dostep!(
             dQslow,
             Qslow,
             Qfast,
-            total_fast_step,
+            1,
         )
     end
     return nothing

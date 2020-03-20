@@ -1,5 +1,6 @@
 struct OceanModel{P, T} <: AbstractOceanModel
     problem::P
+    ρₒ::T
     cʰ::T
     cᶻ::T
     αᵀ::T
@@ -7,8 +8,11 @@ struct OceanModel{P, T} <: AbstractOceanModel
     νᶻ::T
     κʰ::T
     κᶻ::T
+    fₒ::T
+    β::T
     function OceanModel{FT}(
         problem;
+        ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
         αᵀ = FT(2e-4),  # (m/s)^2 / K
@@ -16,8 +20,22 @@ struct OceanModel{P, T} <: AbstractOceanModel
         νᶻ = FT(5e-3),  # m^2 / s
         κʰ = FT(1e3),   # m^2 / s
         κᶻ = FT(1e-4),  # m^2 / s
+        fₒ = FT(1e-4),  # Hz
+        β = FT(1e-11), # Hz / m
     ) where {FT <: AbstractFloat}
-        return new{typeof(problem), FT}(problem, cʰ, cᶻ, αᵀ, νʰ, νᶻ, κʰ, κᶻ)
+        return new{typeof(problem), FT}(
+            problem,
+            ρₒ,
+            cʰ,
+            cᶻ,
+            αᵀ,
+            νʰ,
+            νᶻ,
+            κʰ,
+            κᶻ,
+            fₒ,
+            β,
+        )
     end
 end
 
@@ -34,6 +52,8 @@ function calculate_dt(grid, model::OceanModel, Courant_number)
     return dt
 end
 
+using CLIMA.HydrostaticBoussinesq
+
 """
     OceanDGModel()
 
@@ -41,7 +61,7 @@ helper function to add required filtering
 not used in the Driver+Config setup
 """
 function OceanDGModel(
-    bl::OceanModel,
+    bl::Union{OceanModel, HydrostaticBoussinesqModel},
     grid,
     numfluxnondiff,
     numfluxdiff,
@@ -81,6 +101,7 @@ function vars_state(m::OceanModel, T)
         u::SVector{2, T}
         η::T
         θ::T
+        η_explicit::T
     end
 end
 
@@ -93,12 +114,9 @@ function vars_aux(m::OceanModel, T)
         w::T
         pkin::T         # ∫(-αᵀ θ)
         wz0::T          # w at z=0
-        ν::SVector{3, T}
-        κ::SVector{3, T}
-        f::T            # coriolis
-        τ::T            # wind stress  # TODO: Should be 2D
-        θʳ::T           # SST given    # TODO: Should be 2D
-        ∫u::T
+        ∫u::SVector{2, T}
+        y::T     # y-coordinate of the box
+        Δη::T
     end
 end
 
@@ -122,8 +140,8 @@ end
 
 function vars_diffusive(m::OceanModel, T)
     @vars begin
-        ∇u::SMatrix{3, 2, T, 6}
-        ∇θ::SVector{3, T}
+        ν∇u::SMatrix{3, 2, T, 6}
+        κ∇θ::SVector{3, T}
     end
 end
 
@@ -135,10 +153,22 @@ end
     A::Vars,
     t,
 )
-    D.∇u = G.u
-    D.∇θ = G.θ
+    ν = viscosity_tensor(m)
+    D.ν∇u = ν * G.u
+
+    κ = diffusivity_tensor(m, G.θ[3])
+    D.κ∇θ = κ * G.θ
 
     return nothing
+end
+
+@inline viscosity_tensor(m::OceanModel) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
+
+@inline function diffusivity_tensor(m::OceanModel, ∂θ∂z)
+    ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1000 * m.κᶻ]) : κ =
+        (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+
+    return Diagonal(κ)
 end
 
 """
@@ -150,6 +180,8 @@ location to store integrands for bottom up integrals
 function vars_integrals(m::OceanModel, T)
     @vars begin
         ∇hu::T
+        αᵀθ::T
+        ∫u::SVector{2, T}
     end
 end
 
@@ -157,16 +189,11 @@ end
     integral_load_aux!(::OceanModel)
 
 copy w to var_integral
-this computation is done pointwise at each nodal point
-
-arguments:
-m -> model in this case OceanModel
-I -> array of integrand variables
-Q -> array of state variables
-A -> array of aux variables
 """
 @inline function integral_load_aux!(m::OceanModel, I::Vars, Q::Vars, A::Vars)
     I.∇hu = A.w # borrow the w value from A...
+    I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
+    I.∫u = Q.u
 
     return nothing
 end
@@ -175,15 +202,11 @@ end
     integral_set_aux!(::OceanModel)
 
 copy integral results back out to aux
-this computation is done pointwise at each nodal point
-
-arguments:
-m -> model in this case OceanModel
-A -> array of aux variables
-I -> array of integrand variables
 """
 @inline function integral_set_aux!(m::OceanModel, A::Vars, I::Vars)
     A.w = I.∇hu
+    A.pkin = I.αᵀθ
+    A.∫u = I.∫u
 
     return nothing
 end
@@ -204,12 +227,6 @@ end
     reverse_integral_load_aux!(::OceanModel)
 
 copy αᵀθ to var_reverse_integral
-this computation is done pointwise at each nodal point
-
-arguments:
-m -> model in this case OceanModel
-I -> array of integrand variables
-A -> array of aux variables
 """
 @inline function reverse_integral_load_aux!(
     m::OceanModel,
@@ -226,12 +243,6 @@ end
     reverse_integral_set_aux!(::OceanModel)
 
 copy reverse integral results back out to aux
-this computation is done pointwise at each nodal point
-
-arguments:
-m -> model in this case OceanModel
-A -> array of aux variables
-I -> array of integrand variables
 """
 @inline function reverse_integral_set_aux!(m::OceanModel, A::Vars, I::Vars)
     A.pkin = I.αᵀθ
@@ -252,12 +263,17 @@ end
         w = A.w   # vertical velocity
         pkin = A.pkin
         v = @SVector [u[1], u[2], w]
+        Iʰ = @SMatrix [
+            1 -0
+            -0 1
+            -0 -0
+        ]
 
         # ∇ • (u θ)
         F.θ += v * θ
 
         # ∇h • (- ∫(αᵀ θ))
-        F.u += grav * pkin * Ih
+        F.u += grav * pkin * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
@@ -271,35 +287,43 @@ end
     F::Grad,
     Q::Vars,
     D::Vars,
+    HD::Vars,
     A::Vars,
     t::Real,
 )
     # horizontal viscosity done in horizontal model
-    F.u -= Diagonal([-0, -0, A.ν[3]]) * D.∇u
-    F.θ -= Diagonal(A.κ) * D.∇θ
+    F.u -= @SVector([0, 0, 1]) * D.ν∇u[3, :]'
+
+    F.θ -= D.κ∇θ
 
     return nothing
 end
 
 @inline function source!(
-    m::OceanModel{P},
+    m::OceanModel,
     S::Vars,
     Q::Vars,
+    D::Vars,
     A::Vars,
     t::Real,
-) where {P}
+)
     @inbounds begin
-        u = Q.u # Horizontal components of velocity
-        f = A.f
-
+        #=
+        # moving to barotropic model
         # f × u
+        u = Q.u # Horizontal components of velocity
+        f = coriolis_force(m, A.y)
         S.u -= @SVector [-f * u[2], f * u[1]]
+        =#
 
-        S.η += A.wz0
+        # switch this to S.η if you comment out the fast mode in MultistateMultirateRungeKutta
+        S.η_explicit += A.wz0
     end
 
     return nothing
 end
+
+@inline coriolis_force(m::OceanModel, y) = m.fₒ + m.β * y
 
 function update_aux!(dg::DGModel, m::OceanModel, Q::MPIStateArray, t::Real)
     MD = dg.modeldata
@@ -312,6 +336,17 @@ function update_aux!(dg::DGModel, m::OceanModel, Q::MPIStateArray, t::Real)
     exp_filter = MD.exp_filter
     # Q[4] = θ
     apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+
+    A = dg.auxstate
+    # store difference between η from Barotropic Model and η_explicit
+    function f!(::OceanModel, Q, A, t)
+        @inbounds begin
+            A.Δη = Q.η - Q.η_explicit
+        end
+
+        return nothing
+    end
+    nodal_update_aux!(f!, dg, m, Q, t)
 
     return true
 end
@@ -328,11 +363,9 @@ function update_aux_diffusive!(
     # update vertical diffusivity for convective adjustment
     function f!(::OceanModel, Q, A, D, t)
         @inbounds begin
-            A.w = -(D.∇u[1, 1] + D.∇u[2, 2])
-            A.pkin = -m.αᵀ * Q.θ
-
-            D.∇θ[3] < 0 ? A.κ = (m.κʰ, m.κʰ, 1000 * m.κᶻ) :
-            A.κ = (m.κʰ, m.κʰ, m.κᶻ)
+            ν = viscosity_tensor(m)
+            ∇u = ν \ D.ν∇u
+            A.w = -(∇u[1, 1] + ∇u[2, 2])
         end
 
         return nothing
@@ -353,7 +386,7 @@ end
     abs(SVector(m.cʰ, m.cʰ, m.cᶻ)' * n⁻)
 
 # We want not have jump penalties on η (since not a flux variable)
-function update_penalty!(
+@inline function update_penalty!(
     ::Rusanov,
     ::OceanModel,
     n⁻,
@@ -368,4 +401,72 @@ function update_penalty!(
     ΔQ.η = -0
 
     return nothing
+end
+
+"""
+    boundary_state!(nf, ::OceanModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
+
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(
+    nf,
+    m::OceanModel,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
+)
+    return ocean_boundary_state!(
+        m,
+        m.problem,
+        bctype,
+        nf,
+        Q⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        A⁻,
+        t,
+    )
+end
+
+"""
+    boundary_state!(nf, ::OceanModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
+
+applies boundary conditions for the parabolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(
+    nf,
+    m::OceanModel,
+    Q⁺::Vars,
+    D⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    D⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
+)
+    return ocean_boundary_state!(
+        m,
+        m.problem,
+        bctype,
+        nf,
+        Q⁺,
+        D⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        D⁻,
+        A⁻,
+        t,
+    )
 end

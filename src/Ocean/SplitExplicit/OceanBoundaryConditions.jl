@@ -3,14 +3,14 @@ abstract type OceanBoundaryCondition end
 """
     Defining dummy structs to dispatch on for boundary conditions.
 """
-struct CoastlineFreeSlip             <: OceanBoundaryCondition end
-struct CoastlineNoSlip               <: OceanBoundaryCondition end
-struct OceanFloorFreeSlip            <: OceanBoundaryCondition end
-struct OceanFloorNoSlip              <: OceanBoundaryCondition end
+struct CoastlineFreeSlip <: OceanBoundaryCondition end
+struct CoastlineNoSlip <: OceanBoundaryCondition end
+struct OceanFloorFreeSlip <: OceanBoundaryCondition end
+struct OceanFloorNoSlip <: OceanBoundaryCondition end
 struct OceanSurfaceNoStressNoForcing <: OceanBoundaryCondition end
-struct OceanSurfaceStressNoForcing   <: OceanBoundaryCondition end
-struct OceanSurfaceNoStressForcing   <: OceanBoundaryCondition end
-struct OceanSurfaceStressForcing     <: OceanBoundaryCondition end
+struct OceanSurfaceStressNoForcing <: OceanBoundaryCondition end
+struct OceanSurfaceNoStressForcing <: OceanBoundaryCondition end
+struct OceanSurfaceStressForcing <: OceanBoundaryCondition end
 
 """
     CoastlineFreeSlip
@@ -23,21 +23,33 @@ applies boundary condition ∇u = 0 and ∇θ = 0
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
-nothing needed to do since these are neumann BCs and no gradients here
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::CoastlineFreeSlip,
-                                       ::Union{Rusanov,
-                                               CentralNumericalFluxGradient},
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  return nothing
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::CoastlineFreeSlip,
+    ::Union{Rusanov, CentralNumericalFluxGradient},
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    return nothing
+end
+
+@inline function ocean_boundary_state!(
+    ::BarotropicModel,
+    ::CoastlineFreeSlip,
+    ::Union{Rusanov, CentralNumericalFluxGradient},
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    return nothing
 end
 
 """
@@ -45,26 +57,40 @@ end
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for ∇u and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::CoastlineFreeSlip,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::CoastlineFreeSlip,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    D⁺.ν∇u = -D⁻.ν∇u
+    D⁺.κ∇θ = -D⁻.κ∇θ
 
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
+    return nothing
+end
 
-  return nothing
+@inline function ocean_boundary_state!(
+    ::BarotropicModel,
+    ::CoastlineFreeSlip,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    return nothing
 end
 
 """
@@ -78,22 +104,37 @@ applies boundary condition u = 0 and ∇θ = 0
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-set sets ghost point to have no numerical flux on the boundary for u
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::CoastlineNoSlip,
-                                       ::Rusanov,
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  Q⁺.u = -Q⁻.u
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::CoastlineNoSlip,
+    ::Rusanov,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    Q⁺.u = -Q⁻.u
 
-  return nothing
+    return nothing
+end
+
+@inline function ocean_boundary_state!(
+    ::BarotropicModel,
+    ::CoastlineNoSlip,
+    ::Rusanov,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    Q⁺.U = -Q⁻.U
+
+    return nothing
 end
 
 """
@@ -101,23 +142,39 @@ end
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-set numerical flux to zero for u
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::CoastlineNoSlip,
-                                       ::CentralNumericalFluxGradient,
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  FT = eltype(Q⁺)
-  Q⁺.u = SVector(-zero(FT), -zero(FT))
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::CoastlineNoSlip,
+    ::CentralNumericalFluxGradient,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    FT = eltype(Q⁺)
+    Q⁺.u = SVector(-zero(FT), -zero(FT))
 
-  return nothing
+    return nothing
+end
+
+@inline function ocean_boundary_state!(
+    ::BarotropicModel,
+    ::CoastlineNoSlip,
+    ::CentralNumericalFluxGradient,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    FT = eltype(Q⁺)
+    Q⁺.U = SVector(-zero(FT), -zero(FT))
+
+    return nothing
 end
 
 """
@@ -125,26 +182,43 @@ end
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for u and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::CoastlineNoSlip,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  Q⁺.u = -Q⁻.u
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::CoastlineNoSlip,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    Q⁺.u = -Q⁻.u
 
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
+    D⁺.κ∇θ = -D⁻.κ∇θ
 
-  return nothing
+    return nothing
+end
+
+@inline function ocean_boundary_state!(
+    ::BarotropicModel,
+    ::CoastlineNoSlip,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    Q⁺.U = -Q⁻.U
+
+    return nothing
 end
 
 """
@@ -158,22 +232,21 @@ applies boundary condition ∇u = 0 and ∇θ = 0
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
-set ghost point to have no numerical flux on the boundary for w
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorFreeSlip,
-                                       ::Rusanov,
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  A⁺.w = -A⁻.w
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::OceanFloorFreeSlip,
+    ::Rusanov,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    A⁺.w = -A⁻.w
 
-  return nothing
+    return nothing
 end
 
 """
@@ -181,23 +254,22 @@ end
 
 apply free slip boundary condition for velocity
 apply no penetration boundary for temperature
-set numerical flux to zero for w
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorFreeSlip,
-                                       ::CentralNumericalFluxGradient,
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  FT = eltype(Q⁺)
-  A⁺.w = -zero(FT)
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::OceanFloorFreeSlip,
+    ::CentralNumericalFluxGradient,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    FT = eltype(Q⁺)
+    A⁺.w = -zero(FT)
 
-  return nothing
+    return nothing
 end
 
 """
@@ -205,27 +277,26 @@ end
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for ∇u and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorFreeSlip,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  A⁺.w = -A⁻.w
-  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::OceanFloorFreeSlip,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    A⁺.w = -A⁻.w
+    D⁺.ν∇u = -D⁻.ν∇u
 
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
+    D⁺.κ∇θ = -D⁻.κ∇θ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -239,23 +310,22 @@ applies boundary condition u = 0 and ∇θ = 0
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-set sets ghost point to have no numerical flux on the boundary for u and w
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorNoSlip,
-                                       ::Rusanov,
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  Q⁺.u = -Q⁻.u
-  A⁺.w = -A⁻.w
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::OceanFloorNoSlip,
+    ::Rusanov,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    Q⁺.u = -Q⁻.u
+    A⁺.w = -A⁻.w
 
-  return nothing
+    return nothing
 end
 
 """
@@ -263,24 +333,23 @@ end
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-set numerical flux to zero for u and w
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorNoSlip,
-                                       ::CentralNumericalFluxGradient,
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  FT = eltype(Q⁺)
-  Q⁺.u = SVector(-zero(FT), -zero(FT))
-  A⁺.w = -zero(FT)
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::OceanFloorNoSlip,
+    ::CentralNumericalFluxGradient,
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    FT = eltype(Q⁺)
+    Q⁺.u = SVector(-zero(FT), -zero(FT))
+    A⁺.w = -zero(FT)
 
-  return nothing
+    return nothing
 end
 
 """
@@ -288,28 +357,27 @@ end
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
-sets ghost point to have no numerical flux on the boundary for u,w and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorNoSlip,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::OceanFloorNoSlip,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
 
-  Q⁺.u = -Q⁻.u
-  A⁺.w = -A⁻.w
+    Q⁺.u = -Q⁻.u
+    A⁺.w = -A⁻.w
 
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
+    D⁺.κ∇θ = -D⁻.κ∇θ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -317,15 +385,23 @@ end
 
 applying neumann boundary conditions, so don't need to do anything for these numerical fluxes
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel, ::Union{
-                                       OceanSurfaceNoStressNoForcing,
-                                       OceanSurfaceStressNoForcing,
-                                       OceanSurfaceNoStressForcing,
-                                       OceanSurfaceStressForcing},
-                                       ::Union{Rusanov,
-                                               CentralNumericalFluxGradient},
-                                       Q⁺, A⁺, n⁻, Q⁻, A⁻, t)
-  return nothing
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::Union{
+        OceanSurfaceNoStressNoForcing,
+        OceanSurfaceStressNoForcing,
+        OceanSurfaceNoStressForcing,
+        OceanSurfaceStressForcing,
+    },
+    ::Union{Rusanov, CentralNumericalFluxGradient},
+    Q⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    A⁻,
+    t,
+)
+    return nothing
 end
 
 """
@@ -333,27 +409,25 @@ end
 
 apply no flux boundary condition for velocity
 apply no flux boundary condition for temperature
-set ghost point to have no numerical flux on the boundary for ∇u and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel,
-                                       ::OceanSurfaceNoStressNoForcing,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
+@inline function ocean_boundary_state!(
+    ::AbstractOceanModel,
+    ::OceanSurfaceNoStressNoForcing,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    D⁺.ν∇u = -D⁻.ν∇u
 
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
+    D⁺.κ∇θ = -D⁻.κ∇θ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -361,28 +435,27 @@ end
 
 apply wind-stress boundary condition for velocity
 apply no flux boundary condition for temperature
-set ghost poin for numerical flux on the boundary for ∇u and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(::AbstractOceanModel,
-                                       ::OceanSurfaceStressNoForcing,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  τ = @SMatrix [ -0 -0; -0 -0; A⁺.τ / 1000 -0]
-  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u + 2 * τ)
+@inline function ocean_boundary_state!(
+    m::AbstractOceanModel,
+    ::OceanSurfaceStressNoForcing,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
+    τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
+    D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ)
+    D⁺.κ∇θ = -D⁻.κ∇θ
 
-  return nothing
+    return nothing
 end
 
 """
@@ -390,32 +463,27 @@ end
 
 apply no flux boundary condition for velocity
 apply forcing boundary condition for temperature
-set ghost point for numerical flux on the boundary for ∇u and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(m::AbstractOceanModel,
-                                       ::OceanSurfaceNoStressForcing,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u)
+@inline function ocean_boundary_state!(
+    m::AbstractOceanModel,
+    ::OceanSurfaceNoStressForcing,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    D⁺.ν∇u = -D⁻.ν∇u
 
-  θ  = Q⁻.θ
-  θʳ = A⁺.θʳ
-  λʳ = m.problem.λʳ
+    σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
+    σ = @SVector [-0, -0, σᶻ]
+    D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
 
-  σ = @SVector [-0, -0, λʳ * (θʳ - θ)]
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ + 2 * σ)
-
-  return nothing
+    return nothing
 end
 
 """
@@ -423,31 +491,33 @@ end
 
 apply wind-stress boundary condition for velocity
 apply forcing boundary condition for temperature
-set ghost point for numerical flux on the boundary for ∇u and ∇θ
-
-# Arguments
-- `Q⁺`: state vector at ghost point
-- `D⁺`: diffusive state vector at ghost point
-- `A⁺`: auxiliary state vector at ghost point
-- `n⁻`: normal vector, not used
-- `Q⁻`: state vector at interior
-- `D⁻`: diffusive state vector at interior point
-- `A⁻`: auxiliary state vector at interior point
-- `t`:  time, not used
 """
-@inline function ocean_boundary_state!(m::AbstractOceanModel,
-                                       ::OceanSurfaceStressForcing,
-                                       ::CentralNumericalFluxDiffusive,
-                                       Q⁺, D⁺, A⁺, n⁻, Q⁻, D⁻, A⁻, t)
-  τ = @SMatrix [ -0 -0; -0 -0; A⁺.τ / 1000 -0]
-  D⁺.∇u = Diagonal(A⁺.ν) \ (Diagonal(A⁻.ν) * -D⁻.∇u + 2 * τ)
+@inline function ocean_boundary_state!(
+    m::AbstractOceanModel,
+    ::OceanSurfaceStressForcing,
+    ::CentralNumericalFluxDiffusive,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
+    τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
+    D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
-  θ  = Q⁻.θ
-  θʳ = A⁺.θʳ
-  λʳ = m.problem.λʳ
+    σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
+    σ = @SVector [-0, -0, σᶻ]
+    D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+end
 
-  σ = @SVector [-0, -0, λʳ * (θʳ - θ)]
-  D⁺.∇θ = Diagonal(A⁺.κ) \ (Diagonal(A⁻.κ) * -D⁻.∇θ + 2 * σ)
+@inline velocity_flux(p::AbstractOceanProblem, y, ρ) =
+    -(p.τₒ / ρ) * cos(y * π / p.Lʸ)
 
-  return nothing
+@inline function temperature_flux(p::AbstractOceanProblem, y, θ)
+    θʳ = p.θᴱ * (1 - y / p.Lʸ)
+    return p.λʳ * (θʳ - θ)
 end

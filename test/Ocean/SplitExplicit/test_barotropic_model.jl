@@ -38,23 +38,6 @@ struct SimpleBox{T} <: AbstractOceanProblem
     Lʸ::T
     H::T
     τₒ::T
-    λʳ::T
-    θᴱ::T
-end
-
-@inline function ocean_boundary_state!(
-    m::Union{OceanModel, HorizontalModel},
-    p::SimpleBox,
-    bctype,
-    x...,
-)
-    if bctype == 1
-        ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-    elseif bctype == 2
-        ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
-    elseif bctype == 3
-        ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
-    end
 end
 
 @inline function ocean_boundary_state!(
@@ -66,44 +49,9 @@ end
     return ocean_boundary_state!(m, CoastlineNoSlip(), x...)
 end
 
-function ocean_init_state!(p::SimpleBox, Q, A, coords, t)
-    @inbounds y = coords[2]
-    @inbounds z = coords[3]
-    @inbounds H = p.H
-
-    Q.u = @SVector [0, 0]
-    Q.η = 0
-    Q.θ = (5 + 4 * cos(y * π / p.Lʸ)) * (1 + z / H)
-
-    return nothing
-end
-
-function ocean_init_aux!(m::OceanModel, p::SimpleBox, A, geom)
-    FT = eltype(A)
-    @inbounds A.y = geom.coord[2]
-
-    # not sure if this is needed but getting weird intialization stuff
-    A.w = 0
-    A.pkin = 0
-    A.wz0 = 0
-    A.Δη = 0
-    A.∫u = @SVector [0, 0]
-
-    return nothing
-end
-
 # A is Filled afer the state
-function ocean_init_aux!(
-    m::BarotropicModel,
-    P::Union{SimpleBox, OceanGyre},
-    A,
-    geom,
-)
+function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
     @inbounds A.y = geom.coord[2]
-
-    A.Gᵁ = @SVector [0, 0]
-    A.Ū = @SVector [0, 0]
-    A.η̄ = 0
 
     return nothing
 end
@@ -129,43 +77,18 @@ function main()
         polynomialorder = N,
     )
 
-    brickrange_3D = (xrange, yrange, zrange)
-    topl_3D = StackedBrickTopology(
-        mpicomm,
-        brickrange_3D;
-        periodicity = (false, false, false),
-        boundary = ((1, 1), (1, 1), (2, 3)),
-    )
-    grid_3D = DiscontinuousSpectralElementGrid(
-        topl_3D,
-        FloatType = FT,
-        DeviceArray = ArrayType,
-        polynomialorder = N,
-    )
-
-    prob = SimpleBox{FT}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ)
-    # prob = OceanGyre{FT}(Lˣ, Lʸ, H, τₒ = τₒ, λʳ = λʳ, θᴱ = θᴱ)
-
+    prob = SimpleBox{FT}(Lˣ, Lʸ, H, τₒ)
     model = OceanModel{FT}(prob, cʰ = cʰ)
-    # model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
-
-    horizontalmodel = HorizontalModel(model)
-
     barotropicmodel =
-        BarotropicModel(model, CLIMA.SplitExplicit.IntegratedTendency())
+        BarotropicModel(model, CLIMA.SplitExplicit.SurfaceStress())
+
+    @show typeof(barotropicmodel.source)
 
     minΔx = Lˣ / Nˣ / (N + 1)
     CFL_gravity = minΔx / model.cʰ
-    dt_fast = 2 # 1 // 2 * minimum([CFL_gravity])
-
-    minΔz = H / Nᶻ / (N + 1)
-    CFL_viscous = minΔz^2 / model.νᶻ
-    CFL_diffusive = minΔz^2 / model.κᶻ
-    dt_slow = 1 // 2 * minimum([CFL_diffusive, CFL_viscous])
-
-    dt_slow = 120
-    nout = ceil(Int64, tout / dt_slow)
-    dt_slow = tout / nout
+    dt_fast = 120 # 1 // 2 * minimum([CFL_gravity])
+    nout = ceil(Int64, tout / dt_fast)
+    dt_fast = tout / nout
 
     @info @sprintf(
         """Update
@@ -173,35 +96,6 @@ function main()
            Timestep      = %.1f""",
         CFL_gravity,
         dt_fast
-    )
-
-    @info @sprintf(
-        """Update
-       Viscous CFL   = %.1f
-       Diffusive CFL = %.1f
-       Timestep      = %.1f""",
-        CFL_viscous,
-        CFL_diffusive,
-        dt_slow
-    )
-
-    dg = OceanDGModel(
-        model,
-        grid_3D,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
-        CentralNumericalFluxGradient(),
-    )
-
-    horizontal_dg = DGModel(
-        horizontalmodel,
-        grid_3D,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
-        CentralNumericalFluxGradient();
-        direction = VerticalDirection(),
-        auxstate = dg.auxstate,
-        diffstate = dg.diffstate,
     )
 
     barotropic_dg = DGModel(
@@ -212,28 +106,12 @@ function main()
         CentralNumericalFluxGradient(),
     )
 
-    Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
-    # update_aux!(dg, model, Q_3D, FT(0))
-    # update_aux_diffusive!(dg, model, Q_3D, FT(0))
-
     Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
 
-    lsrk_ocean = LSRK144NiegemannDiehlBusch(dg, Q_3D, dt = dt_slow, t0 = 0)
-    lsrk_horizontal =
-        LSRK144NiegemannDiehlBusch(horizontal_dg, Q_3D, dt = dt_slow, t0 = 0)
     lsrk_barotropic =
         LSRK144NiegemannDiehlBusch(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
 
-    odesolver = MultistateMultirateRungeKutta(
-        lsrk_ocean,
-        lsrk_horizontal,
-        lsrk_barotropic,
-    )
-
-    #=
-    odesolver =
-        MultistateRungeKutta(lsrk_ocean, lsrk_horizontal, lsrk_barotropic)
-    =#
+    odesolver = lsrk_barotropic
 
     step = [0, 0]
     cbvector = make_callbacks(
@@ -242,22 +120,17 @@ function main()
         nout,
         mpicomm,
         odesolver,
-        dg,
-        model,
-        Q_3D,
         barotropic_dg,
         barotropicmodel,
         Q_2D,
     )
 
-    eng0 = norm(Q_3D)
+    eng0 = norm(Q_2D)
     @info @sprintf """Starting
     norm(Q₀) = %.16e
     ArrayType = %s""" eng0 ArrayType
 
-    # slow fast state tuple
-    Qvec = (slow = Q_3D, fast = Q_2D)
-    solve!(Qvec, odesolver; timeend = timeend, callbacks = cbvector)
+    solve!(Q_2D, odesolver; timeend = timeend, callbacks = cbvector)
 
     return nothing
 end
@@ -268,9 +141,6 @@ function make_callbacks(
     nout,
     mpicomm,
     odesolver,
-    dg_slow,
-    model_slow,
-    Q_slow,
     dg_fast,
     model_fast,
     Q_fast,
@@ -279,7 +149,6 @@ function make_callbacks(
         rm(vtkpath, recursive = true)
     end
     mkpath(vtkpath)
-    mkpath(vtkpath * "/slow")
     mkpath(vtkpath * "/fast")
 
     function do_output(span, step, model, dg, Q)
@@ -296,13 +165,6 @@ function make_callbacks(
         writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
     end
 
-    do_output("slow", step[1], model_slow, dg_slow, Q_slow)
-    cbvtk_slow = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
-        do_output("slow", step[1], model_slow, dg_slow, Q_slow)
-        step[1] += 1
-        nothing
-    end
-
     do_output("fast", step[2], model_fast, dg_fast, Q_fast)
     cbvtk_fast = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
         do_output("fast", step[2], model_fast, dg_fast, Q_fast)
@@ -315,7 +177,7 @@ function make_callbacks(
         if s
             starttime[] = now()
         else
-            energy = norm(Q_slow)
+            energy = norm(Q_fast)
             @info @sprintf(
                 """Update
                 simtime = %8.2f / %8.2f
@@ -332,35 +194,32 @@ function make_callbacks(
         end
     end
 
-    return (cbvtk_slow, cbvtk_fast, cbinfo)
+    return (cbvtk_fast, cbinfo)
 end
 
 #################
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_split_multirate"
+vtkpath = "vtk_barotropic"
 
-const timeend = 3600   # s
-const tout = 120 # s
+const timeend = 30 * 24 * 3600 # s
+const tout = 6 * 3600 # s
 
 const N = 4
 const Nˣ = 20
 const Nʸ = 20
-const Nᶻ = 20
+
 const Lˣ = 4e6  # m
 const Lʸ = 4e6  # m
 const H = 1000  # m
 
 xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
 yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
-zrange = range(FT(-H); length = Nᶻ + 1, stop = 0)
 
 const cʰ = sqrt(grav * H)
 const cᶻ = 0
 
 const τₒ = 1e-1  # (m/s)^2
-const λʳ = 10 // 86400 # m / s
-const θᴱ = 10    # K
 
 main()

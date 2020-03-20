@@ -72,6 +72,7 @@ include("TendencyIntegralModel.jl")
 include("HorizontalModel.jl")
 include("BarotropicModel.jl")
 include("LinearVerticalModel.jl")
+include("Communication.jl")
 include("OceanBoundaryConditions.jl")
 
 end

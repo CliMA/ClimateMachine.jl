@@ -15,7 +15,7 @@ end
 
 using ..SpaceMethods
 using ..LinearSolvers
-using ..MPIStateArrays: device, realview
+using ..MPIStateArrays: device, realview, norm
 
 export solve!, updatedt!, gettime
 
@@ -166,6 +166,7 @@ include("StrongStabilityPreservingRungeKuttaMethod.jl")
 include("AdditiveRungeKuttaMethod.jl")
 include("MultirateInfinitesimalStepMethod.jl")
 include("MultirateRungeKuttaMethod.jl")
+include("MultistateRungeKuttaMethod.jl")
 include("MultistateMultirateRungeKuttaMethod.jl")
 
 end # module
