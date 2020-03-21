@@ -1,124 +1,186 @@
 using CLIMA.PlanetParameters
-export BoundaryCondition, PeriodicBC, NoFluxBC, InitStateBC
 
-function atmos_boundary_flux_diffusive!(nf::NumericalFluxDiffusive,
-                                        bc,
-                                        atmos::AtmosModel,
-                                        F,
-                                        state⁺, diff⁺, hyperdiff⁺, aux⁺, n⁻,
-                                        state⁻, diff⁻, hyperdiff⁻, aux⁻,
-                                        bctype, t, state1⁻, diff1⁻, aux1⁻)
-  atmos_boundary_state!(nf, bc, atmos,
-                        state⁺, diff⁺, aux⁺, n⁻,
-                        state⁻, diff⁻, aux⁻,
-                        bctype, t,
-                        state1⁻, diff1⁻, aux1⁻)
-  flux_diffusive!(atmos, F, state⁺, diff⁺, hyperdiff⁺, aux⁺, t)
-end
+export BoundaryCondition, InitStateBC
 
-#TODO: figure out a better interface for this.
-# at the moment we can just pass a function, but we should do something better
-# need to figure out how subcomponents will interact.
-function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               f::Function, m::AtmosModel, state⁺::Vars,
-                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
-                               t, _...)
-  f(state⁺, aux⁺, n⁻, state⁻, aux⁻, bctype, t)
-end
 
-function atmos_boundary_state!(::NumericalFluxDiffusive, f::Function,
-                               m::AtmosModel, state⁺::Vars, diff⁺::Vars,
-                               aux⁺::Vars, n⁻, state⁻::Vars, diff⁻::Vars,
-                               aux⁻::Vars, bctype, t, _...)
-  f(state⁺, diff⁺, aux⁺, n⁻, state⁻, diff⁻, aux⁻, bctype, t)
-end
+using CLIMA.PlanetParameters
+export InitStateBC, DYCOMS_BC, RayleighBenardBC
 
-# lookup boundary condition by face
-function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               bctup::Tuple, m::AtmosModel, state⁺::Vars,
-                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
-                               t, _...)
-  atmos_boundary_state!(nf, bctup[bctype], m, state⁺, aux⁺, n⁻, state⁻, aux⁻,
-                        bctype, t)
-end
-
-function atmos_boundary_state!(nf::NumericalFluxDiffusive,
-                               bctup::Tuple, m::AtmosModel, state⁺::Vars,
-                               diff⁺::Vars, aux⁺::Vars, n⁻, state⁻::Vars,
-                               diff⁻::Vars, aux⁻::Vars, bctype, t, _...)
-  atmos_boundary_state!(nf, bctup[bctype], m, state⁺, diff⁺, aux⁺, n⁻, state⁻,
-                        diff⁻, aux⁻, bctype, t)
-end
-
-abstract type BoundaryCondition
-end
+export AtmosBC,
+    Impenetrable,
+    FreeSlip,
+    NoSlip,
+    DragLaw,
+    Insulating,
+    PrescribedTemperature,
+    PrescribedEnergyFlux,
+    Impermeable,
+    PrescribedMoistureFlux
 
 """
-    PeriodicBC <: BoundaryCondition
+    AtmosBC(momentum = Impenetrable(FreeSlip())
+            energy   = Insulating()
+            moisture = Impermeable())
 
-Assume that the topology is periodic and hence nothing special needs to be done at the boundaries.
+The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-struct PeriodicBC <: BoundaryCondition end
-
-# TODO: assert somewhere that the topology is actually periodic when using those
-atmos_boundary_state!(_, ::PeriodicBC, _...) = nothing
-
-"""
-    NoFluxBC <: BoundaryCondition
-
-Set the momentum at the boundary to be zero.
-
-# TODO: This should be fixed later once BCs are figured out (likely want
-# different things here?)
-
-"""
-struct NoFluxBC <: BoundaryCondition
+Base.@kwdef struct AtmosBC{M, E, Q}
+    momentum::M = Impenetrable(FreeSlip())
+    energy::E = Insulating()
+    moisture::Q = Impermeable()
 end
 
-function atmos_boundary_state!(nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               bc::NoFluxBC, m::AtmosModel, state⁺::Vars,
-                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
-                               t, _...)
-  FT = eltype(state⁻)
-  state⁺.ρ = state⁻.ρ
-  if typeof(nf) <: NumericalFluxNonDiffusive
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n⁻) * SVector(n⁻)
-  else
-    state⁺.ρu -=  dot(state⁻.ρu, n⁻) * SVector(n⁻)
-  end
+function boundary_state!(nf, atmos::AtmosModel, args...)
+    atmos_boundary_state!(nf, atmos.boundarycondition, atmos, args...)
+end
+@generated function atmos_boundary_state!(
+    nf,
+    tup::Tuple,
+    atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
+    args...,
+)
+    N = fieldcount(tup)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> atmos_boundary_state!(
+                nf,
+                tup[i],
+                atmos,
+                state⁺,
+                aux⁺,
+                n,
+                state⁻,
+                aux⁻,
+                bctype,
+                t,
+                args...,
+            ), # expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
 end
 
-function atmos_boundary_state!(::NumericalFluxDiffusive, bc::NoFluxBC,
-                               m::AtmosModel, state⁺::Vars, diff⁺::Vars,
-                               aux⁺::Vars, n⁻, state⁻::Vars, diff⁻::Vars,
-                               aux⁻::Vars, bctype, t, _...)
-  FT = eltype(state⁻)
-  state⁺.ρ = state⁻.ρ
-  state⁺.ρu -= dot(state⁻.ρu, n⁻) * SVector(n⁻)
-  
-  fill!(getfield(diff⁺, :array), FT(0))
+function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
+    atmos_momentum_boundary_state!(nf, bc.momentum, atmos, args...)
+    atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
+    atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
 end
 
-"""
-    InitStateBC <: BoundaryCondition
 
-Set the value at the boundary to match the `init_state!` function. This is
-mainly useful for cases where the problem has an explicit solution.
+function normal_boundary_flux_diffusive!(
+    nf,
+    atmos::AtmosModel,
+    fluxᵀn::Vars{S},
+    n⁻,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    bctype::Integer,
+    t,
+    args...,
+) where {S}
+    atmos_normal_boundary_flux_diffusive!(
+        nf,
+        atmos.boundarycondition,
+        atmos,
+        fluxᵀn,
+        n⁻,
+        state⁻,
+        diff⁻,
+        hyperdiff⁻,
+        aux⁻,
+        state⁺,
+        diff⁺,
+        hyperdiff⁺,
+        aux⁺,
+        bctype,
+        t,
+        args...,
+    )
+end
+@generated function atmos_normal_boundary_flux_diffusive!(
+    nf,
+    tup::Tuple,
+    atmos::AtmosModel,
+    fluxᵀn,
+    n⁻,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    bctype,
+    t,
+    args...,
+)
+    N = fieldcount(tup)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> atmos_normal_boundary_flux_diffusive!(
+                nf,
+                tup[i],
+                atmos,
+                fluxᵀn,
+                n⁻,
+                state⁻,
+                diff⁻,
+                hyperdiff⁻,
+                aux⁻,
+                state⁺,
+                diff⁺,
+                hyperdiff⁺,
+                aux⁺,
+                bctype,
+                t,
+                args...,
+            ), #expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
+end
+function atmos_normal_boundary_flux_diffusive!(
+    nf,
+    bc::AtmosBC,
+    atmos::AtmosModel,
+    args...,
+)
+    atmos_momentum_normal_boundary_flux_diffusive!(
+        nf,
+        bc.momentum,
+        atmos,
+        args...,
+    )
+    atmos_energy_normal_boundary_flux_diffusive!(nf, bc.energy, atmos, args...)
+    atmos_moisture_normal_boundary_flux_diffusive!(
+        nf,
+        bc.moisture,
+        atmos,
+        args...,
+    )
+end
 
-# TODO: This should be fixed later once BCs are figured out (likely want
-# different things here?)
-"""
-struct InitStateBC <: BoundaryCondition
-end
-function atmos_boundary_state!(::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
-                               bc::InitStateBC, m::AtmosModel, state⁺::Vars,
-                               aux⁺::Vars, n⁻, state⁻::Vars, aux⁻::Vars, bctype,
-                               t, _...)
-  init_state!(m, state⁺, aux⁺, aux⁺.coord, t)
-end
-function atmos_boundary_state!(::NumericalFluxDiffusive, bc::InitStateBC,
-                               m::AtmosModel, state⁺::Vars, diff⁺::Vars,
-                               aux⁺::Vars, n⁻, state⁻::Vars, diff⁻::Vars,
-                               aux⁻::Vars, bctype, t, _...)
-  init_state!(m, state⁺, aux⁺, aux⁺.coord, t)
-end
+include("bc_momentum.jl")
+include("bc_energy.jl")
+include("bc_moisture.jl")
+include("bc_initstate.jl")

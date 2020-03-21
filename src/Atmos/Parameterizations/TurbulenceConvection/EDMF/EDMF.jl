@@ -6,9 +6,8 @@ using the Eddy-Diffusivity-Mass-Flux (EDMF) model.
 """
 module EDMF
 
-using ..haspkg
-using CLIMA.PlanetParameters
-using CLIMA.MoistThermodynamics
+using ...PlanetParameters
+using ...MoistThermodynamics
 using ..FiniteDifferenceGrids
 using ..StateVecs
 using ..TriDiagSolvers

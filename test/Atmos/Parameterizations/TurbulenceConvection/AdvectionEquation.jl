@@ -2,6 +2,57 @@ adv_eq_dir  = joinpath(output_root,"AdvectionEquation")
 
 print_norms = false
 
+plot_solution(grid, tmp, wave_speed, filename) = nothing
+plot_solution_burgers(grid, tmp, velocity_sign, filename) = nothing
+
+using Requires
+@init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
+  using .Plots
+
+  function plot_solution(grid, tmp, wave_speed, filename)
+    mkpath(dirname(filename))
+    domain_range = over_elems_real(grid)
+    x = [grid.zc[k] for k in domain_range]
+    if wave_speed==-1
+      y = [tmp[:ϕ_initial , k] for k in domain_range]; plot(y, x, label="initial",
+        markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)
+      y = [  q[:ϕ         , k] for k in domain_range]; plot!(y, x, label="numerical",
+        markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
+      y = [tmp[:ϕ_error   , k] for k in domain_range]; plot!(y, x, label="error",
+        markercolor="red", linecolor="red", markershapes=markershape, markersize=2, legend=:topleft)
+      y = [tmp[:ϕ_analytic, k] for k in domain_range]; plot!(y, x, label="analytic",
+        markercolor="green", linecolor="green", markershapes=markershape, markersize=2, legend=:topleft)
+    else
+      y = [  q[:ϕ         , k] for k in domain_range]; plot!(y, x, label="",
+        markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
+      y = [tmp[:ϕ_error   , k] for k in domain_range]; plot!(y, x, label="",
+        markercolor="red", linecolor="red", markershapes=markershape, markersize=2, legend=:topleft)
+      y = [tmp[:ϕ_analytic, k] for k in domain_range]; plot!(y, x, label="",
+        markercolor="green", linecolor="green", markershapes=markershape, markersize=2, legend=:topleft)
+    end
+    wave_speed==1 && savefig(filename)
+  end
+
+  function plot_solution_burgers(grid, tmp, velocity_sign, filename)
+    mkpath(dirname(filename))
+    domain_range = over_elems_real(grid)
+    x = [grid.zc[k] for k in domain_range]
+    if velocity_sign==-1
+      y = [tmp[:w_initial , k] for k in domain_range]; plot(y, x, label="initial",
+        markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)
+      y = [  q[:w         , k] for k in domain_range]; plot!(y, x, label="numerical",
+        markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
+    else
+      y = [tmp[:w_initial , k] for k in domain_range]; plot!(y, x, label="",
+        markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)
+      y = [  q[:w         , k] for k in domain_range]; plot!(y, x, label="",
+        markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
+    end
+    velocity_sign==1 && savefig(joinpath(directory, name))
+  end
+
+end
+
 @testset "Linear advection, ∂_t ϕ + ∇•(cϕ) = 0 ∈ ∂Ω, ϕ(t=0) = Gaussian(σ, μ), ConservativeForm, explicit Euler" begin
   dd = DomainDecomp(gm=1)
   dss = DomainSubSet(gm=true)
@@ -36,7 +87,6 @@ print_norms = false
           scheme_name = replace(string(scheme), "()"=>"")
           distribution_name = joinpath("LinearAdvection",string(distribution))
           directory = joinpath(adv_eq_dir, distribution_name, scheme_name)
-          haspkg.plots() && mkpath(directory)
           print_norms && print("\n", directory, ", ", n_elems_real, ", ", wave_speed, ", ")
 
           for k in over_elems_real(grid)
@@ -75,26 +125,7 @@ print_norms = false
 
           name = string(n_elems_real)
           markershape = wave_speed==-1 ? :dtriangle : :utriangle
-          if haspkg.plots()
-            if wave_speed==-1
-              y = [tmp[:ϕ_initial , k] for k in domain_range]; plot(y, x, label="initial",
-                markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)
-              y = [  q[:ϕ         , k] for k in domain_range]; plot!(y, x, label="numerical",
-                markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
-              y = [tmp[:ϕ_error   , k] for k in domain_range]; plot!(y, x, label="error",
-                markercolor="red", linecolor="red", markershapes=markershape, markersize=2, legend=:topleft)
-              y = [tmp[:ϕ_analytic, k] for k in domain_range]; plot!(y, x, label="analytic",
-                markercolor="green", linecolor="green", markershapes=markershape, markersize=2, legend=:topleft)
-            else
-              y = [  q[:ϕ         , k] for k in domain_range]; plot!(y, x, label="",
-                markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
-              y = [tmp[:ϕ_error   , k] for k in domain_range]; plot!(y, x, label="",
-                markercolor="red", linecolor="red", markershapes=markershape, markersize=2, legend=:topleft)
-              y = [tmp[:ϕ_analytic, k] for k in domain_range]; plot!(y, x, label="",
-                markercolor="green", linecolor="green", markershapes=markershape, markersize=2, legend=:topleft)
-            end
-            wave_speed==1 && savefig(joinpath(directory, name))
-          end
+          plot_solution(grid, tmp, wave_speed, joinpath(directory, name))
         end
       end
     end
@@ -152,23 +183,9 @@ end
           scheme_name = replace(string(scheme), "()"=>"")
           distribution_name = joinpath("BurgersEquation",string(distribution))
           directory = joinpath(adv_eq_dir, distribution_name, scheme_name)
-          haspkg.plots() && mkpath(directory)
           name = string(n_elems_real)
           markershape = velocity_sign==-1 ? :dtriangle : :utriangle
-          if haspkg.plots()
-            if velocity_sign==-1
-              y = [tmp[:w_initial , k] for k in domain_range]; plot(y, x, label="initial",
-                markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)
-              y = [  q[:w         , k] for k in domain_range]; plot!(y, x, label="numerical",
-                markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
-            else
-              y = [tmp[:w_initial , k] for k in domain_range]; plot!(y, x, label="",
-                markercolor="blue", linecolor="blue", markershapes=markershape, markersize=2, legend=:topleft)
-              y = [  q[:w         , k] for k in domain_range]; plot!(y, x, label="",
-                markercolor="black", linecolor="black", markershapes=markershape, markersize=2, legend=:topleft)
-            end
-            velocity_sign==1 && savefig(joinpath(directory, name))
-          end
+          plot_solution_burgers(grid, tmp, velocity_sign, joinpath(directory, name))
         end
       end
     end

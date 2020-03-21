@@ -22,8 +22,8 @@ heat_eq_dir = joinpath(output_root,"HeatEquation")
   sol_analtyic = 1/2*grid.zc - grid.zc.^2/2
   sol_error = [abs(q[:T, k] - sol_analtyic[k]) for k in over_elems_real(grid)]
   @test all(sol_error .< grid.Δz)
-  haspkg.plots() && export_state(q, grid, heat_eq_dir, "T.csv")
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T, filename="T_unit_source.png")
+  export_state(q, grid, heat_eq_dir, "T.csv")
+  plot_state(q, grid, heat_eq_dir, :T; filename="T_unit_source.png")
 end
 
 
@@ -49,7 +49,7 @@ end
   sol_analtyic = 1 .- grid.zc
   sol_error = [abs(q[:T, k] - sol_analtyic[k]) for k in over_elems_real(grid)]
   @test all(sol_error .< grid.Δz)
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T, filename="T1_diffExp.png")
+  plot_state(q, grid, heat_eq_dir, :T; filename="T1_diffExp.png")
 end
 
 
@@ -92,7 +92,7 @@ end
   sol_numerical = [q[:T, k] for k in over_elems_real(grid)]
   sol_error = [abs(q[:T, k] - sol_analtyic[k]) for k in over_elems_real(grid)]
   @test all(sol_error .< grid.Δz)
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T, filename= "T1_diffImp.png")
+  plot_state(q, grid, heat_eq_dir, :T; filename= "T1_diffImp.png")
 end
 
 
@@ -217,9 +217,9 @@ end
   @test all([q[:T_explicit_vol, k] ≈ q[:T_explicit_surf, k] for k in over_elems_real(grid)])
   @test all([q[:T_implicit, k] ≈ q[:T_explicit_surf, k] for k in over_elems_real(grid)])
 
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T_explicit_surf, filename="T_varK_explicit_surf.png")
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T_explicit_vol, filename="T_varK_explicit_vol.png")
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T_implicit, filename="T_varK_implicit.png")
+  plot_state(q, grid, heat_eq_dir, :T_explicit_surf; filename="T_varK_explicit_surf.png")
+  plot_state(q, grid, heat_eq_dir, :T_explicit_vol; filename="T_varK_explicit_vol.png")
+  plot_state(q, grid, heat_eq_dir, :T_implicit; filename="T_varK_implicit.png")
 end
 
 
@@ -293,9 +293,9 @@ end
   @test q[:T_explicit_vol, Dual(k_star2)][2] ≈ TS
   @test q[:T_implicit, Dual(k_star2)][2] ≈ TS
 
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T_explicit_surf, filename="T_cosK_explicit_surf.png")
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T_explicit_vol, filename="T_cosK_explicit_vol.png")
-  haspkg.plots() && plot_state(q, grid, heat_eq_dir, :T_implicit, filename="T_cosK_implicit.png")
+  plot_state(q, grid, heat_eq_dir, :T_explicit_surf; filename="T_cosK_explicit_surf.png")
+  plot_state(q, grid, heat_eq_dir, :T_explicit_vol; filename="T_cosK_explicit_vol.png")
+  plot_state(q, grid, heat_eq_dir, :T_implicit; filename="T_cosK_implicit.png")
 
   @test all([abs(q[:T_explicit_vol, k] - q[:T_explicit_surf, k]) < 10*Δt for k in over_elems(grid)])
   @test all([abs(q[:T_explicit_vol, k] - q[:T_explicit_surf, k]) < 10*Δt for k in over_elems(grid)])

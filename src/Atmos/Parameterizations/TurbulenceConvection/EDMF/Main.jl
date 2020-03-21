@@ -60,8 +60,8 @@ function run(case)
   extrap_0th_order!(q, (:θ_liq, :q_tot), grid, gm)
   extrap_0th_order!(tmp, :T, grid, gm)
 
-  # export_plots(q, tmp, grid, dir_tree[:solution_raw]*"LastTimeStep", true, params, i_Δt)
-  # export_plots(q, tmp, grid, dir_tree[:solution_processed]*"LastTimeStep", false, params, i_Δt)
+  export_plots(q, tmp, grid, dir_tree[:solution_raw]*"LastTimeStep", true, params, i_Δt)
+  export_plots(q, tmp, grid, dir_tree[:solution_processed]*"LastTimeStep", false, params, i_Δt)
 
   # export_data(q, tmp, grid, dir_tree, params)
   return (grid, q, tmp)

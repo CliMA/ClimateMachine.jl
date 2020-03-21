@@ -1,20 +1,24 @@
 #### ProcessResults
 
 # TODO: Migrate to using NetCDF IO
-if haspkg.plots()
-using Plots
-end
 using NCDatasets
 
-function export_data(q, tmp, grid, dir_tree, params)
-  if params[:export_data]
-    export_state(q, grid, dir_tree.output, "q.csv")
-    export_state(tmp, grid, dir_tree.output, "tmp.csv")
-  end
-end
+export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt) = nothing
+export_initial_conditions(q, tmp, grid, directory, include_ghost) = nothing
+export_data(q, tmp, grid, dir_tree, params) = nothing
 
-function export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt)
-  if haspkg.plots()
+using Requires
+@init @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" begin
+    using .Plots
+
+  function export_data(q, tmp, grid, dir_tree, params)
+    if params[:export_data]
+      export_state(q, grid, dir_tree.output, "q.csv")
+      export_state(tmp, grid, dir_tree.output, "tmp.csv")
+    end
+  end
+
+  function export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt)
     gm, en, ud, sd, al = allcombinations(q)
     dsf = joinpath(directory,"SingleFields")
     dcf = joinpath(directory,"CombinedFields")
@@ -39,10 +43,8 @@ function export_plots(q, tmp, grid, directory, include_ghost, params, i_Δt)
       plot_state(tmp, grid, dcf, v, i_Δt=i_Δt)
     end
   end
-end
 
-function export_initial_conditions(q, tmp, grid, directory, include_ghost)
-  if haspkg.plots()
+  function export_initial_conditions(q, tmp, grid, directory, include_ghost)
     gm, en, ud, sd, al = allcombinations(q)
     N = grid.n_elem
     @inbounds for i in al
@@ -51,5 +53,6 @@ function export_initial_conditions(q, tmp, grid, directory, include_ghost)
       plot_state(tmp, grid, directory, :T         , i=i, include_ghost=include_ghost, i_Δt=N)
     end
   end
+
 end
 

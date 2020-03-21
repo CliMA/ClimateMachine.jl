@@ -49,10 +49,9 @@ function init_ref_state!(tmp::StateVec, grid::Grid, params, dir_tree::DirTree)
   extrap!(tmp, :α_0, grid)
   extrap!(tmp, :p_0, grid)
 
-  # @if haspkg.plots()
-  #   plot_state(tmp, grid, dir_tree[:initial_conditions], :p_0)
-  #   plot_state(tmp, grid, dir_tree[:initial_conditions], :ρ_0)
-  #   plot_state(tmp, grid, dir_tree[:initial_conditions], :α_0)
-  # end
+  plot_state(tmp, grid, dir_tree[:initial_conditions], :p_0)
+  plot_state(tmp, grid, dir_tree[:initial_conditions], :ρ_0)
+  plot_state(tmp, grid, dir_tree[:initial_conditions], :α_0)
+
 end
 

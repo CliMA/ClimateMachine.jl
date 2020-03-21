@@ -12,7 +12,7 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.ODESolvers
 using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection, min_node_distance
+using CLIMA.Mesh.Grids: min_node_distance
 
 const output = parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_OUTPUT","false")))
 
@@ -33,7 +33,7 @@ function init_hyperdiffusion_tensor!(problem::ConstantHyperDiffusion, aux::Vars,
 end
 
 function initial_condition!(problem::ConstantHyperDiffusion{dim, dir}, state, aux, x, t) where {dim, dir}
-  @inbounds begin 
+  @inbounds begin
     k = SVector(1, 2, 3)
     kD = k * k' .* problem.D
     if dir === EveryDirection()
