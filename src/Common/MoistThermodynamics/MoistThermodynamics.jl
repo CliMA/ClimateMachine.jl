@@ -392,13 +392,15 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 
 """
-total_energy(
+function total_energy(
     e_kin::FT,
     e_pot::FT,
     T::FT,
     q::PhasePartition{FT} = q_pt_0(FT),
     param_set::APS{FT} = MTPS{FT}(),
-) where {FT <: Real} = e_kin + e_pot + internal_energy(T, q, param_set)
+) where {FT <: Real}
+    return e_kin + e_pot + internal_energy(T, q, param_set)
+end
 total_energy(
     e_kin::FT,
     e_pot::FT,
