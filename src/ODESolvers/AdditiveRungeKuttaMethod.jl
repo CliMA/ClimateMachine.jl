@@ -75,12 +75,16 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     Rstages::NTuple{Nstages, AT}
     "Storage for the linear solver rhs vector"
     Qhat::AT
+    order::Int
+    embedded_order::Int
     "RK coefficient matrix A for the explicit scheme"
     RKA_explicit::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
     "RK coefficient matrix A for the implicit scheme"
     RKA_implicit::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
     "RK coefficient vector B (rhs add in scaling)"
     RKB::SArray{Tuple{Nstages}, RT, 1, Nstages}
+    "RK coefficient vector B for the embedded scheme"
+    RKB_embedded::SArray{Tuple{Nstages}, RT, 1, Nstages}
     "RK coefficient vector C (time scaling)"
     RKC::SArray{Tuple{Nstages}, RT, 1, Nstages}
     split_explicit_implicit::Bool
@@ -93,9 +97,12 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
         rhs!,
         rhs_implicit!,
         backward_euler_solver,
+        order,
+        embedded_order,
         RKA_explicit,
         RKA_implicit,
         RKB,
+        RKB_embedded,
         RKC,
         split_explicit_implicit,
         variant,
@@ -145,9 +152,12 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
             Qstages,
             Rstages,
             Qhat,
+            order,
+            embedded_order,
             RKA_explicit,
             RKA_implicit,
             RKB,
+            RKB_embedded,
             RKC,
             split_explicit_implicit,
             variant,
@@ -156,13 +166,18 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     end
 end
 
+embedded_order(ark::AdditiveRungeKutta) = ark.embedded_order
+
 function AdditiveRungeKutta(
     spacedisc::AbstractSpaceMethod,
     spacedisc_linear::AbstractSpaceMethod,
     backward_euler_solver,
+    order,
+    embedded_order,
     RKA_explicit,
     RKA_implicit,
     RKB,
+    RKB_embedded,
     RKC,
     split_explicit_implicit,
     variant,
@@ -180,9 +195,12 @@ function AdditiveRungeKutta(
         rhs!,
         rhs_implicit!,
         backward_euler_solver,
+        order,
+        embedded_order,
         RKA_explicit,
         RKA_implicit,
         RKB,
+        RKB_embedded,
         RKC,
         split_explicit_implicit,
         variant,
@@ -202,7 +220,30 @@ function updatedt!(ark::AdditiveRungeKutta, dt)
 end
 
 function dostep!(
-    Q,
+    Q::AbstractArray,
+    ark::AdditiveRungeKutta,
+    p,
+    time,
+    dt,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    slow_scaling = nothing,
+)
+    dostep!(
+        (Q, Q, nothing),
+        ark,
+        ark.variant,
+        p,
+        time,
+        dt,
+        slow_δ,
+        slow_rv_dQ,
+        slow_scaling,
+    )
+end
+
+function dostep!(
+    Q::NTuple{3, AbstractArray},
     ark::AdditiveRungeKutta,
     p,
     time,
@@ -214,7 +255,7 @@ function dostep!(
 end
 
 function dostep!(
-    Q,
+    (Qnp1, Qn, error_estimate),
     ark::AdditiveRungeKutta,
     variant::NaiveVariant,
     p,
@@ -228,13 +269,16 @@ function dostep!(
     besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
+    RKB_embedded = ark.RKB_embedded
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
     Qstages, Rstages = ark.Qstages, ark.Rstages
     Qhat = ark.Qhat
     split_explicit_implicit = ark.split_explicit_implicit
     Lstages = ark.variant_storage.Lstages
 
-    rv_Q = realview(Q)
+    rv_Qn = realview(Qn)
+    rv_Qnp1 = realview(Qnp1)
+    rv_error_estimate = realview(error_estimate)
     rv_Qstages = realview.(Qstages)
     rv_Lstages = realview.(Lstages)
     rv_Rstages = realview.(Rstages)
@@ -261,10 +305,10 @@ function dostep!(
 
         # this kernel also initializes Qstages[istage] with an initial guess
         # for the linear solver
-        event = Event(device(Q))
-        event = stage_update!(device(Q), groupsize)(
+        event = Event(device(Qn))
+        event = stage_update!(device(Qn), groupsize)(
             variant,
-            rv_Q,
+            rv_Qn,
             rv_Qstages,
             rv_Lstages,
             rv_Rstages,
@@ -276,10 +320,10 @@ function dostep!(
             Val(split_explicit_implicit),
             slow_δ,
             slow_rv_dQ;
-            ndrange = length(rv_Q),
+            ndrange = length(rv_Qn),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(device(Qn), event)
 
         # solves
         # Qs = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Qs)
@@ -297,27 +341,30 @@ function dostep!(
     end
 
     # compose the final solution
-    event = Event(device(Q))
-    event = solution_update!(device(Q), groupsize)(
+    event = Event(device(Qn))
+    event = solution_update!(device(Qn), groupsize)(
         variant,
-        rv_Q,
+        rv_Qnp1,
+        rv_error_estimate,
+        rv_Qn,
         rv_Lstages,
         rv_Rstages,
         RKB,
+        RKB_embedded,
         dt,
         Val(Nstages),
         Val(split_explicit_implicit),
         slow_δ,
         slow_rv_dQ,
         slow_scaling;
-        ndrange = length(rv_Q),
+        ndrange = length(rv_Qn),
         dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(device(Qn), event)
 end
 
 function dostep!(
-    Q,
+    (Qnp1, Qn, error_estimate),
     ark::AdditiveRungeKutta,
     variant::LowStorageVariant,
     p,
@@ -331,13 +378,16 @@ function dostep!(
     besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
+    RKB_embedded = ark.RKB_embedded
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
     Qstages, Rstages = ark.Qstages, ark.Rstages
     Qhat = ark.Qhat
     split_explicit_implicit = ark.split_explicit_implicit
     Qtt = ark.variant_storage.Qtt
 
-    rv_Q = realview(Q)
+    rv_Qn = realview(Qn)
+    rv_Qnp1 = realview(Qnp1)
+    rv_error_estimate = realview(error_estimate)
     rv_Qstages = realview.(Qstages)
     rv_Rstages = realview.(Rstages)
     rv_Qhat = realview(Qhat)
@@ -356,10 +406,10 @@ function dostep!(
 
 
         # this kernel also initializes Qtt for the linear solver
-        event = Event(device(Q))
-        event = stage_update!(device(Q), groupsize)(
+        event = Event(device(Qn))
+        event = stage_update!(device(Qn), groupsize)(
             variant,
-            rv_Q,
+            rv_Qn,
             rv_Qstages,
             rv_Rstages,
             rv_Qhat,
@@ -371,10 +421,10 @@ function dostep!(
             Val(split_explicit_implicit),
             slow_δ,
             slow_rv_dQ;
-            ndrange = length(rv_Q),
+            ndrange = length(rv_Qn),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(device(Qn), event)
 
         # solves
         # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Q_tt)
@@ -401,21 +451,24 @@ function dostep!(
     end
 
     # compose the final solution
-    event = Event(device(Q))
-    event = solution_update!(device(Q), groupsize)(
+    event = Event(device(Qn))
+    event = solution_update!(device(Qn), groupsize)(
         variant,
-        rv_Q,
+        rv_Qnp1,
+        rv_error_estimate,
+        rv_Qn,
         rv_Rstages,
         RKB,
+        RKB_embedded,
         dt,
         Val(Nstages),
         slow_δ,
         slow_rv_dQ,
         slow_scaling;
-        ndrange = length(rv_Q),
+        ndrange = length(rv_Qn),
         dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(device(Qn), event)
 end
 
 @kernel function stage_update!(
@@ -503,10 +556,13 @@ end
 
 @kernel function solution_update!(
     ::NaiveVariant,
-    Q,
+    Qnp1,
+    error_estimate,
+    Qn,
     Lstages,
     Rstages,
     RKB,
+    RKB_embedded,
     dt,
     ::Val{Nstages},
     ::Val{split_explicit_implicit},
@@ -523,20 +579,36 @@ end
             slow_dQ[i] *= slow_scaling
         end
 
+        Qnp1[i] = Qn[i]
+        if error_estimate !== nothing
+            error_estimate[i] = Qn[i]
+        end
         @unroll for is in 1:Nstages
-            Q[i] += RKB[is] * dt * Rstages[is][i]
+            Qnp1[i] += RKB[is] * dt * Rstages[is][i]
             if split_explicit_implicit
-                Q[i] += RKB[is] * dt * Lstages[is][i]
+                Qnp1[i] += RKB[is] * dt * Lstages[is][i]
             end
+            if error_estimate !== nothing
+                error_estimate[i] += RKB_embedded[is] * dt * Rstages[is][i]
+                if split_nonlinear_linear
+                    error_estimate[i] += RKB_embedded[is] * dt * Lstages[is][i]
+                end
+            end
+        end
+        if error_estimate !== nothing
+            error_estimate[i] -= Qnp1[i]
         end
     end
 end
 
 @kernel function solution_update!(
     ::LowStorageVariant,
-    Q,
+    Qnp1,
+    error_estimate,
+    Qn,
     Rstages,
     RKB,
+    RKB_embedded,
     dt,
     ::Val{Nstages},
     slow_δ,
@@ -552,8 +624,18 @@ end
             slow_dQ[i] *= slow_scaling
         end
 
+        Qnp1[i] = Qn[i]
+        if error_estimate !== nothing
+            error_estimate[i] = Qn[i]
+        end
         @unroll for is in 1:Nstages
-            Q[i] += RKB[is] * dt * Rstages[is][i]
+            Qnp1[i] += RKB[is] * dt * Rstages[is][i]
+            if error_estimate !== nothing
+                error_estimate[i] += RKB_embedded[is] * dt * Rstages[is][i]
+            end
+        end
+        if error_estimate !== nothing
+            error_estimate[i] -= Qnp1[i]
         end
     end
 end
@@ -616,6 +698,7 @@ function ARK2GiraldoKellyConstantinescu(
     ]
 
     RKB = [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
+    RKB_embedded = [(4 - sqrt(2)) / 8, (4 - sqrt(2)) / 8, 1 / (2 * sqrt(2))]
     RKC = [RT(0), RT(2 - sqrt(2)), RT(1)]
 
     Nstages = length(RKB)
@@ -624,9 +707,12 @@ function ARK2GiraldoKellyConstantinescu(
         F,
         L,
         backward_euler_solver,
+        2,
+        1,
         RKA_explicit,
         RKA_implicit,
         RKB,
+        RKB_embedded,
         RKC,
         split_explicit_implicit,
         variant,
@@ -684,6 +770,7 @@ function ARK548L2SA2KennedyCarpenter(
     RKA_explicit = zeros(RT, Nstages, Nstages)
     RKA_implicit = zeros(RT, Nstages, Nstages)
     RKB = zeros(RT, Nstages)
+    RKB_embedded = similar(RKB)
     RKC = zeros(RT, Nstages)
 
     # the main diagonal
@@ -742,6 +829,14 @@ function ARK548L2SA2KennedyCarpenter(
     RKB[6] = RT(3296210113763 // 10722700128969)
     RKB[7] = RT(-1142099968913 // 5710983926999)
 
+    RKB_embedded[2] = 0
+    RKB_embedded[3] = RT(520639020421 // 8300446712847)
+    RKB_embedded[4] = RT(4550235134915 // 17827758688493)
+    RKB_embedded[5] = RT(1482366381361 // 6201654941325)
+    RKB_embedded[6] = RT(5551607622171 // 13911031047899)
+    RKB_embedded[7] = RT(-5266607656330 // 36788968843917)
+    RKB_embedded[8] = RT(1074053359553 // 5740751784926)
+
     RKC[2] = RT(4 // 9)
     RKC[3] = RT(6456083330201 // 8509243623797)
     RKC[4] = RT(1632083962415 // 14158861528103)
@@ -760,6 +855,8 @@ function ARK548L2SA2KennedyCarpenter(
     RKB[1] = RKB[2]
     RKB[8] = gamma
 
+    RKB_embedded[1] = RKB_embedded[2]
+
     RKA_explicit[2, 1] = RKC[2]
     RKA_explicit[Nstages, 1] = RKA_explicit[Nstages, 2]
 
@@ -776,9 +873,12 @@ function ARK548L2SA2KennedyCarpenter(
         F,
         L,
         backward_euler_solver,
+        5,
+        4,
         RKA_explicit,
         RKA_implicit,
         RKB,
+        RKB_embedded,
         RKC,
         split_explicit_implicit,
         variant,
@@ -835,6 +935,7 @@ function ARK437L2SA1KennedyCarpenter(
     RKA_explicit = zeros(RT, Nstages, Nstages)
     RKA_implicit = zeros(RT, Nstages, Nstages)
     RKB = zeros(RT, Nstages)
+    RKB_embedded = similar(RKB)
     RKC = zeros(RT, Nstages)
 
     # the main diagonal
@@ -885,6 +986,13 @@ function ARK437L2SA1KennedyCarpenter(
     RKB[6] = RT(2273837961795 // 8368240463276)
     RKB[7] = RT(247 // 2000)
 
+    RKB_embedded[2] = 0
+    RKB_embedded[3] = RT(4469248916618 // 8635866897933)
+    RKB_embedded[4] = RT(-621260224600 // 4094290005349)
+    RKB_embedded[5] = RT(696572312987 // 2942599194819)
+    RKB_embedded[6] = RT(1532940081127 // 5565293938103)
+    RKB_embedded[7] = RT(2441 // 20000)
+
     RKC[2] = RT(247 // 1000)
     RKC[3] = RT(4276536705230 // 10142255878289)
     RKC[4] = RT(67 // 200)
@@ -900,6 +1008,8 @@ function ARK437L2SA1KennedyCarpenter(
     end
 
     RKB[1] = RKB[2]
+
+    RKB_embedded[1] = RKB_embedded[2]
 
     RKA_explicit[2, 1] = RKC[2]
     RKA_explicit[Nstages, 1] = RKA_explicit[Nstages, 2]
@@ -917,9 +1027,12 @@ function ARK437L2SA1KennedyCarpenter(
         F,
         L,
         backward_euler_solver,
+        4,
+        3,
         RKA_explicit,
         RKA_implicit,
         RKB,
+        RKB_embedded,
         RKC,
         split_explicit_implicit,
         variant,

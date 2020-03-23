@@ -716,7 +716,7 @@ end
 device(::Union{Array, SArray, MArray}) = CPU()
 device(Q::MPIStateArray) = device(Q.data)
 
-realview(Q::Union{Array, SArray, MArray}) = Q
+realview(Q::Union{Nothing, Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin

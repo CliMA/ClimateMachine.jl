@@ -17,7 +17,15 @@ const explicit_methods = (
     (LSRKEulerMethod, 1),
 )
 
+const explicit_adaptive_methods =
+    ((ERK23BogackiShampine, 3), (ERK45DormandPrince, 5))
+
 const imex_methods = (
+    (ARK2GiraldoKellyConstantinescu, 2),
+    (ARK437L2SA1KennedyCarpenter, 4),
+    (ARK548L2SA2KennedyCarpenter, 5),
+)
+const imex_adaptive_methods = (
     (ARK2GiraldoKellyConstantinescu, 2),
     (ARK437L2SA1KennedyCarpenter, 4),
     (ARK548L2SA2KennedyCarpenter, 5),
