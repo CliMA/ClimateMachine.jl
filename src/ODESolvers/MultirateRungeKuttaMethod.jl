@@ -111,13 +111,11 @@ function dostep!(
     time::Real,
     dt::AbstractFloat,
     in_slow_δ = nothing,
-    in_slow_rv_dQ = nothing,
+    in_slow_dQ = nothing,
     in_slow_scaling = nothing,
 ) where {SS <: LSRK2N}
     slow = mrrk.slow_solver
     fast = mrrk.fast_solver
-
-    slow_rv_dQ = realview(slow.dQ)
 
     groupsize = 256
 
@@ -136,8 +134,8 @@ function dostep!(
             # update solution and scale RHS
             event = Event(device(Q))
             event = update!(device(Q), groupsize)(
-                slow_rv_dQ,
-                in_slow_rv_dQ,
+                slow.dQ,
+                in_slow_dQ,
                 in_slow_δ,
                 slow_scaling;
                 ndrange = length(realview(Q)),
@@ -175,7 +173,7 @@ function dostep!(
                 fast_time,
                 fast_dt,
                 slow_δ,
-                slow_rv_dQ,
+                slow.dQ,
                 slow_rka,
             )
         end

@@ -113,15 +113,15 @@ end
 
 """
     dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
-                       dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
+                       dt::Real, [slow_δ, slow_dQ, slow_scaling])
 
 Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
 from the current time `time` to final time `time + dt`.
 
-If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
+If the optional parameter `slow_δ !== nothing` then `slow_dQ * slow_δ` is
 added as an additionall ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
-`slow_rv_dQ *= slow_scaling` is performed.
+`slow_dQ *= slow_scaling` is performed.
 """
 function dostep!(
     Q,
@@ -130,14 +130,11 @@ function dostep!(
     time::Real,
     dt::Real,
     slow_δ = nothing,
-    slow_rv_dQ = nothing,
+    slow_dQ = nothing,
     in_slow_scaling = nothing,
 )
     RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
     rhs!, dQ = lsrk.rhs!, lsrk.dQ
-
-    rv_Q = realview(Q)
-    rv_dQ = realview(dQ)
 
     groupsize = 256
 
@@ -151,15 +148,15 @@ function dostep!(
         # update solution and scale RHS
         event = Event(device(Q))
         event = update!(device(Q), groupsize)(
-            rv_dQ,
-            rv_Q,
+            dQ,
+            Q,
             RKA[s % length(RKA) + 1],
             RKB[s],
             dt,
             slow_δ,
-            slow_rv_dQ,
+            slow_dQ,
             slow_scaling;
-            ndrange = length(rv_Q),
+            ndrange = length(realview(Q)),
             dependencies = (event,),
         )
         wait(device(Q), event)

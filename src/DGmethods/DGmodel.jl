@@ -44,7 +44,7 @@ end
 function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
 
     bl = dg.balancelaw
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = MPIStateArrays.device(Q)
 
     grid = dg.grid
     topology = grid.topology
@@ -101,10 +101,10 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            Q.data,
-            Qvisc.data,
-            Qhypervisc_grad.data,
-            auxstate.data,
+            Q,
+            Qvisc,
+            Qhypervisc_grad,
+            auxstate,
             grid.vgeo,
             t,
             grid.D,
@@ -129,10 +129,10 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             Val(N),
             dg.diffusion_direction,
             dg.gradnumflux,
-            Q.data,
-            Qvisc.data,
-            Qhypervisc_grad.data,
-            auxstate.data,
+            Q,
+            Qvisc,
+            Qhypervisc_grad,
+            auxstate,
             grid.vgeo,
             grid.sgeo,
             t,
@@ -173,8 +173,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
+            Qhypervisc_grad,
+            Qhypervisc_div,
             grid.vgeo,
             grid.D,
             topology.realelems;
@@ -192,8 +192,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             Val(N),
             dg.diffusion_direction,
             CentralDivPenalty(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
+            Qhypervisc_grad,
+            Qhypervisc_div,
             grid.vgeo,
             grid.sgeo,
             grid.vmap⁻,
@@ -217,10 +217,10 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            Q.data,
-            auxstate.data,
+            Qhypervisc_grad,
+            Qhypervisc_div,
+            Q,
+            auxstate,
             grid.vgeo,
             grid.ω,
             grid.D,
@@ -240,10 +240,10 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             Val(N),
             dg.diffusion_direction,
             CentralHyperDiffusiveFlux(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            Q.data,
-            auxstate.data,
+            Qhypervisc_grad,
+            Qhypervisc_div,
+            Q,
+            auxstate,
             grid.vgeo,
             grid.sgeo,
             grid.vmap⁻,
@@ -269,11 +269,11 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         Val(dim),
         Val(N),
         dg.direction,
-        dQdt.data,
-        Q.data,
-        Qvisc.data,
-        Qhypervisc_grad.data,
-        auxstate.data,
+        dQdt,
+        Q,
+        Qvisc,
+        Qhypervisc_grad,
+        auxstate,
         grid.vgeo,
         t,
         grid.ω,
@@ -311,11 +311,11 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         dg.direction,
         dg.numfluxnondiff,
         dg.numfluxdiff,
-        dQdt.data,
-        Q.data,
-        Qvisc.data,
-        Qhypervisc_grad.data,
-        auxstate.data,
+        dQdt,
+        Q,
+        Qvisc,
+        Qhypervisc_grad,
+        auxstate,
         grid.vgeo,
         grid.sgeo,
         t,
@@ -364,8 +364,8 @@ function init_ode_state(
             bl,
             Val(dim),
             Val(N),
-            state.data,
-            auxstate.data,
+            state,
+            auxstate,
             grid.vgeo,
             topology.realelems,
             args...;
@@ -381,8 +381,8 @@ function init_ode_state(
             bl,
             Val(dim),
             Val(N),
-            h_state.data,
-            h_auxstate.data,
+            h_state,
+            h_auxstate,
             Array(grid.vgeo),
             topology.realelems,
             args...;
@@ -420,7 +420,7 @@ function indefinite_stack_integral!(
     t::Real,
 )
 
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = MPIStateArrays.device(Q)
 
     grid = dg.grid
     topology = grid.topology
@@ -443,8 +443,8 @@ function indefinite_stack_integral!(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        Q.data,
-        auxstate.data,
+        Q,
+        auxstate,
         grid.vgeo,
         grid.Imat,
         1:nhorzelem;
@@ -462,7 +462,7 @@ function reverse_indefinite_stack_integral!(
     t::Real,
 )
 
-    device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
+    device = MPIStateArrays.device(auxstate)
 
     grid = dg.grid
     topology = grid.topology
@@ -485,8 +485,8 @@ function reverse_indefinite_stack_integral!(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        Q.data,
-        auxstate.data,
+        Q,
+        auxstate,
         1:nhorzelem;
         ndrange = (nhorzelem * Nq, Nqk),
         dependencies = (event,),
@@ -502,7 +502,7 @@ function nodal_update_aux!(
     t::Real;
     diffusive = false,
 )
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = MPIStateArrays.device(Q)
 
     grid = dg.grid
     topology = grid.topology
@@ -523,9 +523,9 @@ function nodal_update_aux!(
             Val(dim),
             Val(N),
             f!,
-            Q.data,
-            dg.auxstate.data,
-            dg.diffstate.data,
+            Q,
+            dg.auxstate,
+            dg.diffstate,
             t,
             topology.realelems;
             ndrange = Np * nrealelem,
@@ -537,8 +537,8 @@ function nodal_update_aux!(
             Val(dim),
             Val(N),
             f!,
-            Q.data,
-            dg.auxstate.data,
+            Q,
+            dg.auxstate,
             t,
             topology.realelems;
             ndrange = Np * nrealelem,
@@ -600,9 +600,9 @@ function courant(
             Val(N),
             pointwise_courant,
             local_courant,
-            Q.data,
-            dg.auxstate.data,
-            dg.diffstate.data,
+            Q,
+            dg.auxstate,
+            dg.diffstate,
             topology.realelems,
             direction,
             Δt;
@@ -626,7 +626,7 @@ function copy_stack_field_down!(
     fldout,
 )
 
-    device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
+    device = MPIStateArrays.device(auxstate)
 
     grid = dg.grid
     topology = grid.topology
@@ -646,7 +646,7 @@ function copy_stack_field_down!(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        auxstate.data,
+        auxstate,
         1:nhorzelem,
         Val(fldin),
         Val(fldout);

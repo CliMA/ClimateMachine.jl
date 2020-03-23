@@ -208,12 +208,12 @@ function dostep!(
         groupsize = 256
         event = Event(device(Q))
         event = update!(device(Q), groupsize)(
-            realview(Q),
-            realview(offset),
+            Q,
+            offset,
             Val(i),
-            realview(yn),
-            map(realview, ΔYnj[1:(i - 2)]),
-            map(realview, fYnj[1:(i - 1)]),
+            yn,
+            ΔYnj[1:(i - 2)],
+            fYnj[1:(i - 1)],
             α[i, :],
             β[i, :],
             γ[i, :],
@@ -235,7 +235,7 @@ function dostep!(
         #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
         # especially if we want to use StormerVerlet, but need some way to pass in `offset`
         for k in 1:(mis.nsubsteps)
-            dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset))  #(1c)
+            dostep!(Q, fastsolver, p, τ, dτ, FT(1), offset)  #(1c)
             τ += dτ
         end
     end

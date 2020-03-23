@@ -156,16 +156,14 @@ function LS.doiteration!(
     y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
 
     ## compose the solution
-    rv_Q = realview(Q)
-    rv_krylov_basis = realview.(krylov_basis)
     groupsize = 256
     event = Event(device(Q))
     event = LS.linearcombination!(device(Q), groupsize)(
-        rv_Q,
+        Q,
         y,
-        rv_krylov_basis,
+        krylov_basis,
         true;
-        ndrange = length(rv_Q),
+        ndrange = length(realview(Q)),
         dependencies = (event,),
     )
     wait(device(Q), event)

@@ -126,15 +126,15 @@ end
 
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
-                       time::Real, dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
+                       time::Real, dt::Real, [slow_δ, slow_dQ, slow_scaling])
 
 Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
 forward in time from the current time `time` to final time `time + dt`.
 
-If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
+If the optional parameter `slow_δ !== nothing` then `slow_dQ * slow_δ` is
 added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
-`slow_rv_dQ *= slow_scaling` is performed.
+`slow_dQ *= slow_scaling` is performed.
 """
 function dostep!(
     Q,
@@ -143,7 +143,7 @@ function dostep!(
     time::Real,
     dt::Real,
     slow_δ = nothing,
-    slow_rv_dQ = nothing,
+    slow_dQ = nothing,
     in_slow_scaling = nothing,
 )
 
@@ -151,12 +151,9 @@ function dostep!(
     rhs! = ssp.rhs!
     Rstage, Qstage = ssp.Rstage, ssp.Qstage
 
-    rv_Q = realview(Q)
-    rv_Rstage = realview(Rstage)
-    rv_Qstage = realview(Qstage)
     groupsize = 256
 
-    rv_Qstage .= rv_Q
+    Qstage .= Q
     for s in 1:length(RKB)
         rhs!(Rstage, Qstage, p, time + RKC[s] * dt, increment = false)
 
@@ -166,22 +163,22 @@ function dostep!(
         end
         event = Event(device(Q))
         event = update!(device(Q), groupsize)(
-            rv_Rstage,
-            rv_Q,
-            rv_Qstage,
+            Rstage,
+            Q,
+            Qstage,
             RKA[s, 1],
             RKA[s, 2],
             RKB[s],
             dt,
             slow_δ,
-            slow_rv_dQ,
+            slow_dQ,
             slow_scaling;
-            ndrange = length(rv_Q),
+            ndrange = length(realview(Q)),
             dependencies = (event,),
         )
         wait(device(Q), event)
     end
-    rv_Q .= rv_Qstage
+    Q .= Qstage
 end
 
 """

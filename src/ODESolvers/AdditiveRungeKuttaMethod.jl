@@ -262,10 +262,10 @@ function dostep!(
     time::Real,
     dt::Real,
     slow_δ = nothing,
-    slow_rv_dQ = nothing,
+    slow_dQ = nothing,
     slow_scaling = nothing,
 )
-    dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_rv_dQ, slow_scaling)
+    dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_dQ, slow_scaling)
 end
 
 function dostep!(
@@ -276,7 +276,7 @@ function dostep!(
     time::Real,
     dt::Real,
     slow_δ = nothing,
-    slow_rv_dQ = nothing,
+    slow_dQ = nothing,
     slow_scaling = nothing,
 )
     implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
@@ -287,12 +287,6 @@ function dostep!(
     Qhat = ark.Qhat
     split_nonlinear_linear = ark.split_nonlinear_linear
     Lstages = ark.variant_storage.Lstages
-
-    rv_Q = realview(Q)
-    rv_Qstages = realview.(Qstages)
-    rv_Lstages = realview.(Lstages)
-    rv_Rstages = realview.(Rstages)
-    rv_Qhat = realview(Qhat)
 
     Nstages = length(RKB)
 
@@ -323,19 +317,19 @@ function dostep!(
         event = Event(device(Q))
         event = stage_update!(device(Q), groupsize)(
             variant,
-            rv_Q,
-            rv_Qstages,
-            rv_Lstages,
-            rv_Rstages,
-            rv_Qhat,
+            Q,
+            Qstages,
+            Lstages,
+            Rstages,
+            Qhat,
             RKA_explicit,
             RKA_implicit,
             dt,
             Val(istage),
             Val(split_nonlinear_linear),
             slow_δ,
-            slow_rv_dQ;
-            ndrange = length(rv_Q),
+            slow_dQ;
+            ndrange = length(realview(Q)),
             dependencies = (event,),
         )
         wait(device(Q), event)
@@ -369,17 +363,17 @@ function dostep!(
     event = Event(device(Q))
     event = solution_update!(device(Q), groupsize)(
         variant,
-        rv_Q,
-        rv_Lstages,
-        rv_Rstages,
+        Q,
+        Lstages,
+        Rstages,
         RKB,
         dt,
         Val(Nstages),
         Val(split_nonlinear_linear),
         slow_δ,
-        slow_rv_dQ,
+        slow_dQ,
         slow_scaling;
-        ndrange = length(rv_Q),
+        ndrange = length(realview(Q)),
         dependencies = (event,),
     )
     wait(device(Q), event)
@@ -393,7 +387,7 @@ function dostep!(
     time::Real,
     dt::Real,
     slow_δ = nothing,
-    slow_rv_dQ = nothing,
+    slow_dQ = nothing,
     slow_scaling = nothing,
 )
     implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
@@ -404,12 +398,6 @@ function dostep!(
     Qhat = ark.Qhat
     split_nonlinear_linear = ark.split_nonlinear_linear
     Qtt = ark.variant_storage.Qtt
-
-    rv_Q = realview(Q)
-    rv_Qstages = realview.(Qstages)
-    rv_Rstages = realview.(Rstages)
-    rv_Qhat = realview(Qhat)
-    rv_Qtt = realview(Qtt)
 
     Nstages = length(RKB)
 
@@ -432,19 +420,19 @@ function dostep!(
         event = Event(device(Q))
         event = stage_update!(device(Q), groupsize)(
             variant,
-            rv_Q,
-            rv_Qstages,
-            rv_Rstages,
-            rv_Qhat,
-            rv_Qtt,
+            Q,
+            Qstages,
+            Rstages,
+            Qhat,
+            Qtt,
             RKA_explicit,
             RKA_implicit,
             dt,
             Val(istage),
             Val(split_nonlinear_linear),
             slow_δ,
-            slow_rv_dQ;
-            ndrange = length(rv_Q),
+            slow_dQ;
+            ndrange = length(realview(Q)),
             dependencies = (event,),
         )
         wait(device(Q), event)
@@ -475,15 +463,15 @@ function dostep!(
     event = Event(device(Q))
     event = solution_update!(device(Q), groupsize)(
         variant,
-        rv_Q,
-        rv_Rstages,
+        Q,
+        Rstages,
         RKB,
         dt,
         Val(Nstages),
         slow_δ,
-        slow_rv_dQ,
+        slow_dQ,
         slow_scaling;
-        ndrange = length(rv_Q),
+        ndrange = length(realview(Q)),
         dependencies = (event,),
     )
     wait(device(Q), event)

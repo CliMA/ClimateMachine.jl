@@ -20,6 +20,13 @@ Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
     Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
         similar(CuArray{FT}, dims...)
 end
+@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
+    using .CUDAnative
+    using Adapt
+    # allows passing MPIStateArrays to GPU kernels
+    Adapt.adapt_storage(to::CUDAnative.Adaptor, a::MPIStateArray) =
+        adapt(to, a.data)
+end
 
 include("CMBuffers.jl")
 using .CMBuffers
@@ -254,12 +261,11 @@ function Base.similar(Q::MPIStateArray{FT}; commtag = Q.commtag) where {FT}
     similar(Q, FT, commtag = commtag)
 end
 
-Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)
+Base.size(Q::MPIStateArray, x...; kw...) = size(Q.data, x...; kw...)
 
-Base.getindex(Q::MPIStateArray, x...; kw...) = getindex(Q.realdata, x...; kw...)
+Base.getindex(Q::MPIStateArray, x...; kw...) = getindex(Q.data, x...; kw...)
 
-Base.setindex!(Q::MPIStateArray, x...; kw...) =
-    setindex!(Q.realdata, x...; kw...)
+Base.setindex!(Q::MPIStateArray, x...; kw...) = setindex!(Q.data, x...; kw...)
 
 Base.eltype(Q::MPIStateArray, x...; kw...) = eltype(Q.data, x...; kw...)
 
@@ -313,6 +319,8 @@ end
             copyto!(dest.data, bc.args[1])
         end
     else
+        realaxes = (axes(dest.data)[1:(end - 1)]..., dest.realelems)
+        bc = Broadcasted(bc.f, bc.args, realaxes)
         copyto!(dest.realdata, transform_broadcasted(bc, dest.data))
     end
     dest
@@ -692,14 +700,15 @@ function Base.mapreduce(
 end
 
 
-# `realview` and `device` are helpers that enable
-# testing ODESolvers and LinearSolvers without using MPIStateArrays
-# They could be potentially useful elsewhere and exported but probably need
-# better names, for example `device` is also defined in CUDAdrv
-
 device(::Union{Array, SArray, MArray}) = CPU()
 device(Q::MPIStateArray) = device(Q.data)
 
+"""
+    realview(A)
+
+Returns a view into the real (i.e. non-ghost) elements of the MPIStateArray `A`.
+For convenience, defined to be indentity for other kinds of arrays.
+"""
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata
 

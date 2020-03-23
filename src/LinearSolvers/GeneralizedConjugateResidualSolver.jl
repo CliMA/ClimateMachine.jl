@@ -139,37 +139,32 @@ function LS.doiteration!(
         end
 
         if k < K
-            rv_nextp = realview(p[k + 1])
-            rv_L_nextp = realview(L_p[k + 1])
+            nextp = p[k + 1]
+            L_nextp = L_p[k + 1]
         else # restart
-            rv_nextp = realview(p[1])
-            rv_L_nextp = realview(L_p[1])
+            nextp = p[1]
+            L_nextp = L_p[1]
         end
-
-        rv_residual = realview(residual)
-        rv_p = realview.(p)
-        rv_L_p = realview.(L_p)
-        rv_L_residual = realview(L_residual)
 
         groupsize = 256
         T = eltype(alpha)
 
         event = Event(device(Q))
         event = LS.linearcombination!(device(Q), groupsize)(
-            rv_nextp,
+            nextp,
             (one(T), alpha[1:k]...),
-            (rv_residual, rv_p[1:k]...),
+            (residual, p[1:k]...),
             false;
-            ndrange = length(rv_nextp),
+            ndrange = length(realview(nextp)),
             dependencies = (event,),
         )
 
         event = LS.linearcombination!(device(Q), groupsize)(
-            rv_L_nextp,
+            L_nextp,
             (one(T), alpha[1:k]...),
-            (rv_L_residual, rv_L_p[1:k]...),
+            (L_residual, L_p[1:k]...),
             false;
-            ndrange = length(rv_nextp),
+            ndrange = length(realview(nextp)),
             dependencies = (event,),
         )
         wait(device(Q), event)

@@ -151,7 +151,7 @@ function band_forward!(Q, A, dg::DGModel)
 
     event = Event(device)
     event = band_forward_knl!(device, (Nq, Nqj))(
-        Q.data,
+        Q,
         A,
         Val(Nq),
         Val(Nqj),
@@ -188,7 +188,7 @@ function band_back!(Q, A, dg::DGModel)
 
     event = Event(device)
     event = band_back_knl!(device, (Nq, Nqj))(
-        Q.data,
+        Q,
         A,
         Val(Nq),
         Val(Nqj),
@@ -334,7 +334,7 @@ function banded_matrix(
                     Val(dim),
                     Val(N),
                     Val(nvertelem),
-                    Q.data,
+                    Q,
                     k,
                     s,
                     ev,
@@ -359,7 +359,7 @@ function banded_matrix(
                     Val(q),
                     Val(eband + 1),
                     A,
-                    dQ.data,
+                    dQ,
                     k,
                     s,
                     ev,
@@ -422,9 +422,9 @@ function banded_matrix_vector_product!(
         Val(nvertelem),
         Val(p),
         Val(q),
-        dQ.data,
+        dQ,
         A,
-        Q.data,
+        Q,
         1:nhorzelem,
         1:nvertelem;
         ndrange = (nvertelem * Nq, nhorzelem * Nqj, Nq),
