@@ -17,7 +17,7 @@ using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
 
-export solve!, updatedt!, gettime
+export solve!, updatedt!, updatetime!, gettime
 
 abstract type AbstractODESolver end
 """
@@ -161,7 +161,9 @@ function solve!(
 end
 # }}}
 
+include("ErrorAdaptiveMethod.jl")
 include("LowStorageRungeKuttaMethod.jl")
+include("ExplicitFSALRungeKuttaMethod.jl")
 include("StrongStabilityPreservingRungeKuttaMethod.jl")
 include("AdditiveRungeKuttaMethod.jl")
 include("MultirateInfinitesimalStepMethod.jl")

@@ -39,6 +39,31 @@ const ArrayType = CLIMA.array_type()
                     @test isapprox(rates[end], expected_order; atol = 0.17)
                 end
             end
+
+            @testset "Explicit methods error-control" begin
+                finaltime = 20.0
+                dt = 1.0
+                atols = [10.0^(-k) for k in 2:7]
+                errors = similar(atols)
+                q0 =
+                    ArrayType === Array ? [1.0] : range(-1.0, 1.0, length = 303)
+                for (method, _) in explicit_adaptive_methods
+                    for (n, atol) in enumerate(atols)
+                        Q = ArrayType(q0)
+                        solver = method(rhs!, Q; dt = dt, t0 = 0.0)
+                        solver = ErrorAdaptiveSolver(
+                            solver,
+                            IntegralController{Float64}(atol = atol),
+                            Q,
+                        )
+                        solve!(Q, solver; timeend = finaltime)
+                        Q = Array(Q)
+                        errors[n] =
+                            maximum(@. abs(Q - exactsolution(q0, finaltime)))
+                    end
+                    @test all(errors .<= 50 .* atols)
+                end
+            end
         end
 
         @testset "Two-rate ODE with a linear stiff part" begin
@@ -111,6 +136,47 @@ const ArrayType = CLIMA.array_type()
                                 expected_order;
                                 atol = 0.1,
                             )
+                        end
+                    end
+                end
+            end
+
+            @testset "IMEX methods error control" begin
+                finaltime = pi / 2
+                dt = 1.0
+                atols = [10.0^(-k) for k in 2:7]
+                errors = similar(atols)
+
+                q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
+                for (method, expected_order) in imex_adaptive_methods
+                    for split_nonlinear_linear in (false, true)
+                        for variant in (LowStorageVariant(), NaiveVariant())
+                            for (n, atol) in enumerate(atols)
+                                Q = ArrayType{ComplexF64}(q0)
+                                rhs! = split_nonlinear_linear ? rhs_nonlinear! :
+                                    rhs_full!
+                                solver = method(
+                                    rhs!,
+                                    rhs_linear!,
+                                    DivideLinearSolver(),
+                                    Q;
+                                    dt = dt,
+                                    t0 = 0.0,
+                                    split_nonlinear_linear = split_nonlinear_linear,
+                                    variant = variant,
+                                )
+                                solver = ErrorAdaptiveSolver(
+                                    solver,
+                                    IntegralController{Float64}(atol = atol),
+                                    Q,
+                                )
+                                solve!(Q, solver; timeend = finaltime)
+                                Q = Array(Q)
+                                errors[n] = maximum(@. abs(
+                                    Q - exactsolution(q0, finaltime),
+                                ))
+                            end
+                            @test all(errors .<= 290 .* atols)
                         end
                     end
                 end
