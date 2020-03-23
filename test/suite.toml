@@ -8,7 +8,7 @@ filename = "test/Mesh/BrickMesh.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [true]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [BrickMesh.matrix.GPU]
@@ -18,7 +18,7 @@ filename = "test/Mesh/BrickMesh.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [acousticwave_1d_imex]
@@ -31,7 +31,7 @@ filename = "test/DGmethods/Euler/acousticwave_1d_imex.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [acousticwave_1d_imex.matrix.GPU]
@@ -41,7 +41,7 @@ filename = "test/DGmethods/Euler/acousticwave_1d_imex.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [driver_test]
@@ -54,7 +54,7 @@ filename = "test/Driver/driver_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [driver_test.matrix.GPU]
@@ -64,7 +64,7 @@ filename = "test/Driver/driver_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_connect]
@@ -77,7 +77,7 @@ filename = "test/Mesh/mpi_connect.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [mpi_connect.matrix.GPU]
@@ -87,7 +87,7 @@ filename = "test/Mesh/mpi_connect.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [ex_1_saturation_adjustment]
@@ -100,7 +100,7 @@ filename = "examples/Microphysics/ex_1_saturation_adjustment.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [ex_1_saturation_adjustment.matrix.GPU]
@@ -110,7 +110,7 @@ filename = "examples/Microphysics/ex_1_saturation_adjustment.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [isentropicvortex]
@@ -123,7 +123,7 @@ filename = "test/DGmethods/Euler/isentropicvortex.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropicvortex.matrix.GPU]
@@ -133,7 +133,7 @@ filename = "test/DGmethods/Euler/isentropicvortex.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [reductions]
@@ -146,7 +146,7 @@ filename = "test/Arrays/reductions.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [reductions.matrix.GPU]
@@ -156,7 +156,7 @@ filename = "test/Arrays/reductions.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [bomex]
@@ -169,7 +169,7 @@ filename = "experiments/AtmosLES/bomex.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [bomex.matrix.GPU]
@@ -179,7 +179,7 @@ filename = "experiments/AtmosLES/bomex.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [advection_sphere_ssp34_old]
@@ -192,7 +192,7 @@ filename = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 2]
 
     [advection_sphere_ssp34_old.matrix.GPU]
@@ -202,7 +202,7 @@ filename = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [grad_test_sphere_old]
@@ -215,7 +215,7 @@ filename = "test/DGmethods_old/util/grad_test_sphere.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [grad_test_sphere_old.matrix.GPU]
@@ -225,7 +225,7 @@ filename = "test/DGmethods_old/util/grad_test_sphere.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [filter_test_old]
@@ -238,7 +238,7 @@ filename = "test/DGmethods_old/util/filter_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [filter_test_old.matrix.GPU]
@@ -248,7 +248,7 @@ filename = "test/DGmethods_old/util/filter_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [gcm_driver_test]
@@ -261,7 +261,7 @@ filename = "test/Driver/gcm_driver_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [gcm_driver_test.matrix.GPU]
@@ -271,7 +271,7 @@ filename = "test/Driver/gcm_driver_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [advection_sphere_lsrk_old]
@@ -284,7 +284,7 @@ filename = "test/DGmethods_old/sphere/advection_sphere_lsrk.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 2]
 
     [advection_sphere_lsrk_old.matrix.GPU]
@@ -294,7 +294,7 @@ filename = "test/DGmethods_old/sphere/advection_sphere_lsrk.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [ex_002_solid_body_rotation_old]
@@ -307,7 +307,7 @@ filename = "examples/DGmethods_old/ex_002_solid_body_rotation.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [ex_002_solid_body_rotation_old.matrix.GPU]
@@ -317,7 +317,7 @@ filename = "examples/DGmethods_old/ex_002_solid_body_rotation.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [test_divergence_free]
@@ -330,7 +330,7 @@ filename = "test/Ocean/HydrostaticBoussinesq/test_divergence_free.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [test_divergence_free.matrix.GPU]
@@ -340,7 +340,7 @@ filename = "test/Ocean/HydrostaticBoussinesq/test_divergence_free.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_centroid]
@@ -353,7 +353,7 @@ filename = "test/Mesh/mpi_centroid.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [mpi_centroid.matrix.GPU]
@@ -363,7 +363,7 @@ filename = "test/Mesh/mpi_centroid.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [RootSolvers]
@@ -376,7 +376,7 @@ filename = "test/Utilities/RootSolvers/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [false]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [RootSolvers.matrix.GPU]
@@ -386,7 +386,7 @@ filename = "test/Utilities/RootSolvers/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [isentropicvortex_multirate]
@@ -399,7 +399,7 @@ filename = "test/DGmethods/Euler/isentropicvortex_multirate.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropicvortex_multirate.matrix.GPU]
@@ -409,7 +409,7 @@ filename = "test/DGmethods/Euler/isentropicvortex_multirate.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [GyreDriver]
@@ -422,7 +422,7 @@ filename = "test/Ocean/ShallowWater/GyreDriver.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [GyreDriver.matrix.GPU]
@@ -432,7 +432,7 @@ filename = "test/Ocean/ShallowWater/GyreDriver.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [poisson]
@@ -445,7 +445,7 @@ filename = "test/LinearSolvers/poisson.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 2]
 
     [poisson.matrix.GPU]
@@ -455,7 +455,7 @@ filename = "test/LinearSolvers/poisson.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [2]
 
 [isentropic_vortex_standalone_old]
@@ -468,7 +468,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropic_vortex_standalone_old.matrix.GPU]
@@ -478,7 +478,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [Geometry]
@@ -491,7 +491,7 @@ filename = "test/Mesh/Geometry.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [true]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [Geometry.matrix.GPU]
@@ -501,7 +501,7 @@ filename = "test/Mesh/Geometry.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [ex_003_acoustic_wave_old]
@@ -514,7 +514,7 @@ filename = "examples/DGmethods_old/ex_003_acoustic_wave.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [ex_003_acoustic_wave_old.matrix.GPU]
@@ -524,7 +524,7 @@ filename = "examples/DGmethods_old/ex_003_acoustic_wave.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [ode_tests]
@@ -537,7 +537,7 @@ filename = "test/ODESolvers/ode_tests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [ode_tests.matrix.GPU]
@@ -547,7 +547,7 @@ filename = "test/ODESolvers/ode_tests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [Microphysics]
@@ -560,7 +560,7 @@ filename = "test/Atmos/Parameterizations/Microphysics/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [false]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [Microphysics.matrix.GPU]
@@ -570,7 +570,7 @@ filename = "test/Atmos/Parameterizations/Microphysics/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_connect_ell]
@@ -583,7 +583,7 @@ filename = "test/Mesh/mpi_connect_ell.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [2]
 
     [mpi_connect_ell.matrix.GPU]
@@ -593,7 +593,7 @@ filename = "test/Mesh/mpi_connect_ell.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [integral_test]
@@ -606,7 +606,7 @@ filename = "test/DGmethods/integral_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [integral_test.matrix.GPU]
@@ -616,7 +616,7 @@ filename = "test/DGmethods/integral_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [isentropic_vortex_standalone_integral_old]
@@ -629,7 +629,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_integral.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [isentropic_vortex_standalone_integral_old.matrix.GPU]
@@ -639,7 +639,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_integral.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [homogeneous_box]
@@ -652,7 +652,7 @@ filename = "experiments/OceanBoxGCM/homogeneous_box.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [homogeneous_box.matrix.GPU]
@@ -662,7 +662,7 @@ filename = "experiments/OceanBoxGCM/homogeneous_box.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [bandedsystem]
@@ -675,7 +675,7 @@ filename = "test/LinearSolvers/bandedsystem.jl"
     time_limit   = [""            , "02:00:00"]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [bandedsystem.matrix.GPU]
@@ -685,7 +685,7 @@ filename = "test/LinearSolvers/bandedsystem.jl"
     time_limit   = ["02:00:00"]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [periodic_3D_hyperdiffusion]
@@ -698,7 +698,7 @@ filename = "test/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [periodic_3D_hyperdiffusion.matrix.GPU]
@@ -708,7 +708,7 @@ filename = "test/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [direction_splitting_advection_diffusion]
@@ -721,7 +721,7 @@ filename = "test/DGmethods/advection_diffusion/direction_splitting_advection_dif
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [direction_splitting_advection_diffusion.matrix.GPU]
@@ -731,7 +731,7 @@ filename = "test/DGmethods/advection_diffusion/direction_splitting_advection_dif
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [advection_sphere_ssp33_old]
@@ -744,7 +744,7 @@ filename = "test/DGmethods_old/sphere/advection_sphere_ssp33.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 2]
 
     [advection_sphere_ssp33_old.matrix.GPU]
@@ -754,7 +754,7 @@ filename = "test/DGmethods_old/sphere/advection_sphere_ssp33.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [test_ocean_gyre]
@@ -767,7 +767,7 @@ filename = "test/Ocean/HydrostaticBoussinesq/test_ocean_gyre.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [test_ocean_gyre.matrix.GPU]
@@ -777,7 +777,7 @@ filename = "test/Ocean/HydrostaticBoussinesq/test_ocean_gyre.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [isentropic_vortex_standalone_IMEX_old]
@@ -790,7 +790,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_IMEX.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropic_vortex_standalone_IMEX_old.matrix.GPU]
@@ -800,7 +800,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_IMEX.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [sphere_old]
@@ -813,7 +813,7 @@ filename = "test/DGmethods_old/conservation/sphere.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [sphere_old.matrix.GPU]
@@ -823,7 +823,7 @@ filename = "test/DGmethods_old/conservation/sphere.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [basics]
@@ -836,7 +836,7 @@ filename = "test/Arrays/basics.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [basics.matrix.GPU]
@@ -846,7 +846,7 @@ filename = "test/Arrays/basics.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [ex_004_nonnegative_old]
@@ -859,7 +859,7 @@ filename = "examples/DGmethods_old/ex_004_nonnegative.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [ex_004_nonnegative_old.matrix.GPU]
@@ -869,7 +869,7 @@ filename = "examples/DGmethods_old/ex_004_nonnegative.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [mpi_getpartition]
@@ -882,7 +882,7 @@ filename = "test/Mesh/mpi_getpartition.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [3             , 5]
 
     [mpi_getpartition.matrix.GPU]
@@ -892,7 +892,7 @@ filename = "test/Mesh/mpi_getpartition.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mms_bc_old]
@@ -905,7 +905,7 @@ filename = "test/DGmethods_old/compressible_Navier_Stokes/mms_bc.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [mms_bc_old.matrix.GPU]
@@ -915,7 +915,7 @@ filename = "test/DGmethods_old/compressible_Navier_Stokes/mms_bc.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_connect_1d]
@@ -928,7 +928,7 @@ filename = "test/Mesh/mpi_connect_1d.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [5]
 
     [mpi_connect_1d.matrix.GPU]
@@ -938,7 +938,7 @@ filename = "test/Mesh/mpi_connect_1d.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_connect_stacked]
@@ -951,7 +951,7 @@ filename = "test/Mesh/mpi_connect_stacked.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [mpi_connect_stacked.matrix.GPU]
@@ -961,7 +961,7 @@ filename = "test/Mesh/mpi_connect_stacked.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [isentropic_vortex_standalone_source_old]
@@ -974,7 +974,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_source.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropic_vortex_standalone_source_old.matrix.GPU]
@@ -984,7 +984,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_source.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [heldsuarez]
@@ -997,7 +997,7 @@ filename = "experiments/AtmosGCM/heldsuarez.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [heldsuarez.matrix.GPU]
@@ -1007,7 +1007,7 @@ filename = "experiments/AtmosGCM/heldsuarez.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [sin_test]
@@ -1020,7 +1020,7 @@ filename = "test/Diagnostics/sin_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [sin_test.matrix.GPU]
@@ -1030,7 +1030,7 @@ filename = "test/Diagnostics/sin_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [PlanetParameters]
@@ -1043,7 +1043,7 @@ filename = "test/Common/PlanetParameters/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [PlanetParameters.matrix.GPU]
@@ -1053,7 +1053,7 @@ filename = "test/Common/PlanetParameters/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [broadcasting]
@@ -1066,7 +1066,7 @@ filename = "test/Arrays/broadcasting.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [broadcasting.matrix.GPU]
@@ -1076,7 +1076,7 @@ filename = "test/Arrays/broadcasting.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [dycoms]
@@ -1089,7 +1089,7 @@ filename = "experiments/AtmosLES/dycoms.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [dycoms.matrix.GPU]
@@ -1099,7 +1099,7 @@ filename = "experiments/AtmosLES/dycoms.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mms_bc_atmos]
@@ -1112,7 +1112,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [mms_bc_atmos.matrix.GPU]
@@ -1122,7 +1122,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [isentropic_vortex_standalone_aux_old]
@@ -1135,7 +1135,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_aux.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropic_vortex_standalone_aux_old.matrix.GPU]
@@ -1145,7 +1145,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_aux.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [Metrics]
@@ -1158,7 +1158,7 @@ filename = "test/Mesh/Metrics.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [true]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [Metrics.matrix.GPU]
@@ -1168,7 +1168,7 @@ filename = "test/Mesh/Metrics.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_connect_stacked_3d]
@@ -1181,7 +1181,7 @@ filename = "test/Mesh/mpi_connect_stacked_3d.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [2]
 
     [mpi_connect_stacked_3d.matrix.GPU]
@@ -1191,7 +1191,7 @@ filename = "test/Mesh/mpi_connect_stacked_3d.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [SurfaceFluxes]
@@ -1204,7 +1204,7 @@ filename = "test/Atmos/Parameterizations/SurfaceFluxes/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [false]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [SurfaceFluxes.matrix.GPU]
@@ -1214,7 +1214,7 @@ filename = "test/Atmos/Parameterizations/SurfaceFluxes/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [pseudo1D_advection_diffusion_1dimex]
@@ -1227,7 +1227,7 @@ filename = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dim
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [pseudo1D_advection_diffusion_1dimex.matrix.GPU]
@@ -1237,7 +1237,7 @@ filename = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dim
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [horizontal_integral_test]
@@ -1250,7 +1250,7 @@ filename = "test/DGmethods/horizontal_integral_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [horizontal_integral_test.matrix.GPU]
@@ -1260,7 +1260,7 @@ filename = "test/DGmethods/horizontal_integral_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [grad_test_old]
@@ -1273,7 +1273,7 @@ filename = "test/DGmethods_old/util/grad_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [grad_test_old.matrix.GPU]
@@ -1283,7 +1283,7 @@ filename = "test/DGmethods_old/util/grad_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [interpolation]
@@ -1296,7 +1296,7 @@ filename = "test/Mesh/interpolation.jl"
     time_limit   = ["02:00:00"]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [interpolation.matrix.GPU]
@@ -1306,7 +1306,7 @@ filename = "test/Mesh/interpolation.jl"
     time_limit   = ["02:00:00"]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [filter]
@@ -1319,7 +1319,7 @@ filename = "test/Mesh/filter.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [true]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [filter.matrix.GPU]
@@ -1329,7 +1329,7 @@ filename = "test/Mesh/filter.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [integral_test_old]
@@ -1342,7 +1342,7 @@ filename = "test/DGmethods_old/util/integral_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [integral_test_old.matrix.GPU]
@@ -1352,7 +1352,7 @@ filename = "test/DGmethods_old/util/integral_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [ex_001_periodic_advection_old]
@@ -1365,7 +1365,7 @@ filename = "examples/DGmethods_old/ex_001_periodic_advection.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [ex_001_periodic_advection_old.matrix.GPU]
@@ -1375,7 +1375,7 @@ filename = "examples/DGmethods_old/ex_001_periodic_advection.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [topology]
@@ -1388,7 +1388,7 @@ filename = "test/Mesh/topology.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [true]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [topology.matrix.GPU]
@@ -1398,7 +1398,7 @@ filename = "test/Mesh/topology.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [dry_rayleigh_benard]
@@ -1411,7 +1411,7 @@ filename = "examples/Atmos/dry_rayleigh_benard.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
     [dry_rayleigh_benard.matrix.GPU]
@@ -1421,7 +1421,7 @@ filename = "examples/Atmos/dry_rayleigh_benard.jl"
     time_limit   = ["01:30:00"]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [risingbubble]
@@ -1434,7 +1434,7 @@ filename = "experiments/AtmosLES/risingbubble.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [risingbubble.matrix.GPU]
@@ -1444,7 +1444,7 @@ filename = "experiments/AtmosLES/risingbubble.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [ParametersType]
@@ -1457,7 +1457,7 @@ filename = "test/Utilities/ParametersType/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [ParametersType.matrix.GPU]
@@ -1467,7 +1467,7 @@ filename = "test/Utilities/ParametersType/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [grid_integral]
@@ -1480,7 +1480,7 @@ filename = "test/Mesh/grid_integral.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [true]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [grid_integral.matrix.GPU]
@@ -1490,7 +1490,7 @@ filename = "test/Mesh/grid_integral.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [nonnegative_test_old]
@@ -1503,7 +1503,7 @@ filename = "test/DGmethods_old/util/nonnegative_test.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [nonnegative_test_old.matrix.GPU]
@@ -1513,7 +1513,7 @@ filename = "test/DGmethods_old/util/nonnegative_test.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [TurbulenceConvection]
@@ -1526,7 +1526,7 @@ filename = "test/Atmos/Parameterizations/TurbulenceConvection/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [false]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [TurbulenceConvection.matrix.GPU]
@@ -1536,7 +1536,7 @@ filename = "test/Atmos/Parameterizations/TurbulenceConvection/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [surfacebubble]
@@ -1549,7 +1549,7 @@ filename = "experiments/AtmosLES/surfacebubble.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
     [surfacebubble.matrix.GPU]
@@ -1559,7 +1559,7 @@ filename = "experiments/AtmosLES/surfacebubble.jl"
     time_limit   = ["01:30:00"]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [mms_bc_dgmodel]
@@ -1572,7 +1572,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [mms_bc_dgmodel.matrix.GPU]
@@ -1582,7 +1582,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [integral_test_sphere]
@@ -1595,7 +1595,7 @@ filename = "test/DGmethods/integral_test_sphere.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [integral_test_sphere.matrix.GPU]
@@ -1605,7 +1605,7 @@ filename = "test/DGmethods/integral_test_sphere.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [MoistThermodynamics]
@@ -1618,7 +1618,7 @@ filename = "test/Common/MoistThermodynamics/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [MoistThermodynamics.matrix.GPU]
@@ -1628,7 +1628,7 @@ filename = "test/Common/MoistThermodynamics/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [integral_test_sphere_old]
@@ -1641,7 +1641,7 @@ filename = "test/DGmethods_old/util/integral_test_sphere.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [integral_test_sphere_old.matrix.GPU]
@@ -1651,7 +1651,7 @@ filename = "test/DGmethods_old/util/integral_test_sphere.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_partition]
@@ -1664,7 +1664,7 @@ filename = "test/Mesh/mpi_partition.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [mpi_partition.matrix.GPU]
@@ -1674,7 +1674,7 @@ filename = "test/Mesh/mpi_partition.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [density_current_model]
@@ -1687,7 +1687,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/density_current_model.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [density_current_model.matrix.GPU]
@@ -1697,7 +1697,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/density_current_model.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [pseudo1D_advection_diffusion]
@@ -1710,7 +1710,7 @@ filename = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [pseudo1D_advection_diffusion.matrix.GPU]
@@ -1720,7 +1720,7 @@ filename = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl"
     time_limit   = [""]
     args         = ["--integration-testing"]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [courant]
@@ -1733,7 +1733,7 @@ filename = "test/DGmethods/courant.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [2]
 
     [courant.matrix.GPU]
@@ -1743,7 +1743,7 @@ filename = "test/DGmethods/courant.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [TicToc]
@@ -1756,7 +1756,7 @@ filename = "test/Utilities/TicToc/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [TicToc.matrix.GPU]
@@ -1766,7 +1766,7 @@ filename = "test/Utilities/TicToc/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_connect_sphere]
@@ -1779,7 +1779,7 @@ filename = "test/Mesh/mpi_connect_sphere.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [5]
 
     [mpi_connect_sphere.matrix.GPU]
@@ -1789,7 +1789,7 @@ filename = "test/Mesh/mpi_connect_sphere.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [columnwiselu]
@@ -1802,7 +1802,7 @@ filename = "test/LinearSolvers/columnwiselu.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [columnwiselu.matrix.GPU]
@@ -1812,7 +1812,7 @@ filename = "test/LinearSolvers/columnwiselu.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [pseudo1D_heat_eqn]
@@ -1825,7 +1825,7 @@ filename = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [pseudo1D_heat_eqn.matrix.GPU]
@@ -1835,7 +1835,7 @@ filename = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl"
     time_limit   = [""]
     args         = ["--integration-testing"]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [ref_state]
@@ -1848,7 +1848,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/ref_state.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [1]
 
     [ref_state.matrix.GPU]
@@ -1858,7 +1858,7 @@ filename = "test/DGmethods/compressible_Navier_Stokes/ref_state.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [VariableTemplates]
@@ -1871,7 +1871,7 @@ filename = "test/Utilities/VariableTemplates/runtests.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [VariableTemplates.matrix.GPU]
@@ -1881,7 +1881,7 @@ filename = "test/Utilities/VariableTemplates/runtests.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [RTB_IMEX_old]
@@ -1894,7 +1894,7 @@ filename = "test/DGmethods_old/Euler/RTB_IMEX.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
     [RTB_IMEX_old.matrix.GPU]
@@ -1904,7 +1904,7 @@ filename = "test/DGmethods_old/Euler/RTB_IMEX.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [isentropicvortex_imex]
@@ -1917,7 +1917,7 @@ filename = "test/DGmethods/Euler/isentropicvortex_imex.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropicvortex_imex.matrix.GPU]
@@ -1927,7 +1927,7 @@ filename = "test/DGmethods/Euler/isentropicvortex_imex.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [true]
     mpiranks     = [3]
 
 [isentropic_vortex_standalone_bc_old]
@@ -1940,7 +1940,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_bc.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 3]
 
     [isentropic_vortex_standalone_bc_old.matrix.GPU]
@@ -1950,7 +1950,7 @@ filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_bc.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [Elements]
@@ -1963,7 +1963,7 @@ filename = "test/Mesh/Elements.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [true]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [Elements.matrix.GPU]
@@ -1973,7 +1973,7 @@ filename = "test/Mesh/Elements.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []
 
 [mpi_sortcolumns]
@@ -1986,7 +1986,7 @@ filename = "test/Mesh/mpi_sortcolumns.jl"
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
-    include_only = [false         , false]
+    use_mpiexec  = [true          , true]
     mpiranks     = [1             , 4]
 
     [mpi_sortcolumns.matrix.GPU]
@@ -1996,5 +1996,5 @@ filename = "test/Mesh/mpi_sortcolumns.jl"
     time_limit   = []
     args         = []
     parallel     = []
-    include_only = []
+    use_mpiexec  = []
     mpiranks     = []

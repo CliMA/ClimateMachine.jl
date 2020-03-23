@@ -83,7 +83,7 @@ filename = "test/Mesh/BrickMesh.jl"
     time_limit   = [""]
     args         = [""]
     parallel     = [true]
-    include_only = [false]
+    use_mpiexec  = [false]
     mpiranks     = [3]
 
     [BrickMesh.matrix.GPU]
@@ -93,7 +93,7 @@ filename = "test/Mesh/BrickMesh.jl"
     time_limit   = [""            , ""       , "02:00:00" ]
     args         = [""            , ""       , ""         ]
     parallel     = [true          , true     , true       ]
-    include_only = [true          , true     , true       ]
+    use_mpiexec  = [true          , true     , true       ]
     mpiranks     = [1             , 3        , 10         ]
 ```
 
@@ -110,7 +110,7 @@ function runtests(tests; validate_only = false)
             for (
                 time_limit,
                 parallel,
-                include_only,
+                use_mpiexec,
                 active_CI,
                 args,
                 frequency,
@@ -119,7 +119,7 @@ function runtests(tests; validate_only = false)
             ) in zip(
                 joblist["time_limit"],
                 joblist["parallel"],
-                joblist["include_only"],
+                joblist["use_mpiexec"],
                 joblist["active_CI"],
                 joblist["args"],
                 joblist["frequency"],
@@ -129,7 +129,7 @@ function runtests(tests; validate_only = false)
                 t = 0
                 # ------ Single job
                 if _active_CI == active_CI
-                    if parallel && !include_only
+                    if parallel && use_mpiexec
                         println("Starting tests for parallel job $(jobname)")
                         t = runmpi(filename, mpiranks)
                         println("Completed tests for parallel job $(jobname), $(round(Int, t)) seconds elapsed")
