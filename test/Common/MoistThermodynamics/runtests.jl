@@ -230,17 +230,17 @@ end
 
     ts = PhaseEquil.(e_int, ρ, q_tot)
 
-    # TODO: The following is giving an error on windows (file not found)
-    if !Sys.iswindows()
-        data_folder = data_folder_moist_thermo()
-        ds_PhaseEquil =
-            Dataset(joinpath(data_folder, "test_data_PhaseEquil.nc"), "r")
-        e_int = Array{FT}(ds_PhaseEquil["e_int"][:])
-        ρ = Array{FT}(ds_PhaseEquil["ρ"][:])
-        q_tot = Array{FT}(ds_PhaseEquil["q_tot"][:])
+    # TODO: The following is giving an error (file not found)
+    # if !Sys.iswindows()
+    #     data_folder = data_folder_moist_thermo()
+    #     ds_PhaseEquil =
+    #         Dataset(joinpath(data_folder, "test_data_PhaseEquil.nc"), "r")
+    #     e_int = Array{FT}(ds_PhaseEquil["e_int"][:])
+    #     ρ = Array{FT}(ds_PhaseEquil["ρ"][:])
+    #     q_tot = Array{FT}(ds_PhaseEquil["q_tot"][:])
 
-        # ts = PhaseEquil.(e_int, ρ, q_tot) # Fails
-    end
+    #     # ts = PhaseEquil.(e_int, ρ, q_tot) # Fails
+    # end
 end
 
 
