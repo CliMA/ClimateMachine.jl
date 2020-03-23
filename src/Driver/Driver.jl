@@ -187,7 +187,8 @@ function init(; disable_gpu = false)
 
     # set up the array type appropriately depending on whether we're using GPUs
     if !Settings.disable_gpu &&
-       get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
+       get(ENV, "CLIMA_GPU", "") != "false" &&
+       CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
         atyp = Array
@@ -278,7 +279,7 @@ function invoke!(
                     convert(Dates.DateTime, Dates.now() - upd_starttime[]),
                     Dates.dateformat"HH:MM:SS",
                 )
-                energy = norm(solver_config.Q)
+                energy = norm(Q)
                 @info @sprintf(
                     """Update
                     simtime = %8.2f / %8.2f
@@ -289,6 +290,7 @@ function invoke!(
                     runtime,
                     energy
                 )
+                isnan(energy) && error("norm(Q) is NaN")
             end
             user_info_callback(init)
         end
@@ -468,7 +470,7 @@ function invoke!(
         end
     end
 
-    engf = norm(solver_config.Q)
+    engf = norm(Q)
     @info @sprintf(
         """Finished
         norm(Q)            = %.16e
@@ -483,7 +485,7 @@ function invoke!(
         Qe =
             init_ode_state(dg, timeend, init_args...; init_on_cpu = init_on_cpu)
         engfe = norm(Qe)
-        errf = euclidean_distance(solver_config.Q, Qe)
+        errf = euclidean_distance(Q, Qe)
         @info @sprintf(
             """Euclidean distance
             norm(Q - Qe)            = %.16e
