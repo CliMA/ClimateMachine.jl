@@ -116,13 +116,13 @@ filename = "test/Arrays/reductions.jl"
     mpiranks     = [1             , 3]
 
     [reductions.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 2
+    frequency    = ["continuously", "continuously"]
+    active_CI    = ["slurm"       , "slurm"]
+    time_limit   = [""            , ""]
+    args         = [""            , ""]
+    parallel     = [true          , true]
+    mpiranks     = [1             , 3]
 
 [bomex]
 filename = "experiments/AtmosLES/bomex.jl"
@@ -473,13 +473,13 @@ filename = "test/ODESolvers/ode_tests.jl"
     mpiranks     = [1]
 
     [ode_tests.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [1]
 
 [Microphysics]
 filename = "test/Atmos/Parameterizations/Microphysics/runtests.jl"
@@ -746,13 +746,13 @@ filename = "test/Arrays/basics.jl"
     mpiranks     = [1]
 
     [basics.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [1]
 
 [ex_004_nonnegative_old]
 filename = "examples/DGmethods_old/ex_004_nonnegative.jl"
@@ -956,13 +956,13 @@ filename = "test/Arrays/broadcasting.jl"
     mpiranks     = [1]
 
     [broadcasting.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [1]
 
 [dycoms]
 filename = "experiments/AtmosLES/dycoms.jl"
