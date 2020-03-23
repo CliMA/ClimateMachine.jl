@@ -312,6 +312,7 @@ location to store integrands for bottom up integrals
 function vars_integrals(m::HBModel, T)
     @vars begin
         ∇hu::T
+        αᵀθ::T
     end
 end
 
@@ -329,6 +330,7 @@ A -> array of aux variables
 """
 @inline function integral_load_aux!(m::HBModel, I::Vars, Q::Vars, A::Vars)
     I.∇hu = A.w # borrow the w value from A...
+    I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
 
     return nothing
 end
@@ -346,6 +348,7 @@ I -> array of integrand variables
 """
 @inline function integral_set_aux!(m::HBModel, A::Vars, I::Vars)
     A.w = I.∇hu
+    A.pkin = I.αᵀθ
 
     return nothing
 end
@@ -613,7 +616,6 @@ function update_aux_diffusive!(
             ν = viscosity_tensor(m)
             ∇u = ν \ D.ν∇u
             A.w = -(∇u[1, 1] + ∇u[2, 2])
-            A.pkin = -m.αᵀ * Q.θ
         end
 
         return nothing
