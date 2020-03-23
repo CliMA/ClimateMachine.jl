@@ -149,15 +149,27 @@ filename = "experiments/AtmosLES/bomex.jl"
 filename = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl"
 
     [advection_sphere_ssp34_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 2]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [2]
 
     [advection_sphere_ssp34_old.matrix.GPU]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [2]
+
+[grad_test_sphere_old]
+filename = "test/DGmethods_old/util/grad_test_sphere.jl"
+
+    [grad_test_sphere_old.matrix.CPU]
     njobs        = 0
     frequency    = []
     active_CI    = []
@@ -165,18 +177,6 @@ filename = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl"
     args         = []
     parallel     = []
     mpiranks     = []
-
-[grad_test_sphere_old]
-filename = "test/DGmethods_old/util/grad_test_sphere.jl"
-
-    [grad_test_sphere_old.matrix.CPU]
-    njobs        = 1
-    frequency    = ["continuously"]
-    active_CI    = ["azure"]
-    time_limit   = [""]
-    args         = [""]
-    parallel     = [true]
-    mpiranks     = [1]
 
     [grad_test_sphere_old.matrix.GPU]
     njobs        = 0
@@ -191,13 +191,13 @@ filename = "test/DGmethods_old/util/grad_test_sphere.jl"
 filename = "test/DGmethods_old/util/filter_test.jl"
 
     [filter_test_old.matrix.CPU]
-    njobs        = 1
-    frequency    = ["continuously"]
-    active_CI    = ["azure"]
-    time_limit   = [""]
-    args         = [""]
-    parallel     = [true]
-    mpiranks     = [1]
+    njobs        = 0
+    frequency    = []
+    active_CI    = []
+    time_limit   = []
+    args         = []
+    parallel     = []
+    mpiranks     = []
 
     [filter_test_old.matrix.GPU]
     njobs        = 0
@@ -233,34 +233,34 @@ filename = "test/Driver/gcm_driver_test.jl"
 filename = "test/DGmethods_old/sphere/advection_sphere_lsrk.jl"
 
     [advection_sphere_lsrk_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 2]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [2]
 
     [advection_sphere_lsrk_old.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [2]
 
 [ex_002_solid_body_rotation_old]
 filename = "examples/DGmethods_old/ex_002_solid_body_rotation.jl"
 
     [ex_002_solid_body_rotation_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [ex_002_solid_body_rotation_old.matrix.GPU]
     njobs        = 1
@@ -401,13 +401,13 @@ filename = "test/LinearSolvers/poisson.jl"
 filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone.jl"
 
     [isentropic_vortex_standalone_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [isentropic_vortex_standalone_old.matrix.GPU]
     njobs        = 1
@@ -443,13 +443,13 @@ filename = "test/Mesh/MeshGroup.jl"
 filename = "examples/DGmethods_old/ex_003_acoustic_wave.jl"
 
     [ex_003_acoustic_wave_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [ex_003_acoustic_wave_old.matrix.GPU]
     njobs        = 1
@@ -653,22 +653,22 @@ filename = "test/DGmethods/advection_diffusion/direction_splitting_advection_dif
 filename = "test/DGmethods_old/sphere/advection_sphere_ssp33.jl"
 
     [advection_sphere_ssp33_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 2]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [2]
 
     [advection_sphere_ssp33_old.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [2]
 
 [test_ocean_gyre]
 filename = "test/Ocean/HydrostaticBoussinesq/test_ocean_gyre.jl"
@@ -695,34 +695,34 @@ filename = "test/Ocean/HydrostaticBoussinesq/test_ocean_gyre.jl"
 filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_IMEX.jl"
 
     [isentropic_vortex_standalone_IMEX_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [isentropic_vortex_standalone_IMEX_old.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
 [sphere_old]
 filename = "test/DGmethods_old/conservation/sphere.jl"
 
     [sphere_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [sphere_old.matrix.GPU]
     njobs        = 1
@@ -758,13 +758,13 @@ filename = "test/Arrays/basics.jl"
 filename = "examples/DGmethods_old/ex_004_nonnegative.jl"
 
     [ex_004_nonnegative_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [ex_004_nonnegative_old.matrix.GPU]
     njobs        = 1
@@ -800,13 +800,13 @@ filename = "test/Mesh/mpi_getpartition.jl"
 filename = "test/DGmethods_old/compressible_Navier_Stokes/mms_bc.jl"
 
     [mms_bc_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [mms_bc_old.matrix.GPU]
     njobs        = 0
@@ -863,13 +863,13 @@ filename = "test/Mesh/mpi_connect_stacked.jl"
 filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_source.jl"
 
     [isentropic_vortex_standalone_source_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [isentropic_vortex_standalone_source_old.matrix.GPU]
     njobs        = 0
@@ -1010,13 +1010,13 @@ filename = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl"
 filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_aux.jl"
 
     [isentropic_vortex_standalone_aux_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [isentropic_vortex_standalone_aux_old.matrix.GPU]
     njobs        = 0
@@ -1115,13 +1115,13 @@ filename = "test/DGmethods/horizontal_integral_test.jl"
 filename = "test/DGmethods_old/util/grad_test.jl"
 
     [grad_test_old.matrix.CPU]
-    njobs        = 1
-    frequency    = ["continuously"]
-    active_CI    = ["azure"]
-    time_limit   = [""]
-    args         = [""]
-    parallel     = [true]
-    mpiranks     = [1]
+    njobs        = 0
+    frequency    = []
+    active_CI    = []
+    time_limit   = []
+    args         = []
+    parallel     = []
+    mpiranks     = []
 
     [grad_test_old.matrix.GPU]
     njobs        = 0
@@ -1157,13 +1157,13 @@ filename = "test/Mesh/interpolation.jl"
 filename = "test/DGmethods_old/util/integral_test.jl"
 
     [integral_test_old.matrix.CPU]
-    njobs        = 1
-    frequency    = ["continuously"]
-    active_CI    = ["azure"]
-    time_limit   = [""]
-    args         = [""]
-    parallel     = [true]
-    mpiranks     = [1]
+    njobs        = 0
+    frequency    = []
+    active_CI    = []
+    time_limit   = []
+    args         = []
+    parallel     = []
+    mpiranks     = []
 
     [integral_test_old.matrix.GPU]
     njobs        = 0
@@ -1178,13 +1178,13 @@ filename = "test/DGmethods_old/util/integral_test.jl"
 filename = "examples/DGmethods_old/ex_001_periodic_advection.jl"
 
     [ex_001_periodic_advection_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [ex_001_periodic_advection_old.matrix.GPU]
     njobs        = 1
@@ -1262,13 +1262,13 @@ filename = "test/Utilities/ParametersType/runtests.jl"
 filename = "test/DGmethods_old/util/nonnegative_test.jl"
 
     [nonnegative_test_old.matrix.CPU]
-    njobs        = 1
-    frequency    = ["continuously"]
-    active_CI    = ["azure"]
-    time_limit   = [""]
-    args         = [""]
-    parallel     = [true]
-    mpiranks     = [1]
+    njobs        = 0
+    frequency    = []
+    active_CI    = []
+    time_limit   = []
+    args         = []
+    parallel     = []
+    mpiranks     = []
 
     [nonnegative_test_old.matrix.GPU]
     njobs        = 0
@@ -1388,13 +1388,13 @@ filename = "test/Common/MoistThermodynamics/runtests.jl"
 filename = "test/DGmethods_old/util/integral_test_sphere.jl"
 
     [integral_test_sphere_old.matrix.CPU]
-    njobs        = 1
-    frequency    = ["continuously"]
-    active_CI    = ["azure"]
-    time_limit   = [""]
-    args         = [""]
-    parallel     = [true]
-    mpiranks     = [1]
+    njobs        = 0
+    frequency    = []
+    active_CI    = []
+    time_limit   = []
+    args         = []
+    parallel     = []
+    mpiranks     = []
 
     [integral_test_sphere_old.matrix.GPU]
     njobs        = 0
@@ -1628,13 +1628,13 @@ filename = "test/DGmethods_old/Euler/RTB_IMEX.jl"
     mpiranks     = [3]
 
     [RTB_IMEX_old.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
 [isentropicvortex_imex]
 filename = "test/DGmethods/Euler/isentropicvortex_imex.jl"
@@ -1661,22 +1661,22 @@ filename = "test/DGmethods/Euler/isentropicvortex_imex.jl"
 filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_bc.jl"
 
     [isentropic_vortex_standalone_bc_old.matrix.CPU]
-    njobs        = 2
-    frequency    = ["continuously", "continuously"]
-    active_CI    = ["azure"       , "slurm"]
-    time_limit   = [""            , ""]
-    args         = [""            , ""]
-    parallel     = [true          , true]
-    mpiranks     = [1             , 3]
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
     [isentropic_vortex_standalone_bc_old.matrix.GPU]
-    njobs        = 0
-    frequency    = []
-    active_CI    = []
-    time_limit   = []
-    args         = []
-    parallel     = []
-    mpiranks     = []
+    njobs        = 1
+    frequency    = ["continuously"]
+    active_CI    = ["slurm"]
+    time_limit   = [""]
+    args         = [""]
+    parallel     = [true]
+    mpiranks     = [3]
 
 [mpi_sortcolumns]
 filename = "test/Mesh/mpi_sortcolumns.jl"
