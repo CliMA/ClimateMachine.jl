@@ -1,4 +1,5 @@
 module Interpolation
+using DocStringExtensions
 using CLIMA
 using MPI
 import GaussQuadrature
@@ -6,31 +7,54 @@ using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.Mesh.Geometry
 using CLIMA.Mesh.Elements
-using CLIMA.Writers
 using LinearAlgebra
 using StaticArrays
+import KernelAbstractions: CPU, CUDA
 #-------------------
 using CUDAnative
-using KernelAbstractions: CPU, CUDA
+using CuArrays
 
 export InterpolationBrick,
-    write_interpolated_data,
+    accumulate_interpolated_data!,
     InterpolationCubedSphere,
     interpolate_local!,
+    project_cubed_sphere!,
     InterpolationTopology
 
 abstract type InterpolationTopology end
 #--------------------------------------------------------
+#--------------------------------------------------------
 """
+    InterpolationBrick{
+    FT <: AbstractFloat,
+    T <: Int,
+    FTV <: AbstractVector{FT},
+    FTVD <: AbstractVector{FT},
+    TVD <: AbstractVector{T},
+    FTA2 <: Array{FT, 2},
+    UI8AD <: AbstractArray{UInt8, 2},
+    UI16VD <: AbstractVector{UInt16},
+    I32V <: AbstractVector{Int32},
+    } <: InterpolationTopology
+
+This interpolation data structure and the corresponding functions works for a brick, where stretching/compression happens only along the x1, x2 & x3 axis.
+Here x1 = X1(ξ1), x2 = X2(ξ2) and x3 = X3(ξ3).
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+
+# Usage
+
     InterpolationBrick(grid::DiscontinuousSpectralElementGrid{FT}, xbnd::Array{FT,2}, xres) where FT <: AbstractFloat
 
-This interpolation structure and the corresponding functions works for a brick, where stretching/compression happens only along the x, y & z axis.
-Here x1 = X1(ξ1); x2 = X2(ξ2); x3 = X3(ξ3)
+This interpolation structure and the corresponding functions works for a brick, where stretching/compression happens only along the x1, x2 & x3 axis.
+Here x1 = X1(ξ1), x2 = X2(ξ2) and x3 = X3(ξ3).
 
-# input for the inner constructor
- - `grid` DiscontinousSpectralElementGrid
- - `xbnd` Domain boundaries in x1, x2 and x3 directions
- - `xres` Resolution of the interpolation grid in x1, x2 and x3 directions
+# Arguments for the inner constructor
+ - `grid`: DiscontinousSpectralElementGrid
+ - `xbnd`: Domain boundaries in x1, x2 and x3 directions
+ - `xres`: Resolution of the interpolation grid in x1, x2 and x3 directions
 """
 struct InterpolationBrick{
     FT <: AbstractFloat,
@@ -40,45 +64,60 @@ struct InterpolationBrick{
     TVD <: AbstractVector{T},
     FTA2 <: Array{FT, 2},
     UI8AD <: AbstractArray{UInt8, 2},
-    UI16V <: AbstractVector{UInt16},
     UI16VD <: AbstractVector{UInt16},
     I32V <: AbstractVector{Int32},
 } <: InterpolationTopology
-    Nel::T         # # of elements
+    "Number of elements"
+    Nel::T
+    "Total number of interpolation points"
     Np::T
+    "Total number of interpolation points on local process"
     Npl::T
+    "Polynomial order of spectral element approximation"
     poly_order::T
-
-    xbnd::FTA2     # domain bounds, [2(min/max),ndim]
-
-    x1g::FTV # 1D interpolation grid in x1 direction
+    "Domain bounds in x1, x2 and x3 directions"
+    xbnd::FTA2
+    "Interpolation grid in x1 direction"
+    x1g::FTV
+    "Interpolation grid in x2 direction"
     x2g::FTV
+    "Interpolation grid in x3 direction"
     x3g::FTV
-
-    ξ1::FTVD # unique ξ1 coordinates of interpolation points within each element
-    ξ2::FTVD # unique ξ2 coordinates of interpolation points within each element
-    ξ3::FTVD # unique ξ3 coordinates of interpolation points within each element
-
-    flg::UI8AD # flags when ξ1/ξ2/ξ3 interpolation point matches with a GLL point
-
-    fac::FTVD # normalization factor
-
-    x1i::UI16VD # interpolation grid indices of interpolation points within each element
+    "Unique ξ1 coordinates of interpolation points within each spectral element"
+    ξ1::FTVD
+    "Unique ξ2 coordinates of interpolation points within each spectral element"
+    ξ2::FTVD
+    "Unique ξ3 coordinates of interpolation points within each spectral element"
+    ξ3::FTVD
+    "Flags when ξ1/ξ2/ξ3 interpolation point matches with a GLL point"
+    flg::UI8AD
+    "Normalization factor"
+    fac::FTVD
+    "x1 interpolation grid index of interpolation points within each element on the local process"
+    x1i::UI16VD
+    "x2 interpolation grid index of interpolation points within each element on the local process"
     x2i::UI16VD
+    "x3 interpolation grid index of interpolation points within each element on the local process"
     x3i::UI16VD
-
-    offset::TVD  # offsets for each element for v
-
-    m1_r::FTVD  # GLL points
-    m1_w::FTVD  # GLL weights
-    wb::FTVD    # Barycentric weights
+    "Offsets for each element"
+    offset::TVD    # offsets for each element for v
+    "GLL points"
+    m1_r::FTVD
+    "GLL weights"
+    m1_w::FTVD
+    "Barycentric weights"
+    wb::FTVD
     # MPI setup for gathering interpolated variable on proc # 0
-    Nel_all::I32V
+    "Number of interpolation points on each of the processes"
+    Np_all::I32V
 
-    x1i_all::UI16V
-    x2i_all::UI16V
-    x3i_all::UI16V
-    #--------------------------------------------------------
+    "x1 interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
+    x1i_all::UI16VD
+    "x2 interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
+    x2i_all::UI16VD
+    "x3 interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
+    x3i_all::UI16VD
+    #-----Inner constructor---------------------------------------------------
     function InterpolationBrick(
         grid::DiscontinuousSpectralElementGrid{FT},
         xbnd::Array{FT, 2},
@@ -239,24 +278,24 @@ struct InterpolationBrick{
         end
         #----MPI setup for gathering data on proc # 0----------------------
         root = 0
-        Nel_all = zeros(Int32, npr)
-        Nel_all[pid + 1] = Npl
+        Np_all = zeros(Int32, npr)
+        Np_all[pid + 1] = Npl
 
-        MPI.Allreduce!(Nel_all, +, mpicomm)
+        MPI.Allreduce!(Np_all, +, mpicomm)
 
         if pid ≠ root
             x1i_all = zeros(UInt16, 0)
             x2i_all = zeros(UInt16, 0)
             x3i_all = zeros(UInt16, 0)
         else
-            x1i_all = Array{UInt16}(undef, sum(Nel_all))
-            x2i_all = Array{UInt16}(undef, sum(Nel_all))
-            x3i_all = Array{UInt16}(undef, sum(Nel_all))
+            x1i_all = Array{UInt16}(undef, sum(Np_all))
+            x2i_all = Array{UInt16}(undef, sum(Np_all))
+            x3i_all = Array{UInt16}(undef, sum(Np_all))
         end
 
-        MPI.Gatherv!(x1i_d, x1i_all, Nel_all, root, mpicomm)
-        MPI.Gatherv!(x2i_d, x2i_all, Nel_all, root, mpicomm)
-        MPI.Gatherv!(x3i_d, x3i_all, Nel_all, root, mpicomm)
+        MPI.Gatherv!(x1i_d, x1i_all, Np_all, root, mpicomm)
+        MPI.Gatherv!(x2i_d, x2i_all, Np_all, root, mpicomm)
+        MPI.Gatherv!(x3i_d, x3i_all, Np_all, root, mpicomm)
         #-----------------------------------------------------
         if device == CUDA()
             ξ1_d = DA(ξ1_d)
@@ -271,6 +310,9 @@ struct InterpolationBrick{
             m1_r = DA(m1_r)
             m1_w = DA(m1_w)
             wb = DA(wb)
+            x1i_all = DA(x1i_all)
+            x2i_all = DA(x2i_all)
+            x3i_all = DA(x3i_all)
         end
         return new{
             FT,
@@ -280,9 +322,8 @@ struct InterpolationBrick{
             typeof(offset),
             typeof(xbnd),
             typeof(flg_d),
-            typeof(x1i_all),
             typeof(x1i_d),
-            typeof(Nel_all),
+            typeof(Np_all),
         }(
             Nel,
             Np,
@@ -304,7 +345,7 @@ struct InterpolationBrick{
             m1_r,
             m1_w,
             wb,
-            Nel_all,
+            Np_all,
             x1i_all,
             x2i_all,
             x3i_all,
@@ -315,15 +356,17 @@ struct InterpolationBrick{
 end # struct InterpolationBrick
 #--------------------------------------------------------
 """
-    interpolate_local!(intrp_brck::InterpolationBrick{FT}, sv::AbstractArray{FT}, v::AbstractArray{FT}) where {FT <: AbstractFloat}
+    interpolate_local!(intrp_brck::InterpolationBrick{FT}, 
+                               sv::AbstractArray{FT}, 
+                                v::AbstractArray{FT}) where {FT <: AbstractFloat}
 
-This interpolation function works for a brick, where stretching/compression happens only along the x, y & z axis.
-Here x1 = X1(ξ1); x2 = X2(ξ2); x3 = X3(ξ3)
+This interpolation function works for a brick, where stretching/compression happens only along the x1, x2 & x3 axis.
+Here x1 = X1(ξ1), x2 = X2(ξ2) and x3 = X3(ξ3)
 
-# input
- - `intrp_brck` Initialized InterpolationBrick structure
- - `sv` State Array consisting of various variables on the discontinuous Galerkin grid
- - `v`  Interpolated variables
+# Arguments 
+ - `intrp_brck`: Initialized InterpolationBrick structure
+ - `sv`: State Array consisting of various variables on the discontinuous Galerkin grid
+ - `v`:  Interpolated variables
 """
 function interpolate_local!(
     intrp_brck::InterpolationBrick{FT},
@@ -554,18 +597,47 @@ function interpolate_brick_CUDA!(
 end
 #--------------------------------------------------------
 """
+    InterpolationCubedSphere{
+    FT <: AbstractFloat,
+    T <: Int,
+    FTV <: AbstractVector{FT},
+    FTVD <: AbstractVector{FT},
+    TVD <: AbstractVector{T},
+    UI8AD <: AbstractArray{UInt8, 2},
+    UI16VD <: AbstractVector{UInt16},
+    I32V <: AbstractVector{Int32},
+    } <: InterpolationTopology
+
+This interpolation structure and the corresponding functions works for a cubed sphere topology. The data is interpolated along a lat/long/rad grid.
+
+-90⁰  ≤ lat  ≤ 90⁰
+
+-180⁰ ≤ long ≤ 180⁰
+
+Rᵢ ≤ r ≤ Rₒ
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+
+# Usage
+
     InterpolationCubedSphere(grid::DiscontinuousSpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int, lat_res::FT, long_res::FT, rad_res::FT) where {FT <: AbstractFloat}
 
 This interpolation structure and the corresponding functions works for a cubed sphere topology. The data is interpolated along a lat/long/rad grid.
+
 -90⁰  ≤ lat  ≤ 90⁰
+
 -180⁰ ≤ long ≤ 180⁰
+
 Rᵢ ≤ r ≤ Rₒ
-# input for the inner constructor
- - `grid` DiscontinousSpectralElementGrid
- - `vert_range` vertex range along the radial coordinate
- - `lat_res` Resolution of the interpolation grid along the latitude coordinate in radians
- - `long_res` Resolution of the interpolation grid along the longitude coordinate in radians
- - `rad_res` Resolution of the interpolation grid along the radial coordinate
+
+# Arguments for the inner constructor
+ - `grid`: DiscontinousSpectralElementGrid
+ - `vert_range`: Vertex range along the radial coordinate
+ - `lat_res`: Resolution of the interpolation grid along the latitude coordinate in radians
+ - `long_res`: Resolution of the interpolation grid along the longitude coordinate in radians
+ - `rad_res`: Resolution of the interpolation grid along the radial coordinate
 """
 struct InterpolationCubedSphere{
     FT <: AbstractFloat,
@@ -574,49 +646,63 @@ struct InterpolationCubedSphere{
     FTVD <: AbstractVector{FT},
     TVD <: AbstractVector{T},
     UI8AD <: AbstractArray{UInt8, 2},
-    UI16V <: AbstractVector{UInt16},
     UI16VD <: AbstractVector{UInt16},
     I32V <: AbstractVector{Int32},
 } <: InterpolationTopology
-
+    "Number of elements"
     Nel::T
-    Np::T             # # of points on the interpolation grid
+    "Number of interpolation points"
+    Np::T
+    "Number of interpolation points on local process"
     Npl::T            # # of interpolation points on the local process
+    "Polynomial order of spectral element approximation"
     poly_order::T
-
+    "Number of interpolation points in radial direction"
     n_rad::T
+    "Number of interpolation points in lat direction"
     n_lat::T
-    n_long::T             # of lat, long & rad grid locations
-
+    "Number of interpolation points in long direction"
+    n_long::T
+    "Interpolation grid in radial direction"
     rad_grd::FTV
+    "Interpolation grid in lat direction"
     lat_grd::FTV
+    "Interpolation grid in long direction"
     long_grd::FTV # rad, lat & long locations of interpolation grid
-
-    ξ1::FTVD # Device array containing ξ1 coordinates of interpolation points within each element
-    ξ2::FTVD # Device array containing ξ2 coordinates of interpolation points within each element
-    ξ3::FTVD # Device array containing ξ3 coordinates of interpolation points within each element
-
-    flg::UI8AD # flags when ξ1/ξ2/ξ3 interpolation point matches with a GLL point
-
-    fac::FTVD # normalization factor
-
-    radi::UI16VD  # rad coordinates of interpolation points within each element
-    lati::UI16VD  # lat coordinates of interpolation points within each element
-    longi::UI16VD # long coordinates of interpolation points within each element
-
-    offset::TVD  # offsets for each element for v
-
-    m1_r::FTVD   # GLL points
-    m1_w::FTVD   # GLL weights
-    wb::FTVD     # Barycentric weights
-
+    "Device array containing ξ1 coordinates of interpolation points within each element"
+    ξ1::FTVD
+    "Device array containing ξ2 coordinates of interpolation points within each element"
+    ξ2::FTVD
+    "Device array containing ξ3 coordinates of interpolation points within each element"
+    ξ3::FTVD
+    "flags when ξ1/ξ2/ξ3 interpolation point matches with a GLL point"
+    flg::UI8AD
+    "Normalization factor"
+    fac::FTVD
+    "Radial coordinates of interpolation points withing each element"
+    radi::UI16VD
+    "Latitude coordinates of interpolation points withing each element"
+    lati::UI16VD
+    "Longitude coordinates of interpolation points withing each element"
+    longi::UI16VD
+    "Offsets for each element"
+    offset::TVD
+    "GLL points"
+    m1_r::FTVD
+    "GLL weights"
+    m1_w::FTVD
+    "Barycentric weights"
+    wb::FTVD
     # MPI setup for gathering interpolated variable on proc # 0
-    Nel_all::I32V
-
-    radi_all::UI16V
-    lati_all::UI16V
-    longi_all::UI16V
-    #--------------------------------------------------------
+    "Number of interpolation points on each of the processes"
+    Np_all::I32V
+    "Radial interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
+    radi_all::UI16VD
+    "Latitude interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
+    lati_all::UI16VD
+    "Longitude interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
+    longi_all::UI16VD
+    #-------Inner Constructor-------------------------------------------------
     function InterpolationCubedSphere(
         grid::DiscontinuousSpectralElementGrid,
         vert_range::AbstractArray{FT},
@@ -858,24 +944,24 @@ struct InterpolationCubedSphere{
         end
         #----MPI setup for gathering data on proc # 0----------------------
         root = 0
-        Nel_all = zeros(Int32, npr)
-        Nel_all[pid + 1] = Int32(Npl)
+        Np_all = zeros(Int32, npr)
+        Np_all[pid + 1] = Int32(Npl)
 
-        MPI.Allreduce!(Nel_all, +, mpicomm)
+        MPI.Allreduce!(Np_all, +, mpicomm)
 
         if pid ≠ root
             radi_all = zeros(UInt16, 0)
             lati_all = zeros(UInt16, 0)
             longi_all = zeros(UInt16, 0)
         else
-            radi_all = Array{UInt16}(undef, sum(Nel_all))
-            lati_all = Array{UInt16}(undef, sum(Nel_all))
-            longi_all = Array{UInt16}(undef, sum(Nel_all))
+            radi_all = Array{UInt16}(undef, sum(Np_all))
+            lati_all = Array{UInt16}(undef, sum(Np_all))
+            longi_all = Array{UInt16}(undef, sum(Np_all))
         end
 
-        MPI.Gatherv!(rad_d, radi_all, Nel_all, root, mpicomm)
-        MPI.Gatherv!(lat_d, lati_all, Nel_all, root, mpicomm)
-        MPI.Gatherv!(long_d, longi_all, Nel_all, root, mpicomm)
+        MPI.Gatherv!(rad_d, radi_all, Np_all, root, mpicomm)
+        MPI.Gatherv!(lat_d, lati_all, Np_all, root, mpicomm)
+        MPI.Gatherv!(long_d, longi_all, Np_all, root, mpicomm)
         #-----------------------------------------------------
         if device == CUDA()
             ξ1_d = DA(ξ1_d)
@@ -898,6 +984,10 @@ struct InterpolationCubedSphere{
             rad_grd = DA(rad_grd)
             lat_grd = DA(lat_grd)
             long_grd = DA(long_grd)
+
+            radi_all = DA(radi_all)
+            lati_all = DA(lati_all)
+            longi_all = DA(longi_all)
         end
 
         return new{
@@ -907,9 +997,8 @@ struct InterpolationCubedSphere{
             typeof(ξ1_d),
             typeof(offset_d),
             typeof(flg_d),
-            typeof(radi_all),
             typeof(rad_d),
-            typeof(Nel_all),
+            typeof(Np_all),
         }(
             Nel,
             Np,
@@ -933,7 +1022,7 @@ struct InterpolationCubedSphere{
             m1_r,
             m1_w,
             wb,
-            Nel_all,
+            Np_all,
             radi_all,
             lati_all,
             longi_all,
@@ -944,18 +1033,24 @@ struct InterpolationCubedSphere{
 end # structure InterpolationCubedSphere
 #--------------------------------------------------------
 """
-    invert_trilear_mapping_hex!(X1::AbstractArray{FT,1}, X2::AbstractArray{FT,1}, X3::AbstractArray{FT,1},
-                                      x::AbstractArray{FT,1}, d::AbstractArray{FT,1}, tol::FT, ξ::AbstractArray{FT,1}) where FT <: AbstractFloat
+    invert_trilear_mapping_hex!(X1::AbstractArray{FT,1}, 
+                                X2::AbstractArray{FT,1}, 
+                                X3::AbstractArray{FT,1},
+                                 x::AbstractArray{FT,1}, 
+                                 d::AbstractArray{FT,1}, 
+                               tol::FT, 
+                                 ξ::AbstractArray{FT,1}) where FT <: AbstractFloat
 
-This function computes ξ = (ξ1,ξ2,ξ3) given x = (x1,x2,x3) and the (8) vertex coordinates of a Hexahedron. Newton-Raphson method is used
-# input
- - `X1` X1 coordinates of the (8) vertices of the hexahedron
- - `X2` X2 coordinates of the (8) vertices of the hexahedron
- - `X3` X3 coordinates of the (8) vertices of the hexahedron
- - `x` (x1,x2,x3) coordinates of the point
- - `d` (x1,x2,x3) coordinates, temporary storage
-# output
- - `ξ` (ξ1,ξ2,ξ3) coordinates of the point
+This function computes ξ = (ξ1,ξ2,ξ3) given x = (x1,x2,x3) and the (8) vertex coordinates of a Hexahedron. Newton-Raphson method is used.
+
+# Arguments
+ - `X1`: X1 coordinates of the (8) vertices of the hexahedron
+ - `X2`: X2 coordinates of the (8) vertices of the hexahedron
+ - `X3`: X3 coordinates of the (8) vertices of the hexahedron
+ - `x`: (x1,x2,x3) coordinates of the point
+ - `d`: (x1,x2,x3) coordinates, temporary storage
+ - `tol`: Tolerance for convergence
+ - `ξ`: (ξ1,ξ2,ξ3) coordinates of the point
 """
 function invert_trilear_mapping_hex!(
     X1::AbstractArray{FT, 1},
@@ -1143,20 +1238,21 @@ function trilinear_map_IJac_x_vec!(
 end
 #--------------------------------------------------------
 """
-    interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, sv::AbstractArray{FT}, v::AbstractArray{FT}) where {FT <: AbstractFloat}
+    interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, 
+                             sv::AbstractArray{FT}, 
+                              v::AbstractArray{FT}) where {FT <: AbstractFloat}
 
 This interpolation function works for cubed spherical shell geometry.
 
-# input
- - `intrp_cs` Initialized cubed sphere structure
- - `sv` State Array consisting of various variables on the discontinuous Galerkin grid
- - `v`  Interpolated variables
+# Arguments
+ - `intrp_cs`: Initialized cubed sphere structure
+ - `sv`: Array consisting of various variables on the discontinuous Galerkin grid
+ - `v`:  Array consisting of variables on the interpolated grid
 """
 function interpolate_local!(
     intrp_cs::InterpolationCubedSphere{FT},
     sv::AbstractArray{FT},
-    v::AbstractArray{FT};
-    project = false,
+    v::AbstractArray{FT},
 ) where {FT <: AbstractFloat}
     #------------------------------------------------------------------------------------------
     offset = intrp_cs.offset
@@ -1176,6 +1272,7 @@ function interpolate_local!(
     nvars = size(sv, 2)
     Nel = length(offset) - 1
     np_tot = size(v, 1)
+    _ρu, _ρv, _ρw = 2, 3, 4
 
     device = typeof(sv) <: Array ? CPU() : CUDA()
 
@@ -1187,7 +1284,6 @@ function interpolate_local!(
         vout_ii = zeros(FT, nvars) #FT(0)
         vout_ij = zeros(FT, nvars) #FT(0)
 
-        _ρu, _ρv, _ρw = 2, 3, 4
 
         for el in 1:Nel #-----for each element elno
             np = offset[el + 1] - offset[el]
@@ -1265,39 +1361,6 @@ function interpolate_local!(
                 end
             end
         end
-        if project
-            # projecting velocity onto unit vectors in rad, lat and long directions
-            # assumed u, v and w are located in columns 2, 3 and 4
-            for i in 1:np_tot
-                vrad =
-                    v[i, _ρu] *
-                    cosd(lat_grd[lati[i]]) *
-                    cosd(long_grd[longi[i]]) +
-                    v[i, _ρv] *
-                    cosd(lat_grd[lati[i]]) *
-                    sind(long_grd[longi[i]]) +
-                    v[i, _ρw] * sind(lat_grd[lati[i]])
-
-                vlat =
-                    -v[i, _ρu] *
-                    sind(lat_grd[lati[i]]) *
-                    cosd(long_grd[longi[i]])
-                -v[i, _ρv] * sind(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
-                v[i, _ρw] * cosd(lat_grd[lati[i]])
-
-                vlon =
-                    -v[i, _ρu] *
-                    cosd(lat_grd[lati[i]]) *
-                    sind(long_grd[longi[i]]) +
-                    v[i, _ρv] *
-                    cosd(lat_grd[lati[i]]) *
-                    cosd(long_grd[longi[i]])
-
-                v[i, _ρu] = vrad
-                v[i, _ρv] = vlat
-                v[i, _ρw] = vlon
-            end
-        end
         #------------------------------------------------------------------------------------------
     else
         #------------------------------------------------------------------------------------------
@@ -1314,21 +1377,6 @@ function interpolate_local!(
             sv,
             v,
         )
-
-        if project
-            n_threads = 256
-            n_blocks = (
-                np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
-                    div(np_tot, n_threads)
-            )
-            @cuda threads = (n_threads,) blocks = (n_blocks,) project_cubed_sphere_CUDA!(
-                lat_grd,
-                long_grd,
-                lati,
-                longi,
-                v,
-            )
-        end
         #------------------------------------------------------------------------------------------
     end
     return nothing
@@ -1439,12 +1487,86 @@ function interpolate_cubed_sphere_CUDA!(
     return nothing
 end
 #--------------------------------------------------------
+"""
+    project_cubed_sphere!(intrp_cs::InterpolationCubedSphere{FT}, 
+                                 v::AbstractArray{FT}, 
+                              uvwi::Tuple{Int,Int,Int}) where {FT <: AbstractFloat}
+
+This function projects the velocity field along unit vectors in radial, lat and long directions for cubed spherical shell geometry.
+
+# Fields
+ - `intrp_cs`: Initialized cubed sphere structure
+ - `v`: Array consisting of velocity field on the discontinuous Galerkin grid
+ - `uvwi`:  Tuple providing the column numbers for u, v and w in the array. These columns will be replaced with projected velocity fields.
+"""
+function project_cubed_sphere!(
+    intrp_cs::InterpolationCubedSphere{FT},
+    v::AbstractArray{FT},
+    uvwi::Tuple{Int, Int, Int},
+) where {FT <: AbstractFloat}
+    # projecting velocity onto unit vectors in rad, lat and long directions
+    # assumes u, v and w are located in columns specified in vector uvwi
+    @assert length(uvwi) == 3 "length(uvwi) is not 3"
+    lati = intrp_cs.lati
+    longi = intrp_cs.longi
+    lat_grd = intrp_cs.lat_grd
+    long_grd = intrp_cs.long_grd
+    _ρu = uvwi[1]
+    _ρv = uvwi[2]
+    _ρw = uvwi[3]
+    np_tot = size(v, 1)
+
+    device = typeof(v) <: Array ? CPU() : CUDA()
+    if device == CPU()
+        for i in 1:np_tot
+            @inbounds vrad =
+                v[i, _ρu] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) +
+                v[i, _ρv] * cosd(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
+                v[i, _ρw] * sind(lat_grd[lati[i]])
+
+            @inbounds vlat =
+                -v[i, _ρu] * sind(lat_grd[lati[i]]) * cosd(long_grd[longi[i]])
+            -v[i, _ρv] * sind(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
+            v[i, _ρw] * cosd(lat_grd[lati[i]])
+
+            @inbounds vlon =
+                -v[i, _ρu] * cosd(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
+                v[i, _ρv] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]])
+
+            @inbounds v[i, _ρu] = vrad
+            @inbounds v[i, _ρv] = vlat
+            @inbounds v[i, _ρw] = vlon
+        end
+    elseif device == CUDA()
+        n_threads = 256
+        n_blocks = (
+            np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
+                div(np_tot, n_threads)
+        )
+        @cuda threads = (n_threads,) blocks = (n_blocks,) project_cubed_sphere_CUDA!(
+            lat_grd,
+            long_grd,
+            lati,
+            longi,
+            v,
+            _ρu,
+            _ρv,
+            _ρw,
+        )
+    else
+        error("project_cubed_sphere!: unsupported device, only CPU() and CUDA() supported")
+    end
+end
+#--------------------------------------------------------
 function project_cubed_sphere_CUDA!(
     lat_grd::AbstractArray{FT, 1},
     long_grd::AbstractArray{FT, 1},
     lati::AbstractVector{UInt16},
     longi::AbstractVector{UInt16},
     v::AbstractArray{FT},
+    _ρu::Int,
+    _ρv::Int,
+    _ρw::Int,
 ) where {FT <: AbstractFloat}
 
     ti = threadIdx().x # thread ids
@@ -1452,23 +1574,9 @@ function project_cubed_sphere_CUDA!(
     bs = blockDim().x  # block dim
     idx = ti + (bi - 1) * bs
     np_tot = size(v, 1)
-
-    _ρu, _ρv, _ρw = 2, 3, 4
-
     # projecting velocity onto unit vectors in rad, lat and long directions
     # assumed u, v and w are located in columns 2, 3 and 4
     if idx ≤ np_tot
-        #        vrad =  v[idx,_ρu] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]]) +
-        #                v[idx,_ρv] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
-        #                v[idx,_ρw] * CUDAnative.sind(lat_grd[lati[idx]])
-
-        #        vlat = -v[idx,_ρu] * CUDAnative.sind(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]])
-        #               -v[idx,_ρv] * CUDAnative.sind(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
-        #                v[idx,_ρw] * CUDAnative.cosd(lat_grd[lati[idx]])
-
-        #        vlon = -v[idx,_ρu] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.sind(long_grd[longi[idx]]) +
-        #                v[idx,_ρv] * CUDAnative.cosd(lat_grd[lati[idx]]) * CUDAnative.cosd(long_grd[longi[idx]])
-
         vrad =
             v[idx, _ρu] *
             CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0) *
@@ -1503,172 +1611,140 @@ function project_cubed_sphere_CUDA!(
 end
 #--------------------------------------------------------
 """
-    write_interpolated_data(intrp_cs::InterpolationCubedSphere{FT}, iv::AbstractArray{FT}, varnames, filename) where {FT <: AbstractFloat}
+    accumulate_interpolated_data!(intrp::InterpolationTopology, 
+                                     iv::AbstractArray{FT,2}, 
+                                    fiv::AbstractArray{FT,4}) where {FT <: AbstractFloat}
 
-This interpolation function gathers interpolated data onto process # 0 and writed data to a NetCDF file.
+This interpolation function gathers interpolated data onto process # 0.
 
-# input
- - `intrp_cs` Initialized cubed sphere interpolation structure
- - `iv` interpolated variables
- - `varnames` Tuple of Interpolated variable name strings
- - `filename` Filename of the NetCDF file to be written
+# Fields
+ - `intrp`: Initialized interpolation topology structure
+ - `iv`: Interpolated variables on local process
+ - `fiv`: Full interpolated variables accumulated on process # 0
 """
-function write_interpolated_data(
-    intrp_cs::InterpolationCubedSphere{FT},
-    iv::AbstractArray{FT},
-    varnames,
-    filename,
+function accumulate_interpolated_data!(
+    intrp::InterpolationTopology,
+    iv::AbstractArray{FT, 2},
+    fiv::AbstractArray{FT, 4},
 ) where {FT <: AbstractFloat}
 
-    device = CLIMA.array_type() <: Array ? CPU() : CUDA()
-    DA = CLIMA.array_type()                    # device array
-
+    DA = CLIMA.array_type()           # device array
+    device = DA <: Array ? CPU() : CUDA()
     mpicomm = MPI.COMM_WORLD
     pid = MPI.Comm_rank(mpicomm)
     npr = MPI.Comm_size(mpicomm)
     root = 0
-
-    nrad = length(intrp_cs.rad_grd)
-    nlat = length(intrp_cs.lat_grd)
-    nlong = length(intrp_cs.long_grd)
-    # Gathering data onto process id 0
-    if device == CUDA()
-        v = deepcopy(Array(iv))
-    else
-        v = iv
-    end
-
-    nvars = size(v, 2)
-
-    if length(varnames) ≠ nvars
-        error("# of varnames $(length(varnames)) do not match with number of variables $nvars ")
-    end
-
-    pid == 0 ? v_all = Array{FT}(undef, length(intrp_cs.radi_all), nvars) :
-    v_all = Array{FT}(undef, 0, nvars)
-
-    for vari in 1:nvars
-        MPI.Gatherv!(
-            view(v, :, vari),
-            view(v_all, :, vari),
-            intrp_cs.Nel_all,
-            root,
-            mpicomm,
-        )
-    end
-
-    if pid == 0
-        svi = Array{FT}(undef, nrad, nlat, nlong, nvars)
-        radi = intrp_cs.radi_all
-        lati = intrp_cs.lati_all
-        longi = intrp_cs.longi_all
-
-        for i in 1:length(radi)
-            for vari in 1:nvars
-                svi[radi[i], lati[i], longi[i], vari] = v_all[i, vari]
-            end
-        end
-        write_data(
-            filename,
-            ("rad", "lat", "long"),
-            (nrad, nlat, nlong),
-            (
-                Array(intrp_cs.rad_grd),
-                Array(intrp_cs.lat_grd),
-                Array(intrp_cs.long_grd),
-            ),
-            varnames,
-            svi,
-        )
-    else
-        svi = Array{FT}(undef, 0, 0, 0, nvars)
-    end
-    return svi
-end
-#--------------------------------------------------------
-"""
-    write_interpolated_data(intrp_brck::InterpolationBrick{FT}, iv::AbstractArray{FT}, varnames, filename) where {FT <:AbstractFloat}
-
-This interpolation function gathers interpolated data onto process # 0 and writed data to a NetCDF file.
-
-# input
- - `intrp_brck` Initialized brick interpolation structure
- - `iv` interpolated variables
- - `varnames` Tuple of Interpolated variable name strings
- - `filename` Filename of the NetCDF file to be written
-# output
- - `svi` full interpolated variables on process # 0
-"""
-function write_interpolated_data(
-    intrp_brck::InterpolationBrick{FT},
-    iv::AbstractArray{FT},
-    varnames,
-    filename,
-) where {FT <: AbstractFloat}
-
-    device = CLIMA.array_type() <: Array ? CPU() : CUDA()
-    DA = CLIMA.array_type()                    # device array
-
-    mpicomm = MPI.COMM_WORLD
-    pid = MPI.Comm_rank(mpicomm)
-    npr = MPI.Comm_size(mpicomm)
-    root = 0
-
-    nx1 = length(intrp_brck.x1g)
-    nx2 = length(intrp_brck.x2g)
-    nx3 = length(intrp_brck.x3g)
     nvars = size(iv, 2)
 
-    if length(varnames) ≠ nvars
-        error("# of varnames $(length(varnames)) do not match with number of variables $nvars ")
+    if intrp isa InterpolationCubedSphere
+        nx1 = length(intrp.rad_grd)
+        nx2 = length(intrp.lat_grd)
+        nx3 = length(intrp.long_grd)
+        np_tot = length(intrp.radi_all)
+        i1 = intrp.radi_all
+        i2 = intrp.lati_all
+        i3 = intrp.longi_all
+    elseif intrp isa InterpolationBrick
+        nx1 = length(intrp.x1g)
+        nx2 = length(intrp.x2g)
+        nx3 = length(intrp.x3g)
+        np_tot = length(intrp.x1i_all)
+        i1 = intrp.x1i_all
+        i2 = intrp.x2i_all
+        i3 = intrp.x3i_all
+    else
+        error("Unsupported topology; only InterpolationCubedSphere and InterpolationBrick supported")
     end
 
-    v = deepcopy(Array(iv))
+    if pid == 0 && size(fiv) ≠ (nx1, nx2, nx3, nvars)
+        error("size of fiv = $(size(fiv)); which does not match with ($nx1,$nx2,$nx3,$nvars) ")
+    end
 
-    if pid == 0
-        v_all = Array{FT}(undef, length(intrp_brck.x1i_all), nvars)
-    else
+    if npr > 1
+        Np_all = intrp.Np_all
+        pid == 0 ? v_all = Array{FT}(undef, np_tot, nvars) :
         v_all = Array{FT}(undef, 0, nvars)
-    end
-    #----------------------
-    for vari in 1:nvars
-        MPI.Gatherv!(
-            view(v, :, vari),
-            view(v_all, :, vari),
-            intrp_brck.Nel_all,
-            root,
-            mpicomm,
-        )
-    end
-    #----------------------
-    if pid == 0
-        #------------------------
-        svi = Array{FT}(undef, nx1, nx2, nx3, nvars)
-        x1i = intrp_brck.x1i_all
-        x2i = intrp_brck.x2i_all
-        x3i = intrp_brck.x3i_all
-
-        for vari in 1:nvars
-            for i in 1:length(x1i)
-                svi[x1i[i], x2i[i], x3i[i], vari] = v_all[i, vari]
+        if device == CPU()
+            #------------------------------
+            for vari in 1:nvars
+                MPI.Gatherv!(
+                    view(iv, :, vari),
+                    view(v_all, :, vari),
+                    Np_all,
+                    root,
+                    mpicomm,
+                )
             end
+            #------------------------------
+        elseif device == CUDA()
+            #------------------------------
+            v = Array(iv)
+            for vari in 1:nvars
+                MPI.Gatherv!(
+                    view(v, :, vari),
+                    view(v_all, :, vari),
+                    Np_all,
+                    root,
+                    mpicomm,
+                )
+            end
+            v_all = DA(v_all)
+            #------------------------------
+        else
+            error("accumulate_interpolate_data: unsupported device, only CPU() and CUDA() supported")
         end
-        write_data(
-            filename,
-            ("x1", "x2", "x3"),
-            (nx1, nx2, nx3),
-            (
-                Array(intrp_brck.x1g),
-                Array(intrp_brck.x2g),
-                Array(intrp_brck.x3g),
-            ),
-            varnames,
-            svi,
-        )
     else
-        svi = Array{FT}(undef, 0, 0, 0, 0)
+        v_all = iv
     end
-    return svi
+
+    if pid == 0
+        if device == CPU()
+            for i in 1:np_tot
+                for vari in 1:nvars
+                    @inbounds fiv[i1[i], i2[i], i3[i], vari] = v_all[i, vari]
+                end
+            end
+        elseif device == CUDA()
+            n_threads = 256
+            n_blocks = (
+                np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
+                    div(np_tot, n_threads)
+            )
+            @cuda threads = (n_threads,) blocks = (n_blocks,) accumulate_helper_CUDA!(
+                i1,
+                i2,
+                i3,
+                v_all,
+                fiv,
+            )
+        else
+            error("Unsupported device $device; only CUDA() and CPU() supported")
+        end
+
+    end
+    MPI.Barrier(mpicomm)
+    return nothing
+end
+#--------------------------------------------------------
+function accumulate_helper_CUDA!(
+    i1::AbstractArray{UInt16, 1},
+    i2::AbstractArray{UInt16, 1},
+    i3::AbstractArray{UInt16, 1},
+    v_all::AbstractArray{FT, 2},
+    fiv::AbstractArray{FT, 4},
+) where {FT <: AbstractFloat}
+    ti = threadIdx().x # thread ids
+    bi = blockIdx().x  # block ids
+    bs = blockDim().x  # block dim
+    idx = ti + (bi - 1) * bs
+    np_tot = size(v_all, 1)
+    nvars = size(v_all, 2)
+
+    if idx ≤ np_tot
+        for vari in 1:nvars
+            @inbounds fiv[i1[idx], i2[idx], i3[idx], vari] = v_all[idx, vari]
+        end
+    end
 end
 #--------------------------------------------------------
 end # module interploation

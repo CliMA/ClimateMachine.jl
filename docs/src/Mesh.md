@@ -54,3 +54,20 @@ Filters.CutoffFilter
 Filters.ExponentialFilter
 Filters.TMARFilter
 ```
+
+## `Interpolation`
+
+### Types
+
+```@docs
+Interpolation.InterpolationBrick
+Interpolation.InterpolationCubedSphere 
+```
+
+### Functions
+
+```@docs
+Interpolation.interpolate_local! 
+Interpolation.project_cubed_sphere!
+Interpolation.accumulate_interpolated_data!
+```
