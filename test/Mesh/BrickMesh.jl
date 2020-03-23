@@ -2,8 +2,6 @@ using CLIMA.Mesh.BrickMesh
 using Test
 using MPI
 
-MPI.Initialized() || MPI.Init()
-
 @testset "Linear Parition" begin
   @test BrickMesh.linearpartition(1,1,1) == 1:1
   @test BrickMesh.linearpartition(20,1,1) == 1:20
@@ -548,5 +546,3 @@ end
   end
 
 end
-
-MPI.Initialized() && MPI.Finalize()

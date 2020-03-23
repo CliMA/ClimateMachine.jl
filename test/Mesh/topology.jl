@@ -2,8 +2,6 @@ using Test
 using CLIMA.Mesh.Topologies
 using Combinatorics, MPI
 
-MPI.Initialized() || MPI.Init()
-
 @testset "cubedshellwarp tests" begin
   import CLIMA.Mesh.Topologies: cubedshellwarp
 
@@ -251,5 +249,3 @@ end
   topology = CubedShellTopology(MPI.COMM_SELF, 3, Float64)
   @test !Topologies.hasboundary(topology)
 end
-
-MPI.Initialized() && MPI.Finalize()

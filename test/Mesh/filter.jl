@@ -1,12 +1,9 @@
-using Test
-using CLIMA
-import GaussQuadrature
-using MPI
-using LinearAlgebra
-
-MPI.Initialized() || MPI.Init()
-
 @testset "Filter tests" begin
+  using Test
+  using CLIMA
+  import GaussQuadrature
+  using MPI
+  using LinearAlgebra
 
   let
     # Values computed with:
@@ -76,5 +73,3 @@ MPI.Initialized() || MPI.Init()
     @test filter.filter ≈ W
   end
 end
-
-MPI.Initialized() && MPI.Finalize()

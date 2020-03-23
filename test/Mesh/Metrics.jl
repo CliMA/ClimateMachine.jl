@@ -1,9 +1,6 @@
 using CLIMA.Mesh.Elements
 using CLIMA.Mesh.Metrics
 using Test
-using MPI
-
-MPI.Initialized() || MPI.Init()
 
 
 const VGEO2D = (x1=1, x2=2, J=3, ξ1x1=4, ξ2x1=5, ξ1x2=6, ξ2x2=7)
@@ -822,5 +819,3 @@ end
   end
   #}}}
 end
-
-MPI.Initialized() && MPI.Finalize()
