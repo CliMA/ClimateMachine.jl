@@ -119,7 +119,7 @@ end
 function config_diagnostics(driver_config)
     interval = 10000 # in time steps
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.setup_diagnostics([dgngrp])
+    return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
@@ -138,8 +138,12 @@ function main()
     timeend = FT(2000)
 
     driver_config = config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config =
-        CLIMA.setup_solver(t0, timeend, driver_config, init_on_cpu = true)
+    solver_config = CLIMA.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        init_on_cpu = true,
+    )
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)

@@ -94,7 +94,8 @@ function main()
         solver_type = ode_solver,
         model = model,
     )
-    solver_config = CLIMA.setup_solver(t0, timeend, driver_config, ode_dt = dt)
+    solver_config =
+        CLIMA.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt)
 
     # Set up the filter callback
     filterorder = 18

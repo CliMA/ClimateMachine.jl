@@ -84,8 +84,12 @@ function main()
         init_test!,
         solver_type = ode_solver,
     )
-    solver_config =
-        CLIMA.setup_solver(t0, timeend, driver_config, Courant_number = CFL)
+    solver_config = CLIMA.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        Courant_number = CFL,
+    )
 
     # Test the courant wrapper
     # by default the CFL should be less than what asked for
@@ -131,7 +135,7 @@ function main()
     @test cb_test > 0
 
     # Test that if dt is not adjusted based on final time the CFL is correct
-    solver_config = CLIMA.setup_solver(
+    solver_config = CLIMA.SolverConfiguration(
         t0,
         timeend,
         driver_config,
