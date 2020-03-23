@@ -440,13 +440,13 @@ filename = "test/LinearSolvers/poisson.jl"
 
     [poisson.matrix.CPU]
     njobs        = 2
-    frequency    = ["continuously" , "continuously"]
-    active_CI    = ["slurm"        , "slurm"]
-    time_limit   = [""             , ""]
-    args         = [""             , ""]
-    parallel     = [true           , true]
-    include_only = [false          , false]
-    mpiranks     = [1              , 2]
+    frequency    = ["continuously", "continuously"]
+    active_CI    = ["slurm"       , "slurm"]
+    time_limit   = [""            , ""]
+    args         = [""            , ""]
+    parallel     = [true          , true]
+    include_only = [false         , false]
+    mpiranks     = [1             , 2]
 
     [poisson.matrix.GPU]
     njobs        = 1
@@ -509,13 +509,13 @@ filename = "examples/DGmethods_old/ex_003_acoustic_wave.jl"
 
     [ex_003_acoustic_wave_old.matrix.CPU]
     njobs        = 2
-    frequency    = ["continuously" , "continuously"]
-    active_CI    = ["azure"        , "slurm"]
-    time_limit   = [""             , ""]
-    args         = [""             , ""]
-    parallel     = [true           , true]
-    include_only = [false          , false]
-    mpiranks     = [1              , 3]
+    frequency    = ["continuously", "continuously"]
+    active_CI    = ["azure"       , "slurm"]
+    time_limit   = [""            , ""]
+    args         = [""            , ""]
+    parallel     = [true          , true]
+    include_only = [false         , false]
+    mpiranks     = [1             , 3]
 
     [ex_003_acoustic_wave_old.matrix.GPU]
     njobs        = 1
@@ -854,13 +854,13 @@ filename = "examples/DGmethods_old/ex_004_nonnegative.jl"
 
     [ex_004_nonnegative_old.matrix.CPU]
     njobs        = 2
-    frequency    = ["continuously" , "continuously"]
-    active_CI    = ["azure"        , "slurm"]
-    time_limit   = [""             , ""]
-    args         = [""             , ""]
-    parallel     = [true           , true]
-    include_only = [false          , false]
-    mpiranks     = [1              , 3]
+    frequency    = ["continuously", "continuously"]
+    active_CI    = ["azure"       , "slurm"]
+    time_limit   = [""            , ""]
+    args         = [""            , ""]
+    parallel     = [true          , true]
+    include_only = [false         , false]
+    mpiranks     = [1             , 3]
 
     [ex_004_nonnegative_old.matrix.GPU]
     njobs        = 1
@@ -1912,13 +1912,13 @@ filename = "test/DGmethods/Euler/isentropicvortex_imex.jl"
 
     [isentropicvortex_imex.matrix.CPU]
     njobs        = 2
-    frequency    = ["continuously" , "continuously"]
-    active_CI    = ["azure"        , "slurm"]
-    time_limit   = [""             , ""]
-    args         = [""             , ""]
-    parallel     = [true           , true]
-    include_only = [false          , false]
-    mpiranks     = [1              , 3]
+    frequency    = ["continuously", "continuously"]
+    active_CI    = ["azure"       , "slurm"]
+    time_limit   = [""            , ""]
+    args         = [""            , ""]
+    parallel     = [true          , true]
+    include_only = [false         , false]
+    mpiranks     = [1             , 3]
 
     [isentropicvortex_imex.matrix.GPU]
     njobs        = 1

@@ -45,5 +45,5 @@ MPI.Initialized() || MPI.Init()
   end
 end
 
-
+MPI.Initialized() && MPI.Finalize()
 

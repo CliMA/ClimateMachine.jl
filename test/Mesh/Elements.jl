@@ -1,6 +1,9 @@
 using CLIMA.Mesh.Elements
 using GaussQuadrature
 using Test
+using MPI
+
+MPI.Initialized() || MPI.Init()
 
 @testset "GaussQuadrature" begin
   for T ∈ (Float32, Float64, BigFloat)
@@ -92,3 +95,5 @@ end
     @test D * P6(r) ≈ DP6(r)
   end
 end
+
+MPI.Initialized() && MPI.Finalize()

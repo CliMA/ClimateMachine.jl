@@ -548,3 +548,5 @@ end
   end
 
 end
+
+MPI.Initialized() && MPI.Finalize()

@@ -1,5 +1,8 @@
 using Test
 using CLIMA
+using MPI
+
+MPI.Initialized() || MPI.Init()
 
 let
   for N = 1:10
@@ -17,3 +20,4 @@ let
   end
 end
 
+MPI.Initialized() && MPI.Finalize()
