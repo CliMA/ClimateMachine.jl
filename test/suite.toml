@@ -1179,8 +1179,8 @@ filename = "examples/DGmethods_old/ex_001_periodic_advection.jl"
 
     [ex_001_periodic_advection_old.matrix.CPU]
     njobs        = 2
-    frequency    = ["continuously","continuously"]
-    active_CI    = ["azure"       ,"slurm"]
+    frequency    = ["continuously", "continuously"]
+    active_CI    = ["azure"       , "slurm"]
     time_limit   = [""            , ""]
     args         = [""            , ""]
     parallel     = [true          , true]
