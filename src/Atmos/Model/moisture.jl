@@ -292,7 +292,8 @@ function thermo_state(
     FT = eltype(state)
     ρinv = 1 / state.ρ
     e_int = internal_energy(atmos, state, aux)
-    q_pt = PhasePartition{FT}(
+    
+   q_pt = PhasePartition{FT}(
         state.moisture.ρq_tot * ρinv,
         state.moisture.ρq_liq * ρinv,
         state.moisture.ρq_ice * ρinv,

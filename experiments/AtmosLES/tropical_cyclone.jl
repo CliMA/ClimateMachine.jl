@@ -197,18 +197,24 @@ function init_tc!(bl, state, aux, (x, y, z), args...)
     data_rho = FT(spl_rhoinit(x,y,z))
     data_pi = FT(spl_ppiinit(x,y,z))
     data_theta = FT(spl_thetainit(x,y,z))
-    u = data_u / data_rho
-    v = data_v / data_rho
+    u = data_u 
+    v = data_v
     w = FT(0)
+    if (z>17000)
+      u =0
+      v= 0
+    end
+    if (data_t<0)
+      @info data_t
+    end
     q_pt = PhasePartition(data_q)
     ρ = data_rho
     e_int = internal_energy(data_t,q_pt)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
-    E = ρ * (e_int + e_kin + e_pot)
-
+    E = ρ * total_energy(e_kin,e_pot,data_t,q_pt)
     state.ρ = data_rho
-    state.ρu = SVector(ρ * u, ρ * v, ρ * w)
+    state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
     state.moisture.ρq_tot = ρ * data_q
     state.moisture.ρq_liq = FT(0)
@@ -252,10 +258,12 @@ function spline_int()
   ppi = zeros(length(X),length(X),length(zinit))
   temp = zeros(length(X),length(X),length(zinit))
   rho = zeros(length(X),length(X),length(zinit))
+  anom = zeros(length(zinit))
   for i in 1:length(X)
     for j in 1:length(X)
       for k in 1:length(zinit)
-        theta[i,j,k] = tinit[k] + t_anom * cospi(0.5 * sqrt(X[i]^2 + Y[j]^2))
+        anom[k] = t_anom * exp(-(pinit[k]-40000)^2 / 2 / (11000^2))
+        theta[i,j,k] = tinit[k] + anom[k] * exp(-( X[i]^2 + Y[j]^2)/(2*RMW^2))
         thetav[i,j,k] = theta[i,j,k] * (1 + 0.61 * qinit[k])
       end
     end
@@ -305,17 +313,17 @@ function spline_int()
           vinit[i,j,k] = 0
         
         else
-          gradpx[i,j,k] = (pressure[i+1,j,k] - pressure[i,j,k])/10000
-          gradpy[i,j,k] = (pressure[i,j+1,k] - pressure[i,j,k])/10000
+          gradpx[i,j,k] = (pressure[i+1,j,k] - pressure[i,j,k])/5000
+          gradpy[i,j,k] = (pressure[i,j+1,k] - pressure[i,j,k])/5000
           if (gradpx[i,j,k] == 0)
              uinit[i,j,k] = 0
           else
-             uinit[i,j,k] = -1 / (f * rho[i,j,k] * gradpx[i,j,k])
+             uinit[i,j,k] = -1 / (f * rho[i,j,k]) * gradpx[i,j,k]
           end
           if (gradpy[i,j,k] == 0)
             vinit[i,j,k] = 0
           else
-          vinit[i,j,k] = 1 / (f * rho[i,j,k] * gradpy[i,j,k])
+          vinit[i,j,k] = 1 / (f * rho[i,j,k]) * gradpy[i,j,k]
           end
         end
       end

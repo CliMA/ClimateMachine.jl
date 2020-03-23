@@ -341,7 +341,7 @@ The internal energy per unit mass, given
     e_pot::FT,
 ) where {FT <: Real}
     ρinv = 1 / ρ
-    ρe_kin = ρinv * sum(abs2, ρu) / 2
+    ρe_kin = ρinv * (ρu[1]^2+ρu[2]^2+ρu[3]^2)/2#sum(abs2, ρu) / 2
     ρe_pot = ρ * e_pot
     ρe_int = ρe - ρe_kin - ρe_pot
     e_int = ρinv * ρe_int
@@ -1479,7 +1479,6 @@ function exner_given_pressure(
     # gas constant and isobaric specific heat of moist air
     _R_m = gas_constant_air(q, param_set)
     _cp_m = cp_m(q, param_set)
-
     return (p / FT(MSLP))^(_R_m / _cp_m)
 end
 exner_given_pressure(p::FT, param_set::APS{FT} = MTPS{FT}()) where {FT} =
