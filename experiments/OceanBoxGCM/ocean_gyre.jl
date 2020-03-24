@@ -40,9 +40,9 @@ function run_ocean_gyre(; imex::Bool = false)
 
     outpdir = "output"
     timestart = FT(0)    # s
-    timeout = FT(86400) # s
-    timeend = FT(30 * 86400) # s
-    dt = FT(10)    # s ; note: currently unused
+    timeout = FT(0.25 * 86400) # s
+    timeend = FT(86400) # s
+    dt = FT(10)    # s
 
     if imex
         solver_type = CLIMA.IMEXSolverType(linear_model = LinearHBModel)
@@ -70,7 +70,7 @@ function run_ocean_gyre(; imex::Bool = false)
     )
 
     mkpath(outpdir)
-    CLIMA.Settings.enable_vtk = true
+    CLIMA.Settings.enable_vtk = false
     CLIMA.Settings.vtk_interval = ceil(Int64, timeout / solver_config.dt)
 
     CLIMA.Settings.enable_diagnostics = false
