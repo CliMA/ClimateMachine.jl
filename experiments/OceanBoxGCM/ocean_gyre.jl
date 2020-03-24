@@ -38,10 +38,11 @@ function run_ocean_gyre(; imex::Bool = false)
     H = 1000   # m
     dimensions = (Lˣ, Lʸ, H)
 
+    outpdir="output"
     timestart = FT(0)    # s
     timeout = FT(86400) # s
     timeend = FT(30 * 86400) # s
-    dt = FT(10)    # s
+    dt = FT(10)    # s ; note: currently unused
 
     if imex
         solver_type = CLIMA.IMEXSolverType(linear_model = LinearHBModel)
@@ -68,6 +69,7 @@ function run_ocean_gyre(; imex::Bool = false)
         modeldata = modeldata,
     )
 
+    mkpath(outpdir)
     CLIMA.Settings.enable_vtk = true
     CLIMA.Settings.vtk_interval = ceil(Int64, timeout / solver_config.dt)
 
