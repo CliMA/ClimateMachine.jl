@@ -144,7 +144,7 @@ struct OceanGyre{T} <: AbstractSimpleBoxProblem
   function OceanGyre{FT}(Lˣ, Lʸ, H;
                          τₒ = FT(1e-1),       # (m/s)^2
                          λʳ = FT(4 // 86400), # m / s
-                         θᴱ = FT(25),         # K
+                         θᴱ = FT(10),         # K
                          ) where {FT <: AbstractFloat}
     return new{FT}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ)
   end
@@ -181,12 +181,13 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(p::OceanGyre, Q, A, coords, t)
+  @inbounds y = coords[2]
   @inbounds z = coords[3]
   @inbounds H = p.H
 
   Q.u = @SVector [0,0]
   Q.η = 0
-  Q.θ = 9 + 8z/H
+  Q.θ = ( 5 + 4*cos(y * π / p.Lʸ) )*( 1 + z/H )
 
   return nothing
 end
