@@ -9,7 +9,7 @@ CLIMA.Parameters.Planet.molmass_dryair(ps::ParameterSet{FT}) where {FT} =
     FT(28.97e-3)
 CLIMA.Parameters.Planet.R_d(ps::ParameterSet{FT}) where {FT} =
     gas_constant(FT) / molmass_dryair(ps)
-CLIMA.Parameters.Planet.kappa_d(ps::ParameterSet{FT}) where {FT} = FT(2 // 7)
+CLIMA.Parameters.Planet.kappa_d(ps::ParameterSet{FT}) where {FT} = FT(2 / 7)
 CLIMA.Parameters.Planet.cp_d(ps::ParameterSet{FT}) where {FT} =
     R_d(ps) / kappa_d(ps)
 CLIMA.Parameters.Planet.cv_d(ps::ParameterSet{FT}) where {FT} =
@@ -23,7 +23,7 @@ CLIMA.Parameters.Planet.molmass_water(ps::ParameterSet{FT}) where {FT} =
 CLIMA.Parameters.Planet.molmass_ratio(ps::ParameterSet{FT}) where {FT} =
     molmass_dryair(ps) / molmass_water(ps)
 CLIMA.Parameters.Planet.R_v(ps::ParameterSet{FT}) where {FT} =
-    gas_constant(ps) / molmass_water(ps)
+    gas_constant(FT) / molmass_water(ps)
 CLIMA.Parameters.Planet.cp_v(ps::ParameterSet{FT}) where {FT} = FT(1859)
 CLIMA.Parameters.Planet.cp_l(ps::ParameterSet{FT}) where {FT} = FT(4181)
 CLIMA.Parameters.Planet.cp_i(ps::ParameterSet{FT}) where {FT} = FT(2100)
