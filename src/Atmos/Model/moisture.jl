@@ -139,8 +139,13 @@ EquilMoist{FT}(;
 
 
 vars_state(::EquilMoist, FT) = @vars(ρq_tot::FT)
-vars_gradient(::EquilMoist, FT) = @vars(q_tot::FT, h_tot::FT)
-vars_diffusive(::EquilMoist, FT) = @vars(∇q_tot::SVector{3, FT})
+vars_gradient(::EquilMoist, FT) =
+    @vars(q_tot::FT, h_tot::FT, T_gcm::FT, q_tot_gcm::FT)
+vars_diffusive(::EquilMoist, FT) = @vars(
+    ∇q_tot::SVector{3, FT},
+    ∇T_gcm::SVector{3, FT},
+    ∇q_tot_gcm::SVector{3, FT}
+)
 vars_aux(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_aux!(
@@ -194,6 +199,8 @@ function gradvariables!(
 )
     ρinv = 1 / state.ρ
     transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
+    transform.moisture.T_gcm = aux.ref_state.T
+    transform.moisture.q_tot_gcm = aux.ref_state.ρq_tot
 end
 
 function diffusive!(
@@ -206,6 +213,8 @@ function diffusive!(
 )
     # diffusive flux of q_tot
     diffusive.moisture.∇q_tot = ∇transform.moisture.q_tot
+    diffusive.moisture.∇T_gcm = ∇transform.moisture.T_gcm
+    diffusive.moisture.∇q_tot_gcm = ∇transform.moisture.q_tot_gcm
 end
 
 function flux_moisture!(

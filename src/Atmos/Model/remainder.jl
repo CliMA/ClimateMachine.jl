@@ -108,7 +108,8 @@ function normal_boundary_flux_diffusive!(
 end
 
 init_aux!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) = nothing
-init_state!(rem::RemainderModel, state::Vars, aux::Vars, coords, t) = nothing
+init_state!(rem::RemainderModel, state::Vars, aux::Vars, coords, t, args...) =
+    nothing
 
 
 function flux_nondiffusive!(

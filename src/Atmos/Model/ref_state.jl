@@ -1,6 +1,7 @@
 ### Reference state
 using DocStringExtensions
-export NoReferenceState,
+export ReferenceState,
+    NoReferenceState,
     HydrostaticState,
     IsothermalProfile,
     LinearTemperatureProfile,

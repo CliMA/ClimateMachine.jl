@@ -53,10 +53,10 @@ function atmos_source!(
     aux::Vars,
     t::Real,
 )
-    if atmos.ref_state isa HydrostaticState
-        source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
-    else
+    if typeof(atmos.ref_state) != HydrostaticState
         source.ρu -= state.ρ * aux.orientation.∇Φ
+    else
+        source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
     end
 end
 

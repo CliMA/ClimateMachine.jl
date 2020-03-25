@@ -254,10 +254,10 @@ Where
     # pressure terms
     p = pressure(m, m.moisture, state, aux)
 
-    if m.ref_state isa HydrostaticState
-        flux.ρu += (p - aux.ref_state.p) * I
-    else
+    if typeof(m.ref_state) != HydrostaticState
         flux.ρu += p * I
+    else
+        flux.ρu += (p - aux.ref_state.p) * I
     end
     flux.ρe += u * p
     flux_radiation!(m.radiation, m, flux, state, aux, t)

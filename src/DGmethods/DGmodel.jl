@@ -339,6 +339,7 @@ end
 
 function init_ode_state(
     dg::DGModel,
+    t,
     args...;
     init_on_cpu = false,
     commtag = 888,
@@ -368,6 +369,7 @@ function init_ode_state(
             auxstate.data,
             grid.vgeo,
             topology.realelems,
+            t,
             args...;
             ndrange = Np * nrealelem,
             dependencies = (event,),
@@ -385,15 +387,20 @@ function init_ode_state(
             h_auxstate.data,
             Array(grid.vgeo),
             topology.realelems,
+            t,
             args...;
             ndrange = Np * nrealelem,
         )
         wait(device, event)
         state .= h_state
+        auxstate .= h_auxstate
     end
 
     MPIStateArrays.start_ghost_exchange!(state)
     MPIStateArrays.finish_ghost_exchange!(state)
+
+    MPIStateArrays.start_ghost_exchange!(auxstate)
+    MPIStateArrays.finish_ghost_exchange!(auxstate)
 
     return state
 end
