@@ -14,13 +14,13 @@ using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.Mesh.Filters
 using CLIMA.Mesh.Grids
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-
+using CLIMA.Parameters.Planet
 
 struct HeldSuarezDataConfig{FT}
     p_sfc::FT
@@ -34,7 +34,7 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     # Parameters need to set initial state
     T_init = bl.data_config.T_init
     p_sfc = bl.data_config.p_sfc
-    scale_height = FT(R_d) * T_init / FT(grav)
+    scale_height = R_d(bl.param_set) * T_init / grav(bl.param_set)
 
     # Calculate the initial state variables
     z = altitude(bl.orientation, aux)
@@ -56,8 +56,10 @@ end
 function config_heldsuarez(FT, poly_order, resolution)
     exp_name = "HeldSuarez"
 
+    param_set = ParameterSet{FT}()
+
     # Parameters
-    p_sfc::FT = MSLP
+    p_sfc::FT = MSLP(param_set)
     T_init::FT = 255
     T_ref::FT = 300
     Rh_ref::FT = 0
@@ -65,7 +67,7 @@ function config_heldsuarez(FT, poly_order, resolution)
     turb_visc::FT = 0 # no visc. here
 
     # Set up a reference state for linearization
-    Γ = FT(0.7 * grav / cp_d) # lapse rate
+    Γ = FT(0.7 * grav(param_set) / cp_d(param_set)) # lapse rate
     T_sfc = FT(300.0)
     T_min = FT(200.0)
     temp_profile_ref = LinearTemperatureProfile(T_min, T_sfc, Γ)
@@ -93,7 +95,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(p_sfc, T_init, domain_height),
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     config = CLIMA.AtmosGCMConfiguration(
@@ -122,11 +124,16 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     coord = aux.coord
     e_int = internal_energy(bl.moisture, bl.orientation, state, aux)
     T = air_temperature(e_int, bl.param_set)
+    _R_d = R_d(bl.param_set)
+    _day = day(bl.param_set)
+    _grav = grav(bl.param_set)
+    _cp_d = cp_d(bl.param_set)
+    _cv_d = cv_d(bl.param_set)
 
     # Held-Suarez parameters
-    k_a = FT(1 / (40 * day))
-    k_f = FT(1 / day)
-    k_s = FT(1 / (4 * day))
+    k_a = FT(1 / (40 * _day))
+    k_f = FT(1 / _day)
+    k_s = FT(1 / (4 * _day))
     ΔT_y = FT(60)
     Δθ_z = FT(10)
     T_equator = FT(315)
@@ -135,13 +142,13 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     λ = longitude(bl.orientation, aux)
     φ = latitude(bl.orientation, aux)
     z = altitude(bl.orientation, aux)
-    scale_height = FT(R_d) * T_init / FT(grav)
+    scale_height = _R_d * T_init / _grav
     σ = exp(-z / scale_height)
 
     # TODO: use
     #  p = air_pressure(T, ρ)
     #  σ = p/p0
-    exner_p = σ^(R_d / cp_d)
+    exner_p = σ^(_R_d / _cp_d)
     Δσ = (σ - σ_b) / (1 - σ_b)
     height_factor = max(0, Δσ)
     T_equil = (T_equator - ΔT_y * sin(φ)^2 - Δθ_z * log(σ) * cos(φ)^2) * exner_p
@@ -151,16 +158,20 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
 
     # Apply Held-Suarez forcing
     source.ρu -= k_v * projection_tangential(bl.orientation, aux, ρu)
-    source.ρe -= k_T * ρ * cv_d * (T - T_equil)
+    source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
+    return nothing
 end
 
 function config_diagnostics(FT, driver_config)
     interval = 100 # in time steps
 
+    param_set = ParameterSet{FT}()
+    _planet_radius = planet_radius(param_set)
+
     info = driver_config.config_info
     boundaries = [
-        FT(-90.0) FT(-180.0) FT(planet_radius)
-        FT(90.0) FT(180.0) FT(planet_radius + info.domain_height)
+        FT(-90.0) FT(-180.0) _planet_radius
+        FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
     resolution = (FT(10), FT(10), FT(1000))
     interpol =

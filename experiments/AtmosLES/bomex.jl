@@ -64,12 +64,13 @@ using CLIMA.GenericCallbacks
 using CLIMA.Mesh.Filters
 using CLIMA.ODESolvers
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 
 import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude
@@ -196,6 +197,7 @@ function atmos_source!(
     FT = eltype(state)
     ρ = state.ρ
     z = altitude(atmos.orientation, aux)
+    _e_int_v0 = e_int_v0(atmos.param_set)
 
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
@@ -252,7 +254,7 @@ function atmos_source!(
 
     # Collect Sources
     source.moisture.ρq_tot += ρ∂qt∂t
-    source.ρe += cvm * ρ∂θ∂t * exner(TS) + e_int_v0 * ρ∂qt∂t
+    source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
     source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
     source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
     return nothing
@@ -273,9 +275,10 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     P_sfc::FT = 1.015e5 # Surface air pressure
     qg::FT = 22.45e-3 # Total moisture at surface
     q_pt_sfc = PhasePartition(qg) # Surface moisture partitioning
-    Rm_sfc = FT(gas_constant_air(q_pt_sfc)) # Moist gas constant
+    Rm_sfc = gas_constant_air(q_pt_sfc, bl.param_set) # Moist gas constant
     θ_liq_sfc = FT(299.1) # Prescribed θ_liq at surface
     T_sfc = FT(300.4) # Surface temperature
+    _grav = grav(bl.param_set)
 
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 0
@@ -321,12 +324,12 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     # Convert total specific humidity to kg/kg
     q_tot /= 1000
     # Scale height based on surface parameters
-    H = Rm_sfc * T_sfc / grav
+    H = Rm_sfc * T_sfc / _grav
     # Pressure based on scale height
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, P, q_tot)
+    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, P, q_tot, bl.param_set)
     T = air_temperature(TS)
     ρ = air_density(TS)
     q_pt = PhasePartition(TS)
@@ -338,8 +341,8 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
 
     # Compute energy contributions
     e_kin = FT(1 // 2) * (u^2 + v^2 + w^2)
-    e_pot = FT(grav) * z
-    ρe_tot = ρ * total_energy(e_kin, e_pot, T, q_pt)
+    e_pot = _grav * z
+    ρe_tot = ρ * total_energy(e_kin, e_pot, TS)
 
     # Assign initial conditions for prognostic state variables
     state.ρ = ρ
@@ -355,6 +358,7 @@ end
 
 function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
+    param_set = ParameterSet{FT}()
     ics = init_bomex!     # Initial conditions
 
     C_smag = FT(0.18)     # Smagorinsky coefficient
@@ -368,7 +372,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     ∂qt∂t_peak = FT(-1.2e-8)  # Moisture tendency (energy source)
     zl_moisture = FT(300)     # Low altitude limit for piecewise function (moisture source)
     zh_moisture = FT(500)     # High altitude limit for piecewise function (moisture source)
-    ∂θ∂t_peak = FT(-2 / day)  # Potential temperature tendency (energy source)
+    ∂θ∂t_peak = FT(-2 / day(param_set))  # Potential temperature tendency (energy source)
 
     z_sponge = FT(2400)     # Start of sponge layer
     α_max = FT(0.75)        # Strength of sponge layer (timescale)
@@ -433,7 +437,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
             AtmosBC(),
         ),
         init_state = ics,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     # Assemble configuration
