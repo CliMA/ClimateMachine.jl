@@ -1,0 +1,641 @@
+[acousticwave_1d_imex]
+filename = "test/DGmethods/Euler/acousticwave_1d_imex.jl"
+
+    [acousticwave_1d_imex.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[ex_1_saturation_adjustment]
+filename = "examples/Microphysics/ex_1_saturation_adjustment.jl"
+
+    [ex_1_saturation_adjustment.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropicvortex]
+filename = "test/DGmethods/Euler/isentropicvortex.jl"
+
+    [isentropicvortex.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+    [isentropicvortex.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [isentropicvortex.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[bomex]
+filename = "experiments/AtmosLES/bomex.jl"
+
+    [bomex.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[advection_sphere_ssp34_old]
+filename = "test/DGmethods_old/sphere/advection_sphere_ssp34.jl"
+
+    [advection_sphere_ssp34_old.matrix.CPU-2]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 2
+
+    [advection_sphere_ssp34_old.matrix.GPU-2]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 2
+
+[advection_sphere_lsrk_old]
+filename = "test/DGmethods_old/sphere/advection_sphere_lsrk.jl"
+
+    [advection_sphere_lsrk_old.matrix.CPU-2]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 2
+
+    [advection_sphere_lsrk_old.matrix.GPU-2]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 2
+
+[ex_002_solid_body_rotation_old]
+filename = "examples/DGmethods_old/ex_002_solid_body_rotation.jl"
+
+    [ex_002_solid_body_rotation_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [ex_002_solid_body_rotation_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[test_divergence_free]
+filename = "test/Ocean/HydrostaticBoussinesq/test_divergence_free.jl"
+
+    [test_divergence_free.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropicvortex_multirate]
+filename = "test/DGmethods/Euler/isentropicvortex_multirate.jl"
+
+    [isentropicvortex_multirate.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+    [isentropicvortex_multirate.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [isentropicvortex_multirate.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[GyreDriver]
+filename = "test/Ocean/ShallowWater/GyreDriver.jl"
+
+    [GyreDriver.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropic_vortex_standalone_old]
+filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone.jl"
+
+    [isentropic_vortex_standalone_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [isentropic_vortex_standalone_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[ex_003_acoustic_wave_old]
+filename = "examples/DGmethods_old/ex_003_acoustic_wave.jl"
+
+    [ex_003_acoustic_wave_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [ex_003_acoustic_wave_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[integral_test]
+filename = "test/DGmethods/integral_test.jl"
+
+    [integral_test.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+[isentropic_vortex_standalone_integral_old]
+filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_integral.jl"
+
+    [isentropic_vortex_standalone_integral_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[homogeneous_box]
+filename = "experiments/OceanBoxGCM/homogeneous_box.jl"
+
+    [homogeneous_box.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[periodic_3D_hyperdiffusion]
+filename = "test/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl"
+
+    [periodic_3D_hyperdiffusion.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[direction_splitting_advection_diffusion]
+filename = "test/DGmethods/advection_diffusion/direction_splitting_advection_diffusion.jl"
+
+    [direction_splitting_advection_diffusion.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[advection_sphere_ssp33_old]
+filename = "test/DGmethods_old/sphere/advection_sphere_ssp33.jl"
+
+    [advection_sphere_ssp33_old.matrix.CPU-2]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 2
+
+    [advection_sphere_ssp33_old.matrix.GPU-2]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 2
+
+[test_ocean_gyre]
+filename = "test/Ocean/HydrostaticBoussinesq/test_ocean_gyre.jl"
+
+    [test_ocean_gyre.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropic_vortex_standalone_IMEX_old]
+filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_IMEX.jl"
+
+    [isentropic_vortex_standalone_IMEX_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [isentropic_vortex_standalone_IMEX_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[sphere_old]
+filename = "test/DGmethods_old/conservation/sphere.jl"
+
+    [sphere_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [sphere_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[ex_004_nonnegative_old]
+filename = "examples/DGmethods_old/ex_004_nonnegative.jl"
+
+    [ex_004_nonnegative_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [ex_004_nonnegative_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[mms_bc_old]
+filename = "test/DGmethods_old/compressible_Navier_Stokes/mms_bc.jl"
+
+    [mms_bc_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropic_vortex_standalone_source_old]
+filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_source.jl"
+
+    [isentropic_vortex_standalone_source_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[heldsuarez]
+filename = "experiments/AtmosGCM/heldsuarez.jl"
+
+    [heldsuarez.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[dycoms]
+filename = "experiments/AtmosLES/dycoms.jl"
+
+    [dycoms.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[mms_bc_atmos]
+filename = "test/DGmethods/compressible_Navier_Stokes/mms_bc_atmos.jl"
+
+    [mms_bc_atmos.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropic_vortex_standalone_aux_old]
+filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_aux.jl"
+
+    [isentropic_vortex_standalone_aux_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[pseudo1D_advection_diffusion_1dimex]
+filename = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl"
+
+    [pseudo1D_advection_diffusion_1dimex.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[horizontal_integral_test]
+filename = "test/DGmethods/horizontal_integral_test.jl"
+
+    [horizontal_integral_test.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+[ex_001_periodic_advection_old]
+filename = "examples/DGmethods_old/ex_001_periodic_advection.jl"
+
+    [ex_001_periodic_advection_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [ex_001_periodic_advection_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[dry_rayleigh_benard]
+filename = "examples/Atmos/dry_rayleigh_benard.jl"
+
+    [dry_rayleigh_benard.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = "01:30:00"
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[risingbubble]
+filename = "experiments/AtmosLES/risingbubble.jl"
+
+    [risingbubble.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[surfacebubble]
+filename = "experiments/AtmosLES/surfacebubble.jl"
+
+    [surfacebubble.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = "01:30:00"
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[mms_bc_dgmodel]
+filename = "test/DGmethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl"
+
+    [mms_bc_dgmodel.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[integral_test_sphere]
+filename = "test/DGmethods/integral_test_sphere.jl"
+
+    [integral_test_sphere.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+[density_current_model]
+filename = "test/DGmethods/compressible_Navier_Stokes/density_current_model.jl"
+
+    [density_current_model.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[pseudo1D_advection_diffusion]
+filename = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl"
+
+    [pseudo1D_advection_diffusion.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+    [pseudo1D_advection_diffusion.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [pseudo1D_advection_diffusion.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = "--integration-testing"
+    parallel     = true
+    mpiranks     = 3
+
+[pseudo1D_heat_eqn]
+filename = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl"
+
+    [pseudo1D_heat_eqn.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [pseudo1D_heat_eqn.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = "--integration-testing"
+    parallel     = true
+    mpiranks     = 3
+
+[ref_state]
+filename = "test/DGmethods/compressible_Navier_Stokes/ref_state.jl"
+
+    [ref_state.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+[RTB_IMEX_old]
+filename = "test/DGmethods_old/Euler/RTB_IMEX.jl"
+
+    [RTB_IMEX_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [RTB_IMEX_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropicvortex_imex]
+filename = "test/DGmethods/Euler/isentropicvortex_imex.jl"
+
+    [isentropicvortex_imex.matrix.CPU-1]
+    frequency    = "continuously"
+    active_CI    = "azure"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 1
+
+    [isentropicvortex_imex.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [isentropicvortex_imex.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+[isentropic_vortex_standalone_bc_old]
+filename = "test/DGmethods_old/Euler/isentropic_vortex_standalone_bc.jl"
+
+    [isentropic_vortex_standalone_bc_old.matrix.CPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
+    [isentropic_vortex_standalone_bc_old.matrix.GPU-3]
+    frequency    = "continuously"
+    active_CI    = "slurm"
+    time_limit   = ""
+    args         = ""
+    parallel     = true
+    mpiranks     = 3
+
