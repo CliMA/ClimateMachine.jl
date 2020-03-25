@@ -38,7 +38,7 @@ function run_ocean_gyre(; imex::Bool = false)
     H = 1000   # m
     dimensions = (Lˣ, Lʸ, H)
 
-    outpdir="output"
+    outpdir = "output"
     timestart = FT(0)    # s
     timeout = FT(86400) # s
     timeend = FT(30 * 86400) # s
