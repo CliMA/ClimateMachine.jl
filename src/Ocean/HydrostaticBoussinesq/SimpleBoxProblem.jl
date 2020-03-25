@@ -13,9 +13,9 @@ Lʸ = meridional (north-south) length
 H  = height of the ocean
 """
 struct SimpleBoxProblem{T} <: AbstractSimpleBoxProblem
-  Lˣ::T
-  Lʸ::T
-  H::T
+    Lˣ::T
+    Lʸ::T
+    H::T
 end
 
 """
@@ -30,15 +30,15 @@ save y coordinate for computing coriolis, wind stress, and sea surface temperatu
 - `geom`: geometry stuff
 """
 function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
-  FT = eltype(A)
-  @inbounds A.y = geom.coord[2]
+    FT = eltype(A)
+    @inbounds A.y = geom.coord[2]
 
-  # not sure if this is needed but getting weird intialization stuff
-  A.w = 0
-  A.pkin = 0
-  A.wz0 = 0
+    # not sure if this is needed but getting weird intialization stuff
+    A.w = 0
+    A.pkin = 0
+    A.wz0 = 0
 
-  return nothing
+    return nothing
 end
 
 ##########################
@@ -58,15 +58,18 @@ fₒ = first coriolis parameter (constant term)
 β  = second coriolis parameter (linear term)
 """
 struct HomogeneousBox{T} <: AbstractSimpleBoxProblem
-  Lˣ::T
-  Lʸ::T
-  H::T
-  τₒ::T
-  function HomogeneousBox{FT}(Lˣ, Lʸ, H;
-                                    τₒ = FT(1e-1),  # (m/s)^2
-                                    ) where {FT <: AbstractFloat}
-    return new{FT}(Lˣ, Lʸ, H, τₒ)
-  end
+    Lˣ::T
+    Lʸ::T
+    H::T
+    τₒ::T
+    function HomogeneousBox{FT}(
+        Lˣ,
+        Lʸ,
+        H;
+        τₒ = FT(1e-1),  # (m/s)^2
+    ) where {FT <: AbstractFloat}
+        return new{FT}(Lˣ, Lʸ, H, τₒ)
+    end
 end
 
 """
@@ -77,14 +80,19 @@ bctype 1 => Coastline => Apply No Slip BC conditions
 bctype 2 => OceanFloor => Apply Free Slip BC conditions
 bctype 3 => OceanSurface => Apply Windstress but not temperature forcing
 """
-@inline function ocean_boundary_state!(m::HBModel, p::HomogeneousBox, bctype, x...)
-  if bctype == 1
-    return ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-  elseif bctype == 2
-    return ocean_boundary_state!(m, OceanFloorFreeSlip(), x...)
-  elseif bctype == 3
-    return ocean_boundary_state!(m, OceanSurfaceStressNoForcing(), x...)
-  end
+@inline function ocean_boundary_state!(
+    m::HBModel,
+    p::HomogeneousBox,
+    bctype,
+    x...,
+)
+    if bctype == 1
+        return ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+    elseif bctype == 2
+        return ocean_boundary_state!(m, OceanFloorFreeSlip(), x...)
+    elseif bctype == 3
+        return ocean_boundary_state!(m, OceanSurfaceStressNoForcing(), x...)
+    end
 end
 
 """
@@ -100,11 +108,11 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(p::HomogeneousBox, Q, A, coords, t)
-  Q.u = @SVector [rand(),rand()]
-  Q.η = 0
-  Q.θ = 20
+    Q.u = @SVector [rand(), rand()]
+    Q.η = 0
+    Q.θ = 20
 
-  return nothing
+    return nothing
 end
 
 """
@@ -135,19 +143,22 @@ H  = height of the ocean
 θᴱ = maximum surface temperature
 """
 struct OceanGyre{T} <: AbstractSimpleBoxProblem
-  Lˣ::T
-  Lʸ::T
-  H::T
-  τₒ::T
-  λʳ::T
-  θᴱ::T
-  function OceanGyre{FT}(Lˣ, Lʸ, H;
-                         τₒ = FT(1e-1),       # (m/s)^2
-                         λʳ = FT(4 // 86400), # m / s
-                         θᴱ = FT(25),         # K
-                         ) where {FT <: AbstractFloat}
-    return new{FT}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ)
-  end
+    Lˣ::T
+    Lʸ::T
+    H::T
+    τₒ::T
+    λʳ::T
+    θᴱ::T
+    function OceanGyre{FT}(
+        Lˣ,
+        Lʸ,
+        H;
+        τₒ = FT(1e-1),       # (m/s)^2
+        λʳ = FT(4 // 86400), # m / s
+        θᴱ = FT(10),         # K
+    ) where {FT <: AbstractFloat}
+        return new{FT}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ)
+    end
 end
 
 """
@@ -159,13 +170,13 @@ bctype 2 => OceanFloor => Apply Free Slip BC conditions
 bctype 3 => OceanSurface => Apply wind-stress and  temperature forcing
 """
 @inline function ocean_boundary_state!(m::HBModel, p::OceanGyre, bctype, x...)
-  if bctype == 1
-    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-  elseif bctype == 2
-    ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
-  elseif bctype == 3
-    ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
-  end
+    if bctype == 1
+        ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+    elseif bctype == 2
+        ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
+    elseif bctype == 3
+        ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
+    end
 end
 
 """
@@ -181,14 +192,15 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(p::OceanGyre, Q, A, coords, t)
-  @inbounds z = coords[3]
-  @inbounds H = p.H
+    @inbounds y = coords[2]
+    @inbounds z = coords[3]
+    @inbounds H = p.H
 
-  Q.u = @SVector [0,0]
-  Q.η = 0
-  Q.θ = 9 + 8z/H
+    Q.u = @SVector [0, 0]
+    Q.η = 0
+    Q.θ = (5 + 4 * cos(y * π / p.Lʸ)) * (1 + z / H)
 
-  return nothing
+    return nothing
 end
 
 """
@@ -200,7 +212,7 @@ jet stream like windstress
 - `p`: problem object to dispatch on and get additional parameters
 - `y`: y-coordinate in the box
 """
-@inline velocity_flux(p::OceanGyre, y, ρ) = - (p.τₒ / ρ) * cos(y * π / p.Lʸ)
+@inline velocity_flux(p::OceanGyre, y, ρ) = -(p.τₒ / ρ) * cos(y * π / p.Lʸ)
 
 """
     temperature_flux(::OceanGyre)
@@ -213,6 +225,6 @@ cool-warm north-south linear temperature gradient
 - `θ`: temperature within element on boundary
 """
 @inline function temperature_flux(p::OceanGyre, y, θ)
-  θʳ =  p.θᴱ * (1 - y / p.Lʸ)
-  return p.λʳ * (θʳ - θ)
+    θʳ = p.θᴱ * (1 - y / p.Lʸ)
+    return p.λʳ * (θʳ - θ)
 end
