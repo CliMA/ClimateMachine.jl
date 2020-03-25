@@ -174,7 +174,8 @@ function config_diagnostics(FT, driver_config)
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
     resolution = (FT(10), FT(10), FT(1000))
-    interpol = CLIMA.setup_interpolation(driver_config, boundaries, resolution)
+    interpol =
+        CLIMA.InterpolationConfiguration(driver_config, boundaries, resolution)
 
     dgngrp = setup_dump_state_and_aux_diagnostics(
         interval,
@@ -182,7 +183,7 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
         project = true,
     )
-    return CLIMA.setup_diagnostics([dgngrp])
+    return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
@@ -207,7 +208,7 @@ function main()
     )
 
     # Set up experiment
-    solver_config = CLIMA.setup_solver(
+    solver_config = CLIMA.SolverConfiguration(
         timestart,
         timeend,
         driver_config,

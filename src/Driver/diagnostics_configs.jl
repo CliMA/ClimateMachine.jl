@@ -3,16 +3,11 @@ using ..Mesh.Interpolation
 
 mutable struct DiagnosticsConfiguration
     groups::Array{DiagnosticsGroup, 1}
+
+    DiagnosticsConfiguration(groups::Array{DiagnosticsGroup, 1}) = new(groups)
 end
 
-"""
-    setup_diagnostics(groups::Array{DiagnosticsGroup,1})
-"""
-function setup_diagnostics(groups::Array{DiagnosticsGroup, 1})
-    return DiagnosticsConfiguration(groups)
-end
-
-function setup_interpolation(
+function InterpolationConfiguration(
     driver_config::DriverConfiguration,
     boundaries::Array,
     resolution::Tuple,

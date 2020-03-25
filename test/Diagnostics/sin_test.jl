@@ -92,7 +92,7 @@ end
 function config_diagnostics(driver_config)
     interval = 100
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.setup_diagnostics([dgngrp])
+    return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
@@ -120,7 +120,7 @@ function main()
     timeend = dt
 
     driver_config = config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.setup_solver(
+    solver_config = CLIMA.SolverConfiguration(
         t0,
         timeend,
         driver_config,

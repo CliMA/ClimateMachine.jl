@@ -40,16 +40,18 @@ DGmethods.courant(
 ) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, direction)
 
 """
-    CLIMA.setup_solver(t0::FT,
-                      timeend::FT,
-                      driver_config::DriverConfiguration,
-                      init_args...;
-                      init_on_cpu=false,
-                      ode_solver_type=driver_config.solver_type,
-                      ode_dt=nothing,
-                      modeldata=nothing,
-                      Courant_number=0.4,
-                      diffdir=EveryDirection())
+    CLIMA.SolverConfiguration(
+        t0::FT,
+        timeend::FT,
+        driver_config::DriverConfiguration,
+        init_args...;
+        init_on_cpu=false,
+        ode_solver_type=driver_config.solver_type,
+        ode_dt=nothing,
+        modeldata=nothing,
+        Courant_number=0.4,
+        diffdir=EveryDirection(),
+    )
 
 Set up the DG model per the specified driver configuration, set up
 the ODE solver, and return a `SolverConfiguration` to be used with
@@ -69,7 +71,7 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
 """
-function setup_solver(
+function SolverConfiguration(
     t0::FT,
     timeend::FT,
     driver_config::DriverConfiguration,
@@ -83,7 +85,7 @@ function setup_solver(
     timeend_dt_adjust = true,
     CFL_direction = EveryDirection(),
 ) where {FT <: AbstractFloat}
-    @tic setup_solver
+    @tic SolverConfiguration
 
     bl = driver_config.bl
     grid = driver_config.grid
@@ -177,7 +179,7 @@ function setup_solver(
         )
     end
 
-    @toc setup_solver
+    @toc SolverConfiguration
 
     return SolverConfiguration(
         driver_config.name,
