@@ -26,6 +26,7 @@ using CLIMA.Atmos: vars_state, vars_aux
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -136,7 +137,7 @@ function run(
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
         init_state = Initialise_Density_Current!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
     # -------------- Define dgbalancelaw --------------------------- #
     dg = DGModel(

@@ -32,6 +32,8 @@ using CLIMA.Atmos: vars_state, vars_aux
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
+
 
 using Random
 using Statistics
@@ -130,7 +132,7 @@ function run_brick_interpolation_test()
             turbulence = ConstantViscosityWithDivergence(FT(0)),
             source = (Gravity(),),
             init_state = Initialize_Brick_Interpolation_Test!,
-            param_set = ParameterSet{FT}(),
+            param_set = param_set,
         )
 
         dg = DGModel(
@@ -308,7 +310,7 @@ function run_cubed_sphere_interpolation_test()
             moisture = DryModel(),
             source = nothing,
             init_state = setup,
-            param_set = ParameterSet{FT}(),
+            param_set = param_set,
         )
 
         dg = DGModel(

@@ -40,6 +40,7 @@ using CLIMA.VariableTemplates: flattenednames
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
@@ -124,7 +125,7 @@ function run(
         moisture = DryModel(),
         source = Gravity(),
         init_state = setup,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 

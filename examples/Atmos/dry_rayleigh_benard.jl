@@ -20,6 +20,7 @@ using CLIMA.VariableTemplates
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 # ------------------- Description ---------------------------------------- #
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
@@ -127,7 +128,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         ),
         init_state = init_problem!,
         data_config = data_config,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
     ode_solver =
         CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)

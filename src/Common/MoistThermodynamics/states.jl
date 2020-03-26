@@ -66,7 +66,7 @@ may be needed).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseEquil{FT, PS <: APS{FT}} <: ThermodynamicState{FT}
+struct PhaseEquil{FT, PS} <: ThermodynamicState{FT}
     "parameter set (e.g., planet parameters)"
     param_set::PS
     "internal energy"
@@ -85,7 +85,7 @@ function PhaseEquil(
     maxiter::Int = 3,
     tol::FT = FT(1e-1),
     sat_adjust::Function = saturation_adjustment,
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: Real, PS}
     # TODO: Remove these safety nets, or at least add warnings
     # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
@@ -99,7 +99,7 @@ function PhaseEquil(
     q_tot::FT,
     sat_adjust::Function,
 ) where {FT <: Real, PS}
-    return PhaseEquil(e_int, ρ, q_tot, 3, FT(1e-1), sat_adjust, MTPS{FT}())
+    return PhaseEquil(e_int, ρ, q_tot, 3, FT(1e-1), sat_adjust, MTPS())
 end
 function PhaseEquil(
     e_int::FT,
@@ -116,7 +116,7 @@ function PhaseEquil(
         maxiter,
         tol,
         saturation_adjustment,
-        MTPS{FT}(),
+        MTPS(),
     )
 end
 
@@ -133,7 +133,7 @@ A dry thermodynamic state (`q_tot = 0`).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseDry{FT, PS <: APS{FT}} <: ThermodynamicState{FT}
+struct PhaseDry{FT, PS} <: ThermodynamicState{FT}
     "parameter set (e.g., planet parameters)"
     param_set::PS
     "internal energy"
@@ -141,7 +141,7 @@ struct PhaseDry{FT, PS <: APS{FT}} <: ThermodynamicState{FT}
     "density of dry air"
     ρ::FT
 end
-PhaseDry(e_int::FT, ρ::FT, param_set::PS = MTPS{FT}()) where {FT, PS} =
+PhaseDry(e_int::FT, ρ::FT, param_set::PS = MTPS()) where {FT, PS} =
     PhaseDry{FT, PS}(param_set, e_int, ρ)
 
 """
@@ -155,7 +155,7 @@ Constructs a [`PhaseDry`](@ref) thermodynamic state from:
 function PhaseDry_given_pT(
     p::FT,
     T::FT,
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: Real, PS}
     e_int = internal_energy(T, param_set)
     ρ = air_density(T, p, param_set)
@@ -180,7 +180,7 @@ function LiquidIcePotTempSHumEquil(
     q_tot::FT,
     maxiter::Int = 30,
     tol::FT = FT(1e-1),
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: Real, PS}
     T = saturation_adjustment_q_tot_θ_liq_ice(
         θ_liq_ice,
@@ -220,7 +220,7 @@ function LiquidIcePotTempSHumEquil_given_pressure(
     q_tot::FT,
     maxiter::Int = 30,
     tol::FT = FT(1e-1),
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: Real, PS}
     T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
         θ_liq_ice,
@@ -262,7 +262,7 @@ function TemperatureSHumEquil(
     T::FT,
     p::FT,
     q_tot::FT,
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: Real, PS}
     ρ = air_density(T, p, PhasePartition(q_tot), param_set)
     q = PhasePartition_equil(T, ρ, q_tot, param_set)
@@ -285,7 +285,7 @@ be computed directly).
 $(DocStringExtensions.FIELDS)
 
 """
-struct PhaseNonEquil{FT, PS <: APS{FT}} <: ThermodynamicState{FT}
+struct PhaseNonEquil{FT, PS} <: ThermodynamicState{FT}
     "parameter set (e.g., planet parameters)"
     param_set::PS
     "internal energy"
@@ -299,7 +299,7 @@ function PhaseNonEquil(
     e_int::FT,
     ρ::FT,
     q::PhasePartition{FT} = q_pt_0(FT),
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT, PS}
     return PhaseNonEquil{FT, PS}(param_set, e_int, ρ, q)
 end
@@ -322,7 +322,7 @@ function LiquidIcePotTempSHumNonEquil(
     q_pt::PhasePartition{FT},
     maxiter::Int = 5,
     tol::FT = FT(1e-1),
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: Real, PS}
     T = air_temperature_from_liquid_ice_pottemp_non_linear(
         θ_liq_ice,
@@ -349,7 +349,7 @@ function LiquidIcePotTempSHumNonEquil_given_pressure(
     θ_liq_ice::FT,
     p::FT,
     q_pt::PhasePartition{FT},
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: Real, PS}
     T = air_temperature_from_liquid_ice_pottemp_given_pressure(
         θ_liq_ice,
@@ -373,7 +373,7 @@ function fixed_lapse_rate_ref_state(
     z::FT,
     T_surface::FT,
     T_min::FT,
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT <: AbstractFloat, PS}
     Γ = FT(grav) / FT(cp_d)
     z_tropopause = (T_surface - T_min) / Γ
@@ -403,7 +403,7 @@ should span the input arguments to all of the constructors.
 function tested_convergence_range(
     n::Int,
     ::Type{FT},
-    param_set::PS = MTPS{FT}(),
+    param_set::PS = MTPS(),
 ) where {FT, PS}
     n_RS1 = 10
     n_RS2 = 20
