@@ -100,7 +100,7 @@ Tendencies included here are
     tntha = temperature tendency due to horizontal advection
     tntva = temperature tendency due to vertical advection
     tntr = temperature tendency due to radiation fluxes
-    gvtgcm = temperature vertical gradient from GCM values
+    ∂T∂z = temperature vertical gradient from GCM values
 """
 struct TemperatureTendency <: Source end
 function atmos_source!(
@@ -149,7 +149,7 @@ Tendencies included here are
 
     tnhusha = moisture tendency due to horizontal advection
     tnhusva = moisture tendency due to vertical advection
-    gvhusgcm = moisture vertical gradient from GCM values
+    ∂qt∂z = moisture vertical gradient from GCM values
 """
 struct MoistureTendency <: Source end
 function atmos_source!(
@@ -505,7 +505,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(9)
+    CFL = FT(10)
 
     # Execute the get_gcm_info function
     (
