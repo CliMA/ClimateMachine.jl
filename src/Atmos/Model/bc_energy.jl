@@ -109,3 +109,4 @@ function atmos_energy_normal_boundary_flux_diffusive!(
     # we want to prescribe the inward flux
     fluxᵀn.ρe -= bc_energy.fn(state⁻, aux⁻, t)
 end
+

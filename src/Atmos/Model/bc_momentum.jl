@@ -173,3 +173,74 @@ function atmos_momentum_normal_boundary_flux_diffusive!(
     fluxᵀn.ρu += state⁻.ρ * τn
     fluxᵀn.ρe += state⁻.ρu' * τn
 end
+
+struct BulkFormulation{FN} <: MomentumDragBC
+    fn::FN
+end
+function atmos_momentum_boundary_state!(
+    nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+    bc_momentum::Impenetrable{DL},
+    atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
+    args...,
+) where {DL <: BulkFormulation}
+    atmos_momentum_boundary_state!(
+        nf,
+        Impenetrable(FreeSlip()),
+        atmos,
+        state⁺,
+        aux⁺,
+        n,
+        state⁻,
+        aux⁻,
+        bctype,
+        t,
+        args...,
+    )
+    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
+end
+function atmos_momentum_normal_boundary_flux_diffusive!(
+    nf,
+    bc_momentum::Impenetrable{DL},
+    atmos,
+    fluxᵀn,
+    n,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    bctype,
+    t,
+    state1⁻,
+    diff1⁻,
+    aux1⁻,
+) where {DL <: BulkFormulation}
+    FT = eltype(state⁺)
+    u1⁻ = state1⁻.ρu / state1⁻.ρ
+    Pu1⁻ = u1⁻ - dot(u1⁻, n) .* SVector(n)
+    normPu1⁻ = norm(Pu1⁻)
+    # NOTE: difference from design docs since normal points outwards
+    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normPu1⁻)
+    τn = C * normPu1⁻ * Pu1⁻
+    τe = C * normPu1⁻
+    TS = thermo_state(atmos, atmos.moisture, state⁺, aux⁺)
+    T = air_temperature(TS)
+    TS1 = thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
+    T_surf = air_temperature(TS1)
+    q_surf = state⁻.moisture.ρq_tot / state⁻.ρ
+    # both sides involve projections of normals, so signs are consistent
+    fluxᵀn.ρu += state⁻.ρ * τn
+    fluxᵀn.ρe += state⁻.ρ * τe * (T-T_surf)
+    fluxᵀn.moisture.ρq_tot += state⁻.ρ * τe * (state⁺.moisture.ρq_tot / state⁺.ρ - q_surf)
+end
+

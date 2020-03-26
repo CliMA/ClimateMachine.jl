@@ -248,10 +248,10 @@ function spline_int()
   # height theta qv    u     v     pressure
   zinit, tinit, qinit, u_init, v_init, pinit  =
       sounding[:, 1], sounding[:, 2], 0.001 .* sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
-  t_anom = 5
-  RMW = 50000
-  X = -410000:5000:410000
-  Y = -410000:5000:410000
+  t_anom = 2
+  RMW = 100000
+  X = -810000:5000:810000
+  Y = -810000:5000:810000
   theta = zeros(length(X),length(X),length(zinit))
   thetav = zeros(length(X),length(X),length(zinit))
   pressure = zeros(length(X),length(X),length(zinit))
@@ -269,7 +269,7 @@ function spline_int()
     end
   end
   f = 5e-5
-  RMW =  50000
+  RMW =  100000
   maxz = length(zinit)
   tvinit = zeros(maxz)
   piinit = zeros(maxz)
@@ -324,6 +324,9 @@ function spline_int()
             vinit[i,j,k] = 0
           else
           vinit[i,j,k] = 1 / (f * rho[i,j,k]) * gradpy[i,j,k]
+          end
+          if (uinit[i,j,k] > 50)
+             @info uinit[i,j,k], gradpx[i,j,k]
           end
         end
       end
@@ -388,7 +391,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
     # Sponge
     c_sponge = 1
     # Rayleigh damping
-    zsponge = FT(1500.0)
+    zsponge = FT(17000.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
@@ -415,12 +418,13 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
         source = source,
         boundarycondition = (
             AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    (state, aux, t, normPu) -> C_drag,
+                momentum = Impenetrable(BulkFormulation(
+                    (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 )),
                 ),
             
             AtmosBC(),
+	
         ),
         init_state = ics,
         param_set = ParameterSet{FT}(),
@@ -464,18 +468,18 @@ function main()
     Δv = FT(500)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(400000)
-    ymax = FT(400000)
+    xmax = FT(800000)
+    ymax = FT(800000)
     zmax = FT(25000)
-    xmin = FT(-400000)
-    ymin = FT(-400000)
+    xmin = FT(-800000)
+    ymin = FT(-800000)
 
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(600)
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit = spline_int()
     driver_config = config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
     solver_config =
-        CLIMA.setup_solver(t0, timeend, driver_config,(spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit), init_on_cpu = true, ode_dt = FT(0.02))
+        CLIMA.setup_solver(t0, timeend, driver_config,(spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit), init_on_cpu = true, Courant_number = 0.45)
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
