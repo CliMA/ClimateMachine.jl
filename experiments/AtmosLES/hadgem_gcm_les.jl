@@ -490,7 +490,7 @@ function main()
     CLIMA.init()
 
     # Working precision
-    FT = Float32
+    FT = Float64
     # DG polynomial order
     N = 4
     # Domain resolution and size
@@ -505,7 +505,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(0.4)
+    CFL = FT(10)
 
     # Execute the get_gcm_info function
     (
