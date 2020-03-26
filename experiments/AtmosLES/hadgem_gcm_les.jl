@@ -36,8 +36,6 @@ import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude
 import CLIMA.Atmos: flux_diffusive!, thermo_state
 
-export GCMReferenceState
-
 # Citation for problem setup
 """
 CMIP6 Test Dataset - cfsites
@@ -390,7 +388,7 @@ function init_cfsites!(bl, state, aux, (x, y, z), t, spl)
     tnhusha = FT(spl.spl_tnhusha(z))
     tnhusva = FT(spl.spl_tnhusva(z))
     wap = FT(spl.spl_wap(z))
-    ρ_gcm = 1 / FT(spl.spl_alpha(z))
+    ρ_gcm = FT(1 / spl.spl_alpha(z))
 
     # Compute field properties based on interpolated data
     ρ = air_density(ta, P, PhasePartition(q_tot))
@@ -474,7 +472,9 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         ymax,
         zmax,
         init_cfsites!,
+        #solver_type = imex_solver,
         solver_type = mrrk_solver,
+        #solver_type = exp_solver,
         model = model,
     )
     return config

@@ -254,7 +254,7 @@ Where
     # pressure terms
     p = pressure(m, m.moisture, state, aux)
 
-    if typeof(m.ref_state) != HydrostaticState
+    if typeof(m.ref_state) == NoReferenceState
         flux.ρu += p * I
     else
         flux.ρu += (p - aux.ref_state.p) * I
