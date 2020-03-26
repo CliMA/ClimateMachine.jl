@@ -55,4 +55,5 @@ gpu = [
   { file = "experiments/AtmosLES/dycoms.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/AtmosLES/bomex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/OceanBoxGCM/homogeneous_box.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "experiments/OceanBoxGCM/ocean_gyre.jl", slurmargs = ["--ntasks=4"], args = [] },
 ]
