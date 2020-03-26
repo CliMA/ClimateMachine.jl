@@ -203,7 +203,6 @@ function atmos_momentum_boundary_state!(
         t,
         args...,
     )
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_normal_boundary_flux_diffusive!(
     nf,

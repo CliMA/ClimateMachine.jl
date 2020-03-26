@@ -402,27 +402,27 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
     # SGS Filter constants
     C_smag = FT(0.21) # 0.21 for stable testing, 0.18 in practice
     C_drag = FT(0.0011)
-    LHF = FT(115)
-    SHF = FT(15)
+    LHF = FT(50)
+    SHF = FT(10)
     ics = init_tc!
 
     source = (
         Gravity(),
         rayleigh_sponge,
-	geostrophic_forcing,
     )
 
     model = AtmosModel{FT}(
         AtmosLESConfigType;
+	ref_state = NoReferenceState(),
 	moisture = NonEquilMoist{FT}(),
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = source,
         boundarycondition = (
             AtmosBC(
-                momentum = Impenetrable(BulkFormulation(
+                momentum = (Impenetrable(DragLaw(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
-                )),
-		energy = BulkFormulationEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
+                ))),
+		energy =  PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),#BulkFormulationEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
 		moisture = BulkFormulationMoisture((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
                 ),
             
