@@ -306,8 +306,8 @@ function get_gcm_info(groupid)
     @printf("\n")
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-    #filename = "/home/asridhar/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
-    filename = "/Users/asridhar/research/codes/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
+    filename = "/home/asridhar/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
+    #filename = "/Users/asridhar/research/codes/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
     req_varnames = (
         "zg",
         "ta",
@@ -484,7 +484,7 @@ end
 function config_diagnostics(driver_config)
     interval = 10000 # in time steps
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.setup_diagnostics([dgngrp])
+    return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
@@ -507,7 +507,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(10)
+    CFL = FT(0.4)
 
     # Execute the get_gcm_info function
     (
@@ -551,7 +551,7 @@ function main()
     driver_config =
         config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Set up solver configuration
-    solver_config = CLIMA.setup_solver(
+    solver_config = CLIMA.SolverConfiguration(
         t0,
         timeend,
         driver_config,
