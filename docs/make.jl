@@ -19,7 +19,6 @@ pages = Any[
     "MoistThermodynamics" => "Common/MoistThermodynamics.md",
   ],
   "Utilites" => Any[
-    "RootSolvers" => "Utilities/RootSolvers.md",
   ],
   "Atmos" => Any[
     "Atmos/SurfaceFluxes.md",

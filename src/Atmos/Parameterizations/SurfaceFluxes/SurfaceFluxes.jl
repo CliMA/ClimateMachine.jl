@@ -42,7 +42,7 @@
 """
 module SurfaceFluxes
 
-using ..RootSolvers
+using RootSolvers
 using ..MoistThermodynamics
 using ..PlanetParameters
 
@@ -66,7 +66,7 @@ end
 
 module Byun1990
 
-using ...RootSolvers
+using RootSolvers
 using ...MoistThermodynamics
 using ...PlanetParameters
 
@@ -183,7 +183,7 @@ end
 end # Byun1990 module
 
 module Nishizawa2018
-using ...RootSolvers
+using RootSolvers
 using ...MoistThermodynamics
 using ...PlanetParameters
 

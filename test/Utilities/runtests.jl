@@ -6,7 +6,6 @@ using Test, Pkg
                       "TicToc",
                       "VariableTemplates",
                       "ParametersType",
-                      "RootSolvers",
                      ]
 
       if all_tests || "$submodule" in ARGS || "Utilities" in ARGS

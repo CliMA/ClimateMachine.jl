@@ -9,7 +9,7 @@ module MoistThermodynamics
 
 using DocStringExtensions
 
-using ..RootSolvers
+using RootSolvers
 using ..Parameters
 using ..PlanetParameters
 

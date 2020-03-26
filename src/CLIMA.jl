@@ -8,7 +8,6 @@ include(joinpath("Common", "PlanetParameters", "UniversalConstants.jl"))
 include(joinpath("Common", "Parameters", "Parameters.jl"))
 include(joinpath("Common", "PlanetParameters", "PlanetaryConstants.jl"))
 include(joinpath("Common", "PlanetParameters", "PlanetParameters.jl"))
-include(joinpath("Utilities", "RootSolvers", "RootSolvers.jl"))
 include(joinpath("Utilities", "VariableTemplates", "VariableTemplates.jl"))
 include(joinpath("Common", "MoistThermodynamics", "MoistThermodynamics.jl"))
 include(joinpath(
