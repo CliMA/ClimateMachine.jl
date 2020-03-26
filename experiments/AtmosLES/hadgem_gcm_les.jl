@@ -287,7 +287,7 @@ index of the specific global site that we are interested in.
 function get_gcm_info(groupid)
 
     @printf("--------------------------------------------------\n")
-    @info @sprintf("""
+    @info @sprintf("""\n
        ____ _     ___ __  __    _                                  
       / ___| |   |_ _|  \\/  |  / \\                                 
      | |   | |    | || |\\/| | / _ \\                                

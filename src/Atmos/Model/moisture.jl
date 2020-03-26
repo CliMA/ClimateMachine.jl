@@ -139,8 +139,7 @@ EquilMoist{FT}(;
 
 
 vars_state(::EquilMoist, FT) = @vars(ρq_tot::FT)
-vars_gradient(::EquilMoist, FT) =
-    @vars(q_tot::FT, T_gcm::FT, q_tot_gcm::FT)
+vars_gradient(::EquilMoist, FT) = @vars(q_tot::FT, T_gcm::FT, q_tot_gcm::FT)
 vars_diffusive(::EquilMoist, FT) = @vars(
     ∇q_tot::SVector{3, FT},
     ∇T_gcm::SVector{3, FT},

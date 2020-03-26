@@ -53,7 +53,7 @@ function atmos_source!(
     aux::Vars,
     t::Real,
 )
-    if typeof(atmos.ref_state) == NoReferenceState 
+    if typeof(atmos.ref_state) == NoReferenceState
         source.ρu -= state.ρ * aux.orientation.∇Φ
     else
         source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
