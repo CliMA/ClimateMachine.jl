@@ -629,8 +629,11 @@ function saturation_vapor_pressure(
 ) where {FT <: Real}
 
     return FT(press_triple) *
-    (T / FT(T_triple))^(Δcp / FT(R_v)) *
-    exp((FT(LH_0) - Δcp * FT(T_0)) / FT(R_v) * (1 / FT(T_triple) - 1 / T))
+           (T / FT(T_triple))^(Δcp / FT(R_v)) *
+           exp(
+               (FT(LH_0) - Δcp * FT(T_0)) / FT(R_v) *
+               (1 / FT(T_triple) - 1 / T),
+           )
 
 end
 
