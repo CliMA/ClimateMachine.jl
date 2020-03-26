@@ -17,9 +17,7 @@ using CLIMA.ConfigTypes
 using CLIMA.GenericCallbacks
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
 using CLIMA.Mesh.Filters
-using CLIMA.Mesh.Geometry
 using CLIMA.MoistThermodynamics
 using CLIMA.ODESolvers
 using CLIMA.VariableTemplates
