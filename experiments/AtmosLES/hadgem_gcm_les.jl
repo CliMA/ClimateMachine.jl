@@ -428,7 +428,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     model = AtmosModel{FT}(
         AtmosLESConfigType;
         ref_state = GCMReferenceState{FT}(),
-        turbulence = SmagorinskyLilly{FT}(0.23),
+        turbulence = SmagorinskyLilly{FT}(0.20),
         source = (
             Gravity(),
             GCMRelaxation{FT}(3600),
@@ -498,8 +498,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(4000)
-    ymax = FT(4000)
+    xmax = FT(2500)
+    ymax = FT(2500)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
