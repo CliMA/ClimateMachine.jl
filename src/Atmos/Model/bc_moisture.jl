@@ -60,3 +60,43 @@ function atmos_moisture_normal_boundary_flux_diffusive!(
     # assumes EquilMoist
     fluxᵀn.moisture.ρq_tot += nρd_q_tot
 end
+
+struct BulkFormulationMoisture{FN} <: MoistureBC
+    fn::FN
+end
+function atmos_moisture_boundary_state!(
+    nf,
+    bc_moisture::BulkFormulationMoisture,
+    atmos,
+    args...,
+) end
+function atmos_moisture_normal_boundary_flux_diffusive!(
+    nf,
+    bc_moisture::BulkFormulationMoisture,
+    atmos,
+    fluxᵀn,
+    n⁻,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    bctype,
+    t,
+    state1⁻,
+    args...,
+)
+    FT = eltype(state⁺)
+    u1⁻ = state1⁻.ρu / state1⁻.ρ
+    Pu1⁻ = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
+    normPu1⁻ = norm(Pu1⁻)
+    # NOTE: difference from design docs since normal points outwards
+    C = bc_moisture.fn(state⁻, aux⁻, t, normPu1⁻)
+    τe = C * normPu1⁻
+    q_surf = state⁻.moisture.ρq_tot / state⁻.ρ
+    # both sides involve projections of normals, so signs are consistent
+    fluxᵀn.moisture.ρq_tot += state⁻.ρ * τe * (state⁺.moisture.ρq_tot / state⁺.ρ - q_surf)
+end

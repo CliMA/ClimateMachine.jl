@@ -383,7 +383,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
     radiation = DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1)
 
     # Sources
-    f_coriolis = FT(1.03e-4)
+    f_coriolis = FT(5e-5)
     u_geostrophic = FT(7.0)
     v_geostrophic = FT(-5.5)
     w_ref = FT(0)
@@ -409,6 +409,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
     source = (
         Gravity(),
         rayleigh_sponge,
+	geostrophic_forcing,
     )
 
     model = AtmosModel{FT}(
@@ -421,6 +422,8 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
                 momentum = Impenetrable(BulkFormulation(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 )),
+		energy = BulkFormulationEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
+		moisture = BulkFormulationMoisture((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
                 ),
             
             AtmosBC(),
@@ -475,7 +478,7 @@ function main()
     ymin = FT(-800000)
 
     t0 = FT(0)
-    timeend = FT(600)
+    timeend = FT(20)
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit = spline_int()
     driver_config = config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
     solver_config =

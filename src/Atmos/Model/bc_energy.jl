@@ -109,4 +109,47 @@ function atmos_energy_normal_boundary_flux_diffusive!(
     # we want to prescribe the inward flux
     fluxᵀn.ρe -= bc_energy.fn(state⁻, aux⁻, t)
 end
+struct BulkFormulationEnergy{FN} <: EnergyBC
+    fn::FN
+end
+function atmos_energy_boundary_state!(
+    nf,
+    bc_energy::BulkFormulationEnergy,
+    atmos,
+    args...,
+) end
+function atmos_energy_normal_boundary_flux_diffusive!(
+    nf,
+    bc_energy::BulkFormulationEnergy,
+    atmos,
+    fluxᵀn,
+    n⁻,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    bctype,
+    t,
+    state1⁻,
+    args...,
+)
+   FT = eltype(state⁺)
+    u1⁻ = state1⁻.ρu / state1⁻.ρ
+    Pu1⁻ = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
+    normPu1⁻ = norm(Pu1⁻)
+    # NOTE: difference from design docs since normal points outwards
+    C = bc_energy.fn(state⁻, aux⁻, t, normPu1⁻)
+    τe = C * normPu1⁻
+    TS = thermo_state(atmos, atmos.moisture, state⁺, aux⁺)
+    T = air_temperature(TS)
+    TS1 = thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
+    T_surf = air_temperature(TS1)
+    # both sides involve projections of normals, so signs are consistent
+    fluxᵀn.ρe += state⁻.ρ * τe * (T-T_surf)
+    
+end
 

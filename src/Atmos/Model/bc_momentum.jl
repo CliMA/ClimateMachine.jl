@@ -232,15 +232,8 @@ function atmos_momentum_normal_boundary_flux_diffusive!(
     # NOTE: difference from design docs since normal points outwards
     C = bc_momentum.drag.fn(state⁻, aux⁻, t, normPu1⁻)
     τn = C * normPu1⁻ * Pu1⁻
-    τe = C * normPu1⁻
-    TS = thermo_state(atmos, atmos.moisture, state⁺, aux⁺)
-    T = air_temperature(TS)
-    TS1 = thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
-    T_surf = air_temperature(TS1)
-    q_surf = state⁻.moisture.ρq_tot / state⁻.ρ
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρu += state⁻.ρ * τn
-    fluxᵀn.ρe += state⁻.ρ * τe * (T-T_surf)
-    fluxᵀn.moisture.ρq_tot += state⁻.ρ * τe * (state⁺.moisture.ρq_tot / state⁺.ρ - q_surf)
+    fluxᵀn.ρe += state⁻.ρu' * τn
 end
 
