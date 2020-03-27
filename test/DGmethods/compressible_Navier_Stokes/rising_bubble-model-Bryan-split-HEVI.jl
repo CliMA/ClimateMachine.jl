@@ -36,12 +36,12 @@ end
 const (xmin,xmax)      = (0,20000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,10000)
-const Ne        = (160,2,80)
+const Ne        = (80,2,40)
 const a         = 10000
 const hm        = 1000
 const polynomialorder = 1
 const dim       = 3
-const dt        = 1.0
+const dt        = 2.0
 const timeend   = 1000.0
 # ------------- Initial condition function ----------- #
 """
@@ -162,12 +162,12 @@ function run(mpicomm, ArrayType, LinearType,
 
   Q = init_ode_state(dg, FT(0))
 
-  ns = 11
+  ns = 12
 
   #mis = MIS2(slow_dg, fast_dg, (dg,Q) -> StormerVerletHEVI(fast_dg_h, fast_dg_v, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
 
   linearsolver = ManyColumnLU()
-  mis = MISRK3(slow_dg, (fast_dg_h, fast_dg_v), (dgt,Q) -> AdditiveRungeKutta(:ARK548L2SA2KennedyCarpenter, dgt, linearsolver, Q, dt=dt/ns), ns, Q; dt = dt, t0 = 0)
+  mis = MISRK3(slow_dg, (fast_dg_h, fast_dg_v), (dgt,Q) -> AdditiveRungeKutta(:ARK548L2SA2KennedyCarpenter, dgt, linearsolver, Q, dt=dt/ns, nsteps=[]), ns, Q; dt = dt, t0 = 0)
 
   eng0 = norm(Q)
   @info @sprintf """Starting
