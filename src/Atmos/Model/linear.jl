@@ -145,7 +145,7 @@ function flux_nondiffusive!(lm::AtmosAcousticLinearModelMomentum, flux::Grad, st
   #flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
   nothing
 end
-function source!(lm::AtmosAcousticLinearModelMomentum, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(lm::AtmosAcousticLinearModelMomentum, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   nothing
 end
 
@@ -170,7 +170,7 @@ function flux_nondiffusive!(lm::AtmosAcousticLinearModelThermo, flux::Grad, stat
   flux.ρe = ((ref.ρe + ref.p)/ref.ρ - e_pot)*state.ρu
   nothing
 end
-function source!(lm::AtmosAcousticLinearModelThermo, source::Vars, state::Vars, aux::Vars, t::Real)
+function source!(lm::AtmosAcousticLinearModelThermo, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
   nothing
 end
 
