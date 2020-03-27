@@ -1,6 +1,7 @@
 module CLIMA
 
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))
+include(joinpath("Utilities", "ArtifactWrappers", "ArtifactWrappers.jl"))
 include(joinpath("Utilities", "ParametersType", "ParametersType.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))
 include(joinpath("Common", "ConfigTypes", "ConfigTypes.jl"))
