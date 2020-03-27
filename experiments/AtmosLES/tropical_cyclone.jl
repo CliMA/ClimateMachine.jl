@@ -187,33 +187,31 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 """
 function init_tc!(bl, state, aux, (x, y, z), args...)
     FT = eltype(state)
-    spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit=args[2]
+    spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres=args[2]
     # interpolate data
-    data_t = FT(spl_tinit(x,y,z))
+    data_t = FT(spl_tinit(z))
     data_q = FT(spl_qinit(z))
     data_u = FT(spl_uinit(x,y,z))
     data_v = FT(spl_vinit(x,y,z))
-    data_p = FT(spl_pinit(x,y,z))
-    data_rho = FT(spl_rhoinit(x,y,z))
-    data_pi = FT(spl_ppiinit(x,y,z))
-    data_theta = FT(spl_thetainit(x,y,z))
+    data_p = FT(spl_pinit(z))
+    pres = FT(spl_pres(x,y,z))
+    #data_rho = FT(spl_rhoinit(x,y,z))
+    #data_pi = FT(spl_ppiinit(x,y,z))
+    #data_theta = FT(spl_thetainit(x,y,z))
     u = data_u 
     v = data_v
     w = FT(0)
-    if (z>17000)
-      u =0
-      v= 0
-    end
-    if (data_t<0)
-      @info data_t
-    end
-    q_pt = PhasePartition(data_q)
-    ρ = data_rho
-    e_int = internal_energy(data_t,q_pt)
+    t_anom = 2
+    RMW = 100000
+    anom = t_anom * exp(-(data_p-40000)^2 / 2 / (11000^2))    
+    Δθ  = anom * exp(-( x^2 + y^2)/(2*RMW^2))
+    θ_liq = data_t + Δθ
+    T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, pres, PhasePartition(data_q)) 
+    ρ = air_density(T, pres)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
-    E = ρ * total_energy(e_kin,e_pot,data_t,q_pt)
-    state.ρ = data_rho
+    E = ρ * total_energy(e_kin,e_pot,T,PhasePartition(data_q))
+    state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
     state.moisture.ρq_tot = ρ * data_q
@@ -263,8 +261,8 @@ function spline_int()
     for j in 1:length(X)
       for k in 1:length(zinit)
         anom[k] = t_anom * exp(-(pinit[k]-40000)^2 / 2 / (11000^2))
-        theta[i,j,k] = tinit[k] + anom[k] * exp(-( X[i]^2 + Y[j]^2)/(2*RMW^2))
-        thetav[i,j,k] = theta[i,j,k] * (1 + 0.61 * qinit[k])
+        thetav[i,j,k] = tinit[k]  + anom[k] * exp(-( X[i]^2 + Y[j]^2)/(2*RMW^2))
+        theta[i,j,k] = thetav[i,j,k] / (1+ 0.61 * qinit[k])
       end
     end
   end
@@ -273,10 +271,10 @@ function spline_int()
   maxz = length(zinit)
   tvinit = zeros(maxz)
   piinit = zeros(maxz)
-  tvinit[1] = tinit[1] * (1.0 + 0.61 *qinit[1])
+  tvinit[1] = tinit[1]
   piinit[1] = 1
   for k in 2:maxz
-    tvinit[k] = tinit[k] * (1.0 + 0.61 *qinit[k])
+    tvinit[k] = tinit[k] 
     piinit[k] = piinit[k-1] - grav / (1004 * 0.5 *(tvinit[k] + tvinit[k-1])) * (zinit[k] - zinit[k-1])
   end
   for i in 1:length(X)
@@ -336,29 +334,29 @@ function spline_int()
   # GET SPLINE FUNCTION
   #------------------------------------------------------
   itp = interpolate(knots, pressure, Gridded(Linear()) )
-  spl_pinit = itp
-  itp = interpolate(knots, temp, Gridded(Linear()))
-  spl_tinit = itp
-  itp = interpolate(knots, rho, Gridded(Linear()))
-  spl_rhoinit = itp
-  itp = interpolate(knots, ppi, Gridded(Linear()))
-  spl_ppiinit = itp
-  itp = interpolate(knots, theta, Gridded(Linear()))
-  spl_thetainit = itp
-  itp = interpolate(knots, thetav, Gridded(Linear()))
-  spl_thetavinit = itp
+  spl_pres = itp
+  #itp = interpolate(knots, temp, Gridded(Linear()))
+  #spl_tinit = itp
+  #itp = interpolate(knots, rho, Gridded(Linear()))
+  #spl_rhoinit = itp
+  #itp = interpolate(knots, ppi, Gridded(Linear()))
+  #spl_ppiinit = itp
+  #itp = interpolate(knots, theta, Gridded(Linear()))
+  #spl_thetainit = itp
+  #itp = interpolate(knots, thetav, Gridded(Linear()))
+  #spl_thetavinit = itp
   itp = interpolate(knots, uinit, Gridded(Linear()))
   spl_uinit = itp
   itp = interpolate(knots, vinit, Gridded(Linear()))
   spl_vinit = itp
 
 
-  #spl_tinit    = Spline1D(zinit, tinit; k=1)
+  spl_tinit    = Spline1D(zinit, tinit; k=1)
   spl_qinit    = Spline1D(zinit, qinit; k=1)
   #spl_uinit    = Spline1D(zinit, uinit; k=1)
   #spl_vinit    = Spline1D(zinit, vinit; k=1)
-  #spl_pinit    = Spline1D(zinit, pinit; k=1)
-  return spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit
+  spl_pinit    = Spline1D(zinit, pinit; k=1)
+  return spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres#, spl_rhoinit, spl_ppiinit, spl_thetainit
 end
 
 function config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
@@ -478,11 +476,11 @@ function main()
     ymin = FT(-800000)
 
     t0 = FT(0)
-    timeend = FT(20)
-    spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit = spline_int()
+    timeend = FT(600)
+    spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres = spline_int()
     driver_config = config_tc(FT, N, resolution, xmax, ymax, zmax,xmin,ymin)
     solver_config =
-        CLIMA.setup_solver(t0, timeend, driver_config,(spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_rhoinit, spl_ppiinit, spl_thetainit), init_on_cpu = true, Courant_number = 0.45)
+        CLIMA.setup_solver(t0, timeend, driver_config,(spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres), init_on_cpu = true)
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
