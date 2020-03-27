@@ -45,7 +45,7 @@ Base.@kwdef mutable struct CLIMA_Settings
     log_level::String = "INFO"
     output_dir::String = "output"
     integration_testing::Bool = false
-    group_id::String = "site18"
+    group_id::String = "site17"
     array_type
 end
 
@@ -147,7 +147,7 @@ function parse_commandline()
         "--group-id"
         help = "Set the group for the CFSite experiment"
         arg_type = String
-        default = "site18"
+        default = "site17"
     end
 
 
