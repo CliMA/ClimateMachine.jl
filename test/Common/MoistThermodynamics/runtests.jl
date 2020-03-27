@@ -13,8 +13,8 @@ float_types = [Float32, Float64]
 using CLIMA
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 include("testdata.jl")
 

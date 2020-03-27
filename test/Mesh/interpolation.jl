@@ -20,7 +20,6 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.TicToc
 using LinearAlgebra
 using StaticArrays
@@ -30,8 +29,10 @@ using CLIMA.VTK
 using CLIMA.Atmos: vars_state, vars_aux
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 param_set = ParameterSet()
 
 
@@ -76,7 +77,7 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
 
     z = altitude(bl.orientation, aux)
 
-    scale_height = R_d * setup.T_initial / grav
+    scale_height = R_d * setup.T_initial / FT(grav(param_set))
     p = setup.p_ground * exp(-z / scale_height)
     e_int = internal_energy(setup.T_initial, bl.param_set)
     e_pot = gravitational_potential(bl.orientation, aux)
@@ -279,9 +280,10 @@ function run_cubed_sphere_interpolation_test()
         CLIMA.Mesh.Grids.vgeoid.x3id
         _ρ, _ρu, _ρv, _ρw = 1, 2, 3, 4
         #-------------------------
+        _planet_radius = FT(planet_radius)
         vert_range = grid1d(
-            FT(planet_radius),
-            FT(planet_radius + domain_height),
+            _planet_radius,
+            FT(_planet_radius + domain_height),
             nelem = numelem_vert,
         )
 
@@ -329,9 +331,10 @@ function run_cubed_sphere_interpolation_test()
         x2 = @view grid.vgeo[:, _y, :]
         x3 = @view grid.vgeo[:, _z, :]
 
-        xmax = FT(planet_radius)
-        ymax = FT(planet_radius)
-        zmax = FT(planet_radius)
+        _planet_radius = FT(planet_radius(param_set))
+        xmax = _planet_radius
+        ymax = _planet_radius
+        zmax = _planet_radius
 
         fcn(x, y, z) = sin.(x) .* cos.(y) .* cos.(z) # sample function
 

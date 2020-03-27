@@ -16,7 +16,13 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+
+using CLIMA.Parameters
+using CLIMA.UniversalConstants
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
+param_set = ParameterSet()
 
 function run_test1(mpicomm, dim, Ne, N, FT, ArrayType)
   warpfun = (ξ1, ξ2, ξ3) -> begin

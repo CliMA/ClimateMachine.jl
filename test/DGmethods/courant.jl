@@ -12,7 +12,6 @@ using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
 using CLIMA.DGmethods.NumericalFluxes:
     Rusanov, CentralNumericalFluxGradient, CentralNumericalFluxDiffusive
 using CLIMA.Courant
-using CLIMA.PlanetParameters: kappa_d
 using CLIMA.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
@@ -32,9 +31,11 @@ using CLIMA.Atmos:
 using CLIMA.Atmos
 using CLIMA.ODESolvers
 
-using CLIMA.Parameters
+using CLIMA.Parameters: kappa_d
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 param_set = ParameterSet()
 
 using CLIMA.MoistThermodynamics:
@@ -62,7 +63,7 @@ function initialcondition!(bl, state, aux, coords, t)
     u = u∞
     T = FT(T∞)
     # adiabatic/isentropic relation
-    p = FT(p∞) * (T / FT(T∞))^(FT(1) / FT(kappa_d))
+    p = FT(p∞) * (T / FT(T∞))^(FT(1) / FT(kappa_d(param_set)))
     ρ = air_density(T, p, bl.param_set)
 
     state.ρ = ρ

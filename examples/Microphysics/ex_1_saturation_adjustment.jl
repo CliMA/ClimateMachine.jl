@@ -30,14 +30,13 @@ using LinearAlgebra
 using StaticArrays
 using Printf
 
-using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 const _nstate = 5
 const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot = 1:_nstate
@@ -100,8 +99,11 @@ end
         p_1000::FT = 100000      # Pa
         qt_0::FT = 7.5 * 1e-3  # kg/kg
         z_0::FT = 0           # m
+        _grav::FT = grav(param_set)
+        _R_d::FT = R_d(param_set)
+        _cp_d::FT = cp_d(param_set)
 
-        R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
+        R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0), param_set)
 
         # Pressure profile assuming hydrostatic and constant θ and qt profiles.
         # It is done this way to be consistent with Arabas paper.
@@ -109,9 +111,9 @@ end
         p =
             p_1000 *
             (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-            )^(cp_d / R_d)
+                (p_0 / p_1000)^(_R_d / _cp_d) -
+                _R_d / _cp_d * _grav / θ_0 / R_m * (z - z_0)
+            )^(_cp_d / _R_d)
 
         aux[_c_p] = p  # for prescribed pressure gradient (kinematic setup)
     end
@@ -147,18 +149,22 @@ const X_max = 1500.0 # m
     p_1000::FT = 100000      # Pa
     qt_0::FT = 7.5 * 1e-3  # kg/kg
     z_0::FT = 0           # m
+    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(param_set)
+    _cp_d::FT = cp_d(param_set)
 
-    R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
+    R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0), param_set)
 
     @inbounds begin
         # Pressure profile assuming hydrostatic and constant θ and qt profiles.
         # It is done this way to be consistent with Arabas paper.
         # It's not neccesarily the best way to initialize with our model variables.
+
         p =
             p_1000 *
             (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
+                (p_0 / p_1000)^(_R_d / _cp_d) -
+                _R_d / _cp_d * _grav / θ_0 / R_m * (z - z_0)
             )^(cp_d / R_d)
         T::FT = θ_0 * exner_given_pressure(p, PhasePartition(qt_0))
         ρ::FT = p / R_m / T
@@ -173,8 +179,8 @@ const X_max = 1500.0 # m
 
         ρq_tot::FT = ρ * qt_0
 
-        e_int = internal_energy(T, PhasePartition(qt_0))
-        ρe_tot = ρ * (grav * z + (1 // 2) * (u^2 + w^2) + e_int)
+        e_int = internal_energy(T, PhasePartition(qt_0), param_set)
+        ρe_tot = ρ * (_grav * z + (1 // 2) * (u^2 + w^2) + e_int)
 
         Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot] =
             ρ, ρu, ρw, ρe_tot, ρq_tot
@@ -281,12 +287,16 @@ function main(
             Q,
         ) do R, Q, QV, aux
             @inbounds begin
+                _grav::FT = grav(param_set)
+                _R_d::FT = R_d(param_set)
+                _cp_d::FT = cp_d(param_set)
+
                 u, w, ρ, q_tot, e_tot = preflux(Q)
                 z = aux[_c_z]
                 p = aux[_c_p]
 
-                e_int = e_tot - 1 // 2 * (u^2 + w^2) - grav * z
-                ts = PhaseEquil(e_int, ρ, q_tot) # saturation adjustment happens here
+                e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * z
+                ts = PhaseEquil(e_int, ρ, q_tot, param_set) # saturation adjustment happens here
                 pp = PhasePartition(ts)
                 R[v_T] = ts.T
                 R[v_p] = p
@@ -298,7 +308,7 @@ function main(
                 R[v_e_tot] = e_tot
                 R[v_e_int] = e_int
                 R[v_e_kin] = 1 // 2 * (u^2 + w^2)
-                R[v_e_pot] = grav * z
+                R[v_e_pot] = _grav * z
 
             end
         end

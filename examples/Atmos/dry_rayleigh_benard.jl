@@ -14,7 +14,6 @@ using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 
 using CLIMA.Parameters
@@ -58,20 +57,21 @@ end
 function init_problem!(bl, state, aux, (x, y, z), t)
     dc = bl.data_config
     FT = eltype(state)
-    R_gas::FT = R_d
-    c_p::FT = cp_d
-    c_v::FT = cv_d
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
-    p0::FT = MSLP
     δT =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
         cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
     δw =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
         cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
-    ΔT = grav / cp_d * z + δT
+    ΔT = _grav / c_p * z + δT
     T = dc.T_bot - ΔT
-    P = p0 * (T / dc.T_bot)^(grav / R_gas / dc.T_lapse)
+    P = p0 * (T / dc.T_bot)^(_grav / R_gas / dc.T_lapse)
     ρ = P / (R_gas * T)
 
     q_tot = FT(0)
@@ -94,7 +94,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
 
     # Boundary conditions
     T_bot = FT(299)
-    T_lapse = FT(grav / cp_d)
+    T_lapse = FT(grav(param_set)) / FT(cp_d(param_set))
     T_top = T_bot - T_lapse * zmax
 
     # Turbulence

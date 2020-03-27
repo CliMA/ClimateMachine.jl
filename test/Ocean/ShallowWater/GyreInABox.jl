@@ -13,10 +13,16 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
-using CLIMA.PlanetParameters: grav
 import CLIMA.ShallowWater: shallow_init_state!, shallow_init_aux!, vars_state, vars_aux,
                     shallow_boundary_state!, TurbulenceClosure, LinearDrag,
                     ConstantViscosity, AdvectionTerm, NonLinearAdvection
+
+using CLIMA.Parameters
+using CLIMA.UniversalConstants
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
+param_set = ParameterSet()
 
 struct GyreInABox{T} <: SWProblem
   τₒ::T
@@ -90,7 +96,7 @@ function gyre_init_state!(p::GyreInABox, T::LinearDrag, state,
   ϵ  = γ / (Lˣ * β)
 
   uˢ(ϵ) = (τₒ * D(ϵ)) / (H * γ * π)
-  hˢ(ϵ) = (fₒ * Lˣ * uˢ(ϵ)) / grav
+  hˢ(ϵ) = (fₒ * Lˣ * uˢ(ϵ)) / FT(grav(param_set))
 
   u = uˢ(ϵ) * 𝒰(coords[1]/Lˣ, coords[2]/Lʸ, ϵ)
   v = uˢ(ϵ) * 𝒱(coords[1]/Lˣ, coords[2]/Lʸ, ϵ)
@@ -124,7 +130,7 @@ function gyre_init_state!(p::GyreInABox, V::ConstantViscosity, state, aux,
   ν  = V.ν
 
   δᵐ = (ν / β)^(1/3)
-  C  = τₒ / (grav*H) * (fₒ/β)
+  C  = τₒ / (FT(grav(param_set))*H) * (fₒ/β)
 
   state.η = η_munk(coords[1], coords[2], Lˣ, Lʸ, δᵐ, C)
   state.U = @SVector zeros(T, 3)

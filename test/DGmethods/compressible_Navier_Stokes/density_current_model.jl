@@ -14,7 +14,6 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.SubgridScaleParameters
 using LinearAlgebra
 using StaticArrays
@@ -24,8 +23,10 @@ using Random
 using CLIMA.Atmos: vars_state, vars_aux
 
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 param_set = ParameterSet()
 
 if !@isdefined integration_testing
@@ -68,10 +69,11 @@ function Initialise_Density_Current!(
     t,
 )
     FT = eltype(state)
-    R_gas::FT = R_d
-    c_p::FT = cp_d
-    c_v::FT = cv_d
-    p0::FT = MSLP
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     # initialise with dry domain
     q_tot::FT = 0
     q_liq::FT = 0
@@ -90,7 +92,7 @@ function Initialise_Density_Current!(
     end
     qvar = PhasePartition(q_tot)
     θ = θ_ref + Δθ # potential temperature
-    π_exner = FT(1) - grav / (c_p * θ) * x3 # exner pressure
+    π_exner = FT(1) - _grav / (c_p * θ) * x3 # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
 
     ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)

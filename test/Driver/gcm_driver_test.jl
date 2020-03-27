@@ -4,17 +4,18 @@ using Test
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
-using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 using CLIMA.Grids
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks: EveryXSimulationSteps
 using CLIMA.Mesh.Filters
+
 using CLIMA.Parameters
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 param_set = ParameterSet()
 
 Base.@kwdef struct AcousticWaveSetup{FT}
@@ -39,7 +40,7 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts = PhaseDry_given_pT(p, setup.T_ref)
+    ts = PhaseDry_given_pT(p, setup.T_ref, param_set)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)

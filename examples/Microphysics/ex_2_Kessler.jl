@@ -30,14 +30,13 @@ using LinearAlgebra
 using StaticArrays
 using Printf
 
-using CLIMA.PlanetParameters
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 const _nstate = 7
 const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_rai = 1:_nstate
@@ -127,8 +126,11 @@ end
         p_1000::FT = 100000      # Pa
         qt_0::FT = 7.5 * 1e-3  # kg/kg
         z_0::FT = 0           # m
+        _grav::FT = grav(param_set)
+        _R_d::FT = R_d(param_set)
+        _cp_d::FT = cp_d(param_set)
 
-        R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
+        R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0), param_set)
 
         # Pressure profile assuming hydrostatic and constant θ and qt profiles.
         # It is done this way to be consistent with Arabas paper.
@@ -136,9 +138,9 @@ end
         p =
             p_1000 *
             (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-            )^(cp_d / R_d)
+                (p_0 / p_1000)^(_R_d / _cp_d) -
+                _R_d / _cp_d * _grav / θ_0 / R_m * (z - z_0)
+            )^(_cp_d / _R_d)
 
         aux[_c_p] = p  # for prescribed pressure gradient (kinematic setup)
     end
@@ -151,6 +153,11 @@ end
     u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot = preflux(Q)
     @inbounds begin
 
+        _grav::FT = grav(param_set)
+        _e_int_v0::FT = e_int_v0(param_set)
+        _cv_v::FT = cv_v(param_set)
+        _cv_d::FT = cv_d(param_set)
+        _T_0::FT = T_0(param_set)
         x = aux[_c_x]
         z = aux[_c_z]
         p = aux[_c_p]
@@ -158,11 +165,11 @@ end
         S .= 0
 
         # current state
-        e_int = e_tot - 1 // 2 * (u^2 + w^2) - grav * z
+        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * z
         q = PhasePartition(q_tot, q_liq, FT(0))
-        T = air_temperature(e_int, q)
+        T = air_temperature(e_int, q, param_set)
         # equilibrium state at current T
-        q_eq = PhasePartition_equil(T, ρ, q_tot)
+        q_eq = PhasePartition_equil(T, ρ, q_tot, param_set)
 
         # cloud water condensation/evaporation
         src_q_liq = conv_q_vap_to_q_liq(q_eq, q) # TODO - ensure positive definite
@@ -183,7 +190,7 @@ end
             S[_ρe_tot] -=
                 ρ *
                 src_q_rai_tot *
-                (FT(e_int_v0) - (FT(cv_v) - FT(cv_d)) * (T - FT(T_0)))
+                (_e_int_v0 - (_cv_v - _cv_d) * (T - _T_0))
         end
     end
 end
@@ -228,6 +235,9 @@ function single_eddy!(Q, t, x, z, _...)
     p_1000::FT = 100000      # Pa
     qt_0::FT = 7.5 * 1e-3  # kg/kg
     z_0::FT = 0           # m
+    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(param_set)
+    _cp_d::FT = cp_d(param_set)
 
     R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
 
@@ -238,10 +248,10 @@ function single_eddy!(Q, t, x, z, _...)
         p =
             p_1000 *
             (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-            )^(cp_d / R_d)
-        T::FT = θ_0 * exner_given_pressure(p, PhasePartition(qt_0))
+                (p_0 / p_1000)^(_R_d / _cp_d) -
+                _R_d / _cp_d * _grav / θ_0 / R_m * (z - z_0)
+            )^(_cp_d / _R_d)
+        T::FT = θ_0 * exner_given_pressure(p, PhasePartition(qt_0), param_set)
         ρ::FT = p / R_m / T
 
         # TODO should this be more "grid aware"?
@@ -256,8 +266,8 @@ function single_eddy!(Q, t, x, z, _...)
         ρq_liq::FT = 0
         ρq_rai::FT = 0
 
-        e_int = internal_energy(T, PhasePartition(qt_0))
-        ρe_tot = ρ * (grav * z + (1 // 2) * (u^2 + w^2) + e_int)
+        e_int = internal_energy(T, PhasePartition(qt_0), param_set)
+        ρe_tot = ρ * (_grav * z + (1 // 2) * (u^2 + w^2) + e_int)
 
         Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_rai] =
             ρ, ρu, ρw, ρe_tot, ρq_tot, ρq_liq, ρq_rai
@@ -380,14 +390,17 @@ function main(
             local FT = eltype(Q)
             @inbounds begin
 
+                _grav::FT = grav(param_set)
+                _R_d::FT = R_d(param_set)
+                _cp_d::FT = cp_d(param_set)
                 u, w, rain_w, ρ, q_tot, q_liq, q_rai, e_tot = preflux(Q)
                 z = aux[_c_z]
                 p = aux[_c_p]
 
-                e_int = e_tot - 1 // 2 * (u^2 + w^2) - grav * z
+                e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * z
                 q = PhasePartition(q_tot, q_liq, FT(0))
 
-                R[v_T] = air_temperature(e_int, q)
+                R[v_T] = air_temperature(e_int, q, param_set)
                 R[v_p] = p
 
                 R[v_q_liq] = q_liq
@@ -398,7 +411,7 @@ function main(
                 R[v_e_tot] = e_tot
                 R[v_e_int] = e_int
                 R[v_e_kin] = 1 // 2 * (u^2 + w^2)
-                R[v_e_pot] = grav * z
+                R[v_e_pot] = _grav * z
 
                 if (q_rai > FT(0)) # TODO - ensure positive definite elswhere
                     R[v_term_vel] = terminal_velocity(q_rai, ρ)

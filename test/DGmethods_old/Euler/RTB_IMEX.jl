@@ -17,7 +17,13 @@ using CLIMA.GeneralizedConjugateResidualSolver
 const γ_exact = 7 // 5 # FIXME: Remove this for some moist thermo approach
 
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
+
+using CLIMA.Parameters: R_d, cp_d, grav, cv_d, MSLP
+using CLIMA.UniversalConstants
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
+param_set = ParameterSet()
 
 const _nstate = 5
 const _δρ, _ρu, _ρv, _ρw, _δρe = 1:_nstate
@@ -28,19 +34,20 @@ const _nauxstate = 6
 const _a_ρ0, _a_ρe0, _a_ϕ, _a_ϕ_x, _a_ϕ_y, _a_ϕ_z = 1:_nauxstate
 function auxiliary_state_initialization!(aux, x, y, z) #JK, dx, dy, dz)
   @inbounds begin
+    FT = eltype(aux)
     ρ0, ρe0 = reference_ρ_ρe(x, y, z)
     aux[_a_ρ0] = ρ0
     aux[_a_ρe0] = ρe0
-    aux[_a_ϕ] = y * grav
+    aux[_a_ϕ] = y * FT(grav(param_set))
     aux[_a_ϕ_x] = 0
-    aux[_a_ϕ_y] = grav
+    aux[_a_ϕ_y] = FT(grav(param_set))
     aux[_a_ϕ_z] = 0
   end
 end
 
 @inline function pressure(Q, aux)
   @inbounds begin
-    gravity::eltype(Q) = grav
+    gravity::eltype(Q) = grav(param_set)
     γ::eltype(Q) = γ_exact # FIXME: Remove this for some moist thermo approach
     δρ, δρe = Q[_δρ], Q[_δρe]
     ρu⃗ = SVector(Q[_ρu], Q[_ρv], Q[_ρw])
@@ -131,11 +138,11 @@ end
 
 function reference_ρ_ρe(x, y, z)
   FT                = eltype(x)
-  R_gas::FT         = R_d
-  c_p::FT           = cp_d
-  c_v::FT           = cv_d
-  p0::FT            = MSLP
-  gravity::FT       = grav
+  R_gas::FT         = R_d(param_set)
+  c_p::FT           = cp_d(param_set)
+  c_v::FT           = cv_d(param_set)
+  p0::FT            = MSLP(param_set)
+  gravity::FT       = grav(param_set)
   # perturbation parameters for rising bubble
 
   θ0::FT = 303
@@ -148,7 +155,7 @@ function reference_ρ_ρe(x, y, z)
   # energy definitions
   e_kin = u⃗' * u⃗ / 2
   e_pot = gravity * y
-  e_int = cv_d *  T
+  e_int = c_v *  T
   ρe    = ρ * (e_int + e_kin + e_pot)
   ρ, ρe
 end
@@ -156,11 +163,11 @@ end
 # Initial Condition
 function rising_bubble!(dim, Q, t, x, y, z, aux)
   FT          = eltype(Q)
-  R_gas::FT   = R_d
-  c_p::FT     = cp_d
-  c_v::FT     = cv_d
-  p0::FT      = MSLP
-  gravity::FT = grav
+  R_gas::FT   = R_d(param_set)
+  c_p::FT     = cp_d(param_set)
+  c_v::FT     = cv_d(param_set)
+  p0::FT      = MSLP(param_set)
+  gravity::FT = grav(param_set)
   # perturbation parameters for rising bubble
 
   r⃗ = SVector(x, y, z)
@@ -187,7 +194,7 @@ function rising_bubble!(dim, Q, t, x, y, z, aux)
   # energy definitions
   e_kin = u⃗' * u⃗ / 2
   e_pot = gravity * y
-  e_int = cv_d *  T
+  e_int = c_v *  T
   ρe    = ρ * (e_int + e_kin + e_pot)
   ρu⃗    = ρ * u⃗
 

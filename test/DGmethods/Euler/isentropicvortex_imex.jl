@@ -10,7 +10,6 @@ using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.MPIStateArrays: euclidean_distance
-using CLIMA.PlanetParameters: kappa_d
 using CLIMA.MoistThermodynamics:
     air_density, total_energy, internal_energy, soundspeed_air
 using CLIMA.Atmos:
@@ -28,9 +27,11 @@ using CLIMA.Atmos:
 using CLIMA.VariableTemplates: @vars, Vars, flattenednames
 import CLIMA.Atmos: atmos_init_aux!, vars_aux
 
-using CLIMA.Parameters
+using CLIMA.Parameters: kappa_d
+using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+using CLIMA.Parameters.Planet
 param_set = ParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -353,9 +354,11 @@ function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
     end
     u = u∞ .+ SVector(δu_x, δu_y, 0)
 
-    T = T∞ * (1 - kappa_d * vortex_speed^2 / 2 * ρ∞ / p∞ * exp(-(r / R)^2))
+    _kappa_d = FT(kappa_d(param_set))
+
+    T = T∞ * (1 - _kappa_d * vortex_speed^2 / 2 * ρ∞ / p∞ * exp(-(r / R)^2))
     # adiabatic/isentropic relation
-    p = p∞ * (T / T∞)^(FT(1) / kappa_d)
+    p = p∞ * (T / T∞)^(FT(1) / _kappa_d)
     ρ = air_density(T, p, bl.param_set)
 
     state.ρ = ρ
