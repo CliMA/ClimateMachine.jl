@@ -62,10 +62,7 @@ include("isentropic.jl")
 The specific gas constant of moist air given
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
-gas_constant_air(
-    q::PhasePartition{FT},
-    param_set::PS = MTPS(),
-) where {FT, PS} =
+gas_constant_air(q::PhasePartition{FT}, param_set::PS = MTPS()) where {FT, PS} =
     FT(R_d) *
     (1 + (FT(molmass_ratio) - 1) * q.tot - FT(molmass_ratio) * (q.liq + q.ice))
 
@@ -175,10 +172,7 @@ The isobaric specific heat capacity of moist
 air where, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
-cp_m(
-    q::PhasePartition{FT},
-    param_set::PS = MTPS(),
-) where {FT <: Real, PS} =
+cp_m(q::PhasePartition{FT}, param_set::PS = MTPS()) where {FT <: Real, PS} =
     FT(cp_d) +
     (FT(cp_v) - FT(cp_d)) * q.tot +
     (FT(cp_l) - FT(cp_v)) * q.liq +
@@ -203,10 +197,7 @@ The isochoric specific heat capacity of moist
 air where optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
-cv_m(
-    q::PhasePartition{FT},
-    param_set::PS = MTPS(),
-) where {FT <: Real, PS} =
+cv_m(q::PhasePartition{FT}, param_set::PS = MTPS()) where {FT <: Real, PS} =
     FT(cv_d) +
     (FT(cv_v) - FT(cv_d)) * q.tot +
     (FT(cv_l) - FT(cv_v)) * q.liq +
@@ -1367,12 +1358,13 @@ air_temperature_from_liquid_ice_pottemp_given_pressure(
     θ_liq_ice::FT,
     p::FT,
     param_set::PS,
-) where {FT <: Real, PS} = air_temperature_from_liquid_ice_pottemp_given_pressure(
-    θ_liq_ice,
-    p,
-    q_pt_0(FT),
-    param_set,
-)
+) where {FT <: Real, PS} =
+    air_temperature_from_liquid_ice_pottemp_given_pressure(
+        θ_liq_ice,
+        p,
+        q_pt_0(FT),
+        param_set,
+    )
 
 """
     virtual_pottemp(T, ρ[, q::PhasePartition])
@@ -1426,11 +1418,8 @@ function liquid_ice_pottemp_sat(
     q_v_sat = q_vap_saturation(T, ρ, q, param_set)
     return liquid_ice_pottemp(T, ρ, PhasePartition(q_v_sat), param_set)
 end
-liquid_ice_pottemp_sat(
-    T::FT,
-    ρ::FT,
-    param_set::PS = MTPS(),
-) where {FT, PS} = liquid_ice_pottemp_sat(T, ρ, q_pt_0(FT), param_set)
+liquid_ice_pottemp_sat(T::FT, ρ::FT, param_set::PS = MTPS()) where {FT, PS} =
+    liquid_ice_pottemp_sat(T, ρ, q_pt_0(FT), param_set)
 
 """
     liquid_ice_pottemp_sat(T, ρ, q_tot)
