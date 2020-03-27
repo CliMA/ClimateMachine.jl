@@ -241,6 +241,7 @@ function atmos_source!(
     t::Real,
 )
     #Unpack sponge parameters
+    FT = eltype(state)
     z_max = s.z_max
     z_sponge = s.z_sponge
     α_max = s.α_max
@@ -251,7 +252,7 @@ function atmos_source!(
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
-        β_sponge = α_max * sinpi(r / 2)^s.γ
+        β_sponge = α_max .* sinpi(r/FT(2)) * sinpi(r/FT(2)) * sinpi(r/ FT(2)) * sinpi(r/FT(2))#.^ γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * u_geo)
     end
     # GPU-friendly return nothing
@@ -453,14 +454,11 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         init_state = init_cfsites!,
         param_set = ParameterSet{FT}(),
     )
-    imex_solver = CLIMA.DefaultSolverType()
-    exp_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
     mrrk_solver = CLIMA.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+        timestep_ratio = 7,
     )
     config = CLIMA.AtmosLESConfiguration(
         "HadGEM2-CLIMA",
@@ -470,9 +468,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         ymax,
         zmax,
         init_cfsites!,
-        #solver_type = imex_solver,
         solver_type = mrrk_solver,
-        #solver_type = exp_solver,
         model = model,
     )
     return config
@@ -505,7 +501,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(10)
+    CFL = FT(12)
 
     # Execute the get_gcm_info function
     (
