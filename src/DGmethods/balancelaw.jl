@@ -156,9 +156,9 @@ function create_auxstate(bl, grid)
         topology.realelems,
         dependencies = (event,),
     )
+    event = MPIStateArrays.begin_ghost_exchange!(auxstate; dependencies = event)
+    event = MPIStateArrays.end_ghost_exchange!(auxstate; dependencies = event)
     wait(device, event)
-    MPIStateArrays.start_ghost_exchange!(auxstate)
-    MPIStateArrays.finish_ghost_exchange!(auxstate)
 
     return auxstate
 end

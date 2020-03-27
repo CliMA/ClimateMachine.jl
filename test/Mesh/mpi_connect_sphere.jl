@@ -3,6 +3,9 @@ using MPI
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.MPIStateArrays
+using KernelAbstractions
+
+device(A) = typeof(A) <: Array ? CPU() : CUDA()
 
 function main()
     FT = Float64
@@ -76,8 +79,11 @@ function main()
         [Grids._x1, Grids._x2, Grids._x3],
         topology.realelems,
     ]
-    MPIStateArrays.start_ghost_exchange!(x1x2x3)
-    MPIStateArrays.finish_ghost_exchange!(x1x2x3)
+
+    event = Event(device(x1x2x3.data))
+    event = MPIStateArrays.begin_ghost_exchange!(x1x2x3, dependencies = event)
+    event = MPIStateArrays.end_ghost_exchange!(x1x2x3, dependencies = event)
+    wait(device(x1x2x3.data), event)
 
     # Check x1x2x3 matches after
     x1 = @view x1x2x3.data[:, 1, :]

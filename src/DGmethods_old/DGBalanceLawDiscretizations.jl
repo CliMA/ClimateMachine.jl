@@ -432,8 +432,9 @@ function DGBalanceLaw(;
                 topology.realelems,
             )
         )
-        MPIStateArrays.start_ghost_exchange!(auxstate)
-        MPIStateArrays.finish_ghost_exchange!(auxstate)
+
+        MPIStateArrays.__no_overlap_begin_ghost_exchange!(auxstate)
+        MPIStateArrays.__no_overlap_end_ghost_exchange!(auxstate)
     end
 
     DGBalanceLaw(
@@ -564,8 +565,8 @@ function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw, ic!::Function)
 
     copyto!(Q.data, h_Q)
 
-    MPIStateArrays.start_ghost_exchange!(Q)
-    MPIStateArrays.finish_ghost_exchange!(Q)
+    MPIStateArrays.__no_overlap_begin_ghost_exchange!(Q)
+    MPIStateArrays.__no_overlap_end_ghost_exchange!(Q)
 
     Q
 end
@@ -645,7 +646,7 @@ function SpaceMethods.odefun!(
     ########################
     # Gradient Computation #
     ########################
-    MPIStateArrays.start_ghost_exchange!(Q)
+    MPIStateArrays.__no_overlap_begin_ghost_exchange!(Q)
 
     if nviscstate > 0
 
@@ -672,7 +673,7 @@ function SpaceMethods.odefun!(
             )
         )
 
-        MPIStateArrays.finish_ghost_recv!(Q)
+        MPIStateArrays.__no_overlap_end_ghost_exchange!(Q)
 
         @launch(
             device,
@@ -701,7 +702,7 @@ function SpaceMethods.odefun!(
             )
         )
 
-        MPIStateArrays.start_ghost_exchange!(Qvisc)
+        MPIStateArrays.__no_overlap_begin_ghost_exchange!(Qvisc)
     end
 
     ###################
@@ -733,12 +734,7 @@ function SpaceMethods.odefun!(
         )
     )
 
-    MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
-
-    # The main reason for this protection is not for the MPI.Waitall!, but the
-    # make sure that we do not recopy data to the GPU
-    nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
-    nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
+    MPIStateArrays.__no_overlap_end_ghost_exchange!(nviscstate > 0 ? Qvisc : Q)
 
     @launch(
         device,
@@ -765,10 +761,6 @@ function SpaceMethods.odefun!(
             topology.realelems,
         )
     )
-
-    # Just to be safe, we wait on the sends we started.
-    MPIStateArrays.finish_ghost_send!(Qvisc)
-    MPIStateArrays.finish_ghost_send!(Q)
 
     sync_device(device)
 end

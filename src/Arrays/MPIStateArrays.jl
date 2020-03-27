@@ -34,7 +34,7 @@ export MPIStateArray, euclidean_distance, weightedsum
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
                   DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
 """
-struct MPIStateArray{
+mutable struct MPIStateArray{
     FT,
     V,
     DATN <: AbstractArray{FT, 3},
@@ -123,7 +123,7 @@ struct MPIStateArray{
 
         DAI1 = typeof(vmaprecv)
         Buf = typeof(send_buffer)
-        new{FT, V, typeof(data), DAI1, DAV, Buf}(
+        Q = new{FT, V, typeof(data), DAI1, DAV, Buf}(
             # Make sure that each MPIStateArray has its own MPI context.  This
             # allows multiple MPIStateArrays to be communicating asynchronously
             # at the same time without having to explicitly manage tags.
@@ -143,6 +143,13 @@ struct MPIStateArray{
             nabrtovmapsend,
             weights,
         )
+        # Make sure that we have finished all outstanding data for halo
+        # exchanges before the MPIStateArray is finalize.
+        finalizer(Q) do x
+            MPI.Waitall!(x.recvreq)
+            MPI.Waitall!(x.sendreq)
+        end
+        return Q
     end
 end
 
@@ -327,33 +334,48 @@ end
     dest
 end
 
+
+# The following `__no_overlap_*` functions exist to support the old DG balance
+# law where we still use GPUifyLoops.  They should NOT be used in new code.
+function __no_overlap_begin_ghost_exchange!(Q::MPIStateArray)
+    event = Event(device(Q.data))
+    event = begin_ghost_exchange!(Q; dependencies = event)
+    wait(device(Q.data), event)
+end
+
+function __no_overlap_end_ghost_exchange!(Q::MPIStateArray)
+    event = Event(device(Q.data))
+    event = end_ghost_exchange!(Q; dependencies = event)
+    wait(device(Q.data), event)
+end
+
 """
-    start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
+    begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
 
-Start the MPI exchange of the data stored in `Q`. If `dorecvs` is `true` then
-`MPI.Irecv!` is called, otherwise the caller is responsible for this.
-
-This function will fill the send buffer (on the device), copies the data from
-the device to the host, and then issues the send. Previous sends are waited on
-to ensure that they are complete.
+Begin the MPI halo exchange of the data stored in `Q`.  A KernelAbstractions
+`Event` is returned that can be used as a dependency to end the exchange.
 """
-function start_ghost_exchange!(Q::MPIStateArray; dorecvs = true)
+function begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+    if !all(r -> r == MPI.REQUEST_NULL, Q.recvreq)
+        error("The currrent ghost exchange must end before another begins.")
+    end
 
-    dorecvs && __Irecv!(Q)
+    __Irecv!(Q)
 
     # wait on (prior) MPI sends
-    finish_ghost_send!(Q)
+    @tic mpi_sendwait
+    MPI.Waitall!(Q.sendreq)
+    fill!(Q.sendreq, MPI.REQUEST_NULL)
+    @toc mpi_sendwait
 
     @tic mpi_sendcopy
-    # pack data in send buffer
     stage = get_stage(Q.send_buffer)
-    progress = () -> __yield(Q.mpicomm)
-    event = Event(device(Q.data))
+    progress = () -> iprobe_and_yield(Q.mpicomm)
     event = fillsendbuf!(
         stage,
         Q.data,
         Q.vmapsend;
-        dependencies = event,
+        dependencies = dependencies,
         progress = progress,
     )
     event = prepare_transfer!(
@@ -361,43 +383,35 @@ function start_ghost_exchange!(Q::MPIStateArray; dorecvs = true)
         dependencies = event,
         progress = progress,
     )
-    wait(CPU(), event, progress)
     @toc mpi_sendcopy
 
-    # post MPI sends
+    return event
+end
+
+"""
+    end_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+
+This function blocks on the host until the ghost halo is received from MPI.  A
+KernelAbstractions `Event` is returned that can be waited on to indicate when
+the data is ready on the device.
+"""
+function end_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+    if any(r -> r == MPI.REQUEST_NULL, Q.recvreq)
+        error("A ghost exchange must begin before it ends.")
+    end
+
+    progress = () -> iprobe_and_yield(Q.mpicomm)
+    wait(CPU(), MultiEvent(dependencies), progress)
+
     __Isend!(Q)
-end
 
-"""
-    finish_ghost_exchange!(Q::MPIStateArray)
-
-Complete the exchange of data and fill the data array on the device. Note this
-completes both the send and the receive communication. For more fine level
-control see [`finish_ghost_recv!`](@ref) and
-[`finish_ghost_send!`](@ref)
-"""
-function finish_ghost_exchange!(Q::MPIStateArray)
-    finish_ghost_recv!(Q::MPIStateArray)
-    finish_ghost_send!(Q::MPIStateArray)
-end
-
-"""
-    finish_ghost_recv!(Q::MPIStateArray)
-
-Complete the receive of data and fill the data array on the device
-"""
-function finish_ghost_recv!(Q::MPIStateArray)
     @tic mpi_recvwait
-    # wait on MPI receives
     MPI.Waitall!(Q.recvreq)
+    fill!(Q.recvreq, MPI.REQUEST_NULL)
     @toc mpi_recvwait
 
     @tic mpi_recvcopy
-    # copy data to state vectors
-    event = Event(device(Q.data))
-    progress = () -> __yield(Q.mpicomm)
-    event =
-        prepare_stage!(Q.recv_buffer; dependencies = event, progress = progress)
+    event = prepare_stage!(Q.recv_buffer; progress = progress)
     stage = get_stage(Q.recv_buffer)
     event = transferrecvbuf!(
         Q.data,
@@ -406,19 +420,9 @@ function finish_ghost_recv!(Q::MPIStateArray)
         dependencies = event,
         progress = progress,
     )
-    wait(device(Q.data), event, progress)
     @toc mpi_recvcopy
-end
 
-"""
-    finish_ghost_send!(Q::MPIStateArray)
-
-Waits on the send of data to be complete
-"""
-function finish_ghost_send!(Q::MPIStateArray)
-    @tic mpi_sendwait
-    MPI.Waitall!(Q.sendreq)
-    @toc mpi_sendwait
+    return event
 end
 
 function __Irecv!(Q)
@@ -452,7 +456,7 @@ function __Isend!(Q)
     end
 end
 
-function __yield(comm)
+function iprobe_and_yield(comm)
     MPI.Iprobe(MPI.MPI_ANY_SOURCE, MPI.MPI_ANY_TAG, comm)
     yield()
 end

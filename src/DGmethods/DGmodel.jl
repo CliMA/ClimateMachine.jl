@@ -83,20 +83,31 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         hypervisc_indexmap = nothing
     end
 
+    exchange_Q = NoneEvent()
+    exchange_auxstate = NoneEvent()
+    exchange_Qvisc = NoneEvent()
+    exchange_Qhypervisc_grad = NoneEvent()
+    exchange_Qhypervisc_div = NoneEvent()
+
+    comp_stream = Event(device)
+
     ########################
     # Gradient Computation #
     ########################
     if communicate
-        MPIStateArrays.start_ghost_exchange!(Q)
+        exchange_Q =
+            MPIStateArrays.begin_ghost_exchange!(Q; dependencies = comp_stream)
         if aux_comm
-            MPIStateArrays.start_ghost_exchange!(auxstate)
+            exchange_auxstate = MPIStateArrays.begin_ghost_exchange!(
+                auxstate;
+                dependencies = comp_stream,
+            )
         end
     end
 
     if nviscstate > 0 || nhyperviscstate > 0
 
-        event = Event(device)
-        event = volumeviscterms!(device, workgroups_volume)(
+        comp_stream = volumeviscterms!(device, workgroups_volume)(
             bl,
             Val(dim),
             Val(N),
@@ -111,19 +122,21 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             hypervisc_indexmap,
             topology.realelems,
             ndrange = ndrange_volume,
-            dependencies = (event,),
+            dependencies = (comp_stream,),
         )
-        wait(device, event)
 
         if communicate
-            MPIStateArrays.finish_ghost_recv!(Q)
+            exchange_Q =
+                MPIStateArrays.end_ghost_exchange!(Q; dependencies = exchange_Q)
             if aux_comm
-                MPIStateArrays.finish_ghost_recv!(auxstate)
+                exchange_auxstate = MPIStateArrays.end_ghost_exchange!(
+                    auxstate;
+                    dependencies = exchange_auxstate,
+                )
             end
         end
 
-        event = Event(device)
-        event = faceviscterms!(device, workgroups_surface)(
+        comp_stream = faceviscterms!(device, workgroups_surface)(
             bl,
             Val(dim),
             Val(N),
@@ -142,23 +155,36 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             hypervisc_indexmap,
             topology.realelems;
             ndrange = ndrange_surface,
-            dependencies = (event,),
+            dependencies = (comp_stream, exchange_Q, exchange_auxstate),
         )
-        wait(device, event)
 
         if communicate
-            nviscstate > 0 && MPIStateArrays.start_ghost_exchange!(Qvisc)
-            nhyperviscstate > 0 &&
-            MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
+            if nviscstate > 0
+                exchange_Qvisc = MPIStateArrays.begin_ghost_exchange!(
+                    Qvisc,
+                    dependencies = comp_stream,
+                )
+            end
+            if nhyperviscstate > 0
+                exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
+                    Qhypervisc_grad,
+                    dependencies = comp_stream,
+                )
+            end
         end
 
         if nviscstate > 0
+            wait(device, comp_stream)
             aux_comm = update_aux_diffusive!(dg, bl, Q, t)
             @assert typeof(aux_comm) == Bool
-        end
+            comp_stream = Event(device)
 
-        if aux_comm
-            MPIStateArrays.start_ghost_exchange!(auxstate)
+            if communicate && aux_comm
+                exchange_auxstate = MPIStateArrays.begin_ghost_exchange!(
+                    auxstate,
+                    dependencies = comp_stream,
+                )
+            end
         end
     end
 
@@ -167,8 +193,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         # Laplacian Computation #
         #########################
 
-        event = Event(device)
-        event = volumedivgrad!(device, workgroups_volume)(
+        comp_stream = volumedivgrad!(device, workgroups_volume)(
             bl,
             Val(dim),
             Val(N),
@@ -179,14 +204,17 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             grid.D,
             topology.realelems;
             ndrange = ndrange_volume,
-            dependencies = (event,),
+            dependencies = (comp_stream,),
         )
-        wait(device, event)
 
-        communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
+        if communicate
+            exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
+                Qhypervisc_grad,
+                dependencies = exchange_Qhypervisc_grad,
+            )
+        end
 
-        event = Event(device)
-        event = facedivgrad!(device, workgroups_surface)(
+        comp_stream = facedivgrad!(device, workgroups_surface)(
             bl,
             Val(dim),
             Val(N),
@@ -201,18 +229,21 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             grid.elemtobndy,
             topology.realelems;
             ndrange = ndrange_surface,
-            dependencies = (event,),
+            dependencies = (comp_stream, exchange_Qhypervisc_grad),
         )
-        wait(device, event)
 
-        communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_div)
+        if communicate
+            exchange_Qhypervisc_div = MPIStateArrays.begin_ghost_exchange!(
+                Qhypervisc_div,
+                dependencies = comp_stream,
+            )
+        end
 
         ####################################
         # Hyperdiffusive terms computation #
         ####################################
 
-        event = Event(device)
-        event = volumehyperviscterms!(device, workgroups_volume)(
+        comp_stream = volumehyperviscterms!(device, workgroups_volume)(
             bl,
             Val(dim),
             Val(N),
@@ -227,14 +258,17 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             topology.realelems,
             t;
             ndrange = ndrange_volume,
-            dependencies = (event,),
+            dependencies = (comp_stream,),
         )
-        wait(device, event)
 
-        communicate && MPIStateArrays.finish_ghost_recv!(Qhypervisc_div)
+        if communicate
+            exchange_Qhypervisc_div = MPIStateArrays.end_ghost_exchange!(
+                Qhypervisc_div,
+                dependencies = exchange_Qhypervisc_div,
+            )
+        end
 
-        event = Event(device)
-        event = facehyperviscterms!(device, workgroups_surface)(
+        comp_stream = facehyperviscterms!(device, workgroups_surface)(
             bl,
             Val(dim),
             Val(N),
@@ -252,19 +286,22 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             topology.realelems,
             t;
             ndrange = ndrange_surface,
-            dependencies = (event,),
+            dependencies = (comp_stream, exchange_Qhypervisc_div),
         )
-        wait(device, event)
 
-        communicate && MPIStateArrays.start_ghost_exchange!(Qhypervisc_grad)
+        if communicate
+            exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
+                Qhypervisc_grad,
+                dependencies = comp_stream,
+            )
+        end
     end
 
 
     ###################
     # RHS Computation #
     ###################
-    event = Event(device)
-    event = volumerhs!(device, workgroups_volume)(
+    comp_stream = volumerhs!(device, workgroups_volume)(
         bl,
         Val(dim),
         Val(N),
@@ -281,30 +318,42 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         topology.realelems,
         increment;
         ndrange = ndrange_volume,
-        dependencies = (event,),
+        dependencies = (comp_stream,),
     )
-    wait(device, event)
 
     if communicate
         if nviscstate > 0 || nhyperviscstate > 0
             if nviscstate > 0
-                MPIStateArrays.finish_ghost_recv!(Qvisc)
+                exchange_Qvisc = MPIStateArrays.end_ghost_exchange!(
+                    Qvisc;
+                    dependencies = exchange_Qvisc,
+                )
                 if aux_comm
-                    MPIStateArrays.finish_ghost_recv!(auxstate)
+                    exchange_auxstate = MPIStateArrays.end_ghost_exchange!(
+                        auxstate;
+                        dependencies = exchange_auxstate,
+                    )
                 end
             end
-            nhyperviscstate > 0 &&
-            MPIStateArrays.finish_ghost_recv!(Qhypervisc_grad)
+            if nhyperviscstate > 0
+                exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
+                    Qhypervisc_grad;
+                    dependencies = exchange_Qhypervisc_grad,
+                )
+            end
         else
-            MPIStateArrays.finish_ghost_recv!(Q)
+            exchange_Q =
+                MPIStateArrays.end_ghost_exchange!(Q; dependencies = exchange_Q)
             if aux_comm
-                MPIStateArrays.finish_ghost_recv!(auxstate)
+                exchange_auxstate = MPIStateArrays.end_ghost_exchange!(
+                    auxstate;
+                    dependencies = exchange_auxstate,
+                )
             end
         end
     end
 
-    event = Event(device)
-    event = facerhs!(device, workgroups_surface)(
+    comp_stream = facerhs!(device, workgroups_surface)(
         bl,
         Val(dim),
         Val(N),
@@ -324,17 +373,15 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         grid.elemtobndy,
         topology.realelems;
         ndrange = ndrange_surface,
-        dependencies = (event,),
+        dependencies = (
+            comp_stream,
+            exchange_Q,
+            exchange_Qvisc,
+            exchange_Qhypervisc_grad,
+            exchange_auxstate,
+        ),
     )
-    wait(device, event)
-
-    # Just to be safe, we wait on the sends we started.
-    if communicate
-        MPIStateArrays.finish_ghost_send!(Qhypervisc_div)
-        MPIStateArrays.finish_ghost_send!(Qvisc)
-        MPIStateArrays.finish_ghost_send!(Qhypervisc_grad)
-        MPIStateArrays.finish_ghost_send!(Q)
-    end
+    wait(device, comp_stream)
 end
 
 function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
@@ -387,8 +434,10 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
         state .= h_state
     end
 
-    MPIStateArrays.start_ghost_exchange!(state)
-    MPIStateArrays.finish_ghost_exchange!(state)
+    event = Event(device)
+    event = MPIStateArrays.begin_ghost_exchange!(state; dependencies = event)
+    event = MPIStateArrays.end_ghost_exchange!(state; dependencies = event)
+    wait(device, event)
 
     return state
 end
