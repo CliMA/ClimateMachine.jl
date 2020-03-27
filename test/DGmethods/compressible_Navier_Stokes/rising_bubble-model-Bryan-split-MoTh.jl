@@ -7,8 +7,6 @@ using CLIMA.Mesh.Geometry
 using CLIMA.DGmethods
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
-using CLIMA.MultirateInfinitesimalStepMethod
-using CLIMA.StormerVerletMethod
 using CLIMA.SubgridScaleParameters
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
@@ -51,7 +49,7 @@ doi = {10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2},
 URL = { https://doi.org/10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2 },
 eprint = { https://doi.org/10.1175/1520-0493(2002)130<2917:ABSFMN>2.0.CO;2 }
 """
-function Initialise_Rising_Bubble!(state::Vars, aux::Vars, (x1,x2,x3), t)
+function Initialise_Rising_Bubble!(bl, state::Vars, aux::Vars, (x1,x2,x3), t)
   FT            = eltype(state)
   R_gas::FT     = R_d
   c_p::FT       = cp_d
@@ -96,16 +94,12 @@ function run(mpicomm, ArrayType, LinearType,
                                           polynomialorder = polynomialorder
                                            )
   # -------------- Define model ---------------------------------- #
-  model = AtmosModel(FlatOrientation(),
-                     HydrostaticState(IsothermalProfile(FT(T_0)),FT(0)), #NoReferenceState()
-                     Vreman{FT}(C_smag), #SmagorinskyLilly{FT}(0.23) -> Allgemein verwendbar
-                     EquilMoist(),
-                     NoPrecipitation(),
-                     NoRadiation(),
-                     NoSubsidence{FT}(),
-                     Gravity(),
-                     NoFluxBC(),
-                     Initialise_Rising_Bubble!)
+  model = AtmosModel{FT}(AtmosLESConfiguration;
+                         ref_state=HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0)),
+                        turbulence=AnisoMinDiss{FT}(1),
+                            source=Gravity(),
+                 boundarycondition=NoFluxBC(),
+                        init_state=Initialise_Rising_Bubble!)
   # -------------- Define dgbalancelaw --------------------------- #
   dg = DGModel(model,
                grid,
@@ -138,7 +132,7 @@ function run(mpicomm, ArrayType, LinearType,
   Q = init_ode_state(dg, FT(0))
 
   ns=15
-  mis = MIS2(slow_dg, (fast_dg_momentum, fast_dg_thermo), (dgt,Q) -> StormerVerlet(dgt, [1,5], 2:4, Q), ns, Q; dt = dt, t0 = 0)
+  mis = MIS2(slow_dg, (fast_dg_momentum, fast_dg_thermo), (dgt,Q) -> StormerVerlet(dgt, [1,5], 2:4, Q, gamma=0.0), ns, Q; dt = dt, t0 = 0)
 
 
   eng0 = norm(Q)
@@ -168,7 +162,7 @@ function run(mpicomm, ArrayType, LinearType,
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
     mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITNEW%04d_step%04d", dim,
+      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITGAMMA%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), dg.auxstate, flattenednames(vars_aux(model,FT)))

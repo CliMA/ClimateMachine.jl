@@ -57,8 +57,10 @@ struct StormerVerlet{N, T, RT, AT} <: AbstractStormerVerlet
   mask_a
   mask_b
 
+  gamma::RT
+
   dQ::AT
-  function StormerVerlet(rhs!::TimeScaledRHS{N,RT} where {RT}, mask_a, mask_b, Q::AT; dt=0, t0=0) where {N,AT<:AbstractArray}
+  function StormerVerlet(rhs!::TimeScaledRHS{N,RT} where {RT}, mask_a, mask_b, Q::AT; dt=0, t0=0, gamma=0.0) where {N,AT<:AbstractArray}
 
     T = eltype(Q)
     RT = real(T)
@@ -66,7 +68,7 @@ struct StormerVerlet{N, T, RT, AT} <: AbstractStormerVerlet
     dQ = similar(Q)
     fill!(dQ, 0)
 
-    new{N, T, RT, AT}(dt, t0, rhs!, mask_a, mask_b, dQ)
+    new{N, T, RT, AT}(dt, t0, rhs!, mask_a, mask_b, gamma, dQ)
   end
 end
 
@@ -84,6 +86,7 @@ function ODEs.dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::
                       dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs!, dQ = sv.rhs!, sv.dQ
+  gamma = sv.gamma
 
   Qa = @view(Q.realdata[:,sv.mask_a,:])
   Qb = @view(Q.realdata[:,sv.mask_b,:])
@@ -149,7 +152,8 @@ function ODEs.dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::
                       dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs!, dQ = sv.rhs!, sv.dQ
-
+  #gamma = sv.gamma
+  println("a")
   Qa = @view(Q.realdata[:,sv.mask_a,:])
   Qb = @view(Q.realdata[:,sv.mask_b,:])
   dQa = @view(dQ.realdata[:,sv.mask_a,:])
@@ -157,6 +161,7 @@ function ODEs.dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::
   slow_rv_dQa = @view(slow_rv_dQ[:,sv.mask_a,:])
   slow_rv_dQb = @view(slow_rv_dQ[:,sv.mask_b,:])
 
+  #QOld=copy(Q);
 
   # do a half step
   rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
@@ -169,13 +174,14 @@ function ODEs.dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, 1, increment = false) #Momentum
+    #rhs!(dQ, (1+gamma)*Q-gamma*QOld, p, time, 1, increment = false) #Momentum
     if slow_δ === nothing
       @. Qb += dQb * dt
     else
       @. Qb += (dQb + slow_rv_dQb * slow_δ) * dt
     end
     time += dt
-
+    #copy!(QOld,Q)
     rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
     if i < nsteps
       if slow_δ === nothing
