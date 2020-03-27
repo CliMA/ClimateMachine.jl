@@ -14,12 +14,12 @@ using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
+param_set = ParameterSet()
 
 function config_simple_box(FT, N, resolution, dimensions)
     prob = HomogeneousBox{FT}(dimensions...)
-    param_set = ParameterSet{FT}()
 
-    cʰ = sqrt(grav(param_set) * prob.H) # m/s
+    cʰ = sqrt(FT(grav(param_set)) * prob.H) # m/s
     model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
 
     config =

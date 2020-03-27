@@ -11,6 +11,7 @@
 using ..Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 abstract type AbstractSolverType end
 
@@ -146,7 +147,7 @@ function AtmosLESConfiguration(
     model = AtmosModel{FT}(
         AtmosLESConfigType;
         init_state = init_LES!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     ),
     mpicomm = MPI.COMM_WORLD,
     boundary = ((0, 0), (0, 0), (1, 2)),
@@ -224,7 +225,7 @@ function AtmosGCMConfiguration(
     model = AtmosModel{FT}(
         AtmosGCMConfigType;
         init_state = init_GCM!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     ),
     mpicomm = MPI.COMM_WORLD,
     meshwarp::Function = cubedshellwarp,

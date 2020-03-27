@@ -22,6 +22,8 @@ const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
 
+param_set = ParameterSet()
+
 struct HeldSuarezDataConfig{FT}
     p_sfc::FT
     T_init::FT
@@ -34,7 +36,7 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     # Parameters need to set initial state
     T_init = bl.data_config.T_init
     p_sfc = bl.data_config.p_sfc
-    scale_height = R_d(bl.param_set) * T_init / grav(bl.param_set)
+    scale_height = FT(R_d(bl.param_set)) * T_init / FT(grav(bl.param_set))
 
     # Calculate the initial state variables
     z = altitude(bl.orientation, aux)
@@ -56,8 +58,6 @@ end
 function config_heldsuarez(FT, poly_order, resolution)
     exp_name = "HeldSuarez"
 
-    param_set = ParameterSet{FT}()
-
     # Parameters
     p_sfc::FT = MSLP(param_set)
     T_init::FT = 255
@@ -67,7 +67,7 @@ function config_heldsuarez(FT, poly_order, resolution)
     turb_visc::FT = 0 # no visc. here
 
     # Set up a reference state for linearization
-    Γ = FT(0.7 * grav(param_set) / cp_d(param_set)) # lapse rate
+    Γ = FT(0.7 * FT(grav(param_set)) / FT(cp_d(param_set))) # lapse rate
     T_sfc = FT(300.0)
     T_min = FT(200.0)
     temp_profile_ref = LinearTemperatureProfile(T_min, T_sfc, Γ)
@@ -124,11 +124,11 @@ function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
     coord = aux.coord
     e_int = internal_energy(bl.moisture, bl.orientation, state, aux)
     T = air_temperature(e_int, bl.param_set)
-    _R_d = R_d(bl.param_set)
-    _day = day(bl.param_set)
-    _grav = grav(bl.param_set)
-    _cp_d = cp_d(bl.param_set)
-    _cv_d = cv_d(bl.param_set)
+    _R_d = FT(R_d(bl.param_set))
+    _day = FT(day(bl.param_set))
+    _grav = FT(grav(bl.param_set))
+    _cp_d = FT(cp_d(bl.param_set))
+    _cv_d = FT(cv_d(bl.param_set))
 
     # Held-Suarez parameters
     k_a = FT(1 / (40 * _day))
@@ -165,8 +165,7 @@ end
 function config_diagnostics(FT, driver_config)
     interval = 100 # in time steps
 
-    param_set = ParameterSet{FT}()
-    _planet_radius = planet_radius(param_set)
+    _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info
     boundaries = [

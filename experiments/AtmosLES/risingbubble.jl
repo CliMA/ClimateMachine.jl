@@ -17,6 +17,7 @@ using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
+param_set = ParameterSet()
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -93,7 +94,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         source = (Gravity(),),
         ref_state = ref_state,
         init_state = init_risingbubble!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     # Problem configuration

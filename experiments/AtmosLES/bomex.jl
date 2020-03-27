@@ -72,6 +72,8 @@ const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
 
+param_set = ParameterSet()
+
 import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude
 import CLIMA.Atmos: flux_diffusive!, thermo_state
@@ -197,7 +199,7 @@ function atmos_source!(
     FT = eltype(state)
     ρ = state.ρ
     z = altitude(atmos.orientation, aux)
-    _e_int_v0 = e_int_v0(atmos.param_set)
+    _e_int_v0 = FT(e_int_v0(atmos.param_set))
 
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
@@ -278,7 +280,7 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     Rm_sfc = gas_constant_air(q_pt_sfc, bl.param_set) # Moist gas constant
     θ_liq_sfc = FT(299.1) # Prescribed θ_liq at surface
     T_sfc = FT(300.4) # Surface temperature
-    _grav = grav(bl.param_set)
+    _grav = FT(grav(bl.param_set))
 
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 0
@@ -358,7 +360,6 @@ end
 
 function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
-    param_set = ParameterSet{FT}()
     ics = init_bomex!     # Initial conditions
 
     C_smag = FT(0.18)     # Smagorinsky coefficient
@@ -372,7 +373,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     ∂qt∂t_peak = FT(-1.2e-8)  # Moisture tendency (energy source)
     zl_moisture = FT(300)     # Low altitude limit for piecewise function (moisture source)
     zh_moisture = FT(500)     # High altitude limit for piecewise function (moisture source)
-    ∂θ∂t_peak = FT(-2 / day(param_set))  # Potential temperature tendency (energy source)
+    ∂θ∂t_peak = FT(-2 / FT(day(param_set)))  # Potential temperature tendency (energy source)
 
     z_sponge = FT(2400)     # Start of sponge layer
     α_max = FT(0.75)        # Strength of sponge layer (timescale)

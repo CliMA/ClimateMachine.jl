@@ -25,8 +25,8 @@ air_pressure_given_θ(
     θ::FT,
     Φ::FT,
     ::DryAdiabaticProcess,
-    param_set::APS{FT} = MTPS{FT}(),
-) where {FT} = FT(MSLP) * (1 - Φ / (θ * FT(cp_d)))^(FT(cp_d) / FT(R_d))
+    param_set::PS = MTPS(),
+) where {FT, PS} = FT(MSLP) * (1 - Φ / (θ * FT(cp_d)))^(FT(cp_d) / FT(R_d))
 
 """
     air_pressure(T::FT, T∞::FT, p∞::FT, ::DryAdiabaticProcess)
@@ -42,8 +42,8 @@ air_pressure(
     T∞::FT,
     p∞::FT,
     ::DryAdiabaticProcess,
-    param_set::APS{FT} = MTPS{FT}(),
-) where {FT} = p∞ * (T / T∞)^(FT(1) / FT(kappa_d))
+    param_set::PS = MTPS(),
+) where {FT, PS} = p∞ * (T / T∞)^(FT(1) / FT(kappa_d))
 
 """
     air_temperature(p::FT, θ::FT, Φ::FT, ::DryAdiabaticProcess)
@@ -57,5 +57,5 @@ air_temperature(
     p::FT,
     θ::FT,
     ::DryAdiabaticProcess,
-    param_set::APS{FT} = MTPS{FT}(),
-) where {FT} = (p / FT(MSLP))^(FT(R_d) / FT(cp_d)) * θ
+    param_set::PS = MTPS(),
+) where {FT, PS} = (p / FT(MSLP))^(FT(R_d) / FT(cp_d)) * θ

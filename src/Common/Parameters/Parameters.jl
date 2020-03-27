@@ -7,9 +7,9 @@ module Parameters
 
 export AbstractParameterSet
 export EarthParameterSet
-abstract type AbstractParameterSet{FT <: AbstractFloat} end
+abstract type AbstractParameterSet end
 
-struct EarthParameterSet{FT} <: AbstractParameterSet{FT} end
+struct EarthParameterSet <: AbstractParameterSet end
 
 include("Planet.jl")
 include("Atmos.jl")

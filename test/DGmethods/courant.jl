@@ -35,6 +35,7 @@ using CLIMA.ODESolvers
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 using CLIMA.MoistThermodynamics:
     air_density, total_energy, internal_energy, soundspeed_air
@@ -120,7 +121,7 @@ let
                     source = Gravity(),
                     boundarycondition = (),
                     init_state = initialcondition!,
-                    param_set = ParameterSet{FT}(),
+                    param_set = param_set,
                 )
 
                 dg = DGModel(

@@ -22,6 +22,8 @@ const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
 
+param_set = ParameterSet()
+
 import CLIMA.DGmethods:
     vars_state,
     vars_aux,
@@ -152,7 +154,7 @@ function flux_radiation!(
     upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
     free_troposphere_flux =
         m.ρ_i *
-        cp_d(atmos.param_set) *
+        FT(cp_d(atmos.param_set)) *
         m.D_subsidence *
         m.α_z *
         cbrt(Δz_i) *
@@ -195,7 +197,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     q_pt_sfc = PhasePartition(qref)
     Rm_sfc = gas_constant_air(q_pt_sfc, bl.param_set)
     T_sfc = FT(290.4)
-    P_sfc = MSLP(bl.param_set)
+    P_sfc = FT(MSLP(bl.param_set))
 
     # Specify moisture profiles
     q_liq = FT(0)
@@ -222,7 +224,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     end
 
     # Pressure
-    H = Rm_sfc * T_sfc / grav(bl.param_set)
+    H = Rm_sfc * T_sfc / FT(grav(bl.param_set))
     p = P_sfc * exp(-z / H)
 
     # Density, Temperature
@@ -246,8 +248,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Reference state
     T_min = FT(289)
     T_s = FT(290.4)
-    param_set = ParameterSet{FT}()
-    Γ_lapse = FT(grav(param_set) / cp_d(param_set))
+    Γ_lapse = FT(grav(param_set)) / FT(cp_d(param_set))
     T = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)
@@ -287,6 +288,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     LHF = FT(115)
     SHF = FT(15)
     ics = init_dycoms!
+    moisture_flux = LHF / FT(LH_v0(param_set))
 
     source = (
         Gravity(),
@@ -309,7 +311,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
                 )),
                 energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> LHF / LH_v0(param_set),
+                    (state, aux, t) -> moisture_flux,
                 ),
             ),
             AtmosBC(),

@@ -29,6 +29,7 @@ using CLIMA.VariableTemplates: flattenednames
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
@@ -201,7 +202,7 @@ function run(
         source = nothing,
         boundarycondition = (),
         init_state = isentropicvortex_initialcondition!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     dg = DGModel(
@@ -294,7 +295,7 @@ end
 Base.@kwdef struct IsentropicVortexSetup{FT}
     p∞::FT = 10^5
     T∞::FT = 300
-    ρ∞::FT = air_density(FT(T∞), FT(p∞), ParameterSet{FT}())
+    ρ∞::FT = air_density(FT(T∞), FT(p∞), param_set)
     translation_speed::FT = 150
     translation_angle::FT = pi / 4
     vortex_speed::FT = 50

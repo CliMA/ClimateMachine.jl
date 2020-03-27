@@ -20,6 +20,7 @@ using CLIMA.VTK
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -52,7 +53,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         AtmosLESConfigType;
         ref_state = HydrostaticState(IsothermalProfile(T_s), RH),
         init_state = init_state!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     dg = DGModel(
@@ -89,7 +90,7 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
             RH,
         ),
         init_state = init_state!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
 
     dg = DGModel(

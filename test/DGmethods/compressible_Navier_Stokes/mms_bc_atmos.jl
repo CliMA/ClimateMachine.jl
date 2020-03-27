@@ -21,6 +21,7 @@ using Test
 using CLIMA.Parameters
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
+param_set = ParameterSet()
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -161,7 +162,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             source = mms2_source!,
             boundarycondition = InitStateBC(),
             init_state = mms2_init_state!,
-            param_set = ParameterSet{FT}(),
+            param_set = param_set,
         )
     else
         model = AtmosModel{FT}(
@@ -173,7 +174,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             source = mms3_source!,
             boundarycondition = InitStateBC(),
             init_state = mms3_init_state!,
-            param_set = ParameterSet{FT}(),
+            param_set = param_set,
         )
     end
 

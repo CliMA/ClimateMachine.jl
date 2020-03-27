@@ -21,6 +21,7 @@ using CLIMA.UniversalConstants
 const clima_dir = dirname(pathof(CLIMA))
 include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 using CLIMA.Parameters.Planet
+param_set = ParameterSet()
 
 # -------------------- Surface Driven Bubble ----------------- #
 # Rising thermals driven by a prescribed surface heat flux.
@@ -101,7 +102,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         ),
         moisture = EquilMoist{FT}(),
         init_state = init_surfacebubble!,
-        param_set = ParameterSet{FT}(),
+        param_set = param_set,
     )
     config = CLIMA.AtmosLESConfiguration(
         "SurfaceDrivenBubble",
