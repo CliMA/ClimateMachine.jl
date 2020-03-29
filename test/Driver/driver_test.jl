@@ -3,9 +3,9 @@ using Test
 
 using CLIMA
 using CLIMA.Atmos
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: grav, MSLP
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: grav, MSLP
 using CLIMA.VariableTemplates
 using CLIMA.Grids
 

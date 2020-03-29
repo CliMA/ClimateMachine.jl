@@ -20,7 +20,7 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: R_d, planet_radius, grav, MSLP
 using CLIMA.TicToc
 using LinearAlgebra
 using StaticArrays

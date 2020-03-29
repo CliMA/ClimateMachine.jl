@@ -11,7 +11,7 @@ Microphysics parameterization based on the ideas of Kessler_1995:
 module Microphysics
 
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: ρ_cloud_liq, R_v, grav
 using ..MicrophysicsParameters
 using ..Parameters
 

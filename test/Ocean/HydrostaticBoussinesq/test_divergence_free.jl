@@ -4,7 +4,7 @@ using CLIMA.HydrostaticBoussinesq
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: grav
 using CLIMA.VariableTemplates
 using CLIMA.Mesh.Grids: polynomialorder
 import CLIMA.DGmethods: vars_state

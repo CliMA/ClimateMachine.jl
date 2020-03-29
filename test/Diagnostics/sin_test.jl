@@ -13,7 +13,7 @@ using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.ODESolvers
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: grav, MSLP
 using CLIMA.VariableTemplates
 
 function init_sin_test!(bl, state, aux, (x, y, z), t)
