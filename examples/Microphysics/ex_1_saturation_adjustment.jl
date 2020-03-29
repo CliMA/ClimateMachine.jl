@@ -30,7 +30,7 @@ using LinearAlgebra
 using StaticArrays
 using Printf
 
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: R_d, cp_d, grav
 using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 

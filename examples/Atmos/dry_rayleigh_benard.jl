@@ -14,7 +14,7 @@ using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: R_d, cp_d, cv_d, grav, MSLP
 using CLIMA.VariableTemplates
 
 using CLIMA.Parameters

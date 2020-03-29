@@ -14,7 +14,7 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: R_d, cp_d, cv_d, grav, MSLP
 using CLIMA.SubgridScaleParameters
 using LinearAlgebra
 using StaticArrays

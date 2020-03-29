@@ -4,9 +4,9 @@ using Test
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: grav
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMA.PlanetParameters: grav
 using CLIMA.VariableTemplates
 using CLIMA.Grids
 using CLIMA.ODESolvers
