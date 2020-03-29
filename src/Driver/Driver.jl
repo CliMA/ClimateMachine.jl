@@ -8,6 +8,7 @@ using Printf
 using Requires
 
 using ..Atmos
+using ..Callbacks
 using ..ColumnwiseLUSolver
 using ..ConfigTypes
 using ..Courant
@@ -38,6 +39,8 @@ Base.@kwdef mutable struct CLIMA_Settings
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
+    enable_wall_clock::Bool = false
+    wall_clock_interval::Int = 10000
     monitor_courant_numbers::Bool = false
     monitor_courant_interval::Int = 10
     log_level::String = "INFO"
@@ -123,6 +126,13 @@ function parse_commandline()
         help = "interval in simulation steps for VTK output"
         arg_type = Int
         default = 10000
+        "--enable-wall-clock"
+        help = "output wall-clock time per time-step every <wall-clock-interval> simulation steps"
+        action = :store_true
+        "--wall-clock-interval"
+        help = "interval in simulation steps for wall-clock time per time-step output"
+        arg_type = Int
+        default = 10000
         "--monitor-courant-numbers"
         help = "output acoustic, advective, and diffusive Courant numbers"
         action = :store_true
@@ -174,6 +184,8 @@ function init(; disable_gpu = false)
         Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
+        Settings.enable_wall_clock = parsed_args["enable-wall-clock"]
+        Settings.wall_clock_interval = parsed_args["wall-clock-interval"]
         Settings.output_dir = parsed_args["output-dir"]
         Settings.monitor_courant_numbers =
             parsed_args["monitor-courant-numbers"]
@@ -370,6 +382,15 @@ function invoke!(
                 nothing
             end
         callbacks = (callbacks..., cbvtk)
+    end
+
+    if Settings.enable_wall_clock
+        cbwall = Callbacks.wall_clock_time_per_time_step(
+            Settings.wall_clock_interval,
+            Settings.array_type,
+            mpicomm,
+        )
+        callbacks = (callbacks..., cbwall)
     end
 
     if Settings.monitor_courant_numbers
