@@ -388,7 +388,7 @@ function init_ode_state(
             args...;
             ndrange = Np * nrealelem,
         )
-        wait(device, event)
+        wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
         state .= h_state
     end
 
