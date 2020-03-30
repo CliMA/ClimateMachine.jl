@@ -1,5 +1,5 @@
 # kersten.jl: This function calculates kersten number
-function kersten(flag) 
+function kersten(theta_ice,vom,porosity,Sr,a,b,v_sand,v_gravel) 
 
 # ------------------------------------------------------
 # Input
@@ -10,11 +10,12 @@ function kersten(flag)
 #   Ke         ! Kersten number
 # ------------------------------------------------------   
     
-    if flag == "yes"
-        Ke  = 0.5
-    else
-        Ke  = 1
-    end
-
+    # If frozen
+    if theta_ice > 0   
+        Ke = Sr^(1+vom)
+    else # If not frozen
+        Ke = Sr^(0.5*(1+vom- a*v_sand - v_gravel))*( (1 + exp(-b*Sr))^(-3) - ((1-Sr)/2)^3 )^(1-vom)   
+    end 
+    
     return Ke
 end
