@@ -169,7 +169,7 @@ function run(mpicomm, ArrayType, LinearType,
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
     mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLIT%04d_step%04d", dim,
+      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITGravityF%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), dg.auxstate, flattenednames(vars_aux(model,FT)))
@@ -210,13 +210,14 @@ let
                   range(FT(ymin); length=Ne[2]+1, stop=ymax),
                   range(FT(zmin); length=Ne[3]+1, stop=zmax))
     topl = StackedBrickTopology(mpicomm, brickrange, periodicity = (false, true, false))
-    for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
-      @show LinearType
+    #for LinearType in (AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel)
+      #@show LinearType
+      LinearType=AtmosAcousticGravityLinearModel
       engf_eng0 = run(mpicomm, ArrayType, LinearType,
                       topl, dim, Ne, polynomialorder,
                       timeend, FT, dt)
       @test engf_eng0 ≈ FT(0.9999997771981113)
-    end
+    #end
   end
 end
 
