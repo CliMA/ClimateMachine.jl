@@ -230,7 +230,6 @@ function updatedt!(ark::AdditiveRungeKutta, dt)
     α = dt * ark.RKA_implicit[2, 2]
     ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
 end
-updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
 function dostep!(
     Q,

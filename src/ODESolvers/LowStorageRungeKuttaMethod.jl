@@ -76,9 +76,6 @@ function LowStorageRungeKutta2N(
     LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
 end
 
-updatedt!(lsrk::LowStorageRungeKutta2N, dt) = (lsrk.dt = dt)
-updatetime!(lsrk::LowStorageRungeKutta2N, time) = (lsrk.t = time)
-
 """
     dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
                        dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])

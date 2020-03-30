@@ -90,9 +90,6 @@ function StrongStabilityPreservingRungeKutta(
     )
 end
 
-updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = (ssp.dt = dt)
-updatetime!(lsrk::StrongStabilityPreservingRungeKutta, time) = (lsrk.t = time)
-
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                        time::Real, dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
