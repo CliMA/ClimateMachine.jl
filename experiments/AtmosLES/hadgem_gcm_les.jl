@@ -429,7 +429,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     model = AtmosModel{FT}(
         AtmosLESConfigType;
         ref_state = GCMReferenceState{FT}(),
-        turbulence = SmagorinskyLilly{FT}(0.20),
+        turbulence = SmagorinskyLilly{FT}(0.23),
         source = (
             Gravity(),
             GCMRelaxation{FT}(3600),
@@ -501,7 +501,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(12)
+    CFL = FT(9)
 
     # Execute the get_gcm_info function
     (
