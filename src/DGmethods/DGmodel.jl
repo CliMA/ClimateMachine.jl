@@ -570,6 +570,7 @@ function courant(
     m::BalanceLaw,
     Q::MPIStateArray,
     Δt,
+    simtime,
     direction = EveryDirection(),
 )
     grid = dg.grid
@@ -604,8 +605,9 @@ function courant(
             dg.auxstate.data,
             dg.diffstate.data,
             topology.realelems,
-            direction,
-            Δt;
+            Δt,
+            simtime,
+            direction;
             ndrange = nrealelem * Nq * Nq * Nqk,
             dependencies = (event,),
         )

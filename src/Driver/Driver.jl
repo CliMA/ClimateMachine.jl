@@ -385,32 +385,38 @@ function invoke!(
                 Δt = solver_config.dt
                 c_v = DGmethods.courant(
                     nondiffusive_courant,
-                    solver_config;
+                    solver_config,
+                    simtime;
                     direction = VerticalDirection(),
                 )
                 c_h = DGmethods.courant(
                     nondiffusive_courant,
-                    solver_config;
+                    solver_config,
+                    simtime;
                     direction = HorizontalDirection(),
                 )
                 ca_v = DGmethods.courant(
                     advective_courant,
-                    solver_config;
+                    solver_config,
+                    simtime;
                     direction = VerticalDirection(),
                 )
                 ca_h = DGmethods.courant(
                     advective_courant,
-                    solver_config;
+                    solver_config,
+                    simtime;
                     direction = HorizontalDirection(),
                 )
                 cd_v = DGmethods.courant(
                     diffusive_courant,
-                    solver_config;
+                    solver_config,
+                    simtime;
                     direction = VerticalDirection(),
                 )
                 cd_h = DGmethods.courant(
                     diffusive_courant,
-                    solver_config;
+                    solver_config,
+                    simtime;
                     direction = HorizontalDirection(),
                 )
                 @info @sprintf """

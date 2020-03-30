@@ -71,14 +71,14 @@ function init_state! end
 
 using ..Courant
 """
-    calculate_dt(dg, model, Q, Courant_number, direction)
+    calculate_dt(dg, model, Q, Courant_number, direction, t)
 
 For a given model, compute a time step satisying the nondiffusive Courant number
 `Courant_number`
 """
-function calculate_dt(dg, model, Q, Courant_number, direction)
+function calculate_dt(dg, model, Q, Courant_number, t, direction)
     Δt = one(eltype(Q))
-    CFL = courant(nondiffusive_courant, dg, model, Q, Δt, direction)
+    CFL = courant(nondiffusive_courant, dg, model, Q, Δt, t, direction)
     return Courant_number / CFL
 end
 

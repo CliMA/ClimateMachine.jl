@@ -2117,8 +2117,9 @@ end
     auxstate,
     diffstate,
     elems,
-    direction,
     Δt,
+    simtime,
+    direction,
 ) where {dim, N}
     @uniform begin
         FT = eltype(Q)
@@ -2160,6 +2161,7 @@ end
             Vars{vars_diffusive(bl, FT)}(l_diff),
             Δx,
             Δt,
+            simtime,
             direction,
         )
 
