@@ -18,7 +18,7 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 
 The following instructions to install and run the code assume that Julia
 version 1.0.1 or greater installed; GPU version requires version 1.2 or greater
-and an NVIDIA GPU.
+and an NVIDIA GPU. Version 1.3.1 is currently the latest stable Julia version tested and supported.
 
 The [MPI.jl][0] package that is used assumes that you have a working MPI
 installation
