@@ -190,8 +190,8 @@ end
     ) < tol_T
     q = PhasePartition_equil(T, ρ, q_tot)
     @test q.tot - q.liq - q.ice ≈
-    vapor_specific_humidity(q) ≈
-    q_vap_saturation(T, ρ)
+          vapor_specific_humidity(q) ≈
+          q_vap_saturation(T, ρ)
 
     ρ = FT(1)
     ρu = FT[1, 2, 3]

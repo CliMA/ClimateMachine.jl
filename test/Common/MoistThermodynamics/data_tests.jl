@@ -3,13 +3,14 @@ using Pkg.Artifacts
 using CLIMA.ArtifactWrappers
 
 # Get dycoms dataset folder:
-dycoms_dataset =
-  ArtifactWrapper(joinpath(@__DIR__, "Artifacts.toml"), "dycoms",
-    ArtifactFile[
-    ArtifactFile(url="https://caltech.box.com/shared/static/bxau6i46y6ikxn2sy9krgz0sw5vuptfo.nc",
-              filename="test_data_PhaseEquil.nc"),
-    ]
-    )
+dycoms_dataset = ArtifactWrapper(
+    joinpath(@__DIR__, "Artifacts.toml"),
+    "dycoms",
+    ArtifactFile[ArtifactFile(
+        url = "https://caltech.box.com/shared/static/bxau6i46y6ikxn2sy9krgz0sw5vuptfo.nc",
+        filename = "test_data_PhaseEquil.nc",
+    ),],
+)
 dycoms_dataset_path = get_data_folder(dycoms_dataset)
 
 

@@ -1,7 +1,7 @@
 module ArtifactWrappers
 
 using Pkg.Artifacts
-using DocStringExtensions:FIELDS
+using DocStringExtensions: FIELDS
 
 export ArtifactWrapper, ArtifactFile, get_data_folder
 
@@ -17,9 +17,9 @@ $(FIELDS)
 """
 Base.@kwdef struct ArtifactFile
     "URL pointing to data to be downloaded"
-    url::AbstractString=""
+    url::AbstractString = ""
     "Local name used for downloaded online data"
-    filename::AbstractString=""
+    filename::AbstractString = ""
 end
 
 """
@@ -77,7 +77,7 @@ function get_data_folder(art_wrap::ArtifactWrapper)
             # We create the artifact by simply downloading a few files into the new artifact directory
             filenames = [af.filename for af in art_wrap.artifact_files]
             urls = [af.url for af in art_wrap.artifact_files]
-            for (url,filename) in zip(urls,filenames)
+            for (url, filename) in zip(urls, filenames)
                 download("$(url)", joinpath(artifact_dir, filename))
             end
         end
@@ -85,7 +85,12 @@ function get_data_folder(art_wrap::ArtifactWrapper)
         # Now bind that hash within our `Artifacts.toml`.  `force = true` means that if it already exists,
         # just overwrite with the new content-hash.  Unless the source files change, we do not expect
         # the content hash to change, so this should not cause unnecessary version control churn.
-        bind_artifact!(art_wrap.artifact_toml, art_wrap.data_name, data_hash, force = true)
+        bind_artifact!(
+            art_wrap.artifact_toml,
+            art_wrap.data_name,
+            data_hash,
+            force = true,
+        )
     end
 
     # Get the path of the dataset, either newly created or previously generated.
