@@ -1,6 +1,4 @@
 
-include("MultirateRungeKuttaMethod_kernels.jl")
-
 export MultirateRungeKutta
 
 LSRK2N = LowStorageRungeKutta2N
@@ -82,34 +80,10 @@ end
 
 function dostep!(
     Q,
-    mrrk::MultirateRungeKutta,
-    param,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = mrrk.t, mrrk.dt
-    @assert dt > 0
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-        @assert dt > 0
-    end
-
-    dostep!(Q, mrrk, param, time, dt)
-
-    if dt == mrrk.dt
-        mrrk.t += dt
-    else
-        mrrk.t = timeend
-    end
-    return mrrk.t
-end
-
-function dostep!(
-    Q,
     mrrk::MultirateRungeKutta{SS},
     param,
-    time::Real,
-    dt::AbstractFloat,
+    time,
+    dt,
     in_slow_δ = nothing,
     in_slow_rv_dQ = nothing,
     in_slow_scaling = nothing,
@@ -178,6 +152,16 @@ function dostep!(
                 slow_rv_dQ,
                 slow_rka,
             )
+        end
+    end
+end
+
+@kernel function update!(fast_dQ, slow_dQ, δ, slow_rka = nothing)
+    i = @index(Global, Linear)
+    @inbounds begin
+        fast_dQ[i] += δ * slow_dQ[i]
+        if slow_rka !== nothing
+            slow_dQ[i] *= slow_rka
         end
     end
 end

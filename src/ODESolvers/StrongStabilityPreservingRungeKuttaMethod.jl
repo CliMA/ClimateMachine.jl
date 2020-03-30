@@ -1,8 +1,6 @@
 export StrongStabilityPreservingRungeKutta
 export SSPRK33ShuOsher, SSPRK34SpiteriRuuth
 
-include("StrongStabilityPreservingRungeKuttaMethod_kernels.jl")
-
 """
     StrongStabilityPreservingRungeKutta(f, RKA, RKB, RKC, Q; dt, t0 = 0)
 
@@ -90,40 +88,6 @@ function StrongStabilityPreservingRungeKutta(
     )
 end
 
-updatedt!(ssp::StrongStabilityPreservingRungeKutta, dt) = (ssp.dt = dt)
-updatetime!(lsrk::StrongStabilityPreservingRungeKutta, time) = (lsrk.t = time)
-
-"""
-    ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
-                       timeend::Real, adjustfinalstep::Bool)
-
-Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
-forward in time from the current time, to the time `timeend`. If
-`adjustfinalstep == true` then `dt` is adjusted so that the step does not take
-the solution beyond the `timeend`.
-"""
-function dostep!(
-    Q,
-    ssp::StrongStabilityPreservingRungeKutta,
-    p,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = ssp.t, ssp.dt
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-    end
-    @assert dt > 0
-
-    dostep!(Q, ssp, p, time, dt)
-
-    if dt == ssp.dt
-        ssp.t += dt
-    else
-        ssp.t = timeend
-    end
-end
-
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                        time::Real, dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
@@ -140,8 +104,8 @@ function dostep!(
     Q,
     ssp::StrongStabilityPreservingRungeKutta,
     p,
-    time::Real,
-    dt::Real,
+    time,
+    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     in_slow_scaling = nothing,
@@ -182,6 +146,30 @@ function dostep!(
         wait(device(Q), event)
     end
     rv_Q .= rv_Qstage
+end
+
+@kernel function update!(
+    dQ,
+    Q,
+    Qstage,
+    rka1,
+    rka2,
+    rkb,
+    dt,
+    slow_δ,
+    slow_dQ,
+    slow_scaling,
+)
+    i = @index(Global, Linear)
+    @inbounds begin
+        if slow_δ !== nothing
+            dQ[i] += slow_δ * slow_dQ[i]
+        end
+        Qstage[i] = rka1 * Q[i] + rka2 * Qstage[i] + dt * rkb * dQ[i]
+        if slow_scaling !== nothing
+            slow_dQ[i] *= slow_scaling
+        end
+    end
 end
 
 """

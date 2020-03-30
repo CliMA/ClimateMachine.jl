@@ -2,8 +2,6 @@
 export LowStorageRungeKutta2N
 export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch, LSRKEulerMethod
 
-include("LowStorageRungeKuttaMethod_kernels.jl")
-
 """
     LowStorageRungeKutta2N(f, RKA, RKB, RKC, Q; dt, t0 = 0)
 
@@ -76,41 +74,6 @@ function LowStorageRungeKutta2N(
     LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
 end
 
-updatedt!(lsrk::LowStorageRungeKutta2N, dt) = (lsrk.dt = dt)
-updatetime!(lsrk::LowStorageRungeKutta2N, time) = (lsrk.t = time)
-
-"""
-    dostep!(Q, lsrk::LowStorageRungeKutta2N, p, timeend::Real,
-                       adjustfinalstep::Bool)
-
-Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
-from the current time, to the time `timeend`. If `adjustfinalstep == true` then
-`dt` is adjusted so that the step does not take the solution beyond the
-`timeend`.
-"""
-function dostep!(
-    Q,
-    lsrk::LowStorageRungeKutta2N,
-    p,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = lsrk.t, lsrk.dt
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-    end
-    @assert dt > 0
-
-    dostep!(Q, lsrk, p, time, dt)
-
-    if dt == lsrk.dt
-        lsrk.t += dt
-    else
-        lsrk.t = timeend
-    end
-
-end
-
 """
     dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
                        dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
@@ -127,8 +90,8 @@ function dostep!(
     Q,
     lsrk::LowStorageRungeKutta2N,
     p,
-    time::Real,
-    dt::Real,
+    time,
+    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     in_slow_scaling = nothing,
@@ -163,6 +126,20 @@ function dostep!(
             dependencies = (event,),
         )
         wait(device(Q), event)
+    end
+end
+
+@kernel function update!(dQ, Q, rka, rkb, dt, slow_δ, slow_dQ, slow_scaling)
+    i = @index(Global, Linear)
+    @inbounds begin
+        if slow_δ !== nothing
+            dQ[i] += slow_δ * slow_dQ[i]
+        end
+        Q[i] += rkb * dt * dQ[i]
+        dQ[i] *= rka
+        if slow_scaling !== nothing
+            slow_dQ[i] *= slow_scaling
+        end
     end
 end
 
