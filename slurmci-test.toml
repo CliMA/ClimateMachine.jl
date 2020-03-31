@@ -7,6 +7,7 @@ cpu = [
   { file = "test/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/ODESolvers/ode_tests_convergence.jl", slurmargs = ["--ntasks=1"], args = [] },
 ]
 
 cpu_gpu = [
