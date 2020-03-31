@@ -31,7 +31,7 @@ const (xmin,xmax)      = (0,20000)
 const (ymin,ymax)      = (0,400)
 const (zmin,zmax)      = (0,10000)
 const Ne        = (160,2,80)
-const polynomialorder = 1
+const polynomialorder = 2
 const dim       = 3
 const dt        = 1.0
 const timeend   = 1000.0
@@ -169,7 +169,7 @@ function run(mpicomm, ArrayType, LinearType,
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
     mkpath("./vtk-rtb/")
-      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITGravityF%04d_step%04d", dim,
+      outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITGravityFH%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), dg.auxstate, flattenednames(vars_aux(model,FT)))
