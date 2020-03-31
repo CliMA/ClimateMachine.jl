@@ -19,6 +19,7 @@ include("../testhelpers.jl")
            (1, "sphere/advection_sphere_lsrk.jl")
            (1, "sphere/advection_sphere_ssp33.jl")
            (1, "sphere/advection_sphere_ssp34.jl")
+           (1, "soundings/runtests.jl")
           ]
 
   runmpi(tests, @__FILE__)
