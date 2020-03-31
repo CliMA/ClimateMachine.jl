@@ -159,6 +159,12 @@ struct DiscontinuousSpectralElementGrid{
     "An array of ranges in `vmapsend` to send to each neighbor"
     nabrtovmapsend
 
+    "Array of real elements that do not have a ghost element as a neighbor"
+    interiorelems
+
+    "Array of real elements that have at least one ghost element as a neighbor"
+    exteriorelems
+
     "1-D lvl weights on the device"
     ω::DAT1
 
@@ -252,6 +258,8 @@ struct DiscontinuousSpectralElementGrid{
             vmapsend,
             nabrtovmaprecv,
             nabrtovmapsend,
+            DeviceArray(topology.interiorelems),
+            DeviceArray(topology.exteriorelems),
             ω,
             D,
             Imat,
