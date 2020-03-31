@@ -462,15 +462,23 @@ See [`odefun!`](@ref) for usage.
         l_F = MArray{Tuple{nstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -507,7 +515,7 @@ See [`odefun!`](@ref) for usage.
             l_aux⁺diff[s] = l_aux⁺nondiff[s] = auxstate[vid⁺, s, e⁺]
         end
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         fill!(l_F, -zero(eltype(l_F)))
         if bctype == 0
             numerical_flux_nondiffusive!(
@@ -540,13 +548,13 @@ See [`odefun!`](@ref) for usage.
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
                 # Loop up the first element along all horizontal elements
                 @unroll for s in 1:nstate
-                    l_Q_bot1[s] = Q[n + Nqk^2, s, e]
+                    l_Q_bot1[s] = Q[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:nviscstate
-                    l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e]
+                    l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:nauxstate
-                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e]
+                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e⁻]
                 end
             end
             numerical_boundary_flux_nondiffusive!(
@@ -922,15 +930,23 @@ end
         l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -969,7 +985,7 @@ end
             t,
         )
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
             numerical_flux_gradient!(
@@ -999,10 +1015,10 @@ end
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
                 # Loop up the first element along all horizontal elements
                 @unroll for s in 1:nstate
-                    l_Q_bot1[s] = Q[n + Nqk^2, s, e]
+                    l_Q_bot1[s] = Q[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:nauxstate
-                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e]
+                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e⁻]
                 end
             end
             numerical_boundary_flux_gradient!(
@@ -1689,15 +1705,23 @@ end
         l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -1714,7 +1738,7 @@ end
             l_grad⁺[3, s] = Qhypervisc_grad[vid⁺, 3 * (s - 1) + 3, e⁺]
         end
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         if bctype == 0
             divergence_penalty!(
                 divgradnumpenalty,
@@ -2031,14 +2055,23 @@ end
         l_aux⁺ = MArray{Tuple{nauxstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
+
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -2067,7 +2100,7 @@ end
             l_lap⁺[s] = Qhypervisc_div[vid⁺, s, e⁺]
         end
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         if bctype == 0
             numerical_flux_hyperdiffusive!(
                 hyperviscnumflux,
