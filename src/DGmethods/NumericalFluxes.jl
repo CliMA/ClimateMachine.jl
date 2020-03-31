@@ -6,7 +6,9 @@ export NumericalFluxNonDiffusive,
     Rusanov,
     CentralNumericalFluxGradient,
     CentralNumericalFluxDiffusive,
-    CentralNumericalFluxNonDiffusive
+    CentralNumericalFluxNonDiffusive,
+    CentralHyperDiffusiveFlux,
+    CentralDivPenalty
 
 using StaticArrays, LinearAlgebra
 using CLIMA.VariableTemplates
