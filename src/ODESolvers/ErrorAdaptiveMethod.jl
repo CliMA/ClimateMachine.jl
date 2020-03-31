@@ -34,6 +34,7 @@ function dostep!(
     dt = getdt(eas)
 
     acceptstep = false
+    newdt = dt
     while !acceptstep
         dostep!((candidate, Q, error_estimate), eas.solver, p, time, dt)
         order = embedded_order(eas)
@@ -49,7 +50,7 @@ function dostep!(
 
     Q .= candidate
 
-    updatedt!(eas, dt)
+    updatedt!(eas, newdt)
     eas.solver.t += dt
     return eas.solver.t
 end
