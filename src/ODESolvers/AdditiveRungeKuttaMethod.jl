@@ -319,11 +319,6 @@ function dostep!(
 
         # solves
         # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-        α = dt * RKA_implicit[istage, istage]
-        linearoperator! = function (LQ, Q)
-            rhs_linear!(LQ, Q, p, stagetime; increment = false)
-            @. LQ = Q - α * LQ
-        end
         linearsolve!(
             implicitoperator!,
             linearsolver,
