@@ -148,7 +148,8 @@ mutable struct MultirateInfinitesimalStep{
     end
 end
 
-function dostep!(Q, mis::MultirateInfinitesimalStep, p, time, dt)
+function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
+    dt = mis.dt
     FT = eltype(dt)
     α = mis.α
     β = mis.β
@@ -199,8 +200,9 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time, dt)
         # TODO: we want to be able to write
         #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
         # especially if we want to use StormerVerlet, but need some way to pass in `offset`
+        updatedt!(fastsolver, dτ)
         for k in 1:(mis.nsubsteps)
-            dostep!(Q, fastsolver, p, τ, dτ, FT(1), realview(offset))  #(1c)
+            dostep!(Q, fastsolver, p, τ, FT(1), realview(offset))  #(1c)
             τ += dτ
         end
     end

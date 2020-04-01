@@ -83,17 +83,20 @@ function dostep!(
     mrrk::MultirateRungeKutta{SS},
     param,
     time,
-    dt,
     in_slow_δ = nothing,
     in_slow_rv_dQ = nothing,
     in_slow_scaling = nothing,
 ) where {SS <: LSRK2N}
+    dt = mrrk.dt
+
     slow = mrrk.slow_solver
     fast = mrrk.fast_solver
 
     slow_rv_dQ = realview(slow.dQ)
 
     groupsize = 256
+
+    fast_dt_in = getdt(fast)
 
     for slow_s in 1:length(slow.RKA)
         # Currnent slow state time
@@ -133,8 +136,10 @@ function dostep!(
 
         # RKB for the slow with fractional time factor remove (since full
         # integration of fast will result in scaling by γ)
-        nsubsteps = getdt(fast) > 0 ? ceil(Int, γ * dt / getdt(fast)) : 1
+        nsubsteps = fast_dt_in > 0 ? ceil(Int, γ * dt / fast_dt_in) : 1
         fast_dt = γ * dt / nsubsteps
+
+        updatedt!(fast, fast_dt)
 
         for substep in 1:nsubsteps
             slow_rka = nothing
@@ -142,18 +147,10 @@ function dostep!(
                 slow_rka = slow.RKA[slow_s % length(slow.RKA) + 1]
             end
             fast_time = slow_stage_time + (substep - 1) * fast_dt
-            dostep!(
-                Q,
-                fast,
-                param,
-                fast_time,
-                fast_dt,
-                slow_δ,
-                slow_rv_dQ,
-                slow_rka,
-            )
+            dostep!(Q, fast, param, fast_time, slow_δ, slow_rv_dQ, slow_rka)
         end
     end
+    updatedt!(fast, fast_dt_in)
 end
 
 @kernel function update!(fast_dQ, slow_dQ, δ, slow_rka = nothing)

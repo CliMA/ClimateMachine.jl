@@ -4,14 +4,16 @@ export AdditiveRungeKutta
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 
-# Naive formulation that uses equation 3.8 from Giraldo, Kelly, and Constantinescu (2013) directly.
-# Seems to cut the number of solver iterations by half but requires Nstages - 1 additional storage.
+# Naive formulation that uses equation 3.8 from Giraldo, Kelly, and
+# Constantinescu (2013) directly.  Seems to cut the number of solver iterations
+# by half but requires Nstages - 1 additional storage.
 struct NaiveVariant end
 additional_storage(::NaiveVariant, Q, Nstages) =
     (Lstages = ntuple(i -> similar(Q), Nstages),)
 
-# Formulation that does things exactly as in Giraldo, Kelly, and Constantinescu (2013).
-# Uses only one additional vector of storage regardless of the number of stages.
+# Formulation that does things exactly as in Giraldo, Kelly, and Constantinescu
+# (2013).  Uses only one additional vector of storage regardless of the number
+# of stages.
 struct LowStorageVariant end
 additional_storage(::LowStorageVariant, Q, Nstages) = (Qtt = similar(Q),)
 
@@ -20,8 +22,9 @@ abstract type AbstractAdditiveRungeKutta <: AbstractODESolver end
 """
     op! = EulerOperator(f!, ϵ)
 
-Construct a linear operator which performs an explicit Euler step ``Q + α f(Q)``,
-where `f!` and `op!` both operate inplace, with extra arguments passed through, i.e.
+Construct a linear operator which performs an explicit Euler step ``Q + α
+f(Q)``, where `f!` and `op!` both operate inplace, with extra arguments passed
+through, i.e.
 ```
 op!(LQ, Q, args...)
 ```
@@ -61,17 +64,17 @@ the assumed decomposition is
   \\dot{Q} = [l(Q, t)] + [f(Q, t)]
 ```
 
-where `f` is now only the nonlinear tendency. For both decompositions the
-linear operator `l` is integrated implicitly whereas the remaining part
-is integrated explicitly. Other arguments are the required time step size `dt`
-and the optional initial time `t0`. The resulting linear systems are solved
-using the provided `linearsolver` solver. This time stepping object is intended
-to be passed to the `solve!` command.
+where `f` is now only the nonlinear tendency. For both decompositions the linear
+operator `l` is integrated implicitly whereas the remaining part is integrated
+explicitly. Other arguments are the required time step size `dt` and the
+optional initial time `t0`. The resulting linear systems are solved using the
+provided `linearsolver` solver. This time stepping object is intended to be
+passed to the `solve!` command.
 
-The constructor builds an additive Runge--Kutta scheme
-based on the provided `RKAe`, `RKAi`, `RKB` and `RKC` coefficient arrays.
-Additionally `variant` specifies which of the analytically equivalent but numerically
-different formulations of the scheme is used.
+The constructor builds an additive Runge--Kutta scheme based on the provided
+`RKAe`, `RKAi`, `RKB` and `RKC` coefficient arrays.  Additionally `variant`
+specifies which of the analytically equivalent but numerically different
+formulations of the scheme is used.
 
 The available concrete implementations are:
 
@@ -151,9 +154,9 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <:
         end
 
         α = dt * RKA_implicit[2, 2]
-        # Here we are passing NaN for the time since prefactorization assumes the
-        # operator is time independent.  If that is not the case the NaN will
-        # surface.
+        # Here we are passing NaN for the time since prefactorization assumes
+        # the operator is time independent.  If that is not the case the NaN
+        # will surface.
         implicitoperator! = prefactorize(
             EulerOperator(rhs_linear!, -α),
             linearsolver,
@@ -226,7 +229,14 @@ function updatedt!(ark::AdditiveRungeKutta, dt)
     @assert isadjustable(ark)
     ark.dt = dt
     α = dt * ark.RKA_implicit[2, 2]
-    ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
+    FT = eltype(ark.Qstages[1])
+    ark.implicitoperator! = prefactorize(
+        EulerOperator(ark.rhs_linear!, -α),
+        ark.linearsolver,
+        ark.Qstages[1],
+        nothing,
+        FT(NaN),
+    )
 end
 
 function dostep!(
@@ -234,12 +244,11 @@ function dostep!(
     ark::AdditiveRungeKutta,
     p,
     time,
-    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
-    dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_rv_dQ, slow_scaling)
+    dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
 end
 
 function dostep!(
@@ -248,11 +257,12 @@ function dostep!(
     variant::NaiveVariant,
     p,
     time::Real,
-    dt::Real,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    dt = ark.dt
+
     implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
@@ -274,11 +284,6 @@ function dostep!(
 
     # calculate the rhs at first stage to initialize the stage loop
     rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-
-    if dt != ark.dt
-        α = dt * RKA_implicit[2, 2]
-        implicitoperator! = EulerOperator(rhs_linear!, -α)
-    end
 
     rhs_linear!(
         Lstages[1],
@@ -314,12 +319,8 @@ function dostep!(
         )
         wait(device(Q), event)
 
-        #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-        α = dt * RKA_implicit[istage, istage]
-        linearoperator! = function (LQ, Q)
-            rhs_linear!(LQ, Q, p, stagetime; increment = false)
-            @. LQ = Q - α * LQ
-        end
+        # solves
+        # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
         linearsolve!(
             implicitoperator!,
             linearsolver,
@@ -365,11 +366,12 @@ function dostep!(
     variant::LowStorageVariant,
     p,
     time::Real,
-    dt::Real,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    dt = ark.dt
+
     implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
@@ -391,11 +393,6 @@ function dostep!(
 
     # calculate the rhs at first stage to initialize the stage loop
     rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-
-    if dt != ark.dt
-        α = dt * RKA_implicit[2, 2]
-        implicitoperator! = EulerOperator(rhs_linear!, -α)
-    end
 
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages
@@ -423,10 +420,11 @@ function dostep!(
         )
         wait(device(Q), event)
 
-        #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
+        # solves
+        # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
         linearsolve!(implicitoperator!, linearsolver, Qtt, Qhat, p, stagetime)
 
-        #update Qstages
+        # update Qstages
         Qstages[istage] .+= Qtt
 
         rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
@@ -619,7 +617,8 @@ Giraldo, Kelly and Constantinescu (2013).
 
 ### References
     @article{giraldo2013implicit,
-      title={Implicit-explicit formulations of a three-dimensional nonhydrostatic unified model of the atmosphere ({NUMA})},
+      title={Implicit-explicit formulations of a three-dimensional
+             nonhydrostatic unified model of the atmosphere ({NUMA})},
       author={Giraldo, Francis X and Kelly, James F and Constantinescu, Emil M},
       journal={SIAM Journal on Scientific Computing},
       volume={35},
@@ -694,7 +693,8 @@ Kennedy and Carpenter (2013).
 ### References
 
     @article{kennedy2019higher,
-      title={Higher-order additive Runge--Kutta schemes for ordinary differential equations},
+      title={Higher-order additive Runge--Kutta schemes for ordinary
+             differential equations},
       author={Kennedy, Christopher A and Carpenter, Mark H},
       journal={Applied Numerical Mathematics},
       volume={136},
@@ -722,7 +722,8 @@ function ARK548L2SA2KennedyCarpenter(
     Nstages = 8
     gamma = RT(2 // 9)
 
-    # declared as Arrays for mutability, later these will be converted to static arrays
+    # declared as Arrays for mutability, later these will be converted to static
+    # arrays
     RKA_explicit = zeros(RT, Nstages, Nstages)
     RKA_implicit = zeros(RT, Nstages, Nstages)
     RKB = zeros(RT, Nstages)
@@ -843,7 +844,8 @@ Kennedy and Carpenter (2013).
 
 ### References
     @article{kennedy2019higher,
-      title={Higher-order additive Runge--Kutta schemes for ordinary differential equations},
+      title={Higher-order additive Runge--Kutta schemes for ordinary
+             differential equations},
       author={Kennedy, Christopher A and Carpenter, Mark H},
       journal={Applied Numerical Mathematics},
       volume={136},
@@ -871,7 +873,8 @@ function ARK437L2SA1KennedyCarpenter(
     Nstages = 7
     gamma = RT(1235 // 10000)
 
-    # declared as Arrays for mutability, later these will be converted to static arrays
+    # declared as Arrays for mutability, later these will be converted to static
+    # arrays
     RKA_explicit = zeros(RT, Nstages, Nstages)
     RKA_implicit = zeros(RT, Nstages, Nstages)
     RKB = zeros(RT, Nstages)

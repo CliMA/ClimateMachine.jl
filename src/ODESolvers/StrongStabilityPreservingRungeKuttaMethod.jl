@@ -90,10 +90,10 @@ end
 
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
-                       time::Real, dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
+                       time::Real, [slow_δ, slow_rv_dQ, slow_scaling])
 
 Use the strong stability preserving Runge--Kutta method `ssp` to step `Q`
-forward in time from the current time `time` to final time `time + dt`.
+forward in time from the current time `time` to final time `time + getdt(ssp)`.
 
 If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
 added as an additional ODE right-hand side source. If the optional parameter
@@ -105,11 +105,11 @@ function dostep!(
     ssp::StrongStabilityPreservingRungeKutta,
     p,
     time,
-    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     in_slow_scaling = nothing,
 )
+    dt = ssp.dt
 
     RKA, RKB, RKC = ssp.RKA, ssp.RKB, ssp.RKC
     rhs! = ssp.rhs!
