@@ -1,7 +1,4 @@
 
-include("MultirateInfinitesimalStepMethod_kernels.jl")
-
-
 export TimeScaledRHS, MIS2, MIS3C, MISRK3, MIS4, MIS4a, TVDMISA, TVDMISB, MISKWRK43
 ODEs = ODESolvers
 
@@ -198,29 +195,35 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p,
   for i = 2:nstages
     slowrhs!(fYnj[i-1], Q, p, time + c[i-1]*dt, increment=false)
 
-    threads = 256
-    blocks = div(length(realview(Q)) + threads - 1, threads)
-    if iszero(d[i])
-      @launch(device(Q), threads=threads, blocks=blocks,
-              update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]),
-              α[i,:], β[i,:], γ[i,:], dt))
+    groupsize = 256
+    event = Event(device(Q))
+    event = update!(device(Q), groupsize)(
+        realview(Q),
+        realview(offset),
+        Val(i),
+        realview(yn),
+        map(realview, ΔYnj[1:(i - 2)]),
+        map(realview, fYnj[1:(i - 1)]),
+        α[i, :],
+        β[i, :],
+        γ[i, :],
+        d[i],
+        dt;
+        ndrange = length(realview(Q)),
+        dependencies = (event,),
+    )
+    wait(device(Q), event)
 
-      Q += dt*offset
-    else
-      @launch(device(Q), threads=threads, blocks=blocks,
-              update!(realview(Q), realview(offset), Val(i), realview(yn), map(realview, ΔYnj[1:i-2]), map(realview, fYnj[1:i-1]),
-              α[i,:], β[i,:], γ[i,:], d[i], dt))
-      fastrhs!.a = time + c̃[i]*dt
-      fastrhs!.b = (c[i] - c̃[i]) / d[i]
+    fastrhs!.a = time + c̃[i] * dt
+    fastrhs!.b = (c[i] - c̃[i]) / d[i]
 
-      τ = zero(FT) #time struct mit Wert für tau und für a und b, direkt in SV aufrufen und im Wrapper von ARK
+    τ = zero(FT) #time struct mit Wert für tau und für a und b, direkt in SV aufrufen und im Wrapper von ARK
 
-      nstepsLoc=ceil(Int,nsteps*d[i]);
-      dτ = d[i] * dt / nstepsLoc
+    nstepsLoc=ceil(Int,nsteps*d[i]);
+    dτ = d[i] * dt / nstepsLoc
 
 
-      ODEs.dostep!(Q, fastsolver, p, τ, dτ, nstepsLoc, FT(1), realview(offset), nothing)  #(1c)
-    end
+    ODEs.dostep!(Q, fastsolver, p, τ, dτ, nstepsLoc, FT(1), realview(offset), nothing)  #(1c)
 
     #=
     τ = zero(FT)
@@ -236,6 +239,35 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p,
     end
     =#
   end
+end
+
+@kernel function update!(
+    Q,
+    offset,
+    ::Val{i},
+    yn,
+    ΔYnj,
+    fYnj,
+    αi,
+    βi,
+    γi,
+    d_i,
+    dt,
+) where {i}
+    e = @index(Global, Linear)
+    @inbounds begin
+        if i > 2
+            ΔYnj[i - 2][e] = Q[e] - yn[e] # is 0 for i == 2
+        end
+        Q[e] = yn[e] # (1a)
+        offset[e] = (βi[1] / d_i) .* fYnj[1][e] # (1b)
+        @unroll for j in 2:(i - 1)
+            Q[e] += αi[j] .* ΔYnj[j - 1][e] # (1a cont.)
+            offset[e] +=
+                (γi[j] / (d_i * dt)) * ΔYnj[j - 1][e] +
+                (βi[j] / d_i) * fYnj[j][e] # (1b cont.)
+        end
+    end
 end
 
 function MIS2(slowrhs!, fastrhs!, fastmethod, nsteps, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
