@@ -45,6 +45,15 @@ end
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
     linearized_air_pressure(state.ρ, state.ρe, ρe_pot, state.moisture.ρq_tot)
 end
+@inline function linearized_pressure(
+    ::NonEquilMoist,
+    orientation::Orientation,
+    state::Vars,
+    aux::Vars,
+)
+    ρe_pot = state.ρ * gravitational_potential(orientation, aux)
+    linearized_air_pressure(state.ρ, state.ρe, ρe_pot, state.moisture.ρq_tot)
+end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 

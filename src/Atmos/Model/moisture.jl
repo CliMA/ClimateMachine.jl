@@ -272,8 +272,8 @@ vars_aux(::NonEquilMoist, FT) =
     aux.moisture.temperature = air_temperature(TS)
     #q_p_sat = PhasePartition_equil(
     #    air_temperature(TS),
-     #   state.ρ,
-      #  state.moisture.ρq_tot,
+    #   state.ρ,
+    #  state.moisture.ρq_tot,
     #)
     #aux.moisture.src_qliq = conv_q_vap_to_q_liq(q_p_sat, PhasePartition(TS))
     aux.moisture.θ_v = virtual_pottemp(TS)
@@ -292,8 +292,8 @@ function thermo_state(
     FT = eltype(state)
     ρinv = 1 / state.ρ
     e_int = internal_energy(atmos, state, aux)
-    
-   q_pt = PhasePartition{FT}(
+
+    q_pt = PhasePartition{FT}(
         state.moisture.ρq_tot * ρinv,
         state.moisture.ρq_liq * ρinv,
         state.moisture.ρq_ice * ρinv,

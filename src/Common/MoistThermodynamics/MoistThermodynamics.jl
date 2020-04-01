@@ -181,8 +181,8 @@ cp_m(
     param_set::APS{FT} = MTPS{FT}(),
 ) where {FT <: Real} =
     FT(cp_d) +
-    (FT(cp_v) - FT(cp_d)) * max(0,q.tot) +
-    (FT(cp_l) - FT(cp_v)) * max(0,q.liq) +
+    (FT(cp_v) - FT(cp_d)) * max(0, q.tot) +
+    (FT(cp_l) - FT(cp_v)) * max(0, q.liq) +
     (FT(cp_i) - FT(cp_v)) * max(q.ice, 0)
 
 cp_m(::Type{FT}, param_set::APS{FT} = MTPS{FT}()) where {FT <: Real} =
@@ -341,7 +341,7 @@ The internal energy per unit mass, given
     e_pot::FT,
 ) where {FT <: Real}
     ρinv = 1 / ρ
-    ρe_kin = ρinv * (ρu[1]^2+ρu[2]^2+ρu[3]^2)/2#sum(abs2, ρu) / 2
+    ρe_kin = ρinv * (ρu[1]^2 + ρu[2]^2 + ρu[3]^2) / 2#sum(abs2, ρu) / 2
     ρe_pot = ρ * e_pot
     ρe_int = ρe - ρe_kin - ρe_pot
     e_int = ρinv * ρe_int

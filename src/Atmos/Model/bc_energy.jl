@@ -137,19 +137,19 @@ function atmos_energy_normal_boundary_flux_diffusive!(
     state1⁻,
     args...,
 )
-   FT = eltype(state⁺)
+    FT = eltype(state⁺)
     u1⁻ = state1⁻.ρu / state1⁻.ρ
     Pu1⁻ = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
     normPu1⁻ = norm(Pu1⁻)
     # NOTE: difference from design docs since normal points outwards
     C = bc_energy.fn(state⁻, aux⁻, t, normPu1⁻)
     τe = C * normPu1⁻
-    TS = thermo_state(atmos, atmos.moisture, state⁺, aux⁺)
+    TS = thermo_state(atmos, atmos.moisture, state1⁻, aux⁺)
     T = air_temperature(TS)
     TS1 = thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
     T_surf = air_temperature(TS1)
+    cv = cv_m(TS1)
     # both sides involve projections of normals, so signs are consistent
-    fluxᵀn.ρe += state⁻.ρ * τe * (T-T_surf)
-    
-end
+    fluxᵀn.ρe += state⁻.ρ * τe * cv * (T_surf - T)
 
+end

@@ -235,4 +235,3 @@ function atmos_momentum_normal_boundary_flux_diffusive!(
     fluxᵀn.ρu += state⁻.ρ * τn
     fluxᵀn.ρe += state⁻.ρu' * τn
 end
-

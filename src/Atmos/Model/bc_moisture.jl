@@ -96,7 +96,9 @@ function atmos_moisture_normal_boundary_flux_diffusive!(
     # NOTE: difference from design docs since normal points outwards
     C = bc_moisture.fn(state⁻, aux⁻, t, normPu1⁻)
     τe = C * normPu1⁻
-    q_surf = state⁻.moisture.ρq_tot / state⁻.ρ
+    TS = thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
+    q_surf = q_vap_saturation(TS)
     # both sides involve projections of normals, so signs are consistent
-    fluxᵀn.moisture.ρq_tot += state⁻.ρ * τe * (q_surf - state⁺.moisture.ρq_tot / state⁺.ρ)
+    fluxᵀn.moisture.ρq_tot +=
+        state⁻.ρ * τe * (q_surf - state1⁻.moisture.ρq_tot / state1⁻.ρ)
 end

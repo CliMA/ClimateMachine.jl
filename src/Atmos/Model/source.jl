@@ -1,5 +1,11 @@
 using CLIMA.PlanetParameters: Omega
-export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, CloudSource
+export Source,
+    Gravity,
+    RayleighSponge,
+    Subsidence,
+    GeostrophicForcing,
+    Coriolis,
+    CloudSource
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -148,11 +154,21 @@ function atmos_source!(
     aux::Vars,
     t::Real,
 )
+    x = aux.coord[1]
+    y = aux.coord[2]
     z = altitude(atmos.orientation, aux)
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        #elseif (abs(x) >= 795000)
+        #   r = (x - 795000) / (800000 - 795000)
+        #  β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        # source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        #elseif (abs(y) >= 700000)
+        #   r = (y - 795000) / (800000 - 795000)
+        #  β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        # source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
 end
 struct CloudSource <: Source end

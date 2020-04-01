@@ -175,7 +175,7 @@ function setup_solver(
             t0 = t0,
         )
     end
-    
+
     @toc setup_solver
 
     return SolverConfiguration(
