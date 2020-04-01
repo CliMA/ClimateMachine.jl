@@ -118,8 +118,15 @@ takes minimum of advective, gravity wave, diffusive, and viscous CFL
 
     CFL_advective =
         courant(advective_courant, dg, model, Q, Δt, t, VerticalDirection())
-    CFL_gravity =
-        courant(nondiffusive_courant, dg, model, Q, Δt, t, HorizontalDirection())
+    CFL_gravity = courant(
+        nondiffusive_courant,
+        dg,
+        model,
+        Q,
+        Δt,
+        t,
+        HorizontalDirection(),
+    )
     CFL_viscous =
         courant(viscous_courant, dg, model, Q, Δt, t, VerticalDirection())
     CFL_diffusive =
@@ -165,8 +172,15 @@ takes minimum of gravity wave, diffusive, and viscous CFL
 
     CFL_advective =
         courant(advective_courant, dg, ocean, Q, Δt, t, VerticalDirection())
-    CFL_gravity =
-        courant(nondiffusive_courant, dg, ocean, Q, Δt, t, HorizontalDirection())
+    CFL_gravity = courant(
+        nondiffusive_courant,
+        dg,
+        ocean,
+        Q,
+        Δt,
+        t,
+        HorizontalDirection(),
+    )
     CFL_viscous =
         courant(viscous_courant, dg, ocean, Q, Δt, t, HorizontalDirection())
     CFL_diffusive =

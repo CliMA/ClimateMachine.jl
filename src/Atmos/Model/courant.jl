@@ -27,7 +27,7 @@ function advective_courant(
     Δx,
     Δt,
     t,
-    direction
+    direction,
 )
     k̂ = vertical_unit_vector(m.orientation, aux)
     normu = norm_u(state, k̂, direction)
@@ -42,7 +42,7 @@ function nondiffusive_courant(
     Δx,
     Δt,
     t,
-    direction
+    direction,
 )
     k̂ = vertical_unit_vector(m.orientation, aux)
     normu = norm_u(state, k̂, direction)
@@ -57,7 +57,7 @@ function diffusive_courant(
     Δx,
     Δt,
     t,
-    direction
+    direction,
 )
     ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, t)
     k̂ = vertical_unit_vector(m.orientation, aux)
