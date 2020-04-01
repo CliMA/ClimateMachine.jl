@@ -153,6 +153,7 @@ let
                 c_v = Δt * (soundspeed_air(FT(T∞), model.param_set)) / Δx_v
                 d_h = Δt * diff_speed_h / Δx_h^2
                 d_v = Δt * diff_speed_v / Δx_v^2
+                simtime = FT(0)
 
                 # tests for non diffusive courant number
                 @test courant(
@@ -161,6 +162,7 @@ let
                     model,
                     Q,
                     Δt,
+                    simtime,
                     HorizontalDirection(),
                 ) ≈ c_h rtol = 1e-4
                 @test courant(
@@ -169,6 +171,7 @@ let
                     model,
                     Q,
                     Δt,
+                    simtime,
                     VerticalDirection(),
                 ) ≈ c_v rtol = 1e-4
 
@@ -179,6 +182,7 @@ let
                     model,
                     Q,
                     Δt,
+                    simtime,
                     HorizontalDirection(),
                 ) ≈ d_h
                 @test courant(
@@ -187,6 +191,7 @@ let
                     model,
                     Q,
                     Δt,
+                    simtime,
                     VerticalDirection(),
                 ) ≈ d_v
             end

@@ -36,8 +36,9 @@ DGmethods.courant(
     sc::SolverConfiguration;
     Q = sc.Q,
     dt = sc.dt,
+    simtime = gettime(sc.solver),
     direction = EveryDirection(),
-) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, direction)
+) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, simtime, direction)
 
 """
     CLIMA.SolverConfiguration(
@@ -128,8 +129,10 @@ function SolverConfiguration(
     end
 
     # initial Δt specified or computed
+    simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
-        ode_dt = calculate_dt(dg, dtmodel, Q, Courant_number, CFL_direction)
+        ode_dt =
+            calculate_dt(dg, dtmodel, Q, Courant_number, simtime, CFL_direction)
     end
     numberofsteps = convert(Int, cld(timeend, ode_dt))
     timeend_dt_adjust && (ode_dt = timeend / numberofsteps)
