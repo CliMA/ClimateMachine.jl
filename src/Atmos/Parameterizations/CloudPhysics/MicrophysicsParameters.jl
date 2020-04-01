@@ -10,6 +10,7 @@ using CLIMA.ParametersType
 @exportparameter C_drag          0.55            "drag coefficient for rain drops [-]"
 
 @exportparameter τ_cond_evap     10              "condensation/evaporation timescale [s]"
+@exportparameter τ_sub_resub     10              "sublimation/resublimation timescale [s]"
 
 @exportparameter q_liq_threshold 5e-4            "autoconversion threshold [-]  ∈(0.5, 1) * 1e-3 "
 @exportparameter τ_acnv          1e3             "autoconversion timescale [s]  ∈(1e3, 1e4) "

@@ -1,6 +1,6 @@
 module VariableTemplates
 
-export varsize, Vars, Grad, @vars
+export varsize, Vars, Grad, @vars, varsindex
 
 using StaticArrays
 
@@ -153,7 +153,7 @@ end
             LT = StaticArrays.lowertriangletype(T)
             N = length(LT)
             retexpr = :(
-                array[($(offset + 1)):($(offset + N))] .= $T(val).lowertriangle
+                array[($(offset + 1)):($(offset + N))] .=     $T(val).lowertriangle
             )
             offset += N
         elseif T <: StaticArray
