@@ -33,7 +33,7 @@ const (zmin,zmax)      = (0,10000)
 const Ne        = (160,2,80)
 const polynomialorder = 2
 const dim       = 3
-const dt        = 1.0
+const dt        = 0.5
 const timeend   = 1000.0
 # ------------- Initial condition function ----------- #
 """
