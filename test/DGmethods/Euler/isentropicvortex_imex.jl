@@ -50,16 +50,6 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = Dict(
-        "DEBUG" => Logging.Debug,
-        "WARN" => Logging.Warn,
-        "ERROR" => Logging.Error,
-        "INFO" => Logging.Info,
-    )[ll]
-
-    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-    global_logger(ConsoleLogger(logger_stream, loglevel))
     polynomialorder = 4
     numlevels = integration_testing ? 4 : 1
 
