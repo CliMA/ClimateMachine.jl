@@ -229,7 +229,14 @@ function updatedt!(ark::AdditiveRungeKutta, dt)
     @assert isadjustable(ark)
     ark.dt = dt
     α = dt * ark.RKA_implicit[2, 2]
-    ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
+    FT = eltype(ark.Qstages[1])
+    ark.implicitoperator! = prefactorize(
+        EulerOperator(ark.rhs_linear!, -α),
+        ark.linearsolver,
+        ark.Qstages[1],
+        nothing,
+        FT(NaN),
+    )
 end
 
 function dostep!(
@@ -237,12 +244,11 @@ function dostep!(
     ark::AdditiveRungeKutta,
     p,
     time,
-    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
-    dostep!(Q, ark, ark.variant, p, time, dt, slow_δ, slow_rv_dQ, slow_scaling)
+    dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
 end
 
 function dostep!(
@@ -251,11 +257,12 @@ function dostep!(
     variant::NaiveVariant,
     p,
     time::Real,
-    dt::Real,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    dt = ark.dt
+
     implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
@@ -277,11 +284,6 @@ function dostep!(
 
     # calculate the rhs at first stage to initialize the stage loop
     rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-
-    if dt != ark.dt
-        α = dt * RKA_implicit[2, 2]
-        implicitoperator! = EulerOperator(rhs_linear!, -α)
-    end
 
     rhs_linear!(
         Lstages[1],
@@ -364,11 +366,12 @@ function dostep!(
     variant::LowStorageVariant,
     p,
     time::Real,
-    dt::Real,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    dt = ark.dt
+
     implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
@@ -390,11 +393,6 @@ function dostep!(
 
     # calculate the rhs at first stage to initialize the stage loop
     rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-
-    if dt != ark.dt
-        α = dt * RKA_implicit[2, 2]
-        implicitoperator! = EulerOperator(rhs_linear!, -α)
-    end
 
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages

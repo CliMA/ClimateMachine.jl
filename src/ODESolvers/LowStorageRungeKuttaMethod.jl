@@ -76,10 +76,10 @@ end
 
 """
     dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
-                       dt::Real, [slow_δ, slow_rv_dQ, slow_scaling])
+            [slow_δ, slow_rv_dQ, slow_scaling])
 
 Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
-from the current time `time` to final time `time + dt`.
+from the current time `time` to final time `time + getdt(lsrk)`.
 
 If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
 added as an additionall ODE right-hand side source. If the optional parameter
@@ -91,11 +91,12 @@ function dostep!(
     lsrk::LowStorageRungeKutta2N,
     p,
     time,
-    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     in_slow_scaling = nothing,
 )
+    dt = lsrk.dt
+
     RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
     rhs!, dQ = lsrk.rhs!, lsrk.dQ
 
