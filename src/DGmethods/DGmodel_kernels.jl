@@ -1204,10 +1204,12 @@ Update the auxiliary state array
     l_Q = MArray{Tuple{nstate}, FT}(undef)
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
     @inbounds begin
+        e = elems[eI]
+
         @unroll for s in 1:nstate
             l_Q[s] = Q[n, s, e]
         end
@@ -1256,10 +1258,12 @@ Update the auxiliary state array
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
     l_diff = MArray{Tuple{nviscstate}, FT}(undef)
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
     @inbounds begin
+        e = elems[eI]
+
         @unroll for s in 1:nstate
             l_Q[s] = Q[n, s, e]
         end
@@ -1321,7 +1325,7 @@ See [`DGBalanceLaw`](@ref) for usage.
     l_int = @private FT (nout, Nq)
     s_I = @localmem FT (Nq, Nq)
 
-    eh = @index(Group, Linear)
+    _eh = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
@@ -1336,6 +1340,9 @@ See [`DGBalanceLaw`](@ref) for usage.
                 l_int[s, k] = 0
             end
         end
+
+        eh = elems[_eh]
+
         # Loop up the stack of elements
         for ev in 1:nvertelem
             e = ev + (eh - 1) * nvertelem
@@ -1416,10 +1423,12 @@ end
         l_V = MArray{Tuple{nout}, FT}(undef)
     end
 
-    eh = @index(Group, Linear)
+    _eh = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
+        eh = elems[_eh]
+
         # Initialize the constant state at zero
         ijk = i + Nq * ((j - 1) + Nqj * (Nq - 1))
         et = nvertelem + (eh - 1) * nvertelem
@@ -1467,7 +1476,7 @@ end
     Nq = N + 1
     Nqj = dim == 2 ? 1 : Nq
 
-    eh = @index(Group, Linear)
+    _eh = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     # note that k is the second not 4th index (since this is scratch memory and k
@@ -1475,6 +1484,7 @@ end
     @inbounds begin
         # Initialize the constant state at zero
         ijk = i + Nq * ((j - 1) + Nqj * (Nq - 1))
+        eh = elems[_eh]
         et = nvertelem + (eh - 1) * nvertelem
         val = auxstate[ijk, fldin, et]
 
