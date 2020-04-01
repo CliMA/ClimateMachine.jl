@@ -35,6 +35,17 @@ function main()
         meshwarp = Topologies.cubedshellwarp,
     )
 
+    let
+        Np = (N + 1)^3
+        activedofs = Array(grid.activedofs)
+        vmaprecv = Array(grid.vmaprecv)
+        active = union(1:(length(topology.realelems) * Np), vmaprecv)
+        inactive = setdiff(1:(length(topology.elems) * Np), active)
+
+        @test all(activedofs[active] .== true)
+        @test all(activedofs[inactive] .== false)
+    end
+
     #=
     @show elems       = topology.elems
     @show realelems   = topology.realelems

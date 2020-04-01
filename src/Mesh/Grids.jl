@@ -165,6 +165,9 @@ struct DiscontinuousSpectralElementGrid{
     "Array of real elements that have at least one ghost element as a neighbor"
     exteriorelems
 
+    "Array indicating if a degree of freedom (real or ghost) is active"
+    activedofs
+
     "1-D lvl weights on the device"
     ω::DAT1
 
@@ -211,6 +214,10 @@ struct DiscontinuousSpectralElementGrid{
         Np = (N + 1)^dim
         @assert Np == size(vgeo, 1)
 
+        activedofs = zeros(Bool, Np * length(topology.elems))
+        activedofs[1:(Np * length(topology.realelems))] .= true
+        activedofs[vmaprecv] .= true
+
         # Create arrays on the device
         vgeo = DeviceArray(vgeo)
         sgeo = DeviceArray(sgeo)
@@ -219,6 +226,7 @@ struct DiscontinuousSpectralElementGrid{
         vmap⁺ = DeviceArray(vmap⁺)
         vmapsend = DeviceArray(vmapsend)
         vmaprecv = DeviceArray(vmaprecv)
+        activedofs = DeviceArray(activedofs)
         ω = DeviceArray(ω)
         D = DeviceArray(D)
         Imat = DeviceArray(Imat)
@@ -260,6 +268,7 @@ struct DiscontinuousSpectralElementGrid{
             nabrtovmapsend,
             DeviceArray(topology.interiorelems),
             DeviceArray(topology.exteriorelems),
+            activedofs,
             ω,
             D,
             Imat,
