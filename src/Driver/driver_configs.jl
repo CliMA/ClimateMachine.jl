@@ -13,12 +13,18 @@ using CLIMAParameters.Planet: planet_radius
 
 abstract type AbstractSolverType end
 
+"""
+TODO: Document all solver types
+"""
 struct ExplicitSolverType <: AbstractSolverType
     solver_method::Function
     ExplicitSolverType(; solver_method = LSRK54CarpenterKennedy) =
         new(solver_method)
 end
 
+"""
+TODO: Document all solver types
+"""
 struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
@@ -33,6 +39,9 @@ struct IMEXSolverType <: AbstractSolverType
     end
 end
 
+"""
+TODO: Document all solver types
+"""
 struct MultirateSolverType <: AbstractSolverType
     linear_model::Type
     solver_method::Type
@@ -52,6 +61,38 @@ struct MultirateSolverType <: AbstractSolverType
             slow_method,
             fast_method,
             timestep_ratio,
+        )
+    end
+end
+
+"""
+TODO: Document all solver types
+"""
+struct MultirateHEVISolverType <: AbstractSolverType
+    linear_model::Type
+    linear_solver::Type
+    outer_method::Function
+    middle_method::Function
+    inner_method::Function
+    timestep_ratio_outer::Int
+    timestep_ratio_inner::Int
+    function MultirateHEVISolverType(;
+        linear_model = AtmosAcousticGravityLinearModel,
+        linear_solver = ManyColumnLU,
+        outer_method = MRIGARKIRK21aSandu,
+        middle_method = MRIGARKERK33aSandu,
+        inner_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio_outer = 100,
+        timestep_ratio_inner = 100,
+    )
+        return new(
+            linear_model,
+            linear_solver,
+            outer_method,
+            middle_method,
+            inner_method,
+            timestep_ratio_outer,
+            timestep_ratio_inner,
         )
     end
 end
