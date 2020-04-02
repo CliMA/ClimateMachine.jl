@@ -201,6 +201,65 @@ function SolverConfiguration(
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
         solver =
             ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
+    elseif isa(ode_solver_type, MultirateHEVISolverType)
+        # Vertical acoustic waves
+        vertical_dg = DGModel(
+            linmodel,
+            grid,
+            numfluxnondiff,
+            numfluxdiff,
+            gradnumflux,
+            auxstate = dg.auxstate,
+            direction = VerticalDirection(),
+        )
+
+        # Horizontal acoustic waves
+        horizontal_dg = DGModel(
+            linmodel,
+            grid,
+            numfluxnondiff,
+            numfluxdiff,
+            gradnumflux,
+            auxstate = dg.auxstate,
+            direction = HorizontalDirection(),
+        )
+
+        # Advection, diffusion, etc.
+        middle_model = RemainderModel(bl, (linmodel,))
+        rem_dg = DGModel(
+            middle_model,
+            grid,
+            numfluxnondiff,
+            numfluxdiff,
+            gradnumflux,
+            auxstate = dg.auxstate,
+        )
+
+        inner_method = ode_solver_type.inner_method
+        middle_method = ode_solver_type.middle_method
+        outer_method = ode_solver_type.outer_method
+
+        middle_dt = ode_dt / ode_solver_type.timestep_ratio_outer
+        inner_dt = middle_dt / ode_solver_type.timestep_ratio_inner
+
+        # Inner-most solver (explicit method for horizontal acoustic waves)
+        inner_solver = inner_method(horizontal_dg, Q; dt = inner_dt)
+        # Middle solver (explicit GARK method for advection/diffusion)
+        middle_solver = middle_method(rem_dg, inner_solver, Q, dt = middle_dt)
+        # Outer solver (implicit GARK for vertical acoustic waves)
+        solver = outer_method(
+            vertical_dg,
+            LinearBackwardEulerSolver(
+                ode_solver_type.linear_solver();
+                # FIXME: more robust way of determining what this flag should be
+                # given a solver?
+                isadjustable = false,
+            ),
+            middle_solver,
+            Q;
+            dt = ode_dt,
+            t0 = t0,
+        )
     else # solver_type === IMEXSolverType
         vdg = DGModel(
             linmodel,
