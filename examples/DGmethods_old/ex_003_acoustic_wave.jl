@@ -47,15 +47,15 @@ using CLIMA.VTK
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+using CLIMAParameters
+using CLIMAParameters.Planet: planet_radius, grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 
 # Though not required, here we are explicit about which values we read out the
-# `PlanetParameters` and `MoistThermodynamics`
-using CLIMA.PlanetParameters: planet_radius, grav, MSLP
+# `MoistThermodynamics`
+
 using CLIMA.MoistThermodynamics:
     air_temperature,
     air_pressure,
@@ -232,17 +232,19 @@ end
 function auxiliary_state_initialization!(T0, aux, x, y, z)
     @inbounds begin
         FT = eltype(aux)
-        p0 = FT(MSLP)
+        _MSLP::FT = MSLP(param_set)
+        _planet_radius::FT = planet_radius(param_set)
+        _grav::FT = grav(param_set)
 
         ## Convert to Spherical coordinates
         (r, _, _) = cartesian_to_spherical(FT, x, y, z)
 
         ## Calculate the geopotential ϕ
-        h = r - FT(planet_radius) # height above the planet surface
-        ϕ = FT(grav) * h
+        h = r - _planet_radius # height above the planet surface
+        ϕ = _grav * h
 
         ## Pressure assuming hydrostatic balance
-        P_ref = p0 * exp(-ϕ / (gas_constant_air(FT) * T0))
+        P_ref = _MSLP * exp(-ϕ / (gas_constant_air(FT) * T0))
 
         ## Density from the ideal gas law
         ρ_ref = air_density(FT(T0), P_ref)
@@ -269,10 +271,10 @@ end
 function initialcondition!(domain_height, Q, x, y, z, aux, _...)
     @inbounds begin
         FT = eltype(Q)
-        p0 = FT(MSLP)
+        _planet_radius::FT = planet_radius(param_set)
 
         (r, λ, φ) = cartesian_to_spherical(FT, x, y, z)
-        h = r - FT(planet_radius)
+        h = r - _planet_radius
 
         ## Get the reference pressure from the previously defined reference state
         ρ_ref, ρe_ref, ϕ = aux[_a_ρ_ref], aux[_a_ρe_ref], aux[_a_ϕ]
@@ -352,11 +354,12 @@ function setupDG(
     FT,
 )
 
+    _planet_radius::FT = planet_radius(param_set)
     ## Create the element grid in the vertical direction
     Rrange = range(
-        FT(planet_radius),
+        _planet_radius,
         length = Ne_vertical + 1,
-        stop = planet_radius + domain_height,
+        stop = _planet_radius + domain_height,
     )
 
     ## Set up the mesh topology for the sphere

@@ -16,12 +16,10 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # -------------------- Surface Driven Bubble ----------------- #
 # Rising thermals driven by a prescribed surface heat flux.
@@ -42,9 +40,9 @@ function init_surfacebubble!(bl, state, aux, (x, y, z), t)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
     c_v::FT = cv_d(bl.param_set)
-    γ::FT = c_p / c_v
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
+    γ::FT = c_p / c_v
 
     xc::FT = 1250
     yc::FT = 1250

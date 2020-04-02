@@ -16,13 +16,10 @@ using CLIMA.Mesh.Grids
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 struct HeldSuarezDataConfig{FT}
     T_ref::FT

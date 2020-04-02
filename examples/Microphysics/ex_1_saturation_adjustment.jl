@@ -33,6 +33,9 @@ end
 
 function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     FT = eltype(state)
+
+    _grav::FT = grav(param_set)
+
     dc = eddy_model.data_config
 
     # density
@@ -57,7 +60,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
 
     # energy
     e_kin::FT = 1 // 2 * (u^2 + w^2)
-    e_pot::FT = grav * z
+    e_pot::FT = _grav * z
     e_int::FT = internal_energy(T, q_pt_0)
     e_tot::FT = e_kin + e_pot + e_int
     state.ρe = ρ * e_tot
@@ -72,6 +75,7 @@ function kinematic_model_nodal_update_aux!(
     t::Real,
 )
     FT = eltype(state)
+    _grav::FT = grav(param_set)
 
     aux.u = state.ρu[1] / state.ρ
     aux.w = state.ρu[3] / state.ρ
@@ -80,7 +84,7 @@ function kinematic_model_nodal_update_aux!(
 
     aux.e_tot = state.ρe / state.ρ
     aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-    aux.e_pot = grav * aux.z
+    aux.e_pot = _grav * aux.z
     aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
     # saturation adjustment happens here

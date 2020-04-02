@@ -14,7 +14,6 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, cv_d, grav, MSLP
 using CLIMA.SubgridScaleParameters
 using LinearAlgebra
 using StaticArrays
@@ -23,10 +22,10 @@ using CLIMA.VTK
 using Random
 using CLIMA.Atmos: vars_state, vars_aux
 
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -68,10 +67,11 @@ function Initialise_Density_Current!(
     t,
 )
     FT = eltype(state)
-    R_gas::FT = R_d
-    c_p::FT = cp_d
-    c_v::FT = cv_d
-    p0::FT = MSLP
+    _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
+    _cp_d::FT = cp_d(param_set)
+    _cv_d::FT = cv_d(param_set)
+    _MSLP::FT = MSLP(param_set)
     # initialise with dry domain
     q_tot::FT = 0
     q_liq::FT = 0
@@ -90,8 +90,8 @@ function Initialise_Density_Current!(
     end
     qvar = PhasePartition(q_tot)
     θ = θ_ref + Δθ # potential temperature
-    π_exner = FT(1) - grav / (c_p * θ) * x3 # exner pressure
-    ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
+    π_exner = FT(1) - _grav / (_cp_d * θ) * x3 # exner pressure
+    ρ = _MSLP / (_R_d * θ) * (π_exner)^(_cv_d / _R_d) # density
 
     ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
     q_pt = PhasePartition(ts)

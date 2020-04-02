@@ -38,9 +38,13 @@ using CLIMA.MoistThermodynamics
 using CLIMA.Microphysics
 using CLIMA.MPIStateArrays
 using CLIMA.ODESolvers
-using CLIMA.PlanetParameters
 using CLIMA.VariableTemplates
 using CLIMA.VTK
+
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, cv_v, T_0, e_int_v0, grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 import CLIMA.DGmethods:
     BalanceLaw,
@@ -118,6 +122,10 @@ function init_aux!(m::KinematicModel, aux::Vars, geom::LocalGeometry)
     x, y, z = geom.coord
     dc = m.data_config
 
+    _R_d::FT = R_d(param_set)
+    _cp_d::FT = cp_d(param_set)
+    _grav::FT = grav(param_set)
+
     # TODO - should R_d and cp_d here be R_m and cp_m?
     R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(dc.qt_0))
 
@@ -127,9 +135,9 @@ function init_aux!(m::KinematicModel, aux::Vars, geom::LocalGeometry)
     p =
         dc.p_1000 *
         (
-            (dc.p_0 / dc.p_1000)^(R_d / cp_d) -
-            R_d / cp_d * grav / dc.θ_0 / R_m * (z - dc.z_0)
-        )^(cp_d / R_d)
+            (dc.p_0 / dc.p_1000)^(_R_d / _cp_d) -
+            _R_d / _cp_d * _grav / dc.θ_0 / R_m * (z - dc.z_0)
+        )^(_cp_d / _R_d)
     aux.p = p
     aux.z = z
 end

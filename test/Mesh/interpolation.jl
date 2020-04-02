@@ -29,10 +29,10 @@ using CLIMA.VTK
 
 using CLIMA.Atmos: vars_state, vars_aux
 
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 
 using Random

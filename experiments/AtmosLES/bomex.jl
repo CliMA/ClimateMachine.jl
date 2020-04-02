@@ -66,13 +66,10 @@ using CLIMA.ODESolvers
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: e_int_v0, grav, day
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude

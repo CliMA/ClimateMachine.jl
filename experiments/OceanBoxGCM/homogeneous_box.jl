@@ -9,17 +9,17 @@ using CLIMA.VariableTemplates
 using CLIMA.Mesh.Grids: polynomialorder
 import CLIMA.DGmethods: vars_state
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 function config_simple_box(FT, N, resolution, dimensions)
     prob = HomogeneousBox{FT}(dimensions...)
 
-    cʰ = sqrt(FT(grav(param_set)) * prob.H) # m/s
+    _grav::FT = grav(param_set)
+
+    cʰ = sqrt(_grav * prob.H) # m/s
     model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
 
     config =
