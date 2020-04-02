@@ -4,7 +4,7 @@ import CLIMA.DGmethods: BalanceLaw,
                         vars_aux, vars_state, vars_gradient, vars_diffusive,
                         flux_nondiffusive!, flux_diffusive!, source!,
                         gradvariables!, diffusive!,
-                        init_aux!, init_state!,
+                        init_aux!, update_aux!, init_state!,
                         boundary_state!, wavespeed, LocalGeometry,
                         num_state, num_gradient
 using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
@@ -13,16 +13,21 @@ using CLIMA.DGmethods.NumericalFluxes: NumericalFluxNonDiffusive,
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
 abstract type AdvectionDiffusionProblem end
-struct AdvectionDiffusion{dim, P, fluxBC} <: BalanceLaw
+struct AdvectionDiffusion{dim, P, fluxBC, no_diffusion} <: BalanceLaw
   problem::P
   function AdvectionDiffusion{dim}(problem::P
                                   ) where {dim, P <: AdvectionDiffusionProblem}
-    new{dim, P, false}(problem)
+    new{dim, P, false, false}(problem)
   end
   function AdvectionDiffusion{dim, fluxBC}(problem::P
                                   ) where {dim, P <: AdvectionDiffusionProblem,
                                            fluxBC}
-    new{dim, P, fluxBC}(problem)
+    new{dim, P, fluxBC, false}(problem)
+  end
+  function AdvectionDiffusion{dim, fluxBC, no_diffusion}(problem::P
+                                  ) where {dim, P <: AdvectionDiffusionProblem,
+                                           fluxBC, no_diffusion}
+    new{dim, P, fluxBC, no_diffusion}(problem)
   end
 end
 
@@ -33,15 +38,23 @@ end
 vars_aux(::AdvectionDiffusion, FT) = @vars(coord::SVector{3, FT},
                                            u::SVector{3, FT},
                                            D::SMatrix{3, 3, FT, 9})
-#
+function vars_aux(::AdvectionDiffusion{dim, P, fluxBC, true}, FT) where{dim, P, fluxBC}
+  @vars begin
+    coord::SVector{3, FT}
+    u::SVector{3, FT}
+  end
+end
+
 # Density is only state
 vars_state(::AdvectionDiffusion, FT) = @vars(ρ::FT)
 
 # Take the gradient of density
 vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
+vars_gradient(::AdvectionDiffusion{dim, P, fluxBC, true}, FT) where{dim, P, fluxBC} = @vars()
 
 # The DG auxiliary variable: D ∇ρ
 vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3,FT})
+vars_diffusive(::AdvectionDiffusion{dim, P, fluxBC, true}, FT) where{dim, P, fluxBC} = @vars()
 
 """
     flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
@@ -60,7 +73,7 @@ Where
  - `ρ` is the advected quantity
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
-function flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
+function flux_nondiffusive!(::AdvectionDiffusion, flux::Grad, state::Vars,
                             aux::Vars, t::Real)
   ρ = state.ρ
   u = aux.u
@@ -83,10 +96,12 @@ Where
  - `ρ` is the advected quantity
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
-function flux_diffusive!(m::AdvectionDiffusion, flux::Grad, auxDG::Vars)
+function flux_diffusive!(::AdvectionDiffusion, flux::Grad, auxDG::Vars)
   σ = auxDG.σ
   flux.ρ += -σ
 end
+flux_diffusive!(::AdvectionDiffusion{dim, P, fluxBC, true},
+                flux::Grad, auxDG::Vars) where {dim, P, fluxBC} = nothing
 flux_diffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars, auxDG::Vars,
                 auxHDG::Vars, aux::Vars, t::Real) = flux_diffusive!(m, flux, auxDG)
 
@@ -144,6 +159,17 @@ function init_aux!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
   init_velocity_diffusion!(m.problem, aux, geom)
 end
 
+has_variable_coefficients(::AdvectionDiffusionProblem) = false
+function update_aux!(dg::DGModel, m::AdvectionDiffusion, Q::MPIStateArray, t::Real)
+    if has_variable_coefficients(m.problem)
+      nodal_update_aux!(dg, m, Q, t) do m, state, aux, t
+        update_velocity_diffusion!(m.problem, m, state, aux, t)
+      end
+      return true
+    end
+    return false
+end
+
 function init_state!(m::AdvectionDiffusion, state::Vars, aux::Vars,
                      coords, t::Real)
   initial_condition!(m.problem, state, aux, coords, t)
@@ -193,6 +219,13 @@ function boundary_state!(nf::CentralNumericalFluxDiffusive,
   end
   nothing
 end
+boundary_state!(nf::CentralNumericalFluxDiffusive,
+    m::AdvectionDiffusion{dim, P, fluxBC, true},
+    state⁺::Vars, diff⁺::Vars, aux⁺::Vars,
+    n⁻::SVector,
+    state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
+    bctype, t,
+    _...) where {dim, P, fluxBC} = nothing
 
 function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
                                   m::AdvectionDiffusion{dim, P, true},
@@ -224,3 +257,6 @@ function boundary_flux_diffusive!(nf::CentralNumericalFluxDiffusive,
   end
   nothing
 end
+boundary_flux_diffusive!(::CentralNumericalFluxDiffusive,
+                         ::AdvectionDiffusion{dim, P, true, true},
+                         _...) where {dim, P} = nothing
