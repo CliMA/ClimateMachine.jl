@@ -32,12 +32,6 @@ include(joinpath(
 include(joinpath(
     "Atmos",
     "Parameterizations",
-    "TurbulenceConvection",
-    "TurbulenceConvection.jl",
-))
-include(joinpath(
-    "Atmos",
-    "Parameterizations",
     "SubgridScaleTurbulence",
     "SubgridScaleParameters.jl",
 ))

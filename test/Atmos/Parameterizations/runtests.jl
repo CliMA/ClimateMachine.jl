@@ -5,7 +5,6 @@ using Test, Pkg
     for submodule in [
                       "Microphysics",
                       "SurfaceFluxes",
-                      "TurbulenceConvection",
                      ]
 
       if all_tests || "$submodule" in ARGS || "Parameterizations" in ARGS || "Atmos" in ARGS
