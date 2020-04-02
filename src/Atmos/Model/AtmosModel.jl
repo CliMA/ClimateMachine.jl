@@ -388,16 +388,22 @@ end
 end
 
 
-function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
+function update_aux!(
+    dg::DGModel,
+    m::AtmosModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
     FT = eltype(Q)
     auxstate = dg.auxstate
 
     if num_integrals(m, FT) > 0
-        indefinite_stack_integral!(dg, m, Q, auxstate, t)
-        reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
+        indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
+        reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
     end
 
-    nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t)
+    nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t, elems)
 
     return true
 end

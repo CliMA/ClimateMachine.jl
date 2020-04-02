@@ -61,6 +61,7 @@ function update_aux!(
     lm::AtmosLinearModel,
     Q::MPIStateArray,
     t::Real,
+    elems::UnitRange,
 )
     return false
 end

@@ -577,17 +577,27 @@ end
 
     doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
 """
-function update_aux!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
+function update_aux!(
+    dg::DGModel,
+    m::HBModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
     MD = dg.modeldata
 
-    # required to ensure that after integration velocity field is divergence free
-    vert_filter = MD.vert_filter
-    # Q[1] = u[1] = u, Q[2] = u[2] = v
-    apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
+    # `update_aux!` gets called twice, once for the real elements and once for
+    # the ghost elements.  Only apply the filters to the real elems.
+    if elems == dg.grid.topology.realelems
+        # required to ensure that after integration velocity field is divergence free
+        vert_filter = MD.vert_filter
+        # Q[1] = u[1] = u, Q[2] = u[2] = v
+        apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
 
-    exp_filter = MD.exp_filter
-    # Q[4] = θ
-    apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+        exp_filter = MD.exp_filter
+        # Q[4] = θ
+        apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+    end
 
     return true
 end
@@ -607,6 +617,7 @@ function update_aux_diffusive!(
     m::HBModel,
     Q::MPIStateArray,
     t::Real,
+    elems::UnitRange,
 )
     A = dg.auxstate
 
@@ -620,16 +631,16 @@ function update_aux_diffusive!(
 
         return nothing
     end
-    nodal_update_aux!(f!, dg, m, Q, t; diffusive = true)
+    nodal_update_aux!(f!, dg, m, Q, t, elems; diffusive = true)
 
     # compute integrals for w and pkin
-    indefinite_stack_integral!(dg, m, Q, A, t) # bottom -> top
-    reverse_indefinite_stack_integral!(dg, m, Q, A, t) # top -> bottom
+    indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
+    reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
     # project w(z=0) down the stack
     # Need to be consistent with vars_aux
     # A[1] = w, A[3] = wz0
-    copy_stack_field_down!(dg, m, A, 1, 3)
+    copy_stack_field_down!(dg, m, A, 1, 3, elems)
 
     return true
 end

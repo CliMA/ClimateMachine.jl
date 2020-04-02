@@ -153,8 +153,14 @@ function init_state!(
     m.init_state(m, state, aux, coords, t, args...)
 end
 
-function update_aux!(dg::DGModel, m::KinematicModel, Q::MPIStateArray, t::Real)
-    nodal_update_aux!(kinematic_model_nodal_update_aux!, dg, m, Q, t)
+function update_aux!(
+    dg::DGModel,
+    m::KinematicModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
+    nodal_update_aux!(kinematic_model_nodal_update_aux!, dg, m, Q, t, elems)
     return true
 end
 

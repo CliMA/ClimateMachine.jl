@@ -214,9 +214,10 @@ function update_aux!(
     m::AdvectionDiffusion,
     Q::MPIStateArray,
     t::Real,
+    elems::UnitRange,
 )
     if has_variable_coefficients(m.problem)
-        nodal_update_aux!(dg, m, Q, t) do m, state, aux, t
+        nodal_update_aux!(dg, m, Q, t, elems) do m, state, aux, t
             update_velocity_diffusion!(m.problem, m, state, aux, t)
         end
         return true
