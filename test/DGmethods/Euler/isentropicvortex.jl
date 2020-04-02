@@ -26,10 +26,10 @@ using CLIMA.Atmos:
     vars_state
 using CLIMA.VariableTemplates: flattenednames
 
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: kappa_d
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 

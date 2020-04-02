@@ -8,10 +8,9 @@
 #
 # User-customized configurations can use these as templates.
 
-using ..Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+using CLIMAParameters
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 abstract type AbstractSolverType end
 

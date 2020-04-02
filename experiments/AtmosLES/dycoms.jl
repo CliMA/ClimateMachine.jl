@@ -16,13 +16,10 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 import CLIMA.DGmethods:
     vars_state,

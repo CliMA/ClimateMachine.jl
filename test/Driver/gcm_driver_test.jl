@@ -4,18 +4,17 @@ using Test
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
-using CLIMA.PlanetParameters: grav
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: grav
 using CLIMA.VariableTemplates
 using CLIMA.Grids
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks: EveryXSimulationSteps
 using CLIMA.Mesh.Filters
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+
+using CLIMAParameters
+using CLIMAParameters.Planet: grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 Base.@kwdef struct AcousticWaveSetup{FT}
     domain_height::FT = 10e3

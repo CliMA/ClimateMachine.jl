@@ -14,13 +14,12 @@ using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, cv_d, grav, MSLP
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # ------------------- Description ---------------------------------------- #
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
@@ -58,21 +57,24 @@ end
 function init_problem!(bl, state, aux, (x, y, z), t)
     dc = bl.data_config
     FT = eltype(state)
-    R_gas::FT = R_d
-    c_p::FT = cp_d
-    c_v::FT = cv_d
-    γ::FT = c_p / c_v
-    p0::FT = MSLP
+
+    _R_d::FT = R_d(bl.param_set)
+    _cp_d::FT = cp_d(bl.param_set)
+    _grav::FT = grav(bl.param_set)
+    _cv_d::FT = cv_d(bl.param_set)
+    _MSLP::FT = MSLP(bl.param_set)
+
+    γ::FT = _cp_d / _cv_d
     δT =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
         cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
     δw =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
         cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
-    ΔT = grav / cp_d * z + δT
+    ΔT = _grav / _cv_d * z + δT
     T = dc.T_bot - ΔT
-    P = p0 * (T / dc.T_bot)^(grav / R_gas / dc.T_lapse)
-    ρ = P / (R_gas * T)
+    P = _MSLP * (T / dc.T_bot)^(_grav / _R_d / dc.T_lapse)
+    ρ = P / (_R_d * T)
 
     q_tot = FT(0)
     e_pot = gravitational_potential(bl.orientation, aux)
@@ -94,7 +96,11 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
 
     # Boundary conditions
     T_bot = FT(299)
-    T_lapse = FT(grav / cp_d)
+
+    _cp_d::FT = cp_d(param_set)
+    _grav::FT = grav(param_set)
+
+    T_lapse = FT(_grav / _cp_d)
     T_top = T_bot - T_lapse * zmax
 
     # Turbulence

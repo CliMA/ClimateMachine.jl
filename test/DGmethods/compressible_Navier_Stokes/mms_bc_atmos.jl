@@ -18,10 +18,9 @@ using Logging, Printf, Dates
 using CLIMA.VTK
 using Test
 
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+using CLIMAParameters
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 if !@isdefined integration_testing
     const integration_testing = parse(

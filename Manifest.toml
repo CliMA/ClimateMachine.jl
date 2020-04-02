@@ -62,6 +62,12 @@ git-tree-sha1 = "143ef231a14c2ab1ac7e838c559ee1e45c0d1b57"
 uuid = "179af706-886a-5703-950a-314cd64e0468"
 version = "0.1.0"
 
+[[CLIMAParameters]]
+deps = ["Test"]
+git-tree-sha1 = "e07ffe98ec361798673445962f211659d14205ea"
+uuid = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
+version = "0.1.1"
+
 [[CUDAapi]]
 deps = ["Libdl", "Logging"]
 git-tree-sha1 = "d7ceadd8f821177d05b897c0517e94633db535fe"

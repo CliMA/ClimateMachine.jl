@@ -9,6 +9,7 @@ cpu = [
   { file = "test/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/ODESolvers/ode_tests_convergence.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "examples/Microphysics/ex_1_saturation_adjustment.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "examples/Microphysics/ex_2_Kessler.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 cpu_gpu = [
@@ -44,7 +45,6 @@ cpu_gpu = [
   { file = "examples/DGmethods_old/ex_002_solid_body_rotation.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/DGmethods_old/ex_003_acoustic_wave.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/DGmethods_old/ex_004_nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
-#  { file = "examples/Microphysics/ex_2_Kessler.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 gpu = [
