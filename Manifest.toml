@@ -229,10 +229,10 @@ uuid = "ba82f77b-6841-5d2e-bd9f-4daf811aec27"
 version = "0.2.9"
 
 [[GaussQuadrature]]
-deps = ["LinearAlgebra", "Printf", "SpecialFunctions", "Test"]
-git-tree-sha1 = "3113b28de0e25576348c06731327f3df8de6ad90"
+deps = ["SpecialFunctions"]
+git-tree-sha1 = "ff30c61ad1ff425d0d8bac6b77833216741c2e68"
 uuid = "d54b0c1a-921d-58e0-8e36-89d8069c0969"
-version = "0.5.0"
+version = "0.5.4"
 
 [[GenericSVD]]
 deps = ["LinearAlgebra"]
