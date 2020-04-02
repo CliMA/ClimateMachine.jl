@@ -115,12 +115,12 @@ function main()
     ugeo_abs = FT(7)
     vgeo_abs = FT(5.5)
     Δt = solver_config.dt
-    caₕ = ugeo_abs * (Δt / Δh) + vgeo_abs * (Δt / Δh)
+    ca_h = ugeo_abs * (Δt / Δh) + vgeo_abs * (Δt / Δh)
     # vertical velocity is 0
     caᵥ = FT(0.0)
     @test isapprox(CFL_adv_v, caᵥ)
-    @test isapprox(CFL_adv_h, caₕ, atol = 0.0005)
-    @test isapprox(CFL_adv, caₕ, atol = 0.0005)
+    @test isapprox(CFL_adv_h, ca_h, atol = 0.0005)
+    @test isapprox(CFL_adv, ca_h, atol = 0.0005)
 
     cb_test = 0
     result = CLIMA.invoke!(solver_config)

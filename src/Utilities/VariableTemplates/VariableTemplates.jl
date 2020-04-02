@@ -1,6 +1,6 @@
 module VariableTemplates
 
-export varsize, Vars, Grad, @vars
+export varsize, Vars, Grad, @vars, varsindex
 
 using StaticArrays
 
