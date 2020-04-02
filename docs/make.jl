@@ -18,7 +18,6 @@ pages = Any[
     "Utilites" => Any[],
     "Atmos" => Any[
         "Atmos/SurfaceFluxes.md",
-        "Atmos/TurbulenceConvection.md",
         "Atmos/EDMFEquations.md",
         "Microphysics" => "Atmos/Microphysics.md",
     ],
