@@ -1177,7 +1177,7 @@ end
 
 @doc """
     knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate,
-                          t, elems) where {dim, N}
+                          t, elems, activedofs) where {dim, N}
 
 Update the auxiliary state array
 """ knl_nodal_update_aux!
@@ -1190,6 +1190,7 @@ Update the auxiliary state array
     auxstate,
     t,
     elems,
+    activedofs,
 ) where {dim, N}
     FT = eltype(Q)
     nstate = num_state(bl, FT)
@@ -1210,25 +1211,34 @@ Update the auxiliary state array
     @inbounds begin
         e = elems[eI]
 
-        @unroll for s in 1:nstate
-            l_Q[s] = Q[n, s, e]
-        end
+        active = activedofs[n + (e - 1) * Np]
 
-        @unroll for s in 1:nauxstate
-            l_aux[s] = auxstate[n, s, e]
-        end
+        if active
+            @unroll for s in 1:nstate
+                l_Q[s] = Q[n, s, e]
+            end
 
-        f!(bl, Vars{vars_state(bl, FT)}(l_Q), Vars{vars_aux(bl, FT)}(l_aux), t)
+            @unroll for s in 1:nauxstate
+                l_aux[s] = auxstate[n, s, e]
+            end
 
-        @unroll for s in 1:nauxstate
-            auxstate[n, s, e] = l_aux[s]
+            f!(
+                bl,
+                Vars{vars_state(bl, FT)}(l_Q),
+                Vars{vars_aux(bl, FT)}(l_aux),
+                t,
+            )
+
+            @unroll for s in 1:nauxstate
+                auxstate[n, s, e] = l_aux[s]
+            end
         end
     end
 end
 
 @doc """
     knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate, diffstate,
-                          t, elems) where {dim, N}
+                          t, elems, activedofs) where {dim, N}
 
 Update the auxiliary state array
 """ knl_nodal_update_aux!
@@ -1242,6 +1252,7 @@ Update the auxiliary state array
     diffstate,
     t,
     elems,
+    activedofs,
 ) where {dim, N}
     FT = eltype(Q)
     nstate = num_state(bl, FT)
@@ -1264,28 +1275,32 @@ Update the auxiliary state array
     @inbounds begin
         e = elems[eI]
 
-        @unroll for s in 1:nstate
-            l_Q[s] = Q[n, s, e]
-        end
+        active = activedofs[n + (e - 1) * Np]
 
-        @unroll for s in 1:nauxstate
-            l_aux[s] = auxstate[n, s, e]
-        end
+        if active
+            @unroll for s in 1:nstate
+                l_Q[s] = Q[n, s, e]
+            end
 
-        @unroll for s in 1:nviscstate
-            l_diff[s] = diffstate[n, s, e]
-        end
+            @unroll for s in 1:nauxstate
+                l_aux[s] = auxstate[n, s, e]
+            end
 
-        f!(
-            bl,
-            Vars{vars_state(bl, FT)}(l_Q),
-            Vars{vars_aux(bl, FT)}(l_aux),
-            Vars{vars_diffusive(bl, FT)}(l_diff),
-            t,
-        )
+            @unroll for s in 1:nviscstate
+                l_diff[s] = diffstate[n, s, e]
+            end
 
-        @unroll for s in 1:nauxstate
-            auxstate[n, s, e] = l_aux[s]
+            f!(
+                bl,
+                Vars{vars_state(bl, FT)}(l_Q),
+                Vars{vars_aux(bl, FT)}(l_aux),
+                Vars{vars_diffusive(bl, FT)}(l_diff),
+                t,
+            )
+
+            @unroll for s in 1:nauxstate
+                auxstate[n, s, e] = l_aux[s]
+            end
         end
     end
 end

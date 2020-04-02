@@ -656,7 +656,8 @@ function nodal_update_aux!(
             dg.auxstate.data,
             dg.diffstate.data,
             t,
-            topology.realelems;
+            topology.realelems,
+            grid.activedofs;
             ndrange = Np * nrealelem,
             dependencies = (event,),
         )
@@ -669,7 +670,8 @@ function nodal_update_aux!(
             Q.data,
             dg.auxstate.data,
             t,
-            topology.realelems;
+            topology.realelems,
+            grid.activedofs;
             ndrange = Np * nrealelem,
             dependencies = (event,),
         )
