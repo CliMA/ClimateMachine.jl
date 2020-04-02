@@ -96,8 +96,8 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
 
   # do a half step
   rhs!(dQ, Q, p, time, increment = false)
-  event = Event(device(Q))
-  event = update!(device(Q), groupsize)(
+  event = Event(array_device(Q))
+  event = update!(array_device(Q), groupsize)(
       dQa,
       Qa,
       dt/2,
@@ -106,14 +106,14 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
       ndrange = length(Qa),
       dependencies = (event,),
   )
-  wait(device(Q), event)
+  wait(array_device(Q), event)
   time += dt/2
   Q.realdata[:,sv.mask_a,:].=Qa
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, increment = false)
-    event = Event(device(Q))
-    event = update!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = update!(array_device(Q), groupsize)(
         dQb,
         Qb,
         dt,
@@ -122,14 +122,14 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
         ndrange = length(Qb),
         dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
     time += dt
     Q.realdata[:,sv.mask_b,:].=Qb
 
     rhs!(dQ, Q, p, time, increment = false)
     if i < nsteps
-      event = Event(device(Q))
-      event = update!(device(Q), groupsize)(
+      event = Event(array_device(Q))
+      event = update!(array_device(Q), groupsize)(
           dQa,
           Qa,
           dt,
@@ -138,11 +138,11 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
           ndrange = length(Qa),
           dependencies = (event,),
       )
-      wait(device(Q), event)
+      wait(array_device(Q), event)
       time += dt
     else
-      event = Event(device(Q))
-      event = update!(device(Q), groupsize)(
+      event = Event(array_device(Q))
+      event = update!(array_device(Q), groupsize)(
           dQa,
           Qa,
           dt/2,
@@ -151,7 +151,7 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
           ndrange = length(Qa),
           dependencies = (event,),
       )
-      wait(device(Q), event)
+      wait(array_device(Q), event)
       time += dt/2
     end
     Q.realdata[:,sv.mask_a,:].=Qa
@@ -190,8 +190,8 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
 
   # do a half step
   rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
-  event = Event(device(Q))
-  event = update!(device(Q), groupsize)(
+  event = Event(array_device(Q))
+  event = update!(array_device(Q), groupsize)(
       dQa,
       Qa,
       dt/2,
@@ -200,15 +200,15 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
       ndrange = length(Qa),
       dependencies = (event,),
   )
-  wait(device(Q), event)
+  wait(array_device(Q), event)
   time += dt/2
   Q.realdata[:,sv.mask_a,:].=Qa
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, 1, increment = false) #Momentum
     #rhs!(dQ, (1+gamma)*Q-gamma*QOld, p, time, 1, increment = false) #Momentum
-    event = Event(device(Q))
-    event = update!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = update!(array_device(Q), groupsize)(
         dQb,
         Qb,
         dt,
@@ -217,15 +217,15 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
         ndrange = length(Qb),
         dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
     time += dt
     Q.realdata[:,sv.mask_b,:].=Qb
 
     #copy!(QOld,Q)
     rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
     if i < nsteps
-      event = Event(device(Q))
-      event = update!(device(Q), groupsize)(
+      event = Event(array_device(Q))
+      event = update!(array_device(Q), groupsize)(
           dQa,
           Qa,
           dt,
@@ -234,11 +234,11 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
           ndrange = length(Qa),
           dependencies = (event,),
       )
-      wait(device(Q), event)
+      wait(array_device(Q), event)
       time += dt
     else
-      event = Event(device(Q))
-      event = update!(device(Q), groupsize)(
+      event = Event(array_device(Q))
+      event = update!(array_device(Q), groupsize)(
           dQa,
           Qa,
           dt/2,
@@ -247,7 +247,7 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
           ndrange = length(Qa),
           dependencies = (event,),
       )
-      wait(device(Q), event)
+      wait(array_device(Q), event)
       time += dt/2
     end
     Q.realdata[:,sv.mask_a,:].=Qa
