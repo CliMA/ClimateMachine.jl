@@ -260,9 +260,7 @@ function source!(
     source.ρq_rai += state.ρ * src_q_rai_tot
     source.ρq_tot -= state.ρ * src_q_rai_tot
     source.ρe -=
-        state.ρ *
-        src_q_rai_tot *
-        (_e_int_v0 - (_cv_v - _cv_d) * (T - _T_0))
+        state.ρ * src_q_rai_tot * (_e_int_v0 - (_cv_v - _cv_d) * (T - _T_0))
 end
 
 function main()
