@@ -29,6 +29,9 @@ function rhs_linear!(dQ, Q, ::Nothing, t; increment)
         @. dQ = $cos(t) * b * Q
     end
 end
+struct ODETestBasicLinBE <: AbstractBackwardEulerSolver end
+ODESolvers.Δt_is_adjustable(::ODETestBasicLinBE) = true
+(::ODETestBasicLinBE)(Q, Qhat, α, p, t) = @. Q = Qhat / (1 - α * $cos(t) * b)
 function rhs_nonlinear!(dQ, Q, ::Nothing, t; increment)
     if increment
         @. dQ += $cos(t) * (a + c * Q^2)
@@ -112,33 +115,62 @@ errors = similar(dts)
 
     @testset "IMEX methods" begin
         for (method, order) in imex_methods
-            for split_nonlinear_linear in (false, true)
+            for split_explicit_implicit in (false, true)
                 for variant in (LowStorageVariant(), NaiveVariant())
                     for (n, dt) in enumerate(dts)
                         Q .= Qinit
                         rhs_arg! =
-                            split_nonlinear_linear ? rhs_nonlinear! : rhs!
+                            split_explicit_implicit ? rhs_nonlinear! : rhs!
                         solver = method(
                             rhs_arg!,
                             rhs_linear!,
-                            DivideLinearSolver(),
+                            LinearBackwardEulerSolver(
+                                DivideLinearSolver();
+                                isadjustable = true,
+                            ),
                             Q;
                             dt = dt,
                             t0 = t0,
-                            split_nonlinear_linear = split_nonlinear_linear,
+                            split_explicit_implicit = split_explicit_implicit,
                             variant = variant,
                         )
                         solve!(Q, solver; timeend = finaltime)
                         errors[n] = norm(Q - Qexact)
                     end
                     rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                    if variant isa LowStorageVariant && split_nonlinear_linear
+                    if variant isa LowStorageVariant && split_explicit_implicit
                         expected_order = 2
                     else
                         expected_order = order
                     end
                     @test isapprox(rates[end], expected_order; atol = 0.3)
                 end
+            end
+        end
+    end
+
+    @testset "IMEX methods with direct solver" begin
+        for (method, order) in imex_methods
+            for split_explicit_implicit in (false, true)
+                for (n, dt) in enumerate(dts)
+                    Q .= Qinit
+                    rhs_arg! = split_explicit_implicit ? rhs_nonlinear! : rhs!
+                    solver = method(
+                        rhs_arg!,
+                        rhs_linear!,
+                        ODETestBasicLinBE(),
+                        Q;
+                        dt = dt,
+                        t0 = t0,
+                        split_explicit_implicit = split_explicit_implicit,
+                        variant = NaiveVariant(),
+                    )
+                    solve!(Q, solver; timeend = finaltime)
+                    errors[n] = norm(Q - Qexact)
+                end
+                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+                expected_order = order
+                @test isapprox(rates[end], expected_order; atol = 0.3)
             end
         end
     end
@@ -184,10 +216,13 @@ errors = similar(dts)
                             fast_method(
                                 rhs_fast!,
                                 rhs_fast_linear!,
-                                DivideLinearSolver(),
+                                LinearBackwardEulerSolver(
+                                    DivideLinearSolver();
+                                    isadjustable = true,
+                                ),
                                 Q;
                                 dt = dt,
-                                split_nonlinear_linear = false,
+                                split_explicit_implicit = false,
                             ),
                         ),
                         t0 = t0,

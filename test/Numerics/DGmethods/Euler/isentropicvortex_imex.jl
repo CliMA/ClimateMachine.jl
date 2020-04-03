@@ -66,9 +66,9 @@ function main()
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64,), dims in 2
-            for split_nonlinear_linear in (false, true)
+            for split_explicit_implicit in (false, true)
                 let
-                    split = split_nonlinear_linear ? "(Nonlinear, Linear)" :
+                    split = split_explicit_implicit ? "(Nonlinear, Linear)" :
                         "(Full, Linear)"
                     @info @sprintf """Configuration
                                       ArrayType = %s
@@ -90,14 +90,14 @@ function main()
                         polynomialorder,
                         numelems,
                         setup,
-                        split_nonlinear_linear,
+                        split_explicit_implicit,
                         FT,
                         dims,
                         level,
                     )
 
                     @test errors[level] ≈
-                          expected_error[FT, split_nonlinear_linear, level]
+                          expected_error[FT, split_explicit_implicit, level]
                 end
 
                 rates = @. log2(
@@ -122,7 +122,7 @@ function run(
     polynomialorder,
     numelems,
     setup,
-    split_nonlinear_linear,
+    split_explicit_implicit,
     FT,
     dims,
     level,
@@ -180,7 +180,7 @@ function run(
         auxstate = dg.auxstate,
     )
 
-    if split_nonlinear_linear
+    if split_explicit_implicit
         dg_nonlinear = DGModel(
             nonlinear_model,
             grid,
@@ -205,13 +205,13 @@ function run(
 
     linearsolver = GeneralizedMinimalResidual(Q; M = 10, rtol = 1e-10)
     ode_solver = ARK2GiraldoKellyConstantinescu(
-        split_nonlinear_linear ? dg_nonlinear : dg,
+        split_explicit_implicit ? dg_nonlinear : dg,
         dg_linear,
-        linearsolver,
+        LinearBackwardEulerSolver(linearsolver; isadjustable = true),
         Q;
         dt = dt,
         t0 = 0,
-        split_nonlinear_linear = split_nonlinear_linear,
+        split_explicit_implicit = split_explicit_implicit,
         paperversion = true,
     )
 
@@ -248,7 +248,7 @@ function run(
         vtkdir =
             "vtk_isentropicvortex_imex" *
             "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)" *
-            "_$(split_nonlinear_linear)"
+            "_$(split_explicit_implicit)"
         mkpath(vtkdir)
 
         vtkstep = 0

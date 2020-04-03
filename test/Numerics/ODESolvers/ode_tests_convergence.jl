@@ -81,20 +81,24 @@ const ArrayType = CLIMA.array_type()
 
                 q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
                 for (method, expected_order) in imex_methods
-                    for split_nonlinear_linear in (false, true)
+                    for split_explicit_implicit in (false, true)
                         for variant in (LowStorageVariant(), NaiveVariant())
                             for (n, dt) in enumerate(dts)
                                 Q = ArrayType{ComplexF64}(q0)
-                                rhs! = split_nonlinear_linear ? rhs_nonlinear! :
+                                rhs! =
+                                    split_explicit_implicit ? rhs_nonlinear! :
                                     rhs_full!
                                 solver = method(
                                     rhs!,
                                     rhs_linear!,
-                                    DivideLinearSolver(),
+                                    LinearBackwardEulerSolver(
+                                        DivideLinearSolver(),
+                                        isadjustable = true,
+                                    ),
                                     Q;
                                     dt = dt,
                                     t0 = 0.0,
-                                    split_nonlinear_linear = split_nonlinear_linear,
+                                    split_explicit_implicit = split_explicit_implicit,
                                     variant = variant,
                                 )
                                 solve!(Q, solver; timeend = finaltime)
@@ -362,10 +366,13 @@ const ArrayType = CLIMA.array_type()
                                 fast_method(
                                     rhs_fast!,
                                     rhs_zero!,
-                                    DivideLinearSolver(),
+                                    LinearBackwardEulerSolver(
+                                        DivideLinearSolver(),
+                                        isadjustable = true,
+                                    ),
                                     Q;
                                     dt = fast_dt,
-                                    split_nonlinear_linear = false,
+                                    split_explicit_implicit = false,
                                 ),
                             ))
                             solve!(Q, solver; timeend = finaltime)
@@ -715,6 +722,50 @@ const ArrayType = CLIMA.array_type()
                     dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
                 end
             end
+            struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
+            ODESolvers.dtisadjustable(::ODETestConvNonLinBE) = true
+            function (::ODETestConvNonLinBE3Rate)(Q, Qhat, α, p, t)
+                @inbounds begin
+                    # Slower RHS has zero tendency of yf so just copy Qhat
+                    Q[1] = y1 = Qhat[1]
+                    Q[2] = y2 = Qhat[2]
+
+                    g = @SVector [
+                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                    ]
+
+                    # solves: Q = Qhat + α * rhs_slow(Q, t)
+                    # (simplifies to a quadratic equation)
+                    a = 2 - α * Ω[3, 3]
+                    b = -2 * (Qhat[3] + α * Ω[3, 1] * g[1] + α * Ω[3, 2] * g[2])
+                    c = α * (Ω[3, 3] * (β3 + cos(t)) + sin(t))
+                    Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                end
+            end
+            struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
+            ODESolvers.dtisadjustable(::ODETestConvNonLinBE) = true
+            function (::ODETestConvNonLinBE3Rate)(Q, Qhat, α, p, t)
+                @inbounds begin
+                    # Slower RHS has zero tendency of yf so just copy Qhat
+                    Q[1] = y1 = Qhat[1]
+                    Q[2] = y2 = Qhat[2]
+
+                    g = @SVector [
+                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                    ]
+
+                    # solves: Q = Qhat + α * rhs_slow(Q, t)
+                    # (simplifies to a quadratic equation)
+                    a = 2 - α * Ω[3, 3]
+                    b = -2 * (Qhat[3] + α * Ω[3, 1] * g[1] + α * Ω[3, 2] * g[2])
+                    c = α * (Ω[3, 3] * (β3 + cos(t)) + sin(t))
+                    Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                end
+            end
+
+
 
             exactsolution(t) = [
                 sqrt(β1 + cos(ω1 * t)),
