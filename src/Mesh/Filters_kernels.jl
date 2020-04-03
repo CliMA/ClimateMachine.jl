@@ -34,7 +34,8 @@ horizontal and/or vertical reference directions.
         Nqk = dim == 2 ? 1 : Nq
 
         if direction isa EveryDirection
-            filterinξ1 = filterinξ2 = filterinξ3 = true
+            filterinξ1 = filterinξ2 = true
+            filterinξ3 = dim == 2 ? false : true
         elseif direction isa HorizontalDirection
             filterinξ1 = true
             filterinξ2 = dim == 2 ? false : true
@@ -104,7 +105,7 @@ horizontal and/or vertical reference directions.
 
         if filterinξ3
             @synchronize
-            @unroll for n in 1:Nq
+            @unroll for n in 1:Nqk
                 @unroll for fs in 1:nfilterstates
                     l_Qfiltered[fs] += s_filter[k, n] * s_Q[i, j, n, fs]
                 end
