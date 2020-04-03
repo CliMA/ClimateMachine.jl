@@ -1,8 +1,8 @@
 export StormerVerlet, StromerVerletHEVI
 
-abstract type AbstractStormerVerlet <: ODEs.AbstractODESolver end
+abstract type AbstractStormerVerlet <: AbstractODESolver end
 
-ODEs.updatedt!(sv::AbstractStormerVerlet, dt) = sv.dt[1] = dt
+updatedt!(sv::AbstractStormerVerlet, dt) = sv.dt[1] = dt
 #=
 """
     ODESolvers.dostep!(Q, sv::StormerVerlet, p, timeend::Real,
@@ -12,14 +12,14 @@ from the current time, to the time `timeend`. If `adjustfinalstep == true` then
 `dt` is adjusted so that the step does not take the solution beyond the
 `timeend`.
 """
-function ODEs.dostep!(Q, sv::AbstractStormerVerlet, p, timeend::Real,
+function dostep!(Q, sv::AbstractStormerVerlet, p, timeend::Real,
                       adjustfinalstep::Bool, slow_δ, slow_rv_dQ, slow_rka)
   time, dt = sv.t[1], sv.dt[1]
   if adjustfinalstep && time + dt > timeend
     dt = timeend - time
   end
   @assert dt > 0
-  ODEs.dostep!(Q, sv, p, time, dt, slow_δ, slow_rv_dQ, slow_rka)
+  dostep!(Q, sv, p, time, dt, slow_δ, slow_rv_dQ, slow_rka)
   if dt == sv.dt[1]
     sv.t[1] += dt
   else
@@ -79,7 +79,7 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
-function ODEs.dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
+function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
                       dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs!, dQ = sv.rhs!, sv.dQ
@@ -145,7 +145,7 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
-function ODEs.dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
+function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
                       dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs!, dQ = sv.rhs!, sv.dQ
@@ -241,7 +241,7 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
-function ODEs.dostep!(Q, sv::StormerVerletHEVI, p, time::Real,
+function dostep!(Q, sv::StormerVerletHEVI, p, time::Real,
                       dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs_h!, rhs_v!, dQ, A_v = sv.rhs_h!, sv.rhs_v!, sv.dQ, sv.A_v

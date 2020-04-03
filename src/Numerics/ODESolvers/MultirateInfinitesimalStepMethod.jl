@@ -85,7 +85,7 @@ mutable struct MultirateInfinitesimalStep{
     "slow rhs function"
     slowrhs!
     "RHS for fast solver"
-    tsfastrhs!::TimeScaledRHS{RT}
+    tsfastrhs!::TimeScaledRHS{N,RT} where N
     "fast rhs method"
     fastsolver::FS
     "number of steps"
@@ -214,10 +214,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
         nstepsLoc=ceil(Int,nsteps*d[i])
         dτ = d[i] * dt / nstepsLoc
 
-        #updatetime!(fastsolver, τ)
-        #updatedt!(fastsolver, dτ)
-
-        ODEs.dostep!(Q, fastsolver, p, τ, dτ, nstepsLoc, FT(1), realview(offset), nothing)  #(1c)
+        dostep!(Q, fastsolver, p, τ, dτ, nstepsLoc, FT(1), realview(offset), nothing)  #(1c)
     end
 end
 
