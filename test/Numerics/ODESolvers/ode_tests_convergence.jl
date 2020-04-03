@@ -570,23 +570,7 @@ const ArrayType = CLIMA.array_type()
                 end
             end
         end
-    end
 
-    #=
-    Test problem (8.2) from Sandu (2019) for MRI-GARK Schemes
-        @article{Sandu2019,
-            title={A class of multirate infinitesimal gark methods},
-            author={Sandu, Adrian},
-            journal={SIAM Journal on Numerical Analysis},
-            volume={57},
-            number={5},
-            pages={2300--2327},
-            year={2019},
-            publisher={SIAM},
-            doi={10.1137/18M1205492}
-        }
-    =#
-    @testset "Explicit MRI GARK tests" begin
         #=
         Test problem (8.2) from Sandu (2019) for MRI-GARK Schemes
             @article{Sandu2019,
@@ -636,26 +620,85 @@ const ArrayType = CLIMA.array_type()
                 end
             end
 
+            struct ODETestConvNonLinBE <: AbstractBackwardEulerSolver end
+            ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE) = true
+            function (::ODETestConvNonLinBE)(Q, Qhat, α, p, t)
+                @inbounds begin
+                    # Slow RHS has zero tendency of yf so just copy Qhat
+                    Q[1] = yf = Qhat[1]
+
+                    gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+
+                    # solves: Q = Qhat[2] + α * rhs_slow(Q, t)
+                    # (simplifies to a quadratic equation)
+                    a = 2 - α * Ω[2, 2]
+                    b = -2 * (Qhat[2] + α * Ω[2, 1] * gf)
+                    c = α * (Ω[2, 2] * (2 + cos(t)) + sin(t))
+                    Q[2] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                end
+            end
+
             exactsolution(t) = [sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))]
 
             finaltime = 5π / 2
             dts = [2.0^(-k) for k in 2:7]
             error = similar(dts)
-            for (mri_method, mri_expected_order) in mrigark_erk_methods
-                for (fast_method, fast_expected_order) in fast_mrigark_methods
-                    for (n, slow_dt) in enumerate(dts)
-                        Q = exactsolution(0)
-                        fast_dt = slow_dt / ω
-                        fastsolver = fast_method(rhs_fast!, Q; dt = fast_dt)
-                        solver =
-                            mri_method(rhs_slow!, fastsolver, Q, dt = slow_dt)
-                        solve!(Q, solver; timeend = finaltime)
-                        error[n] = norm(Q - exactsolution(finaltime))
-                    end
+            @testset "Explicit" begin
+                for (mri_method, mri_expected_order) in mrigark_erk_methods
+                    for (fast_method, fast_expected_order) in
+                        fast_mrigark_methods
+                        for (n, slow_dt) in enumerate(dts)
+                            Q = exactsolution(0)
+                            fast_dt = slow_dt / ω
+                            fastsolver = fast_method(rhs_fast!, Q; dt = fast_dt)
+                            solver = mri_method(
+                                rhs_slow!,
+                                fastsolver,
+                                Q,
+                                dt = slow_dt,
+                            )
+                            solve!(Q, solver; timeend = finaltime)
+                            error[n] = norm(Q - exactsolution(finaltime))
+                        end
 
-                    rate = log2.(error[1:(end - 1)] ./ error[2:end])
-                    order = mri_expected_order
-                    @test isapprox(rate[end], mri_expected_order; atol = 0.3)
+                        rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                        order = mri_expected_order
+                        @test isapprox(
+                            rate[end],
+                            mri_expected_order;
+                            atol = 0.3,
+                        )
+                    end
+                end
+            end
+
+            @testset "Implicit" begin
+                for (mri_method, mri_expected_order) in mrigark_irk_methods
+                    for (fast_method, fast_expected_order) in
+                        fast_mrigark_methods
+                        for (n, slow_dt) in enumerate(dts)
+                            Q = exactsolution(0)
+                            fast_dt = slow_dt / ω
+                            fastsolver = fast_method(rhs_fast!, Q; dt = fast_dt)
+                            solver = mri_method(
+                                rhs_slow!,
+                                ODETestConvNonLinBE(),
+                                fastsolver,
+                                Q,
+                                dt = slow_dt,
+                            )
+                            solve!(Q, solver; timeend = finaltime)
+                            error[n] = norm(Q - exactsolution(finaltime))
+                        end
+
+                        rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                        order = mri_expected_order
+                        @test isapprox(
+                            rate[end],
+                            mri_expected_order;
+                            atol = 0.3,
+                        )
+                    end
                 end
             end
         end
@@ -776,25 +819,78 @@ const ArrayType = CLIMA.array_type()
             finaltime = 5π / 2
             dts = [2.0^(-k) for k in 1:7]
             error = similar(dts)
-            for (slow_method, slow_order) in mrigark_erk_methods
-                for (mid_method, mid_order) in mrigark_erk_methods
-                    for (fast_method, fast_order) in fast_mrigark_methods
-                        for (n, slow_dt) in enumerate(dts)
-                            Q = exactsolution(0)
-                            mid_dt = slow_dt / ω2
-                            fast_dt = slow_dt / ω1
-                            fastsolver = fast_method(rhs1!, Q; dt = fast_dt)
-                            midsolver =
-                                mid_method(rhs2!, fastsolver, Q, dt = mid_dt)
-                            slowsolver =
-                                slow_method(rhs3!, midsolver, Q, dt = slow_dt)
-                            solve!(Q, slowsolver; timeend = finaltime)
-                            error[n] = norm(Q - exactsolution(finaltime))
-                        end
+            @testset "Explicit" begin
+                for (slow_method, slow_order) in mrigark_erk_methods
+                    for (mid_method, mid_order) in mrigark_erk_methods
+                        for (fast_method, fast_order) in fast_mrigark_methods
+                            for (n, slow_dt) in enumerate(dts)
+                                Q = exactsolution(0)
+                                mid_dt = slow_dt / ω2
+                                fast_dt = slow_dt / ω1
+                                fastsolver = fast_method(rhs1!, Q; dt = fast_dt)
+                                midsolver = mid_method(
+                                    rhs2!,
+                                    fastsolver,
+                                    Q,
+                                    dt = mid_dt,
+                                )
+                                slowsolver = slow_method(
+                                    rhs3!,
+                                    midsolver,
+                                    Q,
+                                    dt = slow_dt,
+                                )
+                                solve!(Q, slowsolver; timeend = finaltime)
+                                error[n] = norm(Q - exactsolution(finaltime))
+                            end
 
-                        rate = log2.(error[1:(end - 1)] ./ error[2:end])
-                        expected_order = min(slow_order, mid_order, fast_order)
-                        @test isapprox(rate[end], expected_order; atol = 0.3)
+                            rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                            expected_order =
+                                min(slow_order, mid_order, fast_order)
+                            @test isapprox(
+                                rate[end],
+                                expected_order;
+                                atol = 0.3,
+                            )
+                        end
+                    end
+                end
+            end
+            @testset "Implicit-Explicit" begin
+                for (slow_method, slow_order) in mrigark_irk_methods
+                    for (mid_method, mid_order) in mrigark_erk_methods
+                        for (fast_method, fast_order) in fast_mrigark_methods
+                            for (n, slow_dt) in enumerate(dts)
+                                Q = exactsolution(0)
+                                mid_dt = slow_dt / ω2
+                                fast_dt = slow_dt / ω1
+                                fastsolver = fast_method(rhs1!, Q; dt = fast_dt)
+                                midsolver = mid_method(
+                                    rhs2!,
+                                    fastsolver,
+                                    Q,
+                                    dt = mid_dt,
+                                )
+                                slowsolver = slow_method(
+                                    rhs3!,
+                                    ODETestConvNonLinBE3Rate(),
+                                    midsolver,
+                                    Q,
+                                    dt = slow_dt,
+                                )
+                                solve!(Q, slowsolver; timeend = finaltime)
+                                error[n] = norm(Q - exactsolution(finaltime))
+                            end
+
+                            rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                            expected_order =
+                                min(slow_order, mid_order, fast_order)
+                            @test isapprox(
+                                rate[end],
+                                expected_order;
+                                atol = 0.4,
+                            )
+                        end
                     end
                 end
             end
