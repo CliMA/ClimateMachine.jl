@@ -263,14 +263,19 @@ The values of ``a_{vent}`` and ``b_{vent}`` are chosen so that at ``q_{tot} = 15
 ```@example rain_evaporation
 using CLIMA.Microphysics
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
+
 using Plots
 
 # eq. 5c in Smolarkiewicz and Grabowski 1996
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
 function rain_evap_empirical(q_rai::DT, q::PhasePartition, T::DT, p::DT, ρ::DT) where {DT<:Real}
 
-    q_sat  = q_vap_saturation(T, ρ, q)
+    q_sat  = q_vap_saturation(param_set, T, ρ, q)
     q_vap  = q.tot - q.liq
     rr     = q_rai / (DT(1) - q.tot)
     rv_sat = q_sat / (DT(1) - q.tot)
@@ -288,7 +293,7 @@ end
 # example values
 T, p = 273.15 + 15, 90000.
 ϵ = 1. / molmass_ratio
-p_sat = saturation_vapor_pressure(T, Liquid())
+p_sat = saturation_vapor_pressure(param_set, T, Liquid())
 q_sat = ϵ * p_sat / (p + p_sat * (ϵ - 1.))
 q_rain_range = range(1e-8, stop=5e-3, length=100)
 q_tot = 15e-3
@@ -296,7 +301,7 @@ q_vap = 0.15 * q_sat
 q_ice = 0.
 q_liq = q_tot - q_vap - q_ice
 q = PhasePartition(q_tot, q_liq, q_ice)
-R = gas_constant_air(q)
+R = gas_constant_air(param_set, q)
 ρ = p / R / T
 
 plot(q_rain_range * 1e3,  [conv_q_rai_to_q_vap(q_rai, q, T, p, ρ) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="rain evaporation rate [1/s]", title="Rain evaporation", label="CLIMA")

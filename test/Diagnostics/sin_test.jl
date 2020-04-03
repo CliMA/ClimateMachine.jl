@@ -13,20 +13,26 @@ using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.ODESolvers
-using CLIMA.PlanetParameters: grav, MSLP
 using CLIMA.VariableTemplates
+
+using CLIMAParameters
+using CLIMAParameters.Planet: grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 function init_sin_test!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = FT(z)
+    _grav::FT = grav(param_set)
+    _MSLP::FT = MSLP(param_set)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
     Rm_sfc = FT(gas_constant_air(q_pt_sfc))
     T_sfc = FT(292.5)
-    P_sfc = FT(MSLP)
+    P_sfc = _MSLP
 
     # Specify moisture profiles
     q_liq = FT(0)
@@ -55,7 +61,7 @@ function init_sin_test!(bl, state, aux, (x, y, z), t)
     v = FT(5 + 2 * sin(2 * π * ((x / 1500) + (y / 1500))))
 
     # Pressure
-    H = Rm_sfc * T_sfc / grav
+    H = Rm_sfc * T_sfc / _grav
     p = P_sfc * exp(-z / H)
 
     # Density, Temperature
@@ -63,7 +69,7 @@ function init_sin_test!(bl, state, aux, (x, y, z), t)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
-    e_pot = grav * z
+    e_pot = _grav * z
     E = ρ * total_energy(e_kin, e_pot, ts)
 
     state.ρ = ρ
