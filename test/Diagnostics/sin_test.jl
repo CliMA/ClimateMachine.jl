@@ -1,6 +1,7 @@
 using Dates
 using FileIO
 using MPI
+using Printf
 using Random
 using StaticArrays
 using Test
@@ -15,6 +16,7 @@ using CLIMA.MoistThermodynamics
 using CLIMA.ODESolvers
 using CLIMA.PlanetParameters: grav, MSLP
 using CLIMA.VariableTemplates
+using CLIMA.Writers
 
 function init_sin_test!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
@@ -91,7 +93,11 @@ end
 
 function config_diagnostics(driver_config)
     interval = 100
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        interval,
+        replace(driver_config.name, " " => "_"),
+        writer = JLD2Writer(),
+    )
     return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
@@ -146,26 +152,23 @@ function main()
     # Check results
     mpirank = MPI.Comm_rank(mpicomm)
     if mpirank == 0
-        d = load(joinpath(
-            outdir,
-            "$(dgn_config.groups[1].out_prefix)-$(dgn_config.groups[1].name)-$(starttime).jld2",
-        ))
-        Nqk = size(d["0.0"], 1)
-        Nev = size(d["0.0"], 2)
-        S = zeros(Nqk * Nev)
-        S1 = zeros(Nqk * Nev)
+        dgngrp = dgn_config.groups[1]
+        nm = @sprintf(
+            "%s_%s-%s-num%04d.jld2",
+            replace(dgngrp.out_prefix, " " => "_"),
+            dgngrp.name,
+            starttime,
+            1,
+        )
+        ds = load(joinpath(outdir, nm))
+        N = size(ds["vert_eddy_u_flux"], 1)
         err = 0
         err1 = 0
-        for ev in 1:Nev
-            for k in 1:Nqk
-                dv = Diagnostics.diagnostic_vars(d["0.0"][k, ev])
-                S[k + (ev - 1) * Nqk] = dv.vert_eddy_u_flux
-                S1[k + (ev - 1) * Nqk] = dv.u
-                err += (S[k + (ev - 1) * Nqk] - 0.5)^2
-                err1 += (S1[k + (ev - 1) * Nqk] - 5)^2
-            end
+        for i in 1:N
+            err += (ds["vert_eddy_u_flux"][i] - 0.5)^2
+            err1 += (ds["u"][i] - 5)^2
         end
-        err = sqrt(err / (Nqk * Nev))
+        err = sqrt(err / N)
         @test err <= 2e-15
         @test err1 <= 1e-16
     end

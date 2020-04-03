@@ -187,8 +187,7 @@ function init(; disable_gpu = false)
 
     # set up the array type appropriately depending on whether we're using GPUs
     if !Settings.disable_gpu &&
-       get(ENV, "CLIMA_GPU", "") != "false" &&
-       CUDAapi.has_cuda_gpu()
+       get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
         atyp = Array
@@ -297,38 +296,36 @@ function invoke!(
         callbacks = (callbacks..., cbinfo)
     end
 
-    dia_starttime = ""
+    dgn_starttime = ""
     if Settings.enable_diagnostics && diagnostics_config !== nothing
-        dia_starttime = replace(string(now()), ":" => ".")
-        Diagnostics.init(mpicomm, dg, Q, dia_starttime, Settings.output_dir)
+        dgn_starttime = replace(string(now()), ":" => ".")
+        Diagnostics.init(mpicomm, dg, Q, dgn_starttime, Settings.output_dir)
 
         # set up a callback for each diagnostics group
-        diacbs = ()
-        for diagrp in diagnostics_config.groups
+        dgncbs = ()
+        for dgngrp in diagnostics_config.groups
             if Settings.diagnostics_interval > 0
                 interval = Settings.diagnostics_interval
             else
-                interval = diagrp.interval
+                interval = dgngrp.interval
             end
             fn = GenericCallbacks.EveryXSimulationSteps(
                 interval,
             ) do (init = false)
                 currtime = ODESolvers.gettime(solver)
-                if init
-                    diagrp(currtime, init = true)
-                end
                 @info @sprintf(
                     """Diagnostics: %s
-                    collecting at %s""",
-                    diagrp.name,
+                    %s at %s""",
+                    dgngrp.name,
+                    init ? "initializing" : "collecting",
                     string(currtime)
                 )
-                diagrp(currtime)
+                dgngrp(currtime, init = init)
                 nothing
             end
-            diacbs = (diacbs..., fn)
+            dgncbs = (dgncbs..., fn)
         end
-        callbacks = (callbacks..., diacbs...)
+        callbacks = (callbacks..., dgncbs...)
     end
 
     if Settings.enable_vtk
@@ -471,8 +468,8 @@ function invoke!(
     # fini diagnostics groups
     if Settings.enable_diagnostics
         currtime = ODESolvers.gettime(solver)
-        for diagrp in diagnostics_config.groups
-            diagrp(currtime, fini = true)
+        for dgngrp in diagnostics_config.groups
+            dgngrp(currtime, fini = true)
         end
     end
 

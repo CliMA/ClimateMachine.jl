@@ -15,6 +15,7 @@ using CUDAnative
 using CuArrays
 
 export InterpolationBrick,
+    accumulate_interpolated_data,
     accumulate_interpolated_data!,
     InterpolationCubedSphere,
     interpolate_local!,
@@ -1747,4 +1748,76 @@ function accumulate_helper_CUDA!(
     end
 end
 #--------------------------------------------------------
-end # module interploation
+
+function accumulate_interpolated_data(
+    mpicomm::MPI.Comm,
+    intrp::InterpolationTopology,
+    iv::AbstractArray{FT, 2},
+) where {FT <: AbstractFloat}
+
+    mpirank = MPI.Comm_rank(mpicomm)
+    numranks = MPI.Comm_size(mpicomm)
+    nvars = size(iv, 2)
+
+    if intrp isa InterpolationCubedSphere
+        nx1 = length(intrp.rad_grd)
+        nx2 = length(intrp.lat_grd)
+        nx3 = length(intrp.long_grd)
+        np_tot = length(intrp.radi_all)
+        i1 = intrp.radi_all
+        i2 = intrp.lati_all
+        i3 = intrp.longi_all
+    elseif intrp isa InterpolationBrick
+        nx1 = length(intrp.x1g)
+        nx2 = length(intrp.x2g)
+        nx3 = length(intrp.x3g)
+        np_tot = length(intrp.x1i_all)
+        i1 = intrp.x1i_all
+        i2 = intrp.x2i_all
+        i3 = intrp.x3i_all
+    else
+        error("Unsupported topology; only InterpolationCubedSphere and InterpolationBrick supported")
+    end
+
+    if Array ∈ typeof(iv).parameters
+        h_iv = iv
+        h_i1 = i1
+        h_i2 = i2
+        h_i3 = i3
+    else
+        h_iv = Array(iv)
+        h_i1 = Array(i1)
+        h_i2 = Array(i2)
+        h_i3 = Array(i3)
+    end
+
+    if numranks == 1
+        v_all = h_iv
+    else
+        v_all = Array{FT}(undef, mpirank == 0 ? np_tot : 0, nvars)
+        for vari in 1:nvars
+            MPI.Gatherv!(
+                view(h_iv, :, vari),
+                view(v_all, :, vari),
+                intrp.Np_all,
+                0,
+                mpicomm,
+            )
+        end
+    end
+
+    if mpirank == 0
+        fiv = Array{FT}(undef, nx1, nx2, nx3, nvars)
+        for i in 1:np_tot
+            for vari in 1:nvars
+                @inbounds fiv[h_i1[i], h_i2[i], h_i3[i], vari] = v_all[i, vari]
+            end
+        end
+    else
+        fiv = nothing
+    end
+
+    return fiv
+end
+
+end # module Interpolation
