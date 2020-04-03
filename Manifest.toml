@@ -26,9 +26,9 @@ version = "0.4.0"
 
 [[Arpack_jll]]
 deps = ["Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "68a90a692ddc0eb72d69a6993ca26e2a923bf195"
+git-tree-sha1 = "e214a9b9bd1b4e1b4f15b22c0994862b66af7ff7"
 uuid = "68821587-b530-5797-8361-c406ea357684"
-version = "3.5.0+2"
+version = "3.5.0+3"
 
 [[ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra"]
@@ -229,10 +229,10 @@ uuid = "ba82f77b-6841-5d2e-bd9f-4daf811aec27"
 version = "0.2.9"
 
 [[GaussQuadrature]]
-deps = ["LinearAlgebra", "Printf", "SpecialFunctions", "Test"]
-git-tree-sha1 = "3113b28de0e25576348c06731327f3df8de6ad90"
+deps = ["SpecialFunctions"]
+git-tree-sha1 = "ff30c61ad1ff425d0d8bac6b77833216741c2e68"
 uuid = "d54b0c1a-921d-58e0-8e36-89d8069c0969"
-version = "0.5.0"
+version = "0.5.4"
 
 [[GenericSVD]]
 deps = ["LinearAlgebra"]
@@ -276,9 +276,9 @@ version = "0.21.0"
 
 [[KernelAbstractions]]
 deps = ["Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "Cassette", "MacroTools", "Requires", "StaticArrays"]
-git-tree-sha1 = "38d415b0b031bebd0c5504e85c9101488e806f1b"
+git-tree-sha1 = "b727bc5ad70fd5909d90ebe512ac19b4ad4d3292"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.2.1"
+version = "0.2.2"
 
 [[LLVM]]
 deps = ["CEnum", "Libdl", "Printf", "Unicode"]
@@ -396,7 +396,7 @@ uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "1.0.1"
 
 [[Pkg]]
-deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
+deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Test", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[Polynomials]]
