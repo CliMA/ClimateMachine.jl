@@ -158,11 +158,11 @@ function run(
     ode_solver = ARK548L2SA2KennedyCarpenter(
         dg,
         vdg,
-        linearsolvertype(),
+        LinearBackwardEulerSolver(linearsolvertype(); isadjustable = false),
         Q;
         dt = dt,
         t0 = 0,
-        split_nonlinear_linear = false,
+        split_explicit_implicit = false,
     )
 
     eng0 = norm(Q)

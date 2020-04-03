@@ -163,6 +163,7 @@ function solve!(
 end
 # }}}
 
+include("BackwardEulerSolvers.jl")
 include("MultirateInfinitesimalGARKExplicit.jl")
 include("LowStorageRungeKuttaMethod.jl")
 include("StrongStabilityPreservingRungeKuttaMethod.jl")
