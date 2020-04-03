@@ -16,7 +16,6 @@ using CLIMA.GenericCallbacks
 using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
 
 function run_test1(mpicomm, dim, Ne, N, FT, ArrayType)
     warpfun =

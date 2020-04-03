@@ -147,7 +147,7 @@
 
 This document is concerned with defining the set of equations solved in the atmospheric turbulence convection model: the EDMF equations. Color-coding is used to indicate:
 
- - $\paramT{Constant parameters that are fixed in space and time (e.g., those defined in PlanetParameters.jl)}$
+ - $\paramT{Constant parameters that are fixed in space and time (e.g., those defined in CLIMAParameters.jl)}$
 
  - $\simparamT{Single column (SC) inputs (e.g., variables that are fed into the SC model from the dynamical core (e.g., horizontal velocity))}$
 
