@@ -26,9 +26,9 @@ param_set = ParameterSet()
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
 # 2) Boundaries - `All Walls` : Impenetrable(FreeSlip())
 #                               Laterally periodic
-# 3) Domain - 20000m[horizontal] x 10000m[vertical] (2-dimensional)
+# 3) Domain - 2500m[horizontal] x 2500m[horizontal] x 2500m[vertical]
 # 4) Timeend - 1000s
-# 5) Mesh Aspect Ratio (Effective resolution) 2:1
+# 5) Mesh Aspect Ratio (Effective resolution) 1:1
 # 7) Overrides defaults for
 #               `init_on_cpu`
 #               `solver_type`
@@ -45,15 +45,16 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
 
-    xc::FT = 10000
-    zc::FT = 2000
-    r = sqrt((x - xc)^2 + (z - zc)^2)
-    rc::FT = 2000
+    xc::FT = 1250
+    yc::FT = 1250
+    zc::FT = 1000
+    r = sqrt((x - xc)^2 + (y - yc)^2 + (z - zc)^2)
+    rc::FT = 500
     θ_ref::FT = 300
     Δθ::FT = 0
 
     if r <= rc
-        Δθ = FT(2) * cospi(0.5*r/rc)^2
+        Δθ = FT(5) * cospi(r / rc / 2)
     end
 
     #Perturbed state:
@@ -84,24 +85,16 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         linear_model = AtmosAcousticGravityLinearModel,
         solver_method = MIS2,
         fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
-        number_of_steps = 15,
+        number_of_steps = 10,
     )
-    #=
-    ode_solver = CLIMA.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
-    )
-    =#
+
     # Set up the model
     C_smag = FT(0.23)
-    ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
-        #HydrostaticState(IsothermalProfile(FT(T_0)),FT(0))
-        #HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
+    ref_state =
+        HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
     model = AtmosModel{FT}(
         AtmosLESConfigType;
-        turbulence = SmagorinskyLilly{FT}(C_smag), #AnisoMinDiss{FT}(1),
+        turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
         ref_state = ref_state,
         init_state = init_risingbubble!,
@@ -119,8 +112,6 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         init_risingbubble!,
         solver_type = ode_solver,
         model = model,
-        #boundary = ((0, 0), (0, 0), (0, 0)),
-        #periodicity = (false, true, false),
     )
     return config
 end
@@ -137,19 +128,17 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 1
+    N = 2
     # Domain resolution and size
-    Δx = FT(160)
-    Δy = FT(2)
-    Δz = FT(80)
-    resolution = (Δx, Δy, Δz)
+    Δh = FT(50)
+    Δv = FT(50)
+    resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(20000)
-    ymax = FT(400)
-    zmax = FT(10000)
+    xmax = FT(2500)
+    ymax = FT(2500)
+    zmax = FT(2500)
     # Simulation time
     t0 = FT(0)
-    Δt = FT(1.0)
     timeend = FT(1000)
 
     # Courant number
@@ -161,7 +150,7 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
-        ode_dt = Δt,
+        ode_dt = 0.05,
         Courant_number = CFL,
     )
     dgn_config = config_diagnostics(driver_config)
@@ -175,7 +164,7 @@ function main()
     vtk_step = 0
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1)  do (init=false)
         mkpath("./vtk-rtb/")
-        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplit_mpirank%04d_step%04d",
+        outprefix = @sprintf("./vtk-rtb/small_mpirank%04d_step%04d",
                          MPI.Comm_rank(driver_config.mpicomm), vtk_step)
         writevtk(outprefix, solver_config.Q, solver_config.dg,
             flattenednames(vars_state(driver_config.bl,FT)),
@@ -189,7 +178,7 @@ function main()
     result = CLIMA.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbvtk,),
+        user_callbacks = (cbtmarfilter,cbvtk),
         check_euclidean_distance = true,
     )
 
