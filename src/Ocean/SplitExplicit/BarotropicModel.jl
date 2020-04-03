@@ -122,6 +122,7 @@ end
     D::Vars,
     A::Vars,
     t::Real,
+    direction,
 )
     # f × u
     U = Q.U

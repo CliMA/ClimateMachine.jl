@@ -75,6 +75,7 @@ end
     D::Vars,
     A::Vars,
     t::Real,
+    direction,
 )
     # f × u
     u = Q.u

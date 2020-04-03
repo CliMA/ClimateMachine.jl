@@ -306,6 +306,7 @@ end
     D::Vars,
     A::Vars,
     t::Real,
+    direction,
 )
     @inbounds begin
         #=

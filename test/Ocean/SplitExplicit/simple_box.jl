@@ -224,17 +224,19 @@ function main()
     lsrk_barotropic =
         LSRK144NiegemannDiehlBusch(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
 
+
     odesolver = MultistateMultirateRungeKutta(
         lsrk_ocean,
-        lsrk_horizontal,
-        lsrk_barotropic,
+        lsrk_barotropic;
+        sAlt_solver = lsrk_horizontal,
     )
-
     #=
-    odesolver =
-        MultistateRungeKutta(lsrk_ocean, lsrk_horizontal, lsrk_barotropic)
+        odesolver = MultistateRungeKutta(
+            lsrk_ocean,
+            lsrk_barotropic;
+            sAlt_solver = lsrk_horizontal,
+        )
     =#
-
     step = [0, 0]
     cbvector = make_callbacks(
         vtkpath,
@@ -339,9 +341,9 @@ end
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_split_multirate"
+vtkpath = "vtk_test"
 
-const timeend = 3600   # s
+const timeend = 360   # s
 const tout = 120 # s
 
 const N = 4

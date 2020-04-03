@@ -6,7 +6,6 @@ using CLIMA.DGmethods:
 
 export MultistateRungeKutta
 
-ODEs = ODESolvers
 LSRK2N = LowStorageRungeKutta2N
 
 """
@@ -23,8 +22,8 @@ equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 with the required time step size `dt` and optional initial time `t0`.  This
 time stepping object is intended to be passed to the `solve!` command.
 
-The constructor builds a multistate multirate Runge-Kutta scheme using two different RK
-solvers and two different MPIStateArrays. This is based on
+The constructor builds a multistate multirate Runge-Kutta scheme using two
+different RK solvers and two different MPIStateArrays. This is based on
 
 Currently only the low storage RK methods can be used as slow solvers
 
@@ -32,7 +31,7 @@ Currently only the low storage RK methods can be used as slow solvers
 
 ### References
 """
-mutable struct MultistateRungeKutta{SS, SA, FS, RT} <: ODEs.AbstractODESolver
+mutable struct MultistateRungeKutta{SS, SA, FS, RT} <: AbstractODESolver
     "slow solver"
     slow_solver::SS
     "sAlt solver"
@@ -46,10 +45,10 @@ mutable struct MultistateRungeKutta{SS, SA, FS, RT} <: ODEs.AbstractODESolver
 
     function MultistateRungeKutta(
         slow_solver::LSRK2N,
-        sAlt_solver::LSRK2N,
         fast_solver,
         Q = nothing;
-        dt = ODEs.getdt(slow_solver),
+        sAlt_solver = nothing,
+        dt = getdt(slow_solver),
         t0 = slow_solver.t,
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
@@ -67,37 +66,8 @@ mutable struct MultistateRungeKutta{SS, SA, FS, RT} <: ODEs.AbstractODESolver
 end
 MSRK = MultistateRungeKutta
 
-function ODEs.dostep!(
-    Qvec,
-    msmrrk::MSRK,
-    param,
-    timeend::Real,
-    adjustfinalstep::Bool,
-)
-    time, dt = msmrrk.t, msmrrk.dt
-    @assert dt > 0
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-        @assert dt > 0
-    end
-
-    ODEs.dostep!(Qvec, msmrrk, param, time, dt)
-
-    if dt == msmrrk.dt
-        msmrrk.t += dt
-    else
-        msmrrk.t = timeend
-    end
-    return msmrrk.t
-end
-
-function ODEs.dostep!(
-    Qvec,
-    msmrrk::MSRK{SS},
-    param,
-    time::Real,
-    slow_dt::AbstractFloat,
-) where {SS <: LSRK2N}
+function dostep!(Qvec, msmrrk::MSRK{SS}, param, time) where {SS <: LSRK2N}
+    slow_dt = msmrrk.dt
     slow = msmrrk.slow_solver
     sAlt = msmrrk.sAlt_solver
     fast = msmrrk.fast_solver
@@ -105,15 +75,18 @@ function ODEs.dostep!(
     Qslow = Qvec.slow
     Qfast = Qvec.fast
 
-    dQ2fast = slow.dQ
-    dQslow = sAlt.dQ
+
     dQfast = fast.dQ
+    if sAlt == nothing
+        dQslow = slow.dQ
+        dQ2fast = similar(dQslow)
+    else
+        dQslow = sAlt.dQ
+        dQ2fast = slow.dQ
+    end
 
     slow_bl = slow.rhs!.balancelaw
     fast_bl = fast.rhs!.balancelaw
-
-    # set state to match slow model
-    # zero out the cummulative arrays
 
     groupsize = 256
 
@@ -121,18 +94,22 @@ function ODEs.dostep!(
         # Currnent slow state time
         slow_stage_time = time + slow.RKC[slow_s] * slow_dt
 
+        # set state to match slow model
+        # zero out the cummulative arrays
         initialize_fast_state!(
             slow_bl,
             fast_bl,
-            Qslow,
-            Qfast,
             slow.rhs!,
             fast.rhs!,
+            Qslow,
+            Qfast,
         )
 
         # Evaluate the slow mode
-        # TODO: replace slow.rhs! call with use of dQ2fast
-        sAlt.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
+        # TODO: replace slow.rhs! call with use of dQ2fast]
+        if sAlt != nothing
+            sAlt.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
+        end
         slow.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
 
         # --> save tendency for the fast
@@ -199,7 +176,6 @@ function ODEs.dostep!(
             fast_bl,
             slow.rhs!,
             fast.rhs!,
-            dQslow,
             Qslow,
             Qfast,
             1,
