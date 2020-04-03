@@ -12,6 +12,8 @@ using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
+using CLIMA.VTK
+using CLIMA.Atmos: vars_state, vars_aux
 
 using CLIMA.Parameters
 using CLIMA.UniversalConstants
@@ -170,16 +172,18 @@ function main()
         nothing
     end
 
-    step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
+    vtk_step = 0
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1)  do (init=false)
         mkpath("./vtk-rtb/")
-        outprefix = @sprintf("./vtk-rtb/DC_%dD_mpirankSPLITN%04d_step%04d", dim,
-                             MPI.Comm_rank(mpicomm), step[1])
-        @debug "doing VTK output" outprefix
-        writevtk(outprefix, Q, slow_dg, flattenednames(vars_state(model,FT)), dg.auxstate, flattenednames(vars_aux(model,FT)))
-        step[1] += 1
+        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplit_mpirank%04d_step%04d",
+                         MPI.Comm_rank(driver_config.mpicomm), vtk_step)
+        writevtk(outprefix, solver_config.Q, solver_config.dg,
+            flattenednames(vars_state(driver_config.bl,FT)),
+            solver_config.dg.auxstate,
+            flattenednames(vars_aux(driver_config.bl,FT)))
+        vtk_step += 1
         nothing
-      end
+     end
 
     # Invoke solver (calls solve! function for time-integrator)
     result = CLIMA.invoke!(
