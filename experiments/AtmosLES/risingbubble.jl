@@ -89,6 +89,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType;
         turbulence = SmagorinskyLilly{FT}(C_smag),
+        hyperdiffusion = StandardHyperDiffusion{FT}(60),
         source = (Gravity(),),
         ref_state = ref_state,
         init_state = init_risingbubble!,

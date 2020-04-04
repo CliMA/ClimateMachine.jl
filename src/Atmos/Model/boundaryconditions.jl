@@ -2,8 +2,6 @@ using ..PlanetParameters
 
 export BoundaryCondition, InitStateBC
 
-export InitStateBC, DYCOMS_BC, RayleighBenardBC
-
 export AtmosBC,
     Impenetrable,
     FreeSlip,
@@ -31,6 +29,15 @@ end
 function boundary_state!(nf, atmos::AtmosModel, args...)
     atmos_boundary_state!(nf, atmos.boundarycondition, atmos, args...)
 end
+
+function boundary_state!(
+    nf::Union{CentralHyperDiffusiveFlux, CentralDivPenalty},
+    m::AtmosModel,
+    x...,
+)
+    nothing
+end
+
 @generated function atmos_boundary_state!(
     nf,
     tup::Tuple,
