@@ -701,6 +701,29 @@ const ArrayType = CLIMA.array_type()
                     end
                 end
             end
+
+            @testset "IMEX" begin
+                for (method, expected_order) in imex_methods
+                    for (n, dt) in enumerate(dts)
+                        Q = exactsolution(0)
+                        solver = method(
+                            rhs_fast!,
+                            rhs_slow!,
+                            ODETestConvNonLinBE(),
+                            Q;
+                            dt = dt,
+                            t0 = 0.0,
+                            split_explicit_implicit = true,
+                            variant = NaiveVariant(),
+                        )
+                        solve!(Q, solver; timeend = finaltime)
+                        error[n] = norm(Q - exactsolution(finaltime))
+                    end
+                    rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                    order = expected_order
+                    @test isapprox(rate[end], expected_order; atol = 0.3)
+                end
+            end
         end
 
         # 3-rate modification of the above test problem
@@ -766,7 +789,7 @@ const ArrayType = CLIMA.array_type()
                 end
             end
             struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
-            ODESolvers.dtisadjustable(::ODETestConvNonLinBE) = true
+            ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE3Rate) = true
             function (::ODETestConvNonLinBE3Rate)(Q, Qhat, α, p, t)
                 @inbounds begin
                     # Slower RHS has zero tendency of yf so just copy Qhat
