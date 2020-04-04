@@ -15,9 +15,6 @@ include("../testhelpers.jl")
         (1, "util/integral_test_sphere.jl")
         (1, "conservation/sphere.jl")
         (1, "compressible_Navier_Stokes/mms_bc.jl")
-        (1, "sphere/advection_sphere_lsrk.jl")
-        (1, "sphere/advection_sphere_ssp33.jl")
-        (1, "sphere/advection_sphere_ssp34.jl")
         (1, "soundings/runtests.jl")
     ]
 
