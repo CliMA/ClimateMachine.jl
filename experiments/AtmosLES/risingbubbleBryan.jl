@@ -86,14 +86,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
         number_of_steps = 15,
     )
-    #=
-    ode_solver = CLIMA.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
-    )
-    =#
+
     # Set up the model
     C_smag = FT(0.23)
     ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
@@ -137,19 +130,19 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 1
+    N = 2
     # Domain resolution and size
-    Δx = FT(160)
-    Δy = FT(2)
-    Δz = FT(80)
+    Δx = FT(125)
+    Δy = FT(125)
+    Δz = FT(125)
     resolution = (Δx, Δy, Δz)
     # Domain extents
     xmax = FT(20000)
-    ymax = FT(400)
+    ymax = FT(1000)
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
-    Δt = FT(1.0)
+    Δt = FT(0.5)
     timeend = FT(1000)
 
     # Courant number
@@ -173,7 +166,7 @@ function main()
     end
 
     vtk_step = 0
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1)  do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
         mkpath("./vtk-rtb/")
         outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplit_mpirank%04d_step%04d",
                          MPI.Comm_rank(driver_config.mpicomm), vtk_step)
