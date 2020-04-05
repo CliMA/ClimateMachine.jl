@@ -81,9 +81,13 @@ struct MPIStateArray{
         nabrtovmapsend,
         weights,
         commtag;
-        mpi_knows_cuda = false,
+        mpi_knows_cuda = nothing,
     ) where {FT, V}
         data = similar(DA, FT, Np, nstate, numelem)
+
+        if isnothing(mpi_knows_cuda)
+            mpi_knows_cuda = MPI.has_cuda()
+        end
 
         if data isa Array || mpi_knows_cuda
             kind = SingleCMBuffer
@@ -205,7 +209,7 @@ function MPIStateArray{FT, V}(
     nabrtovmapsend = Array{UnitRange{Int64}}(undef, 0),
     weights = nothing,
     commtag = 888,
-    mpi_knows_cuda = false,
+    mpi_knows_cuda = nothing,
 ) where {FT, V}
 
     if weights == nothing

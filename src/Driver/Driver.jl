@@ -32,7 +32,6 @@ using ..VTK
 # command line argument defaults in `parse_commandline()`.
 Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
-    mpi_knows_cuda::Bool = false
     show_updates::Bool = true
     update_interval::Int = 60
     enable_diagnostics::Bool = false
@@ -101,9 +100,6 @@ function parse_commandline()
     @add_arg_table! s begin
         "--disable-gpu"
         help = "do not use the GPU"
-        action = :store_true
-        "--mpi-knows-cuda"
-        help = "MPI is CUDA-enabled"
         action = :store_true
         "--no-show-updates"
         help = "do not show simulation updates"
@@ -177,7 +173,6 @@ function init(; disable_gpu = false)
     try
         parsed_args = parse_commandline()
         Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
-        Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
         Settings.show_updates = !parsed_args["no-show-updates"]
         Settings.update_interval = parsed_args["update-interval"]
         Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
