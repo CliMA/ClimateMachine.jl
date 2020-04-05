@@ -2,6 +2,7 @@ using Random
 using StaticArrays
 using Test
 using Printf
+using MPI
 
 using CLIMA
 using CLIMA.Atmos
