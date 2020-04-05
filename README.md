@@ -43,3 +43,6 @@ environment variable `JULIA_MPI_PATH`. Additionally, if your MPI is not
 installed in a single place, e.g., MPI from macports in OSX, you may need to set
 `JULIA_MPI_INCLUDE_PATH` and `JULIA_MPI_LIBRARY_PATH`; for macports installs of
 MPI these would be subdirectories in `/opt/local/include` and `/opt/local/lib`.
+
+
+
