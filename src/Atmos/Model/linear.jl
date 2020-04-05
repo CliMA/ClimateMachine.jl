@@ -270,6 +270,180 @@ function source!(
     nothing
 end
 
+
+abstract type AtmosLinearModelSplit <: AtmosLinearModel end
+
+struct AtmosAcousticLinearModelSplit{M} <: AtmosLinearModelSplit
+    linear::AtmosAcousticLinearModel{M}
+    momentum::AtmosAcousticLinearModelMomentum{M}
+    thermo::AtmosAcousticLinearModelThermo{M}
+    function AtmosAcousticLinearModelSplit(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticLinearModelSplit needs a model with a reference state")
+        end
+        new{M}(
+            AtmosAcousticLinearModel(atmos),
+            AtmosAcousticLinearModelMomentum(atmos),
+            AtmosAcousticLinearModelThermo(atmos),
+        )
+    end
+end
+
+struct AtmosAcousticGravityLinearModelSplit{M} <: AtmosLinearModelSplit
+    linear::AtmosAcousticGravityLinearModel{M}
+    momentum::AtmosAcousticGravityLinearModelMomentum{M}
+    thermo::AtmosAcousticGravityLinearModelThermo{M}
+    function AtmosAcousticGravityLinearModelSplit(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticGravityLinearModelSplit needs a model with a reference state")
+        end
+        new{M}(
+            AtmosAcousticGravityLinearModel(atmos),
+            AtmosAcousticGravityLinearModelMomentum(atmos),
+            AtmosAcousticGravityLinearModelThermo(atmos),
+        )
+    end
+end
+
+struct AtmosAcousticLinearModelMomentum{M} <: AtmosLinearModel
+    atmos::M
+    function AtmosAcousticLinearModelMomentum(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticLinearModelMomentum needs a model with a reference state")
+        end
+        new{M}(atmos)
+    end
+end
+
+function flux_first_order!(
+    lm::AtmosAcousticLinearModelMomentum,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    ref = aux.ref_state
+
+    pL = linearized_pressure(
+        lm.atmos.moisture,
+        lm.atmos.param_set,
+        lm.atmos.orientation,
+        state,
+        aux,
+    )
+    flux.ρu += pL * I
+    nothing
+end
+source!(::AtmosAcousticLinearModelMomentum, _...) = nothing
+
+struct AtmosAcousticLinearModelThermo{M} <: AtmosLinearModel
+    atmos::M
+    function AtmosAcousticLinearModelThermo(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticLinearModelThermo needs a model with a reference state")
+        end
+        new{M}(atmos)
+    end
+end
+
+function flux_first_order!(
+    lm::AtmosAcousticLinearModelThermo,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    ref = aux.ref_state
+    e_pot = gravitational_potential(lm.atmos.orientation, aux)
+
+    flux.ρ = state.ρu
+    flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    nothing
+end
+source!(::AtmosAcousticLinearModelThermo, _...) = nothing
+
+
+struct AtmosAcousticGravityLinearModelMomentum{M} <: AtmosLinearModel
+    atmos::M
+    function AtmosAcousticGravityLinearModelMomentum(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticGravityLinearModelMomentum needs a model with a reference state")
+        end
+        new{M}(atmos)
+    end
+end
+
+function flux_first_order!(
+    lm::AtmosAcousticGravityLinearModelMomentum,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    ref = aux.ref_state
+
+    pL = linearized_pressure(
+        lm.atmos.moisture,
+        lm.atmos.param_set,
+        lm.atmos.orientation,
+        state,
+        aux,
+    )
+    flux.ρu += pL * I
+    nothing
+end
+function source!(
+    lm::AtmosAcousticGravityLinearModelMomentum,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    ::NTuple{1, Dir},
+) where {Dir <: Direction}
+    if Dir === VerticalDirection || Dir === EveryDirection
+        ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
+        source.ρu -= state.ρ * ∇Φ
+    end
+    nothing
+end
+
+struct AtmosAcousticGravityLinearModelThermo{M} <: AtmosLinearModel
+    atmos::M
+    function AtmosAcousticGravityLinearModelThermo(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticGravityLinearModelThermo needs a model with a reference state")
+        end
+        new{M}(atmos)
+    end
+end
+
+function flux_first_order!(
+    lm::AtmosAcousticGravityLinearModelThermo,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    ref = aux.ref_state
+    e_pot = gravitational_potential(lm.atmos.orientation, aux)
+
+    flux.ρ = state.ρu
+    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    nothing
+end
+source!(::AtmosAcousticGravityLinearModelThermo, _...) = nothing
+
+
+
 function numerical_flux_first_order!(
     numerical_flux::RoeNumericalFlux,
     balance_law::AtmosLinearModel,

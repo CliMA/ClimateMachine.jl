@@ -131,18 +131,45 @@ function solversetup(
     # for the fast processes (acoustic/gravity waves
     # in all spatial directions)
     fast_model = ode_solver.fast_model(dg.balance_law)
-    fast_dg = DGModel(
-        fast_model,
-        dg.grid,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        dg.numerical_flux_gradient,
-        state_auxiliary = dg.state_auxiliary,
-        state_gradient_flux = dg.state_gradient_flux,
-        states_higher_order = dg.states_higher_order,
-        direction = EveryDirection(),
-    )
-
+    if isa(fast_model,AtmosLinearModelSplit)
+        fast_dg_momentum = DGModel(
+            fast_model.momentum,
+            dg.grid,
+            dg.numerical_flux_first_order,
+            dg.numerical_flux_second_order,
+            dg.numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+            direction = EveryDirection(),
+        )
+        fast_dg_thermo = DGModel(
+            fast_model.thermo,
+            dg.grid,
+            dg.numerical_flux_first_order,
+            dg.numerical_flux_second_order,
+            dg.numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+            direction = EveryDirection(),
+        )
+        fast_dg = (fast_dg_momentum, fast_dg_thermo)
+        fast_model=fast_model.linear
+    else
+        fast_dg = DGModel(
+            fast_model,
+            dg.grid,
+            dg.numerical_flux_first_order,
+            dg.numerical_flux_second_order,
+            dg.numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+            direction = EveryDirection(),
+        )
+    end
+    
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)

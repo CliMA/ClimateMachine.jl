@@ -1,6 +1,9 @@
 module Atmos
 
-export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
+export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel,
+    AtmosLinearModelSplit, AtmosAcousticLinearModelSplit, AtmosAcousticGravityLinearModelSplit,
+    AtmosAcousticLinearModelMomentum, AtmosAcousticLinearModelThermo,
+    AtmosAcousticGravityLinearModelMomentum, AtmosAcousticGravityLinearModelThermo
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
