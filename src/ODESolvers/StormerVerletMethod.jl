@@ -150,7 +150,7 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
 
   rhs!, dQ = sv.rhs!, sv.dQ
   #gamma = sv.gamma
-  println("a")
+
   Qa = @view(Q.realdata[:,sv.mask_a,:])
   Qb = @view(Q.realdata[:,sv.mask_b,:])
   dQa = @view(dQ.realdata[:,sv.mask_a,:])
