@@ -32,9 +32,9 @@ version = "3.5.0+3"
 
 [[ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "bc779df8d73be70e4e05a63727d3a4dfb4c52b1f"
+git-tree-sha1 = "7ae8ee0977d9ead47ca8f99f066bc603505e2d13"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "0.1.5"
+version = "0.2.2"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -423,9 +423,9 @@ version = "1.1.0"
 
 [[LazyArrays]]
 deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "StaticArrays"]
-git-tree-sha1 = "b799f90cd9a1d90a54038f8263e701023bce1af8"
+git-tree-sha1 = "b77f30dfa8dd68ccabc4b5353fcb8c2fd12ac129"
 uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "0.15.1"
+version = "0.16.2"
 
 [[LibGit2]]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
