@@ -52,8 +52,6 @@ function calculate_dt(grid, model::OceanModel, Courant_number)
     return dt
 end
 
-using CLIMA.HydrostaticBoussinesq
-
 """
     OceanDGModel()
 
@@ -61,7 +59,7 @@ helper function to add required filtering
 not used in the Driver+Config setup
 """
 function OceanDGModel(
-    bl::Union{OceanModel, HydrostaticBoussinesqModel},
+    bl::OceanModel,
     grid,
     numfluxnondiff,
     numfluxdiff,
@@ -101,7 +99,6 @@ function vars_state(m::OceanModel, T)
         u::SVector{2, T}
         η::T
         θ::T
-        η_explicit::T
     end
 end
 
@@ -111,12 +108,13 @@ end
 
 function vars_aux(m::OceanModel, T)
     @vars begin
-        w::T
-        pkin::T         # ∫(-αᵀ θ)
-        wz0::T          # w at z=0
-        ∫u::SVector{2, T}
-        y::T     # y-coordinate of the box
-        Δη::T
+        y::T              # y-coordinate of the box
+        w::T              # vertical velocity
+        pkin::T           # ∫(-αᵀ θ)
+        wz0::T            # w at z=0
+        ∫u::SVector{2, T} # barotropic velocity
+        η_barotropic::T   # η from barotropic model
+        Δη::T             # difference between explicit and barotropic η
     end
 end
 
@@ -308,18 +306,7 @@ end
     t::Real,
     direction,
 )
-    @inbounds begin
-        #=
-        # moving to barotropic model
-        # f × u
-        u = Q.u # Horizontal components of velocity
-        f = coriolis_force(m, A.y)
-        S.u -= @SVector [-f * u[2], f * u[1]]
-        =#
-
-        # switch this to S.η if you comment out the fast mode in MultistateMultirateRungeKutta
-        S.η_explicit += A.wz0
-    end
+    S.η += A.wz0
 
     return nothing
 end
@@ -338,16 +325,7 @@ function update_aux!(dg::DGModel, m::OceanModel, Q::MPIStateArray, t::Real)
     # Q[4] = θ
     apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
 
-    A = dg.auxstate
-    # store difference between η from Barotropic Model and η_explicit
-    function f!(::OceanModel, Q, A, t)
-        @inbounds begin
-            A.Δη = Q.η - Q.η_explicit
-        end
-
-        return nothing
-    end
-    nodal_update_aux!(f!, dg, m, Q, t)
+    # dg.auxstate.Δη .= Q.η .- Q.η_barotropic
 
     return true
 end

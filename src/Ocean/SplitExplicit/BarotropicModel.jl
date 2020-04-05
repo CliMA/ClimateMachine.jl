@@ -18,8 +18,8 @@ function vars_state(m::BarotropicModel, T)
 end
 
 function init_state!(m::BarotropicModel, Q::Vars, A::Vars, coords, t)
-    Q.U = @SVector [0, 0]
-    Q.η = 0
+    Q.U = @SVector [-0, -0]
+    Q.η = -0
     return nothing
 end
 
@@ -69,7 +69,6 @@ end
     return nothing
 end
 
-# probably need to use smaller values than the model viscosity
 @inline function viscosity_tensor(bm::BarotropicModel)
     m = bm.baroclinic
     return Diagonal(@SVector [m.νʰ, m.νʰ, 0])
@@ -171,7 +170,7 @@ function update_penalty!(
     A⁺,
     t,
 )
-    ΔQ.η = 0
+    ΔQ.η = -0
 
     return nothing
 end

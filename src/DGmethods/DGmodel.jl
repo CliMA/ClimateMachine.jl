@@ -526,7 +526,7 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
             args...;
             ndrange = Np * nrealelem,
         )
-        wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
+        wait(device, event)
         state .= h_state
     end
 

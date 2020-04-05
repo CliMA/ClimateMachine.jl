@@ -9,6 +9,7 @@ using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.VariableTemplates: flattenednames
 using CLIMA.SplitExplicit
+# using CLIMA.HydrostaticBoussinesq
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -57,6 +58,17 @@ end
 end
 
 @inline function ocean_boundary_state!(
+    m::Continuity3dModel,
+    p::SimpleBox,
+    bctype,
+    x...,
+)
+   #if bctype == 1
+        ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+   #end
+end
+
+@inline function ocean_boundary_state!(
     m::BarotropicModel,
     p::SimpleBox,
     bctype,
@@ -94,16 +106,11 @@ end
 # A is Filled afer the state
 function ocean_init_aux!(
     m::BarotropicModel,
-    P::Union{SimpleBox, OceanGyre},
+   #P::Union{SimpleBox, OceanGyre},
+    P::SimpleBox,
     A,
     geom,
 )
-    @inbounds A.y = geom.coord[2]
-
-    A.Gᵁ = @SVector [0, 0]
-    A.Ū = @SVector [0, 0]
-    A.η̄ = 0
-
     return nothing
 end
 
@@ -150,19 +157,18 @@ function main()
 
     horizontalmodel = HorizontalModel(model)
 
-    barotropicmodel =
-        BarotropicModel(model, CLIMA.SplitExplicit.IntegratedTendency())
+    barotropicmodel = BarotropicModel(model)
 
     minΔx = Lˣ / Nˣ / (N + 1)
     CFL_gravity = minΔx / model.cʰ
-    dt_fast = 2 # 1 // 2 * minimum([CFL_gravity])
+    dt_fast = 120 # 1 // 2 * minimum([CFL_gravity])
 
     minΔz = H / Nᶻ / (N + 1)
     CFL_viscous = minΔz^2 / model.νᶻ
     CFL_diffusive = minΔz^2 / model.κᶻ
     dt_slow = 1 // 2 * minimum([CFL_diffusive, CFL_viscous])
 
-    dt_slow = 120
+    dt_slow = dt_fast
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
 
@@ -223,19 +229,20 @@ function main()
     lsrk_barotropic =
         LSRK144NiegemannDiehlBusch(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
 
-
+    #=
     odesolver = MultistateMultirateRungeKutta(
         lsrk_ocean,
-        lsrk_barotropic;
-        sAlt_solver = lsrk_horizontal,
+        lsrk_horizontal,
+        lsrk_barotropic,
     )
-    #=
-        odesolver = MultistateRungeKutta(
-            lsrk_ocean,
-            lsrk_barotropic;
-            sAlt_solver = lsrk_horizontal,
-        )
     =#
+
+    odesolver = MultistateRungeKutta(
+        lsrk_ocean,
+        lsrk_horizontal,
+        lsrk_barotropic,
+    )
+
     step = [0, 0]
     cbvector = make_callbacks(
         vtkpath,
@@ -342,8 +349,8 @@ end
 FT = Float64
 vtkpath = "vtk_split"
 
-const timeend = 6 * 3600   # s
-const tout = 3600 # s
+const timeend = 360   # s
+const tout = 120 # s
 
 const N = 4
 const Nˣ = 20

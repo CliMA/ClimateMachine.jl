@@ -106,12 +106,17 @@ end
     boxy_u = reshape(Qslow.u, Nq^2, Nqk, 2, nelemv, nelemh)
     boxy_Δu = reshape(Δu, Nq^2, 1, 2, 1, nelemh)
     ### this works, we tested it
-    boxy_u .+= boxy_Δu
+    # boxy_u .+= boxy_Δu
 
     ### copy 2D eta over to 3D model
-    boxy_η_3D = reshape(Qslow.η, Nq^2, Nq, nelemv, nelemh)
     boxy_η̄_2D = reshape(dgFast.auxstate.η̄, Nq^2, 1, 1, nelemh)
-    boxy_η_3D .= boxy_η̄_2D
+    # boxy_η_3D = reshape(Qslow.η, Nq^2, Nq, nelemv, nelemh)
+    # boxy_η_3D .= boxy_η̄_2D
+
+    boxy_η_barotropic = reshape(dgSlow.auxstate.η_barotropic, Nq^2, Nq, nelemv, nelemh)
+    boxy_η_barotropic .= boxy_η̄_2D
+
+    dgSlow.auxstate.Δη .= Qslow.η .- dgSlow.auxstate.η_barotropic
 
     return nothing
 end
