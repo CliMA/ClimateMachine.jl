@@ -278,7 +278,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         t,
         grid.ω,
         grid.D,
-        topology.realelems,
+        Val(size(grid.vgeo, 2)),
         increment;
         ndrange = (nrealelem * Nq, Nq),
         dependencies = (event,),
