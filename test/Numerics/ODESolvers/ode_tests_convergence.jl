@@ -2,6 +2,8 @@ using Test
 using CLIMA
 using StaticArrays
 using LinearAlgebra
+using KernelAbstractions
+using CLIMA.MPIStateArrays: device
 
 include("ode_tests_common.jl")
 
@@ -599,48 +601,88 @@ const ArrayType = CLIMA.array_type()
             ]
 
             function rhs_fast!(dQ, Q, param, t; increment)
-                @inbounds begin
-                    increment || (dQ .= 0)
-                    yf = Q[1]
-                    ys = Q[2]
-                    gf = (-3 + yf^2 - cos(ω * t)) / 2yf
-                    gs = (-2 + ys^2 - cos(t)) / 2ys
-                    dQ[1] += Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        yf = Q[1]
+                        ys = Q[2]
+                        gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                        gs = (-2 + ys^2 - cos(t)) / 2ys
+                        dQ[1] +=
+                            Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+                    end
                 end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
             end
 
+
             function rhs_slow!(dQ, Q, param, t; increment)
-                @inbounds begin
-                    increment || (dQ .= 0)
-                    yf = Q[1]
-                    ys = Q[2]
-                    gf = (-3 + yf^2 - cos(ω * t)) / 2yf
-                    gs = (-2 + ys^2 - cos(t)) / 2ys
-                    dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        yf = Q[1]
+                        ys = Q[2]
+                        gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                        gs = (-2 + ys^2 - cos(t)) / 2ys
+                        dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+                    end
                 end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
             end
 
             struct ODETestConvNonLinBE <: AbstractBackwardEulerSolver end
             ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE) = true
             function (::ODETestConvNonLinBE)(Q, Qhat, α, p, t)
-                @inbounds begin
-                    # Slow RHS has zero tendency of yf so just copy Qhat
-                    Q[1] = yf = Qhat[1]
+                @kernel function knl!(Q, Qhat, α, p, t)
+                    @inbounds begin
+                        # Slow RHS has zero tendency of yf so just copy Qhat
+                        Q[1] = yf = Qhat[1]
 
-                    gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                        gf = (-3 + yf^2 - cos(ω * t)) / 2yf
 
-                    # solves: Q = Qhat[2] + α * rhs_slow(Q, t)
-                    # (simplifies to a quadratic equation)
-                    a = 2 - α * Ω[2, 2]
-                    b = -2 * (Qhat[2] + α * Ω[2, 1] * gf)
-                    c = α * (Ω[2, 2] * (2 + cos(t)) + sin(t))
-                    Q[2] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                        # solves: Q = Qhat[2] + α * rhs_slow(Q, t)
+                        # (simplifies to a quadratic equation)
+                        a = 2 - α * Ω[2, 2]
+                        b = -2 * (Qhat[2] + α * Ω[2, 1] * gf)
+                        c = α * (Ω[2, 2] * (2 + cos(t)) + sin(t))
+                        Q[2] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                    end
                 end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    Q,
+                    Qhat,
+                    α,
+                    p,
+                    t;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
             end
 
-            exactsolution(t) = [sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))]
+            exactsolution(t) =
+                ArrayType([sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))])
 
-            finaltime = 5π / 2
+            finaltime = 1
             dts = [2.0^(-k) for k in 2:7]
             error = similar(dts)
             @testset "Explicit" begin
@@ -753,93 +795,121 @@ const ArrayType = CLIMA.array_type()
             ]
 
             function rhs1!(dQ, Q, param, t; increment)
-                @inbounds begin
-                    increment || (dQ .= 0)
-                    y1, y2, y3 = Q[1], Q[2], Q[3]
-                    g = @SVector [
-                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
-                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
-                        (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
-                    ]
-                    dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        y1, y2, y3 = Q[1], Q[2], Q[3]
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                            (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                        ]
+                        dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
+                    end
                 end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
             end
             function rhs2!(dQ, Q, param, t; increment)
-                @inbounds begin
-                    increment || (dQ .= 0)
-                    y1, y2, y3 = Q[1], Q[2], Q[3]
-                    g = @SVector [
-                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
-                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
-                        (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
-                    ]
-                    dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        y1, y2, y3 = Q[1], Q[2], Q[3]
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                            (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                        ]
+                        dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
+                    end
                 end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
             end
             function rhs3!(dQ, Q, param, t; increment)
-                @inbounds begin
-                    increment || (dQ .= 0)
-                    y1, y2, y3 = Q[1], Q[2], Q[3]
-                    g = @SVector [
-                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
-                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
-                        (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
-                    ]
-                    dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        y1, y2, y3 = Q[1], Q[2], Q[3]
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                            (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                        ]
+                        dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
+                    end
                 end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
             end
             struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
             ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE3Rate) = true
             function (::ODETestConvNonLinBE3Rate)(Q, Qhat, α, p, t)
-                @inbounds begin
-                    # Slower RHS has zero tendency of yf so just copy Qhat
-                    Q[1] = y1 = Qhat[1]
-                    Q[2] = y2 = Qhat[2]
+                @kernel function knl!(Q, Qhat, α, p, t)
+                    @inbounds begin
+                        # Slower RHS has zero tendency of yf so just copy Qhat
+                        Q[1] = y1 = Qhat[1]
+                        Q[2] = y2 = Qhat[2]
 
-                    g = @SVector [
-                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
-                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
-                    ]
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                        ]
 
-                    # solves: Q = Qhat + α * rhs_slow(Q, t)
-                    # (simplifies to a quadratic equation)
-                    a = 2 - α * Ω[3, 3]
-                    b = -2 * (Qhat[3] + α * Ω[3, 1] * g[1] + α * Ω[3, 2] * g[2])
-                    c = α * (Ω[3, 3] * (β3 + cos(t)) + sin(t))
-                    Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                        # solves: Q = Qhat + α * rhs_slow(Q, t)
+                        # (simplifies to a quadratic equation)
+                        a = 2 - α * Ω[3, 3]
+                        b =
+                            -2 *
+                            (Qhat[3] + α * Ω[3, 1] * g[1] + α * Ω[3, 2] * g[2])
+                        c = α * (Ω[3, 3] * (β3 + cos(t)) + sin(t))
+                        Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                    end
                 end
-            end
-            struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
-            ODESolvers.dtisadjustable(::ODETestConvNonLinBE) = true
-            function (::ODETestConvNonLinBE3Rate)(Q, Qhat, α, p, t)
-                @inbounds begin
-                    # Slower RHS has zero tendency of yf so just copy Qhat
-                    Q[1] = y1 = Qhat[1]
-                    Q[2] = y2 = Qhat[2]
-
-                    g = @SVector [
-                        (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
-                        (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
-                    ]
-
-                    # solves: Q = Qhat + α * rhs_slow(Q, t)
-                    # (simplifies to a quadratic equation)
-                    a = 2 - α * Ω[3, 3]
-                    b = -2 * (Qhat[3] + α * Ω[3, 1] * g[1] + α * Ω[3, 2] * g[2])
-                    c = α * (Ω[3, 3] * (β3 + cos(t)) + sin(t))
-                    Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
-                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    Q,
+                    Qhat,
+                    α,
+                    p,
+                    t;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
             end
 
-
-
-            exactsolution(t) = [
+            exactsolution(t) = ArrayType([
                 sqrt(β1 + cos(ω1 * t)),
                 sqrt(β2 + cos(ω2 * t)),
                 sqrt(β3 + cos(ω3 * t)),
-            ]
+            ])
 
-            finaltime = 5π / 2
+            finaltime = 1
             dts = [2.0^(-k) for k in 1:7]
             error = similar(dts)
             @testset "Explicit" begin
