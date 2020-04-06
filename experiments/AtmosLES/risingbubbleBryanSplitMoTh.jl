@@ -2,6 +2,7 @@ using Random
 using StaticArrays
 using Test
 using Printf
+using MPI
 
 using CLIMA
 using CLIMA.Atmos
@@ -81,8 +82,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # Choose explicit solver
 
     ode_solver = CLIMA.MISSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        solver_method = MIS2,
+        linear_model = AtmosAcousticGravityLinearModelSplit,
+        slow_method = MIS2,
         fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
         number_of_steps = 15,
     )
@@ -130,7 +131,7 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 2
+    N = 4
     # Domain resolution and size
     Δx = FT(125)
     Δy = FT(125)
@@ -142,7 +143,7 @@ function main()
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
-    Δt = FT(0.5)
+    Δt = FT(0.4)
     timeend = FT(1000)
 
     # Courant number
@@ -168,7 +169,7 @@ function main()
     vtk_step = 0
     cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
         mkpath("./vtk-rtb/")
-        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplit_mpirank%04d_step%04d",
+        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplitMoTh_mpirank%04d_step%04d",
                          MPI.Comm_rank(driver_config.mpicomm), vtk_step)
         writevtk(outprefix, solver_config.Q, solver_config.dg,
             flattenednames(vars_state(driver_config.bl,FT)),

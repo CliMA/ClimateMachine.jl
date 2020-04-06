@@ -2,7 +2,6 @@ using Random
 using StaticArrays
 using Test
 using Printf
-using MPI
 
 using CLIMA
 using CLIMA.Atmos
@@ -65,14 +64,14 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
     q_pt = PhasePartition(ts)
 
-    ρu = SVector(FT(0), FT(0), FT(0))
+    u = SVector(FT(20), FT(0), FT(0))
 
     #State (prognostic) variable assignment
-    e_kin = FT(0)
+    e_kin = FT(0.5*20*20)
     e_pot = gravitational_potential(bl.orientation, aux)
     ρe_tot = ρ * total_energy(e_kin, e_pot, ts)
     state.ρ = ρ
-    state.ρu = ρu
+    state.ρu = ρ*u
     state.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_pt.tot
 end
@@ -82,10 +81,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # Choose explicit solver
 
     ode_solver = CLIMA.MISSolverType(
-        linear_model = AtmosAcousticGravityLinearModelSplit,
+        linear_model = AtmosAcousticGravityLinearModel,
         solver_method = MIS2,
         fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
-        number_of_steps = 15,
+        number_of_steps = 10,
     )
 
     # Set up the model
@@ -143,7 +142,7 @@ function main()
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
-    Δt = FT(0.125)
+    Δt = FT(0.4)
     timeend = FT(1000)
 
     # Courant number
@@ -167,10 +166,11 @@ function main()
     end
 
     vtk_step = 0
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(80)  do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
         mkpath("./vtk-rtb/")
-        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplitMoTh_mpirank%04d_step%04d",
-                         MPI.Comm_rank(driver_config.mpicomm), vtk_step)
+        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanTranslationSplit_mpirank%04d_step%04d",
+                         3, vtk_step)
+#                        MPI.Comm_rank(driver_config.mpicomm), vtk_step)
         writevtk(outprefix, solver_config.Q, solver_config.dg,
             flattenednames(vars_state(driver_config.bl,FT)),
             solver_config.dg.auxstate,
