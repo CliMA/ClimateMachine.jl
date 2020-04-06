@@ -92,11 +92,11 @@ function dostep!(
     erk::ExplicitFSALRungeKutta,
     p,
     time,
-    dt;
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    dt = erk.dt
     RKA, RKB, RKC = erk.RKA, erk.RKB, erk.RKC
     RKB_embedded = erk.RKB_embedded
     Nstages = length(RKB)
@@ -148,7 +148,6 @@ dostep!(
     erk::ExplicitFSALRungeKutta,
     p,
     time,
-    dt,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
@@ -157,7 +156,6 @@ dostep!(
     erk,
     p,
     time,
-    dt,
     slow_δ = slow_δ,
     slow_rv_dQ = slow_rv_dQ,
     slow_scaling = slow_scaling,

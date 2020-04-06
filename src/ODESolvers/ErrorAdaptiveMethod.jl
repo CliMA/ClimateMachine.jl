@@ -21,7 +21,7 @@ getdt(eas::ErrorAdaptiveSolver) = getdt(eas.solver)
 updatedt!(eas::ErrorAdaptiveSolver, dt) = updatedt!(eas.solver, dt)
 embedded_order(eas::ErrorAdaptiveSolver) = embedded_order(eas.solver)
 
-function dostep!(
+function general_dostep!(
     Q,
     eas::ErrorAdaptiveSolver,
     p,
@@ -34,24 +34,23 @@ function dostep!(
     dt = getdt(eas)
 
     acceptstep = false
-    newdt = dt
     while !acceptstep
-        dostep!((candidate, Q, error_estimate), eas.solver, p, time, dt)
+        dostep!((candidate, Q, error_estimate), eas.solver, p, time)
         order = embedded_order(eas)
-        acceptstep, newdt =
+        acceptstep, dt =
             eas.error_controller(candidate, error_estimate, dt, order)
-        acceptstep || (dt = newdt)
+        acceptstep || updatedt!(eas, dt)
     end
 
-    if adjustfinalstep && time + dt > timeend
-        dt = timeend - time
-        dostep!((candidate, Q, error_estimate), eas.solver, p, time, dt)
+    if adjustfinalstep && time + getdt(eas.solver) > timeend
+        updatedt!(eas, timeend - time)
+        dostep!((candidate, Q, error_estimate), eas.solver, p, time)
     end
 
     Q .= candidate
 
-    updatedt!(eas, newdt)
-    eas.solver.t += dt
+    eas.solver.t += getdt(eas.solver)
+    updatedt!(eas, dt)
     return eas.solver.t
 end
 
