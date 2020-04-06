@@ -32,9 +32,9 @@ version = "3.5.0+3"
 
 [[ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "7ae8ee0977d9ead47ca8f99f066bc603505e2d13"
+git-tree-sha1 = "41956a49a8a4fefa1bf6664bca4a3035aba4c3a0"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "0.2.2"
+version = "0.2.3"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -319,9 +319,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MPI]]
 deps = ["Distributed", "DocStringExtensions", "Libdl", "Random", "Requires", "Serialization", "Sockets"]
-git-tree-sha1 = "a01349600200a1cb2157fd91e6d19e38642273ed"
+git-tree-sha1 = "54f6b52be12f84073fbb7c68c1b1983555ee7e72"
 uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
-version = "0.12.0"
+version = "0.13.0"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -401,9 +401,9 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[Polynomials]]
 deps = ["LinearAlgebra", "RecipesBase"]
-git-tree-sha1 = "1185511cac8ab9d0b658b663eae34fe9a95d4332"
+git-tree-sha1 = "f7c0c07e82798aef542d60a6e6e85e39f4590750"
 uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
-version = "0.6.1"
+version = "0.5.3"
 
 [[Printf]]
 deps = ["Unicode"]
@@ -430,9 +430,9 @@ deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RecipesBase]]
-git-tree-sha1 = "b4ed4a7f988ea2340017916f7c9e5d7560b52cae"
+git-tree-sha1 = "d352369b00094cadb43d694333b051b3d55abaf2"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-version = "0.8.0"
+version = "1.0.0"
 
 [[Requires]]
 deps = ["UUIDs"]
