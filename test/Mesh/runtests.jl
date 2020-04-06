@@ -18,6 +18,11 @@ include("Geometry.jl")
 # state)
 MPI.Initialized() && MPI.Finalize()
 
+# The MPI library doesn't actually call the C library's `MPI_Finalize()` until
+# all of the MPI object have been finalized. So we run the garbage collector to
+# make sure MPI is actually finalized.
+Base.GC.gc()
+
 @testset "MPI Jobs" begin
 
     tests = [
