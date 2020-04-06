@@ -37,154 +37,11 @@ import CLIMA.DGmethods:
 import CLIMA.DGmethods: boundary_state!
 import CLIMA.Atmos: flux_diffusive!
 
-# -------------------- Radiation Model -------------------------- #
-vars_state(::RadiationModel, FT) = @vars()
-vars_aux(::RadiationModel, FT) = @vars()
-vars_integrals(::RadiationModel, FT) = @vars()
-vars_reverse_integrals(::RadiationModel, FT) = @vars()
-
-function atmos_nodal_update_aux!(
-    ::RadiationModel,
-    ::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
-function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
-function integral_load_aux!(
-    ::RadiationModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) end
-function integral_set_aux!(::RadiationModel, aux::Vars, integ::Vars) end
-function reverse_integral_load_aux!(
-    ::RadiationModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) end
-function reverse_integral_set_aux!(::RadiationModel, aux::Vars, integ::Vars) end
-function flux_radiation!(
-    ::RadiationModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
 
 
 
-# ------------------------ Begin Radiation Model ---------------------- #
-"""
-  DYCOMSRadiation <: RadiationModel
 
-Stevens et. al (2005) approximation of longwave radiative fluxes in DYCOMS.
-Analytical description as a function of the liquid water path and inversion height zᵢ
 
-* Stevens, B. et. al. (2005) "Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus". Mon. Wea. Rev., 133, 1443–1462, https://doi.org/10.1175/MWR2930.1
-"""
-struct DYCOMSRadiation{FT} <: RadiationModel
-    "mass absorption coefficient `[m^2/kg]`"
-    κ::FT
-    "Troposphere cooling parameter `[m^(-4/3)]`"
-    α_z::FT
-    "Inversion height `[m]`"
-    z_i::FT
-    "Density"
-    ρ_i::FT
-    "Large scale divergence `[s^(-1)]`"
-    D_subsidence::FT
-    "Radiative flux parameter `[W/m^2]`"
-    F_0::FT
-    "Radiative flux parameter `[W/m^2]`"
-    F_1::FT
-end
-
-vars_aux(m::DYCOMSRadiation, FT) = @vars(Rad_flux::FT)
-
-vars_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
-function integral_load_aux!(
-    m::DYCOMSRadiation,
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-)
-    FT = eltype(state)
-    integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
-end
-function integral_set_aux!(m::DYCOMSRadiation, aux::Vars, integrand::Vars)
-    integrand = integrand.radiation.attenuation_coeff
-    aux.∫dz.radiation.attenuation_coeff = integrand
-end
-
-vars_reverse_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
-function reverse_integral_load_aux!(
-    m::DYCOMSRadiation,
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-)
-    FT = eltype(state)
-    integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
-end
-function reverse_integral_set_aux!(
-    m::DYCOMSRadiation,
-    aux::Vars,
-    integrand::Vars,
-)
-    aux.∫dnz.radiation.attenuation_coeff = integrand.radiation.attenuation_coeff
-end
-
-function flux_radiation!(
-    m::DYCOMSRadiation,
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    FT = eltype(flux)
-    z = altitude(atmos.orientation, aux)
-    Δz_i = max(z - m.z_i, -zero(FT))
-    # Constants
-    upward_flux_from_cloud = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
-    upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
-    free_troposphere_flux =
-        m.ρ_i *
-        FT(cp_d) *
-        m.D_subsidence *
-        m.α_z *
-        cbrt(Δz_i) *
-        (Δz_i / 4 + m.z_i)
-    F_rad =
-        upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
-    flux.ρe += F_rad * ẑ
-end
-function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real) end
-# -------------------------- End Radiation Model ------------------------ #
-
-"""
-  Initial Condition for DYCOMS_RF01 LES
-@article{doi:10.1175/MWR2930.1,
-author = {Stevens, Bjorn and Moeng, Chin-Hoh and Ackerman,
-          Andrew S. and Bretherton, Christopher S. and Chlond,
-          Andreas and de Roode, Stephan and Edwards, James and Golaz,
-          Jean-Christophe and Jiang, Hongli and Khairoutdinov,
-          Marat and Kirkpatrick, Michael P. and Lewellen, David C. and Lock, Adrian and
-          Maeller, Frank and Stevens, David E. and Whelan, Eoin and Zhu, Ping},
-title = {Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus},
-journal = {Monthly Weather Review},
-volume = {133},
-number = {6},
-pages = {1443-1462},
-year = {2005},
-doi = {10.1175/MWR2930.1},
-URL = {https://doi.org/10.1175/MWR2930.1},
-eprint = {https://doi.org/10.1175/MWR2930.1}
-}
-"""
 function init_tc!(bl, state, aux, (x, y, z), args...)
     FT = eltype(state)
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres = args[2]
@@ -383,40 +240,32 @@ end
 
 function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     # Reference state
-    T_min = FT(289)
-    T_s = FT(290.4)
+    (sounding, _, ncols) = read_sounding()
+
+  zinit, tinit, qinit, u_init, v_init, pinit  =
+      sounding[:, 1], sounding[:, 2], 0.001 .* sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+  maxz = length(zinit)
+  thinit = zeros(maxz)
+  piinit = zeros(maxz)
+  thinit[1] = tinit[1]/(1+0.61*qinit[1])
+  piinit[1] = 1
+  for k in 2:maxz
+    thinit[k] = tinit[k]/(1+0.61*qinit[k])
+    piinit[k] = piinit[k-1] - grav / (1004 * 0.5 *(tinit[k] + tinit[k-1])) * (zinit[k] - zinit[k-1])
+  end
+    T_min = FT(thinit[1] * piinit[1])
+    T_s = FT(thinit[maxz] * piinit[maxz])
     Γ_lapse = FT(grav / cp_d)
     T = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)
-
-    # Radiation model
-    κ = FT(85)
-    α_z = FT(1)
-    z_i = FT(840)
-    ρ_i = FT(1.13)
-
-    D_subsidence = FT(3.75e-6)
-
-    F_0 = FT(70)
-    F_1 = FT(22)
-    radiation = DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1)
-
-    # Sources
-    f_coriolis = FT(5e-5)
-    u_geostrophic = FT(7.0)
-    v_geostrophic = FT(-5.5)
-    w_ref = FT(0)
-    u_relaxation = SVector(u_geostrophic, v_geostrophic, w_ref)
     # Sponge
     c_sponge = FT(1)#0.00833
     # Rayleigh damping
+    u_relaxation = SVector(FT(0), FT(0), FT(0))
     zsponge = FT(17000.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
-    # Geostrophic forcing
-    geostrophic_forcing =
-        GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)
 
     # Boundary conditions
     # SGS Filter constants
@@ -426,11 +275,11 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     SHF = FT(10)
     ics = init_tc!
 
-    source = (Gravity(), rayleigh_sponge, Coriolis())
+    source = (Gravity(), rayleigh_sponge, Coriolis(),CloudSource())
 
     model = AtmosModel{FT}(
         AtmosLESConfigType;
-        ref_state = NoReferenceState(),
+        ref_state = ref_state,
         moisture = NonEquilMoist{FT}(),
         turbulence = ConstantViscosityWithDivergence{FT}(400),
         source = source,
@@ -439,7 +288,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
                 momentum = (Impenetrable(DragLaw(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 ))),
-                energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),#BulkFormulationEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
+                energy = BulkFormulationEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
                 moisture = BulkFormulationMoisture(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 ),
@@ -451,10 +300,10 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     )
 
     ode_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+        CLIMA.IMEXSolverType()
 
     config = CLIMA.AtmosLESConfiguration(
-        "DYCOMS",
+        "CYCLONEMOIST",
         N,
         resolution,
         xmax,
@@ -484,15 +333,15 @@ function main()
     N = 4
 
     # Domain resolution and size
-    Δh = FT(5000)
-    Δv = FT(500)
+    Δh = FT(10000)
+    Δv = FT(400)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(800000)
-    ymax = FT(800000)
-    zmax = FT(25000)
-    xmin = FT(-800000)
-    ymin = FT(-800000)
+    xmax = FT(600000)
+    ymax = FT(600000)
+    zmax = FT(24000)
+    xmin = FT(-600000)
+    ymin = FT(-600000)
 
     t0 = FT(0)
     timeend = FT(86400)
@@ -504,8 +353,8 @@ function main()
         timeend,
         driver_config,
         (spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres),
-        Courant_number = 0.5,
-        init_on_cpu = true,
+        Courant_number = 0.4,
+	init_on_cpu = true,
     )
     dgn_config = config_diagnostics(driver_config)
 

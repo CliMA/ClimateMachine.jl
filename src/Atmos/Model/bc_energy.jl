@@ -116,8 +116,21 @@ function atmos_energy_boundary_state!(
     nf,
     bc_energy::BulkFormulationEnergy,
     atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
     args...,
-) end
+) 
+#FT = eltype(state⁺)
+#T = FT(300)
+ #   E_int⁺ = state⁺.ρ * cv_d * (T - T_0)
+  #  state⁺.ρe =
+   #     E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻) + sum(abs2, state⁻.ρu) / 2
+end
 function atmos_energy_normal_boundary_flux_diffusive!(
     nf,
     bc_energy::BulkFormulationEnergy,
@@ -135,8 +148,18 @@ function atmos_energy_normal_boundary_flux_diffusive!(
     bctype,
     t,
     state1⁻,
-    args...,
+    diff1⁻,
+    aux1⁻,
 )
+
+    #Imposed surface temperature part
+    #ν, _ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
+    #D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+    #d_h_tot = -D_t .* diff⁻.∇h_tot
+    #nd_h_tot = dot(n⁻, d_h_tot)
+    # #both sides involve projections of normals, so signs are consistent
+    #fluxᵀn.ρe += nd_h_tot * state⁻.ρ
+    #Temperature flux part
     FT = eltype(state⁺)
     u1⁻ = state1⁻.ρu / state1⁻.ρ
     Pu1⁻ = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
@@ -144,12 +167,13 @@ function atmos_energy_normal_boundary_flux_diffusive!(
     # NOTE: difference from design docs since normal points outwards
     C = bc_energy.fn(state⁻, aux⁻, t, normPu1⁻)
     τe = C * normPu1⁻
-    TS = thermo_state(atmos, atmos.moisture, state1⁻, aux⁺)
+    TS = thermo_state(atmos, atmos.moisture, state1⁻, aux1⁻)
     T = air_temperature(TS)
     TS1 = thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
     T_surf = air_temperature(TS1)
     cv = cv_m(TS1)
     # both sides involve projections of normals, so signs are consistent
-    fluxᵀn.ρe += state⁻.ρ * τe * cv * (T_surf - T)
+    fluxᵀn.ρe -= state⁻.ρ * τe * cv * (T_surf - T)
+    @info T_surf,T,fluxᵀn.ρe,C,normPu1⁻
 
 end

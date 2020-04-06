@@ -159,7 +159,8 @@ function atmos_source!(
     z = altitude(atmos.orientation, aux)
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
-        β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        #β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        β_sponge = 1.0 - (1 - 0.5 * s.α_max * (1.0 - cospi(r)))#sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
         #elseif (abs(x) >= 795000)
         #   r = (x - 795000) / (800000 - 795000)
