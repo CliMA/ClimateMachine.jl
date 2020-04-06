@@ -35,22 +35,8 @@ jobs:
       set -o xtrace
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
-      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test(coverage=true)'
+      ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
     displayName: 'Run the tests'
-  - bash: |
-      ./julia-$(JULIA_VERSION)/bin/julia --project=.coverage -e 'using Pkg; Pkg.instantiate();
-                                                                 Pkg.add("Coverage");
-                                                                 using Coverage;
-                                                                 Codecov.submit_local(Codecov.process_folder();
-                                                                   service = "azure_pipelines",
-                                                                   commit       = ENV["BUILD_SOURCEVERSION"],
-                                                                   pull_request = get(ENV, "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER", "false"),
-                                                                   job          = ENV["BUILD_DEFINITIONNAME"],
-                                                                   slug         = ENV["BUILD_REPOSITORY_NAME"],
-                                                                   build        = ENV["BUILD_BUILDID"])'
-    env:
-      CODECOV_TOKEN: "d5ad49b6-c247-44f7-a529-5f749a8b0c2a"
-    displayName: 'Submit code coverage'
     continueOnError: true
 
 - job: macOS
