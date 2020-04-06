@@ -42,178 +42,167 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
 See [`odefun!`](@ref) for usage.
 """ volumerhs!
-@kernel function volumerhs!(
-    bl::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
-    ::direction,
-    rhs,
-    Q,
-    Qvisc,
-    Qhypervisc_grad,
-    auxstate,
-    vgeo,
-    t,
-    ω,
-    D,
-    elems,
-    increment,
-) where {dim, polyorder, direction}
-    @uniform begin
-        N = polyorder
-        FT = eltype(Q)
-        nstate = num_state(bl, FT)
-        nviscstate = num_diffusive(bl, FT)
-        nauxstate = num_aux(bl, FT)
+@kernel function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
+                            rhs, Q, Qvisc, Qhypervisc_grad, auxstate, vgeo, t,
+                            ω, D, elems, increment) where {dim, polyorder, direction}
+  @uniform begin
+    N = polyorder
+    FT = eltype(Q)
+    nstate = num_state(bl,FT)
+    nviscstate = num_diffusive(bl,FT)
+    nauxstate = num_aux(bl,FT)
 
-        ngradlapstate = num_gradient_laplacian(bl, FT)
-        nhyperviscstate = num_hyperdiffusive(bl, FT)
+    ngradlapstate = num_gradient_laplacian(bl,FT)
+    nhyperviscstate = num_hyperdiffusive(bl,FT)
 
-        Nq = N + 1
+    Nq = N + 1
 
-        Nqk = dim == 2 ? 1 : Nq
+    Nqk = dim == 2 ? 1 : Nq
 
-        source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
-        l_Q = MArray{Tuple{nstate}, FT}(undef)
-        l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
-        l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
-        l_aux = MArray{Tuple{nauxstate}, FT}(undef)
-        l_F = MArray{Tuple{3, nstate}, FT}(undef)
+    source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+    l_Q = MArray{Tuple{nstate}, FT}(undef)
+    l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
+    l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
+    l_aux = MArray{Tuple{nauxstate}, FT}(undef)
+    l_F = MArray{Tuple{3, nstate}, FT}(undef)
+    l_F3 = MArray{Tuple{nstate}, FT}(undef)
+  end
+
+  s_F = @localmem FT (2, Nq, Nq, nstate)
+  s_ω = @localmem FT (Nq, )
+  s_D = @localmem FT (Nq, Nq)
+  l_rhs = @private FT (Nqk, nstate)
+
+  e = @index(Group, Linear)
+  i, j = @index(Local, NTuple)
+
+  @inbounds begin
+    s_ω[j] = ω[j]
+    s_D[i, j] = D[i, j]
+    
+    @unroll for k in 1:Nqk
+      @unroll for s = 1:nstate
+        ijk = i + Nq * ((j-1) + Nq * (k-1))
+        l_rhs[k, s] = increment ? rhs[ijk, s, e] : zero(FT)
+      end
     end
 
-    s_F = @localmem FT (3, Nq, Nq, Nqk, nstate)
-    s_ω = @localmem FT (Nq,)
-    s_D = @localmem FT (Nq, Nq)
-    l_rhs = @private FT (nstate,)
+    @unroll for k in 1:Nqk
+      @synchronize
+      ijk = i + Nq * ((j-1) + Nq * (k-1))
+      M = vgeo[ijk, _M, e]
+      ξ1x1 = vgeo[ijk, _ξ1x1, e]
+      ξ1x2 = vgeo[ijk, _ξ1x2, e]
+      ξ1x3 = vgeo[ijk, _ξ1x3, e]
+      if dim == 3 || (dim == 2 && direction == EveryDirection)
+        ξ2x1 = vgeo[ijk, _ξ2x1, e]
+        ξ2x2 = vgeo[ijk, _ξ2x2, e]
+        ξ2x3 = vgeo[ijk, _ξ2x3, e]
+      end
+      if dim == 3 && direction == EveryDirection
+        ξ3x1 = vgeo[ijk, _ξ3x1, e]
+        ξ3x2 = vgeo[ijk, _ξ3x2, e]
+        ξ3x3 = vgeo[ijk, _ξ3x3, e]
+      end
 
-    e = @index(Group, Linear)
-    ijk = @index(Local, Linear)
-    i, j, k = @index(Local, NTuple)
+      @unroll for s = 1:nstate
+        l_Q[s] = Q[ijk, s, e]
+      end
 
-    @inbounds begin
-        s_ω[j] = ω[j]
-        s_D[i, j] = D[i, j]
+      @unroll for s = 1:nauxstate
+        l_aux[s] = auxstate[ijk, s, e]
+      end
 
-        M = vgeo[ijk, _M, e]
-        ξ1x1 = vgeo[ijk, _ξ1x1, e]
-        ξ1x2 = vgeo[ijk, _ξ1x2, e]
-        ξ1x3 = vgeo[ijk, _ξ1x3, e]
+      @unroll for s = 1:nviscstate
+        l_Qvisc[s] = Qvisc[ijk, s, e]
+      end
+
+      @unroll for s = 1:nhyperviscstate
+        l_Qhypervisc[s] = Qhypervisc_grad[ijk, s, e]
+      end
+
+      fill!(l_F, -zero(eltype(l_F)))
+      flux_nondiffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+                         Vars{vars_state(bl,FT)}(l_Q),
+                         Vars{vars_aux(bl,FT)}(l_aux), t)
+
+      @unroll for s = 1:nstate
+        s_F[1,i,j,s] = l_F[1,s]
+        s_F[2,i,j,s] = l_F[2,s]
+        l_F3[s] = l_F[3,s]
+      end
+
+      fill!(l_F, -zero(eltype(l_F)))
+      flux_diffusive!(bl, Grad{vars_state(bl,FT)}(l_F),
+                      Vars{vars_state(bl,FT)}(l_Q),
+                      Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+                      Vars{vars_hyperdiffusive(bl,FT)}(l_Qhypervisc),
+                      Vars{vars_aux(bl,FT)}(l_aux), t)
+
+      @unroll for s = 1:nstate
+        s_F[1,i,j,s] += l_F[1,s]
+        s_F[2,i,j,s] += l_F[2,s]
+        l_F3[s] += l_F[3,s]
+      end
+
+      # Build "inside metrics" flux
+      @unroll for s = 1:nstate
+        F1, F2, F3 = s_F[1,i,j,s], s_F[2,i,j,s], l_F3[s]
+
+        s_F[1,i,j,s] = M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
         if dim == 3 || (dim == 2 && direction == EveryDirection)
-            ξ2x1 = vgeo[ijk, _ξ2x1, e]
-            ξ2x2 = vgeo[ijk, _ξ2x2, e]
-            ξ2x3 = vgeo[ijk, _ξ2x3, e]
+          s_F[2,i,j,s] = M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
         end
         if dim == 3 && direction == EveryDirection
-            ξ3x1 = vgeo[ijk, _ξ3x1, e]
-            ξ3x2 = vgeo[ijk, _ξ3x2, e]
-            ξ3x3 = vgeo[ijk, _ξ3x3, e]
+          l_F3[s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
         end
-
-        @unroll for s in 1:nstate
-            l_rhs[s] = increment ? rhs[ijk, s, e] : zero(FT)
+      end
+      
+      if dim == 3 && direction == EveryDirection
+        @unroll for s = 1:nstate
+          @unroll for n = 1:Nqk
+            ijn = i + Nq * ((j-1) + Nq * (n-1))
+            MI = vgeo[ijn, _MI, e]
+            l_rhs[n, s] += MI * s_D[k, n] * l_F3[s]
+          end
         end
+      end
 
-        @unroll for s in 1:nstate
-            l_Q[s] = Q[ijk, s, e]
+      fill!(l_S, -zero(eltype(l_S)))
+      source!(bl, Vars{vars_state(bl,FT)}(l_S),
+              Vars{vars_state(bl,FT)}(l_Q),
+              Vars{vars_diffusive(bl,FT)}(l_Qvisc),
+              Vars{vars_aux(bl,FT)}(l_aux),
+              t)
+
+      @unroll for s = 1:nstate
+        l_rhs[k, s] += l_S[s]
+      end
+      @synchronize
+
+      ijk = i + Nq * ((j-1) + Nq * (k-1))
+      # Weak "inside metrics" derivative
+      @unroll for s = 1:nstate
+        @unroll for n = 1:Nq
+          MI = vgeo[ijk, _MI, e]
+          # ξ1-grid lines
+          l_rhs[k, s] += MI * s_D[n, i] * s_F[1, n, j, s]
+
+          # ξ2-grid lines
+          if dim == 3 || (dim == 2 && direction == EveryDirection)
+            l_rhs[k, s] += MI * s_D[n, j] * s_F[2, i, n, s]
+          end
         end
-
-        @unroll for s in 1:nauxstate
-            l_aux[s] = auxstate[ijk, s, e]
-        end
-
-        @unroll for s in 1:nviscstate
-            l_Qvisc[s] = Qvisc[ijk, s, e]
-        end
-
-        @unroll for s in 1:nhyperviscstate
-            l_Qhypervisc[s] = Qhypervisc_grad[ijk, s, e]
-        end
-
-        fill!(l_F, -zero(eltype(l_F)))
-        flux_nondiffusive!(
-            bl,
-            Grad{vars_state(bl, FT)}(l_F),
-            Vars{vars_state(bl, FT)}(l_Q),
-            Vars{vars_aux(bl, FT)}(l_aux),
-            t,
-        )
-
-        @unroll for s in 1:nstate
-            s_F[1, i, j, k, s] = l_F[1, s]
-            s_F[2, i, j, k, s] = l_F[2, s]
-            s_F[3, i, j, k, s] = l_F[3, s]
-        end
-
-        fill!(l_F, -zero(eltype(l_F)))
-        flux_diffusive!(
-            bl,
-            Grad{vars_state(bl, FT)}(l_F),
-            Vars{vars_state(bl, FT)}(l_Q),
-            Vars{vars_diffusive(bl, FT)}(l_Qvisc),
-            Vars{vars_hyperdiffusive(bl, FT)}(l_Qhypervisc),
-            Vars{vars_aux(bl, FT)}(l_aux),
-            t,
-        )
-
-        @unroll for s in 1:nstate
-            s_F[1, i, j, k, s] += l_F[1, s]
-            s_F[2, i, j, k, s] += l_F[2, s]
-            s_F[3, i, j, k, s] += l_F[3, s]
-        end
-
-        # Build "inside metrics" flux
-        @unroll for s in 1:nstate
-            F1, F2, F3 =
-                s_F[1, i, j, k, s], s_F[2, i, j, k, s], s_F[3, i, j, k, s]
-
-            s_F[1, i, j, k, s] = M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
-            if dim == 3 || (dim == 2 && direction == EveryDirection)
-                s_F[2, i, j, k, s] = M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
-            end
-            if dim == 3 && direction == EveryDirection
-                s_F[3, i, j, k, s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
-            end
-        end
-
-        fill!(l_S, -zero(eltype(l_S)))
-        source!(
-            bl,
-            Vars{vars_state(bl, FT)}(l_S),
-            Vars{vars_state(bl, FT)}(l_Q),
-            Vars{vars_diffusive(bl, FT)}(l_Qvisc),
-            Vars{vars_aux(bl, FT)}(l_aux),
-            t,
-        )
-
-        @unroll for s in 1:nstate
-            l_rhs[s] += l_S[s]
-        end
-        @synchronize
-
-        # Weak "inside metrics" derivative
-        MI = vgeo[ijk, _MI, e]
-        @unroll for s in 1:nstate
-            @unroll for n in 1:Nq
-                # ξ1-grid lines
-                l_rhs[s] += MI * s_D[n, i] * s_F[1, n, j, k, s]
-
-                # ξ2-grid lines
-                if dim == 3 || (dim == 2 && direction == EveryDirection)
-                    l_rhs[s] += MI * s_D[n, j] * s_F[2, i, n, k, s]
-                end
-
-                # ξ3-grid lines
-                if dim == 3 && direction == EveryDirection
-                    l_rhs[s] += MI * s_D[n, k] * s_F[3, i, j, n, s]
-                end
-            end
-        end
-        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
-        @unroll for s in 1:nstate
-            rhs[ijk, s, e] = l_rhs[s]
-        end
+      end
     end
-    @synchronize
+
+    @unroll for s = 1:nstate
+      @unroll for k = 1:Nqk
+        ijk = i + Nq * ((j-1) + Nq * (k-1))
+        rhs[ijk, s, e] = l_rhs[k, s]
+      end
+    end
+  end
 end
 
 @kernel function volumerhs!(

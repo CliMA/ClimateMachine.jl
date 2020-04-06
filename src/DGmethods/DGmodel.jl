@@ -264,7 +264,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     # RHS Computation #
     ###################
     event = Event(device)
-    event = volumerhs!(device, workgroups_volume)(
+    event = volumerhs!(device, (Nq, Nq))(
         bl,
         Val(dim),
         Val(N),
@@ -280,7 +280,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         grid.D,
         topology.realelems,
         increment;
-        ndrange = ndrange_volume,
+        ndrange = (nrealelem * Nq, Nq),
         dependencies = (event,),
     )
     wait(device, event)
