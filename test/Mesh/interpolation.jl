@@ -75,7 +75,7 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
     _grav::FT = grav(param_set)
     _R_d::FT = R_d(param_set)
 
-    z = altitude(bl.orientation, aux)
+    z = altitude(bl, aux)
 
     scale_height = _R_d * setup.T_initial / _grav
     p = setup.p_ground * exp(-z / scale_height)

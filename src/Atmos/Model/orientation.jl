@@ -14,18 +14,26 @@ function vars_aux(m::Orientation, T)
   end
 end
 
+altitude(atmos::AtmosModel, aux::Vars) = altitude(atmos.orientation, atmos.param_set, aux)
+latitude(atmos::AtmosModel, aux::Vars) = latitude(atmos.orientation, aux)
+longitude(atmos::AtmosModel, aux::Vars) = longitude(atmos.orientation, aux)
+vertical_unit_vector(atmos::AtmosModel, aux::Vars) = vertical_unit_vector(atmos.orientation, atmos.param_set, aux)
+projection_normal(atmos::AtmosModel, aux::Vars, u⃗::AbstractVector) = projection_normal(atmos.orientation, atmos.param_set, aux, u⃗)
+projection_tangential(atmos::AtmosModel, aux::Vars, u⃗::AbstractVector) = projection_tangential(atmos.orientation, atmos.param_set, aux, u⃗)
+
+
 gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
 ∇gravitational_potential(::Orientation, aux::Vars) = aux.orientation.∇Φ
-altitude(orientation::Orientation, aux::Vars) = gravitational_potential(orientation, aux) / grav
-vertical_unit_vector(orientation::Orientation, aux::Vars) = ∇gravitational_potential(orientation, aux) / grav
+altitude(orientation::Orientation, param_set, aux::Vars) = gravitational_potential(orientation, aux) / grav
+vertical_unit_vector(orientation::Orientation, param_set, aux::Vars) = ∇gravitational_potential(orientation, aux) / grav
 
-function projection_normal(orientation::Orientation, aux::Vars, u⃗::AbstractVector)
-  n̂ = vertical_unit_vector(orientation, aux)
+function projection_normal(orientation::Orientation, param_set, aux::Vars, u⃗::AbstractVector)
+  n̂ = vertical_unit_vector(orientation, param_set, aux)
   return n̂ * (n̂' * u⃗)
 end
 
-function projection_tangential(orientation::Orientation, aux::Vars, u⃗::AbstractVector)
-  return u⃗ .- projection_normal(orientation, aux, u⃗)
+function projection_tangential(orientation::Orientation, param_set, aux::Vars, u⃗::AbstractVector)
+  return u⃗ .- projection_normal(orientation, param_set, aux, u⃗)
 end
 
 
@@ -42,7 +50,7 @@ end
 atmos_init_aux!(::NoOrientation, ::AtmosModel, aux::Vars, geom::LocalGeometry) = nothing
 gravitational_potential(::NoOrientation, aux::Vars) = -zero(eltype(aux))
 ∇gravitational_potential(::NoOrientation, aux::Vars) = SVector{3,eltype(aux)}(0,0,0)
-altitude(orientation::NoOrientation, aux::Vars) = -zero(eltype(aux))
+altitude(orientation::NoOrientation, param_set, aux::Vars) = -zero(eltype(aux))
 
 """
     SphericalOrientation <: Orientation

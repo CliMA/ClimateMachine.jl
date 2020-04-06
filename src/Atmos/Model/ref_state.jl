@@ -54,7 +54,7 @@ function atmos_init_aux!(
     aux::Vars,
     geom::LocalGeometry,
 ) where {P, F}
-    T, p = m.temperatureprofile(atmos.orientation, aux)
+    T, p = m.temperatureprofile(atmos.orientation, atmos.param_set, aux)
     aux.ref_state.T = T
     aux.ref_state.p = p
     aux.ref_state.ρ = ρ = p / (R_d * T)
@@ -99,7 +99,7 @@ struct IsothermalProfile{F} <: TemperatureProfile
     T::F
 end
 
-function (profile::IsothermalProfile)(orientation::Orientation, aux::Vars)
+function (profile::IsothermalProfile)(orientation::Orientation, param_set, aux::Vars)
     p =
         MSLP *
         exp(-gravitational_potential(orientation, aux) / (R_d * profile.T))
@@ -124,10 +124,11 @@ struct DryAdiabaticProfile{F} <: TemperatureProfile
     θ::F
 end
 
-function (profile::DryAdiabaticProfile)(orientation::Orientation, aux::Vars)
+function (profile::DryAdiabaticProfile)(orientation::Orientation, param_set, aux::Vars)
     FT = eltype(aux)
     LinearTemperatureProfile(profile.T_min, profile.θ, FT(grav / cp_d))(
         orientation,
+        param_set,
         aux,
     )
 end
@@ -156,9 +157,11 @@ end
 
 function (profile::LinearTemperatureProfile)(
     orientation::Orientation,
+    param_set::PS,
     aux::Vars,
-)
-    z = altitude(orientation, aux)
+) where {PS}
+
+    z = altitude(orientation, param_set, aux)
     T = max(profile.T_surface - profile.Γ * z, profile.T_min)
 
     p = MSLP * (T / profile.T_surface)^(grav / (R_d * profile.Γ))
