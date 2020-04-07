@@ -20,25 +20,25 @@ const ArrayType = CLIMA.array_type()
             end
             exactsolution(q0, time) = q0 * exp(sin(time))
 
-            @testset "Explicit methods" begin
-                finaltime = 20.0
-                dts = [2.0^(-k) for k in 0:7]
-                errors = similar(dts)
-                q0 =
-                    ArrayType === Array ? [1.0] : range(-1.0, 1.0, length = 303)
-                for (method, expected_order) in explicit_methods
-                    for (n, dt) in enumerate(dts)
-                        Q = ArrayType(q0)
-                        solver = method(rhs!, Q; dt = dt, t0 = 0.0)
-                        solve!(Q, solver; timeend = finaltime)
-                        Q = Array(Q)
-                        errors[n] =
-                            maximum(@. abs(Q - exactsolution(q0, finaltime)))
-                    end
-                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                    @test isapprox(rates[end], expected_order; atol = 0.17)
-                end
-            end
+            #@testset "Explicit methods" begin
+            #    finaltime = 20.0
+            #    dts = [2.0^(-k) for k in 0:7]
+            #    errors = similar(dts)
+            #    q0 =
+            #        ArrayType === Array ? [1.0] : range(-1.0, 1.0, length = 303)
+            #    for (method, expected_order) in explicit_methods
+            #        for (n, dt) in enumerate(dts)
+            #            Q = ArrayType(q0)
+            #            solver = method(rhs!, Q; dt = dt, t0 = 0.0)
+            #            solve!(Q, solver; timeend = finaltime)
+            #            Q = Array(Q)
+            #            errors[n] =
+            #                maximum(@. abs(Q - exactsolution(q0, finaltime)))
+            #        end
+            #        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+            #        @test isapprox(rates[end], expected_order; atol = 0.17)
+            #    end
+            #end
 
             @testset "Explicit methods error-control" begin
                 finaltime = 20.0
@@ -61,6 +61,8 @@ const ArrayType = CLIMA.array_type()
                         errors[n] =
                             maximum(@. abs(Q - exactsolution(q0, finaltime)))
                     end
+                    @show errors
+                    @show atols
                     @test all(errors .<= 50 .* atols)
                 end
             end
@@ -99,47 +101,47 @@ const ArrayType = CLIMA.array_type()
                 (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
             end
 
-            @testset "IMEX methods" begin
-                finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:13]
-                errors = similar(dts)
+            #@testset "IMEX methods" begin
+            #    finaltime = pi / 2
+            #    dts = [2.0^(-k) for k in 2:13]
+            #    errors = similar(dts)
 
-                q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
-                for (method, expected_order) in imex_methods
-                    for split_nonlinear_linear in (false, true)
-                        for variant in (LowStorageVariant(), NaiveVariant())
-                            for (n, dt) in enumerate(dts)
-                                Q = ArrayType{ComplexF64}(q0)
-                                rhs! = split_nonlinear_linear ? rhs_nonlinear! :
-                                    rhs_full!
-                                solver = method(
-                                    rhs!,
-                                    rhs_linear!,
-                                    DivideLinearSolver(),
-                                    Q;
-                                    dt = dt,
-                                    t0 = 0.0,
-                                    split_nonlinear_linear = split_nonlinear_linear,
-                                    variant = variant,
-                                )
-                                solve!(Q, solver; timeend = finaltime)
-                                Q = Array(Q)
-                                errors[n] = maximum(@. abs(
-                                    Q - exactsolution(q0, finaltime),
-                                ))
-                            end
+            #    q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
+            #    for (method, expected_order) in imex_methods
+            #        for split_nonlinear_linear in (false, true)
+            #            for variant in (LowStorageVariant(), NaiveVariant())
+            #                for (n, dt) in enumerate(dts)
+            #                    Q = ArrayType{ComplexF64}(q0)
+            #                    rhs! = split_nonlinear_linear ? rhs_nonlinear! :
+            #                        rhs_full!
+            #                    solver = method(
+            #                        rhs!,
+            #                        rhs_linear!,
+            #                        DivideLinearSolver(),
+            #                        Q;
+            #                        dt = dt,
+            #                        t0 = 0.0,
+            #                        split_nonlinear_linear = split_nonlinear_linear,
+            #                        variant = variant,
+            #                    )
+            #                    solve!(Q, solver; timeend = finaltime)
+            #                    Q = Array(Q)
+            #                    errors[n] = maximum(@. abs(
+            #                        Q - exactsolution(q0, finaltime),
+            #                    ))
+            #                end
 
-                            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                            @test errors[1] < 2.0
-                            @test isapprox(
-                                rates[end],
-                                expected_order;
-                                atol = 0.1,
-                            )
-                        end
-                    end
-                end
-            end
+            #                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+            #                @test errors[1] < 2.0
+            #                @test isapprox(
+            #                    rates[end],
+            #                    expected_order;
+            #                    atol = 0.1,
+            #                )
+            #            end
+            #        end
+            #    end
+            #end
 
             @testset "IMEX methods error control" begin
                 finaltime = pi / 2
@@ -182,117 +184,118 @@ const ArrayType = CLIMA.array_type()
                 end
             end
 
-            @testset "MRRK methods (no substeps)" begin
-                finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:11]
-                errors = similar(dts)
-                for (slow_method, slow_expected_order) in slow_mrrk_methods
-                    for (fast_method, fast_expected_order) in fast_mrrk_methods
-                        q0 = ArrayType === Array ? [1.0] :
-                            range(-1.0, 1.0, length = 303)
-                        for (n, dt) in enumerate(dts)
-                            Q = ArrayType{ComplexF64}(q0)
-                            solver = MultirateRungeKutta(
-                                (
-                                    slow_method(rhs_slow!, Q),
-                                    fast_method(rhs_fast!, Q),
-                                );
-                                dt = dt,
-                                t0 = 0.0,
-                            )
-                            solve!(Q, solver; timeend = finaltime)
-                            Q = Array(Q)
-                            errors[n] = maximum(@. abs(
-                                Q - exactsolution(q0, finaltime),
-                            ))
-                        end
+            #@testset "MRRK methods (no substeps)" begin
+            #    finaltime = pi / 2
+            #    dts = [2.0^(-k) for k in 2:11]
+            #    errors = similar(dts)
+            #    for (slow_method, slow_expected_order) in slow_mrrk_methods
+            #        for (fast_method, fast_expected_order) in fast_mrrk_methods
+            #            q0 = ArrayType === Array ? [1.0] :
+            #                range(-1.0, 1.0, length = 303)
+            #            for (n, dt) in enumerate(dts)
+            #                Q = ArrayType{ComplexF64}(q0)
+            #                solver = MultirateRungeKutta(
+            #                    (
+            #                        slow_method(rhs_slow!, Q),
+            #                        fast_method(rhs_fast!, Q),
+            #                    );
+            #                    dt = dt,
+            #                    t0 = 0.0,
+            #                )
+            #                solve!(Q, solver; timeend = finaltime)
+            #                Q = Array(Q)
+            #                errors[n] = maximum(@. abs(
+            #                    Q - exactsolution(q0, finaltime),
+            #                ))
+            #            end
 
-                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                        min_order =
-                            min(slow_expected_order, fast_expected_order)
-                        max_order =
-                            max(slow_expected_order, fast_expected_order)
-                        @test (
-                            isapprox(rates[end], min_order; atol = 0.1) ||
-                            isapprox(rates[end], max_order; atol = 0.1) ||
-                            min_order <= rates[end] <= max_order
-                        )
-                    end
-                end
-            end
+            #            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+            #            min_order =
+            #                min(slow_expected_order, fast_expected_order)
+            #            max_order =
+            #                max(slow_expected_order, fast_expected_order)
+            #            @test (
+            #                isapprox(rates[end], min_order; atol = 0.1) ||
+            #                isapprox(rates[end], max_order; atol = 0.1) ||
+            #                min_order <= rates[end] <= max_order
+            #            )
+            #        end
+            #    end
+            #end
 
-            @testset "MRRK methods (with substeps)" begin
-                finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:15]
-                errors = similar(dts)
-                for (slow_method, slow_expected_order) in slow_mrrk_methods
-                    for (fast_method, fast_expected_order) in fast_mrrk_methods
-                        q0 = ArrayType === Array ? [1.0] :
-                            range(-1.0, 1.0, length = 303)
-                        for (n, fast_dt) in enumerate(dts)
-                            slow_dt = c * fast_dt
-                            Q = ArrayType{ComplexF64}(q0)
-                            solver = MultirateRungeKutta((
-                                slow_method(rhs_slow!, Q; dt = slow_dt),
-                                fast_method(rhs_fast!, Q; dt = fast_dt),
-                            ))
-                            solve!(Q, solver; timeend = finaltime)
-                            Q = Array(Q)
-                            errors[n] = maximum(@. abs(
-                                Q - exactsolution(q0, finaltime),
-                            ))
-                        end
+            #@testset "MRRK methods (with substeps)" begin
+            #    finaltime = pi / 2
+            #    dts = [2.0^(-k) for k in 2:15]
+            #    errors = similar(dts)
+            #    for (slow_method, slow_expected_order) in slow_mrrk_methods
+            #        for (fast_method, fast_expected_order) in fast_mrrk_methods
+            #            q0 = ArrayType === Array ? [1.0] :
+            #                range(-1.0, 1.0, length = 303)
+            #            for (n, fast_dt) in enumerate(dts)
+            #                slow_dt = c * fast_dt
+            #                Q = ArrayType{ComplexF64}(q0)
+            #                solver = MultirateRungeKutta((
+            #                    slow_method(rhs_slow!, Q; dt = slow_dt),
+            #                    fast_method(rhs_fast!, Q; dt = fast_dt),
+            #                ))
+            #                solve!(Q, solver; timeend = finaltime)
+            #                Q = Array(Q)
+            #                errors[n] = maximum(@. abs(
+            #                    Q - exactsolution(q0, finaltime),
+            #                ))
+            #            end
 
-                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                        min_order =
-                            min(slow_expected_order, fast_expected_order)
-                        max_order =
-                            max(slow_expected_order, fast_expected_order)
-                        @test (
-                            isapprox(rates[end], min_order; atol = 0.1) ||
-                            isapprox(rates[end], max_order; atol = 0.1) ||
-                            min_order <= rates[end] <= max_order
-                        )
-                    end
-                end
-            end
+            #            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+            #            min_order =
+            #                min(slow_expected_order, fast_expected_order)
+            #            max_order =
+            #                max(slow_expected_order, fast_expected_order)
+            #            @test (
+            #                isapprox(rates[end], min_order; atol = 0.1) ||
+            #                isapprox(rates[end], max_order; atol = 0.1) ||
+            #                min_order <= rates[end] <= max_order
+            #            )
+            #        end
+            #    end
+            #end
 
-            @testset "MIS methods (with substeps)" begin
-                finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:11]
-                errors = similar(dts)
-                for (mis_method, mis_expected_order) in mis_methods
-                    for fast_method in (LSRK54CarpenterKennedy,)
-                        q0 = ArrayType === Array ? [1.0] :
-                            range(-1.0, 1.0, length = 303)
-                        for (n, dt) in enumerate(dts)
-                            Q = ArrayType{ComplexF64}(q0)
-                            solver = mis_method(
-                                rhs_slow!,
-                                rhs_fast!,
-                                fast_method,
-                                4,
-                                Q;
-                                dt = dt,
-                                t0 = 0.0,
-                            )
-                            solve!(Q, solver; timeend = finaltime)
-                            Q = Array(Q)
-                            errors[n] = maximum(@. abs(
-                                Q - exactsolution(q0, finaltime),
-                            ))
-                        end
-                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                        @test isapprox(
-                            rates[end],
-                            mis_expected_order;
-                            atol = 0.1,
-                        )
-                    end
-                end
-            end
+            #@testset "MIS methods (with substeps)" begin
+            #    finaltime = pi / 2
+            #    dts = [2.0^(-k) for k in 2:11]
+            #    errors = similar(dts)
+            #    for (mis_method, mis_expected_order) in mis_methods
+            #        for fast_method in (LSRK54CarpenterKennedy,)
+            #            q0 = ArrayType === Array ? [1.0] :
+            #                range(-1.0, 1.0, length = 303)
+            #            for (n, dt) in enumerate(dts)
+            #                Q = ArrayType{ComplexF64}(q0)
+            #                solver = mis_method(
+            #                    rhs_slow!,
+            #                    rhs_fast!,
+            #                    fast_method,
+            #                    4,
+            #                    Q;
+            #                    dt = dt,
+            #                    t0 = 0.0,
+            #                )
+            #                solve!(Q, solver; timeend = finaltime)
+            #                Q = Array(Q)
+            #                errors[n] = maximum(@. abs(
+            #                    Q - exactsolution(q0, finaltime),
+            #                ))
+            #            end
+            #            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+            #            @test isapprox(
+            #                rates[end],
+            #                mis_expected_order;
+            #                atol = 0.1,
+            #            )
+            #        end
+            #    end
+            #end
         end
 
+        #=
         #=
         Test problem (4.2) from RobertsSarsharSandu2018arxiv
         @article{RobertsSarsharSandu2018arxiv,
@@ -629,5 +632,6 @@ const ArrayType = CLIMA.array_type()
                 end
             end
         end
+    =#
     end
 end

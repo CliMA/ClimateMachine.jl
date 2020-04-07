@@ -15,7 +15,21 @@ using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.VTK: writevtk, writepvtu
 import CLIMA.DGmethods: boundary_state!
+using CUDAdrv
+using PGFPlotsX
 
+function plot_history(history, name)
+  fig = @pgf Axis(
+      {},
+      Plot(
+          {no_marks,},
+          Coordinates(1:length(history), history)
+      )
+  )
+  pgfsave(name, fig)
+end
+
+const integration_testing = false
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
@@ -133,6 +147,7 @@ function advective_courant(
     diffusive::Vars,
     Δx,
     Δt,
+    simtime,
     direction,
 )
     return Δt * norm(aux.u) / Δx
@@ -209,6 +224,8 @@ function run(
     dt = FT(cfl * dx / u_scale(problem()))
     dt = outputtime / ceil(Int64, outputtime / dt)
 
+    println("nsteps with constant dt = $(ceil(Int, timeend / dt))")
+
     model = AdvectionDiffusion{3, false, true}(problem())
     dg = DGModel(
         model,
@@ -221,6 +238,10 @@ function run(
     Q = init_ode_state(dg, FT(0))
 
     odesolver = explicit_method(dg, Q; dt = dt, t0 = 0)
+    #controller = IntegralController{FT}(safety_factor=0.9, atol=1e-3, rtol=1e-3)
+    #controller = ProportionalIntegralController{FT}(safety_factor=0.9, atol=1e-3, rtol=1e-3)
+    controller = ProportionalIntegralDerivativeController{FT}(safety_factor=0.9, atol=1e-3, rtol=1e-3)
+    odesolver = ErrorAdaptiveSolver(odesolver, controller, Q, save_dt_history=true)
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -252,23 +273,25 @@ function run(
     end
     cbcfl = EveryXSimulationSteps(10) do
         dt = ODESolvers.getdt(odesolver)
+        simtime = gettime(odesolver)
         cfl = DGmethods.courant(
             advective_courant,
             dg,
             model,
             Q,
             dt,
+            simtime,
             HorizontalDirection(),
         )
         @info @sprintf(
             """Courant number
             simtime = %.16e
             courant = %.16e""",
-            gettime(odesolver),
+            simtime,
             cfl
         )
     end
-    callbacks = (cbinfo,)
+    callbacks = (cbinfo, cbcfl)
     if ~isnothing(vtkdir)
         # create vtk dir
         mkpath(vtkdir)
@@ -295,7 +318,19 @@ function run(
         callbacks = (callbacks..., cbvtk)
     end
 
-    solve!(Q, odesolver; timeend = timeend, callbacks = callbacks)
+    callbacks=()
+    elap = @CUDAdrv.elapsed solve!(Q, odesolver; timeend = timeend, callbacks = callbacks)
+    #elap = @CUDAdrv.profile solve!(Q, odesolver; timeend = 20dt, callbacks = callbacks)
+    #
+
+    history = odesolver.dt_history
+    @show odesolver.nrejections
+    @show length(history)
+    #@show history
+    #plot_history(history, "proportional_integral_new.pdf")
+    plot_history(history, "proportional_integral_derivative.pdf")
+
+
 
     # Print some end of the simulation information
     engf = norm(Q)
@@ -312,6 +347,9 @@ function run(
     norm(Q - Qe)            = %.16e
     norm(Q - Qe) / norm(Qe) = %.16e
     """ Δmass engf engf / eng0 engf - eng0 errf errf / engfe
+
+    #print_timer()
+    @info "Elapsed time = $elap"
     return errf, Δmass
 end
 
@@ -323,12 +361,14 @@ let
     mpicomm = MPI.COMM_WORLD
 
     polynomialorder = 4
-    base_num_elem = 2
+    base_num_elem = 25
 
     max_cfl = Dict(
         LSRK144NiegemannDiehlBusch => 5.0,
         SSPRK33ShuOsher => 1.0,
         SSPRK34SpiteriRuuth => 1.5,
+        ERK23BogackiShampine => 1.0,
+        ERK45DormandPrince => 1.5,
     )
 
     expected_result = Dict()
@@ -391,11 +431,14 @@ let
         integration_testing || CLIMA.Settings.integration_testing ? 4 : 1
     @testset "$(@__FILE__)" begin
         for FT in (Float64,)
-            for problem in (SolidBodyRotation, ReversingDeformationalFlow)
+            #for problem in (SolidBodyRotation, ReversingDeformationalFlow)
+            for problem in (ReversingDeformationalFlow,)
                 for explicit_method in (
-                    LSRK144NiegemannDiehlBusch,
-                    SSPRK33ShuOsher,
-                    SSPRK34SpiteriRuuth,
+                    #LSRK144NiegemannDiehlBusch,
+                    #SSPRK33ShuOsher,
+                    #SSPRK34SpiteriRuuth,
+                    #ERK23BogackiShampine,
+                    ERK45DormandPrince,
                 )
                     cfl = max_cfl[explicit_method]
                     result = zeros(FT, numlevels)
@@ -439,9 +482,9 @@ let
                             vtkdir,
                             outputtime,
                         )
-                        @test result[l] ≈
-                              FT(expected_result[problem, explicit_method, l])
-                        @test Δmass <= FT(5e-14)
+                        #@test result[l] ≈
+                        #      FT(expected_result[problem, explicit_method, l])
+                        #@test Δmass <= FT(5e-14)
                     end
                     @info begin
                         msg = ""
