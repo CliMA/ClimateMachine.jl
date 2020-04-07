@@ -81,6 +81,8 @@ Base.@kwdef mutable struct IntegralController{FT} <: AbstractErrorController
     safety_factor::FT = 9 // 10
     atol::FT = 0
     rtol::FT = 0
+    clamp_min::FT = 0.2
+    clamp_max::FT = 5
     δ::Union{FT, Nothing} = nothing
 end
 
@@ -97,6 +99,7 @@ function (obj::IntegralController)(candidate, error_estimate, dt, p)
     accepted = δ <= 1
     accepted && (obj.δ = δ)
     newdt = obj.safety_factor * dt * (1 / δ)^(1 / (p + 1))
+    newdt = clamp(newdt, obj.clamp_min * dt, obj.clamp_max * dt)
     return accepted, newdt
 end
 
@@ -104,18 +107,21 @@ Base.@kwdef mutable struct ProportionalIntegralController{FT} <: AbstractErrorCo
     safety_factor::FT = 9 // 10
     atol::FT = 0
     rtol::FT = 0
+    clamp_min::FT = 0.2
+    clamp_max::FT = 5
     δ_n::Union{FT, Nothing} = nothing
     δ::Union{FT, Nothing} = nothing
 end
 
-function (obj::ProportionalIntegralController)(candidate, error_estimate, dt, p)
+function (obj::ProportionalIntegralController{FT})(candidate, error_estimate, dt, p) where {FT}
     @assert obj.rtol >= 0
     @assert obj.atol >= 0
     @assert obj.rtol > 0 || obj.atol > 0
 
     # on first use we don't have δ_n so just use the integral controller until we get it
     if isnothing(obj.δ_n)
-      controller = IntegralController(safety_factor=obj.safety_factor, atol=obj.atol, rtol=obj.rtol)
+      controller = IntegralController(safety_factor=obj.safety_factor, atol=obj.atol, rtol=obj.rtol,
+                                      clamp_min=obj.clamp_min, clamp_max=obj.clamp_max)
       accepted, newdt = controller(candidate, error_estimate, dt, p)
       obj.δ_n = controller.δ
       return accepted, newdt
@@ -126,7 +132,9 @@ function (obj::ProportionalIntegralController)(candidate, error_estimate, dt, p)
       error_scaled = @. error_estimate / (obj.atol + obj.rtol * abs(candidate))
       δ_np1 = norm(error_scaled, Inf, false)
       
-      newdt = obj.safety_factor * dt * (1 / δ_np1)^(7 / 10p) * obj.δ_n^(4 / 10p)
+      newdt = obj.safety_factor * dt * (1 / δ_np1)^(FT(0.7) / p) * obj.δ_n^(FT(0.4) / p)
+      newdt = clamp(newdt, obj.clamp_min * dt, obj.clamp_max * dt)
+
       accepted = δ_np1 <= 1
       if accepted
         obj.δ = δ_np1
@@ -140,20 +148,24 @@ Base.@kwdef mutable struct ProportionalIntegralDerivativeController{FT} <: Abstr
     safety_factor::FT = 9 // 10
     atol::FT = 0
     rtol::FT = 0
+    clamp_min::FT = 0.2
+    clamp_max::FT = 5
     δ_n::Union{FT, Nothing} = nothing
     δ_nm1::Union{FT, Nothing} = nothing
 end
 
 function (obj::ProportionalIntegralDerivativeController{FT})(candidate, error_estimate, dt, p) where {FT}
     if isnothing(obj.δ_nm1)
-      controller = IntegralController(safety_factor=obj.safety_factor, atol=obj.atol, rtol=obj.rtol)
+      controller = IntegralController(safety_factor=obj.safety_factor, atol=obj.atol, rtol=obj.rtol,
+                                      clamp_min=obj.clamp_min, clamp_max=obj.clamp_max)
       accepted, newdt = controller(candidate, error_estimate, dt, p)
       obj.δ_nm1 = controller.δ
       return accepted, newdt
     elseif isnothing(obj.δ_n)
       @assert !isnothing(obj.δ_nm1)
       controller = ProportionalIntegralController(safety_factor=obj.safety_factor,
-                                                  atol=obj.atol, rtol=obj.rtol, δ_n = obj.δ_nm1)
+                                                  atol=obj.atol, rtol=obj.rtol, δ_n = obj.δ_nm1,
+                                                  clamp_min=obj.clamp_min, clamp_max=obj.clamp_max)
       accepted, newdt = controller(candidate, error_estimate, dt, p)
       obj.δ_n = controller.δ
       return accepted, newdt
@@ -168,6 +180,7 @@ function (obj::ProportionalIntegralDerivativeController{FT})(candidate, error_es
       β = FT(0.34) / p
       γ = FT(0.10) / p
       newdt = obj.safety_factor * dt * (1 / δ_np1)^α * obj.δ_n^β * (1 / obj.δ_nm1)^γ
+      newdt = clamp(newdt, obj.clamp_min * dt, obj.clamp_max * dt)
       accepted = δ_np1 <= 1
       if accepted
         obj.δ_nm1 = obj.δ_n
