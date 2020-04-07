@@ -10,6 +10,7 @@ abstract type AbstractWriter end
         filename,
         dims,
         varvals,
+        simtime,
     )
 
 Writes the specified dimension names, dimensions, axes, variable names
@@ -20,6 +21,7 @@ and variable values to a file. Specialized by every `Writer` subtype.
 # - `filename`: into which to write data (without extension).
 # - `dims`: Dict of dimension name to axis.
 # - `varvals`: Dict of variable name to array of values.
+# - `simtime`: Current simulation time.
 """
 function write_data end
 

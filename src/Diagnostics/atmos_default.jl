@@ -426,6 +426,7 @@ Diagnostics $(dgngrp.name) collection
             dfilename,
             OrderedDict("z" => CollectedDiagnostics.zvals),
             varvals,
+            currtime,
         )
     end
 
