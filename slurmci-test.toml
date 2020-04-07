@@ -5,6 +5,7 @@
 cpu = [
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_mrigark_implicit.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/Mesh/mpi_connect_1d.jl", slurmargs = ["--ntasks=5"], args = [] },
@@ -44,6 +45,7 @@ cpu_gpu = [
 gpu = [
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_mrigark_implicit.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "test/Numerics/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "tutorials/Atmos/dry_rayleigh_benard.jl", slurmargs = ["--ntasks=3", "--time=01:30:00"], args = [] },
