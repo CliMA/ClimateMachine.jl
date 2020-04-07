@@ -174,6 +174,5 @@ function atmos_energy_normal_boundary_flux_diffusive!(
     cv = cv_m(TS1)
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρe -= state⁻.ρ * τe * cv * (T_surf - T)
-    @info T_surf,T,fluxᵀn.ρe,C,normPu1⁻
 
 end
