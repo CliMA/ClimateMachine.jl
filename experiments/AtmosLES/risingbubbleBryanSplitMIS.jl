@@ -27,9 +27,9 @@ param_set = ParameterSet()
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
 # 2) Boundaries - `All Walls` : Impenetrable(FreeSlip())
 #                               Laterally periodic
-# 3) Domain - 2500m[horizontal] x 2500m[horizontal] x 2500m[vertical]
+# 3) Domain - 20000m[horizontal] x 10000m[vertical] (2-dimensional)
 # 4) Timeend - 1000s
-# 5) Mesh Aspect Ratio (Effective resolution) 1:1
+# 5) Mesh Aspect Ratio (Effective resolution) 2:1
 # 7) Overrides defaults for
 #               `init_on_cpu`
 #               `solver_type`
@@ -46,16 +46,15 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
 
-    xc::FT = 1250
-    yc::FT = 1250
-    zc::FT = 1000
-    r = sqrt((x - xc)^2 + (y - yc)^2 + (z - zc)^2)
-    rc::FT = 500
+    xc::FT = 10000
+    zc::FT = 2000
+    r = sqrt((x - xc)^2 + (z - zc)^2)
+    rc::FT = 2000
     θ_ref::FT = 300
     Δθ::FT = 0
 
     if r <= rc
-        Δθ = FT(5) * cospi(r / rc / 2)
+        Δθ = FT(2) * cospi(0.5*r/rc)^2
     end
 
     #Perturbed state:
@@ -81,21 +80,21 @@ end
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
-
+    nsi = 2;
     ode_solver = CLIMA.MISSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
+        solver_method = CLIMA.MISSolverType,
         slow_method = MIS2,
-        fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
-        number_of_steps = 10,
+        fast_method = (dgs,dgf,Q) -> MISKWRK43(dgs, dgf, (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),nsi, Q),
+        number_of_steps = 12,
     )
 
     # Set up the model
     C_smag = FT(0.23)
-    ref_state =
-        HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
+    ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
     model = AtmosModel{FT}(
         AtmosLESConfigType;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = SmagorinskyLilly{FT}(C_smag), #AnisoMinDiss{FT}(1),
         source = (Gravity(),),
         ref_state = ref_state,
         init_state = init_risingbubble!,
@@ -113,6 +112,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         init_risingbubble!,
         solver_type = ode_solver,
         model = model,
+        #boundary = ((0, 0), (0, 0), (0, 0)),
+        #periodicity = (false, true, false),
     )
     return config
 end
@@ -129,17 +130,19 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 2
+    N = 4
     # Domain resolution and size
-    Δh = FT(50)
-    Δv = FT(50)
-    resolution = (Δh, Δh, Δv)
+    Δx = FT(125)
+    Δy = FT(125)
+    Δz = FT(125)
+    resolution = (Δx, Δy, Δz)
     # Domain extents
-    xmax = FT(2500)
-    ymax = FT(2500)
-    zmax = FT(2500)
+    xmax = FT(20000)
+    ymax = FT(1000)
+    zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
+    Δt = FT(0.4)
     timeend = FT(1000)
 
     # Courant number
@@ -151,7 +154,7 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
-        ode_dt = 0.05,
+        ode_dt = Δt,
         Courant_number = CFL,
     )
     dgn_config = config_diagnostics(driver_config)
@@ -163,9 +166,9 @@ function main()
     end
 
     vtk_step = 0
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1)  do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
         mkpath("./vtk-rtb/")
-        outprefix = @sprintf("./vtk-rtb/small_mpirank%04d_step%04d",
+        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplitMIS_mpirank%04d_step%04d",
                          MPI.Comm_rank(driver_config.mpicomm), vtk_step)
         writevtk(outprefix, solver_config.Q, solver_config.dg,
             flattenednames(vars_state(driver_config.bl,FT)),
@@ -179,7 +182,7 @@ function main()
     result = CLIMA.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,cbvtk),
+        user_callbacks = (cbvtk,),
         check_euclidean_distance = true,
     )
 

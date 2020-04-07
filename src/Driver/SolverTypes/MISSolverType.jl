@@ -64,6 +64,7 @@ struct MISSolverType{DS} <: AbstractSolverType
     mis_method::Function
     # Fast RK solver
     fast_method::Function
+    fast_type::Type
     # Substepping parameter for the fast processes
     nsubsteps::Int
     # Whether to use a PDE level or discrete splitting
@@ -74,6 +75,7 @@ struct MISSolverType{DS} <: AbstractSolverType
         fast_model = AtmosAcousticGravityLinearModel,
         mis_method = MIS2,
         fast_method = LSRK54CarpenterKennedy,
+        fast_type = LowStorageRungeKutta2N,
         nsubsteps = 50,
         discrete_splitting = false,
     )
@@ -85,6 +87,7 @@ struct MISSolverType{DS} <: AbstractSolverType
             fast_model,
             mis_method,
             fast_method,
+            fast_type,
             nsubsteps,
             discrete_splitting,
         )
@@ -169,7 +172,7 @@ function solversetup(
             direction = EveryDirection(),
         )
     end
-    
+
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
@@ -184,6 +187,34 @@ function solversetup(
         (fast_dg,);
         numerical_flux_first_order = numerical_flux_first_order,
     )
+
+    if ode_solver.fast_type == MultirateInfinitesimalStep
+        fast_dg_h = DGModel(
+            fast_model,
+            dg.grid,
+            dg.numerical_flux_first_order,
+            dg.numerical_flux_second_order,
+            dg.numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+            direction = HorizontalDirection(),
+        )
+        fast_dg_v = DGModel(
+            fast_model,
+            dg.grid,
+            dg.numerical_flux_first_order,
+            dg.numerical_flux_second_order,
+            dg.numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+            direction = VerticalDirection(),
+        )
+        fast_method = (dg,Q) -> ode_solver.fast_method(fast_dg_h, fast_dg_v, Q)
+    else
+        fast_method = ode_solver.fast_method
+    end
 
     solver = ode_solver.mis_method(
         slow_dg,
