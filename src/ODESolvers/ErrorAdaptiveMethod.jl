@@ -1,19 +1,25 @@
-export ErrorAdaptiveSolver, NoController, IntegralController
+export ErrorAdaptiveSolver, NoController
+export IntegralController
+export ProportionalIntegralController
+export ProportionalIntegralDerivativeController
 
 using LinearAlgebra: norm
 
-struct ErrorAdaptiveSolver{S, AT, EC} <: AbstractODESolver
+mutable struct ErrorAdaptiveSolver{S, AT, EC, HT} <: AbstractODESolver
     solver::S
     candidate::AT
     error_estimate::AT
     error_controller::EC
+    dt_history::HT
+    nrejections::Int
 end
 
-function ErrorAdaptiveSolver(solver, error_controller, Q)
+function ErrorAdaptiveSolver(solver, error_controller, Q; save_dt_history=false)
     AT = typeof(Q)
     candidate = similar(Q)
     error_estimate = similar(Q)
-    ErrorAdaptiveSolver(solver, candidate, error_estimate, error_controller)
+    dt_history = save_dt_history ? Vector{eltype(Q)}(undef, 0) : nothing
+    ErrorAdaptiveSolver(solver, candidate, error_estimate, error_controller, dt_history, 0)
 end
 
 gettime(eas::ErrorAdaptiveSolver) = gettime(eas.solver)
@@ -32,6 +38,7 @@ function general_dostep!(
     error_estimate = eas.error_estimate
     time = gettime(eas)
     dt = getdt(eas)
+    dt_history = eas.dt_history
 
     acceptstep = false
     while !acceptstep
@@ -39,7 +46,10 @@ function general_dostep!(
         order = embedded_order(eas)
         acceptstep, dt =
             eas.error_controller(candidate, error_estimate, dt, order)
-        acceptstep || updatedt!(eas, dt)
+        if !acceptstep
+          updatedt!(eas, dt)
+          eas.nrejections += 1
+        end
     end
 
     if adjustfinalstep && time + getdt(eas.solver) > timeend
@@ -50,6 +60,11 @@ function general_dostep!(
     Q .= candidate
 
     eas.solver.t += getdt(eas.solver)
+
+    if dt_history !== nothing
+      push!(dt_history, getdt(eas.solver))
+    end
+
     updatedt!(eas, dt)
     return eas.solver.t
 end
@@ -62,10 +77,11 @@ function (obj::NoController)(candidate, error_estimate, dt, p)
     return true, dt
 end
 
-Base.@kwdef struct IntegralController{FT} <: AbstractErrorController
+Base.@kwdef mutable struct IntegralController{FT} <: AbstractErrorController
     safety_factor::FT = 9 // 10
     atol::FT = 0
     rtol::FT = 0
+    δ::Union{FT, Nothing} = nothing
 end
 
 function (obj::IntegralController)(candidate, error_estimate, dt, p)
@@ -78,6 +94,85 @@ function (obj::IntegralController)(candidate, error_estimate, dt, p)
     error_scaled = @. error_estimate / (obj.atol + obj.rtol * abs(candidate))
     δ = norm(error_scaled, Inf, false)
 
+    accepted = δ <= 1
+    accepted && (obj.δ = δ)
     newdt = obj.safety_factor * dt * (1 / δ)^(1 / (p + 1))
-    return δ <= 1, newdt
+    return accepted, newdt
 end
+
+Base.@kwdef mutable struct ProportionalIntegralController{FT} <: AbstractErrorController
+    safety_factor::FT = 9 // 10
+    atol::FT = 0
+    rtol::FT = 0
+    δ_n::Union{FT, Nothing} = nothing
+    δ::Union{FT, Nothing} = nothing
+end
+
+function (obj::ProportionalIntegralController)(candidate, error_estimate, dt, p)
+    @assert obj.rtol >= 0
+    @assert obj.atol >= 0
+    @assert obj.rtol > 0 || obj.atol > 0
+
+    # on first use we don't have δ_n so just use the integral controller until we get it
+    if isnothing(obj.δ_n)
+      controller = IntegralController(safety_factor=obj.safety_factor, atol=obj.atol, rtol=obj.rtol)
+      accepted, newdt = controller(candidate, error_estimate, dt, p)
+      obj.δ_n = controller.δ
+      return accepted, newdt
+    else
+      @assert !isnothing(obj.δ_n)
+
+      # FIXME: do this without creating a temporary !
+      error_scaled = @. error_estimate / (obj.atol + obj.rtol * abs(candidate))
+      δ_np1 = norm(error_scaled, Inf, false)
+      
+      newdt = obj.safety_factor * dt * (1 / δ_np1)^(7 / 10p) * obj.δ_n^(4 / 10p)
+      accepted = δ_np1 <= 1
+      if accepted
+        obj.δ = δ_np1
+        obj.δ_n = δ_np1
+      end
+      return accepted, newdt
+    end
+end
+
+Base.@kwdef mutable struct ProportionalIntegralDerivativeController{FT} <: AbstractErrorController
+    safety_factor::FT = 9 // 10
+    atol::FT = 0
+    rtol::FT = 0
+    δ_n::Union{FT, Nothing} = nothing
+    δ_nm1::Union{FT, Nothing} = nothing
+end
+
+function (obj::ProportionalIntegralDerivativeController{FT})(candidate, error_estimate, dt, p) where {FT}
+    if isnothing(obj.δ_nm1)
+      controller = IntegralController(safety_factor=obj.safety_factor, atol=obj.atol, rtol=obj.rtol)
+      accepted, newdt = controller(candidate, error_estimate, dt, p)
+      obj.δ_nm1 = controller.δ
+      return accepted, newdt
+    elseif isnothing(obj.δ_n)
+      @assert !isnothing(obj.δ_nm1)
+      controller = ProportionalIntegralController(safety_factor=obj.safety_factor,
+                                                  atol=obj.atol, rtol=obj.rtol, δ_n = obj.δ_nm1)
+      accepted, newdt = controller(candidate, error_estimate, dt, p)
+      obj.δ_n = controller.δ
+      return accepted, newdt
+    else
+      @assert !isnothing(obj.δ_nm1) && !isnothing(obj.δ_n)
+
+      # FIXME: do this without creating a temporary !
+      error_scaled = @. error_estimate / (obj.atol + obj.rtol * abs(candidate))
+      δ_np1 = norm(error_scaled, Inf, false)
+
+      α = FT(0.49) / p
+      β = FT(0.34) / p
+      γ = FT(0.10) / p
+      newdt = obj.safety_factor * dt * (1 / δ_np1)^α * obj.δ_n^β * (1 / obj.δ_nm1)^γ
+      accepted = δ_np1 <= 1
+      if accepted
+        obj.δ_nm1 = obj.δ_n
+        obj.δ_n = δ_np1
+      end
+      return accepted, newdt
+    end
+  end
