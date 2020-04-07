@@ -99,7 +99,11 @@ struct IsothermalProfile{F} <: TemperatureProfile
     T::F
 end
 
-function (profile::IsothermalProfile)(orientation::Orientation, param_set, aux::Vars)
+function (profile::IsothermalProfile)(
+    orientation::Orientation,
+    param_set,
+    aux::Vars,
+)
     p =
         MSLP *
         exp(-gravitational_potential(orientation, aux) / (R_d * profile.T))
@@ -124,7 +128,11 @@ struct DryAdiabaticProfile{F} <: TemperatureProfile
     θ::F
 end
 
-function (profile::DryAdiabaticProfile)(orientation::Orientation, param_set, aux::Vars)
+function (profile::DryAdiabaticProfile)(
+    orientation::Orientation,
+    param_set,
+    aux::Vars,
+)
     FT = eltype(aux)
     LinearTemperatureProfile(profile.T_min, profile.θ, FT(grav / cp_d))(
         orientation,
