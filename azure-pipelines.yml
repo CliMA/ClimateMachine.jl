@@ -109,8 +109,8 @@ jobs:
     displayName: 'Download and extract Julia'
   - powershell: |
       Set-PSDebug -Trace 1
-      wget https://download.microsoft.com/download/2/E/C/2EC96D7F-687B-4613-80F6-E10F670A2D97/msmpisetup.exe -OutFile MSMpiSetup.exe
-      Start-Process -FilePath .\MSMpiSetup.exe "-unattend -minimal"
+      wget https://download.microsoft.com/download/a/5/2/a5207ca5-1203-491a-8fb8-906fd68ae623/msmpisetup.exe -OutFile msmpisetup.exe
+      Start-Process -FilePath .\msmpisetup.exe "-unattend -minimal"
     displayName: 'Install dependencies'
   - powershell: |
       Set-PSDebug -Trace 1
