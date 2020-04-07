@@ -156,9 +156,9 @@ dostep!(
     erk,
     p,
     time,
-    slow_δ = slow_δ,
-    slow_rv_dQ = slow_rv_dQ,
-    slow_scaling = slow_scaling,
+    slow_δ,
+    slow_rv_dQ,
+    slow_scaling,
 )
 
 @kernel function stage_update!(
