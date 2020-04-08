@@ -462,15 +462,23 @@ See [`odefun!`](@ref) for usage.
         l_F = MArray{Tuple{nstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -507,7 +515,7 @@ See [`odefun!`](@ref) for usage.
             l_aux⁺diff[s] = l_aux⁺nondiff[s] = auxstate[vid⁺, s, e⁺]
         end
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         fill!(l_F, -zero(eltype(l_F)))
         if bctype == 0
             numerical_flux_nondiffusive!(
@@ -540,13 +548,13 @@ See [`odefun!`](@ref) for usage.
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
                 # Loop up the first element along all horizontal elements
                 @unroll for s in 1:nstate
-                    l_Q_bot1[s] = Q[n + Nqk^2, s, e]
+                    l_Q_bot1[s] = Q[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:nviscstate
-                    l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e]
+                    l_Qvisc_bot1[s] = Qvisc[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:nauxstate
-                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e]
+                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e⁻]
                 end
             end
             numerical_boundary_flux_nondiffusive!(
@@ -922,15 +930,23 @@ end
         l_aux_bot1 = MArray{Tuple{nauxstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -969,7 +985,7 @@ end
             t,
         )
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         fill!(l_Qvisc, -zero(eltype(l_Qvisc)))
         if bctype == 0
             numerical_flux_gradient!(
@@ -999,10 +1015,10 @@ end
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
                 # Loop up the first element along all horizontal elements
                 @unroll for s in 1:nstate
-                    l_Q_bot1[s] = Q[n + Nqk^2, s, e]
+                    l_Q_bot1[s] = Q[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:nauxstate
-                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e]
+                    l_aux_bot1[s] = auxstate[n + Nqk^2, s, e⁻]
                 end
             end
             numerical_boundary_flux_gradient!(
@@ -1161,7 +1177,7 @@ end
 
 @doc """
     knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate,
-                          t, elems) where {dim, N}
+                          t, elems, activedofs) where {dim, N}
 
 Update the auxiliary state array
 """ knl_nodal_update_aux!
@@ -1174,6 +1190,7 @@ Update the auxiliary state array
     auxstate,
     t,
     elems,
+    activedofs,
 ) where {dim, N}
     FT = eltype(Q)
     nstate = num_state(bl, FT)
@@ -1188,29 +1205,40 @@ Update the auxiliary state array
     l_Q = MArray{Tuple{nstate}, FT}(undef)
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
     @inbounds begin
-        @unroll for s in 1:nstate
-            l_Q[s] = Q[n, s, e]
-        end
+        e = elems[eI]
 
-        @unroll for s in 1:nauxstate
-            l_aux[s] = auxstate[n, s, e]
-        end
+        active = activedofs[n + (e - 1) * Np]
 
-        f!(bl, Vars{vars_state(bl, FT)}(l_Q), Vars{vars_aux(bl, FT)}(l_aux), t)
+        if active
+            @unroll for s in 1:nstate
+                l_Q[s] = Q[n, s, e]
+            end
 
-        @unroll for s in 1:nauxstate
-            auxstate[n, s, e] = l_aux[s]
+            @unroll for s in 1:nauxstate
+                l_aux[s] = auxstate[n, s, e]
+            end
+
+            f!(
+                bl,
+                Vars{vars_state(bl, FT)}(l_Q),
+                Vars{vars_aux(bl, FT)}(l_aux),
+                t,
+            )
+
+            @unroll for s in 1:nauxstate
+                auxstate[n, s, e] = l_aux[s]
+            end
         end
     end
 end
 
 @doc """
     knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate, diffstate,
-                          t, elems) where {dim, N}
+                          t, elems, activedofs) where {dim, N}
 
 Update the auxiliary state array
 """ knl_nodal_update_aux!
@@ -1224,6 +1252,7 @@ Update the auxiliary state array
     diffstate,
     t,
     elems,
+    activedofs,
 ) where {dim, N}
     FT = eltype(Q)
     nstate = num_state(bl, FT)
@@ -1240,32 +1269,38 @@ Update the auxiliary state array
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
     l_diff = MArray{Tuple{nviscstate}, FT}(undef)
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
     @inbounds begin
-        @unroll for s in 1:nstate
-            l_Q[s] = Q[n, s, e]
-        end
+        e = elems[eI]
 
-        @unroll for s in 1:nauxstate
-            l_aux[s] = auxstate[n, s, e]
-        end
+        active = activedofs[n + (e - 1) * Np]
 
-        @unroll for s in 1:nviscstate
-            l_diff[s] = diffstate[n, s, e]
-        end
+        if active
+            @unroll for s in 1:nstate
+                l_Q[s] = Q[n, s, e]
+            end
 
-        f!(
-            bl,
-            Vars{vars_state(bl, FT)}(l_Q),
-            Vars{vars_aux(bl, FT)}(l_aux),
-            Vars{vars_diffusive(bl, FT)}(l_diff),
-            t,
-        )
+            @unroll for s in 1:nauxstate
+                l_aux[s] = auxstate[n, s, e]
+            end
 
-        @unroll for s in 1:nauxstate
-            auxstate[n, s, e] = l_aux[s]
+            @unroll for s in 1:nviscstate
+                l_diff[s] = diffstate[n, s, e]
+            end
+
+            f!(
+                bl,
+                Vars{vars_state(bl, FT)}(l_Q),
+                Vars{vars_aux(bl, FT)}(l_aux),
+                Vars{vars_diffusive(bl, FT)}(l_diff),
+                t,
+            )
+
+            @unroll for s in 1:nauxstate
+                auxstate[n, s, e] = l_aux[s]
+            end
         end
     end
 end
@@ -1305,7 +1340,7 @@ See [`DGBalanceLaw`](@ref) for usage.
     l_int = @private FT (nout, Nq)
     s_I = @localmem FT (Nq, Nq)
 
-    eh = @index(Group, Linear)
+    _eh = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
@@ -1320,6 +1355,9 @@ See [`DGBalanceLaw`](@ref) for usage.
                 l_int[s, k] = 0
             end
         end
+
+        eh = elems[_eh]
+
         # Loop up the stack of elements
         for ev in 1:nvertelem
             e = ev + (eh - 1) * nvertelem
@@ -1400,10 +1438,12 @@ end
         l_V = MArray{Tuple{nout}, FT}(undef)
     end
 
-    eh = @index(Group, Linear)
+    _eh = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
+        eh = elems[_eh]
+
         # Initialize the constant state at zero
         ijk = i + Nq * ((j - 1) + Nqj * (Nq - 1))
         et = nvertelem + (eh - 1) * nvertelem
@@ -1451,7 +1491,7 @@ end
     Nq = N + 1
     Nqj = dim == 2 ? 1 : Nq
 
-    eh = @index(Group, Linear)
+    _eh = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     # note that k is the second not 4th index (since this is scratch memory and k
@@ -1459,6 +1499,7 @@ end
     @inbounds begin
         # Initialize the constant state at zero
         ijk = i + Nq * ((j - 1) + Nqj * (Nq - 1))
+        eh = elems[_eh]
         et = nvertelem + (eh - 1) * nvertelem
         val = auxstate[ijk, fldin, et]
 
@@ -1689,15 +1730,23 @@ end
         l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
 
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -1714,7 +1763,7 @@ end
             l_grad⁺[3, s] = Qhypervisc_grad[vid⁺, 3 * (s - 1) + 3, e⁺]
         end
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         if bctype == 0
             divergence_penalty!(
                 divgradnumpenalty,
@@ -2031,14 +2080,23 @@ end
         l_aux⁺ = MArray{Tuple{nauxstate}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
+    eI = @index(Group, Linear)
     n = @index(Local, Linear)
-    @inbounds for f in faces
-        n⁻ = SVector(sgeo[_n1, n, f, e], sgeo[_n2, n, f, e], sgeo[_n3, n, f, e])
-        sM, vMI = sgeo[_sM, n, f, e], sgeo[_vMI, n, f, e]
-        id⁻, id⁺ = vmap⁻[n, f, e], vmap⁺[n, f, e]
 
-        e⁻, e⁺ = e, ((id⁺ - 1) ÷ Np) + 1
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
+
+    @inbounds for f in faces
+        e⁻ = e[1]
+        n⁻ = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
@@ -2067,7 +2125,7 @@ end
             l_lap⁺[s] = Qhypervisc_div[vid⁺, s, e⁺]
         end
 
-        bctype = elemtobndy[f, e]
+        bctype = elemtobndy[f, e⁻]
         if bctype == 0
             numerical_flux_hyperdiffusive!(
                 hyperviscnumflux,

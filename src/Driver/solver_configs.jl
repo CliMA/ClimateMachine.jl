@@ -106,7 +106,7 @@ function SolverConfiguration(
     )
     @info @sprintf("Initializing %s", driver_config.name)
     Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
-    update_aux!(dg, bl, Q, FT(0))
+    update_aux!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
 
     # create the linear model for IMEX solvers
     linmodel = nothing

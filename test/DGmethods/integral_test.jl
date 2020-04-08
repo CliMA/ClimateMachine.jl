@@ -94,9 +94,10 @@ function update_aux!(
     m::IntegralTestModel,
     Q::MPIStateArray,
     t::Real,
+    elems::UnitRange,
 )
-    indefinite_stack_integral!(dg, m, Q, dg.auxstate, t)
-    reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t)
+    indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
+    reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
 
     return true
 end

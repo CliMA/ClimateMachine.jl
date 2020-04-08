@@ -62,8 +62,7 @@ function atmos_energy_normal_boundary_flux_diffusive!(
 )
 
     # TODO: figure out a better way...
-    ν, _ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+    ν, D_t, _ = turbulence_tensors(atmos.turbulence, state⁻, diff⁻, aux⁻, t)
     d_h_tot = -D_t .* diff⁻.∇h_tot
     nd_h_tot = dot(n⁻, d_h_tot)
     # both sides involve projections of normals, so signs are consistent

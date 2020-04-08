@@ -10,7 +10,6 @@ using ..Parameters
 using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
-using ..SubgridScaleParameters
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
 
@@ -352,8 +351,7 @@ end
     aux::Vars,
     t::Real,
 )
-    ν, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+    ν, D_t, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
     d_h_tot = -D_t .* diffusive.∇h_tot
     flux_diffusive!(atmos, flux, state, τ, d_h_tot)
     flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
@@ -388,16 +386,22 @@ end
 end
 
 
-function update_aux!(dg::DGModel, m::AtmosModel, Q::MPIStateArray, t::Real)
+function update_aux!(
+    dg::DGModel,
+    m::AtmosModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
     FT = eltype(Q)
     auxstate = dg.auxstate
 
     if num_integrals(m, FT) > 0
-        indefinite_stack_integral!(dg, m, Q, auxstate, t)
-        reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t)
+        indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
+        reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
     end
 
-    nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t)
+    nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t, elems)
 
     return true
 end

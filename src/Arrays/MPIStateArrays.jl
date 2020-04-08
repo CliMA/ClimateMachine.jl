@@ -34,7 +34,7 @@ export MPIStateArray, euclidean_distance, weightedsum
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
                   DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
 """
-struct MPIStateArray{
+mutable struct MPIStateArray{
     FT,
     V,
     DATN <: AbstractArray{FT, 3},
@@ -64,8 +64,6 @@ struct MPIStateArray{
 
     weights::DATN
 
-    commtag::Int
-
     function MPIStateArray{FT, V}(
         mpicomm,
         DA,
@@ -79,11 +77,14 @@ struct MPIStateArray{
         nabrtorank,
         nabrtovmaprecv,
         nabrtovmapsend,
-        weights,
-        commtag;
-        mpi_knows_cuda = false,
+        weights;
+        mpi_knows_cuda = nothing,
     ) where {FT, V}
         data = similar(DA, FT, Np, nstate, numelem)
+
+        if isnothing(mpi_knows_cuda)
+            mpi_knows_cuda = MPI.has_cuda()
+        end
 
         if data isa Array || mpi_knows_cuda
             kind = SingleCMBuffer
@@ -122,8 +123,11 @@ struct MPIStateArray{
 
         DAI1 = typeof(vmaprecv)
         Buf = typeof(send_buffer)
-        new{FT, V, typeof(data), DAI1, DAV, Buf}(
-            mpicomm,
+        Q = new{FT, V, typeof(data), DAI1, DAV, Buf}(
+            # Make sure that each MPIStateArray has its own MPI context.  This
+            # allows multiple MPIStateArrays to be communicating asynchronously
+            # at the same time without having to explicitly manage tags.
+            MPI.Comm_dup(mpicomm),
             data,
             realdata,
             realelems,
@@ -138,8 +142,14 @@ struct MPIStateArray{
             nabrtovmaprecv,
             nabrtovmapsend,
             weights,
-            commtag,
         )
+        # Make sure that we have finished all outstanding data for halo
+        # exchanges before the MPIStateArray is finalize.
+        finalizer(Q) do x
+            MPI.Waitall!(x.recvreq)
+            MPI.Waitall!(x.sendreq)
+        end
+        return Q
     end
 end
 
@@ -162,8 +172,7 @@ end
                         nabrtorank=Array{Int64}(undef, 0),
                         nabrtovmaprecv=Array{UnitRange{Int64}}(undef, 0),
                         nabrtovmapsend=Array{UnitRange{Int64}}(undef, 0),
-                        weights,
-                        commtag=888)
+                        weights)
 
 Construct an `MPIStateArray` over the communicator `mpicomm` with `numelem`
 elements, using array type `DA` with element type `FT`. `V` is an optional type
@@ -204,8 +213,7 @@ function MPIStateArray{FT, V}(
     nabrtovmaprecv = Array{UnitRange{Int64}}(undef, 0),
     nabrtovmapsend = Array{UnitRange{Int64}}(undef, 0),
     weights = nothing,
-    commtag = 888,
-    mpi_knows_cuda = false,
+    mpi_knows_cuda = nothing,
 ) where {FT, V}
 
     if weights == nothing
@@ -225,7 +233,6 @@ function MPIStateArray{FT, V}(
         nabrtovmaprecv,
         nabrtovmapsend,
         weights,
-        commtag,
         mpi_knows_cuda = mpi_knows_cuda,
     )
 end
@@ -234,8 +241,7 @@ end
 function Base.similar(
     Q::MPIStateArray{OLDFT, V},
     ::Type{A},
-    ::Type{FT};
-    commtag = Q.commtag,
+    ::Type{FT},
 ) where {A <: AbstractArray, FT <: Number, OLDFT, V}
     MPIStateArray{FT, V}(
         Q.mpicomm,
@@ -249,25 +255,19 @@ function Base.similar(
         Q.nabrtovmaprecv,
         Q.nabrtovmapsend,
         Q.weights,
-        commtag,
     )
 end
 function Base.similar(
     Q::MPIStateArray{FT},
-    ::Type{A};
-    commtag = Q.commtag,
+    ::Type{A},
 ) where {A <: AbstractArray, FT <: Number}
-    similar(Q, A, FT, commtag = commtag)
+    similar(Q, A, FT)
 end
-function Base.similar(
-    Q::MPIStateArray,
-    ::Type{FT};
-    commtag = Q.commtag,
-) where {FT <: Number}
-    similar(Q, typeof(Q.data), FT, commtag = commtag)
+function Base.similar(Q::MPIStateArray, ::Type{FT}) where {FT <: Number}
+    similar(Q, typeof(Q.data), FT)
 end
-function Base.similar(Q::MPIStateArray{FT}; commtag = Q.commtag) where {FT}
-    similar(Q, FT, commtag = commtag)
+function Base.similar(Q::MPIStateArray{FT}) where {FT}
+    similar(Q, FT)
 end
 
 Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)
@@ -334,12 +334,98 @@ end
     dest
 end
 
-"""
-    post_Irecvs!(Q::MPIStateArray)
 
-posts the `MPI.Irecv!` for `Q`
+# The following `__no_overlap_*` functions exist to support the old DG balance
+# law where we still use GPUifyLoops.  They should NOT be used in new code.
+function __no_overlap_begin_ghost_exchange!(Q::MPIStateArray)
+    event = Event(device(Q.data))
+    event = begin_ghost_exchange!(Q; dependencies = event)
+    wait(device(Q.data), event)
+end
+
+function __no_overlap_end_ghost_exchange!(Q::MPIStateArray)
+    event = Event(device(Q.data))
+    event = end_ghost_exchange!(Q; dependencies = event)
+    wait(device(Q.data), event)
+end
+
 """
-function post_Irecvs!(Q::MPIStateArray)
+    begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+
+Begin the MPI halo exchange of the data stored in `Q`.  A KernelAbstractions
+`Event` is returned that can be used as a dependency to end the exchange.
+"""
+function begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+    if !all(r -> r == MPI.REQUEST_NULL, Q.recvreq)
+        error("The currrent ghost exchange must end before another begins.")
+    end
+
+    __Irecv!(Q)
+
+    # wait on (prior) MPI sends
+    @tic mpi_sendwait
+    MPI.Waitall!(Q.sendreq)
+    fill!(Q.sendreq, MPI.REQUEST_NULL)
+    @toc mpi_sendwait
+
+    @tic mpi_sendcopy
+    stage = get_stage(Q.send_buffer)
+    progress = () -> iprobe_and_yield(Q.mpicomm)
+    event = fillsendbuf!(
+        stage,
+        Q.data,
+        Q.vmapsend;
+        dependencies = dependencies,
+        progress = progress,
+    )
+    event = prepare_transfer!(
+        Q.send_buffer;
+        dependencies = event,
+        progress = progress,
+    )
+    @toc mpi_sendcopy
+
+    return event
+end
+
+"""
+    end_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+
+This function blocks on the host until the ghost halo is received from MPI.  A
+KernelAbstractions `Event` is returned that can be waited on to indicate when
+the data is ready on the device.
+"""
+function end_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+    if any(r -> r == MPI.REQUEST_NULL, Q.recvreq)
+        error("A ghost exchange must begin before it ends.")
+    end
+
+    progress = () -> iprobe_and_yield(Q.mpicomm)
+    wait(CPU(), MultiEvent(dependencies), progress)
+
+    __Isend!(Q)
+
+    @tic mpi_recvwait
+    MPI.Waitall!(Q.recvreq)
+    fill!(Q.recvreq, MPI.REQUEST_NULL)
+    @toc mpi_recvwait
+
+    @tic mpi_recvcopy
+    event = prepare_stage!(Q.recv_buffer; progress = progress)
+    stage = get_stage(Q.recv_buffer)
+    event = transferrecvbuf!(
+        Q.data,
+        stage,
+        Q.vmaprecv;
+        dependencies = event,
+        progress = progress,
+    )
+    @toc mpi_recvcopy
+
+    return event
+end
+
+function __Irecv!(Q)
     nnabr = length(Q.nabrtorank)
     transfer = get_transfer(Q.recv_buffer)
 
@@ -350,131 +436,88 @@ function post_Irecvs!(Q::MPIStateArray)
         Q.recvreq[n] = MPI.Irecv!(
             (@view transfer[:, Q.nabrtovmaprecv[n]]),
             Q.nabrtorank[n],
-            Q.commtag,
+            666,
             Q.mpicomm,
         )
     end
 end
 
-"""
-    start_ghost_exchange!(Q::MPIStateArray; dorecvs=true)
-
-Start the MPI exchange of the data stored in `Q`. If `dorecvs` is `true` then
-`post_Irecvs!(Q)` is called, otherwise the caller is responsible for this.
-
-This function will fill the send buffer (on the device), copies the data from
-the device to the host, and then issues the send. Previous sends are waited on
-to ensure that they are complete.
-"""
-function start_ghost_exchange!(Q::MPIStateArray; dorecvs = true)
-
-    dorecvs && post_Irecvs!(Q)
-
-    # wait on (prior) MPI sends
-    finish_ghost_send!(Q)
-
-    @tic mpi_sendcopy
-    # pack data in send buffer
-    stage = get_stage(Q.send_buffer)
-    fillsendbuf!(stage, Q.data, Q.vmapsend)
-    prepare_transfer!(Q.send_buffer)
-    @toc mpi_sendcopy
-
-    # post MPI sends
+function __Isend!(Q)
     nnabr = length(Q.nabrtorank)
     transfer = get_transfer(Q.send_buffer)
+
     for n in 1:nnabr
         Q.sendreq[n] = MPI.Isend(
             (@view transfer[:, Q.nabrtovmapsend[n]]),
             Q.nabrtorank[n],
-            Q.commtag,
+            666,
             Q.mpicomm,
         )
     end
 end
 
-"""
-    finish_ghost_exchange!(Q::MPIStateArray)
-
-Complete the exchange of data and fill the data array on the device. Note this
-completes both the send and the receive communication. For more fine level
-control see [`finish_ghost_recv!`](@ref) and
-[`finish_ghost_send!`](@ref)
-"""
-function finish_ghost_exchange!(Q::MPIStateArray)
-    finish_ghost_recv!(Q::MPIStateArray)
-    finish_ghost_send!(Q::MPIStateArray)
-end
-
-"""
-    finish_ghost_recv!(Q::MPIStateArray)
-
-Complete the receive of data and fill the data array on the device
-"""
-function finish_ghost_recv!(Q::MPIStateArray)
-    @tic mpi_recvwait
-    # wait on MPI receives
-    MPI.Waitall!(Q.recvreq)
-    @toc mpi_recvwait
-
-    @tic mpi_recvcopy
-    # copy data to state vectors
-    prepare_stage!(Q.recv_buffer)
-    stage = get_stage(Q.recv_buffer)
-    transferrecvbuf!(Q.data, stage, Q.vmaprecv)
-    @toc mpi_recvcopy
-end
-
-"""
-    finish_ghost_send!(Q::MPIStateArray)
-
-Waits on the send of data to be complete
-"""
-function finish_ghost_send!(Q::MPIStateArray)
-    @tic mpi_sendwait
-    MPI.Waitall!(Q.sendreq)
-    @toc mpi_sendwait
+function iprobe_and_yield(comm)
+    MPI.Iprobe(MPI.MPI_ANY_SOURCE, MPI.MPI_ANY_TAG, comm)
+    yield()
 end
 
 # {{{ MPI Buffer handling
-function fillsendbuf!(sendbuf, buf, vmapsend)
-    if length(vmapsend) > 0
-        Np = size(buf, 1)
-        nvar = size(buf, 2)
-
-        event = Event(device(buf))
-        event = knl_fillsendbuf!(device(buf), 256)(
-            Val(Np),
-            Val(nvar),
-            sendbuf,
-            buf,
-            vmapsend,
-            length(vmapsend);
-            ndrange = length(vmapsend),
-            dependencies = (event,),
-        )
-        wait(device(buf), event)
+function fillsendbuf!(
+    sendbuf,
+    buf,
+    vmapsend;
+    dependencies = nothing,
+    progress = yield,
+)
+    if length(vmapsend) == 0
+        return MultiEvent(dependencies)
     end
+
+    Np = size(buf, 1)
+    nvar = size(buf, 2)
+
+    event = knl_fillsendbuf!(device(buf), 256)(
+        Val(Np),
+        Val(nvar),
+        sendbuf,
+        buf,
+        vmapsend,
+        length(vmapsend);
+        ndrange = length(vmapsend),
+        dependencies = dependencies,
+        progress = progress,
+    )
+
+    return event
 end
 
-function transferrecvbuf!(buf, recvbuf, vmaprecv)
-    if length(vmaprecv) > 0
-        Np = size(buf, 1)
-        nvar = size(buf, 2)
-
-        event = Event(device(buf))
-        event = knl_transferrecvbuf!(device(buf), 256)(
-            Val(Np),
-            Val(nvar),
-            buf,
-            recvbuf,
-            vmaprecv,
-            length(vmaprecv);
-            ndrange = length(vmaprecv),
-            dependencies = (event,),
-        )
-        wait(device(buf), event)
+function transferrecvbuf!(
+    buf,
+    recvbuf,
+    vmaprecv;
+    dependencies = nothing,
+    progress = yield,
+)
+    if length(vmaprecv) == 0
+        return MultiEvent(dependencies)
     end
+
+    Np = size(buf, 1)
+    nvar = size(buf, 2)
+
+    event = knl_transferrecvbuf!(device(buf), 256)(
+        Val(Np),
+        Val(nvar),
+        buf,
+        recvbuf,
+        vmaprecv,
+        length(vmaprecv);
+        ndrange = length(vmaprecv),
+        dependencies = dependencies,
+        progress = progress,
+    )
+
+    return event
 end
 
 # }}}

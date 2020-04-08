@@ -356,7 +356,8 @@ function DGBalanceLaw(;
 
     (
         Topologies.hasboundary(topology) &&
-        numerical_boundary_flux! === nothing && error(
+        numerical_boundary_flux! === nothing &&
+        error(
             "no `numerical_boundary_flux!` given when topology " *
             "has boundary",
         )
@@ -392,7 +393,6 @@ function DGBalanceLaw(;
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = 111,
     )
 
     auxstate = MPIStateArray{FT}(
@@ -409,7 +409,6 @@ function DGBalanceLaw(;
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = 222,
     )
 
     if auxiliary_state_initialization! !== nothing
@@ -433,8 +432,9 @@ function DGBalanceLaw(;
                 topology.realelems,
             )
         )
-        MPIStateArrays.start_ghost_exchange!(auxstate)
-        MPIStateArrays.finish_ghost_exchange!(auxstate)
+
+        MPIStateArrays.__no_overlap_begin_ghost_exchange!(auxstate)
+        MPIStateArrays.__no_overlap_end_ghost_exchange!(auxstate)
     end
 
     DGBalanceLaw(
@@ -461,18 +461,13 @@ end
 
 
 """
-    MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate, commtag=888)
+    MPIStateArray(disc::DGBalanceLaw; nstate=disc.nstate)
 
 Given a discretization `disc` constructs an `MPIStateArrays` for holding a
 solution state. The optional 'nstate' arguments allows the user to specify a
-specific number of states. The optional `commtag` allows the user to set the tag
-to use for communication with this `MPIStateArray`.
+specific number of states.
 """
-function MPIStateArrays.MPIStateArray(
-    disc::DGBalanceLaw;
-    nstate = disc.nstate,
-    commtag = 888,
-)
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw; nstate = disc.nstate)
     grid = disc.grid
     topology = disc.grid.topology
     # FIXME: Remove after updating CUDA
@@ -498,16 +493,14 @@ function MPIStateArrays.MPIStateArray(
         nabrtovmaprecv = grid.nabrtovmaprecv,
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
-        commtag = commtag,
     )
 end
 
 """
-    MPIStateArray(disc::DGBalanceLaw, initialization!::Function; commtag=888)
+    MPIStateArray(disc::DGBalanceLaw, initialization!::Function)
 
 Given a discretization `disc` constructs an `MPIStateArrays` for holding a
-solution state. The optional `commtag` allows the user to set the tag to use
-for communication with this `MPIStateArray`.
+solution state.
 
 After allocation the `MPIStateArray` is initialized using the function
 `initialization!` which will be called as:
@@ -533,12 +526,8 @@ the length of the `MArray` will be zero.
     Remove `host` and `device` data transfers.
 
 """
-function MPIStateArrays.MPIStateArray(
-    disc::DGBalanceLaw,
-    ic!::Function;
-    commtag = 888,
-)
-    Q = MPIStateArray(disc; commtag = commtag)
+function MPIStateArrays.MPIStateArray(disc::DGBalanceLaw, ic!::Function)
+    Q = MPIStateArray(disc)
 
     nvar = disc.nstate
     grid = disc.grid
@@ -576,14 +565,14 @@ function MPIStateArrays.MPIStateArray(
 
     copyto!(Q.data, h_Q)
 
-    MPIStateArrays.start_ghost_exchange!(Q)
-    MPIStateArrays.finish_ghost_exchange!(Q)
+    MPIStateArrays.__no_overlap_begin_ghost_exchange!(Q)
+    MPIStateArrays.__no_overlap_end_ghost_exchange!(Q)
 
     Q
 end
 
 """
-    MPIStateArray(initialization!::Function, disc::DGBalanceLaw; commtag=888)
+    MPIStateArray(initialization!::Function, disc::DGBalanceLaw)
 
 Wrapper function to allow for calls of the form
 
@@ -595,8 +584,7 @@ end
 
 See also [`MPIStateArray`](@ref)
 """
-MPIStateArrays.MPIStateArray(f::Function, d::DGBalanceLaw; commtag = 888) =
-    MPIStateArray(d, f; commtag = commtag)
+MPIStateArrays.MPIStateArray(f::Function, d::DGBalanceLaw) = MPIStateArray(d, f)
 
 
 """
@@ -658,7 +646,7 @@ function SpaceMethods.odefun!(
     ########################
     # Gradient Computation #
     ########################
-    MPIStateArrays.start_ghost_exchange!(Q)
+    MPIStateArrays.__no_overlap_begin_ghost_exchange!(Q)
 
     if nviscstate > 0
 
@@ -685,7 +673,7 @@ function SpaceMethods.odefun!(
             )
         )
 
-        MPIStateArrays.finish_ghost_recv!(Q)
+        MPIStateArrays.__no_overlap_end_ghost_exchange!(Q)
 
         @launch(
             device,
@@ -714,7 +702,7 @@ function SpaceMethods.odefun!(
             )
         )
 
-        MPIStateArrays.start_ghost_exchange!(Qvisc)
+        MPIStateArrays.__no_overlap_begin_ghost_exchange!(Qvisc)
     end
 
     ###################
@@ -746,12 +734,7 @@ function SpaceMethods.odefun!(
         )
     )
 
-    MPIStateArrays.finish_ghost_recv!(nviscstate > 0 ? Qvisc : Q)
-
-    # The main reason for this protection is not for the MPI.Waitall!, but the
-    # make sure that we do not recopy data to the GPU
-    nviscstate > 0 && MPIStateArrays.finish_ghost_recv!(Qvisc)
-    nviscstate == 0 && MPIStateArrays.finish_ghost_recv!(Q)
+    MPIStateArrays.__no_overlap_end_ghost_exchange!(nviscstate > 0 ? Qvisc : Q)
 
     @launch(
         device,
@@ -778,10 +761,6 @@ function SpaceMethods.odefun!(
             topology.realelems,
         )
     )
-
-    # Just to be safe, we wait on the sends we started.
-    MPIStateArrays.finish_ghost_send!(Qvisc)
-    MPIStateArrays.finish_ghost_send!(Q)
 
     sync_device(device)
 end
