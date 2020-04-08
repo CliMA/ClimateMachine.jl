@@ -514,6 +514,7 @@ end
     D::Vars,
     A::Vars,
     t::Real,
+    direction,
 ) where {P}
     @inbounds begin
         u, v = Q.u # Horizontal components of velocity

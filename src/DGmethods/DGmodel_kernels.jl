@@ -183,6 +183,7 @@ See [`odefun!`](@ref) for usage.
             Vars{vars_diffusive(bl, FT)}(l_Qvisc),
             Vars{vars_aux(bl, FT)}(l_aux),
             t,
+            direction,
         )
 
         @unroll for s in 1:nstate
@@ -220,7 +221,7 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::VerticalDirection,
+    direction::VerticalDirection,
     rhs,
     Q,
     Qvisc,
@@ -345,6 +346,7 @@ end
             Vars{vars_diffusive(bl, FT)}(l_Qvisc),
             Vars{vars_aux(bl, FT)}(l_aux),
             t,
+            direction,
         )
 
         @unroll for s in 1:nstate

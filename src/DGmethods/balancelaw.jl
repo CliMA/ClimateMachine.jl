@@ -21,7 +21,7 @@ Subtypes `L` should define the following methods:
 - `gradvariables!(::L, transformstate::State, state::State, auxstate::State, t::Real)`: transformation of state variables to variables of which gradients are computed
 - `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`: transformation of gradients to the diffusive variables
 - `hyperdiffusive!(::L, hyperdiffstate::State, ∇Δtransformstate::Grad, auxstate::State, t::Real)`: transformation of laplacian gradients to the hyperdiffusive variables
-- `source!(::L, source::State, state::State, diffusive::Vars, auxstate::State, t::Real)`
+- `source!(::L, source::State, state::State, diffusive::Vars, auxstate::State, t::Real, direction::Direction)
 - `wavespeed(::L, n⁻, state::State, aux::State, t::Real)`
 - `boundary_state!(::NumericalFluxGradient, ::L, state⁺::State, aux⁺::State, normal⁻, state⁻::State, aux⁻::State, bctype, t)`
 - `boundary_state!(::NumericalFluxNonDiffusive, ::L, state⁺::State, aux⁺::State, normal⁻, state⁻::State, aux⁻::State, bctype, t)`

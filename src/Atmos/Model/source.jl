@@ -11,8 +11,9 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
-    f(atmos, source, state, diffusive, aux, t)
+    f(atmos, source, state, diffusive, aux, t, direction)
 end
 function atmos_source!(
     ::Nothing,
@@ -22,6 +23,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 ) end
 # sources are applied additively
 @generated function atmos_source!(
@@ -32,11 +34,20 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     N = fieldcount(stuple)
     return quote
-        Base.Cartesian.@nexprs $N i ->
-            atmos_source!(stuple[i], atmos, source, state, diffusive, aux, t)
+        Base.Cartesian.@nexprs $N i -> atmos_source!(
+            stuple[i],
+            atmos,
+            source,
+            state,
+            diffusive,
+            aux,
+            t,
+            direction,
+        )
         return nothing
     end
 end
@@ -52,6 +63,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     if atmos.ref_state isa HydrostaticState
         source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
@@ -69,6 +81,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     # note: this assumes a SphericalOrientation
     source.ρu -= SVector(0, 0, 2 * Omega) × state.ρu
@@ -86,6 +99,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     ρ = state.ρ
     z = altitude(atmos, aux)
@@ -113,6 +127,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
     ẑ = vertical_unit_vector(atmos, aux)
@@ -147,6 +162,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     z = altitude(atmos, aux)
     if z >= s.z_sponge

@@ -11,7 +11,8 @@ using ..MoistThermodynamics
 using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
-using ..Mesh.Grids: VerticalDirection, HorizontalDirection, min_node_distance
+using ..Mesh.Grids:
+    VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
 
 import CLIMA.DGmethods:
     BalanceLaw,
@@ -443,7 +444,8 @@ function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
 end
 
 """
-    source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+    source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars,
+            aux::Vars, t::Real, direction::Direction)
 Computes flux `S(Y)` in:
 ```
 ∂Y
@@ -458,8 +460,9 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
-    atmos_source!(m.source, m, source, state, diffusive, aux, t)
+    atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
 
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
