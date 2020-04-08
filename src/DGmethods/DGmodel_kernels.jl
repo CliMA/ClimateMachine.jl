@@ -73,7 +73,7 @@ See [`odefun!`](@ref) for usage.
 
         Nqk = dim == 2 ? 1 : Nq
 
-        source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+        l_S = MArray{Tuple{nstate}, FT}(undef)
         l_Q = MArray{Tuple{nstate}, FT}(undef)
         l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
         l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -248,7 +248,7 @@ end
 
         Nqk = dim == 2 ? 1 : Nq
 
-        source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+        l_S = MArray{Tuple{nstate}, FT}(undef)
         l_Q = MArray{Tuple{nstate}, FT}(undef)
         l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
         l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -337,7 +337,6 @@ end
             s_F[3, i, j, k, s] = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
         end
 
-        # if source! !== nothing
         fill!(l_S, -zero(eltype(l_S)))
         source!(
             bl,
