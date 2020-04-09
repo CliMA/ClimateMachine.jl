@@ -429,8 +429,8 @@ function interpolate_local!(
                                     @inbounds vout_ii[vari] +=
                                         sv[
                                             ii + (ij - 1) * qm1 + (ik - 1) *
-                                            qm1 *
-                                            qm1,
+                                                                  qm1 *
+                                                                  qm1,
                                             vari,
                                             el,
                                         ] * wb[ii] / (ξ1l - m1_r[ii])#phir[ii]
@@ -1317,8 +1317,8 @@ function interpolate_local!(
                                     @inbounds vout_ii[vari] +=
                                         sv[
                                             ii + (ij - 1) * qm1 + (ik - 1) *
-                                            qm1 *
-                                            qm1,
+                                                                  qm1 *
+                                                                  qm1,
                                             vari,
                                             el,
                                         ] * wb[ii] / (ξ1l - m1_r[ii])#phir[ii]
@@ -1531,8 +1531,8 @@ function project_cubed_sphere!(
             v[i, _ρw] * cosd(lat_grd[lati[i]])
 
             @inbounds vlon =
-                -v[i, _ρu] * cosd(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
-                v[i, _ρv] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]])
+                -v[i, _ρu] * sind(long_grd[longi[i]]) +
+                v[i, _ρv] * cosd(long_grd[longi[i]])
 
             @inbounds v[i, _ρu] = vrad
             @inbounds v[i, _ρv] = vlat
@@ -1597,12 +1597,8 @@ function project_cubed_sphere_CUDA!(
         v[idx, _ρw] * CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0)
 
         vlon =
-            -v[idx, _ρu] *
-            CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0) *
-            CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
-            v[idx, _ρv] *
-            CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0) *
-            CUDAnative.cos(long_grd[longi[idx]] * pi / 180.0)
+            -v[idx, _ρu] * CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
+            v[idx, _ρv] * CUDAnative.cos(long_grd[longi[idx]] * pi / 180.0)
 
         v[idx, _ρu] = vrad
         v[idx, _ρv] = vlat
