@@ -3,9 +3,14 @@ using Test
 
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.Mesh.Grids
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
-using CLIMA.Grids
+
+using CLIMA.Parameters
+using CLIMA.UniversalConstants
+const clima_dir = dirname(pathof(CLIMA))
+include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, MSLP

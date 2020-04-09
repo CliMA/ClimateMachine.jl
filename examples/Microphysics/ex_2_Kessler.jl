@@ -215,6 +215,7 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     # TODO - ensure positive definite
     FT = eltype(state)

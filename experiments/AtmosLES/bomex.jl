@@ -96,6 +96,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
 
     f_coriolis = s.f_coriolis
@@ -140,6 +141,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
 
     z_max = s.z_max
@@ -192,6 +194,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     ρ = state.ρ

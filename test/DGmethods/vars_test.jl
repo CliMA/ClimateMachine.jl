@@ -19,7 +19,6 @@ import CLIMA.DGmethods:
     vars_gradient,
     vars_diffusive,
     vars_integrals,
-    integrate_aux!,
     flux_nondiffusive!,
     flux_diffusive!,
     source!,

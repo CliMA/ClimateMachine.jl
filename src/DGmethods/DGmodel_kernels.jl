@@ -46,7 +46,7 @@ See [`odefun!`](@ref) for usage.
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     rhs,
     Q,
     Qvisc,
@@ -58,7 +58,7 @@ See [`odefun!`](@ref) for usage.
     D,
     elems,
     increment,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
         FT = eltype(Q)
@@ -73,7 +73,7 @@ See [`odefun!`](@ref) for usage.
 
         Nqk = dim == 2 ? 1 : Nq
 
-        source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+        l_S = MArray{Tuple{nstate}, FT}(undef)
         l_Q = MArray{Tuple{nstate}, FT}(undef)
         l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
         l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -98,12 +98,12 @@ See [`odefun!`](@ref) for usage.
         ξ1x1 = vgeo[ijk, _ξ1x1, e]
         ξ1x2 = vgeo[ijk, _ξ1x2, e]
         ξ1x3 = vgeo[ijk, _ξ1x3, e]
-        if dim == 3 || (dim == 2 && direction == EveryDirection)
+        if dim == 3 || (dim == 2 && direction isa EveryDirection)
             ξ2x1 = vgeo[ijk, _ξ2x1, e]
             ξ2x2 = vgeo[ijk, _ξ2x2, e]
             ξ2x3 = vgeo[ijk, _ξ2x3, e]
         end
-        if dim == 3 && direction == EveryDirection
+        if dim == 3 && direction isa EveryDirection
             ξ3x1 = vgeo[ijk, _ξ3x1, e]
             ξ3x2 = vgeo[ijk, _ξ3x2, e]
             ξ3x3 = vgeo[ijk, _ξ3x3, e]
@@ -167,10 +167,10 @@ See [`odefun!`](@ref) for usage.
                 s_F[1, i, j, k, s], s_F[2, i, j, k, s], s_F[3, i, j, k, s]
 
             s_F[1, i, j, k, s] = M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
-            if dim == 3 || (dim == 2 && direction == EveryDirection)
+            if dim == 3 || (dim == 2 && direction isa EveryDirection)
                 s_F[2, i, j, k, s] = M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
             end
-            if dim == 3 && direction == EveryDirection
+            if dim == 3 && direction isa EveryDirection
                 s_F[3, i, j, k, s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
             end
         end
@@ -183,6 +183,7 @@ See [`odefun!`](@ref) for usage.
             Vars{vars_diffusive(bl, FT)}(l_Qvisc),
             Vars{vars_aux(bl, FT)}(l_aux),
             t,
+            direction,
         )
 
         @unroll for s in 1:nstate
@@ -198,12 +199,12 @@ See [`odefun!`](@ref) for usage.
                 l_rhs[s] += MI * s_D[n, i] * s_F[1, n, j, k, s]
 
                 # ξ2-grid lines
-                if dim == 3 || (dim == 2 && direction == EveryDirection)
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
                     l_rhs[s] += MI * s_D[n, j] * s_F[2, i, n, k, s]
                 end
 
                 # ξ3-grid lines
-                if dim == 3 && direction == EveryDirection
+                if dim == 3 && direction isa EveryDirection
                     l_rhs[s] += MI * s_D[n, k] * s_F[3, i, j, n, s]
                 end
             end
@@ -220,7 +221,7 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::VerticalDirection,
+    direction::VerticalDirection,
     rhs,
     Q,
     Qvisc,
@@ -248,7 +249,7 @@ end
 
         Nqk = dim == 2 ? 1 : Nq
 
-        source! !== nothing && (l_S = MArray{Tuple{nstate}, FT}(undef))
+        l_S = MArray{Tuple{nstate}, FT}(undef)
         l_Q = MArray{Tuple{nstate}, FT}(undef)
         l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
         l_Qhypervisc = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -337,7 +338,6 @@ end
             s_F[3, i, j, k, s] = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
         end
 
-        # if source! !== nothing
         fill!(l_S, -zero(eltype(l_S)))
         source!(
             bl,
@@ -346,6 +346,7 @@ end
             Vars{vars_diffusive(bl, FT)}(l_Qvisc),
             Vars{vars_aux(bl, FT)}(l_aux),
             t,
+            direction,
         )
 
         @unroll for s in 1:nstate
@@ -390,7 +391,7 @@ See [`odefun!`](@ref) for usage.
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     numfluxnondiff::NumericalFluxNonDiffusive,
     numfluxdiff::NumericalFluxDiffusive,
     rhs,
@@ -405,7 +406,7 @@ See [`odefun!`](@ref) for usage.
     vmap⁺,
     elemtobndy,
     elems,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
         FT = eltype(Q)
@@ -430,9 +431,9 @@ See [`odefun!`](@ref) for usage.
         end
 
         faces = 1:nface
-        if direction == VerticalDirection
+        if direction isa VerticalDirection
             faces = (nface - 1):nface
-        elseif direction == HorizontalDirection
+        elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
 
@@ -606,7 +607,7 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     Q,
     Qvisc,
     Qhypervisc_grad,
@@ -616,7 +617,7 @@ end
     D,
     hypervisc_indexmap,
     elems,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
 
@@ -675,11 +676,11 @@ end
         # Compute gradient of each state
         ξ1x1, ξ1x2, ξ1x3 =
             vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
-        if dim == 3 || (dim == 2 && direction == EveryDirection)
+        if dim == 3 || (dim == 2 && direction isa EveryDirection)
             ξ2x1, ξ2x2, ξ2x3 =
                 vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
         end
-        if dim == 3 && direction == EveryDirection
+        if dim == 3 && direction isa EveryDirection
             ξ3x1, ξ3x2, ξ3x3 =
                 vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
         end
@@ -688,10 +689,10 @@ end
             Gξ1 = Gξ2 = Gξ3 = zero(FT)
             @unroll for n in 1:Nq
                 Gξ1 += s_D[i, n] * s_G[n, j, k, s]
-                if dim == 3 || (dim == 2 && direction == EveryDirection)
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
                     Gξ2 += s_D[j, n] * s_G[i, n, k, s]
                 end
-                if dim == 3 && direction == EveryDirection
+                if dim == 3 && direction isa EveryDirection
                     Gξ3 += s_D[k, n] * s_G[i, j, n, s]
                 end
             end
@@ -699,13 +700,13 @@ end
             l_gradG[2, s] = ξ1x2 * Gξ1
             l_gradG[3, s] = ξ1x3 * Gξ1
 
-            if dim == 3 || (dim == 2 && direction == EveryDirection)
+            if dim == 3 || (dim == 2 && direction isa EveryDirection)
                 l_gradG[1, s] += ξ2x1 * Gξ2
                 l_gradG[2, s] += ξ2x2 * Gξ2
                 l_gradG[3, s] += ξ2x3 * Gξ2
             end
 
-            if dim == 3 && direction == EveryDirection
+            if dim == 3 && direction isa EveryDirection
                 l_gradG[1, s] += ξ3x1 * Gξ3
                 l_gradG[2, s] += ξ3x2 * Gξ3
                 l_gradG[3, s] += ξ3x3 * Gξ3
@@ -863,7 +864,7 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     gradnumflux::NumericalFluxGradient,
     Q,
     Qvisc,
@@ -877,7 +878,7 @@ end
     elemtobndy,
     hypervisc_indexmap,
     elems,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
         FT = eltype(Q)
@@ -902,9 +903,9 @@ end
         end
 
         faces = 1:nface
-        if direction == VerticalDirection
+        if direction isa VerticalDirection
             faces = (nface - 1):nface
-        elseif direction == HorizontalDirection
+        elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
 
@@ -1073,7 +1074,6 @@ end
             Vars{vars_aux(bl, FT)}(l_aux⁻),
             t,
         )
-
 
         @unroll for s in 1:nviscstate
             Qvisc[vid⁻, s, e⁻] += vMI * sM * (l_Qvisc[s] - l_Q⁻visc[s])
@@ -1518,13 +1518,13 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     Qhypervisc_grad,
     Qhypervisc_div,
     vgeo,
     D,
     elems,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
         FT = eltype(Qhypervisc_grad)
@@ -1556,11 +1556,11 @@ end
 
         ξ1x1, ξ1x2, ξ1x3 =
             vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
-        if dim == 3 || (dim == 2 && direction == EveryDirection)
+        if dim == 3 || (dim == 2 && direction isa EveryDirection)
             ξ2x1, ξ2x2, ξ2x3 =
                 vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
         end
-        if dim == 3 && direction == EveryDirection
+        if dim == 3 && direction isa EveryDirection
             ξ3x1, ξ3x2, ξ3x3 =
                 vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
         end
@@ -1574,13 +1574,13 @@ end
                 g1ξ1 += Din * s_grad[n, j, k, s, 1]
                 g2ξ1 += Din * s_grad[n, j, k, s, 2]
                 g3ξ1 += Din * s_grad[n, j, k, s, 3]
-                if dim == 3 || (dim == 2 && direction == EveryDirection)
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
                     Djn = s_D[j, n]
                     g1ξ2 += Djn * s_grad[i, n, k, s, 1]
                     g2ξ2 += Djn * s_grad[i, n, k, s, 2]
                     g3ξ2 += Djn * s_grad[i, n, k, s, 3]
                 end
-                if dim == 3 && direction == EveryDirection
+                if dim == 3 && direction isa EveryDirection
                     Dkn = s_D[k, n]
                     g1ξ3 += Dkn * s_grad[i, j, n, s, 1]
                     g2ξ3 += Dkn * s_grad[i, j, n, s, 2]
@@ -1589,11 +1589,11 @@ end
             end
             l_div[s] = ξ1x1 * g1ξ1 + ξ1x2 * g2ξ1 + ξ1x3 * g3ξ1
 
-            if dim == 3 || (dim == 2 && direction == EveryDirection)
+            if dim == 3 || (dim == 2 && direction isa EveryDirection)
                 l_div[s] += ξ2x1 * g1ξ2 + ξ2x2 * g2ξ2 + ξ2x3 * g3ξ2
             end
 
-            if dim == 3 && direction == EveryDirection
+            if dim == 3 && direction isa EveryDirection
                 l_div[s] += ξ3x1 * g1ξ3 + ξ3x2 * g2ξ3 + ξ3x3 * g3ξ3
             end
         end
@@ -1686,7 +1686,7 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     divgradnumpenalty,
     Qhypervisc_grad,
     Qhypervisc_div,
@@ -1696,7 +1696,7 @@ end
     vmap⁺,
     elemtobndy,
     elems,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
         FT = eltype(Qhypervisc_grad)
@@ -1717,9 +1717,9 @@ end
         end
 
         faces = 1:nface
-        if direction == VerticalDirection
+        if direction isa VerticalDirection
             faces = (nface - 1):nface
-        elseif direction == HorizontalDirection
+        elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
 
@@ -1797,7 +1797,7 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     Qhypervisc_grad,
     Qhypervisc_div,
     Q,
@@ -1807,7 +1807,7 @@ end
     D,
     elems,
     t,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
 
@@ -1854,11 +1854,11 @@ end
 
         ξ1x1, ξ1x2, ξ1x3 =
             vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
-        if dim == 3 || (dim == 2 && direction == EveryDirection)
+        if dim == 3 || (dim == 2 && direction isa EveryDirection)
             ξ2x1, ξ2x2, ξ2x3 =
                 vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
         end
-        if dim == 3 && direction == EveryDirection
+        if dim == 3 && direction isa EveryDirection
             ξ3x1, ξ3x2, ξ3x3 =
                 vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
         end
@@ -1869,13 +1869,13 @@ end
                 Dni = s_D[n, i] * s_ω[n] / s_ω[i]
                 lap_njk = s_lap[n, j, k, s]
                 lap_ξ1 += Dni * lap_njk
-                if dim == 3 || (dim == 2 && direction == EveryDirection)
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
                     ink = i + Nq * ((n - 1) + Nq * (k - 1))
                     Dnj = s_D[n, j] * s_ω[n] / s_ω[j]
                     lap_ink = s_lap[i, n, k, s]
                     lap_ξ2 += Dnj * lap_ink
                 end
-                if dim == 3 && direction == EveryDirection
+                if dim == 3 && direction isa EveryDirection
                     ijn = i + Nq * ((j - 1) + Nq * (n - 1))
                     Dnk = s_D[n, k] * s_ω[n] / s_ω[k]
                     lap_ijn = s_lap[i, j, n, s]
@@ -1887,13 +1887,13 @@ end
             l_grad_lap[2, s] = -ξ1x2 * lap_ξ1
             l_grad_lap[3, s] = -ξ1x3 * lap_ξ1
 
-            if dim == 3 || (dim == 2 && direction == EveryDirection)
+            if dim == 3 || (dim == 2 && direction isa EveryDirection)
                 l_grad_lap[1, s] -= ξ2x1 * lap_ξ2
                 l_grad_lap[2, s] -= ξ2x2 * lap_ξ2
                 l_grad_lap[3, s] -= ξ2x3 * lap_ξ2
             end
 
-            if dim == 3 && direction == EveryDirection
+            if dim == 3 && direction isa EveryDirection
                 l_grad_lap[1, s] -= ξ3x1 * lap_ξ3
                 l_grad_lap[2, s] -= ξ3x2 * lap_ξ3
                 l_grad_lap[3, s] -= ξ3x3 * lap_ξ3
@@ -2023,7 +2023,7 @@ end
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    ::direction,
+    direction,
     hyperviscnumflux,
     Qhypervisc_grad,
     Qhypervisc_div,
@@ -2036,7 +2036,7 @@ end
     elemtobndy,
     elems,
     t,
-) where {dim, polyorder, direction}
+) where {dim, polyorder}
     @uniform begin
         N = polyorder
         FT = eltype(Qhypervisc_grad)
@@ -2061,9 +2061,9 @@ end
         end
 
         faces = 1:nface
-        if direction == VerticalDirection
+        if direction isa VerticalDirection
             faces = (nface - 1):nface
-        elseif direction == HorizontalDirection
+        elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
 

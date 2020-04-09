@@ -156,16 +156,17 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     m = getfield(source, :array)
-    source!(rem.main, source, state, diffusive, aux, t)
+    source!(rem.main, source, state, diffusive, aux, t, direction)
 
     source_s = similar(source)
     m_s = getfield(source_s, :array)
 
     for sub in rem.subs
         fill!(m_s, 0)
-        source!(sub, source_s, state, diffusive, aux, t)
+        source!(sub, source_s, state, diffusive, aux, t, direction)
         m .-= m_s
     end
     nothing

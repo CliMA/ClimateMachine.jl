@@ -11,7 +11,7 @@ using DocStringExtensions
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 
-export BalanceLaw, DGModel, init_ode_state
+export BalanceLaw, DGModel, init_ode_state, restart_ode_state, restart_auxstate
 
 include("balancelaw.jl")
 include("NumericalFluxes.jl")

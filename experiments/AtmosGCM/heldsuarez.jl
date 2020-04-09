@@ -98,7 +98,15 @@ function config_heldsuarez(FT, poly_order, resolution)
     return config
 end
 
-function held_suarez_forcing!(bl, source, state, diffusive, aux, t::Real)
+function held_suarez_forcing!(
+    bl,
+    source,
+    state,
+    diffusive,
+    aux,
+    t::Real,
+    direction,
+)
     FT = eltype(state)
 
     # Parameters

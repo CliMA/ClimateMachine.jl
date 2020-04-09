@@ -99,6 +99,7 @@ function mms2_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     x1, x2, x3 = aux.coord
     source.ρ = Sρ_g(t, x1, x2, x3, Val(2))
@@ -127,6 +128,7 @@ function mms3_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     x1, x2, x3 = aux.coord
     source.ρ = Sρ_g(t, x1, x2, x3, Val(3))
@@ -306,7 +308,7 @@ let
                     nsteps = ceil(Int64, timeend / dt)
                     dt = timeend / nsteps
 
-                    @info (ArrayType, FT, dim)
+                    @info (ArrayType, FT, dim, nsteps, dt)
                     result[l] = run(
                         mpicomm,
                         ArrayType,

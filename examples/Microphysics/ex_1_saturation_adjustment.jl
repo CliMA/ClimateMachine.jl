@@ -151,14 +151,7 @@ end
     # ... and don't advect momentum (kinematic setup)
 end
 
-function source!(
-    m::KinematicModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-) end
+source!(::KinematicModel, _...) = nothing
 
 function main()
     CLIMA.init()
