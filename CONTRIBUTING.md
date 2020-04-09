@@ -112,6 +112,46 @@ ys.jl                                                                           
 
 See `man 5 githooks` for more information about git hooks.
 
+### Precompiling the JuliaFormatter
+
+To speed up the formatter and the githook, a custom system image can be built with the [`PackageCompiler`]. That said, the following [drawback] from the `PackageCompiler` repository should be noted:
+
+> It should be clearly stated that there are some drawbacks to using a custom
+> sysimage, thereby sidestepping the standard Julia package precompilation
+> system. The biggest drawback is that packages that are compiled into a
+> sysimage (including their dependencies!) are "locked" to the version they
+> where at when the sysimage was created. This means that no matter what package
+> version you have installed in your current project, the one in the sysimage
+> will take precedence. This can lead to bugs where you start with a project
+> that needs a specific version of a package, but you have another one compiled
+> into the sysimage.
+
+The `PackageCompiler` compiler can be used with the `JuliaFormatter` using the following commands (from a top-level directory of a clone of CLIMA)
+```
+$ julia -q
+julia> using Pkg
+julia> Pkg.add("PackageCompiler")
+julia> using PackageCompiler
+julia> Pkg.activate(joinpath(@__DIR__,".dev"))
+julia> using PackageCompiler
+julia> PackageCompiler.create_sysimage(:JuliaFormatter; precompile_execution_file=joinpath(@__DIR__, ".dev/precompile.jl"), replace_default=true)
+```
+
+If you cannot (or do want to) modify the default system image, instead the following commands can be used
+```
+$ julia -q
+julia> using Pkg
+julia> Pkg.add("PackageCompiler")
+julia> using PackageCompiler
+julia> Pkg.activate(joinpath(@__DIR__,".dev"))
+julia> PackageCompiler.create_sysimage(:JuliaFormatter; precompile_execution_file=joinpath(@__DIR__, ".dev/precompile.jl"), sysimage_path=joinpath(@__DIR__, ".git/hooks/JuliaFormatterSysimage.so"))
+```
+In this case hook `pre-commit.sysimage` should be used. That is, one can use the following linking command (from the top-level directory of a clone of CLIMA)
+```
+ln -s ../../.dev/hooks/pre-commit.sysimage .git/hooks/pre-commit
+```
+Note: By putting the system image in `.git/hooks` it will be protected from calls to `git clean -x`
+
 ## Bors and CI
 
 All commits that end up in the CLIMA repository must pass Continuous Integration (CI).
@@ -125,3 +165,6 @@ If you are a collaborator and want to test and merge in the same step, use `bors
 
 Most PRs should include tests and these will be reviewed as part of the code review process on github.
 Add your tests in the `test/` directory.
+
+[`PackageCompiler`]: https://github.com/JuliaLang/PackageCompiler.jl
+[drawback]: https://julialang.github.io/PackageCompiler.jl/dev/sysimages/#Drawbacks-to-custom-sysimages-1
