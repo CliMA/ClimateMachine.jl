@@ -5,16 +5,30 @@ end
 function get_dims(dgngrp)
     if dgngrp.interpol !== nothing
         if dgngrp.interpol isa InterpolationBrick
-            dims = OrderedDict(
-                "x" => dgngrp.interpol.x1g,
-                "y" => dgngrp.interpol.x2g,
-                "z" => dgngrp.interpol.x3g,
-            )
+            if Array ∈ typeof(dgngrp.interpol.x1g).parameters
+                h_x1g = dgngrp.interpol.x1g
+                h_x2g = dgngrp.interpol.x2g
+                h_x3g = dgngrp.interpol.x3g
+            else
+                h_x1g = Array(dgngrp.interpol.x1g)
+                h_x2g = Array(dgngrp.interpol.x2g)
+                h_x3g = Array(dgngrp.interpol.x3g)
+            end
+            dims = OrderedDict("x" => h_x1g, "y" => h_x2g, "z" => h_x3g)
         elseif dgngrp.interpol isa InterpolationCubedSphere
+            if Array ∈ typeof(dgngrp.interpol.rad_grd).parameters
+                h_rad_grd = dgngrp.interpol.rad_grd
+                h_lat_grd = dgngrp.interpol.lat_grd
+                h_long_grd = dgngrp.interpol.long_grd
+            else
+                h_rad_grd = Array(dgngrp.interpol.rad_grd)
+                h_lat_grd = Array(dgngrp.interpol.lat_grd)
+                h_long_grd = Array(dgngrp.interpol.long_grd)
+            end
             dims = OrderedDict(
-                "rad" => dgngrp.interpol.rad_grd,
-                "lat" => dgngrp.interpol.lat_grd,
-                "long" => dgngrp.interpol.long_grd,
+                "rad" => h_rad_grd,
+                "lat" => h_lat_grd,
+                "long" => h_long_grd,
             )
         else
             error("Unsupported interpolation topology $(dgngrp.interpol)")
@@ -84,13 +98,13 @@ function dump_state_and_aux_collect(dgngrp, currtime)
     for i in 1:num_state(bl, FT)
         statevarvals[statenames[i]] = all_state_data[:, :, :, i]
     end
-    write_data(dgngrp.writer, statefilename, dims, statevarvals)
+    write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
 
     auxvarvals = OrderedDict()
     for i in 1:num_aux(bl, FT)
         auxvarvals[auxnames[i]] = all_aux_data[:, :, :, i]
     end
-    write_data(dgngrp.writer, auxfilename, dims, auxvarvals)
+    write_data(dgngrp.writer, auxfilename, dims, auxvarvals, currtime)
 
     return nothing
 end

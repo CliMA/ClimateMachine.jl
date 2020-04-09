@@ -103,10 +103,10 @@ function atmos_source!(
     u_slope = s.u_slope
     v_geostrophic = s.v_geostrophic
 
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     # Note z dependence of eastward geostrophic velocity
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     fkvector = f_coriolis * ẑ
     # Accumulate sources
     source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
@@ -150,9 +150,9 @@ function atmos_source!(
     u_slope = s.u_slope
     v_geostrophic = s.v_geostrophic
 
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
@@ -195,7 +195,7 @@ function atmos_source!(
 )
     FT = eltype(state)
     ρ = state.ρ
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     _e_int_v0 = FT(e_int_v0(atmos.param_set))
 
     # Establish thermodynamic state
@@ -214,7 +214,7 @@ function atmos_source!(
     w_sub = s.w_sub
     ∂qt∂t_peak = s.∂qt∂t_peak
     ∂θ∂t_peak = s.∂θ∂t_peak
-    k̂ = vertical_unit_vector(atmos.orientation, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
 
     # Thermodynamic state identification
     q_pt = PhasePartition(TS)

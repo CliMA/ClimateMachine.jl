@@ -29,7 +29,7 @@ function advective_courant(
     t,
     direction,
 )
-    k̂ = vertical_unit_vector(m.orientation, aux)
+    k̂ = vertical_unit_vector(m, aux)
     normu = norm_u(state, k̂, direction)
     return Δt * normu / Δx
 end
@@ -44,7 +44,7 @@ function nondiffusive_courant(
     t,
     direction,
 )
-    k̂ = vertical_unit_vector(m.orientation, aux)
+    k̂ = vertical_unit_vector(m, aux)
     normu = norm_u(state, k̂, direction)
     return Δt * (normu + soundspeed(m, m.moisture, state, aux)) / Δx
 end
@@ -60,7 +60,7 @@ function diffusive_courant(
     direction,
 )
     ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, t)
-    k̂ = vertical_unit_vector(m.orientation, aux)
+    k̂ = vertical_unit_vector(m, aux)
     normν = norm_ν(ν, k̂, direction)
     return Δt * normν / (Δx * Δx)
 end

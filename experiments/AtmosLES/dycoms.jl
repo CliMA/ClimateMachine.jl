@@ -144,7 +144,7 @@ function flux_radiation!(
     t::Real,
 )
     FT = eltype(flux)
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     Δz_i = max(z - m.z_i, -zero(FT))
     # Constants
     upward_flux_from_cloud = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
@@ -158,7 +158,7 @@ function flux_radiation!(
         (Δz_i / 4 + m.z_i)
     F_rad =
         upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     flux.ρe += F_rad * ẑ
 end
 function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real) end
@@ -187,7 +187,7 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 function init_dycoms!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
-    z = altitude(bl.orientation, aux)
+    z = altitude(bl, aux)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)

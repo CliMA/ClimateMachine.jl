@@ -23,6 +23,10 @@ using CLIMA.DGmethods.NumericalFluxes:
     NumericalFluxNonDiffusive, NumericalFluxDiffusive, NumericalFluxGradient
 import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
 
+using CLIMAParameters
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
+
 abstract type AdvectionDiffusionProblem end
 struct AdvectionDiffusion{dim, P, fluxBC, no_diffusion} <: BalanceLaw
     problem::P

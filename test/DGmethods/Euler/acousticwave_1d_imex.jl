@@ -249,9 +249,9 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
-    λ = longitude(bl.orientation, aux)
-    φ = latitude(bl.orientation, aux)
-    z = altitude(bl.orientation, aux)
+    λ = longitude(bl, aux)
+    φ = latitude(bl, aux)
+    z = altitude(bl, aux)
 
     β = min(FT(1), setup.α * acos(cos(φ) * cos(λ)))
     f = (1 + cos(FT(π) * β)) / 2
