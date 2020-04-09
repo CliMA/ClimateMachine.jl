@@ -1176,7 +1176,7 @@ See [`DGBalanceLaw`](@ref) for usage.
 end
 
 @doc """
-    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate,
+    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate, [diffstate,]
                           t, elems, activedofs) where {dim, N}
 
 Update the auxiliary state array
@@ -1236,12 +1236,6 @@ Update the auxiliary state array
     end
 end
 
-@doc """
-    knl_nodal_update_aux!(bl::BalanceLaw, ::Val{dim}, ::Val{N}, f!, Q, auxstate, diffstate,
-                          t, elems, activedofs) where {dim, N}
-
-Update the auxiliary state array
-""" knl_nodal_update_aux!
 @kernel function knl_nodal_update_aux!(
     bl::BalanceLaw,
     ::Val{dim},

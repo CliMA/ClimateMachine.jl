@@ -1,8 +1,6 @@
 using ArgParse
 using CUDAapi
 using Dates
-using FileIO
-using JLD2
 using LinearAlgebra
 using Logging
 using MPI
@@ -14,12 +12,10 @@ using ..Atmos
 using ..Callbacks
 using ..ColumnwiseLUSolver
 using ..ConfigTypes
-using ..Courant
 using ..Diagnostics
 using ..DGmethods
-using ..DGmethods: vars_state, vars_aux, update_aux!
+using ..DGmethods: update_aux!
 using ..DGmethods.NumericalFluxes
-using ..GenericCallbacks
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids
 using ..Mesh.Topologies
@@ -28,53 +24,11 @@ using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
-using ..VTK
-
-# Note that the initial values specified here are overwritten by the
-# command line argument defaults in `parse_commandline()`.
-Base.@kwdef mutable struct CLIMA_Settings
-    disable_gpu::Bool = false
-    show_updates::Bool = true
-    update_interval::Int = 60
-    enable_diagnostics::Bool = false
-    diagnostics_interval::Int = 10000
-    enable_vtk::Bool = false
-    vtk_interval::Int = 10000
-    enable_wall_clock::Bool = false
-    wall_clock_interval::Int = 10000
-    monitor_courant_numbers::Bool = false
-    monitor_courant_interval::Int = 10
-    checkpoint_walltime::Int = -1
-    checkpoint_keep_one::Bool = true
-    checkpoint_at_end::Bool = false
-    checkpoint_dir::String = "checkpoint"
-    restart_from_num::Int = -1
-    log_level::String = "INFO"
-    output_dir::String = "output"
-    integration_testing::Bool = false
-    array_type
-end
-
-const Settings = CLIMA_Settings(array_type = Array)
-
-array_type() = Settings.array_type
-
-const cuarray_pkgid =
-    Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
-
-@init begin
-    if get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
-        CuArrays = Base.require(cuarray_pkgid)
-    end
-end
-
-function _init_array(::Type{Array})
-    return nothing
-end
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     using .CuArrays, .CuArrays.CUDAdrv, .CuArrays.CUDAnative
-    function _init_array(::Type{CuArray})
+
+    @eval function _init_array(::Type{CuArray})
         comm = MPI.COMM_WORLD
         # allocate GPUs among MPI ranks
         local_comm = MPI.Comm_split_type(
@@ -89,6 +43,10 @@ end
     end
 end
 
+_init_array(::Type{Array}) = nothing
+
+const cuarray_pkgid =
+    Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 function gpu_allowscalar(val)
     if haskey(Base.loaded_modules, CLIMA.cuarray_pkgid)
         Base.loaded_modules[CLIMA.cuarray_pkgid].allowscalar(val)
@@ -96,57 +54,65 @@ function gpu_allowscalar(val)
     return nothing
 end
 
+# Note that the initial values specified here are overwritten by the
+# command line argument defaults in `parse_commandline()`.
+Base.@kwdef mutable struct CLIMA_Settings
+    disable_gpu::Bool = false
+    show_updates::String = "60secs"
+    diagnostics::String = "never"
+    vtk::String = "never"
+    monitor_timestep_duration::String = "never"
+    monitor_courant_numbers::String = "never"
+    checkpoint::String = "never"
+    checkpoint_keep_one::Bool = true
+    checkpoint_at_end::Bool = false
+    checkpoint_dir::String = "checkpoint"
+    restart_from_num::Int = -1
+    log_level::String = "INFO"
+    output_dir::String = "output"
+    integration_testing::Bool = false
+    array_type
+end
+const Settings = CLIMA_Settings(array_type = Array)
+
+
 """
     parse_commandline()
 """
-function parse_commandline()
+function parse_commandline(custom_settings)
     exc_handler =
         isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
     s = ArgParseSettings(exc_handler = exc_handler)
+    add_arg_group!(s, "CLIMA")
 
     @add_arg_table! s begin
         "--disable-gpu"
         help = "do not use the GPU"
         action = :store_true
-        "--no-show-updates"
-        help = "do not show simulation updates"
-        action = :store_true
-        "--update-interval"
-        help = "interval in seconds for showing simulation updates"
-        arg_type = Int
-        default = 60
-        "--enable-diagnostics"
-        help = "enable the collection of diagnostics to <output-dir>"
-        action = :store_true
-        "--diagnostics-interval"
-        help = "override the interval for gathering diagnostics (in simulation steps)"
-        arg_type = Int
-        default = 10000
-        "--enable-vtk"
-        help = "output VTK to <output-dir> every <vtk-interval> simulation steps"
-        action = :store_true
-        "--vtk-interval"
-        help = "interval in simulation steps for VTK output"
-        arg_type = Int
-        default = 10000
-        "--enable-wall-clock"
-        help = "output wall-clock time per time-step every <wall-clock-interval> simulation steps"
-        action = :store_true
-        "--wall-clock-interval"
-        help = "interval in simulation steps for wall-clock time per time-step output"
-        arg_type = Int
-        default = 10000
+        "--show-updates"
+        help = "interval at which to show simulation updates"
+        arg_type = String
+        default = "60secs"
+        "--diagnostics"
+        help = "interval at which to collect diagnostics"
+        arg_type = String
+        default = "never"
+        "--vtk"
+        help = "interval at which to output VTK"
+        arg_type = String
+        default = "never"
+        "--monitor-timestep-duration"
+        help = "interval in time-steps at which to output wall-clock time per time-step"
+        arg_type = String
+        default = "never"
         "--monitor-courant-numbers"
-        help = "output acoustic, advective, and diffusive Courant numbers"
-        action = :store_true
-        "--monitor-courant-interval"
-        help = "interval in Courant number calculations"
-        arg_type = Int
-        default = 10
-        "--checkpoint-walltime"
-        help = "interval in seconds at which to create a checkpoint"
-        arg_type = Int
-        default = -1
+        help = "interval at which to output acoustic, advective, and diffusive Courant numbers"
+        arg_type = String
+        default = "never"
+        "--checkpoint"
+        help = "interval at which to create a checkpoint"
+        arg_type = String
+        default = "never"
         "--checkpoint-keep-all"
         help = "keep all checkpoints (instead of just the most recent)"
         action = :store_true
@@ -174,18 +140,42 @@ function parse_commandline()
         action = :store_true
     end
 
+    if custom_settings !== nothing
+        import_settings!(s, custom_settings)
+    end
 
     return parse_args(s)
 end
 
 """
-    CLIMA.init(; disable_gpu=false)
+    CLIMA.array_type()
 
-Initialize MPI, allocate GPUs among MPI ranks if using GPUs, parse command
-line arguments for CLIMA, and return a Dict of any additional command line
-arguments.
+Return the array type used by CLIMA. This defaults to (CPU-based) `Array`
+and is only correctly set (based on choice from the command line, from
+an environment variable, or from experiment code) after `CLIMA.init()`
+is called.
 """
-function init(; disable_gpu = false)
+array_type() = Settings.array_type
+
+"""
+    CLIMA.init(
+        ;
+        disable_gpu = false,
+        arg_settings = nothing,
+    )
+
+Perform necessary initializations for CLIMA:
+- Initialize MPI.
+- Parse command line arguments. To support experiment-specific arguments,
+`arg_settings` may be specified (it is an `ArgParse.ArgParseSettings`);
+it will be imported into CLIMA's settings.
+- Determine whether GPU(s) is available and should be used (pass
+`disable-gpu = true` if not) and set the CLIMA array type appropriately.
+- Set up the global logger.
+
+Returns a `Dict` containing non-CLIMA command-line arguments.
+"""
+function init(; disable_gpu = false, arg_settings = nothing)
     # initialize MPI
     if !MPI.Initialized()
         MPI.Init()
@@ -195,36 +185,45 @@ function init(; disable_gpu = false)
     tictoc()
 
     # parse command line arguments
+    parsed_args = nothing
     try
-        parsed_args = parse_commandline()
+        parsed_args = parse_commandline(arg_settings)
         Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
-        Settings.show_updates = !parsed_args["no-show-updates"]
-        Settings.update_interval = parsed_args["update-interval"]
-        Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
-        Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
-        Settings.enable_vtk = parsed_args["enable-vtk"]
-        Settings.vtk_interval = parsed_args["vtk-interval"]
-        Settings.enable_wall_clock = parsed_args["enable-wall-clock"]
-        Settings.wall_clock_interval = parsed_args["wall-clock-interval"]
-        Settings.output_dir = parsed_args["output-dir"]
+        delete!(parsed_args, "disable-gpu")
+        Settings.show_updates = parsed_args["show-updates"]
+        delete!(parsed_args, "show-updates")
+        Settings.diagnostics = parsed_args["diagnostics"]
+        delete!(parsed_args, "diagnostics")
+        Settings.vtk = parsed_args["vtk"]
+        delete!(parsed_args, "vtk")
+        Settings.monitor_timestep_duration =
+            parsed_args["monitor-timestep-duration"]
+        delete!(parsed_args, "monitor-timestep-duration")
         Settings.monitor_courant_numbers =
             parsed_args["monitor-courant-numbers"]
-        Settings.monitor_courant_interval =
-            parsed_args["monitor-courant-interval"]
-        Settings.checkpoint_walltime = parsed_args["checkpoint-walltime"]
-        Settings.checkpoint_keep_one = !parsed_args["checkpoint-keep-all"]
-        Settings.checkpoint_at_end = parsed_args["checkpoint-at-end"]
-        Settings.checkpoint_dir = parsed_args["checkpoint-dir"]
-        Settings.restart_from_num = parsed_args["restart-from-num"]
-        Settings.integration_testing = parsed_args["integration-testing"]
+        delete!(parsed_args, "monitor-courant-numbers")
         Settings.log_level = uppercase(parsed_args["log-level"])
+        delete!(parsed_args, "log-level")
+        Settings.checkpoint = parsed_args["checkpoint"]
+        delete!(parsed_args, "checkpoint")
+        Settings.checkpoint_keep_one = !parsed_args["checkpoint-keep-all"]
+        delete!(parsed_args, "checkpoint-keep-all")
+        Settings.checkpoint_at_end = parsed_args["checkpoint-at-end"]
+        delete!(parsed_args, "checkpoint-at-end")
+        Settings.checkpoint_dir = parsed_args["checkpoint-dir"]
+        delete!(parsed_args, "checkpoint-dir")
+        Settings.restart_from_num = parsed_args["restart-from-num"]
+        delete!(parsed_args, "restart-from-num")
+        Settings.output_dir = parsed_args["output-dir"]
+        delete!(parsed_args, "output-dir")
+        Settings.integration_testing = parsed_args["integration-testing"]
+        delete!(parsed_args, "integration-testing")
     catch
         Settings.disable_gpu = disable_gpu
     end
 
     # set up the array type appropriately depending on whether we're using GPUs
-    if !Settings.disable_gpu &&
-       get(ENV, "CLIMA_GPU", "") != "false" &&
+    if get(ENV, "CLIMA_GPU", "") != "false" && !Settings.disable_gpu &&
        CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
@@ -234,10 +233,10 @@ function init(; disable_gpu = false)
     Settings.array_type = atyp
 
     # create the output directory if needed
-    if Settings.enable_diagnostics || Settings.enable_vtk
+    if Settings.diagnostics !== "never" || Settings.vtk !== "never"
         mkpath(Settings.output_dir)
     end
-    if Settings.checkpoint_walltime > 0 || Settings.checkpoint_at_end
+    if Settings.checkpoint !== "never" || Settings.checkpoint_at_end
         mkpath(Settings.checkpoint_dir)
     end
 
@@ -249,7 +248,7 @@ function init(; disable_gpu = false)
     logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
-    return nothing
+    return parsed_args
 end
 
 include("driver_configs.jl")
@@ -257,31 +256,33 @@ include("solver_configs.jl")
 include("diagnostics_configs.jl")
 
 """
-    CLIMA.invoke!(solver_config::SolverConfiguration;
-                  diagnostics_config       = nothing,
-                  user_callbacks           = (),
-                  check_euclidean_distance = false,
-                  adjustfinalstep          = false,
-                  user_info_callback       = (init)->nothing)
+    CLIMA.invoke!(
+        solver_config::SolverConfiguration;
+        diagnostics_config = nothing,
+        user_callbacks = (),
+        check_euclidean_distance = false,
+        adjustfinalstep = false,
+        user_info_callback = (init) -> nothing,
+    )
 
-Run the simulation defined by the `solver_config`.
+Run the simulation defined by `solver_config`.
 
 Keyword Arguments:
 
-The `user_callbacks` are passed to the ODE solver as callback functions; see
-[`ODESolvers.solve!]@ref().
+The `user_callbacks` are passed to the ODE solver as callback functions;
+see [`ODESolvers.solve!]@ref().
 
-If `check_euclidean_distance` is `true, then the Euclidean distance between the
-final solution and initial condition function evaluated with
+If `check_euclidean_distance` is `true, then the Euclidean distance
+between the final solution and initial condition function evaluated with
 `solver_config.timeend` is reported.
 
 The value of 'adjustfinalstep` is passed to the ODE solver; see
 [`ODESolvers.solve!]@ref().
 
-The function `user_info_callback` is called after the default info callback
-(which is called every `Settings.update_interval` seconds of wallclock time).
-The single input argument `init` is `true` when the callback is called
-called for initialization before time stepping begins and `false` when called
+The function `user_info_callback` is called after the default info
+callback (which is called every `Settings.show_updates` interval). The
+single input argument `init` is `true` when the callback is called for
+initialization (before time stepping begins) and `false` when called
 during the actual ODE solve; see [`GenericCallbacks`](@ref) and
 [`ODESolvers.solve!]@ref().
 """
@@ -305,122 +306,68 @@ function invoke!(
 
     # set up callbacks
     callbacks = ()
-    if Settings.show_updates
-        # set up the information callback
-        upd_starttime = Ref(now())
-        cbinfo = GenericCallbacks.EveryXWallTimeSeconds(
-            Settings.update_interval,
-            mpicomm,
-        ) do (init = false)
-            if init
-                upd_starttime[] = now()
-            else
-                runtime = Dates.format(
-                    convert(Dates.DateTime, Dates.now() - upd_starttime[]),
-                    Dates.dateformat"HH:MM:SS",
-                )
-                energy = norm(Q)
-                @info @sprintf(
-                    """
-         Update
-             simtime = %8.2f / %8.2f
-             runtime = %s
-             norm(Q) = %.16e""",
-                    ODESolvers.gettime(solver),
-                    timeend,
-                    runtime,
-                    energy
-                )
-                isnan(energy) && error("norm(Q) is NaN")
-            end
-            user_info_callback(init)
-        end
-        callbacks = (callbacks..., cbinfo)
+
+    # info callback
+    cb_updates = Callbacks.show_updates(
+        Settings.show_updates,
+        solver_config,
+        user_info_callback,
+    )
+    if cb_updates !== nothing
+        callbacks = (callbacks..., cb_updates)
     end
 
-    dgn_starttime = ""
-    if Settings.enable_diagnostics && diagnostics_config !== nothing
+    # diagnostics callback(s)
+    if Settings.diagnostics !== "never" && diagnostics_config !== nothing
         dgn_starttime = replace(string(now()), ":" => ".")
         Diagnostics.init(mpicomm, dg, Q, dgn_starttime, Settings.output_dir)
 
-        # set up a callback for each diagnostics group
-        dgncbs = ()
-        for dgngrp in diagnostics_config.groups
-            if Settings.diagnostics_interval > 0
-                interval = Settings.diagnostics_interval
-            else
-                interval = dgngrp.interval
-            end
-            fn = GenericCallbacks.EveryXSimulationSteps(
-                interval,
-            ) do (init = false)
-                currtime = ODESolvers.gettime(solver)
-                @info @sprintf(
-                    """Diagnostics: %s
-                    %s at %s""",
-                    dgngrp.name,
-                    init ? "initializing" : "collecting",
-                    string(currtime)
-                )
-                dgngrp(currtime, init = init)
-                nothing
-            end
-            dgncbs = (dgncbs..., fn)
-        end
+        dgncbs = Callbacks.diagnostics(
+            Settings.diagnostics,
+            solver_config,
+            dgn_starttime,
+            diagnostics_config,
+        )
         callbacks = (callbacks..., dgncbs...)
     end
 
-    if Settings.enable_vtk
-        # set up VTK output callback
-        vtknum = Ref(1)
-        cbvtk =
-            GenericCallbacks.EveryXSimulationSteps(Settings.vtk_interval) do (
-                init = false
-            )
-                save_vtk(solver_config, vtknum[])
-                vtknum[] += 1
-                nothing
-            end
-        callbacks = (callbacks..., cbvtk)
+    # vtk callback
+    cb_vtk = Callbacks.vtk(Settings.vtk, solver_config, Settings.output_dir)
+    if cb_vtk !== nothing
+        callbacks = (callbacks..., cb_vtk)
     end
 
-    if Settings.enable_wall_clock
-        cbwall = Callbacks.wall_clock_time_per_time_step(
-            Settings.wall_clock_interval,
-            Settings.array_type,
-            mpicomm,
-        )
-        callbacks = (callbacks..., cbwall)
+    # timestep duration monitor
+    cb_mtd = Callbacks.monitor_timestep_duration(
+        Settings.monitor_timestep_duration,
+        Settings.array_type,
+        mpicomm,
+    )
+    if cb_mtd !== nothing
+        callbacks = (callbacks..., cb_mtd)
     end
 
-    if Settings.monitor_courant_numbers
-        # set up the callback for Courant number calculations
-        cbcfl =
-            GenericCallbacks.EveryXSimulationSteps(Settings.monitor_courant_interval) do (
-                init = false
-            )
-                show_courant(solver_config)
-                nothing
-            end
-        callbacks = (callbacks..., cbcfl)
+    # Courant number monitor
+    cb_mcn = Callbacks.monitor_courant_numbers(
+        Settings.monitor_courant_numbers,
+        solver_config,
+    )
+    if cb_mcn !== nothing
+        callbacks = (callbacks..., cb_mcn)
     end
 
-    if Settings.checkpoint_walltime > 0
-        cpnum = Ref(1)
-        cbcheckpoint = GenericCallbacks.EveryXWallTimeSeconds(
-            Settings.checkpoint_walltime,
-            mpicomm,
-        ) do (init = false)
-            write_checkpoint(solver_config, cpnum[])
-            if Settings.checkpoint_keep_one
-                rm_checkpoint(solver_config, cpnum[] - 1)
-            end
-            cpnum[] += 1
-            nothing
-        end
-        callbacks = (callbacks..., cbcheckpoint)
+    # checkpointing callback
+    cb_checkpoint = Callbacks.checkpoint(
+        Settings.checkpoint,
+        Settings.checkpoint_keep_one,
+        solver_config,
+        Settings.checkpoint_dir,
+    )
+    if cb_checkpoint !== nothing
+        callbacks = (callbacks..., cb_checkpoint)
     end
 
+    # user callbacks
     callbacks = (user_callbacks..., callbacks...)
 
     # initial condition norm
@@ -450,13 +397,19 @@ Starting %s
     )
     @toc solve!
 
-    # write checkpoint
+    # write end checkpoint if requested
     if Settings.checkpoint_at_end
-        write_checkpoint(solver_config, solver_config.numberofsteps)
+        Callbacks.write_checkpoint(
+            solver_config,
+            Settings.checkpoint_dir,
+            solver_config.name,
+            mpicomm,
+            solver_config.numberofsteps,
+        )
     end
 
     # fini diagnostics groups
-    if Settings.enable_diagnostics
+    if Settings.diagnostics !== "never" && diagnostics_config !== nothing
         currtime = ODESolvers.gettime(solver)
         for dgngrp in diagnostics_config.groups
             dgngrp(currtime, fini = true)
@@ -465,10 +418,11 @@ Starting %s
 
     engf = norm(Q)
     @info @sprintf(
-        """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""",
+        """
+Finished
+    norm(Q)            = %.16e
+    norm(Q) / norm(Q₀) = %.16e
+    norm(Q) - norm(Q₀) = %.16e""",
         engf,
         engf / eng0,
         engf - eng0
@@ -480,156 +434,14 @@ Starting %s
         engfe = norm(Qe)
         errf = euclidean_distance(Q, Qe)
         @info @sprintf(
-            """Euclidean distance
-            norm(Q - Qe)            = %.16e
-            norm(Q - Qe) / norm(Qe) = %.16e""",
+            """
+Euclidean distance
+    norm(Q - Qe)            = %.16e
+    norm(Q - Qe) / norm(Qe) = %.16e""",
             errf,
             errf / engfe
         )
     end
 
     return engf / eng0
-end
-
-function save_vtk(solver_config::SolverConfiguration, num::Int)
-    mpicomm = solver_config.mpicomm
-    dg = solver_config.dg
-    bl = dg.balancelaw
-    Q = solver_config.Q
-    FT = eltype(Q)
-
-    vprefix = @sprintf(
-        "%s_mpirank%04d_num%04d",
-        solver_config.name,
-        MPI.Comm_rank(mpicomm),
-        num
-    )
-    outprefix = joinpath(Settings.output_dir, vprefix)
-
-    statenames = flattenednames(vars_state(bl, FT))
-    auxnames = flattenednames(vars_aux(bl, FT))
-
-    writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
-
-    # Generate the pvtu file for these vtk files
-    if MPI.Comm_rank(mpicomm) == 0
-        # name of the pvtu file
-        pprefix = @sprintf("%s_num%04d", solver_config.name, num)
-        pvtuprefix = joinpath(Settings.output_dir, pprefix)
-
-        # name of each of the ranks vtk files
-        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
-            @sprintf("%s_mpirank%04d_num%04d", solver_config.name, i - 1, num)
-        end
-        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
-    end
-end
-
-function show_courant(solver_config::SolverConfiguration)
-    Δt = solver_config.dt
-    c_v = DGmethods.courant(
-        nondiffusive_courant,
-        solver_config,
-        direction = VerticalDirection(),
-    )
-    c_h = DGmethods.courant(
-        nondiffusive_courant,
-        solver_config,
-        direction = HorizontalDirection(),
-    )
-    ca_v = DGmethods.courant(
-        advective_courant,
-        solver_config,
-        direction = VerticalDirection(),
-    )
-    ca_h = DGmethods.courant(
-        advective_courant,
-        solver_config,
-        direction = HorizontalDirection(),
-    )
-    cd_v = DGmethods.courant(
-        diffusive_courant,
-        solver_config,
-        direction = VerticalDirection(),
-    )
-    cd_h = DGmethods.courant(
-        diffusive_courant,
-        solver_config,
-        direction = HorizontalDirection(),
-    )
-    simtime = ODESolvers.gettime(solver_config.solver)
-    @info @sprintf """
-Courant numbers at simtime: %8.2f, Δt = %8.2f s
-    Acoustic (vertical) Courant number    = %.2g
-    Acoustic (horizontal) Courant number  = %.2g
-    Advection (vertical) Courant number   = %.2g
-    Advection (horizontal) Courant number = %.2g
-    Diffusion (vertical) Courant number   = %.2g
-    Diffusion (horizontal) Courant number = %.2g
-    """ simtime Δt c_v c_h ca_v ca_h cd_v cd_h
-
-    return nothing
-end
-
-function write_checkpoint(solver_config::SolverConfiguration, num::Int)
-    nm = replace(solver_config.name, " " => "_")
-    cname = @sprintf(
-        "%s_checkpoint_mpirank%04d_num%04d.jld2",
-        nm,
-        MPI.Comm_rank(solver_config.mpicomm),
-        num,
-    )
-    cfull = joinpath(Settings.checkpoint_dir, cname)
-    @info @sprintf(
-        """
-Checkpoint
-    saving to %s""",
-        cfull
-    )
-
-    dg = solver_config.dg
-    Q = solver_config.Q
-    if Array ∈ typeof(Q).parameters
-        h_Q = Q.realdata
-        h_aux = dg.auxstate.realdata
-    else
-        h_Q = Array(Q.realdata)
-        h_aux = Array(dg.auxstate.realdata)
-    end
-    t = ODESolvers.gettime(solver_config.solver)
-    @save cfull h_Q h_aux t
-
-    return nothing
-end
-
-function rm_checkpoint(solver_config::SolverConfiguration, num::Int)
-    nm = replace(solver_config.name, " " => "_")
-    cname = @sprintf(
-        "%s_checkpoint_mpirank%04d_num%04d.jld2",
-        nm,
-        MPI.Comm_rank(solver_config.mpicomm),
-        num,
-    )
-    rm(joinpath(Settings.checkpoint_dir, cname), force = true)
-
-    return nothing
-end
-
-function read_checkpoint(name::String, mpicomm::MPI.Comm, num::Int)
-    nm = replace(name, " " => "_")
-    cname = @sprintf(
-        "%s_checkpoint_mpirank%04d_num%04d.jld2",
-        nm,
-        MPI.Comm_rank(mpicomm),
-        num,
-    )
-    cfull = joinpath(Settings.checkpoint_dir, cname)
-    if !isfile(cfull)
-        error("Cannot restore from checkpoint in %s, file not found")
-    end
-
-    @load cfull h_Q h_aux t
-
-    ArrayType = array_type()
-    return (ArrayType(h_Q), ArrayType(h_aux), t)
 end

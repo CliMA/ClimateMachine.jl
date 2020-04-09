@@ -1,5 +1,6 @@
 using CLIMA
 using CLIMA.Atmos
+using CLIMA.Checkpoint
 using CLIMA.ConfigTypes
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
@@ -97,8 +98,19 @@ function main()
     mkpath(CLIMA.Settings.checkpoint_dir)
 
     @testset "Checkpoint/restart unit tests" begin
-        CLIMA.rm_checkpoint(solver_config, 0)
-        CLIMA.write_checkpoint(solver_config, 0)
+        rm_checkpoint(
+            CLIMA.Settings.checkpoint_dir,
+            solver_config.name,
+            solver_config.mpicomm,
+            0,
+        )
+        write_checkpoint(
+            solver_config,
+            CLIMA.Settings.checkpoint_dir,
+            solver_config.name,
+            solver_config.mpicomm,
+            0,
+        )
 
         nm = replace(solver_config.name, " " => "_")
         cname = @sprintf(
@@ -111,7 +123,13 @@ function main()
         @test isfile(cfull)
 
         s_Q, s_aux, s_t = try
-            CLIMA.read_checkpoint(nm, solver_config.mpicomm, 0)
+            read_checkpoint(
+                CLIMA.Settings.checkpoint_dir,
+                nm,
+                driver_config.array_type,
+                solver_config.mpicomm,
+                0,
+            )
         catch
             (nothing, nothing, nothing)
         end
@@ -138,7 +156,12 @@ function main()
         @test h_aux == s_aux
         @test t == s_t
 
-        CLIMA.rm_checkpoint(solver_config, 0)
+        rm_checkpoint(
+            CLIMA.Settings.checkpoint_dir,
+            solver_config.name,
+            solver_config.mpicomm,
+            0,
+        )
         @test !isfile(cfull)
     end
 end

@@ -1,21 +1,23 @@
 module MPIStateArrays
-using ..TicToc
-using LinearAlgebra
+
 using DoubleFloats
-using LazyArrays
-using StaticArrays
 using KernelAbstractions
-using Requires
+using LazyArrays
+using LinearAlgebra
 using MPI
+using StaticArrays
+
+using ..TicToc
 using ..VariableTemplates: @vars, varsindex
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
-
 
 # This is so we can do things like
 #   similar(Array{Float64}, Int, 3, 4)
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
     similar(Array{FT}, dims...)
+
+using Requires
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     using .CuArrays
     Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =

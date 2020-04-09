@@ -83,7 +83,8 @@ struct KinematicModelConfig{FT}
     z_0::FT
 end
 
-struct KinematicModel{FT, O, M, P, S, BC, IS, DC} <: BalanceLaw
+struct KinematicModel{FT, PS, O, M, P, S, BC, IS, DC} <: BalanceLaw
+    param_set::PS
     orientation::O
     moisture::M
     precipitation::P
@@ -94,7 +95,8 @@ struct KinematicModel{FT, O, M, P, S, BC, IS, DC} <: BalanceLaw
 end
 
 function KinematicModel{FT}(
-    ::Type{AtmosLESConfigType};
+    ::Type{AtmosLESConfigType},
+    param_set::AbstractParameterSet;
     orientation::O = FlatOrientation(),
     moisture::M = nothing,
     precipitation::P = nothing,
@@ -104,9 +106,11 @@ function KinematicModel{FT}(
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, M, P, S, BC, IS, DC}
 
+    @assert param_set ≠ nothing
     @assert init_state ≠ nothing
 
     atmos = (
+        param_set,
         orientation,
         moisture,
         precipitation,
@@ -129,12 +133,12 @@ function init_aux!(m::KinematicModel, aux::Vars, geom::LocalGeometry)
     x, y, z = geom.coord
     dc = m.data_config
 
-    _R_d::FT = R_d(param_set)
-    _cp_d::FT = cp_d(param_set)
-    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(m.param_set)
+    _cp_d::FT = cp_d(m.param_set)
+    _grav::FT = grav(m.param_set)
 
     # TODO - should R_d and cp_d here be R_m and cp_m?
-    R_m, cp_m, cv_m, γ = gas_constants(param_set, PhasePartition(dc.qt_0))
+    R_m, cp_m, cv_m, γ = gas_constants(m.param_set, PhasePartition(dc.qt_0))
 
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
     # It is done this way to be consistent with Arabas paper.
@@ -217,7 +221,6 @@ function config_kinematic_eddy(
     z_0,
 )
     # Choose explicit solver
-    _param_set = param_set
     ode_solver =
         CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
 
@@ -235,7 +238,8 @@ function config_kinematic_eddy(
 
     # Set up the model
     model = KinematicModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         boundarycondition = nothing,
         init_state = init_kinematic_eddy!,
         data_config = kmc,
@@ -248,7 +252,7 @@ function config_kinematic_eddy(
         FT(xmax),
         FT(ymax),
         FT(zmax),
-        _param_set,
+        param_set,
         init_kinematic_eddy!;
         solver_type = ode_solver,
         model = model,
