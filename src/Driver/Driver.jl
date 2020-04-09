@@ -10,7 +10,6 @@ using Printf
 using Requires
 
 using ..Atmos
-using ..Callbacks
 using ..ColumnwiseLUSolver
 using ..ConfigTypes
 using ..Courant
@@ -34,14 +33,13 @@ using ..VTK
 # command line argument defaults in `parse_commandline()`.
 Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
+    mpi_knows_cuda::Bool = false
     show_updates::Bool = true
     update_interval::Int = 60
     enable_diagnostics::Bool = false
     diagnostics_interval::Int = 10000
     enable_vtk::Bool = false
     vtk_interval::Int = 10000
-    enable_wall_clock::Bool = false
-    wall_clock_interval::Int = 10000
     monitor_courant_numbers::Bool = false
     monitor_courant_interval::Int = 10
     checkpoint_walltime::Int = -1
@@ -108,6 +106,9 @@ function parse_commandline()
         "--disable-gpu"
         help = "do not use the GPU"
         action = :store_true
+        "--mpi-knows-cuda"
+        help = "MPI is CUDA-enabled"
+        action = :store_true
         "--no-show-updates"
         help = "do not show simulation updates"
         action = :store_true
@@ -127,13 +128,6 @@ function parse_commandline()
         action = :store_true
         "--vtk-interval"
         help = "interval in simulation steps for VTK output"
-        arg_type = Int
-        default = 10000
-        "--enable-wall-clock"
-        help = "output wall-clock time per time-step every <wall-clock-interval> simulation steps"
-        action = :store_true
-        "--wall-clock-interval"
-        help = "interval in simulation steps for wall-clock time per time-step output"
         arg_type = Int
         default = 10000
         "--monitor-courant-numbers"
@@ -198,14 +192,13 @@ function init(; disable_gpu = false)
     try
         parsed_args = parse_commandline()
         Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
+        Settings.mpi_knows_cuda = parsed_args["mpi-knows-cuda"]
         Settings.show_updates = !parsed_args["no-show-updates"]
         Settings.update_interval = parsed_args["update-interval"]
         Settings.enable_diagnostics = parsed_args["enable-diagnostics"]
         Settings.diagnostics_interval = parsed_args["diagnostics-interval"]
         Settings.enable_vtk = parsed_args["enable-vtk"]
         Settings.vtk_interval = parsed_args["vtk-interval"]
-        Settings.enable_wall_clock = parsed_args["enable-wall-clock"]
-        Settings.wall_clock_interval = parsed_args["wall-clock-interval"]
         Settings.output_dir = parsed_args["output-dir"]
         Settings.monitor_courant_numbers =
             parsed_args["monitor-courant-numbers"]
@@ -224,8 +217,7 @@ function init(; disable_gpu = false)
 
     # set up the array type appropriately depending on whether we're using GPUs
     if !Settings.disable_gpu &&
-       get(ENV, "CLIMA_GPU", "") != "false" &&
-       CUDAapi.has_cuda_gpu()
+       get(ENV, "CLIMA_GPU", "") != "false" && CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
         atyp = Array
@@ -384,23 +376,67 @@ function invoke!(
         callbacks = (callbacks..., cbvtk)
     end
 
-    if Settings.enable_wall_clock
-        cbwall = Callbacks.wall_clock_time_per_time_step(
-            Settings.wall_clock_interval,
-            Settings.array_type,
-            mpicomm,
-        )
-        callbacks = (callbacks..., cbwall)
-    end
-
     if Settings.monitor_courant_numbers
         # set up the callback for Courant number calculations
         cbcfl =
             GenericCallbacks.EveryXSimulationSteps(Settings.monitor_courant_interval) do (
                 init = false
             )
-                show_courant(solver_config)
-                nothing
+                simtime = ODESolvers.gettime(solver)
+                Δt = solver_config.dt
+                c_v = DGmethods.courant(
+                    nondiffusive_courant,
+                    solver_config,
+                    simtime;
+                    direction = VerticalDirection(),
+                )
+                c_h = DGmethods.courant(
+                    nondiffusive_courant,
+                    solver_config,
+                    simtime;
+                    direction = HorizontalDirection(),
+                )
+                ca_v = DGmethods.courant(
+                    advective_courant,
+                    solver_config,
+                    simtime;
+                    direction = VerticalDirection(),
+                )
+                ca_h = DGmethods.courant(
+                    advective_courant,
+                    solver_config,
+                    simtime;
+                    direction = HorizontalDirection(),
+                )
+                cd_v = DGmethods.courant(
+                    diffusive_courant,
+                    solver_config,
+                    simtime;
+                    direction = VerticalDirection(),
+                )
+                cd_h = DGmethods.courant(
+                    diffusive_courant,
+                    solver_config,
+                    simtime;
+                    direction = HorizontalDirection(),
+                )
+                @info @sprintf """
+                ================================================
+                Courant numbers at simtime: %8.2f
+                Δt = %8.2f s
+
+                ------------------------------------------------
+                Acoustic (vertical) Courant number    = %.2g
+                Acoustic (horizontal) Courant number  = %.2g
+                ------------------------------------------------
+                Advection (vertical) Courant number   = %.2g
+                Advection (horizontal) Courant number = %.2g
+                ------------------------------------------------
+                Diffusion (vertical) Courant number   = %.2g
+                Diffusion (horizontal) Courant number = %.2g
+                ================================================
+                """ simtime Δt c_v c_h ca_v ca_h cd_v cd_h
+                return nothing
             end
         callbacks = (callbacks..., cbcfl)
     end
