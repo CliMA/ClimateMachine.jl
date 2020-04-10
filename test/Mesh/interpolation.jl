@@ -366,7 +366,6 @@ function run_cubed_sphere_interpolation_test()
         #----------------------------------------------------------
         # Testing
         err_inf_dom = zeros(FT, nvars)
-
         rad = Array(intrp_cs.rad_grd)
         lat = Array(intrp_cs.lat_grd)
         long = Array(intrp_cs.long_grd)
@@ -405,8 +404,8 @@ function run_cubed_sphere_interpolation_test()
                     fex[i, j, k, _ρ] * cosd(lat[j])
 
                     fex[i, j, k, _ρw] =
-                        -fex[i, j, k, _ρ] * cosd(lat[j]) * sind(long[k]) +
-                        fex[i, j, k, _ρ] * cosd(lat[j]) * cosd(long[k])
+                        -fex[i, j, k, _ρ] * sind(long[k]) +
+                        fex[i, j, k, _ρ] * cosd(long[k])
                 end
             end
 

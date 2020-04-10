@@ -7,7 +7,14 @@ Accumulate mean fields and covariance statistics on the computational grid.
 module Diagnostics
 
 export DiagnosticsGroup,
-    setup_atmos_default_diagnostics, setup_dump_state_and_aux_diagnostics
+    setup_atmos_default_diagnostics,
+    setup_dump_state_and_aux_diagnostics,
+    VecGrad,
+    compute_vec_grad,
+    SphericalCoord,
+    compute_vec_grad_spherical,
+    Vorticity,
+    compute_vorticity
 
 using Dates
 using FileIO
@@ -237,5 +244,5 @@ end
 
 include("atmos_default.jl")
 include("dump_state_and_aux.jl")
-
+include("diagnostic_fields.jl")
 end # module Diagnostics
