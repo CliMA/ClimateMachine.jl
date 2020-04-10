@@ -68,16 +68,11 @@ Compute the kinematic viscosity tensor (`ν`) and SGS momentum flux tensor (`τ`
 """
 function turbulence_tensors end
 
-turbulence_tensors(
-    atmos::AtmosModel,
-    args...
-) = turbulence_tensors(atmos.turbulence, atmos, args...)
+turbulence_tensors(atmos::AtmosModel, args...) =
+    turbulence_tensors(atmos.turbulence, atmos, args...)
 
-turbulence_tensors(
-    m::TurbulenceClosure,
-    atmos::AtmosModel,
-    args...
-) = turbulence_tensors(m, atmos.orientation, atmos.param_set, args...)
+turbulence_tensors(m::TurbulenceClosure, atmos::AtmosModel, args...) =
+    turbulence_tensors(m, atmos.orientation, atmos.param_set, args...)
 
 # We also provide generic math functions for use within the turbulence closures,
 # commonly used quantities such as the [principal tensor invariants](@ref tensor-invariants), handling of
