@@ -63,7 +63,7 @@ function diffusive!(
 ) end
 
 """
-    ν, τ = turbulence_tensors(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+    ν, D_t, τ = turbulence_tensors(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 
 Compute the kinematic viscosity tensor (`ν`) and SGS momentum flux tensor (`τ`).
 """
