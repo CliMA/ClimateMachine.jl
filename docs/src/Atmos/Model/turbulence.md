@@ -23,7 +23,6 @@ are:\
 
 ```@example turbulence
 using DocStringExtensions
-using CLIMAParameters.Planet: grav
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 export turbulence_tensors
@@ -71,11 +70,17 @@ function diffusive!(
 ) end
 
 """
-    ν, τ = turbulence_tensors(::TurbulenceClosure, orientation::Orientation, param_set::AbstractParameterSet, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+    ν, D_t, τ = turbulence_tensors(::TurbulenceClosure, orientation::Orientation, param_set::AbstractParameterSet, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 
-Compute the kinematic viscosity tensor (`ν`) and SGS momentum flux tensor (`τ`).
+    Compute the kinematic viscosity (`ν`), the diffusivity (`D_t`) and SGS momentum flux tensor (`τ`).
 """
 function turbulence_tensors end
+
+turbulence_tensors(atmos::AtmosModel, args...) =
+    turbulence_tensors(atmos.turbulence, atmos, args...)
+
+turbulence_tensors(m::TurbulenceClosure, atmos::AtmosModel, args...) =
+    turbulence_tensors(m, atmos.orientation, atmos.param_set, args...)
 ```
 
 We also provide generic math functions for use within the turbulence closures,
@@ -222,16 +227,20 @@ end
 
 function turbulence_tensors(
     m::ConstantViscosityWithDivergence,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
     t::Real,
 )
 
+    FT = eltype(state)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
     S = diffusive.turbulence.S
     ν = m.ρν / state.ρ
+    D_t = ν * _inv_Pr_turb
     τ = (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
     return ν, D_t, τ
 end
 ```
@@ -248,7 +257,7 @@ extension). The Smagorinsky-Lilly model does not contain explicit filtered terms
 ```
 with the stratification correction term
 ```math
-\mathrm{f}_{b} = \sqrt{1 - \frac{\mathrm{Ri}}{\mathrm{Pr}_{t}}}
+\mathrm{f}_{b}^{2} = \sqrt{1 - \frac{\mathrm{Ri}}{\mathrm{Pr}_{t}}}
 ```\
 $\mathrm{Ri}$ and $\mathrm{Pr}_{t}$ are the Richardson and
 turbulent Prandtl numbers respectively.  $\Delta$ is the mixing length in the
@@ -348,6 +357,8 @@ end
 
 function turbulence_tensors(
     m::SmagorinskyLilly,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
@@ -355,23 +366,24 @@ function turbulence_tensors(
 )
 
     FT = eltype(state)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
     S = diffusive.turbulence.S
     normS = strain_rate_magnitude(S)
-    k̂ = aux.orientation.∇Φ / grav
+    k̂ = vertical_unit_vector(orientation, param_set, aux)
 ```
 
 squared buoyancy correction
 
 ```@example turbulence
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(FT(1) - Richardson * inv_Pr_turb, FT(0), FT(1)))
+    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2 + FT(1e-5)
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
-    ν_v = k̂ .* dot(ν, f_b² * k̂)
+    ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = ν_h + ν_v
-    τ = -2 * SDiagonal(ν) * S
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    D_t = diag(ν) * _inv_Pr_turb
+    τ = -2 * ν * S
     return ν, D_t, τ
 end
 ```
@@ -459,31 +471,34 @@ end
 
 function turbulence_tensors(
     m::Vreman,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
     t::Real,
 )
     FT = eltype(state)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
     α = diffusive.turbulence.∇u
     S = symmetrize(α)
-    k̂ = aux.orientation.∇Φ / grav
+    k̂ = vertical_unit_vector(orientation, param_set, aux)
 
     normS = strain_rate_magnitude(S)
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(1 - Richardson * inv_Pr_turb, 0, 1))
+    f_b² = sqrt(clamp(1 - Richardson * _inv_Pr_turb, 0, 1))
 
     β = f_b² * (aux.turbulence.Δ)^2 * (α' * α)
     Bβ = principal_invariants(β)[2]
 
     ν₀ = m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ / (norm2(α) + eps(FT))))
 
-    ν₀ = SVector{3, FT}(ν₀, ν₀, ν₀)
-    ν_h = cross(k̂, cross(ν₀, k̂))
-    ν_v = k̂ .* dot(ν₀, f_b² * k̂)
-    ν = ν_h + ν_v
-    τ = -2 * SDiagonal(ν) * S
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+    ν = SVector{3, FT}(ν₀, ν₀, ν₀)
+    ν_v = k̂ .* dot(ν, k̂)
+    ν_h = ν₀ .- ν_v
+    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    D_t = diag(ν) * _inv_Pr_turb
+    τ = -2 * ν * S
     return ν, D_t, τ
 end
 ```
@@ -529,8 +544,7 @@ struct AnisoMinDiss{FT} <: TurbulenceClosure
 end
 vars_aux(::AnisoMinDiss, FT) = @vars(Δ::FT)
 vars_gradient(::AnisoMinDiss, FT) = @vars(θ_v::FT)
-vars_diffusive(::AnisoMinDiss, FT) =
-    @vars(∇u::SMatrix{3, 3, FT, 9}, ∇h_tot::SVector{3, FT}, N²::FT)
+vars_diffusive(::AnisoMinDiss, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 function atmos_init_aux!(
     ::AnisoMinDiss,
     ::AtmosModel,
@@ -559,19 +573,21 @@ function diffusive!(
 )
     ∇Φ = ∇gravitational_potential(orientation, aux)
     diffusive.turbulence.∇u = ∇transform.u
-    diffusive.turbulence.∇h_tot = ∇transform.h_tot
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
 end
 function turbulence_tensors(
     m::AnisoMinDiss,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
     t::Real,
 )
     FT = eltype(state)
-    k̂ = aux.orientation.∇Φ / grav
+    k̂ = vertical_unit_vector(orientation, param_set, aux)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
 
     ∇u = diffusive.turbulence.∇u
     S = symmetrize(∇u)
@@ -579,7 +595,7 @@ function turbulence_tensors(
 
     δ = aux.turbulence.Δ
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(1 - Richardson * inv_Pr_turb, 0, 1))
+    f_b² = sqrt(clamp(1 - Richardson * _inv_Pr_turb, 0, 1))
 
     δ_vec = SVector(δ, δ, δ)
     δ_m = δ_vec ./ transpose(δ_vec)
@@ -590,11 +606,13 @@ function turbulence_tensors(
             FT(1e-5),
             -dot(transpose(∇û) * (∇û), Ŝ) / (dot(∇û, ∇û) .+ eps(normS)),
         )
-    ν_h = cross(k̂, cross(ν₀, k̂))
-    ν_v = k̂ .* dot(ν₀, f_b² * k̂)
-    ν = ν_h + ν_v
-    τ = -2 * SDiagonal(ν) * S
-    D_t = (ν isa Real ? ν : diag(ν)) * inv_Pr_turb
+
+    ν = SVector{3, FT}(ν₀, ν₀, ν₀)
+    ν_v = k̂ .* dot(ν, k̂)
+    ν_h = ν₀ .- ν_v
+    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    D_t = diag(ν) * _inv_Pr_turb
+    τ = -2 * ν * S
     return ν, D_t, τ
 end
 ```
