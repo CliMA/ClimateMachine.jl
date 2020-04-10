@@ -25,3 +25,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: julia --project=docs/ docs/make.jl
+      - uses: mshick/add-pr-comment@v1
+        if: github.event_name == 'pull_request'
+        with:
+          message: |
+            Documentation preview: https://climate-machine.github.io/CLIMA/previews/PR${{ github.event.number }}/
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          allow-repeats: false
