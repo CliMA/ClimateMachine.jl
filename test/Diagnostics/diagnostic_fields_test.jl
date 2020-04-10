@@ -13,13 +13,10 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-param_set = ParameterSet()
-
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 import CLIMA.Mesh.Grids: _x1, _x2, _x3
 import CLIMA.vars_state
@@ -95,12 +92,12 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ref_state =
         HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
         ref_state = ref_state,
         init_state = init_risingbubble!,
-        param_set = param_set,
     )
 
     # Problem configuration
@@ -111,6 +108,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_risingbubble!,
         solver_type = ode_solver,
         model = model,
@@ -185,7 +183,7 @@ function run_brick_diagostics_fields_test()
 
         fcnx(x, y, z, xmax, ymax, zmax) =
             cos.(pi * x ./ xmax) .* cos.(pi * y ./ ymax) .*
-            cos.(pi * z ./ zmax) .* pi ./ xmax # ∂/∂x 
+            cos.(pi * z ./ zmax) .* pi ./ xmax # ∂/∂x
         fcny(x, y, z, xmax, ymax, zmax) =
             -sin.(pi * x ./ xmax) .* sin.(pi * y ./ ymax) .*
             cos.(pi * z ./ zmax) .* pi ./ ymax # ∂/∂y

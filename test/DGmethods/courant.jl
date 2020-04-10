@@ -114,14 +114,14 @@ let
                 )
 
                 model = AtmosModel{FT}(
-                    AtmosLESConfigType;
+                    AtmosLESConfigType,
+                    param_set;
                     ref_state = NoReferenceState(),
                     turbulence = ConstantViscosityWithDivergence(μ),
                     moisture = DryModel(),
                     source = Gravity(),
                     boundarycondition = (),
                     init_state = initialcondition!,
-                    param_set = param_set,
                 )
 
                 dg = DGModel(

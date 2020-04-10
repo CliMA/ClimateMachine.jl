@@ -7,11 +7,6 @@ using CLIMA.Mesh.Grids
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, MSLP
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -21,8 +16,8 @@ function init_test!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = FT(z)
-    _grav::FT = grav(param_set)
-    _MSLP::FT = MSLP(param_set)
+    _grav::FT = grav(bl.param_set)
+    _MSLP::FT = MSLP(bl.param_set)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
@@ -91,6 +86,7 @@ function main()
         xmax,
         ymax,
         zmax,
+        param_set,
         init_test!,
         solver_type = ode_solver,
     )

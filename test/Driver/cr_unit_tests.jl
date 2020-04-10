@@ -5,13 +5,10 @@ using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 using CLIMA.Grids
 using CLIMA.ODESolvers
-using CLIMA.PlanetParameters
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-param_set = ParameterSet()
+using CLIMAParameters
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 using MPI
 using Printf
@@ -74,14 +71,14 @@ function main()
     ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0))
     turbulence = ConstantViscosityWithDivergence(FT(0))
     model = AtmosModel{FT}(
-        AtmosGCMConfigType;
+        AtmosGCMConfigType,
+        param_set;
         orientation = orientation,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
         init_state = setup,
-        param_set = param_set,
     )
 
     driver_config = CLIMA.AtmosGCMConfiguration(
@@ -89,6 +86,7 @@ function main()
         N,
         resolution,
         setup.domain_height,
+        param_set,
         setup;
         model = model,
     )

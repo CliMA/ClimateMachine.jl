@@ -6,6 +6,8 @@ export NoReferenceState,
     LinearTemperatureProfile,
     DryAdiabaticProfile
 
+using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav
+
 """
     ReferenceState
 
@@ -55,9 +57,12 @@ function atmos_init_aux!(
     geom::LocalGeometry,
 ) where {P, F}
     T, p = m.temperatureprofile(atmos.orientation, atmos.param_set, aux)
+    FT = eltype(aux)
+    _R_d::FT = R_d(atmos.param_set)
+
     aux.ref_state.T = T
     aux.ref_state.p = p
-    aux.ref_state.ρ = ρ = p / (R_d * T)
+    aux.ref_state.ρ = ρ = p / (_R_d * T)
     q_vap_sat = q_vap_saturation(T, ρ, atmos.param_set)
     aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
 
@@ -104,9 +109,12 @@ function (profile::IsothermalProfile)(
     param_set,
     aux::Vars,
 )
+    FT = eltype(aux)
+    _R_d::FT = R_d(param_set)
+    _MSLP::FT = MSLP(param_set)
     p =
-        MSLP *
-        exp(-gravitational_potential(orientation, aux) / (R_d * profile.T))
+        _MSLP *
+        exp(-gravitational_potential(orientation, aux) / (_R_d * profile.T))
     return (profile.T, p)
 end
 
@@ -134,7 +142,9 @@ function (profile::DryAdiabaticProfile)(
     aux::Vars,
 )
     FT = eltype(aux)
-    LinearTemperatureProfile(profile.T_min, profile.θ, FT(grav / cp_d))(
+    _cp_d::FT = cp_d(param_set)
+    _grav::FT = grav(param_set)
+    LinearTemperatureProfile(profile.T_min, profile.θ, FT(_grav / _cp_d))(
         orientation,
         param_set,
         aux,
@@ -169,13 +179,18 @@ function (profile::LinearTemperatureProfile)(
     aux::Vars,
 ) where {PS}
 
+    FT = eltype(aux)
+    _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
+    _MSLP::FT = MSLP(param_set)
+
     z = altitude(orientation, param_set, aux)
     T = max(profile.T_surface - profile.Γ * z, profile.T_min)
 
-    p = MSLP * (T / profile.T_surface)^(grav / (R_d * profile.Γ))
+    p = _MSLP * (T / profile.T_surface)^(_grav / (_R_d * profile.Γ))
     if T == profile.T_min
         z_top = (profile.T_surface - profile.T_min) / profile.Γ
-        H_min = R_d * profile.T_min / grav
+        H_min = _R_d * profile.T_min / _grav
         p *= exp(-(z - z_top) / H_min)
     end
     return (T, p)

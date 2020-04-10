@@ -184,7 +184,8 @@ function run(
     )
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(0.0),
@@ -192,7 +193,6 @@ function run(
         source = nothing,
         boundarycondition = (),
         init_state = isentropicvortex_initialcondition!,
-        param_set = param_set,
     )
 
     dg = DGModel(

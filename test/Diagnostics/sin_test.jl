@@ -26,8 +26,8 @@ function init_sin_test!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = FT(z)
-    _grav::FT = grav(param_set)
-    _MSLP::FT = MSLP(param_set)
+    _grav::FT = grav(bl.param_set)
+    _MSLP::FT = MSLP(bl.param_set)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
@@ -90,7 +90,8 @@ function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
-        init_sin_test!,
+        param_set,
+        init_sin_test!;
         solver_type = ode_solver,
     )
 

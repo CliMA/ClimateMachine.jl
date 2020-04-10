@@ -17,12 +17,9 @@ import CLIMA.Atmos:
     total_specific_enthalpy,
     thermo_state
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-param_set = ParameterSet()
+using CLIMAParameters
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 using LinearAlgebra
 using MPI
@@ -122,7 +119,8 @@ function main()
     expected_result = FT(3.403104838700577e-02)
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
@@ -130,7 +128,6 @@ function main()
         source = mms3_source!,
         boundarycondition = InitStateBC(),
         init_state = mms3_init_state!,
-        param_set = param_set,
     )
 
     brickrange = (

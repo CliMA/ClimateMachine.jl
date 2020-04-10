@@ -1,4 +1,4 @@
-using CLIMA.PlanetParameters: Omega
+using CLIMAParameters.Planet: Omega
 export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
 
 # kept for compatibility
@@ -83,8 +83,10 @@ function atmos_source!(
     t::Real,
     direction,
 )
+    FT = eltype(state)
+    _Omega::FT = Omega(atmos.param_set)
     # note: this assumes a SphericalOrientation
-    source.ρu -= SVector(0, 0, 2 * Omega) × state.ρu
+    source.ρu -= SVector(0, 0, 2 * _Omega) × state.ρu
 end
 
 struct Subsidence{FT} <: Source

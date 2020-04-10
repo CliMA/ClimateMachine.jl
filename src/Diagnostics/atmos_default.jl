@@ -2,9 +2,8 @@ using ..Atmos
 using ..Atmos: thermo_state, turbulence_tensors
 using ..Mesh.Topologies
 using ..Mesh.Grids
-using ..SubgridScaleParameters: inv_Pr_turb
-using ..PlanetParameters
 using ..MoistThermodynamics
+using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 using LinearAlgebra
 
 Base.@kwdef mutable struct AtmosCollectedDiagnostics
@@ -157,7 +156,7 @@ function compute_horzsums!(
     end
 
     ν, D_t, _ = turbulence_tensors(
-        atmos.turbulence,
+        atmos,
         state,
         diffusive_flux,
         aux,

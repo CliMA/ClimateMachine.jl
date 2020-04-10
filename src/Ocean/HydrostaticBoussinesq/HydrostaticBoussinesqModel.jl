@@ -10,10 +10,10 @@ export HydrostaticBoussinesqModel,
 
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal, norm
+using CLIMAParameters.Planet: grav
 using ..VariableTemplates
 using ..MPIStateArrays
 using ..DGmethods: init_ode_state
-using ..PlanetParameters: grav
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
 using ..Mesh.Grids:
     polynomialorder,
@@ -95,7 +95,8 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{P, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
+    param_set::PS
     problem::P
     ρₒ::T
     cʰ::T
@@ -108,6 +109,7 @@ struct HydrostaticBoussinesqModel{P, T} <: BalanceLaw
     fₒ::T
     β::T
     function HydrostaticBoussinesqModel{FT}(
+        param_set::PS,
         problem;
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
@@ -119,8 +121,9 @@ struct HydrostaticBoussinesqModel{P, T} <: BalanceLaw
         κᶻ = FT(1e-4),  # m^2 / s
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat}
-        return new{typeof(problem), FT}(
+    ) where {FT <: AbstractFloat, PS}
+        return new{PS, typeof(problem), FT}(
+            param_set,
             problem,
             ρₒ,
             cʰ,
@@ -428,6 +431,8 @@ t -> time, not used
     A::Vars,
     t::Real,
 )
+    FT = eltype(Q)
+    _grav::FT = grav(m.param_set)
     @inbounds begin
         u = Q.u # Horizontal components of velocity
         η = Q.η
@@ -443,10 +448,10 @@ t -> time, not used
         ]
 
         # ∇h • (g η)
-        F.u += grav * η * Iʰ
+        F.u += _grav * η * Iʰ
 
         # ∇h • (- ∫(αᵀ θ))
-        F.u += grav * pkin * Iʰ
+        F.u += _grav * pkin * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
@@ -508,14 +513,14 @@ end
     ∂ᵗη = w|(z=0)
 """
 @inline function source!(
-    m::HBModel{P},
+    m::HBModel,
     S::Vars,
     Q::Vars,
     D::Vars,
     A::Vars,
     t::Real,
     direction,
-) where {P}
+)
     @inbounds begin
         u, v = Q.u # Horizontal components of velocity
         wz0 = A.wz0

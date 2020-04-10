@@ -10,7 +10,7 @@ module MoistThermodynamics
 using DocStringExtensions
 
 using RootSolvers
-using ..Parameters
+using CLIMAParameters
 using ..PlanetParameters
 
 # Atmospheric equation of state
@@ -49,6 +49,7 @@ export air_temperature_from_liquid_ice_pottemp_non_linear
 export vapor_specific_humidity
 
 # The default ParameterSet for Moist Thermodynamics:
+struct EarthParameterSet <: AbstractEarthParameterSet end
 const MTPS = EarthParameterSet
 
 include("states.jl")

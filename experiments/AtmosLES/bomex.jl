@@ -419,7 +419,8 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
     # Assemble model components
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
         source = source,
@@ -438,7 +439,6 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
             AtmosBC(),
         ),
         init_state = ics,
-        param_set = param_set,
     )
 
     # Assemble configuration
@@ -449,6 +449,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_bomex!,
         solver_type = ode_solver_type,
         model = model,

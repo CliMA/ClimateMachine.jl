@@ -23,8 +23,8 @@ are:\
 
 ```@example turbulence
 using DocStringExtensions
-using ..PlanetParameters: grav
-using CLIMA.SubgridScaleParameters: inv_Pr_turb
+using CLIMAParameters.Planet: grav
+using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
 export turbulence_tensors
 ```
@@ -71,7 +71,7 @@ function diffusive!(
 ) end
 
 """
-    ν, τ = turbulence_tensors(::TurbulenceClosure, state::Vars, diffusive::Vars, aux::Vars, t::Real)
+    ν, τ = turbulence_tensors(::TurbulenceClosure, orientation::Orientation, param_set::AbstractParameterSet, state::Vars, diffusive::Vars, aux::Vars, t::Real)
 
 Compute the kinematic viscosity tensor (`ν`) and SGS momentum flux tensor (`τ`).
 """

@@ -1,4 +1,4 @@
-using ..PlanetParameters
+using CLIMAParameters.Planet: cv_d, T_0
 
 export BoundaryCondition, InitStateBC
 

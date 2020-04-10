@@ -8,6 +8,7 @@ using Logging
 using MPI
 using Printf
 using Requires
+using CLIMAParameters
 
 using ..Atmos
 using ..Callbacks
@@ -25,7 +26,6 @@ using ..Mesh.Topologies
 using ..MoistThermodynamics
 using ..MPIStateArrays
 using ..ODESolvers
-using ..PlanetParameters
 using ..TicToc
 using ..VariableTemplates
 using ..VTK

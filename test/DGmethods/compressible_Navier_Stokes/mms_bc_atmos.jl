@@ -154,7 +154,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
     if dim == 2
         model = AtmosModel{FT}(
-            AtmosLESConfigType;
+            AtmosLESConfigType,
+            param_set;
             orientation = NoOrientation(),
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
@@ -162,11 +163,11 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             source = mms2_source!,
             boundarycondition = InitStateBC(),
             init_state = mms2_init_state!,
-            param_set = param_set,
         )
     else
         model = AtmosModel{FT}(
-            AtmosLESConfigType;
+            AtmosLESConfigType,
+            param_set;
             orientation = NoOrientation(),
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
@@ -174,7 +175,6 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             source = mms3_source!,
             boundarycondition = InitStateBC(),
             init_state = mms3_init_state!,
-            param_set = param_set,
         )
     end
 

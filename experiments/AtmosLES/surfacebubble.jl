@@ -91,7 +91,8 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
         boundarycondition = (
@@ -100,7 +101,6 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         ),
         moisture = EquilMoist{FT}(),
         init_state = init_surfacebubble!,
-        param_set = param_set,
     )
     config = CLIMA.AtmosLESConfiguration(
         "SurfaceDrivenBubble",
@@ -109,6 +109,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_surfacebubble!,
         solver_type = ode_solver,
         model = model,

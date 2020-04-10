@@ -108,14 +108,14 @@ function run(
     )
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = Gravity(),
         init_state = setup,
-        param_set = param_set,
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 

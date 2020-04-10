@@ -58,7 +58,7 @@ function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
         advection = NonLinearAdvection()
     end
 
-    model = SWModel(problem, turbulence, advection, c)
+    model = SWModel(param_set, problem, turbulence, advection, c)
 end
 
 function shallow_init_state!(
