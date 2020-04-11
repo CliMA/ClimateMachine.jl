@@ -42,6 +42,7 @@ WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [compat]
 ArgParse = "1.1"
+CLIMAParameters = "0.1"
 CUDAapi = "3.1, 4.0"
 CUDAdrv = "6.0"
 CUDAnative = "2.10"
