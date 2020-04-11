@@ -1,3 +1,5 @@
+using CLIMAParameters.Planet: R_d, cv_d, T_0, e_int_v0, e_int_i0
+
 """
     linearized_air_pressure(ρ, ρe_tot, ρe_pot, ρq_tot=0, ρq_liq=0, ρq_ice=0)
 
@@ -13,37 +15,51 @@ and, optionally,
  - `ρq_ice` ice density
 """
 function linearized_air_pressure(
+    param_set::AbstractParameterSet,
     ρ::FT,
     ρe_tot::FT,
     ρe_pot::FT,
     ρq_tot::FT = FT(0),
     ρq_liq::FT = FT(0),
     ρq_ice::FT = FT(0),
-) where {FT <: Real}
-    ρ * FT(R_d) * FT(T_0) +
-    FT(R_d) / FT(cv_d) * (
-        ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * FT(e_int_v0) +
-        ρq_ice * (FT(e_int_i0) + FT(e_int_v0))
+) where {FT <: Real, PS}
+    _R_d::FT = R_d(param_set)
+    _cv_d::FT = cv_d(param_set)
+    _T_0::FT = T_0(param_set)
+    _e_int_v0::FT = e_int_v0(param_set)
+    _e_int_i0::FT = e_int_i0(param_set)
+    return ρ * _R_d * _T_0 +
+           _R_d / _cv_d * (
+        ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
+        ρq_ice * (_e_int_i0 + _e_int_v0)
     )
 end
 
 @inline function linearized_pressure(
     ::DryModel,
+    param_set::AbstractParameterSet,
     orientation::Orientation,
     state::Vars,
     aux::Vars,
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    linearized_air_pressure(state.ρ, state.ρe, ρe_pot)
+    return linearized_air_pressure(param_set, state.ρ, state.ρe, ρe_pot)
 end
 @inline function linearized_pressure(
     ::EquilMoist,
+    param_set::AbstractParameterSet,
     orientation::Orientation,
     state::Vars,
     aux::Vars,
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    linearized_air_pressure(state.ρ, state.ρe, ρe_pot, state.moisture.ρq_tot)
+    linearized_air_pressure(
+        param_set,
+        state.ρ,
+        state.ρe,
+        ρe_pot,
+        state.moisture.ρq_tot,
+    )
 end
 
 abstract type AtmosLinearModel <: BalanceLaw end
@@ -140,8 +156,13 @@ function flux_nondiffusive!(
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
     flux.ρ = state.ρu
-    pL =
-        linearized_pressure(lm.atmos.moisture, lm.atmos.orientation, state, aux)
+    pL = linearized_pressure(
+        lm.atmos.moisture,
+        lm.atmos.param_set,
+        lm.atmos.orientation,
+        state,
+        aux,
+    )
     flux.ρu += pL * I
     flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
@@ -169,8 +190,13 @@ function flux_nondiffusive!(
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
     flux.ρ = state.ρu
-    pL =
-        linearized_pressure(lm.atmos.moisture, lm.atmos.orientation, state, aux)
+    pL = linearized_pressure(
+        lm.atmos.moisture,
+        lm.atmos.param_set,
+        lm.atmos.orientation,
+        state,
+        aux,
+    )
     flux.ρu += pL * I
     flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
     nothing

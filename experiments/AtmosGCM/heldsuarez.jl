@@ -76,14 +76,14 @@ function config_heldsuarez(FT, poly_order, resolution)
 
     # Set up the atmosphere model
     model = AtmosModel{FT}(
-        AtmosGCMConfigType;
+        AtmosGCMConfigType,
+        param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(turb_visc),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
-        param_set = param_set,
     )
 
     config = CLIMA.AtmosGCMConfiguration(
@@ -91,6 +91,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         poly_order,
         resolution,
         domain_height,
+        param_set,
         init_heldsuarez!;
         model = model,
     )

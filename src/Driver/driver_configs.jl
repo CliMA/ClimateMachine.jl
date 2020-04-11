@@ -9,8 +9,7 @@
 # User-customized configurations can use these as templates.
 
 using CLIMAParameters
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+using CLIMAParameters.Planet: planet_radius
 
 abstract type AbstractSolverType end
 
@@ -150,6 +149,7 @@ function AtmosLESConfiguration(
     xmax::FT,
     ymax::FT,
     zmax::FT,
+    param_set::AbstractParameterSet,
     init_LES!;
     xmin = zero(FT),
     ymin = zero(FT),
@@ -157,9 +157,9 @@ function AtmosLESConfiguration(
     array_type = CLIMA.array_type(),
     solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         init_state = init_LES!,
-        param_set = param_set,
     ),
     mpicomm = MPI.COMM_WORLD,
     boundary = ((0, 0), (0, 0), (1, 2)),
@@ -238,13 +238,14 @@ function AtmosGCMConfiguration(
     N::Int,
     (nelem_horz, nelem_vert)::NTuple{2, Int},
     domain_height::FT,
+    param_set::AbstractParameterSet,
     init_GCM!;
     array_type = CLIMA.array_type(),
     solver_type = DefaultSolverType(),
     model = AtmosModel{FT}(
-        AtmosGCMConfigType;
+        AtmosGCMConfigType,
+        param_set;
         init_state = init_GCM!,
-        param_set = param_set,
     ),
     mpicomm = MPI.COMM_WORLD,
     meshwarp::Function = cubedshellwarp,
@@ -255,9 +256,10 @@ function AtmosGCMConfiguration(
 
     print_model_info(model)
 
+    _planet_radius::FT = planet_radius(param_set)
     vert_range = grid1d(
-        FT(planet_radius),
-        FT(planet_radius + domain_height),
+        _planet_radius,
+        FT(_planet_radius + domain_height),
         nelem = nelem_vert,
     )
 

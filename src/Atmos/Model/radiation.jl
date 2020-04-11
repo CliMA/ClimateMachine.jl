@@ -1,4 +1,3 @@
-using ..PlanetParameters
 export RadiationModel, NoRadiation
 
 abstract type RadiationModel end

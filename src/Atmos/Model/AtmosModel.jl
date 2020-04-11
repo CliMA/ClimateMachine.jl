@@ -3,12 +3,13 @@ module Atmos
 export AtmosModel,
     AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel, RemainderModel
 
+using CLIMAParameters
+using CLIMAParameters.Planet: grav, cp_d
+using CLIMAParameters.Atmos.SubgridScale: C_smag
 using LinearAlgebra, StaticArrays
 using ..ConfigTypes
 using ..VariableTemplates
-using ..Parameters
 using ..MoistThermodynamics
-using ..PlanetParameters
 import ..MoistThermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
@@ -88,10 +89,15 @@ struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, BC, IS, DC} <: BalanceLaw
 end
 
 function AtmosModel{FT}(
-    ::Type{AtmosLESConfigType};
+    ::Type{AtmosLESConfigType},
+    param_set::AbstractParameterSet;
     orientation::O = FlatOrientation(),
     ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(FT(200), FT(280), FT(grav) / FT(cp_d)),
+        LinearTemperatureProfile(
+            FT(200),
+            FT(280),
+            FT(grav(param_set)) / FT(cp_d(param_set)),
+        ),
         FT(0),
     ),
     turbulence::T = SmagorinskyLilly{FT}(0.21),
@@ -104,9 +110,7 @@ function AtmosModel{FT}(
     boundarycondition::BC = AtmosBC(),
     init_state::IS = nothing,
     data_config::DC = nothing,
-    param_set::PS = nothing,
-) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, BC, IS, DC, PS}
-    @assert param_set ≠ nothing
+) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, BC, IS, DC}
     @assert init_state ≠ nothing
 
     atmos = (
@@ -127,13 +131,18 @@ function AtmosModel{FT}(
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
 end
 function AtmosModel{FT}(
-    ::Type{AtmosGCMConfigType};
+    ::Type{AtmosGCMConfigType},
+    param_set::AbstractParameterSet;
     orientation::O = SphericalOrientation(),
     ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(FT(200), FT(280), FT(grav) / FT(cp_d)),
+        LinearTemperatureProfile(
+            FT(200),
+            FT(280),
+            FT(grav(param_set)) / FT(cp_d(param_set)),
+        ),
         FT(0),
     ),
-    turbulence::T = SmagorinskyLilly{FT}(0.21),
+    turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     hyperdiffusion::HD = NoHyperDiffusion(),
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
@@ -142,9 +151,7 @@ function AtmosModel{FT}(
     boundarycondition::BC = AtmosBC(),
     init_state::IS = nothing,
     data_config::DC = nothing,
-    param_set::PS = nothing,
-) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, BC, IS, DC, PS}
-    @assert param_set ≠ nothing
+) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, BC, IS, DC}
     @assert init_state ≠ nothing
     atmos = (
         param_set,
@@ -352,7 +359,7 @@ end
     aux::Vars,
     t::Real,
 )
-    ν, D_t, τ = turbulence_tensors(atmos.turbulence, state, diffusive, aux, t)
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     d_h_tot = -D_t .* diffusive.∇h_tot
     flux_diffusive!(atmos, flux, state, τ, d_h_tot)
     flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)

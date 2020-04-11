@@ -240,6 +240,7 @@ function config_kinematic_eddy(
         FT(xmax),
         FT(ymax),
         FT(zmax),
+        param_set,
         init_kinematic_eddy!;
         solver_type = ode_solver,
         model = model,

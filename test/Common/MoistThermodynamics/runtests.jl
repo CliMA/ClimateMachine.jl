@@ -6,15 +6,9 @@ MT = MoistThermodynamics
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
-using CLIMA.Parameters
+using CLIMAParameters
 
 float_types = [Float32, Float64]
-
-using CLIMA
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
 
 include("data_tests.jl")
 

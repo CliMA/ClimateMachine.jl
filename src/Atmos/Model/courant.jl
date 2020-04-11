@@ -59,7 +59,7 @@ function diffusive_courant(
     t,
     direction,
 )
-    ν, τ = turbulence_tensors(m.turbulence, state, diffusive, aux, t)
+    ν, τ = turbulence_tensors(m, state, diffusive, aux, t)
     k̂ = vertical_unit_vector(m, aux)
     normν = norm_ν(ν, k̂, direction)
     return Δt * normν / (Δx * Δx)

@@ -1,7 +1,6 @@
 #### Hyperdiffusion Model Functions
 using DocStringExtensions
 using LinearAlgebra
-using ..PlanetParameters
 export HyperDiffusion, NoHyperDiffusion, StandardHyperDiffusion
 
 abstract type HyperDiffusion end

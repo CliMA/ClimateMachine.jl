@@ -18,7 +18,7 @@ function config_simple_box(FT, N, resolution, dimensions)
 
     _grav::FT = grav(param_set)
     cʰ = sqrt(_grav * prob.H) # m/s
-    model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
+    model = HydrostaticBoussinesqModel{FT}(param_set, prob, cʰ = cʰ)
 
     config =
         CLIMA.OceanBoxGCMConfiguration("homogeneous_box", N, resolution, model)

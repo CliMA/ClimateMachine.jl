@@ -129,7 +129,8 @@ function run(
     # -------------- Define model ---------------------------------- #
     source = Gravity()
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         ref_state = HydrostaticState(
             DryAdiabaticProfile(typemin(FT), FT(300)),
             FT(0),
@@ -137,7 +138,6 @@ function run(
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
         init_state = Initialise_Density_Current!,
-        param_set = param_set,
     )
     # -------------- Define dgbalancelaw --------------------------- #
     dg = DGModel(

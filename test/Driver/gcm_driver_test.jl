@@ -72,14 +72,14 @@ function main()
     ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0))
     turbulence = ConstantViscosityWithDivergence(FT(0))
     model = AtmosModel{FT}(
-        AtmosGCMConfigType;
+        AtmosGCMConfigType,
+        param_set;
         orientation = orientation,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
         init_state = setup,
-        param_set = param_set,
     )
 
     ode_solver = CLIMA.MultirateSolverType(
@@ -93,6 +93,7 @@ function main()
         N,
         resolution,
         setup.domain_height,
+        param_set,
         setup;
         solver_type = ode_solver,
         model = model,

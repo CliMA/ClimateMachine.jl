@@ -119,7 +119,8 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
 
     # Set up the model
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         turbulence = Vreman(C_smag),
         source = (Gravity(),),
         boundarycondition = (
@@ -134,7 +135,6 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         ),
         init_state = init_problem!,
         data_config = data_config,
-        param_set = param_set,
     )
     ode_solver =
         CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
@@ -145,6 +145,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_problem!,
         solver_type = ode_solver,
         model = model,

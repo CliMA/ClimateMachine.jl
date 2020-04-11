@@ -87,13 +87,13 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ref_state =
         HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         turbulence = SmagorinskyLilly(C_smag),
         hyperdiffusion = StandardHyperDiffusion(60),
         source = (Gravity(),),
         ref_state = ref_state,
         init_state = init_risingbubble!,
-        param_set = param_set,
     )
 
     # Problem configuration
@@ -104,6 +104,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_risingbubble!,
         solver_type = ode_solver,
         model = model,

@@ -5,7 +5,7 @@ export SWModel, SWProblem
 using StaticArrays
 using ..VariableTemplates
 using LinearAlgebra: I, dot
-using ..PlanetParameters: grav
+using CLIMAParameters.Planet: grav
 
 import CLIMA.DGmethods:
     BalanceLaw,
@@ -44,7 +44,8 @@ end
 abstract type AdvectionTerm end
 struct NonLinearAdvection <: AdvectionTerm end
 
-struct SWModel{P, T, A, S} <: BalanceLaw
+struct SWModel{PS, P, T, A, S} <: BalanceLaw
+    param_set::PS
     problem::P
     turbulence::T
     advection::A
@@ -84,12 +85,14 @@ end
     α::Vars,
     t::Real,
 )
+    FT = eltype(q)
+    _grav::FT = grav(m.param_set)
     U = q.U
     η = q.η
     H = m.problem.H
 
     F.η += U
-    F.U += grav * H * η * I
+    F.U += _grav * H * η * I
 
     advective_flux!(m, m.advection, F, q, α, t)
 

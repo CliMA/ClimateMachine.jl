@@ -2,9 +2,8 @@ using ..Atmos
 using ..Atmos: thermo_state, turbulence_tensors
 using ..Mesh.Topologies
 using ..Mesh.Grids
-using ..SubgridScaleParameters: inv_Pr_turb
-using ..PlanetParameters
 using ..MoistThermodynamics
+using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 using LinearAlgebra
 
 Base.@kwdef mutable struct AtmosCollectedDiagnostics
@@ -156,13 +155,7 @@ function compute_horzsums!(
         hs.ρq_tot += MH * state.moisture.ρq_tot
     end
 
-    ν, D_t, _ = turbulence_tensors(
-        atmos.turbulence,
-        state,
-        diffusive_flux,
-        aux,
-        currtime,
-    )
+    ν, D_t, _ = turbulence_tensors(atmos, state, diffusive_flux, aux, currtime)
 
     # TODO: temporary fix
     if isa(atmos.moisture, EquilMoist)

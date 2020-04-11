@@ -295,7 +295,8 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     )
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist{FT}(; maxiter = 5),
@@ -314,7 +315,6 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
             AtmosBC(),
         ),
         init_state = ics,
-        param_set = param_set,
     )
 
     ode_solver =
@@ -327,6 +327,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_dycoms!,
         solver_type = ode_solver,
         model = model,

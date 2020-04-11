@@ -1,5 +1,5 @@
 # TODO: add Coriolis vectors
-import ..PlanetParameters: grav, planet_radius
+using CLIMAParameters.Planet: grav, planet_radius
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 export vertical_unit_vector,
     altitude,
@@ -33,10 +33,14 @@ projection_tangential(atmos::AtmosModel, aux::Vars, u⃗::AbstractVector) =
 
 gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
 ∇gravitational_potential(::Orientation, aux::Vars) = aux.orientation.∇Φ
-altitude(orientation::Orientation, param_set, aux::Vars) =
-    gravitational_potential(orientation, aux) / grav
-vertical_unit_vector(orientation::Orientation, param_set, aux::Vars) =
-    ∇gravitational_potential(orientation, aux) / grav
+function altitude(orientation::Orientation, param_set, aux::Vars)
+    FT = eltype(aux)
+    return gravitational_potential(orientation, aux) / FT(grav(param_set))
+end
+function vertical_unit_vector(orientation::Orientation, param_set, aux::Vars)
+    FT = eltype(aux)
+    ∇gravitational_potential(orientation, aux) / FT(grav(param_set))
+end
 
 function projection_normal(
     orientation::Orientation,
@@ -83,13 +87,17 @@ to the surface of the planet.
 struct SphericalOrientation <: Orientation end
 function atmos_init_aux!(
     ::SphericalOrientation,
-    ::AtmosModel,
+    atmos::AtmosModel,
     aux::Vars,
     geom::LocalGeometry,
 )
+    FT = eltype(aux)
+    param_set = atmos.param_set
+    _grav::FT = grav(param_set)
+    _planet_radius::FT = planet_radius(param_set)
     normcoord = norm(aux.coord)
-    aux.orientation.Φ = grav * (normcoord - planet_radius)
-    aux.orientation.∇Φ = grav / normcoord .* aux.coord
+    aux.orientation.Φ = _grav * (normcoord - _planet_radius)
+    aux.orientation.∇Φ = _grav / normcoord .* aux.coord
 end
 # TODO: should we define these for non-spherical orientations?
 latitude(orientation::SphericalOrientation, aux::Vars) =
@@ -109,10 +117,13 @@ struct FlatOrientation <: Orientation
 end
 function atmos_init_aux!(
     ::FlatOrientation,
-    ::AtmosModel,
+    atmos::AtmosModel,
     aux::Vars,
     geom::LocalGeometry,
 )
-    aux.orientation.Φ = grav * aux.coord[3]
-    aux.orientation.∇Φ = SVector{3, eltype(aux)}(0, 0, grav)
+    FT = eltype(aux)
+    param_set = atmos.param_set
+    _grav::FT = grav(param_set)
+    aux.orientation.Φ = _grav * aux.coord[3]
+    aux.orientation.∇Φ = SVector{3, eltype(aux)}(0, 0, _grav)
 end
