@@ -156,8 +156,14 @@ function SolverConfiguration(
     # initial Δt specified or computed
     simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
-        ode_dt =
-            calculate_dt(dg, dtmodel, Q, Courant_number, simtime, CFL_direction)
+        ode_dt = CLIMA.DGmethods.calculate_dt(
+            dg,
+            dtmodel,
+            Q,
+            Courant_number,
+            simtime,
+            CFL_direction,
+        )
     end
     numberofsteps = convert(Int, cld(timeend, ode_dt))
     timeend_dt_adjust && (ode_dt = timeend / numberofsteps)
