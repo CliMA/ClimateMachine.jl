@@ -56,7 +56,14 @@ Computes buoyancy flux given
  - `q` phase partition (see [`PhasePartition`](@ref))
  - `α_0` specific volume
 """
-function compute_buoyancy_flux(param_set::AbstractParameterSet, shf, lhf, T_b, q, α_0)
+function compute_buoyancy_flux(
+    param_set::AbstractParameterSet,
+    shf,
+    lhf,
+    T_b,
+    q,
+    α_0,
+)
     FT = typeof(shf)
     _molmass_ratio::FT = molmass_ratio(param_set)
     _grav::FT = grav(param_set)
@@ -126,13 +133,19 @@ function compute_friction_velocity(
     γ_m::FT,
     tol_abs::FT,
     iter_max::IT,
-) where {FT,IT}
+) where {FT, IT}
 
     _von_karman_const = FT(von_karman_const(param_set))
 
     ustar_0 = u_ave * _von_karman_const / log(z_1 / z_0)
     ustar = ustar_0
-    let u_ave = u_ave, flux = flux, z_0 = z_0, z_1 = z_1, β_m = β_m, γ_m = γ_m, param_set=param_set
+    let u_ave = u_ave,
+        flux = flux,
+        z_0 = z_0,
+        z_1 = z_1,
+        β_m = β_m,
+        γ_m = γ_m,
+        param_set = param_set
 
         # use neutral condition as first guess
         stable = z_1 / monin_obukhov_len(param_set, ustar_0, flux) >= 0
@@ -186,8 +199,8 @@ function compute_exchange_coefficients(
     γ_h::FT,
     β_m::FT,
     β_h::FT,
-    Pr_0::FT
-    ) where {FT}
+    Pr_0::FT,
+) where {FT}
     logz = log(z_b / z_0)
     zfactor = z_b / (z_b - z_0) * logz
     s_b = Ri / Pr_0
@@ -262,8 +275,8 @@ function compute_Ψ_m(ζ, L, a, tol)
         # Note that "1-f^3" in is a typo, it is supposed to be "1-f_m^3".
         # This was confirmed by communication with the author.
         return L >= 0 ? -a * ζ / 2 :
-               log((1 + f_m)^2 * (1 + f_m^2) / 8) - 2 * atan(f_m) + FT(π / 2) - 1 +
-               (1 - f_m^3) / (12 * ζ)
+               log((1 + f_m)^2 * (1 + f_m^2) / 8) - 2 * atan(f_m) + FT(π / 2) -
+               1 + (1 - f_m^3) / (12 * ζ)
     end
 end
 
@@ -312,12 +325,12 @@ function compute_friction_velocity(
     Ψ_m_tol::FT,
     tol_abs::FT,
     iter_max::IT,
-) where {FT,IT}
+) where {FT, IT}
     _von_karman_const::FT = von_karman_const(param_set)
     ustar_0 = u_ave * _von_karman_const / log(Δz / z_0)
     ustar = ustar_0
     let u_ave = u_ave,
-        _von_karman_const=_von_karman_const,
+        _von_karman_const = _von_karman_const,
         θ = θ,
         flux = flux,
         Δz = Δz,
@@ -374,8 +387,8 @@ function compute_exchange_coefficients(
     u_star::FT,
     θ::FT,
     flux::FT,
-    Pr::FT
-    ) where {FT}
+    Pr::FT,
+) where {FT}
 
     _von_karman_const::FT = von_karman_const(param_set)
     L_mo = monin_obukhov_len(param_set, u_star, θ, flux)
