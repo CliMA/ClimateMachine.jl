@@ -177,6 +177,26 @@ mutable struct MultirateInfinitesimalStep{
     end
 end
 
+function MultirateInfinitesimalStep(
+    method::Symbol,
+    rhs!::TimeScaledRHS{2,RT} where RT,
+    fastmethod,
+    Q=nothing;
+    dt=0,
+    t0=0,
+    nsteps=1,
+) where {AT<:AbstractArray}
+
+   #=
+   return getfield(ODESolvers,method)(rhs!.rhs![1], rhs!.rhs![2], fastmethod,
+        nsteps, Q; dt=dt, t0=t0)
+   =#
+   rhs_h! = (dQ, Q, params, tau; increment) -> rhs!(dQ, Q, params, tau, 1; increment=increment)
+   rhs_v! = (dQ, Q, params, tau; increment) -> rhs!(dQ, Q, params, tau, 2; increment=increment)
+   getfield(ODESolvers,method)(rhs_h!, rhs_v!, fastmethod, nsteps, Q; dt=dt, t0=t0)
+
+end
+
 #Wrapper for MIS
 function dostep!(Q, mis::MultirateInfinitesimalStep, p, time::Real, dt::Real, nsteps::Int,
                       slow_δ = nothing, slow_rv_dQ = nothing,

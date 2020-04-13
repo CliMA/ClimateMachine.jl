@@ -66,7 +66,7 @@ struct MISSolverType{DS} <: AbstractSolverType
     fast_method::Function
     fast_type::Type
     # Substepping parameter for the fast processes
-    nsubsteps::Int
+    nsubsteps::Tuple
     # Whether to use a PDE level or discrete splitting
     discrete_splitting::Bool
 
@@ -76,7 +76,7 @@ struct MISSolverType{DS} <: AbstractSolverType
         mis_method = MIS2,
         fast_method = LSRK54CarpenterKennedy,
         fast_type = LowStorageRungeKutta2N,
-        nsubsteps = 50,
+        nsubsteps = (50,),
         discrete_splitting = false,
     )
 
@@ -134,6 +134,7 @@ function solversetup(
     # for the fast processes (acoustic/gravity waves
     # in all spatial directions)
     fast_model = ode_solver.fast_model(dg.balance_law)
+    fast_method = ode_solver.fast_method
     if isa(fast_model,AtmosLinearModelSplit)
         fast_dg_momentum = DGModel(
             fast_model.momentum,
@@ -160,17 +161,61 @@ function solversetup(
         fast_dg = (fast_dg_momentum, fast_dg_thermo)
         fast_model=fast_model.linear
     else
-        fast_dg = DGModel(
-            fast_model,
-            dg.grid,
-            dg.numerical_flux_first_order,
-            dg.numerical_flux_second_order,
-            dg.numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            state_gradient_flux = dg.state_gradient_flux,
-            states_higher_order = dg.states_higher_order,
-            direction = EveryDirection(),
-        )
+        if ode_solver.fast_type == MultirateInfinitesimalStep
+            fast_dg_h = DGModel(
+                fast_model,
+                dg.grid,
+                dg.numerical_flux_first_order,
+                dg.numerical_flux_second_order,
+                dg.numerical_flux_gradient,
+                state_auxiliary = dg.state_auxiliary,
+                state_gradient_flux = dg.state_gradient_flux,
+                states_higher_order = dg.states_higher_order,
+                direction = HorizontalDirection(),
+            )
+            fast_dg_v = DGModel(
+                fast_model,
+                dg.grid,
+                dg.numerical_flux_first_order,
+                dg.numerical_flux_second_order,
+                dg.numerical_flux_gradient,
+                state_auxiliary = dg.state_auxiliary,
+                state_gradient_flux = dg.state_gradient_flux,
+                states_higher_order = dg.states_higher_order,
+                direction = VerticalDirection(),
+            )
+            fast_dg = (fast_dg_h, fast_dg_v)
+            if length(ode_solver.nsubsteps) == 1
+                nsteps = getnsteps(
+                    Symbol(ode_solver.mis_method),
+                    ode_solver.nsubsteps[1],
+                    real(eltype(Q)),
+                )
+                fast_method = (dg, Q) -> ode_solver.fast_method(
+                        dg,
+                        Q,
+                        ode_dt / ode_solver.nsubsteps[1],
+                        nsteps,
+                )
+            elseif length(ode_solver.nsubsteps) == 2
+                fast_method = (dg, Q) -> ode_solver.fast_method(
+                    dg,
+                    Q,
+                    ode_solver.nsubsteps[2]
+                )
+            end
+        else
+            fast_dg = DGModel(
+                fast_model,
+                dg.grid,
+                dg.numerical_flux_first_order,
+                dg.numerical_flux_second_order,
+                dg.numerical_flux_gradient,
+                state_auxiliary = dg.state_auxiliary,
+                state_gradient_flux = dg.state_gradient_flux,
+                states_higher_order = dg.states_higher_order,
+                direction = EveryDirection(),
+        end
     end
 
     # Using the RemainderModel, we subtract away the
@@ -188,38 +233,10 @@ function solversetup(
         numerical_flux_first_order = numerical_flux_first_order,
     )
 
-    if ode_solver.fast_type == MultirateInfinitesimalStep
-        fast_dg_h = DGModel(
-            fast_model,
-            dg.grid,
-            dg.numerical_flux_first_order,
-            dg.numerical_flux_second_order,
-            dg.numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            state_gradient_flux = dg.state_gradient_flux,
-            states_higher_order = dg.states_higher_order,
-            direction = HorizontalDirection(),
-        )
-        fast_dg_v = DGModel(
-            fast_model,
-            dg.grid,
-            dg.numerical_flux_first_order,
-            dg.numerical_flux_second_order,
-            dg.numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            state_gradient_flux = dg.state_gradient_flux,
-            states_higher_order = dg.states_higher_order,
-            direction = VerticalDirection(),
-        )
-        fast_method = (dg,Q) -> ode_solver.fast_method(fast_dg_h, fast_dg_v, Q)
-    else
-        fast_method = ode_solver.fast_method
-    end
-
     solver = ode_solver.mis_method(
         slow_dg,
         fast_dg,
-        ode_solver.fast_method,
+        fast_method,
         ode_solver.nsubsteps,
         Q;
         dt = dt,

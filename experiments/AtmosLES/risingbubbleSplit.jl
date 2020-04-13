@@ -86,7 +86,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = MIS2,
         fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
-        number_of_steps = 10,
+        number_of_steps = (10,),
     )
 
     # Set up the model

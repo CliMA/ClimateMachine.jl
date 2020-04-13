@@ -80,13 +80,18 @@ end
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
-    nsi = 2;
     ode_solver = CLIMA.MISSolverType(
-        linear_model = AtmosAcousticLinearModel,
-        solver_method = CLIMA.MISSolverType,
+        linear_model = AtmosAcousticGravityLinearModel,
         slow_method = MIS2,
-        fast_method = (dgs,dgf,Q) -> MISKWRK43(dgs, dgf, (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),nsi, Q),
-        number_of_steps = 12,
+        fast_method = (dg, Q, nsteps) -> MultirateInfinitesimalStep(
+            :MISKWRK43,
+            dg,
+            (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),
+            Q,
+            nsteps = nsteps,
+        ),
+        number_of_steps = (12,2),
+        hevi_split = true
     )
 
     # Set up the model
