@@ -80,6 +80,47 @@ function MultirateRungeKutta(
     MultirateRungeKutta(slow_solver, fast_solver, Q; dt = dt, t0 = t0)
 end
 
+function MultirateRungeKutta(
+    method::Symbol,
+    rhs!::TimeScaledRHS{2,RT} where {RT},
+    Q = nothing;
+    dt = 0,
+    t0 = 0,
+    nsteps = 1,
+) where {AT<:AbstractArray}
+
+    rhs_fast! =
+        (dQ, Q, params, tau; increment) ->
+            rhs!(dQ, Q, params, tau, 2; increment = increment)
+    fast_solver = getfield(ODESolvers, method)(rhs_fast!, Q, dt = dt, t0 = t0)
+
+    rhs_slow! =
+        (dQ, Q, params, tau; increment) ->
+            rhs!(dQ, Q, params, tau, 1; increment = increment)
+    slow_solver = getfield(ODESolvers, method)(rhs_slow!, Q, dt = dt, t0 = t0)
+
+    MultirateRungeKutta(slow_solver, fast_solver, Q; dt = dt, t0 = t0)
+end
+
+#Wrapper for MIS
+function dostep!(
+    Q,
+    mrrk::MultirateRungeKutta{SS},
+    param,
+    time::Real,
+    dt::Real,
+    nsteps::Int,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    slow_scaling = nothing,
+) where {SS<:LSRK2N}
+    #mrrk.fast_solver.dt = dt / mrrk.nsteps
+    mrrk.dt = dt
+    for i = 1:nsteps
+        dostep!(Q, mrrk, param, time, slow_δ, slow_rv_dQ, slow_scaling)
+    end
+end
+
 function dostep!(
     Q,
     mrrk::MultirateRungeKutta{SS},

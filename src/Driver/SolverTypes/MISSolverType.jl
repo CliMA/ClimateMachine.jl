@@ -64,20 +64,20 @@ struct MISSolverType{DS} <: AbstractSolverType
     mis_method::Function
     # Fast RK solver
     fast_method::Function
-    fast_type::Type
     # Substepping parameter for the fast processes
     nsubsteps::Tuple
     # Whether to use a PDE level or discrete splitting
     discrete_splitting::Bool
+    hivi_splitting::Bool
 
     function MISSolverType(;
         splitting_type = SlowFastSplitting(),
         fast_model = AtmosAcousticGravityLinearModel,
         mis_method = MIS2,
         fast_method = LSRK54CarpenterKennedy,
-        fast_type = LowStorageRungeKutta2N,
         nsubsteps = (50,),
         discrete_splitting = false,
+        hivi_splitting = false,
     )
 
         DS = typeof(splitting_type)
@@ -161,7 +161,7 @@ function solversetup(
         fast_dg = (fast_dg_momentum, fast_dg_thermo)
         fast_model=fast_model.linear
     else
-        if ode_solver.fast_type == MultirateInfinitesimalStep
+        if ode_solver.hivi_splitting
             fast_dg_h = DGModel(
                 fast_model,
                 dg.grid,
