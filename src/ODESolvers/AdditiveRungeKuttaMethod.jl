@@ -220,28 +220,7 @@ function updatedt!(ark::AdditiveRungeKutta, dt)
 end
 
 function dostep!(
-    Q::AbstractArray,
-    ark::AdditiveRungeKutta,
-    p,
-    time,
-    slow_δ = nothing,
-    slow_rv_dQ = nothing,
-    slow_scaling = nothing,
-)
-    dostep!(
-        (Q, Q, nothing),
-        ark,
-        ark.variant,
-        p,
-        time,
-        slow_δ,
-        slow_rv_dQ,
-        slow_scaling,
-    )
-end
-
-function dostep!(
-    Q::NTuple{3, AbstractArray},
+    Q,
     ark::AdditiveRungeKutta,
     p,
     time,
@@ -253,15 +232,25 @@ function dostep!(
 end
 
 function dostep!(
-    (Qnp1, Qn, error_estimate),
+    Qnp1,
     ark::AdditiveRungeKutta,
     variant::NaiveVariant,
-    p,
+    p_in,
     time::Real,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    if p_in isa ErrorAdaptiveParam
+      p = p_in.p
+      Qn = p_in.Q
+      error_estimate = p_in.error_estimate
+    else
+      p = p_in
+      Qn = Qnp1
+      error_estimate = nothing
+    end
+
     dt = ark.dt
 
     besolver! = ark.besolver!
@@ -362,15 +351,25 @@ function dostep!(
 end
 
 function dostep!(
-    (Qnp1, Qn, error_estimate),
+    Qnp1,
     ark::AdditiveRungeKutta,
     variant::LowStorageVariant,
-    p,
+    p_in,
     time::Real,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    if p_in isa ErrorAdaptiveParam
+      p = p_in.p
+      Qn = p_in.Q
+      error_estimate = p_in.error_estimate
+    else
+      p = p_in
+      Qn = Qnp1
+      error_estimate = nothing
+    end
+
     dt = ark.dt
 
     besolver! = ark.besolver!

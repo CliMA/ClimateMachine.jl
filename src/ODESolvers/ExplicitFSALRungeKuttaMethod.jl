@@ -88,14 +88,24 @@ function ExplicitFSALRungeKutta(
 end
 
 function dostep!(
-    (Qnp1, Qn, error_estimate),
+    Qnp1,
     erk::ExplicitFSALRungeKutta,
-    p,
+    p_in,
     time,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
+    if p_in isa ErrorAdaptiveParam
+      p = p_in.p
+      Qn = p_in.Q
+      error_estimate = p_in.error_estimate
+    else
+      p = p_in
+      Qn = Qnp1
+      error_estimate = nothing
+    end
+
     dt = erk.dt
     RKA, RKB, RKC = erk.RKA, erk.RKB, erk.RKC
     RKB_embedded = erk.RKB_embedded
@@ -142,24 +152,6 @@ function dostep!(
     )
     wait(device(Qn), event)
 end
-
-dostep!(
-    Q::AbstractArray,
-    erk::ExplicitFSALRungeKutta,
-    p,
-    time,
-    slow_δ = nothing,
-    slow_rv_dQ = nothing,
-    slow_scaling = nothing,
-) = dostep!(
-    (Q, Q, nothing),
-    erk,
-    p,
-    time,
-    slow_δ,
-    slow_rv_dQ,
-    slow_scaling,
-)
 
 @kernel function stage_update!(
     Q,

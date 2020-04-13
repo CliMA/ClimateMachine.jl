@@ -5,6 +5,12 @@ export ProportionalIntegralDerivativeController
 
 using LinearAlgebra: norm
 
+struct ErrorAdaptiveParam{P, AT}
+    p::P
+    Q::AT
+    error_estimate::AT
+end
+
 mutable struct ErrorAdaptiveSolver{S, AT, EC, HT} <: AbstractODESolver
     solver::S
     candidate::AT
@@ -40,9 +46,11 @@ function general_dostep!(
     dt = getdt(eas)
     dt_history = eas.dt_history
 
+    easp = ErrorAdaptiveParam(p, Q, error_estimate)
+
     acceptstep = false
     while !acceptstep
-        dostep!((candidate, Q, error_estimate), eas.solver, p, time)
+        dostep!(candidate, eas.solver, easp, time)
         order = embedded_order(eas)
         acceptstep, dt =
             eas.error_controller(candidate, error_estimate, dt, order)
@@ -54,7 +62,7 @@ function general_dostep!(
 
     if adjustfinalstep && time + getdt(eas.solver) > timeend
         updatedt!(eas, timeend - time)
-        dostep!((candidate, Q, error_estimate), eas.solver, p, time)
+        dostep!(candidate, eas.solver, easp, time)
     end
 
     Q .= candidate
