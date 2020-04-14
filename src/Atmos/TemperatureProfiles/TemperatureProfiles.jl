@@ -3,7 +3,10 @@ module TemperatureProfiles
 using DocStringExtensions
 
 export TemperatureProfile,
-    IsothermalProfile, DecayingTemperatureProfile, DryAdiabaticProfile
+    IsothermalProfile,
+    DecayingTemperatureProfile,
+    DryAdiabaticProfile,
+    StableTemperatureProfile
 
 using CLIMAParameters: AbstractParameterSet
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
@@ -153,5 +156,42 @@ function (profile::DecayingTemperatureProfile)(
     p = _MSLP * exp(p)
     return (Tv, p)
 end
+
+
+"""
+    StableTemperatureProfile{F} <: TemperatureProfile
+
+A potential temperature profile which increases exponentially with height `z`,
+where the increase is determined by Brunt–Väisälä frequency `N2/g`
+
+```math
+θ(z) = θ₀\\text{exp}(Na/g2z)
+```
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct StableTemperatureProfile{FT} <: TemperatureProfile
+    "surface potential temperature (K)"
+    θ_surface::FT
+    " Brunt–Väisälä frequency(1/s)"
+    N::FT
+end
+
+function (profile::StableTemperatureProfile)(
+    orientation::Orientation,
+    param_set::PS,
+    aux::Vars,
+) where {PS}
+
+    z = altitude(orientation, param_set, aux)
+    S=profile.N*profile.N/grav
+    θ=profile.θ_surface*exp(S*z)
+    p=MSLP*(1.0-grav/(cp_d*profile.θ_surface*S)*(1.0-exp(-S*z)))^(cp_d/R_d)
+    T=(p/MSLP)^(R_d/cp_d)*θ
+    return (T, p)
+end
+
 
 end

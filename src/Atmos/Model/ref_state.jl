@@ -110,7 +110,7 @@ function atmos_init_aux!(
     aux.ref_state.ρq_liq = ρ * q_liq
     aux.ref_state.ρq_ice = ρ * q_ice
     aux.ref_state.T = T
-    e_kin = F(0)
+    e_kin = F(0) #F(0.5*10*10)
     e_pot = gravitational_potential(atmos.orientation, aux)
     aux.ref_state.ρe = ρ * total_energy(e_kin, e_pot, ts)
 end
