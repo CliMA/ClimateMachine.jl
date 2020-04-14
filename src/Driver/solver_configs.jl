@@ -240,7 +240,7 @@ function SolverConfiguration(
         outer_method = ode_solver_type.outer_method
 
         middle_dt = ode_dt / ode_solver_type.timestep_ratio_outer
-        inner_dt = middle_dt / ode_solver_type.timestep_ratio_inner
+        inner_dt = ode_dt / ode_solver_type.timestep_ratio_inner
 
         # Inner-most solver (explicit method for horizontal acoustic waves)
         inner_solver = inner_method(horizontal_dg, Q; dt = inner_dt)
