@@ -4,6 +4,7 @@ export NoReferenceState,
     HydrostaticState,
     IsothermalProfile,
     LinearTemperatureProfile,
+    DecayingTemperatureProfile,
     DryAdiabaticProfile
 
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav
@@ -194,4 +195,46 @@ function (profile::LinearTemperatureProfile)(
         p *= exp(-(z - z_top) / H_min)
     end
     return (T, p)
+end
+
+"""
+    DecayingTemperatureProfile{F} <: TemperatureProfile
+
+A virtual temperature profile that decays smoothly with height `z`, dropping by a specified temperature difference `ΔTv` over a height scale `H_t`.
+
+```math
+Tv(z) = \\max(Tv{\\text{surface}} − ΔTv \\tanh(z/H_{\\text{t}})
+```
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct DecayingTemperatureProfile{FT} <: TemperatureProfile
+    "virtual temperature at surface (K)"
+    Tv_surface::FT
+    "virtual temperature drop from surface to top of the atmosphere (K)"
+    ΔTv::FT
+    "height scale over which virtual temperature drops (m)"
+    H_t::FT
+end
+
+function (profile::DecayingTemperatureProfile)(
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
+    aux::Vars,
+)
+    z = altitude(orientation, param_set, aux)
+    Tv = profile.Tv_surface - profile.ΔTv * tanh(z / profile.H_t)
+    FT = typeof(z)
+    _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
+    _MSLP::FT = MSLP(param_set)
+
+    ΔTv_p = profile.ΔTv / profile.Tv_surface
+    H_surface = _R_d * profile.Tv_surface / _grav
+    p = -z - profile.H_t * ΔTv_p * log(cosh(z / profile.H_t) - atanh(ΔTv_p))
+    p /= H_surface * (1 - ΔTv_p^2)
+    p = _MSLP * exp(p)
+    return (Tv, p)
 end
