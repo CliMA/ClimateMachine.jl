@@ -14,7 +14,7 @@ include("diagnostic_fields_kernels.jl")
          FTA2D <: AbstractArray{FT, 2},
          FTA3D <: AbstractArray{FT, 3},}
 
-This data structure stores the gradients of a velocity field.
+This data structure stores the spatial gradients of a velocity field.
 
 # Fields
 
@@ -24,35 +24,35 @@ $(DocStringExtensions.FIELDS)
 
     VecGrad(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
 
-# Arguments for the innter constructor    
- - 'Npl': Number of local dof in a spectral element
- - 'Nel": Number of spectral elements
- - 'FT': Floating point precision
+# Arguments for the inner constructor    
+ - `Npl`: Number of local degrees of freedom in a spectral element
+ - `Nel`: Number of spectral elements
+ - `FT`: Floating point precision
 """
 struct VecGrad{
     FT <: AbstractFloat,
     FTA2D <: AbstractArray{FT, 2},
     FTA3D <: AbstractArray{FT, 3},
 }
-    "Device array storing the gradient data"
+    "Device array storing the spatial gradient data"
     data::FTA3D
-    "∂u₁∂x₁"
+    "View of ∂u₁/∂x₁"
     ∂₁u₁::FTA2D
-    "∂u₁∂x₂"
+    "View of ∂u₁/∂x₂"
     ∂₂u₁::FTA2D
-    "∂u₁∂x₃"
+    "View of ∂u₁/∂x₃"
     ∂₃u₁::FTA2D
-    "∂u₂∂x₁"
+    "View of ∂u₂/∂x₁"
     ∂₁u₂::FTA2D
-    "∂u₂∂x₂"
+    "View of ∂u₂/∂x₂"
     ∂₂u₂::FTA2D
-    "∂u₂∂x₃"
+    "View of ∂u₂/∂x₃"
     ∂₃u₂::FTA2D
-    "∂u₃∂x₁"
+    "View of ∂u₃/∂x₁"
     ∂₁u₃::FTA2D
-    "∂u₃∂x₂"
+    "View of ∂u₃/∂x₂"
     ∂₂u₃::FTA2D
-    "∂u₃∂x₃"
+    "View of ∂u₃/∂x₃"
     ∂₃u₃::FTA2D
 
     function VecGrad(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
@@ -82,7 +82,9 @@ struct VecGrad{
 end
 #--------------------------------------------------------------------------------------------------
 """
-    Vorticity{FT <: AbstractFloat, FTA2D <: AbstractArray{FT, 2}, FTA3D <: AbstractArray{FT, 3}}
+    Vorticity{FT <: AbstractFloat,
+           FTA2D <: AbstractArray{FT, 2},
+           FTA3D <: AbstractArray{FT, 3},}
 
 This data structure stores the vorticity of a velocity field.
 
@@ -94,10 +96,10 @@ $(DocStringExtensions.FIELDS)
 
     Vorticity(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
 
-# Arguments for the innter constructor    
- - 'Npl': Number of local dof in a spectral element
- - 'Nel": Number of spectral elements
- - 'FT': Floating point precision
+# Arguments for the inner constructor    
+ - `Npl`: Number of local degrees of freedom in a spectral element
+ - `Nel`: Number of spectral elements
+ - `FT`: Floating point precision
 """
 struct Vorticity{
     FT <: AbstractFloat,
@@ -106,11 +108,11 @@ struct Vorticity{
 }
     "Device array storing the vorticity data"
     data::FTA3D
-    "x1 component of vorticity"
+    "View of x1 component of vorticity"
     Ω₁::FTA2D
-    "x2 component of vorticity"
+    "View of x2 component of vorticity"
     Ω₂::FTA2D
-    "x3 component of vorticity"
+    "View of x3 component of vorticity"
     Ω₃::FTA2D
     function Vorticity(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
         DA = CLIMA.array_type()
@@ -188,7 +190,7 @@ end
                    vgrad::VecGrad{FT},
                     vort::Vorticity{FT},) where {FT <: AbstractFloat}
 
-This function computes the spatial gradients of the velocity field.
+This function computes the vorticity of the velocity field.
 
 # Arguments 
  - `dg`: DGmodel
