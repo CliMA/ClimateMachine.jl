@@ -23,6 +23,7 @@ pages = Any[
         "AtmosModel" => "Atmos/Model/turbulence.md",
         "AtmosModel" => "Atmos/Model/tracers.md",
     ],
+    "Diagnostics" => "Diagnostics.md",
     "ODESolvers" => "ODESolvers.md",
     "LinearSolvers" => "LinearSolvers.md",
     "Mesh" => "Mesh.md",
