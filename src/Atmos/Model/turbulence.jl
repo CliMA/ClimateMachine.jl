@@ -101,7 +101,7 @@ end
 Compute `(X + X')/2`, returning a `SHermitianCompact` object.
 """
 function symmetrize(X::StaticArray{Tuple{3, 3}})
-    SHermitianCompact(SVector(
+    @inbounds SHermitianCompact(SVector(
         X[1, 1],
         (X[2, 1] + X[1, 2]) / 2,
         (X[3, 1] + X[1, 3]) / 2,
@@ -124,23 +124,27 @@ Compute
 ```
 """
 function norm2(X::SMatrix{3, 3, FT}) where {FT}
-    abs2(X[1, 1]) +
-    abs2(X[2, 1]) +
-    abs2(X[3, 1]) +
-    abs2(X[1, 2]) +
-    abs2(X[2, 2]) +
-    abs2(X[3, 2]) +
-    abs2(X[1, 3]) +
-    abs2(X[2, 3]) +
-    abs2(X[3, 3])
+    @inbounds begin
+        abs2(X[1, 1]) +
+        abs2(X[2, 1]) +
+        abs2(X[3, 1]) +
+        abs2(X[1, 2]) +
+        abs2(X[2, 2]) +
+        abs2(X[3, 2]) +
+        abs2(X[1, 3]) +
+        abs2(X[2, 3]) +
+        abs2(X[3, 3])
+    end
 end
 function norm2(X::SHermitianCompact{3, FT, 6}) where {FT}
-    abs2(X[1, 1]) +
-    2 * abs2(X[2, 1]) +
-    2 * abs2(X[3, 1]) +
-    abs2(X[2, 2]) +
-    2 * abs2(X[3, 2]) +
-    abs2(X[3, 3])
+    @inbounds begin
+        abs2(X[1, 1]) +
+        2 * abs2(X[2, 1]) +
+        2 * abs2(X[3, 1]) +
+        abs2(X[2, 2]) +
+        2 * abs2(X[3, 2]) +
+        abs2(X[3, 3])
+    end
 end
 
 # ### [Strain-rate Magnitude](@id strain-rate-magnitude)
@@ -453,7 +457,7 @@ function turbulence_tensors(
     f_b² = sqrt(clamp(1 - Richardson * _inv_Pr_turb, 0, 1))
 
     β = f_b² * (aux.turbulence.Δ)^2 * (α' * α)
-    Bβ = principal_invariants(β)[2]
+    @inbounds Bβ = principal_invariants(β)[2]
 
     ν₀ = m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ / (norm2(α) + eps(FT))))
 

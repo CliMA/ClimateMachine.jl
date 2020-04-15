@@ -124,6 +124,6 @@ function atmos_init_aux!(
     FT = eltype(aux)
     param_set = atmos.param_set
     _grav::FT = grav(param_set)
-    aux.orientation.Φ = _grav * aux.coord[3]
+    @inbounds aux.orientation.Φ = _grav * aux.coord[3]
     aux.orientation.∇Φ = SVector{3, eltype(aux)}(0, 0, _grav)
 end
