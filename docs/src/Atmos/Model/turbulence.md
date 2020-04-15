@@ -1,7 +1,3 @@
-```@meta
-EditURL = "<unknown>/src/Atmos/Model/turbulence.jl"
-```
-
 ## Turbulence Closures
 In `turbulence.jl` we specify turbulence closures. Currently,
 pointwise models of the eddy viscosity/eddy diffusivity type are
@@ -15,7 +11,7 @@ are:\
 !!! note
     Usage: This is a quick-ref guide to using turbulence models as a subcomponent
     of `AtmosModel` \
-    $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
+    $\nu$ is the kinematic viscosity, $C_{smag}$ is the Smagorinsky Model coefficient,
     `turbulence=ConstantViscosityWithDivergence(ν)`\
     `turbulence=SmagorinskyLilly(C_smag)`\
     `turbulence=Vreman(C_smag)`\

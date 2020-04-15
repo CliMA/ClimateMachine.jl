@@ -59,9 +59,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     q_tot = FT(0)
     ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
     q_pt = PhasePartition(ts)
-
     ρu = SVector(FT(0), FT(0), FT(0))
-
     #State (prognostic) variable assignment
     e_kin = FT(0)
     e_pot = gravitational_potential(bl.orientation, aux)
@@ -70,6 +68,13 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     state.ρu = ρu
     state.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_pt.tot
+    ρχ = FT(0)
+    if 500 < z <= 550
+        ρχ += FT(0.05)
+    end
+    ntracers = 4
+    ρχ = SVector{ntracers, FT}(ρχ, ρχ / 2, ρχ / 3, ρχ / 4)
+    state.tracers.ρχ = ρχ
 end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
@@ -82,6 +87,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         timestep_ratio = 10,
     )
 
+    # Set up three tracers with integer diffusivity scaling
+    ntracers = 4
+    δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
+
     # Set up the model
     C_smag = FT(0.23)
     ref_state =
@@ -92,6 +101,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         turbulence = SmagorinskyLilly(C_smag),
         hyperdiffusion = StandardHyperDiffusion(60),
         source = (Gravity(),),
+        tracers = NTracers{ntracers, FT}(δ_χ),
         ref_state = ref_state,
         init_state = init_risingbubble!,
     )

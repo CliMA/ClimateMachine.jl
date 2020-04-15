@@ -11,19 +11,23 @@ export AtmosBC,
     PrescribedTemperature,
     PrescribedEnergyFlux,
     Impermeable,
-    PrescribedMoistureFlux
+    ImpermeableTracer,
+    PrescribedMoistureFlux,
+    PrescribedTracerFlux
 
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())
             energy   = Insulating()
-            moisture = Impermeable())
+            moisture = Impermeable()
+            tracer  = ImpermeableTracer())
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{M, E, Q}
+Base.@kwdef struct AtmosBC{M, E, Q, TR}
     momentum::M = Impenetrable(FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
+    tracer::TR = ImpermeableTracer()
 end
 
 function boundary_state!(nf, atmos::AtmosModel, args...)
@@ -79,6 +83,7 @@ function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
     atmos_momentum_boundary_state!(nf, bc.momentum, atmos, args...)
     atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
     atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
+    atmos_tracer_boundary_state!(nf, bc.tracer, atmos, args...)
 end
 
 
@@ -183,9 +188,11 @@ function atmos_normal_boundary_flux_diffusive!(
         atmos,
         args...,
     )
+    atmos_tracer_normal_boundary_flux_diffusive!(nf, bc.tracer, atmos, args...)
 end
 
 include("bc_momentum.jl")
 include("bc_energy.jl")
 include("bc_moisture.jl")
 include("bc_initstate.jl")
+include("bc_tracer.jl")
