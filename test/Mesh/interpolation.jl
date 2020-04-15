@@ -79,11 +79,11 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
 
     scale_height::FT = _R_d * setup.T_initial / _grav
     p::FT = setup.p_ground * exp(-z / scale_height)
-    e_int = internal_energy(setup.T_initial, bl.param_set)
+    e_int = internal_energy(bl.param_set, setup.T_initial)
     e_pot = gravitational_potential(bl.orientation, aux)
 
     # TODO: Fix type instability: typeof(setup.T_initial) == typeof(p) fails
-    state.ρ = air_density(FT(setup.T_initial), p, bl.param_set)
+    state.ρ = air_density(bl.param_set, FT(setup.T_initial), p)
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = state.ρ * (e_int + e_pot)
     return nothing

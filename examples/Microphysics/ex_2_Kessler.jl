@@ -53,7 +53,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
 
     # density
     q_pt_0 = PhasePartition(dc.qt_0)
-    R_m, cp_m, cv_m, γ = gas_constants(q_pt_0)
+    R_m, cp_m, cv_m, γ = gas_constants(param_set, q_pt_0)
     T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
     ρ::FT = aux.p / R_m / T
     state.ρ = ρ
@@ -77,7 +77,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     # energy
     e_kin::FT = 1 // 2 * (u^2 + w^2)
     e_pot::FT = _grav * z
-    e_int::FT = internal_energy(T, q_pt_0)
+    e_int::FT = internal_energy(param_set, T, q_pt_0)
     e_tot::FT = e_kin + e_pot + e_int
     state.ρe = ρ * e_tot
 
@@ -108,13 +108,16 @@ function kinematic_model_nodal_update_aux!(
     aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
     # supersaturation
     q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
-    aux.T = air_temperature(aux.e_int, q)
+    aux.T = air_temperature(param_set, aux.e_int, q)
     aux.S =
-        max(0, aux.q_vap / q_vap_saturation(aux.T, state.ρ, q) - FT(1)) *
-        FT(100)
-    aux.RH = aux.q_vap / q_vap_saturation(aux.T, state.ρ, q) * FT(100)
+        max(
+            0,
+            aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) - FT(1),
+        ) * FT(100)
+    aux.RH =
+        aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) * FT(100)
 
-    aux.rain_w = terminal_velocity(aux.q_rai, state.ρ)
+    aux.rain_w = terminal_velocity(param_set, aux.q_rai, state.ρ)
 
     # uncomment below for more diagnostics
     #q_eq = PhasePartition_equil(aux.T, state.ρ, aux.q_tot)
@@ -162,7 +165,7 @@ end
 )
     FT = eltype(state)
     u = state.ρu / state.ρ
-    rain_w = terminal_velocity(state.ρq_rai / state.ρ, state.ρ)
+    rain_w = terminal_velocity(param_set, state.ρq_rai / state.ρ, state.ρ)
     nu = nM[1] * u[1] + nM[3] * max(u[3], rain_w, u[3] - rain_w)
 
     return abs(nu)
@@ -176,7 +179,7 @@ end
     t::Real,
 )
     FT = eltype(state)
-    rain_w = terminal_velocity(state.ρq_rai / state.ρ, state.ρ)
+    rain_w = terminal_velocity(param_set, state.ρq_rai / state.ρ, state.ρ)
 
     # advect moisture ...
     flux.ρq_tot = SVector(
@@ -235,9 +238,9 @@ function source!(
     e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.z
 
     q = PhasePartition(q_tot, q_liq, q_ice)
-    T = air_temperature(e_int, q)
+    T = air_temperature(param_set, e_int, q)
     # equilibrium state at current T
-    q_eq = PhasePartition_equil(T, state.ρ, q_tot)
+    q_eq = PhasePartition_equil(param_set, T, state.ρ, q_tot)
 
     # zero out the source terms
     source.ρq_tot = FT(0)
@@ -247,13 +250,13 @@ function source!(
     source.ρe = FT(0)
 
     # cloud water and ice condensation/evaporation
-    source.ρq_liq += state.ρ * conv_q_vap_to_q_liq(q_eq, q)
-    source.ρq_ice += state.ρ * conv_q_vap_to_q_ice(q_eq, q)
+    source.ρq_liq += state.ρ * conv_q_vap_to_q_liq(param_set, q_eq, q)
+    source.ρq_ice += state.ρ * conv_q_vap_to_q_ice(param_set, q_eq, q)
 
     # tendencies from rain
-    src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(q_liq)
-    src_q_rai_accr = conv_q_liq_to_q_rai_accr(q_liq, q_rai, state.ρ)
-    src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T, aux.p, state.ρ)
+    src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(param_set, q_liq)
+    src_q_rai_accr = conv_q_liq_to_q_rai_accr(param_set, q_liq, q_rai, state.ρ)
+    src_q_rai_evap = conv_q_rai_to_q_vap(param_set, q_rai, q, T, aux.p, state.ρ)
 
     src_q_rai_tot = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
 
@@ -336,7 +339,7 @@ function main()
     S_ind = varsindex(vars_aux(model, FT), :S)
     rain_w_ind = varsindex(vars_aux(model, FT), :rain_w)
 
-    # filetr out negative values
+    # filter out negative values
     cb_tmar_filter =
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(

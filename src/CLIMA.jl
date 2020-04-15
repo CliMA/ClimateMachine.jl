@@ -2,20 +2,10 @@ module CLIMA
 
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))
 include(joinpath("Utilities", "ArtifactWrappers", "ArtifactWrappers.jl"))
-include(joinpath("Utilities", "ParametersType", "ParametersType.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))
 include(joinpath("Common", "ConfigTypes", "ConfigTypes.jl"))
-include(joinpath("Common", "PlanetParameters", "UniversalConstants.jl"))
-include(joinpath("Common", "PlanetParameters", "PlanetaryConstants.jl"))
-include(joinpath("Common", "PlanetParameters", "PlanetParameters.jl"))
 include(joinpath("Utilities", "VariableTemplates", "VariableTemplates.jl"))
 include(joinpath("Common", "MoistThermodynamics", "MoistThermodynamics.jl"))
-include(joinpath(
-    "Atmos",
-    "Parameterizations",
-    "CloudPhysics",
-    "MicrophysicsParameters.jl",
-))
 include(joinpath(
     "Atmos",
     "Parameterizations",
@@ -27,12 +17,6 @@ include(joinpath(
     "Parameterizations",
     "SurfaceFluxes",
     "SurfaceFluxes.jl",
-))
-include(joinpath(
-    "Atmos",
-    "Parameterizations",
-    "SubgridScaleTurbulence",
-    "SubgridScaleParameters.jl",
 ))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Mesh", "Mesh.jl"))

@@ -32,18 +32,18 @@ version = "3.5.0+3"
 
 [[ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "41956a49a8a4fefa1bf6664bca4a3035aba4c3a0"
+git-tree-sha1 = "f8904599065b57f51715faf6278126f853aef6fc"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "0.2.3"
+version = "0.2.4"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[BinDeps]]
 deps = ["Libdl", "Pkg", "SHA", "URIParser", "Unicode"]
-git-tree-sha1 = "66158ad56b4bf6cc8413b37d0b7bc52402682764"
+git-tree-sha1 = "46cf2c1668ad07aba5a9d331bdeea994a1f13856"
 uuid = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
-version = "1.0.0"
+version = "1.0.1"
 
 [[BinaryProvider]]
 deps = ["Libdl", "SHA"]
@@ -76,9 +76,9 @@ version = "0.1.0"
 
 [[CLIMAParameters]]
 deps = ["Test"]
-git-tree-sha1 = "e07ffe98ec361798673445962f211659d14205ea"
+git-tree-sha1 = "7b80821bffd8702ccc2a712aef804e30b3bd7012"
 uuid = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
-version = "0.1.1"
+version = "0.1.3"
 
 [[CUDAapi]]
 deps = ["Libdl", "Logging"]
@@ -200,9 +200,9 @@ version = "0.20.2"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "73eb18320fe3ba58790c8b8f6f89420f0a622773"
+git-tree-sha1 = "4dead20a1606a60292529023d6eac18a1ef6432e"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.17.11"
+version = "0.17.12"
 
 [[DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -423,9 +423,9 @@ version = "1.1.0"
 
 [[LazyArrays]]
 deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "StaticArrays"]
-git-tree-sha1 = "b77f30dfa8dd68ccabc4b5353fcb8c2fd12ac129"
+git-tree-sha1 = "b3a6ed4a3511f1fb945bf7b7f04bc5e9a019303f"
 uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "0.16.2"
+version = "0.16.4"
 
 [[LibGit2]]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
@@ -518,10 +518,10 @@ uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.3+0"
 
 [[OpenBLAS_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "cbab167006bbb875d4b4204cc4da8822bd43df83"
+deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
+git-tree-sha1 = "2ee3e636e94b9fd95fa8364d5cba2e20dae16609"
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.9+1"
+version = "0.3.9+2"
 
 [[OpenSSL_jll]]
 deps = ["Libdl", "Pkg"]
@@ -565,9 +565,9 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PlotThemes]]
 deps = ["PlotUtils", "Requires", "Statistics"]
-git-tree-sha1 = "493bd54296a33d7575f5f7e488d30ffd9d05dc45"
+git-tree-sha1 = "87a4ea7f8c350d87d3a8ca9052663b633c0b2722"
 uuid = "ccf2f8ad-2431-5c83-bf29-c5338b663b6a"
-version = "1.0.2"
+version = "1.0.3"
 
 [[PlotUtils]]
 deps = ["Colors", "Dates", "Printf", "Random", "Reexport"]
@@ -727,9 +727,9 @@ version = "1.0.0"
 
 [[Tables]]
 deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "TableTraits", "Test"]
-git-tree-sha1 = "242b7fde70b8bc6a30d6476adf17ca3cf1ced6ee"
+git-tree-sha1 = "c45dcc27331febabc20d86cb3974ef095257dcf3"
 uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.0.3"
+version = "1.0.4"
 
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
@@ -742,9 +742,9 @@ version = "1.0.1"
 
 [[TimerOutputs]]
 deps = ["Printf"]
-git-tree-sha1 = "311765af81bbb48d7bad01fb016d9c328c6ede03"
+git-tree-sha1 = "123b64952b3fb1d42984cde6f1bd425479be6dcb"
 uuid = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
-version = "0.5.3"
+version = "0.5.4"
 
 [[TranscodingStreams]]
 deps = ["Random", "Test"]

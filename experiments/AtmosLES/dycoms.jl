@@ -192,9 +192,10 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = gas_constant_air(q_pt_sfc, bl.param_set)
+    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc)
     T_sfc = FT(290.4)
-    P_sfc = FT(MSLP(bl.param_set))
+    _MSLP = FT(MSLP(bl.param_set))
+    _grav = FT(grav(bl.param_set))
 
     # Specify moisture profiles
     q_liq = FT(0)
@@ -221,12 +222,12 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     end
 
     # Pressure
-    H = Rm_sfc * T_sfc / FT(grav(bl.param_set))
-    p = P_sfc * exp(-z / H)
+    H = Rm_sfc * T_sfc / _grav
+    p = _MSLP * exp(-z / H)
 
     # Density, Temperature
 
-    ts = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
+    ts = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, p, q_tot)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
@@ -245,7 +246,9 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Reference state
     T_min = FT(289)
     T_s = FT(290.4)
-    Γ_lapse = FT(grav(param_set)) / FT(cp_d(param_set))
+    _grav = FT(grav(param_set))
+    _cp_d = FT(cp_d(param_set))
+    Γ_lapse = _grav / _cp_d
     T = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)

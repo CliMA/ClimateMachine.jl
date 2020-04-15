@@ -57,7 +57,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     q_tot = FT(0)
-    ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
+    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
     q_pt = PhasePartition(ts)
     ρu = SVector(FT(0), FT(0), FT(0))
     #State (prognostic) variable assignment

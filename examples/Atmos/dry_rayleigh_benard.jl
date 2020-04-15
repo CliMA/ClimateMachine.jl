@@ -13,7 +13,7 @@ using CLIMA.Diagnostics
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
+using CLIMA.MoistThermodynamics: TemperatureSHumEquil, internal_energy
 using CLIMA.VariableTemplates
 
 using CLIMAParameters
@@ -78,7 +78,7 @@ function init_problem!(bl, state, aux, (x, y, z), t)
 
     q_tot = FT(0)
     e_pot = gravitational_potential(bl.orientation, aux)
-    ts = TemperatureSHumEquil(T, P, q_tot, bl.param_set)
+    ts = TemperatureSHumEquil(bl.param_set, T, P, q_tot)
 
     ρu, ρv, ρw = FT(0), FT(0), ρ * δw
 

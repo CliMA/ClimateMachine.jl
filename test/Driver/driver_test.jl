@@ -22,7 +22,7 @@ function init_test!(bl, state, aux, (x, y, z), t)
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = FT(gas_constant_air(q_pt_sfc))
+    Rm_sfc = FT(gas_constant_air(param_set, q_pt_sfc))
     T_sfc = FT(290.4)
     P_sfc = _MSLP
 
@@ -42,7 +42,7 @@ function init_test!(bl, state, aux, (x, y, z), t)
     p = P_sfc * exp(-z / H)
 
     # Density, Temperature
-    ts = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
+    ts = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, p, q_tot)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
