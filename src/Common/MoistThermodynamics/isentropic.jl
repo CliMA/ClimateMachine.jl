@@ -26,7 +26,7 @@ function air_pressure_given_θ(
     θ::FT,
     Φ::FT,
     ::DryAdiabaticProcess,
-) where {FT<:AbstractFloat}
+) where {FT <: AbstractFloat}
     _MSLP::FT = MSLP(param_set)
     _R_d::FT = R_d(param_set)
     _cp_d::FT = cp_d(param_set)
@@ -48,7 +48,7 @@ function air_pressure(
     T∞::FT,
     p∞::FT,
     ::DryAdiabaticProcess,
-) where {FT<:AbstractFloat}
+) where {FT <: AbstractFloat}
     _kappa_d::FT = kappa_d(param_set)
     return p∞ * (T / T∞)^(FT(1) / _kappa_d)
 end
@@ -66,7 +66,7 @@ function air_temperature(
     p::FT,
     θ::FT,
     ::DryAdiabaticProcess,
-) where {FT<:AbstractFloat}
+) where {FT <: AbstractFloat}
     _R_d::FT = R_d(param_set)
     _cp_d::FT = cp_d(param_set)
     _MSLP::FT = MSLP(param_set)

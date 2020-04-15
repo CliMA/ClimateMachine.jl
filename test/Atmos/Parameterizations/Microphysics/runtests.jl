@@ -4,9 +4,7 @@ using CLIMA.MoistThermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, R_d, molmass_ratio
-using CLIMAParameters.Atmos.Microphysics: τ_cond_evap,
-                                          τ_acnv,
-                                          q_liq_threshold
+using CLIMAParameters.Atmos.Microphysics: τ_cond_evap, τ_acnv, q_liq_threshold
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
@@ -85,7 +83,8 @@ end
     @test conv_q_liq_to_q_rai_acnv(param_set, q_liq_small) == 0.0
 
     q_liq_big = 1.5 * _q_liq_threshold
-    @test conv_q_liq_to_q_rai_acnv(param_set, q_liq_big) == 0.5 * _q_liq_threshold / _τ_acnv
+    @test conv_q_liq_to_q_rai_acnv(param_set, q_liq_big) ==
+          0.5 * _q_liq_threshold / _τ_acnv
 end
 
 @testset "RainAccretion" begin

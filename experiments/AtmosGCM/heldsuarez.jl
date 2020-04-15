@@ -13,9 +13,7 @@ using CLIMA.ODESolvers
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.Mesh.Filters
 using CLIMA.Mesh.Grids
-using CLIMA.MoistThermodynamics: air_temperature,
-                                 internal_energy,
-                                 air_pressure
+using CLIMA.MoistThermodynamics: air_temperature, internal_energy, air_pressure
 using CLIMA.VariableTemplates
 
 using CLIMAParameters

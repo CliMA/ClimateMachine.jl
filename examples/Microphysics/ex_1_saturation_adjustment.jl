@@ -98,9 +98,12 @@ function kinematic_model_nodal_update_aux!(
 
     q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
     aux.S =
-        max(0, aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) - FT(1)) *
-        FT(100)
-    aux.RH = aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) * FT(100)
+        max(
+            0,
+            aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) - FT(1),
+        ) * FT(100)
+    aux.RH =
+        aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) * FT(100)
 end
 
 function boundary_state!(

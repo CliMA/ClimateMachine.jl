@@ -65,7 +65,7 @@ function gas_constant_air(param_set::APS, q::PhasePartition{FT}) where {FT}
     _R_d::FT = R_d(param_set)
     _molmass_ratio::FT = molmass_ratio(param_set)
     return _R_d *
-    (1 + (_molmass_ratio - 1) * q.tot - _molmass_ratio * (q.liq + q.ice))
+           (1 + (_molmass_ratio - 1) * q.tot - _molmass_ratio * (q.liq + q.ice))
 end
 
 gas_constant_air(param_set::APS, ::Type{FT}) where {FT} =
@@ -180,9 +180,9 @@ function cp_m(param_set::APS, q::PhasePartition{FT}) where {FT <: Real}
     _cp_l::FT = cp_l(param_set)
     _cp_i::FT = cp_i(param_set)
     return _cp_d +
-    (_cp_v - _cp_d) * q.tot +
-    (_cp_l - _cp_v) * q.liq +
-    (_cp_i - _cp_v) * q.ice
+           (_cp_v - _cp_d) * q.tot +
+           (_cp_l - _cp_v) * q.liq +
+           (_cp_i - _cp_v) * q.ice
 end
 
 cp_m(param_set::APS, ::Type{FT}) where {FT <: Real} =
@@ -210,9 +210,9 @@ function cv_m(param_set::APS, q::PhasePartition{FT}) where {FT <: Real}
     _cv_l::FT = cv_l(param_set)
     _cv_i::FT = cv_i(param_set)
     return _cv_d +
-    (_cv_v - _cv_d) * q.tot +
-    (_cv_l - _cv_v) * q.liq +
-    (_cv_i - _cv_v) * q.ice
+           (_cv_v - _cv_d) * q.tot +
+           (_cv_l - _cv_v) * q.liq +
+           (_cv_i - _cv_v) * q.ice
 end
 
 cv_m(param_set::APS, ::Type{FT}) where {FT <: Real} =
@@ -284,9 +284,8 @@ function air_temperature(
     _e_int_v0::FT = e_int_v0(param_set)
     _e_int_i0::FT = e_int_i0(param_set)
     return _T_0 +
-    (
-        e_int - (q.tot - q.liq) * _e_int_v0 +
-        q.ice * (_e_int_v0 + _e_int_i0)
+           (
+        e_int - (q.tot - q.liq) * _e_int_v0 + q.ice * (_e_int_v0 + _e_int_i0)
     ) / cv_m(param_set, q)
 end
 
@@ -317,9 +316,8 @@ function internal_energy(
     _T_0::FT = T_0(param_set)
     _e_int_v0::FT = e_int_v0(param_set)
     _e_int_i0::FT = e_int_i0(param_set)
-    return cv_m(param_set, q) * (T - _T_0) +
-           (q.tot - q.liq) * _e_int_v0 -
-            q.ice * (_e_int_v0 + _e_int_i0)
+    return cv_m(param_set, q) * (T - _T_0) + (q.tot - q.liq) * _e_int_v0 -
+           q.ice * (_e_int_v0 + _e_int_i0)
 end
 
 """
@@ -367,7 +365,11 @@ function internal_energy_sat(
     ρ::FT,
     q_tot::FT,
 ) where {FT <: Real}
-    return internal_energy(param_set, T, PhasePartition_equil(param_set, T, ρ, q_tot))
+    return internal_energy(
+        param_set,
+        T,
+        PhasePartition_equil(param_set, T, ρ, q_tot),
+    )
 end
 
 """
@@ -643,11 +645,11 @@ function saturation_vapor_pressure(
     _cp_v::FT = cp_v(ts.param_set)
     _cp_i::FT = cp_i(ts.param_set)
     return saturation_vapor_pressure(
-    ts.param_set,
-    air_temperature(ts),
-    _LH_s0,
-    _cp_v - _cp_i,
-)
+        ts.param_set,
+        air_temperature(ts),
+        _LH_s0,
+        _cp_v - _cp_i,
+    )
 end
 
 function saturation_vapor_pressure(
@@ -663,10 +665,7 @@ function saturation_vapor_pressure(
 
     return _press_triple *
            (T / _T_triple)^(Δcp / _R_v) *
-           exp(
-               (LH_0 - Δcp * _T_0) / _R_v *
-               (1 / _T_triple - 1 / T),
-           )
+           exp((LH_0 - Δcp * _T_0) / _R_v * (1 / _T_triple - 1 / T))
 
 end
 
@@ -733,8 +732,7 @@ function q_vap_saturation(
     # effective latent heat at T_0 and effective difference in isobaric specific
     # heats of the mixture
     LH_0 = _liquid_frac * _LH_v0 + _ice_frac * _LH_s0
-    Δcp =
-        _liquid_frac * (_cp_v - _cp_l) + _ice_frac * (_cp_v - _cp_i)
+    Δcp = _liquid_frac * (_cp_v - _cp_l) + _ice_frac * (_cp_v - _cp_i)
 
     # saturation vapor pressure over possible mixture of liquid and ice
     p_v_sat = saturation_vapor_pressure(param_set, T, LH_0, Δcp)
@@ -946,8 +944,7 @@ function saturation_adjustment(
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
 
-    T_1 =
-        max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
+    T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
     q_v_sat = q_vap_saturation(param_set, T_1, ρ)
     unsaturated = q_tot <= q_v_sat
     if unsaturated && T_1 > _T_min
@@ -1020,8 +1017,7 @@ function saturation_adjustment_SecantMethod(
     tol::FT,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
-    T_1 =
-        max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
+    T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
     q_v_sat = q_vap_saturation(param_set, T_1, ρ)
     unsaturated = q_tot <= q_v_sat
     if unsaturated && T_1 > _T_min
@@ -1238,11 +1234,11 @@ function liquid_ice_pottemp(
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
     return liquid_ice_pottemp_given_pressure(
-    param_set,
-    T,
-    air_pressure(param_set, T, ρ, q),
-    q,
-)
+        param_set,
+        T,
+        air_pressure(param_set, T, ρ, q),
+        q,
+    )
 end
 
 """
@@ -1420,7 +1416,8 @@ function virtual_pottemp(
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
     _R_d::FT = R_d(param_set)
-    return gas_constant_air(param_set, q) / _R_d * dry_pottemp(param_set, T, ρ, q)
+    return gas_constant_air(param_set, q) / _R_d *
+           dry_pottemp(param_set, T, ρ, q)
 end
 
 """
@@ -1472,11 +1469,11 @@ function liquid_ice_pottemp_sat(
     q_tot::FT,
 ) where {FT <: Real}
     return liquid_ice_pottemp(
-    param_set,
-    T,
-    ρ,
-    PhasePartition_equil(param_set, T, ρ, q_tot),
-)
+        param_set,
+        T,
+        ρ,
+        PhasePartition_equil(param_set, T, ρ, q_tot),
+    )
 end
 
 """

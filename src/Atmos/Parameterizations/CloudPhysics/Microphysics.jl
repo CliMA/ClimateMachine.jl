@@ -13,19 +13,20 @@ module Microphysics
 using CLIMA.MoistThermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav
-using CLIMAParameters.Atmos.Microphysics: C_drag,
-                                          MP_n_0,
-                                          K_therm,
-                                          τ_cond_evap,
-                                          τ_sub_resub,
-                                          τ_acnv,
-                                          q_liq_threshold,
-                                          E_col,
-                                          D_vapor,
-                                          ν_air,
-                                          N_Sc,
-                                          a_vent,
-                                          b_vent
+using CLIMAParameters.Atmos.Microphysics:
+    C_drag,
+    MP_n_0,
+    K_therm,
+    τ_cond_evap,
+    τ_sub_resub,
+    τ_acnv,
+    q_liq_threshold,
+    E_col,
+    D_vapor,
+    ν_air,
+    N_Sc,
+    a_vent,
+    b_vent
 
 const APS = AbstractParameterSet
 
@@ -49,9 +50,12 @@ where:
 Returns the proportionality coefficient between terminal velocity of an
 individual water drop and the square root of its radius * g.
 """
-function terminal_velocity_single_drop_coeff(param_set::APS, ρ::FT) where {FT <: Real}
-        _ρ_cloud_liq::FT = ρ_cloud_liq(param_set)
-        _C_drag::FT = C_drag(param_set)
+function terminal_velocity_single_drop_coeff(
+    param_set::APS,
+    ρ::FT,
+) where {FT <: Real}
+    _ρ_cloud_liq::FT = ρ_cloud_liq(param_set)
+    _C_drag::FT = C_drag(param_set)
 
     # terminal_vel_of_individual_drop = v_drop_coeff * (g * drop_radius)^(1/2)
     return sqrt(FT(8 / 3) / _C_drag * (_ρ_cloud_liq / ρ - FT(1)))
@@ -236,8 +240,10 @@ function conv_q_rai_to_q_vap(
         L = latent_heat_vapor(param_set, T)
         p_vs = saturation_vapor_pressure(param_set, T, Liquid())
         G::FT =
-            FT(1) /
-            (L / _K_therm / T * (L / _R_v / T - FT(1)) + _R_v * T / _D_vapor / p_vs)
+            FT(1) / (
+                L / _K_therm / T * (L / _R_v / T - FT(1)) +
+                _R_v * T / _D_vapor / p_vs
+            )
 
         # gamma(11/4)
         gamma_11_4 = FT(1.6083594219855457)

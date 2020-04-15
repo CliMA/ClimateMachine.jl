@@ -126,11 +126,7 @@ Constructs a [`PhaseDry`](@ref) thermodynamic state from:
  - `p` pressure
  - `T` temperature
 """
-function PhaseDry_given_pT(
-    param_set::APS,
-    p::FT,
-    T::FT,
-) where {FT <: Real}
+function PhaseDry_given_pT(param_set::APS, p::FT, T::FT) where {FT <: Real}
     e_int = internal_energy(param_set, T)
     ρ = air_density(param_set, T, p)
     return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
@@ -357,11 +353,7 @@ that are tested for convergence in saturation adjustment.
 Note that the output vectors are of size ``n*n_RH``, and they
 should span the input arguments to all of the constructors.
 """
-function tested_convergence_range(
-    param_set::APS,
-    n::Int,
-    ::Type{FT},
-) where {FT}
+function tested_convergence_range(param_set::APS, n::Int, ::Type{FT}) where {FT}
     n_RS1 = 10
     n_RS2 = 20
     n_RS = n_RS1 + n_RS2
