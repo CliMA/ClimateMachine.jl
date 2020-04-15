@@ -113,7 +113,7 @@ flux_diffusive!(
 ) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
     ref = aux.ref_state
-    return soundspeed_air(ref.T, lm.atmos.param_set)
+    return soundspeed_air(lm.atmos.param_set, ref.T)
 end
 
 function boundary_state!(

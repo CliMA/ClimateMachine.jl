@@ -277,7 +277,7 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     P_sfc::FT = 1.015e5 # Surface air pressure
     qg::FT = 22.45e-3 # Total moisture at surface
     q_pt_sfc = PhasePartition(qg) # Surface moisture partitioning
-    Rm_sfc = gas_constant_air(q_pt_sfc, bl.param_set) # Moist gas constant
+    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc) # Moist gas constant
     θ_liq_sfc = FT(299.1) # Prescribed θ_liq at surface
     T_sfc = FT(300.4) # Surface temperature
     _grav = FT(grav(bl.param_set))
@@ -331,7 +331,7 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, P, q_tot, bl.param_set)
+    TS = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, P, q_tot)
     T = air_temperature(TS)
     ρ = air_density(TS)
     q_pt = PhasePartition(TS)
@@ -369,6 +369,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     T_sfc = FT(300.4)     # Surface temperature `[K]`
     LHF = FT(147.2)       # Latent heat flux `[W/m²]`
     SHF = FT(9.5)         # Sensible heat flux `[W/m²]`
+    moisture_flux = LHF / latent_heat_vapor(param_set, T_sfc)
 
     ∂qt∂t_peak = FT(-1.2e-8)  # Moisture tendency (energy source)
     zl_moisture = FT(300)     # Low altitude limit for piecewise function (moisture source)
@@ -433,7 +434,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
                 )),
                 energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> LHF / latent_heat_vapor(T_sfc),
+                    (state, aux, t) -> moisture_flux,
                 ),
             ),
             AtmosBC(),

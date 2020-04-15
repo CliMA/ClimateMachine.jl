@@ -68,9 +68,9 @@ function atmos_nodal_update_aux!(rain::Rain, atmos::AtmosModel,
   # src_q_liq = conv_q_vap_to_q_liq(q_eq, q)# TODO - temporary handling ice
 
   # tendencies from rain
-  src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
-  src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(q.liq)
-  src_q_rai_accr = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
+  src_q_rai_evap = conv_q_rai_to_q_vap(atmos.param_set, q_rai, q, T , p, ρ)
+  src_q_rai_acnv = conv_q_liq_to_q_rai_acnv(atmos.param_set, q.liq)
+  src_q_rai_accr = conv_q_liq_to_q_rai_accr(atmos.param_set, q.liq, q_rai, ρ)
 
   aux.precipitation.src_q_rai_tot = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
 end

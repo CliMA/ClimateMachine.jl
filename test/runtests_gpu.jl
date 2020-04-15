@@ -4,7 +4,7 @@ ENV["JULIA_LOG_LEVEL"] = "WARN"
 
 @test CuArrays.functional()
 
-for submodule in [#"Utilities/ParametersType",
+for submodule in [
     #"Common/MoistThermodynamics",
     #"Atmos/Parameterizations/SurfaceFluxes",
     #"Mesh",

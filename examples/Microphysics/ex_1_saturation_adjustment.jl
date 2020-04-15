@@ -40,7 +40,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
 
     # density
     q_pt_0 = PhasePartition(dc.qt_0)
-    R_m, cp_m, cv_m, γ = gas_constants(q_pt_0)
+    R_m, cp_m, cv_m, γ = gas_constants(param_set, q_pt_0)
     T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
     ρ::FT = aux.p / R_m / T
     state.ρ = ρ
@@ -61,7 +61,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     # energy
     e_kin::FT = 1 // 2 * (u^2 + w^2)
     e_pot::FT = _grav * z
-    e_int::FT = internal_energy(T, q_pt_0)
+    e_int::FT = internal_energy(param_set, T, q_pt_0)
     e_tot::FT = e_kin + e_pot + e_int
     state.ρe = ρ * e_tot
 
@@ -88,7 +88,7 @@ function kinematic_model_nodal_update_aux!(
     aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
     # saturation adjustment happens here
-    ts = PhaseEquil(aux.e_int, state.ρ, aux.q_tot)
+    ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
     pp = PhasePartition(ts)
 
     aux.T = ts.T
@@ -98,9 +98,9 @@ function kinematic_model_nodal_update_aux!(
 
     q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
     aux.S =
-        max(0, aux.q_vap / q_vap_saturation(aux.T, state.ρ, q) - FT(1)) *
+        max(0, aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) - FT(1)) *
         FT(100)
-    aux.RH = aux.q_vap / q_vap_saturation(aux.T, state.ρ, q) * FT(100)
+    aux.RH = aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) * FT(100)
 end
 
 function boundary_state!(

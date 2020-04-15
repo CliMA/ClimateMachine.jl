@@ -196,7 +196,7 @@ function run(
     # determine the time step
     elementsize = minimum(step.(brickrange))
     dt =
-        elementsize / soundspeed_air(setup.T∞, model.param_set) /
+        elementsize / soundspeed_air(model.param_set, setup.T∞) /
         polynomialorder^2
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
@@ -285,7 +285,7 @@ end
 Base.@kwdef struct IsentropicVortexSetup{FT}
     p∞::FT = 10^5
     T∞::FT = 300
-    ρ∞::FT = air_density(FT(T∞), FT(p∞), param_set)
+    ρ∞::FT = air_density(param_set, FT(T∞), FT(p∞))
     translation_speed::FT = 150
     translation_angle::FT = pi / 4
     vortex_speed::FT = 50
@@ -312,7 +312,7 @@ function atmos_init_aux!(
     aux.ref_state.ρ = ρ∞
     aux.ref_state.p = p∞
     aux.ref_state.T = T∞
-    aux.ref_state.ρe = ρ∞ * internal_energy(T∞, atmos.param_set)
+    aux.ref_state.ρe = ρ∞ * internal_energy(atmos.param_set, T∞)
 end
 
 function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
@@ -346,12 +346,12 @@ function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
     T = T∞ * (1 - _kappa_d * vortex_speed^2 / 2 * ρ∞ / p∞ * exp(-(r / R)^2))
     # adiabatic/isentropic relation
     p = p∞ * (T / T∞)^(FT(1) / _kappa_d)
-    ρ = air_density(T, p, bl.param_set)
+    ρ = air_density(bl.param_set, T, p)
 
     state.ρ = ρ
     state.ρu = ρ * u
     e_kin = u' * u / 2
-    state.ρe = ρ * total_energy(e_kin, FT(0), T, bl.param_set)
+    state.ρe = ρ * total_energy(bl.param_set, e_kin, FT(0), T)
 end
 
 function do_output(

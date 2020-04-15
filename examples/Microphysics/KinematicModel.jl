@@ -34,7 +34,13 @@ using CLIMA.Grids
 using CLIMA.GenericCallbacks
 using CLIMA.Mesh.Filters
 using CLIMA.Mesh.Topologies
-using CLIMA.MoistThermodynamics
+using CLIMA.MoistThermodynamics: gas_constants,
+                                 PhaseEquil,
+                                 PhasePartition_equil,
+                                 PhasePartition,
+                                 internal_energy,
+                                 q_vap_saturation,
+                                 air_temperature
 using CLIMA.Microphysics
 using CLIMA.MPIStateArrays
 using CLIMA.ODESolvers
@@ -127,11 +133,11 @@ function init_aux!(m::KinematicModel, aux::Vars, geom::LocalGeometry)
     _grav::FT = grav(param_set)
 
     # TODO - should R_d and cp_d here be R_m and cp_m?
-    R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(dc.qt_0))
+    R_m, cp_m, cv_m, γ = gas_constants(param_set, PhasePartition(dc.qt_0))
 
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
     # It is done this way to be consistent with Arabas paper.
-    # It's not neccesarily the best way to initialize with our model variables.
+    # It's not necessarily the best way to initialize with our model variables.
     p =
         dc.p_1000 *
         (
@@ -210,6 +216,7 @@ function config_kinematic_eddy(
     z_0,
 )
     # Choose explicit solver
+    _param_set = param_set
     ode_solver =
         CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
 
@@ -240,7 +247,7 @@ function config_kinematic_eddy(
         FT(xmax),
         FT(ymax),
         FT(zmax),
-        param_set,
+        _param_set,
         init_kinematic_eddy!;
         solver_type = ode_solver,
         model = model,

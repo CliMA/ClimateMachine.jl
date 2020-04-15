@@ -439,7 +439,7 @@ let
 
         # Stable explicit time step
         Δxyz = MVector(25, 25, 25)
-        dt = min(Δxyz...) / soundspeed_air(300.0) / polynomialorder
+        dt = min(Δxyz...) / soundspeed_air(param_set, 300.0) / polynomialorder
         dt *= dim == 2 ? 40 : 20
 
         output_time = 0.5

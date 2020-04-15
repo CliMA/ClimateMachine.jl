@@ -13,7 +13,9 @@ using CLIMA.ODESolvers
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
 using CLIMA.Mesh.Filters
 using CLIMA.Mesh.Grids
-using CLIMA.MoistThermodynamics
+using CLIMA.MoistThermodynamics: air_temperature,
+                                 internal_energy,
+                                 air_pressure
 using CLIMA.VariableTemplates
 
 using CLIMAParameters
@@ -110,7 +112,7 @@ function held_suarez_forcing!(
 
     coord = aux.coord
     e_int = internal_energy(bl.moisture, bl.orientation, state, aux)
-    T = air_temperature(e_int, bl.param_set)
+    T = air_temperature(bl.param_set, e_int)
     _R_d = FT(R_d(bl.param_set))
     _day = FT(day(bl.param_set))
     _grav = FT(grav(bl.param_set))
@@ -129,7 +131,7 @@ function held_suarez_forcing!(
 
     # Held-Suarez forcing
     φ = latitude(bl.orientation, aux)
-    p = air_pressure(T, ρ, bl.param_set)
+    p = air_pressure(bl.param_set, T, ρ)
 
     #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
     #for topography, but leave unchanged for calculations of σ involved in T_equil

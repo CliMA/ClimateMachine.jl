@@ -292,7 +292,7 @@ end
 
 # example values
 T, p = 273.15 + 15, 90000.
-ϵ = 1. / molmass_ratio
+ϵ = 1. / molmass_ratio(param_set)
 p_sat = saturation_vapor_pressure(param_set, T, Liquid())
 q_sat = ϵ * p_sat / (p + p_sat * (ϵ - 1.))
 q_rain_range = range(1e-8, stop=5e-3, length=100)
