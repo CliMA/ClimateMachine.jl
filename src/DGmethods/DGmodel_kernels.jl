@@ -2296,6 +2296,6 @@ end
     end
 
     @unroll for s in 1:nstate
-        μ_dynsgs[ijk,s,e] = l_R[s] ./ (l_δ̅[s] + eps(FT))
+        μ_dynsgs[ijk,s,e] = abs(l_R[s] ./ (l_δ̅[s] + eps(FT)))
     end
 end

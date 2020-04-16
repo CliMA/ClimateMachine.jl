@@ -98,7 +98,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = SmagorinskyLilly(C_smag),
+        turbulence = DynamicSubgridStabilization(),
         hyperdiffusion = StandardHyperDiffusion(60),
         source = (Gravity(),),
         tracers = NTracers{ntracers, FT}(δ_χ),
@@ -157,7 +157,7 @@ function main()
         driver_config,
         init_on_cpu = true,
        # Courant_number = CFL,
-        ode_dt = FT(0.1)
+        ode_dt = FT(1)
     )
     dgn_config = config_diagnostics(driver_config)
 
