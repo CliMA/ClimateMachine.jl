@@ -48,7 +48,8 @@ import CLIMA.DGmethods:
     integral_load_aux!,
     integral_set_aux!,
     reverse_integral_load_aux!,
-    reverse_integral_set_aux!
+    reverse_integral_set_aux!,
+    dynsgs
 import ..DGmethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_diffusive!,
@@ -233,6 +234,7 @@ function vars_aux(m::AtmosModel, FT)
         moisture::vars_aux(m.moisture, FT)
         tracers::vars_aux(m.tracers, FT)
         radiation::vars_aux(m.radiation, FT)
+        χ̅::FT
     end
 end
 function vars_integrals(m::AtmosModel, FT)
@@ -415,6 +417,7 @@ function update_aux!(
     dg::DGModel,
     m::AtmosModel,
     Q::MPIStateArray,
+    dQdt::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
@@ -426,8 +429,9 @@ function update_aux!(
         reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
     end
 
-    nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t, elems)
+    dynsgs(dg, m, Q, dQdt, dg.auxstate, t, elems)
 
+    nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t, elems)
     return true
 end
 

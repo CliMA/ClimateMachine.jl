@@ -156,7 +156,8 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
-        Courant_number = CFL,
+       # Courant_number = CFL,
+        ode_dt = FT(0.1)
     )
     dgn_config = config_diagnostics(driver_config)
 

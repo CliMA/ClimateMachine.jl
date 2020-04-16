@@ -76,6 +76,7 @@ function update_aux!(
     dg::DGModel,
     lm::AtmosLinearModel,
     Q::MPIStateArray,
+    dQdt::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )

@@ -19,7 +19,7 @@
 
 using DocStringExtensions
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
-export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
+export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss, DynamicSubgridStabilization
 export turbulence_tensors
 
 # ### Abstract Type
@@ -29,14 +29,16 @@ export turbulence_tensors
 abstract type TurbulenceClosure end
 
 vars_state(::TurbulenceClosure, FT) = @vars()
-vars_aux(::TurbulenceClosure, FT) = @vars()
+vars_aux(::TurbulenceClosure, FT) = @vars(μ_sgs::FT)
 
 function atmos_init_aux!(
     ::TurbulenceClosure,
     ::AtmosModel,
     aux::Vars,
     geom::LocalGeometry,
-) end
+) 
+    aux.turbulence.μ_sgs = 0
+end
 function atmos_nodal_update_aux!(
     ::TurbulenceClosure,
     ::AtmosModel,
@@ -574,4 +576,65 @@ function turbulence_tensors(
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
+end
+
+"""
+    DYNSGS
+"""
+struct DynamicSubgridStabilization <: TurbulenceClosure end
+
+vars_aux(::DynamicSubgridStabilization, FT) = @vars(Δ::FT, μ_sgs::FT)
+vars_gradient(::DynamicSubgridStabilization, FT) = @vars(θ_v::FT)
+vars_diffusive(::DynamicSubgridStabilization, FT) =
+    @vars(∇u::SMatrix{3, 3, FT, 9})
+
+function atmos_init_aux!(
+    ::DynamicSubgridStabilization,
+    ::AtmosModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    aux.turbulence.Δ = lengthscale(geom)
+    aux.turbulence.μ_sgs = eltype(aux)(1)
+end
+
+function gradvariables!(
+    m::DynamicSubgridStabilization,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    transform.turbulence.θ_v = aux.moisture.θ_v
+end
+
+function turbulence_tensors(
+    m::DynamicSubgridStabilization,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    FT = eltype(state)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
+    α = diffusive.turbulence.∇u
+    S = symmetrize(α)
+    Δ = aux.turbulence.Δ
+    ν = min(abs(Δ^2 * aux.χ̅), FT(0.5) * Δ * aux.moisture.cₛ)
+    ν = SDiagonal(ν,ν,ν)
+    D_t = diag(ν) * _inv_Pr_turb
+    τ = -2 *ν * S
+    return ν, D_t, τ
+end
+function atmos_nodal_update_aux!(
+    ::DynamicSubgridStabilization,
+    ::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    μ_sgs::Real
+) 
+    aux.turbulence.μ_sgs = μ_sgs
 end

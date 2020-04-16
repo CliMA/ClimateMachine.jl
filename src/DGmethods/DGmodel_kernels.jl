@@ -2226,3 +2226,76 @@ end
         pointwise_courant[n, e] = c
     end
 end
+
+@doc """
+    Kernel for dynamic subgrid stabilization turbulence model
+""" knl_dynsgs!
+@kernel function knl_dynsgs!(
+    bl::BalanceLaw,
+    ::Val{dim},
+    ::Val{N},
+    Q,
+    auxstate,
+    rhs,
+    elems,
+    nvertelem,
+    nhorzelem,
+    vgeo,
+    μ_dynsgs
+) where {dim, N}
+    @uniform begin
+        FT = eltype(Q)
+        nstate = num_state(bl, FT)
+        nviscstate = num_diffusive(bl, FT)
+        nauxstate = num_aux(bl, FT)
+
+        Nq = N + 1
+
+        Nqk = dim == 2 ? 1 : Nq
+
+        Np = Nq * Nq * Nqk
+
+        l_δ̅ = MArray{Tuple{nstate}, FT}(undef)
+        l_Q̅ = MArray{Tuple{nstate}, FT}(undef)
+        l_Q = MArray{Tuple{nstate}, FT}(undef)
+        l_R = MArray{Tuple{nstate}, FT}(undef)
+        l_ΣQ = MArray{Tuple{nstate}, FT}(undef)
+        l_ΣM = MArray{Tuple{nstate}, FT}(undef)
+    
+        fill!(l_δ̅, -zero(FT))
+        fill!(l_Q̅, -zero(FT))
+        fill!(l_Q, -zero(FT))
+        fill!(l_R, -zero(FT))
+        fill!(l_ΣQ, -zero(FT))
+        fill!(l_ΣM, -zero(FT))
+    end
+    
+    e = @index(Group, Linear)
+    ijk = @index(Local, Linear)
+
+    @inbounds begin
+        M = vgeo[ijk, _M, e]
+        @unroll for s in 1:nstate
+            l_ΣM[s] += M
+            l_ΣQ[s] += M * Q[ijk, s, e]
+        end
+    end
+
+    @inbounds begin 
+        @unroll for s in 1:nstate
+            l_Q[s] = Q[ijk,s,e]
+        end
+    end
+
+    @inbounds begin
+        @unroll for s in 1:nstate
+            l_Q̅[s] = l_ΣQ[s] / l_ΣM[s]
+            l_δ̅[s] = l_Q[s] - l_Q̅[s]
+            l_R[s] = rhs[ijk, s, e]
+        end
+    end
+
+    @unroll for s in 1:nstate
+        μ_dynsgs[ijk,s,e] = l_R[s] ./ l_δ̅[s]
+    end
+end

@@ -141,7 +141,7 @@ EquilMoist{FT}(;
 vars_state(::EquilMoist, FT) = @vars(ρq_tot::FT)
 vars_gradient(::EquilMoist, FT) = @vars(q_tot::FT)
 vars_diffusive(::EquilMoist, FT) = @vars(∇q_tot::SVector{3, FT})
-vars_aux(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
+vars_aux(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT, cₛ::FT)
 
 @inline function atmos_nodal_update_aux!(
     moist::EquilMoist,
@@ -163,6 +163,7 @@ vars_aux(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
+    aux.moisture.cₛ = soundspeed_air(ts)
     nothing
 end
 

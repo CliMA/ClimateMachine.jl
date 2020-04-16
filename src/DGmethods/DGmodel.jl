@@ -75,7 +75,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     communicate =
         !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
 
-    update_aux!(dg, bl, Q, t, dg.grid.topology.realelems)
+    update_aux!(dg, bl, Q, dQdt, t, dg.grid.topology.realelems)
 
     if nhyperviscstate > 0
         hypervisc_indexmap = create_hypervisc_indexmap(bl)
@@ -147,7 +147,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_Q)
-            update_aux!(dg, bl, Q, t, dg.grid.topology.ghostelems)
+            update_aux!(dg, bl, Q, dQdt, t, dg.grid.topology.ghostelems)
             exchange_Q = Event(device)
         end
 
@@ -420,7 +420,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_Q)
-            update_aux!(dg, bl, Q, t, dg.grid.topology.ghostelems)
+            update_aux!(dg, bl, Q, dQdt, t, dg.grid.topology.ghostelems)
             exchange_Q = Event(device)
         end
     end
@@ -546,6 +546,7 @@ function update_aux!(
     dg::DGModel,
     bl::BalanceLaw,
     Q::MPIStateArray,
+    dQdt::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
@@ -652,7 +653,7 @@ function nodal_update_aux!(
     m::BalanceLaw,
     Q::MPIStateArray,
     t::Real,
-    elems::UnitRange = dg.grid.topology.realelems;
+    elems::UnitRange = dg.grid.topology.realelems,
     diffusive = false,
 )
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
@@ -814,6 +815,61 @@ function copy_stack_field_down!(
     wait(device, event)
 end
 
+
+"""
+    dynsgs(...)
+Returns the viscosity computed using the DynamicSubgridStabilization method.
+"""
+function dynsgs(
+    dg::DGModel,
+    m::BalanceLaw,
+    Q::MPIStateArray,
+    dQdt::MPIStateArray,
+    auxstate::MPIStateArray,
+    t::Real,
+    elems::UnitRange = dg.grid.topology.elems
+)
+    
+    FT = eltype(Q)
+    grid = dg.grid
+    topology = grid.topology
+    
+    N = polynomialorder(grid)
+    dim = dimensionality(grid)
+    
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    
+    nrealelem = length(topology.realelems)
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+    nhorzelem = length(horzelems)
+
+    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    
+    μ_dynsgs = similar(grid.vgeo, Nq^dim, num_state(m,FT), nrealelem)
+    
+    event = Event(device)
+    event = knl_dynsgs!(device, (Nq, Nqk))(
+        m,
+        Val(dim),
+        Val(N),
+        Q.data,
+        auxstate.data,
+        dQdt.data,
+        elems, 
+        nvertelem,
+        nhorzelem,
+        grid.vgeo,
+        μ_dynsgs;
+        ndrange = (length(horzelems) * Nq, Nqk),
+        dependencies = (event,),
+    )
+    wait(device, event)
+    loc_μ = maximum(μ_dynsgs)
+    MPI.Allreduce(loc_μ, max, topology.mpicomm)
+end
 function MPIStateArrays.MPIStateArray(dg::DGModel)
     bl = dg.balancelaw
     grid = dg.grid
