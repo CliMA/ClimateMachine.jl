@@ -12,9 +12,9 @@ function write_data(jld::JLD2Writer, filename, dims, varvals, simtime)
         for (dn, dv) in dims
             ds[dn] = dv
         end
-        ds["time"] = [1]
+        ds["t"] = [1]
         for (vn, vv) in varvals
-            ds[vn] = vv
+            ds[vn] = vv[2]
         end
         ds["simtime"] = [simtime]
     end
