@@ -56,8 +56,6 @@ function init_sin_test!(bl, state, aux, (x, y, z), t)
         q_tot = FT(1.5e-3)
     end
 
-    u1, u2 = FT(6), FT(7)
-    v1, v2 = FT(-4.25), FT(-5.5)
     w = FT(10 + 0.5 * sin(2 * π * ((x / 1500) + (y / 1500))))
     u = (5 + 2 * sin(2 * π * ((x / 1500) + (y / 1500))))
     v = FT(5 + 2 * sin(2 * π * ((x / 1500) + (y / 1500))))
@@ -68,7 +66,8 @@ function init_sin_test!(bl, state, aux, (x, y, z), t)
 
     # Density, Temperature
     ts = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, p, q_tot)
-    ρ = air_density(ts)
+    #ρ = air_density(ts)
+    ρ = one(FT)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = _grav * z
@@ -161,23 +160,25 @@ function main()
     if mpirank == 0
         dgngrp = dgn_config.groups[1]
         nm = @sprintf(
-            "%s_%s-%s-num%04d.jld2",
+            "%s_%s_%s_num%04d.jld2",
             replace(dgngrp.out_prefix, " " => "_"),
             dgngrp.name,
             starttime,
             1,
         )
         ds = load(joinpath(outdir, nm))
-        N = size(ds["vert_eddy_u_flux"], 1)
+        N = size(ds["u"], 1)
         err = 0
         err1 = 0
         for i in 1:N
-            err += (ds["vert_eddy_u_flux"][i] - 0.5)^2
-            err1 += (ds["u"][i] - 5)^2
+            u = ds["u"][i]
+            cov_w_u = ds["cov_w_u"][i]
+            err += (cov_w_u - 0.5)^2
+            err1 += (u - 5)^2
         end
         err = sqrt(err / N)
-        @test err <= 2e-15
         @test err1 <= 1e-16
+        @test err <= 2e-15
     end
 end
 
