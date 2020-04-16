@@ -45,14 +45,14 @@ See [`odefun!`](@ref) for usage.
 @kernel function volumerhs!(bl::BalanceLaw, ::Val{dim}, ::Val{polyorder}, ::direction,
                             rhs, @Const(Q), @Const(Qvisc), @Const(Qhypervisc_grad),
                             @Const(auxstate), @Const(vgeo), t,
-                            @Const(ω), @Const(D), ::Val{nvgeo}, increment) where {dim, polyorder, direction, nvgeo}
+                            @Const(ω), @Const(D), ::Val{nvgeo}, ::Val{increment}) where {dim, polyorder, direction, nvgeo, increment}
   @uniform begin
     N = polyorder
     FT = eltype(Q)
     nstate = num_state(bl,FT)
     nviscstate = num_diffusive(bl,FT)
     nauxstate = num_aux(bl,FT)
-
+    
     ngradlapstate = num_gradient_laplacian(bl,FT)
     nhyperviscstate = num_hyperdiffusive(bl,FT)
 
@@ -71,67 +71,54 @@ See [`odefun!`](@ref) for usage.
   end
 
   s_F = @localmem FT (2, Nq, Nq, nstate)
-  s_ω = @localmem FT (Nq, )
-  s_D = @localmem FT (Nq, Nq)
   l_rhs = @private FT (Nqk, nstate)
+  l_MI = @private FT (Nqk,)
 
   e = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
   @inbounds begin
-    s_ω[j] = ω[j]
-    s_D[i, j] = D[i, j]
-    
-    ije_rhs = i + (j-1)*Nq + (e-1)*Np*nstate
     @unroll for k in 1:Nqk
-      ijke_rhs = ije_rhs + (k-1) * Nq * Nq
+      ijk = i + Nq * ((j - 1) + Nq * (k - 1))
       @unroll for s = 1:nstate
-        l_rhs[k, s] = increment ? rhs[ijke_rhs + (s - 1) * Np] : zero(FT)
+        l_rhs[k, s] = increment ? rhs[ijk, s, e] : zero(FT)
       end
+      l_MI[k] = vgeo[ijk, _MI, e]
     end
-
-    ije_vgeo = i + (j-1)*Nq + (e-1)*Np*nvgeo
-    ije_Q = i + (j-1)*Nq + (e-1)*Np*nstate
-    ije_Qvisc = i + (j-1)*Nq + (e-1)*Np*nviscstate
-    ije_Qhypervisc = i + (j-1)*Nq + (e-1)*Np*nhyperviscstate
-    ije_aux = i + (j-1)*Nq + (e-1)*Np*nauxstate
-
+    
     @unroll for k in 1:Nqk
       @synchronize
-      ijke_vgeo = ije_vgeo + (k-1)*Nq*Nq
-      M = vgeo[ijke_vgeo + (_M - 1) * Np]
-      ξ1x1 = vgeo[ijke_vgeo + (_ξ1x1 - 1) * Np]
-      ξ1x2 = vgeo[ijke_vgeo + (_ξ1x2 - 1) * Np]
-      ξ1x3 = vgeo[ijke_vgeo + (_ξ1x3 - 1) * Np]
+      ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+
+      M = vgeo[ijk, _M, e]
+      ξ1x1 = vgeo[ijk, _ξ1x1, e]
+      ξ1x2 = vgeo[ijk, _ξ1x2, e]
+      ξ1x3 = vgeo[ijk, _ξ1x3, e]
       if dim == 3 || (dim == 2 && direction == EveryDirection)
-        ξ2x1 = vgeo[ijke_vgeo + (_ξ2x1 - 1) * Np]
-        ξ2x2 = vgeo[ijke_vgeo + (_ξ2x2 - 1) * Np]
-        ξ2x3 = vgeo[ijke_vgeo + (_ξ2x3 - 1) * Np]
+         ξ2x1 = vgeo[ijk, _ξ2x1, e]
+         ξ2x2 = vgeo[ijk, _ξ2x2, e]
+         ξ2x3 = vgeo[ijk, _ξ2x3, e]
       end
       if dim == 3 && direction == EveryDirection
-        ξ3x1 = vgeo[ijke_vgeo + (_ξ3x1 - 1) * Np]
-        ξ3x2 = vgeo[ijke_vgeo + (_ξ3x2 - 1) * Np]
-        ξ3x3 = vgeo[ijke_vgeo + (_ξ3x3 - 1) * Np]
+        ξ3x1 = vgeo[ijk, _ξ3x1, e]
+        ξ3x2 = vgeo[ijk, _ξ3x2, e]
+        ξ3x3 = vgeo[ijk, _ξ3x3, e]
       end
 
-      ijke_Q = ije_Q + (k-1)*Nq*Nq
       @unroll for s = 1:nstate
-        l_Q[s] = Q[ijke_Q + (s - 1) * Np]
+        l_Q[s] = Q[ijk, s, e]
       end
 
-      ijke_aux = ije_aux + (k-1)*Nq*Nq
       @unroll for s = 1:nauxstate
-        l_aux[s] = auxstate[ijke_aux + (s - 1) * Np]
+        l_aux[s] = auxstate[ijk, s, e]
       end
 
-      ijke_Qvisc = ije_Qvisc + (k-1)*Nq*Nq
       @unroll for s = 1:nviscstate
-        l_Qvisc[s] = Qvisc[ijke_Qvisc + (s - 1) * Np]
+        l_Qvisc[s] = Qvisc[ijk, s, e]
       end
 
-      ijke_Qhypervisc = ije_Qhypervisc + (k-1)*Nq*Nq
       @unroll for s = 1:nhyperviscstate
-        l_Qhypervisc[s] = Qhypervisc_grad[ijke_Qhypervisc + (s - 1) * Np]
+        l_Qhypervisc[s] = Qhypervisc_grad[ijk, s, e]
       end
 
       fill!(l_F, -zero(eltype(l_F)))
@@ -173,10 +160,9 @@ See [`odefun!`](@ref) for usage.
       
       if dim == 3 && direction == EveryDirection
           @unroll for n = 1:Nqk
-          ijne_vgeo = ije_vgeo + (n-1)*Nq*Nq
-          MI = vgeo[ijne_vgeo + (_MI - 1) * Np]
+          MI = l_MI[n]
             @unroll for s = 1:nstate
-              l_rhs[n, s] += MI * s_D[k, n] * l_F3[s]
+              l_rhs[n, s] += MI * D[k, n] * l_F3[s]
             end
         end
       end
@@ -194,29 +180,24 @@ See [`odefun!`](@ref) for usage.
       @synchronize
 
       # Weak "inside metrics" derivative
-      testix = i + Nq * ((j-1) + Nq * (k-1)) + (_MI - 1) * Np + + (e-1)*Np*nvgeo
-      #MI = vgeo[ijk, _MI, e]
-      MI = vgeo[testix]
-
+      MI = l_MI[k]
       @unroll for s = 1:nstate
         @unroll for n = 1:Nq
           # ξ1-grid lines
-          l_rhs[k, s] += MI * s_D[n, i] * s_F[1, n, j, s]
+          l_rhs[k, s] += MI * D[n, i] * s_F[1, n, j, s]
 
           # ξ2-grid lines
           if dim == 3 || (dim == 2 && direction == EveryDirection)
-            l_rhs[k, s] += MI * s_D[n, j] * s_F[2, i, n, s]
+            l_rhs[k, s] += MI * D[n, j] * s_F[2, i, n, s]
           end
         end
       end
     end
 
-    ije_rhs = i + (j-1)*Nq + (e-1)*Np*nstate
-      @unroll for k = 1:Nqk
-        ijke_rhs = ije_rhs + (k-1) * Nq * Nq
-        @unroll for s = 1:nstate
-          ijkse_rhs = ijke_rhs + (s-1) * Np
-          rhs[ijkse_rhs] = l_rhs[k, s]
+    @unroll for k = 1:Nqk
+      ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+      @unroll for s = 1:nstate
+        rhs[ijk, s, e] = l_rhs[k, s]
       end
     end
   end
