@@ -817,10 +817,10 @@ end
 
 
 """
-    dynsgs(...)
+    dynsgs!(...)
 Returns the viscosity computed using the DynamicSubgridStabilization method.
 """
-function dynsgs(
+function dynsgs!(
     dg::DGModel,
     m::BalanceLaw,
     Q::MPIStateArray,
@@ -868,7 +868,9 @@ function dynsgs(
     )
     wait(device, event)
     loc_μ = maximum(μ_dynsgs)
-    MPI.Allreduce(loc_μ, max, topology.mpicomm)
+    temp_μ = MPI.Allreduce(loc_μ, max, topology.mpicomm)
+    auxstate.data[:,end,:] .= temp_μ
+    nothing
 end
 function MPIStateArrays.MPIStateArray(dg::DGModel)
     bl = dg.balancelaw

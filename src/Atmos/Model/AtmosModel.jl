@@ -49,7 +49,7 @@ import CLIMA.DGmethods:
     integral_set_aux!,
     reverse_integral_load_aux!,
     reverse_integral_set_aux!,
-    dynsgs
+    dynsgs!
 import ..DGmethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_diffusive!,
@@ -429,7 +429,7 @@ function update_aux!(
         reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
     end
 
-    dynsgs(dg, m, Q, dQdt, dg.auxstate, t, elems)
+    dynsgs!(dg, m, Q, dQdt, dg.auxstate, t, elems)
 
     nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t, elems)
     return true
