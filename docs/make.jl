@@ -77,4 +77,8 @@ if ispath(p)
     end
 end
 
-deploydocs(repo = "github.com/climate-machine/CLIMA.git", target = "build")
+deploydocs(
+    repo = "github.com/climate-machine/CLIMA.git",
+    target = "build",
+    push_preview = true,
+)
