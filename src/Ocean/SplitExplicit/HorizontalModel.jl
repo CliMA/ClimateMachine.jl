@@ -46,7 +46,7 @@ end
         ]
 
         # ∇h • (g η)
-        F.u += grav * η * Iʰ
+        F.u += grav(m.ocean.param_set) * η * Iʰ
     end
 
     return nothing
@@ -90,71 +90,3 @@ end
 
 @inline wavespeed(hm::HorizontalModel, n⁻, args...) =
     wavespeed(hm.ocean, n⁻, args...)
-
-"""
-    boundary_state!(nf, ::HorizontalModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::HorizontalModel,
-    Q⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m.ocean,
-        m.ocean.problem,
-        bctype,
-        nf,
-        Q⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        A⁻,
-        t,
-    )
-end
-
-"""
-    boundary_state!(nf, ::HorizontalModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
-
-applies boundary conditions for the parabolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::HorizontalModel,
-    Q⁺::Vars,
-    D⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    D⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m.ocean,
-        m.ocean.problem,
-        bctype,
-        nf,
-        Q⁺,
-        D⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        D⁻,
-        A⁻,
-        t,
-    )
-end

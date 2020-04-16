@@ -95,7 +95,7 @@ vars_reverse_integrals(m::BarotropicModel, T) = @vars()
         ]
 
         F.η += U
-        F.U += grav * H * η * Iʰ
+        F.U += grav(m.baroclinic.param_set) * H * η * Iʰ
     end
 end
 
@@ -173,72 +173,4 @@ function update_penalty!(
     ΔQ.η = -0
 
     return nothing
-end
-
-"""
-    boundary_state!(nf, ::BarotropicModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::BarotropicModel,
-    Q⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.baroclinic.problem,
-        bctype,
-        nf,
-        Q⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        A⁻,
-        t,
-    )
-end
-
-"""
-    boundary_state!(nf, ::BarotropicModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
-
-applies boundary conditions for the parabolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::BarotropicModel,
-    Q⁺::Vars,
-    D⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    D⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.baroclinic.problem,
-        bctype,
-        nf,
-        Q⁺,
-        D⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        D⁻,
-        A⁻,
-        t,
-    )
 end

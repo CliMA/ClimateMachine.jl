@@ -1,4 +1,5 @@
-struct OceanModel{P, T} <: AbstractOceanModel
+struct OceanModel{PS, P, T} <: AbstractOceanModel
+    param_set::PS
     problem::P
     ρₒ::T
     cʰ::T
@@ -11,7 +12,8 @@ struct OceanModel{P, T} <: AbstractOceanModel
     fₒ::T
     β::T
     function OceanModel{FT}(
-        problem;
+        param_set::PS,
+        problem::P;
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -22,8 +24,9 @@ struct OceanModel{P, T} <: AbstractOceanModel
         κᶻ = FT(1e-4),  # m^2 / s
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat}
-        return new{typeof(problem), FT}(
+    ) where {FT <: AbstractFloat, PS, P}
+        return new{PS, P, FT}(
+            param_set,
             problem,
             ρₒ,
             cʰ,
@@ -271,7 +274,7 @@ end
         F.θ += v * θ
 
         # ∇h • (- ∫(αᵀ θ))
-        F.u += grav * pkin * Iʰ
+        F.u += grav(m.param_set) * pkin * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
@@ -380,72 +383,4 @@ end
     ΔQ.η = -0
 
     return nothing
-end
-
-"""
-    boundary_state!(nf, ::OceanModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::OceanModel,
-    Q⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.problem,
-        bctype,
-        nf,
-        Q⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        A⁻,
-        t,
-    )
-end
-
-"""
-    boundary_state!(nf, ::OceanModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
-
-applies boundary conditions for the parabolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::OceanModel,
-    Q⁺::Vars,
-    D⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    D⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.problem,
-        bctype,
-        nf,
-        Q⁺,
-        D⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        D⁻,
-        A⁻,
-        t,
-    )
 end

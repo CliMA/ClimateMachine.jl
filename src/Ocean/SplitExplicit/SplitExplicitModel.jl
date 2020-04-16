@@ -12,7 +12,7 @@ using LinearAlgebra: I, dot, Diagonal
 using ..VariableTemplates
 using ..MPIStateArrays
 using ..DGmethods: init_ode_state
-using ..PlanetParameters: grav
+using CLIMAParameters.Planet: grav
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
 using ..Mesh.Grids:
     polynomialorder, VerticalDirection, HorizontalDirection, min_node_distance
@@ -73,6 +73,6 @@ include("HorizontalModel.jl")
 include("BarotropicModel.jl")
 include("LinearVerticalModel.jl")
 include("Communication.jl")
-include("OceanBoundaryConditions.jl")
+include("BoundaryConditions.jl")
 
 end

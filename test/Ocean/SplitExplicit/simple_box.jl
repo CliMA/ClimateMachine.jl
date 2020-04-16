@@ -13,7 +13,6 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
-using CLIMA.PlanetParameters: grav
 import CLIMA.SplitExplicit:
     ocean_init_aux!,
     ocean_init_state!,
@@ -30,39 +29,19 @@ import CLIMA.DGmethods:
     update_aux!, update_aux_diffusive!, vars_state, vars_aux, VerticalDirection
 using GPUifyLoops
 
-const ArrayType = CLIMA.array_type()
+using CLIMAParameters
+using CLIMAParameters.Planet: grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
-struct SimpleBox{T} <: AbstractOceanProblem
+struct SimpleBox{T, BC} <: AbstractOceanProblem
     Lˣ::T
     Lʸ::T
     H::T
     τₒ::T
     λʳ::T
     θᴱ::T
-end
-
-@inline function ocean_boundary_state!(
-    m::Union{OceanModel, HorizontalModel},
-    p::SimpleBox,
-    bctype,
-    x...,
-)
-    if bctype == 1
-        ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-    elseif bctype == 2
-        ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
-    elseif bctype == 3
-        ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
-    end
-end
-
-@inline function ocean_boundary_state!(
-    m::BarotropicModel,
-    p::SimpleBox,
-    bctype,
-    x...,
-)
-    return ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+    boundary_condition::BC
 end
 
 function ocean_init_state!(p::SimpleBox, Q, A, coords, t)
@@ -92,12 +71,7 @@ function ocean_init_aux!(m::OceanModel, p::SimpleBox, A, geom)
 end
 
 # A is Filled afer the state
-function ocean_init_aux!(
-    m::BarotropicModel,
-    P::Union{SimpleBox, OceanGyre},
-    A,
-    geom,
-)
+function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
     @inbounds A.y = geom.coord[2]
 
     A.Gᵁ = @SVector [0, 0]
@@ -107,8 +81,9 @@ function ocean_init_aux!(
     return nothing
 end
 
-function main()
+function main(BC, solver)
     CLIMA.init()
+    ArrayType = CLIMA.array_type()
     mpicomm = MPI.COMM_WORLD
 
     ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -119,8 +94,12 @@ function main()
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
     brickrange_2D = (xrange, yrange)
-    topl_2D =
-        BrickTopology(mpicomm, brickrange_2D, periodicity = (false, false))
+    topl_2D = BrickTopology(
+        mpicomm,
+        brickrange_2D;
+        periodicity = (false, false),
+        boundary = ((1, 1), (1, 1)),
+    )
     grid_2D = DiscontinuousSpectralElementGrid(
         topl_2D,
         FloatType = FT,
@@ -142,11 +121,9 @@ function main()
         polynomialorder = N,
     )
 
-    prob = SimpleBox{FT}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ)
-    # prob = OceanGyre{FT}(Lˣ, Lʸ, H, τₒ = τₒ, λʳ = λʳ, θᴱ = θᴱ)
+    prob = SimpleBox{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ, BC)
 
-    model = OceanModel{FT}(prob, cʰ = cʰ)
-    # model = HydrostaticBoussinesqModel{FT}(prob, cʰ = cʰ)
+    model = OceanModel{FT}(param_set, prob, cʰ = cʰ)
 
     horizontalmodel = HorizontalModel(model)
 
@@ -212,9 +189,6 @@ function main()
     )
 
     Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
-    # update_aux!(dg, model, Q_3D, FT(0))
-    # update_aux_diffusive!(dg, model, Q_3D, FT(0))
-
     Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
 
     lsrk_ocean = LSRK144NiegemannDiehlBusch(dg, Q_3D, dt = dt_slow, t0 = 0)
@@ -223,19 +197,9 @@ function main()
     lsrk_barotropic =
         LSRK144NiegemannDiehlBusch(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
 
+    odesolver =
+        solver(lsrk_ocean, lsrk_barotropic; sAlt_solver = lsrk_horizontal)
 
-    odesolver = MultistateMultirateRungeKutta(
-        lsrk_ocean,
-        lsrk_barotropic;
-        sAlt_solver = lsrk_horizontal,
-    )
-    #=
-        odesolver = MultistateRungeKutta(
-            lsrk_ocean,
-            lsrk_barotropic;
-            sAlt_solver = lsrk_horizontal,
-        )
-    =#
     step = [0, 0]
     cbvector = make_callbacks(
         vtkpath,
@@ -357,11 +321,31 @@ xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
 yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
 zrange = range(FT(-H); length = Nᶻ + 1, stop = 0)
 
-const cʰ = sqrt(grav * H)
+const cʰ = sqrt(grav(param_set) * H)
 const cᶻ = 0
 
 const τₒ = 1e-1  # (m/s)^2
 const λʳ = 10 // 86400 # m / s
 const θᴱ = 10    # K
 
-main()
+#### boundary conditions
+
+### standard no slip
+BC_noslip = (CoastlineNoSlip(), OceanFloorNoSlip(), OceanSurfaceStressForcing())
+
+### standard free slip
+BC_freeslip =
+    (CoastlineFreeSlip(), OceanFloorFreeSlip(), OceanSurfaceStressForcing())
+
+### no wind no slip
+BC_noslip_nowind =
+    (CoastlineNoSlip(), OceanFloorNoSlip(), OceanSurfaceNoStressForcing())
+
+### no wind free slip
+BC_freeslip =
+    (CoastlineFreeSlip(), OceanFloorFreeSlip(), OceanSurfaceNoStressForcing())
+
+solver_multirate = MultistateMultirateRungeKutta
+solver_singlerate = MultistateRungeKutta
+
+main(BC_noslip, solver_singlerate)
