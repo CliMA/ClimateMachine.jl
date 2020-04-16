@@ -82,9 +82,12 @@ mutable struct MPIStateArray{
     ) where {FT, V}
         data = similar(DA, FT, Np, nstate, numelem)
 
+        #= TODO: might be the cause of #969
         if isnothing(mpi_knows_cuda)
             mpi_knows_cuda = MPI.has_cuda()
         end
+        =#
+        mpi_knows_cuda = false
 
         if data isa Array || mpi_knows_cuda
             kind = SingleCMBuffer
