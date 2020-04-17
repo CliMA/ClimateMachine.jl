@@ -53,7 +53,6 @@ function ReadExternalHeader(header_file_in)
 
     if nrows == 0
         error(" ERROR Grids.jl --> READTOPOtxt_header: grid header file is empty!")
-        return
     end
 
     nlon = IT(topo_header[1, 2])
@@ -108,7 +107,6 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
         (npoin_linear_grid, _) = size(topo_body)
         if npoin_linear_grid == 0
             error(" ERROR Grids.jl --> READTOPOtxt_xyz: grid file is empty!")
-            return
         end
         #
         # Create array
