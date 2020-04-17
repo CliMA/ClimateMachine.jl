@@ -579,13 +579,13 @@ end
     ::Val{dim},
     ::Val{polyorder},
     ::direction,
-    Q,
+    @Const(Q),
     Qvisc,
     Qhypervisc_grad,
-    auxstate,
-    vgeo,
+    @Const(auxstate),
+    @Const(vgeo),
     t,
-    D,
+    @Const(D),
     hypervisc_indexmap,
     elems,
 ) where {dim, polyorder, direction}
@@ -607,90 +607,104 @@ end
 
         l_G = MArray{Tuple{ngradstate}, FT}(undef)
         l_Qvisc = MArray{Tuple{nviscstate}, FT}(undef)
-        l_gradG = MArray{Tuple{3, ngradstate}, FT}(undef)
     end
 
-    s_G = @localmem FT (Nq, Nq, Nqk, ngradstate)
-    s_D = @localmem FT (Nq, Nq)
+    s_G = @localmem FT (Nq, Nq, ngradstate)
 
-    l_Q = @private FT (ngradtransformstate,)
-    l_aux = @private FT (nauxstate,)
+    l_Q = @private FT (ngradtransformstate, Nqk)
+    l_aux = @private FT (nauxstate, Nqk)
+    l_gradG = @private FT (3, ngradstate, Nqk)
+    Gξ3 = @private FT (ngradstate, Nqk)
 
     e = @index(Group, Linear)
-    i, j, k = @index(Local, NTuple)
-    ijk = @index(Local, Linear)
+    i, j = @index(Local, NTuple)
 
     @inbounds @views begin
-        s_D[i, j] = D[i, j]
-
+      @unroll for k in 1:Nqk
+        @unroll for s in 1:ngradstate
+            l_gradG[1, s, k] = -zero(FT)
+            l_gradG[2, s, k] = -zero(FT)
+            l_gradG[3, s, k] = -zero(FT)
+            Gξ3[s, k] = -zero(FT)
+        end
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
         @unroll for s in 1:ngradtransformstate
-            l_Q[s] = Q[ijk, s, e]
+            l_Q[s, k] = Q[ijk, s, e]
         end
-
         @unroll for s in 1:nauxstate
-            l_aux[s] = auxstate[ijk, s, e]
+            l_aux[s, k] = auxstate[ijk, s, e]
         end
+      end
 
+      @unroll for k in 1:Nqk
         fill!(l_G, -zero(eltype(l_G)))
         gradvariables!(
             bl,
             Vars{vars_gradient(bl, FT)}(l_G),
-            Vars{vars_state(bl, FT)}(l_Q[:]),
-            Vars{vars_aux(bl, FT)}(l_aux[:]),
+            Vars{vars_state(bl, FT)}(l_Q[:, k]),
+            Vars{vars_aux(bl, FT)}(l_aux[:, k]),
             t,
         )
         @unroll for s in 1:ngradstate
-            s_G[i, j, k, s] = l_G[s]
+            s_G[i, j, s] = l_G[s]
         end
         @synchronize
 
-        # Compute gradient of each state
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
         ξ1x1, ξ1x2, ξ1x3 =
             vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
         if dim == 3 || (dim == 2 && direction == EveryDirection)
             ξ2x1, ξ2x2, ξ2x3 =
                 vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
         end
+
+        # Compute gradient of each state
+        @unroll for s in 1:ngradstate
+            Gξ1 = Gξ2 = zero(FT)
+            
+            @unroll for n in 1:Nq
+                Gξ1 += D[i, n] * s_G[n, j, s]
+                if dim == 3 || (dim == 2 && direction == EveryDirection)
+                    Gξ2 += D[j, n] * s_G[i, n, s]
+                end
+                if dim == 3 && direction == EveryDirection
+                    Gξ3[s, n] += D[n, k] * s_G[i, j, s]
+                end
+            end
+
+            l_gradG[1, s, k] += ξ1x1 * Gξ1
+            l_gradG[2, s, k] += ξ1x2 * Gξ1
+            l_gradG[3, s, k] += ξ1x3 * Gξ1
+
+            if dim == 3 || (dim == 2 && direction == EveryDirection)
+                l_gradG[1, s, k] += ξ2x1 * Gξ2
+                l_gradG[2, s, k] += ξ2x2 * Gξ2
+                l_gradG[3, s, k] += ξ2x3 * Gξ2
+            end
+        end
+        @synchronize
+      end
+
+      @unroll for k in 1:Nqk
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+
         if dim == 3 && direction == EveryDirection
             ξ3x1, ξ3x2, ξ3x3 =
                 vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
-        end
-
-        @unroll for s in 1:ngradstate
-            Gξ1 = Gξ2 = Gξ3 = zero(FT)
-            @unroll for n in 1:Nq
-                Gξ1 += s_D[i, n] * s_G[n, j, k, s]
-                if dim == 3 || (dim == 2 && direction == EveryDirection)
-                    Gξ2 += s_D[j, n] * s_G[i, n, k, s]
-                end
-                if dim == 3 && direction == EveryDirection
-                    Gξ3 += s_D[k, n] * s_G[i, j, n, s]
-                end
-            end
-            l_gradG[1, s] = ξ1x1 * Gξ1
-            l_gradG[2, s] = ξ1x2 * Gξ1
-            l_gradG[3, s] = ξ1x3 * Gξ1
-
-            if dim == 3 || (dim == 2 && direction == EveryDirection)
-                l_gradG[1, s] += ξ2x1 * Gξ2
-                l_gradG[2, s] += ξ2x2 * Gξ2
-                l_gradG[3, s] += ξ2x3 * Gξ2
-            end
-
-            if dim == 3 && direction == EveryDirection
-                l_gradG[1, s] += ξ3x1 * Gξ3
-                l_gradG[2, s] += ξ3x2 * Gξ3
-                l_gradG[3, s] += ξ3x3 * Gξ3
-            end
+          @unroll for s in 1:ngradstate
+            l_gradG[1, s, k] += ξ3x1 * Gξ3[s, k]
+            l_gradG[2, s, k] += ξ3x2 * Gξ3[s, k]
+            l_gradG[3, s, k] += ξ3x3 * Gξ3[s, k]
+          end
         end
 
         @unroll for s in 1:ngradlapstate
             Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                l_gradG[1, hypervisc_indexmap[s]]
+                l_gradG[1, hypervisc_indexmap[s], k]
             Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                l_gradG[2, hypervisc_indexmap[s]]
+                l_gradG[2, hypervisc_indexmap[s], k]
             Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                l_gradG[3, hypervisc_indexmap[s]]
+                l_gradG[3, hypervisc_indexmap[s], k]
         end
 
         if nviscstate > 0
@@ -698,9 +712,9 @@ end
             diffusive!(
                 bl,
                 Vars{vars_diffusive(bl, FT)}(l_Qvisc),
-                Grad{vars_gradient(bl, FT)}(l_gradG),
-                Vars{vars_state(bl, FT)}(l_Q[:]),
-                Vars{vars_aux(bl, FT)}(l_aux[:]),
+                Grad{vars_gradient(bl, FT)}(l_gradG[:, :, k]),
+                Vars{vars_state(bl, FT)}(l_Q[:, k]),
+                Vars{vars_aux(bl, FT)}(l_aux[:, k]),
                 t,
             )
 
@@ -708,8 +722,8 @@ end
                 Qvisc[ijk, s, e] = l_Qvisc[s]
             end
         end
-    end
-    @synchronize
+      end
+  end
 end
 
 @kernel function volumeviscterms!(
