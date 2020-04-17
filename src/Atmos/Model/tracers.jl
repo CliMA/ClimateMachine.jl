@@ -125,16 +125,16 @@ struct NoTracers <: TracerModel end
 """
     NTracers{N, FT} <: TracerModel
 Currently the simplest way to get n-tracers in an AtmosModel run 
-using the existing AtmosModel machinery. Model input: SVector of 
+using the existing machinery. Model input: SVector of 
 diffusivity scaling coefficients. Length of SVector allows number
-of tracers to be inferred.
+of tracers to be inferred. Tracers are currently identified by indices. 
 
-Note that a labelling capability doesn't currently
-exist.
+# Fields
+#
+$(DocStringExtensions.FIELDS)
 """
-
 struct NTracers{N, FT} <: TracerModel
-    "N-vector with scaling ratios for tracer diffusivity"
+    "N-component `SVector` with scaling ratios for tracer diffusivities"
     δ_χ::SVector{N, FT}
 end
 
