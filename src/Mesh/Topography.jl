@@ -38,16 +38,13 @@ function ReadExternalHeader(header_file_in)
 
     @info @sprintf """ Topography header file %s ... DONE""" header_file_in
 
-    ftopo_header = open(header_file_in)
-    @info @sprintf """ Grids.jl: Opening topography header file ... DONE"""
-
-    topo_header = readdlm(ftopo_header)
-    @info @sprintf """ Grids.jl: Reading topography header file ... DONE"""
-
-    #Check that the file is not empty
-    (nrows, _) = size(topo_header)
-
-    close(ftopo_header)
+    open(header_file_in, "r") do ftopo_header
+        @info @sprintf """ Grids.jl: Opening topography header file ... DONE"""
+        topo_header = readdlm(ftopo_header)
+        @info @sprintf """ Grids.jl: Reading topography header file ... DONE"""
+        #Check that the file is not empty
+        (nrows, _) = size(topo_header)
+    end
     @info @sprintf """ Grids.jl: Closing topography header file ... DONE"""
 
 
