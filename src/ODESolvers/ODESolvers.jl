@@ -160,7 +160,7 @@ function solve!(
     gettime(solver)
 end
 # }}}
-
+include("ExplicitFSALRungeKuttaMethod.jl")
 include("LowStorageRungeKuttaMethod.jl")
 include("StrongStabilityPreservingRungeKuttaMethod.jl")
 include("AdditiveRungeKuttaMethod.jl")

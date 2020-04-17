@@ -10,11 +10,12 @@ const fast_mrrk_methods = (
     (SSPRK34SpiteriRuuth, 3),
 )
 const explicit_methods = (
-    (LSRK54CarpenterKennedy, 4),
-    (LSRK144NiegemannDiehlBusch, 4),
-    (SSPRK33ShuOsher, 3),
-    (SSPRK34SpiteriRuuth, 3),
-    (LSRKEulerMethod, 1),
+    #(LSRK54CarpenterKennedy, 4),
+    #(LSRK144NiegemannDiehlBusch, 4),
+    #(SSPRK33ShuOsher, 3),
+    #(SSPRK34SpiteriRuuth, 3),
+    #(LSRKEulerMethod, 1),
+    (ERKFeagin14, 14),
 )
 
 const imex_methods = (

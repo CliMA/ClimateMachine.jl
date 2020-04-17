@@ -32,18 +32,18 @@ version = "3.5.0+3"
 
 [[ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "7ae8ee0977d9ead47ca8f99f066bc603505e2d13"
+git-tree-sha1 = "f8904599065b57f51715faf6278126f853aef6fc"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "0.2.2"
+version = "0.2.4"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[BinDeps]]
 deps = ["Libdl", "Pkg", "SHA", "URIParser", "Unicode"]
-git-tree-sha1 = "66158ad56b4bf6cc8413b37d0b7bc52402682764"
+git-tree-sha1 = "46cf2c1668ad07aba5a9d331bdeea994a1f13856"
 uuid = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
-version = "1.0.0"
+version = "1.0.1"
 
 [[BinaryProvider]]
 deps = ["Libdl", "SHA"]
@@ -152,9 +152,9 @@ version = "1.1.0"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "73eb18320fe3ba58790c8b8f6f89420f0a622773"
+git-tree-sha1 = "4dead20a1606a60292529023d6eac18a1ef6432e"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.17.11"
+version = "0.17.12"
 
 [[Dates]]
 deps = ["Printf"]
@@ -248,9 +248,9 @@ version = "0.4.0"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
-git-tree-sha1 = "cd60d9a575d3b70c026d7e714212fd4ecf86b4bb"
+git-tree-sha1 = "fe31f4ff144392ad8176f5c7c03cca6ba320271c"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.8.13"
+version = "0.8.14"
 
 [[IniFile]]
 deps = ["Test"]
@@ -365,11 +365,16 @@ git-tree-sha1 = "928b8ca9b2791081dc71a51c55347c27c618760f"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.3"
 
+[[OffsetArrays]]
+git-tree-sha1 = "930db8ef90483570107f2396b1ffc6680f08e8b7"
+uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+version = "1.0.4"
+
 [[OpenBLAS_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "cbab167006bbb875d4b4204cc4da8822bd43df83"
+deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
+git-tree-sha1 = "2ee3e636e94b9fd95fa8364d5cba2e20dae16609"
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.9+1"
+version = "0.3.9+2"
 
 [[OpenSpecFun_jll]]
 deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
@@ -520,9 +525,9 @@ version = "1.0.1"
 
 [[TimerOutputs]]
 deps = ["Printf"]
-git-tree-sha1 = "311765af81bbb48d7bad01fb016d9c328c6ede03"
+git-tree-sha1 = "123b64952b3fb1d42984cde6f1bd425479be6dcb"
 uuid = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
-version = "0.5.3"
+version = "0.5.4"
 
 [[TranscodingStreams]]
 deps = ["Random", "Test"]
