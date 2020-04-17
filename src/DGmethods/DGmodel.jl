@@ -96,7 +96,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     if nviscstate > 0 || nhyperviscstate > 0
 
         event = Event(device)
-        event = volumeviscterms!(device, workgroups_volume)(
+        event = volumeviscterms!(device, (Nq, Nq))(
             bl,
             Val(dim),
             Val(N),
@@ -110,7 +110,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             grid.D,
             hypervisc_indexmap,
             topology.realelems,
-            ndrange = ndrange_volume,
+            ndrange = (Nq * nrealelem, Nq),
             dependencies = (event,),
         )
         wait(device, event)
@@ -264,7 +264,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     # RHS Computation #
     ###################
     event = Event(device)
-    event = volumerhs!(device, (Nq, Nq))(
+    #@device_code dir = "code" event = volumerhs!(device, (Nq, Nq))(
+      event = volumerhs!(device, (Nq, Nq))(
         bl,
         Val(dim),
         Val(N),
@@ -279,7 +280,7 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         grid.ω,
         grid.D,
         Val(size(grid.vgeo, 2)),
-        increment;
+        Val(increment);
         ndrange = (nrealelem * Nq, Nq),
         dependencies = (event,),
     )
@@ -356,11 +357,12 @@ function init_ode_state(
     auxstate = dg.auxstate
     dim = dimensionality(grid)
     N = polynomialorder(grid)
+    Nq = N + 1
     nrealelem = length(topology.realelems)
 
     if !init_on_cpu
         event = Event(device)
-        event = initstate!(device, Np)(
+        event = initstate!(device, Nq ^ 2)(
             bl,
             Val(dim),
             Val(N),
@@ -369,7 +371,7 @@ function init_ode_state(
             grid.vgeo,
             topology.realelems,
             args...;
-            ndrange = Np * nrealelem,
+            ndrange = Nq ^ 2 * nrealelem,
             dependencies = (event,),
         )
         wait(device, event)
@@ -514,7 +516,7 @@ function nodal_update_aux!(
 
     Np = dofs_per_element(grid)
 
-    nodal_update_aux! = knl_nodal_update_aux!(device, Np)
+    nodal_update_aux! = knl_nodal_update_aux!(device, Nq ^ 2)
     ### update aux variables
     event = Event(device)
     if diffusive
@@ -528,7 +530,7 @@ function nodal_update_aux!(
             dg.diffstate.data,
             t,
             topology.realelems;
-            ndrange = Np * nrealelem,
+            ndrange = Nq ^ 2 * nrealelem,
             dependencies = (event,),
         )
     else
@@ -541,7 +543,7 @@ function nodal_update_aux!(
             dg.auxstate.data,
             t,
             topology.realelems;
-            ndrange = Np * nrealelem,
+            ndrange = Nq ^ 2 * nrealelem,
             dependencies = (event,),
         )
     end

@@ -145,11 +145,12 @@ function create_auxstate(bl, grid, commtag = 222)
 
     dim = dimensionality(grid)
     polyorder = polynomialorder(grid)
+    Nq = polyorder + 1
     vgeo = grid.vgeo
     device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     event = Event(device)
-    event = initauxstate!(device, Np, Np * nrealelem)(
+    event = initauxstate!(device, Nq ^ 2, Nq ^ 2 * nrealelem)(
         bl,
         Val(dim),
         Val(polyorder),

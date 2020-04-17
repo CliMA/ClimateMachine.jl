@@ -1084,9 +1084,11 @@ end
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
     e = @index(Group, Linear)
-    n = @index(Local, Linear)
+    ij = @index(Local, Linear)
 
     @inbounds begin
+      @unroll for k in 1:Nqk
+        n = ij + (k - 1) * Nq ^ 2
         coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
         @unroll for s in 1:nauxstate
             l_aux[s] = auxstate[n, s, e]
@@ -1104,6 +1106,7 @@ end
         @unroll for s in 1:nstate
             state[n, s, e] = l_state[s]
         end
+      end
     end
 end
 
@@ -1134,9 +1137,11 @@ See [`DGBalanceLaw`](@ref) for usage.
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
     e = @index(Group, Linear)
-    n = @index(Local, Linear)
+    ij = @index(Local, Linear)
 
     @inbounds begin
+      @unroll for k in 1:Nqk
+        n = ij + (k - 1) * Nq ^ 2 
         @unroll for s in 1:nauxstate
             l_aux[s] = auxstate[n, s, e]
         end
@@ -1150,6 +1155,7 @@ See [`DGBalanceLaw`](@ref) for usage.
         @unroll for s in 1:nauxstate
             auxstate[n, s, e] = l_aux[s]
         end
+      end
     end
 end
 
@@ -1183,9 +1189,11 @@ Update the auxiliary state array
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
 
     e = @index(Group, Linear)
-    n = @index(Local, Linear)
+    ij = @index(Local, Linear)
 
     @inbounds begin
+      @unroll for k in 1:Nqk
+        n = ij + (k - 1) * Nq ^ 2
         @unroll for s in 1:nstate
             l_Q[s] = Q[n, s, e]
         end
@@ -1199,6 +1207,7 @@ Update the auxiliary state array
         @unroll for s in 1:nauxstate
             auxstate[n, s, e] = l_aux[s]
         end
+      end
     end
 end
 
