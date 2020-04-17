@@ -194,7 +194,11 @@ Base.similar(g::Grad{S, A, offset}) where {S, A, offset} =
     v::Grad{S, A, offset},
     sym::Symbol,
 ) where {S, A, offset}
-    M = size(A, 1)
+    if A <: SubArray
+        M = size(fieldtype(A, 1), 1)
+    else
+        M = size(A, 1)
+    end
     expr = quote
         Base.@_inline_meta
         array = parent(v)
@@ -231,7 +235,11 @@ end
     sym::Symbol,
     val,
 ) where {S, A, offset}
-    M = size(A, 1)
+    if A <: SubArray
+        M = size(fieldtype(A, 1), 1)
+    else
+        M = size(A, 1)
+    end
     expr = quote
         Base.@_inline_meta
         array = parent(v)
