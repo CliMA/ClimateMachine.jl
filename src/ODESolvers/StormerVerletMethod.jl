@@ -85,48 +85,71 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
   rhs!, dQ = sv.rhs!, sv.dQ
   gamma = sv.gamma
 
-  Qa = @view(Q.realdata[:,sv.mask_a,:])
-  Qb = @view(Q.realdata[:,sv.mask_b,:])
-  dQa = @view(dQ.realdata[:,sv.mask_a,:])
-  dQb = @view(dQ.realdata[:,sv.mask_b,:])
-  slow_rv_dQa = @view(slow_rv_dQ[:,sv.mask_a,:])
-  slow_rv_dQb = @view(slow_rv_dQ[:,sv.mask_b,:])
+  Qa = realview(Q.realdata[:,sv.mask_a,:])
+  Qb = realview(Q.realdata[:,sv.mask_b,:])
+  dQa = realview(dQ.realdata[:,sv.mask_a,:])
+  dQb = realview(dQ.realdata[:,sv.mask_b,:])
+  slow_rv_dQa = realview(slow_rv_dQ[:,sv.mask_a,:])
+  slow_rv_dQb = realview(slow_rv_dQ[:,sv.mask_b,:])
 
-
+  groupsize = 256
 
   # do a half step
   rhs!(dQ, Q, p, time, increment = false)
-
-  if slow_δ === nothing
-    Qa .+= dQa .* dt/2
-  else
-    Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
-  end
+  event = Event(device(Q))
+  event = update!(device(Q), groupsize)(
+      dQa,
+      Qa,
+      dt/2,
+      slow_δ,
+      slow_rv_dQa;
+      ndrange = length(Qa),
+      dependencies = (event,),
+  )
+  wait(device(Q), event)
   time += dt/2
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, increment = false)
-    if slow_δ === nothing
-      Qb .+= dQb .* dt
-    else
-      Qb .+= (dQb .+ slow_rv_dQb .* slow_δ) .* dt
-    end
+    event = Event(device(Q))
+    event = update!(device(Q), groupsize)(
+        dQb,
+        Qb,
+        dt,
+        slow_δ,
+        slow_rv_dQb;
+        ndrange = length(Qb),
+        dependencies = (event,),
+    )
+    wait(device(Q), event)
     time += dt
 
     rhs!(dQ, Q, p, time, increment = false)
     if i < nsteps
-      if slow_δ === nothing
-        Qa .+= dQa .* dt
-      else
-        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt
-      end
+      event = Event(device(Q))
+      event = update!(device(Q), groupsize)(
+          dQa,
+          Qa,
+          dt,
+          slow_δ,
+          slow_rv_dQa;
+          ndrange = length(Qa),
+          dependencies = (event,),
+      )
+      wait(device(Q), event)
       time += dt
     else
-      if slow_δ === nothing
-        Qa .+= dQa .* dt/2
-      else
-        Qa .+= (dQa .+ slow_rv_dQa .* slow_δ) .* dt/2
-      end
+      event = Event(device(Q))
+      event = update!(device(Q), groupsize)(
+          dQa,
+          Qa,
+          dt/2,
+          slow_δ,
+          slow_rv_dQa;
+          ndrange = length(Qa),
+          dependencies = (event,),
+      )
+      wait(device(Q), event)
       time += dt/2
     end
   end
@@ -151,48 +174,74 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
   rhs!, dQ = sv.rhs!, sv.dQ
   #gamma = sv.gamma
 
-  Qa = @view(Q.realdata[:,sv.mask_a,:])
-  Qb = @view(Q.realdata[:,sv.mask_b,:])
-  dQa = @view(dQ.realdata[:,sv.mask_a,:])
-  dQb = @view(dQ.realdata[:,sv.mask_b,:])
-  slow_rv_dQa = @view(slow_rv_dQ[:,sv.mask_a,:])
-  slow_rv_dQb = @view(slow_rv_dQ[:,sv.mask_b,:])
+  Qa = realview(Q.realdata[:,sv.mask_a,:])
+  Qb = realview(Q.realdata[:,sv.mask_b,:])
+  dQa = realview(dQ.realdata[:,sv.mask_a,:])
+  dQb = realview(dQ.realdata[:,sv.mask_b,:])
+  slow_rv_dQa = realview(slow_rv_dQ[:,sv.mask_a,:])
+  slow_rv_dQb = realview(slow_rv_dQ[:,sv.mask_b,:])
 
   #QOld=copy(Q);
 
+  groupsize = 256
+
   # do a half step
   rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
-  if slow_δ === nothing
-    @. Qa += dQa * dt/2
-  else
-    @. Qa += (dQa + slow_rv_dQa * slow_δ) * dt/2
-  end
+  event = Event(device(Q))
+  event = update!(device(Q), groupsize)(
+      dQa,
+      Qa,
+      dt/2,
+      slow_δ,
+      slow_rv_dQa;
+      ndrange = length(Qa),
+      dependencies = (event,),
+  )
+  wait(device(Q), event)
   time += dt/2
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, 1, increment = false) #Momentum
     #rhs!(dQ, (1+gamma)*Q-gamma*QOld, p, time, 1, increment = false) #Momentum
-    if slow_δ === nothing
-      @. Qb += dQb * dt
-    else
-      @. Qb += (dQb + slow_rv_dQb * slow_δ) * dt
-    end
+    event = Event(device(Q))
+    event = update!(device(Q), groupsize)(
+        dQb,
+        Qb,
+        dt,
+        slow_δ,
+        slow_rv_dQb;
+        ndrange = length(Qb),
+        dependencies = (event,),
+    )
+    wait(device(Q), event)
     time += dt
     #copy!(QOld,Q)
     rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
     if i < nsteps
-      if slow_δ === nothing
-        @. Qa += dQa * dt
-      else
-        @. Qa += (dQa + slow_rv_dQa * slow_δ) * dt
-      end
+      event = Event(device(Q))
+      event = update!(device(Q), groupsize)(
+          dQa,
+          Qa,
+          dt,
+          slow_δ,
+          slow_rv_dQa;
+          ndrange = length(Qa),
+          dependencies = (event,),
+      )
+      wait(device(Q), event)
       time += dt
     else
-      if slow_δ === nothing
-        @. Qa += dQa * dt/2
-      else
-        @. Qa += (dQa + slow_rv_dQa * slow_δ) * dt/2
-      end
+      event = Event(device(Q))
+      event = update!(device(Q), groupsize)(
+          dQa,
+          Qa,
+          dt/2,
+          slow_δ,
+          slow_rv_dQa;
+          ndrange = length(Qa),
+          dependencies = (event,),
+      )
+      wait(device(Q), event)
       time += dt/2
     end
   end
@@ -200,6 +249,26 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
     slow_rv_dQ .*= slow_rka
   end
 end
+
+
+@kernel function update!(
+    dQ,
+    Q,
+    dt,
+    slow_δ,
+    slow_rv_dQ,
+)
+    i = @index(Global, Linear)
+    @inbounds begin
+        if slow_δ === nothing
+            Q[i] += dQ[i] * dt
+        else
+            Q[i] += (dQ[i] + slow_rv_dQ[i] * slow_δ) * dt
+        end
+    end
+end
+
+
 
 
 struct StormerVerletHEVI{T, RT, AT} <: AbstractStormerVerlet
