@@ -98,7 +98,7 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
 
     @info @sprintf """ Topography file: %s""" body_file_in
 
-    DFloat  = Float64 #NOTICE: I recommend the grid is always build in double precision even if the code is run in single 
+    FT  = Float64 #NOTICE: I recommend the grid is always build in double precision even if the code is run in single 
      
     ftopo_body = open(body_file_in)
     @info @sprintf """ Grids.jl: Opening topography file ... DONE"""
@@ -113,10 +113,10 @@ function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
     # Create array
     #
     nnodes_lon, nnodes_lat, nnodes = nlon, nlat, nlon*nlat #Linear grid
-    zTopo2d = Array{DFloat, 2}(undef, nnodes_lon, nnodes_lat)
+    zTopo2d = Array{FT, 2}(undef, nnodes_lon, nnodes_lat)
     
-    xTopo1d = Array{DFloat, 1}(undef, nnodes_lon)
-    yTopo1d = Array{DFloat, 1}(undef, nnodes_lat)
+    xTopo1d = Array{FT, 1}(undef, nnodes_lon)
+    yTopo1d = Array{FT, 1}(undef, nnodes_lat)
        
     zTopo2d = reshape(topo_body[:,3], nnodes_lon, nnodes_lat);
     #npoin = k
