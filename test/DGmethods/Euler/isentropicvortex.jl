@@ -48,6 +48,7 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     polynomialorder = 4
+    odesolver = LSRK54CarpenterKennedy
     numlevels = 2
 
     expected_error = Dict()
@@ -99,11 +100,13 @@ function main()
         for FT in (Float64,), dims in (3,)
             for NumericalFlux in (Rusanov,)
                 @info @sprintf """Configuration
-                                  ArrayType     = %s
-                                  FT        = %s
-                                  NumericalFlux = %s
-                                  dims          = %d
-                                  """ ArrayType "$FT" "$NumericalFlux" dims
+                                  ArrayType        = %s
+                                  polynomial order = %d
+                                  ode solver       = %s
+                                  FT               = %s
+                                  NumericalFlux    = %s
+                                  dims             = %d
+                                  """ ArrayType polynomialorder odesolver "$FT" "$NumericalFlux" dims
 
                 setup = IsentropicVortexSetup{FT}()
                 errors = Vector{FT}(undef, numlevels)
@@ -115,6 +118,7 @@ function main()
                         mpicomm,
                         ArrayType,
                         polynomialorder,
+                        odesolver,
                         numelems,
                         NumericalFlux,
                         setup,
@@ -155,6 +159,7 @@ function run(
     mpicomm,
     ArrayType,
     polynomialorder,
+    odesolver,
     numelems,
     NumericalFlux,
     setup,
@@ -214,19 +219,15 @@ function run(
     dt = timeend / nsteps
 
     Q = init_ode_state(dg, FT(0), setup)
-    odesolver = LSRK54CarpenterKennedy
     lsrk = odesolver(dg, Q; dt = dt, t0 = 0)
-    #lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
     dims == 2 && (numelems = (numelems..., 0))
     @info @sprintf """Starting refinement level %d
-                      polynomial order  = %d
-                      ode solver        = %d
                       numelems          = (%d, %d, %d)
                       dt                = %.16e
                       norm(Q₀)          = %.16e
-                      """ polynomialorder odesolver level numelems... dt eng0
+                      """ level numelems... dt eng0
 
     # Set up the information callback
     starttime = Ref(now())
