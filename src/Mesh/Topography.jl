@@ -76,23 +76,22 @@ end
 """
     ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
 
-    Reads the topography from a NOAA text file of shape [1:nnodes][3]
-    where the first and second column are the ordered lat-lon coordinates
-    and the third column is the height of topography at that specific
-    coordinate point.
+Reads the topography from a NOAA text file of shape [1:nnodes][3]
+where the first and second column are the ordered lat-lon coordinates
+and the third column is the height of topography at that specific
+coordinate point.
                      
-    1) XYZ files from NOAA
+1) XYZ files from NOAA
                        
-     READTOPOtxt_header() reads the parameters from the header file (*.hdr)
-     READTOPOtxt_file()   reads the actual file of coordinates      (*.xyz)
+READTOPOtxt_header() reads the parameters from the header file (*.hdr)
+READTOPOtxt_file()   reads the actual file of coordinates      (*.xyz)
                          
-     2) DEM files
-                      
-     READTOPO_DEM()       reads a DEM file from NOAA page (file extension: *.asc)
-                     
-    returns xTopo1d, yTopo1d, zTopo2d
+2) DEM files
 
- """
+READTOPO_DEM()       reads a DEM file from NOAA page (file extension: *.asc)
+
+returns xTopo1d, yTopo1d, zTopo2d
+"""
 function ReadExternalTxtCoordinates(body_file_in, TopoBathy_flg, nlon, nlat)
 
     @info @sprintf """ Topography file: %s""" body_file_in
