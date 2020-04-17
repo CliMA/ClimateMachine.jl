@@ -9,7 +9,7 @@ using ..MPIStateArrays: device, realview
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-using GPUifyLoops
+using KernelAbstractions
 
 """
     GeneralizedMinimalResidual(Q; M, rtol, atol)
@@ -36,29 +36,45 @@ This uses the restarted Generalized Minimal Residual method of Saad and Schultz 
       publisher={SIAM}
     }
 """
-mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <: LS.AbstractIterativeLinearSolver
-  krylov_basis::NTuple{MP1, AT}
-  "Hessenberg matrix"
-  H::MArray{Tuple{MP1, M}, T, 2, MMP1}
-  "rhs of the least squares problem"
-  g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
-  rtol::T
-  atol::T
+mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <:
+               LS.AbstractIterativeLinearSolver
+    krylov_basis::NTuple{MP1, AT}
+    "Hessenberg matrix"
+    H::MArray{Tuple{MP1, M}, T, 2, MMP1}
+    "rhs of the least squares problem"
+    g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
+    rtol::T
+    atol::T
 
-  function GeneralizedMinimalResidual(Q::AT; M=min(20, eltype(Q)), rtol=√eps(eltype(AT)),
-                                      atol=eps(eltype(AT))) where AT
-    krylov_basis = ntuple(i -> similar(Q), M + 1)
-    H = @MArray zeros(M + 1, M)
-    g0 = @MArray zeros(M + 1)
+    function GeneralizedMinimalResidual(
+        Q::AT;
+        M = min(20, eltype(Q)),
+        rtol = √eps(eltype(AT)),
+        atol = eps(eltype(AT)),
+    ) where {AT}
+        krylov_basis = ntuple(i -> similar(Q), M + 1)
+        H = @MArray zeros(M + 1, M)
+        g0 = @MArray zeros(M + 1)
 
-    new{M, M + 1, M * (M + 1), eltype(Q), AT}(krylov_basis, H, g0, rtol, atol)
-  end
+        new{M, M + 1, M * (M + 1), eltype(Q), AT}(
+            krylov_basis,
+            H,
+            g0,
+            rtol,
+            atol,
+        )
+    end
 end
 
 const weighted = false
 
-function LS.initialize!(linearoperator!, Q, Qrhs,
-                        solver::GeneralizedMinimalResidual, args...)
+function LS.initialize!(
+    linearoperator!,
+    Q,
+    Qrhs,
+    solver::GeneralizedMinimalResidual,
+    args...,
+)
     g0 = solver.g0
     krylov_basis = solver.krylov_basis
     rtol, atol = solver.rtol, solver.atol
@@ -75,8 +91,8 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     converged = false
     # FIXME: Should only be true for threshold zero
     if threshold < atol
-      converged = true
-      return converged, threshold
+        converged = true
+        return converged, threshold
     end
 
     fill!(g0, 0)
@@ -86,66 +102,78 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     converged, max(threshold, atol)
 end
 
-function LS.doiteration!(linearoperator!, Q, Qrhs,
-                         solver::GeneralizedMinimalResidual{M}, threshold,
-                         args...) where M
+function LS.doiteration!(
+    linearoperator!,
+    Q,
+    Qrhs,
+    solver::GeneralizedMinimalResidual{M},
+    threshold,
+    args...,
+) where {M}
 
-  krylov_basis = solver.krylov_basis
-  H = solver.H
-  g0 = solver.g0
+    krylov_basis = solver.krylov_basis
+    H = solver.H
+    g0 = solver.g0
 
-  converged = false
-  residual_norm = typemax(eltype(Q))
+    converged = false
+    residual_norm = typemax(eltype(Q))
 
-  Ω = LinearAlgebra.Rotation{eltype(Q)}([])
-  j = 1
-  for outer j = 1:M
+    Ω = LinearAlgebra.Rotation{eltype(Q)}([])
+    j = 1
+    for outer j in 1:M
 
-    # Arnoldi using the Modified Gram Schmidt orthonormalization
-    linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
-    for i = 1:j
-      H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted)
-      @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
+        # Arnoldi using the Modified Gram Schmidt orthonormalization
+        linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
+        for i in 1:j
+            H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted)
+            @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
+        end
+        H[j + 1, j] = norm(krylov_basis[j + 1], weighted)
+        krylov_basis[j + 1] ./= H[j + 1, j]
+
+        # apply the previous Givens rotations to the new column of H
+        @views H[1:j, j:j] .= Ω * H[1:j, j:j]
+
+        # compute a new Givens rotation to zero out H[j + 1, j]
+        G, _ = givens(H, j, j + 1, j)
+
+        # apply the new rotation to H and the rhs
+        H .= G * H
+        g0 .= G * g0
+
+        # compose the new rotation with the others
+        Ω = lmul!(G, Ω)
+
+        residual_norm = abs(g0[j + 1])
+
+        if residual_norm < threshold
+            converged = true
+            break
+        end
     end
-    H[j + 1, j] = norm(krylov_basis[j + 1], weighted)
-    krylov_basis[j + 1] ./= H[j + 1, j]
 
-    # apply the previous Givens rotations to the new column of H
-    @views H[1:j, j:j] .= Ω * H[1:j, j:j]
+    # solve the triangular system
+    y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
 
-    # compute a new Givens rotation to zero out H[j + 1, j]
-    G, _ = givens(H, j, j + 1, j)
+    ## compose the solution
+    rv_Q = realview(Q)
+    rv_krylov_basis = realview.(krylov_basis)
+    groupsize = 256
+    event = Event(device(Q))
+    event = LS.linearcombination!(device(Q), groupsize)(
+        rv_Q,
+        y,
+        rv_krylov_basis,
+        true;
+        ndrange = length(rv_Q),
+        dependencies = (event,),
+    )
+    wait(device(Q), event)
 
-    # apply the new rotation to H and the rhs
-    H .= G * H
-    g0 .= G * g0
+    # if not converged restart
+    converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
 
-    # compose the new rotation with the others
-    Ω = lmul!(G, Ω)
-
-    residual_norm = abs(g0[j + 1])
-
-    if residual_norm < threshold
-      converged = true
-      break
-    end
-  end
-
-  # solve the triangular system
-  y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
-
-  ## compose the solution
-  rv_Q = realview(Q)
-  rv_krylov_basis = realview.(krylov_basis)
-  threads = 256
-  blocks = div(length(rv_Q) + threads - 1, threads)
-  @launch(device(Q), threads = threads, blocks = blocks,
-          LS.linearcombination!(rv_Q, y, rv_krylov_basis, true))
-
-  # if not converged restart
-  converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
-
-  (converged, j, residual_norm)
+    (converged, j, residual_norm)
 end
 
 end

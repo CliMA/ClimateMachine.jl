@@ -102,6 +102,51 @@ conv_q_liq_to_q_rai_accr = tendency to q_rai due to accretion from q_liq [1/s]
 conv_q_rai_to_q_vap      = tendency to q_vap due to evaporation from q_rai [1/s]
 ```
 
+### 2.7 Diagnostics
+Here are suggested names in the output. Format: short name (code name) = long name
+```
+rho(ρ) = density
+u(u) = x_velocity
+v(v) = y_velocity
+w(w) = z_velocity
+qt(q_tot) = total specific humidity
+et(e_tot) = total specific energy
+qv(q_vap) = water vapor specific humidity
+ql(q_liq) = liquid water specific humidity
+ei(e_int) = specific internal energy
+thd(θ_dry) = potential temperature
+thl(θ_liq_ice) = liquid-ice potential temperature
+thv(θ_vir) = virtual potential temperature
+hm(h_moi) = specific enthalpy
+ht(h_tot) = total specific enthalpy
+
+var_u(u′u′) = variance of x-velocity
+var_v(v′v′) = variance of y-velocity
+var_w(w'w') = variance of z-velocity
+TKE(TKE) = turbulence kinetic energy
+var_qt(q_tot'q_tot') = variance of total specific humidity
+var_ei(e_int'e_int') = variance of specific internal energy
+var_thl(θ_liq_ice'θ_liq_ice') = variance of liquid-ice potential temperature
+cov_qt_thl(q_tot'θ_liq_ice') = covariance of total specific humidity and liquid-ice potential temperature
+cov_qt_ei(q_tot'e_int') = covariance of total specific humidity and specific internal energy
+w3(w′w′w′) = the third moment of z-velocity
+
+cov_w_rho(w′ρ′) = vertical flux of mass
+cov_w_u(w′u′) = vertical flux of x-velocity
+cov_w_v(w′v′) = vertical flux of y-velocity
+cov_w_qt(w'q_tot') = vertical flux of total specific humidity
+cov_w_qv(w′q_vap′) = vertical flux of water vapor specific humidity
+cov_w_ql(w′q_liq′) = vertical flux of liuqid water specific humidity
+cov_w_thd(w′θ_dry′) = vertical flux of potential temperature
+cov_w_thv(w′θ_vir′) = vertical flux of virtual temperature
+cov_w_thl(w′θ_liq_ice′) = vertical flux of liquid-ice potential temperature
+w_qt_sgs(d_q_tot) = vertical sgs flux of total specific humidity
+w_ht_sgs(d_h_tot) = vertical sgs flux of total specific enthalpy
+
+cl(cl) = cloud fraction
+clt(clt) = cloud cover
+```
+
 ### TODO
 ```
 Update with list of additional parameters / source terms as necessary

@@ -36,234 +36,269 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E)
 const statenames = ("ρ", "U", "V", "W", "E")
 const γ_exact = 7 // 5
 if !@isdefined integration_testing
-  const integration_testing =
-    parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
+    const integration_testing = parse(
+        Bool,
+        lowercase(get(ENV, "JULIA_CLIMA_INTEGRATION_TESTING", "false")),
+    )
 end
 
 # preflux computation
 @inline function preflux(Q, aux)
-  γ::eltype(Q) = γ_exact
-  @inbounds ρ, Uδ, Vδ, Wδ, E= Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-  @inbounds U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
-  ρinv = 1 / ρ
-  u, v, w = ρinv * U, ρinv * V, ρinv * W
-  ((γ-1)*(E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
+    γ::eltype(Q) = γ_exact
+    @inbounds ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+    @inbounds U, V, W = Uδ - aux[1], Vδ - aux[2], Wδ - aux[3]
+    ρinv = 1 / ρ
+    u, v, w = ρinv * U, ρinv * V, ρinv * W
+    ((γ - 1) * (E - ρinv * (U^2 + V^2 + W^2) / 2), u, v, w, ρinv)
 end
 
 @inline function computeQjump!(ΔQ, QM, auxM, QP, auxP)
-  @inbounds begin
-    ΔQ[_ρ] = QM[_ρ] - QP[_ρ]
-    ΔQ[_U] = (QM[_U] - auxM[1]) - (QP[_U] - auxP[1])
-    ΔQ[_V] = (QM[_V] - auxM[2]) - (QP[_V] - auxP[2])
-    ΔQ[_W] = (QM[_W] - auxM[3]) - (QP[_W] - auxP[3])
-    ΔQ[_E] = QM[_E] - QP[_E]
-  end
+    @inbounds begin
+        ΔQ[_ρ] = QM[_ρ] - QP[_ρ]
+        ΔQ[_U] = (QM[_U] - auxM[1]) - (QP[_U] - auxP[1])
+        ΔQ[_V] = (QM[_V] - auxM[2]) - (QP[_V] - auxP[2])
+        ΔQ[_W] = (QM[_W] - auxM[3]) - (QP[_W] - auxP[3])
+        ΔQ[_E] = QM[_E] - QP[_E]
+    end
 end
 
 @inline function auxiliary_state_initialization!(aux, x, y, z)
-  r2 = x^2 + y^2 + z^2
-  @inbounds aux[1], aux[2], aux[3] = cos(π * x), sin(π * y), cos(π * r2)
+    r2 = x^2 + y^2 + z^2
+    @inbounds aux[1], aux[2], aux[3] = cos(π * x), sin(π * y), cos(π * r2)
 end
 
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t)
-  P, u, v, w, ρinv = preflux(Q, aux)
-  γ::eltype(Q) = γ_exact
-  @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
+    P, u, v, w, ρinv = preflux(Q, aux)
+    γ::eltype(Q) = γ_exact
+    @inbounds abs(n[1] * u + n[2] * v + n[3] * w) + sqrt(ρinv * γ * P)
 end
 
 # physical flux function
 @inline function eulerflux!(F, Q, QV, aux, t)
-  P, u, v, w, ρinv = preflux(Q, aux)
-  @inbounds begin
-    ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-    U, V, W = Uδ-aux[1], Vδ-aux[2], Wδ-aux[3]
+    P, u, v, w, ρinv = preflux(Q, aux)
+    @inbounds begin
+        ρ, Uδ, Vδ, Wδ, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+        U, V, W = Uδ - aux[1], Vδ - aux[2], Wδ - aux[3]
 
-    F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
-    F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
-    F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
-    F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-    F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-  end
+        F[1, _ρ], F[2, _ρ], F[3, _ρ] = U, V, W
+        F[1, _U], F[2, _U], F[3, _U] = u * U + P, v * U, w * U
+        F[1, _V], F[2, _V], F[3, _V] = u * V, v * V + P, w * V
+        F[1, _W], F[2, _W], F[3, _W] = u * W, v * W, w * W + P
+        F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
+    end
 end
 
 # initial condition
 const halfperiod = 5
 function isentropicvortex!(Q, t, x, y, z, aux)
-  FT = eltype(Q)
+    FT = eltype(Q)
 
-  γ::FT    = γ_exact
-  uinf::FT = 2
-  vinf::FT = 1
-  Tinf::FT = 1
-  λ::FT    = 5
+    γ::FT = γ_exact
+    uinf::FT = 2
+    vinf::FT = 1
+    Tinf::FT = 1
+    λ::FT = 5
 
-  xs = x - uinf*t
-  ys = y - vinf*t
+    xs = x - uinf * t
+    ys = y - vinf * t
 
-  # make the function periodic
-  xtn = floor((xs+halfperiod)/(2halfperiod))
-  ytn = floor((ys+halfperiod)/(2halfperiod))
-  xp = xs - xtn*2*halfperiod
-  yp = ys - ytn*2*halfperiod
+    # make the function periodic
+    xtn = floor((xs + halfperiod) / (2halfperiod))
+    ytn = floor((ys + halfperiod) / (2halfperiod))
+    xp = xs - xtn * 2 * halfperiod
+    yp = ys - ytn * 2 * halfperiod
 
-  rsq = xp^2 + yp^2
+    rsq = xp^2 + yp^2
 
-  u = uinf - λ*(1//2)*exp(1-rsq)*yp/π
-  v = vinf + λ*(1//2)*exp(1-rsq)*xp/π
-  w = zero(FT)
+    u = uinf - λ * (1 // 2) * exp(1 - rsq) * yp / π
+    v = vinf + λ * (1 // 2) * exp(1 - rsq) * xp / π
+    w = zero(FT)
 
-  ρ = (Tinf - ((γ-1)*λ^2*exp(2*(1-rsq))/(γ*16*π*π)))^(1/(γ-1))
-  p = ρ^γ
-  U = ρ*u + aux[1]
-  V = ρ*v + aux[2]
-  W = ρ*w + aux[3]
-  E = p/(γ-1) + (1//2)*ρ*(u^2 + v^2 + w^2)
+    ρ =
+        (
+            Tinf - ((γ - 1) * λ^2 * exp(2 * (1 - rsq)) / (γ * 16 * π * π))
+        )^(1 / (γ - 1))
+    p = ρ^γ
+    U = ρ * u + aux[1]
+    V = ρ * v + aux[2]
+    W = ρ * w + aux[3]
+    E = p / (γ - 1) + (1 // 2) * ρ * (u^2 + v^2 + w^2)
 
-  @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E] = ρ, U, V, W, E
 
 end
 
-function main(mpicomm, FT, topl::AbstractTopology{dim}, N, timeend,
-              ArrayType, dt) where {dim}
+function main(
+    mpicomm,
+    FT,
+    topl::AbstractTopology{dim},
+    N,
+    timeend,
+    ArrayType,
+    dt,
+) where {dim}
 
-  grid = DiscontinuousSpectralElementGrid(topl,
-                                          FloatType = FT,
-                                          DeviceArray = ArrayType,
-                                          polynomialorder = N,
-                                         )
+    grid = DiscontinuousSpectralElementGrid(
+        topl,
+        FloatType = FT,
+        DeviceArray = ArrayType,
+        polynomialorder = N,
+    )
 
-  # spacedisc = data needed for evaluating the right-hand side function
-  spacedisc = DGBalanceLaw(grid = grid,
-                           length_state_vector = _nstate,
-                           flux! = eulerflux!,
-                           numerical_flux! = (x...) ->
-                           NumericalFluxes.rusanov!(x..., eulerflux!,
-                                                    wavespeed,
-                                                    computeQjump!),
-                           auxiliary_state_length = 3,
-                           auxiliary_state_initialization! =
-                           auxiliary_state_initialization!,
-                          )
+    # spacedisc = data needed for evaluating the right-hand side function
+    spacedisc = DGBalanceLaw(
+        grid = grid,
+        length_state_vector = _nstate,
+        flux! = eulerflux!,
+        numerical_flux! = (x...) -> NumericalFluxes.rusanov!(
+            x...,
+            eulerflux!,
+            wavespeed,
+            computeQjump!,
+        ),
+        auxiliary_state_length = 3,
+        auxiliary_state_initialization! = auxiliary_state_initialization!,
+    )
 
-  # This is a actual state/function that lives on the grid
-  initialcondition(Q, x...) = isentropicvortex!(Q, 0, x...)
-  Q = MPIStateArray(spacedisc, initialcondition)
+    # This is a actual state/function that lives on the grid
+    initialcondition(Q, x...) = isentropicvortex!(Q, 0, x...)
+    Q = MPIStateArray(spacedisc, initialcondition)
 
-  lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
-  eng0 = norm(Q)
-  @info @sprintf """Starting
-  norm(Q₀) = %.16e""" eng0
+    eng0 = norm(Q)
+    @info @sprintf """Starting
+    norm(Q₀) = %.16e""" eng0
 
-  # Set up the information callback
-  starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
-    if s
-      starttime[] = now()
-    else
-      energy = norm(Q)
-      @info @sprintf """Update
-  simtime = %.16e
-  runtime = %s
-  norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(convert(Dates.DateTime, Dates.now()-starttime[]), Dates.dateformat"HH:MM:SS") energy
+    # Set up the information callback
+    starttime = Ref(now())
+    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s = false)
+        if s
+            starttime[] = now()
+        else
+            energy = norm(Q)
+            @info @sprintf """Update
+        simtime = %.16e
+        runtime = %s
+        norm(Q) = %.16e""" ODESolvers.gettime(lsrk) Dates.format(
+                convert(Dates.DateTime, Dates.now() - starttime[]),
+                Dates.dateformat"HH:MM:SS",
+            ) energy
+        end
     end
-  end
 
-  #= Paraview calculators:
-  P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
-  theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
-  =#
-  step = [0]
-  mkpath("vtk")
-  cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
-    outprefix = @sprintf("vtk/isentropicvortex_aux_%dD_mpirank%04d_step%04d",
-                         dim, MPI.Comm_rank(mpicomm), step[1])
-    @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, spacedisc, statenames,
-             spacedisc.auxstate, ("aU", "aV", "aW"))
-    step[1] += 1
-    nothing
-  end
+    #= Paraview calculators:
+    P = (0.4) * (E  - (U^2 + V^2 + W^2) / (2*ρ) - 9.81 * ρ * coordsZ)
+    theta = (100000/287.0024093890231) * (P / 100000)^(1/1.4) / ρ
+    =#
+    step = [0]
+    mkpath("vtk")
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init = false)
+        outprefix = @sprintf(
+            "vtk/isentropicvortex_aux_%dD_mpirank%04d_step%04d",
+            dim,
+            MPI.Comm_rank(mpicomm),
+            step[1]
+        )
+        @debug "doing VTK output" outprefix
+        writevtk(
+            outprefix,
+            Q,
+            spacedisc,
+            statenames,
+            spacedisc.auxstate,
+            ("aU", "aV", "aW"),
+        )
+        step[1] += 1
+        nothing
+    end
 
-  # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
-  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+    # solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, ))
+    solve!(Q, lsrk; timeend = timeend, callbacks = (cbinfo, cbvtk))
 
-  # Print some end of the simulation information
-  engf = norm(Q)
-  Qe = MPIStateArray(spacedisc,
-                     (Q, x...) -> isentropicvortex!(Q, timeend, x...))
-  engfe = norm(Qe)
-  errf = euclidean_distance(Q, Qe)
-  @info @sprintf """Finished
-  norm(Q)                 = %.16e
-  norm(Q) / norm(Q₀)      = %.16e
-  norm(Q) - norm(Q₀)      = %.16e
-  norm(Q - Qe)            = %.16e
-  norm(Q - Qe) / norm(Qe) = %.16e
-  """ engf engf/eng0 engf-eng0 errf errf / engfe
-  errf
+    # Print some end of the simulation information
+    engf = norm(Q)
+    Qe = MPIStateArray(
+        spacedisc,
+        (Q, x...) -> isentropicvortex!(Q, timeend, x...),
+    )
+    engfe = norm(Qe)
+    errf = euclidean_distance(Q, Qe)
+    @info @sprintf """Finished
+    norm(Q)                 = %.16e
+    norm(Q) / norm(Q₀)      = %.16e
+    norm(Q) - norm(Q₀)      = %.16e
+    norm(Q - Qe)            = %.16e
+    norm(Q - Qe) / norm(Qe) = %.16e
+    """ engf engf / eng0 engf - eng0 errf errf / engfe
+    errf
 end
 
 function run(mpicomm, ArrayType, dim, Ne, N, timeend, FT, dt)
-  brickrange = ntuple(j->range(FT(-halfperiod); length=Ne[j]+1,
-                               stop=halfperiod), dim)
-  topl = BrickTopology(mpicomm, brickrange, periodicity=ntuple(j->true, dim))
-  main(mpicomm, FT, topl, N, timeend, ArrayType, dt)
+    brickrange = ntuple(
+        j -> range(FT(-halfperiod); length = Ne[j] + 1, stop = halfperiod),
+        dim,
+    )
+    topl =
+        BrickTopology(mpicomm, brickrange, periodicity = ntuple(j -> true, dim))
+    main(mpicomm, FT, topl, N, timeend, ArrayType, dt)
 end
 
 using Test
 let
-  CLIMA.init()
-  ArrayTypes = (CLIMA.array_type(),)
+    CLIMA.init()
+    ArrayTypes = (CLIMA.array_type(),)
 
-  mpicomm = MPI.COMM_WORLD
-  ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-  loglevel = ll == "DEBUG" ? Logging.Debug :
-  ll == "WARN"  ? Logging.Warn  :
-  ll == "ERROR" ? Logging.Error : Logging.Info
-  logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-  global_logger(ConsoleLogger(logger_stream, loglevel))
+    mpicomm = MPI.COMM_WORLD
 
-  timeend = 1
-  numelem = (5, 5, 1)
+    timeend = 1
+    numelem = (5, 5, 1)
 
-  polynomialorder = 4
+    polynomialorder = 4
 
-  expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
-  expected_error[1,1] = 5.7115689019456284e-01
-  expected_error[1,2] = 6.9418982796501105e-02
-  expected_error[1,3] = 3.2927550219120443e-03
-  expected_error[2,1] = 1.8061566743070017e+00
-  expected_error[2,2] = 2.1952209848914694e-01
-  expected_error[2,3] = 1.0412605646170595e-02
-  lvls = integration_testing ? size(expected_error, 2) : 1
+    expected_error = Array{Float64}(undef, 2, 3) # dim-1, lvl
+    expected_error[1, 1] = 5.7115689019456284e-01
+    expected_error[1, 2] = 6.9418982796501105e-02
+    expected_error[1, 3] = 3.2927550219120443e-03
+    expected_error[2, 1] = 1.8061566743070017e+00
+    expected_error[2, 2] = 2.1952209848914694e-01
+    expected_error[2, 3] = 1.0412605646170595e-02
+    lvls = integration_testing ? size(expected_error, 2) : 1
 
-  @testset "$(@__FILE__)" for ArrayType in ArrayTypes
-    for FT in (Float64,) #Float32)
-      for dim = 2:3
-        err = zeros(FT, lvls)
-        for l = 1:lvls
-          Ne = ntuple(j->2^(l-1) * numelem[j], dim)
-          dt = 1e-2 / Ne[1]
-          nsteps = ceil(Int64, timeend / dt)
-          dt = timeend / nsteps
-          @info (ArrayType, FT, dim)
-          err[l] = run(mpicomm, ArrayType, dim, Ne, polynomialorder, timeend,
-                       FT, dt)
-          @test err[l] ≈ FT(expected_error[dim-1, l])
+    @testset "$(@__FILE__)" for ArrayType in ArrayTypes
+        for FT in (Float64,) #Float32)
+            for dim in 2:3
+                err = zeros(FT, lvls)
+                for l in 1:lvls
+                    Ne = ntuple(j -> 2^(l - 1) * numelem[j], dim)
+                    dt = 1e-2 / Ne[1]
+                    nsteps = ceil(Int64, timeend / dt)
+                    dt = timeend / nsteps
+                    @info (ArrayType, FT, dim)
+                    err[l] = run(
+                        mpicomm,
+                        ArrayType,
+                        dim,
+                        Ne,
+                        polynomialorder,
+                        timeend,
+                        FT,
+                        dt,
+                    )
+                    @test err[l] ≈ FT(expected_error[dim - 1, l])
+                end
+                @info begin
+                    msg = ""
+                    for l in 1:(lvls - 1)
+                        rate = log2(err[l]) - log2(err[l + 1])
+                        msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+                    end
+                    msg
+                end
+            end
         end
-        @info begin
-          msg = ""
-          for l = 1:lvls-1
-            rate = log2(err[l]) - log2(err[l+1])
-            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-          end
-          msg
-        end
-      end
     end
-  end
 end
 
 nothing

@@ -8,7 +8,6 @@ using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using LinearAlgebra
 using Random
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 
 include("advection_diffusion_model.jl")
 
@@ -81,11 +80,11 @@ function run(adv, diff, topo, mpicomm, ArrayType, FT, polynomialorder, Ne, level
 
   dgmodels = map(models) do m
     (dg=create_dg(m, grid, EveryDirection()),
-     vdg=create_dg(m, grid, VerticalDirection()), 
+     vdg=create_dg(m, grid, VerticalDirection()),
      hdg=create_dg(m, grid, HorizontalDirection()))
   end
 
-  Q = init_ode_state(dgmodels.p.dg, FT(0), forcecpu=true)
+  Q = init_ode_state(dgmodels.p.dg, FT(0), init_on_cpu=true)
 
   # evaluate all combinations
   dQ = map(x->map(dg->(dQ=similar(Q); dg(dQ, Q, nothing, FT(0)); dQ), x), dgmodels)

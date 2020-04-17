@@ -3,7 +3,8 @@ include("../testhelpers.jl")
 
 @testset "Ocean" begin
   tests = [
-    # (1,"Hydrostatic_Boussinesq/test_divergence_free.jl"),
+    (1,"HydrostaticBoussinesq/test_divergence_free.jl"),
+    (1,"HydrostaticBoussinesq/test_ocean_gyre.jl")
     # (1,"shallow_water/GyreDriver.jl"),
    ]
 

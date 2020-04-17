@@ -1,20 +1,4 @@
-module SimpleBox
-
 export SimpleBoxProblem, HomogeneousBox, OceanGyre
-
-using StaticArrays
-using CLIMA.HydrostaticBoussinesq
-
-import CLIMA.HydrostaticBoussinesq: ocean_init_aux!, ocean_init_state!,
-                                    ocean_boundary_state!,
-                                    CoastlineFreeSlip, CoastlineNoSlip,
-                                    OceanFloorFreeSlip, OceanFloorNoSlip,
-                                    OceanSurfaceNoStressNoForcing,
-                                    OceanSurfaceStressNoForcing,
-                                    OceanSurfaceNoStressForcing,
-                                    OceanSurfaceStressForcing
-
-HBModel = HydrostaticBoussinesqModel
 
 ############################
 # Basic box problem        #
@@ -30,10 +14,46 @@ Lˣ = zonal (east-west) length
 Lʸ = meridional (north-south) length
 H  = height of the ocean
 """
-struct SimpleBoxProblem{T} <: AbstractSimpleBoxProblem
-  Lˣ::T
-  Lʸ::T
-  H::T
+struct SimpleBox{T, BC} <: AbstractSimpleBoxProblem
+    Lˣ::T
+    Lʸ::T
+    H::T
+    boundary_condition::BC
+    function SimpleBox{FT}(
+        Lˣ,
+        Lʸ,
+        H;
+        BC = (
+            CoastlineNoSlip(),
+            OceanFloorNoSlip(),
+            OceanSurfaceNoStressNoForcing(),
+        ),
+    ) where {FT <: AbstractFloat}
+        return new{FT, typeof(BC)}(Lˣ, Lʸ, H, BC)
+    end
+end
+
+"""
+    ocean_init_aux!(::HBModel, ::AbstractSimpleBoxProblem)
+
+save y coordinate for computing coriolis, wind stress, and sea surface temperature
+
+# Arguments
+- `m`: model object to dispatch on and get viscosities and diffusivities
+- `p`: problem object to dispatch on and get additional parameters
+- `A`: auxiliary state vector
+- `geom`: geometry stuff
+"""
+function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
+    FT = eltype(A)
+    @inbounds A.y = geom.coord[2]
+
+    # not sure if this is needed but getting weird intialization stuff
+    A.w = 0
+    A.pkin = 0
+    A.wz0 = 0
+
+    return nothing
 end
 
 ##########################
@@ -52,38 +72,25 @@ H  = height of the ocean
 fₒ = first coriolis parameter (constant term)
 β  = second coriolis parameter (linear term)
 """
-struct HomogeneousBox{T} <: AbstractSimpleBoxProblem
-  Lˣ::T
-  Lʸ::T
-  H::T
-  τₒ::T
-  fₒ::T
-  β::T
-  function HomogeneousBox{FT}(Lˣ, Lʸ, H;
-                                    τₒ = FT(1e-1),  # (m/s)^2
-                                    fₒ = FT(1e-4),  # Hz
-                                    β  = FT(1e-11), # Hz / m)
-                                    ) where {FT <: AbstractFloat}
-    return new{FT}(Lˣ, Lʸ, H, τₒ, fₒ, β)
-  end
-end
-
-"""
-    ocean_boundary_state!(::HBModel, ::HomogeneousBox)
-
-dispatches to the correct boundary condition based on bctype
-bctype 1 => Coastline => Apply No Slip BC conditions
-bctype 2 => OceanFloor => Apply Free Slip BC conditions
-bctype 3 => OceanSurface => Apply Windstress but not temperature forcing
-"""
-@inline function ocean_boundary_state!(m::HBModel, p::HomogeneousBox, bctype, x...)
-  if bctype == 1
-    return ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-  elseif bctype == 2
-    return ocean_boundary_state!(m, OceanFloorFreeSlip(), x...)
-  elseif bctype == 3
-    return ocean_boundary_state!(m, OceanSurfaceStressNoForcing(), x...)
-  end
+struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
+    Lˣ::T
+    Lʸ::T
+    H::T
+    τₒ::T
+    boundary_condition::BC
+    function HomogeneousBox{FT}(
+        Lˣ,
+        Lʸ,
+        H;
+        τₒ = FT(1e-1),  # (m/s)^2
+        BC = (
+            CoastlineNoSlip(),
+            OceanFloorNoSlip(),
+            OceanSurfaceStressNoForcing(),
+        ),
+    ) where {FT <: AbstractFloat}
+        return new{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, BC)
+    end
 end
 
 """
@@ -92,48 +99,31 @@ end
 initialize u,v with random values, η with 0, and θ with a constant (20)
 
 # Arguments
-- `p`: HomogeneousBox problem object, used to dispatch on 
+- `p`: HomogeneousBox problem object, used to dispatch on
 - `Q`: state vector
-- `A`: auxiliary state vector, not used 
+- `A`: auxiliary state vector, not used
 - `coords`: the coordidinates, not used
-- `t`: time to evaluate at, not used 
+- `t`: time to evaluate at, not used
 """
 function ocean_init_state!(p::HomogeneousBox, Q, A, coords, t)
-  Q.u = @SVector [rand(),rand()]
-  Q.η = 0
-  Q.θ = 20
+    Q.u = @SVector [rand(), rand()]
+    Q.η = 0
+    Q.θ = 20
+
+    return nothing
 end
 
 """
-    ocean_init_aux!(::HBModel, ::HomgoneousBox)
+    kinematic_stress(::HomogeneousBox)
 
-initiaze auxiliary states
 jet stream like windstress
-northern hemisphere coriolis
-cool-warm north-south linear temperature gradient
 
 # Arguments
-- `m`: model object to dispatch on and get viscosities and diffusivities
 - `p`: problem object to dispatch on and get additional parameters
-- `A`: auxiliary state vector
-- `geom`: geometry stuff
+- `y`: y-coordinate in the box
 """
-# aux is Filled afer the state
-function ocean_init_aux!(m::HBModel, p::HomogeneousBox, A, geom)
-  FT = eltype(A)
-  @inbounds y = geom.coord[2]
-
-  Lʸ = p.Lʸ
-  τₒ = p.τₒ
-  fₒ = p.fₒ
-  β  = p.β
-
-  A.τ  = -τₒ * cos(y * π / Lʸ)
-  A.f  =  fₒ + β * y
-
-  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
-  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
-end
+@inline kinematic_stress(p::HomogeneousBox, y, ρ) =
+    -(p.τₒ / ρ) * cos(y * π / p.Lʸ)
 
 ##########################
 # Homogenous wind stress #
@@ -148,47 +138,32 @@ Lˣ = zonal (east-west) length
 Lʸ = meridional (north-south) length
 H  = height of the ocean
 τₒ = maximum value of wind-stress (amplitude)
-fₒ = first coriolis parameter (constant term)
-β  = second coriolis parameter (linear term)
 λʳ = temperature relaxation penetration constant (meters / second)
 θᴱ = maximum surface temperature
 """
-struct OceanGyre{T} <: AbstractSimpleBoxProblem
-  Lˣ::T
-  Lʸ::T
-  H::T
-  τₒ::T
-  fₒ::T
-  β::T
-  λʳ::T
-  θᴱ::T
-  function OceanGyre{FT}(Lˣ, Lʸ, H;
-                         τₒ = FT(1e-1),       # (m/s)^2
-                         fₒ = FT(1e-4),       # Hz
-                         β  = FT(1e-11),      # Hz / m
-                         λʳ = FT(4 // 86400), # m / s
-                         θᴱ = FT(25),         # K
-                         ) where {FT <: AbstractFloat}
-    return new{FT}(Lˣ, Lʸ, H, τₒ, fₒ, β, λʳ, θᴱ)
-  end
-end
-
-"""
-    ocean_boundary_state(::HBModel, ::OceanGyre)
-
-dispatches to the correct boundary condition based on bctype
-bctype 1 => Coastline => Apply No Slip BC conditions
-bctype 2 => OceanFloor => Apply Free Slip BC conditions
-bctype 3 => OceanSurface => Apply wind-stress and  temperature forcing
-"""
-@inline function ocean_boundary_state!(m::HBModel, p::OceanGyre, bctype, x...)
-  if bctype == 1
-    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-  elseif bctype == 2
-    ocean_boundary_state!(m, OceanFloorNoSlip(), x...)
-  elseif bctype == 3
-    ocean_boundary_state!(m, OceanSurfaceStressForcing(), x...)
-  end
+struct OceanGyre{T, BC} <: AbstractSimpleBoxProblem
+    Lˣ::T
+    Lʸ::T
+    H::T
+    τₒ::T
+    λʳ::T
+    θᴱ::T
+    boundary_condition::BC
+    function OceanGyre{FT}(
+        Lˣ,
+        Lʸ,
+        H;
+        τₒ = FT(1e-1),       # (m/s)^2
+        λʳ = FT(4 // 86400), # m / s
+        θᴱ = FT(10),         # K
+        BC = (
+            CoastlineNoSlip(),
+            OceanFloorNoSlip(),
+            OceanSurfaceStressForcing(),
+        ),
+    ) where {FT <: AbstractFloat}
+        return new{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ, BC)
+    end
 end
 
 """
@@ -201,48 +176,42 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
 - `coords`: the coordidinates
-- `t`: time to evaluate at, not used 
+- `t`: time to evaluate at, not used
 """
 function ocean_init_state!(p::OceanGyre, Q, A, coords, t)
-  @inbounds z = coords[3]
-  @inbounds H = p.H
+    @inbounds y = coords[2]
+    @inbounds z = coords[3]
+    @inbounds H = p.H
 
-  Q.u = @SVector [0,0]
-  Q.η = 0
-  Q.θ = 9 + 8z/H
+    Q.u = @SVector [0, 0]
+    Q.η = 0
+    Q.θ = (5 + 4 * cos(y * π / p.Lʸ)) * (1 + z / H)
+
+    return nothing
 end
 
 """
-    ocean_init_aux!(::HBModel, ::OceanGyre)
+    kinematic_stress(::OceanGyre)
 
-initiaze auxiliary states
 jet stream like windstress
-northern hemisphere coriolis
+
+# Arguments
+- `p`: problem object to dispatch on and get additional parameters
+- `y`: y-coordinate in the box
+"""
+@inline kinematic_stress(p::OceanGyre, y, ρ) = -(p.τₒ / ρ) * cos(y * π / p.Lʸ)
+
+"""
+    temperature_flux(::OceanGyre)
+
 cool-warm north-south linear temperature gradient
 
 # Arguments
-- `m`: model object to dispatch on and get viscosities and diffusivities
 - `p`: problem object to dispatch on and get additional parameters
-- `A`: auxiliary state vector
-- `geom`: geometry stuff
+- `y`: y-coordinate in the box
+- `θ`: temperature within element on boundary
 """
-# aux is Filled afer the state
-function ocean_init_aux!(m::HBModel, p::OceanGyre, A, geom)
-  FT = eltype(A)
-  @inbounds y = geom.coord[2]
-
-  Lʸ = p.Lʸ
-  τₒ = p.τₒ
-  fₒ = p.fₒ
-  β  = p.β
-  θᴱ = p.θᴱ
-
-  A.τ  = -τₒ * cos(y * π / Lʸ)
-  A.f  =  fₒ + β * y
-  A.θʳ =  θᴱ * (1 - y / Lʸ)
-
-  A.ν = @SVector [m.νʰ, m.νʰ, m.νᶻ]
-  A.κ = @SVector [m.κʰ, m.κʰ, m.κᶻ]
-end
-
+@inline function temperature_flux(p::OceanGyre, y, θ)
+    θʳ = p.θᴱ * (1 - y / p.Lʸ)
+    return p.λʳ * (θʳ - θ)
 end
