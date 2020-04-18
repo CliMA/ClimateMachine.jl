@@ -166,17 +166,20 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 2
-    # Domain resolution and size
-    Δx = FT(200) #FT(20)
-    Δy = FT(200)
-    Δz = FT(100)
-    resolution = (Δx, Δy, Δz)
+    N = 4
+    # Number of elements in each direction
+    Ne = (20, 0, 10)
     # Domain extents
     xmin = FT(-20000)
     xmax = FT(20000)
-    ymax = FT(400)
     zmax = FT(15600)
+    # Domain resolution is the average node spacing in the elements
+    Δx = (xmax - xmin) / (N * Ne[1])
+    Δz = FT(zmax) / (N * Ne[3])
+    # Force the y resolution to be the same as the x with a single element
+    Δy = Δx
+    ymax = Δy * N
+    resolution = (Δx, Δy, Δz)
     # Mountain parameters
     hm = FT(400)
     a = FT(1000) #FT(10000)
