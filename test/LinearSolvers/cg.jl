@@ -8,6 +8,7 @@ using CLIMA.LinearSolvers
 using CLIMA.ConjugateGradientSolver
 using CLIMA.MPIStateArrays
 using Random
+Random.seed!(1235)
 
 let
     CLIMA.init()
@@ -110,7 +111,6 @@ let
 
     tup = (3, 4, 7, 2, 20, 2)
 
-    Random.seed!(1235)
     B = [
         randn(tup[3] * tup[5], tup[3] * tup[5])
         for i1 in 1:tup[1], i2 in 1:tup[2], i4 in 1:tup[4], i6 in 1:tup[6]
