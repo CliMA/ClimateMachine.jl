@@ -40,7 +40,7 @@ mutable struct EulerOperator{F, FT}
 end
 
 function (op::EulerOperator)(LQ, Q, args...)
-    op.f!(LQ, Q, args..., increment = false)
+    op.f!(LQ, Q, args...; increment = false)
     @. LQ = Q + op.ϵ * LQ
 end
 

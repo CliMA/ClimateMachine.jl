@@ -1,6 +1,6 @@
 Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
-using CLIMA, Documenter
+using CLIMA, Documenter, Literate
 
 # TODO: Add generated examples back
 # include("generate.jl")
@@ -11,6 +11,17 @@ GENERATED_BL_EXAMPLES = [
     f in ("ex_001_periodic_advection.md", "ex_002_solid_body_rotation.md")
 ]
 GENERATED_BL_EXAMPLES = filter!(x -> isfile(x), GENERATED_BL_EXAMPLES)
+
+# Literate examples created in their own literate_example directory for now
+const examples_directory = joinpath(@__DIR__, "..", "literate_examples")
+const output_directory = joinpath(@__DIR__, "src", "generated")
+# read the examples in the directory
+examples = readdir(examples_directory)
+
+for example in examples
+    example_filepath = joinpath(examples_directory, example)
+    Literate.markdown(example_filepath, output_directory, documenter = true)
+end
 
 pages = Any[
     "Home" => "index.md",
@@ -30,7 +41,15 @@ pages = Any[
     "Arrays" => "Arrays.md",
     "DGmethods_old" => "DGmethods_old.md",
     "InputOutput.md",
+    "Examples" => [
+        "Conjugate Gradient" => "generated/example_cg.md",
+        "Notes on Literate" => "generated/literate_markdown.md",
+    ],
     "Developer docs" => Any[
+        "Contribution Guides" => Any[
+            "ContributionGuides/CONTRIBUTING.md",
+            "ContributionGuides/IterativeSolvers.md",
+        ],
         "CodingConventions.md",
         "AcceptableUnicode.md",
         "VariableList.md",

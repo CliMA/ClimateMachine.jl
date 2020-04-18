@@ -12,6 +12,7 @@ using StaticArrays
 using KernelAbstractions
 
 """
+# Conjugate Residual
     GeneralizedConjugateResidual(K, Q; rtol, atol)
 
 This is an object for solving linear systems using an iterative Krylov method.
