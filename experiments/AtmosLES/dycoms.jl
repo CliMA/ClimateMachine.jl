@@ -216,7 +216,7 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     u, v, w = ugeo, vgeo, FT(0)
 
     # Perturb initial state to break symmetry and trigger turbulent convection
-    r1 = FT(rand(Uniform(-0.002, 0.002)))
+    r1 = FT(rand(Uniform(-0.001, 0.001)))
     if z <= 200.0
         θ_liq += r1 * θ_liq
     end
@@ -302,7 +302,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5),
+        moisture = EquilMoist{FT}(maxiter = 1, tolerance=FT(100)),
         radiation = radiation,
         source = source,
         boundarycondition = (
