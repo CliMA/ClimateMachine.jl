@@ -85,12 +85,12 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
   rhs!, dQ = sv.rhs!, sv.dQ
   gamma = sv.gamma
 
-  Qa = realview(Q.realdata[:,sv.mask_a,:])
-  Qb = realview(Q.realdata[:,sv.mask_b,:])
-  dQa = realview(dQ.realdata[:,sv.mask_a,:])
-  dQb = realview(dQ.realdata[:,sv.mask_b,:])
-  slow_rv_dQa = realview(slow_rv_dQ[:,sv.mask_a,:])
-  slow_rv_dQb = realview(slow_rv_dQ[:,sv.mask_b,:])
+  Qa = realview(Q[:,sv.mask_a,:])
+  Qb = realview(Q[:,sv.mask_b,:])
+  dQa = @view(dQ.realdata[:,sv.mask_a,:])
+  dQb = @view(dQ.realdata[:,sv.mask_b,:])
+  slow_rv_dQa = slow_rv_dQ[:,sv.mask_a,:]
+  slow_rv_dQb = slow_rv_dQ[:,sv.mask_b,:]
 
   groupsize = 256
 
@@ -108,6 +108,7 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
   )
   wait(device(Q), event)
   time += dt/2
+  Q.realdata[:,sv.mask_a,:].=Qa
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, increment = false)
@@ -123,6 +124,7 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
     )
     wait(device(Q), event)
     time += dt
+    Q.realdata[:,sv.mask_b,:].=Qb
 
     rhs!(dQ, Q, p, time, increment = false)
     if i < nsteps
@@ -152,6 +154,7 @@ function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
       wait(device(Q), event)
       time += dt/2
     end
+    Q.realdata[:,sv.mask_a,:].=Qa
   end
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
@@ -174,12 +177,12 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
   rhs!, dQ = sv.rhs!, sv.dQ
   #gamma = sv.gamma
 
-  Qa = realview(Q.realdata[:,sv.mask_a,:])
-  Qb = realview(Q.realdata[:,sv.mask_b,:])
-  dQa = realview(dQ.realdata[:,sv.mask_a,:])
-  dQb = realview(dQ.realdata[:,sv.mask_b,:])
-  slow_rv_dQa = realview(slow_rv_dQ[:,sv.mask_a,:])
-  slow_rv_dQb = realview(slow_rv_dQ[:,sv.mask_b,:])
+  Qa = realview(Q[:,sv.mask_a,:])
+  Qb = realview(Q[:,sv.mask_b,:])
+  dQa = @view(dQ.realdata[:,sv.mask_a,:])
+  dQb = @view(dQ.realdata[:,sv.mask_b,:])
+  slow_rv_dQa = slow_rv_dQ[:,sv.mask_a,:]
+  slow_rv_dQb = slow_rv_dQ[:,sv.mask_b,:]
 
   #QOld=copy(Q);
 
@@ -199,6 +202,7 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
   )
   wait(device(Q), event)
   time += dt/2
+  Q.realdata[:,sv.mask_a,:].=Qa
 
   for i = 1:nsteps
     rhs!(dQ, Q, p, time, 1, increment = false) #Momentum
@@ -215,6 +219,8 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
     )
     wait(device(Q), event)
     time += dt
+    Q.realdata[:,sv.mask_b,:].=Qb
+
     #copy!(QOld,Q)
     rhs!(dQ, Q, p, time, 2, increment = false) #Thermo
     if i < nsteps
@@ -244,6 +250,7 @@ function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
       wait(device(Q), event)
       time += dt/2
     end
+    Q.realdata[:,sv.mask_a,:].=Qa
   end
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
