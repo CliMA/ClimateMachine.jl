@@ -248,8 +248,8 @@ function compute_diagnosticsums!(
     ds.vvariance += MH * (v - ṽ)^2
     ds.wvariance += MH * (w - w̃)^2
 
-    # skewness
-    ds.wskew += MH * (w - w̃)^3
+    # third moment of w'
+    ds.www += MH * (w - w̃)^3
 
     # turbulent kinetic energy
     ds.TKE = 0.5 * (ds.uvariance + ds.vvariance + ds.wvariance)

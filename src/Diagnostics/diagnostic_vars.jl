@@ -36,8 +36,8 @@ function vars_diagnostic(FT)
         vvariance::FT          # v′v′
         wvariance::FT          # w′w′
 
-        # skewness
-        wskew::FT              # w′w′w′
+        # third moment of w'
+        www::FT              # w′w′w′
 
         # turbulent kinetic energy
         TKE::FT
