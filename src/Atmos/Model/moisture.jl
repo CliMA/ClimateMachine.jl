@@ -92,7 +92,7 @@ Assumes the moisture components is in the dry limit.
 """
 struct DryModel{FT} <: MoistureModel end
 
-vars_aux(::DryModel, FT) = @vars(θ_v::FT, air_T::FT)
+vars_aux(::DryModel, FT) = @vars(θ_v::FT, air_T::FT,enthalpy::FT)
 @inline function atmos_nodal_update_aux!(
     moist::DryModel,
     atmos::AtmosModel,
@@ -104,6 +104,7 @@ vars_aux(::DryModel, FT) = @vars(θ_v::FT, air_T::FT)
     ts = PhaseDry(e_int, state.ρ, atmos.param_set)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.air_T = air_temperature(ts)
+    aux.moisture.enthalpy = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
     nothing
 end
 
@@ -141,7 +142,7 @@ EquilMoist{FT}(;
 vars_state(::EquilMoist, FT) = @vars(ρq_tot::FT)
 vars_gradient(::EquilMoist, FT) = @vars(q_tot::FT, h_tot::FT)
 vars_diffusive(::EquilMoist, FT) = @vars(∇q_tot::SVector{3, FT})
-vars_aux(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
+vars_aux(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT,enthalpy::FT)
 
 @inline function atmos_nodal_update_aux!(
     moist::EquilMoist,
@@ -163,6 +164,7 @@ vars_aux(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
+    aux.moisture.enthalpy = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
     nothing
 end
 
