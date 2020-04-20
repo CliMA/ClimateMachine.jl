@@ -53,6 +53,7 @@ pages = Any[
         "CodingConventions.md",
         "AcceptableUnicode.md",
         "VariableList.md",
+        "DiagnosticVariables.md",
     ],
 ]
 
