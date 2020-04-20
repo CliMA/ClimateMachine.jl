@@ -181,10 +181,10 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
 
     for s in 1:length(RKA)
         stage_time = time + RKC[s] * dt
-        rhs!(dQ, Q, mrip.p, stage_time, increment = true)
+        rhs!(dQ, Q, get_org_param(mrip), stage_time, increment = true)
     
         if error_estimate !== nothing
-          rhs!(dQ_error, error_estimate, mrip.p, stage_time, increment = true)
+          rhs!(dQ_error, error_estimate, get_org_param(mrip), stage_time, increment = true)
         end
 
         # update solution and scale RHS
