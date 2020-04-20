@@ -196,7 +196,7 @@ function dostep!(Q::AbstractArray, mrigark::MRIGARKExplicit, param, time::Real)
         updatetime!(mrigark.fastsolver, ts)
         solve!(Q, mrigark.fastsolver, mriparam; timeend = ts + dts)
 
-        if is_last_stage
+        if param isa ErrorAdaptiveParam && is_last_stage
           param.error_estimate .-= Q
         end
 
