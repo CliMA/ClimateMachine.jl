@@ -304,10 +304,10 @@ end
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_split"
+vtkpath = "vtk_test_integrals"
 
-const timeend = 6 * 3600   # s
-const tout = 3600 # s
+const timeend = 3600   # s
+const tout = 120 # s
 
 const N = 4
 const Nˣ = 20

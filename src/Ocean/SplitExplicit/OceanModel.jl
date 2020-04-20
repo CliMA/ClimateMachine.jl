@@ -116,6 +116,7 @@ function vars_aux(m::OceanModel, T)
         pkin::T           # ∫(-αᵀ θ)
         wz0::T            # w at z=0
         ∫u::SVector{2, T} # barotropic velocity
+        u°::SVector{2, T} # velocity after tendency before reconciliation
         η_barotropic::T   # η from barotropic model
         Δη::T             # difference between explicit and barotropic η
     end
@@ -316,19 +317,28 @@ end
 
 @inline coriolis_force(m::OceanModel, y) = m.fₒ + m.β * y
 
-function update_aux!(dg::DGModel, m::OceanModel, Q::MPIStateArray, t::Real)
+function update_aux!(
+    dg::DGModel,
+    m::OceanModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
+    FT = eltype(Q)
     MD = dg.modeldata
 
-    # required to ensure that after integration velocity field is divergence free
-    vert_filter = MD.vert_filter
-    # Q[1] = u[1] = u, Q[2] = u[2] = v
-    apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
+    # `update_aux!` gets called twice, once for the real elements and once for
+    # the ghost elements.  Only apply the filters to the real elems.
+    if elems == dg.grid.topology.realelems
+        # required to ensure that after integration velocity field is divergence free
+        vert_filter = MD.vert_filter
+        index_u = tuple(collect(varsindex(vars_state(m, FT), :u))...)
+        apply!(Q, index_u, dg.grid, vert_filter, VerticalDirection())
 
-    exp_filter = MD.exp_filter
-    # Q[4] = θ
-    apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
-
-    # dg.auxstate.Δη .= Q.η .- Q.η_barotropic
+        exp_filter = MD.exp_filter
+        index_θ = tuple(collect(varsindex(vars_state(m, FT), :θ))...)
+        apply!(Q, index_θ, dg.grid, exp_filter, VerticalDirection())
+    end
 
     return true
 end
@@ -338,8 +348,11 @@ function update_aux_diffusive!(
     m::OceanModel,
     Q::MPIStateArray,
     t::Real,
+    elems::UnitRange,
 )
+    FT = eltype(Q)
     A = dg.auxstate
+
 
     # store ∇ʰu as integrand for w
     # update vertical diffusivity for convective adjustment
@@ -352,14 +365,16 @@ function update_aux_diffusive!(
 
         return nothing
     end
-    nodal_update_aux!(f!, dg, m, Q, t; diffusive = true)
+    nodal_update_aux!(f!, dg, m, Q, t, elems; diffusive = true)
 
     # compute integrals for w and pkin
-    indefinite_stack_integral!(dg, m, Q, A, t) # bottom -> top
-    reverse_indefinite_stack_integral!(dg, m, Q, A, t) # top -> bottom
+    indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
+    reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
     # copy down wz0
-    copy_stack_field_down!(dg, m, A, 1, 3)
+    index_w = varsindex(vars_aux(m, FT), :w)
+    index_wz0 = varsindex(vars_aux(m, FT), :wz0)
+    copy_stack_field_down!(dg, m, A, index_w, index_wz0, elems)
 
     return true
 end

@@ -101,6 +101,9 @@ end
     Δu = dgFast.auxstate.Δu
     Δu .= 1 / slow.problem.H * (dgFast.auxstate.Ū / total_fast_step - flat_∫u)
 
+    ### store u° to aux for debugging purposes
+    dgSlow.auxstate.u° .= Qslow.u
+
     ### copy the 2D contribution down the 3D solution
     ### need to reshape these things for the broadcast
     boxy_u = reshape(Qslow.u, Nq^2, Nqk, 2, nelemv, nelemh)
@@ -113,7 +116,8 @@ end
     # boxy_η_3D = reshape(Qslow.η, Nq^2, Nq, nelemv, nelemh)
     # boxy_η_3D .= boxy_η̄_2D
 
-    boxy_η_barotropic = reshape(dgSlow.auxstate.η_barotropic, Nq^2, Nq, nelemv, nelemh)
+    boxy_η_barotropic =
+        reshape(dgSlow.auxstate.η_barotropic, Nq^2, Nq, nelemv, nelemh)
     boxy_η_barotropic .= boxy_η̄_2D
 
     dgSlow.auxstate.Δη .= Qslow.η .- dgSlow.auxstate.η_barotropic
