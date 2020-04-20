@@ -195,6 +195,7 @@ function SolverConfiguration(
             state_auxiliary = dg.state_auxiliary,
             state_gradient_flux = dg.state_gradient_flux,
             states_higher_order = dg.states_higher_order,
+            diffusion_direction = diffdir,
         )
         slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt = ode_dt)
         fast_dt = ode_dt / ode_solver_type.timestep_ratio
@@ -206,10 +207,10 @@ function SolverConfiguration(
         vertical_dg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
             direction = VerticalDirection(),
         )
 
@@ -217,10 +218,10 @@ function SolverConfiguration(
         horizontal_dg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
             direction = HorizontalDirection(),
         )
 
@@ -229,10 +230,11 @@ function SolverConfiguration(
         rem_dg = DGModel(
             middle_model,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            diffusion_direction = diffdir,
         )
 
         inner_method = ode_solver_type.inner_method
