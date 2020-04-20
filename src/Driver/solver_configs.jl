@@ -202,10 +202,12 @@ function SolverConfiguration(
         vertical_dg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             direction = VerticalDirection(),
         )
 
@@ -213,22 +215,20 @@ function SolverConfiguration(
         horizontal_dg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             direction = HorizontalDirection(),
         )
 
         # Advection, diffusion, etc.
-        middle_model = RemainderModel(bl, (linmodel,))
-        rem_dg = DGModel(
-            middle_model,
-            grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+        rem_dg = remainder_DGModel(
+            dg,
+            (vertical_dg, horizontal_dg);
+            ode_solver_type.remainder_kwargs...,
         )
 
         inner_method = ode_solver_type.inner_method
