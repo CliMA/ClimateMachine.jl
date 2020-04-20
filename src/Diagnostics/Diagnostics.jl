@@ -167,7 +167,7 @@ and resolution, and will be written to files prefixed by `out_prefix`
 using `writer`.
 """
 function setup_atmos_core_diagnostics(
-    interval::Int,
+    interval::String,
     out_prefix::String;
     writer = NetCDFWriter(),
     interpol = nothing,
@@ -275,6 +275,8 @@ function extract_diffusion(dg, localdiff, ijk, e)
     return Vars{vars_diffusive(bl, FT)}(l_diff)
 end
 
+include("atmos_common.jl")
+include("thermo.jl")
 include("atmos_default.jl")
 include("atmos_core.jl")
 include("dump_state_and_aux.jl")

@@ -464,9 +464,10 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    default_dgngrp =
+        setup_atmos_default_diagnostics("10000steps", driver_config.name)
+    core_dgngrp = setup_atmos_core_diagnostics("10000steps", driver_config.name)
+    return CLIMA.DiagnosticsConfiguration([default_dgngrp, core_dgngrp])
 end
 
 function main()
