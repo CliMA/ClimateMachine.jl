@@ -9,23 +9,28 @@ time stepper to follow on methods. `p` is the original user defined ODE
 parameters, `γs` and `Rs` are the MRI parameters and stage values, respectively.
 `ts` and `Δts` are the stage time and stage time step.
 """
-struct MRIParam{P, T, AT, N, M}
+struct MRIParam{P, T, AT, N, M, GT}
     p::P
     γs::NTuple{M, SArray{NTuple{1, N}, T, 1, N}}
+    γ̂s::GT
     Rs::NTuple{N, AT}
     ts::T
     Δts::T
+    is_last_stage::Bool
     function MRIParam(
         p::P,
         γs::NTuple{M},
+        γ̂s::GT,
         Rs::NTuple{N, AT},
         ts,
         Δts,
-    ) where {P, M, N, AT}
+        is_last_stage::Bool
+    ) where {P, M, N, AT, GT}
         T = eltype(γs[1])
-        new{P, T, AT, N, M}(p, γs, Rs, ts, Δts)
+        new{P, T, AT, N, M, GT}(p, γs, γ̂s, Rs, ts, Δts, is_last_stage)
     end
 end
+get_org_param(mrip::MRIParam) = get_org_param(mrip.p)
 
 """
     MRIGARKExplicit(f!, fastsolver, Γs, γ̂s, Q, Δt, t0)
@@ -105,6 +110,7 @@ mutable struct MRIGARKExplicit{T, RT, AT, Nstages, NΓ, FS, Nstages_sq} <:
     Δc::SArray{NTuple{1, Nstages}, RT, 1, Nstages}
     "fast solver"
     fastsolver::FS
+    embedded_order::Int
 
     function MRIGARKExplicit(
         slowrhs!,
@@ -114,6 +120,7 @@ mutable struct MRIGARKExplicit{T, RT, AT, Nstages, NΓ, FS, Nstages_sq} <:
         Q::AT,
         dt,
         t0,
+        embedded_order
     ) where {AT <: AbstractArray}
         NΓ = length(Γs)
         Nstages = size(Γs[1], 1)
@@ -143,11 +150,12 @@ mutable struct MRIGARKExplicit{T, RT, AT, Nstages, NΓ, FS, Nstages_sq} <:
             γ̂s,
             Δc,
             fastsolver,
+            embedded_order
         )
     end
 end
 
-function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
+function dostep!(Q::AbstractArray, mrigark::MRIGARKExplicit, param, time::Real)
     dt = mrigark.dt
     fast = mrigark.fastsolver
 
@@ -164,7 +172,7 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
         # Stage dt
         dts = Δc[s] * dt
 
-        p = param isa MRIParam ? param.p : param
+        p = get_org_param(param)
         slowrhs!(Rs[s], Q, p, ts, increment = false)
         if param isa MRIParam
             # fraction of the step slower stage increment we are on
@@ -182,14 +190,88 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
         end
 
         γs = ntuple(k -> ntuple(j -> Γs[k][s, j], s), NΓ)
-        mriparam = MRIParam(param, γs, realview.(Rs[1:s]), ts, dts)
+        is_last_stage = s == Nstages
+        mriparam = MRIParam(param, γs, mrigark.γ̂s, realview.(Rs[1:s]), ts, dts,
+                            is_last_stage)
         updatetime!(mrigark.fastsolver, ts)
         solve!(Q, mrigark.fastsolver, mriparam; timeend = ts + dts)
+
+        if is_last_stage
+          param.error_estimate .-= Q
+        end
 
         # update time
         ts += dts
     end
 end
+
+#function dostep!((Qnp1, Qn, error_estimate), mrigark::MRIGARKExplicit, param, time::Real)
+#    dt = mrigark.dt
+#    fast = mrigark.fastsolver
+#
+#    Rs = mrigark.Rstages
+#    Δc = mrigark.Δc
+#    Nstages = length(Δc)
+#    slowrhs! = mrigark.slowrhs!
+#    Γs = mrigark.Γs
+#    NΓ = length(Γs)
+#
+#    Qnp1 .= Qn
+#
+#    ts = time
+#    groupsize = 256
+#    for s in 1:Nstages
+#        # Stage dt
+#        dts = Δc[s] * dt
+#
+#        p = param isa MRIParam ? param.p : param
+#        slowrhs!(Rs[s], Qnp1, p, ts, increment = false)
+#        if param isa MRIParam
+#            # fraction of the step slower stage increment we are on
+#            τ = (ts - param.ts) / param.Δts
+#            event = Event(device(Qnp1))
+#            event = mri_update_rate!(device(Qnp1), groupsize)(
+#                realview(Rs[s]),
+#                τ,
+#                param.γs,
+#                param.Rs;
+#                ndrange = length(realview(Rs[s])),
+#                dependencies = (event,),
+#            )
+#            wait(device(Qnp1), event)
+#        end
+#
+#        if s == Nstages
+#          γs = mrigark.γ̂s
+#        else
+#          γs = ntuple(k -> ntuple(j -> Γs[k][s, j], s), NΓ)
+#        end
+#        mriparam = MRIParam(param, γs, realview.(Rs[1:s]), ts, dts)
+#        
+#        #if s == Nstages
+#        #  error_estimate .= Qnp1
+#        #  dQ_save = copy(mrigark.fastsolver.dQ)
+#        #  mriparam_embedded = MRIParam(param, mrigark.γ̂s, realview.(Rs[1:s]), ts, dts)
+#        #  updatetime!(mrigark.fastsolver, ts)
+#        #  solve!(error_estimate, mrigark.fastsolver, mriparam_embedded; timeend = ts + dts)
+#        #  Qnp1 .= error_estimate
+#        #else
+#        #  updatetime!(mrigark.fastsolver, ts)
+#        #  solve!(Qnp1, mrigark.fastsolver, mriparam; timeend = ts + dts)
+#        #end
+#
+#        updatetime!(mrigark.fastsolver, ts)
+#        solve!(Qnp1, mrigark.fastsolver, mriparam; timeend = ts + dts)
+#
+#
+#        #if s == Nstages
+#        #  error_estimate .-= Qnp1
+#        #end
+#
+#        # update time
+#        ts += dts
+#    end
+#end
 
 @kernel function mri_update_rate!(dQ, τ, γs, Rs)
     i = @index(Global, Linear)
@@ -235,7 +317,7 @@ function MRIGARKERK33aSandu(slowrhs!, fastsolver, Q; dt, t0 = 0, δ = -1 // 2)
     ]
     γ̂1 = [     0 // 1          0 // 1   0 // 1]
     #! format: on
-    MRIGARKExplicit(slowrhs!, fastsolver, (Γ0, Γ1), (γ̂0, γ̂1), Q, dt, t0)
+    MRIGARKExplicit(slowrhs!, fastsolver, (Γ0, Γ1), (γ̂0, γ̂1), Q, dt, t0, 2)
 end
 
 """
@@ -264,5 +346,5 @@ function MRIGARKERK45aSandu(slowrhs!, fastsolver, Q; dt, t0 = 0)
     ]
     γ̂1 = [  6213 // 1880         -6213 // 1880            0 // 1               0 // 1             0 // 1]
     #! format: on
-    MRIGARKExplicit(slowrhs!, fastsolver, (Γ0, Γ1), (γ̂0, γ̂1), Q, dt, t0)
+    MRIGARKExplicit(slowrhs!, fastsolver, (Γ0, Γ1), (γ̂0, γ̂1), Q, dt, t0, 3)
 end

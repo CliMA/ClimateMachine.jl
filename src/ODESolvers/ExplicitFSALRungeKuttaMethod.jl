@@ -59,7 +59,6 @@ mutable struct ExplicitFSALRungeKutta{T, RT, AT, Nstages, Nstages_sq} <:
     end
 end
 
-embedded_order(erk::ExplicitFSALRungeKutta) = erk.embedded_order
 updatedt!(erk::ExplicitFSALRungeKutta, dt) = erk.dt = dt
 updatetime!(erk::ExplicitFSALRungeKutta, time) = (erk.t = time)
 

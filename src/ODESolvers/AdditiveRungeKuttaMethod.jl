@@ -166,8 +166,6 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     end
 end
 
-embedded_order(ark::AdditiveRungeKutta) = ark.embedded_order
-
 function AdditiveRungeKutta(
     spacedisc::AbstractSpaceMethod,
     spacedisc_linear::AbstractSpaceMethod,

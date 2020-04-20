@@ -157,6 +157,18 @@ added as an additionall ODE right-hand side source. If the optional parameter
 `slow_rv_dQ *= slow_scaling` is performed.
 """
 function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
+    if mrip.is_last_stage && mrip.p isa ErrorAdaptiveParam
+      Qn = mrip.p.Q
+      error_estimate = mrip.p.error_estimate
+      dQ_error = mrip.p.dQ_error
+      error_estimate .= Q
+      dQ_error .= lsrk.dQ
+    else
+      Qn = nothing
+      error_estimate = nothing
+      dQ_error = nothing
+    end
+
     dt = lsrk.dt
 
     RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
@@ -170,6 +182,10 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
     for s in 1:length(RKA)
         stage_time = time + RKC[s] * dt
         rhs!(dQ, Q, mrip.p, stage_time, increment = true)
+    
+        if error_estimate !== nothing
+          rhs!(dQ_error, error_estimate, mrip.p, stage_time, increment = true)
+        end
 
         # update solution and scale RHS
         τ = (stage_time - mrip.ts) / mrip.Δts
@@ -177,11 +193,15 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
         event = lsrk_mri_update!(device(Q), groupsize)(
             rv_dQ,
             rv_Q,
+            realview(Qn),
+            realview(error_estimate),
+            realview(dQ_error),
             RKA[s % length(RKA) + 1],
             RKB[s],
             τ,
             dt,
             mrip.γs,
+            mrip.γ̂s,
             mrip.Rs;
             ndrange = length(rv_Q),
             dependencies = (event,),
@@ -190,26 +210,72 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
     end
 end
 
-@kernel function lsrk_mri_update!(dQ, Q, rka, rkb, τ, dt, γs, Rs)
+@kernel function lsrk_mri_update!(dQ, Q, Qn, error_estimate, dQ_error,
+                                  rka, rkb, τ, dt, γs, γ̂s, Rs)
+    adaptive = error_estimate !== nothing
     i = @index(Global, Linear)
     @inbounds begin
         NΓ = length(γs)
         Ns = length(γs[1])
         dqi = dQ[i]
+        if adaptive
+          dqi_e = dQ_error[i]
+        end
 
         for s in 1:Ns
             ri = Rs[s][i]
             sc = γs[NΓ][s]
+            if adaptive
+              sc_e = γ̂s[NΓ][s]
+            end
             for k in (NΓ - 1):-1:1
                 sc = sc * τ + γs[k][s]
+                if adaptive
+                  sc_e = sc_e * τ + γ̂s[k][s]
+                end
             end
             dqi += sc * ri
+            if adaptive
+              dqi_e += sc_e * ri
+            end
         end
 
         Q[i] += rkb * dt * dqi
         dQ[i] = rka * dqi
+        
+        if adaptive
+          error_estimate[i] += rkb * dt * dqi_e
+          dQ_error[i] = rka * dqi_e
+        end
     end
 end
+
+#@kernel function lsrk_mri_update!(dQ, Q, rka, rkb, τ, dt, γs, γ̂s, Rs)
+#    i = @index(Global, Linear)
+#    @inbounds begin
+#        NΓ = length(γs)
+#        Ns = length(γs[1])
+#        dqi = dQ[i]
+#        dqi_e = dqi
+#
+#        for s in 1:Ns
+#            ri = Rs[s][i]
+#            sc = γs[NΓ][s]
+#            sc_e = γ̂s[NΓ][s]
+#            for k in (NΓ - 1):-1:1
+#                sc = sc * τ + γs[k][s]
+#                sc_e = sc_e * τ + γ̂s[k][s]
+#            end
+#            dqi += sc * ri
+#            dqi_e += sc_e * ri
+#        end
+#
+#        error_estimate = Q[i] + rkb * dt * dqi_e
+#        
+#        Q[i] += rkb * dt * dqi
+#        dQ[i] = rka * dqi
+#    end
+#end
 
 
 """

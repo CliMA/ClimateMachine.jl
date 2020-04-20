@@ -34,6 +34,8 @@ Returns the current simulation time step of the ODE solver `solver`
 """
 getdt(solver::AbstractODESolver) = solver.dt
 
+embedded_order(solver::AbstractODESolver) = solver.embedded_order
+
 """
     ODESolvers.general_dostep!(Q, solver::AbstractODESolver, p,
                                timeend::Real, adjustfinalstep::Bool)

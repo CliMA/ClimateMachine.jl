@@ -9,12 +9,16 @@ struct ErrorAdaptiveParam{P, AT}
     p::P
     Q::AT
     error_estimate::AT
+    dQ_error::AT
 end
+get_org_param(p) = p
+get_org_param(eap::ErrorAdaptiveParam) = eap.p
 
 mutable struct ErrorAdaptiveSolver{S, AT, EC, HT} <: AbstractODESolver
     solver::S
     candidate::AT
     error_estimate::AT
+    dQ_error::AT
     error_controller::EC
     dt_history::HT
     nrejections::Int
@@ -23,9 +27,11 @@ end
 function ErrorAdaptiveSolver(solver, error_controller, Q; save_dt_history=false)
     AT = typeof(Q)
     candidate = similar(Q)
+    candidate .= Q
     error_estimate = similar(Q)
+    dQ_error = similar(Q)
     dt_history = save_dt_history ? Vector{eltype(Q)}(undef, 0) : nothing
-    ErrorAdaptiveSolver(solver, candidate, error_estimate, error_controller, dt_history, 0)
+    ErrorAdaptiveSolver(solver, candidate, error_estimate, dQ_error, error_controller, dt_history, 0)
 end
 
 gettime(eas::ErrorAdaptiveSolver) = gettime(eas.solver)
@@ -45,29 +51,38 @@ function general_dostep!(
     time = gettime(eas)
     dt = getdt(eas)
     dt_history = eas.dt_history
-
-    easp = ErrorAdaptiveParam(p, Q, error_estimate)
+    
+    easp = ErrorAdaptiveParam(p, Q, error_estimate, eas.dQ_error)
 
     acceptstep = false
     while !acceptstep
+        candidate .= Q
+        if adjustfinalstep && time + dt > timeend
+          updatedt!(eas, timeend - time)
+          dostep!(candidate, eas.solver, easp, time)
+          break
+        end
         dostep!(candidate, eas.solver, easp, time)
         order = embedded_order(eas)
         acceptstep, dt =
             eas.error_controller(candidate, error_estimate, dt, order)
+        #@show dt
         if !acceptstep
           updatedt!(eas, dt)
           eas.nrejections += 1
         end
     end
 
-    if adjustfinalstep && time + getdt(eas.solver) > timeend
-        updatedt!(eas, timeend - time)
-        dostep!(candidate, eas.solver, easp, time)
-    end
+    #if adjustfinalstep && time + getdt(eas.solver) > timeend
+    #    updatedt!(eas, timeend - time)
+    #    dostep!(candidate, eas.solver, easp, time)
+    #end
 
     Q .= candidate
 
+    #@show eas.solver.t, getdt(eas.solver) 
     eas.solver.t += getdt(eas.solver)
+    #@show eas.solver.t
 
     if dt_history !== nothing
       push!(dt_history, getdt(eas.solver))

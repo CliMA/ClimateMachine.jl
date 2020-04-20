@@ -100,206 +100,209 @@ dts = [0.125, 0.0625]
 errors = similar(dts)
 
 @testset "Convergence/limited" begin
-    @testset "Explicit methods" begin
-        for (method, expected_order) in explicit_methods
-            for (n, dt) in enumerate(dts)
-                Q .= Qinit
-                solver = method(rhs!, Q; dt = dt, t0 = t0)
-                solve!(Q, solver; timeend = finaltime)
-                errors[n] = norm(Q - Qexact)
-            end
-            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-            @test isapprox(rates[end], expected_order; atol = 0.7)
-        end
-    end
+    #@testset "Explicit methods" begin
+    #    for (method, expected_order) in explicit_methods
+    #        for (n, dt) in enumerate(dts)
+    #            Q .= Qinit
+    #            solver = method(rhs!, Q; dt = dt, t0 = t0)
+    #            solve!(Q, solver; timeend = finaltime)
+    #            errors[n] = norm(Q - Qexact)
+    #        end
+    #        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #        @test isapprox(rates[end], expected_order; atol = 0.7)
+    #    end
+    #end
 
-    @testset "IMEX methods" begin
-        for (method, order) in imex_methods
-            for split_explicit_implicit in (false, true)
-                for variant in (LowStorageVariant(), NaiveVariant())
-                    for (n, dt) in enumerate(dts)
-                        Q .= Qinit
-                        rhs_arg! =
-                            split_explicit_implicit ? rhs_nonlinear! : rhs!
-                        solver = method(
-                            rhs_arg!,
-                            rhs_linear!,
-                            LinearBackwardEulerSolver(
-                                DivideLinearSolver();
-                                isadjustable = true,
-                            ),
-                            Q;
-                            dt = dt,
-                            t0 = t0,
-                            split_explicit_implicit = split_explicit_implicit,
-                            variant = variant,
-                        )
-                        solve!(Q, solver; timeend = finaltime)
-                        errors[n] = norm(Q - Qexact)
-                    end
-                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                    if variant isa LowStorageVariant && split_explicit_implicit
-                        expected_order = 2
-                    else
-                        expected_order = order
-                    end
-                    @test isapprox(rates[end], expected_order; atol = 0.3)
-                end
-            end
-        end
-    end
+    #@testset "IMEX methods" begin
+    #    for (method, order) in imex_methods
+    #        for split_explicit_implicit in (false, true)
+    #            for variant in (LowStorageVariant(), NaiveVariant())
+    #                for (n, dt) in enumerate(dts)
+    #                    Q .= Qinit
+    #                    rhs_arg! =
+    #                        split_explicit_implicit ? rhs_nonlinear! : rhs!
+    #                    solver = method(
+    #                        rhs_arg!,
+    #                        rhs_linear!,
+    #                        LinearBackwardEulerSolver(
+    #                            DivideLinearSolver();
+    #                            isadjustable = true,
+    #                        ),
+    #                        Q;
+    #                        dt = dt,
+    #                        t0 = t0,
+    #                        split_explicit_implicit = split_explicit_implicit,
+    #                        variant = variant,
+    #                    )
+    #                    solve!(Q, solver; timeend = finaltime)
+    #                    errors[n] = norm(Q - Qexact)
+    #                end
+    #                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #                if variant isa LowStorageVariant && split_explicit_implicit
+    #                    expected_order = 2
+    #                else
+    #                    expected_order = order
+    #                end
+    #                @test isapprox(rates[end], expected_order; atol = 0.3)
+    #            end
+    #        end
+    #    end
+    #end
 
-    @testset "IMEX methods with direct solver" begin
-        for (method, order) in imex_methods
-            for split_explicit_implicit in (false, true)
-                for (n, dt) in enumerate(dts)
-                    Q .= Qinit
-                    rhs_arg! = split_explicit_implicit ? rhs_nonlinear! : rhs!
-                    solver = method(
-                        rhs_arg!,
-                        rhs_linear!,
-                        ODETestBasicLinBE(),
-                        Q;
-                        dt = dt,
-                        t0 = t0,
-                        split_explicit_implicit = split_explicit_implicit,
-                        variant = NaiveVariant(),
-                    )
-                    solve!(Q, solver; timeend = finaltime)
-                    errors[n] = norm(Q - Qexact)
-                end
-                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                expected_order = order
-                @test isapprox(rates[end], expected_order; atol = 0.3)
-            end
-        end
-    end
+    #@testset "IMEX methods with direct solver" begin
+    #    for (method, order) in imex_methods
+    #        for split_explicit_implicit in (false, true)
+    #            for (n, dt) in enumerate(dts)
+    #                Q .= Qinit
+    #                rhs_arg! = split_explicit_implicit ? rhs_nonlinear! : rhs!
+    #                solver = method(
+    #                    rhs_arg!,
+    #                    rhs_linear!,
+    #                    ODETestBasicLinBE(),
+    #                    Q;
+    #                    dt = dt,
+    #                    t0 = t0,
+    #                    split_explicit_implicit = split_explicit_implicit,
+    #                    variant = NaiveVariant(),
+    #                )
+    #                solve!(Q, solver; timeend = finaltime)
+    #                errors[n] = norm(Q - Qexact)
+    #            end
+    #            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #            expected_order = order
+    #            @test isapprox(rates[end], expected_order; atol = 0.3)
+    #        end
+    #    end
+    #end
 
-    @testset "MRRK methods with 2 rates" begin
-        for (slow_method, slow_expected_order) in slow_mrrk_methods
-            for (fast_method, fast_expected_order) in fast_mrrk_methods
-                for nsubsteps in (1, 3)
-                    for (n, dt) in enumerate(dts)
-                        Q .= Qinit
-                        solver = MultirateRungeKutta(
-                            (
-                                slow_method(rhs_slow!, Q; dt = dt),
-                                fast_method(rhs_fast!, Q; dt = dt / nsubsteps),
-                            );
-                            t0 = t0,
-                        )
-                        solve!(Q, solver; timeend = finaltime)
-                        errors[n] = norm(Q - Qexact)
-                    end
+    #@testset "MRRK methods with 2 rates" begin
+    #    for (slow_method, slow_expected_order) in slow_mrrk_methods
+    #        for (fast_method, fast_expected_order) in fast_mrrk_methods
+    #            for nsubsteps in (1, 3)
+    #                for (n, dt) in enumerate(dts)
+    #                    Q .= Qinit
+    #                    solver = MultirateRungeKutta(
+    #                        (
+    #                            slow_method(rhs_slow!, Q; dt = dt),
+    #                            fast_method(rhs_fast!, Q; dt = dt / nsubsteps),
+    #                        );
+    #                        t0 = t0,
+    #                    )
+    #                    solve!(Q, solver; timeend = finaltime)
+    #                    errors[n] = norm(Q - Qexact)
+    #                end
 
-                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                    min_order = min(slow_expected_order, fast_expected_order)
-                    max_order = max(slow_expected_order, fast_expected_order)
-                    @test (
-                        isapprox(rates[end], min_order; atol = 0.5) ||
-                        isapprox(rates[end], max_order; atol = 0.5) ||
-                        min_order <= rates[end] <= max_order
-                    )
-                end
-            end
-        end
-    end
+    #                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #                min_order = min(slow_expected_order, fast_expected_order)
+    #                max_order = max(slow_expected_order, fast_expected_order)
+    #                @test (
+    #                    isapprox(rates[end], min_order; atol = 0.5) ||
+    #                    isapprox(rates[end], max_order; atol = 0.5) ||
+    #                    min_order <= rates[end] <= max_order
+    #                )
+    #            end
+    #        end
+    #    end
+    #end
 
-    @testset "MRRK methods with IMEX" begin
-        for (slow_method, slow_expected_order) in slow_mrrk_methods
-            for (fast_method, fast_expected_order) in imex_methods
-                for (n, dt) in enumerate(dts)
-                    Q .= Qinit
-                    solver = MultirateRungeKutta(
-                        (
-                            slow_method(rhs_slow!, Q; dt = dt),
-                            fast_method(
-                                rhs_fast!,
-                                rhs_fast_linear!,
-                                LinearBackwardEulerSolver(
-                                    DivideLinearSolver();
-                                    isadjustable = true,
-                                ),
-                                Q;
-                                dt = dt,
-                                split_explicit_implicit = false,
-                            ),
-                        ),
-                        t0 = t0,
-                    )
-                    solve!(Q, solver; timeend = finaltime)
-                    errors[n] = norm(Q - Qexact)
-                end
-                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                min_order = min(slow_expected_order, fast_expected_order)
-                max_order = max(slow_expected_order, fast_expected_order)
-                @test (
-                    isapprox(rates[end], min_order; atol = 0.5) ||
-                    isapprox(rates[end], max_order; atol = 0.5) ||
-                    min_order <= rates[end] <= max_order
-                )
-            end
-        end
-    end
+    #@testset "MRRK methods with IMEX" begin
+    #    for (slow_method, slow_expected_order) in slow_mrrk_methods
+    #        for (fast_method, fast_expected_order) in imex_methods
+    #            for (n, dt) in enumerate(dts)
+    #                Q .= Qinit
+    #                solver = MultirateRungeKutta(
+    #                    (
+    #                        slow_method(rhs_slow!, Q; dt = dt),
+    #                        fast_method(
+    #                            rhs_fast!,
+    #                            rhs_fast_linear!,
+    #                            LinearBackwardEulerSolver(
+    #                                DivideLinearSolver();
+    #                                isadjustable = true,
+    #                            ),
+    #                            Q;
+    #                            dt = dt,
+    #                            split_explicit_implicit = false,
+    #                        ),
+    #                    ),
+    #                    t0 = t0,
+    #                )
+    #                solve!(Q, solver; timeend = finaltime)
+    #                errors[n] = norm(Q - Qexact)
+    #            end
+    #            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #            min_order = min(slow_expected_order, fast_expected_order)
+    #            max_order = max(slow_expected_order, fast_expected_order)
+    #            @test (
+    #                isapprox(rates[end], min_order; atol = 0.5) ||
+    #                isapprox(rates[end], max_order; atol = 0.5) ||
+    #                min_order <= rates[end] <= max_order
+    #            )
+    #        end
+    #    end
+    #end
 
-    @testset "MRRK methods with 3 rates" begin
-        for (rate3_method, rate3_order) in slow_mrrk_methods
-            for (rate2_method, rate2_order) in slow_mrrk_methods
-                for (rate1_method, rate1_order) in fast_mrrk_methods
-                    for nsubsteps in (1, 2)
-                        for (n, dt) in enumerate(dts)
-                            Q .= Qinit
-                            solver = MultirateRungeKutta(
-                                (
-                                    rate3_method(rhs3!, Q, dt = dt),
-                                    rate2_method(rhs2!, Q, dt = dt / nsubsteps),
-                                    rate1_method(
-                                        rhs1!,
-                                        Q;
-                                        dt = dt / nsubsteps^2,
-                                    ),
-                                );
-                                dt = dt,
-                                t0 = t0,
-                            )
-                            solve!(Q, solver; timeend = finaltime)
-                            errors[n] = norm(Q - Qexact)
-                        end
-                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                        @test 3.8 <= rates[end]
-                    end
-                end
-            end
-        end
-    end
+    #@testset "MRRK methods with 3 rates" begin
+    #    for (rate3_method, rate3_order) in slow_mrrk_methods
+    #        for (rate2_method, rate2_order) in slow_mrrk_methods
+    #            for (rate1_method, rate1_order) in fast_mrrk_methods
+    #                for nsubsteps in (1, 2)
+    #                    for (n, dt) in enumerate(dts)
+    #                        Q .= Qinit
+    #                        solver = MultirateRungeKutta(
+    #                            (
+    #                                rate3_method(rhs3!, Q, dt = dt),
+    #                                rate2_method(rhs2!, Q, dt = dt / nsubsteps),
+    #                                rate1_method(
+    #                                    rhs1!,
+    #                                    Q;
+    #                                    dt = dt / nsubsteps^2,
+    #                                ),
+    #                            );
+    #                            dt = dt,
+    #                            t0 = t0,
+    #                        )
+    #                        solve!(Q, solver; timeend = finaltime)
+    #                        errors[n] = norm(Q - Qexact)
+    #                    end
+    #                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #                    @test 3.8 <= rates[end]
+    #                end
+    #            end
+    #        end
+    #    end
+    #end
 
-    @testset "MIS methods" begin
-        for (method, expected_order) in mis_methods
-            for fast_method in (LSRK54CarpenterKennedy,)
-                for (n, dt) in enumerate(dts)
-                    Q .= Qinit
-                    solver = method(
-                        rhs_slow!,
-                        rhs_fast!,
-                        fast_method,
-                        4,
-                        Q;
-                        dt = dt,
-                        t0 = t0,
-                    )
-                    solve!(Q, solver; timeend = finaltime)
-                    errors[n] = norm(Q - Qexact)
-                end
-                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                @test isapprox(rates[end], expected_order; atol = 0.6)
-            end
-        end
-    end
+    #@testset "MIS methods" begin
+    #    for (method, expected_order) in mis_methods
+    #        for fast_method in (LSRK54CarpenterKennedy,)
+    #            for (n, dt) in enumerate(dts)
+    #                Q .= Qinit
+    #                solver = method(
+    #                    rhs_slow!,
+    #                    rhs_fast!,
+    #                    fast_method,
+    #                    4,
+    #                    Q;
+    #                    dt = dt,
+    #                    t0 = t0,
+    #                )
+    #                solve!(Q, solver; timeend = finaltime)
+    #                errors[n] = norm(Q - Qexact)
+    #            end
+    #            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #            @test isapprox(rates[end], expected_order; atol = 0.6)
+    #        end
+    #    end
+    #end
 
     @testset "MRI GARK methods with 2 rates" begin
         for (slow_method, expected_order) in mrigark_erk_methods
             for (fast_method, _) in fast_mrigark_methods
-                for nsubsteps in (1, 3)
+                for nsubsteps in (1, 3)#
+        #for (slow_method, expected_order) in (mrigark_erk_methods[1],)
+        #  for (fast_method, _) in (fast_mrigark_methods[1],)
+        #        for nsubsteps in 3
                     for (n, dt) in enumerate(dts)
                         dt /= 4 # Need a smaller dt to get convergence rate
                         Q .= Qinit
@@ -312,10 +315,17 @@ errors = similar(dts)
                             dt = dt,
                             t0 = t0,
                         )
+                        controller = ProportionalIntegralController{Float64}(safety_factor=0.9,
+                                                                        atol=1e-8,
+                                                                        rtol=1e-8)
+                        #controller = NoController()
+                        solver = ErrorAdaptiveSolver(solver, controller, Q)
                         solve!(Q, solver; timeend = finaltime)
 
                         errors[n] = norm(Q - Qexact)
                     end
+
+                    @show errors
 
                     rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
                     @test isapprox(rates[end], expected_order; atol = 0.5)
@@ -324,105 +334,105 @@ errors = similar(dts)
         end
     end
 
-    @testset "MRI GARK methods with 3 rates" begin
-        for (rate3_method, rate3_order) in mrigark_erk_methods
-            for (rate2_method, rate2_order) in mrigark_erk_methods
-                for (rate1_method, _) in fast_mrigark_methods
-                    for nsubsteps in (1, 2)
-                        for (n, dt) in enumerate(dts)
-                            dt /= 4 # Need a smaller dt to get convergence rate
-                            Q .= Qinit
-                            solver1 =
-                                rate1_method(rhs1!, Q; dt = dt / nsubsteps^2)
-                            solver2 = rate2_method(
-                                rhs2!,
-                                solver1,
-                                Q;
-                                dt = dt / nsubsteps,
-                            )
-                            solver3 = rate3_method(
-                                rhs3!,
-                                solver2,
-                                Q;
-                                dt = dt,
-                                t0 = t0,
-                            )
-                            solve!(Q, solver3; timeend = finaltime)
-                            errors[n] = norm(Q - Qexact)
-                        end
-                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                        expected_order = min(rate3_order, rate2_order)
-                        @test isapprox(rates[end], expected_order; atol = 0.5)
-                    end
-                end
-            end
-        end
-    end
+    #@testset "MRI GARK methods with 3 rates" begin
+    #    for (rate3_method, rate3_order) in mrigark_erk_methods
+    #        for (rate2_method, rate2_order) in mrigark_erk_methods
+    #            for (rate1_method, _) in fast_mrigark_methods
+    #                for nsubsteps in (1, 2)
+    #                    for (n, dt) in enumerate(dts)
+    #                        dt /= 4 # Need a smaller dt to get convergence rate
+    #                        Q .= Qinit
+    #                        solver1 =
+    #                            rate1_method(rhs1!, Q; dt = dt / nsubsteps^2)
+    #                        solver2 = rate2_method(
+    #                            rhs2!,
+    #                            solver1,
+    #                            Q;
+    #                            dt = dt / nsubsteps,
+    #                        )
+    #                        solver3 = rate3_method(
+    #                            rhs3!,
+    #                            solver2,
+    #                            Q;
+    #                            dt = dt,
+    #                            t0 = t0,
+    #                        )
+    #                        solve!(Q, solver3; timeend = finaltime)
+    #                        errors[n] = norm(Q - Qexact)
+    #                    end
+    #                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #                    expected_order = min(rate3_order, rate2_order)
+    #                    @test isapprox(rates[end], expected_order; atol = 0.5)
+    #                end
+    #            end
+    #        end
+    #    end
+    #end
 
-    @testset "MRI GARK implicit methods with 2 rates and linear solver" begin
-        for (slow_method, expected_order) in mrigark_irk_methods
-            for (fast_method, _) in fast_mrigark_methods
-                for nsubsteps in (1, 3)
-                    for (n, dt) in enumerate(dts)
-                        dt /= 4
-                        Q .= Qinit
-                        nsteps = ceil(Int, (finaltime - t0) / dt)
-                        dt = (finaltime - t0) / nsteps
-                        fastsolver =
-                            fast_method(rhs_nonlinear!, Q; dt = dt / nsubsteps)
-                        solver = slow_method(
-                            rhs_linear!,
-                            LinearBackwardEulerSolver(
-                                DivideLinearSolver();
-                                isadjustable = true,
-                            ),
-                            fastsolver,
-                            Q;
-                            dt = dt,
-                            t0 = t0,
-                        )
-                        solve!(Q, solver; timeend = finaltime)
+    #@testset "MRI GARK implicit methods with 2 rates and linear solver" begin
+    #    for (slow_method, expected_order) in mrigark_irk_methods
+    #        for (fast_method, _) in fast_mrigark_methods
+    #            for nsubsteps in (1, 3)
+    #                for (n, dt) in enumerate(dts)
+    #                    dt /= 4
+    #                    Q .= Qinit
+    #                    nsteps = ceil(Int, (finaltime - t0) / dt)
+    #                    dt = (finaltime - t0) / nsteps
+    #                    fastsolver =
+    #                        fast_method(rhs_nonlinear!, Q; dt = dt / nsubsteps)
+    #                    solver = slow_method(
+    #                        rhs_linear!,
+    #                        LinearBackwardEulerSolver(
+    #                            DivideLinearSolver();
+    #                            isadjustable = true,
+    #                        ),
+    #                        fastsolver,
+    #                        Q;
+    #                        dt = dt,
+    #                        t0 = t0,
+    #                    )
+    #                    solve!(Q, solver; timeend = finaltime)
 
-                        errors[n] = norm(Q - Qexact)
-                    end
+    #                    errors[n] = norm(Q - Qexact)
+    #                end
 
-                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                    @test isapprox(rates[end], expected_order; atol = 0.5)
-                end
-            end
-        end
-    end
+    #                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #                @test isapprox(rates[end], expected_order; atol = 0.5)
+    #            end
+    #        end
+    #    end
+    #end
 
-    @testset "MRI GARK implicit methods with 2 rates and custom solver" begin
-        for (slow_method, expected_order) in mrigark_irk_methods
-            for (fast_method, _) in fast_mrigark_methods
-                for nsubsteps in (1, 3)
-                    for (n, dt) in enumerate(dts)
-                        dt /= 4
-                        Q .= Qinit
-                        nsteps = ceil(Int, (finaltime - t0) / dt)
-                        dt = (finaltime - t0) / nsteps
-                        fastsolver =
-                            fast_method(rhs_nonlinear!, Q; dt = dt / nsubsteps)
-                        solver = slow_method(
-                            rhs_linear!,
-                            ODETestBasicLinBE(),
-                            fastsolver,
-                            Q;
-                            dt = dt,
-                            t0 = t0,
-                        )
-                        solve!(Q, solver; timeend = finaltime)
+    #@testset "MRI GARK implicit methods with 2 rates and custom solver" begin
+    #    for (slow_method, expected_order) in mrigark_irk_methods
+    #        for (fast_method, _) in fast_mrigark_methods
+    #            for nsubsteps in (1, 3)
+    #                for (n, dt) in enumerate(dts)
+    #                    dt /= 4
+    #                    Q .= Qinit
+    #                    nsteps = ceil(Int, (finaltime - t0) / dt)
+    #                    dt = (finaltime - t0) / nsteps
+    #                    fastsolver =
+    #                        fast_method(rhs_nonlinear!, Q; dt = dt / nsubsteps)
+    #                    solver = slow_method(
+    #                        rhs_linear!,
+    #                        ODETestBasicLinBE(),
+    #                        fastsolver,
+    #                        Q;
+    #                        dt = dt,
+    #                        t0 = t0,
+    #                    )
+    #                    solve!(Q, solver; timeend = finaltime)
 
-                        errors[n] = norm(Q - Qexact)
-                    end
+    #                    errors[n] = norm(Q - Qexact)
+    #                end
 
-                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                    @test isapprox(rates[end], expected_order; atol = 0.5)
-                end
-            end
-        end
-    end
+    #                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    #                @test isapprox(rates[end], expected_order; atol = 0.5)
+    #            end
+    #        end
+    #    end
+    #end
 end
 
 @testset "Explicit methods composition of solve!" begin
