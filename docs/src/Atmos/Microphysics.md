@@ -166,7 +166,10 @@ The default value of collision efficiency ``E_{coll}`` is set to 0.8 so that the
 
 ```@example accretion
 using CLIMA.Microphysics
+using CLIMAParameters
 using Plots
+struct EarthParameterSet <: AbstractEarthParameterSet end
+param_set = EarthParameterSet()
 
 # eq. 5b in Smolarkiewicz and Grabowski 1996
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
@@ -180,7 +183,7 @@ end
 q_rain_range = range(1e-8, stop=5e-3, length=100)
 ρ_air, q_liq, q_tot = 1.2, 5e-4, 20e-3
 
-plot(q_rain_range * 1e3,  [conv_q_liq_to_q_rai_accr(q_liq, q_rai, ρ_air) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="accretion rate [1/s]", title="Accretion", label="CLIMA")
+plot(q_rain_range * 1e3,  [conv_q_liq_to_q_rai_accr(param_set, q_liq, q_rai, ρ_air) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="accretion rate [1/s]", title="Accretion", label="CLIMA")
 plot!(q_rain_range * 1e3, [accretion_empirical(q_rai, q_liq, q_tot) for q_rai in q_rain_range], label="empirical")
 savefig("accretion_rate.svg") # hide
 nothing # hide

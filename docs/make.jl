@@ -25,22 +25,26 @@ end
 
 pages = Any[
     "Home" => "index.md",
-    "Common" => Any["MoistThermodynamics" => "Common/MoistThermodynamics.md",],
+    "Common" => Any[
+        "MoistThermodynamics" => "Common/MoistThermodynamics.md",
+        "SurfaceFluxes" => "Common/SurfaceFluxes.md",
+    ],
     "Utilites" => Any[],
     "Atmos" => Any[
-        "Atmos/SurfaceFluxes.md",
-        "Atmos/EDMFEquations.md",
+        "EDMF Equations" => "Atmos/EDMFEquations.md",
         "Microphysics" => "Atmos/Microphysics.md",
         "AtmosModel" => "Atmos/Model/AtmosModel.md",
         "Turbulence" => "Atmos/Model/turbulence.md",
         "Tracers" => "Atmos/Model/tracers.md",
     ],
     "Diagnostics" => "Diagnostics.md",
-    "ODESolvers" => "ODESolvers.md",
-    "LinearSolvers" => "LinearSolvers.md",
-    "Mesh" => "Mesh.md",
-    "Arrays" => "Arrays.md",
-    "DGmethods_old" => "DGmethods_old.md",
+    "Numerics" => Any[
+        "ODESolvers" => "Numerics/ODESolvers.md",
+        "LinearSolvers" => "Numerics/LinearSolvers.md",
+        "Mesh" => "Numerics/Mesh.md",
+        "Arrays" => "Numerics/Arrays.md",
+        "DGmethods_old" => "Numerics/DGmethods_old.md",
+    ],
     "InputOutput.md",
     "Examples" => [
         "Conjugate Gradient" => "generated/example_cg.md",

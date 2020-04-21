@@ -12,31 +12,34 @@ include(joinpath(
     "CloudPhysics",
     "Microphysics.jl",
 ))
-include(joinpath(
-    "Atmos",
-    "Parameterizations",
-    "SurfaceFluxes",
-    "SurfaceFluxes.jl",
-))
+include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
-include(joinpath("Mesh", "Mesh.jl"))
-include(joinpath("DGmethods", "Courant.jl"))
-include(joinpath("DGmethods", "SpaceMethods.jl"))
-include(joinpath("DGmethods", "DGmethods.jl"))
+include(joinpath("Numerics", "Mesh", "Mesh.jl"))
+include(joinpath("Numerics", "DGmethods", "Courant.jl"))
+include(joinpath("Numerics", "DGmethods", "SpaceMethods.jl"))
+include(joinpath("Numerics", "DGmethods", "DGmethods.jl"))
 include(joinpath("Ocean", "ShallowWater", "ShallowWaterModel.jl"))
 include(joinpath(
     "Ocean",
     "HydrostaticBoussinesq",
     "HydrostaticBoussinesqModel.jl",
 ))
-include(joinpath("DGmethods_old", "DGBalanceLawDiscretizations.jl"))
-include(joinpath("LinearSolvers", "LinearSolvers.jl"))
-include(joinpath("LinearSolvers", "GeneralizedConjugateResidualSolver.jl"))
-include(joinpath("LinearSolvers", "GeneralizedMinimalResidualSolver.jl"))
-include(joinpath("LinearSolvers", "ColumnwiseLUSolver.jl"))
-include(joinpath("LinearSolvers", "ConjugateGradientSolver.jl"))
-include(joinpath("ODESolvers", "ODESolvers.jl"))
-include(joinpath("ODESolvers", "GenericCallbacks.jl"))
+include(joinpath("Numerics", "DGmethods_old", "DGBalanceLawDiscretizations.jl"))
+include(joinpath("Numerics", "LinearSolvers", "LinearSolvers.jl"))
+include(joinpath(
+    "Numerics",
+    "LinearSolvers",
+    "GeneralizedConjugateResidualSolver.jl",
+))
+include(joinpath(
+    "Numerics",
+    "LinearSolvers",
+    "GeneralizedMinimalResidualSolver.jl",
+))
+include(joinpath("Numerics", "LinearSolvers", "ColumnwiseLUSolver.jl"))
+include(joinpath("Numerics", "LinearSolvers", "ConjugateGradientSolver.jl"))
+include(joinpath("Numerics", "ODESolvers", "ODESolvers.jl"))
+include(joinpath("Numerics", "ODESolvers", "GenericCallbacks.jl"))
 include(joinpath("Atmos", "Model", "AtmosModel.jl"))
 include(joinpath("InputOutput", "VTK", "VTK.jl"))
 include(joinpath("Diagnostics", "Diagnostics.jl"))

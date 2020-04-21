@@ -1,6 +1,6 @@
 using MPI, Test
 
-include("../testhelpers.jl")
+include(joinpath("..","..","testhelpers.jl"))
 
 include("BrickMesh.jl")
 include("Elements.jl")

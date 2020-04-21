@@ -1,5 +1,5 @@
 using Test
-include("../testhelpers.jl")
+include(joinpath("..", "testhelpers.jl"))
 
 @testset "MPIStateArrays reductions" begin
     tests = [

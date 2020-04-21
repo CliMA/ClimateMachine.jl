@@ -1,5 +1,5 @@
 using Test, MPI
-include("../testhelpers.jl")
+include(joinpath("..","..","testhelpers.jl"))
 
 include("iterativesolvers.jl")
 

@@ -1,5 +1,5 @@
 using MPI, Test
-include("../testhelpers.jl")
+include(joinpath("..","..","testhelpers.jl"))
 
 @testset "Balance Law Solver" begin
     tests = [
@@ -21,11 +21,12 @@ include("../testhelpers.jl")
     runmpi(tests, @__FILE__)
 
     if "linux" != lowercase(get(ENV, "TRAVIS_OS_NAME", ""))
+        dir = joinpath("..","..","..","examples","DGmethods_old")
         moretests = [
-            (1, "../../examples/DGmethods_old/ex_001_periodic_advection.jl")
-            (1, "../../examples/DGmethods_old/ex_002_solid_body_rotation.jl")
-            (1, "../../examples/DGmethods_old/ex_003_acoustic_wave.jl")
-            (1, "../../examples/DGmethods_old/ex_004_nonnegative.jl")
+            (1, joinpath(dir,"ex_001_periodic_advection.jl"))
+            (1, joinpath(dir,"ex_002_solid_body_rotation.jl"))
+            (1, joinpath(dir,"ex_003_acoustic_wave.jl"))
+            (1, joinpath(dir,"ex_004_nonnegative.jl"))
         ]
         runmpi(moretests, @__FILE__)
     end
