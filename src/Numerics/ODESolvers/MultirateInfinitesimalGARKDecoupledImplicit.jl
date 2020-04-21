@@ -1,5 +1,6 @@
 export MRIGARKDecoupledImplicit
-export MRIGARKIRK21aSandu, MRIGARKESDIRK34aSandu, MRIGARKESDIRK46aSandu
+export MRIGARKIRK21aSandu,
+    MRIGARKESDIRK34aSandu, MRIGARKESDIRK46aSandu, MRIGARKESDIRK23LSA
 
 """
     MRIGARKDecoupledImplicit(f!, backward_euler_solver, fastsolver, Γs, γ̂s, Q,
@@ -366,6 +367,94 @@ function MRIGARKESDIRK46aSandu(
         fastsolver,
         (Γ0, Γ1),
         (γ̂0, γ̂1),
+        Q,
+        dt,
+        t0,
+    )
+end
+
+"""
+    MRIGARKESDIRK23LSA(f!, fastsolver, Q; dt, t0 = 0, δ = 0
+
+A 2nd order, 3 stage decoupled implicit scheme. It is based on L-Stable,
+stiffly-accurate ESDIRK scheme of Bank et al (1985); see also Kennedy and
+Carpenter (2016).
+
+The free parameter `δ` can take any values for accuracy.
+
+### References
+
+    @article{Bank1985,
+        title={Transient simulation of silicon devices and circuits},
+        author={R. E. Bank and W. M. Coughran and W. Fichtner and
+                E. H. Grosse and D. J. Rose and R. K. Smith},
+        journal={IEEE Transactions on Computer-Aided Design of Integrated
+                 Circuits and Systems},
+        volume={4},
+        number={4},
+        pages={436-451},
+        year={1985},
+        publisher={IEEE},
+        doi={10.1109/TCAD.1985.1270142}
+    }
+
+    @techreport{KennedyCarpenter2016,
+        title = {Diagonally implicit Runge-Kutta methods for ordinary
+                 differential equations. A review},
+                 author = {C. A. Kennedy and M. H. Carpenter},
+        institution = {National Aeronautics and Space Administration},
+        year = {2016},
+        number = {NASA/TM–2016–219173},
+        address = {Langley Research Center, Hampton, VA}
+    }
+"""
+function MRIGARKESDIRK23LSA(
+    slowrhs!,
+    implicitsolve!,
+    fastsolver,
+    Q;
+    dt,
+    t0 = 0,
+    δ = 0,
+)
+    T = real(eltype(Q))
+    rt2 = sqrt(T(2))
+
+    #! format: off
+    Γ0 = [
+          2 - rt2                      0                       0
+          (1 - rt2) / rt2              (rt2 - 1) / rt2         0
+          δ                            rt2 - 1 - δ             0
+          (3 - 2rt2 * (1 + δ)) / 2rt2  (δ * 2rt2 - 1) / 2rt2   (rt2 - 1) / rt2
+         ]
+
+    γ̂0 = [0 0 0]
+    #! format: on
+    Δc = sum(Γ0, dims = 2)
+
+    # Check that the explicit steps match the Δc values:
+    @assert Γ0[1, 1] ≈ Δc[1]
+    @assert Γ0[3, 1] + Γ0[3, 2] ≈ Δc[3]
+
+    # Check the implicit stages have no Δc
+    @assert isapprox(Γ0[2, 1] + Γ0[2, 2], 0, atol = eps(T))
+    @assert isapprox(Γ0[4, 1] + Γ0[4, 2] + Γ0[4, 3], 0, atol = eps(T))
+
+    # Check consistency with the original scheme
+    @assert Γ0[1, 1] + Γ0[2, 1] ≈ 1 - 1 / rt2
+    @assert Γ0[2, 2] ≈ 1 - 1 / rt2
+
+    @assert Γ0[1, 1] + Γ0[2, 1] + Γ0[3, 1] + Γ0[4, 1] ≈ 1 / (2 * rt2)
+    @assert Γ0[2, 2] + Γ0[3, 2] + Γ0[4, 2] ≈ 1 / (2 * rt2)
+    @assert Γ0[4, 3] ≈ 1 - 1 / rt2
+
+
+    MRIGARKDecoupledImplicit(
+        slowrhs!,
+        implicitsolve!,
+        fastsolver,
+        (Γ0,),
+        (γ̂0,),
         Q,
         dt,
         t0,

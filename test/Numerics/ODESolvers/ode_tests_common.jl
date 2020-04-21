@@ -30,6 +30,7 @@ const mis_methods =
 const mrigark_erk_methods = ((MRIGARKERK33aSandu, 3), (MRIGARKERK45aSandu, 4))
 
 const mrigark_irk_methods = (
+    (MRIGARKESDIRK23LSA, 2),
     (MRIGARKIRK21aSandu, 2),
     (MRIGARKESDIRK34aSandu, 3),
     (MRIGARKESDIRK46aSandu, 4),
