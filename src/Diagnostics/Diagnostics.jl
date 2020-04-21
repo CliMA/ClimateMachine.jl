@@ -74,7 +74,7 @@ mutable struct DiagnosticsGroup
     init::Function
     fini::Function
     collect::Function
-    interval::Int
+    interval::String
     out_prefix::String
     writer::AbstractWriter
     interpol::Union{Nothing, InterpolationTopology}
@@ -119,11 +119,12 @@ end
 
 """
     setup_atmos_default_diagnostics(
-            interval::Int,
-            out_prefix::String;
-            writer::AbstractWriter,
-            interpol = nothing,
-            project  = true)
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+        project = true,
+    )
 
 Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
 diagnostics, currently a set of diagnostics developed for DYCOMS. All
@@ -134,7 +135,7 @@ will be written to files prefixed by `out_prefix` using `writer`.
 TODO: this will be refactored soon.
 """
 function setup_atmos_default_diagnostics(
-    interval::Int,
+    interval::String,
     out_prefix::String;
     writer = NetCDFWriter(),
     interpol = nothing,
@@ -155,10 +156,12 @@ end
 
 """
     setup_dump_state_and_aux_diagnostics(
-            interval::Int,
-            out_prefix::String;
-            interpol = nothing,
-            project  = true)
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+        project = true,
+    )
 
 Create and return a `DiagnosticsGroup` containing a diagnostic that
 simply dumps the state and aux variables at the specified `interval`
@@ -167,7 +170,7 @@ after being interpolated, into NetCDF files prefixed by `out_prefix`.
 TODO: this will be refactored soon.
 """
 function setup_dump_state_and_aux_diagnostics(
-    interval::Int,
+    interval::String,
     out_prefix::String;
     writer = NetCDFWriter(),
     interpol = nothing,

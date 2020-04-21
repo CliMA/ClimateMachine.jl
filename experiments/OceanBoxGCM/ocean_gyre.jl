@@ -79,12 +79,13 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
     )
 
     mkpath(outpdir)
-    CLIMA.Settings.enable_vtk = false
-    CLIMA.Settings.vtk_interval = ceil(Int64, timeout / solver_config.dt)
+    CLIMA.Settings.vtk = "never"
+    # vtk_interval = ceil(Int64, timeout / solver_config.dt)
+    # CLIMA.Settings.vtk = "$(vtk_interval)steps"
 
-    CLIMA.Settings.enable_diagnostics = false
-    CLIMA.Settings.diagnostics_interval =
-        ceil(Int64, timeout / solver_config.dt)
+    CLIMA.Settings.diagnostics = "never"
+    # diagnostics_interval = ceil(Int64, timeout / solver_config.dt)
+    # CLIMA.Settings.diagnostics = "$(diagnostics_interval)steps"
 
     result = CLIMA.invoke!(solver_config)
 

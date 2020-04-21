@@ -96,8 +96,10 @@ function SolverConfiguration(
 
     # create DG model, initialize ODE state
     if Settings.restart_from_num > 0
-        s_Q, s_aux, t0 = read_checkpoint(
+        s_Q, s_aux, t0 = Callbacks.read_checkpoint(
+            Settings.checkpoint_dir,
             driver_config.name,
+            driver_config.array_type,
             driver_config.mpicomm,
             Settings.restart_from_num,
         )

@@ -19,7 +19,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import CLIMA.Mesh.Grids: _x1, _x2, _x3
-import CLIMA.vars_state
+import CLIMA.DGmethods: vars_state
 import CLIMA.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
@@ -117,7 +117,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
+    interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
     return CLIMA.DiagnosticsConfiguration([dgngrp])
 end

@@ -99,7 +99,7 @@ function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = 100
+    interval = "100steps"
     dgngrp = setup_atmos_default_diagnostics(
         interval,
         replace(driver_config.name, " " => "_"),
@@ -112,7 +112,7 @@ function main()
     CLIMA.init()
 
     # Disable driver diagnostics as we're testing it here
-    CLIMA.Settings.enable_diagnostics = false
+    CLIMA.Settings.diagnostics = "never"
 
     FT = Float64
 
@@ -180,4 +180,5 @@ function main()
         @test err1 <= 1e-16
     end
 end
+
 main()

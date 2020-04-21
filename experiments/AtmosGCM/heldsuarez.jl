@@ -150,7 +150,7 @@ function held_suarez_forcing!(
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = 1000 # in time steps
+    interval = "1000steps"
 
     _planet_radius = FT(planet_radius(param_set))
 
