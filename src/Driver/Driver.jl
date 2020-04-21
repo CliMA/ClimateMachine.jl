@@ -279,15 +279,18 @@ function invoke!(
                     Dates.dateformat"HH:MM:SS",
                 )
                 energy = norm(solver_config.Q)
+		mass = weightedsum(solver_config.Q,5)
                 @info @sprintf(
                     """Update
                     simtime = %8.2f / %8.2f
                     runtime = %s
-                    norm(Q) = %.16e""",
+                    norm(Q) = %.16e
+		    mass = %.16e""",
                     ODESolvers.gettime(solver),
                     solver_config.timeend,
                     runtime,
-                    energy
+                    energy,
+		    mass
                 )
             end
             user_info_callback(init)
@@ -436,17 +439,20 @@ function invoke!(
 
     # initial condition norm
     eng0 = norm(Q)
+    mass0 = weightedsum(Q,5)
     @info @sprintf(
         """Starting %s
         dt              = %.5e
         timeend         = %8.2f
         number of steps = %d
-        norm(Q)         = %.16e""",
+        norm(Q)         = %.16e
+	mass            = %.16e""",
         solver_config.name,
         solver_config.dt,
         solver_config.timeend,
         solver_config.numberofsteps,
-        eng0
+        eng0,
+	mass0
     )
 
     # run the simulation
@@ -469,14 +475,17 @@ function invoke!(
     end
 
     engf = norm(solver_config.Q)
+    massf = weightedsum(solver_config.Q,5)
     @info @sprintf(
         """Finished
         norm(Q)            = %.16e
         norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""",
+        norm(Q) - norm(Q₀) = %.16e
+	mass = %.16e""",
         engf,
         engf / eng0,
-        engf - eng0
+        engf - eng0,
+	massf
     )
 
     if check_euclidean_distance
