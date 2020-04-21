@@ -1,5 +1,5 @@
 using MPI, Test
-include("../testhelpers.jl")
+include(joinpath("..","..","testhelpers.jl"))
 
 @testset "DGmethods" begin
     tests = [
