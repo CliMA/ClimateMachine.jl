@@ -1,5 +1,6 @@
 using StaticArrays
 using CLIMA.VariableTemplates
+using CLIMA.DGmethods: nodal_update_aux!
 import CLIMA.DGmethods:
     BalanceLaw,
     vars_aux,
@@ -21,7 +22,8 @@ import CLIMA.DGmethods:
     num_gradient
 using CLIMA.DGmethods.NumericalFluxes:
     NumericalFluxNonDiffusive, NumericalFluxDiffusive, NumericalFluxGradient
-import CLIMA.DGmethods.NumericalFluxes: boundary_flux_diffusive!
+import CLIMA.DGmethods.NumericalFluxes:
+    numerical_flux_nondiffusive!, boundary_flux_diffusive!
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -363,3 +365,22 @@ boundary_flux_diffusive!(
     ::AdvectionDiffusion{dim, P, true, true},
     _...,
 ) where {dim, P} = nothing
+
+struct UpwindNumericalFlux <: NumericalFluxNonDiffusive end
+function numerical_flux_nondiffusive!(
+    ::UpwindNumericalFlux,
+    ::AdvectionDiffusion,
+    fluxᵀn::Vars{S},
+    n::SVector,
+    state⁻::Vars{S},
+    aux⁻::Vars{A},
+    state⁺::Vars{S},
+    aux⁺::Vars{A},
+    t,
+) where {S, A}
+    un⁻ = dot(n, aux⁻.u)
+    un⁺ = dot(n, aux⁺.u)
+    un = (un⁺ + un⁻) / 2
+
+    fluxᵀn.ρ = un ≥ 0 ? un * state⁻.ρ : un * state⁺.ρ
+end
