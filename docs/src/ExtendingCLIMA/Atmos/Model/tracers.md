@@ -1,4 +1,4 @@
-# [Tracers](@id tracer-eqns)
+# [Tracers](@id Tracers-docs)
 
 !!! note
 
@@ -22,7 +22,7 @@ export NoTracers, NTracers
 
 ### [Equations](@id tracer-eqns)
 ```math
-\frac{\partial \rho\chi}{\partial t} +  \nabla \cdot ( \rho\chi u) = \nabla \cdot (-\rho\delta_{D\chi}\mathrm{D_{T}}\nabla\chi) + \rho \mathrm{S}
+\frac{\partial \rho\chi}{\partial t} +  \nabla \cdot ( \rho\chi u) = \nabla \cdot (\rho\delta_{D\chi}\mathrm{D_{T}}\nabla\chi) + \rho \mathrm{S}
 ```
 where  $$\chi$$ represents the tracer species, $$\mathrm{S}$$ represents the tracer source terms and $$\delta_{D\chi} \mathrm{D_{T}}$$ represents the scaled turbulent eddy diffusivity for each tracer.
 Currently a default scaling of `1` is supported.
