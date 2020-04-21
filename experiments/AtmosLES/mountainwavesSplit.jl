@@ -74,7 +74,7 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
 
     # Choose explicit solver
     solver_type = MultirateInfinitesimalStep
-    fast_solver_type = StormerVerlet
+    fast_solver_type = StrongStabilityPreservingRungeKutta
 
     if solver_type==MultirateInfinitesimalStep
         if fast_solver_type==StormerVerlet
@@ -82,6 +82,13 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
                 linear_model = AtmosAcousticGravityLinearModelSplit,
                 slow_method = MIS2,
                 fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
+                number_of_steps = (45,),
+            )
+        elseif fast_solver_type==StrongStabilityPreservingRungeKutta
+            ode_solver = CLIMA.MISSolverType(
+                linear_model = AtmosAcousticGravityLinearModel,
+                slow_method = MIS2,
+                fast_method = SSPRK33ShuOsher,
                 number_of_steps = (45,),
             )
         elseif fast_solver_type==MultirateInfinitesimalStep
