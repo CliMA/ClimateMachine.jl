@@ -104,7 +104,7 @@ conv_q_rai_to_q_vap      = tendency to q_vap due to evaporation from q_rai [1/s]
 
 ### 2.7 Diagnostics
 
-Please see `DiagnosticVariables`.
+Please see `CliMA Diagnostic Variable List`.
 
 ### TODO
 ```
