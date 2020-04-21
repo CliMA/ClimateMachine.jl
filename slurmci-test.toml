@@ -47,7 +47,7 @@ cpu_gpu = [
   { file = "examples/DGmethods_old/ex_001_periodic_advection.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/DGmethods_old/ex_002_solid_body_rotation.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "examples/DGmethods_old/ex_003_acoustic_wave.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "examples/DGmethods_old/ex_004_nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "examples/Numerics/DGmethods/nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 gpu = [
