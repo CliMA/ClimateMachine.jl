@@ -6,6 +6,7 @@ export AtmosModel,
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
 using CLIMAParameters.Atmos.SubgridScale: C_smag
+using DocStringExtensions
 using LinearAlgebra, StaticArrays
 using ..ConfigTypes
 using ..VariableTemplates
@@ -64,32 +65,65 @@ import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 """
     AtmosModel <: BalanceLaw
 
-A `BalanceLaw` for atmosphere modeling.
+A `BalanceLaw` for atmosphere modeling. 
+Users may over-ride prescribed default values for each field.
 
 # Usage
 
-    AtmosModel(orientation, ref_state, turbulence, hyperdiffusion, moisture, radiation, source, tracers,
-               boundarycondition, init_state)
+    AtmosModel(
+        param_set, 
+        orientation, 
+        ref_state, 
+        turbulence, 
+        hyperdiffusion, 
+        moisture, 
+        radiation, 
+        source, 
+        tracers,
+        boundarycondition, 
+        init_state
+    )
 
+
+# Fields
+$(DocStringExtensions.FIELDS)
 """
 struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC} <:
        BalanceLaw
+    "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
+    "Orientation ([`CLIMA.FlatOrientation`](@ref)(LES in a box) or [`CLIMA.SphericalOrientation`](GCM))"
     orientation::O
+    "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
+    "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
     turbulence::T
+    "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
     hyperdiffusion::HD
+    "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
+    "Precipitation Model (Equations for dynamics of precipitating species)"
     precipitation::P
+    "Radiation Model (Equations for radiative fluxes)"
     radiation::R
+    "Source Terms (Problem specific source terms)"
     source::S
+    "Tracer Terms (Equations for dynamics of active and passive tracers)"
     tracers::TR
-    # TODO: Probably want to have different bc for state and diffusion...
+    "Boundary condition specification"
     boundarycondition::BC
+    "Initial Condition (Function to assign initial values of state variables)"
     init_state::IS
+    "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
 
+
+"""
+    function AtmosModel{FT}()
+Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`)
+
+"""
 function AtmosModel{FT}(
     ::Type{AtmosLESConfigType},
     param_set::AbstractParameterSet;
@@ -109,7 +143,6 @@ function AtmosModel{FT}(
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
     tracers::TR = NoTracers(),
-    # TODO: Probably want to have different bc for state and diffusion...
     boundarycondition::BC = AtmosBC(),
     init_state::IS = nothing,
     data_config::DC = nothing,
@@ -179,6 +212,11 @@ function AtmosModel{FT}(
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
 end
 
+
+"""
+    vars_state(m::AtmosModel, FT)
+Conserved state variables (Prognostic Variables)
+"""
 function vars_state(m::AtmosModel, FT)
     @vars begin
         ρ::FT
@@ -191,6 +229,11 @@ function vars_state(m::AtmosModel, FT)
         tracers::vars_state(m.tracers, FT)
     end
 end
+
+"""
+    vars_gradient(m::AtmosModel, FT)
+Pre-transform gradient variables
+"""
 function vars_gradient(m::AtmosModel, FT)
     @vars begin
         u::SVector{3, FT}
@@ -201,6 +244,10 @@ function vars_gradient(m::AtmosModel, FT)
         tracers::vars_gradient(m.tracers, FT)
     end
 end
+"""
+    vars_diffusive(m::AtmosModel, FT)
+Post-transform gradient variables
+"""
 function vars_diffusive(m::AtmosModel, FT)
     @vars begin
         ∇h_tot::SVector{3, FT}
@@ -210,17 +257,34 @@ function vars_diffusive(m::AtmosModel, FT)
         tracers::vars_diffusive(m.tracers, FT)
     end
 end
+
+"""
+    vars_gradient_laplacian(m::AtmosModel, FT)
+Pre-transform hyperdiffusive variables 
+"""
 function vars_gradient_laplacian(m::AtmosModel, FT)
     @vars begin
         hyperdiffusion::vars_gradient_laplacian(m.hyperdiffusion, FT)
     end
 end
+
+"""
+    vars_hyperdiffusive(m::AtmosModel, FT)
+Post-transform hyperdiffusive variables
+"""
 function vars_hyperdiffusive(m::AtmosModel, FT)
     @vars begin
         hyperdiffusion::vars_hyperdiffusive(m.hyperdiffusion, FT)
     end
 end
 
+"""
+    vars_aux(m::AtmosModel, FT)
+Auxiliary variables, such as vertical (stack) 
+integrals, coordinates, orientation information, 
+reference states, subcomponent auxiliary vars, 
+debug variables
+"""
 function vars_aux(m::AtmosModel, FT)
     @vars begin
         ∫dz::vars_integrals(m, FT)
@@ -235,11 +299,17 @@ function vars_aux(m::AtmosModel, FT)
         radiation::vars_aux(m.radiation, FT)
     end
 end
+"""
+    vars_integrals(m::AtmosModel, FT)
+"""
 function vars_integrals(m::AtmosModel, FT)
     @vars begin
         radiation::vars_integrals(m.radiation, FT)
     end
 end
+"""
+    vars_reverse_integrals(m::AtmosModel, FT)
+"""
 function vars_reverse_integrals(m::AtmosModel, FT)
     @vars begin
         radiation::vars_reverse_integrals(m.radiation, FT)
@@ -260,23 +330,18 @@ include("linear.jl")
 include("remainder.jl")
 include("courant.jl")
 
-"""
-    flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
-                       t::Real)
+@doc """
+    flux_nondiffusive!(
+        m::AtmosModel, 
+        flux::Grad, 
+        state::Vars, 
+        aux::Vars,
+        t::Real
+    )
 
-Computes flux non-diffusive flux portion of `F` in:
-
-```
-∂Y
--- = - ∇ • (F_{adv} + F_{press} + F_{nondiff} + F_{diff}) + S(Y)
-∂t
-```
-Where
-
- - `F_{adv}`      Advective flux             ; see [`flux_advective!`]@ref()
- - `F_{press}`    Pressure flux              ; see [`flux_pressure!`]@ref()
- - `F_{diff}`     Fluxes that state gradients; see [`flux_diffusive!`]@ref()
-"""
+Computes and assembles non-diffusive fluxes in the model
+equations. 
+""" flux_nondiffusive!
 @inline function flux_nondiffusive!(
     m::AtmosModel,
     flux::Grad,
@@ -366,6 +431,20 @@ function hyperdiffusive!(
     )
 end
 
+@doc """
+    flux_diffusive!(
+        atmos::AtmosModel,
+        flux::Grad,
+        state::Vars,
+        diffusive::Vars,
+        hyperdiffusive::Vars,
+        aux::Vars,
+        t::Real
+    )
+Diffusive fluxes in AtmosModel. Viscosity, diffusivity are calculated 
+in the turbulence subcomponent and accessed within the diffusive flux 
+function. Contributions from subcomponents are then assembled (pointwise).
+""" flux_diffusive!
 @inline function flux_diffusive!(
     atmos::AtmosModel,
     flux::Grad,
@@ -459,7 +538,16 @@ function reverse_integral_set_aux!(m::AtmosModel, aux::Vars, integ::Vars)
     reverse_integral_set_aux!(m.radiation, aux, integ)
 end
 
-# TODO: figure out a nice way to handle this
+
+@doc """
+    init_aux!(
+        m::AtmosModel, 
+        aux::Vars,
+        geom::LocalGeometry
+        )
+Initialise auxiliary variables for each AtmosModel subcomponent.
+Store Cartesian coordinate information in `aux.coord`.
+""" init_aux!
 function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.coord = geom.coord
     atmos_init_aux!(m.orientation, m, aux, geom)
@@ -469,16 +557,23 @@ function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     atmos_init_aux!(m.tracers, m, aux, geom)
 end
 
-"""
-    source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars,
-            aux::Vars, t::Real, direction::Direction)
-Computes flux `S(Y)` in:
+@doc """
+    source!(
+        m::AtmosModel, 
+        source::Vars, 
+        state::Vars, 
+        diffusive::Vars,
+        aux::Vars, 
+        t::Real, 
+        direction::Direction
+    )
+Computes (and assembles) source terms `S(Y)` in:
 ```
 ∂Y
 -- = - ∇ • F + S(Y)
 ∂t
 ```
-"""
+""" source!
 function source!(
     m::AtmosModel,
     source::Vars,
@@ -491,6 +586,18 @@ function source!(
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
 
+@doc """
+    init_state!(
+        m::AtmosModel,
+        state::Vars,
+        aux::Vars,
+        coords,
+        t,
+        args...)
+Initialise state variables.
+`args...` provides an option to include configuration data
+(current use cases include problem constants, spline-interpolants)
+""" init_state!
 function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
     m.init_state(m, state, aux, coords, t, args...)
 end
